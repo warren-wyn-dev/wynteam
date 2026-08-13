@@ -71,3 +71,13 @@
 - คำตัดสินใจของ Founder: ทุกครั้งที่ AI role ถามคำถามหรือรอคำตอบ/การตัดสินใจจาก Founder ให้ส่ง push notification แจ้งเตือนไปด้วยเสมอ (นอกเหนือจาก popup ที่มีอยู่แล้ว)
 - ผลกระทบ: บันทึกกติกาไว้ที่ `.wyn/company/RULES.md` (หัวข้อ "วิธีการถามคำถาม Founder") และ `AGENTS.md` ทุก AI role ต้องปฏิบัติตามตั้งแต่นี้ไป
 - อ้างอิง (task/PR ถ้ามี): `.wyn/company/RULES.md`
+
+### [2026-08-13] Feature ถัดไปคือ Feed & Post — ขอบเขต Global Feed + ข้อความ/รูป + Like + Comment + ลบโพสต์
+- บริบท: หลัง WYN-002/WYN-003 ผ่าน QA, AI Product Manager ถาม Founder ผ่าน popup ว่า feature ถัดไปควรเป็นอะไร
+- คำตัดสินใจของ Founder: เลือก **Feed & Post** เป็น feature ถัดไป (WYN-004) พร้อมขอบเขตครบตั้งแต่รอบแรก:
+  - Post เนื้อหา: ข้อความ + รูปภาพ
+  - Feed: Global Feed (เห็นโพสต์ทุกคน เพราะยังไม่มีระบบ Follow)
+  - Interactions: มีทั้ง Like และ Comment
+  - ผู้ใช้ลบโพสต์ของตัวเองได้
+- ผลกระทบ: กำหนดเป็น requirement ใน `.wyn/tasks/backlog/WYN-004-feed-and-post.md` ต้องสร้างตาราง `posts`/`likes`/`comments` ใหม่ พร้อม Storage bucket สำหรับรูปโพสต์ และเปลี่ยน `HomeScreen` จาก placeholder เป็น Feed จริง
+- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/backlog/WYN-004-feed-and-post.md`
