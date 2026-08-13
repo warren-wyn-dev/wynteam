@@ -1,7 +1,7 @@
 # Product Task — WYN-002
 
-Status: backlog
-Owner: AI Product Manager
+Status: active (Design เสร็จแล้ว รอส่งต่อ AI Coding)
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (ถัดไป)
 
 Feature: Authentication & Onboarding
 
@@ -36,8 +36,8 @@ Priority: สูงสุด — เป็น blocker ของทุก feature
 Risks:
 - Apple Sign-In มีข้อกำหนดเฉพาะจาก Apple (บังคับต้องมีถ้ามี social login อื่นบน iOS) — ต้องตรวจสอบตอน implement
 - Phone OTP ผ่าน SMS มีต้นทุนต่อข้อความ (Supabase ใช้ผ่าน third-party SMS provider เช่น Twilio) — ต้องแจ้ง Founder เรื่องค่าใช้จ่ายก่อน implement จริง
-- Onboarding ที่ยาวเกินไปจะเพิ่ม drop-off ในกลุ่ม Gen Z ต้องออกแบบให้สั้นที่สุด (ส่งต่อให้ AI Design พิจารณา)
+- Onboarding ที่ยาวเกินไปจะเพิ่ม drop-off ในกลุ่ม Gen Z — ออกแบบให้สั้นที่สุดแล้ว (ดู Design Spec)
 
-Recommendation: เริ่ม implement Authentication & Onboarding เป็น feature แรกของ WYN หลังจาก AI Design ออกแบบ flow/screen เสร็จ
+Recommendation: ส่งต่อ AI Coding เพื่อ implement ตาม Design Spec ทันที
 
-Handoff: ส่งต่อ AI Design เพื่อออกแบบ user flow และหน้าจอ (Welcome screen, Social login buttons, Phone OTP input, Username setup) ก่อนส่งต่อ AI Coding — เรียกด้วย `/design`
+Handoff: Design เสร็จแล้ว — ดู Design Spec เต็มที่ `.wyn/docs/design/wyn-002-authentication-onboarding.md` และ `.wyn/docs/design/design-principles.md` งานถัดไปคือ AI Coding (`/code`) implement 5 screens (Welcome, Auth Method Selection, Phone Entry, OTP Verification, Username Setup) ด้วย Flutter + Supabase Auth
