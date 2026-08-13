@@ -47,3 +47,9 @@
 - คำตัดสินใจของ Founder: ทุกครั้งที่ AI role ต้องถามคำถาม/ขอการตัดสินใจ/ขออนุมัติจาก Founder ให้ใช้ popup แบบเลือกคำตอบเป็นค่าเริ่มต้น แทนการพิมพ์ถามเป็นข้อความเปล่า ๆ ยกเว้นคำถามเชิงบรรยายที่ใส่เป็นตัวเลือกไม่ได้ตามธรรมชาติ
 - ผลกระทบ: บันทึกกติกาไว้ที่ `.wyn/company/RULES.md` (หัวข้อ "วิธีการถามคำถาม Founder") ทุก AI role ต้องปฏิบัติตามตั้งแต่นี้ไป
 - อ้างอิง (task/PR ถ้ามี): `.wyn/company/RULES.md`
+
+### [2026-08-13] Authentication Methods สำหรับ WYN V0.1
+- บริบท: AI Product Manager เริ่ม WYN-002 (Authentication & Onboarding) และเสนอวิธียืนยันตัวตนให้ Founder อนุมัติผ่าน popup
+- คำตัดสินใจของ Founder: อนุมัติให้ WYN V0.1 รองรับ **Social Login (Google + Apple) และ Phone Number + OTP** เท่านั้น ไม่มี Email + Password
+- ผลกระทบ: กำหนดเป็น requirement ใน `.wyn/tasks/backlog/WYN-002-authentication-onboarding.md` และเป็นฐานให้ AI Design/AI Coding ใช้อ้างอิงเมื่อเริ่มงาน การเปลี่ยนแปลง authentication architecture ในอนาคตต้องขออนุมัติใหม่
+- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/backlog/WYN-002-authentication-onboarding.md`
