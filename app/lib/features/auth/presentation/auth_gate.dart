@@ -68,6 +68,14 @@ class _AuthGateState extends State<AuthGate> {
             return UsernameSetupScreen(
               authRepository: _authRepository,
               userId: session.user.id,
+              // A saved username is a Postgres write, not a Supabase auth
+              // event, so nothing else tells this widget to re-check and
+              // switch to HomeScreen -- rebuilding here re-runs the
+              // hasUsername() FutureBuilder above, which then returns
+              // HomeScreen as AuthGate's own child (keeping this State,
+              // and its auth-state subscription, alive for logout to
+              // keep working).
+              onUsernameSet: () => setState(() {}),
             );
           },
         );
