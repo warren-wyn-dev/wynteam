@@ -1,4 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- WYN-003 (User Profile) — camera capture for the avatar picker.
+         Gallery selection on Android 13+ uses the system photo picker and
+         needs no runtime permission; this covers older versions and the
+         camera source. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
     <application
         android:label="wyn"
         android:name="${applicationName}"
