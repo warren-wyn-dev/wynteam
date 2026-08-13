@@ -1,0 +1,40 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.buildlog/
+.history
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+
+# Platform folders — generated later via `flutter create .` (see README.md)
+/android/
+/ios/
+/web/
+/linux/
+/macos/
+/windows/
+
+# Symbolication / obfuscation related
+app.*.symbols
+app.*.map.json
+
+# Secrets — never commit real Supabase keys or other credentials
+*.env
+.env
