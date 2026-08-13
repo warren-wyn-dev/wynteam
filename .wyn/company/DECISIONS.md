@@ -59,3 +59,9 @@
 - คำตัดสินใจของ Founder: เลือก **Internal Testing** (ทีมภายในเท่านั้น) — TestFlight (iOS) + Firebase App Distribution หรือ Google Play Internal Testing Track (Android) ไม่ใช่ public store release ในตอนนี้
 - ผลกระทบ: `.wyn/tasks/approved/WYN-002-authentication-onboarding.md` และ `.wyn/logs/deployments/2026-08-13-wyn-002-readiness.md` ใช้เป้าหมายนี้เป็นฐานวางแผน deployment การเปลี่ยนเป็น public release ในอนาคตต้องขออนุมัติใหม่
 - อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/approved/WYN-002-authentication-onboarding.md`
+
+### [2026-08-13] Feature ถัดไปคือ User Profile — ขอบเขต Display Name + Bio + Avatar
+- บริบท: หลัง WYN-002 ผ่าน QA, AI Product Manager ถาม Founder ผ่าน popup ว่า feature ถัดไปควรเป็นอะไร
+- คำตัดสินใจของ Founder: เลือก **User Profile** เป็น feature ถัดไป (WYN-003) และเลือกให้มีครบทั้ง 3 อย่างตั้งแต่รอบแรก: ชื่อแสดง (Display Name), Bio, และรูปโปรไฟล์ (Avatar upload) — ไม่แบ่งเป็นเฟสย่อย
+- ผลกระทบ: กำหนดเป็น requirement ใน `.wyn/tasks/backlog/WYN-003-user-profile.md` ต้องเพิ่ม Supabase Storage bucket สำหรับ avatar และขยาย `profiles` table
+- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/backlog/WYN-003-user-profile.md`
