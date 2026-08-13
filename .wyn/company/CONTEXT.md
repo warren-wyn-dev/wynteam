@@ -7,7 +7,7 @@
 - **Target Users**: วัยรุ่น / Gen Z (ยืนยันโดย Founder เมื่อ 2026-08-13 ผ่าน `/product`)
 - **Core Product**: โซเชียลมีเดียทั่วไป (general social media platform) สำหรับกลุ่ม Gen Z (ยืนยันโดย Founder เมื่อ 2026-08-13)
 - **Current Version**: UNKNOWN (repository มีเพียงเอกสาร WYN AI Company และ product foundation ยังไม่มี source code หรือ version marker)
-- **Current Features**: WYN-002 (Authentication & Onboarding) — AI Debug Engineer แก้ regression จาก QA รอบ 2 แล้ว (เปลี่ยนจาก `Navigator.pushReplacement` เป็น callback ให้ `AuthGate` rebuild ตัวเอง) ผ่าน `flutter analyze`/`flutter test` (6/6) แล้ว แต่ยังไม่ผ่าน QA รอบ 3 — ดู `.wyn/tasks/qa/WYN-002-authentication-onboarding.md` ห้ามถือว่าใช้งานได้จนกว่า QA จะ PASS
+- **Current Features**: WYN-002 (Authentication & Onboarding) — **ผ่าน QA รอบ 3 (PASS ระดับโค้ด/static)** หลัง FAIL 2 รอบก่อนหน้า (ดู `.wyn/tasks/approved/WYN-002-authentication-onboarding.md`) ยังห้าม deploy จริงจนกว่าจะมี Supabase project จริง, native platform config, และ `flutter build`/dynamic test ผ่านจริง — งานถัดไปคือ AI Deploy & DevOps เตรียม deployment plan
 - **Future Features**: UNKNOWN — รอ backlog ถัดไปจาก AI Product Manager
 - **Design Principles**: PROPOSED โดย AI Design — Mobile-first, Gen Z-friendly, รองรับ Light/Dark mode, accessibility AA เป็นค่าเริ่มต้น ดูรายละเอียดเต็มที่ `.wyn/docs/design/design-principles.md` (ยังไม่มี brand guideline จริงจาก Founder)
 - **Technology Stack**: Mobile-first — **Flutter (Dart)** สำหรับ frontend (แทนที่ React Native เดิม); Supabase (PostgreSQL + Auth + Storage + Realtime + Edge Functions) สำหรับ backend ใช้ผ่าน `supabase_flutter` package (ระบุโดย Founder ตรงเมื่อ 2026-08-13 ดู `.wyn/company/DECISIONS.md`)
