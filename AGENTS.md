@@ -42,6 +42,10 @@
 
 ดู `.wyn/company/RULES.md` — การเปลี่ยนแปลงวิสัยทัศน์/สถาปัตยกรรมหลัก/ความปลอดภัย/production ต้องขออนุมัติ Founder ก่อนเสมอ (`APPROVAL_REQUIRED` → บันทึกที่ `.wyn/company/APPROVALS.md`)
 
+## กติกาการถามคำถาม Founder
+
+เมื่อต้องถามคำถาม Founder ให้ใช้ popup แบบเลือกคำตอบเป็นค่าเริ่มต้น (ดูรายละเอียดที่ `.wyn/company/RULES.md` หัวข้อ "วิธีการถามคำถาม Founder")
+
 ## Slash Commands (Claude Code)
 
 - `/product` — โหลด context และบทบาท AI Product Manager
