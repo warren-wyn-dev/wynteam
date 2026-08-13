@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../home/presentation/home_screen.dart';
 import '../data/auth_repository.dart';
 
 enum _UsernameStatus { idle, checking, available, taken, invalid }
@@ -14,10 +13,19 @@ class UsernameSetupScreen extends StatefulWidget {
     super.key,
     required this.authRepository,
     required this.userId,
+    required this.onUsernameSet,
   });
 
   final AuthRepository authRepository;
   final String userId;
+
+  /// Called after a username is successfully saved. AuthGate owns what
+  /// happens next (re-checking hasUsername and rendering HomeScreen as
+  /// its own child) -- this screen must not navigate on its own, since
+  /// it is rendered *as* AuthGate's route rather than pushed on top of
+  /// it. See .wyn/tasks/bugs/WYN-002-authentication-onboarding.md for
+  /// what went wrong the last time this screen used Navigator directly.
+  final VoidCallback onUsernameSet;
 
   @override
   State<UsernameSetupScreen> createState() => _UsernameSetupScreenState();
@@ -55,13 +63,7 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
     try {
       await widget.authRepository
           .setUsername(widget.userId, _controller.text);
-      // Setting a username is a Postgres write, not a Supabase auth
-      // event, so AuthGate has no way to know it should re-check and
-      // switch to HomeScreen on its own -- navigate there directly.
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+      widget.onUsernameSet();
     } on UsernameTakenException {
       setState(() => _status = _UsernameStatus.taken);
     } finally {
