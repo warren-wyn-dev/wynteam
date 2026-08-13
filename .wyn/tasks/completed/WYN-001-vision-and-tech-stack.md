@@ -3,6 +3,8 @@
 Status: completed (Founder อนุมัติแล้วเมื่อ 2026-08-13)
 Owner: AI Product Manager
 
+> **หมายเหตุแก้ไขภายหลัง [2026-08-13]**: Frontend framework ด้านล่างถูกแทนที่แล้วจาก React Native เป็น **Flutter (Dart)** ตามคำสั่งตรงของ Founder ดูค่าล่าสุดใน `.wyn/company/CONTEXT.md` และรายละเอียดการเปลี่ยนแปลงใน `.wyn/company/DECISIONS.md`
+
 Feature: กำหนด WYN Vision, Mission และ Tech Stack Foundation สำหรับ V0.1
 
 Goal: ให้ WYN AI Company มีฐานข้อมูล product ที่ชัดเจนพอจะเริ่ม Design และ Coding ได้จริง
@@ -37,8 +39,8 @@ Recommendation: อนุมัติแล้วตามที่เสนอ 
 ## Mission (อนุมัติแล้ว)
 "สร้างพื้นที่โซเชียลที่เรียบง่าย ตอบสนองไว และให้ความสำคัญกับความปลอดภัยและความเป็นส่วนตัวของผู้ใช้ Gen Z มากกว่าแพลตฟอร์มเดิมในตลาด"
 
-## Platform & Tech Stack (อนุมัติแล้ว)
-- Platform: Mobile-first — React Native (Expo) + TypeScript, เว็บเป็นเฟสถัดไป
-- Backend: Supabase (PostgreSQL + Auth + Storage + Realtime + Edge Functions)
+## Platform & Tech Stack (อนุมัติเดิม — ดูหมายเหตุแก้ไขภายหลังด้านบน)
+- Platform: Mobile-first — ~~React Native (Expo) + TypeScript~~ → **Flutter (Dart)** (เปลี่ยนเมื่อ 2026-08-13)
+- Backend: Supabase (PostgreSQL + Auth + Storage + Realtime + Edge Functions) — ไม่เปลี่ยนแปลง
 
 Handoff: `.wyn/company/CONTEXT.md` อัปเดตเป็นค่าสุดท้ายแล้ว งานถัดไปคือส่งต่อ AI Design (`/design`) เพื่อเริ่มออกแบบ screen/flow แรกของ V0.1 โดยอ้างอิง Vision/Target User/Tech Stack ข้างต้น
