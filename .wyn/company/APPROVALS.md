@@ -25,5 +25,5 @@
 - Risks: Vendor lock-in กับ Supabase (มี migration path ผ่าน PostgreSQL มาตรฐานหากต้องย้ายภายหลัง), React Native อาจมีข้อจำกัดด้าน native performance สำหรับบาง feature ขั้นสูงในอนาคต (เช่น video processing หนัก ๆ)
 - Files affected: `.wyn/company/CONTEXT.md` (Technology Stack, Architecture) และจะเป็นฐานอ้างอิงให้ AI Coding เมื่อเริ่ม implement จริง — ยังไม่มีการแก้ไข source code ใด ๆ ในขั้นตอนนี้
 - Recommendation: อนุมัติแนวทางนี้สำหรับ V0.1 เพื่อ validate product ให้เร็วที่สุด แล้วประเมินใหม่เมื่อ WYN scale ขึ้น
-- สถานะ: รออนุมัติ
-- วันที่ตัดสินใจ: -
+- สถานะ: อนุมัติแล้ว
+- วันที่ตัดสินใจ: 2026-08-13
