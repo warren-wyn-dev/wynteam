@@ -85,6 +85,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _post() async {
+    // The "โพสต์" button's onPressed is only disabled on the *next*
+    // rebuild (setState schedules it, it doesn't happen synchronously),
+    // so a rapid double-tap before that rebuild would otherwise still
+    // reach this method a second time and risk creating a duplicate post
+    // in the global feed. See .wyn/tasks/bugs/WYN-004-feed-and-post.md
+    // (QA round 1).
+    if (_isPosting) return;
+
     setState(() {
       _isPosting = true;
       _errorMessage = null;

@@ -13,14 +13,16 @@ import 'widgets/post_card.dart';
 /// Screen 1 — Feed. Replaces WYN-002/003's HomeScreen placeholder.
 /// See .wyn/docs/design/wyn-004-feed-and-post.md
 class FeedScreen extends StatefulWidget {
-  const FeedScreen({super.key});
+  const FeedScreen({super.key, required this.postRepository});
+
+  final PostRepository postRepository;
 
   @override
   State<FeedScreen> createState() => _FeedScreenState();
 }
 
 class _FeedScreenState extends State<FeedScreen> {
-  late final _postRepository = PostRepository(Supabase.instance.client);
+  PostRepository get _postRepository => widget.postRepository;
   final _scrollController = ScrollController();
 
   final List<Post> _posts = [];
@@ -90,19 +92,29 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
-  Future<void> _toggleLike(Post post) async {
-    final index = _posts.indexWhere((p) => p.id == post.id);
+  // Takes only the id and re-reads the live _posts[index] instead of a
+  // Post captured at the last build -- the caller's closure is bound to
+  // whatever `post` looked like at build time, so a rapid double-tap
+  // before the next rebuild would otherwise reuse the same stale
+  // pre-toggle state twice, firing a duplicate insert against the likes
+  // table's (post_id, user_id) primary key and reverting the UI to the
+  // wrong state when that second call fails. Mirrors the pattern already
+  // used correctly in PostDetailScreen._toggleLike. See
+  // .wyn/tasks/bugs/WYN-004-feed-and-post.md (QA round 1).
+  Future<void> _toggleLike(String postId) async {
+    final index = _posts.indexWhere((p) => p.id == postId);
     if (index == -1) return;
 
-    setState(() => _posts[index] = post.toggledLike());
+    final previous = _posts[index];
+    setState(() => _posts[index] = previous.toggledLike());
     try {
       await _postRepository.toggleLike(
-        postId: post.id,
-        currentlyLiked: post.likedByMe,
+        postId: postId,
+        currentlyLiked: previous.likedByMe,
       );
     } catch (_) {
       if (!mounted) return;
-      setState(() => _posts[index] = post);
+      setState(() => _posts[index] = previous);
     }
   }
 
@@ -226,7 +238,7 @@ class _FeedScreenState extends State<FeedScreen> {
             post: post,
             currentUserId: userId,
             onTapComments: () => _openPostDetail(post),
-            onTapLike: () => _toggleLike(post),
+            onTapLike: () => _toggleLike(post.id),
             onTapDelete: () => _deletePost(post),
           );
         },
