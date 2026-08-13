@@ -2,20 +2,20 @@
 
 > เอกสารนี้คือ source of truth เกี่ยวกับ WYN โปรดอัปเดตทุกครั้งที่มีข้อมูลใหม่ที่ยืนยันแล้วจาก Founder หรือจาก repository ห้ามเดาหรือสมมติข้อมูลที่ไม่ทราบแน่ชัด — ให้ระบุ `UNKNOWN`
 
-- **WYN Vision**: UNKNOWN
-- **WYN Mission**: UNKNOWN
-- **Target Users**: UNKNOWN
-- **Core Product**: UNKNOWN
-- **Current Version**: UNKNOWN (repository มีเพียง initial commit ยังไม่มี source code หรือ version marker)
+- **WYN Vision**: WYN คือแพลตฟอร์มโซเชียลมีเดียที่ออกแบบมาเพื่อคนรุ่นใหม่ (Gen Z) ให้สามารถเชื่อมต่อ แสดงตัวตน และสร้างชุมชนของตัวเองได้อย่างเป็นธรรมชาติ รวดเร็ว และปลอดภัย (ยืนยันโดย Founder เมื่อ 2026-08-13)
+- **WYN Mission**: สร้างพื้นที่โซเชียลที่เรียบง่าย ตอบสนองไว และให้ความสำคัญกับความปลอดภัยและความเป็นส่วนตัวของผู้ใช้ Gen Z มากกว่าแพลตฟอร์มเดิมในตลาด (ยืนยันโดย Founder เมื่อ 2026-08-13)
+- **Target Users**: วัยรุ่น / Gen Z (ยืนยันโดย Founder เมื่อ 2026-08-13 ผ่าน `/product`)
+- **Core Product**: โซเชียลมีเดียทั่วไป (general social media platform) สำหรับกลุ่ม Gen Z (ยืนยันโดย Founder เมื่อ 2026-08-13)
+- **Current Version**: UNKNOWN (repository มีเพียงเอกสาร WYN AI Company และ product foundation ยังไม่มี source code หรือ version marker)
 - **Current Features**: UNKNOWN (ยังไม่มี source code ใน repository)
-- **Future Features**: UNKNOWN
-- **Design Principles**: UNKNOWN (ยังไม่มี design system ใน repository)
-- **Technology Stack**: UNKNOWN (ไม่พบ package manager หรือไฟล์ config ของ framework ใด ๆ ณ วันที่ตรวจสอบ — ดู `.wyn/company/PROJECT_STATUS.md`)
-- **Architecture**: UNKNOWN
+- **Future Features**: UNKNOWN — รอ backlog ถัดไปจาก AI Product Manager
+- **Design Principles**: UNKNOWN (ยังไม่มี design system ใน repository — เป็นงานถัดไปของ AI Design)
+- **Technology Stack**: Mobile-first — React Native (Expo) + TypeScript สำหรับ frontend; Supabase (PostgreSQL + Auth + Storage + Realtime + Edge Functions) สำหรับ backend (อนุมัติโดย Founder เมื่อ 2026-08-13 ดู `.wyn/company/APPROVALS.md`)
+- **Architecture**: Mobile app (React Native/Expo) เรียกใช้ Supabase โดยตรงสำหรับ Auth/Database/Storage/Realtime และใช้ Supabase Edge Functions สำหรับ backend logic ที่ต้องการความปลอดภัยเพิ่มเติม เว็บแอปเป็นเฟสถัดไป (ยังไม่กำหนดรายละเอียด)
 - **Business Rules**: UNKNOWN
 
 ## หมายเหตุ
 
-ข้อมูลทั้งหมดข้างต้นเป็น `UNKNOWN` เนื่องจาก ณ วันที่ตั้งค่าระบบนี้ (2026-08-13) repository `wynteam` มีเพียง `README.md` ("# wynteam") และยังไม่มี source code, เอกสาร product, หรือ design ใด ๆ อยู่เลย
+ฟิลด์ที่ยังเป็น `UNKNOWN` จะถูกอัปเดตเป็นค่าจริงเมื่อ Founder ให้ข้อมูลหรืออนุมัติ ห้ามเดาหรือสมมติข้อมูลที่ยังไม่ได้รับการยืนยัน — ให้คงสถานะ `UNKNOWN` ไว้จนกว่าจะมีการยืนยันจริง
 
 เมื่อ Founder ให้ข้อมูลเกี่ยวกับหัวข้อใดด้านบน ให้ AI Product Manager เป็นผู้ปรับปรุงไฟล์นี้ และบันทึกการตัดสินใจถาวรที่เกี่ยวข้องไว้ที่ `.wyn/company/DECISIONS.md` ด้วย
