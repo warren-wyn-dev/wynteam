@@ -20,7 +20,7 @@ class UsernameSetupScreen extends StatefulWidget {
   final String userId;
 
   /// Called after a username is successfully saved. AuthGate owns what
-  /// happens next (re-checking hasUsername and rendering HomeScreen as
+  /// happens next (re-checking hasUsername and rendering FeedScreen as
   /// its own child) -- this screen must not navigate on its own, since
   /// it is rendered *as* AuthGate's route rather than pushed on top of
   /// it. See .wyn/tasks/bugs/WYN-002-authentication-onboarding.md for

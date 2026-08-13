@@ -1,3 +1,5 @@
+import '../../../core/text_utils.dart';
+
 /// A WYN user profile row. See supabase/schema.sql (WYN-003 section).
 class Profile {
   const Profile({
@@ -25,7 +27,5 @@ class Profile {
   /// What to show as the profile's name: the display name if set, else
   /// "@username" as a fallback (per the WYN-003 design spec).
   String get nameOrUsername =>
-      (displayName != null && displayName!.isNotEmpty)
-          ? displayName!
-          : '@$username';
+      displayNameOrUsername(displayName: displayName, username: username);
 }

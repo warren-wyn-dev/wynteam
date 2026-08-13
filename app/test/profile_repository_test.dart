@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:wyn/features/profile/data/profile_repository.dart';
+import 'package:wyn/core/text_utils.dart';
 
 void main() {
   group('normalizeOptionalText', () {
