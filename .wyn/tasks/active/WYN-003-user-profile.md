@@ -1,7 +1,7 @@
 # Product Task — WYN-003
 
-Status: backlog
-Owner: AI Product Manager
+Status: active (Design เสร็จแล้ว รอส่งต่อ AI Coding)
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (ถัดไป)
 
 Feature: User Profile (View & Edit)
 
@@ -16,9 +16,9 @@ Requirements:
 - หน้าจอ **ดูโปรไฟล์ตัวเอง**: แสดงรูปโปรไฟล์, ชื่อแสดง, @username, bio
 - หน้าจอ **แก้ไขโปรไฟล์**: เปลี่ยนรูปโปรไฟล์ (เลือกจากคลังภาพ/ถ่ายรูปใหม่), แก้ชื่อแสดง, แก้ bio
 - อัปโหลดรูปโปรไฟล์ไปเก็บที่ Supabase Storage (bucket `avatars`) ไม่ใช่ base64 ฝังใน database
-- เข้าถึงหน้าโปรไฟล์ได้จาก `HomeScreen` (เพิ่มปุ่ม/ไอคอนไปหน้าโปรไฟล์ — `HomeScreen` เดิมเป็น placeholder อยู่แล้วจาก WYN-002)
-- Username **ยังคงแก้ไขไม่ได้ในเฟสนี้** (อยู่นอก scope — ถ้าจะแก้ในอนาคตต้องพิจารณาผลกระทบต่อ URL/mention แยกต่างหาก)
-- ออกแบบ data model ให้รองรับการ "ดูโปรไฟล์คนอื่น" ได้ในอนาคต (Feed/Follow) แม้ว่าเฟสนี้จะยังไม่มีทางเข้าไปดูโปรไฟล์คนอื่นก็ตาม (ยังไม่มี Feed ให้กดเข้าไป)
+- เข้าถึงหน้าโปรไฟล์ได้จาก `HomeScreen` (เพิ่มปุ่ม/ไอคอนไปหน้าโปรไฟล์)
+- Username ยังคงแก้ไขไม่ได้ในเฟสนี้
+- ออกแบบ data model ให้รองรับการ "ดูโปรไฟล์คนอื่น" ได้ในอนาคต
 
 Acceptance Criteria:
 - [ ] ผู้ใช้กดเข้าหน้าโปรไฟล์ตัวเองจาก Home ได้ เห็นรูป/ชื่อแสดง/username/bio ที่บันทึกไว้ (หรือค่าว่าง/placeholder ถ้ายังไม่เคยตั้ง)
@@ -34,10 +34,10 @@ Dependencies: WYN-002 (Authentication & Onboarding — เสร็จแล้�
 Priority: สูง — เป็นฐานให้ Feed/Follow ในอนาคต แต่ไม่ใช่ blocker เท่า WYN-002
 
 Risks:
-- การอัปโหลดรูปต้องขอ permission เข้าถึงกล้อง/คลังภาพจากระบบปฏิบัติการ (iOS/Android) — ต้องตั้งค่า permission string ใน `Info.plist`/`AndroidManifest.xml` เพิ่ม (Known Issue ใหม่ที่ AI Coding ต้องจัดการ)
+- การอัปโหลดรูปต้องขอ permission เข้าถึงกล้อง/คลังภาพจากระบบปฏิบัติการ (iOS/Android) — ต้องตั้งค่า permission string ใน `Info.plist`/`AndroidManifest.xml` เพิ่ม
 - ไฟล์รูปภาพขนาดใหญ่อาจทำให้ upload ช้า/ใช้พื้นที่ Storage เยอะ — ควร resize/compress ก่อนอัปโหลด
-- Bio ที่ไม่มีการกรองเนื้อหา (content moderation) อาจถูกใช้ในทางที่ไม่เหมาะสม — อยู่นอก scope ของ WYN-003 แต่ควรบันทึกเป็นความเสี่ยงระยะยาวสำหรับตอนที่มี public content
+- Bio ที่ไม่มีการกรองเนื้อหา (content moderation) อยู่นอก scope ของ WYN-003 แต่เป็นความเสี่ยงระยะยาวสำหรับตอนที่มี public content
 
-Recommendation: ส่งต่อ AI Design เพื่อออกแบบหน้าจอ View Profile และ Edit Profile ต่อ โดยอ้างอิง design system ที่มีอยู่แล้วจาก WYN-002 (`.wyn/docs/design/design-principles.md`)
+Recommendation: ส่งต่อ AI Coding เพื่อ implement ตาม Design Spec ทันที
 
-Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบ user flow และหน้าจอ View/Edit Profile ก่อนส่งต่อ AI Coding
+Handoff: Design เสร็จแล้ว — ดู Design Spec เต็มที่ `.wyn/docs/design/wyn-003-user-profile.md` งานถัดไปคือ AI Coding (`/code`) implement 2 screens (View Profile, Edit Profile) ด้วย Flutter + Supabase (Database + Storage) ตามที่ออกแบบไว้
