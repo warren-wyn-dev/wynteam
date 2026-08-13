@@ -64,3 +64,43 @@ Final Status: **PASS** (code/static-level — ดูเงื่อนไขก�
 - รอบ 3: **PASS**
 
 Handoff: ส่งต่อ AI Deploy & DevOps (`/deploy`) เพื่อเตรียม build verification และ deployment plan — Deploy AI ต้องตรวจสอบเงื่อนไขที่ยังไม่ครบใน Recommendation ก่อนดำเนินการ deploy จริงตาม `.wyn/company/RULES.md`
+
+---
+
+## Deploy & DevOps Report (AI Deploy & DevOps)
+
+Release: WYN V0.1 — WYN-002 (Authentication & Onboarding)
+
+Version: `0.1.0+1` (จาก `app/pubspec.yaml`)
+
+QA Status: PASS (รอบ 3, ระดับโค้ด/static — ดูรายละเอียดด้านบน) — PR #11 ที่บันทึกผลนี้ยังไม่ได้ merge เข้า `main` ตามคำสั่ง Founder (รอ merge ทีหลัง)
+
+Build Status:
+- `flutter analyze` — ผ่าน (0 issues)
+- `flutter test` — ผ่าน (6/6)
+- `flutter build apk` / `flutter build ios` — **ยังไม่เคยรันสำเร็จเลยทั้งโปรเจกต์** เพราะไม่มี Android SDK และไม่มี Xcode ในทุกเครื่องที่ AI ใช้ทำงานมาตลอด (`flutter doctor` ยืนยันซ้ำแล้วหลายรอบ) — **นี่คือ blocker หลักของการ deploy จริง**
+
+Deployment Target: **Internal Testing** (อนุมัติโดย Founder เมื่อ 2026-08-13) — TestFlight (iOS ผ่าน App Store Connect) + Firebase App Distribution หรือ Google Play Internal Testing Track (Android) สำหรับทีมภายในเท่านั้น ยังไม่ใช่ public store release
+
+Changes: WYN-002 ทั้งหมด — 5 screens (Welcome, Auth Method Selection, Phone Entry, OTP Verification, Username Setup), `AuthGate` routing, `AuthRepository` (Supabase Auth wrapper), `supabase/schema.sql` (ตาราง `profiles` + RLS), แก้บั๊ก QA 2 รอบ
+
+Deployment Result: **ยังไม่ deploy — Blocked** ด้วยเหตุผลต่อไปนี้ (เรียงตามลำดับที่ต้องทำ):
+
+1. **Merge PR #11** เข้า `main` (รอคำสั่ง Founder)
+2. **สร้าง Supabase project จริง** (แนะนำแยก dev/staging จาก production ในอนาคต) แล้วรัน `supabase/schema.sql` ผ่าน SQL editor — Founder ต้องเป็นผู้สร้าง account/project เอง (ไม่ใช่สิ่งที่ AI ทำแทนได้ เพราะต้องผูกบัตรเครดิต/ organization จริง)
+3. **เปิดใช้งาน Auth providers** ใน Supabase dashboard: Google OAuth (ต้องสร้าง OAuth Client ID ใน Google Cloud Console), Apple OAuth (ต้องมี Apple Developer account), Phone/SMS OTP (ต้องผูก SMS provider เช่น Twilio — **มีค่าใช้จ่ายต่อข้อความ ต้องแจ้ง Founder อนุมัติงบก่อน**)
+4. **ตั้งค่า native URL scheme** (`io.wyn.app://login-callback`) ใน `android/app/src/main/AndroidManifest.xml` และ `ios/Runner/Info.plist`
+5. **เปิด "Sign in with Apple" capability** ใน Xcode + ผูก Apple Developer account
+6. **Build จริง** ในเครื่อง/CI ที่มี Android SDK + Xcode ครบ: `flutter build apk --release` และ `flutter build ipa` — ยังไม่เคยทำสำเร็จแม้แต่ครั้งเดียวตลอดโปรเจกต์นี้
+7. **ตั้งค่า distribution channel**: TestFlight (ผ่าน App Store Connect) และ Firebase App Distribution หรือ Google Play Internal Testing Track
+8. **Dynamic test บนอุปกรณ์จริงอย่างน้อย 1 รอบ** ก่อนแจก internal testers (เป็นงานของ AI QA & Security รอบสุดท้ายกับ Supabase project จริง)
+9. **จัดการ secrets สำหรับ CI/build อย่างปลอดภัย** — `SUPABASE_URL`/`SUPABASE_PUBLISHABLE_KEY` ต้องเก็บใน CI secret store (เช่น GitHub Actions secrets) ห้าม commit ลง repo เด็ดขาด (ยังไม่มี `.github/workflows` ในโปรเจกต์นี้ — เป็นงานที่ต้องทำเพิ่มเติม)
+
+Production Verification: N/A — ยังไม่มีการ deploy จริง
+
+Rollback Plan (เตรียมไว้ล่วงหน้าแม้ยังไม่ deploy จริง):
+- **Code**: revert ผ่าน git บน `main` (PR-based history สะอาดอยู่แล้ว ทุก merge เป็น squash commit เดียวตรวจสอบง่าย)
+- **Database**: `supabase/schema.sql` เป็น versioned SQL file ใน repo — การเปลี่ยนแปลง schema ในอนาคตควรเพิ่มเป็นไฟล์ migration ใหม่ (ไม่แก้ไฟล์เดิม) และสำรองข้อมูลก่อน apply เสมอ
+- **App distribution**: TestFlight และ Firebase App Distribution/Play Internal Testing รองรับการย้อนกลับไปเวอร์ชันก่อนหน้าได้ในตัวโดยไม่กระทบข้อมูลผู้ใช้
+
+Handoff: รอ Founder ดำเนินการข้อ 1-3 และ 5 (สร้าง account/project ต่าง ๆ ที่ AI ทำแทนไม่ได้) ก่อน AI Deploy & DevOps จะดำเนินการข้อ 4, 6-9 ต่อได้ — เมื่อพร้อมครบ ให้เรียก `/deploy` อีกครั้งเพื่อดำเนินการ build + distribute จริง

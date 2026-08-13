@@ -1,7 +1,7 @@
 # WYN — App (V0.1)
 
 Flutter + Supabase mobile app for WYN. Implements **WYN-002: Authentication & Onboarding**
-(see `.wyn/tasks/review/WYN-002-authentication-onboarding.md` and
+(see `.wyn/tasks/approved/WYN-002-authentication-onboarding.md` and
 `.wyn/docs/design/wyn-002-authentication-onboarding.md`).
 
 ## สถานะปัจจุบัน (สำคัญ — อ่านก่อน)
