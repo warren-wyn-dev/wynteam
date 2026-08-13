@@ -1,0 +1,98 @@
+import 'package:flutter/material.dart';
+
+import '../data/auth_repository.dart';
+import 'phone_entry_screen.dart';
+
+/// Screen 2 — Auth Method Selection.
+/// See .wyn/docs/design/wyn-002-authentication-onboarding.md
+class AuthMethodScreen extends StatefulWidget {
+  const AuthMethodScreen({super.key, required this.authRepository});
+
+  final AuthRepository authRepository;
+
+  @override
+  State<AuthMethodScreen> createState() => _AuthMethodScreenState();
+}
+
+class _AuthMethodScreenState extends State<AuthMethodScreen> {
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  Future<void> _handle(Future<void> Function() action) async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      await action();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _errorMessage = 'เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 24),
+              Text(
+                'เข้าสู่ระบบ WYN',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 32),
+              FilledButton.icon(
+                onPressed: _isLoading
+                    ? null
+                    : () => _handle(widget.authRepository.signInWithGoogle),
+                icon: const Icon(Icons.g_mobiledata),
+                label: const Text('เข้าสู่ระบบด้วย Google'),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: _isLoading
+                    ? null
+                    : () => _handle(widget.authRepository.signInWithApple),
+                icon: const Icon(Icons.apple),
+                label: const Text('เข้าสู่ระบบด้วย Apple'),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: _isLoading
+                    ? null
+                    : () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => PhoneEntryScreen(
+                              authRepository: widget.authRepository,
+                            ),
+                          ),
+                        ),
+                child: const Text('ใช้เบอร์โทรศัพท์แทน'),
+              ),
+              if (_isLoading) ...[
+                const SizedBox(height: 24),
+                const Center(child: CircularProgressIndicator()),
+              ],
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  _errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

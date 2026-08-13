@@ -1,0 +1,129 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../data/auth_repository.dart';
+
+enum _UsernameStatus { idle, checking, available, taken, invalid }
+
+/// Screen 5 — Username Setup (onboarding).
+/// See .wyn/docs/design/wyn-002-authentication-onboarding.md
+class UsernameSetupScreen extends StatefulWidget {
+  const UsernameSetupScreen({
+    super.key,
+    required this.authRepository,
+    required this.userId,
+  });
+
+  final AuthRepository authRepository;
+  final String userId;
+
+  @override
+  State<UsernameSetupScreen> createState() => _UsernameSetupScreenState();
+}
+
+class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
+  final _controller = TextEditingController();
+  final _usernameRegExp = RegExp(r'^[a-z0-9_]{3,20}$');
+  _UsernameStatus _status = _UsernameStatus.idle;
+  Timer? _debounce;
+  bool _isSubmitting = false;
+
+  void _onChanged(String value) {
+    _debounce?.cancel();
+
+    if (!_usernameRegExp.hasMatch(value)) {
+      setState(() => _status = _UsernameStatus.invalid);
+      return;
+    }
+
+    setState(() => _status = _UsernameStatus.checking);
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
+      final available =
+          await widget.authRepository.isUsernameAvailable(value);
+      if (!mounted) return;
+      setState(() {
+        _status =
+            available ? _UsernameStatus.available : _UsernameStatus.taken;
+      });
+    });
+  }
+
+  Future<void> _submit() async {
+    setState(() => _isSubmitting = true);
+    try {
+      await widget.authRepository
+          .setUsername(widget.userId, _controller.text);
+      // AuthGate listens for the profile change and navigates to Home.
+    } on UsernameTakenException {
+      setState(() => _status = _UsernameStatus.taken);
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canSubmit = _status == _UsernameStatus.available && !_isSubmitting;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('ตั้งชื่อผู้ใช้')),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _controller,
+                decoration: InputDecoration(
+                  prefixText: '@',
+                  labelText: 'ชื่อผู้ใช้',
+                  helperText:
+                      'ใช้ตัวอักษร a-z, 0-9 และ _ เท่านั้น (3-20 ตัวอักษร)',
+                  errorText: switch (_status) {
+                    _UsernameStatus.taken => 'ชื่อผู้ใช้นี้ถูกใช้แล้ว',
+                    _UsernameStatus.invalid => 'รูปแบบไม่ถูกต้อง',
+                    _ => null,
+                  },
+                  suffixIcon: switch (_status) {
+                    _UsernameStatus.checking => const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    _UsernameStatus.available =>
+                      const Icon(Icons.check_circle, color: Colors.green),
+                    _ => null,
+                  },
+                ),
+                onChanged: _onChanged,
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: canSubmit ? _submit : null,
+                child: _isSubmitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('เสร็จสิ้น'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
