@@ -23,9 +23,8 @@ migrate_working_dir/
 .pub/
 /build/
 
-# Platform folders — generated later via `flutter create .` (see README.md)
-/android/
-/ios/
+# Platform folders (android/, ios/) are committed — see their own
+# .gitignore files for build-artifact exclusions within each.
 /web/
 /linux/
 /macos/

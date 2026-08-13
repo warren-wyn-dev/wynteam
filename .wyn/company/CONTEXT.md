@@ -7,7 +7,7 @@
 - **Target Users**: วัยรุ่น / Gen Z (ยืนยันโดย Founder เมื่อ 2026-08-13 ผ่าน `/product`)
 - **Core Product**: โซเชียลมีเดียทั่วไป (general social media platform) สำหรับกลุ่ม Gen Z (ยืนยันโดย Founder เมื่อ 2026-08-13)
 - **Current Version**: UNKNOWN (repository มีเพียงเอกสาร WYN AI Company และ product foundation ยังไม่มี source code หรือ version marker)
-- **Current Features**: WYN-002 (Authentication & Onboarding) — โค้ดเขียนแล้วที่ `app/` แต่ยังไม่ผ่าน QA และยังไม่เคย build/run จริง (sandbox ที่เขียนไม่มี Flutter SDK) ห้ามถือว่าใช้งานได้จนกว่า QA จะ PASS
+- **Current Features**: WYN-002 (Authentication & Onboarding) — โค้ดที่ `app/` ผ่าน `flutter analyze` (no issues) และ `flutter test` (2/2 passed) แล้ว แต่ยังไม่เคย `flutter build` (ไม่มี Android SDK/Xcode ในเครื่องที่ตรวจสอบ) และยังไม่ผ่าน QA end-to-end กับ Supabase project จริง ห้ามถือว่าใช้งานได้จนกว่า QA จะ PASS
 - **Future Features**: UNKNOWN — รอ backlog ถัดไปจาก AI Product Manager
 - **Design Principles**: PROPOSED โดย AI Design — Mobile-first, Gen Z-friendly, รองรับ Light/Dark mode, accessibility AA เป็นค่าเริ่มต้น ดูรายละเอียดเต็มที่ `.wyn/docs/design/design-principles.md` (ยังไม่มี brand guideline จริงจาก Founder)
 - **Technology Stack**: Mobile-first — **Flutter (Dart)** สำหรับ frontend (แทนที่ React Native เดิม); Supabase (PostgreSQL + Auth + Storage + Realtime + Edge Functions) สำหรับ backend ใช้ผ่าน `supabase_flutter` package (ระบุโดย Founder ตรงเมื่อ 2026-08-13 ดู `.wyn/company/DECISIONS.md`)
