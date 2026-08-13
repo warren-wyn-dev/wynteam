@@ -10,8 +10,8 @@
 - **Current Features**: UNKNOWN (ยังไม่มี source code ใน repository)
 - **Future Features**: UNKNOWN — รอ backlog ถัดไปจาก AI Product Manager
 - **Design Principles**: UNKNOWN (ยังไม่มี design system ใน repository — เป็นงานถัดไปของ AI Design)
-- **Technology Stack**: Mobile-first — React Native (Expo) + TypeScript สำหรับ frontend; Supabase (PostgreSQL + Auth + Storage + Realtime + Edge Functions) สำหรับ backend (อนุมัติโดย Founder เมื่อ 2026-08-13 ดู `.wyn/company/APPROVALS.md`)
-- **Architecture**: Mobile app (React Native/Expo) เรียกใช้ Supabase โดยตรงสำหรับ Auth/Database/Storage/Realtime และใช้ Supabase Edge Functions สำหรับ backend logic ที่ต้องการความปลอดภัยเพิ่มเติม เว็บแอปเป็นเฟสถัดไป (ยังไม่กำหนดรายละเอียด)
+- **Technology Stack**: Mobile-first — **Flutter (Dart)** สำหรับ frontend (แทนที่ React Native เดิม); Supabase (PostgreSQL + Auth + Storage + Realtime + Edge Functions) สำหรับ backend ใช้ผ่าน `supabase_flutter` package (ระบุโดย Founder ตรงเมื่อ 2026-08-13 ดู `.wyn/company/DECISIONS.md`)
+- **Architecture**: Mobile app (Flutter, ภาษา Dart) เรียกใช้ Supabase โดยตรงสำหรับ Auth/Database/Storage/Realtime ผ่าน `supabase_flutter` และใช้ Supabase Edge Functions สำหรับ backend logic ที่ต้องการความปลอดภัยเพิ่มเติม เว็บแอปเป็นเฟสถัดไป (ยังไม่กำหนดรายละเอียด)
 - **Business Rules**: UNKNOWN
 
 ## หมายเหตุ

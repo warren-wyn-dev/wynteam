@@ -31,3 +31,19 @@
   - อนุมัติ Backend: Supabase (PostgreSQL + Auth + Storage + Realtime + Edge Functions)
 - ผลกระทบ: `.wyn/company/CONTEXT.md` อัปเดตเป็นค่าสุดท้ายแล้ว WYN-001 เสร็จสมบูรณ์ AI Design และ AI Coding ใช้ข้อมูลนี้เป็นฐานอ้างอิงได้ทันที การเปลี่ยน Platform/Tech Stack ในอนาคตต้องขออนุมัติใหม่ (Major Architecture)
 - อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/completed/WYN-001-vision-and-tech-stack.md`
+
+### [2026-08-13] เปลี่ยน Frontend Framework เป็น Flutter (Dart)
+- บริบท: หลัง WYN-001 อนุมัติ React Native/Expo ไปแล้ว Founder แจ้งตรงว่า "โค้ดที่ใช้เขียนแอป ภาษา Dart กับ Flutter"
+- คำตัดสินใจของ Founder: ใช้ **Flutter (ภาษา Dart)** เป็น mobile framework หลักของ WYN แทนที่ React Native (Expo) + TypeScript ที่เคยอนุมัติไว้
+- ผลกระทบ:
+  - `.wyn/company/CONTEXT.md` (Technology Stack, Architecture) อัปเดตเป็น Flutter/Dart แล้ว
+  - Backend ยังคงเป็น Supabase เหมือนเดิม (มี `supabase_flutter` package รองรับ Flutter โดยตรง ไม่กระทบ)
+  - AI Coding ต้องใช้ Dart/Flutter convention (ตัวแปร, class, widget เป็นภาษาอังกฤษตาม `AGENTS.md`) เมื่อเริ่ม implement
+  - `.wyn/company/APPROVALS.md` รายการเดิมถูกทำเครื่องหมายว่าส่วน frontend ถูกแทนที่แล้ว (audit trail ยังคงไว้ ไม่ลบของเดิม)
+- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/completed/WYN-001-vision-and-tech-stack.md`, `.wyn/company/APPROVALS.md`
+
+### [2026-08-13] วิธีการถามคำถาม Founder ต้องใช้ Popup พร้อมตัวเลือกคำตอบ
+- บริบท: Founder แจ้งว่า "เวลาจะถามคำถามอะไรให้ตอบ เด้งเป็นหน้าป็อบอัพ พร้อมคำตอบด้วย" และยืนยันให้บันทึกเป็นกติกาถาวร
+- คำตัดสินใจของ Founder: ทุกครั้งที่ AI role ต้องถามคำถาม/ขอการตัดสินใจ/ขออนุมัติจาก Founder ให้ใช้ popup แบบเลือกคำตอบเป็นค่าเริ่มต้น แทนการพิมพ์ถามเป็นข้อความเปล่า ๆ ยกเว้นคำถามเชิงบรรยายที่ใส่เป็นตัวเลือกไม่ได้ตามธรรมชาติ
+- ผลกระทบ: บันทึกกติกาไว้ที่ `.wyn/company/RULES.md` (หัวข้อ "วิธีการถามคำถาม Founder") ทุก AI role ต้องปฏิบัติตามตั้งแต่นี้ไป
+- อ้างอิง (task/PR ถ้ามี): `.wyn/company/RULES.md`
