@@ -44,7 +44,7 @@
 
 ## กติกาการถามคำถาม Founder
 
-เมื่อต้องถามคำถาม Founder ให้ใช้ popup แบบเลือกคำตอบเป็นค่าเริ่มต้น (ดูรายละเอียดที่ `.wyn/company/RULES.md` หัวข้อ "วิธีการถามคำถาม Founder")
+เมื่อต้องถามคำถาม Founder ให้ใช้ popup แบบเลือกคำตอบเป็นค่าเริ่มต้น **และส่ง push notification แจ้งเตือนไปด้วยทุกครั้ง** (ดูรายละเอียดที่ `.wyn/company/RULES.md` หัวข้อ "วิธีการถามคำถาม Founder")
 
 ## Slash Commands (Claude Code)
 

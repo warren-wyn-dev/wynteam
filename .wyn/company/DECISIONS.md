@@ -65,3 +65,9 @@
 - คำตัดสินใจของ Founder: เลือก **User Profile** เป็น feature ถัดไป (WYN-003) และเลือกให้มีครบทั้ง 3 อย่างตั้งแต่รอบแรก: ชื่อแสดง (Display Name), Bio, และรูปโปรไฟล์ (Avatar upload) — ไม่แบ่งเป็นเฟสย่อย
 - ผลกระทบ: กำหนดเป็น requirement ใน `.wyn/tasks/backlog/WYN-003-user-profile.md` ต้องเพิ่ม Supabase Storage bucket สำหรับ avatar และขยาย `profiles` table
 - อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/backlog/WYN-003-user-profile.md`
+
+### [2026-08-13] ต้องส่ง Push Notification ทุกครั้งที่ถามคำถาม Founder
+- บริบท: Founder ถามว่าเวลาถามคำถามหรือให้ Founder ตอบอะไร มีเสียงแจ้งเตือนได้ไหม — ทดลองส่ง push notification ให้ดูแล้ว Founder ยืนยันให้บันทึกเป็นกติกาถาวร
+- คำตัดสินใจของ Founder: ทุกครั้งที่ AI role ถามคำถามหรือรอคำตอบ/การตัดสินใจจาก Founder ให้ส่ง push notification แจ้งเตือนไปด้วยเสมอ (นอกเหนือจาก popup ที่มีอยู่แล้ว)
+- ผลกระทบ: บันทึกกติกาไว้ที่ `.wyn/company/RULES.md` (หัวข้อ "วิธีการถามคำถาม Founder") และ `AGENTS.md` ทุก AI role ต้องปฏิบัติตามตั้งแต่นี้ไป
+- อ้างอิง (task/PR ถ้ามี): `.wyn/company/RULES.md`
