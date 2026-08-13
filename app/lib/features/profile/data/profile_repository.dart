@@ -4,6 +4,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'profile.dart';
 
+/// Converts an empty text field to `null`. Used for optional profile
+/// fields backed by a DB constraint that requires either NULL or a
+/// non-empty value (e.g. profiles_display_name_length in
+/// supabase/schema.sql), where sending '' would violate the constraint.
+String? normalizeOptionalText(String value) => value.isEmpty ? null : value;
+
 /// Wraps the `profiles` table reads/writes and avatar storage needed for
 /// WYN-003 (User Profile). See supabase/schema.sql for the RLS policies
 /// this relies on.
@@ -27,7 +33,11 @@ class ProfileRepository {
     required String bio,
   }) {
     return _client.from('profiles').update({
-      'display_name': displayName,
+      // profiles_display_name_length requires display_name to be either
+      // NULL or 1-50 characters (see supabase/schema.sql) -- an empty
+      // string satisfies neither, so "no display name set" must be sent
+      // as null, not ''. bio has no such minimum, so it's fine as-is.
+      'display_name': normalizeOptionalText(displayName),
       'bio': bio,
     }).eq('id', userId);
   }
