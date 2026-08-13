@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/profile.dart';
 import '../data/profile_repository.dart';
@@ -56,7 +57,16 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('โปรไฟล์')),
+      appBar: AppBar(
+        title: const Text('โปรไฟล์'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'ออกจากระบบ',
+            onPressed: () => Supabase.instance.client.auth.signOut(),
+          ),
+        ],
+      ),
       body: FutureBuilder<Profile>(
         future: _profileFuture,
         builder: (context, snapshot) {

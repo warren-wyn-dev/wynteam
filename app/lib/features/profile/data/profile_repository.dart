@@ -2,13 +2,8 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/text_utils.dart';
 import 'profile.dart';
-
-/// Converts an empty text field to `null`. Used for optional profile
-/// fields backed by a DB constraint that requires either NULL or a
-/// non-empty value (e.g. profiles_display_name_length in
-/// supabase/schema.sql), where sending '' would violate the constraint.
-String? normalizeOptionalText(String value) => value.isEmpty ? null : value;
 
 /// Wraps the `profiles` table reads/writes and avatar storage needed for
 /// WYN-003 (User Profile). See supabase/schema.sql for the RLS policies
