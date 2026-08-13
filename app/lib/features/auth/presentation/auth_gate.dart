@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -8,7 +10,7 @@ import 'welcome_screen.dart';
 
 /// Decides which screen to show based on auth + onboarding state:
 /// signed out -> Welcome, signed in without a username -> Username Setup,
-/// fully onboarded -> Home. See .wyn/tasks/active/WYN-002-*.md.
+/// fully onboarded -> Home. See .wyn/tasks/bugs/WYN-002-*.md.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -18,6 +20,30 @@ class AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<AuthGate> {
   late final _authRepository = AuthRepository(Supabase.instance.client);
+  late final StreamSubscription<AuthState> _authSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    // WelcomeScreen/AuthMethodScreen/PhoneEntryScreen/OtpVerificationScreen
+    // are pushed with Navigator.push on top of this route. When sign-in
+    // actually completes -- from the OTP screen, or from an OAuth
+    // deep-link callback that resolves after AuthMethodScreen started it --
+    // pop back to this route so the user sees what AuthGate now renders
+    // (UsernameSetupScreen or HomeScreen) instead of staying stuck on the
+    // screen that started the sign-in.
+    _authSubscription = _authRepository.authStateChanges.listen((state) {
+      if (state.event == AuthChangeEvent.signedIn && mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

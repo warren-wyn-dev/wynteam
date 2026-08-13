@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../home/presentation/home_screen.dart';
 import '../data/auth_repository.dart';
 
 enum _UsernameStatus { idle, checking, available, taken, invalid }
@@ -54,7 +55,13 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
     try {
       await widget.authRepository
           .setUsername(widget.userId, _controller.text);
-      // AuthGate listens for the profile change and navigates to Home.
+      // Setting a username is a Postgres write, not a Supabase auth
+      // event, so AuthGate has no way to know it should re-check and
+      // switch to HomeScreen on its own -- navigate there directly.
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      );
     } on UsernameTakenException {
       setState(() => _status = _UsernameStatus.taken);
     } finally {

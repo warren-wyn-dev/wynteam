@@ -79,9 +79,20 @@ class AuthRepository {
     final available = await isUsernameAvailable(username);
     if (!available) throw UsernameTakenException();
 
-    await _client.from('profiles').upsert({
-      'id': userId,
-      'username': username,
-    });
+    try {
+      await _client.from('profiles').upsert({
+        'id': userId,
+        'username': username,
+      });
+    } on PostgrestException catch (e) {
+      // 23505 = unique_violation. A concurrent request can still take this
+      // username between the availability check above and this write;
+      // surface that the same way as the pre-check instead of letting a
+      // raw database error reach the UI.
+      if (e.code == '23505') {
+        throw UsernameTakenException();
+      }
+      rethrow;
+    }
   }
 }

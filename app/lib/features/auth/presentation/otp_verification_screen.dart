@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../data/auth_repository.dart';
+import 'widgets/otp_box_input.dart';
 
 /// Screen 4 — OTP Verification.
 /// See .wyn/docs/design/wyn-002-authentication-onboarding.md
@@ -22,7 +22,7 @@ class OtpVerificationScreen extends StatefulWidget {
 }
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
-  final _otpController = TextEditingController();
+  final _otpBoxKey = GlobalKey<OtpBoxInputState>();
   bool _isLoading = false;
   String? _errorMessage;
   Timer? _resendTimer;
@@ -47,7 +47,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   }
 
   Future<void> _verify(String otp) async {
-    if (otp.length != 6) return;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -57,13 +56,13 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         phone: widget.phone,
         otp: otp,
       );
-      // AuthGate listens to authStateChanges and navigates automatically
-      // once verification succeeds — no manual navigation needed here.
+      // A successful verification fires a Supabase "signedIn" auth event;
+      // AuthGate listens for that and pops back to itself, so no manual
+      // navigation is needed here.
     } catch (_) {
-      setState(() {
-        _errorMessage = 'รหัส OTP ไม่ถูกต้องหรือหมดอายุ';
-        _otpController.clear();
-      });
+      if (!mounted) return;
+      setState(() => _errorMessage = 'รหัส OTP ไม่ถูกต้องหรือหมดอายุ');
+      _otpBoxKey.currentState?.clear();
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -77,7 +76,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   @override
   void dispose() {
     _resendTimer?.cancel();
-    _otpController.dispose();
     super.dispose();
   }
 
@@ -91,21 +89,22 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('กรอกรหัส 6 หลักที่ส่งไปยัง ${widget.phone}'),
-              const SizedBox(height: 24),
-              TextField(
-                controller: _otpController,
-                keyboardType: TextInputType.number,
+              Text(
+                'กรอกรหัส 6 หลักที่ส่งไปยัง ${widget.phone}',
                 textAlign: TextAlign.center,
-                maxLength: 6,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                style: const TextStyle(fontSize: 24, letterSpacing: 8),
-                decoration: InputDecoration(
-                  counterText: '',
-                  errorText: _errorMessage,
-                ),
-                onChanged: _verify,
               ),
+              const SizedBox(height: 24),
+              OtpBoxInput(key: _otpBoxKey, onCompleted: _verify),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 12),
+                Center(
+                  child: Text(
+                    _errorMessage!,
+                    style:
+                        TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
+                ),
+              ],
               if (_isLoading) ...[
                 const SizedBox(height: 16),
                 const Center(child: CircularProgressIndicator()),
