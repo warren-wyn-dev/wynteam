@@ -28,3 +28,13 @@
 - สถานะ: อนุมัติแล้ว
 - วันที่ตัดสินใจ: 2026-08-13
 - **หมายเหตุอัปเดต [2026-08-13]**: ส่วน Frontend Framework (React Native) ถูกแทนที่แล้วตามคำสั่งตรงของ Founder — เปลี่ยนเป็น **Flutter (Dart)** ส่วน Backend (Supabase) ยังคงเดิม ดูรายละเอียดที่ `.wyn/company/DECISIONS.md`
+
+### APPROVAL_REQUIRED — [2026-08-14] ลบตาราง `posts`/`likes`/`comments` (WYN-004 เดิม) ออกจาก schema
+- Proposed change: Drop ตาราง `posts`, `likes`, `comments` และ storage bucket `post-images` ออกจาก `supabase/schema.sql` (พร้อม RLS policies ที่ผูกอยู่)
+- Reason: ตารางเหล่านี้เป็นของ WYN-004 (Feed & Post แบบข้อความ+รูปรวม) ซึ่งถูกแทนที่ด้วย Drop (WYN-005) + Pop (WYN-006) แยกกันตาม spec ใหม่ตั้งแต่ 2026-08-14 ไม่มี route หรือโค้ด Dart ไหนอ้างอิงตารางเหล่านี้อีกแล้วตั้งแต่ WYN-007 (Home) ลบโค้ด `app/lib/features/feed/` ทิ้ง (Home ใหม่ query `drops`/`pops` ตรง ๆ)
+- Benefits: ลดความสับสนของสคีมา (ไม่มีตารางที่ดู "ใช้งานอยู่" แต่จริง ๆ ไม่มี client ไหนแตะเลย), ลดพื้นที่ backup/storage เมื่อ deploy จริง
+- Risks: เป็นการเปลี่ยนแปลงที่ย้อนกลับไม่ได้ถ้ามีข้อมูลจริงอยู่ในตารางแล้ว (ปัจจุบันยังไม่มี Supabase project จริง จึงไม่มีข้อมูลสูญหาย) — ถ้า Founder ต้องการเก็บไว้เผื่อ rollback หรือ repurpose ในอนาคต (เช่น กลับไปทำ unified post type) ก็ยังทำได้ถ้าไม่ลบตอนนี้
+- Files affected: `supabase/schema.sql` (ลบ section WYN-004 ทั้งหมด)
+- Recommendation: อนุมัติให้ลบ เพราะไม่มีประโยชน์เชิงเทคนิคใด ๆ ที่จะเก็บตารางที่ไม่มี client ไหนแตะไว้ต่อ และ git history เก็บ schema เดิมไว้ครบอยู่แล้วหากต้องการอ้างอิงย้อนหลัง — แต่เป็นการตัดสินใจที่ AI Team ไม่ทำเองโดยไม่ขออนุมัติก่อนตาม `.wyn/company/RULES.md` ("โครงสร้างฐานข้อมูลแบบทำลายล้าง")
+- สถานะ: รออนุมัติ
+- วันที่ตัดสินใจ: -

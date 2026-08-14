@@ -103,3 +103,11 @@
 - คำตัดสินใจของ Founder: **ทำงานต่อเนื่องตาม roadmap ทั้งหมดโดยอัตโนมัติ** — เริ่มจาก merge PR #28 → QA WYN-005 → เข้า Debug ถ้า FAIL จนกว่าจะ PASS → ต่อด้วย WYN-006 (Pop) และ task ถัดไปตามลำดับใน `.wyn/docs/product/wyn-v0.1-roadmap.md` โดยไม่ต้องหยุดขอ AskUserQuestion ทีละขั้นตอนอีก **จนกว่า Founder จะกลับมา**
 - ผลกระทบ: กติกาถาวรอื่น ๆ ยังใช้อยู่เหมือนเดิม (ห้าม force-push ที่เป็นอันตราย, ห้ามเปลี่ยน Major Architecture/Vision/Security โดยไม่ขออนุมัติ, ต้องบันทึกทุกอย่างลง PR/DECISIONS.md/CONTEXT.md ให้ตรวจย้อนหลังได้) — สิ่งที่เปลี่ยนคือ **ไม่ต้องรอ Founder ตอบ popup ก่อน merge PR/เริ่ม task ถัดไปในช่วงนี้** จนกว่าจะมีคำสั่งเปลี่ยนแปลงจาก Founder หรือเจอสถานการณ์ที่ต้องขออนุมัติตาม RULES.md จริง ๆ (เช่น ต้องเปลี่ยน Vision/Business Model/Security Architecture) ซึ่งกรณีนั้นยังต้องหยุดรอ Founder เหมือนเดิม
 - อ้างอิง (task/PR ถ้ามี): PR #28 เป็นต้นไป
+
+### [2026-08-14] ชะตากรรมของโค้ด/สคีมา WYN-004 เดิม เมื่อเริ่ม WYN-007 (Home)
+- บริบท: WYN-005 (Drop) และ WYN-006 (Pop) ผ่าน QA แล้ว ทำให้ Home (WYN-007) เริ่มได้ ต้องตัดสินใจว่าจะทำอย่างไรกับโค้ด/ตาราง WYN-004 (`FeedScreen`/`PostRepository`/`PostCard`, ตาราง `posts`/`likes`/`comments`) ที่ไม่มี route ใดชี้ไปแล้วตั้งแต่ WYN-005 แทนที่ด้วย `RootShell` — เรื่องนี้ค้างมาตั้งแต่ WYN-005 Coding Output ที่ระบุว่า "รอ Founder/Product ตัดสินใจ"
+- คำตัดสินใจของ AI Product Manager (ทำเองได้ตามอำนาจที่ RULES.md ให้ไว้ ไม่ใช่ Major Architecture change): แยกเป็น 2 ส่วน —
+  1. **ลบโค้ด Dart ทิ้ง** (`app/lib/features/feed/` ทั้งโฟลเดอร์ + test ที่เกี่ยวข้อง) มอบหมายให้ AI Coding ทำระหว่าง implement WYN-007 — เหตุผล: ไม่มี client ไหนอ้างอิงแล้ว, Home ใหม่ query `drops`/`pops` ตรง ๆ ไม่ใช้ `posts` เดิม, git history เก็บโค้ดเดิมไว้ครบถ้าต้องอ้างอิงย้อนหลัง
+  2. **ไม่ลบตาราง `posts`/`likes`/`comments` ออกจาก schema เอง** เพราะเป็น "โครงสร้างฐานข้อมูลแบบทำลายล้าง" ที่ต้องขออนุมัติ Founder ก่อนเสมอตาม RULES.md — บันทึกคำขออนุมัติไว้ที่ `.wyn/company/APPROVALS.md` (สถานะ: รออนุมัติ) แทน ไม่ดำเนินการเองจนกว่า Founder จะตอบ
+- ผลกระทบ: `app/lib/features/feed/` จะถูกลบใน PR ของ WYN-007 Coding แต่ `supabase/schema.sql` ยังคงตาราง WYN-004 ไว้เหมือนเดิมจนกว่าจะมีคำตอบจาก Founder ที่ `.wyn/company/APPROVALS.md`
+- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/backlog/WYN-007-home-feed.md`, `.wyn/company/APPROVALS.md`
