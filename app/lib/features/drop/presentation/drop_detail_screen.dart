@@ -32,7 +32,11 @@ class DropDetailScreen extends StatefulWidget {
 
 class _DropDetailScreenState extends State<DropDetailScreen> {
   late Drop _drop;
-  late Future<List<DropComment>> _commentsFuture;
+  // Held as a mutable list (not a cached Future) so individual comments
+  // can be optimistically updated (Like) without re-fetching everything.
+  // null while the initial load is in flight.
+  List<DropComment>? _comments;
+  bool _commentsErrored = false;
   final _commentController = TextEditingController();
   final _commentFocusNode = FocusNode();
   bool _isSendingComment = false;
@@ -41,7 +45,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   void initState() {
     super.initState();
     _drop = widget.drop;
-    _commentsFuture = widget.dropRepository.fetchComments(_drop.id);
+    _loadComments();
   }
 
   @override
@@ -49,6 +53,21 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     _commentController.dispose();
     _commentFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadComments() async {
+    setState(() {
+      _comments = null;
+      _commentsErrored = false;
+    });
+    try {
+      final comments = await widget.dropRepository.fetchComments(_drop.id);
+      if (!mounted) return;
+      setState(() => _comments = comments);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _commentsErrored = true);
+    }
   }
 
   Future<void> _toggleLike() async {
@@ -76,6 +95,31 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _drop = previous);
+    }
+  }
+
+  // Takes only the id and re-reads the live _comments[index] instead of a
+  // DropComment captured at the last build -- see
+  // .wyn/learning/PATTERNS.md and .wyn/tasks/bugs/WYN-004-feed-and-post.md
+  // (QA round 1) for the bug class this guards against: a rapid
+  // double-tap before the next rebuild would otherwise reuse the same
+  // stale pre-toggle state twice.
+  Future<void> _toggleCommentLike(String commentId) async {
+    final comments = _comments;
+    if (comments == null) return;
+    final index = comments.indexWhere((c) => c.id == commentId);
+    if (index == -1) return;
+
+    final previous = comments[index];
+    setState(() => _comments![index] = previous.toggledLike());
+    try {
+      await widget.dropRepository.toggleCommentLike(
+        commentId: commentId,
+        currentlyLiked: previous.likedByMe,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _comments![index] = previous);
     }
   }
 
@@ -124,8 +168,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _commentsFuture =
-            _commentsFuture.then((comments) => [...comments, comment]);
+        _comments = [...?_comments, comment];
         _drop = _drop.withExtraComment();
         _commentController.clear();
       });
@@ -254,76 +297,112 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       ],
     );
 
-    return FutureBuilder<List<DropComment>>(
-      future: _commentsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return ListView(
-            children: [
-              header,
-              const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: Text('โหลดคอมเมนต์ไม่สำเร็จ')),
+    if (_commentsErrored) {
+      return ListView(
+        children: [
+          header,
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('โหลดคอมเมนต์ไม่สำเร็จ'),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: _loadComments,
+                    child: const Text('ลองใหม่'),
+                  ),
+                ],
               ),
-            ],
-          );
-        }
+            ),
+          ),
+        ],
+      );
+    }
 
-        if (!snapshot.hasData) {
-          return ListView(
-            children: [
-              header,
-              const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            ],
-          );
-        }
+    final comments = _comments;
+    if (comments == null) {
+      return ListView(
+        children: [
+          header,
+          const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        ],
+      );
+    }
 
-        final comments = snapshot.data!;
-
-        return ListView(
-          padding: const EdgeInsets.only(bottom: 16),
-          children: [
-            header,
-            if (comments.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: Text('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!')),
-              )
-            else
-              ...comments.map(
-                (comment) => Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 16),
+      children: [
+        header,
+        if (comments.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: Text('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!')),
+          )
+        else
+          ...comments.map(
+            (comment) => Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AvatarCircle(
+                    imageUrl: comment.authorAvatarUrl,
+                    fallbackText: comment.authorUsername,
+                    radius: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          comment.authorNameOrUsername,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        Text(comment.textContent),
+                      ],
+                    ),
+                  ),
+                  Column(
                     children: [
-                      AvatarCircle(
-                        imageUrl: comment.authorAvatarUrl,
-                        fallbackText: comment.authorUsername,
-                        radius: 16,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              comment.authorNameOrUsername,
-                              style: Theme.of(context).textTheme.titleSmall,
+                      Semantics(
+                        label: comment.likedByMe
+                            ? 'ถูกใจคอมเมนต์นี้แล้ว กดเพื่อเลิกถูกใจ'
+                            : 'กดเพื่อถูกใจคอมเมนต์นี้',
+                        excludeSemantics: true,
+                        child: SizedBox(
+                          width: 32,
+                          height: 32,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            iconSize: 16,
+                            icon: Icon(
+                              comment.likedByMe
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
+                              color: comment.likedByMe ? Colors.red : null,
                             ),
-                            Text(comment.textContent),
-                          ],
+                            onPressed: () => _toggleCommentLike(comment.id),
+                          ),
                         ),
                       ),
+                      if (comment.likeCount > 0)
+                        Text(
+                          '${comment.likeCount}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                     ],
                   ),
-                ),
+                ],
               ),
-          ],
-        );
-      },
+            ),
+          ),
+      ],
     );
   }
 

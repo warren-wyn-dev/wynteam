@@ -143,13 +143,39 @@ class DropRepository {
   /// Oldest first, unlike the grid -- comments read top-to-bottom like a
   /// conversation.
   Future<List<DropComment>> fetchComments(String dropId) async {
+    final userId = _client.auth.currentUser!.id;
+
     final rows = await _client
         .from('drop_comments')
-        .select('*, $_authorSelect')
+        .select('*, $_authorSelect, drop_comment_likes(count)')
         .eq('drop_id', dropId)
         .order('created_at', ascending: true);
 
-    return rows.map(DropComment.fromMap).toList();
+    final commentIds = rows.map((row) => row['id'] as String).toList();
+    final likedIds =
+        await _fetchLikedCommentIds(userId: userId, commentIds: commentIds);
+
+    return rows
+        .map((row) => DropComment.fromMap(
+              row,
+              likedByMe: likedIds.contains(row['id'] as String),
+            ))
+        .toList();
+  }
+
+  Future<Set<String>> _fetchLikedCommentIds({
+    required String userId,
+    required List<String> commentIds,
+  }) async {
+    if (commentIds.isEmpty) return {};
+
+    final rows = await _client
+        .from('drop_comment_likes')
+        .select('comment_id')
+        .eq('user_id', userId)
+        .inFilter('comment_id', commentIds);
+
+    return rows.map((row) => row['comment_id'] as String).toSet();
   }
 
   Future<DropComment> addComment({
@@ -168,6 +194,26 @@ class DropRepository {
         .select('*, $_authorSelect')
         .single();
 
-    return DropComment.fromMap(row);
+    // A freshly-created comment can't have any likes yet -- no need for a
+    // count/liked lookup like fetchComments does.
+    return DropComment.fromMap(row, likedByMe: false);
+  }
+
+  Future<void> toggleCommentLike({
+    required String commentId,
+    required bool currentlyLiked,
+  }) async {
+    final userId = _client.auth.currentUser!.id;
+    if (currentlyLiked) {
+      await _client
+          .from('drop_comment_likes')
+          .delete()
+          .eq('comment_id', commentId)
+          .eq('user_id', userId);
+    } else {
+      await _client
+          .from('drop_comment_likes')
+          .insert({'comment_id': commentId, 'user_id': userId});
+    }
   }
 }
