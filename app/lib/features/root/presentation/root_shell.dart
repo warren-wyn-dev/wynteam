@@ -14,6 +14,8 @@ import '../../pop/presentation/pop_feed_screen.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../saved/data/saved_repository.dart';
+import '../../zoky/data/zoky_repository.dart';
+import '../../zoky/presentation/zoky_home_screen.dart';
 
 /// The 4-tab Bottom Navigation shell (Home / Drop / Pop / Profile) from
 /// the "WYN V0.1 — CORE APP FEATURE PROMPT" (see
@@ -56,6 +58,7 @@ class _RootShellState extends State<RootShell> {
     final notificationRepository = NotificationRepository(Supabase.instance.client);
     final clubRepository = ClubRepository(Supabase.instance.client);
     final clubPostRepository = ClubPostRepository(Supabase.instance.client);
+    final zokyRepository = ZokyRepository(Supabase.instance.client);
 
     final tabs = [
       HomeFeedScreen(
@@ -94,6 +97,7 @@ class _RootShellState extends State<RootShell> {
         clubRepository: clubRepository,
         clubPostRepository: clubPostRepository,
       ),
+      ZokyHomeScreen(zokyRepository: zokyRepository),
     ];
 
     return Scaffold(
@@ -121,6 +125,11 @@ class _RootShellState extends State<RootShell> {
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
             label: 'Profile',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.storefront_outlined),
+            selectedIcon: Icon(Icons.storefront),
+            label: 'ZOKY',
           ),
         ],
       ),

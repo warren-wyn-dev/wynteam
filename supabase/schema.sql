@@ -1617,3 +1617,110 @@ $$;
 create trigger club_post_comments_notify
   after insert on public.club_post_comments
   for each row execute function public.notify_club_post_comment();
+
+-- ============================================================
+-- ZOKY-001: Marketplace Foundation (WYN Platform expansion)
+-- ============================================================
+-- Browse-only round -- no Cart/Checkout/Order yet (ZOKY-003). Every
+-- table below is read-only to clients: select-all-authenticated like
+-- clubs/drops/pops, but deliberately *no* insert/update/delete policy
+-- at all, because there's no Seller workflow yet to decide who may
+-- write a store/product (that's ZOKY Sellers by WYN, Phase 4 -- see
+-- .wyn/docs/product/zoky-platform-roadmap.md). Sample data for this
+-- round is seeded through Supabase Studio directly, not through the
+-- client.
+
+-- Fixed commerce category list (unlike clubCategories, which is a
+-- pure Dart constant, this is a real FK table because products.
+-- category_id needs referential integrity) -- seeded below since the
+-- set is fixed for this round, same spirit as a CHECK-constrained enum
+-- elsewhere in this schema, just modeled as rows instead of a CHECK
+-- list because it's referenced by foreign key.
+create table if not exists public.categories (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  created_at timestamptz not null default now()
+);
+
+alter table public.categories enable row level security;
+
+create policy "Categories are viewable by authenticated users"
+  on public.categories
+  for select
+  to authenticated
+  using (true);
+
+insert into public.categories (name) values
+  ('Fashion'), ('Electronics'), ('Beauty'), ('Home & Living'),
+  ('Sports & Outdoor'), ('Toys & Hobbies'), ('Food & Beverage'),
+  ('Books & Stationery'), ('Health')
+on conflict (name) do nothing;
+
+create table if not exists public.stores (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references public.profiles (id) on delete cascade,
+  name text not null,
+  description text,
+  logo_url text,
+  banner_url text,
+  created_at timestamptz not null default now(),
+  constraint stores_name_length check (char_length(name) between 1 and 100)
+);
+
+alter table public.stores enable row level security;
+
+create policy "Stores are viewable by authenticated users"
+  on public.stores
+  for select
+  to authenticated
+  using (true);
+
+create table if not exists public.products (
+  id uuid primary key default gen_random_uuid(),
+  store_id uuid not null references public.stores (id) on delete cascade,
+  category_id uuid references public.categories (id) on delete set null,
+  name text not null,
+  description text,
+  price numeric(12, 2) not null,
+  original_price numeric(12, 2),
+  stock int not null default 0,
+  image_urls text[] not null,
+  created_at timestamptz not null default now(),
+  constraint products_name_length check (char_length(name) between 1 and 200),
+  constraint products_price_nonnegative check (price >= 0),
+  constraint products_original_price_gte_price
+    check (original_price is null or original_price >= price),
+  constraint products_stock_nonnegative check (stock >= 0),
+  constraint products_image_urls_length check (array_length(image_urls, 1) between 1 and 10)
+);
+
+create index if not exists products_store_id_idx on public.products (store_id);
+create index if not exists products_category_id_idx on public.products (category_id);
+create index if not exists products_created_at_idx on public.products (created_at desc);
+
+alter table public.products enable row level security;
+
+create policy "Products are viewable by authenticated users"
+  on public.products
+  for select
+  to authenticated
+  using (true);
+
+create table if not exists public.product_variants (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products (id) on delete cascade,
+  variant_type text not null check (variant_type in ('color', 'size')),
+  variant_value text not null,
+  price_delta numeric(12, 2),
+  stock int not null default 0,
+  constraint product_variants_stock_nonnegative check (stock >= 0),
+  constraint product_variants_unique_value unique (product_id, variant_type, variant_value)
+);
+
+alter table public.product_variants enable row level security;
+
+create policy "Product variants are viewable by authenticated users"
+  on public.product_variants
+  for select
+  to authenticated
+  using (true);
