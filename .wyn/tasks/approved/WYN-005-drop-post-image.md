@@ -1,7 +1,7 @@
 # Product Task — WYN-005
 
-Status: qa (Debug รอบ 2 เสร็จแล้ว รอ AI QA & Security ทดสอบรอบ 3)
-Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — FAIL รอบ 1) → AI Debug Engineer (เสร็จ — รอบ 1) → AI QA & Security (เสร็จ — FAIL รอบ 2) → AI Debug Engineer (เสร็จ — รอบ 2) → AI QA & Security (ถัดไป — รอบ 3)
+Status: approved (QA รอบ 3 — PASS)
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — FAIL รอบ 1) → AI Debug Engineer (เสร็จ — รอบ 1) → AI QA & Security (เสร็จ — FAIL รอบ 2) → AI Debug Engineer (เสร็จ — รอบ 2) → AI QA & Security (เสร็จ — PASS รอบ 3) → AI Deploy & DevOps (รอ infra จาก Founder)
 
 Feature: Drop (โพสต์รูปภาพ)
 
@@ -284,3 +284,61 @@ Tests:
 Regression Risk: ต่ำ — เพิ่ม method/UI ใหม่ล้วน ๆ ไม่ได้แก้ signature หรือ behavior ของโค้ดเดิมที่มีอยู่แล้วเลย (`deleteComment` เป็น method ใหม่ทั้งหมด, ปุ่มลบเป็น conditional widget ใหม่ที่ไม่กระทบ layout เดิมเมื่อ `comment.authorId != currentUserId`) ทดสอบแล้วว่า Like Comment/เพิ่มคอมเมนต์/Like-Save-Share ของ Drop เองยังทำงานถูกต้องปกติ (test เดิมทั้งหมดยังผ่าน)
 
 Handoff to QA: ส่งกลับ AI QA & Security (`/qa`) ทดสอบรอบ 3 — เน้นตรวจสอบว่า: (ก) ปุ่มลบคอมเมนต์แสดงเฉพาะเจ้าของคอมเมนต์เท่านั้นจริง ไม่ใช่แค่ในเทสต์ (ข) ลบคอมเมนต์แล้ว list/commentCount sync ถูกต้อง รวมถึง rollback/error handling เมื่อ network ล้มเหลว (ค) RLS ของ `drop_comments` delete policy ยังถูกต้องตามเดิม (ง) ไล่ Acceptance Criteria **ทุกบรรทัด** อีกครั้งทั้งหมด (ทั้ง Requirements, Design Components, Acceptance Criteria แยกกัน) เผื่อมีจุดอื่นที่ยังพลาดอยู่ ก่อนจะอนุมัติจริง — บทเรียนจากสองรอบที่ผ่านมาคือห้ามเชื่อว่าตรวจครบแค่เพราะรอบก่อนหน้าเทียบมาแล้วบางหัวข้อ
+
+---
+
+## QA & Security Report — รอบ 3 (AI QA & Security)
+
+Feature: WYN-005 — Drop (โพสต์รูปภาพ) — หลัง Debug Engineer แก้ "ลบ Comment ของตัวเองได้" (รอบ 2)
+
+Environment: Code review + static analysis บน `main` หลัง merge PR #32 (Flutter SDK 3.47.0 stable) — เงื่อนไขเดียวกับรอบก่อนหน้า (ไม่มี Supabase project จริง, ไม่มี Android SDK/Xcode)
+
+Test Cases:
+1. `flutter analyze` ซ้ำอย่างอิสระ
+2. `flutter test` ซ้ำอย่างอิสระ
+3. ตรวจโค้ดจริงของ fix รอบ 2: `deleteComment`/`withRemovedComment`/ปุ่มลบคอมเมนต์ที่มี ownership guard ตรงตาม report จริงหรือไม่
+4. ตรวจว่า `supabase/schema.sql` ไม่ถูกแก้ในรอบนี้ (RLS delete policy ของ `drop_comments` ต้องเหมือนเดิมตั้งแต่รอบ Coding แรก ไม่ใช่ของใหม่ที่ยังไม่ผ่านการตรวจ)
+5. ตรวจ regression test `drop_comment_delete_test.dart` ว่าพิสูจน์บั๊กจริงหรือไม่ (อ่านโค้ด test เอง) — ownership visibility + list/commentCount sync
+6. ตรวจ error/rollback handling ของ `_deleteComment` เมื่อ network ล้มเหลว (`catch` block, ไม่แตะ `_comments`/`_drop` เมื่อ fail, แสดง SnackBar)
+7. **ไล่ Product Requirements ทุกบรรทัดกับโค้ดจริงใหม่ทั้งหมด** (แยกจาก Design/AC)
+8. **ไล่ Design Components ของทั้ง 3 หน้าจอทุกบรรทัดกับโค้ดจริงใหม่ทั้งหมด** (แยกจาก Requirements/AC)
+9. **ไล่ Acceptance Criteria ทุกข้อกับโค้ดจริงใหม่ทั้งหมด** (แยกจาก Requirements/Design)
+10. Regression กับ Like Comment (รอบ 1), Like/Save/Share/เพิ่มคอมเมนต์ ของ Drop เอง
+
+Passed: 9/10 (#1, #2, #3, #4, #5, #6, #7, #9, #10)
+
+Failed: 0/10 — พบ 1 ข้อสังเกตระดับ **Minor** จาก #8 ที่ไม่ block การอนุมัติ (ดูด้านล่าง)
+
+Severity: **Minor** (ไม่ block)
+
+### ข้อสังเกต Minor (จาก #8 — ไล่ Design Components): ไม่แสดงเวลาที่โพสต์ (relative time) เลยทั้งใน Drop header และ comment แต่ละอัน
+
+Reproduction:
+1. Design spec (`.wyn/docs/design/wyn-005-drop.md` Screen 3, Components) ระบุไว้ 2 จุด: "แถวผู้โพสต์: `AvatarCircle` + ชื่อแสดง/@username + **เวลาที่โพสต์ (relative time)** + ปุ่มลบ" และ "รายการ Comment (avatar เล็ก + ชื่อ + ข้อความ + **เวลา** + ปุ่ม Like เล็ก ๆ ข้างคอมเมนต์)"
+2. `grep -n "createdAt\|relative\|timeago\|ago" app/lib/features/drop/presentation/drop_detail_screen.dart app/lib/features/drop/presentation/drop_feed_screen.dart app/lib/features/drop/presentation/widgets/drop_grid_tile.dart` → **ไม่พบเลยแม้แต่บรรทัดเดียว** — `Drop.createdAt`/`DropComment.createdAt` มีอยู่ใน model และถูก parse จาก DB ถูกต้อง แต่ไม่เคยถูกนำมาแสดงผลที่ไหนเลยในทั้ง 3 หน้าจอ
+3. เทียบกับ WYN-004: `PostCard._relativeTime(DateTime)` (`app/lib/features/feed/presentation/widgets/post_card.dart:25`) implement ไว้แล้วและใช้งานจริง — มี pattern พร้อมให้ WYN-005 อ้างอิง/reuse ได้ตรง ๆ แต่ไม่ได้ถูกทำ
+
+Expected: เห็นเวลาที่โพสต์แบบ relative (เช่น "5 นาทีที่แล้ว") ทั้งที่แถวผู้โพสต์ของ Drop และข้างคอมเมนต์แต่ละอัน
+
+Actual: ไม่แสดงเวลาที่โพสต์เลยทั้งสองจุด
+
+เหตุผลที่ไม่ทำให้ FAIL รอบนี้: ไม่ปรากฏใน Product Requirements หรือ Acceptance Criteria เลย (มีเฉพาะใน Design Component list) ไม่กระทบ flow การใช้งานหลักข้อใดของ Acceptance Criteria ที่เป็นเกณฑ์อนุมัติจริงของ task นี้ และเป็น information display gap ไม่ใช่ capability ที่หายไปทั้งระบบแบบ 2 บั๊กก่อนหน้า (Like Comment / Delete Comment) — ตรงตามบรรทัดฐานที่ตั้งไว้ในรอบ 1 ที่ 2 จุด Low severity (crop guard, try/catch) ก็ไม่ block การอนุมัติเช่นกัน
+
+Recommendation: เพิ่มการแสดงเวลาที่โพสต์แบบ relative time ทั้ง 2 จุดในรอบถัดไปที่แตะไฟล์เหล่านี้ (ไม่จำเป็นต้องเป็นรอบ Debug แยก) — แนะนำให้แยก `_relativeTime` ของ `PostCard` (WYN-004) ออกมาเป็น shared utility function (เช่น `lib/core/relative_time.dart`) แล้วให้ทั้ง WYN-004 และ WYN-005 เรียกใช้ร่วมกัน แทนที่จะ copy โค้ดซ้ำหรือปล่อยให้ WYN-005 implement แยกเอง
+
+### สรุปผลตรวจ Requirements/Design/Acceptance Criteria ทั้ง 3 หัวข้อแยกกัน (รอบนี้)
+
+- **Product Requirements** (ทุกบรรทัด): ครบทุกข้อแล้ว — สร้าง Drop (รูปบังคับ), รูปภาพ 1:1, แสดงผล Drop (profile pic/username/รูป/caption/ปุ่ม 4 ปุ่ม/จำนวน like/จำนวน comment), Like, **Comment (เพิ่ม+ลบ+Like ครบทั้ง 3 อย่างแล้ว)**, Share, Save, ลบ Drop ของตัวเอง — ผ่านหมด
+- **Design Components** (ทั้ง 3 หน้าจอ ทุกบรรทัด): ครบเกือบทั้งหมด ยกเว้น relative time (Minor ด้านบน) — Screen 1 (AppBar+/grid 3 คอลัมน์/scrim heart+count/pull-to-refresh/infinite scroll/loading-empty-error-loading more states/semantics label ต่อช่อง) ผ่านหมด, Screen 2 (AppBar close+title+share/action sheet/preview 1:1/caption+counter 500/share disabled จนกว่ามีรูป/error state ไม่เสียข้อมูล) ผ่านหมด, Screen 3 (ทุกจุดยกเว้นเวลา) ผ่าน
+- **Acceptance Criteria** (ทุก checkbox): ครบทุกข้อแล้วรวมถึงข้อที่เพิ่งแก้ในรอบนี้ ("คอมเมนต์ได้ ลบคอมเมนต์ของตัวเองได้ กด Like คอมเมนต์ได้" — ครบทั้ง 3 ความสามารถเป็นครั้งแรก)
+
+Security Findings:
+- ไม่พบ secret/credential hardcode ในโค้ดที่เปลี่ยนใหม่ของรอบนี้ (Debug รอบ 2)
+- `DropRepository.deleteComment` ไม่เช็ค ownership ฝั่ง client ก่อนยิง request — ตรวจสอบแล้วว่าปลอดภัยเพราะ RLS policy `"Users can delete their own drop comments"` (`using (auth.uid() = author_id)`) บังคับที่ระดับ database อยู่แล้ว แม้ผู้ใช้จะพยายามเรียก API ตรง ๆ ข้าม UI ก็ลบคอมเมนต์คนอื่นไม่ได้ — ตรงตาม defense-in-depth pattern เดียวกับ `deleteDrop`
+- ปุ่มลบคอมเมนต์ฝั่ง UI (`comment.authorId == currentUserId`) ตรวจแล้วว่าเป็นแค่ UX guard (ซ่อนปุ่มไม่ให้กดผิด) ไม่ใช่ security boundary เดียว — RLS คือ security boundary จริง ถูกต้องตามหลักการ
+- `_deleteComment`'s catch block ตรวจแล้วว่าไม่แตะ `_comments`/`_drop` เมื่อ fail (ต่างจาก Like ที่ต้อง rollback เพราะมี optimistic update ก่อนยิง request — delete ไม่มี optimistic update ก่อน จึงไม่มีอะไรต้อง rollback ถูกต้องแล้ว)
+- ไม่พบ regression กับ RLS หรือ security posture อื่นใดจากรอบก่อนหน้า (schema.sql ไม่ถูกแก้ในรอบนี้ ยืนยันด้วย `git diff` ระหว่าง commit ก่อน/หลัง PR #32)
+
+Recommendation: **อนุมัติ WYN-005 เข้าสู่ `.wyn/tasks/approved/`** — ข้อสังเกต Minor เรื่อง relative time ให้บันทึกไว้เป็นรายการปรับปรุงสำหรับรอบถัดไปที่แตะไฟล์เหล่านี้ ไม่ต้องเปิดรอบ Debug แยกเพื่อเรื่องนี้โดยเฉพาะ
+
+Final Status: **PASS**
