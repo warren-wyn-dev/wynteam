@@ -17,13 +17,25 @@ class RecordingClubRepository extends ClubRepository {
     List<ClubMember>? approvedMembers,
     List<ClubMember>? pendingMembers,
     this.memberCount = 1,
+    List<Club>? discoverableClubs,
+    List<Club>? searchResults,
   })  : myClubs = myClubs ?? [],
         approvedMembers = approvedMembers ?? [],
         pendingMembers = pendingMembers ?? [],
+        discoverableClubs = discoverableClubs ?? [],
+        searchResults = searchResults ?? [],
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   /// Returned by [fetchMyClubs].
   final List<Club> myClubs;
+
+  /// Backing list for both [fetchPopularClubs] and [fetchNewClubs] --
+  /// each just sorts/caps this differently, same as the real
+  /// implementation's shared `_fetchDiscoverableClubs`.
+  final List<Club> discoverableClubs;
+
+  /// Returned by [searchClubs] for page 0 only (page 1+ returns empty).
+  final List<Club> searchResults;
 
   /// Returned by [fetchClub], regardless of clubId.
   final Club? club;
@@ -69,6 +81,29 @@ class RecordingClubRepository extends ClubRepository {
 
   @override
   Future<List<ClubMember>> fetchPendingMembers(String clubId) async => pendingMembers;
+
+  @override
+  Future<List<Club>> fetchPopularClubs({String? category, int limit = 10}) async {
+    final filtered = category == null
+        ? discoverableClubs
+        : discoverableClubs.where((c) => c.category == category).toList();
+    final sorted = [...filtered]..sort((a, b) => b.memberCount.compareTo(a.memberCount));
+    return sorted.take(limit).toList();
+  }
+
+  @override
+  Future<List<Club>> fetchNewClubs({String? category, int limit = 10}) async {
+    final filtered = category == null
+        ? discoverableClubs
+        : discoverableClubs.where((c) => c.category == category).toList();
+    final sorted = [...filtered]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return sorted.take(limit).toList();
+  }
+
+  @override
+  Future<List<Club>> searchClubs({required String query, required int page}) async {
+    return page == 0 ? searchResults : <Club>[];
+  }
 
   @override
   Future<void> joinClub(Club club) async {

@@ -712,9 +712,18 @@ create table if not exists public.notifications (
   recipient_id uuid not null references public.profiles (id) on delete cascade,
   actor_id uuid not null references public.profiles (id) on delete cascade,
   type text not null
-    check (type in ('like_drop', 'like_pop', 'comment_drop', 'comment_pop', 'follow')),
+    check (type in (
+      'like_drop', 'like_pop', 'comment_drop', 'comment_pop', 'follow',
+      -- WYN-015: club_join_request/club_join_approved reference the
+      -- club itself (club_id); club_post_like/club_post_comment
+      -- reference the post (club_post_id), same as drop_id/pop_id do
+      -- for their respective types.
+      'club_join_request', 'club_join_approved', 'club_post_like', 'club_post_comment'
+    )),
   drop_id uuid references public.drops (id) on delete cascade,
   pop_id uuid references public.pops (id) on delete cascade,
+  club_id uuid references public.clubs (id) on delete cascade,
+  club_post_id uuid references public.club_posts (id) on delete cascade,
   is_read boolean not null default false,
   created_at timestamptz not null default now()
 );
@@ -1487,3 +1496,124 @@ create policy "Approved club members can upload post images"
     and array_length(storage.foldername(name), 1) > 1
     and public.club_role(((storage.foldername(name))[1])::uuid, auth.uid()) is not null
   );
+
+-- WYN-015 (Club Discovery & Integration) — 4 new notification types
+-- reusing the `notifications` table from WYN-012. Must be declared
+-- after clubs/club_members/club_posts/club_post_likes/
+-- club_post_comments exist (unlike the WYN-012 trigger functions,
+-- which only ever needed drops/pops/follows).
+
+-- Unlike every other notification trigger in the project (which always
+-- inserts exactly one row -- one actor acting on one piece of content
+-- owned by one person), a join request needs to reach *every*
+-- Owner/Admin of the club, not just one recipient. Guards the requester
+-- out of the recipient list explicitly for defense-in-depth, even
+-- though structurally impossible today (an approved owner/admin
+-- already has a club_members row and couldn't insert a second, so
+-- cm.user_id can never equal new.user_id here in practice).
+create or replace function public.notify_club_join_request()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.notifications (recipient_id, actor_id, type, club_id)
+  select cm.user_id, new.user_id, 'club_join_request', new.club_id
+  from public.club_members cm
+  where cm.club_id = new.club_id
+    and cm.role in ('owner', 'admin')
+    and cm.status = 'approved'
+    and cm.user_id <> new.user_id;
+  return new;
+end;
+$$;
+
+create trigger club_members_notify_join_request
+  after insert on public.club_members
+  for each row
+  when (new.status = 'pending')
+  execute function public.notify_club_join_request();
+
+-- Fires on the pending->approved transition made by approve_club_member()
+-- (WYN-014). The actor here is whoever called that RPC (the
+-- approver), not a column on the club_members row itself (the row's
+-- own user_id is the *requester*, the notification's recipient) --
+-- auth.uid() still resolves to the original calling user inside this
+-- trigger even though approve_club_member() runs as security definer,
+-- since that only changes the executing role, not the request-scoped
+-- JWT claims auth.uid() reads from.
+create or replace function public.notify_club_join_approved()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.notifications (recipient_id, actor_id, type, club_id)
+  values (new.user_id, auth.uid(), 'club_join_approved', new.club_id);
+  return new;
+end;
+$$;
+
+create trigger club_members_notify_join_approved
+  after update on public.club_members
+  for each row
+  when (old.status = 'pending' and new.status = 'approved')
+  execute function public.notify_club_join_approved();
+
+-- Same shape as notify_drop_like/notify_pop_like (WYN-012). Also
+-- denormalizes club_id onto the notification row (not just
+-- club_post_id) so the Dart layer can embed the club's name with a
+-- single-level join (`club:clubs(name)`) the same way for every WYN-015
+-- notification type, instead of needing a two-hop
+-- notifications->club_posts->clubs embed just for these two types.
+create or replace function public.notify_club_post_like()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+  v_club_id uuid;
+begin
+  select author_id, club_id into v_author_id, v_club_id
+  from public.club_posts where id = new.club_post_id;
+  if v_author_id is not null and v_author_id <> new.user_id then
+    insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
+    values (v_author_id, new.user_id, 'club_post_like', new.club_post_id, v_club_id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger club_post_likes_notify
+  after insert on public.club_post_likes
+  for each row execute function public.notify_club_post_like();
+
+-- Same shape as notify_drop_comment/notify_pop_comment (WYN-012), same
+-- club_id denormalization reasoning as notify_club_post_like above.
+create or replace function public.notify_club_post_comment()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+  v_club_id uuid;
+begin
+  select author_id, club_id into v_author_id, v_club_id
+  from public.club_posts where id = new.club_post_id;
+  if v_author_id is not null and v_author_id <> new.author_id then
+    insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
+    values (v_author_id, new.author_id, 'club_post_comment', new.club_post_id, v_club_id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger club_post_comments_notify
+  after insert on public.club_post_comments
+  for each row execute function public.notify_club_post_comment();
