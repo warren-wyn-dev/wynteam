@@ -1,7 +1,7 @@
 # Product Task — WYN-009
 
-Status: review
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
+Status: approved (QA รอบ 1 — PASS)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS รอบ 1) → AI Deploy & DevOps (รอ infra จาก Founder)
 
 Feature: Search (ค้นหา User/Drop/Pop จริง แทนที่ placeholder เดิมใน Home)
 
@@ -95,3 +95,67 @@ Known Issues:
 - ยังไม่ทดสอบกับ Supabase project จริง (รอ infra จาก Founder เหมือนทุก feature ก่อนหน้า) — โดยเฉพาะ `.or()` filter ของ `searchProfiles` และพฤติกรรม `ILIKE` จริงกับข้อมูลภาษาไทย
 
 Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ WYN-009 ก่อนอนุมัติ — เน้นตรวจ: (ก) debounce ทำงานถูกต้องจริงไม่ยิง query ซ้อน (ข) คำค้นสั้นกว่า 2 ตัวอักษรไม่ยิง query จริง (ค) ผลลัพธ์ทั้ง 3 ประเภทแตะแล้วไปถูกหน้าจริง (ง) empty state ข้อความถูก tab จริง (จ) ลบคำค้นกลับ prompt ทันทีไม่รอ debounce จริง (ฉ) regression กับ Drop/Pop/Home/Follow/Profile เดิมทั้งหมด (ช) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัด
+
+---
+
+## QA & Security Report — รอบ 1 (AI QA & Security)
+
+```
+Feature: WYN-009 Search (User/Drop/Pop ค้นหาจริง แทนที่ SearchPlaceholderScreen)
+Environment: flutter analyze + flutter test (static/widget-test level เท่านั้น — ยังไม่มี Supabase project จริง เหมือนทุก feature ก่อนหน้า)
+```
+
+**หมายเหตุก่อนเริ่ม**: sync branch จาก `origin/main` ใหม่ (พบ commit ค้างก่อน merge PR #55 อีกครั้ง — pattern เดิมที่เจอทุกรอบ) แล้วรัน `flutter analyze`/`flutter test` อิสระเองก่อนอ่านโค้ด — ไม่เชื่อตัวเลข 110/110 หรือคำอธิบาย testing-gap ที่ Coding Output รายงานไว้เฉย ๆ
+
+### ไล่ Requirements ทีละบรรทัด (Product spec)
+- [x] แทนที่ `SearchPlaceholderScreen` ในตำแหน่งเดิม — ยืนยันไฟล์เดิมถูกลบจริง (`grep` ทั้ง `app/lib`/`app/test` ไม่พบการอ้างอิงเหลือ ยกเว้น comment อธิบายประวัติ) `home_feed_screen.dart._openSearch()` push ไปที่ `SearchScreen` ใหม่จาก entry point เดิม (search bar เดิม ไม่ย้ายตำแหน่ง)
+- [x] ค้นหา 3 ประเภทแยกกันชัดเจนด้วย `TabBar` ไม่ปนเป็น list เดียว — ยืนยันโครงสร้าง `SearchScreen` จริง
+- [x] Live search + debounce 400ms + ขั้นต่ำ 2 ตัวอักษร — อ่านโค้ด `_onQueryChanged`/`_queryTooShort` ครบทั้ง 3 tab widget ตรงกัน
+- [x] ผลลัพธ์ User เป็น list reuse `FollowListScreen` row จริง (avatar 20px, ชื่อ/@username, `InkWell` ทั้งแถว, Semantics label เดียวกันเป๊ะ) เปิด `ViewProfileScreen`
+- [x] ผลลัพธ์ Drop เป็น grid 3 คอลัมน์ reuse `DropGridTile` จริง เปิด `DropDetailScreen`
+- [x] ผลลัพธ์ Pop เป็น grid 3 คอลัมน์ reuse `PopGridTile` จริง เปิด `PopSingleClipScreen`
+- [x] Empty state 2 แบบ (prompt/ไม่พบผลลัพธ์) ข้อความต่างกันตาม tab — อ่านโค้ดทั้ง 3 tab ยืนยันข้อความตรงตาม Design spec เป๊ะทุกคำ
+- [x] Case-insensitive — `DropRepository.searchByCaption`/`PopRepository.searchByCaption` ใช้ `.ilike()` (case-insensitive โดยธรรมชาติของ Postgres ILIKE) `ProfileRepository.searchProfiles` ใช้ `.or(...ilike...)` เช่นกัน — ทดสอบจริงด้วย fake repository ที่จำลอง case-insensitive matching (Drop) ยืนยันพฤติกรรม แต่ฝั่ง User ไม่มี fake ที่จำลอง matching จริง (ดู Known Issue เดิมที่ Coding บันทึกไว้แล้วว่ายังไม่ทดสอบกับ Supabase จริง — สอดคล้องกับข้อจำกัดเดิมของทั้งโปรเจกต์)
+- [x] Hashtag search defer เป็น caption substring — ยืนยันไม่มี hashtable/parsing ใหม่ใด ๆ ในโค้ด ตรงตามที่ Product ตัดสินใจ
+
+### ไล่ Design Components ทีละบรรทัด (Screen 1-4)
+- [x] Screen 1 — `leading` เป็นปุ่มย้อนกลับมาตรฐาน (ไม่ได้ override `leading` เลย ปล่อยให้ `Scaffold`/`AppBar` ใส่ `BackButton` อัตโนมัติตาม Navigator stack — ตรงตาม Design Rule "ไม่ใช่ text-button ยกเลิก"), `TextField` แทน title จริง auto-focus จริง ปุ่ม clear ปรากฏเฉพาะมีข้อความจริง (`_controller.text.isEmpty ? null : ...`), `TabBar` 3 tab icon+label ตรงตาม spec, ไม่โชว์ spinner ระหว่าง debounce (เพราะ `_isLoading` ใน tab widget ตั้งเป็น `true` เฉพาะตอน `_search()` เริ่มทำงานจริง ซึ่งเกิดหลัง debounce ผ่านแล้วเท่านั้น ไม่ได้ผูกกับ `onChanged` โดยตรง)
+- [x] Screen 2/3/4 — reuse ตรงตามที่ระบุครบทุกจุด, empty state ข้อความ+ไอคอนตรงตาม spec เป๊ะทุกคำ (ตรวจเทียบทีละตัวอักษรแล้ว)
+
+### ไล่ Acceptance Criteria ทีละข้อ
+1. [x] แตะ search bar → เปิดหน้าค้นหา TabBar 3 tab พร้อมช่องพิมพ์ — มี regression test จริง (`home_feed_screen_test.dart`)
+2. [x] ยังไม่พิมพ์ → prompt ไม่ใช่ error/ว่างเปล่า — มี regression test จริง
+3. [x] พิมพ์ username ตัวพิมพ์ต่าง case → tab User เจอ แตะเปิดโปรไฟล์ได้จริง — มี regression test จริง (ยืนยัน flow ทำงานถูกต้อง, ส่วน case-insensitive matching จริงระดับ DB ยังเป็น known limitation ที่ยอมรับได้ตามเหตุผลข้างต้น)
+4. [x] พิมพ์คำในแคปชัน Drop → tab Drop เจอ แตะเปิด `DropDetailScreen` — มี regression test จริง **พร้อมพิสูจน์ case-insensitive จริงด้วย** (query lowercase, caption มีคำ capitalize)
+5. [x] พิมพ์คำในแคปชัน Pop → tab Pop เจอ แตะเปิด `PopSingleClipScreen` — มี regression test จริง
+6. [x] ไม่พบผลลัพธ์ → ข้อความเฉพาะ tab ไม่ error/ค้าง loading — มี regression test จริง (ทดสอบ tab User; โค้ด 3 tab ใช้ pattern เดียวกันเป๊ะ ยืนยันด้วยการอ่านโค้ดตรงจริง)
+7. [x] สั้นกว่า 2 ตัวอักษรไม่ยิง query — มี regression test จริง
+8. [x] พิมพ์เร็วไม่ยิง query ซ้อน (debounce) — มี regression test จริง **+ ทำ red→green ซ้ำเองอิสระ** (ดูด้านล่าง)
+9. [x] ลบคำค้นกลับ prompt ทันที — มี regression test จริง
+10. [x] Drop/Pop/Home/Follow/Profile เดิมไม่มี regression — `flutter test` เต็ม 110/110 ผ่าน (รันเองอิสระ 2 ครั้ง)
+
+### Red→Green Regression Proof (ทำเองอิสระ ไม่เชื่อคำอธิบายจาก Coding Output)
+Reproduction Steps:
+1. ลบ `_debounceTimer?.cancel();` บรรทัดแรกออกจาก `_onQueryChanged()` ใน `search_screen.dart` (จำลอง debounce-cancel bug — เหมือนที่ Coding Output อ้างว่าเคยเจอเองระหว่างพัฒนา)
+2. รัน `flutter test test/search_screen_test.dart --plain-name "cancels it"`
+Expected: FAIL (`searchProfilesCalls` ควรเป็น 0 ที่ deadline แรกของคำค้น `"na"` เพราะควรถูก cancel ไปแล้ว)
+Actual: **FAIL จริง** — `Expected: <0> Actual: <1>` พร้อมข้อความ reason ที่ตั้งใจเขียนไว้ ("na"'s debounce timer should have been cancelled...) ยืนยันว่า test นี้จับบั๊กได้จริง ไม่ใช่ test ที่ผ่านโดยบังเอิญ (ตรวจสอบยืนยันคำอธิบายของ Coding Output ที่ว่า test แรกที่เขียนไว้ไม่จับบั๊กได้จริงเพราะ pump เดียวยาว coalesce หลาย timer callback — น่าเชื่อถือทางเทคนิค ตรงกับพฤติกรรมจริงของ `tester.pump()`)
+3. Restore โค้ดเดิม รัน `flutter analyze` + `flutter test` เต็มอีกครั้ง → สะอาด 110/110 ทั้งคู่กลับมาเหมือนเดิม
+
+### Security Findings
+- **`ProfileRepository.searchProfiles`'s `.or()` filter interpolates raw user input into a PostgREST filter DSL string** (`'.or('username.ilike.%$query%,display_name.ilike.%$query%')'`) — ตัวอักษรพิเศษที่มีความหมายเชิงโครงสร้างใน PostgREST `or=()` syntax (`,` `.` `(` `)` `"`) ที่ผู้ใช้พิมพ์เข้าไปในคำค้นจะไม่ถูก escape เลย ทำให้ผู้ใช้สามารถสร้างคำค้นที่ "หลุด" ออกจากเงื่อนไข 2 ตัวที่ตั้งใจไว้ (เช่น คำค้นที่มี comma อาจถูกตีความเป็นตัวแบ่งเงื่อนไขใหม่ของ `or()` แทนที่จะเป็นส่วนหนึ่งของค่าที่ค้นหา) — **ประเมินผลกระทบแล้วว่าไม่ใช่ช่องโหว่ privacy/authorization**: (ก) ตาราง `profiles` มี RLS select policy เป็น `using (true)` สำหรับทุก authenticated user อยู่แล้ว (ไม่มีขอบเขตความเป็นส่วนตัวให้ทะลุ) (ข) คอลัมน์ที่คืนกลับมาถูกกำหนดตายตัวโดย `.select('id, username, display_name, bio, avatar_url')` ไม่ได้รับอิทธิพลจาก input ที่ inject (ค) ไม่มีทาง pivot ไปตารางอื่นผ่านช่องนี้ (query fix อยู่ที่ `.from('profiles')` เท่านั้น) — ผลกระทบที่เป็นไปได้จริงคือ query ผิดรูปแบบ/error หรือผลลัพธ์ไม่ตรงคาดสำหรับผู้ค้นหาเอง ไม่ใช่การรั่วไหลข้อมูลของผู้ใช้คนอื่นที่ไม่เปิดเผยอยู่แล้ว — **DropRepository.searchByCaption/PopRepository.searchByCaption ไม่มีปัญหานี้** เพราะใช้ `.ilike()` เดี่ยว ๆ (single-column filter, ไม่ใช่ `.or()` แบบ hand-built DSL string ที่มีตัวคั่นหลายเงื่อนไข) — **จัดเป็น Minor ไม่ block** เสนอ sanitize/escape พิเศษอักขระ (หรือเปลี่ยนไปใช้ 2 query แยกแล้ว merge ผลฝั่ง client) เป็น fast-follow — หมายเหตุ: การประเมินนี้เป็นการให้เหตุผลจาก PostgREST filter-syntax spec เท่านั้น ยังไม่เคยทดสอบกับ Supabase project จริง (เหมือนทุก feature ก่อนหน้า)
+- ไม่พบ secret exposure ใหม่ใน diff
+
+### Regression กับ Drop/Pop/Home/Follow/Profile เดิม
+`flutter test` เต็ม 110/110 ผ่าน ครอบคลุมทุก feature เดิมทั้งหมด — จุดเดียวที่แก้ของเดิมคือ `home_feed_screen.dart`'s search bar label/callback ซึ่งมี regression test คุ้มครองแล้ว (`tapping the Search bar opens SearchScreen`)
+
+Passed: 110/110 (`flutter test`, รันเองอิสระ 2 ครั้ง — ครั้งแรกยืนยันตัวเลขจาก Coding Output, ครั้งที่สองหลัง red→green proof เพื่อยืนยัน restore ถูกต้อง)
+Failed: 0
+Severity: Minor เดียว (PostgREST filter-string injection ใน `searchProfiles` — ไม่ block ตามเหตุผลข้างต้น)
+
+Recommendation: เพิ่ม fast-follow สำหรับ sanitize/escape พิเศษอักขระใน `ProfileRepository.searchProfiles`'s `.or()` call ก่อนที่ตาราง `profiles` จะมีคอลัมน์ที่ private มากขึ้นในอนาคต (ตอนนี้ปลอดภัยเพราะทุกคอลัมน์ public อยู่แล้ว แต่เป็น pattern ที่ไม่ควรปล่อยไว้ระยะยาว) — ไม่ block การอนุมัติรอบนี้
+
+Final Status: PASS
+```
+
+Handoff: อนุมัติ WYN-009 — ย้ายเข้า `.wyn/tasks/approved/` และส่งต่อ AI Deploy & DevOps (รอ infra จาก Founder เหมือนทุก feature ก่อนหน้า)
