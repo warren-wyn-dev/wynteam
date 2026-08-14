@@ -1,7 +1,7 @@
 # Product Task — ZOKY-001
 
-Status: review (รอ QA)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (รอ)
+Status: approved (QA รอบ 1 — PASS)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS)
 
 Feature: ZOKY Marketplace Foundation — ZOKY Bottom Nav tab, ZOKY Home (browse), Product Detail (view), Store page (view)
 
@@ -104,3 +104,61 @@ Known Issues:
 - Seller เขียนข้อมูล `stores`/`products` เองไม่ได้จนกว่าจะถึง Phase 4 — ทดสอบ/สาธิตต้อง seed ผ่าน Supabase Studio
 
 Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ ZOKY-001 ก่อนอนุมัติ — เน้นตรวจเป็นพิเศษ: (ก) RLS ของตารางใหม่ทั้ง 4 ไม่มี insert/update/delete policy ใดๆ เปิดให้ client จริง (ข) Bottom Nav 5 tab เรียงลำดับถูกต้อง (Home/Drop/Pop/Profile/ZOKY) และ 4 tab เดิมไม่มี regression (ค) ปุ่ม placeholder ทั้งหมดกดแล้วไม่ crash และไม่มีปุ่ม Chat Seller ปรากฏเลยจริง (ง) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัด (จ) regression กับ WYN Social เดิมทั้งหมด (Home/Drop/Pop/Club/Profile/Search/Notification)
+
+---
+
+## QA & Security Report — รอบ 1 (AI QA & Security)
+
+**ผลสรุป: PASS**
+
+### สิ่งที่ตรวจอิสระ (ไม่เชื่อตัวเลขจาก Coding Output เฉยๆ)
+
+1. **Re-sync ไป merged main เอง** — `git fetch origin main`, rebuild branch `claude/pwd-nxsvf5` บน `origin/main` (commit `0cedef9`, PR #71) ใหม่ทั้งหมด
+2. **รัน `flutter analyze` อิสระ**: No issues found
+3. **รัน `flutter test` อิสระ**: 191/191 ผ่านทั้งหมด — ตรงกับตัวเลขที่ Coding รายงาน ยืนยันด้วยตัวเองแล้ว
+
+### ตรวจ RLS ของตารางใหม่ทั้ง 4 ตัว
+
+อ่าน `supabase/schema.sql` (ZOKY-001 section) ทีละตาราง ยืนยันว่า `categories`/`stores`/`products`/`product_variants` ทุกตัว `enable row level security` แล้วมี **แค่ policy เดียว** ต่อตาราง (`for select ... using (true)`) — ไม่มี insert/update/delete policy ใดๆ เลยแม้แต่ตัวเดียว หมายความว่า client (แม้จะ authenticated) เขียนข้อมูลลงตารางเหล่านี้ไม่ได้เลยจริง ๆ (RLS ปิดกั้นทุก operation ที่ไม่มี policy รองรับโดย default) — ตรวจ CHECK constraint ครบด้วย: `products_price_nonnegative`, `products_original_price_gte_price`, `products_stock_nonnegative`, `products_image_urls_length` (1-10 รูป), `product_variants` จำกัด `variant_type` แค่ `'color'/'size'` + unique constraint กัน variant ซ้ำ — seed ข้อมูล `categories` 9 หมวดหมู่ใช้ `insert ... on conflict (name) do nothing` ตรงใน schema (เป็น reference data แบบ enum ไม่ใช่ user data จึงไม่ขัดกับกฎ "ไม่มี insert policy ให้ client" เพราะรันตอน migrate ไม่ใช่ผ่าน client)
+
+### ตรวจ Bottom Nav 5 tab ไม่กระทบ 4 tab เดิม
+
+อ่าน `root_shell.dart` ยืนยันว่า `tabs` list เรียงตรงกับ `destinations` list เป๊ะ: `[Home(0), Drop(1), Pop(2), Profile(3), ZokyHomeScreen(4)]` — ZOKY อยู่ index 4 (หลัง Profile) ตรงตาม Design spec "ตำแหน่งที่ 5, index 4" ไม่ใช่ index 3 ตามที่ Coding เคยพลาดตอนแรกแล้วแก้เอง — `_onDestinationSelected`'s `if (index == 3 && _index != 3) _profileVisitKey++` ยังชี้ไปที่ Profile ถูกต้อง (Profile ไม่ถูกเลื่อน index) — ตรวจ diff ของ PR #71 ทั้งหมดยืนยันว่านอกจาก `root_shell.dart` (+9 บรรทัด เพิ่ม import/tab ใหม่ล้วน ไม่มีการลบ/แก้บรรทัดเดิม) กับ `text_utils.dart` (+18 บรรทัด เพิ่ม `thaiBahtLabel` ล้วน) แล้ว ไม่มีไฟล์ WYN Social เดิมไฟล์ไหนถูกแตะเลย — ทุกไฟล์ใหม่อยู่ใต้ `app/lib/features/zoky/` ทั้งหมด
+
+### ตรวจปุ่ม placeholder และ Chat Seller
+
+`grep` หา `zokyComingSoonMessage` ยืนยันว่าทั้ง 3 หน้าจอ (ZokyHomeScreen/ProductDetailScreen/StoreScreen) เรียก SnackBar ข้อความเดียวกันจริงจาก constant เดียว (`zokyComingSoonMessage = 'ฟีเจอร์นี้จะมาเร็ว ๆ นี้'`, reuse ข้อความเดิมของ `ClubPage`) ไม่มีข้อความกระจัดกระจาย — `grep` หา "แชท"/"Chat" ทั้งโฟลเดอร์ `zoky/` ยืนยันว่าไม่มี widget ปุ่ม Chat Seller อยู่เลยแม้แต่จุดเดียว (เจอแค่ comment อธิบายเหตุผลที่ไม่ทำ) มี test `never shows a Chat Seller button` ยืนยันด้วยโค้ดจริงด้วย
+
+### ตรวจ `FutureBuilder<Store?>` bug ที่ Coding แก้เอง
+
+อ่าน `store_screen.dart` ยืนยันเหตุผลถูกต้อง: `AsyncSnapshot.hasData` นิยามเป็น `data != null` ไม่ใช่เช็ค connection state จริง เมื่อ future resolve เป็น `null` (ร้านไม่พบจริง) `hasData` จะเป็น false ตลอดไป ทำให้ CircularProgressIndicator หมุนไม่จบ — การแก้ด้วย `snapshot.connectionState != ConnectionState.done` ถูกต้องแล้ว
+
+### ไล่ Requirements/Design Components/Acceptance Criteria ทีละบรรทัด
+
+ไล่ครบทั้ง 3 หัวข้อเทียบกับโค้ดจริง — ผ่านเกือบทั้งหมด **ยกเว้น 1 จุด** (ดู Finding ด้านล่าง)
+
+**AC ทุกข้อผ่าน**: Bottom Nav 5 tab เรียงถูกต้อง ไม่กระทบ 4 tab เดิม / ZOKY Home มี Categories/Banner-placeholder/Product sections/Grid ครบ / แตะสินค้าเปิด Product Detail / แตะ Store Info เปิด Store page / ปุ่ม Add to Cart/Buy Now/ติดตามร้าน แสดงผลถูกต้องไม่ crash / WYN Social เดิมไม่มี regression (191/191)
+
+### Finding — Minor (ไม่ block)
+
+**`ProductDetailScreen`/`StoreScreen` ไม่แสดง "Rating" เลย ทั้งที่ Product Requirements และ Design Components ระบุไว้ตรง ๆ ทั้งคู่**: Product spec's Product Detail Requirements ระบุ "...Stock, Product Variants..., Description, **Rating**, Reviews..." และ Store Requirements ระบุ "Store Logo, Store Name, **Store Rating**, Followers count..." — Design spec's Screen 2/3 ก็ระบุ "Rating" แยกจาก "Reviews" ไว้ตรง ๆ เช่นกัน (`"...Description, Rating, Reviews (แสดงถ้ามี...)"` / `"...ชื่อร้าน + rating + 'Followers: N'..."`) แต่โค้ดจริง (`grep` ยืนยันแล้ว) **ไม่มีคำว่า rating/ดาว/คะแนน อยู่ในไฟล์ ZOKY-001 เลยแม้แต่จุดเดียว** — ทั้ง `Product`/`Store` model ไม่มี field `rating` เลยด้วยซ้ำ ไม่ใช่แค่ UI ไม่แสดง
+
+เหตุผลที่ไม่ block: (1) ไม่มี AC บรรทัดไหนทดสอบค่า rating ตรง ๆ (2) ไม่มี data source ให้ rating จริงรอบนี้เลย (ไม่มีตาราง reviews/ratings ในรอบนี้ ระบบ Review จริงมาที่ ZOKY-004) การแสดงตัวเลขปลอมจะแย่กว่าไม่แสดง (3) ในหน้า Product Detail ข้อความ "ยังไม่มีรีวิว" ที่มีอยู่แล้วสื่อความหมายครอบคลุมถึงการไม่มี rating โดยอ้อมได้ในระดับหนึ่ง — แต่ในหน้า Store header ไม่มีแม้แต่การสื่อความหมายทางอ้อมนี้เลย เป็นจุดที่ควรปรับปรุงมากกว่า
+
+**หมายเหตุสำคัญ**: นี่คือครั้งที่ 5 ในโปรเจกต์นี้ของ pattern เดียวกัน (WYN-005×2, WYN-007, WYN-015, ตอนนี้ ZOKY-001) — "spec ระบุ component ไว้ตรง ๆ ทั้ง Product และ Design แต่ Coding ข้ามไปเงียบ ๆ โดยไม่บันทึกเป็น scope cut ที่ตั้งใจ" ต่างจาก WYN-015 (ที่ระดับรุนแรงลดลงเพราะยังมีทางออกอื่น) ครั้งนี้กลับไม่มีการบันทึกเหตุผลไว้เลยว่าทำไมถึงตัด Rating ออก (ต่างจาก "แนะนำสำหรับคุณ"/"ขายดี" ที่ Coding บันทึกเหตุผลไว้ชัดเจนใน Known Issues ว่าไม่มีข้อมูลรองรับ) — **คำแนะนำ**: เพิ่ม placeholder ข้อความสั้น ๆ เช่น "ยังไม่มีคะแนน" ในหน้า Store header เป็น fast-follow เล็ก ๆ (ไม่จำเป็นต้องรอ ZOKY-004) เพื่อให้ตรงกับ spec ที่ระบุตำแหน่งไว้ อย่างน้อยก็ในระดับ "แสดงตำแหน่งไว้ว่างเปล่าอย่างมีความหมาย" เหมือนที่ทำกับ Recommended/Best Selling section แล้ว
+
+### Red→Green Regression Proof อิสระ (จุดที่ต่างจาก Coding เอง)
+
+Coding ทำ proof ที่ `StoreScreen`'s `FutureBuilder<Store?>.hasData` bug — QA เลือกทำ proof คนละจุด: **`Product.discountPercent`'s เปอร์เซ็นต์ส่วนลด**
+1. แก้ `product.dart`'s `discountPercent` จาก `(originalPrice! - price) / originalPrice!` (ถูกต้อง) เป็น `(originalPrice! - price) / price` (ผิด — หารด้วยราคาปัจจุบันแทนราคาเดิม, บั๊กคลาสสิกที่คำนวณ % ส่วนลดผิดสูตร) ชั่วคราว
+2. รัน `flutter test test/product_detail_screen_test.dart --plain-name "shows price, discount badge"` → **FAIL จริง** (คาดหวัง `-25%` แต่คำนวณผิดได้ค่าอื่น)
+3. Revert กลับสูตรเดิม
+4. รัน `flutter analyze`/`flutter test` เต็มอีกครั้ง → สะอาด 191/191
+
+### Regression กับ WYN Social เดิมทั้งหมด
+
+191/191 tests ครอบคลุม Drop/Pop/Home/Follow/Search/Profile/Notification/Club Core/Club Discovery เดิมทั้งหมดผ่านหมด ไม่มี regression — ยืนยันเพิ่มเติมด้วยการอ่าน diff ของ PR ว่าไม่มีไฟล์ WYN Social เดิมไฟล์ไหนถูกแก้ไข logic นอกจาก `root_shell.dart`'s เพิ่ม tab ใหม่ (ไม่แก้ของเดิม)
+
+### สรุป
+
+ZOKY-001 ผ่าน QA รอบ 1 — **PASS** พบ 1 finding ระดับ Minor (ไม่ block ตามเหตุผลข้างต้น แต่เป็น pattern ที่เกิดซ้ำเป็นครั้งที่ 5 ควรให้ความสำคัญกับ pre-submission checklist ของ Coding มากขึ้น) อนุมัติเข้า `approved/`
