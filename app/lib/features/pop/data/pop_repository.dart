@@ -109,6 +109,31 @@ class PopRepository {
         .toList();
   }
 
+  /// Fetches a single Pop by id, with a fresh likedByMe/savedByMe for the
+  /// current user -- for opening a Pop referenced by a notification
+  /// (WYN-012), where only the id is known, not a full Pop object.
+  /// Returns null if the Pop no longer exists (e.g. deleted since the
+  /// notification was created).
+  Future<Pop?> fetchById(String popId) async {
+    final userId = _client.auth.currentUser!.id;
+
+    final row = await _client
+        .from('pops')
+        .select('*, $_authorSelect, pop_likes(count), pop_comments(count)')
+        .eq('id', popId)
+        .maybeSingle();
+    if (row == null) return null;
+
+    final likedIds = await _fetchLikedPopIds(userId: userId, popIds: [popId]);
+    final savedIds = await _fetchSavedPopIds(userId: userId, popIds: [popId]);
+
+    return Pop.fromMap(
+      row,
+      likedByMe: likedIds.contains(popId),
+      savedByMe: savedIds.contains(popId),
+    );
+  }
+
   Future<Set<String>> _fetchLikedPopIds({
     required String userId,
     required List<String> popIds,

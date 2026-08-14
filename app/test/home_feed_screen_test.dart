@@ -8,6 +8,7 @@ import 'package:wyn/features/home/data/home_feed_item.dart';
 import 'package:wyn/features/home/presentation/home_feed_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
+import 'package:wyn/features/notification/presentation/notification_list_screen.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/search/presentation/search_screen.dart';
 
@@ -16,6 +17,7 @@ import 'support/fake_video_player_platform.dart';
 import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
 import 'support/recording_home_repository.dart';
+import 'support/recording_notification_repository.dart';
 import 'support/recording_pop_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
@@ -72,6 +74,7 @@ void main() {
   late RecordingFollowRepository sharedFollowRepository;
   late RecordingProfileRepository sharedProfileRepository;
   late RecordingSavedRepository sharedSavedRepository;
+  late RecordingNotificationRepository sharedNotificationRepository;
   late RecordingHomeRepository mixedFeedHomeRepository;
   late RecordingHomeRepository emptyHomeRepository;
   late RecordingHomeRepository searchTestHomeRepository;
@@ -92,6 +95,13 @@ void main() {
   late RecordingPopRepository popCommentTestPopRepository;
   late RecordingHomeRepository popCommentTestHomeRepository;
 
+  late RecordingNotificationRepository fewUnreadNotificationRepository;
+  late RecordingNotificationRepository manyUnreadNotificationRepository;
+  late RecordingNotificationRepository noUnreadNotificationRepository;
+  late RecordingHomeRepository badgeTestHomeRepository;
+  late RecordingDropRepository badgeTestDropRepository;
+  late RecordingPopRepository badgeTestPopRepository;
+
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
     SharedPreferences.setMockInitialValues({});
@@ -104,6 +114,7 @@ void main() {
       profile: const Profile(id: 'someone-else', username: 'namfah'),
     );
     sharedSavedRepository = RecordingSavedRepository();
+    sharedNotificationRepository = RecordingNotificationRepository();
     mixedFeedHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'd1'), _popItem(id: 'p1')],
     );
@@ -133,12 +144,20 @@ void main() {
     popCommentTestHomeRepository = RecordingHomeRepository(
       feedItems: [_popItem(id: 'p3')],
     );
+
+    fewUnreadNotificationRepository = RecordingNotificationRepository(unreadCount: 3);
+    manyUnreadNotificationRepository = RecordingNotificationRepository(unreadCount: 15);
+    noUnreadNotificationRepository = RecordingNotificationRepository(unreadCount: 0);
+    badgeTestHomeRepository = RecordingHomeRepository(feedItems: []);
+    badgeTestDropRepository = RecordingDropRepository();
+    badgeTestPopRepository = RecordingPopRepository();
   });
 
   Widget buildHome(
     RecordingHomeRepository homeRepository, {
     required RecordingDropRepository dropRepository,
     required RecordingPopRepository popRepository,
+    RecordingNotificationRepository? notificationRepository,
   }) =>
       MaterialApp(
         home: HomeFeedScreen(
@@ -148,6 +167,7 @@ void main() {
           followRepository: sharedFollowRepository,
           profileRepository: sharedProfileRepository,
           savedRepository: sharedSavedRepository,
+          notificationRepository: notificationRepository ?? sharedNotificationRepository,
         ),
       );
 
@@ -332,5 +352,61 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(SearchScreen), findsOneWidget);
+  });
+
+  testWidgets('shows the unread notification count as a badge on the '
+      'bell icon (WYN-012)', (tester) async {
+    await tester.pumpWidget(buildHome(
+      badgeTestHomeRepository,
+      dropRepository: badgeTestDropRepository,
+      popRepository: badgeTestPopRepository,
+      notificationRepository: fewUnreadNotificationRepository,
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('3'), findsOneWidget);
+  });
+
+  testWidgets('caps the notification badge at "9+" rather than showing the '
+      'exact count once it is in double digits (WYN-012)', (tester) async {
+    await tester.pumpWidget(buildHome(
+      badgeTestHomeRepository,
+      dropRepository: badgeTestDropRepository,
+      popRepository: badgeTestPopRepository,
+      notificationRepository: manyUnreadNotificationRepository,
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('9+'), findsOneWidget);
+    expect(find.text('15'), findsNothing);
+  });
+
+  testWidgets('hides the badge entirely when there are no unread '
+      'notifications (WYN-012)', (tester) async {
+    await tester.pumpWidget(buildHome(
+      badgeTestHomeRepository,
+      dropRepository: badgeTestDropRepository,
+      popRepository: badgeTestPopRepository,
+      notificationRepository: noUnreadNotificationRepository,
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('0'), findsNothing);
+  });
+
+  testWidgets('tapping the notification bell opens NotificationListScreen '
+      '(WYN-012)', (tester) async {
+    await tester.pumpWidget(buildHome(
+      badgeTestHomeRepository,
+      dropRepository: badgeTestDropRepository,
+      popRepository: badgeTestPopRepository,
+      notificationRepository: fewUnreadNotificationRepository,
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.notifications_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NotificationListScreen), findsOneWidget);
   });
 }

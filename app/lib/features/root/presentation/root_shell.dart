@@ -6,6 +6,7 @@ import '../../drop/presentation/drop_feed_screen.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../home/data/home_repository.dart';
 import '../../home/presentation/home_feed_screen.dart';
+import '../../notification/data/notification_repository.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../pop/presentation/pop_feed_screen.dart';
 import '../../profile/data/profile_repository.dart';
@@ -50,6 +51,7 @@ class _RootShellState extends State<RootShell> {
     final followRepository = FollowRepository(Supabase.instance.client);
     final profileRepository = ProfileRepository(Supabase.instance.client);
     final savedRepository = SavedRepository(Supabase.instance.client);
+    final notificationRepository = NotificationRepository(Supabase.instance.client);
 
     final tabs = [
       HomeFeedScreen(
@@ -59,6 +61,7 @@ class _RootShellState extends State<RootShell> {
         followRepository: followRepository,
         profileRepository: profileRepository,
         savedRepository: savedRepository,
+        notificationRepository: notificationRepository,
       ),
       DropFeedScreen(
         dropRepository: dropRepository,

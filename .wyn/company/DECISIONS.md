@@ -111,3 +111,21 @@
   2. **ไม่ลบตาราง `posts`/`likes`/`comments` ออกจาก schema เอง** เพราะเป็น "โครงสร้างฐานข้อมูลแบบทำลายล้าง" ที่ต้องขออนุมัติ Founder ก่อนเสมอตาม RULES.md — บันทึกคำขออนุมัติไว้ที่ `.wyn/company/APPROVALS.md` (สถานะ: รออนุมัติ) แทน ไม่ดำเนินการเองจนกว่า Founder จะตอบ
 - ผลกระทบ: `app/lib/features/feed/` จะถูกลบใน PR ของ WYN-007 Coding แต่ `supabase/schema.sql` ยังคงตาราง WYN-004 ไว้เหมือนเดิมจนกว่าจะมีคำตอบจาก Founder ที่ `.wyn/company/APPROVALS.md`
 - อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/backlog/WYN-007-home-feed.md`, `.wyn/company/APPROVALS.md`
+
+### [2026-08-14] ต้องรายงานความคืบหน้างานเป็นเปอร์เซ็นต์เป็นระยะ
+- บริบท: Founder ขอให้ระบบแจ้งความคืบหน้าของงานที่มอบหมายไปเป็นระยะ พร้อมบอกเป็นเปอร์เซ็นต์ ไม่ใช่รอจนงานเสร็จสมบูรณ์ค่อยแจ้งทีเดียว
+- คำตัดสินใจของ Founder: ทุก AI role ต้องรายงานความคืบหน้าเป็นเปอร์เซ็นต์เมื่อเสร็จ milestone ย่อยที่มีความหมาย (เช่น Product spec เสร็จ, Design เสร็จ, Coding เสร็จ, QA ผ่าน/ไม่ผ่าน) ไม่ใช่แค่ตอนเริ่มกับตอนจบงานทั้งก้อน
+- ผลกระทบ: บันทึกกติกาไว้ที่ `.wyn/company/RULES.md` (หัวข้อ "การรายงานความคืบหน้างาน") ทุก AI role ต้องปฏิบัติตามตั้งแต่นี้ไป
+- อ้างอิง (task/PR ถ้ามี): `.wyn/company/RULES.md`
+
+### [2026-08-14] ระงับการพัฒนาฟีเจอร์ Pop (คลิปสั้น) ไว้ก่อน — ไม่ใช่การยกเลิก
+- บริบท: Founder แจ้งให้ระงับการพัฒนาฟีเจอร์ Pop (WYN-006 และงานต่อยอดที่เกี่ยวข้อง) ไว้ก่อน เพื่อหันไปทำ WYN CLUB (ฟีเจอร์ Community/กลุ่ม) แทน
+- คำตัดสินใจของ Founder: **ระงับ (suspend) ไม่ใช่ยกเลิก (cancel)** — Pop ที่มีอยู่แล้ว (WYN-006, ผ่าน QA แล้ว) **ยังคงอยู่ในแอปตามปกติ** ไม่ต้องถอดออกจาก Bottom Navigation หรือปิดการใช้งาน สิ่งที่เปลี่ยนคือ **ไม่เริ่ม/ไม่ทำงานพัฒนาใหม่ที่เกี่ยวกับ Pop ต่อ** จนกว่าจะได้รับคำสั่งให้กลับมาทำต่อ
+- ผลกระทบ: หยุดพิจารณา task ที่เกี่ยวกับ Pop โดยตรงในรอบ roadmap ถัดไป (เช่น ปรับปรุง Pop เพิ่มเติม) จนกว่า Founder จะสั่งให้กลับมาทำต่อ — โค้ด/schema/route ของ Pop ที่มีอยู่แล้วไม่ถูกแตะต้อง
+- อ้างอิง (task/PR ถ้ามี): ไม่มี PR เกี่ยวข้อง (เป็นการหยุดงานอนาคต ไม่ใช่ rollback งานเดิม)
+
+### [2026-08-14] เพิ่มฟีเจอร์ใหม่ WYN CLUB (Community/กลุ่มความสนใจ) เข้า roadmap — ทำเฉพาะ Core System รอบแรก
+- บริบท: Founder ส่ง spec ฉบับเต็มสำหรับ "WYN CLUB" — พื้นที่ Community/กลุ่มตามความสนใจภายใน WYN (คล้าย Facebook Groups แต่ออกแบบ UI/UX เป็นเอกลักษณ์ของ WYN เอง) ครอบคลุม 19 หัวข้อ: สร้าง/เข้าร่วม Club, Club Page, โพสต์ใน Club, ระบบสมาชิก/Role (Owner/Admin/Moderator/Member), ระบบ Admin จัดการ Club, Pinned Post, กฎ Club, Discovery/Explore, Search integration, Notification integration, Profile integration, Home integration, และ data structure (Club/ClubMember/ClubPost) — Founder ระบุชัดว่า **ใน Version แรกทำเฉพาะ Core Club System ก่อน อย่าใส่ฟีเจอร์อนาคต** (Events/Marketplace/Live/Chat/Poll ฯลฯ) และห้ามเปลี่ยนโครงสร้างเดิมของ Home/Drop/Pop/Profile/Navigation ที่ทำไว้แล้ว
+- คำตัดสินใจของ Founder: เพิ่ม WYN CLUB เป็นฟีเจอร์ใหม่ในระบบ โดย **ไม่สร้าง Bottom Navigation tab ใหม่** — Club อยู่ภายในหน้า Home (คงโครงสร้าง Home | Drop | Pop | ZOKY | Profile เดิม) ทำเฉพาะ Core Club System ในรอบแรก
+- ผลกระทบ: AI Product Manager จะแบ่งขอบเขตเป็น task ใหม่ตาม pattern เดิมของ roadmap (Core system ก่อน แล้วค่อยทำ Discovery/Search/Notification/Home integration เป็น task ต่อยอดทีหลัง เหมือนที่ Drop/Pop ได้ Home+Search+Notification integration เป็นงานแยกทีหลัง) — งานนี้มาแทนที่/แซงคิว WYN-010 (Share formalization) ในลำดับความสำคัญของ roadmap แต่ไม่กระทบ WYN-012 (Notification) ที่กำลังทำอยู่ตอนนี้ ให้ทำ WYN-012 ให้เสร็จสมบูรณ์ (ผ่าน QA) ก่อนแล้วค่อยเริ่ม WYN CLUB
+- อ้างอิง (task/PR ถ้ามี): จะสร้าง `.wyn/tasks/backlog/WYN-014-club-core.md` เป็นต้นไปหลัง WYN-012 เสร็จ

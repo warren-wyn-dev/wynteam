@@ -15,3 +15,20 @@ String displayNameOrUsername({
     (displayName != null && displayName.isNotEmpty)
         ? displayName
         : '@$username';
+
+/// A Thai relative-time label ("เมื่อสักครู่" / "X นาทีที่แล้ว" / ... /
+/// a full date once it's a week old or more) -- introduced for WYN-012's
+/// notification list, where recency is the whole point of the screen
+/// (unlike Drop/Pop's own timestamps, which WYN-005 deliberately left as
+/// a non-blocking Minor since a post's age isn't central to viewing it).
+/// Takes [now] as a parameter (rather than reading DateTime.now()
+/// internally) so callers/tests can pass a fixed reference time instead
+/// of a real wall-clock value that would make assertions flaky.
+String relativeTimeLabel(DateTime dateTime, {required DateTime now}) {
+  final diff = now.difference(dateTime);
+  if (diff.inSeconds < 60) return 'เมื่อสักครู่';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} นาทีที่แล้ว';
+  if (diff.inHours < 24) return '${diff.inHours} ชั่วโมงที่แล้ว';
+  if (diff.inDays < 7) return '${diff.inDays} วันที่แล้ว';
+  return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+}

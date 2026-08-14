@@ -48,6 +48,16 @@ class RecordingPopRepository extends PopRepository {
     return feedPops.where((p) => p.authorId == authorId).toList();
   }
 
+  /// Looks [popId] up in [feedPops]; returns null if not present (mirrors
+  /// the real fetchById's "deleted content" null case).
+  @override
+  Future<Pop?> fetchById(String popId) async {
+    for (final pop in feedPops) {
+      if (pop.id == popId) return pop;
+    }
+    return null;
+  }
+
   /// Returned by [searchByCaption] for page 0 only, filtered by whether
   /// [feedPops] caption contains [query] (case insensitive) -- same
   /// "reuse feedPops as the fake dataset" approach as [fetchByAuthor].

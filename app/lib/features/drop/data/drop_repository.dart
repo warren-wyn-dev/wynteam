@@ -108,6 +108,31 @@ class DropRepository {
         .toList();
   }
 
+  /// Fetches a single Drop by id, with a fresh likedByMe/savedByMe for the
+  /// current user -- for opening a Drop referenced by a notification
+  /// (WYN-012), where only the id is known, not a full Drop object.
+  /// Returns null if the Drop no longer exists (e.g. deleted since the
+  /// notification was created).
+  Future<Drop?> fetchById(String dropId) async {
+    final userId = _client.auth.currentUser!.id;
+
+    final row = await _client
+        .from('drops')
+        .select('*, $_authorSelect, drop_likes(count), drop_comments(count)')
+        .eq('id', dropId)
+        .maybeSingle();
+    if (row == null) return null;
+
+    final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: [dropId]);
+    final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: [dropId]);
+
+    return Drop.fromMap(
+      row,
+      likedByMe: likedIds.contains(dropId),
+      savedByMe: savedIds.contains(dropId),
+    );
+  }
+
   Future<Set<String>> _fetchLikedDropIds({
     required String userId,
     required List<String> dropIds,
