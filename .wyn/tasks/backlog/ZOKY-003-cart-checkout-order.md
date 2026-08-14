@@ -1,7 +1,7 @@
 # Product Task — ZOKY-003
 
-Status: backlog
-Owner: AI Product Manager
+Status: review
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ)
 
 Feature: ZOKY Cart & Checkout & Order — เพิ่มสินค้าลงตะกร้า, สั่งซื้อ, ดูประวัติ/สถานะคำสั่งซื้อ
 
@@ -68,3 +68,11 @@ Recommendation:
 3. เน้น Coding ให้ทำ RPC ที่ atomic จริง (ตรวจ+หัก stock+สร้าง order หลายร้าน+snapshot ค่าธรรมเนียม ในธุรกรรมเดียว) เป็นจุดสำคัญที่สุดของ task นี้
 
 Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบ: (1) `ZokyCartScreen` (จัดกลุ่มตามร้าน, quantity stepper, ลบ, empty state) (2) Checkout flow (ฟอร์มที่อยู่ → สรุปยอดแยกต่อร้าน → ยืนยัน) (3) `ZokyOrderListScreen` (การ์ดสรุปพร้อม badge สถานะ) (4) `ZokyOrderDetailScreen` (รายการ/ที่อยู่/ยอดรวม/ปุ่มยกเลิก+ยืนยันรับสินค้าตามสถานะ) (5) Cart badge บน ZOKY Home icon — reuse component เดิมให้มากที่สุด (notification badge pattern จาก WYN-012, card/list pattern จาก Order history ที่ไม่เคยมีมาก่อนในโปรเจกต์นี้ให้ออกแบบใหม่โดยยึด design system เดิม) ใช้ Design system เดิม (Blue+White+Soft Gray, Rounded Cards, ห้าม Liquid Glass)
+
+---
+
+## Design Output (AI Design)
+
+เขียนเสร็จแล้วที่ `.wyn/docs/design/zoky-003-cart-checkout-order.md` — สรุป: Product Detail's ปุ่ม Add to Cart/ซื้อเลย เปลี่ยนจาก `_showComingSoon` เป็นเรียก `addToCart()` จริง (ซื้อเลย = เพิ่มลงตะกร้าแล้วพา push ไป Cart ทันที) — `ZokyCartScreen` ใหม่จัดกลุ่มตามร้าน มี `ZokyCartItemTile` ใหม่ (thumbnail 64px + quantity stepper 3 ส่วน `-`/ตัวเลข/`+` + ปุ่มลบแยกต่างหาก) — **Checkout แยก 2 หน้าจอ** (`ZokyCheckoutAddressScreen` กรอกที่อยู่ → `ZokyCheckoutSummaryScreen` สรุปยอดแยกต่อร้าน+ยืนยัน) แทนหน้าเดียวยาว เพื่อบังคับให้เห็นยอดเงินเต็มจอก่อนกดยืนยันเสมอ — ปุ่มยืนยันคำสั่งซื้อต้อง disable+โชว์ loading ทันทีที่กดป้องกันกดซ้ำ — `ZokyOrderListScreen`/`ZokyOrderDetailScreen` ใหม่ ใช้ `OrderSummaryCard` (มิเรอร์ `StoreResultCard`) และ order status badge widget ร่วมกัน (สี+icon+ข้อความคู่กันเสมอ ไม่ใช้สีอย่างเดียว: pending=เทา/hourglass, delivered=เขียว/check, cancelled=แดง/cancel) — ปุ่มยกเลิก/ยืนยันรับสินค้าใน Order Detail แสดงเฉพาะสถานะ pending เท่านั้นและต้องมี confirm dialog ก่อนเสมอ (มิเรอร์ `ConfirmDeleteDialog`) — Cart icon ใน ZOKY Home เพิ่ม badge จำนวนรายการ มิเรอร์โครง notification bell badge (WYN-012) เป๊ะ — เตือน Coding เรื่อง RPC ต้อง atomic จริง (single transaction ตรวจ+หัก stock) และค่าธรรมเนียม % ต้อง snapshot ไม่ query ค่า config สดตอนแสดงผล
+
+Handoff: ส่งต่อ AI Coding (`/code`)
