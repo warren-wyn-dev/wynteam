@@ -1,7 +1,7 @@
 # Product Task — WYN-004
 
-Status: bugs (QA รอบ 1 — FAIL)
-Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — FAIL) → AI Debug Engineer (ถัดไป)
+Status: qa (Debug เสร็จแล้ว รอ AI QA & Security ทดสอบรอบ 2)
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (FAIL รอบ 1) → AI Debug Engineer (เสร็จ) → AI QA & Security (ถัดไป)
 
 Feature: Feed & Post (with Like and Comment)
 
@@ -152,3 +152,45 @@ Recommendation: ส่งกลับ AI Debug Engineer แก้ #5 และ #
 - ควรมี regression test คุ้มครองทั้งสองจุด (เช่น `tester.tap()` สองครั้งติดกันโดยไม่ `pump()` คั่นกลาง แล้วตรวจว่า repository/state ไม่ถูกเรียกซ้ำ) เท่าที่ทำได้ในสถาปัตยกรรมปัจจุบัน — ถ้าทำไม่ได้เพราะ `PostRepository` ไม่มี interface ให้ mock ให้พิจารณาเพิ่ม abstraction บางเบา (เช่น extract เป็น `abstract class PostRepository` หรือรับ callback ที่ mock ได้) เป็นส่วนหนึ่งของการแก้บั๊กนี้
 
 Final Status: **FAIL**
+
+---
+
+## Debug Engineer Report (AI Debug Engineer)
+
+Bug: Major จาก QA รอบ 1 (ด้านบน) — กดปุ่ม Like หรือปุ่ม "โพสต์" ซ้ำเร็ว ๆ ก่อนหน้าจอ rebuild ทำให้เกิด duplicate network call ที่ใช้ state เดิมผิด ๆ ซ้ำกัน
+
+Reproduction: ยืนยันตรงกับที่ QA รายงาน — เทียบโค้ดทีละบรรทัด (ไม่ได้เดา) แล้วพิสูจน์ได้จริงด้วย automated test (ต่างจากตอน QA ที่ยังพิสูจน์แบบ dynamic ไม่ได้เพราะไม่มี live backend):
+- เขียน `RecordingPostRepository` (subclass ของ `PostRepository` ที่ override method ที่ยิง network ให้แค่บันทึกการเรียกแทน — ทำได้เพราะ method ของ `PostRepository` เป็น instance method ธรรมดา ไม่ใช่ `final`/`sealed` ไม่ต้องเพิ่ม interface ใหม่) เพื่อดักจับ argument จริงที่ถูกส่งเข้า `toggleLike`/`createPost`
+- เขียน `test/support/fake_supabase_session.dart` ให้ปลอม session ที่ login อยู่แบบ local-only (ไม่ยิง network จริง เพราะ `recoverSession` เช็คแค่ session หมดอายุหรือยัง) เพื่อให้ pump `FeedScreen` เต็มรูปแบบในการทดสอบได้ (ก่อนหน้านี้ไม่เคยมี test ไหน pump `FeedScreen` ได้เลยเพราะมันอ่าน `Supabase.instance.client.auth.currentUser` ตรง ๆ)
+- ยืนยันด้วย `test/feed_screen_test.dart`: เรียก like button's `onPressed` สองครั้งติดกันแบบ synchronous (จำลอง double-tap ก่อน rebuild ได้แม่นยำกว่าการเรียก `tester.tap()` สองครั้ง ซึ่งเป็น async และปล่อยให้ call แรกทำงานจบก่อน call ที่สองได้) — **ก่อนแก้**: ทั้งสอง call ส่ง `currentlyLiked: false` เหมือนกันทั้งคู่ (bug ตรงตามที่ QA คาดไว้ทุกประการ)
+- ยืนยันด้วย `test/create_post_screen_test.dart`: เรียกปุ่ม "โพสต์"'s `onPressed` สองครั้งติดกันแบบ synchronous — **ก่อนแก้**: `createPost` ถูกเรียก 2 ครั้งจริง
+
+Root Cause:
+1. `FeedScreen._toggleLike(Post post)` รับ `post` เป็น parameter ที่ถูก capture ไว้ตอน build ล่าสุด (จาก `onTapLike: () => _toggleLike(post)`) แล้วใช้ `post.likedByMe` ตัดสินใจ insert/delete — ไม่ได้อ่าน `_posts[index]` สดใหม่ในตัว method เอง ต่างจาก `PostDetailScreen._toggleLike()` ที่อ่าน `_post` (mutable field) สดใหม่ทุกครั้งที่ถูกเรียกอยู่แล้วซึ่งถูกต้อง
+2. `CreatePostScreen._post()` ไม่มี guard ใด ๆ กันการเรียกซ้ำ — พึ่งแค่ปุ่มถูก disable ผ่าน `_canPost` ซึ่งอัปเดตช้ากว่า 1 frame เสมอ (เพราะ `setState` แค่ schedule การ rebuild ไม่ได้ rebuild ทันที)
+
+Fix:
+1. `feed_screen.dart`: เปลี่ยน `_toggleLike(Post post)` เป็น `_toggleLike(String postId)` แล้วอ่าน `_posts[index]` สดใหม่ในตัว method (`final previous = _posts[index];`) ก่อนคำนวณ optimistic update และก่อนเรียก repository — mirror pattern เดียวกับ `PostDetailScreen._toggleLike()` ทุกจุด อัปเดต call site ให้ส่ง `post.id` (String, immutable) แทน `post` (mutable object) ทั้งหมด
+2. `create_post_screen.dart`: เพิ่ม `if (_isPosting) return;` เป็นบรรทัดแรกสุดของ `_post()` ก่อน `setState` ใด ๆ
+3. เพื่อให้เขียน regression test ได้จริง (ไม่ใช่แค่ code review เฉย ๆ) ปรับ `FeedScreen` ให้รับ `postRepository` ผ่าน constructor (`required this.postRepository`) แทนการสร้างเองภายในจาก `Supabase.instance.client` — mirror pattern เดียวกับที่ `CreatePostScreen`/`PostDetailScreen`/`ViewProfileScreen` ใช้อยู่แล้ว อัปเดต call site ที่เดียวใน `AuthGate`
+
+Files Changed:
+- `app/lib/features/feed/presentation/feed_screen.dart` (fix root cause #1 + constructor injection)
+- `app/lib/features/feed/presentation/create_post_screen.dart` (fix root cause #2)
+- `app/lib/features/auth/presentation/auth_gate.dart` (อัปเดต call site ให้ inject `PostRepository`)
+- `app/test/support/recording_post_repository.dart` (ใหม่ — test double สำหรับดักจับ argument ที่ส่งเข้า repository)
+- `app/test/support/fake_supabase_session.dart` (ใหม่ — ปลอม signed-in session แบบ local-only สำหรับ widget test ที่ต้องพึ่ง `Supabase.instance`)
+- `app/test/feed_screen_test.dart` (ใหม่ — regression test ของ root cause #1)
+- `app/test/create_post_screen_test.dart` (ใหม่ — regression test ของ root cause #2)
+- `app/pubspec.yaml` (ย้าย `shared_preferences` จาก transitive เป็น direct dev_dependency ตามที่ `flutter analyze` แจ้ง เพราะใช้ตรง ๆ ใน `fake_supabase_session.dart`)
+
+Tests:
+- `flutter analyze` (รันซ้ำอย่างอิสระ) — **No issues found**
+- `flutter test` (รันซ้ำอย่างอิสระ) — **All tests passed! (37/37)** เพิ่ม 2 เคสใหม่ที่พิสูจน์ทั้งสอง root cause ได้จริงแบบ dynamic (ไม่ใช่แค่ static code review เหมือนที่ QA ทำได้ในสถาปัตยกรรมเดิม)
+- **รอบนี้มี automated regression test คุ้มครอง fix จริงทั้งสองจุด** — ต่างจากตอน QA รายงานว่า "ยังไม่ได้ verify แบบ dynamic เพราะไม่มี live backend และ `PostRepository` mock ไม่ได้" เพราะแก้ด้วยการ subclass `PostRepository` (ไม่ใช่แก้สถาปัตยกรรมใหญ่) และปลอม Supabase session แบบ local-only แทน
+
+Regression Risk: ต่ำ — มี unit test ตรงจุดคุ้มครองไว้แล้วทั้งสองจุด ถ้ามีคนแก้ไฟล์ใดไฟล์หนึ่งอีกในอนาคตแล้วทำ regression กลับไปที่ pattern เดิม test จะ fail ทันที การเปลี่ยน `FeedScreen`'s constructor เป็น breaking change เล็ก ๆ แต่มี call site เดียว (`AuthGate`) อัปเดตครบแล้ว
+
+Handoff to QA: ส่งกลับ AI QA & Security (`/qa`) ทดสอบรอบ 2 — เน้นตรวจสอบว่า: (ก) กด Like ปกติ (ไม่ double-tap) ยังทำงานถูกต้องเหมือนเดิมทุกกรณี ทั้ง optimistic update และ rollback เมื่อ network ล้มเหลว (ข) กดปุ่ม "โพสต์" ปกติยังสร้างโพสต์ได้ตามปกติ ไม่ถูก guard ใหม่บล็อกผิดจังหวะ (ค) ไม่มี regression กับส่วนอื่นของ WYN-004 (Feed, Comment, Delete) หรือ WYN-002/WYN-003 จากการเปลี่ยน `FeedScreen`'s constructor signature
+
+Final Status: **แก้ไขแล้ว รอ QA รอบ 2 ยืนยัน**

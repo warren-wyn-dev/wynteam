@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../feed/data/post_repository.dart';
 import '../../feed/presentation/feed_screen.dart';
 import '../data/auth_repository.dart';
 import 'username_setup_screen.dart';
@@ -67,7 +68,9 @@ class _AuthGateState extends State<AuthGate> {
               return const _LoadingScreen();
             }
             if (usernameSnapshot.data == true) {
-              return const FeedScreen();
+              return FeedScreen(
+                postRepository: PostRepository(Supabase.instance.client),
+              );
             }
             return UsernameSetupScreen(
               authRepository: _authRepository,
