@@ -29,12 +29,12 @@ class _AuthGateState extends State<AuthGate> {
   void initState() {
     super.initState();
     // Every other screen in the app (auth flow screens, ViewProfileScreen,
-    // CreatePostScreen, PostDetailScreen, ...) is pushed with
+    // CreateDropScreen, DropDetailScreen, ...) is pushed with
     // Navigator.push on top of this route. Whenever the session actually
     // starts or ends -- from the OTP screen, an OAuth deep-link callback,
     // or a logout button buried in a pushed screen like
     // ViewProfileScreen -- pop back to this route so the user sees what
-    // AuthGate now renders (UsernameSetupScreen/FeedScreen on sign-in,
+    // AuthGate now renders (UsernameSetupScreen/RootShell on sign-in,
     // WelcomeScreen on sign-out) instead of staying stuck on the screen
     // that triggered the change. See .wyn/learning/MISTAKES.md.
     _authSubscription = _authRepository.authStateChanges.listen((state) {

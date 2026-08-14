@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../../pop/presentation/widgets/pop_clip_view.dart' show popShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 
@@ -28,6 +30,12 @@ class HomePopCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onToggleLike;
   final VoidCallback onToggleSave;
+
+  Future<void> _share() async {
+    await SharePlus.instance.share(
+      ShareParams(text: popShareLink(item.id)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -126,10 +134,23 @@ class HomePopCard extends StatelessWidget {
                     ),
                     Text('${item.likeCount}'),
                     const SizedBox(width: 8),
-                    const Icon(Icons.mode_comment_outlined, size: 20),
-                    const SizedBox(width: 4),
+                    Semantics(
+                      label: 'ดูคอมเมนต์',
+                      excludeSemantics: true,
+                      child: IconButton(
+                        icon: const Icon(Icons.mode_comment_outlined, size: 20),
+                        onPressed: onTap,
+                      ),
+                    ),
                     Text('${item.commentCount}'),
-                    const SizedBox(width: 8),
+                    Semantics(
+                      label: 'แชร์',
+                      excludeSemantics: true,
+                      child: IconButton(
+                        icon: const Icon(Icons.share_outlined, size: 20),
+                        onPressed: _share,
+                      ),
+                    ),
                     const Icon(Icons.visibility_outlined, size: 18),
                     const SizedBox(width: 4),
                     Text('${item.viewCount}'),

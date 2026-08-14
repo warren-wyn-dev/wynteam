@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../../drop/presentation/drop_detail_screen.dart' show dropShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 
@@ -19,6 +21,12 @@ class HomeDropCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onToggleLike;
   final VoidCallback onToggleSave;
+
+  Future<void> _share() async {
+    await SharePlus.instance.share(
+      ShareParams(text: dropShareLink(item.id)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,9 +85,23 @@ class HomeDropCard extends StatelessWidget {
                     ),
                     Text('${item.likeCount}'),
                     const SizedBox(width: 8),
-                    const Icon(Icons.mode_comment_outlined, size: 20),
-                    const SizedBox(width: 4),
+                    Semantics(
+                      label: 'ดูคอมเมนต์',
+                      excludeSemantics: true,
+                      child: IconButton(
+                        icon: const Icon(Icons.mode_comment_outlined, size: 20),
+                        onPressed: onTap,
+                      ),
+                    ),
                     Text('${item.commentCount}'),
+                    Semantics(
+                      label: 'แชร์',
+                      excludeSemantics: true,
+                      child: IconButton(
+                        icon: const Icon(Icons.share_outlined, size: 20),
+                        onPressed: _share,
+                      ),
+                    ),
                     const Spacer(),
                     Semantics(
                       label: item.savedByMe

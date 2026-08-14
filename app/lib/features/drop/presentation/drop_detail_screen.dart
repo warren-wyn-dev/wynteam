@@ -13,7 +13,7 @@ import 'widgets/confirm_delete_drop_dialog.dart';
 /// Placeholder share link -- there's no real hosting/domain yet (see
 /// .wyn/tasks/active/WYN-005-drop-post-image.md Risks). Not a reachable
 /// URL; revisit once Founder confirms a real domain before Deploy.
-String _dropShareLink(String dropId) => 'https://wyn.app/drop/$dropId';
+String dropShareLink(String dropId) => 'https://wyn.app/drop/$dropId';
 
 /// Screen 3 — Drop Detail (Comments).
 /// See .wyn/docs/design/wyn-005-drop.md
@@ -146,14 +146,14 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   Future<void> _share() async {
     await SharePlus.instance.share(
       ShareParams(
-        text: _dropShareLink(_drop.id),
+        text: dropShareLink(_drop.id),
         title: 'Drop บน WYN',
       ),
     );
   }
 
   Future<void> _copyLink() async {
-    await Clipboard.setData(ClipboardData(text: _dropShareLink(_drop.id)));
+    await Clipboard.setData(ClipboardData(text: dropShareLink(_drop.id)));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('คัดลอกลิงก์แล้ว')),
