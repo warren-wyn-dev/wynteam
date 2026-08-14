@@ -1,7 +1,7 @@
 # Product Task — WYN-015
 
-Status: review (รอ QA)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (รอ)
+Status: approved (QA รอบ 1 — PASS)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS)
 
 Feature: Club Discovery & Integration (Explore Clubs, Search integration, Notification integration, Profile "My Clubs", Home "For You"/"From Your Clubs")
 
@@ -123,3 +123,61 @@ Known Issues:
 - `club_announcement`/`club_mention`/"new post from followed club" notification ไม่ทำรอบนี้ตามที่ Product ตัดสินใจ
 
 Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ WYN-015 ก่อนอนุมัติ — เน้นตรวจเป็นพิเศษ: (ก) `notify_club_join_request` trigger fan-out insert ถูกต้องจริง (ทุก Owner/Admin approved ได้ notification ครบ ไม่ขาดไม่เกิน ไม่ insert ให้ pending/banned member) (ข) self-notification guard ของทั้ง 4 ประเภทใหม่ (ค) `fetchFromJoinedClubs` ไม่ query ข้าม RLS ได้จริง (ง) `ViewProfileScreen`'s optional Club repository ไม่รั่ว section ไปแสดงผิดที่ (จ) regression กับ Drop/Pop/Home/Follow/Profile/Search/Notification/Club Core (WYN-014) เดิมทั้งหมด (ฉ) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัด
+
+---
+
+## QA & Security Report — รอบ 1 (AI QA & Security)
+
+**ผลสรุป: PASS**
+
+### สิ่งที่ตรวจอิสระ (ไม่เชื่อตัวเลขจาก Coding Output เฉยๆ)
+
+1. **Re-sync ไป merged main เอง** — `git fetch origin main`, rebuild branch `claude/pwd-nxsvf5` บน `origin/main` (commit `4dcf3f1`, PR #67) ใหม่ทั้งหมด แทนที่จะเชื่อ working tree เดิม
+2. **รัน `flutter analyze` อิสระ**: No issues found
+3. **รัน `flutter test` อิสระ**: 162/162 ผ่านทั้งหมด — ตรงกับตัวเลขที่ Coding รายงาน ยืนยันด้วยตัวเองแล้ว
+
+### ตรวจ SQL Trigger ใหม่ 4 ตัว (อ่าน logic เองทีละบรรทัด ไม่เชื่อคำอธิบายใน Coding Output)
+
+- **`notify_club_join_request` (fan-out)**: อ่าน `insert...select` ยืนยันว่า `where cm.club_id = new.club_id and cm.role in ('owner','admin') and cm.status = 'approved' and cm.user_id <> new.user_id` ถูกต้องครบทุกเงื่อนไข — ไม่ insert ให้ pending/banned member (กรองด้วย `status = 'approved'`), ไม่ fan-out ข้าม club (กรองด้วย `club_id = new.club_id`), กัน self-notify (แม้จะเป็นไปไม่ได้จริงเพราะ requester ยังไม่มี approved row) เพื่อ defense-in-depth
+- **Trigger นี้ยิงเฉพาะคำขอ Private club จริง**: ตรวจ `WHEN (new.status = 'pending')` ประกอบกับ RLS insert policy ของ `club_members` (`"Users can request or join clubs as themselves"`) ที่ cross-check `status` กับ `privacy` ของ club จริง (`status='pending'` insert ได้เฉพาะเมื่อ club นั้น `privacy='private'` เท่านั้น) — ยืนยันว่า client ไม่มีทางแอบ insert แถว `pending` ให้ public club เพื่อ spam fan-out notification ปลอมได้
+- **`notify_club_join_approved` ใช้ `auth.uid()` ถูกต้องจริง**: ตรวจ `approve_club_member()` RPC พบว่า UPDATE statement จริง (`update club_members set status='approved' where ... and status='pending'`) เป็นตัวที่ทำให้ trigger `AFTER UPDATE WHEN (old.status='pending' AND new.status='approved')` ยิง — `new.user_id` คือผู้ขอ (recipient ถูกต้อง), `auth.uid()` คือผู้เรียก RPC (ผู้อนุมัติ, actor ถูกต้อง) เพราะ `auth.uid()` อ่านจาก request-scoped JWT claims ที่ไม่เปลี่ยนแม้ role ที่ execute จะเปลี่ยนจาก security definer — ตรวจเพิ่มว่าไม่มีทางที่ requester จะ approve ตัวเองได้ เพราะ `approve_club_member` เช็ค `coalesce(club_role(...),'') not in ('owner','admin')` ก่อน และ pending requester ไม่มี approved role แถวใน `club_members` จึง `club_role()` คืน NULL เสมอ — ปลอดภัย
+- **`notify_club_post_like`/`notify_club_post_comment`**: ตรวจ column name จริงในตาราง `club_posts`/`club_post_likes`/`club_post_comments` (author_id/club_id, user_id, author_id ตามลำดับ) ตรงกับที่ trigger ใช้ทุกจุด self-notification guard (`v_author_id <> new.user_id` / `<> new.author_id`) ถูกทิศเหมือน WYN-012 ทุกประการ
+- **RLS ของ `notifications`**: อ่านยืนยันว่า column ใหม่ (`club_id`/`club_post_id`) ไม่ได้เปิด insert/delete policy ใหม่ใดๆ ให้ client — ยังมีแค่ select (`recipient_id = auth.uid()`) กับ update-mark-read (`recipient_id = auth.uid()`) เหมือนเดิมทุกประการ การเขียนแถวใหม่ทำได้ทางเดียวคือผ่าน security-definer trigger เท่านั้น
+
+### ตรวจ `fetchFromJoinedClubs` ไม่รั่ว RLS
+
+อ่าน RLS select policy ของ `club_posts` (`"Approved club members can view club posts"`, `using (club_role(club_id, auth.uid()) is not null)`) และ `club_role()` (`select role from club_members where ... and status='approved'`, คืน NULL ถ้าไม่ approved) ประกอบกับโค้ด `ClubPostRepository.fetchFromJoinedClubs` ที่ query ผ่าน client ปกติ (ไม่ใช่ service-role bypass) โดยไม่ระบุ `club_id` เลย — ยืนยันว่า Postgres จะกรองให้อัตโนมัติเหลือเฉพาะแถวที่ auth.uid() มี approved membership เท่านั้น ไม่มีทางเห็นโพสต์จาก club ที่ไม่ได้ join
+
+### ตรวจ `ViewProfileScreen` optional repository ไม่รั่ว section
+
+ตรวจ call site ทั้ง 8 จุดที่เรียก `ViewProfileScreen(...)`: มีแค่ `root_shell.dart` (Bottom Nav tab, `userId: Supabase.instance.client.auth.currentUser!.id` เสมอ) เท่านั้นที่ส่ง `clubRepository`/`clubPostRepository` เข้าไป — อีก 6 จุด (`pop_clip_view.dart`, `notification_list_screen.dart`, `search_user_results_tab.dart`, `follow_list_screen.dart`, `home_feed_screen.dart`, `drop_detail_screen.dart`) ไม่ส่งเลย นอกจากนี้โค้ดยังมี double-gate ในตัว: `_isOwnProfile` เปรียบเทียบ `widget.userId == currentUser.id` ตรงๆ ไม่ได้พึ่งพา caller ส่ง flag พิเศษ และ `_myClubsFuture` จะถูก populate ก็ต่อเมื่อ `_isOwnProfile && clubRepository != null` ทั้งคู่ — แม้จุดเรียกอื่นจะถูกแก้ในอนาคตให้ส่ง repository เข้ามาโดยไม่ตั้งใจ section ก็จะไม่โผล่นอกจาก `userId` ที่ส่งเข้ามาตรงกับผู้ใช้ปัจจุบันจริงๆ — ปลอดภัยด้วย design ไม่ใช่แค่ด้วยวินัยของผู้เรียก
+
+### ไล่ Requirements/Design Components/Acceptance Criteria ทีละบรรทัด
+
+ไล่ครบทั้ง 3 หัวข้อเทียบกับโค้ดจริง (`explore_clubs_screen.dart`, `club_discovery_card.dart`, `search_club_results_tab.dart`, `search_screen.dart`, `notification_list_screen.dart`, `view_profile_screen.dart`, `home_feed_screen.dart`, `from_your_clubs_feed.dart`) — ตรงตาม spec ครบทุกข้อ ยกเว้น 1 จุด (ดู Finding ด้านล่าง) ที่ AC ไม่ได้เขียนตรวจไว้ชัดแต่ Design ระบุ component ไว้
+
+**AC ทุกข้อผ่าน**: Explore Clubs แยก Popular/New ถูกต้อง ไม่มี club ที่ join แล้วปน (`_fetchDiscoverableClubs` filter `joinedIds`) / Category filter ทำงานถูกต้อง (`clubCategories` shared const เดียวกับ `CreateClubScreen`) / แตะการ์ดเปิด `ClubPage` ถูกต้องทั้ง Explore และ Search / Search Club ilike name case-insensitive ถูกต้อง / notification 4 ประเภทใหม่ครบตามข้อความ+ปลายทางที่ Design กำหนดเป๊ะ / self-notification guard ยืนยันแล้วที่ trigger level / "My Clubs" section แสดงเฉพาะ own profile ยืนยันแล้ว / Home toggle เริ่มที่ "สำหรับคุณ" เสมอ ตำแหน่งถูกต้อง (ClubSection → toggle → feed) / "จาก Club ของคุณ" กรองผ่าน RLS เรียงเวลาถูกต้อง (`order('created_at', ascending: false)`) / regression เดิมทั้งหมดผ่าน 162/162
+
+### Finding — Minor (ไม่ block)
+
+**`FromYourClubsFeed`'s empty state ขาดปุ่ม "สำรวจ Club" ตามที่ Design spec Screen 5 ระบุไว้ชัดเจน**: Design เขียนไว้ว่า empty state ต้องมี "ปุ่ม 'สำรวจ Club' ให้ไปหน้า [Explore Clubs] แทน" แต่โค้ดจริงใน `from_your_clubs_feed.dart` (บรรทัด ~218-224) แสดงแค่ข้อความ "เข้าร่วม Club เพื่อดูโพสต์ที่นี่" เฉยๆ ไม่มีปุ่มนำทางเลย — เป็นการข้าม component ที่ spec ระบุไว้ตรงๆ ไม่ใช่แค่ตีความต่าง (คล้าย pattern ที่เคยเกิดกับ WYN-007's missing Share button)
+
+เหตุผลที่ไม่ block: (1) ไม่มี AC บรรทัดไหนใน Product spec ทดสอบปุ่มนี้ตรงๆ (2) `ClubSection` ที่มีปุ่ม "สำรวจ Club" อยู่แล้วยังคงแสดงอยู่เหนือ toggle เสมอไม่ว่าจะอยู่โหมดไหน (ดู `home_feed_screen.dart` บรรทัด 330-334 — `ClubSection` มาก่อน `_buildFeedModeToggle()` เสมอ ไม่ได้ถูกซ่อนเมื่อสลับไป "จาก Club ของคุณ") ผู้ใช้จึงไม่ได้ตันจริง แค่ต้องเลื่อนขึ้นไปกดปุ่มที่มีอยู่แล้วแทนที่จะกดในข้อความ empty state โดยตรง (3) ไม่มีผลกระทบด้าน security/data-integrity
+
+**คำแนะนำ**: เพิ่มปุ่ม "สำรวจ Club" ใน empty state ของ `FromYourClubsFeed` ให้ตรงตาม Design spec ในรอบถัดไป (เช่น WYN-016 หรือ debug ticket เล็กๆ) — ไม่จำเป็นต้องหยุด WYN-015 QA เพื่อรอแก้จุดนี้
+
+### Red→Green Regression Proof อิสระ (จุดที่ต่างจาก Coding เอง)
+
+Coding ทำ proof ที่ `notify_club_join_request`'s `initialTabIndex` (notification navigation) — QA เลือกทำ proof คนละจุด: **empty-state ของ "จาก Club ของคุณ"**
+1. แก้ `from_your_clubs_feed.dart` เปลี่ยนเงื่อนไข `if (_posts.isEmpty)` เป็น `if (false)` ชั่วคราว จำลองบั๊กที่ empty-state message หายไป
+2. รัน `flutter test test/home_feed_screen_test.dart --plain-name "shows a join-prompt message"` → **FAIL จริง**: `Expected: exactly one matching candidate / Actual: _TextWidgetFinder:<Found 0 widgets...>`
+3. Revert กลับเป็น `if (_posts.isEmpty)` เดิม
+4. รัน `flutter analyze`/`flutter test` เต็มอีกครั้ง → สะอาด, 162/162 ผ่านทั้งหมด (ยืนยันว่า revert สมบูรณ์ ไม่มีของเหลือค้าง)
+
+### Regression กับฟีเจอร์เดิมทั้งหมด
+
+162/162 tests ครอบคลุม Drop (WYN-002/003)/Pop (WYN-006)/Home (WYN-007)/Follow (WYN-008)/Search (WYN-009)/Profile (WYN-013)/Notification (WYN-012)/Club Core (WYN-014) เดิมทั้งหมดผ่านหมด ไม่มี regression
+
+### สรุป
+
+WYN-015 ผ่าน QA รอบ 1 — **PASS** พบ 1 finding ระดับ Minor (ไม่ block ตามเหตุผลข้างต้น) อนุมัติเข้า `approved/`
