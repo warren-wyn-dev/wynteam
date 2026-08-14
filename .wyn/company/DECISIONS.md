@@ -97,3 +97,9 @@
   4. **Home Feed (WYN-007) เป็น Global ก่อน** (เห็นโพสต์ของทุกคน เหมือน WYN-004 เดิม) ยังไม่กรองตาม Follow จนกว่าจะมีการตัดสินใจเพิ่มเติมในอนาคต
 - ผลกระทบ: อัปเดตขอบเขตใน `.wyn/tasks/backlog/WYN-005-drop-post-image.md` และ `.wyn/docs/product/wyn-v0.1-roadmap.md` ให้ตรงกับคำตัดสินใจนี้ แล้วส่งต่อ AI Design (`/design`) เพื่อออกแบบหน้าจอของ WYN-005
 - อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/backlog/WYN-005-drop-post-image.md`, `.wyn/docs/product/wyn-v0.1-roadmap.md`
+
+### [2026-08-14] อนุญาตให้ทีม AI ทำงานต่อเนื่องอัตโนมัติตาม roadmap โดยไม่ต้องหยุดถามทีละ task
+- บริบท: Founder จะเข้านอน ขอให้ทีม AI ทำงานต่อเนื่องได้เองโดยไม่ต้องรอถามทุกขั้นตอน ถามยืนยันขอบเขตผ่าน popup ก่อนว่าจะทำแค่ WYN-005 ให้เสร็จแล้วหยุด หรือทำต่อเนื่องทั้ง roadmap
+- คำตัดสินใจของ Founder: **ทำงานต่อเนื่องตาม roadmap ทั้งหมดโดยอัตโนมัติ** — เริ่มจาก merge PR #28 → QA WYN-005 → เข้า Debug ถ้า FAIL จนกว่าจะ PASS → ต่อด้วย WYN-006 (Pop) และ task ถัดไปตามลำดับใน `.wyn/docs/product/wyn-v0.1-roadmap.md` โดยไม่ต้องหยุดขอ AskUserQuestion ทีละขั้นตอนอีก **จนกว่า Founder จะกลับมา**
+- ผลกระทบ: กติกาถาวรอื่น ๆ ยังใช้อยู่เหมือนเดิม (ห้าม force-push ที่เป็นอันตราย, ห้ามเปลี่ยน Major Architecture/Vision/Security โดยไม่ขออนุมัติ, ต้องบันทึกทุกอย่างลง PR/DECISIONS.md/CONTEXT.md ให้ตรวจย้อนหลังได้) — สิ่งที่เปลี่ยนคือ **ไม่ต้องรอ Founder ตอบ popup ก่อน merge PR/เริ่ม task ถัดไปในช่วงนี้** จนกว่าจะมีคำสั่งเปลี่ยนแปลงจาก Founder หรือเจอสถานการณ์ที่ต้องขออนุมัติตาม RULES.md จริง ๆ (เช่น ต้องเปลี่ยน Vision/Business Model/Security Architecture) ซึ่งกรณีนั้นยังต้องหยุดรอ Founder เหมือนเดิม
+- อ้างอิง (task/PR ถ้ามี): PR #28 เป็นต้นไป

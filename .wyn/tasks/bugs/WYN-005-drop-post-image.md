@@ -1,7 +1,7 @@
 # Product Task — WYN-005
 
-Status: review (AI Coding เสร็จแล้ว รอส่งต่อ AI QA & Security)
-Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
+Status: bugs (QA รอบ 1 — FAIL)
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — FAIL) → AI Debug Engineer (ถัดไป)
 
 Feature: Drop (โพสต์รูปภาพ)
 
@@ -97,3 +97,58 @@ Known Issues:
 - `FeedScreen`/`PostRepository`/`PostCard` ของ WYN-004 (Feed & Post แบบรวม) **ยังไม่ถูกลบออกจากโค้ด** แม้จะไม่มี route ไหนชี้ไปแล้ว (ถูกแทนที่ด้วย `RootShell`) — Coding ตัดสินใจไม่ลบเพราะ "ลบ feature ที่ผ่าน QA แล้ว" เป็นการตัดสินใจที่ใหญ่กว่าขอบเขตงาน "implement WYN-005" เสนอให้ Founder/Product ตัดสินใจว่าจะลบทิ้งหรือ repurpose โค้ดบางส่วนไปใช้ตอนทำ WYN-007 (Home) ทีหลัง
 
 Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ WYN-005 ก่อนอนุมัติ deploy — เน้นตรวจ RLS ของ `saves` (select ต้องเป็นส่วนตัวจริง), การรวม header+comment list ของ Drop Detail, และ regression กับ WYN-002/003/004 จากการเปลี่ยน `AuthGate`/`confirm_delete_dialog.dart`
+
+---
+
+## QA & Security Report — รอบ 1 (AI QA & Security)
+
+Feature: WYN-005 — Drop (โพสต์รูปภาพ)
+
+Environment: Code review + static analysis บน `main` หลัง merge PR #28 (Flutter SDK 3.47.0 stable) — เงื่อนไขเดียวกับ WYN-002/003/004 (ไม่มี Supabase project จริง, ไม่มี Android SDK/Xcode)
+
+Test Cases:
+1. `flutter analyze` ซ้ำอย่างอิสระ
+2. `flutter test` ซ้ำอย่างอิสระ
+3. **เทียบ Requirements ของ Product spec + Component list ของ Design spec กับโค้ดจริงทีละบรรทัด ไม่ใช่แค่เชื่อ Coding Output** (บทเรียนจาก WYN-002/003/004: QA ต้องไล่ trace เอง)
+4. RLS ของ `drops`/`drop_likes`/`drop_comments`/`saves` เทียบกับ Acceptance Criteria (โดยเฉพาะ `saves` ต้อง select เป็นส่วนตัว)
+5. Double-tap safety ของ Like/Save/Share ปุ่มต่าง ๆ (สืบเนื่องจากบั๊ก Major ที่เจอใน WYN-004 QA รอบ 1)
+6. Layout: `DropDetailScreen` รวม header+comment list เป็น scrollable เดียวจริงหรือไม่ (สืบเนื่องจากบั๊กที่เจอใน WYN-004)
+7. `square_crop.dart` ความถูกต้องของการ crop (landscape/portrait/square)
+8. Regression WYN-002/003/004 จากการเปลี่ยน `AuthGate`, `confirm_delete_dialog.dart`, `main.dart` (สี)
+9. Secret/credential exposure check ในโค้ดใหม่ทั้งหมด
+
+Passed: 8/9 (#1, #2, #4, #5, #6, #7, #8, #9)
+
+Failed: 1/9 (#3)
+
+Severity: **Major**
+
+### Failed Case #3 — Major: ไม่มีปุ่ม "Like Comment" เลย ทั้งที่ Product spec และ Design spec ระบุไว้ชัดเจน
+
+Reproduction (เทียบเอกสารกับโค้ดจริง ไม่ใช่เดา):
+1. Product spec (`.wyn/tasks/review/WYN-005-drop-post-image.md` หัวข้อ Requirements) ระบุไว้ตรง ๆ: **"Comment: เพิ่ม Comment ได้, ลบ Comment ของตัวเองได้, Like Comment ได้"**
+2. Design spec (`.wyn/docs/design/wyn-005-drop.md` Screen 3: Drop Detail, หัวข้อ Components) ระบุไว้ตรง ๆ เช่นกัน: **"รายการ Comment (avatar เล็ก + ชื่อ + ข้อความ + เวลา + ปุ่ม Like เล็ก ๆ ข้างคอมเมนต์)"**
+3. อ่านโค้ดจริงที่ `app/lib/features/drop/presentation/drop_detail_screen.dart` (comment list rendering, บรรทัดประมาณ 296-320): แต่ละคอมเมนต์แสดงแค่ `AvatarCircle` + ชื่อ + ข้อความ เท่านั้น **ไม่มีปุ่ม Like ติดอยู่กับคอมเมนต์เลยแม้แต่จุดเดียว**
+4. ตรวจ `supabase/schema.sql` (WYN-005 section) ยืนยันว่าไม่มีตาราง `drop_comment_likes` หรือเทียบเท่าเลย — ยืนยันว่าไม่ใช่แค่ UI ที่ขาด แต่เป็น feature ที่ขาดทั้งระบบตั้งแต่ schema
+5. ตรวจ `grep -rn "CommentLike\|comment_like\|likeComment"` ทั่วทั้ง `app/lib/features/drop/` และ `supabase/schema.sql` — ไม่พบแม้แต่ร่องรอยเดียว
+6. ตรวจ Coding Output ของ WYN-005 (หัวข้อ Known Issues) — **ไม่ได้ระบุว่า "Like Comment" ถูกตัดออกจาก scope โดยตั้งใจ** ต่างจาก hashtag/mention click-through ที่ระบุชัดว่าตัดออกตามที่ Founder ยืนยันแล้ว แสดงว่านี่คือ oversight ไม่ใช่การตัดขอบเขตที่ตั้งใจ
+
+Expected: ผู้ใช้กดปุ่ม Like เล็ก ๆ ข้างคอมเมนต์แต่ละอันได้ ตามที่ทั้ง Product และ Design ระบุไว้ตรงกัน
+
+Actual: ไม่มีปุ่ม Like ให้กดที่คอมเมนต์เลยแม้แต่จุดเดียว — เป็นฟีเจอร์ที่ระบุไว้ชัดเจนในสองเอกสารแต่หายไปทั้งระบบ (ไม่มีทั้ง UI, repository method, และตาราง DB)
+
+Security Findings:
+- ไม่พบ secret/credential hardcode ในโค้ดใหม่ทั้งหมด
+- RLS ของ `drops`/`drop_likes`/`drop_comments` ตรวจแล้วถูกต้องตาม pattern ของ WYN-004 ทุกประการ — `saves` ตรวจแล้วว่า select ถูกจำกัดเฉพาะ `auth.uid() = user_id` จริง (ไม่ใช่ select-all-authenticated แบบตารางอื่น) ตรงตามที่ Coding Output ระบุว่าตั้งใจให้เป็นส่วนตัว
+- **[Low] `CreateDropScreen._pickImage`**: guard การกดเลือกรูปซ้ำเช็คแค่ `_isSharing` ไม่ได้เช็ค `_isCropping` ด้วย — เปิดช่องแคบ ๆ ให้ผู้ใช้เปิด picker ซ้ำระหว่างที่ยัง crop รูปแรกไม่เสร็จ (ต่างจาก native picker เองที่บล็อกอยู่แล้วระหว่างเปิดกล้อง/คลังภาพ ช่องโหว่มีแค่ช่วง crop สั้น ๆ) ผลกระทบแค่ UI แสดงรูปผิดขณะ race กัน ไม่มีการเขียนข้อมูลซ้ำหรือ data corruption เพราะยังไม่ได้กด "แชร์" — ไม่ block การอนุมัติแต่แนะนำให้แก้พร้อมกับรอบนี้เพราะแก้ง่าย (เพิ่ม `_isCropping` เข้า guard เดียวกับ `_isSharing`)
+- **[Low] `centerCropToSquare` ไม่มี try/catch ครอบใน `_pickImage`**: ถ้ารูปเสียหาย/format แปลก ๆ จน decode ไม่ได้ จะเป็น unhandled exception เงียบ ๆ (ผู้ใช้ไม่เห็น error, แค่รูปไม่ถูกเลือก) — เป็น pattern เดิมที่มีอยู่แล้วในการเลือกรูปของ WYN-003/004 (ไม่ใช่ regression ใหม่) ระบุไว้เผื่อแก้พร้อมกันทั้งระบบในโอกาสถัดไป
+
+Recommendation: ส่งกลับ AI Debug Engineer เพิ่มฟีเจอร์ "Like Comment" ให้ครบ (Major) — แนวทางที่แนะนำ:
+- เพิ่มตาราง `drop_comment_likes` ใน `supabase/schema.sql` (pattern เดียวกับ `drop_likes` ทุกประการ: `comment_id` + `user_id` composite PK, RLS select-all-authenticated, insert/delete เฉพาะของตัวเอง)
+- เพิ่ม `likeCount`/`likedByMe` ใน `DropComment` model + `toggledLike()` helper (mirror `Drop`/`Post` ที่มีอยู่แล้ว)
+- เพิ่ม `toggleCommentLike`/`fetchLikedCommentIds` ใน `DropRepository`
+- เพิ่มปุ่ม Like เล็ก ๆ ข้างคอมเมนต์ใน `DropDetailScreen` — **ต้องอ่าน state สดใหม่ในตัว handler เสมอ ไม่ capture ค่าตอน build** (ใช้ pattern เดียวกับที่ `DropDetailScreen._toggleLike`/`_toggleSave` ทำถูกอยู่แล้วสำหรับตัว Drop เอง หรือ pattern ของ `FeedScreen._toggleLike` ที่แก้บั๊กแล้วใน WYN-004 — ห้ามพลาดซ้ำรอบที่ 3)
+- ถือโอกาสแก้ [Low] สองจุดข้างต้นพร้อมกัน (`_isCropping` เข้า guard, try/catch รอบ `centerCropToSquare`) เพราะแก้ง่ายและอยู่ในไฟล์เดียวกันที่กำลังแก้อยู่แล้ว
+- เพิ่ม regression test คุ้มครองปุ่ม Like Comment ใหม่ (โดยเฉพาะ double-tap safety) ตาม pattern ที่มีอยู่แล้วใน `app/test/support/`
+
+Final Status: **FAIL**
