@@ -1,7 +1,7 @@
 # Product Task — ZOKY-002
 
-Status: backlog
-Owner: AI Product Manager
+Status: active (Design เสร็จแล้ว รอ Coding)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (รอ)
 
 Feature: ZOKY Search & Filter — ค้นหา Product/Store ด้วยชื่อ, กรองตาม Category/ช่วงราคา, เรียงลำดับผลลัพธ์
 
@@ -50,3 +50,11 @@ Recommendation:
 3. **ทำแค่ Newest/Price sort + Category/Price filter รอบนี้** ตัด Rating/Sales/Recommended ออกตามเหตุผลใน Risks
 
 Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบ: (1) `ZokySearchScreen` layout (query box + TabBar 2 แท็บ Product/Store) (2) Category filter chip row ในแท็บ Product (3) Price range filter UI (4) Sort control (Newest/Price Low→High/Price High→Low) — reuse component เดิมให้มากที่สุด (`ProductGridTile`/`ProductMiniCard`/`StoreMiniCard`, `ChoiceChip` category pattern จาก ZOKY-001, debounce+`SearchStateMessage` pattern จาก WYN-009) ใช้ Design system เดิม (Blue+White+Soft Gray, Rounded Cards, ห้าม Liquid Glass)
+
+---
+
+## Design Output (AI Design)
+
+เขียนเสร็จแล้วที่ `.wyn/docs/design/zoky-002-search-and-filter.md` — สรุป: `ZokySearchScreen` ใหม่ (ไม่ reuse instance ของ `SearchScreen` เดิม) มี query box+debounce 400ms+TabBar 2 แท็บ (สินค้า/ร้านค้า) มิเรอร์ pattern ของ WYN-009 เป๊ะ — แท็บสินค้าแสดงผลเป็น `GridView` ของ `ProductGridTile` เดิม (ราคาต้องเห็นชัด) มีปุ่ม "ตัวกรอง" (เปิด bottom sheet: Category chip + ช่วงราคา 2 ช่อง text field ไม่ใช้ RangeSlider เพราะแม่นยำกว่าเมื่อผู้ใช้รู้ตัวเลขที่ต้องการ) และปุ่ม "เรียงลำดับ" (dropdown menu 3 ตัวเลือก apply ทันที) — แท็บร้านค้าแสดงเป็น `ListView` ของ `StoreResultCard` ใหม่ (มิเรอร์ `ClubDiscoveryCard` โครงแถวเต็มความกว้าง ต่างจาก `StoreMiniCard` เดิมที่เป็นการ์ดแคบ) — ZOKY Home's search bar/category chip ที่เคย `SnackBar` placeholder เปลี่ยนไปเปิด `ZokySearchScreen` จริง (category chip ส่ง `initialCategory` มาด้วย) — เตือน Coding 1 จุด: ต้องตรวจ ILIKE query ไม่มีช่องโหว่แบบเดียวกับ Minor ที่เคยพบใน `ProfileRepository.searchProfiles` (WYN-009)
+
+Handoff: ส่งต่อ AI Coding (`/code`)
