@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../drop/data/drop_repository.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../pop/data/pop.dart';
 import '../../pop/data/pop_mute_preference.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../pop/presentation/widgets/pop_clip_view.dart';
+import '../../profile/data/profile_repository.dart';
+import '../../saved/data/saved_repository.dart';
 
 /// Opened when a Pop card is tapped from Home. Shows just the one clip
 /// full-screen (no swiping to other Pops) rather than jumping into the
@@ -18,11 +21,17 @@ class PopSingleClipScreen extends StatefulWidget {
     required this.pop,
     required this.popRepository,
     required this.followRepository,
+    required this.profileRepository,
+    required this.dropRepository,
+    required this.savedRepository,
   });
 
   final Pop pop;
   final PopRepository popRepository;
   final FollowRepository followRepository;
+  final ProfileRepository profileRepository;
+  final DropRepository dropRepository;
+  final SavedRepository savedRepository;
 
   @override
   State<PopSingleClipScreen> createState() => _PopSingleClipScreenState();
@@ -67,6 +76,9 @@ class _PopSingleClipScreenState extends State<PopSingleClipScreen> {
                   initialPop: widget.pop,
                   popRepository: widget.popRepository,
                   followRepository: widget.followRepository,
+                  profileRepository: widget.profileRepository,
+                  dropRepository: widget.dropRepository,
+                  savedRepository: widget.savedRepository,
                   isActive: true,
                   muted: _muted,
                   onMutedToggle: _toggleMuted,

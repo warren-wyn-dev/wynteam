@@ -1,27 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../drop/data/drop_repository.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../follow/presentation/follow_list_screen.dart';
+import '../../pop/data/pop_repository.dart';
+import '../../saved/data/saved_repository.dart';
 import '../data/profile.dart';
 import '../data/profile_repository.dart';
 import 'edit_profile_screen.dart';
 import 'widgets/avatar_circle.dart';
+import 'widgets/profile_drop_grid_tab.dart';
+import 'widgets/profile_pop_grid_tab.dart';
+import 'widgets/profile_saved_tab.dart';
 
 typedef _ProfileWithCounts = ({Profile profile, int followerCount, int followingCount});
 
-/// Screen 1 — View Profile (own).
-/// See .wyn/docs/design/wyn-003-user-profile.md, wyn-008-follow.md (Screen 4)
+/// Screen 1 — View Profile. Doubles as both personas WYN-013 needs (the
+/// current user's own profile, or someone else's) rather than being two
+/// separate screens -- only the header actions/tab count differ. See
+/// .wyn/docs/design/wyn-003-user-profile.md, wyn-008-follow.md (Screen 4),
+/// wyn-013-profile-v2.md (Screen 1-2).
 class ViewProfileScreen extends StatefulWidget {
   const ViewProfileScreen({
     super.key,
     required this.profileRepository,
     required this.followRepository,
+    required this.dropRepository,
+    required this.popRepository,
+    required this.savedRepository,
     required this.userId,
   });
 
   final ProfileRepository profileRepository;
   final FollowRepository followRepository;
+  final DropRepository dropRepository;
+  final PopRepository popRepository;
+  final SavedRepository savedRepository;
   final String userId;
 
   @override
@@ -31,10 +46,21 @@ class ViewProfileScreen extends StatefulWidget {
 class _ViewProfileScreenState extends State<ViewProfileScreen> {
   late Future<_ProfileWithCounts> _loadFuture;
 
+  // Whether the *current viewer* follows this profile's owner -- null
+  // until the real status has loaded. Only relevant (and only loaded)
+  // when this isn't the viewer's own profile. See
+  // DropDetailScreen._isFollowing (WYN-008) for why this stays hidden
+  // rather than defaulting to false.
+  bool? _isFollowing;
+
+  bool get _isOwnProfile =>
+      widget.userId == Supabase.instance.client.auth.currentUser!.id;
+
   @override
   void initState() {
     super.initState();
     _loadFuture = _load();
+    if (!_isOwnProfile) _loadFollowStatus();
   }
 
   // Profile and Follower/Following counts are loaded together as one
@@ -58,6 +84,34 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     setState(() => _loadFuture = _load());
   }
 
+  Future<void> _loadFollowStatus() async {
+    try {
+      final isFollowing =
+          await widget.followRepository.isFollowing(userId: widget.userId);
+      if (!mounted) return;
+      setState(() => _isFollowing = isFollowing);
+    } catch (_) {
+      // Leave _isFollowing null -- the button stays hidden rather than
+      // showing a possibly-wrong state.
+    }
+  }
+
+  Future<void> _toggleFollow() async {
+    final previous = _isFollowing;
+    if (previous == null) return;
+    setState(() => _isFollowing = !previous);
+    try {
+      await widget.followRepository.toggleFollow(
+        userId: widget.userId,
+        currentlyFollowing: previous,
+      );
+      _reload();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isFollowing = previous);
+    }
+  }
+
   Future<void> _openEdit(Profile profile) async {
     await Navigator.of(context).push<Profile>(
       MaterialPageRoute(
@@ -75,6 +129,10 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       MaterialPageRoute(
         builder: (_) => FollowListScreen(
           followRepository: widget.followRepository,
+          profileRepository: widget.profileRepository,
+          dropRepository: widget.dropRepository,
+          popRepository: widget.popRepository,
+          savedRepository: widget.savedRepository,
           userId: widget.userId,
           mode: mode,
         ),
@@ -84,93 +142,163 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('โปรไฟล์'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'ออกจากระบบ',
-            onPressed: () => Supabase.instance.client.auth.signOut(),
-          ),
-        ],
-      ),
-      body: FutureBuilder<_ProfileWithCounts>(
-        future: _loadFuture,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('โหลดโปรไฟล์ไม่สำเร็จ'),
-                  const SizedBox(height: 12),
-                  TextButton(onPressed: _reload, child: const Text('ลองใหม่')),
-                ],
+    final isOwnProfile = _isOwnProfile;
+
+    return DefaultTabController(
+      length: isOwnProfile ? 3 : 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('โปรไฟล์'),
+          actions: [
+            if (isOwnProfile)
+              IconButton(
+                icon: const Icon(Icons.logout),
+                tooltip: 'ออกจากระบบ',
+                onPressed: () => Supabase.instance.client.auth.signOut(),
               ),
-            );
-          }
-
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final data = snapshot.data!;
-          final profile = data.profile;
-
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  AvatarCircle(
-                    imageUrl: profile.avatarUrl,
-                    fallbackText: profile.username,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    profile.nameOrUsername,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '@${profile.username}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
-                  ),
-                  if (profile.bio != null && profile.bio!.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    Text(profile.bio!, textAlign: TextAlign.center),
+          ],
+        ),
+        body: FutureBuilder<_ProfileWithCounts>(
+          future: _loadFuture,
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('โหลดโปรไฟล์ไม่สำเร็จ'),
+                    const SizedBox(height: 12),
+                    TextButton(onPressed: _reload, child: const Text('ลองใหม่')),
                   ],
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                ),
+              );
+            }
+
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final data = snapshot.data!;
+            final profile = data.profile;
+
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
                     children: [
-                      _FollowCountTarget(
-                        count: data.followerCount,
-                        label: 'ผู้ติดตาม',
-                        onTap: () => _openFollowList(FollowListMode.followers),
+                      AvatarCircle(
+                        imageUrl: profile.avatarUrl,
+                        fallbackText: profile.username,
                       ),
-                      const SizedBox(width: 24),
-                      _FollowCountTarget(
-                        count: data.followingCount,
-                        label: 'กำลังติดตาม',
-                        onTap: () => _openFollowList(FollowListMode.following),
+                      const SizedBox(height: 16),
+                      Text(
+                        profile.nameOrUsername,
+                        style: Theme.of(context).textTheme.headlineSmall,
+                        textAlign: TextAlign.center,
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '@${profile.username}',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.outline,
+                            ),
+                      ),
+                      if (profile.bio != null && profile.bio!.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Text(profile.bio!, textAlign: TextAlign.center),
+                      ],
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _FollowCountTarget(
+                            count: data.followerCount,
+                            label: 'ผู้ติดตาม',
+                            onTap: () => _openFollowList(FollowListMode.followers),
+                          ),
+                          const SizedBox(width: 24),
+                          _FollowCountTarget(
+                            count: data.followingCount,
+                            label: 'กำลังติดตาม',
+                            onTap: () => _openFollowList(FollowListMode.following),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      if (isOwnProfile)
+                        OutlinedButton(
+                          onPressed: () => _openEdit(profile),
+                          child: const Text('แก้ไขโปรไฟล์'),
+                        )
+                      else if (_isFollowing != null)
+                        Semantics(
+                          label: _isFollowing!
+                              ? 'กำลังติดตาม กดเพื่อเลิกติดตาม'
+                              : 'กดเพื่อติดตาม',
+                          excludeSemantics: true,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Theme.of(context).colorScheme.primary,
+                              side: BorderSide(
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                            onPressed: _toggleFollow,
+                            child: Text(_isFollowing! ? 'กำลังติดตาม' : 'ติดตาม'),
+                          ),
+                        ),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  OutlinedButton(
-                    onPressed: () => _openEdit(profile),
-                    child: const Text('แก้ไขโปรไฟล์'),
+                ),
+                TabBar(
+                  tabs: [
+                    const Tab(icon: Icon(Icons.grid_view_outlined), text: 'Drop'),
+                    const Tab(icon: Icon(Icons.play_circle_outline), text: 'Pop'),
+                    if (isOwnProfile)
+                      const Tab(icon: Icon(Icons.bookmark_border), text: 'บันทึก'),
+                  ],
+                ),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      ProfileDropGridTab(
+                        dropRepository: widget.dropRepository,
+                        followRepository: widget.followRepository,
+                        profileRepository: widget.profileRepository,
+                        popRepository: widget.popRepository,
+                        savedRepository: widget.savedRepository,
+                        authorId: widget.userId,
+                        emptyText: isOwnProfile
+                            ? 'ยังไม่มี Drop เลย'
+                            : '${profile.nameOrUsername} ยังไม่มี Drop เลย',
+                      ),
+                      ProfilePopGridTab(
+                        popRepository: widget.popRepository,
+                        followRepository: widget.followRepository,
+                        profileRepository: widget.profileRepository,
+                        dropRepository: widget.dropRepository,
+                        savedRepository: widget.savedRepository,
+                        authorId: widget.userId,
+                        emptyText: isOwnProfile
+                            ? 'ยังไม่มี Pop เลย'
+                            : '${profile.nameOrUsername} ยังไม่มี Pop เลย',
+                      ),
+                      if (isOwnProfile)
+                        ProfileSavedTab(
+                          savedRepository: widget.savedRepository,
+                          dropRepository: widget.dropRepository,
+                          popRepository: widget.popRepository,
+                          followRepository: widget.followRepository,
+                          profileRepository: widget.profileRepository,
+                        ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          );
-        },
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

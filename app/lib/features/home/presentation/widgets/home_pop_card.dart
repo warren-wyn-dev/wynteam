@@ -24,12 +24,14 @@ class HomePopCard extends StatelessWidget {
     required this.onTap,
     required this.onToggleLike,
     required this.onToggleSave,
+    required this.onOpenProfile,
   });
 
   final HomeFeedItem item;
   final VoidCallback onTap;
   final VoidCallback onToggleLike;
   final VoidCallback onToggleSave;
+  final VoidCallback onOpenProfile;
 
   Future<void> _share() async {
     await SharePlus.instance.share(
@@ -52,19 +54,24 @@ class HomePopCard extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                child: Row(
-                  children: [
-                    AvatarCircle(
-                      imageUrl: item.authorAvatarUrl,
-                      fallbackText: item.authorUsername,
-                      radius: 16,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      item.authorNameOrUsername,
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                  ],
+                child: InkWell(
+                  onTap: onOpenProfile,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AvatarCircle(
+                        imageUrl: item.authorAvatarUrl,
+                        fallbackText: item.authorUsername,
+                        radius: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        item.authorNameOrUsername,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    ],
+                  ),
                 ),
               ),
               AspectRatio(

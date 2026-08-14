@@ -4,6 +4,9 @@ import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/drop_detail_screen.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../pop/data/pop_repository.dart';
+import '../../profile/data/profile_repository.dart';
+import '../../profile/presentation/view_profile_screen.dart';
+import '../../saved/data/saved_repository.dart';
 import '../data/home_feed_item.dart';
 import '../data/home_repository.dart';
 import 'pop_single_clip_screen.dart';
@@ -20,12 +23,16 @@ class HomeFeedScreen extends StatefulWidget {
     required this.dropRepository,
     required this.popRepository,
     required this.followRepository,
+    required this.profileRepository,
+    required this.savedRepository,
   });
 
   final HomeRepository homeRepository;
   final DropRepository dropRepository;
   final PopRepository popRepository;
   final FollowRepository followRepository;
+  final ProfileRepository profileRepository;
+  final SavedRepository savedRepository;
 
   @override
   State<HomeFeedScreen> createState() => _HomeFeedScreenState();
@@ -198,6 +205,9 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         builder: (_) => DropDetailScreen(
           dropRepository: widget.dropRepository,
           followRepository: widget.followRepository,
+          profileRepository: widget.profileRepository,
+          popRepository: widget.popRepository,
+          savedRepository: widget.savedRepository,
           drop: item.toDrop(),
         ),
       ),
@@ -215,10 +225,28 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
           pop: item.toPop(),
           popRepository: widget.popRepository,
           followRepository: widget.followRepository,
+          profileRepository: widget.profileRepository,
+          dropRepository: widget.dropRepository,
+          savedRepository: widget.savedRepository,
         ),
       ),
     );
     _loadInitial();
+  }
+
+  void _openProfile(String userId) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ViewProfileScreen(
+          profileRepository: widget.profileRepository,
+          followRepository: widget.followRepository,
+          dropRepository: widget.dropRepository,
+          popRepository: widget.popRepository,
+          savedRepository: widget.savedRepository,
+          userId: userId,
+        ),
+      ),
+    );
   }
 
   void _openSearchPlaceholder() {
@@ -323,6 +351,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
               onTap: () => _openDrop(item),
               onToggleLike: () => _toggleLike(item.id),
               onToggleSave: () => _toggleSave(item.id),
+              onOpenProfile: () => _openProfile(item.authorId),
             );
           }
           return HomePopCard(
@@ -331,6 +360,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
             onTap: () => _openPop(item),
             onToggleLike: () => _toggleLike(item.id),
             onToggleSave: () => _toggleSave(item.id),
+            onOpenProfile: () => _openProfile(item.authorId),
           );
         },
       ),

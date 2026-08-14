@@ -10,6 +10,7 @@ import '../../pop/data/pop_repository.dart';
 import '../../pop/presentation/pop_feed_screen.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
+import '../../saved/data/saved_repository.dart';
 
 /// The 4-tab Bottom Navigation shell (Home / Drop / Pop / Profile) from
 /// the "WYN V0.1 — CORE APP FEATURE PROMPT" (see
@@ -47,6 +48,8 @@ class _RootShellState extends State<RootShell> {
     final dropRepository = DropRepository(Supabase.instance.client);
     final popRepository = PopRepository(Supabase.instance.client);
     final followRepository = FollowRepository(Supabase.instance.client);
+    final profileRepository = ProfileRepository(Supabase.instance.client);
+    final savedRepository = SavedRepository(Supabase.instance.client);
 
     final tabs = [
       HomeFeedScreen(
@@ -54,19 +57,30 @@ class _RootShellState extends State<RootShell> {
         dropRepository: dropRepository,
         popRepository: popRepository,
         followRepository: followRepository,
+        profileRepository: profileRepository,
+        savedRepository: savedRepository,
       ),
       DropFeedScreen(
         dropRepository: dropRepository,
         followRepository: followRepository,
+        profileRepository: profileRepository,
+        popRepository: popRepository,
+        savedRepository: savedRepository,
       ),
       PopFeedScreen(
         popRepository: popRepository,
         followRepository: followRepository,
+        dropRepository: dropRepository,
+        profileRepository: profileRepository,
+        savedRepository: savedRepository,
       ),
       ViewProfileScreen(
         key: ValueKey(_profileVisitKey),
-        profileRepository: ProfileRepository(Supabase.instance.client),
+        profileRepository: profileRepository,
         followRepository: followRepository,
+        dropRepository: dropRepository,
+        popRepository: popRepository,
+        savedRepository: savedRepository,
         userId: userId,
       ),
     ];

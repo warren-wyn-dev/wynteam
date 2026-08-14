@@ -5,7 +5,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../follow/data/follow_repository.dart';
+import '../../pop/data/pop_repository.dart';
+import '../../profile/data/profile_repository.dart';
+import '../../profile/presentation/view_profile_screen.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
+import '../../saved/data/saved_repository.dart';
 import '../data/drop.dart';
 import '../data/drop_comment.dart';
 import '../data/drop_repository.dart';
@@ -23,11 +27,17 @@ class DropDetailScreen extends StatefulWidget {
     super.key,
     required this.dropRepository,
     required this.followRepository,
+    required this.profileRepository,
+    required this.popRepository,
+    required this.savedRepository,
     required this.drop,
   });
 
   final DropRepository dropRepository;
   final FollowRepository followRepository;
+  final ProfileRepository profileRepository;
+  final PopRepository popRepository;
+  final SavedRepository savedRepository;
   final Drop drop;
 
   @override
@@ -139,6 +149,21 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       if (!mounted) return;
       setState(() => _isFollowing = previous);
     }
+  }
+
+  void _openAuthorProfile() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ViewProfileScreen(
+          profileRepository: widget.profileRepository,
+          followRepository: widget.followRepository,
+          dropRepository: widget.dropRepository,
+          popRepository: widget.popRepository,
+          savedRepository: widget.savedRepository,
+          userId: _drop.authorId,
+        ),
+      ),
+    );
   }
 
   // Takes only the id and re-reads the live _comments[index] instead of a
@@ -278,16 +303,26 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
             children: [
               Row(
                 children: [
-                  AvatarCircle(
-                    imageUrl: _drop.authorAvatarUrl,
-                    fallbackText: _drop.authorUsername,
-                    radius: 18,
-                  ),
-                  const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      _drop.authorNameOrUsername,
-                      style: Theme.of(context).textTheme.titleSmall,
+                    child: InkWell(
+                      onTap: _openAuthorProfile,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Row(
+                        children: [
+                          AvatarCircle(
+                            imageUrl: _drop.authorAvatarUrl,
+                            fallbackText: _drop.authorUsername,
+                            radius: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _drop.authorNameOrUsername,
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   if (!isOwnDrop && _isFollowing != null)

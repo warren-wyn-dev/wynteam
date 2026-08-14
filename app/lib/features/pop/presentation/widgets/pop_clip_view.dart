@@ -4,8 +4,12 @@ import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../drop/data/drop_repository.dart';
 import '../../../follow/data/follow_repository.dart';
+import '../../../profile/data/profile_repository.dart';
+import '../../../profile/presentation/view_profile_screen.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
+import '../../../saved/data/saved_repository.dart';
 import '../../data/pop.dart';
 import '../../data/pop_repository.dart';
 import 'confirm_delete_pop_dialog.dart';
@@ -30,6 +34,9 @@ class PopClipView extends StatefulWidget {
     required this.initialPop,
     required this.popRepository,
     required this.followRepository,
+    required this.profileRepository,
+    required this.dropRepository,
+    required this.savedRepository,
     required this.isActive,
     required this.muted,
     required this.onMutedToggle,
@@ -41,6 +48,9 @@ class PopClipView extends StatefulWidget {
   final Pop initialPop;
   final PopRepository popRepository;
   final FollowRepository followRepository;
+  final ProfileRepository profileRepository;
+  final DropRepository dropRepository;
+  final SavedRepository savedRepository;
   final bool isActive;
   final bool muted;
   final VoidCallback onMutedToggle;
@@ -247,6 +257,21 @@ class _PopClipViewState extends State<PopClipView> {
     );
   }
 
+  void _openAuthorProfile() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ViewProfileScreen(
+          profileRepository: widget.profileRepository,
+          followRepository: widget.followRepository,
+          dropRepository: widget.dropRepository,
+          popRepository: widget.popRepository,
+          savedRepository: widget.savedRepository,
+          userId: _pop.authorId,
+        ),
+      ),
+    );
+  }
+
   void _openComments() {
     showPopCommentSheet(
       context,
@@ -344,20 +369,31 @@ class _PopClipViewState extends State<PopClipView> {
             children: [
               Row(
                 children: [
-                  AvatarCircle(
-                    imageUrl: _pop.authorAvatarUrl,
-                    fallbackText: _pop.authorUsername,
-                    radius: 16,
-                  ),
-                  const SizedBox(width: 8),
                   Flexible(
-                    child: Text(
-                      _pop.authorNameOrUsername,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                    child: InkWell(
+                      onTap: _openAuthorProfile,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AvatarCircle(
+                            imageUrl: _pop.authorAvatarUrl,
+                            fallbackText: _pop.authorUsername,
+                            radius: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              _pop.authorNameOrUsername,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   if (!isOwnPop && _isFollowing != null) ...[

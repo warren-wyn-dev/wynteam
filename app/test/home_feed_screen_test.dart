@@ -9,6 +9,7 @@ import 'package:wyn/features/home/presentation/home_feed_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/home/presentation/search_placeholder_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
+import 'package:wyn/features/profile/data/profile.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/fake_video_player_platform.dart';
@@ -16,6 +17,8 @@ import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
 import 'support/recording_home_repository.dart';
 import 'support/recording_pop_repository.dart';
+import 'support/recording_profile_repository.dart';
+import 'support/recording_saved_repository.dart';
 
 HomeFeedItem _dropItem({
   String id = 'd1',
@@ -67,6 +70,8 @@ void main() {
   late RecordingDropRepository sharedDropRepository;
   late RecordingPopRepository sharedPopRepository;
   late RecordingFollowRepository sharedFollowRepository;
+  late RecordingProfileRepository sharedProfileRepository;
+  late RecordingSavedRepository sharedSavedRepository;
   late RecordingHomeRepository mixedFeedHomeRepository;
   late RecordingHomeRepository emptyHomeRepository;
   late RecordingHomeRepository searchTestHomeRepository;
@@ -95,6 +100,10 @@ void main() {
     sharedDropRepository = RecordingDropRepository();
     sharedPopRepository = RecordingPopRepository();
     sharedFollowRepository = RecordingFollowRepository();
+    sharedProfileRepository = RecordingProfileRepository(
+      profile: const Profile(id: 'someone-else', username: 'namfah'),
+    );
+    sharedSavedRepository = RecordingSavedRepository();
     mixedFeedHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'd1'), _popItem(id: 'p1')],
     );
@@ -137,6 +146,8 @@ void main() {
           dropRepository: dropRepository,
           popRepository: popRepository,
           followRepository: sharedFollowRepository,
+          profileRepository: sharedProfileRepository,
+          savedRepository: sharedSavedRepository,
         ),
       );
 

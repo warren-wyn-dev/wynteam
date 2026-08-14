@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../drop/data/drop_repository.dart';
 import '../../follow/data/follow_repository.dart';
+import '../../profile/data/profile_repository.dart';
+import '../../saved/data/saved_repository.dart';
 import '../data/pop.dart';
 import '../data/pop_mute_preference.dart';
 import '../data/pop_repository.dart';
@@ -19,10 +22,16 @@ class PopFeedScreen extends StatefulWidget {
     super.key,
     required this.popRepository,
     required this.followRepository,
+    required this.dropRepository,
+    required this.profileRepository,
+    required this.savedRepository,
   });
 
   final PopRepository popRepository;
   final FollowRepository followRepository;
+  final DropRepository dropRepository;
+  final ProfileRepository profileRepository;
+  final SavedRepository savedRepository;
 
   @override
   State<PopFeedScreen> createState() => _PopFeedScreenState();
@@ -187,6 +196,9 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
           initialPop: pop,
           popRepository: widget.popRepository,
           followRepository: widget.followRepository,
+          profileRepository: widget.profileRepository,
+          dropRepository: widget.dropRepository,
+          savedRepository: widget.savedRepository,
           isActive: index == _currentIndex,
           muted: _muted,
           onMutedToggle: _toggleMuted,

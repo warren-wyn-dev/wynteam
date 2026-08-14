@@ -3,15 +3,24 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/follow/presentation/follow_list_screen.dart';
 import 'package:wyn/features/profile/data/profile.dart';
+import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
 
 import 'support/fake_supabase_session.dart';
+import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
+import 'support/recording_pop_repository.dart';
+import 'support/recording_profile_repository.dart';
+import 'support/recording_saved_repository.dart';
 
 void main() {
   late RecordingFollowRepository followersRepo;
   late RecordingFollowRepository followingRepo;
   late RecordingFollowRepository emptyFollowersRepo;
   late RecordingFollowRepository emptyFollowingRepo;
+  late RecordingProfileRepository profileRepo;
+  late RecordingDropRepository dropRepo;
+  late RecordingPopRepository popRepo;
+  late RecordingSavedRepository savedRepo;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
@@ -28,17 +37,33 @@ void main() {
     );
     emptyFollowersRepo = RecordingFollowRepository(followers: []);
     emptyFollowingRepo = RecordingFollowRepository(following: []);
+    profileRepo = RecordingProfileRepository(
+      profile: const Profile(id: 'u1', username: 'namfah', displayName: 'น้ำฝน'),
+    );
+    dropRepo = RecordingDropRepository();
+    popRepo = RecordingPopRepository();
+    savedRepo = RecordingSavedRepository();
   });
+
+  Widget buildList(
+    RecordingFollowRepository followRepository, {
+    required FollowListMode mode,
+  }) =>
+      MaterialApp(
+        home: FollowListScreen(
+          followRepository: followRepository,
+          profileRepository: profileRepo,
+          dropRepository: dropRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          userId: 'me',
+          mode: mode,
+        ),
+      );
 
   testWidgets('shows the Followers list with display name and username',
       (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: FollowListScreen(
-        followRepository: followersRepo,
-        userId: 'me',
-        mode: FollowListMode.followers,
-      ),
-    ));
+    await tester.pumpWidget(buildList(followersRepo, mode: FollowListMode.followers));
     await tester.pumpAndSettle();
 
     expect(find.text('ผู้ติดตาม'), findsOneWidget);
@@ -50,13 +75,7 @@ void main() {
   });
 
   testWidgets('shows the Following list under its own title', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: FollowListScreen(
-        followRepository: followingRepo,
-        userId: 'me',
-        mode: FollowListMode.following,
-      ),
-    ));
+    await tester.pumpWidget(buildList(followingRepo, mode: FollowListMode.following));
     await tester.pumpAndSettle();
 
     expect(find.text('กำลังติดตาม'), findsOneWidget);
@@ -66,13 +85,9 @@ void main() {
 
   testWidgets('shows a mode-specific empty state for Followers',
       (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: FollowListScreen(
-        followRepository: emptyFollowersRepo,
-        userId: 'me',
-        mode: FollowListMode.followers,
-      ),
-    ));
+    await tester.pumpWidget(
+      buildList(emptyFollowersRepo, mode: FollowListMode.followers),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('ยังไม่มีใครติดตามคุณเลย'), findsOneWidget);
@@ -80,13 +95,9 @@ void main() {
 
   testWidgets('shows a mode-specific empty state for Following',
       (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: FollowListScreen(
-        followRepository: emptyFollowingRepo,
-        userId: 'me',
-        mode: FollowListMode.following,
-      ),
-    ));
+    await tester.pumpWidget(
+      buildList(emptyFollowingRepo, mode: FollowListMode.following),
+    );
     await tester.pumpAndSettle();
 
     expect(
@@ -95,20 +106,18 @@ void main() {
     );
   });
 
-  testWidgets('rows have no tap ripple -- there is no destination screen '
-      'for them this round', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: FollowListScreen(
-        followRepository: followersRepo,
-        userId: 'me',
-        mode: FollowListMode.followers,
-      ),
-    ));
+  testWidgets(
+      'tapping a row opens that user\'s profile (WYN-013 -- rows were '
+      'intentionally non-tappable in WYN-008 since no destination screen '
+      'existed yet)', (tester) async {
+    await tester.pumpWidget(buildList(followersRepo, mode: FollowListMode.followers));
     await tester.pumpAndSettle();
 
-    // See .wyn/docs/design/wyn-008-follow.md, Screen 3: rows are
-    // deliberately not wrapped in InkWell -- no ripple, since there's no
-    // destination screen to tap through to this round.
-    expect(find.byType(InkWell), findsNothing);
+    expect(find.byType(InkWell), findsWidgets);
+
+    await tester.tap(find.text('น้ำฝน'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ViewProfileScreen), findsOneWidget);
   });
 }

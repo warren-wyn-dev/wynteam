@@ -1,7 +1,7 @@
 # Product Task — WYN-013
 
-Status: backlog
-Owner: AI Product Manager (เสร็จ) → AI Design (ถัดไป)
+Status: review
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
 
 Feature: Profile V2 (โปรไฟล์ของคนอื่น + Followers/Following + Drop grid + Pop list + Saved tab)
 
@@ -52,3 +52,52 @@ Recommendation:
 3. **Saved tab แสดง Drop+Pop ปนกันเรียงตามเวลาบันทึก** (ไม่แยก 2 tab ย่อย) — เหตุผล: ผู้ใช้บันทึกเพราะ "ชอบเนื้อหานี้" ไม่ได้สนใจว่าเป็นรูปหรือวิดีโอตอนกลับมาดูซ้ำ การแยก sub-tab เพิ่มความซับซ้อนโดยไม่มีประโยชน์ชัดเจน สอดคล้องกับที่ Home (WYN-007) เลือกรวม Drop+Pop เป็น feed เดียวด้วยเหตุผลเดียวกัน
 
 Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบ: (1) `ViewProfileScreen` สองโหมด (เจ้าของ/คนอื่น) ในหน้าเดียวกัน (2) TabBar/สลับ 3 tab (Drop grid/Pop list/Saved) ที่ไม่ลอก Instagram/TikTok โดยตรง (3) layout ของ Pop list tab (4) จุด tap-to-profile ใหม่ทั้งหมด (Drop Detail/Pop Clip/Home card/FollowListScreen) — ต้องตัดสินใจ UX ที่ชัดเจนว่าแตะตรงไหนของแต่ละหน้าจอถึงจะเปิดโปรไฟล์ ไม่ปนกับ tap ที่มีอยู่แล้ว (เช่น แตะการ์ด Home ทั้งการ์ดเปิด Detail อยู่แล้ว ต้องมีจุดแยกสำหรับเปิดโปรไฟล์)
+
+---
+
+## Design Output (AI Design)
+
+เขียนเสร็จแล้วที่ `.wyn/docs/design/wyn-013-profile-v2.md` — 6 หัวข้อ: (1) header สองบุคลิกในไฟล์เดียว (2) TabBar 2-3 tab แบบ conditional length ไม่ใช่ disabled tab (3) Drop grid reuse `DropGridTile` ตรง ๆ (4) Pop list เป็น grid 3 คอลัมน์เหมือนกัน ไม่ใช่ full-screen swipe (5) Saved tab grid ผสม Drop+Pop (6) จุด tap-to-profile ใหม่ 4 จุด ขอบเขตเฉพาะ avatar+ชื่อ ไม่ชนกับ tap เดิม
+
+Handoff: ส่งต่อ AI Coding (`/code`)
+
+---
+
+## Coding Output (AI Coding)
+
+Implementation:
+- Database: เพิ่ม view `saved_feed` ใน `supabase/schema.sql` มิเรอร์ `home_feed` (WYN-007) — `UNION ALL` ระหว่าง `saves` join `drops`/`pops` แยกฝั่งตาม `content_type`, เรียงตาม `saves.created_at` (เวลาบันทึก ไม่ใช่เวลาโพสต์ — คอลัมน์ `saved_at` แยกจาก `created_at` ของเนื้อหาเอง), join `profiles` เข้ามาด้วยตั้งแต่ร่างแรก (ไม่พลาดแบบที่ WYN-007 เคยพลาด), `security_invoker = true` ให้ RLS ของ `saves` (private ต่อ user) ยังบังคับใช้จริงผ่าน view
+- `DropRepository.fetchByAuthor`/`PopRepository.fetchByAuthor` (ใหม่): mirror `fetchFeed` แต่ filter ด้วย `author_id` ไม่แก้ `fetchFeed` เดิม
+- `lib/features/saved/data/saved_repository.dart` (ใหม่): `SavedRepository.fetchFeed({page})` query view `saved_feed` — **ไม่มี parameter `userId`** เพราะ RLS ของ `saves` จำกัดเฉพาะข้อมูลของผู้เรียกเองอยู่แล้ว ไม่มีแนวคิด "ดู Saved ของคนอื่น" ในระบบเลย ไม่ใช่แค่ UI ซ่อนไว้ reuse `HomeFeedItem` (WYN-007) ตรง ๆ แทนที่จะสร้าง model ใหม่ซ้ำซ้อน (`savedByMe` ถูก set เป็น `true` เสมอเพราะทุกแถวเป็นสิ่งที่ user คนนี้บันทึกไว้โดยนิยาม)
+- `lib/features/pop/presentation/widgets/pop_grid_tile.dart`, `lib/features/saved/presentation/widgets/saved_grid_tile.dart` (ใหม่ทั้งคู่): มิเรอร์ `DropGridTile` (WYN-005) — media area 1:1 เท่านั้น ไม่มี caption/แถวปฏิสัมพันธ์ `PopGridTile` ใช้ thumbnail+play icon+duration badge จาก `HomePopCard` (WYN-007), `SavedGridTile` เลือก media ตาม `item.contentType` (Drop→รูปตรง ๆ, Pop→thumbnail+play icon+badge เหมือนกัน)
+- `lib/features/profile/presentation/widgets/profile_drop_grid_tab.dart`, `profile_pop_grid_tab.dart`, `profile_saved_tab.dart` (ใหม่ทั้งสาม): แต่ละอันเป็น infinite-scroll grid 3 คอลัมน์ pattern เดียวกับ `DropFeedScreen` (WYN-005) ทุกประการ ต่างแค่แหล่งข้อมูล (`fetchByAuthor`/`SavedRepository.fetchFeed`) ใช้ `AutomaticKeepAliveClientMixin` เพื่อไม่ให้ tab ที่เคยโหลดแล้ว reload ใหม่ทุกครั้งที่สลับกลับมา
+- `view_profile_screen.dart`: เพิ่ม `_isOwnProfile` getter (เทียบ `widget.userId` กับ `Supabase.instance.client.auth.currentUser!.id` แบบเดียวกับ `isOwnDrop`/`isOwnPop`), เพิ่มปุ่ม Follow (mirror จาก `DropDetailScreen` ทุกประการ รวม nullable `_isFollowing` pattern) แทนที่ปุ่มแก้ไข/logout เมื่อไม่ใช่โปรไฟล์ตัวเอง, ครอบด้วย `DefaultTabController(length: isOwnProfile ? 3 : 2)` — Saved tab หายไปแบบ conditional list ไม่ใช่ disabled tab, `TabBar` ใช้ icon+label ทุก tab (`Icons.grid_view_outlined`/`Icons.play_circle_outline`/`Icons.bookmark_border`) ไม่ใช่ icon-only แบบ Instagram, `_toggleFollow()` เรียก `_reload()` หลัง toggle สำเร็จเพื่อให้จำนวน Followers ของโปรไฟล์นั้นอัปเดตทันที (เพิ่มเองนอกเหนือจาก spec — ไม่งั้นจำนวนจะค้างจนกว่าจะออกแล้วกลับเข้ามาใหม่)
+- เพิ่มจุด tap-to-profile ใน `drop_detail_screen.dart`/`pop_clip_view.dart` (ห่อเฉพาะ `AvatarCircle`+ชื่อด้วย `InkWell` แยกจากปุ่ม Follow/ลบข้าง ๆ ไม่ให้ gesture ชนกัน) และ `home_drop_card.dart`/`home_pop_card.dart` (`InkWell` ใหม่ครอบเฉพาะแถว avatar+ชื่อ ซ้อนอยู่ใน `InkWell` เดิมของทั้งการ์ด — Flutter's gesture arena ให้ widget ที่ specific กว่าชนะ จึงไม่ชนกัน) — ทุกจุด push `ViewProfileScreen(userId: <ผู้เขียน>)` เดิม ไม่สร้างหน้าจอใหม่
+- `follow_list_screen.dart` (WYN-008): เปลี่ยนแถวจากไม่มี tap affordance (ตั้งใจไว้ตอน WYN-008 เพราะยังไม่มีปลายทาง) เป็น `InkWell` เปิด `ViewProfileScreen` ของ user แถวนั้นจริง ปรับ Semantics label เป็น `button: true` พร้อมบอกว่า "กดเพื่อดูโปรไฟล์"
+- `root_shell.dart`: สร้าง `ProfileRepository`/`SavedRepository` เป็น shared local var (เดิม `ProfileRepository` สร้าง inline ในจุดเดียว ยกออกมาเป็นตัวแปรร่วมเหมือน `dropRepository`/`popRepository`/`followRepository`) ส่งต่อให้ทุกแท็บที่ต้องใช้ — ทุก entry point (`HomeFeedScreen`, `DropFeedScreen`, `PopFeedScreen`, `ViewProfileScreen`) ตอนนี้รับ `profileRepository`/`savedRepository`/(`dropRepository`ในกรณีของ Pop) เพิ่มเพื่อส่งต่อให้จุด tap-to-profile ภายในทำงานได้
+
+Files Changed:
+- `supabase/schema.sql` (เพิ่ม view `saved_feed`)
+- ใหม่: `app/lib/features/saved/data/saved_repository.dart`, `app/lib/features/pop/presentation/widgets/pop_grid_tile.dart`, `app/lib/features/saved/presentation/widgets/saved_grid_tile.dart`, `app/lib/features/profile/presentation/widgets/profile_drop_grid_tab.dart`, `profile_pop_grid_tab.dart`, `profile_saved_tab.dart`
+- แก้: `app/lib/features/drop/data/drop_repository.dart` (`fetchByAuthor`), `app/lib/features/pop/data/pop_repository.dart` (`fetchByAuthor`), `app/lib/features/profile/presentation/view_profile_screen.dart` (rewrite ใหญ่), `app/lib/features/drop/presentation/drop_detail_screen.dart`, `app/lib/features/drop/presentation/drop_feed_screen.dart`, `app/lib/features/pop/presentation/widgets/pop_clip_view.dart`, `app/lib/features/pop/presentation/pop_feed_screen.dart`, `app/lib/features/home/presentation/home_feed_screen.dart`, `app/lib/features/home/presentation/pop_single_clip_screen.dart`, `app/lib/features/home/presentation/widgets/home_drop_card.dart`, `home_pop_card.dart`, `app/lib/features/follow/presentation/follow_list_screen.dart`, `app/lib/features/root/presentation/root_shell.dart` (ทุกไฟล์อัปเดต constructor parameter ให้ส่ง repository ใหม่ที่จำเป็น)
+- test ใหม่: `app/test/support/recording_saved_repository.dart`, `app/test/support/recording_profile_repository.dart` (มีอยู่แล้วจาก WYN-008)
+- test แก้: `app/test/drop_comment_delete_test.dart`, `drop_comment_like_test.dart`, `drop_detail_screen_test.dart` (เพิ่มเทสต์ tap-to-profile ใหม่), `follow_list_screen_test.dart` (เปลี่ยนเทสต์ "ไม่มี ripple" เป็น "แตะแล้วเปิดโปรไฟล์"), `home_feed_screen_test.dart`, `pop_feed_screen_test.dart` (เพิ่มเทสต์ tap-to-profile), `view_profile_screen_test.dart` (ขยายใหญ่ — persona/tab-count/tab-content), `support/recording_drop_repository.dart`/`recording_pop_repository.dart` (เพิ่ม override `fetchByAuthor`)
+
+Reason: implement ตาม Product spec + Design spec ของ WYN-013 ครบตามขอบเขต — `ViewProfileScreen` ใช้ดูโปรไฟล์ใครก็ได้จริง, Follow/Save มี "ที่ทาง" ใช้งานจริงเป็นครั้งแรก, `FollowListScreen` (WYN-008) ที่ตั้งใจทำแถวกดไม่ได้ไว้ก่อนตอนนี้กดได้จริงแล้ว, Saved tab paginate ถูกต้องข้าม Drop/Pop ด้วย database-side view แบบเดียวกับ `home_feed`
+
+Tests:
+- `flutter analyze`: No issues found
+- `flutter test`: 102/102 ผ่านทั้งหมด (เพิ่มจาก 95 — 7 เทสต์ใหม่: tap-to-profile ใน `DropDetailScreen`/`PopClipView`/`FollowListScreen`, persona-based header (edit/logout vs Follow), tab count 2 vs 3 ตาม persona, เนื้อหาจริงของแต่ละ tab (Drop/Pop/Saved))
+- **พบและแก้ gap เอง 3 จุดก่อนส่ง QA**:
+  1. `RootShell`'s `IndexedStack` — ไม่มีปัญหาใหม่จาก WYN-013 เอง (fix ของ WYN-008 ยังใช้ได้) แต่ตรวจซ้ำแล้วว่ายังทำงานถูกต้องหลังเพิ่ม repo ใหม่
+  2. Widget test ที่ pump `DropDetailScreen` สองครั้งในบล็อกเดียวกันไม่รีเซ็ต State (testing gotcha เดียวกับที่เจอใน WYN-008 — คราวนี้เจอระหว่างเขียนเทสต์ persona ของ `ViewProfileScreen` ก็เจอเหมือนกัน แก้ด้วยการแยก `RecordingProfileRepository`/`RecordingFollowRepository` คนละชุดต่อ persona ตั้งแต่แรกแทนที่จะ pump ซ้ำ)
+  3. `find.bySemanticsLabel()` ใช้ไม่ได้ในเทสต์ที่ไม่ได้เปิด semantics tree ไว้ (`tester.ensureSemantics()`) — ทั้งที่ widget มี `Semantics` label ถูกต้องจริงในโค้ด production (ตรวจสอบด้วย `debugDumpApp()`) เป็นแค่ข้อจำกัดของวิธี assert ในเทสต์ ไม่ใช่บั๊ก แก้ด้วยการ assert บน widget type (`find.byType(SavedGridTile)`) แทน — บันทึกเป็น pattern ใหม่ใน `.wyn/learning/PATTERNS.md`
+- **ทำ red→green จริงด้วยตัวเอง**: revert `_isOwnProfile` ให้คืนค่า `true` เสมอชั่วคราว (จำลอง persona-guard bug) รัน `flutter test test/view_profile_screen_test.dart --plain-name "someone else"` → **FAIL จริง** (เจอปุ่มแก้ไขโปรไฟล์ทั้งที่ควรเห็น Follow) restore แล้วรัน `flutter test`/`flutter analyze` ซ้ำ → สะอาด 102/102 อีกครั้ง
+
+Known Issues:
+- Followers/Following list (WYN-008) ตอนนี้แตะแล้วเปิดโปรไฟล์ได้จริงตามที่ WYN-013 นี้แก้ไว้แล้ว — ไม่มี known issue ค้างจาก WYN-008 อีกต่อไปในจุดนี้
+- ยังไม่มี Notification เมื่อถูก Follow (รอ WYN-012)
+- Home ยังไม่กรองตาม Follow (รอ WYN-013 — **หมายเหตุ**: ข้อนี้เป็นเรื่องคนละประเด็นกับ Profile V2 ที่ทำอยู่นี้ Home filtering ยังไม่อยู่ใน scope ของ task นี้ อาจต้องพิจารณาเป็น task แยกในอนาคตถ้า Founder ต้องการ)
+- ยังไม่ทดสอบกับ Supabase project จริง (รอ infra จาก Founder เหมือนทุก feature ก่อนหน้า) — โดยเฉพาะ view `saved_feed` และ `fetchByAuthor` ที่ query ด้วย `.eq('author_id', ...)` บน `drops`/`pops` ยังไม่เคยรันจริงกับ Postgres จริงเลย (ควรมี index บน `author_id` ถ้ายังไม่มี เพื่อ performance เมื่อข้อมูลโตขึ้น — บันทึกเป็นข้อเสนอปรับปรุง)
+
+Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ WYN-013 ก่อนอนุมัติ — เน้นตรวจ: (ก) persona สองแบบไม่ชนกัน โดยเฉพาะ self-follow guard ยังทำงานถูกต้องเมื่อเข้าถึงผ่านเส้นทางใหม่ทั้งหมด (ข) tap-to-profile ไม่ชนกับ tap เดิมของการ์ด Home/Drop Detail/Pop Clip (ค) Saved tab เห็นเฉพาะเจ้าของจริงทั้ง UI และ RLS (ง) regression กับ Drop/Pop/Home/Follow เดิมทั้งหมด (จ) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัด

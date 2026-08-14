@@ -1,27 +1,27 @@
 import 'package:flutter/material.dart';
 
-import '../../follow/data/follow_repository.dart';
-import '../../pop/data/pop_repository.dart';
-import '../../profile/data/profile_repository.dart';
-import '../../saved/data/saved_repository.dart';
-import '../data/drop.dart';
-import '../data/drop_repository.dart';
-import 'create_drop_screen.dart';
-import 'drop_detail_screen.dart';
-import 'widgets/drop_grid_tile.dart';
+import '../../../drop/data/drop.dart';
+import '../../../drop/data/drop_repository.dart';
+import '../../../drop/presentation/drop_detail_screen.dart';
+import '../../../drop/presentation/widgets/drop_grid_tile.dart';
+import '../../../follow/data/follow_repository.dart';
+import '../../../pop/data/pop_repository.dart';
+import '../../../saved/data/saved_repository.dart';
+import '../../data/profile_repository.dart';
 
-/// Screen 1 — Drop tab (Bottom Nav). A 3-column grid, deliberately
-/// different from Home's chronological single-column feed -- same
-/// underlying content, different browsing mode, so the tab has a reason
-/// to exist distinct from Home. See .wyn/docs/design/wyn-005-drop.md.
-class DropFeedScreen extends StatefulWidget {
-  const DropFeedScreen({
+/// Drop grid tab on a profile (WYN-013) -- reuses DropGridTile as-is,
+/// same 3-column layout as DropFeedScreen (WYN-005), but scoped to one
+/// author via DropRepository.fetchByAuthor instead of the global feed.
+class ProfileDropGridTab extends StatefulWidget {
+  const ProfileDropGridTab({
     super.key,
     required this.dropRepository,
     required this.followRepository,
     required this.profileRepository,
     required this.popRepository,
     required this.savedRepository,
+    required this.authorId,
+    required this.emptyText,
   });
 
   final DropRepository dropRepository;
@@ -29,21 +29,25 @@ class DropFeedScreen extends StatefulWidget {
   final ProfileRepository profileRepository;
   final PopRepository popRepository;
   final SavedRepository savedRepository;
+  final String authorId;
+  final String emptyText;
 
   @override
-  State<DropFeedScreen> createState() => _DropFeedScreenState();
+  State<ProfileDropGridTab> createState() => _ProfileDropGridTabState();
 }
 
-class _DropFeedScreenState extends State<DropFeedScreen> {
-  DropRepository get _dropRepository => widget.dropRepository;
+class _ProfileDropGridTabState extends State<ProfileDropGridTab>
+    with AutomaticKeepAliveClientMixin {
   final _scrollController = ScrollController();
-
   final List<Drop> _drops = [];
   int _page = 0;
   bool _isLoadingInitial = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
   String? _error;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -72,7 +76,10 @@ class _DropFeedScreenState extends State<DropFeedScreen> {
       _error = null;
     });
     try {
-      final drops = await _dropRepository.fetchFeed(page: 0);
+      final drops = await widget.dropRepository.fetchByAuthor(
+        authorId: widget.authorId,
+        page: 0,
+      );
       setState(() {
         _drops
           ..clear()
@@ -91,7 +98,10 @@ class _DropFeedScreenState extends State<DropFeedScreen> {
     setState(() => _isLoadingMore = true);
     try {
       final nextPage = _page + 1;
-      final drops = await _dropRepository.fetchFeed(page: nextPage);
+      final drops = await widget.dropRepository.fetchByAuthor(
+        authorId: widget.authorId,
+        page: nextPage,
+      );
       setState(() {
         _drops.addAll(drops);
         _page = nextPage;
@@ -105,20 +115,11 @@ class _DropFeedScreenState extends State<DropFeedScreen> {
     }
   }
 
-  Future<void> _openCreateDrop() async {
-    final created = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => CreateDropScreen(dropRepository: _dropRepository),
-      ),
-    );
-    if (created == true) _loadInitial();
-  }
-
   Future<void> _openDropDetail(Drop drop) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => DropDetailScreen(
-          dropRepository: _dropRepository,
+          dropRepository: widget.dropRepository,
           followRepository: widget.followRepository,
           profileRepository: widget.profileRepository,
           popRepository: widget.popRepository,
@@ -127,30 +128,13 @@ class _DropFeedScreenState extends State<DropFeedScreen> {
         ),
       ),
     );
-    // The detail screen can change like/comment/save state or delete the
-    // Drop entirely -- reload rather than trying to sync partial state
-    // back into the grid.
     _loadInitial();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Drop'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_a_photo_outlined),
-            tooltip: 'สร้าง Drop ใหม่',
-            onPressed: _openCreateDrop,
-          ),
-        ],
-      ),
-      body: _buildBody(),
-    );
-  }
+    super.build(context);
 
-  Widget _buildBody() {
     if (_isLoadingInitial) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -169,19 +153,7 @@ class _DropFeedScreenState extends State<DropFeedScreen> {
     }
 
     if (_drops.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('ยังไม่มีใครแชร์รูปเลย เป็นคนแรกสิ!'),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _openCreateDrop,
-              child: const Text('สร้าง Drop'),
-            ),
-          ],
-        ),
-      );
+      return Center(child: Text(widget.emptyText));
     }
 
     return RefreshIndicator(
