@@ -9,10 +9,12 @@ import 'store_screen.dart';
 import 'widgets/product_grid_tile.dart';
 import 'widgets/product_mini_card.dart';
 import 'widgets/store_mini_card.dart';
+import 'zoky_search_screen.dart';
 import 'zoky_strings.dart';
 
-/// Screen 1 — ZOKY Home (ZOKY-001), the 5th Bottom Nav tab. Search/Cart/
-/// Orders/category-tap are all placeholders this round (ZOKY-002/003).
+/// Screen 1 — ZOKY Home (ZOKY-001), the 5th Bottom Nav tab. Search and
+/// category-tap open ZokySearchScreen for real as of ZOKY-002; Cart/
+/// Orders remain placeholders until ZOKY-003.
 /// See .wyn/docs/design/zoky-001-marketplace-foundation.md, Screen 1.
 class ZokyHomeScreen extends StatefulWidget {
   const ZokyHomeScreen({super.key, required this.zokyRepository});
@@ -90,6 +92,17 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
   void _showComingSoon() {
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text(zokyComingSoonMessage)));
+  }
+
+  void _openSearch({Category? category}) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ZokySearchScreen(
+          zokyRepository: widget.zokyRepository,
+          initialCategory: category,
+        ),
+      ),
+    );
   }
 
   void _openProduct(Product product) {
@@ -178,7 +191,7 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
         borderRadius: BorderRadius.circular(24),
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
-          onTap: _showComingSoon,
+          onTap: () => _openSearch(),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
@@ -214,7 +227,7 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
                     padding: const EdgeInsets.only(right: 8),
                     child: ActionChip(
                       label: Text(category.name),
-                      onPressed: _showComingSoon,
+                      onPressed: () => _openSearch(category: category),
                     ),
                   ),
                 )

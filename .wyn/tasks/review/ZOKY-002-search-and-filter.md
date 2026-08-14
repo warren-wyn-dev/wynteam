@@ -1,7 +1,7 @@
 # Product Task — ZOKY-002
 
-Status: active (Design เสร็จแล้ว รอ Coding)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (รอ)
+Status: review (รอ QA)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (รอ)
 
 Feature: ZOKY Search & Filter — ค้นหา Product/Store ด้วยชื่อ, กรองตาม Category/ช่วงราคา, เรียงลำดับผลลัพธ์
 
@@ -58,3 +58,38 @@ Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบ
 เขียนเสร็จแล้วที่ `.wyn/docs/design/zoky-002-search-and-filter.md` — สรุป: `ZokySearchScreen` ใหม่ (ไม่ reuse instance ของ `SearchScreen` เดิม) มี query box+debounce 400ms+TabBar 2 แท็บ (สินค้า/ร้านค้า) มิเรอร์ pattern ของ WYN-009 เป๊ะ — แท็บสินค้าแสดงผลเป็น `GridView` ของ `ProductGridTile` เดิม (ราคาต้องเห็นชัด) มีปุ่ม "ตัวกรอง" (เปิด bottom sheet: Category chip + ช่วงราคา 2 ช่อง text field ไม่ใช้ RangeSlider เพราะแม่นยำกว่าเมื่อผู้ใช้รู้ตัวเลขที่ต้องการ) และปุ่ม "เรียงลำดับ" (dropdown menu 3 ตัวเลือก apply ทันที) — แท็บร้านค้าแสดงเป็น `ListView` ของ `StoreResultCard` ใหม่ (มิเรอร์ `ClubDiscoveryCard` โครงแถวเต็มความกว้าง ต่างจาก `StoreMiniCard` เดิมที่เป็นการ์ดแคบ) — ZOKY Home's search bar/category chip ที่เคย `SnackBar` placeholder เปลี่ยนไปเปิด `ZokySearchScreen` จริง (category chip ส่ง `initialCategory` มาด้วย) — เตือน Coding 1 จุด: ต้องตรวจ ILIKE query ไม่มีช่องโหว่แบบเดียวกับ Minor ที่เคยพบใน `ProfileRepository.searchProfiles` (WYN-009)
 
 Handoff: ส่งต่อ AI Coding (`/code`)
+
+---
+
+## Coding Output (AI Coding)
+
+Implementation:
+- `ZokyRepository`: เพิ่ม `searchProducts({query, categoryId, minPrice, maxPrice, sortBy, page})` (`.ilike('name', '%$query%')` เรียกตรง ไม่ผ่าน `.or()` string ป้องกัน Minor แบบเดียวกับที่เคยพบใน `ProfileRepository.searchProfiles`, filter เพิ่มเข้าไปแบบมีเงื่อนไข `.eq`/`.gte`/`.lte` เฉพาะเมื่อมีค่า, sort ผ่าน `switch` เลือก `.order()` ตาม `ProductSortBy`), `searchStores({query, page})` (ILIKE + count เหมือน `fetchRecommendedStores`) — เพิ่ม `ProductSortBy` enum และ `searchPageSize` constant
+- `ZokySearchScreen` ใหม่ — query box+debounce 400ms+TabBar 2 แท็บ มิเรอร์ `SearchScreen` (WYN-009) เป๊ะตามที่ Design ระบุ ไม่ reuse instance เดียวกัน
+- `ZokyProductResultsTab`: filter (ปุ่ม "ตัวกรอง" เปิด bottom sheet Category chip + ราคาต่ำสุด/สูงสุด) + sort (ปุ่ม "เรียงลำดับ" เปิด `showMenu` 3 ตัวเลือก apply ทันที) + `GridView` ของ `ProductGridTile` เดิม + infinite-scroll
+- `ZokyStoreResultsTab`: `ListView` ของ `StoreResultCard` ใหม่ (มิเรอร์ `ClubDiscoveryCard` โครงแถวเต็มความกว้าง) + infinite-scroll — ไม่มี filter เพราะ Store ไม่มี category column
+- `ZOKY Home`: search bar และ category chip เปลี่ยนจาก `SnackBar` placeholder เป็นเปิด `ZokySearchScreen` จริง (category chip ส่ง `initialCategory` เข้าไป pre-filter ทันที)
+- reuse `SearchStateMessage` เดิมของ WYN-009 ตรง ๆ (import ข้าม feature folder) แทนที่จะสร้าง widget ซ้ำ ตามกติกา "ห้ามเขียนระบบซ้ำ"
+
+Gaps ที่ Coding พบและแก้เองก่อนส่ง QA:
+1. **RecordingXRepository built inline** — เขียน `emptyRepo` ไว้ inline ใน testWidgets callback ของเทสต์ "shows 'ไม่พบสินค้า'..." ตอนแรก ทำให้เจอ "Timer is still pending" error (gotcha เดิมที่เคยบันทึกไว้ใน `.wyn/learning/PATTERNS.md`) — ย้ายเข้า `setUp()` เป็น named `late` field ตามธรรมเนียมที่ established ไว้แล้ว แก้ทันทีก่อนส่ง QA
+
+Files Changed:
+- แก้: `app/lib/features/zoky/data/zoky_repository.dart` (searchProducts/searchStores/ProductSortBy ใหม่), `app/lib/features/zoky/presentation/zoky_home_screen.dart` (search bar/category chip เปิด ZokySearchScreen จริง)
+- ใหม่: `app/lib/features/zoky/presentation/zoky_search_screen.dart`, `app/lib/features/zoky/presentation/widgets/{zoky_product_results_tab,zoky_store_results_tab,store_result_card}.dart`
+- test ใหม่: `app/test/zoky_search_screen_test.dart`
+- test แก้: `app/test/zoky_home_screen_test.dart` (อัปเดต 2 เทสต์เดิมที่ทดสอบ placeholder ให้ตรงกับพฤติกรรมจริงใหม่), `app/test/support/recording_zoky_repository.dart` (เพิ่ม searchProducts/searchStores override + recorded-args fields)
+
+Reason: implement ตาม Product spec + Design spec ของ ZOKY-002 ครบตามขอบเขต — ค้นหา/กรอง/เรียงลำดับ Product/Store ได้จริง reuse component เดิม (ProductGridTile, SearchStateMessage, debounce/TabBar pattern) เกือบทั้งหมด จุดใหม่จริงมีแค่ StoreResultCard และ filter bottom sheet/sort menu
+
+Tests:
+- `flutter analyze`: No issues found
+- `flutter test`: 200/200 ผ่านทั้งหมด (เพิ่มจาก 191 เดิม — 9 เทสต์ใหม่ใน `zoky_search_screen_test.dart` ครอบคลุม empty-state ทั้ง 2 แท็บ, debounced search ทั้ง 2 แท็บ, empty-result state, initialCategory pre-fill, filter sheet apply, sort menu apply, tap-through ไป ProductDetailScreen/StoreScreen)
+- **ทำ red→green regression proof จริง 1 จุด**: เปลี่ยน `_category = widget.initialCategory` เป็น `_category = null` ชั่วคราวใน `zoky_product_results_tab.dart` จำลองบั๊กที่ category chip ไม่ pre-filter → รัน `zoky_search_screen_test.dart --plain-name "opening with an initialCategory"` → **FAIL จริง** → revert → รัน `flutter analyze`/`flutter test` เต็มอีกครั้ง → สะอาด 200/200
+
+Known Issues:
+- Rating filter/sort, Sales/Best Selling sort, Recommended sort ไม่ทำรอบนี้ตามที่ Product ตัดสินใจ (ไม่มีข้อมูลจริงรองรับจนกว่าจะถึง ZOKY-003/ZOKY-004 — เหตุผลเดียวกับ ZOKY-001's Known Issues)
+- Price filter ยอมรับแค่ตัวเลขเต็ม/ทศนิยม ผ่าน `double.tryParse` ไม่มี validation UI แจ้งเตือนถ้าพิมพ์ค่าที่ parse ไม่ได้ (เงียบ ๆ แค่ไม่ apply filter นั้น) — ยอมรับได้เพราะไม่ crash และผลลัพธ์ยังถูกต้อง (แค่ไม่กรอง)
+- ยังไม่ทดสอบกับ Supabase project จริง (ILIKE/gte/lte/order ผสมกันในคำสั่งเดียว) — ตรวจได้แค่ระดับ code review เหมือนทุก feature ก่อนหน้าที่ยังไม่มี infra จริง
+
+Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ ZOKY-002 ก่อนอนุมัติ — เน้นตรวจเป็นพิเศษ: (ก) `.ilike()` เรียกตรงไม่ผ่าน `.or()` string ยืนยันไม่มีช่องโหว่แบบเดียวกับ Minor เดิมของ WYN-009 (ข) `ZokySearchScreen` เป็นหน้าแยกจริงไม่ปนกับ `SearchScreen` เดิม ไม่กระทบ WYN Social search (ค) filter/sort ส่งพารามิเตอร์ถูกต้องครบทุก field (ง) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัด (จ) regression กับ ZOKY-001/WYN Social เดิมทั้งหมด

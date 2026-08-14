@@ -8,6 +8,7 @@ import 'package:wyn/features/zoky/presentation/product_detail_screen.dart';
 import 'package:wyn/features/zoky/presentation/store_screen.dart';
 import 'package:wyn/features/zoky/presentation/widgets/product_grid_tile.dart';
 import 'package:wyn/features/zoky/presentation/zoky_home_screen.dart';
+import 'package:wyn/features/zoky/presentation/zoky_search_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_zoky_repository.dart';
@@ -126,14 +127,14 @@ void main() {
     expect(find.text('Fashion'), findsOneWidget);
   });
 
-  testWidgets('tapping the search bar shows a coming-soon SnackBar', (tester) async {
+  testWidgets('tapping the search bar opens ZokySearchScreen (ZOKY-002)', (tester) async {
     await tester.pumpWidget(buildZokyHome(emptyRepo));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('ค้นหาสินค้า/ร้านค้า'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text('ฟีเจอร์นี้จะมาเร็ว ๆ นี้'), findsOneWidget);
+    expect(find.byType(ZokySearchScreen), findsOneWidget);
   });
 
   testWidgets('tapping the Cart icon shows a coming-soon SnackBar', (tester) async {
@@ -146,15 +147,19 @@ void main() {
     expect(find.text('ฟีเจอร์นี้จะมาเร็ว ๆ นี้'), findsOneWidget);
   });
 
-  testWidgets('tapping a category chip shows a coming-soon SnackBar', (tester) async {
+  testWidgets('tapping a category chip opens ZokySearchScreen pre-filtered (ZOKY-002)',
+      (tester) async {
     await tester.pumpWidget(buildZokyHome(populatedRepo));
     await tester.pumpAndSettle();
     tester.takeException();
 
     await tester.tap(find.text('Fashion'));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    tester.takeException();
 
-    expect(find.text('ฟีเจอร์นี้จะมาเร็ว ๆ นี้'), findsOneWidget);
+    expect(find.byType(ZokySearchScreen), findsOneWidget);
+    final searchScreen = tester.widget<ZokySearchScreen>(find.byType(ZokySearchScreen));
+    expect(searchScreen.initialCategory?.name, 'Fashion');
   });
 
   testWidgets('tapping a product in the grid opens ProductDetailScreen', (tester) async {
