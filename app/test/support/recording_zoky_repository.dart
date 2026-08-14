@@ -19,12 +19,16 @@ class RecordingZokyRepository extends ZokyRepository {
     List<Product>? storeProducts,
     List<ProductVariant>? productVariants,
     this.storeProductCount = 0,
+    List<Product>? searchProductResults,
+    List<Store>? searchStoreResults,
   })  : categories = categories ?? [],
         newProducts = newProducts ?? [],
         recommendedStores = recommendedStores ?? [],
         gridProducts = gridProducts ?? [],
         storeProducts = storeProducts ?? [],
         productVariants = productVariants ?? [],
+        searchProductResults = searchProductResults ?? [],
+        searchStoreResults = searchStoreResults ?? [],
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   final List<Category> categories;
@@ -39,6 +43,22 @@ class RecordingZokyRepository extends ZokyRepository {
   final List<Product> storeProducts;
   final List<ProductVariant> productVariants;
   final int storeProductCount;
+
+  /// Returned by [searchProducts] for page 0 only (page 1+ returns empty).
+  final List<Product> searchProductResults;
+
+  /// Returned by [searchStores] for page 0 only (page 1+ returns empty).
+  final List<Store> searchStoreResults;
+
+  /// The arguments [searchProducts] was last called with -- lets tests
+  /// assert the filter/sort/category state was actually passed through.
+  String? lastSearchProductsQuery;
+  String? lastSearchProductsCategoryId;
+  double? lastSearchProductsMinPrice;
+  double? lastSearchProductsMaxPrice;
+  ProductSortBy? lastSearchProductsSortBy;
+
+  String? lastSearchStoresQuery;
 
   @override
   Future<List<Category>> fetchCategories() async => categories;
@@ -72,4 +92,27 @@ class RecordingZokyRepository extends ZokyRepository {
   @override
   Future<List<ProductVariant>> fetchProductVariants(String productId) async =>
       productVariants;
+
+  @override
+  Future<List<Product>> searchProducts({
+    required String query,
+    String? categoryId,
+    double? minPrice,
+    double? maxPrice,
+    ProductSortBy sortBy = ProductSortBy.newest,
+    required int page,
+  }) async {
+    lastSearchProductsQuery = query;
+    lastSearchProductsCategoryId = categoryId;
+    lastSearchProductsMinPrice = minPrice;
+    lastSearchProductsMaxPrice = maxPrice;
+    lastSearchProductsSortBy = sortBy;
+    return page == 0 ? searchProductResults : [];
+  }
+
+  @override
+  Future<List<Store>> searchStores({required String query, required int page}) async {
+    lastSearchStoresQuery = query;
+    return page == 0 ? searchStoreResults : [];
+  }
 }
