@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../club/data/club_post_repository.dart';
+import '../../club/data/club_repository.dart';
+import '../../club/presentation/widgets/club_section.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/drop_detail_screen.dart';
 import '../../follow/data/follow_repository.dart';
@@ -17,7 +20,9 @@ import 'widgets/home_drop_card.dart';
 import 'widgets/home_pop_card.dart';
 
 /// Screen 1 — Home tab (Bottom Nav, index 0). A single chronological feed
-/// mixing Drop and Pop content. See .wyn/docs/design/wyn-007-home.md.
+/// mixing Drop and Pop content, with the CLUB section (WYN-014) between
+/// the top row and the feed. See .wyn/docs/design/wyn-007-home.md and
+/// .wyn/docs/design/wyn-014-club-core.md (Screen 1).
 class HomeFeedScreen extends StatefulWidget {
   const HomeFeedScreen({
     super.key,
@@ -28,6 +33,8 @@ class HomeFeedScreen extends StatefulWidget {
     required this.profileRepository,
     required this.savedRepository,
     required this.notificationRepository,
+    required this.clubRepository,
+    required this.clubPostRepository,
   });
 
   final HomeRepository homeRepository;
@@ -37,6 +44,8 @@ class HomeFeedScreen extends StatefulWidget {
   final ProfileRepository profileRepository;
   final SavedRepository savedRepository;
   final NotificationRepository notificationRepository;
+  final ClubRepository clubRepository;
+  final ClubPostRepository clubPostRepository;
 
   @override
   State<HomeFeedScreen> createState() => _HomeFeedScreenState();
@@ -306,6 +315,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         child: Column(
           children: [
             _buildTopRow(context),
+            ClubSection(
+              clubRepository: widget.clubRepository,
+              clubPostRepository: widget.clubPostRepository,
+            ),
             Expanded(child: _buildBody()),
           ],
         ),
@@ -429,6 +442,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     return RefreshIndicator(
       onRefresh: _loadInitial,
       child: ListView.builder(
+        key: const Key('home_feed_list'),
         controller: _scrollController,
         itemCount: _items.length + (_hasMore ? 1 : 0),
         itemBuilder: (context, index) {
