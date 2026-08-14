@@ -1,7 +1,7 @@
 # Product Task — WYN-005
 
-Status: backlog (Founder ยืนยันขอบเขตแล้ว — พร้อมส่งต่อ AI Design)
-Owner: AI Product Manager → AI Design (ถัดไป)
+Status: active (Design เสร็จแล้ว รอส่งต่อ AI Coding)
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (ถัดไป)
 
 Feature: Drop (โพสต์รูปภาพ)
 
