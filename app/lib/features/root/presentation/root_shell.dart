@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/drop_feed_screen.dart';
+import '../../pop/data/pop_repository.dart';
+import '../../pop/presentation/pop_feed_screen.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 
@@ -11,9 +13,9 @@ import '../../profile/presentation/view_profile_screen.dart';
 /// .wyn/company/DECISIONS.md, 2026-08-14). Renders as AuthGate's signed-
 /// in + onboarded state, replacing the old single-screen Feed.
 ///
-/// Home (WYN-007) and Pop (WYN-006) aren't built yet -- placeholder tabs
-/// hold their spot so the nav structure matches the spec now instead of
-/// needing another shell rewrite once they land.
+/// Home (WYN-007) isn't built yet -- a placeholder tab holds its spot so
+/// the nav structure matches the spec now instead of needing another
+/// shell rewrite once it lands.
 class RootShell extends StatefulWidget {
   const RootShell({super.key});
 
@@ -31,7 +33,7 @@ class _RootShellState extends State<RootShell> {
     final tabs = [
       const _ComingSoonTab(label: 'Home'),
       DropFeedScreen(dropRepository: DropRepository(Supabase.instance.client)),
-      const _ComingSoonTab(label: 'Pop'),
+      PopFeedScreen(popRepository: PopRepository(Supabase.instance.client)),
       ViewProfileScreen(
         profileRepository: ProfileRepository(Supabase.instance.client),
         userId: userId,

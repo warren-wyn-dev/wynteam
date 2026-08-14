@@ -329,7 +329,7 @@ create policy "Users can remove their own drop comment likes"
 -- select-all-authenticated.
 create table if not exists public.saves (
   user_id uuid not null references public.profiles (id) on delete cascade,
-  content_type text not null check (content_type in ('drop')),
+  content_type text not null check (content_type in ('drop', 'pop')),
   content_id uuid not null,
   created_at timestamptz not null default now(),
   primary key (user_id, content_type, content_id)
@@ -372,5 +372,170 @@ create policy "Users can upload their own drop images"
   to authenticated
   with check (
     bucket_id = 'drop-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- WYN-006 (Pop) — pops, pop_likes, pop_comments, pop_comment_likes
+-- Run once per environment after the WYN-005 statements above.
+--
+-- Same shape as drops/drop_likes/drop_comments/drop_comment_likes
+-- (including comment likes and comment ownership-based delete from the
+-- start -- WYN-005 shipped without those twice and failed QA twice for
+-- it, see .wyn/learning/MISTAKES.md). video_url is required (not null)
+-- the same way image_url is required for drops -- a Pop is always a
+-- video. view_count is a simple counter column (no per-user dedup in
+-- this round, see .wyn/tasks/active/WYN-006-pop-short-video.md Risks).
+
+create table if not exists public.pops (
+  id uuid primary key default gen_random_uuid(),
+  author_id uuid not null references public.profiles (id) on delete cascade,
+  video_url text not null,
+  thumbnail_url text,
+  caption text,
+  duration_seconds integer not null,
+  view_count bigint not null default 0,
+  created_at timestamptz not null default now(),
+  constraint pops_caption_length
+    check (caption is null or char_length(caption) between 1 and 500),
+  constraint pops_duration_seconds_range
+    check (duration_seconds > 0 and duration_seconds <= 60)
+);
+
+alter table public.pops enable row level security;
+
+create policy "Pops are viewable by authenticated users"
+  on public.pops
+  for select
+  to authenticated
+  using (true);
+
+create policy "Users can create their own pops"
+  on public.pops
+  for insert
+  to authenticated
+  with check (auth.uid() = author_id);
+
+create policy "Users can delete their own pops"
+  on public.pops
+  for delete
+  to authenticated
+  using (auth.uid() = author_id);
+
+-- No update policy for view_count -- incrementing views goes through the
+-- increment_pop_view_count() function below (security definer), not a
+-- direct client update, so a user can't set an arbitrary view_count.
+create or replace function public.increment_pop_view_count(pop_id uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.pops set view_count = view_count + 1 where id = pop_id;
+$$;
+
+create table if not exists public.pop_likes (
+  pop_id uuid not null references public.pops (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (pop_id, user_id)
+);
+
+alter table public.pop_likes enable row level security;
+
+create policy "Pop likes are viewable by authenticated users"
+  on public.pop_likes
+  for select
+  to authenticated
+  using (true);
+
+create policy "Users can like pops as themselves"
+  on public.pop_likes
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can remove their own pop likes"
+  on public.pop_likes
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+create table if not exists public.pop_comments (
+  id uuid primary key default gen_random_uuid(),
+  pop_id uuid not null references public.pops (id) on delete cascade,
+  author_id uuid not null references public.profiles (id) on delete cascade,
+  text_content text not null,
+  created_at timestamptz not null default now(),
+  constraint pop_comments_text_content_length
+    check (char_length(text_content) between 1 and 500)
+);
+
+alter table public.pop_comments enable row level security;
+
+create policy "Pop comments are viewable by authenticated users"
+  on public.pop_comments
+  for select
+  to authenticated
+  using (true);
+
+create policy "Users can comment on pops as themselves"
+  on public.pop_comments
+  for insert
+  to authenticated
+  with check (auth.uid() = author_id);
+
+create policy "Users can delete their own pop comments"
+  on public.pop_comments
+  for delete
+  to authenticated
+  using (auth.uid() = author_id);
+
+create table if not exists public.pop_comment_likes (
+  comment_id uuid not null references public.pop_comments (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (comment_id, user_id)
+);
+
+alter table public.pop_comment_likes enable row level security;
+
+create policy "Pop comment likes are viewable by authenticated users"
+  on public.pop_comment_likes
+  for select
+  to authenticated
+  using (true);
+
+create policy "Users can like pop comments as themselves"
+  on public.pop_comment_likes
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can remove their own pop comment likes"
+  on public.pop_comment_likes
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- Pop videos: public bucket, each user may only write to their own
+-- folder ({user_id}/...), same pattern as drop-images. Thumbnails share
+-- the same bucket under a {user_id}/thumb_... naming convention rather
+-- than a separate bucket -- same RLS shape either way, no need for a
+-- second bucket just to split video bytes from a JPEG.
+insert into storage.buckets (id, name, public)
+values ('pop-videos', 'pop-videos', true)
+on conflict (id) do nothing;
+
+create policy "Pop videos are publicly accessible"
+  on storage.objects
+  for select
+  using (bucket_id = 'pop-videos');
+
+create policy "Users can upload their own pop videos"
+  on storage.objects
+  for insert
+  to authenticated
+  with check (
+    bucket_id = 'pop-videos'
     and (storage.foldername(name))[1] = auth.uid()::text
   );
