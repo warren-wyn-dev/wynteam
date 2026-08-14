@@ -45,6 +45,36 @@ class DropRepository {
         .toList();
   }
 
+  /// Fetches one page (0-indexed) of Drops whose caption contains [query]
+  /// (case insensitive), newest first -- for WYN-009 Search's Drop tab.
+  Future<List<Drop>> searchByCaption({
+    required String query,
+    required int page,
+  }) async {
+    final userId = _client.auth.currentUser!.id;
+    final from = page * pageSize;
+    final to = from + pageSize - 1;
+
+    final rows = await _client
+        .from('drops')
+        .select('*, $_authorSelect, drop_likes(count), drop_comments(count)')
+        .ilike('caption', '%$query%')
+        .order('created_at', ascending: false)
+        .range(from, to);
+
+    final dropIds = rows.map((row) => row['id'] as String).toList();
+    final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
+    final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
+
+    return rows
+        .map((row) => Drop.fromMap(
+              row,
+              likedByMe: likedIds.contains(row['id'] as String),
+              savedByMe: savedIds.contains(row['id'] as String),
+            ))
+        .toList();
+  }
+
   /// Fetches one page (0-indexed) of Drops by a single author, newest
   /// first -- for the Drop grid tab on that author's profile (WYN-013).
   /// A separate method from [fetchFeed] (global, unfiltered) rather than

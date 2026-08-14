@@ -24,9 +24,11 @@ class RecordingDropRepository extends DropRepository {
   int toggleLikeCalls = 0;
   int toggleSaveCalls = 0;
   int toggleCommentLikeCalls = 0;
+  int searchByCaptionCalls = 0;
   final List<bool> toggleLikeCurrentlyLikedArgs = [];
   final List<bool> toggleCommentLikeCurrentlyLikedArgs = [];
   final List<String> deleteCommentCalls = [];
+  final List<String> searchByCaptionQueryArgs = [];
 
   @override
   Future<List<Drop>> fetchFeed({required int page}) async {
@@ -42,6 +44,23 @@ class RecordingDropRepository extends DropRepository {
   }) async {
     if (page != 0) return [];
     return feedDrops.where((d) => d.authorId == authorId).toList();
+  }
+
+  /// Returned by [searchByCaption] for page 0 only, filtered by whether
+  /// [feedDrops] caption contains [query] (case insensitive) -- same
+  /// "reuse feedDrops as the fake dataset" approach as [fetchByAuthor].
+  @override
+  Future<List<Drop>> searchByCaption({
+    required String query,
+    required int page,
+  }) async {
+    searchByCaptionCalls++;
+    searchByCaptionQueryArgs.add(query);
+    if (page != 0) return [];
+    final lowerQuery = query.toLowerCase();
+    return feedDrops
+        .where((d) => (d.caption ?? '').toLowerCase().contains(lowerQuery))
+        .toList();
   }
 
   @override

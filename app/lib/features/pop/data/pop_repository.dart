@@ -79,6 +79,36 @@ class PopRepository {
         .toList();
   }
 
+  /// Fetches one page (0-indexed) of Pops whose caption contains [query]
+  /// (case insensitive), newest first -- for WYN-009 Search's Pop tab.
+  Future<List<Pop>> searchByCaption({
+    required String query,
+    required int page,
+  }) async {
+    final userId = _client.auth.currentUser!.id;
+    final from = page * pageSize;
+    final to = from + pageSize - 1;
+
+    final rows = await _client
+        .from('pops')
+        .select('*, $_authorSelect, pop_likes(count), pop_comments(count)')
+        .ilike('caption', '%$query%')
+        .order('created_at', ascending: false)
+        .range(from, to);
+
+    final popIds = rows.map((row) => row['id'] as String).toList();
+    final likedIds = await _fetchLikedPopIds(userId: userId, popIds: popIds);
+    final savedIds = await _fetchSavedPopIds(userId: userId, popIds: popIds);
+
+    return rows
+        .map((row) => Pop.fromMap(
+              row,
+              likedByMe: likedIds.contains(row['id'] as String),
+              savedByMe: savedIds.contains(row['id'] as String),
+            ))
+        .toList();
+  }
+
   Future<Set<String>> _fetchLikedPopIds({
     required String userId,
     required List<String> popIds,

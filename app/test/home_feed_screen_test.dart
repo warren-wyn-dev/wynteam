@@ -7,9 +7,9 @@ import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
 import 'package:wyn/features/home/presentation/home_feed_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
-import 'package:wyn/features/home/presentation/search_placeholder_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
 import 'package:wyn/features/profile/data/profile.dart';
+import 'package:wyn/features/search/presentation/search_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/fake_video_player_platform.dart';
@@ -319,7 +319,7 @@ void main() {
     expect(find.byType(PopSingleClipScreen), findsOneWidget);
   });
 
-  testWidgets('tapping the Search bar opens the "coming soon" placeholder',
+  testWidgets('tapping the Search bar opens SearchScreen (WYN-009)',
       (tester) async {
     await tester.pumpWidget(buildHome(
       searchTestHomeRepository,
@@ -328,10 +328,9 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('ค้นหา (เร็ว ๆ นี้)'));
+    await tester.tap(find.text('ค้นหา'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(SearchPlaceholderScreen), findsOneWidget);
-    expect(find.text('ฟีเจอร์ค้นหากำลังจะมาเร็ว ๆ นี้'), findsOneWidget);
+    expect(find.byType(SearchScreen), findsOneWidget);
   });
 }
