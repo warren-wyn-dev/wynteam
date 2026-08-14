@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../feed/presentation/widgets/confirm_delete_dialog.dart';
+import '../../../../core/widgets/confirm_delete_dialog.dart';
 
 /// Thin wrapper around the shared confirm-delete dialog (WYN-004) so
 /// DropDetailScreen gets the Drop-specific wording ("ลบ Drop นี้?")

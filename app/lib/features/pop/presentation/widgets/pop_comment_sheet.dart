@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../feed/presentation/widgets/confirm_delete_dialog.dart';
+import '../../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/pop_comment.dart';
 import '../../data/pop_repository.dart';

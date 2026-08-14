@@ -1,7 +1,7 @@
 # Product Task — WYN-007
 
-Status: backlog
-Owner: AI Product Manager (เสร็จ) → AI Design (ถัดไป)
+Status: review (Coding เสร็จแล้ว รอ AI QA & Security ทดสอบ)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
 
 Feature: Home (Search bar + Feed รวม Drop/Pop)
 
@@ -52,3 +52,42 @@ Recommendation:
 3. **ลบโค้ด WYN-004 ที่ไม่ใช้แล้วทิ้งระหว่าง implement WYN-007** (ดูหัวข้อ Codebase Decision ด้านบน) — มอบหมายให้ AI Coding ทำเป็นส่วนหนึ่งของงานนี้
 
 Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบหน้าจอ Home (feed รวม Drop/Pop, การ์ดแต่ละประเภท, Search bar placeholder, states ต่าง ๆ) — ต้องตัดสินใจ UX ของการแตะการ์ด Pop จาก Home (เปิด `PopFeedScreen` ที่ตำแหน่งคลิปนั้น หรือเปิดมุมมองอื่น) และออกแบบ placeholder ของ Search bar ให้สื่อสารชัดเจนว่า "กำลังจะมา" ไม่ใช่ "พัง"
+
+---
+
+## Coding Output (AI Coding)
+
+Implementation:
+- Database: เพิ่ม section WYN-007 ใน `supabase/schema.sql` — สร้าง view `public.home_feed` รวม `drops`/`pops` ด้วย `UNION ALL` เรียงตาม `created_at` ได้ตามที่ Product แนะนำไว้ (ไม่ merge ฝั่ง client) join `profiles` เข้ามาด้วยเพื่อให้มี author info ครบในแถวเดียว (พลาดไปตอนร่างแรก แก้ก่อน implement ต่อ) นับ like/comment count ด้วย correlated subquery ต่อฝั่งของ union (คนละคู่ตารางกันระหว่าง drop กับ pop) ใช้ `security_invoker = true` ให้ view เคารพ RLS ของผู้เรียกจริงแทนที่จะรันด้วยสิทธิ์เจ้าของ view (Postgres 15+, best practice สำหรับ view บนตารางที่มี RLS แม้ผลลัพธ์จะเหมือนเดิมเพราะ base tables select-all-authenticated อยู่แล้ว) เพิ่ม `grant select` ให้ role `authenticated` **ไม่แตะตาราง `posts`/`likes`/`comments` เลยตามที่ตกลงไว้** (รออนุมัติ Founder ที่ `.wyn/company/APPROVALS.md`)
+- ลบโค้ด WYN-004 ทิ้งทั้งหมดตามที่ Product ตัดสินใจ: `app/lib/features/feed/` ทั้งโฟลเดอร์ (data + presentation + widgets) และ test 7 ไฟล์ที่เกี่ยวข้อง — ระหว่างลบพบว่า `confirm_delete_dialog.dart` (widget ที่ Drop/Pop ทั้งคู่ import ใช้) ดันอยู่ในโฟลเดอร์ `feed/` นี้ด้วย ย้ายออกมาเป็น `app/lib/core/widgets/confirm_delete_dialog.dart` ก่อนลบส่วนที่เหลือ แล้วอัปเดต import ใน 4 ไฟล์ที่ใช้ (`drop_detail_screen.dart`, `confirm_delete_drop_dialog.dart`, `pop_comment_sheet.dart`, `confirm_delete_pop_dialog.dart`)
+- `lib/features/pop/presentation/widgets/pop_clip_view.dart` (ใหม่): แยก `_PopClipView`/`_PopClipViewState` ออกจาก `pop_feed_screen.dart` เดิม เปลี่ยนเป็น public `PopClipView` เพิ่ม `topLeading` slot (nullable widget) แทนที่ `onOpenCreatePop` เดิม เพื่อให้ `PopFeedScreen` ส่งปุ่ม "+" และหน้าคลิปเดี่ยวใหม่ส่งปุ่มย้อนกลับแทนได้โดยไม่ต้องมี logic คนละชุด — `pop_feed_screen.dart` แก้ให้ใช้ widget ที่แยกออกมาแทน ลดจาก ~615 บรรทัดเหลือไฟล์เล็กลงมาก
+- `lib/features/pop/data/pop_mute_preference.dart` (ใหม่): แยก logic โหลด/บันทึกค่า mute ออกจาก `pop_feed_screen.dart` เดิม (เคยเป็น private ในไฟล์เดียว) เป็นฟังก์ชันสาธารณะ ให้ทั้ง `PopFeedScreen` และหน้าคลิปเดี่ยวใหม่ของ Home ใช้ค่า preference เดียวกันจริง ไม่ใช่คนละ key
+- `lib/features/home/data/`: `home_feed_item.dart` (model `HomeFeedItem` มี `contentType` discriminator + field ของทั้งสองประเภทแบบ nullable ตาม view, `toDrop()`/`toPop()` แปลงเป็น object เต็มให้ `DropDetailScreen`/`PopClipView` ใช้ตรง ๆ โดยไม่ต้อง fetch ซ้ำ), `home_repository.dart` (`fetchFeed` query view `home_feed` แล้วแยก id ตาม content_type ไป query liked status จาก `drop_likes`/`pop_likes` คนละ query, ส่วน saved status query เดียวครอบคลุมทั้งสองประเภทเพราะ `saves` เก็บ content_type ต่อแถวอยู่แล้ว — ไม่มี method toggle ใด ๆ ใน repository นี้ เพราะ Like/Save/Delete ส่งต่อไปที่ `DropRepository`/`PopRepository` ตัวเดิมโดยตรงตาม content type ไม่ duplicate logic)
+- `lib/features/home/presentation/`: `home_feed_screen.dart` (Search bar บนสุด + `ListView.builder` เดียวแสดงการ์ดปนกัน, infinite scroll + pull-to-refresh, toggle Like/Save อ่าน state สดจาก `_items` list ด้วย id เสมอ ไม่รับ item ทั้งก้อนเป็น parameter), `pop_single_clip_screen.dart` (host บาง ๆ รอบ `PopClipView` ตัวเดียว ไม่ใช่ PageView, จัดการ mute state ของตัวเองผ่าน `pop_mute_preference.dart`), `search_placeholder_screen.dart` (หน้า "เร็ว ๆ นี้" เต็มจอ), `widgets/home_drop_card.dart`, `widgets/home_pop_card.dart` (การ์ด Pop crop thumbnail เป็น 1:1 + play icon overlay + duration badge ตามที่ Design กำหนด ไม่เล่นวิดีโอจริงในฟีด)
+- `lib/features/root/presentation/root_shell.dart`: แท็บ Home ชี้ไป `HomeFeedScreen` จริงแทน placeholder ลบ `_ComingSoonTab` class ทิ้งเพราะไม่มีใครใช้แล้ว (ทั้ง Home และ Pop ต่างก็มีหน้าจอจริงแล้ว)
+
+Files Changed:
+- `supabase/schema.sql` (เพิ่ม view `home_feed`)
+- ลบ: `app/lib/features/feed/` ทั้งโฟลเดอร์, `app/test/{comment,create_post_screen,feed_screen,post_card,post_detail_screen,post}_test.dart`, `app/test/support/recording_post_repository.dart`
+- ใหม่: `app/lib/core/widgets/confirm_delete_dialog.dart` (ย้ายมาจาก feed/), `app/lib/features/pop/presentation/widgets/pop_clip_view.dart`, `app/lib/features/pop/data/pop_mute_preference.dart`, `app/lib/features/home/` ทั้งโฟลเดอร์ (data/ 2 ไฟล์, presentation/ 3 หน้าจอ + 2 widgets)
+- แก้ import: `drop_detail_screen.dart`, `confirm_delete_drop_dialog.dart`, `pop_comment_sheet.dart`, `confirm_delete_pop_dialog.dart`, `pop_feed_screen.dart`
+- `app/lib/features/root/presentation/root_shell.dart`
+- `app/test/home_feed_item_test.dart`, `home_feed_screen_test.dart`, `support/recording_home_repository.dart` (ใหม่ทั้งหมด)
+
+Reason: implement ตาม Product spec + Design spec ของ WYN-007 (`.wyn/docs/design/wyn-007-home.md`) ครบตามขอบเขต — merge feed ด้วย database-side view ตามที่แนะนำ, การ์ด Pop ไม่เล่นวิดีโอในฟีดตามเหตุผลที่ Design ให้ไว้ (ความสม่ำเสมอของการ์ด + ประหยัด bandwidth/battery), ลบโค้ด WYN-004 ทิ้งตามที่ Product ตัดสินใจ โดยไม่แตะตาราง DB เดิมที่ยังรออนุมัติ Founder
+
+Tests:
+- `flutter analyze`: No issues found
+- `flutter test`: 81/81 ผ่านทั้งหมด (ลดลงจาก 95 เพราะลบ test ของ WYN-004 ไป 23 เคส แล้วเพิ่มใหม่ของ WYN-007 9 เคส สุทธิ 72+9=81)
+- **พบและแก้บั๊ก double-tap ระหว่างพัฒนาเอง ก่อนส่ง QA**: เขียน `_toggleLike`/`_toggleSave` ใน `HomeFeedScreen` ให้อ่าน `_items[index]` สดใหม่จาก id เสมอตั้งแต่แรก (ไม่ใช่รับ `HomeFeedItem` เป็น parameter) — ทดสอบพิสูจน์ว่า pattern นี้จำเป็นจริงโดยย้อนกลับไปให้ handler รับ item ทั้งก้อนเป็น parameter ชั่วคราว (จำลองบั๊กแบบเดียวกับที่เจอใน WYN-004 `FeedScreen`) รัน `home_feed_screen_test.dart --plain-name double-tap` ซ้ำ — **FAIL จริงทั้งสองเทสต์** (Drop และ Pop) ก่อน restore กลับมาแก้แล้ว **PASS ทั้ง 81 เทสต์**
+- ตรวจว่า Pop card ที่ไม่มี `thumbnail_url` (fallback) ไม่ throw exception และไม่พยายามโหลด network image โดยไม่จำเป็น (ใช้ `Container` สีพื้นแทนถ้า `thumbnailUrl == null`)
+
+Build: ยังไม่ได้ build จริง (`flutter build apk/ios`) — sandbox นี้ไม่มี Android SDK/Xcode ให้ verify ได้ เหมือนทุก feature ก่อนหน้า
+
+Known Issues:
+- Search bar เป็น placeholder เท่านั้นตามที่ Product ตัดสินใจแล้ว — ของจริงผูกกับ WYN-009
+- `like_count`/`comment_count` ใน view `home_feed` ใช้ correlated subquery ต่อแถว ไม่ใช่ join — เพียงพอสำหรับ scale ของ V0.1 แต่ควรพิจารณา materialized view หรือ denormalized counter column ถ้า feed โตขึ้นมากในอนาคต
+- ตาราง `posts`/`likes`/`comments` ของ WYN-004 ยังอยู่ใน schema (ตั้งใจ — รออนุมัติ Founder ที่ `.wyn/company/APPROVALS.md`)
+- ยังไม่ทดสอบกับ Supabase project จริง (รอ infra จาก Founder เหมือนทุก feature ก่อนหน้า) — โดยเฉพาะ view `home_feed` ที่ยังไม่เคยรันจริงกับข้อมูลจริงเลย ต้องตรวจสอบ query plan/performance ตอนมี infra จริง
+
+Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ WYN-007 ก่อนอนุมัติ deploy — เน้นตรวจ: (ก) pagination ของ feed รวมถูกต้องจริง ไม่มี item ซ้ำ/หายเมื่อเลื่อนหลายหน้า (ข) regression กับ Drop Feed/Pop Feed เดิม (ยังทำงานปกติหลัง extract `PopClipView`/ย้าย `confirm_delete_dialog.dart`) (ค) ไม่มีการลบ/แก้ตาราง `posts`/`likes`/`comments` โดยไม่ได้รับอนุมัติ (ง) security ของ view `home_feed` (RLS ยังบังคับใช้จริงหรือไม่ผ่าน `security_invoker`) (จ) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัด

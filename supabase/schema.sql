@@ -539,3 +539,69 @@ create policy "Users can upload their own pop videos"
     bucket_id = 'pop-videos'
     and (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- WYN-007 (Home) — home_feed view
+-- Run once per environment after the WYN-006 statements above.
+--
+-- Home needs one chronologically-paginatable result set spanning both
+-- drops and pops. Fetching a page of each separately and merging/sorting
+-- them client-side breaks pagination correctness across multiple pages
+-- (two independent cursors can't be combined into one consistent "page
+-- N" without re-deriving it every time) -- see
+-- .wyn/tasks/backlog/WYN-007-home-feed.md, Risks. A single UNION ALL
+-- view lets the client paginate with one order()/range() call, same as
+-- every other feed in the app.
+--
+-- security_invoker = true makes the view respect the querying user's own
+-- RLS instead of running with the view owner's privileges (Postgres 15+).
+-- Functionally this doesn't currently change what's visible -- both
+-- drops and pops already select-all-authenticated -- but it's the
+-- correct default for a view over RLS-protected tables and avoids
+-- silently depending on owner-bypasses-RLS behavior.
+--
+-- Like/comment counts are correlated subqueries per row rather than a
+-- join, since each half of the union needs a different pair of count
+-- tables (drop_likes/drop_comments vs pop_likes/pop_comments) -- fine at
+-- V0.1 scale, revisit if the feed ever needs to paginate over a very
+-- large N.
+create or replace view public.home_feed
+  with (security_invoker = true) as
+select
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  d.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  null::bigint as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count
+from public.drops d
+join public.profiles prof on prof.id = d.author_id
+union all
+select
+  p.id,
+  'pop'::text as content_type,
+  p.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  p.created_at,
+  p.caption,
+  null::text as image_url,
+  p.video_url,
+  p.thumbnail_url,
+  p.duration_seconds,
+  p.view_count,
+  (select count(*) from public.pop_likes where pop_id = p.id) as like_count,
+  (select count(*) from public.pop_comments where pop_id = p.id) as comment_count
+from public.pops p
+join public.profiles prof on prof.id = p.author_id;
+
+grant select on public.home_feed to authenticated;
