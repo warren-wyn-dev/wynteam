@@ -1,7 +1,7 @@
 # Product Task — WYN-005
 
-Status: qa (Debug เสร็จแล้ว รอ AI QA & Security ทดสอบรอบ 2)
-Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — FAIL รอบ 1) → AI Debug Engineer (เสร็จ) → AI QA & Security (ถัดไป — รอบ 2)
+Status: bugs (QA รอบ 2 — FAIL)
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — FAIL รอบ 1) → AI Debug Engineer (เสร็จ — รอบ 1) → AI QA & Security (เสร็จ — FAIL รอบ 2) → AI Debug Engineer (ถัดไป — รอบ 2)
 
 Feature: Drop (โพสต์รูปภาพ)
 
@@ -191,3 +191,61 @@ Tests:
 Regression Risk: ต่ำ — มี unit test คุ้มครองจริงทั้ง model logic และ double-tap safety การเปลี่ยน `_commentsFuture` เป็น `_comments` list เป็นการ refactor ภายในเฉพาะ state management ของ `DropDetailScreen` ไม่กระทบ public API/constructor ของ screen เลย ไม่มี call site อื่นต้องแก้
 
 Handoff to QA: ส่งกลับ AI QA & Security (`/qa`) ทดสอบรอบ 2 — เน้นตรวจสอบว่า: (ก) ปุ่ม Like Comment ทำงานถูกต้องปกติ (ไม่ double-tap) ทั้ง optimistic update และ rollback เมื่อ network ล้มเหลว (ข) RLS ของ `drop_comment_likes` ถูกต้อง (ค) ไม่มี regression กับ Comment เดิม (เพิ่ม/ลบคอมเมนต์, ดูรายการ) หรือ Like/Save/Share ของ Drop เอง จากการเปลี่ยน state management เป็น mutable list (ง) 2 จุด Low severity ที่แก้เพิ่มทำงานถูกต้อง
+
+---
+
+## QA & Security Report — รอบ 2 (AI QA & Security)
+
+Feature: WYN-005 — Drop (โพสต์รูปภาพ) — หลัง Debug Engineer แก้ Like Comment
+
+Environment: Code review + static analysis บน `main` หลัง merge PR #30 (Flutter SDK 3.47.0 stable) — เงื่อนไขเดียวกับรอบก่อนหน้า (ไม่มี Supabase project จริง, ไม่มี Android SDK/Xcode)
+
+Test Cases:
+1. `flutter analyze` ซ้ำอย่างอิสระ
+2. `flutter test` ซ้ำอย่างอิสระ
+3. ตรวจโค้ดจริงของ fix: `DropDetailScreen._toggleCommentLike` อ่าน `_comments[index]` สดใหม่จริงหรือไม่ (ไม่ capture parameter) + มี rollback เมื่อ network fail จริงหรือไม่
+4. ตรวจ `drop_comment_likes` RLS ในสคีมาจริง (select-all-authenticated, insert/delete เฉพาะของตัวเอง) เทียบกับ `drop_likes` pattern
+5. ตรวจ regression test `drop_comment_like_test.dart` ว่าพิสูจน์ double-tap จริงหรือไม่ (อ่านโค้ด test เอง ไม่ใช่แค่เชื่อ Debug Report) — และลองย้อน fix กลับไปพิสูจน์ red→green ซ้ำด้วยตัวเอง
+6. ตรวจ 2 จุด Low severity ที่แก้ (`_isCropping` guard, try/catch รอบ `centerCropToSquare`) ตรงกับที่ report จริงหรือไม่
+7. **ไล่ Acceptance Criteria ทุกบรรทัดของ WYN-005 กับโค้ดจริงอีกครั้งทั้งหมด ไม่ใช่แค่จุดที่เพิ่งแก้** (บทเรียนจากรอบ 1: QA รอบ 1 เทียบแค่ Requirements/Component list แต่พลาดไม่ได้ไล่ Acceptance Criteria checklist แบบเดียวกันแบบครบทุกข้อ)
+8. Regression กับ Like/Save/Share/Comment เดิมของ Drop จากการเปลี่ยน `_commentsFuture` → `_comments` mutable list
+9. Secret/credential exposure check ในโค้ดที่เปลี่ยนใหม่
+
+Passed: 6/9 (#1, #2, #3, #4, #5, #6, #8, #9 — นับจริง 8/9)
+
+Failed: 1/9 (#7)
+
+Severity: **Major**
+
+### Failed Case #7 — Major: ไม่มีทางลบ Comment ของตัวเองได้เลย ทั้งที่ Product spec ระบุไว้ตรง ๆ ทั้งใน Requirements และ Acceptance Criteria
+
+Reproduction (เทียบเอกสารกับโค้ดจริง):
+1. Product spec (`.wyn/tasks/qa/WYN-005-drop-post-image.md` หัวข้อ Requirements, บรรทัด "Comment"): **"เพิ่ม Comment ได้, ลบ Comment ของตัวเองได้, Like Comment ได้"**
+2. Acceptance Criteria ข้อที่ตรงกัน: **"คอมเมนต์ได้ ลบคอมเมนต์ของตัวเองได้ กด Like คอมเมนต์ได้"** — เป็น checkbox เดียวที่รวม 3 ความสามารถ และมีแค่ 2/3 ที่ทำงานจริง (เพิ่ม + Like) ส่วนลบยังไม่มีเลย
+3. อ่าน `app/lib/features/drop/data/drop_repository.dart` ทั้งไฟล์ (219 บรรทัด): มี `deleteDrop(String dropId)` สำหรับลบ Drop แต่**ไม่มี `deleteComment`/`removeComment` เลยแม้แต่ method เดียว**
+4. อ่าน `app/lib/features/drop/presentation/drop_detail_screen.dart` ส่วน render comment list (บรรทัด ~347-404): แต่ละคอมเมนต์แสดง avatar/ชื่อ/ข้อความ/ปุ่ม Like เท่านั้น ไม่มีปุ่มลบ ไม่มี long-press/swipe-to-delete หรือกลไกอื่นใดเลย และ**ไม่มีการเทียบ `comment.authorId == currentUserId` เลยสักจุดในการ render comment** (ต่างจาก `isOwnDrop` ที่เทียบไว้ถูกต้องสำหรับตัว Drop เองที่บรรทัด 203/231) — ยืนยันว่าไม่ใช่แค่ UI ที่ขาด แต่ไม่มี logic ตรวจสอบความเป็นเจ้าของคอมเมนต์เลยด้วยซ้ำ
+5. ตรวจ `supabase/schema.sql`: DB-level มี RLS policy "Users can delete their own drop comments" (`for delete ... using (auth.uid() = author_id)`) รองรับไว้แล้วตั้งแต่รอบ Coding แรก — แปลว่า backend พร้อมรองรับ แต่ไม่มี client path ใด ๆ ไปถึงมันเลย เหมือนกับกรณี Like Comment ในรอบ 1 เป๊ะ (DB พร้อม แต่ไม่มีทางเรียกใช้จาก UI)
+6. ตรวจว่านี่ไม่ใช่ gap ที่สืบทอดมาจาก WYN-004: เปิด `.wyn/tasks/approved/WYN-004-feed-and-post.md` พบว่า WYN-004 Requirements ระบุแค่ "ลบโพสต์ของตัวเองได้" (ลบ**โพสต์** ไม่ใช่ลบ**คอมเมนต์**) — WYN-004 ไม่เคยมี requirement "ลบ comment" เลย จึงไม่มี pattern ให้ WYN-005 Coding อ้างอิงได้ตรง ๆ เหมือนกับ root cause ของบั๊ก Like Comment ในรอบ 1 ทุกประการ (feature ใหม่ที่ WYN-004 ไม่เคยมี ถูกมองข้ามเมื่อ implement ตาม mental model ของ WYN-004 แทนที่จะไล่ checklist จาก spec ของ WYN-005 เอง)
+7. ตรวจ Design spec (`.wyn/docs/design/wyn-005-drop.md`) Screen 3 Components — พบว่า Design เองก็ไม่ได้ระบุปุ่มลบคอมเมนต์ไว้ในรายการ component เลย (มีแค่ "ปุ่มลบ (ถังขยะ, เฉพาะ Drop ของตัวเอง)" สำหรับตัว Drop ที่บรรทัด 94) แปลว่า Design ก็พลาดจุดนี้ไปตั้งแต่ต้นเช่นกัน ไม่ใช่ Coding พลาดฝ่ายเดียว — แต่ Product spec (ต้นทาง requirement) ระบุไว้ชัดเจน ดังนั้นยังถือเป็นบั๊กที่ต้องแก้ ไม่ใช่การตัดขอบเขตที่ตั้งใจ (ไม่มีบันทึกไว้ที่ไหนว่าตัดออก)
+
+Expected: ผู้ใช้เห็นปุ่ม/ทางลบคอมเมนต์ของตัวเองเท่านั้น (เหมือน `isOwnDrop` guard ของตัว Drop) กดแล้วคอมเมนต์หายไปจากรายการและ `commentCount` ของ Drop ลดลง
+
+Actual: ไม่มีทางลบคอมเมนต์ได้เลยไม่ว่าจะเป็นคอมเมนต์ของตัวเองหรือคนอื่น — ทั้งที่ RLS ฝั่ง database รองรับไว้แล้ว
+
+Security Findings:
+- ไม่พบ secret/credential hardcode ในโค้ดที่เปลี่ยนใหม่ทั้งหมดของรอบนี้ (Debug Engineer's diff)
+- `drop_comment_likes` RLS ตรวจแล้วถูกต้องตรงตาม pattern ของ `drop_likes` ทุกประการ: select-all-authenticated, insert/delete จำกัดเฉพาะ `auth.uid() = user_id`, composite PK (`comment_id`, `user_id`) ป้องกัน duplicate like ที่ database level ด้วย (ไม่ใช่แค่พึ่ง client logic)
+- `DropDetailScreen._toggleCommentLike` ตรวจโค้ดจริงแล้วยืนยันว่าอ่าน `_comments[index]` สดใหม่ทุกครั้งจริง (ไม่ capture parameter ที่ build-time) และมี rollback (`setState(() => _comments![index] = previous)`) ใน catch block จริง — ตรงตามที่ Debug Report ระบุ
+- ลองรัน regression test ซ้ำด้วยตัวเอง: ย้อน `_toggleCommentLike` กลับไปรับ `DropComment` เป็น parameter ชั่วคราว รัน `flutter test test/drop_comment_like_test.dart` → **FAIL จริง** (`Expected: [false, true], Actual: [false, false]`) แล้ว restore กลับมา → **PASS** — ยืนยันว่า regression test มีความหมายจริง ไม่ใช่ test ที่ผ่านเสมอไม่ว่าจะแก้บั๊กหรือไม่
+- 2 จุด Low severity ที่แก้ (`_isCropping` guard ครอบทั้งปุ่มและพื้นที่รูปภาพ, try/catch รอบ `centerCropToSquare` พร้อม error message ให้ผู้ใช้เห็น) ตรวจโค้ดจริงแล้วตรงตามที่ report ทุกจุด
+- ไม่พบ regression กับ Like/Save/Share ของ Drop เอง หรือการเพิ่มคอมเมนต์ใหม่ (`_sendComment` ยัง append เข้า `_comments` list ถูกต้อง, `_drop.withExtraComment()` ยัง sync `commentCount` ถูกต้อง)
+
+Recommendation: ส่งกลับ AI Debug Engineer เพิ่มความสามารถ "ลบ Comment ของตัวเอง" ให้ครบ (Major) — แนวทางที่แนะนำ:
+- เพิ่ม `deleteComment({required String commentId})` ใน `DropRepository` (`_client.from('drop_comments').delete().eq('id', commentId)` — RLS ฝั่ง DB บังคับความเป็นเจ้าของอยู่แล้ว ไม่ต้องเช็ค authorId ฝั่ง client ซ้ำก่อนยิง request แต่ต้องเช็คเพื่อ**แสดง/ซ่อนปุ่ม**)
+- เพิ่มปุ่มลบ (ไอคอนถังขยะเล็ก ๆ หรือ long-press menu) ข้างคอมเมนต์ **เฉพาะที่ `comment.authorId == currentUserId`** (mirror `isOwnDrop` guard ที่มีอยู่แล้วสำหรับตัว Drop เอง บรรทัด 203/231 ของไฟล์เดียวกัน)
+- ใช้ dialog ยืนยันก่อนลบเหมือน Drop เอง (`confirmDeletePost`/`confirmDeleteDrop` ที่ generalize ไว้แล้วตั้งแต่ WYN-005 รอบแรก — เรียกด้วย `itemLabel` ที่เหมาะกับ "คอมเมนต์" ได้เลยไม่ต้องสร้างใหม่)
+- ลบคอมเมนต์แล้วต้องอัปเดต `_comments` list (เอาออก) และลด `_drop.commentCount` ลง 1 (mirror `withExtraComment()` แต่ทิศตรงข้าม — พิจารณาเพิ่ม `withoutExtraComment()`/`withRemovedComment()` helper ใน `Drop` model)
+- เพิ่ม regression test ครอบคลุม: ปุ่มลบแสดงเฉพาะเจ้าของคอมเมนต์เท่านั้น (คนอื่นมองไม่เห็นปุ่ม), ลบแล้วหายจาก list จริง, commentCount ลดลงจริง
+- แนะนำให้ AI Design เพิ่มบรรทัด "ปุ่มลบคอมเมนต์ (เฉพาะของตัวเอง)" เข้า Component list ของ Screen 3 ใน `.wyn/docs/design/wyn-005-drop.md` ด้วย เพื่อไม่ให้ document กับโค้ดไม่ตรงกันต่อไป (Design เองก็พลาดจุดนี้ตั้งแต่ต้น)
+
+Final Status: **FAIL**
