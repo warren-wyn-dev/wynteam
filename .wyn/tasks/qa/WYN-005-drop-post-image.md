@@ -1,7 +1,7 @@
 # Product Task — WYN-005
 
-Status: bugs (QA รอบ 2 — FAIL)
-Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — FAIL รอบ 1) → AI Debug Engineer (เสร็จ — รอบ 1) → AI QA & Security (เสร็จ — FAIL รอบ 2) → AI Debug Engineer (ถัดไป — รอบ 2)
+Status: qa (Debug รอบ 2 เสร็จแล้ว รอ AI QA & Security ทดสอบรอบ 3)
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — FAIL รอบ 1) → AI Debug Engineer (เสร็จ — รอบ 1) → AI QA & Security (เสร็จ — FAIL รอบ 2) → AI Debug Engineer (เสร็จ — รอบ 2) → AI QA & Security (ถัดไป — รอบ 3)
 
 Feature: Drop (โพสต์รูปภาพ)
 
@@ -249,3 +249,38 @@ Recommendation: ส่งกลับ AI Debug Engineer เพิ่มควา
 - แนะนำให้ AI Design เพิ่มบรรทัด "ปุ่มลบคอมเมนต์ (เฉพาะของตัวเอง)" เข้า Component list ของ Screen 3 ใน `.wyn/docs/design/wyn-005-drop.md` ด้วย เพื่อไม่ให้ document กับโค้ดไม่ตรงกันต่อไป (Design เองก็พลาดจุดนี้ตั้งแต่ต้น)
 
 Final Status: **FAIL**
+
+---
+
+## Debug Engineer Report — รอบ 2 (AI Debug Engineer)
+
+Bug: Major จาก QA รอบ 2 (ด้านบน) — ไม่มีทางลบ Comment ของตัวเองได้เลย ทั้งที่ Product spec ระบุไว้ตรงทั้ง Requirements และ Acceptance Criteria
+
+Reproduction: ยืนยันตรงกับที่ QA รายงาน — อ่าน `app/lib/features/drop/data/drop_repository.dart` ทั้งไฟล์ ไม่มี `deleteComment` เลย และอ่าน `app/lib/features/drop/presentation/drop_detail_screen.dart` ส่วน render comment list ไม่มีปุ่มลบและไม่มีการเทียบ `comment.authorId == currentUserId` เลยสักจุด ยืนยันด้วยว่า `supabase/schema.sql` มี RLS delete policy บน `drop_comments` (`"Users can delete their own drop comments"`) รองรับไว้แล้วตั้งแต่รอบ Coding แรก — สอดคล้องกับที่ QA สรุปไว้ทุกประการ
+
+Root Cause: เดียวกับบั๊กรอบ 1 เป๊ะ — WYN-004 (ที่ WYN-005 อ้างอิง mental model ตอน implement) มี requirement แค่ "ลบโพสต์ของตัวเองได้" ไม่เคยมี "ลบ comment ของตัวเองได้" เลย จึงไม่มี pattern ให้อ้างอิงตรง ๆ เมื่อ implement ตามโครงสร้างคล้าย WYN-004 แทนที่จะไล่ checklist ทีละบรรทัดจาก Product Requirements/Acceptance Criteria ใหม่ของ WYN-005 เอง จึงพลาดข้อกำหนดนี้ไปเช่นเดียวกับที่เคยพลาด Like Comment มาก่อน — เพิ่มเติมคือ Design spec เองก็ไม่ได้ระบุ component ปุ่มลบคอมเมนต์ไว้เลย (มีแต่ปุ่มลบ Drop) ทำให้ Coding ไม่มีทั้งฝั่ง Product checklist และ Design component ที่ชี้ทางให้ตรง ๆ
+
+Fix:
+- เพิ่ม `Drop.withRemovedComment()` ใน `drop.dart` — `copyWith(commentCount: commentCount - 1)` (mirror `withExtraComment()` ทิศตรงข้าม)
+- เพิ่ม `DropRepository.deleteComment(String commentId)` — `_client.from('drop_comments').delete().eq('id', commentId)` ไม่ต้องเช็ค ownership ฝั่ง client ก่อนยิง request เพราะ RLS บังคับไว้อยู่แล้วที่ DB (เหมือน `deleteDrop`) แต่ต้องเช็คฝั่ง client ก่อน**แสดงปุ่ม**
+- เพิ่มปุ่มลบ (ไอคอนถังขยะเล็ก `iconSize: 16`) ข้างคอมเมนต์ใน `DropDetailScreen` **เฉพาะที่ `comment.authorId == currentUserId`** (mirror `isOwnDrop` guard ที่มีอยู่แล้วสำหรับตัว Drop เอง)
+- เพิ่ม `_deleteComment(String commentId)`: เรียก `confirmDeletePost(context, itemLabel: 'คอมเมนต์')` (ใช้ dialog ที่ generalize ไว้แล้วตั้งแต่ WYN-005 รอบแรก ไม่ต้องสร้างใหม่) ก่อนลบจริงเสมอ แล้วเรียก `dropRepository.deleteComment`, สำเร็จแล้วเอาคอมเมนต์ออกจาก `_comments` list ด้วย `.where((c) => c.id != commentId)` และเรียก `_drop.withRemovedComment()` เพื่อ sync `commentCount`, ล้มเหลวแสดง SnackBar error (mirror `_deleteDrop` ทุกจุด)
+
+Files Changed:
+- `app/lib/features/drop/data/drop.dart` (เพิ่ม `withRemovedComment()`)
+- `app/lib/features/drop/data/drop_repository.dart` (เพิ่ม `deleteComment`)
+- `app/lib/features/drop/presentation/drop_detail_screen.dart` (ปุ่มลบคอมเมนต์ + `_deleteComment` handler)
+- `app/test/drop_test.dart` (เพิ่ม unit test `withRemovedComment`)
+- `app/test/drop_comment_delete_test.dart` (ใหม่ — regression test: ปุ่มลบแสดงเฉพาะเจ้าของคอมเมนต์, ลบแล้วหายจาก list, commentCount ลดลงจริง)
+- `app/test/support/recording_drop_repository.dart` (เพิ่ม `deleteCommentCalls` tracking)
+
+Reason: implement ความสามารถ "ลบ Comment ของตัวเอง" ที่ขาดไปให้ครบตาม Product spec ของ WYN-005 โดยใช้ pattern เดียวกับปุ่มลบ Drop ที่มีอยู่แล้วทุกจุด (ownership guard, confirm dialog, error handling)
+
+Tests:
+- `flutter analyze` — **No issues found**
+- `flutter test` — **All tests passed! (66/66)** เพิ่ม 1 เคสใหม่ใน `drop_test.dart` (`withRemovedComment`) และ 2 เคสใหม่ใน `drop_comment_delete_test.dart` (ปุ่มลบแสดงเฉพาะเจ้าของ, ลบแล้วหายจาก list + commentCount ลดลง)
+- **พิสูจน์แล้วว่า regression test จับบั๊กได้จริง**: คอมเมนต์เงื่อนไขแสดงปุ่มลบชั่วคราวเป็น `if (false && comment.authorId == currentUserId)` แล้วรัน `drop_comment_delete_test.dart` ซ้ำ — **FAIL จริง** (`Expected: exactly one matching candidate, Actual: Found 0 widgets with icon delete_outline`) ก่อน restore กลับมาแก้แล้ว **PASS ทั้ง 66 เทสต์**
+
+Regression Risk: ต่ำ — เพิ่ม method/UI ใหม่ล้วน ๆ ไม่ได้แก้ signature หรือ behavior ของโค้ดเดิมที่มีอยู่แล้วเลย (`deleteComment` เป็น method ใหม่ทั้งหมด, ปุ่มลบเป็น conditional widget ใหม่ที่ไม่กระทบ layout เดิมเมื่อ `comment.authorId != currentUserId`) ทดสอบแล้วว่า Like Comment/เพิ่มคอมเมนต์/Like-Save-Share ของ Drop เองยังทำงานถูกต้องปกติ (test เดิมทั้งหมดยังผ่าน)
+
+Handoff to QA: ส่งกลับ AI QA & Security (`/qa`) ทดสอบรอบ 3 — เน้นตรวจสอบว่า: (ก) ปุ่มลบคอมเมนต์แสดงเฉพาะเจ้าของคอมเมนต์เท่านั้นจริง ไม่ใช่แค่ในเทสต์ (ข) ลบคอมเมนต์แล้ว list/commentCount sync ถูกต้อง รวมถึง rollback/error handling เมื่อ network ล้มเหลว (ค) RLS ของ `drop_comments` delete policy ยังถูกต้องตามเดิม (ง) ไล่ Acceptance Criteria **ทุกบรรทัด** อีกครั้งทั้งหมด (ทั้ง Requirements, Design Components, Acceptance Criteria แยกกัน) เผื่อมีจุดอื่นที่ยังพลาดอยู่ ก่อนจะอนุมัติจริง — บทเรียนจากสองรอบที่ผ่านมาคือห้ามเชื่อว่าตรวจครบแค่เพราะรอบก่อนหน้าเทียบมาแล้วบางหัวข้อ

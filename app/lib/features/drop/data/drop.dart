@@ -72,6 +72,10 @@ class Drop {
   /// new comment, without waiting for a full feed refresh.
   Drop withExtraComment() => copyWith(commentCount: commentCount + 1);
 
+  /// A copy with the comment count reduced -- used right after deleting a
+  /// comment, without waiting for a full feed refresh.
+  Drop withRemovedComment() => copyWith(commentCount: commentCount - 1);
+
   /// [likedByMe]/[savedByMe] aren't embeddable in the same query (they
   /// depend on who's asking), so DropRepository.fetchFeed fills them in
   /// from separate lookups against the current user's own likes/saves.

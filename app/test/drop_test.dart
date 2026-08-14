@@ -77,6 +77,11 @@ void main() {
     expect(drop.commentCount, 3);
   });
 
+  test('withRemovedComment decrements commentCount only', () {
+    final drop = _drop(commentCount: 2).withRemovedComment();
+    expect(drop.commentCount, 1);
+  });
+
   group('Drop.fromMap', () {
     test('parses embedded author, like/comment counts, liked/saved state', () {
       final drop = Drop.fromMap({

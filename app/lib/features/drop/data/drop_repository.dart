@@ -216,4 +216,11 @@ class DropRepository {
           .insert({'comment_id': commentId, 'user_id': userId});
     }
   }
+
+  /// RLS on drop_comments restricts this to the caller's own comments --
+  /// no client-side ownership check needed before sending the request,
+  /// only before showing the delete affordance in the UI.
+  Future<void> deleteComment(String commentId) {
+    return _client.from('drop_comments').delete().eq('id', commentId);
+  }
 }

@@ -26,6 +26,7 @@ class RecordingDropRepository extends DropRepository {
   int toggleCommentLikeCalls = 0;
   final List<bool> toggleLikeCurrentlyLikedArgs = [];
   final List<bool> toggleCommentLikeCurrentlyLikedArgs = [];
+  final List<String> deleteCommentCalls = [];
 
   @override
   Future<List<Drop>> fetchFeed({required int page}) async {
@@ -69,5 +70,10 @@ class RecordingDropRepository extends DropRepository {
   }) async {
     toggleCommentLikeCalls++;
     toggleCommentLikeCurrentlyLikedArgs.add(currentlyLiked);
+  }
+
+  @override
+  Future<void> deleteComment(String commentId) async {
+    deleteCommentCalls.add(commentId);
   }
 }
