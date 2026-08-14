@@ -16,8 +16,11 @@ import '../../search/presentation/search_screen.dart';
 import '../data/home_feed_item.dart';
 import '../data/home_repository.dart';
 import 'pop_single_clip_screen.dart';
+import 'widgets/from_your_clubs_feed.dart';
 import 'widgets/home_drop_card.dart';
 import 'widgets/home_pop_card.dart';
+
+enum _HomeFeedMode { forYou, fromYourClubs }
 
 /// Screen 1 — Home tab (Bottom Nav, index 0). A single chronological feed
 /// mixing Drop and Pop content, with the CLUB section (WYN-014) between
@@ -60,6 +63,11 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   bool _hasMore = true;
   String? _error;
   int _unreadNotificationCount = 0;
+
+  // Resets to "สำหรับคุณ" every time Home is (re)built fresh -- not
+  // persisted across app sessions, per the Design spec's "ค่าเริ่มต้น...
+  // เสมอทุกครั้งที่เปิดแอป" simplification.
+  _HomeFeedMode _feedMode = _HomeFeedMode.forYou;
 
   @override
   void initState() {
@@ -273,6 +281,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
           dropRepository: widget.dropRepository,
           popRepository: widget.popRepository,
           savedRepository: widget.savedRepository,
+          clubRepository: widget.clubRepository,
+          clubPostRepository: widget.clubPostRepository,
         ),
       ),
     );
@@ -300,6 +310,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
           followRepository: widget.followRepository,
           profileRepository: widget.profileRepository,
           savedRepository: widget.savedRepository,
+          clubRepository: widget.clubRepository,
+          clubPostRepository: widget.clubPostRepository,
         ),
       ),
     );
@@ -319,9 +331,36 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
               clubRepository: widget.clubRepository,
               clubPostRepository: widget.clubPostRepository,
             ),
-            Expanded(child: _buildBody()),
+            _buildFeedModeToggle(),
+            Expanded(
+              child: _feedMode == _HomeFeedMode.forYou
+                  ? _buildBody()
+                  : FromYourClubsFeed(
+                      key: const Key('from_your_clubs_feed'),
+                      clubRepository: widget.clubRepository,
+                      clubPostRepository: widget.clubPostRepository,
+                    ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  // SegmentedButton (a view toggle on one feed), not a TabBar (a switch
+  // between independent content sections) -- see the Design spec's
+  // reasoning in .wyn/docs/design/wyn-015-club-discovery-integration.md,
+  // Screen 5.
+  Widget _buildFeedModeToggle() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: SegmentedButton<_HomeFeedMode>(
+        segments: const [
+          ButtonSegment(value: _HomeFeedMode.forYou, label: Text('สำหรับคุณ')),
+          ButtonSegment(value: _HomeFeedMode.fromYourClubs, label: Text('จาก Club ของคุณ')),
+        ],
+        selected: {_feedMode},
+        onSelectionChanged: (selection) => setState(() => _feedMode = selection.first),
       ),
     );
   }

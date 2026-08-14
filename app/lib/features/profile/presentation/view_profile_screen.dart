@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../club/data/club.dart';
+import '../../club/data/club_post_repository.dart';
+import '../../club/data/club_repository.dart';
+import '../../club/presentation/club_page.dart';
+import '../../club/presentation/widgets/club_mini_card.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../follow/presentation/follow_list_screen.dart';
@@ -30,6 +35,8 @@ class ViewProfileScreen extends StatefulWidget {
     required this.popRepository,
     required this.savedRepository,
     required this.userId,
+    this.clubRepository,
+    this.clubPostRepository,
   });
 
   final ProfileRepository profileRepository;
@@ -38,6 +45,18 @@ class ViewProfileScreen extends StatefulWidget {
   final PopRepository popRepository;
   final SavedRepository savedRepository;
   final String userId;
+
+  // Optional (unlike every other repository here): the "My Clubs"
+  // section (WYN-015) only ever shows for the viewer's own profile, and
+  // ViewProfileScreen is only ever opened as *your own* profile from
+  // RootShell's Profile tab -- every other call site (tap-to-profile
+  // from a Drop/Pop, a Follow list row, a Search result) opens someone
+  // *else's* profile, where the section wouldn't render anyway even if
+  // these were supplied. Making them optional avoids threading Club
+  // repositories through every one of those unrelated call sites just
+  // for a feature that would never actually use them there.
+  final ClubRepository? clubRepository;
+  final ClubPostRepository? clubPostRepository;
 
   @override
   State<ViewProfileScreen> createState() => _ViewProfileScreenState();
@@ -53,6 +72,10 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   // rather than defaulting to false.
   bool? _isFollowing;
 
+  // Only ever loaded for the viewer's own profile with a ClubRepository
+  // supplied -- see ClubRepository's doc comment on ViewProfileScreen.
+  Future<List<Club>>? _myClubsFuture;
+
   bool get _isOwnProfile =>
       widget.userId == Supabase.instance.client.auth.currentUser!.id;
 
@@ -61,6 +84,10 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     super.initState();
     _loadFuture = _load();
     if (!_isOwnProfile) _loadFollowStatus();
+    final clubRepository = widget.clubRepository;
+    if (_isOwnProfile && clubRepository != null) {
+      _myClubsFuture = clubRepository.fetchMyClubs();
+    }
   }
 
   // Profile and Follower/Following counts are loaded together as one
@@ -124,6 +151,21 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     _reload();
   }
 
+  void _openClub(Club club) {
+    final clubRepository = widget.clubRepository;
+    final clubPostRepository = widget.clubPostRepository;
+    if (clubRepository == null || clubPostRepository == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ClubPage(
+          clubRepository: clubRepository,
+          clubPostRepository: clubPostRepository,
+          clubId: club.id,
+        ),
+      ),
+    );
+  }
+
   Future<void> _openFollowList(FollowListMode mode) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -137,6 +179,56 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
           mode: mode,
         ),
       ),
+    );
+  }
+
+  /// "Club ของฉัน" (WYN-015, Screen 4) -- a compact horizontal row of
+  /// ClubMiniCard, reused directly from Home's CLUB section (WYN-014).
+  /// Unlike that section, this one renders nothing at all (no label, no
+  /// empty-state message) when the user hasn't joined any Club --
+  /// Profile isn't the app's entry point for encouraging Club creation/
+  /// discovery the way Home is, so an empty section here would just be
+  /// dead space. See .wyn/docs/design/wyn-015-club-discovery-integration.md,
+  /// Screen 4.
+  Widget _buildMyClubsSection() {
+    final future = _myClubsFuture;
+    if (future == null) return const SizedBox.shrink();
+
+    return FutureBuilder<List<Club>>(
+      future: future,
+      builder: (context, snapshot) {
+        final clubs = snapshot.data;
+        if (clubs == null || clubs.isEmpty) return const SizedBox.shrink();
+
+        return SizedBox(
+          height: 130,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                child: Text(
+                  'Club ของฉัน',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  itemCount: clubs.length,
+                  itemBuilder: (context, index) {
+                    final club = clubs[index];
+                    return ClubMiniCard(club: club, onTap: () => _openClub(club));
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -251,6 +343,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                     ],
                   ),
                 ),
+                _buildMyClubsSection(),
                 TabBar(
                   tabs: [
                     const Tab(icon: Icon(Icons.grid_view_outlined), text: 'Drop'),

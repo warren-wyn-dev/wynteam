@@ -91,6 +91,8 @@ class _RootShellState extends State<RootShell> {
         popRepository: popRepository,
         savedRepository: savedRepository,
         userId: userId,
+        clubRepository: clubRepository,
+        clubPostRepository: clubPostRepository,
       ),
     ];
 

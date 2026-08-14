@@ -10,6 +10,8 @@ import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
 import 'package:wyn/features/search/presentation/search_screen.dart';
 
 import 'support/fake_supabase_session.dart';
+import 'support/recording_club_post_repository.dart';
+import 'support/recording_club_repository.dart';
 import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
 import 'support/recording_pop_repository.dart';
@@ -23,6 +25,8 @@ void main() {
   late RecordingFollowRepository followRepo;
   late RecordingSavedRepository savedRepo;
   late RecordingProfileRepository noMatchProfileRepo;
+  late RecordingClubRepository clubRepo;
+  late RecordingClubPostRepository clubPostRepo;
 
   const matchingProfile = Profile(
     id: 'u1',
@@ -72,6 +76,8 @@ void main() {
     popRepo = RecordingPopRepository(feedPops: [matchingPop]);
     followRepo = RecordingFollowRepository();
     savedRepo = RecordingSavedRepository();
+    clubRepo = RecordingClubRepository();
+    clubPostRepo = RecordingClubPostRepository();
   });
 
   Widget buildSearch({RecordingProfileRepository? profileRepository}) => MaterialApp(
@@ -81,6 +87,8 @@ void main() {
           dropRepository: dropRepo,
           popRepository: popRepo,
           savedRepository: savedRepo,
+          clubRepository: clubRepo,
+          clubPostRepository: clubPostRepo,
         ),
       );
 

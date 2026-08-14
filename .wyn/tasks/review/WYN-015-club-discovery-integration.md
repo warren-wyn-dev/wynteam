@@ -1,7 +1,7 @@
 # Product Task — WYN-015
 
-Status: backlog
-Owner: AI Product Manager (เสร็จ) → AI Design (ถัดไป)
+Status: review (รอ QA)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (รอ)
 
 Feature: Club Discovery & Integration (Explore Clubs, Search integration, Notification integration, Profile "My Clubs", Home "For You"/"From Your Clubs")
 
@@ -72,3 +72,54 @@ Recommendation:
 6. **My Clubs section ใน Profile เป็น horizontal row สั้นๆ ไม่ใช่ tab เต็มจอใหม่** — Profile มี 3 tab เต็มอยู่แล้ว (Drop/Pop/Saved) การเพิ่ม tab ที่ 4 จะทำให้ TabBar แน่นเกินไปบนจอมือถือ
 
 Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบ: (1) หน้า Explore Clubs (filter chip, 2 section กำลังนิยม/ใหม่ล่าสุด, card layout) (2) Club tab ที่ 4 ใน SearchScreen (3) ข้อความ+icon type-specific 4 แบบใหม่ใน NotificationListScreen (4) ตำแหน่ง/ขนาด "My Clubs" section ใน ViewProfileScreen (5) toggle UI "สำหรับคุณ"/"จาก Club ของคุณ" เหนือ Home Feed — reuse component เดิมให้มากที่สุด (`ClubMiniCard`, `ClubPostCard`, แถวค้นหาเดิม, โครงสร้าง badge เดิม) ห้ามออกแบบ pattern ใหม่ถ้า pattern เดิมครอบคลุมได้อยู่แล้ว
+
+---
+
+## Design Output (AI Design)
+
+เขียนเสร็จแล้วที่ `.wyn/docs/design/wyn-015-club-discovery-integration.md` — สรุป: 5 หน้าจอ/ส่วน ต่อยอดจาก component เดิมทั้งหมด ไม่มี pattern ใหม่นอกจาก `ClubDiscoveryCard` (แถวเต็มความกว้างใช้ร่วมกันทั้ง Explore Clubs และ Club tab ของ Search) — Explore Clubs เป็น `ListView` เดียวแบ่ง 2 section "กำลังนิยม"/"ใหม่ล่าสุด" ใต้ filter chip แนวนอน — Notification 4 ประเภทใหม่ต่อของเดิมไม่มี UI ใหม่ แค่ข้อความ (ต้องมีชื่อ Club ประกอบ) — "Club ของฉัน" ใน Profile ไม่โชว์เลยถ้าไม่มี Club (ต่างจาก Home ตั้งใจ) — Home toggle ใช้ `SegmentedButton` ไม่ใช่ `TabBar` เพราะเป็นการสลับมุมมองของ feed เดียว — เตือน Coding 2 จุดเสี่ยง: club_join_request ต้อง fan-out หลาย recipient (ต่างจาก trigger เดิมทุกตัว), `ClubPostCard` ใน "จาก Club ของคุณ" ต้องรู้ role ต่อโพสต์ไม่ใช่ค่าเดียว
+
+Handoff: ส่งต่อ AI Coding (`/code`)
+
+---
+
+## Coding Output (AI Coding)
+
+Implementation:
+- Database (`supabase/schema.sql`): เพิ่ม `club_id`/`club_post_id` (nullable) เข้าตาราง `notifications` เดิม, ขยาย `type` CHECK ให้รองรับ 4 ค่าใหม่ — trigger ใหม่ 4 ตัว: `notify_club_join_request` (AFTER INSERT ON club_members WHEN new.status='pending', **fan-out ผ่าน `insert...select` วนทุกแถว Owner/Admin ที่ approved ของ club นั้น** ต่างจาก trigger เดิมทุกตัวที่ insert แถวเดียวเสมอ — กัน self-notification ด้วย `cm.user_id <> new.user_id` แม้จะเป็นไปไม่ได้ในทางโครงสร้างอยู่แล้วก็ตาม เพื่อ defense-in-depth), `notify_club_join_approved` (AFTER UPDATE ON club_members WHEN old.status='pending' AND new.status='approved' — ใช้ `auth.uid()` เป็น actor เพราะเป็นคนกด approve ไม่ใช่คอลัมน์บนแถวที่ถูกแก้ — ยืนยันด้วยเหตุผลว่า `auth.uid()` อ่านจาก request-scoped JWT claims ซึ่งไม่เปลี่ยนแม้ถูกเรียกผ่าน security definer function ภายใน), `notify_club_post_like`/`notify_club_post_comment` (มิเรอร์ WYN-012 ทุกประการ + denormalize `club_id` ลงบนแถว notification ด้วยเพื่อให้ embed ชื่อ Club ได้ด้วย join ชั้นเดียวเหมือนกันทุกประเภท ไม่ต้อง join 2 ชั้นแค่สองประเภทนี้)
+- `ClubRepository`: เพิ่ม `fetchPopularClubs`/`fetchNewClubs` (fetch Club ที่ยังไม่ได้เข้าร่วมทั้งหมดแล้ว sort/cap ใน Dart เพราะจำนวนสมาชิกไม่ใช่ queryable column — ยอมรับว่าไม่ scale แต่ตรงตาม Design's "ไม่ต้องมี pagination รอบนี้"), `searchClubs` (ILIKE บน name อย่างเดียวตามที่ Product ตัดสินใจ ไม่รวม username/keyword)
+- `ClubPostRepository`: เพิ่ม `fetchFromJoinedClubs` (query `club_posts` **ไม่ระบุ `club_id`** เลย — RLS เดิมของ WYN-014 กรองให้อัตโนมัติอยู่แล้วว่าเห็นเฉพาะ Club ที่ approved เป็นสมาชิก ไม่ต้องสร้าง DB view ใหม่ตามที่ Design แนะนำ), `fetchById` (มิเรอร์ `DropRepository.fetchById`)
+- `WynNotification`/`NotificationRepository`: เพิ่ม 4 enum value ใหม่ + `clubId`/`clubName`/`clubPostId` fields, embed `club:clubs(name)` เพิ่มใน select
+- `ClubPage`: เพิ่ม `initialTabIndex` (optional, default 0) ให้ notification ของ `club_join_request` เปิดตรงแท็บ Members (index 1) ได้ทันที
+- `NotificationListScreen`: เพิ่มข้อความ+navigation 4 ประเภทใหม่ (`club_post_like`/`club_post_comment` เปิด `ClubPostDetailScreen` โดยส่ง `myRole: null` เพราะ recipient คือเจ้าของโพสต์เสมอซึ่งได้ปุ่มลบผ่าน `_isOwnPost` อยู่แล้วไม่ต้องรู้ role จริงก็ปลอดภัย)
+- `ViewProfileScreen`: เพิ่ม "Club ของฉัน" section — **`clubRepository`/`clubPostRepository` เป็น optional param (ไม่ใช่ required เหมือน repository อื่น)** เพราะ section นี้โชว์เฉพาะ own profile และ `ViewProfileScreen` ถูกเปิดเป็น "โปรไฟล์ตัวเอง" จริงจาก `RootShell` เท่านั้น จุดอื่น (tap-to-profile จาก Drop/Pop, แถว Follow list, ผลค้นหา) เปิดโปรไฟล์คนอื่นเสมอซึ่ง section นี้ไม่แสดงอยู่แล้วแม้จะส่ง repository ไปก็ตาม — ตัดสินใจนี้เพื่อไม่ต้อง thread ClubRepository ผ่านทุก call site ที่ไม่เกี่ยวข้องกว่า 15 ไฟล์
+- `HomeFeedScreen`: เพิ่ม `SegmentedButton` toggle + `FromYourClubsFeed` widget ใหม่ (คำนวณ role ต่อโพสต์แยกตาม club_id ที่ปรากฏในหน้านั้นจริง ไม่ใช่ค่าเดียว ตามที่ Design เตือนไว้)
+- `ExploreClubsScreen`/`ClubDiscoveryCard`/`SearchClubResultsTab`: ใหม่ทั้งหมดตาม Design
+
+Gaps ที่ Coding พบและแก้เองก่อนส่ง QA:
+1. **RenderFlex overflow ใน `ClubPage`** (จำ pattern เดิมจาก WYN-014 ไม่ได้ตอนแรก) — ไม่เกิดครั้งนี้เพราะใช้ fixed height เดิมที่แก้ไว้แล้ว
+2. **RenderFlex overflow ใน `ViewProfileScreen`'s "Club ของฉัน" section**: ลองผิดลองถูกหาค่าความสูงที่พอดี พบว่าการเพิ่มความสูง section แก้ overflow ภายใน `ClubMiniCard` เอง แต่กลับทำให้ overflow ของหน้าทั้งหมด (header+section+TabBar เกินพื้นที่จอ) แย่ลงในสัดส่วน 1:1 เพราะเป็น fixed-height child ใน `Column` เดียวกัน — แก้ด้วยการหาค่ากึ่งกลางที่แม่นยำ (130px) ผ่านการทดสอบจริงแทนการประมาณ แล้วยืนยันด้วย widget test ว่าไม่ overflow ทั้งสองทิศทาง
+
+Files Changed:
+- `supabase/schema.sql` (notifications columns/CHECK ใหม่, trigger function 4 ตัวใหม่)
+- แก้: `app/lib/features/club/data/club_repository.dart`/`club_post_repository.dart`, `app/lib/features/notification/data/notification.dart`/`notification_repository.dart`, `app/lib/features/notification/presentation/notification_list_screen.dart`, `app/lib/features/club/presentation/club_page.dart`, `app/lib/features/club/presentation/widgets/club_section.dart` (ลบ placeholder, ต่อ ExploreClubsScreen จริง), `app/lib/features/profile/presentation/view_profile_screen.dart`, `app/lib/features/home/presentation/home_feed_screen.dart`, `app/lib/features/search/presentation/search_screen.dart`, `app/lib/features/root/presentation/root_shell.dart`
+- ใหม่: `app/lib/features/club/presentation/explore_clubs_screen.dart`, `app/lib/features/club/presentation/widgets/club_discovery_card.dart`, `app/lib/features/search/presentation/widgets/search_club_results_tab.dart`, `app/lib/features/home/presentation/widgets/from_your_clubs_feed.dart`
+- ลบ: `app/lib/features/club/presentation/widgets/explore_clubs_placeholder_screen.dart` (แทนที่ด้วยของจริง)
+- test ใหม่: ขยาย `app/test/notification_list_screen_test.dart`/`view_profile_screen_test.dart`/`home_feed_screen_test.dart` ด้วยกลุ่มเทสต์ใหม่สำหรับ WYN-015 ทั้งหมด — ไม่สร้างไฟล์ทดสอบแยกใหม่เพราะทุกจุดต่อยอดจากหน้าจอเดิม
+- test แก้: `app/test/support/recording_club_repository.dart`/`recording_club_post_repository.dart` (เพิ่ม override ใหม่), `app/test/search_screen_test.dart` (เพิ่ม club repositories)
+
+Reason: implement ตาม Product spec + Design spec ของ WYN-015 ครบตามขอบเขต — เชื่อม Club เข้ากับ Search/Notification/Profile/Home โดย reuse component เดิม 100% ตามที่ Design กำหนด ไม่มี pattern ใหม่นอกจาก `ClubDiscoveryCard`
+
+Tests:
+- `flutter analyze`: No issues found
+- `flutter test`: 162/162 ผ่านทั้งหมด (เพิ่มจาก 148 เดิม — 14 เทสต์ใหม่: 5 ใน `notification_list_screen_test.dart` ครอบคลุมข้อความ+navigation ทั้ง 4 ประเภทใหม่, 4 ใน `view_profile_screen_test.dart` ครอบคลุม My Clubs section ทั้ง 4 เงื่อนไข, 4 ใน `home_feed_screen_test.dart` ครอบคลุม toggle ทั้ง 2 ทิศทาง+empty state)
+- **ทำ red→green regression proof จริง 1 จุด**: เปลี่ยน `club_join_request` ให้เปิด `initialTabIndex: 0` แทน `1` ชั่วคราวใน `notification_list_screen.dart` จำลองบั๊กที่ไม่เปิดตรงแท็บ Members → รัน `notification_list_screen_test.dart --plain-name "opens ClubPage on the Members tab"` → **FAIL จริง** (`Expected: <1>, Actual: <0>`) → revert → รัน `flutter analyze`/`flutter test` เต็มอีกครั้ง → สะอาด 162/162
+
+Known Issues:
+- `fetchPopularClubs`/`fetchNewClubs` ไม่ scale (fetch-all-then-sort-in-Dart) — ยอมรับตามที่ Design ระบุว่าไม่ต้อง pagination รอบนี้ เพราะ Club catalog ยังเล็ก
+- Search Club ทำได้แค่ Name (ไม่รวม username/keyword) ตามที่ Product ตัดสินใจ
+- Notification 4 ประเภทใหม่ยังไม่ทดสอบกับ Supabase project จริง (โดยเฉพาะ fan-out trigger ที่ insert หลายแถว) — ตรวจได้แค่ระดับ code review เหมือนทุก feature ก่อนหน้าที่ยังไม่มี infra จริง
+- "แนะนำสำหรับคุณ" (Recommended) ใน Explore Clubs ไม่ทำรอบนี้ตามที่ Product ตัดสินใจ (ไม่มี behavioral signal รองรับ)
+- `club_announcement`/`club_mention`/"new post from followed club" notification ไม่ทำรอบนี้ตามที่ Product ตัดสินใจ
+
+Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ WYN-015 ก่อนอนุมัติ — เน้นตรวจเป็นพิเศษ: (ก) `notify_club_join_request` trigger fan-out insert ถูกต้องจริง (ทุก Owner/Admin approved ได้ notification ครบ ไม่ขาดไม่เกิน ไม่ insert ให้ pending/banned member) (ข) self-notification guard ของทั้ง 4 ประเภทใหม่ (ค) `fetchFromJoinedClubs` ไม่ query ข้าม RLS ได้จริง (ง) `ViewProfileScreen`'s optional Club repository ไม่รั่ว section ไปแสดงผิดที่ (จ) regression กับ Drop/Pop/Home/Follow/Profile/Search/Notification/Club Core (WYN-014) เดิมทั้งหมด (ฉ) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัด

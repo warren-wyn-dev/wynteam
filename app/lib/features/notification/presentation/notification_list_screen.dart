@@ -3,6 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/text_utils.dart';
+import '../../club/data/club_post_repository.dart';
+import '../../club/data/club_repository.dart';
+import '../../club/presentation/club_page.dart';
+import '../../club/presentation/club_post_detail_screen.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/drop_detail_screen.dart';
 import '../../follow/data/follow_repository.dart';
@@ -15,9 +19,10 @@ import '../../saved/data/saved_repository.dart';
 import '../data/notification.dart';
 import '../data/notification_repository.dart';
 
-/// Screen 2 — Notification list (WYN-012). Row structure mirrors
-/// FollowListScreen (WYN-008/013) exactly. See
-/// .wyn/docs/design/wyn-012-notification.md.
+/// Screen 2 — Notification list (WYN-012, extended by WYN-015 with 4
+/// Club types). Row structure mirrors FollowListScreen (WYN-008/013)
+/// exactly. See .wyn/docs/design/wyn-012-notification.md and
+/// .wyn/docs/design/wyn-015-club-discovery-integration.md (Screen 3).
 class NotificationListScreen extends StatefulWidget {
   const NotificationListScreen({
     super.key,
@@ -27,6 +32,8 @@ class NotificationListScreen extends StatefulWidget {
     required this.followRepository,
     required this.profileRepository,
     required this.savedRepository,
+    required this.clubRepository,
+    required this.clubPostRepository,
   });
 
   final NotificationRepository notificationRepository;
@@ -35,6 +42,8 @@ class NotificationListScreen extends StatefulWidget {
   final FollowRepository followRepository;
   final ProfileRepository profileRepository;
   final SavedRepository savedRepository;
+  final ClubRepository clubRepository;
+  final ClubPostRepository clubPostRepository;
 
   @override
   State<NotificationListScreen> createState() => _NotificationListScreenState();
@@ -139,6 +148,15 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         await _openPop(notification.popId!);
       case NotificationType.follow:
         _openProfile(notification.actorId);
+      case NotificationType.clubJoinRequest:
+        // Opens straight to the Members tab so the pending request is
+        // immediately visible, not just the Club's Posts tab.
+        _openClub(notification.clubId!, initialTabIndex: 1);
+      case NotificationType.clubJoinApproved:
+        _openClub(notification.clubId!, initialTabIndex: 0);
+      case NotificationType.clubPostLike:
+      case NotificationType.clubPostComment:
+        await _openClubPost(notification.clubPostId!);
     }
   }
 
@@ -203,8 +221,46 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     );
   }
 
+  void _openClub(String clubId, {required int initialTabIndex}) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ClubPage(
+          clubRepository: widget.clubRepository,
+          clubPostRepository: widget.clubPostRepository,
+          clubId: clubId,
+          initialTabIndex: initialTabIndex,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openClubPost(String clubPostId) async {
+    final post = await widget.clubPostRepository.fetchById(clubPostId);
+    if (!mounted) return;
+    if (post == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('โพสต์นี้ถูกลบไปแล้ว')),
+      );
+      return;
+    }
+    // myRole is unknown here without an extra lookup -- passing null
+    // (no staff pin/delete rights shown) is safe since the notification
+    // recipient is always the post's own author, who already gets the
+    // "own post" delete option regardless of role. See ClubPostCard.
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ClubPostDetailScreen(
+          clubPostRepository: widget.clubPostRepository,
+          post: post,
+          myRole: null,
+        ),
+      ),
+    );
+  }
+
   String _messageFor(WynNotification notification) {
     final name = notification.actorNameOrUsername;
+    final club = notification.clubName ?? 'Club';
     switch (notification.type) {
       case NotificationType.likeDrop:
         return '$name ถูกใจ Drop ของคุณ';
@@ -216,6 +272,14 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         return '$name แสดงความคิดเห็นใน Pop ของคุณ';
       case NotificationType.follow:
         return '$name เริ่มติดตามคุณ';
+      case NotificationType.clubJoinRequest:
+        return '$name ขอเข้าร่วม $club ของคุณ';
+      case NotificationType.clubJoinApproved:
+        return '$name อนุมัติคำขอเข้าร่วม $club ของคุณแล้ว';
+      case NotificationType.clubPostLike:
+        return '$name ถูกใจโพสต์ของคุณใน $club';
+      case NotificationType.clubPostComment:
+        return '$name แสดงความคิดเห็นในโพสต์ของคุณใน $club';
     }
   }
 
@@ -261,7 +325,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
               const Text('ยังไม่มีการแจ้งเตือน', textAlign: TextAlign.center),
               const SizedBox(height: 8),
               Text(
-                'เมื่อมีคนถูกใจ แสดงความคิดเห็น หรือติดตามคุณ จะเห็นที่นี่',
+                'เมื่อมีคนถูกใจ แสดงความคิดเห็น ติดตามคุณ หรือมีความเคลื่อนไหวใน Club จะเห็นที่นี่',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.outline,

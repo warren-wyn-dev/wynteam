@@ -85,6 +85,74 @@ class ClubRepository {
     return clubs;
   }
 
+  Future<List<String>> _fetchJoinedClubIds(String userId) async {
+    final rows = await _client
+        .from('club_members')
+        .select('club_id')
+        .eq('user_id', userId)
+        .eq('status', 'approved');
+    return rows.map((row) => row['club_id'] as String).toList();
+  }
+
+  /// Clubs the current user hasn't joined, optionally filtered by
+  /// category -- shared by [fetchPopularClubs]/[fetchNewClubs] (WYN-015
+  /// Explore Clubs), which just sort/cap this differently. member count
+  /// isn't a queryable column (it's computed via a separate count per
+  /// club, same as [fetchMyClubs]/[fetchClub] already do), so this is a
+  /// fetch-everything-then-sort-in-Dart approach rather than a scalable
+  /// ranking system -- matches the Design spec's explicit "no
+  /// pagination this round" scope for what's still a small Club catalog.
+  Future<List<Club>> _fetchDiscoverableClubs({String? category}) async {
+    final userId = _client.auth.currentUser!.id;
+    final joinedIds = await _fetchJoinedClubIds(userId);
+
+    final query = _client.from('clubs').select();
+    final rows = category == null ? await query : await query.eq('category', category);
+
+    final clubs = <Club>[];
+    for (final row in rows) {
+      if (joinedIds.contains(row['id'] as String)) continue;
+      clubs.add(await _clubFromRow(row));
+    }
+    return clubs;
+  }
+
+  Future<List<Club>> fetchPopularClubs({String? category, int limit = 10}) async {
+    final clubs = await _fetchDiscoverableClubs(category: category);
+    clubs.sort((a, b) => b.memberCount.compareTo(a.memberCount));
+    return clubs.take(limit).toList();
+  }
+
+  Future<List<Club>> fetchNewClubs({String? category, int limit = 10}) async {
+    final clubs = await _fetchDiscoverableClubs(category: category);
+    clubs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return clubs.take(limit).toList();
+  }
+
+  static const searchPageSize = 20;
+
+  /// Clubs whose name contains [query] (case insensitive), newest first
+  /// -- for WYN-009 Search's new Club tab. Unlike Explore, this doesn't
+  /// exclude already-joined clubs (Search finds any Club by name, same
+  /// as the User tab doesn't exclude already-followed users).
+  Future<List<Club>> searchClubs({required String query, required int page}) async {
+    final from = page * searchPageSize;
+    final to = from + searchPageSize - 1;
+
+    final rows = await _client
+        .from('clubs')
+        .select()
+        .ilike('name', '%$query%')
+        .order('created_at', ascending: false)
+        .range(from, to);
+
+    final clubs = <Club>[];
+    for (final row in rows) {
+      clubs.add(await _clubFromRow(row));
+    }
+    return clubs;
+  }
+
   /// The current user's own club_members row (any status), or null if
   /// they've never joined/requested. Used to drive the Join/Joined/รออนุมัติ
   /// button state and role-gated UI on ClubPage.

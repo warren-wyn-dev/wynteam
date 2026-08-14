@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:wyn/features/club/data/club_post.dart';
+import 'package:wyn/features/club/presentation/club_page.dart';
+import 'package:wyn/features/club/presentation/club_post_detail_screen.dart';
 import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
@@ -10,6 +13,8 @@ import 'package:wyn/features/pop/data/pop.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
 
 import 'support/fake_supabase_session.dart';
+import 'support/recording_club_post_repository.dart';
+import 'support/recording_club_repository.dart';
 import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
 import 'support/recording_notification_repository.dart';
@@ -30,6 +35,9 @@ void main() {
   late RecordingDropRepository dropRepo;
   late RecordingPopRepository popRepo;
   late RecordingDropRepository emptyDropRepo;
+  late RecordingClubRepository clubRepo;
+  late RecordingClubPostRepository clubPostRepo;
+  late RecordingClubPostRepository clubPostWithResultRepo;
 
   // One RecordingNotificationRepository per scenario, all built in
   // setUp() for the same reason as the repos above -- never inline
@@ -43,6 +51,12 @@ void main() {
   late RecordingNotificationRepository followRepoNotif;
   late RecordingNotificationRepository deletedDropRepo;
   late RecordingNotificationRepository mixedReadRepo;
+  late RecordingNotificationRepository clubJoinRequestRepo;
+  late RecordingNotificationRepository clubJoinApprovedRepo;
+  late RecordingNotificationRepository clubPostLikeRepo;
+  late RecordingNotificationRepository clubPostCommentRepo;
+  late RecordingNotificationRepository deletedClubPostRepo;
+  late RecordingNotificationRepository allNewClubTypesRepo;
 
   final now = DateTime.now();
 
@@ -97,6 +111,52 @@ void main() {
         createdAt: now.subtract(const Duration(days: 2)),
       );
 
+  WynNotification clubJoinRequestNotification() => WynNotification(
+        id: 'n-club-join-request',
+        type: NotificationType.clubJoinRequest,
+        actorId: 'u4',
+        actorUsername: 'gam',
+        clubId: 'club-1',
+        clubName: 'ชมรมถ่ายภาพ',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 10)),
+      );
+
+  WynNotification clubJoinApprovedNotification() => WynNotification(
+        id: 'n-club-join-approved',
+        type: NotificationType.clubJoinApproved,
+        actorId: 'u5',
+        actorUsername: 'owner_user',
+        clubId: 'club-1',
+        clubName: 'ชมรมถ่ายภาพ',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 15)),
+      );
+
+  WynNotification clubPostLikeNotification() => WynNotification(
+        id: 'n-club-post-like',
+        type: NotificationType.clubPostLike,
+        actorId: 'u4',
+        actorUsername: 'gam',
+        clubId: 'club-1',
+        clubName: 'ชมรมถ่ายภาพ',
+        clubPostId: 'cp1',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 20)),
+      );
+
+  WynNotification clubPostCommentNotification() => WynNotification(
+        id: 'n-club-post-comment',
+        type: NotificationType.clubPostComment,
+        actorId: 'u4',
+        actorUsername: 'gam',
+        clubId: 'club-1',
+        clubName: 'ชมรมถ่ายภาพ',
+        clubPostId: 'cp1',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 25)),
+      );
+
   final testDrop = Drop(
     id: 'd1',
     authorId: 'me',
@@ -123,6 +183,20 @@ void main() {
     savedByMe: false,
   );
 
+  final testClubPost = ClubPost(
+    id: 'cp1',
+    clubId: 'club-1',
+    authorId: 'me',
+    authorUsername: 'me_user',
+    content: 'สวัสดีชาว Club',
+    pinned: false,
+    createdAt: now,
+    likeCount: 1,
+    commentCount: 0,
+    likedByMe: false,
+    savedByMe: false,
+  );
+
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
   });
@@ -136,6 +210,9 @@ void main() {
     // Deliberately empty -- simulates a Drop deleted since the
     // notification was created.
     emptyDropRepo = RecordingDropRepository(feedDrops: []);
+    clubRepo = RecordingClubRepository();
+    clubPostRepo = RecordingClubPostRepository();
+    clubPostWithResultRepo = RecordingClubPostRepository()..byIdResult = testClubPost;
 
     allTypesRepo = RecordingNotificationRepository(notifications: [
       likeDropNotification(),
@@ -172,11 +249,28 @@ void main() {
       likeDropNotification(isRead: false),
       followNotification(isRead: true),
     ]);
+    clubJoinRequestRepo =
+        RecordingNotificationRepository(notifications: [clubJoinRequestNotification()]);
+    clubJoinApprovedRepo =
+        RecordingNotificationRepository(notifications: [clubJoinApprovedNotification()]);
+    clubPostLikeRepo =
+        RecordingNotificationRepository(notifications: [clubPostLikeNotification()]);
+    clubPostCommentRepo =
+        RecordingNotificationRepository(notifications: [clubPostCommentNotification()]);
+    deletedClubPostRepo =
+        RecordingNotificationRepository(notifications: [clubPostLikeNotification()]);
+    allNewClubTypesRepo = RecordingNotificationRepository(notifications: [
+      clubJoinRequestNotification(),
+      clubJoinApprovedNotification(),
+      clubPostLikeNotification(),
+      clubPostCommentNotification(),
+    ]);
   });
 
   Widget buildScreen(
     RecordingNotificationRepository notificationRepository, {
     RecordingDropRepository? dropRepository,
+    RecordingClubPostRepository? clubPostRepository,
   }) =>
       MaterialApp(
         home: NotificationListScreen(
@@ -186,6 +280,8 @@ void main() {
           followRepository: followRepo,
           profileRepository: profileRepo,
           savedRepository: savedRepo,
+          clubRepository: clubRepo,
+          clubPostRepository: clubPostRepository ?? clubPostRepo,
         ),
       );
 
@@ -306,6 +402,98 @@ void main() {
       find.byType(ViewProfileScreen),
     );
     expect(screen.userId, 'u3');
+  });
+
+  group('Club notification types (WYN-015)', () {
+    testWidgets('shows type-specific Thai messages including the club name for all 4 '
+        'new types', (tester) async {
+      await tester.pumpWidget(buildScreen(allNewClubTypesRepo));
+      await tester.pumpAndSettle();
+
+      expect(find.text('@gam ขอเข้าร่วม ชมรมถ่ายภาพ ของคุณ'), findsOneWidget);
+      expect(
+        find.text('@owner_user อนุมัติคำขอเข้าร่วม ชมรมถ่ายภาพ ของคุณแล้ว'),
+        findsOneWidget,
+      );
+      expect(find.text('@gam ถูกใจโพสต์ของคุณใน ชมรมถ่ายภาพ'), findsOneWidget);
+      expect(
+        find.text('@gam แสดงความคิดเห็นในโพสต์ของคุณใน ชมรมถ่ายภาพ'),
+        findsOneWidget,
+      );
+    });
+
+    // The Design spec calls for club_join_request to open straight to
+    // the Members tab (index 1), not the default Posts tab, so the
+    // pending request is immediately visible.
+    testWidgets('tapping a club_join_request notification opens ClubPage on the '
+        'Members tab', (tester) async {
+      await tester.pumpWidget(buildScreen(clubJoinRequestRepo));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('@gam ขอเข้าร่วม ชมรมถ่ายภาพ ของคุณ'));
+      await tester.pumpAndSettle();
+
+      final screen = tester.widget<ClubPage>(find.byType(ClubPage));
+      expect(screen.clubId, 'club-1');
+      expect(screen.initialTabIndex, 1);
+    });
+
+    testWidgets('tapping a club_join_approved notification opens ClubPage on the '
+        'default Posts tab', (tester) async {
+      await tester.pumpWidget(buildScreen(clubJoinApprovedRepo));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('@owner_user อนุมัติคำขอเข้าร่วม ชมรมถ่ายภาพ ของคุณแล้ว'));
+      await tester.pumpAndSettle();
+
+      final screen = tester.widget<ClubPage>(find.byType(ClubPage));
+      expect(screen.clubId, 'club-1');
+      expect(screen.initialTabIndex, 0);
+    });
+
+    testWidgets('tapping a club_post_like notification opens ClubPostDetailScreen',
+        (tester) async {
+      await tester.pumpWidget(buildScreen(
+        clubPostLikeRepo,
+        clubPostRepository: clubPostWithResultRepo,
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('@gam ถูกใจโพสต์ของคุณใน ชมรมถ่ายภาพ'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ClubPostDetailScreen), findsOneWidget);
+    });
+
+    testWidgets('tapping a club_post_comment notification opens ClubPostDetailScreen',
+        (tester) async {
+      await tester.pumpWidget(buildScreen(
+        clubPostCommentRepo,
+        clubPostRepository: clubPostWithResultRepo,
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('@gam แสดงความคิดเห็นในโพสต์ของคุณใน ชมรมถ่ายภาพ'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ClubPostDetailScreen), findsOneWidget);
+    });
+
+    testWidgets(
+        'tapping a notification whose club post was already deleted shows a '
+        'SnackBar instead of opening ClubPostDetailScreen', (tester) async {
+      // clubPostRepo (the default) has byIdResult unset (null) --
+      // simulates the post having been deleted since the notification
+      // was created.
+      await tester.pumpWidget(buildScreen(deletedClubPostRepo));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('@gam ถูกใจโพสต์ของคุณใน ชมรมถ่ายภาพ'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('โพสต์นี้ถูกลบไปแล้ว'), findsOneWidget);
+      expect(find.byType(ClubPostDetailScreen), findsNothing);
+    });
   });
 
   testWidgets(

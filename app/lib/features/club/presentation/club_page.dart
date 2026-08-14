@@ -24,11 +24,17 @@ class ClubPage extends StatefulWidget {
     required this.clubRepository,
     required this.clubPostRepository,
     required this.clubId,
+    this.initialTabIndex = 0,
   });
 
   final ClubRepository clubRepository;
   final ClubPostRepository clubPostRepository;
   final String clubId;
+
+  /// Which tab (Posts=0/Members=1/About=2) opens first -- defaults to
+  /// Posts, but WYN-015's club_join_request notification opens straight
+  /// to Members (index 1) so the pending request is immediately visible.
+  final int initialTabIndex;
 
   @override
   State<ClubPage> createState() => _ClubPageState();
@@ -40,7 +46,11 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   // from outside the tab bar itself, and DefaultTabController.of(context)
   // is unreachable from this State's own context (it sits *above* the
   // DefaultTabController this build() would otherwise create, not below).
-  late final _tabController = TabController(length: 3, vsync: this);
+  late final _tabController = TabController(
+    length: 3,
+    vsync: this,
+    initialIndex: widget.initialTabIndex,
+  );
 
   late Future<_ClubPageData> _loadFuture;
   bool _isJoinActionInFlight = false;

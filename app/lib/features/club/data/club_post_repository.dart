@@ -82,6 +82,71 @@ class ClubPostRepository {
     return posts;
   }
 
+  /// Every club_post the current user can see (RLS on club_posts already
+  /// restricts this to approved members of whichever club each row
+  /// belongs to -- see supabase/schema.sql), across all joined clubs at
+  /// once. No `club_id` filter needed: querying without one naturally
+  /// scopes to every club the user is an approved member of, which is
+  /// exactly WYN-015's "จาก Club ของคุณ" Home tab, without a new DB view.
+  Future<List<ClubPost>> fetchFromJoinedClubs({required int page}) async {
+    final userId = _client.auth.currentUser!.id;
+    final from = page * pageSize;
+    final to = from + pageSize - 1;
+
+    final rows = await _client
+        .from('club_posts')
+        .select(
+          '*, $_authorSelect, club_post_likes(count), club_post_comments(count)',
+        )
+        .order('created_at', ascending: false)
+        .range(from, to);
+
+    final postIds = rows.map((row) => row['id'] as String).toList();
+    final likedIds = await _fetchLikedPostIds(userId: userId, postIds: postIds);
+    final savedIds = await _fetchSavedPostIds(userId: userId, postIds: postIds);
+
+    final posts = <ClubPost>[];
+    for (final row in rows) {
+      final signedRow = await _withSignedImageUrls(row);
+      posts.add(ClubPost.fromMap(
+        signedRow,
+        likedByMe: likedIds.contains(row['id'] as String),
+        savedByMe: savedIds.contains(row['id'] as String),
+      ));
+    }
+    return posts;
+  }
+
+  /// Fetches a single club post by id, with a fresh likedByMe/savedByMe
+  /// for the current user -- for opening a club post referenced by a
+  /// notification (WYN-015), where only the id is known. Returns null
+  /// if the post no longer exists (e.g. deleted since the notification
+  /// was created) or RLS hides it (e.g. the user has since left the
+  /// club). Mirrors DropRepository.fetchById/PopRepository.fetchById
+  /// (WYN-012).
+  Future<ClubPost?> fetchById(String postId) async {
+    final userId = _client.auth.currentUser!.id;
+
+    final row = await _client
+        .from('club_posts')
+        .select(
+          '*, $_authorSelect, club_post_likes(count), club_post_comments(count)',
+        )
+        .eq('id', postId)
+        .maybeSingle();
+    if (row == null) return null;
+
+    final likedIds = await _fetchLikedPostIds(userId: userId, postIds: [postId]);
+    final savedIds = await _fetchSavedPostIds(userId: userId, postIds: [postId]);
+    final signedRow = await _withSignedImageUrls(row);
+
+    return ClubPost.fromMap(
+      signedRow,
+      likedByMe: likedIds.contains(postId),
+      savedByMe: savedIds.contains(postId),
+    );
+  }
+
   Future<Set<String>> _fetchLikedPostIds({
     required String userId,
     required List<String> postIds,

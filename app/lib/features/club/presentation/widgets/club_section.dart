@@ -5,9 +5,9 @@ import '../../data/club_post_repository.dart';
 import '../../data/club_repository.dart';
 import '../club_page.dart';
 import '../create_club_screen.dart';
+import '../explore_clubs_screen.dart';
 import '../my_clubs_screen.dart';
 import 'club_mini_card.dart';
-import 'explore_clubs_placeholder_screen.dart';
 
 /// Screen 1 — the CLUB section on Home: a height-capped (~180px) block
 /// between the top row (search bar + notification bell, WYN-012) and the
@@ -54,8 +54,14 @@ class _ClubSectionState extends State<ClubSection> {
 
   Future<void> _openExploreClubs() async {
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ExploreClubsPlaceholderScreen()),
+      MaterialPageRoute(
+        builder: (_) => ExploreClubsScreen(
+          clubRepository: widget.clubRepository,
+          clubPostRepository: widget.clubPostRepository,
+        ),
+      ),
     );
+    _reload();
   }
 
   Future<void> _openMyClubs() async {

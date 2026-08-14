@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:wyn/features/club/data/club.dart';
 import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/follow/presentation/follow_list_screen.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
@@ -10,6 +11,8 @@ import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
 import 'package:wyn/features/saved/presentation/widgets/saved_grid_tile.dart';
 
 import 'support/fake_supabase_session.dart';
+import 'support/recording_club_post_repository.dart';
+import 'support/recording_club_repository.dart';
 import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
 import 'support/recording_pop_repository.dart';
@@ -33,9 +36,13 @@ void main() {
   late RecordingDropRepository dropRepo;
   late RecordingPopRepository popRepo;
   late RecordingSavedRepository savedRepo;
+  late RecordingClubPostRepository clubPostRepo;
 
   late RecordingProfileRepository otherProfileRepo;
   late RecordingFollowRepository otherFollowRepo;
+
+  late RecordingClubRepository clubsJoinedRepo;
+  late RecordingClubRepository noClubsRepo;
 
   late RecordingProfileRepository contentTestProfileRepo;
   late RecordingFollowRepository contentTestFollowRepo;
@@ -51,8 +58,22 @@ void main() {
     popRepo = RecordingPopRepository();
     savedRepo = RecordingSavedRepository();
 
+    clubPostRepo = RecordingClubPostRepository();
+
     otherProfileRepo = RecordingProfileRepository(profile: otherProfile);
     otherFollowRepo = RecordingFollowRepository(followerCount: 3, followingCount: 8);
+
+    clubsJoinedRepo = RecordingClubRepository(myClubs: [
+      Club(
+        id: 'club-1',
+        name: 'ชมรมถ่ายภาพ',
+        privacy: ClubPrivacy.public,
+        ownerId: 'me',
+        createdAt: DateTime.now(),
+        memberCount: 5,
+      ),
+    ]);
+    noClubsRepo = RecordingClubRepository(myClubs: []);
 
     contentTestProfileRepo = RecordingProfileRepository(profile: ownProfile);
     contentTestFollowRepo = RecordingFollowRepository();
@@ -272,5 +293,79 @@ void main() {
     // tile widget itself (mirrors DropGridTile/PopGridTile's own
     // "no caption on the tile" precedent).
     expect(find.byType(SavedGridTile), findsOneWidget);
+  });
+
+  group('"Club ของฉัน" section (WYN-015)', () {
+    testWidgets('shows joined clubs on your own profile when a ClubRepository is supplied',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: ViewProfileScreen(
+          profileRepository: ownProfileRepo,
+          followRepository: ownFollowRepo,
+          dropRepository: dropRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          userId: 'me',
+          clubRepository: clubsJoinedRepo,
+          clubPostRepository: clubPostRepo,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Club ของฉัน'), findsOneWidget);
+      expect(find.text('ชมรมถ่ายภาพ'), findsOneWidget);
+    });
+
+    // Design Rule: unlike Home's CLUB section, this one shows nothing at
+    // all (not even the label) when the list is empty -- Profile isn't
+    // the app's entry point for encouraging Club discovery.
+    testWidgets('shows nothing at all when you have no joined clubs', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: ViewProfileScreen(
+          profileRepository: ownProfileRepo,
+          followRepository: ownFollowRepo,
+          dropRepository: dropRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          userId: 'me',
+          clubRepository: noClubsRepo,
+          clubPostRepository: clubPostRepo,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Club ของฉัน'), findsNothing);
+    });
+
+    testWidgets('never shows on someone else\'s profile, even with clubs and a '
+        'ClubRepository supplied', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: ViewProfileScreen(
+          profileRepository: otherProfileRepo,
+          followRepository: otherFollowRepo,
+          dropRepository: dropRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          userId: 'someone-else',
+          clubRepository: clubsJoinedRepo,
+          clubPostRepository: clubPostRepo,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Club ของฉัน'), findsNothing);
+    });
+
+    testWidgets('shows nothing when no ClubRepository is supplied at all '
+        '(every non-RootShell call site)', (tester) async {
+      await tester.pumpWidget(buildProfile(
+        profileRepository: ownProfileRepo,
+        followRepository: ownFollowRepo,
+        userId: 'me',
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Club ของฉัน'), findsNothing);
+    });
   });
 }

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
+import 'package:wyn/features/club/data/club_post.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
 import 'package:wyn/features/home/presentation/home_feed_screen.dart';
@@ -79,6 +80,8 @@ void main() {
   late RecordingNotificationRepository sharedNotificationRepository;
   late RecordingClubRepository sharedClubRepository;
   late RecordingClubPostRepository sharedClubPostRepository;
+  late RecordingClubPostRepository emptyFromClubsPostRepository;
+  late RecordingClubPostRepository fromClubsPostRepository;
   late RecordingHomeRepository mixedFeedHomeRepository;
   late RecordingHomeRepository emptyHomeRepository;
   late RecordingHomeRepository searchTestHomeRepository;
@@ -121,6 +124,22 @@ void main() {
     sharedNotificationRepository = RecordingNotificationRepository();
     sharedClubRepository = RecordingClubRepository();
     sharedClubPostRepository = RecordingClubPostRepository();
+    emptyFromClubsPostRepository = RecordingClubPostRepository(fromJoinedClubs: []);
+    fromClubsPostRepository = RecordingClubPostRepository(fromJoinedClubs: [
+      ClubPost(
+        id: 'cp1',
+        clubId: 'club-1',
+        authorId: 'someone-else',
+        authorUsername: 'namfah',
+        content: 'โพสต์จาก Club ที่เข้าร่วม',
+        pinned: false,
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+      ),
+    ]);
     mixedFeedHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'd1'), _popItem(id: 'p1')],
     );
@@ -164,6 +183,7 @@ void main() {
     required RecordingDropRepository dropRepository,
     required RecordingPopRepository popRepository,
     RecordingNotificationRepository? notificationRepository,
+    RecordingClubPostRepository? clubPostRepository,
   }) =>
       MaterialApp(
         home: HomeFeedScreen(
@@ -175,7 +195,7 @@ void main() {
           savedRepository: sharedSavedRepository,
           notificationRepository: notificationRepository ?? sharedNotificationRepository,
           clubRepository: sharedClubRepository,
-          clubPostRepository: sharedClubPostRepository,
+          clubPostRepository: clubPostRepository ?? sharedClubPostRepository,
         ),
       );
 
@@ -419,5 +439,78 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(NotificationListScreen), findsOneWidget);
+  });
+
+  group('"สำหรับคุณ"/"จาก Club ของคุณ" feed toggle (WYN-015)', () {
+    testWidgets('defaults to "สำหรับคุณ" showing the regular Drop/Pop feed',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('แคปชัน Drop'), findsOneWidget);
+      expect(find.byKey(const Key('from_your_clubs_feed')), findsNothing);
+    });
+
+    testWidgets('switching to "จาก Club ของคุณ" shows Club posts instead of Drop/Pop',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        clubPostRepository: fromClubsPostRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('จาก Club ของคุณ'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('โพสต์จาก Club ที่เข้าร่วม'), findsOneWidget);
+      expect(find.text('แคปชัน Drop'), findsNothing);
+    });
+
+    testWidgets(
+        'shows a join-prompt message on "จาก Club ของคุณ" when the user has no '
+        'joined-club posts', (tester) async {
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        clubPostRepository: emptyFromClubsPostRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('จาก Club ของคุณ'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('เข้าร่วม Club เพื่อดูโพสต์ที่นี่'), findsOneWidget);
+    });
+
+    testWidgets('switching back to "สำหรับคุณ" restores the regular feed',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        clubPostRepository: fromClubsPostRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('จาก Club ของคุณ'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('สำหรับคุณ'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('แคปชัน Drop'), findsOneWidget);
+      expect(find.text('โพสต์จาก Club ที่เข้าร่วม'), findsNothing);
+    });
   });
 }

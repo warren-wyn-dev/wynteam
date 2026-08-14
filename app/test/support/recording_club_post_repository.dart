@@ -13,12 +13,21 @@ class RecordingClubPostRepository extends ClubPostRepository {
   RecordingClubPostRepository({
     List<ClubPost>? posts,
     List<ClubPostComment>? comments,
+    List<ClubPost>? fromJoinedClubs,
   })  : posts = posts ?? [],
         comments = comments ?? [],
+        fromJoinedClubs = fromJoinedClubs ?? [],
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   /// Returned by [fetchPosts] for page 0 only (page 1+ returns empty).
   final List<ClubPost> posts;
+
+  /// Returned by [fetchFromJoinedClubs] for page 0 only (page 1+ returns
+  /// empty).
+  final List<ClubPost> fromJoinedClubs;
+
+  /// Returned by [fetchById], regardless of postId.
+  ClubPost? byIdResult;
 
   /// Returned by [fetchComments].
   final List<ClubPostComment> comments;
@@ -37,6 +46,14 @@ class RecordingClubPostRepository extends ClubPostRepository {
   Future<List<ClubPost>> fetchPosts({required String clubId, required int page}) async {
     return page == 0 ? posts : <ClubPost>[];
   }
+
+  @override
+  Future<List<ClubPost>> fetchFromJoinedClubs({required int page}) async {
+    return page == 0 ? fromJoinedClubs : <ClubPost>[];
+  }
+
+  @override
+  Future<ClubPost?> fetchById(String postId) async => byIdResult;
 
   @override
   Future<void> createPost({
