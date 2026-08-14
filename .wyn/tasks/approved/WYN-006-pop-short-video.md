@@ -1,7 +1,7 @@
 # Product Task — WYN-006
 
-Status: review (Coding เสร็จแล้ว รอ AI QA & Security ทดสอบ)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
+Status: approved (QA รอบ 1 — PASS)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS รอบ 1) → AI Deploy & DevOps (รอ infra จาก Founder)
 
 Feature: Pop (คลิปสั้นแนวตั้ง)
 
@@ -104,3 +104,64 @@ Known Issues:
 - ยังไม่ทดสอบกับ Supabase project จริง หรือ platform channel จริงของ `video_player`/`video_thumbnail` (รอ infra จาก Founder และ Android SDK/Xcode)
 
 Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ WYN-006 ก่อนอนุมัติ deploy — เน้นตรวจ: (ก) Comment ครบทั้ง 3 ความสามารถจริง ไม่ใช่แค่ 1-2 อย่างเหมือนที่ WYN-005 พลาดสองรอบ (ข) RLS ของตารางใหม่ทั้งหมดถูกต้องตาม pattern WYN-005 (ค) video controller lifecycle (dispose เมื่อเลื่อนออกจอจริง ไม่ leak) (ง) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัดตั้งแต่รอบแรก (บทเรียนจาก WYN-005 QA รอบ 2-3)
+
+---
+
+## QA & Security Report — รอบ 1 (AI QA & Security)
+
+Feature: WYN-006 — Pop (คลิปสั้นแนวตั้ง)
+
+Environment: Code review + static analysis บน `main` หลัง merge PR #37 (Flutter SDK 3.47.0 stable) — เงื่อนไขเดียวกับทุก feature ก่อนหน้า (ไม่มี Supabase project จริง, ไม่มี Android SDK/Xcode, ไม่มี platform channel จริงของ `video_player`/`video_thumbnail`)
+
+Test Cases:
+1. `flutter analyze` ซ้ำอย่างอิสระ
+2. `flutter test` ซ้ำอย่างอิสระ
+3. **ไล่ Product Requirements ทุกบรรทัดกับโค้ดจริง** (แยกหัวข้อ ไม่รวมกับ Design/AC — บทเรียนจาก WYN-005)
+4. **ไล่ Design Components ของทั้ง 2 หน้าจอ + ทิศทางภาพรวมทุกบรรทัดกับโค้ดจริง** (แยกหัวข้อ)
+5. **ไล่ Acceptance Criteria ทุกข้อกับโค้ดจริง** (แยกหัวข้อ) — โดยเฉพาะ Comment 3 ความสามารถ
+6. ตรวจ RLS ของ `pops`/`pop_likes`/`pop_comments`/`pop_comment_likes` เทียบกับ pattern ของ WYN-005 ทุกตาราง
+7. ตรวจ security ของ `increment_pop_view_count` RPC (ป้องกัน client set view_count เองได้หรือไม่)
+8. ตรวจ video controller lifecycle: dispose เมื่อ inactive จริงหรือไม่ (โค้ดจริง ไม่ใช่แค่อ่าน comment)
+9. ตรวจ double-tap safety ของ Like/Save/Comment Like ด้วยการย้อน fix กลับไปเป็นบั๊กชั่วคราวเอง (ไม่เชื่อแค่ Coding Output ว่าทดสอบแล้ว) ยืนยัน red→green ด้วยตัวเอง
+10. ตรวจว่าปุ่ม Follow เป็น UI-only จริง ไม่มี call ไป backend
+11. ตรวจ regression กับ WYN-005 จากการขยาย `saves.content_type` CHECK
+12. Secret/credential exposure check ในโค้ดใหม่ทั้งหมด
+
+Passed: 12/12 (ไม่มีข้อ FAIL) — พบ 2 ข้อสังเกตระดับ **Minor** ที่ไม่ block การอนุมัติ (ดูด้านล่าง)
+
+Failed: 0/12
+
+Severity: **Minor**
+
+### รายละเอียดการตรวจแต่ละข้อ
+
+**#3 Product Requirements** — ครบทุกบรรทัด: สร้าง Pop (เลือก/ถ่ายวิดีโอ+caption+hashtag/mention พิมพ์อย่างเดียว+Post), วิดีโอ 9:16 (`AspectRatio(9/16)` ใน Create + `BoxFit.cover` เต็มจอใน Feed), vertical swipe feed ทีละคลิป, แสดงผล (avatar/username/caption/4 ปุ่ม/like count/comment count/**view count**), Like (double-tap safe ตรวจแล้ว), **Comment (เพิ่ม/ลบ/Like ครบทั้ง 3 จริง — ตรวจโค้ด `pop_comment_sheet.dart` เองบรรทัดต่อบรรทัด ไม่ใช่แค่เชื่อ Coding Output)**, Views (นับผ่าน RPC), Follow (UI-only ตามที่ระบุ), Save (ใช้ `saves` table ร่วมกับ Drop), Share (share sheet + copy link), ลบ Pop ของตัวเอง — ผ่านหมด
+
+**#4 Design Components** — ตรวจทั้ง 2 หน้าจอ:
+- Screen 1 (Pop Feed): video เต็มจอ 9:16 cover ✓, แถบข้อมูลผู้โพสต์ (avatar+ชื่อ+Follow+ปุ่มลบเฉพาะเจ้าของ) ✓, **แถวปฏิสัมพันธ์แนวนอนด้านล่างแทนแถบตั้งขวาแบบ TikTok** ✓ (ตรวจโค้ดจริงว่าทุกปุ่มอยู่ใน `Row` เดียวที่ `Positioned(bottom: 16)` ไม่ใช่ `Column` ทางขวา — ตรงตามเจตนาการออกแบบจริง), gradient scrim ทึบไม่ใช่ Liquid Glass ✓ (ตรวจว่าไม่มี `BackdropFilter`/`ImageFilter.blur` ที่ไหนเลยในไฟล์), mute toggle จำค่าผ่าน `SharedPreferences` ✓, comment sheet เป็น modal ไม่ใช่หน้าแยก ✓ (วิดีโอเล่นต่อเบื้องหลังจริง เพราะ sheet ไม่ pop ตัว `_PopClipView` ออกจาก tree)
+- Screen 2 (Create Pop): AppBar close+title+share ✓, action sheet เลือก/ถ่าย ✓, preview 9:16 เล่น/หยุดได้ ✓, caption+counter 500 ✓, แถบความยาว "m:ss / m:ss" ✓ (ตรวจพบว่า Coding แก้ format bug ไปแล้วระหว่างทาง — เดิมจะโชว์ "0:60" ผิดสำหรับวิดีโอเต็ม 60 วิ ตอนนี้โชว์ "1:00" ถูกต้อง), share disabled จนกว่ามีวิดีโอผ่านตรวจความยาว ✓, error state ไม่เสียข้อมูล ✓
+- **ข้อสังเกต Minor**: Design spec ระบุ Accessibility ไว้ตรง ๆ ว่า "ปุ่ม Like/Save/**Follow**/mute ประกาศสถานะปัจจุบันเสมอ" (พร้อมตัวอย่าง "กดเพื่อ...") — ปุ่ม Like/Save/mute มี `Semantics(label: ...)` ครบตามรูปแบบนี้จริง แต่ปุ่ม Follow (`OutlinedButton` แสดง "ติดตาม"/"กำลังติดตาม") ไม่มี `Semantics` wrapper แบบเดียวกัน อาศัยแค่ข้อความปุ่มที่เปลี่ยนเอง (screen reader ยังอ่านสถานะได้ผ่านข้อความปุ่ม แต่ไม่มี hint "กดเพื่อ..." เหมือนปุ่มอื่น) — ไม่ block เพราะยังทำงานได้ ไม่ใช่ capability ที่หายไป
+
+**#5 Acceptance Criteria** — ครบทุกข้อ (13/13 checkbox) รวมถึงข้อที่ WYN-005 เคยพลาดสองรอบ: "คอมเมนต์ได้ ลบคอมเมนต์ของตัวเองได้ กด Like คอมเมนต์ได้" ตรวจยืนยันแล้วว่าโค้ดมีครบทั้ง 3 จริงตั้งแต่การส่งมอบครั้งแรก (`_sendComment`/`_deleteComment` มี ownership check/`_toggleCommentLike` มี double-tap-safe pattern)
+
+**#6 RLS** — ทุกตารางตรงตาม pattern ของ WYN-005 ทุกประการ: select-all-authenticated สำหรับ `pops`/`pop_likes`/`pop_comments`/`pop_comment_likes`, insert/delete จำกัดเฉพาะ `auth.uid()` ของตัวเอง, ไม่มี update policy บน `pops` เลย (ตรวจแล้วว่าตั้งใจ — ดู #7)
+
+**#7 View-count RPC security** — `increment_pop_view_count(pop_id)` เป็น `security definer` และ `pops` ไม่มี update policy เลย ยืนยันว่า client เรียก `update` ตรง ๆ ผ่าน PostgREST ไม่ได้ (ไม่มี policy ให้ผ่าน) ต้องผ่าน RPC เท่านั้นซึ่งทำแค่ `view_count = view_count + 1` ไม่รับ input อื่นที่ set ค่าตามใจได้ — ปลอดภัยตามเจตนา
+- **ข้อสังเกต Minor**: RPC ไม่มี rate-limit/anti-abuse ป้องกันการเรียกซ้ำ ๆ เพื่อปั่นยอด view ของ Pop ใดก็ได้ (ต่างจาก over-count จากการเลื่อนกลับไปกลับมาปกติที่ Product ยอมรับเป็น known limitation ไว้แล้ว — นี่คือ deliberate abuse ผ่าน API ตรง ๆ) ไม่ block เพราะ view count เป็นแค่ตัวเลขให้ข้อมูล ไม่มีผลต่อ ranking/algorithm/เงินใด ๆ ใน scope ปัจจุบันของ V0.1 (Advanced Recommendation Algorithm อยู่นอก scope) แนะนำพิจารณาเพิ่ม rate-limit ถ้า view count เริ่มมีผลต่อ business logic ในอนาคต
+
+**#8 Video controller lifecycle** — ตรวจโค้ด `didUpdateWidget` จริง: `isActive: true→false` เรียก `_disposeController()` ทันที (ไม่ใช่แค่ pause), `dispose()` ของ State ก็เรียก `_disposeController()` เสมอ ไม่มี path ไหนที่ controller ค้างไม่ถูก dispose — ถูกต้องตามที่ Design Rules ระบุ
+
+**#9 Double-tap safety** — ทำ red→green ด้วยตัวเอง (ไม่เชื่อแค่ Coding Output): ย้อน `_toggleLike` กลับไปอ่าน `widget.initialPop` (ค่าที่ frozen ตอน build) ชั่วคราว รัน `pop_feed_screen_test.dart --plain-name double-tap` ซ้ำ — **FAIL จริง** (`Expected: [false, true], Actual: [false, false]`) ก่อน restore กลับมาแก้แล้ว **PASS ทั้ง 95 เทสต์** — ยืนยันว่า regression test มีความหมายจริง
+
+**#10 Follow UI-only** — ตรวจโค้ดจริง: `onPressed: () => setState(() => _isFollowing = !_isFollowing)` เป็น local state ล้วน ๆ ไม่มีการเรียก `popRepository`/`_client` ใด ๆ เลยในปุ่มนี้ — ตรงตามที่ Design ตั้งใจ มี comment ชี้ไป WYN-008 ชัดเจน
+
+**#11 Regression กับ WYN-005** — `saves.content_type` CHECK ขยายจาก `in ('drop')` เป็น `in ('drop', 'pop')` เป็นการขยายเพิ่ม (ไม่ narrow) ไม่กระทบแถวเดิม ไม่มีการเปลี่ยน RLS policy ของ `saves` เลย ตรวจ `git diff` ของ commit ที่แก้แล้วว่าไม่มีจุดอื่นในสคีมาของ WYN-005 ถูกแตะเลย
+
+Security Findings:
+- ไม่พบ secret/credential hardcode ในโค้ดใหม่ทั้งหมดของ WYN-006
+- RLS และ view-count RPC ตรวจแล้วปลอดภัยตามเจตนา (ดู #6/#7 ด้านบน)
+- Storage bucket `pop-videos` policy จำกัด insert เฉพาะ path ของ `auth.uid()` ตัวเอง ตรงตาม pattern `drop-images`
+
+Recommendation: **อนุมัติ WYN-006 เข้าสู่ `.wyn/tasks/approved/`** — 2 ข้อสังเกต Minor (Follow accessibility label, view-count RPC ไม่มี rate-limit) ให้บันทึกไว้เป็นรายการปรับปรุงสำหรับรอบถัดไปที่แตะไฟล์เหล่านี้ ไม่ต้องเปิดรอบ Debug แยก
+
+Final Status: **PASS**
