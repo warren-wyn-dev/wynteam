@@ -1,7 +1,7 @@
 # Product Task — WYN-008
 
-Status: review
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
+Status: approved (QA รอบ 1 — PASS)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS รอบ 1) → AI Deploy & DevOps (รอ infra จาก Founder)
 
 Feature: Follow system (Follow/Unfollow, Followers/Following list)
 
@@ -95,3 +95,55 @@ Known Issues:
 - ยังไม่ทดสอบกับ Supabase project จริง (รอ infra จาก Founder เหมือนทุก feature ก่อนหน้า) — โดยเฉพาะ query แบบ `profiles!follows_follower_id_fkey`/`profiles!follows_following_id_fkey` ที่พึ่งชื่อ default ของ Postgres foreign key constraint ยังไม่เคยรันจริงกับ Postgres จริงเลย ต้องยืนยันว่าชื่อ constraint ตรงตามที่คาดไว้ (`follows_follower_id_fkey`/`follows_following_id_fkey`) เมื่อมี infra จริง
 
 Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ WYN-008 ก่อนอนุมัติ — เน้นตรวจ: (ก) self-follow ถูกกันจริงทั้ง UI และ DB (ข) double-tap safety ของปุ่ม Follow ทั้ง Drop และ Pop (ค) regression กับ Drop/Pop/Home/Profile เดิม (ต้องยังทำงานปกติหลังเพิ่ม `followRepository` parameter ทุกจุด) (ง) `IndexedStack` reload-on-visit fix ทำงานถูกต้องจริงตามที่อธิบายไว้ (จ) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัด
+
+---
+
+## QA & Security Report — รอบ 1 (AI QA & Security)
+
+Feature: WYN-008 — Follow system (Follow/Unfollow, Followers/Following)
+
+Environment: Code review + static analysis บน `main` หลัง merge PR #47 (Flutter SDK 3.47.0 stable) — เงื่อนไขเดียวกับทุก feature ก่อนหน้า (ไม่มี Supabase project จริง, ไม่มี Postgres จริงให้รัน `follows` table/constraint ทดสอบ)
+
+Test Cases:
+1. `flutter analyze` ซ้ำอย่างอิสระ
+2. `flutter test` ซ้ำอย่างอิสระ
+3. **ไล่ Product Requirements ทุกบรรทัดกับโค้ดจริง** (แยกหัวข้อ)
+4. **ไล่ Design Components ทั้ง 4 หน้าจอของ `wyn-008-follow.md` ทุกบรรทัดกับโค้ดจริง** (แยกหัวข้อ)
+5. **ไล่ Acceptance Criteria ทั้ง 10 ข้อกับโค้ดจริง** (แยกหัวข้อ)
+6. ตรวจ self-follow guard สองชั้น (UI + DB CHECK constraint) อ่าน SQL จริง
+7. ตรวจ double-tap safety ของปุ่ม Follow ทั้ง Drop และ Pop — **ทำ red→green จริงด้วยตัวเอง** ไม่เชื่อ Coding Output อย่างเดียว
+8. ตรวจว่า `FollowRepository` ตัวเดียวถูกใช้ร่วมกันจริงทั้ง Drop/Pop/Home/Profile ไม่ duplicate
+9. ตรวจ query embedded resource ที่พึ่งชื่อ default ของ Postgres FK constraint
+10. ตรวจ `IndexedStack` reload-on-visit fix ใน `RootShell` ด้วยเหตุผลเชิง logic
+11. ตรวจ regression กับ Drop/Pop/Home/Profile เดิมทั้งหมด
+12. Secret/credential exposure check ในโค้ดใหม่ทั้งหมด
+
+Passed: 12/12
+
+Severity: **N/A — ไม่พบ Major/Critical**
+
+Findings:
+1. **`flutter analyze`**: No issues found (ตรวจซ้ำอิสระ ตรงกับที่ Coding รายงาน)
+2. **`flutter test`**: 95/95 ผ่านทั้งหมด (ตรวจซ้ำอิสระ ตรงกับที่ Coding รายงาน)
+3. **Product Requirements**: ไล่ครบทุกบรรทัด — Follow/Unfollow ใช้ `FollowRepository` เดียวกันทั้ง Drop/Pop จริง (ยืนยันด้วย `grep` ว่า `RootShell` สร้าง `FollowRepository` ตัวเดียวแล้วส่งต่อทุกแท็บ ไม่มีจุดไหนสร้างซ้ำ), self-follow กันสองชั้นจริง, จำนวน Followers/Following แสดงใน `ViewProfileScreen` จริง, Followers/Following list เปิดได้จริง, ปุ่ม Follow โหลดสถานะจริงก่อนแสดง (nullable `_isFollowing`, ซ่อนจนกว่าจะโหลดเสร็จ — ตรงข้ามกับที่ WYN-006 เคย default `false` มาก่อน), Home ไม่ถูกแตะเลย (`grep` ยืนยัน `home_feed_screen.dart`/`home_repository.dart` ไม่มีการเปลี่ยนแปลงใน diff ของ PR #47) **ผ่านครบ**
+4. **Design Components**: ไล่ครบทั้ง 4 หน้าจอ — Screen 1 (ปุ่ม Follow ใน `DropDetailScreen`, mirror ตำแหน่ง/สไตล์จาก `PopClipView` ต่างแค่สี Primary Blue vs ขาว, Semantics label ประกาศสถานะ) ตรง, Screen 2 (`PopClipView` เชื่อม backend จริง + เพิ่ม Semantics label ที่ขาดไปจาก WYN-006 QA รอบ 1) ตรง, Screen 3 (`FollowListScreen` — ยืนยันด้วย `grep -n "InkWell\|GestureDetector\|onTap" follow_list_screen.dart` **ไม่พบผลลัพธ์เลย** ยืนยันว่าแถวไม่มี tap affordance จริงตามที่ตั้งใจ, empty state แยกข้อความตาม mode ตรง) ตรง, Screen 4 (จำนวน Followers/Following เป็น tap target จริงด้วย `InkWell`+`Semantics(button:true)`, โหลดพร้อม profile เป็น future เดียวตามที่ระบุ) ตรง **ผ่านครบ**
+5. **Acceptance Criteria**: ไล่ครบทั้ง 10 ข้อ — ทุกข้อมีโค้ดรองรับจริง (ดู Test Case 6-11 ด้านล่างสำหรับรายละเอียดของแต่ละข้อที่ตรวจเจาะลึก) **ผ่านครบ**
+6. **Self-follow guard สองชั้น**: UI — `if (!isOwnDrop && _isFollowing != null)`/`if (!isOwnPop && _isFollowing != null)` ซ่อนปุ่มถูกต้องเมื่อเป็นเนื้อหาตัวเอง ยืนยันด้วย regression test ใหม่ (`drop_detail_screen_test.dart`, `pop_feed_screen_test.dart`) ที่ผ่านจริง — DB: อ่าน SQL จริงยืนยัน `constraint follows_no_self_follow check (follower_id <> following_id)` มีอยู่จริงในตาราง `follows` ครอบคลุมทุกเส้นทาง insert แม้ผ่าน client ที่แก้ไขเองก็ยังถูก Postgres ปฏิเสธ ไม่ใช่พึ่ง RLS/UI อย่างเดียว **ผ่าน**
+7. **Double-tap safety — ทำ red→green จริงด้วยตัวเอง**: อ่าน `_toggleFollow()` ทั้งใน `DropDetailScreen`/`PopClipView` ยืนยันว่าอ่าน `_isFollowing` สดใหม่ทุกครั้งก่อน optimistic update (ไม่ capture ค่าตอน build) จากนั้น**แก้โค้ด `pop_clip_view.dart` ชั่วคราวให้ `_toggleFollow` ใช้ค่าคงที่แทนการอ่านสดใหม่** (จำลอง bug class เดียวกับที่เคยพบใน WYN-004) รัน `flutter test test/pop_feed_screen_test.dart --plain-name "rapid double-tap on Follow"` → **FAIL จริง** (`Expected: [false, true], Actual: [false, false]`) ยืนยันว่าเทสต์จับบั๊กได้จริงไม่ใช่ tautological จากนั้น restore โค้ดกลับมาที่ถูกต้อง รัน `flutter test`/`flutter analyze` ซ้ำ → **สะอาด 95/95 อีกครั้ง** **ผ่าน**
+8. **`FollowRepository` shared**: ยืนยันด้วยการอ่าน `root_shell.dart` บรรทัด 49 ว่าสร้าง `final followRepository = FollowRepository(Supabase.instance.client);` ครั้งเดียวแล้วส่งต่อ (ไม่ใช่ `.copyWith`/สร้างใหม่) ให้ทั้ง `HomeFeedScreen`, `DropFeedScreen`, `PopFeedScreen`, `ViewProfileScreen` **ผ่าน**
+9. **Embedded resource FK naming**: Postgres สร้างชื่อ constraint อัตโนมัติสำหรับ `references` ที่ไม่ได้ตั้งชื่อเองตาม pattern `<table>_<column>_fkey` เสมอ — ตาราง `follows` มี `follower_id references profiles(id)` และ `following_id references profiles(id)` (ไม่มีการตั้งชื่อ constraint เอง) จึงได้ชื่อ `follows_follower_id_fkey`/`follows_following_id_fkey` ตรงตามที่ `follow_repository.dart` ใช้ใน `profiles!follows_follower_id_fkey(*)`/`profiles!follows_following_id_fkey(*)` เป๊ะ ตรงตาม PostgREST embedded-resource disambiguation syntax (`table!constraint_name(...)`) ที่ใช้แก้ปัญหา "ambiguous relationship" เมื่อมี FK มากกว่า 1 เส้นไปตารางเดียวกัน **ผ่าน** — ยังไม่เคยรันจริงกับ Postgres จริง (บันทึกเป็น Known Issue ต่อเนื่องจาก Coding Output ไม่ใช่จุดใหม่)
+10. **`IndexedStack` reload-on-visit fix**: อ่าน `root_shell.dart` ยืนยัน logic ถูกต้อง — `_profileVisitKey` เพิ่มค่าเฉพาะเมื่อ `index == 3 && _index != 3` (สลับ**เข้า**แท็บ Profile จากแท็บอื่น ไม่ใช่แตะแท็บ Profile ซ้ำตอนอยู่แล้ว) แล้วใช้เป็น `ValueKey` ของ `ViewProfileScreen` — Flutter จะ unmount/remount widget ที่ตำแหน่งเดิมเมื่อ key เปลี่ยน (คนละพฤติกรรมกับ `didUpdateWidget`) ทำให้ `initState()`/`_load()` ถูกเรียกใหม่จริงทุกครั้งที่เข้าแท็บ Profile โดยไม่กระทบแท็บอื่นที่ไม่มี key เปลี่ยนเลย — ยืนยันด้วย test ใหม่ (`view_profile_screen_test.dart`) ว่า `ViewProfileScreen` เองแสดงจำนวนถูกต้องเมื่อ mount ใหม่ (ครอบคลุมพฤติกรรมหลังรีเมาท์ แม้จะทดสอบ `RootShell`'s `IndexedStack` โดยตรงไม่ได้ในสภาพแวดล้อมนี้เพราะต้องพึ่ง `Supabase.instance.client.auth.currentUser` จริงที่ `RootShell.build()` เรียกตรง ๆ) **ผ่าน — สมเหตุสมผลและถูกต้องตาม Flutter reconciliation semantics**
+11. **Regression**: `flutter test` เต็ม 95/95 ผ่าน ครอบคลุม `drop_detail_screen_test.dart`, `drop_comment_delete_test.dart`, `drop_comment_like_test.dart`, `pop_feed_screen_test.dart`, `home_feed_screen_test.dart` เดิมทั้งหมด (อัปเดต constructor call ให้ส่ง `followRepository` แล้วยัง pass) ยืนยันว่าไม่มี behavior เดิมพังจากการเพิ่ม parameter ใหม่ **ผ่าน**
+12. Secret/credential check: ไม่พบ hardcode ใด ๆ ในโค้ดใหม่ทั้งหมดของ WYN-008
+
+Security Findings:
+- RLS ของตาราง `follows` ถูกต้อง: select เปิดกว้างสำหรับ authenticated (จำเป็นสำหรับนับ follower/following ของใครก็ได้ตาม requirement), insert/delete จำกัดเฉพาะ `auth.uid() = follower_id` — ผู้ใช้อื่นสั่ง follow/unfollow แทนเราไม่ได้จริงตาม AC ข้อที่เกี่ยวข้อง
+- ไม่พบ secret/credential ใหม่ในโค้ดทั้งหมด
+- Self-follow ป้องกันสองชั้นถูกต้อง (ดู Finding #6)
+
+Minor (ไม่ block):
+- Comment ใน `supabase/schema.sql` เหนือตาราง `follows` อ้างอิง `.wyn/tasks/approved/WYN-008-follow-system.md` ทั้งที่ตอน commit จริง task ยังอยู่ที่ `review/` (อนุมัติหลังจากนั้น) — เป็นแค่ comment เอกสารอ้างอิงล่วงหน้า ไม่กระทบการทำงานเลย ถือเป็น cosmetic ตามธรรมเนียมเดิมของโปรเจกต์ที่ path มักอ้างอิง `approved/` ล่วงหน้าตั้งแต่ตอน Coding
+
+Recommendation: **อนุมัติ WYN-008** — ครบทุก Requirements/Design Components/Acceptance Criteria ไม่มี Major/Critical ไม่มี regression กับฟีเจอร์เดิม self-follow กันสองชั้นถูกต้อง double-tap safety พิสูจน์แล้วจริงทั้งสอง context (Drop/Pop) gap ของ `IndexedStack` ที่ Coding พบและแก้เองก่อนส่ง QA ตรวจสอบแล้วว่าแก้ถูกต้องสมเหตุสมผล
+
+Final Status: **PASS**
