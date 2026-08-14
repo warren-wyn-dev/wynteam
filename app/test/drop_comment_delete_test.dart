@@ -7,12 +7,14 @@ import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_drop_repository.dart';
+import 'support/recording_follow_repository.dart';
 
 void main() {
   // See drop_comment_like_test.dart / feed_screen_test.dart for why the
   // repo (and its underlying SupabaseClient auto-refresh Timer) and the
   // fake session are built once in setUpAll rather than per-test.
   late RecordingDropRepository repo;
+  late RecordingFollowRepository followRepo;
   final drop = Drop(
     id: 'd1',
     authorId: 'someone-else',
@@ -48,13 +50,14 @@ void main() {
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
     repo = RecordingDropRepository(comments: [ownComment, otherComment]);
+    followRepo = RecordingFollowRepository();
   });
 
   testWidgets(
       'shows a delete button only next to the current user\'s own comment',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: DropDetailScreen(dropRepository: repo, drop: drop),
+      home: DropDetailScreen(dropRepository: repo, followRepository: followRepo, drop: drop),
     ));
     await tester.pumpAndSettle();
     tester.takeException();
@@ -80,7 +83,7 @@ void main() {
       'deleting an own comment asks for confirmation, then removes it from '
       'the list and decrements the Drop\'s comment count', (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: DropDetailScreen(dropRepository: repo, drop: drop),
+      home: DropDetailScreen(dropRepository: repo, followRepository: followRepo, drop: drop),
     ));
     await tester.pumpAndSettle();
     tester.takeException();

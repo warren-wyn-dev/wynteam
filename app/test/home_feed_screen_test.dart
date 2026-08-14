@@ -13,6 +13,7 @@ import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
 import 'support/fake_supabase_session.dart';
 import 'support/fake_video_player_platform.dart';
 import 'support/recording_drop_repository.dart';
+import 'support/recording_follow_repository.dart';
 import 'support/recording_home_repository.dart';
 import 'support/recording_pop_repository.dart';
 
@@ -65,6 +66,7 @@ void main() {
   // leak between tests or depend on execution order.
   late RecordingDropRepository sharedDropRepository;
   late RecordingPopRepository sharedPopRepository;
+  late RecordingFollowRepository sharedFollowRepository;
   late RecordingHomeRepository mixedFeedHomeRepository;
   late RecordingHomeRepository emptyHomeRepository;
   late RecordingHomeRepository searchTestHomeRepository;
@@ -92,6 +94,7 @@ void main() {
 
     sharedDropRepository = RecordingDropRepository();
     sharedPopRepository = RecordingPopRepository();
+    sharedFollowRepository = RecordingFollowRepository();
     mixedFeedHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'd1'), _popItem(id: 'p1')],
     );
@@ -133,6 +136,7 @@ void main() {
           homeRepository: homeRepository,
           dropRepository: dropRepository,
           popRepository: popRepository,
+          followRepository: sharedFollowRepository,
         ),
       );
 

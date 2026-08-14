@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/drop_detail_screen.dart';
+import '../../follow/data/follow_repository.dart';
 import '../../pop/data/pop_repository.dart';
 import '../data/home_feed_item.dart';
 import '../data/home_repository.dart';
@@ -18,11 +19,13 @@ class HomeFeedScreen extends StatefulWidget {
     required this.homeRepository,
     required this.dropRepository,
     required this.popRepository,
+    required this.followRepository,
   });
 
   final HomeRepository homeRepository;
   final DropRepository dropRepository;
   final PopRepository popRepository;
+  final FollowRepository followRepository;
 
   @override
   State<HomeFeedScreen> createState() => _HomeFeedScreenState();
@@ -194,6 +197,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       MaterialPageRoute(
         builder: (_) => DropDetailScreen(
           dropRepository: widget.dropRepository,
+          followRepository: widget.followRepository,
           drop: item.toDrop(),
         ),
       ),
@@ -210,6 +214,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         builder: (_) => PopSingleClipScreen(
           pop: item.toPop(),
           popRepository: widget.popRepository,
+          followRepository: widget.followRepository,
         ),
       ),
     );
