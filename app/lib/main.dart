@@ -23,14 +23,17 @@ class WynApp extends StatelessWidget {
     return MaterialApp(
       title: 'WYN',
       debugShowCheckedModeBanner: false,
+      // Blue + White + Soft Gray -- Founder's Color Direction for WYN V0.1
+      // (see .wyn/company/DECISIONS.md 2026-08-14), replacing the old
+      // proposed purple/pink seed. See .wyn/docs/design/design-principles.md.
       theme: ThemeData(
         useMaterial3: true,
-        colorSchemeSeed: const Color(0xFF7C4DFF),
+        colorSchemeSeed: const Color(0xFF2D6CDF),
         brightness: Brightness.light,
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
-        colorSchemeSeed: const Color(0xFF7C4DFF),
+        colorSchemeSeed: const Color(0xFF2D6CDF),
         brightness: Brightness.dark,
       ),
       themeMode: ThemeMode.system,
