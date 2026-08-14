@@ -294,6 +294,33 @@ create policy "Users can delete their own drop comments"
   to authenticated
   using (auth.uid() = author_id);
 
+create table if not exists public.drop_comment_likes (
+  comment_id uuid not null references public.drop_comments (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (comment_id, user_id)
+);
+
+alter table public.drop_comment_likes enable row level security;
+
+create policy "Drop comment likes are viewable by authenticated users"
+  on public.drop_comment_likes
+  for select
+  to authenticated
+  using (true);
+
+create policy "Users can like drop comments as themselves"
+  on public.drop_comment_likes
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can remove their own drop comment likes"
+  on public.drop_comment_likes
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
 -- Saved content: shared across content types (drops now, pops later per
 -- WYN-011) via content_type + content_id instead of a per-type FK, so
 -- adding Pop support later doesn't need another migration. Unlike

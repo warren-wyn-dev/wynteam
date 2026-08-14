@@ -10,16 +10,22 @@ import 'package:wyn/features/drop/data/drop_repository.dart';
 /// call. Mirrors RecordingPostRepository (WYN-004) -- see
 /// .wyn/learning/PATTERNS.md.
 class RecordingDropRepository extends DropRepository {
-  RecordingDropRepository({List<Drop>? feedDrops})
+  RecordingDropRepository({List<Drop>? feedDrops, List<DropComment>? comments})
       : feedDrops = feedDrops ?? [],
+        comments = comments ?? [],
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   /// Returned by [fetchFeed] for page 0 only (page 1+ returns empty).
   final List<Drop> feedDrops;
 
+  /// Returned by [fetchComments], regardless of dropId.
+  final List<DropComment> comments;
+
   int toggleLikeCalls = 0;
   int toggleSaveCalls = 0;
+  int toggleCommentLikeCalls = 0;
   final List<bool> toggleLikeCurrentlyLikedArgs = [];
+  final List<bool> toggleCommentLikeCurrentlyLikedArgs = [];
 
   @override
   Future<List<Drop>> fetchFeed({required int page}) async {
@@ -54,5 +60,14 @@ class RecordingDropRepository extends DropRepository {
   Future<void> deleteDrop(String dropId) async {}
 
   @override
-  Future<List<DropComment>> fetchComments(String dropId) async => [];
+  Future<List<DropComment>> fetchComments(String dropId) async => comments;
+
+  @override
+  Future<void> toggleCommentLike({
+    required String commentId,
+    required bool currentlyLiked,
+  }) async {
+    toggleCommentLikeCalls++;
+    toggleCommentLikeCurrentlyLikedArgs.add(currentlyLiked);
+  }
 }

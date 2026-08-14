@@ -1,7 +1,7 @@
 import '../../../core/text_utils.dart';
 
-/// A WYN Drop comment row, joined with its author's profile. See
-/// supabase/schema.sql (WYN-005 section).
+/// A WYN Drop comment row, joined with its author's profile and like
+/// count. See supabase/schema.sql (WYN-005 section).
 class DropComment {
   const DropComment({
     required this.id,
@@ -12,6 +12,8 @@ class DropComment {
     this.authorAvatarUrl,
     required this.textContent,
     required this.createdAt,
+    required this.likeCount,
+    required this.likedByMe,
   });
 
   final String id;
@@ -22,13 +24,41 @@ class DropComment {
   final String? authorAvatarUrl;
   final String textContent;
   final DateTime createdAt;
+  final int likeCount;
+  final bool likedByMe;
 
   String get authorNameOrUsername => displayNameOrUsername(
         displayName: authorDisplayName,
         username: authorUsername,
       );
 
-  factory DropComment.fromMap(Map<String, dynamic> map) {
+  DropComment copyWith({int? likeCount, bool? likedByMe}) => DropComment(
+        id: id,
+        dropId: dropId,
+        authorId: authorId,
+        authorUsername: authorUsername,
+        authorDisplayName: authorDisplayName,
+        authorAvatarUrl: authorAvatarUrl,
+        textContent: textContent,
+        createdAt: createdAt,
+        likeCount: likeCount ?? this.likeCount,
+        likedByMe: likedByMe ?? this.likedByMe,
+      );
+
+  /// A copy with the like toggled -- used for optimistic UI updates before
+  /// the server call resolves (and to roll back if it fails).
+  DropComment toggledLike() => copyWith(
+        likedByMe: !likedByMe,
+        likeCount: likedByMe ? likeCount - 1 : likeCount + 1,
+      );
+
+  /// [likedByMe] isn't embeddable in the same query (it depends on who's
+  /// asking), so DropRepository.fetchComments fills it in from a separate
+  /// lookup against the current user's own comment likes.
+  factory DropComment.fromMap(
+    Map<String, dynamic> map, {
+    required bool likedByMe,
+  }) {
     final author = map['author'] as Map<String, dynamic>?;
 
     return DropComment(
@@ -40,6 +70,15 @@ class DropComment {
       authorAvatarUrl: author?['avatar_url'] as String?,
       textContent: map['text_content'] as String,
       createdAt: DateTime.parse(map['created_at'] as String),
+      likeCount: _embeddedCount(map['drop_comment_likes'] as List<dynamic>?),
+      likedByMe: likedByMe,
     );
+  }
+
+  /// PostgREST embedded-resource counts (e.g. `drop_comment_likes(count)`)
+  /// come back as a single-element list like `[{'count': 3}]`.
+  static int _embeddedCount(List<dynamic>? embedded) {
+    if (embedded == null || embedded.isEmpty) return 0;
+    return (embedded.first as Map<String, dynamic>)['count'] as int? ?? 0;
   }
 }

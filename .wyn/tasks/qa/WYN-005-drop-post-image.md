@@ -1,7 +1,7 @@
 # Product Task — WYN-005
 
-Status: bugs (QA รอบ 1 — FAIL)
-Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — FAIL) → AI Debug Engineer (ถัดไป)
+Status: qa (Debug เสร็จแล้ว รอ AI QA & Security ทดสอบรอบ 2)
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — FAIL รอบ 1) → AI Debug Engineer (เสร็จ) → AI QA & Security (ถัดไป — รอบ 2)
 
 Feature: Drop (โพสต์รูปภาพ)
 
@@ -152,3 +152,42 @@ Recommendation: ส่งกลับ AI Debug Engineer เพิ่มฟีเ
 - เพิ่ม regression test คุ้มครองปุ่ม Like Comment ใหม่ (โดยเฉพาะ double-tap safety) ตาม pattern ที่มีอยู่แล้วใน `app/test/support/`
 
 Final Status: **FAIL**
+
+---
+
+## Debug Engineer Report (AI Debug Engineer)
+
+Bug: Major จาก QA รอบ 1 (ด้านบน) — ฟีเจอร์ "Like Comment" หายไปทั้งระบบ ทั้งที่ Product spec และ Design spec ระบุไว้ตรงกัน
+
+Reproduction: ยืนยันตรงกับที่ QA รายงาน — อ่าน `app/lib/features/drop/presentation/drop_detail_screen.dart` (comment list rendering) ยืนยันว่าไม่มีปุ่ม Like ติดกับคอมเมนต์เลย และ `supabase/schema.sql` ไม่มีตาราง `drop_comment_likes`
+
+Root Cause: ตอน implement WYN-005 (AI Coding) เขียน `DropDetailScreen`/`DropRepository`/schema โดยอ้างอิง pattern ของ WYN-004 (posts/likes/comments) เป็นหลัก แต่ WYN-004 ไม่เคยมี "Like Comment" (มีแค่ Like Post/Delete Comment) จึงไม่มี pattern ให้อ้างอิงตรง ๆ — เมื่อ implement ตาม mental model ของ "โครงสร้างคล้าย WYN-004" แทนที่จะไล่ checklist ทีละบรรทัดจาก Product Requirements/Design Components ใหม่ของ WYN-005 เอง จึงพลาดข้อกำหนดที่ไม่เคยมีมาก่อนไปทั้งหมด
+
+Fix:
+- เพิ่มตาราง `drop_comment_likes` (`comment_id`+`user_id` composite PK, RLS select-all-authenticated + insert/delete เฉพาะของตัวเอง — pattern เดียวกับ `drop_likes` ทุกประการ) ใน `supabase/schema.sql`
+- เพิ่ม `likeCount`/`likedByMe` field และ `toggledLike()`/`copyWith()` helper ใน `DropComment` model
+- เพิ่ม `toggleCommentLike`/`_fetchLikedCommentIds` ใน `DropRepository`, ปรับ `fetchComments` ให้ join `drop_comment_likes(count)` และคำนวณ `likedByMe` ต่อคอมเมนต์ (mirror `fetchFeed`'s pattern สำหรับ `likedByMe`/`savedByMe` ของ Drop เอง), ปรับ `addComment` ให้ return คอมเมนต์ใหม่ด้วย `likedByMe: false` (คอมเมนต์ใหม่ยังไม่มีใครกดไลก์ได้)
+- ปรับ `DropDetailScreen`: เปลี่ยนจาก cache `Future<List<DropComment>>` ที่ `.then()` ต่อกันเรื่อย ๆ (แก้ไข item เดี่ยว ๆ ในนั้นไม่ได้) เป็น mutable `List<DropComment>? _comments` field ตรง ๆ (mirror `FeedScreen._posts` ของ WYN-004) แล้วเพิ่มปุ่ม Like เล็ก ๆ (`iconSize: 16`) ข้างคอมเมนต์แต่ละอัน — `_toggleCommentLike(String commentId)` รับแค่ id แล้วอ่าน `_comments[index]` สดใหม่ในตัว method เสมอ (mirror `FeedScreen._toggleLike` ที่แก้บั๊ก double-tap แล้วใน WYN-004 QA รอบ 1 — ไม่ใช้ pattern รับ `DropComment` เป็น parameter ที่เคยผิดมาก่อน)
+- แก้ 2 จุด Low severity พร้อมกัน: `CreateDropScreen._pickImage` เพิ่ม `if (_isCropping) return;` เป็นบรรทัดแรก และ guard ของพื้นที่เลือกรูปเช็ค `_isCropping` ด้วย (ไม่ใช่แค่ `_isSharing`); เพิ่ม `try/catch` รอบ `centerCropToSquare` แสดง error message ให้ผู้ใช้เห็นแทนที่จะเงียบ ๆ
+
+Files Changed:
+- `supabase/schema.sql` (เพิ่มตาราง `drop_comment_likes`)
+- `app/lib/features/drop/data/drop_comment.dart` (เพิ่ม likeCount/likedByMe/toggledLike/copyWith)
+- `app/lib/features/drop/data/drop_repository.dart` (เพิ่ม toggleCommentLike, ปรับ fetchComments/addComment)
+- `app/lib/features/drop/presentation/drop_detail_screen.dart` (mutable comments list + ปุ่ม Like Comment)
+- `app/lib/features/drop/presentation/create_drop_screen.dart` (แก้ 2 จุด Low severity)
+- `app/test/drop_comment_test.dart` (ขยายครอบคลุม field ใหม่)
+- `app/test/drop_comment_like_test.dart` (ใหม่ — regression test double-tap safety)
+- `app/test/support/recording_drop_repository.dart` (เพิ่ม `comments` seed list, `toggleCommentLike` recording)
+
+Reason: implement ฟีเจอร์ "Like Comment" ที่ขาดไปให้ครบตาม Product spec + Design spec ของ WYN-005 พร้อมป้องกันบั๊ก double-tap แบบเดียวกับที่เจอใน WYN-004 ตั้งแต่รอบแรก
+
+Tests:
+- `flutter analyze` (รันซ้ำอย่างอิสระ) — **No issues found**
+- `flutter test` (รันซ้ำอย่างอิสระ) — **All tests passed! (63/63)** เพิ่ม 3 เคสใหม่ใน `drop_comment_test.dart` (toggledLike, fromMap with likeCount) และ 1 เคสใหม่ใน `drop_comment_like_test.dart`
+- **พิสูจน์แล้วว่า regression test จับบั๊กได้จริง**: ย้อน `_toggleCommentLike` กลับไปรับ `DropComment` เป็น parameter (แบบเดียวกับที่เคยผิดใน WYN-004) ชั่วคราวแล้วรัน `drop_comment_like_test.dart` ซ้ำ — **FAIL จริง** (`[false, false]` แทนที่จะเป็น `[false, true]`) ก่อน restore กลับมาแก้แล้ว **PASS**
+- ระหว่างเขียน test เจอ Flutter testing gotcha ที่ไม่ใช่บั๊กจริง (เสียเวลา debug พอสมควรก่อนเข้าใจ): `find.byType()`/`find.text()` มองไม่เห็น widget ที่อยู่นอก viewport ใน `ListView`/`Sliver` (comment ถูกดันไปไกลเกินจอเพราะรูปภาพ Drop สูง 800px ในสภาพแวดล้อมทดสอบ) ต้อง `scrollUntilVisible` ก่อน — บันทึกไว้ที่ `.wyn/learning/PATTERNS.md` กันเจอซ้ำ
+
+Regression Risk: ต่ำ — มี unit test คุ้มครองจริงทั้ง model logic และ double-tap safety การเปลี่ยน `_commentsFuture` เป็น `_comments` list เป็นการ refactor ภายในเฉพาะ state management ของ `DropDetailScreen` ไม่กระทบ public API/constructor ของ screen เลย ไม่มี call site อื่นต้องแก้
+
+Handoff to QA: ส่งกลับ AI QA & Security (`/qa`) ทดสอบรอบ 2 — เน้นตรวจสอบว่า: (ก) ปุ่ม Like Comment ทำงานถูกต้องปกติ (ไม่ double-tap) ทั้ง optimistic update และ rollback เมื่อ network ล้มเหลว (ข) RLS ของ `drop_comment_likes` ถูกต้อง (ค) ไม่มี regression กับ Comment เดิม (เพิ่ม/ลบคอมเมนต์, ดูรายการ) หรือ Like/Save/Share ของ Drop เอง จากการเปลี่ยน state management เป็น mutable list (ง) 2 จุด Low severity ที่แก้เพิ่มทำงานถูกต้อง

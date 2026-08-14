@@ -37,6 +37,12 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
+    // Guards the same race the "แชร์" button guards against (see
+    // .wyn/tasks/bugs/WYN-004-feed-and-post.md, QA round 1): without
+    // this, the image area's onTap could reopen the picker sheet while
+    // the previous pick is still being cropped.
+    if (_isCropping) return;
+
     final picked = await ImagePicker().pickImage(
       source: source,
       maxWidth: 1600,
@@ -56,6 +62,12 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
         _imageBytes = cropped;
         _imageExtension = 'png';
       });
+    } catch (_) {
+      // e.g. a corrupted file or a format decodeImageFromList can't
+      // handle -- rare, but silently doing nothing would leave the user
+      // tapping a placeholder that never responds.
+      if (!mounted) return;
+      setState(() => _errorMessage = 'เลือกรูปไม่สำเร็จ ลองใหม่อีกครั้ง');
     } finally {
       if (mounted) setState(() => _isCropping = false);
     }
@@ -191,7 +203,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     final imageBytes = _imageBytes;
 
     return GestureDetector(
-      onTap: _isSharing ? null : _showImageSourceSheet,
+      onTap: (_isSharing || _isCropping) ? null : _showImageSourceSheet,
       child: AspectRatio(
         aspectRatio: 1,
         child: Semantics(
