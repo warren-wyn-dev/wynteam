@@ -14,6 +14,8 @@ import 'package:wyn/features/search/presentation/search_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/fake_video_player_platform.dart';
+import 'support/recording_club_post_repository.dart';
+import 'support/recording_club_repository.dart';
 import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
 import 'support/recording_home_repository.dart';
@@ -75,6 +77,8 @@ void main() {
   late RecordingProfileRepository sharedProfileRepository;
   late RecordingSavedRepository sharedSavedRepository;
   late RecordingNotificationRepository sharedNotificationRepository;
+  late RecordingClubRepository sharedClubRepository;
+  late RecordingClubPostRepository sharedClubPostRepository;
   late RecordingHomeRepository mixedFeedHomeRepository;
   late RecordingHomeRepository emptyHomeRepository;
   late RecordingHomeRepository searchTestHomeRepository;
@@ -115,6 +119,8 @@ void main() {
     );
     sharedSavedRepository = RecordingSavedRepository();
     sharedNotificationRepository = RecordingNotificationRepository();
+    sharedClubRepository = RecordingClubRepository();
+    sharedClubPostRepository = RecordingClubPostRepository();
     mixedFeedHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'd1'), _popItem(id: 'p1')],
     );
@@ -168,6 +174,8 @@ void main() {
           profileRepository: sharedProfileRepository,
           savedRepository: sharedSavedRepository,
           notificationRepository: notificationRepository ?? sharedNotificationRepository,
+          clubRepository: sharedClubRepository,
+          clubPostRepository: sharedClubPostRepository,
         ),
       );
 
@@ -198,7 +206,10 @@ void main() {
     await tester.scrollUntilVisible(
       find.text('แคปชัน Pop'),
       500,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('home_feed_list')),
+        matching: find.byType(Scrollable),
+      ),
     );
     tester.takeException();
 

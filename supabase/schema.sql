@@ -322,14 +322,14 @@ create policy "Users can remove their own drop comment likes"
   using (auth.uid() = user_id);
 
 -- Saved content: shared across content types (drops now, pops later per
--- WYN-011) via content_type + content_id instead of a per-type FK, so
--- adding Pop support later doesn't need another migration. Unlike
--- likes/comments, a user's saved list is private (Instagram/Twitter
--- convention) -- select is restricted to your own rows, not
--- select-all-authenticated.
+-- WYN-011, club posts per WYN-014) via content_type + content_id instead
+-- of a per-type FK, so adding a new content type never needs another
+-- migration. Unlike likes/comments, a user's saved list is private
+-- (Instagram/Twitter convention) -- select is restricted to your own
+-- rows, not select-all-authenticated.
 create table if not exists public.saves (
   user_id uuid not null references public.profiles (id) on delete cascade,
-  content_type text not null check (content_type in ('drop', 'pop')),
+  content_type text not null check (content_type in ('drop', 'pop', 'club_post')),
   content_id uuid not null,
   created_at timestamptz not null default now(),
   primary key (user_id, content_type, content_id)
@@ -865,3 +865,625 @@ $$;
 create trigger follows_notify
   after insert on public.follows
   for each row execute function public.notify_follow();
+
+-- WYN-014 (Club Core) — clubs, club_members, club_posts,
+-- club_post_likes, club_post_comments
+-- Run once per environment after all statements above.
+--
+-- This is the project's first role-based permission system (Follow, by
+-- contrast, is a plain boolean relationship with no role concept).
+-- club_members.role/status need durable per-row mutable state that
+-- only a real table (not a view) can hold, and every role/status
+-- transition (approve/reject/set-role/remove/ban) is funneled through
+-- security-definer RPC functions rather than raw UPDATE RLS -- the
+-- permission graph (who can act on whom, at what role) is complex
+-- enough that encoding it as WITH CHECK clauses would need deeply
+-- nested EXISTS subqueries per action, which is hard for QA to verify
+-- and easy to get subtly wrong. See club_role() and the five RPC
+-- functions below (same security-definer-RPC-over-raw-RLS pattern as
+-- increment_pop_view_count, WYN-006).
+
+create table if not exists public.clubs (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  description text,
+  rules text,
+  icon_url text,
+  cover_url text,
+  -- Nullable: the Design spec (Screen 2) treats Category the same as
+  -- Description/Cover/Icon -- optional at creation, only Name + Privacy
+  -- are required.
+  category text,
+  privacy text not null check (privacy in ('public', 'private')),
+  owner_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  constraint clubs_name_length check (char_length(name) between 1 and 50),
+  constraint clubs_description_length
+    check (description is null or char_length(description) <= 500),
+  constraint clubs_rules_length
+    check (rules is null or char_length(rules) <= 2000)
+);
+
+-- Ownership transfer is out of scope this round (see the Product spec's
+-- Risks section), so owner_id must never change after creation --
+-- otherwise an Owner/Admin using the "Edit Club Info" update policy
+-- below could silently reassign ownership to themselves via a normal
+-- client-side update() call. Enforced with a trigger rather than a
+-- WITH CHECK clause because RLS's default WITH CHECK (falling back to
+-- USING when unspecified) only re-checks club_role() against the row's
+-- id, not whether owner_id itself was tampered with.
+create or replace function public.clubs_prevent_owner_id_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.owner_id <> old.owner_id then
+    raise exception 'Changing club owner_id directly is not supported';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger clubs_prevent_owner_id_change
+  before update on public.clubs
+  for each row execute function public.clubs_prevent_owner_id_change();
+
+create table if not exists public.club_members (
+  club_id uuid not null references public.clubs (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  role text not null default 'member'
+    check (role in ('owner', 'admin', 'moderator', 'member')),
+  status text not null default 'pending'
+    check (status in ('pending', 'approved', 'banned')),
+  created_at timestamptz not null default now(),
+  primary key (club_id, user_id)
+);
+
+-- Single reusable authorization primitive for every Club RLS policy
+-- below (clubs, club_members, club_posts, club_post_likes,
+-- club_post_comments, and the club-media storage policies): returns
+-- the caller's role for a club if they have an approved membership
+-- row, else null. security definer + table-owner-bypasses-RLS (the
+-- same mechanism the notify_* trigger functions above already rely on
+-- to write into notifications despite no insert policy existing) lets
+-- this run from *inside* club_members' own SELECT policies without
+-- the self-referential-subquery recursion a raw EXISTS-against-
+-- club_members-from-within-club_members'-own-policy would cause.
+create or replace function public.club_role(p_club_id uuid, p_user_id uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select role from public.club_members
+  where club_id = p_club_id and user_id = p_user_id and status = 'approved';
+$$;
+
+alter table public.clubs enable row level security;
+
+create policy "Clubs are viewable by authenticated users"
+  on public.clubs
+  for select
+  to authenticated
+  using (true);
+
+create policy "Users can create clubs as themselves"
+  on public.clubs
+  for insert
+  to authenticated
+  with check (auth.uid() = owner_id);
+
+create policy "Club owners and admins can update club info"
+  on public.clubs
+  for update
+  to authenticated
+  using (public.club_role(id, auth.uid()) in ('owner', 'admin'));
+
+alter table public.club_members enable row level security;
+
+-- Three SELECT policies (RLS OR's every matching policy together):
+-- (1) your own row is always visible regardless of status, so a
+-- pending requester can see their own "รออนุมัติ" state; (2) other
+-- approved members' rows are visible to any approved member of the
+-- same club (Members tab); (3) pending rows belonging to *other*
+-- people are visible only to that club's owner/admin (the "คำขอเข้าร่วม"
+-- section on the Members tab).
+create policy "Users can view their own membership row"
+  on public.club_members
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Approved members can view other approved members"
+  on public.club_members
+  for select
+  to authenticated
+  using (
+    status = 'approved'
+    and public.club_role(club_id, auth.uid()) is not null
+  );
+
+create policy "Club owners and admins can view pending requests"
+  on public.club_members
+  for select
+  to authenticated
+  using (
+    status = 'pending'
+    and public.club_role(club_id, auth.uid()) in ('owner', 'admin')
+  );
+
+-- Self-insert only, always role = 'member' (Owner's membership is
+-- created exclusively by the clubs_add_owner_membership trigger below,
+-- and Admin/Moderator are only ever granted via set_club_member_role(),
+-- never at insert time). status is cross-checked against the target
+-- club's actual privacy so a client can't insert itself pre-approved
+-- into a Private club: approved only if the club is public, pending
+-- only if the club is private. A previously banned user re-attempting
+-- to join collides with their existing (club_id, user_id) primary key
+-- and is rejected by the unique constraint, not by this policy.
+create policy "Users can request or join clubs as themselves"
+  on public.club_members
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = user_id
+    and role = 'member'
+    and (
+      (status = 'approved' and exists (
+        select 1 from public.clubs where id = club_id and privacy = 'public'
+      ))
+      or
+      (status = 'pending' and exists (
+        select 1 from public.clubs where id = club_id and privacy = 'private'
+      ))
+    )
+  );
+
+-- Self-leave only, and the Owner may not leave (no ownership transfer
+-- or club deletion in scope this round, so a leaving Owner would strand
+-- the club with no one able to manage it).
+create policy "Members can leave a club themselves"
+  on public.club_members
+  for delete
+  to authenticated
+  using (auth.uid() = user_id and role <> 'owner');
+
+-- Deliberately no UPDATE policy at all: every role/status transition
+-- (approve/reject/set-role/remove/ban) goes through the security
+-- definer RPC functions below instead, so a client can never issue a
+-- raw PostgREST update() against club_members no matter what values it
+-- sends.
+
+create or replace function public.clubs_add_owner_membership()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.club_members (club_id, user_id, role, status)
+  values (new.id, new.owner_id, 'owner', 'approved');
+  return new;
+end;
+$$;
+
+create trigger clubs_add_owner_membership
+  after insert on public.clubs
+  for each row execute function public.clubs_add_owner_membership();
+
+-- Five RPC functions cover every club_members role/status mutation.
+-- Each re-derives the caller's role via club_role() itself (never
+-- trusts a role/status passed in from the client) and blocks
+-- self-targeting and owner-targeting up front. NULL-safety note: every
+-- permission check below either (a) branches on a positive role match
+-- with a trailing `else raise exception` (NULL never matches a
+-- positive branch, so it always falls through to the raise), or (b)
+-- explicitly coalesces club_role()'s possible NULL before a `not in`
+-- check -- `null not in (...)` evaluates to NULL, not true, which would
+-- silently skip the exception and let a total stranger through.
+
+create or replace function public.approve_club_member(
+  p_club_id uuid,
+  p_target_user_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if coalesce(public.club_role(p_club_id, auth.uid()), '') not in ('owner', 'admin') then
+    raise exception 'Not permitted to approve members for this club';
+  end if;
+
+  update public.club_members
+  set status = 'approved'
+  where club_id = p_club_id
+    and user_id = p_target_user_id
+    and status = 'pending';
+
+  if not found then
+    raise exception 'No pending request found for this member';
+  end if;
+end;
+$$;
+
+create or replace function public.reject_club_member(
+  p_club_id uuid,
+  p_target_user_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if coalesce(public.club_role(p_club_id, auth.uid()), '') not in ('owner', 'admin') then
+    raise exception 'Not permitted to reject members for this club';
+  end if;
+
+  delete from public.club_members
+  where club_id = p_club_id
+    and user_id = p_target_user_id
+    and status = 'pending';
+
+  if not found then
+    raise exception 'No pending request found for this member';
+  end if;
+end;
+$$;
+
+-- Owner: may set admin/moderator/member on any non-owner approved
+-- member. Admin: may set moderator/member only, and only on targets
+-- who are not themselves currently Admin (an Admin can never touch
+-- another Admin, and can never grant Admin -- both Owner-only per the
+-- Product spec).
+create or replace function public.set_club_member_role(
+  p_club_id uuid,
+  p_target_user_id uuid,
+  p_new_role text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_caller_role text;
+  v_target_role text;
+begin
+  if p_target_user_id = auth.uid() then
+    raise exception 'Cannot change your own role';
+  end if;
+
+  if p_new_role not in ('admin', 'moderator', 'member') then
+    raise exception 'Invalid role';
+  end if;
+
+  v_caller_role := public.club_role(p_club_id, auth.uid());
+
+  select role into v_target_role
+  from public.club_members
+  where club_id = p_club_id and user_id = p_target_user_id and status = 'approved';
+
+  if v_target_role is null then
+    raise exception 'Target is not an approved member of this club';
+  end if;
+
+  if v_target_role = 'owner' then
+    raise exception 'Cannot change the role of the club owner';
+  end if;
+
+  if v_caller_role = 'owner' then
+    null;
+  elsif v_caller_role = 'admin'
+      and v_target_role <> 'admin'
+      and p_new_role <> 'admin' then
+    null;
+  else
+    raise exception 'Not permitted to change this member''s role';
+  end if;
+
+  update public.club_members
+  set role = p_new_role
+  where club_id = p_club_id and user_id = p_target_user_id;
+end;
+$$;
+
+-- Shared permission boundary for remove/ban: Owner/Admin may act on
+-- Moderator/Member (but Admin may never act on another Admin);
+-- Moderator may act only on plain Members. Both always block
+-- self-targeting and owner-targeting.
+create or replace function public.remove_club_member(
+  p_club_id uuid,
+  p_target_user_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_caller_role text;
+  v_target_role text;
+begin
+  if p_target_user_id = auth.uid() then
+    raise exception 'Cannot remove yourself -- leave the club instead';
+  end if;
+
+  v_caller_role := public.club_role(p_club_id, auth.uid());
+
+  select role into v_target_role
+  from public.club_members
+  where club_id = p_club_id and user_id = p_target_user_id and status = 'approved';
+
+  if v_target_role is null then
+    raise exception 'Target is not an approved member of this club';
+  end if;
+
+  if v_target_role = 'owner' then
+    raise exception 'Cannot remove the club owner';
+  end if;
+
+  if v_caller_role in ('owner', 'admin') and v_target_role <> 'admin' then
+    null;
+  elsif v_caller_role = 'moderator' and v_target_role = 'member' then
+    null;
+  else
+    raise exception 'Not permitted to remove this member';
+  end if;
+
+  delete from public.club_members
+  where club_id = p_club_id and user_id = p_target_user_id;
+end;
+$$;
+
+create or replace function public.ban_club_member(
+  p_club_id uuid,
+  p_target_user_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_caller_role text;
+  v_target_role text;
+begin
+  if p_target_user_id = auth.uid() then
+    raise exception 'Cannot ban yourself';
+  end if;
+
+  v_caller_role := public.club_role(p_club_id, auth.uid());
+
+  select role into v_target_role
+  from public.club_members
+  where club_id = p_club_id and user_id = p_target_user_id and status = 'approved';
+
+  if v_target_role is null then
+    raise exception 'Target is not an approved member of this club';
+  end if;
+
+  if v_target_role = 'owner' then
+    raise exception 'Cannot ban the club owner';
+  end if;
+
+  if v_caller_role in ('owner', 'admin') and v_target_role <> 'admin' then
+    null;
+  elsif v_caller_role = 'moderator' and v_target_role = 'member' then
+    null;
+  else
+    raise exception 'Not permitted to ban this member';
+  end if;
+
+  update public.club_members
+  set status = 'banned'
+  where club_id = p_club_id and user_id = p_target_user_id;
+end;
+$$;
+
+create table if not exists public.club_posts (
+  id uuid primary key default gen_random_uuid(),
+  club_id uuid not null references public.clubs (id) on delete cascade,
+  author_id uuid not null references public.profiles (id) on delete cascade,
+  content text,
+  image_urls text[],
+  link_url text,
+  pinned boolean not null default false,
+  created_at timestamptz not null default now(),
+  constraint club_posts_content_length
+    check (content is null or char_length(content) between 1 and 2000),
+  constraint club_posts_image_urls_length
+    check (image_urls is null or array_length(image_urls, 1) between 1 and 10),
+  -- A club post needs at least one of text, images, or a link -- same
+  -- "no completely empty content" rule as posts_have_content (WYN-004).
+  constraint club_posts_have_content
+    check (content is not null or image_urls is not null or link_url is not null)
+);
+
+alter table public.club_posts enable row level security;
+
+create policy "Approved club members can view club posts"
+  on public.club_posts
+  for select
+  to authenticated
+  using (public.club_role(club_id, auth.uid()) is not null);
+
+create policy "Approved club members can create club posts as themselves"
+  on public.club_posts
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = author_id
+    and public.club_role(club_id, auth.uid()) is not null
+  );
+
+create policy "Post authors and club staff can delete club posts"
+  on public.club_posts
+  for delete
+  to authenticated
+  using (
+    auth.uid() = author_id
+    or public.club_role(club_id, auth.uid()) in ('owner', 'admin', 'moderator')
+  );
+
+-- Pin/unpin is the only client-facing mutation on an existing club
+-- post. Not column-restricted at the RLS level (this project doesn't
+-- do column-level RLS anywhere -- see posts/drops/pops), so this
+-- policy technically permits club staff to update any column on any
+-- post in the club, not just `pinned`; the client only ever sends a
+-- `pinned` patch.
+create policy "Club staff can pin or unpin club posts"
+  on public.club_posts
+  for update
+  to authenticated
+  using (public.club_role(club_id, auth.uid()) in ('owner', 'admin', 'moderator'));
+
+create table if not exists public.club_post_likes (
+  club_post_id uuid not null references public.club_posts (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (club_post_id, user_id)
+);
+
+alter table public.club_post_likes enable row level security;
+
+create policy "Approved club members can view club post likes"
+  on public.club_post_likes
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.club_posts cp
+      where cp.id = club_post_id
+        and public.club_role(cp.club_id, auth.uid()) is not null
+    )
+  );
+
+create policy "Approved club members can like club posts as themselves"
+  on public.club_post_likes
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.club_posts cp
+      where cp.id = club_post_id
+        and public.club_role(cp.club_id, auth.uid()) is not null
+    )
+  );
+
+create policy "Users can remove their own club post likes"
+  on public.club_post_likes
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+create table if not exists public.club_post_comments (
+  id uuid primary key default gen_random_uuid(),
+  club_post_id uuid not null references public.club_posts (id) on delete cascade,
+  author_id uuid not null references public.profiles (id) on delete cascade,
+  text_content text not null,
+  created_at timestamptz not null default now(),
+  constraint club_post_comments_text_content_length
+    check (char_length(text_content) between 1 and 500)
+);
+
+alter table public.club_post_comments enable row level security;
+
+create policy "Approved club members can view club post comments"
+  on public.club_post_comments
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.club_posts cp
+      where cp.id = club_post_id
+        and public.club_role(cp.club_id, auth.uid()) is not null
+    )
+  );
+
+create policy "Approved club members can comment on club posts as themselves"
+  on public.club_post_comments
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = author_id
+    and exists (
+      select 1 from public.club_posts cp
+      where cp.id = club_post_id
+        and public.club_role(cp.club_id, auth.uid()) is not null
+    )
+  );
+
+create policy "Users can delete their own club post comments"
+  on public.club_post_comments
+  for delete
+  to authenticated
+  using (auth.uid() = author_id);
+
+-- Club media: unlike avatars/post-images/drop-images/pop-videos (all
+-- public buckets), club-media must be non-public -- club posts are
+-- members-only-visible at the DB layer (club_posts select policy
+-- above), and a fully public bucket would let anyone with a
+-- guessed/leaked URL bypass that privacy boundary entirely (a gap
+-- Drop/Pop never had, since their content has no privacy boundary to
+-- begin with). Path shape: {club_id}/cover.*, {club_id}/icon.*
+-- (1 folder segment -- visible to any authenticated user, matching the
+-- Design spec's non-member Club Page preview) vs
+-- {club_id}/posts/{user_id}-{timestamp}-{n}.* (>1 folder segment --
+-- visible only to approved members; the exact nested path only needs to
+-- be >1 segment deep, the middle segment's contents don't matter to
+-- these policies).
+--
+-- Also unlike the public buckets, cover_url/icon_url/image_urls store
+-- storage *paths* in their DB columns, not display URLs -- the Dart
+-- repository layer (ClubRepository/ClubPostRepository) mints a fresh
+-- signed URL per read instead, since a stable public URL would bypass
+-- the RLS checks below entirely once cached/shared.
+insert into storage.buckets (id, name, public)
+values ('club-media', 'club-media', false)
+on conflict (id) do nothing;
+
+create policy "Club cover and icon images are visible to authenticated users"
+  on storage.objects
+  for select
+  to authenticated
+  using (
+    bucket_id = 'club-media'
+    and array_length(storage.foldername(name), 1) = 1
+  );
+
+create policy "Club post images are visible to approved club members"
+  on storage.objects
+  for select
+  to authenticated
+  using (
+    bucket_id = 'club-media'
+    and array_length(storage.foldername(name), 1) > 1
+    and public.club_role(((storage.foldername(name))[1])::uuid, auth.uid()) is not null
+  );
+
+create policy "Club owners and admins can upload cover and icon images"
+  on storage.objects
+  for insert
+  to authenticated
+  with check (
+    bucket_id = 'club-media'
+    and array_length(storage.foldername(name), 1) = 1
+    and public.club_role(((storage.foldername(name))[1])::uuid, auth.uid()) in ('owner', 'admin')
+  );
+
+create policy "Approved club members can upload post images"
+  on storage.objects
+  for insert
+  to authenticated
+  with check (
+    bucket_id = 'club-media'
+    and array_length(storage.foldername(name), 1) > 1
+    and public.club_role(((storage.foldername(name))[1])::uuid, auth.uid()) is not null
+  );

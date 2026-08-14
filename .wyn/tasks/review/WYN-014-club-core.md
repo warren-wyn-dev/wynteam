@@ -1,7 +1,7 @@
 # Product Task — WYN-014
 
-Status: backlog
-Owner: AI Product Manager (เสร็จ) → AI Design (ถัดไป)
+Status: review (รอ QA)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (รอ)
 
 Feature: WYN CLUB — Core System (สร้าง/เข้าร่วม Club, Club Page, โพสต์ใน Club, ระบบสมาชิก/Role, Admin, Pinned Post, กฎ Club)
 
@@ -85,3 +85,50 @@ Recommendation:
 6. **ไม่ทำระบบโอนสิทธิ์ Owner หรือลบ Club ทั้งกลุ่มในรอบนี้** — เหตุผลอยู่ใน Risks
 
 Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบ: (1) UI ส่วน CLUB ใน Home (ปุ่มลัด + card แนวนอนของ Club ของฉัน) (2) หน้า Create Club (3) Club Page (header + tab Posts/Members/About) (4) โพสต์ใน Club (การ์ดโพสต์, Create Post flow เลือก My Profile/Club) (5) หน้า Members (list + role badge + เมนูจัดการสำหรับ Owner/Admin/Moderator) (6) About tab (กฎ Club) (7) Admin action UI (Approve/Remove/Ban/Pin/Delete/Change Privacy/Manage Roles) — ต้องออกแบบให้ไม่ลอก Facebook Groups โดยตรง ใช้ Design system เดิมของ WYN (Blue+White+Soft Gray, Rounded Cards, ไม่ใช้ Liquid Glass)
+
+---
+
+## Design Output (AI Design)
+
+เขียนเสร็จแล้วที่ `.wyn/docs/design/wyn-014-club-core.md` — สรุป: `ClubPage` ใช้โครงสร้างเดียวกับ `ViewProfileScreen` ในระดับแนวคิด (header คงที่ + TabBar) แต่ cover เป็นการ์ดมุมมนความสูงจำกัด ไม่ใช่ hero เต็มจอแบบ FB Groups — 7 หน้าจอ: (1) CLUB section ใน Home สูงจำกัด ~180px ใต้แถวบนสุด มีปุ่มลัด + card แนวนอนของ Club ที่เข้าร่วมแล้ว (2) `CreateClubScreen` reuse ฟอร์ม Edit Profile (3) `ClubPage` header ปุ่ม Join 3 สถานะ + Share + More (4) TabBar Posts/สมาชิก/เกี่ยวกับ ที่ไม่ join ก็เห็นแท็บอยู่แต่เนื้อหา Posts ถูกแทนที่ด้วย join-gate (5) การ์ดโพสต์รองรับ Text/รูปเดี่ยว/หลายรูป carousel/Link มิเรอร์ interaction row ของ Drop (6) Members tab role badge (สี Primary Blue เข้ม/อ่อนตาม role ไม่ใช้สีสถานะ) + section คำขอเข้าร่วมสำหรับ Owner/Admin + เมนูจัดการ role-gated ต่อแถว (7) About tab กฎ Club แก้ไขได้โดย Owner/Admin — เน้นย้ำ handoff: role permission logic ต้องบังคับทั้ง RLS และ UI, storage RLS ต้องเช็ค membership ไม่ใช่แค่ folder=user_id
+
+Handoff: ส่งต่อ AI Coding (`/code`)
+
+---
+
+## Coding Output (AI Coding)
+
+Implementation:
+- Database (`supabase/schema.sql`): ตาราง `clubs`/`club_members`/`club_posts`/`club_post_likes`/`club_post_comments` ใหม่ — `category` เป็น nullable ตาม Design's "Name+Privacy บังคับ อย่างอื่น optional" (Product's AC พูดถึง "กรอกครบ" แต่ Design ชี้ชัดกว่าว่า field ไหนบังคับจริง ใช้ Design เป็นหลักสำหรับ UI behavior) — `club_role(club_id, user_id)` เป็น `security definer` SQL function ตัวเดียวที่ทุก RLS policy/storage policy เรียกใช้ร่วมกัน (คืน role ถ้าเป็นสมาชิก approved, null ถ้าไม่ใช่) ป้องกัน self-referential RLS recursion บน `club_members` เอง — trigger `clubs_add_owner_membership` สร้างสมาชิกภาพ Owner อัตโนมัติตอนสร้าง Club — trigger `clubs_prevent_owner_id_change` (พบเองระหว่างเขียน ไม่ได้ระบุไว้ใน spec ต้นฉบับ) กัน Owner/Admin ที่มีสิทธิ์ update `clubs` ทั่วไปแอบเปลี่ยน `owner_id` ผ่าน update ปกติ เพราะ RLS update policy เช็คแค่ role ของผู้ทำ ไม่ได้ตรวจว่าคอลัมน์ `owner_id` เองถูกแก้หรือไม่ — role/status mutation ทั้งหมด (approve/reject/set role/remove/ban) เป็น RPC function 5 ตัวแทน raw RLS (มิเรอร์ `increment_pop_view_count` ของ WYN-006) เพราะ permission graph ซับซ้อนเกินจะเขียนเป็น RLS policy ตรงๆ ได้ปลอดภัย — ทุก RPC re-derive role ของผู้เรียกเองจาก `club_role()` ไม่เชื่อค่าที่ client ส่งมา และกัน self-target/owner-target ทุกตัว — `club_members` **ไม่มี raw update policy เลย** — storage bucket `club-media` เป็น **non-public bucket แรกของโปรเจกต์** (ต่างจาก `avatars`/`drop-images`/`post-images`/`pop-videos`) เพราะโพสต์ Club ต้องเห็นเฉพาะสมาชิก approved เท่านั้นแม้ Club จะเป็น Public — RLS select แยก cover/icon (segment เดียว, ใครก็ได้ที่ login) กับรูปโพสต์ (segment มากกว่า 1, เฉพาะสมาชิก approved) — ขยาย `saves.content_type` ให้รองรับ `'club_post'` (reuse ตารางเดิมของ WYN-005 ตามที่ Product แนะนำไว้)
+- `ClubRepository`/`ClubPostRepository` (ใหม่ทั้งคู่): เพราะ bucket ไม่ public จึงเก็บ **storage path** ใน `cover_url`/`icon_url`/`image_urls` แทน display URL แล้ว mint signed URL (`createSignedUrl`, TTL 1 ชั่วโมง) สดใหม่ทุกครั้งที่ fetch แทนการ cache URL ถาวรแบบ bucket public เดิม — `createPost` อัปโหลดรูปไปยัง path ที่ระบุด้วย user_id+timestamp (ไม่ใช้ post_id เพราะยังไม่มี id ก่อน insert) **ก่อน** insert แถวโพสต์ ไม่ใช่หลัง เพื่อไม่ให้แถวโพสต์-รูปอย่างเดียวไม่มีข้อความ/ลิงก์ชนกับ `club_posts_have_content` CHECK ตอน insert ครั้งแรก (ถ้า insert ก่อนแล้วค่อย update image_urls ทีหลัง แถวชั่วคราวจะ content=null ทั้งหมดและ insert ไม่ผ่าน)
+- Models: `Club`, `ClubMember` (พร้อม `ClubMemberRolePermissions` extension `canModeratePosts`/`canManageClub`), `ClubPost` (มิเรอร์ `Drop` + `imageUrls`/`linkUrl`/`pinned`), `ClubPostComment` (ไม่มี per-comment like — ไม่ถูกระบุไว้ใน spec ทั้งสองฉบับสำหรับ Club จึงไม่เพิ่มโดยไม่จำเป็น ต่างจาก `DropComment`)
+- UI ครบ 7 หน้าจอตาม Design: `ClubSection` (widget ใน Home, ผูก `TabController` เอง — ไม่ใช้ `DefaultTabController` เพราะ More menu ต้อง jump ไป Members tab จาก context ที่อยู่เหนือมันในทรี), `CreateClubScreen`/`EditClubInfoScreen`, `ClubPage` (header 3 สถานะปุ่ม Join + role-gated More menu + TabBar), `ClubPostsTab`+`ClubPostCard`+`ClubPostImages` (carousel รูปหลายรูป reuse ได้ทั้งใน card list และ detail screen)+`ClubPostDetailScreen` (มิเรอร์ `DropDetailScreen` เพราะ spec ไม่ได้นิยาม comment-thread UI แยกไว้), `CreateClubPostScreen`, `ClubMembersTab` (pending section + role-gated action menu), `ClubAboutTab`, `MyClubsScreen`+`ExploreClubsPlaceholderScreen` (ปลายทางของ "ดูทั้งหมด"/"สำรวจ Club" ใน Design's Screen 1)
+- `app/lib/features/home/presentation/home_feed_screen.dart`/`root_shell.dart`: เพิ่ม `ClubSection` ระหว่างแถวบนสุดกับ Feed หลัก, เพิ่ม `ClubRepository`/`ClubPostRepository` เป็น shared instance
+
+Gaps ที่ Coding พบและแก้เองก่อนส่ง QA:
+1. **Layout overflow ใน `ClubPage` header**: Cover ใช้ `AspectRatio(16:9)` เต็มความกว้างจอตอนแรก ทำให้สูงเกินงบประมาณพื้นที่ที่เหลือใน Column ที่ไม่ scroll (header+TabBar+Expanded) จน overflow บน viewport แคบ — แก้เป็น fixed height 140px ตาม Design's "cover เป็นการ์ดมุมมนความสูงจำกัด...ไม่ใช่เต็มความกว้างจอทะลุขอบแบบ FB" ที่ระบุไว้แต่ตอนแรก implement ผิดไปใช้ AspectRatio
+2. Path การอัปโหลดรูปโพสต์หลายรูปที่ชนกับ `club_posts_have_content` CHECK (อธิบายไว้ใน Implementation ข้างบน)
+
+Files Changed:
+- `supabase/schema.sql`: เพิ่มตาราง `clubs`/`club_members`/`club_posts`/`club_post_likes`/`club_post_comments`, function `club_role()`, trigger `clubs_add_owner_membership`/`clubs_prevent_owner_id_change`, RPC 5 ตัว, storage bucket `club-media` + policy, แก้ `saves.content_type` CHECK
+- ใหม่ทั้งหมด: `app/lib/features/club/data/{club,club_member,club_post,club_post_comment,club_repository,club_post_repository}.dart`, `app/lib/features/club/presentation/{create_club_screen,edit_club_info_screen,club_page,create_club_post_screen,club_post_detail_screen,my_clubs_screen}.dart`, `app/lib/features/club/presentation/widgets/{club_section,club_mini_card,club_posts_tab,club_post_card,club_members_tab,club_about_tab,explore_clubs_placeholder_screen}.dart`
+- แก้: `app/lib/features/home/presentation/home_feed_screen.dart` (เพิ่ม `ClubSection` + Key บน ListView หลักเพื่อไม่ชนกับ Scrollable ใหม่ในเทสต์), `app/lib/features/root/presentation/root_shell.dart` (shared repositories)
+- test ใหม่: `app/test/{club_members_tab_test,club_posts_tab_test,club_page_test,create_club_screen_test}.dart`, `app/test/support/{recording_club_repository,recording_club_post_repository}.dart`
+- test แก้: `app/test/home_feed_screen_test.dart` (เพิ่ม club repositories, แก้ `scrollUntilVisible` ให้ระบุ Scrollable ที่ถูกต้องแทน `.first`)
+
+Reason: implement ตาม Product spec + Design spec ของ WYN-014 ครบตามขอบเขต Core — สร้าง/เข้าร่วม Club, Club Page, โพสต์ (Text/รูปเดี่ยว/หลายรูป/Link), ระบบสมาชิก 4 Role, Admin system, Pinned Post, กฎ Club — role-based permission enforce ทั้ง RLS/RPC (ห้าม bypass ผ่าน PostgREST ตรงๆ) และ UI (ซ่อนตัวเลือกที่กดไม่ได้แทนที่จะแสดงแล้ว disable)
+
+Tests:
+- `flutter analyze`: No issues found
+- `flutter test`: 148/148 ผ่านทั้งหมด (เพิ่มจาก 124 เดิม — 24 เทสต์ใหม่: 11 ใน `club_members_tab_test.dart` ครอบคลุม role-permission boundary matrix ทุกคู่ role×action ที่ Product ระบุ, 5 ใน `club_posts_tab_test.dart` ครอบคลุม post-visibility gating + pinned-first ordering, 6 ใน `club_page_test.dart` ครอบคลุม Join button 3 สถานะ + More menu role gating, 2 ใน `create_club_screen_test.dart` ครอบคลุม required-field gating)
+- **ทำ red→green regression proof อิสระ 2 จุดที่ safety-critical ที่สุด**:
+  1. **Privilege escalation — Admin แต่งตั้ง Admin**: เพิ่ม `_MemberAction('ตั้งเป็น Admin', ...)` ชั่วคราวเข้าไปใน branch ของ Admin viewer ใน `_actionsFor` (`club_members_tab.dart`) จำลองบั๊กที่ Admin จะเห็นตัวเลือกตั้ง Admin คนอื่นได้ (ผิด AC "Admin แต่งตั้งได้แค่ Moderator") → รัน `club_members_tab_test.dart` เฉพาะเทสต์ "never sees ตั้งเป็น Admin" → **FAIL จริง** (`Expected: no matching candidates, Actual: Found 1 widget with text "ตั้งเป็น Admin"`) → revert → รันซ้ำ **PASS** ทั้ง 11 เทสต์ในไฟล์
+  2. **Post-visibility gating — non-member เห็นเนื้อหาโพสต์**: เปลี่ยน `bool get _isMember => widget.myRole != null;` เป็น `=> true;` ชั่วคราวใน `club_posts_tab.dart` จำลองบั๊กที่คนไม่ join เห็นโพสต์ได้ (ผิด Product's core requirement ที่ระบุชัดว่า "โพสต์จะแสดงเฉพาะสมาชิก Club...ไม่ใช่เรื่องมองเห็นโพสต์ได้ก่อนเข้าร่วม") → รัน test "never the post content" → **FAIL จริง** (ไม่เจอข้อความ join-prompt เพราะ gate หายไป) → revert → รันซ้ำ **PASS**
+
+Known Issues:
+- WYN-015 (Discovery/Search/Notification/Profile/Home integration) ยังไม่เริ่ม — "สำรวจ Club" เป็น placeholder เฉย ๆ ตอนนี้
+- ยังไม่ทดสอบ RLS/RPC/storage policy จริงกับ Supabase project จริง (รอ infra จาก Founder เหมือนทุก feature ก่อนหน้า) — โดยเฉพาะ 5 RPC function และ signed URL flow ที่ตรวจได้แค่ระดับ code review ในตอนนี้
+- Club ownership transfer และ club deletion ไม่อยู่ใน scope รอบนี้ตามที่ Product ตัดสินใจไว้ (ดู Risks)
+- `ClubPostDetailScreen` ไม่มี tap-to-profile บน avatar ผู้โพสต์ (ตาม Design spec ที่บอกว่าไม่ critical รอบนี้ เก็บไว้เป็น nice-to-have ทีหลัง)
+
+Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ WYN-014 ก่อนอนุมัติ — เน้นตรวจเป็นพิเศษ: (ก) privilege escalation ผ่านทุก RPC function โดยตรง (ไม่ใช่แค่ผ่าน UI) โดยเฉพาะ Admin-แต่งตั้ง-Admin, Admin-แตะ-Admin-อื่น, Moderator-แตะ-role, ทุกคน-แตะ-Owner (ข) RLS ของ `club_members`/`club_posts`/`club_post_likes`/`club_post_comments` ป้องกัน bypass ผ่าน PostgREST ตรงๆ จริง โดยเฉพาะ post-visibility ที่ไม่ join (Public หรือ Private ก็ตาม) (ค) `club-media` storage bucket policy แยก cover/icon (public-ish) กับรูปโพสต์ (members-only) ถูกต้องจริง (ง) `clubs_prevent_owner_id_change` trigger ป้องกัน Admin ชิงความเป็นเจ้าของจริง (จ) `club_members` insert policy ผูก status กับ privacy ของ club จริง ไม่ให้ self-insert เป็น approved เข้า Private club ได้ (ฉ) regression กับ Drop/Pop/Home/Follow/Profile/Search/Notification เดิมทั้งหมด (ช) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัด

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../club/data/club_post_repository.dart';
+import '../../club/data/club_repository.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/drop_feed_screen.dart';
 import '../../follow/data/follow_repository.dart';
@@ -52,6 +54,8 @@ class _RootShellState extends State<RootShell> {
     final profileRepository = ProfileRepository(Supabase.instance.client);
     final savedRepository = SavedRepository(Supabase.instance.client);
     final notificationRepository = NotificationRepository(Supabase.instance.client);
+    final clubRepository = ClubRepository(Supabase.instance.client);
+    final clubPostRepository = ClubPostRepository(Supabase.instance.client);
 
     final tabs = [
       HomeFeedScreen(
@@ -62,6 +66,8 @@ class _RootShellState extends State<RootShell> {
         profileRepository: profileRepository,
         savedRepository: savedRepository,
         notificationRepository: notificationRepository,
+        clubRepository: clubRepository,
+        clubPostRepository: clubPostRepository,
       ),
       DropFeedScreen(
         dropRepository: dropRepository,
