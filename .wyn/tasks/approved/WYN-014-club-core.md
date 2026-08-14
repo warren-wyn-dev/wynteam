@@ -1,7 +1,7 @@
 # Product Task — WYN-014
 
-Status: review (รอ QA)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (รอ)
+Status: approved (QA รอบ 1 — PASS)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS รอบ 1) → AI Deploy & DevOps (รอ infra จาก Founder)
 
 Feature: WYN CLUB — Core System (สร้าง/เข้าร่วม Club, Club Page, โพสต์ใน Club, ระบบสมาชิก/Role, Admin, Pinned Post, กฎ Club)
 
@@ -132,3 +132,86 @@ Known Issues:
 - `ClubPostDetailScreen` ไม่มี tap-to-profile บน avatar ผู้โพสต์ (ตาม Design spec ที่บอกว่าไม่ critical รอบนี้ เก็บไว้เป็น nice-to-have ทีหลัง)
 
 Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ WYN-014 ก่อนอนุมัติ — เน้นตรวจเป็นพิเศษ: (ก) privilege escalation ผ่านทุก RPC function โดยตรง (ไม่ใช่แค่ผ่าน UI) โดยเฉพาะ Admin-แต่งตั้ง-Admin, Admin-แตะ-Admin-อื่น, Moderator-แตะ-role, ทุกคน-แตะ-Owner (ข) RLS ของ `club_members`/`club_posts`/`club_post_likes`/`club_post_comments` ป้องกัน bypass ผ่าน PostgREST ตรงๆ จริง โดยเฉพาะ post-visibility ที่ไม่ join (Public หรือ Private ก็ตาม) (ค) `club-media` storage bucket policy แยก cover/icon (public-ish) กับรูปโพสต์ (members-only) ถูกต้องจริง (ง) `clubs_prevent_owner_id_change` trigger ป้องกัน Admin ชิงความเป็นเจ้าของจริง (จ) `club_members` insert policy ผูก status กับ privacy ของ club จริง ไม่ให้ self-insert เป็น approved เข้า Private club ได้ (ฉ) regression กับ Drop/Pop/Home/Follow/Profile/Search/Notification เดิมทั้งหมด (ช) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัด
+
+---
+
+## QA & Security Report — รอบ 1 (AI QA & Security)
+
+```
+Feature: WYN-014 Club Core (สร้าง/เข้าร่วม Club, Club Page, โพสต์, Role 4 ระดับ, Admin system, Pinned Post, กฎ Club)
+Environment: flutter analyze + flutter test (static/widget-test level เท่านั้น — ยังไม่มี Supabase project จริงเหมือนทุก feature ก่อนหน้า, ตรวจ RLS/RPC/trigger/storage policy ด้วยการอ่านโค้ดและให้เหตุผลเท่านั้น ไม่มี live Postgres ให้รันจริง)
+```
+
+**หมายเหตุก่อนเริ่ม**: sync `main` ใหม่หลัง merge PR #63 แล้วรัน `flutter analyze`/`flutter test` อิสระเองก่อนอ่านโค้ด ไม่เชื่อตัวเลข 148/148 หรือคำอธิบาย gap ที่ Coding Output รายงานไว้เฉย ๆ — ผลตรงกัน: `flutter analyze` สะอาด, `flutter test` 148/148 ผ่าน
+
+### ไล่ Requirements ทีละบรรทัด (Product spec)
+- [x] สร้าง Club (Name/Description/Cover/Icon/Category/Privacy) — ยืนยันจาก `CreateClubScreen`/`ClubRepository.createClub` จริง — **หมายเหตุ**: Design ระบุชัดว่าบังคับแค่ Name+Privacy (Cover/Icon/Description/Category optional เหมือน bio ของ Profile) ซึ่งต่างจากคำว่า "กรอกครบ" ใน Requirements ตรงตัว — ยืนยันว่า Coding ทำตาม Design ถูกต้อง (Design มีรายละเอียด UI behavior ที่ชัดเจนกว่า และ AC #1 เขียนแบบ "กรอกครบ...→ Club ปรากฏจริง" ซึ่งไม่ขัดกับ optional fields — ครบตามเงื่อนไข "ถ้ากรอกครบก็ต้องปรากฏจริง" โดยไม่ได้บังคับว่าต้องกรอกครบเสมอ)
+- [x] Public ค้นหาเจอ+join ทันที, Private ต้องส่งคำขอ+อนุมัติ — ยืนยันจาก `joinClub()` (status ตาม `club.privacy`) และ `club_members` insert policy cross-check กับ `clubs.privacy` จริง (อ่าน SQL ยืนยัน — ดู Security Findings)
+- [x] ออกจาก Club ได้ยกเว้น Owner — ยืนยัน `club_members` delete policy `role <> 'owner'` จริง และ UI (`_buildJoinButton`) ไม่ล็อกปุ่มไว้แต่ RLS เป็นตัวบังคับจริง
+- [x] Club Page header ครบ (Cover/Icon/Name/Description/จำนวนสมาชิก/Join-Joined/Share/More) + TabBar 3 แท็บ — ยืนยันจากโค้ด `club_page.dart` ตรงตาม Design Screen 3-4
+- [x] **โพสต์เห็นเฉพาะสมาชิก approved ไม่ว่า Public/Private** — นี่คือ core requirement ที่สำคัญที่สุดของ task — ยืนยัน **สองชั้น**: (1) DB — `club_posts`/`club_post_likes`/`club_post_comments` select policy ทุกตัวเช็ค `club_role(...) is not null` ไม่ใช่ select-all-authenticated เลย (2) UI — `ClubPostsTab._isMember` gate แสดง join-prompt แทน list เมื่อ `myRole == null` — ทำ red→green proof เองอิสระยืนยันทั้งสองทิศทาง (ดูด้านล่าง)
+- [x] โพสต์รองรับ Text/Image/Multiple Images/Link — ยืนยัน `club_posts.image_urls text[]`/`link_url`, `CreateClubPostScreen` มี text field + multi-image picker + link field, `ClubPostImages` แสดง carousel เมื่อมากกว่า 1 รูป
+- [x] Role 4 ระดับ (Owner/Admin/Moderator/Member) — ยืนยัน `club_members.role` CHECK + `ClubMemberRole` enum ตรงกัน 4 ค่า
+- [x] Admin System สิทธิ์แยกตาม Role ครบ (Approve/Remove/Ban/Delete/Pin/Edit Info/Change Privacy/Manage Moderator) — ยืนยันทีละสิทธิ์ในหัวข้อ Security Findings ด้านล่าง
+- [x] Pinned Post — ยืนยัน `club_posts.pinned` + "Club staff can pin or unpin" RLS (`owner`/`admin`/`moderator`) + `fetchPosts` sort `pinned desc, created_at desc`
+- [x] Club Rules free-form text ในแท็บ About — ยืนยัน `clubs.rules` + `ClubAboutTab` แก้ไขได้เฉพาะ `canManageClub`
+
+### ไล่ Design Components ทีละบรรทัด (Screen 1-7)
+- [x] Screen 1 (Home) — section สูงจำกัด (`ConstrainedBox(maxHeight: 180)`), ปุ่มลัด "+ สร้าง Club"/"สำรวจ Club", card แนวนอน `ClubMiniCard`, empty state ข้อความตรงตาม spec เป๊ะ
+- [x] Screen 2 (Create Club) — reuse ฟอร์ม Edit Profile ตรงตาม spec, `SegmentedButton` แทน `RadioListTile` ที่ deprecated ใน Flutter SDK เวอร์ชันนี้ (Design เปิดทางเลือกไว้ทั้งสองแบบ "SegmentedButton หรือ RadioListTile" — Coding เลือก SegmentedButton ถูกต้องเพื่อเลี่ยง deprecation warning โดยยังคงคำอธิบายใต้ตัวเลือกไว้ตาม spec)
+- [x] Screen 3 (ClubPage header) — Cover มุมมนความสูงจำกัด (**ไม่ใช่** AspectRatio เต็มจอ — ตรวจพบว่า Coding แก้ bug overflow นี้เองแล้วก่อนส่ง เป็นไปตาม Design "cover เป็นการ์ดมุมมนความสูงจำกัด...ไม่ใช่เต็มความกว้างจอทะลุขอบแบบ FB" จริง), Icon ซ้อนมุมล่างซ้าย, ปุ่ม Join 3 สถานะ + Semantics label ตรงตาม spec คำต่อคำทั้ง 3 ข้อความ
+- [x] Screen 4 (TabBar) — คนไม่ join ยังเห็นทั้ง 3 แท็บ, Posts tab แทนที่ด้วย join-gate placeholder ตรงตาม spec (ตรวจแล้วว่า Members/About tab ไม่ gate แต่ Posts tab เท่านั้นที่ gate — ถูกต้อง)
+- [x] Screen 5 (Posts tab) — ปักหมุดเรียงบนสุด + label "ปักหมุด", การ์ดโพสต์ interaction row เหมือน Drop, More menu role-gated ตรงตาม spec (เจ้าของเห็นลบอย่างเดียว, staff เห็นลบ+ปักหมุดบนโพสต์คนอื่น), FAB เฉพาะสมาชิก approved
+- [x] Screen 6 (Members tab) — role badge สี Primary Blue เข้ม/อ่อนตาม role (ไม่ใช้สีสถานะ), section คำขอเข้าร่วมเฉพาะ Owner/Admin, เมนูจัดการ role-gated ต่อแถวตรงตาม spec — ตรวจ code จริงยืนยันสีที่ใช้เป็น `colorScheme.primary`/`.withValues(alpha:0.5)` เท่านั้น ไม่มีสีแดง/เขียว/เหลือง
+- [x] Screen 7 (About tab) — section label style เดียวกับฟอร์ม Edit Profile, "Club นี้ยังไม่มีกฎ" placeholder เมื่อว่าง, ปุ่มแก้ไขกฎเฉพาะ Owner/Admin, วันที่สร้างแบบเต็มไม่ใช่ relative — ยืนยันจากโค้ดจริง (`_formatFullDate` ไม่ใช้ `relativeTimeLabel`)
+
+### ไล่ Acceptance Criteria ทีละข้อ (16 ข้อ)
+1. [x] สร้าง Club → ปรากฏจริง ผู้สร้างเป็น Owner อัตโนมัติ — ยืนยันด้วย `clubs_add_owner_membership` trigger + มี regression test (`create_club_screen_test.dart`)
+2. [x] Join Public → สมาชิกทันที เห็นโพสต์ทันที — ยืนยันด้วย logic + RLS
+3. [x] Join Private → "รออนุมัติ" ยังไม่เห็นโพสต์ — มี regression test จริง (`club_page_test.dart` pending scenario)
+4. [x] Owner/Admin อนุมัติ → เป็นสมาชิกจริง เห็นโพสต์ทันที — ยืนยัน `approve_club_member` RPC + มี regression test (`club_members_tab_test.dart` "is visible with Approve/Reject buttons")
+5. [x] คนไม่ join เห็นข้อมูลทั่วไปแต่ไม่เห็นโพสต์ — ยืนยันสองชั้น (DB+UI) พร้อม red→green proof อิสระ (ดูด้านล่าง)
+6. [x] สร้างโพสต์ทุกประเภท ปรากฏเฉพาะสมาชิก approved — ยืนยันจากโค้ด+RLS
+7. [x] Like/Comment count อัปเดตถูกต้อง — ยืนยัน optimistic update pattern เดียวกับ Drop ที่ผ่าน QA มาแล้ว
+8. [x] ปักหมุด → อยู่บนสุดเสมอ — มี regression test จริง (`club_posts_tab_test.dart` "ปักหมุด label")
+9. [x] Owner/Admin/Moderator ลบโพสต์คนอื่นได้ Member ลบได้แค่ตัวเอง — ยืนยัน RLS delete policy ตรงตาม spec
+10. [x] Owner/Admin ลบ/แบนได้ Moderator ทำได้เฉพาะทั่วไป — ยืนยัน `remove_club_member`/`ban_club_member` RPC + มี regression test ครบ 11 เคส (`club_members_tab_test.dart`)
+11. [x] Owner แต่งตั้ง Admin/Moderator ได้ Admin แต่งตั้งได้แค่ Moderator — ยืนยัน `set_club_member_role` RPC + red→green proof อิสระ (ดูด้านล่าง)
+12. [x] เปลี่ยน Privacy โดย Owner/Admin ได้จริง — มี regression test จริง (`club_page_test.dart` More menu)
+13. [x] แก้ไขข้อมูล Club โดย Owner/Admin ได้จริง — ยืนยัน `EditClubInfoScreen` + `updateClubInfo` gated โดย `canManageClub`
+14. [x] เขียน/แก้กฎ Club แสดงถูกต้อง — ยืนยัน `ClubAboutTab`
+15. [x] ออกจาก Club ได้ (ยกเว้น Owner) หลังออกไม่เห็นโพสต์ — ยืนยัน RLS delete policy + post-visibility gate เดียวกับข้อ 5
+16. [x] Drop/Pop/Home/Follow/Profile/Search/Notification เดิมไม่มี regression — `flutter test` เต็ม 148/148 ผ่าน (รันเองอิสระ 2 ครั้ง รวม 124 เทสต์เดิมทั้งหมด)
+
+### Red→Green Regression Proof (ทำเองอิสระ 2 จุด ไม่เชื่อคำอธิบายจาก Coding Output)
+
+**จุดที่ 1 — Privilege escalation (Admin แต่งตั้ง Admin)**: ทำซ้ำ reproduction steps เดียวกับที่ Coding รายงาน (เพิ่ม `_MemberAction('ตั้งเป็น Admin', ...)` เข้า branch ของ Admin viewer ใน `_actionsFor`) → รัน `club_members_tab_test.dart --plain-name "never sees"` → **FAIL จริง** ตรงกับที่ Coding รายงาน → revert → รันเต็มไฟล์ **PASS ทั้ง 11 เทสต์**
+
+**จุดที่ 2 — Post-visibility gating (ทำทิศตรงข้ามจากที่ Coding ทดสอบ)**: Coding ทดสอบทิศ "non-member เห็นเนื้อหาได้" (เปลี่ยน `_isMember` เป็น `=> true` เสมอ) — QA ทดสอบทิศตรงข้าม: เปลี่ยน `_isMember` เป็น `=> false` เสมอ (จำลองบั๊กที่สมาชิกจริงถูกบล็อกผิด ๆ ไม่เห็นโพสต์ทั้งที่ join แล้ว) → รัน `club_posts_tab_test.dart --plain-name "an approved member sees"` → **FAIL จริง** (`Expected: exactly one matching candidate, Actual: Found 0 widgets with text "สวัสดีชาว Club"`) → revert → รันเต็มไฟล์ + `flutter test` ทั้งโปรเจกต์ **PASS 148/148** — ยืนยันว่า gate ทำงานถูกต้องทั้งสองทิศทาง ไม่ใช่แค่ทิศเดียวที่ Coding ลองแล้ว
+
+### Security Findings
+- **`club_role()` เป็น single source of truth**: ยืนยันทุก RLS policy/RPC/storage policy ที่เกี่ยวกับ Club เรียกผ่านฟังก์ชันนี้ทั้งหมด ไม่มี policy ไหนเขียน EXISTS subquery ตรงๆ แยกกันเอง (ลดความเสี่ยง logic ไม่ตรงกันระหว่างจุด)
+- **RPC ทั้ง 5 ตัว re-derive role ของผู้เรียกเองจาก `club_role(p_club_id, auth.uid())` ไม่เชื่อค่าจาก client**: ยืนยันครบทุกตัว ไม่มีตัวไหนรับ `p_caller_role` เป็น parameter จาก client เลย
+- **NULL-safety ของเงื่อนไข permission**: ตรวจ `approve_club_member`/`reject_club_member` ใช้ `coalesce(club_role(...), '') not in (...)` ป้องกัน `null not in (...)` ที่จะ evaluate เป็น NULL (ไม่ใช่ true) แล้วปล่อยให้คนแปลกหน้าผ่านไปเงียบๆ — ยืนยันว่าถ้าไม่ coalesce จริงจะเป็นช่องโหว่จริง (คนที่ไม่ใช่สมาชิกเลยเรียก approve ได้) — Coding ป้องกันไว้ถูกต้องแล้ว ส่วน `set_club_member_role`/`remove_club_member`/`ban_club_member` ใช้ pattern อื่น (positive-match branch + `else raise`) ที่ปลอดภัยจาก NULL อยู่แล้วโดยไม่ต้อง coalesce (NULL ไม่ match branch บวกใดๆ จึงตกไป else เสมอ) — ตรวจสอบ logic ทั้งสอง pattern ถูกต้องจริง
+- **`club_members` ไม่มี raw UPDATE policy เลย**: ยืนยันจากการอ่าน schema.sql ทั้ง section ไม่พบ `for update` policy บนตารางนี้เลยแม้แต่ตัวเดียว — client พยายาม `update()` role/status ตรงๆ ผ่าน PostgREST จะถูก RLS ปฏิเสธเสมอ (ไม่มี policy = deny by default เมื่อ RLS enabled)
+- **`club_members` insert policy ผูก status กับ privacy จริง**: อ่าน WITH CHECK ยืนยัน `status='approved'` อนุญาตเฉพาะเมื่อ club เป็น `'public'`, `status='pending'` เฉพาะเมื่อเป็น `'private'` — ทดลองไล่ logic เคส Private club: client พยายาม insert `status='approved'` ตรงๆ จะไม่ผ่านเงื่อนไข exists-subquery (เพราะ subquery กรอง `privacy = 'public'` เท่านั้น) → insert ถูกปฏิเสธจริง ป้องกัน privilege escalation "self-approve เข้า Private club" ได้จริง
+- **`clubs_prevent_owner_id_change` trigger**: ยืนยัน `before update` + เทียบ `new.owner_id <> old.owner_id` แล้ว raise exception — ปิดช่องที่ Owner/Admin ใช้สิทธิ์ update `clubs` ปกติ (Edit Info) แอบเปลี่ยน `owner_id` ได้ — เป็นจุดที่ Coding คิดเพิ่มเองนอกเหนือจาก spec ต้นฉบับ ตรวจแล้วเป็นการป้องกันที่ถูกต้องและจำเป็นจริง (ถ้าไม่มี trigger นี้ RLS update policy เดิมของ `clubs` จะปล่อยให้ Admin ตั้งตัวเองเป็น Owner ได้ผ่าน update ปกติ)
+- **Storage bucket `club-media` (`public: false`)**: ยืนยัน select policy แยกตาม `array_length(storage.foldername(name), 1)` ถูกต้อง (=1 → cover/icon เปิดให้ authenticated ทุกคน, >1 → ต้องมี `club_role(...) is not null`) — insert policy คู่กันก็ถูกต้อง (cover/icon เฉพาะ owner/admin, รูปโพสต์เฉพาะสมาชิก approved) — ยืนยันว่า flow การอัปโหลด cover/icon (สร้าง Club ก่อน → trigger สร้าง owner membership ทันที → ค่อยอัปโหลด) ไม่มี race condition เพราะ insert ของ Postgres commit ก่อนที่ client จะเรียก storage upload request แยกต่างหากเสมอ
+- **Signed URL แทน public URL**: ยืนยัน `ClubRepository`/`ClubPostRepository` เก็บ storage path ใน DB ไม่ใช่ display URL และ mint signed URL (`createSignedUrl`, TTL 3600 วินาที) สดใหม่ทุกครั้งที่อ่าน — ถูกต้องตามที่ bucket เป็น non-public เพราะการ cache public URL ถาวรจะ bypass RLS ทันทีที่ URL หลุดออกไป
+- **`club_posts_have_content` CHECK ไม่ถูก bypass ได้ผ่าน multi-image upload flow**: ตรวจ `createPost()` อัปโหลดรูปก่อน insert แถว (ไม่ใช่ insert แถวว่างก่อนแล้วค่อย update) — ยืนยันว่าไม่มี window ที่แถวว่างเปล่าถูก insert สำเร็จชั่วคราว
+- ไม่พบ secret exposure ใหม่ใน diff
+
+### Regression กับ Drop/Pop/Home/Follow/Profile/Search/Notification เดิม
+`flutter test` เต็ม 148/148 ผ่าน ครอบคลุมทุก feature เดิมทั้งหมด (124 เทสต์เดิม + 24 ใหม่) — จุดที่แก้ของเดิมมี 2 จุด: (1) `home_feed_screen.dart` เพิ่ม `ClubSection` ระหว่างแถวบนสุดกับ Feed — มี regression test คุ้มครอง (Home feed เดิมยังแสดง/ทำงานถูกต้องทุกจุด) (2) `home_feed_screen_test.dart`'s `scrollUntilVisible` เปลี่ยนจาก `find.byType(Scrollable).first` เป็นระบุ Scrollable เจาะจงผ่าน Key — ตรวจแล้วเป็นการแก้ test ให้ตรงเป้าหมายเดิม ไม่ใช่การลด coverage (ScrollUntilVisible เคยพึ่ง ".first" ซึ่งตอนนี้ชี้ผิด Scrollable เพราะ `ClubSection` เพิ่ม horizontal ListView ใหม่ที่มาก่อนในทรี — แก้ให้ระบุ Scrollable ที่ถูกต้องแทนคือ fix ที่ถูกต้อง ไม่ใช่ workaround)
+
+```
+Passed: 148/148 (`flutter test`, รันเองอิสระ 2 ครั้ง — ครั้งแรกยืนยันตัวเลขจาก Coding Output, ครั้งที่สองหลัง red→green proof ทั้งสองจุดเพื่อยืนยัน restore ถูกต้อง)
+Failed: 0
+Severity: Minor เดียว (ผู้ใช้ที่ถูกแบนพยายาม join ซ้ำ เห็นข้อความ error ทั่วไป "เข้าร่วม Club ไม่สำเร็จ" แทนข้อความเฉพาะว่าถูกแบน — ปลอดภัย ไม่ crash ไม่มีช่องโหว่ security เพราะ unique constraint บล็อกไว้ที่ DB อยู่แล้วจริง แค่ UX ไม่ได้บอกเหตุผลตรงจุด — ไม่ถูกระบุไว้ใน Product/Design spec เลยและไม่กระทบ Acceptance Criteria ข้อไหน)
+
+Recommendation: เพิ่ม error message เฉพาะสำหรับกรณี "ถูกแบน" ในอนาคตเป็น fast-follow (ไม่ block การอนุมัติรอบนี้)
+
+Final Status: PASS
+```
+
+Handoff: อนุมัติ WYN-014 (Club Core) — ย้ายเข้า `.wyn/tasks/approved/` และส่งต่อ AI Deploy & DevOps (รอ infra จาก Founder เหมือนทุก feature ก่อนหน้า) — WYN-015 (Club Discovery & Integration) ยังไม่เริ่ม รอ Founder ตัดสินใจคิวถัดไป
