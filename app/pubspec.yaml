@@ -13,16 +13,23 @@ dependencies:
   cupertino_icons: ^1.0.6
   image_picker: ^1.1.2
   share_plus: ^13.3.0
+  video_player: ^2.9.2
+  video_thumbnail: ^0.5.3
+  # Used by PopFeedScreen to remember the user's last mute/unmute choice
+  # across app launches (see .wyn/docs/design/wyn-006-pop.md, Screen 1)
+  # -- also used directly by test/support/fake_supabase_session.dart to
+  # fake a signed-in session.
+  shared_preferences: ^2.2.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
-  # Used directly by test/support/fake_supabase_session.dart to fake a
-  # signed-in session (Supabase.initialize needs it to avoid a
-  # MissingPluginException in the test env) -- was only a transitive
-  # dependency of supabase_flutter before.
-  shared_preferences: ^2.2.0
+  # Used directly by test/support/fake_video_player_platform.dart to fake
+  # VideoPlayerController's platform implementation (real platform channel
+  # has no handler in the test env) -- was only a transitive dependency of
+  # video_player before.
+  video_player_platform_interface: ^6.2.0
 
 flutter:
   uses-material-design: true

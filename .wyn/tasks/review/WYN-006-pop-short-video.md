@@ -1,7 +1,7 @@
 # Product Task — WYN-006
 
-Status: backlog
-Owner: AI Product Manager → AI Design (ถัดไป)
+Status: review (Coding เสร็จแล้ว รอ AI QA & Security ทดสอบ)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
 
 Feature: Pop (คลิปสั้นแนวตั้ง)
 
@@ -65,3 +65,42 @@ Founder ยืนยันแล้ว (สืบเนื่องจากก�
 Recommendation: ดำเนินการต่อจาก WYN-005 ทันทีตาม roadmap ที่ Founder อนุมัติไว้แล้ว (P0, ลำดับที่ 2 ต่อจาก Drop) — เน้นย้ำให้ AI Design/Coding ไล่ checklist "Comment: เพิ่ม/ลบ/Like" ให้ครบทั้ง 3 อย่างตั้งแต่ต้น โดยอ้างอิงโค้ดของ WYN-005 หลัง Debug รอบ 2 ตรง ๆ (`DropRepository`/`DropDetailScreen` ปัจจุบันมี pattern ที่ถูกต้องครบแล้วทั้ง Like Comment และ Delete Comment) เพื่อไม่ให้เกิดการ "มองข้ามเพราะไม่มี pattern อ้างอิง" ซ้ำเป็นครั้งที่ 3
 
 Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบหน้าจอ Pop Feed (vertical swipe), Create Pop, และองค์ประกอบ Comment/Like/Share/Save ที่ใช้ร่วมกับ Pop Detail (ถ้าออกแบบเป็นหน้าแยก) หรือ overlay บนตัว feed เอง (ถ้าออกแบบแบบ TikTok-inspired-but-not-copied) — ให้ AI Design ตัดสินใจและอธิบายเหตุผลว่าทำไมไม่ใช่การลอก Layout ของ TikTok โดยตรง เหมือนที่ WYN-005 อธิบายเหตุผลของ grid-vs-feed ไว้ใน `.wyn/docs/design/wyn-005-drop.md`
+
+---
+
+## Coding Output (AI Coding)
+
+Implementation:
+- Database: เพิ่ม section WYN-006 ใน `supabase/schema.sql` — ตาราง `pops` (video_url NOT NULL, thumbnail_url optional, duration_seconds กับ CHECK 1-60, view_count bigint default 0), `pop_likes`, `pop_comments`, `pop_comment_likes` (pattern เดียวกับ `drops`/`drop_likes`/`drop_comments`/`drop_comment_likes` ของ WYN-005 ทุกประการ **รวม Like Comment และ Delete Comment ตั้งแต่ตาราง schema แรก** ตามที่ Design/Product ย้ำไว้ไม่ให้พลาดซ้ำเป็นรอบที่ 3) เพิ่ม `increment_pop_view_count(pop_id)` เป็น `security definer` function สำหรับนับ view (กัน client set view_count เองตรง ๆ) ขยาย `saves.content_type` CHECK ให้รองรับ `'pop'` เพิ่มจาก `'drop'` เดิม (ไม่ต้อง migrate ตารางใหม่ตามที่ WYN-005 ออกแบบไว้) เพิ่ม storage bucket `pop-videos` (เก็บทั้งวิดีโอและ thumbnail ภายใต้ path เดียวกัน ไม่แยก bucket)
+- `lib/features/pop/data/`: `pop.dart`, `pop_comment.dart` (mirror `drop.dart`/`drop_comment.dart` ของ WYN-005 field-for-field รวม `withRemovedComment()`/`toggledLike()` ที่ WYN-005 ต้องแก้ทีหลัง ใส่มาตั้งแต่ต้นรอบนี้ เพิ่ม `withExtraView()` ใหม่เฉพาะของ Pop), `pop_repository.dart` (fetchFeed page size 10 แบบ single-column ไม่ใช่ grid, createPop อัปโหลดวิดีโอ+thumbnail แยกกันได้ (thumbnail เป็น optional), deleteComment/toggleCommentLike ใส่มาตั้งแต่แรก, `recordView` เรียกผ่าน RPC ไม่ใช่ direct update)
+- `lib/features/pop/presentation/`: `pop_feed_screen.dart` (`PageView.builder` แนวตั้ง, แต่ละคลิปเป็น `_PopClipView` ที่ init/dispose `VideoPlayerController` ตาม active state, overlay UI แบบ scrim ทึบไม่ใช่ Liquid Glass, แถวปฏิสัมพันธ์แนวนอนด้านล่างแทนแถบตั้งขวาแบบ TikTok, mute toggle จำค่าผ่าน `SharedPreferences`, ปุ่ม Follow local-only พร้อม comment ชี้ไป WYN-008), `create_pop_screen.dart` (เลือก/ถ่ายวิดีโอ → ตรวจความยาวผ่าน `VideoPlayerController.initialize()` reject ถ้าเกิน 60 วิ → preview เล่น/หยุดได้ → แคปชัน → แชร์ generate thumbnail ผ่าน `video_thumbnail` แบบ best-effort ไม่ block ถ้า fail), `widgets/pop_comment_sheet.dart` (modal bottom sheet reuse pattern comment list+Like+Delete ของ `DropDetailScreen` เป๊ะ แทนที่จะเป็นหน้าแยกเหมือน Drop เพราะ Pop ไม่ออกจาก vertical feed), `widgets/confirm_delete_pop_dialog.dart` (wrap `confirmDeletePost` เดิม เหมือน Drop)
+- `lib/features/root/presentation/root_shell.dart`: แท็บ Pop ชี้ไป `PopFeedScreen` จริงแทน placeholder "เร็ว ๆ นี้"
+- `pubspec.yaml`: เพิ่ม `video_player`, `video_thumbnail` ย้าย `shared_preferences` จาก dev_dependencies ไป dependencies จริง (ใช้ใน production code แล้ว ไม่ใช่แค่ test) เพิ่ม `video_player_platform_interface` เป็น dev_dependency สำหรับ fake platform ที่ใช้ทดสอบ
+
+Files Changed:
+- `supabase/schema.sql` (เพิ่ม section WYN-006, ขยาย `saves` CHECK)
+- `app/lib/features/pop/` (ใหม่ทั้งหมด — data/ 3 ไฟล์, presentation/ 2 screens + 2 widgets)
+- `app/lib/features/root/presentation/root_shell.dart` (ชี้แท็บ Pop ไปหน้าจอจริง)
+- `app/pubspec.yaml` (เพิ่ม dependencies)
+- `app/test/pop_test.dart`, `pop_comment_test.dart`, `create_pop_screen_test.dart`, `pop_feed_screen_test.dart`, `pop_comment_sheet_test.dart`, `support/recording_pop_repository.dart`, `support/fake_video_player_platform.dart` (ใหม่ทั้งหมด)
+
+Reason: implement ตาม Product spec + Design Spec ของ WYN-006 (`.wyn/docs/design/wyn-006-pop.md`) ครบตามขอบเขต reuse pattern ของ WYN-005 ตรง ๆ ตามที่ Design ย้ำไว้ โดยเฉพาะ Comment (เพิ่ม/ลบ/Like ครบทั้ง 3 ตั้งแต่ต้น — ไม่พลาดซ้ำเป็นรอบที่ 3)
+
+Tests:
+- `flutter analyze`: No issues found
+- `flutter test`: 95/95 ผ่านทั้งหมด (รวม test ใหม่ 29 เคสของ WYN-006)
+- **ป้องกันบั๊ก double-tap เชิงรุกแล้วพบว่าพลาดจริงระหว่างเขียน**: ฉบับร่างแรกของ `_PopClipView._toggleLike` อ่าน `widget.pop` (ค่าที่ถูก capture ไว้ตอน build จาก parent) แทนที่จะอ่าน state ของตัวเองสด ๆ — เขียน regression test (`pop_feed_screen_test.dart`) แล้วพบว่า FAIL จริงตั้งแต่รอบแรกที่เขียน (ไม่ใช่แค่ทฤษฎี) ก่อนแก้เป็นให้ widget เก็บ `_pop` เป็น local mutable state ของตัวเอง (mirror `DropDetailScreen._drop` ของ WYN-005) แล้ว pass — พิสูจน์ทั้ง red และ green จริงเช่นเดียวกับทุกรอบก่อนหน้า
+- **สร้าง test double ใหม่สำหรับ `video_player`**: `test/support/fake_video_player_platform.dart` implement `VideoPlayerPlatform` แบบง่าย (emit `VideoEvent.initialized` ทันที) ให้ `VideoPlayerController.initialize()` สำเร็จแบบ deterministic ในสภาพแวดล้อมทดสอบที่ไม่มี platform channel จริง (ปกติจะ throw `MissingPluginException`) — ทำให้ทดสอบ view recording และ mute/volume propagation ได้จริง ไม่ใช่แค่ code review เฉย ๆ เหมือนที่ยอมรับไว้สำหรับ `Image.network` ใน Drop เพราะ Pop มี behavior (view count, mute) ที่ผูกกับความสำเร็จของการเล่นวิดีโอโดยตรง
+- Comment (เพิ่ม/ลบ/Like) ทดสอบครบทั้ง 3 ความสามารถตั้งแต่รอบแรกใน `pop_comment_sheet_test.dart` (ownership-based visibility, double-tap safety ของ Like, ลบแล้วหายจาก list + แจ้ง count เปลี่ยนถูกต้อง)
+
+Build: ยังไม่ได้ build จริง (`flutter build apk/ios`) — sandbox นี้ไม่มี Android SDK/Xcode ให้ verify ได้ เหมือนทุก feature ก่อนหน้า
+
+Known Issues:
+- ไม่มี interactive video trim/crop ในรอบนี้ — จำกัดความยาว 60 วินาทีแบบ reject-only ตามที่ Design ยอมรับเป็น known limitation ของรอบแรก (เหมือน auto-crop ของ Drop)
+- View count ไม่ dedup ต่อ user/session — เปิดดูซ้ำนับซ้ำได้ ตามที่ Product ยอมรับไว้เป็น known limitation ของรอบแรก
+- Share/Copy Link ใช้ placeholder domain (`wyn.app`) เหมือน Drop — ต้องทบทวนก่อน Deploy จริงเมื่อ Founder ยืนยัน domain
+- Hashtag/Mention ยังเป็นแค่ข้อความดิบใน caption ไม่มี parsing/แตะได้ (ตามขอบเขตเดียวกับ WYN-005 — ผูกกับ WYN-009 ทีหลัง)
+- ปุ่ม Follow เป็น UI-only ไม่ผูก backend จริง (ตามที่ Design ระบุไว้ตรง ๆ — รอ WYN-008)
+- ยังไม่ทดสอบกับ Supabase project จริง หรือ platform channel จริงของ `video_player`/`video_thumbnail` (รอ infra จาก Founder และ Android SDK/Xcode)
+
+Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ WYN-006 ก่อนอนุมัติ deploy — เน้นตรวจ: (ก) Comment ครบทั้ง 3 ความสามารถจริง ไม่ใช่แค่ 1-2 อย่างเหมือนที่ WYN-005 พลาดสองรอบ (ข) RLS ของตารางใหม่ทั้งหมดถูกต้องตาม pattern WYN-005 (ค) video controller lifecycle (dispose เมื่อเลื่อนออกจอจริง ไม่ leak) (ง) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัดตั้งแต่รอบแรก (บทเรียนจาก WYN-005 QA รอบ 2-3)
