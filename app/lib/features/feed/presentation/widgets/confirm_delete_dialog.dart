@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 
-/// Shared by FeedScreen and PostDetailScreen so the confirmation copy
-/// can't drift between the two places a post can be deleted from.
-Future<bool> confirmDeletePost(BuildContext context) async {
+/// Shared by FeedScreen/PostDetailScreen (WYN-004) and
+/// DropFeedScreen/DropDetailScreen (WYN-005) so the confirmation copy
+/// can't drift between the places a post/Drop can be deleted from.
+/// [itemLabel] names what's being deleted -- default matches the
+/// original WYN-004 copy ("ลบโพสต์นี้?").
+Future<bool> confirmDeletePost(
+  BuildContext context, {
+  String itemLabel = 'โพสต์',
+}) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('ลบโพสต์นี้?'),
+      title: Text('ลบ$itemLabelนี้?'),
       content: const Text('ลบแล้วไม่สามารถกู้คืนได้'),
       actions: [
         TextButton(

@@ -199,3 +199,151 @@ create policy "Users can upload their own post images"
     bucket_id = 'post-images'
     and (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- WYN-005 (Drop) — drops, drop_likes, drop_comments, saves
+-- Run once per environment after the WYN-002/003/004 statements above.
+--
+-- Same author_id-references-profiles pattern as WYN-004 for one-query
+-- embedding. Unlike posts, image_url is required (not null) -- a Drop
+-- is always a photo, per the Product spec.
+
+create table if not exists public.drops (
+  id uuid primary key default gen_random_uuid(),
+  author_id uuid not null references public.profiles (id) on delete cascade,
+  image_url text not null,
+  caption text,
+  created_at timestamptz not null default now(),
+  constraint drops_caption_length
+    check (caption is null or char_length(caption) between 1 and 500)
+);
+
+alter table public.drops enable row level security;
+
+create policy "Drops are viewable by authenticated users"
+  on public.drops
+  for select
+  to authenticated
+  using (true);
+
+create policy "Users can create their own drops"
+  on public.drops
+  for insert
+  to authenticated
+  with check (auth.uid() = author_id);
+
+create policy "Users can delete their own drops"
+  on public.drops
+  for delete
+  to authenticated
+  using (auth.uid() = author_id);
+
+create table if not exists public.drop_likes (
+  drop_id uuid not null references public.drops (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (drop_id, user_id)
+);
+
+alter table public.drop_likes enable row level security;
+
+create policy "Drop likes are viewable by authenticated users"
+  on public.drop_likes
+  for select
+  to authenticated
+  using (true);
+
+create policy "Users can like drops as themselves"
+  on public.drop_likes
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can remove their own drop likes"
+  on public.drop_likes
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+create table if not exists public.drop_comments (
+  id uuid primary key default gen_random_uuid(),
+  drop_id uuid not null references public.drops (id) on delete cascade,
+  author_id uuid not null references public.profiles (id) on delete cascade,
+  text_content text not null,
+  created_at timestamptz not null default now(),
+  constraint drop_comments_text_content_length
+    check (char_length(text_content) between 1 and 500)
+);
+
+alter table public.drop_comments enable row level security;
+
+create policy "Drop comments are viewable by authenticated users"
+  on public.drop_comments
+  for select
+  to authenticated
+  using (true);
+
+create policy "Users can comment on drops as themselves"
+  on public.drop_comments
+  for insert
+  to authenticated
+  with check (auth.uid() = author_id);
+
+create policy "Users can delete their own drop comments"
+  on public.drop_comments
+  for delete
+  to authenticated
+  using (auth.uid() = author_id);
+
+-- Saved content: shared across content types (drops now, pops later per
+-- WYN-011) via content_type + content_id instead of a per-type FK, so
+-- adding Pop support later doesn't need another migration. Unlike
+-- likes/comments, a user's saved list is private (Instagram/Twitter
+-- convention) -- select is restricted to your own rows, not
+-- select-all-authenticated.
+create table if not exists public.saves (
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  content_type text not null check (content_type in ('drop')),
+  content_id uuid not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, content_type, content_id)
+);
+
+alter table public.saves enable row level security;
+
+create policy "Users can view their own saves"
+  on public.saves
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can save content as themselves"
+  on public.saves
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can remove their own saves"
+  on public.saves
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- Drop images: public bucket, each user may only write to their own
+-- folder ({user_id}/...), same pattern as post-images.
+insert into storage.buckets (id, name, public)
+values ('drop-images', 'drop-images', true)
+on conflict (id) do nothing;
+
+create policy "Drop images are publicly accessible"
+  on storage.objects
+  for select
+  using (bucket_id = 'drop-images');
+
+create policy "Users can upload their own drop images"
+  on storage.objects
+  for insert
+  to authenticated
+  with check (
+    bucket_id = 'drop-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
