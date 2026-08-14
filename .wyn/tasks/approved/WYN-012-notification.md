@@ -1,7 +1,7 @@
 # Product Task — WYN-012
 
-Status: review
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
+Status: approved (QA รอบ 1 — PASS)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS รอบ 1) → AI Deploy & DevOps (รอ infra จาก Founder)
 
 Feature: Notification (แจ้งเตือน Like/Comment/Follow — Mention defer)
 
@@ -94,3 +94,66 @@ Known Issues:
 - Badge count ไม่ real-time (ตามที่ Product ตัดสินใจ) — ต้องกลับมา Home ใหม่หรือเปิด/ปิด NotificationListScreen ถึงจะเห็นตัวเลขอัปเดต ไม่ใช่ push แบบทันที
 
 Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ WYN-012 ก่อนอนุมัติ — เน้นตรวจ: (ก) self-notification guard ทำงานจริงในทุก trigger function โดยเฉพาะอ่าน SQL logic ตรวจว่า `v_author_id <> new.user_id`/`new.author_id` เทียบถูกทิศจริง (ข) RLS ของ `notifications` ไม่มี insert policy ให้ client จริง (ค) `fetchById` คืน null อย่างปลอดภัยเมื่อเนื้อหาถูกลบ ไม่ throw (ง) unread highlight snapshot ไม่ re-derive จาก DB state ใหม่จริง (จ) badge count/cap "9+"/ซ่อนเมื่อ 0 ถูกต้อง (ฉ) regression กับ Drop/Pop/Home/Follow/Profile/Search เดิมทั้งหมด (ช) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัด
+
+---
+
+## QA & Security Report — รอบ 1 (AI QA & Security)
+
+```
+Feature: WYN-012 Notification (Like/Comment/Follow ผ่าน DB trigger, ไอคอนกระดิ่ง+badge ใน Home)
+Environment: flutter analyze + flutter test (static/widget-test level เท่านั้น — ยังไม่มี Supabase project จริง เหมือนทุก feature ก่อนหน้า, ตรวจ trigger/RLS/SQL ด้วยการอ่านโค้ดและให้เหตุผลเท่านั้น ไม่มี live Postgres ให้รันจริง)
+```
+
+**หมายเหตุก่อนเริ่ม**: sync branch จาก `origin/main` ใหม่ (พบ commit ค้างก่อน merge PR #59 อีกครั้ง — pattern เดิมที่เจอทุกรอบ) แล้วรัน `flutter analyze`/`flutter test` อิสระเองก่อนอ่านโค้ด — ไม่เชื่อตัวเลข 124/124 หรือคำอธิบาย testing-gap ที่ Coding Output รายงานไว้เฉย ๆ
+
+### ไล่ Requirements ทีละบรรทัด (Product spec)
+- [x] ตาราง `notifications` populated ด้วย DB trigger ไม่ใช่ derived view — ยืนยันจริงจาก schema.sql, ให้เหตุผลตรงตามที่ Product ระบุ (ต้องมี mutable read-state ต่อแถว)
+- [x] ชนิด notification 3 ประเภท (Like/Comment/Follow) — ยืนยัน type CHECK constraint จำกัดแค่ 5 ค่า (`like_drop`/`like_pop`/`comment_drop`/`comment_pop`/`follow`) ไม่มี mention
+- [x] ไม่แจ้งเตือนตัวเอง enforce ที่ trigger — **อ่าน SQL จริงยืนยันทิศทางถูกต้องครบทุกตัว**: `notify_drop_like`/`notify_pop_like` เทียบ `v_author_id <> new.user_id` (คนกด Like), `notify_drop_comment`/`notify_pop_comment` เทียบ `v_author_id <> new.author_id` (คนคอมเมนต์) — ทิศทางถูกต้องทั้งคู่ (เจ้าของเนื้อหา vs ผู้กระทำ ไม่ใช่เทียบผิดตัวจนไม่มีผล) `notify_follow` ไม่มี guard เพิ่มแต่พึ่ง `follows_no_self_follow` CHECK constraint (WYN-008) — **ยืนยันด้วยเหตุผลว่าใช้ได้จริง**: Postgres ตรวจ CHECK constraint ระหว่างการ INSERT ก่อนที่ AFTER trigger จะถูกเรียกเสมอ (CHECK ล้มเหลว = row ไม่ถูก insert เข้า `follows` เลย = trigger ไม่มีทางถูกเรียกด้วย `follower_id = following_id`) ไม่ใช่แค่เชื่อคำอธิบายใน Coding Output
+- [x] Entry point ไอคอนกระดิ่งใน Home ไม่ใช่ Bottom Nav tab ใหม่ — ยืนยันจากโค้ด `home_feed_screen.dart` จริง ไม่มีการแก้ `root_shell.dart`'s `NavigationDestination` เลย
+- [x] หน้ารายการ Notification reuse โครงสร้างแถวของ `FollowListScreen` — ยืนยันจากโค้ดจริง (avatar 20px, `InkWell` ทั้งแถว, โครงสร้าง Column เดียวกัน)
+- [x] Mark-all-as-read ทันทีที่เปิดหน้า — ยืนยัน `unawaited(widget.notificationRepository.markAllAsRead())` เรียกทันทีหลัง fetch สำเร็จจริง
+- [x] Fetch-on-open + pull-to-refresh ไม่ใช้ Realtime — ยืนยันไม่มีการ import/ใช้ Supabase Realtime API ใดๆ ในโค้ดทั้งหมด
+
+### ไล่ Design Components ทีละบรรทัด (Screen 1-2)
+- [x] Screen 1 — ไอคอนกระดิ่งไม่มีพื้นหลัง pill (ยืนยัน `IconButton` เปล่าไม่มี `Material`/`InkWell` แบบ search bar), badge cap "9+" (`count > 9 ? '9+' : '$count'`), ไม่แสดงเมื่อ 0 (`if (count > 0)`) ตรงตาม spec เป๊ะ
+- [x] Screen 2 — ข้อความ type-specific ภาษาไทยทั้ง 5 ประเภทตรงตาม spec คำต่อคำ (ตรวจเทียบแล้ว), relative time 5 ระดับ (เมื่อสักครู่/นาที/ชั่วโมง/วัน/วันที่เต็ม) ตรงตาม spec, unread rows มีพื้นหลัง tint (`Container(color: isUnread ? ... : null)`), empty state ข้อความ+ไอคอนตรงตาม spec เป๊ะ, mark-as-read timing ตรงตาม spec (`_unreadSnapshot` แยกจาก live `isRead` จริง)
+
+### ไล่ Acceptance Criteria ทีละข้อ
+1-3. [x] Like/Comment/Follow สร้าง notification ใหม่พร้อม badge — ยืนยันด้วย trigger SQL logic ที่อ่านแล้วถูกต้อง (ไม่มี live DB ให้ทดสอบจริง — known limitation เดียวกับทุก feature ก่อนหน้า)
+4. [x] ไม่มี notification เมื่อกระทำกับเนื้อหาตัวเอง — ยืนยันด้วย SQL guard ที่อ่านแล้วถูกต้องครบทั้ง 5 trigger (ดูรายละเอียดด้านบน)
+5. [x] แตะ Like/Comment บน Drop → `DropDetailScreen` — มี regression test จริง (2 เทสต์แยก: Like Drop, Comment Drop)
+6. [x] แตะ Like/Comment บน Pop → `PopSingleClipScreen` — มี regression test จริง (2 เทสต์แยก)
+7. [x] แตะ Follow → `ViewProfileScreen` ของผู้ follow ถูกต้อง (ตรวจ `userId` ตรงกับ `actorId`) — มี regression test จริง
+8. [x] เปิดหน้ารายการ → badge หายไป — มี regression test สำหรับ `markAllAsRead()` ถูกเรียกจริง แต่**ไม่มี regression test ถาวรที่ครอบคลุมทั้งวงจร** (เปิดจาก Home → กลับมา → badge query ถูกเรียกซ้ำ) — เขียน widget test ชั่วคราวขึ้นมาเองเพื่อพิสูจน์ functional correctness จริง (เปิด `NotificationListScreen` จาก Home ยืนยัน `markAllAsReadCalls == 1`, กลับมาที่ Home ไม่ throw, `countUnread()` ถูกเรียกซ้ำจริงตาม code path) **ผ่านจริง** ลบไฟล์ทดสอบชั่วคราวทิ้งหลังยืนยันแล้ว — ดู Minor finding ด้านล่าง
+9. [x] Empty state ชัดเจน — มี regression test จริง
+10. [x] Drop/Pop/Home/Follow/Profile/Search เดิมไม่มี regression — `flutter test` เต็ม 124/124 ผ่าน (รันเองอิสระ 2 ครั้ง)
+
+### Red→Green Regression Proof (ทำเองอิสระ ไม่เชื่อคำอธิบายจาก Coding Output)
+Reproduction Steps:
+1. แก้ `isUnread = _unreadSnapshot.contains(notification.id)` เป็น `isUnread = true` เสมอ ใน `notification_list_screen.dart` (จำลอง mapping พังไปทิศตรงข้ามจากที่ Coding เคยทดสอบ — เพื่อยืนยันว่า test จับได้ทั้งสองทิศทาง ไม่ใช่แค่ทิศเดียวที่ Coding ลองแล้ว)
+2. รัน `flutter test test/notification_list_screen_test.dart --plain-name "was already read is not"`
+Expected: FAIL (แถวที่อ่านแล้วต้อง**ไม่มี** highlight แต่โค้ดที่พังจะ hardcode ให้ highlight เสมอ)
+Actual: **FAIL จริง** ยืนยันว่า test นี้จับบั๊กได้จริงทั้งสองทิศทาง (Coding ทดสอบทิศ "unread ควร highlight แต่กลับไม่" ส่วน QA ทดสอบทิศตรงข้าม "read แล้วไม่ควร highlight แต่กลับมี")
+3. Restore โค้ดเดิม รัน `flutter analyze` + `flutter test` เต็มอีกครั้ง → สะอาด 124/124 ทั้งคู่กลับมาเหมือนเดิม
+
+### Security Findings
+- **RLS ของ `notifications`**: ยืนยันมีแค่ select (`recipient_id = auth.uid()`) และ update (`recipient_id = auth.uid()` ทั้ง using/with check) เท่านั้น **ไม่มี insert/delete policy เลย** — client พยายาม insert/delete notification ตรงจะถูก RLS ปฏิเสธจริง ยืนยันจากการอ่าน schema.sql ทั้งไฟล์ไม่พบ policy อื่นนอกเหนือจาก 2 ตัวนี้
+- **Trigger functions ทั้ง 5 ตัวเป็น `security definer` + `set search_path = public`** — ยืนยันครบทุกตัว ป้องกัน search_path injection attack แบบเดียวกับ `increment_pop_view_count` (WYN-006) ที่เคยตรวจผ่านมาแล้ว
+- **Embedded-resource disambiguation `profiles!notifications_actor_id_fkey`**: ยืนยันด้วยเหตุผลว่าตรงกับ Postgres auto-generated constraint name (`<table>_<column>_fkey`) เพราะ FK ประกาศแบบ inline (`references public.profiles (id)`) ไม่มี `constraint <name>` กำกับเอง — ตรงตาม convention เดียวกับที่ตรวจผ่านมาแล้วใน WYN-008 (`follows_follower_id_fkey`)
+- **`fetchById` ปลอดภัยเมื่อเนื้อหาถูกลบ**: ใช้ `.maybeSingle()` ไม่ใช่ `.single()` (คืน `null` แทนการ throw เมื่อไม่พบแถว) และ `NotificationListScreen` เช็ค `if (drop == null)`/`if (pop == null)` ก่อน navigate จริง แสดง SnackBar แทน — มี regression test จริงยืนยันสถานการณ์นี้ (`tapping a notification whose Drop was already deleted...`)
+- ไม่พบ secret exposure ใหม่ใน diff
+
+### Regression กับ Drop/Pop/Home/Follow/Profile/Search เดิม
+`flutter test` เต็ม 124/124 ผ่าน ครอบคลุมทุก feature เดิมทั้งหมด — จุดเดียวที่แก้ของเดิมคือ `home_feed_screen.dart`'s แถวบนสุด (เปลี่ยนจาก search bar เดี่ยวเป็น Row) ซึ่งมี regression test คุ้มครองแล้ว (search bar ยังกดได้ปกติ, ไอคอนกระดิ่งใหม่ไม่ชนกับ search bar)
+
+Passed: 124/124 (`flutter test`, รันเองอิสระ 2 ครั้ง — ครั้งแรกยืนยันตัวเลขจาก Coding Output, ครั้งที่สองหลัง red→green proof เพื่อยืนยัน restore ถูกต้อง)
+Failed: 0
+Severity: Minor เดียว (ไม่มี regression test ถาวรครอบคลุมวงจร badge-refresh-after-return เต็มรูปแบบ — ไม่ block)
+
+Recommendation: เพิ่ม regression test ถาวรสำหรับวงจร "เปิด NotificationListScreen จาก Home → กลับมา → badge query ถูกเรียกซ้ำ" ใน `home_feed_screen_test.dart` เป็น fast-follow (ไม่ block การอนุมัติรอบนี้เพราะฟีเจอร์ทำงานถูกต้องจริงตามที่พิสูจน์แล้ว และ Acceptance Criteria ข้อ 8 ผ่านจริงในทางปฏิบัติ — เข้าเกณฑ์เดียวกับ Minor ของ WYN-013 ที่ไม่กระทบ Acceptance Criteria ที่ทดสอบแล้วว่าผ่านจริง)
+
+Final Status: PASS
+```
+
+Handoff: อนุมัติ WYN-012 — ย้ายเข้า `.wyn/tasks/approved/` และส่งต่อ AI Deploy & DevOps (รอ infra จาก Founder เหมือนทุก feature ก่อนหน้า)
