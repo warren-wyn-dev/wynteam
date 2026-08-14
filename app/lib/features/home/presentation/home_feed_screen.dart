@@ -7,10 +7,10 @@ import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../saved/data/saved_repository.dart';
+import '../../search/presentation/search_screen.dart';
 import '../data/home_feed_item.dart';
 import '../data/home_repository.dart';
 import 'pop_single_clip_screen.dart';
-import 'search_placeholder_screen.dart';
 import 'widgets/home_drop_card.dart';
 import 'widgets/home_pop_card.dart';
 
@@ -249,9 +249,17 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
-  void _openSearchPlaceholder() {
+  void _openSearch() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const SearchPlaceholderScreen()),
+      MaterialPageRoute(
+        builder: (_) => SearchScreen(
+          profileRepository: widget.profileRepository,
+          followRepository: widget.followRepository,
+          dropRepository: widget.dropRepository,
+          popRepository: widget.popRepository,
+          savedRepository: widget.savedRepository,
+        ),
+      ),
     );
   }
 
@@ -273,7 +281,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: Semantics(
-        label: 'ค้นหา ยังไม่พร้อมใช้งาน',
+        label: 'ค้นหา',
         button: true,
         excludeSemantics: true,
         child: Material(
@@ -281,7 +289,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
           borderRadius: BorderRadius.circular(24),
           child: InkWell(
             borderRadius: BorderRadius.circular(24),
-            onTap: _openSearchPlaceholder,
+            onTap: _openSearch,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
@@ -292,7 +300,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'ค้นหา (เร็ว ๆ นี้)',
+                    'ค้นหา',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),

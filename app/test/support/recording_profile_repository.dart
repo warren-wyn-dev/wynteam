@@ -6,11 +6,33 @@ import 'package:wyn/features/profile/data/profile_repository.dart';
 /// just return canned data instead of making a real Supabase call.
 /// Mirrors RecordingDropRepository -- see .wyn/learning/PATTERNS.md.
 class RecordingProfileRepository extends ProfileRepository {
-  RecordingProfileRepository({required this.profile})
-      : super(SupabaseClient('https://example.supabase.co', 'test-key'));
+  RecordingProfileRepository({
+    this.profile = const Profile(id: 'unused', username: 'unused'),
+    List<Profile>? searchResults,
+  })  : searchResults = searchResults ?? [],
+        super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   final Profile profile;
 
+  /// Returned by [searchProfiles] for page 0 only (page 1+ returns empty),
+  /// regardless of query -- callers assert on [searchProfilesQueryArgs] to
+  /// check what was searched for, same "recording" approach as the rest
+  /// of this file's siblings.
+  final List<Profile> searchResults;
+
+  int searchProfilesCalls = 0;
+  final List<String> searchProfilesQueryArgs = [];
+
   @override
   Future<Profile> fetchProfile(String userId) async => profile;
+
+  @override
+  Future<List<Profile>> searchProfiles({
+    required String query,
+    required int page,
+  }) async {
+    searchProfilesCalls++;
+    searchProfilesQueryArgs.add(query);
+    return page == 0 ? searchResults : [];
+  }
 }

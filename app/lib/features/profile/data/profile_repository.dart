@@ -13,6 +13,10 @@ class ProfileRepository {
 
   final SupabaseClient _client;
 
+  // 30 to match FollowRepository's list page size -- both are the same
+  // "paginated list of Profile rows" shape.
+  static const searchPageSize = 30;
+
   Future<Profile> fetchProfile(String userId) async {
     final row = await _client
         .from('profiles')
@@ -61,5 +65,24 @@ class ProfileRepository {
     await _client.from('profiles').update({'avatar_url': url}).eq('id', userId);
 
     return url;
+  }
+
+  /// Users whose username or display name contains [query] (case
+  /// insensitive), for WYN-009 Search's User tab. A separate method from
+  /// [fetchProfile] (single row by id) rather than overloading it.
+  Future<List<Profile>> searchProfiles({
+    required String query,
+    required int page,
+  }) async {
+    final from = page * searchPageSize;
+    final to = from + searchPageSize - 1;
+
+    final rows = await _client
+        .from('profiles')
+        .select('id, username, display_name, bio, avatar_url')
+        .or('username.ilike.%$query%,display_name.ilike.%$query%')
+        .range(from, to);
+
+    return rows.map((row) => Profile.fromMap(row)).toList();
   }
 }

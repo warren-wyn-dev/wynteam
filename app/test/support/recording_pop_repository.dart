@@ -25,10 +25,12 @@ class RecordingPopRepository extends PopRepository {
   int toggleSaveCalls = 0;
   int toggleCommentLikeCalls = 0;
   int recordViewCalls = 0;
+  int searchByCaptionCalls = 0;
   final List<bool> toggleLikeCurrentlyLikedArgs = [];
   final List<bool> toggleCommentLikeCurrentlyLikedArgs = [];
   final List<String> deleteCommentCalls = [];
   final List<String> recordViewArgs = [];
+  final List<String> searchByCaptionQueryArgs = [];
 
   @override
   Future<List<Pop>> fetchFeed({required int page}) async {
@@ -44,6 +46,23 @@ class RecordingPopRepository extends PopRepository {
   }) async {
     if (page != 0) return [];
     return feedPops.where((p) => p.authorId == authorId).toList();
+  }
+
+  /// Returned by [searchByCaption] for page 0 only, filtered by whether
+  /// [feedPops] caption contains [query] (case insensitive) -- same
+  /// "reuse feedPops as the fake dataset" approach as [fetchByAuthor].
+  @override
+  Future<List<Pop>> searchByCaption({
+    required String query,
+    required int page,
+  }) async {
+    searchByCaptionCalls++;
+    searchByCaptionQueryArgs.add(query);
+    if (page != 0) return [];
+    final lowerQuery = query.toLowerCase();
+    return feedPops
+        .where((p) => (p.caption ?? '').toLowerCase().contains(lowerQuery))
+        .toList();
   }
 
   @override

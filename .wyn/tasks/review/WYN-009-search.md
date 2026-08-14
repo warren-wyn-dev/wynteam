@@ -1,7 +1,7 @@
 # Product Task — WYN-009
 
-Status: backlog
-Owner: AI Product Manager (เสร็จ) → AI Design (ถัดไป)
+Status: review
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
 
 Feature: Search (ค้นหา User/Drop/Pop จริง แทนที่ placeholder เดิมใน Home)
 
@@ -51,3 +51,47 @@ Recommendation:
 4. **ไม่ต้องสร้าง DB view ใหม่** — เพิ่ม method ค้นหาใน repository ที่มีอยู่แล้ว 3 ตัว (`ProfileRepository.searchProfiles`, `DropRepository.searchByCaption`, `PopRepository.searchByCaption`) พอ
 
 Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบ: (1) หน้าค้นหา (แทนที่ `SearchPlaceholderScreen`) — ช่องพิมพ์คำค้น + TabBar 3 tab (2) list layout ของผลลัพธ์ User (3) grid layout ของผลลัพธ์ Drop/Pop (4) empty state 2 แบบ (ยังไม่พิมพ์ vs. ไม่พบผลลัพธ์) แยกตาม tab (5) loading state ระหว่างรอ debounce/query
+
+---
+
+## Design Output (AI Design)
+
+เขียนเสร็จแล้วที่ `.wyn/docs/design/wyn-009-search.md` — สรุป: (1) คำค้นเดียวเหนือ TabBar ใช้ร่วมทั้ง 3 tab ไม่ใช่กล่องแยกต่อ tab (2) AppBar เป็น `TextField` ตรง ๆ auto-focus พร้อมปุ่ม clear (3) reuse โครงสร้างแถวของ `FollowListScreen` สำหรับ User, `DropGridTile`/`PopGridTile` สำหรับ Drop/Pop ตรง ๆ (4) empty state 2 แบบ (prompt/ไม่พบผลลัพธ์) ข้อความต่างกันตาม tab (5) ไม่โชว์ spinner ระหว่าง debounce โชว์เฉพาะตอน query จริงทำงาน
+
+Handoff: ส่งต่อ AI Coding (`/code`)
+
+---
+
+## Coding Output (AI Coding)
+
+Implementation:
+- `ProfileRepository.searchProfiles({query, page})` (ใหม่): `.or('username.ilike.%$query%,display_name.ilike.%$query%')` — page size 30 (`ProfileRepository.searchPageSize`) เท่ากับ `FollowRepository.pageSize` เพราะเป็น "list ของ Profile ที่ paginate" แบบเดียวกัน
+- `DropRepository.searchByCaption({query, page})`, `PopRepository.searchByCaption({query, page})` (ใหม่ทั้งคู่): `.ilike('caption', '%$query%')` mirror `fetchByAuthor`/`fetchFeed` ทุกประการ (pagination, like/save status lookup) ไม่แก้ method เดิม
+- `app/lib/features/search/presentation/search_screen.dart` (ใหม่) แทนที่ `SearchPlaceholderScreen` (ลบไฟล์เดิมทิ้ง) — `TextField` ใน AppBar (`autofocus: true`, ปุ่ม clear ปรากฏเฉพาะมีข้อความ), `TabBar` 3 tab, debounce ด้วย `Timer`/`_debounceTimer?.cancel()` จริง (400ms), คำค้นสั้นกว่า 2 ตัวอักษร (หลัง trim) ไม่ยิง query, ลบคำค้นจนว่าง → กลับ prompt ทันทีไม่รอ debounce (แยก branch ออกจาก debounce logic ปกติ)
+- `app/lib/features/search/presentation/widgets/search_state_message.dart` (ใหม่): widget กลาง icon+text ใช้ร่วมทั้ง prompt/ไม่พบผลลัพธ์ ทั้ง 3 tab (6 จุดใช้ struktur เดียวกันเป๊ะ ต่างกันแค่ icon/ข้อความ — ตัดสินใจ extract เป็น shared widget ต่างจาก `_formatDuration` ที่ยอมรับให้ซ้ำ เพราะ 2 กรณีนี้ไม่เหมือนกัน: `_formatDuration` มี logic เล็กน้อยต่างบริบท ส่วนนี้เป็น pure UI structure เดียวกันเป๊ะทุกจุด)
+- `app/lib/features/search/presentation/widgets/search_user_results_tab.dart`, `search_drop_results_tab.dart`, `search_pop_results_tab.dart` (ใหม่ทั้งสาม): รับ `query` เป็น prop จาก `SearchScreen`, reset+refetch ผ่าน `didUpdateWidget` เมื่อ `query` เปลี่ยน, `AutomaticKeepAliveClientMixin` — User tab reuse โครงสร้างแถวของ `FollowListScreen` ตรงๆ เปิด `ViewProfileScreen`, Drop tab reuse `DropGridTile`/grid 3 คอลัมน์ เปิด `DropDetailScreen`, Pop tab reuse `PopGridTile` เปิด `PopSingleClipScreen`
+- `app/lib/features/home/presentation/home_feed_screen.dart`: ลบ `_openSearchPlaceholder`/import `search_placeholder_screen.dart` แทนที่ด้วย `_openSearch()` push ไปที่ `SearchScreen` ใหม่ (ส่ง `profileRepository`/`followRepository`/`dropRepository`/`popRepository`/`savedRepository` ที่มีอยู่แล้วทั้งหมด) ปรับ label/ข้อความปุ่มค้นหาจาก "เร็ว ๆ นี้"/"ยังไม่พร้อมใช้งาน" เป็น "ค้นหา" เฉย ๆ เพราะใช้งานจริงแล้ว
+- ลบ `app/lib/features/home/presentation/search_placeholder_screen.dart` ทิ้ง
+
+Files Changed:
+- แก้: `app/lib/features/profile/data/profile_repository.dart`, `app/lib/features/drop/data/drop_repository.dart`, `app/lib/features/pop/data/pop_repository.dart`, `app/lib/features/home/presentation/home_feed_screen.dart`
+- ใหม่: `app/lib/features/search/presentation/search_screen.dart`, `app/lib/features/search/presentation/widgets/search_state_message.dart`, `search_user_results_tab.dart`, `search_drop_results_tab.dart`, `search_pop_results_tab.dart`
+- ลบ: `app/lib/features/home/presentation/search_placeholder_screen.dart`
+- test ใหม่: `app/test/search_screen_test.dart`
+- test แก้: `app/test/home_feed_screen_test.dart` (import/assertion เปลี่ยนจาก `SearchPlaceholderScreen` เป็น `SearchScreen`), `app/test/support/recording_profile_repository.dart`/`recording_drop_repository.dart`/`recording_pop_repository.dart` (เพิ่ม override method ค้นหา + call-count tracking)
+
+Reason: implement ตาม Product spec + Design spec ของ WYN-009 ครบตามขอบเขต — Search จริงแทนที่ placeholder ตั้งแต่ WYN-007, reuse pattern ที่มีอยู่แล้วทุกจุด (grid tile, row layout, repository pagination) ไม่สร้างของใหม่ซ้ำซ้อน
+
+Tests:
+- `flutter analyze`: No issues found
+- `flutter test`: 110/110 ผ่านทั้งหมด (เพิ่มจาก 102 — 8 เทสต์ใหม่ใน `search_screen_test.dart`: prompt state, คำค้นสั้นกว่า 2 ตัวอักษรไม่ยิง query, debounce cancel จริง, ผลลัพธ์ User/Drop/Pop แตะแล้วไปถูกหน้า, case-insensitive match, ไม่พบผลลัพธ์, ลบคำค้นกลับ prompt ทันที) + 1 เทสต์แก้ (`home_feed_screen_test.dart`)
+- **ทำ red→green จริงด้วยตัวเอง สำหรับจุดเสี่ยงที่สุดของ task นี้ (debounce cancel)**: พบก่อนว่า test แรกที่เขียนไว้ ("typing quickly...only fires one query") **ไม่จับบั๊กได้จริง** แม้ลบ `_debounceTimer?.cancel()` ออกก็ยังผ่าน เพราะ `tester.pump(duration)` แบบ pump เดียวยาว ๆ จะ coalesce หลาย setState จาก timer ที่ทยอย fire ให้เหลือแค่ rebuild เดียวตอนจบ (เห็นแค่ค่าสุดท้าย) ทำให้ timer ที่ไม่ได้ cancel กับที่ cancel แล้วดูเหมือนกันจากมุมมอง test — เขียนใหม่ทั้งหมดให้ pump แยกเป็นช่วง ๆ ข้าม deadline ของแต่ละ timer ทีละตัว (บังคับให้เกิด rebuild จริงระหว่างกลาง) ด้วยคำค้นกลาง `"na"` ที่ยาวพอจะ trigger search ได้เอง (ต่างจาก `"n"` ที่สั้นเกินจะเห็นผลต่าง) — ทดสอบซ้ำ: ลบ `.cancel()` ออกจริง รัน test ใหม่ → **FAIL จริง** (`searchProfilesCalls` เป็น 1 ที่ deadline แรก ทั้งที่ควรเป็น 0) restore แล้ว รัน `flutter analyze`/`flutter test` เต็มอีกครั้ง → สะอาด 110/110
+- **testing gotcha ใหม่ที่เจอ**: `tester.pump(duration)` แบบ pump ครั้งเดียวยาว ๆ ข้ามหลาย Timer deadline พร้อมกัน จะไม่สะท้อนพฤติกรรม intermediate ระหว่างทาง (เห็นแค่ state สุดท้ายตอนจบ pump) — ต้องแยก pump เป็นช่วงสั้น ๆ ทีละ deadline ถ้าต้องการพิสูจน์ลำดับเหตุการณ์ระหว่างทางจริง ๆ (เช่น debounce cancel) บันทึกเป็น pattern ใหม่ใน `.wyn/learning/PATTERNS.md`
+- `home_feed_screen_test.dart`: ทุก tab (User/Drop/Pop) ถูก build พร้อมกันจริงใน `TabBarView` (ไม่ lazy ตาม tab ที่มองเห็น เพราะ `TabBarView({children})` ไม่ใช่ `.builder`) ทำให้ `DropGridTile`'s `Image.network` โหลดพยายามจริงแม้ตอนอยู่ tab อื่น ต้องเรียก `tester.takeException()` ในหลายจุดของ `search_screen_test.dart` ที่ไม่ได้คาดตอนแรก (เจอตอนรัน ไม่ใช่ design ไว้ล่วงหน้า)
+
+Known Issues:
+- Hashtag search เป็นแค่ substring บน caption (ตามที่ Product ตัดสินใจไว้แล้วว่า defer hashtag-as-entity) — ไม่มี hashtag feed/trending/click-through
+- ยังไม่มี full-text search index (`pg_trgm`/`GIN`) บน `caption`/`username`/`display_name` — ที่ scale ปัจจุบันไม่ใช่ปัญหา แต่ query `ILIKE '%...%'` จะ scan เต็มตารางเมื่อข้อมูลโตขึ้น (บันทึกตามที่ Product ระบุไว้ใน Risks แล้ว)
+- ยังไม่ทดสอบกับ Supabase project จริง (รอ infra จาก Founder เหมือนทุก feature ก่อนหน้า) — โดยเฉพาะ `.or()` filter ของ `searchProfiles` และพฤติกรรม `ILIKE` จริงกับข้อมูลภาษาไทย
+
+Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ WYN-009 ก่อนอนุมัติ — เน้นตรวจ: (ก) debounce ทำงานถูกต้องจริงไม่ยิง query ซ้อน (ข) คำค้นสั้นกว่า 2 ตัวอักษรไม่ยิง query จริง (ค) ผลลัพธ์ทั้ง 3 ประเภทแตะแล้วไปถูกหน้าจริง (ง) empty state ข้อความถูก tab จริง (จ) ลบคำค้นกลับ prompt ทันทีไม่รอ debounce จริง (ฉ) regression กับ Drop/Pop/Home/Follow/Profile เดิมทั้งหมด (ช) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัด
