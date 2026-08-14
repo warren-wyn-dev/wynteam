@@ -1,7 +1,7 @@
 # Product Task — WYN-007
 
-Status: review (Coding เสร็จแล้ว รอ AI QA & Security ทดสอบ)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
+Status: bugs (QA รอบ 1 — FAIL)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — FAIL รอบ 1) → AI Debug Engineer (ถัดไป)
 
 Feature: Home (Search bar + Feed รวม Drop/Pop)
 
@@ -91,3 +91,60 @@ Known Issues:
 - ยังไม่ทดสอบกับ Supabase project จริง (รอ infra จาก Founder เหมือนทุก feature ก่อนหน้า) — โดยเฉพาะ view `home_feed` ที่ยังไม่เคยรันจริงกับข้อมูลจริงเลย ต้องตรวจสอบ query plan/performance ตอนมี infra จริง
 
 Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ WYN-007 ก่อนอนุมัติ deploy — เน้นตรวจ: (ก) pagination ของ feed รวมถูกต้องจริง ไม่มี item ซ้ำ/หายเมื่อเลื่อนหลายหน้า (ข) regression กับ Drop Feed/Pop Feed เดิม (ยังทำงานปกติหลัง extract `PopClipView`/ย้าย `confirm_delete_dialog.dart`) (ค) ไม่มีการลบ/แก้ตาราง `posts`/`likes`/`comments` โดยไม่ได้รับอนุมัติ (ง) security ของ view `home_feed` (RLS ยังบังคับใช้จริงหรือไม่ผ่าน `security_invoker`) (จ) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัด
+
+---
+
+## QA & Security Report — รอบ 1 (AI QA & Security)
+
+Feature: WYN-007 — Home (Search bar + Feed รวม Drop/Pop)
+
+Environment: Code review + static analysis บน `main` หลัง merge PR #41 (Flutter SDK 3.47.0 stable) — เงื่อนไขเดียวกับทุก feature ก่อนหน้า (ไม่มี Supabase project จริง, ไม่มี Postgres จริงให้รัน view `home_feed` ทดสอบ, ไม่มี Android SDK/Xcode)
+
+Test Cases:
+1. `flutter analyze` ซ้ำอย่างอิสระ
+2. `flutter test` ซ้ำอย่างอิสระ
+3. **ไล่ Product Requirements ทุกบรรทัดกับโค้ดจริง** (แยกหัวข้อ)
+4. **ไล่ Design Components ของหน้าจอ Home ทุกบรรทัดกับโค้ดจริง** (แยกหัวข้อ)
+5. **ไล่ Acceptance Criteria ทุกข้อกับโค้ดจริง** (แยกหัวข้อ)
+6. ตรวจ pagination correctness ของ view `home_feed` (อ่าน SQL จริง วิเคราะห์ semantics ของ `UNION ALL` + `ORDER BY` + `range()`)
+7. ตรวจ security ของ view (`security_invoker`, grants, ว่า RLS ของ base tables ยังบังคับใช้จริงหรือไม่)
+8. ยืนยันว่า `supabase/schema.sql` ไม่มีการแตะตาราง `posts`/`likes`/`comments` เลยแม้แต่บรรทัดเดียว (`git diff` ระหว่าง commit ก่อน/หลัง PR #41)
+9. ตรวจว่าโค้ด WYN-004 (`app/lib/features/feed/`) ถูกลบไปจริงและไม่มีการอ้างอิงเศษซากที่ยังทำงานอยู่ (`grep` ทั่ว `app/lib`+`app/test`)
+10. ตรวจ regression ของ Drop Feed/Pop Feed เดิมหลัง extract `PopClipView` และย้าย `confirm_delete_dialog.dart` (อ่านโค้ดจริง เทียบกับก่อน refactor)
+11. Secret/credential exposure check ในโค้ดใหม่ทั้งหมด
+
+Passed: 9/11 (#1, #2, #3, #5, #6, #7, #8, #9, #10, #11 — นับจริง 10/11)
+
+Failed: 1/11 (#4)
+
+Severity: **Major**
+
+### Failed Case #4 — Major: การ์ด Home ทั้งสองแบบ (Drop และ Pop) ไม่มีปุ่ม Share เลย และไอคอน Comment กดไม่ได้
+
+Reproduction (เทียบเอกสารกับโค้ดจริง):
+1. Design spec (`.wyn/docs/design/wyn-007-home.md` Screen 1, Components) ระบุไว้ตรง ๆ ทั้งสองการ์ด: **"แถวปฏิสัมพันธ์ (Like หัวใจ+จำนวน / Comment บับเบิล+จำนวน / Share / Save)"** สำหรับการ์ด Drop และ **"แถวปฏิสัมพันธ์ (Like/Comment/Share/Save + ไอคอนตา/view count)"** สำหรับการ์ด Pop — ทั้งสองระบุ Share ไว้เป็นหนึ่งใน 4 ปุ่มของแถวปฏิสัมพันธ์เท่ากัน
+2. อ่านโค้ดจริงที่ `app/lib/features/home/presentation/widgets/home_drop_card.dart` (บรรทัด 61-98) และ `home_pop_card.dart` (บรรทัด 110-151) ทั้งสองไฟล์: แถวปฏิสัมพันธ์มีแค่ Like (`IconButton` ใช้งานได้จริง), จำนวน Comment (`Icon` เฉย ๆ ไม่ใช่ `IconButton`, ไม่มี `onTap`/`onPressed` ใด ๆ เลย), และ Save (`IconButton` ใช้งานได้จริง) — **ไม่มีปุ่ม Share หรือไอคอน Share ปรากฏอยู่เลยแม้แต่จุดเดียวในทั้งสองไฟล์**
+3. ยืนยันด้วย `grep -n "Share\|_share" app/lib/features/home/presentation/home_feed_screen.dart app/lib/features/home/presentation/widgets/home_drop_card.dart app/lib/features/home/presentation/widgets/home_pop_card.dart` → **ไม่พบผลลัพธ์เลย** ยืนยันว่าไม่ใช่แค่มองข้ามตอนอ่านโค้ด แต่ไม่มีอยู่จริงในทั้ง 3 ไฟล์ที่เกี่ยวข้อง
+4. ตรวจ Coding Output ของ WYN-007 (หัวข้อ Known Issues) — **ไม่ได้ระบุว่า Share หรือ Comment tap-through บนการ์ด Home ถูกตัดออกจาก scope โดยตั้งใจ** ต่างจาก Search bar placeholder ที่ระบุไว้ชัดว่าตัดออกตามที่ Product ตัดสินใจแล้ว แสดงว่านี่คือ oversight ไม่ใช่การตัดขอบเขตที่ตั้งใจ — รูปแบบเดียวกับบั๊ก Major ที่เจอใน WYN-005 QA รอบ 1/2 เป๊ะ (spec ระบุ component ไว้ชัดเจน โค้ดขาดไปเงียบ ๆ โดยไม่มีบันทึกเหตุผล)
+5. ตรวจเพิ่มเติมว่าผู้ใช้ยังเข้าถึง Share/Comment ได้ทางอื่นหรือไม่: แตะการ์ดเปิด `DropDetailScreen`/`PopSingleClipScreen` ซึ่งมีปุ่ม Share/Comment ที่ทำงานสมบูรณ์อยู่แล้ว — จึงไม่ใช่ capability ที่หายไปทั้งระบบแบบ WYN-005 (ยังกดได้จากหน้ารายละเอียด) แต่ยังถือเป็นการไม่ตรงตาม spec ของ "แถวปฏิสัมพันธ์" ที่ Design ตั้งใจให้ทำ quick action ได้ตรงจากการ์ดในฟีดโดยไม่ต้องกดเข้าไปก่อน
+
+Expected: การ์ดทั้งสองแบบมีปุ่ม Share ที่กดแล้วเปิด share sheet ได้ (mirror `_share()`/`_copyLink()` ที่มีอยู่แล้วใน `DropDetailScreen`/`PopClipView`) และไอคอน Comment กดแล้วนำไปที่ comment ของเนื้อหานั้น (อย่างน้อยเทียบเท่าการแตะการ์ดแล้วเลื่อนไปช่อง comment)
+
+Actual: มีแค่ Like และ Save ที่กดได้จริงบนการ์ด Home ทั้งสองแบบ ไม่มีทางกด Share หรือกด Comment ได้ตรงจากการ์ดเลย
+
+Security Findings:
+- ไม่พบ secret/credential hardcode ในโค้ดใหม่ทั้งหมดของ WYN-007
+- **View `home_feed` security**: ตรวจ SQL จริงยืนยันว่าใช้ `with (security_invoker = true)` ถูกต้องตามเจตนา (ให้ view เคารพ RLS ของผู้เรียกจริงแทนที่จะรันด้วยสิทธิ์เจ้าของ) — ตรวจแล้วว่า syntax นี้ต้องการ Postgres 15+ ซึ่งเป็นเวอร์ชันมาตรฐานของ Supabase project ใหม่ทุกโปรเจกต์ในช่วงเวลานี้ ไม่มีเอกสารในโปรเจกต์ที่ระบุ pin เวอร์ชันเก่ากว่านี้ไว้ที่ไหนเลย ยอมรับความเสี่ยงนี้ได้ (ยังไม่เคยรันจริงกับ Postgres จริงเหมือนกับทุกฟีเจอร์ก่อนหน้า)
+- `grant select on public.home_feed to authenticated;` ตรวจแล้วว่าถูกต้องเพราะ view ใหม่ไม่ได้รับ grant อัตโนมัติเสมอไปแม้ default privileges ของ Supabase มักจะครอบคลุมอยู่แล้ว การ grant explicit ไว้เป็นการป้องกันเชิงรุกที่ไม่มีผลเสีย
+- **Pagination correctness ของ `UNION ALL` view**: วิเคราะห์ SQL แล้วว่า `ORDER BY created_at DESC` + `range()` (แปลงเป็น `LIMIT`/`OFFSET`) บน view ทำงานถูกต้องเหมือน table ธรรมดาทุกประการ ไม่มีความเสี่ยงเพิ่มเติมจากการที่เป็น `UNION ALL` โดยเฉพาะ — มีความเสี่ยงเดียวที่เป็นมาตรฐานทั่วไปของ OFFSET-based pagination คือกรณี `created_at` ชนกันพอดี (tie) ระหว่างสอง row อาจได้ลำดับไม่เสถียรข้ามการเรียก page ต่อเนื่องกัน แต่ความเสี่ยงนี้**มีอยู่แล้วเหมือนกันทุกประการใน `DropRepository.fetchFeed`/`PopRepository.fetchFeed` ที่ผ่าน QA มาแล้วทั้งคู่** (ใช้ pattern `.order('created_at', ...).range(...)` เดียวกัน) จึงไม่ใช่ regression ใหม่ที่ WYN-007 นำเข้ามา ไม่ block การอนุมัติ แต่บันทึกไว้เป็นข้อเสนอปรับปรุงร่วมกันทั้ง 3 ฟีเจอร์ (เพิ่ม `id` เป็น secondary sort key)
+- ยืนยันด้วย `git diff` ระหว่าง commit ก่อน/หลัง PR #41 ว่า `supabase/schema.sql` เปลี่ยนเฉพาะการเพิ่มบรรทัดใหม่ท้ายไฟล์เท่านั้น (69 บรรทัดใหม่ ไม่มีบรรทัดไหนถูกลบ/แก้ในส่วนอื่นของไฟล์เลย) — ยืนยันว่าไม่มีการแตะตาราง `posts`/`likes`/`comments` จริง
+- ยืนยันด้วย `grep` ทั่ว `app/lib`+`app/test` ว่าไม่มีการอ้างอิง `FeedScreen`/`PostRepository`/`PostCard`/`PostDetailScreen`/`CreatePostScreen` ที่ยังทำงานอยู่เลย (มีแค่ comment เก่าในบางไฟล์ที่อ้างถึงประวัติ เช่น `auth_gate.dart` ที่ยังพูดถึง "CreatePostScreen, PostDetailScreen" ในฐานะตัวอย่างหน้าที่ push จาก Navigator — เป็น comment เก่าที่ไม่ทันสมัยแล้วหลังลบโค้ดจริงไปแล้ว [Minor, ไม่ block] แนะนำอัปเดตข้อความ comment ให้ตรงกับปัจจุบันในรอบถัดไปที่แตะไฟล์นี้)
+- ยืนยัน regression ของ Drop/Pop: `pop_feed_screen.dart` หลัง refactor ยังคง wiring `topLeading` ปุ่ม "+" ถูกต้อง, `PopClipView` เป็นการย้ายโค้ดแบบ 1:1 (เทียบกับ `_PopClipView` เดิมก่อน extract ไม่มี logic เปลี่ยนเลยนอกจากเพิ่ม `topLeading` slot), test เดิมทั้งหมดของ Drop/Pop (`pop_feed_screen_test.dart`, `pop_comment_sheet_test.dart`, `drop_detail_screen_test.dart`, ฯลฯ) ยังผ่านครบตาม `flutter test`
+
+Recommendation: ส่งกลับ AI Debug Engineer เพิ่มปุ่ม Share และทำให้ไอคอน Comment กดได้บนการ์ด Home ทั้งสองแบบ (Major) — แนวทางที่แนะนำ:
+- เพิ่มปุ่ม Share ใน `home_drop_card.dart`/`home_pop_card.dart` โดยรับ callback `onShare: VoidCallback` จาก `HomeFeedScreen` (mirror `_share()`/`_copyLink()` ที่มีอยู่แล้วใน `DropDetailScreen`/`PopClipView` — เรียก `SharePlus.instance.share(...)` ตรง ๆ ในการ์ดเองก็ได้ ไม่จำเป็นต้อง delegate ผ่าน parent เพราะ Share ไม่มี state ต้อง sync กลับเหมือน Like/Save)
+- เปลี่ยนไอคอน Comment จาก `Icon` เฉย ๆ เป็น `IconButton`/`InkWell` ที่กดแล้วเรียก `onTap` เดียวกับการแตะการ์ด (เปิด Drop Detail/Pop คลิปเดี่ยว) เป็นทางออกที่ implement ง่ายที่สุดและสอดคล้องกับพฤติกรรมเดิมของแอป (ไม่ต้อง scroll-to-comment แบบพิเศษในรอบนี้ก็ได้ ถ้าเปิดหน้ารายละเอียดแล้วเลื่อนไปหา comment เองได้อยู่แล้ว)
+- เพิ่ม regression test ยืนยันว่าปุ่ม Share/Comment ปรากฏและกดได้จริงบนทั้งสองการ์ด ตาม pattern ที่มีอยู่แล้วใน `home_feed_screen_test.dart`
+- ถือโอกาสอัปเดต comment เก่าใน `auth_gate.dart` ที่ยังพูดถึง `CreatePostScreen`/`PostDetailScreen` ที่ถูกลบไปแล้ว (Minor พ่วงไปด้วยได้เพราะแก้ง่ายและอยู่ในบริบทเดียวกัน)
+
+Final Status: **FAIL**
