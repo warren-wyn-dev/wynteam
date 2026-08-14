@@ -1,7 +1,7 @@
 # Product Task — WYN-007
 
-Status: review (Debug รอบ 1 เสร็จ — รอ QA รอบ 2)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — FAIL รอบ 1) → AI Debug Engineer (เสร็จ — แก้รอบ 1) → AI QA & Security (ถัดไป — รอบ 2)
+Status: approved (QA รอบ 2 — PASS)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — FAIL รอบ 1) → AI Debug Engineer (เสร็จ — แก้รอบ 1) → AI QA & Security (เสร็จ — PASS รอบ 2) → AI Deploy & DevOps (รอ infra จริง)
 
 Feature: Home (Search bar + Feed รวม Drop/Pop)
 
@@ -181,3 +181,44 @@ Tests:
 Regression Risk: ต่ำ — การเปลี่ยนแปลงเป็นการ "เพิ่ม" widget ใหม่ในแถวปฏิสัมพันธ์เท่านั้น ไม่แตะ logic ของ Like/Save/navigation/pagination ที่มีอยู่แล้ว การ rename `_dropShareLink` → `dropShareLink` เป็น private→public เท่านั้น (ไม่เปลี่ยน signature/behavior) ตรวจแล้วว่าไม่มีที่อื่นอ้างอิงชื่อเดิมที่เป็น private เหลืออยู่
 
 Handoff to QA: ส่งกลับ AI QA & Security รอบ 2 — ต้องไล่ตรวจ Requirements/Design Components/Acceptance Criteria ครบทั้ง 3 หัวข้อใหม่ทั้งหมด (ไม่ใช่แค่จุดที่เพิ่งแก้) ตาม pattern ที่ established ไว้จาก WYN-005
+
+---
+
+## QA & Security Report — รอบ 2 (AI QA & Security)
+
+Feature: WYN-007 — Home (Search bar + Feed รวม Drop/Pop), หลัง Debug รอบ 1 แก้บั๊ก Major ของ QA รอบ 1
+
+Environment: Code review + static analysis บน `main` หลัง merge PR #43 (Flutter SDK 3.47.0 stable) — เงื่อนไขเดียวกับทุกรอบก่อนหน้า
+
+Test Cases:
+1. `flutter analyze` ซ้ำอย่างอิสระ
+2. `flutter test` ซ้ำอย่างอิสระ (ไม่เชื่อ report ของ Debug Engineer เฉย ๆ)
+3. **ไล่ Product Requirements ทุกบรรทัดกับโค้ดจริงใหม่ทั้งหมด** (ไม่ใช่แค่จุดที่เพิ่งแก้)
+4. **ไล่ Design Components ของหน้าจอ Home ทุกบรรทัดกับโค้ดจริงใหม่ทั้งหมด** — เน้นจุด Share/Comment ที่เพิ่งแก้ + regression ของจุดอื่น
+5. **ไล่ Acceptance Criteria ทุกข้อกับโค้ดจริงใหม่ทั้งหมด**
+6. ตรวจ logic ของ regression test ใหม่ใน `home_feed_screen_test.dart` เอง (ไม่ใช่แค่เชื่อว่า Debug บอกว่า red→green แล้ว) — อ่านโค้ดเทสต์จริงว่าพิสูจน์บั๊กได้จริงหรือเป็น test ที่ผ่านเสมอ
+7. ตรวจปุ่ม Share ที่เพิ่มมาว่าใช้ `dropShareLink`/`popShareLink` ตัวเดียวกับที่ผ่าน QA มาแล้วจริง ไม่มี logic ใหม่ที่ยังไม่ผ่านการตรวจสอบ
+8. ตรวจว่าการ rename `_dropShareLink` → `dropShareLink` (private→public) ไม่กระทบพฤติกรรมเดิมของ `DropDetailScreen`
+
+Passed: 8/8
+
+Severity: **N/A — ไม่พบ Major/Critical**
+
+Findings:
+1. **`flutter analyze`**: No issues found (ตรวจซ้ำอิสระ ตรงกับที่ Debug รายงาน)
+2. **`flutter test`**: 83/83 ผ่านทั้งหมด (ตรวจซ้ำอิสระ ตรงกับที่ Debug รายงาน)
+3. **Product Requirements**: ไล่ครบทุกบรรทัดใหม่ทั้งหมด — Feed รวมตามเวลา/การ์ดแยกประเภทถูกต้อง/Search bar placeholder/Global feed/Infinite scroll+pull-to-refresh ทั้งหมดไม่มีอะไรเปลี่ยนจากรอบ 1 (Debug ไม่ได้แตะ logic ของ pagination/feed merge เลย) **ผ่านครบ**
+4. **Design Components**: ตรวจโค้ดจริงที่แก้แล้วของทั้ง `home_drop_card.dart` และ `home_pop_card.dart` — แถวปฏิสัมพันธ์ตอนนี้มีครบทั้ง 4 อย่างตามที่ Design ระบุ (Like `IconButton` ใช้งานได้, **Comment `IconButton` ใช้งานได้แล้ว** ไม่ใช่ `Icon` เฉย ๆ อีกต่อไป, **Share `IconButton` ใหม่ใช้งานได้จริง** เรียก `SharePlus.instance.share(...)`, Save `IconButton` ใช้งานได้) ยืนยันด้วย `grep -n "share_outlined\|mode_comment_outlined" app/lib/features/home/presentation/widgets/home_drop_card.dart app/lib/features/home/presentation/widgets/home_pop_card.dart` ว่าทั้งสองไฟล์มี `IconButton` ครอบทั้งคู่แล้ว **ผ่าน — บั๊กหลักของรอบ 1 แก้แล้วจริง**
+   - **ข้อสังเกต Minor (ไม่ block)**: Design's Interactions section ระบุว่า "กด Comment → ... Pop → comment sheet เดียวกับที่ `PopFeedScreen` ใช้" ซึ่งหมายถึง modal bottom sheet (`showPopCommentSheet`) — แต่การแก้ปัจจุบันทำให้กด Comment บนการ์ด Pop ใน Home เปิด `PopSingleClipScreen` (หน้าคลิปเดี่ยวเต็มจอ) ก่อน แล้วผู้ใช้ต้องกดปุ่ม Comment อีกครั้งภายใน `PopClipView` ถึงจะเห็น sheet จริง (ต่างจากฝั่ง Drop ที่ `DropDetailScreen` มี comment section อยู่ในหน้าเดียวกันเลย ไม่ต้องกดซ้ำ) — ตรวจแล้วว่านี่**ไม่ใช่การมองข้ามที่ไม่ได้บันทึกไว้เหมือนบั๊กเดิม** เพราะ QA รอบ 1 เองระบุ Recommendation ไว้ชัดเจนแล้วว่า "ไม่ต้อง scroll-to-comment แบบพิเศษในรอบนี้ก็ได้ ถ้าเปิดหน้ารายละเอียดแล้วเลื่อนไปหา comment เองได้อยู่แล้ว" ซึ่งครอบคลุมการตัดสินใจนี้โดยตรง แต่ยังบันทึกไว้ตรงนี้ชัดเจนเป็นลายลักษณ์อักษรเพื่อไม่ให้เป็น silent gap แบบที่เคยเกิดซ้ำมาแล้ว 3 ครั้ง — เสนอเป็น fast-follow item: ให้ `PopSingleClipScreen`/`PopClipView` รับ flag `openCommentsOnStart` เพื่อเปิด sheet ทันทีเมื่อมาจากการกด Comment บนการ์ด Home โดยตรง (ไม่ block การอนุมัติรอบนี้)
+5. **Acceptance Criteria**: ไล่ครบทั้ง 9 ข้อใหม่ทั้งหมด — ทุกข้อไม่เปลี่ยนจากที่ผ่านแล้วในรอบ 1 (diff ของ Debug จำกัดอยู่แค่ interaction row ของการ์ด ไม่แตะ pagination/search/empty/error state) **ผ่านครบ**
+6. **ตรวจ logic ของ regression test ใหม่**: อ่านโค้ด `home_feed_screen_test.dart` จริงทั้ง 2 เทสต์ใหม่ (`tapping the Comment icon on a Drop/Pop card opens ...`) — ยืนยันว่าเทสต์ `expect(onPressed, isNotNull)` แล้วเรียก `onPressed!()` จริง จากนั้น `expect(find.byType(DropDetailScreen/PopSingleClipScreen), findsOneWidget)` เป็นการพิสูจน์ end-to-end จริง ไม่ใช่แค่เช็คว่ามี widget อยู่เฉย ๆ — ยืนยันเพิ่มเติมด้วยการ**ทำ red→green ซ้ำเองอย่างอิสระ**: revert `home_drop_card.dart`/`home_pop_card.dart` กลับไปเป็น `git show af55a84:...` (commit ก่อนแก้) ชั่วคราว รัน `flutter test test/home_feed_screen_test.dart` → ยืนยัน **FAIL จริง 3 เทสต์** (ตรงกับที่ Debug รายงาน) จากนั้น restore กลับมาที่แก้แล้ว รัน `flutter test` ซ้ำ → **PASS ทั้ง 83 เทสต์** — สรุปว่าไม่ใช่ test ลวง (tautological)
+7. **ปุ่ม Share**: ยืนยันด้วย `grep` ว่าทั้ง `home_drop_card.dart` เรียก `dropShareLink(item.id)` และ `home_pop_card.dart` เรียก `popShareLink(item.id)` — เป็นฟังก์ชันเดียวกับที่ `DropDetailScreen`/`PopClipView` ใช้อยู่แล้วและผ่าน QA มาก่อนหน้านี้ (WYN-005/WYN-006) ไม่มี logic การสร้าง share link ใหม่ที่ยังไม่เคยตรวจสอบ ไม่มี secret/credential ใน string ที่ share (แค่ placeholder URL `https://wyn.app/{drop|pop}/{id}` เหมือนเดิม) **ผ่าน**
+8. **Rename `_dropShareLink` → `dropShareLink`**: ยืนยันด้วย `grep -rn "_dropShareLink\|dropShareLink" app/lib app/test` ว่าไม่มีการอ้างอิงชื่อ private เดิมเหลืออยู่เลย, ยืนยันว่า `DropDetailScreen` ยังเรียกใช้ `dropShareLink(_drop.id)` ถูกต้องในทั้งสองจุดเดิม (`_share()`/`_copyLink()`) ไม่เปลี่ยน signature/พฤติกรรม — เป็นการเปลี่ยน visibility เท่านั้น ยืนยันไม่มี regression ด้วย `flutter test` ที่ `drop_detail_screen_test.dart` (รวมอยู่ใน 83/83 ที่ผ่าน) **ผ่าน**
+
+Security Findings:
+- ไม่พบ secret/credential ใหม่ในโค้ดที่แก้
+- Share link ยังเป็น placeholder URL เดิม ไม่มีข้อมูลผู้ใช้หรือ token รั่วไหลผ่าน share text
+
+Recommendation: **อนุมัติ WYN-007** — บั๊ก Major ของรอบ 1 แก้ครบถูกต้องจริง ไม่มี regression กับส่วนอื่น มีข้อสังเกต Minor เดียว (Pop comment-tap เปิดหน้าคลิปเดี่ยวก่อนแทนที่จะเปิด comment sheet ตรง ๆ) ที่บันทึกไว้ชัดเจนแล้วว่าไม่ block ตามที่ QA รอบ 1 เองอนุญาตไว้แล้ว — เสนอ fast-follow `openCommentsOnStart` flag ไว้พิจารณาในรอบถัดไปที่แตะไฟล์นี้
+
+Final Status: **PASS**
