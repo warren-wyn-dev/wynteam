@@ -1,7 +1,7 @@
 # Product Task — WYN-007
 
-Status: bugs (QA รอบ 1 — FAIL)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — FAIL รอบ 1) → AI Debug Engineer (ถัดไป)
+Status: review (Debug รอบ 1 เสร็จ — รอ QA รอบ 2)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — FAIL รอบ 1) → AI Debug Engineer (เสร็จ — แก้รอบ 1) → AI QA & Security (ถัดไป — รอบ 2)
 
 Feature: Home (Search bar + Feed รวม Drop/Pop)
 
@@ -148,3 +148,36 @@ Recommendation: ส่งกลับ AI Debug Engineer เพิ่มปุ่
 - ถือโอกาสอัปเดต comment เก่าใน `auth_gate.dart` ที่ยังพูดถึง `CreatePostScreen`/`PostDetailScreen` ที่ถูกลบไปแล้ว (Minor พ่วงไปด้วยได้เพราะแก้ง่ายและอยู่ในบริบทเดียวกัน)
 
 Final Status: **FAIL**
+
+---
+
+## Debug Engineer Report — รอบ 1 (AI Debug Engineer)
+
+Bug: การ์ด Home ทั้ง `HomeDropCard` และ `HomePopCard` ไม่มีปุ่ม Share เลย และไอคอน Comment (`const Icon(...)`) ไม่ได้ห่อด้วย widget ที่กดได้ ทั้งที่ Design spec ระบุ Component list ตรงกันทั้งสองการ์ดว่าแถวปฏิสัมพันธ์ต้องมี Like/Comment/Share/Save ครบ (ดู QA & Security Report รอบ 1 ด้านบน)
+
+Reproduction: อ่านโค้ดจริงยืนยันตรงกับที่ QA รายงาน — `app/lib/features/home/presentation/widgets/home_drop_card.dart` และ `home_pop_card.dart` (ก่อนแก้) มีแค่ `Icon(Icons.mode_comment_outlined)` เฉย ๆ ไม่มี `onTap`/`onPressed` และไม่มี widget ใดอ้างอิง `Icons.share_outlined`/`SharePlus` เลยทั้งสองไฟล์ — ยืนยันซ้ำด้วย `grep -n "Share\|_share" app/lib/features/home/presentation/widgets/home_drop_card.dart app/lib/features/home/presentation/widgets/home_pop_card.dart` ก่อนแก้ → ไม่พบผลลัพธ์
+
+Root Cause: ตอน AI Coding เขียนแถวปฏิสัมพันธ์ของการ์ด Home ใหม่ ใช้ `IconButton` เต็มรูปแบบเฉพาะ Like/Save (ที่มี state ต้อง sync กลับ `HomeFeedItem`) แต่ Comment/Share ซึ่งไม่มี state ต้อง sync กลับ ถูกลดรูปเหลือแค่ `Icon`/ไม่ได้ implement เลย โดยไม่มีการไล่ checklist เทียบกับ Design Component list ทีละบรรทัดก่อนส่งงาน (เหมือนที่เคยพลาดใน WYN-005 รอบ 1/2) — **นี่คือครั้งที่ 3 ติดต่อกันของ root cause เดียวกันในโปรเจกต์นี้** แม้จะบันทึกบทเรียนไว้ใน `.wyn/learning/MISTAKES.md` แล้วสองครั้งก่อนหน้า แสดงว่าการบันทึกบทเรียนอย่างเดียวไม่พอที่จะป้องกันการเกิดซ้ำ ต้องมีขั้นตอนบังคับใน workflow จริง (บันทึกเป็นข้อเสนอใหม่ใน `.wyn/learning/IMPROVEMENTS.md` และ `.wyn/learning/LESSONS_LEARNED.md`)
+
+Fix:
+- ทำให้ `_dropShareLink()` (private ใน `drop_detail_screen.dart`) เป็น public `dropShareLink()` (มิเรอร์ `popShareLink()` ของ `pop_clip_view.dart` ที่เป็น public อยู่แล้ว) เพื่อให้การ์ด Home เรียกสร้าง share link ได้เองโดยตรงไม่ต้องผ่าน parent — Share ไม่มี state ต้อง sync กลับเหมือน Like/Save
+- เพิ่ม `Future<void> _share()` ใน `HomeDropCard`/`HomePopCard` เรียก `SharePlus.instance.share(ShareParams(text: dropShareLink(item.id)))`/`popShareLink(item.id)` ตามลำดับ ผูกกับปุ่ม `IconButton(icon: Icon(Icons.share_outlined), onPressed: _share)` ใหม่ในแถวปฏิสัมพันธ์
+- เปลี่ยนไอคอน Comment จาก `const Icon(...)` เฉย ๆ เป็น `IconButton(icon: Icon(Icons.mode_comment_outlined), onPressed: onTap)` — ใช้ callback `onTap` ตัวเดิมที่การ์ดใช้เปิด `DropDetailScreen`/`PopSingleClipScreen` อยู่แล้ว (ไม่ต้อง scroll-to-comment พิเศษ เพราะทั้งสองหน้าเปิดแล้วเลื่อนหา comment เองได้อยู่แล้ว ตรงตาม Recommendation ของ QA)
+- ถือโอกาสแก้ comment เก่าใน `auth_gate.dart` ที่ยังพูดถึง `CreatePostScreen`/`PostDetailScreen`/`FeedScreen` ที่ถูกลบไปแล้วตั้งแต่ WYN-007 (Minor พ่วงตามที่ QA แนะนำ) — เปลี่ยนเป็น `CreateDropScreen`/`DropDetailScreen`/`RootShell` ให้ตรงกับปัจจุบัน
+
+Files Changed:
+- `app/lib/features/drop/presentation/drop_detail_screen.dart` (`_dropShareLink` → public `dropShareLink`)
+- `app/lib/features/home/presentation/widgets/home_drop_card.dart` (เพิ่มปุ่ม Share, Comment icon กดได้)
+- `app/lib/features/home/presentation/widgets/home_pop_card.dart` (เพิ่มปุ่ม Share, Comment icon กดได้)
+- `app/lib/features/auth/presentation/auth_gate.dart` (แก้ comment เก่าที่ล้าสมัย — Minor)
+- `app/test/home_feed_screen_test.dart` (เพิ่ม 2 เทสต์ใหม่ + assertion ใหม่ในเทสต์เดิม)
+
+Tests:
+- `flutter analyze`: No issues found
+- `flutter test`: 83/83 ผ่านทั้งหมด (เพิ่มจาก 81 — 2 เทสต์ใหม่: Comment icon เปิด `DropDetailScreen` ได้จริงบนการ์ด Drop, เปิด `PopSingleClipScreen` ได้จริงบนการ์ด Pop; และเพิ่ม assertion ยืนยันปุ่ม Share ปรากฏบนทั้งสองการ์ดในเทสต์ "renders a mix" เดิม)
+- **พิสูจน์ red→green จริง**: revert `home_drop_card.dart`/`home_pop_card.dart` กลับไปเป็นโค้ดก่อนแก้ (จาก git HEAD) ชั่วคราวแล้วรัน `flutter test test/home_feed_screen_test.dart` → **FAIL จริง 3 เทสต์** (renders a mix — ไม่พบปุ่ม Share, comment-tap Drop, comment-tap Pop — ทั้งคู่ไม่พบ `IconButton` ที่มีไอคอน comment) จากนั้น restore ไฟล์กลับมาที่แก้แล้ว รัน `flutter test` ซ้ำ → **PASS ทั้ง 83 เทสต์**
+- เจอ gotcha ระหว่างเขียนเทสต์ใหม่ (ไม่ใช่บั๊กจริง): `find.widgetWithIcon(IconButton, Icons.share_outlined)` แบบไม่ scope หลัง scroll ไปหาการ์ด Pop เจอ 2 match (การ์ด Drop ยังอยู่ใน element tree เพราะ `ListView` cacheExtent ที่ตำแหน่ง scroll นั้น) แก้ด้วย `find.descendant(of: find.byType(HomePopCard), matching: ...)` เพื่อ scope เฉพาะการ์ดที่ต้องการจริง ๆ — และการ tap ปุ่ม Comment บนการ์ดเดี่ยว (1 item ในฟีด) เจอปัญหา hit-test นอก viewport เหมือน gotcha เดิมที่เคยเจอ แก้ด้วยการเรียก `onPressed!()` ตรง ๆ แทน `tester.tap()` (มิเรอร์ pattern เดิมของเทสต์ double-tap ในไฟล์เดียวกัน) — บันทึกเพิ่มใน `.wyn/learning/PATTERNS.md` ถ้ายังไม่มี
+
+Regression Risk: ต่ำ — การเปลี่ยนแปลงเป็นการ "เพิ่ม" widget ใหม่ในแถวปฏิสัมพันธ์เท่านั้น ไม่แตะ logic ของ Like/Save/navigation/pagination ที่มีอยู่แล้ว การ rename `_dropShareLink` → `dropShareLink` เป็น private→public เท่านั้น (ไม่เปลี่ยน signature/behavior) ตรวจแล้วว่าไม่มีที่อื่นอ้างอิงชื่อเดิมที่เป็น private เหลืออยู่
+
+Handoff to QA: ส่งกลับ AI QA & Security รอบ 2 — ต้องไล่ตรวจ Requirements/Design Components/Acceptance Criteria ครบทั้ง 3 หัวข้อใหม่ทั้งหมด (ไม่ใช่แค่จุดที่เพิ่งแก้) ตาม pattern ที่ established ไว้จาก WYN-005
