@@ -1,7 +1,7 @@
 # Product Task — ZOKY-001
 
-Status: backlog
-Owner: AI Product Manager
+Status: active (Design เสร็จแล้ว รอ Coding)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (รอ)
 
 Feature: ZOKY Marketplace Foundation — ZOKY Bottom Nav tab, ZOKY Home (browse), Product Detail (view), Store page (view)
 
@@ -58,3 +58,11 @@ Recommendation:
 3. **Seed ข้อมูล Product/Store ตัวอย่างผ่าน Supabase Studio** สำหรับทดสอบ/สาธิตรอบนี้ ไม่ต้องรอ Seller app จริง
 
 Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบ: (1) ZOKY tab icon/ตำแหน่งใน Bottom Nav (2) ZOKY Home layout (Categories/Banner/Product sections/Grid) (3) Product Detail screen (4) Store screen — ต้องตัดสินใจ resolution ของ Store Follow/Chat Seller ตาม Risks ข้างต้น ใช้ Design system เดิม (Blue+White+Soft Gray, Rounded Cards, ห้าม Liquid Glass) reuse component เดิมให้มากที่สุด (carousel รูปหลายรูปจาก `ClubPostCard`, grid tile จาก `PopGridTile`/`DropGridTile`, search bar placeholder pattern จาก WYN-007)
+
+---
+
+## Design Output (AI Design)
+
+เขียนเสร็จแล้วที่ `.wyn/docs/design/zoky-001-marketplace-foundation.md` — สรุป: 4 หน้าจอ/ส่วน (Bottom Nav tab ที่ 5, ZOKY Home, Product Detail, Store) ต่อยอดจาก component เดิมเกือบทั้งหมด — จุดใหม่ที่ต้องสร้างจริงมีแค่ `ProductMiniCard`/`StoreMiniCard`/`ProductGridTile` (มิเรอร์โครงจาก `ClubMiniCard`/`PopGridTile` ตรง ๆ) — ZOKY tab ใช้ `Icons.storefront_outlined` ต่อท้าย 4 tab เดิมไม่แทรกกลาง — ZOKY Home มีครบทุก section ตาม Product spec แต่ "แนะนำสำหรับคุณ"/"ขายดี" เป็น label + "เร็ว ๆ นี้" (ไม่ซ่อน section ต่างจาก pattern ของ WYN-015 เพราะทุกคนจะว่างเหมือนกันหมดตอนนี้ ซ่อนไปเลยจะดูเหมือนฟีเจอร์หายไป) — ปุ่มที่ยังไม่ทำงานจริงทั้งหมด (Search/Cart/Orders/Category tap/Add to Cart/ซื้อเลย/ติดตามร้าน) ต้องแสดงผลเสมอ+`SnackBar` "เร็ว ๆ นี้" ยกเว้น "แชทกับร้านค้า" ที่**ไม่แสดงเลย**เพราะไม่มี concept แชทในแอปให้สื่อสารอย่างมีความหมาย — เตือน Coding 1 จุดเสี่ยง: ตาราง `categories`/`stores`/`products`/`product_variants` ใหม่ต้อง RLS select-all-authenticated แต่**ห้ามมี insert/update/delete policy ให้ client เลยรอบนี้** (ไม่มี Seller workflow ตัดสินใจสิทธิ์จนกว่าจะถึง Phase 4)
+
+Handoff: ส่งต่อ AI Coding (`/code`)
