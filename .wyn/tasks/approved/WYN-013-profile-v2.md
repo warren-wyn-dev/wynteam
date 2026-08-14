@@ -1,7 +1,7 @@
 # Product Task — WYN-013
 
-Status: review
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
+Status: approved (QA รอบ 1 — PASS)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS รอบ 1) → AI Deploy & DevOps (รอ infra จาก Founder)
 
 Feature: Profile V2 (โปรไฟล์ของคนอื่น + Followers/Following + Drop grid + Pop list + Saved tab)
 
@@ -101,3 +101,77 @@ Known Issues:
 - ยังไม่ทดสอบกับ Supabase project จริง (รอ infra จาก Founder เหมือนทุก feature ก่อนหน้า) — โดยเฉพาะ view `saved_feed` และ `fetchByAuthor` ที่ query ด้วย `.eq('author_id', ...)` บน `drops`/`pops` ยังไม่เคยรันจริงกับ Postgres จริงเลย (ควรมี index บน `author_id` ถ้ายังไม่มี เพื่อ performance เมื่อข้อมูลโตขึ้น — บันทึกเป็นข้อเสนอปรับปรุง)
 
 Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ WYN-013 ก่อนอนุมัติ — เน้นตรวจ: (ก) persona สองแบบไม่ชนกัน โดยเฉพาะ self-follow guard ยังทำงานถูกต้องเมื่อเข้าถึงผ่านเส้นทางใหม่ทั้งหมด (ข) tap-to-profile ไม่ชนกับ tap เดิมของการ์ด Home/Drop Detail/Pop Clip (ค) Saved tab เห็นเฉพาะเจ้าของจริงทั้ง UI และ RLS (ง) regression กับ Drop/Pop/Home/Follow เดิมทั้งหมด (จ) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัด
+
+---
+
+## QA & Security Report — รอบ 1 (AI QA & Security)
+
+```
+Feature: WYN-013 Profile V2 (โปรไฟล์คนอื่น + Follow button reuse + Drop/Pop/Saved tabs + tap-to-profile ทั่วแอป)
+Environment: flutter analyze + flutter test (static/widget-test level เท่านั้น — ยังไม่มี Supabase project จริง เหมือนทุก feature ก่อนหน้า)
+```
+
+**หมายเหตุก่อนเริ่ม**: ไม่เชื่อ Coding Output ว่าทำครบ/ตัวเลข 102/102 เฉย ๆ — sync branch จาก `origin/main` ใหม่ (พบว่า branch ค้าง commit เก่าก่อน merge PR #50 อีกครั้ง) แล้วรัน `flutter analyze`/`flutter test` อิสระด้วยตัวเองใน environment นี้ ก่อนอ่านโค้ดเทียบ spec ทีละบรรทัด
+
+### ไล่ Requirements ทีละบรรทัด (Product spec)
+- [x] `ViewProfileScreen` รับ `userId` เหมือนเดิม แสดงปุ่มถูกต้องตาม persona — อ่านโค้ดจริง `_isOwnProfile` เทียบ `widget.userId == Supabase.instance.client.auth.currentUser!.id` แบบเดียวกับ `isOwnDrop`/`isOwnPop` ตรงตามที่ Risks กำหนดไว้ ไม่ใช่ logic ใหม่ที่ไม่เคยพิสูจน์
+- [x] เปิดโปรไฟล์คนอื่นได้จากทุกจุด (DropDetailScreen, PopClipView, HomeDropCard/HomePopCard, FollowListScreen) — อ่านโค้ดจริงทั้ง 4+1 จุด ทุกจุด push `ViewProfileScreen(userId: ...)` ตัวเดียวกัน ไม่มีหน้าจอใหม่แยก
+- [x] Drop grid tab — `ProfileDropGridTab` reuse `DropGridTile`/grid layout เดียวกับ `DropFeedScreen` จริง ต่างแค่ query (`fetchByAuthor` แทน `fetchFeed`) empty state 2 แบบตาม persona ตรงตาม spec
+- [x] Pop list tab — ตีความ "list" ถูกต้องตามที่ Design ตัดสินใจ (grid 3 คอลัมน์ ไม่ใช่ 1 คอลัมน์แนวตั้ง) `PopGridTile` ใช้ media area เดียวกับ `HomePopCard` (thumbnail+play icon+duration badge) ตัดส่วน header/interaction ออกจริง
+- [x] Saved tab — เฉพาะเจ้าของเห็น (ซ่อนจริงเมื่อ `!isOwnProfile` — ดูหัวข้อ Security ด้านล่างสำหรับการยืนยันระดับ RLS), Drop+Pop ปนกันเรียงตาม `saved_at` (เวลาบันทึก) ไม่ใช่ `created_at` (เวลาโพสต์) — ยืนยันจาก `saved_repository.dart` line 28: `.order('saved_at', ascending: false)` ตรงกับคอลัมน์ `s.created_at as saved_at` ใน view
+- [x] แถวใน `FollowListScreen` กดได้จริงแล้ว — ทั้งแถวห่อด้วย `InkWell` เปิด `ViewProfileScreen(userId: profile.id)` จริง ไม่ใช่ ripple ค้างที่กดไม่ได้จริง
+- [x] จำนวน Followers/Following ทำงานเหมือนเดิมทั้งสอง persona แตะแล้วเปิด `FollowListScreen` ของ `widget.userId` (ไม่ใช่ของตัวเองเสมอไป) — อ่านโค้ด `_openFollowList` ยืนยันใช้ `widget.userId` ไม่ใช่ current user id ตายตัว
+
+### ไล่ Design Components ทีละบรรทัด (Screen 1-6)
+- [x] Screen 1 — AppBar action (logout เฉพาะ own), ปุ่มใต้ bio (Edit vs Follow mirror `DropDetailScreen` สไตล์เดียวกัน สี Primary Blue), Semantics label Follow ตรงรูปแบบเดียวกับทุกจุดอื่น ("กำลังติดตาม กดเพื่อเลิกติดตาม"/"กดเพื่อติดตาม")
+- [x] Screen 2 — `DefaultTabController(length: isOwnProfile ? 3 : 2)` ซ่อน tab Saved แบบ conditional list จริง (ไม่ใช่ disabled tab ค้าง) ทุก tab มี icon+label ไม่ใช่ icon-only ตรงตาม Design Rule
+- [x] Screen 3 — reuse `DropGridTile` ตรงตัว 3 คอลัมน์ `SliverGridDelegateWithFixedCrossAxisCount`
+- [x] Screen 4 — grid 3 คอลัมน์ (ไม่ใช่ list 1 คอลัมน์) tile ใช้โครงสร้าง `HomePopCard`'s media area จริง เปิด `PopSingleClipScreen` เมื่อแตะ
+- [x] Screen 5 — grid 3 คอลัมน์เดียวกัน `SavedGridTile` เลือก media ตาม `contentType` จริง (Drop: รูปตรง ๆ, Pop: thumbnail+play+badge) empty state ข้อความตรงตาม spec เป๊ะ
+- [x] Screen 6 — ทุกจุด "เฉพาะ avatar+ชื่อ" เป็น `InkWell`/`Flexible(InkWell(...))` แยกจากปุ่ม Follow/ลบข้าง ๆ ไม่ mark สี/underline แบบลิงก์ ตรงตาม Design Rule; `FollowListScreen` เปลี่ยนเป็นทั้งแถวตามที่ Screen 6 ระบุไว้เฉพาะจุดนี้ (ต่างจาก 4 จุดอื่นที่เฉพาะ avatar+ชื่อ)
+
+### ไล่ Acceptance Criteria ทีละข้อ (แยกจาก Requirements/Design ข้างต้น ตามบทเรียนจาก WYN-005)
+1. [x] แตะชื่อ/avatar ผู้เขียน Drop คนอื่นใน `DropDetailScreen` → เปิดโปรไฟล์ถูกต้อง — มี regression test จริง (`drop_detail_screen_test.dart`) ยืนยันด้วย `find.byType(ViewProfileScreen)` และยืนยันไม่ trigger toggleFollow (`toggleFollowCalls == 0`)
+2. [x] แตะชื่อ/avatar ผู้เขียน Pop คนอื่นใน `PopClipView`/`PopSingleClipScreen` → เปิดโปรไฟล์ถูกต้อง — มี regression test จริง (`pop_feed_screen_test.dart`)
+3. [x] แตะการ์ด Home ที่ส่วนชื่อ/avatar → เปิดโปรไฟล์ (ไม่ใช่ Detail) — **อ่านโค้ดแล้วไม่พบ regression test ถาวรสำหรับจุดนี้ใน `home_feed_screen_test.dart`** (มีแค่ `sharedProfileRepository`/`sharedSavedRepository` เพิ่มเข้ามาเฉย ๆ ไม่มี test เปิดโปรไฟล์จาก Home card) — เขียน widget test ชั่วคราวขึ้นมาเองเพื่อพิสูจน์ functional correctness จริง (แตะ `@namfah` บน `HomeDropCard` → `ViewProfileScreen` เปิดจริง, `DropDetailScreen` ไม่เปิด) **ผ่านจริง** ลบไฟล์ทดสอบชั่วคราวทิ้งหลังยืนยันแล้ว — ดู Minor finding ด้านล่าง
+4. [x] แตะรายชื่อใน `FollowListScreen` → เปิดโปรไฟล์ถูกต้อง — มี regression test จริง
+5. [x] โปรไฟล์ตัวเอง → Edit+logout, ไม่มี Follow — มี regression test จริง
+6. [x] โปรไฟล์คนอื่น → Follow ทำงานถูกต้อง, ไม่มี Edit/logout — มี regression test จริง + ทำ red→green ยืนยันเอง (ดูด้านล่าง)
+7. [x] โปรไฟล์คนอื่น → เห็น Drop grid/Pop list, ไม่เห็น Saved tab — มี regression test จริง (`find.text('บันทึก'), findsNothing`, `find.byType(Tab), findsNWidgets(2)`)
+8. [x] โปรไฟล์ตัวเอง → 3 tab ครบ — มี regression test จริง
+9. [x] แตะ Drop ใน grid → `DropDetailScreen`, แตะ Pop → เปิดคลิปนั้น — มี regression test จริง (content tests ของ `ProfileDropGridTab`/`ProfilePopGridTab` ผ่าน `ViewProfileScreen`)
+10. [x] Saved tab แสดงรายการที่บันทึกจริง เรียงบันทึกล่าสุดก่อน — โครงสร้าง query/view ถูกต้อง (`saved_at desc`) ยืนยันด้วย code read + test เนื้อหา Saved tab ผ่าน — **หมายเหตุ**: เหมือนทุก feature ก่อนหน้า ยังไม่มี live Supabase project ให้ทดสอบ end-to-end จริง (save แล้วเห็นจริง) เป็น known limitation เดิมของทั้งโปรเจกต์ ไม่ใช่ gap ใหม่ของ WYN-013
+11. [x] Unsave แล้วหายจาก Saved tab — `ProfileSavedTab._openItem` เรียก `_loadInitial()` (reload) หลังกลับจาก Detail/Clip screen เสมอ ตรงตาม pattern เดียวกับ `DropFeedScreen`/Home ที่ผ่าน QA มาแล้ว — ยัง untested แบบ live เหมือนข้อ 10
+12. [x] จำนวน Followers/Following ของคนอื่นถูกต้องตามข้อมูลจริงของเขา ไม่ใช่ของเรา — โค้ด `_load()` ใช้ `widget.userId` (ไม่ใช่ current user id) ล้วน ๆ ทั้ง `fetchProfile`/`countFollowers`/`countFollowing` เส้นทางเดียวกับที่ test "own profile" (12/5) พิสูจน์กลไกแล้วว่าแสดงผลถูกต้องจากค่าที่ repository ส่งมา — ไม่มี test แยกยืนยันตัวเลข 3/8 ของ "other profile" โดยเฉพาะ แต่กลไกเดียวกันเป๊ะ ไม่มี branch แยกตาม persona สำหรับตัวเลขนี้เลย ความเสี่ยงต่ำมาก
+13. [x] Drop/Pop/Home/Follow เดิมทั้งหมดยังทำงานปกติ ไม่มี regression — `flutter test` เต็ม 102/102 ผ่าน (รันเองอิสระ ไม่เชื่อตัวเลขจาก Coding Output) ครอบคลุม double-tap safety, Share/Comment tap, Follow self-guard เดิมทั้งหมด
+
+### Red→Green Regression Proof (ทำเองอิสระ ไม่เชื่อรายงานจาก Coding Output)
+Reproduction Steps:
+1. แก้ `_isOwnProfile` ใน `view_profile_screen.dart` ให้ `return true;` เสมอ (จำลอง persona-guard bug ที่จะทำให้เห็นปุ่มแก้ไข+Saved tab ส่วนตัวของเราเองทั้งที่กำลังดูโปรไฟล์คนอื่น)
+2. รัน `flutter test test/view_profile_screen_test.dart --plain-name "someone else"`
+Expected: FAIL (ต้องเจอปุ่ม Follow ไม่ใช่ปุ่มแก้ไขโปรไฟล์)
+Actual: **FAIL จริง** — `Expected: exactly one matching candidate / Actual: []` สำหรับปุ่ม Follow, และเจอปุ่ม "แก้ไขโปรไฟล์" ที่ไม่ควรเจอ ยืนยันว่า test นี้จับบั๊กจริงได้ ไม่ใช่ test ที่ผ่านโดยบังเอิญ
+3. Restore โค้ดเดิม รัน `flutter analyze` + `flutter test` เต็มอีกครั้ง → สะอาด 102/102 ทั้งคู่กลับมาเหมือนเดิม
+
+### Security Findings
+- **`saved_feed` view**: อ่าน `supabase/schema.sql` จริง ยืนยัน `security_invoker = true` ถูกตั้งจริง (บรรทัด 651) และ `saves` RLS select policy จำกัด `auth.uid() = user_id` (บรรทัด 340-344) เท่านั้น — เพราะ `drops`/`pops`/`profiles` ทั้งสามตารางที่ join เข้ามาใน view เป็น select-all-authenticated (`using (true)`) อยู่แล้ว ตัวที่ทำให้ view นี้ private จริง ๆ คือ RLS ของ `saves` เพียงอย่างเดียว ซึ่งยังบังคับใช้ผ่าน view เพราะ `security_invoker = true` — ยืนยันว่าไม่มีทาง bypass
+- **`SavedRepository` ไม่มีช่องให้ inject `userId` คนอื่นได้เลย** — `fetchFeed({required int page})` ไม่มี parameter `userId` ตรวจสอบโค้ดจริงแล้วว่าไม่มีทาง query แทนคนอื่นได้แม้แต่ทาง client-side (สอดคล้องกับที่ Coding Output อ้างไว้)
+- **Self-follow guard**: ตรวจ DB constraint `follows_no_self_follow check (follower_id <> following_id)` (WYN-008, ไม่เปลี่ยนใน WYN-013) ยังอยู่ครบ + UI guard `_isOwnProfile`/`isOwnDrop`/`isOwnPop` คำนวณจาก `widget.userId`/`_drop.authorId`/`_pop.authorId` เทียบ current user เสมอ ไม่ว่าจะเข้าถึงผ่านเส้นทางเดิมหรือเส้นทางใหม่ 4+1 จุดที่ WYN-013 เพิ่ม เพราะเป็น getter ตัวเดียวไม่มี branch แยกตาม entry point
+- ไม่พบ secret exposure ใหม่ใน diff (ไม่มี API key/credential ใน code changes)
+
+### Regression กับ Drop/Pop/Home/Follow เดิม
+`flutter test` เต็ม 102/102 ผ่าน ครอบคลุม double-tap safety (Like ทั้ง Drop/Pop/Home), Share/Comment tap บนการ์ด Home (WYN-007 regression), self-follow guard เดิม, Comment Like/Delete (WYN-005), Pop view-count/mute (WYN-006) — ไม่มี regression จากการเพิ่ม parameter ใหม่ (`profileRepository`/`popRepository`/`dropRepository`/`savedRepository`) ในหลายจุด
+
+Passed: 102/102 (`flutter test`, รันเองอิสระ 2 ครั้ง — ครั้งแรกยืนยันตัวเลขจาก Coding Output, ครั้งที่สองหลัง red→green proof เพื่อยืนยัน restore ถูกต้อง)
+Failed: 0
+Severity: Minor เดียว (ไม่ block)
+
+Reproduction Steps (Minor): อ่าน `app/test/home_feed_screen_test.dart` ทั้งไฟล์ ไม่พบ test ใด ๆ ที่แตะ avatar/ชื่อบน `HomeDropCard`/`HomePopCard` แล้วยืนยันเปิด `ViewProfileScreen`
+Expected: มี regression test ถาวรคุ้มครองจุดนี้ เหมือนที่มีให้ `DropDetailScreen`/`PopClipView`/`FollowListScreen` แล้ว โดยเฉพาะเพราะ Design spec เองก็ระบุว่า Home card เป็นจุดเสี่ยงชนกันมากที่สุด (การ์ดมีทั้ง full-card tap เดิม + ปุ่มย่อยหลายปุ่ม)
+Actual: ฟีเจอร์ทำงานถูกต้องจริง (พิสูจน์ด้วย widget test ชั่วคราวที่เขียนขึ้นเองแล้วลบทิ้ง — แตะ `@namfah` บน `HomeDropCard` เปิด `ViewProfileScreen` จริง ไม่เปิด `DropDetailScreen`) แต่ไม่มี test ถาวรป้องกัน regression ในอนาคตถ้ามีใครแก้ `home_drop_card.dart`/`home_pop_card.dart`/`home_feed_screen.dart` ทีหลัง
+Recommendation: เพิ่ม regression test สำหรับจุดนี้ใน `home_feed_screen_test.dart` เป็น fast-follow (ไม่ block การอนุมัติรอบนี้เพราะฟีเจอร์ทำงานถูกต้องจริงตามที่พิสูจน์แล้ว และ Acceptance Criteria ข้อ 3 ผ่านจริงในทางปฏิบัติ — เข้าเกณฑ์เดียวกับ Minor ของ WYN-005 รอบ 3/WYN-006/WYN-007 รอบ 2 ที่ไม่กระทบ Acceptance Criteria ที่ทดสอบแล้วว่าผ่านจริง)
+
+Final Status: PASS
+```
+
+Handoff: อนุมัติ WYN-013 — ย้ายเข้า `.wyn/tasks/approved/` และส่งต่อ AI Deploy & DevOps (รอ infra จาก Founder เหมือนทุก feature ก่อนหน้า)
