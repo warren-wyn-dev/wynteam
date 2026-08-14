@@ -1,7 +1,7 @@
 # Product Task — WYN-004
 
-Status: qa (Debug เสร็จแล้ว รอ AI QA & Security ทดสอบรอบ 2)
-Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (FAIL รอบ 1) → AI Debug Engineer (เสร็จ) → AI QA & Security (ถัดไป)
+Status: approved (QA รอบ 2 — PASS ระดับโค้ด/static — ดูเงื่อนไขก่อน deploy จริงด้านล่าง)
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (FAIL รอบ 1) → AI Debug Engineer (เสร็จ) → AI QA & Security (PASS รอบ 2) → AI Deploy & DevOps (รอ infra จาก Founder)
 
 Feature: Feed & Post (with Like and Comment)
 
@@ -194,3 +194,36 @@ Regression Risk: ต่ำ — มี unit test ตรงจุดคุ้ม�
 Handoff to QA: ส่งกลับ AI QA & Security (`/qa`) ทดสอบรอบ 2 — เน้นตรวจสอบว่า: (ก) กด Like ปกติ (ไม่ double-tap) ยังทำงานถูกต้องเหมือนเดิมทุกกรณี ทั้ง optimistic update และ rollback เมื่อ network ล้มเหลว (ข) กดปุ่ม "โพสต์" ปกติยังสร้างโพสต์ได้ตามปกติ ไม่ถูก guard ใหม่บล็อกผิดจังหวะ (ค) ไม่มี regression กับส่วนอื่นของ WYN-004 (Feed, Comment, Delete) หรือ WYN-002/WYN-003 จากการเปลี่ยน `FeedScreen`'s constructor signature
 
 Final Status: **แก้ไขแล้ว รอ QA รอบ 2 ยืนยัน**
+
+---
+
+## QA & Security Report — รอบ 2 (AI QA & Security)
+
+Feature: WYN-004 — Feed & Post (Global Feed, Like, Comment, Delete) — ตรวจการแก้บั๊ก double-tap
+
+Environment: Code review + static analysis บน `main` หลัง merge PR #23 (Flutter SDK 3.47.0 stable) — เงื่อนไขเดียวกับรอบ 1
+
+Test Cases:
+1. `flutter analyze` ซ้ำอย่างอิสระ
+2. `flutter test` ซ้ำอย่างอิสระ (37/37)
+3. ตรวจโค้ด `FeedScreen._toggleLike`/`CreatePostScreen._post` ทีละบรรทัด ยืนยันว่า fix ตรงกับ root cause ที่รายงานไว้จริง ไม่ใช่แค่ปิดบั๊กที่ปลายเหตุ
+4. **พิสูจน์ว่า regression test ใหม่ (`feed_screen_test.dart`, `create_post_screen_test.dart`) จับบั๊กได้จริง**: ย้อน logic กลับไปเป็นเวอร์ชันก่อนแก้ชั่วคราว (คง constructor ใหม่ไว้) แล้วรัน test ซ้ำ — ต้อง FAIL ก่อน แล้ว restore กลับมาแก้แล้วต้อง PASS อีกครั้ง (ไม่ใช่แค่เชื่อรายงานของ Debug Engineer เฉย ๆ)
+5. Single-tap (ไม่ double-tap) บนปุ่ม Like: อ่านโค้ด `_toggleLike` ยืนยันว่า optimistic update + rollback ทำงานเหมือนเดิมทุกประการเมื่อเทียบกับก่อนแก้ (แค่เปลี่ยนแหล่งอ่านค่าเริ่มต้นจาก parameter เป็น `_posts[index]` — ผลลัพธ์ของ single-tap เหมือนเดิมทุกกรณี เพราะ tap แรกอ่านค่าตรงกันทั้งสองแบบ)
+6. Single-tap บนปุ่ม "โพสต์": อ่านโค้ดยืนยันว่า guard ใหม่ (`if (_isPosting) return;`) เช็คแค่ตอนเริ่ม method และ `_isPosting` reset กลับเป็น `false` ใน `finally` เสมอ — ไม่กระทบการโพสต์ปกติหรือการลองโพสต์ใหม่หลัง error
+7. Regression WYN-004 ส่วนอื่น: Comment, Delete Post ไม่ถูกแตะต้องจากการแก้เลย (`_deletePost` ไม่เกี่ยวกับ root cause นี้)
+8. Regression จากการเปลี่ยน `FeedScreen`'s constructor: grep หา call site ทั้งหมด พบจุดเดียว (`AuthGate`) อัปเดตถูกต้องแล้ว ไม่มี call site อื่นตกหล่น
+9. Regression WYN-002/WYN-003: `avatar_circle_test.dart`, `edit_profile_screen_test.dart`, `otp_box_input_test.dart`, `widget_test.dart` ผ่านครบทุกเคสเหมือนเดิม
+
+Passed: 9/9
+
+Failed: 0/9
+
+Severity: -
+
+Security Findings:
+- ไม่พบ secret/credential hardcode ในโค้ดใหม่ทั้งหมด (`app/test/support/`, `feed_screen_test.dart`, `create_post_screen_test.dart`)
+- `app/test/support/fake_supabase_session.dart` ใช้ URL/key ปลอม (`example.supabase.co`, `test-key`) เหมือน pattern เดิมที่ใช้ในไฟล์ test อื่นอยู่แล้ว ไม่มีความเสี่ยงหลุด credential จริง
+
+Recommendation: อนุมัติ — บั๊กทั้งสองจุดถูกแก้ถูกจุดจริง มี regression test ที่พิสูจน์แล้วว่าจับบั๊กได้จริง (ไม่ใช่ test ที่ผ่านโดยบังเอิญ) ไม่มี regression กับส่วนอื่น ย้าย task ไปที่ `.wyn/tasks/approved/` — deploy จริงยังต้องรอ Founder จัดเตรียม infra (Supabase project จริง) เหมือน WYN-002/003 เดิม
+
+Final Status: **PASS**
