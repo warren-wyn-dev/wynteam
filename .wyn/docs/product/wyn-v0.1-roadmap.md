@@ -38,10 +38,12 @@ Priority tier มาจากการวิเคราะห์ dependency gra
 
 ดู task spec เต็มที่ `.wyn/tasks/backlog/WYN-005-drop-post-image.md`
 
-## คำถามเปิดที่ต้องให้ Founder ยืนยัน
+## คำถามเปิด — Founder ยืนยันแล้ว (2026-08-14)
 
-1. **Hashtag/Mention**: spec ระบุว่า Drop/Pop ต้อง "เพิ่ม Hashtag" และ "Mention ผู้ใช้" ได้ตอนสร้างโพสต์ แต่ยังไม่ได้ระบุว่าต้อง**คลิกแตะ hashtag/mention แล้วไปหน้าไหน**ทันที (เช่น หน้ารวมโพสต์ที่ติด hashtag นั้น หรือหน้าโปรไฟล์ของคนที่ถูก mention) — เสนอให้ขอบเขต WYN-005 รอบแรกทำแค่ "พิมพ์ hashtag/mention ในแคปชันได้ ระบบรู้จำและบันทึกไว้" ส่วน "แตะแล้วไปที่ไหน" ผูกกับ WYN-009 (Search) แทน เพราะเป็นเรื่องเดียวกับการค้นหา hashtag
-2. **Follow ปรากฏใน Drop ด้วยหรือไม่**: spec section 3 (Drop) ไม่ได้ระบุ Follow ไว้ในรายการปฏิสัมพันธ์ของ Drop โดยตรง (มีแค่ Like/Comment/Share/Save) แต่ section 4 (Pop) ระบุ Follow ไว้ชัดเจน และ section 7 ก็นิยาม Follow เป็นระบบพื้นฐานทั่วทั้งแอป — เสนอให้ Follow ใช้ได้จากทั้ง Drop และ Pop (กดที่ profile ของผู้โพสต์) ผ่าน WYN-008 ตัวเดียว ไม่ต้องแยกทำสองรอบ
-3. **Home มีการกรองตาม Follow หรือไม่**: spec ไม่ได้ระบุชัดว่า Home แสดงเฉพาะคนที่ Follow หรือแสดงทุกคน (global) เหมือน WYN-004 เดิม — เสนอให้ทำแบบ Global ก่อน (เหมือน WYN-004) เพราะ Follow ยังไม่มีในระบบตอนที่ WYN-007 เริ่มทำ
+ดูบันทึกเต็มที่ `.wyn/company/DECISIONS.md` (2026-08-14 "ขอบเขต WYN-005 (Drop) รอบแรก...")
 
-Handoff: รอ Founder ยืนยันคำถามเปิดข้างต้น + อนุมัติให้เริ่ม WYN-005 ก่อน แล้วส่งต่อ AI Design (`/design`)
+1. **Hashtag/Mention**: WYN-005 รอบแรกทำแค่ "พิมพ์ hashtag/mention ในแคปชันได้ ระบบรู้จำและบันทึกไว้" — การแตะแล้วไปหน้าค้นหา/โปรไฟล์ ผูกกับ WYN-009 (Search) ทีหลัง ✅ ยืนยันตามที่เสนอ
+2. **Follow ปรากฏใน Drop ด้วย**: Follow (WYN-008) ใช้ได้กับทั้ง Drop และ Pop ระบบเดียวใช้ร่วมกันทั้งแอป ไม่แยกทำสองรอบ ✅ ยืนยันตามที่เสนอ
+3. **Home เป็น Global ก่อน**: WYN-007 (Home) แสดงโพสต์ของทุกคนเหมือน WYN-004 เดิม ยังไม่กรองตาม Follow ✅ ยืนยันตามที่เสนอ
+
+Handoff: WYN-005 พร้อมส่งต่อ AI Design (`/design`) แล้ว — ดู `.wyn/tasks/backlog/WYN-005-drop-post-image.md`

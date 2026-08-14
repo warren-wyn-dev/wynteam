@@ -87,3 +87,13 @@
 - คำตัดสินใจของ Founder: **แทนที่ทิศทาง Product เดิมทั้งหมด** ด้วย spec ใหม่นี้ — เริ่ม `/product` ใหม่ตาม "WYN V0.1 — CORE APP FEATURE PROMPT" ตั้งแต่ต้น (ไม่ใช่แค่เพิ่มเป็น roadmap ระยะยาวที่ยังไม่ทำ) ขอบเขต V0.1 ใหม่ตามที่ Founder ระบุคือ: Login/Register/Home/Search/Drop/Create Drop/Upload Image/Pop/Create Pop/Upload Video/Profile/Like/Comment/Share/Save/Follow/Notifications เท่านั้น — ห้ามทำ Shop/ZOKY/Payment/Cart/Order/Live/AI/Creator Monetization/Ads/Advanced Recommendation Algorithm จนกว่าจะได้รับคำสั่งใหม่ Color Direction: Blue + White + Soft Gray, ไม่ใช้ Liquid Glass, ห้ามลอก Layout ของ Instagram/TikTok โดยตรง
 - ผลกระทบ: WYN-002 (Auth) และ WYN-003 (Profile) ยังใช้ได้เป็นฐานอยู่ (ตรงกับ Register/Login/Logout/Edit Profile ใน spec ใหม่) แต่ WYN-004 (Feed & Post) ที่เพิ่งผ่าน Coding+Debug และรอ QA รอบ 2 อยู่ **จะถูกแทนที่/แยกออกเป็น Drop กับ Pop** ตาม spec ใหม่ — ต้องรัน `/product` ใหม่เพื่อวาง roadmap V0.1 ใหม่ทั้งหมดก่อนเริ่ม Design/Coding ของ Drop/Pop/Search/Notification/Follow/Share/Save งานที่ค้างอยู่ (QA รอบ 2 ของ WYN-004 debug fix) จะทำให้เสร็จตามที่ Founder สั่งไว้ก่อน (Merge PR #23 + QA รอบ 2) เพื่อปิด loop เดิมให้เรียบร้อยก่อนเปลี่ยนทิศทาง
 - อ้างอิง (task/PR ถ้ามี): PR #21-23 (WYN-004), จะสร้าง `.wyn/tasks/backlog/` ใหม่สำหรับ Drop/Pop/Search/Notification/Follow/Share/Save หลัง `/product` รอบใหม่เสร็จ
+
+### [2026-08-14] ขอบเขต WYN-005 (Drop) รอบแรก และกติกาที่ใช้ร่วมทั้ง roadmap V0.1 ใหม่
+- บริบท: AI Product Manager วาง roadmap ใหม่ (`.wyn/docs/product/wyn-v0.1-roadmap.md`) และ spec ของ WYN-005 (Drop) แล้วถามยืนยัน 4 คำถามผ่าน popup ก่อนส่งต่อ AI Design
+- คำตัดสินใจของ Founder (ทั้งหมดตามที่แนะนำ):
+  1. เริ่มพัฒนาที่ **WYN-005 (Drop)** ก่อนฟีเจอร์อื่นทั้งหมดใน roadmap ใหม่
+  2. **Hashtag/Mention ใน WYN-005 รอบแรก**: ทำแค่ "พิมพ์ในแคปชันได้ ระบบจำ/บันทึกได้" เท่านั้น ส่วนการแตะ hashtag/mention แล้วไปหน้าค้นหา/โปรไฟล์ ทำทีหลังผูกกับ WYN-009 (Search) ไม่ทำใน WYN-005
+  3. **Follow ใช้ได้กับทั้ง Drop และ Pop** (ไม่ใช่แค่ Pop ตามที่ spec เดิมระบุไว้ไม่ชัด) — ระบบ Follow เดียว (WYN-008) ใช้ร่วมกันทั้งแอป
+  4. **Home Feed (WYN-007) เป็น Global ก่อน** (เห็นโพสต์ของทุกคน เหมือน WYN-004 เดิม) ยังไม่กรองตาม Follow จนกว่าจะมีการตัดสินใจเพิ่มเติมในอนาคต
+- ผลกระทบ: อัปเดตขอบเขตใน `.wyn/tasks/backlog/WYN-005-drop-post-image.md` และ `.wyn/docs/product/wyn-v0.1-roadmap.md` ให้ตรงกับคำตัดสินใจนี้ แล้วส่งต่อ AI Design (`/design`) เพื่อออกแบบหน้าจอของ WYN-005
+- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/backlog/WYN-005-drop-post-image.md`, `.wyn/docs/product/wyn-v0.1-roadmap.md`

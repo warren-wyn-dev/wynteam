@@ -1,7 +1,7 @@
 # Product Task — WYN-005
 
-Status: backlog (รอ Founder ยืนยันคำถามเปิดใน `.wyn/docs/product/wyn-v0.1-roadmap.md` ก่อนส่งต่อ AI Design)
-Owner: AI Product Manager
+Status: backlog (Founder ยืนยันขอบเขตแล้ว — พร้อมส่งต่อ AI Design)
+Owner: AI Product Manager → AI Design (ถัดไป)
 
 Feature: Drop (โพสต์รูปภาพ)
 
@@ -43,11 +43,15 @@ Dependencies: WYN-002 (Auth — Approved), WYN-003 (Profile — Approved)
 Priority: P0 — สูงสุดในรอบใหม่นี้ (ดูเหตุผลเต็มที่ `.wyn/docs/product/wyn-v0.1-roadmap.md`)
 
 Risks:
-- Hashtag/Mention แบบเต็มรูปแบบ (ค้นหาได้, แตะแล้วไปหน้าที่เกี่ยวข้อง) ยังไม่ทำในรอบนี้ — ทำแค่ "parse และบันทึก" ก่อน ผูกกับ WYN-009/WYN-012 ทีหลัง ถ้า Founder ต้องการให้ครบในรอบเดียวต้องแจ้งก่อนเริ่ม Design
 - Save ต้องมีที่เก็บข้อมูล (ตาราง `saves` หรือคล้ายกัน) แต่หน้าจอแสดงผล (Profile → Saved) อยู่ใน WYN-013 — ต้องออกแบบ schema ให้รองรับทั้งสอง task ตั้งแต่รอบนี้เพื่อไม่ต้อง migrate ซ้ำ
 - Share ที่ "Copy Link" ต้องมี URL scheme/deep link ที่ใช้งานได้จริง — ถ้ายังไม่มี hosting/domain จริง อาจทำได้แค่ copy ข้อความ placeholder ก่อน ต้องคุยกับ Founder เรื่อง domain ก่อน Deploy จริง
 - ยังไม่มี Content Moderation (นอก scope เหมือน WYN-004)
 
-Recommendation: เริ่มที่ WYN-005 ก่อนฟีเจอร์อื่นทั้งหมดในรอบใหม่ (ดูเหตุผลที่ `.wyn/docs/product/wyn-v0.1-roadmap.md`) — แต่ก่อนส่งต่อ AI Design ต้องให้ Founder ยืนยัน 3 คำถามเปิดในเอกสารเดียวกันก่อน
+Founder ยืนยันแล้ว (2026-08-14 ดู `.wyn/company/DECISIONS.md`):
+- Hashtag/Mention รอบนี้ทำแค่ "พิมพ์ในแคปชันได้ ระบบจำ/บันทึกได้" — แตะแล้วไปหน้าค้นหา/โปรไฟล์ผูกกับ WYN-009 ทีหลัง
+- Follow (WYN-008 เมื่อถึงคิว) จะใช้ได้กับ Drop ด้วย ไม่ใช่แค่ Pop
+- Home Feed (WYN-007) จะเป็น Global ก่อน ไม่กรองตาม Follow
 
-Handoff: รอ Founder ยืนยันคำถามเปิด + อนุมัติขอบเขตนี้ แล้วส่งต่อ AI Design (`/design`) เพื่อออกแบบหน้าจอ Drop Feed, Create Drop, Drop Detail
+Recommendation: เริ่มที่ WYN-005 ก่อนฟีเจอร์อื่นทั้งหมดในรอบใหม่ ตามที่ Founder อนุมัติแล้ว
+
+Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบหน้าจอ Drop Feed, Create Drop, Drop Detail
