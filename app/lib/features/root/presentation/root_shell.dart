@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/drop_feed_screen.dart';
+import '../../home/data/home_repository.dart';
+import '../../home/presentation/home_feed_screen.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../pop/presentation/pop_feed_screen.dart';
 import '../../profile/data/profile_repository.dart';
@@ -12,10 +14,6 @@ import '../../profile/presentation/view_profile_screen.dart';
 /// the "WYN V0.1 — CORE APP FEATURE PROMPT" (see
 /// .wyn/company/DECISIONS.md, 2026-08-14). Renders as AuthGate's signed-
 /// in + onboarded state, replacing the old single-screen Feed.
-///
-/// Home (WYN-007) isn't built yet -- a placeholder tab holds its spot so
-/// the nav structure matches the spec now instead of needing another
-/// shell rewrite once it lands.
 class RootShell extends StatefulWidget {
   const RootShell({super.key});
 
@@ -30,10 +28,17 @@ class _RootShellState extends State<RootShell> {
   Widget build(BuildContext context) {
     final userId = Supabase.instance.client.auth.currentUser!.id;
 
+    final dropRepository = DropRepository(Supabase.instance.client);
+    final popRepository = PopRepository(Supabase.instance.client);
+
     final tabs = [
-      const _ComingSoonTab(label: 'Home'),
-      DropFeedScreen(dropRepository: DropRepository(Supabase.instance.client)),
-      PopFeedScreen(popRepository: PopRepository(Supabase.instance.client)),
+      HomeFeedScreen(
+        homeRepository: HomeRepository(Supabase.instance.client),
+        dropRepository: dropRepository,
+        popRepository: popRepository,
+      ),
+      DropFeedScreen(dropRepository: dropRepository),
+      PopFeedScreen(popRepository: popRepository),
       ViewProfileScreen(
         profileRepository: ProfileRepository(Supabase.instance.client),
         userId: userId,
@@ -68,20 +73,6 @@ class _RootShellState extends State<RootShell> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ComingSoonTab extends StatelessWidget {
-  const _ComingSoonTab({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(label)),
-      body: const Center(child: Text('เร็ว ๆ นี้')),
     );
   }
 }

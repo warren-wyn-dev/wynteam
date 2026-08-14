@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// Shared by FeedScreen/PostDetailScreen (WYN-004) and
-/// DropFeedScreen/DropDetailScreen (WYN-005) so the confirmation copy
-/// can't drift between the places a post/Drop can be deleted from.
+/// Shared by every screen that lets a user delete their own content
+/// (Drop/Pop/comments) so the confirmation copy can't drift between them.
 /// [itemLabel] names what's being deleted -- default matches the
 /// original WYN-004 copy ("ลบโพสต์นี้?").
 Future<bool> confirmDeletePost(

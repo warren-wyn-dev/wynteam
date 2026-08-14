@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../feed/presentation/widgets/confirm_delete_dialog.dart';
+import '../../../../core/widgets/confirm_delete_dialog.dart';
 
 /// Thin wrapper around the shared confirm-delete dialog (WYN-004) so Pop
 /// screens get Pop-specific wording ("ลบ Popนี้?") without duplicating the

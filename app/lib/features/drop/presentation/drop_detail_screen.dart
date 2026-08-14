@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../feed/presentation/widgets/confirm_delete_dialog.dart';
+import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/drop.dart';
 import '../data/drop_comment.dart';
