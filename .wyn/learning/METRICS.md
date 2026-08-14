@@ -3,8 +3,8 @@
 > ห้ามสร้างข้อมูลเทียม (fabricate) — ค่าที่ยังไม่มีข้อมูลจริงให้ระบุ UNKNOWN
 
 - Tasks completed: 4 (WYN-001 — Vision & Tech Stack, WYN-002 — Authentication & Onboarding ผ่าน QA รอบ 3, WYN-003 — User Profile ผ่าน QA รอบ 2, WYN-004 — Feed & Post ผ่าน QA รอบ 2)
-- QA failures: 5 (WYN-002 รอบที่ 1, รอบที่ 2 — FAIL; WYN-003 รอบที่ 1 — FAIL; WYN-004 รอบที่ 1 — FAIL); QA passes: 3 (WYN-002 รอบที่ 3, WYN-003 รอบที่ 2, WYN-004 รอบที่ 2 — PASS)
-- Bugs discovered: 7 (WYN-002: 1 Critical + 2 Medium จากรอบ 1, อีก 1 Critical เป็น regression จากรอบ 2 — แก้ครบแล้ว; WYN-003: 1 Critical จากรอบ 1 — แก้แล้ว; WYN-004: 1 Major (2 จุดเกิดจาก root cause เดียวกัน) จากรอบ 1 — แก้แล้ว ยืนยันด้วย regression test ที่พิสูจน์ว่าจับบั๊กได้จริง (fail ก่อนแก้, pass หลังแก้)
+- QA failures: 6 (WYN-002 รอบที่ 1, รอบที่ 2 — FAIL; WYN-003 รอบที่ 1 — FAIL; WYN-004 รอบที่ 1 — FAIL; WYN-005 รอบที่ 1 — FAIL); QA passes: 3 (WYN-002 รอบที่ 3, WYN-003 รอบที่ 2, WYN-004 รอบที่ 2 — PASS)
+- Bugs discovered: 8 (WYN-002: 1 Critical + 2 Medium จากรอบ 1, อีก 1 Critical เป็น regression จากรอบ 2 — แก้ครบแล้ว; WYN-003: 1 Critical จากรอบ 1 — แก้แล้ว; WYN-004: 1 Major (2 จุดเกิดจาก root cause เดียวกัน) จากรอบ 1 — แก้แล้ว ยืนยันด้วย regression test ที่พิสูจน์ว่าจับบั๊กได้จริง (fail ก่อนแก้, pass หลังแก้); WYN-005: 1 Major (ฟีเจอร์ "Like Comment" หายไปทั้งระบบทั้งที่ Product+Design spec ระบุตรงกัน) จากรอบ 1 — รอแก้
 - Repeated bugs: 1 (WYN-002 รอบ 2 คือบั๊ก "ผู้ใช้ค้างหน้าเดิม/นำทางผิด" แบบเดิมที่กลับมาในรูปแบบใหม่ — เกิดจากการแก้บั๊ก Critical รอบ 1 เอง; รอบ 3 ยืนยันว่าแก้ถูกจุดจริงแล้ว)
 - Rework rate: WYN-002 ใช้เวลา 3 รอบ QA ถึงจะ PASS (2 FAIL, 1 PASS); WYN-003 ใช้เวลา 2 รอบ QA ถึงจะ PASS (1 FAIL, 1 PASS); WYN-004 ใช้เวลา 2 รอบ QA ถึงจะ PASS (1 FAIL, 1 PASS) — เท่ากับ WYN-003 แม้บั๊กจะเป็น concurrency/timing bug ที่ซับซ้อนกว่า เพราะ Debug Engineer แก้ทั้งสองจุดพร้อมกันในรอบเดียวและพิสูจน์ด้วย test จริงก่อนส่งกลับ
 - Deployment failures: UNKNOWN (ยังไม่มี deployment จริง)
@@ -20,7 +20,8 @@
   - ความสอดคล้องระหว่าง Dart-side default values (`?? ''`) กับ Postgres CHECK constraint semantics — พบใน WYN-003 แต่แก้ได้เร็วกว่า WYN-002 มาก (1 รอบ vs 2 รอบ) เพราะ bug เป็น pure logic ไม่ใช่ stateful navigation
   - `PostRepository` เป็น concrete class ผูกกับ `SupabaseClient` ตรง ๆ ไม่มี interface ให้ mock/spy — ทำให้ QA รอบ 1 ของ WYN-004 ยืนยันบั๊ก double-tap ได้แค่ระดับ code-trace **แก้แล้วใน Debug รอบถัดมา**: subclass ธรรมดา (`RecordingPostRepository`) และปลอม Supabase session แบบ local-only ก็เพียงพอ ไม่ต้องเพิ่ม abstract interface ใหญ่ — ดู `.wyn/learning/PATTERNS.md`
 - QA rigor เพิ่มเติมที่พิสูจน์ตัวเองว่าคุ้มค่า: QA รอบ 2 ของ WYN-004 ไม่ได้แค่รัน test ที่ Debug Engineer เขียนมาแล้วเชื่อผลลัพธ์ แต่ย้อน logic กลับไปเป็นก่อนแก้ชั่วคราวเพื่อยืนยันว่า test ใหม่ FAIL จริงก่อนแก้ (ไม่ใช่ test ที่ผ่านโดยบังเอิญ) ก่อนจะ PASS งาน
+- Common mistakes เพิ่มเติม: **Coding ทำตาม Design/Product spec ไม่ครบทุกข้อ (WYN-005)** — spec ทั้งสองฉบับระบุ "Like Comment" ไว้ตรงกันชัดเจน (Product's Requirements และ Design's Screen 3 Components) แต่ implementation ขาดไปทั้งระบบ (ไม่มีทั้ง schema/repository/UI) โดยไม่ได้ถูกบันทึกไว้เป็น known/deferred scope เหมือนจุดอื่นที่ตัดออกอย่างตั้งใจ (เช่น hashtag click-through) — แสดงว่าเป็นการมองข้ามจริง ไม่ใช่การตัดขอบเขต บทเรียน: Coding ควรไล่ checklist ทุกบรรทัดของทั้ง Product Requirements และ Design Components ก่อนส่งงาน ไม่ใช่แค่ implement ตามความเข้าใจคร่าว ๆ ของ flow หลัก และ QA ควรเทียบ requirement/component list ทีละบรรทัดกับโค้ดจริงเสมอ (ไม่ใช่แค่ทดสอบ flow หลักแล้วผ่าน) — รอบนี้ QA จับได้ก่อนถึง Founder
 
 ## อัปเดตล่าสุด
 
-2026-08-14 — หลัง QA รอบ 2 ของ WYN-004 (PASS)
+2026-08-14 — หลัง QA รอบ 1 ของ WYN-005 (FAIL)
