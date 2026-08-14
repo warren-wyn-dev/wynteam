@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/widgets/confirm_delete_dialog.dart';
+import '../../follow/data/follow_repository.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/drop.dart';
 import '../data/drop_comment.dart';
@@ -21,10 +22,12 @@ class DropDetailScreen extends StatefulWidget {
   const DropDetailScreen({
     super.key,
     required this.dropRepository,
+    required this.followRepository,
     required this.drop,
   });
 
   final DropRepository dropRepository;
+  final FollowRepository followRepository;
   final Drop drop;
 
   @override
@@ -42,11 +45,22 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   final _commentFocusNode = FocusNode();
   bool _isSendingComment = false;
 
+  // Whether the *current viewer* follows the Drop's author -- null until
+  // the real status has loaded from the backend. The Follow button is
+  // hidden while null rather than defaulting to "not following", so it
+  // never briefly shows the wrong state (this is exactly the bug
+  // PopClipView's WYN-006 Follow button had before WYN-008). See
+  // .wyn/docs/design/wyn-008-follow.md, Screen 1.
+  bool? _isFollowing;
+
   @override
   void initState() {
     super.initState();
     _drop = widget.drop;
     _loadComments();
+    if (_drop.authorId != Supabase.instance.client.auth.currentUser!.id) {
+      _loadFollowStatus();
+    }
   }
 
   @override
@@ -96,6 +110,34 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _drop = previous);
+    }
+  }
+
+  Future<void> _loadFollowStatus() async {
+    try {
+      final isFollowing = await widget.followRepository.isFollowing(
+        userId: _drop.authorId,
+      );
+      if (!mounted) return;
+      setState(() => _isFollowing = isFollowing);
+    } catch (_) {
+      // Leave _isFollowing null -- the button stays hidden rather than
+      // showing a possibly-wrong state.
+    }
+  }
+
+  Future<void> _toggleFollow() async {
+    final previous = _isFollowing;
+    if (previous == null) return;
+    setState(() => _isFollowing = !previous);
+    try {
+      await widget.followRepository.toggleFollow(
+        userId: _drop.authorId,
+        currentlyFollowing: previous,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isFollowing = previous);
     }
   }
 
@@ -248,6 +290,28 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
                   ),
+                  if (!isOwnDrop && _isFollowing != null)
+                    Semantics(
+                      label: _isFollowing!
+                          ? 'กำลังติดตาม กดเพื่อเลิกติดตาม'
+                          : 'กดเพื่อติดตาม',
+                      excludeSemantics: true,
+                      child: SizedBox(
+                        height: 30,
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor:
+                                Theme.of(context).colorScheme.primary,
+                            side: BorderSide(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                          ),
+                          onPressed: _toggleFollow,
+                          child: Text(_isFollowing! ? 'กำลังติดตาม' : 'ติดตาม'),
+                        ),
+                      ),
+                    ),
                   if (isOwnDrop)
                     IconButton(
                       icon: const Icon(Icons.delete_outline),

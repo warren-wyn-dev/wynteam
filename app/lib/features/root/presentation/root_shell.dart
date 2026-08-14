@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/drop_feed_screen.dart';
+import '../../follow/data/follow_repository.dart';
 import '../../home/data/home_repository.dart';
 import '../../home/presentation/home_feed_screen.dart';
 import '../../pop/data/pop_repository.dart';
@@ -24,23 +25,48 @@ class RootShell extends StatefulWidget {
 class _RootShellState extends State<RootShell> {
   int _index = 0;
 
+  // Bumped every time the user switches *to* the Profile tab -- used as
+  // ViewProfileScreen's key so it remounts (fresh fetch) on each visit.
+  // IndexedStack keeps every tab's State alive to preserve scroll
+  // position/etc, so without this a Follow/Unfollow done from Drop or
+  // Pop would never be reflected in the Follower/Following counts shown
+  // back on Profile. See .wyn/docs/design/wyn-008-follow.md, Screen 4.
+  int _profileVisitKey = 0;
+
+  void _onDestinationSelected(int index) {
+    setState(() {
+      if (index == 3 && _index != 3) _profileVisitKey++;
+      _index = index;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final userId = Supabase.instance.client.auth.currentUser!.id;
 
     final dropRepository = DropRepository(Supabase.instance.client);
     final popRepository = PopRepository(Supabase.instance.client);
+    final followRepository = FollowRepository(Supabase.instance.client);
 
     final tabs = [
       HomeFeedScreen(
         homeRepository: HomeRepository(Supabase.instance.client),
         dropRepository: dropRepository,
         popRepository: popRepository,
+        followRepository: followRepository,
       ),
-      DropFeedScreen(dropRepository: dropRepository),
-      PopFeedScreen(popRepository: popRepository),
+      DropFeedScreen(
+        dropRepository: dropRepository,
+        followRepository: followRepository,
+      ),
+      PopFeedScreen(
+        popRepository: popRepository,
+        followRepository: followRepository,
+      ),
       ViewProfileScreen(
+        key: ValueKey(_profileVisitKey),
         profileRepository: ProfileRepository(Supabase.instance.client),
+        followRepository: followRepository,
         userId: userId,
       ),
     ];
@@ -49,7 +75,7 @@ class _RootShellState extends State<RootShell> {
       body: IndexedStack(index: _index, children: tabs),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (index) => setState(() => _index = index),
+        onDestinationSelected: _onDestinationSelected,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),

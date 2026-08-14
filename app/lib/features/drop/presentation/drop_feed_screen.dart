@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../follow/data/follow_repository.dart';
 import '../data/drop.dart';
 import '../data/drop_repository.dart';
 import 'create_drop_screen.dart';
@@ -11,9 +12,14 @@ import 'widgets/drop_grid_tile.dart';
 /// underlying content, different browsing mode, so the tab has a reason
 /// to exist distinct from Home. See .wyn/docs/design/wyn-005-drop.md.
 class DropFeedScreen extends StatefulWidget {
-  const DropFeedScreen({super.key, required this.dropRepository});
+  const DropFeedScreen({
+    super.key,
+    required this.dropRepository,
+    required this.followRepository,
+  });
 
   final DropRepository dropRepository;
+  final FollowRepository followRepository;
 
   @override
   State<DropFeedScreen> createState() => _DropFeedScreenState();
@@ -104,6 +110,7 @@ class _DropFeedScreenState extends State<DropFeedScreen> {
       MaterialPageRoute(
         builder: (_) => DropDetailScreen(
           dropRepository: _dropRepository,
+          followRepository: widget.followRepository,
           drop: drop,
         ),
       ),

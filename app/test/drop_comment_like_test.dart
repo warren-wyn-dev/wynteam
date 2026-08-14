@@ -7,6 +7,7 @@ import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_drop_repository.dart';
+import 'support/recording_follow_repository.dart';
 
 void main() {
   // RecordingDropRepository constructs a SupabaseClient, which starts a
@@ -16,6 +17,7 @@ void main() {
   // doesn't trip on it. See feed_screen_test.dart (WYN-004) for the same
   // pattern.
   late RecordingDropRepository repo;
+  late RecordingFollowRepository followRepo;
   final drop = Drop(
     id: 'd1',
     authorId: 'someone-else',
@@ -41,6 +43,7 @@ void main() {
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
     repo = RecordingDropRepository(comments: [comment]);
+    followRepo = RecordingFollowRepository();
   });
 
   testWidgets(
@@ -48,7 +51,7 @@ void main() {
       'value each time instead of reusing the stale pre-tap state',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: DropDetailScreen(dropRepository: repo, drop: drop),
+      home: DropDetailScreen(dropRepository: repo, followRepository: followRepo, drop: drop),
     ));
     await tester.pumpAndSettle();
     tester.takeException();

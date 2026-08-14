@@ -8,6 +8,7 @@ import 'package:wyn/features/pop/presentation/pop_feed_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/fake_video_player_platform.dart';
+import 'support/recording_follow_repository.dart';
 import 'support/recording_pop_repository.dart';
 
 Pop _pop({
@@ -43,6 +44,9 @@ void main() {
   late RecordingPopRepository ownPopRepo;
   late RecordingPopRepository likeTestRepo;
   late RecordingPopRepository muteTestRepo;
+  late RecordingFollowRepository followRepo;
+  late RecordingFollowRepository followToggleTestFollowRepo;
+  late RecordingPopRepository followToggleTestPopRepo;
   late FakeVideoPlayerPlatform fakeVideoPlatform;
 
   setUpAll(() async {
@@ -61,6 +65,12 @@ void main() {
       feedPops: [_pop(id: 'p2', likeCount: 0, likedByMe: false)],
     );
     muteTestRepo = RecordingPopRepository(feedPops: [_pop(id: 'p3')]);
+    followRepo = RecordingFollowRepository();
+    followToggleTestPopRepo = RecordingPopRepository(
+      feedPops: [_pop(id: 'p4', authorId: 'someone-else')],
+    );
+    followToggleTestFollowRepo =
+        RecordingFollowRepository(initiallyFollowing: false);
   });
 
   setUp(() {
@@ -70,7 +80,7 @@ void main() {
   testWidgets('the current clip initializes, plays, and records a view once',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: PopFeedScreen(popRepository: otherUserPopRepo),
+      home: PopFeedScreen(popRepository: otherUserPopRepo, followRepository: followRepo),
     ));
     await tester.pumpAndSettle();
 
@@ -86,7 +96,7 @@ void main() {
   testWidgets('shows a delete button only for the current user\'s own Pop',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: PopFeedScreen(popRepository: ownPopRepo),
+      home: PopFeedScreen(popRepository: ownPopRepo, followRepository: followRepo),
     ));
     await tester.pumpAndSettle();
 
@@ -98,7 +108,7 @@ void main() {
   testWidgets('hides the delete button and shows Follow for another user\'s Pop',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: PopFeedScreen(popRepository: otherUserPopRepo),
+      home: PopFeedScreen(popRepository: otherUserPopRepo, followRepository: followRepo),
     ));
     await tester.pumpAndSettle();
 
@@ -110,7 +120,7 @@ void main() {
       'rapid double-tap on Like sends a fresh currentlyLiked value each '
       'time instead of reusing the stale pre-tap state', (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: PopFeedScreen(popRepository: likeTestRepo),
+      home: PopFeedScreen(popRepository: likeTestRepo, followRepository: followRepo),
     ));
     await tester.pumpAndSettle();
 
@@ -126,10 +136,36 @@ void main() {
     expect(likeTestRepo.toggleLikeCurrentlyLikedArgs, [false, true]);
   });
 
+  testWidgets(
+      'rapid double-tap on Follow sends a fresh currentlyFollowing value '
+      'each time instead of reusing the stale pre-tap state', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: PopFeedScreen(
+        popRepository: followToggleTestPopRepo,
+        followRepository: followToggleTestFollowRepo,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final followButton = find.widgetWithText(OutlinedButton, 'ติดตาม');
+    expect(followButton, findsOneWidget);
+
+    final onPressed = tester.widget<OutlinedButton>(followButton).onPressed!;
+    onPressed();
+    onPressed();
+    await tester.pumpAndSettle();
+
+    expect(followToggleTestFollowRepo.toggleFollowCalls, 2);
+    expect(
+      followToggleTestFollowRepo.toggleFollowCurrentlyFollowingArgs,
+      [false, true],
+    );
+  });
+
   testWidgets('toggling mute calls setVolume(0) then setVolume(1)',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: PopFeedScreen(popRepository: muteTestRepo),
+      home: PopFeedScreen(popRepository: muteTestRepo, followRepository: followRepo),
     ));
     await tester.pumpAndSettle();
 

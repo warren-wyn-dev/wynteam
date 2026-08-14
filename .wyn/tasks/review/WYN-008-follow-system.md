@@ -1,7 +1,7 @@
 # Product Task — WYN-008
 
-Status: backlog
-Owner: AI Product Manager (เสร็จ) → AI Design (ถัดไป)
+Status: review
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
 
 Feature: Follow system (Follow/Unfollow, Followers/Following list)
 
@@ -51,3 +51,47 @@ Recommendation:
 4. Follow button ใน `PopClipView` ที่มีอยู่แล้ว (UI-only) ให้เปลี่ยนจาก local `setState` เป็นเรียก repository จริง พร้อมโหลดสถานะ Follow ปัจจุบันตอนเปิดคลิป (ไม่ default เป็น false เสมอเหมือนเดิม)
 
 Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบ: (1) ตำแหน่ง/ลักษณะปุ่ม Follow ใน `DropDetailScreen` ให้เข้ากับ header ที่มีอยู่แล้ว (มิเรอร์ตำแหน่งเดียวกับใน `PopClipView`) (2) หน้าจอ Followers/Following list ใหม่ (เรียบง่าย — avatar+ชื่อ+username เรียงเป็น list, empty state เมื่อยังไม่มีใคร) (3) การแสดงจำนวน Followers/Following ใน `ViewProfileScreen` (ตำแหน่ง, tap target, sync ทันทีหลัง follow/unfollow) — อ้างอิง pattern ปุ่ม Follow เดิมใน `PopClipView`/`.wyn/docs/design/wyn-006-pop.md` เป็นจุดตั้งต้น
+
+---
+
+## Design Output (AI Design)
+
+เขียนเสร็จแล้วที่ `.wyn/docs/design/wyn-008-follow.md` — 4 หน้าจอ: (1) ปุ่ม Follow ใน `DropDetailScreen` header ใหม่ mirror ตำแหน่ง/สไตล์จาก `PopClipView` เดิม ต่างแค่สี (Primary Blue บนพื้นสว่าง vs ขาวบนพื้นมืด) (2) ปุ่ม Follow เดิมใน `PopClipView` เปลี่ยนจาก UI-only เป็นของจริง ไม่มีเปลี่ยน visual (3) หน้า Followers/Following list ใหม่ (screen เดียว สลับ mode) — แถวไม่มี ripple/tap affordance เลยตั้งใจ เพราะยังไม่มีหน้าปลายทาง (4) จำนวน Followers/Following ใน `ViewProfileScreen` เป็น tap target จริงเปิด list ได้
+
+Handoff: ส่งต่อ AI Coding (`/code`)
+
+---
+
+## Coding Output (AI Coding)
+
+Implementation:
+- Database: เพิ่มตาราง `follows` ใหม่ใน `supabase/schema.sql` — `follower_id`/`following_id` อ้างอิง `profiles(id)`, primary key คู่ (`follower_id`, `following_id`) ป้องกัน follow ซ้ำ, `CHECK (follower_id <> following_id)` ป้องกัน self-follow ระดับ DB, RLS มิเรอร์ pattern ของ `drop_likes`/`pop_likes`/`saves` เป๊ะ (select เปิดให้ authenticated อ่านได้ทุกคน, insert/delete จำกัดเฉพาะ `auth.uid() = follower_id`)
+- `lib/features/follow/data/follow_repository.dart` (ใหม่): `FollowRepository(SupabaseClient)` — `isFollowing`, `toggleFollow` (insert/delete ตรง ๆ อ่าน `currentlyFollowing` จาก parameter ที่ caller ต้องอ่านสดใหม่เสมอ — เหมือนทุก toggle method ก่อนหน้านี้), `countFollowers`/`countFollowing` (ใช้ `.count(CountOption.exact)` ของ postgrest), `fetchFollowers`/`fetchFollowing` (query `follows` join `profiles` ผ่าน embedded resource บน FK ที่ระบุชื่อ constraint ตรง ๆ เพราะตาราง `follows` มี 2 FK ไปตาราง `profiles` เดียวกัน ต้องระบุให้ชัดว่าอันไหน) คืนเป็น `List<Profile>` (reuse model เดิมจาก WYN-003 ไม่สร้าง model ใหม่ซ้ำซ้อน) ใช้ร่วมกันทั้ง Drop และ Pop ไม่มี logic แยกที่ไหนเลย
+- `drop_detail_screen.dart`: เพิ่ม `_isFollowing` (nullable — `null` = ยังไม่โหลดสถานะจริง ซ่อนปุ่มไว้ก่อนแทนที่จะเดา `false`), `_loadFollowStatus()` เรียกตอน `initState` เฉพาะกรณีไม่ใช่ Drop ของตัวเอง, `_toggleFollow()` อ่าน `_isFollowing` สดใหม่ทุกครั้งแบบเดียวกับ `_toggleLike`/`_toggleSave`, ปุ่ม Follow ใหม่ในแถว header (แสดงเมื่อ `!isOwnDrop && _isFollowing != null`) มี Semantics label ประกาศสถานะ ต้องเพิ่ม `followRepository` เป็น constructor parameter ใหม่ (breaking change กับทุกจุดที่สร้าง `DropDetailScreen` — อัปเดตแล้วทั้ง `DropFeedScreen`/`HomeFeedScreen`/test ทุกไฟล์)
+- `pop_clip_view.dart`: เปลี่ยน `_isFollowing` จาก `bool` (default `false`, UI-only) เป็น `bool?` (null จนกว่าจะโหลดสถานะจริง) เพิ่ม `followRepository` constructor parameter ใหม่, `_loadFollowStatus()`/`_toggleFollow()` เหมือนกับ Drop เป๊ะ, เพิ่ม `Semantics` label ที่ขาดไปให้ปุ่ม Follow (Minor finding จาก WYN-006 QA รอบ 1 — แก้พร้อมกันตามที่ Coding Output ของ Design แนะนำ) — ต้องอัปเดต `PopFeedScreen`/`PopSingleClipScreen` ให้ส่ง `followRepository` ผ่านเข้ามาด้วย
+- `lib/features/follow/presentation/follow_list_screen.dart` (ใหม่): `FollowListScreen` รับ `mode` (`FollowListMode.followers`/`.following`) + `userId` — screen เดียว สลับ query/title ตาม mode, infinite scroll + pull-to-refresh pattern เดียวกับ feed อื่น ๆ, แถวแต่ละแถวเป็น `Padding` + `Row` ธรรมดา **ไม่มี** `InkWell`/`GestureDetector` ห่อ (ตั้งใจตาม Design spec — ยังไม่มีหน้าปลายทางให้กดไปในรอบนี้), empty state แยกข้อความตาม mode
+- `view_profile_screen.dart`: เปลี่ยนจาก `FutureBuilder<Profile>` เดี่ยว ๆ เป็น `FutureBuilder<({Profile profile, int followerCount, int followingCount})>` (Dart record) — โหลด profile + ทั้งสองจำนวนพร้อมกันเป็น future เดียว ไม่ใช่ query แยกที่ทำให้เกิด loading state ซ้อนกัน ตามที่ Design ระบุ เพิ่มแถวจำนวน Followers/Following ใต้ `@username` เป็น tap target จริง (`InkWell` + `Semantics(button: true)`) เปิด `FollowListScreen` ตาม mode ที่กด ต้องเพิ่ม `followRepository` เป็น constructor parameter ใหม่ด้วย
+- `root_shell.dart`: สร้าง `FollowRepository` ตัวเดียวใน `build()` ส่งต่อให้ทุกแท็บที่ต้องใช้ (Home/Drop/Pop/Profile) **พบและแก้ gap ระหว่างพัฒนาเอง**: `RootShell` ใช้ `IndexedStack` เก็บทุกแท็บให้ยังไม่ถูก dispose เมื่อสลับแท็บ (เพื่อรักษาตำแหน่ง scroll ฯลฯ) แต่ Design ระบุไว้ว่าต้อง "sync ทันที" จำนวน Following หลัง follow จากแท็บอื่นแล้วสลับกลับมา Profile — ด้วย `IndexedStack` เพียงอย่างเดียว `ViewProfileScreen` จะไม่ reload อัตโนมัติเพราะ state ไม่เคยถูกทำลาย (ต่างจาก `Navigator.push`/`pop` ที่ `HomeFeedScreen._openDrop` ใช้ reload ได้ตามปกติ) แก้ด้วยการเพิ่ม `_profileVisitKey` (int) ใน `RootShell` ที่เพิ่มค่าทุกครั้งที่ผู้ใช้สลับ**ไปที่**แท็บ Profile แล้วใช้เป็น `ValueKey` ของ `ViewProfileScreen` — ทำให้ Flutter unmount/remount widget นั้นใหม่ (fetch ใหม่) ทุกครั้งที่เข้าแท็บ Profile โดยไม่กระทบแท็บอื่นที่ไม่มี key เปลี่ยน
+
+Files Changed:
+- `supabase/schema.sql` (เพิ่มตาราง `follows`)
+- ใหม่: `app/lib/features/follow/data/follow_repository.dart`, `app/lib/features/follow/presentation/follow_list_screen.dart`
+- แก้: `app/lib/features/drop/presentation/drop_detail_screen.dart`, `app/lib/features/drop/presentation/drop_feed_screen.dart`, `app/lib/features/pop/presentation/widgets/pop_clip_view.dart`, `app/lib/features/pop/presentation/pop_feed_screen.dart`, `app/lib/features/home/presentation/home_feed_screen.dart`, `app/lib/features/home/presentation/pop_single_clip_screen.dart`, `app/lib/features/profile/presentation/view_profile_screen.dart`, `app/lib/features/root/presentation/root_shell.dart`
+- test ใหม่: `app/test/follow_list_screen_test.dart`, `app/test/view_profile_screen_test.dart`, `app/test/support/recording_follow_repository.dart`, `app/test/support/recording_profile_repository.dart`
+- test แก้: `app/test/drop_detail_screen_test.dart`, `app/test/drop_comment_delete_test.dart`, `app/test/drop_comment_like_test.dart`, `app/test/pop_feed_screen_test.dart`, `app/test/home_feed_screen_test.dart` (ทุกไฟล์อัปเดต constructor call ให้ส่ง `followRepository` เข้าไปด้วย)
+
+Reason: implement ตาม Product spec + Design spec ของ WYN-008 ครบตามขอบเขต — Follow ใช้ระบบเดียวกันจริงทั้ง Drop/Pop (พิสูจน์ด้วย regression test), self-follow กันสองชั้น (UI ซ่อนปุ่ม + DB CHECK constraint), ปุ่ม Follow โหลดสถานะจริงก่อนแสดงผลเสมอ (ไม่ default false แบบที่ WYN-006 เคยทำ), Followers/Following list+count ทำงานจริงในรอบนี้ตามที่ Product ตัดสินใจ (ไม่รอ WYN-013)
+
+Tests:
+- `flutter analyze`: No issues found
+- `flutter test`: 95/95 ผ่านทั้งหมด (เพิ่มจาก 83 — เทสต์ใหม่ 12 เคส: Follow double-tap safety ทั้ง Drop และ Pop context, self-follow UI guard ทั้งสองฝั่ง, `FollowListScreen` แสดงรายชื่อ/empty state ถูกต้องตาม mode/ไม่มี ripple, `ViewProfileScreen` แสดงจำนวนถูกต้องและ tap เปิด list ตาม mode ถูกต้อง)
+- **พบและแก้ gap เอง 2 จุดก่อนส่ง QA** (นอกเหนือจากที่ Design ระบุไว้แล้ว): (1) `IndexedStack` sync gap ของ `ViewProfileScreen` ตามที่อธิบายไว้ใน Implementation ด้านบน (2) ระหว่างเขียนเทสต์ครั้งแรกของ "shows a Follow button for another user's Drop but not for the current user's own Drop" ใช้ `tester.pumpWidget()` สองครั้งในเทสต์เดียวกันเพื่อเปลี่ยน Drop แล้วคาดหวังว่า state จะรีเซ็ต — พบว่า Flutter ไม่เรียก `initState()` ซ้ำเมื่อ widget type เดิมถูก pump ทับที่ตำแหน่งเดิมในทรี (เรียก `didUpdateWidget` แทน ซึ่ง `DropDetailScreen` ไม่ได้ override) ทำให้ `_drop`/`_isFollowing` ค้างค่าเดิมข้ามการ pump ครั้งที่สอง เป็น testing gotcha ไม่ใช่บั๊กจริงของแอป แก้ด้วยการแยกเป็น 2 `testWidgets` block แยกกัน (แต่ละ block ได้ element tree ใหม่จริง) — บันทึกเป็น pattern ใหม่ใน `.wyn/learning/PATTERNS.md`
+
+Known Issues:
+- Followers/Following list แตะรายชื่อแล้วยังไปไหนไม่ได้ตามที่ Product/Design ตั้งใจไว้แล้ว (รอ WYN-013 ทำหน้าโปรไฟล์คนอื่น)
+- ยังไม่มี Notification เมื่อถูก Follow (รอ WYN-012)
+- Home ยังไม่กรองตาม Follow (รอ WYN-013 ตามที่ยืนยันไว้แล้ว)
+- `ViewProfileScreen` reload ผ่านการเปลี่ยน key เมื่อเข้าแท็บ Profile ทุกครั้ง (ไม่ใช่ real-time subscription) — ตรงตามที่ Design อนุญาตไว้ ("ไม่ต้อง real-time subscription ในรอบนี้") แต่หมายความว่าจำนวนจะไม่อัปเดตถ้าผู้ใช้ค้างอยู่ที่แท็บ Profile ขณะที่มีคน follow ตัวเองใหม่จากอุปกรณ์อื่น — ยอมรับเป็น known limitation เหมือนกับ WYN-007's tie-breaking pagination caveat
+- ยังไม่ทดสอบกับ Supabase project จริง (รอ infra จาก Founder เหมือนทุก feature ก่อนหน้า) — โดยเฉพาะ query แบบ `profiles!follows_follower_id_fkey`/`profiles!follows_following_id_fkey` ที่พึ่งชื่อ default ของ Postgres foreign key constraint ยังไม่เคยรันจริงกับ Postgres จริงเลย ต้องยืนยันว่าชื่อ constraint ตรงตามที่คาดไว้ (`follows_follower_id_fkey`/`follows_following_id_fkey`) เมื่อมี infra จริง
+
+Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ WYN-008 ก่อนอนุมัติ — เน้นตรวจ: (ก) self-follow ถูกกันจริงทั้ง UI และ DB (ข) double-tap safety ของปุ่ม Follow ทั้ง Drop และ Pop (ค) regression กับ Drop/Pop/Home/Profile เดิม (ต้องยังทำงานปกติหลังเพิ่ม `followRepository` parameter ทุกจุด) (ง) `IndexedStack` reload-on-visit fix ทำงานถูกต้องจริงตามที่อธิบายไว้ (จ) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัด

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../follow/data/follow_repository.dart';
 import '../data/pop.dart';
 import '../data/pop_mute_preference.dart';
 import '../data/pop_repository.dart';
@@ -14,9 +15,14 @@ import 'widgets/pop_clip_view.dart';
 /// lives in PopClipView (extracted for WYN-007 so a single clip can also
 /// be shown standalone from a Home Pop card).
 class PopFeedScreen extends StatefulWidget {
-  const PopFeedScreen({super.key, required this.popRepository});
+  const PopFeedScreen({
+    super.key,
+    required this.popRepository,
+    required this.followRepository,
+  });
 
   final PopRepository popRepository;
+  final FollowRepository followRepository;
 
   @override
   State<PopFeedScreen> createState() => _PopFeedScreenState();
@@ -180,6 +186,7 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
           key: ValueKey(pop.id),
           initialPop: pop,
           popRepository: widget.popRepository,
+          followRepository: widget.followRepository,
           isActive: index == _currentIndex,
           muted: _muted,
           onMutedToggle: _toggleMuted,

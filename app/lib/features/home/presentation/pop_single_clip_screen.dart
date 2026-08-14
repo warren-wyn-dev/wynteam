@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../follow/data/follow_repository.dart';
 import '../../pop/data/pop.dart';
 import '../../pop/data/pop_mute_preference.dart';
 import '../../pop/data/pop_repository.dart';
@@ -16,10 +17,12 @@ class PopSingleClipScreen extends StatefulWidget {
     super.key,
     required this.pop,
     required this.popRepository,
+    required this.followRepository,
   });
 
   final Pop pop;
   final PopRepository popRepository;
+  final FollowRepository followRepository;
 
   @override
   State<PopSingleClipScreen> createState() => _PopSingleClipScreenState();
@@ -63,6 +66,7 @@ class _PopSingleClipScreenState extends State<PopSingleClipScreen> {
               : PopClipView(
                   initialPop: widget.pop,
                   popRepository: widget.popRepository,
+                  followRepository: widget.followRepository,
                   isActive: true,
                   muted: _muted,
                   onMutedToggle: _toggleMuted,

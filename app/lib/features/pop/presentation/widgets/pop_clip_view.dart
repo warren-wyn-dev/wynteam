@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../follow/data/follow_repository.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/pop.dart';
 import '../../data/pop_repository.dart';
@@ -28,6 +29,7 @@ class PopClipView extends StatefulWidget {
     super.key,
     required this.initialPop,
     required this.popRepository,
+    required this.followRepository,
     required this.isActive,
     required this.muted,
     required this.onMutedToggle,
@@ -38,6 +40,7 @@ class PopClipView extends StatefulWidget {
   /// Only read once, in initState -- see _PopClipViewState._pop for why.
   final Pop initialPop;
   final PopRepository popRepository;
+  final FollowRepository followRepository;
   final bool isActive;
   final bool muted;
   final VoidCallback onMutedToggle;
@@ -64,13 +67,48 @@ class _PopClipViewState extends State<PopClipView> {
   VideoPlayerController? _controller;
   bool _initError = false;
   bool _viewRecorded = false;
-  bool _isFollowing = false; // UI-only for now -- see WYN-008.
+
+  // Whether the *current viewer* follows the Pop's author -- null until
+  // the real status has loaded from the backend. See
+  // DropDetailScreen._isFollowing (WYN-008) for why this stays hidden
+  // rather than defaulting to false.
+  bool? _isFollowing;
 
   @override
   void initState() {
     super.initState();
     _pop = widget.initialPop;
     if (widget.isActive) _initController();
+    if (_pop.authorId != Supabase.instance.client.auth.currentUser!.id) {
+      _loadFollowStatus();
+    }
+  }
+
+  Future<void> _loadFollowStatus() async {
+    try {
+      final isFollowing =
+          await widget.followRepository.isFollowing(userId: _pop.authorId);
+      if (!mounted) return;
+      setState(() => _isFollowing = isFollowing);
+    } catch (_) {
+      // Leave _isFollowing null -- the button stays hidden rather than
+      // showing a possibly-wrong state.
+    }
+  }
+
+  Future<void> _toggleFollow() async {
+    final previous = _isFollowing;
+    if (previous == null) return;
+    setState(() => _isFollowing = !previous);
+    try {
+      await widget.followRepository.toggleFollow(
+        userId: _pop.authorId,
+        currentlyFollowing: previous,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isFollowing = previous);
+    }
   }
 
   @override
@@ -322,22 +360,24 @@ class _PopClipViewState extends State<PopClipView> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (!isOwnPop) ...[
+                  if (!isOwnPop && _isFollowing != null) ...[
                     const SizedBox(width: 8),
-                    // UI-only for now -- not wired to a real Follow
-                    // backend until WYN-008 ships. See
-                    // .wyn/docs/design/wyn-006-pop.md, Design Rules.
-                    SizedBox(
-                      height: 28,
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white70),
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                    Semantics(
+                      label: _isFollowing!
+                          ? 'กำลังติดตาม กดเพื่อเลิกติดตาม'
+                          : 'กดเพื่อติดตาม',
+                      excludeSemantics: true,
+                      child: SizedBox(
+                        height: 28,
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white70),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                          ),
+                          onPressed: _toggleFollow,
+                          child: Text(_isFollowing! ? 'กำลังติดตาม' : 'ติดตาม'),
                         ),
-                        onPressed: () =>
-                            setState(() => _isFollowing = !_isFollowing),
-                        child: Text(_isFollowing ? 'กำลังติดตาม' : 'ติดตาม'),
                       ),
                     ),
                   ],
