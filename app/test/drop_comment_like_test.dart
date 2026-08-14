@@ -4,10 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/data/drop_comment.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
+import 'package:wyn/features/profile/data/profile.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
+import 'support/recording_pop_repository.dart';
+import 'support/recording_profile_repository.dart';
+import 'support/recording_saved_repository.dart';
 
 void main() {
   // RecordingDropRepository constructs a SupabaseClient, which starts a
@@ -18,6 +22,9 @@ void main() {
   // pattern.
   late RecordingDropRepository repo;
   late RecordingFollowRepository followRepo;
+  late RecordingPopRepository popRepo;
+  late RecordingProfileRepository profileRepo;
+  late RecordingSavedRepository savedRepo;
   final drop = Drop(
     id: 'd1',
     authorId: 'someone-else',
@@ -44,6 +51,11 @@ void main() {
     await initFakeSupabaseSession(userId: 'me');
     repo = RecordingDropRepository(comments: [comment]);
     followRepo = RecordingFollowRepository();
+    popRepo = RecordingPopRepository();
+    profileRepo = RecordingProfileRepository(
+      profile: const Profile(id: 'someone-else', username: 'namfah'),
+    );
+    savedRepo = RecordingSavedRepository();
   });
 
   testWidgets(
@@ -51,7 +63,7 @@ void main() {
       'value each time instead of reusing the stale pre-tap state',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: DropDetailScreen(dropRepository: repo, followRepository: followRepo, drop: drop),
+      home: DropDetailScreen(dropRepository: repo, followRepository: followRepo, profileRepository: profileRepo, popRepository: popRepo, savedRepository: savedRepo, drop: drop),
     ));
     await tester.pumpAndSettle();
     tester.takeException();

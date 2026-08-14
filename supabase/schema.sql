@@ -636,3 +636,61 @@ create policy "Users can remove their own follows"
   for delete
   to authenticated
   using (auth.uid() = follower_id);
+
+-- WYN-013 (Profile V2) -- unifies a user's saved Drop/Pop into one
+-- chronologically-orderable result set, sorted by *when it was saved*
+-- (saves.created_at), not when the content itself was posted. Mirrors
+-- home_feed's UNION ALL approach (WYN-007) for the same reason: naive
+-- client-side merging of two paginated queries breaks pagination
+-- correctness across multiple pages. security_invoker = true matters
+-- here specifically -- saves.select is already restricted to
+-- auth.uid() = user_id, and the view must keep enforcing that (a
+-- user's Saved tab must never be visible to anyone else), not run with
+-- the view owner's RLS-bypassing privileges.
+create or replace view public.saved_feed
+  with (security_invoker = true) as
+select
+  s.user_id,
+  s.created_at as saved_at,
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  d.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  null::bigint as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count
+from public.saves s
+join public.drops d on d.id = s.content_id and s.content_type = 'drop'
+join public.profiles prof on prof.id = d.author_id
+union all
+select
+  s.user_id,
+  s.created_at as saved_at,
+  p.id,
+  'pop'::text as content_type,
+  p.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  p.created_at,
+  p.caption,
+  null::text as image_url,
+  p.video_url,
+  p.thumbnail_url,
+  p.duration_seconds,
+  p.view_count,
+  (select count(*) from public.pop_likes where pop_id = p.id) as like_count,
+  (select count(*) from public.pop_comments where pop_id = p.id) as comment_count
+from public.saves s
+join public.pops p on p.id = s.content_id and s.content_type = 'pop'
+join public.profiles prof on prof.id = p.author_id;
+
+grant select on public.saved_feed to authenticated;

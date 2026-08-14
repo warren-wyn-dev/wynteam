@@ -35,6 +35,17 @@ class RecordingPopRepository extends PopRepository {
     return page == 0 ? feedPops : <Pop>[];
   }
 
+  /// Returned by [fetchByAuthor] for page 0 only, filtered by [authorId]
+  /// against [feedPops] (unlike [fetchFeed], which ignores authorship).
+  @override
+  Future<List<Pop>> fetchByAuthor({
+    required String authorId,
+    required int page,
+  }) async {
+    if (page != 0) return [];
+    return feedPops.where((p) => p.authorId == authorId).toList();
+  }
+
   @override
   Future<void> createPop({
     required Uint8List videoBytes,

@@ -1,26 +1,38 @@
 import 'package:flutter/material.dart';
 
+import '../../drop/data/drop_repository.dart';
+import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile.dart';
+import '../../profile/data/profile_repository.dart';
+import '../../profile/presentation/view_profile_screen.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
+import '../../saved/data/saved_repository.dart';
 import '../data/follow_repository.dart';
 
 enum FollowListMode { followers, following }
 
 /// Screen 3 — Followers / Following list. One screen, mode parameter
 /// (not two files) since the structure/state is identical, only the
-/// query and title differ. Rows deliberately have no tap
-/// affordance/ripple: there's no destination screen this round (other
-/// users' profiles are WYN-013 scope). See
-/// .wyn/docs/design/wyn-008-follow.md, Screen 3.
+/// query and title differ. Rows open the tapped user's profile (WYN-013)
+/// -- originally left non-tappable in WYN-008 because no destination
+/// screen existed yet.
 class FollowListScreen extends StatefulWidget {
   const FollowListScreen({
     super.key,
     required this.followRepository,
+    required this.profileRepository,
+    required this.dropRepository,
+    required this.popRepository,
+    required this.savedRepository,
     required this.userId,
     required this.mode,
   });
 
   final FollowRepository followRepository;
+  final ProfileRepository profileRepository;
+  final DropRepository dropRepository;
+  final PopRepository popRepository;
+  final SavedRepository savedRepository;
   final String userId;
   final FollowListMode mode;
 
@@ -48,6 +60,21 @@ class _FollowListScreenState extends State<FollowListScreen> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _openProfile(Profile profile) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ViewProfileScreen(
+          profileRepository: widget.profileRepository,
+          followRepository: widget.followRepository,
+          dropRepository: widget.dropRepository,
+          popRepository: widget.popRepository,
+          savedRepository: widget.savedRepository,
+          userId: profile.id,
+        ),
+      ),
+    );
   }
 
   Future<List<Profile>> _fetchPage(int page) {
@@ -166,35 +193,41 @@ class _FollowListScreenState extends State<FollowListScreen> {
 
           final profile = _profiles[index];
           return Semantics(
-            label: 'ผู้ใช้ ${profile.nameOrUsername} ยูสเซอร์เนม ${profile.username}',
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  AvatarCircle(
-                    imageUrl: profile.avatarUrl,
-                    fallbackText: profile.username,
-                    radius: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          profile.nameOrUsername,
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                        Text(
-                          '@${profile.username}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.outline,
-                              ),
-                        ),
-                      ],
+            label:
+                'ผู้ใช้ ${profile.nameOrUsername} ยูสเซอร์เนม ${profile.username} กดเพื่อดูโปรไฟล์',
+            button: true,
+            excludeSemantics: true,
+            child: InkWell(
+              onTap: () => _openProfile(profile),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    AvatarCircle(
+                      imageUrl: profile.avatarUrl,
+                      fallbackText: profile.username,
+                      radius: 20,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            profile.nameOrUsername,
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          Text(
+                            '@${profile.username}',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.outline,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );

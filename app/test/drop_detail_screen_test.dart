@@ -3,10 +3,15 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
+import 'package:wyn/features/profile/data/profile.dart';
+import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
+import 'support/recording_pop_repository.dart';
+import 'support/recording_profile_repository.dart';
+import 'support/recording_saved_repository.dart';
 
 void main() {
   // DropDetailScreen reads Supabase.instance.client.auth.currentUser
@@ -15,19 +20,35 @@ void main() {
   // .wyn/learning/PATTERNS.md.
   late RecordingDropRepository repo;
   late RecordingFollowRepository followRepo;
+  late RecordingPopRepository popRepo;
+  late RecordingProfileRepository profileRepo;
+  late RecordingSavedRepository savedRepo;
   late RecordingDropRepository ownDropRepo;
   late RecordingFollowRepository ownDropFollowRepo;
   late RecordingDropRepository followToggleTestDropRepo;
   late RecordingFollowRepository followToggleTestFollowRepo;
+  late RecordingDropRepository tapProfileTestDropRepo;
+  late RecordingFollowRepository tapProfileTestFollowRepo;
+  late RecordingProfileRepository tapProfileTestProfileRepo;
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
     repo = RecordingDropRepository();
     followRepo = RecordingFollowRepository();
+    popRepo = RecordingPopRepository();
+    profileRepo = RecordingProfileRepository(
+      profile: const Profile(id: 'someone-else', username: 'namfah'),
+    );
+    savedRepo = RecordingSavedRepository();
     ownDropRepo = RecordingDropRepository();
     ownDropFollowRepo = RecordingFollowRepository();
     followToggleTestDropRepo = RecordingDropRepository();
     followToggleTestFollowRepo =
         RecordingFollowRepository(initiallyFollowing: false);
+    tapProfileTestDropRepo = RecordingDropRepository();
+    tapProfileTestFollowRepo = RecordingFollowRepository();
+    tapProfileTestProfileRepo = RecordingProfileRepository(
+      profile: const Profile(id: 'someone-else', username: 'namfah'),
+    );
   });
 
   final tallDrop = Drop(
@@ -52,7 +73,7 @@ void main() {
     // (.wyn/docs/design/wyn-005-drop.md) called out building it that way
     // from the start, so this test exists to prove it actually was.
     await tester.pumpWidget(MaterialApp(
-      home: DropDetailScreen(dropRepository: repo, followRepository: followRepo, drop: tallDrop),
+      home: DropDetailScreen(dropRepository: repo, followRepository: followRepo, profileRepository: profileRepo, popRepository: popRepo, savedRepository: savedRepo, drop: tallDrop),
     ));
     // fetchComments() fails against the fake network, and the image
     // fails to load -- both expected, neither is what this test checks.
@@ -78,7 +99,7 @@ void main() {
     );
 
     await tester.pumpWidget(MaterialApp(
-      home: DropDetailScreen(dropRepository: repo, followRepository: followRepo, drop: drop),
+      home: DropDetailScreen(dropRepository: repo, followRepository: followRepo, profileRepository: profileRepo, popRepository: popRepo, savedRepository: savedRepo, drop: drop),
     ));
     await tester.pump();
     // No real network access in the test environment -- expected and
@@ -120,6 +141,9 @@ void main() {
       home: DropDetailScreen(
         dropRepository: repo,
         followRepository: followRepo,
+        profileRepository: profileRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
         drop: otherDrop,
       ),
     ));
@@ -147,6 +171,9 @@ void main() {
       home: DropDetailScreen(
         dropRepository: ownDropRepo,
         followRepository: ownDropFollowRepo,
+        profileRepository: profileRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
         drop: ownDrop,
       ),
     ));
@@ -176,6 +203,9 @@ void main() {
       home: DropDetailScreen(
         dropRepository: followToggleTestDropRepo,
         followRepository: followToggleTestFollowRepo,
+        profileRepository: profileRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
         drop: drop,
       ),
     ));
@@ -195,5 +225,45 @@ void main() {
       followToggleTestFollowRepo.toggleFollowCurrentlyFollowingArgs,
       [false, true],
     );
+  });
+
+  testWidgets(
+      'tapping the avatar/name opens the author\'s profile, without also '
+      'toggling Follow (WYN-013)', (tester) async {
+    final drop = Drop(
+      id: 'd6',
+      authorId: 'someone-else',
+      authorUsername: 'namfah',
+      imageUrl: 'https://example.supabase.co/drops/d6.jpg',
+      createdAt: DateTime.now(),
+      likeCount: 0,
+      commentCount: 0,
+      likedByMe: false,
+      savedByMe: false,
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: DropDetailScreen(
+        dropRepository: tapProfileTestDropRepo,
+        followRepository: tapProfileTestFollowRepo,
+        profileRepository: tapProfileTestProfileRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
+        drop: drop,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    final nameFinder = find.text('@namfah');
+    await tester.ensureVisible(nameFinder);
+    await tester.pumpAndSettle();
+    tester.takeException();
+    await tester.tap(nameFinder);
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.byType(ViewProfileScreen), findsOneWidget);
+    expect(tapProfileTestFollowRepo.toggleFollowCalls, 0);
   });
 }

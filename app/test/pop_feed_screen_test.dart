@@ -5,11 +5,16 @@ import 'package:video_player_platform_interface/video_player_platform_interface.
 
 import 'package:wyn/features/pop/data/pop.dart';
 import 'package:wyn/features/pop/presentation/pop_feed_screen.dart';
+import 'package:wyn/features/profile/data/profile.dart';
+import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/fake_video_player_platform.dart';
+import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
 import 'support/recording_pop_repository.dart';
+import 'support/recording_profile_repository.dart';
+import 'support/recording_saved_repository.dart';
 
 Pop _pop({
   String id = 'p1',
@@ -47,6 +52,10 @@ void main() {
   late RecordingFollowRepository followRepo;
   late RecordingFollowRepository followToggleTestFollowRepo;
   late RecordingPopRepository followToggleTestPopRepo;
+  late RecordingProfileRepository profileRepo;
+  late RecordingDropRepository dropRepo;
+  late RecordingSavedRepository savedRepo;
+  late RecordingPopRepository tapProfileTestPopRepo;
   late FakeVideoPlayerPlatform fakeVideoPlatform;
 
   setUpAll(() async {
@@ -71,17 +80,33 @@ void main() {
     );
     followToggleTestFollowRepo =
         RecordingFollowRepository(initiallyFollowing: false);
+    profileRepo = RecordingProfileRepository(
+      profile: const Profile(id: 'someone-else', username: 'namfah'),
+    );
+    dropRepo = RecordingDropRepository();
+    savedRepo = RecordingSavedRepository();
+    tapProfileTestPopRepo = RecordingPopRepository(
+      feedPops: [_pop(id: 'p5', authorId: 'someone-else')],
+    );
   });
 
   setUp(() {
     fakeVideoPlatform.setVolumeCalls.clear();
   });
 
+  Widget buildPop(RecordingPopRepository popRepository) => MaterialApp(
+        home: PopFeedScreen(
+          popRepository: popRepository,
+          followRepository: followRepo,
+          dropRepository: dropRepo,
+          profileRepository: profileRepo,
+          savedRepository: savedRepo,
+        ),
+      );
+
   testWidgets('the current clip initializes, plays, and records a view once',
       (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: PopFeedScreen(popRepository: otherUserPopRepo, followRepository: followRepo),
-    ));
+    await tester.pumpWidget(buildPop(otherUserPopRepo));
     await tester.pumpAndSettle();
 
     // No error state -- the fake platform's initialized event went
@@ -95,9 +120,7 @@ void main() {
 
   testWidgets('shows a delete button only for the current user\'s own Pop',
       (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: PopFeedScreen(popRepository: ownPopRepo, followRepository: followRepo),
-    ));
+    await tester.pumpWidget(buildPop(ownPopRepo));
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.delete_outline), findsOneWidget);
@@ -107,9 +130,7 @@ void main() {
 
   testWidgets('hides the delete button and shows Follow for another user\'s Pop',
       (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: PopFeedScreen(popRepository: otherUserPopRepo, followRepository: followRepo),
-    ));
+    await tester.pumpWidget(buildPop(otherUserPopRepo));
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.delete_outline), findsNothing);
@@ -119,9 +140,7 @@ void main() {
   testWidgets(
       'rapid double-tap on Like sends a fresh currentlyLiked value each '
       'time instead of reusing the stale pre-tap state', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: PopFeedScreen(popRepository: likeTestRepo, followRepository: followRepo),
-    ));
+    await tester.pumpWidget(buildPop(likeTestRepo));
     await tester.pumpAndSettle();
 
     final likeButton = find.widgetWithIcon(IconButton, Icons.favorite_border);
@@ -143,6 +162,9 @@ void main() {
       home: PopFeedScreen(
         popRepository: followToggleTestPopRepo,
         followRepository: followToggleTestFollowRepo,
+        dropRepository: dropRepo,
+        profileRepository: profileRepo,
+        savedRepository: savedRepo,
       ),
     ));
     await tester.pumpAndSettle();
@@ -162,11 +184,21 @@ void main() {
     );
   });
 
+  testWidgets(
+      'tapping the avatar/name opens the author\'s profile, without also '
+      'toggling Follow (WYN-013)', (tester) async {
+    await tester.pumpWidget(buildPop(tapProfileTestPopRepo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('@namfah'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ViewProfileScreen), findsOneWidget);
+  });
+
   testWidgets('toggling mute calls setVolume(0) then setVolume(1)',
       (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: PopFeedScreen(popRepository: muteTestRepo, followRepository: followRepo),
-    ));
+    await tester.pumpWidget(buildPop(muteTestRepo));
     await tester.pumpAndSettle();
 
     // Sound starts on (unmuted) the very first time, per design --

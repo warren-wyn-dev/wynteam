@@ -33,6 +33,17 @@ class RecordingDropRepository extends DropRepository {
     return page == 0 ? feedDrops : <Drop>[];
   }
 
+  /// Returned by [fetchByAuthor] for page 0 only, filtered by [authorId]
+  /// against [feedDrops] (unlike [fetchFeed], which ignores authorship).
+  @override
+  Future<List<Drop>> fetchByAuthor({
+    required String authorId,
+    required int page,
+  }) async {
+    if (page != 0) return [];
+    return feedDrops.where((d) => d.authorId == authorId).toList();
+  }
+
   @override
   Future<void> createDrop({
     required Uint8List imageBytes,
