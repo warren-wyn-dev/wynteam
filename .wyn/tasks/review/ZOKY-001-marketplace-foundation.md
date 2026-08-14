@@ -1,7 +1,7 @@
 # Product Task — ZOKY-001
 
-Status: active (Design เสร็จแล้ว รอ Coding)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (รอ)
+Status: review (รอ QA)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (รอ)
 
 Feature: ZOKY Marketplace Foundation — ZOKY Bottom Nav tab, ZOKY Home (browse), Product Detail (view), Store page (view)
 
@@ -66,3 +66,41 @@ Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบ
 เขียนเสร็จแล้วที่ `.wyn/docs/design/zoky-001-marketplace-foundation.md` — สรุป: 4 หน้าจอ/ส่วน (Bottom Nav tab ที่ 5, ZOKY Home, Product Detail, Store) ต่อยอดจาก component เดิมเกือบทั้งหมด — จุดใหม่ที่ต้องสร้างจริงมีแค่ `ProductMiniCard`/`StoreMiniCard`/`ProductGridTile` (มิเรอร์โครงจาก `ClubMiniCard`/`PopGridTile` ตรง ๆ) — ZOKY tab ใช้ `Icons.storefront_outlined` ต่อท้าย 4 tab เดิมไม่แทรกกลาง — ZOKY Home มีครบทุก section ตาม Product spec แต่ "แนะนำสำหรับคุณ"/"ขายดี" เป็น label + "เร็ว ๆ นี้" (ไม่ซ่อน section ต่างจาก pattern ของ WYN-015 เพราะทุกคนจะว่างเหมือนกันหมดตอนนี้ ซ่อนไปเลยจะดูเหมือนฟีเจอร์หายไป) — ปุ่มที่ยังไม่ทำงานจริงทั้งหมด (Search/Cart/Orders/Category tap/Add to Cart/ซื้อเลย/ติดตามร้าน) ต้องแสดงผลเสมอ+`SnackBar` "เร็ว ๆ นี้" ยกเว้น "แชทกับร้านค้า" ที่**ไม่แสดงเลย**เพราะไม่มี concept แชทในแอปให้สื่อสารอย่างมีความหมาย — เตือน Coding 1 จุดเสี่ยง: ตาราง `categories`/`stores`/`products`/`product_variants` ใหม่ต้อง RLS select-all-authenticated แต่**ห้ามมี insert/update/delete policy ให้ client เลยรอบนี้** (ไม่มี Seller workflow ตัดสินใจสิทธิ์จนกว่าจะถึง Phase 4)
 
 Handoff: ส่งต่อ AI Coding (`/code`)
+
+---
+
+## Coding Output (AI Coding)
+
+Implementation:
+- Database (`supabase/schema.sql`): เพิ่มตาราง `categories` (seed ค่าคงที่ 9 หมวดหมู่ผ่าน `insert ... on conflict do nothing` ตรงใน schema เพราะเป็นชุดค่าตายตัวเหมือน enum แต่ต้องเป็น FK table จริงให้ `products.category_id` อ้างอิงได้), `stores`, `products` (มี CHECK ครบ: ราคาไม่ติดลบ, original_price ≥ price, stock ไม่ติดลบ, image_urls อย่างน้อย 1 รูป), `product_variants` (variant_type จำกัดแค่ `'color'/'size'` ตาม scope, unique constraint กัน variant ซ้ำ) — ทุกตาราง RLS แค่ select-all-authenticated (`using (true)`) เหมือน `clubs`/`drops`/`pops` **ไม่มี insert/update/delete policy ให้ client เลย** ตรงตามที่ Design เตือนไว้ (Seller workflow เป็น Phase 4 ในอนาคต)
+- Models: `Category`, `Store` (join กับ product count แบบเดียวกับ `Club.memberCount`), `Product` (join ชื่อ store/category ผ่าน embed เดียว ไม่ต้อง 2-hop), `ProductVariant`, และ `ZokyRepository` (fetchCategories/fetchStore/fetchRecommendedStores/fetchProduct/fetchNewProducts/fetchProducts-paginated/fetchStoreProducts/fetchProductVariants)
+- Navigation (`RootShell`): เพิ่ม `ZokyHomeScreen` เป็น tab ที่ 5 (index 4, **หลัง** Profile ไม่ใช่ก่อน — แก้ไขจากที่ทำผิดลำดับตอนแรกที่แทรกไว้ก่อน Profile) เพิ่ม `NavigationDestination` ใหม่ 1 อัน (`Icons.storefront_outlined`) 4 tab เดิมไม่ถูกแก้แม้แต่บรรทัดเดียว
+- UI: `ZokyHomeScreen` (search/cart/orders placeholder, category chips จาก `fetchCategories`, banner คงที่, 2 section "เร็ว ๆ นี้", New Products+Recommended Stores เป็น horizontal `ProductMiniCard`/`StoreMiniCard` list, main grid เป็น `CustomScrollView`+`SliverGrid` infinite-scroll ของ `ProductGridTile`), `ProductDetailScreen` (carousel มิเรอร์ `ClubPostImages`, ราคา+ส่วนลด, variant chips preview-only ต่อ type, รีวิวว่างเปล่าเสมอเพราะยังไม่มีระบบ Review, การ์ดร้านค้าเปิด `StoreScreen`, action bar คงที่ด้านล่างมี Add to Cart/Buy Now), `StoreScreen` (header มิเรอร์ `ViewProfileScreen`, ปุ่มติดตามร้าน placeholder, TabBar 2 แท็บ สินค้า/รีวิว ไม่มีปุ่ม Chat Seller เลยตามที่ Design ระบุ) — widget ใหม่ 4 ตัว: `ProductMiniCard`/`StoreMiniCard` (มิเรอร์ `ClubMiniCard`), `ProductGridTile` (มิเรอร์ `PopGridTile` แต่ badge เป็นราคาแทน duration), `ProductImages` (มิเรอร์ `ClubPostImages`) — เพิ่ม `thaiBahtLabel()` helper ใน `core/text_utils.dart` (thousand separator, ตัดทศนิยมถ้าเป็นจำนวนเต็ม) — ปุ่ม placeholder ทั้งหมดใช้ constant เดียว `zokyComingSoonMessage` (reuse ข้อความ "ฟีเจอร์นี้จะมาเร็ว ๆ นี้" ที่ `ClubPage` ใช้อยู่แล้ว ไม่ประดิษฐ์คำใหม่)
+
+Gaps ที่ Coding พบและแก้เองก่อนส่ง QA:
+1. **`RootShell` แทรก ZOKY ผิดตำแหน่ง**: ใส่ไว้ก่อน `ViewProfileScreen` ตอนแรก (กลายเป็น index 3 แทน Profile) ทั้งที่ Design spec ระบุชัดว่า "ตำแหน่งที่ 5, index 4" (หลัง Profile) — จับได้เองระหว่างเขียนโค้ดก่อนรัน test แก้ทันที
+2. **`FutureBuilder<Store?>.hasData` bug จริงใน `StoreScreen`**: `AsyncSnapshot.hasData` นิยามเป็น `data != null` ไม่ใช่ตรวจ connection state — เมื่อ future resolve เป็น `null` จริง (ร้านไม่พบ) `hasData` จะเป็น false ตลอดไป ทำให้ `CircularProgressIndicator` หมุนไม่จบ (animation ทำให้ `pumpAndSettle()` timeout ค้างตลอดกาล) พบตอนเขียน widget test เอง แก้โดยเช็ค `snapshot.connectionState != ConnectionState.done` แทน — ยืนยันด้วย red→green regression proof แยกต่างหาก (ดู Tests)
+3. **`ProductGridTile` ไม่โชว์ชื่อสินค้าเป็น text ที่กดได้** (ตั้งใจตาม Design — badge ราคาเท่านั้น ชื่อเป็น Semantics-only) — แก้ test ที่เขียนผิดสมมติฐานตอนแรก (พยายาม `find.text(productName)` แทนที่จะ `find.byType(ProductGridTile)`) ไม่ใช่บั๊ก production
+4. **Test viewport (800×600) กับภาพ 1:1 ที่ด้านบนหน้า Product Detail**: `AspectRatio(1)` ทำให้รูปสูง ~800px เกิน viewport ทั้งหมด ทำให้เนื้อหาด้านล่าง (ราคา/ชื่อ/variant/ร้านค้า) ไม่ถูกสร้างเข้า element tree จนกว่าจะ scroll เข้าใกล้ (lazy sliver child inflation) — แก้ด้วย `tester.scrollUntilVisible` เหมือน pattern ที่ established ไว้แล้วใน `drop_detail_screen_test.dart`/`drop_comment_delete_test.dart` (ดู `.wyn/learning/PATTERNS.md`) และเจอเพิ่มว่า `scrollUntilVisible`'s minimal-movement บางครั้งหยุดที่ขอบพอดีจนกดไม่แม่น ต้อง drag เพิ่มอีกเล็กน้อยหลังจากนั้น
+
+Files Changed:
+- `supabase/schema.sql` (ตารางใหม่ 4 ตัว + RLS + seed categories)
+- ใหม่: `app/lib/features/zoky/data/{category,store,product,product_variant,zoky_repository}.dart`, `app/lib/features/zoky/presentation/{zoky_home_screen,product_detail_screen,store_screen,zoky_strings}.dart`, `app/lib/features/zoky/presentation/widgets/{product_mini_card,store_mini_card,product_grid_tile,product_images}.dart`
+- แก้: `app/lib/features/root/presentation/root_shell.dart` (tab ที่ 5), `app/lib/core/text_utils.dart` (เพิ่ม `thaiBahtLabel`)
+- test ใหม่: `app/test/{zoky_home_screen_test,product_detail_screen_test,store_screen_test,text_utils_test}.dart`, `app/test/support/recording_zoky_repository.dart`
+
+Reason: implement ตาม Product spec + Design spec ของ ZOKY-001 ครบตามขอบเขต Browse-only — เชื่อม ZOKY เข้ากับ Bottom Nav โดยไม่แตะ 4 tab เดิม reuse component เดิมของ WYN Social ให้มากที่สุดตามที่ Design กำหนด (มีแค่ 4 widget ใหม่จริง ๆ)
+
+Tests:
+- `flutter analyze`: No issues found
+- `flutter test`: 191/191 ผ่านทั้งหมด (เพิ่มจาก 162 เดิม — 29 เทสต์ใหม่: 12 ใน `zoky_home_screen_test.dart`, 9 ใน `product_detail_screen_test.dart`, 8 ใน `store_screen_test.dart` (รวมยืนยันว่าไม่มีปุ่ม Chat Seller เลย), 5 ใน `text_utils_test.dart` สำหรับ `thaiBahtLabel`)
+- **ทำ red→green regression proof จริง 1 จุด** (Gap #2 ข้างต้น): เปลี่ยน `StoreScreen`'s check กลับเป็น `if (!snapshot.hasData)` ชั่วคราว → รัน `store_screen_test.dart --plain-name "shows \"ไม่พบร้านค้านี้\""` → **FAIL จริง** (`pumpAndSettle timed out` เพราะ spinner หมุนไม่จบ) → revert กลับเป็น `connectionState != ConnectionState.done` → รัน `flutter analyze`/`flutter test` เต็มอีกครั้ง → สะอาด 191/191
+
+Known Issues:
+- Explore/Search ยังไม่มีจริง (Category chip/Search bar เป็น placeholder ทั้งหมด — ผูกจริงที่ ZOKY-002)
+- Add to Cart/Buy Now/ติดตามร้าน แสดงผลแต่ไม่ทำงานจริง (ผูกจริงที่ ZOKY-003 และ task แยกสำหรับ Store Follow data model)
+- "แนะนำสำหรับคุณ"/"ขายดี" เป็น placeholder ล้วน ไม่มีข้อมูลจริงจนกว่าจะมี Order data (ZOKY-003)
+- `fetchPopularClubs`-แบบเดียวกัน: `fetchRecommendedStores`/main grid pagination ยังไม่ scale (แต่ grid ใช้ `.range()` จริงต่างจาก Club's fetch-all-then-sort เพราะไม่ต้อง sort ตาม field ที่ query ไม่ได้)
+- Seller เขียนข้อมูล `stores`/`products` เองไม่ได้จนกว่าจะถึง Phase 4 — ทดสอบ/สาธิตต้อง seed ผ่าน Supabase Studio
+
+Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ ZOKY-001 ก่อนอนุมัติ — เน้นตรวจเป็นพิเศษ: (ก) RLS ของตารางใหม่ทั้ง 4 ไม่มี insert/update/delete policy ใดๆ เปิดให้ client จริง (ข) Bottom Nav 5 tab เรียงลำดับถูกต้อง (Home/Drop/Pop/Profile/ZOKY) และ 4 tab เดิมไม่มี regression (ค) ปุ่ม placeholder ทั้งหมดกดแล้วไม่ crash และไม่มีปุ่ม Chat Seller ปรากฏเลยจริง (ง) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัด (จ) regression กับ WYN Social เดิมทั้งหมด (Home/Drop/Pop/Club/Profile/Search/Notification)

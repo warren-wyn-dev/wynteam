@@ -32,3 +32,21 @@ String relativeTimeLabel(DateTime dateTime, {required DateTime now}) {
   if (diff.inDays < 7) return '${diff.inDays} วันที่แล้ว';
   return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
 }
+
+/// A Thai Baht price label with thousand separators ("฿1,000" or
+/// "฿1,299.50") -- introduced for ZOKY-001's product cards/detail page.
+/// Drops the decimal part entirely when it's a whole number rather than
+/// always showing ".00", since most seed/demo prices are round numbers.
+String thaiBahtLabel(double price) {
+  final isWhole = price == price.roundToDouble();
+  final fixed = price.toStringAsFixed(isWhole ? 0 : 2);
+  final parts = fixed.split('.');
+  final digits = parts[0];
+  final buffer = StringBuffer();
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 == 0) buffer.write(',');
+    buffer.write(digits[i]);
+  }
+  final wholePart = buffer.toString();
+  return parts.length > 1 ? '฿$wholePart.${parts[1]}' : '฿$wholePart';
+}
