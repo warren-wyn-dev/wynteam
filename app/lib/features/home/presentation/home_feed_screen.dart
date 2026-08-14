@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/drop_detail_screen.dart';
 import '../../follow/data/follow_repository.dart';
+import '../../notification/data/notification_repository.dart';
+import '../../notification/presentation/notification_list_screen.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
@@ -25,6 +27,7 @@ class HomeFeedScreen extends StatefulWidget {
     required this.followRepository,
     required this.profileRepository,
     required this.savedRepository,
+    required this.notificationRepository,
   });
 
   final HomeRepository homeRepository;
@@ -33,6 +36,7 @@ class HomeFeedScreen extends StatefulWidget {
   final FollowRepository followRepository;
   final ProfileRepository profileRepository;
   final SavedRepository savedRepository;
+  final NotificationRepository notificationRepository;
 
   @override
   State<HomeFeedScreen> createState() => _HomeFeedScreenState();
@@ -46,11 +50,13 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   bool _isLoadingMore = false;
   bool _hasMore = true;
   String? _error;
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
     super.initState();
     _loadInitial();
+    _loadUnreadNotificationCount();
     _scrollController.addListener(_onScroll);
   }
 
@@ -263,13 +269,43 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
+  Future<void> _loadUnreadNotificationCount() async {
+    try {
+      final count = await widget.notificationRepository.countUnread();
+      if (!mounted) return;
+      setState(() => _unreadNotificationCount = count);
+    } catch (_) {
+      // Silent: a failed badge-count fetch just leaves the badge showing
+      // its last known value (or none) -- not worth a blocking error UI
+      // for a number in the corner of an icon.
+    }
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => NotificationListScreen(
+          notificationRepository: widget.notificationRepository,
+          dropRepository: widget.dropRepository,
+          popRepository: widget.popRepository,
+          followRepository: widget.followRepository,
+          profileRepository: widget.profileRepository,
+          savedRepository: widget.savedRepository,
+        ),
+      ),
+    );
+    // NotificationListScreen marks everything as read on open -- refresh
+    // the badge so it reflects that the moment we're back on Home.
+    _loadUnreadNotificationCount();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            _buildSearchBar(context),
+            _buildTopRow(context),
             Expanded(child: _buildBody()),
           ],
         ),
@@ -277,39 +313,91 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
-  Widget _buildSearchBar(BuildContext context) {
+  Widget _buildTopRow(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      child: Semantics(
-        label: 'ค้นหา',
-        button: true,
-        excludeSemantics: true,
-        child: Material(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Row(
+        children: [
+          Expanded(child: _buildSearchBar(context)),
+          const SizedBox(width: 8),
+          _buildNotificationButton(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar(BuildContext context) {
+    return Semantics(
+      label: 'ค้นหา',
+      button: true,
+      excludeSemantics: true,
+      child: Material(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(24),
+        child: InkWell(
           borderRadius: BorderRadius.circular(24),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(24),
-            onTap: _openSearch,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.search,
+          onTap: _openSearch,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.search,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'ค้นหา',
+                  style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'ค้นหา',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationButton(BuildContext context) {
+    final count = _unreadNotificationCount;
+    final badgeText = count > 9 ? '9+' : '$count';
+
+    return Semantics(
+      label: count > 0 ? 'การแจ้งเตือน มี $count รายการที่ยังไม่อ่าน' : 'การแจ้งเตือน',
+      button: true,
+      excludeSemantics: true,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: _openNotifications,
+          ),
+          if (count > 0)
+            Positioned(
+              right: 4,
+              top: 4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  badgeText,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onPrimary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

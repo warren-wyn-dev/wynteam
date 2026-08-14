@@ -46,6 +46,16 @@ class RecordingDropRepository extends DropRepository {
     return feedDrops.where((d) => d.authorId == authorId).toList();
   }
 
+  /// Looks [dropId] up in [feedDrops]; returns null if not present
+  /// (mirrors the real fetchById's "deleted content" null case).
+  @override
+  Future<Drop?> fetchById(String dropId) async {
+    for (final drop in feedDrops) {
+      if (drop.id == dropId) return drop;
+    }
+    return null;
+  }
+
   /// Returned by [searchByCaption] for page 0 only, filtered by whether
   /// [feedDrops] caption contains [query] (case insensitive) -- same
   /// "reuse feedDrops as the fake dataset" approach as [fetchByAuthor].

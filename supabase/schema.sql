@@ -694,3 +694,174 @@ join public.pops p on p.id = s.content_id and s.content_type = 'pop'
 join public.profiles prof on prof.id = p.author_id;
 
 grant select on public.saved_feed to authenticated;
+
+-- WYN-012 (Notification) -- a real table populated by triggers, not a
+-- derived view like home_feed/saved_feed. Those views work because they
+-- only ever represent "current state of the world" -- nothing to read is
+-- ever mutated per-viewer. A notification is different: it's a historical
+-- record that needs its own durable per-row state (is_read) alongside it,
+-- which a view has nowhere to store. Triggers (rather than having each
+-- Flutter repository insert a notification row itself after the action it
+-- performs) guarantee a notification is created every time the underlying
+-- event happens, regardless of which client code path caused it --
+-- there's no way for a future change to DropRepository/PopRepository/
+-- FollowRepository to forget the notification side-effect, because the
+-- side-effect isn't the client's job at all.
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  recipient_id uuid not null references public.profiles (id) on delete cascade,
+  actor_id uuid not null references public.profiles (id) on delete cascade,
+  type text not null
+    check (type in ('like_drop', 'like_pop', 'comment_drop', 'comment_pop', 'follow')),
+  drop_id uuid references public.drops (id) on delete cascade,
+  pop_id uuid references public.pops (id) on delete cascade,
+  is_read boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+-- Supports both the notification list's own pagination (recipient_id,
+-- created_at) and the unread-count badge query (recipient_id, is_read),
+-- which is called every time Home opens -- see
+-- .wyn/tasks/backlog/WYN-012-notification.md, Risks.
+create index if not exists notifications_recipient_created_idx
+  on public.notifications (recipient_id, created_at desc);
+create index if not exists notifications_recipient_unread_idx
+  on public.notifications (recipient_id, is_read);
+
+alter table public.notifications enable row level security;
+
+-- Private to the recipient only -- same "select is restricted to your
+-- own rows" shape as saves (WYN-005), not select-all-authenticated like
+-- drops/pops/follows.
+create policy "Users can view their own notifications"
+  on public.notifications
+  for select
+  to authenticated
+  using (auth.uid() = recipient_id);
+
+-- The only client-initiated write: mark-all-as-read (WYN-012's Design
+-- spec, Screen 2) flips is_read, nothing else.
+create policy "Users can mark their own notifications as read"
+  on public.notifications
+  for update
+  to authenticated
+  using (auth.uid() = recipient_id)
+  with check (auth.uid() = recipient_id);
+
+-- Deliberately no insert/delete policy for clients -- rows are only ever
+-- created by the security-definer trigger functions below (which bypass
+-- RLS the same way increment_pop_view_count, WYN-006, does) and removed
+-- automatically via on delete cascade when the underlying content/user
+-- is deleted. A client attempting to insert or delete a notification
+-- directly is rejected by RLS since no policy grants it.
+
+create or replace function public.notify_drop_like()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+begin
+  select author_id into v_author_id from public.drops where id = new.drop_id;
+  -- Liking your own Drop is normal and allowed -- it just shouldn't
+  -- notify you about your own action.
+  if v_author_id is not null and v_author_id <> new.user_id then
+    insert into public.notifications (recipient_id, actor_id, type, drop_id)
+    values (v_author_id, new.user_id, 'like_drop', new.drop_id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger drop_likes_notify
+  after insert on public.drop_likes
+  for each row execute function public.notify_drop_like();
+
+create or replace function public.notify_pop_like()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+begin
+  select author_id into v_author_id from public.pops where id = new.pop_id;
+  if v_author_id is not null and v_author_id <> new.user_id then
+    insert into public.notifications (recipient_id, actor_id, type, pop_id)
+    values (v_author_id, new.user_id, 'like_pop', new.pop_id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger pop_likes_notify
+  after insert on public.pop_likes
+  for each row execute function public.notify_pop_like();
+
+create or replace function public.notify_drop_comment()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+begin
+  select author_id into v_author_id from public.drops where id = new.drop_id;
+  if v_author_id is not null and v_author_id <> new.author_id then
+    insert into public.notifications (recipient_id, actor_id, type, drop_id)
+    values (v_author_id, new.author_id, 'comment_drop', new.drop_id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger drop_comments_notify
+  after insert on public.drop_comments
+  for each row execute function public.notify_drop_comment();
+
+create or replace function public.notify_pop_comment()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+begin
+  select author_id into v_author_id from public.pops where id = new.pop_id;
+  if v_author_id is not null and v_author_id <> new.author_id then
+    insert into public.notifications (recipient_id, actor_id, type, pop_id)
+    values (v_author_id, new.author_id, 'comment_pop', new.pop_id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger pop_comments_notify
+  after insert on public.pop_comments
+  for each row execute function public.notify_pop_comment();
+
+-- No self-notification guard needed here (unlike the four triggers
+-- above) -- follows_no_self_follow (WYN-008) already makes
+-- follower_id = following_id impossible to insert in the first place,
+-- so this trigger can never fire with new.follower_id = new.following_id.
+create or replace function public.notify_follow()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.notifications (recipient_id, actor_id, type)
+  values (new.following_id, new.follower_id, 'follow');
+  return new;
+end;
+$$;
+
+create trigger follows_notify
+  after insert on public.follows
+  for each row execute function public.notify_follow();
