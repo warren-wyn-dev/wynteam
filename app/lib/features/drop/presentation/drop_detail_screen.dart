@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../feed/presentation/widgets/confirm_delete_dialog.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/drop.dart';
 import '../data/drop_comment.dart';
@@ -120,6 +121,25 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _comments![index] = previous);
+    }
+  }
+
+  Future<void> _deleteComment(String commentId) async {
+    final confirmed = await confirmDeletePost(context, itemLabel: 'คอมเมนต์');
+    if (!confirmed) return;
+
+    try {
+      await widget.dropRepository.deleteComment(commentId);
+      if (!mounted) return;
+      setState(() {
+        _comments = _comments?.where((c) => c.id != commentId).toList();
+        _drop = _drop.withRemovedComment();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
     }
   }
 
@@ -368,6 +388,18 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                       ],
                     ),
                   ),
+                  if (comment.authorId == currentUserId)
+                    SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        iconSize: 16,
+                        icon: const Icon(Icons.delete_outline),
+                        tooltip: 'ลบคอมเมนต์',
+                        onPressed: () => _deleteComment(comment.id),
+                      ),
+                    ),
                   Column(
                     children: [
                       Semantics(
