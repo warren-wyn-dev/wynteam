@@ -1,7 +1,7 @@
 # Product Task — ZOKY-002
 
-Status: review (รอ QA)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (รอ)
+Status: approved (QA รอบ 1 — PASS)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS)
 
 Feature: ZOKY Search & Filter — ค้นหา Product/Store ด้วยชื่อ, กรองตาม Category/ช่วงราคา, เรียงลำดับผลลัพธ์
 
@@ -93,3 +93,43 @@ Known Issues:
 - ยังไม่ทดสอบกับ Supabase project จริง (ILIKE/gte/lte/order ผสมกันในคำสั่งเดียว) — ตรวจได้แค่ระดับ code review เหมือนทุก feature ก่อนหน้าที่ยังไม่มี infra จริง
 
 Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบตาม Acceptance Criteria ของ ZOKY-002 ก่อนอนุมัติ — เน้นตรวจเป็นพิเศษ: (ก) `.ilike()` เรียกตรงไม่ผ่าน `.or()` string ยืนยันไม่มีช่องโหว่แบบเดียวกับ Minor เดิมของ WYN-009 (ข) `ZokySearchScreen` เป็นหน้าแยกจริงไม่ปนกับ `SearchScreen` เดิม ไม่กระทบ WYN Social search (ค) filter/sort ส่งพารามิเตอร์ถูกต้องครบทุก field (ง) ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัด (จ) regression กับ ZOKY-001/WYN Social เดิมทั้งหมด
+
+---
+
+## QA & Security Report — รอบ 1 (AI QA & Security)
+
+**ผลสรุป: PASS**
+
+### สิ่งที่ตรวจอิสระ (ไม่เชื่อตัวเลขจาก Coding Output เฉยๆ)
+
+1. **Re-sync ไป merged main เอง** — `git fetch origin main`, rebuild branch `claude/pwd-nxsvf5` บน `origin/main` (commit `2e64957`, PR #75) ใหม่ทั้งหมด
+2. **รัน `flutter analyze` อิสระ**: No issues found
+3. **รัน `flutter test` อิสระ**: 200/200 ผ่านทั้งหมด — ตรงกับตัวเลขที่ Coding รายงาน ยืนยันด้วยตัวเองแล้ว
+
+### ตรวจ ILIKE safety และการแยกจาก WYN Social Search
+
+อ่าน `zoky_repository.dart` ยืนยันว่า `.ilike('name', '%$query%')` ทั้ง `searchProducts`/`searchStores` เรียกเป็น method โดยตรงบน query builder ไม่ได้ถูกประกอบเป็น string แล้วส่งผ่าน `.or()` เหมือนที่เคยเป็น Minor ใน `ProfileRepository.searchProfiles` (WYN-009) — ปลอดภัยเพราะ `.ilike()` โดยตรงถูก parameterize โดย query builder เอง ไม่ใช่ raw string interpolation เข้า filter DSL — อ่าน `git show <commit> --stat` ของ PR #75 ยืนยันว่า**ไม่มีไฟล์ไหนใต้ `app/lib/features/search/` (WYN-009) ถูกแก้ไขเลยแม้แต่บรรทัดเดียว** (มีแค่ import `SearchStateMessage` มาใช้ ไม่ใช่แก้ไฟล์นั้น) — ยืนยันว่า `ZokySearchScreen` เป็นหน้าแยกจริงตามที่ Design ตั้งใจ ไม่มีทางกระทบ `SearchScreen` เดิมของ WYN Social
+
+### ไล่ Requirements/Design Components/Acceptance Criteria ทีละบรรทัด
+
+ไล่ครบทั้ง 3 หัวข้อเทียบกับโค้ดจริง (`zoky_search_screen.dart`, `zoky_product_results_tab.dart`, `zoky_store_results_tab.dart`, `store_result_card.dart`, `zoky_repository.dart`) — **ผ่านครบทุกข้อ ไม่พบ gap**
+
+**AC ทุกข้อผ่าน**: search bar ใน ZOKY Home เปิด `ZokySearchScreen` / ค้นหา Product/Store ตามชื่อ case-insensitive ถูกต้อง (ILIKE) / กรอง Category เฉพาะแท็บ Product ถูกต้อง (Store ไม่มี column ให้กรองตามที่ระบุใน Risks) / กรองช่วงราคาถูกต้อง / เรียงลำดับ Newest/Price Low→High/Price High→Low ถูกต้องตามที่เลือก (ยืนยันด้วย red→green proof ด้านล่าง) / category chip จาก ZOKY Home ส่ง `initialCategory` มา pre-filter ถูกต้อง (Filter sheet ไม่เปิดอัตโนมัติตามที่ Design ตั้งใจ) / แตะผลลัพธ์เปิด `ProductDetailScreen`/`StoreScreen` เดิมถูกต้อง / ไม่มี regression กับ WYN Social/ZOKY-001 (200/200)
+
+ตรวจ Design Components เพิ่มเติม: ปุ่ม "ตัวกรอง"/"เรียงลำดับ" แสดงเฉพาะแท็บ Product จริง (อยู่ใน `ZokyProductResultsTab`'s build เอง ไม่ใช่ global ใน AppBar — ถูกจุดตามที่ Design ตั้งใจ), Sort menu apply ทันทีไม่ต้องกดยืนยันซ้ำ (ตรงตาม Design's เหตุผลเรื่อง "ค่าเดียวไม่มี ambiguity"), Filter sheet ต้องกด "แสดงผลลัพธ์" ก่อน apply (ตรงตาม Design's เหตุผลเรื่อง "หลายค่าต้องตั้งพร้อมกัน"), ปุ่ม "ล้างตัวกรอง" แสดงเฉพาะเมื่อมี filter active จริง, ไม่มี Rating/Sales/Recommended sort option ปรากฏใน Sort menu เลย (ตรวจโค้ดยืนยันมีแค่ 3 ตัวเลือกตามที่ Product/Design ตัดสินใจ)
+
+### Red→Green Regression Proof อิสระ (จุดที่ต่างจาก Coding เอง)
+
+Coding ทำ proof ที่ category-chip pre-filter wiring — QA เลือกทำ proof คนละจุด: **Sort menu's PopupMenuItem value ↔ label ผูกถูกคู่จริง**
+1. สลับ `value` ของ `PopupMenuItem` สองตัว (`priceLowToHigh`/`priceHighToLow`) ให้ label ผูกผิดคู่ชั่วคราว (label "ราคา: ต่ำ → สูง" ชี้ไปที่ `priceHighToLow` แทน) จำลองบั๊กเมนูเรียงลำดับผูกผิด
+2. รัน `flutter test test/zoky_search_screen_test.dart --plain-name "choosing a sort option"` → **FAIL จริง** (คาดหวัง `priceLowToHigh` แต่ได้ `priceHighToLow`)
+3. Revert กลับคู่เดิม
+4. รัน `flutter analyze`/`flutter test` เต็มอีกครั้ง → สะอาด 200/200
+
+### Regression กับ ZOKY-001/WYN Social เดิมทั้งหมด
+
+200/200 tests ครอบคลุม Drop/Pop/Home/Follow/Search/Profile/Notification/Club Core/Club Discovery/ZOKY-001 (Browse) เดิมทั้งหมดผ่านหมด ไม่มี regression — ยืนยันเพิ่มเติมด้วยการอ่าน diff ของ PR #75 ว่าแก้ไขเฉพาะไฟล์ใต้ `app/lib/features/zoky/` และ `zoky_home_screen.dart` (search bar/category chip wiring ที่ตั้งใจ) เท่านั้น
+
+### สรุป
+
+ZOKY-002 ผ่าน QA รอบ 1 — **PASS** ไม่พบ finding ใด ๆ (ทั้ง Blocking และ Minor) รอบนี้ — เป็นครั้งแรกในสาย ZOKY ที่ QA ไม่พบข้อสังเกตอะไรเลย อนุมัติเข้า `approved/`
