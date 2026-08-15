@@ -5,6 +5,23 @@
 /// original use. See .wyn/docs/design/seller-002-product-management.md.
 String? normalizeOptionalText(String value) => value.isEmpty ? null : value;
 
+/// A Thai relative-time label ("เมื่อสักครู่" / "X นาทีที่แล้ว" / ... / a
+/// full date once it's a week old or more). Duplicated from
+/// `app/lib/core/text_utils.dart` (WYN Social, WYN-012) -- used by
+/// `SellerOrderListTile` (SELLER-003) for the order date, same as
+/// `OrderSummaryCard` uses it on the Customer side. Takes [now] as a
+/// parameter (rather than reading DateTime.now() internally) so callers/
+/// tests can pass a fixed reference time instead of a real wall-clock
+/// value that would make assertions flaky.
+String relativeTimeLabel(DateTime dateTime, {required DateTime now}) {
+  final diff = now.difference(dateTime);
+  if (diff.inSeconds < 60) return 'เมื่อสักครู่';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} นาทีที่แล้ว';
+  if (diff.inHours < 24) return '${diff.inHours} ชั่วโมงที่แล้ว';
+  if (diff.inDays < 7) return '${diff.inDays} วันที่แล้ว';
+  return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+}
+
 /// Formats [price] as a Thai Baht amount with thousands separators, e.g.
 /// `thaiBahtLabel(1234.5)` -> `฿1,234.50`, `thaiBahtLabel(1234)` ->
 /// `฿1,234`. Duplicated from `app/lib/core/text_utils.dart` (WYN Social)

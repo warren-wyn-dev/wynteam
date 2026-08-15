@@ -1860,11 +1860,16 @@ begin
   loop
     v_subtotal := 0;
 
+    -- SELLER-003 (2026-08-15): status literal changed from 'pending' to
+    -- 'paid' -- same state, new name (see the migration comment near the
+    -- end of this file, ahead of the SELLER-003 section) -- nothing else
+    -- in this function (locking, loop structure, stock/is_active checks)
+    -- is touched.
     insert into public.orders (
       buyer_id, store_id, status, recipient_name, recipient_phone,
       shipping_address, subtotal, fee_percent, fee_amount, total
     ) values (
-      auth.uid(), v_store_id, 'pending', p_recipient_name, p_recipient_phone,
+      auth.uid(), v_store_id, 'paid', p_recipient_name, p_recipient_phone,
       p_shipping_address, 0, v_fee_percent, 0, 0
     )
     returning id into v_order_id;
@@ -1920,12 +1925,18 @@ begin
 end;
 $$;
 
--- Buyer-only, and only while still pending (see the Product spec's
--- Requirements -- there's no "shipped" state this round, so pending is
--- the only status a cancellation can ever come from). Restocks every
--- item back onto products.stock; skips a line whose product was since
--- deleted (product_id is null after on delete set null) since there's
--- nothing to restock.
+-- Buyer-only, and only while still 'paid' (SELLER-003, 2026-08-15) --
+-- was gated on 'pending' before this task (ZOKY-003's original 3-state
+-- design, before there was a Seller app to ever move an order past that
+-- one middle state; 'paid' is that same state's new name, see the
+-- migration comment near the end of this file). Once a seller starts
+-- processing an order (see seller_start_processing below), the buyer
+-- can no longer cancel it themselves -- from that point on only the
+-- seller can, via seller_cancel_order below (see the Product spec's
+-- Requirements #4 for the reasoning). Restocks every item back onto
+-- products.stock; skips a line whose product was since deleted
+-- (product_id is null after on delete set null) since there's nothing
+-- to restock. Locking/loop structure below is untouched by this task.
 create or replace function public.cancel_order(p_order_id uuid)
 returns void
 language plpgsql
@@ -1937,7 +1948,7 @@ declare
 begin
   if not exists (
     select 1 from public.orders
-    where id = p_order_id and buyer_id = auth.uid() and status = 'pending'
+    where id = p_order_id and buyer_id = auth.uid() and status = 'paid'
   ) then
     raise exception 'Order not found or cannot be cancelled';
   end if;
@@ -1955,10 +1966,13 @@ begin
 end;
 $$;
 
--- Buyer-only, and only while still pending -- the "delivered" state is
--- reached directly from pending (no separate "shipped" step this
--- round, see create_orders' comment above), so this is the only
--- transition into delivered that exists.
+-- Buyer-only, and only while still 'shipped' (SELLER-003, 2026-08-15) --
+-- was gated on 'pending' before this task, back when "delivered" was
+-- reached directly from pending with no separate "shipped" step (there
+-- was no Seller app yet to ever set one). Now that seller_ship_order
+-- below is the only way an order reaches 'shipped', this is still the
+-- only transition into 'delivered' that exists -- just one step later
+-- in the flow than before.
 create or replace function public.confirm_order_received(p_order_id uuid)
 returns void
 language plpgsql
@@ -1968,7 +1982,7 @@ as $$
 begin
   update public.orders
   set status = 'delivered'
-  where id = p_order_id and buyer_id = auth.uid() and status = 'pending';
+  where id = p_order_id and buyer_id = auth.uid() and status = 'shipped';
 
   if not found then
     raise exception 'Order not found or cannot be marked as received';
@@ -2432,3 +2446,241 @@ create policy "Sellers can delete their own store's product images"
         and stores.owner_id = auth.uid()
     )
   );
+
+-- ============================================================
+-- SELLER-003: ZOKY Sellers by WYN — Order Management
+-- ============================================================
+-- Expands orders.status from the 3-value enum ZOKY-003 shipped with
+-- (pending/delivered/cancelled) to the full 8-value set master prompt
+-- Section 10 specifies, now that ZOKY Sellers by WYN (SELLER-001/002)
+-- exists to actually trigger the middle states -- see .wyn/tasks/
+-- backlog/SELLER-003-order-management.md, Requirements #1. No RLS
+-- write policy is added for orders/order_items here -- every status
+-- transition (buyer-side and seller-side alike) still goes exclusively
+-- through a security-definer RPC, same as ZOKY-003/SELLER-001 already
+-- established. reviews (ZOKY-004) is deliberately untouched by this
+-- whole section -- its insert/update policies gate on the literal
+-- 'delivered' string, which keeps its exact meaning in the new 8-value
+-- model (see the Product spec, Requirements #3).
+--
+-- Migration runs in this exact order so no existing 'pending' row is
+-- ever left violating the new, narrower CHECK constraint mid-migration:
+--   1. remap every existing 'pending' row to 'paid' first. This project
+--      has no real payment gateway (see .wyn/company/DECISIONS.md,
+--      2026-08-15), so "pending" always meant "Order created, nothing
+--      blocking it" -- exactly what 'paid' means in the new model, not
+--      'pending_payment' (which would mean "still waiting to be paid",
+--      untrue of any order this codebase has ever created). Idempotent
+--      by construction -- once no row is still 'pending', reruns are a
+--      no-op. delivered/cancelled rows are never touched by this
+--      statement at all.
+--   2. verify the existing status CHECK constraint's real name via
+--      information_schema before dropping it -- never hardcode a
+--      guessed name (see the Product spec's Risks, "ห้ามเดาชื่อ CHECK
+--      constraint เดิม").
+--   3. add the new 8-value CHECK constraint back.
+--   4. change the column default from 'pending' to 'paid' to match.
+--   5. add shipping_provider/tracking_number (nullable text) -- written
+--      together by seller_ship_order below, read-only everywhere else.
+update public.orders set status = 'paid' where status = 'pending';
+
+do $$
+declare
+  v_constraint_name text;
+begin
+  select tc.constraint_name into v_constraint_name
+  from information_schema.table_constraints tc
+  join information_schema.constraint_column_usage ccu
+    on ccu.constraint_name = tc.constraint_name
+   and ccu.constraint_schema = tc.constraint_schema
+  where tc.table_schema = 'public'
+    and tc.table_name = 'orders'
+    and tc.constraint_type = 'CHECK'
+    and ccu.column_name = 'status'
+  limit 1;
+
+  if v_constraint_name is not null then
+    execute format('alter table public.orders drop constraint %I', v_constraint_name);
+  end if;
+end;
+$$;
+
+alter table public.orders
+  add constraint orders_status_check
+  check (status in (
+    'pending_payment', 'paid', 'seller_processing', 'ready_to_ship',
+    'shipped', 'delivered', 'cancelled', 'refunded'
+  ));
+
+alter table public.orders alter column status set default 'paid';
+
+alter table public.orders add column if not exists shipping_provider text;
+alter table public.orders add column if not exists tracking_number text;
+
+-- The 5 seller-side status-transition RPCs below all share the same
+-- shape: a single atomic UPDATE whose WHERE clause carries both the
+-- ownership check (join back to stores.owner_id = auth.uid(), same
+-- pattern adjust_product_stock/adjust_variant_stock (SELLER-002)
+-- already use) and the required source status, so "not found" covers
+-- every rejection reason at once (wrong owner, wrong order, or wrong
+-- current status to transition from) -- mirrors confirm_order_received
+-- above's exact shape. None of these touch create_orders'/cancel_order's/
+-- confirm_order_received's own locking or loop structure at all -- see
+-- the Product spec's Requirements #4 and Risks.
+
+-- paid -> seller_processing.
+create or replace function public.seller_start_processing(p_order_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.orders
+  set status = 'seller_processing'
+  where id = p_order_id
+    and status = 'paid'
+    and exists (
+      select 1 from public.stores
+      where stores.id = orders.store_id
+        and stores.owner_id = auth.uid()
+    );
+
+  if not found then
+    raise exception 'Order not found or cannot start processing';
+  end if;
+end;
+$$;
+
+-- seller_processing -> ready_to_ship.
+create or replace function public.seller_mark_ready_to_ship(p_order_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.orders
+  set status = 'ready_to_ship'
+  where id = p_order_id
+    and status = 'seller_processing'
+    and exists (
+      select 1 from public.stores
+      where stores.id = orders.store_id
+        and stores.owner_id = auth.uid()
+    );
+
+  if not found then
+    raise exception 'Order not found or cannot be marked ready to ship';
+  end if;
+end;
+$$;
+
+-- ready_to_ship -> shipped, recording the shipping info in the same
+-- statement. Both p_shipping_provider/p_tracking_number are required at
+-- the UI layer (SellerOrderDetailScreen disables the confirm button
+-- until both are non-empty) but not enforced not-null here at the DB
+-- level, deliberately -- see the Design spec, Screen:
+-- SellerOrderDetailScreen ("DB จะไม่บังคับ not-null เพื่อไม่ปิดทางแก้ไข
+-- ในอนาคตถ้าต้อง backfill").
+create or replace function public.seller_ship_order(
+  p_order_id uuid,
+  p_shipping_provider text,
+  p_tracking_number text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.orders
+  set status = 'shipped',
+      shipping_provider = p_shipping_provider,
+      tracking_number = p_tracking_number
+  where id = p_order_id
+    and status = 'ready_to_ship'
+    and exists (
+      select 1 from public.stores
+      where stores.id = orders.store_id
+        and stores.owner_id = auth.uid()
+    );
+
+  if not found then
+    raise exception 'Order not found or cannot be marked as shipped';
+  end if;
+end;
+$$;
+
+-- Seller-side cancel: from paid/seller_processing/ready_to_ship only
+-- (once shipped, the buyer is the only one left who can act, via
+-- confirm_order_received -- there's no seller-side cancel past that
+-- point). Mirrors cancel_order() above's exact shape (existence+
+-- ownership check, then restock loop, then the status update as a
+-- separate final statement) rather than the single-UPDATE shape of the
+-- other 4 RPCs in this section, specifically so the restock loop can
+-- run in between -- same reason cancel_order() itself isn't a single
+-- UPDATE either.
+create or replace function public.seller_cancel_order(p_order_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_item record;
+begin
+  if not exists (
+    select 1 from public.orders o
+    join public.stores s on s.id = o.store_id
+    where o.id = p_order_id
+      and s.owner_id = auth.uid()
+      and o.status in ('paid', 'seller_processing', 'ready_to_ship')
+  ) then
+    raise exception 'Order not found or cannot be cancelled';
+  end if;
+
+  for v_item in
+    select product_id, quantity from public.order_items
+    where order_id = p_order_id and product_id is not null
+  loop
+    update public.products
+    set stock = stock + v_item.quantity
+    where id = v_item.product_id;
+  end loop;
+
+  update public.orders set status = 'cancelled' where id = p_order_id;
+end;
+$$;
+
+-- Seller-only, from shipped/delivered only -- a pure bookkeeping flag
+-- ("we've refunded this buyer") since there's no real payment gateway
+-- in this project to actually move money back (see .wyn/company/
+-- DECISIONS.md, 2026-08-15, item 6). Deliberately does **not** restock
+-- -- unlike seller_cancel_order/cancel_order above, the goods have
+-- already physically left the store by the time an order reaches
+-- shipped/delivered, so restocking here would claim inventory the
+-- store doesn't actually have back on hand; see the Product spec's
+-- Requirements #4.
+create or replace function public.seller_mark_refunded(p_order_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.orders
+  set status = 'refunded'
+  where id = p_order_id
+    and status in ('shipped', 'delivered')
+    and exists (
+      select 1 from public.stores
+      where stores.id = orders.store_id
+        and stores.owner_id = auth.uid()
+    );
+
+  if not found then
+    raise exception 'Order not found or cannot be marked as refunded';
+  end if;
+end;
+$$;

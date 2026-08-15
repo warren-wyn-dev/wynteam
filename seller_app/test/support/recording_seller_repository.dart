@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:zoky_seller/features/order/data/order.dart';
+import 'package:zoky_seller/features/order/data/order_item.dart';
 import 'package:zoky_seller/features/product/data/category.dart';
 import 'package:zoky_seller/features/product/data/product.dart';
 import 'package:zoky_seller/features/product/data/product_variant.dart';
@@ -32,10 +34,20 @@ class RecordingSellerRepository extends SellerRepository {
     this.adjustProductStockException,
     this.adjustVariantStockResult = 0,
     this.adjustVariantStockException,
+    List<Order>? storeOrders,
+    this.storeOrder,
+    List<OrderItem>? storeOrderItems,
+    this.sellerStartProcessingException,
+    this.sellerMarkReadyToShipException,
+    this.sellerShipOrderException,
+    this.sellerCancelOrderException,
+    this.sellerMarkRefundedException,
   })  : bestSellingProducts = bestSellingProducts ?? const [],
         categories = categories ?? const [],
         products = products ?? const [],
         productVariants = productVariants ?? const [],
+        storeOrders = storeOrders ?? const [],
+        storeOrderItems = storeOrderItems ?? const [],
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   final Store? myStore;
@@ -229,5 +241,100 @@ class RecordingSellerRepository extends SellerRepository {
     lastAdjustVariantStockDelta = delta;
     if (adjustVariantStockException != null) throw adjustVariantStockException!;
     return adjustVariantStockResult;
+  }
+
+  // -- Order Management (SELLER-003) ---------------------------------------
+
+  /// Returned by [fetchStoreOrders] for page 0 only (page 1+ returns
+  /// empty) -- filter/store args are recorded below rather than
+  /// actually applied, same simplification [fetchProducts] above uses.
+  final List<Order> storeOrders;
+
+  /// Returned by [fetchStoreOrder] regardless of the id passed.
+  final Order? storeOrder;
+
+  final List<OrderItem> storeOrderItems;
+
+  String? lastFetchStoreOrdersStoreId;
+  OrderStatus? lastFetchStoreOrdersFilter;
+
+  final Object? sellerStartProcessingException;
+  int sellerStartProcessingCalls = 0;
+  String? lastSellerStartProcessingId;
+
+  final Object? sellerMarkReadyToShipException;
+  int sellerMarkReadyToShipCalls = 0;
+  String? lastSellerMarkReadyToShipId;
+
+  final Object? sellerShipOrderException;
+  int sellerShipOrderCalls = 0;
+  String? lastSellerShipOrderId;
+  String? lastSellerShipOrderProvider;
+  String? lastSellerShipOrderTracking;
+
+  final Object? sellerCancelOrderException;
+  int sellerCancelOrderCalls = 0;
+  String? lastSellerCancelOrderId;
+
+  final Object? sellerMarkRefundedException;
+  int sellerMarkRefundedCalls = 0;
+  String? lastSellerMarkRefundedId;
+
+  @override
+  Future<List<Order>> fetchStoreOrders({
+    required String storeId,
+    OrderStatus? filter,
+    required int page,
+  }) async {
+    lastFetchStoreOrdersStoreId = storeId;
+    lastFetchStoreOrdersFilter = filter;
+    return page == 0 ? storeOrders : [];
+  }
+
+  @override
+  Future<Order?> fetchStoreOrder(String orderId) async => storeOrder;
+
+  @override
+  Future<List<OrderItem>> fetchStoreOrderItems(String orderId) async => storeOrderItems;
+
+  @override
+  Future<void> sellerStartProcessing(String orderId) async {
+    sellerStartProcessingCalls++;
+    lastSellerStartProcessingId = orderId;
+    if (sellerStartProcessingException != null) throw sellerStartProcessingException!;
+  }
+
+  @override
+  Future<void> sellerMarkReadyToShip(String orderId) async {
+    sellerMarkReadyToShipCalls++;
+    lastSellerMarkReadyToShipId = orderId;
+    if (sellerMarkReadyToShipException != null) throw sellerMarkReadyToShipException!;
+  }
+
+  @override
+  Future<void> sellerShipOrder(
+    String orderId,
+    String shippingProvider,
+    String trackingNumber,
+  ) async {
+    sellerShipOrderCalls++;
+    lastSellerShipOrderId = orderId;
+    lastSellerShipOrderProvider = shippingProvider;
+    lastSellerShipOrderTracking = trackingNumber;
+    if (sellerShipOrderException != null) throw sellerShipOrderException!;
+  }
+
+  @override
+  Future<void> sellerCancelOrder(String orderId) async {
+    sellerCancelOrderCalls++;
+    lastSellerCancelOrderId = orderId;
+    if (sellerCancelOrderException != null) throw sellerCancelOrderException!;
+  }
+
+  @override
+  Future<void> sellerMarkRefunded(String orderId) async {
+    sellerMarkRefundedCalls++;
+    lastSellerMarkRefundedId = orderId;
+    if (sellerMarkRefundedException != null) throw sellerMarkRefundedException!;
   }
 }

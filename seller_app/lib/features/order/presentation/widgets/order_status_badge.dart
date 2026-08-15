@@ -2,19 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../data/order.dart';
 
-/// Shared status pill for Order List/Detail (ZOKY-003, expanded to 8
-/// statuses by SELLER-003) -- always color+icon+text together, never
-/// color alone, per the Accessibility rule in design-principles.md
-/// ("ไม่สื่อสารข้อมูลด้วยสีอย่างเดียว"). The 4 "in progress" statuses
-/// (paid/sellerProcessing/readyToShip/shipped) intentionally share one
-/// blue tone (`primaryContainer`/`onPrimaryContainer`) -- they're all
-/// "someone still needs to act on this, not a final state" -- and are
-/// told apart by icon+text only, same accessibility rule this widget
-/// already had to satisfy for every other status. delivered/cancelled
-/// keep the project's existing green=success/red=error convention
-/// unchanged; refunded reuses pendingPayment's neutral gray rather than
-/// cancelled's red, since a refund isn't "the order failed from the
-/// start" the way a cancellation is. See .wyn/docs/design/
+/// Duplicated from `app/lib/features/zoky/presentation/widgets/
+/// order_status_badge.dart` (SELLER-003, separate Flutter binary, same
+/// pattern SELLER-001/002 already established) -- same table/text/color
+/// exactly, so a seller sees the identical label for a given status
+/// that a buyer would. See .wyn/docs/design/
 /// seller-003-order-management.md, Widget: OrderStatusBadge.
 class OrderStatusBadge extends StatelessWidget {
   const OrderStatusBadge({super.key, required this.status});

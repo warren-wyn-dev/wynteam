@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/text_utils.dart';
+import '../../order/data/order.dart';
+import '../../order/data/order_item.dart';
 import '../../product/data/category.dart';
 import '../../product/data/product.dart';
 import '../../product/data/product_variant.dart';
@@ -77,16 +79,18 @@ class SellerRepository {
     return Store.fromMap(row);
   }
 
-  /// (newOrders, totalOrders) -- newOrders counts `status = 'pending'`
-  /// (not yet processed), totalOrders counts every status. See
-  /// .wyn/docs/design/seller-001-foundation.md, SellerDashboardScreen
-  /// Handoff.
+  /// (newOrders, totalOrders) -- newOrders counts `status = 'paid'`
+  /// (created, not yet processed by this seller -- SELLER-003 renamed
+  /// this status from 'pending' to 'paid', same meaning, see
+  /// supabase/schema.sql's migration comment), totalOrders counts every
+  /// status. See .wyn/docs/design/seller-001-foundation.md,
+  /// SellerDashboardScreen Handoff.
   Future<(int, int)> fetchOrderCounts(String storeId) async {
     final newOrders = await _client
         .from('orders')
         .count(CountOption.exact)
         .eq('store_id', storeId)
-        .eq('status', 'pending');
+        .eq('status', 'paid');
     final totalOrders = await _client
         .from('orders')
         .count(CountOption.exact)
@@ -430,5 +434,85 @@ class SellerRepository {
       }
       rethrow;
     }
+  }
+
+  // -- Order Management (SELLER-003) --------------------------------------
+  //
+  // `orders`/`order_items` still have no insert/update/delete RLS
+  // policy for a client at all (see supabase/schema.sql, SELLER-003
+  // section) -- every status transition below goes through a
+  // security-definer RPC, same as the buyer-side ones ZOKY-003 already
+  // established. The `.eq('store_id', storeId)`/ownership joins in the
+  // read methods below are for correctness/efficiency of the query
+  // itself, not the security boundary, same disclaimer as every other
+  // method in this class.
+
+  static const ordersPageSize = 20;
+
+  /// The seller's own orders for [storeId], newest first, optionally
+  /// filtered to a single [filter] status. See .wyn/docs/design/
+  /// seller-003-order-management.md, Screen: SellerOrderListScreen.
+  Future<List<Order>> fetchStoreOrders({
+    required String storeId,
+    OrderStatus? filter,
+    required int page,
+  }) async {
+    var query = _client.from('orders').select().eq('store_id', storeId);
+    if (filter != null) {
+      query = query.eq('status', orderStatusToDbValue(filter));
+    }
+    final from = page * ordersPageSize;
+    final to = from + ordersPageSize - 1;
+    final rows = await query.order('created_at', ascending: false).range(from, to);
+    return rows.map(Order.fromMap).toList();
+  }
+
+  Future<Order?> fetchStoreOrder(String orderId) async {
+    final row = await _client.from('orders').select().eq('id', orderId).maybeSingle();
+    if (row == null) return null;
+    return Order.fromMap(row);
+  }
+
+  Future<List<OrderItem>> fetchStoreOrderItems(String orderId) async {
+    final rows = await _client.from('order_items').select().eq('order_id', orderId);
+    return rows.map(OrderItem.fromMap).toList();
+  }
+
+  /// paid -> seller_processing, via `seller_start_processing`.
+  Future<void> sellerStartProcessing(String orderId) {
+    return _client.rpc('seller_start_processing', params: {'p_order_id': orderId});
+  }
+
+  /// seller_processing -> ready_to_ship, via `seller_mark_ready_to_ship`.
+  Future<void> sellerMarkReadyToShip(String orderId) {
+    return _client.rpc('seller_mark_ready_to_ship', params: {'p_order_id': orderId});
+  }
+
+  /// ready_to_ship -> shipped, via `seller_ship_order` -- records
+  /// [shippingProvider]/[trackingNumber] in the same call.
+  Future<void> sellerShipOrder(
+    String orderId,
+    String shippingProvider,
+    String trackingNumber,
+  ) {
+    return _client.rpc('seller_ship_order', params: {
+      'p_order_id': orderId,
+      'p_shipping_provider': shippingProvider,
+      'p_tracking_number': trackingNumber,
+    });
+  }
+
+  /// paid/seller_processing/ready_to_ship -> cancelled, via
+  /// `seller_cancel_order` -- restocks every item, mirroring the
+  /// buyer's own `cancel_order`.
+  Future<void> sellerCancelOrder(String orderId) {
+    return _client.rpc('seller_cancel_order', params: {'p_order_id': orderId});
+  }
+
+  /// shipped/delivered -> refunded, via `seller_mark_refunded` -- a
+  /// bookkeeping-only flag, no stock is restored (see that RPC's
+  /// comment in supabase/schema.sql).
+  Future<void> sellerMarkRefunded(String orderId) {
+    return _client.rpc('seller_mark_refunded', params: {'p_order_id': orderId});
   }
 }

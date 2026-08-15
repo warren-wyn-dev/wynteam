@@ -9,11 +9,16 @@ import 'widgets/order_status_badge.dart';
 import 'widgets/review_form_sheet.dart';
 import 'widgets/star_rating.dart';
 
-/// Screen 6 (ZOKY-003) -- a single Order's full detail, with
-/// Cancel/Confirm Received actions shown only while status is pending
-/// (once delivered/cancelled the Order is final -- see the Product
-/// spec's Requirements on the reduced 3-state status). See
-/// .wyn/docs/design/zoky-003-cart-checkout-order.md, Screen 6.
+/// Screen 6 (ZOKY-003, action bar made per-status by SELLER-003) -- a
+/// single Order's full detail. Cancel shows only while status is
+/// [OrderStatus.paid] (before the seller starts processing it); Confirm
+/// Received shows only while [OrderStatus.shipped] -- the two buttons
+/// are no longer all-or-nothing together the way they were when this
+/// screen only had "pending" to check against. Every other status
+/// (including the 2 middle "seller is handling this" ones) shows no
+/// action bar at all -- there's nothing left for the buyer to do until
+/// the seller ships it. See .wyn/docs/design/
+/// seller-003-order-management.md, Screen: ZokyOrderDetailScreen.
 class ZokyOrderDetailScreen extends StatefulWidget {
   const ZokyOrderDetailScreen({
     super.key,
@@ -151,11 +156,17 @@ class _ZokyOrderDetailScreenState extends State<ZokyOrderDetailScreen> {
           : order == null
               ? const Center(child: Text('ไม่พบคำสั่งซื้อนี้'))
               : _buildContent(context, order),
-      bottomNavigationBar: (order != null && order.status == OrderStatus.pending)
-          ? _buildActionBar(context)
+      bottomNavigationBar: order != null && _hasAnyAction(order.status)
+          ? _buildActionBar(context, order.status)
           : null,
     );
   }
+
+  /// Whether _buildActionBar has anything to render at all for
+  /// [status] -- kept in sync with _buildActionBar's own per-button
+  /// conditions below.
+  bool _hasAnyAction(OrderStatus status) =>
+      status == OrderStatus.paid || status == OrderStatus.shipped;
 
   Widget _buildContent(BuildContext context, Order order) {
     return ListView(
@@ -177,6 +188,23 @@ class _ZokyOrderDetailScreenState extends State<ZokyOrderDetailScreen> {
             ),
           ),
         ),
+        if (order.shippingProvider != null) ...[
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('ข้อมูลการจัดส่ง', style: Theme.of(context).textTheme.labelLarge),
+                  const SizedBox(height: 4),
+                  Text('ขนส่งโดย: ${order.shippingProvider}'),
+                  Text('เลขพัสดุ: ${order.trackingNumber}'),
+                ],
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         Card(
           child: Padding(
@@ -288,26 +316,37 @@ class _ZokyOrderDetailScreenState extends State<ZokyOrderDetailScreen> {
     );
   }
 
-  Widget _buildActionBar(BuildContext context) {
+  /// Per-status button set (SELLER-003) -- [status] is guaranteed to be
+  /// one that [_hasAnyAction] returns true for, since [build] only
+  /// calls this when that's the case.
+  Widget _buildActionBar(BuildContext context, OrderStatus status) {
+    final buttons = <Widget>[
+      if (status == OrderStatus.paid)
+        Expanded(
+          child: OutlinedButton(
+            onPressed: _isSubmitting ? null : _cancelOrder,
+            style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+            child: const Text('ยกเลิกคำสั่งซื้อ'),
+          ),
+        ),
+      if (status == OrderStatus.shipped)
+        Expanded(
+          child: FilledButton(
+            onPressed: _isSubmitting ? null : _confirmReceived,
+            child: const Text('ยืนยันได้รับสินค้าแล้ว'),
+          ),
+        ),
+    ];
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _isSubmitting ? null : _cancelOrder,
-                style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-                child: const Text('ยกเลิกคำสั่งซื้อ'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton(
-                onPressed: _isSubmitting ? null : _confirmReceived,
-                child: const Text('ยืนยันได้รับสินค้าแล้ว'),
-              ),
-            ),
+            for (var i = 0; i < buttons.length; i++) ...[
+              if (i > 0) const SizedBox(width: 12),
+              buttons[i],
+            ],
           ],
         ),
       ),

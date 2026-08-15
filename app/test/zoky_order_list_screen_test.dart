@@ -16,7 +16,7 @@ void main() {
   Order order({
     String id = 'o1',
     String storeName = 'ร้านทดสอบ',
-    OrderStatus status = OrderStatus.pending,
+    OrderStatus status = OrderStatus.paid,
     double total = 220,
   }) =>
       Order(
@@ -55,11 +55,11 @@ void main() {
     emptyRepo = RecordingZokyRepository();
     populatedRepo = RecordingZokyRepository(
       orders: [
-        order(id: 'o1', status: OrderStatus.pending),
+        order(id: 'o1', status: OrderStatus.paid),
         order(id: 'o2', storeName: 'ร้านที่สอง', status: OrderStatus.delivered),
       ],
       orderItems: [orderItem],
-      order: order(id: 'o1', status: OrderStatus.pending),
+      order: order(id: 'o1', status: OrderStatus.paid),
     );
   });
 
@@ -82,7 +82,7 @@ void main() {
     tester.takeException();
 
     expect(find.byType(OrderSummaryCard), findsNWidgets(2));
-    expect(find.text('รอดำเนินการ'), findsOneWidget);
+    expect(find.text('ชำระเงินแล้ว'), findsOneWidget);
     expect(find.text('ได้รับสินค้าแล้ว'), findsOneWidget);
   });
 
