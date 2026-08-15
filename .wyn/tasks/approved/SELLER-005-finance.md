@@ -129,3 +129,72 @@ Status: **Design เสร็จแล้ว** — เขียนที่ `.wy
 8. **Repository**: เสนอเมธอดใหม่ 4 ตัวใน `SellerRepository` (`fetchFinanceBreakdown`/`fetchInTransitSummary`/`fetchTransactionHistory`/`fetchPlatformFeePercent`) — ไม่แก้เมธอดเดิม 4 ตัวที่ผ่าน QA แล้วเลย (`fetchOrderCounts`/`fetchSalesSummary`/`fetchBestSellingProducts`/`fetchStoreOrders`) — `allTime.net` จาก `fetchFinanceBreakdown` ใช้เป็นค่า Balance ตรง ๆ ไม่ query ซ้ำซ้อน — **หมายเหตุประสานงาน**: `seller_repository.dart` กำลังอยู่ระหว่าง QA รอบ 2 ของ SELLER-004 คู่ขนาน AI Coding ต้อง sync กับ `main` ล่าสุดก่อนเริ่ม
 
 Handoff: ส่งต่อ AI Coding (`/code`) — รายละเอียดครบทุก Screen/Widget/Repository method/Test coverage ที่ต้อง implement อยู่ใน `.wyn/docs/design/seller-005-finance.md` ทั้งหมด (รวม "เตือน Coding" 7 ข้อท้ายเอกสารที่ย้ำจุดเสี่ยงจาก Product spec's Risks — โดยเฉพาะข้อความ disclaimer ต้องตรงคำต่อคำ, cross-check สูตร Gross−Fee=Net ทุก edge case, ปุ่มถอนเงินห้าม trigger network call ใด ๆ)
+
+## QA Output
+
+Status: **PASS (รอบ 1)** — ทดสอบเมื่อ 2026-08-15 หลัง sync branch `claude/pwd-nxsvf5` ตรงกับ `origin/main` ที่ commit `bd68eee` (PR #116)
+
+### สรุปขอบเขตที่ตรวจ
+
+`git diff` เทียบ commit ก่อน PR #116 (`3f6de4e`, หลัง SELLER-004 QA รอบ 2 PASS) ยืนยันไฟล์ที่เปลี่ยนแปลงทั้งหมดอยู่ใน `seller_app/`/`.wyn/` เท่านั้น (10 ไฟล์, +1585/-15) — **ไม่แตะ `supabase/schema.sql` และ `app/` เลยแม้แต่บรรทัดเดียว**:
+- ใหม่: `seller_app/lib/features/finance/presentation/seller_finance_screen.dart`, `.../widgets/seller_transaction_tile.dart`, test 3 ไฟล์, `.wyn/docs/design/seller-005-finance.md`
+- แก้ (additive เท่านั้น): `seller_app/lib/features/store/data/seller_repository.dart` (+เมธอดใหม่ 4 ตัว + class `FinancePeriodTotals`/`SellerFinanceBreakdown`), `seller_app/lib/features/shell/presentation/seller_home_shell.dart` (1 บรรทัด tab), `seller_app/test/seller_home_shell_test.dart`, `seller_app/test/support/recording_seller_repository.dart`
+
+### (1) สูตร Gross − Fee = Net ทุก edge case
+
+- `git diff` ยืนยัน `fetchFinanceBreakdown()` เป็นเมธอดใหม่ทั้งหมด (pure addition) ไม่แตะ `fetchSalesSummary()`/`fetchOrderCounts()`/`fetchBestSellingProducts()`/`fetchStoreOrders()` เดิมแม้แต่บรรทัดเดียว
+- ตรวจ query: `select('total, subtotal, fee_amount, created_at').eq('store_id', storeId).eq('status', 'delivered')` — กรองที่ระดับ DB จริง ไม่ใช่ client-side filter ทีหลัง ดังนั้น:
+  - ร้านไม่มี order เลย → rows ว่าง → ทุกค่า (`gross`/`fee`/`net`) เป็น 0 ทั้ง 3 ช่วงเวลา — ถูกต้อง (ยืนยันด้วย widget test "empty state" ที่เช็ค `find.text('฿0')`)
+  - order ทั้งหมด `refunded` → query กรอง `status='delivered'` ไม่คืน row เหล่านี้เลย → breakdown เป็น 0 ทั้งหมดถูกต้อง (refunded ไม่มีทางรั่วเข้ามาในผลรวม เพราะไม่เคยถูก select เข้ามาตั้งแต่ต้น)
+  - ผสม `delivered`+`refunded` → เฉพาะแถว `delivered` เท่านั้นที่ query คืนมา ยืนยันด้วย widget test เฉพาะ (`populatedRepo` มี refunded order ที่ subtotal สูงกว่า delivered โดยตั้งใจ เพื่อพิสูจน์ว่าถ้าโค้ดบัคแล้วไปคำนวณจาก transaction list แทน ค่าจะเพี้ยนทันที — ผลจริง: ค่า breakdown ไม่ถูกกระทบเลย)
+  - ร้านมี order เดียว → gross=total, fee=fee_amount, net=subtotal ตรงตามสูตร
+- ยืนยัน invariant `total = subtotal + fee_amount` ไม่ใช่แค่ convention ฝั่ง client แต่ถูก **enforce ที่ระดับ RPC** — อ่าน `create_orders()` (schema.sql, security definer) พบ `update ... set subtotal = v_subtotal, fee_amount = v_fee_amount, total = v_subtotal + v_fee_amount` เป็นค่าเดียวที่เขียนได้ และ `orders` **ไม่มี insert/update/delete policy ให้ client เลย** (comment ในโค้ดยืนยันตรง ๆ) — client ไม่มีทาง insert/update ค่าที่ขัดแย้งกับ invariant นี้ได้ไม่ว่ากรณีใด ดังนั้น Net = Gross − Fee ถูกต้องทางคณิตศาสตร์เสมอ ไม่ใช่แค่ "ปกติจะถูก"
+
+### (2) Disclaimer คำต่อคำ
+
+เทียบ const string ในโค้ดกับ Product spec ทีละตัวอักษร:
+- Balance card (`_balanceDisclaimer`, Requirements #5): ตรงคำต่อคำ 100%
+- Payout bottom sheet (`_payoutExplanation`, Requirements #6): ตรงคำต่อคำ 100% (รวม concat ของ 3 string literal ต่อกันแล้วอ่านเป็นประโยคเดียวถูกต้อง)
+- Fee rate line (`_feeRateDisclaimer`, Requirements #7): ตรงคำต่อคำ 100%
+- Semantics label ปุ่มถอนเงิน ("ปุ่มถอนเงิน ยังไม่พร้อมใช้งานในเวอร์ชันนี้ แตะเพื่อดูรายละเอียด") ตรงกับ Design spec คำต่อคำ
+- grep ยืนยันไม่มีคำว่า "พร้อมถอน"/"เงินในบัญชี" ที่ไหนในไฟล์ทั้งสองเลยนอกเหนือจาก disclaimer ที่มีคำอธิบายกำกับ
+
+### (3) delivered → refunded ต้องหลุดจากยอดจริง
+
+- ทุก query ของ Finance (`fetchFinanceBreakdown`/`fetchInTransitSummary`/`fetchTransactionHistory`) เป็น query สดทุกครั้งที่เรียก **ไม่มี cache/denormalize ใด ๆ เลย** — เมื่อ `seller_mark_refunded` (RPC จาก SELLER-003) เปลี่ยนสถานะ order จาก `delivered` → `refunded` แล้ว การเรียก `fetchFinanceBreakdown` ครั้งถัดไป (เช่น pull-to-refresh หรือเปิดหน้าใหม่) จะไม่นับ order นั้นเข้า Gross/Fee/Net/Balance อีกต่อไปโดยอัตโนมัติ เพราะ query กรอง `status='delivered'` ที่ระดับ DB
+- Order นั้นยังปรากฏใน Transaction History เพราะ `fetchTransactionHistory` กรอง `status in ('delivered','refunded')` — `SellerTransactionTile` แสดง label "คืนเงินแล้ว — ไม่นับรวมในยอดคงเหลือ" คู่กับสูตรที่ขีดทับเสมอ ไม่ใช่สื่อด้วยสี/ขีดทับอย่างเดียว (ยืนยันด้วย widget test เฉพาะทั้งสไตล์และข้อความ)
+- ยืนยันว่า `SellerFinanceScreen` ไม่ auto-reload หลังกลับจาก `SellerOrderDetailScreen` (design ตัดสินใจไว้ตรง ๆ ว่าเป็น read-only screen) — พฤติกรรมนี้สอดคล้องกับ AC ที่ระบุ "การโหลดครั้งถัดไป" ไม่ใช่ "ทันทีที่ action เกิด" — Pull-to-refresh/เปิดหน้าใหม่ยังคงสะท้อนค่าใหม่ถูกต้องเสมอเพราะไม่มี cache
+
+### (4) ปุ่ม "ถอนเงิน" กดได้จริงเสมอ ไม่ trigger payout จริง
+
+- `grep -n "onPressed"` ยืนยันไม่มี `onPressed: null` ที่ไหนในไฟล์ finance ทั้งสอง — ปุ่มถอนเงิน `onPressed: _showPayoutInfo` เสมอ
+- `grep -n "rpc\|\.insert(\|\.update(\|\.delete("` บนทั้งสองไฟล์ finance คืนค่าว่าง — **ไม่มีการเรียก network write method ใดๆ เลยทั้งไฟล์** ปุ่มเปิดแค่ `showModalBottomSheet` แสดงคำอธิบายแล้วปิดด้วย `Navigator.pop`
+- Widget test ยืนยันเพิ่มเติมว่าหลังกดปุ่ม+ปิด bottom sheet แล้ว `sellerStartProcessingCalls`/`sellerCancelOrderCalls`/`sellerMarkRefundedCalls` ยังเป็น 0 ทั้งหมด
+
+### (5) RLS/ownership scoping
+
+- `git diff` ยืนยัน `supabase/schema.sql` ไม่ถูกแตะเลย — SELLER-005 ไม่เพิ่ม policy ใหม่ใด ๆ
+- ทุกเมธอดใหม่ query ผ่าน `orders`/`platform_config` เดิม — select policy ของ `orders` (SELLER-001) `exists (select 1 from stores where stores.id = orders.store_id and stores.owner_id = auth.uid())` เป็นด่านความปลอดภัยจริง ไม่ใช่ `.eq('store_id', ...)` ฝั่ง client (comment ในโค้ดยืนยันหลักการนี้ตรง ๆ เหมือนทุกเมธอดอื่นใน `SellerRepository`)
+- Widget test คู่ 2-store isolation (store A / store B) ยืนยันว่า `storeId` ที่ส่งเข้าทุกเมธอดใหม่ตรงกับร้านที่ screen ถูกสร้างมาให้เท่านั้น ไม่มีการรั่วไหลข้าม instance — เป็น pattern เดียวกับ SELLER-002/003 ที่ผ่าน QA แล้ว (การพิสูจน์ authorization จริงอยู่ที่ RLS server-side ไม่ใช่ client filter)
+
+### (6)-(7) ไม่แตะ schema/`app/` และไม่แตะเมธอดเดิม 4 ตัว
+
+- ยืนยันด้วย `git diff 3f6de4e..bd68eee` ตรง ๆ ทั้งสองข้อ — ไม่มีการเปลี่ยนแปลงใด ๆ ต่อ `supabase/schema.sql`, `app/`, หรือ signature/body ของ `fetchOrderCounts`/`fetchSalesSummary`/`fetchBestSellingProducts`/`fetchStoreOrders`
+
+### (8) ไล่ Requirements/Design Components/Acceptance Criteria ทีละบรรทัด
+
+ไล่ครบทั้ง 3 หัวข้อเทียบกับโค้ดจริงทีละข้อ — ผ่านครบทุกข้อ รวม AC ที่เป็นความเสี่ยงหลัก (disclaimer ครบทุกจุด, Net=Gross−Fee cross-check, refunded ไม่หายเงียบ, ปุ่มถอนเงินไม่ trigger flow จริง, RLS ไม่มี gap, ไม่มี schema/RLS ใหม่, เมธอดเดิมไม่ถูกแก้)
+
+### (9) Full test suites อิสระ (หลัง sync main ใหม่)
+
+- `seller_app/`: **87/87 ผ่าน** — `flutter analyze` สะอาด
+- `app/`: **276/276 ผ่าน** — `flutter analyze` สะอาด
+- ตรงกับตัวเลขที่ Coding รายงาน ไม่มี regression ใด ๆ
+
+### ข้อสังเกตที่ไม่ block การอนุมัติ
+
+ไม่มี automated test เปรียบเทียบผลลัพธ์ `fetchSalesSummary()` กับ `fetchFinanceBreakdown()` โดยตรงตามที่ Design spec's "เตือน Coding" ข้อ 4 แนะนำไว้ (เพราะไม่มี live Supabase project ให้ทดสอบ dynamic ได้จริง เหมือนทุก task ก่อนหน้าตั้งแต่ ZOKY-001) — ยืนยันความถูกต้องแทนด้วยการอ่าน query/aggregation logic ของทั้งสองเมธอดเทียบกันบรรทัดต่อบรรทัด: ทั้งคู่ใช้ filter เดียวกันทุกประการ (`store_id`+`status='delivered'`) และ time-window logic เดียวกันทุกประการ (เทียบ year/month/day กับ `DateTime.now()`) ต่างกันแค่จำนวนคอลัมน์ที่ select เพิ่ม — คณิตศาสตร์รับประกันว่า `gross` ของทั้งสองเมธอดเท่ากันเสมอสำหรับร้าน/เวลาเดียวกัน เสนอเป็น fast-follow เพิ่ม test นี้เมื่อมี live Supabase project จริง
+
+## Final Status: PASS
+
+อนุมัติเข้า `.wyn/tasks/approved/` — SELLER-005 (Finance) ผ่าน QA รอบเดียว **Phase 4 (ZOKY Sellers by WYN) เสร็จสมบูรณ์ครบทั้ง 5 task แล้ว** (SELLER-001 Foundation → SELLER-002 Product Management → SELLER-003 Order Management → SELLER-004 Store Management → SELLER-005 Finance) — ส่งต่อ AI Deploy & DevOps เมื่อมี infra จริง รอ Founder ตัดสินใจทิศทาง Phase 5 ต่อไป
