@@ -87,3 +87,19 @@ Recommendation:
 3. เน้น QA ตรวจ RLS ownership ของ `products`/`product_variants` และ RPC ownership check ของ `adjust_product_stock`/`adjust_variant_stock` ด้วย attack scenario ข้าม store แบบเดียวกับที่เคยพบช่องโหว่จริงใน ZOKY-004
 
 Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบ: (1) `SellerProductListScreen` (filter chips/search/list row/empty state) (2) `CreateProductScreen`/`EditProductScreen` (ฟอร์ม+รูปภาพหลายรูป+variant editor) (3) กลไก "ปรับสต็อก" (+/- stepper หรือ dialog แยก) (4) confirm dialog ของ "ลบสินค้า" ที่สื่อความหมาย soft-delete ชัดเจน — ใช้ Design system เดิมของ `seller_app/` (Blue+White+Soft Gray, seed `0xFF2D6CDF`, Material 3) reuse pattern จาก `CreateStoreScreen`/`CreateDropScreen`/`ReviewFormSheet` ที่ทำได้ (โครง/pattern เดียวกัน ไม่ประดิษฐ์ visual language ใหม่) — เมื่อ Design/Coding/QA เสร็จให้ merge เข้า `main` ทันทีตามที่ Founder อนุญาตให้ทำงานต่อเนื่องอัตโนมัติ (DECISIONS.md 2026-08-14) แล้วรายงานความคืบหน้ากลับเป็น %
+
+## Design Output
+
+Status: **Design เสร็จแล้ว** — เขียนที่ `.wyn/docs/design/seller-002-product-management.md`
+
+สรุปการตัดสินใจหลัก:
+1. **`SellerProductFormScreen` เดียวใช้ร่วมกันทั้งสร้าง/แก้ไข** (พารามิเตอร์ `existingProduct` nullable) แทนการแยกเป็น `CreateProductScreen`/`EditProductScreen` สองคลาส — มิเรอร์ pattern `ReviewFormSheet`'s `existingReview` ที่มีอยู่แล้วในโปรเจกต์ (ZOKY-004) ตรง ๆ ไม่ duplicate โครง TextField/validation
+2. **`SellerProductListScreen`**: search box (debounce 400ms มิเรอร์ `ZokySearchScreen`) + filter chip row 4 ตัว (ทั้งหมด/กำลังขาย/ปิดการขาย/สินค้าหมด มิเรอร์ `ExploreClubsScreen`) + `SellerProductListTile` (โครงมิเรอร์ `OrderSummaryCard`) + FAB "+" (มิเรอร์ `ClubPostsTab`) — แยก empty state 2 แบบ (ร้านไม่มีสินค้าเลย มี CTA vs filter/search ไม่พบ ไม่มี CTA)
+3. **รูปภาพหลายรูป**: มิเรอร์ `CreateClubPostScreen`'s `pickMultiImage`+thumbnail row+ลบทีละรูปเป๊ะ (จำกัด 10, รูปแรก = thumbnail หลัก, ไม่มี drag-reorder รอบนี้)
+4. **`StockAdjustmentSheet` ใหม่**: delta stepper เท่านั้น (มิเรอร์โครง `QuantityStepper` ปรับความหมาย) ไม่มีช่องกรอกค่าสัมบูรณ์ที่ไหนเลย บังคับใช้ atomic RPC constraint ของ Product spec ที่ชั้น UI ด้วย
+5. **`ProductActiveBadge` ใหม่**: มิเรอร์หลักการ "สี+icon+ข้อความคู่กันเสมอ" ของ `OrderStatusBadge` (2 สถานะ: กำลังขาย/ปิดการขาย — ไม่ผูกกับ stock=0 เพราะเป็นคนละมิติ)
+6. **Confirm dialog "ลบสินค้า" ต้องสร้างใหม่ (`confirmHideProduct`) ห้าม reuse `confirmDeletePost` ตรง ๆ** เพราะ body ข้อความเดิม ("ลบแล้วไม่สามารถกู้คืนได้") เป็นเท็จสำหรับ soft-delete — ส่วน variant hard-delete (ของจริง ลบถาวรจริง) ยัง reuse `confirmDeletePost` เดิมได้ตรง ๆ เพราะข้อความตรงกับความจริง
+7. **หมวดหมู่บังคับเฉพาะโหมดสร้าง ไม่บังคับโหมดแก้ไข** (กันสินค้าเก่าที่ seed ผ่าน Studio ไม่มีหมวดหมู่แก้ไขฟิลด์อื่นไม่ได้)
+8. Data model ใหม่ใน `seller_app/`: duplicate `Product`(+`isActive`/`sku`)/`ProductVariant`/`Category` ตาม pattern การ duplicate class name เดิมจาก SELLER-001's `Store`
+
+Handoff: ส่งต่อ AI Coding (`/code`) — รายละเอียดครบทุก Screen/Widget/Dialog/Data Model/Repository method ที่ต้อง implement อยู่ใน `.wyn/docs/design/seller-002-product-management.md` ทั้งหมด (รวม "เตือน Coding" 6 ข้อท้ายเอกสารที่ย้ำจุดเสี่ยงจาก Product spec's Risks ที่กระทบ UI/UX โดยตรง)
