@@ -1,3 +1,10 @@
+/// Converts an empty text field to `null`. Duplicated from
+/// `app/lib/core/text_utils.dart` -- used for optional product fields
+/// (description/sku) backed by a DB constraint/convention that expects
+/// either NULL or a non-empty value, same reasoning as WYN-003's
+/// original use. See .wyn/docs/design/seller-002-product-management.md.
+String? normalizeOptionalText(String value) => value.isEmpty ? null : value;
+
 /// Formats [price] as a Thai Baht amount with thousands separators, e.g.
 /// `thaiBahtLabel(1234.5)` -> `฿1,234.50`, `thaiBahtLabel(1234)` ->
 /// `฿1,234`. Duplicated from `app/lib/core/text_utils.dart` (WYN Social)

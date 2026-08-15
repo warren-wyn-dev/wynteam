@@ -28,6 +28,17 @@ class InsufficientStockException implements Exception {
 /// reads needed for ZOKY-001 (Marketplace Foundation, browse-only). No
 /// insert/update/delete here -- there's no Seller workflow yet to write
 /// through (see supabase/schema.sql, ZOKY-001 section).
+///
+/// SELLER-002 note: every read below that lists/shows products to a
+/// buyer now filters `is_active = true` at the query level, not via
+/// RLS -- `products`' select policy is select-all-authenticated and
+/// stays that way, shared by both this repository and
+/// seller_app/'s SellerRepository (which *needs* to see a seller's own
+/// inactive products in their product list). `is_active` defaults to
+/// `true` (see supabase/schema.sql), so every pre-existing product row
+/// is unaffected and every ZOKY-001/ZOKY-002 test/behavior stays
+/// identical -- see .wyn/tasks/backlog/SELLER-002-product-management.md,
+/// Requirements #6.
 class ZokyRepository {
   ZokyRepository(this._client);
 
@@ -45,7 +56,11 @@ class ZokyRepository {
   }
 
   Future<int> countStoreProducts(String storeId) {
-    return _client.from('products').count(CountOption.exact).eq('store_id', storeId);
+    return _client
+        .from('products')
+        .count(CountOption.exact)
+        .eq('store_id', storeId)
+        .eq('is_active', true);
   }
 
   Future<Store?> fetchStore(String storeId) async {
@@ -75,6 +90,7 @@ class ZokyRepository {
         .from('products')
         .select(_productSelect)
         .eq('id', productId)
+        .eq('is_active', true)
         .maybeSingle();
     if (row == null) return null;
     return Product.fromMap(row);
@@ -84,6 +100,7 @@ class ZokyRepository {
     final rows = await _client
         .from('products')
         .select(_productSelect)
+        .eq('is_active', true)
         .order('created_at', ascending: false)
         .limit(limit);
     return rows.map(Product.fromMap).toList();
@@ -96,6 +113,7 @@ class ZokyRepository {
     final rows = await _client
         .from('products')
         .select(_productSelect)
+        .eq('is_active', true)
         .order('created_at', ascending: false)
         .range(from, to);
     return rows.map(Product.fromMap).toList();
@@ -106,6 +124,7 @@ class ZokyRepository {
         .from('products')
         .select(_productSelect)
         .eq('store_id', storeId)
+        .eq('is_active', true)
         .order('created_at', ascending: false);
     return rows.map(Product.fromMap).toList();
   }
@@ -135,7 +154,11 @@ class ZokyRepository {
     final from = page * searchPageSize;
     final to = from + searchPageSize - 1;
 
-    var filtered = _client.from('products').select(_productSelect).ilike('name', '%$query%');
+    var filtered = _client
+        .from('products')
+        .select(_productSelect)
+        .ilike('name', '%$query%')
+        .eq('is_active', true);
     if (categoryId != null) filtered = filtered.eq('category_id', categoryId);
     if (minPrice != null) filtered = filtered.gte('price', minPrice);
     if (maxPrice != null) filtered = filtered.lte('price', maxPrice);

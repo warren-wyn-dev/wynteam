@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zoky_seller/features/product/presentation/seller_product_list_screen.dart';
 import 'package:zoky_seller/features/shell/presentation/seller_coming_soon_screen.dart';
 import 'package:zoky_seller/features/shell/presentation/seller_home_shell.dart';
 import 'package:zoky_seller/features/store/data/store.dart';
@@ -43,14 +44,14 @@ void main() {
   });
 
   testWidgets(
-      'the 4 not-yet-built tabs each show SellerComingSoonScreen, not a '
+      'the 3 not-yet-built tabs each show SellerComingSoonScreen, not a '
       'crash', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: SellerHomeShell(store: _store, sellerRepository: repository),
     ));
     await tester.pumpAndSettle();
 
-    for (final label in ['สินค้า', 'คำสั่งซื้อ', 'ร้านค้า', 'การเงิน']) {
+    for (final label in ['คำสั่งซื้อ', 'ร้านค้า', 'การเงิน']) {
       await tester.tap(find.text(label));
       await tester.pumpAndSettle();
 
@@ -61,6 +62,22 @@ void main() {
       expect(find.text('ฟีเจอร์นี้จะมาเร็ว ๆ นี้'), findsOneWidget);
     }
 
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'the สินค้า tab shows SellerProductListScreen (SELLER-002), not the '
+      'placeholder', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: SellerHomeShell(store: _store, sellerRepository: repository),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('สินค้า'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SellerProductListScreen), findsOneWidget);
+    expect(find.widgetWithText(SellerComingSoonScreen, 'สินค้า'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

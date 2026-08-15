@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../dashboard/presentation/seller_dashboard_screen.dart';
+import '../../product/presentation/seller_product_list_screen.dart';
 import '../../store/data/seller_repository.dart';
 import '../../store/data/store.dart';
 import 'seller_coming_soon_screen.dart';
@@ -35,7 +36,10 @@ class _SellerHomeShellState extends State<SellerHomeShell> {
         store: widget.store,
         sellerRepository: widget.sellerRepository,
       ),
-      const SellerComingSoonScreen(label: 'สินค้า'),
+      SellerProductListScreen(
+        store: widget.store,
+        sellerRepository: widget.sellerRepository,
+      ),
       const SellerComingSoonScreen(label: 'คำสั่งซื้อ'),
       const SellerComingSoonScreen(label: 'ร้านค้า'),
       const SellerComingSoonScreen(label: 'การเงิน'),

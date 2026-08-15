@@ -1787,6 +1787,24 @@ create policy "Buyers can view their own order items"
 -- failure. Stock is deducted from products.stock only -- variant-level
 -- stock isn't a real SKU-level count yet (see ZOKY-001), so it's never
 -- touched here.
+--
+-- SELLER-002 addition (2026-08-15): also rejects a line whose product
+-- has since been soft-deleted (is_active = false) by its seller, even
+-- if it's still sitting in the buyer's cart from before that happened
+-- -- see .wyn/tasks/backlog/SELLER-002-product-management.md,
+-- Requirements #6. This is a single extra `if` added to the existing
+-- per-line loop below (checked ahead of the stock check, since "no
+-- longer for sale" is the more fundamental reason to reject the line)
+-- -- the locking/ordering logic above and the rest of the function are
+-- untouched, per that task's explicit warning not to disturb ZOKY-003's
+-- already-QA'd atomicity guarantees. Deliberately *not* a parseable
+-- 'PRODUCT_INACTIVE:<name>' prefix like INSUFFICIENT_STOCK -- there's
+-- no product-specific UI copy required for this case (see the Product
+-- spec's Acceptance Criteria), so it falls through
+-- ZokyRepository.createOrders' plain `rethrow` and surfaces as the
+-- existing generic "สั่งซื้อไม่สำเร็จ ลองใหม่อีกครั้ง" message in
+-- ZokyCheckoutSummaryScreen -- no Dart change needed on the Customer
+-- side for this to work correctly.
 create or replace function public.create_orders(
   p_recipient_name text,
   p_recipient_phone text,
@@ -1853,11 +1871,15 @@ begin
 
     for v_item in
       select ci.id as cart_item_id, ci.product_id, ci.variant_selection, ci.quantity,
-             p.name as product_name, p.price, p.stock, p.image_urls
+             p.name as product_name, p.price, p.stock, p.image_urls, p.is_active
       from public.cart_items ci
       join public.products p on p.id = ci.product_id
       where ci.user_id = auth.uid() and p.store_id = v_store_id
     loop
+      if not v_item.is_active then
+        raise exception 'Product is no longer available: %', v_item.product_name;
+      end if;
+
       if v_item.stock < v_item.quantity then
         raise exception 'INSUFFICIENT_STOCK:%', v_item.product_name;
       end if;
@@ -2136,5 +2158,277 @@ create policy "Sellers can view order items for their own store's orders"
       join public.stores s on s.id = o.store_id
       where o.id = order_items.order_id
         and s.owner_id = auth.uid()
+    )
+  );
+
+-- ============================================================
+-- SELLER-002: ZOKY Sellers by WYN — Product Management
+-- ============================================================
+-- Closes the gap SELLER-001 deliberately left open: `products`/
+-- `product_variants` have had select-all-authenticated RLS since
+-- ZOKY-001 but *no* insert/update/delete policy for a client at all,
+-- because there was no Seller workflow yet to decide who may write one
+-- -- see .wyn/tasks/backlog/SELLER-002-product-management.md,
+-- Database. The create_orders() edit above (is_active check) is part
+-- of this same task -- see the comment directly above that function.
+
+-- Soft-delete flag -- see the Product spec's Requirements #4 for the
+-- full reasoning (cart_items.product_id is `on delete cascade`, so a
+-- hard-delete would silently vanish a product from other buyers'
+-- carts with no explanation; order_items.product_id is `on delete set
+-- null` and already snapshots product_name/unit_price/image_url, so
+-- order history is unaffected either way). `sku` is a plain optional
+-- free-text field, not unique -- see that same doc's Risks
+-- ("SKU ไม่บังคับ unique").
+alter table public.products add column if not exists is_active boolean not null default true;
+alter table public.products add column if not exists sku text;
+
+-- `products` insert/update -- mirrors `stores`' SELLER-001 shape
+-- (`with check` on insert, both `using`+`with check` on update, per
+-- the ZOKY-004 QA lesson -- see .wyn/learning/LESSONS_LEARNED.md,
+-- 2026-08-15) except the ownership check joins back to `stores` via
+-- `store_id` instead of comparing `owner_id` directly, since `products`
+-- has no `owner_id` column of its own. Deliberately **no delete
+-- policy** -- see the Product spec's Requirements #4 ("Soft-delete
+-- เท่านั้น"); "deleting" a product from the seller's product list is
+-- `setProductActive(id, false)`, a plain update, never a delete.
+create policy "Sellers can create products for their own store"
+  on public.products
+  for insert
+  to authenticated
+  with check (
+    exists (
+      select 1 from public.stores
+      where stores.id = products.store_id
+        and stores.owner_id = auth.uid()
+    )
+  );
+
+create policy "Sellers can update their own store's products"
+  on public.products
+  for update
+  to authenticated
+  using (
+    exists (
+      select 1 from public.stores
+      where stores.id = products.store_id
+        and stores.owner_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.stores
+      where stores.id = products.store_id
+        and stores.owner_id = auth.uid()
+    )
+  );
+
+-- `product_variants` insert/update/delete -- same ownership shape as
+-- `products` above, except the `exists` join chains one hop further
+-- (`product_variants.product_id -> products.store_id ->
+-- stores.owner_id`), same pattern order_items' seller select policy
+-- (SELLER-001) already uses for a 2-hop join. Unlike `products`,
+-- **delete is allowed** here -- the Product spec's Requirements #4
+-- confirms no FK from `cart_items`/`order_items` ever points at
+-- `product_variants.id` (`variant_selection` is a free-text snapshot,
+-- not a foreign key), so removing a variant a seller no longer offers
+-- is a real, safe hard-delete.
+create policy "Sellers can create variants for their own store's products"
+  on public.product_variants
+  for insert
+  to authenticated
+  with check (
+    exists (
+      select 1 from public.products p
+      join public.stores s on s.id = p.store_id
+      where p.id = product_variants.product_id
+        and s.owner_id = auth.uid()
+    )
+  );
+
+create policy "Sellers can update variants of their own store's products"
+  on public.product_variants
+  for update
+  to authenticated
+  using (
+    exists (
+      select 1 from public.products p
+      join public.stores s on s.id = p.store_id
+      where p.id = product_variants.product_id
+        and s.owner_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.products p
+      join public.stores s on s.id = p.store_id
+      where p.id = product_variants.product_id
+        and s.owner_id = auth.uid()
+    )
+  );
+
+create policy "Sellers can delete variants of their own store's products"
+  on public.product_variants
+  for delete
+  to authenticated
+  using (
+    exists (
+      select 1 from public.products p
+      join public.stores s on s.id = p.store_id
+      where p.id = product_variants.product_id
+        and s.owner_id = auth.uid()
+    )
+  );
+
+-- Stock may only ever move through these two RPCs, never a raw
+-- `update ... set stock = <absolute value>` from a client -- see the
+-- Product spec's Requirements #5 (race condition with
+-- create_orders()'s own `for update` stock deduction). Both take a
+-- **delta**, not an absolute value, and re-derive ownership from
+-- `auth.uid()` every call rather than trusting anything the client
+-- claims, same as club_role()-gated RPCs (WYN-014). `update ... set
+-- stock = stock + p_delta ... returning stock into v_new_stock` is a
+-- single atomic statement -- Postgres holds the row lock for its
+-- whole duration, so two concurrent adjustments serialize correctly
+-- with no lost update, no separate read-then-write step needed. If
+-- the resulting stock would go negative, the exception raised after
+-- the update rolls back that update too (same technique
+-- create_orders() already relies on for its own mid-loop exceptions),
+-- so the CHECK constraint (products_stock_nonnegative /
+-- product_variants_stock_nonnegative) is never actually the thing that
+-- rejects the call -- this RPC raises a clean, distinguishable
+-- 'INSUFFICIENT_STOCK' message first, which SellerRepository.
+-- adjustProductStock/adjustVariantStock catch and translate to
+-- "สต็อกไม่พอ" instead of surfacing a raw Postgres error (per the
+-- Design spec's StockAdjustmentSheet States). Deliberately no
+-- column-level GRANT/REVOKE on the `stock` column (the Product spec
+-- calls this optional, "defense-in-depth" -- see its Risks) -- this
+-- round enforces "stock is delta-only" at the Dart/UI layer instead
+-- (no call site anywhere sends an absolute `stock` value through a raw
+-- update; see SellerRepository.updateProduct's comment on this).
+create or replace function public.adjust_product_stock(p_product_id uuid, p_delta int)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_new_stock int;
+begin
+  if not exists (
+    select 1 from public.products p
+    join public.stores s on s.id = p.store_id
+    where p.id = p_product_id and s.owner_id = auth.uid()
+  ) then
+    raise exception 'Product not found or access denied';
+  end if;
+
+  update public.products
+  set stock = stock + p_delta
+  where id = p_product_id
+  returning stock into v_new_stock;
+
+  if v_new_stock < 0 then
+    raise exception 'INSUFFICIENT_STOCK';
+  end if;
+
+  return v_new_stock;
+end;
+$$;
+
+create or replace function public.adjust_variant_stock(p_variant_id uuid, p_delta int)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_new_stock int;
+begin
+  if not exists (
+    select 1 from public.product_variants v
+    join public.products p on p.id = v.product_id
+    join public.stores s on s.id = p.store_id
+    where v.id = p_variant_id and s.owner_id = auth.uid()
+  ) then
+    raise exception 'Variant not found or access denied';
+  end if;
+
+  update public.product_variants
+  set stock = stock + p_delta
+  where id = p_variant_id
+  returning stock into v_new_stock;
+
+  if v_new_stock < 0 then
+    raise exception 'INSUFFICIENT_STOCK';
+  end if;
+
+  return v_new_stock;
+end;
+$$;
+
+-- Product images: public bucket (unlike club-media -- `products` has
+-- had select-all-authenticated RLS with no privacy boundary since
+-- ZOKY-001, same reasoning as drop-images/pop-videos being public).
+-- Path convention: `{store_id}/{timestamp}-{n}.*` (not `{user_id}/...`
+-- like avatars/drop-images) so the ownership check below can scope
+-- through `stores.owner_id` the same way the insert/update/delete
+-- policies above do, rather than through the uploader's own id --
+-- a store's images belong to the *store*, not personally to whichever
+-- of its (currently always exactly one, per the Product spec's V1
+-- assumption) owner happened to upload them.
+insert into storage.buckets (id, name, public)
+values ('product-images', 'product-images', true)
+on conflict (id) do nothing;
+
+create policy "Product images are publicly accessible"
+  on storage.objects
+  for select
+  using (bucket_id = 'product-images');
+
+create policy "Sellers can upload their own store's product images"
+  on storage.objects
+  for insert
+  to authenticated
+  with check (
+    bucket_id = 'product-images'
+    and exists (
+      select 1 from public.stores
+      where stores.id = ((storage.foldername(name))[1])::uuid
+        and stores.owner_id = auth.uid()
+    )
+  );
+
+create policy "Sellers can update their own store's product images"
+  on storage.objects
+  for update
+  to authenticated
+  using (
+    bucket_id = 'product-images'
+    and exists (
+      select 1 from public.stores
+      where stores.id = ((storage.foldername(name))[1])::uuid
+        and stores.owner_id = auth.uid()
+    )
+  )
+  with check (
+    bucket_id = 'product-images'
+    and exists (
+      select 1 from public.stores
+      where stores.id = ((storage.foldername(name))[1])::uuid
+        and stores.owner_id = auth.uid()
+    )
+  );
+
+create policy "Sellers can delete their own store's product images"
+  on storage.objects
+  for delete
+  to authenticated
+  using (
+    bucket_id = 'product-images'
+    and exists (
+      select 1 from public.stores
+      where stores.id = ((storage.foldername(name))[1])::uuid
+        and stores.owner_id = auth.uid()
     )
   );
