@@ -13,6 +13,11 @@
 
 ## รายการ
 
+### [2026-08-15] `tester.takeException()` กลืน RenderFlex overflow ได้ — widget test ที่ผ่าน 100% ไม่ได้แปลว่า layout ไม่พังบนมือถือจริง
+- บริบท: SELLER-004 แทรก banner 16:9 (ความสูง = 56.25% ของความกว้างจอ) + section "ข้อมูลร้านค้า" (ความสูงแปรผันตามข้อความที่ seller กรอก ยาวได้ถึง 300+50+200 ตัวอักษร) เข้าไปใน `Column` ของ `StoreScreen` ที่มี `Expanded(TabBarView)` อยู่ด้วยและไม่ scroll ได้ — `flutter test` ผ่าน 265/265 และ `flutter analyze` สะอาด แต่ QA วัดจริงบน 360x640/375x667 พบว่า `Expanded` ถูกบีบเหลือความสูง 0.0 แท็บสินค้า/รีวิวหายทั้งแท็บ ลูกค้าซื้อของไม่ได้
+- บทเรียน: (1) `tester.takeException()` ดึง exception ออกมาได้ทีละตัวและถูกใช้ในไฟล์เทสต์นี้อยู่แล้วเพื่อกลืน error ของ `Image.network` — พอเกิด overflow เพิ่มขึ้นมาอีกตัว มันจึงถูกกลบไปเงียบ ๆ โดยที่เทสต์ยังเขียว (2) widget test ใช้ viewport 800x600 เป็นค่าเริ่มต้น ซึ่ง**กว้างกว่าและเตี้ยกว่า**มือถือจริงทุกรุ่น ไม่สะท้อนทั้งความสูง banner (ผูกกับความกว้าง) และความสูงจอที่มีจริง (3) `Expanded` ยอมหดเหลือ 0 ก่อนที่ `Column` จะร้อง overflow เสมอ — อาการที่ผู้ใช้เจอ (เนื้อหาหายทั้งก้อน) จึงรุนแรงกว่าคำว่า "overflow by N pixels" มาก
+- การนำไปใช้ในอนาคต: ทุกครั้งที่ task ใดแทรก widget ที่ความสูงแปรผันตามข้อมูลผู้ใช้ (รูปตาม aspect ratio, ข้อความ free text ที่ไม่มี `maxLines`) เข้าไปใน `Column`/`Row` ที่มี `Expanded`/`Flexible` อยู่ QA ต้อง (ก) ตั้ง `tester.view.physicalSize` เป็นขนาดจอมือถือจริงอย่างน้อย 360x640 และ 375x667 พร้อม `devicePixelRatio = 1.0` (ข) ดัก `FlutterError.onError` เก็บ error ทุกตัวเอง ห้ามพึ่ง `tester.takeException()` (ค) assert ว่า `tester.getSize(find.byType(<widget ที่อยู่ใน Expanded>)).height > 0` ไม่ใช่แค่ assert ว่าหา widget เจอ (ง) ทดสอบ `textScaler` 1.3 ด้วย เพราะผู้ใช้ที่ตั้งฟอนต์ใหญ่ทำให้จอใหญ่ระดับ 430x932 overflow ได้เช่นกัน
+
 ### [2026-08-13] อย่าผสม declarative auth-state UI กับ imperative Navigator.push โดยไม่คิดเรื่อง pop
 - บริบท: WYN-002 มี `AuthGate` ที่ตัดสินใจหน้าจอจาก auth state แบบ declarative (`StreamBuilder`) แต่หน้า Welcome/AuthMethod/Phone/OTP ใช้ `Navigator.push` แบบ imperative ต่อกันเป็น stack เมื่อ auth state เปลี่ยนที่ route ฐาน หน้าที่ถูก push ไว้ด้านบนไม่ถูก pop อัตโนมัติ ผู้ใช้เลยค้างอยู่หน้าเดิม
 - บทเรียน: เมื่อผสม pattern การนำทางสองแบบ (state-driven ที่ route ฐาน + imperative push ด้านบน) ต้องมีจุดที่ pop กลับ route ฐานอย่างชัดเจนเมื่อ state ที่ route ฐานเปลี่ยน ไม่งั้นผู้ใช้จะไม่เห็นการเปลี่ยนแปลงเลย

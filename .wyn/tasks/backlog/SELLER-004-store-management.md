@@ -102,3 +102,39 @@ Status: **Design เสร็จแล้ว** — เขียนที่ `.wy
 7. Data model: เพิ่ม `address`/`contactPhone`/`businessHours` (`String?`) เข้า `Store`/`Store.fromMap` ทั้ง 2 ไฟล์ (`app/`, `seller_app/`) — ไม่กระทบ constructor signature อื่น
 
 Handoff: ส่งต่อ AI Coding (`/code`) — รายละเอียดครบทุก Screen/Widget/Data Model/Repository method ที่ต้อง implement อยู่ใน `.wyn/docs/design/seller-004-store-management.md` ทั้งหมด (รวม "เตือน Coding" 6 ข้อท้ายเอกสารที่ย้ำจุดเสี่ยงจาก Product spec's Risks ที่กระทบ UI/UX โดยตรง — โดยเฉพาะ `onStoreUpdated` wiring และ banner conditional-render)
+
+## QA Output (รอบ 1 — 2026-08-15)
+
+Status: **FAIL** — ส่งต่อ AI Debug Engineer พร้อม bug report ที่ `.wyn/tasks/bugs/SELLER-004-store-screen-header-overflow.md` (ยังไม่ย้ายเข้า `.wyn/tasks/approved/`)
+
+```
+Feature: SELLER-004 (Store Management) — SellerStoreScreen ใหม่ + SellerRepository.updateStoreInfo + SellerHomeShell mutable _store (cross-tab sync) + stores.address/contact_phone/business_hours + storage bucket store-media + StoreScreen ฝั่งลูกค้า (banner + section "ข้อมูลร้านค้า")
+Environment: Static/code-level review + `flutter test`/`flutter analyze` จริงบน Flutter 3.47.0 ทั้ง `app/` และ `seller_app/` + widget test ที่ QA เขียนขึ้นเองเพื่อวัด layout บนขนาดจอมือถือจริง (ไม่มี live Supabase project ให้ทดสอบ dynamic เหมือนทุก task ก่อนหน้า) — sync branch `claude/pwd-nxsvf5` กับ `origin/main` (91c1a44, PR #110) ก่อนเริ่ม ยืนยัน HEAD == origin/main == merge-base
+Test Cases:
+  1. onStoreUpdated cross-tab sync — อ่าน `seller_home_shell.dart` ยืนยัน `late Store _store = widget.store` + ทุก tab (Dashboard/Product/Order/Store) อ้าง `_store` ครบ 4 จุด + grep `widget.store` ทั้ง lib ยืนยันไม่มีจุดค้าง + รัน test flow จริง (แก้ชื่อร้าน → สลับไป Dashboard เห็นชื่อใหม่ทันที)
+  2. RLS ของ stores — ยืนยัน update policy เดิมจาก SELLER-001 เป็น row-level ไม่มี column scoping + SELLER-004 ไม่เพิ่ม/แก้ policy ของ stores เลยแม้แต่บรรทัดเดียว
+  3. storage bucket store-media — public + insert/update/delete join กลับ stores.owner_id ผ่าน (storage.foldername(name))[1] เทียบ product-images ทีละบรรทัด + attack scenario seller A เขียน path ของร้าน B
+  4. StoreScreen ฝั่งลูกค้า (โค้ดที่ผ่าน QA แล้วจาก ZOKY-001) — อ่าน diff ยืนยัน banner ใช้ `if` ใน children list จริง + section แสดงเฉพาะเมื่อมี >= 1 field + แต่ละแถว conditional ตาม field ตัวเอง + regression suite เดิมครบ
+  5. Known Issue overflow ที่ Coding แจ้งไว้ — วัดจริงด้วย widget test บน 360x640 / 375x667 / 390x844 / 430x932 / แนวนอน / textScaler 1.3
+  6. SellerStoreScreen ฟอร์ม — maxLength เทียบ DB CHECK constraint ทีละฟิลด์, ชื่อร้านว่าง/เว้นวรรคล้วน, ไม่ pop หลังบันทึก, error path, double-tap, paste เกิน maxLength
+  7. ไล่ Requirements 7 ข้อ / Design Components / Acceptance Criteria 12 ข้อ แยกกันทีละบรรทัดเทียบโค้ดจริง
+  8. Regression เต็ม: `python3 supabase/check_schema_ordering.py` + `seller_app/` 67 test + `app/` 265 test + `flutter analyze` ทั้งคู่ หลัง sync main ใหม่
+Passed: 7/8 หัวข้อ, `seller_app/` flutter test 67/67, `app/` flutter test 265/265, `flutter analyze` สะอาดทั้งคู่, check_schema_ordering.py OK
+Failed: 1 (หัวข้อ 5 — StoreScreen header overflow บนมือถือจริง)
+Severity: **Major (blocking)**
+Reproduction Steps: เปิด StoreScreen ของร้านที่มี banner + ที่อยู่/เบอร์/เวลาทำการ ครบ บนจอ 360x640 หรือ 375x667 (หรือจอใหญ่กว่าที่ผู้ใช้ตั้ง font scale 1.3) — รายละเอียดการวัดครบทุกขนาดจออยู่ใน bug report
+Expected: ลูกค้ายังเห็นและเลื่อนดูรายการสินค้า/รีวิวของร้านได้ตามปกติ ไม่มี render overflow
+Actual: RenderFlex overflow 50-169 px (สูงสุด 366 px เมื่อที่อยู่ยาวแต่ยังไม่เกินเพดาน DB), `Expanded(TabBarView)` ถูกบีบเหลือความสูง 0.0 → แท็บ "สินค้าทั้งหมด"/"รีวิว" ไม่แสดงเนื้อหาเลย (ProductGridTile count = 0) — ลูกค้ามองไม่เห็นสินค้าและกดซื้อไม่ได้ ขณะที่ร้านที่ไม่มีฟิลด์ใหม่ (baseline ก่อน SELLER-004) ไม่ overflow ในทุกขนาดจอที่ทดสอบ
+Security Findings:
+  - ไม่พบช่องโหว่ใหม่ — RLS ของ stores ไม่ถูกแตะจริง (row-level policy ครอบคลุมคอลัมน์ใหม่อัตโนมัติตามที่ Product spec ระบุ), storage policy ของ store-media เหมือน product-images ทุกบรรทัด (ownership ผ่าน stores.owner_id ไม่ใช่ uploader id) — seller A อัปโหลด/แก้/ลบไฟล์ใน path ของร้าน B ไม่ได้
+  - `updateStoreInfo` ใช้ `.eq('id', storeId)` ล้วนโดยไม่มี owner filter — พึ่ง RLS เป็น security boundary ตรงตาม pattern ที่ทั้งโปรเจกต์ใช้อยู่ (ถ้า storeId ถูก tamper ฝั่ง client จะ update ไม่โดนแถวไหนเลยแล้ว `.single()` โยน error → UI แสดงข้อความ error ปกติ ไม่ crash)
+  - ไม่มี secret/token/credential หลุดใน diff (สแกนแล้ว), ไม่มีการ log ข้อมูลผู้ใช้
+  - `((storage.foldername(name))[1])::uuid` โยน error เมื่อ path แรกไม่ใช่ UUID → ปฏิเสธการเขียน ไม่ใช่ช่องทาง bypass (pattern เดิมจาก product-images ตั้งแต่ SELLER-002)
+Recommendation: ส่ง `.wyn/tasks/bugs/SELLER-004-store-screen-header-overflow.md` ให้ AI Debug Engineer แก้ (ต้องให้ AI Design ยืนยันแนวทาง layout ก่อน เพราะ Design spec เดิมจำกัดขอบเขตไว้ที่ "แทรก 2 จุด ห้ามแตะ TabBar/AppBar" ซึ่งไม่ครอบคลุมกรณีนี้) — ส่วนอื่นของ SELLER-004 (seller_app ทั้งหมด, schema, storage policy, cross-tab sync) ผ่านครบไม่ต้องแก้
+Final Status: FAIL
+```
+
+ข้อสังเกต Minor ที่ไม่ block (บันทึกไว้ให้รอบถัดไป ไม่ต้องแก้ตอนนี้):
+1. `SellerStoreScreen` ไม่ล้าง `_logoBytes`/`_bannerBytes` หลังบันทึกสำเร็จ — ถ้า seller กดบันทึกซ้ำอีกครั้งโดยไม่เลือกรูปใหม่ ระบบจะอัปโหลดรูปเดิมซ้ำเป็นไฟล์ใหม่ (ไฟล์เก่ากลายเป็น orphan ใน bucket, สิ้นเปลืองพื้นที่แต่ไม่กระทบความถูกต้องของข้อมูลหรือความปลอดภัย)
+2. ไม่มีทาง "ลบ" โลโก้/แบนเนอร์ออกได้หลังตั้งค่าแล้ว (มีแต่เปลี่ยนเป็นรูปใหม่) — ไม่มี AC ข้อไหนกำหนดไว้
+3. `alter table ... add constraint` ทั้ง 3 ตัวไม่มี guard `if not exists` (Postgres ไม่รองรับ syntax นี้ตรง ๆ) → รัน `schema.sql` ซ้ำรอบสองจะ error — เป็น pattern เดิมของทั้งไฟล์ตั้งแต่ WYN-003 (`profiles_display_name_length`/`profiles_bio_length`) ไม่ใช่สิ่งที่ SELLER-004 สร้างขึ้นใหม่ แต่ควรมี ADR ตัดสินเรื่อง idempotency ของ schema.sql รวมทีเดียวในอนาคต
