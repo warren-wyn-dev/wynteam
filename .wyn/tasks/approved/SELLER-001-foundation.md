@@ -114,3 +114,59 @@ Known Issues:
 - Balance/Payout แสดง "เร็ว ๆ นี้" ตามที่ Product spec ตั้งใจไว้ ไม่ใช่ gap
 
 Handoff: ส่งต่อ AI QA & Security (`/qa`) — เน้นตรวจ RLS ใหม่ทั้ง 3 policy เป็นพิเศษ (attack scenario: seller A พยายามเห็น/แก้ store หรือ order ของ seller/buyer อื่น), ตรวจ `SellerAuthGate`'s ลำดับ 4 ชั้นให้ตรงกับ Design spec เป๊ะ, ตรวจว่า `app/` ไม่ถูกแตะเลยจริง
+
+---
+
+## QA Output (AI QA & Security)
+
+Feature: SELLER-001 (Foundation) — new `seller_app/` for ZOKY Sellers by WYN (sign-in reuse, "สมัครร้าน", Seller Dashboard, RLS ใหม่ 3 จุด)
+
+Environment: local sandbox — sync `origin/main` ใหม่ (merge-base ยืนยันว่า `d96bc22` (PR #97) เป็น ancestor ของ `origin/main` แล้ว), Flutter 3.47.0 (stable) ที่ path scratchpad, ไม่มี Supabase project จริง/live Postgres ให้ทดสอบ RLS แบบ dynamic (เหมือนทุก task ก่อนหน้าตั้งแต่ ZOKY-001) — ตรวจ RLS ด้วยการอ่าน Postgres RLS semantics โดยตรงจาก SQL
+
+Test Cases:
+1. `git diff --stat 16cc234 origin/main -- app/` ต้องว่างเปล่า (ยืนยัน `app/` ไม่ถูกแตะแม้แต่บรรทัดเดียว)
+2. อ่าน `supabase/schema.sql` ทั้ง diff ของ SELLER-001 section เทียบกับ policy เดิมของ `stores`/`orders`/`order_items` ก่อนหน้า
+3. Attack scenario: insert `stores` โดยระบุ `owner_id` เป็น user อื่น
+4. Attack scenario: update `stores` ของ seller อื่น หรือ retarget `owner_id` ของร้านตัวเองไปคนอื่น
+5. Attack scenario: seller A (มีร้าน X) query `orders`/`order_items` ของร้าน Y ที่ตัวเองไม่ได้เป็นเจ้าของ
+6. ยืนยัน `orders`/`order_items` select policy ใหม่เป็น permissive เพิ่มเติม ไม่แทนที่ policy buyer เดิม (`auth.uid() = buyer_id`)
+7. ยืนยันไม่มี insert/update/delete policy ใหม่ให้ `orders`/`order_items`
+8. ไล่โค้ด `SellerAuthGate` เทียบ Design spec's 4-layer order (signed-out → username → store → shell) ทีละบรรทัด + ตรวจ `connectionState != ConnectionState.done` fix (ไม่ใช้ `hasData`)
+9. ตรวจ `fetchMyStore()` ใช้ `.limit(1)` + เอาแถวแรก ไม่ throw ถ้ามีมากกว่า 1 แถว
+10. ตรวจ `SellerDashboardScreen` นับเฉพาะ `status = 'delivered'`, Balance/Payout แสดง "เร็ว ๆ นี้" ไม่ใช่เลข 0
+11. ไล่ Requirements/Design Components/Acceptance Criteria แยกกันทั้ง 3 หัวข้อทีละบรรทัดเทียบโค้ดจริงทุกหน้าจอ
+12. `flutter analyze`/`flutter test` อิสระของ `seller_app/` และ `app/` (sync branch ใหม่ก่อนรัน ไม่เชื่อตัวเลขจาก Coding Output เฉย ๆ)
+13. Red→green proof อิสระของ arrow-closure-returns-a-Future bug ที่ Coding แก้เอง (เปลี่ยนกลับเป็น arrow ชั่วคราว → ยืนยันพัง → คืนค่า → ยืนยันผ่าน)
+14. ยืนยันไม่มี `RecordingSellerAuthRepository`/`RecordingSellerRepository` สร้าง inline ใน `testWidgets` เหลืออยู่ (grep ทุกไฟล์ test)
+15. ตรวจ diff ของไฟล์ ported (`phone_entry_screen.dart`/`otp_verification_screen.dart`/`username_setup_screen.dart`/`otp_box_input.dart`) เทียบต้นฉบับใน `app/` ยืนยัน logic ไม่เปลี่ยน (ต่างแค่ import path/comment)
+16. ตรวจ bundle ID `io.wyn.zokyseller` ถูกตั้งค่าจริงทั้ง Android (`build.gradle.kts`, Kotlin package path)/iOS (`PRODUCT_BUNDLE_IDENTIFIER` ทุกจุด)
+17. ตรวจ `core/env.dart` ไม่มี hardcoded secret (ใช้ `String.fromEnvironment` เหมือน `app/`)
+
+Passed: 17/17
+
+Failed: 0
+
+Severity: N/A (ไม่พบบั๊กที่ block)
+
+Reproduction Steps / Findings:
+- **RLS `stores` insert**: `with check (auth.uid() = owner_id)` — ทดสอบทางตรรกะ: seller ส่ง `owner_id` เป็น user อื่นในคำสั่ง insert → `with check` ตรวจแถวที่กำลังจะถูกสร้างจริง ไม่ผ่านเงื่อนไข → INSERT ถูกปฏิเสธ ยืนยันถูกต้อง
+- **RLS `stores` update**: มีทั้ง `using (auth.uid() = owner_id)` (จำกัดว่าแก้ได้เฉพาะแถวที่ตัวเองเป็นเจ้าของอยู่แล้ว) และ `with check (auth.uid() = owner_id)` (จำกัดว่าแถวหลังแก้ต้องยังเป็นของตัวเองเสมอ) — สองชั้นนี้ปิดทั้ง 2 attack path: (ก) seller A พยายาม update ร้านของ seller B → `using` block เพราะ B's row ไม่ตรง `auth.uid() = owner_id` ของ A ตั้งแต่แรก (ข) seller A พยายาม update ร้านตัวเองให้ `owner_id` เปลี่ยนเป็นคนอื่น (retarget) → `with check` block เพราะแถวหลังแก้ไม่ตรง `auth.uid()` อีกต่อไป — ตรงตามบทเรียนจาก ZOKY-004 QA รอบ 1 เป๊ะ (update policy ต้องมีทั้งสองฝั่ง)
+- **RLS `orders`/`order_items` select ฝั่ง seller**: join ผ่าน `exists (select 1 from public.stores where stores.id = orders.store_id and stores.owner_id = auth.uid())` — ทดสอบทางตรรกะ: seller A (เจ้าของร้าน X, id=x1) พยายามเห็น order ของร้าน Y (id=y1, เจ้าของ B) → subquery หาแถว `stores` ที่ `id = y1` และ `owner_id = A's uid` → ไม่มีแถวตรงเงื่อนไข (เพราะร้าน y1 เป็นของ B ไม่ใช่ A) → `exists` คืน false → A มองไม่เห็น order ของ Y ยืนยันถูกต้อง — `order_items` ใช้ join สองชั้น (`order_items` → `orders` → `stores`) ถูกต้องเช่นกัน ไม่ใช่ join ผิดตาราง/ผิดคอลัมน์
+- **Additive/permissive confirmation**: Postgres รวม policy หลายตัวของคำสั่งเดียวกัน (ที่ไม่ใช่ `as restrictive`) ด้วย OR เสมอ — ยืนยันจากการอ่านโค้ดว่าทั้ง policy ใหม่ของ `orders`/`order_items` ไม่มี `as restrictive` เลย และ policy buyer เดิม (`auth.uid() = buyer_id`) ไม่ถูกแก้ไข/ลบ/แทนที่แต่อย่างใด — buyer ยังมองเห็น order ของตัวเองได้ปกติ 100% (regression-safe)
+- **ไม่มี write policy ใหม่**: grep/อ่าน diff ยืนยัน SELLER-001 section เพิ่มแค่ 3 policy (insert+update ของ `stores`, select ใหม่ 2 ตัวของ `orders`/`order_items`) ไม่มี insert/update/delete policy ใหม่ให้ `orders`/`order_items` เลย — status transition ยังต้องผ่าน RPC (`create_orders`/`cancel_order`/`confirm_order_received`) เหมือนเดิม ตามที่ตกลงไว้ว่า SELLER-003 เป็นคนทำ
+- **`SellerAuthGate` 4 ชั้น**: ไล่โค้ดยืนยันลำดับตรงกับ Design spec เป๊ะ — `session == null` → `SellerSignInScreen`; ไม่งั้นเช็ค `hasUsername` ก่อน (`usernameSnapshot.data != true` → `UsernameSetupScreen`); ถึงชั้น `fetchMyStore()` เป็นลำดับสุดท้าย (`store == null` → `CreateStoreScreen`, ไม่งั้น → `SellerHomeShell`) — edge case "มีร้านแต่ยังไม่มี username" ถูกทดสอบและ pass จริง (`seller_auth_gate_test.dart` เคส "signed in without a profiles row shows UsernameSetupScreen even when a store already exists") ยืนยันว่า username check มาก่อน store check เสมอไม่สลับกัน — จุด `connectionState != ConnectionState.done` (แทน `hasData`) ถูกต้องตามเหตุผลที่อ้างถึง: `Store?` ที่ resolve เป็น `null` คือค่าที่ valid ทางธุรกิจ (ยังไม่มีร้าน) `hasData` (`= data != null`) จะมองว่ายังไม่มีข้อมูลและวน spinner ตลอดกาล ตรงกับบทเรียนจริงจาก ZOKY-001's `StoreScreen` bug ที่ CONTEXT.md บันทึกไว้
+- **1 seller = 1 store**: `fetchMyStore()` ใช้ `.select().eq('owner_id', userId).limit(1)` แล้วเช็ค `rows.isEmpty` ก่อนเอา `rows.first` — ไม่ throw แม้จะมีมากกว่า 1 แถวในอนาคต (ไม่มี unique constraint DB-level ตามที่ Product spec ยอมรับไว้เป็นความเสี่ยง)
+- **Dashboard คำนวณสด**: `fetchOrderCounts`/`fetchSalesSummary`/`fetchBestSellingProducts` ทุกเมธอด query ตรงจาก `_client` ทุกครั้งที่เรียก ไม่มี cache/field เก็บผลลัพธ์ข้าม call — `fetchSalesSummary` filter `.eq('status', 'delivered')` ตรงจริง, ส่วน Balance/Payout เป็น hardcoded `Text('เร็ว ๆ นี้')` ไม่ใช่ตัวเลข — เทสต์ `shows "เร็ว ๆ นี้" for balance/payout instead of a misleading zero` ยืนยัน
+- **`app/` ไม่ถูกแตะเลย**: `git diff --stat 16cc234 origin/main -- app/` คืนค่าว่างเปล่า — 94 ไฟล์ที่เปลี่ยนทั้งหมดอยู่ใน `seller_app/` (ใหม่ทั้งหมด) + `supabase/schema.sql` (เพิ่ม 76 บรรทัดท้ายไฟล์) เท่านั้น
+- **Requirements/Design Components/Acceptance Criteria** ไล่ทีละบรรทัดครบทั้ง 3 หัวข้อ ไม่พบ gap — AC ทั้ง 8 ข้อ verified ตรงกับโค้ดจริง (sign-in 3 วิธี, username onboarding gap-free, create-store flow, skip-form-if-store-exists, dashboard own-store-only, RLS cross-store denial, 5-tab nav with placeholders, zero `app/` regression)
+- **Bugs ที่ Coding แก้เอง — ยืนยันด้วย red→green อิสระ**: (a) arrow-closure bug — เปลี่ยน `setState(() { _statsFuture = _fetchStats(); })` กลับเป็น `setState(() => _statsFuture = _fetchStats())` ชั่วคราว แล้วรัน `flutter test test/seller_dashboard_screen_test.dart` → **3/3 พังจริง** (`setState() callback argument returned a Future` assertion, exception ทุกเทสต์) → คืนค่ากลับเป็น block body → รันซ้ำ → **3/3 ผ่าน** ยืนยันจุดที่ Coding แก้ตรงจริงและมี regression protection จริง (b) `RecordingSellerAuthRepository`/`RecordingSellerRepository` — grep ทุกไฟล์ `test/*.dart` ยืนยันสร้างเฉพาะใน `setUp()` เป็น `late` field เท่านั้น ไม่มีจุดไหนสร้าง inline ใน `testWidgets` callback หลงเหลือเลย
+
+Expected: RLS ใหม่บน `stores`/`orders`/`order_items` เป็น additive จริง scope ถูกต้องผ่าน ownership join, ไม่มีทาง cross-store/cross-seller data leak, `SellerAuthGate` 4 ชั้นทำงานถูกลำดับ, Dashboard คำนวณสดไม่ cache, `app/` ไม่ถูกแตะ, `flutter analyze`/`flutter test` สะอาดทั้งสองแอปหลัง sync `main` ใหม่
+
+Actual: ตรงกับ Expected ทุกข้อ — `flutter analyze` (`seller_app/`): สะอาด, ไม่มี issue — `flutter test` (`seller_app/`): **17/17 ผ่าน** (ยืนยันตัวเลขตรงกับ Coding Output) — `flutter analyze` (`app/`): สะอาด — `flutter test` (`app/`): **255/255 ผ่าน** (ยืนยันไม่มี regression) — red→green proof ของ arrow-closure bug ยืนยันจับบั๊กได้จริงทั้งสองทิศทาง
+
+Security Findings: ไม่พบช่องโหว่ที่ block — ตรวจ RLS ทั้ง 3 policy ใหม่ละเอียดตามคำเตือนของ Product/Design spec (บทเรียนตรงจาก ZOKY-004) ยืนยันถูกต้องครบทุกจุด: `stores` insert/update มีทั้ง `with check`/`using` scope ด้วย `owner_id = auth.uid()`, `orders`/`order_items` select join ผ่าน `stores.owner_id` ถูกทาง ไม่ใช่ join ผิดตาราง/คอลัมน์ที่จะรั่วข้าม store, เป็น policy permissive เพิ่มเติมไม่แทนที่ policy buyer เดิม, ไม่มี insert/update/delete policy ใหม่ให้ `orders`/`order_items` (status transition ยังต้องผ่าน RPC ที่ยังไม่สร้างจนกว่าจะถึง SELLER-003) — ไม่มี hardcoded secret ใน `core/env.dart` (ใช้ `String.fromEnvironment` เหมือน `app/`) — ข้อจำกัด: ไม่มี live Supabase/Postgres ให้ทดสอบ RLS แบบ dynamic จริง (เหมือนทุก task ก่อนหน้าตั้งแต่ ZOKY-001) ตรวจด้วยการอ่าน Postgres RLS semantics โดยตรงแทน
+
+Recommendation: อนุมัติเข้า production-ready state — ไม่มี blocking issue ไม่มี Minor finding ใหม่รอบนี้ (ครั้งที่สองต่อจาก ZOKY-002 ที่ QA พบ 0 findings เลย) — Known Issues ที่ Product/Coding ระบุไว้แล้ว (Seller Approval auto-approved, 1 seller/1 store, OAuth native URL scheme ยังไม่ตั้งค่าจริง, ไม่มี Android SDK/Xcode ให้ build APK/IPA จริงในสภาพแวดล้อมนี้) ยังคงเป็นความเสี่ยงที่ยอมรับได้ตามที่บันทึกไว้ ไม่ใช่สิ่งที่ QA ค้นพบใหม่ — ส่งต่อ AI Deploy & DevOps เมื่อมี infra จริง (Supabase project จริง + native platform config + `flutter build`)
+
+Final Status: PASS
