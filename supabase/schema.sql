@@ -601,8 +601,10 @@ create table if not exists public.notifications (
     )),
   drop_id uuid references public.drops (id) on delete cascade,
   pop_id uuid references public.pops (id) on delete cascade,
-  club_id uuid references public.clubs (id) on delete cascade,
-  club_post_id uuid references public.club_posts (id) on delete cascade,
+  -- club_id/club_post_id are added later via `alter table` (WYN-015,
+  -- see below `public.club_posts`) instead of being declared inline
+  -- here, because `public.clubs`/`public.club_posts` don't exist yet
+  -- at this point in the file -- see SCHEMA-001 bug report.
   is_read boolean not null default false,
   created_at timestamptz not null default now()
 );
@@ -1381,6 +1383,21 @@ create policy "Approved club members can upload post images"
 -- after clubs/club_members/club_posts/club_post_likes/
 -- club_post_comments exist (unlike the WYN-012 trigger functions,
 -- which only ever needed drops/pops/follows).
+--
+-- club_id/club_post_id themselves are added here via `alter table`
+-- rather than back in the original `create table public.notifications`
+-- block (WYN-012, far above) for the same reason: `public.clubs`/
+-- `public.club_posts` don't exist yet at that point in the file.
+-- Running schema.sql top-to-bottom against a genuinely empty database
+-- previously failed at the `notifications` table with
+-- `relation "public.clubs" does not exist` because those columns were
+-- declared inline instead -- see SCHEMA-001 bug report. No index or
+-- check constraint was ever attached to these columns, so nothing else
+-- needs to move alongside them.
+alter table public.notifications
+  add column if not exists club_id uuid references public.clubs (id) on delete cascade;
+alter table public.notifications
+  add column if not exists club_post_id uuid references public.club_posts (id) on delete cascade;
 
 -- Unlike every other notification trigger in the project (which always
 -- inserts exactly one row -- one actor acting on one piece of content
