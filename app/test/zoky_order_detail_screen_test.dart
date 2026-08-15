@@ -9,10 +9,22 @@ import 'package:wyn/features/zoky/presentation/zoky_order_detail_screen.dart';
 import 'support/fake_supabase_session.dart';
 import 'support/recording_zoky_repository.dart';
 
-/// Regression tests for ZokyOrderDetailScreen (ZOKY-003), per
-/// .wyn/docs/design/zoky-003-cart-checkout-order.md, Screen 6.
+/// Regression tests for ZokyOrderDetailScreen (ZOKY-003, action bar made
+/// per-status + shipping info card added by SELLER-003), per
+/// .wyn/docs/design/seller-003-order-management.md, Screen:
+/// ZokyOrderDetailScreen.
+///
+/// [OrderStatus.pending] no longer exists (SELLER-003 renamed it to
+/// [OrderStatus.paid] -- same meaning, see supabase/schema.sql's
+/// migration comment) -- every case below that used to assert on
+/// "pending" now asserts on "paid" instead, which is an intended
+/// behavior change (the status this project's orders are actually
+/// created in), not a regression. New cases cover the 2 statuses that
+/// didn't exist before this task at all (sellerProcessing/readyToShip)
+/// and the new shipping info card.
 void main() {
-  Order order({OrderStatus status = OrderStatus.pending}) => Order(
+  Order order({OrderStatus status = OrderStatus.paid, String? shippingProvider, String? trackingNumber}) =>
+      Order(
         id: 'o1',
         storeId: 'store-1',
         storeName: 'ร้านทดสอบ',
@@ -25,6 +37,8 @@ void main() {
         feeAmount: 20,
         total: 220,
         createdAt: DateTime.now(),
+        shippingProvider: shippingProvider,
+        trackingNumber: trackingNumber,
       );
 
   const orderItem = OrderItem(
@@ -37,7 +51,10 @@ void main() {
     imageUrl: 'https://example.supabase.co/products/p1.jpg',
   );
 
-  late RecordingZokyRepository pendingRepo;
+  late RecordingZokyRepository paidRepo;
+  late RecordingZokyRepository sellerProcessingRepo;
+  late RecordingZokyRepository readyToShipRepo;
+  late RecordingZokyRepository shippedRepo;
   late RecordingZokyRepository deliveredRepo;
   late RecordingZokyRepository cancelledRepo;
   late RecordingZokyRepository cancelFailsRepo;
@@ -48,7 +65,23 @@ void main() {
   });
 
   setUp(() {
-    pendingRepo = RecordingZokyRepository(order: order(), orderItems: [orderItem]);
+    paidRepo = RecordingZokyRepository(order: order(), orderItems: [orderItem]);
+    sellerProcessingRepo = RecordingZokyRepository(
+      order: order(status: OrderStatus.sellerProcessing),
+      orderItems: [orderItem],
+    );
+    readyToShipRepo = RecordingZokyRepository(
+      order: order(status: OrderStatus.readyToShip),
+      orderItems: [orderItem],
+    );
+    shippedRepo = RecordingZokyRepository(
+      order: order(
+        status: OrderStatus.shipped,
+        shippingProvider: 'Kerry Express',
+        trackingNumber: 'TH123456789',
+      ),
+      orderItems: [orderItem],
+    );
     deliveredRepo = RecordingZokyRepository(
       order: order(status: OrderStatus.delivered),
       orderItems: [orderItem],
@@ -83,7 +116,7 @@ void main() {
   }
 
   testWidgets('shows address, item snapshot, and summary totals', (tester) async {
-    await tester.pumpWidget(buildOrderDetail(pendingRepo));
+    await tester.pumpWidget(buildOrderDetail(paidRepo));
     await tester.pumpAndSettle();
     tester.takeException();
 
@@ -93,16 +126,43 @@ void main() {
     expect(find.text('฿220'), findsOneWidget);
   });
 
-  testWidgets('shows Cancel/Confirm Received buttons when status is pending', (tester) async {
-    await tester.pumpWidget(buildOrderDetail(pendingRepo));
+  testWidgets('shows only the Cancel button when status is paid', (tester) async {
+    await tester.pumpWidget(buildOrderDetail(paidRepo));
     await tester.pumpAndSettle();
     tester.takeException();
 
     expect(find.text('ยกเลิกคำสั่งซื้อ'), findsOneWidget);
-    expect(find.text('ยืนยันได้รับสินค้าแล้ว'), findsOneWidget);
+    expect(find.text('ยืนยันได้รับสินค้าแล้ว'), findsNothing);
   });
 
-  testWidgets('hides Cancel/Confirm Received buttons when status is delivered', (tester) async {
+  testWidgets('shows only the Confirm Received button when status is shipped', (tester) async {
+    await tester.pumpWidget(buildOrderDetail(shippedRepo));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('ยืนยันได้รับสินค้าแล้ว'), findsOneWidget);
+    expect(find.text('ยกเลิกคำสั่งซื้อ'), findsNothing);
+  });
+
+  testWidgets('hides both buttons when status is seller_processing', (tester) async {
+    await tester.pumpWidget(buildOrderDetail(sellerProcessingRepo));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('ยกเลิกคำสั่งซื้อ'), findsNothing);
+    expect(find.text('ยืนยันได้รับสินค้าแล้ว'), findsNothing);
+  });
+
+  testWidgets('hides both buttons when status is ready_to_ship', (tester) async {
+    await tester.pumpWidget(buildOrderDetail(readyToShipRepo));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('ยกเลิกคำสั่งซื้อ'), findsNothing);
+    expect(find.text('ยืนยันได้รับสินค้าแล้ว'), findsNothing);
+  });
+
+  testWidgets('hides both buttons when status is delivered', (tester) async {
     await tester.pumpWidget(buildOrderDetail(deliveredRepo));
     await tester.pumpAndSettle();
     tester.takeException();
@@ -111,7 +171,7 @@ void main() {
     expect(find.text('ยืนยันได้รับสินค้าแล้ว'), findsNothing);
   });
 
-  testWidgets('hides Cancel/Confirm Received buttons when status is cancelled', (tester) async {
+  testWidgets('hides both buttons when status is cancelled', (tester) async {
     await tester.pumpWidget(buildOrderDetail(cancelledRepo));
     await tester.pumpAndSettle();
     tester.takeException();
@@ -120,8 +180,28 @@ void main() {
     expect(find.text('ยืนยันได้รับสินค้าแล้ว'), findsNothing);
   });
 
+  testWidgets('shows the shipping info card once the seller has shipped the order',
+      (tester) async {
+    await tester.pumpWidget(buildOrderDetail(shippedRepo));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('ข้อมูลการจัดส่ง'), findsOneWidget);
+    expect(find.text('ขนส่งโดย: Kerry Express'), findsOneWidget);
+    expect(find.text('เลขพัสดุ: TH123456789'), findsOneWidget);
+  });
+
+  testWidgets('hides the shipping info card entirely before the seller has shipped the order',
+      (tester) async {
+    await tester.pumpWidget(buildOrderDetail(paidRepo));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('ข้อมูลการจัดส่ง'), findsNothing);
+  });
+
   testWidgets('cancel: dismissing the confirm dialog does not call cancelOrder', (tester) async {
-    await tester.pumpWidget(buildOrderDetail(pendingRepo));
+    await tester.pumpWidget(buildOrderDetail(paidRepo));
     await tester.pumpAndSettle();
     tester.takeException();
 
@@ -134,11 +214,11 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    expect(pendingRepo.lastCancelOrderId, isNull);
+    expect(paidRepo.lastCancelOrderId, isNull);
   });
 
   testWidgets('cancel: confirming the dialog calls cancelOrder with the order id', (tester) async {
-    await tester.pumpWidget(buildOrderDetail(pendingRepo));
+    await tester.pumpWidget(buildOrderDetail(paidRepo));
     await tester.pumpAndSettle();
     tester.takeException();
 
@@ -149,12 +229,12 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    expect(pendingRepo.lastCancelOrderId, 'o1');
+    expect(paidRepo.lastCancelOrderId, 'o1');
   });
 
   testWidgets('confirm received: confirming the dialog calls confirmOrderReceived',
       (tester) async {
-    await tester.pumpWidget(buildOrderDetail(pendingRepo));
+    await tester.pumpWidget(buildOrderDetail(shippedRepo));
     await tester.pumpAndSettle();
     tester.takeException();
 
@@ -167,7 +247,7 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    expect(pendingRepo.lastConfirmOrderReceivedId, 'o1');
+    expect(shippedRepo.lastConfirmOrderReceivedId, 'o1');
   });
 
   testWidgets('shows a "เขียนรีวิว" entry point per item once delivered, with no review yet '
@@ -190,9 +270,9 @@ void main() {
     expect(find.text('เขียนรีวิว'), findsNothing);
   });
 
-  testWidgets('does not show a review entry point while an order is still pending (ZOKY-004)',
+  testWidgets('does not show a review entry point while an order is still paid (ZOKY-004)',
       (tester) async {
-    await tester.pumpWidget(buildOrderDetail(pendingRepo));
+    await tester.pumpWidget(buildOrderDetail(paidRepo));
     await tester.pumpAndSettle();
     tester.takeException();
 

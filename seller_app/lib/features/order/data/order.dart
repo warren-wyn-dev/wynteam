@@ -1,14 +1,12 @@
-/// The 8 statuses master prompt Section 10 defines (SELLER-003,
-/// 2026-08-15) -- expanded from ZOKY-003's original 3-value enum
-/// (pending/delivered/cancelled) now that ZOKY Sellers by WYN
-/// (SELLER-001/002) exists to actually trigger the middle states. See
-/// supabase/schema.sql (SELLER-003 section) and .wyn/tasks/backlog/
-/// SELLER-003-order-management.md, Requirements #1. [pendingPayment]
-/// can never actually be produced by any RPC this round (there's no
-/// payment gateway in this project) -- it's scaffolded in the DB CHECK
-/// constraint and here purely so a future payment-gateway integration
-/// doesn't need another schema/enum migration; see that same doc's
-/// Requirements #2.
+/// The 8 statuses master prompt Section 10 defines -- duplicated from
+/// `app/lib/features/zoky/data/order.dart` (SELLER-003, separate
+/// Flutter binary, same pattern SELLER-001/002 already established for
+/// every other duplicated model). See supabase/schema.sql (SELLER-003
+/// section) and .wyn/tasks/backlog/SELLER-003-order-management.md,
+/// Requirements #1. [pendingPayment] can never actually be produced by
+/// any RPC this round (there's no payment gateway in this project) --
+/// it's scaffolded here purely so a future payment-gateway integration
+/// doesn't need another schema/enum migration.
 enum OrderStatus {
   pendingPayment,
   paid,
@@ -22,9 +20,7 @@ enum OrderStatus {
 
 /// Falls back to [OrderStatus.pendingPayment] for any value the switch
 /// doesn't recognize -- the DB CHECK constraint guarantees this never
-/// actually happens in practice, this is defense-in-depth only. See
-/// .wyn/docs/design/seller-003-order-management.md, Widget:
-/// OrderStatusBadge, States.
+/// actually happens in practice, this is defense-in-depth only.
 OrderStatus orderStatusFromString(String value) => switch (value) {
       'paid' => OrderStatus.paid,
       'seller_processing' => OrderStatus.sellerProcessing,
@@ -36,17 +32,31 @@ OrderStatus orderStatusFromString(String value) => switch (value) {
       _ => OrderStatus.pendingPayment,
     };
 
-/// One Order -- always scoped to a single store (Product spec: "1
-/// Order ต่อ 1 ร้านค้า"), created only by create_orders() (see
-/// supabase/schema.sql, ZOKY-003 section). [feePercent]/[feeAmount]
-/// are snapshots of the platform fee at the moment this Order was
-/// placed, not the current live config value -- see
-/// ZokyRepository.createOrders.
+/// The reverse of [orderStatusFromString] -- needed here (unlike
+/// `app/`'s ZOKY Marketplace, which only ever *reads* a status) because
+/// `SellerOrderListScreen`'s filter chips need to turn a selected
+/// [OrderStatus] back into the DB literal `SellerRepository.
+/// fetchStoreOrders` filters on.
+String orderStatusToDbValue(OrderStatus status) => switch (status) {
+      OrderStatus.pendingPayment => 'pending_payment',
+      OrderStatus.paid => 'paid',
+      OrderStatus.sellerProcessing => 'seller_processing',
+      OrderStatus.readyToShip => 'ready_to_ship',
+      OrderStatus.shipped => 'shipped',
+      OrderStatus.delivered => 'delivered',
+      OrderStatus.cancelled => 'cancelled',
+      OrderStatus.refunded => 'refunded',
+    };
+
+/// One Order belonging to the caller's own store -- duplicated from
+/// `app/`'s Customer-facing `Order` model (see that file's own doc
+/// comment for the full field-by-field reasoning). [recipientName]/
+/// [recipientPhone]/[shippingAddress] are the same buyer-entered
+/// snapshot the Customer app sees; the seller has no way to edit them.
 class Order {
   const Order({
     required this.id,
     required this.storeId,
-    required this.storeName,
     required this.status,
     required this.recipientName,
     required this.recipientPhone,
@@ -62,7 +72,6 @@ class Order {
 
   final String id;
   final String storeId;
-  final String storeName;
   final OrderStatus status;
   final String recipientName;
   final String recipientPhone;
@@ -73,18 +82,15 @@ class Order {
   final double total;
   final DateTime createdAt;
 
-  /// Set together by seller_ship_order (SELLER-003) once the order
-  /// reaches [OrderStatus.shipped] -- null before that. See
-  /// supabase/schema.sql, SELLER-003 section.
+  /// Set together by seller_ship_order once the order reaches
+  /// [OrderStatus.shipped] -- null before that.
   final String? shippingProvider;
   final String? trackingNumber;
 
   factory Order.fromMap(Map<String, dynamic> map) {
-    final store = map['store'] as Map<String, dynamic>?;
     return Order(
       id: map['id'] as String,
       storeId: map['store_id'] as String,
-      storeName: store?['name'] as String? ?? '',
       status: orderStatusFromString(map['status'] as String),
       recipientName: map['recipient_name'] as String,
       recipientPhone: map['recipient_phone'] as String,
