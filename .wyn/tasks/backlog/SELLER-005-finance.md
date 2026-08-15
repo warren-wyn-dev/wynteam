@@ -111,3 +111,21 @@ Recommendation:
 4. เน้น QA ตรวจ 2 เรื่องเป็นพิเศษ: (a) สูตร Gross−Fee=Net ตรงกับผลรวม subtotal จริงในทุก edge case (ไม่มี order เลย/มีแต่ order ที่ refunded ทั้งหมด/มีทั้ง delivered และ refunded ปนกัน) (b) ข้อความกำกับ Balance/Payout ครบทุกจุดที่ Requirements ระบุไว้ ไม่มีจุดไหนหลุดคำเตือน
 
 Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบ: (1) `SellerFinanceScreen` layout — Balance card เด่น (พร้อมข้อความกำกับถาวร), การ์ด Gross/Fee/Net แยก 3 ช่วงเวลา, การ์ด "รายได้ระหว่างทาง" แยกต่างหาก, บรรทัดอัตราค่าธรรมเนียมปัจจุบัน (2) ปุ่ม Payout แบบ disabled + dialog/bottom sheet อธิบาย (3) Transaction History list (delivered/refunded, label แยกชัดเจน, pagination, tap-through ไปหน้า `SellerOrderDetailScreen` เดิม) (4) Empty state เมื่อยังไม่มีรายรับเลย — ใช้ Design system เดิมทั้งสองแอป (Blue+White+Soft Gray, Rounded Cards, ห้าม Liquid Glass) reuse pattern จาก `SellerDashboardScreen`/`SellerOrderListScreen`/`OrderStatusBadge` ให้มากที่สุด — เมื่อ Design/Coding/QA เสร็จให้ merge เข้า `main` ทันทีตามที่ Founder อนุญาตให้ทำงานต่อเนื่องอัตโนมัติ (DECISIONS.md 2026-08-14) แล้วรายงานความคืบหน้ากลับเป็น %
+
+## Design Output
+
+Status: **Design เสร็จแล้ว** — เขียนที่ `.wyn/docs/design/seller-005-finance.md`
+
+หมายเหตุสี: ใช้ Design system ที่ implement จริงตอนนี้เท่านั้น (Blue seed `0xFF2D6CDF`, Material 3 default roles) — **ไม่ใช้** Cyan/Orange จาก `.wyn/docs/design/ds-001-color-system.md` เพราะ DS-001 ยังไม่ถูก apply เข้าโค้ดจริงในหน้าจอไหนเลยของทั้งสองแอป (จะอัปเดตพร้อมกันเป็นชุดตอน DS-001 rollout จริงในอนาคต)
+
+สรุปการตัดสินใจหลัก:
+1. **โครงหน้าจอเป็น `ListView` เดียว** รวม summary cards (Balance/Breakdown/In-transit/Fee rate) กับ Transaction History paginate ไว้ในสโครลเดียว — reuse scroll-listener pattern จาก `SellerOrderListScreen._onScroll` เป๊ะ, pull-to-refresh รีโหลดทุกอย่างพร้อมกัน
+2. **Error state ใช้ explicit "ลองใหม่"** (มิเรอร์ `SellerOrderListScreen`) แทน silent-fail แบบ `SellerDashboardScreen` เดิม เพราะเป็นข้อมูลการเงินที่ต้องเชื่อถือได้ ไม่ใช่ข้อมูลเสริม
+3. **ปุ่ม "ถอนเงิน" แสดงเสมอ สไตล์ muted/เทา (ไม่ใช้สี primary) แต่ `onPressed` ใช้งานได้จริงเสมอ** — เปิด bottom sheet อธิบายทุกครั้งที่แตะ (ไม่ใช่ literal Flutter `disabled` เพราะปุ่มที่ `onPressed: null` จะไม่มีทาง trigger คำอธิบายให้ screen reader/ผู้ใช้เห็นได้เลย) — ไม่มี flow ถอนเงินจริงถูก trigger ไม่ว่ากรณีใด ข้อความอธิบายเป็นคำต่อคำจาก Product spec ห้ามเปลี่ยน
+4. **คำว่า "ยอดคงเหลือ"/Balance ใช้แค่จุดเดียวในหน้าจอ (Balance card)** พร้อม disclaimer ถาวรติดกับตัวเลขเสมอ (คำต่อคำจาก Product spec) — การ์ด "สรุปยอดขาย" ช่วง "ทั้งหมด" ใช้คำว่า "สุทธิ (Net Revenue)" แทน เพื่อไม่ต้องแปะ disclaimer เต็มซ้ำหลายจุดจนหน้าจอรก แต่ยังคงความหมายเดียวกันทางคณิตศาสตร์
+5. **ตัวเลือกช่วงเวลา (วันนี้/เดือนนี้/ทั้งหมด) ใช้ `SegmentedButton`** แทนตาราง 9 ตัวเลขพร้อมกัน (3 ช่วง × Gross/Fee/Net) — ลดความแน่นบนจอมือถือ, ค่าเริ่มต้น "วันนี้"
+6. **แถวค่าธรรมเนียม (Fee) ใช้สีเทากลาง ไม่ใช่สีแดง** (เหตุผลเดียวกับปุ่ม "ทำเครื่องหมายคืนเงินแล้ว" ของ SELLER-003 — เป็นรายการบัญชีปกติ ไม่ใช่ error) ใส่เครื่องหมาย "−" นำหน้าเพื่อไม่สื่อสารด้วยสีอย่างเดียว
+7. **`SellerTransactionTile` ใหม่**: ไม่มี thumbnail, ไม่ query `order_items` (ต่างจาก `SellerOrderListTile`) — แสดงสูตร "ยอดขาย − ค่าธรรมเนียม = สุทธิ" เป็นบรรทัดเดียวต่อแถว, แถว `refunded` ขีดทับ+สีเทา+ข้อความ "คืนเงินแล้ว — ไม่นับรวมในยอดคงเหลือ" กำกับเสมอ (ไม่ใช่สีอย่างเดียว), reuse `OrderStatusBadge` เดิมตรง ๆ ไม่แก้
+8. **Repository**: เสนอเมธอดใหม่ 4 ตัวใน `SellerRepository` (`fetchFinanceBreakdown`/`fetchInTransitSummary`/`fetchTransactionHistory`/`fetchPlatformFeePercent`) — ไม่แก้เมธอดเดิม 4 ตัวที่ผ่าน QA แล้วเลย (`fetchOrderCounts`/`fetchSalesSummary`/`fetchBestSellingProducts`/`fetchStoreOrders`) — `allTime.net` จาก `fetchFinanceBreakdown` ใช้เป็นค่า Balance ตรง ๆ ไม่ query ซ้ำซ้อน — **หมายเหตุประสานงาน**: `seller_repository.dart` กำลังอยู่ระหว่าง QA รอบ 2 ของ SELLER-004 คู่ขนาน AI Coding ต้อง sync กับ `main` ล่าสุดก่อนเริ่ม
+
+Handoff: ส่งต่อ AI Coding (`/code`) — รายละเอียดครบทุก Screen/Widget/Repository method/Test coverage ที่ต้อง implement อยู่ใน `.wyn/docs/design/seller-005-finance.md` ทั้งหมด (รวม "เตือน Coding" 7 ข้อท้ายเอกสารที่ย้ำจุดเสี่ยงจาก Product spec's Risks — โดยเฉพาะข้อความ disclaimer ต้องตรงคำต่อคำ, cross-check สูตร Gross−Fee=Net ทุก edge case, ปุ่มถอนเงินห้าม trigger network call ใด ๆ)
