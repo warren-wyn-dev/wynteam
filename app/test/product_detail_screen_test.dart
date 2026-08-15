@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:wyn/features/zoky/data/order_item.dart';
 import 'package:wyn/features/zoky/data/product.dart';
 import 'package:wyn/features/zoky/data/product_variant.dart';
+import 'package:wyn/features/zoky/data/review.dart';
 import 'package:wyn/features/zoky/presentation/product_detail_screen.dart';
+import 'package:wyn/features/zoky/presentation/product_reviews_screen.dart';
 import 'package:wyn/features/zoky/presentation/store_screen.dart';
 import 'package:wyn/features/zoky/presentation/zoky_cart_screen.dart';
+import 'package:wyn/features/zoky/presentation/zoky_order_list_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_zoky_repository.dart';
@@ -58,6 +62,10 @@ void main() {
   late RecordingZokyRepository discountedRepo;
   late RecordingZokyRepository outOfStockRepo;
   late RecordingZokyRepository variantsRepo;
+  late RecordingZokyRepository withReviewsRepo;
+  late RecordingZokyRepository manyReviewsRepo;
+  late RecordingZokyRepository oneReviewableRepo;
+  late RecordingZokyRepository twoReviewableRepo;
 
   setUpAll(() async {
     await initFakeSupabaseSession();
@@ -67,6 +75,59 @@ void main() {
     discountedRepo = RecordingZokyRepository();
     outOfStockRepo = RecordingZokyRepository();
     variantsRepo = RecordingZokyRepository(productVariants: [colorVariant, sizeVariant]);
+    withReviewsRepo = RecordingZokyRepository(
+      productRating: (4.0, 2),
+      productReviews: [
+        Review(
+          id: 'r1',
+          orderItemId: 'oi1',
+          productId: outOfStockProduct.id,
+          userId: 'u1',
+          authorUsername: 'somchai',
+          authorDisplayName: 'สมชาย',
+          rating: 4,
+          textContent: 'สินค้าดีมาก',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      ],
+    );
+    manyReviewsRepo = RecordingZokyRepository(productRating: (4.5, 10));
+    oneReviewableRepo = RecordingZokyRepository(
+      reviewableOrderItems: const [
+        OrderItem(
+          id: 'oi1',
+          productId: 'p2',
+          productName: 'กระเป๋า',
+          variantSelection: '',
+          unitPrice: 500,
+          quantity: 1,
+          imageUrl: null,
+        ),
+      ],
+    );
+    twoReviewableRepo = RecordingZokyRepository(
+      reviewableOrderItems: const [
+        OrderItem(
+          id: 'oi1',
+          productId: 'p2',
+          productName: 'กระเป๋า',
+          variantSelection: '',
+          unitPrice: 500,
+          quantity: 1,
+          imageUrl: null,
+        ),
+        OrderItem(
+          id: 'oi2',
+          productId: 'p2',
+          productName: 'กระเป๋า',
+          variantSelection: '',
+          unitPrice: 500,
+          quantity: 1,
+          imageUrl: null,
+        ),
+      ],
+    );
   });
 
   Widget buildProductDetail(RecordingZokyRepository repo, Product product) {
@@ -123,7 +184,7 @@ void main() {
     expect(find.text('สินค้าหมด'), findsNWidgets(3));
   });
 
-  testWidgets('shows "ยังไม่มีรีวิว" since Review (ZOKY-004) does not exist yet',
+  testWidgets('shows "ยังไม่มีรีวิว" when the product has no reviews yet (ZOKY-004)',
       (tester) async {
     await tester.pumpWidget(buildProductDetail(outOfStockRepo, outOfStockProduct));
     await tester.pumpAndSettle();
@@ -133,6 +194,85 @@ void main() {
     tester.takeException();
 
     expect(find.text('ยังไม่มีรีวิว'), findsOneWidget);
+  });
+
+  testWidgets('shows the average rating and review tiles when reviews exist (ZOKY-004)',
+      (tester) async {
+    await tester.pumpWidget(buildProductDetail(withReviewsRepo, outOfStockProduct));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    await scrollToFind(tester, find.text('4.0 (2 รีวิว)'));
+    tester.takeException();
+    expect(find.text('4.0 (2 รีวิว)'), findsOneWidget);
+
+    // The review tile itself sits further down than the rating summary
+    // -- same "still out of the lazily-built sliver range" situation as
+    // the store card test below, so scroll again to reach it.
+    await scrollToFind(tester, find.text('สมชาย'));
+    tester.takeException();
+
+    expect(find.text('สมชาย'), findsOneWidget);
+    expect(find.text('สินค้าดีมาก'), findsOneWidget);
+    // Only 2 reviews total (<= the 3-item preview limit) -- no "ดูรีวิวทั้งหมด" link.
+    expect(find.text('ดูรีวิวทั้งหมด'), findsNothing);
+  });
+
+  testWidgets('"ดูรีวิวทั้งหมด" opens ProductReviewsScreen when there are more than 3 reviews '
+      '(ZOKY-004)', (tester) async {
+    await tester.pumpWidget(buildProductDetail(manyReviewsRepo, outOfStockProduct));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    await scrollToFind(tester, find.text('ดูรีวิวทั้งหมด'));
+    tester.takeException();
+
+    await tester.tap(find.text('ดูรีวิวทั้งหมด'));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.byType(ProductReviewsScreen), findsOneWidget);
+  });
+
+  testWidgets(
+      'shows a direct "เขียนรีวิว" entry point when exactly one delivered order_item is '
+      'reviewable (ZOKY-004)', (tester) async {
+    await tester.pumpWidget(buildProductDetail(oneReviewableRepo, outOfStockProduct));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    await scrollToFind(tester, find.text('เขียนรีวิว'));
+    tester.takeException();
+
+    expect(find.text('เขียนรีวิว'), findsOneWidget);
+
+    await tester.tap(find.text('เขียนรีวิว'));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    // ReviewFormSheet opened as a modal bottom sheet.
+    expect(find.text('ส่งรีวิว'), findsOneWidget);
+  });
+
+  testWidgets(
+      'points at Order List instead of a picker when more than one delivered order_item is '
+      'reviewable (ZOKY-004)', (tester) async {
+    await tester.pumpWidget(buildProductDetail(twoReviewableRepo, outOfStockProduct));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    final entryPoint = find.text('คุณมีสินค้าที่ยังไม่ได้รีวิว ไปที่คำสั่งซื้อของคุณ');
+    await scrollToFind(tester, entryPoint);
+    tester.takeException();
+
+    expect(entryPoint, findsOneWidget);
+    expect(find.text('เขียนรีวิว'), findsNothing);
+
+    await tester.tap(entryPoint);
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.byType(ZokyOrderListScreen), findsOneWidget);
   });
 
   testWidgets('renders Color/Size variant chips and selecting one does not throw',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/zoky/data/product.dart';
+import 'package:wyn/features/zoky/data/review.dart';
 import 'package:wyn/features/zoky/data/store.dart';
 import 'package:wyn/features/zoky/presentation/product_detail_screen.dart';
 import 'package:wyn/features/zoky/presentation/store_screen.dart';
@@ -38,6 +39,8 @@ void main() {
   late RecordingZokyRepository populatedRepo;
   late RecordingZokyRepository emptyRepo;
   late RecordingZokyRepository notFoundRepo;
+  late RecordingZokyRepository ratedRepo;
+  late RecordingZokyRepository reviewsTabRepo;
 
   setUpAll(() async {
     await initFakeSupabaseSession();
@@ -51,6 +54,32 @@ void main() {
     );
     emptyRepo = RecordingZokyRepository(store: store, storeProductCount: 0);
     notFoundRepo = RecordingZokyRepository();
+    ratedRepo = RecordingZokyRepository(
+      store: store,
+      storeProducts: [product],
+      storeProductCount: 1,
+      storeRating: (4.5, 3),
+    );
+    reviewsTabRepo = RecordingZokyRepository(
+      store: store,
+      storeProducts: [product],
+      storeProductCount: 1,
+      storeRating: (5.0, 1),
+      storeReviews: [
+        Review(
+          id: 'r1',
+          orderItemId: 'oi1',
+          productId: product.id,
+          userId: 'u1',
+          authorUsername: 'somchai',
+          rating: 5,
+          textContent: 'ประทับใจมาก',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          productName: 'เสื้อยืด',
+        ),
+      ],
+    );
   });
 
   Widget buildStoreScreen(RecordingZokyRepository repo) {
@@ -129,5 +158,31 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('ยังไม่มีรีวิว'), findsOneWidget);
+  });
+
+  testWidgets('header shows the store\'s aggregate rating when reviews exist (ZOKY-004)',
+      (tester) async {
+    await tester.pumpWidget(buildStoreScreen(ratedRepo));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.textContaining('4.5'), findsOneWidget);
+  });
+
+  testWidgets('Reviews tab shows every product\'s reviews with the product name attached '
+      '(ZOKY-004)', (tester) async {
+    await tester.pumpWidget(buildStoreScreen(reviewsTabRepo));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    await tester.tap(find.text('รีวิว'));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('ประทับใจมาก'), findsOneWidget);
+    // ReviewTile shows the author's name and the product name attached
+    // -- 'เสื้อยืด' appears both here and (offscreen) on the Products
+    // tab's grid tile, but only this tab is currently visible/attached.
+    expect(find.text('เสื้อยืด'), findsOneWidget);
   });
 }

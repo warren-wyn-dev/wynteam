@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../data/product.dart';
+import '../data/review.dart';
 import '../data/store.dart';
 import '../data/zoky_repository.dart';
 import 'product_detail_screen.dart';
 import 'widgets/product_grid_tile.dart';
+import 'widgets/review_tile.dart';
+import 'widgets/star_rating.dart';
 import 'zoky_strings.dart';
 
 /// Screen 3 — Store (ZOKY-001). Follow Store shows but doesn't work yet
@@ -29,12 +32,16 @@ class StoreScreen extends StatefulWidget {
 class _StoreScreenState extends State<StoreScreen> {
   late Future<Store?> _storeFuture;
   late Future<List<Product>> _productsFuture;
+  late Future<(double, int)> _ratingFuture;
+  late Future<List<Review>> _reviewsFuture;
 
   @override
   void initState() {
     super.initState();
     _storeFuture = widget.zokyRepository.fetchStore(widget.storeId);
     _productsFuture = widget.zokyRepository.fetchStoreProducts(widget.storeId);
+    _ratingFuture = widget.zokyRepository.fetchStoreRating(widget.storeId);
+    _reviewsFuture = widget.zokyRepository.fetchStoreReviews(widget.storeId);
   }
 
   void _showComingSoon() {
@@ -131,9 +138,27 @@ class _StoreScreenState extends State<StoreScreen> {
                   children: [
                     Text(store.name, style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 4),
-                    Text(
-                      '0 ผู้ติดตาม · ${store.productCount} สินค้า',
-                      style: TextStyle(color: Theme.of(context).colorScheme.outline),
+                    FutureBuilder<(double, int)>(
+                      future: _ratingFuture,
+                      builder: (context, snapshot) {
+                        final rating = snapshot.data;
+                        if (rating == null || rating.$2 == 0) {
+                          return Text(
+                            'ยังไม่มีรีวิว · 0 ผู้ติดตาม · ${store.productCount} สินค้า',
+                            style: TextStyle(color: Theme.of(context).colorScheme.outline),
+                          );
+                        }
+                        return Row(
+                          children: [
+                            StarRatingDisplay(rating: rating.$1),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${rating.$1.toStringAsFixed(1)} · 0 ผู้ติดตาม · ${store.productCount} สินค้า',
+                              style: TextStyle(color: Theme.of(context).colorScheme.outline),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -187,6 +212,22 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Widget _buildReviewsTab(BuildContext context) {
-    return const Center(child: Text('ยังไม่มีรีวิว'));
+    return FutureBuilder<List<Review>>(
+      future: _reviewsFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final reviews = snapshot.data!;
+        if (reviews.isEmpty) {
+          return const Center(child: Text('ยังไม่มีรีวิว'));
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: reviews.length,
+          itemBuilder: (context, index) => ReviewTile(review: reviews[index]),
+        );
+      },
+    );
   }
 }

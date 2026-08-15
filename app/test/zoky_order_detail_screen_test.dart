@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/zoky/data/order.dart';
 import 'package:wyn/features/zoky/data/order_item.dart';
+import 'package:wyn/features/zoky/data/review.dart';
 import 'package:wyn/features/zoky/presentation/zoky_order_detail_screen.dart';
 
 import 'support/fake_supabase_session.dart';
@@ -40,6 +41,7 @@ void main() {
   late RecordingZokyRepository deliveredRepo;
   late RecordingZokyRepository cancelledRepo;
   late RecordingZokyRepository cancelFailsRepo;
+  late RecordingZokyRepository alreadyReviewedRepo;
 
   setUpAll(() async {
     await initFakeSupabaseSession();
@@ -59,6 +61,20 @@ void main() {
       order: order(),
       orderItems: [orderItem],
       cancelOrderException: Exception('network down'),
+    );
+    alreadyReviewedRepo = RecordingZokyRepository(
+      order: order(status: OrderStatus.delivered),
+      orderItems: [orderItem],
+      reviewForOrderItem: Review(
+        id: 'r1',
+        orderItemId: orderItem.id,
+        productId: orderItem.productId!,
+        userId: 'me',
+        authorUsername: 'me',
+        rating: 5,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
     );
   });
 
@@ -152,6 +168,59 @@ void main() {
     tester.takeException();
 
     expect(pendingRepo.lastConfirmOrderReceivedId, 'o1');
+  });
+
+  testWidgets('shows a "เขียนรีวิว" entry point per item once delivered, with no review yet '
+      '(ZOKY-004)', (tester) async {
+    await tester.pumpWidget(buildOrderDetail(deliveredRepo));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('เขียนรีวิว'), findsOneWidget);
+    expect(find.text('แก้ไขรีวิว'), findsNothing);
+  });
+
+  testWidgets('shows the star rating and "แก้ไขรีวิว" once an item has already been reviewed '
+      '(ZOKY-004)', (tester) async {
+    await tester.pumpWidget(buildOrderDetail(alreadyReviewedRepo));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('แก้ไขรีวิว'), findsOneWidget);
+    expect(find.text('เขียนรีวิว'), findsNothing);
+  });
+
+  testWidgets('does not show a review entry point while an order is still pending (ZOKY-004)',
+      (tester) async {
+    await tester.pumpWidget(buildOrderDetail(pendingRepo));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('เขียนรีวิว'), findsNothing);
+    expect(find.text('แก้ไขรีวิว'), findsNothing);
+  });
+
+  testWidgets('tapping "เขียนรีวิว" opens the review form and submitting calls addReview '
+      '(ZOKY-004)', (tester) async {
+    await tester.pumpWidget(buildOrderDetail(deliveredRepo));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    await tester.tap(find.text('เขียนรีวิว'));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    // 5th star button (index 4) selects a rating of 5.
+    await tester.tap(find.byIcon(Icons.star_border).last);
+    await tester.pump();
+
+    await tester.tap(find.text('ส่งรีวิว'));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(deliveredRepo.lastAddReviewOrderItemId, orderItem.id);
+    expect(deliveredRepo.lastAddReviewProductId, orderItem.productId);
+    expect(deliveredRepo.lastAddReviewRating, 5);
   });
 
   testWidgets('shows an error SnackBar when cancelOrder fails', (tester) async {

@@ -6,9 +6,11 @@ import 'order.dart';
 import 'order_item.dart';
 import 'product.dart';
 import 'product_variant.dart';
+import 'review.dart';
 import 'store.dart';
 
 const _productSelect = '*, store:stores(name), category:categories(name)';
+const _reviewAuthorSelect = 'author:profiles(username, display_name, avatar_url)';
 
 enum ProductSortBy { newest, priceLowToHigh, priceHighToLow }
 
@@ -319,5 +321,159 @@ class ZokyRepository {
         .maybeSingle();
     if (row == null) return 10;
     return double.tryParse(row['value'] as String) ?? 10;
+  }
+
+  // -- Review (ZOKY-004) -------------------------------------------------
+  //
+  // Writes go through plain RLS, not an RPC -- unlike orders above, a
+  // review is a single-table write with no multi-row business logic;
+  // the "delivered order the caller actually owns" gate lives in the
+  // insert policy itself (see supabase/schema.sql, ZOKY-004 section).
+  // Ratings are never aggregated/cached here -- every read recomputes
+  // avg()/count() client-side from the raw rows, per the Design spec's
+  // warning against snapshotting (opposite principle from orders' fee).
+
+  static const reviewsPageSize = 20;
+
+  /// order_items the caller bought and had delivered for [productId],
+  /// that don't have a review yet -- what ProductDetailScreen uses to
+  /// decide its write-review entry point (open the form directly when
+  /// there's exactly one, otherwise point at Order List; see the Design
+  /// spec's decision on the repeat-purchase edge case).
+  Future<List<OrderItem>> fetchReviewableOrderItems(String productId) async {
+    final userId = _client.auth.currentUser!.id;
+    final deliveredOrderRows = await _client
+        .from('orders')
+        .select('id')
+        .eq('buyer_id', userId)
+        .eq('status', 'delivered');
+    final deliveredOrderIds = deliveredOrderRows.map((r) => r['id'] as String).toList();
+    if (deliveredOrderIds.isEmpty) return [];
+
+    final itemRows = await _client
+        .from('order_items')
+        .select()
+        .eq('product_id', productId)
+        .inFilter('order_id', deliveredOrderIds);
+    final orderItems = itemRows.map(OrderItem.fromMap).toList();
+    if (orderItems.isEmpty) return orderItems;
+
+    final reviewedRows = await _client
+        .from('reviews')
+        .select('order_item_id')
+        .inFilter('order_item_id', orderItems.map((item) => item.id).toList());
+    final reviewedIds = reviewedRows.map((r) => r['order_item_id'] as String).toSet();
+
+    return orderItems.where((item) => !reviewedIds.contains(item.id)).toList();
+  }
+
+  /// The review already written for [orderItemId], if any -- null means
+  /// ZokyOrderDetailScreen should show "เขียนรีวิว" instead of
+  /// "แก้ไขรีวิว" for that line item. order_item_id is unique on
+  /// [reviews], so at most one row can ever come back.
+  Future<Review?> fetchReviewForOrderItem(String orderItemId) async {
+    final row = await _client
+        .from('reviews')
+        .select('*, $_reviewAuthorSelect')
+        .eq('order_item_id', orderItemId)
+        .maybeSingle();
+    if (row == null) return null;
+    return Review.fromMap(row);
+  }
+
+  Future<Review> addReview({
+    required String orderItemId,
+    required String productId,
+    required int rating,
+    String? textContent,
+  }) async {
+    final userId = _client.auth.currentUser!.id;
+    final row = await _client
+        .from('reviews')
+        .insert({
+          'order_item_id': orderItemId,
+          'product_id': productId,
+          'user_id': userId,
+          'rating': rating,
+          'text_content': textContent,
+        })
+        .select('*, $_reviewAuthorSelect')
+        .single();
+    return Review.fromMap(row);
+  }
+
+  Future<void> editReview({
+    required String reviewId,
+    required int rating,
+    String? textContent,
+  }) {
+    return _client.from('reviews').update({
+      'rating': rating,
+      'text_content': textContent,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', reviewId);
+  }
+
+  Future<void> deleteReview(String reviewId) {
+    return _client.from('reviews').delete().eq('id', reviewId);
+  }
+
+  /// (average, count) for [productId] -- (0, 0) when there are no
+  /// reviews yet, which callers render as "ยังไม่มีรีวิว".
+  Future<(double, int)> fetchProductRating(String productId) async {
+    final rows = await _client.from('reviews').select('rating').eq('product_id', productId);
+    if (rows.isEmpty) return (0.0, 0);
+    final ratings = rows.map((r) => r['rating'] as int);
+    return (ratings.reduce((a, b) => a + b) / rows.length, rows.length);
+  }
+
+  Future<List<Review>> fetchProductReviews(
+    String productId, {
+    int limit = reviewsPageSize,
+    int offset = 0,
+  }) async {
+    final rows = await _client
+        .from('reviews')
+        .select('*, $_reviewAuthorSelect')
+        .eq('product_id', productId)
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
+    return rows.map(Review.fromMap).toList();
+  }
+
+  /// (average, count) across every product belonging to [storeId] --
+  /// what StoreScreen's header shows in place of ZOKY-001's placeholder.
+  Future<(double, int)> fetchStoreRating(String storeId) async {
+    final productIds = await _storeProductIds(storeId);
+    if (productIds.isEmpty) return (0.0, 0);
+    final rows = await _client.from('reviews').select('rating').inFilter('product_id', productIds);
+    if (rows.isEmpty) return (0.0, 0);
+    final ratings = rows.map((r) => r['rating'] as int);
+    return (ratings.reduce((a, b) => a + b) / rows.length, rows.length);
+  }
+
+  /// Reviews across every product in [storeId]'s store, newest first,
+  /// each carrying its product's name (StoreScreen's Reviews tab
+  /// mixes products together, unlike ProductDetailScreen which already
+  /// knows the product it's showing).
+  Future<List<Review>> fetchStoreReviews(
+    String storeId, {
+    int limit = reviewsPageSize,
+    int offset = 0,
+  }) async {
+    final productIds = await _storeProductIds(storeId);
+    if (productIds.isEmpty) return [];
+    final rows = await _client
+        .from('reviews')
+        .select('*, $_reviewAuthorSelect, product:products(name)')
+        .inFilter('product_id', productIds)
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
+    return rows.map(Review.fromMap).toList();
+  }
+
+  Future<List<String>> _storeProductIds(String storeId) async {
+    final rows = await _client.from('products').select('id').eq('store_id', storeId);
+    return rows.map((r) => r['id'] as String).toList();
   }
 }
