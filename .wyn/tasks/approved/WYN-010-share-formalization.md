@@ -1,7 +1,7 @@
 # Product Task — WYN-010
 
-Status: review
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ)
+Status: approved (QA รอบ 1 — PASS)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS)
 
 Feature: Share formalization — extend native Share + Copy Link to ZOKY Product Detail and Store
 
@@ -62,3 +62,42 @@ Files Changed:
 `flutter analyze`: สะอาด, `flutter test`: 255/255 ผ่าน (เพิ่มจาก 253 เดิม — WYN Social/ZOKY-001/002/003/004 เดิมทั้งหมดยังผ่านครบ ไม่มี regression)
 
 Handoff: ส่งต่อ AI QA & Security (`/qa`)
+
+---
+
+## QA & Security Report — รอบ 1 (AI QA & Security)
+
+**ผลสรุป: PASS**
+
+### สิ่งที่ตรวจอิสระ (ไม่เชื่อตัวเลขจาก Coding Output เฉยๆ)
+
+1. **Re-sync ไป merged main เอง** — `git fetch origin main`, rebuild branch `claude/pwd-nxsvf5` บน `origin/main` (commit `2ab800c`, PR #93) ใหม่ทั้งหมด
+2. **รัน `flutter analyze` อิสระ**: No issues found
+3. **รัน `flutter test` อิสระ**: 255/255 ผ่านทั้งหมด — ตรงกับตัวเลขที่ Coding รายงาน ยืนยันด้วยตัวเองแล้ว
+4. **ไล่ diff เต็มระหว่าง Product spec merge (`2deb9b9`) กับ Coding merge (`2ab800c`)** ด้วย `git diff --stat` — ยืนยันว่ามีแค่ `product_detail_screen.dart`/`store_screen.dart` และเทสต์คู่กันเท่านั้นที่ถูกแก้ ไม่มีไฟล์ Drop/Pop/Club post ไหนถูกแตะเลยแม้แต่บรรทัดเดียว ตรงตามที่ Product spec ระบุไว้ชัดเจนว่าห้าม refactor โค้ด Share เดิม
+
+### ตรวจโค้ดที่เพิ่มเข้ามาละเอียด
+
+อ่าน diff ของ `product_detail_screen.dart`/`store_screen.dart` เทียบกับ `drop_detail_screen.dart` เดิมทีละบรรทัด ยืนยันตรงกันเป๊ะ: icon (`Icons.share_outlined`/`Icons.link`), tooltip ("แชร์"/"คัดลอกลิงก์"), SnackBar ข้อความ ("คัดลอกลิงก์แล้ว"), `mounted` check ก่อนใช้ `context` หลัง `await` — `productShareLink`/`storeShareLink` ใช้ `widget.product.id`/`widget.storeId` จริง ไม่มี hard-code ใด ๆ — title ของ share sheet ("สินค้าบน WYN"/"ร้านค้าบน WYN") ตาม convention `"<ประเภท> บน WYN"` เดิมถูกต้อง
+
+### ตรวจข้อค้นพบเรื่อง platform channel ไม่ถูก mock (สำคัญที่สุดของรอบนี้)
+
+Coding รายงานว่า `Clipboard`/`share_plus` platform channel ไม่ถูก mock ใน sandbox นี้ ทำให้ tap ปุ่มแล้ว `await` ค้างตลอดไปไม่มี exception — ตรวจสอบความน่าเชื่อถือของข้อค้นพบนี้ด้วย 2 วิธี:
+1. **Cross-reference อิสระ**: `grep` หา `Icons.share_outlined`/`Icons.link` tap ทั่วทั้ง `test/` ยืนยันว่าไม่มีเทสต์ไหนในโปรเจกต์นี้เลย (ทั้ง Drop/Pop/Club post ที่มี Share มาตั้งแต่ WYN-005) เคย tap ปุ่มเหล่านี้จริง สอดคล้องกับคำอธิบายของ Coding ว่าเป็นข้อจำกัดที่มีมาตั้งแต่ต้น ไม่ใช่เพิ่งเกิดจาก WYN-010
+2. **ยอมรับผลการวินิจฉัยของ Coding โดยไม่ทำซ้ำการทดลองที่เสี่ยง hang เทสต์เอง** — เนื่องจากเป็นข้อจำกัดของ sandbox (ไม่ใช่ production bug) และ Coding ได้ทำ debug test แยกพิสูจน์แล้วชัดเจน (exception เป็น null ทุก pump, `Clipboard.getData()` ตรง ๆ ทำให้ process timeout) การทดลองซ้ำจะให้ผลเดิมเป๊ะโดยไม่เพิ่มความมั่นใจ แต่มีความเสี่ยงจะทำให้ QA session เอง hang โดยไม่จำเป็น
+
+**สรุป**: เทสต์ที่เขียนไว้ (เช็คแค่ presence ของปุ่ม ไม่ tap) เป็นทางเลือกที่ถูกต้องและสอดคล้องกับ convention เดิมของทั้งโปรเจกต์จริง ไม่ใช่การลดมาตรฐานการทดสอบ
+
+### Red→green regression proof อิสระ (คนละจุดกับที่ Coding ทดสอบ)
+
+ลบ `IconButton` ของปุ่ม Copy Link ออกจาก `StoreScreen`'s AppBar ชั่วคราว แล้วรัน `flutter test test/store_screen_test.dart` พบว่า "AppBar shows Share and Copy Link buttons (WYN-010)" พังจริงตามคาด (แดง — `Found 0 widgets`) คืนโค้ดกลับแล้ว rerun ยืนยันผ่านครบ 10/10 (เขียว) และ `git diff --stat` ว่างเปล่ายืนยันคืนค่าครบถ้วนไม่มีร่องรอยหลงเหลือ
+
+### Acceptance Criteria ทั้ง 5 ข้อ
+
+- [x] `ProductDetailScreen`'s AppBar มีปุ่ม Share/Copy Link ตามที่ระบุ — ตรวจโค้ดยืนยันแล้ว
+- [x] `StoreScreen`'s AppBar มีปุ่ม Share/Copy Link เช่นเดียวกัน — ตรวจโค้ดยืนยันแล้ว
+- [x] ลิงก์อ้างอิง product id/store id ที่ถูกต้องจริง ไม่ hard-code — ตรวจโค้ดยืนยันแล้ว
+- [x] กดปุ่มแล้วไม่ crash — ตรวจโครงสร้างโค้ดยืนยันว่าเหมือน pattern ที่ผ่าน QA มาแล้ว 3 รอบก่อนหน้า (Drop/Pop/Club post) เป๊ะ ไม่มี logic ใหม่ที่ต่างออกไปเลยที่จะเพิ่มความเสี่ยง crash
+- [x] Drop/Pop/Club post เดิมไม่มี regression — ยืนยันจาก diff stat ว่าไม่มีไฟล์เหล่านั้นถูกแตะเลย
+
+**Final Status: PASS** — อนุมัติเข้า `.wyn/tasks/approved/`
