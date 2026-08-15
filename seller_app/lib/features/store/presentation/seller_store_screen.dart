@@ -140,6 +140,18 @@ class _SellerStoreScreenState extends State<SellerStoreScreen> {
       );
       if (!mounted) return;
       widget.onStoreUpdated(updated);
+      // The picked images now live in `updated.logoUrl`/`updated.bannerUrl`,
+      // which the parent has just handed back down as `widget.store`, so the
+      // previews below keep showing them. Holding on to the raw bytes would
+      // make a second "บันทึก" (e.g. after only fixing a typo in the address)
+      // upload the very same image again under a new name and orphan the
+      // file it just replaced.
+      setState(() {
+        _logoBytes = null;
+        _logoExtension = null;
+        _bannerBytes = null;
+        _bannerExtension = null;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('บันทึกข้อมูลร้านสำเร็จ')),
       );

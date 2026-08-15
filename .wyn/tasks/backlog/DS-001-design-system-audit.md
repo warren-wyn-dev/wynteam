@@ -1,7 +1,7 @@
 # Product Task — DS-001
 
-Status: backlog (PHASE 1 AUDIT เสร็จ — รอ Founder ตัดสินใจ 3 ข้อก่อนเข้า Design)
-Owner: AI Product Manager
+Status: backlog (PHASE 1 AUDIT เสร็จ + DESIGN SPEC เสร็จ — รอ Founder เลือก palette A/B/C ก่อนส่งต่อ AI Coding)
+Owner: AI Product Manager → AI Design (design spec เสร็จแล้ว ดูหัวข้อ "Design Output" ท้ายไฟล์)
 
 Feature: WYN Design System Refinement — Phase 1 Audit + Token Foundation
 
@@ -156,3 +156,76 @@ Recommendation:
 เหตุผล: R1 ระบุว่า blast radius กว้างที่สุดในโปรเจกต์ — การแบ่งย่อยทำให้ QA ตรวจได้จริงและ rollback ได้ตรงจุดถ้าพัง
 
 Handoff: **รอ Founder ตอบ Q1-Q3 ก่อน** จากนั้นส่งต่อ AI Design (`/design`) เพื่อกำหนด color scale + typography scale ที่ผ่าน WCAG AA จริง
+
+---
+
+## Design Output
+
+> โดย AI Design — 2026-08-15 | spec เต็ม: `.wyn/docs/design/ds-001-color-system.md` | หน้าเปรียบเทียบให้ Founder ดู: `palette_compare.html`
+> สถานะ: **PROPOSED — ยังไม่แตะ application source code ใด ๆ** งานนี้เป็น design spec ล้วน รอ Founder ตอบ Q1 ก่อนถึงจะส่งต่อ AI Coding
+
+### ข้อค้นพบหลัก (คำตอบต่อความเสี่ยง R4 ใน audit)
+
+R4 ที่ audit ตั้งไว้ว่า "Cyan บนพื้นขาว contrast ต่ำ" **ยืนยันแล้วว่าจริง และหนักกว่าที่คิด — เพราะไม่ได้เกิดกับ Cyan ตัวเดียว**
+
+| สี | บนพื้นขาว | บนพื้นดำ `#0A0A0A` |
+|---|---|---|
+| Cyan `#00C8FF` | **1.96:1 ไม่ผ่าน** | 10.09:1 ผ่าน |
+| Orange `#FF6B35` | **2.84:1 ไม่ผ่าน** | 6.98:1 ผ่าน |
+| Blue `#2D6CDF` (เดิม) | 4.86:1 ผ่าน | 4.07:1 |
+
+ทั้ง Cyan และ Orange ที่ Founder เสนอ **ตกเกณฑ์ AA บนพื้นขาว แต่ได้ค่าดีมากบนพื้นดำ** → palette ชุดนี้เรียกร้อง identity แบบ **dark-first** โดยธรรมชาติ ซึ่งสอดคล้องกับคอนเซปต์ "Black + White + Cyan" ที่ Founder เขียนไว้เอง
+
+เพิ่มเติมจาก audit: ค่า border ที่ระบุมา (`#E5E7EB` = 1.2:1 และ `#222222` = 1.32:1) **ใช้เป็นขอบของสิ่งที่กดได้ไม่ได้** (WCAG 1.4.11 บังคับ 3.0:1) จึงต้องเพิ่มชั้น `border-strong` (`#8B929C` light = 3.14:1 / `#666666` dark = 3.66:1) — ค่าที่ Founder ให้มายังใช้ได้ แต่ใช้กับ **เส้นแบ่งตกแต่ง (divider)** เท่านั้น
+
+### 3 ทางเลือกที่เสนอให้ Founder
+
+| | A — Blue เดิม `#2D6CDF` | B — Cyan `#00C8FF` ตามที่เสนอ | **C — Cyan ฉบับผ่าน AA (แนะนำ)** |
+|---|---|---|---|
+| แนวคิด | ไม่เปลี่ยนอะไร | ใส่ค่าสีที่เสนอตรง ๆ ทั้งสองโหมด | สีแบรนด์เดียวกัน คนละระดับความเข้มต่อโหมด |
+| Light mode | ปุ่มน้ำเงิน 4.86:1 ผ่าน | **ปุ่ม 1.96:1 / ราคา 2.84:1 ไม่ผ่าน** | ปุ่มดำ 19.8:1, accent Cyan `#00739E` 5.32:1, ราคา `#CC4A16` 4.61:1 — ผ่านหมด |
+| Dark mode | ฟ้าพาสเทลที่ Material generate เอง | Cyan `#00C8FF` 10.09:1 สวยที่สุด | **เหมือน B ทุกประการ** (Cyan สด + Orange สด) |
+| ZOKY identity | ไม่มี (ใช้สีเดียวกับ Social) | มี แต่ราคาอ่านยากใน light | มี และอ่านออกทั้งสองโหมด |
+| ต้นทุน / ความเสี่ยง | ศูนย์ | ปานกลาง + **เสี่ยงตกรีวิว accessibility ตอนส่งสโตร์** | ปานกลาง (เท่ากับ B — blast radius เดียวกัน) |
+| ตอบโจทย์ "Minimal Social Platform" | ไม่ | บางส่วน (เฉพาะ dark) | ใช่ ทั้งสองโหมด |
+
+**Trade-off ที่ Founder ต้องยอมรับถ้าเลือก C**: light mode จะไม่มี Cyan สด `#00C8FF` ปรากฏเลย และปุ่มหลักใน light จะเป็นสีดำไม่ใช่สีแบรนด์ — แลกกับการที่ทุกอย่างอ่านออกจริงและ dark mode ได้ Cyan เต็ม 100%
+
+### คำแนะนำ
+
+**เลือก C** — เหตุผล:
+1. ได้ Cyan ที่ Founder ต้องการเต็มที่ในโหมดที่มันสวยที่สุด (dark) โดยไม่ต้องประนีประนอม
+2. light mode ยังใช้งานได้จริง ผ่าน AA และไม่เสี่ยงถูกตีกลับตอนรีวิวขึ้นสโตร์
+3. ปุ่ม neutral (ดำ/ขาว) ทำให้หน้าจอเงียบและ minimal จริงตามบรีฟ แล้ว Cyan กลายเป็น "จุดที่แบรนด์ปรากฏ" ที่มีน้ำหนัก แทนที่จะถูกเจือจางเป็นน้ำเงินเข้มธรรมดา
+4. ต้นทุน/ความเสี่ยงเท่ากับ B ทุกประการ (แตะ theme layer เหมือนกัน) แต่ได้คุณภาพสูงกว่าชัดเจน — ไม่มีเหตุผลเชิงวิศวกรรมที่จะเลือก B แทน C
+
+**ทางเลือกเสริม (ต้องให้ Founder ตัดสิน)**: ตั้ง WYN เป็น **dark-first** (ค่าเริ่มต้น = ธีมมืด สลับเองได้) ซึ่งจะทำให้ palette นี้เปล่งประกายที่สุดและสร้างภาพจำที่ต่างจากโซเชียลอื่น
+
+### สิ่งที่ spec นิยามครบแล้ว (พร้อมส่ง AI Coding ทันทีที่ Founder ยืนยัน)
+
+- Color scale เต็ม: Cyan 9 เฉด / Orange 5 เฉด / Neutral 12 ค่า / Semantic 4 คู่ — ทุกค่าที่ใช้กับตัวหนังสือมี contrast ratio กำกับ
+- Flutter `ColorScheme` mapping ครบทุก slot ทั้ง light + dark (**เลิกใช้ `colorSchemeSeed`** เพราะเป็นสาเหตุที่หน้าตายังเป็น Material default)
+- ZOKY sub-theme: ใช้ช่อง `tertiary` ช่องเดียว → ระบุ 5 จุดที่ใช้ส้มได้ (ราคา / commerce CTA / seller badge / commerce state / จุด entry ของ ZOKY) และรายการห้ามใช้ + เพดานสัดส่วนพื้นที่สี
+- Typography scale 13 ระดับ (body ขั้นต่ำ 14px, line-height ≥1.43 รองรับสระไทย, metadata 12px เป็นขนาดเล็กสุด) — **ไม่เพิ่ม dependency ฟอนต์ในรอบนี้** (ตรวจแล้ว `app/pubspec.yaml` ไม่มี `google_fonts` และไม่มี `fonts:`)
+- Spacing 4px grid + radius scale + touch target ≥44 (แนะนำ 48) + focus ring
+- ยืนยันกติกาเดิม: ห้าม Liquid Glass, ห้ามลอก layout Instagram/TikTok — **เพิ่ม Threads เข้าไปในรายการห้ามลอกด้วย** (เอาได้แค่ "ความเรียบ" ไม่เอาโครงหน้าจอ)
+
+### การแก้ข้อขัดแย้งเรื่อง token file (สำคัญ — เกี่ยวกับ Acceptance Criteria ข้อแรกของ task นี้)
+
+Acceptance Criteria เขียนว่า "ทั้ง 2 แอปอ้างอิงแหล่งเดียวกัน ไม่มี seed color duplicate" แต่ `.wyn/company/DECISIONS.md` (2026-08-15) ตัดสินไว้แล้วว่า **ไม่ใช้ monorepo tooling และไม่สร้าง shared package** ให้ duplicate seed color เข้า `seller_app/` ตรง ๆ — **สองข้อนี้ขัดกัน**
+
+วิธีแก้ที่เสนอ (เคารพคำตัดสินใจของ Founder และยังได้ผลลัพธ์ตาม AC):
+- `app/lib/core/design/` = **CANONICAL** (`wyn_colors.dart`, `wyn_typography.dart`, `wyn_spacing.dart`, `wyn_theme.dart`)
+- `seller_app/lib/core/design/` = **MIRROR** สำเนาตรงตัวอักษร + header comment ชี้ไปที่ต้นทาง
+- เพิ่ม test `seller_app/test/design/token_sync_test.dart` อ่านไฟล์ทั้งสองฝั่งด้วย `dart:io` แล้วเทียบเนื้อหา — drift แล้ว test แดงทันที
+- `main.dart` ทั้งสองแอปเหลือแค่ `theme: WynTheme.light` — ไม่มีค่าสีดิบอีกต่อไป (แก้ข้อ "duplicate seed color ใน 2 main.dart" ได้ตรงจุด)
+- ทางเลือกอนาคต (ต้องขออนุมัติ Founder): Flutter รองรับ path dependency ได้โดยไม่ต้องใช้ Melos — ค่อยพิจารณาเมื่อมีแอปที่ 3 (WYN Admin, Phase 6)
+
+### Handoff ต่อ AI Coding (หลัง Founder ยืนยัน)
+
+แบ่งเป็น 3 PR ย่อยภายใน DS-001 (แต่ละ PR รัน 332 tests):
+1. **DS-001a** สร้าง 4 ไฟล์ token ใน `app/lib/core/design/` + สลับ `app/lib/main.dart` มาใช้ `WynTheme` — **ยังไม่แตะหน้าจอใด ๆ** (audit ยืนยันแล้วว่ามี `Color(0x...)` แค่ 8 จุด สีจะไหลไปทุกหน้าเอง)
+2. **DS-001b** mirror เข้า `seller_app/` + test กัน drift + ZOKY sub-theme
+3. **DS-001c** แทนที่ 8 จุดที่ hardcode สี (เช่น `Color(0x99000000)` ใน `product_grid_tile.dart`) ด้วย token + เปลี่ยนราคาเป็น `colorScheme.tertiary`
+
+QA ต้องตรวจเพิ่ม: screenshot ทุกหน้าหลักทั้ง light/dark, ทดสอบที่ textScale 130%, และไล่เช็คว่า Orange ไม่หลุดไปฝั่ง Social / Cyan ไม่หลุดเข้า `seller_app/`
