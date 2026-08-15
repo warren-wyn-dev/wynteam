@@ -11,6 +11,9 @@ dependencies:
     sdk: flutter
   supabase_flutter: ^2.5.0
   cupertino_icons: ^1.0.6
+  # Multi-image picker for SellerProductFormScreen -- same version/API
+  # `app/`'s CreateClubPostScreen/CreateDropScreen already use.
+  image_picker: ^1.1.2
   # Not used for any persistent seller preference yet -- kept only because
   # test/support/fake_supabase_session.dart (mirrored from app/) needs it to
   # fake a signed-in session's local storage. See app/pubspec.yaml for the
