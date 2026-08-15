@@ -36,11 +36,42 @@ void main() {
     createdAt: DateTime.now(),
   );
 
+  // SELLER-004: a store with a banner and full address/contact/hours,
+  // to prove the new banner + "ข้อมูลร้านค้า" section render correctly --
+  // `store` above (no banner/address/contact/hours) stays untouched so
+  // every pre-existing test above keeps proving the regression-safe
+  // "no new UI at all for a store with none of these fields" case.
+  final storeWithBannerAndInfo = Store(
+    id: 'store-2',
+    ownerId: 'owner-2',
+    name: 'ร้านครบเครื่อง',
+    description: 'ร้านที่มีข้อมูลครบทุกฟิลด์',
+    bannerUrl: 'https://example.supabase.co/store-media/store-2/banner.jpg',
+    address: '123 ถนนสุขุมวิท กรุงเทพฯ',
+    contactPhone: '0891234567',
+    businessHours: 'จันทร์-ศุกร์ 9:00-18:00 น.',
+    createdAt: DateTime.now(),
+    productCount: 0,
+  );
+
+  // Only 1 of the 3 new fields set, to prove the section renders that
+  // field alone (not empty rows for the other 2).
+  final partialStore = Store(
+    id: 'store-3',
+    ownerId: 'owner-3',
+    name: 'ร้านมีที่อยู่อย่างเดียว',
+    address: 'ที่อยู่เท่านั้น',
+    createdAt: DateTime.now(),
+    productCount: 0,
+  );
+
   late RecordingZokyRepository populatedRepo;
   late RecordingZokyRepository emptyRepo;
   late RecordingZokyRepository notFoundRepo;
   late RecordingZokyRepository ratedRepo;
   late RecordingZokyRepository reviewsTabRepo;
+  late RecordingZokyRepository bannerAndInfoRepo;
+  late RecordingZokyRepository partialRepo;
 
   setUpAll(() async {
     await initFakeSupabaseSession();
@@ -80,6 +111,8 @@ void main() {
         ),
       ],
     );
+    bannerAndInfoRepo = RecordingZokyRepository(store: storeWithBannerAndInfo);
+    partialRepo = RecordingZokyRepository(store: partialStore);
   });
 
   Widget buildStoreScreen(RecordingZokyRepository repo) {
@@ -199,5 +232,73 @@ void main() {
     // this button checks; see .wyn/learning/PATTERNS.md.
     expect(find.widgetWithIcon(IconButton, Icons.share_outlined), findsOneWidget);
     expect(find.widgetWithIcon(IconButton, Icons.link), findsOneWidget);
+  });
+
+  // -- SELLER-004: banner + "ข้อมูลร้านค้า" section ------------------------
+
+  testWidgets('does not show a banner image when the store has none (regression)',
+      (tester) async {
+    await tester.pumpWidget(buildStoreScreen(populatedRepo));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    // ProductGridTile also uses AspectRatio (1:1, for the product photo)
+    // so this can't just check "no AspectRatio at all" -- it must check
+    // specifically for the banner's 16:9 one.
+    expect(
+      find.byWidgetPredicate((w) => w is AspectRatio && w.aspectRatio == 16 / 9),
+      findsNothing,
+    );
+  });
+
+  testWidgets(
+      'does not show the "ข้อมูลร้านค้า" section when address/contact/hours '
+      'are all null (regression)', (tester) async {
+    await tester.pumpWidget(buildStoreScreen(populatedRepo));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.byIcon(Icons.location_on_outlined), findsNothing);
+    expect(find.byIcon(Icons.call_outlined), findsNothing);
+    expect(find.byIcon(Icons.access_time_outlined), findsNothing);
+  });
+
+  testWidgets('shows a 16:9 banner image when store.bannerUrl is set',
+      (tester) async {
+    await tester.pumpWidget(buildStoreScreen(bannerAndInfoRepo));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    final aspectRatio = tester.widget<AspectRatio>(find.byType(AspectRatio));
+    expect(aspectRatio.aspectRatio, 16 / 9);
+    expect(find.byType(Image), findsWidgets);
+  });
+
+  testWidgets(
+      'shows the "ข้อมูลร้านค้า" section with address, contact, and hours '
+      'when all 3 are set', (tester) async {
+    await tester.pumpWidget(buildStoreScreen(bannerAndInfoRepo));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('123 ถนนสุขุมวิท กรุงเทพฯ'), findsOneWidget);
+    expect(find.text('0891234567'), findsOneWidget);
+    expect(find.text('จันทร์-ศุกร์ 9:00-18:00 น.'), findsOneWidget);
+    expect(find.byIcon(Icons.location_on_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.call_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.access_time_outlined), findsOneWidget);
+  });
+
+  testWidgets(
+      'shows the "ข้อมูลร้านค้า" section with only the fields that are set '
+      'when only some are non-null', (tester) async {
+    await tester.pumpWidget(buildStoreScreen(partialRepo));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('ที่อยู่เท่านั้น'), findsOneWidget);
+    expect(find.byIcon(Icons.location_on_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.call_outlined), findsNothing);
+    expect(find.byIcon(Icons.access_time_outlined), findsNothing);
   });
 }

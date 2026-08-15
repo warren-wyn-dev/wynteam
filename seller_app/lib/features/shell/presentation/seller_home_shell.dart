@@ -5,6 +5,7 @@ import '../../order/presentation/seller_order_list_screen.dart';
 import '../../product/presentation/seller_product_list_screen.dart';
 import '../../store/data/seller_repository.dart';
 import '../../store/data/store.dart';
+import '../../store/presentation/seller_store_screen.dart';
 import 'seller_coming_soon_screen.dart';
 
 /// Bottom Nav 5 tab shell: Dashboard (fully built) / สินค้า / คำสั่งซื้อ
@@ -30,22 +31,33 @@ class SellerHomeShell extends StatefulWidget {
 class _SellerHomeShellState extends State<SellerHomeShell> {
   int _index = 0;
 
+  /// Mutable so SellerStoreScreen's `onStoreUpdated` callback can make
+  /// every tab below see the freshest store row within the same session,
+  /// without a sign-out/sign-in round-trip or a re-fetch (the save
+  /// response already carries the latest row). See .wyn/tasks/backlog/
+  /// SELLER-004-store-management.md, Requirements #3.
+  late Store _store = widget.store;
+
   @override
   Widget build(BuildContext context) {
     final tabs = [
       SellerDashboardScreen(
-        store: widget.store,
+        store: _store,
         sellerRepository: widget.sellerRepository,
       ),
       SellerProductListScreen(
-        store: widget.store,
+        store: _store,
         sellerRepository: widget.sellerRepository,
       ),
       SellerOrderListScreen(
-        store: widget.store,
+        store: _store,
         sellerRepository: widget.sellerRepository,
       ),
-      const SellerComingSoonScreen(label: 'ร้านค้า'),
+      SellerStoreScreen(
+        store: _store,
+        sellerRepository: widget.sellerRepository,
+        onStoreUpdated: (updated) => setState(() => _store = updated),
+      ),
       const SellerComingSoonScreen(label: 'การเงิน'),
     ];
 

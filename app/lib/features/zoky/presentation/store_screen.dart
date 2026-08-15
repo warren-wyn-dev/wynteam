@@ -123,6 +123,7 @@ class _StoreScreenState extends State<StoreScreen> {
             }
             return Column(
               children: [
+                if (store.bannerUrl != null) _buildBanner(context, store),
                 _buildHeader(context, store),
                 const TabBar(
                   tabs: [
@@ -141,6 +142,81 @@ class _StoreScreenState extends State<StoreScreen> {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+
+  /// Edge-to-edge, above `_buildHeader` -- deliberately not the
+  /// Stack+Positioned overlap `club_page.dart`'s cover uses, per the
+  /// Design spec (banner sits *above* the logo+name row, doesn't overlap
+  /// it). Only rendered by the caller when `store.bannerUrl != null`, so
+  /// stores with no banner (every seed store as of SELLER-004) render
+  /// identically to before this change.
+  Widget _buildBanner(BuildContext context, Store store) {
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: Image.network(store.bannerUrl!, fit: BoxFit.cover),
+    );
+  }
+
+  bool _hasStoreInfo(Store store) =>
+      store.address != null || store.contactPhone != null || store.businessHours != null;
+
+  /// "ข้อมูลร้านค้า" section -- only ever called when [_hasStoreInfo] is
+  /// true, and only renders the rows whose field is actually non-null.
+  /// See .wyn/docs/design/seller-004-store-management.md, Screen:
+  /// StoreScreen.
+  Widget _buildStoreInfoSection(BuildContext context, Store store) {
+    final rows = <Widget>[
+      if (store.address != null)
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.location_on_outlined, size: 18),
+            const SizedBox(width: 8),
+            Expanded(child: Text(store.address!)),
+          ],
+        ),
+      if (store.contactPhone != null)
+        Row(
+          children: [
+            const Icon(Icons.call_outlined, size: 18),
+            const SizedBox(width: 8),
+            Text(store.contactPhone!),
+          ],
+        ),
+      if (store.businessHours != null)
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.access_time_outlined, size: 18),
+            const SizedBox(width: 8),
+            Expanded(child: Text(store.businessHours!)),
+          ],
+        ),
+    ];
+
+    final semanticsParts = <String>[
+      if (store.address != null) 'ที่อยู่ ${store.address!}',
+      if (store.contactPhone != null) 'เบอร์ติดต่อ ${store.contactPhone!}',
+      if (store.businessHours != null) 'เวลาทำการ ${store.businessHours!}',
+    ];
+
+    return Semantics(
+      label: 'ข้อมูลร้านค้า: ${semanticsParts.join(', ')}',
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < rows.length; i++) ...[
+                if (i > 0) const SizedBox(height: 8),
+                rows[i],
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -207,6 +283,10 @@ class _StoreScreenState extends State<StoreScreen> {
           if (store.description != null && store.description!.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(store.description!),
+          ],
+          if (_hasStoreInfo(store)) ...[
+            const SizedBox(height: 12),
+            _buildStoreInfoSection(context, store),
           ],
           const SizedBox(height: 12),
           Semantics(
