@@ -1,7 +1,7 @@
 # Product Task — SELLER-001
 
 Status: backlog
-Owner: AI Product Manager
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ)
 
 Feature: ZOKY Sellers by WYN — Foundation (new app, seller sign-in, store registration, Dashboard)
 
@@ -66,3 +66,11 @@ Recommendation:
 3. ขอบเขต Dashboard เล็กที่สุดเท่าที่ยังมีประโยชน์จริง (ไม่พยายามทำ Balance/Payout ที่ยังไม่มีระบบรองรับ)
 
 Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบ: (1) Seller sign-in flow (จำนวนหน้าจอ/รายละเอียด reuse จาก `app/`'s auth screens เท่าไหร่) (2) ฟอร์มสร้างร้านค้า (3) Seller Dashboard layout (stat card, best-selling list) (4) Bottom Nav 5 tab + placeholder screens — ใช้ Design system เดิม (Blue+White+Soft Gray, Rounded Cards, ห้าม Liquid Glass) reuse component pattern จาก `app/` ที่ทำได้ (จะต้อง duplicate โค้ดเพราะเป็นคนละแอป แต่ให้ยึด "โครง"/pattern เดียวกันเสมอ ไม่ประดิษฐ์ visual language ใหม่)
+
+---
+
+## Design Output (AI Design)
+
+เขียนเสร็จแล้วที่ `.wyn/docs/design/seller-001-foundation.md` — สรุป: `SellerAuthGate` mirror `AuthGate` เดิมเป๊ะ เพิ่มชั้นตรวจร้านค้า (sign-in → username → store → shell) — `SellerSignInScreen` รวม Welcome+AuthMethod เดิมเป็นหน้าเดียว (ไม่ต้องมี flow "สมัครใหม่" เพราะ Seller เป็น WYN user เดิมเสมอ) reuse Google/Apple/Phone OTP 3 วิธี, `PhoneEntryScreen`/`OtpVerificationScreen`/`UsernameSetupScreen` ported ตรงจาก `app/` ไม่ปรับ logic — `CreateStoreScreen` ใหม่ (ชื่อร้าน+คำอธิบาย สั้นที่สุดเท่าที่ใช้งานได้จริง ไม่มีโลโก้/แบนเนอร์รอบนี้) — `SellerHomeShell` Bottom Nav 5 tab (`IndexedStack` mirror `RootShell`) Dashboard เต็มรูปแบบ+4 placeholder ผ่าน `SellerComingSoonScreen` เดียวกัน — `SellerDashboardScreen` stat card (New/Total Orders, Sales วันนี้/เดือนนี้/รวม, Best Selling top 5) + "เร็ว ๆ นี้" แทนตัวเลขปลอมสำหรับ Balance/Payout ที่ยังไม่มีระบบรองรับ — เตือน Coding เรื่อง RLS ใหม่ต้องตรวจ ownership ผ่าน `exists` join กลับ `stores.owner_id` ให้ถูกต้อง, 1 seller ต่อ 1 ร้าน (`maybeSingle()`), ตัวเลข Dashboard คำนวณสดทุกครั้ง
+
+Handoff: ส่งต่อ AI Coding (`/code`)
