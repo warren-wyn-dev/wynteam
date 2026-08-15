@@ -2062,3 +2062,79 @@ create policy "Users can delete their own reviews"
   for delete
   to authenticated
   using (auth.uid() = user_id);
+
+-- ============================================================
+-- SELLER-001: ZOKY Sellers by WYN — Foundation
+-- ============================================================
+-- Only 2 additive RLS changes this round -- see .wyn/tasks/backlog/
+-- SELLER-001-foundation.md, Database. No new tables: `stores`/
+-- `orders`/`order_items` already exist (ZOKY-001/ZOKY-003). No write
+-- policy for orders/order_items -- status transitions (SELLER-003)
+-- still have to go through a security-definer RPC, same reasoning as
+-- create_orders()/cancel_order()/confirm_order_received() already
+-- being the only way a client can touch those tables at all.
+
+-- `stores` previously had select-only RLS (any authenticated user, for
+-- ZOKY Marketplace browsing) with no way for a client to ever create
+-- one -- that's exactly the gap SELLER-001's "สมัครร้าน" flow needs to
+-- close. `owner_id` is scoped in both `using` and `with check` for the
+-- update policy, per the ZOKY-004 QA lesson that update/delete
+-- policies need an explicit `with check` and can't just rely on
+-- `using` alone once a policy exists that isn't a bare `auth.uid() =
+-- <column>` shape reused verbatim for both -- here it *is* that exact
+-- shape for both insert and update, so this mirrors it deliberately
+-- rather than by omission (see .wyn/learning/LESSONS_LEARNED.md,
+-- 2026-08-15).
+create policy "Sellers can create their own store"
+  on public.stores
+  for insert
+  to authenticated
+  with check (auth.uid() = owner_id);
+
+create policy "Sellers can update their own store"
+  on public.stores
+  for update
+  to authenticated
+  using (auth.uid() = owner_id)
+  with check (auth.uid() = owner_id);
+
+-- `orders` previously had exactly one select policy, scoped to the
+-- buyer (`auth.uid() = buyer_id`). Postgres RLS combines multiple
+-- permissive policies for the same command with OR, so this new
+-- policy is purely additive -- it can only let a seller see *more*
+-- rows (their own store's orders, regardless of who the buyer is),
+-- never fewer, and the buyer policy above is untouched. Scoped via a
+-- join back to `stores.owner_id = auth.uid()` rather than trusting a
+-- client-supplied store_id filter directly, per the Product spec's
+-- Risks ("query filter ต้อง join ผ่าน stores เสมอ ไม่ใช่แค่เช็ค
+-- store_id ตรง ๆ").
+create policy "Sellers can view orders for their own store"
+  on public.orders
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.stores
+      where stores.id = orders.store_id
+        and stores.owner_id = auth.uid()
+    )
+  );
+
+-- Same shape as order_items' existing buyer-scoped select policy
+-- (join back to the parent order), except the ownership check chains
+-- one hop further through orders -> stores to reach owner_id. Also
+-- purely additive alongside the existing buyer policy for the same
+-- reason as orders' seller policy above.
+create policy "Sellers can view order items for their own store's orders"
+  on public.order_items
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1
+      from public.orders o
+      join public.stores s on s.id = o.store_id
+      where o.id = order_items.order_id
+        and s.owner_id = auth.uid()
+    )
+  );
