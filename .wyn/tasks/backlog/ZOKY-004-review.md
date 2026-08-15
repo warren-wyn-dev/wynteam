@@ -1,7 +1,7 @@
 # Product Task — ZOKY-004
 
 Status: backlog
-Owner: AI Product Manager
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ)
 
 Feature: ZOKY Product Review — ให้ผู้ซื้อให้คะแนน+เขียนรีวิวสินค้าหลังได้รับของแล้ว แสดงคะแนนเฉลี่ยที่ Product Detail/Store
 
@@ -60,3 +60,11 @@ Recommendation:
 3. เน้น Coding ให้เขียน RLS policy ของ `reviews` ให้ตรวจ "delivered order เป็นของตัวเองจริง" ครบทุก path (insert ต้องตรวจ, select เปิดให้ทุกคนอ่านได้เหมือน content อื่นของ WYN Social)
 
 Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบ: (1) ฟอร์มเขียนรีวิว (ดาว 1-5 + ข้อความ optional) เข้าถึงจาก `ZokyOrderDetailScreen`'s order_item ที่ delivered (2) การแสดงรีวิวใน `ProductDetailScreen` (คะแนนเฉลี่ย+รายการ) (3) `StoreScreen`'s Reviews tab (รวมรีวิวทุกสินค้าในร้าน) (4) จุดแก้ไข/ลบรีวิวของตัวเอง — reuse component เดิมให้มากที่สุด (comment list pattern จาก WYN Social ถ้ามี, `ConfirmDeleteDialog` สำหรับลบรีวิว, star-rating widget ใหม่ที่ยังไม่เคยมีในโปรเจกต์นี้ให้ออกแบบใหม่โดยยึด design system เดิม) ใช้ Design system เดิม (Blue+White+Soft Gray, Rounded Cards, ห้าม Liquid Glass)
+
+---
+
+## Design Output (AI Design)
+
+เขียนเสร็จแล้วที่ `.wyn/docs/design/zoky-004-review.md` — สรุป: `ReviewFormSheet` ใหม่ (modal bottom sheet มิเรอร์ `PopCommentSheet`) ใช้ทั้งเขียนใหม่/แก้ไข (pre-fill), `StarRatingInput` (ดาว 32px แตะเลือก ไม่มีค่าเริ่มต้นบังคับแตะเอง) และ `StarRatingDisplay` (read-only 16px, ปัดเศษเป็นจำนวนเต็ม ไม่ทำ half-star) เป็น widget ใหม่ทั้งคู่ — `ZokyOrderDetailScreen` เพิ่มปุ่ม "เขียนรีวิว"/"แก้ไขรีวิว" ต่อรายการสินค้าเมื่อ status delivered เท่านั้น — `ProductDetailScreen`'s ส่วน "รีวิว" (เดิม hard-code "ยังไม่มีรีวิว") แสดงคะแนนเฉลี่ย+รายการล่าสุด 3 รายการจริงเมื่อมีรีวิว คงข้อความเดิมเมื่อไม่มี, เพิ่ม `ProductReviewsScreen` ใหม่ (ดูทั้งหมด, infinite scroll) — `StoreScreen`'s Reviews tab รวมรีวิวทุกสินค้าในร้านพร้อมชื่อสินค้ากำกับ, Header rating เป็นค่าจริง — ตัดสินใจ edge case "ซื้อซ้ำหลายครั้งยังไม่รีวิว": Product Detail เปิดฟอร์มตรงถ้ามี order_item ที่มีสิทธิ์พอดี 1 รายการ ถ้ามากกว่านั้นพาไปหน้า Order List แทน (ไม่สร้าง picker UI ใหม่) — เตือน Coding 4 จุด: RLS insert ต้องตรวจ delivered-order ownership จริงผ่าน `exists` subquery (ไม่ใช้ RPC เพราะเป็น single-table write ธรรมดา), unique constraint บน `order_item_id` (ไม่ใช่ `user_id+product_id`), ค่าเฉลี่ยห้าม denormalize query สดเสมอ, update/delete policy แค่ `user_id = auth.uid()` ไม่ต้องเช็ค order status ซ้ำ
+
+Handoff: ส่งต่อ AI Coding (`/code`)
