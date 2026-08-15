@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import '../../../core/text_utils.dart';
 import '../data/order.dart';
 import '../data/order_item.dart';
+import '../data/review.dart';
 import '../data/zoky_repository.dart';
 import 'widgets/order_status_badge.dart';
+import 'widgets/review_form_sheet.dart';
+import 'widgets/star_rating.dart';
 
 /// Screen 6 (ZOKY-003) -- a single Order's full detail, with
 /// Cancel/Confirm Received actions shown only while status is pending
@@ -28,6 +31,7 @@ class ZokyOrderDetailScreen extends StatefulWidget {
 class _ZokyOrderDetailScreenState extends State<ZokyOrderDetailScreen> {
   Order? _order;
   List<OrderItem> _items = [];
+  Map<String, Review?> _reviewsByOrderItemId = {};
   bool _isLoading = true;
   bool _isSubmitting = false;
 
@@ -41,12 +45,38 @@ class _ZokyOrderDetailScreenState extends State<ZokyOrderDetailScreen> {
     setState(() => _isLoading = true);
     final order = await widget.zokyRepository.fetchOrder(widget.orderId);
     final items = await widget.zokyRepository.fetchOrderItems(widget.orderId);
+    final reviews = order?.status == OrderStatus.delivered
+        ? await _fetchReviews(items)
+        : <String, Review?>{};
     if (!mounted) return;
     setState(() {
       _order = order;
       _items = items;
+      _reviewsByOrderItemId = reviews;
       _isLoading = false;
     });
+  }
+
+  Future<Map<String, Review?>> _fetchReviews(List<OrderItem> items) async {
+    final entries = <String, Review?>{};
+    for (final item in items) {
+      entries[item.id] = await widget.zokyRepository.fetchReviewForOrderItem(item.id);
+    }
+    return entries;
+  }
+
+  Future<void> _openReviewForm(OrderItem item) async {
+    final productId = item.productId;
+    if (productId == null) return;
+
+    final changed = await showReviewFormSheet(
+      context,
+      zokyRepository: widget.zokyRepository,
+      orderItemId: item.id,
+      productId: productId,
+      existingReview: _reviewsByOrderItemId[item.id],
+    );
+    if (changed) await _load();
   }
 
   Future<bool> _confirmDialog(String title, String content) async {
@@ -159,39 +189,47 @@ class _ZokyOrderDetailScreenState extends State<ZokyOrderDetailScreen> {
                 for (final item in _items)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Row(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: SizedBox(
-                            width: 48,
-                            height: 48,
-                            child: item.imageUrl != null
-                                ? Image.network(item.imageUrl!, fit: BoxFit.cover)
-                                : Container(
-                                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(item.productName),
-                              if (item.variantSelection.isNotEmpty)
-                                Text(
-                                  item.variantSelection,
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.outline,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: SizedBox(
+                                width: 48,
+                                height: 48,
+                                child: item.imageUrl != null
+                                    ? Image.network(item.imageUrl!, fit: BoxFit.cover)
+                                    : Container(
+                                        color:
+                                            Theme.of(context).colorScheme.surfaceContainerHighest,
                                       ),
-                                ),
-                              Text('${thaiBahtLabel(item.unitPrice)} x${item.quantity}'),
-                            ],
-                          ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(item.productName),
+                                  if (item.variantSelection.isNotEmpty)
+                                    Text(
+                                      item.variantSelection,
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            color: Theme.of(context).colorScheme.outline,
+                                          ),
+                                    ),
+                                  Text('${thaiBahtLabel(item.unitPrice)} x${item.quantity}'),
+                                ],
+                              ),
+                            ),
+                            Text(thaiBahtLabel(item.lineTotal)),
+                          ],
                         ),
-                        Text(thaiBahtLabel(item.lineTotal)),
+                        if (order.status == OrderStatus.delivered && item.productId != null)
+                          _buildReviewRow(context, item),
                       ],
                     ),
                   ),
@@ -208,6 +246,29 @@ class _ZokyOrderDetailScreenState extends State<ZokyOrderDetailScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildReviewRow(BuildContext context, OrderItem item) {
+    final review = _reviewsByOrderItemId[item.id];
+    return Padding(
+      padding: const EdgeInsets.only(left: 58, top: 2),
+      child: review == null
+          ? TextButton.icon(
+              onPressed: () => _openReviewForm(item),
+              icon: const Icon(Icons.star_border, size: 18),
+              label: const Text('เขียนรีวิว'),
+            )
+          : Row(
+              children: [
+                StarRatingDisplay(rating: review.rating.toDouble()),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () => _openReviewForm(item),
+                  child: const Text('แก้ไขรีวิว'),
+                ),
+              ],
+            ),
     );
   }
 

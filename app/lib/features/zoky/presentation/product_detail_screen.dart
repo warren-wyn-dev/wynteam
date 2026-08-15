@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/text_utils.dart';
+import '../data/order_item.dart';
 import '../data/product.dart';
 import '../data/product_variant.dart';
+import '../data/review.dart';
 import '../data/zoky_repository.dart';
+import 'product_reviews_screen.dart';
 import 'store_screen.dart';
 import 'widgets/product_images.dart';
+import 'widgets/review_form_sheet.dart';
+import 'widgets/review_tile.dart';
+import 'widgets/star_rating.dart';
 import 'zoky_cart_screen.dart';
+import 'zoky_order_list_screen.dart';
+
+const _reviewsPreviewLimit = 3;
 
 /// Screen 2 — Product Detail (ZOKY-001). Add to Cart/Buy Now work for
 /// real as of ZOKY-003. See
@@ -28,6 +37,9 @@ class ProductDetailScreen extends StatefulWidget {
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   late Future<List<ProductVariant>> _variantsFuture;
+  late Future<(double, int)> _ratingFuture;
+  late Future<List<Review>> _reviewsFuture;
+  late Future<List<OrderItem>> _reviewableOrderItemsFuture;
 
   // Selected value per variant type -- preview only, doesn't affect the
   // price/stock shown anywhere since there's no Cart yet to make this a
@@ -38,6 +50,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void initState() {
     super.initState();
     _variantsFuture = widget.zokyRepository.fetchProductVariants(widget.product.id);
+    _loadReviewData();
+  }
+
+  // Refreshed after ReviewFormSheet reports a change (write/edit/delete)
+  // so the rating summary/list/entry-point all reflect it immediately.
+  void _loadReviewData() {
+    _ratingFuture = widget.zokyRepository.fetchProductRating(widget.product.id);
+    _reviewsFuture = widget.zokyRepository
+        .fetchProductReviews(widget.product.id, limit: _reviewsPreviewLimit);
+    _reviewableOrderItemsFuture =
+        widget.zokyRepository.fetchReviewableOrderItems(widget.product.id);
   }
 
   String _variantSelectionText() {
@@ -137,10 +160,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       const SizedBox(height: 16),
                       Text('รีวิว', style: Theme.of(context).textTheme.titleSmall),
                       const SizedBox(height: 4),
-                      Text(
-                        'ยังไม่มีรีวิว',
-                        style: TextStyle(color: Theme.of(context).colorScheme.outline),
-                      ),
+                      _buildReviewsSection(context),
                       const SizedBox(height: 16),
                       _buildStoreCard(context),
                     ],
@@ -227,6 +247,109 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             );
           }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildReviewsSection(BuildContext context) {
+    return FutureBuilder<(double, int)>(
+      future: _ratingFuture,
+      builder: (context, ratingSnapshot) {
+        final rating = ratingSnapshot.data;
+        if (rating == null || rating.$2 == 0) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'ยังไม่มีรีวิว',
+                style: TextStyle(color: Theme.of(context).colorScheme.outline),
+              ),
+              _buildReviewEntryPoint(context),
+            ],
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                StarRatingDisplay(rating: rating.$1),
+                const SizedBox(width: 6),
+                Text('${rating.$1.toStringAsFixed(1)} (${rating.$2} รีวิว)'),
+              ],
+            ),
+            const SizedBox(height: 8),
+            FutureBuilder<List<Review>>(
+              future: _reviewsFuture,
+              builder: (context, reviewsSnapshot) {
+                final reviews = reviewsSnapshot.data;
+                if (reviews == null) return const SizedBox.shrink();
+                return Column(
+                  children: [for (final review in reviews) ReviewTile(review: review)],
+                );
+              },
+            ),
+            if (rating.$2 > _reviewsPreviewLimit)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ProductReviewsScreen(
+                        zokyRepository: widget.zokyRepository,
+                        productId: widget.product.id,
+                        rating: rating.$1,
+                        reviewCount: rating.$2,
+                      ),
+                    ),
+                  ),
+                  child: const Text('ดูรีวิวทั้งหมด'),
+                ),
+              ),
+            _buildReviewEntryPoint(context),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildReviewEntryPoint(BuildContext context) {
+    return FutureBuilder<List<OrderItem>>(
+      future: _reviewableOrderItemsFuture,
+      builder: (context, snapshot) {
+        final reviewable = snapshot.data;
+        if (reviewable == null || reviewable.isEmpty) return const SizedBox.shrink();
+
+        if (reviewable.length == 1) {
+          final item = reviewable.first;
+          return TextButton.icon(
+            onPressed: () async {
+              final changed = await showReviewFormSheet(
+                context,
+                zokyRepository: widget.zokyRepository,
+                orderItemId: item.id,
+                productId: widget.product.id,
+              );
+              if (changed && mounted) setState(_loadReviewData);
+            },
+            icon: const Icon(Icons.star_border, size: 18),
+            label: const Text('เขียนรีวิว'),
+          );
+        }
+
+        // More than one delivered, unreviewed purchase of this product
+        // -- can't tell which order_item the user means from here, so
+        // point at Order List instead of building a picker (see the
+        // Design spec's decision on this edge case).
+        return TextButton(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ZokyOrderListScreen(zokyRepository: widget.zokyRepository),
+            ),
+          ),
+          child: const Text('คุณมีสินค้าที่ยังไม่ได้รีวิว ไปที่คำสั่งซื้อของคุณ'),
         );
       },
     );

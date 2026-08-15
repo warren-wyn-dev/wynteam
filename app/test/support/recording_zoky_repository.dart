@@ -5,6 +5,7 @@ import 'package:wyn/features/zoky/data/order.dart';
 import 'package:wyn/features/zoky/data/order_item.dart';
 import 'package:wyn/features/zoky/data/product.dart';
 import 'package:wyn/features/zoky/data/product_variant.dart';
+import 'package:wyn/features/zoky/data/review.dart';
 import 'package:wyn/features/zoky/data/store.dart';
 import 'package:wyn/features/zoky/data/zoky_repository.dart';
 
@@ -33,6 +34,16 @@ class RecordingZokyRepository extends ZokyRepository {
     List<Order>? orders,
     this.order,
     List<OrderItem>? orderItems,
+    this.reviewForOrderItem,
+    List<OrderItem>? reviewableOrderItems,
+    this.productRating = (0.0, 0),
+    List<Review>? productReviews,
+    this.storeRating = (0.0, 0),
+    List<Review>? storeReviews,
+    this.addReviewResult,
+    this.addReviewException,
+    this.editReviewException,
+    this.deleteReviewException,
   })  : categories = categories ?? [],
         newProducts = newProducts ?? [],
         recommendedStores = recommendedStores ?? [],
@@ -45,6 +56,9 @@ class RecordingZokyRepository extends ZokyRepository {
         createOrdersResult = createOrdersResult ?? [],
         orders = orders ?? [],
         orderItems = orderItems ?? [],
+        reviewableOrderItems = reviewableOrderItems ?? [],
+        productReviews = productReviews ?? [],
+        storeReviews = storeReviews ?? [],
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   final List<Category> categories;
@@ -127,6 +141,34 @@ class RecordingZokyRepository extends ZokyRepository {
   final Order? order;
 
   final List<OrderItem> orderItems;
+
+  // -- Review (ZOKY-004) -------------------------------------------------
+
+  /// Returned by [fetchReviewForOrderItem] regardless of the id passed --
+  /// mirrors [order]/[product]'s single-value simplicity.
+  final Review? reviewForOrderItem;
+
+  final List<OrderItem> reviewableOrderItems;
+  final (double, int) productRating;
+  final List<Review> productReviews;
+  final (double, int) storeRating;
+  final List<Review> storeReviews;
+
+  final Review? addReviewResult;
+  final Exception? addReviewException;
+  final Exception? editReviewException;
+  final Exception? deleteReviewException;
+
+  String? lastAddReviewOrderItemId;
+  String? lastAddReviewProductId;
+  int? lastAddReviewRating;
+  String? lastAddReviewTextContent;
+
+  String? lastEditReviewId;
+  int? lastEditReviewRating;
+  String? lastEditReviewTextContent;
+
+  String? lastDeleteReviewId;
 
   @override
   Future<List<Category>> fetchCategories() async => categories;
@@ -249,4 +291,77 @@ class RecordingZokyRepository extends ZokyRepository {
     lastConfirmOrderReceivedId = orderId;
     if (confirmOrderReceivedException != null) throw confirmOrderReceivedException!;
   }
+
+  @override
+  Future<List<OrderItem>> fetchReviewableOrderItems(String productId) async =>
+      reviewableOrderItems;
+
+  @override
+  Future<Review?> fetchReviewForOrderItem(String orderItemId) async => reviewForOrderItem;
+
+  @override
+  Future<Review> addReview({
+    required String orderItemId,
+    required String productId,
+    required int rating,
+    String? textContent,
+  }) async {
+    lastAddReviewOrderItemId = orderItemId;
+    lastAddReviewProductId = productId;
+    lastAddReviewRating = rating;
+    lastAddReviewTextContent = textContent;
+    if (addReviewException != null) throw addReviewException!;
+    return addReviewResult ??
+        Review(
+          id: 'new-review',
+          orderItemId: orderItemId,
+          productId: productId,
+          userId: 'me',
+          authorUsername: 'me',
+          rating: rating,
+          textContent: textContent,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+  }
+
+  @override
+  Future<void> editReview({
+    required String reviewId,
+    required int rating,
+    String? textContent,
+  }) async {
+    lastEditReviewId = reviewId;
+    lastEditReviewRating = rating;
+    lastEditReviewTextContent = textContent;
+    if (editReviewException != null) throw editReviewException!;
+  }
+
+  @override
+  Future<void> deleteReview(String reviewId) async {
+    lastDeleteReviewId = reviewId;
+    if (deleteReviewException != null) throw deleteReviewException!;
+  }
+
+  @override
+  Future<(double, int)> fetchProductRating(String productId) async => productRating;
+
+  @override
+  Future<List<Review>> fetchProductReviews(
+    String productId, {
+    int limit = ZokyRepository.reviewsPageSize,
+    int offset = 0,
+  }) async =>
+      offset == 0 ? productReviews : [];
+
+  @override
+  Future<(double, int)> fetchStoreRating(String storeId) async => storeRating;
+
+  @override
+  Future<List<Review>> fetchStoreReviews(
+    String storeId, {
+    int limit = ZokyRepository.reviewsPageSize,
+    int offset = 0,
+  }) async =>
+      offset == 0 ? storeReviews : [];
 }

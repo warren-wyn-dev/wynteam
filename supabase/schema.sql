@@ -2074,3 +2074,86 @@ begin
   end if;
 end;
 $$;
+
+-- ============================================================
+-- ZOKY-004: Review (WYN Platform expansion)
+-- ============================================================
+-- Unlike orders/order_items above, reviews is a single-table write with
+-- no multi-row business logic (no stock/fee to compute atomically), so
+-- a plain RLS insert policy with an `exists` gate is enough -- no
+-- security-definer RPC needed, same reasoning as club_post_comments'
+-- membership-gated insert policy (WYN-014). The gate itself is the
+-- security-critical part: a review may only be inserted for an
+-- order_item the caller actually bought AND whose order has reached
+-- 'delivered' (see .wyn/tasks/backlog/ZOKY-004-review.md,
+-- Requirements) -- never trusted from anything the client merely
+-- claims. average rating is intentionally never stored anywhere here;
+-- every screen that shows one computes avg()/count() live at read
+-- time (see .wyn/docs/design/zoky-004-review.md's warning to Coding)
+-- -- the opposite principle from orders.fee_percent's snapshot, and
+-- deliberately so: a fee must never change after the fact, but a
+-- product's rating must always reflect its current reviews.
+create table if not exists public.reviews (
+  id uuid primary key default gen_random_uuid(),
+  order_item_id uuid not null unique references public.order_items (id) on delete cascade,
+  product_id uuid not null references public.products (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  rating int not null,
+  text_content text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint reviews_rating_range check (rating between 1 and 5)
+);
+
+create index if not exists reviews_product_id_idx on public.reviews (product_id, created_at desc);
+create index if not exists reviews_user_id_idx on public.reviews (user_id);
+
+alter table public.reviews enable row level security;
+
+-- Reviews are ordinary public content, same as Drop/Pop/Club posts --
+-- readable by any authenticated user regardless of whether they wrote
+-- it or bought the product themselves.
+create policy "Reviews are viewable by authenticated users"
+  on public.reviews
+  for select
+  to authenticated
+  using (true);
+
+-- The delivered-order-ownership gate: order_item_id must belong to an
+-- order_items row whose product_id matches the one being reviewed (so
+-- a client can't submit a review against a different product than the
+-- order_item actually snapshots) and whose parent order is the
+-- caller's own and already delivered.
+create policy "Buyers can review their own delivered order items"
+  on public.reviews
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1
+      from public.order_items oi
+      join public.orders o on o.id = oi.order_id
+      where oi.id = order_item_id
+        and oi.product_id = product_id
+        and o.buyer_id = auth.uid()
+        and o.status = 'delivered'
+    )
+  );
+
+-- Editing/deleting a review never re-checks the order's status --
+-- once a review has legitimately passed the insert gate above, the
+-- order it came from can only ever stay 'delivered' (orders' 3-state
+-- design has no transition back out of delivered), so there's nothing
+-- left to re-verify beyond plain ownership.
+create policy "Users can update their own reviews"
+  on public.reviews
+  for update
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can delete their own reviews"
+  on public.reviews
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);

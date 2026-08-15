@@ -1,7 +1,7 @@
 # Product Task — ZOKY-004
 
-Status: backlog
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ)
+Status: review
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ)
 
 Feature: ZOKY Product Review — ให้ผู้ซื้อให้คะแนน+เขียนรีวิวสินค้าหลังได้รับของแล้ว แสดงคะแนนเฉลี่ยที่ Product Detail/Store
 
@@ -68,3 +68,27 @@ Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบ
 เขียนเสร็จแล้วที่ `.wyn/docs/design/zoky-004-review.md` — สรุป: `ReviewFormSheet` ใหม่ (modal bottom sheet มิเรอร์ `PopCommentSheet`) ใช้ทั้งเขียนใหม่/แก้ไข (pre-fill), `StarRatingInput` (ดาว 32px แตะเลือก ไม่มีค่าเริ่มต้นบังคับแตะเอง) และ `StarRatingDisplay` (read-only 16px, ปัดเศษเป็นจำนวนเต็ม ไม่ทำ half-star) เป็น widget ใหม่ทั้งคู่ — `ZokyOrderDetailScreen` เพิ่มปุ่ม "เขียนรีวิว"/"แก้ไขรีวิว" ต่อรายการสินค้าเมื่อ status delivered เท่านั้น — `ProductDetailScreen`'s ส่วน "รีวิว" (เดิม hard-code "ยังไม่มีรีวิว") แสดงคะแนนเฉลี่ย+รายการล่าสุด 3 รายการจริงเมื่อมีรีวิว คงข้อความเดิมเมื่อไม่มี, เพิ่ม `ProductReviewsScreen` ใหม่ (ดูทั้งหมด, infinite scroll) — `StoreScreen`'s Reviews tab รวมรีวิวทุกสินค้าในร้านพร้อมชื่อสินค้ากำกับ, Header rating เป็นค่าจริง — ตัดสินใจ edge case "ซื้อซ้ำหลายครั้งยังไม่รีวิว": Product Detail เปิดฟอร์มตรงถ้ามี order_item ที่มีสิทธิ์พอดี 1 รายการ ถ้ามากกว่านั้นพาไปหน้า Order List แทน (ไม่สร้าง picker UI ใหม่) — เตือน Coding 4 จุด: RLS insert ต้องตรวจ delivered-order ownership จริงผ่าน `exists` subquery (ไม่ใช้ RPC เพราะเป็น single-table write ธรรมดา), unique constraint บน `order_item_id` (ไม่ใช่ `user_id+product_id`), ค่าเฉลี่ยห้าม denormalize query สดเสมอ, update/delete policy แค่ `user_id = auth.uid()` ไม่ต้องเช็ค order status ซ้ำ
 
 Handoff: ส่งต่อ AI Coding (`/code`)
+
+---
+
+## Coding Output (AI Coding)
+
+Implementation:
+- **Database** (`supabase/schema.sql`): เพิ่ม `reviews` (`order_item_id` unique references `order_items`, `product_id` references `products` on delete cascade, `rating` int 1-5 check constraint, `text_content` nullable, `created_at`/`updated_at`) — RLS: select เปิดให้ authenticated ทุกคน, insert `with check` ตรวจ `auth.uid() = user_id` **และ** `exists` subquery join `order_items`→`orders` ยืนยัน order_item_id/product_id ตรงกันจริง และ order เป็นของผู้ใช้เองสถานะ `delivered` เท่านั้น, update/delete แค่ `auth.uid() = user_id` (ไม่เช็ค order status ซ้ำตามที่ Design ระบุ) — ไม่มี RPC ใหม่ตามที่ Design ตัดสินใจ (single-table write, ไม่มี multi-row business logic)
+- **Model**: `Review` (`app/lib/features/zoky/data/review.dart`) — `productName` nullable ใช้เฉพาะ context ที่ต้องระบุ (Store Reviews tab)
+- **Repository** (`ZokyRepository` ขยายเพิ่ม): `fetchReviewableOrderItems`/`fetchReviewForOrderItem`/`addReview`/`editReview`/`deleteReview`/`fetchProductRating`/`fetchProductReviews`/`fetchStoreRating`/`fetchStoreReviews` — ค่าเฉลี่ยคำนวณจาก raw `rating` rows client-side ทุกครั้ง (ไม่มี denormalize/cache ตามคำเตือนของ Design)
+- **UI**: `StarRatingInput`/`StarRatingDisplay` widget ใหม่ (`widgets/star_rating.dart`), `ReviewTile` (`widgets/review_tile.dart` — มิเรอร์ `PopCommentSheet`'s comment tile), `ReviewFormSheet` (`widgets/review_form_sheet.dart` — modal bottom sheet เขียน/แก้ไข/ลบ) — `ZokyOrderDetailScreen` เพิ่มปุ่มเขียน/แก้ไขรีวิวต่อรายการสินค้าเมื่อ status delivered — `ProductDetailScreen`'s ส่วนรีวิวเดิม (hard-code "ยังไม่มีรีวิว") ต่อคะแนนเฉลี่ย+รายการล่าสุด 3 รายการ+entry point ตามเงื่อนไข edge case ที่ Design ตัดสินใจ (1 รายการ = เปิดฟอร์มตรง, มากกว่า = พาไปหน้า Order List) — `ProductReviewsScreen` ใหม่ (ดูทั้งหมด, infinite scroll) — `StoreScreen`'s Reviews tab + header rating เป็นข้อมูลจริง
+
+Gaps ที่ Coding พบและแก้เองก่อนส่ง QA:
+1. ตอนแรกสร้าง test repo หลายตัว (`RecordingZokyRepository`) inline ใน `testWidgets` callback ใน `product_detail_screen_test.dart`/`store_screen_test.dart`/`zoky_order_detail_screen_test.dart` (gotcha เดิมที่เคยบันทึกไว้แล้วหลายครั้ง) ทำให้ `flutter test` ล้มด้วย "A Timer is still pending" 9 ทดสอบ — ย้ายทั้งหมดเข้า `setUp()` เป็น named field ตามธรรมเนียม แก้แล้วผ่านหมด
+2. Test ใหม่ "shows the average rating and review tiles when reviews exist" ล้มครั้งแรกเพราะ scroll ไปแค่ตำแหน่งคะแนนเฉลี่ย ("4.0 (2 รีวิว)") แล้วเช็คข้อความ ReviewTile ที่อยู่ลึกกว่านั้นทันทีโดยไม่ scroll เพิ่ม — พิสูจน์ด้วย debug test แยกต่างหาก (dump ทุก `Text` widget ที่ render อยู่ ณ จุดนั้น) ยืนยันว่าเนื้อหาส่วนที่ยังไม่ scroll ถึงไม่ถูก build เลย (sliver lazy-build range ตามที่ comment เดิมในไฟล์อธิบายไว้แล้วสำหรับ ProductDetailScreen) ไม่ใช่บั๊ก production — แก้โดยเพิ่ม `scrollToFind` อีกจุดก่อนเช็ค
+
+Files Changed:
+- แก้: `supabase/schema.sql` (เพิ่ม ZOKY-004 section ท้ายไฟล์), `app/lib/features/zoky/data/zoky_repository.dart`, `app/lib/features/zoky/presentation/{product_detail_screen,store_screen,zoky_order_detail_screen}.dart`
+- ใหม่: `app/lib/features/zoky/data/review.dart`, `app/lib/features/zoky/presentation/product_reviews_screen.dart`, `app/lib/features/zoky/presentation/widgets/{star_rating,review_tile,review_form_sheet}.dart`
+- test แก้: `app/test/{product_detail_screen_test,store_screen_test,zoky_order_detail_screen_test}.dart`, `app/test/support/recording_zoky_repository.dart` (ขยาย review fields+methods)
+- test ใหม่: `app/test/{review_form_sheet_test,product_reviews_screen_test}.dart`
+
+`flutter analyze`: สะอาด, `flutter test`: 253/253 ผ่าน (เพิ่มจาก 233 เดิม — WYN Social/ZOKY-001/002/003 เดิมทั้งหมดยังผ่านครบ ไม่มี regression)
+
+Handoff: ส่งต่อ AI QA & Security (`/qa`)
