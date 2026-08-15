@@ -35,9 +35,11 @@
 - **Store Follow**: master prompt (Section 7) ระบุปุ่ม "Follow Store" แต่ระบบ Follow เดิมของ WYN Social (WYN-008, `FollowRepository`) เป็นการ follow **ผู้ใช้ (profile)** ไม่ใช่ follow **ร้านค้า (store)** ซึ่งเป็น entity คนละแบบ (store เป็นเจ้าของโดย seller คนหนึ่งแต่ไม่ใช่ profile ของลูกค้าที่จะ follow กัน) — ต้องออกแบบตาราง follow ใหม่แยกสำหรับ store (เช่น `store_follows`) ไม่ reuse ตาราง `follows` เดิมตรง ๆ
 - **Chat Seller**: master prompt (Section 7) ระบุปุ่ม "Chat Seller" แต่โปรเจกต์นี้ไม่เคยมีระบบ chat/messaging เลยแม้แต่จุดเดียว (WYN Social ทั้งหมดเป็น content-based ไม่ใช่ 1-on-1 messaging) — เป็นงานคนละขนาดจาก Marketplace browsing ปกติ เสนอ **defer ปุ่มนี้ไปเป็น task แยกในอนาคต** (คล้ายที่ hashtag-click-through/mention ถูก defer มาหลายรอบในโปรเจกต์นี้) ไม่ทำใน ZOKY-001
 
-## Phase 4 — ZOKY Sellers by WYN (ยังไม่เริ่ม)
+## Phase 4 — ZOKY Sellers by WYN (รอเนื้อหา Seller section จาก Founder)
 
-รอจนกว่า ZOKY Marketplace Customer (ZOKY-001 ถึง ZOKY-004) จะเสร็จและมี Order จริงให้ Seller จัดการ — จะประเมินสถาปัตยกรรม "แอป Flutter แยกต่างหาก vs feature module ภายในแอปเดียว vs Flutter module แบบ add-to-app" ตอนถึง Phase นี้จริง ไม่ตัดสินใจล่วงหน้า (ต้องพิจารณาว่า repo ปัจจุบันไม่มี monorepo tooling เลย การสร้างแอปที่สองจริง ๆ ต้องลงทุนโครงสร้างใหม่ก่อน)
+ZOKY Marketplace Customer (ZOKY-001 ถึง ZOKY-004) เสร็จสมบูรณ์แล้ว มี Order จริงให้ Seller จัดการแล้ว — **Founder ตัดสินใจสถาปัตยกรรมแล้วเมื่อ 2026-08-15: Feature module ภายในแอป Flutter เดียวเดิม** (ไม่สร้างแอปแยก ไม่ทำ add-to-app module) ดูเหตุผลเต็มที่ `.wyn/company/DECISIONS.md` (2026-08-15 "Phase 4 (ZOKY Sellers by WYN) — เลือกสถาปัตยกรรม Feature module ในแอปเดียวเดิม") — จะพัฒนาเป็น `app/lib/features/seller/` ต่อยอด pattern เดิมทั้งหมด (RLS/security-definer RPC, Repository pattern, `Navigator.push`/`IndexedStack`) แนวทาง UI ที่เป็นไปได้: entry point แบบ role-based (เช่น "โหมดร้านค้า" ใน Profile/Settings) แทนการเพิ่ม Bottom Nav tab ที่ 6 — รอ AI Design ตัดสินใจรายละเอียดตอนออกแบบจริง
+
+**สถานะปัจจุบัน**: รอ Founder ส่งเนื้อหาเต็มของ "WYN PLATFORM — MASTER DEVELOPMENT PROMPT" ส่วนที่เกี่ยวกับ Seller (Section 12-17 โดยประมาณ) มาใหม่ก่อนเริ่มเขียน Product spec จริง — เนื้อหาเต็มไม่เคยถูกเก็บไว้ใน repo เลยตั้งแต่ต้น มีแค่ summary ระดับสูงที่ AI Product Manager สรุปไว้ตอนวาง roadmap นี้ (2026-08-14)
 
 ## Phase 5 — เชื่อม Customer ↔ Seller ↔ Backend (ยังไม่เริ่ม)
 
