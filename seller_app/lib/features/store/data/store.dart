@@ -16,6 +16,9 @@ class Store {
     this.description,
     this.logoUrl,
     this.bannerUrl,
+    this.address,
+    this.contactPhone,
+    this.businessHours,
     required this.createdAt,
   });
 
@@ -25,6 +28,9 @@ class Store {
   final String? description;
   final String? logoUrl;
   final String? bannerUrl;
+  final String? address;
+  final String? contactPhone;
+  final String? businessHours;
   final DateTime createdAt;
 
   factory Store.fromMap(Map<String, dynamic> map) {
@@ -35,6 +41,9 @@ class Store {
       description: map['description'] as String?,
       logoUrl: map['logo_url'] as String?,
       bannerUrl: map['banner_url'] as String?,
+      address: map['address'] as String?,
+      contactPhone: map['contact_phone'] as String?,
+      businessHours: map['business_hours'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
     );
   }

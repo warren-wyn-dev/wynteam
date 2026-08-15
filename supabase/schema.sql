@@ -2684,3 +2684,102 @@ begin
   end if;
 end;
 $$;
+
+-- ============================================================
+-- SELLER-004: ZOKY Sellers by WYN — Store Management
+-- ============================================================
+-- Purely additive: 3 new nullable `stores` columns for the fields
+-- CreateStoreScreen (SELLER-001) never collected, plus a new public
+-- storage bucket for logo/banner uploads. See .wyn/tasks/backlog/
+-- SELLER-004-store-management.md, Database.
+--
+-- No RLS policy changes to `stores` itself -- the existing update
+-- policy from SELLER-001 (`using (auth.uid() = owner_id) with check
+-- (auth.uid() = owner_id)`) is a row-level policy with no per-column
+-- scoping, so it already covers these 3 new columns (and logo_url/
+-- banner_url/name/description) automatically. This is the first
+-- SELLER task that doesn't touch a single RLS policy on its main
+-- table.
+
+alter table public.stores add column if not exists address text;
+alter table public.stores add column if not exists contact_phone text;
+alter table public.stores add column if not exists business_hours text;
+
+alter table public.stores
+  add constraint stores_address_length
+  check (address is null or char_length(address) <= 300);
+
+alter table public.stores
+  add constraint stores_contact_phone_length
+  check (contact_phone is null or char_length(contact_phone) <= 50);
+
+alter table public.stores
+  add constraint stores_business_hours_length
+  check (business_hours is null or char_length(business_hours) <= 200);
+
+-- Store logo/banner: public bucket (same reasoning as product-images
+-- above -- `stores` has had select-all-authenticated RLS with no
+-- privacy boundary since ZOKY-001, unlike club-media's private/
+-- approved-members-only scope). 1 bucket shared by both image kinds,
+-- distinguished by path prefix (mirrors club-media's own "1 bucket, 2
+-- image kinds" shape rather than product-images' "1 bucket, 1 kind").
+-- Path convention: `{store_id}/logo-{timestamp}.*` /
+-- `{store_id}/banner-{timestamp}.*` -- ownership scoped through
+-- `stores.owner_id`, identical pattern to product-images' policies
+-- above (a store's images belong to the store, not personally to
+-- whichever owner happened to upload them).
+insert into storage.buckets (id, name, public)
+values ('store-media', 'store-media', true)
+on conflict (id) do nothing;
+
+create policy "Store media is publicly accessible"
+  on storage.objects
+  for select
+  using (bucket_id = 'store-media');
+
+create policy "Sellers can upload their own store's media"
+  on storage.objects
+  for insert
+  to authenticated
+  with check (
+    bucket_id = 'store-media'
+    and exists (
+      select 1 from public.stores
+      where stores.id = ((storage.foldername(name))[1])::uuid
+        and stores.owner_id = auth.uid()
+    )
+  );
+
+create policy "Sellers can update their own store's media"
+  on storage.objects
+  for update
+  to authenticated
+  using (
+    bucket_id = 'store-media'
+    and exists (
+      select 1 from public.stores
+      where stores.id = ((storage.foldername(name))[1])::uuid
+        and stores.owner_id = auth.uid()
+    )
+  )
+  with check (
+    bucket_id = 'store-media'
+    and exists (
+      select 1 from public.stores
+      where stores.id = ((storage.foldername(name))[1])::uuid
+        and stores.owner_id = auth.uid()
+    )
+  );
+
+create policy "Sellers can delete their own store's media"
+  on storage.objects
+  for delete
+  to authenticated
+  using (
+    bucket_id = 'store-media'
+    and exists (
+      select 1 from public.stores
+      where stores.id = ((storage.foldername(name))[1])::uuid
+        and stores.owner_id = auth.uid()
+    )
+  );

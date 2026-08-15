@@ -19,6 +19,8 @@ class RecordingSellerRepository extends SellerRepository {
     this.myStore,
     this.createStoreResult,
     this.createStoreException,
+    this.updateStoreInfoResult,
+    this.updateStoreInfoException,
     this.orderCounts = (0, 0),
     this.salesSummary = (0.0, 0.0, 0.0),
     List<(String, int)>? bestSellingProducts,
@@ -53,6 +55,8 @@ class RecordingSellerRepository extends SellerRepository {
   final Store? myStore;
   final Store? createStoreResult;
   final Object? createStoreException;
+  final Store? updateStoreInfoResult;
+  final Object? updateStoreInfoException;
   final (int, int) orderCounts;
   final (double, double, double) salesSummary;
   final List<(String, int)> bestSellingProducts;
@@ -60,6 +64,16 @@ class RecordingSellerRepository extends SellerRepository {
   int createStoreCalls = 0;
   final List<String> createStoreNameArgs = [];
   final List<String?> createStoreDescriptionArgs = [];
+
+  int updateStoreInfoCalls = 0;
+  String? lastUpdateStoreInfoStoreId;
+  String? lastUpdateStoreInfoName;
+  String? lastUpdateStoreInfoDescription;
+  String? lastUpdateStoreInfoAddress;
+  String? lastUpdateStoreInfoContactPhone;
+  String? lastUpdateStoreInfoBusinessHours;
+  Uint8List? lastUpdateStoreInfoLogoBytes;
+  Uint8List? lastUpdateStoreInfoBannerBytes;
 
   @override
   Future<Store?> fetchMyStore() async => myStore;
@@ -76,6 +90,48 @@ class RecordingSellerRepository extends SellerRepository {
           ownerId: 'u1',
           name: name,
           description: description,
+          createdAt: DateTime(2026, 1, 1),
+        );
+  }
+
+  @override
+  Future<Store> updateStoreInfo({
+    required String storeId,
+    required String name,
+    String? description,
+    String? address,
+    String? contactPhone,
+    String? businessHours,
+    Uint8List? newLogoBytes,
+    String? newLogoExtension,
+    Uint8List? newBannerBytes,
+    String? newBannerExtension,
+  }) async {
+    updateStoreInfoCalls++;
+    lastUpdateStoreInfoStoreId = storeId;
+    lastUpdateStoreInfoName = name;
+    lastUpdateStoreInfoDescription = description;
+    lastUpdateStoreInfoAddress = address;
+    lastUpdateStoreInfoContactPhone = contactPhone;
+    lastUpdateStoreInfoBusinessHours = businessHours;
+    lastUpdateStoreInfoLogoBytes = newLogoBytes;
+    lastUpdateStoreInfoBannerBytes = newBannerBytes;
+    if (updateStoreInfoException != null) throw updateStoreInfoException!;
+    return updateStoreInfoResult ??
+        Store(
+          id: storeId,
+          ownerId: 'u1',
+          name: name,
+          description: description,
+          address: address,
+          contactPhone: contactPhone,
+          businessHours: businessHours,
+          logoUrl: newLogoBytes != null
+              ? 'https://example.supabase.co/store-media/$storeId/logo.jpg'
+              : myStore?.logoUrl,
+          bannerUrl: newBannerBytes != null
+              ? 'https://example.supabase.co/store-media/$storeId/banner.jpg'
+              : myStore?.bannerUrl,
           createdAt: DateTime(2026, 1, 1),
         );
   }

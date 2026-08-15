@@ -158,6 +158,71 @@ class SellerRepository {
     return sorted.take(limit).map((e) => (e.key, e.value)).toList();
   }
 
+  // -- Store Management (SELLER-004) --------------------------------------
+  //
+  // `store-media` is a public bucket (unlike `club-media`, which is
+  // private) -- see supabase/schema.sql, SELLER-004 section, and the
+  // Design spec's reasoning for why this is a single method instead of
+  // ClubRepository's 2 upload methods + 1 info-update method: no
+  // signed-URL round-trip is needed, `getPublicUrl()` returns a usable
+  // URL immediately after upload.
+
+  /// Uploads whichever of [newLogoBytes]/[newBannerBytes] is non-null to
+  /// `store-media` first (path `{storeId}/logo-{timestamp}.{ext}` /
+  /// `{storeId}/banner-{timestamp}.{ext}`, mirroring `product-images`'
+  /// timestamped path so a stale CDN/cache never serves an old image
+  /// back), then updates every text field (through
+  /// [normalizeOptionalText], empty string -> null) plus `logo_url`/
+  /// `banner_url` (only when a new image was actually uploaded -- an
+  /// unchanged picker slot must never null out the existing URL) in a
+  /// single `stores` update. Returns the freshest row from
+  /// `.select().single()` so callers can hand it straight to
+  /// `onStoreUpdated` without a second query.
+  Future<Store> updateStoreInfo({
+    required String storeId,
+    required String name,
+    String? description,
+    String? address,
+    String? contactPhone,
+    String? businessHours,
+    Uint8List? newLogoBytes,
+    String? newLogoExtension,
+    Uint8List? newBannerBytes,
+    String? newBannerExtension,
+  }) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+
+    String? logoUrl;
+    if (newLogoBytes != null && newLogoExtension != null) {
+      final path = '$storeId/logo-$timestamp.$newLogoExtension';
+      await _client.storage.from('store-media').uploadBinary(path, newLogoBytes);
+      logoUrl = _client.storage.from('store-media').getPublicUrl(path);
+    }
+
+    String? bannerUrl;
+    if (newBannerBytes != null && newBannerExtension != null) {
+      final path = '$storeId/banner-$timestamp.$newBannerExtension';
+      await _client.storage.from('store-media').uploadBinary(path, newBannerBytes);
+      bannerUrl = _client.storage.from('store-media').getPublicUrl(path);
+    }
+
+    final row = await _client
+        .from('stores')
+        .update({
+          'name': name.trim(),
+          'description': normalizeOptionalText(description?.trim() ?? ''),
+          'address': normalizeOptionalText(address?.trim() ?? ''),
+          'contact_phone': normalizeOptionalText(contactPhone?.trim() ?? ''),
+          'business_hours': normalizeOptionalText(businessHours?.trim() ?? ''),
+          if (logoUrl != null) 'logo_url': logoUrl,
+          if (bannerUrl != null) 'banner_url': bannerUrl,
+        })
+        .eq('id', storeId)
+        .select()
+        .single();
+    return Store.fromMap(row);
+  }
+
   // -- Product Management (SELLER-002) -----------------------------------
   //
   // `products`/`product_variants` now have insert/update (and, for

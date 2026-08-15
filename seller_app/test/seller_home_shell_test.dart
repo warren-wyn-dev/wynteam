@@ -5,6 +5,7 @@ import 'package:zoky_seller/features/product/presentation/seller_product_list_sc
 import 'package:zoky_seller/features/shell/presentation/seller_coming_soon_screen.dart';
 import 'package:zoky_seller/features/shell/presentation/seller_home_shell.dart';
 import 'package:zoky_seller/features/store/data/store.dart';
+import 'package:zoky_seller/features/store/presentation/seller_store_screen.dart';
 
 import 'support/recording_seller_repository.dart';
 
@@ -45,25 +46,62 @@ void main() {
   });
 
   testWidgets(
-      'the 2 not-yet-built tabs each show SellerComingSoonScreen, not a '
+      'the การเงิน tab (still not built) shows SellerComingSoonScreen, not a '
       'crash', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: SellerHomeShell(store: _store, sellerRepository: repository),
     ));
     await tester.pumpAndSettle();
 
-    for (final label in ['ร้านค้า', 'การเงิน']) {
-      await tester.tap(find.text(label));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('การเงิน'));
+    await tester.pumpAndSettle();
 
-      expect(
-        find.widgetWithText(SellerComingSoonScreen, label),
-        findsOneWidget,
-      );
-      expect(find.text('ฟีเจอร์นี้จะมาเร็ว ๆ นี้'), findsOneWidget);
-    }
-
+    expect(
+      find.widgetWithText(SellerComingSoonScreen, 'การเงิน'),
+      findsOneWidget,
+    );
+    expect(find.text('ฟีเจอร์นี้จะมาเร็ว ๆ นี้'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'the ร้านค้า tab shows SellerStoreScreen (SELLER-004), not the '
+      'placeholder', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: SellerHomeShell(store: _store, sellerRepository: repository),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ร้านค้า'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SellerStoreScreen), findsOneWidget);
+    expect(find.widgetWithText(SellerComingSoonScreen, 'ร้านค้า'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'editing store info in the ร้านค้า tab and saving updates the '
+      'Dashboard tab in the same session (SELLER-004)', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: SellerHomeShell(store: _store, sellerRepository: repository),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ร้านค้า'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, 'ร้านทดสอบ (ชื่อใหม่)');
+    await tester.pump();
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'บันทึก'));
+    await tester.tap(find.widgetWithText(FilledButton, 'บันทึก'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Dashboard'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ร้านทดสอบ (ชื่อใหม่)'), findsOneWidget);
+    expect(find.text('ร้านทดสอบ'), findsNothing);
   });
 
   testWidgets(
