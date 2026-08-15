@@ -176,3 +176,17 @@
   7. **Seller Approval**: auto-approved ทันทีที่ "สมัครร้าน" รอบนี้ (ไม่มี Admin ให้อนุมัติเพราะ Phase 6 ยังไม่เริ่ม) บันทึกเป็น Known Issue ชัดเจน
 - ผลกระทบ: แบ่ง Phase 4 เป็น 5 task (SELLER-001 Foundation → SELLER-002 Product Management → SELLER-003 Order Management (ขยายสถานะ) → SELLER-004 Store Management → SELLER-005 Finance) บันทึกรายละเอียดเต็มที่ `.wyn/docs/product/zoky-platform-roadmap.md` (Phase 4 section) — เริ่ม SELLER-001 ทันที
 - อ้างอิง (task/PR ถ้ามี): จะสร้าง `.wyn/tasks/backlog/SELLER-001-foundation.md` ต่อจาก entry นี้ทันที
+
+### [2026-08-15] เปลี่ยน Color Direction ของ WYN: Blue → Cyan (Founder เลือกทางเลือก B — Cyan ดิบตามที่กำหนดมา)
+- บริบท: Founder ส่ง brief "WYN DESIGN SYSTEM REFINEMENT" ขอปรับ UI/UX ให้เป็น Minimal Social Platform ระดับ production โดยกำหนด palette ใหม่มาเอง — AI Product Manager ทำ audit (`.wyn/tasks/backlog/DS-001-design-system-audit.md`) และ AI Design ทำ color system spec + หน้าเปรียบเทียบ 3 ทางเลือกบนหน้าจอจริงทั้ง light/dark ให้ Founder ดูก่อนตัดสิน (Founder ขอ "ดูตัวอย่างก่อนตัดสิน")
+- **คำตัดสินใจของ Founder: เลือกทางเลือก B — ใช้ค่าสีที่กำหนดมาตรง ๆ ทั้ง light และ dark** (หลังเห็นหน้าเปรียบเทียบที่แสดงผลจริงของทั้ง 3 ทางเลือกแล้ว)
+- **คำตัดสินใจนี้แทนที่ (supersede) คำตัดสินใจเดิม** "Color Direction: Blue + White + Soft Gray" (2026-08-14, จาก "WYN V0.1 — CORE APP FEATURE PROMPT") อย่างสมบูรณ์ — seed color `#2D6CDF` ที่ใช้อยู่ทั้งสองแอปจะถูกแทนที่
+- Palette ที่ Founder กำหนด (ผูกพันแล้ว):
+  - WYN Primary (accent เท่านั้น ห้ามใช้เป็นพื้นหลังขนาดใหญ่): Cyan `#00C8FF`
+  - WYN Black `#0A0A0A` / White `#FFFFFF` / Gray `#6B7280` / Border `#E5E7EB`
+  - Dark: BG `#000000` / Surface `#111111` / Border `#222222`
+  - ZOKY Primary (commerce layer แยก identity): Orange `#FF6B35` ใช้เฉพาะ price/CTA/seller badge/commerce state — ห้ามเปลี่ยนทั้งหน้าจอเป็นส้ม
+- กติกาเดิมที่ยังคงอยู่ ไม่ถูกแทนที่: ห้ามใช้ Liquid Glass, ห้ามลอก layout ของ Instagram/TikTok (เพิ่ม Threads เข้าไปในรายการ — ใช้เป็นแรงบันดาลใจเรื่องความเรียบได้ แต่ห้ามลอก)
+- **ความเสี่ยงที่ทีมแจ้งไว้แล้วและ Founder รับทราบก่อนตัดสินใจ** (บันทึกไว้เพื่อความโปร่งใส ไม่ใช่การคัดค้านคำตัดสินใจ): Cyan `#00C8FF` บนพื้นขาวได้ contrast 1.96:1 และ Orange `#FF6B35` บนพื้นขาวได้ 2.84:1 ซึ่งต่ำกว่าเกณฑ์ WCAG AA (ตัวหนังสือต้อง ≥4.5:1, UI component ต้อง ≥3.0:1) — บนพื้นดำทั้งคู่ผ่านสบาย (10.09:1 และ 6.98:1) ผลกระทบที่ตามมาคือ light mode อาจถูกทักท้วงตอนรีวิว accessibility ของ App Store/Play Store และผู้ใช้กลางแดดอ่านยาก รายละเอียดเต็มอยู่ที่ `.wyn/docs/design/ds-001-color-system.md`
+- ผลกระทบ: กระทบทุกหน้าจอทั้ง 45 หน้าในสองแอป (blast radius กว้างที่สุดเท่าที่เคยทำในโปรเจกต์นี้) — แบ่งงานเป็น DS-001..DS-008 ทำทีละขั้น ไม่ทำรวดเดียว, `.wyn/docs/design/design-principles.md` ต้องอัปเดตหัวข้อสีให้ตรงกับ entry นี้
+- อ้างอิง: `.wyn/tasks/backlog/DS-001-design-system-audit.md`, `.wyn/docs/design/ds-001-color-system.md`, หน้าเปรียบเทียบที่ Founder ใช้ตัดสิน (artifact)
