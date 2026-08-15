@@ -1,0 +1,26 @@
+name: zoky_seller
+description: ZOKY Sellers by WYN — seller app for ZOKY Marketplace (V1)
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  supabase_flutter: ^2.5.0
+  cupertino_icons: ^1.0.6
+  # Not used for any persistent seller preference yet -- kept only because
+  # test/support/fake_supabase_session.dart (mirrored from app/) needs it to
+  # fake a signed-in session's local storage. See app/pubspec.yaml for the
+  # same comment on the WYN Social side.
+  shared_preferences: ^2.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
