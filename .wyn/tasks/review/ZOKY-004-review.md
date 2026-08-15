@@ -1,7 +1,7 @@
 # Product Task — ZOKY-004
 
-Status: review
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ)
+Status: review (QA รอบ 1 — FAIL)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (รอบ 1 — FAIL) → AI Debug Engineer
 
 Feature: ZOKY Product Review — ให้ผู้ซื้อให้คะแนน+เขียนรีวิวสินค้าหลังได้รับของแล้ว แสดงคะแนนเฉลี่ยที่ Product Detail/Store
 
@@ -92,3 +92,65 @@ Files Changed:
 `flutter analyze`: สะอาด, `flutter test`: 253/253 ผ่าน (เพิ่มจาก 233 เดิม — WYN Social/ZOKY-001/002/003 เดิมทั้งหมดยังผ่านครบ ไม่มี regression)
 
 Handoff: ส่งต่อ AI QA & Security (`/qa`)
+
+---
+
+## QA & Security Report — รอบ 1 (AI QA & Security)
+
+**ผลสรุป: FAIL**
+
+### สิ่งที่ตรวจอิสระ (ไม่เชื่อตัวเลขจาก Coding Output เฉยๆ)
+
+1. **Re-sync ไป merged main เอง** — `git fetch origin main`, rebuild branch `claude/pwd-nxsvf5` บน `origin/main` (commit `135af7a`, PR #83) ใหม่ทั้งหมด
+2. **รัน `flutter analyze` อิสระ**: No issues found
+3. **รัน `flutter test` อิสระ**: 253/253 ผ่านทั้งหมด — ตรงกับตัวเลขที่ Coding รายงาน ยืนยันด้วยตัวเองแล้ว
+4. **ไล่ diff เต็มระหว่าง Design merge (`6054f3d`) กับ Coding merge (`135af7a`)** ด้วย `git diff --stat` — ยืนยันว่ามีแค่ไฟล์ที่เกี่ยวกับ ZOKY-004 เท่านั้นที่ถูกแก้ (รวม `zoky_order_detail_screen.dart`/`product_detail_screen.dart`/`store_screen.dart` ที่ ZOKY-004 ตั้งใจแก้ตาม Design spec) ไม่มีไฟล์ WYN Social หรือ ZOKY-001/002/003 เดิมไฟล์ไหนถูกแตะเลย — ไม่มี regression scope creep
+
+### พบช่องโหว่ความปลอดภัยจริง (Critical — จุดที่ block การ PASS รอบนี้)
+
+**RLS `update` policy ของตาราง `reviews` ไม่ตรวจ delivered-order-ownership gate ซ้ำตอนแก้ไข ทำให้ผู้ใช้ retarget รีวิวของตัวเองไปยัง `product_id`/`order_item_id` ใด ๆ ก็ได้โดยไม่ต้องซื้อจริง**
+
+อ่าน `supabase/schema.sql` (ZOKY-004 section) พบว่า:
+
+```sql
+create policy "Users can update their own reviews"
+  on public.reviews
+  for update
+  to authenticated
+  using (auth.uid() = user_id);
+```
+
+ไม่มี `with check` clause แนบมาด้วย — วิเคราะห์ตาม Postgres RLS semantics จริง (ยืนยันจาก [เอกสารทางการของ Postgres](https://www.postgresql.org/docs/current/sql-createpolicy.html)): เมื่อ `for update` policy ไม่มี `with check` ระบุไว้ Postgres จะใช้ `using` expression เดิมเป็นทั้งตัวกรอง "แถวเก่าที่แก้ได้" **และ** ตัวตรวจ "แถวใหม่หลังแก้ต้องผ่านเงื่อนไขเดียวกัน" — ซึ่งในที่นี้คือแค่ `auth.uid() = user_id` เท่านั้น **ไม่มีการตรวจซ้ำเลยว่า `order_item_id`/`product_id` ใหม่ที่ client ส่งมายังคงอ้างอิงถึง order ที่ตัวเองเป็นเจ้าของและ status ยัง `delivered` อยู่จริง** ต่างจาก insert policy ที่มี `exists` subquery ตรวจครบ
+
+**Attack scenario ที่ยืนยันได้จากการอ่านโค้ด (ยังไม่มี Supabase project จริงให้รันทดสอบสด แต่ policy semantics ยืนยันได้แน่นอนจาก SQL ตรง ๆ)**:
+1. User A ซื้อสินค้า X จริงและได้รับแล้ว (`delivered`) → เขียนรีวิว 5 ดาวให้ order_item ของสินค้า X ได้ถูกต้องผ่าน insert policy (ผ่าน gate ปกติ)
+2. User A เรียก `zokyRepository.editReview(...)` แต่ตรงไปที่ Supabase client โดยตรงส่ง payload ที่แก้ `product_id`/`order_item_id` ของรีวิวเดิมนั้นให้กลายเป็นสินค้า Y ที่ User A **ไม่เคยซื้อเลย** (หรือแม้แต่ order_item ของ **ผู้ใช้อื่น** ที่ยังไม่มีใครรีวิว เพราะ `order_item_id` unique ทั่วทั้งตาราง ไม่ scope ต่อ user)
+3. `update` policy ตรวจแค่ `auth.uid() = user_id` (คงเดิม ไม่เปลี่ยน) → ผ่านทั้ง `using` (แถวเก่า) และ implicit-`with check` (แถวใหม่) เพราะเงื่อนไขเดียวกันไม่ครอบคลุม `product_id`/`order_item_id` เลย → **update สำเร็จ**
+4. ผลคือ สินค้า Y ได้รีวิวปลอมที่ไม่มีการซื้อขายจริงรองรับเลย — **ขัดกับ Requirement ข้อแรกสุดของ ZOKY-004 โดยตรง** ("รีวิวผูกกับ Order สถานะ `delivered` เท่านั้น ตรวจฝั่ง server เสมอ กัน fake review") และขัด Acceptance Criteria ข้อ 2 ("ผู้ใช้ที่ไม่มี Order สถานะ delivered ของสินค้านั้น... เขียนรีวิวสินค้านั้นไม่ได้ — ตรวจฝั่ง server")
+
+**Root cause ที่แท้จริง**: comment ของ Design/Coding ในไฟล์ ("Editing/deleting a review never re-checks the order's status -- ... there's nothing left to re-verify beyond plain ownership") ตั้งสมมติฐานถูกแค่ครึ่งเดียว — จริงอยู่ที่ **order status** ไม่มีทาง regress กลับจาก delivered ได้ แต่ไม่ได้พิจารณาว่า `order_item_id`/`product_id` **ของแถว reviews เอง** เปลี่ยนแปลงได้อย่างอิสระผ่าน update โดยไม่มี gate ใด ๆ เลย ซึ่งเป็นคนละเรื่องกับ order status
+
+**Severity**: Critical/blocking — เป็นช่องโหว่ที่ทำลาย security guarantee หลักของทั้งฟีเจอร์ (ป้องกัน fake review) ไม่ใช่แค่ edge case เล็กน้อย
+
+**ข้อเสนอแก้ (ส่งต่อ Debug ตัดสินใจ implementation รายละเอียดเอง)**: เพิ่ม `with check` ให้ update policy ที่ทำ `exists` subquery แบบเดียวกับ insert policy เป๊ะ — รับประกันว่าแถวหลังแก้ (ไม่ว่าจะแก้ field ไหนก็ตาม) ยังต้องอ้างอิง order_item ที่ตัวเองเป็นเจ้าของและ status delivered อยู่เสมอ (ไม่จำเป็นต้อง lock ห้ามเปลี่ยน order_item_id/product_id เป๊ะ ๆ เพราะ Postgres RLS เทียบ OLD vs NEW ค่าในนโยบายเดียวไม่ได้โดยตรง — การตรวจซ้ำแบบเดียวกับ insert ก็เพียงพอปิดช่องโหว่นี้แล้ว เพราะยังคงบังคับว่าค่าใหม่ต้องเป็นการซื้อจริงที่เป็นเจ้าของเสมอ)
+
+### สิ่งที่ตรวจแล้วผ่าน (ไม่พบปัญหา)
+
+1. **RLS `insert` policy ตรวจ delivered-order-ownership gate ถูกต้องจริง** — อ่าน SQL ยืนยัน `exists` subquery join `order_items`→`orders` ตรวจ `oi.id = order_item_id`, `oi.product_id = product_id`, `o.buyer_id = auth.uid()`, `o.status = 'delivered'` ครบทุกเงื่อนไข — จำลอง attack scenario "User A พยายามรีวิว order_item ของ User B" และ "User A พยายามรีวิว order_item ของตัวเองที่ยัง pending" ยืนยันว่าถูกปฏิเสธถูกต้องทั้งคู่
+2. **Unique constraint `order_item_id`**: ยืนยันว่าเป็น DB-level constraint จริง (`unique` บนคอลัมน์) ไม่ใช่แค่ app-level check — ป้องกัน 1 order_item ถูกรีวิวซ้ำสองครั้งได้จริงไม่ว่า client จะพยายามข้าม UI ยังไงก็ตาม
+3. **ซื้อสินค้าเดิมซ้ำใน Order ใหม่ที่ delivered แล้ว รีวิวรอบใหม่ได้จริง**: ไล่โค้ด `fetchReviewableOrderItems` ยืนยันว่า scope เป็นระดับ order_item ไม่ใช่ product เฉย ๆ ถูกต้องตาม Requirements
+4. **ค่าเฉลี่ยคะแนนคำนวณสดจริง ไม่ denormalize/cache**: อ่าน `fetchProductRating`/`fetchStoreRating` ยืนยันว่า query raw `rating` rows ทุกครั้งไม่มี state เก็บค่าเฉลี่ยไว้เลย — และ `ProductDetailScreen`/`ZokyOrderDetailScreen` เรียก `setState`/`_load()` รีเฟรชทันทีหลังรีวิวเปลี่ยนแปลงจริง
+5. **`delete` policy ปลอดภัย** — `using (auth.uid() = user_id)` เพียงพอสำหรับ delete (ไม่มี "new row" ให้ retarget แบบ update ได้ ปัญหาข้างต้นใช้ไม่ได้กับ delete)
+6. **ปุ่มเขียน/แก้ไขรีวิวใน `ZokyOrderDetailScreen` แสดงเฉพาะ delivered จริง**: ทำ **red→green regression proof อิสระ** — ลบเงื่อนไข `order.status == OrderStatus.delivered` ออกชั่วคราวจากบรรทัด `if (order.status == OrderStatus.delivered && item.productId != null)` แล้วรัน `flutter test test/zoky_order_detail_screen_test.dart` พบว่า test "does not show a review entry point while an order is still pending" พังจริงตามคาด (แดง) คืนโค้ดกลับแล้ว rerun ยืนยันผ่านครบ 12/12 (เขียว) — ยืนยันว่า test คลุมจริง ไม่ใช่ test ที่ผ่านโดยบังเอิญ
+7. **Edge case entry point ที่ Design ตัดสินใจ (1 รายการรีวิวได้ = เปิดฟอร์มตรง, มากกว่า 1 = พาไปหน้า Order List)**: ไล่โค้ด `_buildReviewEntryPoint` ใน `ProductDetailScreen` ตรงตามที่ Design ระบุ มี test คลุมทั้งสอง branch
+8. **AC ข้อ 6-7 (การแสดงผล rating summary/review list ใน ProductDetailScreen/StoreScreen)**: ไล่โค้ดตรงกับ Design ทุกจุด มี test คลุม
+
+### Minor finding (ไม่ block แต่บันทึกไว้)
+
+`StoreScreen`'s Reviews tab (`_buildReviewsTab`) เรียก `fetchStoreReviews` ครั้งเดียวตอน `initState` ด้วย limit เริ่มต้น (`reviewsPageSize` = 20) โดยไม่มี infinite-scroll/pagination ต่อ — ร้านที่มีรีวิวมากกว่า 20 รายการจะเห็นแค่ 20 รายการแรกโดยไม่มีทางเลื่อนดูเพิ่ม (ต่างจาก `ProductReviewsScreen` ที่ทำ infinite scroll ไว้ครบ) — Design spec ไม่ได้ระบุ pagination UI ของ Store tab ไว้ชัดเจน (แค่ระบุ repo method signature รองรับ `limit`/`offset`) จึงไม่ถือเป็น gap ที่ block แต่ควรบันทึกเป็น fast-follow เดียวกับ known issues อื่น ๆ ของสายนี้
+
+### Acceptance Criteria ที่ block
+
+AC ข้อ 2 และข้อ 5 ("ผู้ใช้ที่ไม่มี Order สถานะ delivered ของสินค้านั้น... เขียนรีวิวสินค้านั้นไม่ได้ — ตรวจฝั่ง server", "แก้ไข/ลบรีวิวของตัวเองได้ แก้/ลบรีวิวของคนอื่นไม่ได้ (RLS ป้องกัน)") ยังไม่ผ่านสมบูรณ์ในส่วนของการ "แก้ไข" — RLS ป้องกันแค่ไม่ให้แก้ไขรีวิว**ของคนอื่น** แต่ไม่ได้ป้องกันการแก้ไขรีวิว**ของตัวเอง**ให้ไปอ้างอิงการซื้อที่ไม่มีอยู่จริง
+
+**Final Status: FAIL** — ส่งต่อ AI Debug Engineer พร้อม bug report ที่ `.wyn/tasks/bugs/ZOKY-004-review-update-rls-gap.md`
