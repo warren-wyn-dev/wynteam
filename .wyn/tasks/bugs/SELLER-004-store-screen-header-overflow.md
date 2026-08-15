@@ -1,6 +1,6 @@
 # Bug Report — SELLER-004 (BUG-1)
 
-Status: **fixed — รอ QA รอบ 2 ยืนยัน** (Debug Output อยู่ท้ายไฟล์นี้, 2026-08-15)
+Status: **fixed — ยืนยันแล้วโดย QA รอบ 2 (PASS, 2026-08-15)** — ดู `.wyn/tasks/approved/SELLER-004-store-management.md`'s "QA & Security Report — รอบ 2" สำหรับรายละเอียดการตรวจซ้ำอิสระเต็มรูปแบบ (Debug Output อยู่ท้ายไฟล์นี้)
 Owner: AI Debug Engineer
 Found by: AI QA & Security (SELLER-004 QA รอบ 1, 2026-08-15)
 Severity: **Major (blocking)** — ทำให้หน้าร้านฝั่งลูกค้าใช้งานไม่ได้จริงบนมือถือทั่วไป

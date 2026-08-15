@@ -138,3 +138,64 @@ Final Status: FAIL
 1. `SellerStoreScreen` ไม่ล้าง `_logoBytes`/`_bannerBytes` หลังบันทึกสำเร็จ — ถ้า seller กดบันทึกซ้ำอีกครั้งโดยไม่เลือกรูปใหม่ ระบบจะอัปโหลดรูปเดิมซ้ำเป็นไฟล์ใหม่ (ไฟล์เก่ากลายเป็น orphan ใน bucket, สิ้นเปลืองพื้นที่แต่ไม่กระทบความถูกต้องของข้อมูลหรือความปลอดภัย)
 2. ไม่มีทาง "ลบ" โลโก้/แบนเนอร์ออกได้หลังตั้งค่าแล้ว (มีแต่เปลี่ยนเป็นรูปใหม่) — ไม่มี AC ข้อไหนกำหนดไว้
 3. `alter table ... add constraint` ทั้ง 3 ตัวไม่มี guard `if not exists` (Postgres ไม่รองรับ syntax นี้ตรง ๆ) → รัน `schema.sql` ซ้ำรอบสองจะ error — เป็น pattern เดิมของทั้งไฟล์ตั้งแต่ WYN-003 (`profiles_display_name_length`/`profiles_bio_length`) ไม่ใช่สิ่งที่ SELLER-004 สร้างขึ้นใหม่ แต่ควรมี ADR ตัดสินเรื่อง idempotency ของ schema.sql รวมทีเดียวในอนาคต
+
+---
+
+## QA & Security Report — รอบ 2 (AI QA & Security, 2026-08-15)
+
+**ผลสรุป: PASS**
+
+### Sync และ environment
+
+`git fetch origin` แล้วยืนยัน `claude/pwd-nxsvf5` == `origin/main` == merge-base ที่ `f7035c8` (PR #112, Debug fix) อยู่แล้วตั้งแต่ต้น ไม่ต้อง rebase — Flutter 3.47.0 ผ่าน `flutter --version`
+
+### (1) Re-run device-size matrix เดิมด้วยตัวเอง — ไม่เชื่อตัวเลขจาก Debug Output
+
+เขียน widget test ชุดใหม่ทั้งหมดเองอิสระ (`app/test/qa_seller004_round2_verification_test.dart`, ลบทิ้งหลังยืนยันผลแล้วตามธรรมเนียมเดิมของ QA ในโปรเจกต์นี้ที่ไม่ commit ไฟล์ test ของตัวเอง — regression coverage ถาวรเป็นหน้าที่ของ Debug/Coding) ด้วย fixture คนละชุดกับทั้ง QA รอบ 1 และ Debug Output (ที่อยู่/ชื่อร้าน/คำอธิบายต่างกันหมด) ครอบคลุม 360x640, 375x667, 390x844+textScaler 1.3, 430x932+textScaler 1.3, ที่อยู่ยาว 265 ตัวอักษรไม่มี banner, แนวนอน 667x375 — ดัก `FlutterError.onError` เก็บ error **ทุกตัว** เองตามที่ Founder กำชับ (ไม่ใช้ `tester.takeException()` เลยสักจุดเดียวในทุกเทสต์ที่วัด overflow)
+
+ผลวัดจริงของ QA เอง: **ทุกเคสไม่มี overflow, `TabBarView` สูง > 0 และ >= ครึ่งจอเสมอ, `ProductGridTile` ถูก layout จริงและมีความสูง > 0 ทุกตัว** — ตรงกับตัวเลขที่ Debug รายงานในเชิงคุณภาพ (ตัวเลข px แตกต่างกันเล็กน้อยเพราะ fixture คนละชุด ตามคาด)
+
+### (2) SliverOverlapAbsorber/Injector — พิสูจน์อิสระว่าสินค้าแถวแรกกดได้จริง ไม่ถูก TabBar บัง
+
+เขียน 2 เทสต์แยกเจาะจงจุดนี้:
+- viewport สูงพอ (390x1400) ให้ header+TabBar+แถวสินค้าแรกพอดีในจอเดียวโดยไม่ scroll เลย → แตะ `ProductGridTile` แถวแรกทันที → เปิด `ProductDetailScreen` สำเร็จ (ไม่ใช่ tap ไปโดน TabBar ที่ pinned)
+- viewport เล็ก (360x640) ที่ต้อง scroll ก่อนถึงจะเห็นเนื้อหาแท็บ → scroll แล้วแตะแถวสินค้าแรกที่อยู่ติดขอบล่างของ TabBar ที่ pinned ทันที → เปิด `ProductDetailScreen` สำเร็จเช่นกัน
+
+ทั้งสองเทสต์ผ่าน ยืนยันว่า `SliverOverlapAbsorber`/`SliverOverlapInjector` ทำงานถูกต้องจริง ไม่ใช่แค่เชื่อคำอธิบายของ Debug — (หมายเหตุ: ที่ 390x844 พอดี ด้วย fixture ของ QA เอง (description ยาวกว่า Debug's เล็กน้อย) TabBarView เหลือแค่ ~104px แถวแรกโผล่มาแค่ ~29px ต้อง scroll เพิ่มอีกนิด — เป็นพฤติกรรมปกติของหน้าที่ scroll ได้ ไม่ใช่บั๊ก จึงขยับไปทดสอบที่ viewport สูงกว่าสำหรับเคส "zero scroll" โดยเฉพาะ)
+
+### (3) Regression พฤติกรรมเดิมของ StoreScreen (ผ่าน QA จาก ZOKY-001 มาก่อน)
+
+ทดสอบอิสระครบทุกจุดที่ Founder ระบุ: Share/Copy Link ปุ่ม (ยังอยู่), follow store button (SnackBar "ฟีเจอร์นี้จะมาเร็ว ๆ นี้" ทำงานถูกต้อง — พบว่าต้อง `ensureVisible` ก่อนแตะเมื่อร้านมี banner+ข้อมูลครบ เพราะหน้าเป็น scrollable แล้วตามการออกแบบใหม่ที่ตั้งใจ ไม่ใช่บั๊ก), rating header (แสดงค่าเฉลี่ยถูกต้อง), ไม่มีปุ่ม Chat, ร้านที่ไม่มี banner/ข้อมูลเพิ่มเติม render เหมือนก่อน SELLER-004 ทุกประการ (ไม่มี `AspectRatio` 16:9, ไม่มี icon ของ section ข้อมูลร้าน), ร้านไม่พบยังแสดงข้อความ "ไม่พบร้านค้านี้" ปกติ — ผ่านทุกเคส
+
+**เปลี่ยนแท็บ Products↔Reviews แล้วกลับมา — ตรวจ PageStorageKey ตามที่ Founder สั่งเจาะจง**: เขียนเทสต์วัด `ScrollPosition.pixels` ของ Products tab ตรง ๆ ก่อน/หลังสลับแท็บ พบว่า **scroll position รีเซ็ตเป็น 0 หลังสลับกลับมา แม้จะมี `PageStorageKey` แล้วก็ตาม** — ตรวจสอบเพิ่มเติมด้วยการ checkout โค้ด `store_screen.dart` เวอร์ชันก่อน SELLER-004 ทั้งหมด (`git show 2ab800c:...`, ตอนยังใช้ `GridView.builder`/`ListView.builder` ไม่มี `PageStorageKey` เลย) มาทดสอบซ้ำด้วยเทสต์เดียวกัน (ปรับ finder เป็น `GridView`): **พฤติกรรมเดิมก็รีเซ็ตเป็น 0 เหมือนกันทุกประการ** — ยืนยันว่า**ไม่ใช่ regression ที่ SELLER-004 สร้างขึ้น** เป็นพฤติกรรมเดิมของ `TabBarView` ที่ไม่เคยรักษา scroll position ข้ามแท็บมาตั้งแต่ ZOKY-001 (`PageStorageKey` ที่เพิ่มมาไม่ได้แก้ปัญหานี้จริงในบริบทนี้ แต่ก็ไม่ได้ทำให้แย่ลงกว่าเดิม) — บันทึกไว้เป็นข้อสังเกต ไม่ block เพราะไม่ใช่ regression และไม่มี AC ข้อไหนกำหนดพฤติกรรมนี้ไว้ชัดเจน
+
+### (4) Minor fix เรื่อง image bytes ไม่ถูกล้างหลังบันทึกสำเร็จ
+
+ยืนยันด้วยการอ่านโค้ด `seller_store_screen.dart`'s `_save()`: หลัง `onStoreUpdated(updated)` เรียกสำเร็จ มี `setState(() { _logoBytes = null; _logoExtension = null; _bannerBytes = null; _bannerExtension = null; })` ทันที (บรรทัด 149-154) — ตรวจ `SellerRepository.updateStoreInfo` ยืนยันว่า `uploadBinary` ถูกเรียก **เฉพาะเมื่อ** `newLogoBytes != null && newLogoExtension != null` (เช่นเดียวกับ banner) เท่านั้น ดังนั้นการบันทึกครั้งที่สองโดยไม่เลือกรูปใหม่ (bytes เป็น `null` แล้วจากการ reset) จะไม่เรียก `uploadBinary` เลยทั้งคู่ — ปิด orphan-file bug ตามที่ตั้งใจ ยืนยันด้วย logic-trace ที่ชัดเจนสมบูรณ์
+
+**ข้อจำกัดการทดสอบแบบ dynamic เต็มรูปแบบ**: ไม่สามารถจำลอง flow "เลือกรูปใหม่ → บันทึก → บันทึกซ้ำ" ผ่าน widget test ได้จริง เพราะ `image_picker` ใช้ platform channel ที่ sandbox นี้ไม่เคย mock ไว้เลยทั้งโปรเจกต์ (ยืนยันด้วย `grep` ไม่พบ mock ของ `ImagePicker`/`image_picker` ที่ไหนในทั้งสองแอป) ตรงกับ comment ที่มีอยู่แล้วในไฟล์เทสต์เดิม ("ImagePicker goes through a platform channel this sandbox never mocks, same convention as every other picker in this project") — เป็นข้อจำกัดของ infra การทดสอบที่มีมาก่อน SELLER-004 ไม่ใช่ gap ที่ SELLER-004 สร้างขึ้น ตรวจแทนด้วย static code review ที่ชัดเจนสมบูรณ์ตามข้างต้น
+
+### (5) ไล่ Requirements/Design Components/Acceptance Criteria ทั้งหมดใหม่ทีละบรรทัด
+
+- Requirements ทั้ง 7 ข้อ (tab replacement, ฟอร์ม 7 ฟิลด์, cross-tab sync, DB 3 คอลัมน์ใหม่, RLS ไม่แก้, storage bucket `store-media`, StoreScreen ฝั่งลูกค้า) — ตรงกับโค้ดจริงทุกข้อ ตรวจ schema.sql บรรทัดต่อบรรทัดยืนยัน `stores_address_length`/`stores_contact_phone_length`/`stores_business_hours_length` ตรงกับ 300/50/200 เป๊ะ, storage policy 4 ตัว (select/insert/update/delete) เทียบ `product-images` ทีละบรรทัดตรงกันหมด
+- Design Components ทุกจุด (banner/logo picker มิเรอร์ `EditClubInfoScreen`, ฟอร์ม 7 ฟิลด์+maxLength, ไม่ `Navigator.pop()`, `onStoreUpdated` callback, banner conditional-render ด้วย `if` ไม่ใช่ `SizedBox.shrink()`) — ตรงกับโค้ดทุกจุด
+- Acceptance Criteria ทั้ง 12 ข้อ — ผ่านครบทุกข้อ รวมข้อที่เคย FAIL ตอนรอบ 1 (banner/section render โดยไม่ทำให้ tab content หายไป) ยืนยันแล้วว่าผ่านสมบูรณ์
+- Cross-tab sync (`SellerHomeShell._store` mutable state, ทุก tab อ้าง `_store` ไม่ใช่ `widget.store`) — grep ยืนยันไม่มีจุดค้าง `widget.store` เหลืออยู่เลยแม้แต่จุดเดียว
+
+### (6) Schema ordering
+
+`python3 supabase/check_schema_ordering.py` → `OK: no forward references found` — ยืนยันว่า branch sync ถูกต้อง ไม่มีอะไรหลุดมาจาก SCHEMA-001
+
+### (7) Full test suites อิสระ (หลัง sync main ใหม่)
+
+- `app/`: **291/291 ผ่าน** (276 เดิม + 15 เทสต์ QA เขียนเอง, ลบออกก่อน commit ตามธรรมเนียม) — `flutter analyze` สะอาด
+- `seller_app/`: **67/67 ผ่าน** — `flutter analyze` สะอาด
+- ตรงกับตัวเลขที่ Debug รายงาน (276/67) หลังหักเทสต์ชั่วคราวของ QA ออก
+
+### New finding (ไม่ block SELLER-004 — pre-existing bug นอกขอบเขต)
+
+พบบั๊กใหม่ระหว่างทดสอบ device matrix อิสระ: **`_buildHeader`'s rating `Row` (บรรทัด ~286 ของ `store_screen.dart`) overflow จริงบนทุกขนาดจอมือถือมาตรฐาน (165-235px) สำหรับร้านที่มีรีวิวอย่างน้อย 1 รีวิว** — ยืนยันด้วย `git log`/`git show 135af7a` ว่าโค้ดจุดนี้ไม่เคยถูกแก้ตั้งแต่ ZOKY-004 เลย **SELLER-004 ไม่ได้แตะโค้ดจุดนี้เลยแม้แต่บรรทัดเดียว** ไม่เคยถูกจับได้มาก่อนเพราะทุกเทสต์เดิมที่ store มีรีวิวรันที่ viewport เริ่มต้น 800x600 ของ `flutter_test` (กว้างพอที่ overflow จะไม่เกิด) — บันทึกเป็น bug report แยกที่ `.wyn/tasks/bugs/ZOKY-004-store-header-rating-row-overflow.md` เพื่อส่งต่อ Debug ในรอบถัดไป **ไม่ block การอนุมัติ SELLER-004 รอบนี้** เพราะเป็นโค้ดที่มีมาก่อน SELLER-004 สองงาน (ZOKY-004) ไม่อยู่ใน Requirements/AC ของ SELLER-004 เลย และ SELLER-004's BUG-1 fix ที่กำลังตรวจสอบรอบนี้พิสูจน์แล้วว่าทำงานถูกต้องสมบูรณ์แยกต่างหาก
+
+### Final Status: PASS
+
+อนุมัติเข้า `.wyn/tasks/approved/` — SELLER-004 (Store Management) ปิดจบสมบูรณ์ในรอบ QA ที่ 2 (1 FAIL จาก header overflow เดิม, 1 PASS หลัง Debug แก้ด้วย `NestedScrollView`+`SliverPersistentHeader`+`SliverOverlapAbsorber`/`Injector`) — Phase 4 (ZOKY Sellers by WYN) เหลือแค่ SELLER-005 (Finance) เป็น task สุดท้าย
