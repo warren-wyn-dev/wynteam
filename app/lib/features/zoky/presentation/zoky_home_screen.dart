@@ -9,13 +9,15 @@ import 'store_screen.dart';
 import 'widgets/product_grid_tile.dart';
 import 'widgets/product_mini_card.dart';
 import 'widgets/store_mini_card.dart';
+import 'zoky_cart_screen.dart';
+import 'zoky_order_list_screen.dart';
 import 'zoky_search_screen.dart';
-import 'zoky_strings.dart';
 
 /// Screen 1 — ZOKY Home (ZOKY-001), the 5th Bottom Nav tab. Search and
 /// category-tap open ZokySearchScreen for real as of ZOKY-002; Cart/
-/// Orders remain placeholders until ZOKY-003.
-/// See .wyn/docs/design/zoky-001-marketplace-foundation.md, Screen 1.
+/// Orders open ZokyCartScreen/ZokyOrderListScreen for real as of
+/// ZOKY-003. See .wyn/docs/design/zoky-001-marketplace-foundation.md,
+/// Screen 1.
 class ZokyHomeScreen extends StatefulWidget {
   const ZokyHomeScreen({super.key, required this.zokyRepository});
 
@@ -38,6 +40,8 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
   bool _isLoadingMore = false;
   bool _hasMore = true;
 
+  int _cartItemCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +49,7 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
     _newProductsFuture = widget.zokyRepository.fetchNewProducts();
     _recommendedStoresFuture = widget.zokyRepository.fetchRecommendedStores();
     _loadGridInitial();
+    _loadCartItemCount();
     _scrollController.addListener(_onScroll);
   }
 
@@ -89,9 +94,34 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
     });
   }
 
-  void _showComingSoon() {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text(zokyComingSoonMessage)));
+  Future<void> _loadCartItemCount() async {
+    try {
+      final count = await widget.zokyRepository.cartItemCount();
+      if (!mounted) return;
+      setState(() => _cartItemCount = count);
+    } catch (_) {
+      // Silent, same as _buildNotificationButton's badge fetch
+      // (home_feed_screen.dart, WYN-012) -- a failed count leaves the
+      // badge showing its last known value, not worth a blocking error
+      // UI for a number in the corner of an icon.
+    }
+  }
+
+  Future<void> _openCart() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ZokyCartScreen(zokyRepository: widget.zokyRepository),
+      ),
+    );
+    _loadCartItemCount();
+  }
+
+  void _openOrders() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ZokyOrderListScreen(zokyRepository: widget.zokyRepository),
+      ),
+    );
   }
 
   void _openSearch({Category? category}) {
@@ -166,16 +196,57 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
       child: Row(
         children: [
           Expanded(child: _buildSearchBar(context)),
-          IconButton(
-            icon: const Icon(Icons.shopping_cart_outlined),
-            tooltip: 'ตะกร้าสินค้า',
-            onPressed: _showComingSoon,
-          ),
+          _buildCartButton(context),
           IconButton(
             icon: const Icon(Icons.receipt_long_outlined),
             tooltip: 'คำสั่งซื้อของฉัน',
-            onPressed: _showComingSoon,
+            onPressed: _openOrders,
           ),
+        ],
+      ),
+    );
+  }
+
+  /// Mirrors home_feed_screen.dart's _buildNotificationButton (WYN-012)
+  /// exactly -- same Stack+Positioned badge shape, showing the number
+  /// of distinct cart lines (not summed quantity).
+  Widget _buildCartButton(BuildContext context) {
+    final count = _cartItemCount;
+    final badgeText = count > 9 ? '9+' : '$count';
+
+    return Semantics(
+      label: count > 0 ? 'ตะกร้าสินค้า มี $count รายการ' : 'ตะกร้าสินค้า',
+      button: true,
+      excludeSemantics: true,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.shopping_cart_outlined),
+            onPressed: _openCart,
+          ),
+          if (count > 0)
+            Positioned(
+              right: 4,
+              top: 4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  badgeText,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onPrimary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

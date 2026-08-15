@@ -6,11 +6,12 @@ import '../data/product_variant.dart';
 import '../data/zoky_repository.dart';
 import 'store_screen.dart';
 import 'widgets/product_images.dart';
-import 'zoky_strings.dart';
+import 'zoky_cart_screen.dart';
 
-/// Screen 2 — Product Detail (ZOKY-001). Browse-only: Add to
-/// Cart/Buy Now show but don't work yet (ZOKY-003). See
-/// .wyn/docs/design/zoky-001-marketplace-foundation.md, Screen 2.
+/// Screen 2 — Product Detail (ZOKY-001). Add to Cart/Buy Now work for
+/// real as of ZOKY-003. See
+/// .wyn/docs/design/zoky-001-marketplace-foundation.md, Screen 2 and
+/// .wyn/docs/design/zoky-003-cart-checkout-order.md, Screen 1.
 class ProductDetailScreen extends StatefulWidget {
   const ProductDetailScreen({
     super.key,
@@ -39,9 +40,51 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     _variantsFuture = widget.zokyRepository.fetchProductVariants(widget.product.id);
   }
 
-  void _showComingSoon() {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text(zokyComingSoonMessage)));
+  String _variantSelectionText() {
+    if (_selectedVariant.isEmpty) return '';
+    return _selectedVariant.entries
+        .map((entry) => '${entry.key == VariantType.color ? 'สี' : 'ไซส์'}: ${entry.value}')
+        .join(', ');
+  }
+
+  Future<bool> _addToCart() async {
+    try {
+      await widget.zokyRepository.addToCart(
+        productId: widget.product.id,
+        variantSelection: _variantSelectionText(),
+      );
+      return true;
+    } catch (_) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('เพิ่มลงตะกร้าไม่สำเร็จ ลองใหม่อีกครั้ง')));
+      return false;
+    }
+  }
+
+  void _openCart() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ZokyCartScreen(zokyRepository: widget.zokyRepository),
+      ),
+    );
+  }
+
+  Future<void> _onAddToCartPressed() async {
+    final success = await _addToCart();
+    if (!success || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('เพิ่มลงตะกร้าแล้ว'),
+        action: SnackBarAction(label: 'ดูตะกร้า', onPressed: _openCart),
+      ),
+    );
+  }
+
+  Future<void> _onBuyNowPressed() async {
+    final success = await _addToCart();
+    if (!success || !mounted) return;
+    _openCart();
   }
 
   void _openStore() {
@@ -223,6 +266,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _buildActionBar(BuildContext context) {
+    final outOfStock = widget.product.stock <= 0;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -230,15 +274,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           children: [
             Expanded(
               child: OutlinedButton(
-                onPressed: _showComingSoon,
-                child: const Text('เพิ่มลงตะกร้า'),
+                onPressed: outOfStock ? null : _onAddToCartPressed,
+                child: Text(outOfStock ? 'สินค้าหมด' : 'เพิ่มลงตะกร้า'),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: FilledButton(
-                onPressed: _showComingSoon,
-                child: const Text('ซื้อเลย'),
+                onPressed: outOfStock ? null : _onBuyNowPressed,
+                child: Text(outOfStock ? 'สินค้าหมด' : 'ซื้อเลย'),
               ),
             ),
           ],

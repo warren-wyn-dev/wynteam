@@ -1,7 +1,7 @@
 # Product Task — ZOKY-003
 
 Status: review
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ)
 
 Feature: ZOKY Cart & Checkout & Order — เพิ่มสินค้าลงตะกร้า, สั่งซื้อ, ดูประวัติ/สถานะคำสั่งซื้อ
 
@@ -76,3 +76,30 @@ Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบ
 เขียนเสร็จแล้วที่ `.wyn/docs/design/zoky-003-cart-checkout-order.md` — สรุป: Product Detail's ปุ่ม Add to Cart/ซื้อเลย เปลี่ยนจาก `_showComingSoon` เป็นเรียก `addToCart()` จริง (ซื้อเลย = เพิ่มลงตะกร้าแล้วพา push ไป Cart ทันที) — `ZokyCartScreen` ใหม่จัดกลุ่มตามร้าน มี `ZokyCartItemTile` ใหม่ (thumbnail 64px + quantity stepper 3 ส่วน `-`/ตัวเลข/`+` + ปุ่มลบแยกต่างหาก) — **Checkout แยก 2 หน้าจอ** (`ZokyCheckoutAddressScreen` กรอกที่อยู่ → `ZokyCheckoutSummaryScreen` สรุปยอดแยกต่อร้าน+ยืนยัน) แทนหน้าเดียวยาว เพื่อบังคับให้เห็นยอดเงินเต็มจอก่อนกดยืนยันเสมอ — ปุ่มยืนยันคำสั่งซื้อต้อง disable+โชว์ loading ทันทีที่กดป้องกันกดซ้ำ — `ZokyOrderListScreen`/`ZokyOrderDetailScreen` ใหม่ ใช้ `OrderSummaryCard` (มิเรอร์ `StoreResultCard`) และ order status badge widget ร่วมกัน (สี+icon+ข้อความคู่กันเสมอ ไม่ใช้สีอย่างเดียว: pending=เทา/hourglass, delivered=เขียว/check, cancelled=แดง/cancel) — ปุ่มยกเลิก/ยืนยันรับสินค้าใน Order Detail แสดงเฉพาะสถานะ pending เท่านั้นและต้องมี confirm dialog ก่อนเสมอ (มิเรอร์ `ConfirmDeleteDialog`) — Cart icon ใน ZOKY Home เพิ่ม badge จำนวนรายการ มิเรอร์โครง notification bell badge (WYN-012) เป๊ะ — เตือน Coding เรื่อง RPC ต้อง atomic จริง (single transaction ตรวจ+หัก stock) และค่าธรรมเนียม % ต้อง snapshot ไม่ query ค่า config สดตอนแสดงผล
 
 Handoff: ส่งต่อ AI Coding (`/code`)
+
+---
+
+## Coding Output (AI Coding)
+
+Implementation:
+- **Database** (`supabase/schema.sql`): เพิ่ม `platform_config` (key-value, seed `zoky_marketplace_fee_percent = '10'`, select-all-authenticated ไม่มี write policy ให้ client), `cart_items` (RLS CRUD เฉพาะแถวตัวเอง, `variant_selection` เป็น `text not null default ''` ไม่ใช่ nullable เพื่อให้ unique constraint `(user_id, product_id, variant_selection)` ทำงานถูกต้องแม้ไม่มี variant), `orders` (status 3 ค่า pending/delivered/cancelled, snapshot `fee_percent`/`fee_amount`, **ไม่มี insert/update/delete policy ให้ client เลย**), `order_items` (snapshot `product_name`/`unit_price`/`image_url` ณ ตอนสั่งซื้อ, `product_id` เป็น `on delete set null` ไม่ใช่ cascade เพื่อให้ Order ยังอยู่แม้สินค้าถูกลบ, select ผ่าน join กลับไปที่ `orders.buyer_id`) — RPC 3 ตัว security definer: `create_orders` (ล็อก products ที่เกี่ยวข้องทั้งหมดด้วย `for update` เรียงตาม id ก่อนตรวจ/หัก stock ในธุรกรรมเดียว ป้องกัน race condition ตามที่ Product/Design เตือนไว้, แยกสร้าง Order ทีละร้าน, raise `INSUFFICIENT_STOCK:<ชื่อสินค้า>` เมื่อ stock ไม่พอ), `cancel_order` (เฉพาะเจ้าของ+สถานะ pending คืน stock), `confirm_order_received` (เฉพาะเจ้าของ+สถานะ pending)
+- **Models**: `CartItem`, `Order`/`OrderStatus`, `OrderItem` (`app/lib/features/zoky/data/`)
+- **Repository** (`ZokyRepository` เดิม ขยายเพิ่มแทนแยกไฟล์ใหม่ เพราะขนาดยังจัดการได้): `fetchCartItems`/`addToCart`/`updateCartItemQuantity`/`removeCartItem`/`cartItemCount`, `createOrders`/`fetchOrders`/`fetchOrder`/`fetchOrderItems`/`cancelOrder`/`confirmOrderReceived`/`fetchMarketplaceFeePercent` — `InsufficientStockException` แปลงจาก RPC's `INSUFFICIENT_STOCK:` prefix (มิเรอร์ `UsernameTakenException` pattern จาก `auth_repository.dart`)
+- **UI**: `ProductDetailScreen`'s ปุ่ม Add to Cart/ซื้อเลย ทำงานจริง (disable+เปลี่ยนข้อความเป็น "สินค้าหมด" เมื่อ `stock <= 0`) — `ZokyCartScreen` ใหม่ (จัดกลุ่มตามร้าน, `QuantityStepper`/`ZokyCartItemTile` widget ใหม่) — `ZokyCheckoutAddressScreen`+`ZokyCheckoutSummaryScreen` ใหม่ (2 หน้าจอแยกตาม Design) — `ZokyOrderListScreen`+`ZokyOrderDetailScreen` ใหม่ (`OrderSummaryCard`/`OrderStatusBadge` widget ใหม่) — Cart icon บน ZOKY Home เพิ่ม badge มิเรอร์ `_buildNotificationButton` (WYN-012) เป๊ะ, fetch แบบ silent-fail เหมือนต้นแบบ
+
+Gaps ที่ Coding พบและแก้เองก่อนส่ง QA:
+1. **บั๊กจริงที่ทำให้ `ZokyCartScreen` ทั้งหน้าว่างเปล่าทันทีที่ตะกร้ามีสินค้า**: `_buildBottomBar`'s `Column` (label "ยอดรวมทั้งหมด" + ราคา) ไม่ได้ระบุ `mainAxisSize: MainAxisSize.min` — ค่าเริ่มต้น `MainAxisSize.max` ภายใต้ loose height constraint ของ `Scaffold.bottomNavigationBar` ทำให้การคำนวณความสูงของทั้ง `Scaffold` พังเงียบ ๆ จนตัว `body`/`Scrollable` ได้ความสูง 0 (ไม่มี exception ใด ๆ ถูกโยนเลย ไม่ใช่ RenderFlex overflow แบบปกติที่คุ้นเคย) วินิจฉัยได้จากการเช็ค `Scrollable.size` โดยตรง แก้ด้วยการเพิ่ม `mainAxisSize: MainAxisSize.min` — บันทึกเป็น pattern ใหม่ใน `.wyn/learning/PATTERNS.md` เพราะเป็นรูปแบบบั๊กที่ไม่เคยเจอมาก่อนในโปรเจกต์นี้ (ไม่ทิ้งร่องรอย exception ให้ตามรอยเลย)
+2. Test file 2 ไฟล์ (`zoky_cart_screen_test.dart`, `zoky_order_detail_screen_test.dart`) ต้องเพิ่ม `tester.takeException()` หลัง `pumpAndSettle()` ทุกจุดที่มี `Image.network` (ตามธรรมเนียมเดิมของโปรเจกต์) — พลาดไปตอนแรกทำให้ NetworkImageLoadException ที่คาดไว้อยู่แล้วกลาย เป็น unhandled exception กระทบ test ถัดไปในไฟล์เดียวกัน
+3. `RecordingZokyRepository` ถูกสร้าง inline ใน testWidgets callback อีกครั้ง (gotcha เดิมที่เคยบันทึกไว้แล้วหลายครั้ง — ครั้งนี้เกิดตอนแก้ test ให้จำลอง error case) ย้ายเข้า `setUp()` ตามธรรมเนียม
+4. `on success shows a confirmation SnackBar and pops back to the first route` test push `ZokyCheckoutSummaryScreen` ผ่าน helper `buildSummary()` ที่ห่อด้วย `MaterialApp` ของตัวเองอีกชั้น ทำให้ route ที่ push เข้าไปมี Navigator ซ้อนแยกต่างหาก (ไม่ใช่ Navigator เดียวกับหน้า "open") — `Navigator.of(context).popUntil((route) => route.isFirst)` จากข้างในจึงกลายเป็น no-op เงียบ ๆ (route ปัจจุบันของ Navigator ชั้นในมองว่าตัวเองเป็น `isFirst` อยู่แล้ว) แก้โดย push `ZokyCheckoutSummaryScreen` โดยตรงแทนการห่อผ่าน helper ที่มี `MaterialApp` ซ้อน — เป็นบั๊กของ test เอง ไม่ใช่ production code (ยืนยันด้วย debug print ตรวจ `canPop()`/`route.isFirst`/`route.settings` ก่อนสรุป)
+
+Files Changed:
+- แก้: `supabase/schema.sql` (เพิ่ม ZOKY-003 section ท้ายไฟล์), `app/lib/features/zoky/data/zoky_repository.dart`, `app/lib/features/zoky/presentation/{product_detail_screen,zoky_home_screen}.dart`
+- ใหม่: `app/lib/features/zoky/data/{cart_item,order,order_item}.dart`, `app/lib/features/zoky/presentation/{zoky_cart_screen,zoky_checkout_address_screen,zoky_checkout_summary_screen,zoky_order_list_screen,zoky_order_detail_screen}.dart`, `app/lib/features/zoky/presentation/widgets/{quantity_stepper,zoky_cart_item_tile,order_status_badge,order_summary_card}.dart`
+- test แก้: `app/test/{product_detail_screen_test,zoky_home_screen_test}.dart`, `app/test/support/recording_zoky_repository.dart` (ขยาย cart/order fields+methods)
+- test ใหม่: `app/test/{zoky_cart_screen_test,zoky_checkout_address_screen_test,zoky_checkout_summary_screen_test,zoky_order_list_screen_test,zoky_order_detail_screen_test}.dart`
+- บทเรียนใหม่: `.wyn/learning/PATTERNS.md` (Column mainAxisSize.max ใต้ Scaffold.bottomNavigationBar)
+
+`flutter analyze`: สะอาด, `flutter test`: 233/233 ผ่าน (เพิ่มจาก 203 เดิม — WYN Social/ZOKY-001/ZOKY-002 เดิมทั้งหมดยังผ่านครบ ไม่มี regression)
+
+Handoff: ส่งต่อ AI QA & Security (`/qa`)

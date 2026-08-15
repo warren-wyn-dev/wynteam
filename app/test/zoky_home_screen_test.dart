@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:wyn/features/zoky/data/cart_item.dart';
 import 'package:wyn/features/zoky/data/category.dart';
 import 'package:wyn/features/zoky/data/product.dart';
 import 'package:wyn/features/zoky/data/store.dart';
 import 'package:wyn/features/zoky/presentation/product_detail_screen.dart';
 import 'package:wyn/features/zoky/presentation/store_screen.dart';
 import 'package:wyn/features/zoky/presentation/widgets/product_grid_tile.dart';
+import 'package:wyn/features/zoky/presentation/zoky_cart_screen.dart';
 import 'package:wyn/features/zoky/presentation/zoky_home_screen.dart';
+import 'package:wyn/features/zoky/presentation/zoky_order_list_screen.dart';
 import 'package:wyn/features/zoky/presentation/zoky_search_screen.dart';
 
 import 'support/fake_supabase_session.dart';
@@ -47,6 +50,7 @@ void main() {
 
   late RecordingZokyRepository emptyRepo;
   late RecordingZokyRepository populatedRepo;
+  late RecordingZokyRepository repoWithCart;
 
   setUpAll(() async {
     await initFakeSupabaseSession();
@@ -54,6 +58,17 @@ void main() {
 
   setUp(() {
     emptyRepo = RecordingZokyRepository();
+    repoWithCart = RecordingZokyRepository(
+      cartItems: [
+        CartItem(id: 'ci1', product: product(), variantSelection: '', quantity: 2),
+        CartItem(
+          id: 'ci2',
+          product: product(id: 'p2', name: 'กางเกงยีนส์'),
+          variantSelection: '',
+          quantity: 1,
+        ),
+      ],
+    );
     populatedRepo = RecordingZokyRepository(
       categories: [category],
       newProducts: [product()],
@@ -137,14 +152,32 @@ void main() {
     expect(find.byType(ZokySearchScreen), findsOneWidget);
   });
 
-  testWidgets('tapping the Cart icon shows a coming-soon SnackBar', (tester) async {
+  testWidgets('tapping the Cart icon opens ZokyCartScreen (ZOKY-003)', (tester) async {
     await tester.pumpWidget(buildZokyHome(emptyRepo));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.shopping_cart_outlined));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text('ฟีเจอร์นี้จะมาเร็ว ๆ นี้'), findsOneWidget);
+    expect(find.byType(ZokyCartScreen), findsOneWidget);
+  });
+
+  testWidgets('tapping the Orders icon opens ZokyOrderListScreen (ZOKY-003)', (tester) async {
+    await tester.pumpWidget(buildZokyHome(emptyRepo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.receipt_long_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ZokyOrderListScreen), findsOneWidget);
+  });
+
+  testWidgets('shows a Cart badge reflecting the number of distinct cart lines (ZOKY-003)',
+      (tester) async {
+    await tester.pumpWidget(buildZokyHome(repoWithCart));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2'), findsOneWidget);
   });
 
   testWidgets('tapping a category chip opens ZokySearchScreen pre-filtered (ZOKY-002)',
