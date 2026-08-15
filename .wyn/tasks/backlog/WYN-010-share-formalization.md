@@ -1,7 +1,7 @@
 # Product Task — WYN-010
 
 Status: backlog
-Owner: AI Product Manager
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ)
 
 Feature: Share formalization — extend native Share + Copy Link to ZOKY Product Detail and Store
 
@@ -36,3 +36,11 @@ Risks:
 Recommendation: ทำทันทีตามลำดับที่เสนอ ใช้ pattern เดียวกับ Drop/Pop/Club post เป๊ะเพื่อความสม่ำเสมอของ UX ทั้งแอป
 
 Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบตำแหน่ง/icon ของปุ่ม Share/Copy Link บน `ProductDetailScreen`/`StoreScreen`'s AppBar
+
+---
+
+## Design Output (AI Design)
+
+เขียนเสร็จแล้วที่ `.wyn/docs/design/wyn-010-share-formalization.md` — สรุป: เพิ่ม `actions` เข้า `AppBar` ที่มีอยู่แล้วของทั้งสองหน้าจอ (ปัจจุบันไม่มี actions เลย) ด้วย icon/tooltip เดียวกับ Drop/Pop/Club post เป๊ะ (`Icons.share_outlined` "แชร์", `Icons.link` "คัดลอกลิงก์") — `productShareLink`/`storeShareLink` ใหม่ตาม placeholder-link convention เดิม, share title ใหม่ "สินค้าบน WYN"/"ร้านค้าบน WYN" ตาม pattern `"<ประเภท> บน WYN"` เดิม, SnackBar คัดลอกลิงก์ข้อความเดียวกันเป๊ะ ("คัดลอกลิงก์แล้ว") ไม่มี state พิเศษ ไม่มีจุด accessibility เพิ่มเติมนอกเหนือจาก pattern เดิม
+
+Handoff: ส่งต่อ AI Coding (`/code`)
