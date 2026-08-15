@@ -1,7 +1,7 @@
 # Product Task — ZOKY-004
 
-Status: review (QA รอบ 1 — FAIL)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (รอบ 1 — FAIL) → AI Debug Engineer
+Status: approved (QA รอบ 2 — PASS)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (รอบ 1 — FAIL) → AI Debug Engineer (เสร็จ) → AI QA & Security (รอบ 2 — PASS)
 
 Feature: ZOKY Product Review — ให้ผู้ซื้อให้คะแนน+เขียนรีวิวสินค้าหลังได้รับของแล้ว แสดงคะแนนเฉลี่ยที่ Product Detail/Store
 
@@ -154,3 +154,42 @@ create policy "Users can update their own reviews"
 AC ข้อ 2 และข้อ 5 ("ผู้ใช้ที่ไม่มี Order สถานะ delivered ของสินค้านั้น... เขียนรีวิวสินค้านั้นไม่ได้ — ตรวจฝั่ง server", "แก้ไข/ลบรีวิวของตัวเองได้ แก้/ลบรีวิวของคนอื่นไม่ได้ (RLS ป้องกัน)") ยังไม่ผ่านสมบูรณ์ในส่วนของการ "แก้ไข" — RLS ป้องกันแค่ไม่ให้แก้ไขรีวิว**ของคนอื่น** แต่ไม่ได้ป้องกันการแก้ไขรีวิว**ของตัวเอง**ให้ไปอ้างอิงการซื้อที่ไม่มีอยู่จริง
 
 **Final Status: FAIL** — ส่งต่อ AI Debug Engineer พร้อม bug report ที่ `.wyn/tasks/bugs/ZOKY-004-review-update-rls-gap.md`
+
+---
+
+## QA & Security Report — รอบ 2 (AI QA & Security)
+
+**ผลสรุป: PASS**
+
+### สิ่งที่ตรวจอิสระ (ไม่เชื่อรายงานของ Debug เฉยๆ)
+
+1. **Re-sync ไป merged main เอง** — `git fetch origin main`, rebuild branch `claude/pwd-nxsvf5` บน `origin/main` (commit `c8fd05e`, PR #85) ใหม่ทั้งหมด
+2. **รัน `flutter analyze` อิสระ**: No issues found
+3. **รัน `flutter test` อิสระ**: 253/253 ผ่านทั้งหมด — ตัวเลขเท่าเดิมกับก่อนแก้บั๊ก ตรงตามคาด (เป็นการแก้ SQL ล้วน ไม่กระทบ Dart)
+4. **ไล่ diff เต็มระหว่าง QA รอบ 1 merge (`41b5bb3`) กับ Debug fix merge (`c8fd05e`)** — ยืนยันว่าแก้แค่ `supabase/schema.sql` (policy ที่รายงานไว้) + bug report + learning docs เท่านั้น ไม่มีไฟล์ Dart ไหนถูกแตะเลย ตรงกับที่คาดไว้ว่า `ZokyRepository.editReview` ไม่เคยส่ง `order_item_id`/`product_id` อยู่แล้ว
+
+### ตรวจซ้ำจุดที่ FAIL รอบ 1 (สำคัญที่สุดของรอบนี้)
+
+อ่าน `supabase/schema.sql`'s `update` policy ของ `reviews` ใหม่ทั้งหมด — ยืนยันว่ามี `with check` แนบมาแล้วจริง และ `exists` subquery **เหมือนกันเป๊ะ** กับ insert policy (join `order_items`→`orders` ตรวจ `oi.id = order_item_id`, `oi.product_id = product_id`, `o.buyer_id = auth.uid()`, `o.status = 'delivered'`) — จำลอง attack scenario เดิมจากรอบ 1 ใหม่ด้วยตา (User A พยายาม update รีวิวของตัวเองให้ `product_id`/`order_item_id` ชี้ไปสินค้า/order_item ที่ไม่เคยซื้อ) ยืนยันว่าตอนนี้แถวใหม่หลัง update ต้องผ่าน `exists` gate เดียวกับตอน insert เสมอ — retarget ไปยังอะไรก็ตามที่ไม่ใช่ delivered purchase ของตัวเองจะถูกปฏิเสธจริง ปิดช่องโหว่สมบูรณ์
+
+ตรวจเพิ่มว่าการแก้ไม่ทำให้ use case ที่ถูกต้องพังไปด้วย: ไล่โค้ด `ZokyRepository.editReview` ยืนยันว่า payload ส่งแค่ `rating`/`text_content`/`updated_at` เท่านั้น ไม่เคยแตะ `order_item_id`/`product_id` เลย — คอลัมน์ทั้งสองจึงคงค่าเดิมที่ผ่าน gate ตอน insert มาแล้วเสมอ ทำให้การแก้ไขรีวิวที่ถูกต้อง (เปลี่ยนแค่ดาว/ข้อความ) ยังผ่าน `with check` ใหม่ได้ปกติ ไม่มี false-positive block
+
+### ไล่ Requirements/Design Components/Acceptance Criteria ใหม่ครบทั้ง 3 หัวข้อ (ไม่ใช่แค่จุดที่เพิ่งแก้)
+
+- Requirements ทุกข้อใน Product spec (รีวิวผูก delivered order, 1 รีวิวต่อ order_item, ดาวบังคับ+ข้อความไม่บังคับ, ไม่มีรูป/โหวต/ตอบกลับ, แก้ไข/ลบผ่าน RLS ธรรมดา, ค่าเฉลี่ยคำนวณสด) — ตรงกับโค้ดทุกข้อ
+- Design Components ทุกจุด (`StarRatingInput`/`StarRatingDisplay`, `ReviewFormSheet`, `ReviewTile`, `ProductReviewsScreen`, entry point ที่ Order Detail/Product Detail/Store tab, edge-case decision เรื่องซื้อซ้ำ) — ตรงกับโค้ดทุกจุด
+- Acceptance Criteria ทั้ง 9 ข้อ: **AC2 และ AC5 ที่เคย block ในรอบ 1 ผ่านแล้วสมบูรณ์** (RLS ป้องกันทั้ง insert และ update ตอนนี้ครบ) ส่วนอีก 7 ข้อยังผ่านเหมือนรอบ 1 (ไม่มีอะไรเปลี่ยนเพราะ fix ไม่กระทบ)
+
+### Regression check
+
+`git diff --stat` ระหว่าง Design merge (`6054f3d`) กับ merge ล่าสุด (`c8fd05e`) ยืนยันว่าไฟล์ที่เปลี่ยนทั้งหมดยังอยู่ในขอบเขต ZOKY-004 เท่านั้น ไม่มีไฟล์ WYN Social/ZOKY-001/002/003 ไหนถูกแตะเลยตลอดทั้ง 3 รอบ (Coding → QA รอบ 1 → Debug)
+
+### Red→green regression proof อิสระ (คนละจุดกับรอบ 1)
+
+รอบ 1 ทำ proof ที่เงื่อนไข delivered-status ใน `ZokyOrderDetailScreen` ไปแล้ว รอบนี้เลือกจุดใหม่: สลับเงื่อนไข `bool get _isEditing => widget.existingReview != null;` เป็น `== null` ชั่วคราวใน `review_form_sheet.dart` แล้วรัน `flutter test test/review_form_sheet_test.dart` พบ **8/8 เทสต์พังจริงตามคาด** (แดง) คืนโค้ดกลับแล้ว rerun ยืนยันผ่านครบ 8/8 (เขียว) — ยืนยันว่า test suite ของ `ReviewFormSheet` คลุมเส้นทาง เขียนใหม่/แก้ไข จริง ไม่ใช่ผ่านโดยบังเอิญ
+
+### Minor finding เดิมจากรอบ 1 (ยังไม่ block)
+
+`StoreScreen`'s Reviews tab ยังไม่มี infinite-scroll/pagination เกิน 20 รายการแรก — คงเป็น known issue เดิม ไม่ block
+
+**Final Status: PASS** — อนุมัติเข้า `.wyn/tasks/approved/` — ZOKY-004 คือ task สุดท้ายที่ปิดจบ ZOKY Marketplace Customer-facing scope (Phase 2-3 ตาม roadmap) ครบวงจร Browse → Cart → Checkout → Order → Review
