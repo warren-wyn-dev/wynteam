@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../data/product.dart';
 import '../data/review.dart';
@@ -9,6 +11,12 @@ import 'widgets/product_grid_tile.dart';
 import 'widgets/review_tile.dart';
 import 'widgets/star_rating.dart';
 import 'zoky_strings.dart';
+
+/// Placeholder share link -- same "no real hosting/domain yet" caveat as
+/// dropShareLink/popShareLink/clubPostShareLink/productShareLink
+/// (WYN-005/006/WYN CLUB/WYN-010). See
+/// .wyn/tasks/backlog/WYN-010-share-formalization.md.
+String storeShareLink(String storeId) => 'https://wyn.app/store/$storeId';
 
 /// Screen 3 — Store (ZOKY-001). Follow Store shows but doesn't work yet
 /// (needs a new store_follows data model, not built this round). Chat
@@ -60,12 +68,43 @@ class _StoreScreenState extends State<StoreScreen> {
     );
   }
 
+  Future<void> _share() async {
+    await SharePlus.instance.share(
+      ShareParams(
+        text: storeShareLink(widget.storeId),
+        title: 'ร้านค้าบน WYN',
+      ),
+    );
+  }
+
+  Future<void> _copyLink() async {
+    await Clipboard.setData(ClipboardData(text: storeShareLink(widget.storeId)));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('คัดลอกลิงก์แล้ว')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        appBar: AppBar(title: const Text('ร้านค้า')),
+        appBar: AppBar(
+          title: const Text('ร้านค้า'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.share_outlined),
+              tooltip: 'แชร์',
+              onPressed: _share,
+            ),
+            IconButton(
+              icon: const Icon(Icons.link),
+              tooltip: 'คัดลอกลิงก์',
+              onPressed: _copyLink,
+            ),
+          ],
+        ),
         body: FutureBuilder<Store?>(
           future: _storeFuture,
           builder: (context, snapshot) {

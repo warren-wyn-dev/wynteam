@@ -357,4 +357,19 @@ void main() {
 
     expect(find.byType(StoreScreen), findsOneWidget);
   });
+
+  testWidgets('AppBar shows Share and Copy Link buttons (WYN-010)', (tester) async {
+    await tester.pumpWidget(buildProductDetail(outOfStockRepo, outOfStockProduct));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    // Not tapped -- same as every existing Share/Copy Link button
+    // elsewhere in the app (Drop/Pop/Club post): share_plus and
+    // Clipboard.setData both go through platform channels this sandbox
+    // never mocks, so tapping either hangs the await forever with no
+    // exception raised at all. Presence is what every prior test of
+    // this button checks; see .wyn/learning/PATTERNS.md.
+    expect(find.widgetWithIcon(IconButton, Icons.share_outlined), findsOneWidget);
+    expect(find.widgetWithIcon(IconButton, Icons.link), findsOneWidget);
+  });
 }

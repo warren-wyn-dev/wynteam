@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/text_utils.dart';
 import '../data/order_item.dart';
@@ -16,6 +18,11 @@ import 'zoky_cart_screen.dart';
 import 'zoky_order_list_screen.dart';
 
 const _reviewsPreviewLimit = 3;
+
+/// Placeholder share link -- same "no real hosting/domain yet" caveat as
+/// dropShareLink/popShareLink/clubPostShareLink (WYN-005/006/WYN CLUB).
+/// See .wyn/tasks/backlog/WYN-010-share-formalization.md.
+String productShareLink(String productId) => 'https://wyn.app/product/$productId';
 
 /// Screen 2 — Product Detail (ZOKY-001). Add to Cart/Buy Now work for
 /// real as of ZOKY-003. See
@@ -121,11 +128,42 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
+  Future<void> _share() async {
+    await SharePlus.instance.share(
+      ShareParams(
+        text: productShareLink(widget.product.id),
+        title: 'สินค้าบน WYN',
+      ),
+    );
+  }
+
+  Future<void> _copyLink() async {
+    await Clipboard.setData(ClipboardData(text: productShareLink(widget.product.id)));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('คัดลอกลิงก์แล้ว')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final product = widget.product;
     return Scaffold(
-      appBar: AppBar(title: Text(product.name)),
+      appBar: AppBar(
+        title: Text(product.name),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share_outlined),
+            tooltip: 'แชร์',
+            onPressed: _share,
+          ),
+          IconButton(
+            icon: const Icon(Icons.link),
+            tooltip: 'คัดลอกลิงก์',
+            onPressed: _copyLink,
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Expanded(
