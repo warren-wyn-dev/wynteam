@@ -121,25 +121,45 @@ class _StoreScreenState extends State<StoreScreen> {
             if (store == null) {
               return const Center(child: Text('ไม่พบร้านค้านี้'));
             }
-            return Column(
-              children: [
-                if (store.bannerUrl != null) _buildBanner(context, store),
-                _buildHeader(context, store),
-                const TabBar(
-                  tabs: [
-                    Tab(icon: Icon(Icons.grid_view_outlined), text: 'สินค้าทั้งหมด'),
-                    Tab(icon: Icon(Icons.star_outline), text: 'รีวิว'),
-                  ],
-                ),
-                Expanded(
-                  child: TabBarView(
+            // The banner + header scroll away with the page instead of
+            // sitting in a non-scrollable Column above the tabs: their
+            // height depends on the seller's own data (a 16:9 banner is
+            // 56.25% of the screen width, the "ข้อมูลร้านค้า" card grows
+            // with the address/hours text, and both grow again at large
+            // text scales), so a fixed Column would hand whatever is left
+            // -- sometimes nothing at all -- to the tab content. See
+            // .wyn/tasks/bugs/SELLER-004-store-screen-header-overflow.md.
+            return NestedScrollView(
+              headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                SliverToBoxAdapter(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      _buildProductsTab(context),
-                      _buildReviewsTab(context),
+                      if (store.bannerUrl != null) _buildBanner(context, store),
+                      _buildHeader(context, store),
                     ],
                   ),
                 ),
+                // The pinned TabBar covers the top of the body while the
+                // page is scrolled, so its height is absorbed here and
+                // re-injected at the top of each tab (see
+                // `_buildProductsTab`/`_buildReviewsTab`) -- otherwise the
+                // first row of products scrolls *underneath* the tabs and
+                // can't be tapped there.
+                SliverOverlapAbsorber(
+                  handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+                  sliver: const SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _StoreTabBarHeaderDelegate(),
+                  ),
+                ),
               ],
+              body: TabBarView(
+                children: [
+                  _buildProductsTab(context),
+                  _buildReviewsTab(context),
+                ],
+              ),
             );
           },
         ),
@@ -302,29 +322,53 @@ class _StoreScreenState extends State<StoreScreen> {
     );
   }
 
+  /// Each tab is its own CustomScrollView (rather than a plain GridView/
+  /// ListView) purely so it can start with the [SliverOverlapInjector] that
+  /// pairs with the [SliverOverlapAbsorber] around the pinned TabBar. The
+  /// content, padding and empty/loading states are the same as before.
   Widget _buildProductsTab(BuildContext context) {
     return FutureBuilder<List<Product>>(
       future: _productsFuture,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final products = snapshot.data!;
-        if (products.isEmpty) {
-          return const Center(child: Text('ร้านนี้ยังไม่มีสินค้า'));
-        }
-        return GridView.builder(
-          padding: const EdgeInsets.all(2),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 2,
-            mainAxisSpacing: 2,
-          ),
-          itemCount: products.length,
-          itemBuilder: (context, index) {
-            final product = products[index];
-            return ProductGridTile(product: product, onTap: () => _openProduct(product));
-          },
+        final products = snapshot.data;
+        return CustomScrollView(
+          key: const PageStorageKey<String>('store-products-tab'),
+          slivers: [
+            SliverOverlapInjector(
+              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+            ),
+            if (products == null)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (products.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: Text('ร้านนี้ยังไม่มีสินค้า')),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.all(2),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 2,
+                    mainAxisSpacing: 2,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final product = products[index];
+                      return ProductGridTile(
+                        product: product,
+                        onTap: () => _openProduct(product),
+                      );
+                    },
+                    childCount: products.length,
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );
@@ -334,19 +378,70 @@ class _StoreScreenState extends State<StoreScreen> {
     return FutureBuilder<List<Review>>(
       future: _reviewsFuture,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final reviews = snapshot.data!;
-        if (reviews.isEmpty) {
-          return const Center(child: Text('ยังไม่มีรีวิว'));
-        }
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: reviews.length,
-          itemBuilder: (context, index) => ReviewTile(review: reviews[index]),
+        final reviews = snapshot.data;
+        return CustomScrollView(
+          key: const PageStorageKey<String>('store-reviews-tab'),
+          slivers: [
+            SliverOverlapInjector(
+              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+            ),
+            if (reviews == null)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (reviews.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: Text('ยังไม่มีรีวิว')),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => ReviewTile(review: reviews[index]),
+                    childCount: reviews.length,
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );
   }
+}
+
+/// Keeps the same TabBar as before (same 2 tabs, same icons, same labels,
+/// same DefaultTabController) pinned to the top of the scroll view once the
+/// banner/header have scrolled past it, so the tabs stay reachable no
+/// matter how tall the header grew.
+class _StoreTabBarHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _StoreTabBarHeaderDelegate();
+
+  static const TabBar _tabBar = TabBar(
+    tabs: [
+      Tab(icon: Icon(Icons.grid_view_outlined), text: 'สินค้าทั้งหมด'),
+      Tab(icon: Icon(Icons.star_outline), text: 'รีวิว'),
+    ],
+  );
+
+  @override
+  double get minExtent => _tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    // Opaque, otherwise the header/product content scrolls visibly
+    // underneath the pinned tabs.
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      child: _tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _StoreTabBarHeaderDelegate oldDelegate) => false;
 }

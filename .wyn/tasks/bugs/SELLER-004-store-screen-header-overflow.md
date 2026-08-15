@@ -1,6 +1,6 @@
 # Bug Report — SELLER-004 (BUG-1)
 
-Status: open (รอ AI Debug Engineer)
+Status: **fixed — รอ QA รอบ 2 ยืนยัน** (Debug Output อยู่ท้ายไฟล์นี้, 2026-08-15)
 Owner: AI Debug Engineer
 Found by: AI QA & Security (SELLER-004 QA รอบ 1, 2026-08-15)
 Severity: **Major (blocking)** — ทำให้หน้าร้านฝั่งลูกค้าใช้งานไม่ได้จริงบนมือถือทั่วไป
@@ -64,3 +64,61 @@ Tests ที่ต้องเพิ่มตอนแก้ (regression memory)
 Regression Risk: ปานกลาง-สูง — `StoreScreen` เป็นโค้ดที่ผ่าน QA มาแล้วจาก ZOKY-001 และมี test suite เดิมหลายเคส (รวมเคส Products tab/Reviews tab/Share/Copy Link/rating header) ถ้าเลือกแนวทาง A ต้องรัน `app/` ทั้ง 265 เคสให้ผ่านครบและตรวจว่า TabBar ยังอยู่ตำแหน่งเดิมเชิงพฤติกรรม
 
 Handoff to QA: หลังแก้ ให้ QA รอบ 2 ตรวจซ้ำด้วยตารางขนาดจอชุดเดียวกันข้างบนทั้งหมด (รวมเคส `textScaler 1.3` และแนวนอน) + รัน `app/`/`seller_app/` เต็มทั้งสองชุด
+
+---
+
+## Debug Output (AI Debug Engineer — 2026-08-15)
+
+```
+Bug: StoreScreen ฝั่งลูกค้าวาง banner 16:9 + section "ข้อมูลร้านค้า" (SELLER-004) ไว้ใน Column ที่ scroll ไม่ได้ ร่วมกับ TabBar + Expanded(TabBarView) → ส่วนหัวสูงเกินจอมือถือจริง ทำให้ Expanded ถูกบีบเหลือ 0.0 แท็บสินค้า/รีวิวไม่แสดงอะไรเลย
+
+Reproduction (ทำเองก่อนแก้ ไม่ได้เชื่อ bug report เฉย ๆ):
+  เขียน widget test ที่ตั้ง tester.view.physicalSize เป็นขนาดจอมือถือจริง (devicePixelRatio = 1.0), ดัก FlutterError.onError เก็บ error ทุกตัวเอง (ไม่ใช้ tester.takeException()), แล้ววัด tester.getSize(find.byType(TabBarView)).height + นับ ProductGridTile ที่ถูก layout จริง
+  ผลวัดเองก่อนแก้ (Flutter 3.47.0) — ยืนยันบั๊กตรงตามที่ QA รายงานทุกเคส:
+    | ขนาดจอ / เคส                                  | overflow      | TabBarView | ProductGridTile |
+    | 360x640 banner + ที่อยู่/เบอร์/เวลาทำการ       | 129 px        | 0.0        | 0 |
+    | 375x667 banner + ข้อมูลสั้น                    | 50 px         | 0.0        | 0 |
+    | 390x844 banner + ข้อมูล + textScaler 1.3      | 73 px         | 0.0        | 0 |
+    | 430x932 banner + ข้อมูล + textScaler 1.3      | ไม่ overflow   | 44.1       | 1 |
+    | 360x640 ที่อยู่ 280 ตัวอักษร ไม่มี banner       | 166 px        | 0.0        | 0 |
+    | 667x375 แนวนอน banner อย่างเดียว               | 318 px        | 0.0        | 0 |
+    | 390x844 banner + ข้อมูล (textScaler 1.0)      | ไม่ overflow   | 78.6       | 1 |
+    | 360x640 baseline (ไม่มี banner/ข้อมูล)          | ไม่ overflow   | 294.0      | 1 |
+  ตัวเลข overflow ต่างจากตาราง QA เล็กน้อยในบางแถวเพราะ fixture คนละชุด (description/จำนวนฟิลด์ที่กรอกต่างกัน) แต่อาการตรงกันทุกเคส และแถว baseline ยืนยันเหมือนกันว่าไม่พังก่อน SELLER-004
+  ยืนยันเพิ่มเติมว่าเหตุที่ test เดิม 265/265 เขียว: `tester.takeException()` คืน exception ได้ทีละตัว และไฟล์เทสต์นี้ใช้มันอยู่แล้วเพื่อกลืน error ของ Image.network → RenderFlex overflow ถูกกลบไว้ข้างใต้เงียบ ๆ (ตอนรัน red run เห็น "A RenderFlex overflowed by 288 pixels" โผล่จากเทสต์เดิมที่เคยเขียวด้วยซ้ำ)
+
+Root Cause (ยืนยันเองจากโค้ดจริง ไม่ได้ลอกจาก bug report):
+  โครงจาก ZOKY-001 คือ Column([header, TabBar, Expanded(TabBarView)]) ที่ไม่มีพื้นที่ scroll เลย — header เดิมเตี้ยและความสูงเกือบคงที่จึงไม่มีปัญหา SELLER-004 แทรกของที่ความสูง "แปรผันตามข้อมูลของ seller" เข้าไป 2 ก้อน (banner 16:9 = 56.25% ของความกว้างจอ + info card ที่ยาวได้ถึง 300+50+200 ตัวอักษร และโตอีกเมื่อ textScaler > 1) — Expanded จะยอมหดเหลือ 0 ก่อนที่ Column จะรายงาน overflow เสมอ อาการที่ผู้ใช้เจอ (เนื้อหาหายทั้งแท็บ) จึงรุนแรงกว่าคำว่า "overflow N px"
+
+Fix (แนวทาง A ตามที่ QA แนะนำ — Founder อนุมัติให้ปรับโครง header/TabBar ได้ในรอบนี้):
+  1. เปลี่ยน body ของ StoreScreen จาก Column เป็น NestedScrollView
+     - headerSliverBuilder: SliverToBoxAdapter(banner + _buildHeader เดิม ไม่แก้เนื้อหาข้างใน) + SliverPersistentHeader(pinned) ที่ถือ TabBar ตัวเดิม (แท็บ/ไอคอน/ข้อความเดิมทุกตัว)
+     - body: TabBarView ตัวเดิม
+     → ส่วนหัวเลื่อนหายไปได้ ไม่มี Column บีบใครอีก, TabBar ปักหมุดอยู่บนสุดเสมอ, tab content ได้ความสูงเต็มจอที่เหลือ
+  2. ครอบ SliverPersistentHeader ด้วย SliverOverlapAbsorber + ใส่ SliverOverlapInjector ที่หัวของแต่ละแท็บ (pattern มาตรฐานของ NestedScrollView) — เจอตอนวัดเองว่าถ้าไม่ทำ แถวสินค้าแถวแรกจะไหลไปอยู่ "ใต้" TabBar ที่ปักหมุดและกดไม่โดน (test 'products are still tappable' จับได้จริง)
+  3. แต่ละแท็บเปลี่ยนจาก GridView.builder/ListView.builder เป็น CustomScrollView + SliverGrid/SliverList (padding/empty state/loading state/ProductGridTile/ReviewTile เหมือนเดิมทุกอย่าง) เพื่อให้ใส่ SliverOverlapInjector ได้
+  ไม่แตะ data layer, ไม่แตะ supabase/schema.sql, ไม่แตะ AppBar/Share/Copy Link, banner + section "ข้อมูลร้านค้า" ยัง conditional เหมือนเดิมทุกประการ
+
+  Minor issue #1 ของ QA (image bytes ไม่ถูกล้างหลังบันทึกสำเร็จ) แก้ด้วยในรอบนี้: `SellerStoreScreen._save()` ล้าง _logoBytes/_bannerBytes (+ extension) หลัง onStoreUpdated สำเร็จ — ปลอดภัยเพราะ preview fallback ไปที่ widget.store.logoUrl/bannerUrl ที่ parent เพิ่งอัปเดตให้แล้ว (SellerHomeShell._store) กดบันทึกซ้ำจึงไม่อัปโหลดรูปเดิมซ้ำเป็น orphan อีก
+  Minor issue #2 (ลบโลโก้/แบนเนอร์ออกไม่ได้) **ไม่แก้ในรอบนี้** — ต้องแก้ทั้ง repository (ส่ง null ให้คอลัมน์), UI (ปุ่มลบ + ยืนยัน), และควรลบไฟล์ใน bucket ด้วย = ฟีเจอร์ใหม่ ไม่ใช่ bug fix เล็ก บันทึกเป็น fast-follow ไว้ใน .wyn/tasks/backlog/SELLER-004-store-management.md
+
+Files Changed:
+  - app/lib/features/zoky/presentation/store_screen.dart (โครง body + 2 tab builder + _StoreTabBarHeaderDelegate ใหม่)
+  - app/test/store_screen_test.dart (+11 regression test, เทสต์เดิม 15 เคสไม่แก้เลย)
+  - seller_app/lib/features/store/presentation/seller_store_screen.dart (ล้าง image bytes หลังบันทึกสำเร็จ)
+
+Tests (red→green proof):
+  - ก่อนแก้: 16 passed / 10 failed (เทสต์ใหม่ 10 ใน 11 เคส FAIL — เคสที่ผ่านคือ 390x844 textScaler 1.0 ซึ่งตรงกับตาราง QA ที่ระบุว่าเคสนั้น "ไม่ overflow แต่เหลือพื้นที่แค่ ~39px")
+  - หลังแก้: app/ 276/276 ผ่าน (265 เดิม + 11 ใหม่), seller_app/ 67/67 ผ่าน, `flutter analyze` สะอาดทั้ง 2 แอป
+  - เทสต์ใหม่ assert "ความสูงจริง" ไม่ใช่ "ไม่มี exception": TabBarView ต้องสูง > 0 **และ** >= ครึ่งหนึ่งของความสูงจอ (จับเคส 38.6px/44.1px ที่เคยหลุดไปได้ด้วย) + ProductGridTile ต้องถูก layout จริง + ไม่มี FlutterError ที่มีคำว่า 'overflowed' ตลอดทั้งเทสต์ (รวมช่วง drag/tap ไม่ใช่แค่ตอน pump แรก)
+
+Regression Risk: ปานกลาง — โครง build() ของ StoreScreen เปลี่ยนจริง แต่พฤติกรรมที่ ZOKY-001/ZOKY-004 QA เคยอนุมัติถูกคุมด้วยเทสต์เดิมทั้ง 15 เคสที่ไม่ได้แก้แม้แต่บรรทัดเดียว (แท็บสินค้า/รีวิว, กดสินค้าเข้า ProductDetailScreen, empty state ทั้งสองแท็บ, rating header, Share/Copy Link, Follow SnackBar, ไม่มีปุ่มแชท, ร้านที่ไม่มี banner/ข้อมูลต้อง render เหมือนก่อน SELLER-004) — ผ่านครบทุกเคส
+  จุดที่เปลี่ยนพฤติกรรมโดยตั้งใจ (ต้องให้ QA ตรวจ): ตอนนี้ทั้งหน้า scroll ได้ ส่วนหัวเลื่อนหายไปพร้อมการ scroll และ TabBar ปักหมุดอยู่บนสุด — ค่าที่วัดได้หลังแก้ (ยังไม่เลื่อนหน้าจอเลย):
+    | 390x844 banner + ข้อมูลครบ (จอทั่วไป)          | TabBarView 152.6 | เห็นสินค้าทันที ไม่ต้องเลื่อน (มีเทสต์คุม) |
+    | 430x932 + textScaler 1.3                      | TabBarView 118.1 | เห็นสินค้าทันที |
+    | 360x640 baseline (ร้านไม่มีฟิลด์ใหม่)           | TabBarView 368.0 | ดีกว่าเดิม (เดิม 294.0) |
+    | 360x640 / 667x375 ที่ร้านมี banner + ข้อมูลครบ  | ส่วนหัวสูงเกิน 1 หน้าจอ | ต้องเลื่อนลงราว 1 หน้าจอจึงเห็นแท็บ/สินค้า |
+  เคสสุดท้ายคือพฤติกรรมปกติของหน้าที่ scroll ได้ (แบบเดียวกับหน้าร้านของ marketplace ทั่วไป) ไม่ใช่ 0-height เดิมที่เลื่อนยังไงก็ไม่เจอสินค้า — เทสต์ใหม่ยืนยันว่าเมื่อเลื่อนแล้ว TabBarView ได้ความสูงอย่างน้อยครึ่งจอทุกเคส และกดสินค้า/สลับแท็บได้จริง
+
+Handoff to QA: พร้อมให้ QA รอบ 2 ตรวจซ้ำด้วยตารางขนาดจอชุดเดิมทั้งหมด (รวม textScaler 1.3 และแนวนอน) + รัน app/ 276 เคส และ seller_app/ 67 เคสเต็มทั้งสองชุด
+```
