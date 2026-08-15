@@ -1,7 +1,7 @@
 # Product Task — ZOKY-003
 
-Status: review
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ)
+Status: approved (QA รอบ 1 — PASS)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS)
 
 Feature: ZOKY Cart & Checkout & Order — เพิ่มสินค้าลงตะกร้า, สั่งซื้อ, ดูประวัติ/สถานะคำสั่งซื้อ
 
@@ -103,3 +103,78 @@ Files Changed:
 `flutter analyze`: สะอาด, `flutter test`: 233/233 ผ่าน (เพิ่มจาก 203 เดิม — WYN Social/ZOKY-001/ZOKY-002 เดิมทั้งหมดยังผ่านครบ ไม่มี regression)
 
 Handoff: ส่งต่อ AI QA & Security (`/qa`)
+
+---
+
+## QA & Security Report — รอบ 1 (AI QA & Security)
+
+**ผลสรุป: PASS**
+
+### สิ่งที่ตรวจอิสระ (ไม่เชื่อตัวเลขจาก Coding Output เฉยๆ)
+
+1. **Re-sync ไป merged main เอง** — `git fetch origin main`, rebuild branch `claude/pwd-nxsvf5` บน `origin/main` (commit `f7f6259`, PR #79) ใหม่ทั้งหมด
+2. **รัน `flutter analyze` อิสระ**: No issues found
+3. **รัน `flutter test` อิสระ**: 233/233 ผ่านทั้งหมด — ตรงกับตัวเลขที่ Coding รายงาน ยืนยันด้วยตัวเองแล้ว
+
+### ตรวจ RPC `create_orders` ต้อง atomic จริง (จุดสำคัญที่สุดของ task นี้)
+
+อ่านโค้ด SQL ยืนยันครบทุกจุด: `perform 1 from public.products where id in (select product_id from cart_items where user_id = auth.uid()) order by id for update;` ล็อกสินค้าที่เกี่ยวข้อง**ทั้งหมด** (ทุกร้านรวมกัน ไม่ใช่แค่ร้านแรก) ก่อนเริ่ม loop สร้าง Order เลย — เรียงตาม `id` จริง (ป้องกัน deadlock เมื่อ checkout สองรายการพร้อมกันมีสินค้าที่ทับซ้อนกันบางส่วน) — เพราะ lock ถูกถือไว้ตั้งแต่ต้นจนจบธุรกรรมเดียวกัน การอ่าน `p.stock` ในแต่ละ loop หลังจากนั้นจึงเห็นค่าล่าสุดที่รับประกันได้ว่าไม่มี transaction อื่นมาแก้ไขระหว่างกลาง (ไม่ใช่ query แยกแล้วเขียนทีหลังที่มีช่องให้ time-of-check-to-time-of-use race) — ทั้งฟังก์ชันเป็น PL/pgSQL function ธรรมดา (ไม่มี explicit transaction control) จึงรันอยู่ใน transaction เดียวของการเรียก RPC ครั้งนั้นเสมอ ถ้า `raise exception 'INSUFFICIENT_STOCK:...'` เกิดขึ้นระหว่างสร้าง Order ร้านที่ 2 ของตะกร้าที่มี 3 ร้าน **Order ร้านที่ 1 ที่สร้างไปแล้วในธุรกรรมเดียวกันจะถูก rollback ไปด้วยทั้งหมด** ตรงตาม AC "transaction เดียวจบ ไม่สร้างบาง order สำเร็จบาง order ไม่สำเร็จ" — วิเคราะห์ concurrent scenario (สินค้าเหลือ 1 ชิ้น 2 request แย่งกันซื้อพร้อมกัน): request แรกที่ได้ lock ก่อนจะเห็น stock=1 ผ่านและหักเหลือ 0 สำเร็จ, request ที่สองต้องรอ lock ปลดล็อกก่อน (blocked โดย Postgres เอง) แล้วเมื่อได้ lock จะเห็น stock=0 จริง (ไม่ใช่ค่าเก่าตอนเริ่ม) ทำให้ถูกปฏิเสธด้วย `INSUFFICIENT_STOCK` ถูกต้อง ไม่มีทาง stock ติดลบได้เลย
+
+### ตรวจ RLS ของ orders/order_items
+
+อ่าน schema.sql ยืนยันว่า `orders`/`order_items` มีแค่ select policy (`auth.uid() = buyer_id` และ join กลับไปที่ `orders.buyer_id` ตามลำดับ) **ไม่มี insert/update/delete policy ให้ client เลยแม้แต่ policy เดียว** — grep หาคำว่า `for insert`/`for update`/`for delete` ในส่วน ZOKY-003 ของไฟล์ยืนยันว่าไม่มีจริง ต่างจาก `cart_items` ที่มี CRUD policy ครบ 4 ตัวตามที่ตั้งใจ (เพราะ cart ไม่ต้อง atomic เท่า order)
+
+### ตรวจ `cancel_order`/`confirm_order_received` ownership+status
+
+อ่าน SQL ทั้งสองฟังก์ชันยืนยันว่า WHERE clause กรอง `buyer_id = auth.uid() and status = 'pending'` เสมอ ไม่เชื่อค่าที่ client ส่งมาเลย (รับแค่ `p_order_id` พารามิเตอร์เดียว) — จำลอง attack scenario: user A เรียก `cancel_order(<order ของ user B>)` → `not exists (...)` เป็นจริงเพราะ `buyer_id` ไม่ตรง → raise exception 'Order not found or cannot be cancelled' ปฏิเสธถูกต้อง (ข้อความไม่บอกด้วยซ้ำว่า Order มีอยู่จริงหรือเปล่า ป้องกัน information leak เรื่อง Order id ของคนอื่นด้วย) — `confirm_order_received` ใช้ `if not found` หลัง `update ... where id = ... and buyer_id = auth.uid() and status = 'pending'` แบบเดียวกัน ผลลัพธ์เหมือนกัน
+
+### ตรวจค่าธรรมเนียม snapshot
+
+grep หา `fetchMarketplaceFeePercent` ทั้งโปรเจกต์ยืนยันว่าถูกเรียกใช้**เฉพาะใน `ZokyCheckoutSummaryScreen`** (ก่อนสร้าง Order จริง เพื่อแสดงยอดประมาณการเท่านั้น) — `ZokyOrderListScreen`/`ZokyOrderDetailScreen` ใช้ `order.feePercent`/`order.feeAmount` ที่มาจาก `Order.fromMap` (อ่านจาก DB column ตรง ๆ) เท่านั้น ไม่มีจุดไหนใน UI ที่ query `platform_config` สดมาคำนวณยอดในหน้าประวัติ Order ย้อนหลังเลย ถูกต้องตามที่ Requirements/Risks เตือนไว้
+
+### ตรวจ 1 Order ต่อ 1 ร้านค้า
+
+อ่านโค้ด `create_orders` ยืนยันว่า loop `for v_store_id in select distinct p.store_id from cart_items ci join products p ... where ci.user_id = auth.uid()` วนสร้าง Order ใหม่ 1 ใบต่อ 1 `v_store_id` — ตะกร้าที่มีสินค้าจาก 3 ร้านจะสร้าง 3 Order แยกกันจริงตามจำนวนร้านที่แตกต่างกัน ไม่ใช่ Order เดียวรวม
+
+### ตรวจปุ่มยกเลิก/ยืนยันรับสินค้าซ่อนตามสถานะ
+
+อ่าน `zoky_order_detail_screen.dart`'s `build()` ยืนยันว่า `bottomNavigationBar: (order != null && order.status == OrderStatus.pending) ? _buildActionBar(context) : null` — ปุ่มทั้งคู่หายไปทั้งแถบจริง (ไม่ใช่แค่ disable) เมื่อสถานะเป็น `delivered`/`cancelled` ตรวจ test 3 ตัว (`shows Cancel/Confirm Received buttons when status is pending`, `hides ... when status is delivered`, `hides ... when status is cancelled`) ครอบคลุมครบทั้ง 3 สถานะจริง
+
+### ไล่ Requirements/Design Components/Acceptance Criteria ทีละบรรทัด
+
+ไล่ครบทั้ง 3 หัวข้อเทียบกับโค้ดจริงทั้ง 6 หน้าจอ (`product_detail_screen.dart`, `zoky_cart_screen.dart`, `zoky_checkout_address_screen.dart`, `zoky_checkout_summary_screen.dart`, `zoky_order_list_screen.dart`, `zoky_order_detail_screen.dart`) — **AC ทั้ง 12 ข้อผ่านครบ**:
+- Add to Cart เข้าตะกร้าจริง + กดซ้ำ product+variant เดิมเพิ่ม quantity แทนสร้างแถวใหม่ (ยืนยันจาก `addToCart()`'s select-existing-then-update-or-insert logic)
+- ซื้อเลย เข้าตะกร้า+พาไป Cart ทันที
+- Cart icon เปิด `ZokyCartScreen` จริง badge ตัวเลขถูกต้อง (นับจำนวนแถว ไม่ใช่ผลรวม quantity ตรงตาม convention มาตรฐาน)
+- Cart จัดกลุ่มตามร้าน/ปรับ quantity/ลบได้/quantity ปรับเกิน stock ปัจจุบันไม่ได้ (`QuantityStepper`'s `max: product.stock` ที่มาจากข้อมูล product สดตอน fetch ไม่ใช่ค่าค้างตอน add-to-cart)
+- Checkout เห็นสรุปยอดแยกต่อร้าน+ค่าธรรมเนียมก่อนยืนยันจริง (2 หน้าจอแยกตาม Design)
+- ยืนยันสำเร็จสร้าง Order แยกทีละร้าน/หัก stock/ลบ cart_items ที่สั่งไป (ตรวจแล้วทั้งหมดในฟังก์ชันเดียวกัน)
+- stock ไม่พอถูกปฏิเสธไม่สร้าง Order ติดลบ (ตรวจ atomicity แล้วข้างต้น)
+- Orders icon เปิด `ZokyOrderListScreen` เห็นแค่ของตัวเอง (RLS+client filter สองชั้น)
+- Order Detail แสดง snapshot ถูกต้องไม่ query ราคาปัจจุบันซ้ำ (`order_items.product_name`/`unit_price` เป็น column จริงไม่ใช่ join)
+- ยกเลิกได้เฉพาะ pending คืน stock ถูกต้อง (ตรวจ SQL แล้ว)
+- ยกเลิก/ยืนยัน Order คนอื่นไม่ได้ (ตรวจ attack scenario แล้ว)
+- ไม่มี regression (233/233)
+
+ตรวจ Design Components เพิ่มเติม: order status badge มีสี+icon+ข้อความคู่กันเสมอจริง (`OrderStatusBadge`'s `_labels`/`_icons` map ครบ 3 สถานะ ไม่มีจุดไหนสื่อความหมายด้วยสีอย่างเดียว), ปุ่มยกเลิก/ยืนยันรับสินค้ามี confirm dialog ก่อนเสมอจริง (`_confirmDialog` helper ใน `ZokyOrderDetailScreen` เรียกก่อนทั้งสอง action), Checkout แยก 2 หน้าจอจริงตามที่ Design ตัดสินใจ (ไม่ใช่หน้าเดียวยาว), Cart badge มิเรอร์โครง notification bell badge (WYN-012) เป๊ะจริง (เทียบโค้ด `_buildCartButton` กับ `_buildNotificationButton` บรรทัดต่อบรรทัด — โครงสร้าง `Stack`+`Positioned`+`Container` เหมือนกันทุกประการ)
+
+### Red→Green Regression Proof อิสระ (verify บั๊กที่ Coding เจอและแก้เอง)
+
+ทำ red→green proof อิสระของตัวเองสำหรับบั๊ก `mainAxisSize: MainAxisSize.min` ที่ Coding รายงานว่าพบและแก้เอง:
+1. ลบ `mainAxisSize: MainAxisSize.min` ออกจาก `_buildBottomBar`'s `Column` ใน `zoky_cart_screen.dart` ชั่วคราว
+2. รัน `flutter test test/zoky_cart_screen_test.dart` → **FAIL จริง 9 จาก 11 test** (ตรงกับที่ Coding อธิบายว่าทั้งหน้าจอว่างเปล่าเมื่อตะกร้ามีสินค้า — ยืนยันว่าไม่ใช่แค่คำกล่าวอ้างลอย ๆ)
+3. `git checkout -- app/lib/features/zoky/presentation/zoky_cart_screen.dart` คืนค่าเดิม
+4. รัน `flutter test test/zoky_cart_screen_test.dart` อีกครั้ง → **11/11 ผ่านครบ**
+5. รัน `flutter analyze`/`flutter test` เต็มอีกครั้ง → สะอาด 233/233
+
+### Regression กับ ZOKY-001/ZOKY-002/WYN Social เดิมทั้งหมด
+
+233/233 tests ครอบคลุม Drop/Pop/Home/Follow/Search/Profile/Notification/Club Core/Club Discovery/ZOKY-001 (Browse)/ZOKY-002 (Search) เดิมทั้งหมดผ่านหมด ไม่มี regression — ยืนยันเพิ่มเติมด้วย `git show f7f6259 --stat` ว่าไฟล์ที่แก้ทั้งหมด 27 ไฟล์อยู่ใต้ `app/lib/features/zoky/`, `app/test/` (เฉพาะไฟล์ ZOKY), `supabase/schema.sql` (เพิ่มท้ายไฟล์อย่างเดียว ไม่มี ALTER/DROP ตารางเดิม), และเอกสารกำกับดูแล (`CONTEXT.md`/`PATTERNS.md`/task file) เท่านั้น — ไฟล์เดียวที่แก้ไขนอกโฟลเดอร์ ZOKY ตรงตามที่ตั้งใจคือ `product_detail_screen.dart`/`zoky_home_screen.dart` (ทั้งคู่เป็นไฟล์ ZOKY-001 ที่ต้องแก้เพื่อเชื่อมปุ่มเข้ากับ Cart จริงตามขอบเขตงาน)
+
+### Minor finding (ไม่ block)
+
+**ไม่มี regression test ครอบคลุมวงจร Cart badge refresh หลัง checkout สำเร็จแบบ end-to-end** (ZOKY Home → เปิด Cart → Checkout → ยืนยันสำเร็จ → กลับมา ZOKY Home แล้ว badge ต้องลดลง/หายไป) — ตรวจโค้ดแล้วเชื่อว่าทำงานถูกต้องจริง (`_openCart()`'s `await Navigator.push(...)` จะ resolve เมื่อ route ของ `ZokyCartScreen` ถูก pop ออกจาก stack ไม่ว่าจะ pop ทีละขั้นหรือถูก `popUntil` ข้ามไปพร้อมกันจากหน้า Checkout Summary ก็ตาม เป็นพฤติกรรมมาตรฐานของ Flutter Navigator ไม่ใช่จุดเสี่ยงเฉพาะโปรเจกต์นี้) แต่ยังไม่มี automated test พิสูจน์ end-to-end จริง — ไม่ block เพราะเป็น UX polish ไม่ใช่ AC ที่ระบุไว้ตรง ๆ (AC เขียนแค่ "badge ตัวเลขจำนวนรายการถูกต้อง" ตอนเปิดหน้า Cart ซึ่งมี test ครอบคลุมแล้ว) เสนอเป็น fast-follow item เดียวกับ pattern ที่เคยพบใน WYN-012/WYN-013 (badge-refresh-after-return cycle ไม่มี regression test ถาวร)
+
+### สรุป
+
+ZOKY-003 ผ่าน QA รอบ 1 — **PASS** พบ Minor 1 จุดไม่ block การอนุมัติ — เป็น task ที่มีความเสี่ยง data-integrity สูงที่สุดเท่าที่เคยทำในโปรเจกต์นี้ (เงิน/stock/transaction หลายตาราง) แต่ atomicity/security ของ RPC ทั้ง 3 ตัวถูกต้องครบทุกจุดที่ตรวจ อนุมัติเข้า `approved/`
