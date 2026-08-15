@@ -29,6 +29,49 @@ class InsufficientStockException implements Exception {
   const InsufficientStockException();
 }
 
+/// One period's Gross Sales / ZOKY Fee / Net Revenue, for `status =
+/// 'delivered'` orders only -- see [SellerFinanceBreakdown]. `net` is
+/// always `gross - fee` exactly (equivalently `sum(subtotal)`), since
+/// every order snapshots `total = subtotal + fee_amount` at checkout
+/// time (ZOKY-003). See .wyn/tasks/backlog/SELLER-005-finance.md,
+/// Requirements #1.
+class FinancePeriodTotals {
+  const FinancePeriodTotals({
+    required this.gross,
+    required this.fee,
+    required this.net,
+  });
+
+  /// sum(orders.total) -- numerically identical to `fetchSalesSummary`'s
+  /// corresponding period for the same store (same column, same filter).
+  final double gross;
+
+  /// sum(orders.fee_amount).
+  final double fee;
+
+  /// sum(orders.subtotal) -- equals `gross - fee`.
+  final double net;
+
+  static const zero = FinancePeriodTotals(gross: 0, fee: 0, net: 0);
+}
+
+/// Gross/Fee/Net split across the same 3 periods `fetchSalesSummary`
+/// already reports (today/thisMonth/allTime) -- see
+/// [SellerRepository.fetchFinanceBreakdown]. `allTime.net` doubles as
+/// the seller's cumulative Balance (Product spec Requirements #5):
+/// callers must not query it separately.
+class SellerFinanceBreakdown {
+  const SellerFinanceBreakdown({
+    required this.today,
+    required this.thisMonth,
+    required this.allTime,
+  });
+
+  final FinancePeriodTotals today;
+  final FinancePeriodTotals thisMonth;
+  final FinancePeriodTotals allTime;
+}
+
 /// Wraps every store/order read+write SELLER-001 needs. Every method
 /// here relies on RLS to actually enforce ownership (see
 /// supabase/schema.sql, SELLER-001 section) -- the `.eq('store_id', ...)`
@@ -579,5 +622,126 @@ class SellerRepository {
   /// comment in supabase/schema.sql).
   Future<void> sellerMarkRefunded(String orderId) {
     return _client.rpc('seller_mark_refunded', params: {'p_order_id': orderId});
+  }
+
+  // -- Finance (SELLER-005) ------------------------------------------------
+  //
+  // Read-only -- no RLS/RPC changes needed at all (see .wyn/tasks/backlog/
+  // SELLER-005-finance.md, Requirements #0: the existing `orders` select
+  // policy from SELLER-001 already covers every query below). None of
+  // the 4 methods here touch fetchOrderCounts/fetchSalesSummary/
+  // fetchBestSellingProducts/fetchStoreOrders above -- those are left
+  // exactly as SELLER-001/003 QA'd them.
+
+  /// Gross Sales (sum(total)) / ZOKY Fee (sum(fee_amount)) / Net Revenue
+  /// (sum(subtotal)) for `status = 'delivered'` orders of [storeId],
+  /// split across the same 3 periods [fetchSalesSummary] reports
+  /// (today/thisMonth/allTime) -- mirrors that method's query/aggregation
+  /// shape exactly, just selecting 2 extra columns. `today.gross`/
+  /// `thisMonth.gross`/`allTime.gross` are numerically identical to
+  /// [fetchSalesSummary]'s 3-tuple for the same store at the same
+  /// instant. `allTime.net` is the seller's cumulative Balance --
+  /// callers use it directly, no second query. See .wyn/docs/design/
+  /// seller-005-finance.md, Data Model & Repository #1.
+  Future<SellerFinanceBreakdown> fetchFinanceBreakdown(String storeId) async {
+    final rows = await _client
+        .from('orders')
+        .select('total, subtotal, fee_amount, created_at')
+        .eq('store_id', storeId)
+        .eq('status', 'delivered');
+
+    final now = DateTime.now();
+    var todayGross = 0.0;
+    var todayFee = 0.0;
+    var todayNet = 0.0;
+    var monthGross = 0.0;
+    var monthFee = 0.0;
+    var monthNet = 0.0;
+    var allGross = 0.0;
+    var allFee = 0.0;
+    var allNet = 0.0;
+
+    for (final row in rows) {
+      final total = (row['total'] as num).toDouble();
+      final subtotal = (row['subtotal'] as num).toDouble();
+      final feeAmount = (row['fee_amount'] as num).toDouble();
+      final createdAt = DateTime.parse(row['created_at'] as String).toLocal();
+
+      allGross += total;
+      allFee += feeAmount;
+      allNet += subtotal;
+      if (createdAt.year == now.year && createdAt.month == now.month) {
+        monthGross += total;
+        monthFee += feeAmount;
+        monthNet += subtotal;
+        if (createdAt.day == now.day) {
+          todayGross += total;
+          todayFee += feeAmount;
+          todayNet += subtotal;
+        }
+      }
+    }
+
+    return SellerFinanceBreakdown(
+      today: FinancePeriodTotals(gross: todayGross, fee: todayFee, net: todayNet),
+      thisMonth: FinancePeriodTotals(gross: monthGross, fee: monthFee, net: monthNet),
+      allTime: FinancePeriodTotals(gross: allGross, fee: allFee, net: allNet),
+    );
+  }
+
+  /// (sum(subtotal), count) of `status = 'shipped'` orders of [storeId]
+  /// -- money "on the way" that isn't counted into Gross/Fee/Net/Balance
+  /// yet (Product spec Requirements #2: `shipped` ไม่นับเข้า Gross/Net/
+  /// Balance แต่ต้องแสดงแยกต่างหากเป็น "รายได้ระหว่างทาง").
+  Future<(double, int)> fetchInTransitSummary(String storeId) async {
+    final rows = await _client
+        .from('orders')
+        .select('subtotal')
+        .eq('store_id', storeId)
+        .eq('status', 'shipped');
+    var sum = 0.0;
+    for (final row in rows) {
+      sum += (row['subtotal'] as num).toDouble();
+    }
+    return (sum, rows.length);
+  }
+
+  /// The seller's own `delivered`/`refunded` orders for [storeId],
+  /// newest first, paginated with [ordersPageSize] -- deliberately a
+  /// separate method from [fetchStoreOrders] (rather than widening that
+  /// method's `filter` param to accept a list) so this screen's paging
+  /// never risks a regression on the tab that already passed QA. No
+  /// `order_items` join -- `SellerTransactionTile` only shows
+  /// order-level totals, unlike `SellerOrderListTile`. See
+  /// .wyn/docs/design/seller-005-finance.md, Data Model & Repository #3.
+  Future<List<Order>> fetchTransactionHistory({
+    required String storeId,
+    required int page,
+  }) async {
+    final from = page * ordersPageSize;
+    final to = from + ordersPageSize - 1;
+    final rows = await _client
+        .from('orders')
+        .select()
+        .eq('store_id', storeId)
+        .inFilter('status', ['delivered', 'refunded'])
+        .order('created_at', ascending: false)
+        .range(from, to);
+    return rows.map(Order.fromMap).toList();
+  }
+
+  /// Duplicated from `ZokyRepository.fetchMarketplaceFeePercent()`
+  /// (`app/lib/features/zoky/data/zoky_repository.dart`) -- same table/
+  /// key/fallback, separate Flutter binary, same pattern every other
+  /// duplicated model/method in this class already follows. See
+  /// .wyn/docs/design/seller-005-finance.md, Data Model & Repository #4.
+  Future<double> fetchPlatformFeePercent() async {
+    final row = await _client
+        .from('platform_config')
+        .select('value')
+        .eq('key', 'zoky_marketplace_fee_percent')
+        .maybeSingle();
+    if (row == null) return 10;
+    return double.tryParse(row['value'] as String) ?? 10;
   }
 }

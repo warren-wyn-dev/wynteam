@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zoky_seller/features/finance/presentation/seller_finance_screen.dart';
 import 'package:zoky_seller/features/order/presentation/seller_order_list_screen.dart';
 import 'package:zoky_seller/features/product/presentation/seller_product_list_screen.dart';
 import 'package:zoky_seller/features/shell/presentation/seller_coming_soon_screen.dart';
@@ -46,8 +47,8 @@ void main() {
   });
 
   testWidgets(
-      'the การเงิน tab (still not built) shows SellerComingSoonScreen, not a '
-      'crash', (tester) async {
+      'the การเงิน tab shows SellerFinanceScreen (SELLER-005), not the '
+      'placeholder', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: SellerHomeShell(store: _store, sellerRepository: repository),
     ));
@@ -56,11 +57,7 @@ void main() {
     await tester.tap(find.text('การเงิน'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.widgetWithText(SellerComingSoonScreen, 'การเงิน'),
-      findsOneWidget,
-    );
-    expect(find.text('ฟีเจอร์นี้จะมาเร็ว ๆ นี้'), findsOneWidget);
+    expect(find.byType(SellerFinanceScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

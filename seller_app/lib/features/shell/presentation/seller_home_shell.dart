@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 
 import '../../dashboard/presentation/seller_dashboard_screen.dart';
+import '../../finance/presentation/seller_finance_screen.dart';
 import '../../order/presentation/seller_order_list_screen.dart';
 import '../../product/presentation/seller_product_list_screen.dart';
 import '../../store/data/seller_repository.dart';
 import '../../store/data/store.dart';
 import '../../store/presentation/seller_store_screen.dart';
-import 'seller_coming_soon_screen.dart';
 
-/// Bottom Nav 5 tab shell: Dashboard (fully built) / สินค้า / คำสั่งซื้อ
-/// (both fully built) / ร้านค้า / การเงิน (placeholders until
-/// SELLER-004/005). Mirrors `app/lib/features/root/presentation/
-/// root_shell.dart`'s `IndexedStack` pattern -- every tab's State stays
-/// alive across switches. See .wyn/docs/design/seller-001-foundation.md,
-/// Screen: SellerHomeShell.
+/// Bottom Nav 5 tab shell: Dashboard / สินค้า / คำสั่งซื้อ / ร้านค้า /
+/// การเงิน -- every tab is now fully built (SELLER-005 replaced the last
+/// placeholder, `SellerComingSoonScreen(label: 'การเงิน')`). Mirrors
+/// `app/lib/features/root/presentation/root_shell.dart`'s
+/// `IndexedStack` pattern -- every tab's State stays alive across
+/// switches. See .wyn/docs/design/seller-001-foundation.md, Screen:
+/// SellerHomeShell.
 class SellerHomeShell extends StatefulWidget {
   const SellerHomeShell({
     super.key,
@@ -58,7 +59,10 @@ class _SellerHomeShellState extends State<SellerHomeShell> {
         sellerRepository: widget.sellerRepository,
         onStoreUpdated: (updated) => setState(() => _store = updated),
       ),
-      const SellerComingSoonScreen(label: 'การเงิน'),
+      SellerFinanceScreen(
+        store: _store,
+        sellerRepository: widget.sellerRepository,
+      ),
     ];
 
     return Scaffold(
