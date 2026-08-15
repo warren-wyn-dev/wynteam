@@ -77,135 +77,14 @@ create policy "Users can update their own avatar"
     and (storage.foldername(name))[1] = auth.uid()::text
   );
 
--- WYN-004 (Feed & Post) — posts, likes, comments
--- Run once per environment after the WYN-002/WYN-003 statements above.
+-- WYN-005 (Drop) — drops, drop_likes, drop_comments, saves
+-- Run once per environment after the WYN-002/003 statements above.
 --
--- author_id/user_id reference public.profiles (not auth.users directly) so
+-- author_id references public.profiles (not auth.users directly) so
 -- PostgREST can embed author info in one query (e.g.
 -- `.select('*, author:profiles(username, display_name, avatar_url)')`)
--- instead of doing a separate profile lookup per post/comment.
-
-create table if not exists public.posts (
-  id uuid primary key default gen_random_uuid(),
-  author_id uuid not null references public.profiles (id) on delete cascade,
-  text_content text,
-  image_url text,
-  created_at timestamptz not null default now(),
-  -- Rejects '' as well as NULL (length 0 is not "between 1 and 500"), so
-  -- the app must send null for "no text", not '' -- see the WYN-003
-  -- display_name lesson in .wyn/learning/MISTAKES.md.
-  constraint posts_text_content_length
-    check (text_content is null or char_length(text_content) between 1 and 500),
-  -- A post needs at least a real (non-empty) text or an image.
-  constraint posts_have_content
-    check (text_content is not null or image_url is not null)
-);
-
-alter table public.posts enable row level security;
-
-create policy "Posts are viewable by authenticated users"
-  on public.posts
-  for select
-  to authenticated
-  using (true);
-
-create policy "Users can create their own posts"
-  on public.posts
-  for insert
-  to authenticated
-  with check (auth.uid() = author_id);
-
-create policy "Users can delete their own posts"
-  on public.posts
-  for delete
-  to authenticated
-  using (auth.uid() = author_id);
-
-create table if not exists public.likes (
-  post_id uuid not null references public.posts (id) on delete cascade,
-  user_id uuid not null references public.profiles (id) on delete cascade,
-  created_at timestamptz not null default now(),
-  primary key (post_id, user_id)
-);
-
-alter table public.likes enable row level security;
-
-create policy "Likes are viewable by authenticated users"
-  on public.likes
-  for select
-  to authenticated
-  using (true);
-
-create policy "Users can like posts as themselves"
-  on public.likes
-  for insert
-  to authenticated
-  with check (auth.uid() = user_id);
-
-create policy "Users can remove their own likes"
-  on public.likes
-  for delete
-  to authenticated
-  using (auth.uid() = user_id);
-
-create table if not exists public.comments (
-  id uuid primary key default gen_random_uuid(),
-  post_id uuid not null references public.posts (id) on delete cascade,
-  author_id uuid not null references public.profiles (id) on delete cascade,
-  text_content text not null,
-  created_at timestamptz not null default now(),
-  constraint comments_text_content_length
-    check (char_length(text_content) between 1 and 500)
-);
-
-alter table public.comments enable row level security;
-
-create policy "Comments are viewable by authenticated users"
-  on public.comments
-  for select
-  to authenticated
-  using (true);
-
-create policy "Users can comment as themselves"
-  on public.comments
-  for insert
-  to authenticated
-  with check (auth.uid() = author_id);
-
-create policy "Users can delete their own comments"
-  on public.comments
-  for delete
-  to authenticated
-  using (auth.uid() = author_id);
-
--- Post images: public bucket, each user may only write to their own
--- folder ({user_id}/...), same pattern as the avatars bucket. Each image
--- gets a unique filename (see PostRepository.createPost) since, unlike
--- avatars, post images are never overwritten -- no update policy needed.
-insert into storage.buckets (id, name, public)
-values ('post-images', 'post-images', true)
-on conflict (id) do nothing;
-
-create policy "Post images are publicly accessible"
-  on storage.objects
-  for select
-  using (bucket_id = 'post-images');
-
-create policy "Users can upload their own post images"
-  on storage.objects
-  for insert
-  to authenticated
-  with check (
-    bucket_id = 'post-images'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
--- WYN-005 (Drop) — drops, drop_likes, drop_comments, saves
--- Run once per environment after the WYN-002/003/004 statements above.
---
--- Same author_id-references-profiles pattern as WYN-004 for one-query
--- embedding. Unlike posts, image_url is required (not null) -- a Drop
--- is always a photo, per the Product spec.
+-- instead of doing a separate profile lookup per row -- image_url is
+-- required (not null) -- a Drop is always a photo, per the Product spec.
 
 create table if not exists public.drops (
   id uuid primary key default gen_random_uuid(),
@@ -356,7 +235,7 @@ create policy "Users can remove their own saves"
   using (auth.uid() = user_id);
 
 -- Drop images: public bucket, each user may only write to their own
--- folder ({user_id}/...), same pattern as post-images.
+-- folder ({user_id}/...), same pattern as the avatars bucket.
 insert into storage.buckets (id, name, public)
 values ('drop-images', 'drop-images', true)
 on conflict (id) do nothing;
@@ -1308,8 +1187,8 @@ create table if not exists public.club_posts (
     check (content is null or char_length(content) between 1 and 2000),
   constraint club_posts_image_urls_length
     check (image_urls is null or array_length(image_urls, 1) between 1 and 10),
-  -- A club post needs at least one of text, images, or a link -- same
-  -- "no completely empty content" rule as posts_have_content (WYN-004).
+  -- A club post needs at least one of text, images, or a link -- no
+  -- completely empty post allowed.
   constraint club_posts_have_content
     check (content is not null or image_urls is not null or link_url is not null)
 );
@@ -1435,7 +1314,7 @@ create policy "Users can delete their own club post comments"
   to authenticated
   using (auth.uid() = author_id);
 
--- Club media: unlike avatars/post-images/drop-images/pop-videos (all
+-- Club media: unlike avatars/drop-images/pop-videos (all
 -- public buckets), club-media must be non-public -- club posts are
 -- members-only-visible at the DB layer (club_posts select policy
 -- above), and a fully public bucket would let anyone with a
