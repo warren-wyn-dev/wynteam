@@ -87,3 +87,18 @@ Recommendation:
 3. Coding ต้อง sync branch ใหม่ก่อนแก้ `store_screen.dart`/`store.dart` (`app/`) และรัน regression suite เดิมของ ZOKY-001 อิสระให้ครบก่อนส่ง QA เหมือนมาตรฐานเดิมทุก task ที่แก้โค้ดข้ามแอป
 
 Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบ: (1) `SellerStoreScreen` (banner/logo picker + ฟอร์ม 7 ฟิลด์ + ปุ่มบันทึก) มิเรอร์ `EditClubInfoScreen` (2) การต่อสาย `onStoreUpdated` callback ให้ `SellerHomeShell` rebuild tab อื่นถูกต้อง (3) ส่วนที่เพิ่มใน `StoreScreen` ฝั่งลูกค้า (banner header + section "ข้อมูลร้านค้า" แบบ conditional-render ต่อฟิลด์) — ใช้ Design system เดิมทั้งสองแอป (Blue+White+Soft Gray, seed `0xFF2D6CDF`, Material 3, ห้าม Liquid Glass) เมื่อ Design/Coding/QA เสร็จให้ merge เข้า `main` ทันทีตามที่ Founder อนุญาตให้ทำงานต่อเนื่องอัตโนมัติ (DECISIONS.md 2026-08-14) แล้วรายงานความคืบหน้ากลับเป็น %
+
+## Design Output
+
+Status: **Design เสร็จแล้ว** — เขียนที่ `.wyn/docs/design/seller-004-store-management.md`
+
+สรุปการตัดสินใจหลัก:
+1. **`SellerStoreScreen` ใหม่**: มิเรอร์ `EditClubInfoScreen._buildCoverPicker()`/`._buildIconPicker()` เป๊ะ (banner 16:9 + logo circle picker, placeholder icon เดียวกัน) + ฟอร์ม 7 ฟิลด์ (ชื่อ/คำอธิบาย/ที่อยู่/เบอร์ติดต่อ/เวลาทำการ + รูป 2 ชนิด) — `maxLength` ของแต่ละ `TextField` ตรงกับ DB CHECK constraint ที่ Product spec กำหนด (100/300/50/200) — ปุ่ม "บันทึก" disable เมื่อชื่อร้านว่างหรือกำลังบันทึกเท่านั้น (ฟิลด์อื่นไม่บังคับ)
+2. **จุดต่างสำคัญจาก `EditClubInfoScreen`**: `SellerStoreScreen` เป็น tab body ใน `IndexedStack` ไม่ใช่ pushed route → **ห้าม `Navigator.pop()` หลังบันทึกสำเร็จ** ใช้ `SnackBar` แจ้งผลแทนแล้วอยู่หน้าเดิมต่อ
+3. **`SellerRepository.updateStoreInfo` เป็น 1 เมธอดรวม** (upload รูปที่เปลี่ยนก่อน แล้ว update ทุกฟิลด์ครั้งเดียว) แทนที่จะแยก 3 เมธอดแบบ `ClubRepository` — เพราะ `store-media` เป็น public bucket (เหมือน `product-images`) ได้ URL ทันทีจาก `getPublicUrl()` ไม่ต้อง round-trip fetch signed URL แบบ `club-media` ที่ private
+4. **`SellerHomeShell` เปลี่ยนเป็น mutable `_store` state**: เพิ่ม `late Store _store = widget.store;`, ทุก tab (Dashboard/Product/Order/Store) อ้าง `_store` ไม่ใช่ `widget.store`, `SellerStoreScreen`'s `onStoreUpdated` callback → `setState(() => _store = updated)` — มิเรอร์ pattern `onStoreCreated`/`onUsernameSet` เดิม (callback-to-parent-rebuild)
+5. **`StoreScreen` ฝั่งลูกค้า แก้ 2 จุดแทรกเท่านั้น**: (ก) banner edge-to-edge เหนือ `_buildHeader` เดิม ใช้ `if` ใน children list (ไม่ใช่ `SizedBox.shrink()`) เพื่อไม่กิน element tree เปล่า ๆ เมื่อไม่มี banner (ข) "ข้อมูลร้านค้า" section (`Card` + icon+text row ต่อฟิลด์) แทรกหลัง description เดิม ก่อนปุ่ม "ติดตามร้าน" — render เฉพาะเมื่อมีอย่างน้อย 1 ใน 3 ฟิลด์ไม่ null — **ไม่แตะ** `_buildProductsTab`/`_buildReviewsTab`/`TabBar`/AppBar เพื่อลดความเสี่ยง regression ของ ZOKY-001's test suite เดิม
+6. **ไม่ใช้ pattern Stack+Positioned overlap ของ `club_page.dart`'s cover** สำหรับ banner ฝั่งลูกค้า — เลือก layout เรียบง่ายกว่า (banner ธรรมดาเหนือ header เดิม ไม่ overlap) ตรงตาม Product spec ที่ระบุ "เหนือ Row(โลโก้+ชื่อร้าน) เดิม" และลด diff ให้เล็กที่สุด
+7. Data model: เพิ่ม `address`/`contactPhone`/`businessHours` (`String?`) เข้า `Store`/`Store.fromMap` ทั้ง 2 ไฟล์ (`app/`, `seller_app/`) — ไม่กระทบ constructor signature อื่น
+
+Handoff: ส่งต่อ AI Coding (`/code`) — รายละเอียดครบทุก Screen/Widget/Data Model/Repository method ที่ต้อง implement อยู่ใน `.wyn/docs/design/seller-004-store-management.md` ทั้งหมด (รวม "เตือน Coding" 6 ข้อท้ายเอกสารที่ย้ำจุดเสี่ยงจาก Product spec's Risks ที่กระทบ UI/UX โดยตรง — โดยเฉพาะ `onStoreUpdated` wiring และ banner conditional-render)
