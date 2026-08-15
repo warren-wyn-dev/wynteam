@@ -1724,3 +1724,353 @@ create policy "Product variants are viewable by authenticated users"
   for select
   to authenticated
   using (true);
+
+-- ============================================================
+-- ZOKY-003: Cart & Checkout & Order (WYN Platform expansion)
+-- ============================================================
+-- Cart is plain per-row CRUD (a client may freely insert/update/delete
+-- its own cart_items -- no RPC needed, since nothing here is
+-- security/atomicity-critical: the only value that must be trustworthy
+-- is checked again, server-side, at order-creation time). Orders and
+-- order_items are the opposite -- no insert/update/delete policy for
+-- clients at all, because creating/mutating one always involves
+-- business logic (stock check + deduction + fee calculation) that must
+-- run atomically and can't be trusted to a raw client write, same
+-- reasoning as club_members' role/status transitions (WYN-014).
+
+-- Editable platform-wide settings, e.g. the marketplace fee percentage.
+-- A real config table (not a Dart constant) so the Founder can change
+-- it without an app release -- see .wyn/tasks/backlog/
+-- ZOKY-003-cart-checkout-order.md, Requirements. Each Order snapshots
+-- the fee percent it used at creation time (see orders.fee_percent
+-- below) rather than re-reading this table later, so a future change
+-- here never alters an already-placed Order's historical total.
+create table if not exists public.platform_config (
+  key text primary key,
+  value text not null
+);
+
+alter table public.platform_config enable row level security;
+
+create policy "Platform config is viewable by authenticated users"
+  on public.platform_config
+  for select
+  to authenticated
+  using (true);
+
+insert into public.platform_config (key, value) values
+  ('zoky_marketplace_fee_percent', '10')
+on conflict (key) do nothing;
+
+-- variant_selection defaults to '' (not null) rather than being
+-- nullable, specifically so the unique constraint below treats "same
+-- product, no variant chosen" as one line consistently -- Postgres
+-- unique constraints treat every NULL as distinct from every other
+-- NULL, so a nullable column here would let "Add to Cart" on the same
+-- no-variant product create a new row every time instead of
+-- incrementing quantity on the existing one.
+create table if not exists public.cart_items (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  product_id uuid not null references public.products (id) on delete cascade,
+  variant_selection text not null default '',
+  quantity int not null default 1,
+  created_at timestamptz not null default now(),
+  constraint cart_items_quantity_positive check (quantity > 0),
+  constraint cart_items_unique_line unique (user_id, product_id, variant_selection)
+);
+
+create index if not exists cart_items_user_id_idx on public.cart_items (user_id);
+
+alter table public.cart_items enable row level security;
+
+create policy "Users can view their own cart items"
+  on public.cart_items
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can insert their own cart items"
+  on public.cart_items
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their own cart items"
+  on public.cart_items
+  for update
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can delete their own cart items"
+  on public.cart_items
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- One row per store per checkout (Product spec: "1 Order ต่อ 1
+-- ร้านค้า") -- a cart spanning 3 stores becomes 3 Order rows when the
+-- buyer confirms checkout, created together atomically by
+-- create_orders() below. status is deliberately a 3-value enum this
+-- round (pending/delivered/cancelled) -- there's no separate
+-- "shipped" state because there's no ZOKY Sellers by WYN app yet to
+-- ever actually set one; see the Product spec's Risks section.
+create table if not exists public.orders (
+  id uuid primary key default gen_random_uuid(),
+  buyer_id uuid not null references public.profiles (id) on delete cascade,
+  store_id uuid not null references public.stores (id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'delivered', 'cancelled')),
+  recipient_name text not null,
+  recipient_phone text not null,
+  shipping_address text not null,
+  subtotal numeric(12, 2) not null,
+  fee_percent numeric(5, 2) not null,
+  fee_amount numeric(12, 2) not null,
+  total numeric(12, 2) not null,
+  created_at timestamptz not null default now(),
+  constraint orders_subtotal_nonnegative check (subtotal >= 0),
+  constraint orders_fee_percent_nonnegative check (fee_percent >= 0),
+  constraint orders_fee_amount_nonnegative check (fee_amount >= 0),
+  constraint orders_total_nonnegative check (total >= 0)
+);
+
+create index if not exists orders_buyer_id_idx on public.orders (buyer_id, created_at desc);
+
+alter table public.orders enable row level security;
+
+create policy "Buyers can view their own orders"
+  on public.orders
+  for select
+  to authenticated
+  using (auth.uid() = buyer_id);
+
+-- Deliberately no insert/update/delete policy at all -- every Order is
+-- created by create_orders() and every status transition goes through
+-- cancel_order()/confirm_order_received() (all three security definer,
+-- below), so a client can never issue a raw insert/update against
+-- orders no matter what values it sends.
+
+-- Snapshots product_name/unit_price (and image_url) at the moment of
+-- purchase rather than joining products live, because a product's
+-- name/price can change (or the product can be deleted -- product_id
+-- is on delete set null, not cascade, so the Order itself survives)
+-- after the Order is placed, and an Order's historical record must
+-- never change retroactively. variant_selection is copied the same
+-- way cart_items stores it -- still preview/display-only, never
+-- affects stock (see products.stock below).
+create table if not exists public.order_items (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references public.orders (id) on delete cascade,
+  product_id uuid references public.products (id) on delete set null,
+  product_name text not null,
+  variant_selection text not null default '',
+  unit_price numeric(12, 2) not null,
+  quantity int not null,
+  image_url text,
+  constraint order_items_quantity_positive check (quantity > 0),
+  constraint order_items_unit_price_nonnegative check (unit_price >= 0)
+);
+
+create index if not exists order_items_order_id_idx on public.order_items (order_id);
+
+alter table public.order_items enable row level security;
+
+-- order_items has no buyer_id column of its own, so scoping is via a
+-- join back to the owning order -- same "scope through the parent
+-- row" shape as club_post_comments scoping through club_posts.
+create policy "Buyers can view their own order items"
+  on public.order_items
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.orders
+      where orders.id = order_items.order_id
+        and orders.buyer_id = auth.uid()
+    )
+  );
+
+-- No insert/update/delete policy -- rows are only ever created by
+-- create_orders() (security definer), same as order_items' parent.
+
+-- Checks out every cart_items row currently belonging to the caller,
+-- grouped into one Order per store, in a single transaction: every
+-- product touched is locked up front (in a stable id-ordered sequence,
+-- to avoid deadlocking against a concurrent checkout locking an
+-- overlapping product set in a different order) so the stock reads
+-- below can't race against another transaction between the check and
+-- the deduction -- see .wyn/tasks/backlog/ZOKY-003-cart-checkout-
+-- order.md, Risks ("race condition ตอนหลาย order พร้อมกันแย่ง stock
+-- เดียวกัน"). Raises a distinguishable 'INSUFFICIENT_STOCK:<name>'
+-- message (parsed client-side into a typed exception, see
+-- ZokyRepository.createOrders) rather than a generic error, so the UI
+-- can name the specific product that's short instead of a vague
+-- failure. Stock is deducted from products.stock only -- variant-level
+-- stock isn't a real SKU-level count yet (see ZOKY-001), so it's never
+-- touched here.
+create or replace function public.create_orders(
+  p_recipient_name text,
+  p_recipient_phone text,
+  p_shipping_address text
+)
+returns setof uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_fee_percent numeric(5, 2);
+  v_store_id uuid;
+  v_item record;
+  v_order_id uuid;
+  v_subtotal numeric(12, 2);
+  v_fee_amount numeric(12, 2);
+  v_image_url text;
+begin
+  if length(trim(p_recipient_name)) = 0 then
+    raise exception 'Recipient name is required';
+  end if;
+  if length(trim(p_recipient_phone)) = 0 then
+    raise exception 'Recipient phone is required';
+  end if;
+  if length(trim(p_shipping_address)) = 0 then
+    raise exception 'Shipping address is required';
+  end if;
+
+  if not exists (select 1 from public.cart_items where user_id = auth.uid()) then
+    raise exception 'Cart is empty';
+  end if;
+
+  select coalesce(value::numeric, 10) into v_fee_percent
+  from public.platform_config
+  where key = 'zoky_marketplace_fee_percent';
+
+  if v_fee_percent is null then
+    v_fee_percent := 10;
+  end if;
+
+  perform 1
+  from public.products
+  where id in (select product_id from public.cart_items where user_id = auth.uid())
+  order by id
+  for update;
+
+  for v_store_id in
+    select distinct p.store_id
+    from public.cart_items ci
+    join public.products p on p.id = ci.product_id
+    where ci.user_id = auth.uid()
+  loop
+    v_subtotal := 0;
+
+    insert into public.orders (
+      buyer_id, store_id, status, recipient_name, recipient_phone,
+      shipping_address, subtotal, fee_percent, fee_amount, total
+    ) values (
+      auth.uid(), v_store_id, 'pending', p_recipient_name, p_recipient_phone,
+      p_shipping_address, 0, v_fee_percent, 0, 0
+    )
+    returning id into v_order_id;
+
+    for v_item in
+      select ci.id as cart_item_id, ci.product_id, ci.variant_selection, ci.quantity,
+             p.name as product_name, p.price, p.stock, p.image_urls
+      from public.cart_items ci
+      join public.products p on p.id = ci.product_id
+      where ci.user_id = auth.uid() and p.store_id = v_store_id
+    loop
+      if v_item.stock < v_item.quantity then
+        raise exception 'INSUFFICIENT_STOCK:%', v_item.product_name;
+      end if;
+
+      v_image_url := case
+        when array_length(v_item.image_urls, 1) > 0 then v_item.image_urls[1]
+        else null
+      end;
+
+      insert into public.order_items (
+        order_id, product_id, product_name, variant_selection, unit_price, quantity, image_url
+      ) values (
+        v_order_id, v_item.product_id, v_item.product_name, v_item.variant_selection,
+        v_item.price, v_item.quantity, v_image_url
+      );
+
+      update public.products
+      set stock = stock - v_item.quantity
+      where id = v_item.product_id;
+
+      delete from public.cart_items where id = v_item.cart_item_id;
+
+      v_subtotal := v_subtotal + (v_item.price * v_item.quantity);
+    end loop;
+
+    v_fee_amount := round(v_subtotal * v_fee_percent / 100, 2);
+
+    update public.orders
+    set subtotal = v_subtotal,
+        fee_amount = v_fee_amount,
+        total = v_subtotal + v_fee_amount
+    where id = v_order_id;
+
+    return next v_order_id;
+  end loop;
+
+  return;
+end;
+$$;
+
+-- Buyer-only, and only while still pending (see the Product spec's
+-- Requirements -- there's no "shipped" state this round, so pending is
+-- the only status a cancellation can ever come from). Restocks every
+-- item back onto products.stock; skips a line whose product was since
+-- deleted (product_id is null after on delete set null) since there's
+-- nothing to restock.
+create or replace function public.cancel_order(p_order_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_item record;
+begin
+  if not exists (
+    select 1 from public.orders
+    where id = p_order_id and buyer_id = auth.uid() and status = 'pending'
+  ) then
+    raise exception 'Order not found or cannot be cancelled';
+  end if;
+
+  for v_item in
+    select product_id, quantity from public.order_items
+    where order_id = p_order_id and product_id is not null
+  loop
+    update public.products
+    set stock = stock + v_item.quantity
+    where id = v_item.product_id;
+  end loop;
+
+  update public.orders set status = 'cancelled' where id = p_order_id;
+end;
+$$;
+
+-- Buyer-only, and only while still pending -- the "delivered" state is
+-- reached directly from pending (no separate "shipped" step this
+-- round, see create_orders' comment above), so this is the only
+-- transition into delivered that exists.
+create or replace function public.confirm_order_received(p_order_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.orders
+  set status = 'delivered'
+  where id = p_order_id and buyer_id = auth.uid() and status = 'pending';
+
+  if not found then
+    raise exception 'Order not found or cannot be marked as received';
+  end if;
+end;
+$$;

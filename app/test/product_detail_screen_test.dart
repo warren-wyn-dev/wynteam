@@ -5,6 +5,7 @@ import 'package:wyn/features/zoky/data/product.dart';
 import 'package:wyn/features/zoky/data/product_variant.dart';
 import 'package:wyn/features/zoky/presentation/product_detail_screen.dart';
 import 'package:wyn/features/zoky/presentation/store_screen.dart';
+import 'package:wyn/features/zoky/presentation/zoky_cart_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_zoky_repository.dart';
@@ -98,16 +99,28 @@ void main() {
     expect(find.text('-25%'), findsOneWidget);
   });
 
-  testWidgets('shows stock count when in stock, "สินค้าหมด" when out of stock',
-      (tester) async {
+  testWidgets(
+      'shows stock count when in stock, "สินค้าหมด" (stock line + both disabled '
+      'action buttons) when out of stock (ZOKY-003)', (tester) async {
     await tester.pumpWidget(buildProductDetail(outOfStockRepo, outOfStockProduct));
     await tester.pumpAndSettle();
     tester.takeException();
 
-    await scrollToFind(tester, find.text('สินค้าหมด'));
+    // The fixed bottom action bar's "สินค้าหมด" buttons are always
+    // mounted, so scrollUntilVisible on the bare text would already be
+    // ambiguous before ever scrolling -- scope to the scrollable body
+    // to find just the stock-count line.
+    final stockLineInBody = find.descendant(
+      of: find.byType(ListView),
+      matching: find.text('สินค้าหมด'),
+    );
+    await tester.scrollUntilVisible(stockLineInBody, 500, scrollable: find.byType(Scrollable).first);
     tester.takeException();
 
-    expect(find.text('สินค้าหมด'), findsOneWidget);
+    expect(stockLineInBody, findsOneWidget);
+    // Both "เพิ่มลงตะกร้า"/"ซื้อเลย" buttons relabel to "สินค้าหมด" too
+    // (ZOKY-003 Design, Screen 1).
+    expect(find.text('สินค้าหมด'), findsNWidgets(3));
   });
 
   testWidgets('shows "ยังไม่มีรีวิว" since Review (ZOKY-004) does not exist yet',
@@ -142,28 +155,46 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('tapping Add to Cart shows a coming-soon SnackBar and does not crash',
-      (tester) async {
+  testWidgets(
+      'out-of-stock product disables both action buttons (tap does nothing, no crash) '
+      '(ZOKY-003)', (tester) async {
     await tester.pumpWidget(buildProductDetail(outOfStockRepo, outOfStockProduct));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'สินค้าหมด'), warnIfMissed: false);
+    await tester.tap(find.widgetWithText(FilledButton, 'สินค้าหมด'), warnIfMissed: false);
+    await tester.pump();
+    tester.takeException();
+
+    expect(outOfStockRepo.lastAddToCartProductId, isNull);
+  });
+
+  testWidgets('tapping Add to Cart adds the item and shows a confirmation SnackBar (ZOKY-003)',
+      (tester) async {
+    await tester.pumpWidget(buildProductDetail(discountedRepo, discountedProduct));
     await tester.pumpAndSettle();
     tester.takeException();
 
     await tester.tap(find.text('เพิ่มลงตะกร้า'));
     await tester.pump();
 
-    expect(find.text('ฟีเจอร์นี้จะมาเร็ว ๆ นี้'), findsOneWidget);
+    expect(discountedRepo.lastAddToCartProductId, discountedProduct.id);
+    expect(find.text('เพิ่มลงตะกร้าแล้ว'), findsOneWidget);
   });
 
-  testWidgets('tapping Buy Now shows a coming-soon SnackBar and does not crash',
+  testWidgets('tapping Buy Now adds the item and opens ZokyCartScreen (ZOKY-003)',
       (tester) async {
-    await tester.pumpWidget(buildProductDetail(outOfStockRepo, outOfStockProduct));
+    await tester.pumpWidget(buildProductDetail(discountedRepo, discountedProduct));
     await tester.pumpAndSettle();
     tester.takeException();
 
     await tester.tap(find.text('ซื้อเลย'));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    tester.takeException();
 
-    expect(find.text('ฟีเจอร์นี้จะมาเร็ว ๆ นี้'), findsOneWidget);
+    expect(discountedRepo.lastAddToCartProductId, discountedProduct.id);
+    expect(find.byType(ZokyCartScreen), findsOneWidget);
   });
 
   testWidgets('tapping the store card opens StoreScreen', (tester) async {
