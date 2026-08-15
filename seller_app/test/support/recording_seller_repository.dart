@@ -44,12 +44,19 @@ class RecordingSellerRepository extends SellerRepository {
     this.sellerShipOrderException,
     this.sellerCancelOrderException,
     this.sellerMarkRefundedException,
+    this.financeBreakdown,
+    this.financeBreakdownException,
+    this.inTransitSummary = (0.0, 0),
+    this.platformFeePercent = 10,
+    List<Order>? transactionHistory,
+    this.transactionHistoryException,
   })  : bestSellingProducts = bestSellingProducts ?? const [],
         categories = categories ?? const [],
         products = products ?? const [],
         productVariants = productVariants ?? const [],
         storeOrders = storeOrders ?? const [],
         storeOrderItems = storeOrderItems ?? const [],
+        transactionHistory = transactionHistory ?? const [],
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   final Store? myStore;
@@ -392,5 +399,69 @@ class RecordingSellerRepository extends SellerRepository {
     sellerMarkRefundedCalls++;
     lastSellerMarkRefundedId = orderId;
     if (sellerMarkRefundedException != null) throw sellerMarkRefundedException!;
+  }
+
+  // -- Finance (SELLER-005) ------------------------------------------------
+
+  /// Defaults to all-zero totals across all 3 periods when not given --
+  /// mirrors [salesSummary]'s default.
+  final SellerFinanceBreakdown? financeBreakdown;
+  final Object? financeBreakdownException;
+
+  final (double, int) inTransitSummary;
+  final double platformFeePercent;
+
+  /// Returned by [fetchTransactionHistory] for page 0 only (page 1+
+  /// returns empty) -- same simplification [fetchStoreOrders] above
+  /// uses.
+  final List<Order> transactionHistory;
+  final Object? transactionHistoryException;
+
+  int fetchFinanceBreakdownCalls = 0;
+  String? lastFetchFinanceBreakdownStoreId;
+
+  int fetchInTransitSummaryCalls = 0;
+  String? lastFetchInTransitSummaryStoreId;
+
+  int fetchPlatformFeePercentCalls = 0;
+
+  String? lastFetchTransactionHistoryStoreId;
+  int? lastFetchTransactionHistoryPage;
+
+  @override
+  Future<SellerFinanceBreakdown> fetchFinanceBreakdown(String storeId) async {
+    fetchFinanceBreakdownCalls++;
+    lastFetchFinanceBreakdownStoreId = storeId;
+    if (financeBreakdownException != null) throw financeBreakdownException!;
+    return financeBreakdown ??
+        const SellerFinanceBreakdown(
+          today: FinancePeriodTotals.zero,
+          thisMonth: FinancePeriodTotals.zero,
+          allTime: FinancePeriodTotals.zero,
+        );
+  }
+
+  @override
+  Future<(double, int)> fetchInTransitSummary(String storeId) async {
+    fetchInTransitSummaryCalls++;
+    lastFetchInTransitSummaryStoreId = storeId;
+    return inTransitSummary;
+  }
+
+  @override
+  Future<List<Order>> fetchTransactionHistory({
+    required String storeId,
+    required int page,
+  }) async {
+    lastFetchTransactionHistoryStoreId = storeId;
+    lastFetchTransactionHistoryPage = page;
+    if (transactionHistoryException != null) throw transactionHistoryException!;
+    return page == 0 ? transactionHistory : [];
+  }
+
+  @override
+  Future<double> fetchPlatformFeePercent() async {
+    fetchPlatformFeePercentCalls++;
+    return platformFeePercent;
   }
 }
