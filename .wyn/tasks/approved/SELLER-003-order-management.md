@@ -154,3 +154,46 @@ Status: **Design เสร็จแล้ว** — เขียนที่ `.wy
 7. Data model ใหม่ใน `seller_app/`: duplicate `Order`(+`shippingProvider`/`trackingNumber`)/`OrderStatus`(8 ค่า)/`OrderItem` ตาม pattern duplicate เดิมจาก SELLER-001/002
 
 Handoff: ส่งต่อ AI Coding (`/code`) — รายละเอียดครบทุก Screen/Widget/Data Model/Repository method/Migration sequencing ที่ต้อง implement อยู่ใน `.wyn/docs/design/seller-003-order-management.md` ทั้งหมด (รวม "เตือน Coding" 6 ข้อท้ายเอกสารที่ย้ำจุดเสี่ยงจาก Product spec's Risks — โดยเฉพาะ per-status action bar test coverage, ห้ามแตะ locking ของ `create_orders()`, ownership check ของ RPC ใหม่ 5 ตัว, และลำดับ migration SQL)
+
+## Coding Output
+
+Status: **Coding เสร็จแล้ว** — merged เข้า `main` ที่ PR #105 (commit `9a72d9d`)
+
+สรุป: Migration SQL (UPDATE pending→paid → verify constraint name ผ่าน information_schema → DROP → ADD CONSTRAINT 8 ค่า → เปลี่ยน default → เพิ่มคอลัมน์ shipping_provider/tracking_number), RPC ใหม่ 5 ตัวฝั่ง seller (`seller_start_processing`/`seller_mark_ready_to_ship`/`seller_ship_order`/`seller_cancel_order`/`seller_mark_refunded`), แก้ RPC เดิม 3 ตัว (`create_orders`/`cancel_order`/`confirm_order_received` — เปลี่ยนแค่ status literal/เงื่อนไข source-status), `OrderStatusBadge`/`ZokyOrderDetailScreen`/`Order` model (Customer) ขยาย 8 สถานะ + per-status action bar + การ์ดข้อมูลจัดส่ง, `SellerOrderListScreen`/`SellerOrderDetailScreen`/`SellerOrderListTile`/`OrderStatusBadge` ใหม่ทั้งหมดใน `seller_app/`, `SellerRepository` เมธอดใหม่ครบ + แก้ `fetchOrderCounts()` (pending→paid) — test เดิมของ ZOKY-003 อัปเดตตาม + test ใหม่ครบทุก state — รายงาน `app/` flutter test 260/260, `seller_app/` flutter test 59/59 ผ่านหมด
+
+Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอบก่อน deploy จริง
+
+## QA Output (รอบ 1 — 2026-08-15)
+
+Status: **PASS** — ย้ายเข้า `.wyn/tasks/approved/` แล้ว
+
+```
+Feature: SELLER-003 (Order Management) — ขยาย orders.status 3→8 + Seller Order List/Detail + RPC เปลี่ยนสถานะฝั่ง seller ใหม่ 5 ตัว + แก้ RPC เดิม 3 ตัว (ZOKY-003) + fetchOrderCounts() (SELLER-001)
+Environment: Static/code-level review (ไม่มี live Supabase project ให้ทดสอบ dynamic — เหมือนทุก task ก่อนหน้า) + `flutter test`/`flutter analyze` จริงบน Flutter 3.47.0 ทั้ง `app/` และ `seller_app/` — sync branch `claude/pwd-nxsvf5` กับ `origin/main` (9a72d9d, PR #105) ก่อนเริ่ม ยืนยัน already-ancestor
+Test Cases:
+  1. Migration SQL ordering (UPDATE pending→paid ก่อน ALTER CONSTRAINT, constraint name lookup ผ่าน information_schema ไม่ hardcode, delivered/cancelled ไม่ถูกแตะ) — อ่าน supabase/schema.sql บรรทัด 2451-2519 ตรง ๆ
+  2. RPC ใหม่ 5 ตัวฝั่ง seller ทีละตัวแยกกัน: security definer, ownership check (stores.owner_id=auth.uid()), source-status guard, attack scenario cross-store + skip-state
+  3. Diff ของ create_orders()/cancel_order()/confirm_order_received() เทียบ commit ก่อน PR #105 (76e15e3) ตรงๆ ผ่าน `git diff`
+  4. Reviews (ZOKY-004) ไม่ถูกกระทบ — grep + diff ยืนยัน
+  5. OrderStatusBadge/ZokyOrderDetailScreen (Customer) — ตาราง 8 สถานะ + per-status action bar เทียบ Design spec ทีละแถว
+  6. SellerOrderListScreen/SellerOrderDetailScreen (ใหม่) — ปุ่ม action ต่อสถานะเทียบ Design spec ทีละสถานะ
+  7. SellerRepository.fetchOrderCounts()/fetchSalesSummary()/fetchBestSellingProducts() — เปลี่ยนแค่ pending→paid, delivered filter อื่นไม่กระทบ
+  8. Regression เต็ม: sync main ใหม่ รัน app/ (260 test) และ seller_app/ (59 test) อิสระ + `flutter analyze` ทั้งคู่ + ตรวจ diff ของ test ที่เปลี่ยนจาก OrderStatus.pending เป็น paid/shipped ว่าเป็น intended change จริง
+Passed: 8/8 หัวข้อหลัก, `app/` flutter test 260/260, `seller_app/` flutter test 59/59, `flutter analyze` สะอาดทั้งคู่ (No issues found)
+Failed: 0
+Severity: N/A (ไม่มี finding ที่ block)
+Reproduction Steps: N/A (ไม่มีบั๊กที่ทำให้ FAIL)
+Expected: N/A
+Actual: N/A
+Security Findings:
+  - ไม่พบช่องโหว่ authorization ใหม่ในทั้ง 5 RPC ฝั่ง seller — ทุกตัวมี exists-join กลับ stores.owner_id=auth.uid() ถูกต้อง (4/5 ตัวตรวจในสเตตเมนต์ UPDATE เดียวกับที่เปลี่ยนสถานะ ไม่มีช่องว่างให้ TOCTOU race ข้าม tenant), source-status guard ถูกต้องครบตามตาราง transition ของ Product spec ข้อ 4
+  - RLS: ยืนยัน SELLER-003 ไม่เพิ่ม insert/update/delete policy ใหม่ให้ orders/order_items เลย (grep `create policy` ยืนยันมีแค่ 3 select policy เดิมจาก ZOKY-003/SELLER-001) — status transition ทั้งหมดยังผ่าน RPC เท่านั้นจริง
+  - reviews (ZOKY-004): ยืนยันไม่ถูกแตะเลยทั้ง schema/policy — literal 'delivered' คงเดิม 100%
+  - ไม่พบ secret/credential รั่วไหลในไฟล์ใหม่ทั้งหมด
+  - ข้อสังเกตไม่ block (informational, เสนอ fast-follow): `seller_cancel_order()` มีรูปแบบ TOCTOU race ทางทฤษฎีเดียวกับ `cancel_order()` เดิม (exists-check แยกก่อน แล้ว UPDATE สุดท้ายไม่ re-check status/ownership ซ้ำ) — เป็น pattern ที่สืบทอดมาจาก `cancel_order()` ของ ZOKY-003 ที่ผ่าน QA มาแล้ว ไม่ใช่ช่องโหว่ใหม่ที่ SELLER-003 introduce เอง (Product spec ข้อ 4 และ Design spec สั่งให้ mirror shape เดิมตรง ๆ โดยเจตนา) ความเสี่ยงจริงต่ำมาก (ต้องมี 2 คำขอ concurrent จาก session เดียวกันแย่ง cancel ออเดอร์เดียวกันพร้อมกันเป๊ะ ไม่ใช่ cross-tenant leak) — เสนอเป็น hardening task แยกในอนาคต: เพิ่ม `for update` lock ให้ `cancel_order()`/`seller_cancel_order()` ทั้งคู่
+Recommendation:
+  1. อนุมัติเข้า production-ready backlog ทันที (ไม่มีจุดที่ block)
+  2. เสนอ fast-follow (ไม่ block): เพิ่ม `for update` row lock ให้ `cancel_order()`/`seller_cancel_order()` เพื่อปิด TOCTOU race ทางทฤษฎีที่สืบทอดมาจาก ZOKY-003
+  3. เมื่อมี live Supabase project จริง ควรทดสอบ migration SQL แบบ dynamic อีกครั้ง (รัน schema.sql เต็มไฟล์บน DB ทดสอบ) ก่อน deploy จริงครั้งแรก เพราะ QA รอบนี้ตรวจได้แค่ระดับอ่าน SQL semantics เท่านั้น (ไม่มี live Postgres ให้ทดสอบเหมือนทุก task ก่อนหน้า)
+Final Status: PASS
+```
