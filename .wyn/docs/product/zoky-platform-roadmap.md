@@ -35,11 +35,40 @@
 - **Store Follow**: master prompt (Section 7) ระบุปุ่ม "Follow Store" แต่ระบบ Follow เดิมของ WYN Social (WYN-008, `FollowRepository`) เป็นการ follow **ผู้ใช้ (profile)** ไม่ใช่ follow **ร้านค้า (store)** ซึ่งเป็น entity คนละแบบ (store เป็นเจ้าของโดย seller คนหนึ่งแต่ไม่ใช่ profile ของลูกค้าที่จะ follow กัน) — ต้องออกแบบตาราง follow ใหม่แยกสำหรับ store (เช่น `store_follows`) ไม่ reuse ตาราง `follows` เดิมตรง ๆ
 - **Chat Seller**: master prompt (Section 7) ระบุปุ่ม "Chat Seller" แต่โปรเจกต์นี้ไม่เคยมีระบบ chat/messaging เลยแม้แต่จุดเดียว (WYN Social ทั้งหมดเป็น content-based ไม่ใช่ 1-on-1 messaging) — เป็นงานคนละขนาดจาก Marketplace browsing ปกติ เสนอ **defer ปุ่มนี้ไปเป็น task แยกในอนาคต** (คล้ายที่ hashtag-click-through/mention ถูก defer มาหลายรอบในโปรเจกต์นี้) ไม่ทำใน ZOKY-001
 
-## Phase 4 — ZOKY Sellers by WYN (รอเนื้อหา Seller section จาก Founder)
+## Phase 4 — ZOKY Sellers by WYN
 
-ZOKY Marketplace Customer (ZOKY-001 ถึง ZOKY-004) เสร็จสมบูรณ์แล้ว มี Order จริงให้ Seller จัดการแล้ว — **Founder ตัดสินใจสถาปัตยกรรมสุดท้ายเมื่อ 2026-08-15: แอป Flutter แยกต่างหาก** (ไม่ใช่ feature module ในแอปเดิม) เทียบเท่าโมเดล Shopee/Lazada Seller Center — ดูเหตุผลเต็มที่ `.wyn/company/DECISIONS.md` (2026-08-15 "Phase 4 (ZOKY Sellers by WYN) — Founder แก้ไขคำตัดสินใจเป็นแอปแยกต่างหาก" ซึ่งแทนที่ entry ก่อนหน้าที่เคยเลือก feature module) — Backend ยังคงใช้ Supabase project เดียวกัน (ไม่แยก backend) ตามที่ master prompt ระบุไว้ว่า "Shared Backend" เป็นส่วนหนึ่งของ WYN Platform — สิ่งที่ต้องตัดสินใจเพิ่มก่อนเริ่ม implement จริง: โครงสร้าง repository ของแอปที่สอง (โฟลเดอร์แยกใน repo เดียวกัน vs monorepo tooling จริงจังอย่าง Melos เพื่อ share package), และแนวทาง share/duplicate design system ระหว่างสองแอป — ให้ AI Product Manager/Design เสนอทางเลือกตอนเริ่มงานจริง
+ZOKY Marketplace Customer (ZOKY-001 ถึง ZOKY-004) เสร็จสมบูรณ์แล้ว มี Order จริงให้ Seller จัดการแล้ว — **Founder ตัดสินใจสถาปัตยกรรมสุดท้ายเมื่อ 2026-08-15: แอป Flutter แยกต่างหาก** (ไม่ใช่ feature module ในแอปเดิม) เทียบเท่าโมเดล Shopee/Lazada Seller Center — ดูเหตุผลเต็มที่ `.wyn/company/DECISIONS.md` (2026-08-15 "Phase 4 (ZOKY Sellers by WYN) — Founder แก้ไขคำตัดสินใจเป็นแอปแยกต่างหาก") — Founder ส่งเนื้อหาเต็มของ master prompt Section 12-17 มาแล้ว (2026-08-15)
 
-**สถานะปัจจุบัน**: รอ Founder ส่งเนื้อหาเต็มของ "WYN PLATFORM — MASTER DEVELOPMENT PROMPT" ส่วนที่เกี่ยวกับ Seller (Section 12-17 โดยประมาณ) มาใหม่ก่อนเริ่มเขียน Product spec จริง — เนื้อหาเต็มไม่เคยถูกเก็บไว้ใน repo เลยตั้งแต่ต้น มีแค่ summary ระดับสูงที่ AI Product Manager สรุปไว้ตอนวาง roadmap นี้ (2026-08-14)
+### สถาปัตยกรรมที่ตัดสินใจแล้วสำหรับ Phase 4 (AI Product Manager ตรวจสอบ repo แล้วก่อนเริ่ม)
+
+- **Repository ของแอปที่สอง**: โฟลเดอร์ใหม่ `seller_app/` ที่ root ของ repo เดียวกัน (คู่กับ `app/` เดิม) — **ไม่ใช้ Melos/monorepo tooling ในรอบแรก** เพราะยังไม่มี pain จริงจากการไม่มี shared package (โปรเจกต์เล็ก มีแค่ 2 แอป) การตั้ง monorepo tooling เป็นการลงทุนโครงสร้างที่ยังไม่จำเป็น — ถ้า duplication เริ่มเจ็บปวดจริงในอนาคต (เช่น ต้องแก้ widget เดียวกันสองที่บ่อย ๆ) ค่อยประเมิน Melos ใหม่ตอนนั้น
+- **Bundle ID/ชื่อแอป**: `app/`'s bundle ID ปัจจุบันคือ `io.wyn.wyn` (ทั้ง Android/iOS) — `seller_app/` ใช้ `io.wyn.zokyseller` ให้สอดคล้องกัน ชื่อแอป "ZOKY Sellers by WYN" ตาม branding ที่ Founder ระบุ (Section 34)
+- **Backend**: Supabase project เดียวกันกับ `app/` (Shared Backend ตาม master prompt) — อ่าน `Env`/`--dart-define` pattern เดิมจาก `app/lib/core/env.dart` แล้ว duplicate เข้า `seller_app/` (ไฟล์เล็กมาก ไม่คุ้มสร้าง shared package สำหรับไฟล์เดียว)
+- **Authentication**: **reuse Supabase Auth เดียวกันกับ WYN Social ทั้งหมด** (`auth.users`/`profiles` เดิม) — Seller คือผู้ใช้ WYN ที่มีอยู่แล้วซึ่ง "สมัครร้าน" เพิ่ม (สร้างแถวใน `stores` ที่ `owner_id = auth.uid()` — คอลัมน์นี้มีอยู่แล้วตั้งแต่ ZOKY-001) — **ไม่สร้างระบบ auth ใหม่แยกต่างหาก** ตรงตามกติกา "ห้ามเขียนระบบซ้ำ" ของ master prompt เอง — sign-in screen ของ `seller_app/` เรียก Supabase Auth เดียวกัน แต่เป็น UI ใหม่แยกไฟล์ (ไม่ share widget code กับ `app/` เพราะเป็นคนละ Flutter binary และยังไม่มี package infra ให้ share) — ขอบเขต flow ที่แน่นอน (reuse mechanism ไหนจาก 6 หน้าจอ auth เดิมของ WYN Social) ให้ AI Design ตัดสินใจตอนออกแบบ SELLER-001
+- **Design system**: ใช้ seed color เดียวกัน (`0xFF2D6CDF`, Blue+White+Soft Gray, Material 3) — duplicate `ThemeData` setup เข้า `seller_app/main.dart` ตรง ๆ (ไม่ share package เหตุผลเดียวกับ Env)
+- **Database — RLS ที่ต้องเพิ่มใหม่** (ตารางเดิมทั้งหมดมีอยู่แล้วตั้งแต่ ZOKY-001/003 แต่เป็น select-only สำหรับ client ทั้งหมด ไม่มี seller เขียนได้เลยสักจุด):
+  - `stores`: เพิ่ม insert/update policy scoped `owner_id = auth.uid()`
+  - `products`/`product_variants`: เพิ่ม insert/update/delete policy scoped ผ่าน `exists` subquery ยืนยันว่า `products.store_id` เป็นร้านของ `auth.uid()` เอง (pattern เดียวกับ `club_posts`'s `club_role()` check จาก WYN-014)
+  - `orders`/`order_items`: เพิ่ม **select** policy ใหม่ให้ seller เห็น order ของร้านตัวเอง (ปัจจุบันมีแค่ select policy ฝั่ง buyer เท่านั้น) — ยังไม่เพิ่ม write policy ให้ seller ตรง ๆ รอบนี้ (status transition ของ seller ต้องผ่าน RPC ใหม่เหมือน buyer-side เดิม เหตุผลเดียวกัน — ทำใน SELLER-003)
+- **Order status ต้องขยายจาก 3 สถานะเป็น 8 สถานะ** ตามที่ master prompt Section 10 ระบุไว้ตั้งแต่ต้น (Pending Payment → Paid → Seller Processing → Ready to Ship → Shipped → Delivered / Cancelled / Refunded) — ZOKY-003 ตั้งใจทำแค่ 3 สถานะ (pending/delivered/cancelled) และบันทึกไว้ชัดเจนในตอนนั้นว่า **"เมื่อ ZOKY Sellers by WYN เริ่มจริง จะต้องออกแบบสถานะเพิ่ม (confirmed/shipped) และ migration/RPC ใหม่ที่ผูกกับสิทธิ์ของ Seller"** (ดู `.wyn/tasks/approved/ZOKY-003-cart-checkout-order.md`, Risks) — ถึงจุดนั้นแล้วตอนนี้ งานนี้แยกเป็น SELLER-003 (Order Management) เพราะเป็นจุดที่กระทบโค้ด Customer-facing ที่ผ่าน QA แล้ว (`OrderStatusBadge`, `ZokyOrderDetailScreen`) มากที่สุด ต้องระมัดระวังเป็นพิเศษไม่ให้ regression
+
+### Task breakdown (SELLER-XXX)
+
+| Task | Feature | ครอบคลุม (Section master prompt) | Depends on |
+|---|---|---|---|
+| **SELLER-001** | Foundation — แอปใหม่, Seller sign-in (reuse WYN auth), "สมัครร้าน" flow, Seller Dashboard (สถิติที่ทำได้จริงตอนนี้) | Section 12 (สมัคร/สร้างร้าน), 13 (Dashboard — บางส่วน) | ZOKY-001 ถึง ZOKY-004 (Marketplace Customer ต้องเสร็จ มี Order จริงให้แสดง) |
+| **SELLER-002** | Product Management — Add/Edit/Delete/Enable-Disable, Price, Discount, Images, Variants, Stock, SKU | Section 14 | SELLER-001 |
+| **SELLER-003** | Order Management — ขยายสถานะ 3→8, View/Accept/Process/Ready to Ship/Tracking/Update Status | Section 10 (ขยายสถานะ), 15, 19 (Shipping fields) | SELLER-001, กระทบ ZOKY-003 เดิมด้วย (ต้อง migration) |
+| **SELLER-004** | Store Management — Logo/Name/Banner/Description/Address/Contact | Section 16 | SELLER-001 |
+| **SELLER-005** | Finance — Gross Sales/ZOKY Fee/Net Revenue/Balance/Payout History | Section 17, 18 (fee config ใช้ `platform_config` เดิมจาก ZOKY-003) | SELLER-003 (ต้องมี Order ที่จบ flow แล้วถึงจะมียอดขายจริงคำนวณได้) |
+
+**เหตุผลที่แบ่งแบบนี้**: SELLER-001 ต้องมาก่อนเพราะเป็นจุดที่ตั้งค่าโครงสร้างแอปใหม่ทั้งหมด (auth/nav/theme) ให้ task อื่นต่อยอดได้ — SELLER-002 (จัดการสินค้า) ทำก่อน SELLER-003 (จัดการ Order) เพราะต้องมีสินค้าที่ seller คุมเองได้ก่อนถึงจะทดสอบ order flow แบบ end-to-end จริงได้ — SELLER-004 (ข้อมูลร้าน) ไม่ผูกกับ order/product เลยทำคู่ขนานกับ SELLER-002/003 ได้ — SELLER-005 (การเงิน) ต้องรอ Order ที่จบ flow จริงจาก SELLER-003 ก่อนถึงจะมียอดขายให้คำนวณค่าธรรมเนียม/รายได้จริง
+
+### ประเด็นที่ยังไม่ตัดสินใจ ณ จุดนี้ (ปล่อยให้ AI Design/Coding ตัดสินใจตอนออกแบบแต่ละ task)
+
+- **Payment/Payment Method**: master prompt Section 9 (Checkout) และ Section 18/26 (Finance) พูดถึง Payment Method/Payment Fee แต่ ZOKY-003 ตั้งใจไม่ทำ payment gateway จริง (Order สร้างตรงเทียบเท่าเก็บเงินปลายทาง) — **ยังไม่เปลี่ยนการตัดสินใจนี้ใน Phase 4** เพราะยังไม่มี payment provider จริงให้เชื่อม (เป็นคนละงานจาก Sellers app) — SELLER-005's Finance จะคำนวณจาก Order.total ที่มีอยู่แล้ว ไม่ใช่จาก payment gateway จริง — Payment Fee field ใน UI จะแสดงเป็น 0/ไม่มีจนกว่าจะมี payment provider จริง
+- **Shipping Provider integration**: ตาม master prompt Section 19 เอง ระบุชัดว่า "ไม่ต้องสร้างบริษัทขนส่งเอง" รอบนี้ — SELLER-003 จะเพิ่มช่อง Shipping Provider (free text)/Tracking Number/Shipment Status ให้ Order รองรับ แต่ไม่เชื่อมต่อ API ขนส่งจริง
+- **Seller Approval workflow** (Section 25 — Admin อนุมัติ Seller ก่อนเปิดขาย): เป็นงานของ WYN Admin (Phase 6) ที่ยังไม่เริ่ม — SELLER-001 รอบนี้ให้ "สมัครร้าน" แล้วขายได้ทันที (auto-approved) เพราะยังไม่มี Admin ให้อนุมัติ บันทึกเป็น Known Issue ชัดเจน ไม่ใช่การมองข้าม
 
 ## Phase 5 — เชื่อม Customer ↔ Seller ↔ Backend (ยังไม่เริ่ม)
 
@@ -52,12 +81,13 @@ ZOKY Marketplace Customer (ZOKY-001 ถึง ZOKY-004) เสร็จสมบ
 ## ขอบเขตที่ยืนยันแล้วว่า "ยังไม่ทำ" รอบนี้ (ตามที่ master prompt ระบุไว้ตรง ๆ)
 
 - ZOKY Food / ZOKY Rider / ZOKY Delivery เต็มระบบ — เตรียม Architecture ให้ขยายได้เท่านั้น ไม่ implement
-- ZOKY Sellers by WYN, WYN Admin — Phase 4/6 ตามลำดับ
+- WYN Admin — Phase 6 ยังไม่เริ่ม (รวมถึง Seller Approval workflow)
 - Coupon/Campaign/Flash Sale/Featured Products (Admin Promotions, Section 28) — ทำได้แค่ "รองรับในอนาคต" ตามที่ระบุ ไม่ implement เต็มรูปแบบรอบนี้
 - Shipping Provider integration จริง (Section 19) — ออกแบบ Order ให้มีช่อง Shipping Provider/Tracking Number/Shipment Status รองรับ แต่ไม่เชื่อมต่อผู้ให้บริการขนส่งจริง
+- Payment gateway จริง (Section 9/18/26) — Order/Finance คำนวณจาก Order.total ที่มีอยู่แล้ว ไม่ใช่จาก payment provider จริง
 
 ## Naming & Numbering Convention
 
-- Task ID prefix: **ZOKY-XXX** (แยกจาก WYN-XXX เดิมของ WYN Social) — เก็บใน `.wyn/tasks/` workflow เดียวกันทุกประการ (backlog → review → approved)
-- Branding: **ZOKY** เป็นชื่อ Marketplace (ไม่ใช่ "WYN Shop") ตามที่ Founder ระบุห้ามใช้ชื่อนั้นตรง ๆ ใน master prompt Section 34
+- Task ID prefix: **ZOKY-XXX** สำหรับ ZOKY Marketplace Customer (แยกจาก WYN-XXX เดิมของ WYN Social), **SELLER-XXX** สำหรับ ZOKY Sellers by WYN (Phase 4) — เก็บใน `.wyn/tasks/` workflow เดียวกันทุกประการ (backlog → review → approved)
+- Branding: **ZOKY** เป็นชื่อ Marketplace (ไม่ใช่ "WYN Shop") ตามที่ Founder ระบุห้ามใช้ชื่อนั้นตรง ๆ ใน master prompt Section 34 — แอป Seller ชื่อ **"ZOKY Sellers by WYN"**
 - Governance: WYN AI Company workflow เดียวกันทั้งหมด (Product→Design→Code→QA→Debug, Thai สำหรับ Founder-facing, English สำหรับโค้ด, PR-per-role squash-merge, progress % reporting)
