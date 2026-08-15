@@ -2141,16 +2141,42 @@ create policy "Buyers can review their own delivered order items"
     )
   );
 
--- Editing/deleting a review never re-checks the order's status --
--- once a review has legitimately passed the insert gate above, the
--- order it came from can only ever stay 'delivered' (orders' 3-state
--- design has no transition back out of delivered), so there's nothing
--- left to re-verify beyond plain ownership.
+-- Deleting a review never re-checks the order's status -- once a
+-- review has legitimately passed the insert gate above, the order it
+-- came from can only ever stay 'delivered' (orders' 3-state design
+-- has no transition back out of delivered), and delete has no "new
+-- row" whose columns could be retargeted, so plain ownership is
+-- enough here.
+--
+-- Editing is a different story: without an explicit WITH CHECK,
+-- Postgres reuses this policy's USING expression as the check on the
+-- *new* row too (see the Postgres RLS docs on CREATE POLICY) -- and
+-- `auth.uid() = user_id` alone says nothing about order_item_id/
+-- product_id, so a bare `using` clause here would let a user edit
+-- their own already-legitimate review to retarget it at any
+-- product/order_item, including ones they never bought or had
+-- delivered (found in QA round 1, see .wyn/tasks/bugs/
+-- ZOKY-004-review-update-rls-gap.md). The WITH CHECK below mirrors
+-- the insert policy's exists() gate exactly, so whatever
+-- order_item_id/product_id the row carries after an update, it must
+-- still be a delivered purchase the caller owns.
 create policy "Users can update their own reviews"
   on public.reviews
   for update
   to authenticated
-  using (auth.uid() = user_id);
+  using (auth.uid() = user_id)
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1
+      from public.order_items oi
+      join public.orders o on o.id = oi.order_id
+      where oi.id = order_item_id
+        and oi.product_id = product_id
+        and o.buyer_id = auth.uid()
+        and o.status = 'delivered'
+    )
+  );
 
 create policy "Users can delete their own reviews"
   on public.reviews
