@@ -1,7 +1,7 @@
 # Bug Report — ZOKY-004
 
-Status: bugs (แก้แล้ว รอ QA รอบ 2)
-Owner: AI Debug Engineer (เสร็จ)
+Status: closed (แก้แล้ว ผ่าน QA รอบ 2 — PASS)
+Owner: AI Debug Engineer (เสร็จ) → AI QA & Security (รอบ 2 — PASS)
 
 Bug: `reviews` table's `update` RLS policy does not re-verify the delivered-order-ownership gate, letting a user retarget their own (legitimately-written) review onto any `product_id`/`order_item_id` without ever having purchased/received it — defeating the entire feature's core "no fake reviews" security guarantee.
 
