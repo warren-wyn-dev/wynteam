@@ -1,7 +1,7 @@
 # Bug Report — ZOKY-004
 
-Status: bugs
-Owner: AI Debug Engineer
+Status: bugs (แก้แล้ว รอ QA รอบ 2)
+Owner: AI Debug Engineer (เสร็จ)
 
 Bug: `reviews` table's `update` RLS policy does not re-verify the delivered-order-ownership gate, letting a user retarget their own (legitimately-written) review onto any `product_id`/`order_item_id` without ever having purchased/received it — defeating the entire feature's core "no fake reviews" security guarantee.
 
@@ -55,3 +55,19 @@ Tests: No existing Flutter widget test can exercise raw RLS policy behavior (the
 Regression Risk: Low — the fix only *tightens* the update policy; it cannot make any previously-valid, legitimate edit (rating/text_content change without touching `order_item_id`/`product_id`) fail, since those values remain unchanged and were already known-valid at insert time. Re-run the full `flutter analyze`/`flutter test` suite to confirm no Dart-side behavior assumed the looser policy.
 
 Handoff to QA: Once the `with check` clause is added and verified (SQL read-through, since there's no live Postgres to execute against), send back to AI QA & Security for round 2 — QA must re-verify this specific policy plus re-run the full Requirements/Design/Acceptance Criteria walk (not just the fixed spot), per the project's established regression-test-memory convention (`.wyn/company/WORKFLOW.md`, "QA รอบถัดไปตรวจสอบ failure เดิมด้วย").
+
+---
+
+## Debug Output (AI Debug Engineer)
+
+Fix applied exactly as proposed above — `supabase/schema.sql`'s `"Users can update their own reviews"` policy now carries `with check (auth.uid() = user_id and exists (...))`, mirroring the `insert` policy's gate. Added an expanded code comment explaining why `delete` doesn't need the same treatment (no "new row" to retarget) while `update` does (Postgres reuses `using` as the implicit check when `with check` is absent — that's precisely the gap), and cross-referenced this bug report.
+
+No Dart changes were needed or made: `ZokyRepository.editReview` only ever sends `rating`/`text_content`/`updated_at` in its update payload, never `order_item_id`/`product_id`, so those columns retain their already-valid values on every legitimate edit — the tightened policy cannot reject any behavior the app actually performs.
+
+Tests: no Flutter test can exercise live RLS (no deployed Supabase project this session, same limitation noted in every prior RLS review). Re-ran the full suite regardless to confirm the SQL-only change didn't disturb anything: `flutter analyze` clean, `flutter test` 253/253 (identical count to before the fix, as expected for a change with zero Dart-code impact).
+
+Regression Risk: Low, as anticipated — the fix only tightens a policy that no legitimate app code path could have violated in the first place.
+
+Lessons learned: recorded in `.wyn/learning/LESSONS_LEARNED.md` and `.wyn/learning/MISTAKES.md` — RLS `update`/`delete` policies must always get the same explicit security-audit attention as `insert` policies, specifically checking whether an absent `with check` silently falls back to a weaker implicit check via Postgres' `using`-as-check-for-update behavior.
+
+Handoff to QA: send back to AI QA & Security for round 2.
