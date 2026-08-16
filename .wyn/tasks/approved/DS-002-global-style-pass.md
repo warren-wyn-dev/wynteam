@@ -1,6 +1,6 @@
 # Product Task — DS-002
 
-Status: in progress — Part 1 (spacing/radius token adoption) + Part 2 (Card/shadow flattening) coded + self-verified 2026-08-16, PASS. Touch-target audit (R4) + 70 leftover micro-spacing literals deferred to DS-008 by design. Recommend a quick visual screenshot pass before treating fully closed (see Part 2 output).
+Status: completed — Part 1 (spacing/radius token adoption) + Part 2 (Card/shadow flattening) coded + self-verified 2026-08-16, PASS. Touch-target audit (R4) and the 70 leftover micro-spacing literals, both deferred to DS-008 by design, are now resolved -- see `.wyn/tasks/approved/DS-008-responsive-accessibility.md` (6 real touch-target violations fixed, 2 left untouched in suspended Pop feature; micro-spacing literals formally kept as an intentional exception, not left open).
 Owner: AI Product Manager
 
 Feature: WYN Design System Refinement — Phase 2: Global UI Style Pass (spacing/radius/card weight)
