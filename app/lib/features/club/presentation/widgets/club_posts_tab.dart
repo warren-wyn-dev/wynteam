@@ -259,10 +259,15 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
 
     return RefreshIndicator(
       onRefresh: _loadInitial,
-      child: ListView.builder(
+      child: ListView.separated(
         controller: _scrollController,
         padding: const EdgeInsets.only(bottom: 80),
         itemCount: _posts.length + (_hasMore ? 1 : 0),
+        // A hairline divider between posts, same as Home Feed (DS-003) --
+        // never before the loading spinner. See that screen's identical
+        // comment for why Divider() alone (no color) is correct here.
+        separatorBuilder: (context, index) =>
+            index + 1 < _posts.length ? const Divider(height: 1) : const SizedBox.shrink(),
         itemBuilder: (context, index) {
           if (index >= _posts.length) {
             return const Padding(
