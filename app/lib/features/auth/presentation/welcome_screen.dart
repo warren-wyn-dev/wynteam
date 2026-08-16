@@ -29,9 +29,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('เข้าใช้งานแบบไม่ล็อกอินไม่สำเร็จ: อาจยังไม่ได้เปิดใช้งานบน Supabase'),
-        ),
+        SnackBar(content: Text('เข้าใช้งานแบบไม่ล็อกอินไม่สำเร็จ: $e')),
       );
     } finally {
       if (mounted) setState(() => _guestLoading = false);
