@@ -1,7 +1,23 @@
 # Product Task — WYN-021
 
-Status: QA รอบ 1 — FAIL (Major security finding — RLS gap ใน `club_post_mentions`) — ส่งต่อ AI Debug Engineer, 2026-08-17
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (independent — FAIL) → AI Debug Engineer (ถัดไป)
+Status: Debug แก้แล้ว — พร้อมส่งกลับ AI QA & Security รอบ 2, 2026-08-16
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (independent — FAIL รอบ 1) → AI Debug Engineer (แก้แล้ว) → AI QA & Security (รอบ 2 — ถัดไป)
+
+## Debug — Round 1 fix (AI Debug Engineer, 2026-08-16)
+
+Bug: `.wyn/tasks/bugs/WYN-021-club-post-mentions-rls-gap.md` (full reproduction/root-cause/fix detail there — this is a summary for the task record).
+
+Reproduced independently against real local Postgres 16 (own stub harness of `auth`/`storage`, loaded `supabase/schema.sql` with `ON_ERROR_STOP=1`) before touching any code — confirmed `outsider` (zero membership in a private Club) got 0 rows from `club_posts` but 1 row from `club_post_mentions`, matching QA's report exactly.
+
+Fix: `supabase/schema.sql`'s `club_post_mentions` `select` policy changed from `using (true)` to the same club-membership-gated shape as `club_post_likes`/`club_post_comments` (`exists (... club_role(cp.club_id, auth.uid()) is not null)`). Audited the table's other policies while in the area: `insert` policy (author-only) already correct and untouched; no `update`/`delete` policy exists, same as sibling `drop_mentions`, by design (mentions are write-once at post-creation, never edited standalone) — not a gap. `drop_mentions`'s `using (true)` policy left untouched as QA specified (drops have no privacy boundary).
+
+Regression test: added `supabase/tests/wyn_021_club_post_mentions_rls_test.sh` — new, persisted, re-runnable live-Postgres RLS regression test (first of its kind in this project; prior RLS-against-real-Postgres checks were always manual/throwaway). Proved red→green with this exact script: pre-fix (`git stash`) → script fails (`CHECK2_outsider_club_post_mentions: expected 0, got 1`); post-fix (`git stash pop`) → all 5 checks pass.
+
+`flutter analyze`: clean. `flutter test`: 362/362 (unchanged — pure SQL fix, no Dart touched; confirmed via grep that the only Dart reference to `club_post_mentions` is `ClubPostRepository.createPost`'s insert, unaffected by a `select`-policy change).
+
+Files changed: `supabase/schema.sql` (`club_post_mentions`'s `select` policy), `supabase/tests/wyn_021_club_post_mentions_rls_test.sh` (new).
+
+Handoff: back to AI QA & Security for round 2 — must independently re-verify against real Postgres (not just trust this report) plus re-run the full Requirements/Design/Acceptance Criteria walk and round 1's other two independent proofs (self-mention guard, non-author insert block) per WORKFLOW.md's regression-test-memory convention. **Not moved to `approved/`** — stays in `review/` until QA round 2 passes, per WORKFLOW.md ("ห้ามข้าม QA").
 
 ## Independent QA — Round 1 (AI QA & Security, 2026-08-17)
 
