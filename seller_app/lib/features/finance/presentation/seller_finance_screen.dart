@@ -291,7 +291,7 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
     final balance = _totalsFor(_FinancePeriod.allTime).net;
 
     return Card(
-      color: colorScheme.primaryContainer,
+      color: colorScheme.tertiaryContainer,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -299,14 +299,14 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.account_balance_wallet_outlined, color: colorScheme.onPrimaryContainer),
+                Icon(Icons.account_balance_wallet_outlined, color: colorScheme.onTertiaryContainer),
                 const SizedBox(width: 8),
                 Text(
                   'ยอดคงเหลือสะสม',
                   style: Theme.of(context)
                       .textTheme
                       .titleMedium
-                      ?.copyWith(color: colorScheme.onPrimaryContainer),
+                      ?.copyWith(color: colorScheme.onTertiaryContainer),
                 ),
               ],
             ),
@@ -315,7 +315,7 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
               thaiBahtLabel(balance),
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: colorScheme.onPrimaryContainer,
+                    color: colorScheme.onTertiaryContainer,
                   ),
             ),
             const SizedBox(height: 8),
@@ -324,7 +324,7 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
-                  ?.copyWith(color: colorScheme.onPrimaryContainer),
+                  ?.copyWith(color: colorScheme.onTertiaryContainer),
             ),
             const SizedBox(height: 12),
             SizedBox(
@@ -390,7 +390,7 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
               'สุทธิ (Net Revenue)',
               thaiBahtLabel(totals.net),
               emphasize: true,
-              color: colorScheme.primary,
+              color: colorScheme.tertiary,
             ),
             const SizedBox(height: 8),
             Text(

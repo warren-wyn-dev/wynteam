@@ -249,11 +249,19 @@ class _ZokyOrderDetailScreenState extends State<ZokyOrderDetailScreen> {
                                             color: Theme.of(context).colorScheme.outline,
                                           ),
                                     ),
-                                  Text('${thaiBahtLabel(item.unitPrice)} x${item.quantity}'),
+                                  Text(
+                                    '${thaiBahtLabel(item.unitPrice)} x${item.quantity}',
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.tertiary,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
-                            Text(thaiBahtLabel(item.lineTotal)),
+                            Text(
+                              thaiBahtLabel(item.lineTotal),
+                              style: TextStyle(color: Theme.of(context).colorScheme.tertiary),
+                            ),
                           ],
                         ),
                         if (order.status == OrderStatus.delivered && item.productId != null)

@@ -42,11 +42,16 @@ class OrderStatusBadge extends StatelessWidget {
       OrderStatus.pendingPayment ||
       OrderStatus.refunded =>
         (colorScheme.surfaceContainerHighest, colorScheme.onSurfaceVariant),
+      // DS-001 Section 4 rule #4 ("Commerce state ที่เป็นบวก") -- these
+      // in-progress order states are ZOKY commerce state, so they use the
+      // ZOKY sub-theme's tertiary (Orange) container, not primaryContainer
+      // (Cyan) -- Cyan must never render as a visible accent in
+      // seller_app (see wyn_zoky_theme.dart's header comment).
       OrderStatus.paid ||
       OrderStatus.sellerProcessing ||
       OrderStatus.readyToShip ||
       OrderStatus.shipped =>
-        (colorScheme.primaryContainer, colorScheme.onPrimaryContainer),
+        (colorScheme.tertiaryContainer, colorScheme.onTertiaryContainer),
       OrderStatus.delivered => (Colors.green.shade100, Colors.green.shade800),
       OrderStatus.cancelled => (colorScheme.errorContainer, colorScheme.onErrorContainer),
     };

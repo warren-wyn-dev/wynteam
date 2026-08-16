@@ -110,7 +110,7 @@ class SellerTransactionTile extends StatelessWidget {
             text: thaiBahtLabel(net),
             style: bodySmall?.copyWith(
               fontWeight: FontWeight.bold,
-              color: colorScheme.primary,
+              color: colorScheme.tertiary,
             ),
           ),
         ],

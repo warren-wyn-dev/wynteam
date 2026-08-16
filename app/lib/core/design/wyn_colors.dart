@@ -80,6 +80,23 @@ class WynColors {
   static const Color likeDark = Color(0xFFFB7185);
 
   // ---------------------------------------------------------------------
+  // Technical/overlay tokens -- NOT brand colors. Not part of DS-001's
+  // Section 2.3/2.4 scale (that section is scoped to brand/neutral/status
+  // colors, not technical image overlays). Discovered during DS-001c
+  // implementation: a handful of grid tiles/clip views draw a
+  // semi-transparent black scrim behind white text/badges so they stay
+  // readable on top of arbitrary user-uploaded photos/video frames --
+  // this has nothing to do with light/dark theme or brand identity (the
+  // scrim is always black, on both themes, because it sits directly on a
+  // photo/video, not on a themed surface). Named here instead of staying
+  // as inline `Color(0x...)` literals so DS-001's own "no hardcoded
+  // Color(0x...) outside this file" rule holds without inventing a
+  // brand-color meaning that doesn't exist for these values.
+  // ---------------------------------------------------------------------
+  static const Color imageScrim = Color(0x99000000);
+  static const Color imageScrimStrong = Color(0xCC000000);
+
+  // ---------------------------------------------------------------------
   // 3.1 WYN Social — Light `ColorScheme`
   // ---------------------------------------------------------------------
   static const ColorScheme socialLightScheme = ColorScheme(

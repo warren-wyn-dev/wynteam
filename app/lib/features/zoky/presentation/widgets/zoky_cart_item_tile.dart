@@ -75,7 +75,7 @@ class ZokyCartItemTile extends StatelessWidget {
                 Text(
                   thaiBahtLabel(product.price),
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
+                        color: Theme.of(context).colorScheme.tertiary,
                         fontWeight: FontWeight.bold,
                       ),
                 ),

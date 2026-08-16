@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/text_utils.dart';
 import '../../data/product.dart';
 
@@ -34,7 +35,7 @@ class ProductGridTile extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0x99000000),
+                      color: WynColors.imageScrim,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(

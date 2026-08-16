@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../../core/design/wyn_colors.dart';
 import '../../../pop/presentation/widgets/pop_clip_view.dart' show popShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
@@ -102,7 +103,7 @@ class HomePopCard extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0x99000000),
+                            color: WynColors.imageScrim,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
