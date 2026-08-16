@@ -41,7 +41,16 @@ class ProductGridTile extends StatelessWidget {
                     child: Text(
                       thaiBahtLabel(product.price),
                       style: const TextStyle(
-                        color: Colors.white,
+                        // DS-001 Section 4, rule #1 names this file
+                        // directly ("ราคาสินค้าทุกที่ ... grid tile ...").
+                        // Orange over WynColors.imageScrim (a ~60% black
+                        // overlay) reads the same as Orange over a dark
+                        // ground (6.98:1 per Section 2.2's contrast
+                        // table) -- a fixed constant, not
+                        // colorScheme.tertiary, so it renders Orange
+                        // regardless of which screen this tile is shown
+                        // on (ZOKY Home, Store, Search results).
+                        color: WynColors.orange500,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),

@@ -217,7 +217,7 @@ ZokyTheme = WynTheme.copyWith(colorScheme:
 
 | # | จุด | รายละเอียด | ไฟล์ที่เกี่ยวข้อง |
 |---|---|---|---|
-| 1 | **ราคา** | ตัวเลขราคาสินค้าทุกที่ (grid tile, product detail, cart, checkout summary, order detail) — light `#CC4A16`, dark `#FF6B35` | `product_grid_tile.dart`, `product_detail_screen`, `cart`, `order` |
+| 1 | **ราคา** | ตัวเลขราคาสินค้าทุกที่ (grid tile, product detail, cart, checkout summary, order detail) — ดิบ `#FF6B35` ทั้ง light และ dark (แก้ไข 2026-08-16: แถวนี้เคยเขียนไว้ว่า light ใช้ `#CC4A16` (`orange-700`, เฉดปรับให้ผ่าน AA) ซึ่งเป็นข้อความค้างจากดราฟต์ก่อน Founder เลือก B — ขัดกับ Section 3.0/3.4 ที่ยืนยันแล้วว่าราคาที่เป็นตัวหนังสือเปล่าบนพื้นขาวใช้ค่าดิบตรง ๆ และยอมรับ 2.84:1 เป็นความเสี่ยงที่ตัดสินใจแล้ว แก้ให้ตรงกันแล้ว) | `product_grid_tile.dart`, `product_detail_screen`, `cart`, `order` |
 | 2 | **ปุ่ม commerce CTA** | "เพิ่มลงตะกร้า", "ซื้อเลย", "สั่งซื้อ", "ชำระเงิน" — พื้นส้ม + ตัวอักษร (ขาวใน light / ดำใน dark) | ZOKY checkout flow |
 | 3 | **Seller badge / ป้ายร้าน** | ป้าย "ร้านค้า", "ZOKY Verified", ชื่อร้านที่กดได้ | `store_screen`, ป้ายบนการ์ดสินค้า |
 | 4 | **Commerce state ที่เป็นบวก** | "จัดส่งแล้ว"/"กำลังจัดส่ง"/แถบ progress ของออเดอร์ (ยกเว้นสถานะ error/cancel ที่ต้องใช้สีแดง semantic) | `OrderStatusBadge` |
@@ -235,6 +235,12 @@ ZokyTheme = WynTheme.copyWith(colorScheme:
 ### `seller_app/` (ZOKY Sellers by WYN)
 
 แอปนี้ **คือ commerce layer ทั้งแอป** จึงใช้ ZOKY sub-theme เป็น theme หลัก และผ่อนข้อจำกัดได้ 1 ข้อ: ส้มเป็นสี accent หลักของแอป (แท็บ active, ปุ่มหลัก, ตัวเลขยอดขาย) — แต่กติกา "ห้ามเป็นพื้นหลังขนาดใหญ่" ยังบังคับเหมือนเดิม และ Cyan **ห้ามปรากฏใน seller_app เลย** (คนละ identity ชัดเจน: ลูกค้าเห็น Cyan, ร้านค้าเห็น Orange)
+
+### `app/` — จุดที่ต้องระวังเป็นพิเศษ: ZOKY tab ฝังอยู่ใน Social app เดียวกัน (พบระหว่าง QA รอบ DS-001, 2026-08-16)
+
+ต่างจาก `seller_app/` ที่เป็นแอปแยกทั้งแอป (มี `ZokyTheme` ของตัวเอง ทั้งแอปได้ Orange อัตโนมัติ) — `app/` มี `MaterialApp`/`WynTheme` เดียวที่ใช้ร่วมกันทุกแท็บ (Home/Drop/Pop/Club/Profile/**ZOKY**) `WynColors.socialLightScheme`/`socialDarkScheme` ของ `app/` ตั้ง `tertiary = cyan500` เพราะช่องนี้ถูกออกแบบไว้สำหรับลิงก์/accent ฝั่ง Social (Section 3.1/3.2) — **การเรียก `colorScheme.tertiary` ที่ไหนก็ตามใน `app/` จึงได้ Cyan เสมอ ไม่มีทางได้ Orange** เพราะยังไม่มี mechanism ให้แท็บ ZOKY ภายใน `app/` override `tertiary` เป็น Orange เฉพาะ subtree ของตัวเอง (ต่างจาก `seller_app/` ที่ผูก Orange ไว้กับทั้งแอปได้ตรง ๆ)
+
+**ข้อกำหนดสำหรับ AI Coding**: จุดที่ Section 4 ข้อ 1 (ราคา) ระบุว่าต้องเป็น Orange ภายใน `app/lib/features/zoky/` **ห้ามอ่าน `colorScheme.tertiary` ตรง ๆ** ต้องมี local theme override (เช่น ห่อ subtree ของแท็บ ZOKY ด้วย `Theme(data: ...copyWith(colorScheme: ...copyWith(tertiary: WynColors.orange500, onTertiary: WynColors.ink, ...)))`) หรืออ้างอิง `WynColors.orange500` ตรง ๆ ที่จุดที่ต้องการ — ต้องเลือกวิธีใดวิธีหนึ่งอย่างชัดเจน ไม่ใช้ `colorScheme.tertiary` เปล่า ๆ โดยสมมติว่าจะได้ Orange
 
 ---
 

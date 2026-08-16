@@ -86,7 +86,7 @@ class OrderSummaryCard extends StatelessWidget {
                     Text(
                       thaiBahtLabel(order.total),
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
+                            color: Theme.of(context).colorScheme.tertiary,
                             fontWeight: FontWeight.bold,
                           ),
                     ),
