@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../../core/design/wyn_colors.dart';
 import '../../../drop/data/drop_repository.dart';
 import '../../../follow/data/follow_repository.dart';
 import '../../../profile/data/profile_repository.dart';
@@ -334,7 +335,7 @@ class _PopClipViewState extends State<PopClipView> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Color(0xCC000000)],
+                colors: [Colors.transparent, WynColors.imageScrimStrong],
               ),
             ),
           ),

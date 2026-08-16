@@ -454,7 +454,7 @@ class _SellerProductFormScreenState extends State<SellerProductFormScreen> {
                         style: TextButton.styleFrom(
                           foregroundColor: _isActive
                               ? Theme.of(context).colorScheme.error
-                              : Theme.of(context).colorScheme.primary,
+                              : Theme.of(context).colorScheme.tertiary,
                         ),
                         child: Text(_isActive ? 'ลบสินค้า' : 'เปิดขายอีกครั้ง'),
                       ),

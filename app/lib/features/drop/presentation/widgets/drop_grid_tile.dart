@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/design/wyn_colors.dart';
 import '../../data/drop.dart';
 
 /// One square tile in DropFeedScreen's grid. Deliberately minimal (just
@@ -36,7 +37,7 @@ class DropGridTile extends StatelessWidget {
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Color(0x99000000)],
+                        colors: [Colors.transparent, WynColors.imageScrim],
                       ),
                     ),
                     child: Row(

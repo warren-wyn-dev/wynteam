@@ -150,7 +150,10 @@ class _ZokyCheckoutSummaryScreenState extends State<ZokyCheckoutSummaryScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        Text(thaiBahtLabel(item.lineTotal)),
+                        Text(
+                          thaiBahtLabel(item.lineTotal),
+                          style: TextStyle(color: Theme.of(context).colorScheme.tertiary),
+                        ),
                       ],
                     ),
                   ),

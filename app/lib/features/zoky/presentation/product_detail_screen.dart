@@ -220,7 +220,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         Text(
           thaiBahtLabel(product.price),
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
+                color: Theme.of(context).colorScheme.tertiary,
                 fontWeight: FontWeight.bold,
               ),
         ),
