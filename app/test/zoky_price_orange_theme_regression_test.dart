@@ -14,6 +14,7 @@ import 'package:wyn/features/zoky/presentation/zoky_cart_screen.dart';
 import 'package:wyn/features/zoky/presentation/zoky_checkout_summary_screen.dart';
 import 'package:wyn/features/zoky/presentation/zoky_home_screen.dart';
 import 'package:wyn/features/zoky/presentation/zoky_order_detail_screen.dart';
+import 'package:wyn/features/zoky/presentation/zoky_order_list_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_zoky_repository.dart';
@@ -187,21 +188,20 @@ void main() {
       });
     });
 
-    group('ZokyCartItemTile price in ZokyCartScreen (${mode.name})', () {
+    group('ZokyCartItemTile price + grand total in ZokyCartScreen (${mode.name})', () {
       late RecordingZokyRepository repo;
 
       setUp(() {
         // Quantity 2 so the tile's unit price (125) and the bottom
-        // bar's line total (250) are different displayed values --
-        // avoids an ambiguous find.text('฿125') match against another
-        // Text showing the same number with a different (correct,
-        // colorScheme.primary) color.
+        // bar's grand total (250) are different displayed values --
+        // avoids an ambiguous find.text('฿125') match against a
+        // different Text showing the same number.
         repo = RecordingZokyRepository(cartItems: [
           CartItem(id: 'ci1', product: product(price: 125), variantSelection: '', quantity: 2),
         ]);
       });
 
-      testWidgets('resolves to orange500, not cyan500', (tester) async {
+      testWidgets('per-item price resolves to orange500, not cyan500', (tester) async {
         await tester.pumpWidget(MaterialApp(
           theme: mode.theme,
           home: ZokyCartScreen(zokyRepository: repo),
@@ -210,6 +210,74 @@ void main() {
         tester.takeException();
 
         final color = textColor(tester, find.text('฿125'));
+        expect(color, WynColors.orange500);
+        expect(color, isNot(WynColors.cyan500));
+      });
+
+      // DS-001d/BUG-2: the bottom bar's grand total used to read
+      // colorScheme.primary directly (Cyan) instead of
+      // colorScheme.tertiary -- a different, unrelated call site from
+      // the per-item price above, not covered by ZokyThemeScope's
+      // BUG-1 fix at all (it doesn't touch `primary`).
+      testWidgets('bottom bar grand total resolves to orange500, not cyan500', (tester) async {
+        await tester.pumpWidget(MaterialApp(
+          theme: mode.theme,
+          home: ZokyCartScreen(zokyRepository: repo),
+        ));
+        await tester.pumpAndSettle();
+        tester.takeException();
+
+        final color = textColor(tester, find.text('฿250'));
+        expect(color, WynColors.orange500);
+        expect(color, isNot(WynColors.cyan500));
+      });
+    });
+
+    group('OrderSummaryCard total in ZokyOrderListScreen (${mode.name})', () {
+      late RecordingZokyRepository repo;
+
+      setUp(() {
+        final order = Order(
+          id: 'o1',
+          storeId: 'store-1',
+          storeName: 'ร้านทดสอบ',
+          status: OrderStatus.paid,
+          recipientName: 'สมชาย ใจดี',
+          recipientPhone: '0812345678',
+          shippingAddress: '123 ถนนทดสอบ',
+          subtotal: 200,
+          feePercent: 10,
+          feeAmount: 20,
+          total: 220,
+          createdAt: DateTime.now(),
+        );
+        const orderItem = OrderItem(
+          id: 'oi1',
+          productId: 'p1',
+          productName: 'เสื้อยืด',
+          variantSelection: '',
+          unitPrice: 220,
+          quantity: 1,
+          imageUrl: 'https://example.supabase.co/products/p1.jpg',
+        );
+        repo = RecordingZokyRepository(orders: [order], orderItems: [orderItem]);
+      });
+
+      // DS-001d/BUG-2: ZokyOrderListScreen was never wrapped in
+      // ZokyThemeScope before this fix (it had no colorScheme.tertiary
+      // call site until now), so this test also proves the new
+      // ZokyThemeScope + Builder wrap resolves colorScheme.tertiary to
+      // Orange for a descendant widget (OrderSummaryCard), the same
+      // way ZokyOrderDetailScreen's existing wrap already does.
+      testWidgets('resolves to orange500, not cyan500', (tester) async {
+        await tester.pumpWidget(MaterialApp(
+          theme: mode.theme,
+          home: ZokyOrderListScreen(zokyRepository: repo),
+        ));
+        await tester.pumpAndSettle();
+        tester.takeException();
+
+        final color = textColor(tester, find.text('฿220'));
         expect(color, WynColors.orange500);
         expect(color, isNot(WynColors.cyan500));
       });

@@ -5,6 +5,7 @@ import '../data/order.dart';
 import '../data/order_item.dart';
 import '../data/zoky_repository.dart';
 import 'widgets/order_summary_card.dart';
+import 'widgets/zoky_theme_scope.dart';
 import 'zoky_order_detail_screen.dart';
 
 /// Screen 5 (ZOKY-003) -- the buyer's order history. Opened from ZOKY
@@ -100,35 +101,47 @@ class _ZokyOrderListScreenState extends State<ZokyOrderListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('คำสั่งซื้อของฉัน')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _orders.isEmpty
-              ? const SearchStateMessage(
-                  icon: Icons.receipt_long_outlined,
-                  text: 'ยังไม่มีคำสั่งซื้อ',
-                )
-              : ListView.separated(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: _orders.length + (_hasMore ? 1 : 0),
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    if (index >= _orders.length) {
-                      return const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    final (order, items) = _orders[index];
-                    return OrderSummaryCard(
-                      order: order,
-                      items: items,
-                      onTap: () => _openOrder(order),
-                    );
-                  },
-                ),
+    return ZokyThemeScope(
+      // Builder gives OrderSummaryCard's Theme.of(context) call (the
+      // per-order total, DS-001d/BUG-2) a context that is a genuine
+      // *descendant* of ZokyThemeScope's Theme override. Reusing the
+      // outer build(context) parameter directly would NOT work -- see
+      // product_detail_screen.dart's build() for the full explanation.
+      // Caught by this file's regression test
+      // (zoky_price_orange_theme_regression_test.dart) before being
+      // fixed here.
+      child: Builder(
+        builder: (context) => Scaffold(
+          appBar: AppBar(title: const Text('คำสั่งซื้อของฉัน')),
+          body: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _orders.isEmpty
+                  ? const SearchStateMessage(
+                      icon: Icons.receipt_long_outlined,
+                      text: 'ยังไม่มีคำสั่งซื้อ',
+                    )
+                  : ListView.separated(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: _orders.length + (_hasMore ? 1 : 0),
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        if (index >= _orders.length) {
+                          return const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        final (order, items) = _orders[index];
+                        return OrderSummaryCard(
+                          order: order,
+                          items: items,
+                          onTap: () => _openOrder(order),
+                        );
+                      },
+                    ),
+        ),
+      ),
     );
   }
 }
