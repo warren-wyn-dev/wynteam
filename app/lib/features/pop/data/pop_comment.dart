@@ -14,6 +14,7 @@ class PopComment {
     required this.createdAt,
     required this.likeCount,
     required this.likedByMe,
+    this.parentCommentId,
   });
 
   final String id;
@@ -26,6 +27,9 @@ class PopComment {
   final DateTime createdAt;
   final int likeCount;
   final bool likedByMe;
+
+  /// See DropComment.parentCommentId -- same one-level reply design.
+  final String? parentCommentId;
 
   String get authorNameOrUsername => displayNameOrUsername(
         displayName: authorDisplayName,
@@ -43,6 +47,7 @@ class PopComment {
         createdAt: createdAt,
         likeCount: likeCount ?? this.likeCount,
         likedByMe: likedByMe ?? this.likedByMe,
+        parentCommentId: parentCommentId,
       );
 
   /// A copy with the like toggled -- used for optimistic UI updates before
@@ -72,6 +77,7 @@ class PopComment {
       createdAt: DateTime.parse(map['created_at'] as String),
       likeCount: _embeddedCount(map['pop_comment_likes'] as List<dynamic>?),
       likedByMe: likedByMe,
+      parentCommentId: map['parent_comment_id'] as String?,
     );
   }
 

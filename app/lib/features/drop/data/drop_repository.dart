@@ -335,9 +335,14 @@ class DropRepository {
     return rows.map((row) => row['comment_id'] as String).toSet();
   }
 
+  /// [parentCommentId] (WYN-022): set to reply to that top-level comment
+  /// instead of posting a new top-level one. The DB rejects a reply
+  /// whose own parent is itself already a reply (one level of nesting
+  /// only) -- not re-checked client-side.
   Future<DropComment> addComment({
     required String dropId,
     required String textContent,
+    String? parentCommentId,
   }) async {
     final userId = _client.auth.currentUser!.id;
 
@@ -347,6 +352,7 @@ class DropRepository {
           'drop_id': dropId,
           'author_id': userId,
           'text_content': textContent.trim(),
+          'parent_comment_id': parentCommentId,
         })
         .select('*, $_commentAuthorSelect')
         .single();

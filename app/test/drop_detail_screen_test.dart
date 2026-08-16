@@ -32,6 +32,8 @@ void main() {
   late RecordingFollowRepository tapProfileTestFollowRepo;
   late RecordingProfileRepository tapProfileTestProfileRepo;
   late RecordingDropRepository ownCommentRepo;
+  late RecordingDropRepository replyTestRepo;
+  late RecordingDropRepository existingReplyRepo;
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
     repo = RecordingDropRepository();
@@ -45,6 +47,41 @@ void main() {
         createdAt: DateTime.now(),
         likeCount: 0,
         likedByMe: false,
+      ),
+    ]);
+    replyTestRepo = RecordingDropRepository(comments: [
+      DropComment(
+        id: 'top-1',
+        dropId: 'd1',
+        authorId: 'someone-else',
+        authorUsername: 'namfah',
+        textContent: 'ความคิดเห็นระดับบนสุด',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        likedByMe: false,
+      ),
+    ]);
+    existingReplyRepo = RecordingDropRepository(comments: [
+      DropComment(
+        id: 'top-1',
+        dropId: 'd1',
+        authorId: 'someone-else',
+        authorUsername: 'namfah',
+        textContent: 'ความคิดเห็นระดับบนสุด',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        likedByMe: false,
+      ),
+      DropComment(
+        id: 'reply-1',
+        dropId: 'd1',
+        authorId: 'someone-else',
+        authorUsername: 'ploy',
+        textContent: 'ตอบกลับความคิดเห็นด้านบน',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        likedByMe: false,
+        parentCommentId: 'top-1',
       ),
     ]);
     followRepo = RecordingFollowRepository();
@@ -350,5 +387,112 @@ void main() {
 
     expect(find.byType(ViewProfileScreen), findsOneWidget);
     expect(tapProfileTestFollowRepo.toggleFollowCalls, 0);
+  });
+
+  final repoTestDrop = Drop(
+    id: 'd1',
+    authorId: 'someone-else',
+    authorUsername: 'namfah',
+    imageUrl: 'https://example.supabase.co/drops/d1.jpg',
+    createdAt: DateTime.now(),
+    likeCount: 0,
+    commentCount: 1,
+    likedByMe: false,
+    savedByMe: false,
+  );
+
+  group('Comment reply (WYN-022)', () {
+    testWidgets('a top-level comment has a "ตอบกลับ" button, a reply does not',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: existingReplyRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: repoTestDrop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // Exactly one "ตอบกลับ" button -- the top-level comment's, not
+      // the reply's.
+      expect(find.text('ตอบกลับ'), findsOneWidget);
+      expect(find.text('ความคิดเห็นระดับบนสุด'), findsOneWidget);
+      expect(find.text('ตอบกลับความคิดเห็นด้านบน'), findsOneWidget);
+    });
+
+    testWidgets(
+        'tapping "ตอบกลับ" shows a reply chip, and sending calls addComment '
+        'with the parent id', (tester) async {
+      tester.view.physicalSize = const Size(800, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: replyTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: repoTestDrop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('ตอบกลับ'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ตอบกลับ @namfah'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'คำตอบของฉัน');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.send));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(replyTestRepo.addCommentCalls, 1);
+      expect(replyTestRepo.addCommentParentIdArgs, ['top-1']);
+      // The reply chip clears after sending -- back to composing a new
+      // top-level comment.
+      expect(find.text('ตอบกลับ @namfah'), findsNothing);
+    });
+
+    testWidgets('cancelling a reply (tapping the X) clears the chip and reply state',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: replyTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: repoTestDrop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('ตอบกลับ'));
+      await tester.pumpAndSettle();
+      expect(find.text('ตอบกลับ @namfah'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ตอบกลับ @namfah'), findsNothing);
+    });
   });
 }

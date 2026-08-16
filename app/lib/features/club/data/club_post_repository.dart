@@ -346,9 +346,12 @@ class ClubPostRepository {
     return rows.map((row) => ClubPostComment.fromMap(row)).toList();
   }
 
+  /// [parentCommentId] (WYN-022): see DropRepository.addComment's
+  /// identical doc comment.
   Future<ClubPostComment> addComment({
     required String postId,
     required String textContent,
+    String? parentCommentId,
   }) async {
     final userId = _client.auth.currentUser!.id;
 
@@ -358,6 +361,7 @@ class ClubPostRepository {
           'club_post_id': postId,
           'author_id': userId,
           'text_content': textContent.trim(),
+          'parent_comment_id': parentCommentId,
         })
         .select('*, $_commentAuthorSelect')
         .single();

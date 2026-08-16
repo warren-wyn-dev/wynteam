@@ -123,6 +123,30 @@ class RecordingDropRepository extends DropRepository {
   @override
   Future<List<DropComment>> fetchComments(String dropId) async => comments;
 
+  int addCommentCalls = 0;
+  final List<String?> addCommentParentIdArgs = [];
+
+  @override
+  Future<DropComment> addComment({
+    required String dropId,
+    required String textContent,
+    String? parentCommentId,
+  }) async {
+    addCommentCalls++;
+    addCommentParentIdArgs.add(parentCommentId);
+    return DropComment(
+      id: 'new-comment-$addCommentCalls',
+      dropId: dropId,
+      authorId: 'me',
+      authorUsername: 'me',
+      textContent: textContent,
+      createdAt: DateTime.now(),
+      likeCount: 0,
+      likedByMe: false,
+      parentCommentId: parentCommentId,
+    );
+  }
+
   @override
   Future<void> toggleCommentLike({
     required String commentId,

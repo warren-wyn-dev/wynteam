@@ -56,6 +56,9 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   final _commentController = TextEditingController();
   final _commentFocusNode = FocusNode();
   bool _isSendingComment = false;
+  // WYN-022: set while composing a reply to a top-level comment; null
+  // means the next send is a new top-level comment.
+  DropComment? _replyingTo;
 
   // Whether the *current viewer* follows the Drop's author -- null until
   // the real status has loaded from the backend. The Follow button is
@@ -254,12 +257,14 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       final comment = await widget.dropRepository.addComment(
         dropId: _drop.id,
         textContent: text,
+        parentCommentId: _replyingTo?.id,
       );
       if (!mounted) return;
       setState(() {
         _comments = [...?_comments, comment];
         _drop = _drop.withExtraComment();
         _commentController.clear();
+        _replyingTo = null;
       });
     } catch (_) {
       // Keep the typed text in the box so the user can just retry sending.
@@ -267,6 +272,13 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       if (mounted) setState(() => _isSendingComment = false);
     }
   }
+
+  void _startReply(DropComment comment) {
+    setState(() => _replyingTo = comment);
+    _commentFocusNode.requestFocus();
+  }
+
+  void _cancelReply() => setState(() => _replyingTo = null);
 
   @override
   Widget build(BuildContext context) {
@@ -465,77 +477,102 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
             child: Center(child: Text('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!')),
           )
         else
-          ...comments.map(
-            (comment) => Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AvatarCircle(
-                    imageUrl: comment.authorAvatarUrl,
-                    fallbackText: comment.authorUsername,
-                    radius: 16,
-                  ),
-                  const SizedBox(width: WynSpacing.space2),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          comment.authorNameOrUsername,
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                        Text(comment.textContent),
-                      ],
-                    ),
-                  ),
-                  if (comment.authorId == currentUserId)
-                    SizedBox(
-                      width: WynSpacing.touchTargetMin,
-                      height: WynSpacing.touchTargetMin,
-                      child: IconButton(
-                        padding: EdgeInsets.zero,
-                        iconSize: 16,
-                        icon: const Icon(Icons.delete_outline),
-                        tooltip: 'ลบคอมเมนต์',
-                        onPressed: () => _deleteComment(comment.id),
-                      ),
-                    ),
-                  Column(
-                    children: [
-                      Semantics(
-                        label: comment.likedByMe
-                            ? 'ถูกใจคอมเมนต์นี้แล้ว กดเพื่อเลิกถูกใจ'
-                            : 'กดเพื่อถูกใจคอมเมนต์นี้',
-                        excludeSemantics: true,
-                        child: SizedBox(
-                          width: WynSpacing.touchTargetMin,
-                          height: WynSpacing.touchTargetMin,
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            iconSize: 16,
-                            icon: Icon(
-                              comment.likedByMe
-                                  ? Icons.favorite
-                                  : Icons.favorite_border,
-                              color: comment.likedByMe ? Colors.red : null,
+          // Each top-level comment immediately followed by its own
+          // replies (WYN-022) -- one flat fetch already returns every
+          // comment for this Drop, so this just orders them for display
+          // rather than issuing a second query.
+          for (final comment in comments.where((c) => c.parentCommentId == null)) ...[
+            _buildCommentRow(comment, currentUserId, isReply: false),
+            for (final reply in comments.where((c) => c.parentCommentId == comment.id))
+              _buildCommentRow(reply, currentUserId, isReply: true),
+          ],
+      ],
+    );
+  }
+
+  Widget _buildCommentRow(DropComment comment, String currentUserId, {required bool isReply}) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(isReply ? 52 : 16, 12, 16, 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AvatarCircle(
+            imageUrl: comment.authorAvatarUrl,
+            fallbackText: comment.authorUsername,
+            radius: 16,
+          ),
+          const SizedBox(width: WynSpacing.space2),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  comment.authorNameOrUsername,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                Text(comment.textContent),
+                // Replies don't get their own "ตอบกลับ" button -- that's
+                // what keeps nesting to one level in the UI (the DB
+                // trigger is the real enforcement either way).
+                if (!isReply)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: InkWell(
+                      onTap: () => _startReply(comment),
+                      child: Text(
+                        'ตอบกลับ',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.outline,
+                              fontWeight: FontWeight.bold,
                             ),
-                            onPressed: () => _toggleCommentLike(comment.id),
-                          ),
-                        ),
                       ),
-                      if (comment.likeCount > 0)
-                        Text(
-                          '${comment.likeCount}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                    ],
+                    ),
                   ),
-                ],
-              ),
+              ],
             ),
           ),
-      ],
+          if (comment.authorId == currentUserId)
+            SizedBox(
+              width: WynSpacing.touchTargetMin,
+              height: WynSpacing.touchTargetMin,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                iconSize: 16,
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'ลบคอมเมนต์',
+                onPressed: () => _deleteComment(comment.id),
+              ),
+            ),
+          Column(
+            children: [
+              Semantics(
+                label: comment.likedByMe
+                    ? 'ถูกใจคอมเมนต์นี้แล้ว กดเพื่อเลิกถูกใจ'
+                    : 'กดเพื่อถูกใจคอมเมนต์นี้',
+                excludeSemantics: true,
+                child: SizedBox(
+                  width: WynSpacing.touchTargetMin,
+                  height: WynSpacing.touchTargetMin,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    iconSize: 16,
+                    icon: Icon(
+                      comment.likedByMe ? Icons.favorite : Icons.favorite_border,
+                      color: comment.likedByMe ? Colors.red : null,
+                    ),
+                    onPressed: () => _toggleCommentLike(comment.id),
+                  ),
+                ),
+              ),
+              if (comment.likeCount > 0)
+                Text(
+                  '${comment.likeCount}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -547,21 +584,45 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       top: false,
       child: Padding(
         padding: const EdgeInsets.all(WynSpacing.space2),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: TextField(
-                controller: _commentController,
-                focusNode: _commentFocusNode,
-                enabled: !_isSendingComment,
-                decoration: const InputDecoration(hintText: 'เขียนคอมเมนต์'),
-                onChanged: (_) => setState(() {}),
+            if (_replyingTo != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4, left: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'ตอบกลับ ${_replyingTo!.authorNameOrUsername}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(width: WynSpacing.space1),
+                    InkWell(
+                      onTap: _cancelReply,
+                      child: const Icon(Icons.close, size: 16),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.send),
-              tooltip: 'ส่งคอมเมนต์',
-              onPressed: canSend ? _sendComment : null,
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _commentController,
+                    focusNode: _commentFocusNode,
+                    enabled: !_isSendingComment,
+                    decoration: const InputDecoration(hintText: 'เขียนคอมเมนต์'),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.send),
+                  tooltip: 'ส่งคอมเมนต์',
+                  onPressed: canSend ? _sendComment : null,
+                ),
+              ],
             ),
           ],
         ),

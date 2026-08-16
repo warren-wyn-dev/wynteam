@@ -107,12 +107,16 @@ class RecordingClubPostRepository extends ClubPostRepository {
   @override
   Future<List<ClubPostComment>> fetchComments(String postId) async => comments;
 
+  final List<String?> addCommentParentIdArgs = [];
+
   @override
   Future<ClubPostComment> addComment({
     required String postId,
     required String textContent,
+    String? parentCommentId,
   }) async {
     addCommentCalls++;
+    addCommentParentIdArgs.add(parentCommentId);
     return ClubPostComment(
       id: 'new-comment-$addCommentCalls',
       clubPostId: postId,
@@ -120,6 +124,7 @@ class RecordingClubPostRepository extends ClubPostRepository {
       authorUsername: 'me',
       textContent: textContent,
       createdAt: DateTime.now(),
+      parentCommentId: parentCommentId,
     );
   }
 

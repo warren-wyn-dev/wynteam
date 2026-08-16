@@ -153,6 +153,10 @@ create table if not exists public.drop_comments (
   author_id uuid not null references public.profiles (id) on delete cascade,
   text_content text not null,
   created_at timestamptz not null default now(),
+  -- WYN-022: null = top-level comment, set = a reply to that comment.
+  -- Depth capped at 1 level by prevent_nested_drop_comment_reply below
+  -- (a CHECK can't run the self-referencing subquery that needs).
+  parent_comment_id uuid references public.drop_comments (id) on delete cascade,
   constraint drop_comments_text_content_length
     check (char_length(text_content) between 1 and 500)
 );
@@ -349,6 +353,8 @@ create table if not exists public.pop_comments (
   author_id uuid not null references public.profiles (id) on delete cascade,
   text_content text not null,
   created_at timestamptz not null default now(),
+  -- WYN-022: same reply-depth-1 design as drop_comments.parent_comment_id.
+  parent_comment_id uuid references public.pop_comments (id) on delete cascade,
   constraint pop_comments_text_content_length
     check (char_length(text_content) between 1 and 500)
 );
@@ -1283,6 +1289,8 @@ create table if not exists public.club_post_comments (
   author_id uuid not null references public.profiles (id) on delete cascade,
   text_content text not null,
   created_at timestamptz not null default now(),
+  -- WYN-022: same reply-depth-1 design as drop_comments.parent_comment_id.
+  parent_comment_id uuid references public.club_post_comments (id) on delete cascade,
   constraint club_post_comments_text_content_length
     check (char_length(text_content) between 1 and 500)
 );
@@ -3206,3 +3214,84 @@ $$;
 create trigger club_post_mentions_notify
   after insert on public.club_post_mentions
   for each row execute function public.notify_club_post_mention();
+
+-- ============================================================
+-- WYN-022: Comment Reply
+-- ============================================================
+-- parent_comment_id itself was added inline on each comment table's own
+-- `create table` above (self-referencing FK, no forward-reference
+-- issue). These three triggers are the actual depth-1 enforcement -- a
+-- CHECK constraint can't run the self-referencing subquery needed to
+-- ask "does my parent already have a parent". See
+-- .wyn/docs/design/wyn-022-comment-reply.md.
+create or replace function public.prevent_nested_drop_comment_reply()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_parent_is_reply boolean;
+begin
+  if new.parent_comment_id is not null then
+    select parent_comment_id is not null into v_parent_is_reply
+    from public.drop_comments where id = new.parent_comment_id;
+    if v_parent_is_reply then
+      raise exception 'Cannot reply to a reply -- only one level of nesting is allowed';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger drop_comments_prevent_nested_reply
+  before insert on public.drop_comments
+  for each row execute function public.prevent_nested_drop_comment_reply();
+
+create or replace function public.prevent_nested_pop_comment_reply()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_parent_is_reply boolean;
+begin
+  if new.parent_comment_id is not null then
+    select parent_comment_id is not null into v_parent_is_reply
+    from public.pop_comments where id = new.parent_comment_id;
+    if v_parent_is_reply then
+      raise exception 'Cannot reply to a reply -- only one level of nesting is allowed';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger pop_comments_prevent_nested_reply
+  before insert on public.pop_comments
+  for each row execute function public.prevent_nested_pop_comment_reply();
+
+create or replace function public.prevent_nested_club_post_comment_reply()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_parent_is_reply boolean;
+begin
+  if new.parent_comment_id is not null then
+    select parent_comment_id is not null into v_parent_is_reply
+    from public.club_post_comments where id = new.parent_comment_id;
+    if v_parent_is_reply then
+      raise exception 'Cannot reply to a reply -- only one level of nesting is allowed';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger club_post_comments_prevent_nested_reply
+  before insert on public.club_post_comments
+  for each row execute function public.prevent_nested_club_post_comment_reply();
