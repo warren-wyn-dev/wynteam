@@ -287,9 +287,12 @@ class _StoreScreenState extends State<StoreScreen> {
                           children: [
                             StarRatingDisplay(rating: rating.$1),
                             const SizedBox(width: 4),
-                            Text(
-                              '${rating.$1.toStringAsFixed(1)} · 0 ผู้ติดตาม · ${store.productCount} สินค้า',
-                              style: TextStyle(color: Theme.of(context).colorScheme.outline),
+                            Expanded(
+                              child: Text(
+                                '${rating.$1.toStringAsFixed(1)} · 0 ผู้ติดตาม · ${store.productCount} สินค้า',
+                                style: TextStyle(color: Theme.of(context).colorScheme.outline),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         );

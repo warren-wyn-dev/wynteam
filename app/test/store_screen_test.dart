@@ -110,6 +110,29 @@ final _viewportCases = <_ViewportCase>[
   ),
 ];
 
+typedef _RatedViewportCase = ({String name, Size size, double textScale});
+
+/// The SELLER-004 BUG-1 device matrix, replayed with a non-zero rating --
+/// the exact gap ([_viewportCases] above never sets `storeRating`) that let
+/// this second overflow (the rating `Row` inside `_buildHeader`, not
+/// BUG-1's banner/"ข้อมูลร้านค้า" section) ship unnoticed through every
+/// prior QA round. See
+/// .wyn/tasks/bugs/ZOKY-004-store-header-rating-row-overflow.md.
+final _ratedViewportCases = <_RatedViewportCase>[
+  (name: '360x640 (small Android)', size: const Size(360, 640), textScale: 1.0),
+  (name: '375x667 (iPhone SE)', size: const Size(375, 667), textScale: 1.0),
+  (
+    name: '390x844 (iPhone 14) at textScaler 1.3',
+    size: const Size(390, 844),
+    textScale: 1.3,
+  ),
+  (
+    name: '430x932 (iPhone 15 Pro Max) at textScaler 1.3',
+    size: const Size(430, 932),
+    textScale: 1.3,
+  ),
+];
+
 void main() {
   final store = Store(
     id: 'store-1',
@@ -175,6 +198,11 @@ void main() {
   late Map<String, RecordingZokyRepository> viewportRepos;
   late RecordingZokyRepository fullHeaderRepo;
 
+  /// ZOKY-004 (this bug report file): one repository per
+  /// [_ratedViewportCases] entry, each with a non-zero `storeRating` (the
+  /// minimum trigger per the bug report -- no banner/info fields needed).
+  late Map<String, RecordingZokyRepository> ratedViewportRepos;
+
   setUpAll(() async {
     await initFakeSupabaseSession();
   });
@@ -228,6 +256,15 @@ void main() {
       storeProducts: [product],
       storeProductCount: 1,
     );
+    ratedViewportRepos = {
+      for (final testCase in _ratedViewportCases)
+        testCase.name: RecordingZokyRepository(
+          store: _phoneStore(),
+          storeProducts: [product],
+          storeProductCount: 1,
+          storeRating: (4.5, 1),
+        ),
+    };
   });
 
   Widget buildStoreScreen(RecordingZokyRepository repo) {
@@ -550,6 +587,39 @@ void main() {
 
       expectNoOverflow(errors);
       expectTabContentVisible(tester, viewport: testCase.size);
+    });
+  }
+
+  // -- ZOKY-004 (this bug report file): header rating Row overflow ---------
+  //
+  // Regression memory for
+  // .wyn/tasks/bugs/ZOKY-004-store-header-rating-row-overflow.md: the
+  // `Row([StarRatingDisplay, SizedBox, Text])` inside `_buildHeader`'s
+  // rating `FutureBuilder` had no `Expanded`/`Flexible` around its `Text`,
+  // so at any real phone width it overflowed for any store with >= 1
+  // review -- independent of BUG-1's banner/"ข้อมูลร้านค้า" section, and not
+  // caught by [_viewportCases] above because none of those repos ever set
+  // `storeRating` (the `rating.$2 == 0` branch is a lone `Text` with no
+  // `Row`, which never overflows).
+  for (final testCase in _ratedViewportCases) {
+    testWidgets(
+        'rating row does not overflow for a store with reviews -- ${testCase.name}',
+        (tester) async {
+      final errors = await captureErrors(() async {
+        await pumpAtViewport(
+          tester,
+          ratedViewportRepos[testCase.name]!,
+          size: testCase.size,
+          textScale: testCase.textScale,
+        );
+      });
+
+      expectNoOverflow(errors);
+      // The rating text must still show all 3 pieces of information --
+      // the fix must not drop/truncate data, just stop it from overflowing.
+      expect(find.textContaining('4.5'), findsOneWidget);
+      expect(find.textContaining('0 ผู้ติดตาม'), findsOneWidget);
+      expect(find.textContaining('1 สินค้า'), findsOneWidget);
     });
   }
 

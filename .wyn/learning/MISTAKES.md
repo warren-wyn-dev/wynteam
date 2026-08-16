@@ -14,6 +14,12 @@
 
 ## รายการ
 
+### [2026-08-15] Task ZOKY-004 (rating Row overflow, พบระหว่าง SELLER-004 QA รอบ 2)
+- ข้อผิดพลาด: `StoreScreen`'s `_buildHeader` rating `Row` (`StarRatingDisplay` + `Text('rating · ผู้ติดตาม · productCount สินค้า')`) ไม่มี `Expanded`/`Flexible` ครอบ `Text` เลย ตั้งแต่ ZOKY-004 (commit `135af7a`) — บนจอมือถือจริงทุกขนาด overflow 165–322px ทุกครั้งที่ร้านมีรีวิว ≥1 ทั้งที่ `Row` เดียวกันในไฟล์นี้ (`_buildStoreInfoSection`'s address/business-hours) ใช้ `Expanded` ถูกต้องอยู่แล้วเป็นตัวอย่างในบรรทัดถัดมา
+- ผลกระทบ: กระทบทุกร้านที่มีรีวิว ≥1 บนทุกขนาดจอมือถือ — release build จะ clip ข้อความเงียบ ๆ ซ่อนบางส่วนของ "X ผู้ติดตาม · Y สินค้า" จากลูกค้า ไม่ block SELLER-004 (Row คนละตัวกับที่ SELLER-004 แก้) แต่กระทบหน้าเดียวกันที่ลูกค้าเห็นอยู่ตอนนี้
+- วิธีป้องกันในอนาคต: `Row` ใหม่ที่ผสม fixed-size widget กับ `Text` ที่ประกอบจากข้อมูล runtime (ตัวเลขนับไม่จำกัดหลัก) ต้องครอบ `Text` ด้วย `Expanded`/`Flexible` เป็นค่าเริ่มต้นเสมอ — QA ต้องตั้งฟิลด์ตัวเลข/นับจำนวนให้ไม่เป็นศูนย์ในทุก device-matrix test ของ Row ลักษณะนี้ (ไม่ใช่ปล่อย default 0/null ตลอดแบบที่เกิดใน `_viewportCases` เดิมของ SELLER-004 BUG-1 ซึ่งไม่มีเคสไหนตั้ง `storeRating` เลย)
+- Regression test ที่เพิ่ม: `app/test/store_screen_test.dart` — เพิ่ม `_ratedViewportCases` (360x640, 375x667, 390x844@1.3, 430x932@1.3) + `ratedViewportRepos` (storeRating: (4.5, 1)) และ test loop ใหม่ 4 เคส พิสูจน์ red (overflow 220–322px) ก่อนแก้ / green (ไม่ overflow, ข้อมูล rating ยังแสดงครบ) หลังแก้ — ดู `.wyn/tasks/bugs/ZOKY-004-store-header-rating-row-overflow.md` หัวข้อ "Debug Output"
+
 ### [2026-08-13] Task WYN-002
 - ข้อผิดพลาด: (1) `AuthGate` ฟังแค่ Supabase auth-state event แต่หน้า Welcome/AuthMethod/Phone/OTP ถูก push ทับไว้ด้านบนโดยไม่มีจุด pop กลับ ทำให้ผู้ใช้ค้างหน้าเดิมหลัง sign-in สำเร็จทุกเส้นทาง (Google/Apple/Phone) ไม่ใช่แค่ตอนตั้ง username ตามที่ QA รายงานไว้ในตอนแรก (2) `setUsername()` ไม่ catch unique-constraint violation จริงจาก race condition (3) OTP input ใช้ช่องเดียวแทนที่จะเป็น 6 ช่องแยกตาม design spec
 - ผลกระทบ: ผู้ใช้ทุกคนที่ sign-in สำเร็จ (ไม่ว่าวิธีไหน) จะไม่เห็นหน้าจอเปลี่ยนอัตโนมัติ ต้อง force-restart แอป — เป็น blocker ที่ทำให้ onboarding ใช้งานไม่ได้เลยถ้าไม่แก้
