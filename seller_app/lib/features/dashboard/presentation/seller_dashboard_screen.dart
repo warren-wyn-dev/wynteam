@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/text_utils.dart';
+import '../../notification/data/seller_notification_repository.dart';
+import '../../notification/presentation/seller_notification_list_screen.dart';
 import '../../store/data/seller_repository.dart';
 import '../../store/data/store.dart';
 import '../../../core/design/wyn_spacing.dart';
@@ -32,10 +34,12 @@ class SellerDashboardScreen extends StatefulWidget {
     super.key,
     required this.store,
     required this.sellerRepository,
+    required this.notificationRepository,
   });
 
   final Store store;
   final SellerRepository sellerRepository;
+  final SellerNotificationRepository notificationRepository;
 
   @override
   State<SellerDashboardScreen> createState() => _SellerDashboardScreenState();
@@ -43,11 +47,78 @@ class SellerDashboardScreen extends StatefulWidget {
 
 class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
   Future<_DashboardStats>? _statsFuture;
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadUnreadNotificationCount();
+  }
+
+  Future<void> _loadUnreadNotificationCount() async {
+    try {
+      final count = await widget.notificationRepository.countUnread();
+      if (!mounted) return;
+      setState(() => _unreadNotificationCount = count);
+    } catch (_) {
+      // Silent, same as `app/`'s HomeFeedScreen -- a failed badge-count
+      // fetch just leaves the badge showing its last known value.
+    }
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SellerNotificationListScreen(
+          notificationRepository: widget.notificationRepository,
+          sellerRepository: widget.sellerRepository,
+        ),
+      ),
+    );
+    // SellerNotificationListScreen marks everything as read on open --
+    // refresh so the badge reflects that once the user comes back.
+    _loadUnreadNotificationCount();
+  }
+
+  Widget _buildNotificationButton(BuildContext context) {
+    final count = _unreadNotificationCount;
+    final badgeText = count > 9 ? '9+' : '$count';
+
+    return Semantics(
+      label: count > 0 ? 'การแจ้งเตือน มี $count รายการที่ยังไม่อ่าน' : 'การแจ้งเตือน',
+      button: true,
+      excludeSemantics: true,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: _openNotifications,
+          ),
+          if (count > 0)
+            Positioned(
+              right: 4,
+              top: 4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: 1),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+                ),
+                child: Text(
+                  badgeText,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   void _load() {
@@ -86,7 +157,10 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('แดชบอร์ด')),
+      appBar: AppBar(
+        title: const Text('แดชบอร์ด'),
+        actions: [_buildNotificationButton(context)],
+      ),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {

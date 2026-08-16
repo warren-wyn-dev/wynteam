@@ -12,6 +12,8 @@ import 'package:wyn/features/notification/presentation/notification_list_screen.
 import 'package:wyn/features/pop/data/pop.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
 
+import 'package:wyn/features/zoky/presentation/zoky_order_detail_screen.dart';
+
 import 'support/fake_supabase_session.dart';
 import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
@@ -21,6 +23,7 @@ import 'support/recording_notification_repository.dart';
 import 'support/recording_pop_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
+import 'support/recording_zoky_repository.dart';
 
 void main() {
   // Every RecordingXRepository is built once per test in setUp() (not
@@ -38,6 +41,7 @@ void main() {
   late RecordingClubRepository clubRepo;
   late RecordingClubPostRepository clubPostRepo;
   late RecordingClubPostRepository clubPostWithResultRepo;
+  late RecordingZokyRepository zokyRepo;
 
   // One RecordingNotificationRepository per scenario, all built in
   // setUp() for the same reason as the repos above -- never inline
@@ -57,6 +61,8 @@ void main() {
   late RecordingNotificationRepository clubPostCommentRepo;
   late RecordingNotificationRepository deletedClubPostRepo;
   late RecordingNotificationRepository allNewClubTypesRepo;
+  late RecordingNotificationRepository newOrderRepo;
+  late RecordingNotificationRepository allOrderTypesRepo;
 
   final now = DateTime.now();
 
@@ -157,6 +163,50 @@ void main() {
         createdAt: now.subtract(const Duration(minutes: 25)),
       );
 
+  WynNotification newOrderNotification() => WynNotification(
+        id: 'n-new-order',
+        type: NotificationType.newOrder,
+        actorId: 'u6',
+        actorUsername: 'buyer_user',
+        orderId: 'order-1',
+        orderStoreName: 'ร้านทดสอบ',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 3)),
+      );
+
+  WynNotification orderShippedNotification() => WynNotification(
+        id: 'n-order-shipped',
+        type: NotificationType.orderShipped,
+        actorId: 'u7',
+        actorUsername: 'seller_user',
+        orderId: 'order-1',
+        orderStoreName: 'ร้านทดสอบ',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 4)),
+      );
+
+  WynNotification orderCancelledNotification() => WynNotification(
+        id: 'n-order-cancelled',
+        type: NotificationType.orderCancelled,
+        actorId: 'u7',
+        actorUsername: 'seller_user',
+        orderId: 'order-1',
+        orderStoreName: 'ร้านทดสอบ',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 6)),
+      );
+
+  WynNotification orderRefundedNotification() => WynNotification(
+        id: 'n-order-refunded',
+        type: NotificationType.orderRefunded,
+        actorId: 'u7',
+        actorUsername: 'seller_user',
+        orderId: 'order-1',
+        orderStoreName: 'ร้านทดสอบ',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 7)),
+      );
+
   final testDrop = Drop(
     id: 'd1',
     authorId: 'me',
@@ -213,6 +263,7 @@ void main() {
     clubRepo = RecordingClubRepository();
     clubPostRepo = RecordingClubPostRepository();
     clubPostWithResultRepo = RecordingClubPostRepository()..byIdResult = testClubPost;
+    zokyRepo = RecordingZokyRepository();
 
     allTypesRepo = RecordingNotificationRepository(notifications: [
       likeDropNotification(),
@@ -265,12 +316,20 @@ void main() {
       clubPostLikeNotification(),
       clubPostCommentNotification(),
     ]);
+    newOrderRepo = RecordingNotificationRepository(notifications: [newOrderNotification()]);
+    allOrderTypesRepo = RecordingNotificationRepository(notifications: [
+      newOrderNotification(),
+      orderShippedNotification(),
+      orderCancelledNotification(),
+      orderRefundedNotification(),
+    ]);
   });
 
   Widget buildScreen(
     RecordingNotificationRepository notificationRepository, {
     RecordingDropRepository? dropRepository,
     RecordingClubPostRepository? clubPostRepository,
+    RecordingZokyRepository? zokyRepository,
   }) =>
       MaterialApp(
         home: NotificationListScreen(
@@ -282,6 +341,7 @@ void main() {
           savedRepository: savedRepo,
           clubRepository: clubRepo,
           clubPostRepository: clubPostRepository ?? clubPostRepo,
+          zokyRepository: zokyRepository ?? zokyRepo,
         ),
       );
 
@@ -507,5 +567,30 @@ void main() {
 
     expect(find.text('Drop นี้ถูกลบไปแล้ว'), findsOneWidget);
     expect(find.byType(DropDetailScreen), findsNothing);
+  });
+
+  group('Order notification types (ZOKY-005 R1)', () {
+    testWidgets('shows type-specific Thai messages including the store name for all '
+        '4 new types', (tester) async {
+      await tester.pumpWidget(buildScreen(allOrderTypesRepo));
+      await tester.pumpAndSettle();
+
+      expect(find.text('@buyer_user สั่งซื้อสินค้าจาก ร้านทดสอบ'), findsOneWidget);
+      expect(find.text('คำสั่งซื้อของคุณจาก ร้านทดสอบ ถูกจัดส่งแล้ว'), findsOneWidget);
+      expect(find.text('คำสั่งซื้อจากร้าน ร้านทดสอบ ถูกยกเลิก'), findsOneWidget);
+      expect(find.text('คำสั่งซื้อของคุณจาก ร้านทดสอบ ถูกคืนเงินแล้ว'), findsOneWidget);
+    });
+
+    testWidgets('tapping a new_order notification opens ZokyOrderDetailScreen',
+        (tester) async {
+      await tester.pumpWidget(buildScreen(newOrderRepo));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('@buyer_user สั่งซื้อสินค้าจาก ร้านทดสอบ'));
+      await tester.pumpAndSettle();
+
+      final screen = tester.widget<ZokyOrderDetailScreen>(find.byType(ZokyOrderDetailScreen));
+      expect(screen.orderId, 'order-1');
+    });
   });
 }

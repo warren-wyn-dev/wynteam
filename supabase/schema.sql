@@ -2703,6 +2703,178 @@ end;
 $$;
 
 -- ============================================================
+-- ZOKY-005 R1: Order Notifications (2026-08-16)
+-- ============================================================
+-- Closes the gap ZOKY-005's Product spec documents: every other
+-- interaction in this project (Like/Comment/Follow/Club events) has
+-- had a notification trigger since WYN-012/WYN-015, but orders never
+-- did -- a seller had no way to learn about a new order except by
+-- opening the app and checking the Orders tab, and a buyer had no way
+-- to learn their order shipped/was cancelled/was refunded except the
+-- same. order_id is added via `alter table` (not inline in the
+-- original `create table public.notifications` far above) for the
+-- same reason club_id/club_post_id were (WYN-015): this section runs
+-- after `public.orders` exists, not before.
+alter table public.notifications
+  add column if not exists order_id uuid references public.orders (id) on delete cascade;
+
+-- Same dynamic-constraint-name lookup as the orders.status migration
+-- above -- never hardcode a guessed name (see that migration's own
+-- comment and .wyn/tasks/backlog/SELLER-003-order-management.md,
+-- Risks, which this mirrors).
+do $$
+declare
+  v_constraint_name text;
+begin
+  select tc.constraint_name into v_constraint_name
+  from information_schema.table_constraints tc
+  join information_schema.constraint_column_usage ccu
+    on ccu.constraint_name = tc.constraint_name
+   and ccu.constraint_schema = tc.constraint_schema
+  where tc.table_schema = 'public'
+    and tc.table_name = 'notifications'
+    and tc.constraint_type = 'CHECK'
+    and ccu.column_name = 'type'
+  limit 1;
+
+  if v_constraint_name is not null then
+    execute format('alter table public.notifications drop constraint %I', v_constraint_name);
+  end if;
+end;
+$$;
+
+alter table public.notifications
+  add constraint notifications_type_check
+  check (type in (
+    'like_drop', 'like_pop', 'comment_drop', 'comment_pop', 'follow',
+    'club_join_request', 'club_join_approved', 'club_post_like', 'club_post_comment',
+    -- ZOKY-005 R1: order_delivered_confirmed intentionally omitted --
+    -- that transition is always the buyer's own action
+    -- (confirm_order_received), so there's no one else left to notify
+    -- about it. See .wyn/tasks/backlog/ZOKY-005-customer-seller-backend-
+    -- integration.md, Requirements R1.
+    'new_order', 'order_shipped', 'order_cancelled', 'order_refunded'
+  ));
+
+-- Fires once per Order row create_orders() inserts (one per store in
+-- the buyer's cart, ZOKY-003) -- recipient is that store's owner, actor
+-- is the buyer. Guards a store owner buying from their own store (not
+-- normally reachable via the customer app today, but not structurally
+-- prevented at the DB level either) the same way every other notify_*
+-- trigger guards self-notification.
+create or replace function public.notify_new_order()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_owner_id uuid;
+begin
+  select owner_id into v_owner_id from public.stores where id = new.store_id;
+  if v_owner_id is not null and v_owner_id <> new.buyer_id then
+    insert into public.notifications (recipient_id, actor_id, type, order_id)
+    values (v_owner_id, new.buyer_id, 'new_order', new.id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger orders_notify_new_order
+  after insert on public.orders
+  for each row execute function public.notify_new_order();
+
+-- ready_to_ship -> shipped, only ever reached via seller_ship_order
+-- above -- recipient is the buyer, actor is the store owner.
+create or replace function public.notify_order_shipped()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_owner_id uuid;
+begin
+  select owner_id into v_owner_id from public.stores where id = new.store_id;
+  if v_owner_id is not null and v_owner_id <> new.buyer_id then
+    insert into public.notifications (recipient_id, actor_id, type, order_id)
+    values (new.buyer_id, v_owner_id, 'order_shipped', new.id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger orders_notify_shipped
+  after update on public.orders
+  for each row
+  when (old.status = 'ready_to_ship' and new.status = 'shipped')
+  execute function public.notify_order_shipped();
+
+-- Cancellation can be triggered by either party (cancel_order is
+-- buyer-only, seller_cancel_order is seller-only, see above) so unlike
+-- every other trigger in this section the notification's direction
+-- isn't fixed by which columns changed -- it depends on who called the
+-- RPC. auth.uid() still resolves to the original calling user inside
+-- this trigger even though both RPCs run security definer, same
+-- reasoning notify_club_join_approved's comment (WYN-015) already
+-- documents for that trigger.
+create or replace function public.notify_order_cancelled()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_owner_id uuid;
+begin
+  select owner_id into v_owner_id from public.stores where id = new.store_id;
+  if auth.uid() = new.buyer_id then
+    if v_owner_id is not null and v_owner_id <> new.buyer_id then
+      insert into public.notifications (recipient_id, actor_id, type, order_id)
+      values (v_owner_id, new.buyer_id, 'order_cancelled', new.id);
+    end if;
+  elsif v_owner_id is not null and auth.uid() = v_owner_id and v_owner_id <> new.buyer_id then
+    insert into public.notifications (recipient_id, actor_id, type, order_id)
+    values (new.buyer_id, v_owner_id, 'order_cancelled', new.id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger orders_notify_cancelled
+  after update on public.orders
+  for each row
+  when (old.status <> 'cancelled' and new.status = 'cancelled')
+  execute function public.notify_order_cancelled();
+
+-- Seller-only (seller_mark_refunded above) -- recipient is always the
+-- buyer, actor is always the store owner, same fixed direction as
+-- notify_order_shipped.
+create or replace function public.notify_order_refunded()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_owner_id uuid;
+begin
+  select owner_id into v_owner_id from public.stores where id = new.store_id;
+  if v_owner_id is not null and v_owner_id <> new.buyer_id then
+    insert into public.notifications (recipient_id, actor_id, type, order_id)
+    values (new.buyer_id, v_owner_id, 'order_refunded', new.id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger orders_notify_refunded
+  after update on public.orders
+  for each row
+  when (old.status <> 'refunded' and new.status = 'refunded')
+  execute function public.notify_order_refunded();
+
+-- ============================================================
 -- SELLER-004: ZOKY Sellers by WYN — Store Management
 -- ============================================================
 -- Purely additive: 3 new nullable `stores` columns for the fields

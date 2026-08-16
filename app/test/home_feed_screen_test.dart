@@ -24,6 +24,7 @@ import 'support/recording_notification_repository.dart';
 import 'support/recording_pop_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
+import 'support/recording_zoky_repository.dart';
 
 HomeFeedItem _dropItem({
   String id = 'd1',
@@ -79,6 +80,7 @@ void main() {
   late RecordingSavedRepository sharedSavedRepository;
   late RecordingNotificationRepository sharedNotificationRepository;
   late RecordingClubRepository sharedClubRepository;
+  late RecordingZokyRepository sharedZokyRepository;
   late RecordingClubPostRepository sharedClubPostRepository;
   late RecordingClubPostRepository emptyFromClubsPostRepository;
   late RecordingClubPostRepository fromClubsPostRepository;
@@ -123,6 +125,7 @@ void main() {
     sharedSavedRepository = RecordingSavedRepository();
     sharedNotificationRepository = RecordingNotificationRepository();
     sharedClubRepository = RecordingClubRepository();
+    sharedZokyRepository = RecordingZokyRepository();
     sharedClubPostRepository = RecordingClubPostRepository();
     emptyFromClubsPostRepository = RecordingClubPostRepository(fromJoinedClubs: []);
     fromClubsPostRepository = RecordingClubPostRepository(fromJoinedClubs: [
@@ -196,6 +199,7 @@ void main() {
           notificationRepository: notificationRepository ?? sharedNotificationRepository,
           clubRepository: sharedClubRepository,
           clubPostRepository: clubPostRepository ?? sharedClubPostRepository,
+          zokyRepository: sharedZokyRepository,
         ),
       );
 

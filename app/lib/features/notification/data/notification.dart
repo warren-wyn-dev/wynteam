@@ -10,6 +10,12 @@ enum NotificationType {
   clubJoinApproved,
   clubPostLike,
   clubPostComment,
+  // ZOKY-005 R1 (2026-08-16): 4 new order notification types -- see
+  // supabase/schema.sql's ZOKY-005 R1 section.
+  newOrder,
+  orderShipped,
+  orderCancelled,
+  orderRefunded,
 }
 
 NotificationType _typeFromString(String value) {
@@ -32,6 +38,14 @@ NotificationType _typeFromString(String value) {
       return NotificationType.clubPostLike;
     case 'club_post_comment':
       return NotificationType.clubPostComment;
+    case 'new_order':
+      return NotificationType.newOrder;
+    case 'order_shipped':
+      return NotificationType.orderShipped;
+    case 'order_cancelled':
+      return NotificationType.orderCancelled;
+    case 'order_refunded':
+      return NotificationType.orderRefunded;
     default:
       throw ArgumentError('Unknown notification type: $value');
   }
@@ -59,6 +73,8 @@ class WynNotification {
     this.clubId,
     this.clubName,
     this.clubPostId,
+    this.orderId,
+    this.orderStoreName,
     required this.isRead,
     required this.createdAt,
   });
@@ -88,6 +104,18 @@ class WynNotification {
   /// [NotificationType.clubPostComment].
   final String? clubPostId;
 
+  /// Set for every ZOKY-005 R1 order notification type (all four).
+  final String? orderId;
+
+  /// Denormalized the same way [clubName] is -- fetched through a
+  /// nested `order:orders(store:stores(name))` embed rather than
+  /// stored directly on the notification row, since the store's name
+  /// can change after the notification is created (unlike `orders.
+  /// total`, which is a deliberate point-in-time snapshot -- see
+  /// supabase/schema.sql's create_orders() comment). Only set for
+  /// order notification types.
+  final String? orderStoreName;
+
   final bool isRead;
   final DateTime createdAt;
 
@@ -99,6 +127,8 @@ class WynNotification {
   factory WynNotification.fromMap(Map<String, dynamic> map) {
     final actor = map['actor'] as Map<String, dynamic>;
     final club = map['club'] as Map<String, dynamic>?;
+    final order = map['order'] as Map<String, dynamic>?;
+    final orderStore = order?['store'] as Map<String, dynamic>?;
     return WynNotification(
       id: map['id'] as String,
       type: _typeFromString(map['type'] as String),
@@ -111,6 +141,8 @@ class WynNotification {
       clubId: map['club_id'] as String?,
       clubName: club?['name'] as String?,
       clubPostId: map['club_post_id'] as String?,
+      orderId: map['order_id'] as String?,
+      orderStoreName: orderStore?['name'] as String?,
       isRead: map['is_read'] as bool,
       createdAt: DateTime.parse(map['created_at'] as String),
     );

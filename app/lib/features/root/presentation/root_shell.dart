@@ -71,6 +71,7 @@ class _RootShellState extends State<RootShell> {
         notificationRepository: notificationRepository,
         clubRepository: clubRepository,
         clubPostRepository: clubPostRepository,
+        zokyRepository: zokyRepository,
       ),
       DropFeedScreen(
         dropRepository: dropRepository,

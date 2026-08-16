@@ -13,6 +13,7 @@ import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../saved/data/saved_repository.dart';
 import '../../search/presentation/search_screen.dart';
+import '../../zoky/data/zoky_repository.dart';
 import '../data/home_feed_item.dart';
 import '../data/home_repository.dart';
 import 'pop_single_clip_screen.dart';
@@ -39,6 +40,7 @@ class HomeFeedScreen extends StatefulWidget {
     required this.notificationRepository,
     required this.clubRepository,
     required this.clubPostRepository,
+    required this.zokyRepository,
   });
 
   final HomeRepository homeRepository;
@@ -50,6 +52,7 @@ class HomeFeedScreen extends StatefulWidget {
   final NotificationRepository notificationRepository;
   final ClubRepository clubRepository;
   final ClubPostRepository clubPostRepository;
+  final ZokyRepository zokyRepository;
 
   @override
   State<HomeFeedScreen> createState() => _HomeFeedScreenState();
@@ -313,6 +316,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
           savedRepository: widget.savedRepository,
           clubRepository: widget.clubRepository,
           clubPostRepository: widget.clubPostRepository,
+          zokyRepository: widget.zokyRepository,
         ),
       ),
     );

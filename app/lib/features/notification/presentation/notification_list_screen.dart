@@ -16,6 +16,8 @@ import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../../saved/data/saved_repository.dart';
+import '../../zoky/data/zoky_repository.dart';
+import '../../zoky/presentation/zoky_order_detail_screen.dart';
 import '../data/notification.dart';
 import '../data/notification_repository.dart';
 import '../../../core/design/wyn_spacing.dart';
@@ -35,6 +37,7 @@ class NotificationListScreen extends StatefulWidget {
     required this.savedRepository,
     required this.clubRepository,
     required this.clubPostRepository,
+    required this.zokyRepository,
   });
 
   final NotificationRepository notificationRepository;
@@ -45,6 +48,7 @@ class NotificationListScreen extends StatefulWidget {
   final SavedRepository savedRepository;
   final ClubRepository clubRepository;
   final ClubPostRepository clubPostRepository;
+  final ZokyRepository zokyRepository;
 
   @override
   State<NotificationListScreen> createState() => _NotificationListScreenState();
@@ -158,7 +162,23 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       case NotificationType.clubPostLike:
       case NotificationType.clubPostComment:
         await _openClubPost(notification.clubPostId!);
+      case NotificationType.newOrder:
+      case NotificationType.orderShipped:
+      case NotificationType.orderCancelled:
+      case NotificationType.orderRefunded:
+        _openOrder(notification.orderId!);
     }
+  }
+
+  void _openOrder(String orderId) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ZokyOrderDetailScreen(
+          zokyRepository: widget.zokyRepository,
+          orderId: orderId,
+        ),
+      ),
+    );
   }
 
   Future<void> _openDrop(String dropId) async {
@@ -281,6 +301,20 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         return '$name ถูกใจโพสต์ของคุณใน $club';
       case NotificationType.clubPostComment:
         return '$name แสดงความคิดเห็นในโพสต์ของคุณใน $club';
+      case NotificationType.newOrder:
+        final store = notification.orderStoreName ?? 'ร้านของคุณ';
+        return '$name สั่งซื้อสินค้าจาก $store';
+      case NotificationType.orderShipped:
+        return 'คำสั่งซื้อของคุณจาก ${notification.orderStoreName ?? 'ร้านค้า'} ถูกจัดส่งแล้ว';
+      case NotificationType.orderCancelled:
+        // Bidirectional (see notify_order_cancelled in supabase/schema.sql
+        // -- either the buyer or the seller can be the recipient here),
+        // so this is deliberately worded to read correctly from either
+        // side, unlike orderShipped/orderRefunded above which are always
+        // buyer-recipient.
+        return 'คำสั่งซื้อจากร้าน ${notification.orderStoreName ?? 'ร้านค้า'} ถูกยกเลิก';
+      case NotificationType.orderRefunded:
+        return 'คำสั่งซื้อของคุณจาก ${notification.orderStoreName ?? 'ร้านค้า'} ถูกคืนเงินแล้ว';
     }
   }
 
