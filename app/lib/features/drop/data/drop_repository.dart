@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/text_utils.dart';
+import '../../home/data/home_feed_item.dart';
+import '../../home/data/home_ranking.dart';
 import 'drop.dart';
 import 'drop_comment.dart';
 
@@ -33,6 +35,13 @@ class DropRepository {
 
   // 21 (a multiple of 3) so a full page always fills whole grid rows.
   static const pageSize = 21;
+
+  // The ranked "For You" tab (WYN-018 follow-up) is a bounded top-N
+  // window, not true infinite ranking -- see fetchRankedFeed's doc
+  // comment. A multiple of pageSize so _hasMore's "did this page come
+  // back full" check in DropFeedScreen still behaves the same as every
+  // other paginated method here.
+  static const _rankedCandidateLimit = pageSize * 10;
 
   /// Fetches one page (0-indexed) of the Drop grid, newest first.
   Future<List<Drop>> fetchFeed({required int page}) async {
@@ -159,6 +168,81 @@ class DropRepository {
               savedByMe: savedIds.contains(row['id'] as String),
             ))
         .toList();
+  }
+
+  /// Fetches one page (0-indexed) of Drop tab's "For You" tab, ordered by
+  /// [rankingScore] instead of chronologically -- the WYN-018 follow-up
+  /// its own design doc flagged as the natural next step ("Once WYN-018
+  /// ships, For You switches to the shared ranking query"). Reuses the
+  /// exact same formula Home's "สำหรับคุณ" uses (via
+  /// [HomeFeedItem.fromDrop]) rather than a second scoring function, so
+  /// the two "For You" feeds in the app agree on what "relevant" means.
+  ///
+  /// Same bounded-window shape as [HomeRepository.fetchRankedFeed] and
+  /// for the same reason: PostgREST can't `order()` by a computed
+  /// expression, so this fetches a bounded set of recent candidates and
+  /// ranks them client-side. [page]s beyond the window return empty.
+  Future<List<Drop>> fetchRankedFeed({required int page}) async {
+    final userId = _client.auth.currentUser!.id;
+    final from = page * pageSize;
+    final to = from + pageSize - 1;
+    if (from >= _rankedCandidateLimit) return [];
+
+    final rows = await _client
+        .from('drops')
+        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count)')
+        .order('created_at', ascending: false)
+        .limit(_rankedCandidateLimit);
+
+    final dropIds = rows.map((row) => row['id'] as String).toList();
+    final authorIds = rows.map((row) => row['author_id'] as String).toSet();
+    final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
+    final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
+    final followedAuthorIds = await _fetchFollowedAuthorIds(
+      userId: userId,
+      authorIds: authorIds,
+    );
+
+    final drops = rows
+        .map((row) => Drop.fromMap(
+              row,
+              likedByMe: likedIds.contains(row['id'] as String),
+              savedByMe: savedIds.contains(row['id'] as String),
+            ))
+        .toList();
+
+    final now = DateTime.now().toUtc();
+    drops.sort((a, b) {
+      final scoreA = rankingScore(
+        HomeFeedItem.fromDrop(a),
+        now: now,
+        isFollowingAuthor: followedAuthorIds.contains(a.authorId),
+      );
+      final scoreB = rankingScore(
+        HomeFeedItem.fromDrop(b),
+        now: now,
+        isFollowingAuthor: followedAuthorIds.contains(b.authorId),
+      );
+      return scoreB.compareTo(scoreA);
+    });
+
+    if (from >= drops.length) return [];
+    return drops.sublist(from, to + 1 > drops.length ? drops.length : to + 1);
+  }
+
+  Future<Set<String>> _fetchFollowedAuthorIds({
+    required String userId,
+    required Set<String> authorIds,
+  }) async {
+    if (authorIds.isEmpty) return {};
+
+    final rows = await _client
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId)
+        .inFilter('following_id', authorIds.toList());
+
+    return rows.map((row) => row['following_id'] as String).toSet();
   }
 
   /// Fetches a single Drop by id, with a fresh likedByMe/savedByMe for the

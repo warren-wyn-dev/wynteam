@@ -81,7 +81,7 @@ class _DropFeedScreenState extends State<DropFeedScreen> {
           children: [
             _DropTabFeed(
               key: ValueKey('for_you_$_feedVersion'),
-              fetchPage: widget.dropRepository.fetchFeed,
+              fetchPage: widget.dropRepository.fetchRankedFeed,
               emptyMessage: 'ยังไม่มีใครแชร์รูปเลย เป็นคนแรกสิ!',
               dropRepository: widget.dropRepository,
               followRepository: widget.followRepository,

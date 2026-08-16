@@ -177,4 +177,45 @@ void main() {
 
     expect(find.text('For You/Latest'), findsOneWidget);
   });
+
+  group('For You ranking (WYN-018 follow-up)', () {
+    late RecordingDropRepository rankingRepo;
+
+    setUp(() {
+      // Constructed here, not inline in testWidgets -- see
+      // search_screen_test.dart / .wyn/learning/PATTERNS.md for why: each
+      // RecordingDropRepository wraps a real throwaway SupabaseClient
+      // whose GoTrue client starts a Timer.periodic, which leaks past the
+      // test's fake-async zone if built outside setUp().
+      rankingRepo = RecordingDropRepository(
+        feedDrops: [_drop(id: 'd1', caption: 'Chronological only')],
+        rankedFeedDrops: [_drop(id: 'd2', caption: 'Ranked only')],
+      );
+    });
+
+    testWidgets('For You renders from fetchRankedFeed, not the chronological feed',
+        (tester) async {
+      await tester.pumpWidget(buildDropFeed(dropRepository: rankingRepo));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(rankingRepo.fetchRankedFeedCalls, greaterThan(0));
+      expect(find.text('Ranked only'), findsOneWidget);
+      expect(find.text('Chronological only'), findsNothing);
+    });
+
+    testWidgets('Latest still renders from the chronological feed, unaffected',
+        (tester) async {
+      await tester.pumpWidget(buildDropFeed(dropRepository: rankingRepo));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('Latest'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('Chronological only'), findsOneWidget);
+      expect(find.text('Ranked only'), findsNothing);
+    });
+  });
 }
