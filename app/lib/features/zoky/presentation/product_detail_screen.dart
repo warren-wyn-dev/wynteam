@@ -17,6 +17,7 @@ import 'widgets/star_rating.dart';
 import 'zoky_cart_screen.dart';
 import 'zoky_order_list_screen.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_zoky_accent.dart';
 
 const _reviewsPreviewLimit = 3;
 
@@ -149,7 +150,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final product = widget.product;
-    return Scaffold(
+    return ZokyAccentTheme(child: Scaffold(
       appBar: AppBar(
         title: Text(product.name),
         actions: [
@@ -211,7 +212,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           _buildActionBar(context),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildPriceRow(BuildContext context) {

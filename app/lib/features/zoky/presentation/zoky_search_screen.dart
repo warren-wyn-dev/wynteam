@@ -6,6 +6,7 @@ import '../data/category.dart';
 import '../data/zoky_repository.dart';
 import 'widgets/zoky_product_results_tab.dart';
 import 'widgets/zoky_store_results_tab.dart';
+import '../../../core/design/wyn_zoky_accent.dart';
 
 /// Screen 1 — ZOKY Search (ZOKY-002), opened from ZOKY Home's search bar
 /// or a category chip. Deliberately a separate screen from WYN Social's
@@ -65,7 +66,7 @@ class _ZokySearchScreenState extends State<ZokySearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
+    return ZokyAccentTheme(child: DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
@@ -110,6 +111,6 @@ class _ZokySearchScreenState extends State<ZokySearchScreen> {
           ],
         ),
       ),
-    );
+    ));
   }
 }

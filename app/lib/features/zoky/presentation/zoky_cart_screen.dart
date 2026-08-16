@@ -9,6 +9,7 @@ import 'store_screen.dart';
 import 'widgets/zoky_cart_item_tile.dart';
 import 'zoky_checkout_address_screen.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_zoky_accent.dart';
 
 /// Screen 2 (ZOKY-003) -- the buyer's cart, grouped by store. Opened
 /// from ZOKY Home's Cart icon (replacing the SnackBar placeholder from
@@ -117,7 +118,7 @@ class _ZokyCartScreenState extends State<ZokyCartScreen> {
   Widget build(BuildContext context) {
     final items = _items;
 
-    return Scaffold(
+    return ZokyAccentTheme(child: Scaffold(
       appBar: AppBar(title: const Text('ตะกร้าสินค้า')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -125,7 +126,7 @@ class _ZokyCartScreenState extends State<ZokyCartScreen> {
               ? _buildEmptyState(context)
               : _buildGroupedList(context, items),
       bottomNavigationBar: (items != null && items.isNotEmpty) ? _buildBottomBar(context, items) : null,
-    );
+    ));
   }
 
   Widget _buildEmptyState(BuildContext context) {

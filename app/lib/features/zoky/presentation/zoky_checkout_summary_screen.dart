@@ -4,6 +4,7 @@ import '../../../core/text_utils.dart';
 import '../data/cart_item.dart';
 import '../data/zoky_repository.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_zoky_accent.dart';
 
 /// Screen 4 (ZOKY-003) -- Checkout step 2 of 2: the fee/total
 /// breakdown per store, reviewed in full before the buyer can confirm.
@@ -75,7 +76,7 @@ class _ZokyCheckoutSummaryScreenState extends State<ZokyCheckoutSummaryScreen> {
       byStore.putIfAbsent(item.product.storeId, () => []).add(item);
     }
 
-    return Scaffold(
+    return ZokyAccentTheme(child: Scaffold(
       appBar: AppBar(title: const Text('สรุปคำสั่งซื้อ')),
       body: FutureBuilder<double>(
         future: _feePercentFuture,
@@ -105,7 +106,7 @@ class _ZokyCheckoutSummaryScreenState extends State<ZokyCheckoutSummaryScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildContent(

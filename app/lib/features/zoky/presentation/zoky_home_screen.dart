@@ -13,6 +13,7 @@ import 'zoky_cart_screen.dart';
 import 'zoky_order_list_screen.dart';
 import 'zoky_search_screen.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_zoky_accent.dart';
 
 /// Screen 1 — ZOKY Home (ZOKY-001), the 5th Bottom Nav tab. Search and
 /// category-tap open ZokySearchScreen for real as of ZOKY-002; Cart/
@@ -157,7 +158,7 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ZokyAccentTheme(child: Scaffold(
       body: SafeArea(
         child: CustomScrollView(
           controller: _scrollController,
@@ -188,7 +189,7 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildTopRow(BuildContext context) {

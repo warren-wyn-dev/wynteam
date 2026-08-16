@@ -5,6 +5,7 @@ import '../data/zoky_repository.dart';
 import 'widgets/review_tile.dart';
 import 'widgets/star_rating.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_zoky_accent.dart';
 
 /// Screen: ProductReviewsScreen (ZOKY-004) -- every review for a single
 /// product, opened from ProductDetailScreen's "ดูรีวิวทั้งหมด" once
@@ -77,7 +78,7 @@ class _ProductReviewsScreenState extends State<ProductReviewsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ZokyAccentTheme(child: Scaffold(
       appBar: AppBar(title: const Text('รีวิวทั้งหมด')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -101,6 +102,6 @@ class _ProductReviewsScreenState extends State<ProductReviewsScreen> {
                   ),
               ],
             ),
-    );
+    ));
   }
 }

@@ -4,6 +4,7 @@ import '../data/cart_item.dart';
 import '../data/zoky_repository.dart';
 import 'zoky_checkout_summary_screen.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_zoky_accent.dart';
 
 /// Screen 3 (ZOKY-003) -- Checkout step 1 of 2: shipping address form.
 /// Deliberately its own screen rather than folded into the summary
@@ -60,7 +61,7 @@ class _ZokyCheckoutAddressScreenState extends State<ZokyCheckoutAddressScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ZokyAccentTheme(child: Scaffold(
       appBar: AppBar(title: const Text('ที่อยู่จัดส่ง')),
       body: SafeArea(
         child: Form(
@@ -100,6 +101,6 @@ class _ZokyCheckoutAddressScreenState extends State<ZokyCheckoutAddressScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 }

@@ -9,6 +9,7 @@ import 'widgets/order_status_badge.dart';
 import 'widgets/review_form_sheet.dart';
 import 'widgets/star_rating.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_zoky_accent.dart';
 
 /// Screen 6 (ZOKY-003, action bar made per-status by SELLER-003) -- a
 /// single Order's full detail. Cancel shows only while status is
@@ -150,7 +151,7 @@ class _ZokyOrderDetailScreenState extends State<ZokyOrderDetailScreen> {
   Widget build(BuildContext context) {
     final order = _order;
 
-    return Scaffold(
+    return ZokyAccentTheme(child: Scaffold(
       appBar: AppBar(title: const Text('รายละเอียดคำสั่งซื้อ')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -160,7 +161,7 @@ class _ZokyOrderDetailScreenState extends State<ZokyOrderDetailScreen> {
       bottomNavigationBar: order != null && _hasAnyAction(order.status)
           ? _buildActionBar(context, order.status)
           : null,
-    );
+    ));
   }
 
   /// Whether _buildActionBar has anything to render at all for

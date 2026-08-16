@@ -16,6 +16,7 @@ import '../../profile/presentation/view_profile_screen.dart';
 import '../../saved/data/saved_repository.dart';
 import '../../zoky/data/zoky_repository.dart';
 import '../../zoky/presentation/zoky_home_screen.dart';
+import '../../../core/design/wyn_colors.dart';
 
 /// The 4-tab Bottom Navigation shell (Home / Drop / Pop / Profile) from
 /// the "WYN V0.1 — CORE APP FEATURE PROMPT" (see
@@ -127,9 +128,16 @@ class _RootShellState extends State<RootShell> {
             selectedIcon: Icon(Icons.person),
             label: 'Profile',
           ),
+          // Selected icon only (not the icon/label/indicator pill) is
+          // explicitly ZOKY Orange -- DS-007, "จุด entry ของ ZOKY" (DS-001,
+          // Section 4, point 5). An explicit `color:` on Icon always wins
+          // over NavigationBar's own IconTheme, so this doesn't need
+          // wrapping in ZokyAccentTheme (that wrapper only affects
+          // Theme.of(context).colorScheme lookups deeper in the ZOKY
+          // screens themselves, not this destination list).
           NavigationDestination(
             icon: Icon(Icons.storefront_outlined),
-            selectedIcon: Icon(Icons.storefront),
+            selectedIcon: Icon(Icons.storefront, color: WynColors.orange500),
             label: 'ZOKY',
           ),
         ],

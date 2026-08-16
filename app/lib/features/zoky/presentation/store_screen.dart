@@ -12,6 +12,7 @@ import 'widgets/review_tile.dart';
 import 'widgets/star_rating.dart';
 import 'zoky_strings.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_zoky_accent.dart';
 
 /// Placeholder share link -- same "no real hosting/domain yet" caveat as
 /// dropShareLink/popShareLink/clubPostShareLink/productShareLink
@@ -88,7 +89,7 @@ class _StoreScreenState extends State<StoreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
+    return ZokyAccentTheme(child: DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
@@ -165,7 +166,7 @@ class _StoreScreenState extends State<StoreScreen> {
           },
         ),
       ),
-    );
+    ));
   }
 
   /// Edge-to-edge, above `_buildHeader` -- deliberately not the
