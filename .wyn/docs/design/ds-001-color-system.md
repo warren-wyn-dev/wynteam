@@ -1,28 +1,31 @@
 # DS-001 — WYN Design System: Color / Typography / Spacing Foundation
 
-> สถานะ: **PROPOSED — รอ Founder ตัดสินใจ Q1 (ยืนยันเปลี่ยนสีหรือไม่)**
-> ผู้จัดทำ: AI Design | วันที่: 2026-08-15 | อ้างอิง task: `.wyn/tasks/backlog/DS-001-design-system-audit.md`
-> เอกสารนี้ **ยังไม่ใช่กติกาที่อนุมัติแล้ว** — `.wyn/docs/design/design-principles.md` (Blue + White + Soft Gray) ยังเป็นของจริงอยู่จนกว่า Founder จะยืนยันเปลี่ยน
-> หน้าเปรียบเทียบให้ดูตัดสินใจ: `palette_compare.html` (ไฟล์ HTML ที่ AI Design ทำคู่กับเอกสารนี้)
+> สถานะ: **APPROVED — Founder เลือก B (2026-08-15), พร้อมส่ง AI Coding**
+> ผู้จัดทำ: AI Design | วันที่เขียนร่างแรก: 2026-08-15 | วันที่ Founder อนุมัติ: 2026-08-15 | อ้างอิง task: `.wyn/tasks/backlog/DS-001-design-system-audit.md`
+> เอกสารนี้ **เป็นกติกาที่อนุมัติแล้ว** — แทนที่ `.wyn/docs/design/design-principles.md` (Blue + White + Soft Gray) อย่างสมบูรณ์ ดูคำตัดสินใจฉบับเต็มที่ `.wyn/company/DECISIONS.md` (2026-08-15, "เปลี่ยน Color Direction ของ WYN: Blue → Cyan")
+> หน้าเปรียบเทียบที่ Founder ใช้ตัดสิน: `palette_compare.html` (เก็บไว้เป็น artifact อ้างอิงย้อนหลัง ไม่ใช่เอกสารที่ยังต้องใช้ตัดสินใจอีก)
 
 ---
 
-## 0. สรุปข้อค้นพบที่ Founder ต้องรู้ก่อนตัดสินใจ
+## 0. สรุปสิ่งที่ Founder ตัดสินใจแล้ว + ความเสี่ยงที่ต้องรู้ก่อนเริ่ม Coding
 
-Palette ที่ Founder เสนอ (Cyan `#00C8FF` + Orange `#FF6B35`) **สวยมากบนพื้นดำ แต่ตกเกณฑ์ WCAG AA บนพื้นขาว**
+**Founder เลือกทางเลือก B แล้ว (2026-08-15)**: ใช้ค่าดิบ Cyan `#00C8FF` และ Orange `#FF6B35` ตรง ๆ ทั้ง light และ dark mode ตามที่เสนอไว้ในต้นฉบับ ไม่ใช่เฉดที่ปรับให้ผ่าน WCAG (ดู `.wyn/company/DECISIONS.md` 2026-08-15 "เปลี่ยน Color Direction ของ WYN: Blue → Cyan") — เอกสารนี้ถูกเขียนใหม่ทั้งฉบับให้ตรงกับ B แล้ว (draft แรกเขียนไว้สำหรับทางเลือก C ก่อน Founder ตัดสินใจ)
+
+Palette นี้ (Cyan `#00C8FF` + Orange `#FF6B35`) **สวยมากบนพื้นดำ แต่ตกเกณฑ์ WCAG AA บนพื้นขาวเมื่อใช้เป็นตัวหนังสือ/เส้นเปล่า**
 
 | สี | บนพื้นขาว `#FFFFFF` | บนพื้นดำ `#0A0A0A` | สรุป |
 |---|---|---|---|
-| Cyan `#00C8FF` | **1.96:1** ❌ | 10.09:1 ✅ | ใช้เป็นตัวหนังสือ/ปุ่มบนพื้นขาวไม่ได้เลย |
-| Orange `#FF6B35` | **2.84:1** ❌ | 6.98:1 ✅ | ราคาสินค้าบนพื้นขาวอ่านไม่ผ่านเกณฑ์ |
-| Blue `#2D6CDF` (ของเดิม) | 4.86:1 ✅ | 4.07:1 | ผ่านทั้งคู่ แต่เป็นน้ำเงิน Material ทั่วไป |
+| Cyan `#00C8FF` | **1.96:1** ❌ | 10.09:1 ✅ | ใช้เป็นตัวหนังสือ/ไอคอนเปล่าบนพื้นขาวไม่ได้เลย |
+| Orange `#FF6B35` | **2.84:1** ❌ | 6.98:1 ✅ | ราคาสินค้าที่เป็นตัวหนังสือเปล่าบนพื้นขาวอ่านไม่ผ่านเกณฑ์ |
+| Blue `#2D6CDF` (ของเดิม ยกเลิกแล้ว) | 4.86:1 ✅ | 4.07:1 | ผ่านทั้งคู่ แต่เป็นน้ำเงิน Material ทั่วไป ไม่ใช่ direction ที่ Founder เลือกอีกต่อไป |
 
 เกณฑ์ WCAG AA: ตัวหนังสือปกติ ≥ 4.5:1 / ตัวหนังสือใหญ่ (≥24px หรือ ≥19px ตัวหนา) และ UI component/ขอบปุ่ม ≥ 3.0:1
 
-**นี่ไม่ใช่ปัญหา — มันคือคำใบ้ของแบรนด์**
-Cyan + Orange บนพื้นดำได้ 10.09:1 และ 6.98:1 ซึ่งเป็นค่าที่ดีมาก แปลว่า palette ที่ Founder เลือกมาเอง **เรียกร้อง identity แบบ dark-first โดยธรรมชาติ** ตรงกับคอนเซปต์ "Black + White + Cyan" ที่ Founder เขียนไว้เอง
+**Founder รับทราบความเสี่ยงนี้แล้วและยืนยันให้ใช้ค่าดิบต่อไป** — เอกสารนี้จึงไม่ปรับเฉดสีให้เข้มขึ้นแบบเงียบ ๆ เพื่อ "แก้" ปัญหา แต่แก้ด้วย 2 แนวทางที่ไม่เปลี่ยนค่าสีจาก B (ดู 3.0):
+1. ใช้ Cyan/Orange ดิบเป็น**พื้นของ shape** (ปุ่ม, badge) คู่กับตัวหนังสือดำ → ผ่าน AA จริง (10.09:1 / 6.98:1) และยังเป็นสีดิบ 100%
+2. จุดที่ยังเป็นตัวหนังสือ/เส้นเปล่าบนพื้นขาวโดยตรง (ลิงก์ Cyan, ราคา Orange แบบไม่มี chip) — **ยอมรับ contrast ต่ำกว่าเกณฑ์ตามที่ Founder ตัดสินใจ** ระบุไว้ตรง ๆ ทุกจุดที่เกิดขึ้น ไม่ปิดบัง
 
-ทางออกที่เอกสารนี้เสนอ: **สีแบรนด์ตัวเดียวกัน แต่คนละ "ระดับความเข้ม" ในแต่ละโหมด** — dark mode ใช้ Cyan สดเต็มที่ (นี่คือหน้าตาหลักของ WYN), light mode ใช้ Cyan เข้มขึ้นเป็น accent + ปุ่มหลักเป็นสีดำ ผลลัพธ์คือผ่าน AA ทั้งสองโหมดโดยไม่ต้องทิ้งความเป็น Cyan
+Dark mode ไม่มีปัญหานี้เลย (10.09:1 / 6.98:1 ผ่านทุกกรณี) — ตรงกับคอนเซปต์ "Black + White + Cyan" ที่ Founder เขียนไว้เอง ทั้งสองโหมดยังคง first-class เท่ากันตามที่ Founder ยืนยัน (ไม่ทำ dark-first)
 
 ---
 
@@ -107,26 +110,34 @@ Cyan + Orange บนพื้นดำได้ 10.09:1 และ 6.98:1 ซึ�
 
 ---
 
-## 3. Flutter `ColorScheme` Mapping (Material 3)
+## 3. Flutter `ColorScheme` Mapping (Material 3) — Founder เลือก B: ใช้ค่าดิบตรง ๆ ทั้งสองโหมด
+
+> **แก้ไข 2026-08-15**: draft แรกของ section นี้ map `primary` (light) เป็น `cyan-800 #00739E` (เฉดปรับของทางเลือก C) — Founder ดูหน้าเปรียบเทียบแล้วเลือก**ทางเลือก B**: ใช้ค่าดิบ `#00C8FF`/`#FF6B35` ตรง ๆ ทั้ง light และ dark (ดู `.wyn/company/DECISIONS.md` 2026-08-15) ทั้งที่รับทราบแล้วว่า Cyan บนขาว = 1.96:1 และ Orange บนขาว = 2.84:1 ต่ำกว่าเกณฑ์ AA — **นี่คือคำตัดสินใจที่ Founder ยืนยันแล้ว ไม่ใช่ความเข้าใจผิดที่ต้องแก้ให้เงียบ ๆ** Section นี้เขียนใหม่ให้ใช้ค่าดิบจริงตามที่ตัดสินใจ
 
 ทั้งสองแอปตั้ง `ThemeData(useMaterial3: true, colorScheme: ...)` แบบระบุค่าตรง ๆ **เลิกใช้ `colorSchemeSeed`** เพราะ seed จะ generate โทนของ Material เอง ทำให้คุมสีแบรนด์ไม่ได้ (นี่คือสาเหตุที่ตอนนี้หน้าตาเป็น "Material default")
+
+### 3.0 หลักที่ใช้แก้ปัญหา contrast โดยไม่เปลี่ยนสีจาก B
+
+Cyan/Orange ดิบใช้เป็น**พื้นของ shape** (ปุ่ม, badge, แถบ indicator, ไอคอนมีพื้นหลังกลม) ได้อย่างปลอดภัย — ปัญหา 1.96:1/2.84:1 เกิดเฉพาะตอนใช้เป็น**ตัวหนังสือ/เส้นเปล่าบนพื้นขาวโดยตรง** (ไม่มีพื้นรองรับ) เพราะงั้น:
+- **ปุ่มพื้น Cyan ดิบ + ตัวหนังสือ/ไอคอนสีดำ** = ใช้สีดิบจริง (`#00C8FF`) และอ่านออกจริง (ดำบน Cyan = **10.09:1 ✅**) — ไม่ใช่การเลี่ยง B แต่เป็นการเลือกคู่สีข้อความให้ถูกต้องบนพื้นสีที่ B กำหนด
+- **Cyan/Orange เป็นตัวหนังสือ/ไอคอนเปล่าบนพื้นขาวโดยตรง** (ลิงก์, ไอคอนไม่มีพื้นหลัง) — จุดนี้เลี่ยง 1.96:1/2.84:1 ไม่ได้ถ้าใช้ค่าดิบจริง เป็นความเสี่ยงที่ Founder รับทราบแล้วและเลือกยอมรับ **ไม่ปรับเฉดให้เข้มขึ้นแบบเงียบ ๆ** — ระบุ contrast ต่ำกว่าเกณฑ์ไว้ตรง ๆ ทุกจุดที่เกิดขึ้น
 
 ### 3.1 WYN Social — Light
 
 | ColorScheme slot | ค่า | เหตุผล / contrast |
 |---|---|---|
 | `brightness` | `light` | |
-| `primary` | `cyan-800 #00739E` | สีแบรนด์ที่ปลอดภัยบนพื้นขาว |
-| `onPrimary` | `#FFFFFF` | ขาวบน `#00739E` = **5.32 ✅** |
-| `primaryContainer` | `cyan-50 #E6F9FF` | ชิป/สถานะ selected เล็ก ๆ |
-| `onPrimaryContainer` | `cyan-900 #00658A` | **5.99 ✅** |
-| `secondary` | `ink #0A0A0A` | **ปุ่มหลักของหน้า (hero CTA) เป็นสีดำ** ไม่ใช่สี Cyan — ดูเหตุผลข้อ 3.3 |
-| `onSecondary` | `#FFFFFF` | **19.8 ✅** |
-| `secondaryContainer` | `#F2F4F7` | ปุ่ม tonal / chip |
+| `primary` | `#00C8FF` (ดิบตาม B) | ใช้เป็นพื้นปุ่มหลัก/แถบ indicator/badge — **ไม่ใช่ตัวหนังสือเปล่าบนขาว** |
+| `onPrimary` | `ink #0A0A0A` | ดำบน Cyan ดิบ = **10.09 ✅** — ปุ่มพื้น Cyan อ่านออกจริง สีแบรนด์ยังเป็น Cyan ดิบ 100% |
+| `primaryContainer` | `#E6F9FF` | พื้นชิป/สถานะ selected อ่อน ๆ |
+| `onPrimaryContainer` | `ink #0A0A0A` | **18.5 ✅** |
+| `secondary` | `#00C8FF` (ดิบเดียวกับ primary) | สำรองไว้กรณีต้องมี accent slot ที่สอง — ใช้คู่กับ `onSecondary` ดำเสมอ ห้ามคู่กับตัวหนังสือขาว |
+| `onSecondary` | `ink #0A0A0A` | **10.09 ✅** |
+| `secondaryContainer` | `#F2F4F7` | ปุ่ม tonal / chip เป็นกลาง |
 | `onSecondaryContainer` | `ink #0A0A0A` | ✅ |
-| `tertiary` | `cyan-900 #00658A` | ลิงก์/ข้อความเน้น (**6.50 ✅**) |
-| `onTertiary` | `#FFFFFF` | ✅ |
-| `error` | `#DC2626` | 4.83 ✅ |
+| `tertiary` | `#00C8FF` (ดิบ — **ใช้เป็นตัวหนังสือลิงก์ตรง ๆ**) | **1.96 ❌ ต่ำกว่า AA — ความเสี่ยงที่ Founder รับทราบแล้ว (DECISIONS.md 2026-08-15)** ไม่ปรับเฉด |
+| `onTertiary` | `ink #0A0A0A` | ใช้เมื่อ tertiary เป็นพื้น (ไม่ใช่ตัวหนังสือ) เท่านั้น |
+| `error` | `#DC2626` | 4.83 ✅ (สีสถานะ — ไม่อยู่ในกติกาข้อ 4 เรื่องห้ามประดิษฐ์ใหม่) |
 | `onError` | `#FFFFFF` | 4.83 ✅ |
 | `errorContainer` | `#FEE2E2` | |
 | `onErrorContainer` | `#7F1D1D` | ✅ |
@@ -138,64 +149,65 @@ Cyan + Orange บนพื้นดำได้ 10.09:1 และ 6.98:1 ซึ�
 | `surfaceContainer` | `#F7F8FA` | search bar / input พื้นเทาอ่อน |
 | `surfaceContainerHigh` | `#F2F4F7` | |
 | `surfaceContainerHighest` | `#EDEFF3` | |
-| `outlineVariant` | `#E5E7EB` | เส้นแบ่งเท่านั้น |
-| `outline` | `#8B929C` | ขอบของสิ่งที่กดได้ **3.14 ✅** |
+| `outlineVariant` | `#E5E7EB` (ค่าดิบของ Founder) | เส้นแบ่งตกแต่งเท่านั้น (WCAG ยกเว้น hairline decoration) |
+| `outline` | `#8B929C` | **ข้อยกเว้นทางเทคนิคเดียวที่ไม่ใช่สีแบรนด์** — ขอบของสิ่งที่กดได้ (input/ปุ่ม outline) ต้อง ≥3.0:1 ตาม WCAG 1.4.11 ถ้าใช้ `#E5E7EB` (1.2:1) ตรง ๆ ขอบจะมองไม่เห็นจนกดไม่ถูกในทางปฏิบัติ — นี่ไม่ใช่การขัด B (B พูดถึงสีแบรนด์ ไม่ใช่ขอบ input) แต่เป็น token เสริมที่จำเป็นสำหรับ usability **`#8B929C` = 3.14 ✅** |
 | `inverseSurface` | `ink #0A0A0A` | Snackbar |
 | `onInverseSurface` | `#FFFFFF` | |
-| `inversePrimary` | `cyan-500 #00C8FF` | Cyan สดบน Snackbar สีดำ **10.09 ✅** |
+| `inversePrimary` | `#00C8FF` | Cyan ดิบบน Snackbar สีดำ **10.09 ✅** |
 | `shadow` / `scrim` | `#000000` | |
 
-### 3.2 WYN Social — Dark (โหมดหลักของแบรนด์)
+### 3.2 WYN Social — Dark (โหมดที่ palette นี้เปล่งประกายที่สุด)
 
 | ColorScheme slot | ค่า | เหตุผล / contrast |
 |---|---|---|
 | `brightness` | `dark` | |
-| `primary` | `cyan-500 #00C8FF` | **สีแบรนด์เต็มความสด — นี่คือหน้าตาที่ Founder อยากได้** |
-| `onPrimary` | `ink #0A0A0A` | ดำบน Cyan = **10.09 ✅** (ห้ามใช้ตัวอักษรขาวบน Cyan เด็ดขาด = 1.96 ❌) |
-| `primaryContainer` | `cyan-950 #003D54` | |
-| `onPrimaryContainer` | `cyan-100 #CCF2FF` | **9.86 ✅** |
-| `secondary` | `#FFFFFF` | hero CTA ใน dark = ปุ่มขาวตัวอักษรดำ (คู่ตรงข้ามของ light) |
+| `primary` | `#00C8FF` (ดิบตาม B) | **สีแบรนด์เต็มความสด** — ทั้งพื้นปุ่มและตัวหนังสือ/ไอคอนเปล่าใช้ได้อย่างปลอดภัยในโหมดนี้ |
+| `onPrimary` | `ink #0A0A0A` | ดำบน Cyan = **10.09 ✅** |
+| `primaryContainer` | `#003D54` | |
+| `onPrimaryContainer` | `#CCF2FF` | **9.86 ✅** |
+| `secondary` | `#00C8FF` | เหมือน primary — dark mode ไม่ต้องมีคู่ neutral เพราะ Cyan ดิบอ่านออกทุกบริบทอยู่แล้ว |
 | `onSecondary` | `ink #0A0A0A` | ✅ |
 | `secondaryContainer` | `#1A1A1A` | |
 | `onSecondaryContainer` | `#FFFFFF` | ✅ |
-| `tertiary` | `cyan-300 #66DDFF` | ลิงก์บนพื้นดำ **~12 ✅** |
+| `tertiary` | `#00C8FF` | ลิงก์บนพื้นดำ **10.09 ✅ ผ่านสบาย** (จุดที่ light mode มีปัญหา dark mode ไม่มีเลย) |
 | `onTertiary` | `ink #0A0A0A` | ✅ |
 | `error` | `#F87171` | 6.83 ✅ |
 | `onError` | `ink #0A0A0A` | 7.16 ✅ |
-| `surface` | `#000000` | พื้นหลัง OLED ดำสนิท |
+| `surface` | `#000000` | พื้นหลัง OLED ดำสนิท (ค่าดิบของ Founder) |
 | `onSurface` | `#FFFFFF` | **21 ✅** |
 | `onSurfaceVariant` | `gray-400 #9CA3AF` | **8.27 ✅** (ห้ามใช้ `#6B7280` ที่นี่ = 3.91 ❌) |
 | `surfaceContainerLowest` | `#000000` | |
 | `surfaceContainerLow` | `#0A0A0A` | |
-| `surfaceContainer` | `#111111` | การ์ด / AppBar / BottomNav |
+| `surfaceContainer` | `#111111` (ค่าดิบของ Founder) | การ์ด / AppBar / BottomNav |
 | `surfaceContainerHigh` | `#1A1A1A` | |
-| `surfaceContainerHighest` | `#222222` | |
-| `outlineVariant` | `#222222` | เส้นแบ่งเท่านั้น |
-| `outline` | `#666666` | ขอบของสิ่งที่กดได้ **3.66 ✅** |
+| `surfaceContainerHighest` | `#222222` (ค่าดิบของ Founder) | |
+| `outlineVariant` | `#222222` (ค่าดิบของ Founder) | เส้นแบ่งตกแต่งเท่านั้น — **1.32:1 ห้ามใช้เป็นขอบของสิ่งที่กดได้** |
+| `outline` | `#666666` | ข้อยกเว้นทางเทคนิคเดียวกับ light mode — ขอบ input/ปุ่มที่กดได้ **3.66 ✅** |
 | `inverseSurface` | `#FFFFFF` | |
 | `onInverseSurface` | `ink #0A0A0A` | |
-| `inversePrimary` | `cyan-800 #00739E` | |
+| `inversePrimary` | `#00C8FF` | |
 
-### 3.3 ทำไมปุ่มหลักถึงเป็นสีดำ/ขาว ไม่ใช่ Cyan
+### 3.3 สรุปสิ่งที่เปลี่ยนจาก draft แรก (C) → ฉบับนี้ (B)
 
-ใน light mode ถ้าจะให้ปุ่มเป็น Cyan และอ่านออกจริง ต้องใช้ `#00739E` ซึ่งเข้มจนคนทั่วไปอ่านว่า "น้ำเงินเข้ม" ไม่ใช่ Cyan อยู่ดี — เท่ากับได้สีที่ไม่สวยและไม่ตรงแบรนด์พร้อมกัน
-ทางที่ได้ทั้งสองอย่างคือ **ให้ปุ่มหลักเป็น neutral (ดำใน light / ขาวใน dark) แล้วปล่อยให้ Cyan ทำหน้าที่เป็น "จุดที่แบรนด์ปรากฏ"** ได้แก่ ไอคอนแท็บที่ active, ลิงก์, badge, focus ring, indicator, ปุ่มหลักใน dark mode
-ผลลัพธ์: หน้าจอเงียบ สะอาด แบบ minimal social platform และ Cyan ได้เป็น "เสียง" ของแบรนด์จริง ๆ แทนที่จะถูกเจือจางจนกลายเป็นน้ำเงินธรรมดา
+- **ปุ่มหลักใน light mode กลับมาเป็นพื้น Cyan ดิบ + ตัวหนังสือดำ** (ไม่ใช่ปุ่มดำแบบ draft แรก) — ตรงตามที่ B กำหนดว่าใช้ค่าดิบจริง และยังอ่านออกเพราะ `onPrimary` เลือกเป็นดำ
+- **ลิงก์/ไอคอนเปล่าสี Cyan บนพื้นขาว (tertiary ที่ใช้เป็นตัวหนังสือ) ยังคง 1.96:1 ตามค่าดิบ** — จุดเดียวที่ไม่มีทางเลี่ยงได้โดยไม่เปลี่ยนสี เป็นความเสี่ยงที่ Founder ตัดสินใจรับไว้แล้ว
+- **`outline`/`border-strong` ยังคงเป็น token เสริม** (`#8B929C`/`#666666`) — ไม่ใช่สีแบรนด์ที่ B ระบุ (B พูดถึง primary/border ตกแต่งเท่านั้น) แต่เป็นความจำเป็นทางเทคนิคที่ไม่งั้นปุ่ม/ช่องกรอกข้อมูลจะกดไม่ถูกจริง
+- Design Rule ข้อ 6 เดิม (Cyan ≤~15% ของจอ ห้ามเป็นพื้นหลังใหญ่) **ยังบังคับใช้เหมือนเดิม** — ปุ่ม Cyan ดิบทำได้เพราะเป็น shape เล็ก ไม่ใช่การขัดกฎข้อนี้
 
-> นี่ไม่ใช่การลอก Threads — ปุ่ม neutral เป็น pattern สากล (ระบบ design ของ Apple, Vercel, Linear ก็ใช้) สิ่งที่ห้ามลอกคือ **โครงหน้าจอ/ลำดับ element** ซึ่งเราไม่ได้แตะเลย (Home ของ WYN ยังคงมี Search + Club section + toggle "สำหรับคุณ / จาก Club ของคุณ" + BottomNav 5 แท็บ ซึ่งไม่มีแอปไหนเหมือน)
-
-### 3.4 ZOKY sub-theme (สร้างจาก base เดิม เปลี่ยนเฉพาะ accent)
+### 3.4 ZOKY sub-theme (สร้างจาก base เดิม เปลี่ยนเฉพาะ accent — ใช้ค่าดิบตาม B เช่นกัน)
 
 ```
 ZokyTheme = WynTheme.copyWith(colorScheme:
-  light: tertiary: orange-700 #CC4A16, onTertiary: #FFFFFF,
-         tertiaryContainer: orange-50 #FFF1EC, onTertiaryContainer: orange-800 #A63A10
-  dark:  tertiary: orange-500 #FF6B35, onTertiary: ink #0A0A0A,
-         tertiaryContainer: #3A1608,      onTertiaryContainer: #FFD9C9
+  light: tertiary: #FF6B35 (ดิบ), onTertiary: ink #0A0A0A,
+         tertiaryContainer: #FFF1EC, onTertiaryContainer: ink #0A0A0A
+  dark:  tertiary: #FF6B35 (ดิบ), onTertiary: ink #0A0A0A,
+         tertiaryContainer: #3A1608, onTertiaryContainer: #FFD9C9
 )
 ```
 
-`primary`/`surface`/`outline`/typography **เหมือน WYN ทุกประการ** — สิ่งเดียวที่เปลี่ยนคือช่อง `tertiary` ทำให้โค้ด ZOKY เรียก `colorScheme.tertiary` ได้ที่เดียวแล้วได้ส้มอัตโนมัติ ส่วนแอป Social เรียกช่องเดียวกันแล้วได้ Cyan เข้ม (ไม่มีทางหลุดข้ามฝั่ง)
+`onTertiary` เป็นดำทั้งสองโหมด เพราะดำบน Orange ดิบ = **6.98:1 ✅ (dark ground)** และแม้บน context ที่ปรากฏบนพื้นขาว (เช่น chip พื้นส้ม) ดำก็ยังอ่านง่ายกว่าขาว — **ยกเว้นราคาสินค้าที่เป็นตัวหนังสือเปล่าสีส้มวางตรงบนพื้นขาว (ไม่ใช่ chip)**: กรณีนี้ contrast จริงคือ **2.84:1 ❌** ตามค่าดิบ เป็นความเสี่ยงที่ยอมรับแล้วเหมือนกับ Cyan-ลิงก์ (ดูข้อ 4)
+
+`primary`/`surface`/`outline`/typography **เหมือน WYN ทุกประการ** — สิ่งเดียวที่เปลี่ยนคือช่อง `tertiary` ทำให้โค้ด ZOKY เรียก `colorScheme.tertiary` ได้ที่เดียวแล้วได้ส้มดิบอัตโนมัติ ส่วนแอป Social เรียกช่องเดียวกันแล้วได้ Cyan ดิบ (ไม่มีทางหลุดข้ามฝั่ง)
 
 ---
 
@@ -342,7 +354,7 @@ for (final f in ['wyn_colors.dart', 'wyn_typography.dart', 'wyn_spacing.dart', '
 
 ## 8. Handoff — ลำดับงานที่แนะนำให้ AI Coding
 
-รอ Founder ยืนยัน palette ก่อน แล้วจึงทำตามลำดับนี้ (แต่ละข้อ = 1 PR, รัน 332 tests ทุกครั้ง):
+Founder ยืนยัน palette (ทางเลือก B) แล้ว — เอกสารนี้และค่าทั้งหมดใน Section 2/3/4 ถูกแก้ให้ตรงกับ B แล้ว พร้อมให้ AI Coding เริ่มงานได้ทันทีตามลำดับนี้ (แต่ละข้อ = 1 PR, รัน full test suite ทุกครั้ง):
 
 1. **DS-001a** สร้าง 4 ไฟล์ token ใน `app/lib/core/design/` + เปลี่ยน `app/lib/main.dart` มาใช้ `WynTheme` (**ยังไม่แตะหน้าจอใด ๆ** — สีจะไหลไปทุกหน้าเองเพราะ audit ยืนยันแล้วว่ามี `Color(0x...)` แค่ 8 จุด)
 2. **DS-001b** mirror เข้า `seller_app/` + test กัน drift + ZOKY sub-theme
@@ -353,7 +365,10 @@ for (final f in ['wyn_colors.dart', 'wyn_typography.dart', 'wyn_spacing.dart', '
 
 ---
 
-## 9. คำแนะนำสุดท้ายของ AI Design
+## 9. บันทึกการตัดสินใจของ Founder (แทนที่คำแนะนำเดิม)
 
-**เลือกทางเลือก C (Cyan ฉบับผ่าน AA)** — ได้ identity Cyan ที่ Founder ต้องการ, dark mode สวยเต็มที่ตามที่ palette นี้เกิดมาเพื่อ, light mode ยังใช้งานได้จริงและผ่านมาตรฐาน โดยไม่ต้องเลือกระหว่าง "สวย" กับ "อ่านออก"
-ถ้า Founder อยากได้ Cyan สดที่สุดจริง ๆ ทางเลือกเสริมคือ **ตั้ง WYN เป็นแอป dark-first** (default = dark, light เป็นทางเลือก) ซึ่ง palette นี้จะเปล่งประกายที่สุด — แต่ต้องเป็นคำตัดสินใจของ Founder เพราะกระทบภาพจำของแบรนด์ทั้งหมด
+Draft แรกของเอกสารนี้เคยแนะนำทางเลือก C (Cyan ฉบับปรับเฉดให้ผ่าน AA ทุกจุด) ด้วยเหตุผลเรื่อง accessibility — AI Design ได้นำเสนอทั้ง 3 ทางเลือก (A/B/C) ให้ Founder เทียบผ่าน `palette_compare.html` พร้อมข้อมูล contrast ครบ **Founder เลือกทางเลือก B** (ใช้ค่าดิบ `#00C8FF`/`#FF6B35` ตรง ๆ ทั้งสองโหมด) โดยรับทราบความเสี่ยงเรื่อง 1.96:1/2.84:1 ในกรณีตัวหนังสือเปล่าบนพื้นขาวแล้ว (บันทึกไว้ที่ `.wyn/company/DECISIONS.md` 2026-08-15)
+
+เอกสารนี้จึงไม่มีคำแนะนำให้เลือก C อีกต่อไป — ทุก section ถูกเขียนใหม่ให้สะท้อนค่าดิบของ B พร้อมวิธีลด contrast risk ด้วยการเลือกคู่สีข้อความที่ถูกต้อง (ดู 3.0) โดยไม่แตะค่าสีที่ Founder เลือก
+
+Founder ยังตัดสินใจเพิ่มเติมว่า **ให้คง `ThemeMode.system` ไว้เหมือนเดิม ไม่ทำแอป dark-first** — ทั้ง light และ dark ต้อง first-class เท่ากันทั้งคู่ (บันทึกที่ `.wyn/company/DECISIONS.md` 2026-08-15 "Record theme-mode decision: keep ThemeMode.system") ข้อเสนอ dark-first ในดราฟต์ก่อนหน้าจึงไม่ใช้อีกต่อไป
