@@ -485,10 +485,16 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
     return RefreshIndicator(
       onRefresh: _loadInitial,
-      child: ListView.builder(
+      child: ListView.separated(
         key: const Key('home_feed_list'),
         controller: _scrollController,
         itemCount: _items.length + (_hasMore ? 1 : 0),
+        // A hairline divider between posts only (DS-003) -- never before
+        // the loading spinner at the end, which isn't content. Material
+        // 3's default Divider colors itself from colorScheme.outlineVariant
+        // (WynColors.borderSubtleLight/Dark), so no color is hardcoded here.
+        separatorBuilder: (context, index) =>
+            index + 1 < _items.length ? const Divider(height: 1) : const SizedBox.shrink(),
         itemBuilder: (context, index) {
           if (index >= _items.length) {
             return const Padding(

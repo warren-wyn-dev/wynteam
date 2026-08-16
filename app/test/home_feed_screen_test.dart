@@ -260,6 +260,33 @@ void main() {
     expect(popCardComment, findsOneWidget);
   });
 
+  testWidgets(
+      'DS-003: shows exactly one hairline divider between 2 posts, none '
+      'before the first or after the last', (tester) async {
+    // The default 800x600 test viewport is too short to keep both an
+    // 800px-tall Drop image and the divider after it inside ListView's
+    // cache extent at the same time (see the scroll-then-lose-the-
+    // divider issue this test replaces) -- use a tall custom viewport
+    // instead so both posts and the divider between them are mounted
+    // without scrolling. Mirrors store_screen_test.dart's
+    // tester.view.physicalSize pattern.
+    tester.view.physicalSize = const Size(800, 2200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildHome(
+      mixedFeedHomeRepository,
+      dropRepository: sharedDropRepository,
+      popRepository: sharedPopRepository,
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('แคปชัน Drop'), findsOneWidget);
+    expect(find.text('แคปชัน Pop'), findsOneWidget);
+    expect(find.byType(Divider), findsOneWidget);
+  });
+
   testWidgets('shows the empty state when there is no content',
       (tester) async {
     await tester.pumpWidget(buildHome(
