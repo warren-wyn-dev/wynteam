@@ -1,7 +1,38 @@
 # Product Task — WYN-022
 
-Status: coded + self-verified (QA — PASS, 2026-08-17)
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (self-verified)
+Status: QA รอบ 1 (อิสระ) — PASS, 2026-08-17
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (independent — PASS)
+
+## Independent QA — Round 1 (AI QA & Security, 2026-08-17)
+
+**หมายเหตุ**: "PASS" เดิมด้านล่าง (`## Coding + QA Output`) เป็น self-verified โดย session เดียวกับที่เขียนโค้ดเท่านั้น ไม่ใช่ QA อิสระ — รอบนี้คือ QA อิสระรอบแรกที่แท้จริง
+
+```
+Feature: Comment Reply (nested reply แบบชั้นเดียว) — Drop/Pop/Club post ทั้งสาม
+Environment: Re-synced ไป origin/main tip (commit 8d338cb) ก่อนเริ่ม, Flutter 3.47.0 / Dart 3.13.0, PostgreSQL 16.13 local (harness เดียวกับที่ใช้ตรวจ WYN-021)
+Test Cases:
+1. `flutter analyze` อิสระ — clean
+2. `flutter test` อิสระทั้ง suite ที่ HEAD ปัจจุบัน — 362/362 ผ่าน (ครอบคลุม 12 test ของ task นี้)
+3. **Red→Green regression proof อิสระ กับ Postgres จริง** (คนละวิธีกับ Coding ที่ verify แค่ครั้งเดียวตอนพัฒนา): seed comment ระดับบนสุด → reply เข้า comment นั้น (ควรสำเร็จ) → ยืนยันสำเร็จจริง (2 แถวใน `drop_comments`) → พยายาม reply เข้า reply นั้นอีกที (ควรถูกบล็อก) → ยืนยัน `ERROR: Cannot reply to a reply -- only one level of nesting is allowed` ถูก raise จริงจาก trigger `prevent_nested_drop_comment_reply`
+4. **RED proof เพิ่มเติม**: `disable trigger drop_comments_prevent_nested_reply` แล้วลองทำ reply-to-reply เดิมซ้ำ — ยืนยันสำเร็จ (ไม่มี error) เมื่อไม่มี trigger พิสูจน์ว่า trigger (ไม่ใช่ constraint อื่น) คือกลไกที่บล็อกจริง — จากนั้น `enable trigger` กลับคืนและยืนยันบล็อกอีกครั้งได้ปกติ
+5. อ่านโค้ด trigger ทั้ง 3 ตัว (`prevent_nested_drop_comment_reply`/`prevent_nested_pop_comment_reply`/`prevent_nested_club_post_comment_reply`) — สมมาตรกันทั้งหมด ตรรกะเดียวกันทุกจุด (subquery เช็ค `parent_comment_id is not null` ของ parent ตัวเอง)
+6. อ่านโค้ด `home_feed`/`fetchPosts`'s comment_count subquery — ยืนยัน `count(*)` เดิมนับรวม reply โดยอัตโนมัติ (R3) ไม่ต้องแก้โค้ดจริงตามที่ Coding อ้าง
+7. ไล่ Acceptance Criteria ทั้ง 6 ข้อเทียบกับ Requirements R1–R4 และ Design doc (`wyn-022-comment-reply.md`) — ครบทุกข้อ
+8. Regression: ยืนยัน RLS insert/select/delete ของ comment เดิมทั้งสามตาราง (Drop/Pop/Club post) ไม่ถูกแก้ (แค่เพิ่มคอลัมน์ + trigger ใหม่แยกต่างหาก ตาม R4) — Like/ลบ reply ใช้ permission เดิมทุกจุด
+Passed: 8/8
+Failed: 0/8
+Severity: N/A
+Reproduction Steps: N/A (ไม่พบบั๊ก)
+Expected: N/A
+Actual: N/A
+Security Findings: ไม่พบช่องโหว่ — depth-1 guard บังคับใช้จริงทั้งระดับ UI (ไม่มีปุ่มตอบกลับใต้ reply) และระดับ DB (trigger, พิสูจน์แล้วว่าเป็นกลไกจริงที่บล็อก ไม่ใช่แค่ UI convention ที่ bypass ได้ง่ายๆ ผ่าน raw API)
+Recommendation: ไม่มีข้อเสนอเพิ่มเติม
+Final Status: PASS
+```
+
+---
+
+## Coding + QA Output (เดิม — self-verified เท่านั้น ไม่ใช่ QA อิสระ)
 
 ## Coding + QA Output
 

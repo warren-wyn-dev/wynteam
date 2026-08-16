@@ -1,7 +1,38 @@
 # Product Task — WYN-019
 
-Status: coded + self-verified (QA — PASS, 2026-08-17)
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (self-verified)
+Status: QA รอบ 1 (อิสระ) — PASS, 2026-08-17
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (independent — PASS)
+
+## Independent QA — Round 1 (AI QA & Security, 2026-08-17)
+
+**หมายเหตุ**: "PASS" เดิมด้านล่าง (`## Coding + QA Output`) เป็น self-verified โดย session เดียวกับที่เขียนโค้ดเท่านั้น ไม่ใช่ QA อิสระ — รอบนี้คือ QA อิสระรอบแรกที่แท้จริง
+
+```
+Feature: Drop Feed Redesign — social feed list + For You/Following/Latest tabs
+Environment: Re-synced ไป origin/main tip (commit 8d338cb) ก่อนเริ่ม, Flutter 3.47.0 / Dart 3.13.0, PostgreSQL 16.13 local (harness เดียวกับที่ใช้ตรวจ WYN-021/WYN-022) — ยืนยัน `drops.location` (R6) โหลดสำเร็จผ่าน schema.sql
+Test Cases:
+1. `flutter analyze` อิสระ — clean
+2. `flutter test` อิสระทั้ง suite ที่ HEAD ปัจจุบัน — 362/362 ผ่าน (ครอบคลุม 8 test ของ task นี้ + 2 test เพิ่มจาก follow-up ranking ของ PR #124)
+3. Postgres: `\d public.drops` ยืนยันคอลัมน์ `location` (nullable text) มีอยู่จริงตาม R6 — ไม่มี UI อ่าน/เขียนคอลัมน์นี้ (grep `.location` ใน `app/lib/features/drop/` ไม่พบการใช้งานนอก schema)
+4. อ่านโค้ด `DropRepository.fetchFollowingFeed` — 2-step fetch (follows → drops filtered by author_id in(...)), short-circuit เป็น `[]` เมื่อไม่ follow ใครเลย (ไม่ส่ง query ด้วย empty inFilter ที่อาจพฤติกรรมไม่แน่นอน) — ยืนยันพึ่ง RLS ของ `drops`/`follows` เดิมล้วนๆ ไม่มี query bypass
+5. อ่านโค้ด `DropFeedScreen`'s `_DropTabFeed` — แต่ละ tab มี pagination/scroll/like/save state อิสระผ่าน `AutomaticKeepAliveClientMixin` (ป้องกัน refetch/lose-position เวลาสลับ tab) ยืนยัน R7's grid-not-deleted (`DropGridTile` ยังถูก `ProfileDropGridTab` ใช้อยู่ — grep ยืนยัน)
+6. ยืนยัน `HomeDropCard` reuse ตรงๆ (R1) — ไม่มีการสร้างการ์ดใหม่ซ้ำซ้อน, `HomeFeedItem.fromDrop()` factory ใหม่เป็น bridge เดียว
+7. ไล่ Acceptance Criteria ทั้ง 6 ข้อเทียบกับ Requirements R1–R7 และ Design doc (`wyn-019-drop-feed-tabs.md`) — ครบทุกข้อ รวม R7's "เก็บ grid ไว้แต่ไม่ใช่ default" decision
+8. Regression: ยืนยัน `CreateDropScreen`/`DropDetailScreen`/`ProfileDropGridTab` (WYN-005/013) ไม่ถูกแตะ ตามที่ Coding อ้าง
+Passed: 8/8
+Failed: 0/8
+Severity: N/A
+Reproduction Steps: N/A (ไม่พบบั๊ก)
+Expected: N/A
+Actual: N/A
+Security Findings: ไม่มี RLS ใหม่ในงานนี้ (`location` เป็น schema-only column เดิม ไม่มี policy เปลี่ยน) — ไม่พบช่องโหว่
+Recommendation: ไม่มีข้อเสนอเพิ่มเติม — follow-up ที่ WYN-018 ระบุไว้ ("For You" ใช้ ranking formula เดียวกับ Home) ถูกทำเสร็จแล้วจริงตามที่ DECISIONS.md (2026-08-17, "Merge PR #124...") บันทึกไว้ — ตรวจสอบโค้ด `DropFeedScreen`'s For You tab เรียก `fetchRankedFeed` แล้วยืนยันตรง
+Final Status: PASS
+```
+
+---
+
+## Coding + QA Output (เดิม — self-verified เท่านั้น ไม่ใช่ QA อิสระ)
 
 ## Coding + QA Output
 

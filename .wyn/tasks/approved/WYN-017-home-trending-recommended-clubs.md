@@ -1,7 +1,36 @@
 # Product Task — WYN-017
 
-Status: coded + self-verified (QA — PASS, 2026-08-17)
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (self-verified)
+Status: QA รอบ 1 (อิสระ) — PASS, 2026-08-17
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (independent — PASS)
+
+## Independent QA — Round 1 (AI QA & Security, 2026-08-17)
+
+**หมายเหตุ**: "PASS" เดิมด้านล่าง (`## Coding + QA Output`) เป็น self-verified โดย session เดียวกับที่เขียนโค้ดเท่านั้น ไม่ใช่ QA อิสระ — รอบนี้คือ QA อิสระรอบแรกที่แท้จริง (ตรวจพร้อมกับ WYN-018 ถึง WYN-022 อีก 5 task ในชุดเดียวกัน)
+
+```
+Feature: Home — Trending Content + Recommended/Popular Clubs section
+Environment: Re-synced ไป origin/main tip (commit 8d338cb) ก่อนเริ่ม, Flutter 3.47.0 / Dart 3.13.0, ไม่มี schema change ใน task นี้ (R4) จึงไม่ต้อง verify Postgres เพิ่ม
+Test Cases:
+1. `flutter analyze` อิสระ — clean, ตรงกับที่ Coding รายงาน
+2. `flutter test` อิสระทั้ง suite ที่ HEAD ปัจจุบัน — 362/362 ผ่าน (ครอบคลุม 7 test ของ task นี้)
+3. อ่านโค้ด `HomeRepository.fetchTrending()` ยืนยัน bounded 48h window + candidate-then-sort-client-side (เหตุผลเดียวกับ `fetchPopularClubs`/PostgREST ไม่ order by computed expression ได้) และยืนยันไม่แก้ `home_feed` view (R4) — grep schema.sql ยืนยันไม่มี `WYN-017` section ใน schema.sql เลย ตรงตามที่อ้าง
+4. อ่านโค้ด `ClubSection`'s "Club แนะนำ" threshold (< 3 joined clubs) — reuse `ClubRepository.fetchPopularClubs` ตรงๆ ไม่ query ซ้ำ
+5. ไล่ Acceptance Criteria ทั้ง 5 ข้อเทียบกับ Requirements R1–R4 และ Design doc (`wyn-017-home-trending-recommended-clubs.md`) — ครบทุกข้อ
+6. Regression: ยืนยัน chronological feed หลัก (WYN-007) และ ClubSection เดิม (Club ของฉัน, WYN-014/015) ไม่ถูกแตะ — Loading/Empty/Error state ของทั้งสอง section ใหม่แยกจาก feed หลัก (fail-safe FutureBuilder pattern เดียวกับ ClubSection เดิม)
+Passed: 6/6
+Failed: 0/6
+Severity: N/A
+Reproduction Steps: N/A (ไม่พบบั๊ก)
+Expected: N/A
+Actual: N/A
+Security Findings: ไม่มีตาราง/RLS ใหม่ในงานนี้ (additive query เท่านั้นตาม R4) — ไม่พบช่องโหว่
+Recommendation: ไม่มีข้อเสนอเพิ่มเติมนอกจากที่ Coding บันทึกไว้แล้ว (Trending window 48h อาจต้องปรับ threshold ในอนาคตตาม feedback จริง — ไม่ block)
+Final Status: PASS
+```
+
+---
+
+## Coding + QA Output (เดิม — self-verified เท่านั้น ไม่ใช่ QA อิสระ)
 
 ## Coding + QA Output
 
