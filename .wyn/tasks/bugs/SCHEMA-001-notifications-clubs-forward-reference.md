@@ -1,7 +1,7 @@
 # Bug Report — SCHEMA-001
 
-Status: open (รอ AI Debug Engineer)
-Owner: AI Debug Engineer
+Status: closed (แก้แล้ว ผ่าน QA — PASS, ยืนยันด้วยการรัน `schema.sql` จริงบน Postgres สด ไม่ใช่แค่อ่าน SQL)
+Owner: AI Debug Engineer (เสร็จ) → AI QA & Security (PASS)
 
 Bug: `supabase/schema.sql` fails to run end-to-end against a genuinely fresh (empty) Postgres database — the `public.notifications` table's `create table` statement (WYN-012, near the top of the file) declares `club_id uuid references public.clubs (id)` and `club_post_id uuid references public.club_posts (id)` inline in its column list, but `public.clubs`/`public.club_posts` are not created until far later in the file (WYN-014). Running the file top-to-bottom — the only way Supabase's SQL Editor executes a pasted script — aborts at the `notifications` table with:
 
@@ -55,3 +55,44 @@ Regression Risk: Very low. The change reorders two `alter table` statements rela
 Handoff to QA: Send to AI QA & Security for verification that: (1) the reordered `schema.sql` still expresses the exact same final schema as before (diff review — no column/type/constraint/policy semantics changed, only position), (2) the new `supabase/check_schema_ordering.py` regression test correctly catches the original bug when run against a temporarily-reverted copy of the fix, and (3) no other forward-reference exists that this systematic check might have missed due to a limitation in its own logic (e.g. it does not currently parse multi-statement `alter table ... add constraint ... foreign key` syntax if that pattern is ever introduced later — only `references public.X` inline in a column definition, which is the only pattern used anywhere in this file today).
 
 Lessons learned: recorded in `.wyn/learning/LESSONS_LEARNED.md` and `.wyn/learning/MISTAKES.md` — "reading SQL semantics" (RLS/RPC logic correctness) and "linear executability from an empty database" (statement ordering / forward references) are two entirely separate dimensions of schema review; a file where every individual statement is semantically perfect can still fail to run at all if even one earlier table references a later one, because Supabase's SQL Editor (and `psql -f`) executes strictly top-to-bottom with no automatic dependency resolution. Also proposed in `.wyn/learning/IMPROVEMENTS.md` that `supabase/check_schema_ordering.py` become a mandatory step (and eventually a CI check) any time a PR touches `supabase/schema.sql`.
+
+---
+
+## QA Verification (AI QA & Security)
+
+```
+Feature: SCHEMA-001 fix — supabase/schema.sql must execute top-to-bottom against a genuinely fresh (empty) Postgres database with zero errors
+Environment: Local PostgreSQL 16 (apt package, already installed in this session's sandbox) — first time this session had a live Postgres available, so this is the first SCHEMA-001-related check ever run dynamically instead of by reading SQL only
+Test Cases:
+  1. Diff review of the fix commit (91c1a44) — confirm the column move is pure reordering, zero semantic change
+  2. Run `python3 supabase/check_schema_ordering.py` against the current (fixed) schema.sql
+  3. Run the same script against the pre-fix schema.sql (git show 91c1a44~1), to prove the regression test actually catches this bug class and isn't vacuously passing
+  4. Static check for the one documented limitation of check_schema_ordering.py (it only parses inline `references public.X` — not multi-statement `alter table ... add constraint ... foreign key`) — grep schema.sql for that pattern to see if it's actually present and unchecked
+  5. Build a minimal from-scratch stub of the Supabase-managed pieces schema.sql assumes exist (schema `auth` with `auth.users`/`auth.uid()`/`auth.role()`, schema `storage` with `storage.buckets`/`storage.objects`/`storage.foldername()`, role `authenticated`) on a brand-new empty database, then run the actual current `supabase/schema.sql` through `psql -f` end-to-end — this is the same reproduction Founder used originally (paste-and-run against a fresh project), just self-hosted instead of on supabase.com
+  6. Negative control: run the same stub bootstrap + the pre-fix schema.sql through `psql -f` on a second fresh database, to confirm the harness genuinely reproduces the Founder's original error (not just passing by construction)
+  7. Inspect the resulting `public.notifications` table on the successful (post-fix) run: columns, FK targets/`on delete cascade`, indexes, check constraints — confirm identical shape to what the bug report and Debug Output claimed (no index/constraint needed to move, nothing else changed)
+  8. Sanity totals on the successful run: table/view count, RLS policy count, function count all created with zero errors
+Passed: 8/8
+Failed: 0
+Severity: N/A (verification of an already-applied fix, not a new finding)
+Reproduction Steps (test 5/6, the dynamic run):
+  1. `service postgresql start` (Postgres 16, apt-installed)
+  2. `createdb schema001_test` (genuinely empty database — no prior schema)
+  3. Load a minimal stub bootstrap (`auth.users`, `auth.uid()`, `auth.role()`, `storage.buckets`, `storage.objects`, `storage.foldername()`, role `authenticated`) — the platform pieces Supabase itself pre-provisions but plain Postgres doesn't
+  4. `psql -d schema001_test -f supabase/schema.sql` (the exact current, committed file — no edits)
+  5. Repeat steps 2-4 on a second fresh database using `git show 91c1a44~1:supabase/schema.sql` (the pre-fix version) instead, as a negative control
+Expected: Fixed schema.sql runs top-to-bottom with zero `ERROR` lines; pre-fix version reproduces `relation "public.clubs" does not exist` and the cascade of "notifications does not exist" errors that follow (since the table whose creation aborted is referenced by everything after it)
+Actual:
+  - Fixed schema.sql: `psql -f` completed with **0 ERROR lines**, every `CREATE TABLE`/`CREATE FUNCTION`/`ALTER TABLE`/`CREATE POLICY`/`INSERT` statement in the file succeeded. `public.notifications` in the resulting live database has `club_id uuid`/`club_post_id uuid` with `FOREIGN KEY ... REFERENCES clubs(id)/club_posts(id) ON DELETE CASCADE`, no index or check constraint on either column — byte-for-byte matches the pre-fix column definition, just declared later in the file. 28 tables/views, 77 RLS policies, 64 functions created successfully.
+  - Pre-fix schema.sql (negative control, same stub, fresh DB): failed exactly as Founder originally reported — `ERROR: relation "public.clubs" does not exist` at the `notifications` table's `create table` statement, followed by a cascade of `relation "public.notifications" does not exist` errors for every later statement that depends on it (RLS policies, triggers, indexes) — confirms the reproduction harness is valid and the original bug is real, not just plausible-by-reading.
+  - `check_schema_ordering.py`: `OK: no forward references found` (exit 0) against current schema.sql; `FAIL: 2 forward reference(s) found` (exit 1), listing exactly the `notifications`→`clubs` and `notifications`→`club_posts` lines, against the pre-fix copy — the regression test genuinely discriminates broken from fixed, not just reporting green unconditionally.
+  - `grep -n "foreign key\|add constraint" supabase/schema.sql`: only hits are value-range `check` constraints (`profiles_display_name_length`, `orders_status_check`, `stores_address_length`, etc.) and one comment — no `alter table ... add constraint ... foreign key` statement exists anywhere in the file today, so the script's one documented blind spot is not currently masking anything.
+  - Diff of commit 91c1a44 (`git diff 91c1a44~1 91c1a44 -- supabase/schema.sql`): confirms the change is a pure statement move — the removed inline columns and the added `alter table ... add column if not exists` are textually identical in type/`references`/`on delete cascade`, only their position in the file changed, plus explanatory comments. No RLS policy, RPC, index, or check constraint touched.
+Security Findings: None. This bug and fix are pure DDL-statement-ordering — no RLS policy logic, authorization boundary, or data-exposure surface changed. Verified the `notifications` table's existing RLS policies (`select`/`update` gated on `auth.uid() = recipient_id`) are untouched by the diff and still present correctly on the live post-fix database.
+Recommendation: Approve and close. This is now the most rigorously verified schema change in the project to date — the first time a `schema.sql` review in this repo has been backed by an actual `psql -f` run against a fresh database rather than static SQL reading alone, closing exactly the verification gap the bug's own "Lessons learned" section flagged. Suggest formalizing this as a standing QA step (not just Debug's own static script) any time `supabase/schema.sql` changes, now that a local Postgres is available in this environment — recorded below and in `.wyn/learning/IMPROVEMENTS.md`.
+Final Status: PASS
+```
+
+Verification environment cleanup: both temporary test databases (`schema001_test`, `schema001_test_prefix`) and stub/scratch SQL files were dropped/deleted after verification — nothing left running or persisted beyond this report.
+
+Lessons learned (added by QA): a live Postgres was available in this sandbox the whole time (`postgresql-16` was already installed) but every prior `schema.sql` review — including this bug's own Debug Output — assumed none was available and fell back to static reading. Worth checking for a runnable local Postgres before defaulting to static-only schema review going forward; recorded in `.wyn/learning/IMPROVEMENTS.md`.
