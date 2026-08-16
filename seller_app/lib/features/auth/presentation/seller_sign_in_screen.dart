@@ -90,6 +90,15 @@ class _SellerSignInScreenState extends State<SellerSignInScreen> {
                         ),
                 child: const Text('เข้าสู่ระบบด้วยเบอร์โทร'),
               ),
+              const SizedBox(height: WynSpacing.space3),
+              // Temporary Internal Testing bypass (2026-08-16, see
+              // .wyn/company/DECISIONS.md) -- mirrors app/'s WelcomeScreen.
+              TextButton(
+                onPressed: _isLoading
+                    ? null
+                    : () => _handle(widget.authRepository.signInAnonymously),
+                child: const Text('ทดลองใช้โดยไม่ต้องเข้าสู่ระบบ'),
+              ),
               if (_isLoading) ...[
                 const SizedBox(height: WynSpacing.space6),
                 const Center(child: CircularProgressIndicator()),

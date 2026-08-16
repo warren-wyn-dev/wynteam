@@ -51,6 +51,21 @@ class AuthRepository {
     );
   }
 
+  /// Signs in without any identity provider (no Google/Apple/Phone OTP
+  /// setup needed) via Supabase's built-in anonymous auth -- a real,
+  /// valid session (`auth.uid()` works, RLS policies apply normally,
+  /// `hasUsername`/onboarding flow is unaffected) just not tied to any
+  /// verified identity yet. Requires "Allow anonymous sign-ins" enabled
+  /// in the Supabase project's Authentication settings (a free toggle,
+  /// no third-party account) -- see .wyn/company/DECISIONS.md, 2026-08-16
+  /// ("ข้ามหน้าล็อกอินชั่วคราวสำหรับ Internal Testing"). Temporary/testing
+  /// path only -- an anonymous user can later call `linkIdentity` to
+  /// upgrade to Google/Apple/Phone without losing their profile/data, but
+  /// that upgrade path isn't wired into the UI yet.
+  Future<AuthResponse> signInAnonymously() {
+    return _client.auth.signInAnonymously();
+  }
+
   Future<void> signOut() {
     return _client.auth.signOut();
   }

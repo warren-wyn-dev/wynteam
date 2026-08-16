@@ -57,6 +57,13 @@ class SellerAuthRepository {
     );
   }
 
+  /// Temporary Internal Testing bypass -- see
+  /// `app/lib/features/auth/data/auth_repository.dart`'s identical method
+  /// for the full rationale and .wyn/company/DECISIONS.md, 2026-08-16.
+  Future<AuthResponse> signInAnonymously() {
+    return _client.auth.signInAnonymously();
+  }
+
   Future<void> signOut() {
     return _client.auth.signOut();
   }
