@@ -25,12 +25,35 @@
 import 'package:flutter/material.dart';
 
 import 'wyn_colors.dart';
+import 'wyn_spacing.dart';
 import 'wyn_typography.dart';
 
 /// ZOKY Sellers by WYN app theme -- WYN Social's `ColorScheme` with the
 /// `tertiary` family swapped from Cyan to Orange (DS-001, Section 3.4).
 class ZokyTheme {
   ZokyTheme._();
+
+  // Same flat-card treatment as WynTheme (DS-002 Part 2, R3) -- kept as a
+  // literal copy rather than importing wyn_theme.dart's private fields
+  // (which aren't exposed) since this file is deliberately not a mirror
+  // of wyn_theme.dart (see file header).
+  static final CardThemeData _lightCardTheme = CardThemeData(
+    elevation: 0,
+    clipBehavior: Clip.antiAlias,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+      side: const BorderSide(color: WynColors.borderStrongLight),
+    ),
+  );
+
+  static final CardThemeData _darkCardTheme = CardThemeData(
+    elevation: 0,
+    clipBehavior: Clip.antiAlias,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+      side: const BorderSide(color: WynColors.borderStrongDark),
+    ),
+  );
 
   static final ColorScheme _lightScheme = WynColors.socialLightScheme
       .copyWith(
@@ -53,11 +76,13 @@ class ZokyTheme {
     useMaterial3: true,
     colorScheme: _lightScheme,
     textTheme: WynTypography.textTheme,
+    cardTheme: _lightCardTheme,
   );
 
   static final ThemeData dark = ThemeData(
     useMaterial3: true,
     colorScheme: _darkScheme,
     textTheme: WynTypography.textTheme,
+    cardTheme: _darkCardTheme,
   );
 }
