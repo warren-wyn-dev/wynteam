@@ -1,7 +1,7 @@
 # Product Task — DS-001
 
-Status: backlog (PHASE 1 AUDIT เสร็จ + DESIGN SPEC เสร็จ — รอ Founder เลือก palette A/B/C ก่อนส่งต่อ AI Coding)
-Owner: AI Product Manager → AI Design (design spec เสร็จแล้ว ดูหัวข้อ "Design Output" ท้ายไฟล์)
+Status: **bugs (QA รอบ 1 — FAIL, 2026-08-16)** — DS-001a/b/c coded and merged to `main` (PR #120/#121/#122), full QA & Security review complete, 1 Major blocking bug found (ZOKY price color not Orange in `app/`) — ส่งต่อ AI Debug Engineer พร้อม `.wyn/tasks/bugs/DS-001c-zoky-price-color-not-orange-in-app.md` ดูหัวข้อ "QA Output (รอบ 1 — 2026-08-16)" ท้ายไฟล์
+Owner: AI Debug Engineer (ต่อจาก AI QA & Security) — design spec เดิมอยู่ที่หัวข้อ "Design Output" ท้ายไฟล์
 
 Feature: WYN Design System Refinement — Phase 1 Audit + Token Foundation
 
@@ -229,3 +229,49 @@ Acceptance Criteria เขียนว่า "ทั้ง 2 แอปอ้า�
 3. **DS-001c** แทนที่ 8 จุดที่ hardcode สี (เช่น `Color(0x99000000)` ใน `product_grid_tile.dart`) ด้วย token + เปลี่ยนราคาเป็น `colorScheme.tertiary`
 
 QA ต้องตรวจเพิ่ม: screenshot ทุกหน้าหลักทั้ง light/dark, ทดสอบที่ textScale 130%, และไล่เช็คว่า Orange ไม่หลุดไปฝั่ง Social / Cyan ไม่หลุดเข้า `seller_app/`
+
+---
+
+## QA Output (รอบ 1 — 2026-08-16)
+
+Status: **FAIL** — ส่งต่อ AI Debug Engineer พร้อม bug report ที่ `.wyn/tasks/bugs/DS-001c-zoky-price-color-not-orange-in-app.md` (ยังไม่ย้ายเข้า `.wyn/tasks/approved/`)
+
+```
+Feature: DS-001 (WYN Design System: Color/Typography/Spacing Foundation) — DS-001a (app/lib/core/design/ token files + app/lib/main.dart), DS-001b (mirror into seller_app/ + wyn_zoky_theme.dart + token_sync_test.dart + seller_app/lib/main.dart), DS-001c (tokenize 6 scrim Color(0x...) literals, price color -> colorScheme.tertiary, 6 seller_app colorScheme.primary -> tertiary/tertiaryContainer fixes)
+Environment: Flutter 3.47.0 stable (/root/flutter_sdk/flutter), `flutter analyze`/`flutter test` run independently on both `app/` and `seller_app/` after confirming `claude/pwd-nxsvf5` == `origin/main` == HEAD (6df622f, PR #122) with `git diff main..claude/pwd-nxsvf5` empty. No live Supabase project (not needed -- DS-001 touches zero data/RLS/schema). No Chromium/Playwright available in this session -- screenshot verification (item 8 of the QA brief) could NOT be performed; documented as an explicit limitation, not claimed as done.
+Test Cases:
+  1. Diff every hex value in app/lib/core/design/wyn_colors.dart against ds-001-color-system.md Section 2.1/2.2/2.3/2.4 line-by-line (Cyan 9 shades, Orange 5 shades, Neutral 12, Semantic 8) -- exact match, no rounding
+  2. Diff app/lib/core/design/wyn_colors.dart's socialLightScheme/socialDarkScheme against Section 3.1/3.2 slot-by-slot (28 + 24 slots) -- exact match including the intentional omission of dark errorContainer/onErrorContainer (matches doc's table, which also omits them)
+  3. `diff` (real Unix diff, not just trusting the drift test) app/lib/core/design/{wyn_colors,wyn_typography,wyn_spacing,wyn_theme}.dart against seller_app/lib/core/design/{...} -- byte-identical, all 4 files
+  4. Independent red->green proof of seller_app/test/design/token_sync_test.dart: mutated seller_app's wyn_colors.dart cyan500 by 1 hex digit (0xFF00C8FF -> 0xFF00C8FE), ran the test -> RED with a correct, actionable error message naming the exact file and copy direction; reverted; re-ran -> GREEN again; confirmed `git status` clean afterward
+  5. wyn_zoky_theme.dart (seller_app-only) vs Section 3.4: tertiary/onTertiary/tertiaryContainer/onTertiaryContainer swapped to Orange in both light+dark, exact hex match (#FF6B35/#FFF1EC/#3A1608/#FFD9C9), everything else built via `.copyWith` on socialLightScheme/socialDarkScheme unmodified -- matches "primary/surface/outline/typography เหมือน WYN ทุกประการ"
+  6. grep sweep: seller_app/lib for colorScheme.primary/colorScheme.secondary outside core/design/ -- zero remaining (DS-001c's 6-point fix confirmed complete); seller_app/lib for cyan/00C8FF outside core/design/ -- zero (only comments); app/lib for orange/FF6B35 outside core/design/ -- zero (only a comment); app/lib for colorScheme.tertiary usage -- found 6 call sites, all in app/lib/features/zoky/ (see Failed below)
+  7. grep -rn "Color(0x" app/lib/features seller_app/lib/features -- zero remaining in both apps (all 6 scrim literals correctly tokenized to WynColors.imageScrim/imageScrimStrong)
+  8. Diff every value in app/lib/core/design/wyn_typography.dart against Section 5's table, all 12 styles (size/weight/height/letterSpacing) -- exact match
+  9. Diff wyn_spacing.dart against Section 6 (spacing/radius/touch target) -- exact match, including the intentional gaps (no space7/9/11)
+  10. Runtime widget-test probe (written and run independently, not just source review): pumped MaterialApp(theme: WynTheme.light) and WynTheme.dark, read Theme.of(context).colorScheme.tertiary -- resolves to WynColors.cyan500 in BOTH modes, confirming app/'s ZOKY price color change is a no-op (see Failed)
+  11. textScale 1.3 widget-test probes (written independently, 3 screens): HomeFeedScreen (app/) -- no overflow; ProductDetailScreen (app/, with an intentionally long product/store name) -- no overflow; SellerDashboardScreen (seller_app/, under real ZokyTheme.light, realistic short data) -- OVERFLOW found (RenderFlex overflowed ~9.4px, `_summaryRow` at seller_dashboard_screen.dart:223) -- traced to a pre-existing SELLER-001 gap (file never touched by any DS-001 commit per `git log`; same overflow reproduces even under Flutter's stock default theme with zero WYN/ZOKY tokens applied) -- NOT a DS-001 regression, logged as a non-blocking secondary finding, not included in the bug report's "Files Changed"
+  12. Pop file changes (pop_grid_tile.dart, pop_clip_view.dart) -- read DS-001c's diff directly: both are pure `Color(0x...)` -> `WynColors.imageScrim`/`imageScrimStrong` token substitutions, zero logic/route/DB changes, confirms Founder's Pop-suspension carve-out (R3) was respected
+  13. Regression sweep for old Blue-direction / colorSchemeSeed leftovers: grep for `colorSchemeSeed`, `2D6CDF`, `Colors.blue`/`Colors.cyan`/`Colors.orange` in app/lib and seller_app/lib features -- zero hits, clean cutover
+  14. `flutter analyze` on both app/ and seller_app/ independently -- both "No issues found!"
+  15. `flutter test` on both workspaces independently (not trusting Coding's reported numbers) -- app/: 280/280 passed; seller_app/: 91/91 passed -- matches what Coding reported, confirmed first-hand
+Passed: 14/15 test cases fully clean
+Failed: 1 (test case 10/6 -- ZOKY price color in app/ resolves to Cyan, not Orange)
+Severity: **Major (blocking)**
+Reproduction Steps: see `.wyn/tasks/bugs/DS-001c-zoky-price-color-not-orange-in-app.md` in full -- summary: open any ZOKY product/cart/checkout/order-detail screen inside `app/` (the customer-facing WYN Social app, ZOKY marketplace tab) in either light or dark mode; the price digits render in Cyan `#00C8FF` (visually indistinguishable from the Social app's own brand accent), not Orange, because `app/` has no ZOKY sub-theme -- `colorScheme.tertiary` under `app/`'s only theme (`WynTheme`) equals `colorScheme.primary`, both `cyan500`. Confirmed at runtime with a throwaway widget test (not just static code reading).
+Expected: ZOKY prices inside `app/`'s ZOKY tab render in Orange (`#CC4A16` light / `#FF6B35` dark), per DS-001 Section 4 Rule #1 and the Founder's 2026-08-15 decision ("ZOKY Primary (commerce layer แยก identity): Orange... ใช้เฉพาะ price...").
+Actual: ZOKY prices inside `app/`'s ZOKY tab render in Cyan `#00C8FF` in both light and dark mode, at all 6 call sites DS-001c's "Part B" claims to have fixed (product_mini_card.dart, zoky_cart_item_tile.dart, product_detail_screen.dart, zoky_checkout_summary_screen.dart, zoky_order_detail_screen.dart x2) -- no visual change from before DS-001c (was Cyan via `colorScheme.primary`, is still Cyan via `colorScheme.tertiary`, because both slots hold the same raw value in `app/`'s `WynTheme`).
+Security Findings:
+  - No secrets/credentials/tokens exposed in any diff reviewed (DS-001a/b/c touch only visual/theme code, zero `.env`/config/data-layer files)
+  - No RLS/schema/data-layer/auth files touched by DS-001a/b/c (confirmed via `git show --stat` on all 3 commits) -- matches DS-001's own scope guarantee ("R7: ห้ามลบ/เปลี่ยนพฤติกรรมฟีเจอร์ใดๆ")
+  - Pop feature/route/DB untouched -- confirmed pop_grid_tile.dart/pop_clip_view.dart diffs are color-token-only (see Test Case 12)
+  - This bug itself is a **visual/brand-identity defect, not a security vulnerability** -- no data exposure, no authorization bypass, no injection surface
+Recommendation: ส่ง `.wyn/tasks/bugs/DS-001c-zoky-price-color-not-orange-in-app.md` ให้ AI Debug Engineer แก้ (มีทางเลือก 2 แนวทางระบุไว้ในบั๊กรายงาน -- แนะนำให้ AI Design ยืนยัน shade ที่ถูกต้องสำหรับ app/'s local ZOKY-tab override ก่อนลงมือ เพราะเป็นจุดเดียวกับที่ Section 3.0 เคยต้องตัดสินใจเรื่อง raw-vs-AA-safe shade ให้ Cyan มาก่อนแล้ว) -- ส่วนอื่นทั้งหมดของ DS-001 (color scale เต็ม, ColorScheme mapping ทั้ง 2 โหมด, mirror sync + drift detection, ZOKY sub-theme ของ seller_app, typography scale, spacing scale, scrim tokenization, seller_app's 6-point Cyan-leak fix, Pop passive carve-out) ผ่านครบ ไม่ต้องแก้
+Final Status: FAIL
+```
+
+ข้อสังเกตเพิ่มเติมที่ไม่ block (บันทึกไว้ให้รอบถัดไปหรือ ticket แยก):
+1. `seller_app/lib/features/dashboard/presentation/seller_dashboard_screen.dart`'s `_summaryRow` overflows at textScale 1.3 even with realistic data, under the real production `ZokyTheme.light` -- confirmed pre-existing (SELLER-001, never touched by DS-001), not caused by this work, recommend a separate fast-follow ticket
+2. `app/lib/features/zoky/presentation/widgets/product_grid_tile.dart`'s price badge uses `Colors.white` (not any Orange token) -- pre-existing since ZOKY-001, not touched by DS-001c despite Section 4's file table naming it; worth folding into the same fix pass as the primary bug since it's the same root cause family
+3. Screenshot verification (light/dark, `app/`'s Home/ZOKY Home/Product Detail/Store, `seller_app/`'s Dashboard/Product List/Order List/Finance) could not be performed this round -- no Chromium/Playwright available in this session's environment (checked: no `chromium`/`google-chrome` binary, no `~/.cache/ms-playwright`, no `playwright` Python module, `flutter devices` shows only a Linux desktop target, no web/emulator device). This is an environment limitation, not a skipped step -- flagging explicitly per the QA brief's instruction to not claim screenshots were taken if they were not. Recommend AI Deploy & DevOps or a future QA round set up a headless Chromium (or reuse whatever a prior session used, per the task brief's mention that "เคยทำได้มาก่อนในเซสชันก่อนหน้าด้วย Playwright/Chromium") once this bug is fixed, before final visual sign-off.
+
