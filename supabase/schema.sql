@@ -91,6 +91,10 @@ create table if not exists public.drops (
   author_id uuid not null references public.profiles (id) on delete cascade,
   image_url text not null,
   caption text,
+  -- WYN-019: free-text location, not a structured place lookup -- no UI
+  -- reads or writes this column yet, schema-only prep per the Founder's
+  -- "เตรียมโครงสร้างไว้สำหรับอนาคต" request.
+  location text,
   created_at timestamptz not null default now(),
   constraint drops_caption_length
     check (caption is null or char_length(caption) between 1 and 500)

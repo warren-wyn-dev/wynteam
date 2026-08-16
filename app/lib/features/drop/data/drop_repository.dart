@@ -122,6 +122,45 @@ class DropRepository {
         .toList();
   }
 
+  /// Fetches one page (0-indexed) of Drops authored by users the current
+  /// user follows, newest first -- for WYN-019's Drop tab "Following" tab.
+  /// `follows` doesn't join directly into a `drops` query (PostgREST has
+  /// no subquery-in-filter syntax), so this fetches the followed-user-id
+  /// list first, same two-step shape ClubRepository/HomeRepository already
+  /// use for similar "filtered by a related table" reads.
+  Future<List<Drop>> fetchFollowingFeed({required int page}) async {
+    final userId = _client.auth.currentUser!.id;
+    final from = page * pageSize;
+    final to = from + pageSize - 1;
+
+    final followRows = await _client
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId);
+    final followingIds =
+        followRows.map((row) => row['following_id'] as String).toList();
+    if (followingIds.isEmpty) return [];
+
+    final rows = await _client
+        .from('drops')
+        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count)')
+        .inFilter('author_id', followingIds)
+        .order('created_at', ascending: false)
+        .range(from, to);
+
+    final dropIds = rows.map((row) => row['id'] as String).toList();
+    final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
+    final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
+
+    return rows
+        .map((row) => Drop.fromMap(
+              row,
+              likedByMe: likedIds.contains(row['id'] as String),
+              savedByMe: savedIds.contains(row['id'] as String),
+            ))
+        .toList();
+  }
+
   /// Fetches a single Drop by id, with a fresh likedByMe/savedByMe for the
   /// current user -- for opening a Drop referenced by a notification
   /// (WYN-012), where only the id is known, not a full Drop object.

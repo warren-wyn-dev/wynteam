@@ -10,13 +10,21 @@ import 'package:wyn/features/drop/data/drop_repository.dart';
 /// call. Mirrors RecordingPostRepository (WYN-004) -- see
 /// .wyn/learning/PATTERNS.md.
 class RecordingDropRepository extends DropRepository {
-  RecordingDropRepository({List<Drop>? feedDrops, List<DropComment>? comments})
-      : feedDrops = feedDrops ?? [],
+  RecordingDropRepository({
+    List<Drop>? feedDrops,
+    List<Drop>? followingFeedDrops,
+    List<DropComment>? comments,
+  })  : feedDrops = feedDrops ?? [],
+        followingFeedDrops = followingFeedDrops ?? [],
         comments = comments ?? [],
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   /// Returned by [fetchFeed] for page 0 only (page 1+ returns empty).
   final List<Drop> feedDrops;
+
+  /// Returned by [fetchFollowingFeed] for page 0 only (page 1+ returns
+  /// empty) -- WYN-019.
+  final List<Drop> followingFeedDrops;
 
   /// Returned by [fetchComments], regardless of dropId.
   final List<DropComment> comments;
@@ -33,6 +41,11 @@ class RecordingDropRepository extends DropRepository {
   @override
   Future<List<Drop>> fetchFeed({required int page}) async {
     return page == 0 ? feedDrops : <Drop>[];
+  }
+
+  @override
+  Future<List<Drop>> fetchFollowingFeed({required int page}) async {
+    return page == 0 ? followingFeedDrops : <Drop>[];
   }
 
   /// Returned by [fetchByAuthor] for page 0 only, filtered by [authorId]

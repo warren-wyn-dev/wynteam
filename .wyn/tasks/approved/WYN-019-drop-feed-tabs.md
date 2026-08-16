@@ -1,7 +1,25 @@
 # Product Task — WYN-019
 
-Status: backlog
-Owner: AI Product Manager
+Status: coded + self-verified (QA — PASS, 2026-08-17)
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (self-verified)
+
+## Coding + QA Output
+
+- R7 resolved: Drop tab's default view is now the feed (TabBar: For You/Following/Latest, default For You); the 3-column grid is not deleted — `DropGridTile` keeps rendering `ProfileDropGridTab` (WYN-013) unchanged, only stopped being this tab's own layout. See the Design doc's reasoning.
+- `HomeFeedItem.fromDrop(Drop)` new factory (mirrors the existing reverse `toDrop()`) bridges `Drop` into `HomeDropCard` (WYN-007) so the feed card is reused verbatim — no new card widget.
+- `DropRepository.fetchFollowingFeed(page)`: two-step fetch (followed-user-ids from `follows`, then `drops` filtered by `inFilter('author_id', ...)`), short-circuits to `[]` when the user follows nobody rather than sending a query with an empty `inFilter`.
+- `drops.location` (nullable text, schema-only) added and verified against real local Postgres 16 end-to-end (`schema.sql` loads clean with `ON_ERROR_STOP=1`, column confirmed via `\d public.drops`) — no UI reads/writes it yet, per R6.
+- Each tab (`_DropTabFeed`) owns independent pagination/scroll/like/save state with `AutomaticKeepAliveClientMixin` so switching tabs doesn't refetch or lose position — same reasoning `SearchScreen`'s independent per-tab pagination already established. Creating a new Drop bumps a `_feedVersion` key that remounts all 3 tabs (mirrors `RootShell`'s existing "bump a key to force reload" pattern for its Profile tab) so a fresh post shows up immediately.
+- New `test/drop_feed_screen_test.dart` (8 tests) — this screen had **zero** prior test coverage (confirmed via search before starting; `RootShell`, which wires it up, also has none), so this closes a pre-existing gap, not just covers the new work: default tab, tab switching + per-tab data isolation, Following's distinct empty-state message vs. the generic one, tap → `DropDetailScreen`, double-tap Like safety, keep-alive across tab switches. Hit the session's own "never construct a Recording*Repository inline inside `testWidgets`" anti-pattern twice while writing these (Timer leak) — fixed by moving both into `setUp()`.
+- `flutter analyze`: clean (app-wide). `flutter test`: 306/306 (was 298/298 before this task — 8 added, 0 regressed).
+
+Acceptance Criteria:
+- [x] Drop tab default เปิดที่ For You, แสดง feed แบบ scroll การ์ดเดียวต่อโพสต์ (ไม่ใช่ grid)
+- [x] สลับ Following/Latest tab ได้ ข้อมูลถูกต้องตาม tab (Following = เฉพาะคนที่ follow, Latest = ทุกคนเรียงเวลา)
+- [x] การ์ดใน Drop feed มี Like/Comment/Share/Save/แตะ profile ครบเหมือนใน Home (reuses `HomeDropCard` verbatim, so identical by construction)
+- [x] แตะการ์ดเปิด `DropDetailScreen` เดิม (ไม่เปลี่ยนพฤติกรรมนี้)
+- [x] `drops` table มีคอลัมน์ location (nullable) แต่ไม่มี UI ให้กรอก/แสดงรอบนี้
+- [x] `flutter test` ผ่านครบ ไม่มี regression กับ WYN-005/WYN-007/WYN-013
 
 Feature: Drop Feed Redesign — social feed list (ไม่ใช่ grid) + For You/Following/Latest tabs
 
