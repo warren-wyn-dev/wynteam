@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/design/wyn_zoky_theme.dart';
 import 'core/env.dart';
 import 'features/auth/presentation/seller_auth_gate.dart';
 
@@ -23,20 +24,13 @@ class ZokySellerApp extends StatelessWidget {
     return MaterialApp(
       title: 'ZOKY Sellers by WYN',
       debugShowCheckedModeBanner: false,
-      // Same seed/Material 3 setup as app/lib/main.dart (WYN Social) --
-      // Blue + White + Soft Gray, duplicated rather than shared since
-      // this is a separate Flutter binary. See
-      // .wyn/company/DECISIONS.md, 2026-08-15.
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: const Color(0xFF2D6CDF),
-        brightness: Brightness.light,
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: const Color(0xFF2D6CDF),
-        brightness: Brightness.dark,
-      ),
+      // WYN Design System (Cyan/Orange, Option B) -- ZOKY sub-theme, see
+      // .wyn/docs/design/ds-001-color-system.md (Section 3.4) and
+      // .wyn/company/DECISIONS.md 2026-08-15 ("เปลี่ยน Color Direction
+      // ของ WYN: Blue → Cyan"), replacing the earlier Blue + White + Soft
+      // Gray seed color (2026-08-15).
+      theme: ZokyTheme.light,
+      darkTheme: ZokyTheme.dark,
       themeMode: ThemeMode.system,
       home: const SellerAuthGate(),
     );
