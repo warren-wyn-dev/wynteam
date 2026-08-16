@@ -10,6 +10,8 @@ import '../../drop/data/drop_repository.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../follow/presentation/follow_list_screen.dart';
 import '../../pop/data/pop_repository.dart';
+import '../../push/data/push_token_repository.dart';
+import '../../push/presentation/push_notification_service.dart';
 import '../../saved/data/saved_repository.dart';
 import '../data/profile.dart';
 import '../data/profile_repository.dart';
@@ -167,6 +169,22 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     );
   }
 
+  /// WYN-016: best-effort -- deregistering this device's push token
+  /// must never block or fail sign-out itself (e.g. Firebase not
+  /// configured yet, network hiccup). See the RLS comment in
+  /// supabase/schema.sql for why this step (not an RLS-permitted
+  /// cross-user update) is what lets a different WYN account cleanly
+  /// register the same token afterward on a shared/reused device.
+  Future<void> _signOut() async {
+    try {
+      await PushNotificationService(PushTokenRepository(Supabase.instance.client))
+          .unregisterCurrentDevice();
+    } catch (_) {
+      // Intentionally silent -- see comment above.
+    }
+    await Supabase.instance.client.auth.signOut();
+  }
+
   Future<void> _openFollowList(FollowListMode mode) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -247,7 +265,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
               IconButton(
                 icon: const Icon(Icons.logout),
                 tooltip: 'ออกจากระบบ',
-                onPressed: () => Supabase.instance.client.auth.signOut(),
+                onPressed: _signOut,
               ),
           ],
         ),

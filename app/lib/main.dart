@@ -1,8 +1,10 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/design/wyn_theme.dart';
 import 'core/env.dart';
+import 'core/navigation/app_navigator.dart';
 import 'features/auth/presentation/auth_gate.dart';
 
 Future<void> main() async {
@@ -13,6 +15,17 @@ Future<void> main() async {
     publishableKey: Env.supabasePublishableKey,
   );
 
+  // WYN-016 (Push Notification): throws until the Founder adds real
+  // `google-services.json`/`GoogleService-Info.plist` -- caught here so
+  // the app boots exactly as it did before this feature existed.
+  // PushNotificationService's own methods check Firebase.apps and no-op
+  // the same way, so nothing downstream needs to know this failed.
+  try {
+    await Firebase.initializeApp();
+  } catch (_) {
+    // Intentionally silent -- see comment above.
+  }
+
   runApp(const WynApp());
 }
 
@@ -22,6 +35,7 @@ class WynApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       title: 'WYN',
       debugShowCheckedModeBanner: false,
       // WYN Design System (Cyan/Orange, Option B) -- see

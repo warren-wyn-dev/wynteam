@@ -6,6 +6,8 @@ import '../../finance/presentation/seller_finance_screen.dart';
 import '../../notification/data/seller_notification_repository.dart';
 import '../../order/presentation/seller_order_list_screen.dart';
 import '../../product/presentation/seller_product_list_screen.dart';
+import '../../push/data/push_token_repository.dart';
+import '../../push/presentation/push_notification_service.dart';
 import '../../store/data/seller_repository.dart';
 import '../../store/data/store.dart';
 import '../../store/presentation/seller_store_screen.dart';
@@ -23,7 +25,9 @@ class SellerHomeShell extends StatefulWidget {
     required this.store,
     required this.sellerRepository,
     SellerNotificationRepository? notificationRepository,
-  }) : _notificationRepository = notificationRepository;
+    PushNotificationService? pushNotificationService,
+  })  : _notificationRepository = notificationRepository,
+        _pushNotificationService = pushNotificationService;
 
   final Store store;
   final SellerRepository sellerRepository;
@@ -36,6 +40,12 @@ class SellerHomeShell extends StatefulWidget {
   /// needing a real `Supabase.initialize()` call.
   final SellerNotificationRepository? _notificationRepository;
 
+  /// Same reasoning as [_notificationRepository] -- without this,
+  /// `initState` touching `Supabase.instance.client` (to build the real
+  /// `PushNotificationService`) would crash any widget test that never
+  /// calls `Supabase.initialize()` (WYN-016).
+  final PushNotificationService? _pushNotificationService;
+
   @override
   State<SellerHomeShell> createState() => _SellerHomeShellState();
 }
@@ -46,12 +56,28 @@ class _SellerHomeShellState extends State<SellerHomeShell> {
   late final SellerNotificationRepository _notificationRepository =
       widget._notificationRepository ?? SellerNotificationRepository(Supabase.instance.client);
 
+  late final PushNotificationService _pushNotificationService =
+      widget._pushNotificationService ??
+          PushNotificationService(PushTokenRepository(Supabase.instance.client));
+
   /// Mutable so SellerStoreScreen's `onStoreUpdated` callback can make
   /// every tab below see the freshest store row within the same session,
   /// without a sign-out/sign-in round-trip or a re-fetch (the save
   /// response already carries the latest row). See .wyn/tasks/backlog/
   /// SELLER-004-store-management.md, Requirements #3.
   late Store _store = widget.store;
+
+  @override
+  void initState() {
+    super.initState();
+    // WYN-016 (Push Notification): safe to call unconditionally in
+    // production -- PushNotificationService.initialize checks
+    // Firebase.apps itself and no-ops if empty (Firebase not configured
+    // yet). In tests, widget._pushNotificationService is always supplied
+    // (see seller_home_shell_test.dart), so this never touches
+    // Supabase.instance at all.
+    _pushNotificationService.initialize();
+  }
 
   @override
   Widget build(BuildContext context) {

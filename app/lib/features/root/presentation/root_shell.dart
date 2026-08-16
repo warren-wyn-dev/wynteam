@@ -14,6 +14,8 @@ import '../../pop/presentation/pop_feed_screen.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../saved/data/saved_repository.dart';
+import '../../push/data/push_token_repository.dart';
+import '../../push/presentation/push_notification_service.dart';
 import '../../zoky/data/zoky_repository.dart';
 import '../../zoky/presentation/zoky_home_screen.dart';
 import '../../../core/design/wyn_colors.dart';
@@ -39,6 +41,18 @@ class _RootShellState extends State<RootShell> {
   // Pop would never be reflected in the Follower/Following counts shown
   // back on Profile. See .wyn/docs/design/wyn-008-follow.md, Screen 4.
   int _profileVisitKey = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // WYN-016 (Push Notification): request permission + register this
+    // device's token once, the first time RootShell renders (i.e. right
+    // after onboarding, not from the Welcome screen where the user
+    // doesn't know the app yet). Safe to call unconditionally even
+    // before Firebase is configured -- PushNotificationService.initialize
+    // checks Firebase.apps itself and no-ops if empty.
+    PushNotificationService(PushTokenRepository(Supabase.instance.client)).initialize();
+  }
 
   void _onDestinationSelected(int index) {
     setState(() {

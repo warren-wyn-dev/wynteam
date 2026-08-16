@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../notification/data/seller_notification_repository.dart';
+import '../../push/presentation/push_notification_service.dart';
 import '../../shell/presentation/seller_home_shell.dart';
 import '../../store/data/seller_repository.dart';
 import '../../store/presentation/create_store_screen.dart';
@@ -39,9 +40,11 @@ class SellerAuthGate extends StatefulWidget {
     SellerAuthRepository? authRepository,
     SellerRepository? sellerRepository,
     SellerNotificationRepository? notificationRepository,
+    PushNotificationService? pushNotificationService,
   })  : _authRepository = authRepository,
         _sellerRepository = sellerRepository,
-        _notificationRepository = notificationRepository;
+        _notificationRepository = notificationRepository,
+        _pushNotificationService = pushNotificationService;
 
   final SellerAuthRepository? _authRepository;
   final SellerRepository? _sellerRepository;
@@ -50,6 +53,9 @@ class SellerAuthGate extends StatefulWidget {
   /// constructor-injection point, for the same reason (see that
   /// widget's own doc comment).
   final SellerNotificationRepository? _notificationRepository;
+
+  /// Same reasoning, threaded straight through (WYN-016).
+  final PushNotificationService? _pushNotificationService;
 
   @override
   State<SellerAuthGate> createState() => _SellerAuthGateState();
@@ -143,6 +149,7 @@ class _SellerAuthGateState extends State<SellerAuthGate> {
                   store: store,
                   sellerRepository: _sellerRepository,
                   notificationRepository: widget._notificationRepository,
+                  pushNotificationService: widget._pushNotificationService,
                 );
               },
             );

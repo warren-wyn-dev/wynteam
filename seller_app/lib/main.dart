@@ -1,8 +1,10 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/design/wyn_zoky_theme.dart';
 import 'core/env.dart';
+import 'core/navigation/app_navigator.dart';
 import 'features/auth/presentation/seller_auth_gate.dart';
 
 Future<void> main() async {
@@ -13,6 +15,15 @@ Future<void> main() async {
     publishableKey: Env.supabasePublishableKey,
   );
 
+  // WYN-016 (Push Notification): see app/main.dart's identical comment
+  // -- throws until the Founder adds real config files, caught so the
+  // app boots exactly as it did before this feature existed.
+  try {
+    await Firebase.initializeApp();
+  } catch (_) {
+    // Intentionally silent -- see comment above.
+  }
+
   runApp(const ZokySellerApp());
 }
 
@@ -22,6 +33,7 @@ class ZokySellerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       title: 'ZOKY Sellers by WYN',
       debugShowCheckedModeBanner: false,
       // WYN Design System (Cyan/Orange, Option B) -- ZOKY sub-theme, see

@@ -2972,3 +2972,79 @@ create policy "Sellers can delete their own store's media"
         and stores.owner_id = auth.uid()
     )
   );
+
+-- ============================================================
+-- WYN-016: Push Notification
+-- ============================================================
+-- One row per signed-in device -- the client upserts here (see
+-- PushTokenRepository, both apps) whenever it obtains/refreshes an FCM
+-- token, independent of the `notifications` table this feeds off of.
+-- `token` is globally unique (not per-user-unique): the common upsert
+-- case is the *same* user re-registering the *same* token (app
+-- relaunch, defensive re-sync) -- RLS's update policy below allows
+-- that because the existing row's user_id already matches auth.uid().
+-- It deliberately does NOT allow a *different* user's upsert to
+-- retarget someone else's still-present row to themselves (the
+-- policy's `using` clause checks the pre-existing row's owner, which
+-- would still be the old user) -- that would let one account silently
+-- claim another's device-token row via RLS, which is exactly the kind
+-- of cross-user write RLS exists to prevent. A shared/reused device
+-- whose FCM token outlives a sign-out is handled by the client
+-- deleting its own token row on sign-out (allowed -- the deleting user
+-- still owns it at that point), so the next user's plain insert never
+-- conflicts. See .wyn/docs/design/wyn-016-push-notifications.md.
+--
+-- Delivery itself (notifications INSERT -> Edge Function -> FCM) is
+-- wired via a Supabase Database Webhook configured in the Dashboard,
+-- deliberately not a SQL trigger in this file -- `supabase_functions.
+-- http_request()` (the mechanism behind Database Webhooks) doesn't
+-- exist on a plain Postgres instance, which would break this file's
+-- "verified by running against a real local Postgres" QA guarantee
+-- that's held for every other section. See that same design doc for
+-- the one-time Dashboard setup step this requires from the Founder.
+create table if not exists public.push_tokens (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  token text not null unique,
+  platform text not null check (platform in ('android', 'ios', 'web')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists push_tokens_user_id_idx on public.push_tokens (user_id);
+
+alter table public.push_tokens enable row level security;
+
+-- No public/authenticated-wide select -- only the owner can even see
+-- their own registered devices (device tokens are sensitive, unlike
+-- almost everything else in this schema which defaults to select-all-
+-- authenticated). The Edge Function reads across all users' tokens via
+-- the service-role key, which bypasses RLS entirely, same as every
+-- other security-definer-adjacent server-side path in this file.
+create policy "Users can view their own push tokens"
+  on public.push_tokens
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can register their own push tokens"
+  on public.push_tokens
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+-- Covers the "same token, different account now signed in" retarget
+-- case described above -- an upsert on the `token` unique constraint
+-- becomes an UPDATE, which needs its own policy distinct from insert.
+create policy "Users can update their own push tokens"
+  on public.push_tokens
+  for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete their own push tokens"
+  on public.push_tokens
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);

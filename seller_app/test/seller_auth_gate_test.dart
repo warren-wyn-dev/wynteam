@@ -3,11 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:zoky_seller/features/auth/presentation/seller_auth_gate.dart';
 import 'package:zoky_seller/features/auth/presentation/seller_sign_in_screen.dart';
 import 'package:zoky_seller/features/auth/presentation/username_setup_screen.dart';
+import 'package:zoky_seller/features/push/presentation/push_notification_service.dart';
 import 'package:zoky_seller/features/shell/presentation/seller_home_shell.dart';
 import 'package:zoky_seller/features/store/data/store.dart';
 import 'package:zoky_seller/features/store/presentation/create_store_screen.dart';
 
 import 'support/fake_session.dart';
+import 'support/recording_push_token_repository.dart';
 import 'support/recording_seller_auth_repository.dart';
 import 'support/recording_seller_notification_repository.dart';
 import 'support/recording_seller_repository.dart';
@@ -34,6 +36,7 @@ void main() {
   late RecordingSellerRepository noStoreRepo;
   late RecordingSellerRepository withStoreRepo;
   late RecordingSellerNotificationRepository notificationRepo;
+  late PushNotificationService pushNotificationService;
 
   setUp(() {
     signedOutAuth = RecordingSellerAuthRepository(session: null);
@@ -45,6 +48,7 @@ void main() {
     noStoreRepo = RecordingSellerRepository(myStore: null);
     withStoreRepo = RecordingSellerRepository(myStore: _store);
     notificationRepo = RecordingSellerNotificationRepository();
+    pushNotificationService = PushNotificationService(RecordingPushTokenRepository());
   });
 
   testWidgets('signed out shows SellerSignInScreen', (tester) async {
@@ -97,6 +101,7 @@ void main() {
         authRepository: onboardedAuth,
         sellerRepository: withStoreRepo,
         notificationRepository: notificationRepo,
+        pushNotificationService: pushNotificationService,
       ),
     ));
     await tester.pumpAndSettle();
