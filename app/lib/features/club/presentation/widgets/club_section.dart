@@ -114,7 +114,7 @@ class _ClubSectionState extends State<ClubSection> {
             ),
           ),
           SizedBox(
-            height: 36,
+            height: WynSpacing.touchTargetMin,
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3),

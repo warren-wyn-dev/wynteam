@@ -333,7 +333,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                           : 'กดเพื่อติดตาม',
                       excludeSemantics: true,
                       child: SizedBox(
-                        height: 30,
+                        height: WynSpacing.touchTargetMin,
                         child: OutlinedButton(
                           style: OutlinedButton.styleFrom(
                             foregroundColor:
@@ -490,8 +490,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   ),
                   if (comment.authorId == currentUserId)
                     SizedBox(
-                      width: 32,
-                      height: 32,
+                      width: WynSpacing.touchTargetMin,
+                      height: WynSpacing.touchTargetMin,
                       child: IconButton(
                         padding: EdgeInsets.zero,
                         iconSize: 16,
@@ -508,8 +508,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                             : 'กดเพื่อถูกใจคอมเมนต์นี้',
                         excludeSemantics: true,
                         child: SizedBox(
-                          width: 32,
-                          height: 32,
+                          width: WynSpacing.touchTargetMin,
+                          height: WynSpacing.touchTargetMin,
                           child: IconButton(
                             padding: EdgeInsets.zero,
                             iconSize: 16,

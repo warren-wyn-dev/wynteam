@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/drop/data/drop.dart';
+import 'package:wyn/features/drop/data/drop_comment.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
@@ -30,9 +31,22 @@ void main() {
   late RecordingDropRepository tapProfileTestDropRepo;
   late RecordingFollowRepository tapProfileTestFollowRepo;
   late RecordingProfileRepository tapProfileTestProfileRepo;
+  late RecordingDropRepository ownCommentRepo;
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
     repo = RecordingDropRepository();
+    ownCommentRepo = RecordingDropRepository(comments: [
+      DropComment(
+        id: 'c1',
+        dropId: 'd1',
+        authorId: 'me',
+        authorUsername: 'me_user',
+        textContent: 'ความคิดเห็นของฉัน',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        likedByMe: false,
+      ),
+    ]);
     followRepo = RecordingFollowRepository();
     popRepo = RecordingPopRepository();
     profileRepo = RecordingProfileRepository(
@@ -151,6 +165,77 @@ void main() {
     tester.takeException();
 
     expect(find.widgetWithText(OutlinedButton, 'ติดตาม'), findsOneWidget);
+    // DS-008 touch-target audit (WCAG 2.5.5): the Follow pill button was
+    // squeezed to 30px tall to fit the header row -- confirm the fix
+    // actually reaches the 44px minimum, not just that the button exists.
+    final followButtonSize = tester.getSize(
+      find.ancestor(
+        of: find.widgetWithText(OutlinedButton, 'ติดตาม'),
+        matching: find.byType(SizedBox),
+      ).first,
+    );
+    expect(followButtonSize.height, greaterThanOrEqualTo(44));
+  });
+
+  testWidgets(
+      'DS-008: the per-comment delete and like buttons meet the 44px touch '
+      'target minimum (WCAG 2.5.5), not the 32px box they used to be '
+      'squeezed into', (tester) async {
+    // The 1:1 header image is 800px tall on the default 800x600 test
+    // viewport, pushing the comment list (and its delete/like buttons)
+    // out of ListView's cache extent -- use a tall custom viewport
+    // instead, same fix as DS-003's divider test.
+    tester.view.physicalSize = const Size(800, 2200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    // Someone else's Drop (so the top-level "ลบ Drop" IconButton, which
+    // shares the same delete_outline icon, never renders) with one
+    // comment authored by the current user, so the comment's own
+    // delete/like buttons are the only delete_outline/favorite_border
+    // IconButtons on screen.
+    final otherDropWithOwnComment = Drop(
+      id: 'd1',
+      authorId: 'someone-else',
+      authorUsername: 'namfah',
+      imageUrl: 'https://example.supabase.co/drops/d1.jpg',
+      createdAt: DateTime.now(),
+      likeCount: 0,
+      commentCount: 1,
+      likedByMe: false,
+      savedByMe: false,
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: DropDetailScreen(
+        dropRepository: ownCommentRepo,
+        followRepository: followRepo,
+        profileRepository: profileRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
+        drop: otherDropWithOwnComment,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    final deleteButtonSize = tester.getSize(
+      find.ancestor(
+        of: find.widgetWithIcon(IconButton, Icons.delete_outline),
+        matching: find.byType(SizedBox),
+      ).first,
+    );
+    expect(deleteButtonSize.width, greaterThanOrEqualTo(44));
+    expect(deleteButtonSize.height, greaterThanOrEqualTo(44));
+
+    final likeButtonSize = tester.getSize(
+      find.ancestor(
+        of: find.widgetWithIcon(IconButton, Icons.favorite_border),
+        matching: find.byType(SizedBox),
+      ).first,
+    );
+    expect(likeButtonSize.width, greaterThanOrEqualTo(44));
+    expect(likeButtonSize.height, greaterThanOrEqualTo(44));
   });
 
   testWidgets('does not show a Follow button for the current user\'s own '

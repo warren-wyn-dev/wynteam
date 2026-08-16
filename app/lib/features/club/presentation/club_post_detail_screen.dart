@@ -393,8 +393,8 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                   ),
                   if (comment.authorId == currentUserId)
                     SizedBox(
-                      width: 32,
-                      height: 32,
+                      width: WynSpacing.touchTargetMin,
+                      height: WynSpacing.touchTargetMin,
                       child: IconButton(
                         padding: EdgeInsets.zero,
                         iconSize: 16,
