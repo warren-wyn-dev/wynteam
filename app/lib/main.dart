@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/design/wyn_theme.dart';
 import 'core/env.dart';
 import 'features/auth/presentation/auth_gate.dart';
 
@@ -23,19 +24,13 @@ class WynApp extends StatelessWidget {
     return MaterialApp(
       title: 'WYN',
       debugShowCheckedModeBanner: false,
-      // Blue + White + Soft Gray -- Founder's Color Direction for WYN V0.1
-      // (see .wyn/company/DECISIONS.md 2026-08-14), replacing the old
-      // proposed purple/pink seed. See .wyn/docs/design/design-principles.md.
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: const Color(0xFF2D6CDF),
-        brightness: Brightness.light,
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: const Color(0xFF2D6CDF),
-        brightness: Brightness.dark,
-      ),
+      // WYN Design System (Cyan/Orange, Option B) -- see
+      // .wyn/docs/design/ds-001-color-system.md and
+      // .wyn/company/DECISIONS.md 2026-08-15 ("เปลี่ยน Color Direction
+      // ของ WYN: Blue → Cyan"), replacing the earlier Blue + White + Soft
+      // Gray direction (2026-08-14).
+      theme: WynTheme.light,
+      darkTheme: WynTheme.dark,
       themeMode: ThemeMode.system,
       home: const AuthGate(),
     );
