@@ -56,6 +56,13 @@ Set<String> extractHashtags(String text) => hashtagPattern
     .map((m) => m.group(1)!.toLowerCase())
     .toSet();
 
+/// Matches an `@username` mention token -- usernames are ASCII
+/// alphanumeric/underscore only (unlike hashtags, which allow any
+/// Unicode letter -- see `username_setup_screen.dart`'s own validation),
+/// so this deliberately doesn't need the `\p{M}` combining-mark fix
+/// [hashtagPattern] needed for Thai. WYN-021.
+final RegExp mentionPattern = RegExp(r'@([A-Za-z0-9_]+)');
+
 /// A Thai Baht price label with thousand separators ("฿1,000" or
 /// "฿1,299.50") -- introduced for ZOKY-001's product cards/detail page.
 /// Drops the decimal part entirely when it's a whole number rather than

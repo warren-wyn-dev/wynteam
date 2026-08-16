@@ -237,12 +237,15 @@ class ClubPostRepository {
   /// (rather than after, keyed by the new post's id) so an images-only
   /// post's single insert already has non-null image_urls and never
   /// trips the have-content CHECK on an intermediate empty row.
+  /// [mentionedUserIds] (WYN-021): same "already resolved by MentionInput,
+  /// not re-parsed server-side" approach as DropRepository.createDrop.
   Future<void> createPost({
     required String clubId,
     String? content,
     List<Uint8List>? images,
     List<String>? imageExtensions,
     String? linkUrl,
+    Set<String> mentionedUserIds = const {},
   }) async {
     final userId = _client.auth.currentUser!.id;
 
@@ -258,13 +261,25 @@ class ClubPostRepository {
       }
     }
 
-    await _client.from('club_posts').insert({
-      'club_id': clubId,
-      'author_id': userId,
-      'content': normalizeOptionalText((content ?? '').trim()),
-      'image_urls': imagePaths,
-      'link_url': normalizeOptionalText((linkUrl ?? '').trim()),
-    });
+    final row = await _client
+        .from('club_posts')
+        .insert({
+          'club_id': clubId,
+          'author_id': userId,
+          'content': normalizeOptionalText((content ?? '').trim()),
+          'image_urls': imagePaths,
+          'link_url': normalizeOptionalText((linkUrl ?? '').trim()),
+        })
+        .select('id')
+        .single();
+
+    if (mentionedUserIds.isNotEmpty) {
+      final postId = row['id'] as String;
+      await _client.from('club_post_mentions').insert([
+        for (final mentionedId in mentionedUserIds)
+          {'club_post_id': postId, 'mentioned_user_id': mentionedId},
+      ]);
+    }
   }
 
   Future<void> deletePost(String postId) {

@@ -218,11 +218,15 @@ class DropRepository {
   }
 
   /// Creates a Drop. [imageBytes] is required -- a Drop is always a photo,
-  /// unlike WYN-004's posts where text alone was enough.
+  /// unlike WYN-004's posts where text alone was enough. [mentionedUserIds]
+  /// (WYN-021) is the set of user ids MentionInput already resolved while
+  /// composing the caption -- inserted into `drop_mentions` right after
+  /// the Drop itself, not re-parsed from the caption text server-side.
   Future<void> createDrop({
     required Uint8List imageBytes,
     required String imageExtension,
     required String caption,
+    Set<String> mentionedUserIds = const {},
   }) async {
     final userId = _client.auth.currentUser!.id;
 
@@ -231,11 +235,23 @@ class DropRepository {
     await _client.storage.from('drop-images').uploadBinary(path, imageBytes);
     final imageUrl = _client.storage.from('drop-images').getPublicUrl(path);
 
-    await _client.from('drops').insert({
-      'author_id': userId,
-      'image_url': imageUrl,
-      'caption': normalizeOptionalText(caption.trim()),
-    });
+    final row = await _client
+        .from('drops')
+        .insert({
+          'author_id': userId,
+          'image_url': imageUrl,
+          'caption': normalizeOptionalText(caption.trim()),
+        })
+        .select('id')
+        .single();
+
+    if (mentionedUserIds.isNotEmpty) {
+      final dropId = row['id'] as String;
+      await _client.from('drop_mentions').insert([
+        for (final mentionedId in mentionedUserIds)
+          {'drop_id': dropId, 'mentioned_user_id': mentionedId},
+      ]);
+    }
   }
 
   Future<void> deleteDrop(String dropId) {

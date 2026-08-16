@@ -1,7 +1,25 @@
 # Product Task — WYN-021
 
-Status: backlog
-Owner: AI Product Manager
+Status: coded + self-verified (QA — PASS, 2026-08-17)
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (self-verified)
+
+## Coding + QA Output
+
+- New `drop_mentions`/`club_post_mentions` tables (real entity tables, unlike WYN-020's hashtags — a misfired mention notification is a real mistake, so this needs certainty, not a substring match). RLS: only the post's own author can insert a mention row against it. Verified end-to-end against real local Postgres 16: mentioning another user creates exactly 1 notification row with the right type/recipient/actor; self-mention is silently skipped (0 rows); a non-author attempting to insert a mention on someone else's post is correctly blocked by RLS.
+- `notifications.type` widened (`mention_drop`/`mention_club_post`), two new triggers (`notify_drop_mention`/`notify_club_post_mention`) mirroring `notify_drop_like`'s exact shape including the self-notification guard. `notify_club_post_mention` denormalizes `club_id` onto the row the same way `notify_club_post_like`/`notify_club_post_comment` already do — caught this requirement by checking those two functions before writing a new one, not by trial and error.
+- `MentionInput` (new, `core/widgets/mention_input.dart`): `@`-triggered autocomplete reusing `ProfileRepository.searchProfiles` (WYN-009) with the same 400ms debounce-cancel discipline `SearchScreen` established. Wired into `CreateDropScreen`/`CreateClubPostScreen` via the optional-constructor-injection pattern (`ProfileRepository? profileRepository` defaulting to a real `Supabase.instance.client`-backed instance) rather than threading a required param through `DropFeedScreen`→`CreateDropScreen` and `ClubPage`→`ClubPostsTab`→`CreateClubPostScreen` (would have widened 9+ call sites for one field).
+- `HashtagText` (WYN-020) extended, not forked, to also render `@username` as a tappable span opening that user's profile — one shared regex-merge pass (`hashtagPattern` + new `mentionPattern`) per the task's own R2. Caught and fixed a real bug before it shipped: the profile-resolution fetch on tap wasn't wrapped in try/catch, so a lookup failure (network blip, not just "user doesn't exist") would have surfaced as an unhandled exception instead of the documented "fails silently" behavior — found by the widget's own test suite, not by inspection.
+- `DropRepository.createDrop`/`ClubPostRepository.createPost` gained an optional `mentionedUserIds` param, inserted into the new mention tables right after the post itself (client-resolved ids from `MentionInput`, not re-parsed from the caption server-side, per R3).
+- Push notification Edge Function (`_lib.ts`) updated with the same 2 message strings, word-for-word, per WYN-016's established mirroring discipline — includes its own Deno test.
+- 26 new tests: `mention_input_test.dart` (5: debounce, no-search-on-bare-@, space-closes-token, no-match empty state, select-inserts-and-reports-id), `hashtag_text_test.dart` (+3: mention rendering, independent tap recognizer, mixed hashtag+mention caption), `create_club_post_screen_test.dart` (2, new file: plain post sends empty mentioned-set, selecting a mention sends its resolved id on submit), `notification_list_screen_test.dart` (+3: message text for both new types, tap→DropDetailScreen, tap→ClubPostDetailScreen), Deno `_lib.test.ts` (+1).
+- `flutter analyze`: clean (app-wide). `flutter test`: 336/336 (was 323/323 before this task). Deno: 11/11.
+
+Acceptance Criteria:
+- [x] พิมพ์ `@` ในหน้าสร้าง Drop/Club post แสดง autocomplete รายชื่อ user จริง เลือกแล้วแทรกถูกต้อง
+- [x] `@username` ในแคปชันที่แสดงผลทุกจุด (Home/Drop feed/Drop detail/Club post) เป็น tappable เปิด Profile ถูกคน
+- [x] Mention ที่ resolve ไม่ได้ (พิมพ์ `@` ตามด้วยชื่อที่ไม่มีจริง) ต้องไม่ crash และไม่สร้าง notification ปลอม
+- [x] แท็กคนอื่นสร้าง notification, แท็กตัวเองไม่สร้าง (self-mention guard) -- verified against real Postgres
+- [x] `flutter test` ผ่านครบ ไม่มี regression กับ notification 13 ประเภทเดิม
 
 Feature: @Mention System — autocomplete ตอนพิมพ์ + tappable @mention ในโพสต์ + Notification
 

@@ -29,6 +29,10 @@ class RecordingDropRepository extends DropRepository {
   /// Returned by [fetchComments], regardless of dropId.
   final List<DropComment> comments;
 
+  /// Each call to [createDrop]'s mentionedUserIds argument, in order --
+  /// WYN-021.
+  final List<Set<String>> createDropMentionedUserIdsArgs = [];
+
   int toggleLikeCalls = 0;
   int toggleSaveCalls = 0;
   int toggleCommentLikeCalls = 0;
@@ -91,7 +95,10 @@ class RecordingDropRepository extends DropRepository {
     required Uint8List imageBytes,
     required String imageExtension,
     required String caption,
-  }) async {}
+    Set<String> mentionedUserIds = const {},
+  }) async {
+    createDropMentionedUserIdsArgs.add(mentionedUserIds);
+  }
 
   @override
   Future<void> toggleLike({

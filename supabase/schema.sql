@@ -3052,3 +3052,157 @@ create policy "Users can delete their own push tokens"
   for delete
   to authenticated
   using (auth.uid() = user_id);
+
+-- ============================================================
+-- WYN-021: Mention System
+-- ============================================================
+-- Unlike hashtags (WYN-020, which stayed ILIKE-only because a false
+-- positive there is harmless), a mention notification firing at the
+-- wrong person is a real, visible mistake -- so this needs a real
+-- entity table recording exactly who was mentioned, not a substring
+-- match. Populated by the client right after the drops/club_posts
+-- insert succeeds, from MentionInput's already-resolved user-id set
+-- (not re-parsed from the caption server-side). See
+-- .wyn/docs/design/wyn-021-mention-system.md.
+create table if not exists public.drop_mentions (
+  id uuid primary key default gen_random_uuid(),
+  drop_id uuid not null references public.drops (id) on delete cascade,
+  mentioned_user_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  constraint drop_mentions_unique unique (drop_id, mentioned_user_id)
+);
+
+alter table public.drop_mentions enable row level security;
+
+create policy "Mentions are viewable by authenticated users"
+  on public.drop_mentions
+  for select
+  to authenticated
+  using (true);
+
+-- Only the Drop's own author can record a mention against it -- the
+-- client sends this immediately after creating the Drop it belongs to.
+create policy "Drop authors can mention users in their own drops"
+  on public.drop_mentions
+  for insert
+  to authenticated
+  with check (
+    exists (
+      select 1 from public.drops
+      where drops.id = drop_id and drops.author_id = auth.uid()
+    )
+  );
+
+create table if not exists public.club_post_mentions (
+  id uuid primary key default gen_random_uuid(),
+  club_post_id uuid not null references public.club_posts (id) on delete cascade,
+  mentioned_user_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  constraint club_post_mentions_unique unique (club_post_id, mentioned_user_id)
+);
+
+alter table public.club_post_mentions enable row level security;
+
+create policy "Club post mentions are viewable by authenticated users"
+  on public.club_post_mentions
+  for select
+  to authenticated
+  using (true);
+
+create policy "Club post authors can mention users in their own posts"
+  on public.club_post_mentions
+  for insert
+  to authenticated
+  with check (
+    exists (
+      select 1 from public.club_posts
+      where club_posts.id = club_post_id and club_posts.author_id = auth.uid()
+    )
+  );
+
+-- Same dynamic-constraint-name lookup as every prior notifications.type
+-- widening in this file -- never hardcode a guessed constraint name.
+do $$
+declare
+  v_constraint_name text;
+begin
+  select tc.constraint_name into v_constraint_name
+  from information_schema.table_constraints tc
+  join information_schema.constraint_column_usage ccu
+    on ccu.constraint_name = tc.constraint_name
+   and ccu.constraint_schema = tc.constraint_schema
+  where tc.table_schema = 'public'
+    and tc.table_name = 'notifications'
+    and tc.constraint_type = 'CHECK'
+    and ccu.column_name = 'type'
+  limit 1;
+
+  if v_constraint_name is not null then
+    execute format('alter table public.notifications drop constraint %I', v_constraint_name);
+  end if;
+end;
+$$;
+
+alter table public.notifications
+  add constraint notifications_type_check
+  check (type in (
+    'like_drop', 'like_pop', 'comment_drop', 'comment_pop', 'follow',
+    'club_join_request', 'club_join_approved', 'club_post_like', 'club_post_comment',
+    'new_order', 'order_shipped', 'order_cancelled', 'order_refunded',
+    'mention_drop', 'mention_club_post'
+  ));
+
+-- Actor is the post's author (they wrote the mention); recipient is the
+-- mentioned user. Mirrors notify_drop_like()'s exact shape, including
+-- the self-notification guard (mentioning yourself is a harmless no-op,
+-- not blocked, just silent).
+create or replace function public.notify_drop_mention()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+begin
+  select author_id into v_author_id from public.drops where id = new.drop_id;
+  if v_author_id is not null and new.mentioned_user_id <> v_author_id then
+    insert into public.notifications (recipient_id, actor_id, type, drop_id)
+    values (new.mentioned_user_id, v_author_id, 'mention_drop', new.drop_id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger drop_mentions_notify
+  after insert on public.drop_mentions
+  for each row execute function public.notify_drop_mention();
+
+-- club_id is denormalized onto the notification row the same way
+-- notify_club_post_like/notify_club_post_comment already do (see those
+-- two functions above) -- NotificationRepository joins club:clubs(name)
+-- through this column, and mentionClubPost's message text needs the
+-- club name.
+create or replace function public.notify_club_post_mention()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+  v_club_id uuid;
+begin
+  select author_id, club_id into v_author_id, v_club_id
+  from public.club_posts where id = new.club_post_id;
+  if v_author_id is not null and new.mentioned_user_id <> v_author_id then
+    insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
+    values (new.mentioned_user_id, v_author_id, 'mention_club_post', new.club_post_id, v_club_id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger club_post_mentions_notify
+  after insert on public.club_post_mentions
+  for each row execute function public.notify_club_post_mention();

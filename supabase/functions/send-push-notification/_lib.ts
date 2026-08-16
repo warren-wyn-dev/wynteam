@@ -104,6 +104,12 @@ export function messageFor(
       return `คำสั่งซื้อจากร้าน ${store} ถูกยกเลิก`;
     case "order_refunded":
       return `คำสั่งซื้อของคุณจาก ${store} ถูกคืนเงินแล้ว`;
+    // WYN-021: mirrors app/'s notification_list_screen.dart's
+    // `_messageFor` word for word (seller_app has no mention concept).
+    case "mention_drop":
+      return `${actorName} กล่าวถึงคุณใน Drop`;
+    case "mention_club_post":
+      return `${actorName} กล่าวถึงคุณในโพสต์ที่ ${club}`;
     default:
       return "คุณมีการแจ้งเตือนใหม่";
   }

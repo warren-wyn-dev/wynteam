@@ -63,6 +63,9 @@ void main() {
   late RecordingNotificationRepository allNewClubTypesRepo;
   late RecordingNotificationRepository newOrderRepo;
   late RecordingNotificationRepository allOrderTypesRepo;
+  late RecordingNotificationRepository allMentionTypesRepo;
+  late RecordingNotificationRepository mentionDropRepo;
+  late RecordingNotificationRepository mentionClubPostRepo;
 
   final now = DateTime.now();
 
@@ -161,6 +164,28 @@ void main() {
         clubPostId: 'cp1',
         isRead: false,
         createdAt: now.subtract(const Duration(minutes: 25)),
+      );
+
+  WynNotification mentionDropNotification() => WynNotification(
+        id: 'n-mention-drop',
+        type: NotificationType.mentionDrop,
+        actorId: 'u4',
+        actorUsername: 'gam',
+        dropId: 'd1',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 5)),
+      );
+
+  WynNotification mentionClubPostNotification() => WynNotification(
+        id: 'n-mention-club-post',
+        type: NotificationType.mentionClubPost,
+        actorId: 'u4',
+        actorUsername: 'gam',
+        clubId: 'club-1',
+        clubName: 'ชมรมถ่ายภาพ',
+        clubPostId: 'cp1',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 6)),
       );
 
   WynNotification newOrderNotification() => WynNotification(
@@ -323,6 +348,13 @@ void main() {
       orderCancelledNotification(),
       orderRefundedNotification(),
     ]);
+    allMentionTypesRepo = RecordingNotificationRepository(notifications: [
+      mentionDropNotification(),
+      mentionClubPostNotification(),
+    ]);
+    mentionDropRepo = RecordingNotificationRepository(notifications: [mentionDropNotification()]);
+    mentionClubPostRepo =
+        RecordingNotificationRepository(notifications: [mentionClubPostNotification()]);
   });
 
   Widget buildScreen(
@@ -591,6 +623,46 @@ void main() {
 
       final screen = tester.widget<ZokyOrderDetailScreen>(find.byType(ZokyOrderDetailScreen));
       expect(screen.orderId, 'order-1');
+    });
+  });
+
+  group('Mention notification types (WYN-021)', () {
+    testWidgets('shows type-specific Thai messages for both mention types',
+        (tester) async {
+      await tester.pumpWidget(buildScreen(allMentionTypesRepo));
+      await tester.pumpAndSettle();
+
+      expect(find.text('@gam กล่าวถึงคุณใน Drop'), findsOneWidget);
+      expect(find.text('@gam กล่าวถึงคุณในโพสต์ที่ ชมรมถ่ายภาพ'), findsOneWidget);
+    });
+
+    testWidgets('tapping a mention_drop notification opens DropDetailScreen',
+        (tester) async {
+      await tester.pumpWidget(buildScreen(mentionDropRepo));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('@gam กล่าวถึงคุณใน Drop'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(DropDetailScreen), findsOneWidget);
+    });
+
+    testWidgets('tapping a mention_club_post notification opens ClubPostDetailScreen',
+        (tester) async {
+      await tester.pumpWidget(buildScreen(
+        mentionClubPostRepo,
+        clubPostRepository: clubPostWithResultRepo,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('@gam กล่าวถึงคุณในโพสต์ที่ ชมรมถ่ายภาพ'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(ClubPostDetailScreen), findsOneWidget);
     });
   });
 }

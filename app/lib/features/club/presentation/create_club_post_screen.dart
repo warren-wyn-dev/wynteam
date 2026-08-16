@@ -2,10 +2,13 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../profile/data/profile_repository.dart';
 import '../data/club.dart';
 import '../data/club_post_repository.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/widgets/mention_input.dart';
 
 /// `CreateClubPostScreen` (Screen 5). Always locked to the Club it was
 /// opened from -- creating a Club post from anywhere else isn't in scope
@@ -16,10 +19,16 @@ class CreateClubPostScreen extends StatefulWidget {
     super.key,
     required this.clubPostRepository,
     required this.club,
-  });
+    ProfileRepository? profileRepository,
+  }) : _profileRepository = profileRepository;
 
   final ClubPostRepository clubPostRepository;
   final Club club;
+
+  // Optional -- same reasoning as CreateDropScreen's identical field:
+  // defaults to a real Supabase-backed instance so existing call sites
+  // don't need to thread one through just for MentionInput.
+  final ProfileRepository? _profileRepository;
 
   @override
   State<CreateClubPostScreen> createState() => _CreateClubPostScreenState();
@@ -30,6 +39,9 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
 
   final _contentController = TextEditingController();
   final _linkController = TextEditingController();
+  late final ProfileRepository _profileRepository =
+      widget._profileRepository ?? ProfileRepository(Supabase.instance.client);
+  Set<String> _mentionedUserIds = {};
   final List<Uint8List> _images = [];
   final List<String> _imageExtensions = [];
 
@@ -92,6 +104,7 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
         images: _images.isEmpty ? null : _images,
         imageExtensions: _images.isEmpty ? null : _imageExtensions,
         linkUrl: _linkController.text,
+        mentionedUserIds: _mentionedUserIds,
       );
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -136,8 +149,10 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
+              MentionInput(
                 controller: _contentController,
+                profileRepository: _profileRepository,
+                onMentionedUsersChanged: (ids) => setState(() => _mentionedUserIds = ids),
                 maxLength: 2000,
                 maxLines: 6,
                 minLines: 3,

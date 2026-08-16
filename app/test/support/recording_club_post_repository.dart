@@ -39,6 +39,9 @@ class RecordingClubPostRepository extends ClubPostRepository {
   final List<ClubPostComment> comments;
 
   int createPostCalls = 0;
+  /// Each call to [createPost]'s mentionedUserIds argument, in order --
+  /// WYN-021.
+  final List<Set<String>> createPostMentionedUserIdsArgs = [];
   int deletePostCalls = 0;
   final List<String> deletePostIdArgs = [];
   int toggleLikeCalls = 0;
@@ -73,8 +76,10 @@ class RecordingClubPostRepository extends ClubPostRepository {
     List<Uint8List>? images,
     List<String>? imageExtensions,
     String? linkUrl,
+    Set<String> mentionedUserIds = const {},
   }) async {
     createPostCalls++;
+    createPostMentionedUserIdsArgs.add(mentionedUserIds);
   }
 
   @override

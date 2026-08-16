@@ -167,6 +167,10 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       case NotificationType.orderCancelled:
       case NotificationType.orderRefunded:
         _openOrder(notification.orderId!);
+      case NotificationType.mentionDrop:
+        await _openDrop(notification.dropId!);
+      case NotificationType.mentionClubPost:
+        await _openClubPost(notification.clubPostId!);
     }
   }
 
@@ -315,6 +319,10 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         return 'คำสั่งซื้อจากร้าน ${notification.orderStoreName ?? 'ร้านค้า'} ถูกยกเลิก';
       case NotificationType.orderRefunded:
         return 'คำสั่งซื้อของคุณจาก ${notification.orderStoreName ?? 'ร้านค้า'} ถูกคืนเงินแล้ว';
+      case NotificationType.mentionDrop:
+        return '$name กล่าวถึงคุณใน Drop';
+      case NotificationType.mentionClubPost:
+        return '$name กล่าวถึงคุณในโพสต์ที่ $club';
     }
   }
 

@@ -96,6 +96,16 @@ Deno.test("messageFor falls back to a generic message for an unrecognized type",
   assertEquals(messageFor("something_new", "x", null, null), "คุณมีการแจ้งเตือนใหม่");
 });
 
+// Mirrors app/test/notification_list_screen_test.dart's WYN-021 mention
+// assertions word for word (seller_app has no mention concept).
+Deno.test("messageFor produces the exact same Thai strings as the Dart client, WYN-021 mention types", () => {
+  assertEquals(messageFor("mention_drop", "@ploy", null, null), "@ploy กล่าวถึงคุณใน Drop");
+  assertEquals(
+    messageFor("mention_club_post", "@ploy", "ชมรมถ่ายภาพ", null),
+    "@ploy กล่าวถึงคุณในโพสต์ที่ ชมรมถ่ายภาพ",
+  );
+});
+
 Deno.test("buildDataPayload includes only the id columns that are actually set, plus type/actor_id always", () => {
   const row: NotificationRow = {
     id: "n1",

@@ -16,6 +16,9 @@ enum NotificationType {
   orderShipped,
   orderCancelled,
   orderRefunded,
+  // WYN-021: fired by drop_mentions/club_post_mentions inserts.
+  mentionDrop,
+  mentionClubPost,
 }
 
 NotificationType _typeFromString(String value) {
@@ -46,6 +49,10 @@ NotificationType _typeFromString(String value) {
       return NotificationType.orderCancelled;
     case 'order_refunded':
       return NotificationType.orderRefunded;
+    case 'mention_drop':
+      return NotificationType.mentionDrop;
+    case 'mention_club_post':
+      return NotificationType.mentionClubPost;
     default:
       throw ArgumentError('Unknown notification type: $value');
   }
