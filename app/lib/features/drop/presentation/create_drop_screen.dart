@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../data/drop_repository.dart';
 import '../data/square_crop.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 2 — Create Drop.
 /// See .wyn/docs/design/wyn-005-drop.md
@@ -143,7 +144,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
         title: const Text('Drop ใหม่'),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.only(right: WynSpacing.space2),
             child: Center(
               child: TextButton(
                 onPressed: _canShare ? _share : null,
@@ -166,7 +167,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             children: [
               _buildImageArea(),
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(WynSpacing.space4),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -182,7 +183,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                       ),
                     ),
                     if (_errorMessage != null) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: WynSpacing.space2),
                       Text(
                         _errorMessage!,
                         style:
@@ -219,7 +220,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.add_photo_alternate_outlined, size: 40),
-                            SizedBox(height: 8),
+                            SizedBox(height: WynSpacing.space2),
                             Text('แตะเพื่อเลือกรูป'),
                           ],
                         ),

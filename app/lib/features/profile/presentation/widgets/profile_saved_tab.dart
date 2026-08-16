@@ -9,6 +9,7 @@ import '../../../pop/data/pop_repository.dart';
 import '../../../saved/data/saved_repository.dart';
 import '../../../saved/presentation/widgets/saved_grid_tile.dart';
 import '../../data/profile_repository.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Saved tab on a profile (WYN-013) -- only ever shown for the current
 /// user's own profile (see ViewProfileScreen). Drop and Pop mixed in one
@@ -152,7 +153,7 @@ class _ProfileSavedTabState extends State<ProfileSavedTab>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
           ],
         ),
@@ -162,7 +163,7 @@ class _ProfileSavedTabState extends State<ProfileSavedTab>
     if (_items.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 32),
+          padding: EdgeInsets.symmetric(horizontal: WynSpacing.space8),
           child: Text(
             'ยังไม่มีอะไรที่บันทึกไว้ ลองกดบันทึก Drop หรือ Pop ที่ชอบดูสิ',
             textAlign: TextAlign.center,
@@ -196,7 +197,7 @@ class _ProfileSavedTabState extends State<ProfileSavedTab>
           if (_hasMore)
             const SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: EdgeInsets.all(WynSpacing.space4),
                 child: Center(child: CircularProgressIndicator()),
               ),
             ),

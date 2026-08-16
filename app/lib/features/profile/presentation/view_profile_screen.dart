@@ -18,6 +18,7 @@ import 'widgets/avatar_circle.dart';
 import 'widgets/profile_drop_grid_tab.dart';
 import 'widgets/profile_pop_grid_tab.dart';
 import 'widgets/profile_saved_tab.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 typedef _ProfileWithCounts = ({Profile profile, int followerCount, int followingCount});
 
@@ -217,7 +218,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
               Expanded(
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
                   itemCount: clubs.length,
                   itemBuilder: (context, index) {
                     final club = clubs[index];
@@ -259,7 +260,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text('โหลดโปรไฟล์ไม่สำเร็จ'),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: WynSpacing.space3),
                     TextButton(onPressed: _reload, child: const Text('ลองใหม่')),
                   ],
                 ),
@@ -276,20 +277,20 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
             return Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(WynSpacing.space6),
                   child: Column(
                     children: [
                       AvatarCircle(
                         imageUrl: profile.avatarUrl,
                         fallbackText: profile.username,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: WynSpacing.space4),
                       Text(
                         profile.nameOrUsername,
                         style: Theme.of(context).textTheme.headlineSmall,
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: WynSpacing.space1),
                       Text(
                         '@${profile.username}',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -297,10 +298,10 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                             ),
                       ),
                       if (profile.bio != null && profile.bio!.isNotEmpty) ...[
-                        const SizedBox(height: 16),
+                        const SizedBox(height: WynSpacing.space4),
                         Text(profile.bio!, textAlign: TextAlign.center),
                       ],
-                      const SizedBox(height: 16),
+                      const SizedBox(height: WynSpacing.space4),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -309,7 +310,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                             label: 'ผู้ติดตาม',
                             onTap: () => _openFollowList(FollowListMode.followers),
                           ),
-                          const SizedBox(width: 24),
+                          const SizedBox(width: WynSpacing.space6),
                           _FollowCountTarget(
                             count: data.followingCount,
                             label: 'กำลังติดตาม',
@@ -317,7 +318,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: WynSpacing.space6),
                       if (isOwnProfile)
                         OutlinedButton(
                           onPressed: () => _openEdit(profile),
@@ -416,9 +417,9 @@ class _FollowCountTarget extends StatelessWidget {
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2, vertical: WynSpacing.space1),
           child: Column(
             children: [
               Text(

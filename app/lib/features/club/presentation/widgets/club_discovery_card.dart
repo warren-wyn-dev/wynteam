@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/club.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// A full-width Club row -- icon + name + category chip + member count
 /// + short description, mirroring FollowListScreen/ClubMembersTab's row
@@ -25,7 +26,7 @@ class ClubDiscoveryCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: 10),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -43,7 +44,7 @@ class ClubDiscoveryCard extends StatelessWidget {
                       )
                     : null,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: WynSpacing.space3),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,7 +71,7 @@ class ClubDiscoveryCard extends StatelessWidget {
                       ],
                     ),
                     if (club.description != null && club.description!.isNotEmpty) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: WynSpacing.space1),
                       Text(
                         club.description!,
                         maxLines: 1,

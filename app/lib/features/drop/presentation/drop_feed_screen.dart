@@ -9,6 +9,7 @@ import '../data/drop_repository.dart';
 import 'create_drop_screen.dart';
 import 'drop_detail_screen.dart';
 import 'widgets/drop_grid_tile.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 1 — Drop tab (Bottom Nav). A 3-column grid, deliberately
 /// different from Home's chronological single-column feed -- same
@@ -161,7 +162,7 @@ class _DropFeedScreenState extends State<DropFeedScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
           ],
         ),
@@ -174,7 +175,7 @@ class _DropFeedScreenState extends State<DropFeedScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text('ยังไม่มีใครแชร์รูปเลย เป็นคนแรกสิ!'),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             FilledButton(
               onPressed: _openCreateDrop,
               child: const Text('สร้าง Drop'),
@@ -209,7 +210,7 @@ class _DropFeedScreenState extends State<DropFeedScreen> {
           if (_hasMore)
             const SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: EdgeInsets.all(WynSpacing.space4),
                 child: Center(child: CircularProgressIndicator()),
               ),
             ),

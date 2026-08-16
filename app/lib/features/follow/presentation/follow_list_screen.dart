@@ -8,6 +8,7 @@ import '../../profile/presentation/view_profile_screen.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../../saved/data/saved_repository.dart';
 import '../data/follow_repository.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 enum FollowListMode { followers, following }
 
@@ -159,7 +160,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
           ],
         ),
@@ -172,7 +173,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
           : 'คุณยังไม่ได้ติดตามใครเลย ลองกดติดตามจาก Drop หรือ Pop ที่ชอบดูสิ';
       return Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
           child: Text(emptyText, textAlign: TextAlign.center),
         ),
       );
@@ -186,7 +187,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
         itemBuilder: (context, index) {
           if (index >= _profiles.length) {
             return const Padding(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.all(WynSpacing.space4),
               child: Center(child: CircularProgressIndicator()),
             );
           }
@@ -200,7 +201,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
             child: InkWell(
               onTap: () => _openProfile(profile),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
                 child: Row(
                   children: [
                     AvatarCircle(
@@ -208,7 +209,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
                       fallbackText: profile.username,
                       radius: 20,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: WynSpacing.space3),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

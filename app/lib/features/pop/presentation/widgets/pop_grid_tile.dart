@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
 import '../../data/pop.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Formats a duration in seconds as "m:ss" (e.g. 45 -> "0:45").
 String _formatDuration(int totalSeconds) {
@@ -47,7 +48,7 @@ class PopGridTile extends StatelessWidget {
                 bottom: 4,
                 child: ExcludeSemantics(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: 1),
                     decoration: BoxDecoration(
                       color: WynColors.imageScrim,
                       borderRadius: BorderRadius.circular(3),

@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../data/club.dart';
 import '../data/club_post_repository.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// `CreateClubPostScreen` (Screen 5). Always locked to the Club it was
 /// opened from -- creating a Club post from anywhere else isn't in scope
@@ -113,7 +114,7 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
         title: Text('โพสต์ใน ${widget.club.name}'),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.only(right: WynSpacing.space2),
             child: Center(
               child: TextButton(
                 onPressed: _canPost ? _post : null,
@@ -131,7 +132,7 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(WynSpacing.space4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -145,13 +146,13 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                 onChanged: (_) => setState(() {}),
               ),
               if (_images.isNotEmpty) _buildImageRow(),
-              const SizedBox(height: 8),
+              const SizedBox(height: WynSpacing.space2),
               OutlinedButton.icon(
                 onPressed: (_isPosting || _images.length >= _maxImages) ? null : _pickImages,
                 icon: const Icon(Icons.add_photo_alternate_outlined),
                 label: const Text('แนบรูป'),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: WynSpacing.space4),
               TextField(
                 controller: _linkController,
                 enabled: !_isPosting,
@@ -162,7 +163,7 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                 onChanged: (_) => setState(() {}),
               ),
               if (_errorMessage != null) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: WynSpacing.space4),
                 Text(
                   _errorMessage!,
                   textAlign: TextAlign.center,
@@ -181,14 +182,14 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
       height: 88,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
         itemCount: _images.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        separatorBuilder: (context, index) => const SizedBox(width: WynSpacing.space2),
         itemBuilder: (context, index) {
           return Stack(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
                 child: Image.memory(
                   _images[index],
                   width: 80,

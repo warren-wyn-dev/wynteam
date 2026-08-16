@@ -18,6 +18,7 @@ import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../../saved/data/saved_repository.dart';
 import '../data/notification.dart';
 import '../data/notification_repository.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 2 — Notification list (WYN-012, extended by WYN-015 with 4
 /// Club types). Row structure mirrors FollowListScreen (WYN-008/013)
@@ -302,7 +303,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
           ],
         ),
@@ -312,7 +313,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     if (_notifications.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -321,9 +322,9 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                 size: 56,
                 color: Theme.of(context).colorScheme.outline,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: WynSpacing.space4),
               const Text('ยังไม่มีการแจ้งเตือน', textAlign: TextAlign.center),
-              const SizedBox(height: 8),
+              const SizedBox(height: WynSpacing.space2),
               Text(
                 'เมื่อมีคนถูกใจ แสดงความคิดเห็น ติดตามคุณ หรือมีความเคลื่อนไหวใน Club จะเห็นที่นี่',
                 textAlign: TextAlign.center,
@@ -345,7 +346,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         itemBuilder: (context, index) {
           if (index >= _notifications.length) {
             return const Padding(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.all(WynSpacing.space4),
               child: Center(child: CircularProgressIndicator()),
             );
           }
@@ -366,7 +367,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
               child: InkWell(
                 onTap: () => _openNotification(notification),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
                   child: Row(
                     children: [
                       AvatarCircle(
@@ -374,7 +375,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                         fallbackText: notification.actorUsername,
                         radius: 20,
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: WynSpacing.space3),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,

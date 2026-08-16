@@ -6,6 +6,7 @@ import '../../data/product.dart';
 import '../../data/zoky_repository.dart';
 import '../product_detail_screen.dart';
 import 'product_grid_tile.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Search's Product tab (ZOKY-002) -- category/price filter + sort
 /// controls above a GridView of ProductGridTile, same widget ZOKY Home's
@@ -170,9 +171,9 @@ class _ZokyProductResultsTabState extends State<ZokyProductResultsTab>
                         ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: WynSpacing.space2),
                   Text('หมวดหมู่', style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: WynSpacing.space2),
                   FutureBuilder<List<Category>>(
                     future: categoriesFuture,
                     builder: (context, snapshot) {
@@ -197,9 +198,9 @@ class _ZokyProductResultsTabState extends State<ZokyProductResultsTab>
                       );
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: WynSpacing.space4),
                   Text('ช่วงราคา', style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: WynSpacing.space2),
                   Row(
                     children: [
                       Expanded(
@@ -210,7 +211,7 @@ class _ZokyProductResultsTabState extends State<ZokyProductResultsTab>
                         ),
                       ),
                       const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        padding: EdgeInsets.symmetric(horizontal: WynSpacing.space2),
                         child: Text('–'),
                       ),
                       Expanded(
@@ -222,7 +223,7 @@ class _ZokyProductResultsTabState extends State<ZokyProductResultsTab>
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: WynSpacing.space4),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
@@ -279,7 +280,7 @@ class _ZokyProductResultsTabState extends State<ZokyProductResultsTab>
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
           child: Row(
             children: [
               Expanded(
@@ -289,7 +290,7 @@ class _ZokyProductResultsTabState extends State<ZokyProductResultsTab>
                   label: Text(_activeFilterCount > 0 ? 'ตัวกรอง ($_activeFilterCount)' : 'ตัวกรอง'),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: WynSpacing.space2),
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: _openSortMenu,
@@ -323,7 +324,7 @@ class _ZokyProductResultsTabState extends State<ZokyProductResultsTab>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(onPressed: () => _search(reset: true), child: const Text('ลองใหม่')),
           ],
         ),

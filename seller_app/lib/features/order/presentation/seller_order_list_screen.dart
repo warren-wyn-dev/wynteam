@@ -7,6 +7,7 @@ import '../data/order.dart';
 import '../data/order_item.dart';
 import 'seller_order_detail_screen.dart';
 import 'widgets/seller_order_list_tile.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Tab 3 ("คำสั่งซื้อ") of `SellerHomeShell`, replacing
 /// `SellerComingSoonScreen(label: 'คำสั่งซื้อ')` (SELLER-003). See
@@ -160,11 +161,11 @@ class _SellerOrderListScreenState extends State<SellerOrderListScreen> {
       height: 48,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
         children: [
           for (final (filter, label) in options)
             Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(right: WynSpacing.space2),
               child: ChoiceChip(
                 label: Text(label),
                 selected: _filter == filter,
@@ -187,7 +188,7 @@ class _SellerOrderListScreenState extends State<SellerOrderListScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
           ],
         ),
@@ -216,7 +217,7 @@ class _SellerOrderListScreenState extends State<SellerOrderListScreen> {
         itemBuilder: (context, index) {
           if (index >= _orders.length) {
             return const Padding(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.all(WynSpacing.space4),
               child: Center(child: CircularProgressIndicator()),
             );
           }

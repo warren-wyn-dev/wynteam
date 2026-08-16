@@ -16,6 +16,7 @@ import 'widgets/review_tile.dart';
 import 'widgets/star_rating.dart';
 import 'zoky_cart_screen.dart';
 import 'zoky_order_list_screen.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 const _reviewsPreviewLimit = 3;
 
@@ -171,14 +172,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               children: [
                 ProductImages(imageUrls: product.imageUrls),
                 Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(WynSpacing.space4),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildPriceRow(context),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: WynSpacing.space1),
                       Text(product.name, style: Theme.of(context).textTheme.titleLarge),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: WynSpacing.space1),
                       Text(
                         product.stock > 0 ? 'เหลือ ${product.stock} ชิ้น' : 'สินค้าหมด',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -189,17 +190,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                       _buildVariants(context),
                       if (product.description != null) ...[
-                        const SizedBox(height: 16),
+                        const SizedBox(height: WynSpacing.space4),
                         Text('รายละเอียดสินค้า',
                             style: Theme.of(context).textTheme.titleSmall),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: WynSpacing.space1),
                         Text(product.description!),
                       ],
-                      const SizedBox(height: 16),
+                      const SizedBox(height: WynSpacing.space4),
                       Text('รีวิว', style: Theme.of(context).textTheme.titleSmall),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: WynSpacing.space1),
                       _buildReviewsSection(context),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: WynSpacing.space4),
                       _buildStoreCard(context),
                     ],
                   ),
@@ -225,7 +226,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
         ),
         if (product.hasDiscount) ...[
-          const SizedBox(width: 8),
+          const SizedBox(width: WynSpacing.space2),
           Text(
             thaiBahtLabel(product.originalPrice!),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -233,7 +234,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   decoration: TextDecoration.lineThrough,
                 ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: WynSpacing.space2),
           Chip(
             label: Text('-${product.discountPercent}%'),
             visualDensity: VisualDensity.compact,
@@ -262,7 +263,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           children: byType.entries.map((entry) {
             final label = entry.key == VariantType.color ? 'สี' : 'ไซส์';
             return Padding(
-              padding: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.only(top: WynSpacing.space3),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -318,7 +319,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 Text('${rating.$1.toStringAsFixed(1)} (${rating.$2} รีวิว)'),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: WynSpacing.space2),
             FutureBuilder<List<Review>>(
               future: _reviewsFuture,
               builder: (context, reviewsSnapshot) {
@@ -401,9 +402,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       excludeSemantics: true,
       child: InkWell(
         onTap: _openStore,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
           child: Row(
             children: [
               CircleAvatar(
@@ -414,7 +415,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: WynSpacing.space3),
               Expanded(
                 child: Text(product.storeName, style: Theme.of(context).textTheme.titleSmall),
               ),
@@ -430,7 +431,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final outOfStock = widget.product.stock <= 0;
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(WynSpacing.space3),
         child: Row(
           children: [
             Expanded(
@@ -439,7 +440,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 child: Text(outOfStock ? 'สินค้าหมด' : 'เพิ่มลงตะกร้า'),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: WynSpacing.space3),
             Expanded(
               child: FilledButton(
                 onPressed: outOfStock ? null : _onBuyNowPressed,

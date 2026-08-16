@@ -7,6 +7,7 @@ import '../../order/presentation/seller_order_detail_screen.dart';
 import '../../store/data/seller_repository.dart';
 import '../../store/data/store.dart';
 import 'widgets/seller_transaction_tile.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// The 3 time windows `SellerRepository.fetchFinanceBreakdown` reports
 /// -- same set/order/default as SellerDashboardScreen's ยอดขาย card
@@ -163,17 +164,17 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
       context: context,
       builder: (context) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(WynSpacing.space6),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Icon(Icons.lock_outline, size: 32),
-              const SizedBox(height: 12),
+              const SizedBox(height: WynSpacing.space3),
               Text('ยังไม่รองรับการถอนเงิน', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
+              const SizedBox(height: WynSpacing.space2),
               const Text(_payoutExplanation),
-              const SizedBox(height: 20),
+              const SizedBox(height: WynSpacing.space5),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
@@ -217,7 +218,7 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
           ],
         ),
@@ -236,7 +237,7 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
 
           if (_transactions.isEmpty) {
             return const Padding(
-              padding: EdgeInsets.only(top: 24),
+              padding: EdgeInsets.only(top: WynSpacing.space6),
               child: SearchStateMessage(
                 icon: Icons.receipt_long_outlined,
                 text: 'ยังไม่มีประวัติรายรับ',
@@ -247,7 +248,7 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
           final txIndex = index - 1;
           if (txIndex >= _transactions.length) {
             return const Padding(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.all(WynSpacing.space4),
               child: Center(child: CircularProgressIndicator()),
             );
           }
@@ -266,20 +267,20 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
 
   Widget _buildSummarySection(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(WynSpacing.space4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildBalanceCard(context),
-          const SizedBox(height: 12),
+          const SizedBox(height: WynSpacing.space3),
           _buildSalesSummaryCard(context),
-          const SizedBox(height: 12),
+          const SizedBox(height: WynSpacing.space3),
           _buildInTransitCard(context),
-          const SizedBox(height: 12),
+          const SizedBox(height: WynSpacing.space3),
           _buildFeeRateLines(context),
-          const SizedBox(height: 8),
+          const SizedBox(height: WynSpacing.space2),
           Text('ประวัติรายรับ', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
+          const SizedBox(height: WynSpacing.space2),
           const Divider(height: 1),
         ],
       ),
@@ -293,14 +294,14 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
     return Card(
       color: colorScheme.tertiaryContainer,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(WynSpacing.space4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Icon(Icons.account_balance_wallet_outlined, color: colorScheme.onTertiaryContainer),
-                const SizedBox(width: 8),
+                const SizedBox(width: WynSpacing.space2),
                 Text(
                   'ยอดคงเหลือสะสม',
                   style: Theme.of(context)
@@ -310,7 +311,7 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: WynSpacing.space2),
             Text(
               thaiBahtLabel(balance),
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -318,7 +319,7 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
                     color: colorScheme.onTertiaryContainer,
                   ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: WynSpacing.space2),
             Text(
               _balanceDisclaimer,
               style: Theme.of(context)
@@ -326,7 +327,7 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
                   .bodySmall
                   ?.copyWith(color: colorScheme.onTertiaryContainer),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             SizedBox(
               width: double.infinity,
               child: Semantics(
@@ -360,12 +361,12 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(WynSpacing.space4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('สรุปยอดขาย', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
+            const SizedBox(height: WynSpacing.space2),
             SegmentedButton<_FinancePeriod>(
               showSelectedIcon: false,
               segments: const [
@@ -377,7 +378,7 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
               onSelectionChanged: (selection) =>
                   setState(() => _selectedPeriod = selection.first),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: WynSpacing.space2),
             _summaryRow(context, 'ยอดขาย (Gross Sales)', thaiBahtLabel(totals.gross)),
             _summaryRow(
               context,
@@ -392,7 +393,7 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
               emphasize: true,
               color: colorScheme.tertiary,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: WynSpacing.space2),
             Text(
               'ยอดขาย (Gross Sales) ตรงกับยอดขายในหน้าแดชบอร์ด',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
@@ -407,14 +408,14 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(WynSpacing.space4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Icon(Icons.local_shipping_outlined, color: colorScheme.onSurfaceVariant),
-                const SizedBox(width: 8),
+                const SizedBox(width: WynSpacing.space2),
                 Expanded(
                   child: Text(
                     'รายได้ระหว่างทาง (รอผู้ซื้อยืนยันรับสินค้า)',
@@ -423,13 +424,13 @@ class _SellerFinanceScreenState extends State<SellerFinanceScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: WynSpacing.space2),
             Text(
               _inTransitCount == 0
                   ? 'ไม่มีคำสั่งซื้อที่กำลังจัดส่งอยู่ในขณะนี้'
                   : '${thaiBahtLabel(_inTransitSum)} จาก $_inTransitCount คำสั่งซื้อ',
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: WynSpacing.space1),
             Text(
               'ยอดนี้ยังไม่ถูกนับรวมในยอดคงเหลือ จนกว่าลูกค้าจะยืนยันได้รับสินค้า',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.outline),

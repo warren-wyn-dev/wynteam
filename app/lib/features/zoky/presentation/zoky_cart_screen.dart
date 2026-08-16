@@ -8,6 +8,7 @@ import 'product_detail_screen.dart';
 import 'store_screen.dart';
 import 'widgets/zoky_cart_item_tile.dart';
 import 'zoky_checkout_address_screen.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 2 (ZOKY-003) -- the buyer's cart, grouped by store. Opened
 /// from ZOKY Home's Cart icon (replacing the SnackBar placeholder from
@@ -138,7 +139,7 @@ class _ZokyCartScreenState extends State<ZokyCartScreen> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.only(bottom: 32),
+          padding: const EdgeInsets.only(bottom: WynSpacing.space8),
           child: FilledButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('เลือกซื้อสินค้า'),
@@ -183,7 +184,7 @@ class _ZokyCartScreenState extends State<ZokyCartScreen> {
                 onRemove: () => _remove(item),
               ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
               child: Align(
                 alignment: Alignment.centerRight,
                 child: Text(
@@ -203,7 +204,7 @@ class _ZokyCartScreenState extends State<ZokyCartScreen> {
     final total = items.fold<double>(0, (sum, i) => sum + i.lineTotal);
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(WynSpacing.space4),
         child: Row(
           children: [
             Expanded(
@@ -228,7 +229,7 @@ class _ZokyCartScreenState extends State<ZokyCartScreen> {
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: WynSpacing.space3),
             FilledButton(onPressed: _checkout, child: const Text('ยืนยันคำสั่งซื้อ')),
           ],
         ),

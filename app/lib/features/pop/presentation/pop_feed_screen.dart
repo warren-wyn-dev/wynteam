@@ -9,6 +9,7 @@ import '../data/pop_mute_preference.dart';
 import '../data/pop_repository.dart';
 import 'create_pop_screen.dart';
 import 'widgets/pop_clip_view.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 1 — Pop tab (Bottom Nav). A full-screen vertical swipe feed,
 /// one clip at a time. See .wyn/docs/design/wyn-006-pop.md for why this
@@ -158,7 +159,7 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!, style: const TextStyle(color: Colors.white)),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
           ],
         ),
@@ -174,7 +175,7 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
               'ยังไม่มีใครโพสต์คลิปเลย เป็นคนแรกสิ!',
               style: TextStyle(color: Colors.white),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             FilledButton(
               onPressed: _openCreatePop,
               child: const Text('สร้าง Pop'),

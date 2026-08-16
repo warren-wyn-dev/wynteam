@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/text_utils.dart';
 import '../../data/product.dart';
 import 'product_active_badge.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// One row in `SellerProductListScreen` -- mirrors `OrderSummaryCard`
 /// (ZOKY-003)'s shape (leading thumbnail + text column + trailing
@@ -31,12 +32,12 @@ class SellerProductListTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: 10),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
                 child: SizedBox(
                   width: 64,
                   height: 64,
@@ -45,7 +46,7 @@ class SellerProductListTile extends StatelessWidget {
                       : Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: WynSpacing.space3),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,7 +64,7 @@ class SellerProductListTile extends StatelessWidget {
                         ProductActiveBadge(isActive: product.isActive),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: WynSpacing.space1),
                     Row(
                       children: [
                         Text(

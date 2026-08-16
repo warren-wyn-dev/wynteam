@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Six separate single-digit boxes for entering a numeric OTP, each
 /// announced to screen readers as "หลักที่ N จาก [length]". Ported
@@ -72,7 +73,7 @@ class OtpBoxInputState extends State<OtpBoxInput> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(widget.length, (index) {
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),
           child: Semantics(
             label: 'หลักที่ ${index + 1} จาก ${widget.length}',
             child: SizedBox(

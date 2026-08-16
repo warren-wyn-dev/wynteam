@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/auth_repository.dart';
 import 'phone_entry_screen.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 2 — Auth Method Selection.
 /// See .wyn/docs/design/wyn-002-authentication-onboarding.md
@@ -39,16 +40,16 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
       appBar: AppBar(),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 24),
+              const SizedBox(height: WynSpacing.space6),
               Text(
                 'เข้าสู่ระบบ WYN',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: WynSpacing.space8),
               FilledButton.icon(
                 onPressed: _isLoading
                     ? null
@@ -56,7 +57,7 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
                 icon: const Icon(Icons.g_mobiledata),
                 label: const Text('เข้าสู่ระบบด้วย Google'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: WynSpacing.space3),
               FilledButton.icon(
                 onPressed: _isLoading
                     ? null
@@ -64,7 +65,7 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
                 icon: const Icon(Icons.apple),
                 label: const Text('เข้าสู่ระบบด้วย Apple'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: WynSpacing.space3),
               OutlinedButton(
                 onPressed: _isLoading
                     ? null
@@ -78,11 +79,11 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
                 child: const Text('ใช้เบอร์โทรศัพท์แทน'),
               ),
               if (_isLoading) ...[
-                const SizedBox(height: 24),
+                const SizedBox(height: WynSpacing.space6),
                 const Center(child: CircularProgressIndicator()),
               ],
               if (_errorMessage != null) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: WynSpacing.space4),
                 Text(
                   _errorMessage!,
                   textAlign: TextAlign.center,

@@ -5,6 +5,7 @@ import '../../store/data/seller_repository.dart';
 import '../data/order.dart';
 import '../data/order_item.dart';
 import 'widgets/order_status_badge.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// A single order's full detail + status-transition actions -- mirrors
 /// `ZokyOrderDetailScreen` (ZOKY-003)'s recipient/items/summary card
@@ -174,18 +175,18 @@ class _SellerOrderDetailScreenState extends State<SellerOrderDetailScreen> {
 
   Widget _buildContent(BuildContext context, Order order) {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(WynSpacing.space4),
       children: [
         Align(alignment: Alignment.centerLeft, child: OrderStatusBadge(status: order.status)),
-        const SizedBox(height: 16),
+        const SizedBox(height: WynSpacing.space4),
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(WynSpacing.space3),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('ข้อมูลผู้รับ', style: Theme.of(context).textTheme.labelLarge),
-                const SizedBox(height: 4),
+                const SizedBox(height: WynSpacing.space1),
                 Text('${order.recipientName} · ${order.recipientPhone}'),
                 Text(order.shippingAddress),
               ],
@@ -193,15 +194,15 @@ class _SellerOrderDetailScreenState extends State<SellerOrderDetailScreen> {
           ),
         ),
         if (order.shippingProvider != null) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: WynSpacing.space3),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(WynSpacing.space3),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('ข้อมูลการจัดส่ง', style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: WynSpacing.space1),
                   Text('ขนส่งโดย: ${order.shippingProvider}'),
                   Text('เลขพัสดุ: ${order.trackingNumber}'),
                 ],
@@ -210,22 +211,22 @@ class _SellerOrderDetailScreenState extends State<SellerOrderDetailScreen> {
           ),
         ],
         if (order.status == OrderStatus.readyToShip) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: WynSpacing.space3),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(WynSpacing.space3),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('กรอกข้อมูลการจัดส่ง', style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: WynSpacing.space2),
                   TextField(
                     controller: _shippingProviderController,
                     enabled: !_isSubmitting,
                     decoration: const InputDecoration(labelText: 'ผู้ให้บริการขนส่ง'),
                     onChanged: (_) => setState(() {}),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: WynSpacing.space3),
                   TextField(
                     controller: _trackingNumberController,
                     enabled: !_isSubmitting,
@@ -237,10 +238,10 @@ class _SellerOrderDetailScreenState extends State<SellerOrderDetailScreen> {
             ),
           ),
         ],
-        const SizedBox(height: 12),
+        const SizedBox(height: WynSpacing.space3),
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(WynSpacing.space3),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -253,7 +254,7 @@ class _SellerOrderDetailScreenState extends State<SellerOrderDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
                           child: SizedBox(
                             width: 48,
                             height: 48,
@@ -372,11 +373,11 @@ class _SellerOrderDetailScreenState extends State<SellerOrderDetailScreen> {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(WynSpacing.space3),
         child: Row(
           children: [
             for (var i = 0; i < buttons.length; i++) ...[
-              if (i > 0) const SizedBox(width: 12),
+              if (i > 0) const SizedBox(width: WynSpacing.space3),
               Expanded(child: buttons[i]),
             ],
           ],

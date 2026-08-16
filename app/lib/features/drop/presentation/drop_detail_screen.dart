@@ -14,6 +14,7 @@ import '../data/drop.dart';
 import '../data/drop_comment.dart';
 import '../data/drop_repository.dart';
 import 'widgets/confirm_delete_drop_dialog.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Placeholder share link -- there's no real hosting/domain yet (see
 /// .wyn/tasks/active/WYN-005-drop-post-image.md Risks). Not a reachable
@@ -297,7 +298,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
           child: Image.network(_drop.imageUrl, fit: BoxFit.cover),
         ),
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(WynSpacing.space4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -306,7 +307,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   Expanded(
                     child: InkWell(
                       onTap: _openAuthorProfile,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
                       child: Row(
                         children: [
                           AvatarCircle(
@@ -314,7 +315,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                             fallbackText: _drop.authorUsername,
                             radius: 18,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: WynSpacing.space2),
                           Expanded(
                             child: Text(
                               _drop.authorNameOrUsername,
@@ -356,10 +357,10 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                 ],
               ),
               if (_drop.caption != null && _drop.caption!.isNotEmpty) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: WynSpacing.space2),
                 Text(_drop.caption!),
               ],
-              const SizedBox(height: 12),
+              const SizedBox(height: WynSpacing.space3),
               Row(
                 children: [
                   Semantics(
@@ -376,14 +377,14 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     ),
                   ),
                   Text('${_drop.likeCount}'),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: WynSpacing.space3),
                   IconButton(
                     icon: const Icon(Icons.mode_comment_outlined),
                     tooltip: 'ความคิดเห็น',
                     onPressed: () => _commentFocusNode.requestFocus(),
                   ),
                   Text('${_drop.commentCount}'),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: WynSpacing.space3),
                   IconButton(
                     icon: const Icon(Icons.share_outlined),
                     tooltip: 'แชร์',
@@ -421,13 +422,13 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
         children: [
           header,
           Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(WynSpacing.space6),
             child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text('โหลดคอมเมนต์ไม่สำเร็จ'),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: WynSpacing.space2),
                   TextButton(
                     onPressed: _loadComments,
                     child: const Text('ลองใหม่'),
@@ -446,7 +447,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
         children: [
           header,
           const Padding(
-            padding: EdgeInsets.all(24),
+            padding: EdgeInsets.all(WynSpacing.space6),
             child: Center(child: CircularProgressIndicator()),
           ),
         ],
@@ -454,12 +455,12 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     }
 
     return ListView(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: WynSpacing.space4),
       children: [
         header,
         if (comments.isEmpty)
           const Padding(
-            padding: EdgeInsets.all(24),
+            padding: EdgeInsets.all(WynSpacing.space6),
             child: Center(child: Text('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!')),
           )
         else
@@ -474,7 +475,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     fallbackText: comment.authorUsername,
                     radius: 16,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: WynSpacing.space2),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -544,7 +545,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(WynSpacing.space2),
         child: Row(
           children: [
             Expanded(

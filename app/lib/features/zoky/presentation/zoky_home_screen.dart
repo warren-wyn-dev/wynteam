@@ -12,6 +12,7 @@ import 'widgets/store_mini_card.dart';
 import 'zoky_cart_screen.dart';
 import 'zoky_order_list_screen.dart';
 import 'zoky_search_screen.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 1 — ZOKY Home (ZOKY-001), the 5th Bottom Nav tab. Search and
 /// category-tap open ZokySearchScreen for real as of ZOKY-002; Cart/
@@ -180,7 +181,7 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
             if (_hasMore && !_isLoadingGrid)
               const SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.all(16),
+                  padding: EdgeInsets.all(WynSpacing.space4),
                   child: Center(child: CircularProgressIndicator()),
                 ),
               ),
@@ -230,11 +231,11 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
               right: 4,
               top: 4,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: 1),
                 constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
                 ),
                 child: Text(
                   badgeText,
@@ -264,11 +265,11 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
           borderRadius: BorderRadius.circular(24),
           onTap: () => _openSearch(),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space3),
             child: Row(
               children: [
                 Icon(Icons.search, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                const SizedBox(width: 8),
+                const SizedBox(width: WynSpacing.space2),
                 Text(
                   'ค้นหาสินค้า/ร้านค้า',
                   style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
@@ -291,11 +292,11 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
           height: 48,
           child: ListView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
             children: categories
                 .map(
                   (category) => Padding(
-                    padding: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.only(right: WynSpacing.space2),
                     child: ActionChip(
                       label: Text(category.name),
                       onPressed: () => _openSearch(category: category),
@@ -317,7 +318,7 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
         width: double.infinity,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(WynSpacing.radiusLg),
         ),
         alignment: Alignment.center,
         child: Text(
@@ -338,7 +339,7 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 4),
+          const SizedBox(height: WynSpacing.space1),
           Text('เร็ว ๆ นี้', style: TextStyle(color: Theme.of(context).colorScheme.outline)),
         ],
       ),
@@ -352,18 +353,18 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
         if (!snapshot.hasData) return const SizedBox.shrink();
         final products = snapshot.data!;
         return Padding(
-          padding: const EdgeInsets.only(top: 16),
+          padding: const EdgeInsets.only(top: WynSpacing.space4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
                 child: Text('สินค้าใหม่', style: Theme.of(context).textTheme.titleSmall),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: WynSpacing.space1),
               if (products.isEmpty)
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  padding: EdgeInsets.symmetric(horizontal: WynSpacing.space4),
                   child: Text('ยังไม่มีสินค้าในระบบ'),
                 )
               else
@@ -371,7 +372,7 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
                   height: 148,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
                     children: products
                         .map(
                           (product) => ProductMiniCard(
@@ -396,18 +397,18 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
         if (!snapshot.hasData) return const SizedBox.shrink();
         final stores = snapshot.data!;
         return Padding(
-          padding: const EdgeInsets.only(top: 16),
+          padding: const EdgeInsets.only(top: WynSpacing.space4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
                 child: Text('ร้านค้าแนะนำ', style: Theme.of(context).textTheme.titleSmall),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: WynSpacing.space1),
               if (stores.isEmpty)
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  padding: EdgeInsets.symmetric(horizontal: WynSpacing.space4),
                   child: Text('ยังไม่มีสินค้าในระบบ'),
                 )
               else
@@ -415,7 +416,7 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
                   height: 108,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
                     children: stores
                         .map(
                           (store) => StoreMiniCard(store: store, onTap: () => _openStore(store)),
@@ -434,7 +435,7 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
     if (_isLoadingGrid) {
       return const SliverToBoxAdapter(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: EdgeInsets.all(WynSpacing.space8),
           child: Center(child: CircularProgressIndicator()),
         ),
       );
@@ -442,7 +443,7 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
     if (_gridProducts.isEmpty) {
       return const SliverToBoxAdapter(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: EdgeInsets.all(WynSpacing.space8),
           child: Center(child: Text('ยังไม่มีสินค้าในระบบ')),
         ),
       );

@@ -8,6 +8,7 @@ import '../create_club_screen.dart';
 import '../explore_clubs_screen.dart';
 import '../my_clubs_screen.dart';
 import 'club_mini_card.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Screen 1 — the CLUB section on Home: a height-capped (~180px) block
 /// between the top row (search bar + notification bell, WYN-012) and the
@@ -116,14 +117,14 @@ class _ClubSectionState extends State<ClubSection> {
             height: 36,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
               children: [
                 OutlinedButton.icon(
                   onPressed: _openCreateClub,
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('สร้าง Club'),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: WynSpacing.space2),
                 OutlinedButton.icon(
                   onPressed: _openExploreClubs,
                   icon: const Icon(Icons.explore_outlined, size: 18),
@@ -147,7 +148,7 @@ class _ClubSectionState extends State<ClubSection> {
         final clubs = snapshot.data!;
         if (clubs.isEmpty) {
           return const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12),
+            padding: EdgeInsets.symmetric(horizontal: WynSpacing.space3),
             child: Center(
               child: Text(
                 'ยังไม่ได้เข้าร่วม Club ไหนเลย ลองสร้างหรือค้นหาดูสิ',
@@ -159,7 +160,7 @@ class _ClubSectionState extends State<ClubSection> {
 
         return ListView.builder(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
           itemCount: clubs.length,
           itemBuilder: (context, index) {
             final club = clubs[index];

@@ -4,6 +4,7 @@ import '../data/review.dart';
 import '../data/zoky_repository.dart';
 import 'widgets/review_tile.dart';
 import 'widgets/star_rating.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Screen: ProductReviewsScreen (ZOKY-004) -- every review for a single
 /// product, opened from ProductDetailScreen's "ดูรีวิวทั้งหมด" once
@@ -82,7 +83,7 @@ class _ProductReviewsScreenState extends State<ProductReviewsScreen> {
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               controller: _scrollController,
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(WynSpacing.space4),
               children: [
                 Row(
                   children: [
@@ -95,7 +96,7 @@ class _ProductReviewsScreenState extends State<ProductReviewsScreen> {
                 for (final review in _reviews) ReviewTile(review: review),
                 if (_isLoadingMore)
                   const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
+                    padding: EdgeInsets.symmetric(vertical: WynSpacing.space4),
                     child: Center(child: CircularProgressIndicator()),
                   ),
               ],

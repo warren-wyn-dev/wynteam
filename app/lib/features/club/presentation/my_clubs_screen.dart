@@ -4,6 +4,7 @@ import '../data/club.dart';
 import '../data/club_post_repository.dart';
 import '../data/club_repository.dart';
 import 'club_page.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// "Club ของฉัน" -- the full-list destination behind the Home CLUB
 /// section's "ดูทั้งหมด" link (Screen 1). No pagination: ClubRepository.
@@ -60,7 +61,7 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text('โหลดรายชื่อ Club ไม่สำเร็จ'),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: WynSpacing.space3),
                   TextButton(onPressed: _reload, child: const Text('ลองใหม่')),
                 ],
               ),
@@ -75,7 +76,7 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
           if (clubs.isEmpty) {
             return const Center(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 32),
+                padding: EdgeInsets.symmetric(horizontal: WynSpacing.space8),
                 child: Text(
                   'ยังไม่ได้เข้าร่วม Club ไหนเลย ลองสร้างหรือค้นหาดูสิ',
                   textAlign: TextAlign.center,

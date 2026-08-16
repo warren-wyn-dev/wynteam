@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/cart_item.dart';
 import '../data/zoky_repository.dart';
 import 'zoky_checkout_summary_screen.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 3 (ZOKY-003) -- Checkout step 1 of 2: shipping address form.
 /// Deliberately its own screen rather than folded into the summary
@@ -65,21 +66,21 @@ class _ZokyCheckoutAddressScreenState extends State<ZokyCheckoutAddressScreen> {
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(WynSpacing.space4),
             children: [
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'ชื่อผู้รับ'),
                 validator: _required,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: WynSpacing.space4),
               TextFormField(
                 controller: _phoneController,
                 decoration: const InputDecoration(labelText: 'เบอร์โทรศัพท์'),
                 keyboardType: TextInputType.phone,
                 validator: _required,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: WynSpacing.space4),
               TextFormField(
                 controller: _addressController,
                 decoration: const InputDecoration(labelText: 'ที่อยู่จัดส่ง'),
@@ -92,7 +93,7 @@ class _ZokyCheckoutAddressScreenState extends State<ZokyCheckoutAddressScreen> {
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(WynSpacing.space4),
           child: SizedBox(
             width: double.infinity,
             child: FilledButton(onPressed: _next, child: const Text('ถัดไป')),

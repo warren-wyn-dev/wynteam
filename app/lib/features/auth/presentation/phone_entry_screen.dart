@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/auth_repository.dart';
 import 'otp_verification_screen.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 3 — Phone Number Entry.
 /// See .wyn/docs/design/wyn-002-authentication-onboarding.md
@@ -65,7 +66,7 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
       appBar: AppBar(title: const Text('หมายเลขโทรศัพท์')),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(WynSpacing.space6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -79,7 +80,7 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
                 ),
                 onChanged: (_) => setState(() {}),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: WynSpacing.space6),
               FilledButton(
                 onPressed: (_isValid && !_isLoading) ? _sendOtp : null,
                 child: _isLoading

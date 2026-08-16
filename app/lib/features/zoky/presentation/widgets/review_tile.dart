@@ -4,6 +4,7 @@ import '../../../../core/text_utils.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/review.dart';
 import 'star_rating.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// A single review row -- mirrors PopCommentSheet's comment tile
 /// structure (avatar + author name + content), with a star rating and
@@ -18,7 +19,7 @@ class ReviewTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -27,7 +28,7 @@ class ReviewTile extends StatelessWidget {
             fallbackText: review.authorUsername,
             radius: 16,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: WynSpacing.space2),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -44,7 +45,7 @@ class ReviewTile extends StatelessWidget {
                 Row(
                   children: [
                     StarRatingDisplay(rating: review.rating.toDouble()),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: WynSpacing.space2),
                     Text(
                       relativeTimeLabel(review.createdAt, now: DateTime.now()),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -54,7 +55,7 @@ class ReviewTile extends StatelessWidget {
                   ],
                 ),
                 if (review.textContent != null && review.textContent!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: WynSpacing.space1),
                   Text(review.textContent!),
                 ],
               ],

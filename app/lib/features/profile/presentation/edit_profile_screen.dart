@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../data/profile.dart';
 import '../data/profile_repository.dart';
 import 'widgets/avatar_circle.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 2 — Edit Profile.
 /// See .wyn/docs/design/wyn-003-user-profile.md
@@ -153,7 +154,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       appBar: AppBar(title: const Text('แก้ไขโปรไฟล์')),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(WynSpacing.space6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -185,7 +186,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: WynSpacing.space6),
               TextField(
                 controller: _displayNameController,
                 maxLength: 50,
@@ -212,14 +213,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
                 onChanged: (_) => setState(() {}),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: WynSpacing.space6),
               if (_errorMessage != null) ...[
                 Text(
                   _errorMessage!,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: WynSpacing.space3),
               ],
               FilledButton(
                 onPressed: _isSaving ? null : _save,

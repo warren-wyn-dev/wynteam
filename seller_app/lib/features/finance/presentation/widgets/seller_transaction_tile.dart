@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/text_utils.dart';
 import '../../../order/data/order.dart';
 import '../../../order/presentation/widgets/order_status_badge.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// One row in `SellerFinanceScreen`'s Transaction History -- mirrors
 /// `SellerOrderListTile`'s shape (`Semantics`+`InkWell`+`Row`) but drops
@@ -47,7 +48,7 @@ class SellerTransactionTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -69,7 +70,7 @@ class SellerTransactionTile extends StatelessWidget {
                 '#$_shortId · ${relativeTimeLabel(order.createdAt, now: DateTime.now())}',
                 style: bodySmall?.copyWith(color: colorScheme.outline),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: WynSpacing.space1),
               _buildFormula(context, net),
               if (_isRefunded) ...[
                 const SizedBox(height: 2),

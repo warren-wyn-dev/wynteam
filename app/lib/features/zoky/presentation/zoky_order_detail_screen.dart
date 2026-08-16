@@ -8,6 +8,7 @@ import '../data/zoky_repository.dart';
 import 'widgets/order_status_badge.dart';
 import 'widgets/review_form_sheet.dart';
 import 'widgets/star_rating.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 6 (ZOKY-003, action bar made per-status by SELLER-003) -- a
 /// single Order's full detail. Cancel shows only while status is
@@ -170,18 +171,18 @@ class _ZokyOrderDetailScreenState extends State<ZokyOrderDetailScreen> {
 
   Widget _buildContent(BuildContext context, Order order) {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(WynSpacing.space4),
       children: [
         Align(alignment: Alignment.centerLeft, child: OrderStatusBadge(status: order.status)),
-        const SizedBox(height: 16),
+        const SizedBox(height: WynSpacing.space4),
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(WynSpacing.space3),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('ที่อยู่จัดส่ง', style: Theme.of(context).textTheme.labelLarge),
-                const SizedBox(height: 4),
+                const SizedBox(height: WynSpacing.space1),
                 Text('${order.recipientName} · ${order.recipientPhone}'),
                 Text(order.shippingAddress),
               ],
@@ -189,15 +190,15 @@ class _ZokyOrderDetailScreenState extends State<ZokyOrderDetailScreen> {
           ),
         ),
         if (order.shippingProvider != null) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: WynSpacing.space3),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(WynSpacing.space3),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('ข้อมูลการจัดส่ง', style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: WynSpacing.space1),
                   Text('ขนส่งโดย: ${order.shippingProvider}'),
                   Text('เลขพัสดุ: ${order.trackingNumber}'),
                 ],
@@ -205,10 +206,10 @@ class _ZokyOrderDetailScreenState extends State<ZokyOrderDetailScreen> {
             ),
           ),
         ],
-        const SizedBox(height: 12),
+        const SizedBox(height: WynSpacing.space3),
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(WynSpacing.space3),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -224,7 +225,7 @@ class _ZokyOrderDetailScreenState extends State<ZokyOrderDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
                               child: SizedBox(
                                 width: 48,
                                 height: 48,
@@ -298,7 +299,7 @@ class _ZokyOrderDetailScreenState extends State<ZokyOrderDetailScreen> {
           : Row(
               children: [
                 StarRatingDisplay(rating: review.rating.toDouble()),
-                const SizedBox(width: 8),
+                const SizedBox(width: WynSpacing.space2),
                 TextButton(
                   onPressed: () => _openReviewForm(item),
                   child: const Text('แก้ไขรีวิว'),
@@ -348,11 +349,11 @@ class _ZokyOrderDetailScreenState extends State<ZokyOrderDetailScreen> {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(WynSpacing.space3),
         child: Row(
           children: [
             for (var i = 0; i < buttons.length; i++) ...[
-              if (i > 0) const SizedBox(width: 12),
+              if (i > 0) const SizedBox(width: WynSpacing.space3),
               buttons[i],
             ],
           ],

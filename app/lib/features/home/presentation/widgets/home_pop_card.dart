@@ -5,6 +5,7 @@ import '../../../../core/design/wyn_colors.dart';
 import '../../../pop/presentation/widgets/pop_clip_view.dart' show popShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Formats a duration in seconds as "m:ss" (e.g. 45 -> "0:45").
 String _formatDuration(int totalSeconds) {
@@ -49,15 +50,15 @@ class HomePopCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space1),
                 child: InkWell(
                   onTap: onOpenProfile,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -66,7 +67,7 @@ class HomePopCard extends StatelessWidget {
                         fallbackText: item.authorUsername,
                         radius: 16,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: WynSpacing.space2),
                       Text(
                         item.authorNameOrUsername,
                         style: Theme.of(context).textTheme.titleSmall,
@@ -124,7 +125,7 @@ class HomePopCard extends StatelessWidget {
                   child: Text(item.caption!),
                 ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),
                 child: Row(
                   children: [
                     Semantics(
@@ -141,7 +142,7 @@ class HomePopCard extends StatelessWidget {
                       ),
                     ),
                     Text('${item.likeCount}'),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: WynSpacing.space2),
                     Semantics(
                       label: 'ดูคอมเมนต์',
                       excludeSemantics: true,
@@ -160,7 +161,7 @@ class HomePopCard extends StatelessWidget {
                       ),
                     ),
                     const Icon(Icons.visibility_outlined, size: 18),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: WynSpacing.space1),
                     Text('${item.viewCount}'),
                     const Spacer(),
                     Semantics(

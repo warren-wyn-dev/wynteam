@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
 import '../../../home/data/home_feed_item.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Formats a duration in seconds as "m:ss" (e.g. 45 -> "0:45").
 String _formatDuration(int totalSeconds) {
@@ -56,7 +57,7 @@ class SavedGridTile extends StatelessWidget {
                     child: ExcludeSemantics(
                       child: Container(
                         padding:
-                            const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: 1),
                         decoration: BoxDecoration(
                           color: WynColors.imageScrim,
                           borderRadius: BorderRadius.circular(3),

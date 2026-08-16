@@ -5,6 +5,7 @@ import '../data/club_post_repository.dart';
 import '../data/club_repository.dart';
 import 'club_page.dart';
 import 'widgets/club_discovery_card.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 1 — Explore Clubs (replaces WYN-014's placeholder). Clubs the
 /// current user hasn't joined, split into "กำลังนิยม"/"ใหม่ล่าสุด" with a
@@ -95,10 +96,10 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
       height: 48,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
         children: [
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.only(right: WynSpacing.space2),
             child: ChoiceChip(
               label: const Text('ทั้งหมด'),
               selected: _category == null,
@@ -107,7 +108,7 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
           ),
           ...clubCategories.map(
             (category) => Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(right: WynSpacing.space2),
               child: ChoiceChip(
                 label: Text(category),
                 selected: _category == category,
@@ -130,7 +131,7 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
         ),
         if (clubs.isEmpty)
           const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
             child: Text('ยังไม่มี Club ในหมวดนี้'),
           )
         else

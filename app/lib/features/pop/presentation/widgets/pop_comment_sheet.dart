@@ -5,6 +5,7 @@ import '../../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/pop_comment.dart';
 import '../../data/pop_repository.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Comment bottom sheet for Screen 1 (Pop Feed) -- reuses
 /// DropDetailScreen's comment-list-with-Like-and-Delete pattern (WYN-005,
@@ -158,7 +159,7 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
       child: Column(
         children: [
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
+            padding: EdgeInsets.symmetric(vertical: WynSpacing.space3),
             child: Text('ความคิดเห็น', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
           const Divider(height: 1),
@@ -177,7 +178,7 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text('โหลดคอมเมนต์ไม่สำเร็จ'),
-            const SizedBox(height: 8),
+            const SizedBox(height: WynSpacing.space2),
             TextButton(onPressed: _loadComments, child: const Text('ลองใหม่')),
           ],
         ),
@@ -194,7 +195,7 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: WynSpacing.space4),
       itemCount: comments.length,
       itemBuilder: (context, index) {
         final comment = comments[index];
@@ -208,7 +209,7 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
                 fallbackText: comment.authorUsername,
                 radius: 16,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: WynSpacing.space2),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -275,7 +276,7 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
         _commentController.text.trim().isNotEmpty && !_isSendingComment;
 
     return Padding(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(WynSpacing.space2),
       child: Row(
         children: [
           Expanded(

@@ -7,6 +7,7 @@ import '../../data/club_post_repository.dart';
 import '../club_post_detail_screen.dart';
 import '../create_club_post_screen.dart';
 import 'club_post_card.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Screen 4-5 — Posts tab. Gated behind approved membership: non-members
 /// (myRole == null) see a join-prompt placeholder instead of the list,
@@ -211,12 +212,12 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     if (!_isMember) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text('เข้าร่วม Club เพื่อดูโพสต์', textAlign: TextAlign.center),
-              const SizedBox(height: 12),
+              const SizedBox(height: WynSpacing.space3),
               OutlinedButton(onPressed: widget.onJoinTapped, child: const Text('เข้าร่วม')),
             ],
           ),
@@ -245,7 +246,7 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
           ],
         ),
@@ -265,7 +266,7 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
         itemBuilder: (context, index) {
           if (index >= _posts.length) {
             return const Padding(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.all(WynSpacing.space4),
               child: Center(child: CircularProgressIndicator()),
             );
           }
@@ -281,7 +282,7 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
                   child: Row(
                     children: [
                       Icon(Icons.push_pin, size: 14, color: Theme.of(context).colorScheme.outline),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: WynSpacing.space1),
                       Text(
                         'ปักหมุด',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(

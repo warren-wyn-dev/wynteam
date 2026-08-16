@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/text_utils.dart';
 import '../data/cart_item.dart';
 import '../data/zoky_repository.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 4 (ZOKY-003) -- Checkout step 2 of 2: the fee/total
 /// breakdown per store, reviewed in full before the buyer can confirm.
@@ -88,7 +89,7 @@ class _ZokyCheckoutSummaryScreenState extends State<ZokyCheckoutSummaryScreen> {
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(WynSpacing.space4),
           child: SizedBox(
             width: double.infinity,
             child: FilledButton(
@@ -124,9 +125,9 @@ class _ZokyCheckoutSummaryScreenState extends State<ZokyCheckoutSummaryScreen> {
 
       storeCards.add(
         Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          margin: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(WynSpacing.space3),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -177,12 +178,12 @@ class _ZokyCheckoutSummaryScreenState extends State<ZokyCheckoutSummaryScreen> {
         Card(
           margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(WynSpacing.space3),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('ที่อยู่จัดส่ง', style: Theme.of(context).textTheme.labelLarge),
-                const SizedBox(height: 4),
+                const SizedBox(height: WynSpacing.space1),
                 Text('${widget.recipientName} · ${widget.recipientPhone}'),
                 Text(widget.shippingAddress),
                 Align(

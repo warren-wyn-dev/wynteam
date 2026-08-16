@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/store.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// A full-width Store row for ZOKY-002's search results -- logo + name
 /// + product count + short description, mirroring ClubDiscoveryCard
@@ -22,7 +23,7 @@ class StoreResultCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: 10),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -41,7 +42,7 @@ class StoreResultCard extends StatelessWidget {
                       )
                     : null,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: WynSpacing.space3),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -55,7 +56,7 @@ class StoreResultCard extends StatelessWidget {
                           ),
                     ),
                     if (store.description != null && store.description!.isNotEmpty) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: WynSpacing.space1),
                       Text(
                         store.description!,
                         maxLines: 1,

@@ -19,6 +19,7 @@ import 'pop_single_clip_screen.dart';
 import 'widgets/from_your_clubs_feed.dart';
 import 'widgets/home_drop_card.dart';
 import 'widgets/home_pop_card.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 enum _HomeFeedMode { forYou, fromYourClubs }
 
@@ -353,7 +354,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   // Screen 5.
   Widget _buildFeedModeToggle() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space1),
       child: SegmentedButton<_HomeFeedMode>(
         segments: const [
           ButtonSegment(value: _HomeFeedMode.forYou, label: Text('สำหรับคุณ')),
@@ -371,7 +372,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       child: Row(
         children: [
           Expanded(child: _buildSearchBar(context)),
-          const SizedBox(width: 8),
+          const SizedBox(width: WynSpacing.space2),
           _buildNotificationButton(context),
         ],
       ),
@@ -390,14 +391,14 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
           borderRadius: BorderRadius.circular(24),
           onTap: _openSearch,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space3),
             child: Row(
               children: [
                 Icon(
                   Icons.search,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: WynSpacing.space2),
                 Text(
                   'ค้นหา',
                   style: TextStyle(
@@ -432,11 +433,11 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
               right: 4,
               top: 4,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: 1),
                 constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
                 ),
                 child: Text(
                   badgeText,
@@ -465,7 +466,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
           ],
         ),
@@ -487,7 +488,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         itemBuilder: (context, index) {
           if (index >= _items.length) {
             return const Padding(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.all(WynSpacing.space4),
               child: Center(child: CircularProgressIndicator()),
             );
           }

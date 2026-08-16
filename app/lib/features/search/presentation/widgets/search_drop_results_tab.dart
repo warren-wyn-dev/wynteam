@@ -9,6 +9,7 @@ import '../../../pop/data/pop_repository.dart';
 import '../../../profile/data/profile_repository.dart';
 import '../../../saved/data/saved_repository.dart';
 import 'search_state_message.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Search's Drop tab (WYN-009) -- same 3-column grid as ProfileDropGridTab
 /// (WYN-013), reusing DropGridTile directly. Query is driven by [query], a
@@ -150,7 +151,7 @@ class _SearchDropResultsTabState extends State<SearchDropResultsTab>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(
               onPressed: () => _search(reset: true),
               child: const Text('ลองใหม่'),
@@ -190,7 +191,7 @@ class _SearchDropResultsTabState extends State<SearchDropResultsTab>
         if (_hasMore)
           const SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.all(WynSpacing.space4),
               child: Center(child: CircularProgressIndicator()),
             ),
           ),

@@ -8,6 +8,7 @@ import '../../store/data/store.dart';
 import '../data/product.dart';
 import 'seller_product_form_screen.dart';
 import 'widgets/seller_product_list_tile.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Tab 2 ("สินค้า") of `SellerHomeShell`, replacing
 /// `SellerComingSoonScreen(label: 'สินค้า')`. See
@@ -156,7 +157,7 @@ class _SellerProductListScreenState extends State<SellerProductListScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -200,11 +201,11 @@ class _SellerProductListScreenState extends State<SellerProductListScreen> {
       height: 48,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
         children: [
           for (final (filter, label) in options)
             Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(right: WynSpacing.space2),
               child: ChoiceChip(
                 label: Text(label),
                 selected: _filter == filter,
@@ -227,7 +228,7 @@ class _SellerProductListScreenState extends State<SellerProductListScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
           ],
         ),
@@ -244,17 +245,17 @@ class _SellerProductListScreenState extends State<SellerProductListScreen> {
       }
       return Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.inventory_2_outlined, size: 56, color: Theme.of(context).colorScheme.outline),
-              const SizedBox(height: 16),
+              const SizedBox(height: WynSpacing.space4),
               const Text(
                 'ยังไม่มีสินค้าในร้านเลย เริ่มเพิ่มสินค้าชิ้นแรกกันเถอะ',
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: WynSpacing.space4),
               FilledButton(
                 onPressed: () => _openForm(),
                 child: const Text('+ เพิ่มสินค้า'),
@@ -274,7 +275,7 @@ class _SellerProductListScreenState extends State<SellerProductListScreen> {
         itemBuilder: (context, index) {
           if (index >= _products.length) {
             return const Padding(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.all(WynSpacing.space4),
               child: Center(child: CircularProgressIndicator()),
             );
           }

@@ -11,6 +11,7 @@ import '../data/club_post.dart';
 import '../data/club_post_comment.dart';
 import '../data/club_post_repository.dart';
 import 'widgets/club_post_card.dart' show ClubPostImages;
+import '../../../core/design/wyn_spacing.dart';
 
 /// Placeholder share link -- same "no real hosting/domain yet" caveat as
 /// dropShareLink/popShareLink (WYN-005/006).
@@ -223,7 +224,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(WynSpacing.space4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -234,7 +235,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                     fallbackText: _post.authorUsername,
                     radius: 18,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: WynSpacing.space2),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,11 +262,11 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                 ],
               ),
               if (_post.content != null && _post.content!.isNotEmpty) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: WynSpacing.space2),
                 Text(_post.content!),
               ],
               if (_post.linkUrl != null && _post.linkUrl!.isNotEmpty) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: WynSpacing.space2),
                 Row(
                   children: [
                     const Icon(Icons.link, size: 16),
@@ -280,7 +281,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
         if (_post.imageUrls != null && _post.imageUrls!.isNotEmpty)
           ClubPostImages(imageUrls: _post.imageUrls!),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
           child: Row(
             children: [
               Semantics(
@@ -295,7 +296,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                 ),
               ),
               Text('${_post.likeCount}'),
-              const SizedBox(width: 12),
+              const SizedBox(width: WynSpacing.space3),
               IconButton(
                 icon: const Icon(Icons.share_outlined),
                 tooltip: 'แชร์',
@@ -327,13 +328,13 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
         children: [
           header,
           Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(WynSpacing.space6),
             child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text('โหลดคอมเมนต์ไม่สำเร็จ'),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: WynSpacing.space2),
                   TextButton(onPressed: _loadComments, child: const Text('ลองใหม่')),
                 ],
               ),
@@ -349,7 +350,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
         children: [
           header,
           const Padding(
-            padding: EdgeInsets.all(24),
+            padding: EdgeInsets.all(WynSpacing.space6),
             child: Center(child: CircularProgressIndicator()),
           ),
         ],
@@ -357,12 +358,12 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
     }
 
     return ListView(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: WynSpacing.space4),
       children: [
         header,
         if (comments.isEmpty)
           const Padding(
-            padding: EdgeInsets.all(24),
+            padding: EdgeInsets.all(WynSpacing.space6),
             child: Center(child: Text('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!')),
           )
         else
@@ -377,7 +378,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                     fallbackText: comment.authorUsername,
                     radius: 16,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: WynSpacing.space2),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -416,7 +417,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(WynSpacing.space2),
         child: Row(
           children: [
             Expanded(

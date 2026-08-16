@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/auth_repository.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 enum _UsernameStatus { idle, checking, available, taken, invalid }
 
@@ -86,7 +87,7 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
       appBar: AppBar(title: const Text('ตั้งชื่อผู้ใช้')),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(WynSpacing.space6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -104,7 +105,7 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
                   },
                   suffixIcon: switch (_status) {
                     _UsernameStatus.checking => const Padding(
-                        padding: EdgeInsets.all(12),
+                        padding: EdgeInsets.all(WynSpacing.space3),
                         child: SizedBox(
                           height: 16,
                           width: 16,
@@ -118,7 +119,7 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
                 ),
                 onChanged: _onChanged,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: WynSpacing.space6),
               FilledButton(
                 onPressed: canSubmit ? _submit : null,
                 child: _isSubmitting

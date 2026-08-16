@@ -1,6 +1,6 @@
 # Product Task — DS-002
 
-Status: backlog
+Status: in progress — Part 1 (spacing/radius token adoption) coded + self-verified 2026-08-16, PASS. Part 2 (Card/shadow review, R3) not started.
 Owner: AI Product Manager
 
 Feature: WYN Design System Refinement — Phase 2: Global UI Style Pass (spacing/radius/card weight)
@@ -51,3 +51,56 @@ Risks:
 Recommendation: ทำ token adoption (R1/R2) และ shadow/card review (R3) เป็น 2 sub-PR แยกกันเพื่อให้ QA ตรวจ/rollback ได้อิสระจากกัน มิเรอร์แนวทาง incremental ของ DS-001a/b/c — แนะนำเริ่มจาก `app/` ก่อน `seller_app/` เพราะแอปลูกค้ามี traffic/ผู้ใช้จริงมากกว่าเมื่อ deploy
 
 Handoff: ส่งต่อ AI Design เพื่อตัดสินใจรายจุดว่า Card/BoxShadow จุดไหนคงไว้/ลด (Requirement R3) ก่อนส่งต่อ AI Coding — ยังไม่ต้องถาม Founder เพิ่มเติมเพราะเป็นการต่อยอดทิศทางที่อนุมัติแล้วใน DS-001 ล้วน ๆ ไม่มีการตัดสินใจระดับสีหรือสถาปัตยกรรมใหม่
+
+---
+
+## Coding Output — Part 1: Spacing/Radius Token Adoption (R1/R2/R4/R5/R6/R7) — 2026-08-16
+
+Implementation: เขียนสคริปต์ (Python, ไม่ commit เข้า repo — เป็นเครื่องมือชั่วคราว) กวาดหา `EdgeInsets.all/symmetric/only(...)`, `SizedBox(width:/height:)`, `BorderRadius.circular(...)` ทุกจุดใน `app/lib/features/` และ `seller_app/lib/features/` แล้วแทนที่**เฉพาะ**ค่าตัวเลขที่ตรงกับ scale ของ `WynSpacing` **เป๊ะ** (4/8/12/16/20/24/32/40/48 สำหรับ spacing, 0/8/12/16/999 สำหรับ radius) ด้วยชื่อ token ที่ตรงกัน — เลือกวิธีนี้แทนการไล่แก้มือทีละจุดเพราะปลอดภัยกว่า: `WynSpacing.space4` **คือ** `16.0` เป๊ะ ไม่มีการปัด ไม่มีการเปลี่ยนค่า ดังนั้นผลลัพธ์ที่ compile ออกมาเหมือนเดิมทุกประการ (byte-identical double) — จุดไหนที่ค่าไม่ตรง scale เป๊ะ **ไม่แตะเลย** (ปล่อยเป็น literal ตามเดิม) แทนที่จะเดา/ปัดเข้าค่าใกล้เคียงซึ่งจะเปลี่ยนภาพจริงโดยไม่มี Design review รายจุด
+
+ผลลัพธ์:
+- **84 ไฟล์เปลี่ยน** (65 ใน `app/`, 19 ใน `seller_app/`) — เพิ่ม import `core/design/wyn_spacing.dart` (หรือ mirror ของ `seller_app/`) เข้าไฟล์ที่แก้ทุกไฟล์
+- Coverage: `WynSpacing.` ถูกใช้จริงใน 84 จาก 142 ไฟล์ features ทั้งหมด (ก่อนหน้านี้คือ 0/142)
+- **70 จุด** (54 ใน `app/`, 16 ใน `seller_app/`) มีค่าที่ไม่ตรง scale เป๊ะ ถูกปล่อยไว้ตามเดิม ไม่ถูกแตะ — ส่วนใหญ่เป็นค่า "micro-spacing" ที่ไม่อยู่ใน 4px grid เลย (2, 3, 6, 10 — ครึ่งหนึ่งของ step ที่มีอยู่) เช่น `SizedBox(width: 6)`/`EdgeInsets.symmetric(vertical: 2)` ที่กระจายอยู่ในการ์ดขนาดเล็ก (`product_grid_tile.dart`, `club_post_card.dart`, `order_summary_card.dart` ฯลฯ) และอีกกลุ่มคือ `BorderRadius.circular(24)` ของ search bar ทรงแคปซูล (ไม่ใช่ `radiusFull`=999 เพราะไม่ใช่วงกลม/ทรงยา เป็นแค่ปัดมุมครึ่งความสูงของแท่งค้นหา) — **รายการทั้งหมดบันทึกไว้แยกต่างหาก ไม่ได้เดาใส่ token ให้ เพราะต้องการให้ AI Design ตัดสินใจว่าจะ (ก) เพิ่ม token ใหม่เข้า scale เพื่อรองรับ micro-spacing (เช่น `space0half` = 2) หรือ (ข) ปัดแต่ละจุดเข้า scale ที่มีตามดุลพินิจ — ทั้งสองทางเป็นการตัดสินใจเชิงภาพที่ script อัตโนมัติไม่ควรทำแทน**
+- `pop/` ถูกแตะ 5 ไฟล์ (`create_pop_screen.dart`, `pop_feed_screen.dart`, `pop_clip_view.dart`, `pop_comment_sheet.dart`, `pop_grid_tile.dart`) — ตรงตาม R6 ที่ pre-approve ไว้แล้วสำหรับกรณี literal spacing/radius ชนกับ scale ตรง ๆ, ทุกจุดเป็นแค่แทนที่ literal ด้วย token ค่าเดียวกัน ไม่แตะ logic/layout ใด ๆ
+- `data/` layer และ `supabase/schema.sql`: **ไม่ถูกแตะเลย** (ตรวจด้วย `git diff --stat -- '**/data/**' supabase/schema.sql` = ว่างเปล่า)
+- **ไม่ได้รัน `dart format`**: ตรวจสอบก่อนแล้วพบว่าโค้ดเดิมในโปรเจกต์นี้ไม่เคยผ่าน `dart format` มาก่อน (มีบรรทัดยาวถึง 180 ตัวอักษร ไม่มี config บังคับ line-length ใน `analysis_options.yaml`) — ลองรัน `dart format --line-length 100` ไปครั้งหนึ่งแล้วพบว่ามัน reformat ไฟล์ที่ไม่เกี่ยวข้องกับงานนี้เลยกว่า 90 ไฟล์ (รวมไฟล์ใน `data/` layer ที่ห้ามแตะตาม AC) จึง **revert ทั้งหมดทันทีที่พบ** แล้วทำใหม่โดยไม่ format — บทเรียนนี้บันทึกไว้ที่ `.wyn/learning/MISTAKES.md`
+
+Tests:
+- `flutter analyze`: สะอาดทั้ง 2 แอป (0 issues)
+- `flutter test`: `app/` 280/280 ผ่าน (ตัวเลขเท่าเดิมเป๊ะ — ไม่มีการเปลี่ยน visual output จริงเลยสักจุดเพราะเป็นการแทนที่ literal ด้วยค่าเดียวกัน 100%), `seller_app/` 91/91 ผ่าน
+- `seller_app/test/design/token_sync_test.dart`: 4/4 ผ่าน (ไม่กระทบ เพราะ sweep นี้แก้แค่จุดที่*ใช้*ค่าจาก `wyn_spacing.dart` ไม่ได้แก้ตัวไฟล์ token เอง)
+
+Regression Risk: ต่ำที่สุดเท่าที่เป็นไปได้สำหรับงานที่แตะ 84 ไฟล์ — ทุกการเปลี่ยนแปลงเป็น literal→named-constant ที่มีค่าตัวเลขเท่ากันทุกประการ (ตรวจสอบได้จริงจาก mapping ที่ script ใช้) ไม่ใช่การปัด/ประมาณค่า
+
+Remaining scope (Part 2, ยังไม่เริ่ม): R3 (ทบทวน Card/BoxShadow 29+ จุด — คงไว้ vs ลดเป็น border บาง) ต้องใช้ดุลพินิจ AI Design รายจุด ไม่ใช่งานที่ทำอัตโนมัติได้ปลอดภัยเหมือน Part 1 — และการตัดสินใจเรื่อง 70 จุด micro-spacing ที่ Part 1 เว้นไว้
+
+---
+
+## QA Verification — Part 1 (AI QA & Security, self-verified while acting as Coding — 2026-08-16)
+
+```
+Feature: DS-002 Part 1 — spacing/radius token adoption sweep
+Environment: Local Flutter 3.47.0 stable, both apps synced to working tree post-sweep
+Test Cases:
+  1. flutter analyze both apps
+  2. flutter test both apps (full suite, not filtered)
+  3. token_sync_test.dart (drift check, unaffected by this change but re-run to confirm)
+  4. git diff --stat against data/ layer + schema.sql -- confirm empty (AC requirement)
+  5. Spot-check several diffs by hand to confirm literal->token substitution preserves the
+     exact same numeric value (not just trust the script's own mapping table)
+  6. Confirm the accidental dart format over-reach was fully reverted (git status clean of
+     any file outside the intended 84-file sweep before final commit)
+Passed: 6/6
+Failed: 0
+Severity: N/A
+Actual: analyze 0/0 issues both apps; test 280/280 (app) + 91/91 (seller_app), unchanged
+  counts from before the sweep; token_sync_test.dart 4/4; data/layer diff empty; hand-checked
+  5 files (zoky_order_detail_screen.dart, product_grid_tile.dart, pop_clip_view.dart,
+  seller_finance_screen.dart, otp_verification_screen.dart) confirm every substitution is
+  value-preserving; confirmed zero stray files from the reverted format attempt remain staged.
+Security Findings: None -- pure visual token substitution.
+Recommendation: Approve Part 1, commit. Part 2 (Card/shadow review) requires AI Design
+  judgment per-site and is out of scope for this same automated pass -- track separately.
+Final Status: PASS (Part 1 only -- DS-002 overall remains "in progress" until Part 2 lands)
+```

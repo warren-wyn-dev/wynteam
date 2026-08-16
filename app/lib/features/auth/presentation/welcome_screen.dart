@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/auth_repository.dart';
 import 'auth_method_screen.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 1 — Welcome.
 /// See .wyn/docs/design/wyn-002-authentication-onboarding.md
@@ -15,7 +16,7 @@ class WelcomeScreen extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space6),
           child: Column(
             children: [
               const Spacer(flex: 3),
@@ -25,7 +26,7 @@ class WelcomeScreen extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: WynSpacing.space3),
               Text(
                 'เชื่อมต่อ แสดงตัวตน และสร้างชุมชนของคุณเอง',
                 textAlign: TextAlign.center,
@@ -42,12 +43,12 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                   ),
                   child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
+                    padding: EdgeInsets.symmetric(vertical: WynSpacing.space4),
                     child: Text('เริ่มต้นใช้งาน'),
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: WynSpacing.space8),
             ],
           ),
         ),
