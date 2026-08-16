@@ -8,6 +8,7 @@ import '../../data/club_member.dart';
 import '../../data/club_post.dart';
 import '../club_post_detail_screen.dart' show clubPostShareLink;
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/widgets/hashtag_text.dart';
 
 /// A Club post card for the Posts tab list. Same interaction-row family
 /// as HomeDropCard/HomePopCard (Like/Comment/Share/Bookmark), plus a
@@ -142,7 +143,7 @@ class ClubPostCard extends StatelessWidget {
             if (post.content != null && post.content!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-                child: Text(post.content!),
+                child: HashtagText(post.content!),
               ),
             if (post.imageUrls != null && post.imageUrls!.isNotEmpty)
               Padding(

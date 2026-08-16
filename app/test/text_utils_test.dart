@@ -23,4 +23,40 @@ void main() {
   test('formats zero correctly', () {
     expect(thaiBahtLabel(0), '฿0');
   });
+
+  group('extractHashtags (WYN-020)', () {
+    test('extracts a single hashtag, lowercased, without the leading #', () {
+      expect(extractHashtags('เที่ยว #WYN วันนี้'), {'wyn'});
+    });
+
+    test('extracts multiple distinct hashtags', () {
+      expect(
+        extractHashtags('#WYN #เที่ยวไทย #มหาสารคาม'),
+        {'wyn', 'เที่ยวไทย', 'มหาสารคาม'},
+      );
+    });
+
+    test('does not treat #WYNfamily as containing the tag "wyn" -- full '
+        'token match only, not substring', () {
+      final tags = extractHashtags('#WYNfamily มารวมตัวกัน');
+      expect(tags, {'wynfamily'});
+      expect(tags.contains('wyn'), isFalse);
+    });
+
+    test('a trailing punctuation mark is not swept into the tag', () {
+      expect(extractHashtags('สนุกมาก #WYN!'), {'wyn'});
+    });
+
+    test('deduplicates a hashtag repeated in the same text', () {
+      expect(extractHashtags('#WYN สุดยอด #wyn'), {'wyn'});
+    });
+
+    test('returns an empty set when there are no hashtags', () {
+      expect(extractHashtags('ไม่มีแฮชแท็กเลย'), isEmpty);
+    });
+
+    test('returns an empty set for an empty string', () {
+      expect(extractHashtags(''), isEmpty);
+    });
+  });
 }

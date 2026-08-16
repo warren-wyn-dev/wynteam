@@ -6,6 +6,7 @@ import '../../../pop/presentation/widgets/pop_clip_view.dart' show popShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/widgets/hashtag_text.dart';
 
 /// Formats a duration in seconds as "m:ss" (e.g. 45 -> "0:45").
 String _formatDuration(int totalSeconds) {
@@ -122,7 +123,7 @@ class HomePopCard extends StatelessWidget {
               if (item.caption != null && item.caption!.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                  child: Text(item.caption!),
+                  child: HashtagText(item.caption!),
                 ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),

@@ -5,6 +5,7 @@ import '../../../drop/presentation/drop_detail_screen.dart' show dropShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/widgets/hashtag_text.dart';
 
 /// A Drop card in the Home feed. Same visual structure as
 /// HomePopCard so the two read as one family, per
@@ -72,7 +73,7 @@ class HomeDropCard extends StatelessWidget {
               if (item.caption != null && item.caption!.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                  child: Text(item.caption!),
+                  child: HashtagText(item.caption!),
                 ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),

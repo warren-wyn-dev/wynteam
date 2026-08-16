@@ -33,6 +33,29 @@ String relativeTimeLabel(DateTime dateTime, {required DateTime now}) {
   return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
 }
 
+/// Matches a `#hashtag` token -- Unicode letters/marks/digits/underscore
+/// (so a trailing punctuation mark like "#WYN!" doesn't get swept into
+/// the tag), shared by [extractHashtags] and the tap-rendering widget
+/// (`core/widgets/hashtag_text.dart`) so there is exactly one definition
+/// of what counts as a hashtag. `\p{M}` (combining marks) is required,
+/// not optional, for Thai: vowels/tone marks like "ี"/"่" in "เที่ยว"
+/// are Unicode category Mn, not L -- without it the tag truncates after
+/// the first such mark (caught by extractHashtags's own test suite).
+/// WYN-020.
+final RegExp hashtagPattern = RegExp(r'#([\p{L}\p{M}\p{N}_]+)', unicode: true);
+
+/// The exact set of hashtags (lowercased, without the leading `#`) used
+/// in [text]. Used both to render tappable spans and, on the search
+/// side, to confirm a real match rather than trusting a broad ILIKE
+/// substring result -- ILIKE `%#WYN%` also matches `#WYNfamily`, which
+/// is a different hashtag; re-checking with this exact tokenizer after
+/// the DB call is what keeps that from being treated as a match. See
+/// .wyn/docs/design/wyn-020-hashtag-system.md.
+Set<String> extractHashtags(String text) => hashtagPattern
+    .allMatches(text)
+    .map((m) => m.group(1)!.toLowerCase())
+    .toSet();
+
 /// A Thai Baht price label with thousand separators ("฿1,000" or
 /// "฿1,299.50") -- introduced for ZOKY-001's product cards/detail page.
 /// Drops the decimal part entirely when it's a whole number rather than

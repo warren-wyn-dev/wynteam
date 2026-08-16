@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../../core/design/wyn_colors.dart';
+import '../../../../core/widgets/hashtag_text.dart';
 import '../../../drop/data/drop_repository.dart';
 import '../../../follow/data/follow_repository.dart';
 import '../../../profile/data/profile_repository.dart';
@@ -429,7 +430,7 @@ class _PopClipViewState extends State<PopClipView> {
               ),
               if (_pop.caption != null && _pop.caption!.isNotEmpty) ...[
                 const SizedBox(height: WynSpacing.space2),
-                Text(
+                HashtagText(
                   _pop.caption!,
                   style: const TextStyle(color: Colors.white),
                   maxLines: 3,

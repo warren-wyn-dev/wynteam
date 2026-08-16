@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/text_utils.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
+import '../../../core/widgets/hashtag_text.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/club_member.dart';
 import '../data/club_post.dart';
@@ -263,7 +264,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
               ),
               if (_post.content != null && _post.content!.isNotEmpty) ...[
                 const SizedBox(height: WynSpacing.space2),
-                Text(_post.content!),
+                HashtagText(_post.content!),
               ],
               if (_post.linkUrl != null && _post.linkUrl!.isNotEmpty) ...[
                 const SizedBox(height: WynSpacing.space2),

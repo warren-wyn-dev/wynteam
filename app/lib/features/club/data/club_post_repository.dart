@@ -130,6 +130,45 @@ class ClubPostRepository {
     return posts;
   }
 
+  /// Fetches one page (0-indexed) of club posts whose content contains
+  /// [query] (case insensitive), newest first -- for WYN-020's Hashtag
+  /// Feed (mirrors DropRepository.searchByCaption's shape). No explicit
+  /// visibility filter needed: club_posts' own RLS already restricts
+  /// this to posts the caller can actually see, same guarantee
+  /// [fetchFromJoinedClubs] already relies on.
+  Future<List<ClubPost>> searchByContent({
+    required String query,
+    required int page,
+  }) async {
+    final userId = _client.auth.currentUser!.id;
+    final from = page * pageSize;
+    final to = from + pageSize - 1;
+
+    final rows = await _client
+        .from('club_posts')
+        .select(
+          '*, $_postAuthorSelect, club_post_likes(count), club_post_comments(count)',
+        )
+        .ilike('content', '%$query%')
+        .order('created_at', ascending: false)
+        .range(from, to);
+
+    final postIds = rows.map((row) => row['id'] as String).toList();
+    final likedIds = await _fetchLikedPostIds(userId: userId, postIds: postIds);
+    final savedIds = await _fetchSavedPostIds(userId: userId, postIds: postIds);
+
+    final posts = <ClubPost>[];
+    for (final row in rows) {
+      final signedRow = await _withSignedImageUrls(row);
+      posts.add(ClubPost.fromMap(
+        signedRow,
+        likedByMe: likedIds.contains(row['id'] as String),
+        savedByMe: savedIds.contains(row['id'] as String),
+      ));
+    }
+    return posts;
+  }
+
   /// Fetches a single club post by id, with a fresh likedByMe/savedByMe
   /// for the current user -- for opening a club post referenced by a
   /// notification (WYN-015), where only the id is known. Returns null

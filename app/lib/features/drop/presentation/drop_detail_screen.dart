@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/widgets/confirm_delete_dialog.dart';
+import '../../../core/widgets/hashtag_text.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile_repository.dart';
@@ -358,7 +359,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
               ),
               if (_drop.caption != null && _drop.caption!.isNotEmpty) ...[
                 const SizedBox(height: WynSpacing.space2),
-                Text(_drop.caption!),
+                HashtagText(_drop.caption!),
               ],
               const SizedBox(height: WynSpacing.space3),
               Row(
