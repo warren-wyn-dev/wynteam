@@ -34041,7 +34041,7 @@ var $async$a97=A.h(function(a,b){if(a===1){p.push(b)
 s=q}for(;;)switch(s){case 0:if($.a6==null)A.az2()
 $.a6.toString
 s=2
-return A.c(A.awG("",""),$async$a97)
+return A.c(A.awG("sb_publishable_FXZgHnJv5COPFsMQe5IqkQ_yDowngkm","https://akawuzukstmbztyajxsr.supabase.co"),$async$a97)
 case 2:q=4
 s=7
 return A.c(A.agd(),$async$a97)
