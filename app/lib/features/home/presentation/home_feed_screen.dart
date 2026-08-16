@@ -23,12 +23,14 @@ import 'widgets/home_pop_card.dart';
 import 'widgets/trending_tile.dart';
 import '../../../core/design/wyn_spacing.dart';
 
-enum _HomeFeedMode { forYou, fromYourClubs }
+enum _HomeFeedMode { forYou, latest, fromYourClubs }
 
-/// Screen 1 — Home tab (Bottom Nav, index 0). A single chronological feed
-/// mixing Drop and Pop content, with the CLUB section (WYN-014) between
-/// the top row and the feed. See .wyn/docs/design/wyn-007-home.md and
-/// .wyn/docs/design/wyn-014-club-core.md (Screen 1).
+/// Screen 1 — Home tab (Bottom Nav, index 0). A feed mixing Drop and Pop
+/// content, with the CLUB section (WYN-014) between the top row and the
+/// feed. Default mode is "สำหรับคุณ" (ranked, WYN-018); "ล่าสุด" is the
+/// original WYN-007 chronological ordering, still one tap away. See
+/// .wyn/docs/design/wyn-007-home.md, .wyn/docs/design/wyn-014-club-core.md
+/// (Screen 1), and .wyn/docs/design/wyn-018-home-feed-ranking.md.
 class HomeFeedScreen extends StatefulWidget {
   const HomeFeedScreen({
     super.key,
@@ -103,13 +105,21 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
   }
 
+  // "สำหรับคุณ" (ranked, WYN-018) and "ล่าสุด" (chronological, WYN-007's
+  // original behavior) share this same _items/_page state and just swap
+  // which repository method feeds it -- "จาก Club ของคุณ" is a wholly
+  // separate widget (FromYourClubsFeed) with its own state, untouched.
+  Future<List<HomeFeedItem>> _fetchPage(int page) => _feedMode == _HomeFeedMode.forYou
+      ? widget.homeRepository.fetchRankedFeed(page: page)
+      : widget.homeRepository.fetchFeed(page: page);
+
   Future<void> _loadInitial() async {
     setState(() {
       _isLoadingInitial = true;
       _error = null;
     });
     try {
-      final items = await widget.homeRepository.fetchFeed(page: 0);
+      final items = await _fetchPage(0);
       setState(() {
         _items
           ..clear()
@@ -128,7 +138,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     setState(() => _isLoadingMore = true);
     try {
       final nextPage = _page + 1;
-      final items = await widget.homeRepository.fetchFeed(page: nextPage);
+      final items = await _fetchPage(nextPage);
       setState(() {
         _items.addAll(items);
         _page = nextPage;
@@ -347,13 +357,13 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
             _buildTrendingSection(),
             _buildFeedModeToggle(),
             Expanded(
-              child: _feedMode == _HomeFeedMode.forYou
-                  ? _buildBody()
-                  : FromYourClubsFeed(
+              child: _feedMode == _HomeFeedMode.fromYourClubs
+                  ? FromYourClubsFeed(
                       key: const Key('from_your_clubs_feed'),
                       clubRepository: widget.clubRepository,
                       clubPostRepository: widget.clubPostRepository,
-                    ),
+                    )
+                  : _buildBody(),
             ),
           ],
         ),
@@ -371,10 +381,18 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       child: SegmentedButton<_HomeFeedMode>(
         segments: const [
           ButtonSegment(value: _HomeFeedMode.forYou, label: Text('สำหรับคุณ')),
+          ButtonSegment(value: _HomeFeedMode.latest, label: Text('ล่าสุด')),
           ButtonSegment(value: _HomeFeedMode.fromYourClubs, label: Text('จาก Club ของคุณ')),
         ],
         selected: {_feedMode},
-        onSelectionChanged: (selection) => setState(() => _feedMode = selection.first),
+        onSelectionChanged: (selection) {
+          final newMode = selection.first;
+          setState(() => _feedMode = newMode);
+          // "จาก Club ของคุณ" is FromYourClubsFeed's own separate widget
+          // state -- only forYou/latest share _items and need a reload
+          // when switching between (or into) them.
+          if (newMode != _HomeFeedMode.fromYourClubs) _loadInitial();
+        },
       ),
     );
   }

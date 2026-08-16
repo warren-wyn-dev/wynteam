@@ -33,6 +33,7 @@ HomeFeedItem _dropItem({
   String id = 'd1',
   int likeCount = 0,
   bool likedByMe = false,
+  String caption = 'แคปชัน Drop',
 }) =>
     HomeFeedItem(
       id: id,
@@ -40,7 +41,7 @@ HomeFeedItem _dropItem({
       authorId: 'someone-else',
       authorUsername: 'namfah',
       createdAt: DateTime.now(),
-      caption: 'แคปชัน Drop',
+      caption: caption,
       imageUrl: 'https://example.supabase.co/drops/$id.jpg',
       likeCount: likeCount,
       commentCount: 0,
@@ -131,6 +132,7 @@ void main() {
   late RecordingClubRepository fewClubsRepository;
   late RecordingClubRepository manyClubsRepository;
   late RecordingClubRepository noJoinedClubsRepository;
+  late RecordingHomeRepository rankingTestHomeRepository;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
@@ -229,6 +231,10 @@ void main() {
     noJoinedClubsRepository = RecordingClubRepository(
       myClubs: [],
       discoverableClubs: [_club(id: 'popular-1', name: 'Club กำลังนิยม', memberCount: 50)],
+    );
+    rankingTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'latest-only', caption: 'จากล่าสุด')],
+      rankedFeedItems: [_dropItem(id: 'ranked-only', caption: 'จากสำหรับคุณ')],
     );
   });
 
@@ -594,6 +600,76 @@ void main() {
 
       expect(find.text('แคปชัน Drop'), findsOneWidget);
       expect(find.text('โพสต์จาก Club ที่เข้าร่วม'), findsNothing);
+    });
+  });
+
+  group('Home feed ranking (WYN-018)', () {
+    testWidgets('"สำหรับคุณ" (default) calls fetchRankedFeed, not the '
+        'chronological fetchFeed', (tester) async {
+      await tester.pumpWidget(buildHome(
+        rankingTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('จากสำหรับคุณ'), findsOneWidget);
+      expect(find.text('จากล่าสุด'), findsNothing);
+      expect(rankingTestHomeRepository.fetchRankedFeedCalls, 1);
+    });
+
+    testWidgets('switching to "ล่าสุด" shows the chronological feed instead',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        rankingTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('ล่าสุด'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('จากล่าสุด'), findsOneWidget);
+      expect(find.text('จากสำหรับคุณ'), findsNothing);
+    });
+
+    testWidgets('switching back to "สำหรับคุณ" from "ล่าสุด" restores the ranked feed',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        rankingTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('ล่าสุด'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('สำหรับคุณ'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('จากสำหรับคุณ'), findsOneWidget);
+      expect(find.text('จากล่าสุด'), findsNothing);
+    });
+
+    testWidgets('all 3 segments ("สำหรับคุณ"/"ล่าสุด"/"จาก Club ของคุณ") are present',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('สำหรับคุณ'), findsOneWidget);
+      expect(find.text('ล่าสุด'), findsOneWidget);
+      expect(find.text('จาก Club ของคุณ'), findsOneWidget);
     });
   });
 

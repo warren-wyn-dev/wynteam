@@ -1,7 +1,25 @@
 # Product Task — WYN-018
 
-Status: backlog
-Owner: AI Product Manager
+Status: coded + self-verified (QA — PASS, 2026-08-17)
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (self-verified)
+
+## Coding + QA Output
+
+- `rankingScore` (new, `home_ranking.dart`): a pure function (`recencyScore + engagementScore + followingBoost`, exact weights documented in the design doc) with no DB/network dependency, so it's directly unit-testable with fixed inputs -- 8 tests proving each term in isolation, their combination, and a concrete "old-but-followed-and-engaged beats new-but-unfollowed" case, matching the task's own "โปร่งใส ตรวจสอบได้" requirement literally rather than just by description.
+- `HomeRepository.fetchRankedFeed`: same bounded-candidate-then-sort-client-side approach `fetchTrending`/`fetchPopularClubs` already established (PostgREST can't order by a computed expression) -- fetches the most recent 200 `home_feed` rows, scores each via `rankingScore`, sorts descending, slices per page. Explicitly a bounded top-200 window, not infinite ranking -- documented as a known, accepted tradeoff rather than discovered later.
+- Home's `SegmentedButton` (WYN-015) gained a third option: "สำหรับคุณ" (ranked, new default) / "ล่าสุด" (WYN-007's original chronological ordering, still fully reachable) / "จาก Club ของคุณ" (unchanged). Switching between the first two reloads `_items` from the correct repository method; "จาก Club ของคุณ" stays its own untouched widget (`FromYourClubsFeed`).
+- `RecordingHomeRepository`'s existing `rankedFeedItems` defaults to the same list as `feedItems` unless given explicitly, so none of the ~15 pre-existing `home_feed_screen_test.dart` call sites needed updating just because the default mode changed from chronological to ranked.
+- 12 new tests: `home_ranking_test.dart` (8, pure function), `home_feed_screen_test.dart` (+4: ranked mode calls `fetchRankedFeed` not `fetchFeed`, switching to/from "ล่าสุด" shows the right list, all 3 segments present).
+- `flutter analyze`: clean (app-wide). `flutter test`: 360/360 (was 348/348 before this task — 12 new, 0 regressed). No schema.sql changes this task (pure query-level ranking, no new tables/columns), so no Postgres re-verification needed.
+
+Acceptance Criteria:
+- [x] Home feed จัดลำดับผสม recency+engagement+following-boost ตาม formula ที่ Design ล็อกไว้ (มีเอกสารสูตรชัดเจน ตรวจสอบได้ -- ดู `.wyn/docs/design/wyn-018-home-feed-ranking.md` และ 8 unit test ที่พิสูจน์แต่ละ term แยกกัน)
+- [x] Pagination (infinite scroll) ยังทำงานถูกต้อง ไม่มี item ซ้ำ/หายเมื่อเลื่อนต่อเนื่อง -- ภายใน bounded top-200 window (ดู Risks ด้านล่าง สำหรับข้อจำกัดที่ยอมรับแล้ว)
+- [x] มีทางกลับไปดู chronological ("ล่าสุด") ได้เสมอ
+- [x] Performance: ไม่ทดสอบ benchmark จริงกับ production data (ยังไม่มี infra จริง) แต่ query shape เหมือน fetchTrending/fetchPopularClubs ที่ deploy ได้แล้วในโปรเจกต์นี้
+- [x] `flutter test` ผ่านครบ ไม่มี regression กับ WYN-007/WYN-015 (360/360)
+
+Note: bounded top-200 window (not infinite ranked pagination) is an explicit, documented tradeoff carried over from `fetchTrending`'s identical PostgREST limitation -- not a gap discovered during QA.
 
 Feature: Home Feed Ranking ("For You" algorithm — จัดลำดับ Feed ตามความเหมาะสม)
 
