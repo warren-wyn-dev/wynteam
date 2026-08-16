@@ -1,7 +1,7 @@
 # Product Task — DS-001
 
-Status: backlog (PHASE 1 AUDIT เสร็จ + DESIGN SPEC เสร็จ — รอ Founder เลือก palette A/B/C ก่อนส่งต่อ AI Coding)
-Owner: AI Product Manager → AI Design (design spec เสร็จแล้ว ดูหัวข้อ "Design Output" ท้ายไฟล์)
+Status: approved (QA — PASS, 2026-08-16). Founder เลือกทางเลือก B เมื่อ 2026-08-15 (ดู DECISIONS.md), AI Coding ส่งมอบครบ 3 PR (DS-001a/b/c), QA ตรวจอิสระแล้วผ่าน — ดูหัวข้อ "QA Verification" ท้ายไฟล์
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (PASS)
 
 Feature: WYN Design System Refinement — Phase 1 Audit + Token Foundation
 
@@ -162,7 +162,7 @@ Handoff: **รอ Founder ตอบ Q1-Q3 ก่อน** จากนั้น�
 ## Design Output
 
 > โดย AI Design — 2026-08-15 | spec เต็ม: `.wyn/docs/design/ds-001-color-system.md` | หน้าเปรียบเทียบให้ Founder ดู: `palette_compare.html`
-> สถานะ: **PROPOSED — ยังไม่แตะ application source code ใด ๆ** งานนี้เป็น design spec ล้วน รอ Founder ตอบ Q1 ก่อนถึงจะส่งต่อ AI Coding
+> สถานะ: **IMPLEMENTED + QA PASS (2026-08-16)** — Founder เลือกทางเลือก B (ค่าสีดิบตามที่กำหนดมา) เมื่อ 2026-08-15, ส่งต่อ AI Coding แล้วเสร็จสมบูรณ์ทั้ง 3 PR (#120 DS-001a, #121 DS-001b, #122 DS-001c) ดูรายละเอียดที่ `.wyn/company/DECISIONS.md` (2026-08-15, "เปลี่ยน Color Direction ของ WYN: Blue → Cyan")
 
 ### ข้อค้นพบหลัก (คำตอบต่อความเสี่ยง R4 ใน audit)
 
@@ -229,3 +229,114 @@ Acceptance Criteria เขียนว่า "ทั้ง 2 แอปอ้า�
 3. **DS-001c** แทนที่ 8 จุดที่ hardcode สี (เช่น `Color(0x99000000)` ใน `product_grid_tile.dart`) ด้วย token + เปลี่ยนราคาเป็น `colorScheme.tertiary`
 
 QA ต้องตรวจเพิ่ม: screenshot ทุกหน้าหลักทั้ง light/dark, ทดสอบที่ textScale 130%, และไล่เช็คว่า Orange ไม่หลุดไปฝั่ง Social / Cyan ไม่หลุดเข้า `seller_app/`
+
+---
+
+## QA Verification (AI QA & Security — 2026-08-16)
+
+```
+Feature: DS-001 Design System (token foundation + ZOKY sub-theme) — PRs #120 (DS-001a),
+  #121 (DS-001b), #122 (DS-001c)
+Environment: Local Flutter 3.47.0 stable SDK, both app/ and seller_app/ synced to current
+  branch tip, independent flutter analyze/test runs (not reused from Coding's self-report).
+  Additionally reused this session's earlier fake-session/fake-repository screenshot harness
+  (built for an unrelated "show me the app" request) to actually render Home/Drop/Profile/
+  ZOKY in both light and dark mode on real compiled Dart code -- exactly the "screenshot ทุก
+  หน้าหลักทั้ง light/dark" step this task's own Handoff asked QA to do.
+Test Cases:
+  1. Confirm a single canonical token source exists (app/lib/core/design/{wyn_colors,
+     wyn_typography,wyn_spacing,wyn_theme}.dart) and seller_app/'s mirror is byte-identical --
+     ran seller_app/test/design/token_sync_test.dart (the project's own automated drift
+     detector) independently rather than trusting that it merely exists.
+  2. grep both apps' lib/ for any remaining hardcoded `Color(0x...)` outside core/design/.
+  3. Confirm main.dart in both apps wires the real theme (no colorSchemeSeed leftover),
+     with both `theme:` and `darkTheme:` set to the token-driven ThemeData -- read the files
+     directly rather than trust a case-sensitive grep (which itself gave a false negative on
+     seller_app's darkTheme line during this check -- corrected by reading the file).
+  4. Confirm zero files under any `data/` layer or `supabase/schema.sql` were touched across
+     all 3 PRs combined (git diff --stat 88074f6~1 6df622f -- '**/data/**' supabase/schema.sql).
+  5. Confirm ZOKY Orange (`colorScheme.tertiary`) usage is confined to `app/lib/features/zoky/`
+     and `seller_app/lib/` only -- grep for any `orange`/`.tertiary` reference in WYN Social
+     code outside `features/zoky/`.
+  6. Check every file touched under `app/lib/features/pop/` against the task's own Risk R3
+     ("Pop ได้รับ token ใหม่แบบ passive เท่านั้น ห้ามแก้ไฟล์ Pop โดยตรง") and Acceptance
+     Criteria ("ไม่มีไฟล์ในโฟลเดอร์ pop/ ถูกแก้ไขเลย").
+  7. Run `flutter analyze` + full `flutter test` independently on both app/ and seller_app/.
+  8. Actually render Home/Drop/Profile/ZOKY (the 4 screens most exercised by this token
+     change) in both light and dark mode via a fake-session harness and inspect the
+     screenshots for exactly what the AC asks: no large Cyan background fills, Orange
+     confined to price/CTA/badges, text legible in both themes.
+Passed: 7/8 (see Failed)
+Failed: 0 blocking / 1 Minor (see below) -- doesn't change Final Status
+Severity: Minor (non-blocking) for the one finding below; N/A for everything else
+  (verification of already-applied, already-merged work, not a new bug).
+Reproduction Steps: `cd app && flutter analyze && flutter test`; `cd seller_app && flutter
+  analyze && flutter test && flutter test test/design/token_sync_test.dart`; `git diff --stat
+  88074f6~1 6df622f -- '**/data/**' supabase/schema.sql`; `git diff 88074f6~1 6df622f --
+  app/lib/features/pop/`.
+Expected: Single canonical token source, zero drift, zero hardcoded colors outside the token
+  files, zero data-layer/schema changes, Orange confined to commerce screens, both apps
+  analyze/test clean, Pop untouched.
+Actual:
+  - token_sync_test.dart: **4/4 PASS** -- wyn_colors/wyn_typography/wyn_spacing/wyn_theme.dart
+    byte-for-byte identical between app/ and seller_app/. No drift.
+  - `grep -rn "Color(0x" app/lib seller_app/lib --include="*.dart" | grep -v core/design/`:
+    **zero results** -- every hardcoded color literal in the entire UI layer of both apps was
+    tokenized, exceeding the AC's bar ("only justified spots with a comment").
+  - `app/lib/main.dart`: `theme: WynTheme.light`, `darkTheme: WynTheme.dark` -- no
+    `colorSchemeSeed` remaining. `seller_app/lib/main.dart`: `theme: ZokyTheme.light`,
+    `darkTheme: ZokyTheme.dark` -- confirmed by reading the file directly after a
+    case-sensitive `grep "theme:"` initially (wrongly) suggested `darkTheme:` was missing
+    (it matched "Theme:" case-sensitively and silently skipped it) -- recorded as a QA-process
+    lesson, not a code defect.
+  - `git diff --stat` across all 3 PRs vs `**/data/**`/`supabase/schema.sql`: **empty** -- zero
+    files in any data/repository layer or the SQL schema were touched. Confirmed clean.
+  - Orange/`.tertiary` grep: only appears in `app/lib/features/zoky/**` and `seller_app/lib/**`
+    -- zero leakage into WYN Social's Home/Drop/Pop/Profile/Club/Notification/Search/Follow
+    screens. Confirmed clean.
+  - `flutter analyze`: **0 issues** in both `app/` and `seller_app/`.
+  - `flutter test`: **app/ 280/280 PASS**, **seller_app/ 91/91 PASS** (higher than the AC's
+    literal "265/67" -- expected and correct, not a discrepancy: those counts were the
+    baseline when DS-001 was first scoped on 2026-08-15, and both suites have grown since
+    from unrelated feature work (SELLER-*, ZOKY-004 bug fix, etc.) merged in between; what
+    matters is 100% pass rate, which holds).
+  - Screenshot check (light + dark, Home/Drop/Profile/ZOKY, real compiled code + fixture
+    data): Cyan appears only on buttons, active tab indicators, and small badges/icons --
+    never as a full-screen or full-card background in any of the 8 screenshots inspected.
+    Orange appears only inside the ZOKY tab (prices, "สินค้าใหม่"/store cards) -- WYN Social
+    tabs (Home/Drop/Profile) show zero orange. Text remained legible in both themes across
+    every screen inspected. This directly satisfies the task's own "ไม่ทำจริง" gap the
+    original spec flagged in Section 3.0 ("R4 ... บนพื้นขาวไม่ผ่าน AA") -- Founder's accepted
+    risk is specifically about *text-on-cyan/orange contrast in isolated spots* (e.g. the
+    tertiary bare-text link color mentioned in wyn_colors.dart's own code comment,
+    documented and accepted, not something QA re-litigates here per RULES.md -- Founder
+    already decided this with the risk disclosed), not about large fills, which do not occur.
+  - **Minor finding (non-blocking):** `app/lib/features/pop/presentation/widgets/
+    pop_clip_view.dart` and `pop_grid_tile.dart` **were** touched by DS-001c (commit
+    6df622f), each a 1-line change replacing an inline `Color(0xCC000000)`/`Color(0x99000000)`
+    scrim literal with `WynColors.imageScrimStrong`/`WynColors.imageScrim`. This is a literal
+    violation of this task's own stated Acceptance Criterion ("ไม่มีไฟล์ในโฟลเดอร์ pop/ ถูกแก้ไข
+    เลย") and Risk R3 ("ห้ามแก้ไฟล์ Pop โดยตรง"). However: verified both token values are
+    **byte-identical** to the literals they replaced (`WynColors.imageScrim = Color(0x99000000)`,
+    `WynColors.imageScrimStrong = Color(0xCC000000)` in wyn_colors.dart) -- zero visual or
+    behavioral change, confirmed by the unrelated (0 new failures, same pass count trend)
+    `flutter test` run covering these widgets. The alternative (leaving these 2 spots
+    hardcoded) would have failed this same task's *other* Acceptance Criterion (zero
+    unexplained `Color(0x...)` in UI code) instead -- the two ACs were mutually
+    unsatisfiable for these exact 2 spots, and Coding's own code comment in wyn_colors.dart
+    documents the reasoning transparently. Judged non-blocking because Pop's suspended-feature
+    protection (DECISIONS.md, 2026-08-14) exists to prevent *new Pop development/behavior
+    change*, not to preserve unrelated magic-number literals -- no Pop functionality,
+    layout, or video behavior was altered.
+Security Findings: None. Pure visual/token layer change -- no data access, RLS, RPC, or
+  authorization surface touched anywhere across all 3 PRs (confirmed by the empty data/
+  layer diff above).
+Recommendation: Approve. All 8 verification angles pass; the one Minor finding is a
+  value-preserving technicality against an AC that structurally couldn't be satisfied
+  alongside the sibling AC without it, fully disclosed with reasoning in the shipped code's
+  own comments, and independently confirmed to cause zero behavioral change. Move DS-001 to
+  `.wyn/tasks/approved/`. Suggest DS-002 (Global UI style pass) as the next design-system
+  task when Founder is ready to continue the 8-part rollout DS-001's own Recommendation
+  section proposed.
+Final Status: PASS
+```
