@@ -10,16 +10,28 @@ import 'package:wyn/features/drop/data/drop_repository.dart';
 /// call. Mirrors RecordingPostRepository (WYN-004) -- see
 /// .wyn/learning/PATTERNS.md.
 class RecordingDropRepository extends DropRepository {
-  RecordingDropRepository({List<Drop>? feedDrops, List<DropComment>? comments})
-      : feedDrops = feedDrops ?? [],
+  RecordingDropRepository({
+    List<Drop>? feedDrops,
+    List<Drop>? followingFeedDrops,
+    List<DropComment>? comments,
+  })  : feedDrops = feedDrops ?? [],
+        followingFeedDrops = followingFeedDrops ?? [],
         comments = comments ?? [],
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   /// Returned by [fetchFeed] for page 0 only (page 1+ returns empty).
   final List<Drop> feedDrops;
 
+  /// Returned by [fetchFollowingFeed] for page 0 only (page 1+ returns
+  /// empty) -- WYN-019.
+  final List<Drop> followingFeedDrops;
+
   /// Returned by [fetchComments], regardless of dropId.
   final List<DropComment> comments;
+
+  /// Each call to [createDrop]'s mentionedUserIds argument, in order --
+  /// WYN-021.
+  final List<Set<String>> createDropMentionedUserIdsArgs = [];
 
   int toggleLikeCalls = 0;
   int toggleSaveCalls = 0;
@@ -33,6 +45,11 @@ class RecordingDropRepository extends DropRepository {
   @override
   Future<List<Drop>> fetchFeed({required int page}) async {
     return page == 0 ? feedDrops : <Drop>[];
+  }
+
+  @override
+  Future<List<Drop>> fetchFollowingFeed({required int page}) async {
+    return page == 0 ? followingFeedDrops : <Drop>[];
   }
 
   /// Returned by [fetchByAuthor] for page 0 only, filtered by [authorId]
@@ -78,7 +95,10 @@ class RecordingDropRepository extends DropRepository {
     required Uint8List imageBytes,
     required String imageExtension,
     required String caption,
-  }) async {}
+    Set<String> mentionedUserIds = const {},
+  }) async {
+    createDropMentionedUserIdsArgs.add(mentionedUserIds);
+  }
 
   @override
   Future<void> toggleLike({
@@ -102,6 +122,30 @@ class RecordingDropRepository extends DropRepository {
 
   @override
   Future<List<DropComment>> fetchComments(String dropId) async => comments;
+
+  int addCommentCalls = 0;
+  final List<String?> addCommentParentIdArgs = [];
+
+  @override
+  Future<DropComment> addComment({
+    required String dropId,
+    required String textContent,
+    String? parentCommentId,
+  }) async {
+    addCommentCalls++;
+    addCommentParentIdArgs.add(parentCommentId);
+    return DropComment(
+      id: 'new-comment-$addCommentCalls',
+      dropId: dropId,
+      authorId: 'me',
+      authorUsername: 'me',
+      textContent: textContent,
+      createdAt: DateTime.now(),
+      likeCount: 0,
+      likedByMe: false,
+      parentCommentId: parentCommentId,
+    );
+  }
 
   @override
   Future<void> toggleCommentLike({

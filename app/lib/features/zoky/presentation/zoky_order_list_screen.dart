@@ -6,6 +6,8 @@ import '../data/order_item.dart';
 import '../data/zoky_repository.dart';
 import 'widgets/order_summary_card.dart';
 import 'zoky_order_detail_screen.dart';
+import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_zoky_accent.dart';
 
 /// Screen 5 (ZOKY-003) -- the buyer's order history. Opened from ZOKY
 /// Home's Orders icon (replacing the SnackBar placeholder from
@@ -100,7 +102,7 @@ class _ZokyOrderListScreenState extends State<ZokyOrderListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ZokyAccentTheme(child: Scaffold(
       appBar: AppBar(title: const Text('คำสั่งซื้อของฉัน')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -111,13 +113,13 @@ class _ZokyOrderListScreenState extends State<ZokyOrderListScreen> {
                 )
               : ListView.separated(
                   controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
                   itemCount: _orders.length + (_hasMore ? 1 : 0),
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     if (index >= _orders.length) {
                       return const Padding(
-                        padding: EdgeInsets.all(16),
+                        padding: EdgeInsets.all(WynSpacing.space4),
                         child: Center(child: CircularProgressIndicator()),
                       );
                     }
@@ -129,6 +131,6 @@ class _ZokyOrderListScreenState extends State<ZokyOrderListScreen> {
                     );
                   },
                 ),
-    );
+    ));
   }
 }

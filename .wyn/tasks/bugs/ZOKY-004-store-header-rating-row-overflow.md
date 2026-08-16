@@ -1,7 +1,7 @@
 # Bug Report — ZOKY-004 (StoreScreen header rating row)
 
-Status: fixed by AI Debug Engineer (2026-08-15) — red→green proven, `flutter analyze`/`flutter test` clean (280/280 in `app/`), pending QA re-verification. **Discovered by AI QA & Security during SELLER-004 round 2 verification (2026-08-15), was not blocking SELLER-004's approval** (see rationale below).
-Owner: AI Debug Engineer
+Status: closed (แก้แล้ว ผ่าน QA — PASS, 2026-08-16). **Discovered by AI QA & Security during SELLER-004 round 2 verification (2026-08-15), was not blocking SELLER-004's approval** (see rationale below).
+Owner: AI Debug Engineer (เสร็จ) → AI QA & Security (PASS)
 Found by: AI QA & Security, while independently re-measuring `StoreScreen`'s device matrix for SELLER-004's BUG-1 round 2 verification.
 
 Bug: `StoreScreen`'s `_buildHeader` rating row (`app/lib/features/zoky/presentation/store_screen.dart`, inside the `FutureBuilder<(double, int)>` that reads `_ratingFuture`) renders `Row(children: [StarRatingDisplay(...), SizedBox(width: 4), Text('${rating} · 0 ผู้ติดตาม · ${productCount} สินค้า')])` with **no `Expanded`/`Flexible` around the `Text`**. At any real phone width (360–430px logical), the available width for this Row (screen width minus the 16px side padding ×2 minus the 32px+16px logo circle) is only ~278px, which is narrower than the star icons + text combined whenever the store has **at least 1 review** (i.e. `rating.$2 != 0`, the branch that actually shows stars). This produces a `RenderFlex overflowed ... on the right` error.
@@ -120,4 +120,60 @@ Handoff to QA:
   banner/"ข้อมูลร้านค้า" fix ยังทำงานปกติไม่มี regression (4) `flutter analyze`/`flutter test`
   สะอาดทั้ง `app/` (280/280)
 ```
+
+---
+
+## QA Verification (AI QA & Security — 2026-08-16)
+
+```
+Feature: ZOKY-004 StoreScreen rating row overflow fix (commit 0925061, PR #118)
+Environment: Local Flutter 3.47.0 stable SDK (installed fresh this session), synced to current
+  main/branch tip -- ran independently rather than trusting Debug's reported numbers.
+Test Cases:
+  1. Read the current source directly (app/lib/features/zoky/presentation/store_screen.dart,
+     _buildHeader ~line 286) and confirm the fix matches what Debug Output claims: the rating
+     Text is now wrapped in Expanded with overflow: TextOverflow.ellipsis, mirroring
+     _buildStoreInfoSection's existing (correct) address/business-hours Expanded pattern.
+     StarRatingDisplay, the FutureBuilder, and the unrated-store branch are untouched.
+  2. git log confirms the fix is committed and merged (0925061, "fix(zoky): wrap StoreScreen
+     rating row Text in Expanded to stop overflow", PR #118), on top of f7035c8 (BUG-1/
+     SELLER-004's separate header fix) -- correct layering, no rebase/history surprises.
+  3. Confirm app/test/store_screen_test.dart actually contains the 4 new device-matrix cases
+     (_RatedViewportCase/_ratedViewportCases, ratedViewportRepos with storeRating: (4.5, 1))
+     Debug Output describes, not just claims to.
+  4. Run `flutter analyze` independently (not reusing Debug's reported output).
+  5. Run the full `flutter test` suite independently (all of app/, not just store_screen_test.dart)
+     to catch any regression outside the file Debug touched.
+  6. Specifically verify the 4 rated-viewport overflow cases and all pre-existing BUG-1
+     (SELLER-004) device-matrix cases (banner/"ข้อมูลร้านค้า" section, 360x640/375x667/390x844)
+     are present in the pass list, not just that the aggregate count matches.
+Passed: 6/6
+Failed: 0
+Severity: N/A (verification of an already-applied fix, not a new finding)
+Reproduction Steps: `cd app && flutter analyze && flutter test`, full suite, no filtering.
+Expected: 0 analyzer issues; every test passes including the 4 new rated-viewport cases and all
+  pre-existing BUG-1 device-matrix cases; no RenderFlex overflow error surfaces via
+  FlutterError.onError at any tested viewport for a store with reviews.
+Actual:
+  - `flutter analyze`: "No issues found!" (15.7s) -- matches Debug Output exactly.
+  - `flutter test`: **280/280 passed**, 0 failures -- independently reproduces Debug's reported
+    count exactly, not just trusted at face value.
+  - Explicitly confirmed present and passing in the run's own output: "rating row does not
+    overflow for a store with reviews -- 430x932 (iPhone 15 Pro Max) at textScaler 1.3" (the
+    most extreme case in the matrix -- smallest relative margin from combining the largest
+    text scaler with review text) plus the 360x640/375x667/390x844 siblings, and all of
+    BUG-1's own pre-existing device-matrix cases ("tab content is reachable at full height and
+    never overflows", banner/info-section regression cases) -- confirming this fix did not
+    regress the unrelated header-collapse bug SELLER-004 fixed one commit earlier.
+  - Source read confirms the fix is the minimal, correct shape: only the rating Row's Text
+    gained Expanded + ellipsis; StarRatingDisplay, FutureBuilder, and the unrated-store
+    (bare Text) branch are byte-for-byte unchanged -- no scope creep beyond the reported bug.
+Security Findings: None. Pure layout fix (Expanded/TextOverflow), no data access, RLS, or
+  authorization surface touched.
+Recommendation: Approve and close. Fix is minimal, correctly scoped, independently verified
+  against a fresh `flutter analyze`/`flutter test` run (not just Debug's self-report), and
+  causes no regression in the adjacent BUG-1 fix it sits next to in the same file.
+Final Status: PASS
+```
+
 

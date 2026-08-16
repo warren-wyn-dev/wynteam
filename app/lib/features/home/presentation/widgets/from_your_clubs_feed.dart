@@ -6,6 +6,7 @@ import '../../../club/data/club_post_repository.dart';
 import '../../../club/data/club_repository.dart';
 import '../../../club/presentation/club_post_detail_screen.dart';
 import '../../../club/presentation/widgets/club_post_card.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Screen 5 (right half) — the "จาก Club ของคุณ" side of Home's toggle
 /// (WYN-015). Posts from every Club the user has joined, newest first --
@@ -208,7 +209,7 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
           ],
         ),
@@ -218,7 +219,7 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
     if (_posts.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 32),
+          padding: EdgeInsets.symmetric(horizontal: WynSpacing.space8),
           child: Text('เข้าร่วม Club เพื่อดูโพสต์ที่นี่', textAlign: TextAlign.center),
         ),
       );
@@ -232,7 +233,7 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
         itemBuilder: (context, index) {
           if (index >= _posts.length) {
             return const Padding(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.all(WynSpacing.space4),
               child: Center(child: CircularProgressIndicator()),
             );
           }

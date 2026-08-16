@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../data/pop_repository.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 const _maxDurationSeconds = 60;
 
@@ -191,7 +192,7 @@ class _CreatePopScreenState extends State<CreatePopScreen> {
         title: const Text('Pop ใหม่'),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.only(right: WynSpacing.space2),
             child: Center(
               child: TextButton(
                 onPressed: _canShare ? _share : null,
@@ -215,7 +216,7 @@ class _CreatePopScreenState extends State<CreatePopScreen> {
               _buildVideoArea(),
               if (_previewController != null)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
                   child: Center(
                     child: Text(
                       '${_formatDuration(_durationSeconds)} / ${_formatDuration(_maxDurationSeconds)}',
@@ -223,7 +224,7 @@ class _CreatePopScreenState extends State<CreatePopScreen> {
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(WynSpacing.space4),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -239,7 +240,7 @@ class _CreatePopScreenState extends State<CreatePopScreen> {
                       ),
                     ),
                     if (_errorMessage != null) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: WynSpacing.space2),
                       Text(
                         _errorMessage!,
                         style:
@@ -276,7 +277,7 @@ class _CreatePopScreenState extends State<CreatePopScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.video_call_outlined, size: 40),
-                            SizedBox(height: 8),
+                            SizedBox(height: WynSpacing.space2),
                             Text('แตะเพื่อเลือกวิดีโอ'),
                           ],
                         ),

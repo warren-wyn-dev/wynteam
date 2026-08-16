@@ -6,6 +6,7 @@ import '../../../club/data/club_repository.dart';
 import '../../../club/presentation/club_page.dart';
 import '../../../club/presentation/widgets/club_discovery_card.dart';
 import 'search_state_message.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Search's Club tab (WYN-015) -- vertical list of ClubDiscoveryCard,
 /// same widget Explore Clubs uses. Query is driven by [query], a prop
@@ -138,7 +139,7 @@ class _SearchClubResultsTabState extends State<SearchClubResultsTab>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(
               onPressed: () => _search(reset: true),
               child: const Text('ลองใหม่'),
@@ -161,7 +162,7 @@ class _SearchClubResultsTabState extends State<SearchClubResultsTab>
       itemBuilder: (context, index) {
         if (index >= _clubs.length) {
           return const Padding(
-            padding: EdgeInsets.all(16),
+            padding: EdgeInsets.all(WynSpacing.space4),
             child: Center(child: CircularProgressIndicator()),
           );
         }

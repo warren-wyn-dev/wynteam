@@ -3,11 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:zoky_seller/features/finance/presentation/seller_finance_screen.dart';
 import 'package:zoky_seller/features/order/presentation/seller_order_list_screen.dart';
 import 'package:zoky_seller/features/product/presentation/seller_product_list_screen.dart';
+import 'package:zoky_seller/features/push/presentation/push_notification_service.dart';
 import 'package:zoky_seller/features/shell/presentation/seller_coming_soon_screen.dart';
 import 'package:zoky_seller/features/shell/presentation/seller_home_shell.dart';
 import 'package:zoky_seller/features/store/data/store.dart';
 import 'package:zoky_seller/features/store/presentation/seller_store_screen.dart';
 
+import 'support/recording_push_token_repository.dart';
+import 'support/recording_seller_notification_repository.dart';
 import 'support/recording_seller_repository.dart';
 
 final _store = Store(
@@ -21,15 +24,24 @@ void main() {
   // See seller_auth_gate_test.dart's comment on why Recording*Repository
   // must be built in setUp(), not inline inside testWidgets.
   late RecordingSellerRepository repository;
+  late RecordingSellerNotificationRepository notificationRepository;
+  late PushNotificationService pushNotificationService;
 
   setUp(() {
     repository = RecordingSellerRepository();
+    notificationRepository = RecordingSellerNotificationRepository();
+    pushNotificationService = PushNotificationService(RecordingPushTokenRepository());
   });
 
   testWidgets('renders all 5 bottom nav destinations, starting on Dashboard',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: SellerHomeShell(store: _store, sellerRepository: repository),
+      home: SellerHomeShell(
+        store: _store,
+        sellerRepository: repository,
+        notificationRepository: notificationRepository,
+        pushNotificationService: pushNotificationService,
+      ),
     ));
     await tester.pumpAndSettle();
 
@@ -50,7 +62,12 @@ void main() {
       'the การเงิน tab shows SellerFinanceScreen (SELLER-005), not the '
       'placeholder', (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: SellerHomeShell(store: _store, sellerRepository: repository),
+      home: SellerHomeShell(
+        store: _store,
+        sellerRepository: repository,
+        notificationRepository: notificationRepository,
+        pushNotificationService: pushNotificationService,
+      ),
     ));
     await tester.pumpAndSettle();
 
@@ -65,7 +82,12 @@ void main() {
       'the ร้านค้า tab shows SellerStoreScreen (SELLER-004), not the '
       'placeholder', (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: SellerHomeShell(store: _store, sellerRepository: repository),
+      home: SellerHomeShell(
+        store: _store,
+        sellerRepository: repository,
+        notificationRepository: notificationRepository,
+        pushNotificationService: pushNotificationService,
+      ),
     ));
     await tester.pumpAndSettle();
 
@@ -81,7 +103,12 @@ void main() {
       'editing store info in the ร้านค้า tab and saving updates the '
       'Dashboard tab in the same session (SELLER-004)', (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: SellerHomeShell(store: _store, sellerRepository: repository),
+      home: SellerHomeShell(
+        store: _store,
+        sellerRepository: repository,
+        notificationRepository: notificationRepository,
+        pushNotificationService: pushNotificationService,
+      ),
     ));
     await tester.pumpAndSettle();
 
@@ -105,7 +132,12 @@ void main() {
       'the สินค้า tab shows SellerProductListScreen (SELLER-002), not the '
       'placeholder', (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: SellerHomeShell(store: _store, sellerRepository: repository),
+      home: SellerHomeShell(
+        store: _store,
+        sellerRepository: repository,
+        notificationRepository: notificationRepository,
+        pushNotificationService: pushNotificationService,
+      ),
     ));
     await tester.pumpAndSettle();
 
@@ -121,7 +153,12 @@ void main() {
       'the คำสั่งซื้อ tab shows SellerOrderListScreen (SELLER-003), not the '
       'placeholder', (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: SellerHomeShell(store: _store, sellerRepository: repository),
+      home: SellerHomeShell(
+        store: _store,
+        sellerRepository: repository,
+        notificationRepository: notificationRepository,
+        pushNotificationService: pushNotificationService,
+      ),
     ));
     await tester.pumpAndSettle();
 
@@ -136,7 +173,12 @@ void main() {
   testWidgets('switching tabs keeps IndexedStack state (no unmount)',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: SellerHomeShell(store: _store, sellerRepository: repository),
+      home: SellerHomeShell(
+        store: _store,
+        sellerRepository: repository,
+        notificationRepository: notificationRepository,
+        pushNotificationService: pushNotificationService,
+      ),
     ));
     await tester.pumpAndSettle();
 

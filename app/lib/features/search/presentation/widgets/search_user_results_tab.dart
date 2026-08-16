@@ -9,6 +9,7 @@ import '../../../profile/presentation/view_profile_screen.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../../saved/data/saved_repository.dart';
 import 'search_state_message.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Search's User tab (WYN-009) -- reuses FollowListScreen's own row
 /// layout (WYN-008/013) exactly, since it's the same "tappable
@@ -151,7 +152,7 @@ class _SearchUserResultsTabState extends State<SearchUserResultsTab>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(
               onPressed: () => _search(reset: true),
               child: const Text('ลองใหม่'),
@@ -174,7 +175,7 @@ class _SearchUserResultsTabState extends State<SearchUserResultsTab>
       itemBuilder: (context, index) {
         if (index >= _profiles.length) {
           return const Padding(
-            padding: EdgeInsets.all(16),
+            padding: EdgeInsets.all(WynSpacing.space4),
             child: Center(child: CircularProgressIndicator()),
           );
         }
@@ -188,7 +189,7 @@ class _SearchUserResultsTabState extends State<SearchUserResultsTab>
           child: InkWell(
             onTap: () => _openProfile(profile),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
               child: Row(
                 children: [
                   AvatarCircle(
@@ -196,7 +197,7 @@ class _SearchUserResultsTabState extends State<SearchUserResultsTab>
                     fallbackText: profile.username,
                     radius: 20,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: WynSpacing.space3),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

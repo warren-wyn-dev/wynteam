@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/club.dart';
 import '../../data/club_member.dart';
 import '../../data/club_repository.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Screen 7 — About tab. Plain-text sections (Description/Category/
 /// Privacy/Created date/Club Rules), with an Owner/Admin-only "แก้ไขกฎ"
@@ -77,7 +78,7 @@ class _ClubAboutTabState extends State<ClubAboutTab> {
     final club = widget.club;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(WynSpacing.space4),
       children: [
         _buildSection(
           label: 'คำอธิบาย',
@@ -126,7 +127,7 @@ class _ClubAboutTabState extends State<ClubAboutTab> {
               : 'Club นี้ยังไม่มีกฎ',
         ),
         if (_canManage) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: WynSpacing.space2),
           OutlinedButton(
             onPressed: () => setState(() => _isEditingRules = true),
             child: const Text('แก้ไขกฎ'),
@@ -177,7 +178,7 @@ class _ClubAboutTabState extends State<ClubAboutTab> {
 
   Widget _buildSection({required String label, required Widget child}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.only(bottom: WynSpacing.space5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -187,7 +188,7 @@ class _ClubAboutTabState extends State<ClubAboutTab> {
                   color: Theme.of(context).colorScheme.outline,
                 ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: WynSpacing.space1),
           child,
         ],
       ),

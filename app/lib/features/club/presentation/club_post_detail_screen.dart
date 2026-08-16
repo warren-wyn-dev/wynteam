@@ -5,12 +5,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/text_utils.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
+import '../../../core/widgets/hashtag_text.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/club_member.dart';
 import '../data/club_post.dart';
 import '../data/club_post_comment.dart';
 import '../data/club_post_repository.dart';
 import 'widgets/club_post_card.dart' show ClubPostImages;
+import '../../../core/design/wyn_spacing.dart';
 
 /// Placeholder share link -- same "no real hosting/domain yet" caveat as
 /// dropShareLink/popShareLink (WYN-005/006).
@@ -45,7 +47,10 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
   List<ClubPostComment>? _comments;
   bool _commentsErrored = false;
   final _commentController = TextEditingController();
+  final _commentFocusNode = FocusNode();
   bool _isSendingComment = false;
+  // WYN-022: see DropDetailScreen's identical field.
+  ClubPostComment? _replyingTo;
 
   bool get _isOwnPost =>
       _post.authorId == Supabase.instance.client.auth.currentUser!.id;
@@ -61,6 +66,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
   @override
   void dispose() {
     _commentController.dispose();
+    _commentFocusNode.dispose();
     super.dispose();
   }
 
@@ -179,12 +185,14 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
       final comment = await widget.clubPostRepository.addComment(
         postId: _post.id,
         textContent: text,
+        parentCommentId: _replyingTo?.id,
       );
       if (!mounted) return;
       setState(() {
         _comments = [...?_comments, comment];
         _post = _post.withExtraComment();
         _commentController.clear();
+        _replyingTo = null;
       });
     } catch (_) {
       // Keep the typed text so the user can retry.
@@ -192,6 +200,13 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
       if (mounted) setState(() => _isSendingComment = false);
     }
   }
+
+  void _startReply(ClubPostComment comment) {
+    setState(() => _replyingTo = comment);
+    _commentFocusNode.requestFocus();
+  }
+
+  void _cancelReply() => setState(() => _replyingTo = null);
 
   @override
   Widget build(BuildContext context) {
@@ -223,7 +238,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(WynSpacing.space4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -234,7 +249,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                     fallbackText: _post.authorUsername,
                     radius: 18,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: WynSpacing.space2),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,11 +276,11 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                 ],
               ),
               if (_post.content != null && _post.content!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(_post.content!),
+                const SizedBox(height: WynSpacing.space2),
+                HashtagText(_post.content!),
               ],
               if (_post.linkUrl != null && _post.linkUrl!.isNotEmpty) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: WynSpacing.space2),
                 Row(
                   children: [
                     const Icon(Icons.link, size: 16),
@@ -280,7 +295,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
         if (_post.imageUrls != null && _post.imageUrls!.isNotEmpty)
           ClubPostImages(imageUrls: _post.imageUrls!),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
           child: Row(
             children: [
               Semantics(
@@ -295,7 +310,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                 ),
               ),
               Text('${_post.likeCount}'),
-              const SizedBox(width: 12),
+              const SizedBox(width: WynSpacing.space3),
               IconButton(
                 icon: const Icon(Icons.share_outlined),
                 tooltip: 'แชร์',
@@ -327,13 +342,13 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
         children: [
           header,
           Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(WynSpacing.space6),
             child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text('โหลดคอมเมนต์ไม่สำเร็จ'),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: WynSpacing.space2),
                   TextButton(onPressed: _loadComments, child: const Text('ลองใหม่')),
                 ],
               ),
@@ -349,7 +364,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
         children: [
           header,
           const Padding(
-            padding: EdgeInsets.all(24),
+            padding: EdgeInsets.all(WynSpacing.space6),
             child: Center(child: CircularProgressIndicator()),
           ),
         ],
@@ -357,56 +372,82 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
     }
 
     return ListView(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: WynSpacing.space4),
       children: [
         header,
         if (comments.isEmpty)
           const Padding(
-            padding: EdgeInsets.all(24),
+            padding: EdgeInsets.all(WynSpacing.space6),
             child: Center(child: Text('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!')),
           )
         else
-          ...comments.map(
-            (comment) => Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AvatarCircle(
-                    imageUrl: comment.authorAvatarUrl,
-                    fallbackText: comment.authorUsername,
-                    radius: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          comment.authorNameOrUsername,
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                        Text(comment.textContent),
-                      ],
-                    ),
-                  ),
-                  if (comment.authorId == currentUserId)
-                    SizedBox(
-                      width: 32,
-                      height: 32,
-                      child: IconButton(
-                        padding: EdgeInsets.zero,
-                        iconSize: 16,
-                        icon: const Icon(Icons.delete_outline),
-                        tooltip: 'ลบคอมเมนต์',
-                        onPressed: () => _deleteComment(comment.id),
+          // Each top-level comment immediately followed by its own
+          // replies (WYN-022) -- same ordering DropDetailScreen builds.
+          for (final comment in comments.where((c) => c.parentCommentId == null)) ...[
+            _buildCommentRow(comment, currentUserId, isReply: false),
+            for (final reply in comments.where((c) => c.parentCommentId == comment.id))
+              _buildCommentRow(reply, currentUserId, isReply: true),
+          ],
+      ],
+    );
+  }
+
+  Widget _buildCommentRow(
+    ClubPostComment comment,
+    String currentUserId, {
+    required bool isReply,
+  }) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(isReply ? 52 : 16, 12, 16, 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AvatarCircle(
+            imageUrl: comment.authorAvatarUrl,
+            fallbackText: comment.authorUsername,
+            radius: 16,
+          ),
+          const SizedBox(width: WynSpacing.space2),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  comment.authorNameOrUsername,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                Text(comment.textContent),
+                if (!isReply)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: InkWell(
+                      onTap: () => _startReply(comment),
+                      child: Text(
+                        'ตอบกลับ',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.outline,
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ),
-      ],
+          if (comment.authorId == currentUserId)
+            SizedBox(
+              width: WynSpacing.touchTargetMin,
+              height: WynSpacing.touchTargetMin,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                iconSize: 16,
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'ลบคอมเมนต์',
+                onPressed: () => _deleteComment(comment.id),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -416,21 +457,46 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Row(
+        padding: const EdgeInsets.all(WynSpacing.space2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: TextField(
-                controller: _commentController,
-                enabled: !_isSendingComment,
-                decoration: const InputDecoration(hintText: 'เขียนคอมเมนต์'),
-                onChanged: (_) => setState(() {}),
+            if (_replyingTo != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4, left: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'ตอบกลับ ${_replyingTo!.authorNameOrUsername}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(width: WynSpacing.space1),
+                    InkWell(
+                      onTap: _cancelReply,
+                      child: const Icon(Icons.close, size: 16),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.send),
-              tooltip: 'ส่งคอมเมนต์',
-              onPressed: canSend ? _sendComment : null,
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _commentController,
+                    focusNode: _commentFocusNode,
+                    enabled: !_isSendingComment,
+                    decoration: const InputDecoration(hintText: 'เขียนคอมเมนต์'),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.send),
+                  tooltip: 'ส่งคอมเมนต์',
+                  onPressed: canSend ? _sendComment : null,
+                ),
+              ],
             ),
           ],
         ),

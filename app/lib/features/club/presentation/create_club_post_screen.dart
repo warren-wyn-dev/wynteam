@@ -2,9 +2,13 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../profile/data/profile_repository.dart';
 import '../data/club.dart';
 import '../data/club_post_repository.dart';
+import '../../../core/design/wyn_spacing.dart';
+import '../../../core/widgets/mention_input.dart';
 
 /// `CreateClubPostScreen` (Screen 5). Always locked to the Club it was
 /// opened from -- creating a Club post from anywhere else isn't in scope
@@ -15,10 +19,16 @@ class CreateClubPostScreen extends StatefulWidget {
     super.key,
     required this.clubPostRepository,
     required this.club,
-  });
+    ProfileRepository? profileRepository,
+  }) : _profileRepository = profileRepository;
 
   final ClubPostRepository clubPostRepository;
   final Club club;
+
+  // Optional -- same reasoning as CreateDropScreen's identical field:
+  // defaults to a real Supabase-backed instance so existing call sites
+  // don't need to thread one through just for MentionInput.
+  final ProfileRepository? _profileRepository;
 
   @override
   State<CreateClubPostScreen> createState() => _CreateClubPostScreenState();
@@ -29,6 +39,9 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
 
   final _contentController = TextEditingController();
   final _linkController = TextEditingController();
+  late final ProfileRepository _profileRepository =
+      widget._profileRepository ?? ProfileRepository(Supabase.instance.client);
+  Set<String> _mentionedUserIds = {};
   final List<Uint8List> _images = [];
   final List<String> _imageExtensions = [];
 
@@ -91,6 +104,7 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
         images: _images.isEmpty ? null : _images,
         imageExtensions: _images.isEmpty ? null : _imageExtensions,
         linkUrl: _linkController.text,
+        mentionedUserIds: _mentionedUserIds,
       );
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -113,7 +127,7 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
         title: Text('โพสต์ใน ${widget.club.name}'),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.only(right: WynSpacing.space2),
             child: Center(
               child: TextButton(
                 onPressed: _canPost ? _post : null,
@@ -131,12 +145,14 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(WynSpacing.space4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
+              MentionInput(
                 controller: _contentController,
+                profileRepository: _profileRepository,
+                onMentionedUsersChanged: (ids) => setState(() => _mentionedUserIds = ids),
                 maxLength: 2000,
                 maxLines: 6,
                 minLines: 3,
@@ -145,13 +161,13 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                 onChanged: (_) => setState(() {}),
               ),
               if (_images.isNotEmpty) _buildImageRow(),
-              const SizedBox(height: 8),
+              const SizedBox(height: WynSpacing.space2),
               OutlinedButton.icon(
                 onPressed: (_isPosting || _images.length >= _maxImages) ? null : _pickImages,
                 icon: const Icon(Icons.add_photo_alternate_outlined),
                 label: const Text('แนบรูป'),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: WynSpacing.space4),
               TextField(
                 controller: _linkController,
                 enabled: !_isPosting,
@@ -162,7 +178,7 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                 onChanged: (_) => setState(() {}),
               ),
               if (_errorMessage != null) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: WynSpacing.space4),
                 Text(
                   _errorMessage!,
                   textAlign: TextAlign.center,
@@ -181,14 +197,14 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
       height: 88,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
         itemCount: _images.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        separatorBuilder: (context, index) => const SizedBox(width: WynSpacing.space2),
         itemBuilder: (context, index) {
           return Stack(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
                 child: Image.memory(
                   _images[index],
                   width: 80,

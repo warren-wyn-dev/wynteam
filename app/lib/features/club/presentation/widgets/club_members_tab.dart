@@ -5,6 +5,7 @@ import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/club.dart';
 import '../../data/club_member.dart';
 import '../../data/club_repository.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Screen 6 — Members tab. Reuses FollowListScreen's row shape (WYN-008/
 /// 013) plus a role badge and, for Owner/Admin, a pending-requests
@@ -236,7 +237,7 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text('โหลดรายชื่อสมาชิกไม่สำเร็จ'),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(onPressed: _load, child: const Text('ลองใหม่')),
           ],
         ),
@@ -272,7 +273,7 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
 
   Widget _buildPendingRow(ClubMember member) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
       child: Row(
         children: [
           AvatarCircle(
@@ -280,7 +281,7 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
             fallbackText: member.username,
             radius: 20,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: WynSpacing.space3),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,7 +308,7 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
     final badge = _buildRoleBadge(context, member.role);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
       child: Row(
         children: [
           AvatarCircle(
@@ -315,7 +316,7 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
             fallbackText: member.username,
             radius: 20,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: WynSpacing.space3),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

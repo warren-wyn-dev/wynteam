@@ -24,8 +24,14 @@ migrate_working_dir/
 /build/
 
 # Platform folders (android/, ios/) are committed — see their own
-# .gitignore files for build-artifact exclusions within each.
-/web/
+# .gitignore files for build-artifact exclusions within each. /web/ is
+# regenerated ad hoc via `flutter create . --platforms web` for the
+# GitHub Pages preview deploy, except flutter_bootstrap.js -- that one
+# file disables the default service-worker registration (see its own
+# comment) and must survive regeneration or every future preview
+# rebuild silently reintroduces the "redeploys look cached" bug.
+/web/*
+!/web/flutter_bootstrap.js
 /linux/
 /macos/
 /windows/

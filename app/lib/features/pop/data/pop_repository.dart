@@ -6,7 +6,16 @@ import '../../../core/text_utils.dart';
 import 'pop.dart';
 import 'pop_comment.dart';
 
-const _authorSelect = 'author:profiles(username, display_name, avatar_url)';
+// See DropRepository's identical comment for why this needs the exact
+// foreign key name -- PostgREST can't resolve a bare `profiles(...)`
+// embed when a sibling embed (pop_likes/pop_comments/pop_comment_likes)
+// also has a path to profiles. Discovered 2026-08-16 running against a
+// real database; every widget test uses RecordingPopRepository, which
+// never sends a real PostgREST query.
+const _popAuthorSelect =
+    'author:profiles!pops_author_id_fkey(username, display_name, avatar_url)';
+const _commentAuthorSelect =
+    'author:profiles!pop_comments_author_id_fkey(username, display_name, avatar_url)';
 const _savesContentType = 'pop';
 
 /// Wraps the `pops`/`pop_likes`/`pop_comments`/`saves` reads/writes and
@@ -30,7 +39,7 @@ class PopRepository {
 
     final rows = await _client
         .from('pops')
-        .select('*, $_authorSelect, pop_likes(count), pop_comments(count)')
+        .select('*, $_popAuthorSelect, pop_likes(count), pop_comments(count)')
         .order('created_at', ascending: false)
         .range(from, to);
 
@@ -61,7 +70,7 @@ class PopRepository {
 
     final rows = await _client
         .from('pops')
-        .select('*, $_authorSelect, pop_likes(count), pop_comments(count)')
+        .select('*, $_popAuthorSelect, pop_likes(count), pop_comments(count)')
         .eq('author_id', authorId)
         .order('created_at', ascending: false)
         .range(from, to);
@@ -91,7 +100,7 @@ class PopRepository {
 
     final rows = await _client
         .from('pops')
-        .select('*, $_authorSelect, pop_likes(count), pop_comments(count)')
+        .select('*, $_popAuthorSelect, pop_likes(count), pop_comments(count)')
         .ilike('caption', '%$query%')
         .order('created_at', ascending: false)
         .range(from, to);
@@ -119,7 +128,7 @@ class PopRepository {
 
     final row = await _client
         .from('pops')
-        .select('*, $_authorSelect, pop_likes(count), pop_comments(count)')
+        .select('*, $_popAuthorSelect, pop_likes(count), pop_comments(count)')
         .eq('id', popId)
         .maybeSingle();
     if (row == null) return null;
@@ -262,7 +271,7 @@ class PopRepository {
 
     final rows = await _client
         .from('pop_comments')
-        .select('*, $_authorSelect, pop_comment_likes(count)')
+        .select('*, $_commentAuthorSelect, pop_comment_likes(count)')
         .eq('pop_id', popId)
         .order('created_at', ascending: true);
 
@@ -293,9 +302,12 @@ class PopRepository {
     return rows.map((row) => row['comment_id'] as String).toSet();
   }
 
+  /// [parentCommentId] (WYN-022): see DropRepository.addComment's
+  /// identical doc comment.
   Future<PopComment> addComment({
     required String popId,
     required String textContent,
+    String? parentCommentId,
   }) async {
     final userId = _client.auth.currentUser!.id;
 
@@ -305,8 +317,9 @@ class PopRepository {
           'pop_id': popId,
           'author_id': userId,
           'text_content': textContent.trim(),
+          'parent_comment_id': parentCommentId,
         })
-        .select('*, $_authorSelect')
+        .select('*, $_commentAuthorSelect')
         .single();
 
     // A freshly-created comment can't have any likes yet -- no need for a

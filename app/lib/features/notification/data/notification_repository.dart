@@ -27,9 +27,10 @@ class NotificationRepository {
     final rows = await _client
         .from('notifications')
         .select(
-          'id, type, drop_id, pop_id, club_id, club_post_id, is_read, created_at, '
+          'id, type, drop_id, pop_id, club_id, club_post_id, order_id, is_read, created_at, '
           'actor:profiles!notifications_actor_id_fkey(id, username, display_name, avatar_url), '
-          'club:clubs(name)',
+          'club:clubs(name), '
+          'order:orders(store:stores(name))',
         )
         .order('created_at', ascending: false)
         .range(from, to);

@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../data/seller_repository.dart';
 import '../data/store.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// "ร้านค้า" tab -- lets a seller edit every field of their own store in
 /// one always-editable form (no separate view mode). Mirrors
@@ -181,9 +182,9 @@ class _SellerStoreScreenState extends State<SellerStoreScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildBannerPicker(),
-              const SizedBox(height: 12),
+              const SizedBox(height: WynSpacing.space3),
               _buildLogoPicker(),
-              const SizedBox(height: 16),
+              const SizedBox(height: WynSpacing.space4),
               TextField(
                 controller: _nameController,
                 maxLength: _nameMaxLength,
@@ -221,14 +222,14 @@ class _SellerStoreScreenState extends State<SellerStoreScreen> {
                   hintText: 'เช่น จันทร์-ศุกร์ 9:00-18:00 น.',
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: WynSpacing.space2),
               if (_errorMessage != null) ...[
                 Text(
                   _errorMessage!,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: WynSpacing.space3),
               ],
               FilledButton(
                 onPressed: canSave ? _save : null,
@@ -255,7 +256,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen> {
         child: AspectRatio(
           aspectRatio: 16 / 9,
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
             child: Container(
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: _bannerBytes != null

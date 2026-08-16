@@ -4,6 +4,7 @@ import '../../../../core/widgets/confirm_delete_dialog.dart';
 import '../../data/review.dart';
 import '../../data/zoky_repository.dart';
 import 'star_rating.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Opens ReviewFormSheet as a modal bottom sheet, same hosting pattern
 /// as showPopCommentSheet (WYN-006). Returns true when the sheet's
@@ -135,7 +136,7 @@ class _ReviewFormSheetState extends State<ReviewFormSheet> {
               _isEditing ? 'แก้ไขรีวิว' : 'เขียนรีวิว',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             Center(
               child: StarRatingInput(
                 rating: _rating,
@@ -144,7 +145,7 @@ class _ReviewFormSheetState extends State<ReviewFormSheet> {
                 },
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextField(
               controller: _textController,
               enabled: !_isSubmitting,
@@ -154,7 +155,7 @@ class _ReviewFormSheetState extends State<ReviewFormSheet> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             SizedBox(
               width: double.infinity,
               child: FilledButton(
@@ -169,7 +170,7 @@ class _ReviewFormSheetState extends State<ReviewFormSheet> {
               ),
             ),
             if (_isEditing) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: WynSpacing.space1),
               SizedBox(
                 width: double.infinity,
                 child: TextButton(

@@ -8,6 +8,7 @@ import '../../../follow/data/follow_repository.dart';
 import '../../../pop/data/pop_repository.dart';
 import '../../../saved/data/saved_repository.dart';
 import '../../data/profile_repository.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Drop grid tab on a profile (WYN-013) -- reuses DropGridTile as-is,
 /// same 3-column layout as DropFeedScreen (WYN-005), but scoped to one
@@ -145,7 +146,7 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
           ],
         ),
@@ -181,7 +182,7 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
           if (_hasMore)
             const SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: EdgeInsets.all(WynSpacing.space4),
                 child: Center(child: CircularProgressIndicator()),
               ),
             ),

@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../data/club.dart';
 import '../data/club_repository.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Owner/Admin "แก้ไขข้อมูล Club" -- reuses CreateClubScreen's form shape
 /// for Name/Description/Cover/Icon/Category, pre-filled with the current
@@ -136,14 +137,14 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
       appBar: AppBar(title: const Text('แก้ไขข้อมูล Club')),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(WynSpacing.space4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildCoverPicker(),
-              const SizedBox(height: 12),
+              const SizedBox(height: WynSpacing.space3),
               _buildIconPicker(),
-              const SizedBox(height: 16),
+              const SizedBox(height: WynSpacing.space4),
               TextField(
                 controller: _nameController,
                 maxLength: _nameMaxLength,
@@ -158,7 +159,7 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
                 enabled: !_isSaving,
                 decoration: const InputDecoration(labelText: 'คำอธิบาย'),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: WynSpacing.space2),
               DropdownButtonFormField<String>(
                 initialValue: _category,
                 decoration: const InputDecoration(labelText: 'หมวดหมู่'),
@@ -167,14 +168,14 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
                     .toList(),
                 onChanged: _isSaving ? null : (value) => setState(() => _category = value),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: WynSpacing.space4),
               if (_errorMessage != null) ...[
                 Text(
                   _errorMessage!,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: WynSpacing.space3),
               ],
               FilledButton(
                 onPressed: canSave ? _save : null,
@@ -199,7 +200,7 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
       child: AspectRatio(
         aspectRatio: 16 / 9,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
           child: Container(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             child: _coverBytes != null

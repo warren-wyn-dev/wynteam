@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/text_utils.dart';
 import '../../data/product.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// A New Products shortcut card for ZOKY Home's horizontal row --
 /// mirrors ClubMiniCard (WYN-014)'s shape exactly, swapping icon+name+
@@ -20,21 +21,21 @@ class ProductMiniCard extends StatelessWidget {
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
         child: SizedBox(
           width: 96,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: WynSpacing.space2),
             child: Column(
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
                   child: AspectRatio(
                     aspectRatio: 1,
                     child: Image.network(product.imageUrls.first, fit: BoxFit.cover),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: WynSpacing.space1),
                 Text(
                   product.name,
                   maxLines: 1,

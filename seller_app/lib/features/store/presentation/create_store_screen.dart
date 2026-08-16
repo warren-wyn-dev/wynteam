@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/seller_repository.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// "สมัครร้าน" -- the shortest form that's still useful, on purpose
 /// (logo/banner are SELLER-004's job, not this one). See
@@ -68,7 +69,7 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
       appBar: AppBar(title: const Text('สร้างร้านค้า')),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(WynSpacing.space6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -76,12 +77,12 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
                 'เริ่มขายของบน ZOKY',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: WynSpacing.space2),
               Text(
                 'ตั้งชื่อร้านค้าของคุณเพื่อเริ่มต้น',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: WynSpacing.space6),
               TextField(
                 controller: _nameController,
                 decoration: const InputDecoration(
@@ -89,7 +90,7 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
                 ),
                 onChanged: (_) => setState(() {}),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: WynSpacing.space4),
               TextField(
                 controller: _descriptionController,
                 maxLines: 3,
@@ -97,7 +98,7 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
                   labelText: 'คำอธิบายร้าน (ไม่บังคับ)',
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: WynSpacing.space6),
               FilledButton(
                 onPressed: _canSubmit ? _submit : null,
                 child: _isSubmitting
@@ -109,7 +110,7 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
                     : const Text('สร้างร้านค้า'),
               ),
               if (_errorMessage != null) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: WynSpacing.space4),
                 Text(
                   _errorMessage!,
                   textAlign: TextAlign.center,

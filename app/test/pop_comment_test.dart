@@ -6,6 +6,7 @@ PopComment _comment({
   String? authorDisplayName,
   int likeCount = 0,
   bool likedByMe = false,
+  String? parentCommentId,
 }) =>
     PopComment(
       id: 'c1',
@@ -17,6 +18,7 @@ PopComment _comment({
       createdAt: DateTime(2026, 1, 1),
       likeCount: likeCount,
       likedByMe: likedByMe,
+      parentCommentId: parentCommentId,
     );
 
 void main() {
@@ -97,5 +99,43 @@ void main() {
     }, likedByMe: false);
 
     expect(comment.authorUsername, '');
+  });
+
+  group('parentCommentId (WYN-022)', () {
+    test('PopComment.fromMap parses a null parent_comment_id as a top-level comment',
+        () {
+      final comment = PopComment.fromMap({
+        'id': 'c1',
+        'pop_id': 'p1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'text_content': 'nice',
+        'created_at': '2026-01-01T00:00:00Z',
+        'pop_comment_likes': <dynamic>[],
+        'parent_comment_id': null,
+      }, likedByMe: false);
+
+      expect(comment.parentCommentId, isNull);
+    });
+
+    test('PopComment.fromMap parses a set parent_comment_id as a reply', () {
+      final comment = PopComment.fromMap({
+        'id': 'c2',
+        'pop_id': 'p1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'text_content': 'a reply',
+        'created_at': '2026-01-01T00:00:00Z',
+        'pop_comment_likes': <dynamic>[],
+        'parent_comment_id': 'c1',
+      }, likedByMe: false);
+
+      expect(comment.parentCommentId, 'c1');
+    });
+
+    test('copyWith preserves parentCommentId', () {
+      final reply = _comment(parentCommentId: 'c1').copyWith(likeCount: 1);
+      expect(reply.parentCommentId, 'c1');
+    });
   });
 }

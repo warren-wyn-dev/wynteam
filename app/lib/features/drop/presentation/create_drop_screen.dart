@@ -2,16 +2,31 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../profile/data/profile_repository.dart';
 import '../data/drop_repository.dart';
 import '../data/square_crop.dart';
+import '../../../core/design/wyn_spacing.dart';
+import '../../../core/widgets/mention_input.dart';
 
 /// Screen 2 — Create Drop.
 /// See .wyn/docs/design/wyn-005-drop.md
 class CreateDropScreen extends StatefulWidget {
-  const CreateDropScreen({super.key, required this.dropRepository});
+  const CreateDropScreen({
+    super.key,
+    required this.dropRepository,
+    ProfileRepository? profileRepository,
+  }) : _profileRepository = profileRepository;
 
   final DropRepository dropRepository;
+
+  // Optional -- defaults to a real Supabase-backed instance (see
+  // _CreateDropScreenState's late final below) so existing call sites
+  // don't need to thread one through just for MentionInput. Tests
+  // inject a Recording* fake here instead of touching
+  // Supabase.instance. See .wyn/learning/PATTERNS.md.
+  final ProfileRepository? _profileRepository;
 
   @override
   State<CreateDropScreen> createState() => _CreateDropScreenState();
@@ -21,6 +36,9 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   static const _captionMaxLength = 500;
 
   final _captionController = TextEditingController();
+  late final ProfileRepository _profileRepository =
+      widget._profileRepository ?? ProfileRepository(Supabase.instance.client);
+  Set<String> _mentionedUserIds = {};
   Uint8List? _imageBytes;
   String _imageExtension = 'jpg';
   bool _isCropping = false;
@@ -121,6 +139,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
         imageBytes: imageBytes,
         imageExtension: _imageExtension,
         caption: _captionController.text,
+        mentionedUserIds: _mentionedUserIds,
       );
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -143,7 +162,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
         title: const Text('Drop ใหม่'),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.only(right: WynSpacing.space2),
             child: Center(
               child: TextButton(
                 onPressed: _canShare ? _share : null,
@@ -166,12 +185,15 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             children: [
               _buildImageArea(),
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(WynSpacing.space4),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextField(
+                    MentionInput(
                       controller: _captionController,
+                      profileRepository: _profileRepository,
+                      onMentionedUsersChanged: (ids) =>
+                          setState(() => _mentionedUserIds = ids),
                       maxLength: _captionMaxLength,
                       maxLines: 4,
                       minLines: 2,
@@ -182,7 +204,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                       ),
                     ),
                     if (_errorMessage != null) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: WynSpacing.space2),
                       Text(
                         _errorMessage!,
                         style:
@@ -219,7 +241,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.add_photo_alternate_outlined, size: 40),
-                            SizedBox(height: 8),
+                            SizedBox(height: WynSpacing.space2),
                             Text('แตะเพื่อเลือกรูป'),
                           ],
                         ),

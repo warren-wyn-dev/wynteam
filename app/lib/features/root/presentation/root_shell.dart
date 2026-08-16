@@ -14,8 +14,11 @@ import '../../pop/presentation/pop_feed_screen.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../saved/data/saved_repository.dart';
+import '../../push/data/push_token_repository.dart';
+import '../../push/presentation/push_notification_service.dart';
 import '../../zoky/data/zoky_repository.dart';
 import '../../zoky/presentation/zoky_home_screen.dart';
+import '../../../core/design/wyn_colors.dart';
 
 /// The 4-tab Bottom Navigation shell (Home / Drop / Pop / Profile) from
 /// the "WYN V0.1 — CORE APP FEATURE PROMPT" (see
@@ -38,6 +41,18 @@ class _RootShellState extends State<RootShell> {
   // Pop would never be reflected in the Follower/Following counts shown
   // back on Profile. See .wyn/docs/design/wyn-008-follow.md, Screen 4.
   int _profileVisitKey = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // WYN-016 (Push Notification): request permission + register this
+    // device's token once, the first time RootShell renders (i.e. right
+    // after onboarding, not from the Welcome screen where the user
+    // doesn't know the app yet). Safe to call unconditionally even
+    // before Firebase is configured -- PushNotificationService.initialize
+    // checks Firebase.apps itself and no-ops if empty.
+    PushNotificationService(PushTokenRepository(Supabase.instance.client)).initialize();
+  }
 
   void _onDestinationSelected(int index) {
     setState(() {
@@ -71,6 +86,7 @@ class _RootShellState extends State<RootShell> {
         notificationRepository: notificationRepository,
         clubRepository: clubRepository,
         clubPostRepository: clubPostRepository,
+        zokyRepository: zokyRepository,
       ),
       DropFeedScreen(
         dropRepository: dropRepository,
@@ -126,9 +142,16 @@ class _RootShellState extends State<RootShell> {
             selectedIcon: Icon(Icons.person),
             label: 'Profile',
           ),
+          // Selected icon only (not the icon/label/indicator pill) is
+          // explicitly ZOKY Orange -- DS-007, "จุด entry ของ ZOKY" (DS-001,
+          // Section 4, point 5). An explicit `color:` on Icon always wins
+          // over NavigationBar's own IconTheme, so this doesn't need
+          // wrapping in ZokyAccentTheme (that wrapper only affects
+          // Theme.of(context).colorScheme lookups deeper in the ZOKY
+          // screens themselves, not this destination list).
           NavigationDestination(
             icon: Icon(Icons.storefront_outlined),
-            selectedIcon: Icon(Icons.storefront),
+            selectedIcon: Icon(Icons.storefront, color: WynColors.orange500),
             label: 'ZOKY',
           ),
         ],

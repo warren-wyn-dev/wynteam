@@ -5,6 +5,7 @@ import '../../data/store.dart';
 import '../../data/zoky_repository.dart';
 import '../store_screen.dart';
 import 'store_result_card.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Search's Store tab (ZOKY-002) -- vertical list of StoreResultCard.
 /// Query comes from [query], a prop from the shared search box in
@@ -132,7 +133,7 @@ class _ZokyStoreResultsTabState extends State<ZokyStoreResultsTab>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(onPressed: () => _search(reset: true), child: const Text('ลองใหม่')),
           ],
         ),
@@ -152,7 +153,7 @@ class _ZokyStoreResultsTabState extends State<ZokyStoreResultsTab>
       itemBuilder: (context, index) {
         if (index >= _stores.length) {
           return const Padding(
-            padding: EdgeInsets.all(16),
+            padding: EdgeInsets.all(WynSpacing.space4),
             child: Center(child: CircularProgressIndicator()),
           );
         }

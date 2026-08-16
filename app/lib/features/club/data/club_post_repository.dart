@@ -6,7 +6,20 @@ import '../../../core/text_utils.dart';
 import 'club_post.dart';
 import 'club_post_comment.dart';
 
-const _authorSelect = 'author:profiles(username, display_name, avatar_url)';
+// See DropRepository's identical comment for why this needs the exact
+// foreign key name -- PostgREST can't resolve a bare `profiles(...)`
+// embed when a sibling embed (club_post_likes/club_post_comments) also
+// has a path to profiles. Discovered 2026-08-16 running against a real
+// database; every widget test uses RecordingClubPostRepository, which
+// never sends a real PostgREST query. club_post_comments has no
+// separate "comment likes" table (unlike Drop/Pop), so
+// _commentAuthorSelect isn't currently ambiguous on its own, but is
+// qualified anyway for consistency and to stay safe if that ever
+// changes.
+const _postAuthorSelect =
+    'author:profiles!club_posts_author_id_fkey(username, display_name, avatar_url)';
+const _commentAuthorSelect =
+    'author:profiles!club_post_comments_author_id_fkey(username, display_name, avatar_url)';
 const _savesContentType = 'club_post';
 
 /// Wraps the `club_posts`/`club_post_likes`/`club_post_comments` reads/
@@ -59,7 +72,7 @@ class ClubPostRepository {
     final rows = await _client
         .from('club_posts')
         .select(
-          '*, $_authorSelect, club_post_likes(count), club_post_comments(count)',
+          '*, $_postAuthorSelect, club_post_likes(count), club_post_comments(count)',
         )
         .eq('club_id', clubId)
         .order('pinned', ascending: false)
@@ -96,8 +109,47 @@ class ClubPostRepository {
     final rows = await _client
         .from('club_posts')
         .select(
-          '*, $_authorSelect, club_post_likes(count), club_post_comments(count)',
+          '*, $_postAuthorSelect, club_post_likes(count), club_post_comments(count)',
         )
+        .order('created_at', ascending: false)
+        .range(from, to);
+
+    final postIds = rows.map((row) => row['id'] as String).toList();
+    final likedIds = await _fetchLikedPostIds(userId: userId, postIds: postIds);
+    final savedIds = await _fetchSavedPostIds(userId: userId, postIds: postIds);
+
+    final posts = <ClubPost>[];
+    for (final row in rows) {
+      final signedRow = await _withSignedImageUrls(row);
+      posts.add(ClubPost.fromMap(
+        signedRow,
+        likedByMe: likedIds.contains(row['id'] as String),
+        savedByMe: savedIds.contains(row['id'] as String),
+      ));
+    }
+    return posts;
+  }
+
+  /// Fetches one page (0-indexed) of club posts whose content contains
+  /// [query] (case insensitive), newest first -- for WYN-020's Hashtag
+  /// Feed (mirrors DropRepository.searchByCaption's shape). No explicit
+  /// visibility filter needed: club_posts' own RLS already restricts
+  /// this to posts the caller can actually see, same guarantee
+  /// [fetchFromJoinedClubs] already relies on.
+  Future<List<ClubPost>> searchByContent({
+    required String query,
+    required int page,
+  }) async {
+    final userId = _client.auth.currentUser!.id;
+    final from = page * pageSize;
+    final to = from + pageSize - 1;
+
+    final rows = await _client
+        .from('club_posts')
+        .select(
+          '*, $_postAuthorSelect, club_post_likes(count), club_post_comments(count)',
+        )
+        .ilike('content', '%$query%')
         .order('created_at', ascending: false)
         .range(from, to);
 
@@ -130,7 +182,7 @@ class ClubPostRepository {
     final row = await _client
         .from('club_posts')
         .select(
-          '*, $_authorSelect, club_post_likes(count), club_post_comments(count)',
+          '*, $_postAuthorSelect, club_post_likes(count), club_post_comments(count)',
         )
         .eq('id', postId)
         .maybeSingle();
@@ -185,12 +237,15 @@ class ClubPostRepository {
   /// (rather than after, keyed by the new post's id) so an images-only
   /// post's single insert already has non-null image_urls and never
   /// trips the have-content CHECK on an intermediate empty row.
+  /// [mentionedUserIds] (WYN-021): same "already resolved by MentionInput,
+  /// not re-parsed server-side" approach as DropRepository.createDrop.
   Future<void> createPost({
     required String clubId,
     String? content,
     List<Uint8List>? images,
     List<String>? imageExtensions,
     String? linkUrl,
+    Set<String> mentionedUserIds = const {},
   }) async {
     final userId = _client.auth.currentUser!.id;
 
@@ -206,13 +261,25 @@ class ClubPostRepository {
       }
     }
 
-    await _client.from('club_posts').insert({
-      'club_id': clubId,
-      'author_id': userId,
-      'content': normalizeOptionalText((content ?? '').trim()),
-      'image_urls': imagePaths,
-      'link_url': normalizeOptionalText((linkUrl ?? '').trim()),
-    });
+    final row = await _client
+        .from('club_posts')
+        .insert({
+          'club_id': clubId,
+          'author_id': userId,
+          'content': normalizeOptionalText((content ?? '').trim()),
+          'image_urls': imagePaths,
+          'link_url': normalizeOptionalText((linkUrl ?? '').trim()),
+        })
+        .select('id')
+        .single();
+
+    if (mentionedUserIds.isNotEmpty) {
+      final postId = row['id'] as String;
+      await _client.from('club_post_mentions').insert([
+        for (final mentionedId in mentionedUserIds)
+          {'club_post_id': postId, 'mentioned_user_id': mentionedId},
+      ]);
+    }
   }
 
   Future<void> deletePost(String postId) {
@@ -272,16 +339,19 @@ class ClubPostRepository {
   Future<List<ClubPostComment>> fetchComments(String postId) async {
     final rows = await _client
         .from('club_post_comments')
-        .select('*, $_authorSelect')
+        .select('*, $_commentAuthorSelect')
         .eq('club_post_id', postId)
         .order('created_at', ascending: true);
 
     return rows.map((row) => ClubPostComment.fromMap(row)).toList();
   }
 
+  /// [parentCommentId] (WYN-022): see DropRepository.addComment's
+  /// identical doc comment.
   Future<ClubPostComment> addComment({
     required String postId,
     required String textContent,
+    String? parentCommentId,
   }) async {
     final userId = _client.auth.currentUser!.id;
 
@@ -291,8 +361,9 @@ class ClubPostRepository {
           'club_post_id': postId,
           'author_id': userId,
           'text_content': textContent.trim(),
+          'parent_comment_id': parentCommentId,
         })
-        .select('*, $_authorSelect')
+        .select('*, $_commentAuthorSelect')
         .single();
 
     return ClubPostComment.fromMap(row);

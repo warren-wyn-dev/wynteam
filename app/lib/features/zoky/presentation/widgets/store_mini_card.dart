@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/store.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// A Recommended Stores shortcut card for ZOKY Home's horizontal row --
 /// mirrors ClubMiniCard (WYN-014)'s shape exactly, swapping member-count
@@ -19,11 +20,11 @@ class StoreMiniCard extends StatelessWidget {
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
         child: SizedBox(
           width: 96,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: WynSpacing.space2),
             child: Column(
               children: [
                 CircleAvatar(
@@ -41,7 +42,7 @@ class StoreMiniCard extends StatelessWidget {
                         )
                       : null,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: WynSpacing.space1),
                 Text(
                   store.name,
                   maxLines: 1,

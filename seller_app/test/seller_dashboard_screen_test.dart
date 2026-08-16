@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:zoky_seller/features/dashboard/presentation/seller_dashboard_screen.dart';
 import 'package:zoky_seller/features/store/data/store.dart';
 
+import 'support/recording_seller_notification_repository.dart';
 import 'support/recording_seller_repository.dart';
 
 final _store = Store(
@@ -18,6 +19,7 @@ void main() {
   late RecordingSellerRepository statsRepository;
   late RecordingSellerRepository emptyBestSellingRepository;
   late RecordingSellerRepository defaultRepository;
+  late RecordingSellerNotificationRepository notificationRepository;
 
   setUp(() {
     statsRepository = RecordingSellerRepository(
@@ -31,6 +33,7 @@ void main() {
     emptyBestSellingRepository =
         RecordingSellerRepository(bestSellingProducts: const []);
     defaultRepository = RecordingSellerRepository();
+    notificationRepository = RecordingSellerNotificationRepository();
   });
 
   testWidgets('renders order counts, sales summary and best selling list',
@@ -39,6 +42,7 @@ void main() {
       home: SellerDashboardScreen(
         store: _store,
         sellerRepository: statsRepository,
+        notificationRepository: notificationRepository,
       ),
     ));
     await tester.pumpAndSettle();
@@ -62,6 +66,7 @@ void main() {
       home: SellerDashboardScreen(
         store: _store,
         sellerRepository: emptyBestSellingRepository,
+        notificationRepository: notificationRepository,
       ),
     ));
     await tester.pumpAndSettle();
@@ -76,6 +81,7 @@ void main() {
       home: SellerDashboardScreen(
         store: _store,
         sellerRepository: defaultRepository,
+        notificationRepository: notificationRepository,
       ),
     ));
     await tester.pumpAndSettle();

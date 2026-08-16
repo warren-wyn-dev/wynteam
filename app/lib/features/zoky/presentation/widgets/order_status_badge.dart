@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/order.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Shared status pill for Order List/Detail (ZOKY-003, expanded to 8
 /// statuses by SELLER-003) -- always color+icon+text together, never
@@ -64,13 +65,13 @@ class OrderStatusBadge extends StatelessWidget {
       label: 'สถานะคำสั่งซื้อ: $label',
       excludeSemantics: true,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2, vertical: WynSpacing.space1),
+        decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(WynSpacing.radiusMd)),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(_icons[status], size: 14, color: foreground),
-            const SizedBox(width: 4),
+            const SizedBox(width: WynSpacing.space1),
             Text(
               label,
               style: TextStyle(color: foreground, fontSize: 12, fontWeight: FontWeight.w600),

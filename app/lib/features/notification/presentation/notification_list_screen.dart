@@ -16,8 +16,11 @@ import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../../saved/data/saved_repository.dart';
+import '../../zoky/data/zoky_repository.dart';
+import '../../zoky/presentation/zoky_order_detail_screen.dart';
 import '../data/notification.dart';
 import '../data/notification_repository.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 2 — Notification list (WYN-012, extended by WYN-015 with 4
 /// Club types). Row structure mirrors FollowListScreen (WYN-008/013)
@@ -34,6 +37,7 @@ class NotificationListScreen extends StatefulWidget {
     required this.savedRepository,
     required this.clubRepository,
     required this.clubPostRepository,
+    required this.zokyRepository,
   });
 
   final NotificationRepository notificationRepository;
@@ -44,6 +48,7 @@ class NotificationListScreen extends StatefulWidget {
   final SavedRepository savedRepository;
   final ClubRepository clubRepository;
   final ClubPostRepository clubPostRepository;
+  final ZokyRepository zokyRepository;
 
   @override
   State<NotificationListScreen> createState() => _NotificationListScreenState();
@@ -157,7 +162,27 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       case NotificationType.clubPostLike:
       case NotificationType.clubPostComment:
         await _openClubPost(notification.clubPostId!);
+      case NotificationType.newOrder:
+      case NotificationType.orderShipped:
+      case NotificationType.orderCancelled:
+      case NotificationType.orderRefunded:
+        _openOrder(notification.orderId!);
+      case NotificationType.mentionDrop:
+        await _openDrop(notification.dropId!);
+      case NotificationType.mentionClubPost:
+        await _openClubPost(notification.clubPostId!);
     }
+  }
+
+  void _openOrder(String orderId) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ZokyOrderDetailScreen(
+          zokyRepository: widget.zokyRepository,
+          orderId: orderId,
+        ),
+      ),
+    );
   }
 
   Future<void> _openDrop(String dropId) async {
@@ -280,6 +305,24 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         return '$name ถูกใจโพสต์ของคุณใน $club';
       case NotificationType.clubPostComment:
         return '$name แสดงความคิดเห็นในโพสต์ของคุณใน $club';
+      case NotificationType.newOrder:
+        final store = notification.orderStoreName ?? 'ร้านของคุณ';
+        return '$name สั่งซื้อสินค้าจาก $store';
+      case NotificationType.orderShipped:
+        return 'คำสั่งซื้อของคุณจาก ${notification.orderStoreName ?? 'ร้านค้า'} ถูกจัดส่งแล้ว';
+      case NotificationType.orderCancelled:
+        // Bidirectional (see notify_order_cancelled in supabase/schema.sql
+        // -- either the buyer or the seller can be the recipient here),
+        // so this is deliberately worded to read correctly from either
+        // side, unlike orderShipped/orderRefunded above which are always
+        // buyer-recipient.
+        return 'คำสั่งซื้อจากร้าน ${notification.orderStoreName ?? 'ร้านค้า'} ถูกยกเลิก';
+      case NotificationType.orderRefunded:
+        return 'คำสั่งซื้อของคุณจาก ${notification.orderStoreName ?? 'ร้านค้า'} ถูกคืนเงินแล้ว';
+      case NotificationType.mentionDrop:
+        return '$name กล่าวถึงคุณใน Drop';
+      case NotificationType.mentionClubPost:
+        return '$name กล่าวถึงคุณในโพสต์ที่ $club';
     }
   }
 
@@ -302,7 +345,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
           ],
         ),
@@ -312,7 +355,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     if (_notifications.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -321,9 +364,9 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                 size: 56,
                 color: Theme.of(context).colorScheme.outline,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: WynSpacing.space4),
               const Text('ยังไม่มีการแจ้งเตือน', textAlign: TextAlign.center),
-              const SizedBox(height: 8),
+              const SizedBox(height: WynSpacing.space2),
               Text(
                 'เมื่อมีคนถูกใจ แสดงความคิดเห็น ติดตามคุณ หรือมีความเคลื่อนไหวใน Club จะเห็นที่นี่',
                 textAlign: TextAlign.center,
@@ -345,7 +388,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         itemBuilder: (context, index) {
           if (index >= _notifications.length) {
             return const Padding(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.all(WynSpacing.space4),
               child: Center(child: CircularProgressIndicator()),
             );
           }
@@ -366,7 +409,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
               child: InkWell(
                 onTap: () => _openNotification(notification),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
                   child: Row(
                     children: [
                       AvatarCircle(
@@ -374,7 +417,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                         fallbackText: notification.actorUsername,
                         radius: 20,
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: WynSpacing.space3),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,

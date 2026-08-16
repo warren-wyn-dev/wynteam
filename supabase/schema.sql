@@ -91,6 +91,10 @@ create table if not exists public.drops (
   author_id uuid not null references public.profiles (id) on delete cascade,
   image_url text not null,
   caption text,
+  -- WYN-019: free-text location, not a structured place lookup -- no UI
+  -- reads or writes this column yet, schema-only prep per the Founder's
+  -- "เตรียมโครงสร้างไว้สำหรับอนาคต" request.
+  location text,
   created_at timestamptz not null default now(),
   constraint drops_caption_length
     check (caption is null or char_length(caption) between 1 and 500)
@@ -149,6 +153,10 @@ create table if not exists public.drop_comments (
   author_id uuid not null references public.profiles (id) on delete cascade,
   text_content text not null,
   created_at timestamptz not null default now(),
+  -- WYN-022: null = top-level comment, set = a reply to that comment.
+  -- Depth capped at 1 level by prevent_nested_drop_comment_reply below
+  -- (a CHECK can't run the self-referencing subquery that needs).
+  parent_comment_id uuid references public.drop_comments (id) on delete cascade,
   constraint drop_comments_text_content_length
     check (char_length(text_content) between 1 and 500)
 );
@@ -345,6 +353,8 @@ create table if not exists public.pop_comments (
   author_id uuid not null references public.profiles (id) on delete cascade,
   text_content text not null,
   created_at timestamptz not null default now(),
+  -- WYN-022: same reply-depth-1 design as drop_comments.parent_comment_id.
+  parent_comment_id uuid references public.pop_comments (id) on delete cascade,
   constraint pop_comments_text_content_length
     check (char_length(text_content) between 1 and 500)
 );
@@ -1279,6 +1289,8 @@ create table if not exists public.club_post_comments (
   author_id uuid not null references public.profiles (id) on delete cascade,
   text_content text not null,
   created_at timestamptz not null default now(),
+  -- WYN-022: same reply-depth-1 design as drop_comments.parent_comment_id.
+  parent_comment_id uuid references public.club_post_comments (id) on delete cascade,
   constraint club_post_comments_text_content_length
     check (char_length(text_content) between 1 and 500)
 );
@@ -2703,6 +2715,178 @@ end;
 $$;
 
 -- ============================================================
+-- ZOKY-005 R1: Order Notifications (2026-08-16)
+-- ============================================================
+-- Closes the gap ZOKY-005's Product spec documents: every other
+-- interaction in this project (Like/Comment/Follow/Club events) has
+-- had a notification trigger since WYN-012/WYN-015, but orders never
+-- did -- a seller had no way to learn about a new order except by
+-- opening the app and checking the Orders tab, and a buyer had no way
+-- to learn their order shipped/was cancelled/was refunded except the
+-- same. order_id is added via `alter table` (not inline in the
+-- original `create table public.notifications` far above) for the
+-- same reason club_id/club_post_id were (WYN-015): this section runs
+-- after `public.orders` exists, not before.
+alter table public.notifications
+  add column if not exists order_id uuid references public.orders (id) on delete cascade;
+
+-- Same dynamic-constraint-name lookup as the orders.status migration
+-- above -- never hardcode a guessed name (see that migration's own
+-- comment and .wyn/tasks/backlog/SELLER-003-order-management.md,
+-- Risks, which this mirrors).
+do $$
+declare
+  v_constraint_name text;
+begin
+  select tc.constraint_name into v_constraint_name
+  from information_schema.table_constraints tc
+  join information_schema.constraint_column_usage ccu
+    on ccu.constraint_name = tc.constraint_name
+   and ccu.constraint_schema = tc.constraint_schema
+  where tc.table_schema = 'public'
+    and tc.table_name = 'notifications'
+    and tc.constraint_type = 'CHECK'
+    and ccu.column_name = 'type'
+  limit 1;
+
+  if v_constraint_name is not null then
+    execute format('alter table public.notifications drop constraint %I', v_constraint_name);
+  end if;
+end;
+$$;
+
+alter table public.notifications
+  add constraint notifications_type_check
+  check (type in (
+    'like_drop', 'like_pop', 'comment_drop', 'comment_pop', 'follow',
+    'club_join_request', 'club_join_approved', 'club_post_like', 'club_post_comment',
+    -- ZOKY-005 R1: order_delivered_confirmed intentionally omitted --
+    -- that transition is always the buyer's own action
+    -- (confirm_order_received), so there's no one else left to notify
+    -- about it. See .wyn/tasks/backlog/ZOKY-005-customer-seller-backend-
+    -- integration.md, Requirements R1.
+    'new_order', 'order_shipped', 'order_cancelled', 'order_refunded'
+  ));
+
+-- Fires once per Order row create_orders() inserts (one per store in
+-- the buyer's cart, ZOKY-003) -- recipient is that store's owner, actor
+-- is the buyer. Guards a store owner buying from their own store (not
+-- normally reachable via the customer app today, but not structurally
+-- prevented at the DB level either) the same way every other notify_*
+-- trigger guards self-notification.
+create or replace function public.notify_new_order()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_owner_id uuid;
+begin
+  select owner_id into v_owner_id from public.stores where id = new.store_id;
+  if v_owner_id is not null and v_owner_id <> new.buyer_id then
+    insert into public.notifications (recipient_id, actor_id, type, order_id)
+    values (v_owner_id, new.buyer_id, 'new_order', new.id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger orders_notify_new_order
+  after insert on public.orders
+  for each row execute function public.notify_new_order();
+
+-- ready_to_ship -> shipped, only ever reached via seller_ship_order
+-- above -- recipient is the buyer, actor is the store owner.
+create or replace function public.notify_order_shipped()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_owner_id uuid;
+begin
+  select owner_id into v_owner_id from public.stores where id = new.store_id;
+  if v_owner_id is not null and v_owner_id <> new.buyer_id then
+    insert into public.notifications (recipient_id, actor_id, type, order_id)
+    values (new.buyer_id, v_owner_id, 'order_shipped', new.id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger orders_notify_shipped
+  after update on public.orders
+  for each row
+  when (old.status = 'ready_to_ship' and new.status = 'shipped')
+  execute function public.notify_order_shipped();
+
+-- Cancellation can be triggered by either party (cancel_order is
+-- buyer-only, seller_cancel_order is seller-only, see above) so unlike
+-- every other trigger in this section the notification's direction
+-- isn't fixed by which columns changed -- it depends on who called the
+-- RPC. auth.uid() still resolves to the original calling user inside
+-- this trigger even though both RPCs run security definer, same
+-- reasoning notify_club_join_approved's comment (WYN-015) already
+-- documents for that trigger.
+create or replace function public.notify_order_cancelled()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_owner_id uuid;
+begin
+  select owner_id into v_owner_id from public.stores where id = new.store_id;
+  if auth.uid() = new.buyer_id then
+    if v_owner_id is not null and v_owner_id <> new.buyer_id then
+      insert into public.notifications (recipient_id, actor_id, type, order_id)
+      values (v_owner_id, new.buyer_id, 'order_cancelled', new.id);
+    end if;
+  elsif v_owner_id is not null and auth.uid() = v_owner_id and v_owner_id <> new.buyer_id then
+    insert into public.notifications (recipient_id, actor_id, type, order_id)
+    values (new.buyer_id, v_owner_id, 'order_cancelled', new.id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger orders_notify_cancelled
+  after update on public.orders
+  for each row
+  when (old.status <> 'cancelled' and new.status = 'cancelled')
+  execute function public.notify_order_cancelled();
+
+-- Seller-only (seller_mark_refunded above) -- recipient is always the
+-- buyer, actor is always the store owner, same fixed direction as
+-- notify_order_shipped.
+create or replace function public.notify_order_refunded()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_owner_id uuid;
+begin
+  select owner_id into v_owner_id from public.stores where id = new.store_id;
+  if v_owner_id is not null and v_owner_id <> new.buyer_id then
+    insert into public.notifications (recipient_id, actor_id, type, order_id)
+    values (new.buyer_id, v_owner_id, 'order_refunded', new.id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger orders_notify_refunded
+  after update on public.orders
+  for each row
+  when (old.status <> 'refunded' and new.status = 'refunded')
+  execute function public.notify_order_refunded();
+
+-- ============================================================
 -- SELLER-004: ZOKY Sellers by WYN — Store Management
 -- ============================================================
 -- Purely additive: 3 new nullable `stores` columns for the fields
@@ -2800,3 +2984,314 @@ create policy "Sellers can delete their own store's media"
         and stores.owner_id = auth.uid()
     )
   );
+
+-- ============================================================
+-- WYN-016: Push Notification
+-- ============================================================
+-- One row per signed-in device -- the client upserts here (see
+-- PushTokenRepository, both apps) whenever it obtains/refreshes an FCM
+-- token, independent of the `notifications` table this feeds off of.
+-- `token` is globally unique (not per-user-unique): the common upsert
+-- case is the *same* user re-registering the *same* token (app
+-- relaunch, defensive re-sync) -- RLS's update policy below allows
+-- that because the existing row's user_id already matches auth.uid().
+-- It deliberately does NOT allow a *different* user's upsert to
+-- retarget someone else's still-present row to themselves (the
+-- policy's `using` clause checks the pre-existing row's owner, which
+-- would still be the old user) -- that would let one account silently
+-- claim another's device-token row via RLS, which is exactly the kind
+-- of cross-user write RLS exists to prevent. A shared/reused device
+-- whose FCM token outlives a sign-out is handled by the client
+-- deleting its own token row on sign-out (allowed -- the deleting user
+-- still owns it at that point), so the next user's plain insert never
+-- conflicts. See .wyn/docs/design/wyn-016-push-notifications.md.
+--
+-- Delivery itself (notifications INSERT -> Edge Function -> FCM) is
+-- wired via a Supabase Database Webhook configured in the Dashboard,
+-- deliberately not a SQL trigger in this file -- `supabase_functions.
+-- http_request()` (the mechanism behind Database Webhooks) doesn't
+-- exist on a plain Postgres instance, which would break this file's
+-- "verified by running against a real local Postgres" QA guarantee
+-- that's held for every other section. See that same design doc for
+-- the one-time Dashboard setup step this requires from the Founder.
+create table if not exists public.push_tokens (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  token text not null unique,
+  platform text not null check (platform in ('android', 'ios', 'web')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists push_tokens_user_id_idx on public.push_tokens (user_id);
+
+alter table public.push_tokens enable row level security;
+
+-- No public/authenticated-wide select -- only the owner can even see
+-- their own registered devices (device tokens are sensitive, unlike
+-- almost everything else in this schema which defaults to select-all-
+-- authenticated). The Edge Function reads across all users' tokens via
+-- the service-role key, which bypasses RLS entirely, same as every
+-- other security-definer-adjacent server-side path in this file.
+create policy "Users can view their own push tokens"
+  on public.push_tokens
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can register their own push tokens"
+  on public.push_tokens
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+-- Covers the "same token, different account now signed in" retarget
+-- case described above -- an upsert on the `token` unique constraint
+-- becomes an UPDATE, which needs its own policy distinct from insert.
+create policy "Users can update their own push tokens"
+  on public.push_tokens
+  for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete their own push tokens"
+  on public.push_tokens
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- ============================================================
+-- WYN-021: Mention System
+-- ============================================================
+-- Unlike hashtags (WYN-020, which stayed ILIKE-only because a false
+-- positive there is harmless), a mention notification firing at the
+-- wrong person is a real, visible mistake -- so this needs a real
+-- entity table recording exactly who was mentioned, not a substring
+-- match. Populated by the client right after the drops/club_posts
+-- insert succeeds, from MentionInput's already-resolved user-id set
+-- (not re-parsed from the caption server-side). See
+-- .wyn/docs/design/wyn-021-mention-system.md.
+create table if not exists public.drop_mentions (
+  id uuid primary key default gen_random_uuid(),
+  drop_id uuid not null references public.drops (id) on delete cascade,
+  mentioned_user_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  constraint drop_mentions_unique unique (drop_id, mentioned_user_id)
+);
+
+alter table public.drop_mentions enable row level security;
+
+create policy "Mentions are viewable by authenticated users"
+  on public.drop_mentions
+  for select
+  to authenticated
+  using (true);
+
+-- Only the Drop's own author can record a mention against it -- the
+-- client sends this immediately after creating the Drop it belongs to.
+create policy "Drop authors can mention users in their own drops"
+  on public.drop_mentions
+  for insert
+  to authenticated
+  with check (
+    exists (
+      select 1 from public.drops
+      where drops.id = drop_id and drops.author_id = auth.uid()
+    )
+  );
+
+create table if not exists public.club_post_mentions (
+  id uuid primary key default gen_random_uuid(),
+  club_post_id uuid not null references public.club_posts (id) on delete cascade,
+  mentioned_user_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  constraint club_post_mentions_unique unique (club_post_id, mentioned_user_id)
+);
+
+alter table public.club_post_mentions enable row level security;
+
+create policy "Club post mentions are viewable by authenticated users"
+  on public.club_post_mentions
+  for select
+  to authenticated
+  using (true);
+
+create policy "Club post authors can mention users in their own posts"
+  on public.club_post_mentions
+  for insert
+  to authenticated
+  with check (
+    exists (
+      select 1 from public.club_posts
+      where club_posts.id = club_post_id and club_posts.author_id = auth.uid()
+    )
+  );
+
+-- Same dynamic-constraint-name lookup as every prior notifications.type
+-- widening in this file -- never hardcode a guessed constraint name.
+do $$
+declare
+  v_constraint_name text;
+begin
+  select tc.constraint_name into v_constraint_name
+  from information_schema.table_constraints tc
+  join information_schema.constraint_column_usage ccu
+    on ccu.constraint_name = tc.constraint_name
+   and ccu.constraint_schema = tc.constraint_schema
+  where tc.table_schema = 'public'
+    and tc.table_name = 'notifications'
+    and tc.constraint_type = 'CHECK'
+    and ccu.column_name = 'type'
+  limit 1;
+
+  if v_constraint_name is not null then
+    execute format('alter table public.notifications drop constraint %I', v_constraint_name);
+  end if;
+end;
+$$;
+
+alter table public.notifications
+  add constraint notifications_type_check
+  check (type in (
+    'like_drop', 'like_pop', 'comment_drop', 'comment_pop', 'follow',
+    'club_join_request', 'club_join_approved', 'club_post_like', 'club_post_comment',
+    'new_order', 'order_shipped', 'order_cancelled', 'order_refunded',
+    'mention_drop', 'mention_club_post'
+  ));
+
+-- Actor is the post's author (they wrote the mention); recipient is the
+-- mentioned user. Mirrors notify_drop_like()'s exact shape, including
+-- the self-notification guard (mentioning yourself is a harmless no-op,
+-- not blocked, just silent).
+create or replace function public.notify_drop_mention()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+begin
+  select author_id into v_author_id from public.drops where id = new.drop_id;
+  if v_author_id is not null and new.mentioned_user_id <> v_author_id then
+    insert into public.notifications (recipient_id, actor_id, type, drop_id)
+    values (new.mentioned_user_id, v_author_id, 'mention_drop', new.drop_id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger drop_mentions_notify
+  after insert on public.drop_mentions
+  for each row execute function public.notify_drop_mention();
+
+-- club_id is denormalized onto the notification row the same way
+-- notify_club_post_like/notify_club_post_comment already do (see those
+-- two functions above) -- NotificationRepository joins club:clubs(name)
+-- through this column, and mentionClubPost's message text needs the
+-- club name.
+create or replace function public.notify_club_post_mention()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+  v_club_id uuid;
+begin
+  select author_id, club_id into v_author_id, v_club_id
+  from public.club_posts where id = new.club_post_id;
+  if v_author_id is not null and new.mentioned_user_id <> v_author_id then
+    insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
+    values (new.mentioned_user_id, v_author_id, 'mention_club_post', new.club_post_id, v_club_id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger club_post_mentions_notify
+  after insert on public.club_post_mentions
+  for each row execute function public.notify_club_post_mention();
+
+-- ============================================================
+-- WYN-022: Comment Reply
+-- ============================================================
+-- parent_comment_id itself was added inline on each comment table's own
+-- `create table` above (self-referencing FK, no forward-reference
+-- issue). These three triggers are the actual depth-1 enforcement -- a
+-- CHECK constraint can't run the self-referencing subquery needed to
+-- ask "does my parent already have a parent". See
+-- .wyn/docs/design/wyn-022-comment-reply.md.
+create or replace function public.prevent_nested_drop_comment_reply()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_parent_is_reply boolean;
+begin
+  if new.parent_comment_id is not null then
+    select parent_comment_id is not null into v_parent_is_reply
+    from public.drop_comments where id = new.parent_comment_id;
+    if v_parent_is_reply then
+      raise exception 'Cannot reply to a reply -- only one level of nesting is allowed';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger drop_comments_prevent_nested_reply
+  before insert on public.drop_comments
+  for each row execute function public.prevent_nested_drop_comment_reply();
+
+create or replace function public.prevent_nested_pop_comment_reply()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_parent_is_reply boolean;
+begin
+  if new.parent_comment_id is not null then
+    select parent_comment_id is not null into v_parent_is_reply
+    from public.pop_comments where id = new.parent_comment_id;
+    if v_parent_is_reply then
+      raise exception 'Cannot reply to a reply -- only one level of nesting is allowed';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger pop_comments_prevent_nested_reply
+  before insert on public.pop_comments
+  for each row execute function public.prevent_nested_pop_comment_reply();
+
+create or replace function public.prevent_nested_club_post_comment_reply()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_parent_is_reply boolean;
+begin
+  if new.parent_comment_id is not null then
+    select parent_comment_id is not null into v_parent_is_reply
+    from public.club_post_comments where id = new.parent_comment_id;
+    if v_parent_is_reply then
+      raise exception 'Cannot reply to a reply -- only one level of nesting is allowed';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger club_post_comments_prevent_nested_reply
+  before insert on public.club_post_comments
+  for each row execute function public.prevent_nested_club_post_comment_reply();

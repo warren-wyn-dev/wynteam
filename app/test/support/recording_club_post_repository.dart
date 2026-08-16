@@ -14,9 +14,11 @@ class RecordingClubPostRepository extends ClubPostRepository {
     List<ClubPost>? posts,
     List<ClubPostComment>? comments,
     List<ClubPost>? fromJoinedClubs,
+    List<ClubPost>? searchResults,
   })  : posts = posts ?? [],
         comments = comments ?? [],
         fromJoinedClubs = fromJoinedClubs ?? [],
+        searchResults = searchResults ?? [],
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   /// Returned by [fetchPosts] for page 0 only (page 1+ returns empty).
@@ -26,6 +28,10 @@ class RecordingClubPostRepository extends ClubPostRepository {
   /// empty).
   final List<ClubPost> fromJoinedClubs;
 
+  /// Returned by [searchByContent] for page 0 only (page 1+ returns
+  /// empty) -- WYN-020.
+  final List<ClubPost> searchResults;
+
   /// Returned by [fetchById], regardless of postId.
   ClubPost? byIdResult;
 
@@ -33,6 +39,9 @@ class RecordingClubPostRepository extends ClubPostRepository {
   final List<ClubPostComment> comments;
 
   int createPostCalls = 0;
+  /// Each call to [createPost]'s mentionedUserIds argument, in order --
+  /// WYN-021.
+  final List<Set<String>> createPostMentionedUserIdsArgs = [];
   int deletePostCalls = 0;
   final List<String> deletePostIdArgs = [];
   int toggleLikeCalls = 0;
@@ -56,14 +65,21 @@ class RecordingClubPostRepository extends ClubPostRepository {
   Future<ClubPost?> fetchById(String postId) async => byIdResult;
 
   @override
+  Future<List<ClubPost>> searchByContent({required String query, required int page}) async {
+    return page == 0 ? searchResults : <ClubPost>[];
+  }
+
+  @override
   Future<void> createPost({
     required String clubId,
     String? content,
     List<Uint8List>? images,
     List<String>? imageExtensions,
     String? linkUrl,
+    Set<String> mentionedUserIds = const {},
   }) async {
     createPostCalls++;
+    createPostMentionedUserIdsArgs.add(mentionedUserIds);
   }
 
   @override
@@ -91,12 +107,16 @@ class RecordingClubPostRepository extends ClubPostRepository {
   @override
   Future<List<ClubPostComment>> fetchComments(String postId) async => comments;
 
+  final List<String?> addCommentParentIdArgs = [];
+
   @override
   Future<ClubPostComment> addComment({
     required String postId,
     required String textContent,
+    String? parentCommentId,
   }) async {
     addCommentCalls++;
+    addCommentParentIdArgs.add(parentCommentId);
     return ClubPostComment(
       id: 'new-comment-$addCommentCalls',
       clubPostId: postId,
@@ -104,6 +124,7 @@ class RecordingClubPostRepository extends ClubPostRepository {
       authorUsername: 'me',
       textContent: textContent,
       createdAt: DateTime.now(),
+      parentCommentId: parentCommentId,
     );
   }
 

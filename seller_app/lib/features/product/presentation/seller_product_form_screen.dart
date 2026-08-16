@@ -10,6 +10,7 @@ import '../data/product.dart';
 import '../data/product_variant.dart';
 import 'widgets/product_variant_editor.dart';
 import 'widgets/stock_adjustment_sheet.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Create *and* edit share this single screen -- [existingProduct] null
 /// means create mode, non-null means edit mode -- mirroring
@@ -288,7 +289,7 @@ class _SellerProductFormScreenState extends State<SellerProductFormScreen> {
         title: Text(_isEditing ? 'แก้ไขสินค้า' : 'เพิ่มสินค้า'),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.only(right: WynSpacing.space2),
             child: Center(
               child: TextButton(
                 onPressed: _canSubmit ? _submit : null,
@@ -318,14 +319,14 @@ class _SellerProductFormScreenState extends State<SellerProductFormScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (_totalImageCount > 0) _buildImageRow(),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: WynSpacing.space1),
                     Text(
                       'รูปแรกจะเป็นรูปหน้าปกสินค้า',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Theme.of(context).colorScheme.outline,
                           ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: WynSpacing.space2),
                     OutlinedButton.icon(
                       onPressed: (_isSubmitting || _totalImageCount >= _maxImages)
                           ? null
@@ -333,7 +334,7 @@ class _SellerProductFormScreenState extends State<SellerProductFormScreen> {
                       icon: const Icon(Icons.add_photo_alternate_outlined),
                       label: const Text('แนบรูปสินค้า'),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: WynSpacing.space4),
                     TextField(
                       controller: _nameController,
                       maxLength: 200,
@@ -357,7 +358,7 @@ class _SellerProductFormScreenState extends State<SellerProductFormScreen> {
                         errorText: _originalPriceError,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: WynSpacing.space2),
                     DropdownButtonFormField<Category>(
                       initialValue: _selectedCategory,
                       decoration: const InputDecoration(labelText: 'หมวดหมู่'),
@@ -373,7 +374,7 @@ class _SellerProductFormScreenState extends State<SellerProductFormScreen> {
                           ? null
                           : (value) => setState(() => _selectedCategory = value),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: WynSpacing.space2),
                     TextField(
                       controller: _descriptionController,
                       maxLines: 4,
@@ -385,11 +386,11 @@ class _SellerProductFormScreenState extends State<SellerProductFormScreen> {
                       enabled: !_isSubmitting,
                       decoration: const InputDecoration(labelText: 'SKU (ไม่บังคับ)'),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: WynSpacing.space2),
                     if (_isEditing) ...[
                       Card(
                         child: Padding(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(WynSpacing.space3),
                           child: Row(
                             children: [
                               Expanded(
@@ -414,13 +415,13 @@ class _SellerProductFormScreenState extends State<SellerProductFormScreen> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 16),
+                    const SizedBox(height: WynSpacing.space4),
                     ProductVariantEditor(
                       variants: _variants,
                       sellerRepository: widget.sellerRepository,
                       onChanged: () => setState(() {}),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: WynSpacing.space4),
                     FilledButton(
                       onPressed: _canSubmit ? _submit : null,
                       child: _isSubmitting
@@ -432,7 +433,7 @@ class _SellerProductFormScreenState extends State<SellerProductFormScreen> {
                           : Text(_isEditing ? 'บันทึกการแก้ไข' : 'สร้างสินค้า'),
                     ),
                     if (_isSubmitting) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: WynSpacing.space2),
                       Text(
                         'กำลังอัปโหลดรูปภาพ...',
                         textAlign: TextAlign.center,
@@ -440,7 +441,7 @@ class _SellerProductFormScreenState extends State<SellerProductFormScreen> {
                       ),
                     ],
                     if (_errorMessage != null) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: WynSpacing.space4),
                       Text(
                         _errorMessage!,
                         textAlign: TextAlign.center,
@@ -448,7 +449,7 @@ class _SellerProductFormScreenState extends State<SellerProductFormScreen> {
                       ),
                     ],
                     if (_isEditing) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: WynSpacing.space1),
                       TextButton(
                         onPressed: _isSubmitting ? null : _toggleActive,
                         style: TextButton.styleFrom(
@@ -471,9 +472,9 @@ class _SellerProductFormScreenState extends State<SellerProductFormScreen> {
       height: 88,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
         itemCount: _totalImageCount,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        separatorBuilder: (context, index) => const SizedBox(width: WynSpacing.space2),
         itemBuilder: (context, index) {
           final isExisting = index < _existingImageUrls.length;
           final imageWidget = isExisting
@@ -491,7 +492,7 @@ class _SellerProductFormScreenState extends State<SellerProductFormScreen> {
                 );
           return Stack(
             children: [
-              ClipRRect(borderRadius: BorderRadius.circular(8), child: imageWidget),
+              ClipRRect(borderRadius: BorderRadius.circular(WynSpacing.radiusSm), child: imageWidget),
               Positioned(
                 right: 0,
                 top: 0,

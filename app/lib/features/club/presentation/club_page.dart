@@ -9,6 +9,7 @@ import 'edit_club_info_screen.dart';
 import 'widgets/club_about_tab.dart';
 import 'widgets/club_members_tab.dart';
 import 'widgets/club_posts_tab.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Placeholder share link -- same "no real hosting/domain yet" caveat as
 /// dropShareLink/popShareLink (WYN-005/006).
@@ -293,7 +294,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text('โหลด Club ไม่สำเร็จ'),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: WynSpacing.space3),
                   TextButton(onPressed: _reload, child: const Text('ลองใหม่')),
                 ],
               ),
@@ -367,7 +368,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               // rounded card, not an FB-style edge-to-edge hero that
               // scales with screen width).
               ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
                 child: SizedBox(
                   height: 140,
                   width: double.infinity,
@@ -403,7 +404,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               ),
             ],
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: WynSpacing.space8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -411,7 +412,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                 child: Text(club.name, style: Theme.of(context).textTheme.headlineSmall),
               ),
               if (club.category != null) ...[
-                const SizedBox(width: 8),
+                const SizedBox(width: WynSpacing.space2),
                 Chip(
                   label: Text(club.category!),
                   visualDensity: VisualDensity.compact,
@@ -420,17 +421,17 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
             ],
           ),
           if (club.description != null && club.description!.isNotEmpty) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: WynSpacing.space1),
             Text(club.description!, maxLines: 3, overflow: TextOverflow.ellipsis),
           ],
-          const SizedBox(height: 8),
+          const SizedBox(height: WynSpacing.space2),
           Text(
             '${club.memberCount} สมาชิก',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.outline,
                 ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: WynSpacing.space3),
           Row(
             children: [
               _buildJoinButton(club, membership),

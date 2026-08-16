@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Status pill for a product's `is_active` flag -- always color+icon+
 /// text together, mirroring `OrderStatusBadge` (ZOKY-003)'s
@@ -26,13 +27,13 @@ class ProductActiveBadge extends StatelessWidget {
       label: 'สถานะสินค้า: $label',
       excludeSemantics: true,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2, vertical: WynSpacing.space1),
+        decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(WynSpacing.radiusMd)),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 14, color: foreground),
-            const SizedBox(width: 4),
+            const SizedBox(width: WynSpacing.space1),
             Text(
               label,
               style: TextStyle(color: foreground, fontSize: 12, fontWeight: FontWeight.w600),

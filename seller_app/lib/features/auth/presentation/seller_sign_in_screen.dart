@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/seller_auth_repository.dart';
 import 'phone_entry_screen.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Sign-in for sellers who already have a WYN account. Combines what
 /// `app/`'s `WelcomeScreen` + `AuthMethodScreen` do as two separate
@@ -42,7 +43,7 @@ class _SellerSignInScreenState extends State<SellerSignInScreen> {
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -54,7 +55,7 @@ class _SellerSignInScreenState extends State<SellerSignInScreen> {
                       fontWeight: FontWeight.bold,
                     ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: WynSpacing.space3),
               Text(
                 'เข้าสู่ระบบด้วยบัญชี WYN ของคุณเพื่อเริ่มขายของบน ZOKY',
                 textAlign: TextAlign.center,
@@ -68,7 +69,7 @@ class _SellerSignInScreenState extends State<SellerSignInScreen> {
                 icon: const Icon(Icons.g_mobiledata),
                 label: const Text('เข้าสู่ระบบด้วย Google'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: WynSpacing.space3),
               FilledButton.icon(
                 onPressed: _isLoading
                     ? null
@@ -76,7 +77,7 @@ class _SellerSignInScreenState extends State<SellerSignInScreen> {
                 icon: const Icon(Icons.apple),
                 label: const Text('เข้าสู่ระบบด้วย Apple'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: WynSpacing.space3),
               OutlinedButton(
                 onPressed: _isLoading
                     ? null
@@ -89,12 +90,21 @@ class _SellerSignInScreenState extends State<SellerSignInScreen> {
                         ),
                 child: const Text('เข้าสู่ระบบด้วยเบอร์โทร'),
               ),
+              const SizedBox(height: WynSpacing.space3),
+              // Temporary Internal Testing bypass (2026-08-16, see
+              // .wyn/company/DECISIONS.md) -- mirrors app/'s WelcomeScreen.
+              TextButton(
+                onPressed: _isLoading
+                    ? null
+                    : () => _handle(widget.authRepository.signInAnonymously),
+                child: const Text('ทดลองใช้โดยไม่ต้องเข้าสู่ระบบ'),
+              ),
               if (_isLoading) ...[
-                const SizedBox(height: 24),
+                const SizedBox(height: WynSpacing.space6),
                 const Center(child: CircularProgressIndicator()),
               ],
               if (_errorMessage != null) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: WynSpacing.space4),
                 Text(
                   _errorMessage!,
                   textAlign: TextAlign.center,

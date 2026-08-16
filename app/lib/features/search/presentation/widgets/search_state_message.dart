@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// The centered icon+text message shown for both of Search's empty
 /// states (not-yet-searched prompt, and no-results) across all three
@@ -17,12 +18,12 @@ class SearchStateMessage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 56, color: Theme.of(context).colorScheme.outline),
-            const SizedBox(height: 16),
+            const SizedBox(height: WynSpacing.space4),
             Text(text, textAlign: TextAlign.center),
           ],
         ),

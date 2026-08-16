@@ -4,6 +4,7 @@ import '../../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../store/data/seller_repository.dart';
 import '../../data/product_variant.dart';
 import 'stock_adjustment_sheet.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Add/edit/remove Color/Size variants inside SellerProductFormScreen --
 /// a flat list per type, matching ZOKY-001's existing data model
@@ -116,7 +117,7 @@ class _ProductVariantEditorState extends State<ProductVariantEditor> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('ตัวเลือกสินค้า (ไม่บังคับ)', style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 8),
+        const SizedBox(height: WynSpacing.space2),
         Row(
           children: [
             Expanded(
@@ -126,7 +127,7 @@ class _ProductVariantEditorState extends State<ProductVariantEditor> {
                 label: const Text('เพิ่มสี'),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: WynSpacing.space2),
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: () => _addVariant(VariantType.size),
@@ -149,12 +150,12 @@ class _ProductVariantEditorState extends State<ProductVariantEditor> {
     // may only change through StockAdjustmentSheet's RPC call.
     final isNewRow = variant.id == null;
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: WynSpacing.space2),
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(WynSpacing.space2),
         decoration: BoxDecoration(
           border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -170,7 +171,7 @@ class _ProductVariantEditorState extends State<ProductVariantEditor> {
                     onChanged: (text) => variant.value = text,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: WynSpacing.space2),
                 Expanded(
                   child: TextField(
                     controller: _priceDeltaController(variant),
@@ -181,7 +182,7 @@ class _ProductVariantEditorState extends State<ProductVariantEditor> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: WynSpacing.space2),
             Row(
               children: [
                 Expanded(

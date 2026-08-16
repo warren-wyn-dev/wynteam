@@ -26,6 +26,21 @@ class ProfileRepository {
     return Profile.fromMap(row);
   }
 
+  /// Resolves an `@username` mention span (WYN-021) to the user it
+  /// points at, for opening their profile on tap. Returns null rather
+  /// than throwing when the username doesn't exist (typo, or the
+  /// account was deleted since the mention was posted) -- an
+  /// unresolvable mention should fail silently, not crash the screen it
+  /// was tapped from.
+  Future<Profile?> fetchProfileByUsername(String username) async {
+    final row = await _client
+        .from('profiles')
+        .select('id, username, display_name, bio, avatar_url')
+        .eq('username', username)
+        .maybeSingle();
+    return row == null ? null : Profile.fromMap(row);
+  }
+
   Future<void> updateProfile({
     required String userId,
     required String displayName,

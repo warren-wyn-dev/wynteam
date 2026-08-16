@@ -96,6 +96,26 @@ class HomeFeedItem {
         savedByMe: savedByMe,
       );
 
+  /// Converts a [Drop] into a drop-typed [HomeFeedItem] -- the reverse of
+  /// [toDrop] -- so widgets built for the unified Home feed (HomeDropCard)
+  /// can be reused wherever a plain Drop list is fetched instead (WYN-019's
+  /// Drop tab). See .wyn/docs/design/wyn-019-drop-feed-tabs.md.
+  factory HomeFeedItem.fromDrop(Drop drop) => HomeFeedItem(
+        id: drop.id,
+        contentType: HomeContentType.drop,
+        authorId: drop.authorId,
+        authorUsername: drop.authorUsername,
+        authorDisplayName: drop.authorDisplayName,
+        authorAvatarUrl: drop.authorAvatarUrl,
+        createdAt: drop.createdAt,
+        caption: drop.caption,
+        imageUrl: drop.imageUrl,
+        likeCount: drop.likeCount,
+        commentCount: drop.commentCount,
+        likedByMe: drop.likedByMe,
+        savedByMe: drop.savedByMe,
+      );
+
   factory HomeFeedItem.fromMap(
     Map<String, dynamic> map, {
     required bool likedByMe,

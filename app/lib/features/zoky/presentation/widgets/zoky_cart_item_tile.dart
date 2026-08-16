@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/text_utils.dart';
 import '../../data/cart_item.dart';
 import 'quantity_stepper.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// A single row in ZokyCartScreen -- thumbnail + name + variant
 /// snapshot + price + quantity stepper + remove button. New shape, no
@@ -27,7 +28,7 @@ class ZokyCartItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final product = item.product;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -37,9 +38,9 @@ class ZokyCartItemTile extends StatelessWidget {
             excludeSemantics: true,
             child: InkWell(
               onTap: onTap,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
                 child: SizedBox(
                   width: 64,
                   height: 64,
@@ -48,7 +49,7 @@ class ZokyCartItemTile extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: WynSpacing.space3),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,7 +72,7 @@ class ZokyCartItemTile extends StatelessWidget {
                         ),
                   ),
                 ],
-                const SizedBox(height: 4),
+                const SizedBox(height: WynSpacing.space1),
                 Text(
                   thaiBahtLabel(product.price),
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(

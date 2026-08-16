@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/text_utils.dart';
+import '../../notification/data/seller_notification_repository.dart';
+import '../../notification/presentation/seller_notification_list_screen.dart';
 import '../../store/data/seller_repository.dart';
 import '../../store/data/store.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 class _DashboardStats {
   const _DashboardStats({
@@ -31,10 +34,12 @@ class SellerDashboardScreen extends StatefulWidget {
     super.key,
     required this.store,
     required this.sellerRepository,
+    required this.notificationRepository,
   });
 
   final Store store;
   final SellerRepository sellerRepository;
+  final SellerNotificationRepository notificationRepository;
 
   @override
   State<SellerDashboardScreen> createState() => _SellerDashboardScreenState();
@@ -42,11 +47,78 @@ class SellerDashboardScreen extends StatefulWidget {
 
 class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
   Future<_DashboardStats>? _statsFuture;
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadUnreadNotificationCount();
+  }
+
+  Future<void> _loadUnreadNotificationCount() async {
+    try {
+      final count = await widget.notificationRepository.countUnread();
+      if (!mounted) return;
+      setState(() => _unreadNotificationCount = count);
+    } catch (_) {
+      // Silent, same as `app/`'s HomeFeedScreen -- a failed badge-count
+      // fetch just leaves the badge showing its last known value.
+    }
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SellerNotificationListScreen(
+          notificationRepository: widget.notificationRepository,
+          sellerRepository: widget.sellerRepository,
+        ),
+      ),
+    );
+    // SellerNotificationListScreen marks everything as read on open --
+    // refresh so the badge reflects that once the user comes back.
+    _loadUnreadNotificationCount();
+  }
+
+  Widget _buildNotificationButton(BuildContext context) {
+    final count = _unreadNotificationCount;
+    final badgeText = count > 9 ? '9+' : '$count';
+
+    return Semantics(
+      label: count > 0 ? 'การแจ้งเตือน มี $count รายการที่ยังไม่อ่าน' : 'การแจ้งเตือน',
+      button: true,
+      excludeSemantics: true,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: _openNotifications,
+          ),
+          if (count > 0)
+            Positioned(
+              right: 4,
+              top: 4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: 1),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+                ),
+                child: Text(
+                  badgeText,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   void _load() {
@@ -85,7 +157,10 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('แดชบอร์ด')),
+      appBar: AppBar(
+        title: const Text('แดชบอร์ด'),
+        actions: [_buildNotificationButton(context)],
+      ),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
@@ -113,13 +188,13 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
 
               final stats = snapshot.data!;
               return ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(WynSpacing.space4),
                 children: [
                   Text(
                     widget.store.name,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: WynSpacing.space4),
                   Row(
                     children: [
                       Expanded(
@@ -128,7 +203,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                           value: '${stats.newOrders}',
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: WynSpacing.space3),
                       Expanded(
                         child: _StatCard(
                           label: 'คำสั่งซื้อทั้งหมด',
@@ -137,10 +212,10 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: WynSpacing.space3),
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(WynSpacing.space4),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -148,7 +223,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                             'ยอดขาย',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: WynSpacing.space2),
                           _summaryRow('วันนี้', thaiBahtLabel(stats.todaySales)),
                           _summaryRow(
                               'เดือนนี้', thaiBahtLabel(stats.monthSales)),
@@ -158,10 +233,10 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: WynSpacing.space3),
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(WynSpacing.space4),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -169,13 +244,13 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                             'สินค้าขายดี',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: WynSpacing.space2),
                           if (stats.bestSelling.isEmpty)
                             const Text('ยังไม่มีข้อมูลการขาย')
                           else
                             for (final entry in stats.bestSelling)
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                padding: const EdgeInsets.symmetric(vertical: WynSpacing.space1),
                                 child: Row(
                                   children: [
                                     Expanded(child: Text(entry.$1)),
@@ -187,10 +262,10 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: WynSpacing.space3),
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(WynSpacing.space4),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -198,7 +273,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                             'ยอดคงเหลือ / รอโอน',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: WynSpacing.space2),
                           // Intentionally not a fake "฿0" -- there's no
                           // Payout system yet at all (Product spec:
                           // "ห้ามแสดงเลข 0 ที่ทำให้เข้าใจผิดว่าคำนวณแล้ว
@@ -241,7 +316,7 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(WynSpacing.space4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,7 +327,7 @@ class _StatCard extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: WynSpacing.space1),
             Text(label, style: Theme.of(context).textTheme.bodyMedium),
           ],
         ),

@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../../core/design/wyn_colors.dart';
+import '../../../../core/widgets/hashtag_text.dart';
 import '../../../drop/data/drop_repository.dart';
 import '../../../follow/data/follow_repository.dart';
 import '../../../profile/data/profile_repository.dart';
@@ -15,6 +16,7 @@ import '../../data/pop.dart';
 import '../../data/pop_repository.dart';
 import 'confirm_delete_pop_dialog.dart';
 import 'pop_comment_sheet.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Placeholder share link -- there's no real hosting/domain yet, same
 /// situation as Drop's share link (see .wyn/tasks/approved/WYN-005-drop-post-image.md
@@ -315,7 +317,7 @@ class _PopClipViewState extends State<PopClipView> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.error_outline, color: Colors.white70, size: 40),
-                SizedBox(height: 8),
+                SizedBox(height: WynSpacing.space2),
                 Text('โหลดคลิปไม่สำเร็จ', style: TextStyle(color: Colors.white70)),
               ],
             ),
@@ -373,7 +375,7 @@ class _PopClipViewState extends State<PopClipView> {
                   Flexible(
                     child: InkWell(
                       onTap: _openAuthorProfile,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -382,7 +384,7 @@ class _PopClipViewState extends State<PopClipView> {
                             fallbackText: _pop.authorUsername,
                             radius: 16,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: WynSpacing.space2),
                           Flexible(
                             child: Text(
                               _pop.authorNameOrUsername,
@@ -398,7 +400,7 @@ class _PopClipViewState extends State<PopClipView> {
                     ),
                   ),
                   if (!isOwnPop && _isFollowing != null) ...[
-                    const SizedBox(width: 8),
+                    const SizedBox(width: WynSpacing.space2),
                     Semantics(
                       label: _isFollowing!
                           ? 'กำลังติดตาม กดเพื่อเลิกติดตาม'
@@ -427,8 +429,8 @@ class _PopClipViewState extends State<PopClipView> {
                 ],
               ),
               if (_pop.caption != null && _pop.caption!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
+                const SizedBox(height: WynSpacing.space2),
+                HashtagText(
                   _pop.caption!,
                   style: const TextStyle(color: Colors.white),
                   maxLines: 3,
@@ -462,7 +464,7 @@ class _PopClipViewState extends State<PopClipView> {
                 ),
               ),
               Text('${_pop.likeCount}', style: const TextStyle(color: Colors.white)),
-              const SizedBox(width: 8),
+              const SizedBox(width: WynSpacing.space2),
               IconButton(
                 icon: const Icon(Icons.mode_comment_outlined, color: Colors.white),
                 tooltip: 'ความคิดเห็น',
@@ -470,7 +472,7 @@ class _PopClipViewState extends State<PopClipView> {
               ),
               Text('${_pop.commentCount}',
                   style: const TextStyle(color: Colors.white)),
-              const SizedBox(width: 8),
+              const SizedBox(width: WynSpacing.space2),
               IconButton(
                 icon: const Icon(Icons.share_outlined, color: Colors.white),
                 tooltip: 'แชร์',
@@ -483,9 +485,9 @@ class _PopClipViewState extends State<PopClipView> {
               ),
               const Spacer(),
               const Icon(Icons.visibility_outlined, color: Colors.white, size: 18),
-              const SizedBox(width: 4),
+              const SizedBox(width: WynSpacing.space1),
               Text('${_pop.viewCount}', style: const TextStyle(color: Colors.white)),
-              const SizedBox(width: 8),
+              const SizedBox(width: WynSpacing.space2),
               Semantics(
                 label: _pop.savedByMe
                     ? 'บันทึกแล้ว กดเพื่อเอาออกจาก Saved'

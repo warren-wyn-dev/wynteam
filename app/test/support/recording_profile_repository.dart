@@ -9,10 +9,15 @@ class RecordingProfileRepository extends ProfileRepository {
   RecordingProfileRepository({
     this.profile = const Profile(id: 'unused', username: 'unused'),
     List<Profile>? searchResults,
+    this.byUsernameResult,
   })  : searchResults = searchResults ?? [],
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   final Profile profile;
+
+  /// Returned by [fetchProfileByUsername], regardless of the username
+  /// asked for -- WYN-021.
+  final Profile? byUsernameResult;
 
   /// Returned by [searchProfiles] for page 0 only (page 1+ returns empty),
   /// regardless of query -- callers assert on [searchProfilesQueryArgs] to
@@ -25,6 +30,9 @@ class RecordingProfileRepository extends ProfileRepository {
 
   @override
   Future<Profile> fetchProfile(String userId) async => profile;
+
+  @override
+  Future<Profile?> fetchProfileByUsername(String username) async => byUsernameResult;
 
   @override
   Future<List<Profile>> searchProfiles({

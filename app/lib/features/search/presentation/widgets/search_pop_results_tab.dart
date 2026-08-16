@@ -9,6 +9,7 @@ import '../../../pop/presentation/widgets/pop_grid_tile.dart';
 import '../../../profile/data/profile_repository.dart';
 import '../../../saved/data/saved_repository.dart';
 import 'search_state_message.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Search's Pop tab (WYN-009) -- same 3-column grid as ProfilePopGridTab
 /// (WYN-013), reusing PopGridTile directly. Query is driven by [query], a
@@ -150,7 +151,7 @@ class _SearchPopResultsTabState extends State<SearchPopResultsTab>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(
               onPressed: () => _search(reset: true),
               child: const Text('ลองใหม่'),
@@ -187,7 +188,7 @@ class _SearchPopResultsTabState extends State<SearchPopResultsTab>
         if (_hasMore)
           const SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.all(WynSpacing.space4),
               child: Center(child: CircularProgressIndicator()),
             ),
           ),

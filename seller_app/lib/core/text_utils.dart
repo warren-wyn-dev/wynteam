@@ -5,6 +5,16 @@
 /// original use. See .wyn/docs/design/seller-002-product-management.md.
 String? normalizeOptionalText(String value) => value.isEmpty ? null : value;
 
+/// Duplicated from `app/lib/core/text_utils.dart` -- used by
+/// SellerNotificationListScreen (ZOKY-005 R1) to show the buyer's name
+/// on a new_order/order_cancelled notification, same fallback rule
+/// NotificationListScreen already uses on the Customer side.
+String displayNameOrUsername({
+  required String? displayName,
+  required String username,
+}) =>
+    (displayName != null && displayName.isNotEmpty) ? displayName : '@$username';
+
 /// A Thai relative-time label ("เมื่อสักครู่" / "X นาทีที่แล้ว" / ... / a
 /// full date once it's a week old or more). Duplicated from
 /// `app/lib/core/text_utils.dart` (WYN Social, WYN-012) -- used by

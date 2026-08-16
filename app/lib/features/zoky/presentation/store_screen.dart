@@ -11,6 +11,8 @@ import 'widgets/product_grid_tile.dart';
 import 'widgets/review_tile.dart';
 import 'widgets/star_rating.dart';
 import 'zoky_strings.dart';
+import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_zoky_accent.dart';
 
 /// Placeholder share link -- same "no real hosting/domain yet" caveat as
 /// dropShareLink/popShareLink/clubPostShareLink/productShareLink
@@ -87,7 +89,7 @@ class _StoreScreenState extends State<StoreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
+    return ZokyAccentTheme(child: DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
@@ -164,7 +166,7 @@ class _StoreScreenState extends State<StoreScreen> {
           },
         ),
       ),
-    );
+    ));
   }
 
   /// Edge-to-edge, above `_buildHeader` -- deliberately not the
@@ -194,7 +196,7 @@ class _StoreScreenState extends State<StoreScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Icon(Icons.location_on_outlined, size: 18),
-            const SizedBox(width: 8),
+            const SizedBox(width: WynSpacing.space2),
             Expanded(child: Text(store.address!)),
           ],
         ),
@@ -202,7 +204,7 @@ class _StoreScreenState extends State<StoreScreen> {
         Row(
           children: [
             const Icon(Icons.call_outlined, size: 18),
-            const SizedBox(width: 8),
+            const SizedBox(width: WynSpacing.space2),
             Text(store.contactPhone!),
           ],
         ),
@@ -211,7 +213,7 @@ class _StoreScreenState extends State<StoreScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Icon(Icons.access_time_outlined, size: 18),
-            const SizedBox(width: 8),
+            const SizedBox(width: WynSpacing.space2),
             Expanded(child: Text(store.businessHours!)),
           ],
         ),
@@ -227,12 +229,12 @@ class _StoreScreenState extends State<StoreScreen> {
       label: 'ข้อมูลร้านค้า: ${semanticsParts.join(', ')}',
       child: Card(
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(WynSpacing.space3),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               for (var i = 0; i < rows.length; i++) ...[
-                if (i > 0) const SizedBox(height: 8),
+                if (i > 0) const SizedBox(height: WynSpacing.space2),
                 rows[i],
               ],
             ],
@@ -244,7 +246,7 @@ class _StoreScreenState extends State<StoreScreen> {
 
   Widget _buildHeader(BuildContext context, Store store) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(WynSpacing.space4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -266,13 +268,13 @@ class _StoreScreenState extends State<StoreScreen> {
                       )
                     : null,
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: WynSpacing.space4),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(store.name, style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: WynSpacing.space1),
                     FutureBuilder<(double, int)>(
                       future: _ratingFuture,
                       builder: (context, snapshot) {
@@ -286,7 +288,7 @@ class _StoreScreenState extends State<StoreScreen> {
                         return Row(
                           children: [
                             StarRatingDisplay(rating: rating.$1),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: WynSpacing.space1),
                             Expanded(
                               child: Text(
                                 '${rating.$1.toStringAsFixed(1)} · 0 ผู้ติดตาม · ${store.productCount} สินค้า',
@@ -304,14 +306,14 @@ class _StoreScreenState extends State<StoreScreen> {
             ],
           ),
           if (store.description != null && store.description!.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             Text(store.description!),
           ],
           if (_hasStoreInfo(store)) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             _buildStoreInfoSection(context, store),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: WynSpacing.space3),
           Semantics(
             label: 'ติดตามร้าน ${store.name}',
             child: OutlinedButton(
@@ -400,7 +402,7 @@ class _StoreScreenState extends State<StoreScreen> {
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) => ReviewTile(review: reviews[index]),

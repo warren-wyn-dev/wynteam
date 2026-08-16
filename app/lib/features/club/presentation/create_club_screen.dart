@@ -7,6 +7,7 @@ import '../data/club.dart';
 import '../data/club_post_repository.dart';
 import '../data/club_repository.dart';
 import 'club_page.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 2 — Create Club. Reuses Edit Profile's form/upload pattern
 /// (WYN-003) for Name/Description/Cover/Icon per the Design spec.
@@ -141,14 +142,14 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
       appBar: AppBar(title: const Text('สร้าง Club')),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(WynSpacing.space4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildCoverPicker(),
-              const SizedBox(height: 12),
+              const SizedBox(height: WynSpacing.space3),
               _buildIconPicker(),
-              const SizedBox(height: 16),
+              const SizedBox(height: WynSpacing.space4),
               TextField(
                 controller: _nameController,
                 maxLength: _nameMaxLength,
@@ -169,7 +170,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                   helperText: 'อธิบาย Club นี้สั้น ๆ (ไม่บังคับ)',
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: WynSpacing.space2),
               DropdownButtonFormField<String>(
                 initialValue: _category,
                 decoration: const InputDecoration(labelText: 'หมวดหมู่'),
@@ -185,9 +186,9 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                     ? null
                     : (value) => setState(() => _category = value),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: WynSpacing.space4),
               Text('ความเป็นส่วนตัว', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 8),
+              const SizedBox(height: WynSpacing.space2),
               SegmentedButton<ClubPrivacy>(
                 segments: const [
                   ButtonSegment(value: ClubPrivacy.public, label: Text('สาธารณะ')),
@@ -201,7 +202,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                         setState(() => _privacy = selection.isEmpty ? null : selection.first),
               ),
               if (_privacy != null) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: WynSpacing.space1),
                 Text(
                   _privacy == ClubPrivacy.public
                       ? 'ทุกคนค้นหาและเข้าร่วมได้ทันที'
@@ -211,14 +212,14 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                       ),
                 ),
               ],
-              const SizedBox(height: 16),
+              const SizedBox(height: WynSpacing.space4),
               if (_errorMessage != null) ...[
                 Text(
                   _errorMessage!,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: WynSpacing.space3),
               ],
               FilledButton(
                 onPressed: _canCreate ? _create : null,
@@ -246,7 +247,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
           label: _coverBytes == null ? 'แตะเพื่อเลือกรูปปก' : 'รูปปกที่เลือก',
           button: true,
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
             child: Container(
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: _coverBytes == null
@@ -255,7 +256,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.add_photo_alternate_outlined, size: 32),
-                          SizedBox(height: 4),
+                          SizedBox(height: WynSpacing.space1),
                           Text('แตะเพื่อเลือกรูปปก'),
                         ],
                       ),

@@ -8,6 +8,7 @@ import '../../../pop/data/pop_repository.dart';
 import '../../../pop/presentation/widgets/pop_grid_tile.dart';
 import '../../../saved/data/saved_repository.dart';
 import '../../data/profile_repository.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Pop grid tab on a profile (WYN-013) -- same 3-column grid as
 /// ProfileDropGridTab (not Pop Feed's full-screen vertical swipe, which
@@ -147,7 +148,7 @@ class _ProfilePopGridTabState extends State<ProfilePopGridTab>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
           ],
         ),
@@ -183,7 +184,7 @@ class _ProfilePopGridTabState extends State<ProfilePopGridTab>
           if (_hasMore)
             const SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: EdgeInsets.all(WynSpacing.space4),
                 child: Center(child: CircularProgressIndicator()),
               ),
             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../store/data/seller_repository.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Opens StockAdjustmentSheet as a modal bottom sheet, same hosting
 /// pattern as showReviewFormSheet (ZOKY-004).
@@ -99,7 +100,7 @@ class _StockAdjustmentSheetState extends State<StockAdjustmentSheet> {
               'สต็อกปัจจุบัน: $_currentStock ชิ้น',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             Center(
               child: Semantics(
                 label: _delta == 0
@@ -132,7 +133,7 @@ class _StockAdjustmentSheetState extends State<StockAdjustmentSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: WynSpacing.space3),
             SizedBox(
               width: double.infinity,
               child: FilledButton(

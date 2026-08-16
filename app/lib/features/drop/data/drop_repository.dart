@@ -6,7 +6,21 @@ import '../../../core/text_utils.dart';
 import 'drop.dart';
 import 'drop_comment.dart';
 
-const _authorSelect = 'author:profiles(username, display_name, avatar_url)';
+// PostgREST can't resolve a bare `profiles(...)` embed on its own when a
+// sibling embed in the same select (drop_likes/drop_comments/
+// drop_comment_likes) *also* has a foreign key to profiles -- it sees two
+// candidate join paths and rejects the request with PGRST201 ("more than
+// one relationship was found"). Only surfaced by running against a real
+// Postgres database (discovered 2026-08-16, see
+// .wyn/tasks/bugs/SCHEMA-DROP-001-ambiguous-author-embed.md) -- every
+// widget test uses RecordingDropRepository, which never sends a real
+// PostgREST query, so this was invisible until now. Fix: name the exact
+// foreign key constraint (`!<table>_author_id_fkey`) instead of leaving
+// PostgREST to guess.
+const _dropAuthorSelect =
+    'author:profiles!drops_author_id_fkey(username, display_name, avatar_url)';
+const _commentAuthorSelect =
+    'author:profiles!drop_comments_author_id_fkey(username, display_name, avatar_url)';
 const _savesContentType = 'drop';
 
 /// Wraps the `drops`/`drop_likes`/`drop_comments`/`saves` reads/writes and
@@ -28,7 +42,7 @@ class DropRepository {
 
     final rows = await _client
         .from('drops')
-        .select('*, $_authorSelect, drop_likes(count), drop_comments(count)')
+        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count)')
         .order('created_at', ascending: false)
         .range(from, to);
 
@@ -57,7 +71,7 @@ class DropRepository {
 
     final rows = await _client
         .from('drops')
-        .select('*, $_authorSelect, drop_likes(count), drop_comments(count)')
+        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count)')
         .ilike('caption', '%$query%')
         .order('created_at', ascending: false)
         .range(from, to);
@@ -90,8 +104,47 @@ class DropRepository {
 
     final rows = await _client
         .from('drops')
-        .select('*, $_authorSelect, drop_likes(count), drop_comments(count)')
+        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count)')
         .eq('author_id', authorId)
+        .order('created_at', ascending: false)
+        .range(from, to);
+
+    final dropIds = rows.map((row) => row['id'] as String).toList();
+    final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
+    final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
+
+    return rows
+        .map((row) => Drop.fromMap(
+              row,
+              likedByMe: likedIds.contains(row['id'] as String),
+              savedByMe: savedIds.contains(row['id'] as String),
+            ))
+        .toList();
+  }
+
+  /// Fetches one page (0-indexed) of Drops authored by users the current
+  /// user follows, newest first -- for WYN-019's Drop tab "Following" tab.
+  /// `follows` doesn't join directly into a `drops` query (PostgREST has
+  /// no subquery-in-filter syntax), so this fetches the followed-user-id
+  /// list first, same two-step shape ClubRepository/HomeRepository already
+  /// use for similar "filtered by a related table" reads.
+  Future<List<Drop>> fetchFollowingFeed({required int page}) async {
+    final userId = _client.auth.currentUser!.id;
+    final from = page * pageSize;
+    final to = from + pageSize - 1;
+
+    final followRows = await _client
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId);
+    final followingIds =
+        followRows.map((row) => row['following_id'] as String).toList();
+    if (followingIds.isEmpty) return [];
+
+    final rows = await _client
+        .from('drops')
+        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count)')
+        .inFilter('author_id', followingIds)
         .order('created_at', ascending: false)
         .range(from, to);
 
@@ -118,7 +171,7 @@ class DropRepository {
 
     final row = await _client
         .from('drops')
-        .select('*, $_authorSelect, drop_likes(count), drop_comments(count)')
+        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count)')
         .eq('id', dropId)
         .maybeSingle();
     if (row == null) return null;
@@ -165,11 +218,15 @@ class DropRepository {
   }
 
   /// Creates a Drop. [imageBytes] is required -- a Drop is always a photo,
-  /// unlike WYN-004's posts where text alone was enough.
+  /// unlike WYN-004's posts where text alone was enough. [mentionedUserIds]
+  /// (WYN-021) is the set of user ids MentionInput already resolved while
+  /// composing the caption -- inserted into `drop_mentions` right after
+  /// the Drop itself, not re-parsed from the caption text server-side.
   Future<void> createDrop({
     required Uint8List imageBytes,
     required String imageExtension,
     required String caption,
+    Set<String> mentionedUserIds = const {},
   }) async {
     final userId = _client.auth.currentUser!.id;
 
@@ -178,11 +235,23 @@ class DropRepository {
     await _client.storage.from('drop-images').uploadBinary(path, imageBytes);
     final imageUrl = _client.storage.from('drop-images').getPublicUrl(path);
 
-    await _client.from('drops').insert({
-      'author_id': userId,
-      'image_url': imageUrl,
-      'caption': normalizeOptionalText(caption.trim()),
-    });
+    final row = await _client
+        .from('drops')
+        .insert({
+          'author_id': userId,
+          'image_url': imageUrl,
+          'caption': normalizeOptionalText(caption.trim()),
+        })
+        .select('id')
+        .single();
+
+    if (mentionedUserIds.isNotEmpty) {
+      final dropId = row['id'] as String;
+      await _client.from('drop_mentions').insert([
+        for (final mentionedId in mentionedUserIds)
+          {'drop_id': dropId, 'mentioned_user_id': mentionedId},
+      ]);
+    }
   }
 
   Future<void> deleteDrop(String dropId) {
@@ -235,7 +304,7 @@ class DropRepository {
 
     final rows = await _client
         .from('drop_comments')
-        .select('*, $_authorSelect, drop_comment_likes(count)')
+        .select('*, $_commentAuthorSelect, drop_comment_likes(count)')
         .eq('drop_id', dropId)
         .order('created_at', ascending: true);
 
@@ -266,9 +335,14 @@ class DropRepository {
     return rows.map((row) => row['comment_id'] as String).toSet();
   }
 
+  /// [parentCommentId] (WYN-022): set to reply to that top-level comment
+  /// instead of posting a new top-level one. The DB rejects a reply
+  /// whose own parent is itself already a reply (one level of nesting
+  /// only) -- not re-checked client-side.
   Future<DropComment> addComment({
     required String dropId,
     required String textContent,
+    String? parentCommentId,
   }) async {
     final userId = _client.auth.currentUser!.id;
 
@@ -278,8 +352,9 @@ class DropRepository {
           'drop_id': dropId,
           'author_id': userId,
           'text_content': textContent.trim(),
+          'parent_comment_id': parentCommentId,
         })
-        .select('*, $_authorSelect')
+        .select('*, $_commentAuthorSelect')
         .single();
 
     // A freshly-created comment can't have any likes yet -- no need for a

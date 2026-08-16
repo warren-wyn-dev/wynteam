@@ -14,6 +14,12 @@
 
 ## รายการ
 
+### [2026-08-16] Task DS-002 (dart format เผลอ reformat ไฟล์ที่ไม่เกี่ยวข้องกว่า 90 ไฟล์)
+- ข้อผิดพลาด: หลังกวาดแทนที่ literal spacing/radius ด้วย `WynSpacing` token (84 ไฟล์ที่ตั้งใจแก้จริง) รัน `dart format --line-length 100` เพื่อ "จัดฟอร์แมตให้สวย" โดยไม่ตรวจสอบก่อนว่าโปรเจกต์นี้มี convention line-length เท่าไหร่ (ไม่มี config บังคับใน `analysis_options.yaml` และโค้ดเดิมมีบรรทัดยาวถึง 180 ตัวอักษร แปลว่าไม่เคยผ่าน `dart format` มาตั้งแต่ต้น) ผลคือคำสั่งนี้ไป reformat ไฟล์ที่ไม่เกี่ยวข้องกับ DS-002 เลยกว่า 90 ไฟล์ **รวมไฟล์ใน `data/` layer** (เช่น `zoky_repository.dart`, `product_variant.dart`) ที่ DS-002's Acceptance Criteria ห้ามแตะโดยตรง
+- ผลกระทบ: ยังไม่ถูก commit (จับได้ก่อนจาก `git diff --stat` ที่แสดงไฟล์เกินคาดจำนวนมาก) — revert ด้วย `git checkout` ทันทีที่พบ ไม่มีผลกระทบจริงต่อ repository
+- วิธีป้องกันในอนาคต: ก่อนรัน formatter บนโค้ดที่มีอยู่แล้ว (ไม่ใช่ไฟล์ใหม่) ต้องตรวจสอบ convention เดิมของโปรเจกต์ก่อนเสมอ (เช่น เช็คความยาวบรรทัดสูงสุดที่มีอยู่จริง, หา config ไฟล์) — ถ้าโค้ดเดิมไม่เคยผ่าน formatter มาก่อน ห้ามรัน formatter แบบ blanket ทับทั้งโฟลเดอร์ ให้จำกัดเฉพาะไฟล์ที่ตั้งใจแก้จริงเท่านั้น (`dart format <file1> <file2> ...` แทน `dart format <directory>/`) และตรวจ `git diff --stat` ทุกครั้งหลังรันคำสั่งที่มีขอบเขตกว้างก่อน commit เสมอ
+- Regression test ที่เพิ่ม (ถ้ามี): ไม่มี (เป็นกระบวนการทำงานของ AI ไม่ใช่บั๊กของแอป)
+
 ### [2026-08-15] Task ZOKY-004 (rating Row overflow, พบระหว่าง SELLER-004 QA รอบ 2)
 - ข้อผิดพลาด: `StoreScreen`'s `_buildHeader` rating `Row` (`StarRatingDisplay` + `Text('rating · ผู้ติดตาม · productCount สินค้า')`) ไม่มี `Expanded`/`Flexible` ครอบ `Text` เลย ตั้งแต่ ZOKY-004 (commit `135af7a`) — บนจอมือถือจริงทุกขนาด overflow 165–322px ทุกครั้งที่ร้านมีรีวิว ≥1 ทั้งที่ `Row` เดียวกันในไฟล์นี้ (`_buildStoreInfoSection`'s address/business-hours) ใช้ `Expanded` ถูกต้องอยู่แล้วเป็นตัวอย่างในบรรทัดถัดมา
 - ผลกระทบ: กระทบทุกร้านที่มีรีวิว ≥1 บนทุกขนาดจอมือถือ — release build จะ clip ข้อความเงียบ ๆ ซ่อนบางส่วนของ "X ผู้ติดตาม · Y สินค้า" จากลูกค้า ไม่ block SELLER-004 (Row คนละตัวกับที่ SELLER-004 แก้) แต่กระทบหน้าเดียวกันที่ลูกค้าเห็นอยู่ตอนนี้

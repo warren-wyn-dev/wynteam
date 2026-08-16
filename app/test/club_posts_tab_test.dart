@@ -140,4 +140,12 @@ void main() {
     expect(pinnedLabelTop, lessThan(pinnedPostTop));
     expect(pinnedPostTop, lessThan(normalPostTop));
   });
+
+  testWidgets(
+      'DS-005: shows exactly one hairline divider between the 2 posts, '
+      'same pattern as Home Feed (DS-003)', (tester) async {
+    await pumpTab(tester, pinnedFirstRepo, myRole: ClubMemberRole.member);
+
+    expect(find.byType(Divider), findsOneWidget);
+  });
 }

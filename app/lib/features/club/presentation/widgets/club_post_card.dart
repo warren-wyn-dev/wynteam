@@ -7,6 +7,8 @@ import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/club_member.dart';
 import '../../data/club_post.dart';
 import '../club_post_detail_screen.dart' show clubPostShareLink;
+import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/widgets/hashtag_text.dart';
 
 /// A Club post card for the Posts tab list. Same interaction-row family
 /// as HomeDropCard/HomePopCard (Like/Comment/Share/Bookmark), plus a
@@ -99,12 +101,12 @@ class ClubPostCard extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space1),
               child: Row(
                 children: [
                   AvatarCircle(
@@ -112,7 +114,7 @@ class ClubPostCard extends StatelessWidget {
                     fallbackText: post.authorUsername,
                     radius: 16,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: WynSpacing.space2),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,11 +143,11 @@ class ClubPostCard extends StatelessWidget {
             if (post.content != null && post.content!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-                child: Text(post.content!),
+                child: HashtagText(post.content!),
               ),
             if (post.imageUrls != null && post.imageUrls!.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.only(top: WynSpacing.space2),
                 child: ClubPostImages(imageUrls: post.imageUrls!),
               ),
             if (post.linkUrl != null && post.linkUrl!.isNotEmpty)
@@ -155,7 +157,7 @@ class ClubPostCard extends StatelessWidget {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
                   ),
                   child: Row(
                     children: [
@@ -173,7 +175,7 @@ class ClubPostCard extends StatelessWidget {
                 ),
               ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),
               child: Row(
                 children: [
                   Semantics(
@@ -188,7 +190,7 @@ class ClubPostCard extends StatelessWidget {
                     ),
                   ),
                   Text('${post.likeCount}'),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: WynSpacing.space2),
                   Semantics(
                     label: 'ดูคอมเมนต์',
                     excludeSemantics: true,

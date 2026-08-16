@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../data/seller_auth_repository.dart';
 import 'widgets/otp_box_input.dart';
+import '../../../core/design/wyn_spacing.dart';
 
 /// OTP Verification. Ported verbatim (no logic changes) from
 /// `app/lib/features/auth/presentation/otp_verification_screen.dart` --
@@ -87,7 +88,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       appBar: AppBar(title: const Text('ยืนยันรหัส OTP')),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(WynSpacing.space6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -95,10 +96,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 'กรอกรหัส 6 หลักที่ส่งไปยัง ${widget.phone}',
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: WynSpacing.space6),
               OtpBoxInput(key: _otpBoxKey, onCompleted: _verify),
               if (_errorMessage != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: WynSpacing.space3),
                 Center(
                   child: Text(
                     _errorMessage!,
@@ -108,10 +109,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 ),
               ],
               if (_isLoading) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: WynSpacing.space4),
                 const Center(child: CircularProgressIndicator()),
               ],
-              const SizedBox(height: 16),
+              const SizedBox(height: WynSpacing.space4),
               Center(
                 child: TextButton(
                   onPressed: _secondsRemaining == 0 ? _resend : null,
