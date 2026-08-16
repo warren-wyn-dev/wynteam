@@ -13,9 +13,15 @@ class RecordingDropRepository extends DropRepository {
   RecordingDropRepository({
     List<Drop>? feedDrops,
     List<Drop>? followingFeedDrops,
+    List<Drop>? rankedFeedDrops,
     List<DropComment>? comments,
   })  : feedDrops = feedDrops ?? [],
         followingFeedDrops = followingFeedDrops ?? [],
+        // Defaults to the same list as feedDrops -- see
+        // RecordingHomeRepository's identical rationale (WYN-018): most
+        // call sites predating this follow-up only care that "the feed
+        // shows these drops", not which of the two queries served them.
+        rankedFeedDrops = rankedFeedDrops ?? feedDrops ?? [],
         comments = comments ?? [],
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
@@ -25,6 +31,13 @@ class RecordingDropRepository extends DropRepository {
   /// Returned by [fetchFollowingFeed] for page 0 only (page 1+ returns
   /// empty) -- WYN-019.
   final List<Drop> followingFeedDrops;
+
+  /// Returned by [fetchRankedFeed] for page 0 only (page 1+ returns
+  /// empty) -- WYN-018 follow-up. Defaults to the same list as
+  /// [feedDrops] unless given explicitly.
+  final List<Drop> rankedFeedDrops;
+
+  int fetchRankedFeedCalls = 0;
 
   /// Returned by [fetchComments], regardless of dropId.
   final List<DropComment> comments;
@@ -50,6 +63,12 @@ class RecordingDropRepository extends DropRepository {
   @override
   Future<List<Drop>> fetchFollowingFeed({required int page}) async {
     return page == 0 ? followingFeedDrops : <Drop>[];
+  }
+
+  @override
+  Future<List<Drop>> fetchRankedFeed({required int page}) async {
+    fetchRankedFeedCalls++;
+    return page == 0 ? rankedFeedDrops : <Drop>[];
   }
 
   /// Returned by [fetchByAuthor] for page 0 only, filtered by [authorId]
