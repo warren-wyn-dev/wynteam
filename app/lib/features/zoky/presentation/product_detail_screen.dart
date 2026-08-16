@@ -14,6 +14,7 @@ import 'widgets/product_images.dart';
 import 'widgets/review_form_sheet.dart';
 import 'widgets/review_tile.dart';
 import 'widgets/star_rating.dart';
+import 'widgets/zoky_theme_scope.dart';
 import 'zoky_cart_screen.dart';
 import 'zoky_order_list_screen.dart';
 
@@ -148,67 +149,83 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final product = widget.product;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(product.name),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share_outlined),
-            tooltip: 'แชร์',
-            onPressed: _share,
+    return ZokyThemeScope(
+      // Builder gives every nested Theme.of(context) call below a
+      // context that is a genuine *descendant* of ZokyThemeScope's
+      // Theme override. Reusing the outer build(context) parameter
+      // directly here would NOT work -- that context is the position of
+      // ZokyOrderDetailScreen/ProductDetailScreen *itself* in the tree
+      // (an ancestor of ZokyThemeScope's subtree, not a descendant of
+      // it), so Theme.of(context) with it would keep resolving against
+      // whatever Theme sits above this whole widget (WynTheme, Cyan),
+      // silently ignoring the override just inserted below. This was
+      // caught by this file's own regression test
+      // (zoky_price_orange_theme_regression_test.dart) before being
+      // fixed here -- see .wyn/tasks/bugs/DS-001c-zoky-price-color-not-orange-in-app.md.
+      child: Builder(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: Text(product.name),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.share_outlined),
+                tooltip: 'แชร์',
+                onPressed: _share,
+              ),
+              IconButton(
+                icon: const Icon(Icons.link),
+                tooltip: 'คัดลอกลิงก์',
+                onPressed: _copyLink,
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.link),
-            tooltip: 'คัดลอกลิงก์',
-            onPressed: _copyLink,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              children: [
-                ProductImages(imageUrls: product.imageUrls),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildPriceRow(context),
-                      const SizedBox(height: 4),
-                      Text(product.name, style: Theme.of(context).textTheme.titleLarge),
-                      const SizedBox(height: 4),
-                      Text(
-                        product.stock > 0 ? 'เหลือ ${product.stock} ชิ้น' : 'สินค้าหมด',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: product.stock > 0
-                                  ? Theme.of(context).colorScheme.outline
-                                  : Theme.of(context).colorScheme.error,
-                            ),
+          body: Column(
+            children: [
+              Expanded(
+                child: ListView(
+                  children: [
+                    ProductImages(imageUrls: product.imageUrls),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildPriceRow(context),
+                          const SizedBox(height: 4),
+                          Text(product.name, style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(height: 4),
+                          Text(
+                            product.stock > 0 ? 'เหลือ ${product.stock} ชิ้น' : 'สินค้าหมด',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: product.stock > 0
+                                      ? Theme.of(context).colorScheme.outline
+                                      : Theme.of(context).colorScheme.error,
+                                ),
+                          ),
+                          _buildVariants(context),
+                          if (product.description != null) ...[
+                            const SizedBox(height: 16),
+                            Text('รายละเอียดสินค้า',
+                                style: Theme.of(context).textTheme.titleSmall),
+                            const SizedBox(height: 4),
+                            Text(product.description!),
+                          ],
+                          const SizedBox(height: 16),
+                          Text('รีวิว', style: Theme.of(context).textTheme.titleSmall),
+                          const SizedBox(height: 4),
+                          _buildReviewsSection(context),
+                          const SizedBox(height: 16),
+                          _buildStoreCard(context),
+                        ],
                       ),
-                      _buildVariants(context),
-                      if (product.description != null) ...[
-                        const SizedBox(height: 16),
-                        Text('รายละเอียดสินค้า',
-                            style: Theme.of(context).textTheme.titleSmall),
-                        const SizedBox(height: 4),
-                        Text(product.description!),
-                      ],
-                      const SizedBox(height: 16),
-                      Text('รีวิว', style: Theme.of(context).textTheme.titleSmall),
-                      const SizedBox(height: 4),
-                      _buildReviewsSection(context),
-                      const SizedBox(height: 16),
-                      _buildStoreCard(context),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              _buildActionBar(context),
+            ],
           ),
-          _buildActionBar(context),
-        ],
+        ),
       ),
     );
   }

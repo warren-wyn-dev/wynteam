@@ -9,6 +9,7 @@ import 'store_screen.dart';
 import 'widgets/product_grid_tile.dart';
 import 'widgets/product_mini_card.dart';
 import 'widgets/store_mini_card.dart';
+import 'widgets/zoky_theme_scope.dart';
 import 'zoky_cart_screen.dart';
 import 'zoky_order_list_screen.dart';
 import 'zoky_search_screen.dart';
@@ -156,35 +157,47 @@ class _ZokyHomeScreenState extends State<ZokyHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: CustomScrollView(
-          controller: _scrollController,
-          slivers: [
-            SliverToBoxAdapter(child: _buildTopRow(context)),
-            SliverToBoxAdapter(child: _buildCategoryChips(context)),
-            SliverToBoxAdapter(child: _buildBanner(context)),
-            SliverToBoxAdapter(
-              child: _buildComingSoonSection(context, 'แนะนำสำหรับคุณ'),
-            ),
-            SliverToBoxAdapter(child: _buildComingSoonSection(context, 'ขายดี')),
-            SliverToBoxAdapter(child: _buildNewProducts(context)),
-            SliverToBoxAdapter(child: _buildRecommendedStores(context)),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                child: Text('สินค้าทั้งหมด', style: Theme.of(context).textTheme.titleSmall),
-              ),
-            ),
-            _buildGrid(context),
-            if (_hasMore && !_isLoadingGrid)
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator()),
+    return ZokyThemeScope(
+      // Builder gives every nested Theme.of(context) call below (e.g.
+      // inside _buildNewProducts -> ProductMiniCard) a context that is
+      // a genuine *descendant* of ZokyThemeScope's Theme override.
+      // Reusing the outer build(context) parameter directly would NOT
+      // work -- see product_detail_screen.dart's build() for the full
+      // explanation. Caught by this file's regression test
+      // (zoky_price_orange_theme_regression_test.dart) before being
+      // fixed here.
+      child: Builder(
+        builder: (context) => Scaffold(
+          body: SafeArea(
+            child: CustomScrollView(
+              controller: _scrollController,
+              slivers: [
+                SliverToBoxAdapter(child: _buildTopRow(context)),
+                SliverToBoxAdapter(child: _buildCategoryChips(context)),
+                SliverToBoxAdapter(child: _buildBanner(context)),
+                SliverToBoxAdapter(
+                  child: _buildComingSoonSection(context, 'แนะนำสำหรับคุณ'),
                 ),
-              ),
-          ],
+                SliverToBoxAdapter(child: _buildComingSoonSection(context, 'ขายดี')),
+                SliverToBoxAdapter(child: _buildNewProducts(context)),
+                SliverToBoxAdapter(child: _buildRecommendedStores(context)),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                    child: Text('สินค้าทั้งหมด', style: Theme.of(context).textTheme.titleSmall),
+                  ),
+                ),
+                _buildGrid(context),
+                if (_hasMore && !_isLoadingGrid)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );

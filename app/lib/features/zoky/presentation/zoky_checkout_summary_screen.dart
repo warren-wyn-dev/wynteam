@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/text_utils.dart';
 import '../data/cart_item.dart';
 import '../data/zoky_repository.dart';
+import 'widgets/zoky_theme_scope.dart';
 
 /// Screen 4 (ZOKY-003) -- Checkout step 2 of 2: the fee/total
 /// breakdown per store, reviewed in full before the buyer can confirm.
@@ -74,32 +75,34 @@ class _ZokyCheckoutSummaryScreenState extends State<ZokyCheckoutSummaryScreen> {
       byStore.putIfAbsent(item.product.storeId, () => []).add(item);
     }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('สรุปคำสั่งซื้อ')),
-      body: FutureBuilder<double>(
-        future: _feePercentFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final feePercent = snapshot.data ?? 10;
-          return _buildContent(context, byStore, feePercent);
-        },
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: _isSubmitting ? null : _confirm,
-              child: _isSubmitting
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('ยืนยันคำสั่งซื้อ'),
+    return ZokyThemeScope(
+      child: Scaffold(
+        appBar: AppBar(title: const Text('สรุปคำสั่งซื้อ')),
+        body: FutureBuilder<double>(
+          future: _feePercentFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final feePercent = snapshot.data ?? 10;
+            return _buildContent(context, byStore, feePercent);
+          },
+        ),
+        bottomNavigationBar: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _isSubmitting ? null : _confirm,
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('ยืนยันคำสั่งซื้อ'),
+              ),
             ),
           ),
         ),

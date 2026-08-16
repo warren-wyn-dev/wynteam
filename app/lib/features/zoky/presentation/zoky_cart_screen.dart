@@ -7,6 +7,7 @@ import '../data/zoky_repository.dart';
 import 'product_detail_screen.dart';
 import 'store_screen.dart';
 import 'widgets/zoky_cart_item_tile.dart';
+import 'widgets/zoky_theme_scope.dart';
 import 'zoky_checkout_address_screen.dart';
 
 /// Screen 2 (ZOKY-003) -- the buyer's cart, grouped by store. Opened
@@ -116,14 +117,27 @@ class _ZokyCartScreenState extends State<ZokyCartScreen> {
   Widget build(BuildContext context) {
     final items = _items;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('ตะกร้าสินค้า')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : (items == null || items.isEmpty)
-              ? _buildEmptyState(context)
-              : _buildGroupedList(context, items),
-      bottomNavigationBar: (items != null && items.isNotEmpty) ? _buildBottomBar(context, items) : null,
+    return ZokyThemeScope(
+      // Builder gives every nested Theme.of(context) call below (e.g.
+      // inside _buildGroupedList -> ZokyCartItemTile) a context that is
+      // a genuine *descendant* of ZokyThemeScope's Theme override.
+      // Reusing the outer build(context) parameter directly would NOT
+      // work -- see product_detail_screen.dart's build() for the full
+      // explanation. Caught by this file's regression test
+      // (zoky_price_orange_theme_regression_test.dart) before being
+      // fixed here.
+      child: Builder(
+        builder: (context) => Scaffold(
+          appBar: AppBar(title: const Text('ตะกร้าสินค้า')),
+          body: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : (items == null || items.isEmpty)
+                  ? _buildEmptyState(context)
+                  : _buildGroupedList(context, items),
+          bottomNavigationBar:
+              (items != null && items.isNotEmpty) ? _buildBottomBar(context, items) : null,
+        ),
+      ),
     );
   }
 
