@@ -6,7 +6,20 @@ import '../../../core/text_utils.dart';
 import 'club_post.dart';
 import 'club_post_comment.dart';
 
-const _authorSelect = 'author:profiles(username, display_name, avatar_url)';
+// See DropRepository's identical comment for why this needs the exact
+// foreign key name -- PostgREST can't resolve a bare `profiles(...)`
+// embed when a sibling embed (club_post_likes/club_post_comments) also
+// has a path to profiles. Discovered 2026-08-16 running against a real
+// database; every widget test uses RecordingClubPostRepository, which
+// never sends a real PostgREST query. club_post_comments has no
+// separate "comment likes" table (unlike Drop/Pop), so
+// _commentAuthorSelect isn't currently ambiguous on its own, but is
+// qualified anyway for consistency and to stay safe if that ever
+// changes.
+const _postAuthorSelect =
+    'author:profiles!club_posts_author_id_fkey(username, display_name, avatar_url)';
+const _commentAuthorSelect =
+    'author:profiles!club_post_comments_author_id_fkey(username, display_name, avatar_url)';
 const _savesContentType = 'club_post';
 
 /// Wraps the `club_posts`/`club_post_likes`/`club_post_comments` reads/
@@ -59,7 +72,7 @@ class ClubPostRepository {
     final rows = await _client
         .from('club_posts')
         .select(
-          '*, $_authorSelect, club_post_likes(count), club_post_comments(count)',
+          '*, $_postAuthorSelect, club_post_likes(count), club_post_comments(count)',
         )
         .eq('club_id', clubId)
         .order('pinned', ascending: false)
@@ -96,7 +109,7 @@ class ClubPostRepository {
     final rows = await _client
         .from('club_posts')
         .select(
-          '*, $_authorSelect, club_post_likes(count), club_post_comments(count)',
+          '*, $_postAuthorSelect, club_post_likes(count), club_post_comments(count)',
         )
         .order('created_at', ascending: false)
         .range(from, to);
@@ -130,7 +143,7 @@ class ClubPostRepository {
     final row = await _client
         .from('club_posts')
         .select(
-          '*, $_authorSelect, club_post_likes(count), club_post_comments(count)',
+          '*, $_postAuthorSelect, club_post_likes(count), club_post_comments(count)',
         )
         .eq('id', postId)
         .maybeSingle();
@@ -272,7 +285,7 @@ class ClubPostRepository {
   Future<List<ClubPostComment>> fetchComments(String postId) async {
     final rows = await _client
         .from('club_post_comments')
-        .select('*, $_authorSelect')
+        .select('*, $_commentAuthorSelect')
         .eq('club_post_id', postId)
         .order('created_at', ascending: true);
 
@@ -292,7 +305,7 @@ class ClubPostRepository {
           'author_id': userId,
           'text_content': textContent.trim(),
         })
-        .select('*, $_authorSelect')
+        .select('*, $_commentAuthorSelect')
         .single();
 
     return ClubPostComment.fromMap(row);

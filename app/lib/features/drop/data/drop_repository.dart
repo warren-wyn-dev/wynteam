@@ -6,7 +6,21 @@ import '../../../core/text_utils.dart';
 import 'drop.dart';
 import 'drop_comment.dart';
 
-const _authorSelect = 'author:profiles(username, display_name, avatar_url)';
+// PostgREST can't resolve a bare `profiles(...)` embed on its own when a
+// sibling embed in the same select (drop_likes/drop_comments/
+// drop_comment_likes) *also* has a foreign key to profiles -- it sees two
+// candidate join paths and rejects the request with PGRST201 ("more than
+// one relationship was found"). Only surfaced by running against a real
+// Postgres database (discovered 2026-08-16, see
+// .wyn/tasks/bugs/SCHEMA-DROP-001-ambiguous-author-embed.md) -- every
+// widget test uses RecordingDropRepository, which never sends a real
+// PostgREST query, so this was invisible until now. Fix: name the exact
+// foreign key constraint (`!<table>_author_id_fkey`) instead of leaving
+// PostgREST to guess.
+const _dropAuthorSelect =
+    'author:profiles!drops_author_id_fkey(username, display_name, avatar_url)';
+const _commentAuthorSelect =
+    'author:profiles!drop_comments_author_id_fkey(username, display_name, avatar_url)';
 const _savesContentType = 'drop';
 
 /// Wraps the `drops`/`drop_likes`/`drop_comments`/`saves` reads/writes and
@@ -28,7 +42,7 @@ class DropRepository {
 
     final rows = await _client
         .from('drops')
-        .select('*, $_authorSelect, drop_likes(count), drop_comments(count)')
+        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count)')
         .order('created_at', ascending: false)
         .range(from, to);
 
@@ -57,7 +71,7 @@ class DropRepository {
 
     final rows = await _client
         .from('drops')
-        .select('*, $_authorSelect, drop_likes(count), drop_comments(count)')
+        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count)')
         .ilike('caption', '%$query%')
         .order('created_at', ascending: false)
         .range(from, to);
@@ -90,7 +104,7 @@ class DropRepository {
 
     final rows = await _client
         .from('drops')
-        .select('*, $_authorSelect, drop_likes(count), drop_comments(count)')
+        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count)')
         .eq('author_id', authorId)
         .order('created_at', ascending: false)
         .range(from, to);
@@ -118,7 +132,7 @@ class DropRepository {
 
     final row = await _client
         .from('drops')
-        .select('*, $_authorSelect, drop_likes(count), drop_comments(count)')
+        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count)')
         .eq('id', dropId)
         .maybeSingle();
     if (row == null) return null;
@@ -235,7 +249,7 @@ class DropRepository {
 
     final rows = await _client
         .from('drop_comments')
-        .select('*, $_authorSelect, drop_comment_likes(count)')
+        .select('*, $_commentAuthorSelect, drop_comment_likes(count)')
         .eq('drop_id', dropId)
         .order('created_at', ascending: true);
 
@@ -279,7 +293,7 @@ class DropRepository {
           'author_id': userId,
           'text_content': textContent.trim(),
         })
-        .select('*, $_authorSelect')
+        .select('*, $_commentAuthorSelect')
         .single();
 
     // A freshly-created comment can't have any likes yet -- no need for a
