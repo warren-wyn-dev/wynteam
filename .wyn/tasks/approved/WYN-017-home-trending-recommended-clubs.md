@@ -1,7 +1,23 @@
 # Product Task — WYN-017
 
-Status: backlog
-Owner: AI Product Manager
+Status: coded + self-verified (QA — PASS, 2026-08-17)
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (self-verified)
+
+## Coding + QA Output
+
+- `HomeRepository.fetchTrending()`: last-48h `home_feed` rows (bounded candidate fetch, capped at 100), ranked client-side by `like_count + comment_count` (mirrors `ClubRepository.fetchPopularClubs`'s fetch-then-sort precedent — PostgREST can't `order()` by a computed expression). `home_feed` view itself untouched (R4).
+- New `TrendingTile` widget (square thumbnail + like-count scrim, handles both Drop/Pop via `HomeFeedItem` since no existing tile is content-type agnostic) — new "กำลังนิยม" row in `HomeFeedScreen` between `ClubSection` and the feed-mode toggle, own Loading/Empty/Error state (fail-safe `FutureBuilder`, same pattern as `ClubSection`'s club row — a failed fetch never blocks the main feed).
+- `ClubSection` gained a "Club แนะนำ" row (reuses `ClubRepository.fetchPopularClubs`, `ClubMiniCard` verbatim) shown only when the user has joined fewer than 3 Clubs. Replaced the old `ConstrainedBox(maxHeight: 180)` + `Expanded` layout with fixed-height `SizedBox` rows per Design's reasoning (avoids the same overflow failure mode already hit once in WYN-015's `ViewProfileScreen`) — verified the "Club ของฉัน" row's rendered size is unchanged (108px, same budget the old 180px ceiling implicitly gave it).
+- 7 new tests added (`home_feed_screen_test.dart`): Trending row shows header+items, empty state, Drop tap → `DropDetailScreen`, Pop tap → `PopSingleClipScreen`; Recommended Clubs row shows under threshold, hides at/above threshold, tap → `ClubPage`. Hit the session's own documented "never construct a Recording*Repository inline inside `testWidgets`" anti-pattern once while writing these (leaked GoTrue `Timer.periodic`) — fixed by moving all new fakes into `setUpAll`, matching the file's existing pattern.
+- `flutter analyze`: clean. `flutter test`: 298/298 (was 291/291 before this task — 7 added, 0 regressed).
+
+Acceptance Criteria:
+- [x] Home มีแถว Trending แสดง Drop/Pop ที่ engagement สูงในช่วง 48 ชม.ล่าสุด ไม่ว่างเปล่าเมื่อมี content
+- [x] ClubSection มีแถว Club แนะนำ ใช้ query เดียวกับ "กำลังนิยม" ของ ExploreClubsScreen
+- [x] แถวใหม่ทั้งสองมี Loading/Empty/Error state ครบ ไม่ crash เมื่อไม่มีข้อมูล
+- [x] Feed หลัก (chronological) และ ClubSection เดิม (Club ของฉัน) ทำงานเหมือนเดิมทุกจุด ไม่มี regression (`flutter test` ผ่านครบ)
+- [x] ไม่มีตาราง/schema ใหม่ (ใช้ query เพิ่มจาก `drops`/`pops`/`clubs` เดิม)
+
 
 Feature: Home — Trending Content + Recommended/Popular Clubs section
 

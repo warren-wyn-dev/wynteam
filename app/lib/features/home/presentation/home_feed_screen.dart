@@ -20,6 +20,7 @@ import 'pop_single_clip_screen.dart';
 import 'widgets/from_your_clubs_feed.dart';
 import 'widgets/home_drop_card.dart';
 import 'widgets/home_pop_card.dart';
+import 'widgets/trending_tile.dart';
 import '../../../core/design/wyn_spacing.dart';
 
 enum _HomeFeedMode { forYou, fromYourClubs }
@@ -73,11 +74,18 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   // เสมอทุกครั้งที่เปิดแอป" simplification.
   _HomeFeedMode _feedMode = _HomeFeedMode.forYou;
 
+  // Same fail-safe FutureBuilder pattern as ClubSection's own club row
+  // (WYN-014) -- a failed/slow Trending fetch must never block the main
+  // feed underneath it. See .wyn/docs/design/wyn-017-home-trending-
+  // recommended-clubs.md.
+  late Future<List<HomeFeedItem>> _trendingFuture;
+
   @override
   void initState() {
     super.initState();
     _loadInitial();
     _loadUnreadNotificationCount();
+    _trendingFuture = widget.homeRepository.fetchTrending();
     _scrollController.addListener(_onScroll);
   }
 
@@ -336,6 +344,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
               clubRepository: widget.clubRepository,
               clubPostRepository: widget.clubPostRepository,
             ),
+            _buildTrendingSection(),
             _buildFeedModeToggle(),
             Expanded(
               child: _feedMode == _HomeFeedMode.forYou
@@ -366,6 +375,58 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         ],
         selected: {_feedMode},
         onSelectionChanged: (selection) => setState(() => _feedMode = selection.first),
+      ),
+    );
+  }
+
+  Widget _buildTrendingSection() {
+    return SizedBox(
+      height: 132,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+            child: Text(
+              'กำลังนิยม',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<List<HomeFeedItem>>(
+              future: _trendingFuture,
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const SizedBox.shrink();
+
+                final items = snapshot.data!;
+                if (items.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: WynSpacing.space3),
+                    child: Center(child: Text('ยังไม่มี content กำลังนิยม')),
+                  );
+                }
+
+                return ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: WynSpacing.space2),
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    return TrendingTile(
+                      item: item,
+                      onTap: () => item.contentType == HomeContentType.drop
+                          ? _openDrop(item)
+                          : _openPop(item),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

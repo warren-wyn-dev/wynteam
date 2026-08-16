@@ -3,12 +3,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
+import 'package:wyn/features/club/data/club.dart';
 import 'package:wyn/features/club/data/club_post.dart';
+import 'package:wyn/features/club/presentation/club_page.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
 import 'package:wyn/features/home/presentation/home_feed_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
+import 'package:wyn/features/home/presentation/widgets/trending_tile.dart';
 import 'package:wyn/features/notification/presentation/notification_list_screen.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/search/presentation/search_screen.dart';
@@ -66,6 +69,15 @@ HomeFeedItem _popItem({
       savedByMe: false,
     );
 
+Club _club({required String id, required String name, int memberCount = 1}) => Club(
+      id: id,
+      name: name,
+      privacy: ClubPrivacy.public,
+      ownerId: 'someone-else',
+      createdAt: DateTime.now(),
+      memberCount: memberCount,
+    );
+
 void main() {
   // See drop_comment_like_test.dart (WYN-005) for why every repo (and its
   // underlying SupabaseClient auto-refresh Timer) is built once in
@@ -110,6 +122,15 @@ void main() {
   late RecordingHomeRepository badgeTestHomeRepository;
   late RecordingDropRepository badgeTestDropRepository;
   late RecordingPopRepository badgeTestPopRepository;
+
+  // WYN-017: Trending row + Recommended Clubs row.
+  late RecordingHomeRepository trendingItemsHomeRepository;
+  late RecordingHomeRepository emptyTrendingHomeRepository;
+  late RecordingHomeRepository trendingDropOnlyHomeRepository;
+  late RecordingHomeRepository trendingPopOnlyHomeRepository;
+  late RecordingClubRepository fewClubsRepository;
+  late RecordingClubRepository manyClubsRepository;
+  late RecordingClubRepository noJoinedClubsRepository;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
@@ -179,6 +200,36 @@ void main() {
     badgeTestHomeRepository = RecordingHomeRepository(feedItems: []);
     badgeTestDropRepository = RecordingDropRepository();
     badgeTestPopRepository = RecordingPopRepository();
+
+    trendingItemsHomeRepository = RecordingHomeRepository(
+      feedItems: [],
+      trendingItems: [_dropItem(id: 'trend-1'), _popItem(id: 'trend-2')],
+    );
+    emptyTrendingHomeRepository = RecordingHomeRepository(feedItems: [], trendingItems: []);
+    trendingDropOnlyHomeRepository = RecordingHomeRepository(
+      feedItems: [],
+      trendingItems: [_dropItem(id: 'trend-drop')],
+    );
+    trendingPopOnlyHomeRepository = RecordingHomeRepository(
+      feedItems: [],
+      trendingItems: [_popItem(id: 'trend-pop')],
+    );
+    fewClubsRepository = RecordingClubRepository(
+      myClubs: [_club(id: 'joined-1', name: 'Club ที่เข้าร่วม')],
+      discoverableClubs: [_club(id: 'popular-1', name: 'Club กำลังนิยม', memberCount: 50)],
+    );
+    manyClubsRepository = RecordingClubRepository(
+      myClubs: [
+        _club(id: 'joined-1', name: 'Club หนึ่ง'),
+        _club(id: 'joined-2', name: 'Club สอง'),
+        _club(id: 'joined-3', name: 'Club สาม'),
+      ],
+      discoverableClubs: [_club(id: 'popular-1', name: 'Club กำลังนิยม', memberCount: 50)],
+    );
+    noJoinedClubsRepository = RecordingClubRepository(
+      myClubs: [],
+      discoverableClubs: [_club(id: 'popular-1', name: 'Club กำลังนิยม', memberCount: 50)],
+    );
   });
 
   Widget buildHome(
@@ -187,6 +238,7 @@ void main() {
     required RecordingPopRepository popRepository,
     RecordingNotificationRepository? notificationRepository,
     RecordingClubPostRepository? clubPostRepository,
+    RecordingClubRepository? clubRepository,
   }) =>
       MaterialApp(
         home: HomeFeedScreen(
@@ -197,7 +249,7 @@ void main() {
           profileRepository: sharedProfileRepository,
           savedRepository: sharedSavedRepository,
           notificationRepository: notificationRepository ?? sharedNotificationRepository,
-          clubRepository: sharedClubRepository,
+          clubRepository: clubRepository ?? sharedClubRepository,
           clubPostRepository: clubPostRepository ?? sharedClubPostRepository,
           zokyRepository: sharedZokyRepository,
         ),
@@ -542,6 +594,118 @@ void main() {
 
       expect(find.text('แคปชัน Drop'), findsOneWidget);
       expect(find.text('โพสต์จาก Club ที่เข้าร่วม'), findsNothing);
+    });
+  });
+
+  group('Trending row (WYN-017)', () {
+    testWidgets('shows the "กำลังนิยม" header and items when trending content exists',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        trendingItemsHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('กำลังนิยม'), findsOneWidget);
+      expect(find.byType(TrendingTile), findsNWidgets(2));
+    });
+
+    testWidgets('shows an empty message instead of crashing when there is no trending content',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        emptyTrendingHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('กำลังนิยม'), findsOneWidget);
+      expect(find.byType(TrendingTile), findsNothing);
+      expect(find.text('ยังไม่มี content กำลังนิยม'), findsOneWidget);
+    });
+
+    testWidgets('tapping a Drop trending tile opens DropDetailScreen', (tester) async {
+      await tester.pumpWidget(buildHome(
+        trendingDropOnlyHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.byType(TrendingTile));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(DropDetailScreen), findsOneWidget);
+    });
+
+    testWidgets('tapping a Pop trending tile opens PopSingleClipScreen', (tester) async {
+      await tester.pumpWidget(buildHome(
+        trendingPopOnlyHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.byType(TrendingTile));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(PopSingleClipScreen), findsOneWidget);
+    });
+  });
+
+  group('Recommended Clubs row (WYN-017)', () {
+    testWidgets('shows "Club แนะนำ" when the user has joined fewer than 3 Clubs',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        emptyHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        clubRepository: fewClubsRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('Club แนะนำ'), findsOneWidget);
+      expect(find.text('Club กำลังนิยม'), findsOneWidget);
+    });
+
+    testWidgets('hides "Club แนะนำ" once the user has joined 3 or more Clubs',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        emptyHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        clubRepository: manyClubsRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('Club แนะนำ'), findsNothing);
+      expect(find.text('Club กำลังนิยม'), findsNothing);
+    });
+
+    testWidgets('tapping a recommended Club opens ClubPage', (tester) async {
+      await tester.pumpWidget(buildHome(
+        emptyHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        clubRepository: noJoinedClubsRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('Club กำลังนิยม'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(ClubPage), findsOneWidget);
     });
   });
 }
