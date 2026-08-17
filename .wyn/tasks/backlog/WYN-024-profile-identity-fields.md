@@ -1,7 +1,7 @@
 # Product Task — WYN-024
 
-Status: backlog
-Owner: AI Product Manager
+Status: design complete — ready for AI Coding
+Owner: AI Product Manager (spec) → AI Design (spec เสร็จแล้ว) → AI Coding (ถัดไป)
 
 Feature: Profile Identity Fields — Cover Image, Website, และ Username Edit หลัง Onboarding
 
@@ -37,4 +37,10 @@ Risks: ต่ำ — เป็น additive column ล้วนๆ ไม่ม�
 
 Recommendation: ทำ R1/R2 ก่อนได้เลยเพราะ additive ล้วนๆ ไม่มี risk พิเศษ — R3 ต้องให้ AI Design/Coding ตรวจสอบ mention/hashtag storage ก่อนว่าผูกกับ user_id (ปลอดภัย) หรือ username string (ต้องคิดเรื่อง migration/backfill เพิ่ม) ก่อนเริ่มจริง
 
-Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบตำแหน่ง Cover Image (ด้านบน avatar แบบ Instagram/Twitter หรือรูปแบบอื่นที่เข้ากับ WYN Design System), ตำแหน่ง Website link, และ flow การแก้ Username ใน Edit Profile — ให้ตรวจสอบประเด็น mention/username coupling ใน Risks ก่อนส่งต่อ AI Coding
+Handoff: **AI Design เสร็จแล้ว** — spec เต็มที่ `.wyn/docs/design/wyn-024-profile-identity-fields.md`
+
+**ผลตรวจสอบ Risk (mention/username coupling)**: ยืนยันแล้วว่า `drop_mentions`/`club_post_mentions` (`supabase/schema.sql`) เก็บ `mentioned_user_id uuid references profiles(id)` — ผูกกับ **user_id (uuid ถาวร) ไม่ใช่ username string** — populate ตอนสร้างโพสต์จาก id ที่ resolve แล้วของ `MentionInput` (WYN-021) ไม่ใช่ re-parse caption ทีหลัง และทุกจุดที่แสดง `author_username`/`@username` ในระบบ (views, `ProfileRepository`) query จาก `profiles.username` สดทุกครั้ง ไม่มีคอลัมน์ไหน denormalize username เก็บไว้ที่อื่น — **การเปลี่ยน username ปลอดภัย 100% ต่อ mention/notification ไม่ต้อง migration/backfill เพิ่ม** (รายละเอียดเต็มดู Section 0 ของ design spec) ผลข้างเคียงเล็กน้อยที่ไม่ block: แคปชันเก่าที่พิมพ์ `@oldusername` ไว้จะ resolve ไม่เจอ (เงียบ ไม่ error) หลัง username เปลี่ยน — เป็นพฤติกรรม "unresolvable mention fails silently" ที่ WYN-021 ออกแบบไว้อยู่แล้วสำหรับ typo/บัญชีถูกลบ ไม่ใช่ gap ใหม่
+
+**ความเสี่ยงตัวจริงที่ AI Design พบเพิ่ม (ไม่ใช่ mention แต่เป็น availability-check self-exclusion)**: `AuthRepository.isUsernameAvailable(username)` เดิม (WYN-002) ไม่ exclude user id ของตัวเองออกจาก query — ถ้า Edit Profile เรียกมันตรง ๆ กับ username เดิมของผู้ใช้เอง (ค่า prefill ที่ไม่ได้แก้) จะรายงานผิดว่า "ถูกใช้แล้ว" ทั้งที่เป็นของตัวเอง ต้องแก้ด้วย client-side short-circuit ใน Edit Profile เอง (ไม่แก้ `AuthRepository` ตามที่ Product สั่งให้ reuse ตรง ๆ) — ดูรายละเอียด/ทางแก้เต็มใน design spec R3
+
+ส่งต่อ AI Coding (`/code`) เพื่อ implement ตาม `.wyn/docs/design/wyn-024-profile-identity-fields.md` — ครอบคลุม schema migration (additive, ไม่ต้องขออนุมัติ Founder), `Profile`/`ProfileRepository` extension, `EditProfileScreen`/`ViewProfileScreen` changes, และ `url_launcher` dependency ใหม่ (ปัจจุบันเป็นแค่ transitive ผ่าน `share_plus`)
