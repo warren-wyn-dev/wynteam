@@ -34959,7 +34959,7 @@ var $async$ab2=A.h(function(a,b){if(a===1){p.push(b)
 s=q}for(;;)switch(s){case 0:if($.a8==null)A.aBu()
 $.a8.toString
 s=2
-return A.c(A.az7("placeholder-anon-key","https://placeholder.supabase.co"),$async$ab2)
+return A.c(A.az7("sb_publishable_FXZgHnJv5COPFsMQe5IqkQ_yDowngkm","https://akawuzukstmbztyajxsr.supabase.co"),$async$ab2)
 case 2:q=4
 s=7
 return A.c(A.aii(),$async$ab2)
