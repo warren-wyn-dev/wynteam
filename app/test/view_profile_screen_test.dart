@@ -8,6 +8,7 @@ import 'package:wyn/features/home/data/home_feed_item.dart';
 import 'package:wyn/features/pop/data/pop.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
+import 'package:wyn/features/profile/presentation/widgets/profile_cover_avatar.dart';
 import 'package:wyn/features/saved/presentation/widgets/saved_grid_tile.dart';
 
 import 'support/fake_supabase_session.dart';
@@ -298,6 +299,16 @@ void main() {
   group('"Club ของฉัน" section (WYN-015)', () {
     testWidgets('shows joined clubs on your own profile when a ClubRepository is supplied',
         (tester) async {
+      // The header (WYN-024 R1's cover+avatar, taller than the old
+      // avatar-only header) plus this section's own content overflows
+      // the default 800x600 test viewport's 544px body height -- same
+      // fix drop_detail_screen_test.dart uses for its own tall content
+      // (the 800-wide default viewport is a poor proxy for a portrait
+      // phone's actual available height).
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
       await tester.pumpWidget(MaterialApp(
         home: ViewProfileScreen(
           profileRepository: ownProfileRepo,
@@ -366,6 +377,103 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Club ของฉัน'), findsNothing);
+    });
+  });
+
+  group('Cover image (WYN-024 R1)', () {
+    testWidgets('renders the cover_url via ProfileCoverAvatar, read-only '
+        '(no tap handlers)', (tester) async {
+      final repo = RecordingProfileRepository(
+        profile: const Profile(
+          id: 'me',
+          username: 'me_user',
+          coverUrl: 'https://example.supabase.co/avatars/me/cover.jpg',
+        ),
+      );
+
+      await tester.pumpWidget(buildProfile(
+        profileRepository: repo,
+        followRepository: ownFollowRepo,
+        userId: 'me',
+      ));
+      await tester.pumpAndSettle();
+      // This test environment has no real network -- Image.network's
+      // async fetch of coverUrl throws, harmlessly, since this test only
+      // asserts the URL/callbacks were wired into ProfileCoverAvatar, not
+      // that the image renders. Same posture as edit_profile_screen_test.dart.
+      tester.takeException();
+
+      final coverAvatar =
+          tester.widget<ProfileCoverAvatar>(find.byType(ProfileCoverAvatar));
+      expect(coverAvatar.coverUrl, 'https://example.supabase.co/avatars/me/cover.jpg');
+      expect(coverAvatar.onTapCover, isNull);
+      expect(coverAvatar.onTapAvatar, isNull);
+    });
+
+    testWidgets('a null cover_url falls back cleanly (no error, no broken '
+        'image)', (tester) async {
+      await tester.pumpWidget(buildProfile(
+        profileRepository: ownProfileRepo,
+        followRepository: ownFollowRepo,
+        userId: 'me',
+      ));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      final coverAvatar =
+          tester.widget<ProfileCoverAvatar>(find.byType(ProfileCoverAvatar));
+      expect(coverAvatar.coverUrl, isNull);
+    });
+  });
+
+  group('Website link (WYN-024 R2)', () {
+    testWidgets('a set website shows a tappable row with the scheme '
+        'stripped for display', (tester) async {
+      // See the "shows joined clubs" test's identical comment -- the
+      // WYN-024 R1 header plus this row overflows the default 800x600
+      // test viewport's 544px body height.
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final repo = RecordingProfileRepository(
+        profile: const Profile(
+          id: 'me',
+          username: 'me_user',
+          website: 'https://namfah.dev',
+        ),
+      );
+
+      await tester.pumpWidget(buildProfile(
+        profileRepository: repo,
+        followRepository: ownFollowRepo,
+        userId: 'me',
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('namfah.dev'), findsOneWidget);
+      expect(find.byIcon(Icons.link), findsOneWidget);
+
+      // Tapping it exercises the real launchUrl() call -- there's no
+      // platform channel handler registered in the test env, but the
+      // widget's own try/catch means that fails silently rather than
+      // crashing the test, same posture as HashtagText's unresolvable
+      // mention tap.
+      await tester.tap(find.text('namfah.dev'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('an unset website shows no row at all (no placeholder '
+        'text)', (tester) async {
+      await tester.pumpWidget(buildProfile(
+        profileRepository: ownProfileRepo,
+        followRepository: ownFollowRepo,
+        userId: 'me',
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.link), findsNothing);
     });
   });
 }

@@ -48,6 +48,18 @@ alter table public.profiles
   add constraint profiles_bio_length
   check (bio is null or char_length(bio) <= 160);
 
+-- WYN-024 (Profile Identity Fields) — cover image + website link. Purely
+-- additive (both nullable, no new constraint) -- no migration/backfill
+-- needed. cover_url reuses the `avatars` storage bucket declared below
+-- (no new bucket) via `{user_id}/cover.{ext}`, which already satisfies
+-- the same storage RLS policies as avatar uploads. Username itself
+-- (edit-in-place, R3 of the same task) needs no schema change at all --
+-- it's the existing `username` column/unique constraint from WYN-002.
+
+alter table public.profiles
+  add column if not exists cover_url text,
+  add column if not exists website text;
+
 -- Avatar images: public bucket (usernames/avatars are public within WYN),
 -- but each user may only write to their own folder ({user_id}/...).
 insert into storage.buckets (id, name, public)

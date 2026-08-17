@@ -17,10 +17,13 @@ class ProfileRepository {
   // "paginated list of Profile rows" shape.
   static const searchPageSize = 30;
 
+  static const _selectColumns =
+      'id, username, display_name, bio, avatar_url, cover_url, website';
+
   Future<Profile> fetchProfile(String userId) async {
     final row = await _client
         .from('profiles')
-        .select('id, username, display_name, bio, avatar_url')
+        .select(_selectColumns)
         .eq('id', userId)
         .single();
     return Profile.fromMap(row);
@@ -35,7 +38,7 @@ class ProfileRepository {
   Future<Profile?> fetchProfileByUsername(String username) async {
     final row = await _client
         .from('profiles')
-        .select('id, username, display_name, bio, avatar_url')
+        .select(_selectColumns)
         .eq('username', username)
         .maybeSingle();
     return row == null ? null : Profile.fromMap(row);
@@ -45,6 +48,7 @@ class ProfileRepository {
     required String userId,
     required String displayName,
     required String bio,
+    required String website,
   }) {
     return _client.from('profiles').update({
       // profiles_display_name_length requires display_name to be either
@@ -53,6 +57,10 @@ class ProfileRepository {
       // as null, not ''. bio has no such minimum, so it's fine as-is.
       'display_name': normalizeOptionalText(displayName),
       'bio': bio,
+      // website has no length-minimum constraint either, but is stored
+      // the same way as display_name (null, not '') for consistency --
+      // see WYN-024 design spec's Handoff section.
+      'website': normalizeOptionalText(website),
     }).eq('id', userId);
   }
 
@@ -82,6 +90,31 @@ class ProfileRepository {
     return url;
   }
 
+  /// Uploads [bytes] to the same `avatars` bucket/folder as [uploadAvatar]
+  /// (WYN-024, R1) -- a different filename (`cover.$fileExtension`) under
+  /// the same `{user_id}/...` folder, so it's covered by the same storage
+  /// RLS policies without any policy change. Returns the new URL.
+  Future<String> uploadCover({
+    required String userId,
+    required Uint8List bytes,
+    required String fileExtension,
+  }) async {
+    final path = '$userId/cover.$fileExtension';
+
+    await _client.storage.from('avatars').uploadBinary(
+          path,
+          bytes,
+          fileOptions: const FileOptions(upsert: true),
+        );
+
+    final url =
+        '${_client.storage.from('avatars').getPublicUrl(path)}?v=${DateTime.now().millisecondsSinceEpoch}';
+
+    await _client.from('profiles').update({'cover_url': url}).eq('id', userId);
+
+    return url;
+  }
+
   /// Users whose username or display name contains [query] (case
   /// insensitive), for WYN-009 Search's User tab. A separate method from
   /// [fetchProfile] (single row by id) rather than overloading it.
@@ -94,7 +127,7 @@ class ProfileRepository {
 
     final rows = await _client
         .from('profiles')
-        .select('id, username, display_name, bio, avatar_url')
+        .select(_selectColumns)
         .or('username.ilike.%$query%,display_name.ilike.%$query%')
         .range(from, to);
 
