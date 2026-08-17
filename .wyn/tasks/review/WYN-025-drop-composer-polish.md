@@ -41,3 +41,18 @@ Handoff: Design เสร็จแล้ว — ดู `.wyn/docs/design/wyn-025
 - **R2**: อ่านโค้ดจริงของ `create_drop_screen.dart` แล้ว (ไม่มี `PopScope`/`WillPopScope`/draft-persistence pattern ใดๆ ในโปรเจกต์มาก่อนเลย — ตรวจด้วย grep ยืนยันแล้ว) ตัดสินใจเลือกแนวทาง **(ก) dialog ยืนยัน "ทิ้งการเปลี่ยนแปลง?"** แทน (ข) auto-save เงียบๆ เพราะ (ข) ต้องเพิ่ม dependency ใหม่ (`path_provider` หรือเทียบเท่า เพื่อเก็บรูปภาพให้รอดข้าม process) และยังต้องตัดสินใจ UX ซ้อนอีกชั้นว่าจะ restore เงียบๆ หรือถามก่อน (วนกลับไปมี dialog อยู่ดี) ส่วน (ก) reuse โครง `AlertDialog` เดียวกับ `confirmDeletePost`/`confirmDeleteDrop` ที่มีอยู่แล้วได้ตรงๆ ไม่ต้องมี dependency ใหม่ — รายละเอียดเต็มดู Design doc หัวข้อ R2
 - **R3**: ยืนยันแล้วว่า `pubspec.yaml` ไม่มี `photo_view`/package ซูมรูปใดๆ อยู่ก่อน — ออกแบบ `FullscreenImageViewer` ใหม่ (`app/lib/core/widgets/fullscreen_image_viewer.dart`) ด้วย `InteractiveViewer` ในตัว Flutter ล้วนๆ ตามที่ Product Task กำหนด รองรับ pinch-zoom (1.0x-4.0x)/double-tap-zoom (toggle 1.0x-3.0x)/ปุ่มย้อนกลับมาตรฐาน ไม่รองรับ swipe หลายรูปตามที่ระบุไว้
 - **ทั้ง R2/R3 พร้อมส่งต่อ AI Coding (`/code`) แล้ว** ตาม Handoff เต็มใน Design doc — เขียน regression test ครบ ไม่มี regression กับ WYN-005/WYN-019, ดูหัวข้อ "บันทึกไว้ให้ Product พิจารณาเป็น fast-follow" ท้าย Design doc ด้วย (`CreatePopScreen` มีปัญหาเดียวกับ R2 แต่ไม่อยู่ในขอบเขตนี้)
+
+---
+
+## Status Update (2026-08-17) — Coding เสร็จสมบูรณ์แล้ว รอ QA
+
+Implementation ครบตาม R1/R2/R3 ของ Design spec (ตรวจสอบโค้ดจริงเทียบ spec ทีละจุดแล้ว ตรงทุกประการ): JPEG re-encode (quality 90), `confirmDiscardChanges` dialog + `PopScope` wiring, `FullscreenImageViewer` ใหม่ที่ `core/widgets/`
+
+งานนี้ถูกส่งมาต่อจาก agent ก่อนหน้าที่ implementation เสร็จแล้วแต่ session หมดก่อน commit ได้ — พบและแก้ 2 ปัญหาเพิ่มก่อนส่ง QA:
+
+1. **Production bug จริงที่พบระหว่างแก้ test (ไม่ใช่แค่ test bug)**: `PopScope`'s `canPop` (`!_isSharing && !_hasUnsavedContent`) คำนวณตอน `build()` เท่านั้น — พิมพ์ caption ธรรมดา (ไม่มี `@mention`) ไม่ trigger `setState()` ใดๆ ใน `_CreateDropScreenState` เลย เพราะ `MentionInput`'s `onMentionedUsersChanged` fire เฉพาะตอน mention เปลี่ยน ทำให้ `canPop` ค้างค่าเดิม (true) จากตอนยังไม่พิมพ์อะไร — ผลคือระบบ back ของ OS (system back/gesture) จะ pop หน้าจอออกไปเงียบๆ **โดยไม่เด้ง dialog เลย** ทั้งที่ตั้งใจให้ต้องถามยืนยันก่อน ทำให้ผู้ใช้เสียเนื้อหาที่พิมพ์ไว้แบบไม่รู้ตัว — พิสูจน์ด้วย debug print ยืนยัน `didPop=true` ตอน system back จริง ก่อนแก้ — แก้ด้วยการเพิ่ม `onChanged: (_) => setState(() {})` ให้ `MentionInput` ใน `create_drop_screen.dart` (ทำให้ `canPop` re-derive สดทุกครั้งที่พิมพ์ ตรงตามที่ design spec ตั้งใจไว้แต่แรก "คำนวณสดจาก field ที่มีอยู่แล้ว ไม่ cache" — ที่ขาดไปคือ trigger การ rebuild เท่านั้น)
+2. **Test hang จริง (root cause ของ timeout 10 นาทีที่ QA เดิมเจอ)**: `centerCropToSquare()`'s real `dart:ui` Picture-rendering chain ไม่ resolve เมื่อถูกเรียกตรงในโซน fake-async ของ `testWidgets()` — `pumpAndSettle()` เดียวหลัง tap เลือกรูปค้างตลอดไป ไม่มี exception เลย ยืนยันด้วยการ isolate ปัญหาด้วย probe test หลายรอบ — แก้ที่ test เท่านั้น (ไม่แตะ production code เพราะ `square_crop_test.dart`'s plain `test()` ยืนยันแล้วว่า `centerCropToSquare()` เองถูกต้อง) ด้วย bounded `tester.runAsync()`+`pump()` loop แทน `pumpAndSettle()` เดียว — รายละเอียดเต็มบันทึกไว้ที่ `.wyn/learning/PATTERNS.md`
+
+`flutter analyze`: clean. `flutter test`: full suite 396/396 ผ่านหมด (baseline เดิม 369 ก่อน WYN-024/025)
+
+ส่งต่อ AI QA & Security (`/qa`) — ย้ายเข้า `.wyn/tasks/review/` — **QA ควรตรวจ finding #1 ข้างต้นเป็นพิเศษ** เพราะเป็นบั๊กจริงที่กระทบ data-loss risk ของผู้ใช้ตรงๆ (ไม่ใช่แค่ QA finding ที่ Coding พบเองก่อนส่ง แต่ยืนยันด้วย red→green จริง: ลบ `onChanged` ออกแล้ว test "system back...shows the same discard dialog" fail ทันที)
