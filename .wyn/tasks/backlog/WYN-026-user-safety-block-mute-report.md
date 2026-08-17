@@ -43,3 +43,16 @@ Risks:
 Recommendation: ทำหลัง WYN-024/025 เพราะ scope กว้างกว่าและต้องแก้ query หลายจุดที่เพิ่งเปลี่ยนจาก WYN-024 (เช่น `drop_images` query ใหม่ก็ต้อง apply block-filter ด้วย) — ทำตอนที่ query point นิ่งแล้วจะเสี่ยงน้อยกว่า
 
 Handoff: ส่งต่อ AI Design เพื่อออกแบบ More Menu UI + ตำแหน่งหน้าจัดการ Block/Mute list แล้วส่งต่อ AI Coding พร้อม checklist query point ที่ต้อง filter ครบทุกจุด
+
+## Design เสร็จแล้ว (AI Design) — ดูฉบับเต็มที่ `.wyn/docs/design/wyn-026-user-safety-block-mute-report.md`
+
+สรุปการตัดสินใจหลัก:
+
+1. **แยกกลไก filter ของ Block กับ Mute เด็ดขาด** (ป้องกัน Risk R2 "Mute/Block ปนกัน" ที่ระดับสถาปัตยกรรม ไม่ใช่แค่ตั้งใจไม่พลาด): Block ใช้ **RLS ของตารางเนื้อหาต้นทางโดยตรง** (`drops`/`pops`/`drop_comments`/`pop_comments`/`notifications`/`profiles`) ผ่านฟังก์ชัน `public.is_blocked(a, b)` (security definer, mirror pattern `club_role()` ของ WYN-014) ส่วน Mute ใช้ **filter เฉพาะระดับ "ฟีด" เท่านั้น** (SQL ใน view `home_feed` + exclude-step ใน 4 method ของ Dart) — ห้ามใช้ RLS ตารางเดียวกับ Block เพราะจะ over-apply ไปโดน Profile grid/Search ซึ่งผิด R4
+2. **Checklist ครบ 26 query point ใน 8 ไฟล์** แบ่งเป็น 4 กลุ่ม: (A) 5 ตารางที่แก้ policy ครั้งเดียวแล้ว auto-cover 15 method รวม `home_feed`/`saved_feed` เพราะทั้งสอง view เป็น `security_invoker = true` อยู่แล้ว (ไม่ต้องแตะ Dart เลยสำหรับ Block), (B) `profiles` ต้องใช้ policy แบบไม่สมมาตร (ฝ่าย blocker ยังเห็น profile ฝ่ายที่ถูก block ได้ เพื่อให้หน้าจัดการ Block list ใช้งานได้) พร้อมผลข้างเคียงที่ต้องแก้ตรงๆ ใน `FollowRepository` (กรอง embedded-profile ที่เป็น null ทิ้ง), (C) `club_posts`/`club_post_comments` เป็นส่วนขยายแนะนำแต่ไม่บังคับ (เกิน literal AC), (D) Mute ต้องแก้เฉพาะ `home_feed` view SQL + 4 method ที่เป็นฟีดจริง (`DropRepository.fetchFeed/fetchFollowingFeed/fetchRankedFeed`, `PopRepository.fetchFeed`) และห้ามแตะ `fetchByAuthor`/`searchByCaption`/`fetchById`/`fetchComments` เด็ดขาด
+3. **Auto-unfollow เมื่อ Block ใช้ DB trigger** (`user_blocks_auto_unfollow`, AFTER INSERT บน `user_blocks`, ลบ `follows` ทั้งสองทิศ) ไม่ใช่ client เรียกซ้อน — เหตุผลเดียวกับ notification triggers เดิม (การันตีทำงานทุก code path ไม่พึ่งวินัย caller) พร้อมแก้ `follows`' insert policy กัน follow กันใหม่ระหว่าง block
+4. **แก้ gap ในสเปกเดิม**: `reports.target_type` เพิ่ม `'pop'` เข้า enum (สเปกเดิมมีแค่ `'drop','user','comment'` ทั้งที่ Pop เป็นเนื้อหาสาธารณะเท่าเทียม Drop) และเพิ่ม More Menu ให้ Pop clip ด้วย (Screen 2 — ส่วนขยายเกิน literal R5 ที่เขียนถึงแค่ "การ์ด Drop" พร้อมเหตุผลชัดเจนและบอกไว้ตรงๆ ว่าตัดออกจาก scope ได้ถ้า Founder ไม่ต้องการ)
+5. **"ไม่สนใจ" (Not Interested) ใช้ตารางแยก** `content_not_interested` (ไม่ใช่ overload `reports`) mirror shape ของ `saves` — เพราะ moderation queue กับ personal preference signal คนละโมเดลข้อมูล/RLS กันโดยธรรมชาติ
+6. **หน้าจัดการ Block/Mute list** (`SafetyListScreen`, mirror `FollowListScreen` พารามิเตอร์เดียว) เข้าถึงผ่านไอคอนใหม่ใน `ViewProfileScreen` ของตัวเอง (ข้างปุ่ม logout) — **ไม่สร้างหน้า Settings ใหม่** เพราะแอปยังไม่มีโครงสร้าง Settings เลย (เพิ่ม scope เกินจำเป็น) ย้ายเข้า Settings ได้ทีหลังโดยไม่กระทบหน้านี้เอง
+
+ส่งต่อ AI Coding พร้อม checklist เต็มในเอกสาร Design (ส่วนที่ 1.3) เป็นข้อบังคับก่อนส่ง QA
