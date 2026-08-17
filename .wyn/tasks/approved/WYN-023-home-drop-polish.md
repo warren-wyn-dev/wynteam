@@ -78,3 +78,46 @@ Status: **Coding เสร็จแล้ว (2026-08-17)** — implement คร
 **Known Issues**: ไม่มี — ทุก Acceptance Criteria ของ Product Task ตรวจแล้วครบและมี test คุ้มครองจริง
 
 **Handoff**: ส่งต่อ AI QA & Security เพื่อตรวจ Requirements/Design Components/Acceptance Criteria ทั้ง 3 หัวข้อแยกกันตาม pattern เดิม รวมถึงตรวจ red→green proof ข้างต้นซ้ำอิสระ และพิจารณา fast-follow ที่บันทึกไว้ใน Design spec (timestamp ให้ `HomePopCard` ด้วย — นอกขอบเขต WYN-023 นี้ ต้องเป็น task ใหม่ถ้า Product เห็นด้วย)
+
+## Independent QA — Round 1 (AI QA & Security, 2026-08-17)
+
+**หมายเหตุ**: QA อิสระรอบแรกของ WYN-023 — ไม่เชื่อตัวเลข/คำอธิบายใน "Coding Output" ข้างต้นเฉยๆ อ่าน diff จริงของ commit `d9c71f6` ทีละไฟล์, รัน `flutter analyze`/`flutter test` อิสระเอง, และทำ red→green regression proof อิสระคนละมุมกับที่ Coding ทำ (Coding ใช้ `git stash` เฉพาะ `lib/` ทั้งก้อนแล้วรัน test — QA รอบนี้ inject บั๊กเฉพาะจุดเข้าโค้ดจริงทีละ 1 บรรทัดต่อ requirement แทน)
+
+```
+Feature: Home/Drop Polish — relative timestamp บน HomeDropCard (R1), openCommentsOnStart flag สำหรับ Pop comment fast-open (R2), ปุ่ม "สำรวจ Club" ใน FromYourClubsFeed empty state (R3)
+Environment: branch claude/wyn-core-hardening-9ln469, commit d9c71f6 (HEAD ตอนเริ่ม QA), Flutter 3.47.0 stable / Dart 3.13.0 (ติดตั้งไว้แล้วที่ /home/user/tools/flutter จาก session ก่อนหน้า), ไม่มี schema/RLS change ใน task นี้ (ยืนยันจาก `git show --stat d9c71f6` — 12 ไฟล์เปลี่ยน ทั้งหมดเป็น Dart widget/test + task doc ย้ายโฟลเดอร์ ไม่มี .sql)
+
+Test Cases:
+1. `flutter analyze` อิสระ — clean (No issues found)
+2. `flutter test` อิสระทั้ง suite ที่ HEAD ปัจจุบัน — 367/367 ผ่าน ตรงกับตัวเลขที่ Coding รายงาน
+3. อ่าน diff จริงทีละไฟล์ (`git show d9c71f6 -- <file>`) เทียบกับ Design spec (`wyn-023-home-drop-polish.md`) ทีละ R1/R2/R3:
+   - R1: `home_drop_card.dart` — header `Row` เปลี่ยนจาก `Text` เดี่ยวๆ เป็น `Expanded(Column([ชื่อ titleSmall, relativeTimeLabel(item.createdAt, now: DateTime.now()) bodySmall+outline]))` ตรงตาม Decision/Components ของ Design เป๊ะ, เอา `mainAxisSize: MainAxisSize.min` ออกจาก `Row` ตามคำเตือนของ Design (จำเป็นให้ `Expanded` มีขอบเขต), import `core/text_utils.dart` เพิ่มถูกต้อง — แก้ไฟล์เดียวจริง ไม่แตะ `drop_feed_screen.dart`/`home_feed_screen.dart`
+   - R2: `pop_clip_view.dart` เพิ่ม `openCommentsOnStart` (default `false`) เรียก `_openComments()` ผ่าน `WidgetsBinding.instance.addPostFrameCallback` พร้อม `if (!mounted) return` guard ตามที่ Design เตือนเรื่อง `showModalBottomSheet` ต้องรอ widget tree build เสร็จ, `pop_single_clip_screen.dart` รับ/ส่งต่อ flag เข้า `PopClipView` ถูกต้อง, `home_pop_card.dart` เพิ่ม `required VoidCallback onComment` ใหม่ (แยกจาก `onTap` เดิม) ผูก Comment `IconButton`'s `onPressed`, `home_feed_screen.dart`'s `_openPop` เพิ่ม optional param `openCommentsOnStart = false` และจุดสร้าง `HomePopCard` ส่ง `onTap: () => _openPop(item)` ปกติแยกจาก `onComment: () => _openPop(item, openCommentsOnStart: true)` ตรงตาม Design Handoff
+   - R3: `from_your_clubs_feed.dart` — empty state เปลี่ยนจาก `Text` เดี่ยวๆ เป็น `Column(mainAxisSize:min, [Text เดิมไม่เปลี่ยน, SizedBox(space3), OutlinedButton.icon(icon: explore_outlined size 18, label: 'สำรวจ Club')])` ตรงตาม Components เป๊ะทุก property, เมธอด `_openExploreClubs()` push `ExploreClubsScreen` แล้วเรียก `_loadInitial()` เสมอหลังกลับมา (ไม่มีเงื่อนไข) มิเรอร์ `ClubSection._openExploreClubs()` ตามที่ Design ตั้งใจ
+4. ตรวจ regression ที่ Coding เพิ่มเอง 2 จุดนอกเหนือ Design spec ตรงๆ (`onComment` callback ใหม่ของ `HomePopCard`, optional param ของ `_openPop`):
+   - Grep หา caller ทั้งหมดของ `HomePopCard(` ในโปรเจกต์ — พบจุดเดียว (`home_feed_screen.dart` บรรทัด 597) ไม่มีจุดอื่นที่ต้องอัปเดตแล้วตกหล่น
+   - Grep หา caller ทั้งหมดของ `PopSingleClipScreen(` — พบ 6 จุด (Home, Search `search_pop_results_tab.dart`, Push notification `push_notification_service.dart`, Profile `profile_pop_grid_tab.dart`/`profile_saved_tab.dart`, `notification_list_screen.dart`) — อีก 5 จุดนอกเหนือ Home **ไม่ส่ง** `openCommentsOnStart` เลยสักจุด ใช้ default `false` อัตโนมัติ ยืนยันไม่มี regression กับพฤติกรรมเดิมของจุดเหล่านี้ (คลิปเปิดโดยไม่ auto-open comment sheet เหมือนเดิมทุกจุด)
+   - Grep หา caller ทั้งหมดของ `HomeDropCard(` — พบ 3 จุด (Home feed, Drop feed ตามที่ Design ระบุ + **`hashtag_feed_screen.dart` อีกจุดที่ไม่ได้ถูกกล่าวถึงตรงๆ ใน Design/Coding Output**) ตรวจแล้ว `hashtag_feed_screen_test.dart` (มี `pumpWidget`/`HomeDropCard` assertion อยู่แล้ว) อยู่ใน 367/367 ที่ผ่านทั้งหมด ไม่มี overflow/error ใหม่จากการเพิ่มบรรทัดเวลา แม้ไม่ได้ระบุไว้ตรงๆ ใน scope ก็ไม่กระทบเป็น regression
+5. **Red→Green regression proof อิสระ (คนละมุมกับ Coding)**: inject บั๊ก 3 จุดแยกกันเข้าโค้ดจริงทีละจุด (ไม่ใช่ `git stash` ทั้งก้อนแบบ Coding) แล้วรัน `flutter test test/home_feed_screen_test.dart test/drop_feed_screen_test.dart test/from_your_clubs_feed_test.dart`:
+   - R1: เปลี่ยน `relativeTimeLabel(item.createdAt, now: DateTime.now())` ใน `home_drop_card.dart` เป็น string คงที่ `'ตอนนี้'`
+   - R2: เปลี่ยน `if (widget.openCommentsOnStart)` ใน `pop_clip_view.dart`'s `initState` เป็น `if (false && widget.openCommentsOnStart)` (ปิด flag แบบ silent)
+   - R3: ลบบรรทัด `_loadInitial();` ท้าย `_openExploreClubs()` ใน `from_your_clubs_feed.dart` ออก (ปิด reload-on-return)
+   - ผล **RED**: 6/42 เคส fail ตรงจุดที่ inject บั๊กพอดี (ไม่ fail มั่ว) — `home_feed_screen_test.dart`'s timestamp test + Pop-comment-sheet test, `drop_feed_screen_test.dart`'s timestamp test (For You) + Following tab + Latest tab (ใช้ assertion เดียวกันที่พึ่ง R1), `from_your_clubs_feed_test.dart`'s explore-button-reload test — ครบทั้ง R1/R2/R3
+   - `git checkout --` คืนทั้ง 3 ไฟล์กลับ แล้วยืนยัน `git diff HEAD` ว่างสนิท (ตรงกับ commit `d9c71f6` เป๊ะ 100% ไม่มีร่องรอยหลงเหลือ) จากนั้นรัน `flutter test` เต็ม suite ซ้ำ — ยืนยัน **GREEN**: 367/367 ผ่านครบเหมือนเดิม
+6. ตรวจ scope discipline: `git show d9c71f6 --stat` ยืนยัน 12 ไฟล์เปลี่ยนทั้งหมด map ตรงกับ R1/R2/R3 + test ที่เกี่ยวข้อง + ย้ายไฟล์ task doc (`backlog/` → `review/`) เท่านั้น ไม่มี schema.sql/RLS/ไฟล์นอกขอบเขตใดๆ แอบเข้ามา
+7. ตรวจ mobile/responsive: R3's ปุ่มใหม่ใช้ `WynSpacing.space8` (32px) horizontal padding ทั้งสองข้าง เหลือพื้นที่ ~256px บนจอแคบสุด (320px) เพียงพอสำหรับปุ่ม "สำรวจ Club" ไม่มี overflow; test-viewport overflow ที่ Coding แก้ (`tester.view.physicalSize = Size(800, 2200)`) ยืนยันเป็นข้อจำกัดของ default 800x600 test viewport จริง ไม่ใช่ production constraint (พื้นที่จริงบนอุปกรณ์ทุกรุ่นมีเหลือเฟือกว่า 28px ที่เหลือใน test เดิม)
+8. Security: ตรวจแล้วไม่มีการแก้ RLS/schema/API ใดๆ ในงานนี้ (pure UI-layer change ทั้งหมด) — ไม่มี secret/credential ปรากฏในโค้ด/commit message
+
+Passed: 8/8
+Failed: 0/8
+Severity: N/A
+Reproduction Steps: N/A (ไม่พบบั๊ก)
+Expected: N/A
+Actual: N/A
+Security Findings: ไม่พบ — งานนี้ไม่แตะ auth/RLS/API/secret ใดๆ ทั้งหมดเป็นการเรียกใช้ widget/pattern เดิมที่ผ่าน QA แล้ว (`relativeTimeLabel`, `openCommentsOnStart`-style flag pattern, `ExploreClubsScreen` เดิม)
+Recommendation: ไม่ block แต่บันทึกไว้ 2 ข้อสังเกต Minor ไม่ block เพื่อ Product พิจารณา:
+  1. `HomeDropCard` ถูก reuse ใน `hashtag_feed_screen.dart` (WYN-020) ด้วย นอกเหนือจาก Home feed/Drop feed ที่ Design ระบุไว้ตรงๆ — ได้รับ timestamp ไปด้วยโดยอัตโนมัติ (positive side-effect ไม่ใช่บั๊ก) แต่ Design/Coding Output ไม่ได้กล่าวถึงจุดนี้ตรงๆ ควรบันทึกไว้เป็นความรู้สำหรับงานต่อไปที่แตะ `HomeDropCard`
+  2. Fast-follow ที่ Design/Coding เสนอไว้แล้ว (timestamp ให้ `HomePopCard` ด้วย) ยังคงเป็นข้อเสนอที่สมเหตุสมผล เพื่อความสอดคล้องกันของการ์ด 2 ประเภทในฟีดเดียวกัน
+Final Status: PASS
+```
+
