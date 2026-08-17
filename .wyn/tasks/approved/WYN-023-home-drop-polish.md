@@ -1,7 +1,7 @@
 # Product Task — WYN-023
 
-Status: Coding เสร็จแล้ว รอ AI QA & Security (ย้ายเข้า `.wyn/tasks/review/`)
-Owner: AI Product Manager → AI Design → AI Coding
+Status: approved (QA รอบ 1 — PASS)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS)
 
 Feature: Home/Drop Polish — แก้ 3 Minor finding ที่ค้างจาก QA รอบก่อนหน้า (ไม่เคยถูกหยิบมาทำต่อ)
 
@@ -74,3 +74,30 @@ Build: ไม่ได้รัน `flutter build` จริง (ต้องม
 Known Issues: ไม่มี — Non-goal ของ R1 (`HomePopCard` ยังไม่มี timestamp) เป็นไปตาม Design spec ที่ตั้งใจไว้แล้ว บันทึกเป็น fast-follow ที่แนะนำไว้ ไม่ใช่ bug ของงานนี้
 
 Handoff: ส่งต่อ AI QA & Security (`/qa`) — เอกสาร task นี้ย้ายเข้า `.wyn/tasks/review/` แล้ว รอ QA อิสระตรวจ Requirements/Design Components/Acceptance Criteria ทั้ง 3 หัวข้อ แนะนำให้ QA ทำ red→green proof อิสระเองซ้ำอย่างน้อย 1 จุด (เช่น R2's openCommentsOnStart) ตามธรรมเนียมเดิมของโปรเจกต์ — ไม่ย้ายเข้า `approved/` เอง
+
+## QA Output (2026-08-17) — รอบ 1: PASS
+
+Environment: sync `HEAD` (`bba6dd4`, ต่อจาก commit ของ WYN-023 `3660985`) — สังเกตว่า repository directory มีงานของ agent อื่นกำลังทำ WYN-024/WYN-025 อยู่พร้อมกัน (uncommitted changes ใน `profile`/`drop`/`schema.sql` ที่ไม่เกี่ยวกับ WYN-023 เลย และทำให้ `flutter analyze`/`flutter test` ใน working directory หลักพังชั่วคราวจาก compile error ของงานอื่น) — แก้ปัญหาโดยสร้าง `git worktree` แยกจาก `HEAD` เพื่อรัน `flutter analyze`/`flutter test`/red-green proof แบบอิสระโดยไม่ปนกับ/ไม่แตะงานของ agent อื่น แล้วลบ worktree ทิ้งหลังตรวจเสร็จ (ไม่มีการเปลี่ยนแปลงค้างในทั้งสอง working tree)
+
+Test Cases:
+1. `flutter analyze` อิสระ (ใน worktree แยก) — ยืนยัน clean ตรงกับที่ Coding รายงาน
+2. `flutter test` อิสระเต็มชุด (ใน worktree แยก) — ยืนยัน 369/369 ตรงกับที่ Coding รายงาน
+3. ไล่อ่านโค้ดจริงของ R1 (`home_drop_card.dart`) เทียบ Design spec ทีละบรรทัด — ตำแหน่ง `Expanded(Column([ชื่อ, relativeTimeLabel(...)]))`, เอา `mainAxisSize: MainAxisSize.min` ออกจาก `Row`, import `core/text_utils.dart`, สไตล์ `bodySmall`+`colorScheme.outline` ตรงตาม spec ทุกจุด — ยืนยันว่า `HomeDropCard` ถูก reuse จริงทั้งใน Home feed (`home_feed_screen.dart:588`) และ Drop feed ทั้ง 3 tab For You/Following/Latest (`drop_feed_screen.dart:337`, list builder เดียวใช้ร่วมทั้ง 3 tab)
+4. ไล่อ่านโค้ดจริงของ R2 (`pop_clip_view.dart`, `pop_single_clip_screen.dart`, `home_pop_card.dart`, `home_feed_screen.dart`) — ยืนยัน `openCommentsOnStart` default `false` ส่งผ่านทุกชั้นถูกต้อง, `onTap` ปกติของการ์ด Pop ยังคงเรียก `_openPop(item)` (default false) ส่วน `onOpenComments` เรียก `_openPop(item, openCommentsOnStart: true)` แยกจากกันชัดเจน, `_openComments()` เรียกผ่าน `addPostFrameCallback` + `mounted` guard ถูกต้องตามคำเตือนของ Design เรื่อง `showModalBottomSheet` ต้องมี widget tree พร้อมก่อน — ตรวจ caller อื่นทั้งหมดที่เปิด `PopSingleClipScreen` (`profile_pop_grid_tab.dart`, `profile_saved_tab.dart`, `notification_list_screen.dart`, `push_notification_service.dart`, `search_pop_results_tab.dart`) ไม่มีจุดไหนถูกแก้/ถูกกระทบ ยังใช้ default `false` เหมือนเดิมทั้งหมด — ไม่มี regression
+5. ไล่อ่านโค้ดจริงของ R3 (`from_your_clubs_feed.dart`) เทียบ Design spec — ปุ่ม "สำรวจ Club" ใช้ `OutlinedButton.icon(icon: Icons.explore_outlined size 18, label: 'สำรวจ Club')` ตรงกับ `ClubSection`'s ปุ่มต้นแบบทุก property, `_openExploreClubs()` มิเรอร์ `ClubSection._openExploreClubs()` เป๊ะ (repository เดียวกัน ปลายทางเดียวกัน เรียก `_loadInitial()`/`_reload()` ทันทีหลังกลับมาเหมือนกัน)
+6. **Red→Green proof อิสระจุดที่ 1 — R2 (`openCommentsOnStart`)**: ปิดการทำงานของ `addPostFrameCallback` block ใน `pop_clip_view.dart`'s `initState` ชั่วคราว (`if (false && widget.openCommentsOnStart)`) แล้วรัน `flutter test test/home_feed_screen_test.dart --plain-name "WYN-023 R2"` — ยืนยัน **RED จริง**: เทส "tapping the Comment icon on a Pop card opens the comment sheet immediately" fail เพราะหา `find.text('ความคิดเห็น')` ไม่เจอ จากนั้น restore โค้ดกลับตามเดิม รันซ้ำยืนยัน **GREEN** (2/2 ผ่าน) — พิสูจน์ตรงกับที่ Coding รายงานไว้จริง
+7. **Red→Green proof อิสระจุดที่ 2 — R3 (RenderFlex overflow fix)**: สงสัยว่า overflow เดิมจะ reproduce ได้จริงหรือไม่ในบริบทการทดสอบปกติ (revert `from_your_clubs_feed.dart`'s empty state กลับเป็น `Center`/`Padding`/`Column` เดิม (ไม่มี `SingleChildScrollView`) แล้วรันเทสที่มีอยู่แล้วในไฟล์ (`home_feed_screen_test.dart`'s "shows a join-prompt message...") — พบว่า **ไม่ overflow ที่ viewport ทดสอบมาตรฐาน 800×600** (ผ่านทั้งรันเดี่ยวและรันทั้งไฟล์) จึงเขียน widget test ชั่วคราวเพิ่มเอง (`qa_temp_overflow_repro_test.dart`, ลบทิ้งหลังตรวจเสร็จ) ห่อ `FromYourClubsFeed`'s empty state ด้วย `SizedBox(height: 60)` เพื่อจำลองสถานการณ์พื้นที่แคบจริงตามที่ Coding อธิบายไว้ (ฝังอยู่ใต้ ClubSection/Trending/toggle) — ยืนยัน **RED จริง**: `RenderFlex overflowed by 52 pixels on the bottom` เกิดขึ้นจริงกับโค้ดเดิม (ไม่มี `SingleChildScrollView`) จากนั้น restore `SingleChildScrollView` กลับ รันซ้ำยืนยัน **GREEN** — สรุปว่า bug ของ Coding เป็นบั๊กจริงที่ reproduce ได้เมื่อพื้นที่แคบพอ (ไม่ใช่แค่ทฤษฎี) และการแก้ด้วย `SingleChildScrollView` แก้ได้ผลจริง ไม่ทิ้ง regression ใหม่ไว้ (`flutter analyze`/เทสเดิมทั้งหมดยังผ่านหลัง restore)
+8. ไล่ Acceptance Criteria ทั้ง 4 ข้อแยกกัน: (1) relative timestamp บนการ์ด Drop ทั้ง Home/Drop feed 3 tab — ผ่าน (ยืนยันด้วย test จริงทั้งสองไฟล์ + อ่านโค้ด reuse), (2) แตะ Comment บนการ์ด Pop เปิด comment sheet ทันที — ผ่าน (ยืนยันด้วย red→green), (3) ปุ่ม "สำรวจ Club" ใน empty state พาไป `ExploreClubsScreen` จริง — ผ่าน (ยืนยันด้วย test + อ่านโค้ด), (4) `flutter analyze`/`flutter test` ผ่านครบไม่มี regression — ผ่าน (369/369 อิสระ)
+
+Passed: 8/8 (test cases ด้านบน รวม static review + 2 red→green proof อิสระ)
+Failed: 0
+
+Severity: -
+
+Security Findings: ไม่มีจุดที่แตะ auth/authorization/API/secret — งานนี้เป็น UI polish ล้วนๆ ไม่มี schema/RLS change ตรวจแล้วไม่มี secret หลุดในโค้ดที่เปลี่ยนแปลง
+
+Recommendation:
+- ไม่ block: บันทึกไว้เป็นข้อสังเกตด้าน process — repository directory ถูกใช้งานพร้อมกันโดย agent หลายตัว (WYN-023 QA ของฉันกับ WYN-024/WYN-025 ที่กำลัง code อยู่) ทำให้ shared working directory ไม่ reliable สำหรับรัน `flutter analyze`/`flutter test` อิสระในบางจังหวะ — แนะนำใช้ `git worktree` แยกเสมอเมื่อพบว่า working directory มี uncommitted change ที่ไม่ใช่ของ task ตัวเอง (บันทึกเป็น pattern ใหม่ให้ QA รอบถัดไปอ้างอิง)
+- Non-goal ของ R1 (`HomePopCard` ยังไม่มี timestamp) ตามที่ Design ตั้งใจไว้แล้ว ไม่ใช่ gap ของงานนี้ เห็นด้วยกับข้อเสนอ fast-follow ของ Coding/Design
+
+Final Status: PASS
