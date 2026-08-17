@@ -7,6 +7,10 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    # Vendored third-party plugin (unchanged upstream Dart source, see
+    # packages/video_thumbnail/NOTICE.md) -- not subject to WYN's own
+    # lint rules, same as any other pub.dev dependency wouldn't be.
+    - packages/**
 include: package:flutter_lints/flutter.yaml
 
 linter:

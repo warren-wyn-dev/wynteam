@@ -59,5 +59,19 @@ dev_dependencies:
   # dependency of image_picker before.
   image_picker_platform_interface: ^2.11.1
 
+# WYN Debug Engineer (2026-08-17) -- pub.dev's video_thumbnail 0.5.6 (the
+# latest published version, matching the `^0.5.3` constraint above) ships
+# an android/build.gradle that calls the removed jcenter() repository
+# method and applies AGP via the legacy `apply plugin:` syntax, so it
+# fails to build under this project's AGP 9.1.0
+# (app/android/settings.gradle.kts). No newer release fixes this. Pinned
+# to a local vendored copy with only android/build.gradle patched (Dart
+# API, Android/iOS native code otherwise byte-for-byte identical) --
+# see app/packages/video_thumbnail/NOTICE.md for full details and the
+# removal plan once upstream publishes a fix.
+dependency_overrides:
+  video_thumbnail:
+    path: packages/video_thumbnail
+
 flutter:
   uses-material-design: true
