@@ -37,3 +37,23 @@ Risks:
 Recommendation: ทำได้อิสระ ไม่ต้องรอ WYN-024/025/026
 
 Handoff: ส่งต่อ AI Design เพื่อออกแบบ diversity algorithm (sliding-window ขนาดเท่าไหร่) + banner UI แล้วส่งต่อ AI Coding
+
+## Design Output (AI Design, 2026-08-17)
+
+Design spec เต็มที่ `.wyn/docs/design/wyn-027-home-feed-diversity-new-content.md` สรุปการตัดสินใจหลัก:
+
+**R1 — Feed Diversity**:
+- กติกา: ไม่ให้ author เดียวกันอยู่เกิน 2 ตำแหน่งติดกัน (`maxConsecutiveSameAuthor = 2`, เท่ากับ "มอง 3 ตำแหน่งติดกัน ต้องไม่ใช่ author เดียวกันทั้งหมด" ตามตัวอย่างใน product spec)
+- Algorithm: greedy single-pass พร้อม lookahead-swap — เดินตามลำดับ score เดิม ถ้าตัวถัดไปจะทำให้ author เดิมครองตำแหน่งที่ 3 ติดกัน ให้ดึงรายการถัดไปที่ author ต่างออกมาสลับขึ้นก่อน (ไม่ตัดออก ไม่เพิ่ม แค่ปรับลำดับ) — พิสูจน์ terminate แน่นอน (O(n²) worst case ที่ scale 200 item ไม่มีปัญหา) พร้อม pseudocode/worked trace/5 unit test case ที่ต้องมีในเอกสารแล้ว
+- เรียกใช้เป็น pass ใหม่ (`diversifyFeed()`, ไฟล์ใหม่ `home_diversity.dart`) **หลัง** `items.sort()` เดิมใน `fetchRankedFeed` และ **ก่อน** slice แบ่งหน้า (รันบน candidate window 200 รายการเต็ม ไม่ใช่ทีละหน้า 10 รายการ กัน run ขาดตอนที่รอยต่อหน้า) — ไม่แตะ `rankingScore()`/`home_ranking_test.dart` เดิมเลย
+- ใช้เฉพาะโหมด **"สำหรับคุณ"** เท่านั้น — **"ล่าสุด" ไม่ใช้** (ต้องคงเป็น timeline ดิบ 100% ตามที่ WYN-018 ตั้งใจไว้เป็น escape hatch จากทุก algorithm) และ **"กำลังนิยม"/Trending ไม่ใช้** (list สั้น 10 รายการ ผูกกับความหมาย "จัดอันดับตาม engagement ล้วนๆ" ถ้าสลับจะขัดกับชื่อ section)
+
+**R2 — New Content Indicator**:
+- Polling: `Timer.periodic` ทุก **45 วินาที** (เป็น periodic timer ตัวแรกของโปรเจกต์ — ย้ำเรื่อง lifecycle cleanup เป็นพิเศษ) เรียก `HomeRepository.countNewSince(DateTime since)` ใหม่ — ใช้ `count(CountOption.exact)` (HEAD request ไม่ fetch แถวจริง) มิเรอร์ pattern เดียวกับ `NotificationRepository.countUnread()` ที่มีอยู่แล้ว เทียบกับ `created_at` ของ `home_feed` view ตรงๆ ไม่ต้องแก้ schema/RLS
+- `since` = timestamp ตอน `_loadInitial()` โหลดสำเร็จล่าสุด (ไม่ใช่ createdAt ของ item แรก เพราะโหมด "สำหรับคุณ" ไม่ได้เรียงตามเวลาเป๊ะ)
+- **จุดสำคัญที่พบระหว่างออกแบบ**: `RootShell` ใช้ `IndexedStack` เก็บทุกแท็บไว้ (ไม่ dispose ตอนสลับแท็บ) ดังนั้น "หยุด polling เมื่อออกจากหน้า Home" ทำด้วย `dispose()` อย่างเดียวไม่พอ — ออกแบบให้เพิ่ม param ใหม่ `HomeFeedScreen.isVisible` (RootShell ส่ง `_index == 0` เข้ามา มิเรอร์ pattern เดียวกับ `_profileVisitKey` ที่มีอยู่แล้ว) แล้วใช้ `didUpdateWidget` เริ่ม/หยุด timer ตามการมองเห็นจริงของแท็บ ไม่ใช่แค่ mount/dispose
+- Banner: pill ลอยกลางจอเหนือ feed (ไม่ full-width) ข้อความ "↑ N โพสต์ใหม่" (ไม่ใช้คำว่า "Drop" เพราะ feed ผสม Drop/Pop) สี `colorScheme.primary` (WYN Blue เดิม ไม่เพิ่มสีใหม่) พร้อม slide+fade animation เข้า/ออก ~200ms
+- แตะ banner → เรียก `_loadInitial()` ตัวเดิมที่ `RefreshIndicator` (pull-to-refresh) ใช้อยู่แล้วตรงๆ (full clear-and-repopulate จาก page 0) แทนการเขียน merge/dedup logic ใหม่ — ป้องกัน duplicate โดยธรรมชาติเพราะ list ถูกแทนที่ทั้งหมด แล้ว scroll กลับขึ้นบนสุดให้เห็นของใหม่
+- ไม่มี auto-jump ระหว่าง polling ทำงานเบื้องหลัง — feed กระโดดเฉพาะตอนผู้ใช้กดเองเท่านั้น
+
+Handoff ต่อ: ส่งต่อ AI Coding พร้อมรายการไฟล์ที่ต้องแก้/สร้างครบใน design doc's "Handoff" section (ไฟล์ใหม่ `home_diversity.dart`, `home_diversity_test.dart`, `new_content_banner.dart`, แก้ `home_repository.dart`/`home_feed_screen.dart`/`root_shell.dart`)
