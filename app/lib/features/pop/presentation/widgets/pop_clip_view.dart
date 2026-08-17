@@ -45,6 +45,7 @@ class PopClipView extends StatefulWidget {
     required this.onMutedToggle,
     required this.onDeleted,
     this.topLeading,
+    this.openCommentsOnStart = false,
   });
 
   /// Only read once, in initState -- see _PopClipViewState._pop for why.
@@ -64,6 +65,15 @@ class PopClipView extends StatefulWidget {
   /// (opened from a Home Pop card) passes a back button instead. Null
   /// renders nothing there.
   final Widget? topLeading;
+
+  /// When true, opens the comment sheet automatically once this clip is
+  /// first shown, instead of waiting for the user to tap the Comment icon
+  /// themselves -- used when this screen was opened specifically from a
+  /// Comment tap on a Home Pop card (WYN-023's fast-follow on the Minor
+  /// finding from WYN-007 QA round 2). Defaults to false so every other
+  /// caller (PopFeedScreen, Notification, Search, Profile grids) keeps its
+  /// existing behavior of not auto-opening anything.
+  final bool openCommentsOnStart;
 
   @override
   State<PopClipView> createState() => _PopClipViewState();
@@ -94,6 +104,18 @@ class _PopClipViewState extends State<PopClipView> {
     if (widget.isActive) _initController();
     if (_pop.authorId != Supabase.instance.client.auth.currentUser!.id) {
       _loadFollowStatus();
+    }
+    if (widget.openCommentsOnStart) {
+      // _openComments() shows a modal bottom sheet, which needs a widget
+      // tree that's already built (an Overlay from the surrounding
+      // Scaffold/MaterialApp) -- calling it directly here in initState
+      // would run before that first build completes. addPostFrameCallback
+      // defers it to right after this widget's first frame instead. See
+      // .wyn/docs/design/wyn-023-home-drop-polish.md, R2.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _openComments();
+      });
     }
   }
 

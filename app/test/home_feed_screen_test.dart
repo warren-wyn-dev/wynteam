@@ -13,6 +13,7 @@ import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/trending_tile.dart';
 import 'package:wyn/features/notification/presentation/notification_list_screen.dart';
+import 'package:wyn/features/pop/presentation/widgets/pop_comment_sheet.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/search/presentation/search_screen.dart';
 
@@ -319,6 +320,25 @@ void main() {
   });
 
   testWidgets(
+      'shows a relative timestamp under the author name on a Drop card '
+      '(WYN-023) -- HomePopCard is deliberately out of scope, see '
+      '.wyn/docs/design/wyn-023-home-drop-polish.md Non-goal', (tester) async {
+    await tester.pumpWidget(buildHome(
+      mixedFeedHomeRepository,
+      dropRepository: sharedDropRepository,
+      popRepository: sharedPopRepository,
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    // _dropItem() defaults createdAt to DateTime.now(), so
+    // relativeTimeLabel() renders "เมื่อสักครู่" (diff < 60s) -- exactly
+    // one match confirms the Drop card shows it and the Pop card (out of
+    // scope this round) doesn't grow a second one by accident.
+    expect(find.text('เมื่อสักครู่'), findsOneWidget);
+  });
+
+  testWidgets(
       'DS-003: shows exactly one hairline divider between 2 posts, none '
       'before the first or after the last', (tester) async {
     // The default 800x600 test viewport is too short to keep both an
@@ -436,8 +456,9 @@ void main() {
   });
 
   testWidgets(
-      'tapping the Comment icon on a Pop card opens PopSingleClipScreen, '
-      'same as tapping the card itself', (tester) async {
+      'tapping the Comment icon on a Pop card opens PopSingleClipScreen with '
+      'the comment sheet already open (WYN-023 fast-follow on WYN-007 QA '
+      'round 2\'s Minor finding)', (tester) async {
     await tester.pumpWidget(buildHome(
       popCommentTestHomeRepository,
       dropRepository: popCommentTestDropRepository,
@@ -457,6 +478,42 @@ void main() {
     tester.takeException();
 
     expect(find.byType(PopSingleClipScreen), findsOneWidget);
+    // The whole point of R2: no second tap needed once the clip has
+    // loaded -- the comment sheet is already showing.
+    expect(find.byType(PopCommentSheet), findsOneWidget);
+  });
+
+  testWidgets(
+      'tapping a Pop card anywhere else (not the Comment icon) opens '
+      'PopSingleClipScreen without auto-opening the comment sheet '
+      '(WYN-023 regression guard)', (tester) async {
+    await tester.pumpWidget(buildHome(
+      popCommentTestHomeRepository,
+      dropRepository: popCommentTestDropRepository,
+      popRepository: popCommentTestPopRepository,
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    // Invoke the card's own onTap directly, same as the Comment-icon
+    // tests above -- the card's 1:1 media area pushes its own center
+    // below the 600px test viewport, so a literal tester.tap() on it
+    // would miss (same issue documented on the DS-003 divider test).
+    // This is the outermost InkWell (whole-card tap), not the inner one
+    // used only for the avatar/name -> onOpenProfile.
+    final cardInkWell = tester.widget<InkWell>(
+      find.descendant(
+        of: find.byType(HomePopCard),
+        matching: find.byType(InkWell),
+      ).first,
+    );
+    expect(cardInkWell.onTap, isNotNull);
+    cardInkWell.onTap!();
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.byType(PopSingleClipScreen), findsOneWidget);
+    expect(find.byType(PopCommentSheet), findsNothing);
   });
 
   testWidgets('tapping the Search bar opens SearchScreen (WYN-009)',
@@ -566,6 +623,15 @@ void main() {
     testWidgets(
         'shows a join-prompt message on "จาก Club ของคุณ" when the user has no '
         'joined-club posts', (tester) async {
+      // WYN-023 adds a "สำรวจ Club" button under the join-prompt text, so
+      // this empty state now needs more vertical room than the default
+      // 800x600 test viewport leaves after ClubSection/Trending/toggle --
+      // same tall-viewport fix as the DS-003 divider test above (mirrors
+      // store_screen_test.dart's tester.view.physicalSize pattern).
+      tester.view.physicalSize = const Size(800, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
       await tester.pumpWidget(buildHome(
         mixedFeedHomeRepository,
         dropRepository: sharedDropRepository,
@@ -579,6 +645,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('เข้าร่วม Club เพื่อดูโพสต์ที่นี่'), findsOneWidget);
+      // ClubSection above the toggle always shows its own "สำรวจ Club"
+      // button too -- scope this to the one inside FromYourClubsFeed's
+      // empty state specifically so the assertion isn't vacuously
+      // satisfied by that pre-existing button.
+      final emptyStateExploreButton = find.descendant(
+        of: find.byKey(const Key('from_your_clubs_feed')),
+        matching: find.widgetWithText(OutlinedButton, 'สำรวจ Club'),
+      );
+      expect(emptyStateExploreButton, findsOneWidget);
     });
 
     testWidgets('switching back to "สำหรับคุณ" restores the regular feed',

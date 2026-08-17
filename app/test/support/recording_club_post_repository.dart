@@ -51,6 +51,12 @@ class RecordingClubPostRepository extends ClubPostRepository {
   int addCommentCalls = 0;
   int deleteCommentCalls = 0;
 
+  /// Counts every call to [fetchFromJoinedClubs] regardless of page --
+  /// WYN-023 uses this to prove FromYourClubsFeed._loadInitial() actually
+  /// re-fetches after returning from ExploreClubsScreen (mirrors
+  /// RecordingHomeRepository.fetchRankedFeedCalls, WYN-018).
+  int fetchFromJoinedClubsCalls = 0;
+
   @override
   Future<List<ClubPost>> fetchPosts({required String clubId, required int page}) async {
     return page == 0 ? posts : <ClubPost>[];
@@ -58,6 +64,7 @@ class RecordingClubPostRepository extends ClubPostRepository {
 
   @override
   Future<List<ClubPost>> fetchFromJoinedClubs({required int page}) async {
+    fetchFromJoinedClubsCalls++;
     return page == 0 ? fromJoinedClubs : <ClubPost>[];
   }
 
