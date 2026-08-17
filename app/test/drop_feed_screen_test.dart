@@ -77,6 +77,19 @@ void main() {
     expect(find.byType(HomeDropCard), findsOneWidget);
   });
 
+  testWidgets(
+      'shows a relative timestamp under the author name on the For You tab '
+      '(WYN-023) -- proves fixing HomeDropCard once fixed the Drop feed too',
+      (tester) async {
+    await tester.pumpWidget(buildDropFeed());
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    // _drop() defaults createdAt to DateTime.now(), so relativeTimeLabel()
+    // renders "เมื่อสักครู่" (diff < 60s).
+    expect(find.text('เมื่อสักครู่'), findsOneWidget);
+  });
+
   testWidgets('switching to the Following tab shows only followed-users\' Drops',
       (tester) async {
     await tester.pumpWidget(buildDropFeed());
@@ -89,6 +102,8 @@ void main() {
 
     expect(find.text('Following เท่านั้น'), findsOneWidget);
     expect(find.text('For You/Latest'), findsNothing);
+    // WYN-023: all 3 tabs reuse the same HomeDropCard, so all 3 show it.
+    expect(find.text('เมื่อสักครู่'), findsOneWidget);
   });
 
   testWidgets('shows a distinct empty message on Following, not the generic one',
@@ -118,6 +133,9 @@ void main() {
     tester.takeException();
 
     expect(find.text('For You/Latest'), findsOneWidget);
+    // WYN-023: same HomeDropCard, same fix -- the Latest tab shows the
+    // relative timestamp too, not just For You.
+    expect(find.text('เมื่อสักครู่'), findsOneWidget);
   });
 
   testWidgets('shows the empty state with the generic message on For You/Latest',

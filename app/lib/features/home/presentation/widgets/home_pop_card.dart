@@ -25,6 +25,7 @@ class HomePopCard extends StatelessWidget {
     super.key,
     required this.item,
     required this.onTap,
+    required this.onComment,
     required this.onToggleLike,
     required this.onToggleSave,
     required this.onOpenProfile,
@@ -32,6 +33,13 @@ class HomePopCard extends StatelessWidget {
 
   final HomeFeedItem item;
   final VoidCallback onTap;
+
+  /// Separate from [onTap] (WYN-023) so the caller can open
+  /// PopSingleClipScreen with its comment sheet already open, instead of
+  /// this icon just reusing the same "open the clip" behavior as tapping
+  /// anywhere else on the card. See
+  /// .wyn/docs/design/wyn-023-home-drop-polish.md, R2.
+  final VoidCallback onComment;
   final VoidCallback onToggleLike;
   final VoidCallback onToggleSave;
   final VoidCallback onOpenProfile;
@@ -149,7 +157,7 @@ class HomePopCard extends StatelessWidget {
                       excludeSemantics: true,
                       child: IconButton(
                         icon: const Icon(Icons.mode_comment_outlined, size: 20),
-                        onPressed: onTap,
+                        onPressed: onComment,
                       ),
                     ),
                     Text('${item.commentCount}'),

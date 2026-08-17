@@ -24,6 +24,7 @@ class PopSingleClipScreen extends StatefulWidget {
     required this.profileRepository,
     required this.dropRepository,
     required this.savedRepository,
+    this.openCommentsOnStart = false,
   });
 
   final Pop pop;
@@ -32,6 +33,12 @@ class PopSingleClipScreen extends StatefulWidget {
   final ProfileRepository profileRepository;
   final DropRepository dropRepository;
   final SavedRepository savedRepository;
+
+  /// Forwarded to [PopClipView] -- see its doc comment. Set to true when
+  /// this screen is opened from a Comment tap on a Home Pop card (WYN-023)
+  /// so the comment sheet opens immediately instead of requiring a second
+  /// tap once the clip has loaded.
+  final bool openCommentsOnStart;
 
   @override
   State<PopSingleClipScreen> createState() => _PopSingleClipScreenState();
@@ -82,6 +89,7 @@ class _PopSingleClipScreenState extends State<PopSingleClipScreen> {
                   isActive: true,
                   muted: _muted,
                   onMutedToggle: _toggleMuted,
+                  openCommentsOnStart: widget.openCommentsOnStart,
                   onDeleted: () {
                     setState(() => _deleted = true);
                     Navigator.of(context).pop();

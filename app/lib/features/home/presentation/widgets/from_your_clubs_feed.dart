@@ -5,6 +5,7 @@ import '../../../club/data/club_post.dart';
 import '../../../club/data/club_post_repository.dart';
 import '../../../club/data/club_repository.dart';
 import '../../../club/presentation/club_post_detail_screen.dart';
+import '../../../club/presentation/explore_clubs_screen.dart';
 import '../../../club/presentation/widgets/club_post_card.dart';
 import '../../../../core/design/wyn_spacing.dart';
 
@@ -197,6 +198,24 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
     _loadInitial();
   }
 
+  // Mirrors ClubSection._openExploreClubs() (same method name, on purpose,
+  // so the two are easy to find/diff) -- the empty state's "สำรวจ Club"
+  // button is a shortcut to the exact same destination as ClubSection's
+  // own button above the toggle. Reloads on return so a Club joined while
+  // on the Explore screen shows up here immediately without a manual
+  // pull-to-refresh. See .wyn/docs/design/wyn-023-home-drop-polish.md, R3.
+  Future<void> _openExploreClubs() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ExploreClubsScreen(
+          clubRepository: widget.clubRepository,
+          clubPostRepository: widget.clubPostRepository,
+        ),
+      ),
+    );
+    _loadInitial();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoadingInitial) {
@@ -217,10 +236,21 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
     }
 
     if (_posts.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: Text('เข้าร่วม Club เพื่อดูโพสต์ที่นี่', textAlign: TextAlign.center),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('เข้าร่วม Club เพื่อดูโพสต์ที่นี่', textAlign: TextAlign.center),
+              const SizedBox(height: WynSpacing.space3),
+              OutlinedButton.icon(
+                onPressed: _openExploreClubs,
+                icon: const Icon(Icons.explore_outlined, size: 18),
+                label: const Text('สำรวจ Club'),
+              ),
+            ],
+          ),
         ),
       );
     }
