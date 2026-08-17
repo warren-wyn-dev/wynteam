@@ -1,7 +1,37 @@
 # Product Task — WYN-020
 
-Status: coded + self-verified (QA — PASS, 2026-08-17)
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (self-verified)
+Status: QA รอบ 1 (อิสระ) — PASS, 2026-08-17
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (independent — PASS)
+
+## Independent QA — Round 1 (AI QA & Security, 2026-08-17)
+
+**หมายเหตุ**: "PASS" เดิมด้านล่าง (`## Coding + QA Output`) เป็น self-verified โดย session เดียวกับที่เขียนโค้ดเท่านั้น ไม่ใช่ QA อิสระ — รอบนี้คือ QA อิสระรอบแรกที่แท้จริง
+
+```
+Feature: Hashtag System — tappable #hashtag + Hashtag Feed screen (Latest/Trending)
+Environment: Re-synced ไป origin/main tip (commit 8d338cb) ก่อนเริ่ม, Flutter 3.47.0 / Dart 3.13.0, ไม่มี schema change ใน task นี้ (ตัดสินใจ ILIKE-based ตาม WYN-009 precedent ไม่สร้างตาราง `hashtags`)
+Test Cases:
+1. `flutter analyze` อิสระ — clean
+2. `flutter test` อิสระทั้ง suite ที่ HEAD ปัจจุบัน — 362/362 ผ่าน (ครอบคลุม 18 test ของ task นี้)
+3. อ่านโค้ด `hashtagPattern` (`core/text_utils.dart`) ยืนยัน `\p{M}` (combining mark) รวมอยู่ในแพทเทิร์นจริง — ทดสอบด้วยมือ (`#เที่ยวไทย` มีวรรณยุกต์/สระ Thai ที่เป็น Unicode category Mn) เพื่อยืนยันว่าบั๊กเดิมที่ Coding อ้างว่าเจอและแก้ ("#เที่ยวไทย" → ตัดเหลือ "เท") จะไม่เกิดซ้ำกับแพทเทิร์นปัจจุบัน — สอดคล้องกับที่โค้ดปัจจุบันมี `\p{M}` แล้ว
+4. อ่านโค้ด `HashtagFeedScreen._load()` ยืนยัน exact-match re-check ผ่าน `extractHashtags(...).contains(_lowerTag)` หลัง ILIKE candidate fetch — ป้องกัน false-positive ของ `#WYNfamily` เมื่อค้นหา `#WYN` (R4) ตรงตามที่ต้องการ
+5. อ่านโค้ด `HashtagFeedScreen._resolveRolesFor()` — ยืนยันพึ่ง `club_posts`'s own RLS (membership-gated select) สำหรับ visibility ของ Club post ที่ปนอยู่ใน Hashtag Feed ไม่ใช่ bypass ใดๆ (เทียบกับ WYN-021's finding ด้านล่าง ยืนยันว่าจุดนี้ไม่มีปัญหาแบบเดียวกัน เพราะ `club_posts` select policy ถูกต้องอยู่แล้ว ไม่ได้พึ่ง `club_post_mentions`)
+6. ไล่ Acceptance Criteria ทั้ง 4 ข้อเทียบกับ Requirements R1–R4 และ Design doc (`wyn-020-hashtag-system.md`) — ครบทุกข้อ
+7. Regression: `HashtagText` ถูก wire เข้า 6 จุด (HomeDropCard/HomePopCard/DropDetailScreen/PopClipView/ClubPostCard/ClubPostDetailScreen) — ยืนยันไม่มี call site ไหนพัง (อยู่ใน 362/362)
+Passed: 7/7
+Failed: 0/7
+Severity: N/A
+Reproduction Steps: N/A (ไม่พบบั๊ก)
+Expected: N/A
+Actual: N/A
+Security Findings: ไม่พบช่องโหว่ — ILIKE substring search พึ่ง RLS เดิมของ `drops`/`club_posts` ทั้งคู่ (ไม่ bypass), known limitation (ILIKE จะช้าลงเมื่อข้อมูลโต) บันทึกไว้แล้วโดย Product เป็นความเสี่ยงที่ยอมรับแล้ว ไม่ใช่ security gap
+Recommendation: ไม่มีข้อเสนอเพิ่มเติม
+Final Status: PASS
+```
+
+---
+
+## Coding + QA Output (เดิม — self-verified เท่านั้น ไม่ใช่ QA อิสระ)
 
 ## Coding + QA Output
 

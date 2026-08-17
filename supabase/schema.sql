@@ -3111,11 +3111,26 @@ create table if not exists public.club_post_mentions (
 
 alter table public.club_post_mentions enable row level security;
 
-create policy "Club post mentions are viewable by authenticated users"
+-- WYN-021 bug fix (see .wyn/tasks/bugs/WYN-021-club-post-mentions-rls-gap.md):
+-- unlike drop_mentions above (correctly `using (true)`, because drops
+-- themselves have no privacy boundary), club_post_mentions must be
+-- gated by club membership -- club_posts are members-only-visible at
+-- the DB layer (WYN-014's invariant), and this policy originally
+-- shipped as `using (true)`, letting any authenticated user read a
+-- private Club post's id and who was mentioned in it without ever
+-- being a member. Mirrors club_post_likes'/club_post_comments' select
+-- policy shape exactly.
+create policy "Approved club members can view club post mentions"
   on public.club_post_mentions
   for select
   to authenticated
-  using (true);
+  using (
+    exists (
+      select 1 from public.club_posts cp
+      where cp.id = club_post_id
+        and public.club_role(cp.club_id, auth.uid()) is not null
+    )
+  );
 
 create policy "Club post authors can mention users in their own posts"
   on public.club_post_mentions

@@ -1,7 +1,38 @@
 # Product Task — WYN-018
 
-Status: coded + self-verified (QA — PASS, 2026-08-17)
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (self-verified)
+Status: QA รอบ 1 (อิสระ) — PASS, 2026-08-17
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (independent — PASS)
+
+## Independent QA — Round 1 (AI QA & Security, 2026-08-17)
+
+**หมายเหตุ**: "PASS" เดิมด้านล่าง (`## Coding + QA Output`) เป็น self-verified โดย session เดียวกับที่เขียนโค้ดเท่านั้น ไม่ใช่ QA อิสระ — รอบนี้คือ QA อิสระรอบแรกที่แท้จริง งานนี้เสี่ยงสูงสุดในกลุ่ม 6 task เพราะแตะ Home feed หลักที่ผ่าน QA แล้วตั้งแต่ WYN-007 จึงให้ความสำคัญเป็นพิเศษกับ red→green regression proof อิสระ
+
+```
+Feature: Home Feed Ranking ("สำหรับคุณ" algorithm)
+Environment: Re-synced ไป origin/main tip (commit 8d338cb) ก่อนเริ่ม, Flutter 3.47.0 / Dart 3.13.0, ไม่มี schema change ใน task นี้ (pure query-level ranking ตามที่ Coding ระบุ — ยืนยันแล้วว่าไม่มี "WYN-018" section ใน schema.sql)
+Test Cases:
+1. `flutter analyze` อิสระ — clean
+2. `flutter test` อิสระทั้ง suite ที่ HEAD ปัจจุบัน — 362/362 ผ่าน
+3. เทียบสูตรในโค้ด (`home_ranking.dart`: `recencyScore = (168 - hoursSincePosted).clamp(0,168)`, `engagementScore = like*2 + comment*3`, `followingBoost = 50`) กับ Design doc (`wyn-018-home-feed-ranking.md`) ทีละพจน์ — ตรงกันทุกตัวเลข ไม่มีการเบี่ยงเบนจากที่ lock ไว้
+4. **Red→Green regression proof อิสระ** (คนละวิธีกับที่ Coding ทำ ไม่ใช่แค่รัน test เดิมซ้ำ): inject บั๊ก 2 จุดพร้อมกันเข้า `rankingScore()` จริง (เปลี่ยน `commentCount * 3` → `* 2`, เปลี่ยน `followingBoost` จาก 50 → 0) แล้วรัน `flutter test test/home_ranking_test.dart` — ยืนยัน **RED**: 4/8 test fail ตรงจุดที่ inject บั๊กพอดี (ไม่ fail มั่ว/ไม่ false-negative) จากนั้น revert กลับค่าเดิมทุกตัวอักษร (`git diff` ยืนยันไฟล์กลับสู่สภาพเดิม 100%) แล้วรันซ้ำ — ยืนยัน **GREEN**: 8/8 ผ่าน
+5. ยืนยัน `home_feed` view (R4, ห้ามแก้ RLS ของ `drops`/`pops`/`clubs`/`club_posts`) — grep schema.sql ยืนยันไม่มีการแก้ RLS ใดๆ ที่เกี่ยวข้องกับ ranking
+6. ยืนยัน chronological mode ("ล่าสุด") ยังกลับไปดูได้เสมอ (R3) ผ่าน `SegmentedButton` 3 ตัวเลือก — อ่านโค้ด `HomeFeedScreen` ยืนยัน mode switch เรียก repository method ถูกต้องตามโหมด (`fetchFeed` สำหรับ "ล่าสุด" vs `fetchRankedFeed` สำหรับ "สำหรับคุณ")
+7. ยืนยัน bounded top-200 window เป็น documented tradeoff ที่ Design doc ยอมรับไว้แล้วชัดเจน (ไม่ใช่ gap ที่เพิ่งพบ)
+8. Regression: `RecordingHomeRepository.rankedFeedItems` default fallback ไปที่ `feedItems` เดิม — ยืนยัน 15 test เดิมของ `home_feed_screen_test.dart` ที่ไม่เกี่ยวกับ ranking ไม่พัง (อยู่ใน 362/362 ที่ยืนยันแล้ว)
+Passed: 8/8
+Failed: 0/8
+Severity: N/A
+Reproduction Steps: N/A (ไม่พบบั๊ก — red→green proof เป็นการพิสูจน์ regression-safety ไม่ใช่การพบบั๊ก)
+Expected: N/A
+Actual: N/A
+Security Findings: R4 (ห้ามแก้ RLS ของเนื้อหาเดิม) ยืนยันปฏิบัติตามจริง — ไม่มีช่องโหว่ใหม่จากงานนี้ (เป็นแค่การเรียงลำดับผลลัพธ์ที่ RLS อนุญาตให้เห็นอยู่แล้ว)
+Recommendation: ไม่มีข้อเสนอเพิ่มเติม — performance benchmark กับ production data จริงยังเป็น UNKNOWN ตามที่ Coding ระบุไว้แล้ว (ไม่มี infra จริงให้วัด) เก็บเป็นรายการติดตามเมื่อ deploy จริง
+Final Status: PASS
+```
+
+---
+
+## Coding + QA Output (เดิม — self-verified เท่านั้น ไม่ใช่ QA อิสระ)
 
 ## Coding + QA Output
 
