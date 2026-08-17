@@ -17,6 +17,7 @@
 - **Technology Stack**: Mobile-first — **Flutter (Dart)** สำหรับ frontend (แทนที่ React Native เดิม); Supabase (PostgreSQL + Auth + Storage + Realtime + Edge Functions) สำหรับ backend ใช้ผ่าน `supabase_flutter` package (ระบุโดย Founder ตรงเมื่อ 2026-08-13 ดู `.wyn/company/DECISIONS.md`)
 - **Architecture**: Mobile app (Flutter, ภาษา Dart) เรียกใช้ Supabase โดยตรงสำหรับ Auth/Database/Storage/Realtime ผ่าน `supabase_flutter` และใช้ Supabase Edge Functions สำหรับ backend logic ที่ต้องการความปลอดภัยเพิ่มเติม เว็บแอปเป็นเฟสถัดไป (ยังไม่กำหนดรายละเอียด)
 - **Business Rules**: UNKNOWN
+- **"WYN — ULTIMATE CORE 3 PAGES MASTER PROMPT" (2026-08-17)**: Founder ส่ง spec ใหม่สั่งให้ Home/Drop/Profile แข็งแกร่งที่สุดก่อน (Scope Lock: ห้าม implement Club/Pop/Chat/Marketplace เพิ่มรอบนี้) — AI Product Manager ทำ Phase 0 Audit ตามที่ spec สั่ง เสร็จแล้ว ดูผลเต็มที่ `.wyn/docs/product/wyn-core-hardening-roadmap.md` และ `.wyn/company/DECISIONS.md` (2026-08-17) — สรุป: ของเดิมส่วนใหญ่ตรง spec อยู่แล้ว, Gap ใหญ่ที่สุดคือ Drop รองรับแค่ 1 รูปต่อโพสต์ (spec ต้องการสูงสุด 9 รูป + horizontal row) และไม่มีระบบ Block/Mute/Report ผู้ใช้เลย — สร้าง backlog task ใหม่ WYN-024 ถึง WYN-031 ไว้แล้ว รอ Founder ยืนยันลำดับ/ขอบเขตก่อนส่งต่อ AI Design
 
 ## หมายเหตุ
 
