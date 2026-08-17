@@ -1,7 +1,20 @@
 # Bug Report — WYN-021
 
-Status: fixed — รอ AI QA & Security รอบ 2 (ยังไม่ closed จนกว่าจะ PASS)
-Owner: AI Debug Engineer (เสร็จ) → AI QA & Security (รอบ 2 — ถัดไป)
+Status: **closed** (RESOLVED + VERIFIED — แก้แล้ว ผ่าน QA อิสระรอบ 2 — PASS, 2026-08-17)
+Owner: AI Debug Engineer (เสร็จ) → AI QA & Security (รอบ 2 — PASS, ปิดแล้ว)
+
+## QA Round 2 — Independent Verification (AI QA & Security, 2026-08-17)
+
+ยืนยันอิสระว่า fix ของ AI Debug Engineer (commit `8ee326e`) แก้ปัญหานี้ได้จริง — ไม่ได้เชื่อรายงานของ Debug เฉยๆ:
+
+1. อ่าน diff จริงของ `8ee326e` เทียบกับ `club_post_likes`/`club_post_comments`'s select policy — shape ตรงกันเป๊ะ (`exists (... club_role(cp.club_id, auth.uid()) is not null)`)
+2. รัน `bash supabase/tests/wyn_021_club_post_mentions_rls_test.sh` (สคริปต์ที่ Debug สร้างไว้) เอง — **5/5 PASS**
+3. **Red→Green proof อิสระคนละมุมกับ Debug**: สร้าง harness/fixture ของตัวเองใหม่ (ไม่ reuse ของ Debug) ทดสอบ **pending member** และ **banned member** (ต่างจากเคส "zero-membership outsider" ที่ Debug/QA รอบ 1 ทดสอบ) — post-fix ทั้งคู่อ่าน `club_post_mentions` ไม่ได้ (0 rows, ถูกต้อง); revert policy กลับเป็น `using (true)` ชั่วคราว (ไฟล์สำเนา ไม่แตะ repo) → ทั้งคู่รั่ว (1 row) ตามคาด → ยืนยันว่า fix ปิดช่องโหว่ครอบคลุมทุกสถานะสมาชิกที่ไม่ใช่ approved จริง ไม่ใช่แค่เคสเดียวที่เคยพิสูจน์ไว้
+4. ยืนยัน `drop_mentions`'s `using (true)` ไม่ถูกแตะ (ไม่มี hunk ในนั้นเลยจาก `git show 8ee326e`) และยัง legitimate ตามเดิม (global-public content)
+5. Re-run notification integration (mention-creates-notification / self-mention-guard / non-author-insert-block) อิสระด้วย harness ใหม่ — ทั้งหมดยังถูกต้อง ไม่มี regression
+6. `flutter analyze`/`flutter test` อิสระ — clean / 362/362 ตรงกับที่ Debug รายงาน
+
+**Final Status: PASS** — รายละเอียดเต็มอยู่ที่ `.wyn/tasks/approved/WYN-021-mention-system.md`'s "Independent QA — Round 2" section
 
 Bug: `club_post_mentions`'s `select` RLS policy is `using (true)` (any authenticated user), instead of being gated by club membership like every sibling table this same task/file already establishes the pattern for (`club_posts`, `club_post_likes`, `club_post_comments` all correctly gate `select` with `public.club_role(club_id, auth.uid()) is not null`). This lets **any authenticated WYN user — including someone who was never even a pending member of a private Club — read `club_post_mentions` rows directly**, exposing (a) the existence/UUID of a private Club's post, and (b) exactly which user was mentioned in it, neither of which they are authorized to see per the private-Club visibility invariant WYN-014 established ("club posts are members-only-visible at the DB layer").
 

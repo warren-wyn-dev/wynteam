@@ -1,7 +1,39 @@
 # Product Task — WYN-021
 
-Status: Debug แก้แล้ว — พร้อมส่งกลับ AI QA & Security รอบ 2, 2026-08-16
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (independent — FAIL รอบ 1) → AI Debug Engineer (แก้แล้ว) → AI QA & Security (รอบ 2 — ถัดไป)
+Status: **PASS — QA อิสระรอบ 2, 2026-08-17** — ย้ายเข้า `approved/` แล้ว
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (independent — FAIL รอบ 1) → AI Debug Engineer (แก้แล้ว) → AI QA & Security (รอบ 2 — PASS)
+
+## Independent QA — Round 2 (AI QA & Security, 2026-08-17)
+
+```
+Feature: @Mention System — autocomplete ตอนพิมพ์ + tappable @mention ในโพสต์ + Notification (QA รอบ 2 — ตรวจ fix ของ AI Debug Engineer สำหรับ club_post_mentions RLS gap)
+Environment: Branch `claude/website-testing-44ac9u` @ commit `8ee326e` (fix อยู่บนสุดแล้ว, ตรงกับที่ Debug รายงาน), Flutter 3.47.0 / Dart 3.13.0, PostgreSQL 16.13 local (สร้าง harness เองใหม่ทั้งหมด อิสระจาก harness ของรอบ 1/ของ Debug — stub schema `auth`/`storage`, `auth.uid()`, `storage.foldername()`, grants ให้ role `authenticated`/`anon`) โหลด `supabase/schema.sql` ทั้งไฟล์สำเร็จ (`ON_ERROR_STOP=1`, 0 error)
+Test Cases:
+1. อ่าน diff จริงของ commit `8ee326e` (`git show 8ee326e -- supabase/schema.sql`) — ยืนยัน `club_post_mentions`'s select policy เปลี่ยนจาก `using (true)` เป็น `exists (select 1 from club_posts cp where cp.id = club_post_id and club_role(cp.club_id, auth.uid()) is not null)` ตรงตามที่เสนอในบั๊กรีพอร์ต
+2. เทียบ policy shape กับ `club_post_likes`/`club_post_comments` (อ่านโค้ดจริงบรรทัด 1255-1265, 1300-1310) — ตรงกันเป๊ะทุกตัวอักษร ไม่ใช่แค่ "คล้ายกัน"
+3. รัน `bash supabase/tests/wyn_021_club_post_mentions_rls_test.sh` ที่ Debug สร้างไว้ — **5/5 PASS** (CHECK1 outsider→club_posts=0, CHECK2 outsider→club_post_mentions=0, CHECK3 author เห็น mention ตัวเอง=1, CHECK4 member2 (approved อื่น ไม่ใช่ author/ไม่ใช่ mentioned) เห็นได้=1, CHECK5 `drop_mentions` ไม่กระทบ outsider ยังเห็นได้=1)
+4. **Red→Green proof อิสระของตัวเอง คนละมุมกับ Debug/รอบ 1**: สร้าง harness+fixture ใหม่เองทั้งหมด (ไม่ reuse ของ Debug) ทดสอบ **pending member** (สมัครเข้า club แล้วแต่ยัง `status = 'pending'`, ไม่ใช่ zero-membership outsider แบบที่รอบ 1/Debug ทดสอบ) และ **banned member** (เคยเป็นสมาชิกแล้วโดนแบน, `status = 'banned'`) — ทั้งสองกรณีต้องอ่าน `club_post_mentions` ไม่ได้เหมือนกัน:
+   - Post-fix (schema.sql ปัจจุบัน): pending→`club_post_mentions`=0 ✓, banned→`club_post_mentions`=0 ✓ (ทั้งคู่ตรง `club_posts`=0 ด้วย)
+   - Red (แก้ policy กลับเป็น `using (true)` ชั่วคราวในไฟล์สำเนา ไม่แตะ repo จริง): pending→`club_post_mentions`=**1** (รั่ว, ตามคาด), banned→`club_post_mentions`=**1** (รั่ว, ตามคาด) — ยืนยันว่าถ้าไม่มี fix นี้ pending/banned member ก็รั่วเหมือนกับ outsider แม้จะไม่ใช่เคสเดียวกับที่ Debug/รอบ 1 พิสูจน์ไว้ก็ตาม พิสูจน์ว่า fix ปิดช่องโหว่ได้ครอบคลุมทุกสถานะที่ไม่ใช่ approved จริง ไม่ใช่แค่เคส "zero membership" เดียว
+5. ยืนยัน `drop_mentions`'s select policy (`using (true)`) **ไม่ถูกแตะ** — อ่านโค้ดบรรทัด 3085-3089 ตรงกับก่อน fix ทุกตัวอักษร (`git show 8ee326e` ไม่มี hunk ในส่วนนี้เลย) และ CHECK5 ของสคริปต์ยืนยันด้วย Postgres จริงว่า total outsider ยังอ่าน `drop_mentions` ได้ปกติ (ถูกต้อง เพราะ `drops` เป็น global-public) — ไม่ได้ "แก้เกิน" ไปกระทบของที่ถูกอยู่แล้ว
+6. Re-run notification integration proofs อิสระเอง (คนละ harness จากรอบ 1/Debug): mention คนอื่น → 1 notification จริง, self-mention → 0 notification จริง, non-author พยายาม insert mention บนโพสต์คนอื่น (Drop) → ถูก RLS ปฏิเสธจริง (`new row violates row-level security policy`) — ทั้งสามจุดยังทำงานถูกต้องหลัง fix ไม่มี regression
+7. `flutter analyze` อิสระ — clean, ตรงกับที่ Debug รายงาน
+8. `flutter test` อิสระทั้ง suite — **362/362 ผ่าน** ตรงกับตัวเลขที่ Debug รายงาน (รวม `mention_input_test.dart`, `hashtag_text_test.dart`, `create_club_post_screen_test.dart` รันแยกซ้ำอีกครั้งด้วย ผ่านหมด)
+9. ไล่ Requirements (R1-R5)/Design Components (`MentionInput`, `HashtagText` extension, entity tables, notification triggers)/Acceptance Criteria (5 ข้อ) ของ WYN-021 ใหม่ทั้งหมดครบทุกข้อ ไม่ใช่แค่จุดที่ Debug แก้ — อ่านโค้ด `MentionInput` (debounce/cancel, `_activeMentionQuery` boundary logic ถูกต้อง), `HashtagText`'s `_findTokens`/mention span/try-catch บน tap ถูกต้อง, `ClubPostRepository.createPost`/`DropRepository.createDrop`'s `mentionedUserIds` param insert หลัง post สำเร็จถูกต้อง, notification message text + tap-to-navigate (`_openDrop`/`_openClubPost`) ถูกต้อง — ทุกจุดตรงกับที่รอบ 1 เคยยืนยันไว้แล้วและยังไม่มี regression จาก fix รอบนี้
+Passed: 9/9
+Failed: 0/9
+Severity: N/A (ไม่พบช่องโหว่ใหม่ — fix ปิดช่องโหว่เดิมได้สมบูรณ์)
+Reproduction Steps: ดู Test Case 4 ด้านบน (pending/banned member red→green) — สคริปต์ทดสอบเก็บไว้ใน scratchpad ของ session นี้เท่านั้น (ไม่ persist เข้า repo เพราะ `supabase/tests/wyn_021_club_post_mentions_rls_test.sh` ที่ Debug สร้างไว้ครอบคลุม non-member (zero-membership) case แล้วเป็น regression test หลักที่ persist — เคส pending/banned เป็นการตรวจยืนยันเพิ่มเติมเชิงลึกของ QA ไม่ใช่ regression pattern ใหม่ที่ต้องรันซ้ำถาวร เพราะกลไก RLS เดียวกัน `club_role() is not null` ครอบคลุมทุกสถานะที่ไม่ใช่ approved อยู่แล้วในตัว)
+Expected: `club_post_mentions` อ่านได้เฉพาะ approved member เท่านั้น ไม่ว่าจะเป็น non-member/pending/banned
+Actual: ตรงตาม Expected ทุกกรณีหลัง fix — ไม่พบ gap เพิ่มเติม
+Security Findings:
+  - Major เดิม (`club_post_mentions`'s select RLS `using (true)`) — **แก้แล้วจริง** ยืนยันด้วย Postgres จริงทั้งจาก script ของ Debug และจาก fixture คนละมุมที่ QA สร้างเอง (pending/banned member)
+  - `drop_mentions`'s `using (true)` — ยืนยันแล้วว่าไม่ถูกแตะและยังถูกต้องตามเดิม (global-public content, ไม่ใช่ bug)
+  - Self-mention guard / non-author insert block — ยืนยันซ้ำอิสระอีกครั้ง ยังถูกต้อง ไม่มี regression
+  - ไม่พบช่องโหว่ใหม่จากการเปลี่ยนแปลงนี้ (fix เป็นการ "เข้มงวดขึ้น" ล้วนๆ ไม่มี legitimate read path ใดถูกตัดขาด — CHECK3/CHECK4 พิสูจน์แล้วว่า author และ approved member อื่นยังเห็นได้ปกติ)
+Recommendation: PASS — ย้าย `.wyn/tasks/review/WYN-021-mention-system.md` เข้า `.wyn/tasks/approved/`, ปิด `.wyn/tasks/bugs/WYN-021-club-post-mentions-rls-gap.md` เป็น resolved+verified
+Final Status: PASS
+```
 
 ## Debug — Round 1 fix (AI Debug Engineer, 2026-08-16)
 
