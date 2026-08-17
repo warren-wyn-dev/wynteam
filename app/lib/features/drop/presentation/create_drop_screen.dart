@@ -8,6 +8,7 @@ import '../../profile/data/profile_repository.dart';
 import '../data/drop_repository.dart';
 import '../data/square_crop.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/widgets/confirm_discard_dialog.dart';
 import '../../../core/widgets/mention_input.dart';
 
 /// Screen 2 — Create Drop.
@@ -48,10 +49,29 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
 
   bool get _canShare => !_isSharing && !_isCropping && _imageBytes != null;
 
+  // WYN-025, R2: whether leaving now would silently drop something the
+  // user typed/picked. Computed live from existing fields -- no extra
+  // state, no persistence across app restarts (see design doc's Decision).
+  bool get _hasUnsavedContent =>
+      _captionController.text.trim().isNotEmpty || _imageBytes != null;
+
   @override
   void dispose() {
     _captionController.dispose();
     super.dispose();
+  }
+
+  // Shared by both the AppBar close button and PopScope's system-back
+  // handling so the confirm-discard logic lives in exactly one place.
+  Future<void> _requestExit() async {
+    if (!_hasUnsavedContent) {
+      Navigator.of(context).pop(false);
+      return;
+    }
+    final discard = await confirmDiscardChanges(context);
+    if (!discard) return;
+    if (!mounted) return;
+    Navigator.of(context).pop(false);
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -72,13 +92,13 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     setState(() => _isCropping = true);
     try {
       final rawBytes = await picked.readAsBytes();
-      // Cropped to a fresh PNG, so the original extension no longer
-      // reflects the actual encoded bytes.
+      // Cropped to a fresh JPEG (WYN-025, R1), so the original extension
+      // no longer reflects the actual encoded bytes.
       final cropped = await centerCropToSquare(rawBytes);
       if (!mounted) return;
       setState(() {
         _imageBytes = cropped;
-        _imageExtension = 'png';
+        _imageExtension = 'jpg';
       });
     } catch (_) {
       // e.g. a corrupted file or a format decodeImageFromList can't
@@ -153,11 +173,26 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_isSharing && !_hasUnsavedContent,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        // While sharing, block silently -- the user didn't actively
+        // choose to leave (see design doc's Interactions: stacking a
+        // dialog on top of an in-flight upload would be confusing).
+        if (_isSharing) return;
+        _requestExit();
+      },
+      child: _buildScaffold(),
+    );
+  }
+
+  Widget _buildScaffold() {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(false),
+          onPressed: _isSharing ? null : _requestExit,
         ),
         title: const Text('Drop ใหม่'),
         actions: [
@@ -194,6 +229,13 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                       profileRepository: _profileRepository,
                       onMentionedUsersChanged: (ids) =>
                           setState(() => _mentionedUserIds = ids),
+                      // WYN-025, R2: without this, typing plain text (no
+                      // @mention) never triggers a rebuild, so PopScope's
+                      // canPop -- computed from _hasUnsavedContent at
+                      // build time -- stays stale at its pre-typing value
+                      // and silently lets system back pop the route
+                      // without ever showing the confirm-discard dialog.
+                      onChanged: (_) => setState(() {}),
                       maxLength: _captionMaxLength,
                       maxLines: 4,
                       minLines: 2,
