@@ -45,6 +45,7 @@ class PopClipView extends StatefulWidget {
     required this.onMutedToggle,
     required this.onDeleted,
     this.topLeading,
+    this.openCommentsOnStart = false,
   });
 
   /// Only read once, in initState -- see _PopClipViewState._pop for why.
@@ -64,6 +65,15 @@ class PopClipView extends StatefulWidget {
   /// (opened from a Home Pop card) passes a back button instead. Null
   /// renders nothing there.
   final Widget? topLeading;
+
+  /// When true, opens the comment sheet automatically as soon as this
+  /// clip is ready, instead of waiting for the user to tap the Comment
+  /// icon themselves -- used when this view was opened specifically from
+  /// a Comment tap (e.g. a Home Pop card's Comment icon, WYN-023) rather
+  /// than from tapping the card/clip itself. Defaults to false so every
+  /// other caller (PopFeedScreen's swipe feed, tapping a Pop card/thumbnail)
+  /// keeps its original behavior unchanged.
+  final bool openCommentsOnStart;
 
   @override
   State<PopClipView> createState() => _PopClipViewState();
@@ -94,6 +104,16 @@ class _PopClipViewState extends State<PopClipView> {
     if (widget.isActive) _initController();
     if (_pop.authorId != Supabase.instance.client.auth.currentUser!.id) {
       _loadFollowStatus();
+    }
+    if (widget.openCommentsOnStart) {
+      // Deferred to a post-frame callback rather than called directly
+      // here -- showModalBottomSheet (inside _openComments) needs a
+      // fully-built widget tree/Navigator to attach to, which isn't
+      // guaranteed yet mid-initState. See the Design spec's Handoff note.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _openComments();
+      });
     }
   }
 

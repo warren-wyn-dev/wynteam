@@ -5,6 +5,7 @@ import '../../../club/data/club_post.dart';
 import '../../../club/data/club_post_repository.dart';
 import '../../../club/data/club_repository.dart';
 import '../../../club/presentation/club_post_detail_screen.dart';
+import '../../../club/presentation/explore_clubs_screen.dart';
 import '../../../club/presentation/widgets/club_post_card.dart';
 import '../../../../core/design/wyn_spacing.dart';
 
@@ -184,6 +185,21 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
     }
   }
 
+  // Mirrors ClubSection._openExploreClubs() exactly (same repositories,
+  // same destination, same reload-on-return) -- see
+  // .wyn/docs/design/wyn-023-home-drop-polish.md (R3).
+  Future<void> _openExploreClubs() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ExploreClubsScreen(
+          clubRepository: widget.clubRepository,
+          clubPostRepository: widget.clubPostRepository,
+        ),
+      ),
+    );
+    _loadInitial();
+  }
+
   Future<void> _openPost(ClubPost post) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -217,10 +233,30 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
     }
 
     if (_posts.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: Text('เข้าร่วม Club เพื่อดูโพสต์ที่นี่', textAlign: TextAlign.center),
+      // SingleChildScrollView (not a bare Center/Column) so this never
+      // throws a RenderFlex overflow when the available height is short
+      // (e.g. a small screen, or this feed embedded below Home's other
+      // sections) -- same overflow failure mode as the WYN-015
+      // ViewProfileScreen bug noted in ClubSection. Scrolling this tiny
+      // bit of centered content is harmless; a hard overflow is not.
+      return Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WynSpacing.space8,
+            vertical: WynSpacing.space4,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('เข้าร่วม Club เพื่อดูโพสต์ที่นี่', textAlign: TextAlign.center),
+              const SizedBox(height: WynSpacing.space3),
+              OutlinedButton.icon(
+                onPressed: _openExploreClubs,
+                icon: const Icon(Icons.explore_outlined, size: 18),
+                label: const Text('สำรวจ Club'),
+              ),
+            ],
+          ),
         ),
       );
     }
