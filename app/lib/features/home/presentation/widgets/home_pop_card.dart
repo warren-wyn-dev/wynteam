@@ -28,6 +28,7 @@ class HomePopCard extends StatelessWidget {
     required this.onToggleLike,
     required this.onToggleSave,
     required this.onOpenProfile,
+    required this.onOpenComments,
   });
 
   final HomeFeedItem item;
@@ -35,6 +36,12 @@ class HomePopCard extends StatelessWidget {
   final VoidCallback onToggleLike;
   final VoidCallback onToggleSave;
   final VoidCallback onOpenProfile;
+
+  /// Distinct from [onTap] -- tapping the Comment icon specifically opens
+  /// the single-clip screen with its comment sheet already open, rather
+  /// than just opening the clip like tapping the card/thumbnail does. See
+  /// .wyn/tasks/backlog/WYN-023-home-drop-polish.md (R2).
+  final VoidCallback onOpenComments;
 
   Future<void> _share() async {
     await SharePlus.instance.share(
@@ -149,7 +156,7 @@ class HomePopCard extends StatelessWidget {
                       excludeSemantics: true,
                       child: IconButton(
                         icon: const Icon(Icons.mode_comment_outlined, size: 20),
-                        onPressed: onTap,
+                        onPressed: onOpenComments,
                       ),
                     ),
                     Text('${item.commentCount}'),

@@ -12,7 +12,18 @@ dependencies:
   supabase_flutter: ^2.5.0
   cupertino_icons: ^1.0.6
   image_picker: ^1.1.2
+  # WYN-025 (Drop Composer Polish, R1) -- dart:ui's ImageByteFormat has no
+  # JPEG option (only png/rawRgba/rawStraightRgba/rawUnmodified), so
+  # square_crop.dart needs this to re-encode the cropped square as JPEG
+  # instead of PNG. See .wyn/docs/design/wyn-025-drop-composer-polish.md.
+  image: ^4.9.1
   share_plus: ^13.3.0
+  # WYN-024 -- opening a profile's Website link in an external browser.
+  # Previously only a transitive dependency of share_plus; declared
+  # directly now that app code imports it (view_profile_screen.dart), so
+  # its version isn't pinned to share_plus's transitive resolution by
+  # coincidence.
+  url_launcher: ^6.3.0
   video_player: ^2.9.2
   video_thumbnail: ^0.5.3
   # Used by PopFeedScreen to remember the user's last mute/unmute choice
@@ -41,6 +52,26 @@ dev_dependencies:
   # has no handler in the test env) -- was only a transitive dependency of
   # video_player before.
   video_player_platform_interface: ^6.2.0
+  # WYN-025 -- used directly by test/support/fake_image_picker_platform.dart
+  # to fake ImagePicker.pickImage()'s platform implementation (real
+  # platform channel has no handler in the test env, same reason as
+  # video_player_platform_interface above) -- was only a transitive
+  # dependency of image_picker before.
+  image_picker_platform_interface: ^2.11.1
+
+# WYN Debug Engineer (2026-08-17) -- pub.dev's video_thumbnail 0.5.6 (the
+# latest published version, matching the `^0.5.3` constraint above) ships
+# an android/build.gradle that calls the removed jcenter() repository
+# method and applies AGP via the legacy `apply plugin:` syntax, so it
+# fails to build under this project's AGP 9.1.0
+# (app/android/settings.gradle.kts). No newer release fixes this. Pinned
+# to a local vendored copy with only android/build.gradle patched (Dart
+# API, Android/iOS native code otherwise byte-for-byte identical) --
+# see app/packages/video_thumbnail/NOTICE.md for full details and the
+# removal plan once upstream publishes a fix.
+dependency_overrides:
+  video_thumbnail:
+    path: packages/video_thumbnail
 
 flutter:
   uses-material-design: true

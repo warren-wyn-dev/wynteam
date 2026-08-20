@@ -34,13 +34,14 @@ HomeFeedItem _dropItem({
   int likeCount = 0,
   bool likedByMe = false,
   String caption = 'แคปชัน Drop',
+  DateTime? createdAt,
 }) =>
     HomeFeedItem(
       id: id,
       contentType: HomeContentType.drop,
       authorId: 'someone-else',
       authorUsername: 'namfah',
-      createdAt: DateTime.now(),
+      createdAt: createdAt ?? DateTime.now(),
       caption: caption,
       imageUrl: 'https://example.supabase.co/drops/$id.jpg',
       likeCount: likeCount,
@@ -133,6 +134,17 @@ void main() {
   late RecordingClubRepository manyClubsRepository;
   late RecordingClubRepository noJoinedClubsRepository;
   late RecordingHomeRepository rankingTestHomeRepository;
+
+  // WYN-023 R1: Drop card relative timestamp.
+  late RecordingHomeRepository dropTimestampTestHomeRepository;
+
+  // WYN-023 R2: openCommentsOnStart.
+  late RecordingDropRepository popCommentAutoOpenTestDropRepository;
+  late RecordingPopRepository popCommentAutoOpenTestPopRepository;
+  late RecordingHomeRepository popCommentAutoOpenTestHomeRepository;
+  late RecordingDropRepository popTapOnlyTestDropRepository;
+  late RecordingPopRepository popTapOnlyTestPopRepository;
+  late RecordingHomeRepository popTapOnlyTestHomeRepository;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
@@ -236,6 +248,26 @@ void main() {
       feedItems: [_dropItem(id: 'latest-only', caption: 'จากล่าสุด')],
       rankedFeedItems: [_dropItem(id: 'ranked-only', caption: 'จากสำหรับคุณ')],
     );
+
+    dropTimestampTestHomeRepository = RecordingHomeRepository(
+      feedItems: [
+        _dropItem(
+          id: 'd-timestamp',
+          createdAt: DateTime.now().subtract(const Duration(minutes: 5)),
+        ),
+      ],
+    );
+
+    popCommentAutoOpenTestDropRepository = RecordingDropRepository();
+    popCommentAutoOpenTestPopRepository = RecordingPopRepository();
+    popCommentAutoOpenTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_popItem(id: 'p-comment-auto-open')],
+    );
+    popTapOnlyTestDropRepository = RecordingDropRepository();
+    popTapOnlyTestPopRepository = RecordingPopRepository();
+    popTapOnlyTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_popItem(id: 'p-tap-only')],
+    );
   });
 
   Widget buildHome(
@@ -316,6 +348,20 @@ void main() {
       matching: find.widgetWithIcon(IconButton, Icons.mode_comment_outlined),
     );
     expect(popCardComment, findsOneWidget);
+  });
+
+  testWidgets(
+      'WYN-023 R1: a Drop card shows a relative timestamp under the '
+      "author's name", (tester) async {
+    await tester.pumpWidget(buildHome(
+      dropTimestampTestHomeRepository,
+      dropRepository: sharedDropRepository,
+      popRepository: sharedPopRepository,
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('5 นาทีที่แล้ว'), findsOneWidget);
   });
 
   testWidgets(
@@ -457,6 +503,57 @@ void main() {
     tester.takeException();
 
     expect(find.byType(PopSingleClipScreen), findsOneWidget);
+  });
+
+  testWidgets(
+      'WYN-023 R2: tapping the Comment icon on a Pop card opens the '
+      'comment sheet immediately, without a second tap', (tester) async {
+    await tester.pumpWidget(buildHome(
+      popCommentAutoOpenTestHomeRepository,
+      dropRepository: popCommentAutoOpenTestDropRepository,
+      popRepository: popCommentAutoOpenTestPopRepository,
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    final commentButton =
+        find.widgetWithIcon(IconButton, Icons.mode_comment_outlined);
+    expect(commentButton, findsOneWidget);
+
+    final onPressed = tester.widget<IconButton>(commentButton).onPressed;
+    expect(onPressed, isNotNull);
+    onPressed!();
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.byType(PopSingleClipScreen), findsOneWidget);
+    expect(find.text('ความคิดเห็น'), findsOneWidget);
+  });
+
+  testWidgets(
+      'WYN-023 R2: tapping a Pop card itself (not its Comment icon) does '
+      'not auto-open the comment sheet', (tester) async {
+    // A tall custom viewport (same as the DS-003 divider test above) so
+    // the whole HomePopCard -- including its 1:1 image -- is on-screen
+    // and hit-testable without needing to scroll first.
+    tester.view.physicalSize = const Size(800, 2200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildHome(
+      popTapOnlyTestHomeRepository,
+      dropRepository: popTapOnlyTestDropRepository,
+      popRepository: popTapOnlyTestPopRepository,
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    await tester.tap(find.byType(HomePopCard));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.byType(PopSingleClipScreen), findsOneWidget);
+    expect(find.text('ความคิดเห็น'), findsNothing);
   });
 
   testWidgets('tapping the Search bar opens SearchScreen (WYN-009)',

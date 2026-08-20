@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../auth/data/auth_repository.dart';
 import '../../club/data/club.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
@@ -16,7 +18,7 @@ import '../../saved/data/saved_repository.dart';
 import '../data/profile.dart';
 import '../data/profile_repository.dart';
 import 'edit_profile_screen.dart';
-import 'widgets/avatar_circle.dart';
+import 'widgets/profile_cover_avatar.dart';
 import 'widgets/profile_drop_grid_tab.dart';
 import 'widgets/profile_pop_grid_tab.dart';
 import 'widgets/profile_saved_tab.dart';
@@ -147,6 +149,14 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       MaterialPageRoute(
         builder: (_) => EditProfileScreen(
           profileRepository: widget.profileRepository,
+          // Built directly from the client rather than threaded through
+          // as a new required ViewProfileScreen constructor param -- the
+          // same self-contained-navigation shortcut HashtagText already
+          // uses (core/widgets/hashtag_text.dart), so this doesn't force
+          // every other call site of ViewProfileScreen to start supplying
+          // one just for the "own profile" Edit button they may never
+          // tap through anyway.
+          authRepository: AuthRepository(Supabase.instance.client),
           profile: profile,
         ),
       ),
@@ -298,9 +308,11 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   padding: const EdgeInsets.all(WynSpacing.space6),
                   child: Column(
                     children: [
-                      AvatarCircle(
-                        imageUrl: profile.avatarUrl,
+                      ProfileCoverAvatar(
+                        coverUrl: profile.coverUrl,
+                        avatarUrl: profile.avatarUrl,
                         fallbackText: profile.username,
+                        coverSemanticsLabel: 'ภาพปกของ ${profile.nameOrUsername}',
                       ),
                       const SizedBox(height: WynSpacing.space4),
                       Text(
@@ -318,6 +330,10 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                       if (profile.bio != null && profile.bio!.isNotEmpty) ...[
                         const SizedBox(height: WynSpacing.space4),
                         Text(profile.bio!, textAlign: TextAlign.center),
+                      ],
+                      if (profile.website != null) ...[
+                        const SizedBox(height: WynSpacing.space4),
+                        _WebsiteLink(website: profile.website!),
                       ],
                       const SizedBox(height: WynSpacing.space4),
                       Row(
@@ -450,6 +466,66 @@ class _FollowCountTarget extends StatelessWidget {
                 label,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.outline,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The tappable "เว็บไซต์" row (WYN-024, R2) -- opens [website] in an
+/// external browser via `url_launcher`. `profile.website` is always
+/// stored with an `http(s)://` scheme (normalized on save by Edit
+/// Profile), but that scheme is stripped for display here so the row
+/// doesn't look needlessly long/technical.
+class _WebsiteLink extends StatelessWidget {
+  const _WebsiteLink({required this.website});
+
+  /// The full URL as stored (always has a scheme).
+  final String website;
+
+  String get _displayText => website.replaceFirst(RegExp(r'^https?://'), '');
+
+  Future<void> _open() async {
+    final uri = Uri.tryParse(website);
+    if (uri == null) return;
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // No app can open it (rare) -- fails silently, same posture as
+      // HashtagText's unresolvable-mention tap. See the design spec's R2
+      // States section.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'ลิงก์เว็บไซต์ $_displayText กดเพื่อเปิด',
+      button: true,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: _open,
+        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WynSpacing.space2,
+            vertical: WynSpacing.space1,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.link, size: 18),
+              const SizedBox(width: WynSpacing.space2),
+              Text(
+                _displayText,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w600,
                     ),
               ),
             ],

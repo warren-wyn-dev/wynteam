@@ -13,13 +13,13 @@ import 'support/recording_pop_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
 
-Drop _drop({required String id, required String caption}) => Drop(
+Drop _drop({required String id, required String caption, DateTime? createdAt}) => Drop(
       id: id,
       authorId: 'someone-else',
       authorUsername: 'namfah',
       imageUrl: 'https://example.supabase.co/drops/$id.jpg',
       caption: caption,
-      createdAt: DateTime.now(),
+      createdAt: createdAt ?? DateTime.now(),
       likeCount: 0,
       commentCount: 0,
       likedByMe: false,
@@ -30,6 +30,7 @@ void main() {
   late RecordingDropRepository dropRepo;
   late RecordingDropRepository emptyFollowingRepo;
   late RecordingDropRepository emptyRepo;
+  late RecordingDropRepository timestampRepo;
   late RecordingFollowRepository followRepo;
   late RecordingPopRepository popRepo;
   late RecordingProfileRepository profileRepo;
@@ -51,6 +52,16 @@ void main() {
       followingFeedDrops: [],
     );
     emptyRepo = RecordingDropRepository(feedDrops: [], followingFeedDrops: []);
+    timestampRepo = RecordingDropRepository(
+      feedDrops: [
+        _drop(
+          id: 'd-timestamp',
+          caption: 'มีเวลาโพสต์',
+          createdAt: DateTime.now().subtract(const Duration(minutes: 10)),
+        ),
+      ],
+      followingFeedDrops: [],
+    );
     followRepo = RecordingFollowRepository();
     popRepo = RecordingPopRepository();
     profileRepo = RecordingProfileRepository();
@@ -138,6 +149,16 @@ void main() {
     tester.takeException();
 
     expect(find.byType(DropDetailScreen), findsOneWidget);
+  });
+
+  testWidgets(
+      'WYN-023 R1: a Drop card in the Drop feed shows a relative timestamp '
+      '(reuses HomeDropCard, same fix as Home feed)', (tester) async {
+    await tester.pumpWidget(buildDropFeed(dropRepository: timestampRepo));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('10 นาทีที่แล้ว'), findsOneWidget);
   });
 
   testWidgets(

@@ -46,6 +46,12 @@ class RecordingDropRepository extends DropRepository {
   /// WYN-021.
   final List<Set<String>> createDropMentionedUserIdsArgs = [];
 
+  /// Each call to [createDrop]'s imageExtension argument, in order --
+  /// WYN-025, R1 (proves the caller sends 'jpg', not the old 'png').
+  final List<String> createDropImageExtensionArgs = [];
+
+  int createDropCalls = 0;
+
   int toggleLikeCalls = 0;
   int toggleSaveCalls = 0;
   int toggleCommentLikeCalls = 0;
@@ -116,6 +122,8 @@ class RecordingDropRepository extends DropRepository {
     required String caption,
     Set<String> mentionedUserIds = const {},
   }) async {
+    createDropCalls++;
+    createDropImageExtensionArgs.add(imageExtension);
     createDropMentionedUserIdsArgs.add(mentionedUserIds);
   }
 

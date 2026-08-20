@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/widgets/confirm_delete_dialog.dart';
+import '../../../core/widgets/fullscreen_image_viewer.dart';
 import '../../../core/widgets/hashtag_text.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../pop/data/pop_repository.dart';
@@ -154,6 +155,15 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       if (!mounted) return;
       setState(() => _isFollowing = previous);
     }
+  }
+
+  void _openFullscreenViewer() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => FullscreenImageViewer(imageUrl: _drop.imageUrl),
+      ),
+    );
   }
 
   void _openAuthorProfile() {
@@ -308,7 +318,14 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       children: [
         AspectRatio(
           aspectRatio: 1,
-          child: Image.network(_drop.imageUrl, fit: BoxFit.cover),
+          child: Semantics(
+            label: 'ดูรูปเต็มจอ',
+            button: true,
+            child: GestureDetector(
+              onTap: _openFullscreenViewer,
+              child: Image.network(_drop.imageUrl, fit: BoxFit.cover),
+            ),
+          ),
         ),
         Padding(
           padding: const EdgeInsets.all(WynSpacing.space4),
