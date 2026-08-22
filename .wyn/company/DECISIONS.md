@@ -327,3 +327,9 @@
 - ขอบเขตการแก้: จำกัดเฉพาะ `view_profile_screen.dart` เท่านั้น (ไฟล์ที่กำลังแก้อยู่แล้วสำหรับ WYN-028) — **ไม่แตะ** `report_sheet.dart`'s `showReportSheet()`/`_offerBlockAfterReport()` ที่มี hardcoding แบบเดียวกัน เพราะเป็นไฟล์คนละจุด ไม่เกี่ยวกับ Mute โดยตรง ตามหลัก "การเปลี่ยนแปลงเฉพาะส่วนที่จำเป็น หลีกเลี่ยง refactor ที่ไม่เกี่ยวข้อง" ใน RULES.md — เหลือเป็น fast-follow แยกต่างหากถ้า Founder ต้องการปิด gap ที่เหลือ
 - ผลลัพธ์: เขียน `test/view_profile_mute_test.dart` ทดสอบ More menu integration ของทั้ง Mute (ใหม่) ได้จริงเป็นครั้งแรก รวมถึงพิสูจน์ย้อนกลับว่า Block's More menu item ("บล็อก" แสดง/ไม่แสดงตาม `_blockRelationship`) ก็ทดสอบได้แล้วเช่นกันเป็นผลพลอยได้ — ปิด gap ที่ WYN-027 QA พบไปในตัวโดยไม่ต้องรอ task แยก
 - อ้างอิง: `.wyn/tasks/backlog/WYN-028-mute-system.md` (Coding Output section), `app/lib/features/profile/presentation/view_profile_screen.dart`, `app/test/view_profile_mute_test.dart`
+
+### [2026-08-22] Merge policy — merge เข้า main ทันทีทุกครั้งที่งานเสร็จ ไม่ต้องรอถามอนุมัติแยกแต่ละครั้ง
+- บริบท: งานของ Phase 1 (WYN-026/027/028) สะสมอยู่บน branch `claude/phase-1-safety-trust-481y98` มาหลายรอบโดยไม่ได้ merge เข้า main เลย (รอ AI Deploy & DevOps ตามขั้นตอนปกติ) ทำให้ Founder เปิด GitHub แล้วหางานไม่เจอเพราะดูอยู่ที่ branch `main`
+- คำตัดสินใจของ Founder: **"ทำงานเสร็จทุกครั้ง merge เลย"** — ทุกครั้งที่งานเสร็จ (โดยเฉพาะเมื่อผ่าน QA แล้ว) ให้ merge เข้า main ทันที ไม่ต้องรอถามอนุมัติแยกทีละครั้ง
+- ผลกระทบ: เปลี่ยนจากเดิมที่ AI Deploy & DevOps รอคำสั่ง merge/deploy แยกทุกครั้ง เป็นการ merge PR เข้า main ทันทีที่ task ผ่าน QA PASS (ยังคง**ไม่ข้าม QA gate** — งานที่ยังไม่ผ่าน QA ยังต้องผ่าน QA ก่อนเสมอ ตามกติกา "ห้ามอนุมัติงานที่ยังไม่ได้ทดสอบจริงเด็ดขาด" ที่เป็นกติกาแยกกันคนละเรื่องกับจังหวะ merge) — แปลว่าเมื่อ WYN-028 ผ่าน QA จะ merge branch ทั้งหมด (WYN-026+027+028) เข้า main ทันทีในรอบเดียวกัน ไม่รอคำสั่งแยก
+- อ้างอิง: -
