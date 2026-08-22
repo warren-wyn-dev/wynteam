@@ -8,7 +8,10 @@ import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../core/widgets/hashtag_text.dart';
 import '../../../core/widgets/restriction_banner.dart';
 import '../../follow/data/follow_repository.dart';
+import '../../moderation/data/appeal_repository.dart';
+import '../../moderation/data/appeal_status.dart';
 import '../../moderation/data/moderation_repository.dart';
+import '../../moderation/presentation/appeal_form_screen.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
@@ -40,6 +43,7 @@ class DropDetailScreen extends StatefulWidget {
     required this.savedRepository,
     required this.drop,
     this.moderationRepository,
+    this.appealRepository,
   });
 
   final DropRepository dropRepository;
@@ -55,6 +59,9 @@ class DropDetailScreen extends StatefulWidget {
   // optional repository param in this app. Tests inject a Recording*
   // fake here instead of touching Supabase.instance. WYN-029.
   final ModerationRepository? moderationRepository;
+
+  // Same shape again -- WYN-030's appeal entry point on the Restrict banner.
+  final AppealRepository? appealRepository;
 
   @override
   State<DropDetailScreen> createState() => _DropDetailScreenState();
@@ -85,11 +92,15 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   final _reportRepository = ReportRepository(Supabase.instance.client);
   late final ModerationRepository _moderationRepository =
       widget.moderationRepository ?? ModerationRepository(Supabase.instance.client);
+  late final AppealRepository _appealRepository =
+      widget.appealRepository ?? AppealRepository(Supabase.instance.client);
 
   // WYN-029 (Restrict) -- see CreateDropScreen's identical fields/doc
   // comment for why this is loaded once, not re-polled.
   String? _restrictReason;
   DateTime? _restrictExpiresAt;
+  String? _restrictActionId;
+  AppealStatus _restrictAppealStatus = AppealStatus.none;
   bool get _isRestricted => _restrictExpiresAt != null;
 
   @override
@@ -111,11 +122,27 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
         setState(() {
           _restrictReason = status.restrictReason;
           _restrictExpiresAt = status.restrictExpiresAt;
+          _restrictActionId = status.restrictActionId;
+          _restrictAppealStatus = status.restrictAppealStatus;
         });
       }
     } catch (_) {
       // Silent -- see CreateDropScreen's identical method.
     }
+  }
+
+  // WYN-030 -- see CreateDropScreen's identical method.
+  Future<void> _openAppeal() async {
+    final submitted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AppealFormScreen(
+          appealRepository: _appealRepository,
+          actionId: _restrictActionId!,
+          actionLabel: 'จำกัดสิทธิ์ (Restrict)',
+        ),
+      ),
+    );
+    if (submitted == true) _loadModerationStatus();
   }
 
   @override
@@ -729,7 +756,13 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (_isRestricted)
-              RestrictionBanner(reason: _restrictReason, expiresAt: _restrictExpiresAt),
+              RestrictionBanner(
+                reason: _restrictReason,
+                expiresAt: _restrictExpiresAt,
+                actionId: _restrictActionId,
+                appealStatus: _restrictAppealStatus,
+                onAppeal: _openAppeal,
+              ),
             if (_replyingTo != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 4, left: 4),

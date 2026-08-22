@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../moderation/data/appeal_repository.dart';
+import '../../moderation/data/appeal_status.dart';
 import '../../moderation/data/moderation_repository.dart';
+import '../../moderation/presentation/appeal_form_screen.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/drop_repository.dart';
 import '../data/square_crop.dart';
@@ -20,8 +23,10 @@ class CreateDropScreen extends StatefulWidget {
     required this.dropRepository,
     ProfileRepository? profileRepository,
     ModerationRepository? moderationRepository,
+    AppealRepository? appealRepository,
   })  : _profileRepository = profileRepository,
-        _moderationRepository = moderationRepository;
+        _moderationRepository = moderationRepository,
+        _appealRepository = appealRepository;
 
   final DropRepository dropRepository;
 
@@ -35,6 +40,9 @@ class CreateDropScreen extends StatefulWidget {
   // Same optional/defaulted shape as _profileRepository above -- WYN-029.
   final ModerationRepository? _moderationRepository;
 
+  // Same shape again -- WYN-030's appeal entry point on the Restrict banner.
+  final AppealRepository? _appealRepository;
+
   @override
   State<CreateDropScreen> createState() => _CreateDropScreenState();
 }
@@ -47,6 +55,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       widget._profileRepository ?? ProfileRepository(Supabase.instance.client);
   late final ModerationRepository _moderationRepository =
       widget._moderationRepository ?? ModerationRepository(Supabase.instance.client);
+  late final AppealRepository _appealRepository =
+      widget._appealRepository ?? AppealRepository(Supabase.instance.client);
   Set<String> _mentionedUserIds = {};
   Uint8List? _imageBytes;
   String _imageExtension = 'jpg';
@@ -62,6 +72,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   // shows).
   String? _restrictReason;
   DateTime? _restrictExpiresAt;
+  String? _restrictActionId;
+  AppealStatus _restrictAppealStatus = AppealStatus.none;
   bool get _isRestricted => _restrictExpiresAt != null;
 
   bool get _canShare =>
@@ -81,6 +93,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
         setState(() {
           _restrictReason = status.restrictReason;
           _restrictExpiresAt = status.restrictExpiresAt;
+          _restrictActionId = status.restrictActionId;
+          _restrictAppealStatus = status.restrictAppealStatus;
         });
       }
     } catch (_) {
@@ -88,6 +102,23 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       // status check. The RLS INSERT guard still rejects the actual
       // post attempt regardless of whether this banner managed to show.
     }
+  }
+
+  // WYN-030: no re-poll while this screen stays open once the appeal is
+  // submitted -- initState's one-time check above already accepted this
+  // trade-off for expiry; submitting an appeal just needs the banner to
+  // flip from "อุทธรณ์" to "อยู่ระหว่างพิจารณาอุทธรณ์" the same way.
+  Future<void> _openAppeal() async {
+    final submitted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AppealFormScreen(
+          appealRepository: _appealRepository,
+          actionId: _restrictActionId!,
+          actionLabel: 'จำกัดสิทธิ์ (Restrict)',
+        ),
+      ),
+    );
+    if (submitted == true) _loadModerationStatus();
   }
 
   @override
@@ -230,7 +261,13 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (_isRestricted)
-                RestrictionBanner(reason: _restrictReason, expiresAt: _restrictExpiresAt),
+                RestrictionBanner(
+                  reason: _restrictReason,
+                  expiresAt: _restrictExpiresAt,
+                  actionId: _restrictActionId,
+                  appealStatus: _restrictAppealStatus,
+                  onAppeal: _openAppeal,
+                ),
               _buildImageArea(),
               Padding(
                 padding: const EdgeInsets.all(WynSpacing.space4),

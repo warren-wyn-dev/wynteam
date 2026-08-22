@@ -7,6 +7,7 @@ import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../follow/data/follow_repository.dart';
+import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/data/moderation_repository.dart';
 import '../../moderation/presentation/moderation_queue_screen.dart';
 import '../../mute/data/mute_repository.dart';
@@ -126,6 +127,8 @@ class SettingsScreen extends StatelessWidget {
                   MaterialPageRoute(
                     builder: (_) => ModerationQueueScreen(
                       moderationRepository: ModerationRepository(client),
+                      appealRepository: AppealRepository(client),
+                      currentModeratorId: client.auth.currentUser?.id,
                       dropRepository: DropRepository(client),
                       popRepository: PopRepository(client),
                       followRepository: FollowRepository(client),

@@ -29,6 +29,13 @@ enum NotificationType {
   // defense-in-depth on top of the data-layer guarantee.
   moderationWarning,
   moderationContentRemoved,
+  // WYN-030: inserted by decide_appeal() -- actor_id is deliberately
+  // NULL for both, from the very first insert (not patched in
+  // afterward like the 2 types above had to be) -- see
+  // supabase/schema.sql and .wyn/tasks/bugs/
+  // WYN-029-moderation-actor-identity-leak.md, "ครั้งที่ 3".
+  appealApproved,
+  appealRejected,
 }
 
 NotificationType _typeFromString(String value) {
@@ -67,6 +74,10 @@ NotificationType _typeFromString(String value) {
       return NotificationType.moderationWarning;
     case 'moderation_content_removed':
       return NotificationType.moderationContentRemoved;
+    case 'appeal_approved':
+      return NotificationType.appealApproved;
+    case 'appeal_rejected':
+      return NotificationType.appealRejected;
     default:
       throw ArgumentError('Unknown notification type: $value');
   }
@@ -97,6 +108,8 @@ class WynNotification {
     this.orderId,
     this.orderStoreName,
     this.reason,
+    this.moderationActionId,
+    this.moderationActionType,
     required this.isRead,
     required this.createdAt,
   });
@@ -151,6 +164,16 @@ class WynNotification {
   /// notification row is the only place the target ever sees it).
   final String? reason;
 
+  /// Set for all 4 moderation-related types (the 2 above plus WYN-030's
+  /// [NotificationType.appealApproved]/[NotificationType.appealRejected])
+  /// -- lets MyModerationActionScreen resolve straight from a tapped
+  /// notification to the moderation_actions row it's about, and
+  /// [moderationActionType] lets `_messageFor` pick the right per-type
+  /// wording for the 2 appeal types without a second query (ordinary
+  /// users have no SELECT policy on moderation_actions to join through).
+  final String? moderationActionId;
+  final String? moderationActionType;
+
   final bool isRead;
   final DateTime createdAt;
 
@@ -190,6 +213,8 @@ class WynNotification {
       orderId: map['order_id'] as String?,
       orderStoreName: orderStore?['name'] as String?,
       reason: map['reason'] as String?,
+      moderationActionId: map['moderation_action_id'] as String?,
+      moderationActionType: map['moderation_action_type'] as String?,
       isRead: map['is_read'] as bool,
       createdAt: DateTime.parse(map['created_at'] as String),
     );

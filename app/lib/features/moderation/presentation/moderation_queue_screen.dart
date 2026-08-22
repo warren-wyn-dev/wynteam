@@ -11,21 +11,90 @@ import '../../profile/data/profile_repository.dart';
 import '../../saved/data/saved_repository.dart';
 import '../../report/data/report_category.dart';
 import '../../report/data/report_target_type.dart';
+import '../data/appeal.dart';
+import '../data/appeal_repository.dart';
+import '../data/moderation_action_type.dart';
 import '../data/moderation_report.dart';
 import '../data/moderation_repository.dart';
 import '../data/moderation_target_summary.dart';
+import 'appeal_detail_screen.dart';
 import 'moderation_report_detail_screen.dart';
 
-/// Screen 2 -- the Moderation Queue itself: `pending`/`reviewing`
-/// reports, oldest first (FIFO, no priority scoring this round). Row
-/// structure mirrors BlockedListScreen/NotificationListScreen (padding,
-/// spacing, RefreshIndicator, infinite-scroll pagination) but with no
-/// avatar (an icon per target type instead) and no reporter identity
-/// anywhere -- see .wyn/docs/design/wyn-029-moderation-queue.md,
-/// Screen 2.
-class ModerationQueueScreen extends StatefulWidget {
+/// Screen 2 -- the Moderation Queue: a "รายงาน" tab (`pending`/
+/// `reviewing` reports, oldest first, unchanged from WYN-029) and a
+/// WYN-030 "อุทธรณ์" tab (`pending` appeals, oldest first, same FIFO
+/// convention). See .wyn/docs/design/wyn-029-moderation-queue.md,
+/// Screen 2, and .wyn/docs/design/wyn-030-appeal-system.md, Screen 5.
+class ModerationQueueScreen extends StatelessWidget {
   const ModerationQueueScreen({
     super.key,
+    required this.moderationRepository,
+    required this.appealRepository,
+    required this.currentModeratorId,
+    required this.dropRepository,
+    required this.popRepository,
+    required this.followRepository,
+    required this.profileRepository,
+    required this.savedRepository,
+    required this.clubRepository,
+    required this.clubPostRepository,
+  });
+
+  final ModerationRepository moderationRepository;
+  final AppealRepository appealRepository;
+
+  // See AppealDetailScreen's identical doc comment -- sourced from
+  // Supabase.instance.client.auth.currentUser at the call site
+  // (SettingsScreen), not read from Supabase.instance in this screen.
+  final String? currentModeratorId;
+
+  final DropRepository dropRepository;
+  final PopRepository popRepository;
+  final FollowRepository followRepository;
+  final ProfileRepository profileRepository;
+  final SavedRepository savedRepository;
+  final ClubRepository clubRepository;
+  final ClubPostRepository clubPostRepository;
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('คิวตรวจสอบ'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'รายงาน'),
+              Tab(text: 'อุทธรณ์'),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            _ReportsTab(
+              moderationRepository: moderationRepository,
+              dropRepository: dropRepository,
+              popRepository: popRepository,
+              followRepository: followRepository,
+              profileRepository: profileRepository,
+              savedRepository: savedRepository,
+              clubRepository: clubRepository,
+              clubPostRepository: clubPostRepository,
+            ),
+            _AppealsTab(
+              appealRepository: appealRepository,
+              currentModeratorId: currentModeratorId,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReportsTab extends StatefulWidget {
+  const _ReportsTab({
     required this.moderationRepository,
     required this.dropRepository,
     required this.popRepository,
@@ -46,10 +115,10 @@ class ModerationQueueScreen extends StatefulWidget {
   final ClubPostRepository clubPostRepository;
 
   @override
-  State<ModerationQueueScreen> createState() => _ModerationQueueScreenState();
+  State<_ReportsTab> createState() => _ReportsTabState();
 }
 
-class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
+class _ReportsTabState extends State<_ReportsTab> {
   final _scrollController = ScrollController();
   final List<ModerationReport> _reports = [];
   int _page = 0;
@@ -144,13 +213,6 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('คิวตรวจสอบรายงาน')),
-      body: _buildBody(),
-    );
-  }
-
-  Widget _buildBody() {
     if (_isLoadingInitial) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -319,6 +381,236 @@ class _ModerationQueueRowState extends State<_ModerationQueueRow> {
           ),
         );
       },
+    );
+  }
+}
+
+/// WYN-030 -- mirrors _ReportsTab's exact pagination/list/optimistic-
+/// removal shape, querying `appeals` (status = 'pending') instead of
+/// `reports`.
+class _AppealsTab extends StatefulWidget {
+  const _AppealsTab({required this.appealRepository, required this.currentModeratorId});
+
+  final AppealRepository appealRepository;
+  final String? currentModeratorId;
+
+  @override
+  State<_AppealsTab> createState() => _AppealsTabState();
+}
+
+class _AppealsTabState extends State<_AppealsTab> {
+  final _scrollController = ScrollController();
+  final List<Appeal> _appeals = [];
+  int _page = 0;
+  bool _isLoadingInitial = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInitial();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_isLoadingMore || !_hasMore) return;
+    if (_scrollController.position.pixels >
+        _scrollController.position.maxScrollExtent - 300) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _loadInitial() async {
+    setState(() {
+      _isLoadingInitial = true;
+      _error = null;
+    });
+    try {
+      final appeals = await widget.appealRepository.fetchPendingAppeals(page: 0);
+      setState(() {
+        _appeals
+          ..clear()
+          ..addAll(appeals);
+        _page = 0;
+        _hasMore = appeals.length == AppealRepository.pageSize;
+      });
+    } catch (_) {
+      setState(() => _error = 'โหลดรายชื่อไม่สำเร็จ');
+    } finally {
+      if (mounted) setState(() => _isLoadingInitial = false);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    setState(() => _isLoadingMore = true);
+    try {
+      final nextPage = _page + 1;
+      final appeals = await widget.appealRepository.fetchPendingAppeals(page: nextPage);
+      setState(() {
+        _appeals.addAll(appeals);
+        _page = nextPage;
+        _hasMore = appeals.length == AppealRepository.pageSize;
+      });
+    } catch (_) {
+      // Silent, same posture as every other list's load-more failure.
+    } finally {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
+
+  Future<void> _openAppeal(Appeal appeal) async {
+    final message = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => AppealDetailScreen(
+          appealRepository: widget.appealRepository,
+          appeal: appeal,
+          currentModeratorId: widget.currentModeratorId,
+        ),
+      ),
+    );
+    if (message == null || !mounted) return;
+
+    setState(() => _appeals.removeWhere((a) => a.id == appeal.id));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoadingInitial) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_error!),
+            const SizedBox(height: WynSpacing.space3),
+            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+          ],
+        ),
+      );
+    }
+
+    if (_appeals.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.gavel_outlined,
+                size: 56,
+                color: Theme.of(context).colorScheme.outline,
+              ),
+              const SizedBox(height: WynSpacing.space4),
+              const Text('ไม่มีอุทธรณ์ที่รอตรวจสอบ', textAlign: TextAlign.center),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadInitial,
+      child: ListView.builder(
+        controller: _scrollController,
+        itemCount: _appeals.length + (_hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index >= _appeals.length) {
+            return const Padding(
+              padding: EdgeInsets.all(WynSpacing.space4),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          final appeal = _appeals[index];
+          return _AppealQueueRow(appeal: appeal, onTap: () => _openAppeal(appeal));
+        },
+      ),
+    );
+  }
+}
+
+class _AppealQueueRow extends StatelessWidget {
+  const _AppealQueueRow({required this.appeal, required this.onTap});
+
+  final Appeal appeal;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final time = relativeTimeLabel(appeal.createdAt, now: DateTime.now());
+    final headline = 'อุทธรณ์: ${appeal.actionType.label}';
+    final appellant = '@${appeal.appellantUsername ?? '-'}';
+
+    return Semantics(
+      label: '$headline จาก $appellant. ${appeal.reason} $time',
+      button: true,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WynSpacing.space4,
+            vertical: WynSpacing.space2,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                child: Icon(
+                  Icons.gavel_outlined,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: WynSpacing.space3),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(headline, style: Theme.of(context).textTheme.titleSmall),
+                    Text(
+                      appellant,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    Text(
+                      appeal.reason,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: WynSpacing.space2),
+              Text(
+                time,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

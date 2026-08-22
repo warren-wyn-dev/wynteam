@@ -35,16 +35,19 @@ void main() {
     await initFakeSupabaseSession(userId: 'restricted-user');
   });
 
-  // WYN-029 -- Screen 6's own explicit "kับดัก" warning: a Suspended/
-  // Banned account must see AccountRestrictedScreen and it must STAY
-  // shown through the sign-out this screen itself triggers, not flash
-  // back to WelcomeScreen the instant the auth stream emits
-  // `signedOut`. This is the exact regression the design doc calls out
-  // as the easiest way to get this screen subtly wrong.
+  // WYN-029/WYN-030 -- Screen 6's own explicit "kับดัก" warning: a
+  // Suspended/Banned account must see AccountRestrictedScreen and it
+  // must STAY shown, not flash back to WelcomeScreen. WYN-030 changed
+  // *how* this holds: AuthGate no longer signs the session out the
+  // moment it detects the block (so submit_appeal() -- an authenticated
+  // RPC -- can still succeed while this screen is up); signOut() only
+  // fires when the user taps "ตกลง" (see the next test). This test now
+  // proves the session is deliberately left alone while the screen is
+  // showing, not that a sign-out survived.
   testWidgets(
-      'a Suspended account signing in sees AccountRestrictedScreen and it '
-      'survives the sign-out AuthGate triggers internally (does not flash '
-      'to WelcomeScreen)', (tester) async {
+      'a Suspended account signing in sees AccountRestrictedScreen without '
+      'being signed out (session kept valid for a possible appeal)',
+      (tester) async {
     final authRepository = RecordingAuthRepository(
       initialSession: _fakeSession('suspended-user'),
     );
@@ -66,22 +69,18 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    // The sign-out AuthGate triggers internally (best-effort push-token
-    // deregistration first, then _authRepository.signOut()) has already
-    // resolved by the time pumpAndSettle returns -- signOutCalls proves
-    // it actually happened, not just that the screen looks right by
-    // coincidence.
-    expect(authRepository.signOutCalls, 1);
+    // No sign-out yet -- the whole point of WYN-030's reordering.
+    expect(authRepository.signOutCalls, 0);
     expect(find.byType(AccountRestrictedScreen), findsOneWidget);
     expect(find.byType(WelcomeScreen), findsNothing);
     expect(find.text('บัญชีของคุณถูกระงับชั่วคราว'), findsOneWidget);
 
-    // Pump extra frames (the auth stream's `signedOut` event is what a
-    // naive session-first build() would misread as "log the user out
-    // of this screen too") -- AccountRestrictedScreen must still be the
-    // only thing on screen.
+    // Pump extra frames -- AccountRestrictedScreen must still be the
+    // only thing on screen, and still no sign-out, purely from the
+    // passage of time/rebuilds with nothing tapped.
     await tester.pump(const Duration(milliseconds: 50));
     await tester.pump(const Duration(milliseconds: 50));
+    expect(authRepository.signOutCalls, 0);
     expect(find.byType(AccountRestrictedScreen), findsOneWidget);
     expect(find.byType(WelcomeScreen), findsNothing);
   });
@@ -109,10 +108,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('บัญชีของคุณถูกระงับถาวร'), findsOneWidget);
+    // WYN-030: no sign-out yet -- it's deferred until "ตกลง" below.
+    expect(authRepository.signOutCalls, 0);
 
     await tester.tap(find.text('ตกลง'));
     await tester.pumpAndSettle();
 
+    // "ตกลง" is what actually triggers the sign-out now.
+    expect(authRepository.signOutCalls, 1);
     expect(find.byType(WelcomeScreen), findsOneWidget);
     expect(find.byType(AccountRestrictedScreen), findsNothing);
   });
