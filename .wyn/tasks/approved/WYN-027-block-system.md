@@ -1,7 +1,7 @@
 # Product Task — WYN-027
 
-Status: active (Coding เสร็จ, รอ AI QA & Security)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ — ดู `.wyn/docs/design/wyn-027-block-system.md`) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
+Status: approved (QA PASS — ดู "QA Output" ด้านล่าง)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS) → AI Deploy & DevOps (ถัดไป)
 
 Feature: Block System
 
@@ -74,3 +74,36 @@ Build: `flutter analyze` สะอาด ไม่มี issue
 Known Issues: (1) Mention ที่ถูก block ยังคงแสดงเป็นสี tappable ตามปกติ (ไม่เปลี่ยนเป็นข้อความธรรมดา) — เช็ค block ที่ tap-time แล้ว silent no-op แทน ตามที่บันทึกไว้ใน Design doc Screen 9 เพราะการเปลี่ยนสีต้องแก้ 6 จุดเรียก HashtagText ทั้งหมด (2) MentionInput autocomplete ยังไม่กรองผู้ใช้ที่ถูก block ออก (Design แนะนำแต่ไม่ hard-required) (3) Denormalized comment count อาจไม่ตรงกับจำนวนแถวที่มองเห็นได้จริงหลังกรอง block (บันทึกไว้ใน Design doc เป็น known limitation)
 
 Handoff: AI QA & Security — ทดสอบ WYN-027 ตาม Acceptance Criteria ทั้งหมด โดยเฉพาะ regression ของ non-blocked pairs และ mutual-block edge case
+
+---
+
+## QA Output (2026-08-22)
+
+```
+Feature: WYN-027 Block System
+Environment: flutter analyze/test อิสระ (local), SQL จริงบน PostgreSQL 16 local (สร้าง database ใหม่ทั้งหมด ไม่ได้ reuse ของ Coding, apply schema.sql ตัวจริงทั้งไฟล์ 3850 บรรทัดตรงๆ ไม่ใช่แค่ตัดช่วง WYN-027) ผ่าน role `authenticated` (ไม่ใช่ postgres superuser ที่ bypass RLS) พร้อม stub auth.uid()/auth.users/storage เหมือนแนวทาง WYN-026
+Test Cases: 30 เคส (22 เคสบัญชี A/B/C/D บน Drop/Pop/Comment/Like/Follow/Mention, 5 เคสบน Club content แยกต่างหาก, 3 เคส widget-level adversarial)
+Passed: 30/30
+Failed: 0
+Severity: -
+Reproduction Steps: ดู "สิ่งที่ทำ" ด้านล่าง
+Expected: บังคับใช้ Block ทั้งสองทิศทางครบตาม Acceptance Criteria ทั้ง 8 ข้อ ไม่มี regression กับคู่ผู้ใช้ที่ไม่ได้ Block กัน
+Actual: ตรงตาม Expected ทุกข้อ ไม่พบช่องโหว่ความปลอดภัยหรือ regression
+Security Findings: ดูรายละเอียดด้านล่าง — ไม่พบช่องโหว่ที่ block งาน, พบ 1 finding ระดับ Minor (test-coverage gap ไม่ใช่ security bug)
+Recommendation: อนุมัติ PASS พร้อม fast-follow แนะนำ (ไม่ block): inject BlockRepository เข้า ViewProfileScreen/report_sheet.dart ผ่าน constructor แทนการ hardcode `BlockRepository(Supabase.instance.client)` ตรงๆ เพื่อให้เขียน regression test ของ Blocked persona banner/More menu ได้ในอนาคต (ตอนนี้ verify ได้แค่ผ่าน code review + การพิสูจน์ว่าชั้น RLS/RPC ที่ขับเคลื่อนมันถูกต้อง 100% เพราะ widget test เข้าไม่ถึง เนื่องจาก `_loadBlockRelationship()`/`_offerBlockAfterReport()` ยิง network จริงที่ fail เงียบๆ ในสภาพแวดล้อม test)
+Final Status: PASS
+```
+
+**สิ่งที่ทำ (อิสระ ไม่เชื่อตัวเลขที่ Coding รายงานเฉยๆ):**
+
+1. รัน `flutter analyze`/`flutter test` อิสระเอง — สะอาด 0 issues, 382/382 ผ่าน ตรงกับที่ Coding รายงาน
+2. **สร้างฐานข้อมูล PostgreSQL 16 ใหม่ทั้งหมดของ QA เอง** (ไม่ reuse ของ Coding) จำลอง Supabase (`auth.uid()`/`auth.users`/`storage.buckets`/`storage.objects` แบบ stub) แล้ว apply `schema.sql` ตัวจริงทั้งไฟล์ตรงๆ (ไม่ตัดเฉพาะช่วง WYN-027) เพื่อให้ dependency ทุกตัว (drops/pops/club_posts/follows/mentions ที่มีอยู่ก่อน WYN-027) ครบเหมือนโปรดักชันจริง — และรันทุก query ผ่าน role `authenticated` ที่ `SET ROLE` ออกจาก superuser (ไม่ใช่ `sudo -u postgres` ตรงๆ ที่จะ bypass RLS โดยไม่รู้ตัว) พร้อม grant สิทธิ์ table-level ให้ authenticated ตามที่ Supabase platform จริงทำให้อัตโนมัติ (ซึ่ง schema.sql ของ project เองไม่มี เพราะ Supabase ตั้งให้ระดับ platform)
+3. ทดสอบครบทั้ง 8 ข้อใน Acceptance Criteria ด้วยผู้ใช้ทดสอบ A/B/C/D (C/D เป็นบุคคลที่สามใช้พิสูจน์ regression): เนื้อหาหายสองทิศทาง (drops/pops), comment ของฝ่ายที่ถูก block บนโพสต์บุคคลที่สามถูกซ่อน, Follow relationship ถูกลบทั้งสองทิศทางทันทีที่ Block (คู่ C/D แยกต่างหากเพื่อพิสูจน์ไม่ได้ผูกกับ fixture เดิม), พยายาม Follow ระหว่างที่ Block อยู่ถูกปฏิเสธทั้งสองทิศทาง, mention ระหว่าง Block ถูกปฏิเสธทั้งสองทิศทางและ**ไม่สร้าง notification เลย** (ตรวจนับแถวจริงใน `notifications` ไม่ใช่แค่อ่าน policy), Unblock คืนการมองเห็นแต่ Follow ไม่กลับมาอัตโนมัติ, self-block ถูกปฏิเสธด้วย exception, และปุ่ม Block ไม่มีทางโผล่บนโปรไฟล์ตัวเองเพราะเป็นคนละ branch การ render ทั้งหมด (ยืนยันจากโค้ดจริง)
+4. **ยืนยันซ้ำอิสระว่าบั๊ก RLS self-referential trap ที่ Coding เจอถูกแก้จริง** — ทดสอบ INSERT policy ทั้ง 6 ตัวที่ใช้ helper function (`drop_likes`/`drop_comments`/`drop_comment_likes`/`pop_likes`/`pop_comments`/`pop_comment_likes`) ทั้งสองทิศทาง (ผู้ block พยายามกด/comment เนื้อหาของผู้ถูก block และกลับกัน) — **ทุกเคสถูกปฏิเสธถูกต้อง** พร้อม control เคสคู่ที่ไม่ได้ block กัน (C กับ A) ยังทำได้ปกติ พิสูจน์ว่า fix ไม่ over-block ด้วย
+5. ทดสอบ Club content แยกต่างหาก (สร้าง club/membership/club_post ใหม่) เพื่อ**ยืนยันอิสระ**คำกล่าวอ้างของ Coding ที่ว่า `club_post_likes`/`club_post_comments` ใช้ positive-`exists()` pattern ที่ไม่ต้องแก้ — ยืนยันแล้วว่าถูกต้องจริง ทั้ง SELECT (club post หายจาก feed คนที่ block) และ INSERT (like/comment ถูกปฏิเสธ) ทำงานถูกต้อง
+6. ทดสอบ security เพิ่มเติมนอกเหนือ AC: raw insert เข้า `blocks` table ตรงๆ ข้าม `block_user()` RPC ถูกปฏิเสธ (ไม่มี insert policy), raw delete ข้าม `unblock_user()` ถูกปฏิเสธเช่นกัน (0 rows, ไม่มี delete policy), **spoofing test**: B พยายามเรียก `unblock_user()` ยกเลิก block ของ A→B ที่ B ไม่ได้เป็นคนสร้าง → silent no-op จริง (WHERE clause กรองด้วย `auth.uid()` เป็น blocker เท่านั้น ป้องกัน spoofing โดยธรรมชาติของ RPC signature), block ผู้ใช้ที่ไม่มีจริงถูกปฏิเสธด้วย exception, **mutual-block edge case**: A/B block กันทั้งคู่ → `block_relationship()` ทั้งสองฝั่งรายงาน `mutual` ถูกต้อง ไม่ error ไม่ duplicate แถว, **idempotent re-block**: block ซ้ำคนเดิมไม่ error ไม่ duplicate, ยืนยัน `blocks` table's SELECT policy เห็นได้แค่ผู้ block เอง (B/C มองไม่เห็นว่า A block ใครไว้เลย), ยืนยัน FK constraint `blocks_blocked_id_fkey` ตรงกับที่ `BlockRepository.fetchBlockedUsers()` ใช้ใน PostgREST embed syntax เป๊ะ (ถ้าไม่ตรงฟีเจอร์ Blocked List จะพังทั้งหมดแม้ RLS จะถูกต้อง), และยืนยัน `profiles` SELECT policy ไม่ถูกแตะต้อง (ยังเห็นโปรไฟล์พื้นฐานของคนที่ Block กันอยู่ได้ ตามที่ Design ต้องการสำหรับ Blocked persona/Blocked List)
+7. เขียน widget test ชั่วคราวพิสูจน์ double-tap safety บนปุ่ม "เลิกบล็อก" ของ `BlockedListScreen` (tap 2 ครั้งรัวไม่มี pump คั่น) — dialog barrier จาก `showDialog` แรกกันการแตะซ้ำได้เองตามธรรมชาติ (มีแค่ dialog เดียวโผล่ ไม่ใช่สอง) ลบทิ้งหลังพิสูจน์เสร็จ
+
+**Finding — Minor (ไม่ block PASS):** เขียน widget test ชั่วคราวพิสูจน์ว่าเมนู "บล็อก" ใน `ViewProfileScreen`'s More menu **ไม่มีทางโผล่ได้เลยในสภาพแวดล้อม widget test ปัจจุบัน** เพราะ `_blockRepository`/`_reportRepository` ถูก hardcode เป็น `BlockRepository(Supabase.instance.client)` ตรงๆ ภายใน state (ต่างจาก repository อื่นทุกตัวบนหน้าจอนี้ที่ inject ผ่าน constructor เพื่อความ testable) — `_loadBlockRelationship()` ยิง network จริงที่ fail เงียบๆ ใน test env ทำให้ `_blockRelationship` เป็น null ตลอดไป เมนู "บล็อก" จึงไม่เคยแสดง ปัญหาเดียวกันกระทบ `report_sheet.dart`'s `showReportSheet()`/`_offerBlockAfterReport()` ที่ hardcode `BlockRepository`/`ProfileRepository` เช่นกัน — **นี่ไม่ใช่ functional bug ในโปรดักชันจริง** (โค้ดอ่านแล้วถูกต้อง ตาม pattern เดียวกับ `_loadFollowStatus` ที่พิสูจน์แล้วว่าใช้งานได้จริงมาตั้งแต่ WYN-008/013 และชั้น RLS/RPC ที่ขับเคลื่อนมันถูกพิสูจน์แล้วว่าถูกต้อง 100% ผ่าน SQL จริง) **แต่เป็นช่องว่างที่ Blocked persona banner/More menu บน ViewProfileScreen และ block-offer SnackBar บน ReportSheet ไม่มี automated regression test ถาวรเลย** ต่างจาก `BlockedListScreen`/`block_dialogs`/`BlockRelationship` ที่ Coding ออกแบบให้ inject ได้และมี test ครบ 13 เคส — เสนอเป็น fast-follow ให้ Coding/Debug Engineer inject `BlockRepository` (และ `ReportRepository`/`ProfileRepository` จุดที่เกี่ยวข้อง) เป็น optional constructor param แบบเดียวกับ `clubRepository` เพื่อปิดช่องว่างนี้
+
+**ผลลัพธ์: WYN-027 — PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว พร้อมส่ง AI Deploy & DevOps เมื่อ Founder พร้อม deploy จริง (ยังไม่ deploy เพราะ session นี้เป็น QA เท่านั้น)
