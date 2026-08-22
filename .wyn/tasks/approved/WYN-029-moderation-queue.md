@@ -1,7 +1,7 @@
 # Product Task — WYN-029
 
-Status: approved (QA อิสระรอบ 2 — PASS, 2026-08-22 — ดู "Independent QA — Round 2" ท้ายไฟล์ — Major finding ของรอบ 1 แก้แล้วและยืนยันอิสระแล้ว, bug report ปิดที่ `.wyn/tasks/bugs/WYN-029-moderation-actor-identity-leak.md`)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI Debug Engineer (เสร็จ — แก้ Major finding รอบ 1) → AI QA & Security (เสร็จ — PASS รอบ 2) → AI Deploy & DevOps (รอ infra จาก Founder)
+Status: approved — merged to `main` (2026-08-22, commit `b04d455`), รอ infra จริงก่อน deploy ได้ (QA อิสระรอบ 2 — PASS, 2026-08-22 — ดู "Independent QA — Round 2" ท้ายไฟล์ — Major finding ของรอบ 1 แก้แล้วและยืนยันอิสระแล้ว, bug report ปิดที่ `.wyn/tasks/bugs/WYN-029-moderation-actor-identity-leak.md`)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI Debug Engineer (เสร็จ — แก้ Major finding รอบ 1) → AI QA & Security (เสร็จ — PASS รอบ 2) → AI Deploy & DevOps (เสร็จ — merged to `main`, `flutter analyze`/`flutter test` 433/433 + SQL regression ยืนยันซ้ำหลัง merge, ดู `.wyn/logs/deployments/2026-08-22-wyn-029-merge-to-main.md` — รอ infra จาก Founder ก่อน deploy จริง)
 
 Feature: Moderation Queue + Action (ขั้นต่ำในแอป Flutter เดิม)
 
