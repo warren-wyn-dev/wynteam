@@ -1,7 +1,7 @@
 # Product Task — WYN-028
 
-Status: active (Coding เสร็จ, รอ AI QA & Security)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ — ดู `.wyn/docs/design/wyn-028-mute-system.md`) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
+Status: approved (QA PASS — ดู "QA Output" ด้านล่าง)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS) → AI Deploy & DevOps (ถัดไป)
 
 Feature: Mute System
 
@@ -89,3 +89,39 @@ Build: `flutter analyze` สะอาด ไม่มี issue
 Known Issues: ไม่มี known issue ใหม่จากรอบนี้ (scope ตรงตาม Design doc ทุกข้อ ไม่มี trade-off ที่ต้องเปิดเผยเพิ่มเติมแบบ WYN-027's mention-color gap)
 
 Handoff: AI QA & Security — ทดสอบ WYN-028 ตาม Acceptance Criteria ทั้งหมด โดยเฉพาะ regression กับ WYN-027 (คู่ที่ทั้ง Mute และ Block กันพร้อมกัน) และย้ำ AC ที่ตรงข้ามกับ WYN-027 (Follow/Like/Comment/Mention ต้อง**ไม่ถูก**บล็อกระหว่างคู่ที่ Mute กันอยู่)
+
+---
+
+## QA Output (2026-08-22)
+
+```
+Feature: WYN-028 Mute System
+Environment: flutter analyze/test อิสระ (local), SQL จริงบน PostgreSQL 16 local (สร้าง database ใหม่ทั้งหมด ไม่ reuse ของ Coding, apply schema.sql ตัวจริงทั้งไฟล์ตรงๆ) ผ่าน role `authenticated` (ไม่ใช่ postgres superuser ที่ bypass RLS)
+Test Cases: 20 กลุ่ม (ครอบ 9 ข้อใน Acceptance Criteria ทุกข้อ + security/regression/Block-composition เพิ่มเติม) + 1 เคส widget-level adversarial
+Passed: 20/20 SQL + 1/1 widget
+Failed: 0
+Severity: -
+Reproduction Steps: ดู "สิ่งที่ทำ" ด้านล่าง
+Expected: Mute บังคับใช้เฉพาะ Home Feed (รวม Trending) ของผู้ mute เท่านั้น ไม่กระทบ Search/Profile/Club/Follow/Interaction/Notification ตาม AC ทั้ง 9 ข้อ ไม่มี regression กับคู่ที่ไม่ได้ mute กัน และไม่ทำให้ผล Block อ่อนลงเมื่อทั้งสองอย่างเกิดพร้อมกัน
+Actual: ตรงตาม Expected ทุกข้อ ไม่พบช่องโหว่หรือ regression
+Security Findings: ไม่พบช่องโหว่ — raw insert spoofing muter_id ถูกปฏิเสธ, someone else's delete ไม่มีผล, self-mute ถูกปฏิเสธที่ DB layer, privacy ของ mutes table ถูกต้อง (ผู้ถูก mute มองไม่เห็นเลยว่าตัวเองถูก mute จากช่องทางไหน)
+Recommendation: อนุมัติ PASS
+Final Status: PASS
+```
+
+**สิ่งที่ทำ (อิสระ ไม่เชื่อตัวเลขที่ Coding รายงานเฉยๆ แม้จะรายงานว่าทดสอบ SQL มาแล้ว 12 เคส):**
+
+1. รัน `flutter analyze`/`flutter test` อิสระเอง — สะอาด 0 issues, 395/395 ผ่าน ตรงกับที่ Coding รายงาน
+2. **สร้างฐานข้อมูล PostgreSQL 16 ใหม่ทั้งหมดของ QA เอง** (ไม่ reuse ของ Coding) apply `schema.sql` ตัวจริงทั้งไฟล์ตรงๆ รันทุก query ผ่าน role `authenticated` ที่ `SET ROLE` ออกจาก superuser จริง พร้อม grant สิทธิ์ table-level ให้ authenticated เอง (เลียนแบบ Supabase platform default)
+3. ทดสอบครบทั้ง 9 ข้อใน Acceptance Criteria ด้วยผู้ใช้ทดสอบ A/B/C/D (C/D เป็นบุคคลที่สามใช้พิสูจน์ regression): mute ผู้ใช้ → เนื้อหาหายจาก Home Feed ทันที (ตรวจนับแถวจริงก่อน/หลัง), **Profile view ของผู้ถูก mute ยังเห็นเนื้อหาปกติทุกอัน** (ตรวจ `drops`/`pops` table ตรงๆ ตามที่ `ProfileDropGridTab`/`fetchByAuthor` จะ query), **"Search" (query `drops` ตรงๆ ไม่ผ่าน view) ไม่กระทบ**, **Club Post ไม่กระทบ** (สร้าง club/membership/club_post ทดสอบเองแยกต่างหาก), Follow ทำได้ปกติและนับ count ถูกต้อง, Like ทั้งสองทิศทางทำได้ปกติ, **Mention ยัง resolve และสร้าง notification ตามปกติ** (ต่างจาก WYN-027 ที่ mention ต้องถูกบล็อก — ยืนยันว่า WYN-028 ไม่ทำให้ mention หายไปด้วย), **privacy**: ผู้ถูก mute มองไม่เห็น mute row ของตัวเองเลยและไม่มี notification ใดๆ เกี่ยวกับการถูก mute, Unmute คืนการมองเห็นทันที, self-mute ถูกปฏิเสธด้วย check constraint, **regression กับคู่ที่ไม่เกี่ยวข้อง (C/D)**: Home Feed ของทั้งคู่ไม่กระทบเลย
+4. **ทดสอบ Trending แยกต่างหาก** (query `home_feed` แบบ `order by created_at desc limit N` เหมือนที่ `fetchTrending()` ทำจริง) — ยืนยันว่าถูกกรองด้วยเช่นกัน ตรงตามการตัดสินใจของ Design ที่ประกาศไว้ตรงๆ ว่าเป็นผลพลอยได้ที่ตั้งใจ ไม่ใช่บั๊ก
+5. ทดสอบ security เพิ่มเติมนอกเหนือ AC: raw insert spoofing `muter_id` เป็นคนอื่นถูกปฏิเสธด้วย RLS, someone else's delete ไม่มีผลต่อ mute ที่ตัวเองไม่ได้สร้าง (DELETE 0 rows)
+6. **ทดสอบ composition กับ WYN-027 (Block)**: A ทั้ง block และ mute B พร้อมกัน → ยืนยันว่า Block ยังคง dominant (เนื้อหาหายทั้งจาก `home_feed` และจากตาราง `drops` ตรงๆ ไม่ใช่แค่ Home Feed เหมือนตอน mute อย่างเดียว) — mute ไม่ได้ไป "ผ่อน" หรือรบกวนผลของ block แต่อย่างใด
+7. เขียน widget test ชั่วคราวพิสูจน์ double-tap safety บนปุ่ม toggle "ปิดเสียง" ใน More menu ของ `ViewProfileScreen` — จุดนี้เสี่ยงกว่า Block's confirm-dialog เพราะ mute toggle เป็น optimistic ไม่มี dialog กันการแตะซ้ำ — ทดสอบแตะซ้ำเร็วๆ (เปิดเมนูใหม่ระหว่างที่ operation แรกยังไม่เสร็จ) ยืนยันว่า `muteUser` ถูกเรียกแค่ 1 ครั้งจริง ไม่ double-fire ลบทิ้งหลังพิสูจน์เสร็จ (ไม่ commit)
+8. ตรวจสอบ regression test ใหม่ 13 เคสของ Coding เอง (`muted_list_screen_test.dart`/`view_profile_mute_test.dart`/`settings_screen_test.dart`) — อ่านโค้ดยืนยันว่าครอบคลุมจริง ไม่ใช่ test ปลอม (assert ตรงประเด็น ไม่ใช่แค่ไม่ throw exception)
+
+**ตรวจสอบเพิ่มเติม**: การแก้ testability gap ของ `ViewProfileScreen` (inject `reportRepository`/`blockRepository`/`muteRepository`) ที่ Coding ทำไปพร้อมกัน — อ่านโค้ดยืนยันว่า optional param + `late final` fallback ทำงานถูกต้อง ไม่กระทบ call site เดิมที่ไม่ได้ส่ง param ใหม่มา (ยัง fallback ไป `Supabase.instance.client` เหมือนเดิมทุกจุด) `flutter analyze`/`flutter test` ที่รันอิสระข้างต้นยืนยันแล้วว่าไม่มี regression จากการเปลี่ยนนี้ด้วย
+
+**ไม่พบ Finding ใดๆ ทั้ง Minor หรือ Critical** — WYN-028 เป็น task แรกของ Phase 1 ที่ QA ไม่ต้องเขียนข้อสังเกตอะไรเพิ่มเลย เพราะ scope แคบและตรงตาม Design/Product spec ทุกข้อ
+
+**ผลลัพธ์: WYN-028 — PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — ตามนโยบาย merge ใหม่ของ Founder (ดู `.wyn/company/DECISIONS.md`, "Merge policy") จะ merge branch `claude/phase-1-safety-trust-481y98` เข้า `main` ทันที (รวม WYN-026/027/028 ทั้งหมดในรอบเดียวกันเพราะอยู่บน branch เดียวกัน)
