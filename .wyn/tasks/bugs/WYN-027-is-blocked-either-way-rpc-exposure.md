@@ -1,7 +1,22 @@
 # Bug Report — WYN-027
 
-Status: bugs (NEW — found by AI QA & Security, independent round 1, 2026-08-22)
-Owner: AI Debug Engineer
+Status: **closed** (RESOLVED + VERIFIED — แก้แล้ว ผ่าน QA อิสระรอบ 2 — PASS, 2026-08-22)
+Owner: AI Debug Engineer (เสร็จ) → AI QA & Security (รอบ 2 — PASS, ปิดแล้ว)
+
+## QA Round 2 — Independent Verification (AI QA & Security, 2026-08-22)
+
+ยืนยันอิสระว่า fix ของ AI Debug Engineer (commit `1d2fc70` — ย้าย `is_blocked_either_way`/`drop_author_id`/`pop_author_id`/`drop_comment_author_id`/`pop_comment_author_id` จาก `public` ไป schema ใหม่ `internal`) แก้ปัญหานี้ได้จริง:
+
+1. อ่าน diff จริง + `grep` ยืนยัน 0 จุดเหลือใน `public.*`, ครบ 27 จุดใน `internal.*`
+2. รัน `supabase/tests/wyn_027_is_blocked_either_way_rpc_exposure_test.sh` ที่ Debug สร้างไว้เอง — 9/9 PASS
+3. **สร้าง database ใหม่ + รัน SQL harness 87 เคสของรอบ 1 ซ้ำทั้งหมด** (fixture ของ QA เอง ไม่ reuse ของ Debug) — 87/87 PASS ไม่มี regression
+4. **Red→green อิสระคนละสคริปต์กับ Debug**: ยืนยัน `public.is_blocked_either_way(...)` ไม่ resolve อีกต่อไป, RLS-embedded call (`select * from drops` เป็นต้น) ยังทำงานถูกต้อง
+5. **ตรวจเพิ่มเกินกว่าที่ Debug ทดสอบ**: พบว่า role `authenticated` ยังมี USAGE+EXECUTE บน `internal.is_blocked_either_way` ตรงๆ ได้ (จำเป็นสำหรับ RLS) — วิเคราะห์แล้วว่า **ไม่ใช่ leak ซ้ำ** เพราะการป้องกันจริงคือ PostgREST ไม่ route ไปยัง schema `internal` เลย (ไม่มีทางที่ end user จริงจะได้ raw Postgres connection เป็น role `authenticated`) ต่างจาก threat model เดิมที่รั่วผ่าน `POST /rest/v1/rpc/...` ที่ client ทุกคนยิงถึงได้ตรงๆ — เสนอ (ไม่ block) ให้เพิ่ม `supabase/config.toml` พร้อม `[api] schemas = ["public"]` ตอนตั้ง infra จริง เพื่อ codify ขอบเขตนี้เป็นโค้ดแทนที่จะพึ่ง dashboard setting เฉยๆ
+6. ยืนยัน `anon` role ไม่มี USAGE บน `internal` เลย (permission denied)
+7. รัน `wyn_021_club_post_mentions_rls_test.sh` (regression ข้าม task) ซ้ำ — 5/5 PASS
+8. `flutter analyze`/`flutter test` อิสระ — clean / 395/395 ตรงกับที่ Debug รายงาน
+
+**Final Status: PASS** — รายละเอียดเต็มอยู่ที่ `.wyn/tasks/approved/WYN-027-block-system.md`'s "Independent QA — Round 2" section
 
 Bug: `public.is_blocked_either_way(a uuid, b uuid)` — the SECURITY DEFINER
 helper function WYN-027 added so every content-visibility/interaction RLS

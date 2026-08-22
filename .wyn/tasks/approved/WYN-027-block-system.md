@@ -1,9 +1,9 @@
 # Product Task — WYN-027
 
-Status: review (QA อิสระรอบ 1 — FAIL, Major security finding — ดู "Independent QA — Round 1" ด้านล่าง — bug report ที่ `.wyn/tasks/bugs/WYN-027-is-blocked-either-way-rpc-exposure.md`)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (รอบ 1 self-QA ในเซสชันเดียวกับ Coding — ไม่นับเป็น QA อิสระ; รอบ 1 QA อิสระจริง — FAIL) → AI Debug Engineer (ถัดไป)
+Status: approved (QA อิสระรอบ 2 — PASS, 2026-08-22 — ดู "Independent QA — Round 2" ท้ายไฟล์ — Major finding ของรอบ 1 แก้แล้วและยืนยันอิสระแล้ว, bug report ปิดที่ `.wyn/tasks/bugs/WYN-027-is-blocked-either-way-rpc-exposure.md`)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI Debug Engineer (เสร็จ — แก้ Major finding รอบ 1) → AI QA & Security (เสร็จ — PASS รอบ 2) → AI Deploy & DevOps (รอ infra จาก Founder)
 
-> **หมายเหตุสำคัญ**: "QA Output (2026-08-22)" ด้านล่างนี้เขียนโดยเซสชันเดียวกับที่ทำ Coding (self-QA ไม่ใช่ QA อิสระจริง) เช่นเดียวกับที่เคยเกิดกับ WYN-017–022 ก่อนหน้านี้ (ดู `.wyn/company/DECISIONS.md`/CONTEXT.md 2026-08-17) — ตอนที่มีการทำ QA อิสระจริงครั้งแรก (2026-08-22, session แยกต่างหาก) พบ **Major security finding ใหม่** ที่ self-QA ไม่ได้ตรวจพบ (ดู "Independent QA — Round 1" ท้ายไฟล์นี้) ผลลัพธ์ PASS ด้านล่างนี้จึง**ไม่ใช่สถานะปัจจุบันของ task นี้อีกต่อไป**
+> **หมายเหตุ**: "QA Output (2026-08-22)" ด้านล่างนี้เขียนโดยเซสชันเดียวกับที่ทำ Coding (self-QA ไม่ใช่ QA อิสระจริง) เช่นเดียวกับที่เคยเกิดกับ WYN-017–022 ก่อนหน้านี้ — QA อิสระจริงรอบ 1 (2026-08-22) พบ Major security finding ที่ self-QA ไม่ได้ตรวจพบ ส่งต่อ AI Debug Engineer แก้แล้ว และ **QA อิสระรอบ 2 (2026-08-22) ยืนยัน PASS** — ดูรายละเอียดทั้งหมดที่ "Independent QA — Round 1" และ "Independent QA — Round 2" ท้ายไฟล์นี้
 
 Feature: Block System
 
@@ -136,3 +136,24 @@ Final Status: PASS
 - **WYN-028 — ยืนยัน PASS ด้วยตัวเอง** (โค้ดของ WYN-028 เองไม่ได้เรียก `is_blocked_either_way` เลย ไม่มีส่วนเกี่ยวข้องกับช่องโหว่นี้ — แต่เพราะทั้งสาม task อยู่บน branch/merge เดียวกันใน `main` แล้ว **ห้าม deploy ทั้งชุดจนกว่า WYN-027 จะแก้และผ่าน QA รอบ 2** — ดูหมายเหตุ deploy-readiness ในไฟล์ WYN-028 ด้วย)
 
 **Deploy readiness**: `main` ปัจจุบัน (หลัง merge commit ที่รวม WYN-026/027/028) มีช่องโหว่นี้อยู่จริง — แต่ยังไม่มี production Supabase project จริงให้ deploy (blocked บน infra อยู่แล้วตาม CONTEXT.md) จึงยังไม่ใช่ live incident แต่ **ต้องแก้ก่อน deploy ครั้งแรกเสมอ ห้ามข้าม**
+
+---
+
+## Independent QA — Round 2 (AI QA & Security, external session, 2026-08-22) — PASS
+
+**บริบท**: AI Debug Engineer แก้ Major finding จากรอบ 1 (commit `1d2fc70` — ย้าย `is_blocked_either_way`/`drop_author_id`/`pop_author_id`/`drop_comment_author_id`/`pop_comment_author_id` จาก `public` ไป schema ใหม่ `internal` ที่ PostgREST ไม่ expose, อัปเดต 23 call site) — ตรวจสอบอิสระทั้งหมดเอง ไม่เชื่อรายงานของ Debug เฉยๆ ตามกติกา WORKFLOW.md
+
+**สิ่งที่ทำ**:
+
+1. อ่าน diff จริงของ `1d2fc70` เทียบกับ fix direction ที่เสนอไว้ใน bug report — ตรงกันเป๊ะ, `grep` ยืนยันไม่มี `public.is_blocked_either_way`/`public.drop_author_id`/`public.pop_author_id`/`public.drop_comment_author_id`/`public.pop_comment_author_id` เหลืออยู่เลยแม้แต่จุดเดียว (0 matches) และมี `internal.*` แทนที่ครบ 27 จุด
+2. รัน `supabase/tests/wyn_027_is_blocked_either_way_rpc_exposure_test.sh` ที่ Debug สร้างไว้เอง — **9/9 PASS**
+3. **สร้างฐานข้อมูล PostgreSQL 16 ใหม่ทั้งหมดของ QA เอง** (คนละ DB กับที่ Debug ใช้) apply `schema.sql` ตัวจริงที่แก้แล้วทั้งไฟล์ แล้ว**รัน SQL harness 87 เคสเดิมจากรอบ 1 ซ้ำทั้งหมด** (fixture/script ชุดเดียวกับที่เขียนเองตอนรอบ 1 ไม่ใช่ของ Debug) — **87/87 PASS ไม่มี regression แม้แต่เคสเดียว**
+4. **ทำ red→green ซ้ำอิสระคนละมุมกับ Debug**: เขียน probe script ของตัวเองใหม่ (ไม่ reuse ของ Debug) ยืนยันว่า `public.is_blocked_either_way(...)` ไม่ resolve อีกต่อไป (function does not exist) และ `select count(*) from public.drops` ของ Alice (ผู้ block) ยังทำงานถูกต้องหลัง fix (RLS-embedded call ไม่พัง)
+5. **ตรวจเจาะลึกเพิ่มเติมเกินกว่าที่ Debug ทดสอบไว้**: ตั้งคำถามว่า role `authenticated` เอง (ไม่ใช่แค่ `anon`) ยังเรียก `internal.is_blocked_either_way(...)` ตรงๆ ผ่าน raw SQL ได้หรือไม่ (เพราะ RLS policy ต้องการให้ `authenticated` มี USAGE+EXECUTE บน schema/function นี้อยู่ดี) — พบว่า **`has_schema_privilege('authenticated', 'internal', 'USAGE')` = `true`** และเรียก `internal.is_blocked_either_way(alice, dave)` ตรงๆ ด้วย role `authenticated` **สำเร็จ** (ไม่ error) วิเคราะห์แล้วว่า**ไม่ใช่การเปิดช่องโหว่ซ้ำ**: การป้องกันจริงของ fix นี้คือ **PostgREST routing ไม่มีเส้นทางไปยัง schema `internal` เลย** (ผู้ใช้จริงของแอปไม่มีทางส่ง raw SQL ไปยัง Postgres ได้ ทุก request ต้องผ่าน PostgREST ที่ผูก URL กับ schema ในรายการ `exposed schemas` เท่านั้น ค่า default ของ Supabase คือ `public` อย่างเดียว) — ต่างจาก threat model เดิมที่รั่วจริง (`POST /rest/v1/rpc/is_blocked_either_way` ที่ client ทุกคนยิงถึงได้ตรงๆ ผ่าน SDK ปกติ) การที่ role `authenticated` ยังมีสิทธิ์ SQL-level เป็นสิ่งที่ **จำเป็น** สำหรับให้ RLS policy ทำงานได้ (พิสูจน์แล้วตั้งแต่รอบ 1 ว่า revoke execute ทำให้ RLS พังจริง) ไม่ใช่ leak ใหม่ เพราะไม่มีทางที่ end user จริงจะได้ raw Postgres connection เป็น role `authenticated` เลย (ต้องขโมย database credential ไปเลย ซึ่งเป็นคนละ threat model กับที่ bug report นี้เกี่ยวข้อง)
+6. ยืนยันว่า `create schema if not exists internal` **ไม่มี** `usage` grant ให้ `anon`/`PUBLIC` (ทดสอบจริง: `set role anon` แล้วเรียก `internal.is_blocked_either_way(...)` → `permission denied for schema internal`)
+7. รัน `supabase/tests/wyn_021_club_post_mentions_rls_test.sh` (regression ของ task อื่นที่แตะ `is_blocked_either_way` เหมือนกัน) ซ้ำอิสระ — **5/5 PASS ไม่มี cross-task regression**
+8. รัน `flutter analyze`/`flutter test` อิสระเอง (ติดตั้ง Flutter/Postgres แยกจาก Debug ตั้งแต่ต้น) — สะอาด 0 issues, **395/395 ผ่าน** ตรงกับที่ Debug รายงาน
+
+**Finding — Minor (ไม่ block PASS), คำแนะนำเชิง defense-in-depth**: การป้องกันจริงของ fix นี้พึ่งพา config "exposed schemas = public" ของ Supabase/PostgREST ซึ่งเป็นค่าที่ตั้งอยู่นอก repository นี้ (dashboard/`config.toml`) — ตอนนี้ยังไม่มี `supabase/config.toml` ในโปรเจกต์เลย (ยืนยันว่า Debug ก็ตรวจแล้วเช่นกัน) เท่ากับว่าขอบเขตความปลอดภัยนี้เป็น "ความรู้ที่ไม่ได้ codify ไว้ในโค้ด" ถ้าใครเผลอเพิ่ม `internal` เข้า exposed-schemas list ตอนตั้ง infra จริง (เช่น ตอนทำ WYN Admin Phase 7 backend) ช่องโหว่จะกลับมาเปิดอีกครั้งโดยไม่มีสัญญาณเตือนในโค้ดเลย — **เสนอ (ไม่ block)**: ให้ AI Deploy & DevOps เพิ่ม `supabase/config.toml` พร้อมกำหนด `[api] schemas = ["public"]` อย่างชัดเจนตอนตั้ง Supabase project จริงครั้งแรก เพื่อให้ขอบเขตนี้เป็น artifact ที่ตรวจสอบ/version-control ได้ ไม่ใช่แค่ dashboard setting ที่จำได้ปากเปล่า
+
+**ผลลัพธ์: WYN-027 — PASS (รอบ 2)** ย้ายกลับเข้า `.wyn/tasks/approved/` แล้ว ปิด `.wyn/tasks/bugs/WYN-027-is-blocked-either-way-rpc-exposure.md` เป็น closed (resolved + verified) — **Phase 1 ทั้ง 3 task (WYN-026/027/028) ผ่าน QA อิสระจริงครบแล้ว** พร้อมส่ง AI Deploy & DevOps เมื่อ Founder พร้อม deploy จริง (ยังไม่ deploy เพราะยังไม่มี production Supabase project — ตามเดิม)
