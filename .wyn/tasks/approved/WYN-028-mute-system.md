@@ -125,3 +125,21 @@ Final Status: PASS
 **ไม่พบ Finding ใดๆ ทั้ง Minor หรือ Critical** — WYN-028 เป็น task แรกของ Phase 1 ที่ QA ไม่ต้องเขียนข้อสังเกตอะไรเพิ่มเลย เพราะ scope แคบและตรงตาม Design/Product spec ทุกข้อ
 
 **ผลลัพธ์: WYN-028 — PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — ตามนโยบาย merge ใหม่ของ Founder (ดู `.wyn/company/DECISIONS.md`, "Merge policy") จะ merge branch `claude/phase-1-safety-trust-481y98` เข้า `main` ทันที (รวม WYN-026/027/028 ทั้งหมดในรอบเดียวกันเพราะอยู่บน branch เดียวกัน)
+
+---
+
+## Independent QA — Round 1 (AI QA & Security, external session, 2026-08-22) — PASS confirmed
+
+QA อิสระจริงครั้งแรก (session แยกต่างหากจาก Coding — "QA Output" ด้านบนเป็น self-QA เขียนโดยเซสชันเดียวกับ Coding ไม่ใช่ QA อิสระ เช่นเดียวกับที่เคยเกิดกับ WYN-017–022 มาก่อน) — ยืนยัน PASS เดิมด้วยตัวเอง: `flutter analyze`/`flutter test` อิสระ (395/395, clean, ตรงกับที่ self-QA รายงาน), เขียน SQL test harness ใหม่ทั้งหมดเอง (fixture คนละชุด, ผู้ใช้ทดสอบ 5 คน Alice/Bob/Carol/Dave/Eve, seed Drop+Pop+Club Post+Comment ของทุกคน) รัน 13 เคสผ่าน Postgres 16 จริงด้วย role `authenticated`:
+
+- Home Feed กรองผู้ถูก mute จริง (ตรวจนับแถวก่อน/หลัง), Trending (query view เดียวกัน) กรองด้วยตามที่ Design ตั้งใจ
+- **Profile/Search/Club query ตรง (ไม่ผ่าน `home_feed` view) ไม่ถูกกระทบเลย** — ตรวจแยกทุกจุด (`drops`/`pops`/`club_posts` โดยตรง) ยืนยัน regression control ชัดเจนว่าต่างจาก Block จริง
+- Follow count/Like/Comment/Mention ระหว่างคู่ที่ mute กันไม่ถูกจำกัดเลยทั้งสองทิศทาง (ตรงข้ามกับ Block ตามที่ AC ต้องการ)
+- ไม่มีสัญญาณใดๆ ให้ผู้ถูก mute รู้ตัว (privacy ของตาราง `mutes` ถูกต้อง — เห็นได้เฉพาะ muter เอง)
+- self-mute ถูกปฏิเสธ (CHECK constraint), spoofed insert (แอบอ้าง muter_id คนอื่น) ถูกปฏิเสธ RLS, spoofed delete (ลบ mute ที่ตัวเองไม่ได้สร้าง) ไม่มีผล
+- unmute คืนสถานะการมองเห็นทันที
+- **composition กับ Block**: คู่ที่ทั้ง block และ mute กันพร้อมกัน (Alice-Dave) ยืนยันว่า Block ยังคง dominant จริง (เนื้อหาหายจากทุกที่ ไม่ใช่แค่ Home Feed เหมือน mute อย่างเดียว)
+
+**13/13 เคสผ่านหมด ไม่พบช่องโหว่ใหม่ในส่วนของ WYN-028 เอง** — โค้ดของ WYN-028 (ตาราง `mutes`, `home_feed` view filter, `MuteRepository`, `MutedListScreen`) ไม่ได้เรียก `is_blocked_either_way()` หรือ helper function ลักษณะเดียวกันเลย จึงไม่เกี่ยวข้องกับ Major security finding ที่พบใน WYN-027 (ดู `.wyn/tasks/review/WYN-027-block-system.md`) — **WYN-028 ยังคง PASS อย่างอิสระ** อยู่ใน `.wyn/tasks/approved/` เหมือนเดิม
+
+**แต่ deploy ของทั้ง Phase 1 ยังถูกระงับ**: WYN-026/027/028 ถูก merge เข้า `main` มาด้วยกันบน branch เดียวกัน (commit เดียวกัน) ตามนโยบาย merge-ทันที ของ Founder — แม้ WYN-028 เองจะไม่มีปัญหา ก็ไม่ควร deploy แยกจาก WYN-027 ที่ยังมี Major security finging ค้างอยู่ จนกว่า AI Debug Engineer จะแก้และ AI QA & Security ยืนยัน PASS รอบ 2 ก่อน (ปัจจุบันยังไม่ deploy จริงอยู่แล้วเพราะรอ infra ตาม CONTEXT.md — จึงยังไม่ใช่ live incident)
