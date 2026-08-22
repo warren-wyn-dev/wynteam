@@ -1,7 +1,7 @@
 # Product Task — WYN-024
 
-Status: **QA รอบ 2 — FAIL (พบบั๊กใหม่ 1 จุด, บั๊กเดิม 3+1 จุดของรอบ 1 ยืนยันว่าแก้จริงแล้วทั้งหมด)** — ดู bug report ใหม่ที่ `.wyn/tasks/bugs/WYN-024-active-segment-label-truncation.md` และ "QA Output — รอบ 2" ท้ายไฟล์นี้
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer
+Status: **Debug Engineer พบ root cause จริง (เบี่ยงเบนจาก Design spec) + เจอบั๊กแฝงเก่าเพิ่มอีก 1 จุด แก้ทั้งคู่แล้ว — เหลือ residual concern (ไม่ block) เสนอ Product/Design พิจารณาย่อข้อความถ้า QA รอบ 3 ยังเห็นว่าไม่พอ — รอ QA รอบ 3** ดู "Debug Engineer Report" ที่ `.wyn/tasks/bugs/WYN-024-active-segment-label-truncation.md` — `flutter analyze` 0 error, `flutter test` 358/358 ผ่าน
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security
 
 Feature: Bottom Navigation V1.0.0 Restructure — ถอด Pop/ZOKY ออกจาก Bottom Nav, เพิ่ม Search และ Notifications เป็น tab
 

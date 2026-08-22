@@ -330,70 +330,111 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
-  // SegmentedButton (a view toggle on one feed), not a TabBar (a switch
-  // between independent content sections) -- see the Design spec's
-  // reasoning in .wyn/docs/design/wyn-015-club-discovery-integration.md,
-  // Screen 5.
+  // Fixed twice now for the same root cause (QA round 2, 2026-08-22):
+  // the Design spec (.wyn/docs/design/ds-009-rainbow-accent.md, point 2)
+  // specifies the active-segment indicator as a thin line placed
+  // "นอก touch target เดิมของปุ่ม ไม่ทับตัวหนังสือ" (outside the
+  // button's own touch target, not overlapping the text) -- i.e. a
+  // separate element below the SegmentedButton, not something sharing
+  // horizontal space with a label inside it. The original implementation
+  // put a dot *inside* the active segment's label (competing with the
+  // text for the same tight width budget), which is what caused both the
+  // round-1 overflow and round-2's near-total text loss once Flexible
+  // papered over the overflow. This version follows the spec literally
+  // instead: segments go back to plain Text (matching the other 3
+  // always), and the accent is a separate 2px bar in a dedicated strip
+  // below the button, positioned under whichever segment is active.
+  // SegmentedButton distributes width ~equally across its segments (see
+  // the round-1 bug report's `BoxConstraints(0.0<=w<=140.0)` trace, equal
+  // for every segment regardless of label length) -- LayoutBuilder splits
+  // the available width the same way to line the bar up underneath.
   Widget _buildFeedModeToggle() {
+    const modes = [
+      _HomeFeedMode.forYou,
+      _HomeFeedMode.following,
+      _HomeFeedMode.latest,
+      _HomeFeedMode.fromYourClubs,
+    ];
+    final activeIndex = modes.indexOf(_feedMode);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space1),
-      child: SegmentedButton<_HomeFeedMode>(
-        segments: [
-          _segment(_HomeFeedMode.forYou, 'สำหรับคุณ'),
-          _segment(_HomeFeedMode.following, 'ติดตาม'),
-          _segment(_HomeFeedMode.latest, 'ล่าสุด'),
-          _segment(_HomeFeedMode.fromYourClubs, 'จาก Club ของคุณ'),
+      child: Column(
+        children: [
+          SegmentedButton<_HomeFeedMode>(
+            // Bug fix (QA round 2, 2026-08-22): plain Text with no
+            // maxLines/overflow wraps to multiple lines rather than
+            // overflowing horizontally when a segment's width is tight --
+            // Flutter only ever throws the layout-overflow assertion for
+            // the *last* line once `maxLines` caps it, never for
+            // unbounded wrapping. Every segment (not just the widest one)
+            // gets `maxLines: 1` + ellipsis so all 4 stay a single line
+            // and the same height regardless of which one is active,
+            // instead of "จาก Club ของคุณ" ballooning the whole row's
+            // height into a tall column of 1-2-character lines whenever
+            // it's selected on a narrow phone (confirmed via screenshot
+            // at 360px before this fix).
+            segments: const [
+              ButtonSegment(
+                value: _HomeFeedMode.forYou,
+                label: Text('สำหรับคุณ', maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+              ButtonSegment(
+                value: _HomeFeedMode.following,
+                label: Text('ติดตาม', maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+              ButtonSegment(
+                value: _HomeFeedMode.latest,
+                label: Text('ล่าสุด', maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+              ButtonSegment(
+                value: _HomeFeedMode.fromYourClubs,
+                label: Text('จาก Club ของคุณ', maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+            ],
+            selected: {_feedMode},
+            onSelectionChanged: (selection) {
+              final newMode = selection.first;
+              setState(() => _feedMode = newMode);
+              // "จาก Club ของคุณ" is FromYourClubsFeed's own separate
+              // widget state -- only forYou/following/latest share
+              // _items and need a reload when switching between (or
+              // into) them.
+              if (newMode != _HomeFeedMode.fromYourClubs) _loadInitial();
+            },
+          ),
+          const SizedBox(height: WynSpacing.space1),
+          SizedBox(
+            height: 2,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final segmentWidth = constraints.maxWidth / modes.length;
+                return Stack(
+                  children: [
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 150),
+                      curve: Curves.easeOut,
+                      left: activeIndex * segmentWidth,
+                      width: segmentWidth,
+                      child: Center(
+                        child: Container(
+                          key: const Key('active_segment_accent'),
+                          width: 24,
+                          height: 2,
+                          decoration: const BoxDecoration(
+                            gradient: WynColors.rainbowAccent,
+                            borderRadius: BorderRadius.all(Radius.circular(WynSpacing.radiusFull)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
         ],
-        selected: {_feedMode},
-        onSelectionChanged: (selection) {
-          final newMode = selection.first;
-          setState(() => _feedMode = newMode);
-          // "จาก Club ของคุณ" is FromYourClubsFeed's own separate widget
-          // state -- only forYou/following/latest share _items and need
-          // a reload when switching between (or into) them.
-          if (newMode != _HomeFeedMode.fromYourClubs) _loadInitial();
-        },
       ),
-    );
-  }
-
-  // DS-009: a small Rainbow-gradient dot marks whichever segment is
-  // currently active -- purely decorative, on top of (not instead of)
-  // SegmentedButton's own selected-state styling, which already does the
-  // *functional* job of showing which mode is active. Never carries text
-  // itself. See .wyn/docs/design/ds-009-rainbow-accent.md.
-  ButtonSegment<_HomeFeedMode> _segment(_HomeFeedMode value, String label) {
-    final isActive = _feedMode == value;
-    return ButtonSegment(
-      value: value,
-      // Bug fix (QA round 1, 2026-08-22): SegmentedButton gives each
-      // segment a tight, roughly-equal width budget sized off the
-      // *plain-text* label -- adding the dot+spacing without a Flexible
-      // around the Text overflowed that budget by 11px on whichever
-      // segment happened to be active, including the shortest label
-      // ("สำหรับคุณ") on first load. Wrapping the label Text in Flexible
-      // (with ellipsis as the fallback for the longest label, "จาก Club
-      // ของคุณ") lets it shrink to whatever width SegmentedButton's Flex
-      // layout actually leaves after the fixed-size dot, instead of
-      // demanding its full intrinsic width and overflowing.
-      label: isActive
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  key: const Key('active_segment_accent'),
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: WynColors.rainbowAccent,
-                  ),
-                ),
-                const SizedBox(width: WynSpacing.space1),
-                Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
-              ],
-            )
-          : Text(label),
     );
   }
 

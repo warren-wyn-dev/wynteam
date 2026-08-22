@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
@@ -608,6 +609,43 @@ void main() {
       // Still exactly one -- it moved with the selection, it didn't
       // multiply.
       expect(find.byKey(const Key('active_segment_accent')), findsOneWidget);
+    });
+
+    testWidgets(
+        'the widest segment label ("จาก Club ของคุณ") stays single-line at real phone '
+        'widths when active, instead of wrapping into a tall column (QA round 2 '
+        'regression, 2026-08-22)', (tester) async {
+      // Real phone widths this codebase's own SELLER-004 lesson
+      // (.wyn/learning/LESSONS_LEARNED.md) established as the required
+      // baseline -- the default 800x600 test viewport is wide enough
+      // that this bug class never shows up there.
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('จาก Club ของคุณ'));
+      await tester.pumpAndSettle();
+      final exception = tester.takeException();
+      expect(exception, isNull);
+
+      final labelFinder = find.text('จาก Club ของคุณ');
+      expect(labelFinder, findsOneWidget);
+      final renderParagraph = tester.renderObject(labelFinder) as RenderParagraph;
+      // A single line of this font size is ~20px tall -- wrapping into
+      // even 2 lines roughly doubles that. Before the fix this measured
+      // ~160px (7-8 wrapped lines), ballooning the whole SegmentedButton
+      // row's height whenever this segment was active.
+      expect(renderParagraph.size.height, lessThan(25),
+          reason: 'label must stay a single line (ellipsis-truncated if it '
+              'does not fit), not wrap vertically and grow the row taller');
     });
   });
 
