@@ -647,6 +647,68 @@ void main() {
           reason: 'label must stay a single line (ellipsis-truncated if it '
               'does not fit), not wrap vertically and grow the row taller');
     });
+
+    testWidgets(
+        'the selected-checkmark icon is off (QA round 3 regression, 2026-08-22) -- '
+        'it ate a fixed width share of whichever segment was active, squeezing '
+        'every label (including the default "สำหรับคุณ") to 1-3 visible characters',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // SegmentedButton's default selected-icon is Icons.check -- with
+      // showSelectedIcon: false it must never appear, on the default
+      // active segment or any other.
+      expect(find.byIcon(Icons.check), findsNothing);
+
+      await tester.tap(find.text('ล่าสุด'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(find.byIcon(Icons.check), findsNothing);
+    });
+
+    testWidgets(
+        'the two short segment labels ("ติดตาม"/"ล่าสุด") are fully legible, not '
+        'ellipsis-truncated, once active at a typical phone width (QA round 3 '
+        'regression, 2026-08-22)', (tester) async {
+      // 390px (iPhone 14/15) rather than round 2's 360px floor -- QA round 3
+      // measured that even after reclaiming width from the removed
+      // checkmark icon and tightened padding, the two 6-character labels
+      // only become fully non-truncated from ~390px up; the two longer
+      // labels ("สำหรับคุณ" 9 chars, "จาก Club ของคุณ" 15 chars) remain
+      // truncated at every real phone width and are NOT covered by this
+      // test -- see the residual note in WYN-024-segmented-button-active-
+      // label-illegible-all-segments.md's Debug Engineer Report.
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      for (final label in ['ติดตาม', 'ล่าสุด']) {
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+        final exception = tester.takeException();
+        expect(exception, isNull);
+
+        final renderParagraph =
+            tester.renderObject(find.text(label)) as RenderParagraph;
+        expect(renderParagraph.didExceedMaxLines, isFalse,
+            reason: '"$label" is short enough that it should render fully, '
+                'not get ellipsis-truncated, once the checkmark icon is off');
+      }
+    });
   });
 
   group('"ติดตาม" (Following) feed mode (WYN-024)', () {

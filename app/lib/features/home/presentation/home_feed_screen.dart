@@ -362,6 +362,24 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       child: Column(
         children: [
           SegmentedButton<_HomeFeedMode>(
+            // Bug fix (QA round 3, 2026-08-22): the Material selected-
+            // checkmark icon (`Icons.check`, shown by default whenever a
+            // segment is selected) eats a fixed chunk of whichever
+            // segment happens to be active, on top of SegmentedButton's
+            // already-equal 4-way width division -- QA round 3 measured
+            // that this squeezes EVERY segment's label to ~1-3 visible
+            // characters at real phone widths when it's the active one,
+            // including "สำหรับคุณ" (the default active segment on first
+            // load, no tap needed). Selection state is already shown by
+            // each segment's own fill/outline color change (Material's
+            // default `SegmentedButton` styling), so the checkmark icon is
+            // redundant here -- turning it off gives that reclaimed width
+            // back to the label instead.
+            showSelectedIcon: false,
+            style: const ButtonStyle(
+              padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 2)),
+              visualDensity: VisualDensity.compact,
+            ),
             // Bug fix (QA round 2, 2026-08-22): plain Text with no
             // maxLines/overflow wraps to multiple lines rather than
             // overflowing horizontally when a segment's width is tight --

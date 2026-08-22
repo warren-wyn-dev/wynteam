@@ -1,7 +1,7 @@
 # Product Task — WYN-024
 
-Status: **QA รอบ 3 — FAIL.** `flutter analyze` 0 error, `flutter test` 358/358 ผ่านหมด (ไม่มี regression ของฟีเจอร์อื่น) แต่พบบั๊กใหม่ที่กว้างกว่าที่ QA รอบ 2 ขอบเขตไว้: label ของ segment ที่ active ถูกบีบจนเหลือ ~1-3 ตัวอักษรที่มองเห็นได้ **ทุก segment ไม่ใช่แค่ "จาก Club ของคุณ"** รวมถึง "สำหรับคุณ" ซึ่งเป็น default tab ตอนเปิดแอปครั้งแรกด้วย — ดูรายละเอียดที่ `.wyn/tasks/bugs/WYN-024-segmented-button-active-label-illegible-all-segments.md`
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer
+Status: **Debug Engineer แก้บางส่วนแล้ว (รอบ 3) — "ติดตาม"/"ล่าสุด" อ่านออกครบตั้งแต่ ~390px ขึ้นไป แต่ "สำหรับคุณ" (default tab ตอนเปิดแอป) และ "จาก Club ของคุณ" ยังถูกตัดที่ทุกความกว้างหน้าจอจริง** — root cause ที่แท้จริงคือ SegmentedButton แบ่งพื้นที่เท่ากันทั้ง 4 ช่อง + auto checkmark icon กินพื้นที่ ไม่ใช่ปัญหาความยาว label อย่างเดียว Debug Engineer แนะนำให้ส่งต่อ AI Design ตัดสินใจ (ย่อข้อความ หรือ restructure control) แทนที่จะแก้ layout ต่ออีกรอบ — `flutter analyze` 0 error, `flutter test` 360/360 ผ่าน — ดู Debug Engineer Report ที่ `.wyn/tasks/bugs/WYN-024-segmented-button-active-label-illegible-all-segments.md` — รอ QA รอบ 4
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security
 
 Feature: Bottom Navigation V1.0.0 Restructure — ถอด Pop/ZOKY ออกจาก Bottom Nav, เพิ่ม Search และ Notifications เป็น tab
 
