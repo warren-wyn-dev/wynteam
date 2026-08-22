@@ -1,7 +1,9 @@
 # Product Task — DS-009
 
-Status: หน้าเปรียบเทียบเสร็จแล้ว — รอ Founder ตัดสินใจผ่าน popup ก่อนส่ง AI Coding
-Owner: AI Product Manager → AI Design → (รอ Founder)
+Status: **APPROVED — Founder เลือก Option B (2026-08-22)** พร้อมส่ง AI Coding
+Owner: AI Product Manager → AI Design → AI Coding
+
+**ผลการตัดสินใจ**: Option B — คง Cyan `#00C8FF` เดิมเป็น primary (DS-001–008 ไม่เปลี่ยนแปลง) เพิ่ม Rainbow เป็น accent เสริม 2 จุดเท่านั้น (Trending avatar ring, active feed-mode indicator) สเปกเต็มที่ `.wyn/docs/design/ds-009-rainbow-accent.md`
 
 ## Design Output
 
