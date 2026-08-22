@@ -74,7 +74,7 @@ Interactions: เหมือนเดิมทุกจุด (`_toggleLike`/`_
 
 States: Empty/Error/Loading ของโหมด "ติดตาม" mirror pattern เดิมของ "สำหรับคุณ"/"ล่าสุด" ทุกประการ (ใช้ `_items`/`_page`/`_isLoadingInitial` ชุดเดียวกัน ไม่แยก state)
 
-Responsive Behavior: `SegmentedButton` 4 ตัวเลือกบนจอแคบ (< 360px) ต้องตรวจ overflow — ถ้าคับให้ยุบ label เหลือไอคอน+tooltip แทนข้อความเต็ม (Coding ตัดสินใจ threshold จริงตอน implement ทดสอบกับจอเล็กสุดที่ต้อง support)
+Responsive Behavior: **[อัปเดต 2026-08-22 หลัง QA รอบ 2-4 — แทนที่ข้อความเดิมทั้งหมดของหัวข้อนี้]** ข้อความเดิม ("ถ้าคับให้ยุบ label เหลือไอคอน+tooltip") ประเมิน threshold ผิด — สมมติว่าปัญหาเกิดเฉพาะจอ < 360px แต่ QA วัดด้วย `RenderParagraph` จริงพบว่า "สำหรับคุณ"/"จาก Club ของคุณ" ยังถูกตัดข้อความอยู่ที่ **ทุกความกว้างหน้าจอมือถือจริง (360-430px)** ไม่ใช่แค่กรณีขอบ ดูรายละเอียดเต็มที่ `.wyn/tasks/bugs/WYN-024-segmented-button-active-label-illegible-all-segments.md` — ดู Design Decision ใหม่ที่ `.wyn/docs/design/wyn-024-segmented-feed-mode-scrollable.md` (สรุป: เปลี่ยนจากแบ่งความกว้างเท่ากัน 4 ช่องเป็น scroll แนวนอน ให้แต่ละ segment ได้ความกว้างตามเนื้อหาจริง แทนการยุบเป็นไอคอน+tooltip หรือย่อข้อความ)
 
 Accessibility: Semantics label ของแต่ละ segment คงข้อความเต็มเสมอแม้ label ที่แสดงจะย่อ (`Semantics(label: 'ติดตาม')` ไม่ใช่แค่ไอคอน)
 

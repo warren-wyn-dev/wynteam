@@ -1,7 +1,7 @@
 # Product Task — WYN-024
 
-Status: **QA รอบ 4 — FAIL, ส่งต่อ AI Design (ไม่ใช่ Debug รอบ 4)** ยืนยันอิสระแล้วว่า "ติดตาม"/"ล่าสุด" อ่านออกครบตั้งแต่ ~390px แต่ "สำหรับคุณ" (default tab ตอนเปิดแอป) และ "จาก Club ของคุณ" ยังตัดอยู่ทุกความกว้างหน้าจอจริง (360-430px) — เป็นข้อจำกัดเชิงโครงสร้างของ SegmentedButton 4 ช่อง ไม่ใช่ bug ที่แก้ด้วย layout/padding ต่อได้อีก ต้องให้ Design ตัดสินใจ (ย่อข้อความ หรือเปลี่ยน control) — `flutter analyze` 0 error, `flutter test` 360/360 ผ่าน ไม่มี regression — ดู `.wyn/tasks/bugs/WYN-024-segmented-button-active-label-illegible-all-segments.md`
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Design
+Status: **AI Design ตัดสินใจแล้ว (2026-08-22) — เปลี่ยน feed-mode SegmentedButton เป็น scroll แนวนอน (ไม่ยุบไอคอน/ไม่ย่อข้อความ/ไม่เปลี่ยนเป็น dropdown)** สเปกเต็มที่ `.wyn/docs/design/wyn-024-segmented-feed-mode-scrollable.md` — ไม่ต้องขอ Founder popup (เป็น component-level decision อยู่ในขอบเขต AI Design เอง ตาม RULES.md) — ส่งต่อ AI Coding
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Design → AI Coding
 
 Feature: Bottom Navigation V1.0.0 Restructure — ถอด Pop/ZOKY ออกจาก Bottom Nav, เพิ่ม Search และ Notifications เป็น tab
 
