@@ -1,5 +1,7 @@
 # WYN V1.0.0 — Complete Product Specification (Founder Master Brief)
 
+> **Naming note (2026-08-22)**: Founder เปลี่ยนชื่อแบรนด์ที่ผู้ใช้เห็นจาก **WYN → WYNOS** หลังบันทึกเอกสารนี้ (ดู `.wyn/company/DECISIONS.md`, 2026-08-22 "เปลี่ยนชื่อแบรนด์") — ทุกจุดในไฟล์นี้ที่เขียนว่า "WYN"/"WYN App"/"WYN Admin"/"WYN Chat"/"WYN Top 100" ฯลฯ ให้อ่านเป็น **WYNOS** ในทุกจุดที่ผู้ใช้เห็นจริง (UI/marketing/store listing) — เนื้อหาด้านล่างนี้**คงไว้แบบ verbatim ตามที่ Founder ส่งมาต้นฉบับ ไม่แก้ย้อนหลัง** เพื่อรักษาความถูกต้องของบันทึกประวัติศาสตร์ ส่วน technical identifier (bundle ID, folder name, Supabase project, task ID prefix `WYN-XXX`) ไม่เปลี่ยนตามการรีแบรนด์นี้
+>
 > บันทึกต้นฉบับเต็มจาก Founder (2026-08-22) แบบไม่ตัดทอน — เป็น **Product Specification หลัก** ของ WYN V1.0.0 ตั้งแต่นี้ไป แทนที่ทิศทางเดิมทั้งหมด (WYN V0.1 CORE APP FEATURE PROMPT ของ 2026-08-14, WYN CLUB brief, WYN PLATFORM MASTER DEVELOPMENT PROMPT ของ ZOKY/SELLER) ในส่วนที่ขัดแย้งกัน — ดูการกระทบต่องานเดิมที่ `.wyn/docs/product/wyn-v1.0.0-roadmap.md` และการตัดสินใจที่เกี่ยวข้องที่ `.wyn/company/DECISIONS.md` (2026-08-22)
 >
 > อ้างอิงกฎหมายที่ Founder แนบมา: WYN ต้องออกแบบรองรับกฎหมายไทยตั้งแต่แรก โดยเฉพาะ PDPA, กฎหมายธุรกรรมอิเล็กทรอนิกส์, กฎหมายคอมพิวเตอร์ และกรอบ Digital Platform Services (DPS) — การเข้าข่าย/หน้าที่เฉพาะของ WYN ต้องให้ผู้เชี่ยวชาญกฎหมายตรวจจากรูปแบบธุรกิจจริงอีกครั้ง (DPS ครอบคลุมทั้ง Online Communication และ Online Marketplace และ ETDA อัปเดตกฎต่อเนื่อง) — ทีม AI ไม่ใช่ที่ปรึกษากฎหมาย ออกแบบ Compliance Layer ไว้ล่วงหน้าเท่านั้น

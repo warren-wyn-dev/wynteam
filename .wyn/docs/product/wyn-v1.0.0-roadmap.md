@@ -1,5 +1,7 @@
 # WYN V1.0.0 Roadmap — หลัง Founder ล็อกสเปกฉบับสมบูรณ์ (2026-08-22)
 
+> **Naming note (2026-08-22)**: ชื่อแบรนด์ที่ผู้ใช้เห็นเปลี่ยนจาก WYN → **WYNOS** (ดู DECISIONS.md "เปลี่ยนชื่อแบรนด์") — task/feature ใหม่ที่เขียนขึ้นจากนี้ไปให้ใช้ "WYNOS" ในชื่อฟีเจอร์ที่ผู้ใช้เห็น (เช่น WYNOS Admin, WYNOS Chat, WYNOS Top 100) ส่วน task ID prefix (`WYN-XXX`, `DS-XXX`) และ technical identifier ทั้งหมดยังใช้ `wyn`/`WYN` เหมือนเดิมไม่เปลี่ยน — ZOKY/ZOKY Sellers by WYN ยังไม่เปลี่ยนชื่อ รอตัดสินตอน V2
+>
 > อ้างอิงสเปกเต็มที่ `.wyn/docs/product/wyn-v1.0.0-master-spec.md` และคำตัดสินใจที่ `.wyn/company/DECISIONS.md` (2026-08-22) — เอกสารนี้แทนที่ `.wyn/docs/product/wyn-v0.1-roadmap.md` และ `.wyn/docs/product/zoky-platform-roadmap.md` ในฐานะ roadmap หลักที่ใช้งานอยู่ (สองไฟล์เดิมยังเก็บไว้เป็น audit trail ไม่ลบ)
 >
 > กติกาการ reuse ตามที่ Founder ยืนยัน: **"อันไหนใช้ได้ ใช้ ถ้าใช้ไม่ได้ก็ทิ้งเลย"** — งานที่ผ่าน QA แล้วและตรงกับสเปกใหม่ใช้ต่อได้ทันทีไม่ต้องทำซ้ำ งานที่ไม่ตรง (Pop, ZOKY tab ใน WYN App) ถอด/พักไว้ ไม่ลบโค้ด/DB จนกว่าจะขอ approval แยกต่างหาก (destructive change)
