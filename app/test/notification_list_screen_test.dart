@@ -24,6 +24,7 @@ import 'support/recording_notification_repository.dart';
 import 'support/recording_pop_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
+import 'support/recording_appeal_repository.dart';
 import 'support/recording_zoky_repository.dart';
 
 void main() {
@@ -43,6 +44,7 @@ void main() {
   late RecordingClubPostRepository clubPostRepo;
   late RecordingClubPostRepository clubPostWithResultRepo;
   late RecordingZokyRepository zokyRepo;
+  late RecordingAppealRepository appealRepo;
 
   // One RecordingNotificationRepository per scenario, all built in
   // setUp() for the same reason as the repos above -- never inline
@@ -345,6 +347,7 @@ void main() {
     clubPostRepo = RecordingClubPostRepository();
     clubPostWithResultRepo = RecordingClubPostRepository()..byIdResult = testClubPost;
     zokyRepo = RecordingZokyRepository();
+    appealRepo = RecordingAppealRepository();
 
     allTypesRepo = RecordingNotificationRepository(notifications: [
       likeDropNotification(),
@@ -442,6 +445,7 @@ void main() {
           clubRepository: clubRepo,
           clubPostRepository: clubPostRepository ?? clubPostRepo,
           zokyRepository: zokyRepository ?? zokyRepo,
+          appealRepository: appealRepo,
         ),
       );
 

@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:wyn/features/moderation/data/appeal.dart';
+import 'package:wyn/features/moderation/data/appeal_status.dart';
+import 'package:wyn/features/moderation/data/moderation_action_type.dart';
 import 'package:wyn/features/moderation/data/moderation_report.dart';
 import 'package:wyn/features/moderation/data/moderation_target_summary.dart';
+import 'package:wyn/features/moderation/presentation/appeal_detail_screen.dart';
 import 'package:wyn/features/moderation/presentation/moderation_queue_screen.dart';
 import 'package:wyn/features/moderation/presentation/moderation_report_detail_screen.dart';
 import 'package:wyn/features/report/data/report_category.dart';
 import 'package:wyn/features/report/data/report_target_type.dart';
 
+import 'support/recording_appeal_repository.dart';
 import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
 import 'support/recording_drop_repository.dart';
@@ -51,9 +56,15 @@ void main() {
         createdAt: DateTime.now().subtract(const Duration(hours: 2)),
       );
 
-  Widget buildScreen(RecordingModerationRepository repository) => MaterialApp(
+  Widget buildScreen(
+    RecordingModerationRepository repository, {
+    RecordingAppealRepository? appealRepository,
+  }) =>
+      MaterialApp(
         home: ModerationQueueScreen(
           moderationRepository: repository,
+          appealRepository: appealRepository ?? RecordingAppealRepository(),
+          currentModeratorId: 'moderator-1',
           dropRepository: dropRepo,
           popRepository: popRepo,
           followRepository: followRepo,
@@ -139,5 +150,92 @@ void main() {
     expect(find.textContaining('คุกคาม/กลั่นแกล้ง (Harassment) · ผู้ใช้'), findsNothing);
     expect(find.text('ไม่มีรายงานที่รอตรวจสอบ'), findsOneWidget);
     expect(find.text('ดำเนินการแล้ว: คำเตือน (Warning)'), findsOneWidget);
+  });
+
+  // WYN-030 -- the "อุทธรณ์" tab, mirroring _ReportsTab's own 4 tests
+  // above.
+  group('Appeals tab', () {
+    Appeal userAppeal({String id = 'a1'}) => Appeal(
+          id: id,
+          moderationActionId: 'action-1',
+          reason: 'ฉันไม่ได้ทำผิดกฎ',
+          status: AppealStatus.pending,
+          createdAt: DateTime.now().subtract(const Duration(hours: 1)),
+          actionType: ModerationActionType.restrict,
+          actionReason: 'สแปม',
+          actionCreatedAt: DateTime.now().subtract(const Duration(days: 1)),
+          actionReportId: 'r1',
+          actionTargetUserId: 'target-user-1',
+          appellantUsername: 'somchai',
+        );
+
+    Future<void> goToAppealsTab(WidgetTester tester) async {
+      await tester.tap(find.text('อุทธรณ์'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('empty state shows the no-appeals message, not a crash', (tester) async {
+      final repo = RecordingModerationRepository(queuePages: const [[]]);
+      final appealRepo = RecordingAppealRepository(pendingAppealsPages: const [[]]);
+      await tester.pumpWidget(buildScreen(repo, appealRepository: appealRepo));
+      await tester.pumpAndSettle();
+      await goToAppealsTab(tester);
+
+      expect(find.text('ไม่มีอุทธรณ์ที่รอตรวจสอบ'), findsOneWidget);
+    });
+
+    testWidgets('shows the action type, appellant, and reason', (tester) async {
+      final repo = RecordingModerationRepository(queuePages: const [[]]);
+      final appeal = userAppeal();
+      final appealRepo = RecordingAppealRepository(pendingAppealsPages: [
+        [appeal],
+      ]);
+      await tester.pumpWidget(buildScreen(repo, appealRepository: appealRepo));
+      await tester.pumpAndSettle();
+      await goToAppealsTab(tester);
+
+      expect(find.textContaining('อุทธรณ์: จำกัดสิทธิ์ (Restrict)'), findsOneWidget);
+      expect(find.text('@somchai'), findsOneWidget);
+      expect(find.text('ฉันไม่ได้ทำผิดกฎ'), findsOneWidget);
+    });
+
+    testWidgets('tapping a row opens AppealDetailScreen for that appeal', (tester) async {
+      final repo = RecordingModerationRepository(queuePages: const [[]]);
+      final appeal = userAppeal();
+      final appealRepo = RecordingAppealRepository(pendingAppealsPages: [
+        [appeal],
+      ]);
+      await tester.pumpWidget(buildScreen(repo, appealRepository: appealRepo));
+      await tester.pumpAndSettle();
+      await goToAppealsTab(tester);
+
+      await tester.tap(find.textContaining('อุทธรณ์: จำกัดสิทธิ์ (Restrict)'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AppealDetailScreen), findsOneWidget);
+    });
+
+    testWidgets(
+        'returning from Detail with a result message removes that row (optimistic) '
+        'and shows the SnackBar', (tester) async {
+      final repo = RecordingModerationRepository(queuePages: const [[]]);
+      final appeal = userAppeal();
+      final appealRepo = RecordingAppealRepository(pendingAppealsPages: [
+        [appeal],
+      ]);
+      await tester.pumpWidget(buildScreen(repo, appealRepository: appealRepo));
+      await tester.pumpAndSettle();
+      await goToAppealsTab(tester);
+
+      await tester.tap(find.textContaining('อุทธรณ์: จำกัดสิทธิ์ (Restrict)'));
+      await tester.pumpAndSettle();
+
+      Navigator.of(tester.element(find.byType(AppealDetailScreen))).pop('อนุมัติอุทธรณ์แล้ว');
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('อุทธรณ์: จำกัดสิทธิ์ (Restrict)'), findsNothing);
+      expect(find.text('ไม่มีอุทธรณ์ที่รอตรวจสอบ'), findsOneWidget);
+      expect(find.text('อนุมัติอุทธรณ์แล้ว'), findsOneWidget);
+    });
   });
 }

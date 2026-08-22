@@ -7,7 +7,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/club.dart';
 import '../data/club_post_repository.dart';
 import '../data/club_repository.dart';
+import '../../moderation/data/appeal_repository.dart';
+import '../../moderation/data/appeal_status.dart';
 import '../../moderation/data/moderation_repository.dart';
+import '../../moderation/presentation/appeal_form_screen.dart';
 import 'club_page.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/widgets/restriction_banner.dart';
@@ -21,6 +24,7 @@ class CreateClubScreen extends StatefulWidget {
     required this.clubRepository,
     required this.clubPostRepository,
     this.moderationRepository,
+    this.appealRepository,
   });
 
   final ClubRepository clubRepository;
@@ -29,6 +33,9 @@ class CreateClubScreen extends StatefulWidget {
   // Optional -- see DropDetailScreen.moderationRepository's identical
   // doc comment. WYN-029.
   final ModerationRepository? moderationRepository;
+
+  // Same shape again -- WYN-030's appeal entry point on the Restrict banner.
+  final AppealRepository? appealRepository;
 
   @override
   State<CreateClubScreen> createState() => _CreateClubScreenState();
@@ -53,11 +60,15 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
 
   late final ModerationRepository _moderationRepository =
       widget.moderationRepository ?? ModerationRepository(Supabase.instance.client);
+  late final AppealRepository _appealRepository =
+      widget.appealRepository ?? AppealRepository(Supabase.instance.client);
 
   // WYN-029 (Restrict) -- see CreateDropScreen's identical fields/doc
   // comment for why this is loaded once, not re-polled.
   String? _restrictReason;
   DateTime? _restrictExpiresAt;
+  String? _restrictActionId;
+  AppealStatus _restrictAppealStatus = AppealStatus.none;
   bool get _isRestricted => _restrictExpiresAt != null;
 
   bool get _canCreate =>
@@ -80,11 +91,27 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
         setState(() {
           _restrictReason = status.restrictReason;
           _restrictExpiresAt = status.restrictExpiresAt;
+          _restrictActionId = status.restrictActionId;
+          _restrictAppealStatus = status.restrictAppealStatus;
         });
       }
     } catch (_) {
       // Silent -- see CreateDropScreen's identical method.
     }
+  }
+
+  // WYN-030 -- see CreateDropScreen's identical method.
+  Future<void> _openAppeal() async {
+    final submitted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AppealFormScreen(
+          appealRepository: _appealRepository,
+          actionId: _restrictActionId!,
+          actionLabel: 'จำกัดสิทธิ์ (Restrict)',
+        ),
+      ),
+    );
+    if (submitted == true) _loadModerationStatus();
   }
 
   @override
@@ -188,7 +215,13 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (_isRestricted)
-                RestrictionBanner(reason: _restrictReason, expiresAt: _restrictExpiresAt),
+                RestrictionBanner(
+                  reason: _restrictReason,
+                  expiresAt: _restrictExpiresAt,
+                  actionId: _restrictActionId,
+                  appealStatus: _restrictAppealStatus,
+                  onAppeal: _openAppeal,
+                ),
               _buildCoverPicker(),
               const SizedBox(height: WynSpacing.space3),
               _buildIconPicker(),

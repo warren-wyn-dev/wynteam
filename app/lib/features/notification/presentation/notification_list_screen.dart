@@ -11,6 +11,8 @@ import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/drop_detail_screen.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../home/presentation/pop_single_clip_screen.dart';
+import '../../moderation/data/appeal_repository.dart';
+import '../../moderation/presentation/my_moderation_action_screen.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
@@ -38,6 +40,7 @@ class NotificationListScreen extends StatefulWidget {
     required this.clubRepository,
     required this.clubPostRepository,
     required this.zokyRepository,
+    required this.appealRepository,
   });
 
   final NotificationRepository notificationRepository;
@@ -49,6 +52,11 @@ class NotificationListScreen extends StatefulWidget {
   final ClubRepository clubRepository;
   final ClubPostRepository clubPostRepository;
   final ZokyRepository zokyRepository;
+
+  /// WYN-030: all 4 moderation-related notification types now open
+  /// MyModerationActionScreen, which needs this to load the action +
+  /// appeal status.
+  final AppealRepository appealRepository;
 
   @override
   State<NotificationListScreen> createState() => _NotificationListScreenState();
@@ -177,11 +185,24 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         await _openClubPost(notification.clubPostId!);
       case NotificationType.moderationWarning:
       case NotificationType.moderationContentRemoved:
-        // No-op (WYN-029, Screen 5) -- Warning has no single piece of
-        // content to open (it's a statement about the account), and
-        // Remove Content's referenced content is already gone by the
-        // time this row exists.
-        break;
+      case NotificationType.appealApproved:
+      case NotificationType.appealRejected:
+        // WYN-030: all 4 moderation-related types now open the same
+        // destination (design doc's scope decision #2) -- but a
+        // notification created before this migration has no
+        // moderation_action_id at all, in which case this stays a
+        // no-op (WYN-029, Screen 5's original behavior), same posture
+        // as every other backward-compat case in this app.
+        final actionId = notification.moderationActionId;
+        if (actionId == null) return;
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => MyModerationActionScreen(
+              appealRepository: widget.appealRepository,
+              actionId: actionId,
+            ),
+          ),
+        );
     }
   }
 
@@ -339,17 +360,44 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       case NotificationType.moderationContentRemoved:
         return 'เนื้อหาของคุณถูกลบเนื่องจากละเมิดกฎการใช้งาน WYN -- '
             'เหตุผล: ${notification.reason ?? ''}';
+      case NotificationType.appealApproved:
+        // WYN-030 Design, Screen 7 -- wording differs per action type,
+        // and Remove Content's in particular is worded exactly as the
+        // Product spec's Handoff requires: no word here may imply the
+        // content itself came back, since it never can (hard-deleted,
+        // no snapshot kept -- see supabase/schema.sql's
+        // apply_moderation_action()).
+        final actionType = notification.moderationActionType;
+        return switch (actionType) {
+          'warning' => 'อุทธรณ์ของคุณได้รับการอนุมัติแล้ว คำเตือนนี้ถูกลบออกจากประวัติบัญชีของคุณแล้ว',
+          'restrict' =>
+            'อุทธรณ์ของคุณได้รับการอนุมัติแล้ว สิทธิ์การโพสต์ของคุณกลับมาใช้งานได้ตามปกติแล้ว',
+          'suspend' => 'อุทธรณ์ของคุณได้รับการอนุมัติแล้ว บัญชีของคุณกลับมาใช้งานได้ตามปกติแล้ว',
+          'ban' =>
+            'อุทธรณ์ของคุณได้รับการอนุมัติแล้ว บัญชีของคุณกลับมาใช้งานได้ตามปกติแล้ว คุณสามารถเข้าสู่ระบบได้ทันที',
+          'remove_content' =>
+            'อุทธรณ์ของคุณได้รับการอนุมัติแล้ว การละเมิดนี้ถูกลบออกจากประวัติบัญชีของคุณแล้ว',
+          _ => 'อุทธรณ์ของคุณได้รับการอนุมัติแล้ว',
+        };
+      case NotificationType.appealRejected:
+        // Reject has no action-type-specific outcome to describe (see
+        // the design doc's Screen 7) -- same wording regardless of
+        // what was appealed.
+        return 'อุทธรณ์ของคุณถูกปฏิเสธ -- เหตุผล: ${notification.reason ?? ''}';
     }
   }
 
-  /// WYN-029, Screen 5 -- the reviewer's real identity (`actor_id`) must
-  /// never surface for these 2 types, same protection direction as
-  /// WYN-026 hiding a reporter's identity from everyone, including the
-  /// person reported. Deliberately does NOT reuse [_messageFor]'s
+  /// WYN-029, Screen 5 (extended by WYN-030) -- the reviewer's real
+  /// identity (`actor_id`) must never surface for any of these 4
+  /// moderation-related types, same protection direction as WYN-026
+  /// hiding a reporter's identity from everyone, including the person
+  /// reported. Deliberately does NOT reuse [_messageFor]'s
   /// `actorNameOrUsername` for these types (see there).
   bool _hidesActorIdentity(NotificationType type) =>
       type == NotificationType.moderationWarning ||
-      type == NotificationType.moderationContentRemoved;
+      type == NotificationType.moderationContentRemoved ||
+      type == NotificationType.appealApproved ||
+      type == NotificationType.appealRejected;
 
   @override
   Widget build(BuildContext context) {

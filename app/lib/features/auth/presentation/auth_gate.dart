@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../moderation/data/appeal_repository.dart';
+import '../../moderation/data/appeal_status.dart';
 import '../../moderation/data/moderation_repository.dart';
 import '../../moderation/data/moderation_status.dart';
+import '../../moderation/presentation/appeal_form_screen.dart';
 import '../../push/data/push_token_repository.dart';
 import '../../push/presentation/push_notification_service.dart';
 import '../../root/presentation/root_shell.dart';
@@ -22,9 +25,14 @@ import 'welcome_screen.dart';
 /// .wyn/company/DECISIONS.md 2026-08-14 — replaces the old single-screen
 /// FeedScreen from WYN-004).
 class AuthGate extends StatefulWidget {
-  const AuthGate({super.key, this.authRepository, this.moderationRepository});
+  const AuthGate({
+    super.key,
+    this.authRepository,
+    this.moderationRepository,
+    this.appealRepository,
+  });
 
-  // Both optional -- default to real Supabase-backed instances (see
+  // All optional -- default to real Supabase-backed instances (see
   // _AuthGateState's late finals below), same "existing call sites
   // don't need to thread one through" shape as every other optional
   // repository param in this app. Tests inject Recording* fakes here
@@ -33,6 +41,10 @@ class AuthGate extends StatefulWidget {
   // screen's own comments describe without a live Supabase project.
   final AuthRepository? authRepository;
   final ModerationRepository? moderationRepository;
+
+  // Same shape again -- WYN-030's appeal entry point on
+  // AccountRestrictedScreen.
+  final AppealRepository? appealRepository;
 
   @override
   State<AuthGate> createState() => _AuthGateState();
@@ -43,6 +55,8 @@ class _AuthGateState extends State<AuthGate> {
       widget.authRepository ?? AuthRepository(Supabase.instance.client);
   late final ModerationRepository _moderationRepository =
       widget.moderationRepository ?? ModerationRepository(Supabase.instance.client);
+  late final AppealRepository _appealRepository =
+      widget.appealRepository ?? AppealRepository(Supabase.instance.client);
   late final StreamSubscription<AuthState> _authSubscription;
 
   // Set exactly once per sign-in (by the auth listener below, or by
@@ -54,20 +68,24 @@ class _AuthGateState extends State<AuthGate> {
 
   // Guards _handleBlockedLogin from being kicked off more than once per
   // detected block -- build() can run many times while its one async
-  // sign-out is still in flight.
+  // gap (see _handleBlockedLogin) is still in flight.
   bool _isHandlingBlockedLogin = false;
 
   // THE TRAP (see .wyn/docs/design/wyn-029-moderation-queue.md, Screen
   // 6): once this is non-null, build() must render AccountRestrictedScreen
   // unconditionally, checked *before* looking at the auth stream's
   // session at all. If build() instead derived "blocked" from session
-  // state directly, the moment _handleBlockedLogin's signOut() call
-  // completes, the StreamBuilder below rebuilds with session == null and
-  // would flash straight to WelcomeScreen -- the auth listener's own
-  // `popUntil(isFirst)` doesn't save this, because that only pops routes
-  // *pushed on top of* AuthGate, not AuthGate's own build() output. This
-  // field is local State, set with setState only after signOut()
-  // actually finishes, and cleared only when the user taps "ตกลง".
+  // state directly, the StreamBuilder below would flash straight to
+  // WelcomeScreen the instant a rebuild saw session == null -- the auth
+  // listener's own `popUntil(isFirst)` doesn't save this, because that
+  // only pops routes *pushed on top of* AuthGate, not AuthGate's own
+  // build() output.
+  //
+  // WYN-030: the session is deliberately still valid while this is
+  // non-null (see _handleBlockedLogin's doc comment) -- signOut() only
+  // happens in _leaveBlockedScreen, in the *same* setState call that
+  // clears this field, so the session-null flash to WelcomeScreen lands
+  // exactly when the user actually leaves, not before.
   _BlockedLoginInfo? _blockedInfo;
 
   @override
@@ -103,12 +121,45 @@ class _AuthGateState extends State<AuthGate> {
     super.dispose();
   }
 
-  /// Signs the blocked session out for real (best-effort push-token
-  /// deregistration first, same posture as ViewProfileScreen._signOut),
-  /// then -- only once that's actually finished -- records the block
-  /// locally so build() can render AccountRestrictedScreen without ever
-  /// racing the sign-out's own auth-state event.
+  /// Records the block locally so build() can render
+  /// AccountRestrictedScreen without ever racing an auth-state event.
+  ///
+  /// WYN-030: unlike before, this no longer signs the session out. The
+  /// session (JWT) is deliberately left valid while AccountRestrictedScreen
+  /// is showing, so submit_appeal() -- an authenticated RPC -- can still
+  /// succeed for a Suspended/Banned user. This is *not* a change to the
+  /// auth/RLS security boundary: Suspend/Ban only ever blocked INSERT at
+  /// the RLS layer (supabase/schema.sql), never READ, so a valid token
+  /// held a little longer doesn't expose anything a signed-in-but-blocked
+  /// user couldn't already reach before this feature existed. The actual
+  /// sign-out is deferred to _leaveBlockedScreen, fired only when the user
+  /// taps "ตกลง" (see build() below). See
+  /// .wyn/docs/design/wyn-030-appeal-system.md, Screen 3.
   Future<void> _handleBlockedLogin(ModerationStatus status) async {
+    // One async gap so this setState doesn't run synchronously inside
+    // build() itself (this is fired unawaited from the FutureBuilder
+    // below) -- there's no longer a signOut() call here to provide that
+    // gap for free.
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
+    setState(() {
+      _blockedInfo = _BlockedLoginInfo(
+        isBanned: status.isBanned,
+        reason: status.isBanned ? status.banReason : status.suspendReason,
+        expiresAt: status.isBanned ? null : status.suspendExpiresAt,
+        actionId: status.isBanned ? status.banActionId : status.suspendActionId,
+        appealStatus:
+            status.isBanned ? status.banAppealStatus : status.suspendAppealStatus,
+      );
+      _isHandlingBlockedLogin = false;
+    });
+  }
+
+  /// The actual sign-out, deferred from _handleBlockedLogin above --
+  /// fired when the user taps "ตกลง" on AccountRestrictedScreen, whether
+  /// or not they appealed first. Best-effort push-token deregistration
+  /// first, same posture as ViewProfileScreen._signOut.
+  Future<void> _leaveBlockedScreen() async {
     try {
       await PushNotificationService(PushTokenRepository(Supabase.instance.client))
           .unregisterCurrentDevice();
@@ -117,14 +168,36 @@ class _AuthGateState extends State<AuthGate> {
     }
     await _authRepository.signOut();
     if (!mounted) return;
-    setState(() {
-      _blockedInfo = _BlockedLoginInfo(
-        isBanned: status.isBanned,
-        reason: status.isBanned ? status.banReason : status.suspendReason,
-        expiresAt: status.isBanned ? null : status.suspendExpiresAt,
-      );
-      _isHandlingBlockedLogin = false;
-    });
+    setState(() => _blockedInfo = null);
+  }
+
+  /// Opens AppealFormScreen for the currently-blocked action. On a
+  /// successful submit, flips the local appealStatus to `pending` in
+  /// place -- no need to re-fetch ModerationStatus, since a successful
+  /// submit_appeal() call is exactly what that status would now show.
+  Future<void> _openAppealFromBlocked() async {
+    final info = _blockedInfo;
+    if (info == null || info.actionId == null) return;
+    final submitted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AppealFormScreen(
+          appealRepository: _appealRepository,
+          actionId: info.actionId!,
+          actionLabel: info.isBanned ? 'ระงับถาวร (Ban)' : 'ระงับชั่วคราว (Suspend)',
+        ),
+      ),
+    );
+    if (submitted == true && mounted) {
+      setState(() {
+        _blockedInfo = _BlockedLoginInfo(
+          isBanned: info.isBanned,
+          reason: info.reason,
+          expiresAt: info.expiresAt,
+          actionId: info.actionId,
+          appealStatus: AppealStatus.pending,
+        );
+      });
+    }
   }
 
   @override
@@ -135,7 +208,10 @@ class _AuthGateState extends State<AuthGate> {
         isBanned: blockedInfo.isBanned,
         reason: blockedInfo.reason,
         expiresAt: blockedInfo.expiresAt,
-        onAcknowledge: () => setState(() => _blockedInfo = null),
+        onAcknowledge: _leaveBlockedScreen,
+        actionId: blockedInfo.actionId,
+        appealStatus: blockedInfo.appealStatus,
+        onAppeal: blockedInfo.actionId == null ? null : _openAppealFromBlocked,
       );
     }
 
@@ -204,11 +280,15 @@ class _BlockedLoginInfo {
     required this.isBanned,
     required this.reason,
     required this.expiresAt,
+    required this.actionId,
+    required this.appealStatus,
   });
 
   final bool isBanned;
   final String? reason;
   final DateTime? expiresAt;
+  final String? actionId;
+  final AppealStatus appealStatus;
 }
 
 class _LoadingScreen extends StatelessWidget {

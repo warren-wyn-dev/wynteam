@@ -4169,6 +4169,14 @@ create index if not exists moderation_actions_target_user_idx
 create index if not exists moderation_actions_report_idx
   on public.moderation_actions (report_id);
 
+-- WYN-030: set only by decide_appeal() when an appeal is approved --
+-- never by a client directly (moderation_actions has no client
+-- update policy at all, see below). Shared by all 5 action types
+-- rather than a bespoke undo field per type; see
+-- .wyn/docs/design/wyn-030-appeal-system.md, Screen 8.
+alter table public.moderation_actions
+  add column if not exists overturned_at timestamptz;
+
 alter table public.moderation_actions enable row level security;
 
 -- Moderator/admin audit visibility only. Deliberately NO policy grants
@@ -4199,6 +4207,14 @@ create policy "Moderators can view moderation action history"
 -- constraint above) so its branch checks existence only -- the only way
 -- to lift a Ban is deleting/superseding that row directly via SQL (no
 -- in-app Unban this round, per the Product spec).
+-- WYN-030: `and overturned_at is null` added to both branches below --
+-- an approved appeal (decide_appeal() sets overturned_at, never
+-- expires_at) must lift a still-unexpired Restrict/Suspend or a
+-- permanent Ban immediately, without touching the expires_at logic
+-- that already handles natural expiry. See
+-- .wyn/docs/design/wyn-030-appeal-system.md, Screen 8 (scope decision
+-- #1) for why this is one column shared by all 5 action types rather
+-- than a bespoke undo field per type.
 create or replace function internal.is_posting_blocked(p_user_id uuid)
 returns boolean
 language sql
@@ -4209,6 +4225,7 @@ as $$
   select exists (
     select 1 from public.moderation_actions
     where target_user_id = p_user_id
+      and overturned_at is null
       and (
         (action_type in ('restrict', 'suspend') and expires_at > now())
         or action_type = 'ban'
@@ -4252,6 +4269,7 @@ declare
   v_target_user uuid;
   v_expires_at timestamptz;
   v_trimmed_reason text := trim(coalesce(p_reason, ''));
+  v_action_id uuid;
 begin
   if v_reviewer is null then
     raise exception 'Not authenticated';
@@ -4327,7 +4345,8 @@ begin
     case when p_action_type in ('restrict', 'suspend') then p_duration_days else null end,
     v_expires_at,
     v_reviewer
-  );
+  )
+  returning id into v_action_id;
 
   update public.reports
   set status = case when p_action_type = 'no_action' then 'dismissed' else 'actioned' end
@@ -4341,8 +4360,8 @@ begin
   -- SELECT access at all and remains the only correctly-protected place
   -- this identity is recorded.
   if p_action_type = 'warning' then
-    insert into public.notifications (recipient_id, actor_id, type, reason)
-    values (v_target_user, null, 'moderation_warning', v_trimmed_reason);
+    insert into public.notifications (recipient_id, actor_id, type, reason, moderation_action_id, moderation_action_type)
+    values (v_target_user, null, 'moderation_warning', v_trimmed_reason, v_action_id, p_action_type);
   elsif p_action_type = 'remove_content' then
     -- Notification inserted *before* the delete below on purpose: both
     -- drop_id/club_post_id etc. are left null on this notification (see
@@ -4351,8 +4370,8 @@ begin
     -- on-delete-cascade ordering hazard either way -- but inserting
     -- first keeps the "notify, then remove" sequence readable as the
     -- two-step user-facing effect the design doc describes.
-    insert into public.notifications (recipient_id, actor_id, type, reason)
-    values (v_target_user, null, 'moderation_content_removed', v_trimmed_reason);
+    insert into public.notifications (recipient_id, actor_id, type, reason, moderation_action_id, moderation_action_type)
+    values (v_target_user, null, 'moderation_content_removed', v_trimmed_reason, v_action_id, p_action_type);
 
     -- Hard-delete, not a soft-delete-and-filter flag: the design doc's
     -- Screen 5 explicitly specifies the *effect* as "hidden from
@@ -4386,6 +4405,13 @@ grant execute on function public.apply_moderation_action(uuid, text, text, integ
 -- moderation_actions). Only ever resolves the caller's own auth.uid()
 -- -- there is no user-id parameter, so this can never be used to probe
 -- anyone else's moderation status.
+-- WYN-030: `and overturned_at is null` added to every restrict/suspend/
+-- ban lookup below (same reasoning as internal.is_posting_blocked()
+-- above) -- an approved appeal must make is_restricted/is_suspended/
+-- is_banned flip to false immediately. This function is redefined
+-- again further down (after the `appeals` table exists) to add 6 more
+-- columns the appeal UI needs -- this in-place edit only carries the
+-- overturned_at fix forward so it's not lost in between.
 create or replace function public.get_my_moderation_status()
 returns table (
   is_restricted boolean,
@@ -4405,39 +4431,45 @@ as $$
   select
     exists (
       select 1 from public.moderation_actions
-      where target_user_id = auth.uid() and action_type = 'restrict' and expires_at > now()
+      where target_user_id = auth.uid() and action_type = 'restrict'
+        and expires_at > now() and overturned_at is null
     ),
     (
       select reason from public.moderation_actions
-      where target_user_id = auth.uid() and action_type = 'restrict' and expires_at > now()
+      where target_user_id = auth.uid() and action_type = 'restrict'
+        and expires_at > now() and overturned_at is null
       order by created_at desc limit 1
     ),
     (
       select expires_at from public.moderation_actions
-      where target_user_id = auth.uid() and action_type = 'restrict' and expires_at > now()
+      where target_user_id = auth.uid() and action_type = 'restrict'
+        and expires_at > now() and overturned_at is null
       order by created_at desc limit 1
     ),
     exists (
       select 1 from public.moderation_actions
-      where target_user_id = auth.uid() and action_type = 'suspend' and expires_at > now()
+      where target_user_id = auth.uid() and action_type = 'suspend'
+        and expires_at > now() and overturned_at is null
     ),
     (
       select reason from public.moderation_actions
-      where target_user_id = auth.uid() and action_type = 'suspend' and expires_at > now()
+      where target_user_id = auth.uid() and action_type = 'suspend'
+        and expires_at > now() and overturned_at is null
       order by created_at desc limit 1
     ),
     (
       select expires_at from public.moderation_actions
-      where target_user_id = auth.uid() and action_type = 'suspend' and expires_at > now()
+      where target_user_id = auth.uid() and action_type = 'suspend'
+        and expires_at > now() and overturned_at is null
       order by created_at desc limit 1
     ),
     exists (
       select 1 from public.moderation_actions
-      where target_user_id = auth.uid() and action_type = 'ban'
+      where target_user_id = auth.uid() and action_type = 'ban' and overturned_at is null
     ),
     (
       select reason from public.moderation_actions
-      where target_user_id = auth.uid() and action_type = 'ban'
+      where target_user_id = auth.uid() and action_type = 'ban' and overturned_at is null
       order by created_at desc limit 1
     );
 $$;
@@ -4483,8 +4515,23 @@ alter table public.notifications
     'club_join_request', 'club_join_approved', 'club_post_like', 'club_post_comment',
     'new_order', 'order_shipped', 'order_cancelled', 'order_refunded',
     'mention_drop', 'mention_club_post',
-    'moderation_warning', 'moderation_content_removed'
+    'moderation_warning', 'moderation_content_removed',
+    'appeal_approved', 'appeal_rejected'
   ));
+
+-- ------------------------------------------------------------
+-- WYN-030: lets MyModerationActionScreen (and NotificationListScreen's
+-- tap handler) resolve straight from a notification row to "which
+-- moderation_actions row is this about" without a second query.
+-- moderation_action_type is denormalized alongside the id (not just
+-- joined at read time) so _messageFor() can pick the right per-type
+-- wording (Screen 7) even though ordinary users have no SELECT policy
+-- on moderation_actions to join through themselves.
+-- ------------------------------------------------------------
+alter table public.notifications
+  add column if not exists moderation_action_id uuid references public.moderation_actions (id);
+alter table public.notifications
+  add column if not exists moderation_action_type text;
 
 -- ------------------------------------------------------------
 -- Restrict/Suspend/Ban enforcement (Screen 8): posting is blocked at
@@ -4552,3 +4599,396 @@ create policy "Approved club members can comment on club posts as themselves, ex
     )
     and not internal.is_posting_blocked(auth.uid())
   );
+
+-- ============================================================
+-- WYN-030: Appeal System
+-- ============================================================
+-- See .wyn/docs/design/wyn-030-appeal-system.md ("Handoff") -- builds
+-- entirely on top of WYN-029's moderation_actions/apply_moderation_action
+-- shipped above (overturned_at was already added earlier in this file
+-- so internal.is_posting_blocked()/get_my_moderation_status() could be
+-- fixed in place without forward-reference issues; this section is
+-- everything that needs the `appeals` table to exist first).
+
+-- No INSERT/UPDATE/DELETE policy for any role -- every row is written
+-- by submit_appeal()/decide_appeal() below (RPC-over-raw-write, same
+-- shape as moderation_actions/reports/blocks). moderation_action_id is
+-- unique as the DB-level backstop of "1 appeal per action" -- the
+-- client hiding the button after submit is UX, not the actual boundary.
+create table if not exists public.appeals (
+  id uuid primary key default gen_random_uuid(),
+  moderation_action_id uuid not null unique references public.moderation_actions (id) on delete cascade,
+  appellant_id uuid not null references public.profiles (id) on delete cascade,
+  reason text not null,
+  evidence_paths text[],
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  reviewer_id uuid references public.profiles (id) on delete cascade,
+  decision_reason text,
+  created_at timestamptz not null default now(),
+  decided_at timestamptz,
+  constraint appeals_reason_not_blank check (length(trim(reason)) > 0),
+  constraint appeals_evidence_paths_max_3 check (evidence_paths is null or array_length(evidence_paths, 1) <= 3),
+  constraint appeals_decision_reason_required_on_reject check (
+    status <> 'rejected' or (decision_reason is not null and length(trim(decision_reason)) > 0)
+  )
+);
+
+create index if not exists appeals_appellant_idx on public.appeals (appellant_id);
+
+alter table public.appeals enable row level security;
+
+create policy "Appellants can view their own appeals"
+  on public.appeals
+  for select
+  to authenticated
+  using (auth.uid() = appellant_id);
+
+create policy "Moderators can view all appeals"
+  on public.appeals
+  for select
+  to authenticated
+  using (internal.current_platform_role() <> 'user');
+
+-- Evidence images: private bucket scoped by *file owner* (appellant_id),
+-- not club membership -- mirrors club-media's private-bucket/signed-URL
+-- pattern but the avatar/drop-images path-ownership convention, since
+-- evidence is personal to the appellant, not shared with a group. Path
+-- convention: `{appellant_id}/{timestamp}-{n}.ext`. No UPDATE/DELETE
+-- policy -- evidence is immutable once submitted, consistent with the
+-- rest of this moderation system being an audit trail.
+insert into storage.buckets (id, name, public)
+values ('appeal-evidence', 'appeal-evidence', false)
+on conflict (id) do nothing;
+
+create policy "Appellants and moderators can view appeal evidence"
+  on storage.objects
+  for select
+  to authenticated
+  using (
+    bucket_id = 'appeal-evidence'
+    and (
+      (storage.foldername(name))[1] = auth.uid()::text
+      or internal.current_platform_role() <> 'user'
+    )
+  );
+
+create policy "Users can upload their own appeal evidence"
+  on storage.objects
+  for insert
+  to authenticated
+  with check (
+    bucket_id = 'appeal-evidence'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- Validates target_user_id = auth.uid() (nobody can appeal on someone
+-- else's behalf), action_type <> 'no_action' (nothing to appeal),
+-- reason non-blank, evidence array <= 3 paths each owned by the
+-- caller (defense-in-depth beyond the storage RLS above -- these are
+-- plain text parameters, not verified uploads, so a client could send
+-- someone else's already-uploaded path here without this check), and
+-- relies on appeals.moderation_action_id's unique constraint (not
+-- application logic) to reject a second appeal on the same action.
+create or replace function public.submit_appeal(
+  p_action_id uuid,
+  p_reason text,
+  p_evidence_paths text[] default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_appellant uuid := auth.uid();
+  v_action record;
+  v_trimmed_reason text := trim(coalesce(p_reason, ''));
+  v_appeal_id uuid;
+  v_path text;
+begin
+  if v_appellant is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select * into v_action from public.moderation_actions where id = p_action_id;
+  if v_action is null then
+    raise exception 'Moderation action not found';
+  end if;
+
+  if v_action.target_user_id <> v_appellant then
+    raise exception 'You can only appeal actions taken against your own account';
+  end if;
+
+  if v_action.action_type = 'no_action' then
+    raise exception 'No Action cannot be appealed';
+  end if;
+
+  if length(v_trimmed_reason) = 0 then
+    raise exception 'Reason is required';
+  end if;
+
+  if p_evidence_paths is not null then
+    if array_length(p_evidence_paths, 1) > 3 then
+      raise exception 'At most 3 evidence images allowed';
+    end if;
+    foreach v_path in array p_evidence_paths loop
+      if v_path is null or v_path not like (v_appellant::text || '/%') then
+        raise exception 'Invalid evidence path';
+      end if;
+    end loop;
+  end if;
+
+  insert into public.appeals (moderation_action_id, appellant_id, reason, evidence_paths)
+  values (p_action_id, v_appellant, v_trimmed_reason, p_evidence_paths)
+  returning id into v_appeal_id;
+
+  return v_appeal_id;
+exception
+  when unique_violation then
+    raise exception 'This moderation action has already been appealed';
+end;
+$$;
+
+grant execute on function public.submit_appeal(uuid, text, text[]) to authenticated;
+
+-- `for update` on the appeal row guards two moderators deciding the
+-- same appeal at once, mirroring apply_moderation_action()'s own
+-- report-row lock. Self-review guard is the real boundary here (not
+-- the UI hiding the buttons) -- this project has hit the "UI omission
+-- is not a data-access boundary" lesson twice already (WYN-027's
+-- is_blocked_either_way RPC exposure, WYN-029's actor_id leak); this
+-- is the third place it applies. Blocks BOTH approve and reject for a
+-- self-review, wider than the Product spec's stated minimum ("at
+-- least block approve") -- see the design doc's scope decision #4 for
+-- why allowing self-reject makes no sense once self-approve is
+-- already blocked.
+create or replace function public.decide_appeal(
+  p_appeal_id uuid,
+  p_approve boolean,
+  p_decision_reason text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_reviewer uuid := auth.uid();
+  v_reviewer_role text;
+  v_appeal record;
+  v_action record;
+  v_trimmed_reason text := trim(coalesce(p_decision_reason, ''));
+begin
+  if v_reviewer is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select platform_role into v_reviewer_role from public.profiles where id = v_reviewer;
+  if v_reviewer_role is null or v_reviewer_role = 'user' then
+    raise exception 'Not authorized';
+  end if;
+
+  select * into v_appeal from public.appeals where id = p_appeal_id for update;
+  if v_appeal is null then
+    raise exception 'Appeal not found';
+  end if;
+  if v_appeal.status <> 'pending' then
+    raise exception 'This appeal has already been decided';
+  end if;
+
+  select * into v_action from public.moderation_actions where id = v_appeal.moderation_action_id;
+  if v_action is null then
+    raise exception 'Moderation action not found';
+  end if;
+
+  if v_reviewer = v_action.target_user_id then
+    raise exception 'You cannot decide an appeal for a moderation action taken against your own account';
+  end if;
+
+  if not p_approve and length(v_trimmed_reason) = 0 then
+    raise exception 'A reason is required to reject an appeal';
+  end if;
+
+  update public.appeals
+  set status = case when p_approve then 'approved' else 'rejected' end,
+      reviewer_id = v_reviewer,
+      decision_reason = case when p_approve then null else v_trimmed_reason end,
+      decided_at = now()
+  where id = p_appeal_id;
+
+  if p_approve then
+    update public.moderation_actions
+    set overturned_at = now()
+    where id = v_action.id;
+
+    -- actor_id deliberately NULL, exactly like apply_moderation_action()
+    -- above -- the real reviewer identity lives only in
+    -- appeals.reviewer_id, a column the target has no SELECT access to.
+    -- This is the third time this project has had to protect a
+    -- moderation-adjacent identity this way (WYN-027, WYN-029); it is
+    -- done correctly from the very first insert here, not patched in
+    -- afterward.
+    insert into public.notifications (recipient_id, actor_id, type, moderation_action_id, moderation_action_type)
+    values (v_action.target_user_id, null, 'appeal_approved', v_action.id, v_action.action_type);
+  else
+    -- Reuses notifications.reason (WYN-029's column) for the rejection
+    -- message -- see the design doc's scope decision #6.
+    insert into public.notifications (recipient_id, actor_id, type, reason, moderation_action_id, moderation_action_type)
+    values (v_action.target_user_id, null, 'appeal_rejected', v_trimmed_reason, v_action.id, v_action.action_type);
+  end if;
+end;
+$$;
+
+grant execute on function public.decide_appeal(uuid, boolean, text) to authenticated;
+
+-- Full redefinition of get_my_moderation_status() now that `appeals`
+-- exists -- the in-place edit earlier in this file already added the
+-- overturned_at fix to the original 8 columns; this adds the 6 new
+-- columns RestrictionBanner/AccountRestrictedScreen need to render the
+-- appeal entry point/status without a second RPC round-trip. Once an
+-- appeal is approved, overturned_at is set and is_restricted/
+-- is_suspended/is_banned + the corresponding *_action_id both flip to
+-- false/null together in the very next call -- there is no reachable
+-- state where *_appeal_status reads 'approved' here, since the row
+-- backing it stops being "the active one" at that exact moment (see
+-- the design doc, Screen 2, on why 'approved' never surfaces on the
+-- banner).
+--
+-- An explicit DROP is required first -- CREATE OR REPLACE cannot
+-- change a RETURNS TABLE function's column list, only its body, and
+-- this redefinition adds 6 columns to the 8-column version defined
+-- earlier in this file.
+drop function if exists public.get_my_moderation_status();
+
+create function public.get_my_moderation_status()
+returns table (
+  is_restricted boolean,
+  restrict_reason text,
+  restrict_expires_at timestamptz,
+  restrict_action_id uuid,
+  restrict_appeal_status text,
+  is_suspended boolean,
+  suspend_reason text,
+  suspend_expires_at timestamptz,
+  suspend_action_id uuid,
+  suspend_appeal_status text,
+  is_banned boolean,
+  ban_reason text,
+  ban_action_id uuid,
+  ban_appeal_status text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    exists (
+      select 1 from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'restrict'
+        and expires_at > now() and overturned_at is null
+    ),
+    (
+      select reason from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'restrict'
+        and expires_at > now() and overturned_at is null
+      order by created_at desc limit 1
+    ),
+    (
+      select expires_at from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'restrict'
+        and expires_at > now() and overturned_at is null
+      order by created_at desc limit 1
+    ),
+    (
+      select id from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'restrict'
+        and expires_at > now() and overturned_at is null
+      order by created_at desc limit 1
+    ),
+    coalesce((
+      select a.status from public.moderation_actions ma
+      join public.appeals a on a.moderation_action_id = ma.id
+      where ma.target_user_id = auth.uid() and ma.action_type = 'restrict'
+        and ma.expires_at > now() and ma.overturned_at is null
+      order by ma.created_at desc limit 1
+    ), 'none'),
+    exists (
+      select 1 from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'suspend'
+        and expires_at > now() and overturned_at is null
+    ),
+    (
+      select reason from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'suspend'
+        and expires_at > now() and overturned_at is null
+      order by created_at desc limit 1
+    ),
+    (
+      select expires_at from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'suspend'
+        and expires_at > now() and overturned_at is null
+      order by created_at desc limit 1
+    ),
+    (
+      select id from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'suspend'
+        and expires_at > now() and overturned_at is null
+      order by created_at desc limit 1
+    ),
+    coalesce((
+      select a.status from public.moderation_actions ma
+      join public.appeals a on a.moderation_action_id = ma.id
+      where ma.target_user_id = auth.uid() and ma.action_type = 'suspend'
+        and ma.expires_at > now() and ma.overturned_at is null
+      order by ma.created_at desc limit 1
+    ), 'none'),
+    exists (
+      select 1 from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'ban' and overturned_at is null
+    ),
+    (
+      select reason from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'ban' and overturned_at is null
+      order by created_at desc limit 1
+    ),
+    (
+      select id from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'ban' and overturned_at is null
+      order by created_at desc limit 1
+    ),
+    coalesce((
+      select a.status from public.moderation_actions ma
+      join public.appeals a on a.moderation_action_id = ma.id
+      where ma.target_user_id = auth.uid() and ma.action_type = 'ban' and ma.overturned_at is null
+      order by ma.created_at desc limit 1
+    ), 'none');
+$$;
+
+grant execute on function public.get_my_moderation_status() to authenticated;
+
+-- The only way an ordinary user can read anything from
+-- moderation_actions about themselves -- returns only the columns safe
+-- for the target to see (no reviewer_id, no report_id). Never add a
+-- raw SELECT policy on moderation_actions for the target instead: RLS
+-- is row-level, not column-level, so that would expose reviewer_id
+-- immediately -- the exact same class of bug WYN-029 just fixed.
+create or replace function public.get_my_moderation_action(p_action_id uuid)
+returns table (
+  action_type text,
+  reason text,
+  duration_days integer,
+  expires_at timestamptz,
+  created_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select action_type, reason, duration_days, expires_at, created_at
+  from public.moderation_actions
+  where id = p_action_id and target_user_id = auth.uid();
+$$;
+
+grant execute on function public.get_my_moderation_action(uuid) to authenticated;

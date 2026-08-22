@@ -8,6 +8,7 @@ import '../../drop/presentation/create_drop_screen.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../home/data/home_repository.dart';
 import '../../home/presentation/home_feed_screen.dart';
+import '../../moderation/data/appeal_repository.dart';
 import '../../notification/data/notification_repository.dart';
 import '../../notification/presentation/notification_list_screen.dart';
 import '../../pop/data/pop_repository.dart';
@@ -48,6 +49,7 @@ class RootShell extends StatefulWidget {
     ClubPostRepository? clubPostRepository,
     ZokyRepository? zokyRepository,
     HomeRepository? homeRepository,
+    AppealRepository? appealRepository,
   })  : _dropRepository = dropRepository,
         _popRepository = popRepository,
         _followRepository = followRepository,
@@ -57,7 +59,8 @@ class RootShell extends StatefulWidget {
         _clubRepository = clubRepository,
         _clubPostRepository = clubPostRepository,
         _zokyRepository = zokyRepository,
-        _homeRepository = homeRepository;
+        _homeRepository = homeRepository,
+        _appealRepository = appealRepository;
 
   // All optional -- default to real Supabase-backed instances built in
   // _RootShellState.initState (see .wyn/learning/PATTERNS.md's "optional
@@ -74,6 +77,7 @@ class RootShell extends StatefulWidget {
   final ClubPostRepository? _clubPostRepository;
   final ZokyRepository? _zokyRepository;
   final HomeRepository? _homeRepository;
+  final AppealRepository? _appealRepository;
 
   @override
   State<RootShell> createState() => _RootShellState();
@@ -135,6 +139,7 @@ class _RootShellState extends State<RootShell> {
   late final ClubPostRepository _clubPostRepository;
   late final ZokyRepository _zokyRepository;
   late final HomeRepository _homeRepository;
+  late final AppealRepository _appealRepository;
 
   @override
   void initState() {
@@ -151,6 +156,7 @@ class _RootShellState extends State<RootShell> {
     _clubPostRepository = widget._clubPostRepository ?? ClubPostRepository(client);
     _zokyRepository = widget._zokyRepository ?? ZokyRepository(client);
     _homeRepository = widget._homeRepository ?? HomeRepository(client);
+    _appealRepository = widget._appealRepository ?? AppealRepository(client);
 
     // WYN-016 (Push Notification): request permission + register this
     // device's token once, the first time RootShell renders (i.e. right
@@ -243,6 +249,7 @@ class _RootShellState extends State<RootShell> {
         clubRepository: _clubRepository,
         clubPostRepository: _clubPostRepository,
         zokyRepository: _zokyRepository,
+        appealRepository: _appealRepository,
       ),
       ViewProfileScreen(
         key: ValueKey('profile_$_profileVisitKey'),

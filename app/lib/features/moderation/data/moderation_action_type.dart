@@ -12,6 +12,21 @@ enum ModerationActionType {
   ban,
 }
 
+/// WYN-030: parses the wire string back into the enum -- needed
+/// wherever a value written by `apply_moderation_action()` comes back
+/// off a row (e.g. `notifications.moderation_action_type`,
+/// `get_my_moderation_action()`'s `action_type` column) rather than
+/// being chosen by the current user in a picker.
+ModerationActionType moderationActionTypeFromWire(String value) => switch (value) {
+      'no_action' => ModerationActionType.noAction,
+      'warning' => ModerationActionType.warning,
+      'remove_content' => ModerationActionType.removeContent,
+      'restrict' => ModerationActionType.restrict,
+      'suspend' => ModerationActionType.suspend,
+      'ban' => ModerationActionType.ban,
+      _ => throw ArgumentError('Unknown moderation action_type: $value'),
+    };
+
 extension ModerationActionTypeWire on ModerationActionType {
   /// The exact string `apply_moderation_action()` and the
   /// `moderation_actions.action_type` check constraint expect.
