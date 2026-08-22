@@ -1,7 +1,7 @@
 # Product Task — WYN-029
 
-Status: review (QA อิสระรอบ 1 — FAIL, Major privacy finding — ดู "Independent QA — Round 1" ท้ายไฟล์ — bug report ที่ `.wyn/tasks/bugs/WYN-029-moderation-actor-identity-leak.md`)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (รอบ 1 — FAIL) → AI Debug Engineer (ถัดไป)
+Status: approved (QA อิสระรอบ 2 — PASS, 2026-08-22 — ดู "Independent QA — Round 2" ท้ายไฟล์ — Major finding ของรอบ 1 แก้แล้วและยืนยันอิสระแล้ว, bug report ปิดที่ `.wyn/tasks/bugs/WYN-029-moderation-actor-identity-leak.md`)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI Debug Engineer (เสร็จ — แก้ Major finding รอบ 1) → AI QA & Security (เสร็จ — PASS รอบ 2) → AI Deploy & DevOps (รอ infra จาก Founder)
 
 Feature: Moderation Queue + Action (ขั้นต่ำในแอป Flutter เดิม)
 
@@ -118,3 +118,21 @@ Handoff: AI QA & Security — test WYN-029 against all Acceptance Criteria, in p
 **Regression**: ไม่มี regression ใดๆ นอกจาก finding ข้อ 7 ที่พบใหม่ — ทุกอย่างที่ Coding claim ว่าถูกต้อง (self-escalation guard, RLS enforcement ของ Restrict/Suspend/Ban, auto-expiry, reporter identity protection ใน `moderation_queue` view, Pop ไม่ถูกแตะ, AuthGate race condition) ยืนยันจริงด้วยตัวเองครบทุกจุด
 
 **ผลลัพธ์: WYN-029 — FAIL (Major)** — ส่งต่อ AI Debug Engineer พร้อม bug report เต็มที่ `.wyn/tasks/bugs/WYN-029-moderation-actor-identity-leak.md` (ข้อเสนอ fix: relax `notifications.actor_id` เป็น nullable แล้ว insert null สำหรับ Warning/Remove Content แทน `v_reviewer` — `moderation_actions.reviewer_id` ที่ป้องกันไว้ถูกต้องอยู่แล้วยังคงเป็น audit trail หลักต่อไปโดยไม่ต้องเปลี่ยน)
+
+---
+
+## Independent QA — Round 2 (AI QA & Security, 2026-08-22) — PASS
+
+**บริบท**: AI Debug Engineer แก้ Major finding จากรอบ 1 (commit `1595d6f` — relax `notifications.actor_id` เป็น nullable, `apply_moderation_action()` insert `null` แทน `v_reviewer` สำหรับ Warning/Remove Content, แก้ `WynNotification`/`notification_list_screen.dart` ให้ null-safe) — ตรวจสอบอิสระทั้งหมดเอง ไม่เชื่อรายงานของ Debug เฉยๆ
+
+**สิ่งที่ทำ**:
+
+1. อ่าน diff จริงของ `1595d6f` ทั้ง SQL และ Dart — ตรงตามข้อเสนอ fix ในรายงานบั๊กเป๊ะ, ไม่มีการเปลี่ยน logic อื่นนอกเหนือขอบเขต
+2. รัน `flutter analyze` อิสระ — สะอาด 0 issues
+3. รัน `supabase/tests/wyn_029_moderation_queue_test.sh` ที่ Debug ขยายเพิ่ม (36 เคสจาก 32 เดิม) — **36/36 PASS**
+4. **สร้างฐานข้อมูล PostgreSQL 16 ใหม่ทั้งหมดของ QA เอง** (คนละ DB กับ Debug) apply schema.sql ตัวจริงที่แก้แล้ว แล้ว**เขียน probe ของตัวเองใหม่ทั้งหมด** (ไม่ reuse ของ Debug) จำลอง Alice โดน moderator "Secret Moderator" warn เหมือนรอบ 1 ทุกประการ แล้ว query ในฐานะ Alice 2 แบบ: (1) INNER JOIN แบบเดิมที่เคยพิสูจน์การรั่วได้ในรอบ 1 → **0 แถว** (2) **LEFT JOIN แบบตรงไปตรงมา** (เลี่ยงกับดักที่ INNER JOIN อาจแค่ "กรองแถวว่างทิ้งไปเงียบๆ" จนดูเหมือนไม่รั่วทั้งที่จริงอาจยังมีข้อมูลอยู่) → `actor_id`/`actor_username` เป็น **NULL ทั้งคู่จริง** ไม่ใช่แค่ไม่ match join — ยืนยันว่าปิดช่องโหว่จริง ไม่ใช่แค่ซ่อนผลลัพธ์
+5. ยืนยัน `moderation_actions` (audit trail ตัวจริง) ยังคงถูกป้องกันเหมือนเดิม — target เห็น 0 แถว
+6. รัน `wyn_021_club_post_mentions_rls_test.sh` (5/5) และ `wyn_027_is_blocked_either_way_rpc_exposure_test.sh` (9/9) ซ้ำ — ไม่มี cross-task regression
+7. รัน `flutter test` อิสระเต็มโปรเจกต์ — **433/433 ผ่าน** ตรงกับที่ Debug รายงาน (เพิ่มจาก 426 เดิม, ไม่มี regression)
+
+**ผลลัพธ์: WYN-029 — PASS (รอบ 2)** ย้ายกลับเข้า `.wyn/tasks/approved/` แล้ว ปิด `.wyn/tasks/bugs/WYN-029-moderation-actor-identity-leak.md` เป็น closed — พร้อมส่ง AI Deploy & DevOps เมื่อ Founder พร้อม deploy จริง (ยังไม่ deploy เพราะยังไม่มี production Supabase project จริง — gate เดิมที่ทุก task ก่อนหน้าเจอ)

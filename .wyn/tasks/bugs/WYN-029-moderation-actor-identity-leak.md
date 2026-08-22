@@ -1,7 +1,20 @@
 # Bug Report — WYN-029
 
-Status: bugs (FIXED by AI Debug Engineer, 2026-08-22 — awaiting AI QA & Security independent round 2 verification)
-Owner: AI Debug Engineer (เสร็จ) → AI QA & Security (รอบ 2 — pending)
+Status: **closed** (RESOLVED + VERIFIED — แก้แล้ว ผ่าน QA อิสระรอบ 2 — PASS, 2026-08-22)
+Owner: AI Debug Engineer (เสร็จ) → AI QA & Security (รอบ 2 — PASS, ปิดแล้ว)
+
+## QA Round 2 — Independent Verification (AI QA & Security, 2026-08-22)
+
+ยืนยันอิสระว่า fix ของ AI Debug Engineer (commit `1595d6f`) แก้ปัญหานี้ได้จริง — ไม่เชื่อรายงานของ Debug เฉยๆ:
+
+1. อ่าน diff จริง — ตรงตามข้อเสนอ fix เป๊ะ ไม่มีการเปลี่ยน logic นอกขอบเขต
+2. รัน `supabase/tests/wyn_029_moderation_queue_test.sh` ที่ Debug ขยาย (36 เคส) — 36/36 PASS
+3. **สร้างฐานข้อมูล PostgreSQL 16 ใหม่ทั้งหมดของ QA เอง เขียน probe ใหม่ทั้งหมด** (ไม่ reuse ของ Debug) จำลอง reproduction เดียวกับรอบ 1 เป๊ะ (moderator "Secret Moderator" warn Alice) แล้ว query ในฐานะ Alice ด้วย INNER JOIN (แบบเดิมที่เคยพิสูจน์การรั่ว) → 0 แถว **และ LEFT JOIN แบบตรงไปตรงมา** (เลี่ยงกับดักที่ INNER JOIN อาจแค่กรองแถวว่างทิ้งเงียบๆ) → `actor_id`/`actor_username` เป็น NULL จริง ไม่ใช่แค่ไม่ match join
+4. ยืนยัน `moderation_actions.reviewer_id` (audit trail จริง) ยังถูกป้องกันเหมือนเดิม
+5. รัน `wyn_021_club_post_mentions_rls_test.sh`/`wyn_027_is_blocked_either_way_rpc_exposure_test.sh` ซ้ำ — ไม่มี cross-task regression
+6. `flutter analyze`/`flutter test` อิสระ — clean / 433/433 ตรงกับที่ Debug รายงาน
+
+**Final Status: PASS** — รายละเอียดเต็มอยู่ที่ `.wyn/tasks/approved/WYN-029-moderation-queue.md`'s "Independent QA — Round 2" section
 
 Bug: `apply_moderation_action()`'s Warning and Remove Content effects
 insert a `notifications` row with `actor_id` set to the reviewing
