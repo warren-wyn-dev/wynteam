@@ -1,7 +1,7 @@
 # Product Task — WYN-026
 
-Status: approved (QA รอบ 1 — PASS)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ — ดู `.wyn/docs/design/wyn-026-report-system.md`) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS รอบ 1) → AI Deploy & DevOps (รอ infra จาก Founder)
+Status: approved — merged to `main` (2026-08-22, commit `c7f06f1`), รอ infra จริงก่อน deploy ได้
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ — ดู `.wyn/docs/design/wyn-026-report-system.md`) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS รอบ 1 + Independent QA รอบ 1) → AI Deploy & DevOps (merge to `main` เสร็จแล้ว — ดู `.wyn/logs/deployments/2026-08-22-wyn-026-027-028-merge-to-main.md` — รอ infra จริงจาก Founder ก่อน deploy จริงได้)
 
 ## QA — Round 1 (2026-08-22, PASS)
 

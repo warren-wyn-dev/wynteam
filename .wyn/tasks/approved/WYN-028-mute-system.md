@@ -1,7 +1,7 @@
 # Product Task — WYN-028
 
-Status: approved (QA PASS — ดู "QA Output" ด้านล่าง)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS) → AI Deploy & DevOps (ถัดไป)
+Status: approved — merged to `main` (2026-08-22, commit `c7f06f1`), รอ infra จริงก่อน deploy ได้ (QA PASS — ดู "QA Output" ด้านล่าง + "Independent QA — Round 1" ท้ายไฟล์)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS) → AI Deploy & DevOps (merge to `main` เสร็จแล้ว — ดู `.wyn/logs/deployments/2026-08-22-wyn-026-027-028-merge-to-main.md` — รอ infra จริงจาก Founder ก่อน deploy จริงได้)
 
 Feature: Mute System
 

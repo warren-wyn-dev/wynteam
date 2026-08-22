@@ -1,7 +1,7 @@
 # Product Task — WYN-027
 
-Status: approved (QA อิสระรอบ 2 — PASS, 2026-08-22 — ดู "Independent QA — Round 2" ท้ายไฟล์ — Major finding ของรอบ 1 แก้แล้วและยืนยันอิสระแล้ว, bug report ปิดที่ `.wyn/tasks/bugs/WYN-027-is-blocked-either-way-rpc-exposure.md`)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI Debug Engineer (เสร็จ — แก้ Major finding รอบ 1) → AI QA & Security (เสร็จ — PASS รอบ 2) → AI Deploy & DevOps (รอ infra จาก Founder)
+Status: approved — merged to `main` (2026-08-22, commit `c7f06f1`, รวม security fix `1d2fc70` แล้ว), รอ infra จริงก่อน deploy ได้ (QA อิสระรอบ 2 — PASS, 2026-08-22 — ดู "Independent QA — Round 2" ท้ายไฟล์ — Major finding ของรอบ 1 แก้แล้วและยืนยันอิสระแล้ว, bug report ปิดที่ `.wyn/tasks/bugs/WYN-027-is-blocked-either-way-rpc-exposure.md`)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI Debug Engineer (เสร็จ — แก้ Major finding รอบ 1) → AI QA & Security (เสร็จ — PASS รอบ 2) → AI Deploy & DevOps (merge to `main` เสร็จแล้ว — ดู `.wyn/logs/deployments/2026-08-22-wyn-026-027-028-merge-to-main.md` — รอ infra จริงจาก Founder ก่อน deploy จริงได้)
 
 > **หมายเหตุ**: "QA Output (2026-08-22)" ด้านล่างนี้เขียนโดยเซสชันเดียวกับที่ทำ Coding (self-QA ไม่ใช่ QA อิสระจริง) เช่นเดียวกับที่เคยเกิดกับ WYN-017–022 ก่อนหน้านี้ — QA อิสระจริงรอบ 1 (2026-08-22) พบ Major security finding ที่ self-QA ไม่ได้ตรวจพบ ส่งต่อ AI Debug Engineer แก้แล้ว และ **QA อิสระรอบ 2 (2026-08-22) ยืนยัน PASS** — ดูรายละเอียดทั้งหมดที่ "Independent QA — Round 1" และ "Independent QA — Round 2" ท้ายไฟล์นี้
 
