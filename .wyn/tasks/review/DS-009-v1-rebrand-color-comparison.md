@@ -1,7 +1,7 @@
 # Product Task — DS-009
 
-Status: **Coding ส่งมอบแล้ว รอ QA** — implement พร้อมกับ WYN-024 (ไฟล์เดียวกัน) ดู "Coding Output" ที่ `.wyn/tasks/backlog/WYN-024-bottom-nav-v1-restructure.md`
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security
+Status: **QA รอบ 1 — FAIL** — Rainbow accent dot (Trending ring ไม่มีปัญหา แต่ active-segment dot ทำให้เกิด layout overflow) ดู bug report ที่ `.wyn/tasks/bugs/WYN-024-nav-restructure-build-and-overflow.md` (Bug 2) และรายละเอียดที่ `.wyn/tasks/review/WYN-024-bottom-nav-v1-restructure.md`
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer
 
 **ผลการตัดสินใจ**: Option B — คง Cyan `#00C8FF` เดิมเป็น primary (DS-001–008 ไม่เปลี่ยนแปลง) เพิ่ม Rainbow เป็น accent เสริม 2 จุดเท่านั้น (Trending avatar ring, active feed-mode indicator) สเปกเต็มที่ `.wyn/docs/design/ds-009-rainbow-accent.md`
 

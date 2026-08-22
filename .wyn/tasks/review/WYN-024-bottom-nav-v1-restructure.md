@@ -1,7 +1,7 @@
 # Product Task — WYN-024
 
-Status: **Coding ส่งมอบแล้ว รอ QA** — ดู "Coding Output" ท้ายไฟล์นี้ (design spec เต็มที่ `.wyn/docs/design/wyn-024-bottom-nav-v1-restructure.md`)
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security
+Status: **QA รอบ 1 — FAIL (2 Major/Critical + 1 test-infra bug)** — ส่งต่อ AI Debug Engineer แล้ว ดู bug report ที่ `.wyn/tasks/bugs/WYN-024-nav-restructure-build-and-overflow.md` และ "QA Output" ท้ายไฟล์นี้
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer
 
 Feature: Bottom Navigation V1.0.0 Restructure — ถอด Pop/ZOKY ออกจาก Bottom Nav, เพิ่ม Search และ Notifications เป็น tab
 
@@ -73,3 +73,36 @@ Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบ
 3. `RootShell` ไม่เคยมี test มาก่อนเลย เพิ่ง unlock ได้รอบนี้ — coverage ยังไม่ครบทุก edge case (เช่น double-tap Drop action, Profile visit-key bump)
 
 **Handoff**: ส่งต่อ AI QA & Security — ให้ความสำคัญเป็นพิเศษกับ: (1) รัน `flutter analyze`/`flutter test` เป็นอันดับแรก เพราะ Coding ไม่มีตัวเลขให้เทียบรอบนี้ (2) ยืนยันว่า Pop/ZOKY โค้ด+ตาราง DB ยังอยู่ครบ ไม่ได้ถูกลบไปด้วยระหว่างที่ลบ `DropFeedScreen` (3) ยืนยันว่าไม่มี dead-link เหลือที่ยังชี้ไป Pop/ZOKY จากหน้าจออื่น (4) ทดสอบ "ติดตาม" mode ด้วย fixture ที่มี Drop+Pop ผสมกันจริง ไม่ใช่แค่ Drop อย่างเดียวแบบที่ unit test ใช้
+
+---
+
+## QA Output (2026-08-22) — รอบ 1: FAIL
+
+**Environment**: ติดตั้ง Flutter 3.47.1 (stable) ใหม่ในเซสชันนี้ — สิ่งที่ Coding รายงานว่าทำไม่ได้ (ไม่มี Flutter SDK ในเซสชันนั้น, `github.com`/`storage.googleapis.com` ดูเหมือนจะโดนบล็อกจาก proxy) จริงๆ แล้ว **`storage.googleapis.com` (ที่เก็บ Flutter SDK archive) เข้าถึงได้** (`github.com` เท่านั้นที่บล็อก, HTTP 403) — ดาวน์โหลด `flutter_linux_3.47.1-stable.tar.xz` ตรงๆ สำเร็จ ตรงกับเวอร์ชันที่ QA รอบก่อนๆ ของโปรเจกต์นี้เคยใช้ (3.47.0)
+
+**Test Cases**: sync branch (`claude/remaining-items-r10hl0` ล่าสุด, commit `31418ff`) → `flutter pub get` → `flutter analyze` → `flutter test` (ทั้ง suite) → ไล่ requirement R1-R8 ของ WYN-024 + DS-009's 2 จุด (Trending ring, active-segment accent) เทียบกับ design spec → ตรวจ Pop/ZOKY ไม่มี dead code/dead link เหลือ → ยืนยัน `seller_app`'s token-sync test ผ่าน
+
+**Passed**:
+- ไม่มี schema.sql change รอบนี้ (ไม่ต้องตรวจ RLS/Postgres)
+- Pop/ZOKY: โค้ด/ไฟล์ยังอยู่ครบ ไม่มี call site เหลือนอกจากตัวเองในทั้ง `app/lib` (ถอดจาก UI จริง ไม่ใช่ dead-link)
+- DS-009's Trending tile ring (`trending_tile.dart`): ไม่มี layout error ใดๆ ที่ตรวจพบ
+- `seller_app`: `flutter analyze` สะอาด, `token_sync_test.dart` 4/4 ผ่าน (mirror ของ `wyn_colors.dart`'s `rainbowAccent` sync ถูกต้อง)
+
+**Failed** (รายละเอียดเต็มที่ `.wyn/tasks/bugs/WYN-024-nav-restructure-build-and-overflow.md`):
+1. **`flutter analyze` — 1 error** (`const_with_non_const` ที่ `root_shell.dart:301`) — **แอปคอมไพล์ไม่ผ่านทั้งแอป** ไม่ใช่แค่ feature เดียว
+2. **`flutter test test/home_feed_screen_test.dart` — 4 failing** — Rainbow accent dot (DS-009) ทำให้ `SegmentedButton`'s active segment overflow 11px ตั้งแต่ตอนเปิด Home ครั้งแรก (โหมดเริ่มต้น "สำหรับคุณ" ก็ overflow อยู่แล้ว ไม่ใช่แค่กรณี label ยาว)
+3. **`flutter test test/root_shell_test.dart` — 6/6 failing** — test file ใหม่สร้าง `SupabaseClient` (และ auto-refresh Timer) ใหม่ทุก test แทนที่จะสร้างครั้งเดียวใน `setUpAll` (anti-pattern ที่โปรเจกต์นี้เคยบันทึกไว้ใน `.wyn/learning/PATTERNS.md` แล้ว)
+
+**Severity**: Critical (Bug 1, build-blocking), Major (Bug 2, กระทบหน้าจอหลักของแอปโดย default), Major/test-only (Bug 3)
+
+**Reproduction Steps**: ดูใน bug report แต่ละข้อ — ทำซ้ำได้ 100% ด้วย `flutter analyze`/`flutter test` ตรงๆ ไม่ต้องมี fixture พิเศษ
+
+**Expected**: `flutter analyze` 0 error, `flutter test` ผ่านครบ, Home เปิดมาไม่มี layout overflow
+
+**Actual**: คอมไพล์ไม่ผ่าน + Home overflow โดย default + test ใหม่ทั้งไฟล์ fail ด้วยเหตุผลที่ไม่เกี่ยวกับ logic จริง
+
+**Security Findings**: ไม่พบ — ตรวจ `HomeRepository.fetchFollowingFeed` แล้ว (query pattern มิเรอร์ `DropRepository.fetchFollowingFeed` เดิมที่ผ่าน QA ไปแล้ว ไม่มี RLS/auth ใหม่ที่ต้องตรวจเพิ่มเพราะไม่แตะ schema)
+
+**Recommendation**: ส่งต่อ AI Debug Engineer ทันที — ทั้ง 3 บั๊กอยู่ในไฟล์ที่แก้รอบนี้ทั้งหมด ไม่กระทบไฟล์อื่น ความเสี่ยง regression ต่ำถ้าแก้ตามที่ bug report เสนอ (QA ทดลอง patch ชั่วคราวแล้ว revert ออกแล้ว ยืนยันว่าการแก้ตามที่เสนอทำให้ `flutter analyze`/`flutter test` ของ `home_feed_screen_test.dart` ผ่านสะอาดจริง)
+
+**Final Status: FAIL**
