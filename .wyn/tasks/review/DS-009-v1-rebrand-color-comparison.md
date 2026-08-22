@@ -1,7 +1,7 @@
 # Product Task — DS-009
 
-Status: **Debug Engineer แก้แล้ว — root cause คือ implementation เบี่ยงเบนจาก Design spec เอง** (spec ระบุให้ indicator อยู่ "นอกตัวหนังสือ" อยู่แล้ว แต่ตอน Coding ใส่ไว้ข้างในแทน) ย้าย indicator ไปเป็นแถบใต้ปุ่มแยกต่างหากตามสเปกจริง — เหลือ residual concern (ความกว้างของ label "จาก Club ของคุณ" ยังค่อนข้างแคบเพราะข้อจำกัดเดิมของ SegmentedButton 4 ช่อง ไม่ใช่ปัญหาจาก DS-009 โดยตรง) เสนอย่อข้อความถ้า QA รอบ 3 ยังเห็นว่าไม่พอ รอ QA รอบ 3
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security
+Status: **QA รอบ 3 — FAIL (WYN-024's control, not the Rainbow accent itself).** Indicator ย้ายไปแถบใต้ปุ่มตามสเปก DS-009 ถูกต้องแล้ว (ไม่ใช่ต้นเหตุของบั๊กรอบนี้) แต่ SegmentedButton เดิม (WYN-024) มีปัญหาความกว้างของ label ที่ active ทุก segment ไม่ใช่แค่ "จาก Club ของคุณ" — ดู `.wyn/tasks/bugs/WYN-024-segmented-button-active-label-illegible-all-segments.md` — DS-009's ส่วนของตัวเอง (gradient/contrast/Trending ring) ผ่านหมด
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer
 
 **ผลการตัดสินใจ**: Option B — คง Cyan `#00C8FF` เดิมเป็น primary (DS-001–008 ไม่เปลี่ยนแปลง) เพิ่ม Rainbow เป็น accent เสริม 2 จุดเท่านั้น (Trending avatar ring, active feed-mode indicator) สเปกเต็มที่ `.wyn/docs/design/ds-009-rainbow-accent.md`
 

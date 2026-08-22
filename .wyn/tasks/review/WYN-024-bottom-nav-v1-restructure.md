@@ -1,7 +1,7 @@
 # Product Task — WYN-024
 
-Status: **Debug Engineer พบ root cause จริง (เบี่ยงเบนจาก Design spec) + เจอบั๊กแฝงเก่าเพิ่มอีก 1 จุด แก้ทั้งคู่แล้ว — เหลือ residual concern (ไม่ block) เสนอ Product/Design พิจารณาย่อข้อความถ้า QA รอบ 3 ยังเห็นว่าไม่พอ — รอ QA รอบ 3** ดู "Debug Engineer Report" ที่ `.wyn/tasks/bugs/WYN-024-active-segment-label-truncation.md` — `flutter analyze` 0 error, `flutter test` 358/358 ผ่าน
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security
+Status: **QA รอบ 3 — FAIL.** `flutter analyze` 0 error, `flutter test` 358/358 ผ่านหมด (ไม่มี regression ของฟีเจอร์อื่น) แต่พบบั๊กใหม่ที่กว้างกว่าที่ QA รอบ 2 ขอบเขตไว้: label ของ segment ที่ active ถูกบีบจนเหลือ ~1-3 ตัวอักษรที่มองเห็นได้ **ทุก segment ไม่ใช่แค่ "จาก Club ของคุณ"** รวมถึง "สำหรับคุณ" ซึ่งเป็น default tab ตอนเปิดแอปครั้งแรกด้วย — ดูรายละเอียดที่ `.wyn/tasks/bugs/WYN-024-segmented-button-active-label-illegible-all-segments.md`
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer
 
 Feature: Bottom Navigation V1.0.0 Restructure — ถอด Pop/ZOKY ออกจาก Bottom Nav, เพิ่ม Search และ Notifications เป็น tab
 
