@@ -66,3 +66,19 @@ Recommendation:
 3. ตั้งค่า `platform_role` ให้ Founder เป็น `admin` ทันทีที่ deploy เป็นบัญชีแรก (ทำผ่าน SQL โดย AI Deploy & DevOps ตอน deploy จริง ไม่ใช่ AI Coding ตอน implement)
 
 Handoff: AI Design — ออกแบบ Moderation Queue screen (list + detail + action confirmation ขั้นต่ำ), entry point ที่ซ่อนใน Settings, และ UI แจ้งสถานะบัญชีตอน Restrict/Suspend/Ban (ทั้งตอน login และตอนพยายามโพสต์)
+
+---
+
+## Design Output (2026-08-22)
+
+ดูรายละเอียดเต็มที่ `.wyn/docs/design/wyn-029-moderation-queue.md` สรุปสั้น:
+
+- **Entry point**: `SettingsScreen` (WYN-027/028) เพิ่ม section ที่ 2 "เครื่องมือผู้ดูแล" — แสดงเฉพาะเมื่อ `platformRole != user` โดยส่งค่านี้เข้ามาจาก `ViewProfileScreen`'s profile ที่ fetch อยู่แล้ว (ไม่ยิง query เพิ่ม, ไม่มีทางส่ง userId อื่นมาแทนที่ได้จาก UI นี้)
+- **Queue/Detail/Action ทั้งหมด reuse pattern เดิม ไม่ประดิษฐ์ของใหม่**: list ใช้โครง `BlockedListScreen`/`NotificationListScreen`, การยืนยัน Action (เหตุผลบังคับ + duration picker เฉพาะ Restrict/Suspend) เป็น **bottom sheet เดียวใช้ซ้ำทั้ง 6 action** (`ModerationActionSheet`) reuse โครง `ReportSheet` ทั้งดุ้น — ปุ่มยืนยันไม่ใช้สีแดงแม้กับ Ban (สืบทอดกติกาเดิมทั้งแอป), Ban มีข้อความเตือนพิเศษว่ายกเลิกได้เฉพาะทาง DB เท่านั้น (ไม่มีปุ่ม Unban ในแอปรอบนี้)
+- **Warning/Remove Content ใช้ระบบ Notification เดิม (WYN-012) แทนสร้าง UI ใหม่**: เพิ่ม `NotificationType` 2 ค่าใหม่ — แถวของ 2 type นี้ **ซ่อนตัวตนผู้ตรวจสอบ (reviewer) เสมอ** (ไอคอนระบบคงที่ + คำว่า "ทีมงาน WYN" แทน avatar/username จริง) หลักการเดียวกับที่ WYN-026 ซ่อนตัวตนผู้รายงาน คนละทิศทาง — Remove Content ทำให้เนื้อหาหายไปจากทุกคนรวมเจ้าของเอง (เหมือนลบเอง) แทนการสร้าง grayed-out-tile ใหม่ใน 4+ grid/list ที่ต่างกัน
+- **Suspend/Ban**: `AuthGate` เพิ่ม gate ใหม่ก่อนเช็ค `hasUsername` — พบว่าถูกระงับ → sign out ทันที + แสดง `AccountRestrictedScreen` ใหม่ (เหตุผล + กำหนดเวลาถ้า Suspend) — ระบุกับดักไว้ตรงๆ ว่าต้องเก็บเป็น local state ของ `_AuthGateState` ไม่ใช่อ่านจาก `StreamBuilder` ตรงๆ มิฉะนั้นข้อความจะหายทันทีที่ sign-out เสร็จเพราะ auth listener เดิม `popUntil isFirst` อยู่แล้ว
+- **Restrict**: widget ใหม่ `RestrictionBanner` (reuse visual เดียวกับ `ViewProfileScreen._buildBlockedBanner`) แทรกที่ `CreateDropScreen`/Comment composer ของ `DropDetailScreen`+`ClubPostDetailScreen`/`CreateClubScreen` — ปุ่มโพสต์ปิดใช้งานเพิ่มเงื่อนไข `!_isRestricted` — **ไม่แตะ Pop เลยแม้แต่บรรทัดเดียว** ตามกติกาเดิม (Pop ระงับการพัฒนา)
+- **Data/security notes สำคัญ**: `moderation_actions` ต้องไม่เปิดกว้างแบบ `profiles` (เหตุผลการถูกดำเนินการเป็นข้อมูลอ่อนไหว), แนะนำ RPC เดียว `get_my_moderation_status()` ให้ทั้ง login-check และ restrict-banner เรียกร่วมกัน, Remove Content/Restrict/Suspend ต้องบังคับใช้ที่ RLS จริงไม่ใช่แค่ UI (ตาม Product's Risk)
+- **3 จุดตีความที่แนะนำให้ AI Coding ยืนยันสั้นๆ กับ Founder ก่อนเริ่ม** (ไม่ใช่ Founder-authority ตาม RULES.md แต่เป็นการตีความ HOW ที่อาจผิดเจตนา ดำเนินการตามค่าเริ่มต้นที่ Design เสนอไว้ได้เลยถ้า Founder ไม่ทักท้วง): (1) moderator เห็นตัวตนผู้รายงานได้หรือไม่ในการทำงานจริง (Design เสนอว่ายังไม่เห็น ตรงตาม WYN-026 เดิม), (2) Warning/Restrict/Suspend/Ban ต่อ report ประเภท `club` กระทำต่อ owner ของ Club, (3) Remove Content แจ้งผ่าน notification แทน UI แบบ grayed-out tile
+
+Handoff: AI Coding — เริ่มจาก data layer ตามลำดับใน design doc's Handoff section: (1) `platform_role` column, (2) `reports` RLS สำหรับ moderator, (3) `moderation_actions` table + `apply_moderation_action()` RPC, (4) `get_my_moderation_status()` RPC, (5) RLS enforcement (soft-delete filter, restrict/suspend insert filter, login check) — แล้วค่อยเข้า UI ตาม Screen 1-7
