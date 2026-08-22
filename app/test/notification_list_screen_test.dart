@@ -70,6 +70,7 @@ void main() {
   late RecordingNotificationRepository allModerationTypesRepo;
   late RecordingNotificationRepository moderationWarningRepo;
   late RecordingNotificationRepository moderationContentRemovedRepo;
+  late RecordingNotificationRepository allModerationTypesNullActorRepo;
 
   final now = DateTime.now();
 
@@ -213,6 +214,31 @@ void main() {
         actorId: 'reviewer-1',
         actorUsername: 'moderator_somchai',
         dropId: 'd1',
+        reason: 'เนื้อหาผิดกฎหมาย',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 1)),
+      );
+
+  // WYN-029 fix (.wyn/tasks/bugs/WYN-029-moderation-actor-identity-leak.md)
+  // -- this is what these 2 types actually look like post-fix: actorId/
+  // actorUsername/actorDisplayName genuinely null (apply_moderation_action()
+  // now inserts actor_id = NULL), not just a real actor the screen chooses
+  // to hide. The fixtures above (with a real reviewer identity) stay as
+  // they are -- they still prove the UI-layer guard works even if a row
+  // somehow carried a real actor -- these prove the screen also survives
+  // the actual null-actor shape without crashing.
+  WynNotification moderationWarningNullActorNotification() => WynNotification(
+        id: 'n-moderation-warning-null-actor',
+        type: NotificationType.moderationWarning,
+        reason: 'สแปมซ้ำหลายครั้ง',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 2)),
+      );
+
+  WynNotification moderationContentRemovedNullActorNotification() =>
+      WynNotification(
+        id: 'n-moderation-content-removed-null-actor',
+        type: NotificationType.moderationContentRemoved,
         reason: 'เนื้อหาผิดกฎหมาย',
         isRead: false,
         createdAt: now.subtract(const Duration(minutes: 1)),
@@ -393,6 +419,10 @@ void main() {
         RecordingNotificationRepository(notifications: [moderationWarningNotification()]);
     moderationContentRemovedRepo =
         RecordingNotificationRepository(notifications: [moderationContentRemovedNotification()]);
+    allModerationTypesNullActorRepo = RecordingNotificationRepository(notifications: [
+      moderationWarningNullActorNotification(),
+      moderationContentRemovedNullActorNotification(),
+    ]);
   });
 
   Widget buildScreen(
@@ -768,6 +798,43 @@ void main() {
 
       expect(find.byType(NotificationListScreen), findsOneWidget);
       expect(find.byType(DropDetailScreen), findsNothing);
+    });
+
+    // WYN-029 fix regression coverage
+    // (.wyn/tasks/bugs/WYN-029-moderation-actor-identity-leak.md) -- proves
+    // the screen renders correctly, without crashing, for the *actual*
+    // post-fix shape of these 2 types (actorId/actorUsername/
+    // actorDisplayName genuinely null, not just a real actor the screen
+    // declines to show).
+    testWidgets(
+        'renders both types correctly with no crash when actorId/'
+        'actorUsername/actorDisplayName are genuinely null (the real '
+        'post-fix shape, not just a hidden real actor)', (tester) async {
+      await tester.pumpWidget(buildScreen(allModerationTypesNullActorRepo));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      expect(
+        find.text('คุณได้รับคำเตือนจากทีมงาน WYN: สแปมซ้ำหลายครั้ง'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'เนื้อหาของคุณถูกลบเนื่องจากละเมิดกฎการใช้งาน WYN -- เหตุผล: เนื้อหาผิดกฎหมาย',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(AvatarCircle), findsNothing);
+      expect(find.byIcon(Icons.shield_outlined), findsNWidgets(2));
+
+      // Tapping still does nothing (no navigation, no crash from a null
+      // actorId anywhere on the no-op path either).
+      await tester.tap(
+        find.text('คุณได้รับคำเตือนจากทีมงาน WYN: สแปมซ้ำหลายครั้ง'),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.byType(NotificationListScreen), findsOneWidget);
     });
   });
 }

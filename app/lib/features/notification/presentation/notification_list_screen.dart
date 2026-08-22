@@ -152,7 +152,11 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       case NotificationType.commentPop:
         await _openPop(notification.popId!);
       case NotificationType.follow:
-        _openProfile(notification.actorId);
+        // Follow always has a real actor (notify_follow() always
+        // supplies new.follower_id) -- actorId is only ever null for the
+        // 2 moderation types (WYN-029 fix), neither of which reaches
+        // this case.
+        _openProfile(notification.actorId!);
       case NotificationType.clubJoinRequest:
         // Opens straight to the Members tab so the pending request is
         // immediately visible, not just the Club's Posts tab.
@@ -445,7 +449,11 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                       else
                         AvatarCircle(
                           imageUrl: notification.actorAvatarUrl,
-                          fallbackText: notification.actorUsername,
+                          // actorUsername is only ever null for the 2
+                          // hidden-identity moderation types, which never
+                          // reach this branch -- the '' fallback is just
+                          // to satisfy the now-nullable type (WYN-029 fix).
+                          fallbackText: notification.actorUsername ?? '',
                           radius: 20,
                         ),
                       const SizedBox(width: WynSpacing.space3),

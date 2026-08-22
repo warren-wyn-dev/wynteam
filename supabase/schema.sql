@@ -599,7 +599,16 @@ grant select on public.saved_feed to authenticated;
 create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),
   recipient_id uuid not null references public.profiles (id) on delete cascade,
-  actor_id uuid not null references public.profiles (id) on delete cascade,
+  -- Nullable (WYN-029 fix, see .wyn/tasks/bugs/WYN-029-moderation-actor-identity-leak.md):
+  -- every other notification type always supplies a real actor, but
+  -- apply_moderation_action()'s Warning/Remove Content effects
+  -- deliberately insert NULL here -- the reviewing moderator's identity
+  -- must never be reachable by the target, and RLS on this table is
+  -- row-level (auth.uid() = recipient_id), not column-level, so there is
+  -- no way to hide one column of an otherwise-visible row via policy.
+  -- The real reviewer identity stays correctly recorded, client-
+  -- unreachable, in moderation_actions.reviewer_id.
+  actor_id uuid references public.profiles (id) on delete cascade,
   type text not null
     check (type in (
       'like_drop', 'like_pop', 'comment_drop', 'comment_pop', 'follow',
@@ -4324,9 +4333,16 @@ begin
   set status = case when p_action_type = 'no_action' then 'dismissed' else 'actioned' end
   where id = p_report_id;
 
+  -- actor_id is deliberately NULL for both effects below (WYN-029 fix,
+  -- see .wyn/tasks/bugs/WYN-029-moderation-actor-identity-leak.md) --
+  -- v_reviewer must never be written here, since notifications.actor_id
+  -- is a plain, target-readable column (RLS is row-level, not column-
+  -- level), unlike moderation_actions.reviewer_id which has no client
+  -- SELECT access at all and remains the only correctly-protected place
+  -- this identity is recorded.
   if p_action_type = 'warning' then
     insert into public.notifications (recipient_id, actor_id, type, reason)
-    values (v_target_user, v_reviewer, 'moderation_warning', v_trimmed_reason);
+    values (v_target_user, null, 'moderation_warning', v_trimmed_reason);
   elsif p_action_type = 'remove_content' then
     -- Notification inserted *before* the delete below on purpose: both
     -- drop_id/club_post_id etc. are left null on this notification (see
@@ -4336,7 +4352,7 @@ begin
     -- first keeps the "notify, then remove" sequence readable as the
     -- two-step user-facing effect the design doc describes.
     insert into public.notifications (recipient_id, actor_id, type, reason)
-    values (v_target_user, v_reviewer, 'moderation_content_removed', v_trimmed_reason);
+    values (v_target_user, null, 'moderation_content_removed', v_trimmed_reason);
 
     -- Hard-delete, not a soft-delete-and-filter flag: the design doc's
     -- Screen 5 explicitly specifies the *effect* as "hidden from

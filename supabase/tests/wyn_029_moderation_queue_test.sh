@@ -29,6 +29,16 @@
 #      on purpose -- see the schema comment on moderation_queue).
 #   7. A `club` target's account-level action resolves to the Club's
 #      owner_id, not the reporter or an arbitrary member.
+#   8. WYN-029 bug-fix regression (see
+#      .wyn/tasks/bugs/WYN-029-moderation-actor-identity-leak.md):
+#      moderation_warning/moderation_content_removed notifications get
+#      actor_id = NULL, not the reviewing moderator's real auth.uid() --
+#      proven both by a direct column check AND by re-running, as the
+#      target, the exact join query notification_repository.dart's embed
+#      relies on (join notifications to profiles on actor_id), confirming
+#      it comes back with zero rows / no way to recover the reviewer's
+#      identity, not just "the column happens to be absent from a
+#      hand-picked select list".
 #
 # Requirements: a local PostgreSQL 16 server reachable either as the
 # current OS user or via `sudo -u postgres` (mirrors
@@ -349,6 +359,30 @@ insert into results
 select 'CHECK7d_drop_untouched_by_warning', count(*), 1
 from public.drops where id = 'd0000000-0000-0000-0000-000000000001';
 
+-- CHECK7e-7f: WYN-029 bug fix -- the Warning notification's actor_id is
+-- NULL (not carol's real auth.uid()), and re-running the exact query
+-- shape notification_repository.dart's `actor:profiles!
+-- notifications_actor_id_fkey(...)` embed relies on, as bob (the
+-- target, under RLS), returns zero rows -- proving the reviewer's
+-- identity is genuinely unreachable through this table, not just
+-- absent from one hand-picked column list.
+insert into results
+select 'CHECK7e_warning_actor_id_is_null', count(*), 1
+from public.notifications
+where recipient_id = '22222222-2222-2222-2222-222222222222'
+  and type = 'moderation_warning'
+  and actor_id is null;
+
+set role authenticated;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+set request.jwt.claim.role = 'authenticated';
+insert into results
+select 'CHECK7f_warning_actor_unreachable_via_join', count(*), 0
+from public.notifications n
+join public.profiles p on p.id = n.actor_id
+where n.recipient_id = '22222222-2222-2222-2222-222222222222' and n.type = 'moderation_warning';
+reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+
 -- CHECK8: acting on the same report a second time (already 'actioned')
 -- must be rejected -- this is the design doc's actual double-action
 -- guard (no claim/"reviewing" mechanic this round).
@@ -667,6 +701,27 @@ where recipient_id = '66666666-6666-6666-6666-666666666666'
   and type = 'moderation_content_removed'
   and reason = 'illegal content removed'
   and drop_id is null;
+
+-- CHECK21b-21c: same WYN-029 bug-fix regression as CHECK7e-7f, for
+-- Remove Content's notification this time -- actor_id is NULL, and
+-- frank (the target) re-running the exact join query
+-- notification_repository.dart's embed relies on gets zero rows.
+insert into results
+select 'CHECK21b_remove_content_actor_id_is_null', count(*), 1
+from public.notifications
+where recipient_id = '66666666-6666-6666-6666-666666666666'
+  and type = 'moderation_content_removed'
+  and actor_id is null;
+
+set role authenticated;
+set request.jwt.claim.sub = '66666666-6666-6666-6666-666666666666';
+set request.jwt.claim.role = 'authenticated';
+insert into results
+select 'CHECK21c_remove_content_actor_unreachable_via_join', count(*), 0
+from public.notifications n
+join public.profiles p on p.id = n.actor_id
+where n.recipient_id = '66666666-6666-6666-6666-666666666666' and n.type = 'moderation_content_removed';
+reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
 
 -- CHECK22: a `club` target's account-level action resolves to the
 -- Club's owner_id (eve), not the reporter (alice) or anyone else.

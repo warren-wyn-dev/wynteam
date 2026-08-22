@@ -1,7 +1,7 @@
 # Bug Report — WYN-029
 
-Status: bugs (NEW — found by AI QA & Security, independent round 1, 2026-08-22)
-Owner: AI Debug Engineer
+Status: bugs (FIXED by AI Debug Engineer, 2026-08-22 — awaiting AI QA & Security independent round 2 verification)
+Owner: AI Debug Engineer (เสร็จ) → AI QA & Security (รอบ 2 — pending)
 
 Bug: `apply_moderation_action()`'s Warning and Remove Content effects
 insert a `notifications` row with `actor_id` set to the reviewing
@@ -131,3 +131,234 @@ independent verification (32-check regression script + a fresh review
 of the Acceptance Criteria), and confirm no regression across the wider
 notification system (every other notification type's actor display
 must be completely unaffected).
+
+---
+
+## Debug Output (AI Debug Engineer)
+
+**Reproduction (own, independent from QA's)**: this sandbox has local
+PostgreSQL 16 available and already online (`service postgresql status`
+showed `16/main (port 5432): online`). Built the same stub harness this
+project's prior WYN-021/WYN-027/WYN-029 sessions used (`auth.users`/
+`auth.uid()`/`auth.role()`, `storage.buckets`/`storage.objects`/
+`storage.foldername()`, roles `authenticated`/`anon`), loaded
+`supabase/schema.sql` clean (`ON_ERROR_STOP=1`, 0 errors) into a fresh
+throwaway DB, then reproduced the exact scenario from this report: Alice
+posts a Drop, the moderator (`the_mod` / `platform_role = 'moderator'`,
+display name "Secret Moderator") submits a report against it and applies
+`'warning'`. As Alice (`request.jwt.claim.sub` = her own id, role
+`authenticated`), re-ran the exact query shape
+`notification_repository.dart` uses (`notifications` joined to
+`profiles` on `actor_id`) — got back **`actor_username = 'the_mod'`,
+`actor_display_name = 'Secret Moderator'`**, confirming the leak exactly
+as reported, independently, before touching any code. Also confirmed the
+sanity control the report implies but doesn't explicitly test: Alice's
+raw `select count(*) from public.moderation_actions` as herself returns
+**0** — the audit-trail table is correctly protected; the bug is
+specifically the duplicated identity that also ends up in
+`notifications.actor_id`.
+
+**Root cause confirmed by reading the code, not guessed**: grepped the
+whole `schema.sql` for `actor_id` (18 occurrences) and confirmed every
+`insert into public.notifications (recipient_id, actor_id, ...)` site
+except the two WYN-029 ones (`notify_drop_like`, `notify_pop_like`,
+`notify_drop_comment`, `notify_pop_comment`, `notify_follow`, the WYN-015
+Club triggers, the ZOKY-005 R1 order triggers, WYN-020/021 mention
+triggers) always supplies a real, non-null actor id (`new.user_id`,
+`new.author_id`, `v_reviewer`, etc.) — confirming the bug report's claim
+that relaxing the column's `not null` constraint is safe for every other
+type. Grepped the Dart client for `actorId`/`actor_id`/`actorUsername`/
+`actorDisplayName` and confirmed the only place `notification.dart`'s
+`actor_id` gets read is `WynNotification.fromMap`'s `final actor =
+map['actor'] as Map<String, dynamic>;` (a non-nullable cast that would
+throw a type error the moment `actor_id`/the embed is ever null), and
+that `notification_list_screen.dart`'s `_messageFor`/`_openNotification`/
+row-rendering logic for `moderationWarning`/`moderationContentRemoved`
+never actually uses `actorId`/`actorUsername`/`actorDisplayName` (only
+`reason`), confirming the report's claim that no rendering-logic change
+is needed there — only null-safety on the shared model.
+
+**Fix applied** — exactly the direction this report recommended, nothing
+heavier:
+1. `supabase/schema.sql`: dropped `notifications.actor_id`'s `not null`
+   constraint (kept the FK itself). Changed both
+   `apply_moderation_action()` insert sites (`warning`,
+   `remove_content`) to insert `actor_id = null` instead of `v_reviewer`.
+   `v_reviewer` itself is untouched everywhere else in the function
+   (still used for the `moderation_actions.reviewer_id` insert and the
+   moderator-role check) — this is a 2-line behavioral change plus
+   comments, not a refactor.
+2. `app/lib/features/notification/data/notification.dart`: made
+   `actorId`/`actorUsername` nullable on `WynNotification` (previously
+   `required`/non-nullable — every other field the model already treats
+   as optional stayed as-is). `fromMap` now reads `map['actor'] as
+   Map<String, dynamic>?` (nullable cast) and every `actor?['...']`
+   field with `?.`, instead of a hard non-null cast. `actorNameOrUsername`
+   (a getter `_messageFor` calls unconditionally for every notification
+   type, including the 2 moderation ones, even though the result is
+   unused there) now returns `''` instead of crashing when
+   `actorUsername` is null, rather than calling
+   `displayNameOrUsername()` with a non-null-asserted null.
+3. `app/lib/features/notification/presentation/notification_list_screen.dart`:
+   two call sites needed a null-safety touch-up for the now-nullable
+   type, not a logic change — `_openProfile(notification.actorId!)` for
+   the `follow` case (follow always has a real actor;
+   `notify_follow()`'s trigger guarantees it, and `follow` never reaches
+   the moderation branch), and `fallbackText: notification.actorUsername
+   ?? ''` for the `AvatarCircle` in the "not hidden" render branch (also
+   never actually null in practice, since `_hidesActorIdentity()` routes
+   the 2 null-actor types to the shield-icon branch instead). Confirmed
+   by re-reading the full file that `_hidesActorIdentity()`,
+   `_messageFor`, and `_openNotification`'s moderation-type handling
+   needed **zero** logic changes, exactly as the bug report predicted —
+   only these 2 type-safety touch-ups.
+
+**PostgREST embedded-resource degradation, confirmed empirically, not
+assumed**: no live PostgREST server is available in this sandbox (only
+the Dart `postgrest` client package, no server binary), so — following
+the same empirical-substitute approach this project's WYN-027 Debug
+session used for RLS-boundary claims it couldn't test through a live
+Supabase project either — verified the actual SQL-level mechanism
+PostgREST's embed generates for a nullable FK: ran both the exact inner
+`join` from this report's reproduction (`notifications n join profiles p
+on p.id = n.actor_id`) and a `left join` (the standard SQL shape a
+nullable-FK embed degrades to) against the post-fix schema, as Alice.
+Inner join: **0 rows** (the identity is unreachable through that exact
+query shape — the leak is closed). Left join: **1 row**, with
+`actor_id`, `actor_id_join`, `actor_username`, and `actor_display_name`
+all **NULL** — confirming a null `actor_id` produces a notification row
+with a null embedded `actor` object (exactly what
+`WynNotification.fromMap`'s new nullable-cast path is written to
+handle), not an error or a dropped row.
+
+**Verified against real Postgres, red→green, independently reproduced
+both directions**:
+- Pre-fix (current HEAD before this session's changes): the reproduction
+  above leaked `the_mod`/`Secret Moderator` to Alice, exactly as
+  reported.
+- Post-fix: identical query returns 0 rows for the inner join; the left
+  join shows the notification row with a fully-null actor.
+  `moderation_actions` stayed 0 rows for Alice throughout (unaffected).
+- `bash supabase/tests/wyn_029_moderation_queue_test.sh` (existing 32
+  checks) — **PASS** before any of my changes (confirms the pre-existing
+  suite doesn't already cover this gap, matching the bug report).
+- Extended that same persisted script with 4 new checks (`CHECK7e`/
+  `CHECK7f` for `moderation_warning`, `CHECK21b`/`CHECK21c` for
+  `moderation_content_removed`) — `CHECK7e`/`CHECK21b` assert
+  `actor_id is null` directly; `CHECK7f`/`CHECK21c` re-run the exact
+  join-based reproduction as the target role, asserting 0 rows. Did the
+  project's standard `git stash`/`git stash pop` proof with this exact
+  persisted script (not a throwaway variant): `git stash push --
+  supabase/schema.sql` (reverting only the schema fix, keeping the new
+  checks) → ran the script → **4 checks failed** (`CHECK7e`/`CHECK7f`/
+  `CHECK21b`/`CHECK21c`, all "expected X, got Y" mismatches from the
+  still-non-null `actor_id`) → `git stash pop` (fix restored) → ran
+  again → **all 36 checks passed**.
+- Re-ran `supabase/tests/wyn_021_club_post_mentions_rls_test.sh` (5/5)
+  and `supabase/tests/wyn_027_is_blocked_either_way_rpc_exposure_test.sh`
+  (9/9) against the fixed schema — no cross-task regression.
+- Reloaded the complete fixed `schema.sql` standalone into one more
+  fresh DB (0 errors, `ON_ERROR_STOP=1`) as a final sanity check.
+
+**Dart-side red→green, done independently of the SQL proof above**:
+added `app/test/notification_test.dart` (new — this project had no
+dedicated `WynNotification` model test file yet, unlike sibling models
+such as `drop_test.dart`; followed that file's existing
+`Drop.fromMap`-testing convention) covering `WynNotification.fromMap`
+with a populated actor (regression control), a `null` `actor` key, and
+an entirely absent `actor` key — plus `actorNameOrUsername` with a null
+`actorUsername`. Extended `notification_list_screen_test.dart` with a
+new fixture pair (`moderationWarningNullActorNotification`/
+`moderationContentRemovedNullActorNotification`, deliberately *not*
+reusing the existing fixtures that carry a real reviewer identity — this
+project's own convention distinguishes "the UI hides a real value" tests
+from "the underlying value is genuinely absent" tests, see WYN-021's
+distinction between an outright-blocked outsider vs. a pending/banned
+member in its own QA round 2) and one new `testWidgets` case proving the
+screen renders both moderation types correctly with `tester.takeException()
+== null`, no `AvatarCircle`, the shield icon, and a tap that still
+no-ops — using the actual post-fix null-actor shape, not the
+hidden-real-actor shape the pre-existing tests already covered.
+
+Proved these specific new tests exercise the fix, not just pass
+incidentally: `git stash push -- app/lib/features/notification/data/notification.dart
+app/lib/features/notification/presentation/notification_list_screen.dart`
+(reverting only the Dart fix, keeping the new tests) → `flutter test
+test/notification_test.dart test/notification_list_screen_test.dart` →
+**compilation failure** (`Required named parameter 'actorId' must be
+provided` at every new call site that omits it) — the new tests cannot
+even compile against the pre-fix, non-nullable `WynNotification`,
+confirming they're load-bearing. `git stash pop` (fix restored) → same
+command → **all tests pass** (32/32 in
+`notification_list_screen_test.dart`, 6/6 in the new
+`notification_test.dart`).
+
+**Full suite**: `flutter analyze` — clean, no issues. `flutter test` —
+**433/433 passed** (up from 426 at HEAD before this session, the 7 new
+tests: 1 in `notification_list_screen_test.dart` + 6 in
+`notification_test.dart`), 0 failures — confirms the shared
+`WynNotification` model change didn't regress any other notification
+type's own tests (order/club/mention/like/comment/follow types all
+untouched, all still pass with their existing non-null actor fixtures).
+
+**Files Changed**: `supabase/schema.sql` (dropped `notifications.actor_id`'s
+`not null` constraint; `apply_moderation_action()`'s `warning`/
+`remove_content` insert sites now write `actor_id = null` instead of
+`v_reviewer`), `app/lib/features/notification/data/notification.dart`
+(`actorId`/`actorUsername` now nullable; `fromMap` and
+`actorNameOrUsername` made null-safe), `app/lib/features/notification/presentation/notification_list_screen.dart`
+(2 null-safety touch-ups, zero logic changes),
+`supabase/tests/wyn_029_moderation_queue_test.sh` (4 new persisted
+checks), `app/test/notification_list_screen_test.dart` (1 new test + 2
+new fixtures), `app/test/notification_test.dart` (new file, 6 tests).
+Did not touch `.wyn/tasks/review/WYN-029-moderation-queue.md`'s status —
+left for AI QA & Security's own round-2 verification per this task's
+instructions.
+
+**Regression Risk**: Low, as the bug report anticipated. The nullable-
+column change only affects the 2 notification types that now
+deliberately use it; every other type's insert site was grepped and
+confirmed unaffected both before writing the fix and again by the full
+`flutter test` suite passing in full afterward. The Dart model change
+touches a shared class every notification type uses, which is why the
+full 433-test suite (not just the 7 new/touched tests) was run, not a
+narrower subset.
+
+**Considered and rejected**: a synthetic "system account" profile as an
+alternative to a nullable `actor_id`, per this task's explicit "What NOT
+to do" — confirmed the reason it's the wrong call before dismissing it,
+not just citing the instruction: `profiles.id references auth.users(id)
+on delete cascade` (`supabase/schema.sql`), so a synthetic actor would
+need a real, out-of-band-created `auth.users` row (the same operational
+step the first admin's `platform_role` promotion requires), making it
+heavier and more fragile than simply allowing `actor_id` to be null for
+a case where null is semantically exactly correct (no actor should be
+attributable at all).
+
+**Lessons learned**: recorded in `.wyn/learning/LESSONS_LEARNED.md` and
+`.wyn/learning/MISTAKES.md` — same class of mistake as WYN-027
+(UI/client-side omission is not a data-access boundary), but this
+occurrence is the "sibling" version: a *new* denormalized copy of an
+already-correctly-protected identity (`moderation_actions.reviewer_id`)
+was introduced on a *different*, more permissively-visible table
+(`notifications`) without re-deriving whether the same protection
+still applied there. Any future feature that denormalizes a sensitive
+identity onto a second table for convenience must re-check that
+table's own RLS/visibility model independently — "the source table is
+protected" does not transitively protect a copy on a different table.
+
+**Handoff to QA**: send back to AI QA & Security for round 2 — must
+re-verify directly against real Postgres independently (not just trust
+this report) that (a) the leak reproduction is now blocked (both the
+inner-join and left-join checks), (b) all 36 checks in
+`wyn_029_moderation_queue_test.sh` pass, (c) `wyn_021_club_post_mentions_rls_test.sh`/
+`wyn_027_is_blocked_either_way_rpc_exposure_test.sh` show no cross-task
+regression, and (d) the wider notification system (every other type's
+actor display) is unaffected — plus a fresh walk of WYN-029's
+Requirements/Design/Acceptance Criteria, per this project's standard
+workflow. All 3 SQL scripts are re-runnable directly (`bash
+supabase/tests/wyn_029_moderation_queue_test.sh`, etc.) if this
+sandbox's local Postgres is still available in QA's session. Task status
+in `.wyn/tasks/review/WYN-029-moderation-queue.md` is left as-is for QA
+to update after their own independent round-2 verification — not
+updated by this Debug session.
