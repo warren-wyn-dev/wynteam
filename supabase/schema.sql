@@ -3491,13 +3491,38 @@ create policy "Users can view blocks they created"
 -- any existing Follow relationship atomically on block -- same
 -- reasoning as club_members having no update policy (see above).
 
+-- `internal` holds helper functions that must be callable from *within*
+-- RLS policies (which run as role `authenticated`) but must NEVER be
+-- directly callable as a client-facing RPC. Putting a function in
+-- `public` is not enough for that on its own: PostgREST auto-exposes
+-- every function in its configured schema list (`public` by default)
+-- as `POST /rest/v1/rpc/<name>` purely based on the function's EXECUTE
+-- ACL, and Postgres grants EXECUTE to PUBLIC by default on function
+-- creation, so omitting a `grant`/`revoke` statement does NOT make a
+-- `public`-schema function internal-only (see WYN-027 bug report,
+-- `.wyn/tasks/bugs/WYN-027-is-blocked-either-way-rpc-exposure.md`, for
+-- the exact leak this caused, and why a plain `revoke execute ... from
+-- authenticated` does not work either -- it breaks the RLS policies
+-- themselves, since a policy's `using`/`with check` clause is evaluated
+-- under the querying role's own privileges). `internal` is never added
+-- to PostgREST's exposed-schema list, so nothing in it is reachable
+-- over the REST API regardless of its SQL-level GRANTs -- the schema
+-- boundary is the actual protection, not the ACL.
+create schema if not exists internal;
+grant usage on schema internal to authenticated;
+
 -- Single reusable authorization primitive used by every RLS policy
 -- below (drops/pops/club_posts/*_comments/*_likes/follows/mentions)
 -- to test "is there a block between these two people, in either
 -- direction". security definer so it can run from inside those
 -- policies without needing a broader select policy on blocks itself
 -- that would otherwise leak who-blocked-whom to the blocked party.
-create or replace function public.is_blocked_either_way(a uuid, b uuid)
+-- Lives in `internal`, not `public` -- see the schema comment above:
+-- both parties are caller-supplied free parameters (unlike
+-- block_relationship() below, which always resolves the caller's own
+-- relationship via auth.uid()), so if this were reachable as a client
+-- RPC it would let anyone probe any two arbitrary users' block status.
+create or replace function internal.is_blocked_either_way(a uuid, b uuid)
 returns boolean
 language sql
 stable
@@ -3511,6 +3536,8 @@ as $$
   );
 $$;
 
+grant execute on function internal.is_blocked_either_way(uuid, uuid) to authenticated;
+
 -- security definer author-lookups for the *_likes/*_comments INSERT
 -- policies below (Interaction defense-in-depth) -- deliberately NOT
 -- inlined as a raw `exists (select 1 from public.drops d where
@@ -3523,7 +3550,7 @@ $$;
 -- trap club_role() above already solves for club_members -- these
 -- functions bypass RLS via security definer so the author id comes
 -- back regardless of the caller's own visibility into that row.
-create or replace function public.drop_author_id(p_drop_id uuid)
+create or replace function internal.drop_author_id(p_drop_id uuid)
 returns uuid
 language sql
 stable
@@ -3533,7 +3560,9 @@ as $$
   select author_id from public.drops where id = p_drop_id;
 $$;
 
-create or replace function public.pop_author_id(p_pop_id uuid)
+grant execute on function internal.drop_author_id(uuid) to authenticated;
+
+create or replace function internal.pop_author_id(p_pop_id uuid)
 returns uuid
 language sql
 stable
@@ -3543,7 +3572,9 @@ as $$
   select author_id from public.pops where id = p_pop_id;
 $$;
 
-create or replace function public.drop_comment_author_id(p_comment_id uuid)
+grant execute on function internal.pop_author_id(uuid) to authenticated;
+
+create or replace function internal.drop_comment_author_id(p_comment_id uuid)
 returns uuid
 language sql
 stable
@@ -3553,7 +3584,9 @@ as $$
   select author_id from public.drop_comments where id = p_comment_id;
 $$;
 
-create or replace function public.pop_comment_author_id(p_comment_id uuid)
+grant execute on function internal.drop_comment_author_id(uuid) to authenticated;
+
+create or replace function internal.pop_comment_author_id(p_comment_id uuid)
 returns uuid
 language sql
 stable
@@ -3562,6 +3595,8 @@ set search_path = public
 as $$
   select author_id from public.pop_comments where id = p_comment_id;
 $$;
+
+grant execute on function internal.pop_comment_author_id(uuid) to authenticated;
 
 -- Exposed to the client (unlike is_blocked_either_way) so
 -- ViewProfileScreen's Blocked persona (WYN-027 Design, Screen 3) can
@@ -3656,28 +3691,28 @@ create policy "Drops are viewable by authenticated users, excluding blocked auth
   on public.drops
   for select
   to authenticated
-  using (not public.is_blocked_either_way(auth.uid(), author_id));
+  using (not internal.is_blocked_either_way(auth.uid(), author_id));
 
 drop policy "Drop comments are viewable by authenticated users" on public.drop_comments;
 create policy "Drop comments are viewable by authenticated users, excluding blocked authors"
   on public.drop_comments
   for select
   to authenticated
-  using (not public.is_blocked_either_way(auth.uid(), author_id));
+  using (not internal.is_blocked_either_way(auth.uid(), author_id));
 
 drop policy "Pops are viewable by authenticated users" on public.pops;
 create policy "Pops are viewable by authenticated users, excluding blocked authors"
   on public.pops
   for select
   to authenticated
-  using (not public.is_blocked_either_way(auth.uid(), author_id));
+  using (not internal.is_blocked_either_way(auth.uid(), author_id));
 
 drop policy "Pop comments are viewable by authenticated users" on public.pop_comments;
 create policy "Pop comments are viewable by authenticated users, excluding blocked authors"
   on public.pop_comments
   for select
   to authenticated
-  using (not public.is_blocked_either_way(auth.uid(), author_id));
+  using (not internal.is_blocked_either_way(auth.uid(), author_id));
 
 drop policy "Approved club members can view club posts" on public.club_posts;
 create policy "Approved club members can view club posts, excluding blocked authors"
@@ -3686,7 +3721,7 @@ create policy "Approved club members can view club posts, excluding blocked auth
   to authenticated
   using (
     public.club_role(club_id, auth.uid()) is not null
-    and not public.is_blocked_either_way(auth.uid(), author_id)
+    and not internal.is_blocked_either_way(auth.uid(), author_id)
   );
 
 drop policy "Approved club members can view club post comments" on public.club_post_comments;
@@ -3700,7 +3735,7 @@ create policy "Approved club members can view club post comments, excluding bloc
       where cp.id = club_post_id
         and public.club_role(cp.club_id, auth.uid()) is not null
     )
-    and not public.is_blocked_either_way(auth.uid(), author_id)
+    and not internal.is_blocked_either_way(auth.uid(), author_id)
   );
 
 -- ------------------------------------------------------------
@@ -3716,7 +3751,7 @@ create policy "Users can like drops as themselves, excluding blocked authors"
   to authenticated
   with check (
     auth.uid() = user_id
-    and not public.is_blocked_either_way(auth.uid(), public.drop_author_id(drop_id))
+    and not internal.is_blocked_either_way(auth.uid(), internal.drop_author_id(drop_id))
   );
 
 drop policy "Users can comment on drops as themselves" on public.drop_comments;
@@ -3726,7 +3761,7 @@ create policy "Users can comment on drops as themselves, excluding blocked autho
   to authenticated
   with check (
     auth.uid() = author_id
-    and not public.is_blocked_either_way(auth.uid(), public.drop_author_id(drop_id))
+    and not internal.is_blocked_either_way(auth.uid(), internal.drop_author_id(drop_id))
   );
 
 drop policy "Users can like drop comments as themselves" on public.drop_comment_likes;
@@ -3736,7 +3771,7 @@ create policy "Users can like drop comments as themselves, excluding blocked aut
   to authenticated
   with check (
     auth.uid() = user_id
-    and not public.is_blocked_either_way(auth.uid(), public.drop_comment_author_id(comment_id))
+    and not internal.is_blocked_either_way(auth.uid(), internal.drop_comment_author_id(comment_id))
   );
 
 drop policy "Users can like pops as themselves" on public.pop_likes;
@@ -3746,7 +3781,7 @@ create policy "Users can like pops as themselves, excluding blocked authors"
   to authenticated
   with check (
     auth.uid() = user_id
-    and not public.is_blocked_either_way(auth.uid(), public.pop_author_id(pop_id))
+    and not internal.is_blocked_either_way(auth.uid(), internal.pop_author_id(pop_id))
   );
 
 drop policy "Users can comment on pops as themselves" on public.pop_comments;
@@ -3756,7 +3791,7 @@ create policy "Users can comment on pops as themselves, excluding blocked author
   to authenticated
   with check (
     auth.uid() = author_id
-    and not public.is_blocked_either_way(auth.uid(), public.pop_author_id(pop_id))
+    and not internal.is_blocked_either_way(auth.uid(), internal.pop_author_id(pop_id))
   );
 
 drop policy "Users can like pop comments as themselves" on public.pop_comment_likes;
@@ -3766,7 +3801,7 @@ create policy "Users can like pop comments as themselves, excluding blocked auth
   to authenticated
   with check (
     auth.uid() = user_id
-    and not public.is_blocked_either_way(auth.uid(), public.pop_comment_author_id(comment_id))
+    and not internal.is_blocked_either_way(auth.uid(), internal.pop_comment_author_id(comment_id))
   );
 
 drop policy "Approved club members can like club posts as themselves" on public.club_post_likes;
@@ -3780,7 +3815,7 @@ create policy "Approved club members can like club posts as themselves, excludin
       select 1 from public.club_posts cp
       where cp.id = club_post_id
         and public.club_role(cp.club_id, auth.uid()) is not null
-        and not public.is_blocked_either_way(auth.uid(), cp.author_id)
+        and not internal.is_blocked_either_way(auth.uid(), cp.author_id)
     )
   );
 
@@ -3795,7 +3830,7 @@ create policy "Approved club members can comment on club posts as themselves, ex
       select 1 from public.club_posts cp
       where cp.id = club_post_id
         and public.club_role(cp.club_id, auth.uid()) is not null
-        and not public.is_blocked_either_way(auth.uid(), cp.author_id)
+        and not internal.is_blocked_either_way(auth.uid(), cp.author_id)
     )
   );
 
@@ -3812,7 +3847,7 @@ create policy "Users can follow others as themselves, excluding blocked relation
   to authenticated
   with check (
     auth.uid() = follower_id
-    and not public.is_blocked_either_way(auth.uid(), following_id)
+    and not internal.is_blocked_either_way(auth.uid(), following_id)
   );
 
 -- ------------------------------------------------------------
@@ -3833,7 +3868,7 @@ create policy "Drop authors can mention users in their own drops, excluding bloc
       select 1 from public.drops
       where drops.id = drop_id and drops.author_id = auth.uid()
     )
-    and not public.is_blocked_either_way(auth.uid(), mentioned_user_id)
+    and not internal.is_blocked_either_way(auth.uid(), mentioned_user_id)
   );
 
 drop policy "Club post authors can mention users in their own posts" on public.club_post_mentions;
@@ -3846,7 +3881,7 @@ create policy "Club post authors can mention users in their own posts, excluding
       select 1 from public.club_posts
       where club_posts.id = club_post_id and club_posts.author_id = auth.uid()
     )
-    and not public.is_blocked_either_way(auth.uid(), mentioned_user_id)
+    and not internal.is_blocked_either_way(auth.uid(), mentioned_user_id)
   );
 
 -- ============================================================
