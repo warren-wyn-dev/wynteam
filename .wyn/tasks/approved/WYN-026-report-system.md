@@ -1,7 +1,7 @@
 # Product Task — WYN-026
 
-Status: approved (QA รอบ 1 — PASS)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ — ดู `.wyn/docs/design/wyn-026-report-system.md`) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS รอบ 1) → AI Deploy & DevOps (รอ infra จาก Founder)
+Status: approved — merged to `main` (2026-08-22, commit `c7f06f1`), รอ infra จริงก่อน deploy ได้
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ — ดู `.wyn/docs/design/wyn-026-report-system.md`) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS รอบ 1 + Independent QA รอบ 1) → AI Deploy & DevOps (merge to `main` เสร็จแล้ว — ดู `.wyn/logs/deployments/2026-08-22-wyn-026-027-028-merge-to-main.md` — รอ infra จริงจาก Founder ก่อน deploy จริงได้)
 
 ## QA — Round 1 (2026-08-22, PASS)
 
@@ -68,3 +68,11 @@ Recommendation:
 4. ส่งต่อ AI Design (`/design`) เพื่อออกแบบ Report flow/UI ทันทีหลัง Founder ยืนยันขอบเขตนี้
 
 Handoff: AI Design — ออกแบบ Report bottom-sheet (Category list + optional detail text + confirmation), entry point ในแต่ละหน้าจอที่เกี่ยวข้อง, และ state ปุ่ม "รายงานแล้ว" หลังส่งสำเร็จ
+
+---
+
+## Independent QA — Round 1 (AI QA & Security, external session, 2026-08-22) — PASS confirmed
+
+QA อิสระจริงครั้งแรก (session แยกต่างหากจาก Coding — ไม่นับ QA รอบก่อนหน้าที่บันทึกไว้ใน `.wyn/company/DECISIONS.md`/CONTEXT.md ว่าเป็น self-QA) — ยืนยัน PASS เดิมด้วยตัวเอง: `flutter analyze`/`flutter test` อิสระ (395/395, clean), เขียน SQL test harness ใหม่ทั้งหมดเอง (fixture คนละชุด ไม่ reuse ของเดิม) รัน 14 เคสผ่าน Postgres 16 จริงด้วย role `authenticated`: self-report ถูกปฏิเสธ, self-report เนื้อหาตัวเองถูกปฏิเสธ, duplicate-open-report ถูกปฏิเสธแต่ re-report หลังปิดเคสทำได้, "other" ต้องมี detail (constraint จริง), "message" target ถูกปฏิเสธเสมอ, target ไม่มีจริงถูกปฏิเสธ, raw insert bypass `submit_report()` ถูกปฏิเสธ (ไม่มี insert policy), invalid category ถูกปฏิเสธที่ CHECK constraint, privacy ยืนยันสองทาง (ผู้ถูกรายงานเห็น 0 แถวจากตัวเอง, ผู้รายงานเห็น report ของตัวเองปกติ) — **14/14 ผ่านหมด ไม่พบช่องโหว่ใหม่ในส่วนของ WYN-026 เอง**
+
+ระหว่างตรวจ WYN-027 (ที่ merge มาพร้อมกันบน branch เดียวกัน) พบ Major security finding ใหม่ (`is_blocked_either_way()` เปิดให้ client เรียกตรงได้) แต่ finding นั้นอยู่ใน code ของ WYN-027 ล้วนๆ ไม่เกี่ยวกับตาราง/RPC ของ WYN-026 เลย (`submit_report()` ไม่ได้เรียก `is_blocked_either_way` และไม่มี helper function ลักษณะเดียวกัน) — **WYN-026 ยังคง PASS อย่างอิสระ** อยู่ใน `.wyn/tasks/approved/` เหมือนเดิม **อัปเดต (2026-08-22)**: WYN-027's finding ถูกแก้และผ่าน QA รอบ 2 แล้ว (ดู `.wyn/tasks/approved/WYN-027-block-system.md`) Phase 1 ทั้ง 3 task ผ่าน QA อิสระจริงครบสมบูรณ์แล้ว

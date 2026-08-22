@@ -152,7 +152,11 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       case NotificationType.commentPop:
         await _openPop(notification.popId!);
       case NotificationType.follow:
-        _openProfile(notification.actorId);
+        // Follow always has a real actor (notify_follow() always
+        // supplies new.follower_id) -- actorId is only ever null for the
+        // 2 moderation types (WYN-029 fix), neither of which reaches
+        // this case.
+        _openProfile(notification.actorId!);
       case NotificationType.clubJoinRequest:
         // Opens straight to the Members tab so the pending request is
         // immediately visible, not just the Club's Posts tab.
@@ -171,6 +175,13 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         await _openDrop(notification.dropId!);
       case NotificationType.mentionClubPost:
         await _openClubPost(notification.clubPostId!);
+      case NotificationType.moderationWarning:
+      case NotificationType.moderationContentRemoved:
+        // No-op (WYN-029, Screen 5) -- Warning has no single piece of
+        // content to open (it's a statement about the account), and
+        // Remove Content's referenced content is already gone by the
+        // time this row exists.
+        break;
     }
   }
 
@@ -323,8 +334,22 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         return '$name กล่าวถึงคุณใน Drop';
       case NotificationType.mentionClubPost:
         return '$name กล่าวถึงคุณในโพสต์ที่ $club';
+      case NotificationType.moderationWarning:
+        return 'คุณได้รับคำเตือนจากทีมงาน WYN: ${notification.reason ?? ''}';
+      case NotificationType.moderationContentRemoved:
+        return 'เนื้อหาของคุณถูกลบเนื่องจากละเมิดกฎการใช้งาน WYN -- '
+            'เหตุผล: ${notification.reason ?? ''}';
     }
   }
+
+  /// WYN-029, Screen 5 -- the reviewer's real identity (`actor_id`) must
+  /// never surface for these 2 types, same protection direction as
+  /// WYN-026 hiding a reporter's identity from everyone, including the
+  /// person reported. Deliberately does NOT reuse [_messageFor]'s
+  /// `actorNameOrUsername` for these types (see there).
+  bool _hidesActorIdentity(NotificationType type) =>
+      type == NotificationType.moderationWarning ||
+      type == NotificationType.moderationContentRemoved;
 
   @override
   Widget build(BuildContext context) {
@@ -412,11 +437,25 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
                   child: Row(
                     children: [
-                      AvatarCircle(
-                        imageUrl: notification.actorAvatarUrl,
-                        fallbackText: notification.actorUsername,
-                        radius: 20,
-                      ),
+                      if (_hidesActorIdentity(notification.type))
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                          child: Icon(
+                            Icons.shield_outlined,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        )
+                      else
+                        AvatarCircle(
+                          imageUrl: notification.actorAvatarUrl,
+                          // actorUsername is only ever null for the 2
+                          // hidden-identity moderation types, which never
+                          // reach this branch -- the '' fallback is just
+                          // to satisfy the now-nullable type (WYN-029 fix).
+                          fallbackText: notification.actorUsername ?? '',
+                          radius: 20,
+                        ),
                       const SizedBox(width: WynSpacing.space3),
                       Expanded(
                         child: Column(

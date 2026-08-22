@@ -63,6 +63,16 @@ Set<String> extractHashtags(String text) => hashtagPattern
 /// [hashtagPattern] needed for Thai. WYN-021.
 final RegExp mentionPattern = RegExp(r'@([A-Za-z0-9_]+)');
 
+/// A zero-padded `dd/MM/yyyy` date label -- introduced for WYN-029's
+/// Restrict/Suspend/Ban messaging (`RestrictionBanner`/
+/// `AccountRestrictedScreen`), which both need an exact expiry date
+/// rather than [relativeTimeLabel]'s relative phrasing.
+String dateLabel(DateTime dateTime) {
+  final local = dateTime.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${two(local.day)}/${two(local.month)}/${local.year}';
+}
+
 /// A Thai Baht price label with thousand separators ("฿1,000" or
 /// "฿1,299.50") -- introduced for ZOKY-001's product cards/detail page.
 /// Drops the decimal part entirely when it's a whole number rather than
