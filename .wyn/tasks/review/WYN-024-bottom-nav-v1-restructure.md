@@ -1,7 +1,7 @@
 # Product Task — WYN-024
 
-Status: **Debug Engineer แก้ครบทั้ง 3 บั๊ก (+ พบ/แก้บั๊กที่ 4 เพิ่ม) — รอ QA รอบ 2** ดู "Debug Engineer Report" ที่ `.wyn/tasks/bugs/WYN-024-nav-restructure-build-and-overflow.md` — `flutter analyze` 0 error, `flutter test` 357/357 ผ่านทั้ง `app/`
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security
+Status: **QA รอบ 2 — FAIL (พบบั๊กใหม่ 1 จุด, บั๊กเดิม 3+1 จุดของรอบ 1 ยืนยันว่าแก้จริงแล้วทั้งหมด)** — ดู bug report ใหม่ที่ `.wyn/tasks/bugs/WYN-024-active-segment-label-truncation.md` และ "QA Output — รอบ 2" ท้ายไฟล์นี้
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer
 
 Feature: Bottom Navigation V1.0.0 Restructure — ถอด Pop/ZOKY ออกจาก Bottom Nav, เพิ่ม Search และ Notifications เป็น tab
 
@@ -104,5 +104,35 @@ Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบ
 **Security Findings**: ไม่พบ — ตรวจ `HomeRepository.fetchFollowingFeed` แล้ว (query pattern มิเรอร์ `DropRepository.fetchFollowingFeed` เดิมที่ผ่าน QA ไปแล้ว ไม่มี RLS/auth ใหม่ที่ต้องตรวจเพิ่มเพราะไม่แตะ schema)
 
 **Recommendation**: ส่งต่อ AI Debug Engineer ทันที — ทั้ง 3 บั๊กอยู่ในไฟล์ที่แก้รอบนี้ทั้งหมด ไม่กระทบไฟล์อื่น ความเสี่ยง regression ต่ำถ้าแก้ตามที่ bug report เสนอ (QA ทดลอง patch ชั่วคราวแล้ว revert ออกแล้ว ยืนยันว่าการแก้ตามที่เสนอทำให้ `flutter analyze`/`flutter test` ของ `home_feed_screen_test.dart` ผ่านสะอาดจริง)
+
+**Final Status: FAIL**
+
+---
+
+## QA Output (2026-08-22) — รอบ 2: FAIL (พบบั๊กใหม่)
+
+**Environment**: Flutter 3.47.1 เดิมจากรอบ 1 (ยังอยู่ในเซสชันนี้) — sync branch ใหม่ที่ commit `665ee79` (Debug Engineer's fix)
+
+**Test Cases**: รัน `flutter analyze`/`flutter test` อิสระใหม่ทั้งหมด (ไม่เชื่อตัวเลขที่ Debug รายงาน) → ตรวจ `seller_app` → **ทำ narrow-viewport spot-check เพิ่มเติมที่ Debug ไม่ได้ทำ** (ตามที่ตัวเองแนะนำไว้ท้าย Bug Report ว่า "จาก Club ของคุณ" ควรดูจริงจังอีกที) — เขียน widget test ชั่วคราว (ไม่ commit) วัด `RenderParagraph` ของ label "จาก Club ของคุณ" ตอน active ที่ 6 ความกว้างจอ (360/375/390/414/430/800px) + capture screenshot จริงที่ 360px ด้วย `RenderRepaintBoundary.toImage`
+
+**Passed**:
+- `flutter analyze` — 0 error ทั้ง `app/`/`seller_app/` (Bug 1 ยืนยันแก้จริง)
+- `flutter test` (ทั้ง suite) — **357/357 ผ่าน** ตรงกับตัวเลขที่ Debug รายงานเป๊ะ (Bug 2's overflow assertion, Bug 3's Timer leak, Bug 4's `pageBack()` ยืนยันแก้จริงทั้งหมด — ไม่มี regression อื่นเกิดขึ้น)
+- `seller_app`'s token-sync test — 4/4 ผ่าน
+
+**Failed** (รายละเอียดเต็มที่ `.wyn/tasks/bugs/WYN-024-active-segment-label-truncation.md`):
+- **บั๊กใหม่ (ไม่ใช่จากรอบ 1)**: Bug 2's fix (`Flexible(child: Text(label, overflow: ellipsis))`) หยุด overflow assertion ได้จริง แต่ label ข้อความของ segment "จาก Club ของคุณ" ตอน active **หายไปเกือบหมด** ทุกความกว้างจอมือถือจริง (360–430px ได้แค่ 20–38px กว้าง, `didExceedMaxLines: true` ทุกจุด รวมถึงที่ 800px ซึ่งเป็น default viewport ของ `flutter test` เอง) — screenshot ที่ 360px ยืนยันด้วยตา: segment ที่ active เหลือแค่เครื่องหมายถูกของ Material เอง + จุด Rainbow เท่านั้น ไม่มีตัวอักษรเหลือให้อ่านเลย
+
+**Severity**: Major — ไม่ crash/ไม่ error แต่ผู้ใช้เสียความสามารถอ่านชื่อโหมดที่กำลังดูอยู่ (ยังพอรู้ผ่านสี/ขอบที่ selected แต่ไม่ใช่ผ่านตัวอักษรอีกต่อไป) บนหน้าจอหลักของแอป ทุกขนาดจอจริงไม่มีข้อยกเว้น
+
+**Reproduction Steps**: ดูตารางเต็มใน bug report — ทำซ้ำได้ 100%
+
+**Expected**: label "จาก Club ของคุณ" ตอน active อ่านได้ชัดเจนอย่างน้อยบางส่วนที่มีความหมาย ไม่ใช่หายไปทั้งหมด
+
+**Actual**: หายไปเกือบสมบูรณ์ทุกความกว้างจอที่ทดสอบ
+
+**Security Findings**: ไม่พบเพิ่มเติม
+
+**Recommendation**: ทำไมถึงไม่ block ตั้งแต่รอบ 1 — เพราะทั้ง Debug และ QA รอบ 1 ตรวจแค่ "overflow assertion หายไหม" ไม่ได้ตรวจ "อ่านได้จริงไหม" ที่ความกว้างจอจริง (บทเรียนเดียวกับที่ SELLER-004 เคยเจอมาแล้ว บันทึกไว้ใน `.wyn/learning/LESSONS_LEARNED.md`) — ส่งต่อ AI Debug Engineer พร้อม AI Design ให้ช่วยตัดสินใจทางเลือกการแก้ (3 ทางเลือกเสนอไว้ใน bug report) เพราะเป็นการตัดสินใจเชิง UX ไม่ใช่แค่ technical fix
 
 **Final Status: FAIL**
