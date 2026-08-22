@@ -1,7 +1,7 @@
 # Bug Report — WYN-024 / DS-009 (QA round 3 finding — broader than round 2's report)
 
-Status: **QA รอบ 4 — FAIL, ยืนยันตัวเลขของ Debug ตรงกันทุกจุด (ไม่มีความคลาดเคลื่อน) — 2 ใน 4 segment อ่านออกครบแล้ว ("ติดตาม"/"ล่าสุด" ตั้งแต่ ~390px) แต่ "สำหรับคุณ" (default tab) และ "จาก Club ของคุณ" ยังตัดอยู่ทุกความกว้าง — ส่งต่อ AI Design ไม่ใช่ Debug รอบ 4**
-Owner: AI Debug Engineer → AI QA & Security
+Status: **CLOSED — QA รอบ 5 PASS.** AI Design ตัดสินใจเปลี่ยน SegmentedButton เป็น scroll แนวนอน → AI Coding implement → QA รอบ 5 ยืนยันอิสระว่าทั้ง 4 segment อ่านออกครบทุกความกว้างจอจริง (รวมถึง 320px ที่ต่ำกว่า baseline เดิม) ไม่มี segment ไหนถูกตัดข้อความอีกเลย
+Owner: AI Debug Engineer → AI QA & Security → AI Design → AI Coding → AI QA & Security (CLOSED)
 Bug: Round 2's fix (`maxLines: 1` + ellipsis on all 4 segment labels, Rainbow indicator moved to a separate strip below the button) correctly stops both the overflow crash and the vertical-wrap ballooning. But it does **not** fix legibility — and the problem is not confined to "จาก Club ของคุณ" as round 2 scoped it. At every real phone width (360–430px), **whichever segment is active** gets compressed to roughly 1–3 of its label's characters visible before the ellipsis, because `SegmentedButton` divides the row's width equally across all 4 segments regardless of label length, and the auto-added selected-checkmark icon eats a fixed chunk of whichever segment is currently active. This includes **"สำหรับคุณ" — the default active segment on first load, before the user taps anything.**
 
 Reproduction: widget test, `HomeFeedScreen` in a `MaterialApp` at `tester.view.physicalSize = Size(360, 800)` (no other viewport tested differently — same at 375/390/414/430). For each segment, tap it to make it active (or, for "สำหรับคุณ", just pump — it's active by default) and inspect the `RenderParagraph` behind its label `Text`, plus a `TextPainter` laid out unconstrained with the same style to estimate the label's natural width and back out how many of its characters actually fit in the truncated box:
@@ -86,3 +86,19 @@ Both are AI Design calls, not something Debug Engineer should pick unilaterally 
 **Files reviewed**: `app/lib/features/home/presentation/home_feed_screen.dart`, `app/test/home_feed_screen_test.dart` — no changes made by QA (verification only).
 
 **Handoff**: AI Design (`/design`), not AI Debug Engineer. Design should propose option(s) with the same rigor as DS-009's comparison (real screens, not mockups, at real phone widths) since this affects Home's default state for every user.
+
+---
+
+## QA & Security Report — round 5 (2026-08-22) — CLOSED
+
+**Verified independently** (not just trusted Coding's report):
+- `flutter analyze`: 0 issues.
+- `flutter test`: full suite 365/365 pass.
+- Fresh scratch verification (not the committed tests) across **6 widths including one below the established real-device floor** (320/360/375/390/414/430px): all 4 segments — "สำหรับคุณ", "ติดตาม", "ล่าสุด", "จาก Club ของคุณ" — measure their full, untruncated natural width (`didExceedMaxLines: false`) at every single width, both via scroll-then-tap and via direct measurement. This includes the two segments that survived 2 full Debug rounds unresolved.
+- Confirmed the Rainbow indicator (DS-009) always renders exactly once, correctly tracking whichever segment is active, at every width.
+- Confirmed real interaction, not just geometry: tapping "จาก Club ของคุณ" after scrolling it into view actually mounts `FromYourClubsFeed` (proof the selection genuinely changed, not just that the label happened to measure correctly).
+- Confirmed no regression at a wide (tablet-like, 1000px) viewport: no scrolling needed, all 4 segments fully visible simultaneously, unchanged from pre-fix behavior.
+
+**Final Status: PASS.** Root cause (SegmentedButton's width-equals-widest-segment layout algorithm, confirmed by reading Flutter's own source) is fully addressed by giving it unbounded width via `SingleChildScrollView` + `IntrinsicWidth`, closing the gap that 2 Debug rounds (padding/icon trimming) could not close because they were operating within a bounded-width model that could never fully fit the widest label. This closes the bug filed in QA round 3, escalated to AI Design in round 4, and implemented by AI Coding.
+
+**Handoff**: WYN-024 and DS-009 move to `.wyn/tasks/approved/`, ready for AI Deploy & DevOps.

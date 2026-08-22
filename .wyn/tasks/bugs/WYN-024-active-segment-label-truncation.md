@@ -1,6 +1,6 @@
 # Bug Report — WYN-024 / DS-009 (QA round 2 finding — new, not in round 1's report)
 
-Status: **fixed (wrap-ballooning + inline-dot deviation from Design spec, both confirmed fixed) — QA รอบ 3: the "residual concern" noted below turned out to be broader than scoped here (not just this one label) — see new report `.wyn/tasks/bugs/WYN-024-segmented-button-active-label-illegible-all-segments.md` for the full finding and root cause**
+Status: **CLOSED — fully resolved via `.wyn/tasks/bugs/WYN-024-segmented-button-active-label-illegible-all-segments.md` (QA round 5 PASS, 2026-08-22)**
 Owner: AI Debug Engineer
 Bug: The fix for QA round 1's Bug 2 (Rainbow accent dot overflowing the active feed-mode segment) stops the `RenderFlex` overflow assertion, but at every realistic phone width the active **"จาก Club ของคุณ"** segment's label is now compressed to near-nothing — not a cosmetically-tight ellipsis, but the text rendering box shrinking to 20–38px wide (2-3 Thai characters at most, likely less with the ellipsis glyph itself), while the rest of the 10-character label is invisible. Confirmed at every width this codebase's own `.wyn/learning/LESSONS_LEARNED.md` (SELLER-004 entries) established as the required "real phone" baseline test matrix, not just one edge case.
 
