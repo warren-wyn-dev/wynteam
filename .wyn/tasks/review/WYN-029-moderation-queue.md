@@ -1,7 +1,7 @@
 # Product Task — WYN-029
 
-Status: backlog
-Owner: AI Product Manager
+Status: review (QA อิสระรอบ 1 — FAIL, Major privacy finding — ดู "Independent QA — Round 1" ท้ายไฟล์ — bug report ที่ `.wyn/tasks/bugs/WYN-029-moderation-actor-identity-leak.md`)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (รอบ 1 — FAIL) → AI Debug Engineer (ถัดไป)
 
 Feature: Moderation Queue + Action (ขั้นต่ำในแอป Flutter เดิม)
 
@@ -98,3 +98,23 @@ Known limitation, disclosed proactively: promoting a user to `moderator`/`admin`
 Note on delivery: this Coding session hit its own usage/session limit mid-task, immediately before running the test suite. The calling session verified the work independently afterward before writing this section: reviewed the full `schema.sql` diff, ran `flutter analyze` (clean) and `flutter test` (426/426) fresh, and ran `supabase/tests/wyn_029_moderation_queue_test.sh` plus the pre-existing `wyn_021_club_post_mentions_rls_test.sh`/`wyn_027_is_blocked_either_way_rpc_exposure_test.sh` (both still pass, no cross-task regression) against a fresh local Postgres 16 before committing this as done rather than as an unverified checkpoint.
 
 Handoff: AI QA & Security — test WYN-029 against all Acceptance Criteria, in particular the 3 flagged interpretation calls (reporter-visibility-to-moderators, club-target semantics, Remove-Content-via-notification) and the login force-logout race condition Design's Screen 6 called out.
+
+---
+
+## Independent QA — Round 1 (AI QA & Security, 2026-08-22) — FAIL
+
+**บริบท**: AI Coding ส่งมอบ WYN-029 แล้ว (ดู "Coding Output" ด้านบน) — session ที่ทำ Coding hit usage limit ของตัวเองตอนใกล้จะรัน test suite แต่งานที่ทำไว้ครบสมบูรณ์และผ่าน verification อิสระ (flutter analyze/test/SQL regression 32 เคส) ก่อนจะเข้าสู่ QA รอบนี้ — ทำ QA อิสระเต็มรูปแบบต่อทันที
+
+**สิ่งที่ทำ**:
+
+1. อ่าน diff เต็มของ `supabase/schema.sql` ทั้งหมดด้วยตัวเอง (ไม่ใช่แค่เชื่อ Coding Output) — ยืนยันว่า `platform_role` มี guard สองชั้นถูกต้อง (INSERT policy pin ค่า + UPDATE trigger กันเปลี่ยน), `moderation_queue` view ออกแบบถูกต้อง (ไม่ใช้ `security_invoker`, re-implement caller-based visibility เอง ทำให้ `reporter_id` ไม่มีทางเข้าถึงได้แม้แต่ moderator), helper function ใหม่ (`internal.current_platform_role`/`internal.is_posting_blocked`) อยู่ schema `internal` ถูกต้องตามบทเรียน WYN-027
+2. รัน `supabase/tests/wyn_029_moderation_queue_test.sh` ที่ Coding เขียนไว้เอง — 32/32 PASS
+3. รัน `wyn_021_club_post_mentions_rls_test.sh`/`wyn_027_is_blocked_either_way_rpc_exposure_test.sh` ซ้ำ (cross-task regression) — ผ่านทั้งคู่
+4. รัน `flutter analyze`/`flutter test` อิสระเอง — สะอาด, 426/426 ตรงกับที่ Coding รายงาน
+5. อ่านโค้ด `AuthGate` เจาะจงจุด race condition ที่ Design เคยเตือนไว้ (Screen 6) — ยืนยันว่าโค้ดจริงแก้ถูกต้อง (`_blockedInfo` เป็น local State เช็คก่อน StreamBuilder เสมอใน `build()` ไม่มีทาง race กับ auth-state event ที่ยิงหลัง signOut() เสร็จ)
+6. **ทดสอบ input validation เพิ่มเติมนอกเหนือ AC** (ไม่มีใน 32 เคสเดิม): report_id ไม่มีจริงถูกปฏิเสธ, action_type ที่ไม่รู้จักถูกปฏิเสธ, duration_days ผิดค่า (เช่น 2) ถูกปฏิเสธ, restrict ไม่ระบุ duration ถูกปฏิเสธ, reason ว่างถูกปฏิเสธ — ผ่านหมดทุกเคส
+7. **พบ Major finding ใหม่ที่ไม่มีใน AC**: ตั้งคำถามว่าการป้องกัน "reviewer identity ต้องไม่รั่วถึงผู้ถูกดำเนินการ" (ที่ comment ในโค้ดทั้ง SQL และ Dart ยืนยันตรงๆ ว่า "ต้องไม่มีทางรั่ว") ถูกบังคับใช้จริงที่ชั้นไหน — พบว่า `apply_moderation_action()` insert `actor_id = v_reviewer` (ตัวตนจริงของ moderator) ลงใน `notifications` table สำหรับ Warning/Remove Content ทั้งที่ `notifications`'s SELECT policy เปิดให้ผู้รับ (`recipient_id = auth.uid()`) เห็นทุกคอลัมน์ของแถวตัวเองอยู่แล้ว (RLS เป็น row-level ไม่ใช่ column-level) — พิสูจน์จริงด้วย Postgres: สร้าง moderator ชื่อ "Secret Moderator" ส่ง Warning ให้ Alice แล้ว query ในฐานะ Alice เองด้วย query รูปแบบเดียวกับที่ `notification_repository.dart` ใช้จริง (`actor:profiles!notifications_actor_id_fkey(...)`) → **เห็น `actor_username = 'the_mod'`, `actor_display_name = 'Secret Moderator'` ตรงๆ** — แม้ `NotificationListScreen` จะตั้งใจไม่แสดงชื่อนี้ในหน้าจอ (`_hidesActorIdentity()`) แต่เป็นการซ่อนที่ชั้น UI เท่านั้น ไม่ใช่ access-control boundary จริง ข้อมูลยังคง fetch ได้เต็มทุกครั้งที่แอปเรียก query เดิม (หรือผ่าน raw REST call ตรงๆ) — เป็นบั๊ก class เดียวกับที่เพิ่งเจอใน WYN-027 (`is_blocked_either_way`) เป๊ะ: พึ่งว่า "หน้าจอไม่แสดง" แทน "ข้อมูลเข้าถึงไม่ได้จริง" รายละเอียด/reproduction/fix เต็มที่ `.wyn/tasks/bugs/WYN-029-moderation-actor-identity-leak.md`
+
+**Regression**: ไม่มี regression ใดๆ นอกจาก finding ข้อ 7 ที่พบใหม่ — ทุกอย่างที่ Coding claim ว่าถูกต้อง (self-escalation guard, RLS enforcement ของ Restrict/Suspend/Ban, auto-expiry, reporter identity protection ใน `moderation_queue` view, Pop ไม่ถูกแตะ, AuthGate race condition) ยืนยันจริงด้วยตัวเองครบทุกจุด
+
+**ผลลัพธ์: WYN-029 — FAIL (Major)** — ส่งต่อ AI Debug Engineer พร้อม bug report เต็มที่ `.wyn/tasks/bugs/WYN-029-moderation-actor-identity-leak.md` (ข้อเสนอ fix: relax `notifications.actor_id` เป็น nullable แล้ว insert null สำหรับ Warning/Remove Content แทน `v_reviewer` — `moderation_actions.reviewer_id` ที่ป้องกันไว้ถูกต้องอยู่แล้วยังคงเป็น audit trail หลักต่อไปโดยไม่ต้องเปลี่ยน)
