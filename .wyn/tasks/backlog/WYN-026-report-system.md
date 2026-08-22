@@ -1,7 +1,7 @@
 # Product Task — WYN-026
 
-Status: backlog
-Owner: AI Product Manager
+Status: active (Design เสร็จ, รอ AI Coding)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ — ดู `.wyn/docs/design/wyn-026-report-system.md`) → AI Coding (ถัดไป)
 
 Feature: Report System (Universal — User/Drop/Comment/Club/Club Post/Message)
 
