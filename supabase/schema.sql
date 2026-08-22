@@ -3310,3 +3310,152 @@ $$;
 create trigger club_post_comments_prevent_nested_reply
   before insert on public.club_post_comments
   for each row execute function public.prevent_nested_club_post_comment_reply();
+
+-- ============================================================
+-- WYN-026: Report System
+-- ============================================================
+-- Universal report table (User/Drop/Comment/Club/Club Post today,
+-- Message reserved for WYN-031/032 Phase 2 -- see the Product spec's
+-- Requirements). target_id is polymorphic (no FK -- the referenced
+-- table depends on target_type), so integrity is enforced entirely by
+-- submit_report() below rather than at the column level. See
+-- .wyn/docs/design/wyn-026-report-system.md.
+create table if not exists public.reports (
+  id uuid primary key default gen_random_uuid(),
+  reporter_id uuid not null references public.profiles (id) on delete cascade,
+  target_type text not null
+    check (target_type in (
+      'user', 'drop', 'drop_comment', 'club', 'club_post',
+      'club_post_comment', 'message'
+    )),
+  target_id uuid not null,
+  category text not null
+    check (category in (
+      'spam', 'scam', 'harassment', 'hate', 'sexual_content', 'violence',
+      'privacy', 'illegal_content', 'copyright', 'other'
+    )),
+  detail text,
+  status text not null default 'pending'
+    check (status in ('pending', 'reviewing', 'actioned', 'dismissed')),
+  created_at timestamptz not null default now(),
+  -- "Other" requires a written reason; every other category leaves it
+  -- optional (Product spec, Requirements > ขั้นตอนรายงาน).
+  constraint reports_other_requires_detail
+    check (category <> 'other' or (detail is not null and length(trim(detail)) > 0))
+);
+
+-- One open case per (reporter, target) at a time. A plain UNIQUE
+-- constraint would block re-reporting forever once a case closes, so
+-- this is a partial index scoped to the still-open statuses instead --
+-- matches the Product spec's "1 target ต่อ 1 reporter ส่งได้ครั้งเดียว
+-- จนกว่าจะถูกปิดเคส" rule.
+create unique index if not exists reports_reporter_target_open_unique
+  on public.reports (reporter_id, target_type, target_id)
+  where status in ('pending', 'reviewing');
+
+alter table public.reports enable row level security;
+
+-- A reporter can see only their own submitted reports (so the UI can
+-- show "รายงานแล้ว" instead of the report form for a target they've
+-- already reported). Nobody -- including the person being reported --
+-- can see who reported what or how many reports exist against them;
+-- moderator/admin visibility into the full queue is added by WYN-029,
+-- not here.
+create policy "Users can view their own submitted reports"
+  on public.reports
+  for select
+  to authenticated
+  using (auth.uid() = reporter_id);
+
+-- Deliberately no insert policy: every report is created through
+-- submit_report() below, which validates the target actually exists
+-- and isn't the reporter's own content/profile before inserting -- a
+-- client can never write a reports row via a raw insert() call no
+-- matter what target_id it sends. Same reasoning as club_members
+-- having no update policy (see above).
+create or replace function public.submit_report(
+  p_target_type text,
+  p_target_id uuid,
+  p_category text,
+  p_detail text
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_reporter uuid := auth.uid();
+  v_report_id uuid;
+begin
+  if v_reporter is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_target_type = 'user' then
+    if p_target_id = v_reporter then
+      raise exception 'Cannot report yourself';
+    end if;
+    if not exists (select 1 from public.profiles where id = p_target_id) then
+      raise exception 'Target user not found';
+    end if;
+  elsif p_target_type = 'drop' then
+    if not exists (
+      select 1 from public.drops
+      where id = p_target_id and author_id <> v_reporter
+    ) then
+      raise exception 'Drop not found, or is your own';
+    end if;
+  elsif p_target_type = 'drop_comment' then
+    if not exists (
+      select 1 from public.drop_comments
+      where id = p_target_id and author_id <> v_reporter
+    ) then
+      raise exception 'Comment not found, or is your own';
+    end if;
+  elsif p_target_type = 'club' then
+    if not exists (
+      select 1 from public.clubs
+      where id = p_target_id and owner_id <> v_reporter
+    ) then
+      raise exception 'Club not found, or is your own';
+    end if;
+  elsif p_target_type = 'club_post' then
+    if not exists (
+      select 1 from public.club_posts
+      where id = p_target_id and author_id <> v_reporter
+    ) then
+      raise exception 'Club post not found, or is your own';
+    end if;
+  elsif p_target_type = 'club_post_comment' then
+    if not exists (
+      select 1 from public.club_post_comments
+      where id = p_target_id and author_id <> v_reporter
+    ) then
+      raise exception 'Club post comment not found, or is your own';
+    end if;
+  else
+    -- Includes 'message' -- reserved for WYN-031/032 (Phase 2), no
+    -- table exists yet to validate against, so reject rather than
+    -- accept an unverifiable target.
+    raise exception 'Unsupported report target type: %', p_target_type;
+  end if;
+
+  insert into public.reports (reporter_id, target_type, target_id, category, detail)
+  values (
+    v_reporter,
+    p_target_type,
+    p_target_id,
+    p_category,
+    nullif(trim(coalesce(p_detail, '')), '')
+  )
+  returning id into v_report_id;
+
+  return v_report_id;
+exception
+  when unique_violation then
+    raise exception 'You have already reported this';
+end;
+$$;
+
+grant execute on function public.submit_report(text, uuid, text, text) to authenticated;

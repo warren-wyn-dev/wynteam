@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../drop/presentation/drop_detail_screen.dart' show dropShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/widgets/hashtag_text.dart';
+import '../../../report/data/report_repository.dart';
+import '../../../report/data/report_target_type.dart';
+import '../../../report/presentation/report_sheet.dart';
 
 /// A Drop card in the Home feed. Same visual structure as
 /// HomePopCard so the two read as one family, per
@@ -26,9 +30,38 @@ class HomeDropCard extends StatelessWidget {
   final VoidCallback onToggleSave;
   final VoidCallback onOpenProfile;
 
+  bool get _isOwnDrop =>
+      item.authorId == Supabase.instance.client.auth.currentUser!.id;
+
   Future<void> _share() async {
     await SharePlus.instance.share(
       ShareParams(text: dropShareLink(item.id)),
+    );
+  }
+
+  Future<void> _openMoreMenu(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.flag_outlined),
+              title: const Text('รายงานโพสต์'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                showReportSheet(
+                  context,
+                  reportRepository: ReportRepository(Supabase.instance.client),
+                  targetType: ReportTargetType.drop,
+                  targetId: item.id,
+                  targetLabel: 'รายงานโพสต์ของ ${item.authorNameOrUsername}',
+                );
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -46,24 +79,36 @@ class HomeDropCard extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space1),
-                child: InkWell(
-                  onTap: onOpenProfile,
-                  borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AvatarCircle(
-                        imageUrl: item.authorAvatarUrl,
-                        fallbackText: item.authorUsername,
-                        radius: 16,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: onOpenProfile,
+                        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AvatarCircle(
+                              imageUrl: item.authorAvatarUrl,
+                              fallbackText: item.authorUsername,
+                              radius: 16,
+                            ),
+                            const SizedBox(width: WynSpacing.space2),
+                            Text(
+                              item.authorNameOrUsername,
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(width: WynSpacing.space2),
-                      Text(
-                        item.authorNameOrUsername,
-                        style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    if (!_isOwnDrop)
+                      IconButton(
+                        icon: const Icon(Icons.more_vert),
+                        tooltip: 'เพิ่มเติม',
+                        onPressed: () => _openMoreMenu(context),
                       ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
               AspectRatio(

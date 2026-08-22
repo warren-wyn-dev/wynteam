@@ -4,9 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/presentation/widgets/drop_grid_tile.dart';
 
+import 'support/fake_supabase_session.dart';
+
 Drop _drop({int likeCount = 7}) => Drop(
       id: 'd1',
-      authorId: 'u1',
+      authorId: 'someone-else',
       authorUsername: 'namfah',
       imageUrl: 'https://example.supabase.co/drops/d1.jpg',
       createdAt: DateTime.now(),
@@ -17,6 +19,14 @@ Drop _drop({int likeCount = 7}) => Drop(
     );
 
 void main() {
+  // WYN-026: DropGridTile now reads Supabase.instance.client to compare
+  // the current user against the Drop's author (report affordance), so
+  // it needs a fake session the same way every other widget that reads
+  // auth.currentUser does -- see support/fake_supabase_session.dart.
+  setUpAll(() async {
+    await initFakeSupabaseSession(userId: 'me');
+  });
+
   testWidgets('announces author and like count as one semantics label',
       (tester) async {
     await tester.pumpWidget(MaterialApp(

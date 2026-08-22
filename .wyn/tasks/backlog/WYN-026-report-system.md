@@ -1,7 +1,7 @@
 # Product Task — WYN-026
 
-Status: active (Design เสร็จ, รอ AI Coding)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ — ดู `.wyn/docs/design/wyn-026-report-system.md`) → AI Coding (ถัดไป)
+Status: review (Coding เสร็จ, รอ AI QA & Security)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ — ดู `.wyn/docs/design/wyn-026-report-system.md`) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
 
 Feature: Report System (Universal — User/Drop/Comment/Club/Club Post/Message)
 

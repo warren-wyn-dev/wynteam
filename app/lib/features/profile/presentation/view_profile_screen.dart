@@ -21,6 +21,9 @@ import 'widgets/profile_drop_grid_tab.dart';
 import 'widgets/profile_pop_grid_tab.dart';
 import 'widgets/profile_saved_tab.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../report/data/report_repository.dart';
+import '../../report/data/report_target_type.dart';
+import '../../report/presentation/report_sheet.dart';
 
 typedef _ProfileWithCounts = ({Profile profile, int followerCount, int followingCount});
 
@@ -78,6 +81,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   // Only ever loaded for the viewer's own profile with a ClubRepository
   // supplied -- see ClubRepository's doc comment on ViewProfileScreen.
   Future<List<Club>>? _myClubsFuture;
+
+  final _reportRepository = ReportRepository(Supabase.instance.client);
 
   bool get _isOwnProfile =>
       widget.userId == Supabase.instance.client.auth.currentUser!.id;
@@ -185,6 +190,39 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     await Supabase.instance.client.auth.signOut();
   }
 
+  Future<void> _reportUser() {
+    return showReportSheet(
+      context,
+      reportRepository: _reportRepository,
+      targetType: ReportTargetType.user,
+      targetId: widget.userId,
+      targetLabel: 'รายงานผู้ใช้นี้',
+    );
+  }
+
+  // Extensible on purpose -- WYN-027 (Block)/WYN-028 (Mute) add their own
+  // items to this same menu later without restructuring it. See
+  // .wyn/docs/design/wyn-026-report-system.md, Screen 2.
+  Future<void> _openMoreMenu() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.flag_outlined),
+              title: const Text('รายงาน'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _reportUser();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _openFollowList(FollowListMode mode) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -266,6 +304,15 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                 icon: const Icon(Icons.logout),
                 tooltip: 'ออกจากระบบ',
                 onPressed: _signOut,
+              )
+            else
+              Semantics(
+                label: 'ตัวเลือกเพิ่มเติมสำหรับโปรไฟล์นี้',
+                excludeSemantics: true,
+                child: IconButton(
+                  icon: const Icon(Icons.more_vert),
+                  onPressed: _openMoreMenu,
+                ),
               ),
           ],
         ),

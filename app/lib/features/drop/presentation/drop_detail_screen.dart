@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -16,6 +17,9 @@ import '../data/drop_comment.dart';
 import '../data/drop_repository.dart';
 import 'widgets/confirm_delete_drop_dialog.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../report/data/report_repository.dart';
+import '../../report/data/report_target_type.dart';
+import '../../report/presentation/report_sheet.dart';
 
 /// Placeholder share link -- there's no real hosting/domain yet (see
 /// .wyn/tasks/active/WYN-005-drop-post-image.md Risks). Not a reachable
@@ -67,6 +71,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   // PopClipView's WYN-006 Follow button had before WYN-008). See
   // .wyn/docs/design/wyn-008-follow.md, Screen 1.
   bool? _isFollowing;
+
+  final _reportRepository = ReportRepository(Supabase.instance.client);
 
   @override
   void initState() {
@@ -232,6 +238,82 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     );
   }
 
+  Future<void> _reportDrop() {
+    return showReportSheet(
+      context,
+      reportRepository: _reportRepository,
+      targetType: ReportTargetType.drop,
+      targetId: _drop.id,
+      targetLabel: 'รายงานโพสต์ของ ${_drop.authorNameOrUsername}',
+    );
+  }
+
+  Future<void> _openDropMoreMenu() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.flag_outlined),
+              title: const Text('รายงานโพสต์'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _reportDrop();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _reportComment(DropComment comment) {
+    return showReportSheet(
+      context,
+      reportRepository: _reportRepository,
+      targetType: ReportTargetType.dropComment,
+      targetId: comment.id,
+      targetLabel: 'รายงานคอมเมนต์ของ ${comment.authorNameOrUsername}',
+    );
+  }
+
+  // Long-press fallback for both "ลบคอมเมนต์"/"รายงานคอมเมนต์" -- the
+  // existing delete icon (own comments only) stays as-is; this is an
+  // additional entry point, not a replacement, per
+  // .wyn/docs/design/wyn-026-report-system.md, Screen 5.
+  Future<void> _openCommentMenu(DropComment comment, String currentUserId) async {
+    final isOwnComment = comment.authorId == currentUserId;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            if (isOwnComment)
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('ลบคอมเมนต์'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _deleteComment(comment.id);
+                },
+              )
+            else
+              ListTile(
+                leading: const Icon(Icons.flag_outlined),
+                title: const Text('รายงานคอมเมนต์'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _reportComment(comment);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _deleteDrop() async {
     final confirmed = await confirmDeleteDrop(context);
     if (!confirmed) return;
@@ -366,6 +448,12 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                       icon: const Icon(Icons.delete_outline),
                       tooltip: 'ลบ Drop',
                       onPressed: _deleteDrop,
+                    )
+                  else
+                    IconButton(
+                      icon: const Icon(Icons.more_vert),
+                      tooltip: 'เพิ่มเติม',
+                      onPressed: _openDropMoreMenu,
                     ),
                 ],
               ),
@@ -491,7 +579,20 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   }
 
   Widget _buildCommentRow(DropComment comment, String currentUserId, {required bool isReply}) {
-    return Padding(
+    final isOwnComment = comment.authorId == currentUserId;
+
+    return Semantics(
+      // A CustomSemanticsAction gives screen-reader users a way to reach
+      // the report/delete menu without needing the long-press gesture
+      // itself -- see .wyn/docs/design/wyn-026-report-system.md, Screen 5.
+      customSemanticsActions: {
+        CustomSemanticsAction(
+          label: isOwnComment ? 'ลบคอมเมนต์' : 'รายงานคอมเมนต์',
+        ): () => _openCommentMenu(comment, currentUserId),
+      },
+      child: GestureDetector(
+        onLongPress: () => _openCommentMenu(comment, currentUserId),
+        child: Padding(
       padding: EdgeInsets.fromLTRB(isReply ? 52 : 16, 12, 16, 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -572,6 +673,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
             ],
           ),
         ],
+      ),
+        ),
       ),
     );
   }

@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/design/wyn_colors.dart';
 import '../../data/drop.dart';
+import '../../../report/data/report_repository.dart';
+import '../../../report/data/report_target_type.dart';
+import '../../../report/presentation/report_sheet.dart';
 
 /// One square tile in DropFeedScreen's grid. Deliberately minimal (just
 /// the image + a like-count scrim) -- full detail (caption, comments,
@@ -13,13 +18,52 @@ class DropGridTile extends StatelessWidget {
   final Drop drop;
   final VoidCallback onTap;
 
+  bool get _isOwnDrop =>
+      drop.authorId == Supabase.instance.client.auth.currentUser!.id;
+
+  // Grid tiles are deliberately clutter-free (no visible More icon) --
+  // long-press opens the same report menu instead, with a
+  // CustomSemanticsAction so screen-reader users can reach it without
+  // the gesture. See .wyn/docs/design/wyn-026-report-system.md, Screen 4.
+  Future<void> _openMoreMenu(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.flag_outlined),
+              title: const Text('รายงานโพสต์'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                showReportSheet(
+                  context,
+                  reportRepository: ReportRepository(Supabase.instance.client),
+                  targetType: ReportTargetType.drop,
+                  targetId: drop.id,
+                  targetLabel: 'รายงานโพสต์ของ ${drop.authorNameOrUsername}',
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Semantics(
       label: 'รูปของ ${drop.authorNameOrUsername}, ถูกใจ ${drop.likeCount} ครั้ง',
       button: true,
+      customSemanticsActions: _isOwnDrop
+          ? null
+          : {
+              const CustomSemanticsAction(label: 'รายงานโพสต์'): () => _openMoreMenu(context),
+            },
       child: GestureDetector(
         onTap: onTap,
+        onLongPress: _isOwnDrop ? null : () => _openMoreMenu(context),
         child: AspectRatio(
           aspectRatio: 1,
           child: Stack(
