@@ -30,8 +30,43 @@ import 'support/recording_zoky_repository.dart';
 /// testable, rather than only reachable via Supabase.instance like it
 /// was pre-WYN-024. See .wyn/docs/design/wyn-024-bottom-nav-v1-restructure.md.
 void main() {
+  // Bug fix (QA round 1, 2026-08-22): every repository (and its
+  // underlying SupabaseClient auto-refresh Timer) must be built once
+  // here, not inside buildShell()/individual testWidgets callbacks -- see
+  // drop_comment_like_test.dart (WYN-005) and home_feed_screen_test.dart's
+  // own setUpAll for why. The original version of this file built all 8
+  // repositories fresh on every buildShell() call (i.e. once per test),
+  // leaking a live Timer per test that flutter_test's
+  // "!timersPending" invariant then failed on for all 6 tests.
+  late RecordingDropRepository sharedDropRepository;
+  late RecordingPopRepository sharedPopRepository;
+  late RecordingFollowRepository sharedFollowRepository;
+  late RecordingProfileRepository sharedProfileRepository;
+  late RecordingSavedRepository sharedSavedRepository;
+  late RecordingClubRepository sharedClubRepository;
+  late RecordingClubPostRepository sharedClubPostRepository;
+  late RecordingZokyRepository sharedZokyRepository;
+  late RecordingHomeRepository defaultHomeRepository;
+  late RecordingNotificationRepository defaultNotificationRepository;
+  late RecordingNotificationRepository fewUnreadNotificationRepository;
+  late RecordingNotificationRepository manyUnreadNotificationRepository;
+
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
+
+    sharedDropRepository = RecordingDropRepository();
+    sharedPopRepository = RecordingPopRepository();
+    sharedFollowRepository = RecordingFollowRepository();
+    sharedProfileRepository =
+        RecordingProfileRepository(profile: const Profile(id: 'me', username: 'me'));
+    sharedSavedRepository = RecordingSavedRepository();
+    sharedClubRepository = RecordingClubRepository();
+    sharedClubPostRepository = RecordingClubPostRepository();
+    sharedZokyRepository = RecordingZokyRepository();
+    defaultHomeRepository = RecordingHomeRepository(feedItems: []);
+    defaultNotificationRepository = RecordingNotificationRepository();
+    fewUnreadNotificationRepository = RecordingNotificationRepository(unreadCount: 3);
+    manyUnreadNotificationRepository = RecordingNotificationRepository(unreadCount: 15);
   });
 
   Widget buildShell({
@@ -40,17 +75,16 @@ void main() {
   }) =>
       MaterialApp(
         home: RootShell(
-          dropRepository: RecordingDropRepository(),
-          popRepository: RecordingPopRepository(),
-          followRepository: RecordingFollowRepository(),
-          profileRepository:
-              RecordingProfileRepository(profile: const Profile(id: 'me', username: 'me')),
-          savedRepository: RecordingSavedRepository(),
-          notificationRepository: notificationRepository ?? RecordingNotificationRepository(),
-          clubRepository: RecordingClubRepository(),
-          clubPostRepository: RecordingClubPostRepository(),
-          zokyRepository: RecordingZokyRepository(),
-          homeRepository: homeRepository ?? RecordingHomeRepository(feedItems: []),
+          dropRepository: sharedDropRepository,
+          popRepository: sharedPopRepository,
+          followRepository: sharedFollowRepository,
+          profileRepository: sharedProfileRepository,
+          savedRepository: sharedSavedRepository,
+          notificationRepository: notificationRepository ?? defaultNotificationRepository,
+          clubRepository: sharedClubRepository,
+          clubPostRepository: sharedClubPostRepository,
+          zokyRepository: sharedZokyRepository,
+          homeRepository: homeRepository ?? defaultHomeRepository,
         ),
       );
 
@@ -94,7 +128,11 @@ void main() {
 
     expect(find.byType(CreateDropScreen), findsOneWidget);
 
-    await tester.pageBack();
+    // CreateDropScreen's AppBar supplies its own `leading` (a close "X"
+    // icon that calls Navigator.pop(false), not the framework's default
+    // back button) -- tester.pageBack() looks for a BackButton/
+    // CupertinoNavigationBarBackButton specifically and finds neither.
+    await tester.tap(find.byIcon(Icons.close));
     await tester.pumpAndSettle();
 
     // Still on Home, not stuck on some "Drop tab" -- there is none.
@@ -105,7 +143,7 @@ void main() {
   testWidgets('shows the unread notification count as a badge, and clears '
       'it optimistically after switching to Notifications', (tester) async {
     await tester.pumpWidget(buildShell(
-      notificationRepository: RecordingNotificationRepository(unreadCount: 3),
+      notificationRepository: fewUnreadNotificationRepository,
     ));
     await tester.pumpAndSettle();
 
@@ -120,7 +158,7 @@ void main() {
 
   testWidgets('caps the notification badge at "9+"', (tester) async {
     await tester.pumpWidget(buildShell(
-      notificationRepository: RecordingNotificationRepository(unreadCount: 15),
+      notificationRepository: manyUnreadNotificationRepository,
     ));
     await tester.pumpAndSettle();
 

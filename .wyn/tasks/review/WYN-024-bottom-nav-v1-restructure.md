@@ -1,7 +1,7 @@
 # Product Task — WYN-024
 
-Status: **QA รอบ 1 — FAIL (2 Major/Critical + 1 test-infra bug)** — ส่งต่อ AI Debug Engineer แล้ว ดู bug report ที่ `.wyn/tasks/bugs/WYN-024-nav-restructure-build-and-overflow.md` และ "QA Output" ท้ายไฟล์นี้
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer
+Status: **Debug Engineer แก้ครบทั้ง 3 บั๊ก (+ พบ/แก้บั๊กที่ 4 เพิ่ม) — รอ QA รอบ 2** ดู "Debug Engineer Report" ที่ `.wyn/tasks/bugs/WYN-024-nav-restructure-build-and-overflow.md` — `flutter analyze` 0 error, `flutter test` 357/357 ผ่านทั้ง `app/`
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security
 
 Feature: Bottom Navigation V1.0.0 Restructure — ถอด Pop/ZOKY ออกจาก Bottom Nav, เพิ่ม Search และ Notifications เป็น tab
 

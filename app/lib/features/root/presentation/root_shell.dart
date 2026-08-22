@@ -298,10 +298,12 @@ class _RootShellState extends State<RootShell> {
   // an action, not a tab. Semantics says so explicitly rather than
   // letting NavigationBar announce it the same way as the 4 real tabs.
   Widget _buildDropAction() {
-    return const Semantics(
+    // Not `const Semantics(...)` -- Semantics' constructor isn't const on
+    // this SDK (was a compile error before this fix: const_with_non_const).
+    return Semantics(
       label: 'สร้าง Drop ใหม่',
       button: true,
-      child: ExcludeSemantics(
+      child: const ExcludeSemantics(
         child: Icon(Icons.add_circle_outline),
       ),
     );

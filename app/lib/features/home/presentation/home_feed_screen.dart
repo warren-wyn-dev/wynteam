@@ -366,6 +366,16 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     final isActive = _feedMode == value;
     return ButtonSegment(
       value: value,
+      // Bug fix (QA round 1, 2026-08-22): SegmentedButton gives each
+      // segment a tight, roughly-equal width budget sized off the
+      // *plain-text* label -- adding the dot+spacing without a Flexible
+      // around the Text overflowed that budget by 11px on whichever
+      // segment happened to be active, including the shortest label
+      // ("สำหรับคุณ") on first load. Wrapping the label Text in Flexible
+      // (with ellipsis as the fallback for the longest label, "จาก Club
+      // ของคุณ") lets it shrink to whatever width SegmentedButton's Flex
+      // layout actually leaves after the fixed-size dot, instead of
+      // demanding its full intrinsic width and overflowing.
       label: isActive
           ? Row(
               mainAxisSize: MainAxisSize.min,
@@ -380,7 +390,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                   ),
                 ),
                 const SizedBox(width: WynSpacing.space1),
-                Text(label),
+                Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
               ],
             )
           : Text(label),
