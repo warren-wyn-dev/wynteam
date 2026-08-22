@@ -1,7 +1,7 @@
 # Product Task — WYN-027
 
-Status: backlog
-Owner: AI Product Manager
+Status: active (Design เสร็จ, รอ AI Coding)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ — ดู `.wyn/docs/design/wyn-027-block-system.md`) → AI Coding (ถัดไป)
 
 Feature: Block System
 
