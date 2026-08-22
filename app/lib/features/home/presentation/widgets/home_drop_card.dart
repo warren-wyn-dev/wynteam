@@ -56,6 +56,7 @@ class HomeDropCard extends StatelessWidget {
                   targetType: ReportTargetType.drop,
                   targetId: item.id,
                   targetLabel: 'รายงานโพสต์ของ ${item.authorNameOrUsername}',
+                  associatedUserId: item.authorId,
                 );
               },
             ),

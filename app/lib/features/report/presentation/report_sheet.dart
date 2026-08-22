@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/design/wyn_spacing.dart';
+import '../../block/data/block_relationship.dart';
+import '../../block/data/block_repository.dart';
+import '../../block/presentation/block_dialogs.dart';
+import '../../profile/data/profile.dart';
+import '../../profile/data/profile_repository.dart';
 import '../data/report_category.dart';
 import '../data/report_repository.dart';
 import '../data/report_target_type.dart';
@@ -12,14 +18,26 @@ import '../data/report_target_type.dart';
 ///
 /// [targetLabel] is the short sentence shown as the sheet's title (e.g.
 /// "รายงานโพสต์นี้" / "รายงาน @username").
+///
+/// [associatedUserId] (WYN-027 Design, Screen 7) -- optional, set only
+/// when the target has a single identifiable owner: the user themselves
+/// for `user` reports, or the content's author for `drop`/`drop_comment`/
+/// `club_post`/`club_post_comment`. Deliberately omitted for `club`
+/// (a Club's owner isn't "the content's author" in the same sense, and
+/// may not be personally responsible for whatever was reported). When
+/// set and the report succeeds, the confirmation SnackBar offers a
+/// "บล็อก" action -- but only if there isn't already a block
+/// relationship with that user (checked here, after the sheet closes,
+/// not inside ReportSheet itself).
 Future<void> showReportSheet(
   BuildContext context, {
   required ReportRepository reportRepository,
   required ReportTargetType targetType,
   required String targetId,
   required String targetLabel,
-}) {
-  return showModalBottomSheet<void>(
+  String? associatedUserId,
+}) async {
+  final submitted = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
@@ -44,6 +62,59 @@ Future<void> showReportSheet(
       ),
     ),
   );
+
+  if (submitted != true || !context.mounted) return;
+
+  SnackBarAction? blockAction;
+  if (associatedUserId != null) {
+    try {
+      final relationship = await BlockRepository(Supabase.instance.client)
+          .blockRelationship(associatedUserId);
+      if (relationship == BlockRelationship.none && context.mounted) {
+        blockAction = SnackBarAction(
+          label: 'บล็อก',
+          onPressed: () => _offerBlockAfterReport(context, associatedUserId),
+        );
+      }
+    } catch (_) {
+      // The report itself already succeeded -- a failed eligibility
+      // check just means no block action is offered, not an error.
+    }
+  }
+
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: const Text('ส่งรายงานแล้ว ทีมงานจะตรวจสอบเร็วๆ นี้'),
+      action: blockAction,
+    ),
+  );
+}
+
+Future<void> _offerBlockAfterReport(BuildContext context, String userId) async {
+  final Profile profile;
+  try {
+    profile = await ProfileRepository(Supabase.instance.client).fetchProfile(userId);
+  } catch (_) {
+    return;
+  }
+  if (!context.mounted) return;
+
+  final confirmed = await confirmBlock(context, username: profile.username);
+  if (!confirmed || !context.mounted) return;
+
+  try {
+    await BlockRepository(Supabase.instance.client).blockUser(userId);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('บล็อก @${profile.username} แล้ว')),
+    );
+  } catch (_) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
+    );
+  }
 }
 
 /// Screen 1 of .wyn/docs/design/wyn-026-report-system.md.
@@ -129,10 +200,11 @@ class _ReportSheetState extends State<ReportSheet> {
             : _detailController.text.trim(),
       );
       if (!mounted) return;
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ส่งรายงานแล้ว ทีมงานจะตรวจสอบเร็วๆ นี้')),
-      );
+      // The confirmation SnackBar (and optional "บล็อก" action) is shown
+      // by showReportSheet() itself, once this sheet has actually closed
+      // -- not here, so it can use the *caller's* still-mounted context
+      // instead of this sheet's, which is about to be torn down.
+      Navigator.of(context).pop(true);
     } catch (_) {
       if (!mounted) return;
       setState(() {

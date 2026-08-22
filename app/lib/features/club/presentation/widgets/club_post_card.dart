@@ -71,6 +71,7 @@ class ClubPostCard extends StatelessWidget {
       targetType: ReportTargetType.clubPost,
       targetId: post.id,
       targetLabel: 'รายงานโพสต์ของ ${post.authorNameOrUsername}',
+      associatedUserId: post.authorId,
     );
   }
 

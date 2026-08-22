@@ -42,6 +42,7 @@ class DropGridTile extends StatelessWidget {
                   targetType: ReportTargetType.drop,
                   targetId: drop.id,
                   targetLabel: 'รายงานโพสต์ของ ${drop.authorNameOrUsername}',
+                  associatedUserId: drop.authorId,
                 );
               },
             ),

@@ -214,6 +214,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
       targetType: ReportTargetType.clubPostComment,
       targetId: comment.id,
       targetLabel: 'รายงานคอมเมนต์ของ ${comment.authorNameOrUsername}',
+      associatedUserId: comment.authorId,
     );
   }
 

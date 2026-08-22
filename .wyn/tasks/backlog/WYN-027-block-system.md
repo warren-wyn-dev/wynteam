@@ -1,7 +1,7 @@
 # Product Task — WYN-027
 
-Status: active (Design เสร็จ, รอ AI Coding)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ — ดู `.wyn/docs/design/wyn-027-block-system.md`) → AI Coding (ถัดไป)
+Status: active (Coding เสร็จ, รอ AI QA & Security)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ — ดู `.wyn/docs/design/wyn-027-block-system.md`) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
 
 Feature: Block System
 
@@ -56,3 +56,21 @@ Recommendation:
 3. ส่งต่อ AI Design พร้อมกับ/ต่อจาก WYN-026 เพื่อออกแบบ Blocked List screen ใน Settings → Safety
 
 Handoff: AI Design — ออกแบบ Block confirmation dialog, Blocked List screen (Settings → Safety), และสถานะ UI ของปุ่ม Follow/Message/Report เมื่อ Block กันอยู่
+
+---
+
+## Coding Output (2026-08-22)
+
+Implementation: เพิ่ม `blocks` table + RLS + RPC (`block_relationship`/`block_user`/`unblock_user`) ใน schema.sql พร้อม security-definer helper functions 4 ตัว (`drop_author_id`/`pop_author_id`/`drop_comment_author_id`/`pop_comment_author_id`) ที่ต้องใช้แก้บั๊ก RLS self-referential trap ที่เจอระหว่างทดสอบจริงบน Postgres (ดู DECISIONS.md) — SELECT policy ของ drops/drop_comments/pops/pop_comments/club_posts/club_post_comments กรอง block ทั้งสองทิศทางออก, INSERT policy ของ likes/comments/follows/mentions ทุกตัวก็เช็ค block ก่อนอนุญาต ฝั่ง Flutter เพิ่ม feature ใหม่ `block/` (BlockRelationship enum, BlockRepository, block_dialogs, BlockedListScreen), `settings/` (SettingsScreen ใหม่), และแก้ ViewProfileScreen (Blocked persona banner, More menu บล็อก, gear icon), ReportSheet (SnackBarAction "บล็อก" หลังส่ง report), 7 จุดเรียก report เพิ่ม associatedUserId, และ HashtagText เช็ค block ก่อน navigate ไปโปรไฟล์ที่ mention (Screen 9)
+
+Files Changed: `supabase/schema.sql` (WYN-027 section), `app/lib/features/block/**` (ใหม่), `app/lib/features/settings/**` (ใหม่), `app/lib/features/profile/presentation/view_profile_screen.dart`, `app/lib/features/report/presentation/report_sheet.dart`, `app/lib/core/widgets/hashtag_text.dart`, และ 6 call sites ของ `showReportSheet` (drop_detail_screen.dart, club_post_card.dart, club_post_detail_screen.dart, home_drop_card.dart, drop_grid_tile.dart)
+
+Reason: บังคับใช้ Block ทั้งสองทิศทางที่ชั้น RLS ตามดีไซน์ ไม่ใช่ filter ฝั่ง client — ป้องกันการเข้าถึงผ่าน API ตรงด้วย ตามที่ระบุไว้ใน Product spec ("Risks" ข้อ Performance)
+
+Tests: เพิ่ม `test/block_relationship_test.dart`, `test/block_dialogs_test.dart`, `test/blocked_list_screen_test.dart`, `test/support/recording_block_repository.dart` — รวม 13 เทสต์ใหม่ (unit + widget) ครอบ BlockRelationship mapping, confirm/cancel dialog ทั้งสองแบบ, list/empty/error/retry state, และ unblock flow เต็ม `flutter test` ทั้งโปรเจกต์ผ่านครบ 382/382 (baseline 369 + ใหม่ 13, ไม่มี regression) และ SQL ยืนยันด้วยการรัน schema.sql จริงบน local Postgres 16 กับ 11 สถานการณ์ทดสอบ (T1-T11 รวม regression ของ club content)
+
+Build: `flutter analyze` สะอาด ไม่มี issue
+
+Known Issues: (1) Mention ที่ถูก block ยังคงแสดงเป็นสี tappable ตามปกติ (ไม่เปลี่ยนเป็นข้อความธรรมดา) — เช็ค block ที่ tap-time แล้ว silent no-op แทน ตามที่บันทึกไว้ใน Design doc Screen 9 เพราะการเปลี่ยนสีต้องแก้ 6 จุดเรียก HashtagText ทั้งหมด (2) MentionInput autocomplete ยังไม่กรองผู้ใช้ที่ถูก block ออก (Design แนะนำแต่ไม่ hard-required) (3) Denormalized comment count อาจไม่ตรงกับจำนวนแถวที่มองเห็นได้จริงหลังกรอง block (บันทึกไว้ใน Design doc เป็น known limitation)
+
+Handoff: AI QA & Security — ทดสอบ WYN-027 ตาม Acceptance Criteria ทั้งหมด โดยเฉพาะ regression ของ non-blocked pairs และ mutual-block edge case

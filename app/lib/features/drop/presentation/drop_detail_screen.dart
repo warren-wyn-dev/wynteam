@@ -245,6 +245,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       targetType: ReportTargetType.drop,
       targetId: _drop.id,
       targetLabel: 'รายงานโพสต์ของ ${_drop.authorNameOrUsername}',
+      associatedUserId: _drop.authorId,
     );
   }
 
@@ -275,6 +276,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       targetType: ReportTargetType.dropComment,
       targetId: comment.id,
       targetLabel: 'รายงานคอมเมนต์ของ ${comment.authorNameOrUsername}',
+      associatedUserId: comment.authorId,
     );
   }
 
