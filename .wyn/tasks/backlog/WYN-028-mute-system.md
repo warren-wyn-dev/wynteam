@@ -1,7 +1,7 @@
 # Product Task — WYN-028
 
-Status: backlog
-Owner: AI Product Manager
+Status: active (Design เสร็จ, รอ AI Coding)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ — ดู `.wyn/docs/design/wyn-028-mute-system.md`) → AI Coding (ถัดไป)
 
 Feature: Mute System
 
@@ -54,3 +54,18 @@ Recommendation:
 3. Settings → Safety รวม Blocked List + Muted List ไว้หน้าเดียวกัน (2 section) แทนแยก 2 หน้า ลดจำนวนหน้าจอใหม่
 
 Handoff: AI Design — ออกแบบ Mute entry point ใน Profile More menu (ร่วมกับ Block/Report) และ Muted List section ใน Settings → Safety
+
+---
+
+## Design Output (2026-08-22)
+
+ดูรายละเอียดเต็มที่ `.wyn/docs/design/wyn-028-mute-system.md` สรุปสั้น:
+
+- **Entry point**: toggle "ปิดเสียง"/"เปิดเสียง" ใน `ViewProfileScreen`'s More menu ระหว่าง "รายงาน" กับ "บล็อก" — ไม่มี confirm dialog (ต่างจาก Block ตรงๆ เพราะ reversible/เงียบ/ไม่กระทบใคร) ใช้ pattern optimistic toggle เดียวกับ `_toggleFollow` ไม่แสดงเลยเมื่อมี block relationship อยู่แล้ว (ซ้ำซ้อนกับ Block ที่แรงกว่า)
+- **Data layer เบากว่า Block มาก**: ไม่ต้องมี RPC เลย (ต่างจาก `block_user()`/`unblock_user()`) เพราะ Mute ไม่มี side-effect ที่ต้องอะตอมมิก — ตาราง `mutes` ใช้ direct insert/delete ผ่าน RLS ธรรมดาเหมือน `follows`
+- **Filter จุดเดียวที่ `home_feed` VIEW** (ไม่ใช่ RLS ของ `drops`/`pops` เอง แบบที่ Block ทำ) เพราะต้อง "ไม่กระทบ Search/Club Post/Profile" ตรงตัวอักษร — ผลพลอยได้ที่ประกาศไว้ตรงๆ: Trending row ก็ถูกกรองด้วยเพราะ query view เดียวกัน (ตีความจาก AC ที่เขียน "Home Feed/Trending" คู่กัน)
+- **ยืนยันแล้วว่าไม่ชนกับบั๊ก RLS self-referential trap ของ WYN-027**: อธิบายเหตุผลละเอียดใน Screen 2 ของ design doc ว่าทำไม inline subquery ปลอดภัยในกรณีนี้ ไม่ต้องมี helper function
+- **Muted List ต่างจาก Blocked List ตรงที่แถว tap-to-profile ได้ปกติ** (Mute ไม่จำกัดการเข้าถึงโปรไฟล์เลย ไม่มีเหตุผลต้องกันเหมือน Block) — อยู่ใน `SettingsScreen` เดิมเป็น section "ความปลอดภัย" เดียวกัน แถวที่ 2 ต่อจาก Blocked List ไม่ใช่หน้าใหม่
+- Follow/Like/Comment/Mention/Notification: **ไม่มี UI เปลี่ยนแปลงใดๆ เลย** — บันทึกไว้ชัดเจนกันเข้าใจผิดว่าต้องทำเหมือน Block
+
+Handoff: AI Coding — เริ่มจาก data layer (`mutes` table + `home_feed` view filter) ตามลำดับใน design doc's Handoff section
