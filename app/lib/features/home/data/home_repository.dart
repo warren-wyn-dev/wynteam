@@ -224,6 +224,73 @@ class HomeRepository {
     return items.sublist(from, to + 1 > items.length ? items.length : to + 1);
   }
 
+  /// The "ติดตาม" (Following) feed mode (WYN-024): Drop+Pop content from
+  /// users the current user follows, chronological. Absorbs
+  /// DropRepository.fetchFollowingFeed's capability (WYN-019) into the
+  /// unified Home feed now that Drop no longer has its own tab -- Home is
+  /// "the" place to browse content per the WYNOS V1.0.0 spec, so this
+  /// mirrors that method's own follows-then-filter approach exactly, just
+  /// against `home_feed` (Drop+Pop) instead of `drops` alone.
+  Future<List<HomeFeedItem>> fetchFollowingFeed({required int page}) async {
+    final userId = _client.auth.currentUser!.id;
+    final from = page * pageSize;
+    final to = from + pageSize - 1;
+
+    final followRows = await _client
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId);
+    final followingIds =
+        followRows.map((row) => row['following_id'] as String).toList();
+    if (followingIds.isEmpty) return [];
+
+    final rows = await _client
+        .from('home_feed')
+        .select()
+        .inFilter('author_id', followingIds)
+        .order('created_at', ascending: false)
+        .range(from, to);
+
+    final dropIds = <String>[];
+    final popIds = <String>[];
+    for (final row in rows) {
+      if (row['content_type'] == 'drop') {
+        dropIds.add(row['id'] as String);
+      } else {
+        popIds.add(row['id'] as String);
+      }
+    }
+
+    final likedDropIds = await _fetchLikedIds(
+      table: 'drop_likes',
+      idColumn: 'drop_id',
+      userId: userId,
+      ids: dropIds,
+    );
+    final likedPopIds = await _fetchLikedIds(
+      table: 'pop_likes',
+      idColumn: 'pop_id',
+      userId: userId,
+      ids: popIds,
+    );
+    final savedIds = await _fetchSavedIds(
+      userId: userId,
+      ids: [...dropIds, ...popIds],
+    );
+
+    return rows.map((row) {
+      final id = row['id'] as String;
+      final isDrop = row['content_type'] == 'drop';
+      final likedByMe =
+          isDrop ? likedDropIds.contains(id) : likedPopIds.contains(id);
+      return HomeFeedItem.fromMap(
+        row,
+        likedByMe: likedByMe,
+        savedByMe: savedIds.contains(id),
+      );
+    }).toList();
+  }
+
   Future<Set<String>> _fetchFollowedAuthorIds({
     required String userId,
     required Set<String> authorIds,

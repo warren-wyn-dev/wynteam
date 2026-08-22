@@ -14,12 +14,13 @@ import 'widgets/search_drop_results_tab.dart';
 import 'widgets/search_pop_results_tab.dart';
 import 'widgets/search_user_results_tab.dart';
 
-/// Screen opened from Home's search bar (WYN-009) -- replaces the WYN-007
-/// SearchPlaceholderScreen. One shared query box above a User/Drop/Pop/
-/// Club TabBar (Club tab added WYN-015) rather than a per-tab search box:
-/// the user types once and flips tabs to see what matches, rather than
-/// retyping four times. See .wyn/docs/design/wyn-009-search.md and
-/// .wyn/docs/design/wyn-015-club-discovery-integration.md (Screen 2).
+/// Search tab (Bottom Nav, WYN-024 -- previously opened from Home's
+/// search bar, WYN-009). One shared query box above a User/Drop/Pop/Club
+/// TabBar (Club tab added WYN-015) rather than a per-tab search box: the
+/// user types once and flips tabs to see what matches, rather than
+/// retyping four times. See .wyn/docs/design/wyn-009-search.md,
+/// .wyn/docs/design/wyn-015-club-discovery-integration.md (Screen 2), and
+/// .wyn/docs/design/wyn-024-bottom-nav-v1-restructure.md (Screen 3).
 class SearchScreen extends StatefulWidget {
   const SearchScreen({
     super.key,
@@ -30,6 +31,7 @@ class SearchScreen extends StatefulWidget {
     required this.savedRepository,
     required this.clubRepository,
     required this.clubPostRepository,
+    this.autofocus = false,
   });
 
   final ProfileRepository profileRepository;
@@ -39,6 +41,13 @@ class SearchScreen extends StatefulWidget {
   final SavedRepository savedRepository;
   final ClubRepository clubRepository;
   final ClubPostRepository clubPostRepository;
+
+  // WYN-024: defaults to false now that this screen is a permanent
+  // Bottom Nav tab root rather than something only reached by an
+  // intentional tap on a search bar -- popping the keyboard open every
+  // time the user merely switches to this tab would be intrusive. Pass
+  // true at a call site that still represents deliberate search intent.
+  final bool autofocus;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -99,7 +108,7 @@ class _SearchScreenState extends State<SearchScreen> {
           title: TextField(
             controller: _controller,
             focusNode: _focusNode,
-            autofocus: true,
+            autofocus: widget.autofocus,
             decoration: InputDecoration(
               hintText: 'ค้นหา username, Drop, Pop, Club',
               border: InputBorder.none,

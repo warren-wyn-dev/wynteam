@@ -80,6 +80,26 @@ class WynColors {
   static const Color likeDark = Color(0xFFFB7185);
 
   // ---------------------------------------------------------------------
+  // DS-009 Rainbow accent -- copied verbatim from .wyn/docs/design/
+  // ds-009-rainbow-accent.md (Founder-approved "Option B", 2026-08-22).
+  // NOT a primary/brand color slot and NOT part of DS-001's Section 2/3
+  // scale -- decorative only, used in exactly 2 places (Trending tile
+  // ring, active Home feed-mode segment). Never a text/icon color on its
+  // own: a 5-stop gradient has no single WCAG contrast value, so this is
+  // restricted to surfaces that never carry text directly. Same value in
+  // both light and dark mode -- do not theme-split this.
+  // ---------------------------------------------------------------------
+  static const LinearGradient rainbowAccent = LinearGradient(
+    colors: [
+      Color(0xFFFF6B6B), // coral
+      Color(0xFFFFB347), // amber
+      Color(0xFF4ECDC4), // mint
+      Color(0xFF4A9DE0), // sky
+      Color(0xFF9B6BFF), // violet
+    ],
+  );
+
+  // ---------------------------------------------------------------------
   // Technical/overlay tokens -- NOT brand colors. Not part of DS-001's
   // Section 2.3/2.4 scale (that section is scoped to brand/neutral/status
   // colors, not technical image overlays). Discovered during DS-001c

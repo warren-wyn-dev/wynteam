@@ -6,14 +6,10 @@ import '../../club/presentation/widgets/club_section.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/drop_detail_screen.dart';
 import '../../follow/data/follow_repository.dart';
-import '../../notification/data/notification_repository.dart';
-import '../../notification/presentation/notification_list_screen.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../saved/data/saved_repository.dart';
-import '../../search/presentation/search_screen.dart';
-import '../../zoky/data/zoky_repository.dart';
 import '../data/home_feed_item.dart';
 import '../data/home_repository.dart';
 import 'pop_single_clip_screen.dart';
@@ -21,16 +17,22 @@ import 'widgets/from_your_clubs_feed.dart';
 import 'widgets/home_drop_card.dart';
 import 'widgets/home_pop_card.dart';
 import 'widgets/trending_tile.dart';
+import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 
-enum _HomeFeedMode { forYou, latest, fromYourClubs }
+enum _HomeFeedMode { forYou, following, latest, fromYourClubs }
 
 /// Screen 1 — Home tab (Bottom Nav, index 0). A feed mixing Drop and Pop
-/// content, with the CLUB section (WYN-014) between the top row and the
-/// feed. Default mode is "สำหรับคุณ" (ranked, WYN-018); "ล่าสุด" is the
-/// original WYN-007 chronological ordering, still one tap away. See
-/// .wyn/docs/design/wyn-007-home.md, .wyn/docs/design/wyn-014-club-core.md
-/// (Screen 1), and .wyn/docs/design/wyn-018-home-feed-ranking.md.
+/// content, with the CLUB section (WYN-014) directly above the feed.
+/// Default mode is "สำหรับคุณ" (ranked, WYN-018); "ติดตาม" (WYN-024)
+/// absorbs the WYN-019 Drop tab's own Following capability now that Drop
+/// no longer has a separate tab; "ล่าสุด" is the original WYN-007
+/// chronological ordering. Search and Notifications moved out to their
+/// own Bottom Nav tabs as part of WYN-024 -- this screen no longer owns a
+/// top row. See .wyn/docs/design/wyn-007-home.md,
+/// .wyn/docs/design/wyn-014-club-core.md (Screen 1),
+/// .wyn/docs/design/wyn-018-home-feed-ranking.md, and
+/// .wyn/docs/design/wyn-024-bottom-nav-v1-restructure.md (Screen 2).
 class HomeFeedScreen extends StatefulWidget {
   const HomeFeedScreen({
     super.key,
@@ -40,10 +42,8 @@ class HomeFeedScreen extends StatefulWidget {
     required this.followRepository,
     required this.profileRepository,
     required this.savedRepository,
-    required this.notificationRepository,
     required this.clubRepository,
     required this.clubPostRepository,
-    required this.zokyRepository,
   });
 
   final HomeRepository homeRepository;
@@ -52,10 +52,8 @@ class HomeFeedScreen extends StatefulWidget {
   final FollowRepository followRepository;
   final ProfileRepository profileRepository;
   final SavedRepository savedRepository;
-  final NotificationRepository notificationRepository;
   final ClubRepository clubRepository;
   final ClubPostRepository clubPostRepository;
-  final ZokyRepository zokyRepository;
 
   @override
   State<HomeFeedScreen> createState() => _HomeFeedScreenState();
@@ -69,7 +67,6 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   bool _isLoadingMore = false;
   bool _hasMore = true;
   String? _error;
-  int _unreadNotificationCount = 0;
 
   // Resets to "สำหรับคุณ" every time Home is (re)built fresh -- not
   // persisted across app sessions, per the Design spec's "ค่าเริ่มต้น...
@@ -86,7 +83,6 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   void initState() {
     super.initState();
     _loadInitial();
-    _loadUnreadNotificationCount();
     _trendingFuture = widget.homeRepository.fetchTrending();
     _scrollController.addListener(_onScroll);
   }
@@ -105,13 +101,26 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
   }
 
-  // "สำหรับคุณ" (ranked, WYN-018) and "ล่าสุด" (chronological, WYN-007's
-  // original behavior) share this same _items/_page state and just swap
-  // which repository method feeds it -- "จาก Club ของคุณ" is a wholly
-  // separate widget (FromYourClubsFeed) with its own state, untouched.
-  Future<List<HomeFeedItem>> _fetchPage(int page) => _feedMode == _HomeFeedMode.forYou
-      ? widget.homeRepository.fetchRankedFeed(page: page)
-      : widget.homeRepository.fetchFeed(page: page);
+  // "สำหรับคุณ" (ranked, WYN-018), "ติดตาม" (WYN-024), and "ล่าสุด"
+  // (chronological, WYN-007's original behavior) all share this same
+  // _items/_page state and just swap which repository method feeds it --
+  // "จาก Club ของคุณ" is a wholly separate widget (FromYourClubsFeed)
+  // with its own state, untouched, and never reaches this method (see
+  // the fromYourClubs case below and _buildFeedModeToggle's guard).
+  Future<List<HomeFeedItem>> _fetchPage(int page) {
+    switch (_feedMode) {
+      case _HomeFeedMode.forYou:
+        return widget.homeRepository.fetchRankedFeed(page: page);
+      case _HomeFeedMode.following:
+        return widget.homeRepository.fetchFollowingFeed(page: page);
+      case _HomeFeedMode.latest:
+        return widget.homeRepository.fetchFeed(page: page);
+      case _HomeFeedMode.fromYourClubs:
+        throw StateError(
+          '_fetchPage is never called in fromYourClubs mode -- see build()',
+        );
+    }
+  }
 
   Future<void> _loadInitial() async {
     setState(() {
@@ -294,62 +303,12 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
-  void _openSearch() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SearchScreen(
-          profileRepository: widget.profileRepository,
-          followRepository: widget.followRepository,
-          dropRepository: widget.dropRepository,
-          popRepository: widget.popRepository,
-          savedRepository: widget.savedRepository,
-          clubRepository: widget.clubRepository,
-          clubPostRepository: widget.clubPostRepository,
-        ),
-      ),
-    );
-  }
-
-  Future<void> _loadUnreadNotificationCount() async {
-    try {
-      final count = await widget.notificationRepository.countUnread();
-      if (!mounted) return;
-      setState(() => _unreadNotificationCount = count);
-    } catch (_) {
-      // Silent: a failed badge-count fetch just leaves the badge showing
-      // its last known value (or none) -- not worth a blocking error UI
-      // for a number in the corner of an icon.
-    }
-  }
-
-  Future<void> _openNotifications() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => NotificationListScreen(
-          notificationRepository: widget.notificationRepository,
-          dropRepository: widget.dropRepository,
-          popRepository: widget.popRepository,
-          followRepository: widget.followRepository,
-          profileRepository: widget.profileRepository,
-          savedRepository: widget.savedRepository,
-          clubRepository: widget.clubRepository,
-          clubPostRepository: widget.clubPostRepository,
-          zokyRepository: widget.zokyRepository,
-        ),
-      ),
-    );
-    // NotificationListScreen marks everything as read on open -- refresh
-    // the badge so it reflects that the moment we're back on Home.
-    _loadUnreadNotificationCount();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            _buildTopRow(context),
             ClubSection(
               clubRepository: widget.clubRepository,
               clubPostRepository: widget.clubPostRepository,
@@ -379,21 +338,52 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space1),
       child: SegmentedButton<_HomeFeedMode>(
-        segments: const [
-          ButtonSegment(value: _HomeFeedMode.forYou, label: Text('สำหรับคุณ')),
-          ButtonSegment(value: _HomeFeedMode.latest, label: Text('ล่าสุด')),
-          ButtonSegment(value: _HomeFeedMode.fromYourClubs, label: Text('จาก Club ของคุณ')),
+        segments: [
+          _segment(_HomeFeedMode.forYou, 'สำหรับคุณ'),
+          _segment(_HomeFeedMode.following, 'ติดตาม'),
+          _segment(_HomeFeedMode.latest, 'ล่าสุด'),
+          _segment(_HomeFeedMode.fromYourClubs, 'จาก Club ของคุณ'),
         ],
         selected: {_feedMode},
         onSelectionChanged: (selection) {
           final newMode = selection.first;
           setState(() => _feedMode = newMode);
           // "จาก Club ของคุณ" is FromYourClubsFeed's own separate widget
-          // state -- only forYou/latest share _items and need a reload
-          // when switching between (or into) them.
+          // state -- only forYou/following/latest share _items and need
+          // a reload when switching between (or into) them.
           if (newMode != _HomeFeedMode.fromYourClubs) _loadInitial();
         },
       ),
+    );
+  }
+
+  // DS-009: a small Rainbow-gradient dot marks whichever segment is
+  // currently active -- purely decorative, on top of (not instead of)
+  // SegmentedButton's own selected-state styling, which already does the
+  // *functional* job of showing which mode is active. Never carries text
+  // itself. See .wyn/docs/design/ds-009-rainbow-accent.md.
+  ButtonSegment<_HomeFeedMode> _segment(_HomeFeedMode value, String label) {
+    final isActive = _feedMode == value;
+    return ButtonSegment(
+      value: value,
+      label: isActive
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  key: const Key('active_segment_accent'),
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: WynColors.rainbowAccent,
+                  ),
+                ),
+                const SizedBox(width: WynSpacing.space1),
+                Text(label),
+              ],
+            )
+          : Text(label),
     );
   }
 
@@ -449,95 +439,6 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
-  Widget _buildTopRow(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      child: Row(
-        children: [
-          Expanded(child: _buildSearchBar(context)),
-          const SizedBox(width: WynSpacing.space2),
-          _buildNotificationButton(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchBar(BuildContext context) {
-    return Semantics(
-      label: 'ค้นหา',
-      button: true,
-      excludeSemantics: true,
-      child: Material(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(24),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: _openSearch,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space3),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.search,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: WynSpacing.space2),
-                Text(
-                  'ค้นหา',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNotificationButton(BuildContext context) {
-    final count = _unreadNotificationCount;
-    final badgeText = count > 9 ? '9+' : '$count';
-
-    return Semantics(
-      label: count > 0 ? 'การแจ้งเตือน มี $count รายการที่ยังไม่อ่าน' : 'การแจ้งเตือน',
-      button: true,
-      excludeSemantics: true,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: _openNotifications,
-          ),
-          if (count > 0)
-            Positioned(
-              right: 4,
-              top: 4,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: 1),
-                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                ),
-                child: Text(
-                  badgeText,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onPrimary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildBody() {
     if (_isLoadingInitial) {
       return const Center(child: CircularProgressIndicator());
@@ -557,8 +458,18 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
 
     if (_items.isEmpty) {
-      return const Center(
-        child: Text('ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!'),
+      // "ติดตาม" gets a join-prompt message (mirrors WYN-019's Drop tab
+      // Following-tab wording, adapted to this screen's Thai segment
+      // labels) rather than the generic "be the first" one, which reads
+      // wrong when the real issue is "you aren't following anyone yet".
+      final message = _feedMode == _HomeFeedMode.following
+          ? 'ยังไม่ได้ follow ใครเลย ลองดู สำหรับคุณ เพื่อค้นหาคนน่าสนใจ'
+          : 'ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!';
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
+          child: Text(message, textAlign: TextAlign.center),
+        ),
       );
     }
 

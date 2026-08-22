@@ -12,9 +12,7 @@ import 'package:wyn/features/home/presentation/home_feed_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/trending_tile.dart';
-import 'package:wyn/features/notification/presentation/notification_list_screen.dart';
 import 'package:wyn/features/profile/data/profile.dart';
-import 'package:wyn/features/search/presentation/search_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/fake_video_player_platform.dart';
@@ -23,11 +21,9 @@ import 'support/recording_club_repository.dart';
 import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
 import 'support/recording_home_repository.dart';
-import 'support/recording_notification_repository.dart';
 import 'support/recording_pop_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
-import 'support/recording_zoky_repository.dart';
 
 HomeFeedItem _dropItem({
   String id = 'd1',
@@ -91,15 +87,12 @@ void main() {
   late RecordingFollowRepository sharedFollowRepository;
   late RecordingProfileRepository sharedProfileRepository;
   late RecordingSavedRepository sharedSavedRepository;
-  late RecordingNotificationRepository sharedNotificationRepository;
   late RecordingClubRepository sharedClubRepository;
-  late RecordingZokyRepository sharedZokyRepository;
   late RecordingClubPostRepository sharedClubPostRepository;
   late RecordingClubPostRepository emptyFromClubsPostRepository;
   late RecordingClubPostRepository fromClubsPostRepository;
   late RecordingHomeRepository mixedFeedHomeRepository;
   late RecordingHomeRepository emptyHomeRepository;
-  late RecordingHomeRepository searchTestHomeRepository;
 
   late RecordingDropRepository dropLikeTestDropRepository;
   late RecordingPopRepository dropLikeTestPopRepository;
@@ -117,13 +110,6 @@ void main() {
   late RecordingPopRepository popCommentTestPopRepository;
   late RecordingHomeRepository popCommentTestHomeRepository;
 
-  late RecordingNotificationRepository fewUnreadNotificationRepository;
-  late RecordingNotificationRepository manyUnreadNotificationRepository;
-  late RecordingNotificationRepository noUnreadNotificationRepository;
-  late RecordingHomeRepository badgeTestHomeRepository;
-  late RecordingDropRepository badgeTestDropRepository;
-  late RecordingPopRepository badgeTestPopRepository;
-
   // WYN-017: Trending row + Recommended Clubs row.
   late RecordingHomeRepository trendingItemsHomeRepository;
   late RecordingHomeRepository emptyTrendingHomeRepository;
@@ -133,6 +119,10 @@ void main() {
   late RecordingClubRepository manyClubsRepository;
   late RecordingClubRepository noJoinedClubsRepository;
   late RecordingHomeRepository rankingTestHomeRepository;
+
+  // WYN-024: "ติดตาม" (Following) feed mode.
+  late RecordingHomeRepository followingTestHomeRepository;
+  late RecordingHomeRepository emptyFollowingTestHomeRepository;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
@@ -146,9 +136,7 @@ void main() {
       profile: const Profile(id: 'someone-else', username: 'namfah'),
     );
     sharedSavedRepository = RecordingSavedRepository();
-    sharedNotificationRepository = RecordingNotificationRepository();
     sharedClubRepository = RecordingClubRepository();
-    sharedZokyRepository = RecordingZokyRepository();
     sharedClubPostRepository = RecordingClubPostRepository();
     emptyFromClubsPostRepository = RecordingClubPostRepository(fromJoinedClubs: []);
     fromClubsPostRepository = RecordingClubPostRepository(fromJoinedClubs: [
@@ -170,7 +158,6 @@ void main() {
       feedItems: [_dropItem(id: 'd1'), _popItem(id: 'p1')],
     );
     emptyHomeRepository = RecordingHomeRepository(feedItems: []);
-    searchTestHomeRepository = RecordingHomeRepository(feedItems: []);
 
     dropLikeTestDropRepository = RecordingDropRepository();
     dropLikeTestPopRepository = RecordingPopRepository();
@@ -195,13 +182,6 @@ void main() {
     popCommentTestHomeRepository = RecordingHomeRepository(
       feedItems: [_popItem(id: 'p3')],
     );
-
-    fewUnreadNotificationRepository = RecordingNotificationRepository(unreadCount: 3);
-    manyUnreadNotificationRepository = RecordingNotificationRepository(unreadCount: 15);
-    noUnreadNotificationRepository = RecordingNotificationRepository(unreadCount: 0);
-    badgeTestHomeRepository = RecordingHomeRepository(feedItems: []);
-    badgeTestDropRepository = RecordingDropRepository();
-    badgeTestPopRepository = RecordingPopRepository();
 
     trendingItemsHomeRepository = RecordingHomeRepository(
       feedItems: [],
@@ -236,13 +216,20 @@ void main() {
       feedItems: [_dropItem(id: 'latest-only', caption: 'จากล่าสุด')],
       rankedFeedItems: [_dropItem(id: 'ranked-only', caption: 'จากสำหรับคุณ')],
     );
+    followingTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'latest-only', caption: 'จากล่าสุด')],
+      followingFeedItems: [_dropItem(id: 'following-only', caption: 'จากติดตาม')],
+    );
+    emptyFollowingTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'has-feed')],
+      followingFeedItems: [],
+    );
   });
 
   Widget buildHome(
     RecordingHomeRepository homeRepository, {
     required RecordingDropRepository dropRepository,
     required RecordingPopRepository popRepository,
-    RecordingNotificationRepository? notificationRepository,
     RecordingClubPostRepository? clubPostRepository,
     RecordingClubRepository? clubRepository,
   }) =>
@@ -254,10 +241,8 @@ void main() {
           followRepository: sharedFollowRepository,
           profileRepository: sharedProfileRepository,
           savedRepository: sharedSavedRepository,
-          notificationRepository: notificationRepository ?? sharedNotificationRepository,
           clubRepository: clubRepository ?? sharedClubRepository,
           clubPostRepository: clubPostRepository ?? sharedClubPostRepository,
-          zokyRepository: sharedZokyRepository,
         ),
       );
 
@@ -459,77 +444,6 @@ void main() {
     expect(find.byType(PopSingleClipScreen), findsOneWidget);
   });
 
-  testWidgets('tapping the Search bar opens SearchScreen (WYN-009)',
-      (tester) async {
-    await tester.pumpWidget(buildHome(
-      searchTestHomeRepository,
-      dropRepository: sharedDropRepository,
-      popRepository: sharedPopRepository,
-    ));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('ค้นหา'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(SearchScreen), findsOneWidget);
-  });
-
-  testWidgets('shows the unread notification count as a badge on the '
-      'bell icon (WYN-012)', (tester) async {
-    await tester.pumpWidget(buildHome(
-      badgeTestHomeRepository,
-      dropRepository: badgeTestDropRepository,
-      popRepository: badgeTestPopRepository,
-      notificationRepository: fewUnreadNotificationRepository,
-    ));
-    await tester.pumpAndSettle();
-
-    expect(find.text('3'), findsOneWidget);
-  });
-
-  testWidgets('caps the notification badge at "9+" rather than showing the '
-      'exact count once it is in double digits (WYN-012)', (tester) async {
-    await tester.pumpWidget(buildHome(
-      badgeTestHomeRepository,
-      dropRepository: badgeTestDropRepository,
-      popRepository: badgeTestPopRepository,
-      notificationRepository: manyUnreadNotificationRepository,
-    ));
-    await tester.pumpAndSettle();
-
-    expect(find.text('9+'), findsOneWidget);
-    expect(find.text('15'), findsNothing);
-  });
-
-  testWidgets('hides the badge entirely when there are no unread '
-      'notifications (WYN-012)', (tester) async {
-    await tester.pumpWidget(buildHome(
-      badgeTestHomeRepository,
-      dropRepository: badgeTestDropRepository,
-      popRepository: badgeTestPopRepository,
-      notificationRepository: noUnreadNotificationRepository,
-    ));
-    await tester.pumpAndSettle();
-
-    expect(find.text('0'), findsNothing);
-  });
-
-  testWidgets('tapping the notification bell opens NotificationListScreen '
-      '(WYN-012)', (tester) async {
-    await tester.pumpWidget(buildHome(
-      badgeTestHomeRepository,
-      dropRepository: badgeTestDropRepository,
-      popRepository: badgeTestPopRepository,
-      notificationRepository: fewUnreadNotificationRepository,
-    ));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byIcon(Icons.notifications_outlined));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(NotificationListScreen), findsOneWidget);
-  });
-
   group('"สำหรับคุณ"/"จาก Club ของคุณ" feed toggle (WYN-015)', () {
     testWidgets('defaults to "สำหรับคุณ" showing the regular Drop/Pop feed',
         (tester) async {
@@ -657,7 +571,8 @@ void main() {
       expect(find.text('จากล่าสุด'), findsNothing);
     });
 
-    testWidgets('all 3 segments ("สำหรับคุณ"/"ล่าสุด"/"จาก Club ของคุณ") are present',
+    testWidgets(
+        'all 4 segments ("สำหรับคุณ"/"ติดตาม"/"ล่าสุด"/"จาก Club ของคุณ") are present (WYN-024)',
         (tester) async {
       await tester.pumpWidget(buildHome(
         mixedFeedHomeRepository,
@@ -668,8 +583,94 @@ void main() {
       tester.takeException();
 
       expect(find.text('สำหรับคุณ'), findsOneWidget);
+      expect(find.text('ติดตาม'), findsOneWidget);
       expect(find.text('ล่าสุด'), findsOneWidget);
       expect(find.text('จาก Club ของคุณ'), findsOneWidget);
+    });
+
+    testWidgets(
+        'a Rainbow accent dot (DS-009) marks whichever segment is active, and only that one',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byKey(const Key('active_segment_accent')), findsOneWidget);
+
+      await tester.tap(find.text('ล่าสุด'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // Still exactly one -- it moved with the selection, it didn't
+      // multiply.
+      expect(find.byKey(const Key('active_segment_accent')), findsOneWidget);
+    });
+  });
+
+  group('"ติดตาม" (Following) feed mode (WYN-024)', () {
+    testWidgets(
+        'switching to "ติดตาม" calls fetchFollowingFeed and shows only its items',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        followingTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('ติดตาม'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('จากติดตาม'), findsOneWidget);
+      expect(find.text('จากล่าสุด'), findsNothing);
+      expect(followingTestHomeRepository.fetchFollowingFeedCalls, 1);
+    });
+
+    testWidgets(
+        'shows a distinct join-prompt-style empty message on "ติดตาม" when '
+        'following no one, not the generic empty state', (tester) async {
+      await tester.pumpWidget(buildHome(
+        emptyFollowingTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('ติดตาม'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(
+        find.text('ยังไม่ได้ follow ใครเลย ลองดู สำหรับคุณ เพื่อค้นหาคนน่าสนใจ'),
+        findsOneWidget,
+      );
+      expect(find.text('ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!'), findsNothing);
+    });
+
+    testWidgets('switching back to "สำหรับคุณ" from "ติดตาม" restores the ranked feed',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        rankingTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('ติดตาม'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('สำหรับคุณ'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('จากสำหรับคุณ'), findsOneWidget);
     });
   });
 

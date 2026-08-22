@@ -1,7 +1,7 @@
 # Product Task — WYN-024
 
-Status: Design เสร็จแล้ว — พร้อมส่ง AI Coding (ดู `.wyn/docs/design/wyn-024-bottom-nav-v1-restructure.md`)
-Owner: AI Product Manager → AI Design → AI Coding
+Status: **Coding ส่งมอบแล้ว รอ QA** — ดู "Coding Output" ท้ายไฟล์นี้ (design spec เต็มที่ `.wyn/docs/design/wyn-024-bottom-nav-v1-restructure.md`)
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security
 
 Feature: Bottom Navigation V1.0.0 Restructure — ถอด Pop/ZOKY ออกจาก Bottom Nav, เพิ่ม Search และ Notifications เป็น tab
 
@@ -42,3 +42,34 @@ Risks: ต่ำ — reuse หน้าจอเดิมทั้งหมด (
 Recommendation: เริ่มได้ทันที ทำคู่ขนานกับ DS-009 (Design comparison) ได้เพราะเป็นคนละเรื่อง (โครงสร้าง nav vs สี) — แนะนำให้ AI Design ตัดสินใจ icon/layout ของปุ่ม Drop "+" ตรงกลาง (elevated FAB-style vs regular tab icon) และตำแหน่ง badge ของ Notifications tab
 
 Handoff: ส่งต่อ AI Design (`/design`) เพื่อออกแบบ Bottom Nav ใหม่ตาม R1-R6 ก่อนส่ง AI Coding
+
+---
+
+## Coding Output (2026-08-22)
+
+**Implementation**: Nav restructure ตาม design spec ครบทุก R (R1-R8) — `RootShell` เหลือ 5 destination (Home/Search/Drop+/Notifications/Profile) map เข้า 4 tab จริงใน `IndexedStack` (Drop เป็น action เปิด `CreateDropScreen` ไม่ใช่ tab) ย้าย unread-badge state + mark-as-read-on-visit (remount-key pattern เดียวกับ Profile เดิม) จาก `HomeFeedScreen` มาไว้ที่ `RootShell`, ย้าย Search/Notifications ออกจาก Home's top row เป็น tab จริง (เพิ่ม `SearchScreen.autofocus` default `false` เพื่อไม่ให้คีย์บอร์ดผุดทุกครั้งที่สลับแท็บ) — **R8**: ยุบ `DropFeedScreen` (For You/Following/Latest) เข้า Home เป็นโหมด "ติดตาม" ใหม่ (`HomeRepository.fetchFollowingFeed` มิเรอร์ `DropRepository.fetchFollowingFeed` เดิมเป๊ะ) แล้วลบ `drop_feed_screen.dart`/`drop_feed_screen_test.dart` ทิ้งจริง (capability ย้ายเข้า Home ครบ ไม่มี route ไหนชี้ไปอีก) — DS-009's Rainbow accent (Trending tile ring + active-segment dot) ทำพร้อมกันในรอบเดียวเพราะแตะไฟล์ Home เดียวกัน
+
+**Files Changed**:
+- `app/lib/features/root/presentation/root_shell.dart` — เขียนใหม่ทั้งไฟล์ (5-destination nav, badge state, remount keys, optional-repository-injection สำหรับ testability)
+- `app/lib/features/home/presentation/home_feed_screen.dart` — ตัด top row (search bar/notif bell) ทิ้ง, เพิ่มโหมด "ติดตาม", เพิ่ม Rainbow accent dot บน segment ที่ active
+- `app/lib/features/home/data/home_repository.dart` — เพิ่ม `fetchFollowingFeed`
+- `app/lib/features/home/presentation/widgets/trending_tile.dart` — เพิ่ม Rainbow ring (DS-009)
+- `app/lib/features/search/presentation/search_screen.dart` — เพิ่ม `autofocus` param (default `false`)
+- `app/lib/core/design/wyn_colors.dart` + `seller_app/lib/core/design/wyn_colors.dart` (มิเรอร์ตรงตัวอักษร ตาม DS-001's sync convention) — เพิ่ม `rainbowAccent` gradient token
+- ลบ: `app/lib/features/drop/presentation/drop_feed_screen.dart`, `app/test/drop_feed_screen_test.dart`
+- `app/test/home_feed_screen_test.dart` — ตัด test ของ search-bar/notification-badge ที่ย้ายออกไป (ตอนนี้อยู่ใน `root_shell_test.dart` ใหม่), เพิ่ม test กลุ่ม "ติดตาม" + Rainbow accent dot
+- `app/test/support/recording_home_repository.dart` — เพิ่ม `followingFeedItems`/`fetchFollowingFeedCalls`
+- `app/test/root_shell_test.dart` — **ไฟล์ใหม่** (RootShell ไม่เคยมี test มาก่อน — เพิ่ม optional repository injection ให้ testable เป็นครั้งแรก มิเรอร์ pattern เดิมของ `CreateDropScreen`)
+
+**Reason**: ตรงตาม Design spec `wyn-024-bottom-nav-v1-restructure.md` และ `ds-009-rainbow-accent.md` ทุกข้อ — ไม่แตะ Pop/ZOKY/SELLER โค้ดหรือ DB เลย (แค่เลิก mount ใน `RootShell`)
+
+**Tests**: เพิ่ม test ใหม่ครอบคลุม nav mapping, badge zeroing, Drop-action-ไม่เปลี่ยน-tab, โหมด "ติดตาม" (fetch/empty-state/switch-back), Rainbow accent dot เคลื่อนตามการเลือก — **⚠️ ไม่สามารถรัน `flutter analyze`/`flutter test` ได้ในเซสชันนี้** (ไม่มี Flutter/Dart SDK ติดตั้งอยู่ใน environment นี้ และ network proxy ที่ใช้อยู่ไม่อนุญาตให้ดาวน์โหลด Flutter SDK จาก github.com/storage.googleapis.com) — ตรวจสอบด้วยมือแทน: อ่านโค้ดทุกไฟล์ที่แก้ซ้ำ, ตรวจสอบ brace/paren balance ทุกไฟล์, grep หา reference ที่ตกค้างของ param/class ที่ลบ/เปลี่ยนชื่อทุกจุด (ไม่พบ), เทียบ constructor signature ทุกจุดเรียกกับที่นิยามจริง — **AI QA & Security ต้องรัน `flutter analyze`/`flutter test` อิสระเป็นด่านแรกก่อนอย่างอื่นทั้งหมด** เพราะรอบนี้ไม่มีตัวเลขจาก Coding ให้เทียบเหมือนทุกรอบก่อนหน้า
+
+**Build**: ไม่ได้ build (Flutter SDK ไม่มีในเซสชันนี้ ดูเหตุผลเดียวกับ Tests)
+
+**Known Issues**:
+1. Drop action button's accessibility semantics (`Semantics(label: 'สร้าง Drop ใหม่', button: true)`) อยู่ซ้อนใน `NavigationDestination` ซึ่ง Flutter ห่อ semantics อัตโนมัติเป็น "tab X of 5" — ไม่ได้ทดสอบว่า screen reader จะพูดซ้ำซ้อนกันไหม (ไม่มี pattern อ้างอิงในโปรเจกต์นี้มาก่อนสำหรับปุ่ม action กลาง Bottom Nav)
+2. `_homeVersion` bump (remount ทั้ง Home หลังสร้าง Drop) รีเซ็ต feed mode กลับเป็น "สำหรับคุณ" เสมอ แทนที่จะรักษาโหมดเดิมที่ user ค้างอยู่ — เป็นการยอมรับ trade-off เพื่อไม่ต้อง thread callback/GlobalKey ซับซ้อนเข้า `HomeFeedScreen`'s private State (ตามที่ design spec เปิดทางให้ "หรือเทียบเท่า")
+3. `RootShell` ไม่เคยมี test มาก่อนเลย เพิ่ง unlock ได้รอบนี้ — coverage ยังไม่ครบทุก edge case (เช่น double-tap Drop action, Profile visit-key bump)
+
+**Handoff**: ส่งต่อ AI QA & Security — ให้ความสำคัญเป็นพิเศษกับ: (1) รัน `flutter analyze`/`flutter test` เป็นอันดับแรก เพราะ Coding ไม่มีตัวเลขให้เทียบรอบนี้ (2) ยืนยันว่า Pop/ZOKY โค้ด+ตาราง DB ยังอยู่ครบ ไม่ได้ถูกลบไปด้วยระหว่างที่ลบ `DropFeedScreen` (3) ยืนยันว่าไม่มี dead-link เหลือที่ยังชี้ไป Pop/ZOKY จากหน้าจออื่น (4) ทดสอบ "ติดตาม" mode ด้วย fixture ที่มี Drop+Pop ผสมกันจริง ไม่ใช่แค่ Drop อย่างเดียวแบบที่ unit test ใช้

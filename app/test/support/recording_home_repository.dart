@@ -13,14 +13,16 @@ class RecordingHomeRepository extends HomeRepository {
     List<HomeFeedItem>? feedItems,
     List<HomeFeedItem>? trendingItems,
     List<HomeFeedItem>? rankedFeedItems,
+    List<HomeFeedItem>? followingFeedItems,
   })  : feedItems = feedItems ?? [],
         trendingItems = trendingItems ?? [],
         // Defaults to the same list as feedItems -- most existing
         // call sites (predating WYN-018) only care that "the feed
         // shows these items" regardless of forYou/latest mode. Pass
-        // rankedFeedItems explicitly to test the two modes returning
-        // genuinely different data.
+        // rankedFeedItems/followingFeedItems explicitly to test a mode
+        // returning genuinely different data from the others.
         rankedFeedItems = rankedFeedItems ?? feedItems ?? [],
+        followingFeedItems = followingFeedItems ?? feedItems ?? [],
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   /// Returned by [fetchFeed] for page 0 only (page 1+ returns empty).
@@ -34,7 +36,13 @@ class RecordingHomeRepository extends HomeRepository {
   /// given explicitly (see constructor doc comment).
   final List<HomeFeedItem> rankedFeedItems;
 
+  /// Returned by [fetchFollowingFeed] for page 0 only (page 1+ returns
+  /// empty) -- WYN-024. Defaults to the same list as [feedItems] unless
+  /// given explicitly (see constructor doc comment).
+  final List<HomeFeedItem> followingFeedItems;
+
   int fetchRankedFeedCalls = 0;
+  int fetchFollowingFeedCalls = 0;
 
   @override
   Future<List<HomeFeedItem>> fetchFeed({required int page}) async {
@@ -48,5 +56,11 @@ class RecordingHomeRepository extends HomeRepository {
   Future<List<HomeFeedItem>> fetchRankedFeed({required int page}) async {
     fetchRankedFeedCalls++;
     return page == 0 ? rankedFeedItems : <HomeFeedItem>[];
+  }
+
+  @override
+  Future<List<HomeFeedItem>> fetchFollowingFeed({required int page}) async {
+    fetchFollowingFeedCalls++;
+    return page == 0 ? followingFeedItems : <HomeFeedItem>[];
   }
 }

@@ -26,51 +26,61 @@ class TrendingTile extends StatelessWidget {
       button: true,
       child: GestureDetector(
         onTap: onTap,
-        child: SizedBox(
-          width: 90,
-          height: 90,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (imageUrl != null)
-                Image.network(imageUrl, fit: BoxFit.cover)
-              else
-                Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
-              if (isPop)
-                const Center(
-                  child: ExcludeSemantics(
-                    child: Icon(Icons.play_circle, color: Colors.white, size: 28),
+        // DS-009: every tile in this row is, by definition, trending
+        // content -- so the Rainbow ring applies unconditionally here
+        // rather than needing its own "is this trending?" flag. See
+        // .wyn/docs/design/ds-009-rainbow-accent.md.
+        child: Container(
+          width: 94,
+          height: 94,
+          padding: const EdgeInsets.all(2),
+          decoration: const BoxDecoration(gradient: WynColors.rainbowAccent),
+          child: SizedBox(
+            width: 90,
+            height: 90,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (imageUrl != null)
+                  Image.network(imageUrl, fit: BoxFit.cover)
+                else
+                  Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
+                if (isPop)
+                  const Center(
+                    child: ExcludeSemantics(
+                      child: Icon(Icons.play_circle, color: Colors.white, size: 28),
+                    ),
                   ),
-                ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: ExcludeSemantics(
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(6, 14, 6, 4),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, WynColors.imageScrim],
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: ExcludeSemantics(
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(6, 14, 6, 4),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, WynColors.imageScrim],
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.favorite, size: 13, color: Colors.white),
+                          const SizedBox(width: 3),
+                          Text(
+                            '${item.likeCount}',
+                            style: const TextStyle(color: Colors.white, fontSize: 12),
+                          ),
+                        ],
                       ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.favorite, size: 13, color: Colors.white),
-                        const SizedBox(width: 3),
-                        Text(
-                          '${item.likeCount}',
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
