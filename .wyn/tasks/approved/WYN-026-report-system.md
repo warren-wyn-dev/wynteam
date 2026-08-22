@@ -1,7 +1,11 @@
 # Product Task — WYN-026
 
-Status: review (Coding เสร็จ, รอ AI QA & Security)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ — ดู `.wyn/docs/design/wyn-026-report-system.md`) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
+Status: approved (QA รอบ 1 — PASS)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ — ดู `.wyn/docs/design/wyn-026-report-system.md`) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ — PASS รอบ 1) → AI Deploy & DevOps (รอ infra จาก Founder)
+
+## QA — Round 1 (2026-08-22, PASS)
+
+ดูรายงานเต็มที่ `.wyn/company/DECISIONS.md` (2026-08-22, "WYN-026 QA รอบ 1") — สรุป: `flutter analyze`/`flutter test` อิสระ (369/369), รัน SQL จริง (`reports` table + `submit_report()` RPC) บน Postgres 16 จริงในเครื่อง (ไม่ใช่แค่อ่านโค้ด) ยืนยัน self-report guard/duplicate guard/RLS privacy/no-update-policy/re-report-after-close ทำงานถูกต้องทั้งหมด 16 เคส เขียน widget test ชั่วคราวพิสูจน์ double-submit safety + gesture collision บน `HomeDropCard` + text-scale 130% ไม่ overflow แล้วลบทิ้ง — พบ 1 ข้อสังเกต Minor ไม่ block (ดูรายละเอียดใน DECISIONS.md)
 
 Feature: Report System (Universal — User/Drop/Comment/Club/Club Post/Message)
 
