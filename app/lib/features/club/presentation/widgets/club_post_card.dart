@@ -9,6 +9,9 @@ import '../../data/club_post.dart';
 import '../club_post_detail_screen.dart' show clubPostShareLink;
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/widgets/hashtag_text.dart';
+import '../../../report/data/report_repository.dart';
+import '../../../report/data/report_target_type.dart';
+import '../../../report/presentation/report_sheet.dart';
 
 /// A Club post card for the Posts tab list. Same interaction-row family
 /// as HomeDropCard/HomePopCard (Like/Comment/Share/Bookmark), plus a
@@ -61,6 +64,17 @@ class ClubPostCard extends StatelessWidget {
     if (confirmed == true) onDelete();
   }
 
+  Future<void> _report(BuildContext context) {
+    return showReportSheet(
+      context,
+      reportRepository: ReportRepository(Supabase.instance.client),
+      targetType: ReportTargetType.clubPost,
+      targetId: post.id,
+      targetLabel: 'รายงานโพสต์ของ ${post.authorNameOrUsername}',
+      associatedUserId: post.authorId,
+    );
+  }
+
   Future<void> _openMoreMenu(BuildContext context) async {
     final canModerate = myRole?.canModeratePosts ?? false;
 
@@ -87,6 +101,19 @@ class ClubPostCard extends StatelessWidget {
                   onTogglePin();
                 },
               ),
+            // Report is always the last item and only ever shown for
+            // someone else's post (see wyn-026-report-system.md, Screen
+            // 6) -- everyone who isn't the author can report a post,
+            // regardless of whether they also have moderation rights.
+            if (!_isOwnPost)
+              ListTile(
+                leading: const Icon(Icons.flag_outlined),
+                title: const Text('รายงานโพสต์'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _report(context);
+                },
+              ),
           ],
         ),
       ),
@@ -95,8 +122,9 @@ class ClubPostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canModerate = myRole?.canModeratePosts ?? false;
-    final showMoreButton = _isOwnPost || canModerate;
+    // Everyone can open the More menu now that a non-moderator, non-
+    // author viewer still has "รายงานโพสต์" to see there (WYN-026).
+    const showMoreButton = true;
 
     return InkWell(
       onTap: onTap,

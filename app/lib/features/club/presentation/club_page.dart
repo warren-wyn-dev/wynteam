@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/club.dart';
 import '../data/club_member.dart';
@@ -10,6 +11,9 @@ import 'widgets/club_about_tab.dart';
 import 'widgets/club_members_tab.dart';
 import 'widgets/club_posts_tab.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../report/data/report_repository.dart';
+import '../../report/data/report_target_type.dart';
+import '../../report/presentation/report_sheet.dart';
 
 /// Placeholder share link -- same "no real hosting/domain yet" caveat as
 /// dropShareLink/popShareLink (WYN-005/006).
@@ -55,6 +59,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
 
   late Future<_ClubPageData> _loadFuture;
   bool _isJoinActionInFlight = false;
+  final _reportRepository = ReportRepository(Supabase.instance.client);
 
   @override
   void initState() {
@@ -197,6 +202,16 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     );
   }
 
+  Future<void> _reportClub(Club club) {
+    return showReportSheet(
+      context,
+      reportRepository: _reportRepository,
+      targetType: ReportTargetType.club,
+      targetId: club.id,
+      targetLabel: 'รายงาน Club "${club.name}"',
+    );
+  }
+
   Future<void> _openMoreMenu(Club club, ClubMember? membership) async {
     final role = membership?.status == ClubMemberStatus.approved ? membership!.role : null;
     final isApproved = membership?.status == ClubMemberStatus.approved;
@@ -246,7 +261,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                 title: const Text('รายงาน Club'),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
-                  _showMessage('ฟีเจอร์นี้จะมาเร็ว ๆ นี้');
+                  _reportClub(club);
                 },
               ),
             ] else if (isPending) ...[
@@ -263,7 +278,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                 title: const Text('รายงาน Club'),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
-                  _showMessage('ฟีเจอร์นี้จะมาเร็ว ๆ นี้');
+                  _reportClub(club);
                 },
               ),
             ] else
@@ -272,7 +287,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                 title: const Text('รายงาน Club'),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
-                  _showMessage('ฟีเจอร์นี้จะมาเร็ว ๆ นี้');
+                  _reportClub(club);
                 },
               ),
           ],

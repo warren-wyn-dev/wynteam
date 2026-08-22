@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../features/block/data/block_repository.dart';
 import '../../features/club/data/club_post_repository.dart';
 import '../../features/club/data/club_repository.dart';
 import '../../features/drop/data/drop_repository.dart';
@@ -97,6 +98,17 @@ class _HashtagTextState extends State<HashtagText> {
       return;
     }
     if (profile == null || !mounted) return;
+
+    // A block relationship (either direction) makes the mention
+    // non-navigable, same silent no-op as an unresolvable mention above
+    // -- see .wyn/docs/design/wyn-027-block-system.md, Screen 9.
+    try {
+      final blockRelationship = await BlockRepository(client).blockRelationship(profile.id);
+      if (blockRelationship.isBlockedEitherWay) return;
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
 
     Navigator.of(context).push(
       MaterialPageRoute(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -13,6 +14,9 @@ import '../data/club_post_comment.dart';
 import '../data/club_post_repository.dart';
 import 'widgets/club_post_card.dart' show ClubPostImages;
 import '../../../core/design/wyn_spacing.dart';
+import '../../report/data/report_repository.dart';
+import '../../report/data/report_target_type.dart';
+import '../../report/presentation/report_sheet.dart';
 
 /// Placeholder share link -- same "no real hosting/domain yet" caveat as
 /// dropShareLink/popShareLink (WYN-005/006).
@@ -55,6 +59,8 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
   bool get _isOwnPost =>
       _post.authorId == Supabase.instance.client.auth.currentUser!.id;
   bool get _canModerate => widget.myRole?.canModeratePosts ?? false;
+
+  final _reportRepository = ReportRepository(Supabase.instance.client);
 
   @override
   void initState() {
@@ -199,6 +205,51 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
     } finally {
       if (mounted) setState(() => _isSendingComment = false);
     }
+  }
+
+  Future<void> _reportComment(ClubPostComment comment) {
+    return showReportSheet(
+      context,
+      reportRepository: _reportRepository,
+      targetType: ReportTargetType.clubPostComment,
+      targetId: comment.id,
+      targetLabel: 'รายงานคอมเมนต์ของ ${comment.authorNameOrUsername}',
+      associatedUserId: comment.authorId,
+    );
+  }
+
+  // Long-press fallback, additional to the existing own-comment delete
+  // icon -- see .wyn/docs/design/wyn-026-report-system.md, Screen 6.
+  Future<void> _openCommentMenu(ClubPostComment comment, String currentUserId) async {
+    final isOwnComment = comment.authorId == currentUserId;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            if (isOwnComment)
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('ลบคอมเมนต์'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _deleteComment(comment.id);
+                },
+              )
+            else
+              ListTile(
+                leading: const Icon(Icons.flag_outlined),
+                title: const Text('รายงานคอมเมนต์'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _reportComment(comment);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _startReply(ClubPostComment comment) {
@@ -397,7 +448,17 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
     String currentUserId, {
     required bool isReply,
   }) {
-    return Padding(
+    final isOwnComment = comment.authorId == currentUserId;
+
+    return Semantics(
+      customSemanticsActions: {
+        CustomSemanticsAction(
+          label: isOwnComment ? 'ลบคอมเมนต์' : 'รายงานคอมเมนต์',
+        ): () => _openCommentMenu(comment, currentUserId),
+      },
+      child: GestureDetector(
+        onLongPress: () => _openCommentMenu(comment, currentUserId),
+        child: Padding(
       padding: EdgeInsets.fromLTRB(isReply ? 52 : 16, 12, 16, 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -447,6 +508,8 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
               ),
             ),
         ],
+      ),
+        ),
       ),
     );
   }

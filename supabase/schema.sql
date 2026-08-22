@@ -3310,3 +3310,650 @@ $$;
 create trigger club_post_comments_prevent_nested_reply
   before insert on public.club_post_comments
   for each row execute function public.prevent_nested_club_post_comment_reply();
+
+-- ============================================================
+-- WYN-026: Report System
+-- ============================================================
+-- Universal report table (User/Drop/Comment/Club/Club Post today,
+-- Message reserved for WYN-031/032 Phase 2 -- see the Product spec's
+-- Requirements). target_id is polymorphic (no FK -- the referenced
+-- table depends on target_type), so integrity is enforced entirely by
+-- submit_report() below rather than at the column level. See
+-- .wyn/docs/design/wyn-026-report-system.md.
+create table if not exists public.reports (
+  id uuid primary key default gen_random_uuid(),
+  reporter_id uuid not null references public.profiles (id) on delete cascade,
+  target_type text not null
+    check (target_type in (
+      'user', 'drop', 'drop_comment', 'club', 'club_post',
+      'club_post_comment', 'message'
+    )),
+  target_id uuid not null,
+  category text not null
+    check (category in (
+      'spam', 'scam', 'harassment', 'hate', 'sexual_content', 'violence',
+      'privacy', 'illegal_content', 'copyright', 'other'
+    )),
+  detail text,
+  status text not null default 'pending'
+    check (status in ('pending', 'reviewing', 'actioned', 'dismissed')),
+  created_at timestamptz not null default now(),
+  -- "Other" requires a written reason; every other category leaves it
+  -- optional (Product spec, Requirements > ขั้นตอนรายงาน).
+  constraint reports_other_requires_detail
+    check (category <> 'other' or (detail is not null and length(trim(detail)) > 0))
+);
+
+-- One open case per (reporter, target) at a time. A plain UNIQUE
+-- constraint would block re-reporting forever once a case closes, so
+-- this is a partial index scoped to the still-open statuses instead --
+-- matches the Product spec's "1 target ต่อ 1 reporter ส่งได้ครั้งเดียว
+-- จนกว่าจะถูกปิดเคส" rule.
+create unique index if not exists reports_reporter_target_open_unique
+  on public.reports (reporter_id, target_type, target_id)
+  where status in ('pending', 'reviewing');
+
+alter table public.reports enable row level security;
+
+-- A reporter can see only their own submitted reports (so the UI can
+-- show "รายงานแล้ว" instead of the report form for a target they've
+-- already reported). Nobody -- including the person being reported --
+-- can see who reported what or how many reports exist against them;
+-- moderator/admin visibility into the full queue is added by WYN-029,
+-- not here.
+create policy "Users can view their own submitted reports"
+  on public.reports
+  for select
+  to authenticated
+  using (auth.uid() = reporter_id);
+
+-- Deliberately no insert policy: every report is created through
+-- submit_report() below, which validates the target actually exists
+-- and isn't the reporter's own content/profile before inserting -- a
+-- client can never write a reports row via a raw insert() call no
+-- matter what target_id it sends. Same reasoning as club_members
+-- having no update policy (see above).
+create or replace function public.submit_report(
+  p_target_type text,
+  p_target_id uuid,
+  p_category text,
+  p_detail text
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_reporter uuid := auth.uid();
+  v_report_id uuid;
+begin
+  if v_reporter is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_target_type = 'user' then
+    if p_target_id = v_reporter then
+      raise exception 'Cannot report yourself';
+    end if;
+    if not exists (select 1 from public.profiles where id = p_target_id) then
+      raise exception 'Target user not found';
+    end if;
+  elsif p_target_type = 'drop' then
+    if not exists (
+      select 1 from public.drops
+      where id = p_target_id and author_id <> v_reporter
+    ) then
+      raise exception 'Drop not found, or is your own';
+    end if;
+  elsif p_target_type = 'drop_comment' then
+    if not exists (
+      select 1 from public.drop_comments
+      where id = p_target_id and author_id <> v_reporter
+    ) then
+      raise exception 'Comment not found, or is your own';
+    end if;
+  elsif p_target_type = 'club' then
+    if not exists (
+      select 1 from public.clubs
+      where id = p_target_id and owner_id <> v_reporter
+    ) then
+      raise exception 'Club not found, or is your own';
+    end if;
+  elsif p_target_type = 'club_post' then
+    if not exists (
+      select 1 from public.club_posts
+      where id = p_target_id and author_id <> v_reporter
+    ) then
+      raise exception 'Club post not found, or is your own';
+    end if;
+  elsif p_target_type = 'club_post_comment' then
+    if not exists (
+      select 1 from public.club_post_comments
+      where id = p_target_id and author_id <> v_reporter
+    ) then
+      raise exception 'Club post comment not found, or is your own';
+    end if;
+  else
+    -- Includes 'message' -- reserved for WYN-031/032 (Phase 2), no
+    -- table exists yet to validate against, so reject rather than
+    -- accept an unverifiable target.
+    raise exception 'Unsupported report target type: %', p_target_type;
+  end if;
+
+  insert into public.reports (reporter_id, target_type, target_id, category, detail)
+  values (
+    v_reporter,
+    p_target_type,
+    p_target_id,
+    p_category,
+    nullif(trim(coalesce(p_detail, '')), '')
+  )
+  returning id into v_report_id;
+
+  return v_report_id;
+exception
+  when unique_violation then
+    raise exception 'You have already reported this';
+end;
+$$;
+
+grant execute on function public.submit_report(text, uuid, text, text) to authenticated;
+
+-- ============================================================
+-- WYN-027: Block System
+-- ============================================================
+-- See .wyn/docs/design/wyn-027-block-system.md ("ภาพรวมแนวทาง") --
+-- enforcement lives here, at the data layer, not as bespoke UI-side
+-- filtering scattered across every screen.
+create table if not exists public.blocks (
+  blocker_id uuid not null references public.profiles (id) on delete cascade,
+  blocked_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker_id, blocked_id),
+  constraint blocks_no_self_block check (blocker_id <> blocked_id)
+);
+
+alter table public.blocks enable row level security;
+
+-- A user can list only the blocks *they* created (their own Blocked
+-- List, WYN-027 Design Screen 5) -- nobody can see who has blocked
+-- them via a raw select, only through block_relationship() below,
+-- which reveals just the relationship *kind*, not a browsable list.
+create policy "Users can view blocks they created"
+  on public.blocks
+  for select
+  to authenticated
+  using (auth.uid() = blocker_id);
+
+-- Deliberately no insert/delete policy: every block/unblock goes
+-- through block_user()/unblock_user() below, which also tears down
+-- any existing Follow relationship atomically on block -- same
+-- reasoning as club_members having no update policy (see above).
+
+-- Single reusable authorization primitive used by every RLS policy
+-- below (drops/pops/club_posts/*_comments/*_likes/follows/mentions)
+-- to test "is there a block between these two people, in either
+-- direction". security definer so it can run from inside those
+-- policies without needing a broader select policy on blocks itself
+-- that would otherwise leak who-blocked-whom to the blocked party.
+create or replace function public.is_blocked_either_way(a uuid, b uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.blocks
+    where (blocker_id = a and blocked_id = b)
+       or (blocker_id = b and blocked_id = a)
+  );
+$$;
+
+-- security definer author-lookups for the *_likes/*_comments INSERT
+-- policies below (Interaction defense-in-depth) -- deliberately NOT
+-- inlined as a raw `exists (select 1 from public.drops d where
+-- d.id = drop_id and is_blocked_either_way(...))` subquery, because
+-- that subquery would itself run under the *inserting* role and be
+-- subject to drops' own (now block-aware) SELECT policy: if the
+-- author is blocked, the row is invisible to that subquery too, so
+-- "does a blocked-author row exist" would always find nothing and
+-- the NOT EXISTS guard would incorrectly pass. Same self-referential
+-- trap club_role() above already solves for club_members -- these
+-- functions bypass RLS via security definer so the author id comes
+-- back regardless of the caller's own visibility into that row.
+create or replace function public.drop_author_id(p_drop_id uuid)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select author_id from public.drops where id = p_drop_id;
+$$;
+
+create or replace function public.pop_author_id(p_pop_id uuid)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select author_id from public.pops where id = p_pop_id;
+$$;
+
+create or replace function public.drop_comment_author_id(p_comment_id uuid)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select author_id from public.drop_comments where id = p_comment_id;
+$$;
+
+create or replace function public.pop_comment_author_id(p_comment_id uuid)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select author_id from public.pop_comments where id = p_comment_id;
+$$;
+
+-- Exposed to the client (unlike is_blocked_either_way) so
+-- ViewProfileScreen's Blocked persona (WYN-027 Design, Screen 3) can
+-- tell "I blocked them" apart from "they blocked me" for its banner
+-- copy, and its More menu (Screen 1) can decide whether to offer
+-- "บล็อก" at all.
+create or replace function public.block_relationship(p_other_user_id uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when exists (select 1 from public.blocks where blocker_id = auth.uid() and blocked_id = p_other_user_id)
+     and exists (select 1 from public.blocks where blocker_id = p_other_user_id and blocked_id = auth.uid())
+      then 'mutual'
+    when exists (select 1 from public.blocks where blocker_id = auth.uid() and blocked_id = p_other_user_id)
+      then 'blocked_by_me'
+    when exists (select 1 from public.blocks where blocker_id = p_other_user_id and blocked_id = auth.uid())
+      then 'blocked_me'
+    else 'none'
+  end;
+$$;
+
+grant execute on function public.block_relationship(uuid) to authenticated;
+
+-- Blocking someone also severs any existing Follow relationship
+-- between them, both directions, atomically -- Product spec's
+-- Requirements: "ยกเลิก Follow ทั้งสองทิศทางทันทีที่ Block สำเร็จ".
+create or replace function public.block_user(p_target_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_blocker uuid := auth.uid();
+begin
+  if v_blocker is null then
+    raise exception 'Not authenticated';
+  end if;
+  if p_target_user_id = v_blocker then
+    raise exception 'Cannot block yourself';
+  end if;
+  if not exists (select 1 from public.profiles where id = p_target_user_id) then
+    raise exception 'Target user not found';
+  end if;
+
+  insert into public.blocks (blocker_id, blocked_id)
+  values (v_blocker, p_target_user_id)
+  on conflict (blocker_id, blocked_id) do nothing;
+
+  delete from public.follows
+  where (follower_id = v_blocker and following_id = p_target_user_id)
+     or (follower_id = p_target_user_id and following_id = v_blocker);
+end;
+$$;
+
+grant execute on function public.block_user(uuid) to authenticated;
+
+-- Unblock is one-directional and self-scoped by definition (a client
+-- can only ever delete a blocks row it owns as blocker_id = auth.uid()
+-- -- there is nothing to authorize beyond that, so this stays a plain
+-- delete rather than needing its own RLS policy). Per Product spec,
+-- the Follow relationship that existed before the block is *not*
+-- restored automatically.
+create or replace function public.unblock_user(p_target_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  delete from public.blocks
+  where blocker_id = auth.uid() and blocked_id = p_target_user_id;
+end;
+$$;
+
+grant execute on function public.unblock_user(uuid) to authenticated;
+
+-- ------------------------------------------------------------
+-- Content visibility: hide a blocked-either-way author's Drop/Pop and
+-- their comments on *anyone's* content, both directions.
+-- ------------------------------------------------------------
+drop policy "Drops are viewable by authenticated users" on public.drops;
+create policy "Drops are viewable by authenticated users, excluding blocked authors"
+  on public.drops
+  for select
+  to authenticated
+  using (not public.is_blocked_either_way(auth.uid(), author_id));
+
+drop policy "Drop comments are viewable by authenticated users" on public.drop_comments;
+create policy "Drop comments are viewable by authenticated users, excluding blocked authors"
+  on public.drop_comments
+  for select
+  to authenticated
+  using (not public.is_blocked_either_way(auth.uid(), author_id));
+
+drop policy "Pops are viewable by authenticated users" on public.pops;
+create policy "Pops are viewable by authenticated users, excluding blocked authors"
+  on public.pops
+  for select
+  to authenticated
+  using (not public.is_blocked_either_way(auth.uid(), author_id));
+
+drop policy "Pop comments are viewable by authenticated users" on public.pop_comments;
+create policy "Pop comments are viewable by authenticated users, excluding blocked authors"
+  on public.pop_comments
+  for select
+  to authenticated
+  using (not public.is_blocked_either_way(auth.uid(), author_id));
+
+drop policy "Approved club members can view club posts" on public.club_posts;
+create policy "Approved club members can view club posts, excluding blocked authors"
+  on public.club_posts
+  for select
+  to authenticated
+  using (
+    public.club_role(club_id, auth.uid()) is not null
+    and not public.is_blocked_either_way(auth.uid(), author_id)
+  );
+
+drop policy "Approved club members can view club post comments" on public.club_post_comments;
+create policy "Approved club members can view club post comments, excluding blocked authors"
+  on public.club_post_comments
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.club_posts cp
+      where cp.id = club_post_id
+        and public.club_role(cp.club_id, auth.uid()) is not null
+    )
+    and not public.is_blocked_either_way(auth.uid(), author_id)
+  );
+
+-- ------------------------------------------------------------
+-- Interaction: defense-in-depth against liking/commenting on a
+-- blocked-either-way author's content via a direct API call, even
+-- though the content is already invisible to fetch normally (see
+-- above). Product spec's Requirements, "Interaction ถูกจำกัด".
+-- ------------------------------------------------------------
+drop policy "Users can like drops as themselves" on public.drop_likes;
+create policy "Users can like drops as themselves, excluding blocked authors"
+  on public.drop_likes
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = user_id
+    and not public.is_blocked_either_way(auth.uid(), public.drop_author_id(drop_id))
+  );
+
+drop policy "Users can comment on drops as themselves" on public.drop_comments;
+create policy "Users can comment on drops as themselves, excluding blocked authors"
+  on public.drop_comments
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = author_id
+    and not public.is_blocked_either_way(auth.uid(), public.drop_author_id(drop_id))
+  );
+
+drop policy "Users can like drop comments as themselves" on public.drop_comment_likes;
+create policy "Users can like drop comments as themselves, excluding blocked authors"
+  on public.drop_comment_likes
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = user_id
+    and not public.is_blocked_either_way(auth.uid(), public.drop_comment_author_id(comment_id))
+  );
+
+drop policy "Users can like pops as themselves" on public.pop_likes;
+create policy "Users can like pops as themselves, excluding blocked authors"
+  on public.pop_likes
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = user_id
+    and not public.is_blocked_either_way(auth.uid(), public.pop_author_id(pop_id))
+  );
+
+drop policy "Users can comment on pops as themselves" on public.pop_comments;
+create policy "Users can comment on pops as themselves, excluding blocked authors"
+  on public.pop_comments
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = author_id
+    and not public.is_blocked_either_way(auth.uid(), public.pop_author_id(pop_id))
+  );
+
+drop policy "Users can like pop comments as themselves" on public.pop_comment_likes;
+create policy "Users can like pop comments as themselves, excluding blocked authors"
+  on public.pop_comment_likes
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = user_id
+    and not public.is_blocked_either_way(auth.uid(), public.pop_comment_author_id(comment_id))
+  );
+
+drop policy "Approved club members can like club posts as themselves" on public.club_post_likes;
+create policy "Approved club members can like club posts as themselves, excluding blocked authors"
+  on public.club_post_likes
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.club_posts cp
+      where cp.id = club_post_id
+        and public.club_role(cp.club_id, auth.uid()) is not null
+        and not public.is_blocked_either_way(auth.uid(), cp.author_id)
+    )
+  );
+
+drop policy "Approved club members can comment on club posts as themselves" on public.club_post_comments;
+create policy "Approved club members can comment on club posts as themselves, excluding blocked authors"
+  on public.club_post_comments
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = author_id
+    and exists (
+      select 1 from public.club_posts cp
+      where cp.id = club_post_id
+        and public.club_role(cp.club_id, auth.uid()) is not null
+        and not public.is_blocked_either_way(auth.uid(), cp.author_id)
+    )
+  );
+
+-- ------------------------------------------------------------
+-- Follow: can't follow (either direction) while a block relationship
+-- exists. The reverse -- blocking while already following -- is torn
+-- down by block_user() itself, not by this policy (this only guards
+-- *new* follow attempts).
+-- ------------------------------------------------------------
+drop policy "Users can follow others as themselves" on public.follows;
+create policy "Users can follow others as themselves, excluding blocked relationships"
+  on public.follows
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = follower_id
+    and not public.is_blocked_either_way(auth.uid(), following_id)
+  );
+
+-- ------------------------------------------------------------
+-- Mentions: a block relationship stops a mention from ever being
+-- recorded at all (not just from notifying) -- see WYN-027 Design,
+-- Screen 9. The caption text itself may still literally contain
+-- "@username" (MentionInput doesn't retroactively edit what was
+-- typed), but no drop_mentions/club_post_mentions row is created for
+-- it, so notify_drop_mention()/notify_club_post_mention() never fire.
+-- ------------------------------------------------------------
+drop policy "Drop authors can mention users in their own drops" on public.drop_mentions;
+create policy "Drop authors can mention users in their own drops, excluding blocked relationships"
+  on public.drop_mentions
+  for insert
+  to authenticated
+  with check (
+    exists (
+      select 1 from public.drops
+      where drops.id = drop_id and drops.author_id = auth.uid()
+    )
+    and not public.is_blocked_either_way(auth.uid(), mentioned_user_id)
+  );
+
+drop policy "Club post authors can mention users in their own posts" on public.club_post_mentions;
+create policy "Club post authors can mention users in their own posts, excluding blocked relationships"
+  on public.club_post_mentions
+  for insert
+  to authenticated
+  with check (
+    exists (
+      select 1 from public.club_posts
+      where club_posts.id = club_post_id and club_posts.author_id = auth.uid()
+    )
+    and not public.is_blocked_either_way(auth.uid(), mentioned_user_id)
+  );
+
+-- ============================================================
+-- WYN-028: Mute System
+-- ============================================================
+-- See .wyn/docs/design/wyn-028-mute-system.md ("ภาพรวมแนวทาง") --
+-- unlike blocks, mute has no side effect to coordinate atomically (no
+-- Follow teardown, no interaction restriction), so this needs no RPC:
+-- plain client-side insert/delete through RLS, same shape as `follows`.
+create table if not exists public.mutes (
+  muter_id uuid not null references public.profiles (id) on delete cascade,
+  muted_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (muter_id, muted_id),
+  constraint mutes_no_self_mute check (muter_id <> muted_id)
+);
+
+alter table public.mutes enable row level security;
+
+-- A user can only ever see/create/remove their own mute rows -- unlike
+-- blocks there's no relationship-kind RPC to reveal here, because mute
+-- is one-directional only and the muted party must never be able to
+-- tell they've been muted through any channel (Product spec).
+create policy "Users can view mutes they created"
+  on public.mutes
+  for select
+  to authenticated
+  using (auth.uid() = muter_id);
+
+create policy "Users can mute others as themselves"
+  on public.mutes
+  for insert
+  to authenticated
+  with check (auth.uid() = muter_id);
+
+create policy "Users can unmute as themselves"
+  on public.mutes
+  for delete
+  to authenticated
+  using (auth.uid() = muter_id);
+
+-- Mute's one and only enforcement point: the home_feed view itself,
+-- not a SELECT policy on drops/pops directly. drops/pops are queried
+-- directly from several other places (Search, ProfileDropGridTab/
+-- ProfilePopGridTab via fetchByAuthor) that must stay completely
+-- unaffected by mute per the Product spec ("ไม่กระทบ Search, ไม่กระทบ
+-- Club Post ร่วม, ไม่กระทบ Profile") -- filtering only inside this view
+-- keeps the effect scoped to exactly HomeRepository's fetchFeed/
+-- fetchTrending/fetchFollowingFeed, all of which query this view and
+-- nothing else, which is exactly "Home Feed" in the sense the
+-- Requirement means (see wyn-028-mute-system.md, Screen 2, for why the
+-- Trending row is an intentional, disclosed side effect of that scope).
+--
+-- The `not exists (select 1 from public.mutes where muter_id =
+-- auth.uid() ...)` subquery below does NOT hit the RLS self-referential
+-- trap found in WYN-027 (see drop_author_id() above): that trap needed
+-- a subquery to check a table (drops) whose own RLS filtered on an
+-- *unrelated* condition (block) to what the subquery needed (author
+-- id), so RLS silently hid rows the subquery needed to see. Here the
+-- subquery's own condition (`muter_id = auth.uid()`) is identical to
+-- mutes' SELECT policy condition -- RLS permits exactly the rows this
+-- subquery is already looking for, so no self-defeat is possible and a
+-- security-definer helper function is unnecessary.
+create or replace view public.home_feed
+  with (security_invoker = true) as
+select
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  d.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  null::bigint as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count
+from public.drops d
+join public.profiles prof on prof.id = d.author_id
+where not exists (
+  select 1 from public.mutes where muter_id = auth.uid() and muted_id = d.author_id
+)
+union all
+select
+  p.id,
+  'pop'::text as content_type,
+  p.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  p.created_at,
+  p.caption,
+  null::text as image_url,
+  p.video_url,
+  p.thumbnail_url,
+  p.duration_seconds,
+  p.view_count,
+  (select count(*) from public.pop_likes where pop_id = p.id) as like_count,
+  (select count(*) from public.pop_comments where pop_id = p.id) as comment_count
+from public.pops p
+join public.profiles prof on prof.id = p.author_id
+where not exists (
+  select 1 from public.mutes where muter_id = auth.uid() and muted_id = p.author_id
+);
+
+grant select on public.home_feed to authenticated;

@@ -21,6 +21,14 @@ import 'widgets/profile_drop_grid_tab.dart';
 import 'widgets/profile_pop_grid_tab.dart';
 import 'widgets/profile_saved_tab.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../block/data/block_relationship.dart';
+import '../../block/data/block_repository.dart';
+import '../../block/presentation/block_dialogs.dart';
+import '../../mute/data/mute_repository.dart';
+import '../../report/data/report_repository.dart';
+import '../../report/data/report_target_type.dart';
+import '../../report/presentation/report_sheet.dart';
+import '../../settings/presentation/settings_screen.dart';
 
 typedef _ProfileWithCounts = ({Profile profile, int followerCount, int followingCount});
 
@@ -40,6 +48,9 @@ class ViewProfileScreen extends StatefulWidget {
     required this.userId,
     this.clubRepository,
     this.clubPostRepository,
+    this.reportRepository,
+    this.blockRepository,
+    this.muteRepository,
   });
 
   final ProfileRepository profileRepository;
@@ -61,6 +72,20 @@ class ViewProfileScreen extends StatefulWidget {
   final ClubRepository? clubRepository;
   final ClubPostRepository? clubPostRepository;
 
+  // Optional and defaulted to Supabase.instance.client when omitted
+  // (see the State's _reportRepository/_blockRepository/_muteRepository
+  // getters below) -- these three used to be hardcoded directly in the
+  // State, unlike every repository above, which meant the More menu's
+  // "รายงาน"/"บล็อก"/"ปิดเสียง" items (and the Blocked persona banner)
+  // had no way to be exercised by a widget test: WYN-027 QA found this
+  // gap and flagged it as a fast-follow (see .wyn/company/DECISIONS.md,
+  // WYN-027 QA round 1). Fixed here while adding WYN-028's own
+  // muteRepository to the same three-repository hardcoding, rather than
+  // compounding the same gap a third time.
+  final ReportRepository? reportRepository;
+  final BlockRepository? blockRepository;
+  final MuteRepository? muteRepository;
+
   @override
   State<ViewProfileScreen> createState() => _ViewProfileScreenState();
 }
@@ -75,9 +100,30 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   // rather than defaulting to false.
   bool? _isFollowing;
 
+  // Null until loaded (only for other people's profiles, same as
+  // _isFollowing) -- WYN-027's Blocked persona (Design Screen 3) reads
+  // this to decide whether to show the Follow button/counts at all or
+  // replace them with a banner, and the More menu (Screen 1) reads it
+  // to decide whether "บล็อก" belongs in the list.
+  BlockRelationship? _blockRelationship;
+
+  // Null until loaded (only for other people's profiles) -- WYN-028's
+  // More menu toggle (Design Screen 1) reads this to decide whether to
+  // show "ปิดเสียง" or "เปิดเสียง", and stays hidden while null so the
+  // label can never show the wrong action, same posture as
+  // _blockRelationship above.
+  bool? _isMuted;
+
   // Only ever loaded for the viewer's own profile with a ClubRepository
   // supplied -- see ClubRepository's doc comment on ViewProfileScreen.
   Future<List<Club>>? _myClubsFuture;
+
+  late final ReportRepository _reportRepository =
+      widget.reportRepository ?? ReportRepository(Supabase.instance.client);
+  late final BlockRepository _blockRepository =
+      widget.blockRepository ?? BlockRepository(Supabase.instance.client);
+  late final MuteRepository _muteRepository =
+      widget.muteRepository ?? MuteRepository(Supabase.instance.client);
 
   bool get _isOwnProfile =>
       widget.userId == Supabase.instance.client.auth.currentUser!.id;
@@ -86,7 +132,11 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   void initState() {
     super.initState();
     _loadFuture = _load();
-    if (!_isOwnProfile) _loadFollowStatus();
+    if (!_isOwnProfile) {
+      _loadFollowStatus();
+      _loadBlockRelationship();
+      _loadMuteStatus();
+    }
     final clubRepository = widget.clubRepository;
     if (_isOwnProfile && clubRepository != null) {
       _myClubsFuture = clubRepository.fetchMyClubs();
@@ -142,6 +192,84 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     }
   }
 
+  Future<void> _loadBlockRelationship() async {
+    try {
+      final relationship = await _blockRepository.blockRelationship(widget.userId);
+      if (!mounted) return;
+      setState(() => _blockRelationship = relationship);
+    } catch (_) {
+      // Leave it null -- the Follow button/banner both stay hidden
+      // rather than guessing, same posture as _loadFollowStatus.
+    }
+  }
+
+  Future<void> _blockUser(Profile profile) async {
+    final confirmed = await confirmBlock(context, username: profile.username);
+    if (!confirmed) return;
+
+    try {
+      await _blockRepository.blockUser(widget.userId);
+      if (!mounted) return;
+      setState(() => _blockRelationship = BlockRelationship.blockedByMe);
+      // Blocking may have just torn down an existing Follow relationship
+      // (either direction) and always changes the follower/following
+      // counts -- reload both rather than leaving stale numbers/state.
+      _isFollowing = null;
+      _reload();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('บล็อก @${profile.username} แล้ว')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    }
+  }
+
+  Future<void> _loadMuteStatus() async {
+    try {
+      final isMuted = await _muteRepository.isMuted(widget.userId);
+      if (!mounted) return;
+      setState(() => _isMuted = isMuted);
+    } catch (_) {
+      // Leave it null -- the More menu item stays hidden rather than
+      // guessing, same posture as _loadBlockRelationship.
+    }
+  }
+
+  // Optimistic toggle, no confirm dialog -- unlike _blockUser above,
+  // mute has no side effect visible to anyone but the current user and
+  // is fully reversible, so the extra friction of a dialog isn't
+  // warranted (WYN-028 Design, Screen 1 -- mirrors _toggleFollow's
+  // shape exactly, not _blockUser's).
+  Future<void> _toggleMute(Profile profile) async {
+    final previous = _isMuted;
+    if (previous == null) return;
+    setState(() => _isMuted = !previous);
+    try {
+      if (previous) {
+        await _muteRepository.unmuteUser(widget.userId);
+      } else {
+        await _muteRepository.muteUser(widget.userId);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(previous
+              ? 'เปิดเสียง @${profile.username} แล้ว'
+              : 'ปิดเสียง @${profile.username} แล้ว'),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isMuted = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    }
+  }
+
   Future<void> _openEdit(Profile profile) async {
     await Navigator.of(context).push<Profile>(
       MaterialPageRoute(
@@ -185,6 +313,88 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     await Supabase.instance.client.auth.signOut();
   }
 
+  Future<void> _reportUser() {
+    return showReportSheet(
+      context,
+      reportRepository: _reportRepository,
+      targetType: ReportTargetType.user,
+      targetId: widget.userId,
+      targetLabel: 'รายงานผู้ใช้นี้',
+      associatedUserId: widget.userId,
+    );
+  }
+
+  // Extensible on purpose -- WYN-026 already left room for WYN-027/028
+  // to add items here without restructuring it. "บล็อก" only shows once
+  // _blockRelationship has loaded and confirms there isn't one already
+  // (Design Screen 1) -- once blocked, this menu shows just "รายงาน"
+  // (no "เลิกบล็อก" shortcut here per Product spec, Design Screen 3).
+  // "ปิดเสียง"/"เปิดเสียง" (WYN-028) sits between รายงาน/บล็อก by
+  // severity (Design Screen 1) and, like บล็อก, only shows once its own
+  // status has loaded -- and never at all when a block relationship
+  // already exists, since Block's Blocked persona menu reduces to just
+  // "รายงาน" regardless (mute would be redundant under a much stronger
+  // restriction).
+  Future<void> _openMoreMenu() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.flag_outlined),
+              title: const Text('รายงาน'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _reportUser();
+              },
+            ),
+            if (_isMuted != null && _blockRelationship == BlockRelationship.none)
+              ListTile(
+                leading: Icon(_isMuted! ? Icons.volume_up : Icons.volume_off),
+                title: Text(_isMuted! ? 'เปิดเสียง' : 'ปิดเสียง'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _onMuteTapped();
+                },
+              ),
+            if (_blockRelationship == BlockRelationship.none)
+              ListTile(
+                leading: const Icon(Icons.block),
+                title: const Text('บล็อก'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _onBlockTapped();
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onBlockTapped() async {
+    try {
+      final data = await _loadFuture;
+      if (!mounted) return;
+      await _blockUser(data.profile);
+    } catch (_) {
+      // The profile itself failed to load -- nothing sensible to block
+      // by username; the screen's own error state already covers this.
+    }
+  }
+
+  Future<void> _onMuteTapped() async {
+    try {
+      final data = await _loadFuture;
+      if (!mounted) return;
+      await _toggleMute(data.profile);
+    } catch (_) {
+      // The profile itself failed to load -- nothing sensible to mute
+      // by username; the screen's own error state already covers this.
+    }
+  }
+
   Future<void> _openFollowList(FollowListMode mode) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -197,6 +407,63 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
           userId: widget.userId,
           mode: mode,
         ),
+      ),
+    );
+  }
+
+  /// WYN-027 Design, Screen 3 -- when blocked (either direction), the
+  /// Drop/Pop grid's empty state must say the content is *hidden*, not
+  /// reuse the ordinary "ยังไม่มี ... เลย" copy that would wrongly imply
+  /// this person has no content at all.
+  String _gridEmptyText({
+    required bool isOwnProfile,
+    required bool isBlockedEitherWay,
+    required String contentLabel,
+    required Profile profile,
+  }) {
+    if (isBlockedEitherWay) {
+      return (_blockRelationship?.iBlockedThem ?? false)
+          ? 'คุณบล็อกผู้ใช้นี้อยู่ จึงไม่เห็นเนื้อหาของเขา'
+          : 'ไม่สามารถดูเนื้อหาของผู้ใช้นี้ได้';
+    }
+    return isOwnProfile
+        ? 'ยังไม่มี $contentLabel เลย'
+        : '${profile.nameOrUsername} ยังไม่มี $contentLabel เลย';
+  }
+
+  /// WYN-027 Design, Screen 3 -- two honest variants depending on who
+  /// blocked whom, never a generic "you can't see this" that would
+  /// misrepresent a relationship the viewer didn't actually choose.
+  Widget _buildBlockedBanner() {
+    final iBlockedThem = _blockRelationship?.iBlockedThem ?? false;
+    final message =
+        iBlockedThem ? 'คุณบล็อกผู้ใช้นี้อยู่' : 'ไม่สามารถดูเนื้อหาของผู้ใช้นี้ได้';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: WynSpacing.space4,
+        vertical: WynSpacing.space3,
+      ),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.block, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          const SizedBox(width: WynSpacing.space2),
+          Flexible(
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -261,11 +528,29 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
         appBar: AppBar(
           title: const Text('โปรไฟล์'),
           actions: [
-            if (isOwnProfile)
+            if (isOwnProfile) ...[
+              IconButton(
+                icon: const Icon(Icons.settings_outlined),
+                tooltip: 'ตั้งค่า',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                  );
+                },
+              ),
               IconButton(
                 icon: const Icon(Icons.logout),
                 tooltip: 'ออกจากระบบ',
                 onPressed: _signOut,
+              ),
+            ] else
+              Semantics(
+                label: 'ตัวเลือกเพิ่มเติมสำหรับโปรไฟล์นี้',
+                excludeSemantics: true,
+                child: IconButton(
+                  icon: const Icon(Icons.more_vert),
+                  onPressed: _openMoreMenu,
+                ),
               ),
           ],
         ),
@@ -291,6 +576,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
 
             final data = snapshot.data!;
             final profile = data.profile;
+            final isBlockedEitherWay =
+                !isOwnProfile && (_blockRelationship?.isBlockedEitherWay ?? false);
 
             return Column(
               children: [
@@ -320,45 +607,55 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                         Text(profile.bio!, textAlign: TextAlign.center),
                       ],
                       const SizedBox(height: WynSpacing.space4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _FollowCountTarget(
-                            count: data.followerCount,
-                            label: 'ผู้ติดตาม',
-                            onTap: () => _openFollowList(FollowListMode.followers),
-                          ),
-                          const SizedBox(width: WynSpacing.space6),
-                          _FollowCountTarget(
-                            count: data.followingCount,
-                            label: 'กำลังติดตาม',
-                            onTap: () => _openFollowList(FollowListMode.following),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: WynSpacing.space6),
-                      if (isOwnProfile)
-                        OutlinedButton(
-                          onPressed: () => _openEdit(profile),
-                          child: const Text('แก้ไขโปรไฟล์'),
-                        )
-                      else if (_isFollowing != null)
-                        Semantics(
-                          label: _isFollowing!
-                              ? 'กำลังติดตาม กดเพื่อเลิกติดตาม'
-                              : 'กดเพื่อติดตาม',
-                          excludeSemantics: true,
-                          child: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Theme.of(context).colorScheme.primary,
-                              side: BorderSide(
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
+                      // Blocked persona (WYN-027 Design, Screen 3): counts
+                      // and the Follow button are both replaced by a
+                      // banner -- a relationship that's been severed has
+                      // no meaningful follower/following numbers to show,
+                      // and "disabled but visible" would be less clear
+                      // than just saying why outright.
+                      if (isBlockedEitherWay)
+                        _buildBlockedBanner()
+                      else ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _FollowCountTarget(
+                              count: data.followerCount,
+                              label: 'ผู้ติดตาม',
+                              onTap: () => _openFollowList(FollowListMode.followers),
                             ),
-                            onPressed: _toggleFollow,
-                            child: Text(_isFollowing! ? 'กำลังติดตาม' : 'ติดตาม'),
-                          ),
+                            const SizedBox(width: WynSpacing.space6),
+                            _FollowCountTarget(
+                              count: data.followingCount,
+                              label: 'กำลังติดตาม',
+                              onTap: () => _openFollowList(FollowListMode.following),
+                            ),
+                          ],
                         ),
+                        const SizedBox(height: WynSpacing.space6),
+                        if (isOwnProfile)
+                          OutlinedButton(
+                            onPressed: () => _openEdit(profile),
+                            child: const Text('แก้ไขโปรไฟล์'),
+                          )
+                        else if (_isFollowing != null)
+                          Semantics(
+                            label: _isFollowing!
+                                ? 'กำลังติดตาม กดเพื่อเลิกติดตาม'
+                                : 'กดเพื่อติดตาม',
+                            excludeSemantics: true,
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Theme.of(context).colorScheme.primary,
+                                side: BorderSide(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                              onPressed: _toggleFollow,
+                              child: Text(_isFollowing! ? 'กำลังติดตาม' : 'ติดตาม'),
+                            ),
+                          ),
+                      ],
                     ],
                   ),
                 ),
@@ -381,9 +678,12 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                         popRepository: widget.popRepository,
                         savedRepository: widget.savedRepository,
                         authorId: widget.userId,
-                        emptyText: isOwnProfile
-                            ? 'ยังไม่มี Drop เลย'
-                            : '${profile.nameOrUsername} ยังไม่มี Drop เลย',
+                        emptyText: _gridEmptyText(
+                          isOwnProfile: isOwnProfile,
+                          isBlockedEitherWay: isBlockedEitherWay,
+                          contentLabel: 'Drop',
+                          profile: profile,
+                        ),
                       ),
                       ProfilePopGridTab(
                         popRepository: widget.popRepository,
@@ -392,9 +692,12 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                         dropRepository: widget.dropRepository,
                         savedRepository: widget.savedRepository,
                         authorId: widget.userId,
-                        emptyText: isOwnProfile
-                            ? 'ยังไม่มี Pop เลย'
-                            : '${profile.nameOrUsername} ยังไม่มี Pop เลย',
+                        emptyText: _gridEmptyText(
+                          isOwnProfile: isOwnProfile,
+                          isBlockedEitherWay: isBlockedEitherWay,
+                          contentLabel: 'Pop',
+                          profile: profile,
+                        ),
                       ),
                       if (isOwnProfile)
                         ProfileSavedTab(
