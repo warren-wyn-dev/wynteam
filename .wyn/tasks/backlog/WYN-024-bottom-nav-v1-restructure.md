@@ -1,6 +1,6 @@
 # Product Task — WYN-024
 
-Status: backlog — พร้อมส่ง AI Design
+Status: Design เสร็จแล้ว — พร้อมส่ง AI Coding (ดู `.wyn/docs/design/wyn-024-bottom-nav-v1-restructure.md`)
 Owner: AI Product Manager → AI Design → AI Coding
 
 Feature: Bottom Navigation V1.0.0 Restructure — ถอด Pop/ZOKY ออกจาก Bottom Nav, เพิ่ม Search และ Notifications เป็น tab
@@ -20,6 +20,7 @@ R4. ย้าย Search จาก search bar ใน Home ไปเป็น tab 
 R5. ย้าย Notification จากไอคอนกระดิ่งใน Home ไปเป็น tab แยก — หน้า `NotificationListScreen` เดิม (WYN-012) reuse ตรง ๆ ไม่ต้องเขียนใหม่ badge unread เดิมต้องยังทำงานถูกต้องบน tab icon
 R6. ปุ่ม Drop ("+") กึ่งกลาง nav เปิดหน้า `CreateDropScreen` เดิมตรง ๆ (ไม่สร้าง flow ใหม่) ไม่ต้องมี state ค้างเหมือน tab อื่น (คล้ายปุ่มสร้างโพสต์ของแอปโซเชียลทั่วไปที่ไม่ใช่ "หน้าจอ" แต่เป็น action)
 R7. ไม่แตะ/ไม่ลบตาราง DB ใด ๆ (Pop, ZOKY, SELLER ทั้งหมดยังอยู่ใน schema.sql) — เป็นแค่ UI-layer change ล้วนๆ
+R8. **[เพิ่ม 2026-08-22, ยืนยันผ่าน popup]** ยุบ Drop feed (`DropFeedScreen`'s For You/Following/Latest tabs — WYN-019 ถึง WYN-022) เข้า Home แทนการเก็บไว้ที่อื่น — Home's feed-mode selector ขยายจาก 3 เป็น 4 ตัวเลือก (สำหรับคุณ/**ติดตาม (ใหม่)**/ล่าสุด/จาก Club ของคุณ) รายละเอียดเต็มที่ Design spec Screen 2 — `DropFeedScreen`/`_DropTabFeed` **ลบออกจากโค้ดได้จริง** (ต่างจาก Pop/ZOKY ที่แค่ถอด UI) เพราะ capability ทั้งหมดย้ายเข้า Home ครบ ไม่ใช่ของที่จะกลับมาใช้แยกอีกในอนาคต
 
 Acceptance Criteria:
 - [ ] Bottom Nav แสดง 5 ตำแหน่งตรงตาม R1 เป๊ะ ไม่มี Pop/ZOKY tab เหลืออยู่
@@ -28,6 +29,8 @@ Acceptance Criteria:
 - [ ] แตะปุ่ม Drop "+" เปิด `CreateDropScreen` แล้วกลับมา Home tab เดิม (ไม่ค้างอยู่ที่ "Drop tab" เพราะไม่มี tab นั้นแล้ว)
 - [ ] ไม่มี dead link เหลือที่ชี้ไป Pop/ZOKY จากหน้าจออื่น (ตรวจ Profile/Search/Home ทุกจุดที่เคย deep-link)
 - [ ] Pop/ZOKY โค้ดและ route ยังคอมไพล์ผ่าน ไม่ถูกลบ (สามารถ manual-navigate เข้าถึงได้ถ้าจำเป็นสำหรับ debug แต่ไม่ผ่าน UI ปกติ)
+- [ ] Home's feed-mode selector มี 4 ตัวเลือก (สำหรับคุณ/ติดตาม/ล่าสุด/จาก Club ของคุณ) — "ติดตาม" แสดง Drop+Pop ผสมจากคนที่ follow เท่านั้น พร้อม empty state ที่เหมาะสม
+- [ ] `DropFeedScreen`/`_DropTabFeed` ถูกลบออกจากโค้ดแล้ว ไม่มี route ใดชี้ไปอีก (ต่าง จาก Pop/ZOKY ที่ยังคงโค้ดไว้)
 - [ ] `flutter analyze`/`flutter test` ผ่านครบ ไม่มี regression กับ Home/Drop/Search/Notification/Follow/Club เดิมทั้งหมด
 
 Dependencies: ไม่มี — เป็นงานลำดับแรกของ V1.0.0 Roadmap (Phase 0)

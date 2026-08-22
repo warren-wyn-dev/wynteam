@@ -1,7 +1,15 @@
 # Product Task — DS-009
 
-Status: backlog — พร้อมส่ง AI Design
-Owner: AI Product Manager → AI Design
+Status: หน้าเปรียบเทียบเสร็จแล้ว — รอ Founder ตัดสินใจผ่าน popup ก่อนส่ง AI Coding
+Owner: AI Product Manager → AI Design → (รอ Founder)
+
+## Design Output
+
+หน้าเปรียบเทียบ (Artifact): https://claude.ai/code/artifact/da3d5a5b-16ed-4c15-ae97-c4d46e5736c2 — สร้างจาก layout จริงของ Home/Bottom Nav หลัง WYN-024 (ไม่ใช่ mockup ลอยๆ) แสดง Option A (Rainbow เต็มรูปแบบ แทน Cyan) กับ Option B (คง Cyan เดิม + Rainbow เป็น accent เสริมเฉพาะจุด) ทั้งสอง mode light/dark พร้อมตาราง contrast ratio ของสีในกลุ่ม Rainbow ทั้ง 5 สี
+
+**สรุปสิ่งที่พบ**: Option A ทำให้ต้อง audit contrast ซ้ำทั้ง 45 หน้าจอที่ DS-001 ทำไปแล้ว คูณ 5 (จาก 1 สี Cyan เป็น 5 สี Rainbow) และ gradient-as-text ไม่มีค่า contrast เดียวที่นิยามได้ (ไล่ตั้งแต่ ~1.9:1 ถึง ~3.5:1 บนพื้นขาว) — Option B ไม่กระทบของเดิมที่ approved แล้วเลย เพิ่ม Rainbow เฉพาะจุดตกแต่งที่ไม่มีตัวหนังสือทับ (ring ของ Trending, เส้นใต้ segment ที่ active)
+
+**AI Design แนะนำ Option B** แต่เป็นการตัดสินใจของ Founder ตามกติกา RULES.md (การเปลี่ยน Design System ต้องขออนุมัติ)
 
 Feature: WYN V1.0.0 Rebrand — เปรียบเทียบ Design System "80–90% White + 10–20% Rainbow" กับของเดิม (Cyan + Orange)
 
