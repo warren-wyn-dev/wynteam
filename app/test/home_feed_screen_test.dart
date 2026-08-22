@@ -67,7 +67,8 @@ HomeFeedItem _popItem({
       savedByMe: false,
     );
 
-Club _club({required String id, required String name, int memberCount = 1}) => Club(
+Club _club({required String id, required String name, int memberCount = 1}) =>
+    Club(
       id: id,
       name: name,
       privacy: ClubPrivacy.public,
@@ -139,7 +140,8 @@ void main() {
     sharedSavedRepository = RecordingSavedRepository();
     sharedClubRepository = RecordingClubRepository();
     sharedClubPostRepository = RecordingClubPostRepository();
-    emptyFromClubsPostRepository = RecordingClubPostRepository(fromJoinedClubs: []);
+    emptyFromClubsPostRepository =
+        RecordingClubPostRepository(fromJoinedClubs: []);
     fromClubsPostRepository = RecordingClubPostRepository(fromJoinedClubs: [
       ClubPost(
         id: 'cp1',
@@ -188,7 +190,8 @@ void main() {
       feedItems: [],
       trendingItems: [_dropItem(id: 'trend-1'), _popItem(id: 'trend-2')],
     );
-    emptyTrendingHomeRepository = RecordingHomeRepository(feedItems: [], trendingItems: []);
+    emptyTrendingHomeRepository =
+        RecordingHomeRepository(feedItems: [], trendingItems: []);
     trendingDropOnlyHomeRepository = RecordingHomeRepository(
       feedItems: [],
       trendingItems: [_dropItem(id: 'trend-drop')],
@@ -199,7 +202,9 @@ void main() {
     );
     fewClubsRepository = RecordingClubRepository(
       myClubs: [_club(id: 'joined-1', name: 'Club ที่เข้าร่วม')],
-      discoverableClubs: [_club(id: 'popular-1', name: 'Club กำลังนิยม', memberCount: 50)],
+      discoverableClubs: [
+        _club(id: 'popular-1', name: 'Club กำลังนิยม', memberCount: 50)
+      ],
     );
     manyClubsRepository = RecordingClubRepository(
       myClubs: [
@@ -207,11 +212,15 @@ void main() {
         _club(id: 'joined-2', name: 'Club สอง'),
         _club(id: 'joined-3', name: 'Club สาม'),
       ],
-      discoverableClubs: [_club(id: 'popular-1', name: 'Club กำลังนิยม', memberCount: 50)],
+      discoverableClubs: [
+        _club(id: 'popular-1', name: 'Club กำลังนิยม', memberCount: 50)
+      ],
     );
     noJoinedClubsRepository = RecordingClubRepository(
       myClubs: [],
-      discoverableClubs: [_club(id: 'popular-1', name: 'Club กำลังนิยม', memberCount: 50)],
+      discoverableClubs: [
+        _club(id: 'popular-1', name: 'Club กำลังนิยม', memberCount: 50)
+      ],
     );
     rankingTestHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'latest-only', caption: 'จากล่าสุด')],
@@ -219,7 +228,9 @@ void main() {
     );
     followingTestHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'latest-only', caption: 'จากล่าสุด')],
-      followingFeedItems: [_dropItem(id: 'following-only', caption: 'จากติดตาม')],
+      followingFeedItems: [
+        _dropItem(id: 'following-only', caption: 'จากติดตาม')
+      ],
     );
     emptyFollowingTestHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'has-feed')],
@@ -261,7 +272,8 @@ void main() {
     // Regression for WYN-007 QA round 1: the Drop card's interaction row
     // must have a working Share button and a tappable Comment icon, not
     // just Like/Save. See .wyn/tasks/approved/WYN-007-home-feed.md.
-    expect(find.widgetWithIcon(IconButton, Icons.share_outlined), findsOneWidget);
+    expect(
+        find.widgetWithIcon(IconButton, Icons.share_outlined), findsOneWidget);
     expect(
       find.widgetWithIcon(IconButton, Icons.mode_comment_outlined),
       findsOneWidget,
@@ -331,8 +343,7 @@ void main() {
     expect(find.byType(Divider), findsOneWidget);
   });
 
-  testWidgets('shows the empty state when there is no content',
-      (tester) async {
+  testWidgets('shows the empty state when there is no content', (tester) async {
     await tester.pumpWidget(buildHome(
       emptyHomeRepository,
       dropRepository: sharedDropRepository,
@@ -364,7 +375,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(dropLikeTestDropRepository.toggleLikeCalls, 2);
-    expect(dropLikeTestDropRepository.toggleLikeCurrentlyLikedArgs, [false, true]);
+    expect(
+        dropLikeTestDropRepository.toggleLikeCurrentlyLikedArgs, [false, true]);
     expect(dropLikeTestPopRepository.toggleLikeCalls, 0);
   });
 
@@ -388,7 +400,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(popLikeTestPopRepository.toggleLikeCalls, 2);
-    expect(popLikeTestPopRepository.toggleLikeCurrentlyLikedArgs, [false, true]);
+    expect(
+        popLikeTestPopRepository.toggleLikeCurrentlyLikedArgs, [false, true]);
     expect(popLikeTestDropRepository.toggleLikeCalls, 0);
   });
 
@@ -460,7 +473,8 @@ void main() {
       expect(find.byKey(const Key('from_your_clubs_feed')), findsNothing);
     });
 
-    testWidgets('switching to "จาก Club ของคุณ" shows Club posts instead of Drop/Pop',
+    testWidgets(
+        'switching to "จาก Club ของคุณ" shows Club posts instead of Drop/Pop',
         (tester) async {
       await tester.pumpWidget(buildHome(
         mixedFeedHomeRepository,
@@ -519,7 +533,8 @@ void main() {
   });
 
   group('Home feed ranking (WYN-018)', () {
-    testWidgets('"สำหรับคุณ" (default) calls fetchRankedFeed, not the '
+    testWidgets(
+        '"สำหรับคุณ" (default) calls fetchRankedFeed, not the '
         'chronological fetchFeed', (tester) async {
       await tester.pumpWidget(buildHome(
         rankingTestHomeRepository,
@@ -552,7 +567,8 @@ void main() {
       expect(find.text('จากสำหรับคุณ'), findsNothing);
     });
 
-    testWidgets('switching back to "สำหรับคุณ" from "ล่าสุด" restores the ranked feed',
+    testWidgets(
+        'switching back to "สำหรับคุณ" from "ล่าสุด" restores the ranked feed',
         (tester) async {
       await tester.pumpWidget(buildHome(
         rankingTestHomeRepository,
@@ -631,6 +647,16 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
+      // WYN-024 follow-up (2026-08-22): the feed-mode selector now lives
+      // in a horizontal SingleChildScrollView, so the widest/last segment
+      // isn't necessarily on-screen at scroll offset 0 on a narrow
+      // viewport -- scroll it into view before tapping, or the tap can
+      // silently miss.
+      await tester.dragUntilVisible(
+        find.text('จาก Club ของคุณ'),
+        find.byType(SingleChildScrollView).first,
+        const Offset(-60, 0),
+      );
       await tester.tap(find.text('จาก Club ของคุณ'));
       await tester.pumpAndSettle();
       final exception = tester.takeException();
@@ -638,7 +664,8 @@ void main() {
 
       final labelFinder = find.text('จาก Club ของคุณ');
       expect(labelFinder, findsOneWidget);
-      final renderParagraph = tester.renderObject(labelFinder) as RenderParagraph;
+      final renderParagraph =
+          tester.renderObject(labelFinder) as RenderParagraph;
       // A single line of this font size is ~20px tall -- wrapping into
       // even 2 lines roughly doubles that. Before the fix this measured
       // ~160px (7-8 wrapped lines), ballooning the whole SegmentedButton
@@ -679,11 +706,13 @@ void main() {
       // 390px (iPhone 14/15) rather than round 2's 360px floor -- QA round 3
       // measured that even after reclaiming width from the removed
       // checkmark icon and tightened padding, the two 6-character labels
-      // only become fully non-truncated from ~390px up; the two longer
-      // labels ("สำหรับคุณ" 9 chars, "จาก Club ของคุณ" 15 chars) remain
-      // truncated at every real phone width and are NOT covered by this
-      // test -- see the residual note in WYN-024-segmented-button-active-
-      // label-illegible-all-segments.md's Debug Engineer Report.
+      // only became fully non-truncated from ~390px up under THAT fix.
+      // The two longer labels ("สำหรับคุณ" 9 chars, "จาก Club ของคุณ" 15
+      // chars) still weren't covered by that round's fix -- but the
+      // scrollable-width fix below (WYN-024 follow-up, 2026-08-22)
+      // supersedes this entirely: see the comprehensive all-4-segments
+      // test further down, which covers every label, at every real
+      // width, with no residual gap.
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -709,6 +738,58 @@ void main() {
                 'not get ellipsis-truncated, once the checkmark icon is off');
       }
     });
+
+    for (final width in [360.0, 375.0, 390.0, 414.0, 430.0]) {
+      testWidgets(
+          'every segment label (not just the short ones) is fully legible '
+          'at ${width}px once active -- WYN-024 follow-up (2026-08-22): '
+          'SegmentedButton now gets an unbounded width via a horizontal '
+          'SingleChildScrollView + IntrinsicWidth instead of being '
+          'stretched to the screen, so every segment gets its full natural '
+          'width regardless of viewport, and the row scrolls instead. '
+          'Closes the residual gap the round-3 fix above left open for '
+          '"สำหรับคุณ" (the default segment) and "จาก Club ของคุณ".',
+          (tester) async {
+        tester.view.physicalSize = Size(width, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(buildHome(
+          mixedFeedHomeRepository,
+          dropRepository: sharedDropRepository,
+          popRepository: sharedPopRepository,
+        ));
+        await tester.pumpAndSettle();
+        tester.takeException();
+
+        for (final label in [
+          'สำหรับคุณ',
+          'ติดตาม',
+          'ล่าสุด',
+          'จาก Club ของคุณ',
+        ]) {
+          await tester.dragUntilVisible(
+            find.text(label),
+            find.byType(SingleChildScrollView).first,
+            const Offset(-60, 0),
+          );
+          await tester.tap(find.text(label));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+
+          final renderParagraph =
+              tester.renderObject(find.text(label)) as RenderParagraph;
+          expect(renderParagraph.didExceedMaxLines, isFalse,
+              reason: '"$label" must never be truncated at ${width}px -- that '
+                  'is the whole point of the scrollable-width fix');
+        }
+
+        // The Rainbow indicator (DS-009) must still track exactly one
+        // active segment, even though segments are no longer stretched
+        // to equal widths within the (now scrollable) row.
+        expect(find.byKey(const Key('active_segment_accent')), findsOneWidget);
+      });
+    }
   });
 
   group('"ติดตาม" (Following) feed mode (WYN-024)', () {
@@ -748,13 +829,15 @@ void main() {
       tester.takeException();
 
       expect(
-        find.text('ยังไม่ได้ follow ใครเลย ลองดู สำหรับคุณ เพื่อค้นหาคนน่าสนใจ'),
+        find.text(
+            'ยังไม่ได้ follow ใครเลย ลองดู สำหรับคุณ เพื่อค้นหาคนน่าสนใจ'),
         findsOneWidget,
       );
       expect(find.text('ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!'), findsNothing);
     });
 
-    testWidgets('switching back to "สำหรับคุณ" from "ติดตาม" restores the ranked feed',
+    testWidgets(
+        'switching back to "สำหรับคุณ" from "ติดตาม" restores the ranked feed',
         (tester) async {
       await tester.pumpWidget(buildHome(
         rankingTestHomeRepository,
@@ -775,7 +858,8 @@ void main() {
   });
 
   group('Trending row (WYN-017)', () {
-    testWidgets('shows the "กำลังนิยม" header and items when trending content exists',
+    testWidgets(
+        'shows the "กำลังนิยม" header and items when trending content exists',
         (tester) async {
       await tester.pumpWidget(buildHome(
         trendingItemsHomeRepository,
@@ -789,7 +873,8 @@ void main() {
       expect(find.byType(TrendingTile), findsNWidgets(2));
     });
 
-    testWidgets('shows an empty message instead of crashing when there is no trending content',
+    testWidgets(
+        'shows an empty message instead of crashing when there is no trending content',
         (tester) async {
       await tester.pumpWidget(buildHome(
         emptyTrendingHomeRepository,
@@ -804,7 +889,8 @@ void main() {
       expect(find.text('ยังไม่มี content กำลังนิยม'), findsOneWidget);
     });
 
-    testWidgets('tapping a Drop trending tile opens DropDetailScreen', (tester) async {
+    testWidgets('tapping a Drop trending tile opens DropDetailScreen',
+        (tester) async {
       await tester.pumpWidget(buildHome(
         trendingDropOnlyHomeRepository,
         dropRepository: sharedDropRepository,
@@ -820,7 +906,8 @@ void main() {
       expect(find.byType(DropDetailScreen), findsOneWidget);
     });
 
-    testWidgets('tapping a Pop trending tile opens PopSingleClipScreen', (tester) async {
+    testWidgets('tapping a Pop trending tile opens PopSingleClipScreen',
+        (tester) async {
       await tester.pumpWidget(buildHome(
         trendingPopOnlyHomeRepository,
         dropRepository: sharedDropRepository,
@@ -838,7 +925,8 @@ void main() {
   });
 
   group('Recommended Clubs row (WYN-017)', () {
-    testWidgets('shows "Club แนะนำ" when the user has joined fewer than 3 Clubs',
+    testWidgets(
+        'shows "Club แนะนำ" when the user has joined fewer than 3 Clubs',
         (tester) async {
       await tester.pumpWidget(buildHome(
         emptyHomeRepository,

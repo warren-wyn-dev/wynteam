@@ -1,7 +1,7 @@
 # Design Task — WYN-024 follow-up
 
-Status: backlog
-Owner: AI Design
+Status: **AI Coding implement เสร็จแล้ว (2026-08-22)** — `flutter analyze` 0 error, `flutter test` 365/365 ผ่าน (360 เดิม + 5 regression ใหม่ครอบคลุมทั้ง 4 segment × 5 ความกว้างจอจริง) พิสูจน์ red→green แล้ว — รอ QA รอบ 5
+Owner: AI Design → AI Coding → AI QA & Security
 Screen: Home — feed-mode `SegmentedButton` (Screen 2 of `.wyn/docs/design/wyn-024-bottom-nav-v1-restructure.md`)
 Purpose: close the label-legibility bug that survived 2 Debug rounds (`.wyn/tasks/bugs/WYN-024-segmented-button-active-label-illegible-all-segments.md`) by fixing the actual root cause — a fixed-width-per-segment layout model — instead of continuing to trim padding
 User Flow: unchanged from the original WYN-024 spec — tap a segment to switch Home's feed mode

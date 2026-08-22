@@ -1,7 +1,7 @@
 # Product Task — WYN-024
 
-Status: **AI Design ตัดสินใจแล้ว (2026-08-22) — เปลี่ยน feed-mode SegmentedButton เป็น scroll แนวนอน (ไม่ยุบไอคอน/ไม่ย่อข้อความ/ไม่เปลี่ยนเป็น dropdown)** สเปกเต็มที่ `.wyn/docs/design/wyn-024-segmented-feed-mode-scrollable.md` — ไม่ต้องขอ Founder popup (เป็น component-level decision อยู่ในขอบเขต AI Design เอง ตาม RULES.md) — ส่งต่อ AI Coding
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Design → AI Coding
+Status: **AI Coding implement เสร็จแล้ว (2026-08-22)** — `SegmentedButton` ห่อด้วย `SingleChildScrollView(Axis.horizontal)` + `IntrinsicWidth` แทนการถูกบีบให้เท่าจอ (ยืนยันโดยอ่าน Flutter source: `_calculateHorizontalChildSize` clamp `constraints.maxWidth/childCount` กลายเป็น no-op เมื่อได้ unbounded width) — ทุก segment ได้ความกว้างเท่ากับ label ที่กว้างที่สุด ("จาก Club ของคุณ", 211.5px) ไม่ถูกตัดข้อความอีกเลยที่ทุกความกว้างจอจริง 360-430px (ยืนยันด้วย `RenderParagraph`/`didExceedMaxLines` เหมือนทุกรอบที่ผ่านมา) — Rainbow indicator (DS-009) ยังถูกต้องเพราะ segment กว้างเท่ากันจริงแล้ว (ไม่ใช่แค่ประมาณ) สูตรหารเท่ากันเดิมยังใช้ได้ — เจอและแก้ปัญหาเพิ่ม 1 จุดระหว่างทาง: `LayoutBuilder` (เดิมใช้คำนวณตำแหน่ง indicator) ใช้ร่วมกับ `IntrinsicWidth` ไม่ได้ (ทำให้ test ค้าง) เปลี่ยนเป็น `Row`+`Expanded` แทน — `flutter analyze` 0 error, `flutter test` 365/365 ผ่าน (360+5 ใหม่) พิสูจน์ red→green แล้ว — รอ QA รอบ 5
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Design → AI Coding → AI QA & Security
 
 Feature: Bottom Navigation V1.0.0 Restructure — ถอด Pop/ZOKY ออกจาก Bottom Nav, เพิ่ม Search และ Notifications เป็น tab
 

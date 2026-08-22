@@ -330,24 +330,40 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
-  // Fixed twice now for the same root cause (QA round 2, 2026-08-22):
-  // the Design spec (.wyn/docs/design/ds-009-rainbow-accent.md, point 2)
-  // specifies the active-segment indicator as a thin line placed
-  // "นอก touch target เดิมของปุ่ม ไม่ทับตัวหนังสือ" (outside the
-  // button's own touch target, not overlapping the text) -- i.e. a
-  // separate element below the SegmentedButton, not something sharing
-  // horizontal space with a label inside it. The original implementation
-  // put a dot *inside* the active segment's label (competing with the
-  // text for the same tight width budget), which is what caused both the
-  // round-1 overflow and round-2's near-total text loss once Flexible
-  // papered over the overflow. This version follows the spec literally
-  // instead: segments go back to plain Text (matching the other 3
-  // always), and the accent is a separate 2px bar in a dedicated strip
-  // below the button, positioned under whichever segment is active.
-  // SegmentedButton distributes width ~equally across its segments (see
-  // the round-1 bug report's `BoxConstraints(0.0<=w<=140.0)` trace, equal
-  // for every segment regardless of label length) -- LayoutBuilder splits
-  // the available width the same way to line the bar up underneath.
+  // Fixed 3 times now for variations of the same root cause. QA rounds
+  // 2-4 (.wyn/tasks/bugs/WYN-024-segmented-button-active-label-
+  // illegible-all-segments.md) measured that `SegmentedButton` always
+  // clamps every segment's width to `constraints.maxWidth / childCount`
+  // when given a bounded incoming width (confirmed by reading Flutter's
+  // own segmented_button.dart -- `_calculateHorizontalChildSize`'s
+  // `math.min(childWidth, constraints.maxWidth / childCount)`), so no
+  // amount of padding/icon trimming inside the widget can ever fully
+  // solve legibility for a label whose natural width exceeds 1/4 of a
+  // real phone's screen. AI Design's decision (.wyn/docs/design/wyn-024-
+  // segmented-feed-mode-scrollable.md): stop giving it a bounded width
+  // at all -- `SingleChildScrollView` gives its child an UNBOUNDED
+  // width, and `IntrinsicWidth` resolves that to the widget's true
+  // intrinsic width (`computeMaxIntrinsicWidth` sums the *widest single
+  // segment's* natural width, uniform across all 4 -- SegmentedButton
+  // does not support per-segment varying widths, only uniform), so
+  // `constraints.maxWidth / childCount` in the clamp above becomes a
+  // no-op: every segment gets exactly as much width as the widest one
+  // (currently "จาก Club ของคุณ") needs, guaranteeing none are ever
+  // truncated again. The row simply scrolls horizontally once that
+  // total width exceeds the screen -- on anything wide enough to fit
+  // all 4 without scrolling, this is visually identical to before.
+  //
+  // The Design spec (.wyn/docs/design/ds-009-rainbow-accent.md, point 2)
+  // specifies the active-segment indicator as a thin line placed "นอก
+  // touch target เดิมของปุ่ม ไม่ทับตัวหนังสือ" -- a separate strip below
+  // the button. Since every segment is now genuinely, exactly equal-
+  // width (not just approximately, as when this was still `_isExpanded`-
+  // stretched to the screen), the indicator's own even-split formula
+  // stays correct -- `CrossAxisAlignment.stretch` on the wrapping Column
+  // forces the indicator strip's own LayoutBuilder to measure the exact
+  // same width `SegmentedButton` resolved to (both are stretched to the
+  // Column's IntrinsicWidth-resolved width), so the two never drift out
+  // of sync with each other.
   Widget _buildFeedModeToggle() {
     const modes = [
       _HomeFeedMode.forYou,
@@ -358,100 +374,121 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     final activeIndex = modes.indexOf(_feedMode);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space1),
-      child: Column(
-        children: [
-          SegmentedButton<_HomeFeedMode>(
-            // Bug fix (QA round 3, 2026-08-22): the Material selected-
-            // checkmark icon (`Icons.check`, shown by default whenever a
-            // segment is selected) eats a fixed chunk of whichever
-            // segment happens to be active, on top of SegmentedButton's
-            // already-equal 4-way width division -- QA round 3 measured
-            // that this squeezes EVERY segment's label to ~1-3 visible
-            // characters at real phone widths when it's the active one,
-            // including "สำหรับคุณ" (the default active segment on first
-            // load, no tap needed). Selection state is already shown by
-            // each segment's own fill/outline color change (Material's
-            // default `SegmentedButton` styling), so the checkmark icon is
-            // redundant here -- turning it off gives that reclaimed width
-            // back to the label instead.
-            showSelectedIcon: false,
-            style: const ButtonStyle(
-              padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 2)),
-              visualDensity: VisualDensity.compact,
-            ),
-            // Bug fix (QA round 2, 2026-08-22): plain Text with no
-            // maxLines/overflow wraps to multiple lines rather than
-            // overflowing horizontally when a segment's width is tight --
-            // Flutter only ever throws the layout-overflow assertion for
-            // the *last* line once `maxLines` caps it, never for
-            // unbounded wrapping. Every segment (not just the widest one)
-            // gets `maxLines: 1` + ellipsis so all 4 stay a single line
-            // and the same height regardless of which one is active,
-            // instead of "จาก Club ของคุณ" ballooning the whole row's
-            // height into a tall column of 1-2-character lines whenever
-            // it's selected on a narrow phone (confirmed via screenshot
-            // at 360px before this fix).
-            segments: const [
-              ButtonSegment(
-                value: _HomeFeedMode.forYou,
-                label: Text('สำหรับคุณ', maxLines: 1, overflow: TextOverflow.ellipsis),
+      padding: const EdgeInsets.symmetric(
+          horizontal: WynSpacing.space3, vertical: WynSpacing.space1),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: IntrinsicWidth(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SegmentedButton<_HomeFeedMode>(
+                // Bug fix (QA round 3, 2026-08-22): the Material selected-
+                // checkmark icon (`Icons.check`, shown by default whenever a
+                // segment is selected) eats a fixed chunk of whichever
+                // segment happens to be active, on top of SegmentedButton's
+                // already-equal 4-way width division -- QA round 3 measured
+                // that this squeezes EVERY segment's label to ~1-3 visible
+                // characters at real phone widths when it's the active one,
+                // including "สำหรับคุณ" (the default active segment on first
+                // load, no tap needed). Selection state is already shown by
+                // each segment's own fill/outline color change (Material's
+                // default `SegmentedButton` styling), so the checkmark icon is
+                // redundant here -- turning it off gives that reclaimed width
+                // back to the label instead.
+                showSelectedIcon: false,
+                style: const ButtonStyle(
+                  padding: WidgetStatePropertyAll(
+                      EdgeInsets.symmetric(horizontal: 2)),
+                  visualDensity: VisualDensity.compact,
+                ),
+                // Bug fix (QA round 2, 2026-08-22): plain Text with no
+                // maxLines/overflow wraps to multiple lines rather than
+                // overflowing horizontally when a segment's width is tight --
+                // Flutter only ever throws the layout-overflow assertion for
+                // the *last* line once `maxLines` caps it, never for
+                // unbounded wrapping. Every segment (not just the widest one)
+                // gets `maxLines: 1` + ellipsis so all 4 stay a single line
+                // and the same height regardless of which one is active,
+                // instead of "จาก Club ของคุณ" ballooning the whole row's
+                // height into a tall column of 1-2-character lines whenever
+                // it's selected on a narrow phone (confirmed via screenshot
+                // at 360px before this fix).
+                segments: const [
+                  ButtonSegment(
+                    value: _HomeFeedMode.forYou,
+                    label: Text('สำหรับคุณ',
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  ButtonSegment(
+                    value: _HomeFeedMode.following,
+                    label: Text('ติดตาม',
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  ButtonSegment(
+                    value: _HomeFeedMode.latest,
+                    label: Text('ล่าสุด',
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  ButtonSegment(
+                    value: _HomeFeedMode.fromYourClubs,
+                    label: Text('จาก Club ของคุณ',
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                ],
+                selected: {_feedMode},
+                onSelectionChanged: (selection) {
+                  final newMode = selection.first;
+                  setState(() => _feedMode = newMode);
+                  // "จาก Club ของคุณ" is FromYourClubsFeed's own separate
+                  // widget state -- only forYou/following/latest share
+                  // _items and need a reload when switching between (or
+                  // into) them.
+                  if (newMode != _HomeFeedMode.fromYourClubs) _loadInitial();
+                },
               ),
-              ButtonSegment(
-                value: _HomeFeedMode.following,
-                label: Text('ติดตาม', maxLines: 1, overflow: TextOverflow.ellipsis),
-              ),
-              ButtonSegment(
-                value: _HomeFeedMode.latest,
-                label: Text('ล่าสุด', maxLines: 1, overflow: TextOverflow.ellipsis),
-              ),
-              ButtonSegment(
-                value: _HomeFeedMode.fromYourClubs,
-                label: Text('จาก Club ของคุณ', maxLines: 1, overflow: TextOverflow.ellipsis),
-              ),
-            ],
-            selected: {_feedMode},
-            onSelectionChanged: (selection) {
-              final newMode = selection.first;
-              setState(() => _feedMode = newMode);
-              // "จาก Club ของคุณ" is FromYourClubsFeed's own separate
-              // widget state -- only forYou/following/latest share
-              // _items and need a reload when switching between (or
-              // into) them.
-              if (newMode != _HomeFeedMode.fromYourClubs) _loadInitial();
-            },
-          ),
-          const SizedBox(height: WynSpacing.space1),
-          SizedBox(
-            height: 2,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final segmentWidth = constraints.maxWidth / modes.length;
-                return Stack(
+              const SizedBox(height: WynSpacing.space1),
+              // `LayoutBuilder` deliberately avoided here -- it doesn't
+              // support being asked for intrinsic dimensions
+              // (`IntrinsicWidth` above needs every descendant to answer
+              // that), so a `LayoutBuilder` anywhere inside this subtree
+              // throws. A `Row` of `Expanded` children divides its own
+              // resolved width evenly by construction, matching
+              // `SegmentedButton`'s 4 equal-width segments (see the fix
+              // comment above) without ever needing to read
+              // `constraints.maxWidth` directly.
+              SizedBox(
+                height: 2,
+                child: Row(
                   children: [
-                    AnimatedPositioned(
-                      duration: const Duration(milliseconds: 150),
-                      curve: Curves.easeOut,
-                      left: activeIndex * segmentWidth,
-                      width: segmentWidth,
-                      child: Center(
-                        child: Container(
-                          key: const Key('active_segment_accent'),
-                          width: 24,
-                          height: 2,
-                          decoration: const BoxDecoration(
-                            gradient: WynColors.rainbowAccent,
-                            borderRadius: BorderRadius.all(Radius.circular(WynSpacing.radiusFull)),
+                    for (var i = 0; i < modes.length; i++)
+                      Expanded(
+                        child: Center(
+                          child: AnimatedOpacity(
+                            duration: const Duration(milliseconds: 150),
+                            curve: Curves.easeOut,
+                            opacity: i == activeIndex ? 1 : 0,
+                            child: Container(
+                              key: i == activeIndex
+                                  ? const Key('active_segment_accent')
+                                  : null,
+                              width: 24,
+                              height: 2,
+                              decoration: const BoxDecoration(
+                                gradient: WynColors.rainbowAccent,
+                                borderRadius: BorderRadius.all(
+                                    Radius.circular(WynSpacing.radiusFull)),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
                   ],
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -480,16 +517,19 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                 final items = snapshot.data!;
                 if (items.isEmpty) {
                   return const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: WynSpacing.space3),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: WynSpacing.space3),
                     child: Center(child: Text('ยังไม่มี content กำลังนิยม')),
                   );
                 }
 
                 return ListView.separated(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
                   itemCount: items.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: WynSpacing.space2),
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(width: WynSpacing.space2),
                   itemBuilder: (context, index) {
                     final item = items[index];
                     return TrendingTile(
@@ -552,8 +592,9 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         // the loading spinner at the end, which isn't content. Material
         // 3's default Divider colors itself from colorScheme.outlineVariant
         // (WynColors.borderSubtleLight/Dark), so no color is hardcoded here.
-        separatorBuilder: (context, index) =>
-            index + 1 < _items.length ? const Divider(height: 1) : const SizedBox.shrink(),
+        separatorBuilder: (context, index) => index + 1 < _items.length
+            ? const Divider(height: 1)
+            : const SizedBox.shrink(),
         itemBuilder: (context, index) {
           if (index >= _items.length) {
             return const Padding(

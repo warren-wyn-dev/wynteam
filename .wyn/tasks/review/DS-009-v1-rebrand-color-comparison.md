@@ -1,7 +1,7 @@
 # Product Task — DS-009
 
-Status: **AI Design ตัดสินใจแล้ว (2026-08-22, WYN-024's control) — Rainbow indicator strip ต้องอัปเดตให้ track ตำแหน่งจริงของ segment แทนการหารความกว้างเท่ากัน** เพราะ WYN-024's SegmentedButton กำลังเปลี่ยนเป็น scroll แนวนอน (แต่ละ segment กว้างไม่เท่ากันอีกต่อไป) — DS-009's ส่วนอื่น (gradient/contrast/Trending ring) ไม่เปลี่ยน ยังผ่านเหมือนเดิม — ดู `.wyn/docs/design/wyn-024-segmented-feed-mode-scrollable.md` — ส่งต่อ AI Coding
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Design → AI Coding
+Status: **AI Coding implement เสร็จแล้ว (2026-08-22, WYN-024's control)** — Rainbow indicator strip ไม่ต้องเปลี่ยนสูตรจริงๆ เพราะ segment ทุกตัวกว้างเท่ากันจริง (ไม่ใช่แค่ประมาณ) หลัง scrollable fix — เปลี่ยนแค่กลไกคำนวณจาก `LayoutBuilder` เป็น `Row`+`Expanded` (เหตุผลทางเทคนิค ไม่ใช่ design) เพราะ `LayoutBuilder` ใช้ร่วมกับ `IntrinsicWidth` ไม่ได้ — DS-009's ส่วนอื่น (gradient/contrast/Trending ring) ไม่เปลี่ยน — `flutter test` 365/365 ผ่าน — รอ QA รอบ 5
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Design → AI Coding → AI QA & Security
 
 **ผลการตัดสินใจ**: Option B — คง Cyan `#00C8FF` เดิมเป็น primary (DS-001–008 ไม่เปลี่ยนแปลง) เพิ่ม Rainbow เป็น accent เสริม 2 จุดเท่านั้น (Trending avatar ring, active feed-mode indicator) สเปกเต็มที่ `.wyn/docs/design/ds-009-rainbow-accent.md`
 
