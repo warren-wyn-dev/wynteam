@@ -1,7 +1,7 @@
 # Product Task — DS-009
 
-Status: **รอ QA รอบ 4 (WYN-024's control, ไม่ใช่ DS-009 เอง).** DS-009's ส่วนของตัวเอง (gradient/contrast/Trending ring/indicator strip ใต้ปุ่ม) ผ่านหมดตั้งแต่รอบ 3 — ปัญหาที่เหลือเป็นเรื่องความกว้างของ label ใน SegmentedButton (WYN-024) ซึ่ง Debug Engineer แก้ไปบางส่วนแล้ว ("ติดตาม"/"ล่าสุด" อ่านออกครบ) เหลือ "สำหรับคุณ"/"จาก Club ของคุณ" ที่ยังตัดอยู่ รอ AI Design ตัดสินใจ — ดู `.wyn/tasks/bugs/WYN-024-segmented-button-active-label-illegible-all-segments.md`
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security
+Status: **ส่งต่อ AI Design (WYN-024's control, ไม่ใช่ DS-009 เอง).** DS-009's ส่วนของตัวเอง (gradient/contrast/Trending ring/indicator strip ใต้ปุ่ม) ผ่าน QA ครบทุกรอบตั้งแต่รอบ 3 ไม่มีปัญหา — ปัญหาที่เหลือทั้งหมดเป็นเรื่องความกว้างของ label ใน SegmentedButton (WYN-024's control เอง) ซึ่งต้องรอ AI Design ตัดสินใจ (ย่อข้อความ/เปลี่ยน control) ก่อนจะปิดงานทั้งคู่ได้ — ดู `.wyn/tasks/bugs/WYN-024-segmented-button-active-label-illegible-all-segments.md`
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Debug Engineer → AI QA & Security → AI Design
 
 **ผลการตัดสินใจ**: Option B — คง Cyan `#00C8FF` เดิมเป็น primary (DS-001–008 ไม่เปลี่ยนแปลง) เพิ่ม Rainbow เป็น accent เสริม 2 จุดเท่านั้น (Trending avatar ring, active feed-mode indicator) สเปกเต็มที่ `.wyn/docs/design/ds-009-rainbow-accent.md`
 

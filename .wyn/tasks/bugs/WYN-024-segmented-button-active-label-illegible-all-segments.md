@@ -1,7 +1,7 @@
 # Bug Report — WYN-024 / DS-009 (QA round 3 finding — broader than round 2's report)
 
-Status: **partially fixed — 2 of 4 segments now fully legible, 2 remain truncated at every real phone width (including the default "สำหรับคุณ") — see Debug Engineer Report below for why this needs AI Design, not another Debug attempt**
-Owner: AI Debug Engineer
+Status: **QA รอบ 4 — FAIL, ยืนยันตัวเลขของ Debug ตรงกันทุกจุด (ไม่มีความคลาดเคลื่อน) — 2 ใน 4 segment อ่านออกครบแล้ว ("ติดตาม"/"ล่าสุด" ตั้งแต่ ~390px) แต่ "สำหรับคุณ" (default tab) และ "จาก Club ของคุณ" ยังตัดอยู่ทุกความกว้าง — ส่งต่อ AI Design ไม่ใช่ Debug รอบ 4**
+Owner: AI Debug Engineer → AI QA & Security
 Bug: Round 2's fix (`maxLines: 1` + ellipsis on all 4 segment labels, Rainbow indicator moved to a separate strip below the button) correctly stops both the overflow crash and the vertical-wrap ballooning. But it does **not** fix legibility — and the problem is not confined to "จาก Club ของคุณ" as round 2 scoped it. At every real phone width (360–430px), **whichever segment is active** gets compressed to roughly 1–3 of its label's characters visible before the ellipsis, because `SegmentedButton` divides the row's width equally across all 4 segments regardless of label length, and the auto-added selected-checkmark icon eats a fixed chunk of whichever segment is currently active. This includes **"สำหรับคุณ" — the default active segment on first load, before the user taps anything.**
 
 Reproduction: widget test, `HomeFeedScreen` in a `MaterialApp` at `tester.view.physicalSize = Size(360, 800)` (no other viewport tested differently — same at 375/390/414/430). For each segment, tap it to make it active (or, for "สำหรับคุณ", just pump — it's active by default) and inspect the `RenderParagraph` behind its label `Text`, plus a `TextPainter` laid out unconstrained with the same style to estimate the label's natural width and back out how many of its characters actually fit in the truncated box:
@@ -65,3 +65,24 @@ Both are AI Design calls, not something Debug Engineer should pick unilaterally 
 **Regression Risk**: Low. `showSelectedIcon: false` and tighter padding are additive style changes to one widget; full 360-test suite (unrelated to this screen) re-run clean.
 
 **Handoff to QA**: round 4. Expect this to still be a **FAIL** for "สำหรับคุณ" (default state) and "จาก Club ของคุณ" specifically — that's expected and reported honestly above, not something round 4 needs to rediscover. Please independently re-verify the 2 segments that did improve ("ติดตาม"/"ล่าสุด" legible from ~390px) and confirm the 2 that didn't, then route the remaining structural question to AI Design/Founder (a design comparison + popup decision, same pattern as DS-009's own indicator-placement question) rather than back to Debug for a third layout-only attempt — two consecutive Debug rounds on the same underlying constraint (round 2's dot relocation, round 3's icon/padding trim) without a design-level decision is the signal to escalate now, per this bug's own original recommendation.
+
+---
+
+## QA & Security Report — round 4 (2026-08-22)
+
+**Verified independently** (not just trusted Debug's report):
+- `flutter analyze`: 0 issues.
+- `flutter test`: full suite 360/360 pass, no regressions elsewhere.
+- Re-ran the exact `RenderParagraph` + unconstrained-`TextPainter` measurement technique across all 4 segments × 5 real phone widths (360/375/390/414/430px), in both default (no tap) and tapped-active state — **numbers match the Debug Engineer Report exactly**:
+  - Checkmark icon (`Icons.check`) confirmed absent at every width, every state.
+  - No wrapping regression: every label's `RenderParagraph` height stayed 20px (single line) at every width — the round-2 wrap-ballooning bug stays fixed.
+  - "ติดตาม" / "ล่าสุด": `didExceedMaxLines: false` (fully legible, no truncation) from 390px up; still truncated at 360/375px.
+  - "สำหรับคุณ" (**default segment, active without any tap**) and "จาก Club ของคุณ": `didExceedMaxLines: true` at **all five** widths tested (360-430px) — i.e. every real phone.
+
+**Judgment**: the fix is real, safe, and correctly scoped to what's technically achievable without a design decision — but it does not meet a legibility bar for shipping. "สำหรับคุณ" is the label every single user sees the instant Home loads, on every phone size tested, and it is still only partially readable (box width 80-97.5px vs. its natural 141px). This is not acceptable as final state, but it is also not something a third Debug round should attempt to force via more padding/technical tricks — Debug's own report already demonstrated the remaining gap is structural (label content vs. available width), not a plumbing bug.
+
+**Final Status: FAIL** — but routing recommendation differs from a normal FAIL: **do not send back to AI Debug Engineer.** Per this bug's own original recommendation (carried through both round 3's filing and round 3's fix report), the next step is **AI Design**, to decide between (a) shortening "สำหรับคุณ"/"จาก Club ของคุณ" specifically, or (b) restructuring the `SegmentedButton` control itself (scrollable row, 2x2 layout, dropdown/menu) — then, if it changes the Design System's established interaction pattern, a Founder decision via popup, same as DS-009's own indicator-placement question was handled.
+
+**Files reviewed**: `app/lib/features/home/presentation/home_feed_screen.dart`, `app/test/home_feed_screen_test.dart` — no changes made by QA (verification only).
+
+**Handoff**: AI Design (`/design`), not AI Debug Engineer. Design should propose option(s) with the same rigor as DS-009's comparison (real screens, not mockups, at real phone widths) since this affects Home's default state for every user.
