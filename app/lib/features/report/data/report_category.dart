@@ -48,3 +48,21 @@ extension ReportCategoryDisplay on ReportCategory {
         ReportCategory.other => 'อื่น ๆ (Other)',
       };
 }
+
+/// Parses [ReportCategoryDisplay.wireValue] back into a [ReportCategory]
+/// -- needed by WYN-029's Moderation Queue, which reads `category` back
+/// off `moderation_queue` rows (every other report entry point only
+/// ever writes it, never reads it back).
+ReportCategory reportCategoryFromWireValue(String value) => switch (value) {
+      'spam' => ReportCategory.spam,
+      'scam' => ReportCategory.scam,
+      'harassment' => ReportCategory.harassment,
+      'hate' => ReportCategory.hate,
+      'sexual_content' => ReportCategory.sexualContent,
+      'violence' => ReportCategory.violence,
+      'privacy' => ReportCategory.privacy,
+      'illegal_content' => ReportCategory.illegalContent,
+      'copyright' => ReportCategory.copyright,
+      'other' => ReportCategory.other,
+      _ => throw ArgumentError('Unknown report category: $value'),
+    };

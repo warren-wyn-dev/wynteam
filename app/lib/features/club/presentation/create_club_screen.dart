@@ -2,12 +2,15 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/club.dart';
 import '../data/club_post_repository.dart';
 import '../data/club_repository.dart';
+import '../../moderation/data/moderation_repository.dart';
 import 'club_page.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/widgets/restriction_banner.dart';
 
 /// Screen 2 — Create Club. Reuses Edit Profile's form/upload pattern
 /// (WYN-003) for Name/Description/Cover/Icon per the Design spec.
@@ -17,10 +20,15 @@ class CreateClubScreen extends StatefulWidget {
     super.key,
     required this.clubRepository,
     required this.clubPostRepository,
+    this.moderationRepository,
   });
 
   final ClubRepository clubRepository;
   final ClubPostRepository clubPostRepository;
+
+  // Optional -- see DropDetailScreen.moderationRepository's identical
+  // doc comment. WYN-029.
+  final ModerationRepository? moderationRepository;
 
   @override
   State<CreateClubScreen> createState() => _CreateClubScreenState();
@@ -43,8 +51,41 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
   bool _isCreating = false;
   String? _errorMessage;
 
+  late final ModerationRepository _moderationRepository =
+      widget.moderationRepository ?? ModerationRepository(Supabase.instance.client);
+
+  // WYN-029 (Restrict) -- see CreateDropScreen's identical fields/doc
+  // comment for why this is loaded once, not re-polled.
+  String? _restrictReason;
+  DateTime? _restrictExpiresAt;
+  bool get _isRestricted => _restrictExpiresAt != null;
+
   bool get _canCreate =>
-      !_isCreating && _nameController.text.trim().isNotEmpty && _privacy != null;
+      !_isCreating &&
+      _nameController.text.trim().isNotEmpty &&
+      _privacy != null &&
+      !_isRestricted;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadModerationStatus();
+  }
+
+  Future<void> _loadModerationStatus() async {
+    try {
+      final status = await _moderationRepository.fetchMyStatus();
+      if (!mounted) return;
+      if (status.isRestricted) {
+        setState(() {
+          _restrictReason = status.restrictReason;
+          _restrictExpiresAt = status.restrictExpiresAt;
+        });
+      }
+    } catch (_) {
+      // Silent -- see CreateDropScreen's identical method.
+    }
+  }
 
   @override
   void dispose() {
@@ -146,6 +187,8 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (_isRestricted)
+                RestrictionBanner(reason: _restrictReason, expiresAt: _restrictExpiresAt),
               _buildCoverPicker(),
               const SizedBox(height: WynSpacing.space3),
               _buildIconPicker(),
@@ -221,15 +264,19 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                 ),
                 const SizedBox(height: WynSpacing.space3),
               ],
-              FilledButton(
-                onPressed: _canCreate ? _create : null,
-                child: _isCreating
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('สร้าง Club'),
+              Semantics(
+                label: _isRestricted ? 'สร้าง Club ปิดใช้งานเนื่องจากบัญชีถูกจำกัดการโพสต์ชั่วคราว' : null,
+                excludeSemantics: _isRestricted,
+                child: FilledButton(
+                  onPressed: _canCreate ? _create : null,
+                  child: _isCreating
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('สร้าง Club'),
+                ),
               ),
             ],
           ),

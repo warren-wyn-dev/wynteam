@@ -7,6 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/text_utils.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../core/widgets/hashtag_text.dart';
+import '../../../core/widgets/restriction_banner.dart';
+import '../../moderation/data/moderation_repository.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/club_member.dart';
 import '../data/club_post.dart';
@@ -36,11 +38,16 @@ class ClubPostDetailScreen extends StatefulWidget {
     required this.clubPostRepository,
     required this.post,
     required this.myRole,
+    this.moderationRepository,
   });
 
   final ClubPostRepository clubPostRepository;
   final ClubPost post;
   final ClubMemberRole? myRole;
+
+  // Optional -- see DropDetailScreen.moderationRepository's identical
+  // doc comment. WYN-029.
+  final ModerationRepository? moderationRepository;
 
   @override
   State<ClubPostDetailScreen> createState() => _ClubPostDetailScreenState();
@@ -61,12 +68,36 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
   bool get _canModerate => widget.myRole?.canModeratePosts ?? false;
 
   final _reportRepository = ReportRepository(Supabase.instance.client);
+  late final ModerationRepository _moderationRepository =
+      widget.moderationRepository ?? ModerationRepository(Supabase.instance.client);
+
+  // WYN-029 (Restrict) -- see CreateDropScreen's identical fields/doc
+  // comment for why this is loaded once, not re-polled.
+  String? _restrictReason;
+  DateTime? _restrictExpiresAt;
+  bool get _isRestricted => _restrictExpiresAt != null;
 
   @override
   void initState() {
     super.initState();
     _post = widget.post;
     _loadComments();
+    _loadModerationStatus();
+  }
+
+  Future<void> _loadModerationStatus() async {
+    try {
+      final status = await _moderationRepository.fetchMyStatus();
+      if (!mounted) return;
+      if (status.isRestricted) {
+        setState(() {
+          _restrictReason = status.restrictReason;
+          _restrictExpiresAt = status.restrictExpiresAt;
+        });
+      }
+    } catch (_) {
+      // Silent -- see CreateDropScreen's identical method.
+    }
   }
 
   @override
@@ -515,7 +546,9 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
   }
 
   Widget _buildCommentInput() {
-    final canSend = _commentController.text.trim().isNotEmpty && !_isSendingComment;
+    final canSend = _commentController.text.trim().isNotEmpty &&
+        !_isSendingComment &&
+        !_isRestricted;
 
     return SafeArea(
       top: false,
@@ -525,6 +558,8 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (_isRestricted)
+              RestrictionBanner(reason: _restrictReason, expiresAt: _restrictExpiresAt),
             if (_replyingTo != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 4, left: 4),
@@ -554,10 +589,14 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                     onChanged: (_) => setState(() {}),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  tooltip: 'ส่งคอมเมนต์',
-                  onPressed: canSend ? _sendComment : null,
+                Semantics(
+                  label: _isRestricted ? 'ส่งคอมเมนต์ ปิดใช้งานเนื่องจากบัญชีถูกจำกัดการโพสต์ชั่วคราว' : null,
+                  excludeSemantics: _isRestricted,
+                  child: IconButton(
+                    icon: const Icon(Icons.send),
+                    tooltip: 'ส่งคอมเมนต์',
+                    onPressed: canSend ? _sendComment : null,
+                  ),
                 ),
               ],
             ),

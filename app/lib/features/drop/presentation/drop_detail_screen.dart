@@ -6,7 +6,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../core/widgets/hashtag_text.dart';
+import '../../../core/widgets/restriction_banner.dart';
 import '../../follow/data/follow_repository.dart';
+import '../../moderation/data/moderation_repository.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
@@ -37,6 +39,7 @@ class DropDetailScreen extends StatefulWidget {
     required this.popRepository,
     required this.savedRepository,
     required this.drop,
+    this.moderationRepository,
   });
 
   final DropRepository dropRepository;
@@ -45,6 +48,13 @@ class DropDetailScreen extends StatefulWidget {
   final PopRepository popRepository;
   final SavedRepository savedRepository;
   final Drop drop;
+
+  // Optional -- defaults to a real Supabase-backed instance (see
+  // _DropDetailScreenState's late final below), same "existing call
+  // sites don't need to thread one through" shape as every other
+  // optional repository param in this app. Tests inject a Recording*
+  // fake here instead of touching Supabase.instance. WYN-029.
+  final ModerationRepository? moderationRepository;
 
   @override
   State<DropDetailScreen> createState() => _DropDetailScreenState();
@@ -73,14 +83,38 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   bool? _isFollowing;
 
   final _reportRepository = ReportRepository(Supabase.instance.client);
+  late final ModerationRepository _moderationRepository =
+      widget.moderationRepository ?? ModerationRepository(Supabase.instance.client);
+
+  // WYN-029 (Restrict) -- see CreateDropScreen's identical fields/doc
+  // comment for why this is loaded once, not re-polled.
+  String? _restrictReason;
+  DateTime? _restrictExpiresAt;
+  bool get _isRestricted => _restrictExpiresAt != null;
 
   @override
   void initState() {
     super.initState();
     _drop = widget.drop;
     _loadComments();
+    _loadModerationStatus();
     if (_drop.authorId != Supabase.instance.client.auth.currentUser!.id) {
       _loadFollowStatus();
+    }
+  }
+
+  Future<void> _loadModerationStatus() async {
+    try {
+      final status = await _moderationRepository.fetchMyStatus();
+      if (!mounted) return;
+      if (status.isRestricted) {
+        setState(() {
+          _restrictReason = status.restrictReason;
+          _restrictExpiresAt = status.restrictExpiresAt;
+        });
+      }
+    } catch (_) {
+      // Silent -- see CreateDropScreen's identical method.
     }
   }
 
@@ -682,8 +716,9 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   }
 
   Widget _buildCommentInput() {
-    final canSend =
-        _commentController.text.trim().isNotEmpty && !_isSendingComment;
+    final canSend = _commentController.text.trim().isNotEmpty &&
+        !_isSendingComment &&
+        !_isRestricted;
 
     return SafeArea(
       top: false,
@@ -693,6 +728,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (_isRestricted)
+              RestrictionBanner(reason: _restrictReason, expiresAt: _restrictExpiresAt),
             if (_replyingTo != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 4, left: 4),
@@ -722,10 +759,14 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     onChanged: (_) => setState(() {}),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  tooltip: 'ส่งคอมเมนต์',
-                  onPressed: canSend ? _sendComment : null,
+                Semantics(
+                  label: _isRestricted ? 'ส่งคอมเมนต์ ปิดใช้งานเนื่องจากบัญชีถูกจำกัดการโพสต์ชั่วคราว' : null,
+                  excludeSemantics: _isRestricted,
+                  child: IconButton(
+                    icon: const Icon(Icons.send),
+                    tooltip: 'ส่งคอมเมนต์',
+                    onPressed: canSend ? _sendComment : null,
+                  ),
                 ),
               ],
             ),

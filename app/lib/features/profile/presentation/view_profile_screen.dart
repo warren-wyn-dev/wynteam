@@ -532,9 +532,24 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
               IconButton(
                 icon: const Icon(Icons.settings_outlined),
                 tooltip: 'ตั้งค่า',
-                onPressed: () {
+                onPressed: () async {
+                  // Settings' "เครื่องมือผู้ดูแล" section (WYN-029, Screen 1)
+                  // needs platformRole -- reuses this screen's own
+                  // already-in-flight/already-resolved _loadFuture
+                  // (started in initState) instead of a second query.
+                  // The AppBar (and this button) renders before the
+                  // body's FutureBuilder resolves, so awaiting here
+                  // rather than reading a possibly-still-null cached
+                  // value is what keeps this correct on a slow
+                  // connection too -- in the overwhelmingly common case
+                  // this resolves instantly since the future is already
+                  // in flight or done.
+                  final data = await _loadFuture;
+                  if (!context.mounted) return;
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => SettingsScreen(platformRole: data.profile.platformRole),
+                    ),
                   );
                 },
               ),

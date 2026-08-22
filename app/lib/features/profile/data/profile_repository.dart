@@ -20,7 +20,11 @@ class ProfileRepository {
   Future<Profile> fetchProfile(String userId) async {
     final row = await _client
         .from('profiles')
-        .select('id, username, display_name, bio, avatar_url')
+        // platform_role (WYN-029) included here specifically -- Settings'
+        // "เครื่องมือผู้ดูแล" entry point (Screen 1) reads it straight off
+        // the profile ViewProfileScreen already fetches for itself, no
+        // extra query.
+        .select('id, username, display_name, bio, avatar_url, platform_role')
         .eq('id', userId)
         .single();
     return Profile.fromMap(row);

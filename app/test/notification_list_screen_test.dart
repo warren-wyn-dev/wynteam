@@ -11,6 +11,7 @@ import 'package:wyn/features/notification/data/notification.dart';
 import 'package:wyn/features/notification/presentation/notification_list_screen.dart';
 import 'package:wyn/features/pop/data/pop.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
+import 'package:wyn/features/profile/presentation/widgets/avatar_circle.dart';
 
 import 'package:wyn/features/zoky/presentation/zoky_order_detail_screen.dart';
 
@@ -66,6 +67,9 @@ void main() {
   late RecordingNotificationRepository allMentionTypesRepo;
   late RecordingNotificationRepository mentionDropRepo;
   late RecordingNotificationRepository mentionClubPostRepo;
+  late RecordingNotificationRepository allModerationTypesRepo;
+  late RecordingNotificationRepository moderationWarningRepo;
+  late RecordingNotificationRepository moderationContentRemovedRepo;
 
   final now = DateTime.now();
 
@@ -186,6 +190,32 @@ void main() {
         clubPostId: 'cp1',
         isRead: false,
         createdAt: now.subtract(const Duration(minutes: 6)),
+      );
+
+  // WYN-029 -- actorId/actorUsername deliberately set to the *reviewer's*
+  // real identity here (mirroring what apply_moderation_action() really
+  // stores in actor_id, per supabase/schema.sql), specifically so the
+  // tests below can prove NotificationListScreen never surfaces it, not
+  // just that it happens not to be present in the fixture.
+  WynNotification moderationWarningNotification() => WynNotification(
+        id: 'n-moderation-warning',
+        type: NotificationType.moderationWarning,
+        actorId: 'reviewer-1',
+        actorUsername: 'moderator_somchai',
+        reason: 'สแปมซ้ำหลายครั้ง',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 2)),
+      );
+
+  WynNotification moderationContentRemovedNotification() => WynNotification(
+        id: 'n-moderation-content-removed',
+        type: NotificationType.moderationContentRemoved,
+        actorId: 'reviewer-1',
+        actorUsername: 'moderator_somchai',
+        dropId: 'd1',
+        reason: 'เนื้อหาผิดกฎหมาย',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 1)),
       );
 
   WynNotification newOrderNotification() => WynNotification(
@@ -355,6 +385,14 @@ void main() {
     mentionDropRepo = RecordingNotificationRepository(notifications: [mentionDropNotification()]);
     mentionClubPostRepo =
         RecordingNotificationRepository(notifications: [mentionClubPostNotification()]);
+    allModerationTypesRepo = RecordingNotificationRepository(notifications: [
+      moderationWarningNotification(),
+      moderationContentRemovedNotification(),
+    ]);
+    moderationWarningRepo =
+        RecordingNotificationRepository(notifications: [moderationWarningNotification()]);
+    moderationContentRemovedRepo =
+        RecordingNotificationRepository(notifications: [moderationContentRemovedNotification()]);
   });
 
   Widget buildScreen(
@@ -663,6 +701,73 @@ void main() {
       tester.takeException();
 
       expect(find.byType(ClubPostDetailScreen), findsOneWidget);
+    });
+  });
+
+  group('Moderation notification types (WYN-029)', () {
+    testWidgets('shows type-specific Thai messages including the reason for both types',
+        (tester) async {
+      await tester.pumpWidget(buildScreen(allModerationTypesRepo));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('คุณได้รับคำเตือนจากทีมงาน WYN: สแปมซ้ำหลายครั้ง'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'เนื้อหาของคุณถูกลบเนื่องจากละเมิดกฎการใช้งาน WYN -- เหตุผล: เนื้อหาผิดกฎหมาย',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+        'never shows the reviewer\'s real identity -- no AvatarCircle, no '
+        'username text anywhere in the row, for either type', (tester) async {
+      await tester.pumpWidget(buildScreen(allModerationTypesRepo));
+      await tester.pumpAndSettle();
+
+      // AvatarCircle is what every *other* notification type renders --
+      // its total absence here (not just "hidden behind something else")
+      // is the actual guarantee: the reviewer's avatar/username never
+      // reaches the widget tree at all for these 2 types.
+      expect(find.byType(AvatarCircle), findsNothing);
+      expect(find.byIcon(Icons.shield_outlined), findsNWidgets(2));
+      // The fixtures' actor username would appear as "@moderator_somchai"
+      // if _messageFor ever used actorNameOrUsername for these types --
+      // it must not, per the design doc's Screen 5.
+      expect(find.textContaining('moderator_somchai'), findsNothing);
+    });
+
+    testWidgets('tapping a moderation_warning notification does nothing (no navigation)',
+        (tester) async {
+      await tester.pumpWidget(buildScreen(moderationWarningRepo));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('คุณได้รับคำเตือนจากทีมงาน WYN: สแปมซ้ำหลายครั้ง'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // Still on NotificationListScreen -- nothing was pushed.
+      expect(find.byType(NotificationListScreen), findsOneWidget);
+      expect(find.byType(DropDetailScreen), findsNothing);
+    });
+
+    testWidgets(
+        'tapping a moderation_content_removed notification does nothing, even '
+        'though this fixture (unrealistically) carries a dropId', (tester) async {
+      await tester.pumpWidget(buildScreen(moderationContentRemovedRepo));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.text('เนื้อหาของคุณถูกลบเนื่องจากละเมิดกฎการใช้งาน WYN -- เหตุผล: เนื้อหาผิดกฎหมาย'),
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(NotificationListScreen), findsOneWidget);
+      expect(find.byType(DropDetailScreen), findsNothing);
     });
   });
 }

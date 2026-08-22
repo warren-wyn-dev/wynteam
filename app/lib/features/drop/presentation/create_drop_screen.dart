@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../moderation/data/moderation_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/drop_repository.dart';
 import '../data/square_crop.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/widgets/mention_input.dart';
+import '../../../core/widgets/restriction_banner.dart';
 
 /// Screen 2 — Create Drop.
 /// See .wyn/docs/design/wyn-005-drop.md
@@ -17,7 +19,9 @@ class CreateDropScreen extends StatefulWidget {
     super.key,
     required this.dropRepository,
     ProfileRepository? profileRepository,
-  }) : _profileRepository = profileRepository;
+    ModerationRepository? moderationRepository,
+  })  : _profileRepository = profileRepository,
+        _moderationRepository = moderationRepository;
 
   final DropRepository dropRepository;
 
@@ -27,6 +31,9 @@ class CreateDropScreen extends StatefulWidget {
   // inject a Recording* fake here instead of touching
   // Supabase.instance. See .wyn/learning/PATTERNS.md.
   final ProfileRepository? _profileRepository;
+
+  // Same optional/defaulted shape as _profileRepository above -- WYN-029.
+  final ModerationRepository? _moderationRepository;
 
   @override
   State<CreateDropScreen> createState() => _CreateDropScreenState();
@@ -38,6 +45,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   final _captionController = TextEditingController();
   late final ProfileRepository _profileRepository =
       widget._profileRepository ?? ProfileRepository(Supabase.instance.client);
+  late final ModerationRepository _moderationRepository =
+      widget._moderationRepository ?? ModerationRepository(Supabase.instance.client);
   Set<String> _mentionedUserIds = {};
   Uint8List? _imageBytes;
   String _imageExtension = 'jpg';
@@ -46,7 +55,40 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   bool _isSharing = false;
   String? _errorMessage;
 
-  bool get _canShare => !_isSharing && !_isCropping && _imageBytes != null;
+  // WYN-029 (Restrict): loaded once in initState, not re-polled while
+  // this screen stays open -- see RestrictionBanner's own doc comment
+  // on why a stale read here is an accepted, documented trade-off (the
+  // real enforcement is server-side RLS regardless of what this screen
+  // shows).
+  String? _restrictReason;
+  DateTime? _restrictExpiresAt;
+  bool get _isRestricted => _restrictExpiresAt != null;
+
+  bool get _canShare =>
+      !_isSharing && !_isCropping && _imageBytes != null && !_isRestricted;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadModerationStatus();
+  }
+
+  Future<void> _loadModerationStatus() async {
+    try {
+      final status = await _moderationRepository.fetchMyStatus();
+      if (!mounted) return;
+      if (status.isRestricted) {
+        setState(() {
+          _restrictReason = status.restrictReason;
+          _restrictExpiresAt = status.restrictExpiresAt;
+        });
+      }
+    } catch (_) {
+      // Silent -- fails open, same posture as AuthGate's own moderation
+      // status check. The RLS INSERT guard still rejects the actual
+      // post attempt regardless of whether this banner managed to show.
+    }
+  }
 
   @override
   void dispose() {
@@ -164,15 +206,19 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
           Padding(
             padding: const EdgeInsets.only(right: WynSpacing.space2),
             child: Center(
-              child: TextButton(
-                onPressed: _canShare ? _share : null,
-                child: _isSharing
-                    ? const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('แชร์'),
+              child: Semantics(
+                label: _isRestricted ? 'แชร์ ปิดใช้งานเนื่องจากบัญชีถูกจำกัดการโพสต์ชั่วคราว' : null,
+                excludeSemantics: _isRestricted,
+                child: TextButton(
+                  onPressed: _canShare ? _share : null,
+                  child: _isSharing
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('แชร์'),
+                ),
               ),
             ),
           ),
@@ -183,6 +229,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (_isRestricted)
+                RestrictionBanner(reason: _restrictReason, expiresAt: _restrictExpiresAt),
               _buildImageArea(),
               Padding(
                 padding: const EdgeInsets.all(WynSpacing.space4),

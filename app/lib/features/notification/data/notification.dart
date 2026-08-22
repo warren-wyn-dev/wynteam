@@ -19,6 +19,12 @@ enum NotificationType {
   // WYN-021: fired by drop_mentions/club_post_mentions inserts.
   mentionDrop,
   mentionClubPost,
+  // WYN-029: inserted by apply_moderation_action() for Warning/Remove
+  // Content only -- see supabase/schema.sql. actor_id is the reviewer's
+  // id (kept for DB audit trail), but NotificationListScreen never
+  // renders it as such (see its own comment on why).
+  moderationWarning,
+  moderationContentRemoved,
 }
 
 NotificationType _typeFromString(String value) {
@@ -53,6 +59,10 @@ NotificationType _typeFromString(String value) {
       return NotificationType.mentionDrop;
     case 'mention_club_post':
       return NotificationType.mentionClubPost;
+    case 'moderation_warning':
+      return NotificationType.moderationWarning;
+    case 'moderation_content_removed':
+      return NotificationType.moderationContentRemoved;
     default:
       throw ArgumentError('Unknown notification type: $value');
   }
@@ -82,6 +92,7 @@ class WynNotification {
     this.clubPostId,
     this.orderId,
     this.orderStoreName,
+    this.reason,
     required this.isRead,
     required this.createdAt,
   });
@@ -123,6 +134,14 @@ class WynNotification {
   /// order notification types.
   final String? orderStoreName;
 
+  /// Set only for [NotificationType.moderationWarning]/
+  /// [NotificationType.moderationContentRemoved] -- the moderator's
+  /// reason text, denormalized directly onto this row rather than
+  /// joined from `moderation_actions` (ordinary users have no SELECT
+  /// policy on that table at all, see supabase/schema.sql -- this
+  /// notification row is the only place the target ever sees it).
+  final String? reason;
+
   final bool isRead;
   final DateTime createdAt;
 
@@ -150,6 +169,7 @@ class WynNotification {
       clubPostId: map['club_post_id'] as String?,
       orderId: map['order_id'] as String?,
       orderStoreName: orderStore?['name'] as String?,
+      reason: map['reason'] as String?,
       isRead: map['is_read'] as bool,
       createdAt: DateTime.parse(map['created_at'] as String),
     );

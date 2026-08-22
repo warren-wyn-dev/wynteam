@@ -3992,3 +3992,547 @@ where not exists (
 );
 
 grant select on public.home_feed to authenticated;
+
+-- ============================================================
+-- WYN-029: Moderation Queue + Action
+-- ============================================================
+-- See .wyn/docs/design/wyn-029-moderation-queue.md ("Handoff") --
+-- platform_role first (with both the insert- and update-time client
+-- tampering paths closed, not just one), then moderation_actions +
+-- apply_moderation_action() (the RPC-over-raw-write pattern this schema
+-- already uses for submit_report()/block_user()/club role transitions,
+-- since taking a moderation action has several side effects that must
+-- happen atomically), then get_my_moderation_status() (the single
+-- source of truth both the login gate and the Restrict banner read),
+-- then the RLS enforcement itself.
+
+alter table public.profiles
+  add column if not exists platform_role text not null default 'user';
+
+alter table public.profiles
+  add constraint profiles_platform_role_check
+  check (platform_role in ('user', 'moderator', 'admin'));
+
+-- Insert-time guard against self-escalation: a client can create their
+-- own profiles row (AuthRepository.setUsername's upsert), so the INSERT
+-- policy itself must pin platform_role to 'user' rather than trusting
+-- whatever value a raw insert()/upsert() call sends -- same shape as
+-- club_members' insert policy pinning role = 'member' (WYN-014).
+drop policy "Users can insert their own profile" on public.profiles;
+create policy "Users can insert their own profile"
+  on public.profiles
+  for insert
+  to authenticated
+  with check (auth.uid() = id and platform_role = 'user');
+
+-- Update-time guard: RLS has no column-level granularity (a WITH CHECK
+-- clause can't express "any column except this one"), so the existing
+-- "Users can update their own profile" policy alone would still let a
+-- client PATCH platform_role on their own row via a raw update() call
+-- even with the insert-time guard above in place. Blocked with a
+-- trigger instead, mirroring clubs_prevent_owner_id_change (WYN-014)
+-- exactly. Unlike that trigger, this one *is* meant to be lifted
+-- occasionally (an admin promoting someone to moderator/admin, per
+-- .wyn/tasks/backlog/WYN-029-moderation-queue.md Recommendation #3) --
+-- that is never done by calling this trigger at all: run `alter table
+-- public.profiles disable trigger profiles_prevent_platform_role_change;`,
+-- the UPDATE, then `... enable trigger ...`, directly in the Supabase
+-- SQL editor. Only a superuser/table owner can ALTER TABLE at all --
+-- the `authenticated` role PostgREST clients run as has no such
+-- privilege, so a client can never disable this guard itself.
+create or replace function public.profiles_prevent_platform_role_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.platform_role <> old.platform_role then
+    raise exception 'Changing platform_role directly is not supported -- see supabase/schema.sql (WYN-029)';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger profiles_prevent_platform_role_change
+  before update on public.profiles
+  for each row execute function public.profiles_prevent_platform_role_change();
+
+-- Reusable "is the caller a moderator or admin" check for RLS policies
+-- below. `security definer` here is NOT about bypassing RLS on
+-- `profiles` (its own SELECT policy is `using (true)`, so there is no
+-- recursive self-defeat risk like club_role()/is_blocked_either_way()
+-- guard against) -- it's needed because a plain `stable` SQL function
+-- that references `auth.uid()` is a planner-inlining candidate, and
+-- Postgres re-checks schema privileges *as the calling role* at inline
+-- time (confirmed empirically against real Postgres: `authenticated`
+-- has never been explicitly granted `usage on schema auth` anywhere in
+-- this project, and every *other* `auth.uid()` call in this file only
+-- ever works because it's embedded directly in a policy's own
+-- pre-resolved expression tree, created by the table owner, not
+-- re-resolved under the querying role at call time). `security
+-- definer` functions are never inlined, so this sidesteps that
+-- entirely, the same way it incidentally does for every other
+-- `internal.*`/`public.*` helper in this file that calls `auth.uid()`.
+-- Lives in `internal`, not `public`, purely to stay consistent with
+-- "helpers meant to run inside RLS policies, not to be called as a
+-- client RPC" rather than out of a real leak risk here (a caller can
+-- already learn their own platform_role by reading their own profiles
+-- row).
+create or replace function internal.current_platform_role()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select platform_role from public.profiles where id = auth.uid();
+$$;
+
+grant execute on function internal.current_platform_role() to authenticated;
+
+-- Moderator/admin visibility into the full report queue -- deliberately
+-- NOT a new RLS policy on public.reports itself (unlike every other
+-- "extra visibility" case in this schema, e.g. the WYN-027 block-aware
+-- SELECT policies). Reasoning: RLS is row-level, not column-level -- a
+-- policy granting moderators row access to `reports` would still let a
+-- moderator `select reporter_id` directly off the base table via a raw
+-- REST call, and WYN-026's Requirement is unambiguous that nobody,
+-- including the review team, ever sees who filed a report (design
+-- doc's Handoff, item 2). Instead, this view is created WITHOUT
+-- `security_invoker` (the default, unlike home_feed/saved_feed above,
+-- which deliberately *do* use it) -- a plain view runs RLS-wise as its
+-- *owner* (the migration role, which owns/bypasses RLS on every table
+-- in this schema), so it sees every reports row regardless of caller,
+-- and re-implements the caller-based visibility rule itself via the
+-- `where` clause below instead of delegating to reports' own policies.
+-- Combined with reports' existing reporter-only SELECT policy being
+-- left completely untouched (a moderator hitting `/rest/v1/reports`
+-- directly still only ever sees their own submitted reports, same as
+-- any other user), reporter_id is unreachable through any query path a
+-- client can construct -- not just absent from this view's column list,
+-- but structurally unreachable even by a moderator role.
+create or replace view public.moderation_queue as
+select
+  id,
+  target_type,
+  target_id,
+  category,
+  detail,
+  status,
+  created_at
+from public.reports
+where internal.current_platform_role() <> 'user';
+
+grant select on public.moderation_queue to authenticated;
+
+-- target_user_id is nullable: a report's target can be deleted (by its
+-- own author, or by an earlier Remove Content action against a
+-- different report on the same content) before a moderator gets to it,
+-- in which case apply_moderation_action() below can still record a
+-- No Action closing the case, just with nothing to resolve to.
+create table if not exists public.moderation_actions (
+  id uuid primary key default gen_random_uuid(),
+  report_id uuid not null references public.reports (id) on delete cascade,
+  target_user_id uuid references public.profiles (id) on delete cascade,
+  action_type text not null
+    check (action_type in ('no_action', 'warning', 'remove_content', 'restrict', 'suspend', 'ban')),
+  reason text not null,
+  duration_days integer check (duration_days in (1, 3, 7)),
+  expires_at timestamptz,
+  reviewer_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  constraint moderation_actions_reason_not_blank check (length(trim(reason)) > 0),
+  -- Restrict/Suspend always carry a duration + computed expiry; every
+  -- other action type (including Ban, which is permanent by design --
+  -- see the Product spec) always carries neither.
+  constraint moderation_actions_duration_matches_action_type check (
+    (action_type in ('restrict', 'suspend') and duration_days is not null and expires_at is not null)
+    or (action_type not in ('restrict', 'suspend') and duration_days is null and expires_at is null)
+  )
+);
+
+-- Supports both is_posting_blocked()/get_my_moderation_status()'s
+-- "is there a still-active restrict/suspend/ban row for this user"
+-- lookups below.
+create index if not exists moderation_actions_target_user_idx
+  on public.moderation_actions (target_user_id, action_type, expires_at);
+create index if not exists moderation_actions_report_idx
+  on public.moderation_actions (report_id);
+
+alter table public.moderation_actions enable row level security;
+
+-- Moderator/admin audit visibility only. Deliberately NO policy grants
+-- the *target* of an action select access to this table directly --
+-- reviewer_id would leak who reviewed them the moment they queried
+-- their own rows, defeating the exact same reviewer-identity protection
+-- Screen 5/8 of the design doc call out (mirrors WYN-026's
+-- reporter-identity protection, opposite direction). A target's own
+-- current status is read exclusively through get_my_moderation_status()
+-- below, which returns only reason/expiry, never reviewer_id.
+-- Deliberately no insert/update/delete policy for any role either --
+-- every row here is written by apply_moderation_action() below.
+create policy "Moderators can view moderation action history"
+  on public.moderation_actions
+  for select
+  to authenticated
+  using (internal.current_platform_role() <> 'user');
+
+-- Single reusable "does this user currently have an active
+-- restrict/suspend, or any ban at all, that should block them from
+-- posting" check -- used by the INSERT policies below. security definer
+-- (with the same self-referential-trap reasoning as
+-- internal.drop_author_id, WYN-027): moderation_actions grants ordinary
+-- users no SELECT policy at all (see above), so an inserting user
+-- checking *their own* restriction status here would otherwise have
+-- that row hidden from them by RLS, making the guard silently always
+-- pass. Ban has no expires_at (permanent, see the table's own check
+-- constraint above) so its branch checks existence only -- the only way
+-- to lift a Ban is deleting/superseding that row directly via SQL (no
+-- in-app Unban this round, per the Product spec).
+create or replace function internal.is_posting_blocked(p_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.moderation_actions
+    where target_user_id = p_user_id
+      and (
+        (action_type in ('restrict', 'suspend') and expires_at > now())
+        or action_type = 'ban'
+      )
+  );
+$$;
+
+grant execute on function internal.is_posting_blocked(uuid) to authenticated;
+
+-- Atomically applies one of the 6 moderation actions to a report:
+-- resolves the target account (user -> themselves, content -> its
+-- author, club -> its owner_id, mirroring submit_report()'s own
+-- per-target-type resolution and the design doc's Handoff item 2),
+-- closes the report (dismissed for No Action, actioned for the other
+-- 5), records the action for audit, and performs the action's real
+-- effect (Warning/Remove Content notify via the existing notification
+-- system per the design doc's Screen 5, Remove Content additionally
+-- hard-deletes the content -- see the comment below for why that's
+-- equivalent to the "RLS SELECT filter" mechanism the design doc
+-- describes, not a deviation from it -- Restrict/Suspend compute an
+-- expiry, Ban is permanent). Mirrors block_user()'s
+-- validate-then-multi-write shape. `for update` on the report row
+-- guards against two moderators actioning the same report at once (the
+-- design doc's overview decision #3 -- no claim/"reviewing" mechanic --
+-- explicitly leans on this as the actual double-action guard).
+create or replace function public.apply_moderation_action(
+  p_report_id uuid,
+  p_action_type text,
+  p_reason text,
+  p_duration_days integer default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_reviewer uuid := auth.uid();
+  v_reviewer_role text;
+  v_report record;
+  v_target_user uuid;
+  v_expires_at timestamptz;
+  v_trimmed_reason text := trim(coalesce(p_reason, ''));
+begin
+  if v_reviewer is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select platform_role into v_reviewer_role from public.profiles where id = v_reviewer;
+  if v_reviewer_role is null or v_reviewer_role = 'user' then
+    raise exception 'Not authorized';
+  end if;
+
+  if p_action_type not in ('no_action', 'warning', 'remove_content', 'restrict', 'suspend', 'ban') then
+    raise exception 'Invalid action_type: %', p_action_type;
+  end if;
+
+  if length(v_trimmed_reason) = 0 then
+    raise exception 'Reason is required';
+  end if;
+
+  select * into v_report from public.reports where id = p_report_id for update;
+  if v_report is null then
+    raise exception 'Report not found';
+  end if;
+  if v_report.status not in ('pending', 'reviewing') then
+    raise exception 'Report has already been actioned';
+  end if;
+
+  if v_report.target_type = 'user' then
+    v_target_user := v_report.target_id;
+  elsif v_report.target_type = 'drop' then
+    select author_id into v_target_user from public.drops where id = v_report.target_id;
+  elsif v_report.target_type = 'drop_comment' then
+    select author_id into v_target_user from public.drop_comments where id = v_report.target_id;
+  elsif v_report.target_type = 'club' then
+    select owner_id into v_target_user from public.clubs where id = v_report.target_id;
+  elsif v_report.target_type = 'club_post' then
+    select author_id into v_target_user from public.club_posts where id = v_report.target_id;
+  elsif v_report.target_type = 'club_post_comment' then
+    select author_id into v_target_user from public.club_post_comments where id = v_report.target_id;
+  else
+    raise exception 'Unsupported report target type: %', v_report.target_type;
+  end if;
+
+  -- Remove Content only applies to content targets, per the Product
+  -- spec ("เฉพาะ target ที่เป็นเนื้อหา ไม่ใช้กับ target ที่เป็น User/Club").
+  if p_action_type = 'remove_content' and v_report.target_type in ('user', 'club') then
+    raise exception 'Remove Content is not supported for target type %', v_report.target_type;
+  end if;
+
+  -- Every action except No Action needs a real account to act on -- if
+  -- the target vanished before review (deleted by its own author, or by
+  -- an earlier Remove Content against a different report on the same
+  -- content), only No Action can still close the case.
+  if v_target_user is null and p_action_type <> 'no_action' then
+    raise exception 'Target no longer exists -- use No Action to close this report';
+  end if;
+
+  if p_action_type in ('restrict', 'suspend') then
+    if p_duration_days is null or p_duration_days not in (1, 3, 7) then
+      raise exception 'duration_days must be 1, 3, or 7 for % ', p_action_type;
+    end if;
+    v_expires_at := now() + (p_duration_days || ' days')::interval;
+  else
+    v_expires_at := null;
+  end if;
+
+  insert into public.moderation_actions (
+    report_id, target_user_id, action_type, reason, duration_days, expires_at, reviewer_id
+  ) values (
+    p_report_id,
+    v_target_user,
+    p_action_type,
+    v_trimmed_reason,
+    case when p_action_type in ('restrict', 'suspend') then p_duration_days else null end,
+    v_expires_at,
+    v_reviewer
+  );
+
+  update public.reports
+  set status = case when p_action_type = 'no_action' then 'dismissed' else 'actioned' end
+  where id = p_report_id;
+
+  if p_action_type = 'warning' then
+    insert into public.notifications (recipient_id, actor_id, type, reason)
+    values (v_target_user, v_reviewer, 'moderation_warning', v_trimmed_reason);
+  elsif p_action_type = 'remove_content' then
+    -- Notification inserted *before* the delete below on purpose: both
+    -- drop_id/club_post_id etc. are left null on this notification (see
+    -- the notifications_type_check migration further down), so nothing
+    -- here references the row about to be deleted and there is no
+    -- on-delete-cascade ordering hazard either way -- but inserting
+    -- first keeps the "notify, then remove" sequence readable as the
+    -- two-step user-facing effect the design doc describes.
+    insert into public.notifications (recipient_id, actor_id, type, reason)
+    values (v_target_user, v_reviewer, 'moderation_content_removed', v_trimmed_reason);
+
+    -- Hard-delete, not a soft-delete-and-filter flag: the design doc's
+    -- Screen 5 explicitly specifies the *effect* as "hidden from
+    -- everyone including the author -- exactly like deleting it
+    -- themselves" -- self-delete everywhere else in this schema
+    -- (deleteDrop/deleteComment/deletePost) is already a hard DELETE,
+    -- so this reuses that exact same mechanism instead of inventing a
+    -- new is_deleted column + SELECT-filter policy that would produce
+    -- an identical externally-visible result with more surface area.
+    if v_report.target_type = 'drop' then
+      delete from public.drops where id = v_report.target_id;
+    elsif v_report.target_type = 'drop_comment' then
+      delete from public.drop_comments where id = v_report.target_id;
+    elsif v_report.target_type = 'club_post' then
+      delete from public.club_posts where id = v_report.target_id;
+    elsif v_report.target_type = 'club_post_comment' then
+      delete from public.club_post_comments where id = v_report.target_id;
+    end if;
+  end if;
+end;
+$$;
+
+grant execute on function public.apply_moderation_action(uuid, text, text, integer) to authenticated;
+
+-- Single source of truth for "is auth.uid() currently
+-- restricted/suspended/banned" -- both AuthGate's login-time check and
+-- RestrictionBanner's posting-time check call this same RPC (design
+-- doc's Handoff item 4), so the two can never disagree about what
+-- "currently restricted" means. security definer for the same reason as
+-- is_posting_blocked() above (ordinary users have no SELECT policy on
+-- moderation_actions). Only ever resolves the caller's own auth.uid()
+-- -- there is no user-id parameter, so this can never be used to probe
+-- anyone else's moderation status.
+create or replace function public.get_my_moderation_status()
+returns table (
+  is_restricted boolean,
+  restrict_reason text,
+  restrict_expires_at timestamptz,
+  is_suspended boolean,
+  suspend_reason text,
+  suspend_expires_at timestamptz,
+  is_banned boolean,
+  ban_reason text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    exists (
+      select 1 from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'restrict' and expires_at > now()
+    ),
+    (
+      select reason from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'restrict' and expires_at > now()
+      order by created_at desc limit 1
+    ),
+    (
+      select expires_at from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'restrict' and expires_at > now()
+      order by created_at desc limit 1
+    ),
+    exists (
+      select 1 from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'suspend' and expires_at > now()
+    ),
+    (
+      select reason from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'suspend' and expires_at > now()
+      order by created_at desc limit 1
+    ),
+    (
+      select expires_at from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'suspend' and expires_at > now()
+      order by created_at desc limit 1
+    ),
+    exists (
+      select 1 from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'ban'
+    ),
+    (
+      select reason from public.moderation_actions
+      where target_user_id = auth.uid() and action_type = 'ban'
+      order by created_at desc limit 1
+    );
+$$;
+
+grant execute on function public.get_my_moderation_status() to authenticated;
+
+-- ------------------------------------------------------------
+-- Notification types 2, 3 (Screen 5): Warning / Remove Content ride the
+-- existing notification system instead of new UI. `reason` is
+-- denormalized directly onto the row (same reasoning as clubName/
+-- orderStoreName being denormalized/joined elsewhere) rather than
+-- joined from moderation_actions at read time, since ordinary users
+-- have no SELECT policy on moderation_actions at all (see above) -- the
+-- notification row is the *only* place the target ever sees this text.
+-- ------------------------------------------------------------
+alter table public.notifications
+  add column if not exists reason text;
+
+do $$
+declare
+  v_constraint_name text;
+begin
+  select tc.constraint_name into v_constraint_name
+  from information_schema.table_constraints tc
+  join information_schema.constraint_column_usage ccu
+    on ccu.constraint_name = tc.constraint_name
+   and ccu.constraint_schema = tc.constraint_schema
+  where tc.table_schema = 'public'
+    and tc.table_name = 'notifications'
+    and tc.constraint_type = 'CHECK'
+    and ccu.column_name = 'type';
+
+  if v_constraint_name is not null then
+    execute format('alter table public.notifications drop constraint %I', v_constraint_name);
+  end if;
+end;
+$$;
+
+alter table public.notifications
+  add constraint notifications_type_check
+  check (type in (
+    'like_drop', 'like_pop', 'comment_drop', 'comment_pop', 'follow',
+    'club_join_request', 'club_join_approved', 'club_post_like', 'club_post_comment',
+    'new_order', 'order_shipped', 'order_cancelled', 'order_refunded',
+    'mention_drop', 'mention_club_post',
+    'moderation_warning', 'moderation_content_removed'
+  ));
+
+-- ------------------------------------------------------------
+-- Restrict/Suspend/Ban enforcement (Screen 8): posting is blocked at
+-- the RLS INSERT layer, not just by disabling a button in Dart -- a
+-- restricted/suspended/banned account calling these endpoints directly
+-- still gets rejected. Auto-expiry is inherent to
+-- internal.is_posting_blocked()'s own `expires_at > now()` check (no
+-- cron/batch job anywhere in this project's infrastructure) -- the
+-- instant a Restrict/Suspend's expires_at is in the past, the very next
+-- insert attempt succeeds again with no other action needed. Login-time
+-- blocking (Suspend/Ban) is enforced client-side by AuthGate calling
+-- get_my_moderation_status() above, not here -- RLS has no hook into
+-- Supabase Auth's session-issuing step itself. Pop is deliberately left
+-- untouched (no pops/pop_comments policy below) -- Pop feature
+-- development is suspended, see .wyn/company/DECISIONS.md (2026-08-14).
+-- ------------------------------------------------------------
+drop policy "Users can create their own drops" on public.drops;
+create policy "Users can create their own drops, excluding moderation-blocked accounts"
+  on public.drops
+  for insert
+  to authenticated
+  with check (auth.uid() = author_id and not internal.is_posting_blocked(auth.uid()));
+
+drop policy "Users can comment on drops as themselves, excluding blocked authors" on public.drop_comments;
+create policy "Users can comment on drops as themselves, excluding blocked authors and moderation-blocked accounts"
+  on public.drop_comments
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = author_id
+    and not internal.is_blocked_either_way(auth.uid(), internal.drop_author_id(drop_id))
+    and not internal.is_posting_blocked(auth.uid())
+  );
+
+drop policy "Users can create clubs as themselves" on public.clubs;
+create policy "Users can create clubs as themselves, excluding moderation-blocked accounts"
+  on public.clubs
+  for insert
+  to authenticated
+  with check (auth.uid() = owner_id and not internal.is_posting_blocked(auth.uid()));
+
+drop policy "Approved club members can create club posts as themselves" on public.club_posts;
+create policy "Approved club members can create club posts as themselves, excluding moderation-blocked accounts"
+  on public.club_posts
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = author_id
+    and public.club_role(club_id, auth.uid()) is not null
+    and not internal.is_posting_blocked(auth.uid())
+  );
+
+drop policy "Approved club members can comment on club posts as themselves, excluding blocked authors" on public.club_post_comments;
+create policy "Approved club members can comment on club posts as themselves, excluding blocked authors and moderation-blocked accounts"
+  on public.club_post_comments
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = author_id
+    and exists (
+      select 1 from public.club_posts cp
+      where cp.id = club_post_id
+        and public.club_role(cp.club_id, auth.uid()) is not null
+        and not internal.is_blocked_either_way(auth.uid(), cp.author_id)
+    )
+    and not internal.is_posting_blocked(auth.uid())
+  );
