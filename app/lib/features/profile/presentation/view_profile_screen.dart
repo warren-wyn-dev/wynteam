@@ -24,6 +24,7 @@ import '../../../core/design/wyn_spacing.dart';
 import '../../block/data/block_relationship.dart';
 import '../../block/data/block_repository.dart';
 import '../../block/presentation/block_dialogs.dart';
+import '../../mute/data/mute_repository.dart';
 import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
@@ -47,6 +48,9 @@ class ViewProfileScreen extends StatefulWidget {
     required this.userId,
     this.clubRepository,
     this.clubPostRepository,
+    this.reportRepository,
+    this.blockRepository,
+    this.muteRepository,
   });
 
   final ProfileRepository profileRepository;
@@ -67,6 +71,20 @@ class ViewProfileScreen extends StatefulWidget {
   // for a feature that would never actually use them there.
   final ClubRepository? clubRepository;
   final ClubPostRepository? clubPostRepository;
+
+  // Optional and defaulted to Supabase.instance.client when omitted
+  // (see the State's _reportRepository/_blockRepository/_muteRepository
+  // getters below) -- these three used to be hardcoded directly in the
+  // State, unlike every repository above, which meant the More menu's
+  // "รายงาน"/"บล็อก"/"ปิดเสียง" items (and the Blocked persona banner)
+  // had no way to be exercised by a widget test: WYN-027 QA found this
+  // gap and flagged it as a fast-follow (see .wyn/company/DECISIONS.md,
+  // WYN-027 QA round 1). Fixed here while adding WYN-028's own
+  // muteRepository to the same three-repository hardcoding, rather than
+  // compounding the same gap a third time.
+  final ReportRepository? reportRepository;
+  final BlockRepository? blockRepository;
+  final MuteRepository? muteRepository;
 
   @override
   State<ViewProfileScreen> createState() => _ViewProfileScreenState();
@@ -89,12 +107,23 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   // to decide whether "บล็อก" belongs in the list.
   BlockRelationship? _blockRelationship;
 
+  // Null until loaded (only for other people's profiles) -- WYN-028's
+  // More menu toggle (Design Screen 1) reads this to decide whether to
+  // show "ปิดเสียง" or "เปิดเสียง", and stays hidden while null so the
+  // label can never show the wrong action, same posture as
+  // _blockRelationship above.
+  bool? _isMuted;
+
   // Only ever loaded for the viewer's own profile with a ClubRepository
   // supplied -- see ClubRepository's doc comment on ViewProfileScreen.
   Future<List<Club>>? _myClubsFuture;
 
-  final _reportRepository = ReportRepository(Supabase.instance.client);
-  final _blockRepository = BlockRepository(Supabase.instance.client);
+  late final ReportRepository _reportRepository =
+      widget.reportRepository ?? ReportRepository(Supabase.instance.client);
+  late final BlockRepository _blockRepository =
+      widget.blockRepository ?? BlockRepository(Supabase.instance.client);
+  late final MuteRepository _muteRepository =
+      widget.muteRepository ?? MuteRepository(Supabase.instance.client);
 
   bool get _isOwnProfile =>
       widget.userId == Supabase.instance.client.auth.currentUser!.id;
@@ -106,6 +135,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     if (!_isOwnProfile) {
       _loadFollowStatus();
       _loadBlockRelationship();
+      _loadMuteStatus();
     }
     final clubRepository = widget.clubRepository;
     if (_isOwnProfile && clubRepository != null) {
@@ -197,6 +227,49 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     }
   }
 
+  Future<void> _loadMuteStatus() async {
+    try {
+      final isMuted = await _muteRepository.isMuted(widget.userId);
+      if (!mounted) return;
+      setState(() => _isMuted = isMuted);
+    } catch (_) {
+      // Leave it null -- the More menu item stays hidden rather than
+      // guessing, same posture as _loadBlockRelationship.
+    }
+  }
+
+  // Optimistic toggle, no confirm dialog -- unlike _blockUser above,
+  // mute has no side effect visible to anyone but the current user and
+  // is fully reversible, so the extra friction of a dialog isn't
+  // warranted (WYN-028 Design, Screen 1 -- mirrors _toggleFollow's
+  // shape exactly, not _blockUser's).
+  Future<void> _toggleMute(Profile profile) async {
+    final previous = _isMuted;
+    if (previous == null) return;
+    setState(() => _isMuted = !previous);
+    try {
+      if (previous) {
+        await _muteRepository.unmuteUser(widget.userId);
+      } else {
+        await _muteRepository.muteUser(widget.userId);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(previous
+              ? 'เปิดเสียง @${profile.username} แล้ว'
+              : 'ปิดเสียง @${profile.username} แล้ว'),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isMuted = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    }
+  }
+
   Future<void> _openEdit(Profile profile) async {
     await Navigator.of(context).push<Profile>(
       MaterialPageRoute(
@@ -256,6 +329,12 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   // _blockRelationship has loaded and confirms there isn't one already
   // (Design Screen 1) -- once blocked, this menu shows just "รายงาน"
   // (no "เลิกบล็อก" shortcut here per Product spec, Design Screen 3).
+  // "ปิดเสียง"/"เปิดเสียง" (WYN-028) sits between รายงาน/บล็อก by
+  // severity (Design Screen 1) and, like บล็อก, only shows once its own
+  // status has loaded -- and never at all when a block relationship
+  // already exists, since Block's Blocked persona menu reduces to just
+  // "รายงาน" regardless (mute would be redundant under a much stronger
+  // restriction).
   Future<void> _openMoreMenu() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -270,6 +349,15 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                 _reportUser();
               },
             ),
+            if (_isMuted != null && _blockRelationship == BlockRelationship.none)
+              ListTile(
+                leading: Icon(_isMuted! ? Icons.volume_up : Icons.volume_off),
+                title: Text(_isMuted! ? 'เปิดเสียง' : 'ปิดเสียง'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _onMuteTapped();
+                },
+              ),
             if (_blockRelationship == BlockRelationship.none)
               ListTile(
                 leading: const Icon(Icons.block),
@@ -292,6 +380,17 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       await _blockUser(data.profile);
     } catch (_) {
       // The profile itself failed to load -- nothing sensible to block
+      // by username; the screen's own error state already covers this.
+    }
+  }
+
+  Future<void> _onMuteTapped() async {
+    try {
+      final data = await _loadFuture;
+      if (!mounted) return;
+      await _toggleMute(data.profile);
+    } catch (_) {
+      // The profile itself failed to load -- nothing sensible to mute
       // by username; the screen's own error state already covers this.
     }
   }

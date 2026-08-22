@@ -3,17 +3,26 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../block/data/block_repository.dart';
 import '../../block/presentation/blocked_list_screen.dart';
+import '../../drop/data/drop_repository.dart';
+import '../../follow/data/follow_repository.dart';
+import '../../mute/data/mute_repository.dart';
+import '../../mute/presentation/muted_list_screen.dart';
+import '../../pop/data/pop_repository.dart';
+import '../../profile/data/profile_repository.dart';
+import '../../saved/data/saved_repository.dart';
 import '../../../core/design/wyn_spacing.dart';
 
-/// Minimal Settings screen (WYN-027) -- the full Settings (Master Spec
-/// section 35: Account/Privacy/Notifications/Security/Safety/Data/
-/// Legal) is WYN-045 (Phase 5), not started yet. This round adds only
-/// the "ความปลอดภัย" (Safety) section, since Blocked List needs
-/// *somewhere* to live per the Product spec ("Unblock ได้จากหน้า
-/// Settings → Safety → Blocked List เท่านั้น"). Deliberately not
+/// Minimal Settings screen (WYN-027/028) -- the full Settings (Master
+/// Spec section 35: Account/Privacy/Notifications/Security/Safety/
+/// Data/Legal) is WYN-045 (Phase 5), not started yet. This round adds
+/// only the "ความปลอดภัย" (Safety) section, since Blocked List/Muted
+/// List need *somewhere* to live per the Product specs ("Unblock ได้
+/// จากหน้า Settings → Safety → Blocked List เท่านั้น" /
+/// "Unmute ได้จาก Settings → Safety → Muted List"). Deliberately not
 /// pre-building empty sections for the other 6 categories -- a menu
 /// that opens to nothing yet is worse than no menu at all. See
-/// .wyn/docs/design/wyn-027-block-system.md, Screen 4.
+/// .wyn/docs/design/wyn-027-block-system.md, Screen 4, and
+/// .wyn/docs/design/wyn-028-mute-system.md, Screen 3.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -46,6 +55,26 @@ class SettingsScreen extends StatelessWidget {
                 MaterialPageRoute(
                   builder: (_) => BlockedListScreen(
                     blockRepository: BlockRepository(Supabase.instance.client),
+                  ),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.volume_off),
+            title: const Text('บัญชีที่ปิดเสียง'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              final client = Supabase.instance.client;
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => MutedListScreen(
+                    muteRepository: MuteRepository(client),
+                    profileRepository: ProfileRepository(client),
+                    followRepository: FollowRepository(client),
+                    dropRepository: DropRepository(client),
+                    popRepository: PopRepository(client),
+                    savedRepository: SavedRepository(client),
                   ),
                 ),
               );

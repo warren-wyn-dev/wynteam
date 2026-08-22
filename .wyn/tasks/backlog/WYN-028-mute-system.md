@@ -1,7 +1,7 @@
 # Product Task — WYN-028
 
-Status: active (Design เสร็จ, รอ AI Coding)
-Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ — ดู `.wyn/docs/design/wyn-028-mute-system.md`) → AI Coding (ถัดไป)
+Status: active (Coding เสร็จ, รอ AI QA & Security)
+Owner: AI Product Manager (เสร็จ) → AI Design (เสร็จ — ดู `.wyn/docs/design/wyn-028-mute-system.md`) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
 
 Feature: Mute System
 
@@ -69,3 +69,23 @@ Handoff: AI Design — ออกแบบ Mute entry point ใน Profile More m
 - Follow/Like/Comment/Mention/Notification: **ไม่มี UI เปลี่ยนแปลงใดๆ เลย** — บันทึกไว้ชัดเจนกันเข้าใจผิดว่าต้องทำเหมือน Block
 
 Handoff: AI Coding — เริ่มจาก data layer (`mutes` table + `home_feed` view filter) ตามลำดับใน design doc's Handoff section
+
+---
+
+## Coding Output (2026-08-22)
+
+Implementation: เพิ่มตาราง `mutes` (unique key คู่ `muter_id`/`muted_id`, self-mute กันด้วย check constraint) พร้อม RLS ธรรมดา 3 policy (SELECT/INSERT/DELETE ผูกกับ `auth.uid() = muter_id` ทั้งหมด) — **ไม่มี RPC เลยตามที่ Design ระบุ** เพราะไม่มี side-effect ต้องอะตอมมิก แก้ `home_feed` view เพิ่มเงื่อนไข `not exists (select 1 from mutes where muter_id = auth.uid() and muted_id = <author_id>)` ในทั้งสองครึ่งของ UNION ALL (Drop และ Pop) เป็นจุดเดียวที่บังคับใช้ mute จริง ฝั่ง Flutter เพิ่มฟีเจอร์ใหม่ `app/lib/features/mute/` (`MuteRepository`, `MutedListScreen`) แก้ `ViewProfileScreen` เพิ่ม toggle "ปิดเสียง"/"เปิดเสียง" ใน More menu ระหว่าง "รายงาน"/"บล็อก" (ไม่มี confirm dialog ตาม Design) แก้ `SettingsScreen` เพิ่มแถวที่ 2 "บัญชีที่ปิดเสียง" ใน section "ความปลอดภัย" เดิม
+
+Files Changed: `supabase/schema.sql` (WYN-028 section — `mutes` table + RLS + `home_feed` view redefinition), `app/lib/features/mute/**` (ใหม่), `app/lib/features/profile/presentation/view_profile_screen.dart`, `app/lib/features/settings/presentation/settings_screen.dart`
+
+Reason: บังคับใช้ Mute เฉพาะที่ `home_feed` view (ไม่ใช่ RLS ของ `drops`/`pops` แบบ Block) เพื่อไม่ให้กระทบ Search/Club Post/Profile ตามที่ Design กำหนดไว้ชัดเจน — ผลพลอยได้ที่ตั้งใจ: แถว Trending ก็ถูกกรองด้วยเพราะ query view เดียวกัน
+
+Known Issues fixed proactively: WYN-027 QA รอบ 1 พบว่า `ViewProfileScreen`'s `_reportRepository`/`_blockRepository` hardcode `Supabase.instance.client` ตรงๆ ทำให้ More menu/Blocked persona ไม่มี automated test ถาวรได้เลย (เสนอเป็น fast-follow) — แก้จุดนี้พร้อมกันตอนเพิ่ม `_muteRepository` ตัวที่สาม โดยเปลี่ยนทั้ง 3 ตัวเป็น optional constructor param (`reportRepository`/`blockRepository`/`muteRepository`) ที่ default ไปสร้างจาก `Supabase.instance.client` เองถ้าไม่ส่งมา (pattern เดียวกับ `clubRepository`/`clubPostRepository` ที่มีอยู่แล้ว) — ทำให้เขียน `view_profile_mute_test.dart` ทดสอบ More menu integration ได้จริงเป็นครั้งแรก (ก่อนหน้านี้ทำไม่ได้เลยเพราะ network call จริงล้มเหลวเงียบๆ ในสภาพแวดล้อม test)
+
+Tests: เพิ่ม `test/muted_list_screen_test.dart` (5 เคส), `test/view_profile_mute_test.dart` (5 เคส — รวมถึงเคสที่ยืนยันว่า More menu แสดง "ปิดเสียง"/"เปิดเสียง" ถูกต้องตามสถานะ, ไม่แสดงเลยเมื่อมี block relationship, และ error revert ทำงานถูกต้อง), `test/settings_screen_test.dart` (3 เคส), `test/support/recording_mute_repository.dart` — รวม 13 เทสต์ใหม่ `flutter test` ทั้งโปรเจกต์ผ่านครบ 395/395 (baseline 382 + ใหม่ 13, ไม่มี regression) `flutter analyze`: สะอาด ไม่มี issue — SQL ยืนยันด้วยการรัน schema.sql จริงบน local Postgres 16 กับ 12 สถานการณ์ทดสอบ (T0-T12 รวม one-directional/regression/privacy/self-mute/spoofing/unmute) พร้อมเช็คเพิ่มเติมว่า Block+Mute พร้อมกันบนคู่เดียวกัน Block ยังคง dominant (เนื้อหาหายทุกที่ ไม่ใช่แค่ Home Feed)
+
+Build: `flutter analyze` สะอาด ไม่มี issue
+
+Known Issues: ไม่มี known issue ใหม่จากรอบนี้ (scope ตรงตาม Design doc ทุกข้อ ไม่มี trade-off ที่ต้องเปิดเผยเพิ่มเติมแบบ WYN-027's mention-color gap)
+
+Handoff: AI QA & Security — ทดสอบ WYN-028 ตาม Acceptance Criteria ทั้งหมด โดยเฉพาะ regression กับ WYN-027 (คู่ที่ทั้ง Mute และ Block กันพร้อมกัน) และย้ำ AC ที่ตรงข้ามกับ WYN-027 (Follow/Like/Comment/Mention ต้อง**ไม่ถูก**บล็อกระหว่างคู่ที่ Mute กันอยู่)

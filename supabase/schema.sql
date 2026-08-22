@@ -3848,3 +3848,112 @@ create policy "Club post authors can mention users in their own posts, excluding
     )
     and not public.is_blocked_either_way(auth.uid(), mentioned_user_id)
   );
+
+-- ============================================================
+-- WYN-028: Mute System
+-- ============================================================
+-- See .wyn/docs/design/wyn-028-mute-system.md ("ภาพรวมแนวทาง") --
+-- unlike blocks, mute has no side effect to coordinate atomically (no
+-- Follow teardown, no interaction restriction), so this needs no RPC:
+-- plain client-side insert/delete through RLS, same shape as `follows`.
+create table if not exists public.mutes (
+  muter_id uuid not null references public.profiles (id) on delete cascade,
+  muted_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (muter_id, muted_id),
+  constraint mutes_no_self_mute check (muter_id <> muted_id)
+);
+
+alter table public.mutes enable row level security;
+
+-- A user can only ever see/create/remove their own mute rows -- unlike
+-- blocks there's no relationship-kind RPC to reveal here, because mute
+-- is one-directional only and the muted party must never be able to
+-- tell they've been muted through any channel (Product spec).
+create policy "Users can view mutes they created"
+  on public.mutes
+  for select
+  to authenticated
+  using (auth.uid() = muter_id);
+
+create policy "Users can mute others as themselves"
+  on public.mutes
+  for insert
+  to authenticated
+  with check (auth.uid() = muter_id);
+
+create policy "Users can unmute as themselves"
+  on public.mutes
+  for delete
+  to authenticated
+  using (auth.uid() = muter_id);
+
+-- Mute's one and only enforcement point: the home_feed view itself,
+-- not a SELECT policy on drops/pops directly. drops/pops are queried
+-- directly from several other places (Search, ProfileDropGridTab/
+-- ProfilePopGridTab via fetchByAuthor) that must stay completely
+-- unaffected by mute per the Product spec ("ไม่กระทบ Search, ไม่กระทบ
+-- Club Post ร่วม, ไม่กระทบ Profile") -- filtering only inside this view
+-- keeps the effect scoped to exactly HomeRepository's fetchFeed/
+-- fetchTrending/fetchFollowingFeed, all of which query this view and
+-- nothing else, which is exactly "Home Feed" in the sense the
+-- Requirement means (see wyn-028-mute-system.md, Screen 2, for why the
+-- Trending row is an intentional, disclosed side effect of that scope).
+--
+-- The `not exists (select 1 from public.mutes where muter_id =
+-- auth.uid() ...)` subquery below does NOT hit the RLS self-referential
+-- trap found in WYN-027 (see drop_author_id() above): that trap needed
+-- a subquery to check a table (drops) whose own RLS filtered on an
+-- *unrelated* condition (block) to what the subquery needed (author
+-- id), so RLS silently hid rows the subquery needed to see. Here the
+-- subquery's own condition (`muter_id = auth.uid()`) is identical to
+-- mutes' SELECT policy condition -- RLS permits exactly the rows this
+-- subquery is already looking for, so no self-defeat is possible and a
+-- security-definer helper function is unnecessary.
+create or replace view public.home_feed
+  with (security_invoker = true) as
+select
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  d.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  null::bigint as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count
+from public.drops d
+join public.profiles prof on prof.id = d.author_id
+where not exists (
+  select 1 from public.mutes where muter_id = auth.uid() and muted_id = d.author_id
+)
+union all
+select
+  p.id,
+  'pop'::text as content_type,
+  p.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  p.created_at,
+  p.caption,
+  null::text as image_url,
+  p.video_url,
+  p.thumbnail_url,
+  p.duration_seconds,
+  p.view_count,
+  (select count(*) from public.pop_likes where pop_id = p.id) as like_count,
+  (select count(*) from public.pop_comments where pop_id = p.id) as comment_count
+from public.pops p
+join public.profiles prof on prof.id = p.author_id
+where not exists (
+  select 1 from public.mutes where muter_id = auth.uid() and muted_id = p.author_id
+);
+
+grant select on public.home_feed to authenticated;
