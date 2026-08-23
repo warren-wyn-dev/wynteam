@@ -1,6 +1,6 @@
 # Product Task — WYN-040
 
-Status: qa (Coding เสร็จแล้ว commit 3a6ab07 — รอ Independent QA เริ่มทดสอบจริง ยังไม่มีผลทดสอบ QA เขียนไว้ในไฟล์นี้เลยแม้แต่บรรทัดเดียว ณ จุดนี้)
+Status: approved (Independent QA PASS 2026-08-23 — ดูหัวข้อ "Independent QA" ท้ายไฟล์ — ส่งต่อ AI Deploy & DevOps)
 Owner: AI Product Manager
 
 Feature: Discovery Page (Trending Now / Trending Topics & Hashtags / Rising / Suggested Users / Suggested Clubs)
@@ -93,3 +93,46 @@ Handoff: AI Design — ออกแบบ layout หน้า Discovery ทั�
 **Acceptance Criteria — ไล่ตรวจครบทุกข้อจาก Product spec**: ครบทุกข้อ ยืนยันด้วย SQL test จริง (RPC/RLS/SECURITY DEFINER ทุกจุด) + Flutter test จริง (5 section/fail-safe/navigation/Follow button/regression ของ WYN-009)
 
 Handoff: AI QA & Security — เน้นตรวจ 3 จุดเสี่ยงสุดตาม Product's Risks เป็นพิเศษ (ยืนยันแล้วด้วย SQL test ของ Coding เองแต่ควรตรวจอิสระซ้ำ): **(ก) RPC ใหม่ 2 ตัว (`rising_profiles`/`suggested_users`) ไม่รั่ว raw follower-growth/follower-count number ออกทางไหนเลย** — ตรวจ return type ตรงๆ (`\df+` หรือ `pg_get_function_result`) และตรวจ `DiscoveryRepository`/`DiscoveryView` ฝั่ง Flutter ว่าไม่มีจุดไหนพยายามอ่าน field อื่นนอกจาก `profile_id` จาก response ของ 2 RPC นี้เลย, **(ข) SECURITY DEFINER ทั้ง 2 ตัวไม่ bypass เกินขอบเขตที่ตั้งใจ** — ตรวจว่า exclude self/followed/blocked (ทั้งคู่) และ muted (เฉพาะ `suggested_users`) ถูกต้องครบจริง ไม่มีช่องโหว่ให้เห็นบัญชีที่ควรถูกซ่อน, **(ค) `SearchScreen` เปลี่ยน state switch ระหว่าง `DiscoveryView`/`TabBar`+`TabBarView` ถูกต้องตาม threshold 2 ตัวอักษรจริง ไม่มี regression ต่อพฤติกรรมค้นหาเดิมของ WYN-009 เลยแม้แต่กรณีเดียว** — แนะนำให้ลองพิมพ์ค้นหาจริงในแอปควบคู่กับอ่าน test ที่มีอยู่ นอกจากนี้ตรวจ Known Issue ที่ระบุไว้ข้างบน (ViewProfileScreen/FollowActionButton โค้ดคู่ขนาน) ว่าเป็นความเสี่ยงที่ยอมรับได้หรือควรให้แก้ก่อน approve
+
+## Independent QA (2026-08-23)
+
+```
+Feature: WYN-040 Discovery Page (Trending Now / Trending Hashtags / Rising / Suggested Users / Suggested Clubs) — default state ของ SearchScreen เมื่อคำค้นสั้นกว่า 2 ตัวอักษร
+Environment: Local sandbox — PostgreSQL 16 (คนละ instance จาก Coding's session, ติดตั้งเองใหม่ ไม่เชื่อผลจากรอบก่อน), Flutter stable (ติดตั้งเองใหม่ผ่าน git clone ที่ /opt/flutter, ไม่ reuse SDK จากรอบ Coding) — sync branch จาก `claude/phase-4-wyn-040-8xyf5y` เข้า `claude/wyn-40-continuation-ul5ngq` (fast-forward, ไม่มี conflict) ก่อนเริ่มทดสอบ
+
+Test Cases:
+1. `supabase/tests/wyn_040_discovery_test.sh` รันอิสระเอง (ไม่เชื่อตัวเลขจาก Coding Output) — 17 checks ครอบ exclude self/followed/blocked/muted ของทั้ง 2 RPC, p_min_followers filter, growth window (p_days), ranking correctness (p_limit=1), third-party visibility ผ่าน SECURITY DEFINER (พิสูจน์ bypass RLS จริง), return type ตรวจด้วย pg_get_function_result()
+2. รันซ้ำ SQL regression ทั้ง 14 สคริปต์ (wyn_021 ถึง wyn_040) เพื่อยืนยันไม่มี cross-task regression จากการเพิ่ม RPC ใหม่ 2 ตัว
+3. `check_schema_ordering.py` — ยืนยันไม่มี forward reference ใน schema.sql
+4. อ่าน SQL ของ `rising_profiles()`/`suggested_users()` เทียบกับ `follows`' SELECT policy จริง (บรรทัด "Follows are viewable by parties or when both sides are visible", WYN-039) ยืนยันว่า SECURITY DEFINER จำเป็นจริง ไม่ใช่แค่คำกล่าวอ้างในคอมเมนต์ — non-definer query จากบุคคลที่สามจะเห็น edge น้อยกว่าที่มีจริงเงียบๆ ตามที่ Risk ระบุไว้
+5. อ่านโค้ด `mutes`/`follows`/`profiles` RLS ยืนยัน column name (`muter_id`/`muted_id`, `follower_id`/`following_id`) และ policy จริงตรงกับที่ RPC ใช้ ไม่มี mismatch
+6. `flutter analyze` รันอิสระเอง (ติดตั้ง Flutter SDK ใหม่ทั้งชุด ไม่แชร์ cache กับ Coding)
+7. `flutter test` เต็มชุดรันอิสระเอง (ไม่ subset)
+8. รัน `flutter test` เฉพาะ 3 ไฟล์ที่เกี่ยวข้องตรง (`discovery_ranking_test.dart`/`discovery_view_test.dart`/`search_screen_test.dart`) แยกอีกรอบเพื่อยืนยันไม่ได้ผ่านเพราะ test อื่นบัง
+9. อ่านโค้ด `DiscoveryRepository`/`DiscoveryView`/`FollowActionButton`/`discovery_ranking.dart`/`SearchScreen` ทั้งไฟล์ ตรวจตรงกับ Design spec ทีละข้อ (5 section, fail-safe pattern, threshold 2 ตัวอักษร, ไม่มี rainbow ring ใหม่, ไม่มีตัวเลข follower โชว์ใน UI)
+10. ตรวจ `ProfileRepository.fetchProfilesByIds()` ยืนยัน re-hydrate ผ่าน RLS ปกติของ `profiles` (`using (true)`) ไม่ bypass เพิ่ม และรักษา order/กรอง id ที่ไม่เจอทิ้งถูกต้อง
+11. ตรวจ caller เดิมของ `HomeRepository.fetchTrending()` (`home_feed_screen.dart`) และ test double (`recording_home_repository.dart`) ยืนยัน signature ใหม่ (`limit` param) ไม่กระทบของเดิม
+12. ตรวจ accessibility pattern (`Semantics(excludeSemantics: true)` ครอบ `InkWell`+ปุ่ม Follow ซ้อนใน Rising/Suggested Users row) เทียบกับ `follow_list_screen.dart`'s ปุ่ม "ลบ" (WYN-039, ผ่าน QA แล้ว) — ยืนยันเป็น pattern เดิมที่เคยผ่านมาแล้ว ไม่ใช่ gap ใหม่จาก task นี้
+
+Passed: 17/17 (SQL ใหม่) + 190/190 (SQL รวมทั้ง 14 สคริปต์ ไม่มีตัวไหน fail) + 0 issues (`flutter analyze`) + 644/644 (`flutter test` เต็มชุด) + 20/20 (3 ไฟล์ทดสอบเป้าหมายตรง) — ทุกตัวเลขยืนยันด้วยการรันเองอิสระ ไม่ใช่การเชื่อ Coding Output
+Failed: 0
+
+Severity: N/A (ไม่พบบั๊กที่ block การอนุมัติ)
+
+Reproduction Steps: N/A — ไม่มีบั๊กให้ reproduce
+
+Expected: ครบ 3 จุดเสี่ยงตามที่ Product/Coding ระบุไว้ใน Handoff — (ก) RPC ไม่รั่ว raw number, (ข) SECURITY DEFINER ไม่ bypass เกินขอบเขต, (ค) SearchScreen state switch ถูกต้องไม่มี regression
+
+Actual: ตรงตามที่คาดทั้ง 3 จุด — (ก) ยืนยันด้วย CHECK15a/15b (`pg_get_function_result` = `TABLE(profile_id uuid)` เป๊ะ) + อ่านโค้ด Flutter ทุกจุดที่ใช้ผลลัพธ์ RPC ยืนยันไม่มีจุดไหนอ่าน field อื่นนอกจาก `profile_id` เลย (UI ก็ไม่โชว์ตัวเลขใดๆ ตาม Design), (ข) ยืนยันด้วย CHECK1-3/9-12 (exclude ครบ) + CHECK7/14 (third-party เห็นผลถูกต้องผ่าน SECURITY DEFINER จริง ไม่ใช่ผลว่างเปล่าที่อาจเข้าใจผิดว่า "ถูกต้อง") + อ่าน SQL เทียบ RLS policy จริงยืนยัน bypass เท่าที่จำเป็นเท่านั้น, (ค) `_showDiscovery` ใช้ threshold เดียวกับ debounce logic เดิม (`trim().length < 2`) ยืนยันด้วยการอ่านโค้ดตรงกับ `search_screen_test.dart`'s 3 เคสที่แก้ (สลับไป Discovery/สลับกลับ TabBar/clear แล้วกลับ Discovery ทันทีไม่รอ debounce) ทั้งหมด PASS
+
+Security Findings:
+- ไม่พบช่องโหว่ privacy leak ใหม่ — RPC ทั้ง 2 ตัวคืนแค่ `profile_id`, exclude ครบตามสเปก, SECURITY DEFINER ใช้เท่าที่จำเป็นจริงตามที่ตรวจสอบ RLS policy โดยตรง (ไม่ใช่แค่เชื่อคอมเมนต์)
+- Minor (ไม่ block): pattern `Semantics(excludeSemantics: true)` ที่ครอบทั้งแถว Suggested Users/การ์ด Rising ทำให้ screen reader เข้าถึงปุ่ม Follow ที่ซ้อนอยู่ข้างในแยกจากแถวไม่ได้ (ต้องอาศัย touch-exploration ตรงตำแหน่งเท่านั้น ไม่ใช่ swipe navigation ปกติของ TalkBack/VoiceOver) — แต่ตรวจแล้วเป็น pattern เดียวกับปุ่ม "ลบ" ใน `follow_list_screen.dart` ที่ผ่าน QA ของ WYN-039 มาแล้ว ไม่ใช่ gap ใหม่จาก task นี้ ไม่ต้องแก้ในรอบนี้ (เสนอเป็น accessibility improvement แยกทั้งระบบในอนาคตถ้า Founder ต้องการ)
+- Minor (ไม่ block): RPC ทั้ง 2 ตัว grant execute ให้ `authenticated` โดยไม่มี rate-limit/max-p_limit cap ที่ระดับ DB — client ที่เรียก RPC ตรงๆ (ไม่ผ่าน Flutter UI) สามารถส่ง `p_limit` สูงมากได้ แต่ไม่ใช่ privacy leak (แค่เห็นรายการที่ผ่าน exclude filter ตามปกติมากขึ้น ไม่ใช่เห็นบัญชีที่ควรซ่อน) เป็นแค่ performance/DoS surface เล็กน้อยเหมือนที่ RPC อื่นๆ ในระบบก็ไม่มี cap เช่นกัน (`fetchPopularClubs`/`fetchTrending` ก็ไม่มี) — ยอมรับ trade-off เดียวกัน ไม่ใช่ regression ใหม่
+- Known Issue ที่ Coding แจ้งไว้ (ViewProfileScreen/FollowActionButton โค้ดคู่ขนาน 2 ที่): ตรวจแล้วเป็นความเสี่ยงที่ยอมรับได้ — ทั้งคู่ implement logic เดียวกันจาก WYN-039 spec เดียวกันจริง ไม่ใช่ fork พฤติกรรมคนละแบบ และการไม่แตะ `ViewProfileScreen` ลดความเสี่ยง regression ของหน้าที่ผ่าน QA แล้วจริง — เห็นด้วยกับข้อเสนอให้เป็น refactor task แยกในอนาคต ไม่ block การอนุมัติรอบนี้
+
+Recommendation: อนุมัติ — ครบทุก Acceptance Criteria จาก Product spec, ยืนยันด้วยการทดสอบอิสระทั้ง SQL/Flutter ไม่มี regression ต่อ WYN-009/017/020/039 เดิมแม้แต่จุดเดียว, 3 จุดเสี่ยงหลักตาม Risks ของ Product ตรวจสอบครบและผ่านทั้งหมด พบเฉพาะข้อสังเกต Minor ที่ไม่ block (accessibility pattern เดิม, ไม่มี RPC rate-limit) — เสนอบันทึกเป็น fast-follow ในอนาคตถ้า Founder ต้องการ ไม่ต้องแก้ก่อน deploy
+
+Final Status: PASS
+```
+
