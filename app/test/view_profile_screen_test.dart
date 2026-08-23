@@ -212,8 +212,8 @@ void main() {
   });
 
   testWidgets(
-      'own profile shows Edit/logout, 3 tabs including Saved, and no '
-      'Follow button (WYN-013)', (tester) async {
+      'own profile shows Edit/logout, 5 tabs including Saved and Draft, and '
+      'no Follow button (WYN-013)', (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: ownProfileRepo,
       followRepository: ownFollowRepo,
@@ -229,7 +229,9 @@ void main() {
     expect(find.text('ReDrops'), findsOneWidget);
     expect(find.text('Pop'), findsOneWidget);
     expect(find.text('บันทึก'), findsOneWidget);
-    expect(find.byType(Tab), findsNWidgets(4));
+    // WYN-036 added a "ร่าง" (Draft) tab after Saved.
+    expect(find.text('ร่าง'), findsOneWidget);
+    expect(find.byType(Tab), findsNWidgets(5));
   });
 
   testWidgets(

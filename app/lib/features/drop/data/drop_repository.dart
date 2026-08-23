@@ -7,6 +7,7 @@ import '../../home/data/home_feed_item.dart';
 import '../../home/data/home_ranking.dart';
 import 'drop.dart';
 import 'drop_comment.dart';
+import 'drop_draft.dart';
 
 // PostgREST can't resolve a bare `profiles(...)` embed on its own when a
 // sibling embed in the same select (drop_likes/drop_comments/
@@ -330,8 +331,10 @@ class DropRepository {
         .maybeSingle();
     if (row == null) return null;
 
-    final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: [dropId]);
-    final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: [dropId]);
+    final likedIds =
+        await _fetchLikedDropIds(userId: userId, dropIds: [dropId]);
+    final savedIds =
+        await _fetchSavedDropIds(userId: userId, dropIds: [dropId]);
     final redroppedIds =
         await _fetchRedroppedDropIds(userId: userId, dropIds: [dropId]);
     final pollId = _pollIdFromRow(row);
@@ -408,7 +411,9 @@ class DropRepository {
     final raw = row['drop_polls'];
     if (raw == null) return null;
     if (raw is List) {
-      return raw.isEmpty ? null : (raw.first as Map<String, dynamic>)['id'] as String?;
+      return raw.isEmpty
+          ? null
+          : (raw.first as Map<String, dynamic>)['id'] as String?;
     }
     return (raw as Map<String, dynamic>)['id'] as String?;
   }
@@ -517,10 +522,41 @@ class DropRepository {
     await _client.storage.from('drop-images').uploadBinary(path, imageBytes);
     final imageUrl = _client.storage.from('drop-images').getPublicUrl(path);
 
+    await _insertDropWithImageUrl(
+      imageUrl: imageUrl,
+      caption: caption,
+      mentionedUserIds: mentionedUserIds,
+    );
+  }
+
+  /// WYN-036: publishes a Drop from an image that's *already*
+  /// uploaded (a Draft's `image_url`, carried over unchanged from
+  /// when it was saved) -- skips the upload step [createDrop] always
+  /// does, since there are no fresh bytes to upload here. Continuing
+  /// a Draft only calls this when the user never picked a replacement
+  /// image; picking a new one still goes through [createDrop] as
+  /// normal.
+  Future<void> createDropFromExistingImage({
+    required String imageUrl,
+    required String caption,
+    Set<String> mentionedUserIds = const {},
+  }) {
+    return _insertDropWithImageUrl(
+      imageUrl: imageUrl,
+      caption: caption,
+      mentionedUserIds: mentionedUserIds,
+    );
+  }
+
+  Future<void> _insertDropWithImageUrl({
+    required String imageUrl,
+    required String caption,
+    required Set<String> mentionedUserIds,
+  }) async {
     final row = await _client
         .from('drops')
         .insert({
-          'author_id': userId,
+          'author_id': _client.auth.currentUser!.id,
           'image_url': imageUrl,
           'caption': normalizeOptionalText(caption.trim()),
         })
@@ -715,5 +751,76 @@ class DropRepository {
   /// only before showing the delete affordance in the UI.
   Future<void> deleteComment(String commentId) {
     return _client.from('drop_comments').delete().eq('id', commentId);
+  }
+
+  /// Fetches every draft belonging to the current user, most-recently-
+  /// edited first (`updated_at`, not `created_at` -- editing an old
+  /// draft should bring it back to the top) -- WYN-036. RLS already
+  /// restricts this to the caller's own rows even without the
+  /// (redundant but explicit) filter here.
+  Future<List<DropDraft>> fetchDrafts() async {
+    final userId = _client.auth.currentUser!.id;
+    final rows = await _client
+        .from('drop_drafts')
+        .select()
+        .eq('author_id', userId)
+        .order('updated_at', ascending: false);
+    return rows.map(DropDraft.fromMap).toList();
+  }
+
+  /// Creates or updates a draft (WYN-036) -- an insert when [draftId]
+  /// is null, an update in place otherwise (so re-saving an
+  /// already-saved draft never creates a duplicate row). Returns the
+  /// draft's id either way, so the caller (CreateDropScreen) can keep
+  /// targeting the same row across multiple saves in one editing
+  /// session.
+  ///
+  /// [imageBytes] is only for a freshly picked/replaced image --
+  /// uploads it and stores the new URL. [existingImageUrl] carries
+  /// forward a draft's already-uploaded image when the user didn't
+  /// change it this time (no re-upload). Passing neither saves the
+  /// draft with no image (e.g. poll mode, or the image was removed).
+  Future<String> saveDraft({
+    String? draftId,
+    Uint8List? imageBytes,
+    String imageExtension = 'jpg',
+    String? existingImageUrl,
+    String? caption,
+    List<String>? pollOptions,
+    int? pollDurationDays,
+  }) async {
+    final userId = _client.auth.currentUser!.id;
+
+    var imageUrl = existingImageUrl;
+    if (imageBytes != null) {
+      final path =
+          '$userId/${DateTime.now().millisecondsSinceEpoch}.$imageExtension';
+      await _client.storage.from('drop-images').uploadBinary(path, imageBytes);
+      imageUrl = _client.storage.from('drop-images').getPublicUrl(path);
+    }
+
+    final row = {
+      'author_id': userId,
+      'image_url': imageUrl,
+      'caption': caption == null ? null : normalizeOptionalText(caption.trim()),
+      'poll_options': pollOptions,
+      'poll_duration_days': pollDurationDays,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    };
+
+    if (draftId == null) {
+      final inserted =
+          await _client.from('drop_drafts').insert(row).select('id').single();
+      return inserted['id'] as String;
+    }
+
+    await _client.from('drop_drafts').update(row).eq('id', draftId);
+    return draftId;
+  }
+
+  /// RLS on drop_drafts restricts this to the caller's own drafts --
+  /// same posture as [deleteComment]/[deleteDrop].
+  Future<void> deleteDraft(String draftId) {
+    return _client.from('drop_drafts').delete().eq('id', draftId);
   }
 }
