@@ -23,6 +23,7 @@ import '../../../profile/presentation/view_profile_screen.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../../saved/data/saved_repository.dart';
 import '../../data/discovery_repository.dart';
+import '../top_100_screen.dart';
 
 /// Screen 1 — Discovery (WYN-040): the default state of `SearchScreen`
 /// (WYN-009) shown while the query is empty/shorter than 2 characters.
@@ -143,6 +144,21 @@ class _DiscoveryViewState extends State<DiscoveryView> {
     );
   }
 
+  void _openTop100() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => Top100Screen(
+          discoveryRepository: widget.discoveryRepository,
+          dropRepository: widget.dropRepository,
+          popRepository: widget.popRepository,
+          followRepository: widget.followRepository,
+          profileRepository: widget.profileRepository,
+          savedRepository: widget.savedRepository,
+        ),
+      ),
+    );
+  }
+
   void _openClub(Club club) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -215,28 +231,45 @@ class _DiscoveryViewState extends State<DiscoveryView> {
           );
         }
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
-          child: GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 2,
-              mainAxisSpacing: 2,
-              childAspectRatio: 1,
+        return Column(
+          children: [
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 2,
+                  mainAxisSpacing: 2,
+                  childAspectRatio: 1,
+                ),
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return TrendingTile(
+                    item: item,
+                    onTap: () => item.contentType == HomeContentType.drop
+                        ? _openDrop(item)
+                        : _openPop(item),
+                  );
+                },
+              ),
             ),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return TrendingTile(
-                item: item,
-                onTap: () => item.contentType == HomeContentType.drop
-                    ? _openDrop(item)
-                    : _openPop(item),
-              );
-            },
-          ),
+            // WYN-042: entry point into the "WYN Top 100" leaderboard --
+            // a plain link, not a new section of its own, so Top 100
+            // reads as a distinct full-screen destination rather than
+            // another horizontal list competing with the 5 sections
+            // here. See .wyn/docs/design/wyn-042-top-100.md.
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _openTop100,
+                child: const Text('ดู Top 100'),
+              ),
+            ),
+          ],
         );
       },
     );

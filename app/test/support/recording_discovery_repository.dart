@@ -23,6 +23,7 @@ import 'package:wyn/features/search/data/discovery_repository.dart';
 class RecordingDiscoveryRepository extends DiscoveryRepository {
   RecordingDiscoveryRepository()
       : trendingNowItems = [],
+        topContentItems = [],
         trendingHashtags = [],
         risingProfiles = [],
         suggestedUsers = [],
@@ -42,6 +43,9 @@ class RecordingDiscoveryRepository extends DiscoveryRepository {
   /// Returned by [fetchTrendingNow].
   List<HomeFeedItem> trendingNowItems;
 
+  /// Returned by [fetchTopContent] (WYN-042).
+  List<HomeFeedItem> topContentItems;
+
   /// Returned by [fetchTrendingHashtags].
   List<String> trendingHashtags;
 
@@ -57,11 +61,25 @@ class RecordingDiscoveryRepository extends DiscoveryRepository {
   /// WYN-017): one section's failure must never block the other 4.
   Object? risingProfilesError;
 
+  /// When set, [fetchTopContent] throws this instead of returning
+  /// [topContentItems] -- for exercising Top100Screen's error+retry
+  /// state (WYN-042).
+  Object? topContentError;
+
   @override
   Future<List<HomeFeedItem>> fetchTrendingNow({
     int limit = DiscoveryRepository.trendingNowLimit,
   }) async =>
       trendingNowItems;
+
+  @override
+  Future<List<HomeFeedItem>> fetchTopContent({
+    int limit = HomeRepository.topContentResultLimit,
+  }) async {
+    final error = topContentError;
+    if (error != null) throw error;
+    return topContentItems;
+  }
 
   @override
   Future<List<String>> fetchTrendingHashtags({
