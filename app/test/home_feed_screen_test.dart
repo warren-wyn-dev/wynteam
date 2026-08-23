@@ -69,6 +69,31 @@ HomeFeedItem _popItem({
       savedByMe: false,
     );
 
+HomeFeedItem _pollItem({
+  String id = 'd1',
+  int? myVoteIndex,
+  int? totalVotes,
+  List<int>? optionCounts,
+}) =>
+    HomeFeedItem(
+      id: id,
+      contentType: HomeContentType.drop,
+      authorId: 'someone-else',
+      authorUsername: 'namfah',
+      createdAt: DateTime.now(),
+      caption: 'กินอะไรดี?',
+      likeCount: 0,
+      commentCount: 0,
+      likedByMe: false,
+      savedByMe: false,
+      pollId: 'poll-$id',
+      pollOptions: const ['Pizza', 'Sushi'],
+      pollExpiresAt: DateTime.now().toUtc().add(const Duration(days: 1)),
+      pollMyVoteIndex: myVoteIndex,
+      pollTotalVotes: totalVotes,
+      pollOptionCounts: optionCounts,
+    );
+
 Club _club({required String id, required String name, int memberCount = 1}) =>
     Club(
       id: id,
@@ -140,6 +165,14 @@ void main() {
   late RecordingDropRepository deleteRedropTestDropRepository;
   late RecordingPopRepository deleteRedropTestPopRepository;
   late RecordingHomeRepository ownRedropTestHomeRepository;
+
+  // WYN-035: Poll voting -- same one-repo-per-scenario convention as
+  // the ReDrop group above.
+  late RecordingDropRepository pollVoteTestDropRepository;
+  late RecordingHomeRepository pollVoteTestHomeRepository;
+  late RecordingHomeRepository pollResultsVisibleTestHomeRepository;
+  late RecordingDropRepository pollVoteFailTestDropRepository;
+  late RecordingHomeRepository pollVoteFailTestHomeRepository;
 
   // WYN-017: Trending row + Recommended Clubs row.
   late RecordingHomeRepository trendingItemsHomeRepository;
@@ -278,6 +311,17 @@ void main() {
         ),
       ],
     );
+
+    pollVoteTestDropRepository = RecordingDropRepository();
+    pollVoteTestHomeRepository =
+        RecordingHomeRepository(feedItems: [_pollItem()]);
+    pollResultsVisibleTestHomeRepository = RecordingHomeRepository(feedItems: [
+      _pollItem(myVoteIndex: 0, totalVotes: 4, optionCounts: [1, 3]),
+    ]);
+    pollVoteFailTestDropRepository = RecordingDropRepository()
+      ..votePollError = Exception('network error');
+    pollVoteFailTestHomeRepository =
+        RecordingHomeRepository(feedItems: [_pollItem()]);
 
     trendingItemsHomeRepository = RecordingHomeRepository(
       feedItems: [],
@@ -667,6 +711,84 @@ void main() {
 
       expect(deleteRedropTestDropRepository.deleteRedropCalls, ['r6']);
       expect(find.text('แคปชัน Drop'), findsNothing);
+    });
+  });
+
+  group('Poll voting (WYN-035)', () {
+    testWidgets(
+        'a not-yet-voted Poll card shows plain options (no percentages), '
+        'and tapping one calls votePoll and reveals the result '
+        'optimistically', (tester) async {
+      await tester.pumpWidget(buildHome(
+        pollVoteTestHomeRepository,
+        dropRepository: pollVoteTestDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pizza'), findsOneWidget);
+      expect(find.textContaining('%'), findsNothing);
+
+      // Same off-screen-hit-test-avoidance as the Like/ReDrop button
+      // tests above -- the option can sit below the 600px test
+      // viewport's fold, so this invokes the option's InkWell.onTap
+      // directly rather than tester.tap(), which needs the widget to
+      // actually be on-screen to hit-test successfully.
+      final sushiInkWell = find.ancestor(
+        of: find.text('Sushi'),
+        matching: find.byType(InkWell),
+      );
+      // 2 ancestors: HomeDropCard's own outer InkWell (opens the
+      // Drop) and the option's own inner InkWell (votes) -- the
+      // closer (first) one is the option's.
+      expect(sushiInkWell, findsNWidgets(2));
+      tester.widget<InkWell>(sushiInkWell.first).onTap!();
+      await tester.pumpAndSettle();
+
+      expect(pollVoteTestDropRepository.votePollArgs, [('poll-d1', 1)]);
+      // Optimistic update: 1 total vote, Sushi (index 1) at 100%.
+      expect(find.text('100%'), findsOneWidget);
+      expect(find.text('0%'), findsOneWidget);
+    });
+
+    testWidgets('a Poll card whose results are already visible shows '
+        'percentages and highlights the viewer\'s own vote',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        pollResultsVisibleTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('25%'), findsOneWidget);
+      expect(find.text('75%'), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+    });
+
+    testWidgets('a failed vote reverts the optimistic update',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        pollVoteFailTestHomeRepository,
+        dropRepository: pollVoteFailTestDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+
+      final pizzaInkWell = find.ancestor(
+        of: find.text('Pizza'),
+        matching: find.byType(InkWell),
+      );
+      expect(pizzaInkWell, findsNWidgets(2));
+      tester.widget<InkWell>(pizzaInkWell.first).onTap!();
+      await tester.pumpAndSettle();
+
+      // RecordingDropRepository.votePoll throws before recording the
+      // call when votePollError is set (mirrors quoteRedropError's
+      // identical shape in RecordingDropRepository) -- the revert is
+      // what this test actually verifies, same as
+      // quote_redrop_screen_test.dart's "a failed post" test.
+      expect(find.textContaining('%'), findsNothing);
     });
   });
 

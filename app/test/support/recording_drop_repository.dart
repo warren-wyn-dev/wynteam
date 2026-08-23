@@ -119,6 +119,39 @@ class RecordingDropRepository extends DropRepository {
     createDropMentionedUserIdsArgs.add(mentionedUserIds);
   }
 
+  /// Each call to [createPollDrop], in order -- WYN-035.
+  final List<Map<String, Object?>> createPollDropArgs = [];
+  Object? createPollDropError;
+
+  @override
+  Future<void> createPollDrop({
+    required String question,
+    required List<String> options,
+    required int durationDays,
+    Set<String> mentionedUserIds = const {},
+  }) async {
+    if (createPollDropError != null) throw createPollDropError!;
+    createPollDropArgs.add({
+      'question': question,
+      'options': options,
+      'durationDays': durationDays,
+      'mentionedUserIds': mentionedUserIds,
+    });
+  }
+
+  /// Each call to [votePoll]'s (pollId, optionIndex), in order -- WYN-035.
+  final List<(String, int)> votePollArgs = [];
+  Object? votePollError;
+
+  @override
+  Future<void> votePoll({
+    required String pollId,
+    required int optionIndex,
+  }) async {
+    if (votePollError != null) throw votePollError!;
+    votePollArgs.add((pollId, optionIndex));
+  }
+
   @override
   Future<void> toggleLike({
     required String dropId,

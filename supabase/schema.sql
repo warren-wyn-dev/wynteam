@@ -5990,3 +5990,479 @@ where not exists (
 );
 
 grant select on public.home_feed to authenticated;
+
+-- ============================================================
+-- WYN-035: Poll ใน Drop
+-- ============================================================
+
+-- A Drop can now carry either an image or a Poll, never both this
+-- round (see the Product spec's Risks -- Poll+image together, and
+-- multi-image, are both out of scope). image_url therefore becomes
+-- nullable. There is deliberately no cross-table CHECK enforcing
+-- "image_url is not null or a drop_polls row exists" -- Postgres CHECK
+-- constraints cannot reference other tables at all, and a deferred
+-- constraint trigger would be new machinery this project has never
+-- needed before. Instead, create_poll_drop() below is the *only*
+-- sanctioned way to create a Drop with a null image_url: it inserts
+-- both the drops row and its drop_polls row in one atomic function
+-- call (mirroring create_orders()'s multi-table-insert-in-one-
+-- transaction shape), so the "has content" invariant is guaranteed by
+-- there being no other code path that can produce a null-image Drop,
+-- not by a constraint checked after the fact.
+alter table public.drops alter column image_url drop not null;
+
+-- Structural validation (2-4 options, each 1-80 chars, no exact
+-- duplicates) lives in this IMMUTABLE function rather than inline in
+-- the CHECK below, only because a CHECK expression can't itself
+-- contain a subquery -- unnest()'ing the array to inspect each
+-- element needs one. The function still only ever looks at its own
+-- argument, never another table, so this is a plain single-row CHECK
+-- in spirit, just written as a named predicate for readability.
+-- create_poll_drop() below re-validates the same rules before calling
+-- this (defense in depth, same posture as every other RPC in this
+-- schema re-deriving/re-checking rather than trusting the caller).
+create or replace function public.valid_poll_options(p_options text[])
+returns boolean
+language sql
+immutable
+as $$
+  select
+    p_options is not null
+    and array_length(p_options, 1) between 2 and 4
+    and not exists (
+      select 1 from unnest(p_options) as o(text)
+      where o.text is null or char_length(trim(o.text)) not between 1 and 80
+    )
+    and (select count(distinct lower(trim(o))) from unnest(p_options) as o)
+      = array_length(p_options, 1);
+$$;
+
+-- One Poll per Drop (drop_id unique) -- a 1:1 companion table rather
+-- than columns on drops itself, same reasoning WYN-014's approach to
+-- optional per-row extras used: most Drops never have a poll, and
+-- PostgREST embeds a to-one relation cleanly via the unique FK.
+create table if not exists public.drop_polls (
+  id uuid primary key default gen_random_uuid(),
+  drop_id uuid not null unique references public.drops (id) on delete cascade,
+  options text[] not null,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  constraint drop_polls_options_valid check (public.valid_poll_options(options))
+);
+
+create index if not exists drop_polls_drop_idx on public.drop_polls (drop_id);
+
+alter table public.drop_polls enable row level security;
+
+-- Same piggyback-on-drops'-own-SELECT-policy shape WYN-034's redrops
+-- policy uses -- if the underlying Drop is invisible (blocked author),
+-- the exists() makes the poll invisible too, with no separate
+-- block-check written by hand.
+create policy "Drop polls are viewable by authenticated users"
+  on public.drop_polls
+  for select
+  to authenticated
+  using (exists (select 1 from public.drops d where d.id = drop_id));
+
+-- No insert/update/delete policy at all -- the only writer is
+-- create_poll_drop() below (SECURITY DEFINER, bypasses RLS as its
+-- owning role) and cascade-delete via the drops FK. An ordinary
+-- authenticated client has no path to insert or mutate a drop_polls
+-- row directly, same "no raw policy" posture as WYN-014's
+-- club_members.
+
+-- Individual votes are never readable by anyone but the voter --
+-- "no one, not even the poll's author, can see who voted for what"
+-- is a deliberate privacy decision (Product spec's "ผลโหวต
+-- (privacy-first)"). Aggregate results are computed by
+-- get_poll_results() below (SECURITY DEFINER, reads across this RLS)
+-- rather than ever being derived from a client-side SELECT here.
+create table if not exists public.drop_poll_votes (
+  id uuid primary key default gen_random_uuid(),
+  poll_id uuid not null references public.drop_polls (id) on delete cascade,
+  voter_id uuid not null references public.profiles (id) on delete cascade,
+  option_index smallint not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (poll_id, voter_id)
+);
+
+create index if not exists drop_poll_votes_poll_idx on public.drop_poll_votes (poll_id);
+
+alter table public.drop_poll_votes enable row level security;
+
+create policy "Users can view only their own poll votes"
+  on public.drop_poll_votes
+  for select
+  to authenticated
+  using (auth.uid() = voter_id);
+
+create policy "Users can vote as themselves"
+  on public.drop_poll_votes
+  for insert
+  to authenticated
+  with check (auth.uid() = voter_id);
+
+-- Changing your mind (re-voting) is an UPDATE of the same row, not a
+-- new INSERT -- the unique (poll_id, voter_id) index is what makes an
+-- upsert from the client land here instead of failing as a duplicate.
+create policy "Users can change their own poll vote"
+  on public.drop_poll_votes
+  for update
+  to authenticated
+  using (auth.uid() = voter_id)
+  with check (auth.uid() = voter_id);
+
+-- All the business rules RLS's `using`/`with check` can't express on
+-- their own (poll not expired, option_index in range, not the poll's
+-- own author, not posting-blocked, not blocked with the author) live
+-- here instead -- fires for both the insert path and the
+-- change-your-vote update path.
+create or replace function public.validate_poll_vote()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_options text[];
+  v_expires_at timestamptz;
+  v_author_id uuid;
+begin
+  select dp.options, dp.expires_at, d.author_id
+    into v_options, v_expires_at, v_author_id
+  from public.drop_polls dp
+  join public.drops d on d.id = dp.drop_id
+  where dp.id = new.poll_id;
+
+  if v_options is null then
+    raise exception 'Poll not found';
+  end if;
+
+  if now() >= v_expires_at then
+    raise exception 'Poll has closed';
+  end if;
+
+  if new.option_index < 0 or new.option_index >= array_length(v_options, 1) then
+    raise exception 'Invalid poll option';
+  end if;
+
+  if new.voter_id = v_author_id then
+    raise exception 'Cannot vote on your own poll';
+  end if;
+
+  if internal.is_posting_blocked(new.voter_id) then
+    raise exception 'Account is posting-restricted';
+  end if;
+
+  if internal.is_blocked_either_way(new.voter_id, v_author_id) then
+    raise exception 'Cannot vote on this poll';
+  end if;
+
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+create trigger drop_poll_votes_validate
+  before insert or update on public.drop_poll_votes
+  for each row execute function public.validate_poll_vote();
+
+-- Atomic "create a Poll Drop" -- inserts drops (image_url left null)
+-- + drop_polls + (optionally) drop_mentions in one transaction, the
+-- only sanctioned way to produce a null-image drops row (see the
+-- image_url comment above). Mirrors create_orders()'s
+-- multi-table-insert-in-one-function shape. Re-validates options with
+-- the same public.valid_poll_options() the table CHECK uses, and
+-- duration against the fixed 1/3/7-day menu the Product spec locked
+-- in (no custom durations) -- both belt-and-suspenders against a
+-- malformed direct RPC call bypassing whatever the client UI enforces.
+create or replace function public.create_poll_drop(
+  p_caption text,
+  p_options text[],
+  p_duration_days int,
+  p_mentioned_user_ids uuid[] default '{}'
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author uuid := auth.uid();
+  v_drop_id uuid;
+  v_options text[];
+begin
+  if v_author is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if internal.is_posting_blocked(v_author) then
+    raise exception 'Account is posting-restricted';
+  end if;
+
+  if p_caption is null or length(trim(p_caption)) = 0 then
+    raise exception 'Poll question is required';
+  end if;
+
+  -- Trimmed server-side (not just validated-as-trimmed) so a direct
+  -- RPC call bypassing the Flutter client's own .trim() can't leave
+  -- stray leading/trailing whitespace sitting in stored option text.
+  select array_agg(trim(o)) into v_options from unnest(p_options) as o;
+
+  if not public.valid_poll_options(v_options) then
+    raise exception 'Poll must have 2-4 non-empty, non-duplicate options (max 80 characters each)';
+  end if;
+
+  if p_duration_days not in (1, 3, 7) then
+    raise exception 'Poll duration must be 1, 3, or 7 days';
+  end if;
+
+  insert into public.drops (author_id, image_url, caption)
+  values (v_author, null, trim(p_caption))
+  returning id into v_drop_id;
+
+  insert into public.drop_polls (drop_id, options, expires_at)
+  values (v_drop_id, v_options, now() + make_interval(days => p_duration_days));
+
+  insert into public.drop_mentions (drop_id, mentioned_user_id)
+  select v_drop_id, m
+  from unnest(p_mentioned_user_ids) as m
+  where not internal.is_blocked_either_way(v_author, m);
+
+  return v_drop_id;
+end;
+$$;
+
+-- Aggregate poll results, batched over a page's worth of poll ids at
+-- once (mirroring DropRepository's existing _fetchLikedDropIds/
+-- _fetchRedroppedDropIds "one query per page, not one per card"
+-- shape). visible=false means "keep this poll's options-only, no
+-- percentages" client-side -- the caller hasn't voted, isn't the
+-- author, and the poll hasn't closed yet. total_votes/option_counts
+-- are only ever populated when visible=true; SECURITY DEFINER is what
+-- lets this count across every voter's row despite drop_poll_votes'
+-- own SELECT policy restricting each voter to their own row.
+create or replace function public.get_poll_results(p_poll_ids uuid[])
+returns table(
+  poll_id uuid,
+  visible boolean,
+  total_votes bigint,
+  option_counts bigint[]
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  if v_me is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  return query
+  select
+    dp.id as poll_id,
+    v.is_visible,
+    case when v.is_visible
+      then (select count(*) from public.drop_poll_votes dpv where dpv.poll_id = dp.id)
+      else null end as total_votes,
+    case when v.is_visible
+      then (
+        select array_agg(cnt order by idx)
+        from (
+          select gs as idx, count(pv.id) as cnt
+          from generate_series(0, array_length(dp.options, 1) - 1) as gs
+          left join public.drop_poll_votes pv
+            on pv.poll_id = dp.id and pv.option_index = gs
+          group by gs
+        ) counted
+      )
+      else null end as option_counts
+  from public.drop_polls dp
+  join public.drops d on d.id = dp.drop_id
+  cross join lateral (
+    select
+      dp.expires_at <= now()
+      or d.author_id = v_me
+      or exists (
+        select 1 from public.drop_poll_votes dpv2
+        where dpv2.poll_id = dp.id and dpv2.voter_id = v_me
+      ) as is_visible
+  ) v
+  where dp.id = any(p_poll_ids)
+    and not internal.is_blocked_either_way(v_me, d.author_id);
+end;
+$$;
+
+-- home_feed/saved_feed gain 3 trailing poll columns (poll_id,
+-- poll_options, poll_expires_at) on every branch -- null for Pop and
+-- for any Drop/ReDrop without a poll. Deliberately *not* including
+-- vote counts/results here: those must only ever come from
+-- get_poll_results() so its visibility rule is enforced once, at the
+-- DB layer, not reimplemented (or forgotten) at every call site that
+-- reads these views. Appended after quote_text, same "add at the end,
+-- never reorder" discipline WYN-034 established for this view.
+create or replace view public.home_feed
+  with (security_invoker = true) as
+select
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  d.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  null::bigint as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count,
+  (select count(*) from public.redrops where drop_id = d.id) as redrop_count,
+  null::uuid as redrop_id,
+  null::uuid as redropper_id,
+  null::text as redropper_username,
+  null::text as redropper_display_name,
+  null::text as redropper_avatar_url,
+  null::text as quote_text,
+  dp.id as poll_id,
+  dp.options as poll_options,
+  dp.expires_at as poll_expires_at
+from public.drops d
+join public.profiles prof on prof.id = d.author_id
+left join public.drop_polls dp on dp.drop_id = d.id
+where not exists (
+  select 1 from public.mutes where muter_id = auth.uid() and muted_id = d.author_id
+)
+union all
+select
+  p.id,
+  'pop'::text as content_type,
+  p.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  p.created_at,
+  p.caption,
+  null::text as image_url,
+  p.video_url,
+  p.thumbnail_url,
+  p.duration_seconds,
+  p.view_count,
+  (select count(*) from public.pop_likes where pop_id = p.id) as like_count,
+  (select count(*) from public.pop_comments where pop_id = p.id) as comment_count,
+  null::bigint as redrop_count,
+  null::uuid as redrop_id,
+  null::uuid as redropper_id,
+  null::text as redropper_username,
+  null::text as redropper_display_name,
+  null::text as redropper_avatar_url,
+  null::text as quote_text,
+  null::uuid as poll_id,
+  null::text[] as poll_options,
+  null::timestamptz as poll_expires_at
+from public.pops p
+join public.profiles prof on prof.id = p.author_id
+where not exists (
+  select 1 from public.mutes where muter_id = auth.uid() and muted_id = p.author_id
+)
+union all
+select
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  r.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  null::bigint as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count,
+  (select count(*) from public.redrops where drop_id = d.id) as redrop_count,
+  r.id as redrop_id,
+  r.redropper_id,
+  redropper.username as redropper_username,
+  redropper.display_name as redropper_display_name,
+  redropper.avatar_url as redropper_avatar_url,
+  r.quote_text,
+  dp.id as poll_id,
+  dp.options as poll_options,
+  dp.expires_at as poll_expires_at
+from public.redrops r
+join public.drops d on d.id = r.drop_id
+join public.profiles prof on prof.id = d.author_id
+join public.profiles redropper on redropper.id = r.redropper_id
+left join public.drop_polls dp on dp.drop_id = d.id
+where not exists (
+  select 1 from public.mutes
+  where muter_id = auth.uid() and muted_id in (d.author_id, r.redropper_id)
+);
+
+grant select on public.home_feed to authenticated;
+
+-- Same 3 trailing columns added to saved_feed's Drop branch (Pop
+-- branch: null) so a saved Poll Drop renders correctly in the Saved
+-- tab too -- see WYN-013's original view this redefines.
+create or replace view public.saved_feed
+  with (security_invoker = true) as
+select
+  s.user_id,
+  s.created_at as saved_at,
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  d.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  null::bigint as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count,
+  dp.id as poll_id,
+  dp.options as poll_options,
+  dp.expires_at as poll_expires_at
+from public.saves s
+join public.drops d on d.id = s.content_id and s.content_type = 'drop'
+join public.profiles prof on prof.id = d.author_id
+left join public.drop_polls dp on dp.drop_id = d.id
+union all
+select
+  s.user_id,
+  s.created_at as saved_at,
+  p.id,
+  'pop'::text as content_type,
+  p.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  p.created_at,
+  p.caption,
+  null::text as image_url,
+  p.video_url,
+  p.thumbnail_url,
+  p.duration_seconds,
+  p.view_count,
+  (select count(*) from public.pop_likes where pop_id = p.id) as like_count,
+  (select count(*) from public.pop_comments where pop_id = p.id) as comment_count,
+  null::uuid as poll_id,
+  null::text[] as poll_options,
+  null::timestamptz as poll_expires_at
+from public.saves s
+join public.pops p on p.id = s.content_id and s.content_type = 'pop'
+join public.profiles prof on prof.id = p.author_id;
+
+grant select on public.saved_feed to authenticated;

@@ -25,6 +25,26 @@ const _commentAuthorSelect =
     'author:profiles!drop_comments_author_id_fkey(username, display_name, avatar_url)';
 const _savesContentType = 'drop';
 
+// WYN-035: drop_polls(...) is a to-one embed (drop_polls.drop_id is
+// unique) -- every fetch method below shares this one select string
+// (like _dropAuthorSelect/the count embeds already did) so a Poll
+// Drop's base poll data (id/options/expires_at) always comes back
+// alongside everything else, with no per-method opt-in to forget.
+const _dropSelect =
+    '*, $_dropAuthorSelect, drop_likes(count), drop_comments(count), redrops(count), drop_polls(id, options, expires_at)';
+
+/// Per-viewer poll state ([DropRepository._fetchPollStates]'s result) --
+/// combines "did I vote, and for what" with the aggregate results
+/// [get_poll_results()] is willing to reveal to this viewer right now.
+/// Never constructed for a drop id that isn't actually a poll.
+class _PollState {
+  const _PollState({this.myVoteIndex, this.totalVotes, this.optionCounts});
+
+  final int? myVoteIndex;
+  final int? totalVotes;
+  final List<int>? optionCounts;
+}
+
 /// Wraps the `drops`/`drop_likes`/`drop_comments`/`saves` reads/writes and
 /// drop-image storage needed for WYN-005 (Drop). See supabase/schema.sql
 /// for the RLS policies this relies on.
@@ -51,7 +71,7 @@ class DropRepository {
 
     final rows = await _client
         .from('drops')
-        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count), redrops(count)')
+        .select(_dropSelect)
         .order('created_at', ascending: false)
         .range(from, to);
 
@@ -60,6 +80,10 @@ class DropRepository {
     final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
     final redroppedIds =
         await _fetchRedroppedDropIds(userId: userId, dropIds: dropIds);
+    final pollStates = await _fetchPollStates(
+      userId: userId,
+      pollIds: rows.map(_pollIdFromRow).whereType<String>().toList(),
+    );
 
     return rows
         .map((row) => Drop.fromMap(
@@ -67,6 +91,9 @@ class DropRepository {
               likedByMe: likedIds.contains(row['id'] as String),
               savedByMe: savedIds.contains(row['id'] as String),
               redroppedByMe: redroppedIds.contains(row['id'] as String),
+              pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
+              pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
+              pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
             ))
         .toList();
   }
@@ -83,7 +110,7 @@ class DropRepository {
 
     final rows = await _client
         .from('drops')
-        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count), redrops(count)')
+        .select(_dropSelect)
         .ilike('caption', '%$query%')
         .order('created_at', ascending: false)
         .range(from, to);
@@ -93,6 +120,10 @@ class DropRepository {
     final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
     final redroppedIds =
         await _fetchRedroppedDropIds(userId: userId, dropIds: dropIds);
+    final pollStates = await _fetchPollStates(
+      userId: userId,
+      pollIds: rows.map(_pollIdFromRow).whereType<String>().toList(),
+    );
 
     return rows
         .map((row) => Drop.fromMap(
@@ -100,6 +131,9 @@ class DropRepository {
               likedByMe: likedIds.contains(row['id'] as String),
               savedByMe: savedIds.contains(row['id'] as String),
               redroppedByMe: redroppedIds.contains(row['id'] as String),
+              pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
+              pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
+              pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
             ))
         .toList();
   }
@@ -119,7 +153,7 @@ class DropRepository {
 
     final rows = await _client
         .from('drops')
-        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count), redrops(count)')
+        .select(_dropSelect)
         .eq('author_id', authorId)
         .order('created_at', ascending: false)
         .range(from, to);
@@ -129,6 +163,10 @@ class DropRepository {
     final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
     final redroppedIds =
         await _fetchRedroppedDropIds(userId: userId, dropIds: dropIds);
+    final pollStates = await _fetchPollStates(
+      userId: userId,
+      pollIds: rows.map(_pollIdFromRow).whereType<String>().toList(),
+    );
 
     return rows
         .map((row) => Drop.fromMap(
@@ -136,6 +174,9 @@ class DropRepository {
               likedByMe: likedIds.contains(row['id'] as String),
               savedByMe: savedIds.contains(row['id'] as String),
               redroppedByMe: redroppedIds.contains(row['id'] as String),
+              pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
+              pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
+              pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
             ))
         .toList();
   }
@@ -161,7 +202,7 @@ class DropRepository {
 
     final rows = await _client
         .from('drops')
-        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count), redrops(count)')
+        .select(_dropSelect)
         .inFilter('author_id', followingIds)
         .order('created_at', ascending: false)
         .range(from, to);
@@ -171,6 +212,10 @@ class DropRepository {
     final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
     final redroppedIds =
         await _fetchRedroppedDropIds(userId: userId, dropIds: dropIds);
+    final pollStates = await _fetchPollStates(
+      userId: userId,
+      pollIds: rows.map(_pollIdFromRow).whereType<String>().toList(),
+    );
 
     return rows
         .map((row) => Drop.fromMap(
@@ -178,6 +223,9 @@ class DropRepository {
               likedByMe: likedIds.contains(row['id'] as String),
               savedByMe: savedIds.contains(row['id'] as String),
               redroppedByMe: redroppedIds.contains(row['id'] as String),
+              pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
+              pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
+              pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
             ))
         .toList();
   }
@@ -202,7 +250,7 @@ class DropRepository {
 
     final rows = await _client
         .from('drops')
-        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count), redrops(count)')
+        .select(_dropSelect)
         .order('created_at', ascending: false)
         .limit(_rankedCandidateLimit);
 
@@ -216,6 +264,10 @@ class DropRepository {
       userId: userId,
       authorIds: authorIds,
     );
+    final pollStates = await _fetchPollStates(
+      userId: userId,
+      pollIds: rows.map(_pollIdFromRow).whereType<String>().toList(),
+    );
 
     final drops = rows
         .map((row) => Drop.fromMap(
@@ -223,6 +275,9 @@ class DropRepository {
               likedByMe: likedIds.contains(row['id'] as String),
               savedByMe: savedIds.contains(row['id'] as String),
               redroppedByMe: redroppedIds.contains(row['id'] as String),
+              pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
+              pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
+              pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
             ))
         .toList();
 
@@ -270,7 +325,7 @@ class DropRepository {
 
     final row = await _client
         .from('drops')
-        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count), redrops(count)')
+        .select(_dropSelect)
         .eq('id', dropId)
         .maybeSingle();
     if (row == null) return null;
@@ -279,12 +334,20 @@ class DropRepository {
     final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: [dropId]);
     final redroppedIds =
         await _fetchRedroppedDropIds(userId: userId, dropIds: [dropId]);
+    final pollId = _pollIdFromRow(row);
+    final pollStates = await _fetchPollStates(
+      userId: userId,
+      pollIds: pollId == null ? const [] : [pollId],
+    );
 
     return Drop.fromMap(
       row,
       likedByMe: likedIds.contains(dropId),
       savedByMe: savedIds.contains(dropId),
       redroppedByMe: redroppedIds.contains(dropId),
+      pollMyVoteIndex: pollStates[pollId]?.myVoteIndex,
+      pollTotalVotes: pollStates[pollId]?.totalVotes,
+      pollOptionCounts: pollStates[pollId]?.optionCounts,
     );
   }
 
@@ -336,6 +399,104 @@ class DropRepository {
         .inFilter('drop_id', dropIds);
 
     return rows.map((row) => row['drop_id'] as String).toSet();
+  }
+
+  /// Same defensive object-or-list-or-null handling as
+  /// [Drop._embeddedPoll] -- see that method's doc comment. Returns
+  /// null for a Drop with no poll.
+  static String? _pollIdFromRow(Map<String, dynamic> row) {
+    final raw = row['drop_polls'];
+    if (raw == null) return null;
+    if (raw is List) {
+      return raw.isEmpty ? null : (raw.first as Map<String, dynamic>)['id'] as String?;
+    }
+    return (raw as Map<String, dynamic>)['id'] as String?;
+  }
+
+  /// Batches "my vote" (RLS restricts this to the caller's own row) and
+  /// aggregate results ([get_poll_results()], which enforces the
+  /// voted/author/expired visibility rule at the DB layer, not here)
+  /// into one per-poll state map -- one query pair per page, not one
+  /// per card, mirroring [_fetchLikedDropIds]/[_fetchRedroppedDropIds].
+  Future<Map<String, _PollState>> _fetchPollStates({
+    required String userId,
+    required List<String> pollIds,
+  }) async {
+    if (pollIds.isEmpty) return {};
+
+    final myVoteRows = await _client
+        .from('drop_poll_votes')
+        .select('poll_id, option_index')
+        .eq('voter_id', userId)
+        .inFilter('poll_id', pollIds);
+    final myVotes = {
+      for (final row in myVoteRows)
+        row['poll_id'] as String: row['option_index'] as int,
+    };
+
+    final resultRows = await _client.rpc(
+      'get_poll_results',
+      params: {'p_poll_ids': pollIds},
+    ) as List<dynamic>;
+    final resultsByPollId = {
+      for (final row in resultRows)
+        row['poll_id'] as String: row as Map<String, dynamic>,
+    };
+
+    return {
+      for (final id in pollIds)
+        id: _PollState(
+          myVoteIndex: myVotes[id],
+          totalVotes: resultsByPollId[id]?['visible'] == true
+              ? (resultsByPollId[id]!['total_votes'] as num).toInt()
+              : null,
+          optionCounts: resultsByPollId[id]?['visible'] == true
+              ? (resultsByPollId[id]!['option_counts'] as List<dynamic>)
+                  .map((e) => (e as num).toInt())
+                  .toList()
+              : null,
+        ),
+    };
+  }
+
+  /// Creates a Poll Drop (WYN-035) via the `create_poll_drop()` RPC --
+  /// atomically inserts `drops` (image_url left null)+`drop_polls`+
+  /// `drop_mentions` in one transaction. A separate method from
+  /// [createDrop] rather than a bunch of nullable params on it, same
+  /// "one method per distinct action" shape [toggleRedrop]/
+  /// [quoteRedrop] already use.
+  Future<void> createPollDrop({
+    required String question,
+    required List<String> options,
+    required int durationDays,
+    Set<String> mentionedUserIds = const {},
+  }) {
+    return _client.rpc('create_poll_drop', params: {
+      'p_caption': question.trim(),
+      'p_options': options,
+      'p_duration_days': durationDays,
+      'p_mentioned_user_ids': mentionedUserIds.toList(),
+    });
+  }
+
+  /// Casts (or changes) a vote -- an upsert on `drop_poll_votes` so a
+  /// second call with a different [optionIndex] updates the same row
+  /// (see `drop_poll_votes_validate` in supabase/schema.sql for the
+  /// server-side rules this is subject to: not the poll's own author,
+  /// not after it closes, not blocked-either-way with the author).
+  Future<void> votePoll({
+    required String pollId,
+    required int optionIndex,
+  }) async {
+    final userId = _client.auth.currentUser!.id;
+    await _client.from('drop_poll_votes').upsert(
+      {
+        'poll_id': pollId,
+        'voter_id': userId,
+        'option_index': optionIndex,
+      },
+      onConflict: 'poll_id,voter_id',
+    );
   }
 
   /// Creates a Drop. [imageBytes] is required -- a Drop is always a photo,

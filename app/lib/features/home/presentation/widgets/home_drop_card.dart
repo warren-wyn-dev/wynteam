@@ -10,6 +10,7 @@ import '../../../../core/widgets/hashtag_text.dart';
 import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
 import '../../../report/presentation/report_sheet.dart';
+import '../../../drop/presentation/widgets/poll_card.dart';
 
 /// A Drop card in the Home feed. Same visual structure as
 /// HomePopCard so the two read as one family, per
@@ -26,6 +27,7 @@ class HomeDropCard extends StatelessWidget {
     required this.onQuoteRedrop,
     this.onOpenRedropperProfile,
     this.onDeleteRedrop,
+    this.onVotePoll,
   });
 
   final HomeFeedItem item;
@@ -55,6 +57,10 @@ class HomeDropCard extends StatelessWidget {
   /// [onToggleRedrop]/`deleteDrop` -- this never touches the
   /// underlying Drop itself, only the viewer's own ReDrop entry of it.
   final VoidCallback? onDeleteRedrop;
+
+  /// WYN-035: called with the tapped option's index when [item.isPoll]
+  /// -- null (never called) for a plain image card.
+  final ValueChanged<int>? onVotePoll;
 
   bool get _isOwnDrop =>
       item.authorId == Supabase.instance.client.auth.currentUser!.id;
@@ -238,10 +244,21 @@ class HomeDropCard extends StatelessWidget {
                   ],
                 ),
               ),
-              AspectRatio(
-                aspectRatio: 1,
-                child: Image.network(item.imageUrl!, fit: BoxFit.cover),
-              ),
+              if (item.isPoll)
+                PollCard(
+                  options: item.pollOptions!,
+                  expiresAt: item.pollExpiresAt!,
+                  myVoteIndex: item.pollMyVoteIndex,
+                  totalVotes: item.pollTotalVotes,
+                  optionCounts: item.pollOptionCounts,
+                  isOwnPoll: _isOwnDrop,
+                  onVote: (index) => onVotePoll?.call(index),
+                )
+              else
+                AspectRatio(
+                  aspectRatio: 1,
+                  child: Image.network(item.imageUrl!, fit: BoxFit.cover),
+                ),
               if (item.caption != null && item.caption!.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),

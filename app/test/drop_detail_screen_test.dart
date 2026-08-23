@@ -34,6 +34,8 @@ void main() {
   late RecordingDropRepository ownCommentRepo;
   late RecordingDropRepository replyTestRepo;
   late RecordingDropRepository existingReplyRepo;
+  late RecordingDropRepository pollVoteTestRepo;
+  late RecordingDropRepository pollOwnAuthorTestRepo;
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
     repo = RecordingDropRepository();
@@ -100,6 +102,12 @@ void main() {
     tapProfileTestProfileRepo = RecordingProfileRepository(
       profile: const Profile(id: 'someone-else', username: 'namfah'),
     );
+    // WYN-035 -- constructed here rather than inline inside a
+    // testWidgets body, same "avoid a leaked GoTrue auto-refresh timer
+    // at teardown" reasoning as every other RecordingDropRepository in
+    // this setUpAll.
+    pollVoteTestRepo = RecordingDropRepository();
+    pollOwnAuthorTestRepo = RecordingDropRepository();
   });
 
   final tallDrop = Drop(
@@ -493,6 +501,97 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('ตอบกลับ @namfah'), findsNothing);
+    });
+  });
+
+  group('Poll (WYN-035)', () {
+    Drop pollDrop({
+      int? myVoteIndex,
+      int? totalVotes,
+      List<int>? optionCounts,
+    }) =>
+        Drop(
+          id: 'poll-d1',
+          authorId: 'someone-else',
+          authorUsername: 'namfah',
+          caption: 'กินอะไรดี?',
+          createdAt: DateTime.now(),
+          likeCount: 0,
+          commentCount: 0,
+          likedByMe: false,
+          savedByMe: false,
+          pollId: 'p1',
+          pollOptions: const ['Pizza', 'Sushi'],
+          pollExpiresAt: DateTime.now().toUtc().add(const Duration(days: 1)),
+          pollMyVoteIndex: myVoteIndex,
+          pollTotalVotes: totalVotes,
+          pollOptionCounts: optionCounts,
+        );
+
+    testWidgets('shows the Poll widget instead of an image, and voting '
+        'calls votePoll and updates optimistically', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: pollVoteTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: pollDrop(),
+        ),
+      ));
+      await tester.pump();
+      // No real network access in the test environment -- expected and
+      // irrelevant to what this test checks.
+      tester.takeException();
+
+      expect(find.text('Pizza'), findsOneWidget);
+      expect(find.text('Sushi'), findsOneWidget);
+      expect(find.textContaining('%'), findsNothing);
+
+      await tester.tap(find.text('Pizza'));
+      await tester.pump();
+
+      expect(pollVoteTestRepo.votePollArgs, [('p1', 0)]);
+      expect(find.text('100%'), findsOneWidget);
+    });
+
+    testWidgets('the poll author cannot vote on their own poll',
+        (tester) async {
+      final ownPoll = Drop(
+        id: 'poll-own',
+        authorId: 'me',
+        authorUsername: 'me_user',
+        caption: 'โพลของฉัน',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+        pollId: 'p-own',
+        pollOptions: const ['A', 'B'],
+        pollExpiresAt: DateTime.now().toUtc().add(const Duration(days: 1)),
+        pollTotalVotes: 0,
+        pollOptionCounts: const [0, 0],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: pollOwnAuthorTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: ownPoll,
+        ),
+      ));
+      await tester.pump();
+      tester.takeException();
+
+      await tester.tap(find.text('A'), warnIfMissed: false);
+      await tester.pump();
+
+      expect(pollOwnAuthorTestRepo.votePollArgs, isEmpty);
     });
   });
 }

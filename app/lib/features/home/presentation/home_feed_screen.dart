@@ -278,6 +278,29 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
   }
 
+  /// WYN-035: casts (or changes) the viewer's vote on the Poll at
+  /// [index] -- same optimistic-then-revert-on-error shape as
+  /// [_toggleLike]. Only ever wired up for a drop-typed card whose
+  /// [HomeFeedItem.isPoll] is true (see the itemBuilder below), so no
+  /// [HomeContentType] branch is needed, same as [_toggleRedrop].
+  Future<void> _votePoll(int index, int optionIndex) async {
+    if (index < 0 || index >= _items.length) return;
+    final previous = _items[index];
+    final pollId = previous.pollId;
+    if (pollId == null) return;
+
+    setState(() => _items[index] = previous.votedPoll(optionIndex));
+    try {
+      await widget.dropRepository.votePoll(
+        pollId: pollId,
+        optionIndex: optionIndex,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _items[index] = previous);
+    }
+  }
+
   /// Deletes the viewer's own ReDrop entry at [index] (Standard or
   /// Quote) -- only ever wired up for a card HomeDropCard has already
   /// determined is the viewer's own ReDrop (see its `_isOwnRedrop`).
@@ -795,6 +818,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                   ? null
                   : () => _openProfile(item.redropperId!),
               onDeleteRedrop: () => _deleteRedrop(index),
+              onVotePoll: (optionIndex) => _votePoll(index, optionIndex),
             );
           }
           return HomePopCard(

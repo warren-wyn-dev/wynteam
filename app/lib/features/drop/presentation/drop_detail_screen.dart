@@ -24,6 +24,7 @@ import '../data/drop_comment.dart';
 import '../data/drop_repository.dart';
 import 'quote_redrop_screen.dart';
 import 'widgets/confirm_delete_drop_dialog.dart';
+import 'widgets/poll_card.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
@@ -197,6 +198,22 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       await widget.dropRepository.toggleSave(
         dropId: previous.id,
         currentlySaved: previous.savedByMe,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _drop = previous);
+    }
+  }
+
+  Future<void> _votePoll(int optionIndex) async {
+    final previous = _drop;
+    final pollId = previous.pollId;
+    if (pollId == null) return;
+    setState(() => _drop = _drop.votedPoll(optionIndex));
+    try {
+      await widget.dropRepository.votePoll(
+        pollId: pollId,
+        optionIndex: optionIndex,
       );
     } catch (_) {
       if (!mounted) return;
@@ -516,10 +533,21 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     final header = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AspectRatio(
-          aspectRatio: 1,
-          child: Image.network(_drop.imageUrl, fit: BoxFit.cover),
-        ),
+        if (_drop.isPoll)
+          PollCard(
+            options: _drop.pollOptions!,
+            expiresAt: _drop.pollExpiresAt!,
+            myVoteIndex: _drop.pollMyVoteIndex,
+            totalVotes: _drop.pollTotalVotes,
+            optionCounts: _drop.pollOptionCounts,
+            isOwnPoll: isOwnDrop,
+            onVote: _votePoll,
+          )
+        else
+          AspectRatio(
+            aspectRatio: 1,
+            child: Image.network(_drop.imageUrl!, fit: BoxFit.cover),
+          ),
         Padding(
           padding: const EdgeInsets.all(WynSpacing.space4),
           child: Column(

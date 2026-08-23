@@ -15,8 +15,12 @@ import '../../../core/design/wyn_spacing.dart';
 import '../../../core/widgets/mention_input.dart';
 import '../../../core/widgets/restriction_banner.dart';
 
+/// WYN-035: a Drop carries either an image or a Poll this round, never
+/// both -- see .wyn/docs/design/wyn-035-poll-in-drop.md's Screen 1.
+enum _ComposeMode { image, poll }
+
 /// Screen 2 — Create Drop.
-/// See .wyn/docs/design/wyn-005-drop.md
+/// See .wyn/docs/design/wyn-005-drop.md, .wyn/docs/design/wyn-035-poll-in-drop.md
 class CreateDropScreen extends StatefulWidget {
   const CreateDropScreen({
     super.key,
@@ -65,6 +69,18 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   bool _isSharing = false;
   String? _errorMessage;
 
+  // WYN-035: Poll composer state. Starts at 2 options (the minimum),
+  // capped at 4 by _addPollOption -- see .wyn/tasks/active/WYN-035-poll-in-drop.md.
+  _ComposeMode _mode = _ComposeMode.image;
+  static const _maxPollOptions = 4;
+  static const _minPollOptions = 2;
+  static const _pollOptionMaxLength = 80;
+  final List<TextEditingController> _pollOptionControllers = [
+    TextEditingController(),
+    TextEditingController(),
+  ];
+  int _pollDurationDays = 1;
+
   // WYN-029 (Restrict): loaded once in initState, not re-polled while
   // this screen stays open -- see RestrictionBanner's own doc comment
   // on why a stale read here is an accepted, documented trade-off (the
@@ -76,13 +92,40 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   AppealStatus _restrictAppealStatus = AppealStatus.none;
   bool get _isRestricted => _restrictExpiresAt != null;
 
-  bool get _canShare =>
-      !_isSharing && !_isCropping && _imageBytes != null && !_isRestricted;
+  bool get _canShare {
+    if (_isSharing || _isCropping || _isRestricted) return false;
+    if (_mode == _ComposeMode.image) return _imageBytes != null;
+    return _captionController.text.trim().isNotEmpty && _pollOptionsValid;
+  }
+
+  /// Every option non-empty (after trim) and within
+  /// [_pollOptionMaxLength], and no two options equal
+  /// case-insensitively after trim -- mirrors `valid_poll_options()`
+  /// in supabase/schema.sql (that's the real enforcement; this is
+  /// just so the "แชร์" button doesn't invite a doomed request).
+  bool get _pollOptionsValid {
+    final trimmed = _pollOptionControllers
+        .map((c) => c.text.trim())
+        .toList(growable: false);
+    if (trimmed.any((t) => t.isEmpty || t.length > _pollOptionMaxLength)) {
+      return false;
+    }
+    final lowercased = trimmed.map((t) => t.toLowerCase()).toSet();
+    return lowercased.length == trimmed.length;
+  }
 
   @override
   void initState() {
     super.initState();
     _loadModerationStatus();
+    // WYN-035: in poll mode _canShare depends on the caption text (the
+    // poll's question) -- image mode never needed this since it only
+    // ever depended on _imageBytes, which already goes through setState.
+    _captionController.addListener(_onCaptionChanged);
+  }
+
+  void _onCaptionChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadModerationStatus() async {
@@ -123,8 +166,22 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
 
   @override
   void dispose() {
+    _captionController.removeListener(_onCaptionChanged);
     _captionController.dispose();
+    for (final controller in _pollOptionControllers) {
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  void _addPollOption() {
+    if (_pollOptionControllers.length >= _maxPollOptions) return;
+    setState(() => _pollOptionControllers.add(TextEditingController()));
+  }
+
+  void _removePollOption(int index) {
+    if (_pollOptionControllers.length <= _minPollOptions) return;
+    setState(() => _pollOptionControllers.removeAt(index).dispose());
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -198,9 +255,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     // so a rapid double-tap before that rebuild would otherwise still
     // reach this method a second time. See .wyn/tasks/bugs/WYN-004-feed-and-post.md
     // (QA round 1) for the bug class this guards against.
-    if (_isSharing) return;
-    final imageBytes = _imageBytes;
-    if (imageBytes == null) return;
+    if (!_canShare) return;
 
     setState(() {
       _isSharing = true;
@@ -208,12 +263,21 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     });
 
     try {
-      await widget.dropRepository.createDrop(
-        imageBytes: imageBytes,
-        imageExtension: _imageExtension,
-        caption: _captionController.text,
-        mentionedUserIds: _mentionedUserIds,
-      );
+      if (_mode == _ComposeMode.poll) {
+        await widget.dropRepository.createPollDrop(
+          question: _captionController.text,
+          options: _pollOptionControllers.map((c) => c.text.trim()).toList(),
+          durationDays: _pollDurationDays,
+          mentionedUserIds: _mentionedUserIds,
+        );
+      } else {
+        await widget.dropRepository.createDrop(
+          imageBytes: _imageBytes!,
+          imageExtension: _imageExtension,
+          caption: _captionController.text,
+          mentionedUserIds: _mentionedUserIds,
+        );
+      }
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (_) {
@@ -268,7 +332,34 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                   appealStatus: _restrictAppealStatus,
                   onAppeal: _openAppeal,
                 ),
-              _buildImageArea(),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WynSpacing.space4,
+                  vertical: WynSpacing.space2,
+                ),
+                child: SegmentedButton<_ComposeMode>(
+                  segments: const [
+                    ButtonSegment(
+                      value: _ComposeMode.image,
+                      label: Text('รูปภาพ'),
+                      icon: Icon(Icons.image_outlined),
+                    ),
+                    ButtonSegment(
+                      value: _ComposeMode.poll,
+                      label: Text('โพล'),
+                      icon: Icon(Icons.poll_outlined),
+                    ),
+                  ],
+                  selected: {_mode},
+                  onSelectionChanged: _isSharing
+                      ? null
+                      : (selection) => setState(() => _mode = selection.first),
+                ),
+              ),
+              if (_mode == _ComposeMode.image)
+                _buildImageArea()
+              else
+                _buildPollComposer(),
               Padding(
                 padding: const EdgeInsets.all(WynSpacing.space4),
                 child: Column(
@@ -283,8 +374,10 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                       maxLines: 4,
                       minLines: 2,
                       enabled: !_isSharing,
-                      decoration: const InputDecoration(
-                        hintText: 'เขียนแคปชัน... ใส่ #hashtag หรือ @mention ได้',
+                      decoration: InputDecoration(
+                        hintText: _mode == _ComposeMode.poll
+                            ? 'ตั้งคำถามโพล... ใส่ #hashtag หรือ @mention ได้'
+                            : 'เขียนแคปชัน... ใส่ #hashtag หรือ @mention ได้',
                         border: InputBorder.none,
                       ),
                     ),
@@ -334,6 +427,71 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                     : Image.memory(imageBytes, fit: BoxFit.cover),
           ),
         ),
+      ),
+    );
+  }
+
+  /// WYN-035, Design Screen 1 -- replaces [_buildImageArea] when
+  /// [_mode] is [_ComposeMode.poll]. The caption field below this
+  /// (shared with the image mode, see [build]) doubles as the poll's
+  /// question -- no separate question field.
+  Widget _buildPollComposer() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < _pollOptionControllers.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: WynSpacing.space2),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _pollOptionControllers[i],
+                      maxLength: _pollOptionMaxLength,
+                      enabled: !_isSharing,
+                      decoration: InputDecoration(
+                        hintText: 'ตัวเลือกที่ ${i + 1}',
+                        counterText: '',
+                        border: const OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                  // Only the 3rd/4th option can be removed -- the
+                  // first 2 are the minimum a Poll must always have.
+                  if (i >= _minPollOptions)
+                    IconButton(
+                      key: ValueKey('remove_poll_option_$i'),
+                      icon: const Icon(Icons.close),
+                      tooltip: 'ลบตัวเลือกนี้',
+                      onPressed: _isSharing ? null : () => _removePollOption(i),
+                    ),
+                ],
+              ),
+            ),
+          if (_pollOptionControllers.length < _maxPollOptions)
+            TextButton.icon(
+              onPressed: _isSharing ? null : _addPollOption,
+              icon: const Icon(Icons.add),
+              label: const Text('เพิ่มตัวเลือก'),
+            ),
+          const SizedBox(height: WynSpacing.space2),
+          Text('ระยะเวลาโหวต', style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: WynSpacing.space2),
+          SegmentedButton<int>(
+            segments: const [
+              ButtonSegment(value: 1, label: Text('1 วัน')),
+              ButtonSegment(value: 3, label: Text('3 วัน')),
+              ButtonSegment(value: 7, label: Text('7 วัน')),
+            ],
+            selected: {_pollDurationDays},
+            onSelectionChanged: _isSharing
+                ? null
+                : (selection) => setState(() => _pollDurationDays = selection.first),
+          ),
+        ],
       ),
     );
   }

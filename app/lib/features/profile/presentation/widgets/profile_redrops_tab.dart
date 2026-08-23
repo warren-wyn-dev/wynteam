@@ -202,6 +202,26 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
     _loadInitial();
   }
 
+  /// WYN-035: a ReDrop of a Poll Drop still carries its poll -- same
+  /// optimistic-vote shape as HomeFeedScreen's own _votePoll.
+  Future<void> _votePoll(int index, int optionIndex) async {
+    if (index < 0 || index >= _items.length) return;
+    final previous = _items[index];
+    final pollId = previous.pollId;
+    if (pollId == null) return;
+
+    setState(() => _items[index] = previous.votedPoll(optionIndex));
+    try {
+      await widget.dropRepository.votePoll(
+        pollId: pollId,
+        optionIndex: optionIndex,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _items[index] = previous);
+    }
+  }
+
   /// Deletes the ReDrop entry at [index] outright (Standard or Quote)
   /// -- this tab only ever shows the profile owner's own ReDrops, so
   /// every card here is eligible (mirrors HomeFeedScreen's own
@@ -307,6 +327,7 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
                 ? null
                 : () => _openProfile(item.redropperId!),
             onDeleteRedrop: () => _deleteRedrop(index),
+            onVotePoll: (optionIndex) => _votePoll(index, optionIndex),
           );
         },
       ),
