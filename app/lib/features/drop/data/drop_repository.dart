@@ -572,8 +572,54 @@ class DropRepository {
     }
   }
 
+  /// Soft-deletes a Drop (WYN-037) -- hides it from everyone but its
+  /// own author (RLS, not a client-side filter), recoverable via
+  /// [restoreDrop] within the 30-day window `soft_delete_drop()`
+  /// enforces server-side. There is no client-facing hard delete of a
+  /// Drop anymore -- moderation's Remove Content (WYN-029) still
+  /// hard-deletes, but that's a separate SECURITY DEFINER path this
+  /// method never touches.
   Future<void> deleteDrop(String dropId) {
-    return _client.from('drops').delete().eq('id', dropId);
+    return _client.rpc('soft_delete_drop', params: {'p_drop_id': dropId});
+  }
+
+  /// Restores a previously soft-deleted Drop (WYN-037) -- rejected
+  /// server-side by `restore_drop()` once the 30-day window has
+  /// passed, or if the caller isn't the Drop's own author.
+  Future<void> restoreDrop(String dropId) {
+    return _client.rpc('restore_drop', params: {'p_drop_id': dropId});
+  }
+
+  /// Edits a Drop's caption (or a Poll Drop's question -- same field)
+  /// (WYN-037) -- rejected server-side by `edit_drop()` past the
+  /// 30-minute edit window, if the Drop is deleted, or if the caller
+  /// isn't the Drop's own author. The image and (for a Poll) its
+  /// options/duration are never editable, by design -- this only ever
+  /// touches `caption`.
+  Future<void> editDrop({required String dropId, required String caption}) {
+    return _client.rpc(
+      'edit_drop',
+      params: {'p_drop_id': dropId, 'p_caption': caption},
+    );
+  }
+
+  /// Every Drop the current user has soft-deleted and can still
+  /// restore -- WYN-037's "รายการที่ลบ" screen. RLS already restricts
+  /// this to the caller's own rows (the same policy that lets an
+  /// author keep seeing their own deleted Drop everywhere else), the
+  /// explicit filters here just narrow it to deleted-only, newest
+  /// first.
+  Future<List<Drop>> fetchDeletedDrops() async {
+    final userId = _client.auth.currentUser!.id;
+    final rows = await _client
+        .from('drops')
+        .select(_dropSelect)
+        .eq('author_id', userId)
+        .not('deleted_at', 'is', null)
+        .order('deleted_at', ascending: false);
+    return rows
+        .map((row) => Drop.fromMap(row, likedByMe: false, savedByMe: false))
+        .toList();
   }
 
   Future<void> toggleLike({

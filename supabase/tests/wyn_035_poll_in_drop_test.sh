@@ -484,17 +484,26 @@ begin
     1;
   reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
 
-  -- CHECK21: deleting D1 cascades away its drop_polls + drop_poll_votes rows.
+  -- CHECK21: deleting D1 used to hard-delete it (real FK cascade away
+  -- its drop_polls + drop_poll_votes rows). WYN-037 replaced
+  -- self-delete with soft_delete_drop() -- there is no more
+  -- client-facing DELETE policy on `drops` at all, so a raw `delete
+  -- from drops` here is now a silent 0-row RLS no-op, not the real
+  -- deletion this check used to rely on. Updated to call the real
+  -- (soft-delete) path instead: drop_polls/drop_poll_votes rows now
+  -- deliberately SURVIVE (no FK cascade fires on an UPDATE) -- the
+  -- poll becomes invisible via `drops`' own RLS instead, proven
+  -- directly by wyn_037_edit_delete_drop_test.sh, not re-proven here.
   set role authenticated;
   set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
   set request.jwt.claim.role = 'authenticated';
-  delete from public.drops where id = v_d1;
+  perform public.soft_delete_drop(v_d1);
   reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
   insert into results
-  select 'CHECK21_delete_drop_cascades_poll_and_votes',
+  select 'CHECK21_soft_delete_drop_does_not_cascade_poll_and_votes',
     (select count(*) from public.drop_polls where id = v_p1)
       + (select count(*) from public.drop_poll_votes where poll_id = v_p1),
-    0;
+    3;
 end
 $$;
 

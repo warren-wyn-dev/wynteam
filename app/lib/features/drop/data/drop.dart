@@ -24,6 +24,8 @@ class Drop {
     this.pollMyVoteIndex,
     this.pollTotalVotes,
     this.pollOptionCounts,
+    this.editedAt,
+    this.deletedAt,
   });
 
   final String id;
@@ -62,7 +64,22 @@ class Drop {
   /// under the exact same condition as [pollTotalVotes].
   final List<int>? pollOptionCounts;
 
+  /// WYN-037: set once this Drop's caption has been edited at least
+  /// once (via [DropRepository.editDrop]) -- drives the "แก้ไขแล้ว"
+  /// badge. Null means never edited.
+  final DateTime? editedAt;
+
+  /// WYN-037: set when this Drop has been soft-deleted (via
+  /// [DropRepository.softDeleteDrop]). A [Drop] with this set is only
+  /// ever fetched by [DropRepository.fetchDeletedDrops] -- RLS hides
+  /// it from every other read path (feeds/search/profile) for anyone
+  /// but its own author, so an ordinarily-fetched [Drop] never has
+  /// this set. Null means live/visible as normal.
+  final DateTime? deletedAt;
+
   bool get isPoll => pollId != null;
+
+  bool get wasEdited => editedAt != null;
 
   bool get pollResultsVisible => pollTotalVotes != null;
 
@@ -118,6 +135,39 @@ class Drop {
         pollMyVoteIndex: pollMyVoteIndex ?? this.pollMyVoteIndex,
         pollTotalVotes: pollTotalVotes ?? this.pollTotalVotes,
         pollOptionCounts: pollOptionCounts ?? this.pollOptionCounts,
+        editedAt: editedAt,
+        deletedAt: deletedAt,
+      );
+
+  /// A copy with the caption (or Poll question) edited -- WYN-037,
+  /// optimistic-update role like [toggledLike]. Not part of [copyWith]
+  /// because that method always carries [caption] over unconditionally
+  /// -- this is the one place a Drop's caption is allowed to actually
+  /// change. [caption] may be null (clearing it entirely, same as at
+  /// creation time).
+  Drop withEditedCaption(String? caption) => Drop(
+        id: id,
+        authorId: authorId,
+        authorUsername: authorUsername,
+        authorDisplayName: authorDisplayName,
+        authorAvatarUrl: authorAvatarUrl,
+        imageUrl: imageUrl,
+        caption: caption,
+        createdAt: createdAt,
+        likeCount: likeCount,
+        commentCount: commentCount,
+        likedByMe: likedByMe,
+        savedByMe: savedByMe,
+        redropCount: redropCount,
+        redroppedByMe: redroppedByMe,
+        pollId: pollId,
+        pollOptions: pollOptions,
+        pollExpiresAt: pollExpiresAt,
+        pollMyVoteIndex: pollMyVoteIndex,
+        pollTotalVotes: pollTotalVotes,
+        pollOptionCounts: pollOptionCounts,
+        editedAt: DateTime.now(),
+        deletedAt: deletedAt,
       );
 
   /// A copy with the like toggled -- used for optimistic UI updates before
@@ -219,6 +269,12 @@ class Drop {
       pollMyVoteIndex: pollMyVoteIndex,
       pollTotalVotes: pollTotalVotes,
       pollOptionCounts: pollOptionCounts,
+      editedAt: map['edited_at'] != null
+          ? DateTime.parse(map['edited_at'] as String)
+          : null,
+      deletedAt: map['deleted_at'] != null
+          ? DateTime.parse(map['deleted_at'] as String)
+          : null,
     );
   }
 

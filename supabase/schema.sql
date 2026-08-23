@@ -6558,3 +6558,209 @@ create policy "Users can delete their own drafts"
   for delete
   to authenticated
   using (auth.uid() = author_id);
+
+-- ============================================================
+-- WYN-037: Edit / Delete Drop (time window + soft delete/restore)
+-- ============================================================
+
+-- edited_at: null until the first successful edit_drop() call, then
+-- set every time -- drives the "แก้ไขแล้ว" UI badge. deleted_at: null
+-- means visible/live; once set (via soft_delete_drop()) the row still
+-- physically exists but is hidden from everyone except its own author
+-- (see the SELECT policy changes below) until either restore_drop()
+-- clears it again or the 30-day restore window lapses.
+alter table public.drops add column if not exists edited_at timestamptz;
+alter table public.drops add column if not exists deleted_at timestamptz;
+
+-- There is deliberately no client-facing UPDATE policy on `drops` at
+-- all (there never was one before this task either) -- every mutation
+-- to an existing Drop goes through exactly one of the 3 RPCs below,
+-- each SECURITY DEFINER so it can enforce its own business rule (owner
+-- + time window) directly rather than trying to express "created_at >
+-- now() - 30 minutes" cleanly across a using/with check pair. This
+-- mirrors create_poll_drop()/apply_moderation_action()'s own reasoning
+-- for using an RPC instead of raw RLS wherever the rule is more than
+-- row ownership.
+--
+-- Self-delete no longer goes through a raw client DELETE either --
+-- see the dropped "Users can delete their own drops" policy further
+-- down. Moderation's apply_moderation_action() (WYN-029) is
+-- unaffected: it hard-deletes directly inside its own SECURITY
+-- DEFINER function, which already bypasses RLS entirely and never
+-- depended on that policy to begin with.
+
+create or replace function public.edit_drop(p_drop_id uuid, p_caption text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_drop record;
+begin
+  select * into v_drop from public.drops where id = p_drop_id for update;
+  if v_drop is null then
+    raise exception 'Drop not found';
+  end if;
+  if v_drop.author_id <> v_me then
+    raise exception 'Only the author can edit this Drop';
+  end if;
+  if v_drop.deleted_at is not null then
+    raise exception 'Cannot edit a deleted Drop';
+  end if;
+  if v_drop.created_at <= now() - interval '30 minutes' then
+    raise exception 'The 30-minute edit window has passed';
+  end if;
+
+  update public.drops
+  set caption = nullif(trim(both from p_caption), ''),
+      edited_at = now()
+  where id = p_drop_id;
+end;
+$$;
+
+grant execute on function public.edit_drop(uuid, text) to authenticated;
+
+create or replace function public.soft_delete_drop(p_drop_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_drop record;
+begin
+  select * into v_drop from public.drops where id = p_drop_id for update;
+  if v_drop is null then
+    raise exception 'Drop not found';
+  end if;
+  if v_drop.author_id <> v_me then
+    raise exception 'Only the author can delete this Drop';
+  end if;
+  if v_drop.deleted_at is not null then
+    raise exception 'Drop is already deleted';
+  end if;
+
+  update public.drops set deleted_at = now() where id = p_drop_id;
+end;
+$$;
+
+grant execute on function public.soft_delete_drop(uuid) to authenticated;
+
+create or replace function public.restore_drop(p_drop_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_drop record;
+begin
+  select * into v_drop from public.drops where id = p_drop_id for update;
+  if v_drop is null then
+    raise exception 'Drop not found';
+  end if;
+  if v_drop.author_id <> v_me then
+    raise exception 'Only the author can restore this Drop';
+  end if;
+  if v_drop.deleted_at is null then
+    raise exception 'Drop is not deleted';
+  end if;
+  if v_drop.deleted_at <= now() - interval '30 days' then
+    raise exception 'The 30-day restore window has passed';
+  end if;
+
+  update public.drops set deleted_at = null where id = p_drop_id;
+end;
+$$;
+
+grant execute on function public.restore_drop(uuid) to authenticated;
+
+-- Self-delete now exclusively goes through soft_delete_drop() above --
+-- drop the raw client DELETE policy entirely so there is no remaining
+-- path for a user to bypass the restore window by hard-deleting their
+-- own Drop directly.
+drop policy "Users can delete their own drops" on public.drops;
+
+-- Extends WYN-028's block-exclusion predicate (unchanged) with the new
+-- visibility rule: a deleted Drop is invisible to everyone except its
+-- own author. This single change is sufficient to hide a soft-deleted
+-- Drop from Home Feed/Search/Profile grid *and* from every ReDrop of
+-- it -- home_feed/saved_feed are both `security_invoker = true` views
+-- that join straight onto `public.drops`, so RLS on this one table is
+-- enforced inside those joins too. No view redefinition needed.
+drop policy "Drops are viewable by authenticated users, excluding blocked authors" on public.drops;
+create policy "Drops are viewable by authenticated users, excluding blocked authors and deleted"
+  on public.drops
+  for select
+  to authenticated
+  using (
+    not internal.is_blocked_either_way(auth.uid(), author_id)
+    and (deleted_at is null or auth.uid() = author_id)
+  );
+
+-- A soft-deleted Drop's comments must become just as invisible as the
+-- Drop itself -- without this, drop_comments' own SELECT policy (row-
+-- level on drop_comments only) would let anyone who already knows a
+-- comment's id/drop_id keep reading it directly, an indirect leak that
+-- didn't exist before this task (the old hard DELETE cascade-deleted
+-- every comment along with the Drop; a soft delete leaves them in
+-- place).
+drop policy "Drop comments are viewable by authenticated users, excluding blocked authors" on public.drop_comments;
+create policy "Drop comments are viewable by authenticated users, excluding blocked authors and on deleted drops only by their author"
+  on public.drop_comments
+  for select
+  to authenticated
+  using (
+    not internal.is_blocked_either_way(auth.uid(), author_id)
+    and exists (
+      select 1 from public.drops d
+      where d.id = drop_comments.drop_id
+        and (d.deleted_at is null or d.author_id = auth.uid())
+    )
+  );
+
+-- QA finding (WYN-037): the INSERT policy never checked deleted_at at
+-- all -- before this task a soft-deleted Drop's row didn't exist, so
+-- a comment insert against it was already impossible via the
+-- drop_comments_drop_id_fkey constraint. Now that delete is soft, the
+-- row (and the FK target) still exists, so without this a stranger
+-- could still comment on a Drop they can no longer even see -- and
+-- notify_drop_comment()'s trigger would still notify its author,
+-- surfacing "someone commented" on content they believe is gone.
+--
+-- SECURITY DEFINER, mirroring internal.drop_author_id() immediately
+-- above -- a plain `exists (select 1 from public.drops where id = ...
+-- and deleted_at is not null)` inside the policy below would be
+-- self-defeating: that subquery is itself subject to `drops`' own
+-- SELECT RLS, which already hides a deleted Drop from anyone but its
+-- author, so exists() would evaluate false (not-exists true, i.e.
+-- "not deleted") for exactly the stranger this check exists to catch
+-- -- caught by this task's own QA before it shipped by proving the
+-- naive version stayed exploitable.
+create or replace function internal.is_drop_deleted(p_drop_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select deleted_at is not null from public.drops where id = p_drop_id;
+$$;
+
+grant execute on function internal.is_drop_deleted(uuid) to authenticated;
+
+drop policy "Users can comment on drops as themselves, excluding blocked authors and moderation-blocked accounts" on public.drop_comments;
+create policy "Users can comment on drops as themselves, excluding blocked authors, moderation-blocked accounts, and deleted drops"
+  on public.drop_comments
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = author_id
+    and not internal.is_blocked_either_way(auth.uid(), internal.drop_author_id(drop_id))
+    and not internal.is_posting_blocked(auth.uid())
+    and coalesce(internal.is_drop_deleted(drop_id), false) = false
+  );

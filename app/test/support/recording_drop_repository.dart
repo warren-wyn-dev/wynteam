@@ -170,8 +170,47 @@ class RecordingDropRepository extends DropRepository {
     toggleSaveCalls++;
   }
 
+  /// Each call to [deleteDrop] (WYN-037's soft delete), in order.
+  final List<String> deleteDropCalls = [];
+  Object? deleteDropError;
+
   @override
-  Future<void> deleteDrop(String dropId) async {}
+  Future<void> deleteDrop(String dropId) async {
+    if (deleteDropError != null) throw deleteDropError!;
+    deleteDropCalls.add(dropId);
+  }
+
+  /// Each call to [restoreDrop], in order -- WYN-037.
+  final List<String> restoreDropCalls = [];
+  Object? restoreDropError;
+
+  @override
+  Future<void> restoreDrop(String dropId) async {
+    if (restoreDropError != null) throw restoreDropError!;
+    restoreDropCalls.add(dropId);
+  }
+
+  /// Each call to [editDrop]'s arguments, in order -- WYN-037.
+  final List<Map<String, String>> editDropArgs = [];
+  Object? editDropError;
+
+  @override
+  Future<void> editDrop({required String dropId, required String caption}) async {
+    if (editDropError != null) throw editDropError!;
+    editDropArgs.add({'dropId': dropId, 'caption': caption});
+  }
+
+  /// Returned by [fetchDeletedDrops] -- WYN-037.
+  List<Drop> deletedDropsToReturn = [];
+  int fetchDeletedDropsCalls = 0;
+  Object? fetchDeletedDropsError;
+
+  @override
+  Future<List<Drop>> fetchDeletedDrops() async {
+    fetchDeletedDropsCalls++;
+    if (fetchDeletedDropsError != null) throw fetchDeletedDropsError!;
+    return deletedDropsToReturn;
+  }
 
   @override
   Future<List<DropComment>> fetchComments(String dropId) async => comments;

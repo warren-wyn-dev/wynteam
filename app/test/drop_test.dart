@@ -337,5 +337,64 @@ void main() {
       expect(drop.pollOptions, isNull);
       expect(drop.pollExpiresAt, isNull);
     });
+
+    test('parses edited_at/deleted_at when present (WYN-037)', () {
+      final drop = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': 'hello',
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+        'edited_at': '2026-01-01T00:05:00Z',
+        'deleted_at': '2026-01-02T00:00:00Z',
+      }, likedByMe: false, savedByMe: false);
+
+      expect(drop.editedAt, DateTime.parse('2026-01-01T00:05:00Z'));
+      expect(drop.deletedAt, DateTime.parse('2026-01-02T00:00:00Z'));
+      expect(drop.wasEdited, isTrue);
+    });
+
+    test('edited_at/deleted_at are null when the keys are absent '
+        '(the ordinary case -- most Drops are never edited or '
+        'deleted)', () {
+      final drop = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': 'hello',
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+      }, likedByMe: false, savedByMe: false);
+
+      expect(drop.editedAt, isNull);
+      expect(drop.deletedAt, isNull);
+      expect(drop.wasEdited, isFalse);
+    });
+  });
+
+  group('withEditedCaption (WYN-037)', () {
+    test('replaces the caption and sets editedAt, leaving everything '
+        'else unchanged', () {
+      final drop = _drop(likeCount: 3, commentCount: 2);
+      final edited = drop.withEditedCaption('แก้ไขแล้ว');
+
+      expect(edited.caption, 'แก้ไขแล้ว');
+      expect(edited.wasEdited, isTrue);
+      expect(edited.likeCount, 3);
+      expect(edited.commentCount, 2);
+      expect(edited.id, drop.id);
+    });
+
+    test('can clear the caption entirely (pass null)', () {
+      final edited = _drop().withEditedCaption(null);
+
+      expect(edited.caption, isNull);
+      expect(edited.wasEdited, isTrue);
+    });
   });
 }

@@ -22,6 +22,7 @@ import '../../saved/data/saved_repository.dart';
 import '../data/drop.dart';
 import '../data/drop_comment.dart';
 import '../data/drop_repository.dart';
+import 'edit_drop_caption_screen.dart';
 import 'quote_redrop_screen.dart';
 import 'widgets/confirm_delete_drop_dialog.dart';
 import 'widgets/poll_card.dart';
@@ -475,6 +476,67 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     }
   }
 
+  /// WYN-037: 30 minutes, matching `edit_drop()`'s own server-side
+  /// window -- this is only a UI convenience (hide the "แก้ไข" option
+  /// once it would just fail server-side); the real enforcement is the
+  /// RPC's own check, not this client-side clock read.
+  static const _editWindow = Duration(minutes: 30);
+
+  bool get _canEditDrop =>
+      DateTime.now().difference(_drop.createdAt) < _editWindow;
+
+  Future<void> _openOwnDropMoreMenu() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            if (_canEditDrop)
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('แก้ไข'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _editDrop();
+                },
+              ),
+            ListTile(
+              leading: Icon(
+                Icons.delete_outline,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(
+                'ลบ',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _deleteDrop();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editDrop() async {
+    final newCaption = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => EditDropCaptionScreen(
+          dropRepository: widget.dropRepository,
+          dropId: _drop.id,
+          initialCaption: _drop.caption,
+          isPollQuestion: _drop.isPoll,
+        ),
+      ),
+    );
+    if (newCaption == null || !mounted) return;
+    setState(() {
+      _drop = _drop.withEditedCaption(newCaption.isEmpty ? null : newCaption);
+    });
+  }
+
   Future<void> _sendComment() async {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
@@ -568,9 +630,27 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                           ),
                           const SizedBox(width: WynSpacing.space2),
                           Expanded(
-                            child: Text(
-                              _drop.authorNameOrUsername,
-                              style: Theme.of(context).textTheme.titleSmall,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _drop.authorNameOrUsername,
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                                if (_drop.wasEdited)
+                                  Text(
+                                    'แก้ไขแล้ว',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .outline,
+                                        ),
+                                  ),
+                              ],
                             ),
                           ),
                         ],
@@ -601,9 +681,9 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     ),
                   if (isOwnDrop)
                     IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      tooltip: 'ลบ Drop',
-                      onPressed: _deleteDrop,
+                      icon: const Icon(Icons.more_vert),
+                      tooltip: 'เพิ่มเติม',
+                      onPressed: _openOwnDropMoreMenu,
                     )
                   else
                     IconButton(

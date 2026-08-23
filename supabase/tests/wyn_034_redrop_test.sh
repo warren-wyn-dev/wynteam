@@ -491,9 +491,17 @@ end
 $$;
 
 -- ------------------------------------------------------------
--- CHECK 21: deleting the original Drop cascades away every ReDrop of
--- it (D1 has bob's 1 Standard + carol's 2 Quotes = 3 rows at this
--- point -- dave/erin's rejected attempts never inserted anything).
+-- CHECK 21: deleting the original Drop used to hard-delete it (real
+-- FK cascade away every ReDrop of it). WYN-037 replaced self-delete
+-- with soft_delete_drop() -- there is no more client-facing DELETE
+-- policy on `drops` at all, so a raw `delete from drops` here is now
+-- a silent 0-row RLS no-op, not the real deletion this check used to
+-- rely on. Updated to call the real (soft-delete) path instead: the
+-- ReDrop rows now deliberately SURVIVE (no FK cascade fires on an
+-- UPDATE), but become invisible in feeds -- proven directly by
+-- wyn_037_edit_delete_drop_test.sh's own CHECK9, not re-proven here.
+-- D1 has bob's 1 Standard + carol's 2 Quotes = 3 rows at this point --
+-- dave/erin's rejected attempts never inserted anything.
 -- ------------------------------------------------------------
 do $$
 declare
@@ -505,11 +513,11 @@ begin
   set role authenticated;
   set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
   set request.jwt.claim.role = 'authenticated';
-  delete from public.drops where id = 'd1000000-0000-0000-0000-000000000001';
+  perform public.soft_delete_drop('d1000000-0000-0000-0000-000000000001');
   reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
 
   insert into results
-  select 'CHECK21_delete_drop_cascades_to_redrops', count(*), 0
+  select 'CHECK21_soft_delete_drop_does_not_cascade_redrop_rows', count(*), 3
   from public.redrops where drop_id = 'd1000000-0000-0000-0000-000000000001';
 end
 $$;
