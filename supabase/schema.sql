@@ -7884,7 +7884,14 @@ security definer
 set search_path = public
 as $$
 begin
-  if p_category not in
+  -- `p_category is null or ...`, not just `p_category not in (...)` --
+  -- NOT IN's 3-valued logic makes `NULL not in (...)` evaluate to NULL
+  -- (neither true nor false), so `if NULL then` silently skips the
+  -- raise and falls through to the old fail-open coalesce(...,true)
+  -- behavior for a NULL category specifically, even though every
+  -- other bad value (unrecognized string, '') is correctly caught by
+  -- `not in (...)` alone (QA round 2 finding, WYN-044 debug fix).
+  if p_category is null or p_category not in
       ('likes', 'comments', 'follows', 'messages', 'club', 'trending', 'system') then
     raise exception 'internal.notification_enabled: unknown category %', p_category;
   end if;

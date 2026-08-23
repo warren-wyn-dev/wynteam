@@ -681,6 +681,29 @@ begin
 end
 $$;
 
+-- ------------------------------------------------------------
+-- CHECK 22 (QA round 2 finding, WYN-044 debug fix follow-up): a NULL
+-- p_category specifically must also raise, not just an unrecognized
+-- string -- `NULL not in (...)` is NULL (neither true nor false) under
+-- 3-valued logic, so `p_category not in (...)` alone let a NULL
+-- category slip through to the old fail-open coalesce(...,true)
+-- behavior even after CHECK21's fix for bogus non-null strings.
+-- ------------------------------------------------------------
+do $$
+begin
+  begin
+    perform internal.notification_enabled(
+      '61000000-0000-0000-0000-000000000001', null
+    );
+    insert into results values
+      ('CHECK22_null_category_raises_instead_of_fail_open', 0, 1);
+  exception when others then
+    insert into results values
+      ('CHECK22_null_category_raises_instead_of_fail_open', 1, 1);
+  end;
+end
+$$;
+
 select check_name, actual, expected from results order by check_name;
 EOF
 

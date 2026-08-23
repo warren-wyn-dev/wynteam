@@ -1,6 +1,6 @@
 # Product Task — WYN-044
 
-Status: coded, awaiting QA
+Status: approved (Independent QA PASS, 2 รอบ — ดูหัวข้อ "Independent QA" ท้ายไฟล์ — ส่งต่อ AI Deploy & DevOps)
 Owner: AI Product Manager
 
 Feature: Notification Settings — เปิด/ปิดการแจ้งเตือนรายประเภท
@@ -75,3 +75,29 @@ Handoff: AI Design — ออกแบบ `NotificationSettingsScreen` (layout �
 **Known Issue/Gap (ตั้งใจ ไม่ใช่บั๊ก)**: `trending` toggle ไม่มีผลจริงกับระบบ (ไม่มี producer) ตามที่ Product ระบุไว้แล้ว
 
 Handoff: AI QA & Security — เน้นตรวจ: **(ก) รัน `flutter analyze`/`flutter test` เต็มชุดอิสระ** (จุดเดียวที่ยังไม่มีใครยืนยันจริงในรอบนี้), **(ข) ไล่ mapping ทั้ง 7 หมวดกับ 16 จุด gate เทียบกับตาราง mapping ใน Product spec ทีละบรรทัด** (โดยเฉพาะจุดที่ 16 ที่ Coding เพิ่มเองนอกรายการมอบหมายเดิม), **(ค) ยืนยันด้วยตัวเองว่า moderation/appeal/order 8 ประเภทไม่ถูก gate จริง** แม้ปิด toggle ทุกหมวด, **(ง) probe RLS ของ `notification_settings` เพิ่มเติมแบบ adversarial** (ไม่ใช่แค่เชื่อ 2 checks ที่มีอยู่แล้ว)
+
+## Independent QA
+
+### รอบ 1 — FAIL (2026-08-23)
+
+รัน `flutter analyze`/`flutter test` เต็มชุดเป็นครั้งแรก (ติดตั้ง Flutter SDK เองสำเร็จ) พบ **Major (blocking)**: 7/7 เทสต์ใน `app/test/notification_settings_screen_test.dart` fail ด้วย GoTrue timer leak (`!timersPending`) — สร้าง `RecordingNotificationSettingsRepository`/`_ControlledFetchRepository` inline ในแต่ละ `testWidgets` แทนที่จะสร้างครั้งเดียวใน `setUpAll` ตาม convention เดิมของโปรเจกต์ที่ไฟล์พี่น้อง (`settings_screen_test.dart`) ในงานเดียวกันทำถูกอยู่แล้ว — ไม่ใช่บั๊ก functional จริง แต่ยัง FAIL เพราะไฟล์ test ที่ส่งมอบใช้ยืนยันไม่ผ่านจริง
+
+พบเพิ่มระหว่าง adversarial probe (ไม่ block เดี่ยวๆ แต่ต้องรายงาน): **Low** — `internal.notification_enabled()` มี `grant execute ... to authenticated` โดยไม่จำเป็น (ทุก caller จริงเป็น `security definer` อยู่แล้ว) เปิดช่องให้ user ธรรมดาเรียกตรงๆ ด้วย `user_id` ของคนอื่นแล้วอ่าน preference จริงได้ ทั้งที่ query ตารางตรงถูก RLS บล็อกถูกต้อง — **Minor** — `p_category` ที่พิมพ์ผิด/ว่าง/NULL fail-open เงียบเป็น `true` แทนที่จะ error
+
+→ ส่งต่อ AI Debug Engineer พร้อม bug report `.wyn/tasks/bugs/WYN-044-notification-settings-test-timer-leak-and-preference-leak.md`
+
+### Debug Fix
+
+แก้ทั้ง 3 จุด: (1) ย้าย repository construction เข้า `setUpAll` + reset field ใน `setUp` ต่อเทสต์ (2) **พบเองว่าการลบแค่ `grant execute ... to authenticated` ไม่พอ** — PostgreSQL grant EXECUTE ให้ PUBLIC เป็น default (บั๊กคลาสเดียวกับ WYN-027's `is_blocked_either_way` RPC exposure) ต้อง `revoke execute ... from public` ชัดเจนถึงจะปิดจริง (3) เปลี่ยน `language sql` → `plpgsql` เพิ่ม guard raise เมื่อ category ไม่รู้จัก — เพิ่ม CHECK20/CHECK21 ใน SQL test — orchestrator ยืนยันเองอิสระ: `flutter analyze` 0 issues, `flutter test` 674/674, SQL 21/21 checks + 18 สคริปต์เดิมผ่านหมด
+
+### รอบ 2 — PASS (2026-08-23)
+
+ยืนยันทั้ง 3 fix อิสระด้วยตัวเอง (ไม่เชื่อรายงาน Debug Engineer โดยไม่ตรวจซ้ำ): reproduce cross-user leak probe เองสด + **red→green ย้อนกลับไปโหลด schema.sql ก่อนแก้ (commit `351816d`) พิสูจน์บั๊กเดิมกลับมาจริงทั้ง 2 จุด** ก่อนสรุปว่า fix ปิดจริง — `flutter analyze` 0 issues, `flutter test test/notification_settings_screen_test.dart` 7/7, `flutter test` เต็มชุด 674/674, SQL regression 17 สคริปต์เดิม + `wyn_044` 21/21 checks ผ่านหมด, `check_schema_ordering.py` OK
+
+พบ edge case เพิ่มเติมระหว่าง adversarial probe (Minor, ไม่ block): guard ใหม่ `p_category not in (...)` ไม่ครอบกรณี `p_category = NULL` โดยเฉพาะ (PL/pgSQL's 3-valued logic ทำให้ `NULL not in (...)` ประเมินเป็น `NULL` ไม่ใช่ `true` จึงข้าม raise ไปตกที่ fail-open เดิม) — ไม่ exploitable จริงเพราะ (ก) permission check (finding Low เดิม) ปิดกั้นก่อนเข้าฟังก์ชันเสมอไม่ว่า argument จะเป็นอะไร (ข) ไม่มี call site จริงจุดไหนส่ง `NULL` — **Final Status: PASS**
+
+### Fast-follow แก้ทันที (orchestrator, หลัง QA รอบ 2 PASS)
+
+แก้ guard เป็น `if p_category is null or p_category not in (...) then raise` ตามคำแนะนำของ QA รอบ 2 (จุดเล็กมาก ไม่คุ้มเปิด QA รอบ 3 แยก) — เพิ่ม CHECK22 ยืนยัน NULL category ก็ raise แล้ว — รัน SQL ทั้ง 19 สคริปต์ซ้ำ (`wyn_044` 22/22 checks) ผ่านหมด, `check_schema_ordering.py` OK
+
+**ผลลัพธ์สุดท้าย: WYN-044 — PASS ทั้ง 2 รอบ + fast-follow ปิดครบ** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — task แรกของ Phase 5 ที่ QA เจอบั๊กจริงและต้องเข้ารอบ Debug (WYN-043 ผ่านรอบเดียว) — พร้อมส่ง AI Deploy & DevOps
