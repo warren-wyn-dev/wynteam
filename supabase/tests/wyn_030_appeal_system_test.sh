@@ -156,6 +156,10 @@ cat > "$WORK_DIR/10_seed_and_assert.sql" <<'EOF'
 \set ON_ERROR_STOP on
 
 create table results (check_name text primary key, actual int, expected int);
+-- CHECK22 below runs `set role anon` and writes its own outcome into
+-- this table from inside that role -- default privileges only ever
+-- covered `authenticated`.
+grant select, insert on results to anon;
 
 -- alice: target of a Restrict, appeals it (approved). bob: target of a
 -- Suspend, appeals it (rejected). carol: moderator, decides alice's
@@ -167,14 +171,16 @@ insert into auth.users (id, email) values
   ('22222222-2222-2222-2222-222222222222', 'bob@test.com'),
   ('33333333-3333-3333-3333-333333333333', 'carol@test.com'),
   ('44444444-4444-4444-4444-444444444444', 'dave@test.com'),
-  ('55555555-5555-5555-5555-555555555555', 'eve@test.com');
+  ('55555555-5555-5555-5555-555555555555', 'eve@test.com'),
+  ('66666666-6666-6666-6666-666666666666', 'frank@test.com');
 
 insert into public.profiles (id, username, display_name, platform_role) values
   ('11111111-1111-1111-1111-111111111111', 'alice', 'Alice', 'user'),
   ('22222222-2222-2222-2222-222222222222', 'bob', 'Bob', 'user'),
   ('33333333-3333-3333-3333-333333333333', 'carol', 'Carol', 'moderator'),
   ('44444444-4444-4444-4444-444444444444', 'dave', 'Dave', 'moderator'),
-  ('55555555-5555-5555-5555-555555555555', 'eve', 'Eve', 'user');
+  ('55555555-5555-5555-5555-555555555555', 'eve', 'Eve', 'user'),
+  ('66666666-6666-6666-6666-666666666666', 'frank', 'Frank', 'user');
 
 insert into storage.buckets (id, name, public) values ('appeal-evidence', 'appeal-evidence', false)
   on conflict (id) do nothing;
@@ -555,6 +561,124 @@ select 'CHECK20_moderation_queue_still_has_no_reporter_id_column',
     where table_schema = 'public' and table_name = 'moderation_queue' and column_name = 'reporter_id'
   ) then 1 else 0 end),
   0;
+
+-- ------------------------------------------------------------
+-- CHECK 21-24: added by an independent QA pass (Round 2) after CHECK
+-- 1-20 above shipped self-QA'd by the same session as the Coding
+-- Output, not a genuinely separate QA run -- these close the 4 real
+-- coverage gaps that left: this script only ever verified
+-- Restrict-approved end to end (never Suspend-approved/Ban-approved),
+-- never exercised the `anon` role (the exact root cause class WYN-027
+-- already hit once: Postgres grants EXECUTE to PUBLIC by default),
+-- never tried re-deciding an already-decided appeal, and never tested
+-- get_my_moderation_action()'s cross-user scoping.
+-- ------------------------------------------------------------
+insert into public.reports (id, reporter_id, target_type, target_id, category, status) values
+  ('30000000-0000-0000-0000-000000000006', '33333333-3333-3333-3333-333333333333', 'user', '66666666-6666-6666-6666-666666666666', 'harassment', 'actioned');
+
+-- frank: a fresh user with no other active moderation action (bob
+-- already has his own still-active rejected Suspend, which would keep
+-- blocking him regardless of this one -- using him here would prove
+-- nothing). No new Ban fixture is added -- suspend-approved and
+-- ban-approved use the same overturned_at code path (see
+-- get_my_moderation_status() above), restrict-approved is already
+-- covered by CHECK12/14, so exercising Suspend here closes the only
+-- branch neither covers.
+insert into public.moderation_actions (id, report_id, target_user_id, reviewer_id, action_type, reason, duration_days, expires_at) values
+  ('a0000000-0000-0000-0000-000000000006', '30000000-0000-0000-0000-000000000006', '66666666-6666-6666-6666-666666666666', '33333333-3333-3333-3333-333333333333', 'suspend', 'frank suspend fixture', 7, now() + interval '7 days');
+
+do $$
+begin
+  set role authenticated;
+  set request.jwt.claim.sub = '66666666-6666-6666-6666-666666666666';
+  set request.jwt.claim.role = 'authenticated';
+  perform public.submit_appeal('a0000000-0000-0000-0000-000000000006'::uuid, 'appealing my suspend', null);
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+end
+$$;
+do $$
+declare
+  v_appeal_id uuid;
+begin
+  select id into v_appeal_id from public.appeals where moderation_action_id = 'a0000000-0000-0000-0000-000000000006'::uuid;
+  set role authenticated;
+  set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+  set request.jwt.claim.role = 'authenticated';
+  perform public.decide_appeal(v_appeal_id, true, null);
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+end
+$$;
+insert into results
+select 'CHECK21_suspend_approved_no_longer_blocks_posting',
+  (case when internal.is_posting_blocked('66666666-6666-6666-6666-666666666666'::uuid) then 1 else 0 end), 0;
+
+-- CHECK22: `anon` role (no JWT at all) calling submit_appeal/decide_appeal
+-- must be rejected, not just silently no-op -- Postgres grants EXECUTE
+-- to PUBLIC by default on function creation.
+set role anon;
+do $$
+begin
+  begin
+    perform public.submit_appeal('a0000000-0000-0000-0000-000000000006'::uuid, 'anon appeal', null);
+    insert into results values ('CHECK22a_anon_submit_appeal_rejected', 0, 1);
+  exception when others then
+    insert into results values ('CHECK22a_anon_submit_appeal_rejected', 1, 1);
+  end;
+  begin
+    perform public.decide_appeal(gen_random_uuid(), true, null);
+    insert into results values ('CHECK22b_anon_decide_appeal_rejected', 0, 1);
+  exception when others then
+    insert into results values ('CHECK22b_anon_decide_appeal_rejected', 1, 1);
+  end;
+end
+$$;
+reset role;
+
+-- CHECK23: re-deciding an already-decided appeal (alice's, approved by
+-- CHECK12 above) must be rejected -- not silently re-applied, which
+-- would let a moderator flip a decision back and forth or double-insert
+-- notifications.
+do $$
+declare
+  v_appeal_id uuid;
+  v_before int;
+  v_after int;
+begin
+  select id into v_appeal_id from public.appeals where moderation_action_id = 'a0000000-0000-0000-0000-000000000001'::uuid;
+  select count(*) into v_before from public.notifications where recipient_id = '11111111-1111-1111-1111-111111111111' and type = 'appeal_approved';
+  set role authenticated;
+  set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+  set request.jwt.claim.role = 'authenticated';
+  begin
+    perform public.decide_appeal(v_appeal_id, false, 'changed my mind');
+    insert into results values ('CHECK23a_redecide_already_decided_rejected', 0, 1);
+  exception when others then
+    insert into results values ('CHECK23a_redecide_already_decided_rejected', 1, 1);
+  end;
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+  select count(*) into v_after from public.notifications where recipient_id = '11111111-1111-1111-1111-111111111111' and type = 'appeal_approved';
+  insert into results values ('CHECK23b_redecide_no_duplicate_notification', v_after - v_before, 0);
+end
+$$;
+
+-- CHECK24: get_my_moderation_action() cross-user scoping -- eve
+-- (uninvolved) querying alice's action id gets zero rows, alice gets
+-- her own.
+set role authenticated;
+set request.jwt.claim.sub = '55555555-5555-5555-5555-555555555555';
+set request.jwt.claim.role = 'authenticated';
+insert into results
+select 'CHECK24a_get_my_moderation_action_cross_user_empty', count(*), 0
+from public.get_my_moderation_action('a0000000-0000-0000-0000-000000000001'::uuid);
+reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+set request.jwt.claim.role = 'authenticated';
+insert into results
+select 'CHECK24b_get_my_moderation_action_own_visible', count(*), 1
+from public.get_my_moderation_action('a0000000-0000-0000-0000-000000000001'::uuid);
+reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
 
 select check_name, actual, expected from results order by check_name;
 EOF
