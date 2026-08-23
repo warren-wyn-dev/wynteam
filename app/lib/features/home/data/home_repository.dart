@@ -110,11 +110,13 @@ class HomeRepository {
     }).toList();
   }
 
-  /// The Home "กำลังนิยม" (Trending) row -- highest `like_count +
-  /// comment_count` among items posted in the last 48 hours, across both
-  /// Drop and Pop. PostgREST can only `order()` by an actual column, and
-  /// `home_feed` doesn't have a combined engagement column (adding one
-  /// means altering the view), so this pulls a bounded set of recent
+  /// The Home "กำลังนิยม" (Trending) row -- highest [engagementScore]
+  /// among items posted in the last 48 hours, across both Drop and Pop
+  /// (WYN-041: like+comment+Drop-only-view, see that function's doc
+  /// comment -- previously a plain `like_count + comment_count` sum).
+  /// PostgREST can only `order()` by an actual column, and `home_feed`
+  /// doesn't have a combined engagement column (adding one means
+  /// altering the view), so this pulls a bounded set of recent
   /// candidates and ranks them client-side instead -- the same tradeoff
   /// `ClubRepository.fetchPopularClubs` already makes for the same
   /// reason ("still a small catalog", see that method's doc comment).
@@ -138,7 +140,9 @@ class HomeRepository {
 
     final dropIds = <String>[];
     final popIds = <String>[];
+    final authorIds = <String>{};
     for (final row in rows) {
+      authorIds.add(row['author_id'] as String);
       if (row['content_type'] == 'drop') {
         dropIds.add(row['id'] as String);
       } else {
@@ -171,6 +175,7 @@ class HomeRepository {
           .whereType<String>()
           .toList(),
     );
+    final blockedAuthorIds = await _fetchPostingBlockedAuthorIds(authorIds);
 
     final items = rows.map((row) {
       final id = row['id'] as String;
@@ -187,10 +192,10 @@ class HomeRepository {
         pollTotalVotes: pollState?.totalVotes,
         pollOptionCounts: pollState?.optionCounts,
       );
-    }).toList();
+    }).toList()
+      ..removeWhere((item) => blockedAuthorIds.contains(item.authorId));
 
-    items.sort((a, b) =>
-        (b.likeCount + b.commentCount).compareTo(a.likeCount + a.commentCount));
+    items.sort((a, b) => engagementScore(b).compareTo(engagementScore(a)));
     return items.take(limit).toList();
   }
 
@@ -254,6 +259,7 @@ class HomeRepository {
       userId: userId,
       authorIds: authorIds,
     );
+    final blockedAuthorIds = await _fetchPostingBlockedAuthorIds(authorIds);
 
     final items = rows.map((row) {
       final id = row['id'] as String;
@@ -270,7 +276,8 @@ class HomeRepository {
         pollTotalVotes: pollState?.totalVotes,
         pollOptionCounts: pollState?.optionCounts,
       );
-    }).toList();
+    }).toList()
+      ..removeWhere((item) => blockedAuthorIds.contains(item.authorId));
 
     final now = DateTime.now().toUtc();
     items.sort((a, b) {
@@ -493,6 +500,29 @@ class HomeRepository {
         .inFilter('following_id', authorIds.toList());
 
     return rows.map((row) => row['following_id'] as String).toSet();
+  }
+
+  /// WYN-041 (Trending Engine v2, anti-manipulation): candidate authors
+  /// who currently have an active restrict/suspend/ban (per
+  /// `internal.is_posting_blocked()`, WYN-029/030) get removed from
+  /// ranking entirely -- not hidden from the app, just not boosted by
+  /// the algorithm while sanctioned. `moderation_actions` has no SELECT
+  /// policy for ordinary users, so this goes through the
+  /// `authors_posting_blocked()` RPC (SECURITY DEFINER), which returns
+  /// only the excluded author ids -- never the action type/reason/
+  /// reviewer/expiry behind them. See
+  /// .wyn/docs/design/wyn-041-trending-engine-v2.md, Decision 2/3.
+  Future<Set<String>> _fetchPostingBlockedAuthorIds(
+    Set<String> authorIds,
+  ) async {
+    if (authorIds.isEmpty) return {};
+
+    final rows = await _client.rpc(
+      'authors_posting_blocked',
+      params: {'p_author_ids': authorIds.toList()},
+    ) as List<dynamic>;
+
+    return rows.map((row) => row['author_id'] as String).toSet();
   }
 
   /// Only Standard ReDrops (quote_text is null) count toward

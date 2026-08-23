@@ -7591,3 +7591,36 @@ as $$
 $$;
 
 grant execute on function public.suggested_users(int) to authenticated;
+
+-- ============================================================
+-- WYN-041: Trending Engine v2 (Anti-Manipulation)
+-- ============================================================
+-- See .wyn/docs/design/wyn-041-trending-engine-v2.md, "Decision 2".
+-- Batched wrapper around internal.is_posting_blocked() (WYN-029/030)
+-- for Trending/ranked-feed candidate filtering on the Flutter side
+-- (HomeRepository.fetchTrending/fetchRankedFeed). moderation_actions has
+-- no SELECT policy for ordinary users, and internal.is_posting_blocked()
+-- deliberately lives in `internal` so it's unreachable as a direct
+-- client RPC (same reasoning as internal.is_blocked_either_way,
+-- WYN-027) -- this public wrapper is the one sanctioned way a client
+-- can ask "which of these candidate authors currently can't post"
+-- without ever learning *why*: action_type/reason/reviewer_id/
+-- expires_at all stay server-side. Returns only the subset of the input
+-- that's true (an author currently blocked from posting), never a
+-- true/false per input id -- identical anti-gaming return shape to
+-- rising_profiles()/suggested_users() directly above (an ordered/
+-- filtered id list only, never the underlying signal). `stable`, not
+-- `volatile`: no side effects, purely reads.
+create or replace function public.authors_posting_blocked(p_author_ids uuid[])
+returns table(author_id uuid)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select id as author_id
+  from unnest(p_author_ids) as id
+  where internal.is_posting_blocked(id);
+$$;
+
+grant execute on function public.authors_posting_blocked(uuid[]) to authenticated;
