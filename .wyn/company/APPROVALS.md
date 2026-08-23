@@ -39,3 +39,13 @@
 - สถานะ: อนุมัติแล้ว
 - วันที่ตัดสินใจ: 2026-08-15
 - **หมายเหตุอัปเดต [2026-08-15]**: ลบ section WYN-004 (`posts`/`likes`/`comments`/`post-images` bucket) ออกจาก `supabase/schema.sql` เรียบร้อยแล้ว — ยืนยันก่อนลบว่าไม่มีโค้ด Dart ไหนอ้างอิงเลย (`grep` ทั้ง `app/lib/` ไม่พบการเรียก `.from('posts')`/`.from('likes')`/`.from('comments')`/`'post-images'` แม้แต่จุดเดียว) `flutter analyze`/`flutter test`: สะอาด 253/253 เท่าเดิม (ไม่มี test ไหนพึ่งตารางเหล่านี้อยู่แล้ว) ปรับ comment ใน schema.sql อีก 4 จุดที่เคยอ้างอิง WYN-004/post-images เป็น pattern ต้นแบบ ให้ไม่ค้างอ้างอิงถึงโค้ดที่ถูกลบไปแล้ว
+
+### APPROVAL_REQUIRED — [2026-08-23] เนื้อหาเอกสารกฎหมายจริงของ WYN-046 (Platform Documents) ต้องผ่านผู้เชี่ยวชาญกฎหมายก่อนเผยแพร่จริง
+- Proposed change: WYN-046 สร้างระบบเทคนิคครบ (ตาราง `platform_documents`/`user_document_acceptances`, Acceptance Gate ใน `AuthGate`, Document Viewer, Settings section "กฎหมาย") แต่เนื้อหาเอกสารทั้ง 6 ประเภท (Terms of Service/Privacy Policy/Community Guidelines/Copyright Policy/Report Policy/Appeal Policy) ที่ seed เข้า `platform_documents` เป็น **placeholder ที่ระบุชัดเจนว่ายังไม่ใช่ฉบับสมบูรณ์** เท่านั้น (มีแค่โครงหัวข้อ ไม่มีเนื้อหาเชิงกฎหมายจริง) — ขออนุมัติให้ระบบเทคนิคใช้งานได้ (ทดสอบ/QA ผ่านด้วย placeholder) แต่ **ห้ามเปิดให้ผู้ใช้จริงยอมรับเอกสารชุดนี้เป็นทางการ (production) จนกว่าจะมีเนื้อหาจริงมาแทนที่**
+- Reason: Master Spec/Roadmap Phase 6 ระบุไว้ตรงๆ ว่า "ทีม AI ออกแบบ Compliance Layer ทางเทคนิคเท่านั้น (data flow/schema/flow) — เนื้อหาเอกสารกฎหมายจริงและการวิเคราะห์ว่า WYN เข้าข่าย DPS ประเภทไหนต้องให้ผู้เชี่ยวชาญกฎหมายตรวจสอบก่อนเผยแพร่จริง" — ทีม AI ไม่มีอำนาจ/ความเชี่ยวชาญเขียนเอกสารที่มีผลผูกพันทางกฎหมายจริงได้
+- Benefits: ระบบเทคนิคพร้อมใช้ทันทีที่ Founder ได้เนื้อหาจริงจากทนายความ — แค่ `update`/migrate แถวใน `platform_documents` เพิ่ม version ใหม่ ไม่ต้องรอพัฒนาระบบใหม่ตอนนั้น
+- Risks: ถ้ามีใครเข้าใจผิดว่า placeholder คือเอกสารที่ใช้งานได้จริงแล้ว deploy ให้ผู้ใช้จริงยอมรับ จะไม่มีผลผูกพันทางกฎหมายใดๆ เลยและอาจขัดกับกฎหมาย DPS ของไทยที่ WYN อาจเข้าข่าย (ยังไม่มีการวิเคราะห์ประเภท) — ความเสี่ยงนี้ถูกจำกัดอยู่แล้วเพราะไม่มี production/ผู้ใช้จริงในระบบตอนนี้ (Readiness Gate เดิมยังไม่ผ่านอยู่ดี)
+- Files affected: `supabase/schema.sql` (ตาราง `platform_documents` + seed content), `.wyn/tasks/backlog/WYN-046-platform-documents-acceptance.md`
+- Recommendation: อนุมัติให้สร้างระบบเทคนิค + placeholder content เพื่อทดสอบ flow ได้ตอนนี้ — Founder ควรปรึกษาผู้เชี่ยวชาญกฎหมายไทยเรื่อง (1) เนื้อหาเอกสารทั้ง 6 ฉบับ (2) การวิเคราะห์ว่า WYN เข้าข่าย DPS ประเภทไหน ก่อนวันที่จะ deploy จริงให้ผู้ใช้ใช้งาน (ยังไม่เร่งด่วนตอนนี้เพราะยังไม่มี production)
+- สถานะ: รออนุมัติ
+- วันที่ตัดสินใจ: -
