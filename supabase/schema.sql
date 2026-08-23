@@ -3443,10 +3443,22 @@ begin
     ) then
       raise exception 'Club post comment not found, or is your own';
     end if;
+  elsif p_target_type = 'message' then
+    -- WYN-031: security definer bypasses messages' participant-only
+    -- SELECT policy on purpose here (same reasoning as every other
+    -- branch above) -- the caller must still actually be a
+    -- participant of the message's conversation, checked explicitly
+    -- via the join below, not implied by RLS.
+    if not exists (
+      select 1 from public.messages m
+      join public.conversations c on c.id = m.conversation_id
+      where m.id = p_target_id
+        and m.sender_id <> v_reporter
+        and v_reporter in (c.user_a_id, c.user_b_id)
+    ) then
+      raise exception 'Message not found, is your own, or you are not a participant';
+    end if;
   else
-    -- Includes 'message' -- reserved for WYN-031/032 (Phase 2), no
-    -- table exists yet to validate against, so reject rather than
-    -- accept an unverifiable target.
     raise exception 'Unsupported report target type: %', p_target_type;
   end if;
 
@@ -4992,3 +5004,399 @@ as $$
 $$;
 
 grant execute on function public.get_my_moderation_action(uuid) to authenticated;
+
+-- ============================================================
+-- WYN-031: 1:1 Chat (Basic DM)
+-- ============================================================
+-- See .wyn/docs/design/wyn-031-chat-1to1.md for the full reasoning
+-- behind every decision below. Short version: no group chat this
+-- round (2-column canonical-ordered pair table, not a junction
+-- table), `status` reserved for WYN-032's future Message Request gate
+-- (always 'active' this round), read status is 2 timestamp columns on
+-- the conversation row (not per-message read receipts), sending a
+-- message needs no RPC (plain RLS INSERT mirrors drops/club_posts),
+-- deleting one does (delete_message() nulls the content, not just a
+-- flag -- RLS is row-level, not column-level, the same lesson this
+-- project keeps relearning).
+
+create table if not exists public.conversations (
+  id uuid primary key default gen_random_uuid(),
+  user_a_id uuid not null references public.profiles (id) on delete cascade,
+  user_b_id uuid not null references public.profiles (id) on delete cascade,
+  -- WYN-032 will set this conditionally (follow each other -> 'active',
+  -- stranger -> 'pending'); this round always inserts 'active'.
+  status text not null default 'active' check (status in ('active', 'pending')),
+  user_a_last_read_at timestamptz,
+  user_b_last_read_at timestamptz,
+  created_at timestamptz not null default now(),
+  constraint conversations_no_self_chat check (user_a_id <> user_b_id),
+  -- Canonical ordering enforced at the constraint level, not just by
+  -- convention -- get_or_create_conversation() below is the only
+  -- write path and always normalizes with least()/greatest(), so this
+  -- also catches any future write path that forgets to.
+  constraint conversations_canonical_order check (user_a_id < user_b_id),
+  unique (user_a_id, user_b_id)
+);
+
+create index if not exists conversations_user_a_idx on public.conversations (user_a_id);
+create index if not exists conversations_user_b_idx on public.conversations (user_b_id);
+
+alter table public.conversations enable row level security;
+
+create policy "Participants can view their own conversations"
+  on public.conversations
+  for select
+  to authenticated
+  using (auth.uid() in (user_a_id, user_b_id));
+
+-- No insert/update policy for either column here -- both writes only
+-- ever happen through the 2 RPCs below (canonical-ordering + block
+-- checks need to happen server-side, and mark_conversation_read()
+-- must only ever touch the caller's own read-timestamp column, which
+-- plain row-level RLS can't express column-conditionally).
+
+create or replace function public.get_or_create_conversation(p_other_user_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_a uuid;
+  v_b uuid;
+  v_id uuid;
+begin
+  if v_me is null then
+    raise exception 'Not authenticated';
+  end if;
+  if p_other_user_id = v_me then
+    raise exception 'Cannot start a conversation with yourself';
+  end if;
+  if not exists (select 1 from public.profiles where id = p_other_user_id) then
+    raise exception 'User not found';
+  end if;
+  if internal.is_blocked_either_way(v_me, p_other_user_id) then
+    raise exception 'Cannot start a conversation with a blocked user';
+  end if;
+
+  v_a := least(v_me, p_other_user_id);
+  v_b := greatest(v_me, p_other_user_id);
+
+  insert into public.conversations (user_a_id, user_b_id)
+  values (v_a, v_b)
+  on conflict (user_a_id, user_b_id) do nothing;
+
+  select id into v_id from public.conversations where user_a_id = v_a and user_b_id = v_b;
+  return v_id;
+end;
+$$;
+
+grant execute on function public.get_or_create_conversation(uuid) to authenticated;
+
+create or replace function public.mark_conversation_read(p_conversation_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  if v_me is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  update public.conversations
+  set user_a_last_read_at = case when user_a_id = v_me then now() else user_a_last_read_at end,
+      user_b_last_read_at = case when user_b_id = v_me then now() else user_b_last_read_at end
+  where id = p_conversation_id and v_me in (user_a_id, user_b_id);
+
+  if not found then
+    raise exception 'Conversation not found, or you are not a participant';
+  end if;
+end;
+$$;
+
+grant execute on function public.mark_conversation_read(uuid) to authenticated;
+
+create table if not exists public.messages (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references public.conversations (id) on delete cascade,
+  sender_id uuid not null references public.profiles (id) on delete cascade,
+  text text,
+  image_url text,
+  reply_to_message_id uuid references public.messages (id) on delete set null,
+  deleted_at timestamptz,
+  created_at timestamptz not null default now(),
+  -- Empty messages are rejected -- except once deleted, when both
+  -- text/image_url are nulled out on purpose (see delete_message()).
+  constraint messages_not_blank_unless_deleted
+    check (deleted_at is not null or text is not null or image_url is not null)
+);
+
+create index if not exists messages_conversation_idx on public.messages (conversation_id, created_at);
+
+alter table public.messages enable row level security;
+
+create policy "Participants can view messages in their conversations"
+  on public.messages
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.conversations c
+      where c.id = conversation_id and auth.uid() in (c.user_a_id, c.user_b_id)
+    )
+  );
+
+-- No RPC needed to send a message -- every condition is expressible
+-- as a plain RLS check, mirroring drops/club_posts (which also have
+-- no "create post" RPC): sender is the caller, the caller is an
+-- actual participant of the conversation (not just any authenticated
+-- user), neither side has blocked the other, and the caller isn't
+-- Restricted/Suspended/Banned. conversations has no block-aware
+-- SELECT filter of its own, so this subquery doesn't hit the same
+-- self-referential RLS trap drop_author_id()/pop_author_id() exist to
+-- solve (see the WYN-027 comment on those) -- it can be inlined directly.
+create policy "Participants can send messages in active conversations"
+  on public.messages
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = sender_id
+    and not internal.is_posting_blocked(auth.uid())
+    and exists (
+      select 1 from public.conversations c
+      where c.id = conversation_id
+        and c.status = 'active'
+        and auth.uid() in (c.user_a_id, c.user_b_id)
+        and not internal.is_blocked_either_way(
+          c.user_a_id,
+          c.user_b_id
+        )
+    )
+  );
+
+-- No update/delete policy for the client -- delete_message() below is
+-- the only write path for an existing row.
+
+create or replace function public.prevent_cross_conversation_reply()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.reply_to_message_id is not null then
+    if not exists (
+      select 1 from public.messages m
+      where m.id = new.reply_to_message_id and m.conversation_id = new.conversation_id
+    ) then
+      raise exception 'Cannot reply to a message from a different conversation';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists messages_prevent_cross_conversation_reply on public.messages;
+create trigger messages_prevent_cross_conversation_reply
+  before insert on public.messages
+  for each row execute function public.prevent_cross_conversation_reply();
+
+create or replace function public.delete_message(p_message_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.messages
+  set text = null, image_url = null, deleted_at = now()
+  where id = p_message_id and sender_id = auth.uid() and deleted_at is null;
+
+  if not found then
+    raise exception 'Message not found, already deleted, or not yours';
+  end if;
+end;
+$$;
+
+grant execute on function public.delete_message(uuid) to authenticated;
+
+-- Moderator-facing read of a single message's content for the
+-- Moderation Queue's Appeal/Report detail screens -- security definer
+-- bypasses messages' participant-only SELECT policy on purpose
+-- (mirrors moderation_queue view's own reasoning: a moderator is
+-- never a conversation participant) but re-implements the *right*
+-- check itself rather than skipping it.
+create or replace function public.get_message_for_moderation(p_message_id uuid)
+returns table (
+  text text,
+  image_url text,
+  deleted_at timestamptz,
+  sender_username text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select m.text, m.image_url, m.deleted_at, p.username
+  from public.messages m
+  join public.profiles p on p.id = m.sender_id
+  where m.id = p_message_id
+    and internal.current_platform_role() <> 'user';
+$$;
+
+grant execute on function public.get_message_for_moderation(uuid) to authenticated;
+
+-- Per-conversation notification mute -- deliberately a separate table
+-- from WYN-028's `mutes` (user-level Home Feed content mute). Same
+-- shape as `follows`/`mutes`: plain RLS insert/delete, no RPC needed
+-- (no side effects to sequence atomically).
+create table if not exists public.conversation_mutes (
+  conversation_id uuid not null references public.conversations (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (conversation_id, user_id)
+);
+
+alter table public.conversation_mutes enable row level security;
+
+create policy "Users can view conversations they muted"
+  on public.conversation_mutes
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can mute a conversation as themselves"
+  on public.conversation_mutes
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can unmute a conversation as themselves"
+  on public.conversation_mutes
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- Chat media: private bucket (mirrors club-media's reasoning exactly
+-- -- a 1:1 conversation is a stronger privacy boundary than even a
+-- private Club, so a public bucket is out of the question). Path
+-- shape: {conversation_id}/{sender_id}-{timestamp}.ext -- messages.
+-- image_url stores the storage *path*, not a display URL; the Dart
+-- repository mints a fresh signed URL per read (same reasoning as
+-- club-media). Participant-only, both ways -- no separate "1 segment
+-- vs >1 segment" split like club-media needed, since chat has no
+-- public-preview equivalent of a Club's cover/icon.
+insert into storage.buckets (id, name, public)
+values ('chat-media', 'chat-media', false)
+on conflict (id) do nothing;
+
+create policy "Participants can view media in their conversations"
+  on storage.objects
+  for select
+  to authenticated
+  using (
+    bucket_id = 'chat-media'
+    and exists (
+      select 1 from public.conversations c
+      where c.id = ((storage.foldername(name))[1])::uuid
+        and auth.uid() in (c.user_a_id, c.user_b_id)
+    )
+  );
+
+create policy "Participants can upload media to their conversations"
+  on storage.objects
+  for insert
+  to authenticated
+  with check (
+    bucket_id = 'chat-media'
+    and exists (
+      select 1 from public.conversations c
+      where c.id = ((storage.foldername(name))[1])::uuid
+        and auth.uid() in (c.user_a_id, c.user_b_id)
+        and c.status = 'active'
+        and not internal.is_blocked_either_way(c.user_a_id, c.user_b_id)
+    )
+    and not internal.is_posting_blocked(auth.uid())
+  );
+
+-- Chat Inbox row: the other participant's profile + the conversation's
+-- last message (however that got there -- text, image, or already
+-- soft-deleted) + this caller's own read-timestamp + whether *this*
+-- caller has muted it. security_invoker = true (mirrors
+-- saved_feed/home_feed's own reasoning) -- conversations'/messages'
+-- own participant-only SELECT policies still apply on top of this
+-- view's own `where`, not bypassed by view-owner privileges.
+create or replace view public.chat_inbox
+  with (security_invoker = true) as
+select
+  c.id as conversation_id,
+  c.status,
+  c.created_at as conversation_created_at,
+  case when c.user_a_id = auth.uid() then c.user_b_id else c.user_a_id end as other_user_id,
+  op.username as other_username,
+  op.display_name as other_display_name,
+  op.avatar_url as other_avatar_url,
+  lm.text as last_message_text,
+  lm.image_url as last_message_image_url,
+  lm.deleted_at as last_message_deleted_at,
+  lm.created_at as last_message_at,
+  lm.sender_id as last_message_sender_id,
+  case when c.user_a_id = auth.uid() then c.user_a_last_read_at else c.user_b_last_read_at end
+    as my_last_read_at
+from public.conversations c
+join public.profiles op
+  on op.id = (case when c.user_a_id = auth.uid() then c.user_b_id else c.user_a_id end)
+left join lateral (
+  select m.text, m.image_url, m.deleted_at, m.created_at, m.sender_id
+  from public.messages m
+  where m.conversation_id = c.id
+  order by m.created_at desc
+  limit 1
+) lm on true
+where auth.uid() in (c.user_a_id, c.user_b_id);
+
+grant select on public.chat_inbox to authenticated;
+
+-- Badge count for the Chat icon entry point (Screen 1) -- mirrors
+-- NotificationRepository.countUnread()'s role, but "unread" here means
+-- "at least one message from the other side after my own last-read
+-- timestamp", a cross-column comparison PostgREST's simple filters
+-- can't express directly, hence the RPC rather than a plain count()
+-- query like notifications uses.
+create or replace function public.count_unread_conversations()
+returns integer
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select count(*)::integer
+  from public.conversations c
+  where auth.uid() in (c.user_a_id, c.user_b_id)
+    and exists (
+      select 1 from public.messages m
+      where m.conversation_id = c.id
+        and m.sender_id <> auth.uid()
+        and m.created_at > coalesce(
+          case when c.user_a_id = auth.uid() then c.user_a_last_read_at else c.user_b_last_read_at end,
+          '-infinity'::timestamptz
+        )
+    );
+$$;
+
+grant execute on function public.count_unread_conversations() to authenticated;
+
+-- Enables realtime for the `messages` table -- guarded so schema.sql
+-- still applies cleanly against a bare local Postgres test harness
+-- (supabase/tests/*.sh's stub never creates the `supabase_realtime`
+-- publication, only a real Supabase project does by default).
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    execute 'alter publication supabase_realtime add table public.messages';
+  end if;
+end
+$$;

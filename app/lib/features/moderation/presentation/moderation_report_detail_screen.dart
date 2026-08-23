@@ -101,6 +101,15 @@ class _ModerationReportDetailScreenState extends State<ModerationReportDetailScr
         final postId = summary.parentId;
         if (postId == null) return;
         await _openClubPost(postId);
+      case ReportTargetType.message:
+        // No moderator-facing conversation view exists this round (no
+        // admin panel yet, and messages' RLS is participant-only by
+        // design) -- the reported text/image is already shown in the
+        // target card itself (see ModerationTargetSummary), so this is
+        // an honest no-op rather than a broken navigation attempt.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ไม่สามารถเปิดดูบทสนทนานี้ได้')),
+        );
     }
   }
 
@@ -214,8 +223,14 @@ class _ModerationReportDetailScreenState extends State<ModerationReportDetailScr
     final report = widget.report;
     final actions = _actionOrder.where((action) {
       if (action != ModerationActionType.removeContent) return true;
+      // WYN-031: apply_moderation_action() has no message-removal
+      // effect wired up this round -- a moderator can still Warn/
+      // Restrict/Suspend/Ban the sender based on a reported message's
+      // content, just not force-remove the message itself through this
+      // flow (the sender can already delete_message() their own).
       return report.targetType != ReportTargetType.user &&
-          report.targetType != ReportTargetType.club;
+          report.targetType != ReportTargetType.club &&
+          report.targetType != ReportTargetType.message;
     }).toList();
 
     return ListView(
@@ -306,5 +321,6 @@ class _ModerationReportDetailScreenState extends State<ModerationReportDetailScr
         ReportTargetType.club => Icons.groups_outlined,
         ReportTargetType.clubPost => Icons.article_outlined,
         ReportTargetType.clubPostComment => Icons.comment_outlined,
+        ReportTargetType.message => Icons.chat_bubble_outline,
       };
 }

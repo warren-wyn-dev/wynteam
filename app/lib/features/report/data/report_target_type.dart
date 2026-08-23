@@ -1,8 +1,7 @@
 /// What kind of thing a report (WYN-026) points at. Matches the
 /// `target_type` check constraint on `public.reports` in
-/// supabase/schema.sql. `message` has no UI entry point yet -- it's
-/// reserved for WYN Chat (WYN-031/032, Phase 2) and `submit_report()`
-/// rejects it server-side until that table exists.
+/// supabase/schema.sql. `message` (WYN-031) is the first target type
+/// with a real entry point added after WYN-026 itself shipped.
 enum ReportTargetType {
   user,
   drop,
@@ -10,6 +9,7 @@ enum ReportTargetType {
   club,
   clubPost,
   clubPostComment,
+  message,
 }
 
 extension ReportTargetTypeWire on ReportTargetType {
@@ -22,6 +22,7 @@ extension ReportTargetTypeWire on ReportTargetType {
         ReportTargetType.club => 'club',
         ReportTargetType.clubPost => 'club_post',
         ReportTargetType.clubPostComment => 'club_post_comment',
+        ReportTargetType.message => 'message',
       };
 
   /// Thai label for the Moderation Queue's row/detail screens (WYN-029,
@@ -35,6 +36,7 @@ extension ReportTargetTypeWire on ReportTargetType {
         ReportTargetType.club => 'Club',
         ReportTargetType.clubPost => 'โพสต์ Club',
         ReportTargetType.clubPostComment => 'คอมเมนต์โพสต์ Club',
+        ReportTargetType.message => 'ข้อความ',
       };
 }
 
@@ -50,5 +52,6 @@ ReportTargetType reportTargetTypeFromWireValue(String value) =>
       'club' => ReportTargetType.club,
       'club_post' => ReportTargetType.clubPost,
       'club_post_comment' => ReportTargetType.clubPostComment,
+      'message' => ReportTargetType.message,
       _ => throw ArgumentError('Unknown report target type: $value'),
     };
