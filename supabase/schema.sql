@@ -6764,3 +6764,340 @@ create policy "Users can comment on drops as themselves, excluding blocked autho
     and not internal.is_posting_blocked(auth.uid())
     and coalesce(internal.is_drop_deleted(drop_id), false) = false
   );
+
+-- ============================================================
+-- WYN-038: View Counting System (Drop) -- unique viewer, rate limit,
+-- velocity cap
+-- ============================================================
+
+-- One row per (Drop, viewer) pair ever recorded -- the primary key
+-- itself IS the unique-viewer/lifetime dedup mechanism (Product's own
+-- design): a second insert attempt for the same pair always conflicts,
+-- so "has this viewer ever seen this Drop" needs no separate flag or
+-- session-scoped client state, unlike Pop's WYN-006 view_count (a bare
+-- +1 counter with no dedup at all -- see this task's Product spec
+-- "Problem" section for why that gap is *not* being carried forward
+-- here; Pop's own view_count is explicitly out of scope this round).
+create table if not exists public.drop_views (
+  drop_id uuid not null references public.drops (id) on delete cascade,
+  viewer_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (drop_id, viewer_id)
+);
+
+-- Read hot-path for record_drop_view()'s rate-limit/velocity-cap
+-- window queries below -- both filter on created_at (one further
+-- scoped to viewer_id, the other to drop_id, both already covered by
+-- the primary key/its implicit index), so a plain created_at index
+-- keeps "how many rows in the last N seconds" cheap as this table
+-- grows without bound (there is no purge/archival job yet -- see this
+-- task's Product spec Risks).
+create index if not exists drop_views_created_at_idx
+  on public.drop_views (created_at);
+
+alter table public.drop_views enable row level security;
+
+-- Deliberately NOT the "viewable by every authenticated user" shape
+-- drop_likes/drop_comments/pop_likes use -- "who viewed what" is
+-- private to the viewer themselves, unlike a Like. Opening this up the
+-- same way Likes are would let any authenticated user query
+-- drop_views directly over the REST API and learn exactly which Drops
+-- a specific other person has opened -- a real privacy leak nothing in
+-- the app's UI ever intends to expose, mirroring the lesson from
+-- .wyn/tasks/bugs/WYN-029-moderation-actor-identity-leak.md (an
+-- overly-broad SELECT policy leaking identity that should have stayed
+-- private). A user can only ever see the rows of Drops *they*
+-- personally viewed, never anyone else's.
+--
+-- This intentionally makes a plain correlated `count(*) from
+-- drop_views` subquery inside home_feed/saved_feed (both
+-- security_invoker = true, so RLS applies to whoever is reading the
+-- view) return the wrong number for anyone but the viewer themselves
+-- -- public.drop_view_count() below exists specifically to give every
+-- viewer of a Drop the *same*, correct total without ever exposing a
+-- raw drop_views row (or any viewer identity) to them.
+create policy "Users can view only their own Drop view history"
+  on public.drop_views
+  for select
+  to authenticated
+  using (auth.uid() = viewer_id);
+
+-- No INSERT/UPDATE/DELETE policy at all, on purpose -- every write
+-- goes through record_drop_view() below (SECURITY DEFINER), which is
+-- the only place the unique-viewer/self-view/rate-limit/velocity-cap
+-- rules are enforced. A raw client insert would bypass every one of
+-- those checks, so there is deliberately no way to perform one --
+-- mirrors drop_views' sibling policy comment above and
+-- increment_pop_view_count()'s identical "no update policy" reasoning
+-- (WYN-006).
+
+-- Rate-limit (20 inserts / 60 seconds, per account) and velocity-cap
+-- (50 inserts / 10 seconds, per Drop) below are Product's own
+-- temporary starting numbers -- there is no production traffic yet to
+-- calibrate against (this task's Product spec, "Risks"). Revisit once
+-- real traffic data exists; both are kept as isolated, easy-to-find
+-- literal values right where they're used, rather than scattered
+-- across the codebase -- mirrors how WYN-037 documented its own
+-- 30-minute/30-day windows next to each of edit_drop()/
+-- soft_delete_drop()/restore_drop()'s own checks, for the same reason
+-- (a plpgsql function body has no clean way to reference one shared
+-- named constant across multiple functions).
+create or replace function public.record_drop_view(p_drop_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_drop record;
+  v_account_recent_count bigint;
+  v_drop_recent_count bigint;
+begin
+  select * into v_drop from public.drops where id = p_drop_id;
+
+  -- (a) Drop doesn't exist, or is soft-deleted (WYN-037) -- silent
+  -- no-op, never an exception. View counting must never surface an
+  -- error back to the client (Product spec) -- this also covers the
+  -- harmless race where the author deletes the Drop a moment after
+  -- the viewer opened DropDetailScreen. Checks v_drop.deleted_at
+  -- directly (equivalent to internal.is_drop_deleted(), which this
+  -- function already has the row in hand to avoid re-querying).
+  if v_drop is null or v_drop.deleted_at is not null then
+    return;
+  end if;
+
+  -- (b) The Drop's own author viewing their own Drop never counts --
+  -- cheapest, most direct anti-inflation measure (Product's "Self-view
+  -- exclusion"). The client already skips calling this RPC at all for
+  -- its own Drop (DropDetailScreen); this check is defense-in-depth
+  -- against a direct RPC call that bypasses that client-side skip.
+  if v_drop.author_id = v_me then
+    return;
+  end if;
+
+  -- (c) Rate limit, per account: at most 20 new View rows from this
+  -- account in the trailing 60 seconds.
+  select count(*) into v_account_recent_count
+  from public.drop_views
+  where viewer_id = v_me and created_at > now() - interval '60 seconds';
+  if v_account_recent_count >= 20 then
+    return;
+  end if;
+
+  -- (d) Velocity cap, per Drop: at most 50 new View rows landing on
+  -- this one Drop in the trailing 10 seconds, regardless of which
+  -- account each came from -- catches a bot ring (many different
+  -- accounts) piling onto a single Drop to fake virality, which the
+  -- per-account rate limit above can't catch alone.
+  select count(*) into v_drop_recent_count
+  from public.drop_views
+  where drop_id = p_drop_id and created_at > now() - interval '10 seconds';
+  if v_drop_recent_count >= 50 then
+    return;
+  end if;
+
+  -- Every check above passed -- record the View. ON CONFLICT DO
+  -- NOTHING is a second, belt-and-suspenders dedup layer on top of the
+  -- primary key itself (guards a race between two concurrent calls for
+  -- the same (drop_id, viewer_id) pair, e.g. a double-tap into the
+  -- screen before the first call resolves).
+  insert into public.drop_views (drop_id, viewer_id)
+  values (p_drop_id, v_me)
+  on conflict (drop_id, viewer_id) do nothing;
+end;
+$$;
+
+grant execute on function public.record_drop_view(uuid) to authenticated;
+
+-- Bypasses drop_views' own restrictive SELECT policy on purpose -- see
+-- that policy's comment above for why a raw subquery can't be used
+-- instead. Returns only a count, never a row, so no viewer identity is
+-- ever exposed through this path either. SECURITY DEFINER functions
+-- run with their owner's privileges regardless of the caller (or of
+-- whether the calling view is security_invoker), the same "runs as
+-- owner, bypassing owner-exempt RLS" mechanism internal.is_drop_deleted()
+-- and internal.drop_author_id() already rely on.
+create or replace function public.drop_view_count(p_drop_id uuid)
+returns bigint
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select count(*) from public.drop_views where drop_id = p_drop_id;
+$$;
+
+grant execute on function public.drop_view_count(uuid) to authenticated;
+
+-- home_feed/saved_feed's Drop branches (WYN-007/WYN-013) reserved a
+-- view_count column from the start but hardcoded it to null::bigint --
+-- this is the first task to actually populate it, via
+-- drop_view_count() (never a raw correlated subquery on drop_views
+-- directly) so every viewer of the feed sees the same, correct total
+-- regardless of their own drop_views SELECT visibility -- see that
+-- function's own comment above. Pop's own view_count branches
+-- (p.view_count, both views, both already non-null) are untouched --
+-- out of scope this round (Product spec, "ขอบเขต: Drop เท่านั้น").
+-- Same "append a fresh full redefinition rather than editing history
+-- in place" discipline as every prior task that changed one of these
+-- two views (WYN-034 quote_text/redrop columns, WYN-035 poll columns).
+create or replace view public.home_feed
+  with (security_invoker = true) as
+select
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  d.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  public.drop_view_count(d.id) as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count,
+  (select count(*) from public.redrops where drop_id = d.id) as redrop_count,
+  null::uuid as redrop_id,
+  null::uuid as redropper_id,
+  null::text as redropper_username,
+  null::text as redropper_display_name,
+  null::text as redropper_avatar_url,
+  null::text as quote_text,
+  dp.id as poll_id,
+  dp.options as poll_options,
+  dp.expires_at as poll_expires_at
+from public.drops d
+join public.profiles prof on prof.id = d.author_id
+left join public.drop_polls dp on dp.drop_id = d.id
+where not exists (
+  select 1 from public.mutes where muter_id = auth.uid() and muted_id = d.author_id
+)
+union all
+select
+  p.id,
+  'pop'::text as content_type,
+  p.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  p.created_at,
+  p.caption,
+  null::text as image_url,
+  p.video_url,
+  p.thumbnail_url,
+  p.duration_seconds,
+  p.view_count,
+  (select count(*) from public.pop_likes where pop_id = p.id) as like_count,
+  (select count(*) from public.pop_comments where pop_id = p.id) as comment_count,
+  null::bigint as redrop_count,
+  null::uuid as redrop_id,
+  null::uuid as redropper_id,
+  null::text as redropper_username,
+  null::text as redropper_display_name,
+  null::text as redropper_avatar_url,
+  null::text as quote_text,
+  null::uuid as poll_id,
+  null::text[] as poll_options,
+  null::timestamptz as poll_expires_at
+from public.pops p
+join public.profiles prof on prof.id = p.author_id
+where not exists (
+  select 1 from public.mutes where muter_id = auth.uid() and muted_id = p.author_id
+)
+union all
+select
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  r.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  public.drop_view_count(d.id) as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count,
+  (select count(*) from public.redrops where drop_id = d.id) as redrop_count,
+  r.id as redrop_id,
+  r.redropper_id,
+  redropper.username as redropper_username,
+  redropper.display_name as redropper_display_name,
+  redropper.avatar_url as redropper_avatar_url,
+  r.quote_text,
+  dp.id as poll_id,
+  dp.options as poll_options,
+  dp.expires_at as poll_expires_at
+from public.redrops r
+join public.drops d on d.id = r.drop_id
+join public.profiles prof on prof.id = d.author_id
+join public.profiles redropper on redropper.id = r.redropper_id
+left join public.drop_polls dp on dp.drop_id = d.id
+where not exists (
+  select 1 from public.mutes
+  where muter_id = auth.uid() and muted_id in (d.author_id, r.redropper_id)
+);
+
+grant select on public.home_feed to authenticated;
+
+create or replace view public.saved_feed
+  with (security_invoker = true) as
+select
+  s.user_id,
+  s.created_at as saved_at,
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  d.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  public.drop_view_count(d.id) as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count,
+  dp.id as poll_id,
+  dp.options as poll_options,
+  dp.expires_at as poll_expires_at
+from public.saves s
+join public.drops d on d.id = s.content_id and s.content_type = 'drop'
+join public.profiles prof on prof.id = d.author_id
+left join public.drop_polls dp on dp.drop_id = d.id
+union all
+select
+  s.user_id,
+  s.created_at as saved_at,
+  p.id,
+  'pop'::text as content_type,
+  p.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  p.created_at,
+  p.caption,
+  null::text as image_url,
+  p.video_url,
+  p.thumbnail_url,
+  p.duration_seconds,
+  p.view_count,
+  (select count(*) from public.pop_likes where pop_id = p.id) as like_count,
+  (select count(*) from public.pop_comments where pop_id = p.id) as comment_count,
+  null::uuid as poll_id,
+  null::text[] as poll_options,
+  null::timestamptz as poll_expires_at
+from public.saves s
+join public.pops p on p.id = s.content_id and s.content_type = 'pop'
+join public.profiles prof on prof.id = p.author_id;
+
+grant select on public.saved_feed to authenticated;

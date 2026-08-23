@@ -121,6 +121,9 @@ void main() {
         commentCount: 0,
         likedByMe: false,
         savedByMe: true,
+        // WYN-038 -- avoids rendering the literal string "null" if this
+        // item is ever shown through a HomeDropCard-style widget.
+        viewCount: 0,
       ),
     ]);
     contentTestHomeRepo = RecordingHomeRepository(redropsByUser: [
@@ -140,6 +143,10 @@ void main() {
         redropperId: 'me',
         redropperUsername: 'me_user',
         quoteText: 'ดูนี่สิ',
+        // WYN-038 -- this item renders through HomeDropCard (see
+        // ProfileRedropsTab), which would show the literal string
+        // "null" for view count without this.
+        viewCount: 0,
       ),
     ]);
   });

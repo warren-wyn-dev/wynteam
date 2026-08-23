@@ -18,6 +18,7 @@ class Drop {
     required this.savedByMe,
     this.redropCount = 0,
     this.redroppedByMe = false,
+    this.viewCount = 0,
     this.pollId,
     this.pollOptions,
     this.pollExpiresAt,
@@ -98,6 +99,16 @@ class Drop {
   /// ReDrop freely regardless of their Standard ReDrop state.
   final bool redroppedByMe;
 
+  /// WYN-038: total unique-viewer View count of this Drop, sourced from
+  /// `public.drop_view_count()` (see supabase/schema.sql) -- 0 default,
+  /// same "existing call sites that don't pass it yet still compile"
+  /// shape as [redropCount]. Only rows read via `home_feed`/`saved_feed`
+  /// (i.e. Drops opened through Home/Saved, via [HomeFeedItem.toDrop])
+  /// carry the real count today -- other DropRepository fetch paths
+  /// (search, profile grid, notification-linked fetchById) still default
+  /// to 0 until wired up, same scope note as this task's Coding Output.
+  final int viewCount;
+
   String get authorNameOrUsername => displayNameOrUsername(
         displayName: authorDisplayName,
         username: authorUsername,
@@ -110,6 +121,7 @@ class Drop {
     bool? savedByMe,
     int? redropCount,
     bool? redroppedByMe,
+    int? viewCount,
     int? pollMyVoteIndex,
     int? pollTotalVotes,
     List<int>? pollOptionCounts,
@@ -129,6 +141,7 @@ class Drop {
         savedByMe: savedByMe ?? this.savedByMe,
         redropCount: redropCount ?? this.redropCount,
         redroppedByMe: redroppedByMe ?? this.redroppedByMe,
+        viewCount: viewCount ?? this.viewCount,
         pollId: pollId,
         pollOptions: pollOptions,
         pollExpiresAt: pollExpiresAt,
@@ -160,6 +173,7 @@ class Drop {
         savedByMe: savedByMe,
         redropCount: redropCount,
         redroppedByMe: redroppedByMe,
+        viewCount: viewCount,
         pollId: pollId,
         pollOptions: pollOptions,
         pollExpiresAt: pollExpiresAt,
@@ -201,6 +215,11 @@ class Drop {
   /// A copy with the comment count reduced -- used right after deleting a
   /// comment, without waiting for a full feed refresh.
   Drop withRemovedComment() => copyWith(commentCount: commentCount - 1);
+
+  /// A copy with the View count bumped -- used right after
+  /// [DropRepository.recordView] fires (optimistic UI), without waiting
+  /// for a full feed refresh. Mirrors [Pop.withExtraView] -- WYN-038.
+  Drop withExtraView() => copyWith(viewCount: viewCount + 1);
 
   /// A copy with [optionIndex] recorded as the viewer's vote --
   /// optimistic-update role, same shape as [toggledLike]. Handles
@@ -261,6 +280,11 @@ class Drop {
       savedByMe: savedByMe,
       redropCount: _embeddedCount(map['redrops'] as List<dynamic>?),
       redroppedByMe: redroppedByMe,
+      // WYN-038: not part of _dropSelect today (only home_feed/
+      // saved_feed carry the real value) -- defaults to 0 like every
+      // other DropRepository read path, same defensive parsing as
+      // [Pop.fromMap]'s view_count for whichever caller does supply it.
+      viewCount: (map['view_count'] as num?)?.toInt() ?? 0,
       pollId: poll?['id'] as String?,
       pollOptions: (poll?['options'] as List<dynamic>?)?.cast<String>(),
       pollExpiresAt: poll?['expires_at'] != null

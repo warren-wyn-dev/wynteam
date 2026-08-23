@@ -41,6 +41,10 @@ void main() {
   late RecordingDropRepository oldDropMenuTestRepo;
   late RecordingDropRepository editFlowTestRepo;
   late RecordingDropRepository deleteFlowTestRepo;
+  late RecordingDropRepository viewCountTestRepo;
+  late RecordingDropRepository ownDropViewCountTestRepo;
+  late RecordingDropRepository viewCountNoRepeatTestRepo;
+  late RecordingDropRepository viewCountSemanticsTestRepo;
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
     repo = RecordingDropRepository();
@@ -118,6 +122,21 @@ void main() {
     oldDropMenuTestRepo = RecordingDropRepository();
     editFlowTestRepo = RecordingDropRepository();
     deleteFlowTestRepo = RecordingDropRepository();
+    // WYN-038 -- same "constructed in setUpAll" discipline.
+    viewCountTestRepo = RecordingDropRepository();
+    ownDropViewCountTestRepo = RecordingDropRepository();
+    viewCountNoRepeatTestRepo = RecordingDropRepository();
+    // WYN-038 QA fix: the Semantics-label test below originally
+    // constructed a `RecordingDropRepository()` inline inside its
+    // testWidgets body -- every RecordingDropRepository above it in this
+    // same setUpAll follows the documented "avoid a leaked GoTrue
+    // auto-refresh timer at teardown" discipline precisely to prevent
+    // this. Once the (separately fixed) semantics-matching assertion
+    // below stopped short-circuiting the test on its own failure, this
+    // leaked Timer surfaced for real as "A Timer is still pending even
+    // after the widget tree was disposed" at teardown -- confirmed red
+    // with the inline construction, green after moving it here.
+    viewCountSemanticsTestRepo = RecordingDropRepository();
   });
 
   final tallDrop = Drop(
@@ -768,6 +787,182 @@ void main() {
 
       expect(deleteFlowTestRepo.deleteDropCalls, ['delete-1']);
       expect(find.byType(DropDetailScreen), findsNothing);
+    });
+  });
+
+  group('View count (WYN-038)', () {
+    testWidgets(
+        "opening someone else's Drop records a View exactly once, and "
+        'bumps the count optimistically', (tester) async {
+      final drop = Drop(
+        id: 'view-1',
+        authorId: 'someone-else',
+        authorUsername: 'namfah',
+        imageUrl: 'https://example.supabase.co/drops/view-1.jpg',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+        viewCount: 5,
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: viewCountTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(viewCountTestRepo.recordViewCalls, 1);
+      expect(viewCountTestRepo.recordViewArgs, ['view-1']);
+      // The optimistic view-count bump is visible immediately, before
+      // the (fake, network-less) RPC call resolves.
+      expect(find.text('6'), findsOneWidget);
+    });
+
+    testWidgets(
+        "does not call recordView for the current user's own Drop -- "
+        'the client already knows the server-side self-view exclusion '
+        'would just no-op it, so there is no need to even ask',
+        (tester) async {
+      final ownDrop = Drop(
+        id: 'view-own-1',
+        authorId: 'me',
+        authorUsername: 'me_user',
+        imageUrl: 'https://example.supabase.co/drops/view-own-1.jpg',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+        viewCount: 5,
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: ownDropViewCountTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: ownDrop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(ownDropViewCountTestRepo.recordViewCalls, 0);
+      // The count also isn't optimistically bumped -- still shows the
+      // original 5, not 6.
+      expect(find.text('5'), findsOneWidget);
+    });
+
+    testWidgets(
+        'recordView fires only once per screen open, even after later '
+        'rebuilds (e.g. toggling Like)', (tester) async {
+      final drop = Drop(
+        id: 'view-2',
+        authorId: 'someone-else',
+        authorUsername: 'namfah',
+        imageUrl: 'https://example.supabase.co/drops/view-2.jpg',
+        createdAt: DateTime.now(),
+        likeCount: 3,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+        viewCount: 0,
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: viewCountNoRepeatTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(viewCountNoRepeatTestRepo.recordViewCalls, 1);
+
+      final likeButton = find.byIcon(Icons.favorite_border);
+      await tester.ensureVisible(likeButton);
+      await tester.pumpAndSettle();
+      tester.takeException();
+      await tester.tap(likeButton);
+      await tester.pump();
+
+      // Liking rebuilds the screen (setState), but that must not
+      // trigger a second recordView call.
+      expect(viewCountNoRepeatTestRepo.recordViewCalls, 1);
+    });
+
+    testWidgets(
+        'the view count has a Semantics label -- a gap the Pop equivalent '
+        '(HomePopCard) has always had, deliberately not repeated here '
+        '(Design spec, Accessibility)', (tester) async {
+      final drop = Drop(
+        id: 'view-3',
+        authorId: 'me',
+        authorUsername: 'me_user',
+        imageUrl: 'https://example.supabase.co/drops/view-3.jpg',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+        viewCount: 42,
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: viewCountSemanticsTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // WYN-038 QA fix: none of the interaction row's individual
+      // Semantics wraps (Like/Follow/ReDrop/Save, and now View count) sit
+      // behind their own semantics *boundary* (no `container: true`
+      // anywhere in this header) -- a pre-existing gap on this screen
+      // since WYN-005, not something this task introduced. Because of
+      // that, all their labels (plus the header image's own auto-label,
+      // including its NetworkImage load-failure text in this
+      // no-real-network test environment) get merged upward into one
+      // single SemanticsNode. An *exact*-match `bySemanticsLabel(String)`
+      // therefore always finds 0 matches here, no matter what the real
+      // Drop id/viewCount/scroll position is -- confirmed with a debug
+      // semantics-tree dump before writing this fix. flutter_test's own
+      // API doc for `bySemanticsLabel` recommends exactly this fallback:
+      // "prefer matching by regular expression... if the framework has
+      // combined your semantics" -- so match a RegExp (substring) here
+      // instead of the brittle exact string. This only proves the label
+      // text exists somewhere in the merged semantics output, not that
+      // it is independently announced by a screen reader -- that stronger
+      // guarantee would need `Semantics(container: true)` boundaries
+      // added across the whole interaction row, which is a pre-existing
+      // gap out of scope for this task (affects Like/Follow/ReDrop/Save
+      // too, not just View count) -- flagged as a non-blocking finding
+      // in this round's QA report instead of fixed here.
+      expect(
+        find.bySemanticsLabel(RegExp('เข้าชมแล้ว 42 ครั้ง')),
+        findsOneWidget,
+      );
     });
   });
 }

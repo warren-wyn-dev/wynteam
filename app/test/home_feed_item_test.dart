@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
 
 void main() {
@@ -267,7 +268,7 @@ void main() {
         'video_url': null,
         'thumbnail_url': null,
         'duration_seconds': null,
-        'view_count': null,
+        'view_count': 7,
         'like_count': 5,
         'comment_count': 2,
       }, likedByMe: true, savedByMe: true);
@@ -279,6 +280,31 @@ void main() {
       expect(drop.likeCount, 5);
       expect(drop.likedByMe, isTrue);
       expect(drop.savedByMe, isTrue);
+      // WYN-038.
+      expect(drop.viewCount, 7);
+    });
+
+    test('toDrop defaults viewCount to 0 when view_count is null '
+        '(WYN-038)', () {
+      final item = HomeFeedItem.fromMap({
+        'id': 'd1',
+        'content_type': 'drop',
+        'author_id': 'u1',
+        'author_username': 'namfah',
+        'author_display_name': null,
+        'author_avatar_url': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'caption': null,
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'video_url': null,
+        'thumbnail_url': null,
+        'duration_seconds': null,
+        'view_count': null,
+        'like_count': 0,
+        'comment_count': 0,
+      }, likedByMe: false, savedByMe: false);
+
+      expect(item.toDrop().viewCount, 0);
     });
 
     test('toPop carries every field over from a pop-type item', () {
@@ -306,6 +332,44 @@ void main() {
       expect(pop.thumbnailUrl, item.thumbnailUrl);
       expect(pop.durationSeconds, 30);
       expect(pop.viewCount, 100);
+    });
+  });
+
+  group('HomeFeedItem.fromDrop (WYN-038)', () {
+    test('carries Drop.viewCount over -- without this, a HomeDropCard '
+        'built via fromDrop (e.g. hashtag_feed_screen.dart) would '
+        'render the literal string "null" instead of a number', () {
+      final drop = Drop(
+        id: 'd1',
+        authorId: 'u1',
+        authorUsername: 'namfah',
+        imageUrl: 'https://example.supabase.co/drops/d1.jpg',
+        createdAt: DateTime(2026, 1, 1),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+        viewCount: 9,
+      );
+
+      expect(HomeFeedItem.fromDrop(drop).viewCount, 9);
+    });
+
+    test('defaults to 0 (never null) when the source Drop never had '
+        'its real view count wired in', () {
+      final drop = Drop(
+        id: 'd1',
+        authorId: 'u1',
+        authorUsername: 'namfah',
+        imageUrl: 'https://example.supabase.co/drops/d1.jpg',
+        createdAt: DateTime(2026, 1, 1),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+      );
+
+      expect(HomeFeedItem.fromDrop(drop).viewCount, 0);
     });
   });
 }

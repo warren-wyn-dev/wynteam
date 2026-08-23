@@ -185,6 +185,35 @@ void main() {
     expect(drop.redroppedByMe, isFalse);
   });
 
+  group('viewCount (WYN-038)', () {
+    test('defaults to 0 when not passed -- existing call sites that '
+        "don't pass it yet still compile, same shape as redropCount", () {
+      expect(_drop().viewCount, 0);
+    });
+
+    test('withExtraView bumps viewCount only, without touching any '
+        'other count', () {
+      final drop = Drop(
+        id: 'd1',
+        authorId: 'u1',
+        authorUsername: 'namfah',
+        imageUrl: 'https://example.supabase.co/drops/d1.jpg',
+        createdAt: DateTime(2026, 1, 1),
+        likeCount: 3,
+        commentCount: 2,
+        likedByMe: true,
+        savedByMe: false,
+        redropCount: 1,
+        viewCount: 10,
+      ).withExtraView();
+
+      expect(drop.viewCount, 11);
+      expect(drop.likeCount, 3);
+      expect(drop.commentCount, 2);
+      expect(drop.redropCount, 1);
+    });
+  });
+
   group('Drop.fromMap', () {
     test('parses embedded author, like/comment counts, liked/saved state', () {
       final drop = Drop.fromMap({
@@ -247,6 +276,35 @@ void main() {
 
       expect(drop.redropCount, 4);
       expect(drop.redroppedByMe, isTrue);
+    });
+
+    test('parses view_count when present, and defaults to 0 when absent '
+        '(WYN-038) -- _dropSelect does not request it today, so the '
+        'absent case is the normal one for most DropRepository reads', () {
+      final withViewCount = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+        'view_count': 12,
+      }, likedByMe: false, savedByMe: false);
+      expect(withViewCount.viewCount, 12);
+
+      final withoutViewCount = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+      }, likedByMe: false, savedByMe: false);
+      expect(withoutViewCount.viewCount, 0);
     });
 
     test('redropCount defaults to 0 when the redrops embed is missing', () {

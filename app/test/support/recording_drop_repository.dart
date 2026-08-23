@@ -50,10 +50,12 @@ class RecordingDropRepository extends DropRepository {
   int toggleLikeCalls = 0;
   int toggleSaveCalls = 0;
   int toggleCommentLikeCalls = 0;
+  int recordViewCalls = 0;
   int searchByCaptionCalls = 0;
   final List<bool> toggleLikeCurrentlyLikedArgs = [];
   final List<bool> toggleCommentLikeCurrentlyLikedArgs = [];
   final List<String> deleteCommentCalls = [];
+  final List<String> recordViewArgs = [];
   final List<String> searchByCaptionQueryArgs = [];
 
   @override
@@ -168,6 +170,12 @@ class RecordingDropRepository extends DropRepository {
     required bool currentlySaved,
   }) async {
     toggleSaveCalls++;
+  }
+
+  @override
+  Future<void> recordView(String dropId) async {
+    recordViewCalls++;
+    recordViewArgs.add(dropId);
   }
 
   /// Each call to [deleteDrop] (WYN-037's soft delete), in order.

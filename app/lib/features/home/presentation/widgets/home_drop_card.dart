@@ -317,6 +317,18 @@ class HomeDropCard extends StatelessWidget {
                         onPressed: _share,
                       ),
                     ),
+                    Semantics(
+                      label: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
+                      excludeSemantics: true,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.visibility_outlined, size: 20),
+                          const SizedBox(width: WynSpacing.space1),
+                          Text('${item.viewCount}'),
+                        ],
+                      ),
+                    ),
                     const Spacer(),
                     Semantics(
                       label: item.savedByMe
