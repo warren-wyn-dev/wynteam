@@ -1,6 +1,6 @@
 # Product Task — WYN-045
 
-Status: backlog
+Status: coded, awaiting QA
 Owner: AI Product Manager
 
 Feature: Settings — Interaction Privacy Controls (DM Permission, Mention Permission, Comment Permission)
@@ -72,3 +72,19 @@ Risks:
 Recommendation: ทำต่อเนื่องตาม roadmap Phase 5 ทันที (ปิด Phase 5 ให้ครบทั้ง 3 task) — ส่งต่อ AI Design ออกแบบ UI ตัวเลือก 3 ระดับ (แนะนำ radio-button bottom sheet หรือหน้าย่อยแยก ไม่ใช่ toggle แบบ Private Account เพราะมี 3 ค่าไม่ใช่ 2) สำหรับทั้ง 3 การตั้งค่าในหน้า `SettingsScreen`'s "ความเป็นส่วนตัว" section เดิม
 
 Handoff: AI Design — ออกแบบวิธีเลือก 3 ระดับต่อการตั้งค่า (3 การตั้งค่า × 3 ตัวเลือก) ในหน้า `SettingsScreen` ที่มีอยู่แล้ว ตำแหน่งต่อจาก Private Account toggle เดิมในหัวข้อเดียวกัน "ความเป็นส่วนตัว" — เลือกรูปแบบ UI ที่ชัดเจนว่าเป็นการตั้งค่าแยกจาก DM/Mention/Comment ปกติของแอปอื่น ไม่ทับศัพท์ Layout ตรงๆ
+
+## Coding Output (2026-08-23)
+
+**SQL** (`supabase/schema.sql`, ต่อท้ายส่วน WYN-044 ท้ายไฟล์): 3 คอลัมน์ใหม่บน `profiles` (`dm_permission`/`mention_permission`/`comment_permission`, `text not null default 'everyone'`, check 3 ค่า) + helper 2 ตัวใหม่ `internal.mention_allowed`/`internal.comment_allowed` (มิเรอร์กันเป๊ะ แยกฟังก์ชันตาม Design's เหตุผล) — gate ที่ 3 กลุ่มจุดตาม Design spec: (1) `get_or_create_conversation()` แก้ inline ในสาขา "ไม่มีบทสนทนาเดิม" เท่านั้น (บทสนทนาเดิมไม่กระทบ) (2) `drop_mentions`/`club_post_mentions`'s INSERT policy ล่าสุด + `create_poll_drop()`'s `where` clause (ครบทั้ง 2 เส้นทางตามที่ Design เตือนไว้ชัดเจนว่าห้ามพลาดเหมือนที่เกือบเกิดกับ WYN-044) (3) `drop_comments`/`pop_comments`'s INSERT policy ล่าสุด (WYN-037) เท่านั้น — **ไม่แตะ** `club_post_comments` ตามที่ Product ล็อกไว้
+
+**SQL test ใหม่** (`supabase/tests/wyn_045_privacy_controls_test.sh`) — 20 checks ครอบ DM (people_i_follow/no_one/existing-conversation-immunity), Mention (ทั้ง RLS ปกติและ `create_poll_drop()` RPC), Comment (people_i_follow บล็อกจริง + Club independence) — **20/20 PASS** (รันซ้ำเองอิสระ) — รันซ้ำ SQL regression ทั้ง 19 สคริปต์ (รวม `wyn_044` เวอร์ชันหลัง debug fix) **ผ่านหมดไม่มี cross-task regression** (รันซ้ำเองอิสระ) — `check_schema_ordering.py` ผ่าน (รันซ้ำเองอิสระ)
+
+**Flutter**: `Profile` model เพิ่ม `InteractionPermission` enum + 3 field ใหม่ (default `everyone` ทุก call site เดิมคอมไพล์ผ่านไม่ต้องแก้), `ProfileRepository` เพิ่ม 3 update method มิเรอร์ `updateIsPrivate`, `SettingsScreen` เพิ่ม 3 แถวใหม่ + `_PermissionSettingTile`/`_showPermissionPicker` (pseudo-radio bottom sheet มิเรอร์ `report_sheet.dart` เป๊ะ ไม่ใช้ `RadioListTile`), `ViewProfileScreen` thread ค่าใหม่เข้า `SettingsScreen` เหมือน `isPrivate` — เทสต์ใหม่ครอบ default/picker-checkmark/update-success/revert-on-fail
+
+**Merge note (orchestrator)**: Coding agent เริ่มงานจาก commit ก่อน WYN-044's debug fix (`81d11b6`) เพราะรันคู่ขนานกับ Debug Engineer — ตอน merge กลับ `schema.sql` มี conflict จริงที่บรรทัดเดียวกับที่ debug fix แก้ (`internal.notification_enabled`'s grant/revoke) เพราะ WYN-045 ต่อท้ายส่วนนั้นพอดี แก้ด้วยมือ (เก็บ `revoke` ของ debug fix ไว้ ตามด้วยส่วน WYN-045 ทั้งหมด) แล้วรัน regression ทั้งหมดซ้ำอิสระยืนยันไม่มีอะไรพัง
+
+**Build/Tests (ยืนยันโดย orchestrator หลัง merge, ไม่ใช่แค่เชื่อ Coding Output)**: `flutter analyze` **0 issues**, `flutter test` **678/678 PASS** (รวมทั้ง WYN-044's `notification_settings_screen_test.dart` ที่กลับมาเขียวหลัง debug fix และเทสต์ใหม่ของ WYN-045), SQL 19/19 สคริปต์ผ่านหมด, `check_schema_ordering.py` ผ่าน — Flutter SDK มีอยู่แล้วใน sandbox นี้ (ติดตั้งไว้ก่อนหน้าโดย QA agent ของ WYN-044) ไม่ใช่ gap เหมือนที่ Coding คาดไว้ตอนแรก
+
+**Known Issue/Gap (ตั้งใจ ไม่ใช่บั๊ก)**: DM Permission ระดับ "คนที่ฉันติดตาม" เปลี่ยนพฤติกรรมจาก "เข้าคิว pending request" เป็น "ปฏิเสธทันที" ตามที่ Product ตัดสินใจไว้แล้วใน Risks (ไม่ใช่ Instagram-style ที่ยังส่งได้เสมอแค่ซ่อน)
+
+Handoff: AI QA & Security — เน้นตรวจ: **(ก) Mention Permission ทั้ง 2 เส้นทาง** (RLS ปกติ + `create_poll_drop()` RPC) ว่า gate จริงทั้งคู่ไม่มีเส้นทางเลี่ยงได้, **(ข) DM existing-conversation immunity** (บทสนทนาเดิมก่อนตั้งค่าไม่ถูกกระทบย้อนหลัง), **(ค) Club Post comment ไม่ถูกกระทบเลย** จาก Comment Permission แม้แต่นิดเดียว, **(ง) regression เต็มชุดของ WYN-044** (โดยเฉพาะจุดที่เพิ่ง fix จาก QA รอบก่อน) ยังผ่านหลัง merge
