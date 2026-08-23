@@ -59,7 +59,20 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('บัญชีที่ปิดเสียง'));
+    // WYN-045's 3 new rows push "ความปลอดภัย" below the 600px test
+    // viewport -- scroll it into the built extent, then ensure it's
+    // actually within the visible/tappable area (not just mounted at
+    // the edge of the cache extent), before tapping. See
+    // .wyn/learning/PATTERNS.md.
+    final mutedListRow = find.text('บัญชีที่ปิดเสียง');
+    await tester.scrollUntilVisible(
+      mutedListRow,
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.ensureVisible(mutedListRow);
+    await tester.pumpAndSettle();
+    await tester.tap(mutedListRow);
     await tester.pumpAndSettle();
 
     expect(find.byType(MutedListScreen), findsOneWidget);
@@ -72,6 +85,13 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    // See the scroll comment above -- WYN-045's 3 new rows push this
+    // row below the test viewport too.
+    await tester.scrollUntilVisible(
+      find.text('รายการที่ลบ'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('รายการที่ลบ'), findsOneWidget);
 
     await tester.tap(find.text('รายการที่ลบ'));
@@ -104,10 +124,27 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    // See the scroll comment above (tapping บัญชีที่ปิดเสียง) -- WYN-045's 3
+    // new rows push "เครื่องมือผู้ดูแล" beyond the test viewport's built
+    // extent, so find.text() would find nothing at all without this.
+    await tester.scrollUntilVisible(
+      find.text('เครื่องมือผู้ดูแล'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('เครื่องมือผู้ดูแล'), findsOneWidget);
-    expect(find.text('คิวตรวจสอบรายงาน'), findsOneWidget);
 
-    await tester.tap(find.text('คิวตรวจสอบรายงาน'));
+    final moderationQueueRow = find.text('คิวตรวจสอบรายงาน');
+    await tester.scrollUntilVisible(
+      moderationQueueRow,
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.ensureVisible(moderationQueueRow);
+    await tester.pumpAndSettle();
+    expect(moderationQueueRow, findsOneWidget);
+
+    await tester.tap(moderationQueueRow);
     await tester.pumpAndSettle();
 
     expect(find.byType(ModerationQueueScreen), findsOneWidget);
@@ -121,6 +158,12 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    // See the scroll comment above.
+    await tester.scrollUntilVisible(
+      find.text('เครื่องมือผู้ดูแล'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('เครื่องมือผู้ดูแล'), findsOneWidget);
   });
 
@@ -210,6 +253,101 @@ void main() {
       expect(find.byType(NotificationSettingsScreen), findsOneWidget);
     });
   });
+
+  // WYN-045, still inside "ความเป็นส่วนตัว" -- 3 new rows right after the
+  // Private Account toggle.
+  group('Interaction Privacy Controls rows (WYN-045)', () {
+    testWidgets('default rendering: all 3 rows summarize to "ทุกคน"',
+        (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ใครทักข้อความคุณได้'), findsOneWidget);
+      expect(find.text('ใครกล่าวถึงคุณได้'), findsOneWidget);
+      expect(find.text('ใครคอมเมนต์โพสต์ของคุณได้'), findsOneWidget);
+      expect(find.text('ทุกคน'), findsNWidgets(3));
+    });
+
+    testWidgets(
+        'opening the picker shows a checkmark on the current value only',
+        (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          dmPermission: InteractionPermission.peopleIFollow,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ใครทักข้อความคุณได้'));
+      await tester.pumpAndSettle();
+
+      // Exactly one of the 3 options is checked -- the other 2 are not.
+      expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
+      expect(find.byIcon(Icons.radio_button_unchecked), findsNWidgets(2));
+
+      final checkedTile = find.ancestor(
+        of: find.byIcon(Icons.radio_button_checked),
+        matching: find.byType(ListTile),
+      );
+      expect(
+        find.descendant(of: checkedTile, matching: find.text('คนที่ฉันติดตาม')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+        'selecting a new DM option closes the sheet, updates the row, and '
+        'calls updateDmPermission with the new value', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          profileRepository: recordingProfileRepository,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ใครทักข้อความคุณได้'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ไม่มีใครเลย'));
+      await tester.pumpAndSettle();
+
+      expect(recordingProfileRepository.updateDmPermissionArgs,
+          [InteractionPermission.noOne]);
+      // Sheet is closed -- its close icon no longer exists anywhere.
+      expect(find.byIcon(Icons.close), findsNothing);
+      // The row's own trailing summary now reflects the new value.
+      expect(find.text('ไม่มีใครเลย'), findsOneWidget);
+    });
+
+    testWidgets(
+        'a failed permission update reverts the row and shows an error',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          profileRepository: throwingProfileRepository,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ใครทักข้อความคุณได้'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ไม่มีใครเลย'));
+      await tester.pumpAndSettle();
+
+      // Reverted -- all 3 rows (this one included) are back to "ทุกคน".
+      expect(find.text('ทุกคน'), findsNWidgets(3));
+      expect(find.text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
+    });
+  });
 }
 
 class _ThrowingProfileRepository extends RecordingProfileRepository {
@@ -217,6 +355,14 @@ class _ThrowingProfileRepository extends RecordingProfileRepository {
   Future<void> updateIsPrivate({
     required String userId,
     required bool isPrivate,
+  }) async {
+    throw Exception('network error');
+  }
+
+  @override
+  Future<void> updateDmPermission({
+    required String userId,
+    required InteractionPermission value,
   }) async {
     throw Exception('network error');
   }

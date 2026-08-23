@@ -839,6 +839,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                       builder: (_) => SettingsScreen(
                         platformRole: data.profile.platformRole,
                         isPrivate: data.profile.isPrivate,
+                        dmPermission: data.profile.dmPermission,
+                        mentionPermission: data.profile.mentionPermission,
+                        commentPermission: data.profile.commentPermission,
                       ),
                     ),
                   );

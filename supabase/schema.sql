@@ -5112,16 +5112,36 @@ begin
     return v_id;
   end if;
 
+  -- WYN-045: dm_permission gates whether a *new* conversation can be
+  -- created at all -- only reachable here, in the "no existing
+  -- conversation yet" branch (an existing conversation already
+  -- returned above, unaffected by whatever the recipient's setting is
+  -- today). 'no_one' always rejects, no exceptions, even from someone
+  -- the recipient already follows.
+  if (select dm_permission from public.profiles where id = p_other_user_id) = 'no_one' then
+    raise exception 'This user is not accepting new conversations';
+  end if;
+
   -- WYN-032: a message from someone the recipient does not already
   -- follow starts as a pending Message Request instead of going
   -- straight to their inbox -- one-directional (does the recipient
   -- follow the sender), evaluated only here, at creation time.
+  --
+  -- WYN-045: 'people_i_follow' only allows creation when this exact
+  -- condition is true (the recipient already follows the sender) --
+  -- the same condition that already produces 'active' below. If it's
+  -- false, this now raises instead of falling through to a 'pending'
+  -- Message Request, since "people I follow" is meant to be a hard
+  -- boundary against strangers, not just a routing choice between
+  -- inbox and request folder.
   if exists (
     select 1 from public.follows
     where follower_id = p_other_user_id and following_id = v_me
   ) then
     v_status := 'active';
     v_requested_by := null;
+  elsif (select dm_permission from public.profiles where id = p_other_user_id) = 'people_i_follow' then
+    raise exception 'This user is not accepting new conversations';
   else
     v_status := 'pending';
     v_requested_by := v_me;
@@ -6239,10 +6259,19 @@ begin
   insert into public.drop_polls (drop_id, options, expires_at)
   values (v_drop_id, v_options, now() + make_interval(days => p_duration_days));
 
+  -- WYN-045: this RPC is SECURITY DEFINER and bypasses drop_mentions'
+  -- own RLS INSERT policy entirely -- without this same
+  -- internal.mention_allowed() check the policy below also gained,
+  -- Mention Permission would be fully bypassable via Poll Drop
+  -- creation. Same non-error posture as the block-exclusion right
+  -- next to it: the caption may still literally read "@username", it
+  -- just doesn't produce a drop_mentions row (and therefore no
+  -- notification) for a user who disallows it.
   insert into public.drop_mentions (drop_id, mentioned_user_id)
   select v_drop_id, m
   from unnest(p_mentioned_user_ids) as m
-  where not internal.is_blocked_either_way(v_author, m);
+  where not internal.is_blocked_either_way(v_author, m)
+    and internal.mention_allowed(m, v_author);
 
   return v_drop_id;
 end;
@@ -7887,3 +7916,166 @@ $$;
 -- authenticated, anon` needed since neither ever held a more specific
 -- grant of their own.
 revoke execute on function internal.notification_enabled(uuid, text) from public;
+
+-- ============================================================
+-- WYN-045: Settings — Interaction Privacy Controls (DM / Mention / Comment)
+-- ============================================================
+-- See .wyn/tasks/backlog/WYN-045-settings-privacy-controls.md and
+-- .wyn/docs/design/wyn-045-settings-privacy-controls.md. Closes the
+-- explicit deferred scope WYN-039's own spec file logged: "Privacy
+-- settings ย่อยอื่นๆ ... (DM Permissions, Mention, Comment) ไม่อยู่ใน
+-- สโคปนี้ ทำใน WYN-045."
+--
+-- Three independent per-owner settings, one shared 3-value vocabulary
+-- reused across all of them ('everyone' default / 'people_i_follow' /
+-- 'no_one'), same shape as is_private's own `alter table ... add
+-- column if not exists` (WYN-039). "People I follow" always means the
+-- *owner* of the setting follows the actor -- the same one trust
+-- direction this project has used for every trust-based feature to
+-- date (WYN-039's is_private/follow-request gating, and this exact
+-- condition already being what decides `active` vs `pending` in
+-- get_or_create_conversation() below). None of this retroactively
+-- affects content/conversations that already exist -- same posture as
+-- Private Account and Block (WYN-039/027), documented in the Product
+-- spec's Risks.
+alter table public.profiles
+  add column if not exists dm_permission text not null default 'everyone'
+    check (dm_permission in ('everyone', 'people_i_follow', 'no_one')),
+  add column if not exists mention_permission text not null default 'everyone'
+    check (mention_permission in ('everyone', 'people_i_follow', 'no_one')),
+  add column if not exists comment_permission text not null default 'everyone'
+    check (comment_permission in ('everyone', 'people_i_follow', 'no_one'));
+
+-- internal.mention_allowed()/internal.comment_allowed() below are
+-- deliberately two separate functions rather than one taking a
+-- category parameter -- mirrors internal.drop_author_id()/
+-- internal.pop_author_id() staying separate despite near-identical
+-- bodies, for the same reason: clearer error/call-site reading, and
+-- each one only ever needs to check exactly one column. Both are
+-- SECURITY DEFINER so they can be called from inside another table's
+-- RLS policy (drop_mentions/club_post_mentions/drop_comments/
+-- pop_comments below) without those policies' own lookups against
+-- `profiles` being subject to `profiles`' own SELECT RLS -- same
+-- reasoning as internal.can_view_author_content() (WYN-039) and
+-- internal.is_blocked_either_way() (WYN-027) above.
+create or replace function internal.mention_allowed(p_owner uuid, p_actor uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when p_owner = p_actor then true
+    else coalesce(
+      (
+        select case (select mention_permission from public.profiles where id = p_owner)
+          when 'no_one' then false
+          when 'people_i_follow' then exists (
+            select 1 from public.follows
+            where follower_id = p_owner and following_id = p_actor
+          )
+          else true
+        end
+      ),
+      true
+    )
+  end;
+$$;
+
+grant execute on function internal.mention_allowed(uuid, uuid) to authenticated;
+
+create or replace function internal.comment_allowed(p_owner uuid, p_actor uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when p_owner = p_actor then true
+    else coalesce(
+      (
+        select case (select comment_permission from public.profiles where id = p_owner)
+          when 'no_one' then false
+          when 'people_i_follow' then exists (
+            select 1 from public.follows
+            where follower_id = p_owner and following_id = p_actor
+          )
+          else true
+        end
+      ),
+      true
+    )
+  end;
+$$;
+
+grant execute on function internal.comment_allowed(uuid, uuid) to authenticated;
+
+-- Mention Permission: extends the block-exclusion INSERT policies
+-- (WYN-027) with the same non-error posture the comment right above
+-- them already documents -- a block relationship stops a mention from
+-- ever being recorded at all, and now so does mention_permission =
+-- 'no_one'/'people_i_follow' being unmet. The caption text itself may
+-- still literally contain "@username" (MentionInput doesn't
+-- retroactively edit what was typed), but no drop_mentions/
+-- club_post_mentions row is created for it, so
+-- notify_drop_mention()/notify_club_post_mention() never fire.
+drop policy "Drop authors can mention users in their own drops, excluding blocked relationships" on public.drop_mentions;
+create policy "Drop authors can mention users in their own drops, excluding blocked relationships and disallowed mentions"
+  on public.drop_mentions
+  for insert
+  to authenticated
+  with check (
+    exists (
+      select 1 from public.drops
+      where drops.id = drop_id and drops.author_id = auth.uid()
+    )
+    and not internal.is_blocked_either_way(auth.uid(), mentioned_user_id)
+    and internal.mention_allowed(mentioned_user_id, auth.uid())
+  );
+
+drop policy "Club post authors can mention users in their own posts, excluding blocked relationships" on public.club_post_mentions;
+create policy "Club post authors can mention users in their own posts, excluding blocked relationships and disallowed mentions"
+  on public.club_post_mentions
+  for insert
+  to authenticated
+  with check (
+    exists (
+      select 1 from public.club_posts
+      where club_posts.id = club_post_id and club_posts.author_id = auth.uid()
+    )
+    and not internal.is_blocked_either_way(auth.uid(), mentioned_user_id)
+    and internal.mention_allowed(mentioned_user_id, auth.uid())
+  );
+
+-- Comment Permission: extends the latest (WYN-037) generation of each
+-- INSERT policy -- Drop and Pop only. Club Post comment (WYN-005/006's
+-- club_post_comments) is deliberately left untouched: approved Club
+-- membership is already its own trust model (WYN-014/015), and
+-- layering a personal comment_permission on top would fight the
+-- membership grant a Club owner already extended -- see Product
+-- spec's Requirement 4.
+drop policy "Users can comment on drops as themselves, excluding blocked authors, moderation-blocked accounts, and deleted drops" on public.drop_comments;
+create policy "Users can comment on drops as themselves, excluding blocked authors, moderation-blocked accounts, deleted drops, and disallowed comments"
+  on public.drop_comments
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = author_id
+    and not internal.is_blocked_either_way(auth.uid(), internal.drop_author_id(drop_id))
+    and not internal.is_posting_blocked(auth.uid())
+    and coalesce(internal.is_drop_deleted(drop_id), false) = false
+    and internal.comment_allowed(internal.drop_author_id(drop_id), auth.uid())
+  );
+
+drop policy "Users can comment on pops as themselves, excluding blocked authors" on public.pop_comments;
+create policy "Users can comment on pops as themselves, excluding blocked authors and disallowed comments"
+  on public.pop_comments
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = author_id
+    and not internal.is_blocked_either_way(auth.uid(), internal.pop_author_id(pop_id))
+    and internal.comment_allowed(internal.pop_author_id(pop_id), auth.uid())
+  );
