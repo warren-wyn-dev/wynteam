@@ -2,11 +2,16 @@
 /// Moderation Queue's list row (Screen 2) and detail link card
 /// (Screen 3) -- resolved separately from [ModerationReport] itself,
 /// since it depends on the target's own table (`profiles`/`drops`/
-/// `drop_comments`/`clubs`/`club_posts`/`club_post_comments`), each
-/// with a different shape, and can legitimately be "gone" if the
-/// content was deleted (by its own author, or by an earlier Remove
-/// Content action on a different report against the same content)
-/// before a moderator got to review it.
+/// `drop_comments`/`clubs`/`club_posts`/`club_post_comments`/
+/// `messages`), each with a different shape, and can legitimately be
+/// "gone" if the content was deleted (by its own author, or by an
+/// earlier Remove Content action on a different report against the
+/// same content) before a moderator got to review it. `messages`
+/// (WYN-031) is a partial exception -- a soft-deleted message still
+/// [exists] as a row (see `delete_message()`, which nulls content
+/// rather than removing the row), so its [label] communicates the
+/// deletion directly instead of via [exists] the way every hard-delete
+/// target type does.
 class ModerationTargetSummary {
   const ModerationTargetSummary({
     required this.exists,

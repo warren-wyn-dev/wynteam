@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../chat/data/chat_repository.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
 import '../../drop/data/drop_repository.dart';
@@ -50,6 +51,7 @@ class RootShell extends StatefulWidget {
     ZokyRepository? zokyRepository,
     HomeRepository? homeRepository,
     AppealRepository? appealRepository,
+    ChatRepository? chatRepository,
   })  : _dropRepository = dropRepository,
         _popRepository = popRepository,
         _followRepository = followRepository,
@@ -60,7 +62,8 @@ class RootShell extends StatefulWidget {
         _clubPostRepository = clubPostRepository,
         _zokyRepository = zokyRepository,
         _homeRepository = homeRepository,
-        _appealRepository = appealRepository;
+        _appealRepository = appealRepository,
+        _chatRepository = chatRepository;
 
   // All optional -- default to real Supabase-backed instances built in
   // _RootShellState.initState (see .wyn/learning/PATTERNS.md's "optional
@@ -78,6 +81,7 @@ class RootShell extends StatefulWidget {
   final ZokyRepository? _zokyRepository;
   final HomeRepository? _homeRepository;
   final AppealRepository? _appealRepository;
+  final ChatRepository? _chatRepository;
 
   @override
   State<RootShell> createState() => _RootShellState();
@@ -140,6 +144,7 @@ class _RootShellState extends State<RootShell> {
   late final ZokyRepository _zokyRepository;
   late final HomeRepository _homeRepository;
   late final AppealRepository _appealRepository;
+  late final ChatRepository _chatRepository;
 
   @override
   void initState() {
@@ -157,6 +162,7 @@ class _RootShellState extends State<RootShell> {
     _zokyRepository = widget._zokyRepository ?? ZokyRepository(client);
     _homeRepository = widget._homeRepository ?? HomeRepository(client);
     _appealRepository = widget._appealRepository ?? AppealRepository(client);
+    _chatRepository = widget._chatRepository ?? ChatRepository(client);
 
     // WYN-016 (Push Notification): request permission + register this
     // device's token once, the first time RootShell renders (i.e. right
@@ -228,6 +234,7 @@ class _RootShellState extends State<RootShell> {
         savedRepository: _savedRepository,
         clubRepository: _clubRepository,
         clubPostRepository: _clubPostRepository,
+        chatRepository: _chatRepository,
       ),
       SearchScreen(
         profileRepository: _profileRepository,

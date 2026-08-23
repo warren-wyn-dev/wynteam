@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../chat/data/chat_repository.dart';
+import '../../chat/presentation/chat_inbox_screen.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
 import '../../club/presentation/widgets/club_section.dart';
@@ -44,6 +46,7 @@ class HomeFeedScreen extends StatefulWidget {
     required this.savedRepository,
     required this.clubRepository,
     required this.clubPostRepository,
+    required this.chatRepository,
   });
 
   final HomeRepository homeRepository;
@@ -54,6 +57,14 @@ class HomeFeedScreen extends StatefulWidget {
   final SavedRepository savedRepository;
   final ClubRepository clubRepository;
   final ClubPostRepository clubPostRepository;
+
+  // WYN-031 -- Chat's entry point icon lives in this AppBar (see the
+  // class doc comment: this screen "no longer owns a top row" as of
+  // WYN-024, but Master Spec section 18 requires Chat to be reachable
+  // via "a separate icon", never a 6th Bottom Nav tab, and this is the
+  // most natural home-screen-adjacent place for it now that Search/
+  // Notifications moved out).
+  final ChatRepository chatRepository;
 
   @override
   State<HomeFeedScreen> createState() => _HomeFeedScreenState();
@@ -79,12 +90,35 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   // recommended-clubs.md.
   late Future<List<HomeFeedItem>> _trendingFuture;
 
+  int _unreadChatCount = 0;
+
   @override
   void initState() {
     super.initState();
     _loadInitial();
     _trendingFuture = widget.homeRepository.fetchTrending();
     _scrollController.addListener(_onScroll);
+    _loadUnreadChatCount();
+  }
+
+  Future<void> _loadUnreadChatCount() async {
+    try {
+      final count = await widget.chatRepository.countUnreadConversations();
+      if (mounted) setState(() => _unreadChatCount = count);
+    } catch (_) {
+      // Silent -- same posture as RootShell's identical notification
+      // badge fetch: a failed count just leaves the badge as-is, not
+      // worth a blocking error for a number in an AppBar icon.
+    }
+  }
+
+  Future<void> _openChatInbox() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChatInboxScreen(chatRepository: widget.chatRepository),
+      ),
+    );
+    if (mounted) _loadUnreadChatCount();
   }
 
   @override
@@ -306,26 +340,106 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            ClubSection(
-              clubRepository: widget.clubRepository,
-              clubPostRepository: widget.clubPostRepository,
+      // WYN-031's Chat entry point is a floating overlay (Positioned in
+      // the Stack below), not an AppBar -- this screen's fixed-height
+      // header (ClubSection + Trending + feed-mode toggle) was already
+      // only ~22px away from overflowing a real AppBar's height budget
+      // on a small viewport before this feature existed (confirmed by
+      // adding one: it overflowed root_shell_test.dart's default test
+      // surface immediately). An AppBar claims Column space no matter
+      // how compact; a Stack overlay claims none, so it can't ever
+      // push this already-tight layout over the edge on a short
+      // screen. See .wyn/docs/design/wyn-031-chat-1to1.md, Screen 1 --
+      // this is a deliberate deviation from that doc's original
+      // "AppBar" placement, made during Coding once the real overflow
+      // risk surfaced.
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                ClubSection(
+                  clubRepository: widget.clubRepository,
+                  clubPostRepository: widget.clubPostRepository,
+                ),
+                _buildTrendingSection(),
+                _buildFeedModeToggle(),
+                Expanded(
+                  child: _feedMode == _HomeFeedMode.fromYourClubs
+                      ? FromYourClubsFeed(
+                          key: const Key('from_your_clubs_feed'),
+                          clubRepository: widget.clubRepository,
+                          clubPostRepository: widget.clubPostRepository,
+                        )
+                      : _buildBody(),
+                ),
+              ],
             ),
-            _buildTrendingSection(),
-            _buildFeedModeToggle(),
-            Expanded(
-              child: _feedMode == _HomeFeedMode.fromYourClubs
-                  ? FromYourClubsFeed(
-                      key: const Key('from_your_clubs_feed'),
-                      clubRepository: widget.clubRepository,
-                      clubPostRepository: widget.clubPostRepository,
-                    )
-                  : _buildBody(),
+          ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.only(right: WynSpacing.space2),
+                child: _buildChatAction(),
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Badge shape mirrors RootShell._buildNotificationsIcon exactly (cap
+  // "9+", same Container/Positioned/color tokens) -- this is an
+  // IconButton rather than a plain Icon since (unlike the Bottom Nav
+  // destination it mirrors) this is the tap target itself, not wrapped
+  // by something else that handles the tap.
+  Widget _buildChatAction() {
+    const icon = Icon(Icons.chat_bubble_outline);
+    final count = _unreadChatCount;
+    final badge = count <= 0
+        ? icon
+        : Stack(
+            clipBehavior: Clip.none,
+            children: [
+              icon,
+              Positioned(
+                right: -6,
+                top: -4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: 1),
+                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+                  ),
+                  child: Text(
+                    count > 9 ? '9+' : '$count',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+
+    // Solid circular surface (unlike a plain AppBar action) -- this
+    // floats directly over whatever ClubSection/feed content happens
+    // to be underneath it, so it needs its own background to stay
+    // legible rather than relying on an AppBar's.
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      shape: const CircleBorder(),
+      elevation: 2,
+      child: IconButton(
+        icon: badge,
+        tooltip: count > 0 ? 'ข้อความ, $count บทสนทนายังไม่อ่าน' : 'ข้อความ',
+        onPressed: _openChatInbox,
       ),
     );
   }

@@ -24,6 +24,8 @@ import '../../../core/design/wyn_spacing.dart';
 import '../../block/data/block_relationship.dart';
 import '../../block/data/block_repository.dart';
 import '../../block/presentation/block_dialogs.dart';
+import '../../chat/data/chat_repository.dart';
+import '../../chat/presentation/conversation_screen.dart';
 import '../../mute/data/mute_repository.dart';
 import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
@@ -51,6 +53,7 @@ class ViewProfileScreen extends StatefulWidget {
     this.reportRepository,
     this.blockRepository,
     this.muteRepository,
+    this.chatRepository,
   });
 
   final ProfileRepository profileRepository;
@@ -85,6 +88,10 @@ class ViewProfileScreen extends StatefulWidget {
   final ReportRepository? reportRepository;
   final BlockRepository? blockRepository;
   final MuteRepository? muteRepository;
+
+  // Same optional/defaulted shape as the 3 above -- WYN-031's
+  // "ส่งข้อความ" entry point.
+  final ChatRepository? chatRepository;
 
   @override
   State<ViewProfileScreen> createState() => _ViewProfileScreenState();
@@ -124,6 +131,10 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       widget.blockRepository ?? BlockRepository(Supabase.instance.client);
   late final MuteRepository _muteRepository =
       widget.muteRepository ?? MuteRepository(Supabase.instance.client);
+  late final ChatRepository _chatRepository =
+      widget.chatRepository ?? ChatRepository(Supabase.instance.client);
+
+  bool _isStartingChat = false;
 
   bool get _isOwnProfile =>
       widget.userId == Supabase.instance.client.auth.currentUser!.id;
@@ -189,6 +200,38 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _isFollowing = previous);
+    }
+  }
+
+  // WYN-031, Screen 4. get_or_create_conversation() itself rejects a
+  // blocked pair server-side, but this button is already hidden in
+  // that state (see the Blocked persona branch in build()), so the
+  // only realistic failure here is a transient network error.
+  Future<void> _openChat(Profile profile) async {
+    if (_isStartingChat) return;
+    setState(() => _isStartingChat = true);
+    try {
+      final conversationId = await _chatRepository.getOrCreateConversation(widget.userId);
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ConversationScreen(
+            chatRepository: _chatRepository,
+            conversationId: conversationId,
+            otherUserId: widget.userId,
+            otherUsername: profile.username,
+            otherDisplayName: profile.displayName,
+            otherAvatarUrl: profile.avatarUrl,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('เริ่มบทสนทนาไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    } finally {
+      if (mounted) setState(() => _isStartingChat = false);
     }
   }
 
@@ -654,21 +697,40 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                             child: const Text('แก้ไขโปรไฟล์'),
                           )
                         else if (_isFollowing != null)
-                          Semantics(
-                            label: _isFollowing!
-                                ? 'กำลังติดตาม กดเพื่อเลิกติดตาม'
-                                : 'กดเพื่อติดตาม',
-                            excludeSemantics: true,
-                            child: OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Theme.of(context).colorScheme.primary,
-                                side: BorderSide(
-                                  color: Theme.of(context).colorScheme.primary,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Semantics(
+                                label: _isFollowing!
+                                    ? 'กำลังติดตาม กดเพื่อเลิกติดตาม'
+                                    : 'กดเพื่อติดตาม',
+                                excludeSemantics: true,
+                                child: OutlinedButton(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Theme.of(context).colorScheme.primary,
+                                    side: BorderSide(
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                                  ),
+                                  onPressed: _toggleFollow,
+                                  child: Text(_isFollowing! ? 'กำลังติดตาม' : 'ติดตาม'),
                                 ),
                               ),
-                              onPressed: _toggleFollow,
-                              child: Text(_isFollowing! ? 'กำลังติดตาม' : 'ติดตาม'),
-                            ),
+                              const SizedBox(width: WynSpacing.space2),
+                              // WYN-031, Screen 4 -- always reachable
+                              // (no Message Request gate this round, see
+                              // the design doc's own scope note).
+                              OutlinedButton(
+                                onPressed: _isStartingChat ? null : () => _openChat(profile),
+                                child: _isStartingChat
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Text('ส่งข้อความ'),
+                              ),
+                            ],
                           ),
                       ],
                     ],

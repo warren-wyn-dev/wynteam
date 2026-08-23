@@ -77,6 +77,8 @@ class ModerationRepository {
         return _fetchClubPostSummary(report.targetId);
       case ReportTargetType.clubPostComment:
         return _fetchClubPostCommentSummary(report.targetId);
+      case ReportTargetType.message:
+        return _fetchMessageSummary(report.targetId);
     }
   }
 
@@ -175,6 +177,37 @@ class ModerationRepository {
       ownerUsername: author?['username'] as String?,
       parentId: row['club_post_id'] as String,
     );
+  }
+
+  /// Uses `get_message_for_moderation()` (WYN-031) instead of a plain
+  /// `.from('messages')` select -- `messages`' own SELECT policy is
+  /// participant-only, and a moderator is never a conversation
+  /// participant, so a direct select would always return nothing. The
+  /// RPC re-checks the moderator role itself server-side rather than
+  /// trusting this screen only ever calling it for moderators.
+  Future<ModerationTargetSummary> _fetchMessageSummary(String messageId) async {
+    final rows = await _client.rpc('get_message_for_moderation', params: {
+      'p_message_id': messageId,
+    }) as List<dynamic>;
+    if (rows.isEmpty) {
+      return const ModerationTargetSummary(exists: false, label: '(เนื้อหานี้ถูกลบไปแล้ว)');
+    }
+    final row = rows.first as Map<String, dynamic>;
+    final deletedAt = row['deleted_at'] as String?;
+    final sender = row['sender_username'] as String?;
+    if (deletedAt != null) {
+      return ModerationTargetSummary(
+        exists: true,
+        label: '(ข้อความนี้ถูกลบไปแล้ว)',
+        ownerUsername: sender,
+      );
+    }
+    final text = row['text'] as String?;
+    final hasImage = row['image_url'] != null;
+    final label = (text == null || text.isEmpty)
+        ? (hasImage ? '📷 รูปภาพ' : '(ข้อความว่าง)')
+        : text;
+    return ModerationTargetSummary(exists: true, label: label, ownerUsername: sender);
   }
 
   /// Atomically applies one action (see supabase/schema.sql's

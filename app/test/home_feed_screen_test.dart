@@ -17,6 +17,7 @@ import 'package:wyn/features/profile/data/profile.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/fake_video_player_platform.dart';
+import 'support/recording_chat_repository.dart';
 import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
 import 'support/recording_drop_repository.dart';
@@ -91,6 +92,7 @@ void main() {
   late RecordingSavedRepository sharedSavedRepository;
   late RecordingClubRepository sharedClubRepository;
   late RecordingClubPostRepository sharedClubPostRepository;
+  late RecordingChatRepository sharedChatRepository;
   late RecordingClubPostRepository emptyFromClubsPostRepository;
   late RecordingClubPostRepository fromClubsPostRepository;
   late RecordingHomeRepository mixedFeedHomeRepository;
@@ -139,6 +141,7 @@ void main() {
     );
     sharedSavedRepository = RecordingSavedRepository();
     sharedClubRepository = RecordingClubRepository();
+    sharedChatRepository = RecordingChatRepository();
     sharedClubPostRepository = RecordingClubPostRepository();
     emptyFromClubsPostRepository =
         RecordingClubPostRepository(fromJoinedClubs: []);
@@ -255,6 +258,7 @@ void main() {
           savedRepository: sharedSavedRepository,
           clubRepository: clubRepository ?? sharedClubRepository,
           clubPostRepository: clubPostRepository ?? sharedClubPostRepository,
+          chatRepository: sharedChatRepository,
         ),
       );
 

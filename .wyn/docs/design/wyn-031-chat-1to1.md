@@ -18,13 +18,15 @@
 
 **Purpose**: ทางเข้า Chat Inbox จากทุกหน้าจอหลัก โดยไม่เป็น Bottom Nav tab ตาม Master Spec
 
-**ตำแหน่ง**: ไอคอน 💬 บน `AppBar` ของ `HomeFeedScreen` (จุดเดิมที่เคยมี Search bar ก่อน WYN-024 ย้าย Search ออกเป็น tab แยก — ตอนนี้ AppBar ของ Home ว่างพอมีที่) วางข้างขวาของ notification bell เดิม (WYN-012) เรียงเป็น `[🔔 Notification] [💬 Chat]` — ทั้งคู่มี unread badge ของตัวเอง (ตัวเลขไม่รวมกัน)
+**ตำแหน่ง (แก้ระหว่าง Coding — ดู "Coding deviation" ด้านล่าง)**: ไอคอน 💬 ลอย (floating overlay ใน `Stack`, ไม่ใช่ `AppBar`) มุมขวาบนของ `HomeFeedScreen` วางบนพื้นผิว `Material` วงกลมของตัวเอง (ไม่พึ่งพื้นหลัง AppBar) — เดิมออกแบบไว้เป็นปุ่มใน `AppBar` ข้าง notification bell แต่ AppBar กิน Column space จริงและทำให้ header ที่เดิมก็ตึงอยู่แล้ว (ClubSection + Trending + feed-mode toggle) ล้นจอบนหน้าจอเตี้ย — เปลี่ยนเป็น overlay ที่ไม่กิน layout space แทน
 
-**Components**: `IconButton(icon: Icons.chat_bubble_outline)` + `Badge` (reuse `NotificationListScreen`'s unread-count badge widget/pattern เป๊ะ, cap ที่ "9+" เหมือนกัน)
+**Components**: `IconButton(icon: Icons.chat_bubble_outline)` ห่อด้วย `Material(shape: CircleBorder(), elevation: 2)` + Badge (reuse `NotificationListScreen`'s unread-count badge widget/pattern เป๊ะ, cap ที่ "9+" เหมือนกัน)
 
 **Interactions**: แตะ → เปิด `ChatInboxScreen` (push, ไม่ replace)
 
-**Design Rules**: ต้องมี `Semantics(label: 'ข้อความ, N ข้อความยังไม่อ่าน')` เหมือนที่ notification bell ทำไว้แล้ว — 44×44 touch target เต็ม (DS-008)
+**Design Rules**: `IconButton`'s `tooltip` ทำหน้าที่ accessible label อัตโนมัติ (`'ข้อความ, N บทสนทนายังไม่อ่าน'`) — 44×44 touch target เต็ม (DS-008)
+
+**Coding deviation (บันทึกไว้ตรงๆ)**: `AppBar` เดิมที่ design doc ฉบับแรกระบุไว้ทำให้ `root_shell_test.dart` ล้มจริงด้วย `RenderFlex overflow` บน default test viewport (800×600) — วัดแล้วพบว่า header เดิมของ Home มี margin เหลือแค่ ~22px ก่อนจะล้นอยู่แล้วแม้ไม่มีการเปลี่ยนแปลงใดๆ (fragile ตั้งแต่ต้น ไม่ใช่ปัญหาที่ WYN-031 สร้างขึ้นเอง แค่เป็นตัวที่ไปกระทบ margin ที่ตึงอยู่แล้วก่อน) แก้โดยเปลี่ยนจาก AppBar (กิน Column space แน่นอนไม่ว่าจะย่อแค่ไหน) เป็น floating overlay ใน `Stack` (ไม่กิน layout space เลย) — ยืนยันด้วย `flutter test` ว่า `root_shell_test.dart`/`home_feed_screen_test.dart`/`view_profile_screen_test.dart` ผ่านหมดหลังแก้
 
 ---
 
