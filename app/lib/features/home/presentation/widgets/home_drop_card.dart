@@ -22,6 +22,10 @@ class HomeDropCard extends StatelessWidget {
     required this.onToggleLike,
     required this.onToggleSave,
     required this.onOpenProfile,
+    required this.onToggleRedrop,
+    required this.onQuoteRedrop,
+    this.onOpenRedropperProfile,
+    this.onDeleteRedrop,
   });
 
   final HomeFeedItem item;
@@ -30,12 +34,75 @@ class HomeDropCard extends StatelessWidget {
   final VoidCallback onToggleSave;
   final VoidCallback onOpenProfile;
 
+  /// WYN-034: Standard ReDrop toggle -- called by the action sheet's
+  /// "🔄 ReDrop"/"ยกเลิก ReDrop" entry, never directly by tapping the 🔄
+  /// icon itself (see [_openRedropSheet]'s doc comment for why).
+  final VoidCallback onToggleRedrop;
+
+  /// WYN-034: opens QuoteRedropScreen -- called by the action sheet's
+  /// "💬 Quote ReDrop" entry.
+  final VoidCallback onQuoteRedrop;
+
+  /// WYN-034: opens the *redropper's* profile (not the original Drop's
+  /// author) when [item.redropId] is set -- null (never called) for a
+  /// plain, non-ReDrop-sourced card, which is why this is optional
+  /// unlike [onOpenProfile].
+  final VoidCallback? onOpenRedropperProfile;
+
+  /// WYN-034: deletes *this specific ReDrop* (Standard or Quote) --
+  /// only ever wired up (and only ever offered in the More menu, see
+  /// [_openMoreMenu]) when [_isOwnRedrop] is true. Distinct from
+  /// [onToggleRedrop]/`deleteDrop` -- this never touches the
+  /// underlying Drop itself, only the viewer's own ReDrop entry of it.
+  final VoidCallback? onDeleteRedrop;
+
   bool get _isOwnDrop =>
       item.authorId == Supabase.instance.client.auth.currentUser!.id;
+
+  /// Whether *this card* is the viewer's own ReDrop (Standard or
+  /// Quote) of someone's Drop -- independent of [_isOwnDrop], which is
+  /// about the underlying Drop's authorship. A card can be neither,
+  /// either, or (redropping your own Drop) both at once.
+  bool get _isOwnRedrop =>
+      item.redropId != null &&
+      item.redropperId == Supabase.instance.client.auth.currentUser!.id;
 
   Future<void> _share() async {
     await SharePlus.instance.share(
       ShareParams(text: dropShareLink(item.id)),
+    );
+  }
+
+  /// WYN-034: the 🔄 icon opens a small action sheet rather than
+  /// toggling directly on tap -- ReDrop broadcasts to the redropper's
+  /// own followers, a bigger-consequence action than a Like, so it
+  /// gets the same 2-step "tap icon → pick an action" shape as most
+  /// platforms' own Repost/Quote entry point, not a single-tap toggle.
+  Future<void> _openRedropSheet(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.repeat),
+              title: Text(item.redroppedByMe ? 'ยกเลิก ReDrop' : '🔄 ReDrop'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                onToggleRedrop();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.chat_bubble_outline),
+              title: const Text('💬 Quote ReDrop'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                onQuoteRedrop();
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -45,21 +112,38 @@ class HomeDropCard extends StatelessWidget {
       builder: (sheetContext) => SafeArea(
         child: Wrap(
           children: [
-            ListTile(
-              leading: const Icon(Icons.flag_outlined),
-              title: const Text('รายงานโพสต์'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                showReportSheet(
-                  context,
-                  reportRepository: ReportRepository(Supabase.instance.client),
-                  targetType: ReportTargetType.drop,
-                  targetId: item.id,
-                  targetLabel: 'รายงานโพสต์ของ ${item.authorNameOrUsername}',
-                  associatedUserId: item.authorId,
-                );
-              },
-            ),
+            // Reporting your own Drop makes no sense -- same guard
+            // _isOwnDrop already applied to this button's own
+            // visibility before WYN-034, kept here now that the
+            // button can also show for a reason unrelated to
+            // authorship (_isOwnRedrop).
+            if (!_isOwnDrop)
+              ListTile(
+                leading: const Icon(Icons.flag_outlined),
+                title: const Text('รายงานโพสต์'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  showReportSheet(
+                    context,
+                    reportRepository: ReportRepository(Supabase.instance.client),
+                    targetType: ReportTargetType.drop,
+                    targetId: item.id,
+                    targetLabel: 'รายงานโพสต์ของ ${item.authorNameOrUsername}',
+                    associatedUserId: item.authorId,
+                  );
+                },
+              ),
+            // WYN-034: removes *this ReDrop entry* only -- the original
+            // Drop (and any other ReDrops of it) are untouched.
+            if (_isOwnRedrop)
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('ลบ ReDrop'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  onDeleteRedrop?.call();
+                },
+              ),
           ],
         ),
       ),
@@ -78,6 +162,45 @@ class HomeDropCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // WYN-034, Screen 3 -- shown only when this card came from
+              // someone's ReDrop rather than directly from `drops`. The
+              // avatar/username/image/caption/stats row below this stays
+              // completely unchanged either way -- it always describes
+              // the *original* Drop, credit preserved.
+              if (item.redropId != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    WynSpacing.space3, 0, WynSpacing.space3, WynSpacing.space1,
+                  ),
+                  child: InkWell(
+                    onTap: onOpenRedropperProfile,
+                    borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.repeat,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: WynSpacing.space1),
+                        Text(
+                          'ReDrop โดย @${item.redropperUsername}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (item.quoteText != null && item.quoteText!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    WynSpacing.space3, 0, WynSpacing.space3, WynSpacing.space2,
+                  ),
+                  child: HashtagText(item.quoteText!),
+                ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space1),
                 child: Row(
@@ -103,7 +226,10 @@ class HomeDropCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (!_isOwnDrop)
+                    // WYN-034: also shown for the viewer's own ReDrop of
+                    // someone else's Drop -- _openMoreMenu itself decides
+                    // which entries actually appear.
+                    if (!_isOwnDrop || _isOwnRedrop)
                       IconButton(
                         icon: const Icon(Icons.more_vert),
                         tooltip: 'เพิ่มเติม',
@@ -149,6 +275,23 @@ class HomeDropCard extends StatelessWidget {
                       ),
                     ),
                     Text('${item.commentCount}'),
+                    const SizedBox(width: WynSpacing.space2),
+                    Semantics(
+                      label: item.redroppedByMe
+                          ? 'ReDrop แล้ว กดเพื่อเลือกดำเนินการ'
+                          : 'กดเพื่อ ReDrop',
+                      excludeSemantics: true,
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.repeat,
+                          color: item.redroppedByMe
+                              ? Theme.of(context).colorScheme.primary
+                              : null,
+                        ),
+                        onPressed: () => _openRedropSheet(context),
+                      ),
+                    ),
+                    Text('${item.redropCount}'),
                     Semantics(
                       label: 'แชร์',
                       excludeSemantics: true,

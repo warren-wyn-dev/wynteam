@@ -51,19 +51,22 @@ class DropRepository {
 
     final rows = await _client
         .from('drops')
-        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count)')
+        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count), redrops(count)')
         .order('created_at', ascending: false)
         .range(from, to);
 
     final dropIds = rows.map((row) => row['id'] as String).toList();
     final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
     final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
+    final redroppedIds =
+        await _fetchRedroppedDropIds(userId: userId, dropIds: dropIds);
 
     return rows
         .map((row) => Drop.fromMap(
               row,
               likedByMe: likedIds.contains(row['id'] as String),
               savedByMe: savedIds.contains(row['id'] as String),
+              redroppedByMe: redroppedIds.contains(row['id'] as String),
             ))
         .toList();
   }
@@ -80,7 +83,7 @@ class DropRepository {
 
     final rows = await _client
         .from('drops')
-        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count)')
+        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count), redrops(count)')
         .ilike('caption', '%$query%')
         .order('created_at', ascending: false)
         .range(from, to);
@@ -88,12 +91,15 @@ class DropRepository {
     final dropIds = rows.map((row) => row['id'] as String).toList();
     final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
     final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
+    final redroppedIds =
+        await _fetchRedroppedDropIds(userId: userId, dropIds: dropIds);
 
     return rows
         .map((row) => Drop.fromMap(
               row,
               likedByMe: likedIds.contains(row['id'] as String),
               savedByMe: savedIds.contains(row['id'] as String),
+              redroppedByMe: redroppedIds.contains(row['id'] as String),
             ))
         .toList();
   }
@@ -113,7 +119,7 @@ class DropRepository {
 
     final rows = await _client
         .from('drops')
-        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count)')
+        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count), redrops(count)')
         .eq('author_id', authorId)
         .order('created_at', ascending: false)
         .range(from, to);
@@ -121,12 +127,15 @@ class DropRepository {
     final dropIds = rows.map((row) => row['id'] as String).toList();
     final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
     final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
+    final redroppedIds =
+        await _fetchRedroppedDropIds(userId: userId, dropIds: dropIds);
 
     return rows
         .map((row) => Drop.fromMap(
               row,
               likedByMe: likedIds.contains(row['id'] as String),
               savedByMe: savedIds.contains(row['id'] as String),
+              redroppedByMe: redroppedIds.contains(row['id'] as String),
             ))
         .toList();
   }
@@ -152,7 +161,7 @@ class DropRepository {
 
     final rows = await _client
         .from('drops')
-        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count)')
+        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count), redrops(count)')
         .inFilter('author_id', followingIds)
         .order('created_at', ascending: false)
         .range(from, to);
@@ -160,12 +169,15 @@ class DropRepository {
     final dropIds = rows.map((row) => row['id'] as String).toList();
     final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
     final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
+    final redroppedIds =
+        await _fetchRedroppedDropIds(userId: userId, dropIds: dropIds);
 
     return rows
         .map((row) => Drop.fromMap(
               row,
               likedByMe: likedIds.contains(row['id'] as String),
               savedByMe: savedIds.contains(row['id'] as String),
+              redroppedByMe: redroppedIds.contains(row['id'] as String),
             ))
         .toList();
   }
@@ -190,7 +202,7 @@ class DropRepository {
 
     final rows = await _client
         .from('drops')
-        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count)')
+        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count), redrops(count)')
         .order('created_at', ascending: false)
         .limit(_rankedCandidateLimit);
 
@@ -198,6 +210,8 @@ class DropRepository {
     final authorIds = rows.map((row) => row['author_id'] as String).toSet();
     final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
     final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
+    final redroppedIds =
+        await _fetchRedroppedDropIds(userId: userId, dropIds: dropIds);
     final followedAuthorIds = await _fetchFollowedAuthorIds(
       userId: userId,
       authorIds: authorIds,
@@ -208,6 +222,7 @@ class DropRepository {
               row,
               likedByMe: likedIds.contains(row['id'] as String),
               savedByMe: savedIds.contains(row['id'] as String),
+              redroppedByMe: redroppedIds.contains(row['id'] as String),
             ))
         .toList();
 
@@ -255,18 +270,21 @@ class DropRepository {
 
     final row = await _client
         .from('drops')
-        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count)')
+        .select('*, $_dropAuthorSelect, drop_likes(count), drop_comments(count), redrops(count)')
         .eq('id', dropId)
         .maybeSingle();
     if (row == null) return null;
 
     final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: [dropId]);
     final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: [dropId]);
+    final redroppedIds =
+        await _fetchRedroppedDropIds(userId: userId, dropIds: [dropId]);
 
     return Drop.fromMap(
       row,
       likedByMe: likedIds.contains(dropId),
       savedByMe: savedIds.contains(dropId),
+      redroppedByMe: redroppedIds.contains(dropId),
     );
   }
 
@@ -299,6 +317,25 @@ class DropRepository {
         .inFilter('content_id', dropIds);
 
     return rows.map((row) => row['content_id'] as String).toSet();
+  }
+
+  /// Only Standard ReDrops (quote_text is null) count toward
+  /// [Drop.redroppedByMe] -- a Quote ReDrop doesn't toggle the 🔄
+  /// button's state (see that field's doc comment).
+  Future<Set<String>> _fetchRedroppedDropIds({
+    required String userId,
+    required List<String> dropIds,
+  }) async {
+    if (dropIds.isEmpty) return {};
+
+    final rows = await _client
+        .from('redrops')
+        .select('drop_id')
+        .eq('redropper_id', userId)
+        .isFilter('quote_text', null)
+        .inFilter('drop_id', dropIds);
+
+    return rows.map((row) => row['drop_id'] as String).toSet();
   }
 
   /// Creates a Drop. [imageBytes] is required -- a Drop is always a photo,
@@ -379,6 +416,54 @@ class DropRepository {
         'content_id': dropId,
       });
     }
+  }
+
+  /// Standard ReDrop toggle (WYN-034) -- insert/delete on `redrops` with
+  /// `quote_text: null`, same shape as [toggleLike]. Quote ReDrop uses
+  /// [quoteRedrop] instead, never this method.
+  Future<void> toggleRedrop({
+    required String dropId,
+    required bool currentlyRedropped,
+  }) async {
+    final userId = _client.auth.currentUser!.id;
+    if (currentlyRedropped) {
+      await _client
+          .from('redrops')
+          .delete()
+          .eq('drop_id', dropId)
+          .eq('redropper_id', userId)
+          .isFilter('quote_text', null);
+    } else {
+      await _client.from('redrops').insert({
+        'drop_id': dropId,
+        'redropper_id': userId,
+      });
+    }
+  }
+
+  /// Quote ReDrop (WYN-034) -- always inserts a new row (never toggles;
+  /// the same Drop can be quoted multiple times with different
+  /// commentary, unlike Standard ReDrop). [quoteText] is required and
+  /// non-blank -- `redrops_quote_text_length` also enforces 1-500
+  /// characters server-side.
+  Future<void> quoteRedrop({
+    required String dropId,
+    required String quoteText,
+  }) async {
+    final userId = _client.auth.currentUser!.id;
+    await _client.from('redrops').insert({
+      'drop_id': dropId,
+      'redropper_id': userId,
+      'quote_text': quoteText.trim(),
+    });
+  }
+
+  /// Deletes a single ReDrop (Standard or Quote) by its own id -- for
+  /// removing a specific Quote ReDrop from the "ReDrops" Profile tab.
+  /// RLS restricts this to the caller's own redrops, same posture as
+  /// [deleteComment].
+  Future<void> deleteRedrop(String redropId) {
+    return _client.from('redrops').delete().eq('id', redropId);
   }
 
   /// Oldest first, unlike the grid -- comments read top-to-bottom like a

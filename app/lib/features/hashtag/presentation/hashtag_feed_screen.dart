@@ -9,6 +9,7 @@ import '../../club/presentation/widgets/club_post_card.dart';
 import '../../drop/data/drop.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/drop_detail_screen.dart';
+import '../../drop/presentation/quote_redrop_screen.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../home/data/home_feed_item.dart';
 import '../../home/presentation/widgets/home_drop_card.dart';
@@ -178,6 +179,41 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
     }
   }
 
+  Future<void> _toggleDropRedrop(String dropId) async {
+    final index = _drops.indexWhere((d) => d.id == dropId);
+    if (index == -1) return;
+    final previous = _drops[index];
+    setState(() => _drops[index] = previous.toggledRedrop());
+    try {
+      await widget.dropRepository.toggleRedrop(
+        dropId: dropId,
+        currentlyRedropped: previous.redroppedByMe,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _drops[index] = previous);
+    }
+  }
+
+  Future<void> _quoteDropRedrop(String dropId) async {
+    final index = _drops.indexWhere((d) => d.id == dropId);
+    if (index == -1) return;
+    final drop = _drops[index];
+
+    final posted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => QuoteRedropScreen(
+          dropRepository: widget.dropRepository,
+          drop: drop,
+        ),
+      ),
+    );
+    if (posted != true || !mounted) return;
+    final currentIndex = _drops.indexWhere((d) => d.id == dropId);
+    if (currentIndex == -1) return;
+    setState(() => _drops[currentIndex] = _drops[currentIndex].withExtraRedrop());
+  }
+
   Future<void> _toggleClubPostLike(String postId) async {
     final index = _clubPosts.indexWhere((p) => p.id == postId);
     if (index == -1) return;
@@ -334,6 +370,8 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
               onToggleLike: () => _toggleDropLike(drop.id),
               onToggleSave: () => _toggleDropSave(drop.id),
               onOpenProfile: () => _openProfile(drop.authorId),
+              onToggleRedrop: () => _toggleDropRedrop(drop.id),
+              onQuoteRedrop: () => _quoteDropRedrop(drop.id),
             );
           }
 

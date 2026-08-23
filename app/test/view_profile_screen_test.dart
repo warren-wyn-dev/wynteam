@@ -15,6 +15,7 @@ import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
 import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
+import 'support/recording_home_repository.dart';
 import 'support/recording_pop_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
@@ -49,6 +50,7 @@ void main() {
   late RecordingDropRepository contentTestDropRepo;
   late RecordingPopRepository contentTestPopRepo;
   late RecordingSavedRepository contentTestSavedRepo;
+  late RecordingHomeRepository contentTestHomeRepo;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
@@ -119,6 +121,25 @@ void main() {
         commentCount: 0,
         likedByMe: false,
         savedByMe: true,
+      ),
+    ]);
+    contentTestHomeRepo = RecordingHomeRepository(redropsByUser: [
+      HomeFeedItem(
+        id: 'd3',
+        contentType: HomeContentType.drop,
+        authorId: 'someone-else',
+        authorUsername: 'namfah',
+        createdAt: DateTime.now(),
+        caption: 'แคปชัน Drop ต้นฉบับ',
+        imageUrl: 'https://example.supabase.co/drops/d3.jpg',
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+        redropId: 'r1',
+        redropperId: 'me',
+        redropperUsername: 'me_user',
+        quoteText: 'ดูนี่สิ',
       ),
     ]);
   });
@@ -204,9 +225,11 @@ void main() {
     expect(find.byIcon(Icons.logout), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, 'ติดตาม'), findsNothing);
     expect(find.text('Drop'), findsOneWidget);
+    // WYN-034 added a "ReDrops" tab between Drop and Pop.
+    expect(find.text('ReDrops'), findsOneWidget);
     expect(find.text('Pop'), findsOneWidget);
     expect(find.text('บันทึก'), findsOneWidget);
-    expect(find.byType(Tab), findsNWidgets(3));
+    expect(find.byType(Tab), findsNWidgets(4));
   });
 
   testWidgets(
@@ -223,9 +246,11 @@ void main() {
     expect(find.byIcon(Icons.logout), findsNothing);
     expect(find.widgetWithText(OutlinedButton, 'ติดตาม'), findsOneWidget);
     expect(find.text('Drop'), findsOneWidget);
+    // WYN-034 added a "ReDrops" tab between Drop and Pop.
+    expect(find.text('ReDrops'), findsOneWidget);
     expect(find.text('Pop'), findsOneWidget);
     expect(find.text('บันทึก'), findsNothing);
-    expect(find.byType(Tab), findsNWidgets(2));
+    expect(find.byType(Tab), findsNWidgets(3));
   });
 
   testWidgets('Drop tab shows this profile\'s Drops (scoped by author, '
@@ -246,6 +271,34 @@ void main() {
     // Drop is the first (default-selected) tab -- its content should be
     // visible without switching tabs.
     expect(find.byIcon(Icons.favorite), findsOneWidget);
+  });
+
+  testWidgets(
+      'switching to the ReDrops tab shows this profile\'s Standard/Quote '
+      'ReDrops, with the quote text and original Drop untouched (WYN-034)',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: ViewProfileScreen(
+        profileRepository: contentTestProfileRepo,
+        followRepository: contentTestFollowRepo,
+        dropRepository: contentTestDropRepo,
+        popRepository: contentTestPopRepo,
+        savedRepository: contentTestSavedRepo,
+        homeRepository: contentTestHomeRepo,
+        userId: 'me',
+      ),
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    await tester.tap(find.text('ReDrops'));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(contentTestHomeRepo.fetchRedropsByUserUserIdArgs, contains('me'));
+    expect(find.text('ดูนี่สิ'), findsOneWidget);
+    expect(find.text('แคปชัน Drop ต้นฉบับ'), findsOneWidget);
+    expect(find.textContaining('ReDrop โดย @me_user'), findsOneWidget);
   });
 
   testWidgets('switching to the Pop tab shows this profile\'s Pops',

@@ -64,6 +64,7 @@ class HomeRepository {
       userId: userId,
       ids: [...dropIds, ...popIds],
     );
+    final redroppedIds = await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
 
     return rows.map((row) {
       final id = row['id'] as String;
@@ -74,6 +75,7 @@ class HomeRepository {
         row,
         likedByMe: likedByMe,
         savedByMe: savedIds.contains(id),
+        redroppedByMe: isDrop && redroppedIds.contains(id),
       );
     }).toList();
   }
@@ -123,6 +125,7 @@ class HomeRepository {
       userId: userId,
       ids: [...dropIds, ...popIds],
     );
+    final redroppedIds = await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
 
     final items = rows.map((row) {
       final id = row['id'] as String;
@@ -133,6 +136,7 @@ class HomeRepository {
         row,
         likedByMe: likedByMe,
         savedByMe: savedIds.contains(id),
+        redroppedByMe: isDrop && redroppedIds.contains(id),
       );
     }).toList();
 
@@ -188,6 +192,7 @@ class HomeRepository {
       userId: userId,
       ids: [...dropIds, ...popIds],
     );
+    final redroppedIds = await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
     final followedAuthorIds = await _fetchFollowedAuthorIds(
       userId: userId,
       authorIds: authorIds,
@@ -202,6 +207,7 @@ class HomeRepository {
         row,
         likedByMe: likedByMe,
         savedByMe: savedIds.contains(id),
+        redroppedByMe: isDrop && redroppedIds.contains(id),
       );
     }).toList();
 
@@ -244,10 +250,18 @@ class HomeRepository {
         followRows.map((row) => row['following_id'] as String).toList();
     if (followingIds.isEmpty) return [];
 
+    // WYN-034: a plain `.inFilter('author_id', ...)` would only ever
+    // show a ReDrop when the *original* Drop's author is also
+    // followed -- missing the entire point of ReDrop (a followed user
+    // sharing someone else's content into view). `.or()` matches a row
+    // whose author_id OR redropper_id is a followed user; redropper_id
+    // is null on every plain drop/pop row, so it never accidentally
+    // widens those.
+    final followingList = followingIds.join(',');
     final rows = await _client
         .from('home_feed')
         .select()
-        .inFilter('author_id', followingIds)
+        .or('author_id.in.($followingList),redropper_id.in.($followingList)')
         .order('created_at', ascending: false)
         .range(from, to);
 
@@ -277,6 +291,7 @@ class HomeRepository {
       userId: userId,
       ids: [...dropIds, ...popIds],
     );
+    final redroppedIds = await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
 
     return rows.map((row) {
       final id = row['id'] as String;
@@ -287,6 +302,50 @@ class HomeRepository {
         row,
         likedByMe: likedByMe,
         savedByMe: savedIds.contains(id),
+        redroppedByMe: isDrop && redroppedIds.contains(id),
+      );
+    }).toList();
+  }
+
+  /// Fetches one page (0-indexed) of Standard + Quote ReDrops made by
+  /// [userId], newest-ReDropped-first -- for Profile's "ReDrops" tab
+  /// (WYN-034, Master Spec section 9). `redropper_id` is null on every
+  /// plain drop/pop row in `home_feed`, so filtering on it alone
+  /// already isolates ReDrop-sourced rows -- no `content_type`/
+  /// `redrop_id is not null` filter needed on top.
+  Future<List<HomeFeedItem>> fetchRedropsByUser({
+    required String userId,
+    required int page,
+  }) async {
+    final viewerId = _client.auth.currentUser!.id;
+    final from = page * pageSize;
+    final to = from + pageSize - 1;
+
+    final rows = await _client
+        .from('home_feed')
+        .select()
+        .eq('redropper_id', userId)
+        .order('created_at', ascending: false)
+        .range(from, to);
+
+    final dropIds = rows.map((row) => row['id'] as String).toList();
+    final likedIds = await _fetchLikedIds(
+      table: 'drop_likes',
+      idColumn: 'drop_id',
+      userId: viewerId,
+      ids: dropIds,
+    );
+    final savedIds = await _fetchSavedIds(userId: viewerId, ids: dropIds);
+    final redroppedIds =
+        await _fetchRedroppedIds(userId: viewerId, dropIds: dropIds);
+
+    return rows.map((row) {
+      final id = row['id'] as String;
+      return HomeFeedItem.fromMap(
+        row,
+        likedByMe: likedIds.contains(id),
+        savedByMe: savedIds.contains(id),
+        redroppedByMe: redroppedIds.contains(id),
       );
     }).toList();
   }
@@ -304,6 +363,24 @@ class HomeRepository {
         .inFilter('following_id', authorIds.toList());
 
     return rows.map((row) => row['following_id'] as String).toSet();
+  }
+
+  /// Only Standard ReDrops (quote_text is null) count toward
+  /// [HomeFeedItem.redroppedByMe] -- see that field's doc comment.
+  Future<Set<String>> _fetchRedroppedIds({
+    required String userId,
+    required List<String> dropIds,
+  }) async {
+    if (dropIds.isEmpty) return {};
+
+    final rows = await _client
+        .from('redrops')
+        .select('drop_id')
+        .eq('redropper_id', userId)
+        .isFilter('quote_text', null)
+        .inFilter('drop_id', dropIds);
+
+    return rows.map((row) => row['drop_id'] as String).toSet();
   }
 
   Future<Set<String>> _fetchLikedIds({

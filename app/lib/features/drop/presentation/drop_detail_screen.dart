@@ -22,6 +22,7 @@ import '../../saved/data/saved_repository.dart';
 import '../data/drop.dart';
 import '../data/drop_comment.dart';
 import '../data/drop_repository.dart';
+import 'quote_redrop_screen.dart';
 import 'widgets/confirm_delete_drop_dialog.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../report/data/report_repository.dart';
@@ -201,6 +202,58 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       if (!mounted) return;
       setState(() => _drop = previous);
     }
+  }
+
+  Future<void> _toggleRedrop() async {
+    final previous = _drop;
+    setState(() => _drop = _drop.toggledRedrop());
+    try {
+      await widget.dropRepository.toggleRedrop(
+        dropId: previous.id,
+        currentlyRedropped: previous.redroppedByMe,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _drop = previous);
+    }
+  }
+
+  Future<void> _openRedropSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.repeat),
+              title: Text(_drop.redroppedByMe ? 'ยกเลิก ReDrop' : '🔄 ReDrop'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _toggleRedrop();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.chat_bubble_outline),
+              title: const Text('💬 Quote ReDrop'),
+              onTap: () async {
+                Navigator.of(sheetContext).pop();
+                final posted = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute(
+                    builder: (_) => QuoteRedropScreen(
+                      dropRepository: widget.dropRepository,
+                      drop: _drop,
+                    ),
+                  ),
+                );
+                if (posted == true && mounted) {
+                  setState(() => _drop = _drop.withExtraRedrop());
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _loadFollowStatus() async {
@@ -560,6 +613,23 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     onPressed: () => _commentFocusNode.requestFocus(),
                   ),
                   Text('${_drop.commentCount}'),
+                  const SizedBox(width: WynSpacing.space3),
+                  Semantics(
+                    label: _drop.redroppedByMe
+                        ? 'ReDrop แล้ว กดเพื่อเลือกดำเนินการ'
+                        : 'กดเพื่อ ReDrop',
+                    excludeSemantics: true,
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.repeat,
+                        color: _drop.redroppedByMe
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                      onPressed: _openRedropSheet,
+                    ),
+                  ),
+                  Text('${_drop.redropCount}'),
                   const SizedBox(width: WynSpacing.space3),
                   IconButton(
                     icon: const Icon(Icons.share_outlined),

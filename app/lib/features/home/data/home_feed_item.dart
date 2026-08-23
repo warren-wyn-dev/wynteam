@@ -29,6 +29,14 @@ class HomeFeedItem {
     required this.commentCount,
     required this.likedByMe,
     required this.savedByMe,
+    this.redropCount = 0,
+    this.redroppedByMe = false,
+    this.redropId,
+    this.redropperId,
+    this.redropperUsername,
+    this.redropperDisplayName,
+    this.redropperAvatarUrl,
+    this.quoteText,
   });
 
   final String id;
@@ -54,6 +62,79 @@ class HomeFeedItem {
   final bool likedByMe;
   final bool savedByMe;
 
+  /// WYN-034: total Standard + Quote ReDrops of the underlying Drop. 0
+  /// for Pop content (ReDrop doesn't apply there).
+  final int redropCount;
+
+  /// Whether the *current viewer* has Standard ReDropped the underlying
+  /// Drop -- independent of whether *this particular row* is itself a
+  /// ReDrop (see [redropId]). Drives the 🔄 button's toggle state on
+  /// every drop-typed card, ReDrop-sourced or not.
+  final bool redroppedByMe;
+
+  /// Non-null only when this row came from someone's ReDrop rather than
+  /// directly from `drops` -- i.e. this card is itself a ReDrop entry
+  /// in the feed. When set, [redropperId]/[redropperUsername]/etc.
+  /// describe *who* ReDropped, and [id]/[authorId]/[imageUrl]/[caption]
+  /// still describe the *original* Drop untouched (credit preserved).
+  final String? redropId;
+  final String? redropperId;
+  final String? redropperUsername;
+  final String? redropperDisplayName;
+  final String? redropperAvatarUrl;
+
+  /// Set only for a Quote ReDrop (`redropId != null`) -- the redropper's
+  /// own commentary. Null for a Standard ReDrop or a plain (non-ReDrop)
+  /// row.
+  final String? quoteText;
+
+  /// A real field-for-field copy, unlike the ad hoc "rebuild every
+  /// field by hand" that used to live in HomeFeedScreen's own toggle
+  /// helpers -- that shape silently reset any field it forgot to
+  /// repeat to the constructor default (harmless before WYN-034, since
+  /// nothing else existed yet; would have quietly wiped a ReDrop
+  /// card's label/state on every Like/Save tap once redrop_* existed).
+  HomeFeedItem copyWith({
+    int? likeCount,
+    int? commentCount,
+    bool? likedByMe,
+    bool? savedByMe,
+    int? redropCount,
+    bool? redroppedByMe,
+  }) =>
+      HomeFeedItem(
+        id: id,
+        contentType: contentType,
+        authorId: authorId,
+        authorUsername: authorUsername,
+        authorDisplayName: authorDisplayName,
+        authorAvatarUrl: authorAvatarUrl,
+        createdAt: createdAt,
+        caption: caption,
+        imageUrl: imageUrl,
+        videoUrl: videoUrl,
+        thumbnailUrl: thumbnailUrl,
+        durationSeconds: durationSeconds,
+        viewCount: viewCount,
+        likeCount: likeCount ?? this.likeCount,
+        commentCount: commentCount ?? this.commentCount,
+        likedByMe: likedByMe ?? this.likedByMe,
+        savedByMe: savedByMe ?? this.savedByMe,
+        redropCount: redropCount ?? this.redropCount,
+        redroppedByMe: redroppedByMe ?? this.redroppedByMe,
+        redropId: redropId,
+        redropperId: redropperId,
+        redropperUsername: redropperUsername,
+        redropperDisplayName: redropperDisplayName,
+        redropperAvatarUrl: redropperAvatarUrl,
+        quoteText: quoteText,
+      );
+
+  String get redropperNameOrUsername => displayNameOrUsername(
+        displayName: redropperDisplayName,
+        username: redropperUsername ?? '',
+      );
+
   String get authorNameOrUsername => displayNameOrUsername(
         displayName: authorDisplayName,
         username: authorUsername,
@@ -74,6 +155,8 @@ class HomeFeedItem {
         commentCount: commentCount,
         likedByMe: likedByMe,
         savedByMe: savedByMe,
+        redropCount: redropCount,
+        redroppedByMe: redroppedByMe,
       );
 
   /// Converts to the full [Pop] object PopClipView expects. Only valid
@@ -114,12 +197,15 @@ class HomeFeedItem {
         commentCount: drop.commentCount,
         likedByMe: drop.likedByMe,
         savedByMe: drop.savedByMe,
+        redropCount: drop.redropCount,
+        redroppedByMe: drop.redroppedByMe,
       );
 
   factory HomeFeedItem.fromMap(
     Map<String, dynamic> map, {
     required bool likedByMe,
     required bool savedByMe,
+    bool redroppedByMe = false,
   }) {
     final contentType = map['content_type'] as String;
     return HomeFeedItem(
@@ -141,6 +227,14 @@ class HomeFeedItem {
       commentCount: (map['comment_count'] as num).toInt(),
       likedByMe: likedByMe,
       savedByMe: savedByMe,
+      redropCount: (map['redrop_count'] as num?)?.toInt() ?? 0,
+      redroppedByMe: redroppedByMe,
+      redropId: map['redrop_id'] as String?,
+      redropperId: map['redropper_id'] as String?,
+      redropperUsername: map['redropper_username'] as String?,
+      redropperDisplayName: map['redropper_display_name'] as String?,
+      redropperAvatarUrl: map['redropper_avatar_url'] as String?,
+      quoteText: map['quote_text'] as String?,
     );
   }
 }

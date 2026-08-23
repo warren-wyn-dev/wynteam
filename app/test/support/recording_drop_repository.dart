@@ -179,4 +179,37 @@ class RecordingDropRepository extends DropRepository {
   Future<void> deleteComment(String commentId) async {
     deleteCommentCalls.add(commentId);
   }
+
+  int toggleRedropCalls = 0;
+  final List<bool> toggleRedropCurrentlyRedroppedArgs = [];
+
+  @override
+  Future<void> toggleRedrop({
+    required String dropId,
+    required bool currentlyRedropped,
+  }) async {
+    toggleRedropCalls++;
+    toggleRedropCurrentlyRedroppedArgs.add(currentlyRedropped);
+  }
+
+  int quoteRedropCalls = 0;
+  final List<String> quoteRedropTextArgs = [];
+  Object? quoteRedropError;
+
+  @override
+  Future<void> quoteRedrop({
+    required String dropId,
+    required String quoteText,
+  }) async {
+    if (quoteRedropError != null) throw quoteRedropError!;
+    quoteRedropCalls++;
+    quoteRedropTextArgs.add(quoteText);
+  }
+
+  final List<String> deleteRedropCalls = [];
+
+  @override
+  Future<void> deleteRedrop(String redropId) async {
+    deleteRedropCalls.add(redropId);
+  }
 }

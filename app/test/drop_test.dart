@@ -7,6 +7,8 @@ Drop _drop({
   int commentCount = 0,
   bool likedByMe = false,
   bool savedByMe = false,
+  int redropCount = 0,
+  bool redroppedByMe = false,
 }) =>
     Drop(
       id: 'd1',
@@ -18,6 +20,8 @@ Drop _drop({
       commentCount: commentCount,
       likedByMe: likedByMe,
       savedByMe: savedByMe,
+      redropCount: redropCount,
+      redroppedByMe: redroppedByMe,
     );
 
 void main() {
@@ -82,6 +86,35 @@ void main() {
     expect(drop.commentCount, 1);
   });
 
+  group('toggledRedrop (WYN-034)', () {
+    test('ReDropping bumps redropCount and flips redroppedByMe', () {
+      final toggled = _drop(redropCount: 2, redroppedByMe: false).toggledRedrop();
+      expect(toggled.redroppedByMe, isTrue);
+      expect(toggled.redropCount, 3);
+    });
+
+    test('un-ReDropping decrements redropCount and flips redroppedByMe', () {
+      final toggled = _drop(redropCount: 2, redroppedByMe: true).toggledRedrop();
+      expect(toggled.redroppedByMe, isFalse);
+      expect(toggled.redropCount, 1);
+    });
+
+    test('does not touch likeCount/likedByMe/savedByMe', () {
+      final toggled =
+          _drop(likeCount: 5, likedByMe: true, savedByMe: true).toggledRedrop();
+      expect(toggled.likeCount, 5);
+      expect(toggled.likedByMe, isTrue);
+      expect(toggled.savedByMe, isTrue);
+    });
+  });
+
+  test('withExtraRedrop bumps redropCount only, without touching '
+      'redroppedByMe', () {
+    final drop = _drop(redropCount: 1, redroppedByMe: false).withExtraRedrop();
+    expect(drop.redropCount, 2);
+    expect(drop.redroppedByMe, isFalse);
+  });
+
   group('Drop.fromMap', () {
     test('parses embedded author, like/comment counts, liked/saved state', () {
       final drop = Drop.fromMap({
@@ -125,6 +158,41 @@ void main() {
 
       expect(drop.likeCount, 0);
       expect(drop.commentCount, 0);
+    });
+
+    test('parses embedded redrops count and redroppedByMe (WYN-034)', () {
+      final drop = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+        'redrops': [
+          {'count': 4}
+        ],
+      }, likedByMe: false, savedByMe: false, redroppedByMe: true);
+
+      expect(drop.redropCount, 4);
+      expect(drop.redroppedByMe, isTrue);
+    });
+
+    test('redropCount defaults to 0 when the redrops embed is missing', () {
+      final drop = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+      }, likedByMe: false, savedByMe: false);
+
+      expect(drop.redropCount, 0);
+      expect(drop.redroppedByMe, isFalse);
     });
   });
 }

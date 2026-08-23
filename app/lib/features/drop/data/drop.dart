@@ -16,6 +16,8 @@ class Drop {
     required this.commentCount,
     required this.likedByMe,
     required this.savedByMe,
+    this.redropCount = 0,
+    this.redroppedByMe = false,
   });
 
   final String id;
@@ -31,6 +33,18 @@ class Drop {
   final bool likedByMe;
   final bool savedByMe;
 
+  /// WYN-034: total Standard + Quote ReDrops of this Drop. Always 0 for
+  /// content that doesn't support ReDrop (there is none today -- every
+  /// [Drop] supports it -- default kept only so existing call sites that
+  /// don't yet pass it (fixtures, older tests) still compile).
+  final int redropCount;
+
+  /// Whether the *current viewer* has Standard ReDropped this Drop
+  /// (drives the 🔄 button's filled/outline state -- mirrors
+  /// [likedByMe]). Quote ReDrops don't affect this -- a user can Quote
+  /// ReDrop freely regardless of their Standard ReDrop state.
+  final bool redroppedByMe;
+
   String get authorNameOrUsername => displayNameOrUsername(
         displayName: authorDisplayName,
         username: authorUsername,
@@ -41,6 +55,8 @@ class Drop {
     int? commentCount,
     bool? likedByMe,
     bool? savedByMe,
+    int? redropCount,
+    bool? redroppedByMe,
   }) =>
       Drop(
         id: id,
@@ -55,6 +71,8 @@ class Drop {
         commentCount: commentCount ?? this.commentCount,
         likedByMe: likedByMe ?? this.likedByMe,
         savedByMe: savedByMe ?? this.savedByMe,
+        redropCount: redropCount ?? this.redropCount,
+        redroppedByMe: redroppedByMe ?? this.redroppedByMe,
       );
 
   /// A copy with the like toggled -- used for optimistic UI updates before
@@ -67,6 +85,19 @@ class Drop {
   /// A copy with save toggled -- same optimistic-update role as
   /// [toggledLike].
   Drop toggledSave() => copyWith(savedByMe: !savedByMe);
+
+  /// A copy with the Standard ReDrop toggled -- same optimistic-update
+  /// role as [toggledLike]. Quote ReDrop never calls this (it doesn't
+  /// change [redroppedByMe]; see that field's doc comment) -- it only
+  /// bumps [redropCount] separately after a successful post.
+  Drop toggledRedrop() => copyWith(
+        redroppedByMe: !redroppedByMe,
+        redropCount: redroppedByMe ? redropCount - 1 : redropCount + 1,
+      );
+
+  /// A copy with the ReDrop count bumped -- used right after posting a
+  /// Quote ReDrop, without waiting for a full feed refresh.
+  Drop withExtraRedrop() => copyWith(redropCount: redropCount + 1);
 
   /// A copy with the comment count bumped -- used right after posting a
   /// new comment, without waiting for a full feed refresh.
@@ -83,6 +114,7 @@ class Drop {
     Map<String, dynamic> map, {
     required bool likedByMe,
     required bool savedByMe,
+    bool redroppedByMe = false,
   }) {
     final author = map['author'] as Map<String, dynamic>?;
 
@@ -99,6 +131,8 @@ class Drop {
       commentCount: _embeddedCount(map['drop_comments'] as List<dynamic>?),
       likedByMe: likedByMe,
       savedByMe: savedByMe,
+      redropCount: _embeddedCount(map['redrops'] as List<dynamic>?),
+      redroppedByMe: redroppedByMe,
     );
   }
 

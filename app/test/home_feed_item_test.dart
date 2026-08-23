@@ -57,6 +57,110 @@ void main() {
       expect(item.viewCount, 100);
       expect(item.savedByMe, isTrue);
     });
+
+    test('parses a ReDrop-sourced drop row (WYN-034)', () {
+      final item = HomeFeedItem.fromMap({
+        'id': 'd1',
+        'content_type': 'drop',
+        'author_id': 'u1',
+        'author_username': 'namfah',
+        'author_display_name': null,
+        'author_avatar_url': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'caption': 'original caption',
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'video_url': null,
+        'thumbnail_url': null,
+        'duration_seconds': null,
+        'view_count': null,
+        'like_count': 5,
+        'comment_count': 2,
+        'redrop_count': 3,
+        'redrop_id': 'r1',
+        'redropper_id': 'u2',
+        'redropper_username': 'som',
+        'redropper_display_name': 'Som',
+        'redropper_avatar_url': 'https://example.com/som.jpg',
+        'quote_text': 'ดูนี่สิ',
+      }, likedByMe: false, savedByMe: false, redroppedByMe: true);
+
+      expect(item.redropId, 'r1');
+      expect(item.redropperId, 'u2');
+      expect(item.redropperUsername, 'som');
+      expect(item.redropperNameOrUsername, 'Som');
+      expect(item.quoteText, 'ดูนี่สิ');
+      expect(item.redropCount, 3);
+      expect(item.redroppedByMe, isTrue);
+      // The underlying content still describes the *original* Drop.
+      expect(item.authorUsername, 'namfah');
+      expect(item.caption, 'original caption');
+    });
+
+    test('redrop_* fields are null and redropCount is 0 for a plain row', () {
+      final item = HomeFeedItem.fromMap({
+        'id': 'd1',
+        'content_type': 'drop',
+        'author_id': 'u1',
+        'author_username': 'namfah',
+        'author_display_name': null,
+        'author_avatar_url': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'caption': null,
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'video_url': null,
+        'thumbnail_url': null,
+        'duration_seconds': null,
+        'view_count': null,
+        'like_count': 0,
+        'comment_count': 0,
+      }, likedByMe: false, savedByMe: false);
+
+      expect(item.redropId, isNull);
+      expect(item.redropperId, isNull);
+      expect(item.quoteText, isNull);
+      expect(item.redropCount, 0);
+      expect(item.redroppedByMe, isFalse);
+    });
+  });
+
+  group('copyWith (WYN-034)', () {
+    test('overrides the given fields and keeps everything else, including '
+        'redrop_* fields', () {
+      final item = HomeFeedItem.fromMap({
+        'id': 'd1',
+        'content_type': 'drop',
+        'author_id': 'u1',
+        'author_username': 'namfah',
+        'author_display_name': null,
+        'author_avatar_url': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'caption': null,
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'video_url': null,
+        'thumbnail_url': null,
+        'duration_seconds': null,
+        'view_count': null,
+        'like_count': 5,
+        'comment_count': 2,
+        'redrop_count': 1,
+        'redrop_id': 'r1',
+        'redropper_id': 'u2',
+        'redropper_username': 'som',
+        'quote_text': 'ดูนี่สิ',
+      }, likedByMe: false, savedByMe: false);
+
+      final copy = item.copyWith(likeCount: 6, redroppedByMe: true);
+
+      expect(copy.likeCount, 6);
+      expect(copy.redroppedByMe, isTrue);
+      // Untouched fields, including the redrop_* ones a naive
+      // hand-rolled copy could easily forget to repeat.
+      expect(copy.redropId, 'r1');
+      expect(copy.redropperId, 'u2');
+      expect(copy.redropperUsername, 'som');
+      expect(copy.quoteText, 'ดูนี่สิ');
+      expect(copy.commentCount, 2);
+    });
   });
 
   group('toDrop/toPop', () {

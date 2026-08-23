@@ -7,6 +7,7 @@ import '../../club/data/club_repository.dart';
 import '../../club/presentation/widgets/club_section.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/drop_detail_screen.dart';
+import '../../drop/presentation/quote_redrop_screen.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile_repository.dart';
@@ -203,13 +204,16 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
   }
 
-  // Takes only the id and re-reads the live _items[index] instead of a
-  // HomeFeedItem captured at the last build -- same double-tap-safety
-  // pattern as DropDetailScreen._toggleCommentLike. See
-  // .wyn/learning/PATTERNS.md.
-  Future<void> _toggleLike(String itemId) async {
-    final index = _items.indexWhere((i) => i.id == itemId);
-    if (index == -1) return;
+  // Takes the list index directly rather than re-locating the item by
+  // id (the pre-WYN-034 approach): once a Drop can appear twice in the
+  // same page -- once as a plain drop, once via someone's ReDrop of it
+  // (WYN-034) -- `id` alone is no longer unique within `_items`, so an
+  // id-based `indexWhere` could silently mutate the wrong row. The
+  // index is captured directly from itemBuilder's own `index`, which
+  // stays valid across setState here since this list is only ever
+  // appended to (pagination), never reordered or spliced.
+  Future<void> _toggleLike(int index) async {
+    if (index < 0 || index >= _items.length) return;
     final previous = _items[index];
 
     setState(() => _items[index] = _withToggledLike(previous));
@@ -231,9 +235,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
   }
 
-  Future<void> _toggleSave(String itemId) async {
-    final index = _items.indexWhere((i) => i.id == itemId);
-    if (index == -1) return;
+  Future<void> _toggleSave(int index) async {
+    if (index < 0 || index >= _items.length) return;
     final previous = _items[index];
 
     setState(() => _items[index] = _withToggledSave(previous));
@@ -255,44 +258,91 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
   }
 
-  static HomeFeedItem _withToggledLike(HomeFeedItem item) => HomeFeedItem(
-        id: item.id,
-        contentType: item.contentType,
-        authorId: item.authorId,
-        authorUsername: item.authorUsername,
-        authorDisplayName: item.authorDisplayName,
-        authorAvatarUrl: item.authorAvatarUrl,
-        createdAt: item.createdAt,
-        caption: item.caption,
-        imageUrl: item.imageUrl,
-        videoUrl: item.videoUrl,
-        thumbnailUrl: item.thumbnailUrl,
-        durationSeconds: item.durationSeconds,
-        viewCount: item.viewCount,
-        likeCount: item.likedByMe ? item.likeCount - 1 : item.likeCount + 1,
-        commentCount: item.commentCount,
+  /// Standard ReDrop toggle (WYN-034) -- Pop content has no ReDrop, so
+  /// unlike [_toggleLike]/[_toggleSave] this never branches on
+  /// [HomeContentType]; [onToggleRedrop] is only ever wired up for
+  /// drop-typed cards (see the itemBuilder below).
+  Future<void> _toggleRedrop(int index) async {
+    if (index < 0 || index >= _items.length) return;
+    final previous = _items[index];
+
+    setState(() => _items[index] = _withToggledRedrop(previous));
+    try {
+      await widget.dropRepository.toggleRedrop(
+        dropId: previous.id,
+        currentlyRedropped: previous.redroppedByMe,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _items[index] = previous);
+    }
+  }
+
+  /// Deletes the viewer's own ReDrop entry at [index] (Standard or
+  /// Quote) -- only ever wired up for a card HomeDropCard has already
+  /// determined is the viewer's own ReDrop (see its `_isOwnRedrop`).
+  /// Removes the row from the feed outright on success, unlike
+  /// [_toggleRedrop] which flips [HomeFeedItem.redroppedByMe] on the
+  /// *same* card -- deleting a specific ReDrop entry has nothing left
+  /// to toggle back to.
+  Future<void> _deleteRedrop(int index) async {
+    if (index < 0 || index >= _items.length) return;
+    final item = _items[index];
+    final redropId = item.redropId;
+    if (redropId == null) return;
+
+    setState(() => _items.removeAt(index));
+    try {
+      await widget.dropRepository.deleteRedrop(redropId);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _items.insert(index, item));
+    }
+  }
+
+  /// Opens QuoteRedropScreen (WYN-034 Screen 2) for the Drop at
+  /// [index]. Unlike [_toggleRedrop] this isn't optimistic -- posting
+  /// happens on that screen itself, so this only bumps [redropCount]
+  /// after a confirmed success (the screen pops `true`).
+  Future<void> _quoteRedrop(int index) async {
+    if (index < 0 || index >= _items.length) return;
+    final item = _items[index];
+
+    final posted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => QuoteRedropScreen(
+          dropRepository: widget.dropRepository,
+          drop: item.toDrop(),
+        ),
+      ),
+    );
+    if (posted != true || !mounted) return;
+    if (index >= _items.length || _items[index].id != item.id) return;
+    setState(() {
+      _items[index] =
+          _items[index].copyWith(redropCount: _items[index].redropCount + 1);
+    });
+  }
+
+  // WYN-034: now that HomeFeedItem has a real copyWith (added alongside
+  // the redrop_* fields), these delegate to it instead of rebuilding
+  // every field by hand -- the old hand-rolled shape would have
+  // silently reset any field it forgot to repeat to the constructor
+  // default, which used to be harmless (nothing else existed yet) but
+  // would have quietly wiped a ReDrop-sourced card's label/state on
+  // every Like or Save tap once redrop_* existed.
+  static HomeFeedItem _withToggledLike(HomeFeedItem item) => item.copyWith(
         likedByMe: !item.likedByMe,
-        savedByMe: item.savedByMe,
+        likeCount: item.likedByMe ? item.likeCount - 1 : item.likeCount + 1,
       );
 
-  static HomeFeedItem _withToggledSave(HomeFeedItem item) => HomeFeedItem(
-        id: item.id,
-        contentType: item.contentType,
-        authorId: item.authorId,
-        authorUsername: item.authorUsername,
-        authorDisplayName: item.authorDisplayName,
-        authorAvatarUrl: item.authorAvatarUrl,
-        createdAt: item.createdAt,
-        caption: item.caption,
-        imageUrl: item.imageUrl,
-        videoUrl: item.videoUrl,
-        thumbnailUrl: item.thumbnailUrl,
-        durationSeconds: item.durationSeconds,
-        viewCount: item.viewCount,
-        likeCount: item.likeCount,
-        commentCount: item.commentCount,
-        likedByMe: item.likedByMe,
-        savedByMe: !item.savedByMe,
+  static HomeFeedItem _withToggledSave(HomeFeedItem item) =>
+      item.copyWith(savedByMe: !item.savedByMe);
+
+  static HomeFeedItem _withToggledRedrop(HomeFeedItem item) => item.copyWith(
+        redroppedByMe: !item.redroppedByMe,
+        redropCount:
+            item.redroppedByMe ? item.redropCount - 1 : item.redropCount + 1,
       );
 
   Future<void> _openDrop(HomeFeedItem item) async {
@@ -726,22 +776,33 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
           }
 
           final item = _items[index];
+          // WYN-034: id alone is no longer a unique widget key -- the
+          // same Drop can appear twice (once plain, once via someone's
+          // ReDrop of it), so redropId (null for a plain row) is
+          // folded in too.
+          final itemKey = ValueKey('${item.id}:${item.redropId ?? ''}');
           if (item.contentType == HomeContentType.drop) {
             return HomeDropCard(
-              key: ValueKey(item.id),
+              key: itemKey,
               item: item,
               onTap: () => _openDrop(item),
-              onToggleLike: () => _toggleLike(item.id),
-              onToggleSave: () => _toggleSave(item.id),
+              onToggleLike: () => _toggleLike(index),
+              onToggleSave: () => _toggleSave(index),
               onOpenProfile: () => _openProfile(item.authorId),
+              onToggleRedrop: () => _toggleRedrop(index),
+              onQuoteRedrop: () => _quoteRedrop(index),
+              onOpenRedropperProfile: item.redropperId == null
+                  ? null
+                  : () => _openProfile(item.redropperId!),
+              onDeleteRedrop: () => _deleteRedrop(index),
             );
           }
           return HomePopCard(
-            key: ValueKey(item.id),
+            key: itemKey,
             item: item,
             onTap: () => _openPop(item),
-            onToggleLike: () => _toggleLike(item.id),
-            onToggleSave: () => _toggleSave(item.id),
+            onToggleLike: () => _toggleLike(index),
+            onToggleSave: () => _toggleSave(index),
             onOpenProfile: () => _openProfile(item.authorId),
           );
         },

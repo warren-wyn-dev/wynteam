@@ -14,6 +14,7 @@ class RecordingHomeRepository extends HomeRepository {
     List<HomeFeedItem>? trendingItems,
     List<HomeFeedItem>? rankedFeedItems,
     List<HomeFeedItem>? followingFeedItems,
+    List<HomeFeedItem>? redropsByUser,
   })  : feedItems = feedItems ?? [],
         trendingItems = trendingItems ?? [],
         // Defaults to the same list as feedItems -- most existing
@@ -23,6 +24,7 @@ class RecordingHomeRepository extends HomeRepository {
         // returning genuinely different data from the others.
         rankedFeedItems = rankedFeedItems ?? feedItems ?? [],
         followingFeedItems = followingFeedItems ?? feedItems ?? [],
+        redropsByUser = redropsByUser ?? [],
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   /// Returned by [fetchFeed] for page 0 only (page 1+ returns empty).
@@ -41,8 +43,14 @@ class RecordingHomeRepository extends HomeRepository {
   /// given explicitly (see constructor doc comment).
   final List<HomeFeedItem> followingFeedItems;
 
+  /// Returned by [fetchRedropsByUser] for page 0 only (page 1+ returns
+  /// empty) -- WYN-034.
+  final List<HomeFeedItem> redropsByUser;
+
   int fetchRankedFeedCalls = 0;
   int fetchFollowingFeedCalls = 0;
+  int fetchRedropsByUserCalls = 0;
+  final List<String> fetchRedropsByUserUserIdArgs = [];
 
   @override
   Future<List<HomeFeedItem>> fetchFeed({required int page}) async {
@@ -62,5 +70,15 @@ class RecordingHomeRepository extends HomeRepository {
   Future<List<HomeFeedItem>> fetchFollowingFeed({required int page}) async {
     fetchFollowingFeedCalls++;
     return page == 0 ? followingFeedItems : <HomeFeedItem>[];
+  }
+
+  @override
+  Future<List<HomeFeedItem>> fetchRedropsByUser({
+    required String userId,
+    required int page,
+  }) async {
+    fetchRedropsByUserCalls++;
+    fetchRedropsByUserUserIdArgs.add(userId);
+    return page == 0 ? redropsByUser : <HomeFeedItem>[];
   }
 }
