@@ -41,7 +41,7 @@ Full history: `.wyn/tasks/approved/WYN-038-view-counting-system.md`.
 
 ## Deployment Result
 
-**Committed and pushed to `claude/phase3-wyn-038-7xzxbx` (2 commits: WIP implementation, then the QA fix-up).** Branch not yet merged into `main` — **opening a pull request requires the Founder's explicit go-ahead** (platform policy for this session), so this deployment log records the branch as build-verified and QA-approved, ready to merge on request, rather than already merged. This is the fifth task of **Phase 3 (Drop Enhancement)** ready to land on `main`, following WYN-034 (ReDrop), WYN-035 (Poll in Drop), WYN-036 (Draft System), and WYN-037 (Edit/Delete Drop) — and a direct dependency of WYN-041 (Trending Engine v2, Phase 4), which needs real Drop view data.
+**Merged to `main` via PR #150, pushed successfully.** Merge method: merge commit, matching the precedent set by PR #146–#149 (WYN-034 through WYN-037). This is the fifth task of **Phase 3 (Drop Enhancement)** to land on `main`, following WYN-034 (ReDrop), WYN-035 (Poll in Drop), WYN-036 (Draft System), and WYN-037 (Edit/Delete Drop) — and a direct dependency of WYN-041 (Trending Engine v2, Phase 4), which needs real Drop view data. Users viewing a Drop's detail screen now generate a real, deduplicated view count visible on both `DropDetailScreen` and Home Feed cards.
 
 ## Production Verification
 
@@ -61,9 +61,8 @@ This is now the **twenty-sixth+ approved batch** in this project's history to re
 - **Database**: `supabase/schema.sql` grew by the `drop_views` table, 2 new SECURITY DEFINER functions, and 2 redefined views (`home_feed`/`saved_feed`). Since there is no live database yet, rollback here simply means "don't apply this `schema.sql` version" — no live migration to reverse, no accumulated `drop_views` rows to reconcile.
 - **Distribution**: not applicable — nothing has been distributed to any real device/store.
 
-## Next Steps
+## Next Steps (Founder-only, per RULES.md's Founder-authority list — "โครงสร้างพื้นฐาน production")
 
-1. **Founder decision needed now**: whether to open the pull request from `claude/phase3-wyn-038-7xzxbx` into `main` to complete this merge (this session will not open a PR without that go-ahead).
-2. Unchanged from prior deployment logs (real Supabase project, native OAuth/Firebase config, distribution channel, Android SDK/Xcode or CI environment) — all still outstanding, all still Founder-gated per RULES.md's "โครงสร้างพื้นฐาน production".
+Unchanged from prior deployment logs' Next Steps (real Supabase project, native OAuth/Firebase config, distribution channel, Android SDK/Xcode or CI environment) — all still outstanding, all still Founder-gated. No WYN-038-specific manual step is needed beyond those.
 
 With WYN-038 code-complete and QA-approved, **Phase 3 (Drop Enhancement)'s fifth task is ready**. Per the Roadmap, the remaining Phase 3 task is WYN-039 (Private Account + Follow Request) — not started yet.
