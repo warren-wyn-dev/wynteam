@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/block/presentation/blocked_list_screen.dart';
+import 'package:wyn/features/drop/presentation/recently_deleted_drops_screen.dart';
 import 'package:wyn/features/moderation/presentation/moderation_queue_screen.dart';
 import 'package:wyn/features/mute/presentation/muted_list_screen.dart';
 import 'package:wyn/features/profile/data/profile.dart';
@@ -48,6 +49,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(MutedListScreen), findsOneWidget);
+  });
+
+  testWidgets('tapping รายการที่ลบ opens RecentlyDeletedDropsScreen (WYN-037)',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: SettingsScreen(platformRole: PlatformRole.user),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('รายการที่ลบ'), findsOneWidget);
+
+    await tester.tap(find.text('รายการที่ลบ'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RecentlyDeletedDropsScreen), findsOneWidget);
   });
 
   // WYN-029, Screen 1 -- an ordinary user must not see even an empty

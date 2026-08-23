@@ -6,6 +6,7 @@ import '../../block/presentation/blocked_list_screen.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
 import '../../drop/data/drop_repository.dart';
+import '../../drop/presentation/recently_deleted_drops_screen.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/data/moderation_repository.dart';
@@ -93,6 +94,20 @@ class SettingsScreen extends StatelessWidget {
                     dropRepository: DropRepository(client),
                     popRepository: PopRepository(client),
                     savedRepository: SavedRepository(client),
+                  ),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.restore_from_trash_outlined),
+            title: const Text('รายการที่ลบ'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => RecentlyDeletedDropsScreen(
+                    dropRepository: DropRepository(Supabase.instance.client),
                   ),
                 ),
               );

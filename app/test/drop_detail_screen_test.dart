@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/data/drop_comment.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
+import 'package:wyn/features/drop/presentation/edit_drop_caption_screen.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
 
@@ -36,6 +37,10 @@ void main() {
   late RecordingDropRepository existingReplyRepo;
   late RecordingDropRepository pollVoteTestRepo;
   late RecordingDropRepository pollOwnAuthorTestRepo;
+  late RecordingDropRepository editMenuTestRepo;
+  late RecordingDropRepository oldDropMenuTestRepo;
+  late RecordingDropRepository editFlowTestRepo;
+  late RecordingDropRepository deleteFlowTestRepo;
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
     repo = RecordingDropRepository();
@@ -108,6 +113,11 @@ void main() {
     // this setUpAll.
     pollVoteTestRepo = RecordingDropRepository();
     pollOwnAuthorTestRepo = RecordingDropRepository();
+    // WYN-037 -- same "constructed in setUpAll" discipline.
+    editMenuTestRepo = RecordingDropRepository();
+    oldDropMenuTestRepo = RecordingDropRepository();
+    editFlowTestRepo = RecordingDropRepository();
+    deleteFlowTestRepo = RecordingDropRepository();
   });
 
   final tallDrop = Drop(
@@ -592,6 +602,172 @@ void main() {
       await tester.pump();
 
       expect(pollOwnAuthorTestRepo.votePollArgs, isEmpty);
+    });
+  });
+
+  group('Edit/Delete (WYN-037)', () {
+    testWidgets(
+        'own Drop within the 30-minute edit window shows both "แก้ไข" and '
+        '"ลบ" in the more_vert menu', (tester) async {
+      final freshOwnDrop = Drop(
+        id: 'edit-1',
+        authorId: 'me',
+        authorUsername: 'me_user',
+        imageUrl: 'https://example.supabase.co/drops/edit-1.jpg',
+        caption: 'เดิม',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: editMenuTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: freshOwnDrop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert)).onPressed!();
+      await tester.pumpAndSettle();
+
+      expect(find.text('แก้ไข'), findsOneWidget);
+      expect(find.text('ลบ'), findsOneWidget);
+    });
+
+    testWidgets(
+        'own Drop past the 30-minute edit window hides "แก้ไข", keeps "ลบ"',
+        (tester) async {
+      final oldOwnDrop = Drop(
+        id: 'edit-2',
+        authorId: 'me',
+        authorUsername: 'me_user',
+        imageUrl: 'https://example.supabase.co/drops/edit-2.jpg',
+        caption: 'เก่าแล้ว',
+        createdAt: DateTime.now().subtract(const Duration(minutes: 31)),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: oldDropMenuTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: oldOwnDrop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert)).onPressed!();
+      await tester.pumpAndSettle();
+
+      expect(find.text('แก้ไข'), findsNothing);
+      expect(find.text('ลบ'), findsOneWidget);
+    });
+
+    testWidgets(
+        'tapping "แก้ไข" opens EditDropCaptionScreen prefilled, and '
+        'returning the new caption updates the caption and shows '
+        '"แก้ไขแล้ว"', (tester) async {
+      final drop = Drop(
+        id: 'edit-3',
+        authorId: 'me',
+        authorUsername: 'me_user',
+        imageUrl: 'https://example.supabase.co/drops/edit-3.jpg',
+        caption: 'เดิม',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: editFlowTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert)).onPressed!();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('แก้ไข'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(EditDropCaptionScreen), findsOneWidget);
+      expect(find.text('เดิม'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'แก้ไขแล้วนะ');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(TextButton, 'บันทึก'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(EditDropCaptionScreen), findsNothing);
+      expect(editFlowTestRepo.editDropArgs, hasLength(1));
+      expect(editFlowTestRepo.editDropArgs.single['caption'], 'แก้ไขแล้วนะ');
+      expect(find.text('แก้ไขแล้วนะ'), findsOneWidget);
+      expect(find.text('แก้ไขแล้ว'), findsOneWidget);
+    });
+
+    testWidgets('tapping "ลบ" confirms then soft-deletes via deleteDrop',
+        (tester) async {
+      final drop = Drop(
+        id: 'delete-1',
+        authorId: 'me',
+        authorUsername: 'me_user',
+        imageUrl: 'https://example.supabase.co/drops/delete-1.jpg',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: deleteFlowTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert)).onPressed!();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ลบ'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ลบ Drop นี้?'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
+      await tester.pumpAndSettle();
+
+      expect(deleteFlowTestRepo.deleteDropCalls, ['delete-1']);
+      expect(find.byType(DropDetailScreen), findsNothing);
     });
   });
 }
