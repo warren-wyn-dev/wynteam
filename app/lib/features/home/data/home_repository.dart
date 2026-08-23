@@ -30,7 +30,13 @@ class HomeRepository {
   // How far back "Trending" looks, and how many recent candidates are
   // pulled before ranking client-side -- see fetchTrending's doc comment.
   static const _trendingWindow = Duration(hours: 48);
-  static const _trendingCandidateLimit = 100;
+
+  // Public (not `_`-prefixed) unlike the two constants below -- WYN-040's
+  // DiscoveryRepository.fetchTrendingHashtags reuses this exact window/
+  // candidate-count as its own "recent Drop candidates" source (see its
+  // doc comment) rather than duplicating a second 48h/100 constant pair
+  // that could silently drift out of sync with this one.
+  static const trendingCandidateLimit = 100;
   static const _trendingResultLimit = 10;
 
   // The ranked "สำหรับคุณ" feed (WYN-018) is a bounded top-N window, not
@@ -76,10 +82,14 @@ class HomeRepository {
       userId: userId,
       ids: [...dropIds, ...popIds],
     );
-    final redroppedIds = await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
+    final redroppedIds =
+        await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
     final pollStates = await _fetchPollStates(
       userId: userId,
-      pollIds: rows.map((row) => row['poll_id'] as String?).whereType<String>().toList(),
+      pollIds: rows
+          .map((row) => row['poll_id'] as String?)
+          .whereType<String>()
+          .toList(),
     );
 
     return rows.map((row) {
@@ -108,7 +118,14 @@ class HomeRepository {
   /// candidates and ranks them client-side instead -- the same tradeoff
   /// `ClubRepository.fetchPopularClubs` already makes for the same
   /// reason ("still a small catalog", see that method's doc comment).
-  Future<List<HomeFeedItem>> fetchTrending() async {
+  ///
+  /// [limit] only caps the *final ranked result*, not the candidate
+  /// window itself ([trendingCandidateLimit]/[_trendingWindow] stay
+  /// fixed regardless) -- added for WYN-040's Discovery page, which
+  /// shows a wider "Trending Now" section (~30) than Home's own row
+  /// (still defaults to 10, so every existing caller is unaffected).
+  Future<List<HomeFeedItem>> fetchTrending(
+      {int limit = _trendingResultLimit}) async {
     final userId = _client.auth.currentUser!.id;
     final since = DateTime.now().toUtc().subtract(_trendingWindow);
 
@@ -117,7 +134,7 @@ class HomeRepository {
         .select()
         .gte('created_at', since.toIso8601String())
         .order('created_at', ascending: false)
-        .limit(_trendingCandidateLimit);
+        .limit(trendingCandidateLimit);
 
     final dropIds = <String>[];
     final popIds = <String>[];
@@ -145,10 +162,14 @@ class HomeRepository {
       userId: userId,
       ids: [...dropIds, ...popIds],
     );
-    final redroppedIds = await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
+    final redroppedIds =
+        await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
     final pollStates = await _fetchPollStates(
       userId: userId,
-      pollIds: rows.map((row) => row['poll_id'] as String?).whereType<String>().toList(),
+      pollIds: rows
+          .map((row) => row['poll_id'] as String?)
+          .whereType<String>()
+          .toList(),
     );
 
     final items = rows.map((row) {
@@ -170,7 +191,7 @@ class HomeRepository {
 
     items.sort((a, b) =>
         (b.likeCount + b.commentCount).compareTo(a.likeCount + a.commentCount));
-    return items.take(_trendingResultLimit).toList();
+    return items.take(limit).toList();
   }
 
   /// The ranked "สำหรับคุณ" feed (WYN-018): fetches a bounded window of
@@ -220,10 +241,14 @@ class HomeRepository {
       userId: userId,
       ids: [...dropIds, ...popIds],
     );
-    final redroppedIds = await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
+    final redroppedIds =
+        await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
     final pollStates = await _fetchPollStates(
       userId: userId,
-      pollIds: rows.map((row) => row['poll_id'] as String?).whereType<String>().toList(),
+      pollIds: rows
+          .map((row) => row['poll_id'] as String?)
+          .whereType<String>()
+          .toList(),
     );
     final followedAuthorIds = await _fetchFollowedAuthorIds(
       userId: userId,
@@ -327,10 +352,14 @@ class HomeRepository {
       userId: userId,
       ids: [...dropIds, ...popIds],
     );
-    final redroppedIds = await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
+    final redroppedIds =
+        await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
     final pollStates = await _fetchPollStates(
       userId: userId,
-      pollIds: rows.map((row) => row['poll_id'] as String?).whereType<String>().toList(),
+      pollIds: rows
+          .map((row) => row['poll_id'] as String?)
+          .whereType<String>()
+          .toList(),
     );
 
     return rows.map((row) {
@@ -384,7 +413,10 @@ class HomeRepository {
         await _fetchRedroppedIds(userId: viewerId, dropIds: dropIds);
     final pollStates = await _fetchPollStates(
       userId: viewerId,
-      pollIds: rows.map((row) => row['poll_id'] as String?).whereType<String>().toList(),
+      pollIds: rows
+          .map((row) => row['poll_id'] as String?)
+          .whereType<String>()
+          .toList(),
     );
 
     return rows.map((row) {
