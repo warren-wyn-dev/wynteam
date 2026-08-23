@@ -1,6 +1,6 @@
 # Product Task — WYN-041
 
-Status: qa (Coding เสร็จแล้ว — รอ Independent QA)
+Status: approved (Independent QA PASS 2026-08-23 — ดูหัวข้อ "Independent QA" ท้ายไฟล์ — ส่งต่อ AI Deploy & DevOps)
 Owner: AI Product Manager
 
 Feature: Trending Engine v2 — wire view count เข้าสูตรจัดอันดับ + Anti-Manipulation Scoring (ต่อยอดจาก WYN-018)
@@ -82,3 +82,44 @@ Handoff: AI Design — ออกแบบ schema/RPC ของ moderation-exclus
 **Acceptance Criteria — ไล่ตรวจครบทุกข้อจาก Product spec**: ครบทุกข้อ ยืนยันด้วย SQL test จริง (RPC/RLS/SECURITY DEFINER/return-shape ทุกจุด) + Flutter test จริง (engagementScore/rankingScore ทั้ง Drop/Pop) + code review ยืนยัน integration point ใน `fetchTrending()`/`fetchRankedFeed()` ถูกต้องตรงตาม Design
 
 Handoff: AI QA & Security — เน้นตรวจ 4 จุดตาม Product's Risks เป็นพิเศษ (ยืนยันแล้วด้วย SQL/Flutter test ของ Coding เองแต่ควรตรวจอิสระซ้ำ): **(ก) `authors_posting_blocked()` ไม่รั่ว action_type/reason/reviewer_id/expires_at ออกทางไหนเลย** — ตรวจ return type ตรงๆ + ตรวจ `home_repository.dart` ว่าไม่มีจุดไหนพยายามอ่าน field อื่นนอกจาก `author_id` จาก response, **(ข) เนื้อหาของบัญชีที่โดน sanction ยังเห็นได้ปกติทาง Home chronological/Search/Following/โปรไฟล์ตัวเอง** — ยืนยันว่าเป็นการตัดสิทธิ์การจัดอันดับเท่านั้น ไม่ใช่การซ่อนเนื้อหา (ไม่มีการแก้ RLS/`home_feed` view ใดๆ ในรอบนี้เลยแม้แต่บรรทัดเดียว), **(ค) Pop's engagement/ranking score ไม่เปลี่ยนแปลงจากเดิมแม้แต่กรณีเดียว** ยืนยันด้วยการทดสอบจริงคู่ขนานกับ Drop, **(ง) น้ำหนัก view ใหม่ไม่ทำให้พฤติกรรมเดิมของ WYN-017/018 test suite ที่ไม่เกี่ยวกับ view (8 เทสต์เดิมของ `rankingScore`) พังโดยไม่ได้ตั้งใจ** — ยืนยันด้วยการรัน test เดิมซ้ำอิสระ
+
+## Independent QA (2026-08-23)
+
+```
+Feature: WYN-041 Trending Engine v2 — wire Drop's view_count เข้าสูตรจัดอันดับ (rankingScore/fetchTrending) + Anti-manipulation: ตัดสิทธิ์การจัดอันดับของบัญชีที่โดน moderation sanction ที่ยัง active อยู่
+Environment: Local sandbox — PostgreSQL 16 และ Flutter stable ชุดเดียวกับที่ใช้ทดสอบ WYN-040 ในเซสชันนี้ (ยังไม่ได้รีสตาร์ท service ใหม่ แต่รัน schema/test สดใหม่ทุกครั้งผ่าน throwaway database แยกของแต่ละสคริปต์ ไม่ reuse state ข้ามรัน) — sync branch `claude/wyn-40-continuation-ul5ngq` ที่ commit `d90ad7f` ก่อนเริ่มทดสอบ
+
+Test Cases:
+1. `supabase/tests/wyn_041_trending_engine_test.sh` รันอิสระเอง (ไม่เชื่อตัวเลขจาก Coding Output) — 9 checks ครอบ active restrict/suspend/ban ถูกกันออก, restrict ที่หมดอายุ/ถูก overturn ไม่ถูกกันออก, บัญชีปกติไม่ถูกกันออก, third-party เห็นผลถูกต้องผ่าน SECURITY DEFINER, return type ตรวจด้วย `pg_get_function_result()`, batch result ขนาดตรง
+2. รันซ้ำ SQL regression ทั้ง 15 สคริปต์ (`wyn_021` ถึง `wyn_041`) ยืนยันไม่มี cross-task regression จากการเพิ่ม RPC ใหม่
+3. `check_schema_ordering.py` — ไม่มี forward reference
+4. **Adversarial probe เพิ่มเติมที่ไม่มีอยู่ใน SQL test เดิมของ Coding** (เขียน SQL เองแยกต่างหาก ไม่ใช่แค่รันของเดิมซ้ำ): (ก) `authors_posting_blocked(array[]::uuid[])` (empty array) → ไม่ error, คืน 0 แถว (ข) `authors_posting_blocked(null::uuid[])` → ไม่ error, คืน 0 แถว (ค) batch ผสม id ที่ถูกแบน + uuid ที่ไม่มีอยู่จริง + user ปกติ → คืนแค่ id ที่ถูกแบนตัวเดียวถูกต้อง (ง) ส่ง id ซ้ำกัน 2 ตัวใน input array → output มี 2 แถวซ้ำกันจริง (ดู Security Findings ด้านล่าง) (จ) ผู้ใช้ทั่วไป (ไม่ใช่ moderator) `select * from moderation_actions` ตรงๆ → คืน 0 แถว ยืนยันว่า RLS ปิดจริง (พิสูจน์ว่า SECURITY DEFINER RPC จำเป็นจริง ไม่ใช่แค่คำกล่าวอ้าง)
+5. `\df+ public.authors_posting_blocked` ยืนยัน: Security = `definer`, return type = `TABLE(author_id uuid)`, grant เฉพาะ `authenticated` (ไม่มี `anon`)
+6. `flutter analyze` รันอิสระเอง (0 issues)
+7. `flutter test` เต็มชุดรันอิสระเอง (ไม่ subset) — **651/651 pass**
+8. อ่าน diff เต็มของ `home_ranking.dart`/`home_repository.dart` แบบ adversarial ทีละบรรทัด: ยืนยัน `engagementScore()` early-return ก่อนคำนวณ view term จริง (ไม่ใช่ conditional ซ่อนกลางสูตร), ยืนยัน `fetchRankedFeed()` reuse ตัวแปร `authorIds` ตัวเดียวกับที่ใช้ใน `_fetchFollowedAuthorIds` ถูกต้องจริง (ไม่ได้สร้างซ้ำผิดตัว), ยืนยันว่า `removeWhere` เกิดขึ้น**ก่อน** `sort()`/`take()` เสมอทั้งสองจุด
+9. `git diff --stat` ยืนยันว่า `fetchFeed()` (Home chronological), `fetchFollowingFeed()` (Following feed), `DiscoveryRepository`/`DiscoveryView` (WYN-040), และ RLS/`home_feed` view ใน `schema.sql` **ไม่ถูกแตะแม้แต่บรรทัดเดียว** — ยืนยันเนื้อหาบัญชีที่โดน sanction ยังเข้าถึงได้ปกติทุกจุดอื่น
+10. รัน `home_ranking_test.dart` แยกเจาะจง ยืนยัน 8 เทสต์เดิมของ `rankingScore` (WYN-018) ยังผ่านครบทุกเคสไม่มีการแก้ค่า expect ใดๆ เลย (regression zero) ควบคู่กับ 7 เทสต์ใหม่ของ `engagementScore`
+
+Passed: 9/9 (SQL ใหม่) + 15/15 สคริปต์ SQL ทั้งหมด (รวม `wyn_041` เอง) + 5/5 adversarial probe เพิ่มเติม + 0 issues (`flutter analyze`) + 651/651 (`flutter test` เต็มชุด) — ทุกตัวเลขยืนยันด้วยการรันเองอิสระ ไม่ใช่การเชื่อ Coding Output
+Failed: 0
+
+Severity: N/A (ไม่พบบั๊กที่ block การอนุมัติ)
+
+Reproduction Steps: N/A — ไม่มีบั๊กให้ reproduce
+
+Expected: ครบ 4 จุดตาม Handoff ของ Coding — (ก) RPC ไม่รั่ว action detail, (ข) เนื้อหายังเห็นได้ปกติทางอื่น, (ค) Pop ไม่ถูกกระทบ, (ง) WYN-018 test เดิมไม่พัง
+
+Actual: ตรงตามที่คาดทั้ง 4 จุด — (ก) ยืนยันด้วย CHECK9 (`pg_get_function_result` = `TABLE(author_id uuid)` เป๊ะ) + `\df+` ยืนยัน grant เฉพาะ `authenticated` + อ่านโค้ด Flutter ยืนยันอ่านแค่ `row['author_id']` เท่านั้น ไม่มีจุดไหนพยายามอ่าน field อื่น, (ข) ยืนยันด้วย `git diff --stat` ว่า `fetchFeed`/`fetchFollowingFeed`/RLS/`home_feed` view ไม่ถูกแตะเลย เนื้อหายังอยู่ในเส้นทางเดิมทั้งหมด, (ค) ยืนยันด้วยเทสต์คู่ขนาน Drop-vs-Pop ใน `home_ranking_test.dart` (Pop's `engagementScore`/`rankingScore` ไม่เปลี่ยนแม้ viewCount สูงถึง 100,000), (ง) รัน 8 เทสต์เดิมของ `rankingScore` ซ้ำอิสระ ผ่านครบไม่มีค่า expect ไหนถูกแก้เพื่อ "ยอมรับ" การเปลี่ยนแปลง — ตัวเลข expect เดิมยังตรงเป๊ะ (168, 158, 0, 178, 183, 218, 210, 188/168) พิสูจน์ว่า viewCount ที่เป็น `null` ในเทสต์เดิมไม่ทำให้สูตรเปลี่ยนพฤติกรรมเดิมเลย
+
+Security Findings:
+- ไม่พบช่องโหว่ privacy leak ใหม่ — `authors_posting_blocked()` คืนแค่ `author_id`, ยืนยันด้วยทั้ง SQL test และ `\df+` โดยตรง ไม่รั่ว action_type/reason/reviewer_id/expires_at ทางไหนเลย
+- ไม่พบการเปลี่ยนแปลง RLS/visibility ใดๆ — การกรองเกิดที่ชั้นการจัดอันดับ (client-side, หลัง fetch ผ่าน RLS ปกติ) เท่านั้นจริง ตรงตามเจตนาของ Product ที่ต้องการแยก "ตัดสิทธิ์จัดอันดับ" ออกจาก "ซ่อนเนื้อหา" อย่างเด็ดขาด
+- Minor (ไม่ block): `authors_posting_blocked()` ไม่ dedupe input array เอง (ส่ง id ซ้ำ 2 ตัว → ได้ผลลัพธ์ซ้ำ 2 แถว) — ตรวจแล้วไม่ใช่ช่องโหว่และไม่กระทบพฤติกรรมจริง เพราะ caller เดียวในระบบ (`HomeRepository._fetchPostingBlockedAuthorIds`) รับ input เป็น `Set<String>` อยู่แล้วก่อนแปลงเป็น list (การันตี unique โดยธรรมชาติ) และแปลงผลลัพธ์กลับเป็น `Set<String>` ทันทีหลังได้ response กลับมา (ดูดซับ duplicate ที่อาจเกิดขึ้นให้หายไปเองอีกชั้น) — ไม่ต้องแก้ในรอบนี้
+- ยืนยันด้วยการทดสอบตรงว่าผู้ใช้ทั่วไป (ไม่ใช่ moderator) select ตรงจาก `moderation_actions` ไม่เห็นข้อมูลเลย (0 แถว) — พิสูจน์ว่า SECURITY DEFINER RPC เป็นทางเดียวที่ทำได้จริง ไม่ใช่ทางเลือกที่ไม่จำเป็น
+
+Recommendation: อนุมัติ — ครบทุก Acceptance Criteria จาก Product spec, ยืนยันด้วยการทดสอบอิสระทั้ง SQL/Flutter รวมถึง adversarial probe เพิ่มเติมที่ Coding ไม่ได้ทำไว้ ไม่มี regression ต่อ WYN-017/018/029/030/040 เดิมแม้แต่จุดเดียว, การแยก "ตัดสิทธิ์จัดอันดับ" ออกจาก "ซ่อนเนื้อหา" ทำได้ถูกต้องสมบูรณ์ (ไม่แตะ RLS/view ใดๆ เลย) — พบเฉพาะข้อสังเกต Minor ที่ไม่กระทบพฤติกรรมจริง (RPC ไม่ dedupe input เอง แต่ caller เดียวที่มีอยู่ไม่มีทางส่ง duplicate เข้าไปได้อยู่แล้ว) ไม่ต้องแก้ก่อน deploy
+
+Final Status: PASS
+```
+
