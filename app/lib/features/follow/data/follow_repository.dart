@@ -42,20 +42,41 @@ class FollowRepository {
     }
   }
 
+  /// WYN-039: routed through the `follower_count()` RPC (not a raw
+  /// `.count()` on `follows`) so the number stays accurate for everyone
+  /// regardless of the target's privacy or the caller's own follow
+  /// relationship to them -- see supabase/schema.sql's comment on
+  /// follower_count() for why a raw count would otherwise be wrong for a
+  /// stranger viewing a Private account (mirrors drop_view_count(),
+  /// WYN-038).
   Future<int> countFollowers({required String userId}) async {
-    final response = await _client
-        .from('follows')
-        .count(CountOption.exact)
-        .eq('following_id', userId);
-    return response;
+    final response = await _client.rpc(
+      'follower_count',
+      params: {'p_user_id': userId},
+    );
+    return (response as num).toInt();
   }
 
   Future<int> countFollowing({required String userId}) async {
-    final response = await _client
+    final response = await _client.rpc(
+      'following_count',
+      params: {'p_user_id': userId},
+    );
+    return (response as num).toInt();
+  }
+
+  /// WYN-039 Requirement 3 ("Remove Follower") -- the caller removes
+  /// [followerId] from their own followers list, without blocking them.
+  /// Only the person being followed may do this (RLS: `auth.uid() =
+  /// following_id`, a 2nd, purely additive DELETE policy alongside
+  /// WYN-008's own "unfollow yourself" policy).
+  Future<void> removeFollower({required String followerId}) {
+    final currentUserId = _client.auth.currentUser!.id;
+    return _client
         .from('follows')
-        .count(CountOption.exact)
-        .eq('follower_id', userId);
-    return response;
+        .delete()
+        .eq('follower_id', followerId)
+        .eq('following_id', currentUserId);
   }
 
   /// Users who follow [userId], newest-followed first.

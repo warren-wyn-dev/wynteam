@@ -38,7 +38,8 @@ void main() {
     emptyFollowersRepo = RecordingFollowRepository(followers: []);
     emptyFollowingRepo = RecordingFollowRepository(following: []);
     profileRepo = RecordingProfileRepository(
-      profile: const Profile(id: 'u1', username: 'namfah', displayName: 'น้ำฝน'),
+      profile:
+          const Profile(id: 'u1', username: 'namfah', displayName: 'น้ำฝน'),
     );
     dropRepo = RecordingDropRepository();
     popRepo = RecordingPopRepository();
@@ -63,7 +64,8 @@ void main() {
 
   testWidgets('shows the Followers list with display name and username',
       (tester) async {
-    await tester.pumpWidget(buildList(followersRepo, mode: FollowListMode.followers));
+    await tester
+        .pumpWidget(buildList(followersRepo, mode: FollowListMode.followers));
     await tester.pumpAndSettle();
 
     expect(find.text('ผู้ติดตาม'), findsOneWidget);
@@ -75,7 +77,8 @@ void main() {
   });
 
   testWidgets('shows the Following list under its own title', (tester) async {
-    await tester.pumpWidget(buildList(followingRepo, mode: FollowListMode.following));
+    await tester
+        .pumpWidget(buildList(followingRepo, mode: FollowListMode.following));
     await tester.pumpAndSettle();
 
     expect(find.text('กำลังติดตาม'), findsOneWidget);
@@ -101,7 +104,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('คุณยังไม่ได้ติดตามใครเลย ลองกดติดตามจาก Drop หรือ Pop ที่ชอบดูสิ'),
+      find.text(
+          'คุณยังไม่ได้ติดตามใครเลย ลองกดติดตามจาก Drop หรือ Pop ที่ชอบดูสิ'),
       findsOneWidget,
     );
   });
@@ -110,7 +114,8 @@ void main() {
       'tapping a row opens that user\'s profile (WYN-013 -- rows were '
       'intentionally non-tappable in WYN-008 since no destination screen '
       'existed yet)', (tester) async {
-    await tester.pumpWidget(buildList(followersRepo, mode: FollowListMode.followers));
+    await tester
+        .pumpWidget(buildList(followersRepo, mode: FollowListMode.followers));
     await tester.pumpAndSettle();
 
     expect(find.byType(InkWell), findsWidgets);
@@ -119,5 +124,107 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ViewProfileScreen), findsOneWidget);
+  });
+
+  // WYN-039 Requirement 3 ("Remove Follower").
+  group('Remove Follower (WYN-039)', () {
+    late RecordingFollowRepository removableFollowersRepo;
+
+    setUp(() {
+      removableFollowersRepo = RecordingFollowRepository(
+        followers: [
+          const Profile(id: 'u1', username: 'namfah', displayName: 'น้ำฝน'),
+        ],
+      );
+    });
+
+    testWidgets('shows ลบ on your own Followers list', (tester) async {
+      await tester.pumpWidget(
+        buildList(removableFollowersRepo, mode: FollowListMode.followers),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('ลบ'), findsOneWidget);
+    });
+
+    testWidgets('never shows ลบ on your own Following list', (tester) async {
+      await tester
+          .pumpWidget(buildList(followingRepo, mode: FollowListMode.following));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ลบ'), findsNothing);
+    });
+
+    testWidgets('never shows ลบ when viewing someone else\'s Followers list',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: FollowListScreen(
+          followRepository: removableFollowersRepo,
+          profileRepository: profileRepo,
+          dropRepository: dropRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          userId: 'someone-else',
+          mode: FollowListMode.followers,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ลบ'), findsNothing);
+    });
+
+    testWidgets(
+        'tapping ลบ asks to confirm, and confirming calls removeFollower '
+        'and removes the row', (tester) async {
+      await tester.pumpWidget(
+        buildList(removableFollowersRepo, mode: FollowListMode.followers),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ลบ'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(removableFollowersRepo.removeFollowerArgs, isEmpty);
+
+      await tester.tap(find.text('เอาออก'));
+      await tester.pumpAndSettle();
+
+      expect(removableFollowersRepo.removeFollowerArgs, ['u1']);
+      expect(find.text('น้ำฝน'), findsNothing);
+    });
+
+    testWidgets('canceling the confirm dialog leaves the row in place',
+        (tester) async {
+      await tester.pumpWidget(
+        buildList(removableFollowersRepo, mode: FollowListMode.followers),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ลบ'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ยกเลิก'));
+      await tester.pumpAndSettle();
+
+      expect(removableFollowersRepo.removeFollowerArgs, isEmpty);
+      expect(find.text('น้ำฝน'), findsOneWidget);
+    });
+
+    testWidgets('a failed removal shows an error and keeps the row',
+        (tester) async {
+      removableFollowersRepo.removeFollowerError = Exception('network error');
+      await tester.pumpWidget(
+        buildList(removableFollowersRepo, mode: FollowListMode.followers),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ลบ'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('เอาออก'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
+      expect(find.text('น้ำฝน'), findsOneWidget);
+    });
   });
 }

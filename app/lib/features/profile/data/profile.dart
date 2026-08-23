@@ -24,6 +24,7 @@ class Profile {
     this.bio,
     this.avatarUrl,
     this.platformRole = PlatformRole.user,
+    this.isPrivate = false,
   });
 
   factory Profile.fromMap(Map<String, dynamic> map) => Profile(
@@ -33,6 +34,11 @@ class Profile {
         bio: map['bio'] as String?,
         avatarUrl: map['avatar_url'] as String?,
         platformRole: platformRoleFromString(map['platform_role'] as String?),
+        // WYN-039: defaults to false so any pre-existing call site that
+        // builds a Profile from a partial map (not a full `drops.select
+        // author:profiles(*)` embed) never accidentally reads a private
+        // account as public -- see ProfileRepository/FollowRepository.
+        isPrivate: map['is_private'] as bool? ?? false,
       );
 
   final String id;
@@ -41,6 +47,7 @@ class Profile {
   final String? bio;
   final String? avatarUrl;
   final PlatformRole platformRole;
+  final bool isPrivate;
 
   /// What to show as the profile's name: the display name if set, else
   /// "@username" as a fallback (per the WYN-003 design spec).

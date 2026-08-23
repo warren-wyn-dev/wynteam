@@ -23,8 +23,11 @@ class ProfileRepository {
         // platform_role (WYN-029) included here specifically -- Settings'
         // "เครื่องมือผู้ดูแล" entry point (Screen 1) reads it straight off
         // the profile ViewProfileScreen already fetches for itself, no
-        // extra query.
-        .select('id, username, display_name, bio, avatar_url, platform_role')
+        // extra query. is_private (WYN-039) drives both Settings'
+        // Privacy toggle and ViewProfileScreen's Locked persona the same
+        // way.
+        .select(
+            'id, username, display_name, bio, avatar_url, platform_role, is_private')
         .eq('id', userId)
         .single();
     return Profile.fromMap(row);
@@ -58,6 +61,20 @@ class ProfileRepository {
       'display_name': normalizeOptionalText(displayName),
       'bio': bio,
     }).eq('id', userId);
+  }
+
+  /// WYN-039 Settings, Screen 1 -- flips the caller's own account between
+  /// Public/Private. Switching to Public triggers
+  /// profiles_auto_approve_follow_requests (schema.sql) server-side,
+  /// which the client doesn't need to know about or react to beyond
+  /// re-fetching Follow Requests state.
+  Future<void> updateIsPrivate({
+    required String userId,
+    required bool isPrivate,
+  }) {
+    return _client
+        .from('profiles')
+        .update({'is_private': isPrivate}).eq('id', userId);
   }
 
   /// Uploads [bytes] to the `avatars` bucket under the user's own folder

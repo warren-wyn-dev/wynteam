@@ -17,8 +17,11 @@ class RecordingFollowRepository extends FollowRepository {
         following = following ?? [],
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
-  /// Returned by [isFollowing], regardless of userId.
-  final bool initiallyFollowing;
+  /// Returned by [isFollowing], regardless of userId. Mutable (WYN-039)
+  /// so a single shared instance can be reused across testWidgets cases
+  /// each needing a different canned value, same approach
+  /// RecordingMuteRepository.isMutedResult already establishes.
+  bool initiallyFollowing;
 
   /// Returned by [fetchFollowers] for page 0 only (page 1+ returns empty).
   final List<Profile> followers;
@@ -26,11 +29,22 @@ class RecordingFollowRepository extends FollowRepository {
   /// Returned by [fetchFollowing] for page 0 only (page 1+ returns empty).
   final List<Profile> following;
 
-  final int followerCount;
-  final int followingCount;
+  int followerCount;
+  int followingCount;
 
   int toggleFollowCalls = 0;
   final List<bool> toggleFollowCurrentlyFollowingArgs = [];
+
+  /// WYN-039 Requirement 3 ("Remove Follower").
+  final List<String> removeFollowerArgs = [];
+  Object? removeFollowerError;
+
+  @override
+  Future<void> removeFollower({required String followerId}) async {
+    removeFollowerArgs.add(followerId);
+    final error = removeFollowerError;
+    if (error != null) throw error;
+  }
 
   @override
   Future<bool> isFollowing({required String userId}) async =>

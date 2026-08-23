@@ -9,16 +9,28 @@ import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/settings/presentation/settings_screen.dart';
 
 import 'support/fake_supabase_session.dart';
+import 'support/recording_profile_repository.dart';
 
 void main() {
+  // Constructed in setUpAll (not inline in a test body) so the
+  // SupabaseClient each RecordingProfileRepository wraps -- and the
+  // GoTrue auto-refresh timer that starts with it -- isn't attributed to
+  // a single test's FakeAsync zone and flagged as a leaked timer at
+  // teardown. Mirrors every other RecordingXRepository across this
+  // project's test suite (e.g. create_drop_screen_test.dart).
+  late RecordingProfileRepository recordingProfileRepository;
+  late _ThrowingProfileRepository throwingProfileRepository;
+
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
+    recordingProfileRepository = RecordingProfileRepository();
+    throwingProfileRepository = _ThrowingProfileRepository();
   });
 
   testWidgets('ความปลอดภัย section shows both Blocked List and Muted List rows',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(
-      home: SettingsScreen(platformRole: PlatformRole.user),
+      home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
     ));
     await tester.pumpAndSettle();
 
@@ -27,9 +39,10 @@ void main() {
     expect(find.text('บัญชีที่ปิดเสียง'), findsOneWidget);
   });
 
-  testWidgets('tapping บัญชีที่ถูกบล็อก opens BlockedListScreen', (tester) async {
+  testWidgets('tapping บัญชีที่ถูกบล็อก opens BlockedListScreen',
+      (tester) async {
     await tester.pumpWidget(const MaterialApp(
-      home: SettingsScreen(platformRole: PlatformRole.user),
+      home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
     ));
     await tester.pumpAndSettle();
 
@@ -41,7 +54,7 @@ void main() {
 
   testWidgets('tapping บัญชีที่ปิดเสียง opens MutedListScreen', (tester) async {
     await tester.pumpWidget(const MaterialApp(
-      home: SettingsScreen(platformRole: PlatformRole.user),
+      home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
     ));
     await tester.pumpAndSettle();
 
@@ -54,7 +67,7 @@ void main() {
   testWidgets('tapping รายการที่ลบ opens RecentlyDeletedDropsScreen (WYN-037)',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(
-      home: SettingsScreen(platformRole: PlatformRole.user),
+      home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
     ));
     await tester.pumpAndSettle();
 
@@ -69,10 +82,11 @@ void main() {
   // WYN-029, Screen 1 -- an ordinary user must not see even an empty
   // "เครื่องมือผู้ดูแล" heading, per the Product spec's "ไม่ปรากฏในเมนูของ
   // ผู้ใช้ทั่วไป".
-  testWidgets('platformRole == user never shows the "เครื่องมือผู้ดูแล" section at all',
+  testWidgets(
+      'platformRole == user never shows the "เครื่องมือผู้ดูแล" section at all',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(
-      home: SettingsScreen(platformRole: PlatformRole.user),
+      home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
     ));
     await tester.pumpAndSettle();
 
@@ -80,10 +94,12 @@ void main() {
     expect(find.text('คิวตรวจสอบรายงาน'), findsNothing);
   });
 
-  testWidgets('platformRole == moderator shows the section and opens ModerationQueueScreen',
+  testWidgets(
+      'platformRole == moderator shows the section and opens ModerationQueueScreen',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(
-      home: SettingsScreen(platformRole: PlatformRole.moderator),
+      home: SettingsScreen(
+          platformRole: PlatformRole.moderator, isPrivate: false),
     ));
     await tester.pumpAndSettle();
 
@@ -96,13 +112,78 @@ void main() {
     expect(find.byType(ModerationQueueScreen), findsOneWidget);
   });
 
-  testWidgets('platformRole == admin also shows the section (admin sees everything '
+  testWidgets(
+      'platformRole == admin also shows the section (admin sees everything '
       'moderator does)', (tester) async {
     await tester.pumpWidget(const MaterialApp(
-      home: SettingsScreen(platformRole: PlatformRole.admin),
+      home: SettingsScreen(platformRole: PlatformRole.admin, isPrivate: false),
     ));
     await tester.pumpAndSettle();
 
     expect(find.text('เครื่องมือผู้ดูแล'), findsOneWidget);
   });
+
+  // WYN-039, Screen 1.
+  group('ความเป็นส่วนตัว section (WYN-039)', () {
+    testWidgets('shows the Private Account toggle, initialized from isPrivate',
+        (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: true),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ความเป็นส่วนตัว'), findsOneWidget);
+      expect(find.text('บัญชีส่วนตัว (Private Account)'), findsOneWidget);
+      final toggle = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
+      expect(toggle.value, isTrue);
+    });
+
+    testWidgets('flipping the toggle calls updateIsPrivate with the new value',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          profileRepository: recordingProfileRepository,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+
+      expect(recordingProfileRepository.updateIsPrivateArgs, [true]);
+      final toggle = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
+      expect(toggle.value, isTrue);
+    });
+
+    testWidgets('a failed update reverts the toggle and shows an error',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          profileRepository: throwingProfileRepository,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+
+      final toggle = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
+      expect(toggle.value, isFalse);
+      expect(find.text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
+    });
+  });
+}
+
+class _ThrowingProfileRepository extends RecordingProfileRepository {
+  @override
+  Future<void> updateIsPrivate({
+    required String userId,
+    required bool isPrivate,
+  }) async {
+    throw Exception('network error');
+  }
 }
