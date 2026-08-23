@@ -5638,5 +5638,355 @@ alter table public.notifications
     'mention_drop', 'mention_club_post',
     'moderation_warning', 'moderation_content_removed',
     'appeal_approved', 'appeal_rejected',
-    'message_request'
+    'message_request', 'redrop'
   ));
+
+-- ============================================================
+-- WYN-034: ReDrop (Standard + Quote)
+-- ============================================================
+
+-- Standard ReDrop (quote_text is null) and Quote ReDrop (quote_text
+-- not null) share one table -- both are "someone shares a Drop into
+-- their own feed," differing only in whether they add their own
+-- words. drop_id cascades: if the original Drop is removed (by its
+-- owner or via Moderation Remove Content), every ReDrop of it -- both
+-- kinds -- disappears too. This mirrors every other engagement table's
+-- FK to drops (drop_likes/drop_comments/saved_drops all cascade the
+-- same way) rather than the WYN-033 shared-content pattern (no FK,
+-- placeholder-on-missing) -- that pattern exists because a shared
+-- message can reference 3 different tables with no single FK possible;
+-- a ReDrop always references exactly one Drop, so a real FK is the
+-- more defensible default here, and it also means a moderator's Remove
+-- Content action correctly takes every ReDrop of the removed content
+-- down with it instead of leaving it re-postable via someone else's
+-- Quote ReDrop.
+create table if not exists public.redrops (
+  id uuid primary key default gen_random_uuid(),
+  drop_id uuid not null references public.drops (id) on delete cascade,
+  redropper_id uuid not null references public.profiles (id) on delete cascade,
+  quote_text text,
+  created_at timestamptz not null default now(),
+  constraint redrops_quote_text_length
+    check (quote_text is null or char_length(quote_text) between 1 and 500)
+);
+
+-- A user can Standard ReDrop (quote_text is null) a given Drop at most
+-- once -- toggled via insert/delete, mirroring drop_likes' own
+-- (drop_id, user_id) uniqueness. Quote ReDrop has no such limit: the
+-- same Drop can be quoted multiple times with different commentary,
+-- same as most platforms' actual Quote behavior.
+create unique index if not exists redrops_standard_unique
+  on public.redrops (drop_id, redropper_id) where quote_text is null;
+create index if not exists redrops_drop_idx on public.redrops (drop_id);
+create index if not exists redrops_redropper_created_idx
+  on public.redrops (redropper_id, created_at desc);
+
+alter table public.redrops enable row level security;
+
+-- `exists (select 1 from public.drops d where d.id = drop_id)` does
+-- double duty without a second block-check written by hand: it
+-- piggybacks on drops' own SELECT policy (block-aware since WYN-027),
+-- so a redrop of a Drop authored by someone the viewer is
+-- blocked-either-way with becomes invisible through this subquery
+-- alone -- not the WYN-027 self-referential trap (that trap needed to
+-- extract author_id from a row RLS might hide before the check could
+-- run; here we only need to know whether the row is visible at all,
+-- which is exactly what a plain exists() against an RLS-protected
+-- table answers). It also covers the Drop having been deleted, though
+-- that case is already handled by the FK's cascade above -- this is a
+-- harmless defensive backstop, not the primary mechanism.
+create policy "Redrops are viewable by authenticated users, excluding blocked redroppers"
+  on public.redrops
+  for select
+  to authenticated
+  using (
+    not internal.is_blocked_either_way(auth.uid(), redropper_id)
+    and exists (select 1 from public.drops d where d.id = drop_id)
+  );
+
+create policy "Users can redrop as themselves, excluding blocked authors and moderation-blocked accounts"
+  on public.redrops
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = redropper_id
+    and not internal.is_posting_blocked(auth.uid())
+    and exists (
+      select 1 from public.drops d
+      where d.id = drop_id and not internal.is_blocked_either_way(auth.uid(), d.author_id)
+    )
+  );
+
+create policy "Users can delete their own redrops"
+  on public.redrops
+  for delete
+  to authenticated
+  using (auth.uid() = redropper_id);
+
+-- reports.target_type gains 'redrop' -- Quote ReDrop's own commentary
+-- can be reported separately from the Drop it quotes (the commentary
+-- may be the problem even when the original Drop is fine). Standard
+-- ReDrop carries no commentary of its own, so it has no report path
+-- here -- reporting the original Drop already covers it.
+do $$
+declare
+  v_constraint_name text;
+begin
+  select tc.constraint_name into v_constraint_name
+  from information_schema.table_constraints tc
+  join information_schema.constraint_column_usage ccu
+    on ccu.constraint_name = tc.constraint_name
+   and ccu.constraint_schema = tc.constraint_schema
+  where tc.table_schema = 'public'
+    and tc.table_name = 'reports'
+    and tc.constraint_type = 'CHECK'
+    and ccu.column_name = 'target_type';
+
+  if v_constraint_name is not null then
+    execute format('alter table public.reports drop constraint %I', v_constraint_name);
+  end if;
+end;
+$$;
+
+alter table public.reports
+  add constraint reports_target_type_check
+  check (target_type in (
+    'user', 'drop', 'drop_comment', 'club', 'club_post',
+    'club_post_comment', 'message', 'redrop'
+  ));
+
+create or replace function public.submit_report(
+  p_target_type text,
+  p_target_id uuid,
+  p_category text,
+  p_detail text
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_reporter uuid := auth.uid();
+  v_report_id uuid;
+begin
+  if v_reporter is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_target_type = 'user' then
+    if p_target_id = v_reporter then
+      raise exception 'Cannot report yourself';
+    end if;
+    if not exists (select 1 from public.profiles where id = p_target_id) then
+      raise exception 'Target user not found';
+    end if;
+  elsif p_target_type = 'drop' then
+    if not exists (
+      select 1 from public.drops
+      where id = p_target_id and author_id <> v_reporter
+    ) then
+      raise exception 'Drop not found, or is your own';
+    end if;
+  elsif p_target_type = 'drop_comment' then
+    if not exists (
+      select 1 from public.drop_comments
+      where id = p_target_id and author_id <> v_reporter
+    ) then
+      raise exception 'Comment not found, or is your own';
+    end if;
+  elsif p_target_type = 'club' then
+    if not exists (
+      select 1 from public.clubs
+      where id = p_target_id and owner_id <> v_reporter
+    ) then
+      raise exception 'Club not found, or is your own';
+    end if;
+  elsif p_target_type = 'club_post' then
+    if not exists (
+      select 1 from public.club_posts
+      where id = p_target_id and author_id <> v_reporter
+    ) then
+      raise exception 'Club post not found, or is your own';
+    end if;
+  elsif p_target_type = 'club_post_comment' then
+    if not exists (
+      select 1 from public.club_post_comments
+      where id = p_target_id and author_id <> v_reporter
+    ) then
+      raise exception 'Club post comment not found, or is your own';
+    end if;
+  elsif p_target_type = 'message' then
+    if not exists (
+      select 1 from public.messages m
+      join public.conversations c on c.id = m.conversation_id
+      where m.id = p_target_id
+        and m.sender_id <> v_reporter
+        and v_reporter in (c.user_a_id, c.user_b_id)
+    ) then
+      raise exception 'Message not found, is your own, or you are not a participant';
+    end if;
+  elsif p_target_type = 'redrop' then
+    if not exists (
+      select 1 from public.redrops
+      where id = p_target_id and redropper_id <> v_reporter
+    ) then
+      raise exception 'Redrop not found, or is your own';
+    end if;
+  else
+    raise exception 'Unsupported report target type: %', p_target_type;
+  end if;
+
+  insert into public.reports (reporter_id, target_type, target_id, category, detail)
+  values (
+    v_reporter,
+    p_target_type,
+    p_target_id,
+    p_category,
+    nullif(trim(coalesce(p_detail, '')), '')
+  )
+  returning id into v_report_id;
+
+  return v_report_id;
+end;
+$$;
+
+grant execute on function public.submit_report(text, uuid, text, text) to authenticated;
+
+-- Notifies the original Drop's author on every ReDrop (Standard or
+-- Quote alike -- the Product spec doesn't distinguish) -- mirrors
+-- notify_drop_like()'s exact shape (WYN-012), reusing
+-- notifications.drop_id the same way like_drop/comment_drop already do.
+create or replace function public.notify_redrop()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+begin
+  select author_id into v_author_id from public.drops where id = new.drop_id;
+  -- ReDropping your own Drop is normal and allowed -- it just shouldn't
+  -- notify you about your own action.
+  if v_author_id is not null and v_author_id <> new.redropper_id then
+    insert into public.notifications (recipient_id, actor_id, type, drop_id)
+    values (v_author_id, new.redropper_id, 'redrop', new.drop_id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger redrops_notify
+  after insert on public.redrops
+  for each row execute function public.notify_redrop();
+
+-- home_feed gains a 3rd branch for ReDrops. content_type stays 'drop'
+-- (not a new value) and id/author_id/image_url/caption/like_count/
+-- comment_count all keep describing the *original* Drop -- so every
+-- existing Like/Comment/Save action, and rankingScore() (WYN-018),
+-- keeps working unmodified against a redrop-sourced row: liking a
+-- card seen via ReDrop likes the original Drop, exactly matching the
+-- Master Spec's "เครดิตเจ้าของเดิมต้องยังอยู่" requirement. Only
+-- `created_at` changes meaning for this branch -- it is the *redrop's*
+-- timestamp, not the original Drop's, so a freshly-shared old Drop
+-- resurfaces near the top of a chronological/recency-weighted feed,
+-- which is the entire point of the feature. New trailing columns
+-- (redrop_count/redrop_id/redropper_*/quote_text) are appended after
+-- comment_count, never inserted earlier in the list, so this stays a
+-- valid `create or replace view` over the WYN-024 version below (adding
+-- columns at the end is allowed; reordering or retyping existing ones
+-- is not).
+create or replace view public.home_feed
+  with (security_invoker = true) as
+select
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  d.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  null::bigint as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count,
+  (select count(*) from public.redrops where drop_id = d.id) as redrop_count,
+  null::uuid as redrop_id,
+  null::uuid as redropper_id,
+  null::text as redropper_username,
+  null::text as redropper_display_name,
+  null::text as redropper_avatar_url,
+  null::text as quote_text
+from public.drops d
+join public.profiles prof on prof.id = d.author_id
+where not exists (
+  select 1 from public.mutes where muter_id = auth.uid() and muted_id = d.author_id
+)
+union all
+select
+  p.id,
+  'pop'::text as content_type,
+  p.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  p.created_at,
+  p.caption,
+  null::text as image_url,
+  p.video_url,
+  p.thumbnail_url,
+  p.duration_seconds,
+  p.view_count,
+  (select count(*) from public.pop_likes where pop_id = p.id) as like_count,
+  (select count(*) from public.pop_comments where pop_id = p.id) as comment_count,
+  null::bigint as redrop_count,
+  null::uuid as redrop_id,
+  null::uuid as redropper_id,
+  null::text as redropper_username,
+  null::text as redropper_display_name,
+  null::text as redropper_avatar_url,
+  null::text as quote_text
+from public.pops p
+join public.profiles prof on prof.id = p.author_id
+where not exists (
+  select 1 from public.mutes where muter_id = auth.uid() and muted_id = p.author_id
+)
+union all
+select
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  r.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  null::bigint as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count,
+  (select count(*) from public.redrops where drop_id = d.id) as redrop_count,
+  r.id as redrop_id,
+  r.redropper_id,
+  redropper.username as redropper_username,
+  redropper.display_name as redropper_display_name,
+  redropper.avatar_url as redropper_avatar_url,
+  r.quote_text
+from public.redrops r
+join public.drops d on d.id = r.drop_id
+join public.profiles prof on prof.id = d.author_id
+join public.profiles redropper on redropper.id = r.redropper_id
+where not exists (
+  select 1 from public.mutes
+  where muter_id = auth.uid() and muted_id in (d.author_id, r.redropper_id)
+);
+
+grant select on public.home_feed to authenticated;

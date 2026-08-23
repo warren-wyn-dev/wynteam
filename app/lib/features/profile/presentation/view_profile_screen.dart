@@ -9,6 +9,7 @@ import '../../club/presentation/widgets/club_mini_card.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../follow/presentation/follow_list_screen.dart';
+import '../../home/data/home_repository.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../push/data/push_token_repository.dart';
 import '../../push/presentation/push_notification_service.dart';
@@ -19,6 +20,7 @@ import 'edit_profile_screen.dart';
 import 'widgets/avatar_circle.dart';
 import 'widgets/profile_drop_grid_tab.dart';
 import 'widgets/profile_pop_grid_tab.dart';
+import 'widgets/profile_redrops_tab.dart';
 import 'widgets/profile_saved_tab.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../block/data/block_relationship.dart';
@@ -60,6 +62,7 @@ class ViewProfileScreen extends StatefulWidget {
     this.blockRepository,
     this.muteRepository,
     this.chatRepository,
+    this.homeRepository,
   });
 
   final ProfileRepository profileRepository;
@@ -98,6 +101,11 @@ class ViewProfileScreen extends StatefulWidget {
   // Same optional/defaulted shape as the 3 above -- WYN-031's
   // "ส่งข้อความ" entry point.
   final ChatRepository? chatRepository;
+
+  // Same optional/defaulted shape again -- WYN-034's "ReDrops" tab
+  // (Screen 4), the only place on this screen that reads `home_feed`
+  // rather than `drops` directly.
+  final HomeRepository? homeRepository;
 
   @override
   State<ViewProfileScreen> createState() => _ViewProfileScreenState();
@@ -139,6 +147,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       widget.muteRepository ?? MuteRepository(Supabase.instance.client);
   late final ChatRepository _chatRepository =
       widget.chatRepository ?? ChatRepository(Supabase.instance.client);
+  late final HomeRepository _homeRepository =
+      widget.homeRepository ?? HomeRepository(Supabase.instance.client);
 
   bool _isStartingChat = false;
 
@@ -597,7 +607,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     final isOwnProfile = _isOwnProfile;
 
     return DefaultTabController(
-      length: isOwnProfile ? 3 : 2,
+      length: isOwnProfile ? 4 : 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('โปรไฟล์'),
@@ -771,6 +781,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                 TabBar(
                   tabs: [
                     const Tab(icon: Icon(Icons.grid_view_outlined), text: 'Drop'),
+                    const Tab(icon: Icon(Icons.repeat), text: 'ReDrops'),
                     const Tab(icon: Icon(Icons.play_circle_outline), text: 'Pop'),
                     if (isOwnProfile)
                       const Tab(icon: Icon(Icons.bookmark_border), text: 'บันทึก'),
@@ -790,6 +801,21 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                           isOwnProfile: isOwnProfile,
                           isBlockedEitherWay: isBlockedEitherWay,
                           contentLabel: 'Drop',
+                          profile: profile,
+                        ),
+                      ),
+                      ProfileRedropsTab(
+                        homeRepository: _homeRepository,
+                        dropRepository: widget.dropRepository,
+                        followRepository: widget.followRepository,
+                        profileRepository: widget.profileRepository,
+                        popRepository: widget.popRepository,
+                        savedRepository: widget.savedRepository,
+                        authorId: widget.userId,
+                        emptyText: _gridEmptyText(
+                          isOwnProfile: isOwnProfile,
+                          isBlockedEitherWay: isBlockedEitherWay,
+                          contentLabel: 'ReDrop',
                           profile: profile,
                         ),
                       ),

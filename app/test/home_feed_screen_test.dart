@@ -8,6 +8,7 @@ import 'package:wyn/features/club/data/club.dart';
 import 'package:wyn/features/club/data/club_post.dart';
 import 'package:wyn/features/club/presentation/club_page.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
+import 'package:wyn/features/drop/presentation/quote_redrop_screen.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
 import 'package:wyn/features/home/presentation/home_feed_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
@@ -114,6 +115,32 @@ void main() {
   late RecordingPopRepository popCommentTestPopRepository;
   late RecordingHomeRepository popCommentTestHomeRepository;
 
+  // WYN-034: ReDrop action sheet -- a dedicated DropRepository per
+  // scenario (not shared across the group's testWidgets), same
+  // one-repo-per-scenario convention as dropLikeTestDropRepository/
+  // popLikeTestDropRepository above, so a toggleRedropCalls assertion
+  // in one test can never be polluted by a call another test in the
+  // same group already made against a shared instance.
+  late RecordingDropRepository openSheetTestDropRepository;
+  late RecordingPopRepository openSheetTestPopRepository;
+  late RecordingHomeRepository openSheetTestHomeRepository;
+
+  late RecordingDropRepository toggleRedropTestDropRepository;
+  late RecordingPopRepository toggleRedropTestPopRepository;
+  late RecordingHomeRepository toggleRedropTestHomeRepository;
+
+  late RecordingDropRepository cancelRedropTestDropRepository;
+  late RecordingPopRepository cancelRedropTestPopRepository;
+  late RecordingHomeRepository alreadyRedroppedTestHomeRepository;
+
+  late RecordingDropRepository quoteRedropNavTestDropRepository;
+  late RecordingPopRepository quoteRedropNavTestPopRepository;
+  late RecordingHomeRepository quoteRedropNavTestHomeRepository;
+
+  late RecordingDropRepository deleteRedropTestDropRepository;
+  late RecordingPopRepository deleteRedropTestPopRepository;
+  late RecordingHomeRepository ownRedropTestHomeRepository;
+
   // WYN-017: Trending row + Recommended Clubs row.
   late RecordingHomeRepository trendingItemsHomeRepository;
   late RecordingHomeRepository emptyTrendingHomeRepository;
@@ -187,6 +214,69 @@ void main() {
     popCommentTestPopRepository = RecordingPopRepository();
     popCommentTestHomeRepository = RecordingHomeRepository(
       feedItems: [_popItem(id: 'p3')],
+    );
+
+    openSheetTestDropRepository = RecordingDropRepository();
+    openSheetTestPopRepository = RecordingPopRepository();
+    openSheetTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'd4')],
+    );
+
+    toggleRedropTestDropRepository = RecordingDropRepository();
+    toggleRedropTestPopRepository = RecordingPopRepository();
+    toggleRedropTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'd4b')],
+    );
+
+    cancelRedropTestDropRepository = RecordingDropRepository();
+    cancelRedropTestPopRepository = RecordingPopRepository();
+    alreadyRedroppedTestHomeRepository = RecordingHomeRepository(
+      feedItems: [
+        HomeFeedItem(
+          id: 'd5',
+          contentType: HomeContentType.drop,
+          authorId: 'someone-else',
+          authorUsername: 'namfah',
+          createdAt: DateTime.now(),
+          caption: 'แคปชัน Drop',
+          imageUrl: 'https://example.supabase.co/drops/d5.jpg',
+          likeCount: 0,
+          commentCount: 0,
+          likedByMe: false,
+          savedByMe: false,
+          redroppedByMe: true,
+          redropCount: 1,
+        ),
+      ],
+    );
+
+    quoteRedropNavTestDropRepository = RecordingDropRepository();
+    quoteRedropNavTestPopRepository = RecordingPopRepository();
+    quoteRedropNavTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'd4c')],
+    );
+
+    deleteRedropTestDropRepository = RecordingDropRepository();
+    deleteRedropTestPopRepository = RecordingPopRepository();
+    ownRedropTestHomeRepository = RecordingHomeRepository(
+      feedItems: [
+        HomeFeedItem(
+          id: 'd6',
+          contentType: HomeContentType.drop,
+          authorId: 'someone-else',
+          authorUsername: 'namfah',
+          createdAt: DateTime.now(),
+          caption: 'แคปชัน Drop',
+          imageUrl: 'https://example.supabase.co/drops/d6.jpg',
+          likeCount: 0,
+          commentCount: 0,
+          likedByMe: false,
+          savedByMe: false,
+          redropId: 'r6',
+          redropperId: 'me',
+          redropperUsername: 'me_user',
+        ),
+      ],
     );
 
     trendingItemsHomeRepository = RecordingHomeRepository(
@@ -407,6 +497,177 @@ void main() {
     expect(
         popLikeTestPopRepository.toggleLikeCurrentlyLikedArgs, [false, true]);
     expect(popLikeTestDropRepository.toggleLikeCalls, 0);
+  });
+
+  group('ReDrop action sheet (WYN-034)', () {
+    testWidgets(
+        'tapping 🔄 on a not-yet-ReDropped card opens a sheet offering '
+        '"🔄 ReDrop" and "💬 Quote ReDrop"', (tester) async {
+      await tester.pumpWidget(buildHome(
+        openSheetTestHomeRepository,
+        dropRepository: openSheetTestDropRepository,
+        popRepository: openSheetTestPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      // The Drop card's broken test-fixture image URL throws a harmless
+      // NetworkImageLoadException -- same expected noise as "renders a
+      // mix of Drop and Pop cards" above, consumed here rather than
+      // there because opening the modal sheet pumps enough extra
+      // frames for it to actually surface within this test's window.
+      tester.takeException();
+
+      // Same off-screen-hit-test-avoidance as the Like button tests above
+      // -- the action row can be pushed below the fold by the Drop
+      // card's own image, so this invokes the button's onPressed
+      // directly rather than tester.tap(), which needs the widget to
+      // actually be on-screen to hit-test successfully.
+      final redropButton = find.widgetWithIcon(IconButton, Icons.repeat);
+      expect(redropButton, findsOneWidget);
+      tester.widget<IconButton>(redropButton).onPressed!();
+      await tester.pumpAndSettle();
+
+      expect(find.text('🔄 ReDrop'), findsOneWidget);
+      expect(find.text('💬 Quote ReDrop'), findsOneWidget);
+      expect(find.text('ยกเลิก ReDrop'), findsNothing);
+    });
+
+    testWidgets(
+        'tapping "🔄 ReDrop" in the sheet calls toggleRedrop with '
+        'currentlyRedropped: false and updates the count optimistically',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        toggleRedropTestHomeRepository,
+        dropRepository: toggleRedropTestDropRepository,
+        popRepository: toggleRedropTestPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      // The Drop card's broken test-fixture image URL throws a harmless
+      // NetworkImageLoadException -- same expected noise as "renders a
+      // mix of Drop and Pop cards" above, consumed here rather than
+      // there because opening the modal sheet pumps enough extra
+      // frames for it to actually surface within this test's window.
+      tester.takeException();
+
+      // Same off-screen-hit-test-avoidance as the Like button tests above
+      // -- the action row can be pushed below the fold by the Drop
+      // card's own image, so this invokes the button's onPressed
+      // directly rather than tester.tap(), which needs the widget to
+      // actually be on-screen to hit-test successfully.
+      final redropButton = find.widgetWithIcon(IconButton, Icons.repeat);
+      expect(redropButton, findsOneWidget);
+      tester.widget<IconButton>(redropButton).onPressed!();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('🔄 ReDrop'));
+      await tester.pumpAndSettle();
+
+      expect(toggleRedropTestDropRepository.toggleRedropCalls, 1);
+      expect(
+        toggleRedropTestDropRepository.toggleRedropCurrentlyRedroppedArgs,
+        [false],
+      );
+      expect(find.text('1'), findsOneWidget);
+    });
+
+    testWidgets(
+        'an already-ReDropped card\'s sheet offers "ยกเลิก ReDrop" instead, '
+        'and tapping it calls toggleRedrop with currentlyRedropped: true',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        alreadyRedroppedTestHomeRepository,
+        dropRepository: cancelRedropTestDropRepository,
+        popRepository: cancelRedropTestPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      // The Drop card's broken test-fixture image URL throws a harmless
+      // NetworkImageLoadException -- same expected noise as "renders a
+      // mix of Drop and Pop cards" above, consumed here rather than
+      // there because opening the modal sheet pumps enough extra
+      // frames for it to actually surface within this test's window.
+      tester.takeException();
+
+      // Same off-screen-hit-test-avoidance as the Like button tests above
+      // -- the action row can be pushed below the fold by the Drop
+      // card's own image, so this invokes the button's onPressed
+      // directly rather than tester.tap(), which needs the widget to
+      // actually be on-screen to hit-test successfully.
+      final redropButton = find.widgetWithIcon(IconButton, Icons.repeat);
+      expect(redropButton, findsOneWidget);
+      tester.widget<IconButton>(redropButton).onPressed!();
+      await tester.pumpAndSettle();
+
+      expect(find.text('ยกเลิก ReDrop'), findsOneWidget);
+      expect(find.text('🔄 ReDrop'), findsNothing);
+
+      await tester.tap(find.text('ยกเลิก ReDrop'));
+      await tester.pumpAndSettle();
+
+      expect(cancelRedropTestDropRepository.toggleRedropCalls, 1);
+      expect(
+        cancelRedropTestDropRepository.toggleRedropCurrentlyRedroppedArgs,
+        [true],
+      );
+    });
+
+    testWidgets('tapping "💬 Quote ReDrop" opens QuoteRedropScreen',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        quoteRedropNavTestHomeRepository,
+        dropRepository: quoteRedropNavTestDropRepository,
+        popRepository: quoteRedropNavTestPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      // The Drop card's broken test-fixture image URL throws a harmless
+      // NetworkImageLoadException -- same expected noise as "renders a
+      // mix of Drop and Pop cards" above, consumed here rather than
+      // there because opening the modal sheet pumps enough extra
+      // frames for it to actually surface within this test's window.
+      tester.takeException();
+
+      // Same off-screen-hit-test-avoidance as the Like button tests above
+      // -- the action row can be pushed below the fold by the Drop
+      // card's own image, so this invokes the button's onPressed
+      // directly rather than tester.tap(), which needs the widget to
+      // actually be on-screen to hit-test successfully.
+      final redropButton = find.widgetWithIcon(IconButton, Icons.repeat);
+      expect(redropButton, findsOneWidget);
+      tester.widget<IconButton>(redropButton).onPressed!();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('💬 Quote ReDrop'));
+      await tester.pumpAndSettle();
+      // QuoteRedropScreen's own preview card loads the same broken
+      // fixture image URL again -- same expected noise, consumed again.
+      tester.takeException();
+
+      expect(find.byType(QuoteRedropScreen), findsOneWidget);
+    });
+
+    testWidgets(
+        'the More menu on the viewer\'s own ReDrop card offers "ลบ ReDrop" '
+        '(alongside "รายงานโพสต์" for the original Drop, authored by '
+        'someone else) -- tapping it deletes the ReDrop and removes the '
+        'card', (tester) async {
+      await tester.pumpWidget(buildHome(
+        ownRedropTestHomeRepository,
+        dropRepository: deleteRedropTestDropRepository,
+        popRepository: deleteRedropTestPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final moreButton = find.widgetWithIcon(IconButton, Icons.more_vert);
+      expect(moreButton, findsOneWidget);
+      tester.widget<IconButton>(moreButton).onPressed!();
+      await tester.pumpAndSettle();
+
+      expect(find.text('รายงานโพสต์'), findsOneWidget);
+      expect(find.text('ลบ ReDrop'), findsOneWidget);
+
+      await tester.tap(find.text('ลบ ReDrop'));
+      await tester.pumpAndSettle();
+
+      expect(deleteRedropTestDropRepository.deleteRedropCalls, ['r6']);
+      expect(find.text('แคปชัน Drop'), findsNothing);
+    });
   });
 
   testWidgets(
