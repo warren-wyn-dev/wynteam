@@ -123,4 +123,38 @@ Handoff: AI QA & Security — ทำ independent QA เต็มรูปแบ�
 
 **พบ 1 จุดที่แก้เอง (ไม่ใช่บั๊กของโค้ด แต่เป็นช่องโหว่ของกระบวนการ verify เอง)**: ดูข้อ 2 ด้านบน — แก้ทันทีด้วยการเขียน regression script ใหม่ที่ทดสอบภายใต้ RLS จริง ไม่ใช่ปัญหาของโค้ด WYN-030 เอง
 
-**ผลลัพธ์: WYN-030 — PASS (รอบเดียว)** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — เป็น task ที่ 5 ของโปรเจกต์ที่ผ่าน QA รอบเดียว (ต่อจาก WYN-006/WYN-008/WYN-013/WYN-009/WYN-012) และเป็น**task สุดท้ายของ Phase 1 (Safety & Trust Foundation)** — Report → Moderation → Appeal ครบวงจรตาม Master Spec แล้ว พร้อมส่ง AI Deploy & DevOps เมื่อ Founder พร้อม deploy จริง (ยังไม่ deploy เพราะยังไม่มี production Supabase project จริง — gate เดิมที่ทุก task ก่อนหน้าเจอ)
+**ผลลัพธ์ (รายงานตนเอง, ไม่ใช่ QA อิสระจริง — ดู Round 2 ด้านล่าง)**
+
+---
+
+## Process Flag (AI QA & Security, 2026-08-23)
+
+**"Independent QA — Round 1" ด้านบนไม่ใช่ QA อิสระตามที่ระบุไว้จริง** ตรวจสอบ git history พบว่าเขียนโดย session/agent เดียวกับที่เขียน Coding Output (ทั้งสอง section commit มาพร้อมกันใน `5edb995`) — เป็นการ self-QA ที่ agent เดียวกันรายงานผลตัวเอง ไม่ใช่การ spawn บทบาท QA แยกต่างหากตามที่ workflow ของโปรเจกต์นี้ทำมาตลอดตั้งแต่ WYN-026 (Coding → **QA อิสระคนละ session** → Debug ถ้า FAIL → QA ซ้ำ → Deploy) เรื่องนี้ขัดกับหลักการที่ยึดมาทั้งโปรเจกต์: "never trust self-QA or a coding/debug agent's own report"
+
+ไม่ได้ reject งานทิ้ง — เนื้อหาที่ตรวจสอบเองในรอบนั้น (อ่าน diff, เขียน regression script ใหม่ให้รันภายใต้ RLS จริงแทน superuser, ตรวจ self-review guard/signOut timing) มีคุณภาพดีจริงและพบ+แก้ปัญหา methodology ของตัวเองได้ถูกต้อง แต่เนื่องจากเป็น self-report จึงทำ**QA อิสระจริงซ้ำอีกรอบ**ด้านล่าง ก่อนยืนยัน PASS
+
+---
+
+## Independent QA — Round 2 (AI QA & Security, genuinely separate session, 2026-08-23) — PASS
+
+**สิ่งที่ทำอิสระทั้งหมด ไม่เชื่อตัวเลข/ผลลัพธ์ที่ Round 1 รายงาน**:
+
+1. อ่าน diff เต็มของ `supabase/schema.sql` ส่วน WYN-030 ด้วยตัวเอง (`appeals` table/RLS, `submit_appeal()`, `decide_appeal()`, `get_my_moderation_status()` ที่ขยายเป็น 14 คอลัมน์, `get_my_moderation_action()`) — ยืนยัน self-review guard เทียบทิศถูกต้อง, evidence path validation กัน path traversal ได้จริง, ไม่มีการเพิ่ม raw SELECT policy บน `moderation_actions` ให้ target user (ซึ่งจะหลุด `reviewer_id`/`report_id` ทันทีแบบเดียวกับบั๊กที่ WYN-029 เพิ่งแก้)
+2. รัน `flutter analyze` เอง — สะอาด 0 issues ทั้งโปรเจกต์
+3. รัน `flutter test` เอง (compact reporter) — **451/451 ผ่าน** ตรงกับตัวเลขที่ Round 1 รายงานเป๊ะ (เดิมรันด้วย default reporter ได้ตัวเลข ordinal +468 ซึ่งนับคนละแบบ — สอบทานด้วย compact reporter แล้วตรงกัน ไม่ใช่ความคลาดเคลื่อนจริง)
+4. รัน `supabase/tests/wyn_030_appeal_system_test.sh` เดิมสด — 24/24 PASS
+5. รัน `wyn_027_is_blocked_either_way_rpc_exposure_test.sh` (9/9) และ `wyn_029_moderation_queue_test.sh` (36/36) ซ้ำ — ไม่มี cross-task regression
+6. **เขียน adversarial test เพิ่มเองครอบ 4 ช่องว่างจริงที่ script เดิมไม่ได้ทดสอบ** พบว่า persisted script เดิมพิสูจน์แค่ Restrict-approved end-to-end เท่านั้น (Suspend/Ban-approved ถูกอ้างว่า "ยืนยันด้วยมือ" ไม่ใช่ regression ถาวร), ไม่เคยทดสอบ role `anon` เลยสักครั้ง (ช่องโหว่ประเภทเดียวกับที่ WYN-027 เจอมาแล้ว — Postgres grant EXECUTE ให้ PUBLIC โดย default), ไม่เคยทดสอบการ decide_appeal ซ้ำบน appeal ที่ตัดสินไปแล้ว, และไม่เคยทดสอบ `get_my_moderation_action()`'s cross-user scoping — **เพิ่ม CHECK21-24 เข้าไปใน `supabase/tests/wyn_030_appeal_system_test.sh` ถาวร** (ไม่ใช่ไฟล์ scratch แยก) ครอบทั้ง 4 จุด:
+   - CHECK21: Suspend-approved พลิก `is_posting_blocked()` จริง (ใช้ fixture user ใหม่ "frank" แทนการ reuse bob ที่มี active block เดิมค้างอยู่แล้ว — พบบั๊กใน adversarial script ของตัวเองก่อน แก้ทัน)
+   - CHECK22a/b: role `anon` (ไม่มี JWT เลย) เรียก `submit_appeal()`/`decide_appeal()` ถูกปฏิเสธทั้งคู่
+   - CHECK23a/b: decide_appeal() ซ้ำบน appeal ที่ approved ไปแล้วถูกปฏิเสธ และไม่ insert notification ซ้ำ
+   - CHECK24a/b: `get_my_moderation_action()` คนนอกเห็น 0 แถว เจ้าของเห็นของตัวเอง
+   - รันทั้งไฟล์ซ้ำ (31 checks รวมเดิม) — **31/31 PASS**
+7. ตรวจ `AuthGate`/`AccountRestrictedScreen` เจาะจงจุดเสี่ยงที่สุด (deferred `signOut()`) ด้วยตัวเอง — อ่านโค้ดจริงยืนยัน `_blockedInfo` ยังเช็คก่อน `StreamBuilder` เสมอ (ไม่ regress THE TRAP), อ่าน `app/test/auth_gate_test.dart` ยืนยัน assertion จริง `signOutCalls == 0` ขณะ blocked และ `== 1` หลัง `_leaveBlockedScreen()` เท่านั้น
+8. ตรวจ self-review guard's UI wiring ด้วยตัวเอง — ไล่ตาม `currentModeratorId` จาก `settings_screen.dart:131` (`client.auth.currentUser?.id`) ผ่าน `ModerationQueueScreen` → `_AppealsTab` → `AppealDetailScreen` ยืนยันจุดเดียว ไม่มีการอ่าน `Supabase.instance` กลางหน้าจอ
+
+**Regression**: ไม่มี — WYN-027 (9/9)/WYN-029 (36/36)/`flutter test` เต็มโปรเจกต์ (451/451) ผ่านทั้งหมด
+
+**บั๊กที่พบ**: ไม่มีบั๊กในโค้ด WYN-030 เอง — พบเฉพาะช่องว่าง**ของ regression coverage** (ข้อ 6 ด้านบน) ซึ่งปิดแล้วด้วยการเพิ่ม CHECK21-24 ถาวร
+
+**ผลลัพธ์: WYN-030 — PASS (QA อิสระจริงยืนยันแล้ว)** ยังคงอยู่ใน `.wyn/tasks/approved/` — Phase 1 (Safety & Trust Foundation) ปิดครบ Report → Moderation → Appeal ตาม Master Spec พร้อมส่ง AI Deploy & DevOps เมื่อ Founder พร้อม deploy จริง (ยังไม่ deploy เพราะยังไม่มี production Supabase project จริง — gate เดิมที่ทุก task ก่อนหน้าเจอ)
