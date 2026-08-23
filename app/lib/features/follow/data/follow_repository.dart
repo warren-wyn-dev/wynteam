@@ -42,20 +42,27 @@ class FollowRepository {
     }
   }
 
+  /// WYN-039: routed through the `follower_count()` RPC (not a raw
+  /// `.count()` on `follows`) so the number stays accurate for everyone
+  /// regardless of the target's privacy or the caller's own follow
+  /// relationship to them -- see supabase/schema.sql's comment on
+  /// follower_count() for why a raw count would otherwise be wrong for a
+  /// stranger viewing a Private account (mirrors drop_view_count(),
+  /// WYN-038).
   Future<int> countFollowers({required String userId}) async {
-    final response = await _client
-        .from('follows')
-        .count(CountOption.exact)
-        .eq('following_id', userId);
-    return response;
+    final response = await _client.rpc(
+      'follower_count',
+      params: {'p_user_id': userId},
+    );
+    return (response as num).toInt();
   }
 
   Future<int> countFollowing({required String userId}) async {
-    final response = await _client
-        .from('follows')
-        .count(CountOption.exact)
-        .eq('follower_id', userId);
-    return response;
+    final response = await _client.rpc(
+      'following_count',
+      params: {'p_user_id': userId},
+    );
+    return (response as num).toInt();
   }
 
   /// Users who follow [userId], newest-followed first.

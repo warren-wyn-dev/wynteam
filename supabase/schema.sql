@@ -7101,3 +7101,376 @@ join public.pops p on p.id = s.content_id and s.content_type = 'pop'
 join public.profiles prof on prof.id = p.author_id;
 
 grant select on public.saved_feed to authenticated;
+
+-- ============================================================
+-- WYN-039: Private Account + Follow Request
+-- ============================================================
+
+-- Account type. Default false everywhere -- every existing profile and
+-- every new signup stays Public exactly as today unless the user opts
+-- in via Settings (WYN-039 Design, Screen 1).
+alter table public.profiles
+  add column if not exists is_private boolean not null default false;
+
+-- Single reusable predicate, mirrors internal.is_blocked_either_way's
+-- placement/shape exactly -- security definer so it can be called from
+-- inside other tables' RLS policies (drops, follows itself) without
+-- those policies' own subqueries against `follows` re-triggering
+-- `follows`' own (now-restrictive, see below) SELECT policy. Without
+-- security definer here, `follows`' policy calling this function would
+-- recurse into `follows`' own RLS via the `exists (... from follows
+-- ...)` check below, since a plain (non-definer) function runs with the
+-- caller's RLS applied to every table it touches.
+create or replace function internal.can_view_author_content(p_viewer uuid, p_author uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p_author = p_viewer
+    or not exists (select 1 from public.profiles where id = p_author and is_private)
+    or exists (
+      select 1 from public.follows
+      where follower_id = p_viewer and following_id = p_author
+    );
+$$;
+
+-- Pending Follow Request state. A separate table from `follows` (not a
+-- `status` column added to it) -- unlike conversations.status (WYN-031
+-- -> WYN-032), `follows` already has years of call sites assuming every
+-- row means "accepted follow" (FollowRepository, home_feed/saved_feed
+-- ranking, get_or_create_conversation()'s follow check, badge counts).
+-- Retrofitting all of them to filter a new status column is far riskier
+-- than a new table that leaves every one of those untouched.
+create table if not exists public.follow_requests (
+  requester_id uuid not null references public.profiles (id) on delete cascade,
+  target_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (requester_id, target_id),
+  constraint follow_requests_no_self check (requester_id <> target_id)
+);
+
+alter table public.follow_requests enable row level security;
+
+-- Only the two parties involved may see a pending request at all -- a
+-- request is exactly as sensitive as a Message Request (WYN-032's
+-- message_requests view has the same "only the two parties" shape),
+-- not open like `follows`' own SELECT policy.
+create policy "Follow requests are viewable by the two parties only"
+  on public.follow_requests
+  for select
+  to authenticated
+  using (auth.uid() in (requester_id, target_id));
+
+create policy "Users can send follow requests as themselves"
+  on public.follow_requests
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = requester_id
+    and not internal.is_blocked_either_way(auth.uid(), target_id)
+    and exists (select 1 from public.profiles where id = target_id and is_private)
+    and not exists (
+      select 1 from public.follows
+      where follower_id = auth.uid() and following_id = target_id
+    )
+  );
+
+-- Requester cancels their own pending request, or target rejects a
+-- request sent to them -- both are a plain DELETE, no RPC needed (no
+-- edge case as subtle as WYN-032's requested_by-on-an-active-
+-- conversation situation exists here).
+create policy "Requester or target can remove a follow request"
+  on public.follow_requests
+  for delete
+  to authenticated
+  using (auth.uid() in (requester_id, target_id));
+
+-- Fires the `follow_request` notification the moment a request is
+-- created -- mirrors the trigger-per-table-event shape every other
+-- ordinary-user-action notification in this schema uses (notify_follow,
+-- notify_drop_like, etc.), since (unlike message_request, which is
+-- inserted manually inside get_or_create_conversation()) nothing else
+-- server-side runs when a client inserts a follow_requests row directly.
+create or replace function internal.notify_follow_request()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.notifications (recipient_id, actor_id, type)
+  values (new.target_id, new.requester_id, 'follow_request');
+  return new;
+end;
+$$;
+
+create trigger follow_requests_notify
+  after insert on public.follow_requests
+  for each row execute function internal.notify_follow_request();
+
+-- Accept: must be an RPC (not a raw client insert into `follows`) --
+-- deleting the request and creating the follow relationship has to
+-- happen atomically, and only the target may perform it.
+create or replace function public.accept_follow_request(p_requester_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.follow_requests
+  where requester_id = p_requester_id and target_id = auth.uid();
+
+  if not found then
+    raise exception 'Follow request not found, or not yours to accept';
+  end if;
+
+  insert into public.follows (follower_id, following_id)
+  values (p_requester_id, auth.uid())
+  on conflict do nothing;
+
+  insert into public.notifications (recipient_id, actor_id, type)
+  values (p_requester_id, auth.uid(), 'follow_request_accepted');
+end;
+$$;
+
+grant execute on function public.accept_follow_request(uuid) to authenticated;
+
+-- Rejecting is just `delete from follow_requests` from the client,
+-- allowed by the DELETE policy above -- no notification is sent to the
+-- requester (mirrors Message Request's Delete, WYN-032), and no RPC is
+-- needed since there's no side effect beyond the row disappearing.
+
+-- Switching Private -> Public auto-approves every request that was
+-- still waiting -- the user just chose to let everyone see their
+-- content, so there is no reason left to keep anyone waiting on a
+-- decision (mirrors ordinary Instagram-style behavior).
+create or replace function internal.auto_approve_pending_follow_requests()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.is_private = false and old.is_private = true then
+    insert into public.follows (follower_id, following_id)
+    select requester_id, target_id
+    from public.follow_requests
+    where target_id = new.id
+    on conflict do nothing;
+
+    delete from public.follow_requests where target_id = new.id;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger profiles_auto_approve_follow_requests
+  after update of is_private on public.profiles
+  for each row execute function internal.auto_approve_pending_follow_requests();
+
+-- The single point of enforcement: gate Drop visibility on the same RLS
+-- layer WYN-027 already uses for Block, so every existing reader of
+-- `drops` -- home_feed/saved_feed (both security_invoker views),
+-- redrops (already piggybacks via `exists (select 1 from drops ...)`),
+-- drop_comments (same piggyback shape, WYN-037), drop_polls (same
+-- shape, WYN-035), and every direct `.from('drops')` client query
+-- (Search/Profile grid/fetchById) -- inherits the private-account gate
+-- automatically, with no separate change needed at any of those call
+-- sites. This is why Mute (WYN-028) *couldn't* reuse this shape (mute
+-- only ever hid content from the Home/Saved feed, never from a direct
+-- profile visit) but Block and now Private both can: both are meant to
+-- be a full, everywhere block on visibility.
+-- NOTE: WYN-037 already renamed this policy to "...excluding blocked
+-- authors and deleted" (its own USING clause also excludes a
+-- soft-deleted Drop unless you're its author) -- that name and this
+-- task's OLD pre-WYN-037 name below both truncate to the identical
+-- 63-byte Postgres identifier prefix, so `drop policy` by either string
+-- targets the same underlying policy. Named here by its current
+-- (WYN-037) full name to avoid the same confusion, and the soft-delete
+-- condition is carried forward unchanged into the new USING clause.
+drop policy "Drops are viewable by authenticated users, excluding blocked authors and deleted" on public.drops;
+create policy "Drops are viewable by authenticated users, excluding blocked, deleted, and locked-private authors"
+  on public.drops
+  for select
+  to authenticated
+  using (
+    not internal.is_blocked_either_way(auth.uid(), author_id)
+    and (deleted_at is null or auth.uid() = author_id)
+    and internal.can_view_author_content(auth.uid(), author_id)
+  );
+
+-- get_poll_results() (WYN-035) is SECURITY DEFINER and already
+-- duplicates its own is_blocked_either_way check in its WHERE clause
+-- precisely because it can't rely on drops' RLS -- it bypasses RLS
+-- entirely, poll_id in hand is enough to call it directly. Needs the
+-- same duplicated check added for private accounts, or a stranger could
+-- still read a private Drop's poll results by poll_id even though the
+-- Drop row itself is now correctly hidden from them.
+create or replace function public.get_poll_results(p_poll_ids uuid[])
+returns table(
+  poll_id uuid,
+  visible boolean,
+  total_votes bigint,
+  option_counts bigint[]
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  if v_me is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  return query
+  select
+    dp.id as poll_id,
+    v.is_visible,
+    case when v.is_visible
+      then (select count(*) from public.drop_poll_votes dpv where dpv.poll_id = dp.id)
+      else null end as total_votes,
+    case when v.is_visible
+      then (
+        select array_agg(cnt order by idx)
+        from (
+          select gs as idx, count(pv.id) as cnt
+          from generate_series(0, array_length(dp.options, 1) - 1) as gs
+          left join public.drop_poll_votes pv
+            on pv.poll_id = dp.id and pv.option_index = gs
+          group by gs
+        ) counted
+      )
+      else null end as option_counts
+  from public.drop_polls dp
+  join public.drops d on d.id = dp.drop_id
+  cross join lateral (
+    select
+      dp.expires_at <= now()
+      or d.author_id = v_me
+      or exists (
+        select 1 from public.drop_poll_votes dpv2
+        where dpv2.poll_id = dp.id and dpv2.voter_id = v_me
+      ) as is_visible
+  ) v
+  where dp.id = any(p_poll_ids)
+    and not internal.is_blocked_either_way(v_me, d.author_id)
+    and internal.can_view_author_content(v_me, d.author_id);
+end;
+$$;
+
+-- follows' own SELECT policy: a party to an edge can always see it
+-- (needed for FollowRepository.isFollowing/badge counts/self-status
+-- regardless of the other side's privacy -- otherwise a user couldn't
+-- even tell whether *they themselves* still follow a private account);
+-- a third party can see it only when *both* people's content are
+-- visible to them. Slightly more conservative than Instagram (which
+-- shows a private account's own follower/following list to its
+-- accepted followers even when some entries in that list are people the
+-- viewer can't otherwise see) but far simpler to reason about and audit
+-- -- one predicate, symmetric, reused as-is from can_view_author_content.
+drop policy "Follows are viewable by authenticated users" on public.follows;
+create policy "Follows are viewable by parties or when both sides are visible"
+  on public.follows
+  for select
+  to authenticated
+  using (
+    auth.uid() in (follower_id, following_id)
+    or (
+      internal.can_view_author_content(auth.uid(), follower_id)
+      and internal.can_view_author_content(auth.uid(), following_id)
+    )
+  );
+
+-- follows' own INSERT policy (WYN-008, tightened for Block by WYN-027)
+-- never checked the target's privacy at all -- without this fix, a
+-- client could `insert into follows` directly and skip the Follow
+-- Request flow entirely for a Private account, making Requirement 2
+-- (Design doc) purely decorative. A direct insert is now only allowed
+-- against a Public target; the one legitimate way to create a `follows`
+-- row for a Private target is accept_follow_request() above, which is
+-- SECURITY DEFINER and therefore bypasses this policy (as intended --
+-- only the target themself can ever call it, and only for a request
+-- that genuinely exists). WYN-027's blocked-relationship check is kept
+-- as-is.
+drop policy "Users can follow others as themselves, excluding blocked relationships" on public.follows;
+create policy "Users can follow public accounts directly, excluding blocked relationships"
+  on public.follows
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = follower_id
+    and not internal.is_blocked_either_way(auth.uid(), following_id)
+    and not exists (
+      select 1 from public.profiles where id = following_id and is_private
+    )
+  );
+
+-- Follower/Following *counts* must stay visible to everyone regardless
+-- of privacy (Product AC: a locked profile still shows its stats, only
+-- the drill-down list is gated) -- mirrors drop_view_count() (WYN-038)
+-- exactly: a SECURITY DEFINER function bypassing the row-level
+-- restriction above to return only an aggregate, never individual rows.
+create or replace function public.follower_count(p_user_id uuid)
+returns bigint
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select count(*) from public.follows where following_id = p_user_id;
+$$;
+
+create or replace function public.following_count(p_user_id uuid)
+returns bigint
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select count(*) from public.follows where follower_id = p_user_id;
+$$;
+
+grant execute on function public.follower_count(uuid) to authenticated;
+grant execute on function public.following_count(uuid) to authenticated;
+
+-- Notification types: 2 new, both ordinary user-action actors (not the
+-- null-actor moderation case) -- mirrors message_request's addition
+-- (WYN-032) exactly, including going ahead of WYN-043/Phase 5's nominal
+-- "new notification types" slot for the same reason WYN-032 already did.
+do $$
+declare
+  v_constraint_name text;
+begin
+  select tc.constraint_name into v_constraint_name
+  from information_schema.table_constraints tc
+  join information_schema.constraint_column_usage ccu
+    on ccu.constraint_name = tc.constraint_name
+   and ccu.constraint_schema = tc.constraint_schema
+  where tc.table_schema = 'public'
+    and tc.table_name = 'notifications'
+    and tc.constraint_type = 'CHECK'
+    and ccu.column_name = 'type';
+
+  if v_constraint_name is not null then
+    execute format('alter table public.notifications drop constraint %I', v_constraint_name);
+  end if;
+end;
+$$;
+
+alter table public.notifications
+  add constraint notifications_type_check
+  check (type in (
+    'like_drop', 'like_pop', 'comment_drop', 'comment_pop', 'follow',
+    'club_join_request', 'club_join_approved', 'club_post_like', 'club_post_comment',
+    'new_order', 'order_shipped', 'order_cancelled', 'order_refunded',
+    'mention_drop', 'mention_club_post',
+    'moderation_warning', 'moderation_content_removed',
+    'appeal_approved', 'appeal_rejected',
+    'message_request', 'redrop',
+    'follow_request', 'follow_request_accepted'
+  ));

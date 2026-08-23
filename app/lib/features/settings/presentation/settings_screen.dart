@@ -20,21 +20,25 @@ import '../../saved/data/saved_repository.dart';
 import '../../../core/design/wyn_spacing.dart';
 
 /// Minimal Settings screen (WYN-027/028, "เครื่องมือผู้ดูแล" section added
-/// by WYN-029) -- the full Settings (Master Spec section 35: Account/
-/// Privacy/Notifications/Security/Safety/Data/Legal) is WYN-045
-/// (Phase 5), not started yet. This round adds only the "ความปลอดภัย"
-/// (Safety) section, since Blocked List/Muted List need *somewhere* to
-/// live per the Product specs ("Unblock ได้จากหน้า Settings → Safety →
-/// Blocked List เท่านั้น" / "Unmute ได้จาก Settings → Safety → Muted
-/// List"), plus a hidden entry point into the Moderation Queue for
-/// moderator/admin accounts only. Deliberately not pre-building empty
-/// sections for the other 6 categories -- a menu that opens to nothing
-/// yet is worse than no menu at all. See
+/// by WYN-029, "ความเป็นส่วนตัว" section added by WYN-039) -- the full
+/// Settings (Master Spec section 35: Account/Privacy/Notifications/
+/// Security/Safety/Data/Legal) is WYN-045 (Phase 5), not started yet.
+/// Each round adds only the one section it actually needs, since Blocked
+/// List/Muted List/the Private Account toggle all need *somewhere* to
+/// live per their own Product specs. Deliberately not pre-building empty
+/// sections for the other categories -- a menu that opens to nothing yet
+/// is worse than no menu at all. See
 /// .wyn/docs/design/wyn-027-block-system.md, Screen 4,
-/// .wyn/docs/design/wyn-028-mute-system.md, Screen 3, and
-/// .wyn/docs/design/wyn-029-moderation-queue.md, Screen 1.
-class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key, required this.platformRole});
+/// .wyn/docs/design/wyn-028-mute-system.md, Screen 3,
+/// .wyn/docs/design/wyn-029-moderation-queue.md, Screen 1, and
+/// .wyn/docs/design/wyn-039-private-account-follow-request.md, Screen 1.
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({
+    super.key,
+    required this.platformRole,
+    required this.isPrivate,
+    this.profileRepository,
+  });
 
   /// Passed in directly from ViewProfileScreen's already-fetched own
   /// profile (WYN-029, Screen 1) -- deliberately not queried again here.
@@ -45,12 +49,76 @@ class SettingsScreen extends StatelessWidget {
   /// UI layer.
   final PlatformRole platformRole;
 
+  /// Same "passed in from ViewProfileScreen's already-fetched profile,
+  /// not re-queried" reasoning as [platformRole] -- WYN-039's Privacy
+  /// toggle's initial value.
+  final bool isPrivate;
+
+  /// Optional/defaulted to Supabase.instance.client when omitted, same
+  /// shape as every other repository this app threads through
+  /// optionally (see ViewProfileScreen's own comment on the pattern).
+  final ProfileRepository? profileRepository;
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  late final ProfileRepository _profileRepository =
+      widget.profileRepository ?? ProfileRepository(Supabase.instance.client);
+  late bool _isPrivate = widget.isPrivate;
+  bool _isTogglingPrivate = false;
+
+  Future<void> _setIsPrivate(bool value) async {
+    final previous = _isPrivate;
+    setState(() {
+      _isPrivate = value;
+      _isTogglingPrivate = true;
+    });
+    try {
+      await _profileRepository.updateIsPrivate(
+        userId: Supabase.instance.client.auth.currentUser!.id,
+        isPrivate: value,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isPrivate = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    } finally {
+      if (mounted) setState(() => _isTogglingPrivate = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('ตั้งค่า')),
       body: ListView(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              WynSpacing.space4,
+              WynSpacing.space4,
+              WynSpacing.space4,
+              WynSpacing.space1,
+            ),
+            child: Text(
+              'ความเป็นส่วนตัว',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+            ),
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.lock_outline),
+            title: const Text('บัญชีส่วนตัว (Private Account)'),
+            subtitle: const Text(
+                'เฉพาะผู้ติดตามที่คุณอนุมัติเท่านั้นที่จะเห็น Drop ของคุณได้'),
+            value: _isPrivate,
+            onChanged: _isTogglingPrivate ? null : _setIsPrivate,
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
               WynSpacing.space4,
@@ -117,7 +185,7 @@ class SettingsScreen extends StatelessWidget {
           // user -- an ordinary user must not see even an empty "เครื่องมือ
           // ผู้ดูแล" heading, per the Product spec's "ไม่ปรากฏในเมนูของ
           // ผู้ใช้ทั่วไป".
-          if (platformRole != PlatformRole.user) ...[
+          if (widget.platformRole != PlatformRole.user) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 WynSpacing.space4,

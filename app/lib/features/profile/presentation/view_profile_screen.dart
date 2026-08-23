@@ -8,7 +8,9 @@ import '../../club/presentation/club_page.dart';
 import '../../club/presentation/widgets/club_mini_card.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../follow/data/follow_repository.dart';
+import '../../follow/data/follow_request_repository.dart';
 import '../../follow/presentation/follow_list_screen.dart';
+import '../../follow/presentation/follow_request_list_screen.dart';
 import '../../home/data/home_repository.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../push/data/push_token_repository.dart';
@@ -68,6 +70,7 @@ class ViewProfileScreen extends StatefulWidget {
     this.muteRepository,
     this.chatRepository,
     this.homeRepository,
+    this.followRequestRepository,
   });
 
   final ProfileRepository profileRepository;
@@ -112,6 +115,11 @@ class ViewProfileScreen extends StatefulWidget {
   // rather than `drops` directly.
   final HomeRepository? homeRepository;
 
+  // Same optional/defaulted shape again -- WYN-039's Follow Request flow
+  // (Locked persona's button + own-profile badge into
+  // FollowRequestListScreen).
+  final FollowRequestRepository? followRequestRepository;
+
   @override
   State<ViewProfileScreen> createState() => _ViewProfileScreenState();
 }
@@ -154,6 +162,23 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       widget.chatRepository ?? ChatRepository(Supabase.instance.client);
   late final HomeRepository _homeRepository =
       widget.homeRepository ?? HomeRepository(Supabase.instance.client);
+  late final FollowRequestRepository _followRequestRepository =
+      widget.followRequestRepository ??
+          FollowRequestRepository(Supabase.instance.client);
+
+  // Null until loaded (only for other people's profiles, same posture as
+  // _isFollowing) -- true only while the *current viewer* has an
+  // outstanding, undecided Follow Request against this Private profile.
+  // Drives the Follow button's 3rd state ("ขอติดตามแล้ว").
+  bool? _hasPendingRequest;
+  bool _isFollowActionInFlight = false;
+
+  // Only meaningful for the viewer's own profile -- how many people are
+  // waiting on a Follow Request decision. Drives the badge entry point
+  // into FollowRequestListScreen (Design Screen 3). 0 renders no badge
+  // at all, same "don't show empty state as a row" posture as
+  // _buildMyClubsSection.
+  int _pendingRequestCount = 0;
 
   bool _isStartingChat = false;
 
@@ -168,6 +193,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       _loadFollowStatus();
       _loadBlockRelationship();
       _loadMuteStatus();
+      _loadPendingRequestStatus();
+    } else {
+      _loadPendingRequestCount();
     }
     final clubRepository = widget.clubRepository;
     if (_isOwnProfile && clubRepository != null) {
@@ -222,6 +250,145 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       if (!mounted) return;
       setState(() => _isFollowing = previous);
     }
+  }
+
+  // WYN-039 Design, Screen 2 -- the Follow button's 3 states. Only
+  // reached once _isFollowing is non-null (the caller above already
+  // guards that), so this never has to represent a 4th "still loading"
+  // state itself.
+  String _followButtonLabel(Profile profile) {
+    if (_isFollowing!) return 'กำลังติดตาม';
+    if (profile.isPrivate && (_hasPendingRequest ?? false)) {
+      return 'ขอติดตามแล้ว';
+    }
+    return 'ติดตาม';
+  }
+
+  String _followButtonSemanticsLabel(Profile profile) {
+    if (_isFollowing!) return 'กำลังติดตาม กดเพื่อเลิกติดตาม';
+    if (profile.isPrivate && (_hasPendingRequest ?? false)) {
+      return 'ขอติดตามแล้ว กดเพื่อยกเลิกคำขอ';
+    }
+    return profile.isPrivate ? 'กดเพื่อขอติดตาม' : 'กดเพื่อติดตาม';
+  }
+
+  void _onFollowButtonPressed(Profile profile) {
+    if (_isFollowing!) {
+      _toggleFollow();
+    } else if (profile.isPrivate && (_hasPendingRequest ?? false)) {
+      _cancelFollowRequest(profile);
+    } else if (profile.isPrivate) {
+      _sendFollowRequest();
+    } else {
+      _toggleFollow();
+    }
+  }
+
+  Future<void> _loadPendingRequestStatus() async {
+    try {
+      final hasPending = await _followRequestRepository.hasPendingRequest(
+          userId: widget.userId);
+      if (!mounted) return;
+      setState(() => _hasPendingRequest = hasPending);
+    } catch (_) {
+      // Leave it null -- same posture as _loadFollowStatus.
+    }
+  }
+
+  Future<void> _loadPendingRequestCount() async {
+    try {
+      final count = await _followRequestRepository.countPendingRequests();
+      if (!mounted) return;
+      setState(() => _pendingRequestCount = count);
+    } catch (_) {
+      // Leave it at 0 -- the badge just stays hidden, same posture as
+      // every other best-effort count on this screen.
+    }
+  }
+
+  // WYN-039 Design, Screen 2 -- sends a Follow Request instead of an
+  // instant follow when the target is Private and not yet followed.
+  // Optimistic, no confirm dialog (mirrors _toggleFollow's own posture
+  // for the same reason: fully reversible, one tap to undo via
+  // _cancelFollowRequest below).
+  Future<void> _sendFollowRequest() async {
+    if (_isFollowActionInFlight) return;
+    setState(() {
+      _isFollowActionInFlight = true;
+      _hasPendingRequest = true;
+    });
+    try {
+      await _followRequestRepository.sendRequest(userId: widget.userId);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _hasPendingRequest = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ส่งคำขอติดตามไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    } finally {
+      if (mounted) setState(() => _isFollowActionInFlight = false);
+    }
+  }
+
+  // Confirm before canceling (unlike sending) -- the Design doc calls
+  // this out explicitly since it's the one Follow-adjacent action on
+  // this screen with a confirm dialog, mirroring _blockUser's posture
+  // rather than _toggleFollow's: undoing a decision already communicated
+  // to the other party is worth one extra tap to avoid an accidental
+  // cancel.
+  Future<void> _cancelFollowRequest(Profile profile) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('ยกเลิกคำขอติดตาม ${profile.nameOrUsername}?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('ไม่ยกเลิก'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('ยกเลิกคำขอ'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || _isFollowActionInFlight) return;
+
+    setState(() {
+      _isFollowActionInFlight = true;
+      _hasPendingRequest = false;
+    });
+    try {
+      await _followRequestRepository.cancelRequest(userId: widget.userId);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _hasPendingRequest = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ยกเลิกคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    } finally {
+      if (mounted) setState(() => _isFollowActionInFlight = false);
+    }
+  }
+
+  void _openFollowRequests() {
+    Navigator.of(context)
+        .push<void>(
+      MaterialPageRoute(
+        builder: (_) => FollowRequestListScreen(
+          followRequestRepository: _followRequestRepository,
+        ),
+      ),
+    )
+        .then((_) {
+      // The list screen may have Accepted/Rejected requests -- refresh
+      // both the badge count and this profile's own Followers count.
+      if (!mounted) return;
+      _loadPendingRequestCount();
+      _reload();
+    });
   }
 
   // WYN-031, Screen 4. get_or_create_conversation() itself rejects a
@@ -489,7 +656,22 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     }
   }
 
-  Future<void> _openFollowList(FollowListMode mode) async {
+  // WYN-039 Design, Screen 2 -- the follower/following *count* stays
+  // visible on a Locked profile (see follower_count()/following_count()
+  // in schema.sql), but the drill-down list itself doesn't open for
+  // anyone who isn't the owner or an accepted follower -- `follows`' own
+  // RLS would just return an empty list anyway, but a SnackBar is a
+  // clearer outcome than silently opening to nothing.
+  Future<void> _openFollowList(
+    FollowListMode mode, {
+    required bool isLockedPrivate,
+  }) async {
+    if (isLockedPrivate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ต้องติดตามก่อนถึงจะดูรายชื่อได้')),
+      );
+      return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => FollowListScreen(
@@ -512,6 +694,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   String _gridEmptyText({
     required bool isOwnProfile,
     required bool isBlockedEitherWay,
+    required bool isLockedPrivate,
     required String contentLabel,
     required Profile profile,
   }) {
@@ -519,6 +702,13 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       return (_blockRelationship?.iBlockedThem ?? false)
           ? 'คุณบล็อกผู้ใช้นี้อยู่ จึงไม่เห็นเนื้อหาของเขา'
           : 'ไม่สามารถดูเนื้อหาของผู้ใช้นี้ได้';
+    }
+    // WYN-039 Design, Screen 2 -- the grid genuinely has no rows for a
+    // locked viewer (RLS on `drops` hides them), so this is the same
+    // "must say hidden, not implausibly-empty" reasoning WYN-027 already
+    // established above, not a new pattern.
+    if (isLockedPrivate) {
+      return 'บัญชีนี้เป็นส่วนตัว — ติดตามเพื่อดู ${profile.nameOrUsername}';
     }
     return isOwnProfile
         ? 'ยังไม่มี $contentLabel เลย'
@@ -644,12 +834,20 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   // in flight or done.
                   final data = await _loadFuture;
                   if (!context.mounted) return;
-                  Navigator.of(context).push(
+                  await Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => SettingsScreen(
-                          platformRole: data.profile.platformRole),
+                        platformRole: data.profile.platformRole,
+                        isPrivate: data.profile.isPrivate,
+                      ),
                     ),
                   );
+                  // The Privacy toggle (WYN-039) may have changed since
+                  // this profile was first loaded -- reload so the Drop
+                  // grid/Follow Requests badge reflect the new value
+                  // immediately, without requiring a manual pull-to-
+                  // refresh.
+                  _reload();
                 },
               ),
               IconButton(
@@ -693,6 +891,18 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
             final profile = data.profile;
             final isBlockedEitherWay = !isOwnProfile &&
                 (_blockRelationship?.isBlockedEitherWay ?? false);
+            // WYN-039 Design, Screen 2 -- Block always takes precedence
+            // over Private (a blocked pair sees the Blocked banner, never
+            // the Locked one, regardless of the target's account type).
+            // While _isFollowing is still loading (null), this
+            // conservatively treats the viewer as not-yet-a-follower --
+            // the same brief-flicker tradeoff _blockRelationship's own
+            // `?? false` default already accepts elsewhere on this
+            // screen, not a new one introduced here.
+            final isLockedPrivate = !isOwnProfile &&
+                !isBlockedEitherWay &&
+                profile.isPrivate &&
+                (_isFollowing ?? false) == false;
 
             return Column(
               children: [
@@ -737,32 +947,62 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                             _FollowCountTarget(
                               count: data.followerCount,
                               label: 'ผู้ติดตาม',
-                              onTap: () =>
-                                  _openFollowList(FollowListMode.followers),
+                              onTap: () => _openFollowList(
+                                FollowListMode.followers,
+                                isLockedPrivate: isLockedPrivate,
+                              ),
                             ),
                             const SizedBox(width: WynSpacing.space6),
                             _FollowCountTarget(
                               count: data.followingCount,
                               label: 'กำลังติดตาม',
-                              onTap: () =>
-                                  _openFollowList(FollowListMode.following),
+                              onTap: () => _openFollowList(
+                                FollowListMode.following,
+                                isLockedPrivate: isLockedPrivate,
+                              ),
                             ),
                           ],
                         ),
                         const SizedBox(height: WynSpacing.space6),
-                        if (isOwnProfile)
+                        if (isOwnProfile) ...[
                           OutlinedButton(
                             onPressed: () => _openEdit(profile),
                             child: const Text('แก้ไขโปรไฟล์'),
-                          )
-                        else if (_isFollowing != null)
+                          ),
+                          // WYN-039 Design, Screen 3's entry point --
+                          // only for a Private account with at least 1
+                          // request waiting (see _loadPendingRequestCount:
+                          // stays 0, so hidden, for a Public account,
+                          // which can never accumulate a pending request
+                          // in the first place).
+                          if (profile.isPrivate &&
+                              _pendingRequestCount > 0) ...[
+                            const SizedBox(height: WynSpacing.space2),
+                            InkWell(
+                              onTap: _openFollowRequests,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: WynSpacing.space4,
+                                  vertical: WynSpacing.space2,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.person_add_alt, size: 18),
+                                    const SizedBox(width: WynSpacing.space2),
+                                    Text('คำขอติดตาม ($_pendingRequestCount)'),
+                                    const Icon(Icons.chevron_right, size: 18),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ] else if (_isFollowing != null)
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Semantics(
-                                label: _isFollowing!
-                                    ? 'กำลังติดตาม กดเพื่อเลิกติดตาม'
-                                    : 'กดเพื่อติดตาม',
+                                label: _followButtonSemanticsLabel(profile),
                                 excludeSemantics: true,
                                 child: OutlinedButton(
                                   style: OutlinedButton.styleFrom(
@@ -773,9 +1013,10 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                                           Theme.of(context).colorScheme.primary,
                                     ),
                                   ),
-                                  onPressed: _toggleFollow,
-                                  child: Text(
-                                      _isFollowing! ? 'กำลังติดตาม' : 'ติดตาม'),
+                                  onPressed: _isFollowActionInFlight
+                                      ? null
+                                      : () => _onFollowButtonPressed(profile),
+                                  child: Text(_followButtonLabel(profile)),
                                 ),
                               ),
                               const SizedBox(width: WynSpacing.space2),
@@ -830,6 +1071,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                         emptyText: _gridEmptyText(
                           isOwnProfile: isOwnProfile,
                           isBlockedEitherWay: isBlockedEitherWay,
+                          isLockedPrivate: isLockedPrivate,
                           contentLabel: 'Drop',
                           profile: profile,
                         ),
@@ -845,6 +1087,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                         emptyText: _gridEmptyText(
                           isOwnProfile: isOwnProfile,
                           isBlockedEitherWay: isBlockedEitherWay,
+                          isLockedPrivate: isLockedPrivate,
                           contentLabel: 'ReDrop',
                           profile: profile,
                         ),
@@ -859,6 +1102,13 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                         emptyText: _gridEmptyText(
                           isOwnProfile: isOwnProfile,
                           isBlockedEitherWay: isBlockedEitherWay,
+                          // Product spec's scope explicitly excludes Pop
+                          // from Private Account gating (`pops`' own RLS
+                          // is untouched by WYN-039) -- showing the
+                          // Locked message here would be actively wrong
+                          // whenever the account does have Pop content,
+                          // since it would still load and display fine.
+                          isLockedPrivate: false,
                           contentLabel: 'Pop',
                           profile: profile,
                         ),

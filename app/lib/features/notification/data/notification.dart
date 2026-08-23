@@ -41,6 +41,13 @@ enum NotificationType {
   // real user here, not the null-actor moderation case above (this is
   // an ordinary user action, nothing to hide).
   messageRequest,
+  // WYN-039: inserted by the follow_requests_notify trigger (a new
+  // request) and accept_follow_request() (the request was accepted) --
+  // both ordinary user actions, actor_id always real. No dedicated
+  // field on WynNotification for either (unlike messageRequest's
+  // conversationId): both just need actorId, already present.
+  followRequest,
+  followRequestAccepted,
 }
 
 NotificationType _typeFromString(String value) {
@@ -85,6 +92,10 @@ NotificationType _typeFromString(String value) {
       return NotificationType.appealRejected;
     case 'message_request':
       return NotificationType.messageRequest;
+    case 'follow_request':
+      return NotificationType.followRequest;
+    case 'follow_request_accepted':
+      return NotificationType.followRequestAccepted;
     default:
       throw ArgumentError('Unknown notification type: $value');
   }

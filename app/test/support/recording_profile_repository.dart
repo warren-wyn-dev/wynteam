@@ -13,7 +13,12 @@ class RecordingProfileRepository extends ProfileRepository {
   })  : searchResults = searchResults ?? [],
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
-  final Profile profile;
+  // WYN-039: mutable (not final) so a single shared instance (the
+  // project's setUpAll convention -- see PATTERNS.md) can be reused
+  // across testWidgets cases that each need a different canned Profile,
+  // same "reassign a canned field in setUp/per-test" approach
+  // RecordingMuteRepository.isMutedResult already establishes.
+  Profile profile;
 
   /// Returned by [fetchProfileByUsername], regardless of the username
   /// asked for -- WYN-021.
@@ -28,11 +33,23 @@ class RecordingProfileRepository extends ProfileRepository {
   int searchProfilesCalls = 0;
   final List<String> searchProfilesQueryArgs = [];
 
+  /// Recorded calls to [updateIsPrivate] -- WYN-039's Settings toggle.
+  final List<bool> updateIsPrivateArgs = [];
+
   @override
   Future<Profile> fetchProfile(String userId) async => profile;
 
   @override
-  Future<Profile?> fetchProfileByUsername(String username) async => byUsernameResult;
+  Future<void> updateIsPrivate({
+    required String userId,
+    required bool isPrivate,
+  }) async {
+    updateIsPrivateArgs.add(isPrivate);
+  }
+
+  @override
+  Future<Profile?> fetchProfileByUsername(String username) async =>
+      byUsernameResult;
 
   @override
   Future<List<Profile>> searchProfiles({

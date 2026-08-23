@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/text_utils.dart';
 import '../../chat/data/chat_repository.dart';
@@ -12,6 +13,8 @@ import '../../club/presentation/club_post_detail_screen.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/drop_detail_screen.dart';
 import '../../follow/data/follow_repository.dart';
+import '../../follow/data/follow_request_repository.dart';
+import '../../follow/presentation/follow_request_list_screen.dart';
 import '../../home/presentation/pop_single_clip_screen.dart';
 import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/presentation/my_moderation_action_screen.dart';
@@ -44,6 +47,7 @@ class NotificationListScreen extends StatefulWidget {
     required this.zokyRepository,
     required this.appealRepository,
     required this.chatRepository,
+    this.followRequestRepository,
   });
 
   final NotificationRepository notificationRepository;
@@ -64,11 +68,20 @@ class NotificationListScreen extends StatefulWidget {
   /// WYN-032: messageRequest opens ConversationScreen directly.
   final ChatRepository chatRepository;
 
+  /// Optional/defaulted to Supabase.instance.client when omitted (see
+  /// ViewProfileScreen's own comment on the pattern) -- WYN-039's
+  /// followRequest opens FollowRequestListScreen directly.
+  final FollowRequestRepository? followRequestRepository;
+
   @override
   State<NotificationListScreen> createState() => _NotificationListScreenState();
 }
 
 class _NotificationListScreenState extends State<NotificationListScreen> {
+  late final FollowRequestRepository _followRequestRepository =
+      widget.followRequestRepository ??
+          FollowRequestRepository(Supabase.instance.client);
+
   final _scrollController = ScrollController();
   final List<WynNotification> _notifications = [];
 
@@ -115,7 +128,8 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       _error = null;
     });
     try {
-      final notifications = await widget.notificationRepository.fetchNotifications(page: 0);
+      final notifications =
+          await widget.notificationRepository.fetchNotifications(page: 0);
       setState(() {
         _notifications
           ..clear()
@@ -141,11 +155,12 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     setState(() => _isLoadingMore = true);
     try {
       final nextPage = _page + 1;
-      final notifications =
-          await widget.notificationRepository.fetchNotifications(page: nextPage);
+      final notifications = await widget.notificationRepository
+          .fetchNotifications(page: nextPage);
       setState(() {
         _notifications.addAll(notifications);
-        _unreadSnapshot.addAll(notifications.where((n) => !n.isRead).map((n) => n.id));
+        _unreadSnapshot
+            .addAll(notifications.where((n) => !n.isRead).map((n) => n.id));
         _page = nextPage;
         _hasMore = notifications.length == NotificationRepository.pageSize;
       });
@@ -231,6 +246,28 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
             ),
           ),
         );
+      case NotificationType.followRequest:
+        // WYN-039: goes straight to FollowRequestListScreen -- mirrors
+        // messageRequest's own "the recipient already knows which
+        // request this is about" reasoning, but unlike that type there
+        // is no per-request destination to jump to directly (Accept/
+        // Reject both live on the list screen itself, not a per-user
+        // detail screen), so every followRequest notification opens the
+        // same list.
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => FollowRequestListScreen(
+              followRequestRepository: _followRequestRepository,
+            ),
+          ),
+        );
+      case NotificationType.followRequestAccepted:
+        // The requester's own request was accepted -- opens the
+        // accepter's profile, same destination `follow`'s own case
+        // above uses.
+        final actorId = notification.actorId;
+        if (actorId == null) return;
+        _openProfile(actorId);
     }
   }
 
@@ -397,10 +434,12 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         // apply_moderation_action()).
         final actionType = notification.moderationActionType;
         return switch (actionType) {
-          'warning' => 'อุทธรณ์ของคุณได้รับการอนุมัติแล้ว คำเตือนนี้ถูกลบออกจากประวัติบัญชีของคุณแล้ว',
+          'warning' =>
+            'อุทธรณ์ของคุณได้รับการอนุมัติแล้ว คำเตือนนี้ถูกลบออกจากประวัติบัญชีของคุณแล้ว',
           'restrict' =>
             'อุทธรณ์ของคุณได้รับการอนุมัติแล้ว สิทธิ์การโพสต์ของคุณกลับมาใช้งานได้ตามปกติแล้ว',
-          'suspend' => 'อุทธรณ์ของคุณได้รับการอนุมัติแล้ว บัญชีของคุณกลับมาใช้งานได้ตามปกติแล้ว',
+          'suspend' =>
+            'อุทธรณ์ของคุณได้รับการอนุมัติแล้ว บัญชีของคุณกลับมาใช้งานได้ตามปกติแล้ว',
           'ban' =>
             'อุทธรณ์ของคุณได้รับการอนุมัติแล้ว บัญชีของคุณกลับมาใช้งานได้ตามปกติแล้ว คุณสามารถเข้าสู่ระบบได้ทันที',
           'remove_content' =>
@@ -414,6 +453,10 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         return 'อุทธรณ์ของคุณถูกปฏิเสธ -- เหตุผล: ${notification.reason ?? ''}';
       case NotificationType.messageRequest:
         return '$name ส่งคำขอข้อความถึงคุณ';
+      case NotificationType.followRequest:
+        return '$name ขอติดตามคุณ';
+      case NotificationType.followRequestAccepted:
+        return '$name ยอมรับคำขอติดตามของคุณแล้ว';
     }
   }
 
@@ -499,11 +542,15 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
           final notification = _notifications[index];
           final isUnread = _unreadSnapshot.contains(notification.id);
           final message = _messageFor(notification);
-          final time = relativeTimeLabel(notification.createdAt, now: DateTime.now());
+          final time =
+              relativeTimeLabel(notification.createdAt, now: DateTime.now());
 
           return Container(
             color: isUnread
-                ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.35)
+                ? Theme.of(context)
+                    .colorScheme
+                    .primaryContainer
+                    .withValues(alpha: 0.35)
                 : null,
             child: Semantics(
               label: '$message $time${isUnread ? ' ยังไม่ได้อ่าน' : ''}',
@@ -512,16 +559,21 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
               child: InkWell(
                 onTap: () => _openNotification(notification),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: WynSpacing.space4,
+                      vertical: WynSpacing.space2),
                   child: Row(
                     children: [
                       if (_hidesActorIdentity(notification.type))
                         CircleAvatar(
                           radius: 20,
-                          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHigh,
                           child: Icon(
                             Icons.shield_outlined,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         )
                       else
@@ -539,11 +591,16 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(message, style: Theme.of(context).textTheme.bodyMedium),
+                            Text(message,
+                                style: Theme.of(context).textTheme.bodyMedium),
                             Text(
                               time,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context).colorScheme.outline,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color:
+                                        Theme.of(context).colorScheme.outline,
                                   ),
                             ),
                           ],
