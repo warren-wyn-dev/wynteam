@@ -456,3 +456,9 @@
 - `flutter analyze` 0 issues, `flutter test` **632/632** (626 หลัง Coding รอบแรก + 6 ใหม่จาก QA's Remove Follower fix), SQL `wyn_039_private_account_test.sh` ใหม่ **28/28 PASS** + รันซ้ำ 12 สคริปต์เดิมทั้งหมดผ่านหมดไม่มี cross-task regression
 - ผลลัพธ์: **WYN-039 — PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — **task สุดท้ายของ Phase 3 (Drop Enhancement) ปิดครบ** ตาม roadmap ขั้นต่อไปคือ Phase 4 (Discovery & Trending Engine, WYN-040 ถึง WYN-042)
 - อ้างอิง: `.wyn/tasks/approved/WYN-039-private-account-follow-request.md`, `.wyn/docs/design/wyn-039-private-account-follow-request.md`, `supabase/tests/wyn_039_private_account_test.sh`, `.wyn/learning/MISTAKES.md`
+
+### [2026-08-23] ยืนยัน Deployment Target — Internal Testing ก่อน (reconfirm สำหรับ V1.0.0)
+- บริบท: Founder ถามว่าถ้า Core 8 ระบบ (Home/Drop/Club/Chat/Search & Discovery/Trending-Top100/Notification/Safety) เสร็จครบ จะใช้งานจริงได้ทันทีไหม — ได้รับคำตอบว่ายังต้องผ่าน infra จริงก่อน จากนั้น Founder ยืนยัน "ใช้แบบ Internal Testing ก่อน"
+- คำตัดสินใจของ Founder: เป้าหมาย deployment แรกของ WYN/Wynos V1.0.0 คือ **Internal Testing** (ทีมภายในเท่านั้น) เหมือนที่เคยยืนยันไว้ตั้งแต่ WYN-002 (2026-08-13) — ไม่ใช่ public store release
+- ผลกระทบ: ยืนยันทิศทางเดิมที่ AI Deploy & DevOps ใช้เป็นฐานมาตลอด (`.wyn/logs/deployments/2026-08-13-wyn-002-readiness.md` และทุก readiness gate ถัดมา) แต่ตัวบล็อกจริงตอนนี้ไม่ใช่โค้ด (WYN-005 ถึง WYN-043 approved/merge เข้า `main` แล้ว) — เป็น **โครงสร้างพื้นฐาน production ที่ต้อง Founder ทำเองเท่านั้น** ตาม RULES.md (Supabase project จริง, native OAuth/Firebase config, distribution channel สำหรับ Internal Testing, Android SDK/Xcode หรือ CI) ทีม AI ไม่มีอำนาจตั้งค่าส่วนนี้เอง
+- อ้างอิง (task/PR ถ้ามี): `.wyn/logs/deployments/2026-08-13-wyn-002-readiness.md`, `.wyn/logs/deployments/2026-08-23-wyn-043-merge-to-main.md`
