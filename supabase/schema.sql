@@ -676,7 +676,8 @@ begin
   select author_id into v_author_id from public.drops where id = new.drop_id;
   -- Liking your own Drop is normal and allowed -- it just shouldn't
   -- notify you about your own action.
-  if v_author_id is not null and v_author_id <> new.user_id then
+  if v_author_id is not null and v_author_id <> new.user_id
+     and internal.notification_enabled(v_author_id, 'likes') then
     insert into public.notifications (recipient_id, actor_id, type, drop_id)
     values (v_author_id, new.user_id, 'like_drop', new.drop_id);
   end if;
@@ -698,7 +699,8 @@ declare
   v_author_id uuid;
 begin
   select author_id into v_author_id from public.pops where id = new.pop_id;
-  if v_author_id is not null and v_author_id <> new.user_id then
+  if v_author_id is not null and v_author_id <> new.user_id
+     and internal.notification_enabled(v_author_id, 'likes') then
     insert into public.notifications (recipient_id, actor_id, type, pop_id)
     values (v_author_id, new.user_id, 'like_pop', new.pop_id);
   end if;
@@ -720,7 +722,8 @@ declare
   v_author_id uuid;
 begin
   select author_id into v_author_id from public.drops where id = new.drop_id;
-  if v_author_id is not null and v_author_id <> new.author_id then
+  if v_author_id is not null and v_author_id <> new.author_id
+     and internal.notification_enabled(v_author_id, 'comments') then
     insert into public.notifications (recipient_id, actor_id, type, drop_id)
     values (v_author_id, new.author_id, 'comment_drop', new.drop_id);
   end if;
@@ -742,7 +745,8 @@ declare
   v_author_id uuid;
 begin
   select author_id into v_author_id from public.pops where id = new.pop_id;
-  if v_author_id is not null and v_author_id <> new.author_id then
+  if v_author_id is not null and v_author_id <> new.author_id
+     and internal.notification_enabled(v_author_id, 'comments') then
     insert into public.notifications (recipient_id, actor_id, type, pop_id)
     values (v_author_id, new.author_id, 'comment_pop', new.pop_id);
   end if;
@@ -765,8 +769,10 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.notifications (recipient_id, actor_id, type)
-  values (new.following_id, new.follower_id, 'follow');
+  if internal.notification_enabled(new.following_id, 'follows') then
+    insert into public.notifications (recipient_id, actor_id, type)
+    values (new.following_id, new.follower_id, 'follow');
+  end if;
   return new;
 end;
 $$;
@@ -1441,7 +1447,8 @@ begin
   where cm.club_id = new.club_id
     and cm.role in ('owner', 'admin')
     and cm.status = 'approved'
-    and cm.user_id <> new.user_id;
+    and cm.user_id <> new.user_id
+    and internal.notification_enabled(cm.user_id, 'club');
   return new;
 end;
 $$;
@@ -1467,8 +1474,10 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.notifications (recipient_id, actor_id, type, club_id)
-  values (new.user_id, auth.uid(), 'club_join_approved', new.club_id);
+  if internal.notification_enabled(new.user_id, 'club') then
+    insert into public.notifications (recipient_id, actor_id, type, club_id)
+    values (new.user_id, auth.uid(), 'club_join_approved', new.club_id);
+  end if;
   return new;
 end;
 $$;
@@ -1497,7 +1506,8 @@ declare
 begin
   select author_id, club_id into v_author_id, v_club_id
   from public.club_posts where id = new.club_post_id;
-  if v_author_id is not null and v_author_id <> new.user_id then
+  if v_author_id is not null and v_author_id <> new.user_id
+     and internal.notification_enabled(v_author_id, 'club') then
     insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
     values (v_author_id, new.user_id, 'club_post_like', new.club_post_id, v_club_id);
   end if;
@@ -1523,7 +1533,8 @@ declare
 begin
   select author_id, club_id into v_author_id, v_club_id
   from public.club_posts where id = new.club_post_id;
-  if v_author_id is not null and v_author_id <> new.author_id then
+  if v_author_id is not null and v_author_id <> new.author_id
+     and internal.notification_enabled(v_author_id, 'club') then
     insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
     values (v_author_id, new.author_id, 'club_post_comment', new.club_post_id, v_club_id);
   end if;
@@ -3198,7 +3209,8 @@ declare
   v_author_id uuid;
 begin
   select author_id into v_author_id from public.drops where id = new.drop_id;
-  if v_author_id is not null and new.mentioned_user_id <> v_author_id then
+  if v_author_id is not null and new.mentioned_user_id <> v_author_id
+     and internal.notification_enabled(new.mentioned_user_id, 'comments') then
     insert into public.notifications (recipient_id, actor_id, type, drop_id)
     values (new.mentioned_user_id, v_author_id, 'mention_drop', new.drop_id);
   end if;
@@ -3227,7 +3239,8 @@ declare
 begin
   select author_id, club_id into v_author_id, v_club_id
   from public.club_posts where id = new.club_post_id;
-  if v_author_id is not null and new.mentioned_user_id <> v_author_id then
+  if v_author_id is not null and new.mentioned_user_id <> v_author_id
+     and internal.notification_enabled(new.mentioned_user_id, 'club') then
     insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
     values (new.mentioned_user_id, v_author_id, 'mention_club_post', new.club_post_id, v_club_id);
   end if;
@@ -5123,7 +5136,7 @@ begin
     -- Lost a race with a concurrent call for the same pair -- fetch
     -- the row that won instead of erroring.
     select id into v_id from public.conversations where user_a_id = v_a and user_b_id = v_b;
-  elsif v_status = 'pending' then
+  elsif v_status = 'pending' and internal.notification_enabled(p_other_user_id, 'messages') then
     insert into public.notifications (recipient_id, actor_id, type, conversation_id)
     values (p_other_user_id, v_me, 'message_request', v_id);
   end if;
@@ -5869,7 +5882,8 @@ begin
   select author_id into v_author_id from public.drops where id = new.drop_id;
   -- ReDropping your own Drop is normal and allowed -- it just shouldn't
   -- notify you about your own action.
-  if v_author_id is not null and v_author_id <> new.redropper_id then
+  if v_author_id is not null and v_author_id <> new.redropper_id
+     and internal.notification_enabled(v_author_id, 'likes') then
     insert into public.notifications (recipient_id, actor_id, type, drop_id)
     values (v_author_id, new.redropper_id, 'redrop', new.drop_id);
   end if;
@@ -7200,8 +7214,10 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.notifications (recipient_id, actor_id, type)
-  values (new.target_id, new.requester_id, 'follow_request');
+  if internal.notification_enabled(new.target_id, 'follows') then
+    insert into public.notifications (recipient_id, actor_id, type)
+    values (new.target_id, new.requester_id, 'follow_request');
+  end if;
   return new;
 end;
 $$;
@@ -7231,8 +7247,10 @@ begin
   values (p_requester_id, auth.uid())
   on conflict do nothing;
 
-  insert into public.notifications (recipient_id, actor_id, type)
-  values (p_requester_id, auth.uid(), 'follow_request_accepted');
+  if internal.notification_enabled(p_requester_id, 'follows') then
+    insert into public.notifications (recipient_id, actor_id, type)
+    values (p_requester_id, auth.uid(), 'follow_request_accepted');
+  end if;
 end;
 $$;
 
@@ -7710,9 +7728,114 @@ begin
     raise exception 'System notification message must not be blank';
   end if;
 
-  insert into public.notifications (recipient_id, actor_id, type, reason)
-  values (p_recipient_id, null, 'system', p_message);
+  if internal.notification_enabled(p_recipient_id, 'system') then
+    insert into public.notifications (recipient_id, actor_id, type, reason)
+    values (p_recipient_id, null, 'system', p_message);
+  end if;
 end;
 $$;
 
 grant execute on function public.send_system_notification(uuid, text) to authenticated;
+
+-- ============================================================
+-- WYN-044: Notification Settings
+-- ============================================================
+-- See .wyn/tasks/backlog/WYN-044-notification-settings.md and
+-- .wyn/docs/design/wyn-044-notification-settings.md. Opt-out model
+-- (Master Spec section 21): a user who has never opened
+-- NotificationSettingsScreen and toggled anything has no row here at
+-- all -- every category defaults to enabled in that case, matching
+-- this table's own `not null default true` columns. Rows are created
+-- lazily by the client's first upsert (RLS insert policy below), not
+-- by handle_new_user() or any trigger, to keep this task's blast
+-- radius limited to gating public.notifications inserts -- it doesn't
+-- touch signup at all.
+--
+-- `trending` has no producer anywhere in the schema yet (WYN-041/042
+-- compute rankings transiently, no cron/snapshot infra -- same "no
+-- cron/batch job" fact WYN-030/WYN-043 already document elsewhere in
+-- this file) -- the column exists purely so a future Trending
+-- Notification Engine task doesn't need its own migration, and is a
+-- deliberate forward-compat no-op today, not an oversight.
+create table if not exists public.notification_settings (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  likes boolean not null default true,
+  comments boolean not null default true,
+  follows boolean not null default true,
+  messages boolean not null default true,
+  club boolean not null default true,
+  trending boolean not null default true,
+  system boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.notification_settings enable row level security;
+
+-- Mirrors public.saves' RLS shape (WYN-011/013) exactly: select/
+-- insert/update all restricted to the owning row's own user_id, no
+-- delete policy needed (on delete cascade handles account deletion,
+-- and there is no product reason for a user to delete their own
+-- preference row instead of just toggling everything back on).
+create policy "Users can view their own notification settings"
+  on public.notification_settings
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can create their own notification settings"
+  on public.notification_settings
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their own notification settings"
+  on public.notification_settings
+  for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Single source of truth every gated notify_*/RPC call site above (16
+-- of them -- see the Product/Design spec's mapping table) calls before
+-- inserting into public.notifications, so "no row = every category
+-- enabled" is encoded exactly once instead of separately at each call
+-- site. `security definer` + `set search_path = public`, same shape
+-- as internal.current_platform_role() elsewhere in this file, since
+-- every caller is itself a `security definer` trigger/RPC already
+-- running as the table owner, not as the querying `authenticated`
+-- role.
+--
+-- Defined here, after every notify_* trigger function that calls it,
+-- because PL/pgSQL function bodies are late-bound in Postgres --
+-- identifiers inside a plpgsql body are only resolved the first time
+-- the function actually executes, not at CREATE FUNCTION time, so it
+-- is safe for this helper to be declared later in the file than its
+-- callers as long as (as is the case here) it exists by the time any
+-- of those triggers can actually fire, which is only ever after this
+-- entire file has finished loading.
+create or replace function internal.notification_enabled(p_user_id uuid, p_category text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    (
+      select case p_category
+        when 'likes' then likes
+        when 'comments' then comments
+        when 'follows' then follows
+        when 'messages' then messages
+        when 'club' then club
+        when 'trending' then trending
+        when 'system' then system
+      end
+      from public.notification_settings
+      where user_id = p_user_id
+    ),
+    true
+  );
+$$;
+
+grant execute on function internal.notification_enabled(uuid, text) to authenticated;

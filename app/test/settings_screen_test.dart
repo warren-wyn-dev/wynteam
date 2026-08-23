@@ -6,6 +6,7 @@ import 'package:wyn/features/drop/presentation/recently_deleted_drops_screen.dar
 import 'package:wyn/features/moderation/presentation/moderation_queue_screen.dart';
 import 'package:wyn/features/mute/presentation/muted_list_screen.dart';
 import 'package:wyn/features/profile/data/profile.dart';
+import 'package:wyn/features/settings/presentation/notification_settings_screen.dart';
 import 'package:wyn/features/settings/presentation/settings_screen.dart';
 
 import 'support/fake_supabase_session.dart';
@@ -174,6 +175,39 @@ void main() {
       final toggle = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
       expect(toggle.value, isFalse);
       expect(find.text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
+    });
+  });
+
+  // WYN-044. The section heading and the row's own title share the
+  // exact same Thai text ("การแจ้งเตือน"), unlike every other section in
+  // this file (e.g. "ความปลอดภัย" heading vs. "บัญชีที่ถูกบล็อก" row) --
+  // so `find.text('การแจ้งเตือน')` matches 2 widgets here, and the row
+  // itself must be targeted via `find.widgetWithText(ListTile, ...)`
+  // rather than a bare text finder.
+  group('การแจ้งเตือน section (WYN-044)', () {
+    testWidgets(
+        'shows both the heading and the row for every platformRole '
+        '(unconditional)', (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('การแจ้งเตือน'), findsNWidgets(2));
+      expect(find.widgetWithText(ListTile, 'การแจ้งเตือน'), findsOneWidget);
+    });
+
+    testWidgets('tapping the row opens NotificationSettingsScreen',
+        (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(ListTile, 'การแจ้งเตือน'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NotificationSettingsScreen), findsOneWidget);
     });
   });
 }

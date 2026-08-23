@@ -17,6 +17,8 @@ import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../saved/data/saved_repository.dart';
+import '../data/notification_settings_repository.dart';
+import 'notification_settings_screen.dart';
 import '../../../core/design/wyn_spacing.dart';
 
 /// Minimal Settings screen (WYN-027/028, "เครื่องมือผู้ดูแล" section added
@@ -118,6 +120,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'เฉพาะผู้ติดตามที่คุณอนุมัติเท่านั้นที่จะเห็น Drop ของคุณได้'),
             value: _isPrivate,
             onChanged: _isTogglingPrivate ? null : _setIsPrivate,
+          ),
+          // WYN-044 -- unconditional for every platformRole (unlike
+          // "เครื่องมือผู้ดูแล" below), since notification preferences
+          // belong to every user regardless of role.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              WynSpacing.space4,
+              WynSpacing.space4,
+              WynSpacing.space4,
+              WynSpacing.space1,
+            ),
+            child: Text(
+              'การแจ้งเตือน',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.notifications_outlined),
+            title: const Text('การแจ้งเตือน'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => NotificationSettingsScreen(
+                  notificationSettingsRepository:
+                      NotificationSettingsRepository(Supabase.instance.client),
+                ),
+              ));
+            },
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
