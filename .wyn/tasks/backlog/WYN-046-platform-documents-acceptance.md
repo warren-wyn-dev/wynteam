@@ -1,6 +1,6 @@
 # Product Task — WYN-046
 
-Status: backlog
+Status: coded, awaiting QA
 Owner: AI Product Manager
 
 Feature: Platform Documents (ToS/Privacy/Community Guidelines/Copyright/Report/Appeal Policy) + Acceptance Flow
@@ -56,3 +56,17 @@ Risks:
 Recommendation: ทำต่อเนื่องตาม roadmap Phase 6 ทันที — ส่งต่อ AI Design ออกแบบหน้า Acceptance Screen + Document Viewer Screen + Settings section ใหม่ จากนั้น AI Coding implement โดยเน้นว่า**เนื้อหาเอกสารต้องเป็น placeholder ที่ระบุสถานะชัดเจนตามที่ Product กำหนด ห้าม Coding เขียนเนื้อหากฎหมายเองเพิ่มเติม**
 
 Handoff: AI Design — ออกแบบ (1) หน้า Acceptance Screen ใหม่ (checkbox เดียว + ลิงก์เปิดอ่านแต่ละเอกสาร 3 ฉบับ + ปุ่มยอมรับ) เข้าคิวใน `AuthGate` (2) หน้า Document Viewer แบบ generic ใช้ซ้ำได้ทั้ง 6 ประเภท (3) section ใหม่ "กฎหมาย" ใน `SettingsScreen` — ไม่ต้องออกแบบเนื้อหาเอกสารเอง (Product กำหนด placeholder ไว้แล้วตาม Requirement 1)
+
+## Coding Output (2026-08-23)
+
+**SQL** (`supabase/schema.sql`, ต่อท้ายส่วน WYN-045 ท้ายไฟล์): ตาราง `platform_documents` (6 ประเภทเอกสาร, select-all-authenticated, ไม่มี insert/update/delete policy ให้ client เลย) + `user_document_acceptances` (RLS มิเรอร์ `notification_settings` ของ WYN-044 เป๊ะ, PK `(user_id, document_type)` เก็บแค่เวอร์ชันล่าสุดที่ยอมรับตามที่ Product กำหนด) — seed 6 แถว version 1 ด้วย placeholder text ตามที่ Product ระบุไว้ตรงๆ คำต่อคำ (ย่อหน้าแรกเหมือนกันทุกฉบับ + โครงหัวข้อสั้นๆ ต่อประเภท ไม่มีเนื้อหากฎหมายจริง)
+
+**SQL test ใหม่** (`supabase/tests/wyn_046_platform_documents_test.sh`) — 9 checks ครอบ: อ่านได้ครบ 6 เอกสาร, insert/update/delete ตาราง `platform_documents` ถูกปฏิเสธหมด (RLS), user สร้าง/อ่านแถวยอมรับของตัวเองได้ คนอื่นอ่าน/แก้ไม่ได้, upsert แทนที่เวอร์ชันได้จริงไม่สร้างแถวซ้ำ (พิสูจน์กลไก "อัปเดตเอกสารแล้ว re-prompt" ที่ data layer) — **9/9 PASS** (ยืนยันรันซ้ำเองอิสระ) — รันซ้ำ SQL regression ทั้ง 20 สคริปต์ (รวมของเดิมทั้งหมด) **ผ่านหมดไม่มี cross-task regression** (ยืนยันรันซ้ำเองอิสระ) — `check_schema_ordering.py` ผ่าน (ยืนยันรันซ้ำเองอิสระ)
+
+**Flutter**: `PlatformDocumentRepository` ใหม่ (`fetchLatest`/`hasAcceptedMandatoryDocuments`/`acceptMandatoryDocuments` — 2 query รวมไม่ N+1) + `DocumentAcceptanceScreen`/`DocumentViewerScreen` ใหม่ตาม Design spec เป๊ะ — แก้ `auth_gate.dart` เพิ่ม gate ใหม่ตำแหน่งถูกต้อง (หลัง moderation check, ก่อน username check, fail-open) — แก้ `settings_screen.dart` เพิ่ม section "กฎหมาย" ท้ายสุดของหน้า unconditional ทุก role — เทสต์ใหม่ครอบ `DocumentAcceptanceScreen`/`DocumentViewerScreen`/`auth_gate_test.dart` (ยืนยัน ordering: บัญชีถูกบล็อกไม่เจอ Acceptance gate, บัญชีที่ยังไม่ยอมรับเจอก่อน Username Setup)/`settings_screen_test.dart` ต่อ
+
+**Build/Tests (ยืนยันโดย orchestrator หลัง merge เข้า main checkout ไม่ใช่แค่เชื่อ Coding Output)**: `flutter analyze` **0 issues**, `flutter test` **699/699 PASS**, SQL 20/20 สคริปต์ผ่านหมด, `check_schema_ordering.py` ผ่าน
+
+**Known Issue/Gap (ตั้งใจ ไม่ใช่บั๊ก)**: เนื้อหาเอกสารเป็น placeholder ล้วนๆ ตามที่ Product ล็อกสโคปไว้ (ดู APPROVAL_REQUIRED ที่ `.wyn/company/APPROVALS.md`)
+
+Handoff: AI QA & Security — เน้นตรวจ: **(ก) ลำดับ gate ใน `AuthGate` ถูกต้อง** (Suspended/Banned ต้องเจอ `AccountRestrictedScreen` ก่อนเสมอ ไม่มีทางข้ามไปเจอ Acceptance gate), **(ข) fail-open จริงเมื่อโหลดสถานะการยอมรับล้มเหลว** (ไม่ควรล็อกผู้ใช้ออกจากแอปเพราะ network hiccup), **(ค) version bump re-prompt ทำงานจริงทั้ง data layer และ UI** (ไม่ใช่แค่เชื่อ SQL check เดียว), **(ง) ไม่มีทาง client ไหน insert/update/delete `platform_documents` ได้เลยแม้แต่ admin/moderator role** (probe adversarial เพิ่มเติมนอกเหนือ 3 checks ที่มีอยู่แล้ว), **(จ) ยืนยันเนื้อหา placeholder ไม่มีอะไรที่ดูเหมือนเนื้อหากฎหมายจริงหลุดเข้าไป**
