@@ -33,6 +33,7 @@ HomeFeedItem _dropItem({
   int likeCount = 0,
   bool likedByMe = false,
   String caption = 'แคปชัน Drop',
+  int viewCount = 0,
 }) =>
     HomeFeedItem(
       id: id,
@@ -46,6 +47,11 @@ HomeFeedItem _dropItem({
       commentCount: 0,
       likedByMe: likedByMe,
       savedByMe: false,
+      // WYN-038: defaults to 0 (never left null) -- a null viewCount on
+      // a Drop-typed item would render the literal string "null" in
+      // HomeDropCard, which real home_feed/saved_feed rows never send
+      // (drop_view_count() always returns a real bigint).
+      viewCount: viewCount,
     );
 
 HomeFeedItem _popItem({
@@ -86,6 +92,8 @@ HomeFeedItem _pollItem({
       commentCount: 0,
       likedByMe: false,
       savedByMe: false,
+      // WYN-038 -- see _dropItem's identical doc comment.
+      viewCount: 0,
       pollId: 'poll-$id',
       pollOptions: const ['Pizza', 'Sushi'],
       pollExpiresAt: DateTime.now().toUtc().add(const Duration(days: 1)),
@@ -435,8 +443,12 @@ void main() {
     // Only the Pop card has a play icon and a duration badge.
     expect(find.byIcon(Icons.play_circle_fill), findsOneWidget);
     expect(find.text('0:42'), findsOneWidget);
-    // Only the Pop card shows a view count icon/number.
-    expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
+    // WYN-038: both card types show a view count icon/number now (the
+    // Drop card gained one this task, mirroring the Pop card's own,
+    // which already existed since WYN-006/WYN-007) -- one per card.
+    expect(find.byIcon(Icons.visibility_outlined), findsNWidgets(2));
+    // The Pop card's own view count value (7) is still uniquely
+    // findable -- the Drop card above defaults to 0, not 7.
     expect(find.text('7'), findsOneWidget);
     // Same Share/Comment regression check, scoped to the Pop card
     // specifically -- the Drop card above may still be in the element

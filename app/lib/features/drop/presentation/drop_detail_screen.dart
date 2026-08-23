@@ -98,6 +98,13 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   // .wyn/docs/design/wyn-008-follow.md, Screen 1.
   bool? _isFollowing;
 
+  // WYN-038: guards recordView() to fire at most once per screen open --
+  // mirrors PopClipView's _viewRecorded exactly.
+  bool _viewRecorded = false;
+
+  bool get _isOwnDrop =>
+      _drop.authorId == Supabase.instance.client.auth.currentUser!.id;
+
   final _reportRepository = ReportRepository(Supabase.instance.client);
   late final ModerationRepository _moderationRepository =
       widget.moderationRepository ?? ModerationRepository(Supabase.instance.client);
@@ -123,6 +130,31 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     if (_drop.authorId != Supabase.instance.client.auth.currentUser!.id) {
       _loadFollowStatus();
     }
+    // Deferred one microtask past initState() -- same "setState() only
+    // ever fires after an async gap" posture PopClipView's own
+    // _recordViewOnce() has (there, the gap is `await
+    // controller.initialize()`; a Drop has no equivalent async load
+    // step, so a microtask stands in for it) rather than calling
+    // setState() synchronously while this State is still being built.
+    Future.microtask(_recordViewOnce);
+  }
+
+  // WYN-038: opening DropDetailScreen is what counts as a "View" (not
+  // just a Home Feed card scrolling past) -- mirrors PopClipView's
+  // _recordViewOnce() exactly, one difference: the owner's own Drop
+  // never even calls the RPC (Design's handoff item 4) -- the client
+  // already knows it would be a no-op server-side, so there's no need
+  // to send the request (or bump the optimistic count) at all.
+  void _recordViewOnce() {
+    if (!mounted || _viewRecorded) return;
+    _viewRecorded = true;
+    if (_isOwnDrop) return;
+    setState(() => _drop = _drop.withExtraView());
+    widget.dropRepository.recordView(_drop.id).catchError((_) {
+      // A failed view-count RPC isn't worth surfacing to the user --
+      // the optimistic UI bump already happened and isn't rolled back,
+      // same posture as PopClipView._recordViewOnce().
+    });
   }
 
   Future<void> _loadModerationStatus() async {
@@ -590,7 +622,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   // separately-scrolled comment list overflows on a short/wide viewport
   // instead of just scrolling out of view.
   Widget _buildBody(String currentUserId) {
-    final isOwnDrop = _drop.authorId == currentUserId;
+    final isOwnDrop = _isOwnDrop;
 
     final header = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -748,6 +780,18 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     icon: const Icon(Icons.link),
                     tooltip: 'คัดลอกลิงก์',
                     onPressed: _copyLink,
+                  ),
+                  Semantics(
+                    label: 'เข้าชมแล้ว ${_drop.viewCount} ครั้ง',
+                    excludeSemantics: true,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.visibility_outlined),
+                        const SizedBox(width: WynSpacing.space1),
+                        Text('${_drop.viewCount}'),
+                      ],
+                    ),
                   ),
                   const Spacer(),
                   Semantics(

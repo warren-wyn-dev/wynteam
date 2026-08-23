@@ -211,6 +211,11 @@ class HomeFeedItem {
         savedByMe: savedByMe,
         redropCount: redropCount,
         redroppedByMe: redroppedByMe,
+        // WYN-038: home_feed/saved_feed always return a real (never
+        // null) count via drop_view_count() for a Drop-typed row -- the
+        // `?? 0` only guards a defensive default, same posture as every
+        // other nullable-in-theory field this factory carries over.
+        viewCount: viewCount ?? 0,
         pollId: pollId,
         pollOptions: pollOptions,
         pollExpiresAt: pollExpiresAt,
@@ -259,6 +264,12 @@ class HomeFeedItem {
         savedByMe: drop.savedByMe,
         redropCount: drop.redropCount,
         redroppedByMe: drop.redroppedByMe,
+        // WYN-038: without this, a HomeDropCard built from fromDrop()
+        // (hashtag_feed_screen.dart's Drop branch) would render the
+        // literal string "null" for view count instead of a number --
+        // [Drop.viewCount] itself already defaults to 0 when unknown,
+        // so this always carries a real int through either way.
+        viewCount: drop.viewCount,
         pollId: drop.pollId,
         pollOptions: drop.pollOptions,
         pollExpiresAt: drop.pollExpiresAt,
