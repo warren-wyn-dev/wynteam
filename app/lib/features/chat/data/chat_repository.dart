@@ -4,14 +4,22 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'chat_message.dart';
 import 'conversation.dart';
+import 'message_request.dart';
+
+/// The 2 columns `ConversationScreen` needs to decide which of its 4
+/// composer-area states applies (WYN-032) -- deliberately not the full
+/// `Conversation` row, since this is fetched fresh on every open
+/// rather than trusted from a possibly-stale list-row prop.
+typedef ConversationMeta = ({String status, String? requestedBy});
 
 const _replyEmbed = 'reply_to:messages!messages_reply_to_message_id_fkey(text, image_url, deleted_at)';
 const _messageColumns =
     'id, conversation_id, sender_id, text, image_url, reply_to_message_id, deleted_at, created_at, $_replyEmbed';
 
 /// Wraps `chat_inbox`, `conversations`, `messages`, `conversation_mutes`,
-/// the `chat-media` storage bucket, and the RPCs WYN-031 needs. See
-/// supabase/schema.sql's "WYN-031: 1:1 Chat" section for the RLS/RPC
+/// `message_requests` (WYN-032), the `chat-media` storage bucket, and
+/// the RPCs WYN-031/032 need. See supabase/schema.sql's "WYN-031: 1:1
+/// Chat" and "WYN-032: Message Request flow" sections for the RLS/RPC
 /// this relies on.
 ///
 /// Sending a message is a plain table insert (no RPC) -- every
@@ -56,6 +64,43 @@ class ChatRepository {
     return result as int;
   }
 
+  /// Pending conversations someone else started that this caller
+  /// hasn't decided on yet (WYN-032) -- `message_requests` already
+  /// scopes to "I'm the recipient, not the requester" and excludes any
+  /// blocked-either-way pair, so no extra filtering is needed here.
+  Future<List<MessageRequest>> fetchMessageRequests({required int page}) async {
+    final from = page * pageSize;
+    final to = from + pageSize - 1;
+    final rows = await _client
+        .from('message_requests')
+        .select()
+        .order('conversation_created_at', ascending: false)
+        .range(from, to);
+    return rows.map((row) => MessageRequest.fromMap(row)).toList();
+  }
+
+  Future<int> countPendingMessageRequests() async {
+    return _client.from('message_requests').count(CountOption.exact);
+  }
+
+  /// The recipient accepts a Message Request -- the conversation
+  /// behaves exactly like any other WYN-031 chat from this point on.
+  Future<void> acceptMessageRequest(String conversationId) {
+    return _client.rpc('accept_message_request', params: {
+      'p_conversation_id': conversationId,
+    });
+  }
+
+  /// The recipient declines a Message Request -- discards the
+  /// conversation and every message in it outright (see
+  /// delete_message_request()'s comment in schema.sql). The requester
+  /// gets no signal that this happened.
+  Future<void> deleteMessageRequest(String conversationId) {
+    return _client.rpc('delete_message_request', params: {
+      'p_conversation_id': conversationId,
+    });
+  }
+
   /// Starts (or resumes) a 1:1 conversation with [otherUserId] --
   /// returns the same conversation id every time for the same pair.
   Future<String> getOrCreateConversation(String otherUserId) async {
@@ -69,6 +114,21 @@ class ChatRepository {
     return _client.rpc('mark_conversation_read', params: {
       'p_conversation_id': conversationId,
     });
+  }
+
+  /// Fetched fresh by `ConversationScreen` on every open (WYN-032) --
+  /// deliberately not trusted from whatever the caller's own list row
+  /// happened to say, since that can be stale (e.g. accepted from a
+  /// different screen, or from a notification tap that skips the list
+  /// entirely).
+  Future<ConversationMeta?> fetchConversationMeta(String conversationId) async {
+    final row = await _client
+        .from('conversations')
+        .select('status, requested_by')
+        .eq('id', conversationId)
+        .maybeSingle();
+    if (row == null) return null;
+    return (status: row['status'] as String, requestedBy: row['requested_by'] as String?);
   }
 
   /// Newest first (matches `ConversationScreen`'s `reverse: true`

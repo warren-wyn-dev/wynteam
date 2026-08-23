@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wyn/features/chat/data/chat_message.dart';
 import 'package:wyn/features/chat/data/chat_repository.dart';
 import 'package:wyn/features/chat/data/conversation.dart';
+import 'package:wyn/features/chat/data/message_request.dart';
 
 /// A ChatRepository whose network-touching methods are overridden to
 /// just record what they were called with / return canned data,
@@ -72,6 +73,18 @@ class RecordingChatRepository extends ChatRepository {
 
   String? signedUrlResult;
 
+  List<List<MessageRequest>> messageRequestPages = const [];
+  Object? fetchMessageRequestsError;
+  int pendingMessageRequestCount = 0;
+
+  Object? acceptMessageRequestError;
+  int acceptMessageRequestCalls = 0;
+  String? lastAcceptMessageRequestId;
+
+  Object? deleteMessageRequestError;
+  int deleteMessageRequestCalls = 0;
+  String? lastDeleteMessageRequestId;
+
   void Function(ChatMessage message)? _conversationCallback;
   void Function(ChatMessage message)? _inboxCallback;
 
@@ -97,6 +110,16 @@ class RecordingChatRepository extends ChatRepository {
   Future<void> markConversationRead(String conversationId) async {
     markConversationReadCalls++;
     lastMarkConversationReadId = conversationId;
+  }
+
+  ConversationMeta? conversationMetaResult;
+  Object? fetchConversationMetaError;
+
+  @override
+  Future<ConversationMeta?> fetchConversationMeta(String conversationId) async {
+    final error = fetchConversationMetaError;
+    if (error != null) throw error;
+    return conversationMetaResult;
   }
 
   @override
@@ -161,6 +184,33 @@ class RecordingChatRepository extends ChatRepository {
   Future<void> unmuteConversation(String conversationId) async {
     unmuteCalls++;
     mutedConversations = {...mutedConversations, conversationId: false};
+  }
+
+  @override
+  Future<List<MessageRequest>> fetchMessageRequests({required int page}) async {
+    final error = fetchMessageRequestsError;
+    if (error != null) throw error;
+    if (page < 0 || page >= messageRequestPages.length) return [];
+    return messageRequestPages[page];
+  }
+
+  @override
+  Future<int> countPendingMessageRequests() async => pendingMessageRequestCount;
+
+  @override
+  Future<void> acceptMessageRequest(String conversationId) async {
+    acceptMessageRequestCalls++;
+    lastAcceptMessageRequestId = conversationId;
+    final error = acceptMessageRequestError;
+    if (error != null) throw error;
+  }
+
+  @override
+  Future<void> deleteMessageRequest(String conversationId) async {
+    deleteMessageRequestCalls++;
+    lastDeleteMessageRequestId = conversationId;
+    final error = deleteMessageRequestError;
+    if (error != null) throw error;
   }
 
   // Deliberately never calls `.subscribe()` on the channel it returns

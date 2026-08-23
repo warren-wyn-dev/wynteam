@@ -257,6 +257,7 @@ class _RootShellState extends State<RootShell> {
         clubPostRepository: _clubPostRepository,
         zokyRepository: _zokyRepository,
         appealRepository: _appealRepository,
+        chatRepository: _chatRepository,
       ),
       ViewProfileScreen(
         key: ValueKey('profile_$_profileVisitKey'),

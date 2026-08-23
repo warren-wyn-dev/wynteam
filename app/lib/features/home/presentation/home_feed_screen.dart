@@ -101,10 +101,18 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     _loadUnreadChatCount();
   }
 
+  // WYN-032: the badge is "anything needing my attention" -- unread
+  // messages in conversations I've already accepted, plus Message
+  // Requests I haven't decided on yet. Fetched as 2 separate calls
+  // (not summed server-side) since they come from 2 different
+  // RPCs/views for unrelated reasons -- see chat_repository.dart.
   Future<void> _loadUnreadChatCount() async {
     try {
-      final count = await widget.chatRepository.countUnreadConversations();
-      if (mounted) setState(() => _unreadChatCount = count);
+      final results = await Future.wait([
+        widget.chatRepository.countUnreadConversations(),
+        widget.chatRepository.countPendingMessageRequests(),
+      ]);
+      if (mounted) setState(() => _unreadChatCount = results[0] + results[1]);
     } catch (_) {
       // Silent -- same posture as RootShell's identical notification
       // badge fetch: a failed count just leaves the badge as-is, not

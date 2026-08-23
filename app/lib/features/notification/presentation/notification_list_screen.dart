@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/text_utils.dart';
+import '../../chat/data/chat_repository.dart';
+import '../../chat/presentation/conversation_screen.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
 import '../../club/presentation/club_page.dart';
@@ -41,6 +43,7 @@ class NotificationListScreen extends StatefulWidget {
     required this.clubPostRepository,
     required this.zokyRepository,
     required this.appealRepository,
+    required this.chatRepository,
   });
 
   final NotificationRepository notificationRepository;
@@ -57,6 +60,9 @@ class NotificationListScreen extends StatefulWidget {
   /// MyModerationActionScreen, which needs this to load the action +
   /// appeal status.
   final AppealRepository appealRepository;
+
+  /// WYN-032: messageRequest opens ConversationScreen directly.
+  final ChatRepository chatRepository;
 
   @override
   State<NotificationListScreen> createState() => _NotificationListScreenState();
@@ -200,6 +206,28 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
             builder: (_) => MyModerationActionScreen(
               appealRepository: widget.appealRepository,
               actionId: actionId,
+            ),
+          ),
+        );
+      case NotificationType.messageRequest:
+        // WYN-032: goes straight to ConversationScreen, not
+        // MessageRequestListScreen -- the recipient already knows which
+        // request this notification is about. A notification created
+        // before this migration has no conversation_id, in which case
+        // this stays a no-op, same backward-compat posture as the
+        // moderation types above.
+        final conversationId = notification.conversationId;
+        final actorId = notification.actorId;
+        if (conversationId == null || actorId == null) return;
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ConversationScreen(
+              chatRepository: widget.chatRepository,
+              conversationId: conversationId,
+              otherUserId: actorId,
+              otherUsername: notification.actorUsername ?? '',
+              otherDisplayName: notification.actorDisplayName,
+              otherAvatarUrl: notification.actorAvatarUrl,
             ),
           ),
         );
@@ -384,6 +412,8 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         // the design doc's Screen 7) -- same wording regardless of
         // what was appealed.
         return 'อุทธรณ์ของคุณถูกปฏิเสธ -- เหตุผล: ${notification.reason ?? ''}';
+      case NotificationType.messageRequest:
+        return '$name ส่งคำขอข้อความถึงคุณ';
     }
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:wyn/features/chat/presentation/conversation_screen.dart';
 import 'package:wyn/features/club/data/club_post.dart';
 import 'package:wyn/features/club/presentation/club_page.dart';
 import 'package:wyn/features/club/presentation/club_post_detail_screen.dart';
@@ -16,6 +17,7 @@ import 'package:wyn/features/profile/presentation/widgets/avatar_circle.dart';
 import 'package:wyn/features/zoky/presentation/zoky_order_detail_screen.dart';
 
 import 'support/fake_supabase_session.dart';
+import 'support/recording_chat_repository.dart';
 import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
 import 'support/recording_drop_repository.dart';
@@ -45,6 +47,7 @@ void main() {
   late RecordingClubPostRepository clubPostWithResultRepo;
   late RecordingZokyRepository zokyRepo;
   late RecordingAppealRepository appealRepo;
+  late RecordingChatRepository chatRepo;
 
   // One RecordingNotificationRepository per scenario, all built in
   // setUp() for the same reason as the repos above -- never inline
@@ -56,6 +59,7 @@ void main() {
   late RecordingNotificationRepository likePopRepo;
   late RecordingNotificationRepository commentPopRepo;
   late RecordingNotificationRepository followRepoNotif;
+  late RecordingNotificationRepository messageRequestRepo;
   late RecordingNotificationRepository deletedDropRepo;
   late RecordingNotificationRepository mixedReadRepo;
   late RecordingNotificationRepository clubJoinRequestRepo;
@@ -125,6 +129,17 @@ void main() {
         actorUsername: 'benz',
         isRead: isRead,
         createdAt: now.subtract(const Duration(days: 2)),
+      );
+
+  WynNotification messageRequestNotification() => WynNotification(
+        id: 'n-message-request',
+        type: NotificationType.messageRequest,
+        actorId: 'u6',
+        actorUsername: 'namfah',
+        actorDisplayName: 'น้ำฝน',
+        conversationId: 'conv-1',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 5)),
       );
 
   WynNotification clubJoinRequestNotification() => WynNotification(
@@ -348,6 +363,7 @@ void main() {
     clubPostWithResultRepo = RecordingClubPostRepository()..byIdResult = testClubPost;
     zokyRepo = RecordingZokyRepository();
     appealRepo = RecordingAppealRepository();
+    chatRepo = RecordingChatRepository();
 
     allTypesRepo = RecordingNotificationRepository(notifications: [
       likeDropNotification(),
@@ -374,6 +390,9 @@ void main() {
     );
     deletedDropRepo = RecordingNotificationRepository(
       notifications: [likeDropNotification()],
+    );
+    messageRequestRepo = RecordingNotificationRepository(
+      notifications: [messageRequestNotification()],
     );
     // One unread, one already read before this visit -- lets the
     // highlight test tell a correctly-mapped snapshot apart from a
@@ -446,6 +465,7 @@ void main() {
           clubPostRepository: clubPostRepository ?? clubPostRepo,
           zokyRepository: zokyRepository ?? zokyRepo,
           appealRepository: appealRepo,
+          chatRepository: chatRepo,
         ),
       );
 
@@ -566,6 +586,29 @@ void main() {
       find.byType(ViewProfileScreen),
     );
     expect(screen.userId, 'u3');
+  });
+
+  group('message_request notification (WYN-032)', () {
+    testWidgets('shows the Thai message with the actor\'s name', (tester) async {
+      await tester.pumpWidget(buildScreen(messageRequestRepo));
+      await tester.pumpAndSettle();
+
+      expect(find.text('น้ำฝน ส่งคำขอข้อความถึงคุณ'), findsOneWidget);
+    });
+
+    testWidgets('tapping opens ConversationScreen directly for that conversation',
+        (tester) async {
+      await tester.pumpWidget(buildScreen(messageRequestRepo));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('น้ำฝน ส่งคำขอข้อความถึงคุณ'));
+      await tester.pumpAndSettle();
+
+      final screen = tester.widget<ConversationScreen>(find.byType(ConversationScreen));
+      expect(screen.conversationId, 'conv-1');
+      expect(screen.otherUserId, 'u6');
+      expect(screen.otherUsername, 'namfah');
+    });
   });
 
   group('Club notification types (WYN-015)', () {

@@ -127,16 +127,36 @@ class _ConversationScreenState extends State<ConversationScreen> {
   AppealStatus _restrictAppealStatus = AppealStatus.none;
   bool _isSuspendedOrBanned = false;
 
+  // WYN-032: defaults to 'active'/no requester until _loadConversationMeta()
+  // confirms otherwise -- an optimistic default, same posture as
+  // _blockRelationship starting at .none, so the composer doesn't
+  // flash a pending-request state for an ordinary active conversation
+  // while this one extra query is still in flight.
+  String _conversationStatus = 'active';
+  String? _requestedBy;
+  bool _isDecidingRequest = false;
+
   RealtimeChannel? _channel;
 
+  /// True only for the recipient of a still-pending Message Request --
+  /// the requester keeps a normal composer while waiting (see
+  /// [_isPendingAsRequester]).
+  bool get _isPendingAsRecipient => _conversationStatus == 'pending' && _requestedBy != _myUserId;
+
+  bool get _isPendingAsRequester => _conversationStatus == 'pending' && _requestedBy == _myUserId;
+
   bool get _isComposerDisabled =>
-      _blockRelationship.isBlockedEitherWay || _restrictExpiresAt != null || _isSuspendedOrBanned;
+      _blockRelationship.isBlockedEitherWay ||
+      _restrictExpiresAt != null ||
+      _isSuspendedOrBanned ||
+      _isPendingAsRecipient;
 
   @override
   void initState() {
     super.initState();
     _loadInitial();
     _loadSafetyState();
+    _loadConversationMeta();
     widget.chatRepository.markConversationRead(widget.conversationId);
     _scrollController.addListener(_onScroll);
     _channel = widget.chatRepository.subscribeToConversationMessages(
@@ -233,6 +253,96 @@ class _ConversationScreenState extends State<ConversationScreen> {
     } catch (_) {
       // Same fail-open posture.
     }
+  }
+
+  Future<void> _loadConversationMeta() async {
+    try {
+      final meta = await widget.chatRepository.fetchConversationMeta(widget.conversationId);
+      if (!mounted || meta == null) return;
+      setState(() {
+        _conversationStatus = meta.status;
+        _requestedBy = meta.requestedBy;
+      });
+    } catch (_) {
+      // Fails open to the 'active' default -- the messages INSERT
+      // policy is the real boundary regardless of what this screen
+      // shows (mirrors _loadSafetyState()'s identical posture).
+    }
+  }
+
+  Future<void> _acceptRequest() async {
+    setState(() => _isDecidingRequest = true);
+    try {
+      await widget.chatRepository.acceptMessageRequest(widget.conversationId);
+      if (mounted) setState(() => _conversationStatus = 'active');
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ยอมรับคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    } finally {
+      if (mounted) setState(() => _isDecidingRequest = false);
+    }
+  }
+
+  Future<void> _deleteRequest() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ลบคำขอนี้?'),
+        content: const Text('ผู้ส่งจะไม่ได้รับแจ้งเตือนว่าคำขอถูกลบ'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('ลบ'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _isDecidingRequest = true);
+    try {
+      await widget.chatRepository.deleteMessageRequest(widget.conversationId);
+      if (mounted) Navigator.of(context).pop();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isDecidingRequest = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ลบคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    }
+  }
+
+  Future<void> _blockFromRequest() async {
+    final confirmed = await confirmBlock(context, username: widget.otherUsername);
+    if (!confirmed || !mounted) return;
+    setState(() => _isDecidingRequest = true);
+    try {
+      await _blockRepository.blockUser(widget.otherUserId);
+      if (mounted) setState(() => _blockRelationship = BlockRelationship.blockedByMe);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    } finally {
+      if (mounted) setState(() => _isDecidingRequest = false);
+    }
+  }
+
+  void _reportFromRequest() {
+    showReportSheet(
+      context,
+      reportRepository: _reportRepository,
+      targetType: ReportTargetType.user,
+      targetId: widget.otherUserId,
+      targetLabel: 'รายงานผู้ใช้นี้',
+      associatedUserId: widget.otherUserId,
+    );
   }
 
   Future<void> _openAppeal() async {
@@ -600,12 +710,16 @@ class _ConversationScreenState extends State<ConversationScreen> {
         onAppeal: _openAppeal,
       );
     }
+    if (_isPendingAsRecipient) {
+      return _buildMessageRequestActionArea();
+    }
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (_isPendingAsRequester) _buildAwaitingResponseLabel(),
           if (_replyTo != null) _buildReplyPreviewBar(),
           if (_imageBytes != null) _buildImagePreviewBar(),
           Padding(
@@ -652,6 +766,75 @@ class _ConversationScreenState extends State<ConversationScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// WYN-032 Design Screen 3: replaces the composer entirely for the
+  /// recipient of a still-pending Message Request -- Accept/Delete are
+  /// the primary decision (top row), Block/Report are secondary (smaller,
+  /// bottom row). The message list above stays fully readable throughout.
+  Widget _buildMessageRequestActionArea() {
+    final displayName = widget.otherDisplayName?.isNotEmpty == true
+        ? widget.otherDisplayName!
+        : '@${widget.otherUsername}';
+    return Padding(
+      padding: const EdgeInsets.all(WynSpacing.space4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('$displayName ต้องการส่งข้อความถึงคุณ', textAlign: TextAlign.center),
+          const SizedBox(height: WynSpacing.space3),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _isDecidingRequest ? null : _deleteRequest,
+                  child: const Text('ลบ'),
+                ),
+              ),
+              const SizedBox(width: WynSpacing.space3),
+              Expanded(
+                child: FilledButton(
+                  onPressed: _isDecidingRequest ? null : _acceptRequest,
+                  child: _isDecidingRequest
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('ยอมรับ'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: WynSpacing.space2),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextButton(
+                onPressed: _isDecidingRequest ? null : _blockFromRequest,
+                child: const Text('บล็อก'),
+              ),
+              TextButton(
+                onPressed: _isDecidingRequest ? null : _reportFromRequest,
+                child: const Text('รายงาน'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAwaitingResponseLabel() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
+      child: Text(
+        'รอการตอบรับ',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(context).colorScheme.outline,
+            ),
       ),
     );
   }

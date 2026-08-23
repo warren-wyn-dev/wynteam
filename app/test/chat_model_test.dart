@@ -1,18 +1,61 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wyn/features/chat/data/chat_message.dart';
 import 'package:wyn/features/chat/data/conversation.dart';
+import 'package:wyn/features/chat/data/message_request.dart';
 
 void main() {
+  group('MessageRequest.fromMap', () {
+    test('parses every field', () {
+      final request = MessageRequest.fromMap({
+        'conversation_id': 'c1',
+        'conversation_created_at': '2026-08-01T00:00:00Z',
+        'other_user_id': 'u2',
+        'other_username': 'namfah',
+        'other_display_name': 'น้ำฝน',
+        'other_avatar_url': 'https://example.com/avatar.jpg',
+        'last_message_text': 'สวัสดีครับ',
+        'last_message_image_url': null,
+        'last_message_at': '2026-08-22T10:00:00Z',
+      });
+
+      expect(request.conversationId, 'c1');
+      expect(request.otherUsername, 'namfah');
+      expect(request.otherDisplayName, 'น้ำฝน');
+      expect(request.lastMessageText, 'สวัสดีครับ');
+      expect(request.lastMessageAt, DateTime.parse('2026-08-22T10:00:00Z'));
+    });
+
+    test('lastMessageAt is null when there is no message yet', () {
+      final request = MessageRequest.fromMap({
+        'conversation_id': 'c1',
+        'conversation_created_at': '2026-08-01T00:00:00Z',
+        'other_user_id': 'u2',
+        'other_username': 'namfah',
+        'other_display_name': null,
+        'other_avatar_url': null,
+        'last_message_text': null,
+        'last_message_image_url': null,
+        'last_message_at': null,
+      });
+
+      expect(request.lastMessageAt, isNull);
+      expect(request.lastMessageText, isNull);
+    });
+  });
+
   group('Conversation.fromMap', () {
     Map<String, dynamic> baseMap({
       String? lastMessageAt,
       String? lastMessageSenderId,
       String? myLastReadAt,
       String? lastMessageDeletedAt,
+      String? status,
+      String? requestedBy,
     }) =>
         {
           'conversation_id': 'c1',
-          'status': 'active',
+          'status': status ?? 'active',
+          'requested_by': requestedBy,
           'conversation_created_at': '2026-08-01T00:00:00Z',
           'other_user_id': 'u2',
           'other_username': 'namfah',
@@ -25,6 +68,18 @@ void main() {
           'last_message_sender_id': lastMessageSenderId,
           'my_last_read_at': myLastReadAt,
         };
+
+    test('parses status and requestedBy (WYN-032) for a pending conversation', () {
+      final conversation = Conversation.fromMap(baseMap(status: 'pending', requestedBy: 'me'));
+      expect(conversation.status, 'pending');
+      expect(conversation.requestedBy, 'me');
+    });
+
+    test('requestedBy is null for an ordinary active conversation', () {
+      final conversation = Conversation.fromMap(baseMap());
+      expect(conversation.status, 'active');
+      expect(conversation.requestedBy, isNull);
+    });
 
     test('parses every field', () {
       final conversation = Conversation.fromMap(baseMap(
