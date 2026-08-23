@@ -1,6 +1,6 @@
 # Product Task — WYN-043
 
-Status: backlog
+Status: design done (Design spec เสร็จแล้ว — `.wyn/docs/design/wyn-043-notification-types.md` — ส่งต่อ AI Coding)
 Owner: AI Product Manager
 
 Feature: Notification Types — แก้บั๊ก ReDrop crash + เพิ่ม System notification (Trending/Top 100 เลื่อนออกสโคป)
