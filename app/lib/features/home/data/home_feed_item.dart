@@ -37,6 +37,12 @@ class HomeFeedItem {
     this.redropperDisplayName,
     this.redropperAvatarUrl,
     this.quoteText,
+    this.pollId,
+    this.pollOptions,
+    this.pollExpiresAt,
+    this.pollMyVoteIndex,
+    this.pollTotalVotes,
+    this.pollOptionCounts,
   });
 
   final String id;
@@ -88,6 +94,45 @@ class HomeFeedItem {
   /// row.
   final String? quoteText;
 
+  /// WYN-035: set only when this row is a Poll Drop. See [Drop]'s
+  /// identically-named fields for the exact same semantics.
+  final String? pollId;
+  final List<String>? pollOptions;
+  final DateTime? pollExpiresAt;
+  final int? pollMyVoteIndex;
+  final int? pollTotalVotes;
+  final List<int>? pollOptionCounts;
+
+  bool get isPoll => pollId != null;
+
+  bool get pollResultsVisible => pollTotalVotes != null;
+
+  bool get pollIsClosed =>
+      pollExpiresAt != null && !DateTime.now().toUtc().isBefore(pollExpiresAt!);
+
+  /// Same optimistic-update role as [Drop.votedPoll] -- see its doc
+  /// comment for the exact rules. Duplicated rather than shared
+  /// because [HomeFeedItem] and [Drop] are two separate value types
+  /// with no common base, same as every other pair of parallel
+  /// toggle methods already in these two classes (toggledLike,
+  /// toggledRedrop, ...).
+  HomeFeedItem votedPoll(int optionIndex) {
+    final previousVote = pollMyVoteIndex;
+    final counts = List<int>.from(
+      pollOptionCounts ?? List.filled(pollOptions?.length ?? 0, 0),
+    );
+    if (previousVote != null && previousVote < counts.length) {
+      counts[previousVote] -= 1;
+    }
+    if (optionIndex < counts.length) counts[optionIndex] += 1;
+
+    return copyWith(
+      pollMyVoteIndex: optionIndex,
+      pollTotalVotes: previousVote == null ? (pollTotalVotes ?? 0) + 1 : pollTotalVotes ?? 1,
+      pollOptionCounts: counts,
+    );
+  }
+
   /// A real field-for-field copy, unlike the ad hoc "rebuild every
   /// field by hand" that used to live in HomeFeedScreen's own toggle
   /// helpers -- that shape silently reset any field it forgot to
@@ -101,6 +146,9 @@ class HomeFeedItem {
     bool? savedByMe,
     int? redropCount,
     bool? redroppedByMe,
+    int? pollMyVoteIndex,
+    int? pollTotalVotes,
+    List<int>? pollOptionCounts,
   }) =>
       HomeFeedItem(
         id: id,
@@ -128,6 +176,12 @@ class HomeFeedItem {
         redropperDisplayName: redropperDisplayName,
         redropperAvatarUrl: redropperAvatarUrl,
         quoteText: quoteText,
+        pollId: pollId,
+        pollOptions: pollOptions,
+        pollExpiresAt: pollExpiresAt,
+        pollMyVoteIndex: pollMyVoteIndex ?? this.pollMyVoteIndex,
+        pollTotalVotes: pollTotalVotes ?? this.pollTotalVotes,
+        pollOptionCounts: pollOptionCounts ?? this.pollOptionCounts,
       );
 
   String get redropperNameOrUsername => displayNameOrUsername(
@@ -148,7 +202,7 @@ class HomeFeedItem {
         authorUsername: authorUsername,
         authorDisplayName: authorDisplayName,
         authorAvatarUrl: authorAvatarUrl,
-        imageUrl: imageUrl!,
+        imageUrl: imageUrl,
         caption: caption,
         createdAt: createdAt,
         likeCount: likeCount,
@@ -157,6 +211,12 @@ class HomeFeedItem {
         savedByMe: savedByMe,
         redropCount: redropCount,
         redroppedByMe: redroppedByMe,
+        pollId: pollId,
+        pollOptions: pollOptions,
+        pollExpiresAt: pollExpiresAt,
+        pollMyVoteIndex: pollMyVoteIndex,
+        pollTotalVotes: pollTotalVotes,
+        pollOptionCounts: pollOptionCounts,
       );
 
   /// Converts to the full [Pop] object PopClipView expects. Only valid
@@ -199,13 +259,29 @@ class HomeFeedItem {
         savedByMe: drop.savedByMe,
         redropCount: drop.redropCount,
         redroppedByMe: drop.redroppedByMe,
+        pollId: drop.pollId,
+        pollOptions: drop.pollOptions,
+        pollExpiresAt: drop.pollExpiresAt,
+        pollMyVoteIndex: drop.pollMyVoteIndex,
+        pollTotalVotes: drop.pollTotalVotes,
+        pollOptionCounts: drop.pollOptionCounts,
       );
 
+  /// [pollId]/[pollOptions]/[pollExpiresAt] read straight off
+  /// `home_feed`'s own trailing columns (unlike [Drop.fromMap], which
+  /// reads a nested `drop_polls` embed -- home_feed is a flat view, so
+  /// these are already plain columns on the row). The per-viewer
+  /// fields ([pollMyVoteIndex]/[pollTotalVotes]/[pollOptionCounts])
+  /// are filled in by the caller from a separate batched lookup, same
+  /// as [likedByMe]/[savedByMe]/[redroppedByMe].
   factory HomeFeedItem.fromMap(
     Map<String, dynamic> map, {
     required bool likedByMe,
     required bool savedByMe,
     bool redroppedByMe = false,
+    int? pollMyVoteIndex,
+    int? pollTotalVotes,
+    List<int>? pollOptionCounts,
   }) {
     final contentType = map['content_type'] as String;
     return HomeFeedItem(
@@ -235,6 +311,14 @@ class HomeFeedItem {
       redropperDisplayName: map['redropper_display_name'] as String?,
       redropperAvatarUrl: map['redropper_avatar_url'] as String?,
       quoteText: map['quote_text'] as String?,
+      pollId: map['poll_id'] as String?,
+      pollOptions: (map['poll_options'] as List<dynamic>?)?.cast<String>(),
+      pollExpiresAt: map['poll_expires_at'] != null
+          ? DateTime.parse(map['poll_expires_at'] as String)
+          : null,
+      pollMyVoteIndex: pollMyVoteIndex,
+      pollTotalVotes: pollTotalVotes,
+      pollOptionCounts: pollOptionCounts,
     );
   }
 }

@@ -121,6 +121,95 @@ void main() {
       expect(item.redropCount, 0);
       expect(item.redroppedByMe, isFalse);
     });
+
+    test('parses poll_id/poll_options/poll_expires_at and per-viewer '
+        'poll state (WYN-035)', () {
+      final item = HomeFeedItem.fromMap({
+        'id': 'd1',
+        'content_type': 'drop',
+        'author_id': 'u1',
+        'author_username': 'namfah',
+        'author_display_name': null,
+        'author_avatar_url': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'caption': 'กินอะไรดี?',
+        'image_url': null,
+        'video_url': null,
+        'thumbnail_url': null,
+        'duration_seconds': null,
+        'view_count': null,
+        'like_count': 0,
+        'comment_count': 0,
+        'poll_id': 'p1',
+        'poll_options': ['Pizza', 'Sushi'],
+        'poll_expires_at': '2026-01-04T00:00:00Z',
+      },
+          likedByMe: false,
+          savedByMe: false,
+          pollMyVoteIndex: 1,
+          pollTotalVotes: 4,
+          pollOptionCounts: [1, 3]);
+
+      expect(item.isPoll, isTrue);
+      expect(item.pollOptions, ['Pizza', 'Sushi']);
+      expect(item.pollExpiresAt, DateTime.parse('2026-01-04T00:00:00Z'));
+      expect(item.pollMyVoteIndex, 1);
+      expect(item.pollResultsVisible, isTrue);
+    });
+
+    test('poll_id absent (a plain row) leaves isPoll false', () {
+      final item = HomeFeedItem.fromMap({
+        'id': 'd1',
+        'content_type': 'drop',
+        'author_id': 'u1',
+        'author_username': 'namfah',
+        'author_display_name': null,
+        'author_avatar_url': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'caption': null,
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'video_url': null,
+        'thumbnail_url': null,
+        'duration_seconds': null,
+        'view_count': null,
+        'like_count': 0,
+        'comment_count': 0,
+      }, likedByMe: false, savedByMe: false);
+
+      expect(item.isPoll, isFalse);
+      expect(item.pollResultsVisible, isFalse);
+    });
+  });
+
+  group('votedPoll (WYN-035)', () {
+    test('first-time vote seeds zeroed counts and increments the '
+        'chosen option + total', () {
+      final item = HomeFeedItem.fromMap({
+        'id': 'd1',
+        'content_type': 'drop',
+        'author_id': 'u1',
+        'author_username': 'namfah',
+        'author_display_name': null,
+        'author_avatar_url': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'caption': 'poll?',
+        'image_url': null,
+        'video_url': null,
+        'thumbnail_url': null,
+        'duration_seconds': null,
+        'view_count': null,
+        'like_count': 0,
+        'comment_count': 0,
+        'poll_id': 'p1',
+        'poll_options': ['Yes', 'No'],
+        'poll_expires_at': '2026-01-04T00:00:00Z',
+      }, likedByMe: false, savedByMe: false);
+
+      final voted = item.votedPoll(0);
+      expect(voted.pollMyVoteIndex, 0);
+      expect(voted.pollTotalVotes, 1);
+      expect(voted.pollOptionCounts, [1, 0]);
+    });
   });
 
   group('copyWith (WYN-034)', () {

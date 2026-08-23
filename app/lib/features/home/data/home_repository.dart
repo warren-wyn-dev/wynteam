@@ -3,6 +3,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'home_feed_item.dart';
 import 'home_ranking.dart';
 
+/// WYN-035: per-viewer poll state -- see DropRepository's identically-
+/// shaped private class for the full reasoning (duplicated rather than
+/// shared, same as every other pair of parallel private helpers across
+/// these two repositories).
+class _PollState {
+  const _PollState({this.myVoteIndex, this.totalVotes, this.optionCounts});
+
+  final int? myVoteIndex;
+  final int? totalVotes;
+  final List<int>? optionCounts;
+}
+
 /// Reads the unified `home_feed` view (see supabase/schema.sql, WYN-007
 /// section) for the Home tab. Only handles fetching -- Like/Save/Delete
 /// actions on a card are delegated straight to DropRepository/
@@ -65,17 +77,25 @@ class HomeRepository {
       ids: [...dropIds, ...popIds],
     );
     final redroppedIds = await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
+    final pollStates = await _fetchPollStates(
+      userId: userId,
+      pollIds: rows.map((row) => row['poll_id'] as String?).whereType<String>().toList(),
+    );
 
     return rows.map((row) {
       final id = row['id'] as String;
       final isDrop = row['content_type'] == 'drop';
       final likedByMe =
           isDrop ? likedDropIds.contains(id) : likedPopIds.contains(id);
+      final pollState = pollStates[row['poll_id'] as String?];
       return HomeFeedItem.fromMap(
         row,
         likedByMe: likedByMe,
         savedByMe: savedIds.contains(id),
         redroppedByMe: isDrop && redroppedIds.contains(id),
+        pollMyVoteIndex: pollState?.myVoteIndex,
+        pollTotalVotes: pollState?.totalVotes,
+        pollOptionCounts: pollState?.optionCounts,
       );
     }).toList();
   }
@@ -126,17 +146,25 @@ class HomeRepository {
       ids: [...dropIds, ...popIds],
     );
     final redroppedIds = await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
+    final pollStates = await _fetchPollStates(
+      userId: userId,
+      pollIds: rows.map((row) => row['poll_id'] as String?).whereType<String>().toList(),
+    );
 
     final items = rows.map((row) {
       final id = row['id'] as String;
       final isDrop = row['content_type'] == 'drop';
       final likedByMe =
           isDrop ? likedDropIds.contains(id) : likedPopIds.contains(id);
+      final pollState = pollStates[row['poll_id'] as String?];
       return HomeFeedItem.fromMap(
         row,
         likedByMe: likedByMe,
         savedByMe: savedIds.contains(id),
         redroppedByMe: isDrop && redroppedIds.contains(id),
+        pollMyVoteIndex: pollState?.myVoteIndex,
+        pollTotalVotes: pollState?.totalVotes,
+        pollOptionCounts: pollState?.optionCounts,
       );
     }).toList();
 
@@ -193,6 +221,10 @@ class HomeRepository {
       ids: [...dropIds, ...popIds],
     );
     final redroppedIds = await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
+    final pollStates = await _fetchPollStates(
+      userId: userId,
+      pollIds: rows.map((row) => row['poll_id'] as String?).whereType<String>().toList(),
+    );
     final followedAuthorIds = await _fetchFollowedAuthorIds(
       userId: userId,
       authorIds: authorIds,
@@ -203,11 +235,15 @@ class HomeRepository {
       final isDrop = row['content_type'] == 'drop';
       final likedByMe =
           isDrop ? likedDropIds.contains(id) : likedPopIds.contains(id);
+      final pollState = pollStates[row['poll_id'] as String?];
       return HomeFeedItem.fromMap(
         row,
         likedByMe: likedByMe,
         savedByMe: savedIds.contains(id),
         redroppedByMe: isDrop && redroppedIds.contains(id),
+        pollMyVoteIndex: pollState?.myVoteIndex,
+        pollTotalVotes: pollState?.totalVotes,
+        pollOptionCounts: pollState?.optionCounts,
       );
     }).toList();
 
@@ -292,17 +328,25 @@ class HomeRepository {
       ids: [...dropIds, ...popIds],
     );
     final redroppedIds = await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
+    final pollStates = await _fetchPollStates(
+      userId: userId,
+      pollIds: rows.map((row) => row['poll_id'] as String?).whereType<String>().toList(),
+    );
 
     return rows.map((row) {
       final id = row['id'] as String;
       final isDrop = row['content_type'] == 'drop';
       final likedByMe =
           isDrop ? likedDropIds.contains(id) : likedPopIds.contains(id);
+      final pollState = pollStates[row['poll_id'] as String?];
       return HomeFeedItem.fromMap(
         row,
         likedByMe: likedByMe,
         savedByMe: savedIds.contains(id),
         redroppedByMe: isDrop && redroppedIds.contains(id),
+        pollMyVoteIndex: pollState?.myVoteIndex,
+        pollTotalVotes: pollState?.totalVotes,
+        pollOptionCounts: pollState?.optionCounts,
       );
     }).toList();
   }
@@ -338,16 +382,70 @@ class HomeRepository {
     final savedIds = await _fetchSavedIds(userId: viewerId, ids: dropIds);
     final redroppedIds =
         await _fetchRedroppedIds(userId: viewerId, dropIds: dropIds);
+    final pollStates = await _fetchPollStates(
+      userId: viewerId,
+      pollIds: rows.map((row) => row['poll_id'] as String?).whereType<String>().toList(),
+    );
 
     return rows.map((row) {
       final id = row['id'] as String;
+      final pollState = pollStates[row['poll_id'] as String?];
       return HomeFeedItem.fromMap(
         row,
         likedByMe: likedIds.contains(id),
         savedByMe: savedIds.contains(id),
         redroppedByMe: redroppedIds.contains(id),
+        pollMyVoteIndex: pollState?.myVoteIndex,
+        pollTotalVotes: pollState?.totalVotes,
+        pollOptionCounts: pollState?.optionCounts,
       );
     }).toList();
+  }
+
+  /// Same shape as DropRepository's identically-named private method
+  /// -- see its doc comment. `home_feed`'s poll_id is already a flat
+  /// column (unlike DropRepository's nested drop_polls embed), so the
+  /// caller here just does `row['poll_id']` directly, no extraction
+  /// helper needed.
+  Future<Map<String, _PollState>> _fetchPollStates({
+    required String userId,
+    required List<String> pollIds,
+  }) async {
+    if (pollIds.isEmpty) return {};
+
+    final myVoteRows = await _client
+        .from('drop_poll_votes')
+        .select('poll_id, option_index')
+        .eq('voter_id', userId)
+        .inFilter('poll_id', pollIds);
+    final myVotes = {
+      for (final row in myVoteRows)
+        row['poll_id'] as String: row['option_index'] as int,
+    };
+
+    final resultRows = await _client.rpc(
+      'get_poll_results',
+      params: {'p_poll_ids': pollIds},
+    ) as List<dynamic>;
+    final resultsByPollId = {
+      for (final row in resultRows)
+        row['poll_id'] as String: row as Map<String, dynamic>,
+    };
+
+    return {
+      for (final id in pollIds)
+        id: _PollState(
+          myVoteIndex: myVotes[id],
+          totalVotes: resultsByPollId[id]?['visible'] == true
+              ? (resultsByPollId[id]!['total_votes'] as num).toInt()
+              : null,
+          optionCounts: resultsByPollId[id]?['visible'] == true
+              ? (resultsByPollId[id]!['option_counts'] as List<dynamic>)
+                  .map((e) => (e as num).toInt())
+                  .toList()
+              : null,
+        ),
+    };
   }
 
   Future<Set<String>> _fetchFollowedAuthorIds({

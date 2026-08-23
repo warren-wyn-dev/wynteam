@@ -195,6 +195,22 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
     }
   }
 
+  Future<void> _voteDropPoll(String dropId, int optionIndex) async {
+    final index = _drops.indexWhere((d) => d.id == dropId);
+    if (index == -1) return;
+    final previous = _drops[index];
+    setState(() => _drops[index] = previous.votedPoll(optionIndex));
+    try {
+      await widget.dropRepository.votePoll(
+        pollId: previous.pollId!,
+        optionIndex: optionIndex,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _drops[index] = previous);
+    }
+  }
+
   Future<void> _quoteDropRedrop(String dropId) async {
     final index = _drops.indexWhere((d) => d.id == dropId);
     if (index == -1) return;
@@ -372,6 +388,7 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
               onOpenProfile: () => _openProfile(drop.authorId),
               onToggleRedrop: () => _toggleDropRedrop(drop.id),
               onQuoteRedrop: () => _quoteDropRedrop(drop.id),
+              onVotePoll: (optionIndex) => _voteDropPoll(drop.id, optionIndex),
             );
           }
 

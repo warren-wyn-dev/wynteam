@@ -4,6 +4,7 @@ import '../../../core/design/wyn_spacing.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/drop.dart';
 import '../data/drop_repository.dart';
+import 'widgets/poll_placeholder_tile.dart';
 
 /// Screen 2 (WYN-034) -- write a comment to go with a ReDrop. See
 /// .wyn/docs/design/wyn-034-redrop.md, Screen 2.
@@ -152,7 +153,9 @@ class _OriginalDropPreview extends StatelessWidget {
           ),
           AspectRatio(
             aspectRatio: 1,
-            child: Image.network(drop.imageUrl, fit: BoxFit.cover),
+            child: drop.imageUrl != null
+                ? Image.network(drop.imageUrl!, fit: BoxFit.cover)
+                : const PollPlaceholderTile(),
           ),
           if (drop.caption != null && drop.caption!.isNotEmpty)
             Padding(
