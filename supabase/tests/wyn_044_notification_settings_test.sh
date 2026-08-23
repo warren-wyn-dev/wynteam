@@ -28,6 +28,12 @@
 #      those code paths are never gated, by design.
 #  10. RLS: user A can neither SELECT nor UPDATE user B's
 #      `notification_settings` row.
+#  11. (WYN-044 debug fix) internal.notification_enabled() has no
+#      EXECUTE grant to `authenticated` -- an ordinary user calling it
+#      directly with someone else's user_id fails with a permission
+#      error instead of leaking that user's real preference.
+#  12. (WYN-044 debug fix) internal.notification_enabled() raises on an
+#      unrecognized p_category instead of silently fail-opening.
 #
 # Requirements: a local PostgreSQL 16 server reachable either as the
 # current OS user or via `sudo -u postgres` (mirrors
@@ -621,6 +627,57 @@ begin
 
   insert into results select 'CHECK19_user_a_cannot_update_user_b_settings',
     case when v_likes = false then 1 else 0 end, 1;
+end
+$$;
+
+-- ------------------------------------------------------------
+-- CHECK 20: internal.notification_enabled() has no `grant execute ...
+-- to authenticated` (WYN-044 debug fix for the Low security finding
+-- -- an ordinary authenticated user could otherwise call this
+-- security-definer helper directly with someone *else's* user_id and
+-- read that user's real per-category preference, bypassing
+-- notification_settings' own RLS). Bob calling it directly with
+-- stranger's user_id must fail with a permission error.
+-- ------------------------------------------------------------
+do $$
+begin
+  set role authenticated;
+  set request.jwt.claim.sub = '61000000-0000-0000-0000-000000000002';
+  set request.jwt.claim.role = 'authenticated';
+  begin
+    perform internal.notification_enabled(
+      '61000000-0000-0000-0000-000000000009', 'likes'
+    );
+    insert into results values
+      ('CHECK20_direct_call_with_other_users_id_denied', 0, 1);
+  exception when insufficient_privilege or others then
+    insert into results values
+      ('CHECK20_direct_call_with_other_users_id_denied', 1, 1);
+  end;
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+end
+$$;
+
+-- ------------------------------------------------------------
+-- CHECK 21: an unrecognized p_category raises an exception instead of
+-- silently falling through the CASE to NULL -> coalesce(..., true) ->
+-- fail-open with no signal (WYN-044 debug fix for the Minor finding).
+-- Called as the function owner (not role authenticated), since
+-- CHECK 20 above already proved an ordinary authenticated user cannot
+-- call this function directly at all anymore.
+-- ------------------------------------------------------------
+do $$
+begin
+  begin
+    perform internal.notification_enabled(
+      '61000000-0000-0000-0000-000000000001', 'not_a_real_category'
+    );
+    insert into results values
+      ('CHECK21_invalid_category_raises_instead_of_fail_open', 0, 1);
+  exception when others then
+    insert into results values
+      ('CHECK21_invalid_category_raises_instead_of_fail_open', 1, 1);
+  end;
 end
 $$;
 

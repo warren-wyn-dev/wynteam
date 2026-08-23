@@ -15,9 +15,25 @@ void main() {
   // settings_screen_test.dart's own comment on why (the GoTrue
   // auto-refresh timer started by the SupabaseClient each Recording
   // repository wraps must not be attributed to a single test's
-  // FakeAsync zone).
+  // FakeAsync zone). One shared instance per repository double, with
+  // mutable fields reassigned/reset per test case instead of
+  // constructing a fresh repository (and the SupabaseClient it wraps)
+  // inline in every testWidgets body (WYN-044 debug fix).
+  late RecordingNotificationSettingsRepository repo;
+  late _ControlledFetchRepository controlledFetchRepo;
+
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
+    repo = RecordingNotificationSettingsRepository();
+    controlledFetchRepo = _ControlledFetchRepository();
+  });
+
+  setUp(() {
+    repo.settings = const NotificationSettings();
+    repo.fetchException = null;
+    repo.upsertCategoryException = null;
+    repo.upsertCategoryOverride = null;
+    repo.upsertCategoryArgs.clear();
   });
 
   Widget buildScreen(NotificationSettingsRepository repo) {
@@ -32,13 +48,13 @@ void main() {
       (tester) async {
     final completer = Completer<NotificationSettings>();
     // Directly overriding fetch isn't possible on the recording double
-    // (it always resolves immediately) -- a raw NotificationSettings
-    // Repository subclass makes the completer-controlled version
-    // instead, mirroring RecordingZokyRepository's own
-    // createOrdersOverride style but for fetch() specifically.
-    final controlled = _ControlledFetchRepository(completer.future);
+    // (it always resolves immediately) -- controlledFetchRepo's [future]
+    // field is reassigned to a fresh completer's Future here instead of
+    // constructing a new repository, mirroring RecordingZokyRepository's
+    // own createOrdersOverride style but for fetch() specifically.
+    controlledFetchRepo.future = completer.future;
 
-    await tester.pumpWidget(buildScreen(controlled));
+    await tester.pumpWidget(buildScreen(controlledFetchRepo));
     await tester.pump();
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -52,9 +68,7 @@ void main() {
   testWidgets(
       'no row for the user (default NotificationSettings) shows every '
       'toggle enabled', (tester) async {
-    final repo = RecordingNotificationSettingsRepository(
-      settings: const NotificationSettings(),
-    );
+    repo.settings = const NotificationSettings();
 
     await tester.pumpWidget(buildScreen(repo));
     await tester.pumpAndSettle();
@@ -77,9 +91,7 @@ void main() {
 
   testWidgets('reflects a partially-off row from the repository',
       (tester) async {
-    final repo = RecordingNotificationSettingsRepository(
-      settings: const NotificationSettings(comments: false, club: false),
-    );
+    repo.settings = const NotificationSettings(comments: false, club: false);
 
     await tester.pumpWidget(buildScreen(repo));
     await tester.pumpAndSettle();
@@ -98,8 +110,6 @@ void main() {
   testWidgets(
       'tapping a toggle flips it optimistically and calls upsertCategory '
       'with the right category and value', (tester) async {
-    final repo = RecordingNotificationSettingsRepository();
-
     await tester.pumpWidget(buildScreen(repo));
     await tester.pumpAndSettle();
 
@@ -115,8 +125,7 @@ void main() {
 
   testWidgets('a failed upsert reverts the row and shows the error SnackBar',
       (tester) async {
-    final repo = RecordingNotificationSettingsRepository()
-      ..upsertCategoryException = Exception('network error');
+    repo.upsertCategoryException = Exception('network error');
 
     await tester.pumpWidget(buildScreen(repo));
     await tester.pumpAndSettle();
@@ -135,10 +144,9 @@ void main() {
       'toggling one row while another row is still saving does NOT '
       'disable the second row (Design Rule #1)', (tester) async {
     final completer = Completer<void>();
-    final repo = RecordingNotificationSettingsRepository()
-      ..upsertCategoryOverride = (category, value) async {
-        if (category == 'likes') await completer.future;
-      };
+    repo.upsertCategoryOverride = (category, value) async {
+      if (category == 'likes') await completer.future;
+    };
 
     await tester.pumpWidget(buildScreen(repo));
     await tester.pumpAndSettle();
@@ -183,9 +191,7 @@ void main() {
   testWidgets(
       'a failed initial fetch shows the error state with a retry button',
       (tester) async {
-    final repo = RecordingNotificationSettingsRepository(
-      fetchException: Exception('network error'),
-    );
+    repo.fetchException = Exception('network error');
 
     await tester.pumpWidget(buildScreen(repo));
     await tester.pumpAndSettle();
@@ -207,15 +213,19 @@ void main() {
 /// [future] resolves -- used only by the loading-spinner test above,
 /// which needs to observe the *in-progress* state, unlike every other
 /// test in this file (which use RecordingNotificationSettingsRepository
-/// and let fetch resolve immediately).
+/// and let fetch resolve immediately). Constructed once in [setUpAll]
+/// (mirroring RecordingNotificationSettingsRepository) rather than
+/// per-test, so its wrapped SupabaseClient's GoTrue auto-refresh timer
+/// doesn't leak past that single test's widget tree disposal.
 class _ControlledFetchRepository extends NotificationSettingsRepository {
-  _ControlledFetchRepository(this.future)
+  _ControlledFetchRepository()
       : super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
-  final Future<NotificationSettings> future;
+  /// Reassigned per test case (only used by the loading-spinner test).
+  Future<NotificationSettings>? future;
 
   @override
-  Future<NotificationSettings> fetch() => future;
+  Future<NotificationSettings> fetch() => future!;
 
   @override
   Future<void> upsertCategory({

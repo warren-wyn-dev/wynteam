@@ -7805,6 +7805,40 @@ create policy "Users can update their own notification settings"
 -- running as the table owner, not as the querying `authenticated`
 -- role.
 --
+-- No `grant execute ... to authenticated` (unlike internal.drop_author_id/
+-- internal.current_platform_role/internal.is_drop_deleted, which are all
+-- called directly by RLS policies evaluated as the querying `authenticated`
+-- role and so genuinely need the grant) -- every real caller of this
+-- helper is itself already `security definer` (the 16 gated call sites
+-- above), so granting EXECUTE to `authenticated` would only let an
+-- ordinary user call this directly with someone *else's* p_user_id and
+-- read that user's real per-category preference, bypassing
+-- notification_settings' own RLS (WYN-044 debug fix -- QA-confirmed leak).
+--
+-- Omitting the grant is NOT enough on its own, though (independently
+-- re-confirmed against real Postgres while fixing this -- deleting only
+-- the `grant ... to authenticated` line left the direct-call probe below
+-- still succeeding): PostgreSQL grants EXECUTE on a newly created
+-- function to PUBLIC by default (the exact class of leak
+-- WYN-027/`.wyn/tasks/bugs/WYN-027-is-blocked-either-way-rpc-exposure.md`
+-- already documented for this schema), and `authenticated` already holds
+-- `usage` on the whole `internal` schema (granted once, above, for the
+-- RLS-embedded helpers that genuinely need it) -- so PUBLIC-execute plus
+-- schema USAGE is already sufficient for an ordinary `authenticated`
+-- caller to invoke this function directly by SQL, grant statement or
+-- not. The explicit `revoke` below is the actual fix; PostgREST's own
+-- non-exposure of `internal` (see the schema-boundary comment above)
+-- protects the REST API surface but not a direct SQL/psql caller, which
+-- is the threat this helper's own p_user_id parameter creates (unlike
+-- the RLS-embedded helpers, which never take a caller-supplied "whose
+-- data" parameter).
+--
+-- `language plpgsql` (not `sql`) specifically so an unrecognized
+-- p_category can RAISE instead of silently falling through the CASE to
+-- NULL -> coalesce(..., true) -> fail-open with no signal (WYN-044
+-- debug fix). All 16 existing gated call sites pass one of the 7
+-- literals below, so this is a no-op for them.
+--
 -- Defined here, after every notify_* trigger function that calls it,
 -- because PL/pgSQL function bodies are late-bound in Postgres --
 -- identifiers inside a plpgsql body are only resolved the first time
@@ -7815,12 +7849,18 @@ create policy "Users can update their own notification settings"
 -- entire file has finished loading.
 create or replace function internal.notification_enabled(p_user_id uuid, p_category text)
 returns boolean
-language sql
+language plpgsql
 stable
 security definer
 set search_path = public
 as $$
-  select coalesce(
+begin
+  if p_category not in
+      ('likes', 'comments', 'follows', 'messages', 'club', 'trending', 'system') then
+    raise exception 'internal.notification_enabled: unknown category %', p_category;
+  end if;
+
+  return coalesce(
     (
       select case p_category
         when 'likes' then likes
@@ -7836,6 +7876,14 @@ as $$
     ),
     true
   );
+end;
 $$;
 
-grant execute on function internal.notification_enabled(uuid, text) to authenticated;
+-- Explicit revoke, not just an omitted grant -- see the comment above
+-- this function for why the omission alone left it directly callable by
+-- any `authenticated` role via SQL (PostgreSQL's default PUBLIC-execute
+-- ACL). `authenticated`/`anon` are both implicitly members of PUBLIC, so
+-- revoking from PUBLIC alone is sufficient; no separate `from
+-- authenticated, anon` needed since neither ever held a more specific
+-- grant of their own.
+revoke execute on function internal.notification_enabled(uuid, text) from public;

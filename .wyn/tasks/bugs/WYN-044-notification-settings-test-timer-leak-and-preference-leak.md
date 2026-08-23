@@ -1,7 +1,7 @@
 # Bug Report — WYN-044
 
-Status: bugs
-Owner: AI Debug Engineer
+Status: fixed, handed off to QA
+Owner: AI Debug Engineer (done) → AI QA & Security (round 2, pending)
 
 Bug: Independent QA (2026-08-23) ran `flutter test` for the first time against WYN-044's diff (commit `f21acac`) and found **7/7 tests failing** in the new `app/test/notification_settings_screen_test.dart` — reproducible on 2 independent runs, not flaky. Full report: see the QA agent's output recorded in this session (Final Status: FAIL). Summary of the 4 findings, ranked by severity:
 
@@ -44,3 +44,59 @@ Tests: After the fix, re-run `flutter test` (full suite, must be 667/667 clean, 
 Regression Risk: Low. The test-file fix touches only test code, not production code. The two schema changes are narrowly scoped to a single helper function that is not called by any Flutter client code directly (only by other `security definer` functions and, until this fix, by nobody legitimately as a direct `authenticated` caller) — revoking a grant nothing legitimate uses, and adding a stricter `else` branch to a `case` whose existing branches are all exercised correctly by the 16 real call sites, should not change behavior for any already-passing test.
 
 Handoff to QA: Re-run independently: `flutter analyze` + full `flutter test` (667/667 expected), all `supabase/tests/*.sh` + `check_schema_ordering.py`, and specifically re-attempt the cross-user `internal.notification_enabled()` probe that found the Low finding — confirm it now fails with a permission error. Re-verify the Minor `p_category` finding raises instead of fail-open. `updated_at` staleness is explicitly not required to be fixed (Product/Design spec has no requirement on it) — do not block on it if still unfixed.
+
+---
+
+## Debug Output (AI Debug Engineer, 2026-08-23)
+
+**Reproduction (own, independent from QA's)**: ran `flutter test test/notification_settings_screen_test.dart` against the pre-fix code (Flutter 3.47.1, `/opt/flutter`) — reproduced **7/7 failures**, exact same stack trace the bug report describes (`A Timer is still pending even after the widget tree was disposed` / `!timersPending`, bottoming out at `GoTrueClient.startAutoRefresh` → `new SupabaseClient` → a repository constructed inline inside each `testWidgets` body). Confirmed before touching any code.
+
+### Fix 1 — test timer leak (`app/test/notification_settings_screen_test.dart`)
+
+Applied exactly the fix the bug report specified: `RecordingNotificationSettingsRepository` and `_ControlledFetchRepository` are now both constructed exactly once in `setUpAll`, mirroring `settings_screen_test.dart`'s `RecordingProfileRepository` pattern in this same diff. Added a `setUp` block that resets `settings`/`fetchException`/`upsertCategoryException`/`upsertCategoryOverride`/`upsertCategoryArgs` before each test case, and gave `_ControlledFetchRepository` a mutable `future` field (reassigned per test, only used by the loading-spinner test) instead of taking it as a constructor argument. Re-ran the file after the fix: **7/7 pass**, 0 leaked-timer errors.
+
+### Fix 2 — permission leak (`supabase/schema.sql`) — root cause refined beyond the original bug report
+
+The bug report's prescribed fix ("remove `grant execute on function internal.notification_enabled(uuid, text) to authenticated;`, no caller needs it") is necessary but **was not sufficient on its own** — verified this empirically, not by assumption, per this role's "ห้ามเดา root cause" rule:
+
+1. Applied only the prescribed removal first (deleted the `grant` line, changed nothing else).
+2. Added a new SQL check (`CHECK20` in `wyn_044_notification_settings_test.sh`) that has Bob (an ordinary `authenticated` user) call `select internal.notification_enabled('<stranger's uuid>', 'likes')` directly.
+3. Ran it: **the call still succeeded** (no permission error) — the leak was still open even with the grant line removed.
+
+Root cause of *why* the prescribed fix alone didn't work, confirmed by reading this same file's own prior precedent (`.wyn/tasks/bugs/WYN-027-is-blocked-either-way-rpc-exposure.md`, which documents the identical class of bug in this schema before): PostgreSQL grants `EXECUTE` on a newly created function to `PUBLIC` by default, and `authenticated` already holds `usage` on the whole `internal` schema (`grant usage on schema internal to authenticated;`, added once for the RLS-embedded helpers that genuinely need it, e.g. `internal.is_blocked_either_way`). Schema `usage` + default `PUBLIC`-execute is already sufficient for any `authenticated` caller to invoke `internal.notification_enabled` directly by SQL — deleting only the *explicit* `grant ... to authenticated` line removes a statement that was actually redundant with the default, not the thing actually authorizing the call. WYN-027 already established that `internal`'s own non-exposure to PostgREST is what protects the *REST API* surface (that part of the original bug report's reasoning was correct: no live Supabase REST client can reach this function), but that does not protect a *direct SQL* caller — the exact vector both QA's original probe and my `CHECK20` used.
+
+**Actual fix applied**: added an explicit `revoke execute on function internal.notification_enabled(uuid, text) from public;` after the function definition (on top of not re-adding the `grant ... to authenticated` line). `authenticated`/`anon` are both implicitly members of `PUBLIC`, so revoking from `PUBLIC` alone closes it for both without needing a separate revoke per role. Re-ran `CHECK20` after adding the `revoke`: **now correctly denied** (`insufficient_privilege`/permission-denied exception caught).
+
+Verified this doesn't break any of the 16 real (`security definer`-nested) call sites: all of them run under the *definer's* privileges when they reach the nested call (the owner implicitly has execute on its own functions), not under the querying `authenticated` role — confirmed by re-running the full `wyn_044_notification_settings_test.sh` suite (CHECK01–19 all still pass) plus every other `supabase/tests/*.sh` script (0 regression).
+
+### Fix 3 — invalid category fail-open (`supabase/schema.sql`)
+
+Converted `internal.notification_enabled` from `language sql` to `language plpgsql` (required — plain SQL functions can't `RAISE`) and added an upfront guard:
+```sql
+if p_category not in
+    ('likes', 'comments', 'follows', 'messages', 'club', 'trending', 'system') then
+  raise exception 'internal.notification_enabled: unknown category %', p_category;
+end if;
+```
+before the existing `coalesce(...)` lookup, rather than adding an `else` inside the `case` itself (a bare `case ... else` can't `RAISE` in an expression context either — this is an equivalent, and arguably clearer, place for the same guard). Added `CHECK21` to `wyn_044_notification_settings_test.sh` calling `internal.notification_enabled(<alice's uuid>, 'not_a_real_category')` and asserting an exception is raised (as the function owner, not role `authenticated`, since `CHECK20` above already proved an ordinary user can't reach this function directly at all anymore regardless of category validity). Confirmed pass.
+
+### Full verification (all independent, against real Postgres/Flutter, not assumed from the diff)
+
+- `flutter test` (full suite, `app/`): **674/674 passed**, 0 failures (the bug report's "667/667" figure was written against an earlier commit; the current branch has more tests than that baseline — what matters is 0 failures, confirmed).
+- `flutter analyze`: 0 issues.
+- `python3 supabase/check_schema_ordering.py`: OK, no forward references.
+- `supabase/tests/wyn_044_notification_settings_test.sh` (extended, 21 checks: original 19 + new CHECK20/CHECK21): **21/21 PASS**.
+- All 17 scripts in `supabase/tests/` (including `wyn_044_...` above): **17/17 PASS**, 0 regression from the two `schema.sql` changes.
+
+### Files Changed (actual)
+- `app/test/notification_settings_screen_test.dart` — timer-leak fix (Fix 1).
+- `supabase/schema.sql` — `internal.notification_enabled`: removed the redundant `grant ... to authenticated`, added an explicit `revoke execute ... from public` (Fix 2, refined beyond the original bug report's prescription), converted `language sql` → `language plpgsql` with an upfront category-validation guard that raises on an unrecognized category (Fix 3).
+- `supabase/tests/wyn_044_notification_settings_test.sh` — added `CHECK20` (direct cross-user call now denied) and `CHECK21` (invalid category now raises), updated the header comment's check list.
+
+### Regression Risk
+Low, as originally assessed, with one addition: the `revoke execute ... from public` statement is new (not in the original bug report's prescribed fix) but is scoped to the exact same single helper function, and was verified not to affect any of the 16 real call sites (all execute as the SECURITY DEFINER owner, never as `authenticated`, when reaching the nested call) via the full regression suite above.
+
+### Lessons learned
+Recorded in `.wyn/learning/LESSONS_LEARNED.md` and `.wyn/learning/MISTAKES.md`: a bug report's prescribed fix must still be verified empirically even when the root-cause narrative reads correctly — "remove the unnecessary grant" sounds sufficient but silently assumed Postgres/PostgREST's default-deny posture, which this same schema already had a documented counter-example for (WYN-027). Any future `internal.*` (or similarly schema-isolated) SECURITY DEFINER helper that must be *direct-SQL-unreachable*, not just REST-API-unreachable, needs an explicit `revoke execute ... from public`, not just the absence of a `grant`.
+
+**Handoff to QA**: send back to AI QA & Security for round 2 — re-verify independently (not just trust this report) that (a) all 7 `notification_settings_screen_test.dart` cases pass with 0 leaked timers, (b) the cross-user direct-SQL probe (`CHECK20`) and the invalid-category probe (`CHECK21`) both now fail/raise as expected, (c) do the same red→green proof style this project's WORKFLOW.md expects if time allows (revert `schema.sql` only, re-run `wyn_044_notification_settings_test.sh`, confirm `CHECK20`/`CHECK21` fail on the pre-fix code, then restore and confirm pass again). `updated_at` staleness (finding 4) remains explicitly out of scope, unfixed by design (no AC depends on it).
