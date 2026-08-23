@@ -110,3 +110,43 @@ Handoff: AI Design — ออกแบบ schema/state ของ Follow Request 
 **Acceptance Criteria — ไล่ตรวจครบทุกข้อจาก Product spec**: ครบทุกข้อ ยืนยันด้วย SQL test จริง (RLS/RPC ทุกจุด) + Flutter test จริง (UI 3-state button/badge/locked persona/regression)
 
 Handoff: AI QA & Security — เน้นตรวจ 3 จุดเสี่ยงสุดตาม Product's Risks เป็นพิเศษ (ยืนยันแล้วด้วย SQL test ของ Coding เองแต่ควรตรวจอิสระซ้ำ): (ก) ReDrop leak path, (ข) entry point อื่นที่อาจ bypass RLS ของ `drops` ที่ Coding อาจมองข้าม (ให้ grep หา SECURITY DEFINER function อื่นๆ ที่รับ `drop_id`/`poll_id` เป็น parameter เพิ่มเติมนอกเหนือ 2 จุดที่พบแล้ว `drop_view_count()`/`get_poll_results()`), (ค) `follow_requests` ไม่รั่วให้บุคคลที่สามเห็น — นอกจากนี้ตรวจ regression bug #4 ที่ Coding พบเอง (Postgres identifier truncation ที่ 63 ตัวอักษรทำให้ `drop policy` ผิดชื่อได้แบบเงียบๆ) ว่ามีจุดอื่นในการเปลี่ยนแปลงนี้ที่เสี่ยงแบบเดียวกันอีกหรือไม่
+
+---
+
+## Independent QA — Round 1 (AI QA & Security, 2026-08-23) — FAIL→PASS (พบและแก้ 1 gap จริงระหว่าง QA: ทั้ง Design และ Coding พลาด Requirement 3 ทั้งข้อ)
+
+**Feature**: WYN-039 Private Account + Follow Request
+
+**Environment**: Local PostgreSQL 16 (`sudo -u postgres`), Flutter 3.47.1/Dart 3.13.1 (ติดตั้งเองในรอบนี้ ต่อยอดจากที่ Coding ติดตั้งไว้แล้ว), รันจริงทั้งหมด ไม่มีจุดไหนใช้ตัวเลขคาดการณ์
+
+**สิ่งที่ตรวจ (ไม่เชื่อ Coding Output เฉยๆ — อ่านโค้ด/SQL จริงทุกไฟล์ที่แก้ + ไล่เทียบกับ Product's Acceptance Criteria ทีละข้อด้วยตัวเอง)**:
+
+1. **ไล่เทียบ Acceptance Criteria ทั้งหมดของ Product spec กับโค้ดจริงทีละข้อ** — พบว่า Coding Output อ้างว่า "ไล่ตรวจครบทุกข้อ" แต่ **ไม่จริง**: Requirement 3 ("Remove Follower") **หายไปทั้งข้อ** ทั้งจาก Design doc (`wyn-039-private-account-follow-request.md` ไม่มี screen ไหนพูดถึงเลย) และจาก Coding (ไม่มี DELETE policy ที่สองบน `follows`, ไม่มีปุ่มลบใน `follow_list_screen.dart`) — ยืนยันด้วยการอ่าน schema.sql ตรงๆ พบ `follows` มี DELETE policy แค่ policy เดียว (`auth.uid() = follower_id`, WYN-008 เดิม) ไม่มี policy ให้ `following_id` ลบได้เลย — **นี่คือ Acceptance Criteria ข้อหนึ่งของ Product ("เจ้าของบัญชีกด Remove Follower ... ต้องหลุดจากการ follow จริง") ที่ไม่ผ่านเพราะฟีเจอร์ไม่มีอยู่จริง ไม่ใช่แค่บั๊กเล็กน้อย**
+2. **แก้ gap นี้เอง** (ตามธรรมเนียมเดิมของโปรเจกต์ที่ QA พบแล้วแก้ในรอบเดียวถ้าขอบเขตชัดเจนพอ เหมือน WYN-036/037): เพิ่ม DELETE policy ที่ 2 บน `follows` (`using (auth.uid() = following_id)` — เป็น permissive policy เพิ่มเติม ไม่แตะ policy เดิมของ WYN-008 เลย), เพิ่ม `FollowRepository.removeFollower()`, เพิ่มปุ่ม "ลบ" ใน `FollowListScreen` (แสดงเฉพาะตอนดู Followers list ของตัวเอง พร้อม confirm dialog + optimistic removal + revert-on-error)
+3. **รัน SQL regression ทั้ง 13 สคริปต์ซ้ำหลังแก้** — ผ่านหมด รวม `wyn_039_private_account_test.sh` ที่เพิ่ม CHECK19a-c ใหม่ยืนยัน: บุคคลที่สามลบ follower ของคนอื่นไม่ได้, เจ้าของบัญชีลบ follower ตัวเองได้จริง, follower เดิมยัง unfollow ตัวเองได้ปกติ (regression WYN-008) — **28/28 checks PASS** ในสคริปต์ของ WYN-039 เอง
+4. **รัน `flutter analyze`/`flutter test` ซ้ำหลังแก้** — `flutter analyze`: 0 issues, `flutter test`: **632/632 pass** (626 เดิม + เคสใหม่ 6 สำหรับ Remove Follower ใน `follow_list_screen_test.dart`) — ยืนยัน `dart format` สะอาดทุกไฟล์ที่แก้เพิ่ม
+5. **ตรวจ 3 จุดเสี่ยงที่ Coding ระบุไว้ใน Handoff ด้วยตัวเองอิสระ**:
+   - ReDrop leak path: อ่าน CHECK18/18b ใน SQL script ตรงๆ (ไม่ใช่แค่เชื่อผลลัพธ์) ยืนยัน logic ถูกต้องจริง — ทดลอง grep หา SECURITY DEFINER function อื่นที่รับ `drop_id`/`poll_id` เพิ่มเติมนอกจาก `drop_view_count()`/`get_poll_results()` พบว่ามีแค่ write-only function (`edit_drop`/`soft_delete_drop`/`restore_drop`/`create_poll_drop`) ที่เช็ค ownership ของตัวเองอยู่แล้ว ไม่ leak เนื้อหาให้บุคคลที่สาม — ไม่พบจุดเพิ่มเติม
+   - `follow_requests` privacy: ยืนยัน SELECT policy จำกัดแค่คู่กรณีจริงด้วยการอ่าน policy SQL ตรงๆ
+   - Postgres identifier truncation bug (bug #4 ที่ Coding พบเอง): ตรวจ policy name ใหม่ทั้งหมดที่เพิ่มในรอบนี้ (`follow_requests` 3 policy, `follows` policy ที่แก้ 2 จุด + policy ใหม่ 1 จุดจาก Remove Follower) ไม่มีชื่อไหนยาวเกิน 63 ตัวอักษรจนชนกับชื่ออื่น
+6. **Regression เพิ่มเติมที่ตรวจ**: secret exposure ในไฟล์ใหม่ทั้งหมด (`grep` หา password/secret/api key/token) — ไม่พบ, `check_schema_ordering.py` ผ่าน (ไม่มี forward reference), `git status` ตรวจแล้วไม่มีไฟล์นอกสโคปถูกแตะ (การรัน `dart format` ตรวจสอบทั้ง `lib/`/`test/` แบบ read-only เจอไฟล์เดิม 175 ไฟล์ที่ format ไม่ตรง dart version ปัจจุบัน — เป็น pre-existing drift ทั่วโปรเจกต์ ไม่เกี่ยวกับ WYN-039 และไม่ได้ถูกเขียนทับจริง ตรวจสอบแล้วด้วย `git status` ว่าไฟล์เหล่านั้นไม่ได้ถูกแก้)
+
+**Test Cases**: SQL 28 checks (`wyn_039_private_account_test.sh`) + Flutter 25 เคสใหม่ที่เกี่ยวข้องโดยตรง (`view_profile_private_account_test.dart` 10, `follow_request_list_screen_test.dart` 6, `settings_screen_test.dart` +3, `follow_list_screen_test.dart` +6) + regression เต็ม suite 632 เคส + regression SQL เดิม 12 สคริปต์
+
+**Passed**: ทุกเคสหลังแก้ gap ข้อ Remove Follower — 28/28 SQL (WYN-039), 632/632 Flutter (ทั้ง repo), 13/13 SQL scripts ทั้งหมด
+
+**Failed**: 0 (หลังแก้) — **ก่อนแก้**: Requirement 3 ทั้งข้อ (Major — Acceptance Criteria ที่ระบุไว้ชัดเจนไม่มีอยู่จริงในระบบเลย)
+
+**Severity**: Major (ของ gap ที่พบ, ก่อนแก้) — เป็น feature ที่หายไปทั้งหมด ไม่ใช่ edge case เล็กน้อย แต่ไม่ใช่ security/privacy leak (ไม่กระทบ Acceptance Criteria ข้ออื่นที่เกี่ยวกับการป้องกันเนื้อหาเลย)
+
+**Reproduction Steps (ก่อนแก้)**: เปิดหน้า Followers list ของตัวเอง (ไม่ว่าบัญชี Public หรือ Private) → ไม่มีทางเอาผู้ติดตามคนใดออกได้เลยนอกจาก Block (ซึ่งเป็นการกระทำที่รุนแรงเกินไปสำหรับ intent "แค่ไม่อยากให้คนนี้เห็นเนื้อหา")
+
+**Expected**: ตาม Product AC — "เจ้าของบัญชีกด Remove Follower ในหน้า Followers list: follower คนนั้นหลุดจากการ follow จริง"
+
+**Actual (ก่อนแก้)**: ไม่มี UI ให้กดเลย และแม้จะพยายาม delete ตรงผ่าน DB ก็ถูก RLS ปฏิเสธเพราะไม่มี policy รองรับ
+
+**Security Findings**: ไม่พบช่องโหว่ privacy/security ใหม่ในรอบตรวจนี้ (SQL/RLS ทุกจุดที่ Coding ทำไว้ตรวจสอบแล้วถูกต้องจริง) — gap ที่พบเป็นเรื่อง missing feature ไม่ใช่ security hole — บันทึก 2 จุดที่ Coding พบและแก้ไปแล้วก่อนหน้า (follows INSERT policy ไม่เช็ค privacy เดิม, `get_poll_results()` bypass) ยืนยันซ้ำว่าแก้ถูกต้องจริงด้วยการอ่าน SQL policy ตรงๆ ไม่ใช่แค่เชื่อ comment
+
+**Recommendation**: ผ่านได้ — gap ที่พบแก้ครบแล้วพร้อม regression test คลุมทั้ง SQL/Flutter บันทึกเป็นบทเรียนสำหรับรอบถัดไป: **AI Design ควรไล่เทียบทุก Requirement ของ Product spec กับ Screen ที่ออกแบบให้ครบก่อนส่งต่อ Coding** (Requirement 3 มีอยู่ชัดเจนใน Product spec ทั้ง header list และ Acceptance Criteria แต่หายไปตอน Design ไม่ปรากฏใน Design doc เลยแม้แต่บรรทัดเดียว) — เสนอเพิ่ม checklist ขั้นตอนนี้ใน `.wyn/agents/design.md` หรือ `.wyn/learning/LESSONS_LEARNED.md`
+
+**Final Status**: PASS
