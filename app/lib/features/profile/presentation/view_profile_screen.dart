@@ -18,6 +18,7 @@ import '../data/profile.dart';
 import '../data/profile_repository.dart';
 import 'edit_profile_screen.dart';
 import 'widgets/avatar_circle.dart';
+import 'widgets/profile_drafts_tab.dart';
 import 'widgets/profile_drop_grid_tab.dart';
 import 'widgets/profile_pop_grid_tab.dart';
 import 'widgets/profile_redrops_tab.dart';
@@ -40,7 +41,11 @@ import '../../settings/presentation/settings_screen.dart';
 /// dropShareLink/clubShareLink (WYN-005/014).
 String profileShareLink(String username) => 'https://wyn.app/@$username';
 
-typedef _ProfileWithCounts = ({Profile profile, int followerCount, int followingCount});
+typedef _ProfileWithCounts = ({
+  Profile profile,
+  int followerCount,
+  int followingCount
+});
 
 /// Screen 1 — View Profile. Doubles as both personas WYN-013 needs (the
 /// current user's own profile, or someone else's) rather than being two
@@ -227,7 +232,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     if (_isStartingChat) return;
     setState(() => _isStartingChat = true);
     try {
-      final conversationId = await _chatRepository.getOrCreateConversation(widget.userId);
+      final conversationId =
+          await _chatRepository.getOrCreateConversation(widget.userId);
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute(
@@ -253,7 +259,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
 
   Future<void> _loadBlockRelationship() async {
     try {
-      final relationship = await _blockRepository.blockRelationship(widget.userId);
+      final relationship =
+          await _blockRepository.blockRelationship(widget.userId);
       if (!mounted) return;
       setState(() => _blockRelationship = relationship);
     } catch (_) {
@@ -364,7 +371,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   /// register the same token afterward on a shared/reused device.
   Future<void> _signOut() async {
     try {
-      await PushNotificationService(PushTokenRepository(Supabase.instance.client))
+      await PushNotificationService(
+              PushTokenRepository(Supabase.instance.client))
           .unregisterCurrentDevice();
     } catch (_) {
       // Intentionally silent -- see comment above.
@@ -420,7 +428,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   sharedContentId: widget.userId,
                   previewLabel: 'แชร์โปรไฟล์ @${data.profile.username}',
                   nativeShareText: profileShareLink(data.profile.username),
-                  nativeShareTitle: data.profile.displayName ?? '@${data.profile.username}',
+                  nativeShareTitle:
+                      data.profile.displayName ?? '@${data.profile.username}',
                 );
               },
             ),
@@ -433,7 +442,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                 _reportUser();
               },
             ),
-            if (_isMuted != null && _blockRelationship == BlockRelationship.none)
+            if (_isMuted != null &&
+                _blockRelationship == BlockRelationship.none)
               ListTile(
                 leading: Icon(_isMuted! ? Icons.volume_up : Icons.volume_off),
                 title: Text(_isMuted! ? 'เปิดเสียง' : 'ปิดเสียง'),
@@ -520,8 +530,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   /// misrepresent a relationship the viewer didn't actually choose.
   Widget _buildBlockedBanner() {
     final iBlockedThem = _blockRelationship?.iBlockedThem ?? false;
-    final message =
-        iBlockedThem ? 'คุณบล็อกผู้ใช้นี้อยู่' : 'ไม่สามารถดูเนื้อหาของผู้ใช้นี้ได้';
+    final message = iBlockedThem
+        ? 'คุณบล็อกผู้ใช้นี้อยู่'
+        : 'ไม่สามารถดูเนื้อหาของผู้ใช้นี้ได้';
 
     return Container(
       width: double.infinity,
@@ -536,7 +547,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.block, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          Icon(Icons.block,
+              size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
           const SizedBox(width: WynSpacing.space2),
           Flexible(
             child: Text(
@@ -587,11 +599,13 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
               Expanded(
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
                   itemCount: clubs.length,
                   itemBuilder: (context, index) {
                     final club = clubs[index];
-                    return ClubMiniCard(club: club, onTap: () => _openClub(club));
+                    return ClubMiniCard(
+                        club: club, onTap: () => _openClub(club));
                   },
                 ),
               ),
@@ -607,7 +621,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     final isOwnProfile = _isOwnProfile;
 
     return DefaultTabController(
-      length: isOwnProfile ? 4 : 3,
+      length: isOwnProfile ? 5 : 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('โปรไฟล์'),
@@ -632,7 +646,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   if (!context.mounted) return;
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => SettingsScreen(platformRole: data.profile.platformRole),
+                      builder: (_) => SettingsScreen(
+                          platformRole: data.profile.platformRole),
                     ),
                   );
                 },
@@ -663,7 +678,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   children: [
                     const Text('โหลดโปรไฟล์ไม่สำเร็จ'),
                     const SizedBox(height: WynSpacing.space3),
-                    TextButton(onPressed: _reload, child: const Text('ลองใหม่')),
+                    TextButton(
+                        onPressed: _reload, child: const Text('ลองใหม่')),
                   ],
                 ),
               );
@@ -675,8 +691,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
 
             final data = snapshot.data!;
             final profile = data.profile;
-            final isBlockedEitherWay =
-                !isOwnProfile && (_blockRelationship?.isBlockedEitherWay ?? false);
+            final isBlockedEitherWay = !isOwnProfile &&
+                (_blockRelationship?.isBlockedEitherWay ?? false);
 
             return Column(
               children: [
@@ -721,13 +737,15 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                             _FollowCountTarget(
                               count: data.followerCount,
                               label: 'ผู้ติดตาม',
-                              onTap: () => _openFollowList(FollowListMode.followers),
+                              onTap: () =>
+                                  _openFollowList(FollowListMode.followers),
                             ),
                             const SizedBox(width: WynSpacing.space6),
                             _FollowCountTarget(
                               count: data.followingCount,
                               label: 'กำลังติดตาม',
-                              onTap: () => _openFollowList(FollowListMode.following),
+                              onTap: () =>
+                                  _openFollowList(FollowListMode.following),
                             ),
                           ],
                         ),
@@ -748,13 +766,16 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                                 excludeSemantics: true,
                                 child: OutlinedButton(
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: Theme.of(context).colorScheme.primary,
+                                    foregroundColor:
+                                        Theme.of(context).colorScheme.primary,
                                     side: BorderSide(
-                                      color: Theme.of(context).colorScheme.primary,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
                                     ),
                                   ),
                                   onPressed: _toggleFollow,
-                                  child: Text(_isFollowing! ? 'กำลังติดตาม' : 'ติดตาม'),
+                                  child: Text(
+                                      _isFollowing! ? 'กำลังติดตาม' : 'ติดตาม'),
                                 ),
                               ),
                               const SizedBox(width: WynSpacing.space2),
@@ -762,12 +783,15 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                               // (no Message Request gate this round, see
                               // the design doc's own scope note).
                               OutlinedButton(
-                                onPressed: _isStartingChat ? null : () => _openChat(profile),
+                                onPressed: _isStartingChat
+                                    ? null
+                                    : () => _openChat(profile),
                                 child: _isStartingChat
                                     ? const SizedBox(
                                         width: 16,
                                         height: 16,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2),
                                       )
                                     : const Text('ส่งข้อความ'),
                               ),
@@ -780,11 +804,17 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                 _buildMyClubsSection(),
                 TabBar(
                   tabs: [
-                    const Tab(icon: Icon(Icons.grid_view_outlined), text: 'Drop'),
+                    const Tab(
+                        icon: Icon(Icons.grid_view_outlined), text: 'Drop'),
                     const Tab(icon: Icon(Icons.repeat), text: 'ReDrops'),
-                    const Tab(icon: Icon(Icons.play_circle_outline), text: 'Pop'),
+                    const Tab(
+                        icon: Icon(Icons.play_circle_outline), text: 'Pop'),
                     if (isOwnProfile)
-                      const Tab(icon: Icon(Icons.bookmark_border), text: 'บันทึก'),
+                      const Tab(
+                          icon: Icon(Icons.bookmark_border), text: 'บันทึก'),
+                    if (isOwnProfile)
+                      const Tab(
+                          icon: Icon(Icons.edit_note_outlined), text: 'ร่าง'),
                   ],
                 ),
                 Expanded(
@@ -841,6 +871,11 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                           followRepository: widget.followRepository,
                           profileRepository: widget.profileRepository,
                         ),
+                      if (isOwnProfile)
+                        ProfileDraftsTab(
+                          dropRepository: widget.dropRepository,
+                          profileRepository: widget.profileRepository,
+                        ),
                     ],
                   ),
                 ),
@@ -874,7 +909,8 @@ class _FollowCountTarget extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2, vertical: WynSpacing.space1),
+          padding: const EdgeInsets.symmetric(
+              horizontal: WynSpacing.space2, vertical: WynSpacing.space1),
           child: Column(
             children: [
               Text(

@@ -9,6 +9,7 @@ import '../../moderation/data/appeal_status.dart';
 import '../../moderation/data/moderation_repository.dart';
 import '../../moderation/presentation/appeal_form_screen.dart';
 import '../../profile/data/profile_repository.dart';
+import '../data/drop_draft.dart';
 import '../data/drop_repository.dart';
 import '../data/square_crop.dart';
 import '../../../core/design/wyn_spacing.dart';
@@ -19,8 +20,15 @@ import '../../../core/widgets/restriction_banner.dart';
 /// both -- see .wyn/docs/design/wyn-035-poll-in-drop.md's Screen 1.
 enum _ComposeMode { image, poll }
 
+/// WYN-036: what the close-intercept dialog's 3 buttons resolve to --
+/// see .wyn/docs/design/wyn-036-draft-system.md's Screen 1. `null`
+/// (the dialog dismissed with no button tapped, e.g. tapping the
+/// barrier) behaves the same as [cancel].
+enum _CloseAction { save, discard, cancel }
+
 /// Screen 2 — Create Drop.
-/// See .wyn/docs/design/wyn-005-drop.md, .wyn/docs/design/wyn-035-poll-in-drop.md
+/// See .wyn/docs/design/wyn-005-drop.md, .wyn/docs/design/wyn-035-poll-in-drop.md,
+/// .wyn/docs/design/wyn-036-draft-system.md
 class CreateDropScreen extends StatefulWidget {
   const CreateDropScreen({
     super.key,
@@ -28,11 +36,17 @@ class CreateDropScreen extends StatefulWidget {
     ProfileRepository? profileRepository,
     ModerationRepository? moderationRepository,
     AppealRepository? appealRepository,
+    this.draft,
   })  : _profileRepository = profileRepository,
         _moderationRepository = moderationRepository,
         _appealRepository = appealRepository;
 
   final DropRepository dropRepository;
+
+  /// WYN-036: opens the composer prefilled with an existing Draft's
+  /// content ("Continue Editing") instead of a blank one. Null for
+  /// the ordinary "new Drop" entry point.
+  final DropDraft? draft;
 
   // Optional -- defaults to a real Supabase-backed instance (see
   // _CreateDropScreenState's late final below) so existing call sites
@@ -58,7 +72,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   late final ProfileRepository _profileRepository =
       widget._profileRepository ?? ProfileRepository(Supabase.instance.client);
   late final ModerationRepository _moderationRepository =
-      widget._moderationRepository ?? ModerationRepository(Supabase.instance.client);
+      widget._moderationRepository ??
+          ModerationRepository(Supabase.instance.client);
   late final AppealRepository _appealRepository =
       widget._appealRepository ?? AppealRepository(Supabase.instance.client);
   Set<String> _mentionedUserIds = {};
@@ -81,6 +96,21 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   ];
   int _pollDurationDays = 1;
 
+  // WYN-036: set when opened from an existing Draft (widget.draft) --
+  // null means "brand new, never saved." Once a save succeeds (either
+  // the first one, which inserts, or any later one, which updates in
+  // place) this is set to that draft's id so every subsequent save in
+  // the same editing session targets the same row instead of
+  // inserting a duplicate.
+  String? _draftId;
+
+  // WYN-036: an already-uploaded image carried over from a Draft --
+  // never re-uploaded unless the user picks a new one (which clears
+  // this and sets _imageBytes instead). Null for a brand-new Drop or
+  // a poll-mode draft.
+  String? _existingImageUrl;
+  bool _isSavingDraft = false;
+
   // WYN-029 (Restrict): loaded once in initState, not re-polled while
   // this screen stays open -- see RestrictionBanner's own doc comment
   // on why a stale read here is an accepted, documented trade-off (the
@@ -94,8 +124,25 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
 
   bool get _canShare {
     if (_isSharing || _isCropping || _isRestricted) return false;
-    if (_mode == _ComposeMode.image) return _imageBytes != null;
+    if (_mode == _ComposeMode.image) {
+      return _imageBytes != null || _existingImageUrl != null;
+    }
     return _captionController.text.trim().isNotEmpty && _pollOptionsValid;
+  }
+
+  /// WYN-036: whether closing right now would lose something --
+  /// drives the close-intercept dialog (Screen 1). Deliberately looser
+  /// than [_canShare]/[_pollOptionsValid]: a single typed character or
+  /// one filled-in poll option is "unsaved content" worth offering to
+  /// keep, even though it's nowhere near ready to publish.
+  bool get _hasUnsavedContent {
+    if (_mode == _ComposeMode.image) {
+      return _imageBytes != null ||
+          _existingImageUrl != null ||
+          _captionController.text.trim().isNotEmpty;
+    }
+    return _captionController.text.trim().isNotEmpty ||
+        _pollOptionControllers.any((c) => c.text.trim().isNotEmpty);
   }
 
   /// Every option non-empty (after trim) and within
@@ -117,11 +164,43 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   @override
   void initState() {
     super.initState();
+    _prefillFromDraft();
     _loadModerationStatus();
     // WYN-035: in poll mode _canShare depends on the caption text (the
     // poll's question) -- image mode never needed this since it only
     // ever depended on _imageBytes, which already goes through setState.
     _captionController.addListener(_onCaptionChanged);
+  }
+
+  /// WYN-036 ("Continue Editing"): copies a Draft's saved content into
+  /// this screen's own state, as if the user had just typed/picked it
+  /// themselves. Called once, before the first build -- everything
+  /// after this point behaves exactly like composing from scratch
+  /// (same _canShare/_hasUnsavedContent/_share() paths, no special
+  /// "draft mode" branching anywhere else in this file).
+  void _prefillFromDraft() {
+    final draft = widget.draft;
+    if (draft == null) return;
+
+    _draftId = draft.id;
+    _existingImageUrl = draft.imageUrl;
+    if (draft.caption != null) _captionController.text = draft.caption!;
+
+    final pollOptions = draft.pollOptions;
+    if (pollOptions != null) {
+      _mode = _ComposeMode.poll;
+      // Replace the 2 eagerly-created default controllers -- dispose
+      // them first so they don't leak, same discipline
+      // _removePollOption already follows.
+      for (final controller in _pollOptionControllers) {
+        controller.dispose();
+      }
+      _pollOptionControllers
+        ..clear()
+        ..addAll(
+            pollOptions.map((option) => TextEditingController(text: option)));
+      _pollDurationDays = draft.pollDurationDays ?? 1;
+    }
   }
 
   void _onCaptionChanged() {
@@ -209,6 +288,12 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       setState(() {
         _imageBytes = cropped;
         _imageExtension = 'png';
+        // WYN-036: a freshly picked image replaces whatever draft
+        // image was carried over -- _share()/_saveDraft() always
+        // prefer _imageBytes over _existingImageUrl when both are
+        // non-null, but clearing this too avoids the stale URL
+        // lingering in state for no reason.
+        _existingImageUrl = null;
       });
     } catch (_) {
       // e.g. a corrupted file or a format decodeImageFromList can't
@@ -271,13 +356,39 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
           mentionedUserIds: _mentionedUserIds,
         );
       } else {
-        await widget.dropRepository.createDrop(
-          imageBytes: _imageBytes!,
-          imageExtension: _imageExtension,
-          caption: _captionController.text,
-          mentionedUserIds: _mentionedUserIds,
-        );
+        final imageBytes = _imageBytes;
+        if (imageBytes != null) {
+          await widget.dropRepository.createDrop(
+            imageBytes: imageBytes,
+            imageExtension: _imageExtension,
+            caption: _captionController.text,
+            mentionedUserIds: _mentionedUserIds,
+          );
+        } else {
+          // WYN-036: continuing a Draft without picking a new image --
+          // the image is already uploaded (from when the Draft was
+          // saved), so publish from that URL directly instead of
+          // re-uploading bytes we don't have.
+          await widget.dropRepository.createDropFromExistingImage(
+            imageUrl: _existingImageUrl!,
+            caption: _captionController.text,
+            mentionedUserIds: _mentionedUserIds,
+          );
+        }
       }
+
+      // WYN-036: a successful publish retires the Draft it came from
+      // -- best-effort, not blocking: the real Drop is already
+      // created, which matters more than tidying up the Draft row.
+      final draftId = _draftId;
+      if (draftId != null) {
+        try {
+          await widget.dropRepository.deleteDraft(draftId);
+        } catch (_) {
+          // Ignored -- see comment above.
+        }
+      }
+
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (_) {
@@ -288,111 +399,212 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(false),
-        ),
-        title: const Text('Drop ใหม่'),
+  /// WYN-036, Screen 1 -- the sole entry point for both the AppBar's X
+  /// button and the system back gesture (via the PopScope wrapping
+  /// [build]'s Scaffold). A direct `Navigator.pop()` call always
+  /// succeeds regardless of PopScope's `canPop` (only `maybePop()`/the
+  /// system back gesture consult it), so every branch below can just
+  /// call it once it's decided the screen should actually close.
+  Future<void> _handleClose() async {
+    if (_isSharing || _isSavingDraft) return;
+
+    if (!_hasUnsavedContent) {
+      Navigator.of(context).pop(false);
+      return;
+    }
+
+    final action = await showDialog<_CloseAction>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('บันทึกเป็นร่างก่อนออกไหม?'),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: WynSpacing.space2),
-            child: Center(
-              child: Semantics(
-                label: _isRestricted ? 'แชร์ ปิดใช้งานเนื่องจากบัญชีถูกจำกัดการโพสต์ชั่วคราว' : null,
-                excludeSemantics: _isRestricted,
-                child: TextButton(
-                  onPressed: _canShare ? _share : null,
-                  child: _isSharing
-                      ? const SizedBox(
-                          height: 16,
-                          width: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('แชร์'),
-                ),
-              ),
-            ),
+          TextButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_CloseAction.discard),
+            child: const Text('ทิ้ง'),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_CloseAction.cancel),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(_CloseAction.save),
+            child: const Text('บันทึกร่าง'),
           ),
         ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (_isRestricted)
-                RestrictionBanner(
-                  reason: _restrictReason,
-                  expiresAt: _restrictExpiresAt,
-                  actionId: _restrictActionId,
-                  appealStatus: _restrictAppealStatus,
-                  onAppeal: _openAppeal,
-                ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: WynSpacing.space4,
-                  vertical: WynSpacing.space2,
-                ),
-                child: SegmentedButton<_ComposeMode>(
-                  segments: const [
-                    ButtonSegment(
-                      value: _ComposeMode.image,
-                      label: Text('รูปภาพ'),
-                      icon: Icon(Icons.image_outlined),
-                    ),
-                    ButtonSegment(
-                      value: _ComposeMode.poll,
-                      label: Text('โพล'),
-                      icon: Icon(Icons.poll_outlined),
-                    ),
-                  ],
-                  selected: {_mode},
-                  onSelectionChanged: _isSharing
-                      ? null
-                      : (selection) => setState(() => _mode = selection.first),
+    );
+
+    if (!mounted) return;
+    switch (action) {
+      case _CloseAction.discard:
+        Navigator.of(context).pop(false);
+      case _CloseAction.save:
+        await _saveDraftAndClose();
+      case _CloseAction.cancel:
+      case null:
+        // Stay on this screen -- nothing to do.
+        break;
+    }
+  }
+
+  /// WYN-036: inserts a new draft row, or updates the one this screen
+  /// was opened from ([_draftId]) in place -- never a duplicate on a
+  /// second save within the same editing session.
+  Future<void> _saveDraftAndClose() async {
+    setState(() => _isSavingDraft = true);
+    try {
+      // Gated by _mode so a leftover _imageBytes/_existingImageUrl from
+      // before switching to โพล mode (the SegmentedButton never clears
+      // them -- see onSelectionChanged above) can't leak an image_url
+      // into a poll draft, and vice versa.
+      final isImageMode = _mode == _ComposeMode.image;
+      await widget.dropRepository.saveDraft(
+        draftId: _draftId,
+        imageBytes: isImageMode ? _imageBytes : null,
+        imageExtension: _imageExtension,
+        existingImageUrl:
+            isImageMode && _imageBytes == null ? _existingImageUrl : null,
+        caption: _captionController.text,
+        pollOptions: _mode == _ComposeMode.poll
+            ? _pollOptionControllers.map((c) => c.text.trim()).toList()
+            : null,
+        pollDurationDays: _mode == _ComposeMode.poll ? _pollDurationDays : null,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(false);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('บันทึกร่างไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSavingDraft = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // WYN-036: canPop stays false while there's unsaved content so the
+    // system back gesture/button routes through _handleClose() too
+    // (via onPopInvokedWithResult) -- the AppBar's X button below
+    // always calls _handleClose() directly regardless, since a direct
+    // Navigator.pop() call bypasses canPop entirely (only
+    // maybePop()/the system back gesture consult it).
+    return PopScope<bool>(
+      canPop: !_hasUnsavedContent,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleClose();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: _handleClose,
+          ),
+          title: const Text('Drop ใหม่'),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: WynSpacing.space2),
+              child: Center(
+                child: Semantics(
+                  label: _isRestricted
+                      ? 'แชร์ ปิดใช้งานเนื่องจากบัญชีถูกจำกัดการโพสต์ชั่วคราว'
+                      : null,
+                  excludeSemantics: _isRestricted,
+                  child: TextButton(
+                    onPressed: _canShare ? _share : null,
+                    child: _isSharing
+                        ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('แชร์'),
+                  ),
                 ),
               ),
-              if (_mode == _ComposeMode.image)
-                _buildImageArea()
-              else
-                _buildPollComposer(),
-              Padding(
-                padding: const EdgeInsets.all(WynSpacing.space4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    MentionInput(
-                      controller: _captionController,
-                      profileRepository: _profileRepository,
-                      onMentionedUsersChanged: (ids) =>
-                          setState(() => _mentionedUserIds = ids),
-                      maxLength: _captionMaxLength,
-                      maxLines: 4,
-                      minLines: 2,
-                      enabled: !_isSharing,
-                      decoration: InputDecoration(
-                        hintText: _mode == _ComposeMode.poll
-                            ? 'ตั้งคำถามโพล... ใส่ #hashtag หรือ @mention ได้'
-                            : 'เขียนแคปชัน... ใส่ #hashtag หรือ @mention ได้',
-                        border: InputBorder.none,
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_isRestricted)
+                  RestrictionBanner(
+                    reason: _restrictReason,
+                    expiresAt: _restrictExpiresAt,
+                    actionId: _restrictActionId,
+                    appealStatus: _restrictAppealStatus,
+                    onAppeal: _openAppeal,
+                  ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: WynSpacing.space4,
+                    vertical: WynSpacing.space2,
+                  ),
+                  child: SegmentedButton<_ComposeMode>(
+                    segments: const [
+                      ButtonSegment(
+                        value: _ComposeMode.image,
+                        label: Text('รูปภาพ'),
+                        icon: Icon(Icons.image_outlined),
                       ),
-                    ),
-                    if (_errorMessage != null) ...[
-                      const SizedBox(height: WynSpacing.space2),
-                      Text(
-                        _errorMessage!,
-                        style:
-                            TextStyle(color: Theme.of(context).colorScheme.error),
+                      ButtonSegment(
+                        value: _ComposeMode.poll,
+                        label: Text('โพล'),
+                        icon: Icon(Icons.poll_outlined),
                       ),
                     ],
-                  ],
+                    selected: {_mode},
+                    onSelectionChanged: _isSharing
+                        ? null
+                        : (selection) =>
+                            setState(() => _mode = selection.first),
+                  ),
                 ),
-              ),
-            ],
+                if (_mode == _ComposeMode.image)
+                  _buildImageArea()
+                else
+                  _buildPollComposer(),
+                Padding(
+                  padding: const EdgeInsets.all(WynSpacing.space4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      MentionInput(
+                        controller: _captionController,
+                        profileRepository: _profileRepository,
+                        onMentionedUsersChanged: (ids) =>
+                            setState(() => _mentionedUserIds = ids),
+                        maxLength: _captionMaxLength,
+                        maxLines: 4,
+                        minLines: 2,
+                        enabled: !_isSharing,
+                        decoration: InputDecoration(
+                          hintText: _mode == _ComposeMode.poll
+                              ? 'ตั้งคำถามโพล... ใส่ #hashtag หรือ @mention ได้'
+                              : 'เขียนแคปชัน... ใส่ #hashtag หรือ @mention ได้',
+                          border: InputBorder.none,
+                        ),
+                      ),
+                      if (_errorMessage != null) ...[
+                        const SizedBox(height: WynSpacing.space2),
+                        Text(
+                          _errorMessage!,
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.error),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -401,30 +613,36 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
 
   Widget _buildImageArea() {
     final imageBytes = _imageBytes;
+    final existingImageUrl = _existingImageUrl;
 
     return GestureDetector(
       onTap: (_isSharing || _isCropping) ? null : _showImageSourceSheet,
       child: AspectRatio(
         aspectRatio: 1,
         child: Semantics(
-          label: imageBytes == null ? 'แตะเพื่อเลือกหรือถ่ายรูป' : 'รูปที่เลือก',
-          button: imageBytes == null,
+          label: (imageBytes == null && existingImageUrl == null)
+              ? 'แตะเพื่อเลือกหรือถ่ายรูป'
+              : 'รูปที่เลือก',
+          button: imageBytes == null && existingImageUrl == null,
           child: Container(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             child: _isCropping
                 ? const Center(child: CircularProgressIndicator())
-                : imageBytes == null
-                    ? const Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.add_photo_alternate_outlined, size: 40),
-                            SizedBox(height: WynSpacing.space2),
-                            Text('แตะเพื่อเลือกรูป'),
-                          ],
-                        ),
-                      )
-                    : Image.memory(imageBytes, fit: BoxFit.cover),
+                : imageBytes != null
+                    ? Image.memory(imageBytes, fit: BoxFit.cover)
+                    : existingImageUrl != null
+                        ? Image.network(existingImageUrl, fit: BoxFit.cover)
+                        : const Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.add_photo_alternate_outlined,
+                                    size: 40),
+                                SizedBox(height: WynSpacing.space2),
+                                Text('แตะเพื่อเลือกรูป'),
+                              ],
+                            ),
+                          ),
           ),
         ),
       ),
@@ -489,7 +707,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             selected: {_pollDurationDays},
             onSelectionChanged: _isSharing
                 ? null
-                : (selection) => setState(() => _pollDurationDays = selection.first),
+                : (selection) =>
+                    setState(() => _pollDurationDays = selection.first),
           ),
         ],
       ),

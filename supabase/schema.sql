@@ -6466,3 +6466,95 @@ join public.pops p on p.id = s.content_id and s.content_type = 'pop'
 join public.profiles prof on prof.id = p.author_id;
 
 grant select on public.saved_feed to authenticated;
+
+-- ============================================================
+-- WYN-036: Draft System
+-- ============================================================
+
+-- Structural-only validation for a draft's poll options -- looser
+-- than public.valid_poll_options() (WYN-035) on purpose: a Draft is
+-- explicitly allowed to be incomplete (e.g. duplicate or still-empty
+-- option text while the user is mid-edit) since the whole point of
+-- saving one is "not finished yet." Only the array size (2-4, the
+-- Poll composer's own UI bounds) and a per-option length cap are
+-- enforced here -- full validation (non-empty, no duplicates) only
+-- ever runs at actual publish time via create_poll_drop(), unchanged.
+create or replace function public.valid_draft_poll_options(p_options text[])
+returns boolean
+language sql
+immutable
+as $$
+  select
+    p_options is null
+    or (
+      array_length(p_options, 1) between 2 and 4
+      and not exists (
+        select 1 from unnest(p_options) as o(text)
+        where o.text is not null and char_length(o.text) > 80
+      )
+    );
+$$;
+
+-- A Draft is a fully separate table from `drops` -- never inserted
+-- into, joined with, or read by home_feed/search/notifications/
+-- reports/anything else in the app. It is not a real Drop yet, so
+-- none of those systems have any business seeing it; keeping it
+-- structurally isolated (rather than e.g. a `status = 'draft'` flag
+-- on `drops` itself) means zero risk of a Draft accidentally leaking
+-- into any existing query that assumes every `drops` row is
+-- published content. image_url/caption/poll_* are all nullable --
+-- unlike a published Drop, a Draft can legitimately have none, one,
+-- or a partial combination of them while the user is mid-edit.
+create table if not exists public.drop_drafts (
+  id uuid primary key default gen_random_uuid(),
+  author_id uuid not null references public.profiles (id) on delete cascade,
+  image_url text,
+  caption text,
+  poll_options text[],
+  poll_duration_days int,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint drop_drafts_caption_length
+    check (caption is null or char_length(caption) between 1 and 500),
+  constraint drop_drafts_poll_options_valid
+    check (public.valid_draft_poll_options(poll_options)),
+  constraint drop_drafts_poll_duration_valid
+    check (poll_duration_days is null or poll_duration_days in (1, 3, 7))
+);
+
+create index if not exists drop_drafts_author_updated_idx
+  on public.drop_drafts (author_id, updated_at desc);
+
+alter table public.drop_drafts enable row level security;
+
+-- Every policy is scoped to auth.uid() = author_id, with no
+-- exceptions or piggybacked visibility for anyone else -- unlike
+-- redrops/drop_polls (WYN-034/WYN-035), which piggyback SELECT on
+-- another table's own policy, a Draft has no "other party" to ever
+-- share visibility with. This is Product's "Draft ต้องเป็น Private"
+-- requirement enforced directly as the only policy shape, not layered
+-- on top of a more permissive default.
+create policy "Users can view only their own drafts"
+  on public.drop_drafts
+  for select
+  to authenticated
+  using (auth.uid() = author_id);
+
+create policy "Users can create their own drafts"
+  on public.drop_drafts
+  for insert
+  to authenticated
+  with check (auth.uid() = author_id);
+
+create policy "Users can update their own drafts"
+  on public.drop_drafts
+  for update
+  to authenticated
+  using (auth.uid() = author_id)
+  with check (auth.uid() = author_id);
+
+create policy "Users can delete their own drafts"
+  on public.drop_drafts
+  for delete
+  to authenticated
+  using (auth.uid() = author_id);

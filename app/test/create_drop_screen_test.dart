@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:wyn/features/drop/data/drop_draft.dart';
 import 'package:wyn/features/drop/presentation/create_drop_screen.dart';
 
 import 'support/recording_drop_repository.dart';
@@ -18,10 +19,23 @@ void main() {
   // suite already follows this same "construct outside the test body"
   // discipline for the same reason.
   late RecordingDropRepository pollRepo;
+  // WYN-036 -- same one-repo-per-scenario, constructed-in-setUpAll
+  // discipline as pollRepo above.
+  late RecordingDropRepository saveDraftTestRepo;
+  late RecordingDropRepository discardTestRepo;
+  late RecordingDropRepository publishFromDraftTestRepo;
+  late RecordingDropRepository saveDraftFailTestRepo;
+  late RecordingDropRepository switchModeDraftTestRepo;
   setUpAll(() {
     repo = RecordingDropRepository();
     profileRepo = RecordingProfileRepository();
     pollRepo = RecordingDropRepository();
+    saveDraftTestRepo = RecordingDropRepository();
+    discardTestRepo = RecordingDropRepository();
+    publishFromDraftTestRepo = RecordingDropRepository();
+    saveDraftFailTestRepo = RecordingDropRepository()
+      ..saveDraftError = Exception('network error');
+    switchModeDraftTestRepo = RecordingDropRepository();
   });
 
   testWidgets(
@@ -201,6 +215,253 @@ void main() {
       expect(args['options'], ['Pizza', 'Sushi']);
       expect(args['durationDays'], 3);
       expect(find.byType(CreateDropScreen), findsNothing);
+    });
+  });
+
+  group('Draft (WYN-036)', () {
+    // CreateDropScreen's close-intercept dialog pops via a direct
+    // Navigator.pop() call, which needs a real route to pop back to --
+    // same fix as QuoteRedropScreenTest's buildScreen/openScreen and
+    // the poll-submit test above.
+    Widget buildScreen(RecordingDropRepository dropRepository, {DropDraft? draft}) =>
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => CreateDropScreen(
+                        dropRepository: dropRepository,
+                        profileRepository: profileRepo,
+                        draft: draft,
+                      ),
+                    ),
+                  ),
+                  child: const Text('เปิด'),
+                ),
+              ),
+            ),
+          ),
+        );
+
+    Future<void> openScreen(WidgetTester tester, RecordingDropRepository dropRepository,
+        {DropDraft? draft}) async {
+      await tester.pumpWidget(buildScreen(dropRepository, draft: draft));
+      await tester.tap(find.text('เปิด'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('closing with no content at all pops immediately, no dialog',
+        (tester) async {
+      await openScreen(tester, repo);
+
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+
+      expect(find.text('บันทึกเป็นร่างก่อนออกไหม?'), findsNothing);
+      expect(find.byType(CreateDropScreen), findsNothing);
+    });
+
+    testWidgets('closing with unsaved content (a typed caption) shows the '
+        'close-intercept dialog', (tester) async {
+      await openScreen(tester, repo);
+
+      await tester.enterText(find.byType(TextField), 'ยังไม่เสร็จ');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+
+      expect(find.text('บันทึกเป็นร่างก่อนออกไหม?'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'ทิ้ง'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'ยกเลิก'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'บันทึกร่าง'), findsOneWidget);
+    });
+
+    testWidgets('"ยกเลิก" closes the dialog and stays on the screen',
+        (tester) async {
+      await openScreen(tester, repo);
+
+      await tester.enterText(find.byType(TextField), 'ยังไม่เสร็จ');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(TextButton, 'ยกเลิก'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('บันทึกเป็นร่างก่อนออกไหม?'), findsNothing);
+      expect(find.byType(CreateDropScreen), findsOneWidget);
+      expect(find.text('ยังไม่เสร็จ'), findsOneWidget);
+    });
+
+    testWidgets('"ทิ้ง" closes without calling saveDraft', (tester) async {
+      await openScreen(tester, discardTestRepo);
+
+      await tester.enterText(find.byType(TextField), 'ยังไม่เสร็จ');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'ทิ้ง'));
+      await tester.pumpAndSettle();
+
+      expect(discardTestRepo.saveDraftArgs, isEmpty);
+      expect(find.byType(CreateDropScreen), findsNothing);
+    });
+
+    testWidgets('"บันทึกร่าง" calls saveDraft with the current content and '
+        'closes', (tester) async {
+      await openScreen(tester, saveDraftTestRepo);
+
+      await tester.enterText(find.byType(TextField), 'เดี๋ยวมาเขียนต่อ');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'บันทึกร่าง'));
+      await tester.pumpAndSettle();
+
+      expect(saveDraftTestRepo.saveDraftArgs, hasLength(1));
+      final args = saveDraftTestRepo.saveDraftArgs.single;
+      expect(args['draftId'], isNull);
+      expect(args['caption'], 'เดี๋ยวมาเขียนต่อ');
+      expect(find.byType(CreateDropScreen), findsNothing);
+    });
+
+    testWidgets('a failed saveDraft shows a snackbar and stays on screen',
+        (tester) async {
+      await openScreen(tester, saveDraftFailTestRepo);
+
+      await tester.enterText(find.byType(TextField), 'เดี๋ยวมาเขียนต่อ');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'บันทึกร่าง'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('บันทึกร่างไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
+      expect(find.byType(CreateDropScreen), findsOneWidget);
+    });
+
+    testWidgets('opening with an image-mode draft prefills the existing '
+        'image and caption', (tester) async {
+      final draft = DropDraft(
+        id: 'draft-1',
+        imageUrl: 'https://example.com/draft.jpg',
+        caption: 'ยังคิดแคปชันไม่ออก',
+        updatedAt: DateTime(2026, 1, 1),
+      );
+      await openScreen(tester, repo, draft: draft);
+      // NetworkImageLoadException -- same expected noise as elsewhere in
+      // this suite (there's no real network in tests).
+      tester.takeException();
+
+      expect(find.text('ยังคิดแคปชันไม่ออก'), findsOneWidget);
+      final image = tester.widget<Image>(find.byType(Image));
+      expect((image.image as NetworkImage).url, 'https://example.com/draft.jpg');
+      // The "แชร์" button is enabled immediately -- the carried-over
+      // image counts as picked, no need to re-pick it.
+      expect(
+        tester.widget<TextButton>(find.widgetWithText(TextButton, 'แชร์')).onPressed,
+        isNotNull,
+      );
+    });
+
+    testWidgets('opening with a poll-mode draft prefills poll mode, '
+        'options, duration, and the question', (tester) async {
+      final draft = DropDraft(
+        id: 'draft-2',
+        caption: 'กินอะไรดี?',
+        pollOptions: const ['Pizza', 'Sushi', 'Burger'],
+        pollDurationDays: 7,
+        updatedAt: DateTime(2026, 1, 1),
+      );
+      await openScreen(tester, repo, draft: draft);
+
+      expect(find.text('กินอะไรดี?'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Pizza'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Sushi'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Burger'), findsOneWidget);
+      // "7 วัน" segment selected -- SegmentedButton renders every
+      // segment's label as plain Text regardless of selection, so
+      // this only proves the segment exists, not that it's selected;
+      // the real proof is createPollDrop's durationDays argument,
+      // covered by the publish test below.
+      expect(find.text('7 วัน'), findsOneWidget);
+    });
+
+    testWidgets('an incomplete poll draft (1 filled option) leaves "แชร์" '
+        'disabled -- prefill does not skip validation', (tester) async {
+      final draft = DropDraft(
+        id: 'draft-3',
+        caption: 'คำถาม',
+        pollOptions: const ['Pizza', ''],
+        updatedAt: DateTime(2026, 1, 1),
+      );
+      await openScreen(tester, repo, draft: draft);
+
+      expect(
+        tester.widget<TextButton>(find.widgetWithText(TextButton, 'แชร์')).onPressed,
+        isNull,
+      );
+    });
+
+    testWidgets('publishing from an opened draft creates the Drop and '
+        'deletes the draft', (tester) async {
+      final draft = DropDraft(
+        id: 'draft-4',
+        imageUrl: 'https://example.com/draft.jpg',
+        caption: 'พร้อมแชร์แล้ว',
+        updatedAt: DateTime(2026, 1, 1),
+      );
+      await openScreen(tester, publishFromDraftTestRepo, draft: draft);
+      // NetworkImageLoadException -- same expected noise as above.
+      tester.takeException();
+
+      await tester.tap(find.widgetWithText(TextButton, 'แชร์'));
+      await tester.pumpAndSettle();
+
+      expect(publishFromDraftTestRepo.createDropFromExistingImageArgs, hasLength(1));
+      expect(
+        publishFromDraftTestRepo.createDropFromExistingImageArgs.single['imageUrl'],
+        'https://example.com/draft.jpg',
+      );
+      expect(publishFromDraftTestRepo.deleteDraftCalls, ['draft-4']);
+      expect(find.byType(CreateDropScreen), findsNothing);
+    });
+
+    testWidgets(
+        'switching an image-mode draft to โพล mode before saving as a '
+        'draft again does not leak the leftover image into the poll '
+        'draft', (tester) async {
+      final draft = DropDraft(
+        id: 'draft-5',
+        imageUrl: 'https://example.com/draft.jpg',
+        updatedAt: DateTime(2026, 1, 1),
+      );
+      await openScreen(tester, switchModeDraftTestRepo, draft: draft);
+      // NetworkImageLoadException -- same expected noise as above.
+      tester.takeException();
+
+      // The SegmentedButton never clears _existingImageUrl/_imageBytes
+      // on mode switch -- saveDraft must gate them by _mode itself.
+      await tester.tap(find.text('โพล'));
+      await tester.pump();
+
+      await tester.enterText(
+          find.widgetWithText(TextField, 'ตัวเลือกที่ 1'), 'Pizza');
+      await tester.enterText(
+          find.widgetWithText(TextField, 'ตัวเลือกที่ 2'), 'Sushi');
+      await tester.enterText(find.byType(TextField).last, 'กินอะไรดี?');
+
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'บันทึกร่าง'));
+      await tester.pumpAndSettle();
+
+      final args = switchModeDraftTestRepo.saveDraftArgs.single;
+      expect(args['imageBytes'], isNull);
+      expect(args['existingImageUrl'], isNull);
+      expect(args['pollOptions'], ['Pizza', 'Sushi']);
     });
   });
 }

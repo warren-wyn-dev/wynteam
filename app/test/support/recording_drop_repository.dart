@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/data/drop_comment.dart';
+import 'package:wyn/features/drop/data/drop_draft.dart';
 import 'package:wyn/features/drop/data/drop_repository.dart';
 
 /// A DropRepository whose network-touching methods are overridden to just
@@ -244,5 +245,77 @@ class RecordingDropRepository extends DropRepository {
   @override
   Future<void> deleteRedrop(String redropId) async {
     deleteRedropCalls.add(redropId);
+  }
+
+  /// Returned by [fetchDrafts] -- WYN-036.
+  List<DropDraft> draftsToReturn = [];
+  int fetchDraftsCalls = 0;
+  Object? fetchDraftsError;
+
+  @override
+  Future<List<DropDraft>> fetchDrafts() async {
+    fetchDraftsCalls++;
+    if (fetchDraftsError != null) throw fetchDraftsError!;
+    return draftsToReturn;
+  }
+
+  /// Each call to [saveDraft]'s arguments, in order -- WYN-036.
+  final List<Map<String, Object?>> saveDraftArgs = [];
+  Object? saveDraftError;
+
+  /// Returned by [saveDraft] when called with a null `draftId` (a
+  /// brand-new draft being inserted for the first time).
+  String saveDraftReturnsId = 'new-draft-id';
+
+  @override
+  Future<String> saveDraft({
+    String? draftId,
+    Uint8List? imageBytes,
+    String imageExtension = 'jpg',
+    String? existingImageUrl,
+    String? caption,
+    List<String>? pollOptions,
+    int? pollDurationDays,
+  }) async {
+    if (saveDraftError != null) throw saveDraftError!;
+    saveDraftArgs.add({
+      'draftId': draftId,
+      'imageBytes': imageBytes,
+      'existingImageUrl': existingImageUrl,
+      'caption': caption,
+      'pollOptions': pollOptions,
+      'pollDurationDays': pollDurationDays,
+    });
+    return draftId ?? saveDraftReturnsId;
+  }
+
+  final List<String> deleteDraftCalls = [];
+  Object? deleteDraftError;
+
+  @override
+  Future<void> deleteDraft(String draftId) async {
+    if (deleteDraftError != null) throw deleteDraftError!;
+    deleteDraftCalls.add(draftId);
+  }
+
+  /// Each call to [createDropFromExistingImage]'s arguments, in order
+  /// -- WYN-036 (publishing a Draft without picking a new image).
+  final List<Map<String, Object?>> createDropFromExistingImageArgs = [];
+  Object? createDropFromExistingImageError;
+
+  @override
+  Future<void> createDropFromExistingImage({
+    required String imageUrl,
+    required String caption,
+    Set<String> mentionedUserIds = const {},
+  }) async {
+    if (createDropFromExistingImageError != null) {
+      throw createDropFromExistingImageError!;
+    }
+    createDropFromExistingImageArgs.add({
+      'imageUrl': imageUrl,
+      'caption': caption,
+      'mentionedUserIds': mentionedUserIds,
+    });
   }
 }
