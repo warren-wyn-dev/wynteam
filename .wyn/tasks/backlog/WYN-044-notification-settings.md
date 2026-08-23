@@ -1,6 +1,6 @@
 # Product Task — WYN-044
 
-Status: backlog
+Status: coded, awaiting QA
 Owner: AI Product Manager
 
 Feature: Notification Settings — เปิด/ปิดการแจ้งเตือนรายประเภท
@@ -61,3 +61,17 @@ Risks:
 Recommendation: ทำต่อเนื่องตาม roadmap Phase 5 ทันที (Founder อนุมัติให้ทีมทำงานต่อเนื่องอัตโนมัติไว้แล้วตั้งแต่ 2026-08-14 — DECISIONS.md) — ส่งต่อ AI Design ออกแบบ `NotificationSettingsScreen` (7 toggle + entry point จาก NotificationListScreen ตามที่ระบุใน Requirement 3) จากนั้น AI Coding implement gate ทั้ง 13+2 จุดพร้อม SQL regression test ใหม่ แล้วส่ง QA อิสระตรวจ mapping ครบทุกหมวด + regression เต็มชุดตามธรรมเนียมเดิมของโปรเจกต์
 
 Handoff: AI Design — ออกแบบ `NotificationSettingsScreen` (layout รายการ toggle 7 แถว, label ภาษาไทย, ไอคอน settings ใน `NotificationListScreen`'s AppBar) — ไม่ต้องออกแบบหน้า Settings รวมของ WYN-045 ล่วงหน้า เป็นแค่ standalone entry point ชั่วคราวตามที่ Product ระบุไว้ใน Requirement 3
+
+## Coding Output (2026-08-23)
+
+**SQL** (`supabase/schema.sql`, ต่อท้ายส่วน WYN-043 ท้ายไฟล์): ตาราง `notification_settings` ใหม่ (7 boolean column ตาม mapping ข้างต้น, `not null default true`, PK `user_id`, RLS select/insert/update จำกัดเจ้าของแถวเท่านั้น มิเรอร์ RLS shape ของ `saves`) + helper `internal.notification_enabled(p_user_id, p_category)` (`coalesce(..., true)` — ไม่มีแถว = เปิดทุกหมวด) — gate การ insert 16 จุด (มากกว่าที่ประเมินไว้ตอนแรก 15 จุด เพราะพบเพิ่ม 1 จุดที่ `get_or_create_conversation()`'s `message_request` insert ซึ่งตรงกับ mapping `messages → message_request` ของ Product spec เป๊ะ แต่ตกหล่นจากรายการสรุปตอนมอบหมายงาน — Coding อ่าน spec ไฟล์จริงแล้วพบเอง แก้ให้ครบ): `notify_drop_like`/`notify_pop_like`/`notify_redrop` → `likes`, `notify_drop_comment`/`notify_pop_comment`/`notify_drop_mention` → `comments`, `notify_follow`/`internal.notify_follow_request`/`accept_follow_request` → `follows`, `get_or_create_conversation` → `messages`, `notify_club_join_request`/`notify_club_join_approved`/`notify_club_post_like`/`notify_club_post_comment`/`notify_club_post_mention` → `club`, `send_system_notification` → `system` — **ไม่แตะ** `apply_moderation_action`/`decide_appeal`/ZOKY order trigger ทั้ง 4 ตามที่ Product ล็อกไว้
+
+**SQL test ใหม่** (`supabase/tests/wyn_044_notification_settings_test.sh`, มิเรอร์ harness ของ `wyn_043`) — 19 checks ครอบ: no-row-defaults-to-enabled, ปิด/เปิดกลับต่อหมวด (`comments`/`likes`/`follows`/`club`/`messages`/`system`) พิสูจน์ two-way + ไม่กระทบหมวดอื่น, `club` off บล็อก `club_post_comment` (พิสูจน์ mapping "ทุก Club sub-type รวมหมวดเดียว"), ปิดทุกหมวดแล้ว `moderation_warning`/`appeal_approved`/`new_order` ยัง insert ปกติ, RLS (user A เห็น/แก้แถว user B ไม่ได้) — **19/19 PASS** (ยืนยันรันซ้ำเองอิสระในบทสนทนานี้ ไม่ใช่แค่เชื่อรายงานของ Coding) — รันซ้ำ SQL regression ทั้ง 17 สคริปต์เดิม (`wyn_021` ถึง `wyn_043` ที่มีอยู่จริง) **ผ่านหมดไม่มี cross-task regression** (ยืนยันรันซ้ำเองอิสระเช่นกัน) — `check_schema_ordering.py` ผ่าน (ยืนยันรันซ้ำเองอิสระ)
+
+**Flutter**: `NotificationSettingsRepository` ใหม่ (`fetch()`/`upsertCategory()`, ไม่มี `userId` param มิเรอร์ `SavedRepository`) + `NotificationSettingsScreen` ใหม่ (7 `SwitchListTile` ตาม Design spec เป๊ะ, per-category in-flight tracking ด้วย `Set<String> _saving` ตาม Design Rule #1, optimistic + revert-on-fail) + แก้ `settings_screen.dart` เพิ่ม section "การแจ้งเตือน" ตำแหน่งตาม Design spec เป๊ะ (หลัง Private Account, ก่อน "ความปลอดภัย", ไม่ conditional ตาม role) — เทสต์ใหม่ครอบ default-enabled/partial-state/optimistic-toggle/revert-on-fail/per-category-independence (Design Rule #1 โดยตรงด้วย `Completer`)/error-state+retry และเทสต์ต่อของ `settings_screen_test.dart` ยืนยัน section ใหม่ปรากฏ+นำทางถูกต้อง — Coding พบเองระหว่างเขียนเทสต์ว่า heading กับชื่อแถวเป็นข้อความเดียวกัน ("การแจ้งเตือน") ต้องใช้ `find.widgetWithText(ListTile, ...)` แทน `find.text()` เฉยๆ
+
+**Build/Tests**: Flutter SDK ไม่มีในทั้ง sandbox ของ Coding และของ session orchestrator (ยืนยันแล้วว่าไม่มีจริง ไม่ใช่แค่เชื่อคำอ้างของ Coding) — `flutter analyze`/`flutter test` **ยังไม่ได้รันจริง** เป็น known gap ที่ต้องให้ AI QA & Security ติดตั้ง SDK เองแล้วรันอิสระ (มิเรอร์ pattern เดียวกับ WYN-016/WYN-038)
+
+**Known Issue/Gap (ตั้งใจ ไม่ใช่บั๊ก)**: `trending` toggle ไม่มีผลจริงกับระบบ (ไม่มี producer) ตามที่ Product ระบุไว้แล้ว
+
+Handoff: AI QA & Security — เน้นตรวจ: **(ก) รัน `flutter analyze`/`flutter test` เต็มชุดอิสระ** (จุดเดียวที่ยังไม่มีใครยืนยันจริงในรอบนี้), **(ข) ไล่ mapping ทั้ง 7 หมวดกับ 16 จุด gate เทียบกับตาราง mapping ใน Product spec ทีละบรรทัด** (โดยเฉพาะจุดที่ 16 ที่ Coding เพิ่มเองนอกรายการมอบหมายเดิม), **(ค) ยืนยันด้วยตัวเองว่า moderation/appeal/order 8 ประเภทไม่ถูก gate จริง** แม้ปิด toggle ทุกหมวด, **(ง) probe RLS ของ `notification_settings` เพิ่มเติมแบบ adversarial** (ไม่ใช่แค่เชื่อ 2 checks ที่มีอยู่แล้ว)
