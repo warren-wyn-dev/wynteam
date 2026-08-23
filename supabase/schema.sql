@@ -5023,9 +5023,14 @@ create table if not exists public.conversations (
   id uuid primary key default gen_random_uuid(),
   user_a_id uuid not null references public.profiles (id) on delete cascade,
   user_b_id uuid not null references public.profiles (id) on delete cascade,
-  -- WYN-032 will set this conditionally (follow each other -> 'active',
-  -- stranger -> 'pending'); this round always inserts 'active'.
+  -- WYN-032: 'active' when the recipient already followed the sender
+  -- at conversation-creation time, 'pending' (a Message Request)
+  -- otherwise -- see get_or_create_conversation() below.
   status text not null default 'active' check (status in ('active', 'pending')),
+  -- WYN-032: who started this conversation. Null for every
+  -- conversation that started 'active' (nothing to decide on) -- set
+  -- once, at creation, never updated afterward.
+  requested_by uuid references public.profiles (id) on delete cascade,
   user_a_last_read_at timestamptz,
   user_b_last_read_at timestamptz,
   created_at timestamptz not null default now(),
@@ -5035,6 +5040,8 @@ create table if not exists public.conversations (
   -- write path and always normalizes with least()/greatest(), so this
   -- also catches any future write path that forgets to.
   constraint conversations_canonical_order check (user_a_id < user_b_id),
+  constraint conversations_requested_by_is_participant
+    check (requested_by is null or requested_by in (user_a_id, user_b_id)),
   unique (user_a_id, user_b_id)
 );
 
@@ -5066,6 +5073,8 @@ declare
   v_a uuid;
   v_b uuid;
   v_id uuid;
+  v_status text;
+  v_requested_by uuid;
 begin
   if v_me is null then
     raise exception 'Not authenticated';
@@ -5083,11 +5092,42 @@ begin
   v_a := least(v_me, p_other_user_id);
   v_b := greatest(v_me, p_other_user_id);
 
-  insert into public.conversations (user_a_id, user_b_id)
-  values (v_a, v_b)
-  on conflict (user_a_id, user_b_id) do nothing;
-
+  -- An existing conversation (of either status) is returned as-is --
+  -- status is decided once, at creation, never re-evaluated.
   select id into v_id from public.conversations where user_a_id = v_a and user_b_id = v_b;
+  if v_id is not null then
+    return v_id;
+  end if;
+
+  -- WYN-032: a message from someone the recipient does not already
+  -- follow starts as a pending Message Request instead of going
+  -- straight to their inbox -- one-directional (does the recipient
+  -- follow the sender), evaluated only here, at creation time.
+  if exists (
+    select 1 from public.follows
+    where follower_id = p_other_user_id and following_id = v_me
+  ) then
+    v_status := 'active';
+    v_requested_by := null;
+  else
+    v_status := 'pending';
+    v_requested_by := v_me;
+  end if;
+
+  insert into public.conversations (user_a_id, user_b_id, status, requested_by)
+  values (v_a, v_b, v_status, v_requested_by)
+  on conflict (user_a_id, user_b_id) do nothing
+  returning id into v_id;
+
+  if v_id is null then
+    -- Lost a race with a concurrent call for the same pair -- fetch
+    -- the row that won instead of erroring.
+    select id into v_id from public.conversations where user_a_id = v_a and user_b_id = v_b;
+  elsif v_status = 'pending' then
+    insert into public.notifications (recipient_id, actor_id, type, conversation_id)
+    values (p_other_user_id, v_me, 'message_request', v_id);
+  end if;
+
   return v_id;
 end;
 $$;
@@ -5159,7 +5199,13 @@ create policy "Participants can view messages in their conversations"
 -- SELECT filter of its own, so this subquery doesn't hit the same
 -- self-referential RLS trap drop_author_id()/pop_author_id() exist to
 -- solve (see the WYN-027 comment on those) -- it can be inlined directly.
-create policy "Participants can send messages in active conversations"
+--
+-- WYN-032: a 'pending' conversation still accepts sends from whoever
+-- started it (requested_by) -- they can keep messaging while waiting
+-- on a decision, mirroring Instagram's own Message Request behavior --
+-- but from nobody else. The recipient has no INSERT path at all until
+-- accept_message_request() flips status to 'active'.
+create policy "Participants can send messages in active or own-pending conversations"
   on public.messages
   for insert
   to authenticated
@@ -5169,11 +5215,14 @@ create policy "Participants can send messages in active conversations"
     and exists (
       select 1 from public.conversations c
       where c.id = conversation_id
-        and c.status = 'active'
         and auth.uid() in (c.user_a_id, c.user_b_id)
         and not internal.is_blocked_either_way(
           c.user_a_id,
           c.user_b_id
+        )
+        and (
+          c.status = 'active'
+          or (c.status = 'pending' and c.requested_by = auth.uid())
         )
     )
   );
@@ -5306,6 +5355,11 @@ create policy "Participants can view media in their conversations"
     )
   );
 
+-- WYN-032: mirrors the messages INSERT policy's own active-or-own-
+-- pending condition exactly -- without this, a requester's image (not
+-- text) message would silently fail to upload during the pending
+-- phase even though the messages row itself is allowed, since the
+-- upload happens before the row insert (see ChatRepository.sendMessage()).
 create policy "Participants can upload media to their conversations"
   on storage.objects
   for insert
@@ -5316,8 +5370,11 @@ create policy "Participants can upload media to their conversations"
       select 1 from public.conversations c
       where c.id = ((storage.foldername(name))[1])::uuid
         and auth.uid() in (c.user_a_id, c.user_b_id)
-        and c.status = 'active'
         and not internal.is_blocked_either_way(c.user_a_id, c.user_b_id)
+        and (
+          c.status = 'active'
+          or (c.status = 'pending' and c.requested_by = auth.uid())
+        )
     )
     and not internal.is_posting_blocked(auth.uid())
   );
@@ -5329,11 +5386,17 @@ create policy "Participants can upload media to their conversations"
 -- saved_feed/home_feed's own reasoning) -- conversations'/messages'
 -- own participant-only SELECT policies still apply on top of this
 -- view's own `where`, not bypassed by view-owner privileges.
+-- WYN-032: a 'pending' conversation only shows up here for whoever
+-- started it (requested_by) -- the recipient sees it in
+-- `message_requests` instead, until they accept it. requested_by is
+-- exposed so the client can tell "I'm still waiting on a decision"
+-- apart from an ordinary active conversation.
 create or replace view public.chat_inbox
   with (security_invoker = true) as
 select
   c.id as conversation_id,
   c.status,
+  c.requested_by,
   c.created_at as conversation_created_at,
   case when c.user_a_id = auth.uid() then c.user_b_id else c.user_a_id end as other_user_id,
   op.username as other_username,
@@ -5356,7 +5419,8 @@ left join lateral (
   order by m.created_at desc
   limit 1
 ) lm on true
-where auth.uid() in (c.user_a_id, c.user_b_id);
+where auth.uid() in (c.user_a_id, c.user_b_id)
+  and (c.status = 'active' or c.requested_by = auth.uid());
 
 grant select on public.chat_inbox to authenticated;
 
@@ -5400,3 +5464,149 @@ begin
   end if;
 end
 $$;
+
+-- ============================================================
+-- WYN-032: Message Request flow (Accept/Delete/Block/Report)
+-- ============================================================
+-- See .wyn/docs/design/wyn-032-message-request.md for the full
+-- reasoning. Short version: `conversations.requested_by` (added to
+-- the CREATE TABLE above) plus the gating logic now built into
+-- get_or_create_conversation() (also edited above) are the only
+-- structural changes to what WYN-031 already built -- everything
+-- below is new RPCs/views layered on top. Block/Report from a
+-- Message Request reuse WYN-027/026's existing block_user()/
+-- submit_report() directly -- no new mechanism for either.
+
+create or replace function public.accept_message_request(p_conversation_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.conversations
+  set status = 'active'
+  where id = p_conversation_id
+    and status = 'pending'
+    and auth.uid() in (user_a_id, user_b_id)
+    -- The requester cannot "accept" their own request -- only the
+    -- other participant (the one being asked) can.
+    and requested_by is distinct from auth.uid();
+
+  if not found then
+    raise exception 'Message request not found, already accepted, or not yours to accept';
+  end if;
+end;
+$$;
+
+grant execute on function public.accept_message_request(uuid) to authenticated;
+
+-- Declining a request discards it outright (no "dismissed" flag, no
+-- new state) -- messages.conversation_id already cascades on delete
+-- (WYN-031), so this also removes every message in it. The requester
+-- gets no notification that they were declined (mirrors the
+-- Message-Request UX users already know from other apps) and can
+-- start a fresh request later if they try again.
+create or replace function public.delete_message_request(p_conversation_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_deleted_id uuid;
+begin
+  delete from public.conversations
+  where id = p_conversation_id
+    and status = 'pending'
+    and auth.uid() in (user_a_id, user_b_id)
+    -- The requester cannot delete their own outgoing request this way
+    -- (only the recipient can decline it) -- deleting your own sent
+    -- message request isn't a feature this round.
+    and requested_by is distinct from auth.uid()
+  returning id into v_deleted_id;
+
+  if v_deleted_id is null then
+    raise exception 'Message request not found, already accepted, or not yours to delete';
+  end if;
+end;
+$$;
+
+grant execute on function public.delete_message_request(uuid) to authenticated;
+
+-- Message Requests list (Design Screen 2): only the recipient sees a
+-- pending conversation here (requested_by <> auth.uid()) -- the
+-- requester sees their own outgoing request in chat_inbox instead
+-- (see that view's WHERE clause above). Blocked-either-way pairs are
+-- excluded outright -- once blocked, there is nothing left to decide.
+create or replace view public.message_requests
+  with (security_invoker = true) as
+select
+  c.id as conversation_id,
+  c.created_at as conversation_created_at,
+  case when c.user_a_id = auth.uid() then c.user_b_id else c.user_a_id end as other_user_id,
+  op.username as other_username,
+  op.display_name as other_display_name,
+  op.avatar_url as other_avatar_url,
+  lm.text as last_message_text,
+  lm.image_url as last_message_image_url,
+  lm.created_at as last_message_at
+from public.conversations c
+join public.profiles op
+  on op.id = (case when c.user_a_id = auth.uid() then c.user_b_id else c.user_a_id end)
+left join lateral (
+  select m.text, m.image_url, m.created_at
+  from public.messages m
+  where m.conversation_id = c.id
+  order by m.created_at desc
+  limit 1
+) lm on true
+where c.status = 'pending'
+  and c.requested_by <> auth.uid()
+  and auth.uid() in (c.user_a_id, c.user_b_id)
+  and not internal.is_blocked_either_way(c.user_a_id, c.user_b_id);
+
+grant select on public.message_requests to authenticated;
+
+-- ------------------------------------------------------------
+-- Notification type `message_request` -- fired once by
+-- get_or_create_conversation() above, the moment a new pending
+-- conversation is created (never re-fired for an existing one).
+-- conversation_id lets NotificationListScreen's tap handler open
+-- ConversationScreen directly, same role dropId/popId/clubPostId play
+-- for their own types.
+-- ------------------------------------------------------------
+alter table public.notifications
+  add column if not exists conversation_id uuid references public.conversations (id) on delete cascade;
+
+do $$
+declare
+  v_constraint_name text;
+begin
+  select tc.constraint_name into v_constraint_name
+  from information_schema.table_constraints tc
+  join information_schema.constraint_column_usage ccu
+    on ccu.constraint_name = tc.constraint_name
+   and ccu.constraint_schema = tc.constraint_schema
+  where tc.table_schema = 'public'
+    and tc.table_name = 'notifications'
+    and tc.constraint_type = 'CHECK'
+    and ccu.column_name = 'type';
+
+  if v_constraint_name is not null then
+    execute format('alter table public.notifications drop constraint %I', v_constraint_name);
+  end if;
+end;
+$$;
+
+alter table public.notifications
+  add constraint notifications_type_check
+  check (type in (
+    'like_drop', 'like_pop', 'comment_drop', 'comment_pop', 'follow',
+    'club_join_request', 'club_join_approved', 'club_post_like', 'club_post_comment',
+    'new_order', 'order_shipped', 'order_cancelled', 'order_refunded',
+    'mention_drop', 'mention_club_post',
+    'moderation_warning', 'moderation_content_removed',
+    'appeal_approved', 'appeal_rejected',
+    'message_request'
+  ));

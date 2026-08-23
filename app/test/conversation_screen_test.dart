@@ -245,4 +245,133 @@ void main() {
 
     expect(find.text('ข้อความซ้ำ'), findsOneWidget);
   });
+
+  group('Message Request (WYN-032)', () {
+    testWidgets(
+        'as the recipient (not requestedBy): messages readable, composer replaced '
+        'with Accept/Delete/Block/Report', (tester) async {
+      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other');
+      chatRepo.messagesByConversation = {
+        'c1': [message(text: 'อยากรู้จักครับ')],
+      };
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('อยากรู้จักครับ'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+      expect(find.textContaining('ต้องการส่งข้อความถึงคุณ'), findsOneWidget);
+      expect(find.text('ยอมรับ'), findsOneWidget);
+      expect(find.text('ลบ'), findsOneWidget);
+      expect(find.text('บล็อก'), findsOneWidget);
+      expect(find.text('รายงาน'), findsOneWidget);
+    });
+
+    testWidgets('tapping ยอมรับ accepts the request and the composer becomes normal',
+        (tester) async {
+      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other');
+      chatRepo.messagesByConversation = {
+        'c1': [message()],
+      };
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ยอมรับ'));
+      await tester.pumpAndSettle();
+
+      expect(chatRepo.acceptMessageRequestCalls, 1);
+      expect(chatRepo.lastAcceptMessageRequestId, 'c1');
+      expect(find.byType(TextField), findsOneWidget);
+    });
+
+    testWidgets('tapping ลบ confirms then deletes the request and pops the screen',
+        (tester) async {
+      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other');
+      chatRepo.messagesByConversation = {
+        'c1': [message()],
+      };
+      await tester.pumpWidget(MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ConversationScreen(
+                      chatRepository: chatRepo,
+                      conversationId: 'c1',
+                      otherUserId: 'other',
+                      otherUsername: 'namfah',
+                      otherDisplayName: 'น้ำฝน',
+                      blockRepository: blockRepo,
+                      moderationRepository: moderationRepo,
+                    ),
+                  ),
+                ),
+                child: const Text('เปิดคำขอ'),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('เปิดคำขอ'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ลบ').first);
+      await tester.pumpAndSettle();
+      // The confirm dialog's own "ลบ" button.
+      await tester.tap(find.text('ลบ').last);
+      await tester.pumpAndSettle();
+
+      expect(chatRepo.deleteMessageRequestCalls, 1);
+      expect(chatRepo.lastDeleteMessageRequestId, 'c1');
+      expect(find.text('เปิดคำขอ'), findsOneWidget);
+    });
+
+    testWidgets('tapping บล็อก blocks the sender and switches to the blocked message',
+        (tester) async {
+      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other');
+      chatRepo.messagesByConversation = {
+        'c1': [message()],
+      };
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('บล็อก'));
+      await tester.pumpAndSettle();
+      // confirmBlock's own confirm button.
+      await tester.tap(find.text('บล็อก').last);
+      await tester.pumpAndSettle();
+
+      expect(blockRepo.blockUserCalls, 1);
+      expect(find.text('คุณไม่สามารถส่งข้อความถึงผู้ใช้นี้ได้'), findsOneWidget);
+    });
+
+    testWidgets('tapping รายงาน opens the report sheet targeting the user', (tester) async {
+      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other');
+      chatRepo.messagesByConversation = {
+        'c1': [message()],
+      };
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('รายงาน'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('รายงานผู้ใช้นี้'), findsOneWidget);
+    });
+
+    testWidgets('as the requester (requestedBy == me): composer stays normal with an '
+        'awaiting-response label', (tester) async {
+      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'me');
+      chatRepo.messagesByConversation = {
+        'c1': [message()],
+      };
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.text('รอการตอบรับ'), findsOneWidget);
+      expect(find.text('ยอมรับ'), findsNothing);
+    });
+  });
 }

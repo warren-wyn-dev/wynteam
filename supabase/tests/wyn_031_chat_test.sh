@@ -188,6 +188,22 @@ insert into public.profiles (id, username, display_name, platform_role) values
 insert into storage.buckets (id, name, public) values ('chat-media', 'chat-media', false)
   on conflict (id) do nothing;
 
+-- WYN-032 changed get_or_create_conversation() to gate on the
+-- `follows` relationship (a conversation between two people who don't
+-- already follow each other starts 'pending', not 'active'). Seed
+-- mutual follows for every pair this script expects to start
+-- 'active' immediately, preserving this script's original intent --
+-- testing WYN-031's message/RLS mechanics, not the WYN-032 gate
+-- itself, which has its own regression script
+-- (wyn_032_message_request_test.sh).
+insert into public.follows (follower_id, following_id) values
+  ('11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222'),
+  ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111'),
+  ('44444444-4444-4444-4444-444444444444', '55555555-5555-5555-5555-555555555555'),
+  ('55555555-5555-5555-5555-555555555555', '44444444-4444-4444-4444-444444444444'),
+  ('11111111-1111-1111-1111-111111111111', '33333333-3333-3333-3333-333333333333'),
+  ('33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111');
+
 -- ------------------------------------------------------------
 -- CHECK 1-4: get_or_create_conversation() validation + canonical
 -- ordering + idempotency.

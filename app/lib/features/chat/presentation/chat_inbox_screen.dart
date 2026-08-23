@@ -7,6 +7,7 @@ import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/chat_repository.dart';
 import '../data/conversation.dart';
 import 'conversation_screen.dart';
+import 'message_request_list_screen.dart';
 
 /// Screen 2 -- the Chat Inbox: every conversation this user is part of,
 /// sorted by most recent activity first. See
@@ -29,6 +30,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
   bool _hasMore = true;
   String? _error;
   RealtimeChannel? _channel;
+  int _pendingRequestCount = 0;
 
   String get _myUserId => Supabase.instance.client.auth.currentUser!.id;
 
@@ -36,14 +38,21 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
   void initState() {
     super.initState();
     _loadInitial();
+    _loadPendingRequestCount();
     _scrollController.addListener(_onScroll);
     // Any new message across any of this user's conversations can
     // change this list's ordering/preview/unread state -- simplest
     // correct reaction is a full reload rather than trying to patch one
     // row in place (Basic DM, inbox size is small, not worth the extra
-    // complexity of a partial merge).
+    // complexity of a partial merge). This also fires for a brand new
+    // Message Request's first message (its own INSERT into `messages`
+    // is what this subscribes to, same as any other message) -- refresh
+    // the banner count too so it doesn't wait for the next screen open.
     _channel = widget.chatRepository.subscribeToMyMessages((_) {
-      if (mounted) _loadInitial();
+      if (mounted) {
+        _loadInitial();
+        _loadPendingRequestCount();
+      }
     });
   }
 
@@ -82,6 +91,31 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
       if (mounted) setState(() => _error = 'โหลดรายการไม่สำเร็จ');
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
+    }
+  }
+
+  Future<void> _loadPendingRequestCount() async {
+    try {
+      final count = await widget.chatRepository.countPendingMessageRequests();
+      if (mounted) setState(() => _pendingRequestCount = count);
+    } catch (_) {
+      // Silent -- a missed badge count isn't worth a blocking error; the
+      // banner just stays hidden until the next successful load.
+    }
+  }
+
+  Future<void> _openMessageRequests() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MessageRequestListScreen(chatRepository: widget.chatRepository),
+      ),
+    );
+    // Requests may have been accepted/deleted while that screen was
+    // open -- both the banner count and (if any were accepted) this
+    // list itself may need to change.
+    if (mounted) {
+      _loadPendingRequestCount();
+      _loadInitial();
     }
   }
 
@@ -157,7 +191,38 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('ข้อความ')),
-      body: _buildBody(),
+      body: Column(
+        children: [
+          if (_pendingRequestCount > 0) _buildRequestsBanner(),
+          Expanded(child: _buildBody()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRequestsBanner() {
+    return Semantics(
+      label: 'คำขอข้อความ $_pendingRequestCount รายการ',
+      button: true,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: _openMessageRequests,
+        child: Container(
+          color: Theme.of(context).colorScheme.surfaceContainer,
+          padding: const EdgeInsets.symmetric(
+            horizontal: WynSpacing.space4,
+            vertical: WynSpacing.space3,
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.mail_outline, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: WynSpacing.space3),
+              Expanded(child: Text('คำขอข้อความ ($_pendingRequestCount)')),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

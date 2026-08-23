@@ -36,6 +36,11 @@ enum NotificationType {
   // WYN-029-moderation-actor-identity-leak.md, "ครั้งที่ 3".
   appealApproved,
   appealRejected,
+  // WYN-032: inserted by get_or_create_conversation() the moment a new
+  // pending conversation (Message Request) is created -- actor_id is a
+  // real user here, not the null-actor moderation case above (this is
+  // an ordinary user action, nothing to hide).
+  messageRequest,
 }
 
 NotificationType _typeFromString(String value) {
@@ -78,6 +83,8 @@ NotificationType _typeFromString(String value) {
       return NotificationType.appealApproved;
     case 'appeal_rejected':
       return NotificationType.appealRejected;
+    case 'message_request':
+      return NotificationType.messageRequest;
     default:
       throw ArgumentError('Unknown notification type: $value');
   }
@@ -110,6 +117,7 @@ class WynNotification {
     this.reason,
     this.moderationActionId,
     this.moderationActionType,
+    this.conversationId,
     required this.isRead,
     required this.createdAt,
   });
@@ -174,6 +182,11 @@ class WynNotification {
   final String? moderationActionId;
   final String? moderationActionType;
 
+  /// Set only for [NotificationType.messageRequest] (WYN-032) -- lets
+  /// the tap handler open `ConversationScreen` directly, same role
+  /// [dropId]/[popId]/[clubPostId] play for their own types.
+  final String? conversationId;
+
   final bool isRead;
   final DateTime createdAt;
 
@@ -215,6 +228,7 @@ class WynNotification {
       reason: map['reason'] as String?,
       moderationActionId: map['moderation_action_id'] as String?,
       moderationActionType: map['moderation_action_type'] as String?,
+      conversationId: map['conversation_id'] as String?,
       isRead: map['is_read'] as bool,
       createdAt: DateTime.parse(map['created_at'] as String),
     );

@@ -8,6 +8,7 @@ class Conversation {
   const Conversation({
     required this.id,
     required this.status,
+    this.requestedBy,
     required this.createdAt,
     required this.otherUserId,
     required this.otherUsername,
@@ -23,6 +24,14 @@ class Conversation {
 
   final String id;
   final String status;
+
+  /// WYN-032: who started this conversation. Null for every
+  /// conversation that started 'active' -- only set when [status] is
+  /// (or was) `'pending'`. `chat_inbox` only ever returns a pending row
+  /// to the requester themselves (see supabase/schema.sql), so within
+  /// this model `requestedBy == myUserId` whenever it's non-null.
+  final String? requestedBy;
+
   final DateTime createdAt;
   final String otherUserId;
   final String otherUsername;
@@ -57,6 +66,7 @@ class Conversation {
   factory Conversation.fromMap(Map<String, dynamic> map) => Conversation(
         id: map['conversation_id'] as String,
         status: map['status'] as String,
+        requestedBy: map['requested_by'] as String?,
         createdAt: DateTime.parse(map['conversation_created_at'] as String),
         otherUserId: map['other_user_id'] as String,
         otherUsername: map['other_username'] as String,

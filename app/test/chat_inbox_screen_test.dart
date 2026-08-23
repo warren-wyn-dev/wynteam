@@ -4,6 +4,7 @@ import 'package:wyn/features/chat/data/chat_message.dart';
 import 'package:wyn/features/chat/data/conversation.dart';
 import 'package:wyn/features/chat/presentation/chat_inbox_screen.dart';
 import 'package:wyn/features/chat/presentation/conversation_screen.dart';
+import 'package:wyn/features/chat/presentation/message_request_list_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_chat_repository.dart';
@@ -128,5 +129,31 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('น้ำฝน'), findsOneWidget);
+  });
+
+  group('Message Requests banner (WYN-032)', () {
+    testWidgets('hidden when there are no pending requests', (tester) async {
+      chatRepo.inboxPages = const [[]];
+      chatRepo.pendingMessageRequestCount = 0;
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('คำขอข้อความ'), findsNothing);
+    });
+
+    testWidgets('shows the pending count and opens MessageRequestListScreen on tap',
+        (tester) async {
+      chatRepo.inboxPages = const [[]];
+      chatRepo.pendingMessageRequestCount = 3;
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('คำขอข้อความ (3)'), findsOneWidget);
+
+      await tester.tap(find.text('คำขอข้อความ (3)'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MessageRequestListScreen), findsOneWidget);
+    });
   });
 }
