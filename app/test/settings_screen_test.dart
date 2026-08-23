@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/block/presentation/blocked_list_screen.dart';
 import 'package:wyn/features/drop/presentation/recently_deleted_drops_screen.dart';
+import 'package:wyn/features/legal/presentation/document_viewer_screen.dart';
 import 'package:wyn/features/moderation/presentation/moderation_queue_screen.dart';
 import 'package:wyn/features/mute/presentation/muted_list_screen.dart';
 import 'package:wyn/features/profile/data/profile.dart';
@@ -347,6 +348,69 @@ void main() {
       expect(find.text('ทุกคน'), findsNWidgets(3));
       expect(find.text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
     });
+  });
+
+  // WYN-046 -- "กฎหมาย" is always the very last section, unconditional on
+  // platformRole (unlike "เครื่องมือผู้ดูแล" above). Unlike "การแจ้งเตือน"
+  // (WYN-044), none of these 6 row titles collide with the section
+  // heading text ("กฎหมาย" itself never appears as a row title), so a
+  // plain find.text() per row is unambiguous here.
+  group('กฎหมาย section (WYN-046)', () {
+    const rowTitles = [
+      'ข้อกำหนดการใช้งาน',
+      'นโยบายความเป็นส่วนตัว',
+      'แนวทางชุมชน',
+      'นโยบายลิขสิทธิ์',
+      'นโยบายการรายงาน',
+      'นโยบายการอุทธรณ์',
+    ];
+
+    testWidgets('shows the heading and all 6 document rows',
+        (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('กฎหมาย'),
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('กฎหมาย'), findsOneWidget);
+
+      for (final title in rowTitles) {
+        await tester.scrollUntilVisible(
+          find.text(title),
+          500,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.text(title), findsOneWidget, reason: '$title should be shown');
+      }
+    });
+
+    for (final title in rowTitles) {
+      testWidgets('tapping "$title" opens DocumentViewerScreen',
+          (tester) async {
+        await tester.pumpWidget(const MaterialApp(
+          home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+        ));
+        await tester.pumpAndSettle();
+
+        final row = find.text(title);
+        await tester.scrollUntilVisible(
+          row,
+          500,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.ensureVisible(row);
+        await tester.pumpAndSettle();
+        await tester.tap(row);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(DocumentViewerScreen), findsOneWidget);
+      });
+    }
   });
 }
 

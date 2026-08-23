@@ -8,6 +8,8 @@ import '../../club/data/club_repository.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/recently_deleted_drops_screen.dart';
 import '../../follow/data/follow_repository.dart';
+import '../../legal/data/platform_document_repository.dart';
+import '../../legal/presentation/document_viewer_screen.dart';
 import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/data/moderation_repository.dart';
 import '../../moderation/presentation/moderation_queue_screen.dart';
@@ -353,8 +355,86 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
           ],
+          // WYN-046 -- always the very last section on the page,
+          // regardless of platformRole (unlike "เครื่องมือผู้ดูแล" above,
+          // which is conditional) -- these are read-only reference
+          // documents nobody taps often, so they belong last rather than
+          // mixed in with the higher-traffic sections above. See
+          // .wyn/docs/design/wyn-046-platform-documents-acceptance.md.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              WynSpacing.space4,
+              WynSpacing.space4,
+              WynSpacing.space4,
+              WynSpacing.space1,
+            ),
+            child: Text(
+              'กฎหมาย',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+            ),
+          ),
+          const _LegalDocumentTile(
+            title: 'ข้อกำหนดการใช้งาน',
+            documentType: PlatformDocumentType.termsOfService,
+          ),
+          const _LegalDocumentTile(
+            title: 'นโยบายความเป็นส่วนตัว',
+            documentType: PlatformDocumentType.privacyPolicy,
+          ),
+          const _LegalDocumentTile(
+            title: 'แนวทางชุมชน',
+            documentType: PlatformDocumentType.communityGuidelines,
+          ),
+          const _LegalDocumentTile(
+            title: 'นโยบายลิขสิทธิ์',
+            documentType: PlatformDocumentType.copyrightPolicy,
+          ),
+          const _LegalDocumentTile(
+            title: 'นโยบายการรายงาน',
+            documentType: PlatformDocumentType.reportPolicy,
+          ),
+          const _LegalDocumentTile(
+            title: 'นโยบายการอุทธรณ์',
+            documentType: PlatformDocumentType.appealPolicy,
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// WYN-046 -- one row of the "กฎหมาย" section, opening
+/// DocumentViewerScreen for [documentType] directly. All 6 rows share
+/// this exact shape (title + chevron, no subtitle -- unlike the rows
+/// above, these are plain navigation with nothing to summarize).
+class _LegalDocumentTile extends StatelessWidget {
+  const _LegalDocumentTile({
+    required this.title,
+    required this.documentType,
+  });
+
+  final String title;
+  final PlatformDocumentType documentType;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.description_outlined),
+      title: Text(title),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => DocumentViewerScreen(
+              documentType: documentType,
+              platformDocumentRepository:
+                  PlatformDocumentRepository(Supabase.instance.client),
+            ),
+          ),
+        );
+      },
     );
   }
 }

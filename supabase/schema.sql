@@ -8086,3 +8086,158 @@ create policy "Users can comment on pops as themselves, excluding blocked author
     and not internal.is_blocked_either_way(auth.uid(), internal.pop_author_id(pop_id))
     and internal.comment_allowed(internal.pop_author_id(pop_id), auth.uid())
   );
+
+-- ============================================================
+-- WYN-046: Platform Documents + Acceptance Flow
+-- ============================================================
+-- See .wyn/tasks/backlog/WYN-046-platform-documents-acceptance.md and
+-- .wyn/docs/design/wyn-046-platform-documents-acceptance.md. First task
+-- of Phase 6 (Legal & Compliance Layer, Master Spec sections 27/28).
+-- Technical layer only -- the `content` seeded below is a
+-- placeholder that explicitly states it is not the final,
+-- legally-binding text (see APPROVAL_REQUIRED entry in
+-- .wyn/company/APPROVALS.md, 2026-08-23: real legal content and the
+-- DPS-category analysis are both out of AI team scope and require a
+-- lawyer before this can go to production users).
+--
+-- No "Future Commerce Terms" row -- Master Spec section 27 lists one
+-- for WYN Shop, but ZOKY/Marketplace was pulled out of the app
+-- already (WYN-024, parked for V2), so there is nothing for it to
+-- cover yet.
+create table if not exists public.platform_documents (
+  id uuid primary key default gen_random_uuid(),
+  type text not null check (
+    type in (
+      'terms_of_service', 'privacy_policy', 'community_guidelines',
+      'copyright_policy', 'report_policy', 'appeal_policy'
+    )
+  ),
+  version integer not null,
+  title text not null,
+  content text not null,
+  effective_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  unique (type, version)
+);
+
+alter table public.platform_documents enable row level security;
+
+-- Select-all-authenticated: document text is not private data, every
+-- logged-in user must be able to read it (both from the Acceptance
+-- Gate and from Settings' "กฎหมาย" section). Deliberately no insert/
+-- update/delete policy for any client role at all -- content only
+-- ever changes via a schema migration in this round; there is no
+-- Admin UI yet (WYN Admin is Phase 7).
+create policy "Platform documents are viewable by authenticated users"
+  on public.platform_documents
+  for select
+  to authenticated
+  using (true);
+
+-- Mirrors public.notification_settings' RLS shape (WYN-044) exactly:
+-- select/insert/update all restricted to the owning row's own
+-- user_id. No delete policy (on delete cascade handles account
+-- deletion, same reasoning as notification_settings). Primary key is
+-- (user_id, document_type) rather than a surrogate id -- Product's
+-- Requirement 2 only needs the latest accepted version per type per
+-- user, not a full acceptance history, so upserting this pair is the
+-- whole mechanism a future document version bump re-prompts on.
+create table if not exists public.user_document_acceptances (
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  document_type text not null,
+  version integer not null,
+  accepted_at timestamptz not null default now(),
+  primary key (user_id, document_type)
+);
+
+alter table public.user_document_acceptances enable row level security;
+
+create policy "Users can view their own document acceptances"
+  on public.user_document_acceptances
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can create their own document acceptances"
+  on public.user_document_acceptances
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their own document acceptances"
+  on public.user_document_acceptances
+  for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Seed: version 1 of all 6 document types. Every `content` value
+-- starts with the exact placeholder paragraph Product specified,
+-- followed only by a short outline of section headings appropriate
+-- to that document type -- no actual legal content under any
+-- heading. Do not replace this with real legal text without a
+-- lawyer's review (see APPROVAL_REQUIRED entry above).
+insert into public.platform_documents (type, version, title, content, effective_at) values
+(
+  'terms_of_service', 1, 'ข้อกำหนดการใช้งาน',
+  $doc$เอกสารฉบับนี้อยู่ระหว่างการตรวจสอบโดยผู้เชี่ยวชาญกฎหมาย ยังไม่ใช่ฉบับสมบูรณ์ที่มีผลผูกพันทางกฎหมาย — เนื้อหาฉบับเต็มจะปรับปรุงหลังผ่านการตรวจสอบ
+
+หัวข้อที่จะครอบคลุม (โครงร่างเบื้องต้น ยังไม่มีเนื้อหา):
+- การใช้งาน
+- บัญชีผู้ใช้
+- เนื้อหาที่ต้องห้าม
+- การยกเลิกบัญชี$doc$,
+  now()
+),
+(
+  'privacy_policy', 1, 'นโยบายความเป็นส่วนตัว',
+  $doc$เอกสารฉบับนี้อยู่ระหว่างการตรวจสอบโดยผู้เชี่ยวชาญกฎหมาย ยังไม่ใช่ฉบับสมบูรณ์ที่มีผลผูกพันทางกฎหมาย — เนื้อหาฉบับเต็มจะปรับปรุงหลังผ่านการตรวจสอบ
+
+หัวข้อที่จะครอบคลุม (โครงร่างเบื้องต้น ยังไม่มีเนื้อหา):
+- ข้อมูลที่จัดเก็บ
+- วัตถุประสงค์การใช้ข้อมูล
+- การแบ่งปันข้อมูล
+- สิทธิ์ของผู้ใช้$doc$,
+  now()
+),
+(
+  'community_guidelines', 1, 'แนวทางชุมชน',
+  $doc$เอกสารฉบับนี้อยู่ระหว่างการตรวจสอบโดยผู้เชี่ยวชาญกฎหมาย ยังไม่ใช่ฉบับสมบูรณ์ที่มีผลผูกพันทางกฎหมาย — เนื้อหาฉบับเต็มจะปรับปรุงหลังผ่านการตรวจสอบ
+
+หัวข้อที่จะครอบคลุม (โครงร่างเบื้องต้น ยังไม่มีเนื้อหา):
+- พฤติกรรมที่ยอมรับได้
+- เนื้อหาที่ไม่อนุญาต
+- การรายงานการละเมิด
+- ผลจากการละเมิด$doc$,
+  now()
+),
+(
+  'copyright_policy', 1, 'นโยบายลิขสิทธิ์',
+  $doc$เอกสารฉบับนี้อยู่ระหว่างการตรวจสอบโดยผู้เชี่ยวชาญกฎหมาย ยังไม่ใช่ฉบับสมบูรณ์ที่มีผลผูกพันทางกฎหมาย — เนื้อหาฉบับเต็มจะปรับปรุงหลังผ่านการตรวจสอบ
+
+หัวข้อที่จะครอบคลุม (โครงร่างเบื้องต้น ยังไม่มีเนื้อหา):
+- การแจ้งการละเมิดลิขสิทธิ์
+- กระบวนการพิจารณา
+- การยื่นคำโต้แย้ง$doc$,
+  now()
+),
+(
+  'report_policy', 1, 'นโยบายการรายงาน',
+  $doc$เอกสารฉบับนี้อยู่ระหว่างการตรวจสอบโดยผู้เชี่ยวชาญกฎหมาย ยังไม่ใช่ฉบับสมบูรณ์ที่มีผลผูกพันทางกฎหมาย — เนื้อหาฉบับเต็มจะปรับปรุงหลังผ่านการตรวจสอบ
+
+หัวข้อที่จะครอบคลุม (โครงร่างเบื้องต้น ยังไม่มีเนื้อหา):
+- ประเภทการรายงาน
+- กระบวนการตรวจสอบ
+- การแจ้งผล$doc$,
+  now()
+),
+(
+  'appeal_policy', 1, 'นโยบายการอุทธรณ์',
+  $doc$เอกสารฉบับนี้อยู่ระหว่างการตรวจสอบโดยผู้เชี่ยวชาญกฎหมาย ยังไม่ใช่ฉบับสมบูรณ์ที่มีผลผูกพันทางกฎหมาย — เนื้อหาฉบับเต็มจะปรับปรุงหลังผ่านการตรวจสอบ
+
+หัวข้อที่จะครอบคลุม (โครงร่างเบื้องต้น ยังไม่มีเนื้อหา):
+- สิทธิ์ในการอุทธรณ์
+- ขั้นตอนการยื่นอุทธรณ์
+- ผลของการอุทธรณ์$doc$,
+  now()
+);
