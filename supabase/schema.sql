@@ -7624,3 +7624,95 @@ as $$
 $$;
 
 grant execute on function public.authors_posting_blocked(uuid[]) to authenticated;
+
+-- ============================================================
+-- WYN-043: Notification Types (system) + redrop client-side fix note
+-- ============================================================
+-- See .wyn/tasks/backlog/WYN-043-notification-types.md and
+-- .wyn/docs/design/wyn-043-notification-types.md. Of the roadmap's
+-- nominal "ReDrop/Quote/FollowRequest/MessageRequest/Trending/Top100/
+-- System" list, only `system` is actually new here -- redrop/
+-- follow_request/follow_request_accepted/message_request already exist
+-- in notifications_type_check (added ahead of schedule during
+-- WYN-032/034/039, see the comment directly above this section).
+-- redrop's bug was purely client-side (the Flutter NotificationType
+-- enum never got the case) -- nothing to fix in this file for it.
+-- Trending/Top100 notifications are explicitly out of scope: there is
+-- no snapshot/diff mechanism for "newly trending" and no cron/
+-- scheduled-job infrastructure anywhere in this project (see the
+-- comment on Restrict/Suspend auto-expiry, WYN-030, for that same
+-- "no cron/batch job" fact stated directly).
+do $$
+declare
+  v_constraint_name text;
+begin
+  select tc.constraint_name into v_constraint_name
+  from information_schema.table_constraints tc
+  join information_schema.constraint_column_usage ccu
+    on ccu.constraint_name = tc.constraint_name
+   and ccu.constraint_schema = tc.constraint_schema
+  where tc.table_schema = 'public'
+    and tc.table_name = 'notifications'
+    and tc.constraint_type = 'CHECK'
+    and ccu.column_name = 'type';
+
+  if v_constraint_name is not null then
+    execute format('alter table public.notifications drop constraint %I', v_constraint_name);
+  end if;
+end;
+$$;
+
+alter table public.notifications
+  add constraint notifications_type_check
+  check (type in (
+    'like_drop', 'like_pop', 'comment_drop', 'comment_pop', 'follow',
+    'club_join_request', 'club_join_approved', 'club_post_like', 'club_post_comment',
+    'new_order', 'order_shipped', 'order_cancelled', 'order_refunded',
+    'mention_drop', 'mention_club_post',
+    'moderation_warning', 'moderation_content_removed',
+    'appeal_approved', 'appeal_rejected',
+    'message_request', 'redrop',
+    'follow_request', 'follow_request_accepted',
+    'system'
+  ));
+
+-- Lets an admin send a free-text notification to one recipient
+-- (Master Spec section 20, "System: Security, Policy, Announcement") --
+-- security definer + an explicit platform_role check (mirrors
+-- decide_appeal()'s own moderator/admin gate, WYN-030) rather than an
+-- RLS insert policy, since ordinary users must never be able to insert
+-- into notifications directly for any type (see this table's own
+-- comment history -- every notification row is created by a trigger or
+-- a definer function, never a raw client insert). actor_id is always
+-- null (this is the system speaking, not another user), and the
+-- message goes into the existing `reason` column rather than a new one
+-- -- moderation_warning/moderation_content_removed already use it the
+-- same way. Single-recipient only in this round: broadcasting to every
+-- profile at once is a meaningfully different (and riskier -- an
+-- unbounded bulk insert with no batching designed for it yet)
+-- operation that deserves its own task, not a same-round addition
+-- squeezed in here.
+create or replace function public.send_system_notification(
+  p_recipient_id uuid,
+  p_message text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if internal.current_platform_role() <> 'admin' then
+    raise exception 'Only admins can send system notifications';
+  end if;
+
+  if p_message is null or length(trim(p_message)) = 0 then
+    raise exception 'System notification message must not be blank';
+  end if;
+
+  insert into public.notifications (recipient_id, actor_id, type, reason)
+  values (p_recipient_id, null, 'system', p_message);
+end;
+$$;
+
+grant execute on function public.send_system_notification(uuid, text) to authenticated;

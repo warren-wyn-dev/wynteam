@@ -19,6 +19,16 @@ enum NotificationType {
   // WYN-021: fired by drop_mentions/club_post_mentions inserts.
   mentionDrop,
   mentionClubPost,
+  // WYN-034: inserted by notify_redrop() -- actor_id is the redropper,
+  // dropId is the original Drop's id (same field like_drop/mentionDrop
+  // already use). WYN-043 fix: this type existed in schema.sql's
+  // notifications_type_check since WYN-034 but was never added here,
+  // so WynNotification.fromMap threw ArgumentError on any 'redrop' row
+  // -- with no try/catch around the .map() call in
+  // NotificationRepository.fetchNotifications, that crashed the entire
+  // list fetch, not just the one row, for any user who'd ever been
+  // ReDropped. See .wyn/tasks/backlog/WYN-043-notification-types.md.
+  redrop,
   // WYN-029: inserted by apply_moderation_action() for Warning/Remove
   // Content only -- see supabase/schema.sql. actor_id is deliberately
   // NULL for both (WYN-029 fix, see
@@ -48,6 +58,14 @@ enum NotificationType {
   // conversationId): both just need actorId, already present.
   followRequest,
   followRequestAccepted,
+  // WYN-043: sent only by send_system_notification(), restricted to
+  // platform_role = 'admin' callers. actor_id is always null (mirrors
+  // the moderation types' null-actor pattern above) -- this isn't
+  // another user's action, so there's no one to attribute it to.
+  // Message content lives in the existing `reason` column (same one
+  // moderationWarning/moderationContentRemoved already use), not a new
+  // field.
+  system,
 }
 
 NotificationType _typeFromString(String value) {
@@ -82,6 +100,8 @@ NotificationType _typeFromString(String value) {
       return NotificationType.mentionDrop;
     case 'mention_club_post':
       return NotificationType.mentionClubPost;
+    case 'redrop':
+      return NotificationType.redrop;
     case 'moderation_warning':
       return NotificationType.moderationWarning;
     case 'moderation_content_removed':
@@ -96,6 +116,8 @@ NotificationType _typeFromString(String value) {
       return NotificationType.followRequest;
     case 'follow_request_accepted':
       return NotificationType.followRequestAccepted;
+    case 'system':
+      return NotificationType.system;
     default:
       throw ArgumentError('Unknown notification type: $value');
   }
@@ -137,9 +159,10 @@ class WynNotification {
   final NotificationType type;
 
   /// Null only for [NotificationType.moderationWarning]/
-  /// [NotificationType.moderationContentRemoved] (WYN-029 fix) -- every
-  /// other notification type always has a real actor. See the enum's own
-  /// doc comment for why these two are the exception.
+  /// [NotificationType.moderationContentRemoved] (WYN-029 fix) and
+  /// [NotificationType.system] (WYN-043) -- every other notification
+  /// type always has a real actor. See the enum's own doc comment for
+  /// why these are the exception.
   final String? actorId;
   final String? actorUsername;
   final String? actorDisplayName;
@@ -180,7 +203,10 @@ class WynNotification {
   /// reason text, denormalized directly onto this row rather than
   /// joined from `moderation_actions` (ordinary users have no SELECT
   /// policy on that table at all, see supabase/schema.sql -- this
-  /// notification row is the only place the target ever sees it).
+  /// notification row is the only place the target ever sees it). Also
+  /// reused as-is for [NotificationType.system] (WYN-043) -- the
+  /// admin's message text, same "one free-text column, no new field
+  /// needed" reasoning.
   final String? reason;
 
   /// Set for all 4 moderation-related types (the 2 above plus WYN-030's
