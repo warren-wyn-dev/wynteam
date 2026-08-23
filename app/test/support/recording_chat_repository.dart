@@ -5,6 +5,7 @@ import 'package:wyn/features/chat/data/chat_message.dart';
 import 'package:wyn/features/chat/data/chat_repository.dart';
 import 'package:wyn/features/chat/data/conversation.dart';
 import 'package:wyn/features/chat/data/message_request.dart';
+import 'package:wyn/features/chat/data/shared_content_type.dart';
 
 /// A ChatRepository whose network-touching methods are overridden to
 /// just record what they were called with / return canned data,
@@ -62,6 +63,8 @@ class RecordingChatRepository extends ChatRepository {
   String? lastSendMessageText;
   Uint8List? lastSendMessageImageBytes;
   String? lastSendMessageReplyToId;
+  SharedContentType? lastSendMessageSharedContentType;
+  String? lastSendMessageSharedContentId;
 
   Object? deleteMessageError;
   int deleteMessageCalls = 0;
@@ -141,11 +144,15 @@ class RecordingChatRepository extends ChatRepository {
     Uint8List? imageBytes,
     String? imageExtension,
     String? replyToMessageId,
+    SharedContentType? sharedContentType,
+    String? sharedContentId,
   }) async {
     sendMessageCalls++;
     lastSendMessageText = text;
     lastSendMessageImageBytes = imageBytes;
     lastSendMessageReplyToId = replyToMessageId;
+    lastSendMessageSharedContentType = sharedContentType;
+    lastSendMessageSharedContentId = sharedContentId;
     final error = sendMessageError;
     if (error != null) throw error;
     return sendMessageResult ??
@@ -156,6 +163,8 @@ class RecordingChatRepository extends ChatRepository {
           createdAt: DateTime.now(),
           text: text,
           replyToMessageId: replyToMessageId,
+          sharedContentType: sharedContentType,
+          sharedContentId: sharedContentId,
         );
   }
 

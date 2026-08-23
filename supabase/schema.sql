@@ -5167,12 +5167,30 @@ create table if not exists public.messages (
   text text,
   image_url text,
   reply_to_message_id uuid references public.messages (id) on delete set null,
+  -- WYN-033: Share to Chat -- polymorphic, no FK (mirrors
+  -- reports.target_type/target_id, which references 3+ different
+  -- tables the same way). Deliberately NOT joined/denormalized into
+  -- any view here -- the client resolves it via the same
+  -- DropRepository/ClubRepository/ProfileRepository fetch calls used
+  -- everywhere else, so the existing RLS on those tables (e.g.
+  -- drops' own block-aware SELECT policy) protects a shared
+  -- reference for free, with no new privacy mechanism needed.
+  shared_content_type text
+    check (shared_content_type is null or shared_content_type in ('drop', 'profile', 'club')),
+  shared_content_id uuid,
   deleted_at timestamptz,
   created_at timestamptz not null default now(),
-  -- Empty messages are rejected -- except once deleted, when both
-  -- text/image_url are nulled out on purpose (see delete_message()).
+  -- Empty messages are rejected -- except once deleted, when
+  -- text/image_url/shared_content_* are all nulled out on purpose
+  -- (see delete_message()). A shared-content card with no caption is
+  -- not blank, same as an image message with no caption isn't.
   constraint messages_not_blank_unless_deleted
-    check (deleted_at is not null or text is not null or image_url is not null)
+    check (
+      deleted_at is not null
+      or text is not null
+      or image_url is not null
+      or shared_content_id is not null
+    )
 );
 
 create index if not exists messages_conversation_idx on public.messages (conversation_id, created_at);
@@ -5259,8 +5277,12 @@ security definer
 set search_path = public
 as $$
 begin
+  -- WYN-033: shared_content_type/shared_content_id null-out alongside
+  -- text/image_url -- same discipline as the original text/image_url
+  -- nulling (RLS is row-level, not column-level; a deleted share
+  -- must not leave its reference reachable through this row).
   update public.messages
-  set text = null, image_url = null, deleted_at = now()
+  set text = null, image_url = null, shared_content_type = null, shared_content_id = null, deleted_at = now()
   where id = p_message_id and sender_id = auth.uid() and deleted_at is null;
 
   if not found then
@@ -5277,10 +5299,18 @@ grant execute on function public.delete_message(uuid) to authenticated;
 -- (mirrors moderation_queue view's own reasoning: a moderator is
 -- never a conversation participant) but re-implements the *right*
 -- check itself rather than skipping it.
+-- WYN-033: return-table column list changed (added shared_content_*)
+-- -- `create or replace function` cannot change a function's return
+-- table shape, so the old signature must be dropped first (same
+-- lesson as get_my_moderation_status(), WYN-030).
+drop function if exists public.get_message_for_moderation(uuid);
+
 create or replace function public.get_message_for_moderation(p_message_id uuid)
 returns table (
   text text,
   image_url text,
+  shared_content_type text,
+  shared_content_id uuid,
   deleted_at timestamptz,
   sender_username text
 )
@@ -5289,7 +5319,7 @@ stable
 security definer
 set search_path = public
 as $$
-  select m.text, m.image_url, m.deleted_at, p.username
+  select m.text, m.image_url, m.shared_content_type, m.shared_content_id, m.deleted_at, p.username
   from public.messages m
   join public.profiles p on p.id = m.sender_id
   where m.id = p_message_id

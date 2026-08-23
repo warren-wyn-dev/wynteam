@@ -204,8 +204,19 @@ class ModerationRepository {
     }
     final text = row['text'] as String?;
     final hasImage = row['image_url'] != null;
+    // WYN-033: a shared-content card with no caption has neither text
+    // nor image_url, so it would otherwise show as "(ข้อความว่าง)" --
+    // give the moderator a real hint about what was actually shared.
+    final sharedContentType = row['shared_content_type'] as String?;
     final label = (text == null || text.isEmpty)
-        ? (hasImage ? '📷 รูปภาพ' : '(ข้อความว่าง)')
+        ? (hasImage
+            ? '📷 รูปภาพ'
+            : switch (sharedContentType) {
+                'drop' => '🔗 แชร์ Drop',
+                'profile' => '🔗 แชร์โปรไฟล์',
+                'club' => '🔗 แชร์ Club',
+                _ => '(ข้อความว่าง)',
+              })
         : text;
     return ModerationTargetSummary(exists: true, label: label, ownerUsername: sender);
   }

@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wyn/features/chat/data/chat_message.dart';
 import 'package:wyn/features/chat/data/conversation.dart';
 import 'package:wyn/features/chat/data/message_request.dart';
+import 'package:wyn/features/chat/data/shared_content_type.dart';
 
 void main() {
   group('MessageRequest.fromMap', () {
@@ -242,6 +243,40 @@ void main() {
 
       expect(message.replyPreviewText, isNull);
       expect(message.replyPreviewDeletedAt, isNull);
+    });
+
+    test('parses shared_content_type/shared_content_id (WYN-033)', () {
+      final message = ChatMessage.fromMap({
+        'id': 'm3',
+        'conversation_id': 'c1',
+        'sender_id': 'u1',
+        'text': null,
+        'image_url': null,
+        'reply_to_message_id': null,
+        'shared_content_type': 'drop',
+        'shared_content_id': 'drop-1',
+        'deleted_at': null,
+        'created_at': '2026-08-22T10:02:00Z',
+      });
+
+      expect(message.sharedContentType, SharedContentType.drop);
+      expect(message.sharedContentId, 'drop-1');
+    });
+
+    test('shared_content_type/id are null for an ordinary message', () {
+      final message = ChatMessage.fromMap({
+        'id': 'm4',
+        'conversation_id': 'c1',
+        'sender_id': 'u1',
+        'text': 'hello',
+        'image_url': null,
+        'reply_to_message_id': null,
+        'deleted_at': null,
+        'created_at': '2026-08-22T10:03:00Z',
+      });
+
+      expect(message.sharedContentType, isNull);
+      expect(message.sharedContentId, isNull);
     });
   });
 }

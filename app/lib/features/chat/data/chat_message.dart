@@ -1,9 +1,11 @@
+import 'shared_content_type.dart';
+
 /// One row of `public.messages` (WYN-031), as seen by a conversation
 /// participant. A soft-deleted message ([deletedAt] non-null) always
-/// has null [text]/[imageUrl] -- see `delete_message()` in
-/// supabase/schema.sql, which nulls the content directly rather than
-/// setting a flag, so there's no way to accidentally read the old
-/// content back through this model.
+/// has null [text]/[imageUrl]/[sharedContentType]/[sharedContentId] --
+/// see `delete_message()` in supabase/schema.sql, which nulls the
+/// content directly rather than setting a flag, so there's no way to
+/// accidentally read the old content back through this model.
 class ChatMessage {
   const ChatMessage({
     required this.id,
@@ -17,6 +19,8 @@ class ChatMessage {
     this.replyPreviewText,
     this.replyPreviewImageUrl,
     this.replyPreviewDeletedAt,
+    this.sharedContentType,
+    this.sharedContentId,
   });
 
   final String id;
@@ -28,6 +32,13 @@ class ChatMessage {
   final String? imageUrl;
   final String? replyToMessageId;
   final DateTime? deletedAt;
+
+  /// WYN-033: set only for a "shared" message (Drop/Profile/Club).
+  /// Deliberately not joined/denormalized -- see the class doc comment
+  /// on `ChatRepository` for why the referenced content is resolved
+  /// through the normal Drop/Club/Profile repositories instead.
+  final SharedContentType? sharedContentType;
+  final String? sharedContentId;
 
   bool get isDeleted => deletedAt != null;
 
@@ -55,6 +66,10 @@ class ChatMessage {
       replyPreviewDeletedAt: reply?['deleted_at'] == null
           ? null
           : DateTime.parse(reply!['deleted_at'] as String),
+      sharedContentType: map['shared_content_type'] == null
+          ? null
+          : sharedContentTypeFromWireValue(map['shared_content_type'] as String),
+      sharedContentId: map['shared_content_id'] as String?,
     );
   }
 }

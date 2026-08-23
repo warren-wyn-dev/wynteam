@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'chat_message.dart';
 import 'conversation.dart';
 import 'message_request.dart';
+import 'shared_content_type.dart';
 
 /// The 2 columns `ConversationScreen` needs to decide which of its 4
 /// composer-area states applies (WYN-032) -- deliberately not the full
@@ -13,8 +14,8 @@ import 'message_request.dart';
 typedef ConversationMeta = ({String status, String? requestedBy});
 
 const _replyEmbed = 'reply_to:messages!messages_reply_to_message_id_fkey(text, image_url, deleted_at)';
-const _messageColumns =
-    'id, conversation_id, sender_id, text, image_url, reply_to_message_id, deleted_at, created_at, $_replyEmbed';
+const _messageColumns = 'id, conversation_id, sender_id, text, image_url, reply_to_message_id, '
+    'shared_content_type, shared_content_id, deleted_at, created_at, $_replyEmbed';
 
 /// Wraps `chat_inbox`, `conversations`, `messages`, `conversation_mutes`,
 /// `message_requests` (WYN-032), the `chat-media` storage bucket, and
@@ -29,6 +30,14 @@ const _messageColumns =
 /// `delete_message()` instead, which nulls the row's own content
 /// rather than just flagging it -- see that function's comment in
 /// schema.sql for why a raw UPDATE policy would be the wrong shape here.
+///
+/// WYN-033 (Share to Chat): a shared Drop/Profile/Club is stored on the
+/// message row as just a type+id (`shared_content_type`/
+/// `shared_content_id`), never denormalized -- the UI resolves it
+/// through the normal DropRepository/ClubRepository/ProfileRepository
+/// fetch calls at render time, so the existing RLS on those tables
+/// (e.g. a blocked author's Drop already being invisible) protects a
+/// shared reference automatically, with no new mechanism here.
 class ChatRepository {
   ChatRepository(this._client);
 
@@ -161,12 +170,18 @@ class ChatRepository {
   /// echo of its own send -- see ConversationScreen's send handler for
   /// why this matters (realtime is only relied on for the *other*
   /// side's messages, with an id-dedupe as a second line of defense).
+  /// [sharedContentType]/[sharedContentId] (WYN-033) let [text] serve
+  /// as an optional caption alongside a shared Drop/Profile/Club card
+  /// -- deliberately not denormalizing the shared content itself here;
+  /// see the class doc comment.
   Future<ChatMessage> sendMessage({
     required String conversationId,
     String? text,
     Uint8List? imageBytes,
     String? imageExtension,
     String? replyToMessageId,
+    SharedContentType? sharedContentType,
+    String? sharedContentId,
   }) async {
     String? imagePath;
     if (imageBytes != null) {
@@ -183,6 +198,8 @@ class ChatRepository {
           'text': (text == null || text.trim().isEmpty) ? null : text.trim(),
           'image_url': imagePath,
           'reply_to_message_id': replyToMessageId,
+          'shared_content_type': sharedContentType?.wireValue,
+          'shared_content_id': sharedContentId,
         })
         .select(_messageColumns)
         .single();
