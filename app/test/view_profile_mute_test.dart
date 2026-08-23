@@ -82,7 +82,10 @@ void main() {
     final titles = items
         .map((tile) => (tile.title as Text).data)
         .toList(growable: false);
-    expect(titles, ['รายงาน', 'ปิดเสียง', 'บล็อก']);
+    // WYN-033 added "แชร์โปรไฟล์" ahead of the 3 safety items this test
+    // originally covered (separated by its own Divider, not asserted
+    // here) -- see ViewProfileScreen._openMoreMenu().
+    expect(titles, ['แชร์โปรไฟล์', 'รายงาน', 'ปิดเสียง', 'บล็อก']);
   });
 
   testWidgets('tapping ปิดเสียง calls muteUser and shows a confirmation '

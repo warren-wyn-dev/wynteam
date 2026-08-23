@@ -25,12 +25,18 @@ import '../../block/data/block_relationship.dart';
 import '../../block/data/block_repository.dart';
 import '../../block/presentation/block_dialogs.dart';
 import '../../chat/data/chat_repository.dart';
+import '../../chat/data/shared_content_type.dart';
 import '../../chat/presentation/conversation_screen.dart';
+import '../../chat/presentation/share_sheet.dart';
 import '../../mute/data/mute_repository.dart';
 import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
 import '../../settings/presentation/settings_screen.dart';
+
+/// Placeholder share link -- same "no real hosting/domain yet" caveat as
+/// dropShareLink/clubShareLink (WYN-005/014).
+String profileShareLink(String username) => 'https://wyn.app/@$username';
 
 typedef _ProfileWithCounts = ({Profile profile, int followerCount, int followingCount});
 
@@ -379,11 +385,36 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   // "รายงาน" regardless (mute would be redundant under a much stronger
   // restriction).
   Future<void> _openMoreMenu() async {
+    // WYN-033: needs the username for both the native-share text and
+    // the Share-to-Chat preview label -- _loadFuture is already
+    // in-flight/resolved by the time this button is reachable (set in
+    // initState), so this just awaits the same cached Future the body
+    // itself uses, never a second query.
+    final data = await _loadFuture;
+    if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) => SafeArea(
         child: Wrap(
           children: [
+            ListTile(
+              leading: const Icon(Icons.share_outlined),
+              title: const Text('แชร์โปรไฟล์'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                showShareSheet(
+                  context,
+                  chatRepository: _chatRepository,
+                  profileRepository: widget.profileRepository,
+                  sharedContentType: SharedContentType.profile,
+                  sharedContentId: widget.userId,
+                  previewLabel: 'แชร์โปรไฟล์ @${data.profile.username}',
+                  nativeShareText: profileShareLink(data.profile.username),
+                  nativeShareTitle: data.profile.displayName ?? '@${data.profile.username}',
+                );
+              },
+            ),
+            const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.flag_outlined),
               title: const Text('รายงาน'),

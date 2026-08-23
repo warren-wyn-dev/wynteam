@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../core/widgets/hashtag_text.dart';
 import '../../../core/widgets/restriction_banner.dart';
+import '../../chat/data/chat_repository.dart';
+import '../../chat/data/shared_content_type.dart';
+import '../../chat/presentation/share_sheet.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/data/appeal_status.dart';
@@ -44,6 +46,7 @@ class DropDetailScreen extends StatefulWidget {
     required this.drop,
     this.moderationRepository,
     this.appealRepository,
+    this.chatRepository,
   });
 
   final DropRepository dropRepository;
@@ -62,6 +65,9 @@ class DropDetailScreen extends StatefulWidget {
 
   // Same shape again -- WYN-030's appeal entry point on the Restrict banner.
   final AppealRepository? appealRepository;
+
+  // Same shape again -- WYN-033's "แชร์เข้า Chat" option on the share sheet.
+  final ChatRepository? chatRepository;
 
   @override
   State<DropDetailScreen> createState() => _DropDetailScreenState();
@@ -94,6 +100,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       widget.moderationRepository ?? ModerationRepository(Supabase.instance.client);
   late final AppealRepository _appealRepository =
       widget.appealRepository ?? AppealRepository(Supabase.instance.client);
+  late final ChatRepository _chatRepository =
+      widget.chatRepository ?? ChatRepository(Supabase.instance.client);
 
   // WYN-029 (Restrict) -- see CreateDropScreen's identical fields/doc
   // comment for why this is loaded once, not re-polled.
@@ -282,12 +290,16 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     }
   }
 
-  Future<void> _share() async {
-    await SharePlus.instance.share(
-      ShareParams(
-        text: dropShareLink(_drop.id),
-        title: 'Drop บน WYN',
-      ),
+  Future<void> _openShareSheet() async {
+    await showShareSheet(
+      context,
+      chatRepository: _chatRepository,
+      profileRepository: widget.profileRepository,
+      sharedContentType: SharedContentType.drop,
+      sharedContentId: _drop.id,
+      previewLabel: 'แชร์ Drop',
+      nativeShareText: dropShareLink(_drop.id),
+      nativeShareTitle: 'Drop บน WYN',
     );
   }
 
@@ -552,7 +564,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   IconButton(
                     icon: const Icon(Icons.share_outlined),
                     tooltip: 'แชร์',
-                    onPressed: _share,
+                    onPressed: _openShareSheet,
                   ),
                   IconButton(
                     icon: const Icon(Icons.link),

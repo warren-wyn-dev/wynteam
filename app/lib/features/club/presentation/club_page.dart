@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/club.dart';
@@ -11,6 +10,10 @@ import 'widgets/club_about_tab.dart';
 import 'widgets/club_members_tab.dart';
 import 'widgets/club_posts_tab.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../chat/data/chat_repository.dart';
+import '../../chat/data/shared_content_type.dart';
+import '../../chat/presentation/share_sheet.dart';
+import '../../profile/data/profile_repository.dart';
 import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
@@ -60,6 +63,8 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   late Future<_ClubPageData> _loadFuture;
   bool _isJoinActionInFlight = false;
   final _reportRepository = ReportRepository(Supabase.instance.client);
+  final _chatRepository = ChatRepository(Supabase.instance.client);
+  final _profileRepository = ProfileRepository(Supabase.instance.client);
 
   @override
   void initState() {
@@ -196,9 +201,16 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     _reload();
   }
 
-  Future<void> _share(Club club) async {
-    await SharePlus.instance.share(
-      ShareParams(text: clubShareLink(club.id), title: club.name),
+  Future<void> _openShareSheet(Club club) async {
+    await showShareSheet(
+      context,
+      chatRepository: _chatRepository,
+      profileRepository: _profileRepository,
+      sharedContentType: SharedContentType.club,
+      sharedContentId: club.id,
+      previewLabel: 'แชร์ Club ${club.name}',
+      nativeShareText: clubShareLink(club.id),
+      nativeShareTitle: club.name,
     );
   }
 
@@ -454,7 +466,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               IconButton(
                 icon: const Icon(Icons.share_outlined),
                 tooltip: 'แชร์',
-                onPressed: () => _share(club),
+                onPressed: () => _openShareSheet(club),
               ),
               IconButton(
                 icon: const Icon(Icons.more_vert),

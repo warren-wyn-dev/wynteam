@@ -11,6 +11,13 @@ import '../../../core/widgets/restriction_banner.dart';
 import '../../block/data/block_relationship.dart';
 import '../../block/data/block_repository.dart';
 import '../../block/presentation/block_dialogs.dart';
+import '../../club/data/club.dart';
+import '../../club/data/club_post_repository.dart';
+import '../../club/data/club_repository.dart';
+import '../../club/presentation/club_page.dart';
+import '../../drop/data/drop.dart';
+import '../../drop/presentation/drop_detail_screen.dart';
+import '../../profile/data/profile.dart';
 import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/data/appeal_status.dart';
 import '../../moderation/data/moderation_repository.dart';
@@ -28,6 +35,7 @@ import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
 import '../data/chat_message.dart';
 import '../data/chat_repository.dart';
+import '../data/shared_content_type.dart';
 
 /// Screen 3 -- the conversation itself. See
 /// .wyn/docs/design/wyn-031-chat-1to1.md, Screen 3.
@@ -49,6 +57,8 @@ class ConversationScreen extends StatefulWidget {
     PopRepository? popRepository,
     SavedRepository? savedRepository,
     AppealRepository? appealRepository,
+    ClubRepository? clubRepository,
+    ClubPostRepository? clubPostRepository,
   })  : _blockRepository = blockRepository,
         _moderationRepository = moderationRepository,
         _reportRepository = reportRepository,
@@ -57,7 +67,9 @@ class ConversationScreen extends StatefulWidget {
         _dropRepository = dropRepository,
         _popRepository = popRepository,
         _savedRepository = savedRepository,
-        _appealRepository = appealRepository;
+        _appealRepository = appealRepository,
+        _clubRepository = clubRepository,
+        _clubPostRepository = clubPostRepository;
 
   final ChatRepository chatRepository;
   final String conversationId;
@@ -80,6 +92,11 @@ class ConversationScreen extends StatefulWidget {
   final PopRepository? _popRepository;
   final SavedRepository? _savedRepository;
   final AppealRepository? _appealRepository;
+
+  // Same shape again -- WYN-033's shared-content preview card needs
+  // these to open ClubPage when a shared Club card is tapped.
+  final ClubRepository? _clubRepository;
+  final ClubPostRepository? _clubPostRepository;
 
   @override
   State<ConversationScreen> createState() => _ConversationScreenState();
@@ -108,6 +125,17 @@ class _ConversationScreenState extends State<ConversationScreen> {
       widget._savedRepository ?? SavedRepository(Supabase.instance.client);
   late final AppealRepository _appealRepository =
       widget._appealRepository ?? AppealRepository(Supabase.instance.client);
+  late final ClubRepository _clubRepository =
+      widget._clubRepository ?? ClubRepository(Supabase.instance.client);
+  late final ClubPostRepository _clubPostRepository =
+      widget._clubPostRepository ?? ClubPostRepository(Supabase.instance.client);
+
+  // WYN-033: caches a resolved shared Drop/Profile/Club by
+  // "$type:$id" so scrolling (which rebuilds bubbles) doesn't re-fetch
+  // the same content repeatedly. `Object?` because the 3 shared types
+  // have no common base class -- a `Drop`/`Profile`/`Club`, or null
+  // once resolution is confirmed to have failed (deleted/blocked).
+  final Map<String, Object?> _sharedContentCache = {};
 
   String get _myUserId => Supabase.instance.client.auth.currentUser!.id;
 
@@ -447,6 +475,72 @@ class _ConversationScreenState extends State<ConversationScreen> {
     );
   }
 
+  /// WYN-033: resolves a shared-content reference through the normal
+  /// repository fetch (never a raw join) so the existing RLS on
+  /// drops/clubs/profiles decides visibility -- a deleted or (for
+  /// Drop) blocked-author reference naturally resolves to null here,
+  /// same as opening it any other way would. Cached by "$type:$id" so
+  /// scrolling doesn't re-fetch on every rebuild.
+  Future<Object?> _resolveSharedContent(SharedContentType type, String id) async {
+    final cacheKey = '${type.wireValue}:$id';
+    if (_sharedContentCache.containsKey(cacheKey)) {
+      return _sharedContentCache[cacheKey];
+    }
+    Object? content;
+    try {
+      content = switch (type) {
+        SharedContentType.drop => await _dropRepository.fetchById(id),
+        SharedContentType.profile => await _profileRepository.fetchProfile(id),
+        SharedContentType.club => await _clubRepository.fetchClub(id),
+      };
+    } catch (_) {
+      content = null;
+    }
+    _sharedContentCache[cacheKey] = content;
+    return content;
+  }
+
+  void _openSharedContent(SharedContentType type, Object content) {
+    switch (type) {
+      case SharedContentType.drop:
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => DropDetailScreen(
+              dropRepository: _dropRepository,
+              followRepository: _followRepository,
+              profileRepository: _profileRepository,
+              popRepository: _popRepository,
+              savedRepository: _savedRepository,
+              drop: content as Drop,
+            ),
+          ),
+        );
+      case SharedContentType.profile:
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ViewProfileScreen(
+              profileRepository: _profileRepository,
+              followRepository: _followRepository,
+              dropRepository: _dropRepository,
+              popRepository: _popRepository,
+              savedRepository: _savedRepository,
+              userId: (content as Profile).id,
+            ),
+          ),
+        );
+      case SharedContentType.club:
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ClubPage(
+              clubRepository: _clubRepository,
+              clubPostRepository: _clubPostRepository,
+              clubId: (content as Club).id,
+            ),
+          ),
+        );
+    }
+  }
+
   void _scrollToMessage(String messageId) {
     final index = _messages.indexWhere((m) => m.id == messageId);
     if (index == -1) return;
@@ -671,6 +765,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
               ? null
               : () => _scrollToMessage(message.replyToMessageId!),
           onTapImage: (path) => _openEvidence(path),
+          resolveSharedContent: _resolveSharedContent,
+          onTapSharedContent: _openSharedContent,
         );
       },
     );
@@ -892,6 +988,8 @@ class _MessageBubble extends StatelessWidget {
     required this.onLongPress,
     required this.onTapReplyQuote,
     required this.onTapImage,
+    required this.resolveSharedContent,
+    required this.onTapSharedContent,
   });
 
   final ChatMessage message;
@@ -899,6 +997,11 @@ class _MessageBubble extends StatelessWidget {
   final VoidCallback onLongPress;
   final VoidCallback? onTapReplyQuote;
   final void Function(String path) onTapImage;
+
+  /// WYN-033 -- see `_ConversationScreenState._resolveSharedContent()`/
+  /// `_openSharedContent()`.
+  final Future<Object?> Function(SharedContentType type, String id) resolveSharedContent;
+  final void Function(SharedContentType type, Object content) onTapSharedContent;
 
   @override
   Widget build(BuildContext context) {
@@ -973,6 +1076,17 @@ class _MessageBubble extends StatelessWidget {
                       ),
                     ),
                   ),
+                if (message.sharedContentType != null && message.sharedContentId != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: WynSpacing.space1),
+                    child: _SharedContentPreview(
+                      type: message.sharedContentType!,
+                      id: message.sharedContentId!,
+                      textColor: textColor,
+                      resolveSharedContent: resolveSharedContent,
+                      onTapSharedContent: onTapSharedContent,
+                    ),
+                  ),
                 if (message.text != null) Text(message.text!, style: TextStyle(color: textColor)),
               ],
               const SizedBox(height: WynSpacing.space1),
@@ -988,4 +1102,140 @@ class _MessageBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Screen 4 (WYN-033) -- the shared Drop/Profile/Club preview card
+/// inside a message bubble. See
+/// .wyn/docs/design/wyn-033-share-to-chat.md, Screen 4. Resolves the
+/// referenced content once (a `StatefulWidget`, not a `FutureBuilder`
+/// built fresh on every rebuild, which would re-trigger the lookup --
+/// see `resolveSharedContent`'s own cache, which this still relies on
+/// for scroll-driven bubble rebuilds elsewhere in the list).
+class _SharedContentPreview extends StatefulWidget {
+  const _SharedContentPreview({
+    required this.type,
+    required this.id,
+    required this.textColor,
+    required this.resolveSharedContent,
+    required this.onTapSharedContent,
+  });
+
+  final SharedContentType type;
+  final String id;
+  final Color textColor;
+  final Future<Object?> Function(SharedContentType type, String id) resolveSharedContent;
+  final void Function(SharedContentType type, Object content) onTapSharedContent;
+
+  @override
+  State<_SharedContentPreview> createState() => _SharedContentPreviewState();
+}
+
+class _SharedContentPreviewState extends State<_SharedContentPreview> {
+  late final Future<Object?> _future = widget.resolveSharedContent(widget.type, widget.id);
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return FutureBuilder<Object?>(
+      future: _future,
+      builder: (context, snapshot) {
+        final cardDecoration = BoxDecoration(
+          color: widget.textColor.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+          border: Border.all(color: widget.textColor.withValues(alpha: 0.15)),
+        );
+
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Container(
+            width: 220,
+            height: 64,
+            decoration: cardDecoration,
+          );
+        }
+
+        final content = snapshot.data;
+        if (content == null) {
+          return Container(
+            width: 220,
+            padding: const EdgeInsets.all(WynSpacing.space2),
+            decoration: cardDecoration,
+            child: Text(
+              'เนื้อหานี้ไม่พร้อมใช้งาน',
+              style: TextStyle(color: widget.textColor, fontStyle: FontStyle.italic),
+            ),
+          );
+        }
+
+        final (leading, title, subtitle) = switch (widget.type) {
+          SharedContentType.drop => (
+              _thumbnail(colorScheme, Icons.image_outlined),
+              '@${(content as Drop).authorUsername}',
+              content.caption ?? '',
+            ),
+          SharedContentType.profile => (
+              AvatarCircle(
+                imageUrl: (content as Profile).avatarUrl,
+                fallbackText: content.username,
+                radius: 24,
+              ),
+              content.displayName?.isNotEmpty == true ? content.displayName! : '@${content.username}',
+              content.bio ?? '@${content.username}',
+            ),
+          SharedContentType.club => (
+              _thumbnail(colorScheme, Icons.groups_outlined),
+              (content as Club).name,
+              content.description ?? '',
+            ),
+        };
+
+        return GestureDetector(
+          onTap: () => widget.onTapSharedContent(widget.type, content),
+          child: Container(
+            width: 220,
+            padding: const EdgeInsets.all(WynSpacing.space2),
+            decoration: cardDecoration,
+            child: Row(
+              children: [
+                leading,
+                const SizedBox(width: WynSpacing.space2),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: widget.textColor, fontWeight: FontWeight.bold),
+                      ),
+                      if (subtitle.isNotEmpty)
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: widget.textColor.withValues(alpha: 0.8),
+                              ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _thumbnail(ColorScheme colorScheme, IconData icon) => ClipRRect(
+        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+        child: Container(
+          width: 48,
+          height: 48,
+          color: colorScheme.surfaceContainerHighest,
+          child: Icon(icon, color: colorScheme.onSurfaceVariant),
+        ),
+      );
 }
