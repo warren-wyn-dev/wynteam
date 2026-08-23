@@ -1,6 +1,6 @@
 # Product Task — WYN-040
 
-Status: backlog
+Status: qa (Coding เสร็จแล้ว commit 3a6ab07 — รอ Independent QA เริ่มทดสอบจริง ยังไม่มีผลทดสอบ QA เขียนไว้ในไฟล์นี้เลยแม้แต่บรรทัดเดียว ณ จุดนี้)
 Owner: AI Product Manager
 
 Feature: Discovery Page (Trending Now / Trending Topics & Hashtags / Rising / Suggested Users / Suggested Clubs)
