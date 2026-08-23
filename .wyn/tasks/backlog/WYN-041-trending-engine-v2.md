@@ -1,6 +1,6 @@
 # Product Task — WYN-041
 
-Status: backlog
+Status: design done (Design spec เสร็จแล้ว — `.wyn/docs/design/wyn-041-trending-engine-v2.md` — ส่งต่อ AI Coding)
 Owner: AI Product Manager
 
 Feature: Trending Engine v2 — wire view count เข้าสูตรจัดอันดับ + Anti-Manipulation Scoring (ต่อยอดจาก WYN-018)
