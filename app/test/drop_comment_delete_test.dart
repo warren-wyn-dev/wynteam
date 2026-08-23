@@ -32,6 +32,16 @@ void main() {
     commentCount: 2,
     likedByMe: false,
     savedByMe: false,
+    // WYN-038 QA fix: this Drop belongs to "someone-else", so opening
+    // DropDetailScreen as "me" fires the optimistic View count bump
+    // (0 -> 1) alongside the interaction row's other counters. Without
+    // a non-zero starting viewCount here, that bump collides with the
+    // comment count landing on "1" after the delete test below removes
+    // one of the two seeded comments, making `find.text('1')` match two
+    // widgets (StateError: "Too many elements") -- a real regression this
+    // QA round caught (red) before fixing (green). 10 is an arbitrary
+    // value chosen only to keep 10/11 clear of the comment count's 2/1.
+    viewCount: 10,
   );
   final ownComment = DropComment(
     id: 'c1',

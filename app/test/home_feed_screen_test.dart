@@ -12,6 +12,7 @@ import 'package:wyn/features/drop/presentation/quote_redrop_screen.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
 import 'package:wyn/features/home/presentation/home_feed_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
+import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/trending_tile.dart';
 import 'package:wyn/features/profile/data/profile.dart';
@@ -424,6 +425,17 @@ void main() {
       find.widgetWithIcon(IconButton, Icons.mode_comment_outlined),
       findsOneWidget,
     );
+    // WYN-038 QA fix: assert the Drop card's own view count icon here,
+    // scoped to HomeDropCard, while it is still mounted -- see the note
+    // below (on the unscoped `findsNWidgets(2)` this replaces) for why
+    // checking it again after scrolling to the Pop card is not reliable.
+    expect(
+      find.descendant(
+        of: find.byType(HomeDropCard),
+        matching: find.byIcon(Icons.visibility_outlined),
+      ),
+      findsOneWidget,
+    );
 
     // The Drop card's 1:1 image (800px wide in this 800x600 test
     // viewport) pushes the Pop card below the fold -- ListView only
@@ -443,12 +455,27 @@ void main() {
     // Only the Pop card has a play icon and a duration badge.
     expect(find.byIcon(Icons.play_circle_fill), findsOneWidget);
     expect(find.text('0:42'), findsOneWidget);
-    // WYN-038: both card types show a view count icon/number now (the
-    // Drop card gained one this task, mirroring the Pop card's own,
-    // which already existed since WYN-006/WYN-007) -- one per card.
-    expect(find.byIcon(Icons.visibility_outlined), findsNWidgets(2));
+    // WYN-038 QA fix: both card types show a view count icon/number now
+    // (the Drop card gained one this task, mirroring the Pop card's own,
+    // which already existed since WYN-006/WYN-007) -- but the original
+    // unscoped `find.byIcon(Icons.visibility_outlined), findsNWidgets(2)`
+    // here was a real, confirmed-red bug: this ListView is lazily built
+    // (see the "ListView only mounts elements near the viewport" note
+    // above), so by the time we've scrolled this far to bring the Pop
+    // card into view, the Drop card above has actually been unmounted --
+    // only 1 of the 2 view-count icons exists in the tree at this point,
+    // not 2. The Drop card's own icon was already asserted above, before
+    // scrolling away from it; scope this one to the Pop card specifically
+    // (same reasoning the popCardShare/popCardComment finders below this
+    // already use, which correctly anticipated the Drop card being
+    // unreliable to unscoped-count at this scroll position).
+    final popCardViewCount = find.descendant(
+      of: find.byType(HomePopCard),
+      matching: find.byIcon(Icons.visibility_outlined),
+    );
+    expect(popCardViewCount, findsOneWidget);
     // The Pop card's own view count value (7) is still uniquely
-    // findable -- the Drop card above defaults to 0, not 7.
+    // findable -- the Drop card above (now unmounted) would have shown 0.
     expect(find.text('7'), findsOneWidget);
     // Same Share/Comment regression check, scoped to the Pop card
     // specifically -- the Drop card above may still be in the element
