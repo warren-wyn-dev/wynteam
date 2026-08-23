@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../drop/data/drop_repository.dart';
 import '../../pop/data/pop_repository.dart';
@@ -44,11 +45,21 @@ class FollowListScreen extends StatefulWidget {
 class _FollowListScreenState extends State<FollowListScreen> {
   final _scrollController = ScrollController();
   final List<Profile> _profiles = [];
+  final Set<String> _removingIds = {};
   int _page = 0;
   bool _isLoadingInitial = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
   String? _error;
+
+  // WYN-039 Requirement 3 ("Remove Follower") -- the remove action only
+  // ever makes sense on your *own* Followers list (not Following, and
+  // not someone else's Followers list, which the RLS DELETE policy
+  // would reject anyway -- this just keeps the button from ever
+  // appearing somewhere it can't work).
+  bool get _isOwnFollowersList =>
+      widget.mode == FollowListMode.followers &&
+      widget.userId == Supabase.instance.client.auth.currentUser!.id;
 
   @override
   void initState() {
@@ -137,11 +148,45 @@ class _FollowListScreenState extends State<FollowListScreen> {
     }
   }
 
+  Future<void> _removeFollower(Profile profile) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('เอา ${profile.nameOrUsername} ออกจากผู้ติดตาม?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('ยกเลิก'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('เอาออก'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || _removingIds.contains(profile.id)) return;
+
+    setState(() => _removingIds.add(profile.id));
+    try {
+      await widget.followRepository.removeFollower(followerId: profile.id);
+      if (!mounted) return;
+      setState(() => _profiles.removeWhere((p) => p.id == profile.id));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    } finally {
+      if (mounted) setState(() => _removingIds.remove(profile.id));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final title = widget.mode == FollowListMode.followers
-        ? 'ผู้ติดตาม'
-        : 'กำลังติดตาม';
+    final title =
+        widget.mode == FollowListMode.followers ? 'ผู้ติดตาม' : 'กำลังติดตาม';
 
     return Scaffold(
       appBar: AppBar(title: Text(title)),
@@ -201,7 +246,8 @@ class _FollowListScreenState extends State<FollowListScreen> {
             child: InkWell(
               onTap: () => _openProfile(profile),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
                 child: Row(
                   children: [
                     AvatarCircle(
@@ -220,13 +266,30 @@ class _FollowListScreenState extends State<FollowListScreen> {
                           ),
                           Text(
                             '@${profile.username}',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
                                   color: Theme.of(context).colorScheme.outline,
                                 ),
                           ),
                         ],
                       ),
                     ),
+                    if (_isOwnFollowersList) ...[
+                      const SizedBox(width: WynSpacing.space2),
+                      if (_removingIds.contains(profile.id))
+                        const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      else
+                        OutlinedButton(
+                          onPressed: () => _removeFollower(profile),
+                          child: const Text('ลบ'),
+                        ),
+                    ],
                   ],
                 ),
               ),

@@ -7474,3 +7474,18 @@ alter table public.notifications
     'message_request', 'redrop',
     'follow_request', 'follow_request_accepted'
   ));
+
+-- WYN-039 QA finding (Requirement 3, "Remove Follower") -- Product's
+-- explicit acceptance criterion "เจ้าของบัญชีกด Remove Follower ... ต้อง
+-- หลุดจากการ follow จริง" was missing entirely from both the Design doc
+-- and Coding's first pass: `follows`' only DELETE policy (WYN-008) lets
+-- the *follower* remove their own outgoing follow (unfollow), but never
+-- let the person *being followed* remove one of their own followers.
+-- Postgres RLS OR's multiple permissive policies for the same command
+-- together, so this is purely additive -- the existing WYN-008 policy is
+-- untouched.
+create policy "Users can remove a follower from their own followers list"
+  on public.follows
+  for delete
+  to authenticated
+  using (auth.uid() = following_id);

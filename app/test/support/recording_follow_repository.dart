@@ -35,6 +35,17 @@ class RecordingFollowRepository extends FollowRepository {
   int toggleFollowCalls = 0;
   final List<bool> toggleFollowCurrentlyFollowingArgs = [];
 
+  /// WYN-039 Requirement 3 ("Remove Follower").
+  final List<String> removeFollowerArgs = [];
+  Object? removeFollowerError;
+
+  @override
+  Future<void> removeFollower({required String followerId}) async {
+    removeFollowerArgs.add(followerId);
+    final error = removeFollowerError;
+    if (error != null) throw error;
+  }
+
   @override
   Future<bool> isFollowing({required String userId}) async =>
       initiallyFollowing;

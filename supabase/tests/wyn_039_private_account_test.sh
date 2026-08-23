@@ -35,6 +35,11 @@
 #       Drop, a third party who does NOT follow the original author
 #       still cannot see the ReDrop -- visibility is inherited from the
 #       original author, not the redropper.
+#   18. Remove Follower (Requirement 3, added after an independent QA
+#       finding that it was missing entirely): the person being followed
+#       can remove one of their own followers directly; the follower
+#       themself can still unfollow (WYN-008, unchanged); an unrelated
+#       third party can do neither.
 #
 # Requirements: a local PostgreSQL 16 server reachable either as the
 # current OS user or via `sudo -u postgres` (mirrors
@@ -628,6 +633,68 @@ begin
   reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
 
   insert into results select 'CHECK18b_redrop_visible_to_follower_who_made_it', v_seen, 1;
+end
+$$;
+
+-- ------------------------------------------------------------
+-- CHECK 19: Remove Follower (Requirement 3).
+-- ------------------------------------------------------------
+do $$
+declare
+  v_failed boolean := false;
+begin
+  -- grace (unrelated third party) tries to remove bob as one of alice's
+  -- followers -- must fail (grace is neither party to that edge).
+  set role authenticated;
+  set request.jwt.claim.sub = '77777777-7777-7777-7777-777777777777';
+  set request.jwt.claim.role = 'authenticated';
+  delete from public.follows
+  where follower_id = '22222222-2222-2222-2222-222222222222'
+    and following_id = '11111111-1111-1111-1111-111111111111';
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+
+  insert into results select 'CHECK19a_third_party_cannot_remove_someone_elses_follower',
+    (select count(*) from public.follows
+     where follower_id = '22222222-2222-2222-2222-222222222222'
+       and following_id = '11111111-1111-1111-1111-111111111111')::int, 1;
+end
+$$;
+
+do $$
+begin
+  -- alice (the one being followed) removes bob as a follower.
+  set role authenticated;
+  set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+  set request.jwt.claim.role = 'authenticated';
+  delete from public.follows
+  where follower_id = '22222222-2222-2222-2222-222222222222'
+    and following_id = '11111111-1111-1111-1111-111111111111';
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+
+  insert into results select 'CHECK19b_being_followed_can_remove_a_follower',
+    (select count(*) from public.follows
+     where follower_id = '22222222-2222-2222-2222-222222222222'
+       and following_id = '11111111-1111-1111-1111-111111111111')::int, 0;
+end
+$$;
+
+do $$
+begin
+  -- Regression: the follower themself can still unfollow directly
+  -- (WYN-008's original policy, untouched) -- grace still follows frank
+  -- from CHECK14 above.
+  set role authenticated;
+  set request.jwt.claim.sub = '77777777-7777-7777-7777-777777777777';
+  set request.jwt.claim.role = 'authenticated';
+  delete from public.follows
+  where follower_id = '77777777-7777-7777-7777-777777777777'
+    and following_id = '66666666-6666-6666-6666-666666666666';
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+
+  insert into results select 'CHECK19c_follower_can_still_unfollow_directly',
+    (select count(*) from public.follows
+     where follower_id = '77777777-7777-7777-7777-777777777777'
+       and following_id = '66666666-6666-6666-6666-666666666666')::int, 0;
 end
 $$;
 

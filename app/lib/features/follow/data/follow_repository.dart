@@ -65,6 +65,20 @@ class FollowRepository {
     return (response as num).toInt();
   }
 
+  /// WYN-039 Requirement 3 ("Remove Follower") -- the caller removes
+  /// [followerId] from their own followers list, without blocking them.
+  /// Only the person being followed may do this (RLS: `auth.uid() =
+  /// following_id`, a 2nd, purely additive DELETE policy alongside
+  /// WYN-008's own "unfollow yourself" policy).
+  Future<void> removeFollower({required String followerId}) {
+    final currentUserId = _client.auth.currentUser!.id;
+    return _client
+        .from('follows')
+        .delete()
+        .eq('follower_id', followerId)
+        .eq('following_id', currentUserId);
+  }
+
   /// Users who follow [userId], newest-followed first.
   Future<List<Profile>> fetchFollowers({
     required String userId,
