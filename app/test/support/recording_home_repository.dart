@@ -58,7 +58,8 @@ class RecordingHomeRepository extends HomeRepository {
   }
 
   @override
-  Future<List<HomeFeedItem>> fetchTrending() async => trendingItems;
+  Future<List<HomeFeedItem>> fetchTrending({int limit = 10}) async =>
+      trendingItems;
 
   @override
   Future<List<HomeFeedItem>> fetchRankedFeed({required int page}) async {

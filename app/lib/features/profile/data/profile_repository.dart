@@ -103,6 +103,29 @@ class ProfileRepository {
     return url;
   }
 
+  /// Fetches multiple profiles by id in a single query, returning them
+  /// in the same order as [ids] (not whatever order Postgres happens to
+  /// return rows in) -- WYN-040's Discovery RPCs (rising_profiles/
+  /// suggested_users) return only an already-ranked list of ids, and
+  /// this re-hydrates full Profile rows for that list without
+  /// duplicating any ranking logic client-side. An id with no matching
+  /// row (shouldn't normally happen, but defensive) is silently
+  /// dropped rather than throwing.
+  Future<List<Profile>> fetchProfilesByIds(List<String> ids) async {
+    if (ids.isEmpty) return [];
+
+    final rows = await _client
+        .from('profiles')
+        .select(
+            'id, username, display_name, bio, avatar_url, platform_role, is_private')
+        .inFilter('id', ids);
+
+    final byId = {
+      for (final row in rows) row['id'] as String: Profile.fromMap(row),
+    };
+    return ids.map((id) => byId[id]).whereType<Profile>().toList();
+  }
+
   /// Users whose username or display name contains [query] (case
   /// insensitive), for WYN-009 Search's User tab. A separate method from
   /// [fetchProfile] (single row by id) rather than overloading it.

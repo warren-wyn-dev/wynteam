@@ -1,14 +1,19 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../follow/data/follow_repository.dart';
+import '../../follow/data/follow_request_repository.dart';
+import '../../home/data/home_repository.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../saved/data/saved_repository.dart';
+import '../data/discovery_repository.dart';
+import 'widgets/discovery_view.dart';
 import 'widgets/search_club_results_tab.dart';
 import 'widgets/search_drop_results_tab.dart';
 import 'widgets/search_pop_results_tab.dart';
@@ -32,6 +37,8 @@ class SearchScreen extends StatefulWidget {
     required this.clubRepository,
     required this.clubPostRepository,
     this.autofocus = false,
+    this.followRequestRepository,
+    this.discoveryRepository,
   });
 
   final ProfileRepository profileRepository;
@@ -49,6 +56,17 @@ class SearchScreen extends StatefulWidget {
   // true at a call site that still represents deliberate search intent.
   final bool autofocus;
 
+  // WYN-040: optional and defaulted to Supabase.instance.client when
+  // omitted (see the State's _followRequestRepository/
+  // _discoveryRepository getters below) -- same "optional/defaulted
+  // repository" shape ViewProfileScreen already established for
+  // _reportRepository/_blockRepository/etc, so DiscoveryView's own
+  // dependencies (only needed for the empty/short-query state) don't
+  // become new *required* parameters at this screen's one call site
+  // (RootShell) or in any existing test that builds a SearchScreen.
+  final FollowRequestRepository? followRequestRepository;
+  final DiscoveryRepository? discoveryRepository;
+
   @override
   State<SearchScreen> createState() => _SearchScreenState();
 }
@@ -64,6 +82,23 @@ class _SearchScreenState extends State<SearchScreen> {
   // Deliberately separate from _controller.text, which updates on every
   // keystroke for the TextField itself.
   String _query = '';
+
+  late final FollowRequestRepository _followRequestRepository =
+      widget.followRequestRepository ??
+          FollowRequestRepository(Supabase.instance.client);
+  late final DiscoveryRepository _discoveryRepository =
+      widget.discoveryRepository ??
+          DiscoveryRepository(
+            Supabase.instance.client,
+            homeRepository: HomeRepository(Supabase.instance.client),
+            profileRepository: widget.profileRepository,
+          );
+
+  // WYN-040 Design doc, "ทิศทางภาพรวม" -- the same <2-char threshold the
+  // result tabs already use internally (SearchUserResultsTab._queryTooShort
+  // etc) to decide not to fire a query, reused here to decide whether the
+  // TabBar+TabBarView shows at all, not just each tab's own empty state.
+  bool get _showDiscovery => _query.trim().length < 2;
 
   @override
   void dispose() {
@@ -125,48 +160,65 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
             onChanged: _onQueryChanged,
           ),
-          bottom: const TabBar(
-            tabs: [
-              Tab(icon: Icon(Icons.person_outline), text: 'User'),
-              Tab(icon: Icon(Icons.grid_view_outlined), text: 'Drop'),
-              Tab(icon: Icon(Icons.play_circle_outline), text: 'Pop'),
-              Tab(icon: Icon(Icons.groups_outlined), text: 'Club'),
-            ],
-          ),
+          // WYN-040: no reason for the TabBar to stick around while
+          // Discovery shows instead of the result tabs it would flip
+          // between -- both come/go together, not just the body.
+          bottom: _showDiscovery
+              ? null
+              : const TabBar(
+                  tabs: [
+                    Tab(icon: Icon(Icons.person_outline), text: 'User'),
+                    Tab(icon: Icon(Icons.grid_view_outlined), text: 'Drop'),
+                    Tab(icon: Icon(Icons.play_circle_outline), text: 'Pop'),
+                    Tab(icon: Icon(Icons.groups_outlined), text: 'Club'),
+                  ],
+                ),
         ),
-        body: TabBarView(
-          children: [
-            SearchUserResultsTab(
-              query: _query,
-              profileRepository: widget.profileRepository,
-              followRepository: widget.followRepository,
-              dropRepository: widget.dropRepository,
-              popRepository: widget.popRepository,
-              savedRepository: widget.savedRepository,
-            ),
-            SearchDropResultsTab(
-              query: _query,
-              dropRepository: widget.dropRepository,
-              followRepository: widget.followRepository,
-              profileRepository: widget.profileRepository,
-              popRepository: widget.popRepository,
-              savedRepository: widget.savedRepository,
-            ),
-            SearchPopResultsTab(
-              query: _query,
-              popRepository: widget.popRepository,
-              followRepository: widget.followRepository,
-              profileRepository: widget.profileRepository,
-              dropRepository: widget.dropRepository,
-              savedRepository: widget.savedRepository,
-            ),
-            SearchClubResultsTab(
-              query: _query,
-              clubRepository: widget.clubRepository,
-              clubPostRepository: widget.clubPostRepository,
-            ),
-          ],
-        ),
+        body: _showDiscovery
+            ? DiscoveryView(
+                discoveryRepository: _discoveryRepository,
+                clubRepository: widget.clubRepository,
+                clubPostRepository: widget.clubPostRepository,
+                profileRepository: widget.profileRepository,
+                followRepository: widget.followRepository,
+                followRequestRepository: _followRequestRepository,
+                dropRepository: widget.dropRepository,
+                popRepository: widget.popRepository,
+                savedRepository: widget.savedRepository,
+              )
+            : TabBarView(
+                children: [
+                  SearchUserResultsTab(
+                    query: _query,
+                    profileRepository: widget.profileRepository,
+                    followRepository: widget.followRepository,
+                    dropRepository: widget.dropRepository,
+                    popRepository: widget.popRepository,
+                    savedRepository: widget.savedRepository,
+                  ),
+                  SearchDropResultsTab(
+                    query: _query,
+                    dropRepository: widget.dropRepository,
+                    followRepository: widget.followRepository,
+                    profileRepository: widget.profileRepository,
+                    popRepository: widget.popRepository,
+                    savedRepository: widget.savedRepository,
+                  ),
+                  SearchPopResultsTab(
+                    query: _query,
+                    popRepository: widget.popRepository,
+                    followRepository: widget.followRepository,
+                    profileRepository: widget.profileRepository,
+                    dropRepository: widget.dropRepository,
+                    savedRepository: widget.savedRepository,
+                  ),
+                  SearchClubResultsTab(
+                    query: _query,
+                    clubRepository: widget.clubRepository,
+                    clubPostRepository: widget.clubPostRepository,
+                  ),
+                ],
+              ),
       ),
     );
   }

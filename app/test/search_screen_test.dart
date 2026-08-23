@@ -8,12 +8,15 @@ import 'package:wyn/features/pop/data/pop.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
 import 'package:wyn/features/search/presentation/search_screen.dart';
+import 'package:wyn/features/search/presentation/widgets/discovery_view.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
+import 'support/recording_discovery_repository.dart';
 import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
+import 'support/recording_follow_request_repository.dart';
 import 'support/recording_pop_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
@@ -23,10 +26,12 @@ void main() {
   late RecordingDropRepository dropRepo;
   late RecordingPopRepository popRepo;
   late RecordingFollowRepository followRepo;
+  late RecordingFollowRequestRepository followRequestRepo;
   late RecordingSavedRepository savedRepo;
   late RecordingProfileRepository noMatchProfileRepo;
   late RecordingClubRepository clubRepo;
   late RecordingClubPostRepository clubPostRepo;
+  late RecordingDiscoveryRepository discoveryRepo;
 
   const matchingProfile = Profile(
     id: 'u1',
@@ -75,12 +80,15 @@ void main() {
     dropRepo = RecordingDropRepository(feedDrops: [matchingDrop]);
     popRepo = RecordingPopRepository(feedPops: [matchingPop]);
     followRepo = RecordingFollowRepository();
+    followRequestRepo = RecordingFollowRequestRepository();
     savedRepo = RecordingSavedRepository();
     clubRepo = RecordingClubRepository();
     clubPostRepo = RecordingClubPostRepository();
+    discoveryRepo = RecordingDiscoveryRepository();
   });
 
-  Widget buildSearch({RecordingProfileRepository? profileRepository}) => MaterialApp(
+  Widget buildSearch({RecordingProfileRepository? profileRepository}) =>
+      MaterialApp(
         home: SearchScreen(
           profileRepository: profileRepository ?? profileRepo,
           followRepository: followRepo,
@@ -89,29 +97,39 @@ void main() {
           savedRepository: savedRepo,
           clubRepository: clubRepo,
           clubPostRepository: clubPostRepo,
+          followRequestRepository: followRequestRepo,
+          discoveryRepository: discoveryRepo,
         ),
       );
 
-  testWidgets('shows a prompt (not results or an error) before anything is '
-      'typed', (tester) async {
+  // WYN-040: an empty/short query now shows DiscoveryView (not the old
+  // per-tab "พิมพ์..." prompt, and not the TabBar itself) -- see
+  // .wyn/docs/design/wyn-040-discovery-page.md, "ทิศทางภาพรวม".
+  testWidgets(
+      'shows DiscoveryView (not results, an error, or the TabBar) '
+      'before anything is typed', (tester) async {
     await tester.pumpWidget(buildSearch());
     await tester.pumpAndSettle();
 
-    expect(find.text('พิมพ์ username หรือชื่อเพื่อค้นหาคน'), findsOneWidget);
+    expect(find.byType(DiscoveryView), findsOneWidget);
+    expect(find.byType(TabBar), findsNothing);
     expect(profileRepo.searchProfilesCalls, 0);
   });
 
   testWidgets(
       'typing fewer than 2 characters does not fire a query, even after '
-      'the debounce window passes', (tester) async {
+      'the debounce window passes, and keeps showing DiscoveryView',
+      (tester) async {
     await tester.pumpWidget(buildSearch());
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'n');
     await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
 
     expect(profileRepo.searchProfilesCalls, 0);
-    expect(find.text('พิมพ์ username หรือชื่อเพื่อค้นหาคน'), findsOneWidget);
+    expect(find.byType(DiscoveryView), findsOneWidget);
+    expect(find.byType(TabBar), findsNothing);
   });
 
   testWidgets(
@@ -152,8 +170,7 @@ void main() {
     expect(profileRepo.searchProfilesQueryArgs, ['namfah']);
   });
 
-  testWidgets(
-      'finding a matching user opens ViewProfileScreen when tapped',
+  testWidgets('finding a matching user opens ViewProfileScreen when tapped',
       (tester) async {
     await tester.pumpWidget(buildSearch());
     await tester.pumpAndSettle();
@@ -176,7 +193,8 @@ void main() {
     expect(find.byType(ViewProfileScreen), findsOneWidget);
   });
 
-  testWidgets('finding a matching Drop (case-insensitive caption match) '
+  testWidgets(
+      'finding a matching Drop (case-insensitive caption match) '
       'opens DropDetailScreen when tapped', (tester) async {
     await tester.pumpWidget(buildSearch());
     await tester.pumpAndSettle();
@@ -221,7 +239,8 @@ void main() {
     expect(find.byType(PopSingleClipScreen), findsOneWidget);
   });
 
-  testWidgets('a query with no matches shows a tab-specific "not found" '
+  testWidgets(
+      'a query with no matches shows a tab-specific "not found" '
       'message, not an error or a stuck loading state', (tester) async {
     await tester.pumpWidget(buildSearch(profileRepository: noMatchProfileRepo));
     await tester.pumpAndSettle();
@@ -234,9 +253,9 @@ void main() {
     expect(find.text('ไม่พบผู้ใช้สำหรับ "zzz"'), findsOneWidget);
   });
 
-  testWidgets('clearing the query goes back to the prompt state '
-      'immediately, without waiting for the debounce window',
-      (tester) async {
+  testWidgets(
+      'clearing the query goes back to DiscoveryView immediately, '
+      'without waiting for the debounce window', (tester) async {
     await tester.pumpWidget(buildSearch());
     await tester.pumpAndSettle();
 
@@ -251,7 +270,7 @@ void main() {
     // must not wait it out.
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text('พิมพ์ username หรือชื่อเพื่อค้นหาคน'), findsOneWidget);
+    expect(find.byType(DiscoveryView), findsOneWidget);
     expect(find.text('@namfah'), findsNothing);
   });
 }

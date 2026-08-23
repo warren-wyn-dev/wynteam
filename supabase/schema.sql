@@ -7489,3 +7489,105 @@ create policy "Users can remove a follower from their own followers list"
   for delete
   to authenticated
   using (auth.uid() = following_id);
+
+-- ============================================================
+-- WYN-040: Discovery Page (Rising / Suggested Users)
+-- ============================================================
+-- See .wyn/docs/design/wyn-040-discovery-page.md, "Data Layer". Both
+-- RPCs below are bulk single-query ranking functions (not an N+1 call
+-- per candidate profile) and both are SECURITY DEFINER for the exact
+-- same reason follower_count()/internal.can_view_author_content() are
+-- (WYN-039, directly above): follows' own SELECT policy only reveals an
+-- edge to the two parties involved, or to a third party when *both*
+-- sides' content are visible to them -- a plain (non-definer) query
+-- ranking *other people's* follow edges from an arbitrary caller would
+-- silently see far fewer rows than actually exist (wrong/empty ranking,
+-- not an error), exactly the trap the Product spec's own Risks section
+-- calls out by name. Both return only `profile_id`, deliberately never
+-- the ranking signal itself (new-follower count / total follower
+-- count) -- the Design doc's explicit anti-gaming instruction: showing
+-- either number to the client would turn it into a public target to
+-- game. The caller re-fetches full Profile rows for the id list through
+-- the ordinary ProfileRepository/RLS path (DiscoveryRepository, Flutter
+-- side) -- same "RPC hands back an ordered id list, client re-fetches
+-- the real rows itself" shape get_poll_results() and every other
+-- ranking RPC in this schema already uses.
+
+-- "กำลังเติบโต" (Rising) -- ranks candidates by how many new followers
+-- they gained in the last p_days days, most first. Growth is measured
+-- purely from `follows.created_at` (no new table/column needed).
+-- Excludes: the caller themself, accounts the caller already follows,
+-- accounts blocked either-way, and accounts below p_min_followers total
+-- followers (Product spec: guards against a brand-new account's first
+-- follower ever, e.g. 0 -> 1, showing up as "Rising" purely from a
+-- 100% growth rate). Note p_min_followers is checked against the
+-- *total* follower count (a plain count(*) subquery, same shape
+-- follower_count() itself uses), not the in-window growth count.
+create or replace function public.rising_profiles(
+  p_limit int default 10,
+  p_days int default 7,
+  p_min_followers int default 5
+)
+returns table(profile_id uuid)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select f.following_id as profile_id
+  from public.follows f
+  where f.created_at >= now() - (p_days || ' days')::interval
+    and f.following_id <> auth.uid()
+    and not internal.is_blocked_either_way(auth.uid(), f.following_id)
+    and not exists (
+      select 1 from public.follows mine
+      where mine.follower_id = auth.uid()
+        and mine.following_id = f.following_id
+    )
+  group by f.following_id
+  having (
+    select count(*) from public.follows total
+    where total.following_id = f.following_id
+  ) >= p_min_followers
+  order by count(*) desc
+  limit p_limit;
+$$;
+
+grant execute on function public.rising_profiles(int, int, int) to authenticated;
+
+-- "แนะนำให้ติดตาม" (Suggested Users) -- ranks every eligible candidate
+-- by *total* follower count, most first (v1: no personalization/ML,
+-- per the Product spec's explicit scope). Excludes: the caller
+-- themself, accounts already followed, accounts blocked either-way,
+-- and accounts the caller has muted (WYN-028) -- mirrors home_feed's
+-- own mute-exclusion subquery shape exactly (`not exists (select 1
+-- from mutes where muter_id = auth.uid() ...)`); no RLS self-defeat risk
+-- here either, same reasoning home_feed's own comment gives, since the
+-- subquery's condition (`muter_id = auth.uid()`) is identical to
+-- mutes' own SELECT policy condition.
+create or replace function public.suggested_users(p_limit int default 10)
+returns table(profile_id uuid)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.id as profile_id
+  from public.profiles p
+  where p.id <> auth.uid()
+    and not internal.is_blocked_either_way(auth.uid(), p.id)
+    and not exists (
+      select 1 from public.follows f
+      where f.follower_id = auth.uid() and f.following_id = p.id
+    )
+    and not exists (
+      select 1 from public.mutes m
+      where m.muter_id = auth.uid() and m.muted_id = p.id
+    )
+  order by (
+    select count(*) from public.follows fc where fc.following_id = p.id
+  ) desc
+  limit p_limit;
+$$;
+
+grant execute on function public.suggested_users(int) to authenticated;
