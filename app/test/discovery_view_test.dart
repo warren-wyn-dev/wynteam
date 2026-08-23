@@ -7,6 +7,7 @@ import 'package:wyn/features/hashtag/presentation/hashtag_feed_screen.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
+import 'package:wyn/features/search/presentation/top_100_screen.dart';
 import 'package:wyn/features/search/presentation/widgets/discovery_view.dart';
 
 import 'support/fake_supabase_session.dart';
@@ -209,5 +210,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ClubPage), findsOneWidget);
+  });
+
+  testWidgets(
+      '"ดู Top 100" link does not appear while Trending Now is empty '
+      '(WYN-042)', (tester) async {
+    await pumpDiscovery(tester);
+
+    expect(find.text('ดู Top 100'), findsNothing);
+  });
+
+  testWidgets('tapping "ดู Top 100" opens Top100Screen (WYN-042)',
+      (tester) async {
+    discoveryRepo.trendingNowItems = [trendingDrop];
+    await pumpDiscovery(tester);
+
+    expect(find.text('ดู Top 100'), findsOneWidget);
+    await tester.tap(find.text('ดู Top 100'));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.byType(Top100Screen), findsOneWidget);
   });
 }

@@ -47,6 +47,16 @@ class DiscoveryRepository {
     return _homeRepository.fetchTrending(limit: limit);
   }
 
+  /// WYN-042: "WYN Top 100" leaderboard -- same shape as
+  /// [fetchTrendingNow] (thin wrapper), but backed by
+  /// [HomeRepository.fetchTopContent] instead (its own 7-day window/
+  /// wider candidate pool, entirely separate from fetchTrending's).
+  Future<List<HomeFeedItem>> fetchTopContent({
+    int limit = HomeRepository.topContentResultLimit,
+  }) {
+    return _homeRepository.fetchTopContent(limit: limit);
+  }
+
   /// "แฮชแท็กกำลังนิยม" section -- reuses fetchTrending's own 48h/100-
   /// candidate window purely as a source of recent captions (passing
   /// [HomeRepository.trendingCandidateLimit] as the result limit

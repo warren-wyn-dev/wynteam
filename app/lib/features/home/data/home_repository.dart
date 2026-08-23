@@ -43,6 +43,17 @@ class HomeRepository {
   // true infinite ranking -- see fetchRankedFeed's doc comment.
   static const _rankedCandidateLimit = 200;
 
+  // WYN-042 (WYN Top 100): a longer window/wider candidate pool than
+  // Trending Now's -- a 7-day "chart" rather than a 48h "what's hot
+  // right now" row, per Product's own framing of the two as distinct
+  // concepts. Deliberately separate constants from _trendingWindow/
+  // trendingCandidateLimit above (never touched by this task) rather
+  // than parameterizing fetchTrending() itself -- see fetchTopContent's
+  // doc comment.
+  static const _topContentWindow = Duration(days: 7);
+  static const _topContentCandidateLimit = 500;
+  static const topContentResultLimit = 100;
+
   /// Fetches one page (0-indexed) of the unified Home feed, newest first
   /// across both Drop and Pop content.
   Future<List<HomeFeedItem>> fetchFeed({required int page}) async {
@@ -137,6 +148,92 @@ class HomeRepository {
         .gte('created_at', since.toIso8601String())
         .order('created_at', ascending: false)
         .limit(trendingCandidateLimit);
+
+    final dropIds = <String>[];
+    final popIds = <String>[];
+    final authorIds = <String>{};
+    for (final row in rows) {
+      authorIds.add(row['author_id'] as String);
+      if (row['content_type'] == 'drop') {
+        dropIds.add(row['id'] as String);
+      } else {
+        popIds.add(row['id'] as String);
+      }
+    }
+
+    final likedDropIds = await _fetchLikedIds(
+      table: 'drop_likes',
+      idColumn: 'drop_id',
+      userId: userId,
+      ids: dropIds,
+    );
+    final likedPopIds = await _fetchLikedIds(
+      table: 'pop_likes',
+      idColumn: 'pop_id',
+      userId: userId,
+      ids: popIds,
+    );
+    final savedIds = await _fetchSavedIds(
+      userId: userId,
+      ids: [...dropIds, ...popIds],
+    );
+    final redroppedIds =
+        await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
+    final pollStates = await _fetchPollStates(
+      userId: userId,
+      pollIds: rows
+          .map((row) => row['poll_id'] as String?)
+          .whereType<String>()
+          .toList(),
+    );
+    final blockedAuthorIds = await _fetchPostingBlockedAuthorIds(authorIds);
+
+    final items = rows.map((row) {
+      final id = row['id'] as String;
+      final isDrop = row['content_type'] == 'drop';
+      final likedByMe =
+          isDrop ? likedDropIds.contains(id) : likedPopIds.contains(id);
+      final pollState = pollStates[row['poll_id'] as String?];
+      return HomeFeedItem.fromMap(
+        row,
+        likedByMe: likedByMe,
+        savedByMe: savedIds.contains(id),
+        redroppedByMe: isDrop && redroppedIds.contains(id),
+        pollMyVoteIndex: pollState?.myVoteIndex,
+        pollTotalVotes: pollState?.totalVotes,
+        pollOptionCounts: pollState?.optionCounts,
+      );
+    }).toList()
+      ..removeWhere((item) => blockedAuthorIds.contains(item.authorId));
+
+    items.sort((a, b) => engagementScore(b).compareTo(engagementScore(a)));
+    return items.take(limit).toList();
+  }
+
+  /// WYN-042: the "WYN Top 100" leaderboard -- highest [engagementScore]
+  /// among items posted in the last [_topContentWindow] (7 days, a
+  /// weekly chart), across both Drop and Pop, excluding authors under
+  /// an active moderation sanction ([_fetchPostingBlockedAuthorIds],
+  /// same as [fetchTrending]). Structurally a near-duplicate of
+  /// [fetchTrending] (same candidate-fetch-then-rank shape) but
+  /// deliberately its own method with its own window/candidate-limit
+  /// constants -- Product's WYN-042 spec explicitly calls for not
+  /// touching [fetchTrending]/[_trendingWindow]/[trendingCandidateLimit]
+  /// at all, since Trending Now (WYN-017/040) already passed QA on
+  /// those exact values and Top 100 is framed as a distinct concept
+  /// (weekly chart vs. "what's hot in the last 48h"), not a bigger
+  /// version of the same thing.
+  Future<List<HomeFeedItem>> fetchTopContent(
+      {int limit = topContentResultLimit}) async {
+    final userId = _client.auth.currentUser!.id;
+    final since = DateTime.now().toUtc().subtract(_topContentWindow);
+
+    final rows = await _client
+        .from('home_feed')
+        .select()
+        .gte('created_at', since.toIso8601String())
+        .order('created_at', ascending: false)
+        .limit(_topContentCandidateLimit);
 
     final dropIds = <String>[];
     final popIds = <String>[];
