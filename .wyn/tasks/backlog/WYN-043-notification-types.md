@@ -1,6 +1,6 @@
 # Product Task — WYN-043
 
-Status: design done (Design spec เสร็จแล้ว — `.wyn/docs/design/wyn-043-notification-types.md` — ส่งต่อ AI Coding)
+Status: qa (Coding เสร็จแล้ว — รอ Independent QA)
 Owner: AI Product Manager
 
 Feature: Notification Types — แก้บั๊ก ReDrop crash + เพิ่ม System notification (Trending/Top 100 เลื่อนออกสโคป)
@@ -57,3 +57,32 @@ Risks:
 Recommendation: เริ่มจาก Requirement 1 (บั๊ก P0) ก่อนอย่างอื่นทั้งหมด เพราะเป็นการแก้ของเดิมที่พังอยู่แล้ว ไม่ใช่งานใหม่ ตามด้วย Requirement 2 (System notification, เป็น net-new capability แต่ scope เล็กและ reuse pattern เดิมทั้งหมด) — เสนอ **WYN-04X ใหม่แยกต่างหาก** สำหรับ "Trending/Top 100 Notification Engine" (ต้องออกแบบ cron/scheduled-job infrastructure ตั้งแต่ต้น + snapshot/diff mechanism ใหม่ทั้งชุด) ให้ Founder ตัดสินใจว่าจะทำเมื่อไหร่ ไม่ผูกกับ Phase 5 ต่อเนื่องอัตโนมัติเพราะเป็นงานสถาปัตยกรรมคนละขนาดจริงๆ
 
 Handoff: AI Design — Requirement 1 (บั๊ก ReDrop) ไม่ต้องออกแบบ UI ใหม่เลย (ใช้ icon/message style เดิมของ notification list ทุกจุด) เป็นแค่การเติมจุดที่ขาดหายไป — Requirement 2 (System notification) ตัดสินใจ icon ที่ใช้แสดง (แนะนำ `Icons.campaign_outlined` หรือเทียบเท่าที่สื่อถึง "ประกาศ" ให้ตรวจสอบว่าไม่ซ้ำกับ icon ที่ใช้อยู่แล้วในหน้านี้) และยืนยัน copy ข้อความ default ใน UI (ถ้ามี) ให้เหมาะสมกับ context "ประกาศจากระบบ" ไม่ใช่จากผู้ใช้
+
+## Coding Output (2026-08-23)
+
+**SQL** (`supabase/schema.sql`, ต่อท้ายส่วน WYN-041 ท้ายไฟล์): เพิ่ม `'system'` เข้า `notifications_type_check` (drop+recreate constraint มิเรอร์ pattern เดิมของ WYN-032/034/039/043 ทุกครั้งที่มีการเพิ่ม type ใหม่) — RPC ใหม่ `public.send_system_notification(p_recipient_id uuid, p_message text)` (`security definer`, `plpgsql` เพราะต้อง `raise exception`/มี logic เช็คก่อน insert ไม่ใช่แค่ query เดียวเหมือน SQL function ทั่วไป) เช็ค `internal.current_platform_role() <> 'admin'` แล้ว `raise exception` ปฏิเสธ (มิเรอร์ pattern การเช็ค role เดียวกับที่ใช้ทั่วสคีมา) เช็คข้อความไม่ blank ก่อน insert ด้วย — insert `actor_id = null` เสมอ, `type = 'system'`, ข้อความเข้า `reason` เดิม (ไม่เพิ่มคอลัมน์ใหม่) — **ไม่มี broadcast-to-all mechanism ตามที่ Product ล็อกสโคปไว้** ส่งได้ทีละ 1 คนเท่านั้น
+
+**SQL test ใหม่** (`supabase/tests/wyn_043_notification_types_test.sh`, มิเรอร์ harness ของ `wyn_041_trending_engine_test.sh`) — 10 checks ครอบ: admin ส่งสำเร็จ, แถวที่ insert มี `type`/`actor_id`/`reason` ถูกต้องตรงตามที่ส่ง, `user`/`moderator` ถูกปฏิเสธทั้งคู่ (ไม่ใช่แค่ user — RPC นี้ admin-only จริง ไม่ใช่ moderator-or-admin แบบ `decide_appeal()`), ข้อความว่าง/`null` ถูกปฏิเสธทั้งคู่, ผู้รับเห็นแถวตัวเองได้ปกติ (RLS เดิมไม่เปลี่ยน), บุคคลที่สามไม่เห็นแถวของคนอื่นเลย (ยืนยันว่า RPC ไม่ได้เผลอเปิดช่องให้เห็นข้าม policy) — **10/10 checks PASS** — รันซ้ำครบทั้ง 15 สคริปต์เดิม (`wyn_021` ถึง `wyn_041`) **ผ่านหมดไม่มี cross-task regression** — `check_schema_ordering.py` ผ่าน
+
+**Flutter — Requirement 1 (บั๊ก P0)**: `notification.dart` เพิ่ม `redrop` เข้า `NotificationType` enum + case ใน `_typeFromString()` (จุดที่ขาดหายไปตั้งแต่ WYN-034 ตามที่ Product ยืนยันด้วยการอ่านโค้ดจริง) — `notification_list_screen.dart` เพิ่ม case `redrop` ใน `_messageFor()` ("$name ReDrop โพสต์ของคุณ" มิเรอร์โทน `likeDrop`) และ `_openNotification()` (`_openDrop(notification.dropId!)` มิเรอร์ `mentionDrop`/`likeDrop` เป๊ะ) — **ตรวจสอบซ้ำตามที่ Product ขอ**: `follow_request`/`follow_request_accepted`/`message_request` ยืนยันแล้วว่าครบทั้ง enum/parsing/message/tap-navigation จริง (ไม่ต้องแก้เพิ่ม)
+
+**Flutter — Requirement 2 (`system` type)**: `notification.dart` เพิ่ม `system` เข้า enum + parsing + อัปเดต doc comment ของ `actorId`/`reason` fields ให้ครอบคลุม type ใหม่ — `notification_list_screen.dart`: `_hidesActorIdentity()` เพิ่มเงื่อนไข `system` (actor null เหมือน moderation), เพิ่ม helper ใหม่ `_noActorIconFor(type)` คืน `Icons.campaign_outlined` สำหรับ `system` / `Icons.shield_outlined` สำหรับ 4 moderation types เดิม (ไม่ใช้ไอคอนเดียวซ้ำกันตามที่ Design ตัดสินใจ), `_messageFor()` เพิ่ม case คืน `notification.reason ?? 'มีประกาศจากระบบ WYN'` ตรงๆ ไม่มี prefix, `_openNotification()` เพิ่ม case คืน (no-op) ทันที
+
+**Flutter test ใหม่**:
+- `app/test/notification_test.dart` เพิ่ม 2 เทสต์: `WynNotification.fromMap` parse `type: 'redrop'`/`type: 'system'` ได้ถูกต้องไม่ throw — **พิสูจน์ red→green จริงตามที่ Design กำหนด**: revert case `'redrop'` ใน `_typeFromString()` ชั่วคราว รันเทสต์ยืนยัน fail ด้วย `ArgumentError('Unknown notification type: redrop')` ตรงเป๊ะตามที่ Product รายงานไว้ในบั๊ก (ไม่ใช่แค่คาดเดา) แล้ว restore ไฟล์กลับ (ยืนยันด้วย `diff` ว่าเหมือนเดิม 100% ก่อน commit)
+- `app/test/notification_list_screen_test.dart` เพิ่ม 4 เทสต์ (2 กลุ่มใหม่ `redrop`/`system`): redrop message ถูกต้องเมื่อปนกับ type อื่นในลิสต์เดียวกันไม่ crash, tap redrop เปิด `DropDetailScreen`, system แสดงข้อความ+ไอคอน campaign ไม่ใช่ shield+ไม่มี avatar, tap system เป็น no-op — **บั๊กที่พบและแก้เองระหว่างเขียนเทสต์ (testing gotcha ไม่ใช่บั๊ก production)**: draft แรกสร้าง `RecordingNotificationRepository` ใหม่ตรงๆ ข้างใน `testWidgets` body (แทนที่จะอยู่ใน `setUp()`) ทำให้โดน `!timersPending` invariant เหมือน pattern ที่เคยเจอมาแล้วหลายรอบในโปรเจกต์นี้ (`RecordingDiscoveryRepository`/WYN-040 เป็นต้น) — แก้โดยย้ายไปสร้างเป็น field `mixedRedropAndLikeRepo` ใน `setUp()` แทน
+
+**Build/Tests — รันจริงครบทุกจุด**:
+- `flutter analyze`: **0 issues**
+- `flutter test`: **665/665 pass** (baseline 659 จาก WYN-042 QA round + เคสใหม่ 6: 2 ใน `notification_test.dart` + 4 ใน `notification_list_screen_test.dart`)
+- `dart format --set-exit-if-changed`: ผ่านทุกไฟล์ที่แก้ (2 ไฟล์ test ต้อง format ใหม่รอบแรก รันซ้ำแล้วผ่านสะอาด 0 changed)
+- SQL: 10/10 checks (`wyn_043_notification_types_test.sh`) + รันซ้ำครบ 15 สคริปต์เดิม **ผ่านหมดไม่มี cross-task regression** — `check_schema_ordering.py` ผ่าน
+
+**Known Issue/Gap (ตั้งใจ ไม่ใช่บั๊ก แจ้ง QA/Product ให้ตัดสินใจ)**:
+- **Trending/Top 100 notification ยังไม่ถูกสร้างในรอบนี้เลย** ตามที่ Product ตัดสินใจไว้แล้ว (ต้องมี cron/scheduled-job infrastructure ที่ยังไม่มีในระบบ) — เสนอเป็น task ใหม่แยก
+- **ไม่มี broadcast-to-all สำหรับ `send_system_notification()`** ตามสโคปที่ Product ล็อกไว้ — ส่งได้ทีละ 1 คนเท่านั้นในรอบนี้
+- **ไม่มี Admin UI ใหม่ใดๆ** สำหรับเรียก `send_system_notification()` — เรียกผ่าน RPC ตรงเท่านั้น (เช่น SQL editor) ตามสโคปที่ Product/Design ล็อกไว้ทั้งคู่
+
+**Acceptance Criteria — ไล่ตรวจครบทุกข้อจาก Product spec**: ครบทุกข้อ ยืนยันด้วย SQL test จริง (admin-only/blank-message rejection/RLS) + Flutter test จริง (redrop mixed-list no-crash + tap navigation, system message/icon/no-op) + red→green proof จริงสำหรับบั๊ก P0
+
+Handoff: AI QA & Security — เน้นตรวจ 4 จุด: **(ก) บั๊ก redrop แก้จริงและมี red→green proof จริง** (ไม่ใช่แค่ comment อ้างว่าทำ — ควรลอง revert เองอิสระอีกรอบยืนยัน), **(ข) `send_system_notification()` เป็น admin-only จริง ไม่ใช่ moderator-or-admin** (ต่างจาก `decide_appeal()` ที่ moderator เรียกได้ด้วย — RPC นี้ต้อง admin เท่านั้น), **(ค) ข้อความ system notification ไม่มีทางถูกปลอมแปลงให้ actor_id ไม่ใช่ null** (ตรวจ RPC ตรงๆ ว่า insert `actor_id = null` เสมอ ไม่มีทางให้ caller กำหนดเอง), **(ง) regression เต็มชุดของ notification type เดิมทั้งหมดไม่พังจากการแก้ enum/switch ครั้งนี้**

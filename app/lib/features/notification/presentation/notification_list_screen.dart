@@ -204,6 +204,10 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         await _openDrop(notification.dropId!);
       case NotificationType.mentionClubPost:
         await _openClubPost(notification.clubPostId!);
+      case NotificationType.redrop:
+        // WYN-034/043: same destination as likeDrop/mentionDrop -- the
+        // original Drop, using the same drop_id field they already use.
+        await _openDrop(notification.dropId!);
       case NotificationType.moderationWarning:
       case NotificationType.moderationContentRemoved:
       case NotificationType.appealApproved:
@@ -268,6 +272,11 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         final actorId = notification.actorId;
         if (actorId == null) return;
         _openProfile(actorId);
+      case NotificationType.system:
+        // WYN-043: the announcement's full text is already shown in the
+        // list itself (_messageFor reads `reason` in full) -- there's no
+        // detail screen to jump to in this task's scope.
+        return;
     }
   }
 
@@ -420,6 +429,8 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         return '$name กล่าวถึงคุณใน Drop';
       case NotificationType.mentionClubPost:
         return '$name กล่าวถึงคุณในโพสต์ที่ $club';
+      case NotificationType.redrop:
+        return '$name ReDrop โพสต์ของคุณ';
       case NotificationType.moderationWarning:
         return 'คุณได้รับคำเตือนจากทีมงาน WYN: ${notification.reason ?? ''}';
       case NotificationType.moderationContentRemoved:
@@ -457,6 +468,12 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         return '$name ขอติดตามคุณ';
       case NotificationType.followRequestAccepted:
         return '$name ยอมรับคำขอติดตามของคุณแล้ว';
+      case NotificationType.system:
+        // WYN-043: the admin's own message text, shown as-is -- unlike
+        // moderationWarning/moderationContentRemoved above, there's no
+        // fixed prefix here (the admin already writes the full message
+        // themselves via send_system_notification()'s p_message).
+        return notification.reason ?? 'มีประกาศจากระบบ WYN';
     }
   }
 
@@ -470,7 +487,24 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       type == NotificationType.moderationWarning ||
       type == NotificationType.moderationContentRemoved ||
       type == NotificationType.appealApproved ||
-      type == NotificationType.appealRejected;
+      type == NotificationType.appealRejected ||
+      // WYN-043: system notifications also have a null actor_id (an
+      // admin action, not another user's) -- same no-avatar posture,
+      // but a distinct icon (see _noActorIconFor) so users can tell
+      // "moderation action on your account" apart from "a general
+      // announcement" at a glance.
+      type == NotificationType.system;
+
+  /// The icon shown in place of an avatar for any type
+  /// [_hidesActorIdentity] flags -- distinct per type rather than one
+  /// icon for the whole bucket, so the 4 moderation/appeal types (an
+  /// action taken on the recipient's own account) read differently
+  /// from a WYN-043 system announcement (no action taken, just a
+  /// message).
+  IconData _noActorIconFor(NotificationType type) =>
+      type == NotificationType.system
+          ? Icons.campaign_outlined
+          : Icons.shield_outlined;
 
   @override
   Widget build(BuildContext context) {
@@ -571,7 +605,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                               .colorScheme
                               .surfaceContainerHigh,
                           child: Icon(
-                            Icons.shield_outlined,
+                            _noActorIconFor(notification.type),
                             color:
                                 Theme.of(context).colorScheme.onSurfaceVariant,
                           ),

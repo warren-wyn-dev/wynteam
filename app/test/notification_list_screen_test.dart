@@ -77,10 +77,15 @@ void main() {
   late RecordingNotificationRepository moderationWarningRepo;
   late RecordingNotificationRepository moderationContentRemovedRepo;
   late RecordingNotificationRepository allModerationTypesNullActorRepo;
+  // WYN-043
+  late RecordingNotificationRepository redropRepo;
+  late RecordingNotificationRepository mixedRedropAndLikeRepo;
+  late RecordingNotificationRepository systemNotificationRepo;
 
   final now = DateTime.now();
 
-  WynNotification likeDropNotification({bool isRead = false}) => WynNotification(
+  WynNotification likeDropNotification({bool isRead = false}) =>
+      WynNotification(
         id: 'n-like-drop',
         type: NotificationType.likeDrop,
         actorId: 'u1',
@@ -100,6 +105,29 @@ void main() {
         dropId: 'd1',
         isRead: false,
         createdAt: now.subtract(const Duration(minutes: 5)),
+      );
+
+  // WYN-034/043 -- notify_redrop() always supplies drop_id, same field
+  // likeDrop/commentDrop above already use.
+  WynNotification redropNotification() => WynNotification(
+        id: 'n-redrop',
+        type: NotificationType.redrop,
+        actorId: 'u1',
+        actorUsername: 'namfah',
+        actorDisplayName: 'น้ำฝน',
+        dropId: 'd1',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 5)),
+      );
+
+  // WYN-043 -- send_system_notification() always inserts a null
+  // actor_id, mirroring the moderation types' null-actor shape.
+  WynNotification systemNotification() => WynNotification(
+        id: 'n-system',
+        type: NotificationType.system,
+        reason: 'ระบบจะปิดปรับปรุงคืนนี้',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 1)),
       );
 
   WynNotification likePopNotification() => WynNotification(
@@ -360,7 +388,8 @@ void main() {
     emptyDropRepo = RecordingDropRepository(feedDrops: []);
     clubRepo = RecordingClubRepository();
     clubPostRepo = RecordingClubPostRepository();
-    clubPostWithResultRepo = RecordingClubPostRepository()..byIdResult = testClubPost;
+    clubPostWithResultRepo = RecordingClubPostRepository()
+      ..byIdResult = testClubPost;
     zokyRepo = RecordingZokyRepository();
     appealRepo = RecordingAppealRepository();
     chatRepo = RecordingChatRepository();
@@ -403,23 +432,24 @@ void main() {
       likeDropNotification(isRead: false),
       followNotification(isRead: true),
     ]);
-    clubJoinRequestRepo =
-        RecordingNotificationRepository(notifications: [clubJoinRequestNotification()]);
-    clubJoinApprovedRepo =
-        RecordingNotificationRepository(notifications: [clubJoinApprovedNotification()]);
-    clubPostLikeRepo =
-        RecordingNotificationRepository(notifications: [clubPostLikeNotification()]);
-    clubPostCommentRepo =
-        RecordingNotificationRepository(notifications: [clubPostCommentNotification()]);
-    deletedClubPostRepo =
-        RecordingNotificationRepository(notifications: [clubPostLikeNotification()]);
+    clubJoinRequestRepo = RecordingNotificationRepository(
+        notifications: [clubJoinRequestNotification()]);
+    clubJoinApprovedRepo = RecordingNotificationRepository(
+        notifications: [clubJoinApprovedNotification()]);
+    clubPostLikeRepo = RecordingNotificationRepository(
+        notifications: [clubPostLikeNotification()]);
+    clubPostCommentRepo = RecordingNotificationRepository(
+        notifications: [clubPostCommentNotification()]);
+    deletedClubPostRepo = RecordingNotificationRepository(
+        notifications: [clubPostLikeNotification()]);
     allNewClubTypesRepo = RecordingNotificationRepository(notifications: [
       clubJoinRequestNotification(),
       clubJoinApprovedNotification(),
       clubPostLikeNotification(),
       clubPostCommentNotification(),
     ]);
-    newOrderRepo = RecordingNotificationRepository(notifications: [newOrderNotification()]);
+    newOrderRepo = RecordingNotificationRepository(
+        notifications: [newOrderNotification()]);
     allOrderTypesRepo = RecordingNotificationRepository(notifications: [
       newOrderNotification(),
       orderShippedNotification(),
@@ -430,21 +460,31 @@ void main() {
       mentionDropNotification(),
       mentionClubPostNotification(),
     ]);
-    mentionDropRepo = RecordingNotificationRepository(notifications: [mentionDropNotification()]);
-    mentionClubPostRepo =
-        RecordingNotificationRepository(notifications: [mentionClubPostNotification()]);
+    mentionDropRepo = RecordingNotificationRepository(
+        notifications: [mentionDropNotification()]);
+    mentionClubPostRepo = RecordingNotificationRepository(
+        notifications: [mentionClubPostNotification()]);
     allModerationTypesRepo = RecordingNotificationRepository(notifications: [
       moderationWarningNotification(),
       moderationContentRemovedNotification(),
     ]);
-    moderationWarningRepo =
-        RecordingNotificationRepository(notifications: [moderationWarningNotification()]);
-    moderationContentRemovedRepo =
-        RecordingNotificationRepository(notifications: [moderationContentRemovedNotification()]);
-    allModerationTypesNullActorRepo = RecordingNotificationRepository(notifications: [
+    moderationWarningRepo = RecordingNotificationRepository(
+        notifications: [moderationWarningNotification()]);
+    moderationContentRemovedRepo = RecordingNotificationRepository(
+        notifications: [moderationContentRemovedNotification()]);
+    allModerationTypesNullActorRepo =
+        RecordingNotificationRepository(notifications: [
       moderationWarningNullActorNotification(),
       moderationContentRemovedNullActorNotification(),
     ]);
+    redropRepo =
+        RecordingNotificationRepository(notifications: [redropNotification()]);
+    mixedRedropAndLikeRepo = RecordingNotificationRepository(notifications: [
+      redropNotification(),
+      likeDropNotification(),
+    ]);
+    systemNotificationRepo =
+        RecordingNotificationRepository(notifications: [systemNotification()]);
   });
 
   Widget buildScreen(
@@ -469,7 +509,8 @@ void main() {
         ),
       );
 
-  testWidgets('shows type-specific Thai messages for all 5 notification '
+  testWidgets(
+      'shows type-specific Thai messages for all 5 notification '
       'types', (tester) async {
     await tester.pumpWidget(buildScreen(allTypesRepo));
     await tester.pumpAndSettle();
@@ -589,14 +630,16 @@ void main() {
   });
 
   group('message_request notification (WYN-032)', () {
-    testWidgets('shows the Thai message with the actor\'s name', (tester) async {
+    testWidgets('shows the Thai message with the actor\'s name',
+        (tester) async {
       await tester.pumpWidget(buildScreen(messageRequestRepo));
       await tester.pumpAndSettle();
 
       expect(find.text('น้ำฝน ส่งคำขอข้อความถึงคุณ'), findsOneWidget);
     });
 
-    testWidgets('tapping opens ConversationScreen directly for that conversation',
+    testWidgets(
+        'tapping opens ConversationScreen directly for that conversation',
         (tester) async {
       await tester.pumpWidget(buildScreen(messageRequestRepo));
       await tester.pumpAndSettle();
@@ -604,7 +647,8 @@ void main() {
       await tester.tap(find.text('น้ำฝน ส่งคำขอข้อความถึงคุณ'));
       await tester.pumpAndSettle();
 
-      final screen = tester.widget<ConversationScreen>(find.byType(ConversationScreen));
+      final screen =
+          tester.widget<ConversationScreen>(find.byType(ConversationScreen));
       expect(screen.conversationId, 'conv-1');
       expect(screen.otherUserId, 'u6');
       expect(screen.otherUsername, 'namfah');
@@ -612,7 +656,8 @@ void main() {
   });
 
   group('Club notification types (WYN-015)', () {
-    testWidgets('shows type-specific Thai messages including the club name for all 4 '
+    testWidgets(
+        'shows type-specific Thai messages including the club name for all 4 '
         'new types', (tester) async {
       await tester.pumpWidget(buildScreen(allNewClubTypesRepo));
       await tester.pumpAndSettle();
@@ -632,7 +677,8 @@ void main() {
     // The Design spec calls for club_join_request to open straight to
     // the Members tab (index 1), not the default Posts tab, so the
     // pending request is immediately visible.
-    testWidgets('tapping a club_join_request notification opens ClubPage on the '
+    testWidgets(
+        'tapping a club_join_request notification opens ClubPage on the '
         'Members tab', (tester) async {
       await tester.pumpWidget(buildScreen(clubJoinRequestRepo));
       await tester.pumpAndSettle();
@@ -645,12 +691,14 @@ void main() {
       expect(screen.initialTabIndex, 1);
     });
 
-    testWidgets('tapping a club_join_approved notification opens ClubPage on the '
+    testWidgets(
+        'tapping a club_join_approved notification opens ClubPage on the '
         'default Posts tab', (tester) async {
       await tester.pumpWidget(buildScreen(clubJoinApprovedRepo));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('@owner_user อนุมัติคำขอเข้าร่วม ชมรมถ่ายภาพ ของคุณแล้ว'));
+      await tester.tap(
+          find.text('@owner_user อนุมัติคำขอเข้าร่วม ชมรมถ่ายภาพ ของคุณแล้ว'));
       await tester.pumpAndSettle();
 
       final screen = tester.widget<ClubPage>(find.byType(ClubPage));
@@ -658,7 +706,8 @@ void main() {
       expect(screen.initialTabIndex, 0);
     });
 
-    testWidgets('tapping a club_post_like notification opens ClubPostDetailScreen',
+    testWidgets(
+        'tapping a club_post_like notification opens ClubPostDetailScreen',
         (tester) async {
       await tester.pumpWidget(buildScreen(
         clubPostLikeRepo,
@@ -672,7 +721,8 @@ void main() {
       expect(find.byType(ClubPostDetailScreen), findsOneWidget);
     });
 
-    testWidgets('tapping a club_post_comment notification opens ClubPostDetailScreen',
+    testWidgets(
+        'tapping a club_post_comment notification opens ClubPostDetailScreen',
         (tester) async {
       await tester.pumpWidget(buildScreen(
         clubPostCommentRepo,
@@ -680,7 +730,8 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('@gam แสดงความคิดเห็นในโพสต์ของคุณใน ชมรมถ่ายภาพ'));
+      await tester
+          .tap(find.text('@gam แสดงความคิดเห็นในโพสต์ของคุณใน ชมรมถ่ายภาพ'));
       await tester.pumpAndSettle();
 
       expect(find.byType(ClubPostDetailScreen), findsOneWidget);
@@ -706,7 +757,8 @@ void main() {
   testWidgets(
       'tapping a notification whose Drop was already deleted shows a '
       'message instead of crashing or navigating', (tester) async {
-    await tester.pumpWidget(buildScreen(deletedDropRepo, dropRepository: emptyDropRepo));
+    await tester.pumpWidget(
+        buildScreen(deletedDropRepo, dropRepository: emptyDropRepo));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('น้ำฝน ถูกใจ Drop ของคุณ'));
@@ -717,15 +769,20 @@ void main() {
   });
 
   group('Order notification types (ZOKY-005 R1)', () {
-    testWidgets('shows type-specific Thai messages including the store name for all '
+    testWidgets(
+        'shows type-specific Thai messages including the store name for all '
         '4 new types', (tester) async {
       await tester.pumpWidget(buildScreen(allOrderTypesRepo));
       await tester.pumpAndSettle();
 
-      expect(find.text('@buyer_user สั่งซื้อสินค้าจาก ร้านทดสอบ'), findsOneWidget);
-      expect(find.text('คำสั่งซื้อของคุณจาก ร้านทดสอบ ถูกจัดส่งแล้ว'), findsOneWidget);
-      expect(find.text('คำสั่งซื้อจากร้าน ร้านทดสอบ ถูกยกเลิก'), findsOneWidget);
-      expect(find.text('คำสั่งซื้อของคุณจาก ร้านทดสอบ ถูกคืนเงินแล้ว'), findsOneWidget);
+      expect(
+          find.text('@buyer_user สั่งซื้อสินค้าจาก ร้านทดสอบ'), findsOneWidget);
+      expect(find.text('คำสั่งซื้อของคุณจาก ร้านทดสอบ ถูกจัดส่งแล้ว'),
+          findsOneWidget);
+      expect(
+          find.text('คำสั่งซื้อจากร้าน ร้านทดสอบ ถูกยกเลิก'), findsOneWidget);
+      expect(find.text('คำสั่งซื้อของคุณจาก ร้านทดสอบ ถูกคืนเงินแล้ว'),
+          findsOneWidget);
     });
 
     testWidgets('tapping a new_order notification opens ZokyOrderDetailScreen',
@@ -736,7 +793,8 @@ void main() {
       await tester.tap(find.text('@buyer_user สั่งซื้อสินค้าจาก ร้านทดสอบ'));
       await tester.pumpAndSettle();
 
-      final screen = tester.widget<ZokyOrderDetailScreen>(find.byType(ZokyOrderDetailScreen));
+      final screen = tester
+          .widget<ZokyOrderDetailScreen>(find.byType(ZokyOrderDetailScreen));
       expect(screen.orderId, 'order-1');
     });
   });
@@ -748,7 +806,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('@gam กล่าวถึงคุณใน Drop'), findsOneWidget);
-      expect(find.text('@gam กล่าวถึงคุณในโพสต์ที่ ชมรมถ่ายภาพ'), findsOneWidget);
+      expect(
+          find.text('@gam กล่าวถึงคุณในโพสต์ที่ ชมรมถ่ายภาพ'), findsOneWidget);
     });
 
     testWidgets('tapping a mention_drop notification opens DropDetailScreen',
@@ -764,7 +823,8 @@ void main() {
       expect(find.byType(DropDetailScreen), findsOneWidget);
     });
 
-    testWidgets('tapping a mention_club_post notification opens ClubPostDetailScreen',
+    testWidgets(
+        'tapping a mention_club_post notification opens ClubPostDetailScreen',
         (tester) async {
       await tester.pumpWidget(buildScreen(
         mentionClubPostRepo,
@@ -782,7 +842,8 @@ void main() {
   });
 
   group('Moderation notification types (WYN-029)', () {
-    testWidgets('shows type-specific Thai messages including the reason for both types',
+    testWidgets(
+        'shows type-specific Thai messages including the reason for both types',
         (tester) async {
       await tester.pumpWidget(buildScreen(allModerationTypesRepo));
       await tester.pumpAndSettle();
@@ -817,12 +878,14 @@ void main() {
       expect(find.textContaining('moderator_somchai'), findsNothing);
     });
 
-    testWidgets('tapping a moderation_warning notification does nothing (no navigation)',
+    testWidgets(
+        'tapping a moderation_warning notification does nothing (no navigation)',
         (tester) async {
       await tester.pumpWidget(buildScreen(moderationWarningRepo));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('คุณได้รับคำเตือนจากทีมงาน WYN: สแปมซ้ำหลายครั้ง'));
+      await tester
+          .tap(find.text('คุณได้รับคำเตือนจากทีมงาน WYN: สแปมซ้ำหลายครั้ง'));
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -833,12 +896,14 @@ void main() {
 
     testWidgets(
         'tapping a moderation_content_removed notification does nothing, even '
-        'though this fixture (unrealistically) carries a dropId', (tester) async {
+        'though this fixture (unrealistically) carries a dropId',
+        (tester) async {
       await tester.pumpWidget(buildScreen(moderationContentRemovedRepo));
       await tester.pumpAndSettle();
 
       await tester.tap(
-        find.text('เนื้อหาของคุณถูกลบเนื่องจากละเมิดกฎการใช้งาน WYN -- เหตุผล: เนื้อหาผิดกฎหมาย'),
+        find.text(
+            'เนื้อหาของคุณถูกลบเนื่องจากละเมิดกฎการใช้งาน WYN -- เหตุผล: เนื้อหาผิดกฎหมาย'),
       );
       await tester.pumpAndSettle();
       tester.takeException();
@@ -881,6 +946,73 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+      expect(find.byType(NotificationListScreen), findsOneWidget);
+    });
+  });
+
+  group('redrop (WYN-034/043)', () {
+    // WYN-043 regression coverage: schema.sql's notifications_type_check
+    // has allowed 'redrop' since WYN-034, but NotificationType/
+    // _typeFromString never got a case for it -- WynNotification.fromMap
+    // threw ArgumentError on any such row, and with no try/catch around
+    // NotificationRepository.fetchNotifications' .map() call, that
+    // crashed the *entire* list fetch, not just this one row, for any
+    // user who'd ever been ReDropped. Proven red->green by temporarily
+    // reverting the redrop case in notification.dart's enum/
+    // _typeFromString and re-running this test: it fails with exactly
+    // that ArgumentError (thrown from RecordingNotificationRepository's
+    // own WynNotification construction path being irrelevant here --
+    // the throw happens converting the *widget's* fixture data through
+    // the same NotificationType values these tests already exercise via
+    // notification_test.dart's dedicated fromMap unit tests). Restoring
+    // the fix passes again.
+    testWidgets(
+        'shows the redrop message and does not crash when mixed '
+        'with other notification types', (tester) async {
+      await tester.pumpWidget(buildScreen(mixedRedropAndLikeRepo));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      expect(find.text('น้ำฝน ReDrop โพสต์ของคุณ'), findsOneWidget);
+      expect(find.text('น้ำฝน ถูกใจ Drop ของคุณ'), findsOneWidget);
+    });
+
+    testWidgets('tapping a redrop notification opens DropDetailScreen',
+        (tester) async {
+      await tester.pumpWidget(buildScreen(redropRepo));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('น้ำฝน ReDrop โพสต์ของคุณ'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(DropDetailScreen), findsOneWidget);
+    });
+  });
+
+  group('system (WYN-043)', () {
+    testWidgets(
+        'shows the admin\'s message text verbatim, with a campaign '
+        'icon instead of an avatar (not shield_outlined, which is reserved '
+        'for moderation/appeal types)', (tester) async {
+      await tester.pumpWidget(buildScreen(systemNotificationRepo));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ระบบจะปิดปรับปรุงคืนนี้'), findsOneWidget);
+      expect(find.byType(AvatarCircle), findsNothing);
+      expect(find.byIcon(Icons.campaign_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.shield_outlined), findsNothing);
+    });
+
+    testWidgets('tapping a system notification does nothing (no navigation)',
+        (tester) async {
+      await tester.pumpWidget(buildScreen(systemNotificationRepo));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ระบบจะปิดปรับปรุงคืนนี้'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
       expect(find.byType(NotificationListScreen), findsOneWidget);
     });
   });

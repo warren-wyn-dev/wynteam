@@ -4,7 +4,8 @@ import 'package:wyn/features/notification/data/notification.dart';
 
 void main() {
   group('WynNotification.fromMap', () {
-    test('parses a populated embedded actor (every notification type except '
+    test(
+        'parses a populated embedded actor (every notification type except '
         'the 2 moderation types)', () {
       final notification = WynNotification.fromMap({
         'id': 'n1',
@@ -38,7 +39,8 @@ void main() {
     // embedded-resource syntax degrades to a null `actor` key on the raw
     // row instead of a populated object -- fromMap must not crash on
     // that, unlike the `as Map<String, dynamic>` cast this replaced.
-    test('does not crash when actor is null (moderation_warning/'
+    test(
+        'does not crash when actor is null (moderation_warning/'
         'moderation_content_removed with a null actor_id) and leaves every '
         'actor field null', () {
       final notification = WynNotification.fromMap({
@@ -84,6 +86,64 @@ void main() {
       expect(notification.actorUsername, isNull);
       expect(notification.actorNameOrUsername, '');
     });
+
+    // WYN-043: schema.sql's notifications_type_check has allowed 'redrop'
+    // since WYN-034 (notify_redrop() inserts it on every ReDrop), but
+    // _typeFromString never had a case for it -- this is the exact line
+    // that threw ArgumentError('Unknown notification type: redrop') for
+    // any real redrop row, with no try/catch anywhere upstream in
+    // NotificationRepository.fetchNotifications to contain it. Proven
+    // red->green: reverting the 'redrop' case in _typeFromString and
+    // re-running this test reproduces that exact ArgumentError; restoring
+    // it passes again.
+    test('parses type: "redrop" (WYN-034/043) without throwing', () {
+      final notification = WynNotification.fromMap({
+        'id': 'n4',
+        'type': 'redrop',
+        'actor': {
+          'id': 'u1',
+          'username': 'namfah',
+          'display_name': null,
+          'avatar_url': null,
+        },
+        'drop_id': 'd1',
+        'pop_id': null,
+        'club_id': null,
+        'club_post_id': null,
+        'order_id': null,
+        'reason': null,
+        'is_read': false,
+        'created_at': '2026-01-01T00:00:00Z',
+      });
+
+      expect(notification.type, NotificationType.redrop);
+      expect(notification.dropId, 'd1');
+    });
+
+    // WYN-043: send_system_notification() always inserts actor_id = NULL
+    // (mirrors the moderation types' null-actor shape above) and puts its
+    // message in `reason`.
+    test(
+        'parses type: "system" (WYN-043) with a null actor and the '
+        'admin\'s message in reason', () {
+      final notification = WynNotification.fromMap({
+        'id': 'n5',
+        'type': 'system',
+        'actor': null,
+        'drop_id': null,
+        'pop_id': null,
+        'club_id': null,
+        'club_post_id': null,
+        'order_id': null,
+        'reason': 'ระบบจะปิดปรับปรุงคืนนี้',
+        'is_read': false,
+        'created_at': '2026-01-01T00:00:00Z',
+      });
+
+      expect(notification.type, NotificationType.system);
+      expect(notification.actorId, isNull);
+      expect(notification.reason, 'ระบบจะปิดปรับปรุงคืนนี้');
+    });
   });
 
   group('actorNameOrUsername', () {
@@ -114,8 +174,7 @@ void main() {
       expect(notification.actorNameOrUsername, 'Nam Fah');
     });
 
-    test('returns empty string, not a crash, when actorUsername is null',
-        () {
+    test('returns empty string, not a crash, when actorUsername is null', () {
       final notification = WynNotification(
         id: 'n1',
         type: NotificationType.moderationWarning,
