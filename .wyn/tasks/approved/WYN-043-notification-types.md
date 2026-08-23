@@ -1,6 +1,6 @@
 # Product Task — WYN-043
 
-Status: qa (Coding เสร็จแล้ว — รอ Independent QA)
+Status: approved (Independent QA PASS 2026-08-23 — ดูหัวข้อ "Independent QA" ท้ายไฟล์ — ส่งต่อ AI Deploy & DevOps)
 Owner: AI Product Manager
 
 Feature: Notification Types — แก้บั๊ก ReDrop crash + เพิ่ม System notification (Trending/Top 100 เลื่อนออกสโคป)
@@ -86,3 +86,42 @@ Handoff: AI Design — Requirement 1 (บั๊ก ReDrop) ไม่ต้อง
 **Acceptance Criteria — ไล่ตรวจครบทุกข้อจาก Product spec**: ครบทุกข้อ ยืนยันด้วย SQL test จริง (admin-only/blank-message rejection/RLS) + Flutter test จริง (redrop mixed-list no-crash + tap navigation, system message/icon/no-op) + red→green proof จริงสำหรับบั๊ก P0
 
 Handoff: AI QA & Security — เน้นตรวจ 4 จุด: **(ก) บั๊ก redrop แก้จริงและมี red→green proof จริง** (ไม่ใช่แค่ comment อ้างว่าทำ — ควรลอง revert เองอิสระอีกรอบยืนยัน), **(ข) `send_system_notification()` เป็น admin-only จริง ไม่ใช่ moderator-or-admin** (ต่างจาก `decide_appeal()` ที่ moderator เรียกได้ด้วย — RPC นี้ต้อง admin เท่านั้น), **(ค) ข้อความ system notification ไม่มีทางถูกปลอมแปลงให้ actor_id ไม่ใช่ null** (ตรวจ RPC ตรงๆ ว่า insert `actor_id = null` เสมอ ไม่มีทางให้ caller กำหนดเอง), **(ง) regression เต็มชุดของ notification type เดิมทั้งหมดไม่พังจากการแก้ enum/switch ครั้งนี้**
+
+## Independent QA (2026-08-23)
+
+```
+Feature: WYN-043 Notification Types — บั๊ก P0 (redrop crash) + system notification type ใหม่
+Environment: Local sandbox — PostgreSQL 16 และ Flutter stable ชุดเดียวกับที่ใช้ทดสอบ WYN-040/041/042 — sync branch `claude/wyn-40-continuation-ul5ngq` ที่ commit `9316189` ก่อนเริ่มทดสอบ
+
+Test Cases:
+1. `flutter analyze`/`flutter test` เต็มชุดรันอิสระเอง — 0 issues, **665/665 pass**
+2. **พิสูจน์ red→green ด้วยตัวเองอิสระ ไม่เชื่อ comment ของ Coding**: revert case `'redrop'` ใน `_typeFromString()` ชั่วคราวเอง (คนละรอบจาก Coding) รันเทสต์ยืนยัน fail จริงด้วย `ArgumentError('Unknown notification type: redrop')` ตรงจุดเดียวกับที่ Coding รายงาน (เทสต์อื่นที่ไม่เกี่ยวกับ redrop ยังผ่านหมด 39 เคสจาก 40 — ยืนยันว่า revert กระทบเฉพาะจุดที่ตั้งใจ) แล้ว restore ไฟล์กลับด้วย `diff` ยืนยันเหมือนเดิม 100% ก่อนดำเนินการต่อ
+3. `supabase/tests/wyn_043_notification_types_test.sh` รันอิสระเอง — 10/10 PASS
+4. รันซ้ำ SQL regression ทั้ง 16 สคริปต์ (`wyn_021` ถึง `wyn_043`) ยืนยันไม่มี cross-task regression
+5. `check_schema_ordering.py` — ไม่มี forward reference
+6. **Adversarial probe เพิ่มเติมที่ไม่มีอยู่ใน SQL test เดิมของ Coding**: (ก) `send_system_notification()` ด้วย `p_recipient_id` ที่ไม่มีอยู่จริงในระบบเลย → ถูกปฏิเสธด้วย FK constraint violation ทันที ไม่ insert เงียบๆ (ข) ตรวจ `pg_get_function_arguments()` ยืนยัน signature มีแค่ `p_recipient_id uuid, p_message text` 2 parameter เท่านั้น — ไม่มีทางส่ง `actor_id`/`type` เองผ่าน parameter ใดๆ เลย (ค) ส่งข้อความรูปแบบ SQL injection (`'; drop table public.notifications; --`) → เก็บเป็น literal text ตรงๆ ไม่ถูก execute (ตาราง `notifications` ยังอยู่ครบ ยืนยันด้วยการนับแถวจริงในฐานะ superuser bypass RLS) (ง) ข้อความยาว 10,000 ตัวอักษร → เก็บได้ครบไม่ตัด/crash (จ) ยืนยัน `actor_id` เป็น `NULL` จริงในแถวที่ insert จริง (อ่านตรงจากตารางในฐานะ superuser ไม่ใช่แค่เชื่อ SQL test) (ฉ) ยืนยันฟังก์ชันยังเป็น `security definer` (`prosecdef = t`) ไม่ได้ถูกเปลี่ยนพลาด
+7. อ่าน diff ของ `notification_list_screen.dart`/`notification.dart` แบบ adversarial ทีละบรรทัด ยืนยัน `_hidesActorIdentity()`/`_noActorIconFor()`/`_messageFor()`/`_openNotification()` ทุกจุดต่อ `system`/`redrop` ตรงตาม Design spec เป๊ะ ไม่มีจุดไหนพลาด
+8. ยืนยันด้วยการอ่านโค้ดตรงว่า `_messageFor()`'s `system` case ไม่เรียก `notification.actorNameOrUsername`/`name` เลย (ตัวแปร `name` ที่ประกาศต้นฟังก์ชันไม่ถูกใช้ในบรรทัดนี้) — ยืนยันไม่มีทางรั่ว string ว่างที่แปลกๆ ปนเข้าไปในข้อความ system
+
+Passed: 0 issues (`flutter analyze`) + 665/665 (`flutter test`) + 10/10 (SQL ใหม่) + 16/16 สคริปต์ SQL ทั้งหมด + 6/6 adversarial probe เพิ่มเติม + red→green ยืนยันอิสระ — ทุกตัวเลขยืนยันด้วยการรันเอง/พิสูจน์เองอิสระ ไม่ใช่การเชื่อ Coding Output
+Failed: 0
+
+Severity: N/A (ไม่พบบั๊กที่ block การอนุมัติ)
+
+Reproduction Steps: N/A — ไม่มีบั๊กให้ reproduce (บั๊กเดิมที่ task นี้แก้ ยืนยันแล้วว่าแก้จริง)
+
+Expected: ครบ 4 จุดตาม Handoff ของ Coding — (ก) redrop แก้จริงมี red→green proof, (ข) admin-only จริง, (ค) actor_id ปลอมไม่ได้, (ง) ไม่มี regression
+
+Actual: ตรงตามที่คาดทั้ง 4 จุด — (ก) พิสูจน์ red→green ด้วยตัวเองอิสระสำเร็จ ไม่ใช่แค่เชื่อ comment, (ข) SQL test ยืนยัน `moderator` ก็ถูกปฏิเสธเหมือน `user` ไม่ใช่แค่ non-admin ทั่วไป, (ค) ยืนยันด้วย `pg_get_function_arguments()` ว่าไม่มีช่องทางส่ง `actor_id` เข้าไปได้เลย และตรวจแถวจริงว่า `NULL` เสมอ, (ง) รันเทสต์เดิมทั้งหมดซ้ำอิสระผ่านหมด 665/665
+
+Security Findings:
+- ไม่พบช่องโหว่ privacy/injection ใดๆ ใหม่ — `send_system_notification()` เป็น parameterized function call ปกติ ไม่มี dynamic SQL string concatenation จุดไหนเลย พิสูจน์ด้วยการยิง SQL-injection-shaped payload จริงแล้วยืนยันว่าถูกเก็บเป็น literal text ไม่ถูก execute
+- `actor_id` รับประกันเป็น NULL เสมอในทุกแถวที่สร้างผ่าน RPC นี้ (ไม่มี parameter ให้ override) — ตรงตามเจตนาป้องกันการสวมรอย/ปลอมตัวเป็นผู้ใช้อื่น
+- Admin-only enforcement ยืนยันแยกกันทั้ง `user` และ `moderator` (ไม่ใช่แค่ทดสอบ role เดียวแล้วสรุปเหมา) — ไม่มี privilege escalation ผ่านทางนี้
+- ไม่มีการเปลี่ยนแปลง RLS ใดๆ ของ `notifications` เดิม — ยืนยันด้วย probe จริงว่า recipient เห็นแถวตัวเองได้ปกติ บุคคลอื่นเห็นไม่ได้เหมือนเดิมทุกประการ
+
+Recommendation: อนุมัติ — ครบทุก Acceptance Criteria จาก Product spec, พิสูจน์บั๊ก P0 แก้จริงด้วยการทดสอบอิสระ (revert แล้วเห็น error จริง), `send_system_notification()` ผ่าน adversarial probe ครบทุกมุม (injection/FK/signature/actor_id spoofing/role escalation) ไม่พบช่องโหว่ ไม่มี regression ต่อ notification type เดิมแม้แต่จุดเดียว — ไม่พบข้อสังเกตใดๆ แม้แต่ Minor ในรอบนี้
+
+Final Status: PASS
+```
+
