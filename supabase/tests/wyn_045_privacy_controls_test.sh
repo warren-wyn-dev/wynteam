@@ -47,6 +47,9 @@
 #       approved membership (regression proof Club stays independent).
 #   13. Default (`everyone`, untouched) -- commenting still works exactly
 #       as before this task.
+#   14. Mention Permission also gates club_post_mentions specifically
+#       (not just drop_mentions) -- added as a fast-follow after QA
+#       round 1 verified this by an adhoc probe not yet in this script.
 #
 # Requirements: a local PostgreSQL 16 server reachable either as the
 # current OS user or via `sudo -u postgres` (mirrors
@@ -622,6 +625,38 @@ begin
   reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
 
   insert into results select 'CHECK13_comment_default_everyone_unchanged', case when v_failed then 0 else 1 end, 1;
+end
+$$;
+
+-- ------------------------------------------------------------
+-- CHECK 14 (QA round 1 coverage gap, added as a fast-follow): mention
+-- gating on club_post_mentions specifically -- olivia (the club post's
+-- own author) tries to mention mona (mention_permission = no_one) in
+-- her club post. The implementation was already verified correct by
+-- QA via an adhoc probe; this makes that coverage permanent so a
+-- future edit to this policy can't silently regress it.
+-- ------------------------------------------------------------
+do $$
+declare
+  v_failed boolean := false;
+begin
+  set role authenticated;
+  set request.jwt.claim.sub = '65000000-0000-0000-0000-000000000011';
+  set request.jwt.claim.role = 'authenticated';
+  begin
+    insert into public.club_post_mentions (club_post_id, mentioned_user_id) values
+      ('65200000-0000-0000-0000-000000000002', '65000000-0000-0000-0000-000000000008');
+  exception when others then
+    v_failed := true;
+  end;
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+
+  insert into results select 'CHECK14a_club_post_mention_no_one_blocks_direct_insert', case when v_failed then 1 else 0 end, 1;
+
+  insert into results select 'CHECK14b_club_post_mention_no_one_creates_no_row',
+    (select count(*) from public.club_post_mentions
+     where club_post_id = '65200000-0000-0000-0000-000000000002'
+       and mentioned_user_id = '65000000-0000-0000-0000-000000000008')::int, 0;
 end
 $$;
 

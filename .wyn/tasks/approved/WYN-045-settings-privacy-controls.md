@@ -1,6 +1,6 @@
 # Product Task — WYN-045
 
-Status: coded, awaiting QA
+Status: approved (Independent QA PASS รอบเดียว — ดูหัวข้อ "Independent QA" ท้ายไฟล์ — ส่งต่อ AI Deploy & DevOps)
 Owner: AI Product Manager
 
 Feature: Settings — Interaction Privacy Controls (DM Permission, Mention Permission, Comment Permission)
@@ -88,3 +88,24 @@ Handoff: AI Design — ออกแบบวิธีเลือก 3 ระด
 **Known Issue/Gap (ตั้งใจ ไม่ใช่บั๊ก)**: DM Permission ระดับ "คนที่ฉันติดตาม" เปลี่ยนพฤติกรรมจาก "เข้าคิว pending request" เป็น "ปฏิเสธทันที" ตามที่ Product ตัดสินใจไว้แล้วใน Risks (ไม่ใช่ Instagram-style ที่ยังส่งได้เสมอแค่ซ่อน)
 
 Handoff: AI QA & Security — เน้นตรวจ: **(ก) Mention Permission ทั้ง 2 เส้นทาง** (RLS ปกติ + `create_poll_drop()` RPC) ว่า gate จริงทั้งคู่ไม่มีเส้นทางเลี่ยงได้, **(ข) DM existing-conversation immunity** (บทสนทนาเดิมก่อนตั้งค่าไม่ถูกกระทบย้อนหลัง), **(ค) Club Post comment ไม่ถูกกระทบเลย** จาก Comment Permission แม้แต่นิดเดียว, **(ง) regression เต็มชุดของ WYN-044** (โดยเฉพาะจุดที่เพิ่ง fix จาก QA รอบก่อน) ยังผ่านหลัง merge
+
+## Independent QA (2026-08-23) — PASS รอบเดียว
+
+```
+Feature: WYN-045 Settings — Interaction Privacy Controls (DM/Mention/Comment Permission)
+Environment: Flutter 3.47.1 (/opt/flutter), PostgreSQL 16 local, branch claude/wyn-044-0saj5u @ dda7cd5, ทดสอบตรงใน shared checkout (worktree ของ agent เองไม่มี branch state ที่ต้องการ) ยืนยันแล้วว่าไม่แก้ไฟล์ใดๆ
+
+Test Cases: flutter analyze/test เต็มชุดอิสระ, SQL regression ทั้ง 18 สคริปต์ที่มีอยู่ตอนนั้น, check_schema_ordering.py, DM existing-conversation immunity (ส่งข้อความใหม่ในบทสนทนาเดิมหลังตั้ง no_one + เรียก get_or_create_conversation ซ้ำ), grep หา writer อื่นของ `conversations` (มีจุดเดียว), error UX ที่ผู้ใช้เห็นจริง (SnackBar ภาษาไทย ไม่มี raw error หลุด), Mention ทั้ง drop_mentions ตรง + create_poll_drop() RPC (จุดเสี่ยงสูงสุดตาม Design spec) + **club_post_mentions ที่ทดสอบ adhoc เพิ่มเองเพราะ committed test ไม่ครอบจุดนี้ตอนนั้น**, non-retroactive mention เก่า, Comment people_i_follow บล็อกทั้ง Drop/Pop + club_post_comments ไม่กระทบเลย (คู่ user เดียวกัน), cross-user profile UPDATE ถูก RLS บล็อก, grant/exposure analysis ของ `internal.mention_allowed`/`comment_allowed` (ต่างจาก WYN-044's finding เพราะถูกเรียกตรงจาก RLS policy จริง ไม่ใช่ repeat), ทดสอบจริงว่า `anon` role เข้าถึง helper ไม่ได้ (`permission denied for schema internal`)
+
+Passed: flutter analyze 0 issues, flutter test 678/678, SQL 18/18 สคริปต์ผ่านหมด (รวม wyn_044 หลัง fix + wyn_045 ใหม่), check_schema_ordering.py OK, ทุก adversarial probe ผ่านตามที่คาด (DM immunity/Mention ทั้ง 2 เส้นทาง/Club independence/RLS/anon exposure)
+
+Failed: ไม่มี — พบเฉพาะ Informational 4 ข้อ ไม่ blocking: (1) เอกสาร Coding Output อ้างจำนวนสคริปต์คลาดเคลื่อนเล็กน้อย (2) comment เก่าใน `_openChat` ล้าสมัยเล็กน้อยหลังมี dm_permission rejection เป็น failure mode ใหม่ (3) คอลัมน์ permission ใหม่ 3 ตัวอ่านได้ผ่าน `profiles`'s SELECT RLS เดิม (`using (true)`) เหมือนคอลัมน์อื่นทั้งหมด — ไม่ใช่ exposure ใหม่จาก WYN-045, เป็น design เดิมทั้งตารางตั้งแต่ WYN-002/003 (4) policy identifier ยาวเกิน 63 ตัวอักษรถูก truncate — pattern เดิมของไฟล์ ไม่ใช่ของใหม่
+
+Security Findings: ไม่พบช่องโหว่ authorization/authentication — Block relationship (WYN-027) ยัง evaluate อิสระจาก permission ใหม่เสมอ, `anon` เข้าไม่ถึง helper function ทั้งสองตัว, boolean leak จาก helper ไม่ใช่ exposure เพิ่มเติมเพราะข้อมูลเปิดเผยอยู่แล้วผ่าน SELECT ตรง
+
+Recommendation: อนุมัติ deploy ได้ — เสนอ (ไม่บังคับ) เพิ่ม regression test ถาวรสำหรับ club_post_mentions gating ที่ตอนนั้นทดสอบแค่ adhoc — **orchestrator ทำตามคำแนะนำนี้ทันทีหลัง PASS**: เพิ่ม CHECK14a/b ใน `wyn_045_privacy_controls_test.sh` ยืนยัน club_post_mentions ถูก gate จริง รันซ้ำทั้ง 19 สคริปต์ (ครบ 18 เดิม + เพิ่มเอง 1 check) ผ่านหมด ไม่มี regression
+
+Final Status: PASS
+```
+
+**ผลลัพธ์**: **WYN-045 — PASS รอบเดียว** (ต่างจาก WYN-044 ที่ต้องเข้ารอบ Debug) — **Phase 5 (Notification & Settings Expansion) ปิดครบทั้ง 3 task** (WYN-043/044/045) — ย้ายเข้า `.wyn/tasks/approved/` แล้ว รอ AI Deploy & DevOps เมื่อมี infra จริง — ขั้นต่อไปตาม roadmap คือ Phase 6 (Legal & Compliance Layer, WYN-046 ถึง WYN-048)
