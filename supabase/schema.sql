@@ -9499,3 +9499,160 @@ join public.profiles p on p.id = ma.reviewer_id
 where internal.current_platform_role() <> 'user';
 
 grant select on public.admin_user_moderation_history to authenticated;
+
+-- ============================================================
+-- WYN-054: Audit Log (Admin/Moderator read screen)
+-- ============================================================
+-- See .wyn/tasks/backlog/WYN-054-audit-log.md. audit_log (WYN-048) was
+-- deliberately built with zero client-facing policy of any kind -- its
+-- own section comment says explicitly "WYN-054, Phase 7, is what adds
+-- the screen that reads this table." This is that screen's read path:
+-- a plain VIEW mirroring moderation_queue/admin_user_moderation_history's
+-- exact established shape (no security_invoker, re-implements its own
+-- visibility in the WHERE clause, so a client hitting
+-- `/rest/v1/audit_log` directly still sees nothing -- that table keeps
+-- zero policies of its own, completely unchanged by this task). Same
+-- admin-OR-moderator threshold as every other admin view so far --
+-- there is no third tier to split on, and every event type logged so
+-- far is already the direct result of a privileged action or a
+-- compliance-relevant self-service one (account_deleted/data_exported)
+-- Admin staff legitimately need visibility into. actor_username_snapshot
+-- shown plainly -- same reasoning as admin_user_moderation_history's
+-- reviewer_username: the "never let the target learn who acted" rule
+-- protects the target, not other staff from each other. No delete/
+-- update path added anywhere -- a SELECT-only view changes nothing
+-- about audit_log's existing immutability.
+create or replace view public.admin_audit_log as
+select
+  id,
+  actor_id,
+  actor_username_snapshot,
+  event_type,
+  target_id,
+  detail,
+  created_at
+from public.audit_log
+where internal.current_platform_role() <> 'user';
+
+grant select on public.admin_audit_log to authenticated;
+
+-- ============================================================
+-- WYN-055: WYN Official Announcement (Admin broadcast to a group)
+-- ============================================================
+-- See .wyn/tasks/backlog/WYN-055-official-announcements.md.
+-- send_system_notification() (WYN-043) is single-recipient only --
+-- this is the group-send primitive: one insert-select statement, not a
+-- client-side loop over the existing RPC (which would be hundreds/
+-- thousands of round trips and not atomic). Reuses the exact same
+-- 'system' notification type/category send_system_notification()
+-- already uses -- NotificationListScreen needs zero changes, no new
+-- notification type. Audience is profiles.platform_role -- the one
+-- real, already-meaningful split available (no cohort/segment/region
+-- model exists anywhere in this schema to target by instead).
+
+-- Extend audit_log's event_type check constraint with this task's 1
+-- new event type, same drop+recreate pattern used repeatedly already.
+do $$
+declare
+  v_constraint_name text;
+begin
+  select tc.constraint_name into v_constraint_name
+  from information_schema.table_constraints tc
+  join information_schema.constraint_column_usage ccu
+    on ccu.constraint_name = tc.constraint_name
+   and ccu.constraint_schema = tc.constraint_schema
+  where tc.table_schema = 'public'
+    and tc.table_name = 'audit_log'
+    and tc.constraint_type = 'CHECK'
+    and ccu.column_name = 'event_type';
+
+  if v_constraint_name is not null then
+    execute format('alter table public.audit_log drop constraint %I', v_constraint_name);
+  end if;
+end;
+$$;
+
+alter table public.audit_log
+  add constraint audit_log_event_type_check
+  check (event_type in (
+    'moderation_action_applied', 'appeal_decided',
+    'system_notification_sent', 'account_deleted', 'data_exported',
+    'admin_user_action_applied', 'admin_user_unbanned',
+    'admin_content_removed', 'admin_content_restored',
+    'admin_announcement_sent'
+  ));
+
+-- Admin-only (not moderator) -- matches send_system_notification()'s
+-- own existing restriction and the Product spec's literal "Admin
+-- สร้างประกาศ" wording. Every other Phase 7 RPC so far
+-- (admin_apply_user_action/admin_remove_drop/etc.) uses
+-- `not in ('admin', 'moderator')` -- this one deliberately does not,
+-- see the Product spec's Risks section for why that distinction
+-- matters here specifically.
+create or replace function public.admin_send_announcement(
+  p_category text,
+  p_message text,
+  p_audience text
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_admin uuid := auth.uid();
+  v_trimmed_message text := trim(coalesce(p_message, ''));
+  v_recipient_count integer;
+begin
+  -- coalesce() is load-bearing -- see
+  -- .wyn/tasks/bugs/WYN-050-admin-dashboard-metrics-null-role-bypass.md.
+  if coalesce(internal.current_platform_role(), '') <> 'admin' then
+    raise exception 'Only admins can send announcements';
+  end if;
+
+  if p_category not in ('system_update', 'policy_update', 'maintenance', 'important') then
+    raise exception 'Invalid category: %', p_category;
+  end if;
+
+  if length(v_trimmed_message) = 0 then
+    raise exception 'Announcement message must not be blank';
+  end if;
+
+  if p_audience not in ('all', 'users', 'staff') then
+    raise exception 'Invalid audience: %', p_audience;
+  end if;
+
+  with recipients as (
+    select id from public.profiles
+    where
+      case p_audience
+        when 'users' then platform_role = 'user'
+        when 'staff' then platform_role in ('moderator', 'admin')
+        else true
+      end
+      and internal.notification_enabled(id, 'system')
+  ),
+  inserted as (
+    insert into public.notifications (recipient_id, actor_id, type, reason)
+    select id, null, 'system', v_trimmed_message from recipients
+    returning 1
+  )
+  select count(*) into v_recipient_count from inserted;
+
+  perform internal.log_audit_event(
+    v_admin,
+    'admin_announcement_sent',
+    null,
+    jsonb_build_object(
+      'category', p_category,
+      'message', v_trimmed_message,
+      'audience', p_audience,
+      'recipient_count', v_recipient_count
+    )
+  );
+
+  return v_recipient_count;
+end;
+$$;
+
+grant execute on function public.admin_send_announcement(text, text, text) to authenticated;
