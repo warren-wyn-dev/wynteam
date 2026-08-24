@@ -4,6 +4,7 @@ import '../../../../core/design/wyn_colors.dart';
 import '../../../home/data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../drop/presentation/widgets/poll_placeholder_tile.dart';
+import '../../../drop/presentation/widgets/text_drop_placeholder_tile.dart';
 
 /// Formats a duration in seconds as "m:ss" (e.g. 45 -> "0:45").
 String _formatDuration(int totalSeconds) {
@@ -47,8 +48,10 @@ class SavedGridTile extends StatelessWidget {
                   )
               else if (item.imageUrl != null)
                 Image.network(item.imageUrl!, fit: BoxFit.cover)
+              else if (item.isPoll)
+                const PollPlaceholderTile()
               else
-                const PollPlaceholderTile(),
+                TextDropPlaceholderTile(caption: item.caption ?? ''),
               if (isPop) ...[
                 const Center(
                   child: Icon(Icons.play_circle_fill, color: Colors.white, size: 36),

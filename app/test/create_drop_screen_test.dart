@@ -26,6 +26,9 @@ void main() {
   late RecordingDropRepository publishFromDraftTestRepo;
   late RecordingDropRepository saveDraftFailTestRepo;
   late RecordingDropRepository switchModeDraftTestRepo;
+  // WYNOS V1.0.0 Beta requirement 2 -- same setUpAll discipline as
+  // every other repo above.
+  late RecordingDropRepository textDropRepo;
   setUpAll(() {
     repo = RecordingDropRepository();
     profileRepo = RecordingProfileRepository();
@@ -36,11 +39,13 @@ void main() {
     saveDraftFailTestRepo = RecordingDropRepository()
       ..saveDraftError = Exception('network error');
     switchModeDraftTestRepo = RecordingDropRepository();
+    textDropRepo = RecordingDropRepository();
   });
 
   testWidgets(
-      'the "แชร์" button stays disabled until an image is picked '
-      '(a Drop always needs a photo, unlike WYN-004 posts)', (tester) async {
+      'the "แชร์" button stays disabled with neither an image nor a '
+      'caption, but a caption alone enables it (WYNOS V1.0.0 Beta '
+      'requirement 2: image, caption, or both)', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: CreateDropScreen(dropRepository: repo, profileRepository: profileRepo),
     ));
@@ -49,21 +54,42 @@ void main() {
     expect(shareButton, findsOneWidget);
     expect(tester.widget<TextButton>(shareButton).onPressed, isNull);
 
-    // Typing a caption alone must not enable it either -- an image is
-    // mandatory, not just one of two options like WYN-004's text/image.
+    // A caption alone (no image) is now enough to enable it.
     await tester.enterText(find.byType(TextField), 'hello world');
     await tester.pump();
 
-    expect(tester.widget<TextButton>(shareButton).onPressed, isNull);
+    expect(tester.widget<TextButton>(shareButton).onPressed, isNotNull);
   });
 
-  testWidgets('shows a placeholder prompt before any image is picked',
-      (tester) async {
+  testWidgets('shows a placeholder prompt (marked optional) before any '
+      'image is picked', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: CreateDropScreen(dropRepository: repo, profileRepository: profileRepo),
     ));
 
-    expect(find.text('แตะเพื่อเลือกรูป'), findsOneWidget);
+    expect(find.text('แตะเพื่อเลือกรูป (ไม่บังคับ)'), findsOneWidget);
+  });
+
+  testWidgets(
+      'publishing with a caption and no image calls createTextDrop, not '
+      'createDrop (WYNOS V1.0.0 Beta requirement 2)', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: CreateDropScreen(
+        dropRepository: textDropRepo,
+        profileRepository: profileRepo,
+      ),
+    ));
+
+    await tester.enterText(find.byType(TextField), 'แคปชันอย่างเดียว ไม่มีรูป');
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(TextButton, 'แชร์'));
+    await tester.pumpAndSettle();
+
+    expect(textDropRepo.createTextDropArgs, hasLength(1));
+    expect(textDropRepo.createTextDropArgs.single['caption'],
+        'แคปชันอย่างเดียว ไม่มีรูป');
+    expect(textDropRepo.createDropMentionedUserIdsArgs, isEmpty);
   });
 
   group('Poll composer (WYN-035)', () {
@@ -76,7 +102,7 @@ void main() {
       await tester.tap(find.text('โพล'));
       await tester.pump();
 
-      expect(find.text('แตะเพื่อเลือกรูป'), findsNothing);
+      expect(find.text('แตะเพื่อเลือกรูป (ไม่บังคับ)'), findsNothing);
       expect(find.text('ตัวเลือกที่ 1'), findsOneWidget);
       expect(find.text('ตัวเลือกที่ 2'), findsOneWidget);
     });
