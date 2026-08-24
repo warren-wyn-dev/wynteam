@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Thrown by [AuthRepository.setUsername] when the chosen username is
@@ -13,10 +14,21 @@ class AuthRepository {
 
   final SupabaseClient _client;
 
-  /// The OAuth redirect used by both Google and Apple sign-in. Must be
-  /// registered in the Supabase project's Auth settings and in the native
-  /// app's URL scheme configuration once the platform folders exist.
-  static const _oauthRedirect = 'io.wyn.app://login-callback';
+  /// The OAuth redirect used by both Google and Apple sign-in on native
+  /// (Android/iOS) -- a custom URL scheme the OS hands back to this app,
+  /// registered in the native platform folders' URL scheme config. A
+  /// browser has no app to hand a custom scheme back to, so this is never
+  /// used on web -- see [_oauthRedirect].
+  static const _nativeOauthRedirect = 'io.wyn.app://login-callback';
+
+  /// The redirect Supabase sends the browser back to once Google/Apple's
+  /// own consent screen finishes -- `null` on web (Supabase falls back to
+  /// the project's configured Site URL, i.e. wherever this build is
+  /// actually hosted, so this never needs updating per-deploy) and the
+  /// native scheme everywhere else. Both this value and the native
+  /// scheme above must be present in the Supabase project's Auth
+  /// "Redirect URLs" allow list, or the OAuth flow is rejected outright.
+  static String? get _oauthRedirect => kIsWeb ? null : _nativeOauthRedirect;
 
   Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
 
