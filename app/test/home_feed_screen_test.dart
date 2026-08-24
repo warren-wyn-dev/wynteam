@@ -7,6 +7,7 @@ import 'package:video_player_platform_interface/video_player_platform_interface.
 import 'package:wyn/features/club/data/club.dart';
 import 'package:wyn/features/club/data/club_post.dart';
 import 'package:wyn/features/club/presentation/club_page.dart';
+import 'package:wyn/features/club/presentation/explore_clubs_screen.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 import 'package:wyn/features/drop/presentation/quote_redrop_screen.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
@@ -15,6 +16,7 @@ import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/trending_tile.dart';
+import 'package:wyn/features/pop/presentation/widgets/pop_comment_sheet.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 
 import 'support/fake_supabase_session.dart';
@@ -35,13 +37,14 @@ HomeFeedItem _dropItem({
   bool likedByMe = false,
   String caption = 'แคปชัน Drop',
   int viewCount = 0,
+  DateTime? createdAt,
 }) =>
     HomeFeedItem(
       id: id,
       contentType: HomeContentType.drop,
       authorId: 'someone-else',
       authorUsername: 'namfah',
-      createdAt: DateTime.now(),
+      createdAt: createdAt ?? DateTime.now(),
       caption: caption,
       imageUrl: 'https://example.supabase.co/drops/$id.jpg',
       likeCount: likeCount,
@@ -148,6 +151,11 @@ void main() {
   late RecordingDropRepository popCommentTestDropRepository;
   late RecordingPopRepository popCommentTestPopRepository;
   late RecordingHomeRepository popCommentTestHomeRepository;
+
+  // WYN-023 (R1): a dedicated repository so its single item's createdAt
+  // (fixed 5 minutes in the past, for a deterministic relative-time
+  // label) doesn't get mixed into any shared repository's item list.
+  late RecordingHomeRepository timestampTestHomeRepository;
 
   // WYN-034: ReDrop action sheet -- a dedicated DropRepository per
   // scenario (not shared across the group's testWidgets), same
@@ -256,6 +264,15 @@ void main() {
     popCommentTestPopRepository = RecordingPopRepository();
     popCommentTestHomeRepository = RecordingHomeRepository(
       feedItems: [_popItem(id: 'p3')],
+    );
+
+    timestampTestHomeRepository = RecordingHomeRepository(
+      feedItems: [
+        _dropItem(
+          id: 'ts1',
+          createdAt: DateTime.now().subtract(const Duration(minutes: 5)),
+        ),
+      ],
     );
 
     openSheetTestDropRepository = RecordingDropRepository();
@@ -491,6 +508,20 @@ void main() {
       matching: find.widgetWithIcon(IconButton, Icons.mode_comment_outlined),
     );
     expect(popCardComment, findsOneWidget);
+  });
+
+  testWidgets(
+      'HomeDropCard shows a relative post timestamp under the author name '
+      '(WYN-023 R1)', (tester) async {
+    await tester.pumpWidget(buildHome(
+      timestampTestHomeRepository,
+      dropRepository: sharedDropRepository,
+      popRepository: sharedPopRepository,
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('5 นาทีที่แล้ว'), findsOneWidget);
   });
 
   testWidgets(
@@ -861,8 +892,8 @@ void main() {
   });
 
   testWidgets(
-      'tapping the Comment icon on a Pop card opens PopSingleClipScreen, '
-      'same as tapping the card itself', (tester) async {
+      'tapping the Comment icon on a Pop card opens PopSingleClipScreen '
+      'with the comment sheet already showing (WYN-023 R2)', (tester) async {
     await tester.pumpWidget(buildHome(
       popCommentTestHomeRepository,
       dropRepository: popCommentTestDropRepository,
@@ -882,6 +913,45 @@ void main() {
     tester.takeException();
 
     expect(find.byType(PopSingleClipScreen), findsOneWidget);
+    // The actual regression this task fixes: previously the Comment icon
+    // just opened the clip, same as tapping the card, leaving the viewer
+    // to tap Comment a second time once the clip loaded. Now the sheet
+    // is already open.
+    expect(find.byType(PopCommentSheet), findsOneWidget);
+  });
+
+  testWidgets(
+      'tapping a Pop card itself (not its Comment icon) opens '
+      'PopSingleClipScreen WITHOUT auto-opening the comment sheet',
+      (tester) async {
+    await tester.pumpWidget(buildHome(
+      popCommentTestHomeRepository,
+      dropRepository: popCommentTestDropRepository,
+      popRepository: popCommentTestPopRepository,
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    // The card's own tap target is its outermost InkWell (onTap) --
+    // distinct from the inner avatar/username InkWell (onOpenProfile).
+    // Read the callback directly and invoke it, same as this file's
+    // IconButton.onPressed pattern above, rather than a hit-test tap()
+    // that depends on the card's on-screen scroll position.
+    final cardInkWell = tester
+        .widgetList<InkWell>(
+          find.descendant(
+            of: find.byType(HomePopCard),
+            matching: find.byType(InkWell),
+          ),
+        )
+        .first;
+    expect(cardInkWell.onTap, isNotNull);
+    cardInkWell.onTap!();
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.byType(PopSingleClipScreen), findsOneWidget);
+    expect(find.byType(PopCommentSheet), findsNothing);
   });
 
   group('"สำหรับคุณ"/"จาก Club ของคุณ" feed toggle (WYN-015)', () {
@@ -934,6 +1004,54 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('เข้าร่วม Club เพื่อดูโพสต์ที่นี่'), findsOneWidget);
+      // WYN-023 (R3): the join-prompt now has a "สำรวจ Club" button --
+      // previously the only way out of this empty state was the
+      // ClubSection button further up the same scroll view (which is
+      // still present too, hence scoping this finder to
+      // FromYourClubsFeed specifically rather than an unscoped lookup
+      // that would find both).
+      final joinPromptExploreButton = find.descendant(
+        of: find.byKey(const Key('from_your_clubs_feed')),
+        matching: find.widgetWithText(OutlinedButton, 'สำรวจ Club'),
+      );
+      expect(joinPromptExploreButton, findsOneWidget);
+    });
+
+    testWidgets(
+        '"สำรวจ Club" button on the join-prompt opens ExploreClubsScreen '
+        'and reloads on return (WYN-023 R3)', (tester) async {
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        clubPostRepository: emptyFromClubsPostRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('จาก Club ของคุณ'));
+      await tester.pumpAndSettle();
+      final callsBeforeExplore =
+          emptyFromClubsPostRepository.fetchFromJoinedClubsCalls;
+
+      final joinPromptExploreButton = find.descendant(
+        of: find.byKey(const Key('from_your_clubs_feed')),
+        matching: find.widgetWithText(OutlinedButton, 'สำรวจ Club'),
+      );
+      await tester.tap(joinPromptExploreButton);
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(ExploreClubsScreen), findsOneWidget);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(
+        emptyFromClubsPostRepository.fetchFromJoinedClubsCalls,
+        greaterThan(callsBeforeExplore),
+      );
     });
 
     testWidgets('switching back to "สำหรับคุณ" restores the regular feed',

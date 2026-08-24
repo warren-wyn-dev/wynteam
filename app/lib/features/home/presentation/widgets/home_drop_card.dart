@@ -6,6 +6,7 @@ import '../../../drop/presentation/drop_detail_screen.dart' show dropShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/text_utils.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
@@ -216,7 +217,6 @@ class HomeDropCard extends StatelessWidget {
                         onTap: onOpenProfile,
                         borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
                             AvatarCircle(
                               imageUrl: item.authorAvatarUrl,
@@ -224,9 +224,22 @@ class HomeDropCard extends StatelessWidget {
                               radius: 16,
                             ),
                             const SizedBox(width: WynSpacing.space2),
-                            Text(
-                              item.authorNameOrUsername,
-                              style: Theme.of(context).textTheme.titleSmall,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.authorNameOrUsername,
+                                    style: Theme.of(context).textTheme.titleSmall,
+                                  ),
+                                  Text(
+                                    relativeTimeLabel(item.createdAt, now: DateTime.now()),
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: Theme.of(context).colorScheme.outline,
+                                        ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),

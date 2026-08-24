@@ -51,6 +51,11 @@ class RecordingClubPostRepository extends ClubPostRepository {
   int addCommentCalls = 0;
   int deleteCommentCalls = 0;
 
+  /// WYN-023 (R3): how many times [fetchFromJoinedClubs] has been
+  /// called -- used to prove FromYourClubsFeed reloads after returning
+  /// from ExploreClubsScreen, not just that navigation happened.
+  int fetchFromJoinedClubsCalls = 0;
+
   @override
   Future<List<ClubPost>> fetchPosts({required String clubId, required int page}) async {
     return page == 0 ? posts : <ClubPost>[];
@@ -58,6 +63,7 @@ class RecordingClubPostRepository extends ClubPostRepository {
 
   @override
   Future<List<ClubPost>> fetchFromJoinedClubs({required int page}) async {
+    fetchFromJoinedClubsCalls++;
     return page == 0 ? fromJoinedClubs : <ClubPost>[];
   }
 

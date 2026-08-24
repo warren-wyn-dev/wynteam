@@ -28,6 +28,7 @@ class HomePopCard extends StatelessWidget {
     required this.onToggleLike,
     required this.onToggleSave,
     required this.onOpenProfile,
+    this.onTapComment,
   });
 
   final HomeFeedItem item;
@@ -35,6 +36,13 @@ class HomePopCard extends StatelessWidget {
   final VoidCallback onToggleLike;
   final VoidCallback onToggleSave;
   final VoidCallback onOpenProfile;
+
+  /// WYN-023 (R2): the Comment icon's own tap target, distinct from
+  /// [onTap] -- opens the clip with its comment sheet already showing
+  /// instead of the plain clip [onTap] opens. Falls back to [onTap]
+  /// when not provided, so any other caller of this card keeps its
+  /// exact previous behavior unchanged.
+  final VoidCallback? onTapComment;
 
   Future<void> _share() async {
     await SharePlus.instance.share(
@@ -149,7 +157,7 @@ class HomePopCard extends StatelessWidget {
                       excludeSemantics: true,
                       child: IconButton(
                         icon: const Icon(Icons.mode_comment_outlined, size: 20),
-                        onPressed: onTap,
+                        onPressed: onTapComment ?? onTap,
                       ),
                     ),
                     Text('${item.commentCount}'),
