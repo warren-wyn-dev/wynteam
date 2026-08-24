@@ -7780,7 +7780,15 @@ security definer
 set search_path = public
 as $$
 begin
-  if internal.current_platform_role() <> 'admin' then
+  -- coalesce() is load-bearing, not decoration -- current_platform_role()
+  -- returns NULL for a caller with no `profiles` row at all, and
+  -- `NULL <> 'admin'` evaluates to NULL, which PL/pgSQL's `if` treats
+  -- as false (branch skipped, exception never raised) -- the same
+  -- NULL-role-bypass class WYN-050 found and fixed in
+  -- admin_dashboard_metrics(), found here too during WYN-051's QA. See
+  -- .wyn/tasks/bugs/WYN-050-admin-dashboard-metrics-null-role-bypass.md
+  -- and .wyn/tasks/bugs/WYN-043-send-system-notification-null-role-bypass.md.
+  if coalesce(internal.current_platform_role(), '') <> 'admin' then
     raise exception 'Only admins can send system notifications';
   end if;
 
