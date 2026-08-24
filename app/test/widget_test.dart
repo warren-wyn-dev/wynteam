@@ -34,7 +34,12 @@ void main() {
     expect(find.byType(AuthMethodScreen), findsOneWidget);
     expect(find.text('เข้าสู่ระบบด้วย Google'), findsOneWidget);
     expect(find.text('เข้าสู่ระบบด้วย Apple'), findsOneWidget);
-    expect(find.text('ใช้เบอร์โทรศัพท์แทน'), findsOneWidget);
+    // Phone/OTP sign-in is temporarily hidden -- the Supabase project has
+    // no SMS provider (Twilio) configured yet, so it always fails
+    // server-side right now. See .wyn/company/DECISIONS.md, 2026-08-24
+    // ("Phone Login ซ่อนชั่วคราว") and AuthMethodScreen's
+    // _phoneLoginEnabled flag.
+    expect(find.text('ใช้เบอร์โทรศัพท์แทน'), findsNothing);
   });
 
   // Added 2026-08-16 (temporary Internal Testing bypass -- see
