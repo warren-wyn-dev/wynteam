@@ -479,6 +479,38 @@ begin
 end
 $$;
 
+-- ------------------------------------------------------------
+-- CHECK 14 (QA finding, fast-followed): internal.log_audit_event()
+-- itself must not be directly callable by an ordinary authenticated
+-- user -- p_actor_id/p_target_id are fully caller-supplied (unlike
+-- export_my_data()/delete_my_account(), whose only "whose data" input
+-- is auth.uid()), so a direct grant would let any client forge
+-- arbitrary audit_log rows attributing fabricated actions to other
+-- users. Mirrors wyn_044_notification_settings_test.sh's CHECK20 for
+-- internal.notification_enabled(), the same vulnerability class.
+-- ------------------------------------------------------------
+do $$
+begin
+  set role authenticated;
+  set request.jwt.claim.sub = '68000000-0000-0000-0000-000000000001';
+  set request.jwt.claim.role = 'authenticated';
+  begin
+    perform internal.log_audit_event(
+      '68000000-0000-0000-0000-00000000000b',
+      'account_deleted',
+      '68000000-0000-0000-0000-00000000000b',
+      '{"forged": true}'::jsonb
+    );
+    insert into results values
+      ('CHECK14_log_audit_event_direct_call_denied', 0, 1);
+  exception when insufficient_privilege or others then
+    insert into results values
+      ('CHECK14_log_audit_event_direct_call_denied', 1, 1);
+  end;
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+end
+$$;
+
 select check_name, actual, expected from results order by check_name;
 EOF
 

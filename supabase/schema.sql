@@ -8648,3 +8648,17 @@ begin
   values (p_actor_id, v_actor_username, p_event_type, p_target_id, p_detail);
 end;
 $$;
+
+-- QA finding (2026-08-24, WYN-048): explicit revoke, not just an
+-- omitted grant -- mirrors internal.notification_enabled()'s own fix
+-- (WYN-044 round 1 finding) for the identical reason: PostgreSQL
+-- grants EXECUTE on a newly created function to PUBLIC by default,
+-- and `authenticated` already holds `usage` on schema `internal`
+-- (needed by the RLS-embedded helpers elsewhere in this file), so
+-- PUBLIC-execute plus schema USAGE was already sufficient for any
+-- ordinary authenticated user to call this function directly by SQL
+-- and forge arbitrary audit_log rows -- p_actor_id/p_target_id are
+-- fully caller-supplied here, unlike export_my_data()/
+-- delete_my_account() (both legitimately granted to authenticated),
+-- whose only "whose data" input is auth.uid() with no caller override.
+revoke execute on function internal.log_audit_event(uuid, text, uuid, jsonb) from public;
