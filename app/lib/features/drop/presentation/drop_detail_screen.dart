@@ -561,6 +561,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
           dropId: _drop.id,
           initialCaption: _drop.caption,
           isPollQuestion: _drop.isPoll,
+          hasImage: _drop.imageUrl != null,
         ),
       ),
     );

@@ -6687,6 +6687,20 @@ begin
     raise exception 'The 30-minute edit window has passed';
   end if;
 
+  -- WYNOS V1.0.0 Beta requirement 2: a Drop with no image (a text-only
+  -- Drop, or a Poll -- its "caption" is really the question) can no
+  -- longer be edited down to an empty caption -- that would leave
+  -- nothing at all, and trip the drops_has_content CHECK constraint
+  -- below with a much less clear error than this one. The client's own
+  -- EditDropCaptionScreen._canSave already prevents reaching this RPC
+  -- with an empty caption in that case; this is the same defense-in-
+  -- depth re-check every other RPC in this schema already does rather
+  -- than trusting the caller.
+  if v_drop.image_url is null
+     and length(trim(both from p_caption)) = 0 then
+    raise exception 'This Drop has no image -- its caption cannot be left empty';
+  end if;
+
   update public.drops
   set caption = nullif(trim(both from p_caption), ''),
       edited_at = now()
