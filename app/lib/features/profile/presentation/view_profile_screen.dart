@@ -29,6 +29,7 @@ import 'widgets/profile_drop_grid_tab.dart';
 // codebase, just no longer wired up on this screen. See
 // .wyn/company/DECISIONS.md, 2026-08-14/2026-08-22 (Pop already
 // unmounted from RootShell's Bottom Nav the same way, for V3).
+import 'widgets/profile_recommendation_section.dart';
 import 'widgets/profile_redrops_tab.dart';
 import 'widgets/profile_saved_tab.dart';
 import '../../../core/design/wyn_spacing.dart';
@@ -46,6 +47,7 @@ import '../../notification/presentation/notification_list_screen.dart';
 import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
+import '../../search/data/discovery_repository.dart';
 import '../../search/presentation/search_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../zoky/data/zoky_repository.dart';
@@ -176,6 +178,16 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   late final FollowRequestRepository _followRequestRepository =
       widget.followRequestRepository ??
           FollowRequestRepository(Supabase.instance.client);
+
+  // WYN-064 Screen 5 -- same optional/defaulted shape as every other
+  // repository above. Built fresh (not threaded through the
+  // constructor) since only this screen's Recommendation Section uses
+  // it here.
+  late final DiscoveryRepository _discoveryRepository = DiscoveryRepository(
+    Supabase.instance.client,
+    homeRepository: _homeRepository,
+    profileRepository: widget.profileRepository,
+  );
 
   // Null until loaded (only for other people's profiles, same posture as
   // _isFollowing) -- true only while the *current viewer* has an
@@ -1142,6 +1154,13 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   ),
                 ),
                 _buildMyClubsSection(),
+                if (!isOwnProfile)
+                  ProfileRecommendationSection(
+                    discoveryRepository: _discoveryRepository,
+                    followRepository: widget.followRepository,
+                    followRequestRepository: _followRequestRepository,
+                    profileRepository: widget.profileRepository,
+                  ),
                 TabBar(
                   tabs: [
                     const Tab(

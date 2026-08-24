@@ -10046,3 +10046,77 @@ as $$
 $$;
 
 grant execute on function public.get_wynos_ranked_feed() to authenticated;
+
+-- ============================================================
+-- WYN-064: WYNOS Visual Refresh -- Profile Recommendation Section
+-- ============================================================
+-- See .wyn/docs/design/wyn-064-wynos-visual-refresh.md, Screen 5.
+-- Dismissing a suggested account (the "X" on a recommendation card)
+-- must stick permanently and everywhere the account might be
+-- suggested again -- not just hide the card client-side for the
+-- current session -- so this is a real table, not local state.
+create table if not exists public.profile_recommendation_dismissals (
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  dismissed_profile_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, dismissed_profile_id),
+  constraint profile_recommendation_dismissals_no_self check (user_id <> dismissed_profile_id)
+);
+
+alter table public.profile_recommendation_dismissals enable row level security;
+
+-- Same shape as `mutes`' RLS (WYN-028) -- a user only ever sees/creates
+-- their own dismissal rows, no RPC needed for the write path since a
+-- plain insert already satisfies the client's needs.
+create policy "Users can view dismissals they created"
+  on public.profile_recommendation_dismissals
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can dismiss recommendations as themselves"
+  on public.profile_recommendation_dismissals
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+-- suggested_users() (WYN-040) reused as-is for the Recommendation
+-- Section's source list (see Design doc Screen 5 -- true
+-- "similar to the profile being viewed" personalization is deferred,
+-- not scoped into this round) -- extended here with one more
+-- exclusion so a dismissed account never resurfaces. Signature
+-- unchanged, so Discovery's existing call site (DiscoveryRepository.
+-- fetchSuggestedUsers) picks this up automatically with no code change
+-- there -- dismissing from Profile also cleans up Discovery's list and
+-- vice versa, which is the correct behavior (it's the same "suggested
+-- to you" concept in both places).
+create or replace function public.suggested_users(p_limit int default 10)
+returns table(profile_id uuid)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.id as profile_id
+  from public.profiles p
+  where p.id <> auth.uid()
+    and not internal.is_blocked_either_way(auth.uid(), p.id)
+    and not exists (
+      select 1 from public.follows f
+      where f.follower_id = auth.uid() and f.following_id = p.id
+    )
+    and not exists (
+      select 1 from public.mutes m
+      where m.muter_id = auth.uid() and m.muted_id = p.id
+    )
+    and not exists (
+      select 1 from public.profile_recommendation_dismissals d
+      where d.user_id = auth.uid() and d.dismissed_profile_id = p.id
+    )
+  order by (
+    select count(*) from public.follows fc where fc.following_id = p.id
+  ) desc
+  limit p_limit;
+$$;
+
+grant execute on function public.suggested_users(int) to authenticated;

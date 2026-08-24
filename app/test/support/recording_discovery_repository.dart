@@ -101,4 +101,20 @@ class RecordingDiscoveryRepository extends DiscoveryRepository {
     int limit = DiscoveryRepository.suggestedUsersLimit,
   }) async =>
       suggestedUsers;
+
+  /// Every profile id passed to [dismissSuggestedUser], in call order --
+  /// WYN-064.
+  List<String> dismissedProfileIds = [];
+
+  /// When set, [dismissSuggestedUser] throws this instead of recording
+  /// the call -- for exercising ProfileRecommendationSection's
+  /// optimistic-remove-then-restore-on-failure path.
+  Object? dismissSuggestedUserError;
+
+  @override
+  Future<void> dismissSuggestedUser(String profileId) async {
+    final error = dismissSuggestedUserError;
+    if (error != null) throw error;
+    dismissedProfileIds.add(profileId);
+  }
 }
