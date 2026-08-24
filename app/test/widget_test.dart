@@ -33,18 +33,23 @@ void main() {
 
     expect(find.byType(AuthMethodScreen), findsOneWidget);
     expect(find.text('เข้าสู่ระบบด้วย Google'), findsOneWidget);
+    expect(find.text('เข้าสู่ระบบด้วย Apple'), findsOneWidget);
+    // Any email + password sign-in (Founder, 2026-08-24) -- see
+    // auth_method_screen.dart's own doc comment.
     expect(find.text('เข้าสู่ระบบด้วยอีเมล'), findsOneWidget);
-    // Apple Sign-In and Phone/SMS OTP temporarily removed from this
-    // screen (Founder, 2026-08-24) -- see auth_method_screen.dart's own
-    // doc comment on why. Neither button should render right now.
-    expect(find.text('เข้าสู่ระบบด้วย Apple'), findsNothing);
+    // Phone/OTP sign-in is temporarily hidden -- the Supabase project has
+    // no SMS provider (Twilio) configured yet, so it always fails
+    // server-side right now. See .wyn/company/DECISIONS.md, 2026-08-24
+    // ("Phone Login ซ่อนชั่วคราว") and AuthMethodScreen's
+    // _phoneLoginEnabled flag.
     expect(find.text('ใช้เบอร์โทรศัพท์แทน'), findsNothing);
   });
 
   // The guest-mode bypass (added 2026-08-16, see .wyn/company/
-  // DECISIONS.md) was removed from WelcomeScreen alongside Apple/Phone
-  // above (Founder, 2026-08-24) -- AuthRepository.signInAnonymously()
-  // itself is untouched, only this screen's button to it is gone.
+  // DECISIONS.md) was removed from WelcomeScreen (Founder, 2026-08-24)
+  // now that real sign-in paths (Google/Apple/Email) work --
+  // AuthRepository.signInAnonymously() itself is untouched, only this
+  // screen's button to it is gone.
   testWidgets('Does not show a guest-mode button', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: WelcomeScreen(authRepository: authRepository),

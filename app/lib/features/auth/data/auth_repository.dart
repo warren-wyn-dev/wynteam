@@ -20,21 +20,19 @@ class AuthRepository {
 
   final SupabaseClient _client;
 
-  /// The OAuth redirect used by both Google and Apple sign-in on native
-  /// (Android/iOS) -- a custom URL scheme the OS hands back to this app,
-  /// registered in the native platform folders' URL scheme config. A
-  /// browser has no app to hand a custom scheme back to, so this is never
-  /// used on web -- see [_oauthRedirect].
-  static const _nativeOauthRedirect = 'io.wyn.app://login-callback';
-
-  /// The redirect Supabase sends the browser back to once Google/Apple's
-  /// own consent screen finishes -- `null` on web (Supabase falls back to
-  /// the project's configured Site URL, i.e. wherever this build is
-  /// actually hosted, so this never needs updating per-deploy) and the
-  /// native scheme everywhere else. Both this value and the native
-  /// scheme above must be present in the Supabase project's Auth
-  /// "Redirect URLs" allow list, or the OAuth flow is rejected outright.
-  static String? get _oauthRedirect => kIsWeb ? null : _nativeOauthRedirect;
+  /// platforms (iOS/Android) -- must be registered in the Supabase
+  /// project's Auth settings and in the native app's URL scheme
+  /// configuration. **Native only**: passing this custom `io.wyn.app://`
+  /// scheme as `redirectTo` on Flutter Web breaks Google/Apple sign-in
+  /// entirely -- Safari/Chrome refuse to navigate to a non-http(s) scheme
+  /// with no registered handler ("Safari ไม่สามารถเปิดหน้าเว็บได้เนื่องจาก
+  /// ที่อยู่ของหน้าเว็บไม่ถูกต้อง"), so the OAuth flow never even reaches
+  /// Google's consent screen. On web, omit `redirectTo` entirely so
+  /// supabase_flutter falls back to the current page's own origin (already
+  /// in the Supabase project's redirect allow-list) as the callback --
+  /// see .wyn/company/DECISIONS.md, 2026-08-24 ("Google Sign-In พังบน Web
+  /// production").
+  static const _mobileOauthRedirect = 'io.wyn.app://login-callback';
 
   Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
 
@@ -43,14 +41,14 @@ class AuthRepository {
   Future<void> signInWithGoogle() {
     return _client.auth.signInWithOAuth(
       OAuthProvider.google,
-      redirectTo: _oauthRedirect,
+      redirectTo: kIsWeb ? null : _mobileOauthRedirect,
     );
   }
 
   Future<void> signInWithApple() {
     return _client.auth.signInWithOAuth(
       OAuthProvider.apple,
-      redirectTo: _oauthRedirect,
+      redirectTo: kIsWeb ? null : _mobileOauthRedirect,
     );
   }
 

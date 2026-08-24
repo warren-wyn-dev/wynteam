@@ -7,6 +7,7 @@ import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/text_utils.dart';
+import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
@@ -29,6 +30,7 @@ class HomeDropCard extends StatelessWidget {
     this.onOpenRedropperProfile,
     this.onDeleteRedrop,
     this.onVotePoll,
+    this.onHide,
   });
 
   final HomeFeedItem item;
@@ -62,6 +64,13 @@ class HomeDropCard extends StatelessWidget {
   /// WYN-035: called with the tapped option's index when [item.isPoll]
   /// -- null (never called) for a plain image card.
   final ValueChanged<int>? onVotePoll;
+
+  /// WYNOS Unified Home Feed Algorithm V1.0 -- records the "Hide" User
+  /// Signal and removes this card from the feed immediately. Only
+  /// offered for someone else's Drop (see [_isOwnDrop]'s use in
+  /// [_openMoreMenu]), same gating as "รายงานโพสต์" -- hiding your own
+  /// post from your own feed isn't a meaningful action.
+  final VoidCallback? onHide;
 
   bool get _isOwnDrop =>
       item.authorId == Supabase.instance.client.auth.currentUser!.id;
@@ -124,6 +133,15 @@ class HomeDropCard extends StatelessWidget {
             // visibility before WYN-034, kept here now that the
             // button can also show for a reason unrelated to
             // authorship (_isOwnRedrop).
+            if (!_isOwnDrop && onHide != null)
+              ListTile(
+                leading: const Icon(Icons.visibility_off_outlined),
+                title: const Text('ไม่สนใจโพสต์นี้'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  onHide?.call();
+                },
+              ),
             if (!_isOwnDrop)
               ListTile(
                 leading: const Icon(Icons.flag_outlined),
@@ -267,15 +285,30 @@ class HomeDropCard extends StatelessWidget {
                   isOwnPoll: _isOwnDrop,
                   onVote: (index) => onVotePoll?.call(index),
                 )
-              else
-                AspectRatio(
-                  aspectRatio: 1,
-                  child: Image.network(item.imageUrl!, fit: BoxFit.cover),
+              else if (item.imageUrl != null)
+                DoubleTapLike(
+                  onLike: onToggleLike,
+                  alreadyLiked: item.likedByMe,
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: Image.network(item.imageUrl!, fit: BoxFit.cover),
+                  ),
                 ),
+              // WYNOS V1.0.0 Beta requirement 2: a Drop can now be
+              // caption-only (no image, not a Poll) -- _canShare in
+              // CreateDropScreen already guarantees a non-empty caption
+              // whenever that's the case, so this is never reached with
+              // a null/empty caption for a plain (non-poll) card.
               if (item.caption != null && item.caption!.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                  child: HashtagText(item.caption!),
+                  child: !item.isPoll && item.imageUrl == null
+                      ? DoubleTapLike(
+                          onLike: onToggleLike,
+                          alreadyLiked: item.likedByMe,
+                          child: HashtagText(item.caption!),
+                        )
+                      : HashtagText(item.caption!),
                 ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),

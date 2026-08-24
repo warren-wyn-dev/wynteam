@@ -13,10 +13,13 @@ import '../../moderation/data/moderation_repository.dart';
 import '../../moderation/presentation/appeal_form_screen.dart';
 import 'club_page.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/widgets/dashed_rect_border_painter.dart';
 import '../../../core/widgets/restriction_banner.dart';
 
 /// Screen 2 — Create Club. Reuses Edit Profile's form/upload pattern
-/// (WYN-003) for Name/Description/Cover/Icon per the Design spec.
+/// (WYN-003) for Name/Description/Cover per the Design spec (icon
+/// upload removed per Founder decision, 2026-08-24 -- cover image
+/// alone is enough; see .wyn/company/DECISIONS.md).
 /// See .wyn/docs/design/wyn-014-club-core.md, Screen 2.
 class CreateClubScreen extends StatefulWidget {
   const CreateClubScreen({
@@ -52,8 +55,6 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
 
   Uint8List? _coverBytes;
   String? _coverExtension;
-  Uint8List? _iconBytes;
-  String? _iconExtension;
 
   bool _isCreating = false;
   String? _errorMessage;
@@ -142,27 +143,6 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
     });
   }
 
-  Future<void> _pickIcon() async {
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1024,
-      maxHeight: 1024,
-      imageQuality: 85,
-    );
-    if (picked == null) return;
-
-    final bytes = await picked.readAsBytes();
-    final extension = picked.name.contains('.')
-        ? picked.name.split('.').last.toLowerCase()
-        : 'jpg';
-
-    if (!mounted) return;
-    setState(() {
-      _iconBytes = bytes;
-      _iconExtension = extension;
-    });
-  }
-
   Future<void> _create() async {
     final privacy = _privacy;
     if (privacy == null) return;
@@ -180,8 +160,6 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
         privacy: privacy,
         coverBytes: _coverBytes,
         coverExtension: _coverExtension,
-        iconBytes: _iconBytes,
-        iconExtension: _iconExtension,
       );
       if (!mounted) return;
       // The creator is the Owner automatically (clubs_add_owner_membership
@@ -223,8 +201,6 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                   onAppeal: _openAppeal,
                 ),
               _buildCoverPicker(),
-              const SizedBox(height: WynSpacing.space3),
-              _buildIconPicker(),
               const SizedBox(height: WynSpacing.space4),
               TextField(
                 controller: _nameController,
@@ -319,6 +295,8 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
   }
 
   Widget _buildCoverPicker() {
+    final scheme = Theme.of(context).colorScheme;
+
     return GestureDetector(
       onTap: _isCreating ? null : _pickCover,
       child: AspectRatio(
@@ -326,54 +304,50 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
         child: Semantics(
           label: _coverBytes == null ? 'แตะเพื่อเลือกรูปปก' : 'รูปปกที่เลือก',
           button: true,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
-            child: Container(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              child: _coverBytes == null
-                  ? const Center(
+          child: _coverBytes != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+                  child: Image.memory(_coverBytes!, fit: BoxFit.cover),
+                )
+              : CustomPaint(
+                  painter: DashedRectBorderPainter(
+                    color: scheme.outline,
+                    borderRadius: WynSpacing.radiusMd,
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+                    ),
+                    child: Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.add_photo_alternate_outlined, size: 32),
-                          SizedBox(height: WynSpacing.space1),
-                          Text('แตะเพื่อเลือกรูปปก'),
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: scheme.primaryContainer,
+                            ),
+                            child: Icon(
+                              Icons.add_photo_alternate_outlined,
+                              color: scheme.onPrimaryContainer,
+                            ),
+                          ),
+                          const SizedBox(height: WynSpacing.space2),
+                          const Text('แตะเพื่อเลือกรูปปก'),
+                          Text(
+                            'แนะนำอัตราส่วน 16:9',
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                          ),
                         ],
                       ),
-                    )
-                  : Image.memory(_coverBytes!, fit: BoxFit.cover),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildIconPicker() {
-    return Center(
-      child: GestureDetector(
-        onTap: _isCreating ? null : _pickIcon,
-        child: Stack(
-          children: [
-            CircleAvatar(
-              radius: 36,
-              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-              backgroundImage:
-                  _iconBytes != null ? MemoryImage(_iconBytes!) : null,
-              child: _iconBytes == null
-                  ? const Icon(Icons.add_photo_alternate_outlined)
-                  : null,
-            ),
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: CircleAvatar(
-                radius: 12,
-                backgroundColor: Theme.of(context).colorScheme.surface,
-                child: const Icon(Icons.camera_alt, size: 14),
-              ),
-            ),
-          ],
+                    ),
+                  ),
+                ),
         ),
       ),
     );

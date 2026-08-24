@@ -22,7 +22,12 @@ import 'edit_profile_screen.dart';
 import 'widgets/avatar_circle.dart';
 import 'widgets/profile_drafts_tab.dart';
 import 'widgets/profile_drop_grid_tab.dart';
-import 'widgets/profile_pop_grid_tab.dart';
+// Pop is hidden from Profile for WYNOS V1.0.0 Beta (Product spec
+// requirement 3) -- the Pop system itself (ProfilePopGridTab,
+// PopRepository, the pop_* DB tables) is untouched and stays in the
+// codebase, just no longer wired up on this screen. See
+// .wyn/company/DECISIONS.md, 2026-08-14/2026-08-22 (Pop already
+// unmounted from RootShell's Bottom Nav the same way, for V3).
 import 'widgets/profile_redrops_tab.dart';
 import 'widgets/profile_saved_tab.dart';
 import '../../../core/design/wyn_spacing.dart';
@@ -185,6 +190,23 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   bool get _isOwnProfile =>
       widget.userId == Supabase.instance.client.auth.currentUser!.id;
 
+  /// WYNOS Unified Home Feed Algorithm V1.0 -- best-effort "Profile
+  /// Visit" User Signal, only for someone else's profile (the guard at
+  /// this method's own call site already ensures that; there's no
+  /// further self-visit check needed here, unlike record_drop_view()'s
+  /// server-side one -- see HomeRepository.recordProfileVisit's own
+  /// doc comment for why). Silent on failure, same posture as every
+  /// other best-effort background fetch on this screen (e.g.
+  /// _loadFollowStatus) -- a missed personalization signal is never
+  /// worth a blocking error for a screen the user is just browsing.
+  Future<void> _recordProfileVisit() async {
+    try {
+      await _homeRepository.recordProfileVisit(widget.userId);
+    } catch (_) {
+      // Silent -- see doc comment above.
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -194,6 +216,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       _loadBlockRelationship();
       _loadMuteStatus();
       _loadPendingRequestStatus();
+      _recordProfileVisit();
     } else {
       _loadPendingRequestCount();
     }
@@ -811,7 +834,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     final isOwnProfile = _isOwnProfile;
 
     return DefaultTabController(
-      length: isOwnProfile ? 5 : 3,
+      length: isOwnProfile ? 4 : 2,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('โปรไฟล์'),
@@ -1051,8 +1074,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                     const Tab(
                         icon: Icon(Icons.grid_view_outlined), text: 'Drop'),
                     const Tab(icon: Icon(Icons.repeat), text: 'ReDrops'),
-                    const Tab(
-                        icon: Icon(Icons.play_circle_outline), text: 'Pop'),
+                    // Pop tab intentionally omitted here -- see the
+                    // import comment above (WYNOS V1.0.0 Beta requirement 3).
                     if (isOwnProfile)
                       const Tab(
                           icon: Icon(Icons.bookmark_border), text: 'บันทึก'),
@@ -1095,27 +1118,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                           profile: profile,
                         ),
                       ),
-                      ProfilePopGridTab(
-                        popRepository: widget.popRepository,
-                        followRepository: widget.followRepository,
-                        profileRepository: widget.profileRepository,
-                        dropRepository: widget.dropRepository,
-                        savedRepository: widget.savedRepository,
-                        authorId: widget.userId,
-                        emptyText: _gridEmptyText(
-                          isOwnProfile: isOwnProfile,
-                          isBlockedEitherWay: isBlockedEitherWay,
-                          // Product spec's scope explicitly excludes Pop
-                          // from Private Account gating (`pops`' own RLS
-                          // is untouched by WYN-039) -- showing the
-                          // Locked message here would be actively wrong
-                          // whenever the account does have Pop content,
-                          // since it would still load and display fine.
-                          isLockedPrivate: false,
-                          contentLabel: 'Pop',
-                          profile: profile,
-                        ),
-                      ),
+                      // Pop tab intentionally omitted here -- see the
+                      // import comment above (WYNOS V1.0.0 Beta requirement 3).
                       if (isOwnProfile)
                         ProfileSavedTab(
                           savedRepository: widget.savedRepository,

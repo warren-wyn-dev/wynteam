@@ -138,4 +138,16 @@ class RecordingClubPostRepository extends ClubPostRepository {
   Future<void> deleteComment(String commentId) async {
     deleteCommentCalls++;
   }
+
+  /// Returned by [fetchContentForHashtagSuggestion], regardless of
+  /// query -- WYNOS V1.0.0 Beta requirement 7 (hashtag autocomplete).
+  List<String> hashtagSuggestionContentToReturn = [];
+
+  @override
+  Future<List<String>> fetchContentForHashtagSuggestion(
+    String query, {
+    int limit = 60,
+  }) async {
+    return hashtagSuggestionContentToReturn;
+  }
 }

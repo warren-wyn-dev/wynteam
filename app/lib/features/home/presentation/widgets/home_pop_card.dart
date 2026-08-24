@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/design/wyn_colors.dart';
 import '../../../pop/presentation/widgets/pop_clip_view.dart' show popShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 
 /// Formats a duration in seconds as "m:ss" (e.g. 45 -> "0:45").
@@ -29,6 +31,7 @@ class HomePopCard extends StatelessWidget {
     required this.onToggleSave,
     required this.onOpenProfile,
     this.onTapComment,
+    this.onHide,
   });
 
   final HomeFeedItem item;
@@ -44,9 +47,38 @@ class HomePopCard extends StatelessWidget {
   /// exact previous behavior unchanged.
   final VoidCallback? onTapComment;
 
+  /// WYNOS Unified Home Feed Algorithm V1.0 -- records the "Hide" User
+  /// Signal and removes this card from the feed immediately. Same
+  /// "someone else's content only" gating as HomeDropCard's identical
+  /// field -- see [_isOwnPop].
+  final VoidCallback? onHide;
+
+  bool get _isOwnPop =>
+      item.authorId == Supabase.instance.client.auth.currentUser!.id;
+
   Future<void> _share() async {
     await SharePlus.instance.share(
       ShareParams(text: popShareLink(item.id)),
+    );
+  }
+
+  Future<void> _openMoreMenu(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.visibility_off_outlined),
+              title: const Text('ไม่สนใจโพสต์นี้'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                onHide?.call();
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -65,67 +97,83 @@ class HomePopCard extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space1),
-                child: InkWell(
-                  onTap: onOpenProfile,
-                  borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AvatarCircle(
-                        imageUrl: item.authorAvatarUrl,
-                        fallbackText: item.authorUsername,
-                        radius: 16,
-                      ),
-                      const SizedBox(width: WynSpacing.space2),
-                      Text(
-                        item.authorNameOrUsername,
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              AspectRatio(
-                aspectRatio: 1,
-                child: Stack(
-                  fit: StackFit.expand,
+                child: Row(
                   children: [
-                    if (item.thumbnailUrl != null)
-                      Image.network(item.thumbnailUrl!, fit: BoxFit.cover)
-                    else
-                      Container(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      ),
-                    const Center(
-                      child: Icon(
-                        Icons.play_circle_fill,
-                        color: Colors.white,
-                        size: 56,
+                    Expanded(
+                      child: InkWell(
+                        onTap: onOpenProfile,
+                        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AvatarCircle(
+                              imageUrl: item.authorAvatarUrl,
+                              fallbackText: item.authorUsername,
+                              radius: 16,
+                            ),
+                            const SizedBox(width: WynSpacing.space2),
+                            Text(
+                              item.authorNameOrUsername,
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    if (item.durationSeconds != null)
-                      Positioned(
-                        right: 8,
-                        bottom: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: WynColors.imageScrim,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            _formatDuration(item.durationSeconds!),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
+                    if (!_isOwnPop && onHide != null)
+                      IconButton(
+                        icon: const Icon(Icons.more_vert),
+                        tooltip: 'เพิ่มเติม',
+                        onPressed: () => _openMoreMenu(context),
+                      ),
+                  ],
+                ),
+              ),
+              DoubleTapLike(
+                onLike: onToggleLike,
+                alreadyLiked: item.likedByMe,
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (item.thumbnailUrl != null)
+                        Image.network(item.thumbnailUrl!, fit: BoxFit.cover)
+                      else
+                        Container(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        ),
+                      const Center(
+                        child: Icon(
+                          Icons.play_circle_fill,
+                          color: Colors.white,
+                          size: 56,
+                        ),
+                      ),
+                      if (item.durationSeconds != null)
+                        Positioned(
+                          right: 8,
+                          bottom: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: WynColors.imageScrim,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              _formatDuration(item.durationSeconds!),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               if (item.caption != null && item.caption!.isNotEmpty)

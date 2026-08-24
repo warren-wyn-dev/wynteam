@@ -4,6 +4,7 @@ import 'package:flutter/semantics.dart';
 import '../../../../core/widgets/confirm_delete_dialog.dart';
 import '../../data/drop_draft.dart';
 import 'poll_placeholder_tile.dart';
+import 'text_drop_placeholder_tile.dart';
 
 /// One square tile in the Profile "ร่าง" (Draft) tab (WYN-036) -- same
 /// 3-column grid shape as DropGridTile/SavedGridTile, but with no
@@ -43,7 +44,9 @@ class DraftGridTile extends StatelessWidget {
           aspectRatio: 1,
           child: draft.imageUrl != null
               ? Image.network(draft.imageUrl!, fit: BoxFit.cover)
-              : const PollPlaceholderTile(),
+              : draft.isPoll
+                  ? const PollPlaceholderTile()
+                  : TextDropPlaceholderTile(caption: draft.caption ?? ''),
         ),
       ),
     );

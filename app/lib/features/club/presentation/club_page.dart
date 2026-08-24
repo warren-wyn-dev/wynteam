@@ -501,24 +501,35 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
       onPressed = _isJoinActionInFlight ? null : () => _toggleJoin(club, membership);
     }
 
+    // "เข้าร่วม" (not a member yet) is the page's single most important
+    // action -- elevated to a filled cyan button (same visual weight as
+    // WYN-056's "+ สร้าง Club" CTA) instead of the same OutlinedButton
+    // style as every other secondary action. "เข้าร่วมแล้ว"/"รออนุมัติ"
+    // stay OutlinedButton -- they're not actions worth drawing the eye
+    // to anymore. See
+    // .wyn/docs/design/wyn-057-058-club-create-and-page-visual-polish.md,
+    // Screen 2.
+    final isPrimaryAction = status == null;
+    final button = isPrimaryAction
+        ? FilledButton(
+            key: const Key('club-header-join-button'),
+            onPressed: onPressed,
+            child: Text(label),
+          )
+        : OutlinedButton(
+            key: const Key('club-header-join-button'),
+            onPressed: onPressed,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.outline,
+              side: BorderSide(color: Theme.of(context).colorScheme.outline),
+            ),
+            child: Text(label),
+          );
+
     return Semantics(
       label: semanticsLabel,
       excludeSemantics: true,
-      child: OutlinedButton(
-        key: const Key('club-header-join-button'),
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: status == ClubMemberStatus.approved
-              ? Theme.of(context).colorScheme.outline
-              : Theme.of(context).colorScheme.primary,
-          side: BorderSide(
-            color: status == ClubMemberStatus.approved
-                ? Theme.of(context).colorScheme.outline
-                : Theme.of(context).colorScheme.primary,
-          ),
-        ),
-        child: Text(label),
-      ),
+      child: button,
     );
   }
 }

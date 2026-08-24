@@ -4,6 +4,7 @@ import '../../../core/design/wyn_spacing.dart';
 import '../data/drop.dart';
 import '../data/drop_repository.dart';
 import 'widgets/poll_placeholder_tile.dart';
+import 'widgets/text_drop_placeholder_tile.dart';
 
 /// WYN-037, Screen 4 -- the only place a user sees Drops they've
 /// soft-deleted and can still restore (within the 30-day window
@@ -92,7 +93,10 @@ class _RecentlyDeletedDropsScreenState
                                   BorderRadius.circular(WynSpacing.radiusSm),
                               child: drop.imageUrl != null
                                   ? Image.network(drop.imageUrl!, fit: BoxFit.cover)
-                                  : const PollPlaceholderTile(),
+                                  : drop.isPoll
+                                      ? const PollPlaceholderTile()
+                                      : TextDropPlaceholderTile(
+                                          caption: drop.caption ?? ''),
                             ),
                           ),
                           title: Text(

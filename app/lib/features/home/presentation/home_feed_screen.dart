@@ -323,6 +323,28 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
   }
 
+  /// WYNOS Unified Home Feed Algorithm V1.0 -- records the "Hide" User
+  /// Signal for the item at [index] and removes it from the feed right
+  /// away (optimistic, same "remove now, put back on failure" shape as
+  /// [_deleteRedrop] -- there's nothing meaningful to "undo to" here
+  /// either, hiding is a one-way action for this round, see
+  /// HomeRepository.hideContent's own doc comment).
+  Future<void> _hideItem(int index) async {
+    if (index < 0 || index >= _items.length) return;
+    final item = _items[index];
+
+    setState(() => _items.removeAt(index));
+    try {
+      await widget.homeRepository.hideContent(
+        contentType: item.contentType,
+        contentId: item.id,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _items.insert(index, item));
+    }
+  }
+
   /// Opens QuoteRedropScreen (WYN-034 Screen 2) for the Drop at
   /// [index]. Unlike [_toggleRedrop] this isn't optimistic -- posting
   /// happens on that screen itself, so this only bumps [redropCount]
@@ -881,6 +903,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                     : () => _openProfile(item.redropperId!),
                 onDeleteRedrop: () => _deleteRedrop(index),
                 onVotePoll: (optionIndex) => _votePoll(index, optionIndex),
+                onHide: () => _hideItem(index),
               );
             }
             return HomePopCard(
@@ -891,6 +914,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
               onToggleLike: () => _toggleLike(index),
               onToggleSave: () => _toggleSave(index),
               onOpenProfile: () => _openProfile(item.authorId),
+              onHide: () => _hideItem(index),
             );
           },
           childCount: itemCount * 2 - 1,

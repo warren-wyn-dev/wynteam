@@ -110,11 +110,13 @@ Dependency: WYN-038 (View system ให้ข้อมูล Trending Score), WY
 Dependency: Phase 1 (Report/Moderation data model ต้องมีก่อน Admin จะมีอะไรให้จัดการ)
 
 ### Phase 8 — Analytics & Revenue Infrastructure (future-ready scaffolding เท่านั้น)
+> **แก้ไขเลข task 2026-08-24 (ครั้งที่ 2)**: ร่างเดิมใช้ WYN-056/057/058 แต่ WYN-056 ถูกใช้ไปแล้วกับ Club Discovery Visual Refresh (เลื่อนเป็น 057/058/059 ครั้งแรก) จากนั้น WYN-057/058 ถูกใช้ต่อกับงานนอก roadmap อีกรอบที่ Founder ขอเพิ่มระหว่างทาง (Club — หน้าสร้าง Club + Club Page visual refresh, ดู `.wyn/tasks/approved/WYN-057-create-club-visual-refresh.md`/`WYN-058-club-page-visual-refresh.md`) จึงเลื่อน Phase 8 ทั้งหมดขึ้นไปอีก 2 เป็น 059/060/061
+
 | Task | Feature |
 |---|---|
-| WYN-056 | User Analytics (self) |
-| WYN-057 | Creator Analytics (basic) |
-| WYN-058 | Ad/Revenue infrastructure schema (ไม่เปิดใช้งานจริง) |
+| WYN-059 | User Analytics (self) |
+| WYN-060 | Creator Analytics (basic) |
+| WYN-061 | Ad/Revenue infrastructure schema (ไม่เปิดใช้งานจริง) |
 
 ## ส่วน D — ลำดับความสำคัญที่ AI Product Manager แนะนำ
 
