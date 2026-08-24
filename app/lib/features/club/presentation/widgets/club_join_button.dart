@@ -71,8 +71,9 @@ class ClubJoinButton extends StatelessWidget {
             onPressed: onPressed,
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(0, 28),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               visualDensity: VisualDensity.compact,
+              textStyle: Theme.of(context).textTheme.labelSmall,
               foregroundColor:
                   status == ClubMemberStatus.approved ? scheme.outline : scheme.primary,
               side: BorderSide(

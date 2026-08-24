@@ -45,14 +45,14 @@ class ClubRankedRow extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
         child: SizedBox(
-          width: 230,
+          width: 268,
           height: 64,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
             child: Row(
               children: [
                 SizedBox(
-                  width: 24,
+                  width: 20,
                   child: Text(
                     '$rank',
                     textAlign: TextAlign.center,
@@ -62,9 +62,9 @@ class ClubRankedRow extends StatelessWidget {
                         ),
                   ),
                 ),
-                const SizedBox(width: WynSpacing.space2),
+                const SizedBox(width: WynSpacing.space1),
                 CircleAvatar(
-                  radius: 20,
+                  radius: 18,
                   backgroundColor: scheme.primary,
                   backgroundImage: club.iconUrl != null ? NetworkImage(club.iconUrl!) : null,
                   child: club.iconUrl == null
@@ -92,13 +92,15 @@ class ClubRankedRow extends StatelessWidget {
                         children: [
                           Icon(Icons.trending_up, size: 14, color: scheme.primary),
                           const SizedBox(width: 2),
-                          Text(
-                            '${club.memberCount} สมาชิก',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  color: scheme.onSurfaceVariant,
-                                ),
+                          Flexible(
+                            child: Text(
+                              '${club.memberCount} สมาชิก',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                            ),
                           ),
                         ],
                       ),

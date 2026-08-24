@@ -184,7 +184,7 @@ class _MoreMenuButton extends StatelessWidget {
         shape: BoxShape.circle,
         color: WynColors.imageScrim,
       ),
-      child: PopupMenuButton<void>(
+      child: PopupMenuButton<String>(
         padding: EdgeInsets.zero,
         icon: const Icon(Icons.more_vert, size: 16, color: Colors.white),
         tooltip: 'เพิ่มเติม',
