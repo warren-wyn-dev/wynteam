@@ -1,0 +1,62 @@
+name: Deploy Flutter web to Vercel (production)
+
+# Manual-only on purpose: the connected Vercel account is on the free
+# Hobby plan (100 deployments/day, shared across every project in the
+# account, including the "wynteam" project's auto-preview-per-branch
+# deploys). Auto-running this on every push to main would compete with
+# those for the same daily quota. Run it by hand from the Actions tab
+# ("Run workflow") whenever main is ready to ship.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+
+      - run: flutter pub get
+
+      # Regenerates the gitignored web/ scaffold. flutter_bootstrap.js is
+      # excluded from the gitignore's /web/* wipe (see app/.gitignore) so
+      # it survives this regeneration -- it disables the default
+      # service-worker registration; without it, redeploys can appear to
+      # still serve a stale cached build.
+      - run: flutter create . --platforms web
+
+      # SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are meant to be public/
+      # client-embedded (they end up in the built JS bundle either way),
+      # but are still kept out of the repo via GitHub Secrets rather than
+      # hardcoded here, matching dart_define.json's existing
+      # never-commit convention (see app/.gitignore).
+      - name: Write dart_define.json
+        run: |
+          cat > dart_define.json <<EOF
+          {
+            "SUPABASE_URL": "${{ secrets.SUPABASE_URL }}",
+            "SUPABASE_PUBLISHABLE_KEY": "${{ secrets.SUPABASE_PUBLISHABLE_KEY }}"
+          }
+          EOF
+
+      - run: flutter build web --release --dart-define-from-file=dart_define.json
+
+      # Deploys straight to the existing "web" Vercel project (set as
+      # VERCEL_PROJECT_ID/VERCEL_ORG_ID secrets -- find both under that
+      # project's Settings -> General on vercel.com) rather than creating
+      # a new project or relying on Vercel's GitHub-integration preview
+      # deploys (that's a separate, already-connected "wynteam" project).
+      - name: Deploy to Vercel production
+        working-directory: app/build/web
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: npx --yes vercel@latest deploy --prod --yes --token="$VERCEL_TOKEN"
