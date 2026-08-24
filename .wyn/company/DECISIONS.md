@@ -14,6 +14,16 @@
 
 ## รายการการตัดสินใจ
 
+### [2026-08-24] WYNOS Visual Refresh (WYN-064) — 3 การตัดสินใจก่อนเริ่ม Design
+- บริบท: Founder ส่ง spec "ออกแบบ UI/UX สำหรับ WYNOS" ผ่าน `/product` (ธีมสว่าง, multi-image Drop, Profile tab ใหม่ ฯลฯ) — AI Product Manager ตรวจโค้ดปัจจุบันแล้วพบว่าธีมสว่างมีอยู่แล้วจริงใน DS-001 (แค่ยังไม่ fix เป็นค่าเริ่มต้น) จึงถามยืนยัน 4 จุดผ่าน popup ก่อนส่งต่อ AI Design
+- คำตัดสินใจของ Founder:
+  1. **Theme Mode**: Fix เป็น **Light เสมอ** (ไม่ตาม dark mode ของเครื่องผู้ใช้อีกต่อไป) — เปลี่ยน `main.dart`'s `themeMode: ThemeMode.system` → `ThemeMode.light`
+  2. **Multi-image Drop (1–9 รูป)**: ทำเป็นส่วนหนึ่งของงานนี้เลย (ไม่เลื่อนเป็นงานแยก) แม้เป็น schema change ระดับกลางที่กระทบทุกจุดที่เคยสมมติว่า Drop มีรูปเดียว
+  3. **Profile Tab "Replies"/"Likes"**: เปิดเป็น**สาธารณะ เหมือน Twitter/X** (ไม่ใช่เจ้าของโปรไฟล์เท่านั้นตามที่ AI Product Manager แนะนำไว้เป็นทางเลือก privacy-safer กว่า) — Founder ยืนยันเลือกสาธารณะ
+  4. **ภาพอ้างอิง**: Founder จะแนบภาพใหม่อีกครั้ง (เซสชันนี้ไม่เห็นไฟล์ภาพที่ spec อ้างถึง) — รองาน Design จนกว่าจะได้ภาพ
+- ผลกระทบ: `.wyn/tasks/backlog/WYN-064-wynos-visual-refresh.md` ปรับจาก "รอคำตอบ" เป็น requirement ที่ชัดเจนแล้วสำหรับ R2 (Theme fix)/R3 (multi-image)/R5 (Replies/Likes สาธารณะ) — ยังรอแค่ภาพอ้างอิง (R1) ก่อนเริ่ม AI Design จริง — Replies/Likes แบบสาธารณะเป็นการเปิดเผยพฤติกรรมผู้ใช้แบบใหม่ ต้องมี Design ที่สื่อสารชัดเจนกับผู้ใช้ว่าข้อมูลเหล่านี้เห็นได้จากคนอื่น (เช่น first-time notice) เพื่อไม่ขัดกับ WYN Mission เรื่องความเป็นส่วนตัว
+- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/backlog/WYN-064-wynos-visual-refresh.md`
+
 ### [2026-08-13] WYN Core Product & Target Users
 - บริบท: Founder ตอบคำถามเริ่มต้นผ่านคำสั่ง `/product` เพื่อเริ่มกำหนด WYN Vision และ Tech Stack
 - คำตัดสินใจของ Founder:

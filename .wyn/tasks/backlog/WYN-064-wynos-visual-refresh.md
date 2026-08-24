@@ -25,13 +25,15 @@ Problem: Founder ส่ง spec ยาวมาผ่าน `/product` ระบ
 3. Profile Tabs ใหม่ (Posts/Replies/Media/Likes) — ต่างจาก taxonomy ปัจจุบัน (Drop/ReDrop/Saved/Draft, Pop ซ่อนแล้วจาก WYN-066) โดยเฉพาะ **"Replies" และ "Likes" เป็น tab ที่ไม่เคยมีมาก่อนเลย** (ดู Requirement/Risk ด้านล่าง — มีประเด็น privacy ต้องตัดสินใจ)
 4. Micro-interactions บางส่วนที่ยังไม่ยืนยันว่ามี: Follow animation, Tab transition, Haptic feedback — ต้องตรวจเพิ่มเติมทีละจุดตอน Design/Coding
 
+**Founder ตัดสินใจแล้ว (2026-08-24, บันทึกใน DECISIONS.md)**: (1) ThemeMode fix เป็น Light เสมอ (2) Multi-image Drop ทำเป็นส่วนหนึ่งของงานนี้เลย (3) Replies/Likes tab เปิดสาธารณะเหมือน Twitter/X (4) ยังรอ Founder แนบภาพอ้างอิงใหม่ก่อนเริ่ม Design จริง
+
 Requirements:
-- R1. **ยืนยันภาพอ้างอิงกับ Founder ก่อนเริ่ม Design จริง** (ดู Problem — ยังไม่เห็นภาพในเซสชันนี้)
-- R2. ตัดสินใจ ThemeMode: fix เป็น Light เสมอ หรือคง `ThemeMode.system` แต่ปรับปรุงแค่ light scheme ให้ตรง spec มากขึ้น (border color จาก `#E5E7EB`→`#EAEAEA` เป็นต้น ถ้าต้องการเป๊ะตาม spec)
-- R3. เพิ่ม multi-image Drop (1–9 รูป) — schema ใหม่ (ตาราง `drop_images` แยกจาก `drops.image_url` เดิม หรือ array column), UI grid ใหม่, full-screen viewer พร้อม swipe ระหว่างรูป, client-side compression ทุกรูปก่อน upload (ต่อยอด pattern การ compress ที่ WYN-005 มีอยู่แล้วสำหรับรูปเดียว)
+- R1. **[รอภาพอ้างอิง]** ยืนยันภาพอ้างอิงกับ Founder ก่อนเริ่ม Design จริง (ดู Problem — ยังไม่เห็นภาพในเซสชันนี้ Founder แจ้งจะแนบใหม่)
+- R2. **[ตัดสินใจแล้ว: Fix Light]** เปลี่ยน `app/lib/main.dart`: `themeMode: ThemeMode.system` → `ThemeMode.light` — ลบ/ปรับ `darkTheme:` ตามความเหมาะสม (คง `WynTheme.dark` ไว้ในโค้ดเผื่ออนาคตหรือลบไปเลยก็ได้ แล้วแต่ AI Design/Coding ตัดสินใจ ไม่ใช่ decision ที่ต้องถาม Founder ซ้ำ)
+- R3. **[ตัดสินใจแล้ว: ทำเลย]** เพิ่ม multi-image Drop (1–9 รูป) — schema ใหม่ (ตาราง `drop_images` แยกจาก `drops.image_url` เดิม หรือ array column), UI grid ใหม่, full-screen viewer พร้อม swipe ระหว่างรูป, client-side compression ทุกรูปก่อน upload (ต่อยอด pattern การ compress ที่ WYN-005 มีอยู่แล้วสำหรับรูปเดียว) — **ต้องคง backward-compat กับ Drop รูปเดียว/ไม่มีรูปเดิมทั้งหมด (WYN-062) ไม่ทำลายของเดิม**
 - R4. เพิ่ม Recommendation Section บน Profile (horizontal scroll, dismiss ได้ด้วยปุ่ม X — ต้องมี state เก็บว่า user dismiss คนไหนไปแล้วเพื่อไม่ให้ suggest ซ้ำ)
-- R5. ปรับ Profile Tabs เป็น Posts/Replies/Media/Likes — **ต้อง Founder ตัดสินใจ privacy ก่อน**: "Replies" (ดู Comment ที่ user เคยเขียน)/"Likes" (ดู content ที่ user เคย Like) แสดงให้ใครเห็นได้บ้าง (เจ้าของโปรไฟล์เท่านั้น หรือสาธารณะเหมือน Posts/Media) — เป็นข้อมูลที่ไม่เคยเปิดเผยแบบนี้มาก่อนในระบบ
-- R6. เพิ่มสัญญาณ dwell-time ("เปิดดูนาน") เข้า ranking algorithm ของ WYN-063 — ต้องมี schema ใหม่เก็บเวลาที่ผู้ใช้ดูแต่ละโพสต์ (privacy-sensitive ระดับหนึ่ง ต้องพิจารณา)
+- R5. **[ตัดสินใจแล้ว: สาธารณะ]** ปรับ Profile Tabs เป็น Posts/Replies/Media/Likes — "Replies"/"Likes" เปิดให้ทุกคนเห็นได้เหมือน Posts/Media (ไม่จำกัดแค่เจ้าของโปรไฟล์) — **AI Design ต้องออกแบบการสื่อสารให้ผู้ใช้รู้ตัวชัดเจนว่า Like/Reply ของตัวเองเป็นสาธารณะ** (เช่น first-time notice ตอนเปิดใช้ฟีเจอร์ครั้งแรก) ตาม WYN Mission เรื่องความเป็นส่วนตัวที่ไม่ควรให้ผู้ใช้ประหลาดใจภายหลัง
+- R6. **[เลื่อนออก ตาม Recommendation เดิม]** สัญญาณ dwell-time ("เปิดดูนาน") เข้า ranking algorithm — ทำเป็นงานแยกในอนาคต ไม่รวมในรอบนี้
 - R7. เติม micro-interaction ที่ยังไม่ยืนยัน (Follow animation, Tab transition, Haptic feedback) ให้ครบตามจุดที่ยังขาด — ตรวจสอบให้ชัดตอน Design/Coding ว่าจุดไหนมีอยู่แล้วบ้าง
 - R8. Profile top bar: เพิ่ม Search/Notifications icon เข้าไปด้วย (ปัจจุบัน Profile มีแค่ Settings/Logout หรือ More menu เท่านั้น ไม่มี Search/Notifications shortcut)
 
@@ -45,7 +47,7 @@ Acceptance Criteria:
 
 Dependencies: ต่อยอด DS-001 (สี, อนุมัติแล้ว), WYN-062 (text-only Drop), WYN-063 (ranking algorithm), WYN-066 (ซ่อน Pop จาก Profile) — ไม่ต้องสร้าง design system ใหม่ตั้งแต่ต้น ใช้ `WynColors`/`WynTheme`/`WynSpacing`/`WynTypography` เดิมทั้งหมด
 
-Priority: **ต้องรอ Founder ตัดสินใจ 4 จุดก่อน** (ดู R1/R2/R5/R6) ก่อนกำหนด priority ที่แท้จริงของแต่ละ sub-requirement — ส่วนที่ไม่มีคำถามค้าง (R3 multi-image Drop, R4 Recommendation section, R7 micro-interactions, R8 Profile top bar) ทำต่อได้เลยไม่ต้องรอ
+Priority: Founder ตัดสินใจ R2/R3/R5 แล้ว (2026-08-24) — เหลือรอแค่ **R1 (ภาพอ้างอิง)** ก่อนเริ่ม Design จริงทั้งหมด เพราะ "ห้ามลอกดีไซน์แอปต้นแบบ" ต้องมีภาพให้ดูก่อนถึงจะระวังจุดนั้นได้ถูก — R4/R7/R8 ไม่มีคำถามค้าง ทำต่อได้เลย
 
 Risks: 
 - multi-image Drop (R3) เป็น schema change ระดับกลาง (ตารางใหม่/relationship ใหม่) กระทบทุกจุดที่เคยสมมติว่า Drop มีรูปเดียว (เยอะพอสมควรหลัง WYN-062 ทำให้ null-safe ไปแล้วรอบหนึ่ง) — ต้องตรวจซ้ำทุกจุดอีกครั้ง
@@ -57,4 +59,4 @@ Recommendation:
 - Replies/Likes tab แนะนำ default เป็น private (เจ้าของโปรไฟล์เท่านั้น) ตาม WYN Mission เรื่องความเป็นส่วนตัว เว้นแต่ Founder ต้องการสาธารณะจริงๆ
 - Dwell-time signal (R6) แนะนำเลื่อนเป็นงานแยกต่างหาก (ไม่ block งานนี้) เพราะเป็น schema ใหม่ที่ต้องคิด privacy ให้รอบคอบกว่านี้ ไม่ควรรีบทำรวมในรอบเดียว
 
-Handoff: AI Design เริ่มจาก R3 (multi-image Drop)/R4 (Recommendation section)/R7/R8 ได้ทันที — R1/R2/R5/R6 รอคำตอบ Founder ก่อน (ถามผ่าน popup ตาม RULES.md)
+Handoff: AI Design เริ่มจาก R2 (theme fix)/R3 (multi-image Drop)/R4 (Recommendation section)/R5 (Replies/Likes tab + privacy-notice UX)/R7/R8 ได้ทันที — เฉพาะส่วนที่ต้องอิงภาพอ้างอิงโดยตรง (layout/สไตล์เชิงภาพที่ spec บอกว่า "ใกล้เคียงภาพอ้างอิง") ให้รอ R1 ก่อน
