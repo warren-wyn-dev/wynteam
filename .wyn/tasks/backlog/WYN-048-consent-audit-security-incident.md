@@ -1,6 +1,6 @@
 # Product Task — WYN-048
 
-Status: backlog
+Status: coded, awaiting QA
 Owner: AI Product Manager
 
 Feature: Consent Management (confirm satisfied) + Audit Log Foundation + Security Incident Workflow (runbook)
@@ -52,3 +52,19 @@ Risks:
 Recommendation: ทำต่อเนื่องปิด Phase 6 ให้ครบ — ส่งต่อ AI Design (ไม่มี UI ใหม่ ข้ามไป AI Coding ได้เลยตามที่จะระบุใน Handoff)
 
 Handoff: AI Coding — ไม่มี UI ใหม่ในรอบนี้ ข้ามขั้นตอน AI Design ได้ (ยืนยันกับ Product แล้วว่าไม่มีอะไรให้ออกแบบ) เริ่มจาก SQL ตาราง `audit_log` + helper + wiring เข้า 5 ฟังก์ชันเดิม ตามด้วยเอกสาร runbook
+
+## Coding Output (2026-08-24)
+
+**SQL** (`supabase/schema.sql`, ต่อท้ายส่วน WYN-047 ท้ายไฟล์): ตาราง `audit_log` (append-only, **ไม่มี FK/cascade ที่ `actor_id`/`target_id` เลยโดยเจตนา** — ตรงข้ามกับทุกตารางอื่นในสคีมา เพื่อให้ log รอดจากการลบบัญชีที่มันบันทึกไว้ได้จริง, RLS เปิดแต่**ไม่มี policy ให้ role ไหนเลยแม้แต่ admin/moderator**) + `internal.log_audit_event()` (SECURITY DEFINER, ไม่ grant ให้ authenticated เพราะรับ parameter ที่ caller กำหนดได้) — wire เข้า 5 ฟังก์ชันเดิมที่ approved แล้ว (`apply_moderation_action`/`decide_appeal`/`send_system_notification`/`delete_my_account`/`export_my_data`) เพิ่มแค่ 1 บรรทัดต่อจุดไม่แตะ logic เดิม — **จุดสำคัญที่สุด**: `delete_my_account()` log ก่อนลบ (จับ username ตอนยังมีชีวิตอยู่), `send_system_notification()` log เฉพาะกรณีที่ preference อนุญาตให้ส่งจริง (ไม่ log ถ้าถูก gate โดย WYN-044) — **พบและแก้ gotcha เอง**: `export_my_data()` ต้องเปลี่ยนจาก `language sql`/`stable` เป็น `plpgsql`/`volatile` เพราะ SQL function resolve forward reference ตอน CREATE FUNCTION ทันที (พิสูจน์ empirically จริงกับ Postgres) ต่างจาก plpgsql ที่ defer ไปตอนเรียกใช้จริง
+
+**SQL test ใหม่** (`supabase/tests/wyn_048_audit_log_test.sh`) — 28 checks ครอบ: ทั้ง 5 ฟังก์ชันสร้างแถว audit_log ถูกต้องครบ (รวมกรณี opt-out ไม่สร้างแถว), **แถว `account_deleted` รอดจากการลบบัญชีจริง** (ยืนยันหลัง `profiles`/`auth.users` ไม่มีแถวแล้ว `audit_log` ยังอยู่พร้อม `actor_username_snapshot` ถูกต้อง — จุดสำคัญที่สุดของ task นี้), ไม่มี role ไหน (`user`/`moderator`/`admin`) เข้าถึง `audit_log` โดยตรงได้เลย — **28/28 PASS** (ยืนยันรันซ้ำเองอิสระ) — รันซ้ำ SQL regression ทั้ง 21 สคริปต์ **ผ่านหมดไม่มี cross-task regression แม้แต่จุดเดียวใน 5 ฟังก์ชันที่แก้** (ยืนยันรันซ้ำเองอิสระ — สำคัญเป็นพิเศษเพราะแก้ฟังก์ชันที่ approved แล้ว) — `check_schema_ordering.py` ผ่าน
+
+**เอกสาร**: `.wyn/docs/security/incident-response-runbook.md` ใหม่ — Detect → Contain → Assess (ใช้ `audit_log` เป็นเครื่องมือหลัก พร้อมตัวอย่าง SQL query จริง) → Notify → Remediate → Post-mortem — ระบุข้อจำกัดตรงไปตรงมา (ไม่มี monitoring/alerting, `audit_log` ครอบแค่ 5 event ไม่รวม login/session)
+
+**ไม่มี Flutter/UI เปลี่ยนแปลงเลยในรอบนี้** ตามที่ Product ระบุไว้
+
+**Build/Tests (ยืนยันโดย orchestrator หลัง merge เข้า main checkout)**: SQL 21/21 สคริปต์ผ่านหมด, `check_schema_ordering.py` ผ่าน — ไม่มี Flutter test เพราะไม่มีไฟล์ Flutter เปลี่ยนแปลง
+
+**Known Issue/Gap (ตั้งใจ ไม่ใช่บั๊ก)**: `audit_log` ยังไม่มี UI ให้ดู (รอ WYN-054, Phase 7), ไม่มีนโยบาย retention/cleanup (audit trail ต้องไม่ถูกลบทิ้งเอง)
+
+Handoff: AI QA & Security — เน้นตรวจ: **(ก) RLS ของ `audit_log` ปิดสนิทจริงทุก role** รวม admin/moderator, **(ข) แถว `account_deleted` รอดจากการลบจริง** (ตรวจซ้ำอิสระ ไม่เชื่อ CHECK12-13 เดิมอย่างเดียว), **(ค) พฤติกรรมเดิมของ 5 ฟังก์ชันที่แก้ไม่เปลี่ยนแปลงแม้แต่นิดเดียว** (รัน `wyn_029`/`wyn_030`/`wyn_043`/`wyn_047` ทั้งหมดอิสระ), **(ง) อ่าน runbook ประเมินว่าใช้งานได้จริงไหมถ้าเกิดเหตุจริง**
