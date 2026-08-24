@@ -190,6 +190,23 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   bool get _isOwnProfile =>
       widget.userId == Supabase.instance.client.auth.currentUser!.id;
 
+  /// WYNOS Unified Home Feed Algorithm V1.0 -- best-effort "Profile
+  /// Visit" User Signal, only for someone else's profile (the guard at
+  /// this method's own call site already ensures that; there's no
+  /// further self-visit check needed here, unlike record_drop_view()'s
+  /// server-side one -- see HomeRepository.recordProfileVisit's own
+  /// doc comment for why). Silent on failure, same posture as every
+  /// other best-effort background fetch on this screen (e.g.
+  /// _loadFollowStatus) -- a missed personalization signal is never
+  /// worth a blocking error for a screen the user is just browsing.
+  Future<void> _recordProfileVisit() async {
+    try {
+      await _homeRepository.recordProfileVisit(widget.userId);
+    } catch (_) {
+      // Silent -- see doc comment above.
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -199,6 +216,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       _loadBlockRelationship();
       _loadMuteStatus();
       _loadPendingRequestStatus();
+      _recordProfileVisit();
     } else {
       _loadPendingRequestCount();
     }

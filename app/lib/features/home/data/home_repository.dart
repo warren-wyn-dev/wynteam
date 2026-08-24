@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'feed_diversity.dart';
 import 'home_feed_item.dart';
 import 'home_ranking.dart';
 
@@ -296,30 +297,53 @@ class HomeRepository {
     return items.take(limit).toList();
   }
 
-  /// The ranked "สำหรับคุณ" feed (WYN-018): fetches a bounded window of
-  /// the most recent [_rankedCandidateLimit] items (same "PostgREST
-  /// can't order by a computed expression" constraint fetchTrending
-  /// already works around), scores each with [rankingScore], sorts by
-  /// that score descending, then slices out one page. This makes
-  /// "สำหรับคุณ" a bounded top-200 window rather than truly infinite --
-  /// [page]s beyond that return empty, same as any other exhausted feed.
+  /// The ranked "สำหรับคุณ" feed -- WYNOS Unified Home Feed Algorithm
+  /// V1.0. Calls `get_wynos_ranked_feed()` (see supabase/schema.sql),
+  /// which already returns the bounded top-[_rankedCandidateLimit]
+  /// (200) window scored by Wynos Score and sorted descending --
+  /// backend does the heavy per-candidate computation (personalization
+  /// signals, engagement/trending aggregation across the dataset) per
+  /// the Product spec's explicit "Client -> Request / Backend ->
+  /// Retrieve + Score / Backend -> Return Ranked Feed" flow. This
+  /// replaces WYN-018's client-side rankingScore()-based sort for this
+  /// one method only -- rankingScore() itself is untouched and still
+  /// used by DropFeedScreen's own "For You" tab, and
+  /// fetchTrending()/fetchTopContent() below are untouched too (out of
+  /// scope this round, see this task's Coding notes for why).
+  ///
+  /// Feed Diversity re-ordering ([applyFeedDiversity]) is applied here,
+  /// client-side, to the full already-scored 200-item window before
+  /// slicing out a page -- see feed_diversity.dart's doc comment for
+  /// why that one post-processing step stays a pure Dart function
+  /// rather than more SQL. Applying it to the *full* window (not just
+  /// the current page) every call, then slicing, is what keeps paging
+  /// deterministic and duplicate-free: the same 200-item input always
+  /// diversity-reorders into the same output, so page N always slices
+  /// out the same items regardless of how many times it's re-fetched
+  /// (same "bounded top-N window instead of truly infinite ranking"
+  /// tradeoff WYN-018 already accepted, just with an extra reordering
+  /// step now sitting in front of the slice).
   Future<List<HomeFeedItem>> fetchRankedFeed({required int page}) async {
     final userId = _client.auth.currentUser!.id;
     final from = page * pageSize;
     final to = from + pageSize - 1;
     if (from >= _rankedCandidateLimit) return [];
 
-    final rows = await _client
-        .from('home_feed')
-        .select()
-        .order('created_at', ascending: false)
-        .limit(_rankedCandidateLimit);
+    final rawRows =
+        await _client.rpc('get_wynos_ranked_feed') as List<dynamic>;
+    // row_data carries every public.home_feed column (plus some
+    // ranking-internal ones HomeFeedItem.fromMap simply never reads) --
+    // flattening it back out here is what lets fromMap keep working
+    // completely unmodified, exactly as if this were still a plain
+    // home_feed row. See get_wynos_ranked_feed()'s own doc comment.
+    final rows = rawRows
+        .map((raw) => Map<String, dynamic>.from(
+            raw['row_data'] as Map<String, dynamic>))
+        .toList();
 
     final dropIds = <String>[];
     final popIds = <String>[];
-    final authorIds = <String>{};
     for (final row in rows) {
-      authorIds.add(row['author_id'] as String);
       if (row['content_type'] == 'drop') {
         dropIds.add(row['id'] as String);
       } else {
@@ -352,11 +376,6 @@ class HomeRepository {
           .whereType<String>()
           .toList(),
     );
-    final followedAuthorIds = await _fetchFollowedAuthorIds(
-      userId: userId,
-      authorIds: authorIds,
-    );
-    final blockedAuthorIds = await _fetchPostingBlockedAuthorIds(authorIds);
 
     final items = rows.map((row) {
       final id = row['id'] as String;
@@ -373,26 +392,31 @@ class HomeRepository {
         pollTotalVotes: pollState?.totalVotes,
         pollOptionCounts: pollState?.optionCounts,
       );
-    }).toList()
-      ..removeWhere((item) => blockedAuthorIds.contains(item.authorId));
+    }).toList();
 
-    final now = DateTime.now().toUtc();
-    items.sort((a, b) {
-      final scoreA = rankingScore(
-        a,
-        now: now,
-        isFollowingAuthor: followedAuthorIds.contains(a.authorId),
-      );
-      final scoreB = rankingScore(
-        b,
-        now: now,
-        isFollowingAuthor: followedAuthorIds.contains(b.authorId),
-      );
-      return scoreB.compareTo(scoreA);
-    });
+    // '$id:${redropId ?? ''}' -- same composite key HomeDropCard already
+    // builds for its own widget Key, needed here because the same
+    // underlying Drop can appear twice in one window (once plain, once
+    // via someone's ReDrop of it, WYN-034), so `id` alone isn't unique.
+    String keyFor(HomeFeedItem item) => '${item.id}:${item.redropId ?? ''}';
 
-    if (from >= items.length) return [];
-    return items.sublist(from, to + 1 > items.length ? items.length : to + 1);
+    final diversityCandidates = [
+      for (var i = 0; i < items.length; i++)
+        FeedDiversityCandidate(
+          key: keyFor(items[i]),
+          authorId: items[i].authorId,
+          wynosScore: (rawRows[i]['wynos_score'] as num).toDouble(),
+          isDiscovery: rawRows[i]['is_discovery'] as bool,
+        ),
+    ];
+    final itemsByKey = {for (final item in items) keyFor(item): item};
+    final ordered = applyFeedDiversity(diversityCandidates)
+        .map((c) => itemsByKey[c.key]!)
+        .toList();
+
+    if (from >= ordered.length) return [];
+    return ordered.sublist(
+        from, to + 1 > ordered.length ? ordered.length : to + 1);
   }
 
   /// The "ติดตาม" (Following) feed mode (WYN-024): Drop+Pop content from
@@ -584,21 +608,6 @@ class HomeRepository {
     };
   }
 
-  Future<Set<String>> _fetchFollowedAuthorIds({
-    required String userId,
-    required Set<String> authorIds,
-  }) async {
-    if (authorIds.isEmpty) return {};
-
-    final rows = await _client
-        .from('follows')
-        .select('following_id')
-        .eq('follower_id', userId)
-        .inFilter('following_id', authorIds.toList());
-
-    return rows.map((row) => row['following_id'] as String).toSet();
-  }
-
   /// WYN-041 (Trending Engine v2, anti-manipulation): candidate authors
   /// who currently have an active restrict/suspend/ban (per
   /// `internal.is_posting_blocked()`, WYN-029/030) get removed from
@@ -674,5 +683,47 @@ class HomeRepository {
         .inFilter('content_id', ids);
 
     return rows.map((row) => row['content_id'] as String).toSet();
+  }
+
+  /// Records a "Hide" User Signal (WYNOS Unified Home Feed Algorithm
+  /// V1.0) -- a hard negative signal: `get_wynos_ranked_feed()` excludes
+  /// this content from this user's ranked feed entirely from the next
+  /// fetch on, permanently (no "unhide" this round -- matches the
+  /// Product spec's own framing of Hide as removal, not a temporary
+  /// demotion; `not_interested` in `feed_signals`' own check constraint
+  /// is reserved for that softer variant if it's ever built). Only
+  /// affects [contentType]/[contentId] for the *current user* -- the
+  /// content itself is untouched and still visible to everyone else,
+  /// same posture as a Mute (WYN-028) rather than a Report (WYN-026).
+  Future<void> hideContent({
+    required HomeContentType contentType,
+    required String contentId,
+  }) {
+    final userId = _client.auth.currentUser!.id;
+    return _client.from('feed_signals').insert({
+      'user_id': userId,
+      'signal_type': 'hide',
+      'target_type': contentType == HomeContentType.drop ? 'drop' : 'pop',
+      'target_id': contentId,
+    });
+  }
+
+  /// Records a "Profile Visit" User Signal (WYNOS Unified Home Feed
+  /// Algorithm V1.0) -- a soft positive signal toward [profileId]'s
+  /// author-affinity, folded into get_wynos_ranked_feed()'s Personalized
+  /// Interest term the same way a Like/Save/View already is. The
+  /// caller (ViewProfileScreen) is expected to skip calling this for
+  /// the viewer's own profile -- there is no self-visit guard here
+  /// (unlike record_drop_view()'s server-side one, WYN-038) since a
+  /// self-affinity signal toward your own content is harmless noise,
+  /// not a gameable public metric; skipping it client-side is enough.
+  Future<void> recordProfileVisit(String profileId) {
+    final userId = _client.auth.currentUser!.id;
+    return _client.from('feed_signals').insert({
+      'user_id': userId,
+      'signal_type': 'profile_visit',
+      'target_type': 'profile',
+      'target_id': profileId,
+    });
   }
 }

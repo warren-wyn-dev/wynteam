@@ -82,4 +82,26 @@ class RecordingHomeRepository extends HomeRepository {
     fetchRedropsByUserUserIdArgs.add(userId);
     return page == 0 ? redropsByUser : <HomeFeedItem>[];
   }
+
+  /// Each call to [hideContent]'s arguments, in order -- WYNOS Unified
+  /// Home Feed Algorithm V1.0.
+  final List<(HomeContentType, String)> hideContentArgs = [];
+  Object? hideContentError;
+
+  @override
+  Future<void> hideContent({
+    required HomeContentType contentType,
+    required String contentId,
+  }) async {
+    if (hideContentError != null) throw hideContentError!;
+    hideContentArgs.add((contentType, contentId));
+  }
+
+  /// Each call to [recordProfileVisit]'s profileId argument, in order.
+  final List<String> recordProfileVisitArgs = [];
+
+  @override
+  Future<void> recordProfileVisit(String profileId) async {
+    recordProfileVisitArgs.add(profileId);
+  }
 }

@@ -30,6 +30,7 @@ class HomeDropCard extends StatelessWidget {
     this.onOpenRedropperProfile,
     this.onDeleteRedrop,
     this.onVotePoll,
+    this.onHide,
   });
 
   final HomeFeedItem item;
@@ -63,6 +64,13 @@ class HomeDropCard extends StatelessWidget {
   /// WYN-035: called with the tapped option's index when [item.isPoll]
   /// -- null (never called) for a plain image card.
   final ValueChanged<int>? onVotePoll;
+
+  /// WYNOS Unified Home Feed Algorithm V1.0 -- records the "Hide" User
+  /// Signal and removes this card from the feed immediately. Only
+  /// offered for someone else's Drop (see [_isOwnDrop]'s use in
+  /// [_openMoreMenu]), same gating as "รายงานโพสต์" -- hiding your own
+  /// post from your own feed isn't a meaningful action.
+  final VoidCallback? onHide;
 
   bool get _isOwnDrop =>
       item.authorId == Supabase.instance.client.auth.currentUser!.id;
@@ -125,6 +133,15 @@ class HomeDropCard extends StatelessWidget {
             // visibility before WYN-034, kept here now that the
             // button can also show for a reason unrelated to
             // authorship (_isOwnRedrop).
+            if (!_isOwnDrop && onHide != null)
+              ListTile(
+                leading: const Icon(Icons.visibility_off_outlined),
+                title: const Text('ไม่สนใจโพสต์นี้'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  onHide?.call();
+                },
+              ),
             if (!_isOwnDrop)
               ListTile(
                 leading: const Icon(Icons.flag_outlined),

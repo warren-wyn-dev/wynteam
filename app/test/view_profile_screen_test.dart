@@ -418,4 +418,58 @@ void main() {
       expect(find.text('Club ของฉัน'), findsNothing);
     });
   });
+
+  group('"Profile Visit" User Signal (WYNOS Unified Home Feed Algorithm '
+      'V1.0)', () {
+    // Constructed once in setUpAll (not per-test) -- same "avoid a leaked
+    // GoTrue auto-refresh timer" discipline as every other
+    // RecordingXRepository across this project's test suite
+    // (.wyn/learning/PATTERNS.md) -- cleared between tests instead of
+    // re-constructed.
+    late RecordingHomeRepository visitHomeRepo;
+
+    setUpAll(() {
+      visitHomeRepo = RecordingHomeRepository();
+    });
+
+    setUp(() {
+      visitHomeRepo.recordProfileVisitArgs.clear();
+    });
+
+    testWidgets('opening someone else\'s profile records a Profile Visit',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: ViewProfileScreen(
+          profileRepository: otherProfileRepo,
+          followRepository: otherFollowRepo,
+          dropRepository: dropRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          userId: 'someone-else',
+          homeRepository: visitHomeRepo,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(visitHomeRepo.recordProfileVisitArgs, ['someone-else']);
+    });
+
+    testWidgets('opening your own profile never records a Profile Visit',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: ViewProfileScreen(
+          profileRepository: ownProfileRepo,
+          followRepository: ownFollowRepo,
+          dropRepository: dropRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          userId: 'me',
+          homeRepository: visitHomeRepo,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(visitHomeRepo.recordProfileVisitArgs, isEmpty);
+    });
+  });
 }
