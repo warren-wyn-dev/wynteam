@@ -1,5 +1,18 @@
-import { PlaceholderPage } from "@/components/admin/placeholder-page";
+import { Suspense } from "react";
+
+import { DashboardMetrics } from "@/components/admin/dashboard-metrics";
+import { DashboardSkeleton } from "@/components/admin/dashboard-skeleton";
+import { RefreshButton } from "@/components/admin/refresh-button";
 
 export default function DashboardPage() {
-  return <PlaceholderPage feature="WYN Admin Dashboard" task="WYN-050" />;
+  return (
+    <div className="flex flex-1 flex-col">
+      <div className="flex justify-end px-6 pt-4">
+        <RefreshButton />
+      </div>
+      <Suspense fallback={<DashboardSkeleton />}>
+        <DashboardMetrics />
+      </Suspense>
+    </div>
+  );
 }

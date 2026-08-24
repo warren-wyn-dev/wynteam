@@ -8662,3 +8662,101 @@ $$;
 -- delete_my_account() (both legitimately granted to authenticated),
 -- whose only "whose data" input is auth.uid() with no caller override.
 revoke execute on function internal.log_audit_event(uuid, text, uuid, jsonb) from public;
+
+-- ============================================================
+-- WYN-050: WYN Admin Dashboard metrics
+-- ============================================================
+-- See .wyn/tasks/backlog/WYN-050-admin-dashboard.md and
+-- .wyn/docs/design/wyn-050-admin-dashboard.md. One RPC, one round
+-- trip, admin/moderator-only, returns aggregate counts only (never a
+-- raw per-user row) -- this is deliberately how WYN Admin sees
+-- cross-user data without a service-role client anywhere in the app
+-- (WYN-049's decision, extended here rather than reopened). 11 of the
+-- 14 metrics Master Spec section 37 lists; Storage/Errors/Server
+-- Health are out of scope this round -- no Supabase Management API
+-- access, no error-tracking tool, and no concept of "a server" in a
+-- Vercel+Supabase serverless architecture, respectively (see the
+-- Product spec's Requirement 1 for the full reasoning per metric).
+create or replace function public.admin_dashboard_metrics()
+returns table (
+  new_users_today bigint,
+  dau bigint,
+  wau bigint,
+  mau bigint,
+  drops_today bigint,
+  views_today bigint,
+  clubs_total bigint,
+  clubs_new_today bigint,
+  likes_today bigint,
+  comments_today bigint,
+  redrops_today bigint,
+  messages_today bigint,
+  reports_total bigint,
+  reports_pending bigint
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- coalesce() is load-bearing, not decoration: current_platform_role()
+  -- returns NULL for a caller with no `profiles` row at all, and
+  -- `NULL not in (...)` evaluates to NULL, which PL/pgSQL's `if`
+  -- treats as false (branch skipped, exception never raised) -- see
+  -- set_club_member_role()'s own comment on this exact trap and
+  -- .wyn/tasks/bugs/WYN-050-admin-dashboard-metrics-null-role-bypass.md
+  -- for how this one was found (QA reproduced a real bypass before
+  -- this fix existed).
+  if coalesce(internal.current_platform_role(), '') not in ('admin', 'moderator') then
+    raise exception 'Not permitted to view admin dashboard metrics';
+  end if;
+
+  return query
+  -- DAU/WAU/MAU proxy: distinct actors across every "did something"
+  -- table in the schema, not literal app-open sessions -- there is no
+  -- session/analytics tracking system in this project at all (see the
+  -- Product spec's Requirement 1). Creating a Drop counts as an
+  -- action here too, alongside liking/commenting/ReDropping/
+  -- messaging.
+  with actions as (
+    select user_id as actor_id, created_at from public.drop_likes
+    union all
+    select user_id, created_at from public.pop_likes
+    union all
+    select user_id, created_at from public.club_post_likes
+    union all
+    select author_id, created_at from public.drop_comments
+    union all
+    select author_id, created_at from public.pop_comments
+    union all
+    select author_id, created_at from public.club_post_comments
+    union all
+    select redropper_id, created_at from public.redrops
+    union all
+    select sender_id, created_at from public.messages where deleted_at is null
+    union all
+    select author_id, created_at from public.drops
+  )
+  select
+    (select count(*) from public.profiles where created_at >= now() - interval '1 day'),
+    (select count(distinct actor_id) from actions where created_at >= now() - interval '1 day'),
+    (select count(distinct actor_id) from actions where created_at >= now() - interval '7 days'),
+    (select count(distinct actor_id) from actions where created_at >= now() - interval '30 days'),
+    (select count(*) from public.drops where created_at >= now() - interval '1 day'),
+    (select count(*) from public.drop_views where created_at >= now() - interval '1 day'),
+    (select count(*) from public.clubs),
+    (select count(*) from public.clubs where created_at >= now() - interval '1 day'),
+    (select count(*) from public.drop_likes where created_at >= now() - interval '1 day')
+      + (select count(*) from public.pop_likes where created_at >= now() - interval '1 day')
+      + (select count(*) from public.club_post_likes where created_at >= now() - interval '1 day'),
+    (select count(*) from public.drop_comments where created_at >= now() - interval '1 day')
+      + (select count(*) from public.pop_comments where created_at >= now() - interval '1 day')
+      + (select count(*) from public.club_post_comments where created_at >= now() - interval '1 day'),
+    (select count(*) from public.redrops where created_at >= now() - interval '1 day'),
+    (select count(*) from public.messages where deleted_at is null and created_at >= now() - interval '1 day'),
+    (select count(*) from public.reports),
+    (select count(*) from public.reports where status = 'pending');
+end;
+$$;
+
+grant execute on function public.admin_dashboard_metrics() to authenticated;
