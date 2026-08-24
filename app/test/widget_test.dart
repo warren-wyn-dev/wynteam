@@ -33,6 +33,7 @@ void main() {
 
     expect(find.byType(AuthMethodScreen), findsOneWidget);
     expect(find.text('เข้าสู่ระบบด้วย Google'), findsOneWidget);
+    expect(find.text('เข้าสู่ระบบด้วยอีเมล'), findsOneWidget);
     // Apple Sign-In and Phone/SMS OTP temporarily removed from this
     // screen (Founder, 2026-08-24) -- see auth_method_screen.dart's own
     // doc comment on why. Neither button should render right now.

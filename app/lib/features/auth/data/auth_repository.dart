@@ -5,6 +5,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// already taken by another profile.
 class UsernameTakenException implements Exception {}
 
+/// Thrown by [AuthRepository.signUpWithEmail] when the email is already
+/// registered -- surfaced separately from a generic sign-up failure so
+/// EmailAuthScreen can show "already registered, try logging in instead"
+/// rather than a generic error.
+class EmailAlreadyRegisteredException implements Exception {}
+
 /// Wraps all Supabase Auth + profile calls needed for WYN-002
 /// (Authentication & Onboarding). See:
 /// .wyn/tasks/active/WYN-002-authentication-onboarding.md
@@ -46,6 +52,29 @@ class AuthRepository {
       OAuthProvider.apple,
       redirectTo: _oauthRedirect,
     );
+  }
+
+  /// Creates a new account with any email + password -- unlike Google/
+  /// Apple/Phone OTP, not tied to a specific provider account, so a
+  /// tester can sign up with any address and as many accounts as they
+  /// want. The Supabase project has email confirmation switched off
+  /// (Founder, 2026-08-24, for frictionless beta testing -- see
+  /// .wyn/company/DECISIONS.md), so this returns a real session
+  /// immediately rather than requiring a confirmation-link click first.
+  Future<AuthResponse> signUpWithEmail(String email, String password) async {
+    try {
+      return await _client.auth.signUp(email: email, password: password);
+    } on AuthApiException catch (e) {
+      if (e.message.toLowerCase().contains('already registered') ||
+          e.message.toLowerCase().contains('already exists')) {
+        throw EmailAlreadyRegisteredException();
+      }
+      rethrow;
+    }
+  }
+
+  Future<AuthResponse> signInWithEmail(String email, String password) {
+    return _client.auth.signInWithPassword(email: email, password: password);
   }
 
   Future<void> sendPhoneOtp(String phone) {
