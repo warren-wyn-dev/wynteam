@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/design/wyn_colors.dart';
 import '../../../pop/presentation/widgets/pop_clip_view.dart' show popShareLink;
@@ -30,6 +31,7 @@ class HomePopCard extends StatelessWidget {
     required this.onToggleSave,
     required this.onOpenProfile,
     this.onTapComment,
+    this.onHide,
   });
 
   final HomeFeedItem item;
@@ -45,9 +47,38 @@ class HomePopCard extends StatelessWidget {
   /// exact previous behavior unchanged.
   final VoidCallback? onTapComment;
 
+  /// WYNOS Unified Home Feed Algorithm V1.0 -- records the "Hide" User
+  /// Signal and removes this card from the feed immediately. Same
+  /// "someone else's content only" gating as HomeDropCard's identical
+  /// field -- see [_isOwnPop].
+  final VoidCallback? onHide;
+
+  bool get _isOwnPop =>
+      item.authorId == Supabase.instance.client.auth.currentUser!.id;
+
   Future<void> _share() async {
     await SharePlus.instance.share(
       ShareParams(text: popShareLink(item.id)),
+    );
+  }
+
+  Future<void> _openMoreMenu(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.visibility_off_outlined),
+              title: const Text('ไม่สนใจโพสต์นี้'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                onHide?.call();
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -66,24 +97,36 @@ class HomePopCard extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space1),
-                child: InkWell(
-                  onTap: onOpenProfile,
-                  borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AvatarCircle(
-                        imageUrl: item.authorAvatarUrl,
-                        fallbackText: item.authorUsername,
-                        radius: 16,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: onOpenProfile,
+                        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AvatarCircle(
+                              imageUrl: item.authorAvatarUrl,
+                              fallbackText: item.authorUsername,
+                              radius: 16,
+                            ),
+                            const SizedBox(width: WynSpacing.space2),
+                            Text(
+                              item.authorNameOrUsername,
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(width: WynSpacing.space2),
-                      Text(
-                        item.authorNameOrUsername,
-                        style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    if (!_isOwnPop && onHide != null)
+                      IconButton(
+                        icon: const Icon(Icons.more_vert),
+                        tooltip: 'เพิ่มเติม',
+                        onPressed: () => _openMoreMenu(context),
                       ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
               DoubleTapLike(
