@@ -20,11 +20,43 @@ class WelcomeScreen extends StatelessWidget {
           child: Column(
             children: [
               const Spacer(flex: 3),
-              Text(
-                'WYN',
-                style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'WYN',
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(width: WynSpacing.space2),
+                  // Beta label (Founder, 2026-08-24) -- flags this build
+                  // as pre-launch/testing to anyone who opens the app
+                  // before real (lawyer-reviewed) platform documents
+                  // replace the WYN-046 placeholder content -- see
+                  // .wyn/company/APPROVALS.md's entry on that gap.
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: WynSpacing.space2,
+                      vertical: WynSpacing.space1,
                     ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.secondaryContainer,
+                      borderRadius:
+                          BorderRadius.circular(WynSpacing.radiusFull),
+                    ),
+                    child: Text(
+                      'BETA',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSecondaryContainer,
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: WynSpacing.space3),
               Text(
