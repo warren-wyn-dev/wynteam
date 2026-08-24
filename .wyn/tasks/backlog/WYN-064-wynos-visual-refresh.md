@@ -25,10 +25,12 @@ Problem: Founder ส่ง spec ยาวมาผ่าน `/product` ระบ
 3. Profile Tabs ใหม่ (Posts/Replies/Media/Likes) — ต่างจาก taxonomy ปัจจุบัน (Drop/ReDrop/Saved/Draft, Pop ซ่อนแล้วจาก WYN-066) โดยเฉพาะ **"Replies" และ "Likes" เป็น tab ที่ไม่เคยมีมาก่อนเลย** (ดู Requirement/Risk ด้านล่าง — มีประเด็น privacy ต้องตัดสินใจ)
 4. Micro-interactions บางส่วนที่ยังไม่ยืนยันว่ามี: Follow animation, Tab transition, Haptic feedback — ต้องตรวจเพิ่มเติมทีละจุดตอน Design/Coding
 
-**Founder ตัดสินใจแล้ว (2026-08-24, บันทึกใน DECISIONS.md)**: (1) ThemeMode fix เป็น Light เสมอ (2) Multi-image Drop ทำเป็นส่วนหนึ่งของงานนี้เลย (3) Replies/Likes tab เปิดสาธารณะเหมือน Twitter/X (4) ยังรอ Founder แนบภาพอ้างอิงใหม่ก่อนเริ่ม Design จริง
+**Founder ตัดสินใจแล้ว (2026-08-24, บันทึกใน DECISIONS.md)**: (1) ThemeMode fix เป็น Light เสมอ (2) Multi-image Drop ทำเป็นส่วนหนึ่งของงานนี้เลย (3) Replies/Likes tab เปิดสาธารณะเหมือน Twitter/X (4) **ได้ภาพอ้างอิงแล้ว (2026-08-24) — R1 ปลดล็อกแล้ว ไม่มีคำถามค้างอีกต่อไป**
+
+**ภาพอ้างอิงที่ได้รับ**: screenshot หน้า Profile ของแอป **Threads (Meta)** วงสีแดงชี้ 2 จุด — (1) ส่วน "แนะนำสำหรับคุณ" horizontal card ใต้ปุ่ม Follow/ส่งข้อความ ตรงกับ R4 เป๊ะ (2) แถบ Tab (เธรด/การตอบกลับ/สื่อ/วีดีโอสด) + รายการโพสต์ใต้ tab ตรงกับ R5 (Posts/Replies/Media/...) — **ข้อสังเกต**: ภาพใช้ tab ที่ 4 เป็น "วีดีโอสด" (Live) ไม่ใช่ "Likes" แต่ spec ข้อความของ Founder ระบุ "Likes" ชัดเจน — ยึดตาม**ข้อความ spec เป็นหลัก** (Likes) เพราะภาพอ้างอิงเป็นแค่แรงบันดาลใจเชิงโครงสร้าง ไม่ใช่รายการที่ต้องลอกทุกจุด (ตรงกับกติกา "ห้ามลอกองค์ประกอบเฉพาะของแอปต้นแบบโดยตรง" ที่ Founder เขียนไว้เอง) — **AI Design ต้องออกแบบ visual ของ WYNOS เอง ไม่ใช้ icon/ font/ layout spacing ของ Threads ตรงๆ** ใช้แค่ตำแหน่ง/โครงสร้างเป็นแนวทาง (บนสุด: Back/Search/Notification/More, ใต้ header: Recommendation cards, ใต้นั้น: Tab bar + content list)
 
 Requirements:
-- R1. **[รอภาพอ้างอิง]** ยืนยันภาพอ้างอิงกับ Founder ก่อนเริ่ม Design จริง (ดู Problem — ยังไม่เห็นภาพในเซสชันนี้ Founder แจ้งจะแนบใหม่)
+- R1. ~~ยืนยันภาพอ้างอิงกับ Founder~~ **เสร็จแล้ว** — ได้ภาพแล้ว (ดูรายละเอียดด้านบน)
 - R2. **[ตัดสินใจแล้ว: Fix Light]** เปลี่ยน `app/lib/main.dart`: `themeMode: ThemeMode.system` → `ThemeMode.light` — ลบ/ปรับ `darkTheme:` ตามความเหมาะสม (คง `WynTheme.dark` ไว้ในโค้ดเผื่ออนาคตหรือลบไปเลยก็ได้ แล้วแต่ AI Design/Coding ตัดสินใจ ไม่ใช่ decision ที่ต้องถาม Founder ซ้ำ)
 - R3. **[ตัดสินใจแล้ว: ทำเลย]** เพิ่ม multi-image Drop (1–9 รูป) — schema ใหม่ (ตาราง `drop_images` แยกจาก `drops.image_url` เดิม หรือ array column), UI grid ใหม่, full-screen viewer พร้อม swipe ระหว่างรูป, client-side compression ทุกรูปก่อน upload (ต่อยอด pattern การ compress ที่ WYN-005 มีอยู่แล้วสำหรับรูปเดียว) — **ต้องคง backward-compat กับ Drop รูปเดียว/ไม่มีรูปเดิมทั้งหมด (WYN-062) ไม่ทำลายของเดิม**
 - R4. เพิ่ม Recommendation Section บน Profile (horizontal scroll, dismiss ได้ด้วยปุ่ม X — ต้องมี state เก็บว่า user dismiss คนไหนไปแล้วเพื่อไม่ให้ suggest ซ้ำ)
@@ -47,7 +49,7 @@ Acceptance Criteria:
 
 Dependencies: ต่อยอด DS-001 (สี, อนุมัติแล้ว), WYN-062 (text-only Drop), WYN-063 (ranking algorithm), WYN-066 (ซ่อน Pop จาก Profile) — ไม่ต้องสร้าง design system ใหม่ตั้งแต่ต้น ใช้ `WynColors`/`WynTheme`/`WynSpacing`/`WynTypography` เดิมทั้งหมด
 
-Priority: Founder ตัดสินใจ R2/R3/R5 แล้ว (2026-08-24) — เหลือรอแค่ **R1 (ภาพอ้างอิง)** ก่อนเริ่ม Design จริงทั้งหมด เพราะ "ห้ามลอกดีไซน์แอปต้นแบบ" ต้องมีภาพให้ดูก่อนถึงจะระวังจุดนั้นได้ถูก — R4/R7/R8 ไม่มีคำถามค้าง ทำต่อได้เลย
+Priority: **ไม่มีคำถามค้างแล้ว** (2026-08-24) — R1/R2/R3/R5 ตัดสินใจ/ยืนยันครบ พร้อมส่งต่อ AI Design ทำทุก requirement ได้ทันที
 
 Risks: 
 - multi-image Drop (R3) เป็น schema change ระดับกลาง (ตารางใหม่/relationship ใหม่) กระทบทุกจุดที่เคยสมมติว่า Drop มีรูปเดียว (เยอะพอสมควรหลัง WYN-062 ทำให้ null-safe ไปแล้วรอบหนึ่ง) — ต้องตรวจซ้ำทุกจุดอีกครั้ง
@@ -59,4 +61,4 @@ Recommendation:
 - Replies/Likes tab แนะนำ default เป็น private (เจ้าของโปรไฟล์เท่านั้น) ตาม WYN Mission เรื่องความเป็นส่วนตัว เว้นแต่ Founder ต้องการสาธารณะจริงๆ
 - Dwell-time signal (R6) แนะนำเลื่อนเป็นงานแยกต่างหาก (ไม่ block งานนี้) เพราะเป็น schema ใหม่ที่ต้องคิด privacy ให้รอบคอบกว่านี้ ไม่ควรรีบทำรวมในรอบเดียว
 
-Handoff: AI Design เริ่มจาก R2 (theme fix)/R3 (multi-image Drop)/R4 (Recommendation section)/R5 (Replies/Likes tab + privacy-notice UX)/R7/R8 ได้ทันที — เฉพาะส่วนที่ต้องอิงภาพอ้างอิงโดยตรง (layout/สไตล์เชิงภาพที่ spec บอกว่า "ใกล้เคียงภาพอ้างอิง") ให้รอ R1 ก่อน
+Handoff: **พร้อมส่งต่อ AI Design ทำทุก requirement (R2–R8) ได้ทันที** — ไม่มีคำถามค้างแล้ว (ได้ภาพอ้างอิงและ Founder ตัดสินใจครบทุกจุดแล้ว 2026-08-24)
