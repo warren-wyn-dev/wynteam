@@ -4416,6 +4416,24 @@ begin
       delete from public.club_post_comments where id = v_report.target_id;
     end if;
   end if;
+
+  -- WYN-048: audit trail for this privileged action, recorded after
+  -- everything above has already succeeded. actor_id is the real
+  -- reviewer identity (v_reviewer) -- unlike the notifications inserted
+  -- above (which deliberately null out actor_id so the target never
+  -- learns who reviewed them), audit_log has zero client-facing SELECT
+  -- policy at all, so recording the true reviewer here creates no such
+  -- leak. No exception handling around this call: if it raises, the
+  -- whole action rolls back (fail-closed) rather than letting a
+  -- privileged moderation action succeed unlogged -- see
+  -- internal.log_audit_event()'s own comment (WYN-048 section) for why
+  -- that failure mode is realistically never hit anyway.
+  perform internal.log_audit_event(
+    v_reviewer,
+    'moderation_action_applied',
+    v_target_user,
+    jsonb_build_object('action_type', p_action_type, 'reason', v_trimmed_reason)
+  );
 end;
 $$;
 
@@ -4861,6 +4879,19 @@ begin
     insert into public.notifications (recipient_id, actor_id, type, reason, moderation_action_id, moderation_action_type)
     values (v_action.target_user_id, null, 'appeal_rejected', v_trimmed_reason, v_action.id, v_action.action_type);
   end if;
+
+  -- WYN-048: audit trail, recorded after the decision has already
+  -- committed above. actor_id is the real reviewer identity (same
+  -- reasoning as apply_moderation_action()'s own WYN-048 comment --
+  -- audit_log has no client-facing SELECT policy, so this creates no
+  -- reviewer-identity leak the way notifications.actor_id would).
+  -- target = the appellant (v_appeal.appellant_id), not the reviewer.
+  perform internal.log_audit_event(
+    v_reviewer,
+    'appeal_decided',
+    v_appeal.appellant_id,
+    jsonb_build_object('decision', case when p_approve then 'approved' else 'rejected' end)
+  );
 end;
 $$;
 
@@ -7760,6 +7791,25 @@ begin
   if internal.notification_enabled(p_recipient_id, 'system') then
     insert into public.notifications (recipient_id, actor_id, type, reason)
     values (p_recipient_id, null, 'system', p_message);
+
+    -- WYN-048: audit trail. actor_id is the real admin caller --
+    -- audit_log has no client-facing SELECT policy at all (unlike
+    -- notifications.actor_id, which this function already correctly
+    -- nulls out above so the recipient never learns who sent it), so
+    -- recording the true sender identity here creates no leak. Placed
+    -- inside this `if` branch (not unconditionally at the end of the
+    -- function) on purpose -- the event_type is 'system_notification_
+    -- sent', and if the recipient has this category turned off nothing
+    -- was actually sent, so nothing should be logged as sent. detail
+    -- stores the message plainly, same as the notifications row above
+    -- -- not a new exposure, since the recipient already sees this
+    -- exact text via the notification itself.
+    perform internal.log_audit_event(
+      auth.uid(),
+      'system_notification_sent',
+      p_recipient_id,
+      jsonb_build_object('message', p_message)
+    );
   end if;
 end;
 $$;
@@ -8258,12 +8308,30 @@ insert into public.platform_documents (type, version, title, content, effective_
 
 -- export_my_data(): SECURITY DEFINER + no parameters, always operates
 -- on auth.uid() -- there is no way to pass another user's id in, so
--- this can never be used to read anyone else's data. `stable` (not
--- `volatile`) because it only reads. Every branch below filters by
--- the caller's own id even though SECURITY DEFINER already bypasses
--- each table's RLS -- the filter, not RLS, is what keeps this scoped
--- to "my data" (the same discipline internal.notification_enabled()'s
--- own comment block above explains for a different reason).
+-- this can never be used to read anyone else's data. Every branch
+-- below filters by the caller's own id even though SECURITY DEFINER
+-- already bypasses each table's RLS -- the filter, not RLS, is what
+-- keeps this scoped to "my data" (the same discipline
+-- internal.notification_enabled()'s own comment block above explains
+-- for a different reason).
+--
+-- WYN-048: no longer `language sql` / `stable` -- it now also writes
+-- one audit_log row via internal.log_audit_event(), so it is no longer
+-- purely read-only, and internal.log_audit_event() itself is only
+-- defined later in this file (WYN-048 section, appended at the end per
+-- this project's convention). A plain `language sql` function body is
+-- parsed and its references resolved at CREATE FUNCTION time (verified
+-- empirically -- referencing a not-yet-defined function errors
+-- immediately with "function ... does not exist"), which would break
+-- top-to-bottom loading; `language plpgsql` defers resolution of
+-- embedded SQL statements to first call, the same reason every other
+-- forward-referencing helper in this file already uses plpgsql, so
+-- this is now plpgsql too. The jsonb_build_object expression itself
+-- and every branch's filtering logic are otherwise untouched -- moved
+-- as-is into a `select ... into v_export`. No exception handling
+-- around the log call -- if it fails, the whole export fails too
+-- (fail-closed, same reasoning as every other WYN-048 call site -- see
+-- internal.log_audit_event()'s own comment below).
 --
 -- Drops: mirrors internal.is_drop_deleted()/restore_drop()'s own
 -- 30-day cutoff (see restore_drop() above, "deleted_at <= now() -
@@ -8282,11 +8350,14 @@ insert into public.platform_documents (type, version, title, content, effective_
 -- would be a backdoor around that protection.
 create or replace function public.export_my_data()
 returns jsonb
-language sql
-stable
+language plpgsql
+volatile
 security definer
 set search_path = public
 as $$
+declare
+  v_export jsonb;
+begin
   select jsonb_build_object(
     'exported_at', now(),
     'profile', (
@@ -8346,7 +8417,12 @@ as $$
       from public.messages m
       where m.sender_id = auth.uid()
     )
-  );
+  ) into v_export;
+
+  perform internal.log_audit_event(auth.uid(), 'data_exported', auth.uid(), null);
+
+  return v_export;
+end;
 $$;
 
 -- Unlike most other SECURITY DEFINER helpers in this file (which are
@@ -8409,8 +8485,166 @@ begin
     raise exception 'Cannot delete account while a moderation action is active';
   end if;
 
+  -- WYN-048: audit trail, logged *before* the delete below, not after --
+  -- this is the one call site in this whole task where getting the
+  -- order backwards would silently defeat the entire point of audit_log.
+  -- internal.log_audit_event() looks up actor_username_snapshot from
+  -- public.profiles while auth.uid()'s row still exists (the delete
+  -- below removes it, via the profiles(id) references auth.users(id)
+  -- on delete cascade chain, in the very next statement) -- captured
+  -- here it survives permanently, since audit_log.actor_id has
+  -- deliberately no FK/cascade back to profiles/auth.users at all (see
+  -- the WYN-048 section below) -- verified by
+  -- supabase/tests/wyn_048_audit_log_test.sh, which asserts the row
+  -- for this exact event is still readable, with a non-null
+  -- actor_username_snapshot, after the delete below has fully
+  -- committed and profiles/auth.users no longer have a matching row.
+  perform internal.log_audit_event(
+    auth.uid(),
+    'account_deleted',
+    auth.uid(),
+    null
+  );
+
   delete from auth.users where id = auth.uid();
 end;
 $$;
 
 grant execute on function public.delete_my_account() to authenticated;
+
+-- ============================================================
+-- WYN-048: Audit Log Foundation + Security Incident Runbook
+-- ============================================================
+-- See .wyn/tasks/backlog/WYN-048-consent-audit-security-incident.md.
+-- Last task of Phase 6 (Legal & Compliance Layer, Master Spec section
+-- 28). Consent Management has no new requirement this round (already
+-- satisfied by WYN-044/045/046, per the Product spec's Requirement 1)
+-- and the Security Incident Response Runbook is a document, not code
+-- (see .wyn/docs/security/incident-response-runbook.md) -- this
+-- section only adds the third piece: an append-only audit trail for
+-- the 5 existing privileged actions that had no centralized record at
+-- all (moderation actions, appeal decisions, admin system
+-- notifications, account deletion, data export).
+--
+-- Deliberately append-only, with `actor_id`/`target_id` carrying NO
+-- foreign key at all -- the single most important architectural
+-- decision in this task (Product spec's Requirement 2). Every other
+-- table in this schema roots its FKs at
+-- public.profiles.id references auth.users(id) on delete cascade, so
+-- that deleting an account correctly erases that account's own data
+-- everywhere. audit_log must do the *opposite* on purpose: its entire
+-- reason to exist is to remember a privileged action even after the
+-- account behind it is gone -- most critically, the 'account_deleted'
+-- event itself, whose whole point is to still be readable after the
+-- very deletion it records. An `on delete cascade` FK here would erase
+-- that row in the same transaction that creates it, defeating the
+-- table's purpose at its single most important use case. Verified,
+-- not just reasoned about -- see CHECK 12-13 in
+-- supabase/tests/wyn_048_audit_log_test.sh, which deletes a test
+-- user via delete_my_account() and then confirms their
+-- 'account_deleted' audit_log row (with a non-null
+-- actor_username_snapshot) still exists afterward, even though
+-- profiles/auth.users no longer have a matching row for that id.
+create table if not exists public.audit_log (
+  id uuid primary key default gen_random_uuid(),
+  -- No FK/cascade -- see the section comment above.
+  actor_id uuid,
+  -- Denormalized at write time (internal.log_audit_event() below looks
+  -- this up from profiles once, at insert time) so the log stays
+  -- readable by username even after the actor's account is later
+  -- deleted -- profiles.username would otherwise be unreachable for a
+  -- deleted actor, same problem actor_id's lack of FK solves for the
+  -- row's existence itself.
+  actor_username_snapshot text,
+  event_type text not null
+    check (event_type in (
+      'moderation_action_applied', 'appeal_decided',
+      'system_notification_sent', 'account_deleted', 'data_exported'
+    )),
+  -- Polymorphic per event_type, no FK either -- mirrors
+  -- public.reports.target_id's own no-FK polymorphic pattern (WYN-026,
+  -- "target_id is polymorphic (no FK -- the referenced table depends
+  -- on target_type), so integrity is enforced entirely by
+  -- submit_report() below rather than at the column level"). Nullable
+  -- here (unlike reports.target_id, which is `not null`) since not
+  -- every event type has a meaningful separate target -- account_deleted
+  -- and data_exported both set target_id to the same value as actor_id
+  -- (the caller acting on themselves), which is why this stays
+  -- nullable rather than `not null` -- a future event type with no
+  -- natural single target at all remains representable without a
+  -- schema change.
+  target_id uuid,
+  detail jsonb,
+  created_at timestamptz not null default now()
+);
+
+alter table public.audit_log enable row level security;
+
+-- Deliberately ZERO policies of any kind -- not select, not insert, not
+-- update, not delete, and not even for platform_role = 'moderator' or
+-- 'admin'. There is no Admin UI with proper per-role access control
+-- built yet (WYN-054, Phase 7, is what adds the screen that reads this
+-- table) -- exposing raw SELECT to every admin/moderator now, before
+-- that screen exists to gate who specifically should see what, would
+-- be premature. The only way any row ever gets written is through
+-- internal.log_audit_event() below, a SECURITY DEFINER function that
+-- bypasses RLS the same way every notify_* trigger function elsewhere
+-- in this file already does to write into public.notifications despite
+-- that table also having no client-facing insert policy. Until WYN-054
+-- ships, this table is readable only via direct SQL access (Founder,
+-- through the Supabase SQL editor) -- see the Product spec's own Risks
+-- section, which accepts this explicitly as this round's scope.
+--
+-- internal.log_audit_event(): the only sanctioned way any row is ever
+-- written to audit_log. SECURITY DEFINER so it can insert despite
+-- audit_log having no insert policy for any role. Not granted to
+-- `authenticated` -- unlike export_my_data() (which is safe to expose
+-- directly since its only "whose data" input is auth.uid(), with no
+-- caller-supplied override), this function's p_actor_id/p_target_id
+-- are caller-supplied, so a direct grant would let any client forge
+-- audit_log rows attributing arbitrary actions to arbitrary users. It
+-- must only ever be called from other SECURITY DEFINER functions that
+-- already independently derived p_actor_id from something trustworthy
+-- (auth.uid(), or a value already established server-side, such as
+-- decide_appeal()'s v_appeal.appellant_id), never by passing
+-- unvalidated client input straight through.
+--
+-- p_actor_id handled gracefully when null (looked up conditionally
+-- below), though none of the 5 call sites wired in this round actually
+-- pass null -- each of moderation/appeal/notification/delete/export
+-- has exactly one natural single actor (the moderator/admin/self), per
+-- Product's Requirement 2.
+--
+-- Deliberately no exception handling around the insert here, and none
+-- around any of the 5 `perform internal.log_audit_event(...)` call
+-- sites either -- if this insert fails for any reason, the exception
+-- propagates and rolls back the calling function's entire transaction
+-- (fail-closed), rather than letting a privileged action succeed
+-- silently unlogged. This is a deliberate choice, not a default: the
+-- insert here has no realistic failure mode (event_type is always a
+-- literal that matches the check constraint above, id/created_at have
+-- defaults, actor_id/target_id/detail are all nullable), so fail-closed
+-- costs nothing in practice while keeping audit trail integrity
+-- strictly coupled to the action it records.
+create or replace function internal.log_audit_event(
+  p_actor_id uuid,
+  p_event_type text,
+  p_target_id uuid,
+  p_detail jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_actor_username text;
+begin
+  if p_actor_id is not null then
+    select username into v_actor_username from public.profiles where id = p_actor_id;
+  end if;
+
+  insert into public.audit_log (actor_id, actor_username_snapshot, event_type, target_id, detail)
+  values (p_actor_id, v_actor_username, p_event_type, p_target_id, p_detail);
+end;
+$$;
