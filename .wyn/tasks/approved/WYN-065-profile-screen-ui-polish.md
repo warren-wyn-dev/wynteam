@@ -1,7 +1,7 @@
 # Product Task — WYN-065
 
-Status: coded, self-verified (flutter analyze 0 issues, flutter test 768/768) — รอ AI QA & Security อิสระ
-Owner: AI Product Manager → AI Design (ตรวจสอบของเดิมก่อนออกแบบใหม่) → AI Coding (เสร็จ) → AI QA & Security (รอ)
+Status: QA PASS (2026-08-24) — flutter analyze 0 issues, flutter test 768/768 (ยืนยันซ้ำอิสระ) — พร้อม AI Deploy & DevOps
+Owner: AI Product Manager → AI Design (ตรวจสอบของเดิมก่อนออกแบบใหม่) → AI Coding → AI QA & Security (เสร็จ, PASS)
 
 Feature: Profile Screen — UI/UX Polish (4 จุด)
 
@@ -66,3 +66,45 @@ Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอ
 - ยังไม่เคยเห็นภาพจริงบนอุปกรณ์/browser จริง (ไม่มี Flutter run environment ที่ render ภาพได้ในเซสชันนี้) — ตรวจสอบด้วย widget test + อ่านโค้ดเทียบ design เท่านั้น
 
 **Handoff**: ส่งต่อ AI QA & Security — เน้นตรวจภาพจริงของ Skeleton Loading และปุ่ม Edit ที่ความกว้างจอจริงหลายขนาด (360/375/390/414/430px) ตามธรรมเนียมเดิมของโปรเจกต์นี้
+
+---
+
+## QA & Security Review
+
+Feature: Profile Screen — UI/UX Polish (4 จุด, WYN-065)
+Environment: Flutter 3.47.1 (SDK re-verified ในรอบนี้) — ไม่มี emulator/device จริงสำหรับ manual UI testing
+
+Test Cases:
+- อ่าน diff จริงทุกบรรทัดของ `view_profile_screen.dart`/`profile_skeleton.dart` (ไม่เชื่อ summary ใน Coding Output อย่างเดียว)
+- รัน `flutter analyze` อิสระ — ยืนยัน 0 issues
+- รัน `flutter test` เต็ม suite อิสระ — ยืนยัน 768/768 PASS ตรงกับตัวเลขที่ Coding รายงาน
+- ตรวจ R1 (ปุ่ม Edit เต็มความกว้าง) — ยืนยันโค้ดจริงใช้ `SizedBox(width: double.infinity, child: OutlinedButton(...))` ตรงตามที่อ้าง
+- ตรวจ R1 (spacing ไอคอน Settings/Logout) — ยืนยัน `SizedBox(width: WynSpacing.space2)` คั่นทั้งสองจุด (ระหว่างไอคอน + ก่อนขอบจอ) ตรงตามที่อ้าง
+- ตรวจ R2 (bold follower/following count) ด้วยตัวเอง แยกจากคำยืนยันของ Coding — grep `fontWeight: FontWeight.bold` เจอจริงในบริเวณตัวเลขผู้ติดตาม ยืนยันว่าไม่ใช่ false claim
+- ตรวจ R3 (grid 1:1 aspect ratio) ด้วยตัวเอง แยกจากคำยืนยันของ Coding — grep `AspectRatio(aspectRatio: 1` ใน `drop_grid_tile.dart`/`saved_grid_tile.dart`/`pop_grid_tile.dart`/`draft_grid_tile.dart` ครบทั้ง 4 ไฟล์จริง ยืนยันว่าไม่ใช่ false claim
+- ตรวจ `ProfileSkeleton` widget เต็มไฟล์ — ยืนยัน `shrinkWrap: true` + `NeverScrollableScrollPhysics` บน `GridView` ที่ซ้อนใน `SingleChildScrollView` (pattern ป้องกัน unbounded-height crash ที่ถูกต้อง), ไม่มี animation ที่จะทำให้ `pumpAndSettle` ค้าง
+- ตรวจจุดที่เรียก `_reload()` (Settings/Privacy toggle กลับมา) — พบว่า skeleton จะ flash ซ้ำทุกครั้งที่ reload เพราะ `_loadFuture` ถูกสร้างใหม่ทุกครั้ง — **ตรวจสอบแล้วว่าเป็นพฤติกรรมเดิมที่มีอยู่แล้วก่อน WYN-065** (ของเดิมก็เป็น `CircularProgressIndicator` flash แบบเดียวกันทุกจุดที่เรียก `_reload()`) จึงไม่ใช่ regression ใหม่ที่ WYN-065 ทำให้เกิดขึ้น
+- ตรวจ 2 เทสใหม่ (`view_profile_screen_test.dart`) — ยืนยันเป็น assertion จริงที่มีความหมาย (เช็ค type presence/absence ของ `ProfileSkeleton`, วัดความกว้างจริงของปุ่มเทียบ threshold) ไม่ใช่ trivial/tautology
+- Secret scan บน diff ที่เกี่ยวข้อง — ไม่พบ credential/token หลุด
+
+Passed:
+- R1: ปุ่ม "แก้ไขโปรไฟล์" กว้างเต็มพื้นที่ — ยืนยันด้วย test วัดความกว้างจริง + อ่านโค้ด
+- R1: ไอคอน Settings/Logout มี gap ชัดเจน — ยืนยันด้วยการอ่านโค้ด
+- R2: ตัวเลขผู้ติดตาม/กำลังติดตามหนา — ยืนยันแล้วว่ามีอยู่จริง ไม่มี regression
+- R3: Grid 1:1 aspect ratio ทุก tab — ยืนยันแล้วว่ามีอยู่จริงครบ 4 tile type ไม่มี regression
+- R4: Skeleton Loading แทน spinner — ยืนยันด้วย test (แสดงตอนโหลด/หายหลังโหลดเสร็จ) + อ่านโค้ดโครงสร้าง widget ทั้งหมด ไม่พบความเสี่ยง overflow/crash
+- ไม่มี regression กับ Profile/Follow/Block/Mute/Club/Chat/Draft/ReDrop/Saved เดิม
+
+Failed: ไม่มี
+
+Severity: N/A (ไม่มีรายการ FAIL)
+
+Security Findings:
+- ไม่พบ secret/credential หลุดใน diff นี้
+- ไม่แตะ schema/repository/API ใดๆ เป็น UI-layer ล้วนๆ ตามที่ Coding ระบุไว้ — ยืนยันตรงจริงจากการอ่าน diff ทั้งหมด ไม่มี surface ด้านความปลอดภัยใหม่เกิดขึ้น
+
+Recommendation:
+- Skeleton flash ซ้ำทุกครั้งที่ `_reload()` ถูกเรียก (เช่น กลับจากหน้า Settings) เป็นพฤติกรรมเดิมที่สืบทอดมา ไม่ใช่บั๊กใหม่ — แต่ถ้า Founder อยากได้ UX ที่นุ่มนวลกว่านี้ในอนาคต (ไม่ flash เต็มจอทุกครั้งที่ reload ข้อมูลที่โหลดมาแล้ว) ควรเป็นงานแยกที่ Product ตัดสินใจ scope ใหม่ ไม่ใช่ส่วนหนึ่งของ WYN-065
+- ยังไม่เคยเห็นภาพจริงของ Skeleton/ปุ่ม Edit บนอุปกรณ์/browser จริงหลายขนาดหน้าจอ (สภาพแวดล้อมนี้รันได้แค่ widget test) — แนะนำให้ Founder ยืนยันภาพจริงบนมือถือก่อนถือว่าสมบูรณ์ 100% ด้านความสวยงาม (ไม่ใช่ functional correctness ซึ่งยืนยันแล้ว)
+
+Final Status: **PASS**

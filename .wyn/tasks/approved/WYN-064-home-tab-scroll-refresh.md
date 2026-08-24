@@ -1,7 +1,7 @@
 # Product Task — WYN-064
 
-Status: coded, self-verified (flutter analyze 0 issues, flutter test 768/768) — รอ AI QA & Security อิสระ
-Owner: AI Product Manager → AI Design → AI Coding (เสร็จ) → AI QA & Security (รอ)
+Status: QA PASS (2026-08-24) — flutter analyze 0 issues, flutter test 768/768 (ยืนยันซ้ำอิสระ) — พร้อม AI Deploy & DevOps
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (เสร็จ, PASS)
 
 Feature: Tap Home Tab to Scroll to Top & Refresh
 
@@ -55,3 +55,42 @@ Handoff: ส่งต่อ AI QA & Security (`/qa`) เพื่อทดสอ
 **Known Issues**: ไม่มี — ยังไม่เคยทดสอบกับ Supabase project จริง (เหมือนทุก feature ก่อนหน้าที่รอ infra จาก Founder)
 
 **Handoff**: ส่งต่อ AI QA & Security — เน้นตรวจ: (1) ทดสอบจริงบนอุปกรณ์/emulator ว่า scroll animation และ RefreshIndicator แสดงผลถูกต้อง (widget test พิสูจน์ scroll position/call count ได้ แต่ไม่เห็นภาพจริง) (2) โหมด "จาก Club ของคุณ" — ยืนยันว่า scroll-to-top ยังทำงาน (ไม่ error) แม้มี nested scrollable ซ้อนอยู่
+
+---
+
+## QA & Security Review
+
+Feature: Tap Home Tab to Scroll to Top & Refresh (WYN-064)
+Environment: Flutter 3.47.1 (SDK ที่ติดตั้งไว้ในเซสชันก่อนหน้า, re-verified ในรอบนี้) — ไม่มี emulator/device จริงสำหรับ manual UI testing
+
+Test Cases:
+- อ่าน diff จริงทุกบรรทัดของ `root_shell.dart`/`home_feed_screen.dart` (ไม่เชื่อ summary ใน Coding Output อย่างเดียว)
+- รัน `flutter analyze` อิสระ — ยืนยัน 0 issues
+- รัน `flutter test` เต็ม suite อิสระ — ยืนยัน 768/768 PASS ตรงกับตัวเลขที่ Coding รายงาน ไม่มีความคลาดเคลื่อน
+- ตรวจ `_onDestinationSelected` ว่า bump signal เฉพาะกรณีแตะ Home ขณะอยู่ Home tab อยู่แล้วเท่านั้น (ไม่ bump ตอนสลับ tab เข้า Home จาก tab อื่น) — อ่านโค้ดแล้วตรงตามที่ตั้งใจ
+- ไล่หา race condition ด้วยมือ (adversarial, ไม่มี tool อัตโนมัติช่วย): double-tap รัวขณะ scroll animation ยังไม่จบ, bump signal ก่อน widget mount, `_refreshIndicatorKey.currentState` เป็น null, dispose order ระหว่าง `HomeFeedScreen`/`RootShell` — ไม่พบ crash หรือ behavior ผิดในทุกกรณีที่ไล่ตรวจ (guard `!mounted`/`!hasClients`/`?.` ครบทุกจุดเสี่ยง)
+- ตรวจว่า Case 1 (`pixels > 0`) return ก่อนถึงเงื่อนไข `_isLoadingInitial` เสมอ — ยืนยันว่าตรงตาม AC "ไม่ fetch ซ้ำ" แม้ระหว่างมี fetch ค้างอยู่พร้อมกัน
+- ยืนยันว่า pull-to-refresh ทั้งจากการลากมือเองและจาก Case 2 ใช้ `_loadInitial` ตัวเดียวกัน (ตั้ง `_isLoadingInitial = true` ทันทีแบบ synchronous ก่อน `await` แรก) → guard R3 ครอบคลุมทั้ง "initial load" และ "refresh ค้างอยู่" ตามที่ AC ระบุจริง ไม่ใช่แค่ initial load อย่างเดียว
+- ตรวจ `root_shell_test.dart`'s wiring test — ยืนยันว่าแตะ Home ขณะอยู่ Home ไม่เปลี่ยน tab ไม่ crash ไม่รีเซ็ต visit-key ของ tab อื่น
+- Secret scan บน diff ที่เกี่ยวข้อง — ไม่พบ credential/token หลุด
+
+Passed:
+- Case 1 (Scroll Position > 0 → Scroll to Top ไม่ fetch ซ้ำ) — ยืนยันด้วย test จริง + อ่านโค้ด
+- Case 2 (Scroll Position == 0 → Trigger Pull-to-Refresh) — ยืนยันด้วย test จริง + อ่านโค้ด
+- Edge Case (กันเรียก API ซ้ำระหว่าง Loading) — ยืนยันด้วย test ที่ใช้ `_DelayedHomeRepository` ค้าง fetch จริง ไม่ใช่แค่ mock resolve ทันที
+- ใช้ได้ทุกโหมด feed-mode selector ตามที่ระบุ (โหมด "จาก Club ของคุณ" scroll-to-top ยังทำงาน, refresh เป็น no-op ตรงตามพฤติกรรมเดิมจาก WYN-024)
+- ไม่มี regression กับ Home/RootShell/Profile/Notifications tab เดิม
+
+Failed: ไม่มี
+
+Severity: N/A (ไม่มีรายการ FAIL)
+
+Security Findings:
+- ไม่พบ secret/credential หลุดใน diff นี้
+- ไม่แตะ schema/RLS/API/repository ใดๆ เป็น UI-layer interaction ล้วนๆ ตามที่ Coding ระบุไว้ — ยืนยันตรงจริงจากการอ่าน diff ทั้งหมด ไม่มี surface ด้านความปลอดภัยใหม่เกิดขึ้น
+
+Recommendation:
+- ยังไม่เคยเห็นภาพเคลื่อนไหวจริงบนอุปกรณ์/emulator (สภาพแวดล้อมนี้รันได้แค่ widget test) — แนะนำให้ Founder ทดสอบความรู้สึกของ scroll animation (300ms easeOut) และ RefreshIndicator บนมือถือจริงก่อนถือว่าสมบูรณ์ 100% ด้าน UX-feel (ไม่ใช่ functional correctness ซึ่งยืนยันแล้ว)
+- ไม่มี recommendation ด้านอื่นเพิ่มเติม — งานนี้ scope เล็ก ความเสี่ยงต่ำ implement ตรงตาม AC ครบ
+
+Final Status: **PASS**
