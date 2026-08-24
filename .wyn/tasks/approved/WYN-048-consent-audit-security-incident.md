@@ -1,6 +1,6 @@
 # Product Task — WYN-048
 
-Status: coded, awaiting QA
+Status: approved (Independent QA FAIL รอบแรก — พบช่องโหว่ Major, แก้ทันทีเป็น fast-follow — ดูหัวข้อ "Independent QA" ท้ายไฟล์ — ส่งต่อ AI Deploy & DevOps)
 Owner: AI Product Manager
 
 Feature: Consent Management (confirm satisfied) + Audit Log Foundation + Security Incident Workflow (runbook)
@@ -68,3 +68,28 @@ Handoff: AI Coding — ไม่มี UI ใหม่ในรอบนี้ �
 **Known Issue/Gap (ตั้งใจ ไม่ใช่บั๊ก)**: `audit_log` ยังไม่มี UI ให้ดู (รอ WYN-054, Phase 7), ไม่มีนโยบาย retention/cleanup (audit trail ต้องไม่ถูกลบทิ้งเอง)
 
 Handoff: AI QA & Security — เน้นตรวจ: **(ก) RLS ของ `audit_log` ปิดสนิทจริงทุก role** รวม admin/moderator, **(ข) แถว `account_deleted` รอดจากการลบจริง** (ตรวจซ้ำอิสระ ไม่เชื่อ CHECK12-13 เดิมอย่างเดียว), **(ค) พฤติกรรมเดิมของ 5 ฟังก์ชันที่แก้ไม่เปลี่ยนแปลงแม้แต่นิดเดียว** (รัน `wyn_029`/`wyn_030`/`wyn_043`/`wyn_047` ทั้งหมดอิสระ), **(ง) อ่าน runbook ประเมินว่าใช้งานได้จริงไหมถ้าเกิดเหตุจริง**
+
+## Independent QA (2026-08-24) — รอบแรก FAIL, แก้ทันทีเป็น fast-follow
+
+```
+Feature: WYN-048 Audit Log Foundation + Security Incident Runbook
+Environment: PostgreSQL 16 local, branch claude/wyn-044-0saj5u @ af0529d
+
+Test Cases: SQL 21 สคริปต์ทั้งหมดอิสระ (เน้น wyn_029/030/043/047 เพราะเป็น 5 ฟังก์ชันที่แก้), check_schema_ordering.py, **อ่าน diff ทั้ง 5 ฟังก์ชันทีละบรรทัด** ยืนยันมีแค่ audit-log call เพิ่มเข้าไปไม่มี logic อื่นเปลี่ยน (รวม `export_my_data()`'s language sql→plpgsql conversion ยืนยันเนื้อหา query เหมือนเดิม 100%), reproduce "account_deleted row รอดจากการลบ" เองอิสระตั้งแต่ต้น, RLS adversarial probe บน `audit_log` ทุก role, **ตรวจ grant/exposure ของ `internal.log_audit_event()`** (จุดที่ระบุไว้ตรงๆ ในโจทย์ให้มิเรอร์ WYN-044's finding), `send_system_notification()`'s conditional logging, อ่าน runbook ประเมิน practical usability
+
+Passed: SQL 21/21 สคริปต์ผ่านหมดไม่มี regression บน 5 ฟังก์ชันเดิม, diff review ยืนยันสะอาด, account-deletion-survives ยืนยันจริง, RLS ของ `audit_log` เองปิดสนิททุก role, `send_system_notification()`'s conditional logging ถูกต้อง, runbook ใช้งานได้จริง
+
+Failed: **`internal.log_audit_event()` เรียกตรงได้โดย authenticated ธรรมดา** — Coding Output อ้างว่า "ไม่ grant ให้ authenticated" แต่ไม่มี `revoke execute ... from public` จริง (ช่องโหว่คลาสเดียวกับ WYN-044 round 1 เป๊ะ ที่มี fix อยู่ในไฟล์เดียวกันเป็นตัวอย่างอยู่แล้วแต่ไม่ถูกนำมาใช้กับฟังก์ชันใหม่นี้) — พิสูจน์ exploit จริง: authenticated user เรียกตรงแล้ว insert แถวปลอมลง `audit_log` ได้สำเร็จ (เช่น สร้างแถว `account_deleted` ปลอมให้คนอื่น) — ยืนยัน methodology ถูกต้องด้วยการเทียบกับ `internal.notification_enabled()` ที่มี fix แล้วให้ผลตรงข้าม
+
+Severity: Major (Security)
+
+Recommendation: แก้ทันที (เพิ่ม revoke + regression test) ไม่ต้องรอ QA รอบใหม่เพราะเป็น one-line schema fix ความเสี่ยงต่ำไม่ใช่ architecture change
+
+Final Status: FAIL (รอบแรก)
+```
+
+### Fast-follow แก้ทันที (orchestrator, หลัง QA FAIL)
+
+บันทึก bug report ที่ `.wyn/tasks/bugs/WYN-048-log-audit-event-missing-revoke.md` แล้วแก้ตรงจุด: เพิ่ม `revoke execute on function internal.log_audit_event(uuid, text, uuid, jsonb) from public;` ต่อท้ายฟังก์ชัน (มิเรอร์ fix ของ `internal.notification_enabled()` เป๊ะ) + เพิ่ม CHECK14 ใน `wyn_048_audit_log_test.sh` (มิเรอร์ `wyn_044`'s CHECK20) ยืนยัน direct call ถูกปฏิเสธ — รัน SQL ทั้ง 21 สคริปต์ซ้ำผ่านหมด ยืนยันช่องโหว่ปิดจริงและไม่มี regression
+
+**ผลลัพธ์สุดท้าย**: **WYN-048 — PASS หลังปิดช่องโหว่ Major ด้วย fast-follow** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — **Phase 6 (Legal & Compliance Layer) ปิดครบทั้ง 3 task** (WYN-046/047/048) — ขั้นต่อไปตาม roadmap คือ Phase 7 (WYN Admin, Web) เริ่มจาก WYN-049 (Admin foundation)
