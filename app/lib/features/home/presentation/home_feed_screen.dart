@@ -48,6 +48,7 @@ class HomeFeedScreen extends StatefulWidget {
     required this.clubRepository,
     required this.clubPostRepository,
     required this.chatRepository,
+    required this.homeTabReselectSignal,
   });
 
   final HomeRepository homeRepository;
@@ -58,6 +59,16 @@ class HomeFeedScreen extends StatefulWidget {
   final SavedRepository savedRepository;
   final ClubRepository clubRepository;
   final ClubPostRepository clubPostRepository;
+
+  // WYN-064 (Tap Home Tab to Scroll to Top & Refresh): RootShell bumps
+  // this notifier's value every time the user taps the Home destination
+  // while already on the Home tab. A ValueNotifier rather than a
+  // GlobalKey<State> -- RootShell lives in a different file and this
+  // screen's State is intentionally private, same reasoning as every
+  // other cross-widget signal in this codebase (e.g. the visit-key
+  // remount pattern) preferring an explicit, testable channel over
+  // reaching into private State from outside.
+  final ValueNotifier<int> homeTabReselectSignal;
 
   // WYN-031 -- Chat's entry point icon lives in this AppBar (see the
   // class doc comment: this screen "no longer owns a top row" as of
@@ -73,6 +84,11 @@ class HomeFeedScreen extends StatefulWidget {
 
 class _HomeFeedScreenState extends State<HomeFeedScreen> {
   final _scrollController = ScrollController();
+  // WYN-064: lets _onHomeTabReselected trigger the same visual
+  // pull-to-refresh affordance a manual pull would (spinner + onRefresh),
+  // rather than calling _loadInitial directly and skipping the
+  // indicator.
+  final _refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
   final List<HomeFeedItem> _items = [];
   int _page = 0;
   bool _isLoadingInitial = true;
@@ -100,6 +116,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     _trendingFuture = widget.homeRepository.fetchTrending();
     _scrollController.addListener(_onScroll);
     _loadUnreadChatCount();
+    widget.homeTabReselectSignal.addListener(_onHomeTabReselected);
   }
 
   // WYN-032: the badge is "anything needing my attention" -- unread
@@ -132,6 +149,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
   @override
   void dispose() {
+    widget.homeTabReselectSignal.removeListener(_onHomeTabReselected);
     _scrollController.dispose();
     super.dispose();
   }
@@ -142,6 +160,31 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         _scrollController.position.maxScrollExtent - 300) {
       _loadMore();
     }
+  }
+
+  // WYN-064 (Tap Home Tab to Scroll to Top & Refresh): RootShell calls
+  // this by bumping homeTabReselectSignal whenever the user taps the
+  // Home destination while already on the Home tab.
+  // Case 1 -- scrolled down (pixels > 0): animate back to the top only,
+  // no refetch (matches a plain "scroll to top" tap, not a refresh).
+  // Case 2 -- already at the top: trigger the same pull-to-refresh the
+  // user could do manually, guarded against overlapping calls while a
+  // fetch triggered by this or another interaction (initial load,
+  // manual pull, "ลองใหม่" retry) is already in flight.
+  void _onHomeTabReselected() {
+    if (!mounted || !_scrollController.hasClients) return;
+
+    if (_scrollController.position.pixels > 0) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+      return;
+    }
+
+    if (_isLoadingInitial) return;
+    _refreshIndicatorKey.currentState?.show();
   }
 
   // "สำหรับคุณ" (ranked, WYN-018), "ติดตาม" (WYN-024), and "ล่าสุด"
@@ -461,6 +504,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         children: [
           SafeArea(
             child: RefreshIndicator(
+              key: _refreshIndicatorKey,
               onRefresh: _feedMode == _HomeFeedMode.fromYourClubs
                   ? () async {}
                   : _loadInitial,

@@ -30,6 +30,7 @@ import 'widgets/profile_drop_grid_tab.dart';
 // unmounted from RootShell's Bottom Nav the same way, for V3).
 import 'widgets/profile_redrops_tab.dart';
 import 'widgets/profile_saved_tab.dart';
+import 'widgets/profile_skeleton.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../block/data/block_relationship.dart';
 import '../../block/data/block_repository.dart';
@@ -876,11 +877,13 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   _reload();
                 },
               ),
+              const SizedBox(width: WynSpacing.space2),
               IconButton(
                 icon: const Icon(Icons.logout),
                 tooltip: 'ออกจากระบบ',
                 onPressed: _signOut,
               ),
+              const SizedBox(width: WynSpacing.space2),
             ] else
               Semantics(
                 label: 'ตัวเลือกเพิ่มเติมสำหรับโปรไฟล์นี้',
@@ -910,7 +913,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
             }
 
             if (!snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
+              return const ProfileSkeleton();
             }
 
             final data = snapshot.data!;
@@ -991,9 +994,12 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                         ),
                         const SizedBox(height: WynSpacing.space6),
                         if (isOwnProfile) ...[
-                          OutlinedButton(
-                            onPressed: () => _openEdit(profile),
-                            child: const Text('แก้ไขโปรไฟล์'),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              onPressed: () => _openEdit(profile),
+                              child: const Text('แก้ไขโปรไฟล์'),
+                            ),
                           ),
                           // WYN-039 Design, Screen 3's entry point --
                           // only for a Private account with at least 1
