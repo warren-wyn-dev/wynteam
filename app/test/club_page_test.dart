@@ -73,12 +73,18 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('shows "เข้าร่วม" when not a member, and joining calls joinClub',
-      (tester) async {
+  testWidgets(
+      'shows "เข้าร่วม" as a filled (primary-weight) button when not a member, and joining '
+      'calls joinClub', (tester) async {
     await pumpPage(tester, notJoinedRepo);
 
     final joinButton = find.byKey(const Key('club-header-join-button'));
     expect(find.descendant(of: joinButton, matching: find.text('เข้าร่วม')), findsOneWidget);
+    // WYN-058: "เข้าร่วม" is the page's primary action, elevated to
+    // FilledButton (not the same OutlinedButton as every other
+    // secondary action) -- see
+    // .wyn/docs/design/wyn-057-058-club-create-and-page-visual-polish.md.
+    expect(tester.widget(joinButton), isA<FilledButton>());
     await tester.tap(joinButton);
     await tester.pumpAndSettle();
 
@@ -93,13 +99,20 @@ void main() {
       find.ancestor(of: find.text('รออนุมัติ'), matching: find.byType(OutlinedButton)),
     );
     expect(button.onPressed, isNull);
+    // WYN-058: a disabled/non-actionable state shouldn't use the brand
+    // (primary/cyan) color -- "รออนุมัติ" now matches "เข้าร่วมแล้ว"'s
+    // neutral `outline` color instead of the `primary` it used before.
+    final expectedColor = Theme.of(tester.element(find.text('รออนุมัติ'))).colorScheme.outline;
+    expect(button.style?.foregroundColor?.resolve(<WidgetState>{}), expectedColor);
   });
 
-  testWidgets('shows "เข้าร่วมแล้ว" for an approved member, and confirming Leave calls leaveClub',
-      (tester) async {
+  testWidgets('shows "เข้าร่วมแล้ว" for an approved member (still OutlinedButton), and '
+      'confirming Leave calls leaveClub', (tester) async {
     await pumpPage(tester, approvedMemberRepo);
 
     expect(find.text('เข้าร่วมแล้ว'), findsOneWidget);
+    final joinButton = find.byKey(const Key('club-header-join-button'));
+    expect(tester.widget(joinButton), isA<OutlinedButton>());
     await tester.tap(find.text('เข้าร่วมแล้ว'));
     await tester.pumpAndSettle();
 

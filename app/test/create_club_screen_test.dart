@@ -56,6 +56,13 @@ void main() {
     expect(tester.widget<FilledButton>(createButtonFinder()).onPressed, isNotNull);
   });
 
+  testWidgets('shows the cover-picker placeholder hint before a cover is picked', (tester) async {
+    await pumpScreen(tester);
+
+    expect(find.text('แตะเพื่อเลือกรูปปก'), findsOneWidget);
+    expect(find.text('แนะนำอัตราส่วน 16:9'), findsOneWidget);
+  });
+
   testWidgets('creating with only Name and Privacy set (Category/Description/Cover/Icon '
       'left blank) still calls createClub', (tester) async {
     await pumpScreen(tester);
