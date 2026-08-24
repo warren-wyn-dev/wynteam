@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../profile/data/profile.dart';
 import '../../data/follow_repository.dart';
@@ -95,6 +96,7 @@ class _FollowActionButtonState extends State<FollowActionButton> {
   Future<void> _toggleFollow() async {
     final previous = _isFollowing!;
     setState(() => _isFollowing = !previous);
+    HapticFeedback.lightImpact();
     try {
       await widget.followRepository.toggleFollow(
         userId: widget.profile.id,
@@ -199,7 +201,13 @@ class _FollowActionButtonState extends State<FollowActionButton> {
       child: OutlinedButton(
         style: style,
         onPressed: _isActionInFlight ? null : _onPressed,
-        child: Text(_label),
+        // WYN-064: cross-fades the label on state changes instead of the
+        // text snapping instantly -- key on the label text itself so
+        // AnimatedSwitcher only triggers when it actually changes.
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          child: Text(_label, key: ValueKey(_label)),
+        ),
       ),
     );
   }

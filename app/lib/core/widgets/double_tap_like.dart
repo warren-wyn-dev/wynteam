@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Wraps a post's media area (image/video) with Instagram-style
 /// double-tap-to-like -- WYNOS V1.0.0 Beta requirement 4. Two quick taps
@@ -64,7 +65,13 @@ class _DoubleTapLikeState extends State<DoubleTapLike>
   ]).animate(_controller);
 
   void _handleDoubleTap() {
-    if (!widget.alreadyLiked) widget.onLike();
+    // WYN-064: haptic only on the tap that actually likes -- a repeat
+    // double-tap on an already-liked post still replays the heart (see
+    // class doc) but shouldn't buzz again since nothing changed.
+    if (!widget.alreadyLiked) {
+      widget.onLike();
+      HapticFeedback.lightImpact();
+    }
     _controller.forward(from: 0);
   }
 
