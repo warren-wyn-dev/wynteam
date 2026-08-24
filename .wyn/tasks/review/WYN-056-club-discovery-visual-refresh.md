@@ -1,7 +1,9 @@
 # Design Task — WYN-056
 
-Status: backlog (Design เสร็จแล้ว รอ AI Coding)
-Owner: AI Design → AI Coding
+Status: review (Coding เสร็จแล้ว รอ AI QA & Security)
+Owner: AI Design → AI Coding → AI QA & Security
+
+Coding Output: ดูสรุปเต็มในข้อความส่งมอบของ AI Coding (2026-08-24) — ไฟล์ที่แก้ไข/สร้างใหม่ทั้งหมดอยู่ใน commit `f024acb` บน branch `claude/wynos-mobile-ui-design-caztyr` — **flutter analyze/flutter test ยังไม่ได้รันจริง เพราะ session นี้ไม่มี Flutter SDK ติดตั้งอยู่** (ตรวจสอบด้วยการนับ parens/braces balance ในทุกไฟล์ที่แก้ไข/สร้างใหม่แทน) — AI QA & Security ต้องรัน `flutter analyze`/`flutter test` จริงเป็นด่านแรกก่อนตรวจข้ออื่น
 
 Screen: `ExploreClubsScreen` redesign + widget ใหม่ (`ClubRecommendedCard`, `ClubRankedRow`) + ปรับ `ClubDiscoveryCard`/`CreateClubScreen`/ปุ่ม Drop ของ Bottom Nav
 
