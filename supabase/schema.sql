@@ -7716,3 +7716,519 @@ end;
 $$;
 
 grant execute on function public.send_system_notification(uuid, text) to authenticated;
+
+-- ============================================================
+-- WYN-044: Notification Settings (opt-out per category)
+-- ============================================================
+-- See .wyn/tasks/backlog/WYN-044-notification-settings.md and
+-- .wyn/docs/design/wyn-044-notification-settings.md. 6 categories map
+-- onto 16 of the 24 notification types that exist today (see the
+-- Product spec's Requirement 1/2 for the full mapping and the explicit
+-- reasoning for what's excluded): likes (like_drop/like_pop/
+-- club_post_like/redrop -- redrop was folded in here rather than given
+-- a 7th category, see the Product spec's "[แก้ไขโดย Coding...]" note),
+-- comments (comment_drop/comment_pop/club_post_comment/mention_drop/
+-- mention_club_post), follows (follow/follow_request/
+-- follow_request_accepted), messages (message_request), club
+-- (club_join_request/club_join_approved), system (system). Moderation/
+-- appeal (4 types) and ZOKY order notifications (4 types) are
+-- deliberately never gated by this table at all -- see the Product
+-- spec's Requirement 2 for why (account-safety info that must never be
+-- silenceable; a feature the user can no longer reach since WYN-024
+-- removed the ZOKY tab, respectively).
+
+-- One row per user, created lazily on first toggle -- there is no
+-- backfill for existing accounts and no signup trigger creating a row
+-- up front (mirrors drop_drafts' "nothing until the user actually
+-- does something" simplicity, WYN-036). A missing row means "every
+-- category enabled", enforced by internal.notification_category_enabled's
+-- own coalesce() below, not by a default row -- this is the one
+-- semantic that must never drift: if it did, every existing user would
+-- silently stop receiving notifications the moment this ships, with no
+-- error anywhere to surface it (see the Product spec's Risks section,
+-- explicitly called out as worse than WYN-043's redrop crash because
+-- that one at least failed loudly).
+create table if not exists public.notification_settings (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  likes_enabled boolean not null default true,
+  comments_enabled boolean not null default true,
+  follows_enabled boolean not null default true,
+  messages_enabled boolean not null default true,
+  club_enabled boolean not null default true,
+  system_enabled boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.notification_settings enable row level security;
+
+-- Owner-only, no exceptions -- this is purely a private preference,
+-- structurally the same shape as drop_drafts (WYN-036): nobody else
+-- ever has a legitimate reason to read or write another user's
+-- notification settings.
+create policy "Users can view only their own notification settings"
+  on public.notification_settings
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can create their own notification settings"
+  on public.notification_settings
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their own notification settings"
+  on public.notification_settings
+  for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Central gate every in-scope notify_* trigger (and
+-- send_system_notification/accept_follow_request/
+-- get_or_create_conversation, which insert outside a trigger) calls
+-- before inserting -- mirrors internal.is_blocked_either_way/
+-- internal.is_drop_deleted's own "one helper, many call sites" shape
+-- rather than repeating a 6-way category lookup inline at every insert
+-- site. security definer is required for the same reason
+-- is_drop_deleted needs it: callers query by an arbitrary recipient_id
+-- that is not auth.uid(), which this table's owner-only SELECT policy
+-- would otherwise hide from them. coalesce(..., true) is the entire
+-- "missing row = enabled" contract described above; an unrecognized
+-- p_category also falls through to true rather than silently gating
+-- nothing, since raising here inside a trigger would break the
+-- underlying insert (drop_like, follow, etc.) for an unrelated reason.
+create or replace function internal.notification_category_enabled(
+  p_recipient_id uuid,
+  p_category text
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    case p_category
+      when 'likes' then (select likes_enabled from public.notification_settings where user_id = p_recipient_id)
+      when 'comments' then (select comments_enabled from public.notification_settings where user_id = p_recipient_id)
+      when 'follows' then (select follows_enabled from public.notification_settings where user_id = p_recipient_id)
+      when 'messages' then (select messages_enabled from public.notification_settings where user_id = p_recipient_id)
+      when 'club' then (select club_enabled from public.notification_settings where user_id = p_recipient_id)
+      when 'system' then (select system_enabled from public.notification_settings where user_id = p_recipient_id)
+      else true
+    end,
+    true
+  );
+$$;
+
+grant execute on function internal.notification_category_enabled(uuid, text) to authenticated;
+
+-- Upsert used by the client to change exactly one category at a time
+-- (NotificationSettingsScreen) without clobbering the other 5 -- a raw
+-- client upsert would need the caller to already know every other
+-- column's current value first (or overwrite them back to the
+-- column defaults, silently undoing any other category the user had
+-- already turned off). security definer + an explicit auth.uid() bind
+-- means the client only ever passes the one category/value it's
+-- actually changing.
+create or replace function public.set_notification_category_enabled(
+  p_category text,
+  p_enabled boolean
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_category not in ('likes', 'comments', 'follows', 'messages', 'club', 'system') then
+    raise exception 'Unknown notification category: %', p_category;
+  end if;
+
+  insert into public.notification_settings (user_id)
+  values (auth.uid())
+  on conflict (user_id) do nothing;
+
+  update public.notification_settings
+  set
+    likes_enabled = case when p_category = 'likes' then p_enabled else likes_enabled end,
+    comments_enabled = case when p_category = 'comments' then p_enabled else comments_enabled end,
+    follows_enabled = case when p_category = 'follows' then p_enabled else follows_enabled end,
+    messages_enabled = case when p_category = 'messages' then p_enabled else messages_enabled end,
+    club_enabled = case when p_category = 'club' then p_enabled else club_enabled end,
+    system_enabled = case when p_category = 'system' then p_enabled else system_enabled end,
+    updated_at = now()
+  where user_id = auth.uid();
+end;
+$$;
+
+grant execute on function public.set_notification_category_enabled(text, boolean) to authenticated;
+
+-- Below: the 16 in-scope notify_* functions (plus
+-- send_system_notification/accept_follow_request/
+-- get_or_create_conversation), redefined via create or replace to add
+-- one internal.notification_category_enabled(...) check each before
+-- their insert -- same "redefine the existing function later in the
+-- file, last definition wins" shape this schema already uses
+-- repeatedly for RLS policies (drop policy + create policy, see
+-- drops' SELECT policy history across WYN-027/037/039). Every
+-- function's insert shape, self-notification guard, and comment
+-- history above is otherwise untouched -- only the added condition
+-- changes.
+
+create or replace function public.notify_drop_like()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+begin
+  select author_id into v_author_id from public.drops where id = new.drop_id;
+  if v_author_id is not null and v_author_id <> new.user_id
+     and internal.notification_category_enabled(v_author_id, 'likes') then
+    insert into public.notifications (recipient_id, actor_id, type, drop_id)
+    values (v_author_id, new.user_id, 'like_drop', new.drop_id);
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.notify_pop_like()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+begin
+  select author_id into v_author_id from public.pops where id = new.pop_id;
+  if v_author_id is not null and v_author_id <> new.user_id
+     and internal.notification_category_enabled(v_author_id, 'likes') then
+    insert into public.notifications (recipient_id, actor_id, type, pop_id)
+    values (v_author_id, new.user_id, 'like_pop', new.pop_id);
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.notify_drop_comment()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+begin
+  select author_id into v_author_id from public.drops where id = new.drop_id;
+  if v_author_id is not null and v_author_id <> new.author_id
+     and internal.notification_category_enabled(v_author_id, 'comments') then
+    insert into public.notifications (recipient_id, actor_id, type, drop_id)
+    values (v_author_id, new.author_id, 'comment_drop', new.drop_id);
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.notify_pop_comment()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+begin
+  select author_id into v_author_id from public.pops where id = new.pop_id;
+  if v_author_id is not null and v_author_id <> new.author_id
+     and internal.notification_category_enabled(v_author_id, 'comments') then
+    insert into public.notifications (recipient_id, actor_id, type, pop_id)
+    values (v_author_id, new.author_id, 'comment_pop', new.pop_id);
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.notify_follow()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if internal.notification_category_enabled(new.following_id, 'follows') then
+    insert into public.notifications (recipient_id, actor_id, type)
+    values (new.following_id, new.follower_id, 'follow');
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.notify_club_join_request()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.notifications (recipient_id, actor_id, type, club_id)
+  select cm.user_id, new.user_id, 'club_join_request', new.club_id
+  from public.club_members cm
+  where cm.club_id = new.club_id
+    and cm.role in ('owner', 'admin')
+    and cm.status = 'approved'
+    and cm.user_id <> new.user_id
+    and internal.notification_category_enabled(cm.user_id, 'club');
+  return new;
+end;
+$$;
+
+create or replace function public.notify_club_join_approved()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if internal.notification_category_enabled(new.user_id, 'club') then
+    insert into public.notifications (recipient_id, actor_id, type, club_id)
+    values (new.user_id, auth.uid(), 'club_join_approved', new.club_id);
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.notify_club_post_like()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+  v_club_id uuid;
+begin
+  select author_id, club_id into v_author_id, v_club_id
+  from public.club_posts where id = new.club_post_id;
+  if v_author_id is not null and v_author_id <> new.user_id
+     and internal.notification_category_enabled(v_author_id, 'likes') then
+    insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
+    values (v_author_id, new.user_id, 'club_post_like', new.club_post_id, v_club_id);
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.notify_club_post_comment()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+  v_club_id uuid;
+begin
+  select author_id, club_id into v_author_id, v_club_id
+  from public.club_posts where id = new.club_post_id;
+  if v_author_id is not null and v_author_id <> new.author_id
+     and internal.notification_category_enabled(v_author_id, 'comments') then
+    insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
+    values (v_author_id, new.author_id, 'club_post_comment', new.club_post_id, v_club_id);
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.notify_drop_mention()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+begin
+  select author_id into v_author_id from public.drops where id = new.drop_id;
+  if v_author_id is not null and new.mentioned_user_id <> v_author_id
+     and internal.notification_category_enabled(new.mentioned_user_id, 'comments') then
+    insert into public.notifications (recipient_id, actor_id, type, drop_id)
+    values (new.mentioned_user_id, v_author_id, 'mention_drop', new.drop_id);
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.notify_club_post_mention()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+  v_club_id uuid;
+begin
+  select author_id, club_id into v_author_id, v_club_id
+  from public.club_posts where id = new.club_post_id;
+  if v_author_id is not null and new.mentioned_user_id <> v_author_id
+     and internal.notification_category_enabled(new.mentioned_user_id, 'comments') then
+    insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
+    values (new.mentioned_user_id, v_author_id, 'mention_club_post', new.club_post_id, v_club_id);
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.notify_redrop()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author_id uuid;
+begin
+  select author_id into v_author_id from public.drops where id = new.drop_id;
+  if v_author_id is not null and v_author_id <> new.redropper_id
+     and internal.notification_category_enabled(v_author_id, 'likes') then
+    insert into public.notifications (recipient_id, actor_id, type, drop_id)
+    values (v_author_id, new.redropper_id, 'redrop', new.drop_id);
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function internal.notify_follow_request()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if internal.notification_category_enabled(new.target_id, 'follows') then
+    insert into public.notifications (recipient_id, actor_id, type)
+    values (new.target_id, new.requester_id, 'follow_request');
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.accept_follow_request(p_requester_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.follow_requests
+  where requester_id = p_requester_id and target_id = auth.uid();
+
+  if not found then
+    raise exception 'Follow request not found, or not yours to accept';
+  end if;
+
+  insert into public.follows (follower_id, following_id)
+  values (p_requester_id, auth.uid())
+  on conflict do nothing;
+
+  if internal.notification_category_enabled(p_requester_id, 'follows') then
+    insert into public.notifications (recipient_id, actor_id, type)
+    values (p_requester_id, auth.uid(), 'follow_request_accepted');
+  end if;
+end;
+$$;
+
+create or replace function public.get_or_create_conversation(p_other_user_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_a uuid;
+  v_b uuid;
+  v_id uuid;
+  v_status text;
+  v_requested_by uuid;
+begin
+  if v_me is null then
+    raise exception 'Not authenticated';
+  end if;
+  if p_other_user_id = v_me then
+    raise exception 'Cannot start a conversation with yourself';
+  end if;
+  if not exists (select 1 from public.profiles where id = p_other_user_id) then
+    raise exception 'User not found';
+  end if;
+  if internal.is_blocked_either_way(v_me, p_other_user_id) then
+    raise exception 'Cannot start a conversation with a blocked user';
+  end if;
+
+  v_a := least(v_me, p_other_user_id);
+  v_b := greatest(v_me, p_other_user_id);
+
+  select id into v_id from public.conversations where user_a_id = v_a and user_b_id = v_b;
+  if v_id is not null then
+    return v_id;
+  end if;
+
+  if exists (
+    select 1 from public.follows
+    where follower_id = p_other_user_id and following_id = v_me
+  ) then
+    v_status := 'active';
+    v_requested_by := null;
+  else
+    v_status := 'pending';
+    v_requested_by := v_me;
+  end if;
+
+  insert into public.conversations (user_a_id, user_b_id, status, requested_by)
+  values (v_a, v_b, v_status, v_requested_by)
+  on conflict (user_a_id, user_b_id) do nothing
+  returning id into v_id;
+
+  if v_id is null then
+    select id into v_id from public.conversations where user_a_id = v_a and user_b_id = v_b;
+  elsif v_status = 'pending' and internal.notification_category_enabled(p_other_user_id, 'messages') then
+    insert into public.notifications (recipient_id, actor_id, type, conversation_id)
+    values (p_other_user_id, v_me, 'message_request', v_id);
+  end if;
+
+  return v_id;
+end;
+$$;
+
+-- send_system_notification (WYN-043) redefined the same way -- the
+-- admin-only role check and blank-message check are untouched, only
+-- the gate before the insert is new.
+create or replace function public.send_system_notification(
+  p_recipient_id uuid,
+  p_message text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if internal.current_platform_role() <> 'admin' then
+    raise exception 'Only admins can send system notifications';
+  end if;
+
+  if p_message is null or length(trim(p_message)) = 0 then
+    raise exception 'System notification message must not be blank';
+  end if;
+
+  if internal.notification_category_enabled(p_recipient_id, 'system') then
+    insert into public.notifications (recipient_id, actor_id, type, reason)
+    values (p_recipient_id, null, 'system', p_message);
+  end if;
+end;
+$$;

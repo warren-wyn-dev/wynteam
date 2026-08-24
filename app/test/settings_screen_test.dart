@@ -5,6 +5,7 @@ import 'package:wyn/features/block/presentation/blocked_list_screen.dart';
 import 'package:wyn/features/drop/presentation/recently_deleted_drops_screen.dart';
 import 'package:wyn/features/moderation/presentation/moderation_queue_screen.dart';
 import 'package:wyn/features/mute/presentation/muted_list_screen.dart';
+import 'package:wyn/features/notification/presentation/notification_settings_screen.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/settings/presentation/settings_screen.dart';
 
@@ -62,6 +63,24 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(MutedListScreen), findsOneWidget);
+  });
+
+  // WYN-044, Screen 1.
+  testWidgets(
+      'การแจ้งเตือน section shows the entry, tapping opens NotificationSettingsScreen',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('การแจ้งเตือน'), findsOneWidget);
+    expect(find.text('ตั้งค่าการแจ้งเตือน'), findsOneWidget);
+
+    await tester.tap(find.text('ตั้งค่าการแจ้งเตือน'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NotificationSettingsScreen), findsOneWidget);
   });
 
   testWidgets('tapping รายการที่ลบ opens RecentlyDeletedDropsScreen (WYN-037)',

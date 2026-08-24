@@ -13,6 +13,8 @@ import '../../moderation/data/moderation_repository.dart';
 import '../../moderation/presentation/moderation_queue_screen.dart';
 import '../../mute/data/mute_repository.dart';
 import '../../mute/presentation/muted_list_screen.dart';
+import '../../notification/data/notification_settings_repository.dart';
+import '../../notification/presentation/notification_settings_screen.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile.dart';
 import '../../profile/data/profile_repository.dart';
@@ -20,7 +22,8 @@ import '../../saved/data/saved_repository.dart';
 import '../../../core/design/wyn_spacing.dart';
 
 /// Minimal Settings screen (WYN-027/028, "เครื่องมือผู้ดูแล" section added
-/// by WYN-029, "ความเป็นส่วนตัว" section added by WYN-039) -- the full
+/// by WYN-029, "ความเป็นส่วนตัว" section added by WYN-039, "การแจ้งเตือน"
+/// section added by WYN-044) -- the full
 /// Settings (Master Spec section 35: Account/Privacy/Notifications/
 /// Security/Safety/Data/Legal) is WYN-045 (Phase 5), not started yet.
 /// Each round adds only the one section it actually needs, since Blocked
@@ -118,6 +121,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'เฉพาะผู้ติดตามที่คุณอนุมัติเท่านั้นที่จะเห็น Drop ของคุณได้'),
             value: _isPrivate,
             onChanged: _isTogglingPrivate ? null : _setIsPrivate,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              WynSpacing.space4,
+              WynSpacing.space4,
+              WynSpacing.space4,
+              WynSpacing.space1,
+            ),
+            child: Text(
+              'การแจ้งเตือน',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.notifications_none),
+            title: const Text('ตั้งค่าการแจ้งเตือน'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => NotificationSettingsScreen(
+                    notificationSettingsRepository:
+                        NotificationSettingsRepository(Supabase.instance.client),
+                  ),
+                ),
+              );
+            },
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
