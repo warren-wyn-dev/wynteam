@@ -36,6 +36,13 @@ class RecordingProfileRepository extends ProfileRepository {
   /// Recorded calls to [updateIsPrivate] -- WYN-039's Settings toggle.
   final List<bool> updateIsPrivateArgs = [];
 
+  /// Recorded calls to WYN-045's 3 permission update methods -- one
+  /// list per method, same "one recording list per overridden method"
+  /// shape as [updateIsPrivateArgs].
+  final List<InteractionPermission> updateDmPermissionArgs = [];
+  final List<InteractionPermission> updateMentionPermissionArgs = [];
+  final List<InteractionPermission> updateCommentPermissionArgs = [];
+
   @override
   Future<Profile> fetchProfile(String userId) async => profile;
 
@@ -45,6 +52,30 @@ class RecordingProfileRepository extends ProfileRepository {
     required bool isPrivate,
   }) async {
     updateIsPrivateArgs.add(isPrivate);
+  }
+
+  @override
+  Future<void> updateDmPermission({
+    required String userId,
+    required InteractionPermission value,
+  }) async {
+    updateDmPermissionArgs.add(value);
+  }
+
+  @override
+  Future<void> updateMentionPermission({
+    required String userId,
+    required InteractionPermission value,
+  }) async {
+    updateMentionPermissionArgs.add(value);
+  }
+
+  @override
+  Future<void> updateCommentPermission({
+    required String userId,
+    required InteractionPermission value,
+  }) async {
+    updateCommentPermissionArgs.add(value);
   }
 
   @override

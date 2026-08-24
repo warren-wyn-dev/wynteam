@@ -25,9 +25,11 @@ class ProfileRepository {
         // the profile ViewProfileScreen already fetches for itself, no
         // extra query. is_private (WYN-039) drives both Settings'
         // Privacy toggle and ViewProfileScreen's Locked persona the same
-        // way.
+        // way. dm_permission/mention_permission/comment_permission
+        // (WYN-045) feed SettingsScreen's 3 new permission rows the same
+        // "already-fetched, not re-queried" way.
         .select(
-            'id, username, display_name, bio, avatar_url, platform_role, is_private')
+            'id, username, display_name, bio, avatar_url, platform_role, is_private, dm_permission, mention_permission, comment_permission')
         .eq('id', userId)
         .single();
     return Profile.fromMap(row);
@@ -75,6 +77,44 @@ class ProfileRepository {
     return _client
         .from('profiles')
         .update({'is_private': isPrivate}).eq('id', userId);
+  }
+
+  /// WYN-045 Settings -- who can start a new DM conversation with this
+  /// user. Gated server-side by get_or_create_conversation() (see
+  /// supabase/schema.sql); this just persists the choice.
+  Future<void> updateDmPermission({
+    required String userId,
+    required InteractionPermission value,
+  }) {
+    return _client
+        .from('profiles')
+        .update({'dm_permission': value.dbValue}).eq('id', userId);
+  }
+
+  /// WYN-045 Settings -- who can @mention this user in a Drop (or Poll
+  /// Drop). Gated server-side by internal.mention_allowed() (see
+  /// supabase/schema.sql); this just persists the choice.
+  Future<void> updateMentionPermission({
+    required String userId,
+    required InteractionPermission value,
+  }) {
+    return _client
+        .from('profiles')
+        .update({'mention_permission': value.dbValue}).eq('id', userId);
+  }
+
+  /// WYN-045 Settings -- who can comment on this user's Drops/Pops
+  /// (Club Post comments are deliberately unaffected -- see Product
+  /// spec's Requirement 4). Gated server-side by
+  /// internal.comment_allowed() (see supabase/schema.sql); this just
+  /// persists the choice.
+  Future<void> updateCommentPermission({
+    required String userId,
+    required InteractionPermission value,
+  }) {
+    return _client
+        .from('profiles')
+        .update({'comment_permission': value.dbValue}).eq('id', userId);
   }
 
   /// Uploads [bytes] to the `avatars` bucket under the user's own folder

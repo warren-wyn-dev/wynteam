@@ -676,7 +676,8 @@ begin
   select author_id into v_author_id from public.drops where id = new.drop_id;
   -- Liking your own Drop is normal and allowed -- it just shouldn't
   -- notify you about your own action.
-  if v_author_id is not null and v_author_id <> new.user_id then
+  if v_author_id is not null and v_author_id <> new.user_id
+     and internal.notification_enabled(v_author_id, 'likes') then
     insert into public.notifications (recipient_id, actor_id, type, drop_id)
     values (v_author_id, new.user_id, 'like_drop', new.drop_id);
   end if;
@@ -698,7 +699,8 @@ declare
   v_author_id uuid;
 begin
   select author_id into v_author_id from public.pops where id = new.pop_id;
-  if v_author_id is not null and v_author_id <> new.user_id then
+  if v_author_id is not null and v_author_id <> new.user_id
+     and internal.notification_enabled(v_author_id, 'likes') then
     insert into public.notifications (recipient_id, actor_id, type, pop_id)
     values (v_author_id, new.user_id, 'like_pop', new.pop_id);
   end if;
@@ -720,7 +722,8 @@ declare
   v_author_id uuid;
 begin
   select author_id into v_author_id from public.drops where id = new.drop_id;
-  if v_author_id is not null and v_author_id <> new.author_id then
+  if v_author_id is not null and v_author_id <> new.author_id
+     and internal.notification_enabled(v_author_id, 'comments') then
     insert into public.notifications (recipient_id, actor_id, type, drop_id)
     values (v_author_id, new.author_id, 'comment_drop', new.drop_id);
   end if;
@@ -742,7 +745,8 @@ declare
   v_author_id uuid;
 begin
   select author_id into v_author_id from public.pops where id = new.pop_id;
-  if v_author_id is not null and v_author_id <> new.author_id then
+  if v_author_id is not null and v_author_id <> new.author_id
+     and internal.notification_enabled(v_author_id, 'comments') then
     insert into public.notifications (recipient_id, actor_id, type, pop_id)
     values (v_author_id, new.author_id, 'comment_pop', new.pop_id);
   end if;
@@ -765,8 +769,10 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.notifications (recipient_id, actor_id, type)
-  values (new.following_id, new.follower_id, 'follow');
+  if internal.notification_enabled(new.following_id, 'follows') then
+    insert into public.notifications (recipient_id, actor_id, type)
+    values (new.following_id, new.follower_id, 'follow');
+  end if;
   return new;
 end;
 $$;
@@ -1441,7 +1447,8 @@ begin
   where cm.club_id = new.club_id
     and cm.role in ('owner', 'admin')
     and cm.status = 'approved'
-    and cm.user_id <> new.user_id;
+    and cm.user_id <> new.user_id
+    and internal.notification_enabled(cm.user_id, 'club');
   return new;
 end;
 $$;
@@ -1467,8 +1474,10 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.notifications (recipient_id, actor_id, type, club_id)
-  values (new.user_id, auth.uid(), 'club_join_approved', new.club_id);
+  if internal.notification_enabled(new.user_id, 'club') then
+    insert into public.notifications (recipient_id, actor_id, type, club_id)
+    values (new.user_id, auth.uid(), 'club_join_approved', new.club_id);
+  end if;
   return new;
 end;
 $$;
@@ -1497,7 +1506,8 @@ declare
 begin
   select author_id, club_id into v_author_id, v_club_id
   from public.club_posts where id = new.club_post_id;
-  if v_author_id is not null and v_author_id <> new.user_id then
+  if v_author_id is not null and v_author_id <> new.user_id
+     and internal.notification_enabled(v_author_id, 'club') then
     insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
     values (v_author_id, new.user_id, 'club_post_like', new.club_post_id, v_club_id);
   end if;
@@ -1523,7 +1533,8 @@ declare
 begin
   select author_id, club_id into v_author_id, v_club_id
   from public.club_posts where id = new.club_post_id;
-  if v_author_id is not null and v_author_id <> new.author_id then
+  if v_author_id is not null and v_author_id <> new.author_id
+     and internal.notification_enabled(v_author_id, 'club') then
     insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
     values (v_author_id, new.author_id, 'club_post_comment', new.club_post_id, v_club_id);
   end if;
@@ -3198,7 +3209,8 @@ declare
   v_author_id uuid;
 begin
   select author_id into v_author_id from public.drops where id = new.drop_id;
-  if v_author_id is not null and new.mentioned_user_id <> v_author_id then
+  if v_author_id is not null and new.mentioned_user_id <> v_author_id
+     and internal.notification_enabled(new.mentioned_user_id, 'comments') then
     insert into public.notifications (recipient_id, actor_id, type, drop_id)
     values (new.mentioned_user_id, v_author_id, 'mention_drop', new.drop_id);
   end if;
@@ -3227,7 +3239,8 @@ declare
 begin
   select author_id, club_id into v_author_id, v_club_id
   from public.club_posts where id = new.club_post_id;
-  if v_author_id is not null and new.mentioned_user_id <> v_author_id then
+  if v_author_id is not null and new.mentioned_user_id <> v_author_id
+     and internal.notification_enabled(new.mentioned_user_id, 'club') then
     insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
     values (new.mentioned_user_id, v_author_id, 'mention_club_post', new.club_post_id, v_club_id);
   end if;
@@ -4403,6 +4416,24 @@ begin
       delete from public.club_post_comments where id = v_report.target_id;
     end if;
   end if;
+
+  -- WYN-048: audit trail for this privileged action, recorded after
+  -- everything above has already succeeded. actor_id is the real
+  -- reviewer identity (v_reviewer) -- unlike the notifications inserted
+  -- above (which deliberately null out actor_id so the target never
+  -- learns who reviewed them), audit_log has zero client-facing SELECT
+  -- policy at all, so recording the true reviewer here creates no such
+  -- leak. No exception handling around this call: if it raises, the
+  -- whole action rolls back (fail-closed) rather than letting a
+  -- privileged moderation action succeed unlogged -- see
+  -- internal.log_audit_event()'s own comment (WYN-048 section) for why
+  -- that failure mode is realistically never hit anyway.
+  perform internal.log_audit_event(
+    v_reviewer,
+    'moderation_action_applied',
+    v_target_user,
+    jsonb_build_object('action_type', p_action_type, 'reason', v_trimmed_reason)
+  );
 end;
 $$;
 
@@ -4848,6 +4879,19 @@ begin
     insert into public.notifications (recipient_id, actor_id, type, reason, moderation_action_id, moderation_action_type)
     values (v_action.target_user_id, null, 'appeal_rejected', v_trimmed_reason, v_action.id, v_action.action_type);
   end if;
+
+  -- WYN-048: audit trail, recorded after the decision has already
+  -- committed above. actor_id is the real reviewer identity (same
+  -- reasoning as apply_moderation_action()'s own WYN-048 comment --
+  -- audit_log has no client-facing SELECT policy, so this creates no
+  -- reviewer-identity leak the way notifications.actor_id would).
+  -- target = the appellant (v_appeal.appellant_id), not the reviewer.
+  perform internal.log_audit_event(
+    v_reviewer,
+    'appeal_decided',
+    v_appeal.appellant_id,
+    jsonb_build_object('decision', case when p_approve then 'approved' else 'rejected' end)
+  );
 end;
 $$;
 
@@ -5099,16 +5143,36 @@ begin
     return v_id;
   end if;
 
+  -- WYN-045: dm_permission gates whether a *new* conversation can be
+  -- created at all -- only reachable here, in the "no existing
+  -- conversation yet" branch (an existing conversation already
+  -- returned above, unaffected by whatever the recipient's setting is
+  -- today). 'no_one' always rejects, no exceptions, even from someone
+  -- the recipient already follows.
+  if (select dm_permission from public.profiles where id = p_other_user_id) = 'no_one' then
+    raise exception 'This user is not accepting new conversations';
+  end if;
+
   -- WYN-032: a message from someone the recipient does not already
   -- follow starts as a pending Message Request instead of going
   -- straight to their inbox -- one-directional (does the recipient
   -- follow the sender), evaluated only here, at creation time.
+  --
+  -- WYN-045: 'people_i_follow' only allows creation when this exact
+  -- condition is true (the recipient already follows the sender) --
+  -- the same condition that already produces 'active' below. If it's
+  -- false, this now raises instead of falling through to a 'pending'
+  -- Message Request, since "people I follow" is meant to be a hard
+  -- boundary against strangers, not just a routing choice between
+  -- inbox and request folder.
   if exists (
     select 1 from public.follows
     where follower_id = p_other_user_id and following_id = v_me
   ) then
     v_status := 'active';
     v_requested_by := null;
+  elsif (select dm_permission from public.profiles where id = p_other_user_id) = 'people_i_follow' then
+    raise exception 'This user is not accepting new conversations';
   else
     v_status := 'pending';
     v_requested_by := v_me;
@@ -5123,7 +5187,7 @@ begin
     -- Lost a race with a concurrent call for the same pair -- fetch
     -- the row that won instead of erroring.
     select id into v_id from public.conversations where user_a_id = v_a and user_b_id = v_b;
-  elsif v_status = 'pending' then
+  elsif v_status = 'pending' and internal.notification_enabled(p_other_user_id, 'messages') then
     insert into public.notifications (recipient_id, actor_id, type, conversation_id)
     values (p_other_user_id, v_me, 'message_request', v_id);
   end if;
@@ -5869,7 +5933,8 @@ begin
   select author_id into v_author_id from public.drops where id = new.drop_id;
   -- ReDropping your own Drop is normal and allowed -- it just shouldn't
   -- notify you about your own action.
-  if v_author_id is not null and v_author_id <> new.redropper_id then
+  if v_author_id is not null and v_author_id <> new.redropper_id
+     and internal.notification_enabled(v_author_id, 'likes') then
     insert into public.notifications (recipient_id, actor_id, type, drop_id)
     values (v_author_id, new.redropper_id, 'redrop', new.drop_id);
   end if;
@@ -6225,10 +6290,19 @@ begin
   insert into public.drop_polls (drop_id, options, expires_at)
   values (v_drop_id, v_options, now() + make_interval(days => p_duration_days));
 
+  -- WYN-045: this RPC is SECURITY DEFINER and bypasses drop_mentions'
+  -- own RLS INSERT policy entirely -- without this same
+  -- internal.mention_allowed() check the policy below also gained,
+  -- Mention Permission would be fully bypassable via Poll Drop
+  -- creation. Same non-error posture as the block-exclusion right
+  -- next to it: the caption may still literally read "@username", it
+  -- just doesn't produce a drop_mentions row (and therefore no
+  -- notification) for a user who disallows it.
   insert into public.drop_mentions (drop_id, mentioned_user_id)
   select v_drop_id, m
   from unnest(p_mentioned_user_ids) as m
-  where not internal.is_blocked_either_way(v_author, m);
+  where not internal.is_blocked_either_way(v_author, m)
+    and internal.mention_allowed(m, v_author);
 
   return v_drop_id;
 end;
@@ -7200,8 +7274,10 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.notifications (recipient_id, actor_id, type)
-  values (new.target_id, new.requester_id, 'follow_request');
+  if internal.notification_enabled(new.target_id, 'follows') then
+    insert into public.notifications (recipient_id, actor_id, type)
+    values (new.target_id, new.requester_id, 'follow_request');
+  end if;
   return new;
 end;
 $$;
@@ -7231,8 +7307,10 @@ begin
   values (p_requester_id, auth.uid())
   on conflict do nothing;
 
-  insert into public.notifications (recipient_id, actor_id, type)
-  values (p_requester_id, auth.uid(), 'follow_request_accepted');
+  if internal.notification_enabled(p_requester_id, 'follows') then
+    insert into public.notifications (recipient_id, actor_id, type)
+    values (p_requester_id, auth.uid(), 'follow_request_accepted');
+  end if;
 end;
 $$;
 
@@ -7710,9 +7788,877 @@ begin
     raise exception 'System notification message must not be blank';
   end if;
 
-  insert into public.notifications (recipient_id, actor_id, type, reason)
-  values (p_recipient_id, null, 'system', p_message);
+  if internal.notification_enabled(p_recipient_id, 'system') then
+    insert into public.notifications (recipient_id, actor_id, type, reason)
+    values (p_recipient_id, null, 'system', p_message);
+
+    -- WYN-048: audit trail. actor_id is the real admin caller --
+    -- audit_log has no client-facing SELECT policy at all (unlike
+    -- notifications.actor_id, which this function already correctly
+    -- nulls out above so the recipient never learns who sent it), so
+    -- recording the true sender identity here creates no leak. Placed
+    -- inside this `if` branch (not unconditionally at the end of the
+    -- function) on purpose -- the event_type is 'system_notification_
+    -- sent', and if the recipient has this category turned off nothing
+    -- was actually sent, so nothing should be logged as sent. detail
+    -- stores the message plainly, same as the notifications row above
+    -- -- not a new exposure, since the recipient already sees this
+    -- exact text via the notification itself.
+    perform internal.log_audit_event(
+      auth.uid(),
+      'system_notification_sent',
+      p_recipient_id,
+      jsonb_build_object('message', p_message)
+    );
+  end if;
 end;
 $$;
 
 grant execute on function public.send_system_notification(uuid, text) to authenticated;
+
+-- ============================================================
+-- WYN-044: Notification Settings
+-- ============================================================
+-- See .wyn/tasks/backlog/WYN-044-notification-settings.md and
+-- .wyn/docs/design/wyn-044-notification-settings.md. Opt-out model
+-- (Master Spec section 21): a user who has never opened
+-- NotificationSettingsScreen and toggled anything has no row here at
+-- all -- every category defaults to enabled in that case, matching
+-- this table's own `not null default true` columns. Rows are created
+-- lazily by the client's first upsert (RLS insert policy below), not
+-- by handle_new_user() or any trigger, to keep this task's blast
+-- radius limited to gating public.notifications inserts -- it doesn't
+-- touch signup at all.
+--
+-- `trending` has no producer anywhere in the schema yet (WYN-041/042
+-- compute rankings transiently, no cron/snapshot infra -- same "no
+-- cron/batch job" fact WYN-030/WYN-043 already document elsewhere in
+-- this file) -- the column exists purely so a future Trending
+-- Notification Engine task doesn't need its own migration, and is a
+-- deliberate forward-compat no-op today, not an oversight.
+create table if not exists public.notification_settings (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  likes boolean not null default true,
+  comments boolean not null default true,
+  follows boolean not null default true,
+  messages boolean not null default true,
+  club boolean not null default true,
+  trending boolean not null default true,
+  system boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.notification_settings enable row level security;
+
+-- Mirrors public.saves' RLS shape (WYN-011/013) exactly: select/
+-- insert/update all restricted to the owning row's own user_id, no
+-- delete policy needed (on delete cascade handles account deletion,
+-- and there is no product reason for a user to delete their own
+-- preference row instead of just toggling everything back on).
+create policy "Users can view their own notification settings"
+  on public.notification_settings
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can create their own notification settings"
+  on public.notification_settings
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their own notification settings"
+  on public.notification_settings
+  for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Single source of truth every gated notify_*/RPC call site above (16
+-- of them -- see the Product/Design spec's mapping table) calls before
+-- inserting into public.notifications, so "no row = every category
+-- enabled" is encoded exactly once instead of separately at each call
+-- site. `security definer` + `set search_path = public`, same shape
+-- as internal.current_platform_role() elsewhere in this file, since
+-- every caller is itself a `security definer` trigger/RPC already
+-- running as the table owner, not as the querying `authenticated`
+-- role.
+--
+-- No `grant execute ... to authenticated` (unlike internal.drop_author_id/
+-- internal.current_platform_role/internal.is_drop_deleted, which are all
+-- called directly by RLS policies evaluated as the querying `authenticated`
+-- role and so genuinely need the grant) -- every real caller of this
+-- helper is itself already `security definer` (the 16 gated call sites
+-- above), so granting EXECUTE to `authenticated` would only let an
+-- ordinary user call this directly with someone *else's* p_user_id and
+-- read that user's real per-category preference, bypassing
+-- notification_settings' own RLS (WYN-044 debug fix -- QA-confirmed leak).
+--
+-- Omitting the grant is NOT enough on its own, though (independently
+-- re-confirmed against real Postgres while fixing this -- deleting only
+-- the `grant ... to authenticated` line left the direct-call probe below
+-- still succeeding): PostgreSQL grants EXECUTE on a newly created
+-- function to PUBLIC by default (the exact class of leak
+-- WYN-027/`.wyn/tasks/bugs/WYN-027-is-blocked-either-way-rpc-exposure.md`
+-- already documented for this schema), and `authenticated` already holds
+-- `usage` on the whole `internal` schema (granted once, above, for the
+-- RLS-embedded helpers that genuinely need it) -- so PUBLIC-execute plus
+-- schema USAGE is already sufficient for an ordinary `authenticated`
+-- caller to invoke this function directly by SQL, grant statement or
+-- not. The explicit `revoke` below is the actual fix; PostgREST's own
+-- non-exposure of `internal` (see the schema-boundary comment above)
+-- protects the REST API surface but not a direct SQL/psql caller, which
+-- is the threat this helper's own p_user_id parameter creates (unlike
+-- the RLS-embedded helpers, which never take a caller-supplied "whose
+-- data" parameter).
+--
+-- `language plpgsql` (not `sql`) specifically so an unrecognized
+-- p_category can RAISE instead of silently falling through the CASE to
+-- NULL -> coalesce(..., true) -> fail-open with no signal (WYN-044
+-- debug fix). All 16 existing gated call sites pass one of the 7
+-- literals below, so this is a no-op for them.
+--
+-- Defined here, after every notify_* trigger function that calls it,
+-- because PL/pgSQL function bodies are late-bound in Postgres --
+-- identifiers inside a plpgsql body are only resolved the first time
+-- the function actually executes, not at CREATE FUNCTION time, so it
+-- is safe for this helper to be declared later in the file than its
+-- callers as long as (as is the case here) it exists by the time any
+-- of those triggers can actually fire, which is only ever after this
+-- entire file has finished loading.
+create or replace function internal.notification_enabled(p_user_id uuid, p_category text)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  -- `p_category is null or ...`, not just `p_category not in (...)` --
+  -- NOT IN's 3-valued logic makes `NULL not in (...)` evaluate to NULL
+  -- (neither true nor false), so `if NULL then` silently skips the
+  -- raise and falls through to the old fail-open coalesce(...,true)
+  -- behavior for a NULL category specifically, even though every
+  -- other bad value (unrecognized string, '') is correctly caught by
+  -- `not in (...)` alone (QA round 2 finding, WYN-044 debug fix).
+  if p_category is null or p_category not in
+      ('likes', 'comments', 'follows', 'messages', 'club', 'trending', 'system') then
+    raise exception 'internal.notification_enabled: unknown category %', p_category;
+  end if;
+
+  return coalesce(
+    (
+      select case p_category
+        when 'likes' then likes
+        when 'comments' then comments
+        when 'follows' then follows
+        when 'messages' then messages
+        when 'club' then club
+        when 'trending' then trending
+        when 'system' then system
+      end
+      from public.notification_settings
+      where user_id = p_user_id
+    ),
+    true
+  );
+end;
+$$;
+
+-- Explicit revoke, not just an omitted grant -- see the comment above
+-- this function for why the omission alone left it directly callable by
+-- any `authenticated` role via SQL (PostgreSQL's default PUBLIC-execute
+-- ACL). `authenticated`/`anon` are both implicitly members of PUBLIC, so
+-- revoking from PUBLIC alone is sufficient; no separate `from
+-- authenticated, anon` needed since neither ever held a more specific
+-- grant of their own.
+revoke execute on function internal.notification_enabled(uuid, text) from public;
+
+-- ============================================================
+-- WYN-045: Settings — Interaction Privacy Controls (DM / Mention / Comment)
+-- ============================================================
+-- See .wyn/tasks/backlog/WYN-045-settings-privacy-controls.md and
+-- .wyn/docs/design/wyn-045-settings-privacy-controls.md. Closes the
+-- explicit deferred scope WYN-039's own spec file logged: "Privacy
+-- settings ย่อยอื่นๆ ... (DM Permissions, Mention, Comment) ไม่อยู่ใน
+-- สโคปนี้ ทำใน WYN-045."
+--
+-- Three independent per-owner settings, one shared 3-value vocabulary
+-- reused across all of them ('everyone' default / 'people_i_follow' /
+-- 'no_one'), same shape as is_private's own `alter table ... add
+-- column if not exists` (WYN-039). "People I follow" always means the
+-- *owner* of the setting follows the actor -- the same one trust
+-- direction this project has used for every trust-based feature to
+-- date (WYN-039's is_private/follow-request gating, and this exact
+-- condition already being what decides `active` vs `pending` in
+-- get_or_create_conversation() below). None of this retroactively
+-- affects content/conversations that already exist -- same posture as
+-- Private Account and Block (WYN-039/027), documented in the Product
+-- spec's Risks.
+alter table public.profiles
+  add column if not exists dm_permission text not null default 'everyone'
+    check (dm_permission in ('everyone', 'people_i_follow', 'no_one')),
+  add column if not exists mention_permission text not null default 'everyone'
+    check (mention_permission in ('everyone', 'people_i_follow', 'no_one')),
+  add column if not exists comment_permission text not null default 'everyone'
+    check (comment_permission in ('everyone', 'people_i_follow', 'no_one'));
+
+-- internal.mention_allowed()/internal.comment_allowed() below are
+-- deliberately two separate functions rather than one taking a
+-- category parameter -- mirrors internal.drop_author_id()/
+-- internal.pop_author_id() staying separate despite near-identical
+-- bodies, for the same reason: clearer error/call-site reading, and
+-- each one only ever needs to check exactly one column. Both are
+-- SECURITY DEFINER so they can be called from inside another table's
+-- RLS policy (drop_mentions/club_post_mentions/drop_comments/
+-- pop_comments below) without those policies' own lookups against
+-- `profiles` being subject to `profiles`' own SELECT RLS -- same
+-- reasoning as internal.can_view_author_content() (WYN-039) and
+-- internal.is_blocked_either_way() (WYN-027) above.
+create or replace function internal.mention_allowed(p_owner uuid, p_actor uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when p_owner = p_actor then true
+    else coalesce(
+      (
+        select case (select mention_permission from public.profiles where id = p_owner)
+          when 'no_one' then false
+          when 'people_i_follow' then exists (
+            select 1 from public.follows
+            where follower_id = p_owner and following_id = p_actor
+          )
+          else true
+        end
+      ),
+      true
+    )
+  end;
+$$;
+
+grant execute on function internal.mention_allowed(uuid, uuid) to authenticated;
+
+create or replace function internal.comment_allowed(p_owner uuid, p_actor uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when p_owner = p_actor then true
+    else coalesce(
+      (
+        select case (select comment_permission from public.profiles where id = p_owner)
+          when 'no_one' then false
+          when 'people_i_follow' then exists (
+            select 1 from public.follows
+            where follower_id = p_owner and following_id = p_actor
+          )
+          else true
+        end
+      ),
+      true
+    )
+  end;
+$$;
+
+grant execute on function internal.comment_allowed(uuid, uuid) to authenticated;
+
+-- Mention Permission: extends the block-exclusion INSERT policies
+-- (WYN-027) with the same non-error posture the comment right above
+-- them already documents -- a block relationship stops a mention from
+-- ever being recorded at all, and now so does mention_permission =
+-- 'no_one'/'people_i_follow' being unmet. The caption text itself may
+-- still literally contain "@username" (MentionInput doesn't
+-- retroactively edit what was typed), but no drop_mentions/
+-- club_post_mentions row is created for it, so
+-- notify_drop_mention()/notify_club_post_mention() never fire.
+drop policy "Drop authors can mention users in their own drops, excluding blocked relationships" on public.drop_mentions;
+create policy "Drop authors can mention users in their own drops, excluding blocked relationships and disallowed mentions"
+  on public.drop_mentions
+  for insert
+  to authenticated
+  with check (
+    exists (
+      select 1 from public.drops
+      where drops.id = drop_id and drops.author_id = auth.uid()
+    )
+    and not internal.is_blocked_either_way(auth.uid(), mentioned_user_id)
+    and internal.mention_allowed(mentioned_user_id, auth.uid())
+  );
+
+drop policy "Club post authors can mention users in their own posts, excluding blocked relationships" on public.club_post_mentions;
+create policy "Club post authors can mention users in their own posts, excluding blocked relationships and disallowed mentions"
+  on public.club_post_mentions
+  for insert
+  to authenticated
+  with check (
+    exists (
+      select 1 from public.club_posts
+      where club_posts.id = club_post_id and club_posts.author_id = auth.uid()
+    )
+    and not internal.is_blocked_either_way(auth.uid(), mentioned_user_id)
+    and internal.mention_allowed(mentioned_user_id, auth.uid())
+  );
+
+-- Comment Permission: extends the latest (WYN-037) generation of each
+-- INSERT policy -- Drop and Pop only. Club Post comment (WYN-005/006's
+-- club_post_comments) is deliberately left untouched: approved Club
+-- membership is already its own trust model (WYN-014/015), and
+-- layering a personal comment_permission on top would fight the
+-- membership grant a Club owner already extended -- see Product
+-- spec's Requirement 4.
+drop policy "Users can comment on drops as themselves, excluding blocked authors, moderation-blocked accounts, and deleted drops" on public.drop_comments;
+create policy "Users can comment on drops as themselves, excluding blocked authors, moderation-blocked accounts, deleted drops, and disallowed comments"
+  on public.drop_comments
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = author_id
+    and not internal.is_blocked_either_way(auth.uid(), internal.drop_author_id(drop_id))
+    and not internal.is_posting_blocked(auth.uid())
+    and coalesce(internal.is_drop_deleted(drop_id), false) = false
+    and internal.comment_allowed(internal.drop_author_id(drop_id), auth.uid())
+  );
+
+drop policy "Users can comment on pops as themselves, excluding blocked authors" on public.pop_comments;
+create policy "Users can comment on pops as themselves, excluding blocked authors and disallowed comments"
+  on public.pop_comments
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = author_id
+    and not internal.is_blocked_either_way(auth.uid(), internal.pop_author_id(pop_id))
+    and internal.comment_allowed(internal.pop_author_id(pop_id), auth.uid())
+  );
+
+-- ============================================================
+-- WYN-046: Platform Documents + Acceptance Flow
+-- ============================================================
+-- See .wyn/tasks/backlog/WYN-046-platform-documents-acceptance.md and
+-- .wyn/docs/design/wyn-046-platform-documents-acceptance.md. First task
+-- of Phase 6 (Legal & Compliance Layer, Master Spec sections 27/28).
+-- Technical layer only -- the `content` seeded below is a
+-- placeholder that explicitly states it is not the final,
+-- legally-binding text (see APPROVAL_REQUIRED entry in
+-- .wyn/company/APPROVALS.md, 2026-08-23: real legal content and the
+-- DPS-category analysis are both out of AI team scope and require a
+-- lawyer before this can go to production users).
+--
+-- No "Future Commerce Terms" row -- Master Spec section 27 lists one
+-- for WYN Shop, but ZOKY/Marketplace was pulled out of the app
+-- already (WYN-024, parked for V2), so there is nothing for it to
+-- cover yet.
+create table if not exists public.platform_documents (
+  id uuid primary key default gen_random_uuid(),
+  type text not null check (
+    type in (
+      'terms_of_service', 'privacy_policy', 'community_guidelines',
+      'copyright_policy', 'report_policy', 'appeal_policy'
+    )
+  ),
+  version integer not null,
+  title text not null,
+  content text not null,
+  effective_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  unique (type, version)
+);
+
+alter table public.platform_documents enable row level security;
+
+-- Select-all-authenticated: document text is not private data, every
+-- logged-in user must be able to read it (both from the Acceptance
+-- Gate and from Settings' "กฎหมาย" section). Deliberately no insert/
+-- update/delete policy for any client role at all -- content only
+-- ever changes via a schema migration in this round; there is no
+-- Admin UI yet (WYN Admin is Phase 7).
+create policy "Platform documents are viewable by authenticated users"
+  on public.platform_documents
+  for select
+  to authenticated
+  using (true);
+
+-- Mirrors public.notification_settings' RLS shape (WYN-044) exactly:
+-- select/insert/update all restricted to the owning row's own
+-- user_id. No delete policy (on delete cascade handles account
+-- deletion, same reasoning as notification_settings). Primary key is
+-- (user_id, document_type) rather than a surrogate id -- Product's
+-- Requirement 2 only needs the latest accepted version per type per
+-- user, not a full acceptance history, so upserting this pair is the
+-- whole mechanism a future document version bump re-prompts on.
+create table if not exists public.user_document_acceptances (
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  document_type text not null,
+  version integer not null,
+  accepted_at timestamptz not null default now(),
+  primary key (user_id, document_type)
+);
+
+alter table public.user_document_acceptances enable row level security;
+
+create policy "Users can view their own document acceptances"
+  on public.user_document_acceptances
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can create their own document acceptances"
+  on public.user_document_acceptances
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their own document acceptances"
+  on public.user_document_acceptances
+  for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Seed: version 1 of all 6 document types. Every `content` value
+-- starts with the exact placeholder paragraph Product specified,
+-- followed only by a short outline of section headings appropriate
+-- to that document type -- no actual legal content under any
+-- heading. Do not replace this with real legal text without a
+-- lawyer's review (see APPROVAL_REQUIRED entry above).
+insert into public.platform_documents (type, version, title, content, effective_at) values
+(
+  'terms_of_service', 1, 'ข้อกำหนดการใช้งาน',
+  $doc$เอกสารฉบับนี้อยู่ระหว่างการตรวจสอบโดยผู้เชี่ยวชาญกฎหมาย ยังไม่ใช่ฉบับสมบูรณ์ที่มีผลผูกพันทางกฎหมาย — เนื้อหาฉบับเต็มจะปรับปรุงหลังผ่านการตรวจสอบ
+
+หัวข้อที่จะครอบคลุม (โครงร่างเบื้องต้น ยังไม่มีเนื้อหา):
+- การใช้งาน
+- บัญชีผู้ใช้
+- เนื้อหาที่ต้องห้าม
+- การยกเลิกบัญชี$doc$,
+  now()
+),
+(
+  'privacy_policy', 1, 'นโยบายความเป็นส่วนตัว',
+  $doc$เอกสารฉบับนี้อยู่ระหว่างการตรวจสอบโดยผู้เชี่ยวชาญกฎหมาย ยังไม่ใช่ฉบับสมบูรณ์ที่มีผลผูกพันทางกฎหมาย — เนื้อหาฉบับเต็มจะปรับปรุงหลังผ่านการตรวจสอบ
+
+หัวข้อที่จะครอบคลุม (โครงร่างเบื้องต้น ยังไม่มีเนื้อหา):
+- ข้อมูลที่จัดเก็บ
+- วัตถุประสงค์การใช้ข้อมูล
+- การแบ่งปันข้อมูล
+- สิทธิ์ของผู้ใช้$doc$,
+  now()
+),
+(
+  'community_guidelines', 1, 'แนวทางชุมชน',
+  $doc$เอกสารฉบับนี้อยู่ระหว่างการตรวจสอบโดยผู้เชี่ยวชาญกฎหมาย ยังไม่ใช่ฉบับสมบูรณ์ที่มีผลผูกพันทางกฎหมาย — เนื้อหาฉบับเต็มจะปรับปรุงหลังผ่านการตรวจสอบ
+
+หัวข้อที่จะครอบคลุม (โครงร่างเบื้องต้น ยังไม่มีเนื้อหา):
+- พฤติกรรมที่ยอมรับได้
+- เนื้อหาที่ไม่อนุญาต
+- การรายงานการละเมิด
+- ผลจากการละเมิด$doc$,
+  now()
+),
+(
+  'copyright_policy', 1, 'นโยบายลิขสิทธิ์',
+  $doc$เอกสารฉบับนี้อยู่ระหว่างการตรวจสอบโดยผู้เชี่ยวชาญกฎหมาย ยังไม่ใช่ฉบับสมบูรณ์ที่มีผลผูกพันทางกฎหมาย — เนื้อหาฉบับเต็มจะปรับปรุงหลังผ่านการตรวจสอบ
+
+หัวข้อที่จะครอบคลุม (โครงร่างเบื้องต้น ยังไม่มีเนื้อหา):
+- การแจ้งการละเมิดลิขสิทธิ์
+- กระบวนการพิจารณา
+- การยื่นคำโต้แย้ง$doc$,
+  now()
+),
+(
+  'report_policy', 1, 'นโยบายการรายงาน',
+  $doc$เอกสารฉบับนี้อยู่ระหว่างการตรวจสอบโดยผู้เชี่ยวชาญกฎหมาย ยังไม่ใช่ฉบับสมบูรณ์ที่มีผลผูกพันทางกฎหมาย — เนื้อหาฉบับเต็มจะปรับปรุงหลังผ่านการตรวจสอบ
+
+หัวข้อที่จะครอบคลุม (โครงร่างเบื้องต้น ยังไม่มีเนื้อหา):
+- ประเภทการรายงาน
+- กระบวนการตรวจสอบ
+- การแจ้งผล$doc$,
+  now()
+),
+(
+  'appeal_policy', 1, 'นโยบายการอุทธรณ์',
+  $doc$เอกสารฉบับนี้อยู่ระหว่างการตรวจสอบโดยผู้เชี่ยวชาญกฎหมาย ยังไม่ใช่ฉบับสมบูรณ์ที่มีผลผูกพันทางกฎหมาย — เนื้อหาฉบับเต็มจะปรับปรุงหลังผ่านการตรวจสอบ
+
+หัวข้อที่จะครอบคลุม (โครงร่างเบื้องต้น ยังไม่มีเนื้อหา):
+- สิทธิ์ในการอุทธรณ์
+- ขั้นตอนการยื่นอุทธรณ์
+- ผลของการอุทธรณ์$doc$,
+  now()
+);
+
+-- ============================================================
+-- WYN-047: Data Rights (PDPA) -- Data Export + Account Deletion
+-- ============================================================
+-- See .wyn/tasks/backlog/WYN-047-data-rights.md and
+-- .wyn/docs/design/wyn-047-data-rights.md. Second task of Phase 6
+-- (Legal & Compliance Layer, Master Spec section 28). Data Access and
+-- Data Correction are already satisfied by existing screens (Edit
+-- Profile, Following/Followers, Saved, Notification/Privacy settings)
+-- and content-level Data Deletion is already satisfied by existing
+-- per-item delete/unfollow/unsave affordances (WYN-005/006/008/037) --
+-- nothing new to build for either of those. This section only adds
+-- the two rights that had zero mechanism at all: exporting a copy of
+-- one's own data, and deleting the account itself.
+
+-- export_my_data(): SECURITY DEFINER + no parameters, always operates
+-- on auth.uid() -- there is no way to pass another user's id in, so
+-- this can never be used to read anyone else's data. Every branch
+-- below filters by the caller's own id even though SECURITY DEFINER
+-- already bypasses each table's RLS -- the filter, not RLS, is what
+-- keeps this scoped to "my data" (the same discipline
+-- internal.notification_enabled()'s own comment block above explains
+-- for a different reason).
+--
+-- WYN-048: no longer `language sql` / `stable` -- it now also writes
+-- one audit_log row via internal.log_audit_event(), so it is no longer
+-- purely read-only, and internal.log_audit_event() itself is only
+-- defined later in this file (WYN-048 section, appended at the end per
+-- this project's convention). A plain `language sql` function body is
+-- parsed and its references resolved at CREATE FUNCTION time (verified
+-- empirically -- referencing a not-yet-defined function errors
+-- immediately with "function ... does not exist"), which would break
+-- top-to-bottom loading; `language plpgsql` defers resolution of
+-- embedded SQL statements to first call, the same reason every other
+-- forward-referencing helper in this file already uses plpgsql, so
+-- this is now plpgsql too. The jsonb_build_object expression itself
+-- and every branch's filtering logic are otherwise untouched -- moved
+-- as-is into a `select ... into v_export`. No exception handling
+-- around the log call -- if it fails, the whole export fails too
+-- (fail-closed, same reasoning as every other WYN-048 call site -- see
+-- internal.log_audit_event()'s own comment below).
+--
+-- Drops: mirrors internal.is_drop_deleted()/restore_drop()'s own
+-- 30-day cutoff (see restore_drop() above, "deleted_at <= now() -
+-- interval '30 days'" raises) -- a soft-deleted Drop still inside its
+-- restore window is still the user's own recoverable data and belongs
+-- in an Access/Export request; one that has aged out of the window is
+-- gone for good (same content a fresh restore_drop() call would now
+-- reject), so it is excluded here too.
+--
+-- Deliberately NOT included (Product's explicit scope decision, see
+-- Requirement 1's "ไม่รวมโดยเจตนา"): moderation_actions, reports
+-- (filed by or against the caller), and appeals. WYN-026/029 built a
+-- specific privacy protection where a reporter's identity is never
+-- revealed to the person they reported -- folding report rows into
+-- this export (which the reported user could request for themselves)
+-- would be a backdoor around that protection.
+create or replace function public.export_my_data()
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_export jsonb;
+begin
+  select jsonb_build_object(
+    'exported_at', now(),
+    'profile', (
+      select to_jsonb(p) from public.profiles p where p.id = auth.uid()
+    ),
+    'drops', (
+      select coalesce(jsonb_agg(to_jsonb(d) order by d.created_at), '[]'::jsonb)
+      from public.drops d
+      where d.author_id = auth.uid()
+        and (d.deleted_at is null or d.deleted_at > now() - interval '30 days')
+    ),
+    'pops', (
+      select coalesce(jsonb_agg(to_jsonb(pp) order by pp.created_at), '[]'::jsonb)
+      from public.pops pp
+      where pp.author_id = auth.uid()
+    ),
+    'drop_comments', (
+      select coalesce(jsonb_agg(to_jsonb(c) order by c.created_at), '[]'::jsonb)
+      from public.drop_comments c
+      where c.author_id = auth.uid()
+    ),
+    'pop_comments', (
+      select coalesce(jsonb_agg(to_jsonb(c) order by c.created_at), '[]'::jsonb)
+      from public.pop_comments c
+      where c.author_id = auth.uid()
+    ),
+    'club_post_comments', (
+      select coalesce(jsonb_agg(to_jsonb(c) order by c.created_at), '[]'::jsonb)
+      from public.club_post_comments c
+      where c.author_id = auth.uid()
+    ),
+    'following', (
+      select coalesce(jsonb_agg(to_jsonb(f) order by f.created_at), '[]'::jsonb)
+      from public.follows f
+      where f.follower_id = auth.uid()
+    ),
+    'followers', (
+      select coalesce(jsonb_agg(to_jsonb(f) order by f.created_at), '[]'::jsonb)
+      from public.follows f
+      where f.following_id = auth.uid()
+    ),
+    'saves', (
+      select coalesce(jsonb_agg(to_jsonb(s) order by s.created_at), '[]'::jsonb)
+      from public.saves s
+      where s.user_id = auth.uid()
+    ),
+    'club_memberships', (
+      select coalesce(jsonb_agg(to_jsonb(cm) order by cm.created_at), '[]'::jsonb)
+      from public.club_members cm
+      where cm.user_id = auth.uid()
+    ),
+    'notification_settings', (
+      select to_jsonb(ns) from public.notification_settings ns where ns.user_id = auth.uid()
+    ),
+    'sent_messages', (
+      select coalesce(jsonb_agg(to_jsonb(m) order by m.created_at), '[]'::jsonb)
+      from public.messages m
+      where m.sender_id = auth.uid()
+    )
+  ) into v_export;
+
+  perform internal.log_audit_event(auth.uid(), 'data_exported', auth.uid(), null);
+
+  return v_export;
+end;
+$$;
+
+-- Unlike most other SECURITY DEFINER helpers in this file (which are
+-- only ever called from other SECURITY DEFINER functions/triggers and
+-- so deliberately omit this grant, see notification_enabled()'s
+-- comment above), this one is legitimately called directly by the
+-- Flutter client from the Settings screen -- it has no caller-
+-- supplied "whose data" parameter for that grant to leak, only
+-- auth.uid(), so granting it to `authenticated` is safe.
+grant execute on function public.export_my_data() to authenticated;
+
+-- delete_my_account(): SECURITY DEFINER + no parameters, always
+-- operates on auth.uid() -- there is no way to pass another user's id
+-- in, so this can never be used to delete anyone else's account.
+-- Deletes the auth.users row directly; the 88 `on delete cascade` FKs
+-- already in this file (all ultimately rooted at
+-- public.profiles.id references auth.users(id) on delete cascade)
+-- remove every public.* row belonging to that user transitively --
+-- Drop/Pop/Comment/Like/Follow/Save/Club membership/Chat message/
+-- Notification/Settings/everything.
+--
+-- Inspected whether anything beyond `auth.users` itself needs an
+-- explicit delete: every stub `auth.users` table this project's own
+-- supabase/tests/*.sh scripts define (all ~17 of them) only ever
+-- creates `auth.users (id, email)` -- none of them, and no other file
+-- in this repo, references auth.identities/auth.sessions/
+-- auth.refresh_tokens/auth.mfa_factors/auth.one_time_tokens anywhere.
+-- Real Supabase's own managed auth schema already defines those with
+-- `on delete cascade` back to auth.users(id) (Supabase's Auth service
+-- is the thing that creates/owns that schema, not this project's
+-- schema.sql), so deleting the auth.users row alone is sufficient --
+-- there is nothing for this function to delete from those tables
+-- itself, and nothing in this codebase to stub/test against for them
+-- either. No grace period, no soft-delete: irreversible and
+-- immediate, per Product's decision (no cron/scheduled-job
+-- infrastructure exists anywhere in this project to ever purge a
+-- "pending deletion" state -- see WYN-030/043's identical reasoning).
+-- QA finding (2026-08-24, WYN-047 round 1): before this guard, a
+-- Restricted/Suspended/Banned account could call this RPC to erase
+-- its own moderation_actions/appeals rows outright (both reference
+-- public.profiles(id) on delete cascade -- WYN-029/030) and sign up
+-- again with a clean slate, evading the sanction entirely. Reuses
+-- internal.is_posting_blocked() -- the same "currently under an
+-- active restrict/suspend/ban" check already gating content creation
+-- elsewhere (drop_comments/pop_comments' INSERT policies, etc.) --
+-- rather than inventing a second definition of "blocked" for this one
+-- call site.
+create or replace function public.delete_my_account()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if internal.is_posting_blocked(auth.uid()) then
+    raise exception 'Cannot delete account while a moderation action is active';
+  end if;
+
+  -- WYN-048: audit trail, logged *before* the delete below, not after --
+  -- this is the one call site in this whole task where getting the
+  -- order backwards would silently defeat the entire point of audit_log.
+  -- internal.log_audit_event() looks up actor_username_snapshot from
+  -- public.profiles while auth.uid()'s row still exists (the delete
+  -- below removes it, via the profiles(id) references auth.users(id)
+  -- on delete cascade chain, in the very next statement) -- captured
+  -- here it survives permanently, since audit_log.actor_id has
+  -- deliberately no FK/cascade back to profiles/auth.users at all (see
+  -- the WYN-048 section below) -- verified by
+  -- supabase/tests/wyn_048_audit_log_test.sh, which asserts the row
+  -- for this exact event is still readable, with a non-null
+  -- actor_username_snapshot, after the delete below has fully
+  -- committed and profiles/auth.users no longer have a matching row.
+  perform internal.log_audit_event(
+    auth.uid(),
+    'account_deleted',
+    auth.uid(),
+    null
+  );
+
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+
+grant execute on function public.delete_my_account() to authenticated;
+
+-- ============================================================
+-- WYN-048: Audit Log Foundation + Security Incident Runbook
+-- ============================================================
+-- See .wyn/tasks/backlog/WYN-048-consent-audit-security-incident.md.
+-- Last task of Phase 6 (Legal & Compliance Layer, Master Spec section
+-- 28). Consent Management has no new requirement this round (already
+-- satisfied by WYN-044/045/046, per the Product spec's Requirement 1)
+-- and the Security Incident Response Runbook is a document, not code
+-- (see .wyn/docs/security/incident-response-runbook.md) -- this
+-- section only adds the third piece: an append-only audit trail for
+-- the 5 existing privileged actions that had no centralized record at
+-- all (moderation actions, appeal decisions, admin system
+-- notifications, account deletion, data export).
+--
+-- Deliberately append-only, with `actor_id`/`target_id` carrying NO
+-- foreign key at all -- the single most important architectural
+-- decision in this task (Product spec's Requirement 2). Every other
+-- table in this schema roots its FKs at
+-- public.profiles.id references auth.users(id) on delete cascade, so
+-- that deleting an account correctly erases that account's own data
+-- everywhere. audit_log must do the *opposite* on purpose: its entire
+-- reason to exist is to remember a privileged action even after the
+-- account behind it is gone -- most critically, the 'account_deleted'
+-- event itself, whose whole point is to still be readable after the
+-- very deletion it records. An `on delete cascade` FK here would erase
+-- that row in the same transaction that creates it, defeating the
+-- table's purpose at its single most important use case. Verified,
+-- not just reasoned about -- see CHECK 12-13 in
+-- supabase/tests/wyn_048_audit_log_test.sh, which deletes a test
+-- user via delete_my_account() and then confirms their
+-- 'account_deleted' audit_log row (with a non-null
+-- actor_username_snapshot) still exists afterward, even though
+-- profiles/auth.users no longer have a matching row for that id.
+create table if not exists public.audit_log (
+  id uuid primary key default gen_random_uuid(),
+  -- No FK/cascade -- see the section comment above.
+  actor_id uuid,
+  -- Denormalized at write time (internal.log_audit_event() below looks
+  -- this up from profiles once, at insert time) so the log stays
+  -- readable by username even after the actor's account is later
+  -- deleted -- profiles.username would otherwise be unreachable for a
+  -- deleted actor, same problem actor_id's lack of FK solves for the
+  -- row's existence itself.
+  actor_username_snapshot text,
+  event_type text not null
+    check (event_type in (
+      'moderation_action_applied', 'appeal_decided',
+      'system_notification_sent', 'account_deleted', 'data_exported'
+    )),
+  -- Polymorphic per event_type, no FK either -- mirrors
+  -- public.reports.target_id's own no-FK polymorphic pattern (WYN-026,
+  -- "target_id is polymorphic (no FK -- the referenced table depends
+  -- on target_type), so integrity is enforced entirely by
+  -- submit_report() below rather than at the column level"). Nullable
+  -- here (unlike reports.target_id, which is `not null`) since not
+  -- every event type has a meaningful separate target -- account_deleted
+  -- and data_exported both set target_id to the same value as actor_id
+  -- (the caller acting on themselves), which is why this stays
+  -- nullable rather than `not null` -- a future event type with no
+  -- natural single target at all remains representable without a
+  -- schema change.
+  target_id uuid,
+  detail jsonb,
+  created_at timestamptz not null default now()
+);
+
+alter table public.audit_log enable row level security;
+
+-- Deliberately ZERO policies of any kind -- not select, not insert, not
+-- update, not delete, and not even for platform_role = 'moderator' or
+-- 'admin'. There is no Admin UI with proper per-role access control
+-- built yet (WYN-054, Phase 7, is what adds the screen that reads this
+-- table) -- exposing raw SELECT to every admin/moderator now, before
+-- that screen exists to gate who specifically should see what, would
+-- be premature. The only way any row ever gets written is through
+-- internal.log_audit_event() below, a SECURITY DEFINER function that
+-- bypasses RLS the same way every notify_* trigger function elsewhere
+-- in this file already does to write into public.notifications despite
+-- that table also having no client-facing insert policy. Until WYN-054
+-- ships, this table is readable only via direct SQL access (Founder,
+-- through the Supabase SQL editor) -- see the Product spec's own Risks
+-- section, which accepts this explicitly as this round's scope.
+--
+-- internal.log_audit_event(): the only sanctioned way any row is ever
+-- written to audit_log. SECURITY DEFINER so it can insert despite
+-- audit_log having no insert policy for any role. Not granted to
+-- `authenticated` -- unlike export_my_data() (which is safe to expose
+-- directly since its only "whose data" input is auth.uid(), with no
+-- caller-supplied override), this function's p_actor_id/p_target_id
+-- are caller-supplied, so a direct grant would let any client forge
+-- audit_log rows attributing arbitrary actions to arbitrary users. It
+-- must only ever be called from other SECURITY DEFINER functions that
+-- already independently derived p_actor_id from something trustworthy
+-- (auth.uid(), or a value already established server-side, such as
+-- decide_appeal()'s v_appeal.appellant_id), never by passing
+-- unvalidated client input straight through.
+--
+-- p_actor_id handled gracefully when null (looked up conditionally
+-- below), though none of the 5 call sites wired in this round actually
+-- pass null -- each of moderation/appeal/notification/delete/export
+-- has exactly one natural single actor (the moderator/admin/self), per
+-- Product's Requirement 2.
+--
+-- Deliberately no exception handling around the insert here, and none
+-- around any of the 5 `perform internal.log_audit_event(...)` call
+-- sites either -- if this insert fails for any reason, the exception
+-- propagates and rolls back the calling function's entire transaction
+-- (fail-closed), rather than letting a privileged action succeed
+-- silently unlogged. This is a deliberate choice, not a default: the
+-- insert here has no realistic failure mode (event_type is always a
+-- literal that matches the check constraint above, id/created_at have
+-- defaults, actor_id/target_id/detail are all nullable), so fail-closed
+-- costs nothing in practice while keeping audit trail integrity
+-- strictly coupled to the action it records.
+create or replace function internal.log_audit_event(
+  p_actor_id uuid,
+  p_event_type text,
+  p_target_id uuid,
+  p_detail jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_actor_username text;
+begin
+  if p_actor_id is not null then
+    select username into v_actor_username from public.profiles where id = p_actor_id;
+  end if;
+
+  insert into public.audit_log (actor_id, actor_username_snapshot, event_type, target_id, detail)
+  values (p_actor_id, v_actor_username, p_event_type, p_target_id, p_detail);
+end;
+$$;
+
+-- QA finding (2026-08-24, WYN-048): explicit revoke, not just an
+-- omitted grant -- mirrors internal.notification_enabled()'s own fix
+-- (WYN-044 round 1 finding) for the identical reason: PostgreSQL
+-- grants EXECUTE on a newly created function to PUBLIC by default,
+-- and `authenticated` already holds `usage` on schema `internal`
+-- (needed by the RLS-embedded helpers elsewhere in this file), so
+-- PUBLIC-execute plus schema USAGE was already sufficient for any
+-- ordinary authenticated user to call this function directly by SQL
+-- and forge arbitrary audit_log rows -- p_actor_id/p_target_id are
+-- fully caller-supplied here, unlike export_my_data()/
+-- delete_my_account() (both legitimately granted to authenticated),
+-- whose only "whose data" input is auth.uid() with no caller override.
+revoke execute on function internal.log_audit_event(uuid, text, uuid, jsonb) from public;

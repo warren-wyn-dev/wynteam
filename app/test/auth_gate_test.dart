@@ -6,11 +6,13 @@ import 'package:wyn/features/auth/presentation/account_restricted_screen.dart';
 import 'package:wyn/features/auth/presentation/auth_gate.dart';
 import 'package:wyn/features/auth/presentation/username_setup_screen.dart';
 import 'package:wyn/features/auth/presentation/welcome_screen.dart';
+import 'package:wyn/features/legal/presentation/document_acceptance_screen.dart';
 import 'package:wyn/features/moderation/data/moderation_status.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_auth_repository.dart';
 import 'support/recording_moderation_repository.dart';
+import 'support/recording_platform_document_repository.dart';
 
 User _fakeUser(String id) => User(
       id: id,
@@ -31,8 +33,26 @@ void main() {
   // test below) reaches into Supabase.instance.client directly for its
   // own internal repositories -- independent of RecordingAuthRepository,
   // which never touches Supabase.instance at all.
+  //
+  // RecordingPlatformDocumentRepository (WYN-046) is constructed once
+  // here -- unlike RecordingModerationRepository/RecordingAuthRepository
+  // below, which are built fresh per testWidgets body (each needing its
+  // own independent session/status state, with autoRefreshToken: false
+  // on their own SupabaseClient to avoid a leaked GoTrue Timer) -- this
+  // repository holds no such per-test stream state, so it follows this
+  // project's other convention instead: one SupabaseClient-wrapping
+  // double built in setUpAll, its canned fields reassigned per test. See
+  // .wyn/tasks/bugs/WYN-044-notification-settings-test-timer-leak-and-preference-leak.md.
+  late RecordingPlatformDocumentRepository platformDocumentRepository;
+
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'restricted-user');
+    platformDocumentRepository = RecordingPlatformDocumentRepository();
+  });
+
+  setUp(() {
+    platformDocumentRepository.hasAcceptedResult = true;
+    platformDocumentRepository.hasAcceptedError = null;
   });
 
   // WYN-029/WYN-030 -- Screen 6's own explicit "kับดัก" warning: a
@@ -46,7 +66,9 @@ void main() {
   // showing, not that a sign-out survived.
   testWidgets(
       'a Suspended account signing in sees AccountRestrictedScreen without '
-      'being signed out (session kept valid for a possible appeal)',
+      'being signed out (session kept valid for a possible appeal), and '
+      'never sees DocumentAcceptanceScreen even with incomplete '
+      'acceptances (WYN-046 -- moderation check must win the ordering)',
       (tester) async {
     final authRepository = RecordingAuthRepository(
       initialSession: _fakeSession('suspended-user'),
@@ -60,11 +82,17 @@ void main() {
         isBanned: false,
       ),
     );
+    // Deliberately false -- this account would need the Acceptance Gate
+    // if it weren't blocked first. Proves the moderation check really is
+    // ordered *before* the document check, not just that both happen to
+    // pass in the common case.
+    platformDocumentRepository.hasAcceptedResult = false;
 
     await tester.pumpWidget(MaterialApp(
       home: AuthGate(
         authRepository: authRepository,
         moderationRepository: moderationRepository,
+        platformDocumentRepository: platformDocumentRepository,
       ),
     ));
     await tester.pumpAndSettle();
@@ -73,6 +101,7 @@ void main() {
     expect(authRepository.signOutCalls, 0);
     expect(find.byType(AccountRestrictedScreen), findsOneWidget);
     expect(find.byType(WelcomeScreen), findsNothing);
+    expect(find.byType(DocumentAcceptanceScreen), findsNothing);
     expect(find.text('บัญชีของคุณถูกระงับชั่วคราว'), findsOneWidget);
 
     // Pump extra frames -- AccountRestrictedScreen must still be the
@@ -147,6 +176,14 @@ void main() {
       home: AuthGate(
         authRepository: authRepository,
         moderationRepository: moderationRepository,
+        // hasAcceptedResult: true (setUp's default) -- this test isn't
+        // about the Acceptance Gate, so it must pass through it
+        // unnoticed to reach UsernameSetupScreen, same "irrelevant noise
+        // for what this test needs to prove" reasoning as
+        // hasUsernameResult above. Injected explicitly (rather than left
+        // to AuthGate's own default) so this never makes a real network
+        // call against the fake Supabase project.
+        platformDocumentRepository: platformDocumentRepository,
       ),
     ));
     await tester.pumpAndSettle();
@@ -154,6 +191,74 @@ void main() {
     // Restrict alone must never block login -- only Suspend/Ban do.
     expect(authRepository.signOutCalls, 0);
     expect(find.byType(AccountRestrictedScreen), findsNothing);
+    expect(find.byType(DocumentAcceptanceScreen), findsNothing);
+    expect(find.byType(UsernameSetupScreen), findsOneWidget);
+  });
+
+  // WYN-046 -- the Acceptance Gate itself: an account that is not
+  // blocked but has NOT accepted the current version of the 3 mandatory
+  // documents must see DocumentAcceptanceScreen instead of
+  // UsernameSetupScreen/RootShell, proving the gate is positioned after
+  // the moderation check (already covered above) and before the
+  // username check.
+  testWidgets(
+      'an account with incomplete document acceptances sees '
+      'DocumentAcceptanceScreen before UsernameSetupScreen/RootShell',
+      (tester) async {
+    final authRepository = RecordingAuthRepository(
+      initialSession: _fakeSession('needs-acceptance-user'),
+    )..hasUsernameResult = false;
+    final moderationRepository = RecordingModerationRepository(
+      myStatus: const ModerationStatus(
+        isRestricted: false,
+        isSuspended: false,
+        isBanned: false,
+      ),
+    );
+    platformDocumentRepository.hasAcceptedResult = false;
+
+    await tester.pumpWidget(MaterialApp(
+      home: AuthGate(
+        authRepository: authRepository,
+        moderationRepository: moderationRepository,
+        platformDocumentRepository: platformDocumentRepository,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AccountRestrictedScreen), findsNothing);
+    expect(find.byType(DocumentAcceptanceScreen), findsOneWidget);
+    expect(find.byType(UsernameSetupScreen), findsNothing);
+  });
+
+  // WYN-046 Product spec's Risks -- a transient load error checking
+  // acceptance status must fail open (let the user through) rather than
+  // lock the whole app out, same posture as the moderation status check.
+  testWidgets(
+      'a load error checking document acceptances fails open (does not '
+      'block login)', (tester) async {
+    final authRepository = RecordingAuthRepository(
+      initialSession: _fakeSession('accept-check-error-user'),
+    )..hasUsernameResult = false;
+    final moderationRepository = RecordingModerationRepository(
+      myStatus: const ModerationStatus(
+        isRestricted: false,
+        isSuspended: false,
+        isBanned: false,
+      ),
+    );
+    platformDocumentRepository.hasAcceptedError = Exception('network error');
+
+    await tester.pumpWidget(MaterialApp(
+      home: AuthGate(
+        authRepository: authRepository,
+        moderationRepository: moderationRepository,
+        platformDocumentRepository: platformDocumentRepository,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DocumentAcceptanceScreen), findsNothing);
     expect(find.byType(UsernameSetupScreen), findsOneWidget);
   });
 }

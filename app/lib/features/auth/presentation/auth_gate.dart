@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../legal/data/platform_document_repository.dart';
+import '../../legal/presentation/document_acceptance_screen.dart';
 import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/data/appeal_status.dart';
 import '../../moderation/data/moderation_repository.dart';
@@ -19,17 +21,22 @@ import 'welcome_screen.dart';
 /// Decides which screen to show based on auth + onboarding state:
 /// signed out -> Welcome, signed in but Suspended/Banned -> Account
 /// Restricted (WYN-029, checked *before* the username check below --
-/// see the design doc's Screen 6), signed in without a username ->
-/// Username Setup, fully onboarded -> RootShell (the Home/Drop/Pop/
-/// Profile Bottom Nav from "WYN V0.1 — CORE APP FEATURE PROMPT", see
-/// .wyn/company/DECISIONS.md 2026-08-14 — replaces the old single-screen
-/// FeedScreen from WYN-004).
+/// see the design doc's Screen 6), signed in but missing acceptance of
+/// a current mandatory platform document -> Document Acceptance
+/// (WYN-046, checked *after* the moderation check above and *before*
+/// the username check below -- applies uniformly to brand-new and
+/// existing users alike, per that task's Product spec), signed in
+/// without a username -> Username Setup, fully onboarded -> RootShell
+/// (the Home/Drop/Pop/Profile Bottom Nav from "WYN V0.1 — CORE APP
+/// FEATURE PROMPT", see .wyn/company/DECISIONS.md 2026-08-14 —
+/// replaces the old single-screen FeedScreen from WYN-004).
 class AuthGate extends StatefulWidget {
   const AuthGate({
     super.key,
     this.authRepository,
     this.moderationRepository,
     this.appealRepository,
+    this.platformDocumentRepository,
   });
 
   // All optional -- default to real Supabase-backed instances (see
@@ -46,6 +53,9 @@ class AuthGate extends StatefulWidget {
   // AccountRestrictedScreen.
   final AppealRepository? appealRepository;
 
+  // Same shape again -- WYN-046's Acceptance Gate.
+  final PlatformDocumentRepository? platformDocumentRepository;
+
   @override
   State<AuthGate> createState() => _AuthGateState();
 }
@@ -57,6 +67,9 @@ class _AuthGateState extends State<AuthGate> {
       widget.moderationRepository ?? ModerationRepository(Supabase.instance.client);
   late final AppealRepository _appealRepository =
       widget.appealRepository ?? AppealRepository(Supabase.instance.client);
+  late final PlatformDocumentRepository _platformDocumentRepository =
+      widget.platformDocumentRepository ??
+          PlatformDocumentRepository(Supabase.instance.client);
   late final StreamSubscription<AuthState> _authSubscription;
 
   // Set exactly once per sign-in (by the auth listener below, or by
@@ -246,25 +259,57 @@ class _AuthGateState extends State<AuthGate> {
             }
 
             return FutureBuilder<bool>(
-              future: _authRepository.hasUsername(session.user.id),
-              builder: (context, usernameSnapshot) {
-                if (!usernameSnapshot.hasData) {
+              future: _platformDocumentRepository.hasAcceptedMandatoryDocuments(),
+              builder: (context, acceptanceSnapshot) {
+                // Fails open on a transient load error -- same "never lock
+                // the whole app out over a network hiccup" reasoning as the
+                // moderation status check above. Product's Risks explicitly
+                // chose fail-open over fail-closed for this gate too: there
+                // are no real production users yet for a stricter posture
+                // to meaningfully protect, and RLS still enforces the real
+                // acceptance requirement independent of what this screen
+                // shows (WYN-046 Product spec).
+                final hasAccepted = acceptanceSnapshot.data;
+                if (hasAccepted == null && !acceptanceSnapshot.hasError) {
                   return const _LoadingScreen();
                 }
-                if (usernameSnapshot.data == true) {
-                  return const RootShell();
+
+                if (hasAccepted == false) {
+                  return DocumentAcceptanceScreen(
+                    platformDocumentRepository: _platformDocumentRepository,
+                    // Same "rendered as AuthGate's own route, re-run the
+                    // FutureBuilder above on rebuild" reasoning as
+                    // UsernameSetupScreen.onUsernameSet below -- this
+                    // FutureBuilder's `future` is re-created fresh on every
+                    // build (not cached in a field), so a bare setState here
+                    // re-queries hasAcceptedMandatoryDocuments() and moves
+                    // on once it now returns true.
+                    onAccepted: () => setState(() {}),
+                  );
                 }
-                return UsernameSetupScreen(
-                  authRepository: _authRepository,
-                  userId: session.user.id,
-                  // A saved username is a Postgres write, not a Supabase auth
-                  // event, so nothing else tells this widget to re-check and
-                  // switch to RootShell -- rebuilding here re-runs the
-                  // hasUsername() FutureBuilder above, which then returns
-                  // RootShell as AuthGate's own child (keeping this State,
-                  // and its auth-state subscription, alive for logout to
-                  // keep working).
-                  onUsernameSet: () => setState(() {}),
+
+                return FutureBuilder<bool>(
+                  future: _authRepository.hasUsername(session.user.id),
+                  builder: (context, usernameSnapshot) {
+                    if (!usernameSnapshot.hasData) {
+                      return const _LoadingScreen();
+                    }
+                    if (usernameSnapshot.data == true) {
+                      return const RootShell();
+                    }
+                    return UsernameSetupScreen(
+                      authRepository: _authRepository,
+                      userId: session.user.id,
+                      // A saved username is a Postgres write, not a Supabase auth
+                      // event, so nothing else tells this widget to re-check and
+                      // switch to RootShell -- rebuilding here re-runs the
+                      // hasUsername() FutureBuilder above, which then returns
+                      // RootShell as AuthGate's own child (keeping this State,
+                      // and its auth-state subscription, alive for logout to
+                      // keep working).
+                      onUsernameSet: () => setState(() {}),
+                    );
+                  },
                 );
               },
             );

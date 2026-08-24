@@ -1,0 +1,103 @@
+# Product Task — WYN-044
+
+Status: approved (Independent QA PASS, 2 รอบ — ดูหัวข้อ "Independent QA" ท้ายไฟล์ — ส่งต่อ AI Deploy & DevOps)
+Owner: AI Product Manager
+
+Feature: Notification Settings — เปิด/ปิดการแจ้งเตือนรายประเภท
+
+Goal: task ที่สองของ Phase 5 (Notification & Settings Expansion) ต่อจาก WYN-043 — ปิด gap ตาม Master Spec section 21 ("Notification Settings — ผู้ใช้เปิด/ปิดได้เป็นรายประเภท เช่น Likes, Comments, Follows, Messages, Club, Trending, System") ที่ยังไม่มีอยู่เลยในระบบตอนนี้ — ปัจจุบันผู้ใช้ไม่มีทางปิดการแจ้งเตือนประเภทใดๆ ได้เลยแม้แต่ประเภทเดียว ทุก `notify_*` trigger insert แถวเสมอไม่มีเงื่อนไข
+
+Target User: ผู้ใช้ WYN ทุกคนที่ต้องการลดความถี่การแจ้งเตือนบางประเภท (เช่น ปิด Comment notification แต่ยังเปิด Follow notification) โดยไม่ต้องปิดการแจ้งเตือนทั้งหมด
+
+Problem: ยืนยันจากการอ่านโค้ดจริง — schema.sql มี `notifications` table + trigger function 13 ตัวที่ insert แถวแบบไม่มีเงื่อนไขใดๆ เกี่ยวกับ preference ของผู้รับเลย (`notify_drop_like`, `notify_pop_like`, `notify_drop_comment`, `notify_pop_comment`, `notify_follow`, `notify_club_join_request`, `notify_club_join_approved`, `notify_club_post_like`, `notify_club_post_comment`, `notify_drop_mention`, `notify_club_post_mention`, `notify_redrop`, `internal.notify_follow_request`) บวก 2 RPC ที่ insert ตรง (`accept_follow_request()`'s `follow_request_accepted` insert, `send_system_notification()` จาก WYN-043) — ไม่มีตาราง/คอลัมน์ preference ใดๆ เลยในสคีมาทั้งหมด
+
+Requirements:
+
+**1. ตาราง `notification_settings` ใหม่ — เก็บ preference รายผู้ใช้ 7 หมวดตาม Master Spec section 21 เป๊ะ**
+- คอลัมน์ boolean 7 ตัว ตรงชื่อ Master Spec: `likes`, `comments`, `follows`, `messages`, `club`, `trending`, `system` — ทุกตัว `not null default true` (default = เปิดหมด, opt-out model ไม่ใช่ opt-in — ผู้ใช้ใหม่ไม่ต้องตั้งค่าอะไรก็ได้รับการแจ้งเตือนปกติเหมือนวันนี้)
+- ไม่มีแถวสำหรับผู้ใช้จนกว่าจะเปิดหน้า Settings ครั้งแรกแล้ว toggle อย่างน้อย 1 ครั้ง (lazy row creation ผ่าน upsert จาก client ตรงๆ — ไม่ต้องมี RPC/trigger สร้างแถว auto ตอน signup เพื่อลด blast radius ไม่แตะ `handle_new_user()` เดิม) — **ไม่มีแถว = ทุกหมวดถือว่าเปิดอยู่** (ค่า default เดียวกับที่ column default ระบุ) ต้องมี helper function กลาง (`internal.notification_enabled(p_user_id uuid, p_category text)`) ที่ trigger ทุกตัวเรียกใช้แทนการ query ตรง เพื่อรับประกัน "ไม่มีแถว = true" สอดคล้องกันทุกจุด ไม่ใช่ต่างจุดต่างเขียน logic เอง
+- RLS: จำกัดแค่เจ้าของแถวเท่านั้น (`auth.uid() = user_id`) ทั้ง select/insert/update — ไม่มี policy ให้เห็น/แก้ preference ของคนอื่นเลย (คนอื่นไม่มีความจำเป็นต้องรู้ว่าใครปิดการแจ้งเตือนประเภทไหน)
+
+**2. Gate การ insert notification ทุกจุดด้วย preference ของ "ผู้รับ" (`recipient_id`) ผ่าน `internal.notification_enabled()`**
+- แม็ปประเภท notification ที่มีอยู่จริง 21 ตัวเข้า 7 หมวดของ Master Spec ตามการตัดสินใจนี้ (ทำเองได้ตามอำนาจ Product ไม่ใช่ Major Architecture — Master Spec ให้แค่ตัวอย่างหมวดกว้างๆ ไม่ได้ระบุ mapping ละเอียดถึงระดับ type):
+  | หมวด (Master Spec) | notification type ที่ gate ด้วยหมวดนี้ | เหตุผล |
+  |---|---|---|
+  | `likes` | `like_drop`, `like_pop`, `redrop` | ReDrop เป็น engagement action ที่ใกล้เคียง Like มากที่สุด (repost แบบ one-tap ไม่มีข้อความ) — Master Spec section 20 จัดกลุ่ม ReDrop ไว้ใน "Social" เดียวกับ Like อยู่แล้ว ไม่มีหมวดแยกสำหรับ ReDrop โดยเฉพาะใน section 21 |
+  | `comments` | `comment_drop`, `comment_pop`, `mention_drop` | Mention บน Drop เกิดจากการพิมพ์ในแคปชัน/คอมเมนต์ ใกล้เคียง Comment มากที่สุด — section 20 จัดกลุ่ม Mention ไว้ใน "Social" เดียวกับ Comment เช่นกัน ไม่มีหมวด Mention แยก |
+  | `follows` | `follow`, `follow_request`, `follow_request_accepted` | ตรงชื่อหมวดตรงๆ ไม่ต้องตีความ |
+  | `messages` | `message_request` | เป็น notification type เดียวที่เกี่ยวกับ Chat ที่มีอยู่จริงในตาราง `notifications` ตอนนี้ — ข้อความใหม่ใน 1:1 Chat ของจริง (WYN-031) ไม่ได้แจ้งผ่านระบบ Notification bell เลย (ใช้ unread-count + realtime ของตัวเอง) จึงไม่มีอะไรให้ gate เพิ่มในหมวดนี้ |
+  | `club` | `club_join_request`, `club_join_approved`, `club_post_like`, `club_post_comment`, `mention_club_post` | ทุกประเภทที่เกี่ยวกับ Club ถูกจัดเป็นหมวดเดียวตาม section 20 ("Club: Club Post, Club Mention, Club Announcement, Join Request") โดยไม่แยกย่อยเป็น Like/Comment ซ้ำกับหมวด Drop/Pop ด้านบน — ผู้ใช้ที่อยากปิด "การแจ้งเตือนทุกอย่างจาก Club" ควรทำได้ด้วย toggle เดียว ไม่ต้องไล่ปิดทีละ sub-type |
+  | `trending` | *(ยังไม่มี producer จริง)* | Trending/Top 100 notification ถูกเลื่อนสโคปออกจาก WYN-043 แล้ว (ไม่มี cron/snapshot infra) — เก็บคอลัมน์นี้ไว้ล่วงหน้าตาม Master Spec section 21 ที่ระบุชื่อหมวดตรงๆ เพื่อไม่ต้อง migrate schema เพิ่มตอน "Trending Notification Engine" task ในอนาคตทำจริง (มิเรอร์แนวทางเดียวกับที่ WYN-032 เพิ่ม `message_request` type ล่วงหน้าก่อน WYN-043 ใช้งานจริง) — **ตอนนี้ toggle นี้ไม่มีผลอะไรกับระบบเลยเพราะไม่มี insert จุดไหนอ้างถึง** ต้องบันทึกเป็น Known Gap ให้ QA ทราบตรงๆ ไม่ใช่บั๊ก |
+  | `system` | `system` | ตรงชื่อหมวดตรงๆ — **หมายเหตุความเสี่ยง**: Master Spec section 20 อธิบาย System ว่าคือ "Security, Policy, Announcement" ซึ่งบางเนื้อหาอาจสำคัญมาก (เช่น แจ้งเตือนความปลอดภัยบัญชี) แต่ section 21 ระบุชัดเจนว่า System เป็นหนึ่งใน 7 หมวดที่ผู้ใช้ "เปิด/ปิดได้" — ทำตาม Master Spec ตรงๆ ตามที่ Founder เขียนไว้เอง ไม่ตีความเพิ่มเป็นข้อยกเว้น แต่บันทึกไว้ใน Risks ให้ Founder ทราบชัดเจน |
+- **ไม่ gate 2 กลุ่มนี้โดยเจตนา (ตัดสินใจ Product, ไม่ใช่ bug/ไม่ใช่ oversight)**:
+  1. `moderation_warning`/`moderation_content_removed`/`appeal_approved`/`appeal_rejected` — แจ้งเตือนเกี่ยวกับสถานะบัญชี/ผลการฝ่าฝืนกติกา/ผลอุทธรณ์ ไม่มีอยู่ในหมวดใดของ Master Spec section 20/21 เลย (ไม่ใช่ Social/Chat/Club/Discovery/System ทั่วไป) และเป็นข้อมูลที่ผู้ใช้ต้องรับรู้เสมอเพื่อรักษาความปลอดภัย/สิทธิ์ในการอุทธรณ์ของตัวเอง — ปล่อยให้ปิดได้จะเปิดช่องให้ผู้ใช้ "ซ่อน" หลักฐานการฝ่าฝืนกติกาจากตัวเอง ขัดกับเป้าหมายของระบบ Safety (section 22-26) โดยตรง — คงพฤติกรรมเดิม (insert เสมอไม่มีเงื่อนไข) เหมือนก่อน task นี้ทุกประการ
+  2. `new_order`/`order_shipped`/`order_cancelled`/`order_refunded` (ZOKY) — ZOKY/Marketplace ถูกถอดออกจาก WYN App's Bottom Nav ไปแล้วตั้งแต่ WYN-024 (พักไว้ ไม่ใช่ V1.0.0) ไม่มีผู้ใช้จริงคนไหนสร้าง order ผ่าน WYN App ได้อีกต่อไป — อยู่นอกสโคป WYN-044 โดยสมบูรณ์ ไม่แตะ ไม่เพิ่มเข้า mapping ใดๆ
+
+**3. หน้าจอ `NotificationSettingsScreen` ใหม่ — 7 toggle ตรงตาม 7 หมวด**
+- แสดงชื่อหมวดภาษาไทยที่เข้าใจง่าย (เช่น "ถูกใจ", "คอมเมนต์", "ผู้ติดตาม", "ข้อความ", "Club", "กำลังนิยม", "ระบบ") ไม่ใช่ raw column name ภาษาอังกฤษ
+- Toggle เปลี่ยนค่าทันที (optimistic update + upsert ไป `notification_settings` โดยตรงจาก client — ไม่ต้องมี RPC เพราะเป็นแค่ toggle boolean ของแถวตัวเอง RLS อนุญาตอยู่แล้ว ไม่มี business logic ซับซ้อนเหมือน `create_poll_drop()`/`edit_drop()`)
+- **แก้ไข (พบระหว่างตรวจโค้ดจริงก่อนส่ง Design — Product เคยเข้าใจผิดว่ายังไม่มี Settings screen เลย)**: `app/lib/features/settings/presentation/settings_screen.dart` **มีอยู่แล้วจริง** (WYN-027/028/029/039 ต่อยอดกันมาทีละ section แบบ "เพิ่มเฉพาะ section ที่ต้องใช้จริง ไม่สร้าง section ว่างล่วงหน้า" ตามที่ comment ต้นไฟล์ระบุไว้ตรงๆ) เข้าถึงจาก `ViewProfileScreen` (ไอคอน settings บนหน้าโปรไฟล์ตัวเอง) — **จุดเข้าที่ถูกต้องคือเพิ่ม section "การแจ้งเตือน" ใหม่ใน `SettingsScreen` เดิม** (ListTile → เปิด `NotificationSettingsScreen`) ตาม pattern เดียวกับ "บัญชีที่ถูกบล็อก"/"บัญชีที่ปิดเสียง" ที่มีอยู่แล้วเป๊ะ ไม่ใช่เพิ่มไอคอนแยกใน `NotificationListScreen` ตามที่เคยระบุผิดไว้ก่อนหน้านี้ — WYN-045 ("Settings screen เต็มรูปแบบ") ยังทำหน้าที่เดิมต่อไปคือรวม/จัดกลุ่ม section ที่มีอยู่แล้วทั้งหมด (Account/Privacy/**Notifications**/Security/Safety/Data/Legal) ให้เป็นระเบียบขึ้น ไม่ใช่งานสร้าง entry point จากศูนย์อีกต่อไป
+
+Acceptance Criteria:
+- [ ] ผู้ใช้เปิดหน้า Notification Settings ครั้งแรก (ไม่เคยมีแถวใน `notification_settings`) เห็นทุก toggle เปิดอยู่ (default true ทุกหมวด)
+- [ ] ผู้ใช้ปิด toggle "คอมเมนต์" → มีคนอื่นคอมเมนต์ Drop ของผู้ใช้ → ไม่มีแถว `notifications` type `comment_drop` ถูก insert เลย (ตรวจตรงจาก DB ไม่ใช่แค่ UI ไม่แสดง)
+- [ ] ผู้ใช้ปิด toggle "คอมเมนต์" แต่ toggle อื่นยังเปิดอยู่ → มีคนอื่น Like Drop เดียวกัน → แถว `notifications` type `like_drop` ยัง insert ปกติ (พิสูจน์ว่า gate แยกหมวดจริง ไม่ใช่ปิดทั้งหมดพร้อมกัน)
+- [ ] ปิด toggle "Club" → มีคนคอมเมนต์ใน Club Post ของผู้ใช้ (`club_post_comment`) → ไม่ insert — พิสูจน์ว่า mapping "ทุก Club type รวมหมวดเดียว" ทำงานจริง ไม่ใช่แค่ Like/Comment ปกติของ Drop/Pop
+- [ ] ปิด toggle "ผู้ติดตาม" → มีคน Follow → ไม่มีแถว `notifications` type `follow` ถูก insert
+- [ ] เปิด toggle กลับมาใหม่ → เหตุการณ์เดิมเกิดซ้ำ → กลับมา insert ปกติ (พิสูจน์ two-way ไม่ใช่แค่ปิดได้ทางเดียว)
+- [ ] บัญชี Moderator/Admin ส่ง `apply_moderation_action()`/`decide_appeal()` ให้ผู้ใช้ที่ปิด toggle ทุกหมวดหมดแล้ว → แถว moderation/appeal ยัง insert ปกติเสมอ (ไม่ถูก gate เลยตามที่ตั้งใจ)
+- [ ] Regression เต็มชุด: notification type เดิมทั้งหมดที่ "ไม่ถูก gate" (moderation ×2, appeal ×2, order ×4) ยัง insert ปกติทุกกรณีไม่มีการเปลี่ยนแปลงพฤติกรรม
+- [ ] ผู้ใช้ A ไม่มีทางเห็น/แก้ไข `notification_settings` ของผู้ใช้ B ได้เลยไม่ว่าจะพยายามด้วยวิธีใด (RLS probe)
+
+Dependencies: WYN-012 (Notification foundation), WYN-043 (notification type ล่าสุดที่ผ่าน QA, `system` type ที่ต้อง gate), WYN-039 (`follow_request`/`follow_request_accepted`), WYN-015 (Club notification types), WYN-021 (mention types), WYN-034 (`redrop`) — ทุกจุดที่ต้อง gate ต้องมีอยู่แล้วครบก่อนหน้านี้
+
+Priority: P2 — เป็น net-new capability ไม่ใช่บั๊ก แต่ปิด gap ที่ Master Spec ระบุไว้ชัดเจนและ WYN-043 (task แรกของ Phase 5) เพิ่งเสร็จ ทำต่อเนื่องตาม roadmap ได้ทันที
+
+Risks:
+- **`system` toggle ปิดได้ตาม Master Spec ตรงๆ แม้เนื้อหาอาจรวม Security notice** — ถ้า Founder ต้องการแยก "Security" ออกมาเป็นหมวดที่ปิดไม่ได้ในอนาคต (ต่างจาก Policy/Announcement ทั่วไป) ต้องเพิ่ม notification type ใหม่แยก (เช่น `security_alert`) และปรับ mapping — ไม่ทำเองตอนนี้เพราะ Master Spec ปัจจุบันไม่ได้แยกไว้ และ RPC `send_system_notification()` (WYN-043) ก็เป็น single-type ตาม design เดิม
+- **`trending` toggle ยังไม่มีผลจริงกับระบบ** จนกว่าจะมี Trending Notification Engine (เสนอเป็น WYN-04X แยกตาม WYN-043's deployment log's Next Steps) — เก็บ column ไว้ล่วงหน้าตาม Master Spec แต่ QA/Founder ต้องเข้าใจว่าไม่ใช่บั๊กที่ toggle "ไม่ทำอะไร" ตอนนี้
+- **Gate ต้องแก้ trigger function ที่มีอยู่แล้ว 13 ตัว + RPC 2 ตัว** — ความเสี่ยงหลักคือ regression ต่อ notification เดิมที่เคย PASS QA มาแล้วทุก task ตั้งแต่ WYN-012 — ต้องรัน SQL regression ทั้ง 16 สคริปต์เดิมซ้ำ (`wyn_021` ถึง `wyn_043`) ยืนยันไม่มีอะไรพังก่อนอนุมัติ
+
+Recommendation: ทำต่อเนื่องตาม roadmap Phase 5 ทันที (Founder อนุมัติให้ทีมทำงานต่อเนื่องอัตโนมัติไว้แล้วตั้งแต่ 2026-08-14 — DECISIONS.md) — ส่งต่อ AI Design ออกแบบ `NotificationSettingsScreen` (7 toggle + entry point จาก NotificationListScreen ตามที่ระบุใน Requirement 3) จากนั้น AI Coding implement gate ทั้ง 13+2 จุดพร้อม SQL regression test ใหม่ แล้วส่ง QA อิสระตรวจ mapping ครบทุกหมวด + regression เต็มชุดตามธรรมเนียมเดิมของโปรเจกต์
+
+Handoff: AI Design — ออกแบบ `NotificationSettingsScreen` (layout รายการ toggle 7 แถว, label ภาษาไทย, ไอคอน settings ใน `NotificationListScreen`'s AppBar) — ไม่ต้องออกแบบหน้า Settings รวมของ WYN-045 ล่วงหน้า เป็นแค่ standalone entry point ชั่วคราวตามที่ Product ระบุไว้ใน Requirement 3
+
+## Coding Output (2026-08-23)
+
+**SQL** (`supabase/schema.sql`, ต่อท้ายส่วน WYN-043 ท้ายไฟล์): ตาราง `notification_settings` ใหม่ (7 boolean column ตาม mapping ข้างต้น, `not null default true`, PK `user_id`, RLS select/insert/update จำกัดเจ้าของแถวเท่านั้น มิเรอร์ RLS shape ของ `saves`) + helper `internal.notification_enabled(p_user_id, p_category)` (`coalesce(..., true)` — ไม่มีแถว = เปิดทุกหมวด) — gate การ insert 16 จุด (มากกว่าที่ประเมินไว้ตอนแรก 15 จุด เพราะพบเพิ่ม 1 จุดที่ `get_or_create_conversation()`'s `message_request` insert ซึ่งตรงกับ mapping `messages → message_request` ของ Product spec เป๊ะ แต่ตกหล่นจากรายการสรุปตอนมอบหมายงาน — Coding อ่าน spec ไฟล์จริงแล้วพบเอง แก้ให้ครบ): `notify_drop_like`/`notify_pop_like`/`notify_redrop` → `likes`, `notify_drop_comment`/`notify_pop_comment`/`notify_drop_mention` → `comments`, `notify_follow`/`internal.notify_follow_request`/`accept_follow_request` → `follows`, `get_or_create_conversation` → `messages`, `notify_club_join_request`/`notify_club_join_approved`/`notify_club_post_like`/`notify_club_post_comment`/`notify_club_post_mention` → `club`, `send_system_notification` → `system` — **ไม่แตะ** `apply_moderation_action`/`decide_appeal`/ZOKY order trigger ทั้ง 4 ตามที่ Product ล็อกไว้
+
+**SQL test ใหม่** (`supabase/tests/wyn_044_notification_settings_test.sh`, มิเรอร์ harness ของ `wyn_043`) — 19 checks ครอบ: no-row-defaults-to-enabled, ปิด/เปิดกลับต่อหมวด (`comments`/`likes`/`follows`/`club`/`messages`/`system`) พิสูจน์ two-way + ไม่กระทบหมวดอื่น, `club` off บล็อก `club_post_comment` (พิสูจน์ mapping "ทุก Club sub-type รวมหมวดเดียว"), ปิดทุกหมวดแล้ว `moderation_warning`/`appeal_approved`/`new_order` ยัง insert ปกติ, RLS (user A เห็น/แก้แถว user B ไม่ได้) — **19/19 PASS** (ยืนยันรันซ้ำเองอิสระในบทสนทนานี้ ไม่ใช่แค่เชื่อรายงานของ Coding) — รันซ้ำ SQL regression ทั้ง 17 สคริปต์เดิม (`wyn_021` ถึง `wyn_043` ที่มีอยู่จริง) **ผ่านหมดไม่มี cross-task regression** (ยืนยันรันซ้ำเองอิสระเช่นกัน) — `check_schema_ordering.py` ผ่าน (ยืนยันรันซ้ำเองอิสระ)
+
+**Flutter**: `NotificationSettingsRepository` ใหม่ (`fetch()`/`upsertCategory()`, ไม่มี `userId` param มิเรอร์ `SavedRepository`) + `NotificationSettingsScreen` ใหม่ (7 `SwitchListTile` ตาม Design spec เป๊ะ, per-category in-flight tracking ด้วย `Set<String> _saving` ตาม Design Rule #1, optimistic + revert-on-fail) + แก้ `settings_screen.dart` เพิ่ม section "การแจ้งเตือน" ตำแหน่งตาม Design spec เป๊ะ (หลัง Private Account, ก่อน "ความปลอดภัย", ไม่ conditional ตาม role) — เทสต์ใหม่ครอบ default-enabled/partial-state/optimistic-toggle/revert-on-fail/per-category-independence (Design Rule #1 โดยตรงด้วย `Completer`)/error-state+retry และเทสต์ต่อของ `settings_screen_test.dart` ยืนยัน section ใหม่ปรากฏ+นำทางถูกต้อง — Coding พบเองระหว่างเขียนเทสต์ว่า heading กับชื่อแถวเป็นข้อความเดียวกัน ("การแจ้งเตือน") ต้องใช้ `find.widgetWithText(ListTile, ...)` แทน `find.text()` เฉยๆ
+
+**Build/Tests**: Flutter SDK ไม่มีในทั้ง sandbox ของ Coding และของ session orchestrator (ยืนยันแล้วว่าไม่มีจริง ไม่ใช่แค่เชื่อคำอ้างของ Coding) — `flutter analyze`/`flutter test` **ยังไม่ได้รันจริง** เป็น known gap ที่ต้องให้ AI QA & Security ติดตั้ง SDK เองแล้วรันอิสระ (มิเรอร์ pattern เดียวกับ WYN-016/WYN-038)
+
+**Known Issue/Gap (ตั้งใจ ไม่ใช่บั๊ก)**: `trending` toggle ไม่มีผลจริงกับระบบ (ไม่มี producer) ตามที่ Product ระบุไว้แล้ว
+
+Handoff: AI QA & Security — เน้นตรวจ: **(ก) รัน `flutter analyze`/`flutter test` เต็มชุดอิสระ** (จุดเดียวที่ยังไม่มีใครยืนยันจริงในรอบนี้), **(ข) ไล่ mapping ทั้ง 7 หมวดกับ 16 จุด gate เทียบกับตาราง mapping ใน Product spec ทีละบรรทัด** (โดยเฉพาะจุดที่ 16 ที่ Coding เพิ่มเองนอกรายการมอบหมายเดิม), **(ค) ยืนยันด้วยตัวเองว่า moderation/appeal/order 8 ประเภทไม่ถูก gate จริง** แม้ปิด toggle ทุกหมวด, **(ง) probe RLS ของ `notification_settings` เพิ่มเติมแบบ adversarial** (ไม่ใช่แค่เชื่อ 2 checks ที่มีอยู่แล้ว)
+
+## Independent QA
+
+### รอบ 1 — FAIL (2026-08-23)
+
+รัน `flutter analyze`/`flutter test` เต็มชุดเป็นครั้งแรก (ติดตั้ง Flutter SDK เองสำเร็จ) พบ **Major (blocking)**: 7/7 เทสต์ใน `app/test/notification_settings_screen_test.dart` fail ด้วย GoTrue timer leak (`!timersPending`) — สร้าง `RecordingNotificationSettingsRepository`/`_ControlledFetchRepository` inline ในแต่ละ `testWidgets` แทนที่จะสร้างครั้งเดียวใน `setUpAll` ตาม convention เดิมของโปรเจกต์ที่ไฟล์พี่น้อง (`settings_screen_test.dart`) ในงานเดียวกันทำถูกอยู่แล้ว — ไม่ใช่บั๊ก functional จริง แต่ยัง FAIL เพราะไฟล์ test ที่ส่งมอบใช้ยืนยันไม่ผ่านจริง
+
+พบเพิ่มระหว่าง adversarial probe (ไม่ block เดี่ยวๆ แต่ต้องรายงาน): **Low** — `internal.notification_enabled()` มี `grant execute ... to authenticated` โดยไม่จำเป็น (ทุก caller จริงเป็น `security definer` อยู่แล้ว) เปิดช่องให้ user ธรรมดาเรียกตรงๆ ด้วย `user_id` ของคนอื่นแล้วอ่าน preference จริงได้ ทั้งที่ query ตารางตรงถูก RLS บล็อกถูกต้อง — **Minor** — `p_category` ที่พิมพ์ผิด/ว่าง/NULL fail-open เงียบเป็น `true` แทนที่จะ error
+
+→ ส่งต่อ AI Debug Engineer พร้อม bug report `.wyn/tasks/bugs/WYN-044-notification-settings-test-timer-leak-and-preference-leak.md`
+
+### Debug Fix
+
+แก้ทั้ง 3 จุด: (1) ย้าย repository construction เข้า `setUpAll` + reset field ใน `setUp` ต่อเทสต์ (2) **พบเองว่าการลบแค่ `grant execute ... to authenticated` ไม่พอ** — PostgreSQL grant EXECUTE ให้ PUBLIC เป็น default (บั๊กคลาสเดียวกับ WYN-027's `is_blocked_either_way` RPC exposure) ต้อง `revoke execute ... from public` ชัดเจนถึงจะปิดจริง (3) เปลี่ยน `language sql` → `plpgsql` เพิ่ม guard raise เมื่อ category ไม่รู้จัก — เพิ่ม CHECK20/CHECK21 ใน SQL test — orchestrator ยืนยันเองอิสระ: `flutter analyze` 0 issues, `flutter test` 674/674, SQL 21/21 checks + 18 สคริปต์เดิมผ่านหมด
+
+### รอบ 2 — PASS (2026-08-23)
+
+ยืนยันทั้ง 3 fix อิสระด้วยตัวเอง (ไม่เชื่อรายงาน Debug Engineer โดยไม่ตรวจซ้ำ): reproduce cross-user leak probe เองสด + **red→green ย้อนกลับไปโหลด schema.sql ก่อนแก้ (commit `351816d`) พิสูจน์บั๊กเดิมกลับมาจริงทั้ง 2 จุด** ก่อนสรุปว่า fix ปิดจริง — `flutter analyze` 0 issues, `flutter test test/notification_settings_screen_test.dart` 7/7, `flutter test` เต็มชุด 674/674, SQL regression 17 สคริปต์เดิม + `wyn_044` 21/21 checks ผ่านหมด, `check_schema_ordering.py` OK
+
+พบ edge case เพิ่มเติมระหว่าง adversarial probe (Minor, ไม่ block): guard ใหม่ `p_category not in (...)` ไม่ครอบกรณี `p_category = NULL` โดยเฉพาะ (PL/pgSQL's 3-valued logic ทำให้ `NULL not in (...)` ประเมินเป็น `NULL` ไม่ใช่ `true` จึงข้าม raise ไปตกที่ fail-open เดิม) — ไม่ exploitable จริงเพราะ (ก) permission check (finding Low เดิม) ปิดกั้นก่อนเข้าฟังก์ชันเสมอไม่ว่า argument จะเป็นอะไร (ข) ไม่มี call site จริงจุดไหนส่ง `NULL` — **Final Status: PASS**
+
+### Fast-follow แก้ทันที (orchestrator, หลัง QA รอบ 2 PASS)
+
+แก้ guard เป็น `if p_category is null or p_category not in (...) then raise` ตามคำแนะนำของ QA รอบ 2 (จุดเล็กมาก ไม่คุ้มเปิด QA รอบ 3 แยก) — เพิ่ม CHECK22 ยืนยัน NULL category ก็ raise แล้ว — รัน SQL ทั้ง 19 สคริปต์ซ้ำ (`wyn_044` 22/22 checks) ผ่านหมด, `check_schema_ordering.py` OK
+
+**ผลลัพธ์สุดท้าย: WYN-044 — PASS ทั้ง 2 รอบ + fast-follow ปิดครบ** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — task แรกของ Phase 5 ที่ QA เจอบั๊กจริงและต้องเข้ารอบ Debug (WYN-043 ผ่านรอบเดียว) — พร้อมส่ง AI Deploy & DevOps

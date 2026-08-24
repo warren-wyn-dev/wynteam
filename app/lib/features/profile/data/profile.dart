@@ -14,6 +14,30 @@ PlatformRole platformRoleFromString(String? value) => switch (value) {
       _ => PlatformRole.user,
     };
 
+/// WYN-045: the one shared 3-level vocabulary reused by all three
+/// Interaction Privacy Controls (DM/Mention/Comment Permission) --
+/// Product deliberately kept a single set of levels across all three
+/// instead of a different scale per setting, to keep what the user has
+/// to learn to one concept. `everyone` is the default, matching every
+/// profile's `dm_permission`/`mention_permission`/`comment_permission`
+/// columns' own `not null default 'everyone'` (supabase/schema.sql).
+enum InteractionPermission { everyone, peopleIFollow, noOne }
+
+InteractionPermission interactionPermissionFromString(String? value) =>
+    switch (value) {
+      'people_i_follow' => InteractionPermission.peopleIFollow,
+      'no_one' => InteractionPermission.noOne,
+      _ => InteractionPermission.everyone,
+    };
+
+extension InteractionPermissionDbValue on InteractionPermission {
+  String get dbValue => switch (this) {
+        InteractionPermission.everyone => 'everyone',
+        InteractionPermission.peopleIFollow => 'people_i_follow',
+        InteractionPermission.noOne => 'no_one',
+      };
+}
+
 /// A WYN user profile row. See supabase/schema.sql (WYN-003 section,
 /// platformRole added by WYN-029).
 class Profile {
@@ -25,6 +49,9 @@ class Profile {
     this.avatarUrl,
     this.platformRole = PlatformRole.user,
     this.isPrivate = false,
+    this.dmPermission = InteractionPermission.everyone,
+    this.mentionPermission = InteractionPermission.everyone,
+    this.commentPermission = InteractionPermission.everyone,
   });
 
   factory Profile.fromMap(Map<String, dynamic> map) => Profile(
@@ -39,6 +66,17 @@ class Profile {
         // author:profiles(*)` embed) never accidentally reads a private
         // account as public -- see ProfileRepository/FollowRepository.
         isPrivate: map['is_private'] as bool? ?? false,
+        // WYN-045: same "missing key defaults to the least-restrictive
+        // value" reasoning as isPrivate above -- a partial map without
+        // these keys reads as 'everyone', which also happens to be
+        // these columns' own DB default for every profile that has
+        // never touched Settings.
+        dmPermission:
+            interactionPermissionFromString(map['dm_permission'] as String?),
+        mentionPermission: interactionPermissionFromString(
+            map['mention_permission'] as String?),
+        commentPermission: interactionPermissionFromString(
+            map['comment_permission'] as String?),
       );
 
   final String id;
@@ -48,6 +86,9 @@ class Profile {
   final String? avatarUrl;
   final PlatformRole platformRole;
   final bool isPrivate;
+  final InteractionPermission dmPermission;
+  final InteractionPermission mentionPermission;
+  final InteractionPermission commentPermission;
 
   /// What to show as the profile's name: the display name if set, else
   /// "@username" as a fallback (per the WYN-003 design spec).
