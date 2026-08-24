@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../hashtag/data/hashtag_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/club.dart';
 import '../data/club_post_repository.dart';
@@ -20,7 +21,9 @@ class CreateClubPostScreen extends StatefulWidget {
     required this.clubPostRepository,
     required this.club,
     ProfileRepository? profileRepository,
-  }) : _profileRepository = profileRepository;
+    HashtagRepository? hashtagRepository,
+  })  : _profileRepository = profileRepository,
+        _hashtagRepository = hashtagRepository;
 
   final ClubPostRepository clubPostRepository;
   final Club club;
@@ -29,6 +32,9 @@ class CreateClubPostScreen extends StatefulWidget {
   // defaults to a real Supabase-backed instance so existing call sites
   // don't need to thread one through just for MentionInput.
   final ProfileRepository? _profileRepository;
+
+  // Same optional/defaulted shape -- WYNOS V1.0.0 Beta requirement 7.
+  final HashtagRepository? _hashtagRepository;
 
   @override
   State<CreateClubPostScreen> createState() => _CreateClubPostScreenState();
@@ -152,6 +158,7 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
               MentionInput(
                 controller: _contentController,
                 profileRepository: _profileRepository,
+                hashtagRepository: widget._hashtagRepository,
                 onMentionedUsersChanged: (ids) => setState(() => _mentionedUserIds = ids),
                 maxLength: 2000,
                 maxLines: 6,

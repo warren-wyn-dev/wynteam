@@ -219,8 +219,9 @@ void main() {
   });
 
   testWidgets(
-      'own profile shows Edit/logout, 5 tabs including Saved and Draft, and '
-      'no Follow button (WYN-013)', (tester) async {
+      'own profile shows Edit/logout, 4 tabs including Saved and Draft but '
+      'no Pop, and no Follow button (WYN-013, WYNOS V1.0.0 Beta requirement 3)',
+      (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: ownProfileRepo,
       followRepository: ownFollowRepo,
@@ -234,16 +235,18 @@ void main() {
     expect(find.text('Drop'), findsOneWidget);
     // WYN-034 added a "ReDrops" tab between Drop and Pop.
     expect(find.text('ReDrops'), findsOneWidget);
-    expect(find.text('Pop'), findsOneWidget);
+    // Pop is hidden from Profile for WYNOS V1.0.0 Beta -- requirement 3.
+    expect(find.text('Pop'), findsNothing);
     expect(find.text('บันทึก'), findsOneWidget);
     // WYN-036 added a "ร่าง" (Draft) tab after Saved.
     expect(find.text('ร่าง'), findsOneWidget);
-    expect(find.byType(Tab), findsNWidgets(5));
+    expect(find.byType(Tab), findsNWidgets(4));
   });
 
   testWidgets(
-      'someone else\'s profile shows Follow, 2 tabs with no Saved, and no '
-      'Edit/logout (WYN-013)', (tester) async {
+      'someone else\'s profile shows Follow, 2 tabs with no Saved/Pop, and '
+      'no Edit/logout (WYN-013, WYNOS V1.0.0 Beta requirement 3)',
+      (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: otherProfileRepo,
       followRepository: otherFollowRepo,
@@ -257,9 +260,10 @@ void main() {
     expect(find.text('Drop'), findsOneWidget);
     // WYN-034 added a "ReDrops" tab between Drop and Pop.
     expect(find.text('ReDrops'), findsOneWidget);
-    expect(find.text('Pop'), findsOneWidget);
+    // Pop is hidden from Profile for WYNOS V1.0.0 Beta -- requirement 3.
+    expect(find.text('Pop'), findsNothing);
     expect(find.text('บันทึก'), findsNothing);
-    expect(find.byType(Tab), findsNWidgets(3));
+    expect(find.byType(Tab), findsNWidgets(2));
   });
 
   testWidgets('Drop tab shows this profile\'s Drops (scoped by author, '
@@ -310,27 +314,11 @@ void main() {
     expect(find.textContaining('ReDrop โดย @me_user'), findsOneWidget);
   });
 
-  testWidgets('switching to the Pop tab shows this profile\'s Pops',
-      (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: ViewProfileScreen(
-        profileRepository: contentTestProfileRepo,
-        followRepository: contentTestFollowRepo,
-        dropRepository: contentTestDropRepo,
-        popRepository: contentTestPopRepo,
-        savedRepository: contentTestSavedRepo,
-        userId: 'me',
-      ),
-    ));
-    await tester.pumpAndSettle();
-    tester.takeException();
-
-    await tester.tap(find.text('Pop'));
-    await tester.pumpAndSettle();
-    tester.takeException();
-
-    expect(find.text('0:42'), findsOneWidget);
-  });
+  // "switching to the Pop tab shows this profile's Pops" removed -- Pop is
+  // hidden from Profile for WYNOS V1.0.0 Beta (requirement 3), so there is
+  // no more Pop tab to switch to here. ProfilePopGridTab itself (and its
+  // own widget test, if any) is untouched -- only this screen stopped
+  // wiring it up.
 
   testWidgets('switching to the Saved tab shows saved Drop/Pop content',
       (tester) async {

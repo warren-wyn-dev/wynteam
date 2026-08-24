@@ -6,6 +6,7 @@ import '../../../pop/presentation/widgets/pop_clip_view.dart' show popShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 
 /// Formats a duration in seconds as "m:ss" (e.g. 45 -> "0:45").
@@ -85,47 +86,51 @@ class HomePopCard extends StatelessWidget {
                   ),
                 ),
               ),
-              AspectRatio(
-                aspectRatio: 1,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (item.thumbnailUrl != null)
-                      Image.network(item.thumbnailUrl!, fit: BoxFit.cover)
-                    else
-                      Container(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              DoubleTapLike(
+                onLike: onToggleLike,
+                alreadyLiked: item.likedByMe,
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (item.thumbnailUrl != null)
+                        Image.network(item.thumbnailUrl!, fit: BoxFit.cover)
+                      else
+                        Container(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        ),
+                      const Center(
+                        child: Icon(
+                          Icons.play_circle_fill,
+                          color: Colors.white,
+                          size: 56,
+                        ),
                       ),
-                    const Center(
-                      child: Icon(
-                        Icons.play_circle_fill,
-                        color: Colors.white,
-                        size: 56,
-                      ),
-                    ),
-                    if (item.durationSeconds != null)
-                      Positioned(
-                        right: 8,
-                        bottom: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: WynColors.imageScrim,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            _formatDuration(item.durationSeconds!),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
+                      if (item.durationSeconds != null)
+                        Positioned(
+                          right: 8,
+                          bottom: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: WynColors.imageScrim,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              _formatDuration(item.durationSeconds!),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               if (item.caption != null && item.caption!.isNotEmpty)

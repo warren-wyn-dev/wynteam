@@ -504,11 +504,12 @@ class DropRepository {
     );
   }
 
-  /// Creates a Drop. [imageBytes] is required -- a Drop is always a photo,
-  /// unlike WYN-004's posts where text alone was enough. [mentionedUserIds]
-  /// (WYN-021) is the set of user ids MentionInput already resolved while
-  /// composing the caption -- inserted into `drop_mentions` right after
-  /// the Drop itself, not re-parsed from the caption text server-side.
+  /// Creates a Drop with a photo. [mentionedUserIds] (WYN-021) is the set
+  /// of user ids MentionInput already resolved while composing the
+  /// caption -- inserted into `drop_mentions` right after the Drop
+  /// itself, not re-parsed from the caption text server-side. [caption]
+  /// may be empty here (image-only Drop, WYNOS V1.0.0 Beta) -- use
+  /// [createTextDrop] instead when there's no image at all.
   Future<void> createDrop({
     required Uint8List imageBytes,
     required String imageExtension,
@@ -522,7 +523,7 @@ class DropRepository {
     await _client.storage.from('drop-images').uploadBinary(path, imageBytes);
     final imageUrl = _client.storage.from('drop-images').getPublicUrl(path);
 
-    await _insertDropWithImageUrl(
+    await _insertDrop(
       imageUrl: imageUrl,
       caption: caption,
       mentionedUserIds: mentionedUserIds,
@@ -541,15 +542,35 @@ class DropRepository {
     required String caption,
     Set<String> mentionedUserIds = const {},
   }) {
-    return _insertDropWithImageUrl(
+    return _insertDrop(
       imageUrl: imageUrl,
       caption: caption,
       mentionedUserIds: mentionedUserIds,
     );
   }
 
-  Future<void> _insertDropWithImageUrl({
-    required String imageUrl,
+  /// Creates a caption-only Drop (WYNOS V1.0.0 Beta) -- no photo at all,
+  /// mirroring how [createPollDrop] already produces a null-`image_url`
+  /// row. [caption] must be non-empty after trimming (the composer's
+  /// own `_canShare` already guarantees this; re-checked here so a
+  /// caller can't slip an all-null row past this method the way the
+  /// dropped `image_url not null` table constraint used to prevent).
+  Future<void> createTextDrop({
+    required String caption,
+    Set<String> mentionedUserIds = const {},
+  }) {
+    if (caption.trim().isEmpty) {
+      throw ArgumentError('A text-only Drop needs a non-empty caption');
+    }
+    return _insertDrop(
+      imageUrl: null,
+      caption: caption,
+      mentionedUserIds: mentionedUserIds,
+    );
+  }
+
+  Future<void> _insertDrop({
+    required String? imageUrl,
     required String caption,
     required Set<String> mentionedUserIds,
   }) async {
@@ -570,6 +591,29 @@ class DropRepository {
           {'drop_id': dropId, 'mentioned_user_id': mentionedId},
       ]);
     }
+  }
+
+  /// Caption-only fetch for hashtag suggestion counting (WYNOS V1.0.0
+  /// Beta) -- unlike [searchByCaption], this skips the like/save/redrop/
+  /// poll lookups since a suggestion dropdown only needs the raw caption
+  /// text to extract hashtags from, not full renderable [Drop] rows.
+  /// Bounded to [limit] most-recent matches -- an approximate candidate
+  /// set, same "no dedicated hashtags table" posture WYN-020 already
+  /// established, not an exact global count.
+  Future<List<String>> fetchCaptionsForHashtagSuggestion(
+    String query, {
+    int limit = 60,
+  }) async {
+    final rows = await _client
+        .from('drops')
+        .select('caption')
+        .ilike('caption', '%$query%')
+        .order('created_at', ascending: false)
+        .limit(limit);
+    return rows
+        .map((row) => row['caption'] as String?)
+        .whereType<String>()
+        .toList();
   }
 
   /// Soft-deletes a Drop (WYN-037) -- hides it from everyone but its

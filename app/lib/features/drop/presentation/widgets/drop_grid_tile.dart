@@ -8,6 +8,7 @@ import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
 import '../../../report/presentation/report_sheet.dart';
 import 'poll_placeholder_tile.dart';
+import 'text_drop_placeholder_tile.dart';
 
 /// One square tile in DropFeedScreen's grid. Deliberately minimal (just
 /// the image + a like-count scrim) -- full detail (caption, comments,
@@ -73,8 +74,10 @@ class DropGridTile extends StatelessWidget {
             children: [
               if (drop.imageUrl != null)
                 Image.network(drop.imageUrl!, fit: BoxFit.cover)
+              else if (drop.isPoll)
+                const PollPlaceholderTile()
               else
-                const PollPlaceholderTile(),
+                TextDropPlaceholderTile(caption: drop.caption ?? ''),
               Positioned(
                 left: 0,
                 right: 0,

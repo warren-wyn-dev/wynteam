@@ -5,6 +5,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/text_utils.dart';
 import 'profile.dart';
 
+/// Thrown by [ProfileRepository.updateUsername] when the chosen username
+/// is already taken by a different profile -- WYNOS V1.0.0 Beta
+/// requirement 5 (editable @username). Same role as AuthRepository's
+/// UsernameTakenException (WYN-002's onboarding username check); kept as
+/// a separate type since ProfileRepository and AuthRepository are
+/// deliberately independent (different features), not because the two
+/// situations differ.
+class UsernameTakenException implements Exception {}
+
 /// Wraps the `profiles` table reads/writes and avatar storage needed for
 /// WYN-003 (User Profile). See supabase/schema.sql for the RLS policies
 /// this relies on.
@@ -63,6 +72,53 @@ class ProfileRepository {
       'display_name': normalizeOptionalText(displayName),
       'bio': bio,
     }).eq('id', userId);
+  }
+
+  /// Whether [username] is free to take -- WYNOS V1.0.0 Beta requirement
+  /// 5. [currentUserId]'s own existing username still counts as
+  /// "available" (typing back what you already have, or not changing it
+  /// at all, must never show "taken"), unlike UsernameSetupScreen's
+  /// onboarding check (WYN-002), which never has to consider that case
+  /// since a brand-new user has no username yet.
+  Future<bool> isUsernameAvailable(
+    String username, {
+    required String currentUserId,
+  }) async {
+    final row = await _client
+        .from('profiles')
+        .select('id')
+        .eq('username', username)
+        .maybeSingle();
+    return row == null || row['id'] == currentUserId;
+  }
+
+  /// Changes [userId]'s `@username` -- WYNOS V1.0.0 Beta requirement 5.
+  /// Every read path (feeds, profiles, search, mentions, ...) selects
+  /// `username` straight off `profiles` on each fetch, so there's no
+  /// denormalized copy anywhere else in the schema to keep in sync; the
+  /// next time any screen re-fetches this user's profile, the new
+  /// username is just there.
+  Future<void> updateUsername({
+    required String userId,
+    required String username,
+  }) async {
+    final available =
+        await isUsernameAvailable(username, currentUserId: userId);
+    if (!available) throw UsernameTakenException();
+
+    try {
+      await _client
+          .from('profiles')
+          .update({'username': username}).eq('id', userId);
+    } on PostgrestException catch (e) {
+      // 23505 = unique_violation -- a concurrent request can still take
+      // this username between the availability check above and this
+      // write; surface that the same way as the pre-check instead of
+      // letting a raw database error reach the UI. Mirrors
+      // AuthRepository.setUsername's identical race-handling.
+      if (e.code == '23505') throw UsernameTakenException();
+      rethrow;
+    }
   }
 
   /// WYN-039 Settings, Screen 1 -- flips the caller's own account between

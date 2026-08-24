@@ -122,6 +122,35 @@ class RecordingDropRepository extends DropRepository {
     createDropMentionedUserIdsArgs.add(mentionedUserIds);
   }
 
+  /// Each call to [createTextDrop]'s arguments, in order -- WYNOS
+  /// V1.0.0 Beta requirement 2 (caption-only Drop).
+  final List<Map<String, Object?>> createTextDropArgs = [];
+  Object? createTextDropError;
+
+  @override
+  Future<void> createTextDrop({
+    required String caption,
+    Set<String> mentionedUserIds = const {},
+  }) async {
+    if (createTextDropError != null) throw createTextDropError!;
+    createTextDropArgs.add({
+      'caption': caption,
+      'mentionedUserIds': mentionedUserIds,
+    });
+  }
+
+  /// Returned by [fetchCaptionsForHashtagSuggestion], regardless of
+  /// query -- WYNOS V1.0.0 Beta requirement 7 (hashtag autocomplete).
+  List<String> hashtagSuggestionCaptionsToReturn = [];
+
+  @override
+  Future<List<String>> fetchCaptionsForHashtagSuggestion(
+    String query, {
+    int limit = 60,
+  }) async {
+    return hashtagSuggestionCaptionsToReturn;
+  }
+
   /// Each call to [createPollDrop], in order -- WYN-035.
   final List<Map<String, Object?>> createPollDropArgs = [];
   Object? createPollDropError;

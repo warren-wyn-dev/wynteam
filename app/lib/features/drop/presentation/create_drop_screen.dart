@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../hashtag/data/hashtag_repository.dart';
 import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/data/appeal_status.dart';
 import '../../moderation/data/moderation_repository.dart';
@@ -34,10 +35,12 @@ class CreateDropScreen extends StatefulWidget {
     super.key,
     required this.dropRepository,
     ProfileRepository? profileRepository,
+    HashtagRepository? hashtagRepository,
     ModerationRepository? moderationRepository,
     AppealRepository? appealRepository,
     this.draft,
   })  : _profileRepository = profileRepository,
+        _hashtagRepository = hashtagRepository,
         _moderationRepository = moderationRepository,
         _appealRepository = appealRepository;
 
@@ -55,7 +58,15 @@ class CreateDropScreen extends StatefulWidget {
   // Supabase.instance. See .wyn/learning/PATTERNS.md.
   final ProfileRepository? _profileRepository;
 
-  // Same optional/defaulted shape as _profileRepository above -- WYN-029.
+  // Same optional/defaulted shape as _profileRepository above -- WYNOS
+  // V1.0.0 Beta requirement 7 (hashtag autocomplete). Must stay optional
+  // and lazily defaulted the same way: an eager `Supabase.instance.client`
+  // read here would blow up any widget test that opens this screen
+  // without a real Supabase.initialize() call, even one that already
+  // supplies every *other* repository as a Recording* fake.
+  final HashtagRepository? _hashtagRepository;
+
+  // Same optional/defaulted shape again -- WYN-029.
   final ModerationRepository? _moderationRepository;
 
   // Same shape again -- WYN-030's appeal entry point on the Restrict banner.
@@ -122,10 +133,16 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   AppealStatus _restrictAppealStatus = AppealStatus.none;
   bool get _isRestricted => _restrictExpiresAt != null;
 
+  /// WYNOS V1.0.0 Beta requirement 2: image mode no longer requires a
+  /// photo -- an image alone, a caption alone, or both together are all
+  /// shareable. Only "neither" is blocked (the old behavior always
+  /// required a photo; text-only Drops are new).
   bool get _canShare {
     if (_isSharing || _isCropping || _isRestricted) return false;
     if (_mode == _ComposeMode.image) {
-      return _imageBytes != null || _existingImageUrl != null;
+      return _imageBytes != null ||
+          _existingImageUrl != null ||
+          _captionController.text.trim().isNotEmpty;
     }
     return _captionController.text.trim().isNotEmpty && _pollOptionsValid;
   }
@@ -357,6 +374,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
         );
       } else {
         final imageBytes = _imageBytes;
+        final existingImageUrl = _existingImageUrl;
         if (imageBytes != null) {
           await widget.dropRepository.createDrop(
             imageBytes: imageBytes,
@@ -364,13 +382,20 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             caption: _captionController.text,
             mentionedUserIds: _mentionedUserIds,
           );
-        } else {
+        } else if (existingImageUrl != null) {
           // WYN-036: continuing a Draft without picking a new image --
           // the image is already uploaded (from when the Draft was
           // saved), so publish from that URL directly instead of
           // re-uploading bytes we don't have.
           await widget.dropRepository.createDropFromExistingImage(
-            imageUrl: _existingImageUrl!,
+            imageUrl: existingImageUrl,
+            caption: _captionController.text,
+            mentionedUserIds: _mentionedUserIds,
+          );
+        } else {
+          // WYNOS V1.0.0 Beta requirement 2: no image at all -- _canShare
+          // only allows reaching this branch when the caption is non-empty.
+          await widget.dropRepository.createTextDrop(
             caption: _captionController.text,
             mentionedUserIds: _mentionedUserIds,
           );
@@ -579,6 +604,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                       MentionInput(
                         controller: _captionController,
                         profileRepository: _profileRepository,
+                        hashtagRepository: widget._hashtagRepository,
                         onMentionedUsersChanged: (ids) =>
                             setState(() => _mentionedUserIds = ids),
                         maxLength: _captionMaxLength,
@@ -639,7 +665,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                                 Icon(Icons.add_photo_alternate_outlined,
                                     size: 40),
                                 SizedBox(height: WynSpacing.space2),
-                                Text('แตะเพื่อเลือกรูป'),
+                                Text('แตะเพื่อเลือกรูป (ไม่บังคับ)'),
                               ],
                             ),
                           ),

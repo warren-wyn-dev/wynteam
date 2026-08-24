@@ -6687,6 +6687,20 @@ begin
     raise exception 'The 30-minute edit window has passed';
   end if;
 
+  -- WYNOS V1.0.0 Beta requirement 2: a Drop with no image (a text-only
+  -- Drop, or a Poll -- its "caption" is really the question) can no
+  -- longer be edited down to an empty caption -- that would leave
+  -- nothing at all, and trip the drops_has_content CHECK constraint
+  -- below with a much less clear error than this one. The client's own
+  -- EditDropCaptionScreen._canSave already prevents reaching this RPC
+  -- with an empty caption in that case; this is the same defense-in-
+  -- depth re-check every other RPC in this schema already does rather
+  -- than trusting the caller.
+  if v_drop.image_url is null
+     and length(trim(both from p_caption)) = 0 then
+    raise exception 'This Drop has no image -- its caption cannot be left empty';
+  end if;
+
   update public.drops
   set caption = nullif(trim(both from p_caption), ''),
       edited_at = now()
@@ -9656,3 +9670,23 @@ end;
 $$;
 
 grant execute on function public.admin_send_announcement(text, text, text) to authenticated;
+
+-- ============================================================
+-- WYNOS V1.0.0 Beta: UX/UI Fix & Feature Update, requirement 2
+-- ============================================================
+
+-- A Drop may now be image-only, caption-only, or both -- the client's
+-- own _canShare guard (CreateDropScreen) is the primary gate, same
+-- posture as everywhere else in this schema; this CHECK is a defense-
+-- in-depth safety net so a totally-empty Drop (no image_url, no
+-- caption) can never land in the table no matter which code path
+-- writes it, including a future one nobody has reasoned about yet.
+-- Single-row, no cross-table reference needed: every valid Drop shape
+-- already satisfies this without qualification -- an image Drop always
+-- has image_url, a Poll Drop always has caption (create_poll_drop()
+-- raises 'Poll question is required' otherwise), and a new text-only
+-- Drop always has caption (createTextDrop's own client-side guard,
+-- mirrored below).
+alter table public.drops
+  add constraint drops_has_content
+  check (image_url is not null or caption is not null);

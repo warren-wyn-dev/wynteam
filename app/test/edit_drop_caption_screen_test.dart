@@ -147,4 +147,62 @@ void main() {
     final saveButton = find.widgetWithText(TextButton, 'บันทึก');
     expect(tester.widget<TextButton>(saveButton).onPressed, isNotNull);
   });
+
+  // WYNOS V1.0.0 Beta requirement 2 QA: same class of bug the Poll case
+  // above already guards against, for the newly-possible text-only Drop
+  // (no image, not a Poll) -- clearing its caption to empty would leave
+  // the Drop with nothing at all (image_url and caption both null),
+  // tripping the drops_has_content DB constraint with a confusing raw
+  // error instead of being caught here first.
+  testWidgets(
+      'hasImage: false -- "บันทึก" stays disabled when the new text is '
+      'empty, even though it differs from the original', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: EditDropCaptionScreen(
+        dropRepository: repo,
+        dropId: 'd1',
+        initialCaption: 'แคปชันอย่างเดียว ไม่มีรูป',
+        hasImage: false,
+      ),
+    ));
+
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pump();
+
+    final saveButton = find.widgetWithText(TextButton, 'บันทึก');
+    expect(tester.widget<TextButton>(saveButton).onPressed, isNull);
+  });
+
+  testWidgets(
+      'hasImage: false -- "บันทึก" enables normally for a non-empty '
+      'replacement caption', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: EditDropCaptionScreen(
+        dropRepository: repo,
+        dropId: 'd1',
+        initialCaption: 'แคปชันอย่างเดียว ไม่มีรูป',
+        hasImage: false,
+      ),
+    ));
+
+    await tester.enterText(find.byType(TextField), 'แคปชันใหม่ ไม่มีรูปเหมือนเดิม');
+    await tester.pump();
+
+    final saveButton = find.widgetWithText(TextButton, 'บันทึก');
+    expect(tester.widget<TextButton>(saveButton).onPressed, isNotNull);
+  });
+
+  testWidgets(
+      'hasImage: true (default) -- an image-mode Drop can still be '
+      'saved with an empty caption', (tester) async {
+    await tester.pumpWidget(
+      buildScreen(repo, initialCaption: 'มีรูปอยู่แล้ว แคปชันจะว่างก็ได้'),
+    );
+
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pump();
+
+    final saveButton = find.widgetWithText(TextButton, 'บันทึก');
+    expect(tester.widget<TextButton>(saveButton).onPressed, isNotNull);
+  });
 }
