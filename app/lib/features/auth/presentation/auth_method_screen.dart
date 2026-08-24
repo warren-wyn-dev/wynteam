@@ -16,6 +16,15 @@ class AuthMethodScreen extends StatefulWidget {
 }
 
 class _AuthMethodScreenState extends State<AuthMethodScreen> {
+  // Temporarily hidden -- Phone/OTP sign-in is a real, supported auth
+  // method (approved by Founder, 2026-08-13) but the Supabase project's
+  // phone provider isn't enabled and no SMS provider (Twilio) is
+  // configured yet, so tapping through to PhoneEntryScreen and sending
+  // an OTP always fails server-side. Flip back to true once Twilio is
+  // set up -- see .wyn/company/DECISIONS.md, 2026-08-24 ("Phone Login
+  // ซ่อนชั่วคราว").
+  static const _phoneLoginEnabled = false;
+
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -65,19 +74,21 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
                 icon: const Icon(Icons.apple),
                 label: const Text('เข้าสู่ระบบด้วย Apple'),
               ),
-              const SizedBox(height: WynSpacing.space3),
-              OutlinedButton(
-                onPressed: _isLoading
-                    ? null
-                    : () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => PhoneEntryScreen(
-                              authRepository: widget.authRepository,
+              if (_phoneLoginEnabled) ...[
+                const SizedBox(height: WynSpacing.space3),
+                OutlinedButton(
+                  onPressed: _isLoading
+                      ? null
+                      : () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => PhoneEntryScreen(
+                                authRepository: widget.authRepository,
+                              ),
                             ),
                           ),
-                        ),
-                child: const Text('ใช้เบอร์โทรศัพท์แทน'),
-              ),
+                  child: const Text('ใช้เบอร์โทรศัพท์แทน'),
+                ),
+              ],
               if (_isLoading) ...[
                 const SizedBox(height: WynSpacing.space6),
                 const Center(child: CircularProgressIndicator()),
