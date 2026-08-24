@@ -1,6 +1,6 @@
 # Product Task — WYN-047
 
-Status: backlog
+Status: coded, awaiting QA
 Owner: AI Product Manager
 
 Feature: Data Rights — Access, Correction, Deletion, Export, Account Deletion (PDPA)
@@ -57,3 +57,17 @@ Risks:
 Recommendation: ทำต่อเนื่องตาม roadmap Phase 6 — ส่งต่อ AI Design ออกแบบหน้า "ข้อมูลของฉัน" section ใหม่ + หน้ายืนยันลบบัญชี (typed confirmation) เน้นย้ำว่าต้องสื่อสารความเสี่ยง "ลบถาวรไม่มีทางกู้คืน" ให้ชัดเจนที่สุดในทุกจุดของ UX
 
 Handoff: AI Design — ออกแบบ (1) section "ข้อมูลของฉัน" ใหม่ใน `SettingsScreen` ก่อน section "กฎหมาย" (2) หน้ายืนยันลบบัญชี (typed confirmation, คำเตือนชัดเจน) — ไม่ต้องออกแบบ UI สำหรับ Access/Correction/Deletion รายชิ้น (มีอยู่แล้ว)
+
+## Coding Output (2026-08-24)
+
+**SQL** (`supabase/schema.sql`, ต่อท้ายส่วน WYN-046 ท้ายไฟล์): `export_my_data()` (SECURITY DEFINER, ไม่มี parameter, ผูกกับ `auth.uid()` เท่านั้น) รวม profile/drops (เฉพาะที่ยังอยู่ในหน้าต่าง restore 30 วันของ WYN-037)/pops/comment ทั้ง 3 ประเภท/following+followers/saves/club memberships/notification settings/ข้อความแชทที่ส่งเอง — **ไม่รวม** moderation/report/appeal ตามที่ Product ล็อกสโคปไว้ — `delete_my_account()` (SECURITY DEFINER, ไม่มี parameter) ลบ `auth.users` โดยตรง cascade ผ่าน FK ที่มีอยู่แล้ว 88 จุด — Coding ตรวจสอบ stub `auth.users` ในทุก test script (17 ไฟล์) แล้วยืนยันไม่มีที่ไหนอ้างอิง `auth.identities`/`auth.sessions`/`auth.refresh_tokens` เลย สรุปว่า Supabase's managed auth schema จัดการ cascade ส่วนนั้นเอง (**ยังไม่สามารถยืนยันกับ Supabase project จริงได้เพราะยังไม่มี** — ต้อง verify อีกครั้งตอน deploy จริง)
+
+**SQL test ใหม่** (`supabase/tests/wyn_047_data_rights_test.sh`) — **37 checks** ครอบ: `export_my_data()` scope ถูกต้อง (มีแต่ข้อมูลตัวเอง ไม่มีข้อมูลคนอื่นปนแม้แต่ที่ตัวเองเคยโต้ตอบด้วย), `delete_my_account()` ลบครบทุกตารางที่เกี่ยวข้อง (0 แถวเหลือทั้ง drops/pops/follows/saves/club_members/notification_settings/sent messages/owned club/profiles/auth.users) พร้อมยืนยัน user อื่นไม่ถูกกระทบเลย, ทั้ง 2 ฟังก์ชันไม่มี parameter จริง (`pg_get_function_arguments()`) — **37/37 PASS** (ยืนยันรันซ้ำเองอิสระ) — รันซ้ำ SQL regression ทั้ง 20 สคริปต์ **ผ่านหมดไม่มี cross-task regression** (ยืนยันรันซ้ำเองอิสระ) — `check_schema_ordering.py` ผ่าน (ยืนยันรันซ้ำเองอิสระ)
+
+**Flutter**: `DataRightsRepository` ใหม่ (แยกจาก `AuthRepository` เพราะไม่ใช่ auth-flow concern) — `settings_screen.dart` เพิ่ม section "ข้อมูลของฉัน" ก่อน "กฎหมาย" ตรงตำแหน่งที่ Design กำหนด (แถว export เรียก RPC ตรงจาก `onTap` ไม่เปิดหน้าใหม่ + spinner ชั่วคราวใน leading icon + เปิด share sheet ด้วย `SharePlus.instance.share(ShareParams(files: [XFile.fromData(...)]))` ไม่ต้องเขียนไฟล์ลง storage) — `DeleteAccountScreen` ใหม่ตาม Design spec เป๊ะ (typed confirmation match "ลบบัญชี" หลัง trim + AlertDialog ชั้นสอง + ปุ่มสี `colorScheme.error` + ไม่มีคำว่า "กู้คืนได้" ที่ไหนเลย + sign out หลังลบสำเร็จ)
+
+**Build/Tests (ยืนยันโดย orchestrator หลัง merge เข้า main checkout ไม่ใช่แค่เชื่อ Coding Output — ตรวจ diff ละเอียดเป็นพิเศษเพราะเป็น destructive RPC)**: `flutter analyze` **0 issues**, `flutter test` **714/714 PASS**, SQL 20/20 สคริปต์ผ่านหมด, `check_schema_ordering.py` ผ่าน — ทั้ง `export_my_data()`/`delete_my_account()` ยืนยันแล้วว่าไม่มีทาง parameter ใดๆ ให้ระบุ user อื่นได้เลย (ผูกกับ `auth.uid()` ทุกจุด)
+
+**Known Issue/Gap (ตั้งใจ ไม่ใช่บั๊ก)**: ไม่มี grace period สำหรับ Account Deletion (ตัดสินใจแล้วใน Product spec เพราะไม่มี cron infra) — สมมติฐานเรื่อง `auth.identities`/`auth.sessions`/`auth.refresh_tokens` cascade อัตโนมัติจาก Supabase ยังไม่ได้ verify กับ Supabase project จริง (ยังไม่มี)
+
+Handoff: AI QA & Security — **เน้นตรวจ destructive-RPC guarantees เป็นพิเศษ** ตามที่ Product's Risks ระบุไว้: **(ก) cascade ครบจริงทุกตาราง ไม่มี orphan record เหลือ** (ตรวจซ้ำอิสระ ไม่เชื่อ 37 checks เดิมอย่างเดียว), **(ข) ไม่มีทางลบ/export บัญชีคนอื่นได้เลยไม่ว่าด้วยวิธีใด** (probe adversarial เพิ่มเติม), **(ค) `export_my_data()` ไม่รั่วข้อมูลคนอื่นแม้แต่นิดเดียว** โดยเฉพาะจุดที่เกี่ยวกับการโต้ตอบข้ามบัญชี (Comment/Chat message), **(ง) UX ของ `DeleteAccountScreen` ป้องกันการกดพลาดได้จริง** (ทดสอบ near-miss ของข้อความยืนยัน)
