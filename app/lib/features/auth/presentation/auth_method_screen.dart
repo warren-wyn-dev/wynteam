@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/auth_repository.dart';
+import 'email_auth_screen.dart';
 import 'phone_entry_screen.dart';
 import '../../../core/design/wyn_spacing.dart';
 
@@ -73,6 +74,23 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
                     : () => _handle(widget.authRepository.signInWithApple),
                 icon: const Icon(Icons.apple),
                 label: const Text('เข้าสู่ระบบด้วย Apple'),
+              ),
+              const SizedBox(height: WynSpacing.space3),
+              // Any email + any number of accounts (Founder, 2026-08-24)
+              // -- not tied to a single Google/Apple identity, so a
+              // tester can sign up with whatever address they want. See
+              // email_auth_screen.dart's own doc comment.
+              OutlinedButton(
+                onPressed: _isLoading
+                    ? null
+                    : () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => EmailAuthScreen(
+                              authRepository: widget.authRepository,
+                            ),
+                          ),
+                        ),
+                child: const Text('เข้าสู่ระบบด้วยอีเมล'),
               ),
               if (_phoneLoginEnabled) ...[
                 const SizedBox(height: WynSpacing.space3),

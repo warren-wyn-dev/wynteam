@@ -5,6 +5,7 @@ Repository สำหรับพัฒนา WYN โดยมี **WYN AI Compan
 ## เริ่มต้นที่นี่
 
 - ทุก AI agent และผู้ร่วมพัฒนา ควรเริ่มอ่านจาก [`AGENTS.md`](./AGENTS.md)
+- สถานะเวอร์ชันปัจจุบัน + วิธี deploy: [`RELEASE_NOTES.md`](./RELEASE_NOTES.md)
 - ภาพรวมองค์กร AI: [`.wyn/company/COMPANY.md`](./.wyn/company/COMPANY.md)
 - Workflow การพัฒนา: [`.wyn/company/WORKFLOW.md`](./.wyn/company/WORKFLOW.md)
 - สถานะโปรเจกต์ปัจจุบัน: [`.wyn/company/PROJECT_STATUS.md`](./.wyn/company/PROJECT_STATUS.md)

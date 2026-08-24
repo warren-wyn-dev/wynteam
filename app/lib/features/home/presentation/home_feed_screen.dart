@@ -460,24 +460,55 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       body: Stack(
         children: [
           SafeArea(
-            child: Column(
-              children: [
-                ClubSection(
-                  clubRepository: widget.clubRepository,
-                  clubPostRepository: widget.clubPostRepository,
-                ),
-                _buildTrendingSection(),
-                _buildFeedModeToggle(),
-                Expanded(
-                  child: _feedMode == _HomeFeedMode.fromYourClubs
-                      ? FromYourClubsFeed(
-                          key: const Key('from_your_clubs_feed'),
-                          clubRepository: widget.clubRepository,
-                          clubPostRepository: widget.clubPostRepository,
-                        )
-                      : _buildBody(),
-                ),
-              ],
+            child: RefreshIndicator(
+              onRefresh: _feedMode == _HomeFeedMode.fromYourClubs
+                  ? () async {}
+                  : _loadInitial,
+              child: CustomScrollView(
+                key: const Key('home_feed_scroll_view'),
+                controller: _scrollController,
+                slivers: [
+                  // ClubSection + Trending scroll away with the rest of the
+                  // feed instead of being permanently pinned above it --
+                  // the fixed-Column layout this replaces claimed that
+                  // space on screen no matter how far the user scrolled,
+                  // leaving barely half a real phone's height for actual
+                  // feed content underneath. See the bug report this fixes
+                  // (Founder, 2026-08-24): "ส่วนหัวถูกล็อกความสูงคงที่ไว้
+                  // ด้านบน ทำให้เหลือพื้นที่สกิลดูเนื้อหาฟีดเพียงแค่ครึ่ง
+                  // จอล่างเท่านั้น".
+                  SliverToBoxAdapter(
+                    child: ClubSection(
+                      clubRepository: widget.clubRepository,
+                      clubPostRepository: widget.clubPostRepository,
+                    ),
+                  ),
+                  SliverToBoxAdapter(child: _buildTrendingSection()),
+                  // Pinned: stays visible at the top once the header above
+                  // has scrolled out of view, so the mode toggle (สำหรับ
+                  // คุณ/ติดตาม/ล่าสุด/จาก Club ของคุณ) is always reachable
+                  // without scrolling back up -- same request's "Sticky
+                  // Filter Bar" ask.
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _FeedModeToggleHeaderDelegate(
+                      height: _feedModeToggleHeight,
+                      child: _buildFeedModeToggle(),
+                    ),
+                  ),
+                  if (_feedMode == _HomeFeedMode.fromYourClubs)
+                    SliverFillRemaining(
+                      hasScrollBody: true,
+                      child: FromYourClubsFeed(
+                        key: const Key('from_your_clubs_feed'),
+                        clubRepository: widget.clubRepository,
+                        clubPostRepository: widget.clubPostRepository,
+                      ),
+                    )
+                  else
+                    ..._buildBodySlivers(),
+                ],
+              ),
             ),
           ),
           SafeArea(
@@ -766,22 +797,40 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
-  Widget _buildBody() {
+  // Returns the sliver(s) for whichever state the feed is in -- loading/
+  // error/empty each fill the remaining viewport below the pinned mode
+  // toggle (SliverFillRemaining), same visual "centered in the space
+  // under the header" result the old Expanded(child: Center(...)) gave,
+  // just expressed as a sliver so it can sit inside the same
+  // CustomScrollView as the scrollable header above it (see build()'s
+  // doc comment on why that header no longer owns fixed Column space).
+  List<Widget> _buildBodySlivers() {
     if (_isLoadingInitial) {
-      return const Center(child: CircularProgressIndicator());
+      return [
+        const SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ];
     }
 
     if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_error!),
-            const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
-          ],
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_error!),
+                const SizedBox(height: WynSpacing.space3),
+                TextButton(
+                    onPressed: _loadInitial, child: const Text('ลองใหม่')),
+              ],
+            ),
+          ),
         ),
-      );
+      ];
     }
 
     if (_items.isEmpty) {
@@ -792,71 +841,136 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       final message = _feedMode == _HomeFeedMode.following
           ? 'ยังไม่ได้ follow ใครเลย ลองดู สำหรับคุณ เพื่อค้นหาคนน่าสนใจ'
           : 'ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!';
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
-          child: Text(message, textAlign: TextAlign.center),
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
+              child: Text(message, textAlign: TextAlign.center),
+            ),
+          ),
         ),
-      );
+      ];
     }
 
-    return RefreshIndicator(
-      onRefresh: _loadInitial,
-      child: ListView.separated(
+    // Interleaves a hairline divider between posts only (DS-003) -- never
+    // before the loading spinner at the end, which isn't content -- the
+    // same rule ListView.separated enforced, just written out by hand
+    // since SliverChildBuilderDelegate has no separated variant. Each
+    // real item sits at an even index, each divider at the following odd
+    // index, so index~/2 recovers the item index below.
+    final itemCount = _items.length + (_hasMore ? 1 : 0);
+    return [
+      SliverList(
         key: const Key('home_feed_list'),
-        controller: _scrollController,
-        itemCount: _items.length + (_hasMore ? 1 : 0),
-        // A hairline divider between posts only (DS-003) -- never before
-        // the loading spinner at the end, which isn't content. Material
-        // 3's default Divider colors itself from colorScheme.outlineVariant
-        // (WynColors.borderSubtleLight/Dark), so no color is hardcoded here.
-        separatorBuilder: (context, index) => index + 1 < _items.length
-            ? const Divider(height: 1)
-            : const SizedBox.shrink(),
-        itemBuilder: (context, index) {
-          if (index >= _items.length) {
-            return const Padding(
-              padding: EdgeInsets.all(WynSpacing.space4),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
+        delegate: SliverChildBuilderDelegate(
+          (context, i) {
+            if (i.isOdd) {
+              final itemIndex = i ~/ 2;
+              return itemIndex + 1 < _items.length
+                  ? const Divider(height: 1)
+                  : const SizedBox.shrink();
+            }
+            final index = i ~/ 2;
 
-          final item = _items[index];
-          // WYN-034: id alone is no longer a unique widget key -- the
-          // same Drop can appear twice (once plain, once via someone's
-          // ReDrop of it), so redropId (null for a plain row) is
-          // folded in too.
-          final itemKey = ValueKey('${item.id}:${item.redropId ?? ''}');
-          if (item.contentType == HomeContentType.drop) {
-            return HomeDropCard(
+            if (index >= _items.length) {
+              return const Padding(
+                padding: EdgeInsets.all(WynSpacing.space4),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            final item = _items[index];
+            // WYN-034: id alone is no longer a unique widget key -- the
+            // same Drop can appear twice (once plain, once via someone's
+            // ReDrop of it), so redropId (null for a plain row) is
+            // folded in too.
+            final itemKey = ValueKey('${item.id}:${item.redropId ?? ''}');
+            if (item.contentType == HomeContentType.drop) {
+              return HomeDropCard(
+                key: itemKey,
+                item: item,
+                onTap: () => _openDrop(item),
+                onToggleLike: () => _toggleLike(index),
+                onToggleSave: () => _toggleSave(index),
+                onOpenProfile: () => _openProfile(item.authorId),
+                onToggleRedrop: () => _toggleRedrop(index),
+                onQuoteRedrop: () => _quoteRedrop(index),
+                onOpenRedropperProfile: item.redropperId == null
+                    ? null
+                    : () => _openProfile(item.redropperId!),
+                onDeleteRedrop: () => _deleteRedrop(index),
+                onVotePoll: (optionIndex) => _votePoll(index, optionIndex),
+                onHide: () => _hideItem(index),
+              );
+            }
+            return HomePopCard(
               key: itemKey,
               item: item,
-              onTap: () => _openDrop(item),
+              onTap: () => _openPop(item),
+              onTapComment: () => _openPop(item, openComments: true),
               onToggleLike: () => _toggleLike(index),
               onToggleSave: () => _toggleSave(index),
               onOpenProfile: () => _openProfile(item.authorId),
-              onToggleRedrop: () => _toggleRedrop(index),
-              onQuoteRedrop: () => _quoteRedrop(index),
-              onOpenRedropperProfile: item.redropperId == null
-                  ? null
-                  : () => _openProfile(item.redropperId!),
-              onDeleteRedrop: () => _deleteRedrop(index),
-              onVotePoll: (optionIndex) => _votePoll(index, optionIndex),
               onHide: () => _hideItem(index),
             );
-          }
-          return HomePopCard(
-            key: itemKey,
-            item: item,
-            onTap: () => _openPop(item),
-            onTapComment: () => _openPop(item, openComments: true),
-            onToggleLike: () => _toggleLike(index),
-            onToggleSave: () => _toggleSave(index),
-            onOpenProfile: () => _openProfile(item.authorId),
-            onHide: () => _hideItem(index),
-          );
-        },
+          },
+          childCount: itemCount * 2 - 1,
+        ),
       ),
+    ];
+  }
+}
+
+// The feed-mode toggle's pinned SliverPersistentHeader wrapper (see
+// build()'s "Sticky Filter Bar" doc comment). [height] must match the
+// child's actual rendered height exactly -- a SliverPersistentHeader
+// clips its child to min/maxExtent rather than sizing to it, so a
+// mismatch would either clip the toggle or leave dead space under it
+// (which, in turn, throws off how much viewport SliverFillRemaining
+// hands the feed body below -- confirmed by a test regression at wider
+// widths when this was first guessed at 64 instead of measured).
+// _feedModeToggleHeight = SegmentedButton's own measured height (40,
+// compact density + showSelectedIcon:false --
+// tester.getSize(find.byWidgetPredicate((w) => w is SegmentedButton))
+// against the real widget tree, not assumed) + WynSpacing.space1 gap
+// (4) + the 2px active-segment indicator strip + space1 vertical
+// padding top and bottom (4 + 4) from _buildFeedModeToggle()'s own
+// fixed layout.
+const double _feedModeToggleHeight = 40 + 4 + 2 + 4 + 4;
+
+class _FeedModeToggleHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _FeedModeToggleHeaderDelegate({
+    required this.height,
+    required this.child,
+  });
+
+  final double height;
+  final Widget child;
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    // A Material surface, not a transparent passthrough -- once pinned
+    // above the scrolled-away ClubSection/Trending content, this needs
+    // its own opaque background so feed cards scrolling underneath don't
+    // show through the toggle bar.
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      child: child,
     );
+  }
+
+  @override
+  bool shouldRebuild(covariant _FeedModeToggleHeaderDelegate oldDelegate) {
+    return height != oldDelegate.height || child != oldDelegate.child;
   }
 }

@@ -18,6 +18,11 @@
 #   8. Upserting the same (user_id, document_type) pair with a new
 #      version replaces the version -- proves the "re-accept on version
 #      bump" mechanism works at the data layer.
+#   9. A brand-new user with no public.profiles row yet (AuthGate shows
+#      this screen before UsernameSetupScreen) can still accept the
+#      mandatory documents, via PlatformDocumentRepository's own stub
+#      profiles upsert -- and that stub upsert never clobbers a
+#      username the user has since set.
 #
 # Requirements: a local PostgreSQL 16 server reachable either as the
 # current OS user or via `sudo -u postgres` (mirrors
@@ -319,6 +324,67 @@ begin
 
   insert into results select 'CHECK08a_upsert_replaces_version', v_version, 2;
   insert into results select 'CHECK08b_upsert_does_not_duplicate_row', v_row_count, 1;
+end
+$$;
+
+-- ------------------------------------------------------------
+-- CHECK 9: a brand-new user (auth.users row exists, but no
+-- public.profiles row yet -- AuthGate shows DocumentAcceptanceScreen
+-- *before* UsernameSetupScreen, see auth_gate.dart's doc comment) can
+-- still accept the mandatory documents. Proves
+-- PlatformDocumentRepository.acceptMandatoryDocuments()'s own stub
+-- `profiles` upsert (added alongside this check -- `id` only, no
+-- username) satisfies user_document_acceptances.user_id's FK to
+-- public.profiles(id) instead of failing with a foreign-key violation,
+-- and that it doesn't clobber an existing profile's username on a
+-- later re-accept (CHECK09c).
+-- ------------------------------------------------------------
+insert into auth.users (id, email) values
+  ('62000000-0000-0000-0000-000000000003', null);
+
+do $$
+declare
+  v_profile_exists boolean;
+  v_username_still_null boolean;
+begin
+  set role authenticated;
+  set request.jwt.claim.sub = '62000000-0000-0000-0000-000000000003';
+  set request.jwt.claim.role = 'authenticated';
+
+  -- Mirrors acceptMandatoryDocuments()'s own sequence exactly: stub
+  -- profiles upsert (id only) first, then the acceptance upsert.
+  insert into public.profiles (id) values ('62000000-0000-0000-0000-000000000003')
+  on conflict (id) do nothing;
+
+  insert into public.user_document_acceptances (user_id, document_type, version) values
+    ('62000000-0000-0000-0000-000000000003', 'terms_of_service', 1),
+    ('62000000-0000-0000-0000-000000000003', 'privacy_policy', 1),
+    ('62000000-0000-0000-0000-000000000003', 'community_guidelines', 1)
+  on conflict (user_id, document_type) do update set version = excluded.version, accepted_at = now();
+
+  -- Re-running the same stub upsert (as a later re-accept on a version
+  -- bump would) must not touch a username the user has since set.
+  update public.profiles set username = 'newuser046' where id = '62000000-0000-0000-0000-000000000003';
+  insert into public.profiles (id) values ('62000000-0000-0000-0000-000000000003')
+  on conflict (id) do nothing;
+
+  select username is null into v_username_still_null from public.profiles
+  where id = '62000000-0000-0000-0000-000000000003';
+
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+
+  select exists(
+    select 1 from public.user_document_acceptances
+    where user_id = '62000000-0000-0000-0000-000000000003'
+  ) into v_profile_exists;
+
+  insert into results select 'CHECK09a_new_user_stub_profile_then_accept_succeeds',
+    case when v_profile_exists then 1 else 0 end, 1;
+  insert into results select 'CHECK09b_all_3_mandatory_types_accepted',
+    (select count(*) from public.user_document_acceptances
+     where user_id = '62000000-0000-0000-0000-000000000003'), 3;
+  insert into results select 'CHECK09c_stub_upsert_does_not_clobber_existing_username',
+    case when v_username_still_null then 0 else 1 end, 1;
 end
 $$;
 

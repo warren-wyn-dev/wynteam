@@ -134,9 +134,22 @@ class PlatformDocumentRepository {
   /// single upsert call, each pinned to that document's current
   /// version (Product's Requirement 3: "checkbox เดียว ไม่ใช่ 3
   /// checkbox แยก ... insert/update ทั้ง 3 แถวพร้อมกัน").
+  ///
+  /// `user_document_acceptances.user_id` references `public.profiles`
+  /// (id), not `auth.users` -- but AuthGate shows this screen *before*
+  /// UsernameSetupScreen (see that file's doc comment), so a brand-new
+  /// user reaches here with no `profiles` row yet (that row is only
+  /// ever created by [AuthRepository.setUsername]'s own upsert). Ensure
+  /// one exists first, matching that same "on conflict do nothing"
+  /// shape -- `username` stays null until the user actually sets one,
+  /// which is exactly what a not-yet-onboarded user's profile should
+  /// look like. A no-op for an existing user (the far more common case
+  /// once a document version bump re-prompts them).
   Future<void> acceptMandatoryDocuments() async {
     final latestVersions = await _latestMandatoryVersions();
     final userId = _client.auth.currentUser!.id;
+
+    await _client.from('profiles').upsert({'id': userId});
 
     await _client.from('user_document_acceptances').upsert(
       [
