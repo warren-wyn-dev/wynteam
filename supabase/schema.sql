@@ -8760,3 +8760,219 @@ end;
 $$;
 
 grant execute on function public.admin_dashboard_metrics() to authenticated;
+
+-- ============================================================
+-- WYN-051: WYN Admin User Management (direct Warn/Restrict/Suspend/
+-- Ban/Unban, not tied to a Report)
+-- ============================================================
+-- See .wyn/tasks/backlog/WYN-051-admin-user-management.md and
+-- .wyn/docs/design/wyn-051-admin-user-management.md. Every action
+-- taken here inserts into the same `moderation_actions` table WYN-029
+-- already built -- internal.is_posting_blocked()/
+-- get_my_moderation_status()/RestrictionBanner and every other
+-- existing consumer needs zero changes, since none of them ever
+-- referenced report_id.
+
+-- Nullable, not a new parallel table: a direct admin action has no
+-- Report to point at. Evaluated against every `report_id` reference
+-- in this file before making this change -- none of them assume NOT
+-- NULL (is_posting_blocked() and friends only ever filter by
+-- target_user_id/action_type/expires_at/overturned_at). This is
+-- deliberately smaller-blast-radius than a second table would have
+-- been: a parallel table would have required editing
+-- is_posting_blocked() itself, which RLS policies across 15+ tables
+-- call.
+alter table public.moderation_actions
+  alter column report_id drop not null;
+
+-- Extend audit_log's event_type check constraint with this task's 2
+-- new event types -- same drop+recreate pattern this schema already
+-- uses for notifications_type_check (WYN-032/034/039/043/044).
+do $$
+declare
+  v_constraint_name text;
+begin
+  select tc.constraint_name into v_constraint_name
+  from information_schema.table_constraints tc
+  join information_schema.constraint_column_usage ccu
+    on ccu.constraint_name = tc.constraint_name
+   and ccu.constraint_schema = tc.constraint_schema
+  where tc.table_schema = 'public'
+    and tc.table_name = 'audit_log'
+    and tc.constraint_type = 'CHECK'
+    and ccu.column_name = 'event_type';
+
+  if v_constraint_name is not null then
+    execute format('alter table public.audit_log drop constraint %I', v_constraint_name);
+  end if;
+end;
+$$;
+
+alter table public.audit_log
+  add constraint audit_log_event_type_check
+  check (event_type in (
+    'moderation_action_applied', 'appeal_decided',
+    'system_notification_sent', 'account_deleted', 'data_exported',
+    'admin_user_action_applied', 'admin_user_unbanned'
+  ));
+
+-- Same validation/notification/audit shape as apply_moderation_action()
+-- above, minus the report lookup/status update (there is no report)
+-- and minus remove_content/no_action (neither makes sense without a
+-- report -- remove_content targets content, not a user directly; see
+-- the Product spec's Requirement 3).
+create or replace function public.admin_apply_user_action(
+  p_target_user_id uuid,
+  p_action_type text,
+  p_reason text,
+  p_duration_days integer default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_reviewer uuid := auth.uid();
+  v_trimmed_reason text := trim(coalesce(p_reason, ''));
+  v_expires_at timestamptz;
+  v_action_id uuid;
+begin
+  -- coalesce() is load-bearing here -- see
+  -- .wyn/tasks/bugs/WYN-050-admin-dashboard-metrics-null-role-bypass.md
+  -- for exactly why a bare `not in (...)` against a possibly-NULL role
+  -- silently lets an unverified caller through.
+  if coalesce(internal.current_platform_role(), '') not in ('admin', 'moderator') then
+    raise exception 'Not authorized';
+  end if;
+
+  if p_action_type not in ('warning', 'restrict', 'suspend', 'ban') then
+    raise exception 'Invalid action_type: %', p_action_type;
+  end if;
+
+  if length(v_trimmed_reason) = 0 then
+    raise exception 'Reason is required';
+  end if;
+
+  if not exists (select 1 from public.profiles where id = p_target_user_id) then
+    raise exception 'Target user not found';
+  end if;
+
+  if p_action_type in ('restrict', 'suspend') then
+    if p_duration_days is null or p_duration_days not in (1, 3, 7) then
+      raise exception 'duration_days must be 1, 3, or 7 for %', p_action_type;
+    end if;
+    v_expires_at := now() + (p_duration_days || ' days')::interval;
+  else
+    v_expires_at := null;
+  end if;
+
+  insert into public.moderation_actions (
+    report_id, target_user_id, action_type, reason, duration_days, expires_at, reviewer_id
+  ) values (
+    null,
+    p_target_user_id,
+    p_action_type,
+    v_trimmed_reason,
+    case when p_action_type in ('restrict', 'suspend') then p_duration_days else null end,
+    v_expires_at,
+    v_reviewer
+  )
+  returning id into v_action_id;
+
+  -- Only Warn gets an explicit push notification here, mirroring
+  -- apply_moderation_action() exactly -- Restrict/Suspend/Ban are
+  -- surfaced to the target through get_my_moderation_status() the next
+  -- time AuthGate/RestrictionBanner checks, same as the report-driven
+  -- path already relies on.
+  if p_action_type = 'warning' then
+    insert into public.notifications (recipient_id, actor_id, type, reason, moderation_action_id, moderation_action_type)
+    values (p_target_user_id, null, 'moderation_warning', v_trimmed_reason, v_action_id, p_action_type);
+  end if;
+
+  perform internal.log_audit_event(
+    v_reviewer,
+    'admin_user_action_applied',
+    p_target_user_id,
+    jsonb_build_object('action_type', p_action_type, 'reason', v_trimmed_reason)
+  );
+end;
+$$;
+
+grant execute on function public.admin_apply_user_action(uuid, text, text, integer) to authenticated;
+
+-- Clears every currently-active restrict/suspend/ban row for a user
+-- (there is normally at most one, but this is written to be correct
+-- even if more than one is somehow active at once) by setting
+-- overturned_at -- the exact same column decide_appeal() already sets
+-- on approval (WYN-030), so is_posting_blocked()'s
+-- `overturned_at is null` check picks this up with no changes there.
+create or replace function public.admin_unban_user(
+  p_target_user_id uuid,
+  p_reason text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_reviewer uuid := auth.uid();
+  v_trimmed_reason text := trim(coalesce(p_reason, ''));
+begin
+  if coalesce(internal.current_platform_role(), '') not in ('admin', 'moderator') then
+    raise exception 'Not authorized';
+  end if;
+
+  if length(v_trimmed_reason) = 0 then
+    raise exception 'Reason is required';
+  end if;
+
+  update public.moderation_actions
+  set overturned_at = now()
+  where target_user_id = p_target_user_id
+    and overturned_at is null
+    and (
+      action_type = 'ban'
+      or (action_type in ('restrict', 'suspend') and expires_at > now())
+    );
+
+  perform internal.log_audit_event(
+    v_reviewer,
+    'admin_user_unbanned',
+    p_target_user_id,
+    jsonb_build_object('reason', v_trimmed_reason)
+  );
+end;
+$$;
+
+grant execute on function public.admin_unban_user(uuid, text) to authenticated;
+
+-- Admin/moderator visibility into moderation history, mirroring
+-- moderation_queue's exact structural pattern (WYN-029): a plain view
+-- (no security_invoker) that re-implements its own caller-based
+-- visibility in the `where` clause, so a client hitting
+-- `/rest/v1/moderation_actions` directly still sees nothing (that
+-- table still has zero SELECT policy of its own). Unlike
+-- moderation_queue, this DOES expose the reviewer's identity
+-- (username) -- WYN-026/029's "never let the target learn who acted"
+-- rule protects the target from seeing this, not other Admin/Moderator
+-- staff from seeing each other's actions, which is ordinary
+-- accountability, not the same privacy concern (see the Design spec's
+-- reasoning).
+create or replace view public.admin_user_moderation_history as
+select
+  ma.id,
+  ma.target_user_id,
+  ma.action_type,
+  ma.reason,
+  ma.duration_days,
+  ma.expires_at,
+  ma.overturned_at,
+  ma.created_at,
+  p.username as reviewer_username
+from public.moderation_actions ma
+join public.profiles p on p.id = ma.reviewer_id
+where internal.current_platform_role() <> 'user';
+
+grant select on public.admin_user_moderation_history to authenticated;
