@@ -130,6 +130,28 @@ class ClubPostRepository {
     return posts;
   }
 
+  /// Content-only fetch for hashtag suggestion counting (WYNOS V1.0.0
+  /// Beta) -- mirrors DropRepository.fetchCaptionsForHashtagSuggestion:
+  /// skips the like/save lookups and signed-image-url resolution since
+  /// a suggestion dropdown only needs the raw text to extract hashtags
+  /// from. Bounded to [limit] most-recent matches, same approximate-
+  /// candidate-set posture as that method.
+  Future<List<String>> fetchContentForHashtagSuggestion(
+    String query, {
+    int limit = 60,
+  }) async {
+    final rows = await _client
+        .from('club_posts')
+        .select('content')
+        .ilike('content', '%$query%')
+        .order('created_at', ascending: false)
+        .limit(limit);
+    return rows
+        .map((row) => row['content'] as String?)
+        .whereType<String>()
+        .toList();
+  }
+
   /// Fetches one page (0-indexed) of club posts whose content contains
   /// [query] (case insensitive), newest first -- for WYN-020's Hashtag
   /// Feed (mirrors DropRepository.searchByCaption's shape). No explicit

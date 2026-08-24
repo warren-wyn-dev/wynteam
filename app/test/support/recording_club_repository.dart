@@ -19,11 +19,13 @@ class RecordingClubRepository extends ClubRepository {
     this.memberCount = 1,
     List<Club>? discoverableClubs,
     List<Club>? searchResults,
+    Set<String>? pendingClubIds,
   })  : myClubs = myClubs ?? [],
         approvedMembers = approvedMembers ?? [],
         pendingMembers = pendingMembers ?? [],
         discoverableClubs = discoverableClubs ?? [],
         searchResults = searchResults ?? [],
+        pendingClubIds = pendingClubIds ?? {},
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   /// Returned by [fetchMyClubs].
@@ -36,6 +38,10 @@ class RecordingClubRepository extends ClubRepository {
 
   /// Returned by [searchClubs] for page 0 only (page 1+ returns empty).
   final List<Club> searchResults;
+
+  /// Returned by [fetchPendingClubIds] -- WYN-056's Explore Club cards
+  /// use this to show "รออนุมัติ" instead of "เข้าร่วม".
+  final Set<String> pendingClubIds;
 
   /// Returned by [fetchClub], regardless of clubId.
   final Club? club;
@@ -104,6 +110,9 @@ class RecordingClubRepository extends ClubRepository {
   Future<List<Club>> searchClubs({required String query, required int page}) async {
     return page == 0 ? searchResults : <Club>[];
   }
+
+  @override
+  Future<Set<String>> fetchPendingClubIds() async => pendingClubIds;
 
   @override
   Future<void> joinClub(Club club) async {

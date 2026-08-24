@@ -312,14 +312,36 @@ class _RootShellState extends State<RootShell> {
   // position), so icon/selectedIcon are identical -- this destination is
   // an action, not a tab. Semantics says so explicitly rather than
   // letting NavigationBar announce it the same way as the 4 real tabs.
+  //
+  // Rendered as a filled cyan circle (not a bare icon) with a soft
+  // colored-shadow glow -- WYN-056's visual refresh, matching the
+  // Founder's WYNOS mockup's prominent Drop button. The glow is a plain
+  // BoxShadow (opaque circle + shadow), never a blur/translucent
+  // surface, so it doesn't touch the "no Liquid Glass" rule. Always
+  // shown this way, not just on press, since this destination has no
+  // selected state to distinguish. See
+  // .wyn/docs/design/wyn-056-club-discovery-visual-refresh.md, Screen 6.
   Widget _buildDropAction() {
-    // Not `const Semantics(...)` -- Semantics' constructor isn't const on
-    // this SDK (was a compile error before this fix: const_with_non_const).
+    final scheme = Theme.of(context).colorScheme;
     return Semantics(
       label: 'สร้าง Drop ใหม่',
       button: true,
-      child: const ExcludeSemantics(
-        child: Icon(Icons.add_circle_outline),
+      child: ExcludeSemantics(
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: scheme.primary,
+            boxShadow: [
+              BoxShadow(
+                color: scheme.primary.withValues(alpha: 0.35),
+                blurRadius: 16,
+              ),
+            ],
+          ),
+          child: Icon(Icons.add, color: scheme.onPrimary),
+        ),
       ),
     );
   }

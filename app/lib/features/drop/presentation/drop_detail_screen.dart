@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/widgets/confirm_delete_dialog.dart';
+import '../../../core/widgets/double_tap_like.dart';
 import '../../../core/widgets/hashtag_text.dart';
 import '../../../core/widgets/restriction_banner.dart';
 import '../../chat/data/chat_repository.dart';
@@ -560,6 +561,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
           dropId: _drop.id,
           initialCaption: _drop.caption,
           isPollQuestion: _drop.isPoll,
+          hasImage: _drop.imageUrl != null,
         ),
       ),
     );
@@ -637,11 +639,18 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
             isOwnPoll: isOwnDrop,
             onVote: _votePoll,
           )
-        else
-          AspectRatio(
-            aspectRatio: 1,
-            child: Image.network(_drop.imageUrl!, fit: BoxFit.cover),
+        else if (_drop.imageUrl != null)
+          DoubleTapLike(
+            onLike: _toggleLike,
+            alreadyLiked: _drop.likedByMe,
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: Image.network(_drop.imageUrl!, fit: BoxFit.cover),
+            ),
           ),
+        // WYNOS V1.0.0 Beta requirement 2: a caption-only Drop has no
+        // image area at all here -- its caption still renders below via
+        // the same Padding/HashtagText every Drop already gets.
         Padding(
           padding: const EdgeInsets.all(WynSpacing.space4),
           child: Column(

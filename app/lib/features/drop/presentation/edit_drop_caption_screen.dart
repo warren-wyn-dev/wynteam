@@ -23,6 +23,7 @@ class EditDropCaptionScreen extends StatefulWidget {
     required this.dropId,
     required this.initialCaption,
     this.isPollQuestion = false,
+    this.hasImage = true,
   });
 
   final DropRepository dropRepository;
@@ -35,6 +36,15 @@ class EditDropCaptionScreen extends StatefulWidget {
   /// question but live options/votes would be confusing for anyone
   /// looking at it, including people who already voted.
   final bool isPollQuestion;
+
+  /// WYNOS V1.0.0 Beta requirement 2: a text-only Drop (no image, not a
+  /// Poll) can no longer be saved with an empty caption either -- unlike
+  /// an image-mode Drop, that would leave nothing at all (violates the
+  /// `drops_has_content` DB constraint, and more importantly would just
+  /// be an empty post). Defaults to `true` (the historical "every Drop
+  /// has an image" assumption) so this stays opt-in only for the one
+  /// caller that can actually produce a false value.
+  final bool hasImage;
 
   @override
   State<EditDropCaptionScreen> createState() => _EditDropCaptionScreenState();
@@ -57,7 +67,9 @@ class _EditDropCaptionScreenState extends State<EditDropCaptionScreen> {
   bool get _canSave {
     if (_isSaving) return false;
     final trimmed = _captionController.text.trim();
-    if (widget.isPollQuestion && trimmed.isEmpty) return false;
+    if ((widget.isPollQuestion || !widget.hasImage) && trimmed.isEmpty) {
+      return false;
+    }
     return trimmed != (widget.initialCaption ?? '').trim();
   }
 

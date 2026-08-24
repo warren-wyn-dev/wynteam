@@ -205,6 +205,11 @@ void main() {
   late RecordingHomeRepository followingTestHomeRepository;
   late RecordingHomeRepository emptyFollowingTestHomeRepository;
 
+  // WYNOS Unified Home Feed Algorithm V1.0 -- "Hide" User Signal.
+  late RecordingHomeRepository hideDropTestHomeRepository;
+  late RecordingHomeRepository hidePopTestHomeRepository;
+  late RecordingHomeRepository hideFailTestHomeRepository;
+
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
     SharedPreferences.setMockInitialValues({});
@@ -399,6 +404,16 @@ void main() {
       feedItems: [_dropItem(id: 'has-feed')],
       followingFeedItems: [],
     );
+
+    hideDropTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'hide-d1')],
+    );
+    hidePopTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_popItem(id: 'hide-p1')],
+    );
+    hideFailTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'hide-fail-d1')],
+    )..hideContentError = Exception('network error');
   });
 
   Widget buildHome(
@@ -784,6 +799,79 @@ void main() {
 
       expect(deleteRedropTestDropRepository.deleteRedropCalls, ['r6']);
       expect(find.text('แคปชัน Drop'), findsNothing);
+    });
+  });
+
+  group('"Hide" User Signal (WYNOS Unified Home Feed Algorithm V1.0)', () {
+    testWidgets(
+        'tapping "ไม่สนใจโพสต์นี้" on a Drop card calls hideContent and '
+        'removes just that card', (tester) async {
+      await tester.pumpWidget(buildHome(
+        hideDropTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final moreButton = find.widgetWithIcon(IconButton, Icons.more_vert);
+      expect(moreButton, findsOneWidget);
+      tester.widget<IconButton>(moreButton).onPressed!();
+      await tester.pumpAndSettle();
+
+      expect(find.text('ไม่สนใจโพสต์นี้'), findsOneWidget);
+      await tester.tap(find.text('ไม่สนใจโพสต์นี้'));
+      await tester.pumpAndSettle();
+
+      expect(
+        hideDropTestHomeRepository.hideContentArgs,
+        [(HomeContentType.drop, 'hide-d1')],
+      );
+      expect(find.text('แคปชัน Drop'), findsNothing);
+    });
+
+    testWidgets(
+        'tapping "ไม่สนใจโพสต์นี้" on a Pop card calls hideContent with '
+        'HomeContentType.pop', (tester) async {
+      await tester.pumpWidget(buildHome(
+        hidePopTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final moreButton = find.widgetWithIcon(IconButton, Icons.more_vert);
+      expect(moreButton, findsOneWidget);
+      tester.widget<IconButton>(moreButton).onPressed!();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ไม่สนใจโพสต์นี้'));
+      await tester.pumpAndSettle();
+
+      expect(
+        hidePopTestHomeRepository.hideContentArgs,
+        [(HomeContentType.pop, 'hide-p1')],
+      );
+    });
+
+    testWidgets('a failed hideContent call restores the card and stays '
+        'silent (no error banner)', (tester) async {
+      await tester.pumpWidget(buildHome(
+        hideFailTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final moreButton = find.widgetWithIcon(IconButton, Icons.more_vert);
+      tester.widget<IconButton>(moreButton).onPressed!();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ไม่สนใจโพสต์นี้'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithIcon(IconButton, Icons.more_vert), findsOneWidget);
     });
   });
 

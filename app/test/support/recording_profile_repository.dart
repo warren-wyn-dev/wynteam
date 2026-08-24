@@ -91,4 +91,45 @@ class RecordingProfileRepository extends ProfileRepository {
     searchProfilesQueryArgs.add(query);
     return page == 0 ? searchResults : [];
   }
+
+  /// Recorded calls to [updateProfile]'s arguments, in order -- WYNOS
+  /// V1.0.0 Beta requirement 5's EditProfileScreen tests need this
+  /// overridden (unlike before, that screen can now reach the real
+  /// network-touching method once "บันทึก" is tapped).
+  final List<Map<String, String>> updateProfileArgs = [];
+
+  @override
+  Future<void> updateProfile({
+    required String userId,
+    required String displayName,
+    required String bio,
+  }) async {
+    updateProfileArgs.add({'displayName': displayName, 'bio': bio});
+  }
+
+  /// Usernames already "taken" as far as [isUsernameAvailable] is
+  /// concerned -- WYNOS V1.0.0 Beta requirement 5. Empty by default (no
+  /// username taken).
+  Set<String> takenUsernames = {};
+
+  @override
+  Future<bool> isUsernameAvailable(
+    String username, {
+    required String currentUserId,
+  }) async {
+    return !takenUsernames.contains(username);
+  }
+
+  /// Each call to [updateUsername]'s username argument, in order.
+  final List<String> updateUsernameArgs = [];
+  Object? updateUsernameError;
+
+  @override
+  Future<void> updateUsername({
+    required String userId,
+    required String username,
+  }) async {
+    if (updateUsernameError != null) throw updateUsernameError!;
+    updateUsernameArgs.add(username);
+  }
 }

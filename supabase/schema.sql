@@ -6687,6 +6687,20 @@ begin
     raise exception 'The 30-minute edit window has passed';
   end if;
 
+  -- WYNOS V1.0.0 Beta requirement 2: a Drop with no image (a text-only
+  -- Drop, or a Poll -- its "caption" is really the question) can no
+  -- longer be edited down to an empty caption -- that would leave
+  -- nothing at all, and trip the drops_has_content CHECK constraint
+  -- below with a much less clear error than this one. The client's own
+  -- EditDropCaptionScreen._canSave already prevents reaching this RPC
+  -- with an empty caption in that case; this is the same defense-in-
+  -- depth re-check every other RPC in this schema already does rather
+  -- than trusting the caller.
+  if v_drop.image_url is null
+     and length(trim(both from p_caption)) = 0 then
+    raise exception 'This Drop has no image -- its caption cannot be left empty';
+  end if;
+
   update public.drops
   set caption = nullif(trim(both from p_caption), ''),
       edited_at = now()
@@ -9656,3 +9670,379 @@ end;
 $$;
 
 grant execute on function public.admin_send_announcement(text, text, text) to authenticated;
+
+-- ============================================================
+-- WYNOS V1.0.0 Beta: UX/UI Fix & Feature Update, requirement 2
+-- ============================================================
+
+-- A Drop may now be image-only, caption-only, or both -- the client's
+-- own _canShare guard (CreateDropScreen) is the primary gate, same
+-- posture as everywhere else in this schema; this CHECK is a defense-
+-- in-depth safety net so a totally-empty Drop (no image_url, no
+-- caption) can never land in the table no matter which code path
+-- writes it, including a future one nobody has reasoned about yet.
+-- Single-row, no cross-table reference needed: every valid Drop shape
+-- already satisfies this without qualification -- an image Drop always
+-- has image_url, a Poll Drop always has caption (create_poll_drop()
+-- raises 'Poll question is required' otherwise), and a new text-only
+-- Drop always has caption (createTextDrop's own client-side guard,
+-- mirrored below).
+alter table public.drops
+  add constraint drops_has_content
+  check (image_url is not null or caption is not null);
+
+-- ============================================================
+-- WYNOS Unified Home Feed Algorithm V1.0
+-- ============================================================
+
+-- Founder's own weight proportions (Personalized Interest 35% /
+-- Following 25% / Engagement 15% / Trending 10% / Recency 10% /
+-- Discovery 5%) are explicitly *not* meant to be permanent
+-- ("ห้ามใช้สัดส่วนนี้แบบตายตัวในระยะยาว ให้โครงสร้างรองรับการปรับ
+-- น้ำหนักตามข้อมูลจริงในอนาคต") -- stored as data, not hardcoded into
+-- get_wynos_ranked_feed() below, so adjusting them later is a plain
+-- UPDATE, never a schema migration or a Coding task.
+create table if not exists public.feed_ranking_config (
+  key text primary key,
+  weight double precision not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.feed_ranking_config enable row level security;
+
+-- Every authenticated user's own ranked feed reads these weights (via
+-- get_wynos_ranked_feed(), running as invoker) -- there is nothing
+-- sensitive in a scoring weight, so a plain "viewable by everyone"
+-- policy is enough. No insert/update/delete policy for ordinary users
+-- -- weights are operator-adjusted directly (or by a future admin
+-- tool), never by a client-facing mutation.
+create policy "Feed ranking weights are viewable by authenticated users"
+  on public.feed_ranking_config
+  for select
+  to authenticated
+  using (true);
+
+insert into public.feed_ranking_config (key, weight) values
+  ('personalized_interest', 0.35),
+  ('following', 0.25),
+  ('engagement', 0.15),
+  ('trending', 0.10),
+  ('recency', 0.10),
+  ('discovery', 0.05)
+on conflict (key) do nothing;
+
+-- User Signals not already captured by a dedicated table elsewhere in
+-- this schema (Like/Comment/Save/Follow/View/Report all already have
+-- their own tables -- drop_likes, drop_comments, saves, follows,
+-- drop_views, reports). This one covers the 2 that don't yet: visiting
+-- someone's profile (a soft "interested in this author" signal), and
+-- explicitly hiding a piece of content (a hard negative signal).
+-- `not_interested` is reserved for a future, softer variant of hide
+-- that only demotes rather than fully removes a post -- the check
+-- constraint already allows the value so a later task can wire it up
+-- without another migration (View Duration and Skip/Scroll-past from
+-- the Product spec's own signal list are the same kind of documented-
+-- but-not-yet-implemented gap -- see this task's Coding notes for why
+-- they're out of scope this round).
+create table if not exists public.feed_signals (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  signal_type text not null check (signal_type in ('profile_visit', 'hide', 'not_interested')),
+  target_type text not null check (target_type in ('drop', 'pop', 'profile')),
+  target_id uuid not null,
+  created_at timestamptz not null default now()
+);
+
+-- Covers both get_wynos_ranked_feed()'s "which content has this user
+-- hidden" lookup (user_id, signal_type='hide', target_id) and the
+-- author-affinity CTE's "which profiles has this user visited" lookup
+-- (user_id, signal_type='profile_visit') -- a single composite index
+-- serves both since user_id is always the leading filter.
+create index if not exists feed_signals_user_type_idx
+  on public.feed_signals (user_id, signal_type, target_id);
+
+alter table public.feed_signals enable row level security;
+
+-- Same "private to the user themselves" posture as drop_views
+-- (WYN-038) -- what you've hidden or whose profile you've visited is
+-- not something any other user should be able to query about you.
+create policy "Users can view only their own feed signals"
+  on public.feed_signals
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- Unlike drop_views, a plain client INSERT is fine here (no rate-
+-- limit/anti-gaming concern -- hiding your own feed content or
+-- visiting a profile isn't something that benefits from being spoofed
+-- at scale the way inflating a public View count would), so this
+-- skips the "RPC-only, no INSERT policy" pattern drop_views/Pop's
+-- view_count use.
+create policy "Users can record their own feed signals"
+  on public.feed_signals
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+-- Total Save count for one piece of content, regardless of who's
+-- asking -- mirrors drop_view_count()'s exact reasoning (WYN-038):
+-- `saves`' own SELECT policy only lets a user see *their own* saves
+-- (auth.uid() = user_id), so a plain correlated subquery on it would
+-- give every caller of get_wynos_ranked_feed() a different (mostly 0
+-- or 1) number instead of the true total. SECURITY DEFINER bypasses
+-- that restrictive policy for this one read-only, no-side-effect,
+-- count-only purpose -- never reveals *which* users saved it, only
+-- how many.
+create or replace function public.content_save_count(p_content_id uuid)
+returns bigint
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select count(*) from public.saves where content_id = p_content_id;
+$$;
+
+grant execute on function public.content_save_count(uuid) to authenticated;
+
+-- The Wynos Score ranking function (WYNOS Unified Home Feed Algorithm
+-- V1.0) -- backend-computed per the Product spec's explicit "Client ->
+-- Request Feed / Backend -> Retrieve Candidates / Backend -> Calculate
+-- Ranking Score / Backend -> Return Ranked Feed" flow, replacing
+-- WYN-018's client-side rankingScore()/fetchRankedFeed() sort for
+-- Home's "สำหรับคุณ" tab specifically. WYN-018's rankingScore() itself
+-- (still used by DropFeedScreen's own "For You" tab), and
+-- fetchTrending()/fetchTopContent()'s engagementScore()-based sort,
+-- are untouched -- out of scope this round, see this task's Coding
+-- notes for why.
+--
+-- Returns the SAME bounded top-200-by-recency candidate window
+-- WYN-018 already established (same trade-off, same reasoning: still
+-- a small enough catalog that "the 200 most recent posts, re-ranked"
+-- covers what a personalized feed needs -- see wyn-018-home-feed-
+-- ranking.md), now scored server-side and handed back already sorted
+-- by wynos_score descending (ties broken by created_at then id, both
+-- descending, so the ordering -- and therefore which page a given
+-- item falls on when the caller slices pages out of it -- is fully
+-- deterministic across repeated calls against the same underlying
+-- data, which is what makes duplicate-free pagination possible without
+-- a stateful server-side cursor). The caller
+-- (HomeRepository.fetchRankedFeed) slices pages out of this same full
+-- ordered list and applies Feed Diversity re-ordering client-side --
+-- see feed_diversity.dart's own doc comment for why that one step, and
+-- only that step, stays a pure, unit-tested Dart function instead of
+-- more SQL: it's a cheap re-sort of an already-scored ~200-row list
+-- already sitting in memory, not the "heavy" data-dependent
+-- computation the Product spec's Performance section is actually
+-- concerned about (candidate retrieval, personalization signal
+-- aggregation, engagement/trending scoring -- all of which stay here,
+-- server-side).
+--
+-- `row_data` carries every public.home_feed column as-is (via
+-- to_jsonb, not a hand-typed 25-column RETURNS TABLE list) specifically
+-- so HomeFeedItem.fromMap can keep reading it exactly like it already
+-- reads a plain home_feed row -- HomeRepository never needed a new
+-- HomeFeedItem field for this task. wynos_score/is_following/
+-- is_discovery ride alongside as their own typed columns purely for
+-- the Dart diversity pass to read before being discarded (never stored
+-- on HomeFeedItem itself). Every intermediate column this function
+-- computes along the way (age_hours, affinity_raw, save_count, ...)
+-- rides along inside row_data too, harmlessly ignored by fromMap.
+--
+-- Not SECURITY DEFINER -- runs as the calling user on purpose, so
+-- every visibility rule public.home_feed/drop_views/saves/
+-- feed_signals' own RLS already enforces (mutes, blocks, "only see
+-- your own hide list") applies automatically, the same way it already
+-- does for every other PostgREST query this app makes. The one
+-- exception (posting-blocked authors, which needs moderation_actions
+-- access ordinary users don't have) is delegated to the existing
+-- authors_posting_blocked() SECURITY DEFINER wrapper (WYN-041) rather
+-- than reimplemented here.
+create or replace function public.get_wynos_ranked_feed()
+returns table (
+  row_data jsonb,
+  wynos_score double precision,
+  is_following boolean,
+  is_discovery boolean
+)
+language sql
+stable
+as $$
+  with recent as (
+    select hf.*
+    from public.home_feed hf
+    where not exists (
+      select 1 from public.feed_signals fs
+      where fs.user_id = auth.uid()
+        and fs.signal_type = 'hide'
+        and fs.target_id = hf.id
+    )
+    order by hf.created_at desc
+    limit 200
+  ),
+  candidates as (
+    select r.*,
+      greatest(extract(epoch from (now() - r.created_at)) / 3600.0, 0.0) as age_hours
+    from recent r
+    where r.author_id not in (
+      select author_id from public.authors_posting_blocked(
+        (select coalesce(array_agg(distinct author_id), array[]::uuid[]) from recent)
+      )
+    )
+  ),
+  -- Every signal the *current viewer* has ever produced toward each
+  -- candidate's author, unioned into one (author_id, weight,
+  -- created_at) stream so author_affinity below can sum them with a
+  -- single group by -- mirrors engagementScore()'s own "one source of
+  -- truth, not inlined per-caller" reasoning (WYN-041), just for
+  -- personalization instead of public engagement. Weights (Like=2,
+  -- Comment=3, Save=4, View=1, Profile Visit=2) are Product's own
+  -- starting numbers, same "no real traffic data yet, adjust freely"
+  -- caveat as engagementScore's _viewWeight -- unlike the 6 top-level
+  -- Wynos Score weights, these aren't in feed_ranking_config since
+  -- they're an internal detail of computing *one* of those 6 factors
+  -- (Personalized Interest), not something the Product spec calls out
+  -- as independently tunable.
+  my_interactions as (
+    select d.author_id, 2.0::double precision as weight, dl.created_at
+    from public.drop_likes dl
+    join public.drops d on d.id = dl.drop_id
+    where dl.user_id = auth.uid()
+    union all
+    select p.author_id, 2.0::double precision, pl.created_at
+    from public.pop_likes pl
+    join public.pops p on p.id = pl.pop_id
+    where pl.user_id = auth.uid()
+    union all
+    select d.author_id, 3.0::double precision, dc.created_at
+    from public.drop_comments dc
+    join public.drops d on d.id = dc.drop_id
+    where dc.author_id = auth.uid()
+    union all
+    select p.author_id, 3.0::double precision, pc.created_at
+    from public.pop_comments pc
+    join public.pops p on p.id = pc.pop_id
+    where pc.author_id = auth.uid()
+    union all
+    select d.author_id, 4.0::double precision, s.created_at
+    from public.saves s
+    join public.drops d on d.id = s.content_id
+    where s.user_id = auth.uid() and s.content_type = 'drop'
+    union all
+    select p.author_id, 4.0::double precision, s.created_at
+    from public.saves s
+    join public.pops p on p.id = s.content_id
+    where s.user_id = auth.uid() and s.content_type = 'pop'
+    union all
+    select d.author_id, 1.0::double precision, dv.created_at
+    from public.drop_views dv
+    join public.drops d on d.id = dv.drop_id
+    where dv.viewer_id = auth.uid()
+    union all
+    select fs.target_id, 2.0::double precision, fs.created_at
+    from public.feed_signals fs
+    where fs.user_id = auth.uid() and fs.signal_type = 'profile_visit'
+  ),
+  -- 30-day lookback -- old interactions shouldn't keep boosting an
+  -- author forever (a Product/Design decision this task's own scope
+  -- didn't need to litigate further; a real recency-weighted decay on
+  -- top of this window is a natural future refinement, not required
+  -- for a V1 rule-based system).
+  author_affinity as (
+    select author_id, sum(weight) as affinity_raw
+    from my_interactions
+    where created_at > now() - interval '30 days'
+    group by author_id
+  ),
+  scored as (
+    select
+      c.*,
+      coalesce(aa.affinity_raw, 0.0) as affinity_raw,
+      (f.follower_id is not null) as is_following_flag,
+      public.content_save_count(c.id) as save_count
+    from candidates c
+    left join author_affinity aa on aa.author_id = c.author_id
+    left join public.follows f
+      on f.follower_id = auth.uid() and f.following_id = c.author_id
+  ),
+  -- Same like*2 + comment*3 + view*0.1 shape as engagementScore()
+  -- (WYN-041), plus save*4 (a Save is a stronger intent signal than a
+  -- Like or Comment -- deliberate action to keep something, per
+  -- Product's "Save" signal) which the client-side engagementScore()
+  -- never had access to (saves' own RLS made a true total uncountable
+  -- from the client -- see content_save_count()'s own comment).
+  scored_engagement as (
+    select
+      s.*,
+      (s.like_count * 2 + s.comment_count * 3 + s.save_count * 4
+        + case when s.content_type = 'drop' then s.view_count * 0.1 else 0 end
+      ) as engagement_raw
+    from scored s
+  ),
+  final as (
+    select
+      se.*,
+      -- Trending = engagement earned *per hour of the post's life* --
+      -- Product's own example (500 Likes in 30 minutes beating 2,000
+      -- Likes over 3 days): a plain engagement sum can't tell those
+      -- apart, dividing by age can. Floors the denominator at 0.5h so
+      -- a just-posted item with any early engagement doesn't produce
+      -- an inflated/unstable velocity from dividing by a near-zero age.
+      (se.engagement_raw / greatest(se.age_hours, 0.5)) as trending_velocity,
+      -- A candidate counts as "Discovery" when the viewer neither
+      -- follows this author nor has any recorded affinity toward them
+      -- at all -- i.e. a genuinely new-to-you creator, not just "an
+      -- author you follow less than others."
+      (not se.is_following_flag and se.affinity_raw = 0) as is_discovery_flag,
+      -- Linear 7-day decay, identical shape to WYN-018's own
+      -- recencyScore, just rescaled to a 0-100 percentage (168 hours
+      -- = 7 days = the same window rankingScore() already uses) so it
+      -- combines with the other 0-100-scaled factors below on equal
+      -- footing.
+      least(greatest(168.0 - se.age_hours, 0.0), 168.0) / 168.0 * 100 as recency_pct,
+      -- Personalized Interest, Engagement, and Trending are all
+      -- unbounded raw magnitudes (a single viral post could be 100x
+      -- any other candidate's engagement) -- percent_rank() converts
+      -- each to "this candidate's relative standing within *this*
+      -- batch" (0-100), which is naturally comparable to the already-
+      -- bounded Following/Recency/Discovery terms and, unlike min-max
+      -- normalization, isn't skewed by one extreme outlier.
+      percent_rank() over (order by se.affinity_raw) * 100 as pr_interest,
+      percent_rank() over (order by se.engagement_raw) * 100 as pr_engagement,
+      percent_rank() over (
+        order by (se.engagement_raw / greatest(se.age_hours, 0.5))
+      ) * 100 as pr_trending
+    from scored_engagement se
+  ),
+  weights as (
+    select
+      max(weight) filter (where key = 'personalized_interest') as w_personalized,
+      max(weight) filter (where key = 'following') as w_following,
+      max(weight) filter (where key = 'engagement') as w_engagement,
+      max(weight) filter (where key = 'trending') as w_trending,
+      max(weight) filter (where key = 'recency') as w_recency,
+      max(weight) filter (where key = 'discovery') as w_discovery
+    from public.feed_ranking_config
+  )
+  -- coalesce(..., <Founder's own starting weight>) covers the
+  -- pathological case of feed_ranking_config having been emptied out
+  -- entirely -- the feed degrades to the documented V1.0 defaults
+  -- rather than every wynos_score collapsing to null/0 and the whole
+  -- ranked feed silently going empty-looking.
+  select
+    to_jsonb(final.*) as row_data,
+    (
+      coalesce(weights.w_personalized, 0.35) * final.pr_interest
+      + coalesce(weights.w_following, 0.25) * (case when final.is_following_flag then 100.0 else 0.0 end)
+      + coalesce(weights.w_engagement, 0.15) * final.pr_engagement
+      + coalesce(weights.w_trending, 0.10) * final.pr_trending
+      + coalesce(weights.w_recency, 0.10) * final.recency_pct
+      + coalesce(weights.w_discovery, 0.05) * (case when final.is_discovery_flag then 100.0 else 0.0 end)
+    ) as wynos_score,
+    final.is_following_flag as is_following,
+    final.is_discovery_flag as is_discovery
+  from final, weights
+  order by wynos_score desc, final.created_at desc, final.id desc;
+$$;
+
+grant execute on function public.get_wynos_ranked_feed() to authenticated;
