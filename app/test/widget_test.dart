@@ -33,26 +33,22 @@ void main() {
 
     expect(find.byType(AuthMethodScreen), findsOneWidget);
     expect(find.text('เข้าสู่ระบบด้วย Google'), findsOneWidget);
-    expect(find.text('เข้าสู่ระบบด้วย Apple'), findsOneWidget);
-    expect(find.text('ใช้เบอร์โทรศัพท์แทน'), findsOneWidget);
+    // Apple Sign-In and Phone/SMS OTP temporarily removed from this
+    // screen (Founder, 2026-08-24) -- see auth_method_screen.dart's own
+    // doc comment on why. Neither button should render right now.
+    expect(find.text('เข้าสู่ระบบด้วย Apple'), findsNothing);
+    expect(find.text('ใช้เบอร์โทรศัพท์แทน'), findsNothing);
   });
 
-  // Added 2026-08-16 (temporary Internal Testing bypass -- see
-  // .wyn/company/DECISIONS.md). Only asserts the button is present and
-  // wired to AuthRepository.signInAnonymously -- deliberately does NOT
-  // tap it. AuthRepository isn't injectable/fakeable here (WelcomeScreen
-  // takes the concrete class, not an interface), so tapping would fire a
-  // real, unmocked network call against the fake SupabaseClient's
-  // placeholder URL and could hang/leak into later tests, the same
-  // network-call risk this suite already avoids for the Google/Apple/
-  // Phone OTP buttons on this screen's siblings.
-  testWidgets('Shows a guest-mode button to sign in without a provider',
-      (tester) async {
+  // The guest-mode bypass (added 2026-08-16, see .wyn/company/
+  // DECISIONS.md) was removed from WelcomeScreen alongside Apple/Phone
+  // above (Founder, 2026-08-24) -- AuthRepository.signInAnonymously()
+  // itself is untouched, only this screen's button to it is gone.
+  testWidgets('Does not show a guest-mode button', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: WelcomeScreen(authRepository: authRepository),
     ));
 
-    expect(find.text('ทดลองใช้โดยไม่ต้องเข้าสู่ระบบ'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.text('ทดลองใช้โดยไม่ต้องเข้าสู่ระบบ'), findsNothing);
   });
 }

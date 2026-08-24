@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../data/auth_repository.dart';
-import 'phone_entry_screen.dart';
 import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 2 — Auth Method Selection.
@@ -57,27 +56,15 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
                 icon: const Icon(Icons.g_mobiledata),
                 label: const Text('เข้าสู่ระบบด้วย Google'),
               ),
-              const SizedBox(height: WynSpacing.space3),
-              FilledButton.icon(
-                onPressed: _isLoading
-                    ? null
-                    : () => _handle(widget.authRepository.signInWithApple),
-                icon: const Icon(Icons.apple),
-                label: const Text('เข้าสู่ระบบด้วย Apple'),
-              ),
-              const SizedBox(height: WynSpacing.space3),
-              OutlinedButton(
-                onPressed: _isLoading
-                    ? null
-                    : () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => PhoneEntryScreen(
-                              authRepository: widget.authRepository,
-                            ),
-                          ),
-                        ),
-                child: const Text('ใช้เบอร์โทรศัพท์แทน'),
-              ),
+              // Apple Sign-In and Phone/SMS OTP temporarily removed from
+              // this screen (Founder, 2026-08-24) -- Apple needs an Apple
+              // Developer account tied to iOS distribution, and Phone OTP
+              // needs a paid SMS provider (Twilio et al., per WYN-002's
+              // own deployment checklist) -- neither is set up yet.
+              // AuthRepository.signInWithApple()/sendPhoneOtp() and
+              // PhoneEntryScreen/OtpVerificationScreen are untouched, so
+              // re-adding either button back here is the only step
+              // needed once that provider is actually configured.
               if (_isLoading) ...[
                 const SizedBox(height: WynSpacing.space6),
                 const Center(child: CircularProgressIndicator()),
