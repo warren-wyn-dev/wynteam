@@ -1,6 +1,6 @@
 # Product Task — WYN-047
 
-Status: coded, awaiting QA
+Status: approved (Independent QA PASS + 1 Major finding fixed as fast-follow — ดูหัวข้อ "Independent QA" ท้ายไฟล์ — ส่งต่อ AI Deploy & DevOps)
 Owner: AI Product Manager
 
 Feature: Data Rights — Access, Correction, Deletion, Export, Account Deletion (PDPA)
@@ -71,3 +71,34 @@ Handoff: AI Design — ออกแบบ (1) section "ข้อมูลขอ�
 **Known Issue/Gap (ตั้งใจ ไม่ใช่บั๊ก)**: ไม่มี grace period สำหรับ Account Deletion (ตัดสินใจแล้วใน Product spec เพราะไม่มี cron infra) — สมมติฐานเรื่อง `auth.identities`/`auth.sessions`/`auth.refresh_tokens` cascade อัตโนมัติจาก Supabase ยังไม่ได้ verify กับ Supabase project จริง (ยังไม่มี)
 
 Handoff: AI QA & Security — **เน้นตรวจ destructive-RPC guarantees เป็นพิเศษ** ตามที่ Product's Risks ระบุไว้: **(ก) cascade ครบจริงทุกตาราง ไม่มี orphan record เหลือ** (ตรวจซ้ำอิสระ ไม่เชื่อ 37 checks เดิมอย่างเดียว), **(ข) ไม่มีทางลบ/export บัญชีคนอื่นได้เลยไม่ว่าด้วยวิธีใด** (probe adversarial เพิ่มเติม), **(ค) `export_my_data()` ไม่รั่วข้อมูลคนอื่นแม้แต่นิดเดียว** โดยเฉพาะจุดที่เกี่ยวกับการโต้ตอบข้ามบัญชี (Comment/Chat message), **(ง) UX ของ `DeleteAccountScreen` ป้องกันการกดพลาดได้จริง** (ทดสอบ near-miss ของข้อความยืนยัน)
+
+## Independent QA (2026-08-24) — PASS + พบ 1 Major finding แก้ทันทีเป็น fast-follow
+
+```
+Feature: WYN-047 Data Rights — Export + Account Deletion
+Environment: Flutter 3.47.1 (/opt/flutter), PostgreSQL 16 local, branch claude/wyn-044-0saj5u @ c3bb046 — ตรวจแบบ adversarial เข้มข้นกว่าปกติเพราะเป็น destructive RPC ที่ย้อนกลับไม่ได้
+
+Test Cases: flutter analyze/test เต็มชุดอิสระ, SQL 20 สคริปต์ทั้งหมด, check_schema_ordering.py, **seed user ครอบ 44 หมวดข้อมูลที่เป็นเจ้าของ** (มากกว่า 37 checks เดิมมาก รวมทุกตารางที่ Product ไม่ได้ระบุด้วย เช่น drop_drafts/follow_requests/blocks/mutes/push_tokens/user_document_acceptances/moderation_actions ทั้งในฐานะเป้าหมายและผู้ตรวจ/appeals/ZOKY tables) แล้วเรียก `delete_my_account()` ยืนยันว่าง 0 แถวทุกจุด, cross-user targeting probe ทุกมุม (เรียกด้วย parameter ตรงๆ, หา overload function, ทดสอบ role anon), `export_my_data()` leak testing เจาะจงจุดโต้ตอบข้ามบัญชี (Chat สองทิศทาง, Club membership ที่ไม่ใช่เจ้าของ, Comment ปนกับ Like), UX friction testing (near-miss confirmation text ทุกรูปแบบ, AlertDialog เป็น hard gate จริง, RPC fail ไม่ sign out), export content sanity (อ่าน JSON เต็มจริง)
+
+Passed: flutter analyze 0 issues, flutter test 714/714, SQL 20/20 สคริปต์ (wyn_047 37/37), check_schema_ordering.py OK, cascade completeness ผ่านครบ 44/44 หมวด (เกินกว่าที่ commit ไว้), cross-user targeting เป็นไปไม่ได้ทุกเส้นทาง, export ไม่รั่วข้อมูลคนอื่นแม้แต่จุดเดียว, UX friction ทำงานถูกต้องครบ
+
+Failed: ไม่มีข้อไหนที่ตรงกับ Acceptance Criteria/checks บังคับ FAIL — แต่พบ finding ใหม่ที่ไม่มีใครคาดไว้ก่อนหน้า (ดู Security Findings ข้อ 1)
+
+Security Findings:
+1. **[Major, พบใหม่] Ban evasion ผ่าน self-account-deletion**: ผู้ใช้ที่ถูก Restrict/Suspend/Ban เรียก `delete_my_account()` ได้สำเร็จ (ไม่มี guard ใดๆ) ลบ `moderation_actions`/`appeals` ของตัวเองทิ้งไปพร้อมบัญชี (cascade จาก `profiles`, WYN-029/030) แล้วสมัครบัญชีใหม่ได้แบบไม่มีประวัติ — ไม่ใช่การละเมิด requirement ที่ระบุไว้ตรงๆ (Product ไม่เคยพูดถึง Trust & Safety ของ RPC นี้เลย) แต่เป็นความสามารถใหม่ที่ WYN-047 เปิดขึ้นมาโดยไม่มีใครคิดถึงผลกระทบด้าน Safety
+2. **[Minor] `export_my_data()` ขาด Likes กับข้อมูล ZOKY/Shop**: ครบตามที่ Product's Requirement 1 ระบุทุกข้อ แต่ PDPA Access request ทั่วไปมักคาดหวัง Likes (สิ่งที่กดถูกใจ) และข้อมูล Shop (ร้าน/ตะกร้า/ออเดอร์/รีวิว — ระบบมีจริงแม้จะพักไว้) ด้วย — เสนอเป็น fast-follow แยกเหมือนที่ Product เคย exclude moderation data ไว้แล้ว
+3. **[Informational, ไม่ใช่ regression]** `reports.target_id` เป็น polymorphic ไม่มี FK (WYN-026 ตั้งใจ) — report ที่คนอื่นรายงานผู้ใช้ที่ถูกลบไปแล้วเหลือ UUID ค้างที่ไม่ resolve อะไร (พฤติกรรมเดิมตั้งแต่ก่อน WYN-047 ไม่ใช่ของใหม่)
+4. **[Open item]** สมมติฐาน `auth.identities`/`auth.sessions`/`auth.refresh_tokens` cascade อัตโนมัติยัง verify กับ Supabase project จริงไม่ได้ (ไม่มี) — QA ยืนยันว่า disclosure ของ Coding ตรงไปตรงมาไม่โอ้อวด — ต้อง verify ซ้ำตอน Deploy จริง
+
+Recommendation: อนุมัติ merge/deploy-readiness — แนะนำแก้ finding #1 ก่อนหรือทันทีหลัง PASS (ไม่ต้องรอ QA รอบใหม่)
+
+Final Status: PASS
+```
+
+### Fast-follow แก้ทันที (orchestrator, หลัง QA PASS) — ปิด finding #1 (Major)
+
+เพิ่ม guard ใน `delete_my_account()` เรียก `internal.is_posting_blocked(auth.uid())` (ฟังก์ชันเดิมที่ใช้ gate การโพสต์/คอมเมนต์อยู่แล้วทั่วสคีมา) — ถ้าอยู่ระหว่าง Restrict/Suspend ที่ยังไม่หมดอายุ หรือถูก Ban ถาวร → `raise exception` ปฏิเสธการลบบัญชีทันที ผู้ใช้ที่ Suspend หมดอายุแล้วยังลบได้ปกติ (ไม่ใช่การลงโทษถาวรเกินจริง) — เพิ่ม CHECK38-42 ใน `wyn_047_data_rights_test.sh` (banned ลบไม่ได้ + profile ยังอยู่, suspended active ลบไม่ได้, suspended ที่หมดอายุแล้วลบได้ + profile หายจริง) — รัน SQL ทั้ง 20 สคริปต์ซ้ำผ่านหมด
+
+**Deferred (ไม่ block, บันทึกเป็น backlog item เล็กสำหรับอนาคต)**: finding #2 (Likes/ZOKY ใน export) และ #4 (verify auth.* cascade กับ Supabase จริงตอน deploy) — ยังไม่ทำตอนนี้เพราะไม่กระทบความถูกต้อง/ความปลอดภัยของสิ่งที่ deliver แล้ว
+
+**ผลลัพธ์สุดท้าย**: **WYN-047 — PASS + ปิด Major finding ด้วย fast-follow** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — **Phase 6 เหลือ WYN-048 (Consent management, Audit log foundation, Security incident workflow) เป็น task สุดท้าย**
