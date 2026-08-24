@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/auth_repository.dart';
 import 'email_auth_screen.dart';
+import 'phone_entry_screen.dart';
 import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 2 — Auth Method Selection.
@@ -16,6 +17,15 @@ class AuthMethodScreen extends StatefulWidget {
 }
 
 class _AuthMethodScreenState extends State<AuthMethodScreen> {
+  // Temporarily hidden -- Phone/OTP sign-in is a real, supported auth
+  // method (approved by Founder, 2026-08-13) but the Supabase project's
+  // phone provider isn't enabled and no SMS provider (Twilio) is
+  // configured yet, so tapping through to PhoneEntryScreen and sending
+  // an OTP always fails server-side. Flip back to true once Twilio is
+  // set up -- see .wyn/company/DECISIONS.md, 2026-08-24 ("Phone Login
+  // ซ่อนชั่วคราว").
+  static const _phoneLoginEnabled = false;
+
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -58,10 +68,18 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
                 label: const Text('เข้าสู่ระบบด้วย Google'),
               ),
               const SizedBox(height: WynSpacing.space3),
+              FilledButton.icon(
+                onPressed: _isLoading
+                    ? null
+                    : () => _handle(widget.authRepository.signInWithApple),
+                icon: const Icon(Icons.apple),
+                label: const Text('เข้าสู่ระบบด้วย Apple'),
+              ),
+              const SizedBox(height: WynSpacing.space3),
               // Any email + any number of accounts (Founder, 2026-08-24)
-              // -- not tied to a single Google identity like the button
-              // above, so a tester can sign up with whatever address
-              // they want. See email_auth_screen.dart's own doc comment.
+              // -- not tied to a single Google/Apple identity, so a
+              // tester can sign up with whatever address they want. See
+              // email_auth_screen.dart's own doc comment.
               OutlinedButton(
                 onPressed: _isLoading
                     ? null
@@ -74,15 +92,21 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
                         ),
                 child: const Text('เข้าสู่ระบบด้วยอีเมล'),
               ),
-              // Apple Sign-In and Phone/SMS OTP temporarily removed from
-              // this screen (Founder, 2026-08-24) -- Apple needs an Apple
-              // Developer account tied to iOS distribution, and Phone OTP
-              // needs a paid SMS provider (Twilio et al., per WYN-002's
-              // own deployment checklist) -- neither is set up yet.
-              // AuthRepository.signInWithApple()/sendPhoneOtp() and
-              // PhoneEntryScreen/OtpVerificationScreen are untouched, so
-              // re-adding either button back here is the only step
-              // needed once that provider is actually configured.
+              if (_phoneLoginEnabled) ...[
+                const SizedBox(height: WynSpacing.space3),
+                OutlinedButton(
+                  onPressed: _isLoading
+                      ? null
+                      : () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => PhoneEntryScreen(
+                                authRepository: widget.authRepository,
+                              ),
+                            ),
+                          ),
+                  child: const Text('ใช้เบอร์โทรศัพท์แทน'),
+                ),
+              ],
               if (_isLoading) ...[
                 const SizedBox(height: WynSpacing.space6),
                 const Center(child: CircularProgressIndicator()),
