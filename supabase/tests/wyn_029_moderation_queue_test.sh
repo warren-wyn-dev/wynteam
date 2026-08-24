@@ -686,10 +686,14 @@ begin
 end
 $$;
 
--- CHECK20: the Drop is really gone (hard-deleted -- invisible to
--- everyone including its own author, exactly like self-delete).
-insert into results select 'CHECK20_removed_drop_gone', count(*), 0
-from public.drops where id = 'd0000000-0000-0000-0000-00000000000a';
+-- CHECK20: WYN-052 changed this -- Remove Content against a Drop now
+-- soft-deletes (reuses WYN-037's deleted_at) instead of a hard DELETE,
+-- so it can be restored via admin_restore_drop()/is rejected by a
+-- self-restore_drop() call (see wyn_052_admin_content_moderation_test.sh
+-- for the full restore-path coverage). The row itself still physically
+-- exists; deleted_at is what now carries "removed."
+insert into results select 'CHECK20_removed_drop_soft_deleted', count(*), 1
+from public.drops where id = 'd0000000-0000-0000-0000-00000000000a' and deleted_at is not null;
 
 -- CHECK21: frank got a moderation_content_removed notification with the
 -- reason, and it does NOT reference the now-deleted drop (drop_id left

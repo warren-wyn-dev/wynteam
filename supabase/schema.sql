@@ -8984,3 +8984,518 @@ join public.profiles p on p.id = ma.reviewer_id
 where internal.current_platform_role() <> 'user';
 
 grant select on public.admin_user_moderation_history to authenticated;
+
+-- ============================================================
+-- WYN-052: WYN Admin Content Moderation (Search Drop, Remove,
+-- Restore -- Drop only in V1)
+-- ============================================================
+-- See .wyn/tasks/backlog/WYN-052-admin-content-moderation.md and
+-- .wyn/docs/design/wyn-052-admin-content-moderation.md. Closes a real
+-- architecture gap found while drafting the spec: apply_moderation_action()'s
+-- remove_content branch (WYN-029) was a permanent hard DELETE with no
+-- restore path at all, and simply reusing drops.deleted_at (WYN-037's
+-- self-service soft-delete) for it as-is would let a Drop's own author
+-- self-restore content an Admin removed for breaking the rules, via
+-- restore_drop() -- which never distinguished *who* deleted it. Comment/
+-- Club Post have no soft-delete infrastructure to restore into and keep
+-- hard-deleting exactly as before, completely untouched by this task.
+
+-- Polymorphic pair mirroring reports.target_type/target_id (WYN-026) --
+-- nullable because most rows here still target a *user* directly
+-- (target_user_id, unchanged), not a piece of content. V1 only ever
+-- writes 'drop' here.
+alter table public.moderation_actions
+  add column if not exists target_content_type text;
+alter table public.moderation_actions
+  add column if not exists target_content_id uuid;
+
+alter table public.moderation_actions
+  add constraint moderation_actions_target_content_type_check
+  check (target_content_type is null or target_content_type = 'drop');
+
+alter table public.moderation_actions
+  add constraint moderation_actions_target_content_pairing_check
+  check ((target_content_type is null) = (target_content_id is null));
+
+create index if not exists moderation_actions_target_content_idx
+  on public.moderation_actions (target_content_type, target_content_id)
+  where target_content_type is not null;
+
+-- The core security fix: restore_drop() (WYN-037, self-service) now
+-- refuses to restore a Drop that carries a still-active
+-- ('overturned_at is null') moderation remove_content action against
+-- it -- the exact self-restore-defeats-moderation bypass the Product
+-- spec's Requirement 2 describes. A self-deleted Drop (no such row at
+-- all) is completely unaffected -- the Product spec's Acceptance
+-- Criteria calls this regression case out explicitly.
+create or replace function public.restore_drop(p_drop_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_drop record;
+begin
+  select * into v_drop from public.drops where id = p_drop_id for update;
+  if v_drop is null then
+    raise exception 'Drop not found';
+  end if;
+  if v_drop.author_id <> v_me then
+    raise exception 'Only the author can restore this Drop';
+  end if;
+  if v_drop.deleted_at is null then
+    raise exception 'Drop is not deleted';
+  end if;
+
+  if exists (
+    select 1 from public.moderation_actions
+    where target_content_type = 'drop'
+      and target_content_id = p_drop_id
+      and action_type = 'remove_content'
+      and overturned_at is null
+  ) then
+    raise exception 'เนื้อหานี้ถูกลบโดยผู้ดูแลระบบ ติดต่อผ่านการอุทธรณ์เท่านั้น';
+  end if;
+
+  if v_drop.deleted_at <= now() - interval '30 days' then
+    raise exception 'The 30-day restore window has passed';
+  end if;
+
+  update public.drops set deleted_at = null where id = p_drop_id;
+end;
+$$;
+
+grant execute on function public.restore_drop(uuid) to authenticated;
+
+-- apply_moderation_action() (WYN-029) redefined: remove_content against
+-- a Drop now soft-deletes (reuses soft_delete_drop()'s own deleted_at
+-- column) and records target_content_type/target_content_id on the
+-- moderation_actions row it inserts, instead of a permanent hard
+-- DELETE -- so a Report-driven Remove Content is restorable via
+-- admin_restore_drop() below exactly like a direct admin_remove_drop()
+-- one, and is caught by restore_drop()'s new guard above the same way.
+-- drop_comment/club_post/club_post_comment are completely untouched --
+-- still an immediate hard DELETE, per the Product spec's Requirement 1.
+create or replace function public.apply_moderation_action(
+  p_report_id uuid,
+  p_action_type text,
+  p_reason text,
+  p_duration_days integer default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_reviewer uuid := auth.uid();
+  v_reviewer_role text;
+  v_report record;
+  v_target_user uuid;
+  v_target_content_type text;
+  v_target_content_id uuid;
+  v_expires_at timestamptz;
+  v_trimmed_reason text := trim(coalesce(p_reason, ''));
+  v_action_id uuid;
+begin
+  if v_reviewer is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select platform_role into v_reviewer_role from public.profiles where id = v_reviewer;
+  if v_reviewer_role is null or v_reviewer_role = 'user' then
+    raise exception 'Not authorized';
+  end if;
+
+  if p_action_type not in ('no_action', 'warning', 'remove_content', 'restrict', 'suspend', 'ban') then
+    raise exception 'Invalid action_type: %', p_action_type;
+  end if;
+
+  if length(v_trimmed_reason) = 0 then
+    raise exception 'Reason is required';
+  end if;
+
+  select * into v_report from public.reports where id = p_report_id for update;
+  if v_report is null then
+    raise exception 'Report not found';
+  end if;
+  if v_report.status not in ('pending', 'reviewing') then
+    raise exception 'Report has already been actioned';
+  end if;
+
+  if v_report.target_type = 'user' then
+    v_target_user := v_report.target_id;
+  elsif v_report.target_type = 'drop' then
+    select author_id into v_target_user from public.drops where id = v_report.target_id;
+  elsif v_report.target_type = 'drop_comment' then
+    select author_id into v_target_user from public.drop_comments where id = v_report.target_id;
+  elsif v_report.target_type = 'club' then
+    select owner_id into v_target_user from public.clubs where id = v_report.target_id;
+  elsif v_report.target_type = 'club_post' then
+    select author_id into v_target_user from public.club_posts where id = v_report.target_id;
+  elsif v_report.target_type = 'club_post_comment' then
+    select author_id into v_target_user from public.club_post_comments where id = v_report.target_id;
+  else
+    raise exception 'Unsupported report target type: %', v_report.target_type;
+  end if;
+
+  -- Remove Content only applies to content targets, per the Product
+  -- spec ("เฉพาะ target ที่เป็นเนื้อหา ไม่ใช้กับ target ที่เป็น User/Club").
+  if p_action_type = 'remove_content' and v_report.target_type in ('user', 'club') then
+    raise exception 'Remove Content is not supported for target type %', v_report.target_type;
+  end if;
+
+  -- Every action except No Action needs a real account to act on -- if
+  -- the target vanished before review (deleted by its own author, or by
+  -- an earlier Remove Content against a different report on the same
+  -- content), only No Action can still close the case.
+  if v_target_user is null and p_action_type <> 'no_action' then
+    raise exception 'Target no longer exists -- use No Action to close this report';
+  end if;
+
+  if p_action_type in ('restrict', 'suspend') then
+    if p_duration_days is null or p_duration_days not in (1, 3, 7) then
+      raise exception 'duration_days must be 1, 3, or 7 for % ', p_action_type;
+    end if;
+    v_expires_at := now() + (p_duration_days || ' days')::interval;
+  else
+    v_expires_at := null;
+  end if;
+
+  -- WYN-052: only a Drop gets restorable tracking -- other content
+  -- types have no soft-delete infra to point this at (see the section
+  -- comment above).
+  if p_action_type = 'remove_content' and v_report.target_type = 'drop' then
+    v_target_content_type := 'drop';
+    v_target_content_id := v_report.target_id;
+  end if;
+
+  insert into public.moderation_actions (
+    report_id, target_user_id, action_type, reason, duration_days, expires_at,
+    reviewer_id, target_content_type, target_content_id
+  ) values (
+    p_report_id,
+    v_target_user,
+    p_action_type,
+    v_trimmed_reason,
+    case when p_action_type in ('restrict', 'suspend') then p_duration_days else null end,
+    v_expires_at,
+    v_reviewer,
+    v_target_content_type,
+    v_target_content_id
+  )
+  returning id into v_action_id;
+
+  update public.reports
+  set status = case when p_action_type = 'no_action' then 'dismissed' else 'actioned' end
+  where id = p_report_id;
+
+  -- actor_id is deliberately NULL for both effects below (WYN-029 fix,
+  -- see .wyn/tasks/bugs/WYN-029-moderation-actor-identity-leak.md) --
+  -- v_reviewer must never be written here, since notifications.actor_id
+  -- is a plain, target-readable column (RLS is row-level, not column-
+  -- level), unlike moderation_actions.reviewer_id which has no client
+  -- SELECT access at all and remains the only correctly-protected place
+  -- this identity is recorded.
+  if p_action_type = 'warning' then
+    insert into public.notifications (recipient_id, actor_id, type, reason, moderation_action_id, moderation_action_type)
+    values (v_target_user, null, 'moderation_warning', v_trimmed_reason, v_action_id, p_action_type);
+  elsif p_action_type = 'remove_content' then
+    -- Notification inserted *before* the removal below on purpose: both
+    -- drop_id/club_post_id etc. are left null on this notification (see
+    -- the notifications_type_check migration further down), so nothing
+    -- here references the row about to be removed and there is no
+    -- on-delete-cascade ordering hazard either way -- but inserting
+    -- first keeps the "notify, then remove" sequence readable as the
+    -- two-step user-facing effect the design doc describes.
+    insert into public.notifications (recipient_id, actor_id, type, reason, moderation_action_id, moderation_action_type)
+    values (v_target_user, null, 'moderation_content_removed', v_trimmed_reason, v_action_id, p_action_type);
+
+    -- WYN-052: Drop now soft-deletes (restorable, see admin_restore_drop()
+    -- below and restore_drop()'s new guard above) instead of a hard
+    -- DELETE -- drop_comment/club_post/club_post_comment are unchanged,
+    -- still an immediate hard DELETE (design doc's Screen 5 effect,
+    -- unmodified for those 3 types: "hidden from everyone including the
+    -- author").
+    if v_report.target_type = 'drop' then
+      update public.drops set deleted_at = now() where id = v_report.target_id and deleted_at is null;
+    elsif v_report.target_type = 'drop_comment' then
+      delete from public.drop_comments where id = v_report.target_id;
+    elsif v_report.target_type = 'club_post' then
+      delete from public.club_posts where id = v_report.target_id;
+    elsif v_report.target_type = 'club_post_comment' then
+      delete from public.club_post_comments where id = v_report.target_id;
+    end if;
+  end if;
+
+  -- WYN-048: audit trail for this privileged action, recorded after
+  -- everything above has already succeeded. actor_id is the real
+  -- reviewer identity (v_reviewer) -- unlike the notifications inserted
+  -- above (which deliberately null out actor_id so the target never
+  -- learns who reviewed them), audit_log has zero client-facing SELECT
+  -- policy at all, so recording the true reviewer here creates no such
+  -- leak. No exception handling around this call: if it raises, the
+  -- whole action rolls back (fail-closed) rather than letting a
+  -- privileged moderation action succeed unlogged -- see
+  -- internal.log_audit_event()'s own comment (WYN-048 section) for why
+  -- that failure mode is realistically never hit anyway.
+  perform internal.log_audit_event(
+    v_reviewer,
+    'moderation_action_applied',
+    v_target_user,
+    jsonb_build_object('action_type', p_action_type, 'reason', v_trimmed_reason)
+  );
+end;
+$$;
+
+grant execute on function public.apply_moderation_action(uuid, text, text, integer) to authenticated;
+
+-- Extend audit_log's event_type check constraint with this task's 2 new
+-- event types, same drop+recreate pattern WYN-051 already used.
+do $$
+declare
+  v_constraint_name text;
+begin
+  select tc.constraint_name into v_constraint_name
+  from information_schema.table_constraints tc
+  join information_schema.constraint_column_usage ccu
+    on ccu.constraint_name = tc.constraint_name
+   and ccu.constraint_schema = tc.constraint_schema
+  where tc.table_schema = 'public'
+    and tc.table_name = 'audit_log'
+    and tc.constraint_type = 'CHECK'
+    and ccu.column_name = 'event_type';
+
+  if v_constraint_name is not null then
+    execute format('alter table public.audit_log drop constraint %I', v_constraint_name);
+  end if;
+end;
+$$;
+
+alter table public.audit_log
+  add constraint audit_log_event_type_check
+  check (event_type in (
+    'moderation_action_applied', 'appeal_decided',
+    'system_notification_sent', 'account_deleted', 'data_exported',
+    'admin_user_action_applied', 'admin_user_unbanned',
+    'admin_content_removed', 'admin_content_restored'
+  ));
+
+-- Direct Remove, not tied to a Report -- mirrors admin_apply_user_action()
+-- (WYN-051) exactly: coalesce() role guard (WYN-050's lesson), no Report
+-- lookup, notification via the existing moderation_content_removed type
+-- apply_moderation_action() already sends. Soft-deletes through the same
+-- deleted_at column self-delete uses (soft_delete_drop(), WYN-037)
+-- rather than a parallel flag, so every other consumer of deleted_at
+-- (RLS SELECT policy, is_drop_deleted(), the 30-day purge boundary)
+-- needs zero changes.
+create or replace function public.admin_remove_drop(
+  p_drop_id uuid,
+  p_reason text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_reviewer uuid := auth.uid();
+  v_trimmed_reason text := trim(coalesce(p_reason, ''));
+  v_drop record;
+  v_action_id uuid;
+begin
+  if coalesce(internal.current_platform_role(), '') not in ('admin', 'moderator') then
+    raise exception 'Not authorized';
+  end if;
+
+  if length(v_trimmed_reason) = 0 then
+    raise exception 'Reason is required';
+  end if;
+
+  select * into v_drop from public.drops where id = p_drop_id for update;
+  if v_drop is null then
+    raise exception 'Drop not found';
+  end if;
+  if v_drop.deleted_at is not null then
+    raise exception 'Drop is already deleted';
+  end if;
+
+  update public.drops set deleted_at = now() where id = p_drop_id;
+
+  insert into public.moderation_actions (
+    report_id, target_user_id, action_type, reason,
+    target_content_type, target_content_id, reviewer_id
+  ) values (
+    null, v_drop.author_id, 'remove_content', v_trimmed_reason,
+    'drop', p_drop_id, v_reviewer
+  )
+  returning id into v_action_id;
+
+  insert into public.notifications (recipient_id, actor_id, type, reason, moderation_action_id, moderation_action_type)
+  values (v_drop.author_id, null, 'moderation_content_removed', v_trimmed_reason, v_action_id, 'remove_content');
+
+  perform internal.log_audit_event(
+    v_reviewer,
+    'admin_content_removed',
+    v_drop.author_id,
+    jsonb_build_object('target_content_type', 'drop', 'target_content_id', p_drop_id, 'reason', v_trimmed_reason)
+  );
+end;
+$$;
+
+grant execute on function public.admin_remove_drop(uuid, text) to authenticated;
+
+-- Admin/moderator restore -- distinct from self-service restore_drop()
+-- above because the authorization/eligibility rules are entirely
+-- different (any Admin/Moderator, any Drop, regardless of who deleted
+-- it or how long ago -- no 30-day window, no author check). Works for a
+-- self-deleted Drop too (Design spec's Screen 2: an Admin may restore on
+-- a user's behalf after they reach out) -- the moderation_actions update
+-- below is then simply a no-op (0 rows), which is correct: there is no
+-- moderation action to mark overturned in that case.
+create or replace function public.admin_restore_drop(
+  p_drop_id uuid,
+  p_reason text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_reviewer uuid := auth.uid();
+  v_trimmed_reason text := trim(coalesce(p_reason, ''));
+  v_drop record;
+begin
+  if coalesce(internal.current_platform_role(), '') not in ('admin', 'moderator') then
+    raise exception 'Not authorized';
+  end if;
+
+  if length(v_trimmed_reason) = 0 then
+    raise exception 'Reason is required';
+  end if;
+
+  select * into v_drop from public.drops where id = p_drop_id for update;
+  if v_drop is null then
+    raise exception 'Drop not found';
+  end if;
+  if v_drop.deleted_at is null then
+    raise exception 'Drop is not deleted';
+  end if;
+
+  update public.drops set deleted_at = null where id = p_drop_id;
+
+  update public.moderation_actions
+  set overturned_at = now()
+  where target_content_type = 'drop'
+    and target_content_id = p_drop_id
+    and action_type = 'remove_content'
+    and overturned_at is null;
+
+  perform internal.log_audit_event(
+    v_reviewer,
+    'admin_content_restored',
+    v_drop.author_id,
+    jsonb_build_object('target_content_type', 'drop', 'target_content_id', p_drop_id, 'reason', v_trimmed_reason)
+  );
+end;
+$$;
+
+grant execute on function public.admin_restore_drop(uuid, text) to authenticated;
+
+-- Admin/moderator Drop search -- SECURITY DEFINER so it bypasses drops'
+-- own SELECT policy entirely (block/private-account/deleted gating,
+-- WYN-027/037/039), the same mechanism is_posting_blocked() etc.
+-- already rely on, per the Product spec's Requirement 3 ("เห็น Drop
+-- ทุกโพสต์แม้ของบัญชี Private/ที่ Block กันอยู่"). A plain view can't take a
+-- query parameter cleanly, so this is a function rather than mirroring
+-- moderation_queue's view shape directly.
+create or replace function public.admin_search_drops(p_query text)
+returns table (
+  id uuid,
+  image_url text,
+  caption text,
+  author_id uuid,
+  author_username text,
+  deleted_at timestamptz,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if coalesce(internal.current_platform_role(), '') not in ('admin', 'moderator') then
+    raise exception 'Not authorized';
+  end if;
+
+  return query
+  select d.id, d.image_url, d.caption, d.author_id, p.username, d.deleted_at, d.created_at
+  from public.drops d
+  join public.profiles p on p.id = d.author_id
+  where d.caption ilike '%' || p_query || '%' or p.username ilike '%' || p_query || '%'
+  order by d.created_at desc
+  limit 30;
+end;
+$$;
+
+grant execute on function public.admin_search_drops(text) to authenticated;
+
+-- Single-Drop fetch for Screen 2, same bypass/authorization shape as
+-- admin_search_drops() above -- needed because navigating straight to
+-- /moderation/[id] doesn't go through the search results at all.
+create or replace function public.admin_get_drop(p_drop_id uuid)
+returns table (
+  id uuid,
+  image_url text,
+  caption text,
+  author_id uuid,
+  author_username text,
+  deleted_at timestamptz,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if coalesce(internal.current_platform_role(), '') not in ('admin', 'moderator') then
+    raise exception 'Not authorized';
+  end if;
+
+  return query
+  select d.id, d.image_url, d.caption, d.author_id, p.username, d.deleted_at, d.created_at
+  from public.drops d
+  join public.profiles p on p.id = d.author_id
+  where d.id = p_drop_id;
+end;
+$$;
+
+grant execute on function public.admin_get_drop(uuid) to authenticated;
+
+-- Extend admin_user_moderation_history (WYN-051) with the 2 new
+-- columns rather than a parallel view, per the Product spec's
+-- Requirement 3 -- existing consumers (WYN-051's /users/[id] page,
+-- filtering by target_user_id) are unaffected by 2 additional nullable
+-- columns; this task's /moderation/[id] page filters the same view by
+-- target_content_id instead.
+create or replace view public.admin_user_moderation_history as
+select
+  ma.id,
+  ma.target_user_id,
+  ma.action_type,
+  ma.reason,
+  ma.duration_days,
+  ma.expires_at,
+  ma.overturned_at,
+  ma.created_at,
+  p.username as reviewer_username,
+  ma.target_content_type,
+  ma.target_content_id
+from public.moderation_actions ma
+join public.profiles p on p.id = ma.reviewer_id
+where internal.current_platform_role() <> 'user';
+
+grant select on public.admin_user_moderation_history to authenticated;

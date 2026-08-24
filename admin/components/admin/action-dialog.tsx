@@ -43,7 +43,7 @@ export function ActionDialog({
   onConfirm,
 }: {
   triggerLabel: string;
-  triggerVariant?: "outline" | "default";
+  triggerVariant?: "outline" | "default" | "destructive";
   triggerDisabled?: boolean;
   title: string;
   description?: string;
@@ -136,6 +136,7 @@ export function ActionDialog({
         <DialogFooter>
           <Button
             type="button"
+            variant={triggerVariant === "outline" ? "default" : triggerVariant}
             disabled={!canConfirm}
             aria-busy={isPending}
             onClick={handleConfirm}
