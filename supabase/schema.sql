@@ -8241,3 +8241,162 @@ insert into public.platform_documents (type, version, title, content, effective_
 - ผลของการอุทธรณ์$doc$,
   now()
 );
+
+-- ============================================================
+-- WYN-047: Data Rights (PDPA) -- Data Export + Account Deletion
+-- ============================================================
+-- See .wyn/tasks/backlog/WYN-047-data-rights.md and
+-- .wyn/docs/design/wyn-047-data-rights.md. Second task of Phase 6
+-- (Legal & Compliance Layer, Master Spec section 28). Data Access and
+-- Data Correction are already satisfied by existing screens (Edit
+-- Profile, Following/Followers, Saved, Notification/Privacy settings)
+-- and content-level Data Deletion is already satisfied by existing
+-- per-item delete/unfollow/unsave affordances (WYN-005/006/008/037) --
+-- nothing new to build for either of those. This section only adds
+-- the two rights that had zero mechanism at all: exporting a copy of
+-- one's own data, and deleting the account itself.
+
+-- export_my_data(): SECURITY DEFINER + no parameters, always operates
+-- on auth.uid() -- there is no way to pass another user's id in, so
+-- this can never be used to read anyone else's data. `stable` (not
+-- `volatile`) because it only reads. Every branch below filters by
+-- the caller's own id even though SECURITY DEFINER already bypasses
+-- each table's RLS -- the filter, not RLS, is what keeps this scoped
+-- to "my data" (the same discipline internal.notification_enabled()'s
+-- own comment block above explains for a different reason).
+--
+-- Drops: mirrors internal.is_drop_deleted()/restore_drop()'s own
+-- 30-day cutoff (see restore_drop() above, "deleted_at <= now() -
+-- interval '30 days'" raises) -- a soft-deleted Drop still inside its
+-- restore window is still the user's own recoverable data and belongs
+-- in an Access/Export request; one that has aged out of the window is
+-- gone for good (same content a fresh restore_drop() call would now
+-- reject), so it is excluded here too.
+--
+-- Deliberately NOT included (Product's explicit scope decision, see
+-- Requirement 1's "ไม่รวมโดยเจตนา"): moderation_actions, reports
+-- (filed by or against the caller), and appeals. WYN-026/029 built a
+-- specific privacy protection where a reporter's identity is never
+-- revealed to the person they reported -- folding report rows into
+-- this export (which the reported user could request for themselves)
+-- would be a backdoor around that protection.
+create or replace function public.export_my_data()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'exported_at', now(),
+    'profile', (
+      select to_jsonb(p) from public.profiles p where p.id = auth.uid()
+    ),
+    'drops', (
+      select coalesce(jsonb_agg(to_jsonb(d) order by d.created_at), '[]'::jsonb)
+      from public.drops d
+      where d.author_id = auth.uid()
+        and (d.deleted_at is null or d.deleted_at > now() - interval '30 days')
+    ),
+    'pops', (
+      select coalesce(jsonb_agg(to_jsonb(pp) order by pp.created_at), '[]'::jsonb)
+      from public.pops pp
+      where pp.author_id = auth.uid()
+    ),
+    'drop_comments', (
+      select coalesce(jsonb_agg(to_jsonb(c) order by c.created_at), '[]'::jsonb)
+      from public.drop_comments c
+      where c.author_id = auth.uid()
+    ),
+    'pop_comments', (
+      select coalesce(jsonb_agg(to_jsonb(c) order by c.created_at), '[]'::jsonb)
+      from public.pop_comments c
+      where c.author_id = auth.uid()
+    ),
+    'club_post_comments', (
+      select coalesce(jsonb_agg(to_jsonb(c) order by c.created_at), '[]'::jsonb)
+      from public.club_post_comments c
+      where c.author_id = auth.uid()
+    ),
+    'following', (
+      select coalesce(jsonb_agg(to_jsonb(f) order by f.created_at), '[]'::jsonb)
+      from public.follows f
+      where f.follower_id = auth.uid()
+    ),
+    'followers', (
+      select coalesce(jsonb_agg(to_jsonb(f) order by f.created_at), '[]'::jsonb)
+      from public.follows f
+      where f.following_id = auth.uid()
+    ),
+    'saves', (
+      select coalesce(jsonb_agg(to_jsonb(s) order by s.created_at), '[]'::jsonb)
+      from public.saves s
+      where s.user_id = auth.uid()
+    ),
+    'club_memberships', (
+      select coalesce(jsonb_agg(to_jsonb(cm) order by cm.created_at), '[]'::jsonb)
+      from public.club_members cm
+      where cm.user_id = auth.uid()
+    ),
+    'notification_settings', (
+      select to_jsonb(ns) from public.notification_settings ns where ns.user_id = auth.uid()
+    ),
+    'sent_messages', (
+      select coalesce(jsonb_agg(to_jsonb(m) order by m.created_at), '[]'::jsonb)
+      from public.messages m
+      where m.sender_id = auth.uid()
+    )
+  );
+$$;
+
+-- Unlike most other SECURITY DEFINER helpers in this file (which are
+-- only ever called from other SECURITY DEFINER functions/triggers and
+-- so deliberately omit this grant, see notification_enabled()'s
+-- comment above), this one is legitimately called directly by the
+-- Flutter client from the Settings screen -- it has no caller-
+-- supplied "whose data" parameter for that grant to leak, only
+-- auth.uid(), so granting it to `authenticated` is safe.
+grant execute on function public.export_my_data() to authenticated;
+
+-- delete_my_account(): SECURITY DEFINER + no parameters, always
+-- operates on auth.uid() -- there is no way to pass another user's id
+-- in, so this can never be used to delete anyone else's account.
+-- Deletes the auth.users row directly; the 88 `on delete cascade` FKs
+-- already in this file (all ultimately rooted at
+-- public.profiles.id references auth.users(id) on delete cascade)
+-- remove every public.* row belonging to that user transitively --
+-- Drop/Pop/Comment/Like/Follow/Save/Club membership/Chat message/
+-- Notification/Settings/everything.
+--
+-- Inspected whether anything beyond `auth.users` itself needs an
+-- explicit delete: every stub `auth.users` table this project's own
+-- supabase/tests/*.sh scripts define (all ~17 of them) only ever
+-- creates `auth.users (id, email)` -- none of them, and no other file
+-- in this repo, references auth.identities/auth.sessions/
+-- auth.refresh_tokens/auth.mfa_factors/auth.one_time_tokens anywhere.
+-- Real Supabase's own managed auth schema already defines those with
+-- `on delete cascade` back to auth.users(id) (Supabase's Auth service
+-- is the thing that creates/owns that schema, not this project's
+-- schema.sql), so deleting the auth.users row alone is sufficient --
+-- there is nothing for this function to delete from those tables
+-- itself, and nothing in this codebase to stub/test against for them
+-- either. No grace period, no soft-delete: irreversible and
+-- immediate, per Product's decision (no cron/scheduled-job
+-- infrastructure exists anywhere in this project to ever purge a
+-- "pending deletion" state -- see WYN-030/043's identical reasoning).
+create or replace function public.delete_my_account()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+
+grant execute on function public.delete_my_account() to authenticated;

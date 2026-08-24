@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../block/data/block_repository.dart';
@@ -19,7 +22,9 @@ import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../saved/data/saved_repository.dart';
+import '../data/data_rights_repository.dart';
 import '../data/notification_settings_repository.dart';
+import 'delete_account_screen.dart';
 import 'notification_settings_screen.dart';
 import '../../../core/design/wyn_spacing.dart';
 
@@ -45,6 +50,7 @@ class SettingsScreen extends StatefulWidget {
     this.mentionPermission = InteractionPermission.everyone,
     this.commentPermission = InteractionPermission.everyone,
     this.profileRepository,
+    this.dataRightsRepository,
   });
 
   /// Passed in directly from ViewProfileScreen's already-fetched own
@@ -79,6 +85,10 @@ class SettingsScreen extends StatefulWidget {
   /// optionally (see ViewProfileScreen's own comment on the pattern).
   final ProfileRepository? profileRepository;
 
+  /// Same "optional/defaulted" shape as [profileRepository] -- WYN-047's
+  /// export/delete RPCs.
+  final DataRightsRepository? dataRightsRepository;
+
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
@@ -86,8 +96,12 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   late final ProfileRepository _profileRepository =
       widget.profileRepository ?? ProfileRepository(Supabase.instance.client);
+  late final DataRightsRepository _dataRightsRepository =
+      widget.dataRightsRepository ??
+          DataRightsRepository(Supabase.instance.client);
   late bool _isPrivate = widget.isPrivate;
   bool _isTogglingPrivate = false;
+  bool _isExporting = false;
 
   late InteractionPermission _dmPermission = widget.dmPermission;
   late InteractionPermission _mentionPermission = widget.mentionPermission;
@@ -160,6 +174,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
+    }
+  }
+
+  /// WYN-047's "ดาวน์โหลดข้อมูลของฉัน" row -- calls export_my_data()
+  /// directly from this row's onTap, no separate screen (Design spec:
+  /// read-only, no risk, no extra friction needed). Shows a small
+  /// spinner in the row's leading icon slot while in flight, then
+  /// hands the JSON straight to the OS share sheet as an in-memory
+  /// file (`XFile.fromData`) -- no need to write it to device storage
+  /// first, so no new storage permission either.
+  Future<void> _exportData() async {
+    if (_isExporting) return;
+    setState(() => _isExporting = true);
+    try {
+      final json = await _dataRightsRepository.exportMyData();
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [
+            XFile.fromData(
+              utf8.encode(json),
+              mimeType: 'application/json',
+              name: 'wyn-data-export.json',
+            ),
+          ],
+          subject: 'ข้อมูลของฉันจาก WYN',
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('ดาวน์โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
     }
   }
 
@@ -355,6 +404,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
           ],
+          // WYN-047 -- right before "กฎหมาย" (still one of the last
+          // sections, but not the very last one -- "ข้อมูลของฉัน" is an
+          // action a user actually needs occasionally, unlike the legal
+          // reference documents below that almost nobody ever opens).
+          // See .wyn/docs/design/wyn-047-data-rights.md.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              WynSpacing.space4,
+              WynSpacing.space4,
+              WynSpacing.space4,
+              WynSpacing.space1,
+            ),
+            child: Text(
+              'ข้อมูลของฉัน',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+            ),
+          ),
+          ListTile(
+            leading: _isExporting
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.download_outlined),
+            title: const Text('ดาวน์โหลดข้อมูลของฉัน'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _isExporting ? null : _exportData,
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_forever_outlined),
+            title: const Text('ลบบัญชี'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => DeleteAccountScreen(
+                    dataRightsRepository: _dataRightsRepository,
+                  ),
+                ),
+              );
+            },
+          ),
           // WYN-046 -- always the very last section on the page,
           // regardless of platformRole (unlike "เครื่องมือผู้ดูแล" above,
           // which is conditional) -- these are read-only reference
@@ -454,7 +548,8 @@ String _permissionLabel(InteractionPermission value) => switch (value) {
 String _permissionDescription(InteractionPermission value) => switch (value) {
       InteractionPermission.everyone =>
         'ค่าเริ่มต้น — ทุกคนทำได้ ยกเว้นบัญชีที่บล็อกกัน',
-      InteractionPermission.peopleIFollow => 'เฉพาะบัญชีที่คุณติดตามอยู่เท่านั้น',
+      InteractionPermission.peopleIFollow =>
+        'เฉพาะบัญชีที่คุณติดตามอยู่เท่านั้น',
       InteractionPermission.noOne => 'ปิดทั้งหมด ไม่มีข้อยกเว้น',
     };
 
