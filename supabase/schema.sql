@@ -8384,6 +8384,16 @@ grant execute on function public.export_my_data() to authenticated;
 -- immediate, per Product's decision (no cron/scheduled-job
 -- infrastructure exists anywhere in this project to ever purge a
 -- "pending deletion" state -- see WYN-030/043's identical reasoning).
+-- QA finding (2026-08-24, WYN-047 round 1): before this guard, a
+-- Restricted/Suspended/Banned account could call this RPC to erase
+-- its own moderation_actions/appeals rows outright (both reference
+-- public.profiles(id) on delete cascade -- WYN-029/030) and sign up
+-- again with a clean slate, evading the sanction entirely. Reuses
+-- internal.is_posting_blocked() -- the same "currently under an
+-- active restrict/suspend/ban" check already gating content creation
+-- elsewhere (drop_comments/pop_comments' INSERT policies, etc.) --
+-- rather than inventing a second definition of "blocked" for this one
+-- call site.
 create or replace function public.delete_my_account()
 returns void
 language plpgsql
@@ -8393,6 +8403,10 @@ as $$
 begin
   if auth.uid() is null then
     raise exception 'Not authenticated';
+  end if;
+
+  if internal.is_posting_blocked(auth.uid()) then
+    raise exception 'Cannot delete account while a moderation action is active';
   end if;
 
   delete from auth.users where id = auth.uid();

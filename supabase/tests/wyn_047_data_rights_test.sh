@@ -25,6 +25,10 @@
 #      parameter -- pg_get_function_arguments() confirms both
 #      signatures are argument-less, so there is no way to target
 #      another user via either RPC.
+#   7. (QA round 1 finding, fast-followed) delete_my_account() refuses
+#      a banned or actively-suspended user (ban-evasion-via-self-
+#      deletion guard), but allows one whose suspend has already
+#      expired -- reuses internal.is_posting_blocked().
 #
 # Requirements: a local PostgreSQL 16 server reachable either as the
 # current OS user or via `sudo -u postgres` (mirrors
@@ -472,6 +476,102 @@ insert into results select 'CHECK37_delete_my_account_is_argument_less',
    where proname = 'delete_my_account'
      and pronamespace = 'public'::regnamespace)::int,
   1;
+
+-- ------------------------------------------------------------
+-- CHECK 38-42 (QA round 1 finding, fast-followed): delete_my_account()
+-- must refuse a Restricted/Suspended/Banned account -- otherwise a
+-- sanctioned user could erase moderation_actions/appeals (both
+-- `on delete cascade` from public.profiles) via self-deletion and
+-- sign up again with a clean slate, evading the sanction entirely.
+-- Reuses internal.is_posting_blocked(), the same check already gating
+-- content creation elsewhere.
+-- ------------------------------------------------------------
+insert into auth.users (id, email) values
+  ('67000000-0000-0000-0000-000000000005', 'erin047@test.com'),
+  ('67000000-0000-0000-0000-000000000006', 'frank047@test.com'),
+  ('67000000-0000-0000-0000-000000000007', 'grace047@test.com'),
+  ('67000000-0000-0000-0000-000000000008', 'modx047@test.com');
+
+insert into public.profiles (id, username, display_name, platform_role, is_private) values
+  ('67000000-0000-0000-0000-000000000005', 'erin047', 'erin', 'user', false),
+  ('67000000-0000-0000-0000-000000000006', 'frank047', 'frank', 'user', false),
+  ('67000000-0000-0000-0000-000000000007', 'grace047', 'grace', 'user', false),
+  ('67000000-0000-0000-0000-000000000008', 'modx047', 'modx', 'moderator', false);
+
+insert into public.reports (id, reporter_id, target_type, target_id, category, status) values
+  ('67100000-0000-0000-0000-0000000000e1', '67000000-0000-0000-0000-000000000008', 'user', '67000000-0000-0000-0000-000000000005', 'harassment', 'actioned'),
+  ('67100000-0000-0000-0000-0000000000e2', '67000000-0000-0000-0000-000000000008', 'user', '67000000-0000-0000-0000-000000000006', 'harassment', 'actioned'),
+  ('67100000-0000-0000-0000-0000000000e3', '67000000-0000-0000-0000-000000000008', 'user', '67000000-0000-0000-0000-000000000007', 'harassment', 'actioned');
+
+-- erin: permanent ban.
+insert into public.moderation_actions (report_id, target_user_id, action_type, reason, reviewer_id) values
+  ('67100000-0000-0000-0000-0000000000e1', '67000000-0000-0000-0000-000000000005', 'ban', 'test ban', '67000000-0000-0000-0000-000000000008');
+-- frank: active suspend (expires in the future).
+insert into public.moderation_actions (report_id, target_user_id, action_type, reason, duration_days, expires_at, reviewer_id) values
+  ('67100000-0000-0000-0000-0000000000e2', '67000000-0000-0000-0000-000000000006', 'suspend', 'test suspend', 7, now() + interval '7 days', '67000000-0000-0000-0000-000000000008');
+-- grace: suspend that already expired -- must NOT block deletion
+-- (is_posting_blocked() only counts restrict/suspend while
+-- expires_at > now()).
+insert into public.moderation_actions (report_id, target_user_id, action_type, reason, duration_days, expires_at, reviewer_id) values
+  ('67100000-0000-0000-0000-0000000000e3', '67000000-0000-0000-0000-000000000007', 'suspend', 'test suspend, expired', 1, now() - interval '1 day', '67000000-0000-0000-0000-000000000008');
+
+do $$
+declare
+  v_failed boolean := false;
+begin
+  set role authenticated;
+  set request.jwt.claim.sub = '67000000-0000-0000-0000-000000000005';
+  set request.jwt.claim.role = 'authenticated';
+  begin
+    perform public.delete_my_account();
+  exception when others then
+    v_failed := true;
+  end;
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+
+  insert into results select 'CHECK38_banned_user_cannot_delete_account', case when v_failed then 1 else 0 end, 1;
+  insert into results select 'CHECK39_banned_users_profile_row_survives_failed_attempt',
+    (select count(*) from public.profiles where id = '67000000-0000-0000-0000-000000000005')::int, 1;
+end
+$$;
+
+do $$
+declare
+  v_failed boolean := false;
+begin
+  set role authenticated;
+  set request.jwt.claim.sub = '67000000-0000-0000-0000-000000000006';
+  set request.jwt.claim.role = 'authenticated';
+  begin
+    perform public.delete_my_account();
+  exception when others then
+    v_failed := true;
+  end;
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+
+  insert into results select 'CHECK40_actively_suspended_user_cannot_delete_account', case when v_failed then 1 else 0 end, 1;
+end
+$$;
+
+do $$
+declare
+  v_failed boolean := false;
+begin
+  set role authenticated;
+  set request.jwt.claim.sub = '67000000-0000-0000-0000-000000000007';
+  set request.jwt.claim.role = 'authenticated';
+  begin
+    perform public.delete_my_account();
+  exception when others then
+    v_failed := true;
+  end;
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+
+  insert into results select 'CHECK41_user_with_expired_suspend_can_delete_account', case when v_failed then 0 else 1 end, 1;
+  insert into results select 'CHECK42_grace_profile_row_gone_after_successful_deletion',
+    (select count(*) from public.profiles where id = '67000000-0000-0000-0000-000000000007')::int, 0;
+end
+$$;
 
 select check_name, actual, expected from results order by check_name;
 EOF
