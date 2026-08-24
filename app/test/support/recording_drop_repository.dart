@@ -80,9 +80,41 @@ class RecordingDropRepository extends DropRepository {
   Future<List<Drop>> fetchByAuthor({
     required String authorId,
     required int page,
+    bool onlyWithImages = false,
   }) async {
     if (page != 0) return [];
-    return feedDrops.where((d) => d.authorId == authorId).toList();
+    return feedDrops
+        .where((d) =>
+            d.authorId == authorId && (!onlyWithImages || d.imageUrl != null))
+        .toList();
+  }
+
+  /// Returned by [fetchLikedByAuthor], keyed by authorId -- WYN-064.
+  Map<String, List<Drop>> likedDropsByAuthor = {};
+  Object? fetchLikedByAuthorError;
+
+  @override
+  Future<List<Drop>> fetchLikedByAuthor({
+    required String authorId,
+    required int page,
+  }) async {
+    if (fetchLikedByAuthorError != null) throw fetchLikedByAuthorError!;
+    if (page != 0) return [];
+    return likedDropsByAuthor[authorId] ?? [];
+  }
+
+  /// Returned by [fetchRepliesByAuthor], keyed by authorId -- WYN-064.
+  Map<String, List<ProfileReply>> repliesByAuthor = {};
+  Object? fetchRepliesByAuthorError;
+
+  @override
+  Future<List<ProfileReply>> fetchRepliesByAuthor({
+    required String authorId,
+    required int page,
+  }) async {
+    if (fetchRepliesByAuthorError != null) throw fetchRepliesByAuthorError!;
+    if (page != 0) return [];
+    return repliesByAuthor[authorId] ?? [];
   }
 
   /// Looks [dropId] up in [feedDrops]; returns null if not present

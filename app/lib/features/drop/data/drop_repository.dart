@@ -151,17 +151,25 @@ class DropRepository {
   Future<List<Drop>> fetchByAuthor({
     required String authorId,
     required int page,
+    // WYN-064: Profile's "Media" tab -- the same Drop rows as "Posts"
+    // (this method, unfiltered), scoped down to the ones that actually
+    // have an image. A parameter on the existing method rather than a
+    // near-duplicate one, since every other line here (embeds, liked/
+    // saved/redropped/poll-state lookups, Drop.fromMap mapping) is
+    // identical either way.
+    bool onlyWithImages = false,
   }) async {
     final userId = _client.auth.currentUser!.id;
     final from = page * pageSize;
     final to = from + pageSize - 1;
 
-    final rows = await _client
+    var query = _client
         .from('drops')
         .select(_dropSelect)
-        .eq('author_id', authorId)
-        .order('created_at', ascending: false)
-        .range(from, to);
+        .eq('author_id', authorId);
+    if (onlyWithImages) query = query.not('image_url', 'is', null);
+    final rows =
+        await query.order('created_at', ascending: false).range(from, to);
 
     final dropIds = rows.map((row) => row['id'] as String).toList();
     final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
@@ -184,6 +192,95 @@ class DropRepository {
               pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
             ))
         .toList();
+  }
+
+  /// WYN-064: Profile's "Likes" tab -- Drops [authorId] has Liked, newest
+  /// Like first (not newest Drop first -- ordered by `drop_likes.
+  /// created_at`, mirroring how a Likes tab reads on the reference apps
+  /// this was modeled on). `drop_likes` is already public-read (`using
+  /// (true)`, see schema.sql) -- Founder decision 2026-08-24 makes this
+  /// tab itself public the same way, so no new RLS is needed at all,
+  /// only this query. The embedded `drops!inner(...)` still goes
+  /// through `drops`' own RLS, so a Liked-but-since-moderated/deleted/
+  /// blocked-author Drop is silently excluded rather than surfaced.
+  Future<List<Drop>> fetchLikedByAuthor({
+    required String authorId,
+    required int page,
+  }) async {
+    final userId = _client.auth.currentUser!.id;
+    final from = page * pageSize;
+    final to = from + pageSize - 1;
+
+    final likeRows = await _client
+        .from('drop_likes')
+        .select('drops!inner($_dropSelect)')
+        .eq('user_id', authorId)
+        .order('created_at', ascending: false)
+        .range(from, to);
+    final rows = likeRows.map((row) => row['drops'] as Map<String, dynamic>).toList();
+
+    final dropIds = rows.map((row) => row['id'] as String).toList();
+    final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
+    final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
+    final redroppedIds =
+        await _fetchRedroppedDropIds(userId: userId, dropIds: dropIds);
+    final pollStates = await _fetchPollStates(
+      userId: userId,
+      pollIds: rows.map(_pollIdFromRow).whereType<String>().toList(),
+    );
+
+    return rows
+        .map((row) => Drop.fromMap(
+              row,
+              likedByMe: likedIds.contains(row['id'] as String),
+              savedByMe: savedIds.contains(row['id'] as String),
+              redroppedByMe: redroppedIds.contains(row['id'] as String),
+              pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
+              pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
+              pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+            ))
+        .toList();
+  }
+
+  /// WYN-064: Profile's "Replies" tab -- top-level and reply comments
+  /// [authorId] has written, newest first, alongside enough of the
+  /// parent Drop to show it in context (author, image, caption).
+  /// `drop_comments` is already public-read the same way `drop_likes`
+  /// is (see [fetchLikedByAuthor]'s doc comment) -- no new RLS needed.
+  ///
+  /// Returns [ProfileReply] rather than a bare [DropComment] -- unlike
+  /// every other place [DropComment] is fetched (always already scoped
+  /// to one known Drop, e.g. DropDetailScreen's comment list), this tab
+  /// shows comments made across many different Drops at once, so the
+  /// UI needs enough of each parent Drop to distinguish and link to it.
+  Future<List<ProfileReply>> fetchRepliesByAuthor({
+    required String authorId,
+    required int page,
+  }) async {
+    final from = page * pageSize;
+    final to = from + pageSize - 1;
+
+    final rows = await _client
+        .from('drop_comments')
+        .select('*, $_commentAuthorSelect, '
+            'drop:drops!inner(id, caption, image_url, '
+            'author:profiles!drops_author_id_fkey(username, display_name))')
+        .eq('author_id', authorId)
+        .order('created_at', ascending: false)
+        .range(from, to);
+
+    return rows.map((row) {
+      final drop = row['drop'] as Map<String, dynamic>;
+      final dropAuthor = drop['author'] as Map<String, dynamic>?;
+      return ProfileReply(
+        comment: DropComment.fromMap(row, likedByMe: false),
+        dropId: drop['id'] as String,
+        dropCaption: drop['caption'] as String?,
+        dropImageUrl: drop['image_url'] as String?,
+        dropAuthorUsername: dropAuthor?['username'] as String? ?? '',
+        dropAuthorDisplayName: dropAuthor?['display_name'] as String?,
+      );
+    }).toList();
   }
 
   /// Fetches one page (0-indexed) of Drops authored by users the current
