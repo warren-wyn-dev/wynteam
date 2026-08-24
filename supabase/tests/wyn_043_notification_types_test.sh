@@ -306,6 +306,37 @@ begin
 end
 $$;
 
+-- ------------------------------------------------------------
+-- CHECK 9: a caller with an auth.users row but NO profiles row at
+-- all must be rejected too -- internal.current_platform_role()
+-- returns NULL for them, and a bare `<> 'admin'` check silently lets
+-- NULL through (PL/pgSQL's `if` treats NULL like false). Found during
+-- WYN-051's Independent QA (same NULL-role-bypass class WYN-050 hit).
+-- See .wyn/tasks/bugs/WYN-043-send-system-notification-null-role-bypass.md.
+-- ------------------------------------------------------------
+do $$
+declare
+  v_rejected int := 0;
+begin
+  insert into auth.users (id, email)
+  values ('40000000-0000-0000-0000-000000000006', 'noprofile@test.com');
+
+  set role authenticated;
+  set request.jwt.claim.sub = '40000000-0000-0000-0000-000000000006';
+  set request.jwt.claim.role = 'authenticated';
+  begin
+    perform public.send_system_notification(
+      '40000000-0000-0000-0000-000000000004', 'should not work'
+    );
+  exception when others then
+    v_rejected := 1;
+  end;
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+
+  insert into results select 'CHECK9_caller_with_no_profile_row_rejected', v_rejected, 1;
+end
+$$;
+
 select check_name, actual, expected from results order by check_name;
 EOF
 
