@@ -1,6 +1,6 @@
 # Product Task — WYN-046
 
-Status: coded, awaiting QA
+Status: approved (Independent QA PASS รอบเดียว — ดูหัวข้อ "Independent QA" ท้ายไฟล์ — ส่งต่อ AI Deploy & DevOps)
 Owner: AI Product Manager
 
 Feature: Platform Documents (ToS/Privacy/Community Guidelines/Copyright/Report/Appeal Policy) + Acceptance Flow
@@ -70,3 +70,24 @@ Handoff: AI Design — ออกแบบ (1) หน้า Acceptance Screen ใ
 **Known Issue/Gap (ตั้งใจ ไม่ใช่บั๊ก)**: เนื้อหาเอกสารเป็น placeholder ล้วนๆ ตามที่ Product ล็อกสโคปไว้ (ดู APPROVAL_REQUIRED ที่ `.wyn/company/APPROVALS.md`)
 
 Handoff: AI QA & Security — เน้นตรวจ: **(ก) ลำดับ gate ใน `AuthGate` ถูกต้อง** (Suspended/Banned ต้องเจอ `AccountRestrictedScreen` ก่อนเสมอ ไม่มีทางข้ามไปเจอ Acceptance gate), **(ข) fail-open จริงเมื่อโหลดสถานะการยอมรับล้มเหลว** (ไม่ควรล็อกผู้ใช้ออกจากแอปเพราะ network hiccup), **(ค) version bump re-prompt ทำงานจริงทั้ง data layer และ UI** (ไม่ใช่แค่เชื่อ SQL check เดียว), **(ง) ไม่มีทาง client ไหน insert/update/delete `platform_documents` ได้เลยแม้แต่ admin/moderator role** (probe adversarial เพิ่มเติมนอกเหนือ 3 checks ที่มีอยู่แล้ว), **(จ) ยืนยันเนื้อหา placeholder ไม่มีอะไรที่ดูเหมือนเนื้อหากฎหมายจริงหลุดเข้าไป**
+
+## Independent QA (2026-08-24) — PASS รอบเดียว
+
+```
+Feature: WYN-046 Platform Documents + Acceptance Gate
+Environment: Flutter 3.47.1 (/opt/flutter), PostgreSQL 16 local, branch claude/wyn-044-0saj5u @ 5ea56c2
+
+Test Cases: flutter analyze/test เต็มชุดอิสระ, SQL 19 สคริปต์ทั้งหมด, check_schema_ordering.py, **อ่าน `auth_gate.dart`'s build() ทั้งฟังก์ชันบรรทัดต่อบรรทัดยืนยัน nesting จริง** (ไม่เชื่อ comment เฉยๆ), เขียน widget test เพิ่มเองชั่วคราว (ลบทิ้งหลังยืนยัน) ครอบเคสที่ delivered suite ไม่มี (username ตั้งแล้ว + เอกสารเวอร์ชันเก่ากว่า → ต้องเจอ Acceptance gate ไม่ใช่ RootShell) พร้อม red→green sanity flip, adversarial SQL เพิ่มเอง (anon อ่านไม่ได้เลย แม้แต่ grant ระดับตาราง, admin/moderator เขียนไม่ได้เลยแม้เป็น elevated role, cross-user WITH CHECK bypass ถูกปฏิเสธ, version-bump re-prompt จำลอง 3 ขั้นตอนที่ data layer จริง), content hygiene (อ่าน 6 แถว seed ตรงๆ ยืนยันไม่มีอะไรฟังดูเป็นเนื้อหาผูกพันจริง), UX review เทียบ Design spec ทีละจุด, secret exposure grep
+
+Passed: flutter analyze 0 issues, flutter test 699/699, SQL 19/19 สคริปต์ (รวม wyn_046 9/9), check_schema_ordering.py OK, gate ordering ถูกต้อง 100% (อ่านโค้ด + test เดิม + test ที่เขียนเพิ่มเอง), fail-open ทำงานตรงเจตนา, adversarial SQL ทุกจุดผ่าน (RLS แน่นกว่าที่ขอด้วยซ้ำ — anon ไม่มี grant ระดับตารางเลย), content hygiene ผ่าน, UX ตรง Design spec ทุกจุด
+
+Failed: ไม่มี — 14/14 areas ที่ตรวจผ่านหมด ไม่พบบั๊ก ไม่พบช่องโหว่
+
+Security Findings: RLS `platform_documents` ปิดสนิททุก write path (ไม่มีแม้แต่ admin/moderator), `anon` ไม่มี grant ระดับตารางด้วยซ้ำ (แน่นกว่า RLS เฉยๆ), `user_document_acceptances`'s WITH CHECK บล็อก cross-user insert จริง, ไม่พบ secret หลุดในไฟล์ใหม่, gate ordering (จุดเสี่ยงสูงสุดของ task) ยืนยันถูกต้องด้วยการอ่านโค้ดตรงบวก test เขียนเพิ่มเอง
+
+Recommendation: อนุมัติ production-ready สำหรับระบบเทคนิค — เนื้อหายังเป็น placeholder ตาม APPROVAL_REQUIRED ที่บันทึกไว้แล้ว ไม่มีข้อกังวลเชิงเทคนิค/ความปลอดภัยที่ต้อง block
+
+Final Status: PASS
+```
+
+**ผลลัพธ์**: **WYN-046 — PASS รอบเดียว** (task แรกของ Phase 6 ที่ผ่าน QA รอบเดียวไม่มีข้อบกพร่องแม้แต่ Minor) — ย้ายเข้า `.wyn/tasks/approved/` แล้ว รอ AI Deploy & DevOps เมื่อมี infra จริง — **ห้าม deploy ให้ผู้ใช้จริงยอมรับเอกสารชุดนี้เป็นทางการจนกว่าจะมีเนื้อหาจริงจากผู้เชี่ยวชาญกฎหมาย** ตาม APPROVAL_REQUIRED ที่ `.wyn/company/APPROVALS.md` — ขั้นต่อไปตาม roadmap คือ WYN-047 (Data rights — PDPA)
