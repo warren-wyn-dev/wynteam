@@ -56,3 +56,37 @@ Risks:
 Recommendation: **นี่คือจุดที่ Founder ควรอนุมัติแนวทางก่อน Coding เริ่ม** เพราะเป็นการแก้ security logic ของฟีเจอร์ที่ deploy แล้ว (`restore_drop`) ไม่ใช่แค่งานใหม่ล้วนๆ แบบ WYN-049/050/051 ที่ผ่านมา — เสนอให้ Founder ยืนยัน 2 จุด: (1) ขอบเขต "Restore เฉพาะ Drop เท่านั้นในรอบนี้" ยอมรับได้ไหม (2) แนวทางแก้ `restore_drop()` ด้วยการเช็ค `moderation_actions` ตามที่เสนอไว้ในข้อ 2
 
 Handoff: AI Design — ออกแบบหน้า Content Moderation (search bar + result grid ของ Drop + detail panel: Reports/History/Remove-Restore button) บน layout shell เดิม — ตัดสินใจว่าจะแสดง Drop preview (รูปภาพ) อย่างไรในหน้า search ให้ Admin เห็นเนื้อหาจริงก่อนตัดสินใจ ไม่ใช่แค่ caption ข้อความ
+
+## Founder อนุมัติแนวทางแล้ว (2026-08-24) — เข้า Coding ต่อทันที
+
+Founder ยืนยันทั้ง 2 จุดที่ Product เสนอไว้: (1) ขอบเขต V1 = Restore เฉพาะ Drop เท่านั้น ยอมรับได้ (2) แนวทางแก้ `restore_drop()` ด้วยการเพิ่ม `target_content_type`/`target_content_id` บน `moderation_actions` แล้วเช็คก่อนอนุญาต self-restore ตามที่เสนอ
+
+## Coding เสร็จแล้ว (2026-08-24)
+
+SQL (`supabase/schema.sql`): เพิ่ม `moderation_actions.target_content_type`/`target_content_id` (nullable, polymorphic มิเรอร์ `reports.target_type`/`target_id`) + constraint คู่ (type ใน ('drop') เท่านั้นตอนนี้, pairing ต้อง null พร้อมกัน) — **แก้ `restore_drop()`** เพิ่มเงื่อนไขปฏิเสธ self-restore ถ้ามี `moderation_actions` row ที่ `action_type='remove_content'`/`overturned_at is null` ผูกอยู่ (นี่คือ core fix ของ task นี้) — **แก้ `apply_moderation_action()`** ให้ remove_content บน target_type='drop' soft-delete (`deleted_at`) แทน hard DELETE พร้อมบันทึก `target_content_type`/`target_content_id` ด้วย (ทำให้ path เดิมผ่าน Report ก็ restorable เหมือนกับ path ใหม่ ปิดช่องโหว่ให้ครบทั้ง 2 ทาง) — drop_comment/club_post/club_post_comment **ไม่แตะเลย** ยัง hard-delete เหมือนเดิมทุกประการ — RPC ใหม่ 4 ตัว: `admin_remove_drop()`/`admin_restore_drop()` (มิเรอร์ `admin_apply_user_action()`/`admin_unban_user()` ของ WYN-051 พร้อม `coalesce()` role guard ตามบทเรียน WYN-050) และ `admin_search_drops()`/`admin_get_drop()` (SECURITY DEFINER bypass RLS ของ `drops` ทั้ง block/private-account/deleted gating ให้ Admin เห็นทุกโพสต์) — ขยาย `admin_user_moderation_history` VIEW เพิ่ม `target_content_type`/`target_content_id` ต่อท้าย column list เดิม (Postgres `create or replace view` ห้ามแทรกคอลัมน์กลาง เจอ error จริงระหว่าง implement แล้วแก้เป็นต่อท้าย) — ขยาย `audit_log_event_type_check` เพิ่ม `admin_content_removed`/`admin_content_restored`
+
+Web (`admin/`): `lib/admin-moderation.ts` (searchDrops/fetchDrop/fetchReportsAgainstDrop/fetchModerationHistoryForDrop/currentActiveRemoval) + `lib/admin-moderation-actions.ts` (removeDrop/restoreDrop) — Screen 1 (`app/(admin)/moderation/page.tsx` แทนที่ placeholder, grid รูปภาพ 2/4/6 คอลัมน์ตาม breakpoint, badge "ลบแล้ว" มุมการ์ด) — Screen 2 (`app/(admin)/moderation/[id]/page.tsx` ใหม่ทั้งหมด, รูปเต็ม+caption, ปุ่มเดียว Remove หรือ Restore ไม่พร้อมกัน, ข้อความกำกับ "ลบโดยผู้ดูแลระบบ"/"ลบโดยเจ้าของเอง" ใต้ปุ่ม Restore, Reports/History table มิเรอร์ WYN-051) — **ขยาย `ActionDialog` component เดิม** เพิ่ม `"destructive"` เข้า `triggerVariant` union (เดิมมีแค่ `"outline"|"default"`) และให้ปุ่มยืนยันใช้ variant เดียวกับ trigger แทนที่จะ hardcode default เสมอ ตาม Design spec ที่ระบุ Remove ต้อง `variant="destructive"`/Restore ต้อง `variant="default"` ตรงๆ — ตรวจแล้วว่าไม่กระทบ dialog เดิมทั้ง 4 ตัวของ WYN-051 (ทุกตัวยังเป็น `"outline"` เหมือนเดิม ปุ่มยืนยันยังเป็น default เหมือนเดิมทุกประการ) — ใช้ `<img>` ธรรมดาแทน `next/image` สำหรับ Drop thumbnail/full image พร้อม eslint-disable comment (ยังไม่มี Supabase project จริงให้ pin hostname เข้า `next.config`'s `images.remotePatterns`) — `flutter`-equivalent ฝั่งนี้คือ `next build`/`npm run lint`: สะอาดทั้งคู่, ไม่พบ `service_role`/`SUPABASE_SERVICE` ใน client bundle (`grep` `.next/static` เอง)
+
+## Independent QA (2026-08-24)
+
+Feature: WYN-052 WYN Admin Content Moderation — Search Drop (bypass block/private), Remove/Restore Drop โดยตรงหรือผ่าน Report, ปิดช่องโหว่ self-restore-defeats-moderation
+
+Environment: local Postgres 16 (throwaway DB ต่อรอบ, role `authenticated` จริง) + Node.js/Next.js 16.3.2 — สตาร์ท Postgres cluster เองจาก down state (`pg_ctlcluster 16 main start`) ก่อนรันชุดทดสอบ
+
+Test Cases:
+1. เขียน `wyn_052_admin_content_moderation_test.sh` ใหม่ (11 กลุ่ม เช็ค 23 จุด) ครอบทุก Acceptance Criteria ของ Product spec แบบตรงตัว รวม **CHECK2 ซึ่งคือ AC ที่สำคัญที่สุดของ task นี้** (เจ้าของ Drop ที่ถูก Admin ลบ พยายาม `restore_drop()` เอง → ต้องถูกปฏิเสธ) — รันแล้ว **23/23 PASS**
+2. รันซ้ำครบ 23 สคริปต์เดิม (`wyn_021` ถึง `wyn_051`) — เจอ **regression จริง 1 จุด**: `wyn_029`'s `CHECK20_removed_drop_gone` fail เพราะ assert hard-delete แบบเดิม ซึ่งเป็นพฤติกรรมที่ WYN-052 ตั้งใจเปลี่ยน (Drop remove_content ตอนนี้ soft-delete แล้ว ตาม Requirement 2) — **แก้ test เดิมให้ตรงกับพฤติกรรมใหม่ที่ตั้งใจ** (ไม่ใช่แก้โค้ด แก้ assertion) พร้อมคอมเมนต์อธิบายว่าทำไมเปลี่ยน อ้างอิงไปยัง `wyn_052` suite สำหรับ coverage เต็มของ restore path — รันซ้ำทั้งหมดอีกครั้งหลังแก้: **24/24 PASS** (23 เดิม + 1 ใหม่)
+3. `check_schema_ordering.py` — OK
+4. `next build`/`npm run lint` — สะอาดทั้งคู่ (0 error/warning)
+5. `grep` หา `service_role`/`SUPABASE_SERVICE` ใน `.next/static` (client bundle) เอง — ไม่พบ (เจอเฉพาะใน server-side sourcemap/cache ซึ่งเป็นสตริงภายใน SDK ของ Supabase เอง ไม่ใช่ key จริง และไม่ถูกส่งไปฝั่ง browser)
+6. รัน dev server จริงด้วย dummy env vars (รูปแบบถูกต้องแต่ไม่ใช่ project จริง) ยืนยัน guest redirect ทำงานถูกต้องกับ route ใหม่ทั้ง `/moderation` และ `/moderation/[id]` (307 → `/login` เหมือน route เดิมทุกตัว) — ลบ `.env.local` ทิ้งทันทีหลังทดสอบ (ไม่ commit)
+7. อ่าน `restore_drop()`/`admin_restore_drop()`/`apply_moderation_action()` แบบ adversarial ยืนยัน: self-deleted Drop (ไม่มี `moderation_actions` row เกี่ยวข้องเลย) ไม่ถูกกระทบจากเงื่อนไขใหม่ (ตรวจสอบด้วย `exists()` query ที่คืน false เสมอถ้าไม่มี row), `admin_restore_drop()` บน self-deleted Drop เป็น no-op ที่ปลอดภัยสำหรับส่วน `moderation_actions` update (0 rows affected ไม่ error), `moderation_actions_target_content_pairing_check` ไม่ทำให้ insert เดิมของ WYN-051 (`admin_apply_user_action`/`admin_unban_user`, ไม่ระบุ 2 คอลัมน์ใหม่เลย) พังเพราะทั้งคู่เป็น NULL พร้อมกัน
+
+Passed: ทุกข้อข้างต้น
+Failed: ไม่มี (หลังแก้ `wyn_029` test assertion ให้ตรงกับพฤติกรรมใหม่ที่ตั้งใจ)
+
+Security Findings: ไม่พบช่องโหว่ใหม่ — core fix (self-restore-defeats-moderation) ยืนยันปิดจริงด้วยการทดสอบ ไม่ใช่แค่อ่าน code ทั้ง 2 เส้นทาง (direct `admin_remove_drop()` และ report-driven `apply_moderation_action()`) RPC ใหม่ทั้ง 4 ตัวมี `coalesce()` guard ยืนยันปฏิเสธทั้งบัญชีไม่มี `profiles` row และบัญชี role='user' จริงด้วยการทดสอบ ไม่ใช่แค่อ่าน code — `admin_search_drops()`/`admin_get_drop()` ยืนยัน bypass private-account gating ได้จริงด้วยการทดสอบ (ไม่ใช่แค่ตามที่ตั้งใจออกแบบ)
+
+Recommendation: อนุมัติ WYN-052 — ส่งต่อ AI Deploy & DevOps ต่อทันที
+
+Final Status: **PASS**

@@ -387,7 +387,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     _loadInitial();
   }
 
-  Future<void> _openPop(HomeFeedItem item) async {
+  Future<void> _openPop(HomeFeedItem item, {bool openComments = false}) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => PopSingleClipScreen(
@@ -397,6 +397,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
           profileRepository: widget.profileRepository,
           dropRepository: widget.dropRepository,
           savedRepository: widget.savedRepository,
+          openCommentsOnStart: openComments,
         ),
       ),
     );
@@ -825,6 +826,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
             key: itemKey,
             item: item,
             onTap: () => _openPop(item),
+            onTapComment: () => _openPop(item, openComments: true),
             onToggleLike: () => _toggleLike(index),
             onToggleSave: () => _toggleSave(index),
             onOpenProfile: () => _openProfile(item.authorId),
