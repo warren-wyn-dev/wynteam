@@ -8,9 +8,11 @@ import '../data/club_repository.dart';
 import '../../../core/design/wyn_spacing.dart';
 
 /// Owner/Admin "แก้ไขข้อมูล Club" -- reuses CreateClubScreen's form shape
-/// for Name/Description/Cover/Icon/Category, pre-filled with the current
-/// values. Privacy is a separate More-menu action (ClubPage), not part
-/// of this form, per the Design spec's Screen 3 menu breakdown.
+/// for Name/Description/Cover/Category, pre-filled with the current
+/// values (icon editing removed per Founder decision, 2026-08-24 -- see
+/// .wyn/company/DECISIONS.md). Privacy is a separate More-menu action
+/// (ClubPage), not part of this form, per the Design spec's Screen 3
+/// menu breakdown.
 class EditClubInfoScreen extends StatefulWidget {
   const EditClubInfoScreen({
     super.key,
@@ -35,8 +37,6 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
 
   Uint8List? _coverBytes;
   String? _coverExtension;
-  Uint8List? _iconBytes;
-  String? _iconExtension;
 
   bool _isSaving = false;
   String? _errorMessage;
@@ -74,24 +74,6 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
     });
   }
 
-  Future<void> _pickIcon() async {
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1024,
-      maxHeight: 1024,
-      imageQuality: 85,
-    );
-    if (picked == null) return;
-    final bytes = await picked.readAsBytes();
-    final extension =
-        picked.name.contains('.') ? picked.name.split('.').last.toLowerCase() : 'jpg';
-    if (!mounted) return;
-    setState(() {
-      _iconBytes = bytes;
-      _iconExtension = extension;
-    });
-  }
-
   Future<void> _save() async {
     setState(() {
       _isSaving = true;
@@ -104,13 +86,6 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
           clubId: widget.club.id,
           bytes: _coverBytes!,
           fileExtension: _coverExtension!,
-        );
-      }
-      if (_iconBytes != null && _iconExtension != null) {
-        await widget.clubRepository.uploadClubIcon(
-          clubId: widget.club.id,
-          bytes: _iconBytes!,
-          fileExtension: _iconExtension!,
         );
       }
       await widget.clubRepository.updateClubInfo(
@@ -142,8 +117,6 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildCoverPicker(),
-              const SizedBox(height: WynSpacing.space3),
-              _buildIconPicker(),
               const SizedBox(height: WynSpacing.space4),
               TextField(
                 controller: _nameController,
@@ -214,36 +187,4 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
     );
   }
 
-  Widget _buildIconPicker() {
-    return Center(
-      child: GestureDetector(
-        onTap: _isSaving ? null : _pickIcon,
-        child: Stack(
-          children: [
-            CircleAvatar(
-              radius: 36,
-              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-              backgroundImage: _iconBytes != null
-                  ? MemoryImage(_iconBytes!)
-                  : (widget.club.iconUrl != null
-                      ? NetworkImage(widget.club.iconUrl!)
-                      : null) as ImageProvider?,
-              child: _iconBytes == null && widget.club.iconUrl == null
-                  ? const Icon(Icons.add_photo_alternate_outlined)
-                  : null,
-            ),
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: CircleAvatar(
-                radius: 12,
-                backgroundColor: Theme.of(context).colorScheme.surface,
-                child: const Icon(Icons.camera_alt, size: 14),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

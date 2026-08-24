@@ -94,6 +94,23 @@ class ClubRepository {
     return rows.map((row) => row['club_id'] as String).toList();
   }
 
+  /// Club ids the current user has a still-pending (unapproved) join
+  /// request for -- WYN-056's Explore Club cards use this to show
+  /// "รออนุมัติ" instead of "เข้าร่วม" for Private Clubs the user already
+  /// requested to join. Unlike [_fetchJoinedClubIds] (`approved`, used to
+  /// exclude already-joined Clubs from discovery entirely), a pending
+  /// request doesn't exclude the Club -- it's still "discoverable", just
+  /// with a different button state.
+  Future<Set<String>> fetchPendingClubIds() async {
+    final userId = _client.auth.currentUser!.id;
+    final rows = await _client
+        .from('club_members')
+        .select('club_id')
+        .eq('user_id', userId)
+        .eq('status', 'pending');
+    return rows.map((row) => row['club_id'] as String).toSet();
+  }
+
   /// Clubs the current user hasn't joined, optionally filtered by
   /// category -- shared by [fetchPopularClubs]/[fetchNewClubs] (WYN-015
   /// Explore Clubs), which just sort/cap this differently. member count
