@@ -112,13 +112,29 @@ class RecordingDropRepository extends DropRepository {
         .toList();
   }
 
+  /// Each call to [createDrop]'s image count, in order -- WYN-064.
+  final List<int> createDropImageCountArgs = [];
+  Object? createDropError;
+
+  /// Returned by [fetchDropImages], keyed by dropId -- WYN-064.
+  Map<String, List<String>> dropImagesById = {};
+  Object? fetchDropImagesError;
+
+  @override
+  Future<List<String>> fetchDropImages(String dropId) async {
+    if (fetchDropImagesError != null) throw fetchDropImagesError!;
+    return dropImagesById[dropId] ?? [];
+  }
+
   @override
   Future<void> createDrop({
-    required Uint8List imageBytes,
-    required String imageExtension,
+    required List<Uint8List> imagesBytes,
+    required List<String> imageExtensions,
     required String caption,
     Set<String> mentionedUserIds = const {},
   }) async {
+    if (createDropError != null) throw createDropError!;
+    createDropImageCountArgs.add(imagesBytes.length);
     createDropMentionedUserIdsArgs.add(mentionedUserIds);
   }
 

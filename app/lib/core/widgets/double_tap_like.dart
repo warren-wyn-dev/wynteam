@@ -19,6 +19,7 @@ class DoubleTapLike extends StatefulWidget {
     required this.child,
     required this.onLike,
     required this.alreadyLiked,
+    this.onTap,
   });
 
   final Widget child;
@@ -30,6 +31,19 @@ class DoubleTapLike extends StatefulWidget {
   final VoidCallback onLike;
 
   final bool alreadyLiked;
+
+  /// WYN-064: an optional single-tap handler (e.g. opening a
+  /// multi-image Drop's full-screen viewer) on the *same* underlying
+  /// `GestureDetector` as the double-tap recognizer above, rather than
+  /// a second nested `GestureDetector` a caller might otherwise be
+  /// tempted to wrap around this widget. Two separate recognizers for
+  /// tap vs. double-tap on overlapping regions leaves the tap one
+  /// waiting out the double-tap disambiguation window unreliably;
+  /// putting both callbacks on one recognizer set is the pattern
+  /// Flutter's gesture arena actually resolves cleanly (a lone tap
+  /// fires [onTap] after that same window elapses with no second tap;
+  /// two quick taps fire [onLike] instead, never both).
+  final VoidCallback? onTap;
 
   @override
   State<DoubleTapLike> createState() => _DoubleTapLikeState();
@@ -85,6 +99,7 @@ class _DoubleTapLikeState extends State<DoubleTapLike>
   Widget build(BuildContext context) {
     return GestureDetector(
       onDoubleTap: _handleDoubleTap,
+      onTap: widget.onTap,
       child: Stack(
         alignment: Alignment.center,
         children: [

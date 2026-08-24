@@ -10120,3 +10120,61 @@ as $$
 $$;
 
 grant execute on function public.suggested_users(int) to authenticated;
+
+-- ============================================================
+-- WYN-064: WYNOS Visual Refresh -- Multi-image Drop (1-9 photos)
+-- ============================================================
+-- See .wyn/docs/design/wyn-064-wynos-visual-refresh.md, Screens 2-4.
+-- `drops.image_url` is kept exactly as-is (still the first/primary
+-- image, still what home_feed/get_wynos_ranked_feed/saved_feed/the
+-- admin web app/every existing consumer reads) -- this table is a
+-- purely additive companion holding the *full* ordered image list,
+-- read only by the app's new multi-image UI (full-screen viewer,
+-- image-count badge). Every image of every Drop gets a row here,
+-- including position 0 (the same URL as drops.image_url) -- keeping
+-- drop_images the single source of truth for "how many images/what
+-- order" rather than having position 0 live in one place and 1-8
+-- elsewhere.
+create table if not exists public.drop_images (
+  id uuid primary key default gen_random_uuid(),
+  drop_id uuid not null references public.drops (id) on delete cascade,
+  image_url text not null,
+  position int not null,
+  unique (drop_id, position)
+);
+
+alter table public.drop_images enable row level security;
+
+-- Deliberately re-checks visibility through `drops` itself (a plain
+-- `exists` subquery, evaluated under drops' own current SELECT policy)
+-- rather than duplicating its blocked-author/deleted/locked-private
+-- conditions here -- this is the "want the exact same restriction"
+-- case, not the self-defeat trap noted elsewhere in this file for an
+-- *unrelated* condition: whatever drops' policy allows a viewer to see
+-- right now is exactly what its images should be visible.
+create policy "Drop images inherit their Drop's visibility"
+  on public.drop_images
+  for select
+  to authenticated
+  using (exists (select 1 from public.drops d where d.id = drop_images.drop_id));
+
+create policy "Users can add images to their own drops"
+  on public.drop_images
+  for insert
+  to authenticated
+  with check (exists (
+    select 1 from public.drops d
+    where d.id = drop_images.drop_id and d.author_id = auth.uid()
+  ));
+
+-- Backfill: every existing Drop with an image gets exactly one
+-- drop_images row (position 0, same URL) so drop_images(count) is
+-- accurate for old data too, not just Drops created after this
+-- migration. Idempotent (safe to re-run/already-applied).
+insert into public.drop_images (drop_id, image_url, position)
+select d.id, d.image_url, 0
+from public.drops d
+where d.image_url is not null
+  and not exists (
+    select 1 from public.drop_images di where di.drop_id = d.id
+  );

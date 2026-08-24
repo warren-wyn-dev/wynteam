@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/widgets/confirm_delete_dialog.dart';
-import '../../../core/widgets/double_tap_like.dart';
 import '../../../core/widgets/hashtag_text.dart';
 import '../../../core/widgets/restriction_banner.dart';
 import '../../chat/data/chat_repository.dart';
@@ -26,6 +25,7 @@ import '../data/drop_repository.dart';
 import 'edit_drop_caption_screen.dart';
 import 'quote_redrop_screen.dart';
 import 'widgets/confirm_delete_drop_dialog.dart';
+import 'widgets/drop_image_gallery.dart';
 import 'widgets/poll_card.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../report/data/report_repository.dart';
@@ -640,13 +640,10 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
             onVote: _votePoll,
           )
         else if (_drop.imageUrl != null)
-          DoubleTapLike(
+          DropImageGallery(
+            drop: _drop,
+            dropRepository: widget.dropRepository,
             onLike: _toggleLike,
-            alreadyLiked: _drop.likedByMe,
-            child: AspectRatio(
-              aspectRatio: 1,
-              child: Image.network(_drop.imageUrl!, fit: BoxFit.cover),
-            ),
           ),
         // WYNOS V1.0.0 Beta requirement 2: a caption-only Drop has no
         // image area at all here -- its caption still renders below via

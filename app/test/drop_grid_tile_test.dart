@@ -6,7 +6,7 @@ import 'package:wyn/features/drop/presentation/widgets/drop_grid_tile.dart';
 
 import 'support/fake_supabase_session.dart';
 
-Drop _drop({int likeCount = 7}) => Drop(
+Drop _drop({int likeCount = 7, int? imageCount}) => Drop(
       id: 'd1',
       authorId: 'someone-else',
       authorUsername: 'namfah',
@@ -16,6 +16,7 @@ Drop _drop({int likeCount = 7}) => Drop(
       commentCount: 0,
       likedByMe: false,
       savedByMe: false,
+      imageCount: imageCount,
     );
 
 void main() {
@@ -57,5 +58,35 @@ void main() {
 
     await tester.tap(find.byType(DropGridTile));
     expect(taps, 1);
+  });
+
+  group('multi-image indicator (WYN-064)', () {
+    testWidgets('a single-image Drop shows no stacked-photos icon',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ListView(
+            children: [DropGridTile(drop: _drop(imageCount: 1), onTap: () {})],
+          ),
+        ),
+      ));
+      tester.takeException();
+
+      expect(find.byIcon(Icons.filter_none), findsNothing);
+    });
+
+    testWidgets('a multi-image Drop shows the stacked-photos icon',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ListView(
+            children: [DropGridTile(drop: _drop(imageCount: 5), onTap: () {})],
+          ),
+        ),
+      ));
+      tester.takeException();
+
+      expect(find.byIcon(Icons.filter_none), findsOneWidget);
+    });
   });
 }

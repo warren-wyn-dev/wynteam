@@ -31,8 +31,12 @@ const _savesContentType = 'drop';
 // (like _dropAuthorSelect/the count embeds already did) so a Poll
 // Drop's base poll data (id/options/expires_at) always comes back
 // alongside everything else, with no per-method opt-in to forget.
+// WYN-064: drop_images(count) -- how many images this Drop actually has
+// (1-9), not the images themselves (the full ordered list is only
+// fetched on demand via fetchDropImages, when a viewer actually opens
+// the full-screen viewer) -- keeps every list/feed fetch cheap.
 const _dropSelect =
-    '*, $_dropAuthorSelect, drop_likes(count), drop_comments(count), redrops(count), drop_polls(id, options, expires_at)';
+    '*, $_dropAuthorSelect, drop_likes(count), drop_comments(count), redrops(count), drop_polls(id, options, expires_at), drop_images(count)';
 
 /// Per-viewer poll state ([DropRepository._fetchPollStates]'s result) --
 /// combines "did I vote, and for what" with the aggregate results
@@ -504,27 +508,39 @@ class DropRepository {
     );
   }
 
-  /// Creates a Drop with a photo. [mentionedUserIds] (WYN-021) is the set
-  /// of user ids MentionInput already resolved while composing the
-  /// caption -- inserted into `drop_mentions` right after the Drop
-  /// itself, not re-parsed from the caption text server-side. [caption]
-  /// may be empty here (image-only Drop, WYNOS V1.0.0 Beta) -- use
-  /// [createTextDrop] instead when there's no image at all.
+  /// Creates a Drop with 1-9 photos (WYN-064 -- was exactly 1 photo
+  /// before). [imagesBytes]/[imageExtensions] are parallel lists, same
+  /// order the Composer's preview grid shows them in -- that order
+  /// becomes each image's `drop_images.position`. [mentionedUserIds]
+  /// (WYN-021) is the set of user ids MentionInput already resolved
+  /// while composing the caption -- inserted into `drop_mentions` right
+  /// after the Drop itself, not re-parsed from the caption text
+  /// server-side. [caption] may be empty here (image Drop,
+  /// WYNOS V1.0.0 Beta) -- use [createTextDrop] instead when there's no
+  /// image at all.
   Future<void> createDrop({
-    required Uint8List imageBytes,
-    required String imageExtension,
+    required List<Uint8List> imagesBytes,
+    required List<String> imageExtensions,
     required String caption,
     Set<String> mentionedUserIds = const {},
   }) async {
+    assert(imagesBytes.length == imageExtensions.length);
+    assert(imagesBytes.isNotEmpty && imagesBytes.length <= 9);
     final userId = _client.auth.currentUser!.id;
 
-    final path =
-        '$userId/${DateTime.now().millisecondsSinceEpoch}.$imageExtension';
-    await _client.storage.from('drop-images').uploadBinary(path, imageBytes);
-    final imageUrl = _client.storage.from('drop-images').getPublicUrl(path);
+    final imageUrls = <String>[];
+    for (var i = 0; i < imagesBytes.length; i++) {
+      final path =
+          '$userId/${DateTime.now().millisecondsSinceEpoch}_$i.${imageExtensions[i]}';
+      await _client.storage
+          .from('drop-images')
+          .uploadBinary(path, imagesBytes[i]);
+      imageUrls.add(_client.storage.from('drop-images').getPublicUrl(path));
+    }
 
     await _insertDrop(
-      imageUrl: imageUrl,
+      imageUrl: imageUrls.first,
+      allImageUrls: imageUrls,
       caption: caption,
       mentionedUserIds: mentionedUserIds,
     );
@@ -573,6 +589,13 @@ class DropRepository {
     required String? imageUrl,
     required String caption,
     required Set<String> mentionedUserIds,
+    // WYN-064: every image (including [imageUrl] itself, at position 0)
+    // -- same "position 0 lives in drop_images too" convention the
+    // schema.sql backfill migration establishes. Empty/omitted for the
+    // no-image (createTextDrop) and existing-single-image
+    // (createDropFromExistingImage) call sites, neither of which needs
+    // more than the one row image_url already represents.
+    List<String> allImageUrls = const [],
   }) async {
     final row = await _client
         .from('drops')
@@ -583,14 +606,34 @@ class DropRepository {
         })
         .select('id')
         .single();
+    final dropId = row['id'] as String;
+
+    if (allImageUrls.isNotEmpty) {
+      await _client.from('drop_images').insert([
+        for (var i = 0; i < allImageUrls.length; i++)
+          {'drop_id': dropId, 'image_url': allImageUrls[i], 'position': i},
+      ]);
+    }
 
     if (mentionedUserIds.isNotEmpty) {
-      final dropId = row['id'] as String;
       await _client.from('drop_mentions').insert([
         for (final mentionedId in mentionedUserIds)
           {'drop_id': dropId, 'mentioned_user_id': mentionedId},
       ]);
     }
+  }
+
+  /// WYN-064: the full ordered image list for a Drop with more than one
+  /// image -- only DropDetailScreen's full-screen viewer calls this
+  /// (see [Drop.hasMultipleImages]), on demand, rather than every list/
+  /// feed fetch eagerly loading every image URL of every Drop.
+  Future<List<String>> fetchDropImages(String dropId) async {
+    final rows = await _client
+        .from('drop_images')
+        .select('image_url')
+        .eq('drop_id', dropId)
+        .order('position');
+    return rows.map((row) => row['image_url'] as String).toList();
   }
 
   /// Caption-only fetch for hashtag suggestion counting (WYNOS V1.0.0
