@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Thrown by [AuthRepository.setUsername] when the chosen username is
@@ -13,10 +14,20 @@ class AuthRepository {
 
   final SupabaseClient _client;
 
-  /// The OAuth redirect used by both Google and Apple sign-in. Must be
-  /// registered in the Supabase project's Auth settings and in the native
-  /// app's URL scheme configuration once the platform folders exist.
-  static const _oauthRedirect = 'io.wyn.app://login-callback';
+  /// The OAuth redirect used by both Google and Apple sign-in on native
+  /// platforms (iOS/Android) -- must be registered in the Supabase
+  /// project's Auth settings and in the native app's URL scheme
+  /// configuration. **Native only**: passing this custom `io.wyn.app://`
+  /// scheme as `redirectTo` on Flutter Web breaks Google/Apple sign-in
+  /// entirely -- Safari/Chrome refuse to navigate to a non-http(s) scheme
+  /// with no registered handler ("Safari ไม่สามารถเปิดหน้าเว็บได้เนื่องจาก
+  /// ที่อยู่ของหน้าเว็บไม่ถูกต้อง"), so the OAuth flow never even reaches
+  /// Google's consent screen. On web, omit `redirectTo` entirely so
+  /// supabase_flutter falls back to the current page's own origin (already
+  /// in the Supabase project's redirect allow-list) as the callback --
+  /// see .wyn/company/DECISIONS.md, 2026-08-24 ("Google Sign-In พังบน Web
+  /// production").
+  static const _mobileOauthRedirect = 'io.wyn.app://login-callback';
 
   Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
 
@@ -25,14 +36,14 @@ class AuthRepository {
   Future<void> signInWithGoogle() {
     return _client.auth.signInWithOAuth(
       OAuthProvider.google,
-      redirectTo: _oauthRedirect,
+      redirectTo: kIsWeb ? null : _mobileOauthRedirect,
     );
   }
 
   Future<void> signInWithApple() {
     return _client.auth.signInWithOAuth(
       OAuthProvider.apple,
-      redirectTo: _oauthRedirect,
+      redirectTo: kIsWeb ? null : _mobileOauthRedirect,
     );
   }
 
