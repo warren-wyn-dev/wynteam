@@ -43,3 +43,4 @@ app.*.map.json
 # Secrets — never commit real Supabase keys or other credentials
 *.env
 .env
+dart_define.json
