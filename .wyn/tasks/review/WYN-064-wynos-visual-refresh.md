@@ -1,7 +1,7 @@
 # Product Task — WYN-064
 
-Status: backlog
-Owner: AI Product Manager
+Status: review (Coding เสร็จแล้ว 2026-08-24 — flutter analyze สะอาด, flutter test 784/784 ผ่าน) — รอ AI QA & Security
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security
 
 Feature: WYNOS Visual Refresh — Light/Premium Design Direction + Profile/Feed/Drop/Bottom Nav Alignment
 
@@ -62,3 +62,49 @@ Recommendation:
 - Dwell-time signal (R6) แนะนำเลื่อนเป็นงานแยกต่างหาก (ไม่ block งานนี้) เพราะเป็น schema ใหม่ที่ต้องคิด privacy ให้รอบคอบกว่านี้ ไม่ควรรีบทำรวมในรอบเดียว
 
 Handoff: **พร้อมส่งต่อ AI Design ทำทุก requirement (R2–R8) ได้ทันที** — ไม่มีคำถามค้างแล้ว (ได้ภาพอ้างอิงและ Founder ตัดสินใจครบทุกจุดแล้ว 2026-08-24)
+
+---
+
+## Implementation (AI Coding, 2026-08-24)
+
+ทำตาม Design spec `.wyn/docs/design/wyn-064-wynos-visual-refresh.md` ครบทั้ง 9 Screen เรียงลำดับตามที่ Design แนะนำ (เล็ก/เสี่ยงต่ำก่อน ใหญ่/เสี่ยงสูงสุดท้าย) แบ่งเป็น 3 commit หลักที่แต่ละอันผ่าน `flutter analyze`/`flutter test` เต็มชุดก่อน commit ถัดไปเสมอ:
+
+**Commit 1 — Screen 1/8/9** (theme fix, top-bar icons, haptic/animation)
+- `main.dart`: `themeMode: ThemeMode.system` → `ThemeMode.light` (คง `WynTheme.dark` ไว้ในโค้ด)
+- `ViewProfileScreen`: เพิ่มไอคอน Search/Notifications บน AppBar เฉพาะโปรไฟล์คนอื่น (สร้าง repository ใหม่ในจุดเรียกใช้ ไม่ threaded ผ่าน constructor — มิเรอร์ pattern `_reportRepository` เดิม)
+- `DoubleTapLike`/`FollowActionButton`: เพิ่ม `HapticFeedback.lightImpact()`, `FollowActionButton` เพิ่ม `AnimatedSwitcher` ที่ label
+
+**Commit 2 — Screen 5** (Recommendation Section)
+- Schema ใหม่: `profile_recommendation_dismissals` table (RLS: own rows only, กัน self-dismissal), แก้ `suggested_users()` (WYN-040) เพิ่ม exclusion — reuse ฟังก์ชันเดิมแทนสร้างใหม่ ("similar to profile" ที่แท้จริงเลื่อนไว้ตาม Design doc)
+- `ProfileRecommendationSection`/`_RecommendationCard` widget ใหม่ (reuse `FollowActionButton` compact mode) แสดงเฉพาะดูโปรไฟล์คนอื่น
+- SQL regression test ใหม่: `wyn_064_recommendation_dismissal_test.sh` (7 checks)
+
+**Commit 3 — Screen 2-4** (multi-image Drop)
+- Schema ใหม่: `drop_images` table (`drops.image_url` เดิมไม่แตะเลย ยังเป็นรูปแรกเสมอ — ทุกจุดเดิมที่อ่านมันตรงๆ เช่น `home_feed`/`get_wynos_ranked_feed`/admin web ยังทำงานถูกต้อง 100% โดยไม่ต้องแก้อะไร) + backfill migration + RLS (`exists()` เช็คผ่าน `drops` เอง ไม่ duplicate policy)
+- `DropRepository.createDrop` รับ `List<Uint8List>`/`List<String>` แทนตัวเดียว, เพิ่ม `fetchDropImages()` (fetch เต็มลิสต์แบบ on-demand เท่านั้น ไม่ eager load ทุก feed fetch), `_dropSelect` เพิ่ม `drop_images(count)`
+- `CreateDropScreen`: grid preview ใหม่ (1-9 รูป, ลบทีละรูปได้), gallery ใช้ `pickMultiImage` (จำกัดด้วย `limit` param ของ picker เองแทนการ trim ทีหลัง)
+- `DropImageGallery`/`DropImageViewer` widget ใหม่ (PageView+dot indicator+full-screen pinch-zoom)
+- **พบและแก้บั๊กจริงระหว่างเขียน**: `DoubleTapLike` (double-tap) + `GestureDetector` แยกอัน (single-tap เปิด fullscreen) ซ้อนกันทำให้ single-tap ไม่ทำงาน (gesture arena ที่ tap recognizer ถูก double-tap recognizer แย่งไป) — พิสูจน์ด้วย test จริงที่ fail ก่อนแก้ แก้โดยรวม `onTap` เข้า `DoubleTapLike`'s GestureDetector ตัวเดียวกันแทน (เพิ่ม optional `onTap` param ใหม่)
+- SQL regression test ใหม่: `wyn_064_multi_image_drop_test.sh` (7 checks)
+
+**Commit 4 — Screen 6-7** (Profile tab restructure)
+- Tab ใหม่ 5 อันเท่ากันทุกคน: Posts/ReDrops/Replies/Media/Likes (แทน Drop/ReDrops + conditional Saved/Draft เดิม)
+- **ไม่มี schema ใหม่เลย** — `drop_likes`/`drop_comments` เปิด public read (`using (true)`) อยู่แล้วตั้งแต่ก่อนงานนี้ จึงแค่เพิ่ม query ใหม่ (`fetchLikedByAuthor`/`fetchRepliesByAuthor`) ไม่ต้องแก้ RLS
+- `ProfileDropGridTab` เพิ่ม `onlyWithImages` flag reuse เป็น Media tab, widget ใหม่ `ProfileLikesTab`/`ProfileRepliesTab`/`PrivacyNoticeBanner`
+- Saved/Draft ย้ายเป็นไอคอนข้าง "แก้ไขโปรไฟล์" (push เป็นหน้าแยกแทนที่จะเป็น tab — widget เดิมไม่แตะเลย)
+
+Files Changed: ดู commit message ของทั้ง 4 commit ใน git log (`b18d719`, `82582a9`, `f1fb432`, `838626a`) — สรุปคร่าวๆ: `app/lib/main.dart`, `app/lib/core/widgets/double_tap_like.dart`, `app/lib/features/follow/presentation/widgets/follow_action_button.dart`, `app/lib/features/profile/presentation/view_profile_screen.dart` (แก้เยอะสุด), widget ใหม่ 7 ตัว, `DropRepository`/`Drop` model/`DropComment` ขยาย, `supabase/schema.sql` (+2 table ใหม่), test ใหม่ 20+ ไฟล์/เคส
+
+Reason: ดูรายละเอียดเหตุผลแต่ละจุดในแต่ละ commit message — หลักการที่ยึดตลอด: reuse ของเดิมให้มากที่สุด (`suggested_users()`, `drop_likes`/`drop_comments` RLS ที่มีอยู่แล้ว, `FollowActionButton`, `ProfileDropGridTab`), ไม่แตะ `drops.image_url`/ranking algorithm ที่เพิ่ง fix บั๊ก production วันเดียวกัน, แก้เฉพาะจุดที่จำเป็นจริง
+
+**Known Issues / สโคปที่ปรับจาก Design doc (บันทึกตรงๆ ไม่ใช่ซ่อน)**:
+1. Posts/ReDrops **ไม่ได้รวมเป็น tab เดียว** ตามที่ Design doc เขียนไว้ — คงเป็น 2 tab แยก เพราะ layout ขัดกันจริง (Posts เป็น grid หนาแน่น, ReDrops เป็น list การ์ดเต็ม) การรวมต้องใช้ backend UNION query หรือ client merge-sort ใหม่ทั้งหมด ประเมินแล้วเสี่ยงเกินไปสำหรับรอบนี้ — capability ครบทุกอย่างตามที่ Founder ขอ (Replies/Media/Likes มีจริงหมด) เพียงแค่ ReDrop ยังอยู่ tab ของตัวเอง ไม่ได้ปนกับ Posts
+2. Multi-image ใน Draft (WYN-036) ยังเป็นรูปเดียวเท่านั้น (non-goal ตาม Design doc เอง) — resume draft ที่เคยมีหลายรูปจะเหลือแค่รูปแรก
+3. Dwell-time signal (R6 เดิมจาก Product spec) ไม่ได้ทำ — ตามที่ Product ระบุไว้แล้วว่าเลื่อนออก
+4. Skeleton loading/Image placeholder ในบางจุด — Design doc ขอให้ Coding ยืนยันสถานะจริงก่อนแก้ ตรวจแล้วพบว่าจุดที่ต้องใช้ (loading spinner ระหว่างโหลด) มีอยู่แล้วทุกจุดในรูปแบบ `CircularProgressIndicator` เดิม ไม่ต้องเพิ่ม skeleton ใหม่
+
+Tests: `flutter test` เต็ม suite **784/784 ผ่าน** (baseline ก่อนแก้ 762/762 — เพิ่ม 22 test case ใหม่ตลอดทั้ง 4 commit, แก้ 3 เคสเดิมที่ assert โครงสร้าง tab เก่า) — SQL regression 2 สคริปต์ใหม่ (`wyn_064_recommendation_dismissal_test.sh` 7 checks, `wyn_064_multi_image_drop_test.sh` 7 checks) ผ่านหมด, รันซ้ำ `wyn_040_discovery_test.sh` เดิมยืนยันไม่มี regression จากการแก้ `suggested_users()`
+
+Build: `flutter analyze`: สะอาดทุก commit (0 issues)
+
+Handoff: ส่งต่อ AI QA & Security (`/qa`) — จุดที่ควรตรวจเข้มเป็นพิเศษ: (1) RLS ใหม่ของ `drop_images`/`profile_recommendation_dismissals` (2) `drops.image_url` ยังคง backward-compatible จริงกับทุก consumer เดิม (3) การ merge single-tap/double-tap ใน `DoubleTapLike.onTap` ไม่ชนกับจุดอื่นที่ใช้ widget นี้อยู่ (4) Privacy notice banner แสดงถูกจังหวะจริง (เจ้าของโปรไฟล์เท่านั้น, ครั้งแรกเท่านั้น) (5) Regression กับ WYN-062 (text-only Drop)/WYN-063 (ranking algorithm ที่เพิ่ง fix บั๊ก production วันนี้) — ยังไม่ deploy จนกว่า QA จะอนุมัติ
