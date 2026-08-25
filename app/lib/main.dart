@@ -43,9 +43,15 @@ class WynApp extends StatelessWidget {
       // .wyn/company/DECISIONS.md 2026-08-15 ("เปลี่ยน Color Direction
       // ของ WYN: Blue → Cyan"), replacing the earlier Blue + White + Soft
       // Gray direction (2026-08-14).
+      //
+      // WYN-071: forced to light always (not following system dark mode
+      // anymore) per Founder decision 2026-08-24 -- see DECISIONS.md.
+      // `darkTheme`/`WynTheme.dark` are kept, not deleted, so this can be
+      // reverted by changing `themeMode` alone if the Founder decides
+      // otherwise later.
       theme: WynTheme.light,
       darkTheme: WynTheme.dark,
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.light,
       home: const AuthGate(),
     );
   }

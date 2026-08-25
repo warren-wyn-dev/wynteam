@@ -10046,3 +10046,135 @@ as $$
 $$;
 
 grant execute on function public.get_wynos_ranked_feed() to authenticated;
+
+-- ============================================================
+-- WYN-071: WYNOS Visual Refresh -- Profile Recommendation Section
+-- ============================================================
+-- See .wyn/docs/design/wyn-064-wynos-visual-refresh.md, Screen 5.
+-- Dismissing a suggested account (the "X" on a recommendation card)
+-- must stick permanently and everywhere the account might be
+-- suggested again -- not just hide the card client-side for the
+-- current session -- so this is a real table, not local state.
+create table if not exists public.profile_recommendation_dismissals (
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  dismissed_profile_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, dismissed_profile_id),
+  constraint profile_recommendation_dismissals_no_self check (user_id <> dismissed_profile_id)
+);
+
+alter table public.profile_recommendation_dismissals enable row level security;
+
+-- Same shape as `mutes`' RLS (WYN-028) -- a user only ever sees/creates
+-- their own dismissal rows, no RPC needed for the write path since a
+-- plain insert already satisfies the client's needs.
+create policy "Users can view dismissals they created"
+  on public.profile_recommendation_dismissals
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can dismiss recommendations as themselves"
+  on public.profile_recommendation_dismissals
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+-- suggested_users() (WYN-040) reused as-is for the Recommendation
+-- Section's source list (see Design doc Screen 5 -- true
+-- "similar to the profile being viewed" personalization is deferred,
+-- not scoped into this round) -- extended here with one more
+-- exclusion so a dismissed account never resurfaces. Signature
+-- unchanged, so Discovery's existing call site (DiscoveryRepository.
+-- fetchSuggestedUsers) picks this up automatically with no code change
+-- there -- dismissing from Profile also cleans up Discovery's list and
+-- vice versa, which is the correct behavior (it's the same "suggested
+-- to you" concept in both places).
+create or replace function public.suggested_users(p_limit int default 10)
+returns table(profile_id uuid)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.id as profile_id
+  from public.profiles p
+  where p.id <> auth.uid()
+    and not internal.is_blocked_either_way(auth.uid(), p.id)
+    and not exists (
+      select 1 from public.follows f
+      where f.follower_id = auth.uid() and f.following_id = p.id
+    )
+    and not exists (
+      select 1 from public.mutes m
+      where m.muter_id = auth.uid() and m.muted_id = p.id
+    )
+    and not exists (
+      select 1 from public.profile_recommendation_dismissals d
+      where d.user_id = auth.uid() and d.dismissed_profile_id = p.id
+    )
+  order by (
+    select count(*) from public.follows fc where fc.following_id = p.id
+  ) desc
+  limit p_limit;
+$$;
+
+grant execute on function public.suggested_users(int) to authenticated;
+
+-- ============================================================
+-- WYN-071: WYNOS Visual Refresh -- Multi-image Drop (1-9 photos)
+-- ============================================================
+-- See .wyn/docs/design/wyn-064-wynos-visual-refresh.md, Screens 2-4.
+-- `drops.image_url` is kept exactly as-is (still the first/primary
+-- image, still what home_feed/get_wynos_ranked_feed/saved_feed/the
+-- admin web app/every existing consumer reads) -- this table is a
+-- purely additive companion holding the *full* ordered image list,
+-- read only by the app's new multi-image UI (full-screen viewer,
+-- image-count badge). Every image of every Drop gets a row here,
+-- including position 0 (the same URL as drops.image_url) -- keeping
+-- drop_images the single source of truth for "how many images/what
+-- order" rather than having position 0 live in one place and 1-8
+-- elsewhere.
+create table if not exists public.drop_images (
+  id uuid primary key default gen_random_uuid(),
+  drop_id uuid not null references public.drops (id) on delete cascade,
+  image_url text not null,
+  position int not null,
+  unique (drop_id, position)
+);
+
+alter table public.drop_images enable row level security;
+
+-- Deliberately re-checks visibility through `drops` itself (a plain
+-- `exists` subquery, evaluated under drops' own current SELECT policy)
+-- rather than duplicating its blocked-author/deleted/locked-private
+-- conditions here -- this is the "want the exact same restriction"
+-- case, not the self-defeat trap noted elsewhere in this file for an
+-- *unrelated* condition: whatever drops' policy allows a viewer to see
+-- right now is exactly what its images should be visible.
+create policy "Drop images inherit their Drop's visibility"
+  on public.drop_images
+  for select
+  to authenticated
+  using (exists (select 1 from public.drops d where d.id = drop_images.drop_id));
+
+create policy "Users can add images to their own drops"
+  on public.drop_images
+  for insert
+  to authenticated
+  with check (exists (
+    select 1 from public.drops d
+    where d.id = drop_images.drop_id and d.author_id = auth.uid()
+  ));
+
+-- Backfill: every existing Drop with an image gets exactly one
+-- drop_images row (position 0, same URL) so drop_images(count) is
+-- accurate for old data too, not just Drops created after this
+-- migration. Idempotent (safe to re-run/already-applied).
+insert into public.drop_images (drop_id, image_url, position)
+select d.id, d.image_url, 0
+from public.drops d
+where d.image_url is not null
+  and not exists (
+    select 1 from public.drop_images di where di.drop_id = d.id
+  );

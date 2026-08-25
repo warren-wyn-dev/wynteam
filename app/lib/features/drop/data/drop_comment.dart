@@ -91,3 +91,30 @@ class DropComment {
     return (embedded.first as Map<String, dynamic>)['count'] as int? ?? 0;
   }
 }
+
+/// WYN-071: one row of Profile's "Replies" tab -- a [comment] plus just
+/// enough of its parent Drop ([dropId]/[dropCaption]/[dropImageUrl]/
+/// [dropAuthorUsername]/[dropAuthorDisplayName]) to show it in context
+/// and link to it. See [DropRepository.fetchRepliesByAuthor].
+class ProfileReply {
+  const ProfileReply({
+    required this.comment,
+    required this.dropId,
+    this.dropCaption,
+    this.dropImageUrl,
+    required this.dropAuthorUsername,
+    this.dropAuthorDisplayName,
+  });
+
+  final DropComment comment;
+  final String dropId;
+  final String? dropCaption;
+  final String? dropImageUrl;
+  final String dropAuthorUsername;
+  final String? dropAuthorDisplayName;
+
+  String get dropAuthorNameOrUsername => displayNameOrUsername(
+        displayName: dropAuthorDisplayName,
+        username: dropAuthorUsername,
+      );
+}

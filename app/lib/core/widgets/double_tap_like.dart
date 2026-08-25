@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Wraps a post's media area (image/video) with Instagram-style
 /// double-tap-to-like -- WYNOS V1.0.0 Beta requirement 4. Two quick taps
@@ -18,6 +19,7 @@ class DoubleTapLike extends StatefulWidget {
     required this.child,
     required this.onLike,
     required this.alreadyLiked,
+    this.onTap,
   });
 
   final Widget child;
@@ -29,6 +31,19 @@ class DoubleTapLike extends StatefulWidget {
   final VoidCallback onLike;
 
   final bool alreadyLiked;
+
+  /// WYN-071: an optional single-tap handler (e.g. opening a
+  /// multi-image Drop's full-screen viewer) on the *same* underlying
+  /// `GestureDetector` as the double-tap recognizer above, rather than
+  /// a second nested `GestureDetector` a caller might otherwise be
+  /// tempted to wrap around this widget. Two separate recognizers for
+  /// tap vs. double-tap on overlapping regions leaves the tap one
+  /// waiting out the double-tap disambiguation window unreliably;
+  /// putting both callbacks on one recognizer set is the pattern
+  /// Flutter's gesture arena actually resolves cleanly (a lone tap
+  /// fires [onTap] after that same window elapses with no second tap;
+  /// two quick taps fire [onLike] instead, never both).
+  final VoidCallback? onTap;
 
   @override
   State<DoubleTapLike> createState() => _DoubleTapLikeState();
@@ -64,7 +79,13 @@ class _DoubleTapLikeState extends State<DoubleTapLike>
   ]).animate(_controller);
 
   void _handleDoubleTap() {
-    if (!widget.alreadyLiked) widget.onLike();
+    // WYN-071: haptic only on the tap that actually likes -- a repeat
+    // double-tap on an already-liked post still replays the heart (see
+    // class doc) but shouldn't buzz again since nothing changed.
+    if (!widget.alreadyLiked) {
+      widget.onLike();
+      HapticFeedback.lightImpact();
+    }
     _controller.forward(from: 0);
   }
 
@@ -78,6 +99,7 @@ class _DoubleTapLikeState extends State<DoubleTapLike>
   Widget build(BuildContext context) {
     return GestureDetector(
       onDoubleTap: _handleDoubleTap,
+      onTap: widget.onTap,
       child: Stack(
         alignment: Alignment.center,
         children: [

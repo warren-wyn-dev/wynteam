@@ -27,7 +27,8 @@ class Drop {
     this.pollOptionCounts,
     this.editedAt,
     this.deletedAt,
-  });
+    int? imageCount,
+  }) : imageCount = imageCount ?? (imageUrl != null ? 1 : 0);
 
   final String id;
   final String authorId;
@@ -38,6 +39,17 @@ class Drop {
   /// Null when this Drop is a Poll ([pollId] set) instead -- WYN-035:
   /// a Drop carries either an image or a Poll, never both this round.
   final String? imageUrl;
+
+  /// WYN-071: total images this Drop has (1-9), sourced from
+  /// `drop_images(count)` -- defaults to 1 when [imageUrl] is set and 0
+  /// when it isn't (a Poll/text-only Drop), so every existing call site
+  /// that doesn't pass this explicitly (fixtures, older tests, any
+  /// fetch path not yet updated to embed the count) still gets the
+  /// correct value for the single-image case it always represented.
+  /// The images themselves (URLs 2-9, beyond [imageUrl]) are fetched
+  /// separately and only on demand -- see DropRepository.fetchDropImages.
+  final int imageCount;
+
   final String? caption;
   final DateTime createdAt;
   final int likeCount;
@@ -79,6 +91,11 @@ class Drop {
   final DateTime? deletedAt;
 
   bool get isPoll => pollId != null;
+
+  /// WYN-071: drives the small "multiple photos" badge on grid tiles/
+  /// cards and whether DropDetailScreen shows a swipeable PageView
+  /// instead of a single static image.
+  bool get hasMultipleImages => imageCount > 1;
 
   bool get wasEdited => editedAt != null;
 
@@ -133,6 +150,7 @@ class Drop {
         authorDisplayName: authorDisplayName,
         authorAvatarUrl: authorAvatarUrl,
         imageUrl: imageUrl,
+        imageCount: imageCount,
         caption: caption,
         createdAt: createdAt,
         likeCount: likeCount ?? this.likeCount,
@@ -165,6 +183,7 @@ class Drop {
         authorDisplayName: authorDisplayName,
         authorAvatarUrl: authorAvatarUrl,
         imageUrl: imageUrl,
+        imageCount: imageCount,
         caption: caption,
         createdAt: createdAt,
         likeCount: likeCount,
@@ -272,6 +291,13 @@ class Drop {
       authorDisplayName: author?['display_name'] as String?,
       authorAvatarUrl: author?['avatar_url'] as String?,
       imageUrl: map['image_url'] as String?,
+      // Falls back to the imageUrl-based default (see the constructor)
+      // when the query didn't embed drop_images(count) at all -- not
+      // every DropRepository fetch path is updated to include it yet
+      // (see the field's own doc comment).
+      imageCount: map.containsKey('drop_images')
+          ? _embeddedCount(map['drop_images'] as List<dynamic>?)
+          : null,
       caption: map['caption'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
       likeCount: _embeddedCount(map['drop_likes'] as List<dynamic>?),

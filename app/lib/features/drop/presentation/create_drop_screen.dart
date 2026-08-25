@@ -13,6 +13,7 @@ import '../../profile/data/profile_repository.dart';
 import '../data/drop_draft.dart';
 import '../data/drop_repository.dart';
 import '../data/square_crop.dart';
+import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/widgets/mention_input.dart';
 import '../../../core/widgets/restriction_banner.dart';
@@ -88,8 +89,16 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   late final AppealRepository _appealRepository =
       widget._appealRepository ?? AppealRepository(Supabase.instance.client);
   Set<String> _mentionedUserIds = {};
-  Uint8List? _imageBytes;
-  String _imageExtension = 'jpg';
+
+  // WYN-071: 1-9 images (was a single Uint8List?/String pair) --
+  // parallel lists, same order the preview grid shows them in. Both
+  // always the same length; kept as two lists rather than a list of
+  // records to minimize the diff against every other place in this
+  // file that already threaded bytes/extension separately.
+  final List<Uint8List> _imagesBytes = [];
+  final List<String> _imageExtensions = [];
+  static const _maxImages = 9;
+
   bool _isCropping = false;
 
   bool _isSharing = false;
@@ -140,7 +149,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   bool get _canShare {
     if (_isSharing || _isCropping || _isRestricted) return false;
     if (_mode == _ComposeMode.image) {
-      return _imageBytes != null ||
+      return _imagesBytes.isNotEmpty ||
           _existingImageUrl != null ||
           _captionController.text.trim().isNotEmpty;
     }
@@ -154,7 +163,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   /// keep, even though it's nowhere near ready to publish.
   bool get _hasUnsavedContent {
     if (_mode == _ComposeMode.image) {
-      return _imageBytes != null ||
+      return _imagesBytes.isNotEmpty ||
           _existingImageUrl != null ||
           _captionController.text.trim().isNotEmpty;
     }
@@ -280,12 +289,17 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     setState(() => _pollOptionControllers.removeAt(index).dispose());
   }
 
+  /// WYN-071: appends a single image (camera only -- gallery goes
+  /// through [_pickMultipleImages] instead, see [_showImageSourceSheet]).
+  /// A freshly picked image clears [_existingImageUrl] the same way it
+  /// always did pre-multi-image (a Draft's carried-over image and a
+  /// fresh multi-image pick never mix -- see that field's doc comment).
   Future<void> _pickImage(ImageSource source) async {
     // Guards the same race the "แชร์" button guards against (see
     // .wyn/tasks/bugs/WYN-004-feed-and-post.md, QA round 1): without
     // this, the image area's onTap could reopen the picker sheet while
     // the previous pick is still being cropped.
-    if (_isCropping) return;
+    if (_isCropping || _imagesBytes.length >= _maxImages) return;
 
     final picked = await ImagePicker().pickImage(
       source: source,
@@ -303,13 +317,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       final cropped = await centerCropToSquare(rawBytes);
       if (!mounted) return;
       setState(() {
-        _imageBytes = cropped;
-        _imageExtension = 'png';
-        // WYN-036: a freshly picked image replaces whatever draft
-        // image was carried over -- _share()/_saveDraft() always
-        // prefer _imageBytes over _existingImageUrl when both are
-        // non-null, but clearing this too avoids the stale URL
-        // lingering in state for no reason.
+        _imagesBytes.add(cropped);
+        _imageExtensions.add('png');
         _existingImageUrl = null;
       });
     } catch (_) {
@@ -321,6 +330,51 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     } finally {
       if (mounted) setState(() => _isCropping = false);
     }
+  }
+
+  /// WYN-071: gallery multi-select, capped via [ImagePicker.limit] --
+  /// the OS picker itself refuses to let the user select more than
+  /// that many, which is simpler and clearer feedback than letting them
+  /// over-select and then silently trimming the result afterward.
+  Future<void> _pickMultipleImages() async {
+    if (_isCropping || _imagesBytes.length >= _maxImages) return;
+
+    final remaining = _maxImages - _imagesBytes.length;
+    final picked = await ImagePicker().pickMultiImage(
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 85,
+      limit: remaining,
+    );
+    if (picked.isEmpty) return;
+
+    setState(() => _isCropping = true);
+    try {
+      final croppedList = <Uint8List>[];
+      for (final file in picked) {
+        final rawBytes = await file.readAsBytes();
+        croppedList.add(await centerCropToSquare(rawBytes));
+      }
+      if (!mounted) return;
+      setState(() {
+        _imagesBytes.addAll(croppedList);
+        _imageExtensions.addAll(List.filled(croppedList.length, 'png'));
+        _existingImageUrl = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _errorMessage = 'เลือกรูปไม่สำเร็จ ลองใหม่อีกครั้ง');
+    } finally {
+      if (mounted) setState(() => _isCropping = false);
+    }
+  }
+
+  /// WYN-071.
+  void _removeImage(int index) {
+    setState(() {
+      _imagesBytes.removeAt(index);
+      _imageExtensions.removeAt(index);
+    });
   }
 
   Future<void> _showImageSourceSheet() {
@@ -342,7 +396,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
               title: const Text('เลือกจากคลังภาพ'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
-                _pickImage(ImageSource.gallery);
+                _pickMultipleImages();
               },
             ),
           ],
@@ -373,12 +427,11 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
           mentionedUserIds: _mentionedUserIds,
         );
       } else {
-        final imageBytes = _imageBytes;
         final existingImageUrl = _existingImageUrl;
-        if (imageBytes != null) {
+        if (_imagesBytes.isNotEmpty) {
           await widget.dropRepository.createDrop(
-            imageBytes: imageBytes,
-            imageExtension: _imageExtension,
+            imagesBytes: _imagesBytes,
+            imageExtensions: _imageExtensions,
             caption: _captionController.text,
             mentionedUserIds: _mentionedUserIds,
           );
@@ -485,12 +538,21 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       // them -- see onSelectionChanged above) can't leak an image_url
       // into a poll draft, and vice versa.
       final isImageMode = _mode == _ComposeMode.image;
+      // WYN-071: Drafts stay single-image only this round (non-goal --
+      // see the Design doc) -- only the first picked image, if any, is
+      // saved. A multi-image pick can still be drafted; resuming it
+      // just resumes with 1 image instead of all of them, same as
+      // resuming any other draft always meant "pick up roughly where
+      // you left off," not a byte-for-byte snapshot.
       await widget.dropRepository.saveDraft(
         draftId: _draftId,
-        imageBytes: isImageMode ? _imageBytes : null,
-        imageExtension: _imageExtension,
+        imageBytes: isImageMode && _imagesBytes.isNotEmpty
+            ? _imagesBytes.first
+            : null,
+        imageExtension:
+            _imageExtensions.isNotEmpty ? _imageExtensions.first : 'jpg',
         existingImageUrl:
-            isImageMode && _imageBytes == null ? _existingImageUrl : null,
+            isImageMode && _imagesBytes.isEmpty ? _existingImageUrl : null,
         caption: _captionController.text,
         pollOptions: _mode == _ComposeMode.poll
             ? _pollOptionControllers.map((c) => c.text.trim()).toList()
@@ -638,38 +700,150 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   }
 
   Widget _buildImageArea() {
-    final imageBytes = _imageBytes;
     final existingImageUrl = _existingImageUrl;
 
-    return GestureDetector(
-      onTap: (_isSharing || _isCropping) ? null : _showImageSourceSheet,
-      child: AspectRatio(
-        aspectRatio: 1,
-        child: Semantics(
-          label: (imageBytes == null && existingImageUrl == null)
-              ? 'แตะเพื่อเลือกหรือถ่ายรูป'
-              : 'รูปที่เลือก',
-          button: imageBytes == null && existingImageUrl == null,
-          child: Container(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: _isCropping
-                ? const Center(child: CircularProgressIndicator())
-                : imageBytes != null
-                    ? Image.memory(imageBytes, fit: BoxFit.cover)
-                    : existingImageUrl != null
-                        ? Image.network(existingImageUrl, fit: BoxFit.cover)
-                        : const Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.add_photo_alternate_outlined,
-                                    size: 40),
-                                SizedBox(height: WynSpacing.space2),
-                                Text('แตะเพื่อเลือกรูป (ไม่บังคับ)'),
-                              ],
-                            ),
-                          ),
+    // WYN-036 draft continuation, unchanged: a Draft's already-uploaded
+    // image, not yet replaced by a fresh pick -- single image only,
+    // same as before multi-image existed (see saveDraft's own scope
+    // note above).
+    if (existingImageUrl != null && _imagesBytes.isEmpty) {
+      return GestureDetector(
+        onTap: (_isSharing || _isCropping) ? null : _showImageSourceSheet,
+        child: AspectRatio(
+          aspectRatio: 1,
+          child: Semantics(
+            label: 'รูปที่เลือก',
+            child: Container(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child: _isCropping
+                  ? const Center(child: CircularProgressIndicator())
+                  : Image.network(existingImageUrl, fit: BoxFit.cover),
+            ),
           ),
+        ),
+      );
+    }
+
+    if (_imagesBytes.isEmpty) {
+      return GestureDetector(
+        onTap: (_isSharing || _isCropping) ? null : _showImageSourceSheet,
+        child: AspectRatio(
+          aspectRatio: 1,
+          child: Semantics(
+            label: 'แตะเพื่อเลือกหรือถ่ายรูป',
+            button: true,
+            child: Container(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child: _isCropping
+                  ? const Center(child: CircularProgressIndicator())
+                  : const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add_photo_alternate_outlined, size: 40),
+                          SizedBox(height: WynSpacing.space2),
+                          Text('แตะเพื่อเลือกรูป (ไม่บังคับ)'),
+                        ],
+                      ),
+                    ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // WYN-071: 1-9 picked images -- grid responsive to count, per the
+    // Design doc (1 image: full width, 2-3: single row, 4+: 3 columns).
+    final crossAxisCount = _imagesBytes.length == 1
+        ? 1
+        : (_imagesBytes.length <= 3 ? _imagesBytes.length : 3);
+    final canAddMore =
+        _imagesBytes.length < _maxImages && !_isCropping && !_isSharing;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: WynSpacing.space4,
+        vertical: WynSpacing.space2,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_isCropping) const LinearProgressIndicator(),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: WynSpacing.space2,
+              mainAxisSpacing: WynSpacing.space2,
+            ),
+            itemCount: _imagesBytes.length + (canAddMore ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (index >= _imagesBytes.length) return _buildAddImageTile();
+              return _buildImageThumbnail(index);
+            },
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: WynSpacing.space1),
+            child: Text(
+              '${_imagesBytes.length}/$_maxImages',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImageThumbnail(int index) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.memory(_imagesBytes[index], fit: BoxFit.cover),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Semantics(
+              label: 'ลบรูปที่ ${index + 1}',
+              button: true,
+              excludeSemantics: true,
+              child: InkWell(
+                onTap: _isSharing ? null : () => _removeImage(index),
+                borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+                child: const DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: WynColors.imageScrimStrong,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(2),
+                    child: Icon(Icons.close, size: 16, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddImageTile() {
+    return Semantics(
+      label: 'เพิ่มรูป เหลือได้อีก ${_maxImages - _imagesBytes.length} รูป',
+      button: true,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: _showImageSourceSheet,
+        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+          ),
+          child: const Icon(Icons.add_photo_alternate_outlined, size: 32),
         ),
       ),
     );

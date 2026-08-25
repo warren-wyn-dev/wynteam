@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../club/data/club.dart';
@@ -28,8 +29,12 @@ import 'widgets/profile_drop_grid_tab.dart';
 // codebase, just no longer wired up on this screen. See
 // .wyn/company/DECISIONS.md, 2026-08-14/2026-08-22 (Pop already
 // unmounted from RootShell's Bottom Nav the same way, for V3).
+import 'widgets/profile_likes_tab.dart';
+import 'widgets/profile_recommendation_section.dart';
 import 'widgets/profile_redrops_tab.dart';
+import 'widgets/profile_replies_tab.dart';
 import 'widgets/profile_saved_tab.dart';
+import 'widgets/privacy_notice_banner.dart';
 import 'widgets/profile_skeleton.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../block/data/block_relationship.dart';
@@ -39,11 +44,17 @@ import '../../chat/data/chat_repository.dart';
 import '../../chat/data/shared_content_type.dart';
 import '../../chat/presentation/conversation_screen.dart';
 import '../../chat/presentation/share_sheet.dart';
+import '../../moderation/data/appeal_repository.dart';
 import '../../mute/data/mute_repository.dart';
+import '../../notification/data/notification_repository.dart';
+import '../../notification/presentation/notification_list_screen.dart';
 import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
+import '../../search/data/discovery_repository.dart';
+import '../../search/presentation/search_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
+import '../../zoky/data/zoky_repository.dart';
 
 /// Placeholder share link -- same "no real hosting/domain yet" caveat as
 /// dropShareLink/clubShareLink (WYN-005/014).
@@ -172,6 +183,16 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       widget.followRequestRepository ??
           FollowRequestRepository(Supabase.instance.client);
 
+  // WYN-071 Screen 5 -- same optional/defaulted shape as every other
+  // repository above. Built fresh (not threaded through the
+  // constructor) since only this screen's Recommendation Section uses
+  // it here.
+  late final DiscoveryRepository _discoveryRepository = DiscoveryRepository(
+    Supabase.instance.client,
+    homeRepository: _homeRepository,
+    profileRepository: widget.profileRepository,
+  );
+
   // Null until loaded (only for other people's profiles, same posture as
   // _isFollowing) -- true only while the *current viewer* has an
   // outstanding, undecided Follow Request against this Private profile.
@@ -264,6 +285,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     final previous = _isFollowing;
     if (previous == null) return;
     setState(() => _isFollowing = !previous);
+    HapticFeedback.lightImpact();
     try {
       await widget.followRepository.toggleFollow(
         userId: widget.userId,
@@ -395,6 +417,90 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     } finally {
       if (mounted) setState(() => _isFollowActionInFlight = false);
     }
+  }
+
+  // WYN-071 Design, Screen 8 -- built fresh here rather than threaded
+  // through this screen's constructor, same optional/defaulted pattern
+  // already used above for _reportRepository/_blockRepository/etc. (and
+  // documented on NotificationListScreen's own followRequestRepository
+  // field as "see ViewProfileScreen's own comment on the pattern") --
+  // every call site of ViewProfileScreen would otherwise need to grow
+  // these params just to support a shortcut icon two people out of many
+  // call sites will ever use.
+  void _openSearch() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SearchScreen(
+          profileRepository: widget.profileRepository,
+          followRepository: widget.followRepository,
+          dropRepository: widget.dropRepository,
+          popRepository: widget.popRepository,
+          savedRepository: widget.savedRepository,
+          clubRepository:
+              widget.clubRepository ?? ClubRepository(Supabase.instance.client),
+          clubPostRepository: widget.clubPostRepository ??
+              ClubPostRepository(Supabase.instance.client),
+          autofocus: true,
+        ),
+      ),
+    );
+  }
+
+  void _openNotifications() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => NotificationListScreen(
+          notificationRepository: NotificationRepository(Supabase.instance.client),
+          dropRepository: widget.dropRepository,
+          popRepository: widget.popRepository,
+          followRepository: widget.followRepository,
+          profileRepository: widget.profileRepository,
+          savedRepository: widget.savedRepository,
+          clubRepository:
+              widget.clubRepository ?? ClubRepository(Supabase.instance.client),
+          clubPostRepository: widget.clubPostRepository ??
+              ClubPostRepository(Supabase.instance.client),
+          zokyRepository: ZokyRepository(Supabase.instance.client),
+          appealRepository: AppealRepository(Supabase.instance.client),
+          chatRepository: _chatRepository,
+        ),
+      ),
+    );
+  }
+
+  /// WYN-071: Saved's tab content pushed as its own screen instead --
+  /// see the Row above `_openEdit`'s button. `ProfileSavedTab`/
+  /// `ProfileDraftsTab` themselves are unchanged (still the exact same
+  /// widgets, just no longer mounted inside this screen's TabBarView).
+  void _openSaved() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('บันทึก')),
+          body: ProfileSavedTab(
+            savedRepository: widget.savedRepository,
+            dropRepository: widget.dropRepository,
+            popRepository: widget.popRepository,
+            followRepository: widget.followRepository,
+            profileRepository: widget.profileRepository,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openDrafts() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('ร่าง')),
+          body: ProfileDraftsTab(
+            dropRepository: widget.dropRepository,
+            profileRepository: widget.profileRepository,
+          ),
+        ),
+      ),
+    );
   }
 
   void _openFollowRequests() {
@@ -835,7 +941,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     final isOwnProfile = _isOwnProfile;
 
     return DefaultTabController(
-      length: isOwnProfile ? 4 : 2,
+      // WYN-071: fixed at 5 (Posts/ReDrops/Replies/Media/Likes) for
+      // every viewer -- see the TabBar/TabBarView below.
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('โปรไฟล์'),
@@ -884,7 +992,23 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                 onPressed: _signOut,
               ),
               const SizedBox(width: WynSpacing.space2),
-            ] else
+            ] else ...[
+              // WYN-071: Search/Notifications shortcuts, only on someone
+              // else's profile -- the Bottom Nav already puts both 1 tap
+              // away from the viewer's own profile (a root tab of
+              // RootShell), so duplicating them there would be dead
+              // weight. A pushed profile screen like this one hides the
+              // Bottom Nav, so these fill the gap here specifically.
+              IconButton(
+                icon: const Icon(Icons.search),
+                tooltip: 'ค้นหา',
+                onPressed: _openSearch,
+              ),
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined),
+                tooltip: 'การแจ้งเตือน',
+                onPressed: _openNotifications,
+              ),
               Semantics(
                 label: 'ตัวเลือกเพิ่มเติมสำหรับโปรไฟล์นี้',
                 excludeSemantics: true,
@@ -893,6 +1017,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   onPressed: _openMoreMenu,
                 ),
               ),
+            ],
           ],
         ),
         body: FutureBuilder<_ProfileWithCounts>(
@@ -994,12 +1119,47 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                         ),
                         const SizedBox(height: WynSpacing.space6),
                         if (isOwnProfile) ...[
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton(
-                              onPressed: () => _openEdit(profile),
-                              child: const Text('แก้ไขโปรไฟล์'),
-                            ),
+                          Row(
+                            children: [
+                              // Expanded (not a fixed-width Row) so the
+                              // button still fills all space *not* taken
+                              // by the Saved/Draft icons beside it --
+                              // reconciles WYN-065's "full-width edit
+                              // button" fix with WYN-071's icons, which
+                              // didn't exist yet when that fix landed.
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => _openEdit(profile),
+                                  child: const Text('แก้ไขโปรไฟล์'),
+                                ),
+                              ),
+                              const SizedBox(width: WynSpacing.space2),
+                              // WYN-071: Saved/Draft moved off the
+                              // public tab row (Posts/ReDrops/Replies/
+                              // Media/Likes is now the same set for
+                              // every viewer) into these two
+                              // owner-only icons -- neither capability
+                              // was removed, just relocated (see the
+                              // Design doc, Screen 6).
+                              Semantics(
+                                label: 'บันทึก',
+                                button: true,
+                                excludeSemantics: true,
+                                child: IconButton(
+                                  icon: const Icon(Icons.bookmark_border),
+                                  onPressed: _openSaved,
+                                ),
+                              ),
+                              Semantics(
+                                label: 'ร่าง',
+                                button: true,
+                                excludeSemantics: true,
+                                child: IconButton(
+                                  icon: const Icon(Icons.edit_note_outlined),
+                                  onPressed: _openDrafts,
+                                ),
+                              ),
+                            ],
                           ),
                           // WYN-039 Design, Screen 3's entry point --
                           // only for a Private account with at least 1
@@ -1075,19 +1235,31 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   ),
                 ),
                 _buildMyClubsSection(),
-                TabBar(
+                if (!isOwnProfile)
+                  ProfileRecommendationSection(
+                    discoveryRepository: _discoveryRepository,
+                    followRepository: widget.followRepository,
+                    followRequestRepository: _followRequestRepository,
+                    profileRepository: widget.profileRepository,
+                  ),
+                // WYN-071: exactly 5 tabs for every viewer now (was
+                // conditional 2/4 depending on isOwnProfile) -- Posts/
+                // ReDrops/Replies/Media/Likes are the same public set
+                // regardless of who's looking, matching the reference's
+                // own "identical tabs whoever's looking" structure.
+                // Saved/Draft (own-only, private) moved to the icon row
+                // above instead of being tabs here -- see _openSaved/
+                // _openDrafts.
+                const TabBar(
+                  isScrollable: true,
                   tabs: [
-                    const Tab(
-                        icon: Icon(Icons.grid_view_outlined), text: 'Drop'),
-                    const Tab(icon: Icon(Icons.repeat), text: 'ReDrops'),
+                    Tab(icon: Icon(Icons.grid_view_outlined), text: 'Posts'),
+                    Tab(icon: Icon(Icons.repeat), text: 'ReDrops'),
+                    Tab(icon: Icon(Icons.chat_bubble_outline), text: 'Replies'),
+                    Tab(icon: Icon(Icons.image_outlined), text: 'Media'),
+                    Tab(icon: Icon(Icons.favorite_border), text: 'Likes'),
                     // Pop tab intentionally omitted here -- see the
                     // import comment above (WYNOS V1.0.0 Beta requirement 3).
-                    if (isOwnProfile)
-                      const Tab(
-                          icon: Icon(Icons.bookmark_border), text: 'บันทึก'),
-                    if (isOwnProfile)
-                      const Tab(
-                          icon: Icon(Icons.edit_note_outlined), text: 'ร่าง'),
                   ],
                 ),
                 Expanded(
@@ -1104,7 +1276,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                           isOwnProfile: isOwnProfile,
                           isBlockedEitherWay: isBlockedEitherWay,
                           isLockedPrivate: isLockedPrivate,
-                          contentLabel: 'Drop',
+                          contentLabel: 'Post',
                           profile: profile,
                         ),
                       ),
@@ -1124,21 +1296,76 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                           profile: profile,
                         ),
                       ),
+                      Column(
+                        children: [
+                          if (isOwnProfile)
+                            const PrivacyNoticeBanner(
+                              prefsKey: 'seen_replies_privacy_notice',
+                              message: 'คนอื่นเห็นแท็บนี้ได้เหมือนกัน',
+                            ),
+                          Expanded(
+                            child: ProfileRepliesTab(
+                              dropRepository: widget.dropRepository,
+                              followRepository: widget.followRepository,
+                              profileRepository: widget.profileRepository,
+                              popRepository: widget.popRepository,
+                              savedRepository: widget.savedRepository,
+                              authorId: widget.userId,
+                              emptyText: _gridEmptyText(
+                                isOwnProfile: isOwnProfile,
+                                isBlockedEitherWay: isBlockedEitherWay,
+                                isLockedPrivate: isLockedPrivate,
+                                contentLabel: 'การตอบกลับ',
+                                profile: profile,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      ProfileDropGridTab(
+                        dropRepository: widget.dropRepository,
+                        followRepository: widget.followRepository,
+                        profileRepository: widget.profileRepository,
+                        popRepository: widget.popRepository,
+                        savedRepository: widget.savedRepository,
+                        authorId: widget.userId,
+                        onlyWithImages: true,
+                        emptyText: _gridEmptyText(
+                          isOwnProfile: isOwnProfile,
+                          isBlockedEitherWay: isBlockedEitherWay,
+                          isLockedPrivate: isLockedPrivate,
+                          contentLabel: 'สื่อ',
+                          profile: profile,
+                        ),
+                      ),
+                      Column(
+                        children: [
+                          if (isOwnProfile)
+                            const PrivacyNoticeBanner(
+                              prefsKey: 'seen_likes_privacy_notice',
+                              message: 'คนอื่นเห็นสิ่งที่คุณกด Like ได้เหมือนกัน',
+                            ),
+                          Expanded(
+                            child: ProfileLikesTab(
+                              dropRepository: widget.dropRepository,
+                              followRepository: widget.followRepository,
+                              profileRepository: widget.profileRepository,
+                              popRepository: widget.popRepository,
+                              savedRepository: widget.savedRepository,
+                              authorId: widget.userId,
+                              emptyText: _gridEmptyText(
+                                isOwnProfile: isOwnProfile,
+                                isBlockedEitherWay: isBlockedEitherWay,
+                                isLockedPrivate: isLockedPrivate,
+                                contentLabel: 'สิ่งที่ถูกใจ',
+                                profile: profile,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                       // Pop tab intentionally omitted here -- see the
                       // import comment above (WYNOS V1.0.0 Beta requirement 3).
-                      if (isOwnProfile)
-                        ProfileSavedTab(
-                          savedRepository: widget.savedRepository,
-                          dropRepository: widget.dropRepository,
-                          popRepository: widget.popRepository,
-                          followRepository: widget.followRepository,
-                          profileRepository: widget.profileRepository,
-                        ),
-                      if (isOwnProfile)
-                        ProfileDraftsTab(
-                          dropRepository: widget.dropRepository,
-                          profileRepository: widget.profileRepository,
-                        ),
                     ],
                   ),
                 ),

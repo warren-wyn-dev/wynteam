@@ -151,7 +151,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('บัญชีนี้เป็นส่วนตัว'), findsOneWidget);
-      expect(find.textContaining('ยังไม่มี Drop เลย'), findsNothing);
+      expect(find.textContaining('ยังไม่มี Post เลย'), findsNothing);
     });
 
     testWidgets(
@@ -162,7 +162,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('บัญชีนี้เป็นส่วนตัว'), findsNothing);
-      expect(find.textContaining('ยังไม่มี Drop เลย'), findsOneWidget);
+      expect(find.textContaining('ยังไม่มี Post เลย'), findsOneWidget);
     });
 
     testWidgets(

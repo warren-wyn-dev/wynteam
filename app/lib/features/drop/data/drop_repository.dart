@@ -31,8 +31,12 @@ const _savesContentType = 'drop';
 // (like _dropAuthorSelect/the count embeds already did) so a Poll
 // Drop's base poll data (id/options/expires_at) always comes back
 // alongside everything else, with no per-method opt-in to forget.
+// WYN-071: drop_images(count) -- how many images this Drop actually has
+// (1-9), not the images themselves (the full ordered list is only
+// fetched on demand via fetchDropImages, when a viewer actually opens
+// the full-screen viewer) -- keeps every list/feed fetch cheap.
 const _dropSelect =
-    '*, $_dropAuthorSelect, drop_likes(count), drop_comments(count), redrops(count), drop_polls(id, options, expires_at)';
+    '*, $_dropAuthorSelect, drop_likes(count), drop_comments(count), redrops(count), drop_polls(id, options, expires_at), drop_images(count)';
 
 /// Per-viewer poll state ([DropRepository._fetchPollStates]'s result) --
 /// combines "did I vote, and for what" with the aggregate results
@@ -147,17 +151,25 @@ class DropRepository {
   Future<List<Drop>> fetchByAuthor({
     required String authorId,
     required int page,
+    // WYN-071: Profile's "Media" tab -- the same Drop rows as "Posts"
+    // (this method, unfiltered), scoped down to the ones that actually
+    // have an image. A parameter on the existing method rather than a
+    // near-duplicate one, since every other line here (embeds, liked/
+    // saved/redropped/poll-state lookups, Drop.fromMap mapping) is
+    // identical either way.
+    bool onlyWithImages = false,
   }) async {
     final userId = _client.auth.currentUser!.id;
     final from = page * pageSize;
     final to = from + pageSize - 1;
 
-    final rows = await _client
+    var query = _client
         .from('drops')
         .select(_dropSelect)
-        .eq('author_id', authorId)
-        .order('created_at', ascending: false)
-        .range(from, to);
+        .eq('author_id', authorId);
+    if (onlyWithImages) query = query.not('image_url', 'is', null);
+    final rows =
+        await query.order('created_at', ascending: false).range(from, to);
 
     final dropIds = rows.map((row) => row['id'] as String).toList();
     final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
@@ -180,6 +192,95 @@ class DropRepository {
               pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
             ))
         .toList();
+  }
+
+  /// WYN-071: Profile's "Likes" tab -- Drops [authorId] has Liked, newest
+  /// Like first (not newest Drop first -- ordered by `drop_likes.
+  /// created_at`, mirroring how a Likes tab reads on the reference apps
+  /// this was modeled on). `drop_likes` is already public-read (`using
+  /// (true)`, see schema.sql) -- Founder decision 2026-08-24 makes this
+  /// tab itself public the same way, so no new RLS is needed at all,
+  /// only this query. The embedded `drops!inner(...)` still goes
+  /// through `drops`' own RLS, so a Liked-but-since-moderated/deleted/
+  /// blocked-author Drop is silently excluded rather than surfaced.
+  Future<List<Drop>> fetchLikedByAuthor({
+    required String authorId,
+    required int page,
+  }) async {
+    final userId = _client.auth.currentUser!.id;
+    final from = page * pageSize;
+    final to = from + pageSize - 1;
+
+    final likeRows = await _client
+        .from('drop_likes')
+        .select('drops!inner($_dropSelect)')
+        .eq('user_id', authorId)
+        .order('created_at', ascending: false)
+        .range(from, to);
+    final rows = likeRows.map((row) => row['drops'] as Map<String, dynamic>).toList();
+
+    final dropIds = rows.map((row) => row['id'] as String).toList();
+    final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
+    final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
+    final redroppedIds =
+        await _fetchRedroppedDropIds(userId: userId, dropIds: dropIds);
+    final pollStates = await _fetchPollStates(
+      userId: userId,
+      pollIds: rows.map(_pollIdFromRow).whereType<String>().toList(),
+    );
+
+    return rows
+        .map((row) => Drop.fromMap(
+              row,
+              likedByMe: likedIds.contains(row['id'] as String),
+              savedByMe: savedIds.contains(row['id'] as String),
+              redroppedByMe: redroppedIds.contains(row['id'] as String),
+              pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
+              pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
+              pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+            ))
+        .toList();
+  }
+
+  /// WYN-071: Profile's "Replies" tab -- top-level and reply comments
+  /// [authorId] has written, newest first, alongside enough of the
+  /// parent Drop to show it in context (author, image, caption).
+  /// `drop_comments` is already public-read the same way `drop_likes`
+  /// is (see [fetchLikedByAuthor]'s doc comment) -- no new RLS needed.
+  ///
+  /// Returns [ProfileReply] rather than a bare [DropComment] -- unlike
+  /// every other place [DropComment] is fetched (always already scoped
+  /// to one known Drop, e.g. DropDetailScreen's comment list), this tab
+  /// shows comments made across many different Drops at once, so the
+  /// UI needs enough of each parent Drop to distinguish and link to it.
+  Future<List<ProfileReply>> fetchRepliesByAuthor({
+    required String authorId,
+    required int page,
+  }) async {
+    final from = page * pageSize;
+    final to = from + pageSize - 1;
+
+    final rows = await _client
+        .from('drop_comments')
+        .select('*, $_commentAuthorSelect, '
+            'drop:drops!inner(id, caption, image_url, '
+            'author:profiles!drops_author_id_fkey(username, display_name))')
+        .eq('author_id', authorId)
+        .order('created_at', ascending: false)
+        .range(from, to);
+
+    return rows.map((row) {
+      final drop = row['drop'] as Map<String, dynamic>;
+      final dropAuthor = drop['author'] as Map<String, dynamic>?;
+      return ProfileReply(
+        comment: DropComment.fromMap(row, likedByMe: false),
+        dropId: drop['id'] as String,
+        dropCaption: drop['caption'] as String?,
+        dropImageUrl: drop['image_url'] as String?,
+        dropAuthorUsername: dropAuthor?['username'] as String? ?? '',
+        dropAuthorDisplayName: dropAuthor?['display_name'] as String?,
+      );
+    }).toList();
   }
 
   /// Fetches one page (0-indexed) of Drops authored by users the current
@@ -504,27 +605,39 @@ class DropRepository {
     );
   }
 
-  /// Creates a Drop with a photo. [mentionedUserIds] (WYN-021) is the set
-  /// of user ids MentionInput already resolved while composing the
-  /// caption -- inserted into `drop_mentions` right after the Drop
-  /// itself, not re-parsed from the caption text server-side. [caption]
-  /// may be empty here (image-only Drop, WYNOS V1.0.0 Beta) -- use
-  /// [createTextDrop] instead when there's no image at all.
+  /// Creates a Drop with 1-9 photos (WYN-071 -- was exactly 1 photo
+  /// before). [imagesBytes]/[imageExtensions] are parallel lists, same
+  /// order the Composer's preview grid shows them in -- that order
+  /// becomes each image's `drop_images.position`. [mentionedUserIds]
+  /// (WYN-021) is the set of user ids MentionInput already resolved
+  /// while composing the caption -- inserted into `drop_mentions` right
+  /// after the Drop itself, not re-parsed from the caption text
+  /// server-side. [caption] may be empty here (image Drop,
+  /// WYNOS V1.0.0 Beta) -- use [createTextDrop] instead when there's no
+  /// image at all.
   Future<void> createDrop({
-    required Uint8List imageBytes,
-    required String imageExtension,
+    required List<Uint8List> imagesBytes,
+    required List<String> imageExtensions,
     required String caption,
     Set<String> mentionedUserIds = const {},
   }) async {
+    assert(imagesBytes.length == imageExtensions.length);
+    assert(imagesBytes.isNotEmpty && imagesBytes.length <= 9);
     final userId = _client.auth.currentUser!.id;
 
-    final path =
-        '$userId/${DateTime.now().millisecondsSinceEpoch}.$imageExtension';
-    await _client.storage.from('drop-images').uploadBinary(path, imageBytes);
-    final imageUrl = _client.storage.from('drop-images').getPublicUrl(path);
+    final imageUrls = <String>[];
+    for (var i = 0; i < imagesBytes.length; i++) {
+      final path =
+          '$userId/${DateTime.now().millisecondsSinceEpoch}_$i.${imageExtensions[i]}';
+      await _client.storage
+          .from('drop-images')
+          .uploadBinary(path, imagesBytes[i]);
+      imageUrls.add(_client.storage.from('drop-images').getPublicUrl(path));
+    }
 
     await _insertDrop(
-      imageUrl: imageUrl,
+      imageUrl: imageUrls.first,
+      allImageUrls: imageUrls,
       caption: caption,
       mentionedUserIds: mentionedUserIds,
     );
@@ -573,6 +686,13 @@ class DropRepository {
     required String? imageUrl,
     required String caption,
     required Set<String> mentionedUserIds,
+    // WYN-071: every image (including [imageUrl] itself, at position 0)
+    // -- same "position 0 lives in drop_images too" convention the
+    // schema.sql backfill migration establishes. Empty/omitted for the
+    // no-image (createTextDrop) and existing-single-image
+    // (createDropFromExistingImage) call sites, neither of which needs
+    // more than the one row image_url already represents.
+    List<String> allImageUrls = const [],
   }) async {
     final row = await _client
         .from('drops')
@@ -583,14 +703,34 @@ class DropRepository {
         })
         .select('id')
         .single();
+    final dropId = row['id'] as String;
+
+    if (allImageUrls.isNotEmpty) {
+      await _client.from('drop_images').insert([
+        for (var i = 0; i < allImageUrls.length; i++)
+          {'drop_id': dropId, 'image_url': allImageUrls[i], 'position': i},
+      ]);
+    }
 
     if (mentionedUserIds.isNotEmpty) {
-      final dropId = row['id'] as String;
       await _client.from('drop_mentions').insert([
         for (final mentionedId in mentionedUserIds)
           {'drop_id': dropId, 'mentioned_user_id': mentionedId},
       ]);
     }
+  }
+
+  /// WYN-071: the full ordered image list for a Drop with more than one
+  /// image -- only DropDetailScreen's full-screen viewer calls this
+  /// (see [Drop.hasMultipleImages]), on demand, rather than every list/
+  /// feed fetch eagerly loading every image URL of every Drop.
+  Future<List<String>> fetchDropImages(String dropId) async {
+    final rows = await _client
+        .from('drop_images')
+        .select('image_url')
+        .eq('drop_id', dropId)
+        .order('position');
+    return rows.map((row) => row['image_url'] as String).toList();
   }
 
   /// Caption-only fetch for hashtag suggestion counting (WYNOS V1.0.0

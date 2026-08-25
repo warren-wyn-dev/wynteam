@@ -257,8 +257,8 @@ void main() {
   });
 
   testWidgets(
-      'own profile shows Edit/logout, 4 tabs including Saved and Draft but '
-      'no Pop, and no Follow button (WYN-013, WYNOS V1.0.0 Beta requirement 3)',
+      'own profile shows Edit/logout, Saved/Draft icons, 5 public tabs, and '
+      'no Follow button (WYN-013, WYN-071)',
       (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: ownProfileRepo,
@@ -270,20 +270,24 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์'), findsOneWidget);
     expect(find.byIcon(Icons.logout), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, 'ติดตาม'), findsNothing);
-    expect(find.text('Drop'), findsOneWidget);
-    // WYN-034 added a "ReDrops" tab between Drop and Pop.
+    // WYN-071: Saved/Draft are icons next to "แก้ไขโปรไฟล์" now, not tabs.
+    expect(find.byIcon(Icons.bookmark_border), findsOneWidget);
+    expect(find.byIcon(Icons.edit_note_outlined), findsOneWidget);
+    expect(find.text('Posts'), findsOneWidget);
     expect(find.text('ReDrops'), findsOneWidget);
+    expect(find.text('Replies'), findsOneWidget);
+    expect(find.text('Media'), findsOneWidget);
+    expect(find.text('Likes'), findsOneWidget);
     // Pop is hidden from Profile for WYNOS V1.0.0 Beta -- requirement 3.
     expect(find.text('Pop'), findsNothing);
-    expect(find.text('บันทึก'), findsOneWidget);
-    // WYN-036 added a "ร่าง" (Draft) tab after Saved.
-    expect(find.text('ร่าง'), findsOneWidget);
-    expect(find.byType(Tab), findsNWidgets(4));
+    expect(find.text('บันทึก'), findsNothing);
+    expect(find.text('ร่าง'), findsNothing);
+    expect(find.byType(Tab), findsNWidgets(5));
   });
 
   testWidgets(
-      'someone else\'s profile shows Follow, 2 tabs with no Saved/Pop, and '
-      'no Edit/logout (WYN-013, WYNOS V1.0.0 Beta requirement 3)',
+      'someone else\'s profile shows Follow, the same 5 public tabs, no '
+      'Saved/Draft icons/Pop, and no Edit/logout (WYN-013, WYN-071)',
       (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: otherProfileRepo,
@@ -295,13 +299,16 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์'), findsNothing);
     expect(find.byIcon(Icons.logout), findsNothing);
     expect(find.widgetWithText(OutlinedButton, 'ติดตาม'), findsOneWidget);
-    expect(find.text('Drop'), findsOneWidget);
-    // WYN-034 added a "ReDrops" tab between Drop and Pop.
+    expect(find.byIcon(Icons.bookmark_border), findsNothing);
+    expect(find.byIcon(Icons.edit_note_outlined), findsNothing);
+    expect(find.text('Posts'), findsOneWidget);
     expect(find.text('ReDrops'), findsOneWidget);
+    expect(find.text('Replies'), findsOneWidget);
+    expect(find.text('Media'), findsOneWidget);
+    expect(find.text('Likes'), findsOneWidget);
     // Pop is hidden from Profile for WYNOS V1.0.0 Beta -- requirement 3.
     expect(find.text('Pop'), findsNothing);
-    expect(find.text('บันทึก'), findsNothing);
-    expect(find.byType(Tab), findsNWidgets(2));
+    expect(find.byType(Tab), findsNWidgets(5));
   });
 
   testWidgets('Drop tab shows this profile\'s Drops (scoped by author, '
@@ -358,8 +365,9 @@ void main() {
   // own widget test, if any) is untouched -- only this screen stopped
   // wiring it up.
 
-  testWidgets('switching to the Saved tab shows saved Drop/Pop content',
-      (tester) async {
+  testWidgets(
+      'tapping the Saved icon opens saved Drop/Pop content (WYN-071: no '
+      'longer a tab)', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: ViewProfileScreen(
         profileRepository: contentTestProfileRepo,
@@ -373,7 +381,7 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    await tester.tap(find.text('บันทึก'));
+    await tester.tap(find.byIcon(Icons.bookmark_border));
     await tester.pumpAndSettle();
     tester.takeException();
 

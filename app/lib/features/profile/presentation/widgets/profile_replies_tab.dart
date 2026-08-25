@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
 
-import '../../../drop/data/drop.dart';
+import '../../../drop/data/drop_comment.dart';
 import '../../../drop/data/drop_repository.dart';
 import '../../../drop/presentation/drop_detail_screen.dart';
-import '../../../drop/presentation/widgets/drop_grid_tile.dart';
 import '../../../follow/data/follow_repository.dart';
 import '../../../pop/data/pop_repository.dart';
 import '../../../saved/data/saved_repository.dart';
 import '../../data/profile_repository.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/text_utils.dart';
 
-/// Drop grid tab on a profile (WYN-013) -- reuses DropGridTile as-is,
-/// same 3-column layout as DropFeedScreen (WYN-005), but scoped to one
-/// author via DropRepository.fetchByAuthor instead of the global feed.
-class ProfileDropGridTab extends StatefulWidget {
-  const ProfileDropGridTab({
+/// "Replies" tab on a profile -- WYN-071 Design, Screen 6/7. A plain
+/// list (not the grid every other tab on this screen uses) since a
+/// reply is text, not media -- each row is the comment text plus just
+/// enough of its parent Drop to place it in context, mirroring
+/// FollowListScreen's row-list convention (WYN-008/013) rather than
+/// inventing a new list style. Public to any viewer (Founder decision
+/// 2026-08-24) -- see DropRepository.fetchRepliesByAuthor's own doc
+/// comment on why no new RLS was needed for this.
+class ProfileRepliesTab extends StatefulWidget {
+  const ProfileRepliesTab({
     super.key,
     required this.dropRepository,
     required this.followRepository,
@@ -23,7 +28,6 @@ class ProfileDropGridTab extends StatefulWidget {
     required this.savedRepository,
     required this.authorId,
     required this.emptyText,
-    this.onlyWithImages = false,
   });
 
   final DropRepository dropRepository;
@@ -34,20 +38,14 @@ class ProfileDropGridTab extends StatefulWidget {
   final String authorId;
   final String emptyText;
 
-  /// WYN-071: Profile's "Media" tab reuses this widget as-is, scoped to
-  /// Drops that actually have an image (see DropRepository.
-  /// fetchByAuthor's own doc comment) -- "Posts" (the default, `false`)
-  /// keeps showing every Drop, image or not.
-  final bool onlyWithImages;
-
   @override
-  State<ProfileDropGridTab> createState() => _ProfileDropGridTabState();
+  State<ProfileRepliesTab> createState() => _ProfileRepliesTabState();
 }
 
-class _ProfileDropGridTabState extends State<ProfileDropGridTab>
+class _ProfileRepliesTabState extends State<ProfileRepliesTab>
     with AutomaticKeepAliveClientMixin {
   final _scrollController = ScrollController();
-  final List<Drop> _drops = [];
+  final List<ProfileReply> _replies = [];
   int _page = 0;
   bool _isLoadingInitial = true;
   bool _isLoadingMore = false;
@@ -84,20 +82,19 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
       _error = null;
     });
     try {
-      final drops = await widget.dropRepository.fetchByAuthor(
+      final replies = await widget.dropRepository.fetchRepliesByAuthor(
         authorId: widget.authorId,
         page: 0,
-        onlyWithImages: widget.onlyWithImages,
       );
       setState(() {
-        _drops
+        _replies
           ..clear()
-          ..addAll(drops);
+          ..addAll(replies);
         _page = 0;
-        _hasMore = drops.length == DropRepository.pageSize;
+        _hasMore = replies.length == DropRepository.pageSize;
       });
     } catch (_) {
-      setState(() => _error = 'โหลด Drop ไม่สำเร็จ');
+      setState(() => _error = 'โหลดการตอบกลับไม่สำเร็จ');
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }
@@ -107,25 +104,25 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
     setState(() => _isLoadingMore = true);
     try {
       final nextPage = _page + 1;
-      final drops = await widget.dropRepository.fetchByAuthor(
+      final replies = await widget.dropRepository.fetchRepliesByAuthor(
         authorId: widget.authorId,
         page: nextPage,
-        onlyWithImages: widget.onlyWithImages,
       );
       setState(() {
-        _drops.addAll(drops);
+        _replies.addAll(replies);
         _page = nextPage;
-        _hasMore = drops.length == DropRepository.pageSize;
+        _hasMore = replies.length == DropRepository.pageSize;
       });
     } catch (_) {
-      // Silent: an infinite-scroll load-more failure doesn't need a
-      // blocking error state -- scrolling again just retries it.
+      // Silent -- same posture as every other tab's own load-more.
     } finally {
       if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
-  Future<void> _openDropDetail(Drop drop) async {
+  Future<void> _openDrop(ProfileReply reply) async {
+    final drop = await widget.dropRepository.fetchById(reply.dropId);
+    if (!mounted || drop == null) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => DropDetailScreen(
@@ -138,7 +135,6 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
         ),
       ),
     );
-    _loadInitial();
   }
 
   @override
@@ -162,40 +158,53 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
       );
     }
 
-    if (_drops.isEmpty) {
+    if (_replies.isEmpty) {
       return Center(child: Text(widget.emptyText));
     }
 
     return RefreshIndicator(
       onRefresh: _loadInitial,
-      child: CustomScrollView(
+      child: ListView.separated(
         controller: _scrollController,
-        slivers: [
-          SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 2,
-              mainAxisSpacing: 2,
+        itemCount: _replies.length + (_hasMore ? 1 : 0),
+        separatorBuilder: (context, index) => const Divider(height: 1),
+        itemBuilder: (context, index) {
+          if (index >= _replies.length) {
+            return const Padding(
+              padding: EdgeInsets.all(WynSpacing.space4),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          final reply = _replies[index];
+          return ListTile(
+            onTap: () => _openDrop(reply),
+            leading: SizedBox(
+              width: 44,
+              height: 44,
+              child: reply.dropImageUrl != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+                      child: Image.network(
+                        reply.dropImageUrl!,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : null,
             ),
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final drop = _drops[index];
-                return DropGridTile(
-                  drop: drop,
-                  onTap: () => _openDropDetail(drop),
-                );
-              },
-              childCount: _drops.length,
+            title: Text(
+              reply.comment.textContent,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          if (_hasMore)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(WynSpacing.space4),
-                child: Center(child: CircularProgressIndicator()),
-              ),
+            subtitle: Text(
+              'ตอบกลับโพสต์ของ ${reply.dropAuthorNameOrUsername} · '
+              '${relativeTimeLabel(reply.comment.createdAt, now: DateTime.now())}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-        ],
+          );
+        },
       ),
     );
   }

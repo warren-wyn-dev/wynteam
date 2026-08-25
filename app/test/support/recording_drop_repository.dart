@@ -80,9 +80,41 @@ class RecordingDropRepository extends DropRepository {
   Future<List<Drop>> fetchByAuthor({
     required String authorId,
     required int page,
+    bool onlyWithImages = false,
   }) async {
     if (page != 0) return [];
-    return feedDrops.where((d) => d.authorId == authorId).toList();
+    return feedDrops
+        .where((d) =>
+            d.authorId == authorId && (!onlyWithImages || d.imageUrl != null))
+        .toList();
+  }
+
+  /// Returned by [fetchLikedByAuthor], keyed by authorId -- WYN-071.
+  Map<String, List<Drop>> likedDropsByAuthor = {};
+  Object? fetchLikedByAuthorError;
+
+  @override
+  Future<List<Drop>> fetchLikedByAuthor({
+    required String authorId,
+    required int page,
+  }) async {
+    if (fetchLikedByAuthorError != null) throw fetchLikedByAuthorError!;
+    if (page != 0) return [];
+    return likedDropsByAuthor[authorId] ?? [];
+  }
+
+  /// Returned by [fetchRepliesByAuthor], keyed by authorId -- WYN-071.
+  Map<String, List<ProfileReply>> repliesByAuthor = {};
+  Object? fetchRepliesByAuthorError;
+
+  @override
+  Future<List<ProfileReply>> fetchRepliesByAuthor({
+    required String authorId,
+    required int page,
+  }) async {
+    if (fetchRepliesByAuthorError != null) throw fetchRepliesByAuthorError!;
+    if (page != 0) return [];
+    return repliesByAuthor[authorId] ?? [];
   }
 
   /// Looks [dropId] up in [feedDrops]; returns null if not present
@@ -112,13 +144,29 @@ class RecordingDropRepository extends DropRepository {
         .toList();
   }
 
+  /// Each call to [createDrop]'s image count, in order -- WYN-071.
+  final List<int> createDropImageCountArgs = [];
+  Object? createDropError;
+
+  /// Returned by [fetchDropImages], keyed by dropId -- WYN-071.
+  Map<String, List<String>> dropImagesById = {};
+  Object? fetchDropImagesError;
+
+  @override
+  Future<List<String>> fetchDropImages(String dropId) async {
+    if (fetchDropImagesError != null) throw fetchDropImagesError!;
+    return dropImagesById[dropId] ?? [];
+  }
+
   @override
   Future<void> createDrop({
-    required Uint8List imageBytes,
-    required String imageExtension,
+    required List<Uint8List> imagesBytes,
+    required List<String> imageExtensions,
     required String caption,
     Set<String> mentionedUserIds = const {},
   }) async {
+    if (createDropError != null) throw createDropError!;
+    createDropImageCountArgs.add(imagesBytes.length);
     createDropMentionedUserIdsArgs.add(mentionedUserIds);
   }
 

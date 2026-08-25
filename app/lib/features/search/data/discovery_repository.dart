@@ -93,6 +93,20 @@ class DiscoveryRepository {
     return _profileRepository.fetchProfilesByIds(ids);
   }
 
+  /// WYN-071: Profile's Recommendation Section (Design doc Screen 5) --
+  /// permanently hides [profileId] from this user's `suggested_users()`
+  /// results everywhere it's shown (here and Discovery), not just for
+  /// the current screen/session. A plain insert is enough: RLS on
+  /// `profile_recommendation_dismissals` already restricts this to the
+  /// caller's own rows (see schema.sql), so there's no need for a
+  /// wrapper RPC the way write paths that need extra validation have.
+  Future<void> dismissSuggestedUser(String profileId) {
+    return _client.from('profile_recommendation_dismissals').insert({
+      'user_id': _client.auth.currentUser!.id,
+      'dismissed_profile_id': profileId,
+    });
+  }
+
   /// Both ranking RPCs return the identical shape -- a single
   /// `profile_id` column, already ordered/limited server-side -- so
   /// this one helper covers both rather than duplicating the RPC-call/

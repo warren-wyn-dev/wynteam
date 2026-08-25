@@ -10,11 +10,13 @@ import '../../../saved/data/saved_repository.dart';
 import '../../data/profile_repository.dart';
 import '../../../../core/design/wyn_spacing.dart';
 
-/// Drop grid tab on a profile (WYN-013) -- reuses DropGridTile as-is,
-/// same 3-column layout as DropFeedScreen (WYN-005), but scoped to one
-/// author via DropRepository.fetchByAuthor instead of the global feed.
-class ProfileDropGridTab extends StatefulWidget {
-  const ProfileDropGridTab({
+/// "Likes" tab on a profile -- WYN-071 Design, Screen 6. Same 3-column
+/// grid as ProfileDropGridTab (reuses DropGridTile as-is), backed by
+/// DropRepository.fetchLikedByAuthor instead of fetchByAuthor. Public
+/// to any viewer (Founder decision 2026-08-24) -- see that method's own
+/// doc comment on why no new RLS was needed for this.
+class ProfileLikesTab extends StatefulWidget {
+  const ProfileLikesTab({
     super.key,
     required this.dropRepository,
     required this.followRepository,
@@ -23,7 +25,6 @@ class ProfileDropGridTab extends StatefulWidget {
     required this.savedRepository,
     required this.authorId,
     required this.emptyText,
-    this.onlyWithImages = false,
   });
 
   final DropRepository dropRepository;
@@ -34,17 +35,11 @@ class ProfileDropGridTab extends StatefulWidget {
   final String authorId;
   final String emptyText;
 
-  /// WYN-071: Profile's "Media" tab reuses this widget as-is, scoped to
-  /// Drops that actually have an image (see DropRepository.
-  /// fetchByAuthor's own doc comment) -- "Posts" (the default, `false`)
-  /// keeps showing every Drop, image or not.
-  final bool onlyWithImages;
-
   @override
-  State<ProfileDropGridTab> createState() => _ProfileDropGridTabState();
+  State<ProfileLikesTab> createState() => _ProfileLikesTabState();
 }
 
-class _ProfileDropGridTabState extends State<ProfileDropGridTab>
+class _ProfileLikesTabState extends State<ProfileLikesTab>
     with AutomaticKeepAliveClientMixin {
   final _scrollController = ScrollController();
   final List<Drop> _drops = [];
@@ -84,10 +79,9 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
       _error = null;
     });
     try {
-      final drops = await widget.dropRepository.fetchByAuthor(
+      final drops = await widget.dropRepository.fetchLikedByAuthor(
         authorId: widget.authorId,
         page: 0,
-        onlyWithImages: widget.onlyWithImages,
       );
       setState(() {
         _drops
@@ -97,7 +91,7 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
         _hasMore = drops.length == DropRepository.pageSize;
       });
     } catch (_) {
-      setState(() => _error = 'โหลด Drop ไม่สำเร็จ');
+      setState(() => _error = 'โหลดรายการที่ถูกใจไม่สำเร็จ');
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }
@@ -107,10 +101,9 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
     setState(() => _isLoadingMore = true);
     try {
       final nextPage = _page + 1;
-      final drops = await widget.dropRepository.fetchByAuthor(
+      final drops = await widget.dropRepository.fetchLikedByAuthor(
         authorId: widget.authorId,
         page: nextPage,
-        onlyWithImages: widget.onlyWithImages,
       );
       setState(() {
         _drops.addAll(drops);
@@ -118,8 +111,7 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
         _hasMore = drops.length == DropRepository.pageSize;
       });
     } catch (_) {
-      // Silent: an infinite-scroll load-more failure doesn't need a
-      // blocking error state -- scrolling again just retries it.
+      // Silent -- same posture as ProfileDropGridTab's own load-more.
     } finally {
       if (mounted) setState(() => _isLoadingMore = false);
     }
