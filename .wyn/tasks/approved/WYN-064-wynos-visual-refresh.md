@@ -1,7 +1,7 @@
 # Product Task — WYN-064
 
-Status: review (Coding เสร็จแล้ว 2026-08-24 — flutter analyze สะอาด, flutter test 784/784 ผ่าน) — รอ AI QA & Security
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security
+Status: approved (QA PASS 2026-08-25 — ดูรายละเอียดเต็มในส่วน QA Output ท้ายไฟล์นี้ + `.wyn/company/CONTEXT.md`) — รอ Founder อนุมัติส่งต่อ AI Deploy & DevOps
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → (รอ AI Deploy & DevOps)
 
 Feature: WYNOS Visual Refresh — Light/Premium Design Direction + Profile/Feed/Drop/Bottom Nav Alignment
 
@@ -108,3 +108,43 @@ Tests: `flutter test` เต็ม suite **784/784 ผ่าน** (baseline ก�
 Build: `flutter analyze`: สะอาดทุก commit (0 issues)
 
 Handoff: ส่งต่อ AI QA & Security (`/qa`) — จุดที่ควรตรวจเข้มเป็นพิเศษ: (1) RLS ใหม่ของ `drop_images`/`profile_recommendation_dismissals` (2) `drops.image_url` ยังคง backward-compatible จริงกับทุก consumer เดิม (3) การ merge single-tap/double-tap ใน `DoubleTapLike.onTap` ไม่ชนกับจุดอื่นที่ใช้ widget นี้อยู่ (4) Privacy notice banner แสดงถูกจังหวะจริง (เจ้าของโปรไฟล์เท่านั้น, ครั้งแรกเท่านั้น) (5) Regression กับ WYN-062 (text-only Drop)/WYN-063 (ranking algorithm ที่เพิ่ง fix บั๊ก production วันนี้) — ยังไม่ deploy จนกว่า QA จะอนุมัติ
+
+---
+
+## QA & Security Output (2026-08-25)
+
+Feature: WYNOS Visual Refresh (WYN-064) — Theme fix, Multi-image Drop, Profile Recommendation Section, Profile tab restructure (Posts/ReDrops/Replies/Media/Likes), Search/Notification icons บนโปรไฟล์คนอื่น, Haptic feedback + Follow animation
+
+Environment: Local (ไม่มี Supabase project จริงในสภาพแวดล้อมนี้) — `flutter analyze`/`flutter test` เต็ม suite ต่อ codebase จริง, SQL regression test ต่อ throwaway local Postgres database (สร้าง/ทำลายทิ้งหลังทดสอบ ไม่แตะ dev/prod data), ad-hoc RLS probe ต่อ local Postgres แยกอีกชุดสำหรับ `drop_images` cascade กับ Drop ที่ soft-delete แล้ว
+
+Test Cases:
+1. `flutter test` เต็ม suite (ตรวจซ้ำอิสระ ไม่เชื่อตัวเลขที่ Coding รายงานเฉยๆ)
+2. `flutter analyze` เต็ม repo
+3. SQL regression: `wyn_064_recommendation_dismissal_test.sh` (7 checks)
+4. SQL regression: `wyn_064_multi_image_drop_test.sh` (7 checks)
+5. Re-run SQL regression เดิมที่เสี่ยง regression: `wyn_040_discovery_test.sh` (แก้ `suggested_users()`), `wyn_063_unified_home_feed_test.sh` (ranking algorithm ที่เพิ่ง fix บั๊ก production วันเดียวกัน)
+6. Ad-hoc RLS probe: `drop_images` ของ Drop ที่ soft-delete แล้ว ต้องไม่เห็นจากคนแปลกหน้า
+7. Backward-compat trace: `drops.image_url` ยังใช้ได้กับ `admin_search_drops()`/`admin_get_drop()` (Admin web) จริงหรือไม่
+8. Gesture-arena stress test: widget test พิสูจน์ tap/double-tap conflict จริงใน `DoubleTapLike`/`DropImageGallery` (จุดที่ Coding เองรายงานว่าเจอบั๊กและแก้ระหว่างทำ) — สร้าง regression test เพิ่มเพื่อยืนยัน fix ใช้ได้จริง ไม่ใช่แค่เชื่อคำอธิบาย
+9. Extended probe: โครงสร้างเดียวกัน (outer `InkWell` + inner `DoubleTapLike` แยก detector) มีอยู่ใน `HomeDropCard`/`HomePopCard` ด้วยหรือไม่ (โค้ดเดิม ไม่ถูกแตะใน WYN-064) — พิสูจน์ด้วย widget test จริงว่ายังทำงานถูกต้องหรือไม่ ไม่ใช่แค่อ่านโค้ดเดา
+
+Passed: 1, 2, 3, 4, 5, 6, 7, 8, 9 (784/784 flutter test; analyze 0 issues; ทั้ง 2 SQL script ใหม่ 7/7 checks ผ่าน; SQL เดิมทั้งคู่ผ่านไม่มี regression; RLS probe คนแปลกหน้าเห็น drop_images ของ Drop ที่ลบแล้ว = 0 แถวถูกต้อง; `admin_search_drops`/`admin_get_drop` ไม่ถูกแตะเลยใน 4 commit ยัง backward-compatible; DoubleTapLike fix ยืนยันด้วย test จริงว่าใช้ได้; HomeDropCard/HomePopCard onTap ยังทำงาน แค่ช้ากว่าปกติ ~300ms เมื่อแตะตรงรูปภาพ — ดู Security Findings)
+
+Failed: ไม่มี (0)
+
+Severity: Low (สำหรับประเด็นที่พบใน Test Case 9 เท่านั้น — ดูรายละเอียดด้านล่าง)
+
+Reproduction Steps (ประเด็น Test Case 9 — HomeDropCard tap delay):
+1. เปิด Home feed, เจอการ์ด Drop ที่มีรูปภาพ
+2. แตะตรงตัวรูปภาพของการ์ด (ไม่ใช่ส่วนอื่นของการ์ด เช่น caption/username แถว)
+3. สังเกตเวลาที่ `DropDetailScreen` เปิดขึ้น เทียบกับแตะจุดอื่นของการ์ดเดียวกัน
+
+Expected: เปิด `DropDetailScreen` ทันทีเหมือนกันไม่ว่าจะแตะจุดไหนของการ์ด
+
+Actual: แตะตรงรูปภาพ เปิดช้ากว่าจุดอื่นประมาณ 300ms (`kDoubleTapTimeout`) เพราะ gesture arena ต้องรอแยกแยะ tap เดี่ยว/คู่ระหว่าง outer `InkWell`'s Tap recognizer กับ inner `DoubleTapLike`'s DoubleTap recognizer (คนละ `GestureDetector` ซ้อนกัน) — พิสูจน์ด้วย widget test จริง (`tester.tap` แล้ว pump ครั้งเดียว = ยังไม่เปิด, pump ผ่าน `kDoubleTapTimeout` = เปิดแล้ว) — **onTap ยังทำงานถูกต้องเสมอ ไม่ใช่บั๊กที่ใช้งานไม่ได้เลย** ต่างจากบั๊กที่ Coding เจอและแก้ใน `DropImageGallery` (ซึ่งกรณีนั้น onTap ไม่ทำงานเลยไม่ว่าจะรอนานแค่ไหน) — โค้ดจุดนี้ (`HomeDropCard`/`HomePopCard`) เป็นของเดิมตั้งแต่ WYN-034/035, แก้ล่าสุดใน WYN-063 (`58e4c43`) ไม่ถูกแตะในทั้ง 4 commit ของ WYN-064 เลย จึงไม่ใช่บั๊กที่งานนี้สร้างขึ้นใหม่ ไม่กระทบขอบเขต/acceptance criteria ของ WYN-064
+
+Security Findings: ไม่พบช่องโหว่ — RLS ของทั้ง `drop_images`/`profile_recommendation_dismissals` ตรวจสอบสิทธิ์ถูกต้อง (select ผ่าน parent `drops`' visibility, insert เฉพาะเจ้าของ), ไม่มี privilege escalation, ไม่มี secret รั่วไหลในโค้ดที่เพิ่ม (`git diff` ตรวจแล้ว), self-dismissal CHECK constraint ของ `profile_recommendation_dismissals` ป้องกัน user ยกเลิกคำแนะนำแทนคนอื่นได้ถูกต้อง
+
+Recommendation: (1) **Fast-follow (non-blocking)**: รวม `onTap` เข้า `DoubleTapLike`'s เดียวกันใน `HomeDropCard`/`HomePopCard` (pattern เดียวกับที่แก้ใน `DropImageGallery` แล้ว) เพื่อให้ทั้งการ์ดตอบสนองเร็วเท่ากัน — ไม่ต้องรีบ ไม่ block WYN-064 (2) สโคปที่ปรับจาก Design doc (Posts/ReDrops ไม่รวม tab, Recommendation Section/Search-Notification icon ไม่ใส่บนโปรไฟล์ตัวเอง) ตรวจแล้วสมเหตุสมผลและมีเหตุผลบันทึกไว้ชัดเจนทุกจุด เห็นด้วยกับการตัดสินใจของ Coding
+
+Final Status: PASS
