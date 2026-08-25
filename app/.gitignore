@@ -30,8 +30,15 @@ migrate_working_dir/
 # file disables the default service-worker registration (see its own
 # comment) and must survive regeneration or every future preview
 # rebuild silently reintroduces the "redeploys look cached" bug.
+# index.html/manifest.json are committed too, for the same reason --
+# `flutter create` only regenerates files that aren't already present,
+# so committing our customized app name/title here (instead of
+# Flutter's generic "wyn"/"A new Flutter project" template values)
+# means every future CI deploy keeps it instead of silently reverting.
 /web/*
 !/web/flutter_bootstrap.js
+!/web/index.html
+!/web/manifest.json
 /linux/
 /macos/
 /windows/
