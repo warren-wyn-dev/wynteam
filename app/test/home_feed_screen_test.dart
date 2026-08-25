@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -38,6 +40,7 @@ HomeFeedItem _dropItem({
   String caption = 'แคปชัน Drop',
   int viewCount = 0,
   DateTime? createdAt,
+  bool hasImage = true,
 }) =>
     HomeFeedItem(
       id: id,
@@ -46,7 +49,7 @@ HomeFeedItem _dropItem({
       authorUsername: 'namfah',
       createdAt: createdAt ?? DateTime.now(),
       caption: caption,
-      imageUrl: 'https://example.supabase.co/drops/$id.jpg',
+      imageUrl: hasImage ? 'https://example.supabase.co/drops/$id.jpg' : null,
       likeCount: likeCount,
       commentCount: 0,
       likedByMe: likedByMe,
@@ -105,6 +108,30 @@ HomeFeedItem _pollItem({
       pollTotalVotes: totalVotes,
       pollOptionCounts: optionCounts,
     );
+
+/// A RecordingHomeRepository whose fetchRankedFeed never resolves --
+/// used only by the WYN-064 "duplicate call while loading" regression
+/// test, where the guard needs to be exercised while a fetch is
+/// deterministically still in flight rather than relying on
+/// microtask-timing luck against the default (immediately-resolving)
+/// RecordingHomeRepository. Same never-completed-Completer shape as
+/// settings_screen_test.dart's "export in flight" test (see its own doc
+/// comment) -- the test only needs to prove the second call never
+/// happens while the first is still pending, not observe what happens
+/// once it resolves, so nothing here ever completes the gate.
+class _DelayedHomeRepository extends RecordingHomeRepository {
+  _DelayedHomeRepository({required List<HomeFeedItem> items})
+      : super(rankedFeedItems: items);
+
+  final _gate = Completer<void>();
+
+  @override
+  Future<List<HomeFeedItem>> fetchRankedFeed({required int page}) async {
+    fetchRankedFeedCalls++;
+    await _gate.future;
+    return page == 0 ? rankedFeedItems : <HomeFeedItem>[];
+  }
+}
 
 Club _club({required String id, required String name, int memberCount = 1}) =>
     Club(
@@ -209,6 +236,15 @@ void main() {
   late RecordingHomeRepository hideDropTestHomeRepository;
   late RecordingHomeRepository hidePopTestHomeRepository;
   late RecordingHomeRepository hideFailTestHomeRepository;
+
+  // WYN-064: Tap Home Tab to Scroll to Top & Refresh -- one repository
+  // per scenario, same reasoning as every group above (built once here,
+  // not inline inside a testWidgets callback, so its SupabaseClient's
+  // auto-refresh Timer doesn't leak and fail the "!timersPending"
+  // invariant flutter_test enforces after every test).
+  late RecordingHomeRepository scrollToTopTestHomeRepository;
+  late RecordingHomeRepository triggerRefreshTestHomeRepository;
+  late _DelayedHomeRepository duplicateFetchGuardTestHomeRepository;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
@@ -414,6 +450,24 @@ void main() {
     hideFailTestHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'hide-fail-d1')],
     )..hideContentError = Exception('network error');
+
+    // hasImage: false -- avoids kicking off 30 concurrent NetworkImage
+    // fetches (each fails against the fake "example.supabase.co" host
+    // and flutter_test's takeException() can only absorb one exception
+    // per call, so more than one in-flight failure fails the test with
+    // "Multiple exceptions... at least one was unexpected"). Only the
+    // scroll extent matters for this scenario, not the cards' visuals.
+    scrollToTopTestHomeRepository = RecordingHomeRepository(
+      rankedFeedItems: [
+        for (var i = 0; i < 30; i++)
+          _dropItem(id: 'scroll-$i', caption: 'โพสต์ที่ $i', hasImage: false),
+      ],
+    );
+    triggerRefreshTestHomeRepository = RecordingHomeRepository(
+      rankedFeedItems: [_dropItem(id: 'top-1', hasImage: false)],
+    );
+    duplicateFetchGuardTestHomeRepository =
+        _DelayedHomeRepository(items: [_dropItem(id: 'guard-1', hasImage: false)]);
   });
 
   Widget buildHome(
@@ -422,6 +476,7 @@ void main() {
     required RecordingPopRepository popRepository,
     RecordingClubPostRepository? clubPostRepository,
     RecordingClubRepository? clubRepository,
+    ValueNotifier<int>? homeTabReselectSignal,
   }) =>
       MaterialApp(
         home: HomeFeedScreen(
@@ -434,6 +489,8 @@ void main() {
           clubRepository: clubRepository ?? sharedClubRepository,
           clubPostRepository: clubPostRepository ?? sharedClubPostRepository,
           chatRepository: sharedChatRepository,
+          homeTabReselectSignal:
+              homeTabReselectSignal ?? ValueNotifier<int>(0),
         ),
       );
 
@@ -1615,6 +1672,95 @@ void main() {
       tester.takeException();
 
       expect(find.byType(ClubPage), findsOneWidget);
+    });
+  });
+
+  group('Tap Home Tab to Scroll to Top & Refresh (WYN-064)', () {
+    testWidgets(
+        'reselecting Home while scrolled down scrolls back to top without '
+        'refetching', (tester) async {
+      final reselectSignal = ValueNotifier<int>(0);
+
+      await tester.pumpWidget(buildHome(
+        scrollToTopTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        homeTabReselectSignal: reselectSignal,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(scrollToTopTestHomeRepository.fetchRankedFeedCalls, 1);
+
+      final controller = tester
+          .widget<CustomScrollView>(
+            find.byKey(const Key('home_feed_scroll_view')),
+          )
+          .controller!;
+
+      controller.jumpTo(controller.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(controller.position.pixels, greaterThan(0));
+
+      reselectSignal.value++;
+      await tester.pumpAndSettle();
+
+      expect(controller.position.pixels, 0);
+      // Case 1 (Scroll Position > 0 -> Scroll to Top): no refetch, just
+      // the scroll animation -- still the single initial-load call.
+      expect(scrollToTopTestHomeRepository.fetchRankedFeedCalls, 1);
+    });
+
+    testWidgets('reselecting Home while already at the top triggers a refresh',
+        (tester) async {
+      final reselectSignal = ValueNotifier<int>(0);
+
+      await tester.pumpWidget(buildHome(
+        triggerRefreshTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        homeTabReselectSignal: reselectSignal,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(triggerRefreshTestHomeRepository.fetchRankedFeedCalls, 1);
+
+      // Case 2 (Scroll Position == 0 -> Trigger Pull-to-Refresh).
+      reselectSignal.value++;
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(triggerRefreshTestHomeRepository.fetchRankedFeedCalls, 2);
+    });
+
+    testWidgets(
+        'reselecting Home while a refresh is already loading does not fire '
+        'a duplicate fetch', (tester) async {
+      final reselectSignal = ValueNotifier<int>(0);
+
+      await tester.pumpWidget(buildHome(
+        duplicateFetchGuardTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        homeTabReselectSignal: reselectSignal,
+      ));
+      // The initial load's fetchRankedFeed call is in flight and never
+      // resolves (see _DelayedHomeRepository's doc comment) --
+      // _isLoadingInitial stays true for the rest of this test, same as
+      // settings_screen_test.dart's "export in flight" test never
+      // resolving its own completer either. Not pumpAndSettle -- the
+      // indeterminate CircularProgressIndicator this leaves on screen
+      // would never let it settle.
+      await tester.pump();
+      expect(duplicateFetchGuardTestHomeRepository.fetchRankedFeedCalls, 1);
+
+      // Edge case from the ticket: prevent a duplicate API call while
+      // already loading. Reselecting Home again here must not start a
+      // second concurrent fetch.
+      reselectSignal.value++;
+      await tester.pump();
+      expect(duplicateFetchGuardTestHomeRepository.fetchRankedFeedCalls, 1);
+      tester.takeException();
     });
   });
 }

@@ -8,6 +8,7 @@ import 'package:wyn/features/home/data/home_feed_item.dart';
 import 'package:wyn/features/pop/data/pop.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
+import 'package:wyn/features/profile/presentation/widgets/profile_skeleton.dart';
 import 'package:wyn/features/saved/presentation/widgets/saved_grid_tile.dart';
 
 import 'support/fake_supabase_session.dart';
@@ -180,6 +181,43 @@ void main() {
     expect(find.text('ผู้ติดตาม'), findsOneWidget);
     expect(find.text('5'), findsOneWidget);
     expect(find.text('กำลังติดตาม'), findsOneWidget);
+  });
+
+  testWidgets(
+      'shows a skeleton loading state (not a bare spinner) while the '
+      'initial fetch is in flight', (tester) async {
+    await tester.pumpWidget(buildProfile(
+      profileRepository: ownProfileRepo,
+      followRepository: ownFollowRepo,
+      userId: 'me',
+    ));
+
+    expect(find.byType(ProfileSkeleton), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ProfileSkeleton), findsNothing);
+  });
+
+  testWidgets(
+      'the Edit Profile button spans the full width, not just its label',
+      (tester) async {
+    await tester.pumpWidget(buildProfile(
+      profileRepository: ownProfileRepo,
+      followRepository: ownFollowRepo,
+      userId: 'me',
+    ));
+    await tester.pumpAndSettle();
+
+    final buttonFinder =
+        find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์');
+    final buttonWidth = tester.getSize(buttonFinder).width;
+    // The Thai label alone renders far narrower than this (well under
+    // 200px at default button padding) -- this proves the button is
+    // stretched across the screen (minus the standard space6 edge
+    // padding on each side), not just sized to fit its text.
+    expect(buttonWidth, greaterThan(400));
   });
 
   testWidgets('tapping the Followers count opens FollowListScreen in '

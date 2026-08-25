@@ -35,6 +35,7 @@ import 'widgets/profile_redrops_tab.dart';
 import 'widgets/profile_replies_tab.dart';
 import 'widgets/profile_saved_tab.dart';
 import 'widgets/privacy_notice_banner.dart';
+import 'widgets/profile_skeleton.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../block/data/block_relationship.dart';
 import '../../block/data/block_repository.dart';
@@ -984,11 +985,13 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   _reload();
                 },
               ),
+              const SizedBox(width: WynSpacing.space2),
               IconButton(
                 icon: const Icon(Icons.logout),
                 tooltip: 'ออกจากระบบ',
                 onPressed: _signOut,
               ),
+              const SizedBox(width: WynSpacing.space2),
             ] else ...[
               // WYN-071: Search/Notifications shortcuts, only on someone
               // else's profile -- the Bottom Nav already puts both 1 tap
@@ -1035,7 +1038,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
             }
 
             if (!snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
+              return const ProfileSkeleton();
             }
 
             final data = snapshot.data!;
@@ -1117,11 +1120,18 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                         const SizedBox(height: WynSpacing.space6),
                         if (isOwnProfile) ...[
                           Row(
-                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              OutlinedButton(
-                                onPressed: () => _openEdit(profile),
-                                child: const Text('แก้ไขโปรไฟล์'),
+                              // Expanded (not a fixed-width Row) so the
+                              // button still fills all space *not* taken
+                              // by the Saved/Draft icons beside it --
+                              // reconciles WYN-065's "full-width edit
+                              // button" fix with WYN-071's icons, which
+                              // didn't exist yet when that fix landed.
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => _openEdit(profile),
+                                  child: const Text('แก้ไขโปรไฟล์'),
+                                ),
                               ),
                               const SizedBox(width: WynSpacing.space2),
                               // WYN-071: Saved/Draft moved off the

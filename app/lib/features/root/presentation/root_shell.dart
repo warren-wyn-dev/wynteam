@@ -133,6 +133,14 @@ class _RootShellState extends State<RootShell> {
 
   int _unreadNotificationCount = 0;
 
+  // WYN-064 (Tap Home Tab to Scroll to Top & Refresh): bumped whenever
+  // the Home destination is tapped while already on the Home tab --
+  // HomeFeedScreen listens and scrolls to top (if scrolled) or triggers
+  // pull-to-refresh (if already at top). See HomeFeedScreen's own doc
+  // comment on homeTabReselectSignal for why this is a ValueNotifier
+  // rather than a GlobalKey<State>.
+  final _homeTabReselectSignal = ValueNotifier<int>(0);
+
   late final DropRepository _dropRepository;
   late final PopRepository _popRepository;
   late final FollowRepository _followRepository;
@@ -175,6 +183,12 @@ class _RootShellState extends State<RootShell> {
     _loadUnreadNotificationCount();
   }
 
+  @override
+  void dispose() {
+    _homeTabReselectSignal.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadUnreadNotificationCount() async {
     try {
       final count = await _notificationRepository.countUnread();
@@ -190,6 +204,15 @@ class _RootShellState extends State<RootShell> {
   void _onDestinationSelected(int navIndex) {
     if (navIndex == _dropDestinationIndex) {
       _openCreateDrop();
+      return;
+    }
+
+    // WYN-064: tapping Home while already on Home doesn't change tabs --
+    // it tells HomeFeedScreen to scroll to top or refresh instead (see
+    // its _onHomeTabReselected). No setState here: _tabIndex is
+    // unchanged, so nothing else on this screen needs to rebuild.
+    if (navIndex == _homeDestinationIndex && _tabIndex == _homeTab) {
+      _homeTabReselectSignal.value++;
       return;
     }
 
@@ -235,6 +258,7 @@ class _RootShellState extends State<RootShell> {
         clubRepository: _clubRepository,
         clubPostRepository: _clubPostRepository,
         chatRepository: _chatRepository,
+        homeTabReselectSignal: _homeTabReselectSignal,
       ),
       SearchScreen(
         profileRepository: _profileRepository,

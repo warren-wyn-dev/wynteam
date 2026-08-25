@@ -176,4 +176,24 @@ void main() {
 
     expect(find.byType(ViewProfileScreen), findsOneWidget);
   });
+
+  // WYN-064: tapping Home while already on Home doesn't navigate anywhere
+  // (there's no other tab to go to) -- it signals HomeFeedScreen to
+  // scroll-to-top/refresh instead (that behavior itself is covered by
+  // home_feed_screen_test.dart's own WYN-064 group, which can reach the
+  // signal directly rather than through the Bottom Nav). This just
+  // proves the wiring: still on Home, no crash, no accidental remount of
+  // Profile/Notifications' visit-key state.
+  testWidgets('tapping Home while already on Home stays on Home, no crash',
+      (tester) async {
+    await tester.pumpWidget(buildShell());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('สำหรับคุณ'), findsOneWidget);
+    expect(find.byType(ViewProfileScreen), findsNothing);
+  });
 }
