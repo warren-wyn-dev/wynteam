@@ -37,12 +37,26 @@ jobs:
       # but are still kept out of the repo via GitHub Secrets rather than
       # hardcoded here, matching dart_define.json's existing
       # never-commit convention (see app/.gitignore).
+      #
+      # Secret values are stripped of stray whitespace/newlines before
+      # being embedded in JSON -- pasting a secret's value into GitHub's
+      # web UI (especially on mobile) can silently carry a trailing
+      # newline from the clipboard, which produces a control character
+      # inside the JSON string and fails `flutter build` with a
+      # FormatException. Trimming here means a slightly-sloppy paste
+      # into the Secrets UI doesn't need to be perfectly exact.
       - name: Write dart_define.json
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
         run: |
+          clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          CLEAN_URL=$(clean "$SUPABASE_URL")
+          CLEAN_KEY=$(clean "$SUPABASE_PUBLISHABLE_KEY")
           cat > dart_define.json <<EOF
           {
-            "SUPABASE_URL": "${{ secrets.SUPABASE_URL }}",
-            "SUPABASE_PUBLISHABLE_KEY": "${{ secrets.SUPABASE_PUBLISHABLE_KEY }}"
+            "SUPABASE_URL": "$CLEAN_URL",
+            "SUPABASE_PUBLISHABLE_KEY": "$CLEAN_KEY"
           }
           EOF
 
@@ -59,4 +73,12 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: npx --yes vercel@latest deploy --prod --yes --token="$VERCEL_TOKEN"
+        run: |
+          # Same trailing-newline/whitespace guard as the dart_define.json
+          # step above -- a sloppy paste into the Secrets UI shouldn't
+          # break the CLI invocation either.
+          VERCEL_TOKEN=$(printf '%s' "$VERCEL_TOKEN" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          VERCEL_ORG_ID=$(printf '%s' "$VERCEL_ORG_ID" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          VERCEL_PROJECT_ID=$(printf '%s' "$VERCEL_PROJECT_ID" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          export VERCEL_ORG_ID VERCEL_PROJECT_ID
+          npx --yes vercel@latest deploy --prod --yes --token="$VERCEL_TOKEN"
