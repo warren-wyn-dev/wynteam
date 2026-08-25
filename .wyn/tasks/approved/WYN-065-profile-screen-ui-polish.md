@@ -1,6 +1,6 @@
 # Product Task — WYN-065
 
-Status: DEPLOYED (2026-08-25) — live ที่ https://wynteam.vercel.app (deploy run 32837045512) ดูรายละเอียดเต็มที่ `.wyn/logs/deployments/2026-08-25-wyn-071-064-065-real-deploy.md`
+Status: DEPLOYED (2026-08-25) — live ที่ https://web-neon-sigma-66.vercel.app (deploy run 32841558301 -- run 32837045512 ก่อนหน้าลงผิด Vercel project, ดู CORRECTION ใน deploy log) ดูรายละเอียดเต็มที่ `.wyn/logs/deployments/2026-08-25-wyn-071-064-065-real-deploy.md`
 Owner: AI Product Manager → AI Design (ตรวจสอบของเดิมก่อนออกแบบใหม่) → AI Coding → AI QA & Security (เสร็จ, PASS)
 
 Feature: Profile Screen — UI/UX Polish (4 จุด)
