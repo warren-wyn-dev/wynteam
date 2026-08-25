@@ -1,6 +1,6 @@
 # Product Task — WYN-071
 
-Status: approved (QA PASS 2026-08-25 — ดูรายละเอียดเต็มในส่วน QA Output ท้ายไฟล์นี้ + `.wyn/company/CONTEXT.md`) — รอ Founder อนุมัติส่งต่อ AI Deploy & DevOps
+Status: DEPLOYED (2026-08-25) — live ที่ https://wynteam.vercel.app (deploy run 32837045512) ดูรายละเอียดเต็มที่ `.wyn/logs/deployments/2026-08-25-wyn-071-064-065-real-deploy.md`
 Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → (รอ AI Deploy & DevOps)
 
 Feature: WYNOS Visual Refresh — Light/Premium Design Direction + Profile/Feed/Drop/Bottom Nav Alignment

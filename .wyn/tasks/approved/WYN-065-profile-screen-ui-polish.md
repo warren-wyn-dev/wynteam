@@ -1,6 +1,6 @@
 # Product Task — WYN-065
 
-Status: QA PASS (2026-08-24) — flutter analyze 0 issues, flutter test 768/768 (ยืนยันซ้ำอิสระ) — พร้อม AI Deploy & DevOps
+Status: DEPLOYED (2026-08-25) — live ที่ https://wynteam.vercel.app (deploy run 32837045512) ดูรายละเอียดเต็มที่ `.wyn/logs/deployments/2026-08-25-wyn-071-064-065-real-deploy.md`
 Owner: AI Product Manager → AI Design (ตรวจสอบของเดิมก่อนออกแบบใหม่) → AI Coding → AI QA & Security (เสร็จ, PASS)
 
 Feature: Profile Screen — UI/UX Polish (4 จุด)
