@@ -34,7 +34,7 @@ class ProfileDropGridTab extends StatefulWidget {
   final String authorId;
   final String emptyText;
 
-  /// WYN-064: Profile's "Media" tab reuses this widget as-is, scoped to
+  /// WYN-071: Profile's "Media" tab reuses this widget as-is, scoped to
   /// Drops that actually have an image (see DropRepository.
   /// fetchByAuthor's own doc comment) -- "Posts" (the default, `false`)
   /// keeps showing every Drop, image or not.

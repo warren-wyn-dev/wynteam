@@ -60,7 +60,7 @@ void main() {
     expect(taps, 1);
   });
 
-  group('multi-image indicator (WYN-064)', () {
+  group('multi-image indicator (WYN-071)', () {
     testWidgets('a single-image Drop shows no stacked-photos icon',
         (tester) async {
       await tester.pumpWidget(MaterialApp(

@@ -10,7 +10,7 @@ import '../../../saved/data/saved_repository.dart';
 import '../../data/profile_repository.dart';
 import '../../../../core/design/wyn_spacing.dart';
 
-/// "Likes" tab on a profile -- WYN-064 Design, Screen 6. Same 3-column
+/// "Likes" tab on a profile -- WYN-071 Design, Screen 6. Same 3-column
 /// grid as ProfileDropGridTab (reuses DropGridTile as-is), backed by
 /// DropRepository.fetchLikedByAuthor instead of fetchByAuthor. Public
 /// to any viewer (Founder decision 2026-08-24) -- see that method's own

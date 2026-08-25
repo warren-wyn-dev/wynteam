@@ -92,7 +92,7 @@ class DropComment {
   }
 }
 
-/// WYN-064: one row of Profile's "Replies" tab -- a [comment] plus just
+/// WYN-071: one row of Profile's "Replies" tab -- a [comment] plus just
 /// enough of its parent Drop ([dropId]/[dropCaption]/[dropImageUrl]/
 /// [dropAuthorUsername]/[dropAuthorDisplayName]) to show it in context
 /// and link to it. See [DropRepository.fetchRepliesByAuthor].

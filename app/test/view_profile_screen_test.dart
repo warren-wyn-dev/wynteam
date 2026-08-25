@@ -220,7 +220,7 @@ void main() {
 
   testWidgets(
       'own profile shows Edit/logout, Saved/Draft icons, 5 public tabs, and '
-      'no Follow button (WYN-013, WYN-064)',
+      'no Follow button (WYN-013, WYN-071)',
       (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: ownProfileRepo,
@@ -232,7 +232,7 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์'), findsOneWidget);
     expect(find.byIcon(Icons.logout), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, 'ติดตาม'), findsNothing);
-    // WYN-064: Saved/Draft are icons next to "แก้ไขโปรไฟล์" now, not tabs.
+    // WYN-071: Saved/Draft are icons next to "แก้ไขโปรไฟล์" now, not tabs.
     expect(find.byIcon(Icons.bookmark_border), findsOneWidget);
     expect(find.byIcon(Icons.edit_note_outlined), findsOneWidget);
     expect(find.text('Posts'), findsOneWidget);
@@ -249,7 +249,7 @@ void main() {
 
   testWidgets(
       'someone else\'s profile shows Follow, the same 5 public tabs, no '
-      'Saved/Draft icons/Pop, and no Edit/logout (WYN-013, WYN-064)',
+      'Saved/Draft icons/Pop, and no Edit/logout (WYN-013, WYN-071)',
       (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: otherProfileRepo,
@@ -328,7 +328,7 @@ void main() {
   // wiring it up.
 
   testWidgets(
-      'tapping the Saved icon opens saved Drop/Pop content (WYN-064: no '
+      'tapping the Saved icon opens saved Drop/Pop content (WYN-071: no '
       'longer a tab)', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: ViewProfileScreen(

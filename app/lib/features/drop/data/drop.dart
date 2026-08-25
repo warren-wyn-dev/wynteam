@@ -40,7 +40,7 @@ class Drop {
   /// a Drop carries either an image or a Poll, never both this round.
   final String? imageUrl;
 
-  /// WYN-064: total images this Drop has (1-9), sourced from
+  /// WYN-071: total images this Drop has (1-9), sourced from
   /// `drop_images(count)` -- defaults to 1 when [imageUrl] is set and 0
   /// when it isn't (a Poll/text-only Drop), so every existing call site
   /// that doesn't pass this explicitly (fixtures, older tests, any
@@ -92,7 +92,7 @@ class Drop {
 
   bool get isPoll => pollId != null;
 
-  /// WYN-064: drives the small "multiple photos" badge on grid tiles/
+  /// WYN-071: drives the small "multiple photos" badge on grid tiles/
   /// cards and whether DropDetailScreen shows a swipeable PageView
   /// instead of a single static image.
   bool get hasMultipleImages => imageCount > 1;

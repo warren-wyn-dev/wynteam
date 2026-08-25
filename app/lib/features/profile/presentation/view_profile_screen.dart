@@ -182,7 +182,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       widget.followRequestRepository ??
           FollowRequestRepository(Supabase.instance.client);
 
-  // WYN-064 Screen 5 -- same optional/defaulted shape as every other
+  // WYN-071 Screen 5 -- same optional/defaulted shape as every other
   // repository above. Built fresh (not threaded through the
   // constructor) since only this screen's Recommendation Section uses
   // it here.
@@ -418,7 +418,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     }
   }
 
-  // WYN-064 Design, Screen 8 -- built fresh here rather than threaded
+  // WYN-071 Design, Screen 8 -- built fresh here rather than threaded
   // through this screen's constructor, same optional/defaulted pattern
   // already used above for _reportRepository/_blockRepository/etc. (and
   // documented on NotificationListScreen's own followRequestRepository
@@ -467,7 +467,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     );
   }
 
-  /// WYN-064: Saved's tab content pushed as its own screen instead --
+  /// WYN-071: Saved's tab content pushed as its own screen instead --
   /// see the Row above `_openEdit`'s button. `ProfileSavedTab`/
   /// `ProfileDraftsTab` themselves are unchanged (still the exact same
   /// widgets, just no longer mounted inside this screen's TabBarView).
@@ -940,7 +940,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     final isOwnProfile = _isOwnProfile;
 
     return DefaultTabController(
-      // WYN-064: fixed at 5 (Posts/ReDrops/Replies/Media/Likes) for
+      // WYN-071: fixed at 5 (Posts/ReDrops/Replies/Media/Likes) for
       // every viewer -- see the TabBar/TabBarView below.
       length: 5,
       child: Scaffold(
@@ -990,7 +990,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                 onPressed: _signOut,
               ),
             ] else ...[
-              // WYN-064: Search/Notifications shortcuts, only on someone
+              // WYN-071: Search/Notifications shortcuts, only on someone
               // else's profile -- the Bottom Nav already puts both 1 tap
               // away from the viewer's own profile (a root tab of
               // RootShell), so duplicating them there would be dead
@@ -1124,7 +1124,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                                 child: const Text('แก้ไขโปรไฟล์'),
                               ),
                               const SizedBox(width: WynSpacing.space2),
-                              // WYN-064: Saved/Draft moved off the
+                              // WYN-071: Saved/Draft moved off the
                               // public tab row (Posts/ReDrops/Replies/
                               // Media/Likes is now the same set for
                               // every viewer) into these two
@@ -1232,7 +1232,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                     followRequestRepository: _followRequestRepository,
                     profileRepository: widget.profileRepository,
                   ),
-                // WYN-064: exactly 5 tabs for every viewer now (was
+                // WYN-071: exactly 5 tabs for every viewer now (was
                 // conditional 2/4 depending on isOwnProfile) -- Posts/
                 // ReDrops/Replies/Media/Likes are the same public set
                 // regardless of who's looking, matching the reference's

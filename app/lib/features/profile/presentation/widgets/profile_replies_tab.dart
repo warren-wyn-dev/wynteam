@@ -10,7 +10,7 @@ import '../../data/profile_repository.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/text_utils.dart';
 
-/// "Replies" tab on a profile -- WYN-064 Design, Screen 6/7. A plain
+/// "Replies" tab on a profile -- WYN-071 Design, Screen 6/7. A plain
 /// list (not the grid every other tab on this screen uses) since a
 /// reply is text, not media -- each row is the comment text plus just
 /// enough of its parent Drop to place it in context, mirroring

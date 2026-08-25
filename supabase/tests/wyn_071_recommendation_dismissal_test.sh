@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Regression test for WYN-064 (WYNOS Visual Refresh, Screen 5's
+# Regression test for WYN-071 (WYNOS Visual Refresh, Screen 5's
 # Profile Recommendation Section backend): the new
 # profile_recommendation_dismissals table and its exclusion inside
 # suggested_users(). Mirrors wyn_063_unified_home_feed_test.sh's exact
@@ -18,7 +18,7 @@
 # wyn_063_unified_home_feed_test.sh's harness).
 #
 # Usage:
-#   bash supabase/tests/wyn_064_recommendation_dismissal_test.sh
+#   bash supabase/tests/wyn_071_recommendation_dismissal_test.sh
 #
 # Exit code 0 and "ALL CHECKS PASSED" on success, non-zero and a failure
 # message otherwise. Never touches any real/dev/prod database -- creates
@@ -28,7 +28,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCHEMA_FILE="$SCRIPT_DIR/../schema.sql"
-DB_NAME="wyn064_recommendation_dismissal_regression_test"
+DB_NAME="wyn071_recommendation_dismissal_regression_test"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 chmod 755 "$WORK_DIR"

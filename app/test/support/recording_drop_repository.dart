@@ -89,7 +89,7 @@ class RecordingDropRepository extends DropRepository {
         .toList();
   }
 
-  /// Returned by [fetchLikedByAuthor], keyed by authorId -- WYN-064.
+  /// Returned by [fetchLikedByAuthor], keyed by authorId -- WYN-071.
   Map<String, List<Drop>> likedDropsByAuthor = {};
   Object? fetchLikedByAuthorError;
 
@@ -103,7 +103,7 @@ class RecordingDropRepository extends DropRepository {
     return likedDropsByAuthor[authorId] ?? [];
   }
 
-  /// Returned by [fetchRepliesByAuthor], keyed by authorId -- WYN-064.
+  /// Returned by [fetchRepliesByAuthor], keyed by authorId -- WYN-071.
   Map<String, List<ProfileReply>> repliesByAuthor = {};
   Object? fetchRepliesByAuthorError;
 
@@ -144,11 +144,11 @@ class RecordingDropRepository extends DropRepository {
         .toList();
   }
 
-  /// Each call to [createDrop]'s image count, in order -- WYN-064.
+  /// Each call to [createDrop]'s image count, in order -- WYN-071.
   final List<int> createDropImageCountArgs = [];
   Object? createDropError;
 
-  /// Returned by [fetchDropImages], keyed by dropId -- WYN-064.
+  /// Returned by [fetchDropImages], keyed by dropId -- WYN-071.
   Map<String, List<String>> dropImagesById = {};
   Object? fetchDropImagesError;
 

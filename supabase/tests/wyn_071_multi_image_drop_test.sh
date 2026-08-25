@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Regression test for WYN-064 (WYNOS Visual Refresh, Screens 2-4's
+# Regression test for WYN-071 (WYNOS Visual Refresh, Screens 2-4's
 # multi-image Drop backend): the new drop_images table, its RLS, and
 # the backfill migration for pre-existing single-image Drops. Mirrors
-# wyn_064_recommendation_dismissal_test.sh's exact harness.
+# wyn_071_recommendation_dismissal_test.sh's exact harness.
 #
 #   1. Backfill: a Drop that already had image_url before drop_images
 #      existed gets exactly one drop_images row (position 0, same URL).
@@ -21,10 +21,10 @@
 #
 # Requirements: a local PostgreSQL 16 server reachable either as the
 # current OS user or via `sudo -u postgres` (mirrors
-# wyn_064_recommendation_dismissal_test.sh's harness).
+# wyn_071_recommendation_dismissal_test.sh's harness).
 #
 # Usage:
-#   bash supabase/tests/wyn_064_multi_image_drop_test.sh
+#   bash supabase/tests/wyn_071_multi_image_drop_test.sh
 #
 # Exit code 0 and "ALL CHECKS PASSED" on success, non-zero and a failure
 # message otherwise. Never touches any real/dev/prod database -- creates
@@ -34,7 +34,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCHEMA_FILE="$SCRIPT_DIR/../schema.sql"
-DB_NAME="wyn064_multi_image_drop_regression_test"
+DB_NAME="wyn071_multi_image_drop_regression_test"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 chmod 755 "$WORK_DIR"

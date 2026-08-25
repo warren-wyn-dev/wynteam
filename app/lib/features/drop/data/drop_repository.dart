@@ -31,7 +31,7 @@ const _savesContentType = 'drop';
 // (like _dropAuthorSelect/the count embeds already did) so a Poll
 // Drop's base poll data (id/options/expires_at) always comes back
 // alongside everything else, with no per-method opt-in to forget.
-// WYN-064: drop_images(count) -- how many images this Drop actually has
+// WYN-071: drop_images(count) -- how many images this Drop actually has
 // (1-9), not the images themselves (the full ordered list is only
 // fetched on demand via fetchDropImages, when a viewer actually opens
 // the full-screen viewer) -- keeps every list/feed fetch cheap.
@@ -151,7 +151,7 @@ class DropRepository {
   Future<List<Drop>> fetchByAuthor({
     required String authorId,
     required int page,
-    // WYN-064: Profile's "Media" tab -- the same Drop rows as "Posts"
+    // WYN-071: Profile's "Media" tab -- the same Drop rows as "Posts"
     // (this method, unfiltered), scoped down to the ones that actually
     // have an image. A parameter on the existing method rather than a
     // near-duplicate one, since every other line here (embeds, liked/
@@ -194,7 +194,7 @@ class DropRepository {
         .toList();
   }
 
-  /// WYN-064: Profile's "Likes" tab -- Drops [authorId] has Liked, newest
+  /// WYN-071: Profile's "Likes" tab -- Drops [authorId] has Liked, newest
   /// Like first (not newest Drop first -- ordered by `drop_likes.
   /// created_at`, mirroring how a Likes tab reads on the reference apps
   /// this was modeled on). `drop_likes` is already public-read (`using
@@ -242,7 +242,7 @@ class DropRepository {
         .toList();
   }
 
-  /// WYN-064: Profile's "Replies" tab -- top-level and reply comments
+  /// WYN-071: Profile's "Replies" tab -- top-level and reply comments
   /// [authorId] has written, newest first, alongside enough of the
   /// parent Drop to show it in context (author, image, caption).
   /// `drop_comments` is already public-read the same way `drop_likes`
@@ -605,7 +605,7 @@ class DropRepository {
     );
   }
 
-  /// Creates a Drop with 1-9 photos (WYN-064 -- was exactly 1 photo
+  /// Creates a Drop with 1-9 photos (WYN-071 -- was exactly 1 photo
   /// before). [imagesBytes]/[imageExtensions] are parallel lists, same
   /// order the Composer's preview grid shows them in -- that order
   /// becomes each image's `drop_images.position`. [mentionedUserIds]
@@ -686,7 +686,7 @@ class DropRepository {
     required String? imageUrl,
     required String caption,
     required Set<String> mentionedUserIds,
-    // WYN-064: every image (including [imageUrl] itself, at position 0)
+    // WYN-071: every image (including [imageUrl] itself, at position 0)
     // -- same "position 0 lives in drop_images too" convention the
     // schema.sql backfill migration establishes. Empty/omitted for the
     // no-image (createTextDrop) and existing-single-image
@@ -720,7 +720,7 @@ class DropRepository {
     }
   }
 
-  /// WYN-064: the full ordered image list for a Drop with more than one
+  /// WYN-071: the full ordered image list for a Drop with more than one
   /// image -- only DropDetailScreen's full-screen viewer calls this
   /// (see [Drop.hasMultipleImages]), on demand, rather than every list/
   /// feed fetch eagerly loading every image URL of every Drop.

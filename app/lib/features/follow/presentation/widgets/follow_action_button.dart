@@ -201,7 +201,7 @@ class _FollowActionButtonState extends State<FollowActionButton> {
       child: OutlinedButton(
         style: style,
         onPressed: _isActionInFlight ? null : _onPressed,
-        // WYN-064: cross-fades the label on state changes instead of the
+        // WYN-071: cross-fades the label on state changes instead of the
         // text snapping instantly -- key on the label text itself so
         // AnimatedSwitcher only triggers when it actually changes.
         child: AnimatedSwitcher(

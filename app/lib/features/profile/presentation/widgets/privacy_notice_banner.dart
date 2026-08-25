@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/design/wyn_spacing.dart';
 
-/// A one-time, non-blocking notice pinned above a tab's content -- WYN-064
+/// A one-time, non-blocking notice pinned above a tab's content -- WYN-071
 /// Design, Screen 7. Used on Profile's "Replies"/"Likes" tabs (own
 /// profile only) to tell the owner these are now public, the first time
 /// they open either tab -- persisted per [prefsKey] via

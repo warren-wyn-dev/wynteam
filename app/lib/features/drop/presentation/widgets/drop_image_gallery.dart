@@ -6,7 +6,7 @@ import '../../data/drop.dart';
 import '../../data/drop_repository.dart';
 import 'drop_image_viewer.dart';
 
-/// DropDetailScreen's image area -- WYN-064 Design, Screens 3-4. A
+/// DropDetailScreen's image area -- WYN-071 Design, Screens 3-4. A
 /// single-image Drop renders exactly as it always has (this widget
 /// changes nothing about that case); a multi-image Drop additionally
 /// fetches the full ordered list on demand ([DropRepository.
@@ -69,7 +69,7 @@ class _DropImageGalleryState extends State<DropImageGallery> {
     final imageUrls = _imageUrls;
 
     // Single image (the overwhelmingly common case, and every Drop
-    // before WYN-064 existed) -- or the multi-image fetch just hasn't
+    // before WYN-071 existed) -- or the multi-image fetch just hasn't
     // resolved yet, in which case the first image (drop.imageUrl) is
     // shown immediately rather than a loading spinner, same posture as
     // every other "show what we already have while more loads" pattern

@@ -10048,7 +10048,7 @@ $$;
 grant execute on function public.get_wynos_ranked_feed() to authenticated;
 
 -- ============================================================
--- WYN-064: WYNOS Visual Refresh -- Profile Recommendation Section
+-- WYN-071: WYNOS Visual Refresh -- Profile Recommendation Section
 -- ============================================================
 -- See .wyn/docs/design/wyn-064-wynos-visual-refresh.md, Screen 5.
 -- Dismissing a suggested account (the "X" on a recommendation card)
@@ -10122,7 +10122,7 @@ $$;
 grant execute on function public.suggested_users(int) to authenticated;
 
 -- ============================================================
--- WYN-064: WYNOS Visual Refresh -- Multi-image Drop (1-9 photos)
+-- WYN-071: WYNOS Visual Refresh -- Multi-image Drop (1-9 photos)
 -- ============================================================
 -- See .wyn/docs/design/wyn-064-wynos-visual-refresh.md, Screens 2-4.
 -- `drops.image_url` is kept exactly as-is (still the first/primary

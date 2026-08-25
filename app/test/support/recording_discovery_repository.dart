@@ -103,7 +103,7 @@ class RecordingDiscoveryRepository extends DiscoveryRepository {
       suggestedUsers;
 
   /// Every profile id passed to [dismissSuggestedUser], in call order --
-  /// WYN-064.
+  /// WYN-071.
   List<String> dismissedProfileIds = [];
 
   /// When set, [dismissSuggestedUser] throws this instead of recording

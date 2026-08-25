@@ -9,7 +9,7 @@ import '../../data/profile_repository.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import 'avatar_circle.dart';
 
-/// "แนะนำสำหรับคุณ" -- WYN-064 Design, Screen 5. Shown only while
+/// "แนะนำสำหรับคุณ" -- WYN-071 Design, Screen 5. Shown only while
 /// viewing someone *else's* profile (see `ViewProfileScreen`'s call
 /// site) -- the viewer's own profile skips this since Home's Discovery
 /// segment (WYN-063) already covers the same "accounts to follow"

@@ -78,7 +78,7 @@ class DropGridTile extends StatelessWidget {
                 const PollPlaceholderTile()
               else
                 TextDropPlaceholderTile(caption: drop.caption ?? ''),
-              // WYN-064: stacked-photos icon, no count badge -- just
+              // WYN-071: stacked-photos icon, no count badge -- just
               // enough to say "there's more" without cluttering the
               // dense grid with a number.
               if (drop.hasMultipleImages)

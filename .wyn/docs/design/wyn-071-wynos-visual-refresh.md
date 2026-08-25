@@ -1,7 +1,7 @@
-# Design Spec — WYN-064: WYNOS Visual Refresh
+# Design Spec — WYN-071: WYNOS Visual Refresh
 
 Owner: AI Design → AI Coding
-Ref: `.wyn/tasks/backlog/WYN-064-wynos-visual-refresh.md` (Product spec, requirements R2–R8 ทั้งหมด confirm แล้ว), `.wyn/docs/design/ds-001-color-system.md` (สี, อนุมัติแล้ว), `.wyn/docs/design/wyn-013-profile-v2.md` (pattern โปรไฟล์เดิม), `.wyn/docs/design/wyn-024-bottom-nav-v1-restructure.md` (Bottom Nav ปัจจุบัน)
+Ref: `.wyn/tasks/backlog/WYN-071-wynos-visual-refresh.md` (Product spec, requirements R2–R8 ทั้งหมด confirm แล้ว), `.wyn/docs/design/ds-001-color-system.md` (สี, อนุมัติแล้ว), `.wyn/docs/design/wyn-013-profile-v2.md` (pattern โปรไฟล์เดิม), `.wyn/docs/design/wyn-024-bottom-nav-v1-restructure.md` (Bottom Nav ปัจจุบัน)
 
 > **ใช้ Design system ที่อนุมัติแล้วทั้งหมด (DS-001–009)** — งานนี้ไม่คิดทิศทางสี/token ใหม่ ทุกสีอ้างจาก `WynColors` เดิม
 >
@@ -212,4 +212,4 @@ Handoff: AI Coding — เพิ่ม `import 'package:flutter/services.dart'` 
 
 ## Handoff รวม
 
-ส่งต่อ AI Coding (`/code`) เพื่อ implement Screen 1–9 ข้างต้น — ดู Product spec `.wyn/tasks/backlog/WYN-064-wynos-visual-refresh.md` สำหรับ Requirements/Acceptance Criteria ฉบับเต็ม แนะนำลำดับ implement: Screen 1 (theme fix, เร็วสุด) → Screen 8/9 (เล็ก, ไม่มี schema change) → Screen 5 (Recommendation, schema เล็ก) → Screen 2-4 (multi-image Drop, schema+UI ใหญ่สุด) → Screen 6-7 (Profile tab restructure, ผูกกับหลายจุดที่สุด ควรทำหลังของอื่นเสถียรแล้ว)
+ส่งต่อ AI Coding (`/code`) เพื่อ implement Screen 1–9 ข้างต้น — ดู Product spec `.wyn/tasks/backlog/WYN-071-wynos-visual-refresh.md` สำหรับ Requirements/Acceptance Criteria ฉบับเต็ม แนะนำลำดับ implement: Screen 1 (theme fix, เร็วสุด) → Screen 8/9 (เล็ก, ไม่มี schema change) → Screen 5 (Recommendation, schema เล็ก) → Screen 2-4 (multi-image Drop, schema+UI ใหญ่สุด) → Screen 6-7 (Profile tab restructure, ผูกกับหลายจุดที่สุด ควรทำหลังของอื่นเสถียรแล้ว)

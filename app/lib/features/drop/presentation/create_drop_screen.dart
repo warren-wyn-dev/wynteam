@@ -90,7 +90,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       widget._appealRepository ?? AppealRepository(Supabase.instance.client);
   Set<String> _mentionedUserIds = {};
 
-  // WYN-064: 1-9 images (was a single Uint8List?/String pair) --
+  // WYN-071: 1-9 images (was a single Uint8List?/String pair) --
   // parallel lists, same order the preview grid shows them in. Both
   // always the same length; kept as two lists rather than a list of
   // records to minimize the diff against every other place in this
@@ -289,7 +289,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     setState(() => _pollOptionControllers.removeAt(index).dispose());
   }
 
-  /// WYN-064: appends a single image (camera only -- gallery goes
+  /// WYN-071: appends a single image (camera only -- gallery goes
   /// through [_pickMultipleImages] instead, see [_showImageSourceSheet]).
   /// A freshly picked image clears [_existingImageUrl] the same way it
   /// always did pre-multi-image (a Draft's carried-over image and a
@@ -332,7 +332,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     }
   }
 
-  /// WYN-064: gallery multi-select, capped via [ImagePicker.limit] --
+  /// WYN-071: gallery multi-select, capped via [ImagePicker.limit] --
   /// the OS picker itself refuses to let the user select more than
   /// that many, which is simpler and clearer feedback than letting them
   /// over-select and then silently trimming the result afterward.
@@ -369,7 +369,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     }
   }
 
-  /// WYN-064.
+  /// WYN-071.
   void _removeImage(int index) {
     setState(() {
       _imagesBytes.removeAt(index);
@@ -538,7 +538,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       // them -- see onSelectionChanged above) can't leak an image_url
       // into a poll draft, and vice versa.
       final isImageMode = _mode == _ComposeMode.image;
-      // WYN-064: Drafts stay single-image only this round (non-goal --
+      // WYN-071: Drafts stay single-image only this round (non-goal --
       // see the Design doc) -- only the first picked image, if any, is
       // saved. A multi-image pick can still be drafted; resuming it
       // just resumes with 1 image instead of all of them, same as
@@ -752,7 +752,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       );
     }
 
-    // WYN-064: 1-9 picked images -- grid responsive to count, per the
+    // WYN-071: 1-9 picked images -- grid responsive to count, per the
     // Design doc (1 image: full width, 2-3: single row, 4+: 3 columns).
     final crossAxisCount = _imagesBytes.length == 1
         ? 1

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Full-screen, swipeable, pinch-to-zoom image viewer -- WYN-064 Design,
+/// Full-screen, swipeable, pinch-to-zoom image viewer -- WYN-071 Design,
 /// Screen 4. Opened by tapping a multi-image Drop's gallery in
 /// DropDetailScreen (see DropImageGallery). Always a black background
 /// regardless of the app's light theme -- a media viewer sitting

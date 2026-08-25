@@ -32,7 +32,7 @@ class DoubleTapLike extends StatefulWidget {
 
   final bool alreadyLiked;
 
-  /// WYN-064: an optional single-tap handler (e.g. opening a
+  /// WYN-071: an optional single-tap handler (e.g. opening a
   /// multi-image Drop's full-screen viewer) on the *same* underlying
   /// `GestureDetector` as the double-tap recognizer above, rather than
   /// a second nested `GestureDetector` a caller might otherwise be
@@ -79,7 +79,7 @@ class _DoubleTapLikeState extends State<DoubleTapLike>
   ]).animate(_controller);
 
   void _handleDoubleTap() {
-    // WYN-064: haptic only on the tap that actually likes -- a repeat
+    // WYN-071: haptic only on the tap that actually likes -- a repeat
     // double-tap on an already-liked post still replays the heart (see
     // class doc) but shouldn't buzz again since nothing changed.
     if (!widget.alreadyLiked) {

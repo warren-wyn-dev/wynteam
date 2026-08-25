@@ -93,7 +93,7 @@ class DiscoveryRepository {
     return _profileRepository.fetchProfilesByIds(ids);
   }
 
-  /// WYN-064: Profile's Recommendation Section (Design doc Screen 5) --
+  /// WYN-071: Profile's Recommendation Section (Design doc Screen 5) --
   /// permanently hides [profileId] from this user's `suggested_users()`
   /// results everywhere it's shown (here and Discovery), not just for
   /// the current screen/session. A plain insert is enough: RLS on
