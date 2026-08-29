@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../chat/data/chat_repository.dart';
 import '../../chat/presentation/chat_inbox_screen.dart';
@@ -13,6 +14,7 @@ import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../saved/data/saved_repository.dart';
+import '../data/home_explainer_banner_preference.dart';
 import '../data/home_feed_item.dart';
 import '../data/home_repository.dart';
 import 'pop_single_clip_screen.dart';
@@ -20,6 +22,7 @@ import 'widgets/from_your_clubs_feed.dart';
 import 'widgets/home_drop_card.dart';
 import 'widgets/home_pop_card.dart';
 import 'widgets/trending_tile.dart';
+import 'widgets/wynos_explainer_banner.dart';
 import '../../../core/design/wyn_spacing.dart';
 import 'design/wynos_home_tokens.dart';
 
@@ -109,6 +112,12 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
   int _unreadChatCount = 0;
 
+  // WYNOS Home reference spec 4.2/5 -- defaults to true (hidden) rather
+  // than false, so a returning user who already dismissed the banner
+  // never sees a one-frame flash of it while _loadBannerDismissed's
+  // SharedPreferences read is still in flight.
+  bool _bannerDismissed = true;
+
   @override
   void initState() {
     super.initState();
@@ -116,7 +125,25 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     _trendingFuture = widget.homeRepository.fetchTrending();
     _scrollController.addListener(_onScroll);
     _loadUnreadChatCount();
+    _loadBannerDismissed();
     widget.homeTabReselectSignal.addListener(_onHomeTabReselected);
+  }
+
+  Future<void> _loadBannerDismissed() async {
+    final dismissed = await loadHomeExplainerBannerDismissed(
+      Supabase.instance.client.auth.currentUser!.id,
+    );
+    if (mounted && !dismissed) setState(() => _bannerDismissed = false);
+  }
+
+  Future<void> _dismissBanner() async {
+    // Optimistic -- the banner disappears immediately rather than
+    // waiting on the SharedPreferences write, same posture as every
+    // other local-only toggle in this screen.
+    setState(() => _bannerDismissed = true);
+    await saveHomeExplainerBannerDismissed(
+      Supabase.instance.client.auth.currentUser!.id,
+    );
   }
 
   // WYN-032: the badge is "anything needing my attention" -- unread
@@ -512,6 +539,15 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                 key: const Key('home_feed_scroll_view'),
                 controller: _scrollController,
                 slivers: [
+                  // WYNOS Home reference spec 4.2 -- sits directly under
+                  // the header, above everything else (including
+                  // ClubSection/Trending, which the reference doesn't
+                  // have at all) so it reads as the very first thing a
+                  // returning-but-not-yet-dismissed user sees.
+                  if (!_bannerDismissed)
+                    SliverToBoxAdapter(
+                      child: WynosExplainerBanner(onDismiss: _dismissBanner),
+                    ),
                   // ClubSection + Trending scroll away with the rest of the
                   // feed instead of being permanently pinned above it --
                   // the fixed-Column layout this replaces claimed that

@@ -1493,6 +1493,78 @@ void main() {
     }
   });
 
+  group('WYNOS explainer banner (Feature 2, spec 4.2)', () {
+    const dismissedPrefKey = 'home_explainer_banner_dismissed_me';
+    const headline = 'ดู → แชร์ → ค้นพบ → ซื้อ';
+
+    // This suite's setUpAll seeds one shared fake-user ('me') and one
+    // shared SharedPreferences mock store for every test in this file
+    // (no per-test setUp to reset either) -- every test below must clean
+    // up its own write to dismissedPrefKey in addTearDown, or it would
+    // leak into every test declared after it, in this group and beyond.
+
+    testWidgets('shows by default for a user who has not dismissed it',
+        (tester) async {
+      addTearDown(() async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(dismissedPrefKey);
+      });
+
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text(headline), findsOneWidget);
+    });
+
+    testWidgets(
+        'tapping the X dismisses it immediately and persists the dismissal',
+        (tester) async {
+      addTearDown(() async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(dismissedPrefKey);
+      });
+
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(find.text(headline), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel('ปิดคำแนะนำนี้ถาวร'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(find.text(headline), findsNothing);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(dismissedPrefKey), isTrue);
+    });
+
+    testWidgets('stays hidden on a fresh mount once already dismissed',
+        (tester) async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(dismissedPrefKey, true);
+      addTearDown(() async => prefs.remove(dismissedPrefKey));
+
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text(headline), findsNothing);
+    });
+  });
+
   group('"ติดตาม" (Following) feed mode (WYN-024)', () {
     testWidgets(
         'switching to "ติดตาม" calls fetchFollowingFeed and shows only its items',
