@@ -74,6 +74,25 @@ class RecordingDropRepository extends DropRepository {
     return page == 0 ? rankedFeedDrops : <Drop>[];
   }
 
+  /// WYN-073: [countByAuthor]'s result, keyed by authorId -- defaults to
+  /// counting [feedDrops] by that author so most tests don't need to set
+  /// this explicitly (mirrors [fetchByAuthor]'s own "reuse feedDrops as
+  /// the fake dataset" shape), but can be overridden per authorId for a
+  /// test that wants a count independent of the actual list content.
+  final Map<String, int> _postCountOverrides = {};
+
+  set postCountOverrides(Map<String, int> value) {
+    _postCountOverrides
+      ..clear()
+      ..addAll(value);
+  }
+
+  @override
+  Future<int> countByAuthor({required String authorId}) async {
+    return _postCountOverrides[authorId] ??
+        feedDrops.where((d) => d.authorId == authorId).length;
+  }
+
   /// Returned by [fetchByAuthor] for page 0 only, filtered by [authorId]
   /// against [feedDrops] (unlike [fetchFeed], which ignores authorship).
   @override

@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../club/data/club.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
-import '../../club/presentation/club_page.dart';
-import '../../club/presentation/widgets/club_mini_card.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../follow/data/follow_request_repository.dart';
@@ -14,8 +12,6 @@ import '../../follow/presentation/follow_list_screen.dart';
 import '../../follow/presentation/follow_request_list_screen.dart';
 import '../../home/data/home_repository.dart';
 import '../../pop/data/pop_repository.dart';
-import '../../push/data/push_token_repository.dart';
-import '../../push/presentation/push_notification_service.dart';
 import '../../saved/data/saved_repository.dart';
 import '../data/profile.dart';
 import '../data/profile_repository.dart';
@@ -36,7 +32,16 @@ import 'widgets/profile_replies_tab.dart';
 import 'widgets/profile_saved_tab.dart';
 import 'widgets/privacy_notice_banner.dart';
 import 'widgets/profile_skeleton.dart';
+// WYN-073 (WYNOS Design Reference Rollout, Screen 05 -- Profile,
+// own-profile view only): the 3 own-profile-only tabs (โพสต์/ReDrop/
+// ถูกใจ) render as full-width WynosPostRow lists instead of the shared
+// grid tabs above, which stay wired up for someone else's profile only
+// -- see the "Club/other-profile branch untouched" note on
+// `_buildOtherProfileTabBarView` below.
+import 'widgets/wynos_profile_post_list.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wynos_home_tokens.dart';
+import '../../../core/widgets/wynos_ringed_avatar.dart';
 import '../../block/data/block_relationship.dart';
 import '../../block/data/block_repository.dart';
 import '../../block/presentation/block_dialogs.dart';
@@ -63,7 +68,12 @@ String profileShareLink(String username) => 'https://wyn.app/@$username';
 typedef _ProfileWithCounts = ({
   Profile profile,
   int followerCount,
-  int followingCount
+  int followingCount,
+  // WYN-073: own-profile's Stats row now shows a 3rd stat ("โพสต์") per
+  // `/05-profile.tsx` Section 3 -- only ever fetched for the viewer's
+  // own profile (see `_load` below), 0 and unused otherwise, since
+  // someone else's profile still shows just the 2 original stats.
+  int postCount,
 });
 
 /// Screen 1 — View Profile. Doubles as both personas WYN-013 needs (the
@@ -97,15 +107,16 @@ class ViewProfileScreen extends StatefulWidget {
   final SavedRepository savedRepository;
   final String userId;
 
-  // Optional (unlike every other repository here): the "My Clubs"
-  // section (WYN-015) only ever shows for the viewer's own profile, and
-  // ViewProfileScreen is only ever opened as *your own* profile from
-  // RootShell's Profile tab -- every other call site (tap-to-profile
-  // from a Drop/Pop, a Follow list row, a Search result) opens someone
-  // *else's* profile, where the section wouldn't render anyway even if
-  // these were supplied. Making them optional avoids threading Club
-  // repositories through every one of those unrelated call sites just
-  // for a feature that would never actually use them there.
+  // Optional (unlike every other repository here) -- only used to
+  // construct SearchScreen/NotificationListScreen from _openSearch/
+  // _openNotifications below (someone else's profile only, see those
+  // methods), never queried directly by this screen itself. Formerly
+  // also backed the own-profile-only "My Clubs" shelf (WYN-015),
+  // removed entirely per WYN-073's design-reference rollout -- kept
+  // optional/defaulted the same way regardless, so every call site that
+  // never had a real Club repository to hand (tap-to-profile from a
+  // Drop/Pop, a Follow list row, a Search result) still doesn't need
+  // one just to open Search/Notifications from a pushed profile screen.
   final ClubRepository? clubRepository;
   final ClubPostRepository? clubPostRepository;
 
@@ -165,10 +176,6 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   // _blockRelationship above.
   bool? _isMuted;
 
-  // Only ever loaded for the viewer's own profile with a ClubRepository
-  // supplied -- see ClubRepository's doc comment on ViewProfileScreen.
-  Future<List<Club>>? _myClubsFuture;
-
   late final ReportRepository _reportRepository =
       widget.reportRepository ?? ReportRepository(Supabase.instance.client);
   late final BlockRepository _blockRepository =
@@ -203,8 +210,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   // Only meaningful for the viewer's own profile -- how many people are
   // waiting on a Follow Request decision. Drives the badge entry point
   // into FollowRequestListScreen (Design Screen 3). 0 renders no badge
-  // at all, same "don't show empty state as a row" posture as
-  // _buildMyClubsSection.
+  // at all.
   int _pendingRequestCount = 0;
 
   bool _isStartingChat = false;
@@ -242,10 +248,12 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     } else {
       _loadPendingRequestCount();
     }
-    final clubRepository = widget.clubRepository;
-    if (_isOwnProfile && clubRepository != null) {
-      _myClubsFuture = clubRepository.fetchMyClubs();
-    }
+    // WYN-073: the "Club ของฉัน" shelf (WYN-015) that used to populate
+    // from `widget.clubRepository` here has been removed from
+    // own-profile entirely, per `/05-profile.tsx`'s own explicit list of
+    // changes -- see this class's doc comment. `widget.clubRepository`/
+    // `widget.clubPostRepository` are still used (unconditionally, not
+    // own-profile-specific) by `_openSearch`/`_openNotifications` below.
   }
 
   // Profile and Follower/Following counts are loaded together as one
@@ -258,10 +266,17 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
         await widget.followRepository.countFollowers(userId: widget.userId);
     final followingCount =
         await widget.followRepository.countFollowing(userId: widget.userId);
+    // WYN-073: only queried for the viewer's own profile -- someone
+    // else's profile doesn't render this stat at all, so there's no
+    // reason to add a 3rd query to that branch's load.
+    final postCount = _isOwnProfile
+        ? await widget.dropRepository.countByAuthor(authorId: widget.userId)
+        : 0;
     return (
       profile: profile,
       followerCount: followerCount,
       followingCount: followingCount,
+      postCount: postCount,
     );
   }
 
@@ -645,38 +660,6 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     _reload();
   }
 
-  void _openClub(Club club) {
-    final clubRepository = widget.clubRepository;
-    final clubPostRepository = widget.clubPostRepository;
-    if (clubRepository == null || clubPostRepository == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ClubPage(
-          clubRepository: clubRepository,
-          clubPostRepository: clubPostRepository,
-          clubId: club.id,
-        ),
-      ),
-    );
-  }
-
-  /// WYN-016: best-effort -- deregistering this device's push token
-  /// must never block or fail sign-out itself (e.g. Firebase not
-  /// configured yet, network hiccup). See the RLS comment in
-  /// supabase/schema.sql for why this step (not an RLS-permitted
-  /// cross-user update) is what lets a different WYN account cleanly
-  /// register the same token afterward on a shared/reused device.
-  Future<void> _signOut() async {
-    try {
-      await PushNotificationService(
-              PushTokenRepository(Supabase.instance.client))
-          .unregisterCurrentDevice();
-    } catch (_) {
-      // Intentionally silent -- see comment above.
-    }
-    await Supabase.instance.client.auth.signOut();
-  }
-
   Future<void> _reportUser() {
     return showReportSheet(
       context,
@@ -884,71 +867,29 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     );
   }
 
-  /// "Club ของฉัน" (WYN-015, Screen 4) -- a compact horizontal row of
-  /// ClubMiniCard, reused directly from Home's CLUB section (WYN-014).
-  /// Unlike that section, this one renders nothing at all (no label, no
-  /// empty-state message) when the user hasn't joined any Club --
-  /// Profile isn't the app's entry point for encouraging Club creation/
-  /// discovery the way Home is, so an empty section here would just be
-  /// dead space. See .wyn/docs/design/wyn-015-club-discovery-integration.md,
-  /// Screen 4.
-  Widget _buildMyClubsSection() {
-    final future = _myClubsFuture;
-    if (future == null) return const SizedBox.shrink();
-
-    return FutureBuilder<List<Club>>(
-      future: future,
-      builder: (context, snapshot) {
-        final clubs = snapshot.data;
-        if (clubs == null || clubs.isEmpty) return const SizedBox.shrink();
-
-        return SizedBox(
-          height: 130,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                child: Text(
-                  'Club ของฉัน',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
-                  itemCount: clubs.length,
-                  itemBuilder: (context, index) {
-                    final club = clubs[index];
-                    return ClubMiniCard(
-                        club: club, onTap: () => _openClub(club));
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isOwnProfile = _isOwnProfile;
 
     return DefaultTabController(
-      // WYN-071: fixed at 5 (Posts/ReDrops/Replies/Media/Likes) for
-      // every viewer -- see the TabBar/TabBarView below.
-      length: 5,
+      // WYN-073: 3 tabs (โพสต์/ReDrop/ถูกใจ) for the viewer's own
+      // profile, per `/05-profile.tsx`'s explicit "removed the ตอบกลับ/
+      // มีเดีย tabs" change -- still 5 (Posts/ReDrops/Replies/Media/
+      // Likes, WYN-071) for someone else's profile, untouched. See the
+      // TabBar/TabBarView built by `_buildOwnProfileBody`/
+      // `_buildOtherProfileBody` below.
+      length: isOwnProfile ? 3 : 5,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('โปรไฟล์'),
           actions: [
             if (isOwnProfile) ...[
+              // WYN-073: the standalone logout icon that used to sit
+              // here (equal visual weight to Settings) is gone -- only
+              // the gear remains. Sign-out now lives inside
+              // SettingsScreen itself, at the bottom, visually
+              // separated -- see SettingsScreen's own "ออกจากระบบ"
+              // section.
               IconButton(
                 icon: const Icon(Icons.settings_outlined),
                 tooltip: 'ตั้งค่า',
@@ -985,13 +926,6 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   _reload();
                 },
               ),
-              const SizedBox(width: WynSpacing.space2),
-              IconButton(
-                icon: const Icon(Icons.logout),
-                tooltip: 'ออกจากระบบ',
-                onPressed: _signOut,
-              ),
-              const SizedBox(width: WynSpacing.space2),
             ] else ...[
               // WYN-071: Search/Notifications shortcuts, only on someone
               // else's profile -- the Bottom Nav already puts both 1 tap
@@ -1043,337 +977,509 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
 
             final data = snapshot.data!;
             final profile = data.profile;
-            final isBlockedEitherWay = !isOwnProfile &&
-                (_blockRelationship?.isBlockedEitherWay ?? false);
-            // WYN-039 Design, Screen 2 -- Block always takes precedence
-            // over Private (a blocked pair sees the Blocked banner, never
-            // the Locked one, regardless of the target's account type).
-            // While _isFollowing is still loading (null), this
-            // conservatively treats the viewer as not-yet-a-follower --
-            // the same brief-flicker tradeoff _blockRelationship's own
-            // `?? false` default already accepts elsewhere on this
-            // screen, not a new one introduced here.
-            final isLockedPrivate = !isOwnProfile &&
-                !isBlockedEitherWay &&
-                profile.isPrivate &&
-                (_isFollowing ?? false) == false;
 
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(WynSpacing.space6),
-                  child: Column(
-                    children: [
-                      AvatarCircle(
-                        imageUrl: profile.avatarUrl,
-                        fallbackText: profile.username,
-                      ),
-                      const SizedBox(height: WynSpacing.space4),
-                      Text(
-                        profile.nameOrUsername,
-                        style: Theme.of(context).textTheme.headlineSmall,
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: WynSpacing.space1),
-                      Text(
-                        '@${profile.username}',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.outline,
-                            ),
-                      ),
-                      if (profile.bio != null && profile.bio!.isNotEmpty) ...[
-                        const SizedBox(height: WynSpacing.space4),
-                        Text(profile.bio!, textAlign: TextAlign.center),
-                      ],
-                      const SizedBox(height: WynSpacing.space4),
-                      // Blocked persona (WYN-027 Design, Screen 3): counts
-                      // and the Follow button are both replaced by a
-                      // banner -- a relationship that's been severed has
-                      // no meaningful follower/following numbers to show,
-                      // and "disabled but visible" would be less clear
-                      // than just saying why outright.
-                      if (isBlockedEitherWay)
-                        _buildBlockedBanner()
-                      else ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _FollowCountTarget(
-                              count: data.followerCount,
-                              label: 'ผู้ติดตาม',
-                              onTap: () => _openFollowList(
-                                FollowListMode.followers,
-                                isLockedPrivate: isLockedPrivate,
-                              ),
-                            ),
-                            const SizedBox(width: WynSpacing.space6),
-                            _FollowCountTarget(
-                              count: data.followingCount,
-                              label: 'กำลังติดตาม',
-                              onTap: () => _openFollowList(
-                                FollowListMode.following,
-                                isLockedPrivate: isLockedPrivate,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: WynSpacing.space6),
-                        if (isOwnProfile) ...[
-                          Row(
-                            children: [
-                              // Expanded (not a fixed-width Row) so the
-                              // button still fills all space *not* taken
-                              // by the Saved/Draft icons beside it --
-                              // reconciles WYN-065's "full-width edit
-                              // button" fix with WYN-071's icons, which
-                              // didn't exist yet when that fix landed.
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: () => _openEdit(profile),
-                                  child: const Text('แก้ไขโปรไฟล์'),
-                                ),
-                              ),
-                              const SizedBox(width: WynSpacing.space2),
-                              // WYN-071: Saved/Draft moved off the
-                              // public tab row (Posts/ReDrops/Replies/
-                              // Media/Likes is now the same set for
-                              // every viewer) into these two
-                              // owner-only icons -- neither capability
-                              // was removed, just relocated (see the
-                              // Design doc, Screen 6).
-                              Semantics(
-                                label: 'บันทึก',
-                                button: true,
-                                excludeSemantics: true,
-                                child: IconButton(
-                                  icon: const Icon(Icons.bookmark_border),
-                                  onPressed: _openSaved,
-                                ),
-                              ),
-                              Semantics(
-                                label: 'ร่าง',
-                                button: true,
-                                excludeSemantics: true,
-                                child: IconButton(
-                                  icon: const Icon(Icons.edit_note_outlined),
-                                  onPressed: _openDrafts,
-                                ),
-                              ),
-                            ],
-                          ),
-                          // WYN-039 Design, Screen 3's entry point --
-                          // only for a Private account with at least 1
-                          // request waiting (see _loadPendingRequestCount:
-                          // stays 0, so hidden, for a Public account,
-                          // which can never accumulate a pending request
-                          // in the first place).
-                          if (profile.isPrivate &&
-                              _pendingRequestCount > 0) ...[
-                            const SizedBox(height: WynSpacing.space2),
-                            InkWell(
-                              onTap: _openFollowRequests,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: WynSpacing.space4,
-                                  vertical: WynSpacing.space2,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.person_add_alt, size: 18),
-                                    const SizedBox(width: WynSpacing.space2),
-                                    Text('คำขอติดตาม ($_pendingRequestCount)'),
-                                    const Icon(Icons.chevron_right, size: 18),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ] else if (_isFollowing != null)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Semantics(
-                                label: _followButtonSemanticsLabel(profile),
-                                excludeSemantics: true,
-                                child: OutlinedButton(
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor:
-                                        Theme.of(context).colorScheme.primary,
-                                    side: BorderSide(
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
-                                    ),
-                                  ),
-                                  onPressed: _isFollowActionInFlight
-                                      ? null
-                                      : () => _onFollowButtonPressed(profile),
-                                  child: Text(_followButtonLabel(profile)),
-                                ),
-                              ),
-                              const SizedBox(width: WynSpacing.space2),
-                              // WYN-031, Screen 4 -- always reachable
-                              // (no Message Request gate this round, see
-                              // the design doc's own scope note).
-                              OutlinedButton(
-                                onPressed: _isStartingChat
-                                    ? null
-                                    : () => _openChat(profile),
-                                child: _isStartingChat
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2),
-                                      )
-                                    : const Text('ส่งข้อความ'),
-                              ),
-                            ],
-                          ),
-                      ],
-                    ],
-                  ),
-                ),
-                _buildMyClubsSection(),
-                if (!isOwnProfile)
-                  ProfileRecommendationSection(
-                    discoveryRepository: _discoveryRepository,
-                    followRepository: widget.followRepository,
-                    followRequestRepository: _followRequestRepository,
-                    profileRepository: widget.profileRepository,
-                  ),
-                // WYN-071: exactly 5 tabs for every viewer now (was
-                // conditional 2/4 depending on isOwnProfile) -- Posts/
-                // ReDrops/Replies/Media/Likes are the same public set
-                // regardless of who's looking, matching the reference's
-                // own "identical tabs whoever's looking" structure.
-                // Saved/Draft (own-only, private) moved to the icon row
-                // above instead of being tabs here -- see _openSaved/
-                // _openDrafts.
-                const TabBar(
-                  isScrollable: true,
-                  tabs: [
-                    Tab(icon: Icon(Icons.grid_view_outlined), text: 'Posts'),
-                    Tab(icon: Icon(Icons.repeat), text: 'ReDrops'),
-                    Tab(icon: Icon(Icons.chat_bubble_outline), text: 'Replies'),
-                    Tab(icon: Icon(Icons.image_outlined), text: 'Media'),
-                    Tab(icon: Icon(Icons.favorite_border), text: 'Likes'),
-                    // Pop tab intentionally omitted here -- see the
-                    // import comment above (WYNOS V1.0.0 Beta requirement 3).
-                  ],
-                ),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      ProfileDropGridTab(
-                        dropRepository: widget.dropRepository,
-                        followRepository: widget.followRepository,
-                        profileRepository: widget.profileRepository,
-                        popRepository: widget.popRepository,
-                        savedRepository: widget.savedRepository,
-                        authorId: widget.userId,
-                        emptyText: _gridEmptyText(
-                          isOwnProfile: isOwnProfile,
-                          isBlockedEitherWay: isBlockedEitherWay,
-                          isLockedPrivate: isLockedPrivate,
-                          contentLabel: 'Post',
-                          profile: profile,
-                        ),
-                      ),
-                      ProfileRedropsTab(
-                        homeRepository: _homeRepository,
-                        dropRepository: widget.dropRepository,
-                        followRepository: widget.followRepository,
-                        profileRepository: widget.profileRepository,
-                        popRepository: widget.popRepository,
-                        savedRepository: widget.savedRepository,
-                        authorId: widget.userId,
-                        emptyText: _gridEmptyText(
-                          isOwnProfile: isOwnProfile,
-                          isBlockedEitherWay: isBlockedEitherWay,
-                          isLockedPrivate: isLockedPrivate,
-                          contentLabel: 'ReDrop',
-                          profile: profile,
-                        ),
-                      ),
-                      Column(
-                        children: [
-                          if (isOwnProfile)
-                            const PrivacyNoticeBanner(
-                              prefsKey: 'seen_replies_privacy_notice',
-                              message: 'คนอื่นเห็นแท็บนี้ได้เหมือนกัน',
-                            ),
-                          Expanded(
-                            child: ProfileRepliesTab(
-                              dropRepository: widget.dropRepository,
-                              followRepository: widget.followRepository,
-                              profileRepository: widget.profileRepository,
-                              popRepository: widget.popRepository,
-                              savedRepository: widget.savedRepository,
-                              authorId: widget.userId,
-                              emptyText: _gridEmptyText(
-                                isOwnProfile: isOwnProfile,
-                                isBlockedEitherWay: isBlockedEitherWay,
-                                isLockedPrivate: isLockedPrivate,
-                                contentLabel: 'การตอบกลับ',
-                                profile: profile,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      ProfileDropGridTab(
-                        dropRepository: widget.dropRepository,
-                        followRepository: widget.followRepository,
-                        profileRepository: widget.profileRepository,
-                        popRepository: widget.popRepository,
-                        savedRepository: widget.savedRepository,
-                        authorId: widget.userId,
-                        onlyWithImages: true,
-                        emptyText: _gridEmptyText(
-                          isOwnProfile: isOwnProfile,
-                          isBlockedEitherWay: isBlockedEitherWay,
-                          isLockedPrivate: isLockedPrivate,
-                          contentLabel: 'สื่อ',
-                          profile: profile,
-                        ),
-                      ),
-                      Column(
-                        children: [
-                          if (isOwnProfile)
-                            const PrivacyNoticeBanner(
-                              prefsKey: 'seen_likes_privacy_notice',
-                              message: 'คนอื่นเห็นสิ่งที่คุณกด Like ได้เหมือนกัน',
-                            ),
-                          Expanded(
-                            child: ProfileLikesTab(
-                              dropRepository: widget.dropRepository,
-                              followRepository: widget.followRepository,
-                              profileRepository: widget.profileRepository,
-                              popRepository: widget.popRepository,
-                              savedRepository: widget.savedRepository,
-                              authorId: widget.userId,
-                              emptyText: _gridEmptyText(
-                                isOwnProfile: isOwnProfile,
-                                isBlockedEitherWay: isBlockedEitherWay,
-                                isLockedPrivate: isLockedPrivate,
-                                contentLabel: 'สิ่งที่ถูกใจ',
-                                profile: profile,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      // Pop tab intentionally omitted here -- see the
-                      // import comment above (WYNOS V1.0.0 Beta requirement 3).
-                    ],
-                  ),
-                ),
-              ],
-            );
+            // WYN-073: own-profile's body is a full restyle to
+            // `/05-profile.tsx` (WynosHomeTokens, 3 tabs, no Club shelf,
+            // de-emphasized action row) -- someone else's profile keeps
+            // its existing WynTheme-based layout completely untouched
+            // (`_buildOtherProfileBody`, unchanged from before this
+            // task). See this class's own doc comment on scope.
+            return isOwnProfile
+                ? _buildOwnProfileBody(context, profile, data)
+                : _buildOtherProfileBody(context, profile, data);
           },
         ),
       ),
+    );
+  }
+
+  /// WYN-073 -- own-profile only. Identity block, Stats row (with the
+  /// 3rd "โพสต์" stat), de-emphasized Action row, then the 3-tab
+  /// (โพสต์/ReDrop/ถูกใจ) `TabBar`/`TabBarView`, per `/05-profile.tsx`.
+  /// Never reached for someone else's profile -- see `_buildOtherProfileBody`.
+  Widget _buildOwnProfileBody(
+    BuildContext context,
+    Profile profile,
+    _ProfileWithCounts data,
+  ) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+          child: Column(
+            children: [
+              WynosRingedAvatar(
+                imageUrl: profile.avatarUrl,
+                fallbackText: profile.username,
+                radius: 38,
+              ),
+              const SizedBox(height: WynSpacing.space3),
+              Text(
+                profile.nameOrUsername,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: WynosHomeTokens.ink,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text('@${profile.username}', style: WynosHomeTokens.caption()),
+              if (profile.bio != null && profile.bio!.isNotEmpty) ...[
+                const SizedBox(height: WynSpacing.space3),
+                Text(
+                  profile.bio!,
+                  textAlign: TextAlign.center,
+                  style: WynosHomeTokens.bodySmall(color: WynosHomeTokens.ink),
+                ),
+              ],
+              const SizedBox(height: WynSpacing.space5),
+              // R3: Stats row -- ผู้ติดตาม / กำลังติดตาม / โพสต์, real
+              // counts (data.postCount is only ever fetched for the
+              // viewer's own profile, see `_load`), vertical hairline
+              // dividers between each.
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _WynosStatBlock(
+                    value: data.followerCount,
+                    label: 'ผู้ติดตาม',
+                    onTap: () => _openFollowList(
+                      FollowListMode.followers,
+                      isLockedPrivate: false,
+                    ),
+                  ),
+                  const _WynosStatDivider(),
+                  _WynosStatBlock(
+                    value: data.followingCount,
+                    label: 'กำลังติดตาม',
+                    onTap: () => _openFollowList(
+                      FollowListMode.following,
+                      isLockedPrivate: false,
+                    ),
+                  ),
+                  const _WynosStatDivider(),
+                  _WynosStatBlock(value: data.postCount, label: 'โพสต์'),
+                ],
+              ),
+              const SizedBox(height: WynSpacing.space5),
+              // R4: de-emphasized action row -- a small centered pill
+              // (not a full-width bordered button) + 2 plain borderless
+              // icons (Bookmark -> Saved, PenLine -> Drafts, same
+              // destinations as before WYN-073, see _openSaved/
+              // _openDrafts's own doc comments).
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      shape: const StadiumBorder(),
+                      side: const BorderSide(color: WynosHomeTokens.hairline),
+                      foregroundColor: WynosHomeTokens.ink,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 10),
+                      textStyle: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onPressed: () => _openEdit(profile),
+                    child: const Text('แก้ไขโปรไฟล์'),
+                  ),
+                  const SizedBox(width: WynSpacing.space5),
+                  Semantics(
+                    label: 'บันทึก',
+                    button: true,
+                    excludeSemantics: true,
+                    child: IconButton(
+                      icon: const Icon(Icons.bookmark_border,
+                          color: WynosHomeTokens.graphite),
+                      onPressed: _openSaved,
+                    ),
+                  ),
+                  Semantics(
+                    label: 'ร่าง',
+                    button: true,
+                    excludeSemantics: true,
+                    child: IconButton(
+                      icon: const Icon(Icons.edit_note_outlined,
+                          color: WynosHomeTokens.graphite),
+                      onPressed: _openDrafts,
+                    ),
+                  ),
+                ],
+              ),
+              // WYN-039 Design, Screen 3's entry point -- only for a
+              // Private account with at least 1 request waiting (see
+              // _loadPendingRequestCount: stays 0, so hidden, for a
+              // Public account). Left in its original (pre-WYN-073)
+              // styling -- not covered by `/05-profile.tsx`, which has
+              // no Follow Request concept at all.
+              if (profile.isPrivate && _pendingRequestCount > 0) ...[
+                const SizedBox(height: WynSpacing.space2),
+                InkWell(
+                  onTap: _openFollowRequests,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: WynSpacing.space4,
+                      vertical: WynSpacing.space2,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.person_add_alt, size: 18),
+                        const SizedBox(width: WynSpacing.space2),
+                        Text('คำขอติดตาม ($_pendingRequestCount)'),
+                        const Icon(Icons.chevron_right, size: 18),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        // ProfileRecommendationSection stays other-profile-only,
+        // completely untouched -- it never rendered for own-profile
+        // before WYN-073 either (see _buildOtherProfileBody), and
+        // `/05-profile.tsx`'s own list of changes doesn't mention it at
+        // all. See this task's Known Issues for why it's left alone
+        // rather than repositioned.
+        const SizedBox(height: WynSpacing.space5),
+        // R5: 3 tabs (โพสต์/ReDrop/ถูกใจ), sapphire underline indicator
+        // (not the rainbow-gradient/default-Cyan indicator other
+        // screens still use).
+        TabBar(
+          indicatorColor: WynosHomeTokens.sapphire,
+          indicatorSize: TabBarIndicatorSize.label,
+          labelStyle: WynosHomeTokens.filterTab(active: true),
+          unselectedLabelStyle: WynosHomeTokens.filterTab(active: false),
+          tabs: const [
+            Tab(text: 'โพสต์'),
+            Tab(text: 'ReDrop'),
+            Tab(text: 'ถูกใจ'),
+          ],
+        ),
+        Expanded(
+          child: TabBarView(
+            children: [
+              // R6/R1: full-width WynosPostRow lists (see
+              // wynos_profile_post_list.dart) instead of the 3-column
+              // grid `ProfileDropGridTab`/`ProfileLikesTab` still use on
+              // someone else's profile -- `/05-profile.tsx`'s own doc
+              // comment: "WYNOS posts are text-first, and a photo-grid
+              // format truncates them and strips engagement down to a
+              // single icon."
+              WynosProfilePostListTab(
+                fetchPage: (page) async {
+                  final drops = await widget.dropRepository.fetchByAuthor(
+                    authorId: widget.userId,
+                    page: page,
+                  );
+                  return drops.map(PostRowData.fromDrop).toList();
+                },
+                pageSize: DropRepository.pageSize,
+                emptyText: 'ยังไม่มี Post เลย',
+                errorText: 'โหลด Drop ไม่สำเร็จ',
+                dropRepository: widget.dropRepository,
+                followRepository: widget.followRepository,
+                profileRepository: widget.profileRepository,
+                popRepository: widget.popRepository,
+                savedRepository: widget.savedRepository,
+              ),
+              WynosProfilePostListTab(
+                fetchPage: (page) async {
+                  final items = await _homeRepository.fetchRedropsByUser(
+                    userId: widget.userId,
+                    page: page,
+                  );
+                  return items.map(PostRowData.fromHomeFeedItem).toList();
+                },
+                pageSize: HomeRepository.pageSize,
+                emptyText: 'ยังไม่มี ReDrop เลย',
+                errorText: 'โหลด ReDrop ไม่สำเร็จ',
+                dropRepository: widget.dropRepository,
+                followRepository: widget.followRepository,
+                profileRepository: widget.profileRepository,
+                popRepository: widget.popRepository,
+                savedRepository: widget.savedRepository,
+                allowRedropActions: true,
+              ),
+              // "ถูกใจ" -- keeps the same "คนอื่นเห็นสิ่งที่คุณกด Like ได้
+              // เหมือนกัน" privacy disclosure the shared (pre-WYN-073)
+              // Likes tab always showed the profile owner (WYN-071),
+              // unchanged in style -- `/05-profile.tsx` doesn't cover
+              // privacy banners at all, so this stays exactly as it was
+              // rather than being restyled/dropped.
+              Column(
+                children: [
+                  const PrivacyNoticeBanner(
+                    prefsKey: 'seen_likes_privacy_notice',
+                    message: 'คนอื่นเห็นสิ่งที่คุณกด Like ได้เหมือนกัน',
+                  ),
+                  Expanded(
+                    child: WynosProfilePostListTab(
+                      fetchPage: (page) async {
+                        final drops =
+                            await widget.dropRepository.fetchLikedByAuthor(
+                          authorId: widget.userId,
+                          page: page,
+                        );
+                        return drops.map(PostRowData.fromDrop).toList();
+                      },
+                      pageSize: DropRepository.pageSize,
+                      emptyText: 'ยังไม่มีสิ่งที่ถูกใจเลย',
+                      errorText: 'โหลดรายการที่ถูกใจไม่สำเร็จ',
+                      dropRepository: widget.dropRepository,
+                      followRepository: widget.followRepository,
+                      profileRepository: widget.profileRepository,
+                      popRepository: widget.popRepository,
+                      savedRepository: widget.savedRepository,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Someone else's profile -- unchanged from before WYN-073 (which is
+  /// scoped to own-profile only). Still WynTheme/WynColors-based, still
+  /// 5 tabs (Posts/ReDrops/Replies/Media/Likes, WYN-071), still the
+  /// 3-column grid tabs. See this class's own doc comment.
+  Widget _buildOtherProfileBody(
+    BuildContext context,
+    Profile profile,
+    _ProfileWithCounts data,
+  ) {
+    final isBlockedEitherWay =
+        _blockRelationship?.isBlockedEitherWay ?? false;
+    // WYN-039 Design, Screen 2 -- Block always takes precedence over
+    // Private (a blocked pair sees the Blocked banner, never the Locked
+    // one, regardless of the target's account type). While
+    // _isFollowing is still loading (null), this conservatively treats
+    // the viewer as not-yet-a-follower -- the same brief-flicker
+    // tradeoff _blockRelationship's own `?? false` default already
+    // accepts elsewhere on this screen, not a new one introduced here.
+    final isLockedPrivate = !isBlockedEitherWay &&
+        profile.isPrivate &&
+        (_isFollowing ?? false) == false;
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(WynSpacing.space6),
+          child: Column(
+            children: [
+              AvatarCircle(
+                imageUrl: profile.avatarUrl,
+                fallbackText: profile.username,
+              ),
+              const SizedBox(height: WynSpacing.space4),
+              Text(
+                profile.nameOrUsername,
+                style: Theme.of(context).textTheme.headlineSmall,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: WynSpacing.space1),
+              Text(
+                '@${profile.username}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+              ),
+              if (profile.bio != null && profile.bio!.isNotEmpty) ...[
+                const SizedBox(height: WynSpacing.space4),
+                Text(profile.bio!, textAlign: TextAlign.center),
+              ],
+              const SizedBox(height: WynSpacing.space4),
+              // Blocked persona (WYN-027 Design, Screen 3): counts and
+              // the Follow button are both replaced by a banner -- a
+              // relationship that's been severed has no meaningful
+              // follower/following numbers to show, and "disabled but
+              // visible" would be less clear than just saying why
+              // outright.
+              if (isBlockedEitherWay)
+                _buildBlockedBanner()
+              else ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _FollowCountTarget(
+                      count: data.followerCount,
+                      label: 'ผู้ติดตาม',
+                      onTap: () => _openFollowList(
+                        FollowListMode.followers,
+                        isLockedPrivate: isLockedPrivate,
+                      ),
+                    ),
+                    const SizedBox(width: WynSpacing.space6),
+                    _FollowCountTarget(
+                      count: data.followingCount,
+                      label: 'กำลังติดตาม',
+                      onTap: () => _openFollowList(
+                        FollowListMode.following,
+                        isLockedPrivate: isLockedPrivate,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: WynSpacing.space6),
+                if (_isFollowing != null)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Semantics(
+                        label: _followButtonSemanticsLabel(profile),
+                        excludeSemantics: true,
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor:
+                                Theme.of(context).colorScheme.primary,
+                            side: BorderSide(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          onPressed: _isFollowActionInFlight
+                              ? null
+                              : () => _onFollowButtonPressed(profile),
+                          child: Text(_followButtonLabel(profile)),
+                        ),
+                      ),
+                      const SizedBox(width: WynSpacing.space2),
+                      // WYN-031, Screen 4 -- always reachable (no
+                      // Message Request gate this round, see the design
+                      // doc's own scope note).
+                      OutlinedButton(
+                        onPressed: _isStartingChat
+                            ? null
+                            : () => _openChat(profile),
+                        child: _isStartingChat
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('ส่งข้อความ'),
+                      ),
+                    ],
+                  ),
+              ],
+            ],
+          ),
+        ),
+        ProfileRecommendationSection(
+          discoveryRepository: _discoveryRepository,
+          followRepository: widget.followRepository,
+          followRequestRepository: _followRequestRepository,
+          profileRepository: widget.profileRepository,
+        ),
+        // WYN-071: exactly 5 tabs (Posts/ReDrops/Replies/Media/Likes) --
+        // untouched by WYN-073, which only restyles the own-profile
+        // branch above. Saved/Draft (own-only, private) never applied
+        // here anyway (they moved to own-profile's icon row, WYN-071).
+        const TabBar(
+          isScrollable: true,
+          tabs: [
+            Tab(icon: Icon(Icons.grid_view_outlined), text: 'Posts'),
+            Tab(icon: Icon(Icons.repeat), text: 'ReDrops'),
+            Tab(icon: Icon(Icons.chat_bubble_outline), text: 'Replies'),
+            Tab(icon: Icon(Icons.image_outlined), text: 'Media'),
+            Tab(icon: Icon(Icons.favorite_border), text: 'Likes'),
+            // Pop tab intentionally omitted here -- see the import
+            // comment above (WYNOS V1.0.0 Beta requirement 3).
+          ],
+        ),
+        Expanded(
+          child: TabBarView(
+            children: [
+              ProfileDropGridTab(
+                dropRepository: widget.dropRepository,
+                followRepository: widget.followRepository,
+                profileRepository: widget.profileRepository,
+                popRepository: widget.popRepository,
+                savedRepository: widget.savedRepository,
+                authorId: widget.userId,
+                emptyText: _gridEmptyText(
+                  isOwnProfile: false,
+                  isBlockedEitherWay: isBlockedEitherWay,
+                  isLockedPrivate: isLockedPrivate,
+                  contentLabel: 'Post',
+                  profile: profile,
+                ),
+              ),
+              ProfileRedropsTab(
+                homeRepository: _homeRepository,
+                dropRepository: widget.dropRepository,
+                followRepository: widget.followRepository,
+                profileRepository: widget.profileRepository,
+                popRepository: widget.popRepository,
+                savedRepository: widget.savedRepository,
+                authorId: widget.userId,
+                emptyText: _gridEmptyText(
+                  isOwnProfile: false,
+                  isBlockedEitherWay: isBlockedEitherWay,
+                  isLockedPrivate: isLockedPrivate,
+                  contentLabel: 'ReDrop',
+                  profile: profile,
+                ),
+              ),
+              ProfileRepliesTab(
+                dropRepository: widget.dropRepository,
+                followRepository: widget.followRepository,
+                profileRepository: widget.profileRepository,
+                popRepository: widget.popRepository,
+                savedRepository: widget.savedRepository,
+                authorId: widget.userId,
+                emptyText: _gridEmptyText(
+                  isOwnProfile: false,
+                  isBlockedEitherWay: isBlockedEitherWay,
+                  isLockedPrivate: isLockedPrivate,
+                  contentLabel: 'การตอบกลับ',
+                  profile: profile,
+                ),
+              ),
+              ProfileDropGridTab(
+                dropRepository: widget.dropRepository,
+                followRepository: widget.followRepository,
+                profileRepository: widget.profileRepository,
+                popRepository: widget.popRepository,
+                savedRepository: widget.savedRepository,
+                authorId: widget.userId,
+                onlyWithImages: true,
+                emptyText: _gridEmptyText(
+                  isOwnProfile: false,
+                  isBlockedEitherWay: isBlockedEitherWay,
+                  isLockedPrivate: isLockedPrivate,
+                  contentLabel: 'สื่อ',
+                  profile: profile,
+                ),
+              ),
+              ProfileLikesTab(
+                dropRepository: widget.dropRepository,
+                followRepository: widget.followRepository,
+                profileRepository: widget.profileRepository,
+                popRepository: widget.popRepository,
+                savedRepository: widget.savedRepository,
+                authorId: widget.userId,
+                emptyText: _gridEmptyText(
+                  isOwnProfile: false,
+                  isBlockedEitherWay: isBlockedEitherWay,
+                  isLockedPrivate: isLockedPrivate,
+                  contentLabel: 'สิ่งที่ถูกใจ',
+                  profile: profile,
+                ),
+              ),
+              // Pop tab intentionally omitted here -- see the import
+              // comment above (WYNOS V1.0.0 Beta requirement 3).
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1419,6 +1525,75 @@ class _FollowCountTarget extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// WYN-073's own-profile Stats row -- `/05-profile.tsx`'s `StatBlock`
+/// (16px/700/ink value, 11.5px/graphite label), reusing
+/// `WynosHomeTokens` instead of `Theme.of(context)` the way
+/// `_FollowCountTarget` above does, since own-profile's Stats row is
+/// Sapphire-token-styled while someone else's profile keeps the old
+/// WynTheme look via `_FollowCountTarget` unchanged.
+class _WynosStatBlock extends StatelessWidget {
+  const _WynosStatBlock({
+    required this.value,
+    required this.label,
+    this.onTap,
+  });
+
+  final int value;
+  final String label;
+
+  /// Null for "โพสต์" -- unlike ผู้ติดตาม/กำลังติดตาม, there's no
+  /// existing drill-down screen for "posts by this author" beyond the
+  /// โพสต์ tab already right below this row.
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '$value $label',
+      button: onTap != null,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: WynSpacing.space2, vertical: WynSpacing.space1),
+          child: Column(
+            children: [
+              Text(
+                '$value',
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: WynosHomeTokens.ink,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(label, style: WynosHomeTokens.caption()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The vertical hairline divider between each `_WynosStatBlock` --
+/// `/05-profile.tsx`'s `StatsRow`: `w-px h-8` (1 x 32px), `hairline`.
+class _WynosStatDivider extends StatelessWidget {
+  const _WynosStatDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 32,
+      margin: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
+      color: WynosHomeTokens.hairline,
     );
   }
 }

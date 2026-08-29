@@ -44,7 +44,6 @@ void main() {
   late RecordingFollowRepository otherFollowRepo;
 
   late RecordingClubRepository clubsJoinedRepo;
-  late RecordingClubRepository noClubsRepo;
 
   late RecordingProfileRepository contentTestProfileRepo;
   late RecordingFollowRepository contentTestFollowRepo;
@@ -76,7 +75,6 @@ void main() {
         memberCount: 5,
       ),
     ]);
-    noClubsRepo = RecordingClubRepository(myClubs: []);
 
     contentTestProfileRepo = RecordingProfileRepository(profile: ownProfile);
     contentTestFollowRepo = RecordingFollowRepository();
@@ -201,8 +199,8 @@ void main() {
   });
 
   testWidgets(
-      'the Edit Profile button spans the full width, not just its label',
-      (tester) async {
+      'WYN-073: the Edit Profile button is a small centered pill, not a '
+      'full-width button', (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: ownProfileRepo,
       followRepository: ownFollowRepo,
@@ -210,14 +208,17 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    final buttonFinder =
-        find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์');
+    final buttonFinder = find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์');
     final buttonWidth = tester.getSize(buttonFinder).width;
-    // The Thai label alone renders far narrower than this (well under
-    // 200px at default button padding) -- this proves the button is
-    // stretched across the screen (minus the standard space6 edge
-    // padding on each side), not just sized to fit its text.
-    expect(buttonWidth, greaterThan(400));
+    // WYN-073 de-emphasized this button (`/05-profile.tsx`'s ActionRow,
+    // R4) -- it no longer stretches across the screen (that used to
+    // assert > 400 here, WYN-065/WYN-071); a small pill sized to its
+    // label + fixed horizontal padding is well under half that.
+    expect(buttonWidth, lessThan(250));
+    // Still sits beside the Bookmark/PenLine icons (same destinations
+    // as before -- see the next test), not alone.
+    expect(find.byIcon(Icons.bookmark_border), findsOneWidget);
+    expect(find.byIcon(Icons.edit_note_outlined), findsOneWidget);
   });
 
   testWidgets('tapping the Followers count opens FollowListScreen in '
@@ -257,8 +258,9 @@ void main() {
   });
 
   testWidgets(
-      'own profile shows Edit/logout, Saved/Draft icons, 5 public tabs, and '
-      'no Follow button (WYN-013, WYN-071)',
+      'own profile shows Edit + Saved/Draft icons, 3 public tabs '
+      '(โพสต์/ReDrop/ถูกใจ), no logout icon, and no Follow button '
+      '(WYN-013, WYN-073)',
       (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: ownProfileRepo,
@@ -268,21 +270,34 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์'), findsOneWidget);
-    expect(find.byIcon(Icons.logout), findsOneWidget);
+    // WYN-073: the standalone header logout icon is gone -- only the
+    // gear (Settings) remains. Sign-out now lives inside SettingsScreen
+    // instead (see settings_screen_test.dart).
+    expect(find.byIcon(Icons.logout), findsNothing);
+    expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, 'ติดตาม'), findsNothing);
     // WYN-071: Saved/Draft are icons next to "แก้ไขโปรไฟล์" now, not tabs.
     expect(find.byIcon(Icons.bookmark_border), findsOneWidget);
     expect(find.byIcon(Icons.edit_note_outlined), findsOneWidget);
-    expect(find.text('Posts'), findsOneWidget);
-    expect(find.text('ReDrops'), findsOneWidget);
-    expect(find.text('Replies'), findsOneWidget);
-    expect(find.text('Media'), findsOneWidget);
-    expect(find.text('Likes'), findsOneWidget);
-    // Pop is hidden from Profile for WYNOS V1.0.0 Beta -- requirement 3.
+    // WYN-073: 3 tabs now (โพสต์/ReDrop/ถูกใจ) -- ตอบกลับ/มีเดีย removed
+    // from own-profile per `/05-profile.tsx`'s own explicit change list
+    // (a deliberate reversal of WYN-071's 5-tab set for this branch
+    // only -- someone else's profile still has all 5, see the next
+    // test).
+    // "โพสต์" appears twice by design here: once as the Stats row's 3rd
+    // stat label (R3, data.postCount), once as the 1st tab's own label.
+    expect(find.text('โพสต์'), findsNWidgets(2));
+    expect(find.text('ReDrop'), findsOneWidget);
+    expect(find.text('ถูกใจ'), findsOneWidget);
+    expect(find.text('Posts'), findsNothing);
+    expect(find.text('ReDrops'), findsNothing);
+    expect(find.text('Replies'), findsNothing);
+    expect(find.text('Media'), findsNothing);
+    expect(find.text('Likes'), findsNothing);
     expect(find.text('Pop'), findsNothing);
     expect(find.text('บันทึก'), findsNothing);
     expect(find.text('ร่าง'), findsNothing);
-    expect(find.byType(Tab), findsNWidgets(5));
+    expect(find.byType(Tab), findsNWidgets(3));
   });
 
   testWidgets(
@@ -311,8 +326,9 @@ void main() {
     expect(find.byType(Tab), findsNWidgets(5));
   });
 
-  testWidgets('Drop tab shows this profile\'s Drops (scoped by author, '
-      'not the global feed)', (tester) async {
+  testWidgets(
+      'WYN-073: โพสต์ tab shows this profile\'s Drops as full-width rows '
+      '(scoped by author, not the global feed)', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: ViewProfileScreen(
         profileRepository: contentTestProfileRepo,
@@ -326,14 +342,18 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    // Drop is the first (default-selected) tab -- its content should be
-    // visible without switching tabs.
-    expect(find.byIcon(Icons.favorite), findsOneWidget);
+    // โพสต์ is the first (default-selected) tab -- its content should
+    // be visible without switching tabs. The 3-column grid tile is gone
+    // (WYN-073) -- this Drop's own caption now renders directly as a
+    // WynosPostRow, and its (unliked) heart icon is the outline variant.
+    expect(find.text('แคปชัน Drop ของฉัน'), findsOneWidget);
+    expect(find.byIcon(Icons.favorite_border), findsOneWidget);
   });
 
   testWidgets(
-      'switching to the ReDrops tab shows this profile\'s Standard/Quote '
-      'ReDrops, with the quote text and original Drop untouched (WYN-034)',
+      'WYN-073: switching to the ReDrop tab shows this profile\'s '
+      'Standard/Quote ReDrops as full-width rows, with the quote text '
+      'and original Drop untouched (WYN-034)',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: ViewProfileScreen(
@@ -349,7 +369,7 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    await tester.tap(find.text('ReDrops'));
+    await tester.tap(find.text('ReDrop'));
     await tester.pumpAndSettle();
     tester.takeException();
 
@@ -391,78 +411,32 @@ void main() {
     expect(find.byType(SavedGridTile), findsOneWidget);
   });
 
-  group('"Club ของฉัน" section (WYN-015)', () {
-    testWidgets('shows joined clubs on your own profile when a ClubRepository is supplied',
-        (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: ViewProfileScreen(
-          profileRepository: ownProfileRepo,
-          followRepository: ownFollowRepo,
-          dropRepository: dropRepo,
-          popRepository: popRepo,
-          savedRepository: savedRepo,
-          userId: 'me',
-          clubRepository: clubsJoinedRepo,
-          clubPostRepository: clubPostRepo,
-        ),
-      ));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Club ของฉัน'), findsOneWidget);
-      expect(find.text('ชมรมถ่ายภาพ'), findsOneWidget);
-    });
-
-    // Design Rule: unlike Home's CLUB section, this one shows nothing at
-    // all (not even the label) when the list is empty -- Profile isn't
-    // the app's entry point for encouraging Club discovery.
-    testWidgets('shows nothing at all when you have no joined clubs', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: ViewProfileScreen(
-          profileRepository: ownProfileRepo,
-          followRepository: ownFollowRepo,
-          dropRepository: dropRepo,
-          popRepository: popRepo,
-          savedRepository: savedRepo,
-          userId: 'me',
-          clubRepository: noClubsRepo,
-          clubPostRepository: clubPostRepo,
-        ),
-      ));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Club ของฉัน'), findsNothing);
-    });
-
-    testWidgets('never shows on someone else\'s profile, even with clubs and a '
-        'ClubRepository supplied', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: ViewProfileScreen(
-          profileRepository: otherProfileRepo,
-          followRepository: otherFollowRepo,
-          dropRepository: dropRepo,
-          popRepository: popRepo,
-          savedRepository: savedRepo,
-          userId: 'someone-else',
-          clubRepository: clubsJoinedRepo,
-          clubPostRepository: clubPostRepo,
-        ),
-      ));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Club ของฉัน'), findsNothing);
-    });
-
-    testWidgets('shows nothing when no ClubRepository is supplied at all '
-        '(every non-RootShell call site)', (tester) async {
-      await tester.pumpWidget(buildProfile(
+  // WYN-073: the "Club ของฉัน" shelf (WYN-015) is removed from
+  // own-profile entirely, per `/05-profile.tsx`'s own explicit list of
+  // changes -- it never rendered anywhere but own-profile in the first
+  // place (see the old suite's "never shows on someone else's profile"
+  // case), so this single test (still supplying a ClubRepository with
+  // real joined clubs, to prove the removal is real and not just an
+  // empty-list coincidence) replaces that whole group.
+  testWidgets(
+      'WYN-073: "Club ของฉัน" never renders on own-profile any more, even '
+      'with a ClubRepository and joined clubs supplied', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: ViewProfileScreen(
         profileRepository: ownProfileRepo,
         followRepository: ownFollowRepo,
+        dropRepository: dropRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
         userId: 'me',
-      ));
-      await tester.pumpAndSettle();
+        clubRepository: clubsJoinedRepo,
+        clubPostRepository: clubPostRepo,
+      ),
+    ));
+    await tester.pumpAndSettle();
 
-      expect(find.text('Club ของฉัน'), findsNothing);
-    });
+    expect(find.text('Club ของฉัน'), findsNothing);
+    expect(find.text('ชมรมถ่ายภาพ'), findsNothing);
   });
 
   group('"Profile Visit" User Signal (WYNOS Unified Home Feed Algorithm '

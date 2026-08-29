@@ -143,6 +143,22 @@ class DropRepository {
         .toList();
   }
 
+  /// Total number of [author]'s Drops -- WYN-073's own-profile Stats
+  /// row ("โพสต์" count), the one stat of the three that wasn't already
+  /// available from an existing RPC the way follower/following counts
+  /// are (`follower_count()`/`following_count()`, see FollowRepository).
+  /// Same `.count(CountOption.exact)` shape as ClubRepository.
+  /// countMembers/NotificationRepository's own unread count -- goes
+  /// through the exact same RLS `drops` select policy as [fetchByAuthor]
+  /// (no `deleted_at` filter here either, for the same reason: RLS
+  /// already scopes what's visible per viewer).
+  Future<int> countByAuthor({required String authorId}) {
+    return _client
+        .from('drops')
+        .count(CountOption.exact)
+        .eq('author_id', authorId);
+  }
+
   /// Fetches one page (0-indexed) of Drops by a single author, newest
   /// first -- for the Drop grid tab on that author's profile (WYN-013).
   /// A separate method from [fetchFeed] (global, unfiltered) rather than

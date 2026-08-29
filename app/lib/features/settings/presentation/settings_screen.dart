@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../auth/data/auth_repository.dart';
 import '../../block/data/block_repository.dart';
 import '../../block/presentation/blocked_list_screen.dart';
 import '../../club/data/club_post_repository.dart';
@@ -21,6 +22,8 @@ import '../../mute/presentation/muted_list_screen.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile.dart';
 import '../../profile/data/profile_repository.dart';
+import '../../push/data/push_token_repository.dart';
+import '../../push/presentation/push_notification_service.dart';
 import '../../saved/data/saved_repository.dart';
 import '../data/data_rights_repository.dart';
 import '../data/notification_settings_repository.dart';
@@ -51,6 +54,7 @@ class SettingsScreen extends StatefulWidget {
     this.commentPermission = InteractionPermission.everyone,
     this.profileRepository,
     this.dataRightsRepository,
+    this.authRepository,
   });
 
   /// Passed in directly from ViewProfileScreen's already-fetched own
@@ -89,6 +93,11 @@ class SettingsScreen extends StatefulWidget {
   /// export/delete RPCs.
   final DataRightsRepository? dataRightsRepository;
 
+  /// Same "optional/defaulted" shape again -- WYN-073's "ออกจากระบบ" row
+  /// (see [_SettingsScreenState._signOut]), same pattern
+  /// DeleteAccountScreen already uses for its own real sign-out.
+  final AuthRepository? authRepository;
+
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
@@ -99,9 +108,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final DataRightsRepository _dataRightsRepository =
       widget.dataRightsRepository ??
           DataRightsRepository(Supabase.instance.client);
+  late final AuthRepository _authRepository =
+      widget.authRepository ?? AuthRepository(Supabase.instance.client);
   late bool _isPrivate = widget.isPrivate;
   bool _isTogglingPrivate = false;
   bool _isExporting = false;
+  bool _isSigningOut = false;
 
   late InteractionPermission _dmPermission = widget.dmPermission;
   late InteractionPermission _mentionPermission = widget.mentionPermission;
@@ -210,6 +222,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
+  }
+
+  /// WYN-073: "ออกจากระบบ" row, moved here from the standalone header
+  /// icon `ViewProfileScreen` used to have on the viewer's own profile
+  /// -- an infrequent, higher-consequence action that belongs inside
+  /// Settings rather than sitting in the profile header with equal
+  /// visual weight to the gear icon itself. Confirms first (plain
+  /// `AlertDialog`, no red styling -- same `confirmBlock`/
+  /// `confirmUnblock` shape as block_dialogs.dart, sign-out being far
+  /// less severe/irreversible than DeleteAccountScreen's own red
+  /// "ลบบัญชีถาวร" confirm), then runs the exact same 2-step sequence
+  /// `ViewProfileScreen._signOut`/`DeleteAccountScreen._startDeletion`
+  /// already use: best-effort push-token deregistration first (must
+  /// never block/fail sign-out itself), then a real sign-out via
+  /// [AuthRepository] -- no navigation call here; AuthGate's own
+  /// auth-state listener pops back to WelcomeScreen once the session
+  /// clears.
+  Future<void> _signOut() async {
+    if (_isSigningOut) return;
+
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('ออกจากระบบ?'),
+            content: const Text('คุณจะต้องเข้าสู่ระบบใหม่อีกครั้งในครั้งถัดไป'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('ยกเลิก'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('ออกจากระบบ'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+
+    setState(() => _isSigningOut = true);
+    try {
+      await PushNotificationService(
+              PushTokenRepository(Supabase.instance.client))
+          .unregisterCurrentDevice();
+    } catch (_) {
+      // Intentionally silent -- see ViewProfileScreen._signOut's own
+      // doc comment (moved here verbatim, same reasoning).
+    }
+    await _authRepository.signOut();
+    // No further setState after signOut() -- same posture as
+    // DeleteAccountScreen._startDeletion's own success path.
   }
 
   @override
@@ -492,6 +556,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const _LegalDocumentTile(
             title: 'นโยบายการอุทธรณ์',
             documentType: PlatformDocumentType.appealPolicy,
+          ),
+          // WYN-073 -- always the very last thing on the page, separated
+          // from "กฎหมาย" above with extra breathing room + a divider
+          // rather than sitting flush against it, per `/11-settings.tsx`'s
+          // own convention ("logout ... separated, muted red-free (still
+          // just graphite text), with extra spacing above it so it
+          // doesn't blend into the list above it") -- borrowed for this
+          // row's placement/tone only; the rest of this screen keeps its
+          // existing Material/WynTheme styling, `/11-settings.tsx` itself
+          // being a full restyle that's a separate, not-yet-started
+          // screen in the WYNOS design-reference rollout.
+          const SizedBox(height: WynSpacing.space4),
+          const Divider(height: 1),
+          const SizedBox(height: WynSpacing.space2),
+          ListTile(
+            leading: _isSigningOut
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(Icons.logout,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+            title: Text(
+              'ออกจากระบบ',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            onTap: _isSigningOut ? null : _signOut,
           ),
         ],
       ),

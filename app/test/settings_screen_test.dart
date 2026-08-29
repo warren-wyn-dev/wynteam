@@ -14,6 +14,7 @@ import 'package:wyn/features/settings/presentation/notification_settings_screen.
 import 'package:wyn/features/settings/presentation/settings_screen.dart';
 
 import 'support/fake_supabase_session.dart';
+import 'support/recording_auth_repository.dart';
 import 'support/recording_data_rights_repository.dart';
 import 'support/recording_profile_repository.dart';
 
@@ -581,6 +582,131 @@ void main() {
         expect(find.byType(DocumentViewerScreen), findsOneWidget);
       });
     }
+  });
+
+  // WYN-073 -- moved here from ViewProfileScreen's own-profile header
+  // (which used to have a standalone logout IconButton with equal
+  // visual weight to the Settings gear itself, next to it). Always the
+  // very last row on the page, separated from "กฎหมาย" above.
+  group('ออกจากระบบ (WYN-073)', () {
+    testWidgets('shows a logout row at the bottom, visually separated '
+        'from "กฎหมาย" above it', (tester) async {
+      final authRepository = RecordingAuthRepository();
+      addTearDown(authRepository.dispose);
+
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          authRepository: authRepository,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final logoutRow = find.text('ออกจากระบบ');
+      await tester.scrollUntilVisible(
+        logoutRow,
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(logoutRow, findsOneWidget);
+
+      // Below (visually separated from) "กฎหมาย"'s own last row, not
+      // interleaved with it -- compares vertical position rather than
+      // ListView child-list index, since "กฎหมาย"'s rows are each
+      // wrapped in their own `_LegalDocumentTile`, not a bare `ListTile`
+      // directly in the list. Scrolling to `logoutRow` (the very last
+      // item) already keeps the adjacent `lastLegalDocRow` (2nd-to-last)
+      // in view too, so both are checked from this one scroll.
+      final lastLegalDocRow = find.text('นโยบายการอุทธรณ์');
+      expect(lastLegalDocRow, findsOneWidget);
+      expect(
+        tester.getTopLeft(logoutRow).dy,
+        greaterThan(tester.getTopLeft(lastLegalDocRow).dy),
+      );
+      // A Divider sits between this row and everything above it.
+      expect(find.byType(Divider), findsOneWidget);
+    });
+
+    testWidgets('tapping it opens a confirmation dialog; canceling signs '
+        'out no one', (tester) async {
+      final authRepository = RecordingAuthRepository();
+      addTearDown(authRepository.dispose);
+
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          authRepository: authRepository,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final logoutRow = find.text('ออกจากระบบ');
+      await tester.scrollUntilVisible(
+        logoutRow,
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.ensureVisible(logoutRow);
+      await tester.pumpAndSettle();
+      await tester.tap(logoutRow);
+      await tester.pumpAndSettle();
+
+      expect(find.text('ออกจากระบบ?'), findsOneWidget);
+      await tester.tap(find.text('ยกเลิก'));
+      await tester.pumpAndSettle();
+
+      expect(authRepository.signOutCalls, 0);
+    });
+
+    testWidgets(
+        'confirming calls signOut (best-effort push-token unregister '
+        'never blocks it)', (tester) async {
+      final authRepository = RecordingAuthRepository();
+      addTearDown(authRepository.dispose);
+
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          authRepository: authRepository,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final logoutRow = find.text('ออกจากระบบ');
+      await tester.scrollUntilVisible(
+        logoutRow,
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.ensureVisible(logoutRow);
+      await tester.pumpAndSettle();
+      await tester.tap(logoutRow);
+      await tester.pumpAndSettle();
+
+      // The confirm button shares its label with the row itself
+      // ("ออกจากระบบ") -- the dialog's own title text ("ออกจากระบบ?")
+      // disambiguates which of the two remaining "ออกจากระบบ" texts is
+      // the button.
+      await tester.tap(find.widgetWithText(TextButton, 'ออกจากระบบ'));
+      // Not pumpAndSettle -- the success path deliberately leaves
+      // _isSigningOut true (no success state to show -- AuthGate is
+      // what navigates away once the session clears, same posture as
+      // DeleteAccountScreen's own success path), so the row's
+      // CircularProgressIndicator keeps its indeterminate animation
+      // running and pumpAndSettle would never terminate. A handful of
+      // plain pump()s is enough to flush the (real, non-Timer-based)
+      // async chain: unregisterCurrentDevice() (a same-microtask no-op
+      // since Firebase isn't initialized in tests) -> signOut().
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(authRepository.signOutCalls, 1);
+    });
   });
 }
 
