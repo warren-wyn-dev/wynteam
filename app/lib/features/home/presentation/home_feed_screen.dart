@@ -1260,7 +1260,15 @@ class _FeedModeToggleHeaderDelegate extends SliverPersistentHeaderDelegate {
     // or post content will show through underneath it while scrolling")
     // plus the hairline bottom border, so this delegate just passes the
     // child through.
-    return child;
+    //
+    // The SizedBox(height: height) wrapper is required, not decorative:
+    // [minExtent]/[maxExtent] tell the sliver protocol how much scroll
+    // space this header occupies, but nothing forces the actually
+    // rendered child to be exactly that tall -- Column's own intrinsic
+    // height (44px in the no-pill case) came out 1px short of `height`
+    // (45px, +1 for the hairline border), which SliverGeometry's own
+    // invariant check (layoutExtent <= paintExtent) throws hard on.
+    return SizedBox(height: height, child: child);
   }
 
   @override
