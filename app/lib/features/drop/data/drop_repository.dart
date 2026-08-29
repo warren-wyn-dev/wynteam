@@ -151,25 +151,17 @@ class DropRepository {
   Future<List<Drop>> fetchByAuthor({
     required String authorId,
     required int page,
-    // WYN-071: Profile's "Media" tab -- the same Drop rows as "Posts"
-    // (this method, unfiltered), scoped down to the ones that actually
-    // have an image. A parameter on the existing method rather than a
-    // near-duplicate one, since every other line here (embeds, liked/
-    // saved/redropped/poll-state lookups, Drop.fromMap mapping) is
-    // identical either way.
-    bool onlyWithImages = false,
   }) async {
     final userId = _client.auth.currentUser!.id;
     final from = page * pageSize;
     final to = from + pageSize - 1;
 
-    var query = _client
+    final rows = await _client
         .from('drops')
         .select(_dropSelect)
-        .eq('author_id', authorId);
-    if (onlyWithImages) query = query.not('image_url', 'is', null);
-    final rows =
-        await query.order('created_at', ascending: false).range(from, to);
+        .eq('author_id', authorId)
+        .order('created_at', ascending: false)
+        .range(from, to);
 
     final dropIds = rows.map((row) => row['id'] as String).toList();
     final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
@@ -192,6 +184,16 @@ class DropRepository {
               pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
             ))
         .toList();
+  }
+
+  /// Total (non-deleted) Drop count for one author -- 05-profile.tsx's
+  /// StatsRow "โพสต์" stat, same `_client.rpc` shape as
+  /// FollowRepository.countFollowers/countFollowing (see
+  /// public.drop_count() in supabase/schema.sql).
+  Future<int> countByAuthor(String authorId) async {
+    final response =
+        await _client.rpc('drop_count', params: {'p_user_id': authorId});
+    return (response as num).toInt();
   }
 
   /// WYN-071: Profile's "Likes" tab -- Drops [authorId] has Liked, newest

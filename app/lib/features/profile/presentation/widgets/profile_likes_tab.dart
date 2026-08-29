@@ -3,18 +3,22 @@ import 'package:flutter/material.dart';
 import '../../../drop/data/drop.dart';
 import '../../../drop/data/drop_repository.dart';
 import '../../../drop/presentation/drop_detail_screen.dart';
-import '../../../drop/presentation/widgets/drop_grid_tile.dart';
+import '../../../drop/presentation/quote_redrop_screen.dart';
 import '../../../follow/data/follow_repository.dart';
+import '../../../home/data/home_feed_item.dart';
+import '../../../home/presentation/widgets/home_drop_card.dart';
 import '../../../pop/data/pop_repository.dart';
 import '../../../saved/data/saved_repository.dart';
 import '../../data/profile_repository.dart';
+import '../view_profile_screen.dart';
 import '../../../../core/design/wyn_spacing.dart';
 
-/// "Likes" tab on a profile -- WYN-071 Design, Screen 6. Same 3-column
-/// grid as ProfileDropGridTab (reuses DropGridTile as-is), backed by
-/// DropRepository.fetchLikedByAuthor instead of fetchByAuthor. Public
-/// to any viewer (Founder decision 2026-08-24) -- see that method's own
-/// doc comment on why no new RLS was needed for this.
+/// "Likes" tab on a profile -- WYN-071 Design, Screen 6; restyled to
+/// 05-profile.tsx's full-width PostRow (same [HomeDropCard] reuse as
+/// [ProfileDropGridTab] -- see that file's own doc comment) instead of
+/// the old 3-column grid. Backed by DropRepository.fetchLikedByAuthor.
+/// Public to any viewer (Founder decision 2026-08-24) -- see that
+/// method's own doc comment on why no new RLS was needed for this.
 class ProfileLikesTab extends StatefulWidget {
   const ProfileLikesTab({
     super.key,
@@ -117,6 +121,100 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
     }
   }
 
+  Future<void> _toggleLike(String dropId) async {
+    final index = _drops.indexWhere((d) => d.id == dropId);
+    if (index == -1) return;
+    final previous = _drops[index];
+    setState(() => _drops[index] = previous.toggledLike());
+    try {
+      await widget.dropRepository
+          .toggleLike(dropId: dropId, currentlyLiked: previous.likedByMe);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _drops[index] = previous);
+    }
+  }
+
+  Future<void> _toggleSave(String dropId) async {
+    final index = _drops.indexWhere((d) => d.id == dropId);
+    if (index == -1) return;
+    final previous = _drops[index];
+    setState(() => _drops[index] = previous.toggledSave());
+    try {
+      await widget.dropRepository
+          .toggleSave(dropId: dropId, currentlySaved: previous.savedByMe);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _drops[index] = previous);
+    }
+  }
+
+  Future<void> _toggleRedrop(String dropId) async {
+    final index = _drops.indexWhere((d) => d.id == dropId);
+    if (index == -1) return;
+    final previous = _drops[index];
+    setState(() => _drops[index] = previous.toggledRedrop());
+    try {
+      await widget.dropRepository.toggleRedrop(
+        dropId: dropId,
+        currentlyRedropped: previous.redroppedByMe,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _drops[index] = previous);
+    }
+  }
+
+  Future<void> _votePoll(String dropId, int optionIndex) async {
+    final index = _drops.indexWhere((d) => d.id == dropId);
+    if (index == -1) return;
+    final previous = _drops[index];
+    setState(() => _drops[index] = previous.votedPoll(optionIndex));
+    try {
+      await widget.dropRepository.votePoll(
+        pollId: previous.pollId!,
+        optionIndex: optionIndex,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _drops[index] = previous);
+    }
+  }
+
+  Future<void> _quoteRedrop(String dropId) async {
+    final index = _drops.indexWhere((d) => d.id == dropId);
+    if (index == -1) return;
+    final drop = _drops[index];
+
+    final posted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => QuoteRedropScreen(
+          dropRepository: widget.dropRepository,
+          drop: drop,
+        ),
+      ),
+    );
+    if (posted != true || !mounted) return;
+    final currentIndex = _drops.indexWhere((d) => d.id == dropId);
+    if (currentIndex == -1) return;
+    setState(() => _drops[currentIndex] = _drops[currentIndex].withExtraRedrop());
+  }
+
+  void _openProfile(String userId) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ViewProfileScreen(
+          profileRepository: widget.profileRepository,
+          followRepository: widget.followRepository,
+          dropRepository: widget.dropRepository,
+          popRepository: widget.popRepository,
+          savedRepository: widget.savedRepository,
+          userId: userId,
+        ),
+      ),
+    );
+  }
+
   Future<void> _openDropDetail(Drop drop) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -160,34 +258,33 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
 
     return RefreshIndicator(
       onRefresh: _loadInitial,
-      child: CustomScrollView(
+      child: ListView.separated(
         controller: _scrollController,
-        slivers: [
-          SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 2,
-              mainAxisSpacing: 2,
-            ),
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final drop = _drops[index];
-                return DropGridTile(
-                  drop: drop,
-                  onTap: () => _openDropDetail(drop),
-                );
-              },
-              childCount: _drops.length,
-            ),
-          ),
-          if (_hasMore)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(WynSpacing.space4),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            ),
-        ],
+        itemCount: _drops.length + (_hasMore ? 1 : 0),
+        separatorBuilder: (context, index) => index + 1 < _drops.length
+            ? const Divider(height: 1)
+            : const SizedBox.shrink(),
+        itemBuilder: (context, index) {
+          if (index >= _drops.length) {
+            return const Padding(
+              padding: EdgeInsets.all(WynSpacing.space4),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          final drop = _drops[index];
+          return HomeDropCard(
+            key: ValueKey(drop.id),
+            item: HomeFeedItem.fromDrop(drop),
+            onTap: () => _openDropDetail(drop),
+            onToggleLike: () => _toggleLike(drop.id),
+            onToggleSave: () => _toggleSave(drop.id),
+            onOpenProfile: () => _openProfile(drop.authorId),
+            onToggleRedrop: () => _toggleRedrop(drop.id),
+            onQuoteRedrop: () => _quoteRedrop(drop.id),
+            onVotePoll: (optionIndex) => _votePoll(drop.id, optionIndex),
+          );
+        },
       ),
     );
   }

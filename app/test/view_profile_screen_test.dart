@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:wyn/features/club/data/club.dart';
 import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/follow/presentation/follow_list_screen.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
+import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/pop/data/pop.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
@@ -12,8 +12,6 @@ import 'package:wyn/features/profile/presentation/widgets/profile_skeleton.dart'
 import 'package:wyn/features/saved/presentation/widgets/saved_grid_tile.dart';
 
 import 'support/fake_supabase_session.dart';
-import 'support/recording_club_post_repository.dart';
-import 'support/recording_club_repository.dart';
 import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
 import 'support/recording_home_repository.dart';
@@ -38,13 +36,9 @@ void main() {
   late RecordingDropRepository dropRepo;
   late RecordingPopRepository popRepo;
   late RecordingSavedRepository savedRepo;
-  late RecordingClubPostRepository clubPostRepo;
 
   late RecordingProfileRepository otherProfileRepo;
   late RecordingFollowRepository otherFollowRepo;
-
-  late RecordingClubRepository clubsJoinedRepo;
-  late RecordingClubRepository noClubsRepo;
 
   late RecordingProfileRepository contentTestProfileRepo;
   late RecordingFollowRepository contentTestFollowRepo;
@@ -57,26 +51,13 @@ void main() {
     await initFakeSupabaseSession(userId: 'me');
     ownProfileRepo = RecordingProfileRepository(profile: ownProfile);
     ownFollowRepo = RecordingFollowRepository(followerCount: 12, followingCount: 5);
-    dropRepo = RecordingDropRepository();
+    dropRepo = RecordingDropRepository()
+      ..dropCountByAuthor = {'me': 6};
     popRepo = RecordingPopRepository();
     savedRepo = RecordingSavedRepository();
 
-    clubPostRepo = RecordingClubPostRepository();
-
     otherProfileRepo = RecordingProfileRepository(profile: otherProfile);
     otherFollowRepo = RecordingFollowRepository(followerCount: 3, followingCount: 8);
-
-    clubsJoinedRepo = RecordingClubRepository(myClubs: [
-      Club(
-        id: 'club-1',
-        name: 'ชมรมถ่ายภาพ',
-        privacy: ClubPrivacy.public,
-        ownerId: 'me',
-        createdAt: DateTime.now(),
-        memberCount: 5,
-      ),
-    ]);
-    noClubsRepo = RecordingClubRepository(myClubs: []);
 
     contentTestProfileRepo = RecordingProfileRepository(profile: ownProfile);
     contentTestFollowRepo = RecordingFollowRepository();
@@ -168,8 +149,9 @@ void main() {
         ),
       );
 
-  testWidgets('shows Follower/Following counts loaded alongside the profile',
-      (tester) async {
+  testWidgets(
+      'shows Follower/Following/Post counts loaded alongside the profile '
+      '(05-profile.tsx\'s 3rd StatsRow stat)', (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: ownProfileRepo,
       followRepository: ownFollowRepo,
@@ -181,6 +163,9 @@ void main() {
     expect(find.text('ผู้ติดตาม'), findsOneWidget);
     expect(find.text('5'), findsOneWidget);
     expect(find.text('กำลังติดตาม'), findsOneWidget);
+    expect(find.text('6'), findsOneWidget);
+    // The StatsRow label and the "โพสต์" Tab both say the same word.
+    expect(find.text('โพสต์'), findsNWidgets(2));
   });
 
   testWidgets(
@@ -201,8 +186,8 @@ void main() {
   });
 
   testWidgets(
-      'the Edit Profile button spans the full width, not just its label',
-      (tester) async {
+      'the Edit Profile button is a small centered pill, not a full-width '
+      'bordered button (05-profile.tsx de-emphasizes it)', (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: ownProfileRepo,
       followRepository: ownFollowRepo,
@@ -213,11 +198,10 @@ void main() {
     final buttonFinder =
         find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์');
     final buttonWidth = tester.getSize(buttonFinder).width;
-    // The Thai label alone renders far narrower than this (well under
-    // 200px at default button padding) -- this proves the button is
-    // stretched across the screen (minus the standard space6 edge
-    // padding on each side), not just sized to fit its text.
-    expect(buttonWidth, greaterThan(400));
+    // Sized to its content (a pill), well under the ~450px a
+    // full-width button would span on the 800px-wide default test
+    // viewport.
+    expect(buttonWidth, lessThan(250));
   });
 
   testWidgets('tapping the Followers count opens FollowListScreen in '
@@ -257,8 +241,9 @@ void main() {
   });
 
   testWidgets(
-      'own profile shows Edit/logout, Saved/Draft icons, 5 public tabs, and '
-      'no Follow button (WYN-013, WYN-071)',
+      'own profile shows Edit, Saved/Draft icons, 3 public tabs, no '
+      'Follow button, and no logout icon (WYN-013, WYN-071, '
+      '05-profile.tsx)',
       (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: ownProfileRepo,
@@ -268,25 +253,30 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์'), findsOneWidget);
-    expect(find.byIcon(Icons.logout), findsOneWidget);
+    // 05-profile.tsx removes the standalone header logout icon --
+    // moved into SettingsScreen instead, see settings_screen_test.dart.
+    expect(find.byIcon(Icons.logout), findsNothing);
     expect(find.widgetWithText(OutlinedButton, 'ติดตาม'), findsNothing);
     // WYN-071: Saved/Draft are icons next to "แก้ไขโปรไฟล์" now, not tabs.
-    expect(find.byIcon(Icons.bookmark_border), findsOneWidget);
+    expect(find.byKey(const Key('profile_saved_button')), findsOneWidget);
     expect(find.byIcon(Icons.edit_note_outlined), findsOneWidget);
-    expect(find.text('Posts'), findsOneWidget);
-    expect(find.text('ReDrops'), findsOneWidget);
-    expect(find.text('Replies'), findsOneWidget);
-    expect(find.text('Media'), findsOneWidget);
-    expect(find.text('Likes'), findsOneWidget);
+    // 05-profile.tsx cuts Replies/Media -- 3 tabs now, Thai-labeled to
+    // match the reference exactly. "โพสต์" appears twice (the StatsRow
+    // label and the Tab both say it).
+    expect(find.text('โพสต์'), findsNWidgets(2));
+    expect(find.text('ReDrop'), findsOneWidget);
+    expect(find.text('ถูกใจ'), findsOneWidget);
+    expect(find.text('Replies'), findsNothing);
+    expect(find.text('Media'), findsNothing);
     // Pop is hidden from Profile for WYNOS V1.0.0 Beta -- requirement 3.
     expect(find.text('Pop'), findsNothing);
     expect(find.text('บันทึก'), findsNothing);
     expect(find.text('ร่าง'), findsNothing);
-    expect(find.byType(Tab), findsNWidgets(5));
+    expect(find.byType(Tab), findsNWidgets(3));
   });
 
   testWidgets(
-      'someone else\'s profile shows Follow, the same 5 public tabs, no '
+      'someone else\'s profile shows Follow, the same 3 public tabs, no '
       'Saved/Draft icons/Pop, and no Edit/logout (WYN-013, WYN-071)',
       (tester) async {
     await tester.pumpWidget(buildProfile(
@@ -299,16 +289,14 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์'), findsNothing);
     expect(find.byIcon(Icons.logout), findsNothing);
     expect(find.widgetWithText(OutlinedButton, 'ติดตาม'), findsOneWidget);
-    expect(find.byIcon(Icons.bookmark_border), findsNothing);
+    expect(find.byKey(const Key('profile_saved_button')), findsNothing);
     expect(find.byIcon(Icons.edit_note_outlined), findsNothing);
-    expect(find.text('Posts'), findsOneWidget);
-    expect(find.text('ReDrops'), findsOneWidget);
-    expect(find.text('Replies'), findsOneWidget);
-    expect(find.text('Media'), findsOneWidget);
-    expect(find.text('Likes'), findsOneWidget);
+    expect(find.text('โพสต์'), findsNWidgets(2));
+    expect(find.text('ReDrop'), findsOneWidget);
+    expect(find.text('ถูกใจ'), findsOneWidget);
     // Pop is hidden from Profile for WYNOS V1.0.0 Beta -- requirement 3.
     expect(find.text('Pop'), findsNothing);
-    expect(find.byType(Tab), findsNWidgets(5));
+    expect(find.byType(Tab), findsNWidgets(3));
   });
 
   testWidgets('Drop tab shows this profile\'s Drops (scoped by author, '
@@ -327,8 +315,10 @@ void main() {
     tester.takeException();
 
     // Drop is the first (default-selected) tab -- its content should be
-    // visible without switching tabs.
-    expect(find.byIcon(Icons.favorite), findsOneWidget);
+    // visible without switching tabs. 05-profile.tsx's PostRow is a
+    // full-width HomeDropCard now, not a grid tile.
+    expect(find.byType(HomeDropCard), findsOneWidget);
+    expect(find.text('แคปชัน Drop ของฉัน'), findsOneWidget);
   });
 
   testWidgets(
@@ -349,7 +339,7 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    await tester.tap(find.text('ReDrops'));
+    await tester.tap(find.text('ReDrop'));
     await tester.pumpAndSettle();
     tester.takeException();
 
@@ -381,7 +371,7 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    await tester.tap(find.byIcon(Icons.bookmark_border));
+    await tester.tap(find.byKey(const Key('profile_saved_button')));
     await tester.pumpAndSettle();
     tester.takeException();
 
@@ -391,79 +381,11 @@ void main() {
     expect(find.byType(SavedGridTile), findsOneWidget);
   });
 
-  group('"Club ของฉัน" section (WYN-015)', () {
-    testWidgets('shows joined clubs on your own profile when a ClubRepository is supplied',
-        (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: ViewProfileScreen(
-          profileRepository: ownProfileRepo,
-          followRepository: ownFollowRepo,
-          dropRepository: dropRepo,
-          popRepository: popRepo,
-          savedRepository: savedRepo,
-          userId: 'me',
-          clubRepository: clubsJoinedRepo,
-          clubPostRepository: clubPostRepo,
-        ),
-      ));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Club ของฉัน'), findsOneWidget);
-      expect(find.text('ชมรมถ่ายภาพ'), findsOneWidget);
-    });
-
-    // Design Rule: unlike Home's CLUB section, this one shows nothing at
-    // all (not even the label) when the list is empty -- Profile isn't
-    // the app's entry point for encouraging Club discovery.
-    testWidgets('shows nothing at all when you have no joined clubs', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: ViewProfileScreen(
-          profileRepository: ownProfileRepo,
-          followRepository: ownFollowRepo,
-          dropRepository: dropRepo,
-          popRepository: popRepo,
-          savedRepository: savedRepo,
-          userId: 'me',
-          clubRepository: noClubsRepo,
-          clubPostRepository: clubPostRepo,
-        ),
-      ));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Club ของฉัน'), findsNothing);
-    });
-
-    testWidgets('never shows on someone else\'s profile, even with clubs and a '
-        'ClubRepository supplied', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: ViewProfileScreen(
-          profileRepository: otherProfileRepo,
-          followRepository: otherFollowRepo,
-          dropRepository: dropRepo,
-          popRepository: popRepo,
-          savedRepository: savedRepo,
-          userId: 'someone-else',
-          clubRepository: clubsJoinedRepo,
-          clubPostRepository: clubPostRepo,
-        ),
-      ));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Club ของฉัน'), findsNothing);
-    });
-
-    testWidgets('shows nothing when no ClubRepository is supplied at all '
-        '(every non-RootShell call site)', (tester) async {
-      await tester.pumpWidget(buildProfile(
-        profileRepository: ownProfileRepo,
-        followRepository: ownFollowRepo,
-        userId: 'me',
-      ));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Club ของฉัน'), findsNothing);
-    });
-  });
+  // "Club ของฉัน" section (WYN-015) removed -- 05-profile.tsx drops the
+  // shelf from Profile entirely (still reachable via Home's "From Your
+  // Clubs" feed). See view_profile_screen.dart's own comment on
+  // ClubRepository/ClubPostRepository still being threaded through
+  // (only for _openSearch/_openNotifications now).
 
   group('"Profile Visit" User Signal (WYNOS Unified Home Feed Algorithm '
       'V1.0)', () {

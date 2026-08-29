@@ -582,6 +582,40 @@ void main() {
       });
     }
   });
+
+  // 05-profile.tsx: the profile header's standalone logout icon moves
+  // here as the very last row on the page -- see settings_screen.dart's
+  // own comment on "บัญชี". Only presence/position is asserted (not a
+  // full tap-through to a real Supabase signOut(), which would need a
+  // real network round trip) -- ViewProfileScreen's own former header
+  // icon was never exercised past this same point either.
+  testWidgets('shows "ออกจากระบบ" as the very last row on the page',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+    ));
+    await tester.pumpAndSettle();
+
+    final signOutRow = find.text('ออกจากระบบ');
+    await tester.scrollUntilVisible(
+      signOutRow,
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(signOutRow, findsOneWidget);
+
+    final listView = tester.widget<ListView>(find.byType(ListView));
+    final children =
+        (listView.childrenDelegate as SliverChildListDelegate).children;
+    expect(children.last, isA<ListTile>());
+    expect(
+      find.descendant(
+        of: find.byWidget(children.last),
+        matching: find.text('ออกจากระบบ'),
+      ),
+      findsOneWidget,
+    );
+  });
 }
 
 class _ThrowingProfileRepository extends RecordingProfileRepository {

@@ -22,6 +22,8 @@ import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../saved/data/saved_repository.dart';
+import '../../push/data/push_token_repository.dart';
+import '../../push/presentation/push_notification_service.dart';
 import '../data/data_rights_repository.dart';
 import '../data/notification_settings_repository.dart';
 import 'delete_account_screen.dart';
@@ -210,6 +212,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
+  }
+
+  /// WYN-016: best-effort -- deregistering this device's push token must
+  /// never block or fail sign-out itself. Same body as
+  /// ViewProfileScreen's own `_signOut` (05-profile.tsx moves the
+  /// standalone header logout icon into this screen instead -- see the
+  /// "บัญชี" section below -- so this is the one place that action lives
+  /// now).
+  Future<void> _signOut() async {
+    try {
+      await PushNotificationService(
+              PushTokenRepository(Supabase.instance.client))
+          .unregisterCurrentDevice();
+    } catch (_) {
+      // Intentionally silent -- see comment above.
+    }
+    await Supabase.instance.client.auth.signOut();
   }
 
   @override
@@ -492,6 +511,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const _LegalDocumentTile(
             title: 'นโยบายการอุทธรณ์',
             documentType: PlatformDocumentType.appealPolicy,
+          ),
+          // 05-profile.tsx: the profile header's standalone logout icon
+          // moves here -- "an infrequent, higher-consequence action
+          // belongs inside the settings (gear) menu rather than sitting
+          // in the header with equal visual weight to Settings itself."
+          // Always the very last row on the page, unconditional on
+          // platformRole, same as "กฎหมาย" above it.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              WynSpacing.space4,
+              WynSpacing.space4,
+              WynSpacing.space4,
+              WynSpacing.space1,
+            ),
+            child: Text(
+              'บัญชี',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text('ออกจากระบบ'),
+            onTap: _signOut,
           ),
         ],
       ),

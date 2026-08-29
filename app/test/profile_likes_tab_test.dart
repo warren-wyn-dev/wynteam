@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/drop/data/drop.dart';
-import 'package:wyn/features/drop/presentation/widgets/drop_grid_tile.dart';
+import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/profile/presentation/widgets/profile_likes_tab.dart';
 
 import 'support/fake_supabase_session.dart';
@@ -67,8 +67,9 @@ void main() {
     expect(find.text('ยังไม่มีอะไรที่ถูกใจ'), findsOneWidget);
   });
 
-  testWidgets('shows every Drop returned by fetchLikedByAuthor as a grid tile',
-      (tester) async {
+  testWidgets(
+      'shows every Drop returned by fetchLikedByAuthor as a full-width '
+      'post card', (tester) async {
     await tester.pumpWidget(_wrap(ProfileLikesTab(
       dropRepository: listRepo,
       followRepository: followRepo,
@@ -81,7 +82,17 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    expect(find.byType(DropGridTile), findsNWidgets(2));
+    // A full-width HomeDropCard is much taller than the old grid tile
+    // was -- the 2nd card sits below the default test viewport until
+    // scrolled into view.
+    expect(find.byType(HomeDropCard), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('d2')),
+      500,
+      scrollable: find.byType(Scrollable),
+    );
+    tester.takeException();
+    expect(find.byType(HomeDropCard), findsNWidgets(2));
   });
 
   testWidgets('a fetch failure shows an error with a retry button',
