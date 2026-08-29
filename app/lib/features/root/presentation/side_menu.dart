@@ -191,7 +191,7 @@ class _SideMenuState extends State<SideMenu> {
                           if (profile != null)
                             Text(
                               '@${profile.username}',
-                              style: _interStyle(fontSize: 12.5, color: WynColors.faint),
+                              style: _interStyle(fontSize: 12.5, color: WynColors.mutedNeutral),
                             ),
                           const SizedBox(height: WynSpacing.space1),
                           // Wrap, not Row -- the drawer's fixed Material
