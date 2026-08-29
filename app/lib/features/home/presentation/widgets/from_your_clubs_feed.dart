@@ -230,20 +230,40 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
     }
 
     if (_posts.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('เข้าร่วม Club เพื่อดูโพสต์ที่นี่', textAlign: TextAlign.center),
-              const SizedBox(height: WynSpacing.space3),
-              OutlinedButton.icon(
-                onPressed: _openExploreClubs,
-                icon: const Icon(Icons.explore_outlined, size: 18),
-                label: const Text('สำรวจ Club'),
+      // LayoutBuilder + SingleChildScrollView, not just Center -- this
+      // sits in a SliverFillRemaining(hasScrollBody: true), which
+      // assumes its child scrolls internally to handle a
+      // remaining-space allotment too short for its content (the
+      // non-empty ListView.builder case above already does); a bare
+      // non-scrolling Center+Column would hard-overflow instead of
+      // scrolling on a short enough viewport. The ConstrainedBox
+      // (minHeight: the incoming constraint) keeps the prompt vertically
+      // centered on any viewport tall enough to fit it without scrolling
+      // at all, which is every real device.
+      return LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WynSpacing.space8,
+                  vertical: WynSpacing.space4,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('เข้าร่วม Club เพื่อดูโพสต์ที่นี่', textAlign: TextAlign.center),
+                    const SizedBox(height: WynSpacing.space3),
+                    OutlinedButton.icon(
+                      onPressed: _openExploreClubs,
+                      icon: const Icon(Icons.explore_outlined, size: 18),
+                      label: const Text('สำรวจ Club'),
+                    ),
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
         ),
       );

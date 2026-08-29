@@ -6,9 +6,21 @@ import 'wynos_double_tap_like.dart';
 /// carousel: each card 82% of the available width, 4:5 aspect ratio,
 /// 16px corner radius, an 8px gap between cards, snapping, with the
 /// next card always peeking in from the right edge. Double-tap
-/// anywhere in the carousel likes the post (see [WynosDoubleTapLike],
-/// wrapping the whole scroll area the same way the reference puts its
-/// onClick handler on the outer scroll container, not per-image).
+/// anywhere in the carousel likes the post (see [WynosDoubleTapLike]).
+///
+/// The reference puts its onClick handler on the outer scroll
+/// container, not per-image -- but that's a plain DOM click handler,
+/// which bubbles differently from Flutter's touch gesture arena.
+/// Wrapping the whole PageView in one GestureDetector puts its
+/// double-tap recognizer in direct competition with the PageView's
+/// own horizontal-drag recognizer (and the vertical CustomScrollView
+/// this card ultimately sits in) for every pointer sequence, and loses
+/// double-tap recognition intermittently as a result. Wrapping each
+/// page's own image individually instead -- inside [PageView.builder]'s
+/// itemBuilder -- mirrors the single-image case (HomeDropCard's
+/// non-carousel path), which never had this problem: each page's
+/// GestureDetector only ever competes with its own immediate scroll
+/// ancestors for that one page's region, not the whole carousel's.
 ///
 /// [imageUrls] must have at least 2 entries -- HomeDropCard only ever
 /// builds this once [HomeFeedItem.hasMultipleImages] is true; a
@@ -32,34 +44,34 @@ class WynosImageCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return WynosDoubleTapLike(
-      onLike: onLike,
-      alreadyLiked: alreadyLiked,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final cardWidth = constraints.maxWidth * _cardWidthFraction;
-          final cardHeight = cardWidth / _cardAspectRatio;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = constraints.maxWidth * _cardWidthFraction;
+        final cardHeight = cardWidth / _cardAspectRatio;
 
-          return SizedBox(
-            height: cardHeight,
-            // padEnds: false -- the first card starts flush with the
-            // carousel's own left edge; every card after it peeks in
-            // from the right by construction of a sub-1.0
-            // viewportFraction, matching the reference's "next card
-            // peeking" effect without needing a literal negative-
-            // margin trick (a CSS-specific technique with no direct
-            // Flutter equivalent).
-            child: PageView.builder(
-              padEnds: false,
-              controller: PageController(viewportFraction: _cardWidthFraction),
-              physics: const PageScrollPhysics(),
-              itemCount: imageUrls.length,
-              itemBuilder: (context, index) {
-                final isLast = index == imageUrls.length - 1;
-                return Padding(
-                  padding: EdgeInsets.only(right: isLast ? 0 : _cardGap),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(_cardRadius),
+        return SizedBox(
+          height: cardHeight,
+          // padEnds: false -- the first card starts flush with the
+          // carousel's own left edge; every card after it peeks in
+          // from the right by construction of a sub-1.0
+          // viewportFraction, matching the reference's "next card
+          // peeking" effect without needing a literal negative-
+          // margin trick (a CSS-specific technique with no direct
+          // Flutter equivalent).
+          child: PageView.builder(
+            padEnds: false,
+            controller: PageController(viewportFraction: _cardWidthFraction),
+            physics: const PageScrollPhysics(),
+            itemCount: imageUrls.length,
+            itemBuilder: (context, index) {
+              final isLast = index == imageUrls.length - 1;
+              return Padding(
+                padding: EdgeInsets.only(right: isLast ? 0 : _cardGap),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(_cardRadius),
+                  child: WynosDoubleTapLike(
+                    onLike: onLike,
+                    alreadyLiked: alreadyLiked,
                     child: Image.network(
                       imageUrls[index],
                       fit: BoxFit.cover,
@@ -67,12 +79,12 @@ class WynosImageCarousel extends StatelessWidget {
                       height: double.infinity,
                     ),
                   ),
-                );
-              },
-            ),
-          );
-        },
-      ),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }

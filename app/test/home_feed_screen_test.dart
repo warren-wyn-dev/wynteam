@@ -789,7 +789,11 @@ void main() {
       final followButton = find.widgetWithText(OutlinedButton, 'ติดตาม');
       expect(followButton, findsOneWidget);
 
-      await tester.tap(followButton);
+      // Same off-screen-hit-test-avoidance as the Like/ReDrop/More-menu
+      // buttons elsewhere in this file -- invoke onPressed directly
+      // rather than tester.tap(), which needs the widget to actually be
+      // on-screen to hit-test successfully.
+      tester.widget<OutlinedButton>(followButton).onPressed!();
       await tester.pumpAndSettle();
       tester.takeException();
 
