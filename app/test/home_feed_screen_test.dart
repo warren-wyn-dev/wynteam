@@ -524,15 +524,21 @@ void main() {
     tester.takeException();
 
     expect(find.text('แคปชัน Drop'), findsOneWidget);
-    // Regression for WYN-007 QA round 1: the Drop card's interaction row
-    // must have a working Share button and a tappable Comment icon, not
-    // just Like/Save. See .wyn/tasks/approved/WYN-007-home-feed.md.
-    expect(
-        find.widgetWithIcon(IconButton, Icons.share_outlined), findsOneWidget);
+    // Regression for WYN-007 QA round 1: the Drop card must have a
+    // working Share entry and a tappable Comment icon, not just
+    // Like/Save. See .wyn/tasks/approved/WYN-007-home-feed.md. WYNOS
+    // Home reference spec 4.6 moved Share (and Save) from the action
+    // bar into the `⋯` More menu -- open it here to confirm it's still
+    // reachable, then dismiss before continuing.
     expect(
       find.widgetWithIcon(IconButton, Icons.mode_comment_outlined),
       findsOneWidget,
     );
+    await tester.tap(find.widgetWithIcon(IconButton, Icons.more_vert));
+    await tester.pumpAndSettle();
+    expect(find.text('แชร์'), findsOneWidget);
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
     // WYN-038 QA fix: assert the Drop card's own view count icon here,
     // scoped to HomeDropCard, while it is still mounted -- see the note
     // below (on the unscoped `findsNWidgets(2)` this replaces) for why
@@ -591,12 +597,19 @@ void main() {
     // Same Share/Comment regression check, scoped to the Pop card
     // specifically -- the Drop card above may still be in the element
     // tree (ListView cacheExtent) at this scroll position, so an
-    // unscoped findsOneWidget would over-count.
-    final popCardShare = find.descendant(
+    // unscoped findsOneWidget would over-count. WYNOS Home reference
+    // spec 4.6 moved Share into the `⋯` More menu -- same as the Drop
+    // card check above.
+    final popCardMoreButton = find.descendant(
       of: find.byType(HomePopCard),
-      matching: find.widgetWithIcon(IconButton, Icons.share_outlined),
+      matching: find.widgetWithIcon(IconButton, Icons.more_vert),
     );
-    expect(popCardShare, findsOneWidget);
+    expect(popCardMoreButton, findsOneWidget);
+    await tester.tap(popCardMoreButton);
+    await tester.pumpAndSettle();
+    expect(find.text('แชร์'), findsOneWidget);
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
     final popCardComment = find.descendant(
       of: find.byType(HomePopCard),
       matching: find.widgetWithIcon(IconButton, Icons.mode_comment_outlined),

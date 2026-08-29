@@ -6,10 +6,12 @@ import '../../../../core/design/wyn_colors.dart';
 import '../../../pop/presentation/widgets/pop_clip_view.dart' show popShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
-import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/widgets/hashtag_text.dart';
+import '../design/wynos_home_tokens.dart';
+import 'wynos_avatar_ring.dart';
 import 'wynos_double_tap_like.dart';
 import 'wynos_liked_by_row.dart';
+import 'wynos_more_menu.dart';
 import 'wynos_top_reply.dart';
 import 'wynos_verified_badge.dart';
 
@@ -24,7 +26,8 @@ String _formatDuration(int totalSeconds) {
 /// play icon and duration badge -- not full 9:16 autoplaying video -- so
 /// card heights stay consistent with HomeDropCard while scrolling and no
 /// video plays until the user actually taps in. See
-/// .wyn/docs/design/wyn-007-home.md, Design Rules.
+/// .wyn/docs/design/wyn-007-home.md, Design Rules, and the WYNOS Home
+/// reference spec section 4.6/4.9 for this card's visual structure.
 class HomePopCard extends StatelessWidget {
   const HomePopCard({
     super.key,
@@ -65,25 +68,27 @@ class HomePopCard extends StatelessWidget {
     );
   }
 
-  Future<void> _openMoreMenu(BuildContext context) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.visibility_off_outlined),
-              title: const Text('ไม่สนใจโพสต์นี้'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                onHide?.call();
-              },
-            ),
-          ],
+  /// WYNOS Home reference spec 4.6: the `⋯` button is now always
+  /// visible -- Share and Save moved in here from the action bar apply
+  /// to your own Pop too, mirroring [HomeDropCard]'s identical change.
+  List<WynosMenuAction> _menuActions(BuildContext context) => [
+        WynosMenuAction(
+          icon: Icons.share_outlined,
+          label: 'แชร์',
+          onTap: _share,
         ),
-      ),
-    );
-  }
+        WynosMenuAction(
+          icon: item.savedByMe ? Icons.bookmark : Icons.bookmark_border,
+          label: item.savedByMe ? 'เอาออกจาก Saved' : 'บันทึก',
+          onTap: onToggleSave,
+        ),
+        if (!_isOwnPop && onHide != null)
+          WynosMenuAction(
+            icon: Icons.visibility_off_outlined,
+            label: 'ไม่สนใจโพสต์นี้',
+            onTap: () => onHide!(),
+          ),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -94,164 +99,205 @@ class HomePopCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
-          child: Column(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WynosHomeSpacing.pagePadding,
+            vertical: WynosHomeSpacing.postVertical,
+          ),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space1),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: onOpenProfile,
-                        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AvatarCircle(
-                              imageUrl: item.authorAvatarUrl,
-                              fallbackText: item.authorUsername,
-                              radius: 16,
-                            ),
-                            const SizedBox(width: WynSpacing.space2),
-                            Text(
-                              item.authorNameOrUsername,
-                              style: Theme.of(context).textTheme.titleSmall,
-                            ),
-                            // WYNOS Home reference spec 4.6.
-                            if (item.authorIsVerified) ...[
-                              const SizedBox(width: WynSpacing.space1),
-                              const WynosVerifiedBadge(),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (!_isOwnPop && onHide != null)
-                      IconButton(
-                        icon: const Icon(Icons.more_vert),
-                        tooltip: 'เพิ่มเติม',
-                        onPressed: () => _openMoreMenu(context),
-                      ),
-                  ],
-                ),
-              ),
-              // WYNOS Home reference spec 4.7 -- see that widget's doc
-              // comment for why this is a separate widget from the
-              // shared core one.
-              WynosDoubleTapLike(
-                onLike: onToggleLike,
-                alreadyLiked: item.likedByMe,
-                child: AspectRatio(
-                  aspectRatio: 1,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (item.thumbnailUrl != null)
-                        Image.network(item.thumbnailUrl!, fit: BoxFit.cover)
-                      else
-                        Container(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        ),
-                      const Center(
-                        child: Icon(
-                          Icons.play_circle_fill,
-                          color: Colors.white,
-                          size: 56,
-                        ),
-                      ),
-                      if (item.durationSeconds != null)
-                        Positioned(
-                          right: 8,
-                          bottom: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: WynColors.imageScrim,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              _formatDuration(item.durationSeconds!),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
+              GestureDetector(
+                onTap: onOpenProfile,
+                child: WynosAvatarRing(
+                  size: 40,
+                  child: AvatarCircle(
+                    imageUrl: item.authorAvatarUrl,
+                    fallbackText: item.authorUsername,
+                    radius: 20,
                   ),
                 ),
               ),
-              if (item.caption != null && item.caption!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                  child: HashtagText(item.caption!),
-                ),
-              // WYNOS Home reference spec 4.8 -- same widget as
-              // HomeDropCard, not scoped to Drop content only.
-              WynosLikedByRow(likedBy: item.likedBy, likeCount: item.likeCount),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),
-                child: Row(
+              const SizedBox(width: WynosHomeSpacing.avatarContentGap),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Semantics(
-                      label: item.likedByMe
-                          ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
-                          : 'กดเพื่อถูกใจ',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: Icon(
-                          item.likedByMe ? Icons.favorite : Icons.favorite_border,
-                          color: item.likedByMe ? Colors.red : null,
+                    // WYNOS Home reference spec 4.6 -- one inline
+                    // header line (name + verified badge + relative
+                    // timestamp).
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: onOpenProfile,
+                            behavior: HitTestBehavior.opaque,
+                            child: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    item.authorNameOrUsername,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: WynosHomeText.postAuthorName,
+                                  ),
+                                ),
+                                if (item.authorIsVerified) ...[
+                                  const SizedBox(width: 4),
+                                  const WynosVerifiedBadge(size: 13),
+                                ],
+                              ],
+                            ),
+                          ),
                         ),
-                        onPressed: onToggleLike,
-                      ),
+                        WynosMoreMenuButton(actions: _menuActions(context)),
+                      ],
                     ),
-                    Text('${item.likeCount}'),
-                    const SizedBox(width: WynSpacing.space2),
-                    Semantics(
-                      label: 'ดูคอมเมนต์',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: const Icon(Icons.mode_comment_outlined, size: 20),
-                        onPressed: onTapComment ?? onTap,
-                      ),
-                    ),
-                    Text('${item.commentCount}'),
-                    Semantics(
-                      label: 'แชร์',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: const Icon(Icons.share_outlined, size: 20),
-                        onPressed: _share,
-                      ),
-                    ),
-                    const Icon(Icons.visibility_outlined, size: 18),
-                    const SizedBox(width: WynSpacing.space1),
-                    Text('${item.viewCount}'),
-                    const Spacer(),
-                    Semantics(
-                      label: item.savedByMe
-                          ? 'บันทึกแล้ว กดเพื่อเอาออกจาก Saved'
-                          : 'กดเพื่อบันทึก',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: Icon(
-                          item.savedByMe ? Icons.bookmark : Icons.bookmark_border,
+                    const SizedBox(height: 8),
+                    // WYNOS Home reference spec 4.7 -- same widget as
+                    // HomeDropCard, not scoped to Drop content only.
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: WynosDoubleTapLike(
+                        onLike: onToggleLike,
+                        alreadyLiked: item.likedByMe,
+                        child: AspectRatio(
+                          aspectRatio: 1,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              if (item.thumbnailUrl != null)
+                                Image.network(item.thumbnailUrl!, fit: BoxFit.cover)
+                              else
+                                Container(color: WynColors.imageScrim),
+                              const Center(
+                                child: Icon(
+                                  Icons.play_circle_fill,
+                                  color: Colors.white,
+                                  size: 56,
+                                ),
+                              ),
+                              if (item.durationSeconds != null)
+                                Positioned(
+                                  right: 8,
+                                  bottom: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: WynColors.imageScrim,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      _formatDuration(item.durationSeconds!),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
-                        onPressed: onToggleSave,
                       ),
                     ),
+                    if (item.caption != null && item.caption!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (final line in item.caption!.split('\n'))
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: WynosHomeSpacing.postLineGap,
+                                ),
+                                child: HashtagText(
+                                  line,
+                                  style: WynosHomeText.postBody,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    // WYNOS Home reference spec 4.8 -- same widget as
+                    // HomeDropCard, not scoped to Drop content only.
+                    WynosLikedByRow(likedBy: item.likedBy, likeCount: item.likeCount),
+                    // WYNOS Home reference spec 4.6 -- three action-bar
+                    // icons (Heart/Comment/Eye; Pop has no ReDrop
+                    // concept); Share and Save moved into the `⋯` menu
+                    // above. Own top gap (mirrors WynosLikedByRow's
+                    // mt-2.5) so the bar sits correctly even when
+                    // likeCount is 0 and that row renders nothing.
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Row(
+                        children: [
+                          Semantics(
+                            label: item.likedByMe
+                                ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
+                                : 'กดเพื่อถูกใจ',
+                            excludeSemantics: true,
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              icon: Icon(
+                                item.likedByMe ? Icons.favorite : Icons.favorite_border,
+                                size: 17,
+                                color: item.likedByMe
+                                    ? WynosHomeColors.sapphire
+                                    : WynosHomeColors.graphite,
+                              ),
+                              onPressed: onToggleLike,
+                            ),
+                          ),
+                          const SizedBox(width: WynosHomeSpacing.actionIconLabelGap),
+                          Text('${item.likeCount}', style: WynosHomeText.actionCount),
+                          const SizedBox(width: WynosHomeSpacing.actionBarGap),
+                          Semantics(
+                            label: 'ดูคอมเมนต์',
+                            excludeSemantics: true,
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              icon: const Icon(
+                                Icons.mode_comment_outlined,
+                                size: 17,
+                                color: WynosHomeColors.graphite,
+                              ),
+                              onPressed: onTapComment ?? onTap,
+                            ),
+                          ),
+                          const SizedBox(width: WynosHomeSpacing.actionIconLabelGap),
+                          Text('${item.commentCount}', style: WynosHomeText.actionCount),
+                          const SizedBox(width: WynosHomeSpacing.actionBarGap),
+                          Semantics(
+                            label: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
+                            excludeSemantics: true,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.visibility_outlined,
+                                  size: 17,
+                                  color: WynosHomeColors.graphite,
+                                ),
+                                const SizedBox(width: WynosHomeSpacing.actionIconLabelGap),
+                                Text('${item.viewCount}', style: WynosHomeText.actionCount),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // WYNOS Home reference spec 4.10.
+                    WynosTopReply(reply: item.topReply, onTap: onTapComment ?? onTap),
                   ],
                 ),
               ),
-              // WYNOS Home reference spec 4.10.
-              WynosTopReply(reply: item.topReply, onTap: onTapComment ?? onTap),
             ],
           ),
         ),

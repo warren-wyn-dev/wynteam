@@ -6,12 +6,14 @@ import '../../../drop/data/drop_repository.dart';
 import '../../../drop/presentation/drop_detail_screen.dart' show dropShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
-import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/text_utils.dart';
 import '../../../../core/widgets/double_tap_like.dart';
+import '../design/wynos_home_tokens.dart';
+import 'wynos_avatar_ring.dart';
 import 'wynos_double_tap_like.dart';
 import 'wynos_image_carousel.dart';
 import 'wynos_liked_by_row.dart';
+import 'wynos_more_menu.dart';
 import 'wynos_top_reply.dart';
 import 'wynos_verified_badge.dart';
 import '../../../../core/widgets/hashtag_text.dart';
@@ -22,7 +24,8 @@ import '../../../drop/presentation/widgets/poll_card.dart';
 
 /// A Drop card in the Home feed. Same visual structure as
 /// HomePopCard so the two read as one family, per
-/// .wyn/docs/design/wyn-007-home.md ("ทิศทางภาพรวม").
+/// .wyn/docs/design/wyn-007-home.md ("ทิศทางภาพรวม") and the WYNOS
+/// Home reference spec, section 4.6.
 class HomeDropCard extends StatelessWidget {
   const HomeDropCard({
     super.key,
@@ -70,7 +73,7 @@ class HomeDropCard extends StatelessWidget {
 
   /// WYN-034: deletes *this specific ReDrop* (Standard or Quote) --
   /// only ever wired up (and only ever offered in the More menu, see
-  /// [_openMoreMenu]) when [_isOwnRedrop] is true. Distinct from
+  /// [_menuActions]) when [_isOwnRedrop] is true. Distinct from
   /// [onToggleRedrop]/`deleteDrop` -- this never touches the
   /// underlying Drop itself, only the viewer's own ReDrop entry of it.
   final VoidCallback? onDeleteRedrop;
@@ -82,7 +85,7 @@ class HomeDropCard extends StatelessWidget {
   /// WYNOS Unified Home Feed Algorithm V1.0 -- records the "Hide" User
   /// Signal and removes this card from the feed immediately. Only
   /// offered for someone else's Drop (see [_isOwnDrop]'s use in
-  /// [_openMoreMenu]), same gating as "รายงานโพสต์" -- hiding your own
+  /// [_menuActions]), same gating as "รายงานโพสต์" -- hiding your own
   /// post from your own feed isn't a meaningful action.
   final VoidCallback? onHide;
 
@@ -136,56 +139,83 @@ class HomeDropCard extends StatelessWidget {
     );
   }
 
-  Future<void> _openMoreMenu(BuildContext context) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            // Reporting your own Drop makes no sense -- same guard
-            // _isOwnDrop already applied to this button's own
-            // visibility before WYN-034, kept here now that the
-            // button can also show for a reason unrelated to
-            // authorship (_isOwnRedrop).
-            if (!_isOwnDrop && onHide != null)
-              ListTile(
-                leading: const Icon(Icons.visibility_off_outlined),
-                title: const Text('ไม่สนใจโพสต์นี้'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  onHide?.call();
-                },
-              ),
-            if (!_isOwnDrop)
-              ListTile(
-                leading: const Icon(Icons.flag_outlined),
-                title: const Text('รายงานโพสต์'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  showReportSheet(
-                    context,
-                    reportRepository: ReportRepository(Supabase.instance.client),
-                    targetType: ReportTargetType.drop,
-                    targetId: item.id,
-                    targetLabel: 'รายงานโพสต์ของ ${item.authorNameOrUsername}',
-                    associatedUserId: item.authorId,
-                  );
-                },
-              ),
-            // WYN-034: removes *this ReDrop entry* only -- the original
-            // Drop (and any other ReDrops of it) are untouched.
-            if (_isOwnRedrop)
-              ListTile(
-                leading: const Icon(Icons.delete_outline),
-                title: const Text('ลบ ReDrop'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  onDeleteRedrop?.call();
-                },
-              ),
-          ],
+  /// WYNOS Home reference spec 4.6: the `⋯` button is now always
+  /// visible -- Share and Save moved in here from the action bar apply
+  /// to your own post too, so the menu can never be empty the way the
+  /// old bottom sheet's Hide/Report-only content could be for a
+  /// non-ReDrop post of your own.
+  List<WynosMenuAction> _menuActions(BuildContext context) => [
+        WynosMenuAction(
+          icon: Icons.share_outlined,
+          label: 'แชร์',
+          onTap: _share,
         ),
-      ),
+        WynosMenuAction(
+          icon: item.savedByMe ? Icons.bookmark : Icons.bookmark_border,
+          label: item.savedByMe ? 'เอาออกจาก Saved' : 'บันทึก',
+          onTap: onToggleSave,
+        ),
+        // Hiding/reporting your own Drop makes no sense -- same guard
+        // this app has always applied to these two entries.
+        if (!_isOwnDrop && onHide != null)
+          WynosMenuAction(
+            icon: Icons.visibility_off_outlined,
+            label: 'ไม่สนใจโพสต์นี้',
+            onTap: () => onHide!(),
+          ),
+        if (!_isOwnDrop)
+          WynosMenuAction(
+            icon: Icons.flag_outlined,
+            label: 'รายงานโพสต์',
+            onTap: () => showReportSheet(
+              context,
+              reportRepository: ReportRepository(Supabase.instance.client),
+              targetType: ReportTargetType.drop,
+              targetId: item.id,
+              targetLabel: 'รายงานโพสต์ของ ${item.authorNameOrUsername}',
+              associatedUserId: item.authorId,
+            ),
+          ),
+        // WYN-034: removes *this ReDrop entry* only -- the original
+        // Drop (and any other ReDrops of it) are untouched.
+        if (_isOwnRedrop)
+          WynosMenuAction(
+            icon: Icons.delete_outline,
+            label: 'ลบ ReDrop',
+            onTap: () => onDeleteRedrop?.call(),
+          ),
+      ];
+
+  /// WYNOS Home reference spec 4.6 -- each line of the caption is its
+  /// own paragraph (space-y-2 between them), not one flowing block, so
+  /// a caption with line breaks reads the same as the reference's own
+  /// multi-`<p>` markup.
+  ///
+  /// A caption-only Drop (no image, not a Poll -- WYNOS V1.0.0 Beta
+  /// requirement 2) keeps its pre-existing double-tap-to-like: with no
+  /// image to overlay the heart-burst on, this still uses the plain
+  /// [DoubleTapLike] the app already had rather than
+  /// [WynosDoubleTapLike]'s image-sized visual.
+  Widget _captionColumn(BuildContext context) {
+    final column = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final line in item.caption!.split('\n'))
+          Padding(
+            padding: const EdgeInsets.only(
+              bottom: WynosHomeSpacing.postLineGap,
+            ),
+            child: HashtagText(line, style: WynosHomeText.postBody),
+          ),
+      ],
+    );
+    if (item.isPoll || item.hasMultipleImages || item.imageUrl != null) {
+      return column;
+    }
+    return DoubleTapLike(
+      onLike: onToggleLike,
+      alreadyLiked: item.likedByMe,
+      child: column,
     );
   }
 
@@ -197,7 +227,10 @@ class HomeDropCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
+          padding: const EdgeInsets.symmetric(
+            horizontal: WynosHomeSpacing.pagePadding,
+            vertical: WynosHomeSpacing.postVertical,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -208,26 +241,22 @@ class HomeDropCard extends StatelessWidget {
               // the *original* Drop, credit preserved.
               if (item.redropId != null)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    WynSpacing.space3, 0, WynSpacing.space3, WynSpacing.space1,
-                  ),
+                  padding: const EdgeInsets.only(bottom: 6),
                   child: InkWell(
                     onTap: onOpenRedropperProfile,
-                    borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+                    borderRadius: BorderRadius.circular(6),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.repeat,
-                          size: 14,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          size: 13,
+                          color: WynosHomeColors.onInkSecondary,
                         ),
-                        const SizedBox(width: WynSpacing.space1),
+                        const SizedBox(width: 6),
                         Text(
                           'ReDrop โดย @${item.redropperUsername}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
+                          style: WynosHomeText.redropAttribution,
                         ),
                       ],
                     ),
@@ -235,228 +264,266 @@ class HomeDropCard extends StatelessWidget {
                 ),
               if (item.quoteText != null && item.quoteText!.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    WynSpacing.space3, 0, WynSpacing.space3, WynSpacing.space2,
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: HashtagText(
+                    item.quoteText!,
+                    style: WynosHomeText.postBody,
                   ),
-                  child: HashtagText(item.quoteText!),
                 ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space1),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: onOpenProfile,
-                        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                        child: Row(
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: onOpenProfile,
+                    child: WynosAvatarRing(
+                      size: 40,
+                      child: AvatarCircle(
+                        imageUrl: item.authorAvatarUrl,
+                        fallbackText: item.authorUsername,
+                        radius: 20,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: WynosHomeSpacing.avatarContentGap),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // WYNOS Home reference spec 4.6 -- one inline
+                        // header line (name + verified badge + relative
+                        // timestamp), not the old two-line name-then-
+                        // timestamp stack.
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            AvatarCircle(
-                              imageUrl: item.authorAvatarUrl,
-                              fallbackText: item.authorUsername,
-                              radius: 16,
-                            ),
-                            const SizedBox(width: WynSpacing.space2),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          item.authorNameOrUsername,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: Theme.of(context).textTheme.titleSmall,
-                                        ),
+                              child: GestureDetector(
+                                onTap: onOpenProfile,
+                                behavior: HitTestBehavior.opaque,
+                                child: Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        item.authorNameOrUsername,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: WynosHomeText.postAuthorName,
                                       ),
-                                      // WYNOS Home reference spec 4.6.
-                                      if (item.authorIsVerified) ...[
-                                        const SizedBox(width: WynSpacing.space1),
-                                        const WynosVerifiedBadge(),
-                                      ],
+                                    ),
+                                    if (item.authorIsVerified) ...[
+                                      const SizedBox(width: 4),
+                                      const WynosVerifiedBadge(size: 13),
                                     ],
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      relativeTimeLabel(
+                                        item.createdAt,
+                                        now: DateTime.now(),
+                                      ),
+                                      style: WynosHomeText.timestamp,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            // WYN-034: also shown for the viewer's own
+                            // ReDrop of someone else's Drop -- always
+                            // visible now (see [_menuActions]'s doc
+                            // comment for why).
+                            WynosMoreMenuButton(actions: _menuActions(context)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        if (item.isPoll)
+                          PollCard(
+                            options: item.pollOptions!,
+                            expiresAt: item.pollExpiresAt!,
+                            myVoteIndex: item.pollMyVoteIndex,
+                            totalVotes: item.pollTotalVotes,
+                            optionCounts: item.pollOptionCounts,
+                            isOwnPoll: _isOwnDrop,
+                            onVote: (index) => onVotePoll?.call(index),
+                          )
+                        else if (item.hasMultipleImages)
+                          // WYNOS Home reference spec 4.7 -- the
+                          // peek-card carousel. fetchDropImages is
+                          // on-demand (WYN-071), so this fetches once
+                          // per build of a visible multi-image card,
+                          // not eagerly for the whole feed.
+                          FutureBuilder<List<String>>(
+                            future: dropRepository.fetchDropImages(item.id),
+                            builder: (context, snapshot) {
+                              final urls = snapshot.data;
+                              if (urls == null || urls.length < 2) {
+                                // Still loading, or a (should-never-
+                                // happen) fetch that came back with
+                                // fewer than the imageCount this card
+                                // was built for -- show the known
+                                // first image as a static placeholder
+                                // rather than an empty gap or a
+                                // spinner that would jump the layout
+                                // once real content arrives.
+                                return WynosImageCarouselPlaceholder(
+                                  imageUrl: item.imageUrl!,
+                                );
+                              }
+                              return WynosImageCarousel(
+                                imageUrls: urls,
+                                onLike: onToggleLike,
+                                alreadyLiked: item.likedByMe,
+                              );
+                            },
+                          )
+                        else if (item.imageUrl != null)
+                          // WYNOS Home reference spec 4.7 -- the
+                          // spec's own heart-burst visual (72px paper
+                          // heart, exact keyframe timing), scoped to
+                          // Home only; see that widget's doc comment
+                          // for why this isn't just DoubleTapLike with
+                          // new numbers.
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: WynosDoubleTapLike(
+                              onLike: onToggleLike,
+                              alreadyLiked: item.likedByMe,
+                              child: AspectRatio(
+                                aspectRatio: 1,
+                                child: Image.network(
+                                  item.imageUrl!,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                          ),
+                        // WYNOS V1.0.0 Beta requirement 2: a Drop can
+                        // now be caption-only (no image, not a Poll)
+                        // -- _canShare in CreateDropScreen already
+                        // guarantees a non-empty caption whenever
+                        // that's the case, so this is never reached
+                        // with a null/empty caption for a plain
+                        // (non-poll) card.
+                        //
+                        // WYNOS Home reference spec 4.6 -- each line
+                        // of the caption is its own paragraph
+                        // (space-y-2 between them), not one flowing
+                        // block, so a caption with line breaks reads
+                        // the same as the reference's own multi-<p>
+                        // markup.
+                        if (item.caption != null && item.caption!.isNotEmpty)
+                          Padding(
+                            padding: EdgeInsets.only(
+                              top: item.isPoll ||
+                                      item.hasMultipleImages ||
+                                      item.imageUrl != null
+                                  ? 10
+                                  : 0,
+                            ),
+                            child: _captionColumn(context),
+                          ),
+                        // WYNOS Home reference spec 4.8 -- own top
+                        // margin, so it sits correctly whether the
+                        // card above it was an image, a carousel, a
+                        // caption, or (for a Poll) the PollCard.
+                        WynosLikedByRow(
+                          likedBy: item.likedBy,
+                          likeCount: item.likeCount,
+                        ),
+                        // WYNOS Home reference spec 4.6 -- exactly
+                        // four action-bar icons (Heart/Comment/
+                        // Repost/Eye); Share and Save moved into the
+                        // `⋯` menu above. Own top gap (mirrors
+                        // WynosLikedByRow's mt-2.5) so the bar sits
+                        // correctly even when likeCount is 0 and that
+                        // row renders nothing.
+                        Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Row(
+                          children: [
+                            Semantics(
+                              label: item.likedByMe
+                                  ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
+                                  : 'กดเพื่อถูกใจ',
+                              excludeSemantics: true,
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                icon: Icon(
+                                  item.likedByMe ? Icons.favorite : Icons.favorite_border,
+                                  size: 17,
+                                  color: item.likedByMe
+                                      ? WynosHomeColors.sapphire
+                                      : WynosHomeColors.graphite,
+                                ),
+                                onPressed: onToggleLike,
+                              ),
+                            ),
+                            const SizedBox(width: WynosHomeSpacing.actionIconLabelGap),
+                            Text('${item.likeCount}', style: WynosHomeText.actionCount),
+                            const SizedBox(width: WynosHomeSpacing.actionBarGap),
+                            Semantics(
+                              label: 'ดูคอมเมนต์',
+                              excludeSemantics: true,
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                icon: const Icon(
+                                  Icons.mode_comment_outlined,
+                                  size: 17,
+                                  color: WynosHomeColors.graphite,
+                                ),
+                                onPressed: onTap,
+                              ),
+                            ),
+                            const SizedBox(width: WynosHomeSpacing.actionIconLabelGap),
+                            Text('${item.commentCount}', style: WynosHomeText.actionCount),
+                            const SizedBox(width: WynosHomeSpacing.actionBarGap),
+                            Semantics(
+                              label: item.redroppedByMe
+                                  ? 'ReDrop แล้ว กดเพื่อเลือกดำเนินการ'
+                                  : 'กดเพื่อ ReDrop',
+                              excludeSemantics: true,
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                icon: Icon(
+                                  Icons.repeat,
+                                  size: 17,
+                                  color: item.redroppedByMe
+                                      ? WynosHomeColors.sapphire
+                                      : WynosHomeColors.graphite,
+                                ),
+                                onPressed: () => _openRedropSheet(context),
+                              ),
+                            ),
+                            const SizedBox(width: WynosHomeSpacing.actionIconLabelGap),
+                            Text('${item.redropCount}', style: WynosHomeText.actionCount),
+                            const SizedBox(width: WynosHomeSpacing.actionBarGap),
+                            Semantics(
+                              label: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
+                              excludeSemantics: true,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.visibility_outlined,
+                                    size: 17,
+                                    color: WynosHomeColors.graphite,
                                   ),
-                                  Text(
-                                    relativeTimeLabel(item.createdAt, now: DateTime.now()),
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          color: Theme.of(context).colorScheme.outline,
-                                        ),
-                                  ),
+                                  const SizedBox(width: WynosHomeSpacing.actionIconLabelGap),
+                                  Text('${item.viewCount}', style: WynosHomeText.actionCount),
                                 ],
                               ),
                             ),
                           ],
+                          ),
                         ),
-                      ),
+                        // WYNOS Home reference spec 4.10.
+                        WynosTopReply(reply: item.topReply, onTap: onTap),
+                      ],
                     ),
-                    // WYN-034: also shown for the viewer's own ReDrop of
-                    // someone else's Drop -- _openMoreMenu itself decides
-                    // which entries actually appear.
-                    if (!_isOwnDrop || _isOwnRedrop)
-                      IconButton(
-                        icon: const Icon(Icons.more_vert),
-                        tooltip: 'เพิ่มเติม',
-                        onPressed: () => _openMoreMenu(context),
-                      ),
-                  ],
-                ),
-              ),
-              if (item.isPoll)
-                PollCard(
-                  options: item.pollOptions!,
-                  expiresAt: item.pollExpiresAt!,
-                  myVoteIndex: item.pollMyVoteIndex,
-                  totalVotes: item.pollTotalVotes,
-                  optionCounts: item.pollOptionCounts,
-                  isOwnPoll: _isOwnDrop,
-                  onVote: (index) => onVotePoll?.call(index),
-                )
-              else if (item.hasMultipleImages)
-                // WYNOS Home reference spec 4.7 -- the peek-card
-                // carousel. fetchDropImages is on-demand (WYN-071), so
-                // this fetches once per build of a visible multi-image
-                // card, not eagerly for the whole feed.
-                FutureBuilder<List<String>>(
-                  future: dropRepository.fetchDropImages(item.id),
-                  builder: (context, snapshot) {
-                    final urls = snapshot.data;
-                    if (urls == null || urls.length < 2) {
-                      // Still loading, or a (should-never-happen) fetch
-                      // that came back with fewer than the imageCount
-                      // this card was built for -- show the known first
-                      // image as a static placeholder rather than an
-                      // empty gap or a spinner that would jump the
-                      // layout once real content arrives.
-                      return WynosImageCarouselPlaceholder(
-                        imageUrl: item.imageUrl!,
-                      );
-                    }
-                    return WynosImageCarousel(
-                      imageUrls: urls,
-                      onLike: onToggleLike,
-                      alreadyLiked: item.likedByMe,
-                    );
-                  },
-                )
-              else if (item.imageUrl != null)
-                // WYNOS Home reference spec 4.7 -- the spec's own
-                // heart-burst visual (72px paper heart, exact keyframe
-                // timing), scoped to Home only; see that widget's doc
-                // comment for why this isn't just DoubleTapLike with
-                // new numbers.
-                WynosDoubleTapLike(
-                  onLike: onToggleLike,
-                  alreadyLiked: item.likedByMe,
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: Image.network(item.imageUrl!, fit: BoxFit.cover),
                   ),
-                ),
-              // WYNOS V1.0.0 Beta requirement 2: a Drop can now be
-              // caption-only (no image, not a Poll) -- _canShare in
-              // CreateDropScreen already guarantees a non-empty caption
-              // whenever that's the case, so this is never reached with
-              // a null/empty caption for a plain (non-poll) card.
-              if (item.caption != null && item.caption!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                  child: !item.isPoll && item.imageUrl == null
-                      ? DoubleTapLike(
-                          onLike: onToggleLike,
-                          alreadyLiked: item.likedByMe,
-                          child: HashtagText(item.caption!),
-                        )
-                      : HashtagText(item.caption!),
-                ),
-              // WYNOS Home reference spec 4.8 -- own top/bottom margin
-              // (mt-2.5), so it sits correctly whether the card above it
-              // was an image, a carousel, a caption, or (for a Poll) the
-              // PollCard.
-              WynosLikedByRow(likedBy: item.likedBy, likeCount: item.likeCount),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),
-                child: Row(
-                  children: [
-                    Semantics(
-                      label: item.likedByMe
-                          ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
-                          : 'กดเพื่อถูกใจ',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: Icon(
-                          item.likedByMe ? Icons.favorite : Icons.favorite_border,
-                          color: item.likedByMe ? Colors.red : null,
-                        ),
-                        onPressed: onToggleLike,
-                      ),
-                    ),
-                    Text('${item.likeCount}'),
-                    const SizedBox(width: WynSpacing.space2),
-                    Semantics(
-                      label: 'ดูคอมเมนต์',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: const Icon(Icons.mode_comment_outlined, size: 20),
-                        onPressed: onTap,
-                      ),
-                    ),
-                    Text('${item.commentCount}'),
-                    const SizedBox(width: WynSpacing.space2),
-                    Semantics(
-                      label: item.redroppedByMe
-                          ? 'ReDrop แล้ว กดเพื่อเลือกดำเนินการ'
-                          : 'กดเพื่อ ReDrop',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.repeat,
-                          color: item.redroppedByMe
-                              ? Theme.of(context).colorScheme.primary
-                              : null,
-                        ),
-                        onPressed: () => _openRedropSheet(context),
-                      ),
-                    ),
-                    Text('${item.redropCount}'),
-                    Semantics(
-                      label: 'แชร์',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: const Icon(Icons.share_outlined, size: 20),
-                        onPressed: _share,
-                      ),
-                    ),
-                    Semantics(
-                      label: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
-                      excludeSemantics: true,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.visibility_outlined, size: 20),
-                          const SizedBox(width: WynSpacing.space1),
-                          Text('${item.viewCount}'),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    Semantics(
-                      label: item.savedByMe
-                          ? 'บันทึกแล้ว กดเพื่อเอาออกจาก Saved'
-                          : 'กดเพื่อบันทึก',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: Icon(
-                          item.savedByMe ? Icons.bookmark : Icons.bookmark_border,
-                        ),
-                        onPressed: onToggleSave,
-                      ),
-                    ),
-                  ],
-                ),
+                ],
               ),
-              // WYNOS Home reference spec 4.10.
-              WynosTopReply(reply: item.topReply, onTap: onTap),
             ],
           ),
         ),
