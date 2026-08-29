@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/design/wyn_colors.dart';
+import '../../../core/design/wyn_spacing.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
 import '../../drop/data/drop_repository.dart';
@@ -139,26 +142,62 @@ class _SearchScreenState extends State<SearchScreen> {
     return DefaultTabController(
       length: 4,
       child: Scaffold(
+        backgroundColor: WynColors.paper,
         appBar: AppBar(
-          title: TextField(
-            controller: _controller,
-            focusNode: _focusNode,
-            autofocus: widget.autofocus,
-            decoration: InputDecoration(
-              hintText: 'ค้นหา username, Drop, Pop, Club',
-              border: InputBorder.none,
-              suffixIcon: _controller.text.isEmpty
-                  ? null
-                  : Semantics(
-                      label: 'ล้างคำค้นหา',
-                      button: true,
-                      child: IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: _clear,
+          backgroundColor: WynColors.paper,
+          foregroundColor: WynColors.ink,
+          elevation: 0,
+          toolbarHeight: 66,
+          titleSpacing: WynSpacing.space4,
+          // 03-search.tsx's search bar: a rounded pill, not a bare
+          // AppBar TextField -- real controller/focusNode/autofocus/
+          // onChanged debounce/clear button all unchanged, styling only.
+          title: Container(
+            height: 42,
+            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
+            decoration: BoxDecoration(
+              // Literal one-off, not one of SPEC.md's 7 tokens -- the
+              // search box's own slightly-off-paper fill, same "single
+              // contained use" precedent as _kMessageBodyColor
+              // (notification_list_screen.dart).
+              color: const Color(0xFFF1EFE9),
+              borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+              border: Border.all(color: WynColors.hairline),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.search, size: 16, color: WynColors.mutedNeutral),
+                const SizedBox(width: WynSpacing.space2),
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    autofocus: widget.autofocus,
+                    style: GoogleFonts.inter(fontSize: 13.5, color: WynColors.ink),
+                    decoration: InputDecoration(
+                      hintText: 'ค้นหา username, Drop, Pop, Club',
+                      hintStyle: GoogleFonts.inter(fontSize: 13.5, color: WynColors.graphite),
+                      border: InputBorder.none,
+                      isCollapsed: true,
+                    ),
+                    onChanged: _onQueryChanged,
+                  ),
+                ),
+                if (_controller.text.isNotEmpty)
+                  Semantics(
+                    label: 'ล้างคำค้นหา',
+                    button: true,
+                    excludeSemantics: true,
+                    child: GestureDetector(
+                      onTap: _clear,
+                      child: const Padding(
+                        padding: EdgeInsets.only(left: WynSpacing.space1),
+                        child: Icon(Icons.close, size: 16, color: WynColors.mutedNeutral),
                       ),
                     ),
+                  ),
+              ],
             ),
-            onChanged: _onQueryChanged,
           ),
           // WYN-040: no reason for the TabBar to stick around while
           // Discovery shows instead of the result tabs it would flip

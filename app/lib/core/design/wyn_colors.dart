@@ -64,6 +64,15 @@ class WynColors {
   /// ring border (SPEC.md Section 1: "Nothing else gets an alpha value").
   static const Color sapphireRing = Color(0x331B3A6B);
 
+  /// Literal, faint-adjacent neutral used consistently across multiple
+  /// reference screens (02-notifications.tsx's GroupLabel/inactive tab,
+  /// 03-search.tsx's SectionLabel) for small uppercase eyebrow labels --
+  /// not one of SPEC.md's named Section 1 tokens, but appears identically
+  /// (`#B7B4AC`) in more than one reference file, so it's a real system
+  /// token, not a one-off typo -- promoted here rather than duplicated as
+  /// a local literal per file.
+  static const Color mutedNeutral = Color(0xFFB7B4AC);
+
   // ---------------------------------------------------------------------
   // Notification type-badge colors (02-notifications.tsx) -- Founder-
   // approved exception to "sapphire is the only accent" (2026-08-29),

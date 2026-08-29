@@ -636,7 +636,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                 style: _interStyle(
                   fontSize: 13.5,
                   fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                  color: active ? WynColors.ink : _kMutedNeutral,
+                  color: active ? WynColors.ink : WynColors.mutedNeutral,
                 ),
               ),
             ),
@@ -1052,15 +1052,17 @@ TextStyle _interStyle({
 }) =>
     GoogleFonts.inter(fontSize: fontSize, fontWeight: fontWeight, color: color);
 
-// 02-notifications.tsx uses two literal, ink/faint-adjacent neutral tones
-// that aren't in SPEC.md's Section 1 token list -- the same "quieter than
-// the nearest named token" pattern SPEC.md's own Section 4.10 sanctions
-// for Home's reply-preview text (`#5A5850`, "deliberately not full
-// graphite and not full ink"). Kept as literal, file-scoped constants
-// rather than promoted to WynColors -- a one-off in-between tone, not a
-// new brand color, same reasoning as that precedent.
+// 02-notifications.tsx's message-body tone -- ink/faint-adjacent, not one
+// of SPEC.md's Section 1 tokens, same "quieter than the nearest named
+// token" pattern SPEC.md's own Section 4.10 sanctions for Home's reply-
+// preview text (`#5A5850`, "deliberately not full graphite and not full
+// ink"). Kept as a literal, file-scoped constant rather than promoted to
+// WynColors -- a one-off in-between tone specific to this row, not a
+// reusable system token (unlike WynColors.mutedNeutral, `#B7B4AC`, which
+// this file's tab/GroupLabel styling below uses -- that one repeats
+// identically across multiple reference screens, see its own doc
+// comment).
 const Color _kMessageBodyColor = Color(0xFF2B2A26);
-const Color _kMutedNeutral = Color(0xFFB7B4AC);
 
 class _GroupLabel extends StatelessWidget {
   const _GroupLabel({required this.label});
@@ -1074,7 +1076,7 @@ class _GroupLabel extends StatelessWidget {
           WynSpacing.space5, WynSpacing.space4, WynSpacing.space1),
       child: Text(
         label,
-        style: _interStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kMutedNeutral)
+        style: _interStyle(fontSize: 11, fontWeight: FontWeight.w600, color: WynColors.mutedNeutral)
             .copyWith(letterSpacing: 11 * 0.12),
       ),
     );

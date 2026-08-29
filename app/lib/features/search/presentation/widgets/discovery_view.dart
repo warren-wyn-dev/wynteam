@@ -1,38 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
-import '../../../club/data/club.dart';
 import '../../../club/data/club_post_repository.dart';
 import '../../../club/data/club_repository.dart';
-import '../../../club/presentation/club_page.dart';
-import '../../../club/presentation/widgets/club_mini_card.dart';
 import '../../../drop/data/drop_repository.dart';
-import '../../../drop/presentation/drop_detail_screen.dart';
 import '../../../follow/data/follow_repository.dart';
 import '../../../follow/data/follow_request_repository.dart';
 import '../../../follow/presentation/widgets/follow_action_button.dart';
 import '../../../hashtag/presentation/hashtag_feed_screen.dart';
-import '../../../home/data/home_feed_item.dart';
-import '../../../home/presentation/pop_single_clip_screen.dart';
-import '../../../home/presentation/widgets/trending_tile.dart';
 import '../../../pop/data/pop_repository.dart';
 import '../../../profile/data/profile.dart';
 import '../../../profile/data/profile_repository.dart';
 import '../../../profile/presentation/view_profile_screen.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../../saved/data/saved_repository.dart';
+import '../../data/discovery_ranking.dart';
 import '../../data/discovery_repository.dart';
 import '../top_100_screen.dart';
+import 'hashtag_rank_row.dart';
 
-/// Screen 1 — Discovery (WYN-040): the default state of `SearchScreen`
+/// Screen 1 — Discovery (WYN-040), restyled to `03-search.tsx`'s 2-section
+/// layout (2026-08-29, Founder-approved re-brand -- see
+/// .wyn/company/DECISIONS.md): the default state of `SearchScreen`
 /// (WYN-009) shown while the query is empty/shorter than 2 characters.
-/// 5 independent sections (Trending Now / Trending Hashtags / Rising /
-/// Suggested Users / Suggested Clubs), each an independent `FutureBuilder`
-/// that fails-safe to `SizedBox.shrink()` on error or while loading --
-/// mirrors `ClubSection`'s existing fail-safe pattern (WYN-017) exactly,
-/// so one slow/failing section never blocks the rest of the page. See
-/// .wyn/docs/design/wyn-040-discovery-page.md.
+///
+/// The original 5 sections (Trending Now grid, Trending Hashtags chip
+/// cloud, Rising accounts, Suggested Users, Suggested Clubs) are down to
+/// 2 -- "Top 100 IS the trending surface now" per the reference's own
+/// doc comment, replacing 3 sections at once, and "แนะนำให้ติดตาม" is the
+/// only section left besides it (no "Club แนะนำ" here). Trending Now/
+/// Rising/Suggested Clubs aren't deleted anywhere in the data layer --
+/// see DiscoveryRepository.fetchTrendingNow/fetchTopContent's own doc
+/// comments, and ClubSection (Home)/ExploreClubsScreen both still call
+/// ClubRepository.fetchPopularClubs directly, same as before.
 class DiscoveryView extends StatefulWidget {
   const DiscoveryView({
     super.key,
@@ -62,54 +64,16 @@ class DiscoveryView extends StatefulWidget {
 }
 
 class _DiscoveryViewState extends State<DiscoveryView> {
-  late Future<List<HomeFeedItem>> _trendingNowFuture;
-  late Future<List<String>> _trendingHashtagsFuture;
-  late Future<List<Profile>> _risingFuture;
+  late Future<List<RankedHashtag>> _top100Future;
   late Future<List<Profile>> _suggestedUsersFuture;
-  late Future<List<Club>> _suggestedClubsFuture;
 
   @override
   void initState() {
     super.initState();
-    // Every section fetches independently, all at once on open -- Design
-    // doc's Interactions: "ทุก section ยิง fetch พร้อมกันตอนเปิด
-    // DiscoveryView (ไม่ lazy-load ตาม scroll ในรอบนี้)".
-    _trendingNowFuture = widget.discoveryRepository.fetchTrendingNow();
-    _trendingHashtagsFuture =
-        widget.discoveryRepository.fetchTrendingHashtags();
-    _risingFuture = widget.discoveryRepository.fetchRisingProfiles();
+    _top100Future = widget.discoveryRepository.fetchTrendingHashtags(
+      limit: DiscoveryRepository.top100PreviewLimit,
+    );
     _suggestedUsersFuture = widget.discoveryRepository.fetchSuggestedUsers();
-    _suggestedClubsFuture = widget.clubRepository.fetchPopularClubs();
-  }
-
-  Future<void> _openDrop(HomeFeedItem item) {
-    return Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => DropDetailScreen(
-          dropRepository: widget.dropRepository,
-          followRepository: widget.followRepository,
-          profileRepository: widget.profileRepository,
-          popRepository: widget.popRepository,
-          savedRepository: widget.savedRepository,
-          drop: item.toDrop(),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openPop(HomeFeedItem item) {
-    return Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => PopSingleClipScreen(
-          pop: item.toPop(),
-          popRepository: widget.popRepository,
-          followRepository: widget.followRepository,
-          profileRepository: widget.profileRepository,
-          dropRepository: widget.dropRepository,
-          savedRepository: widget.savedRepository,
-        ),
-      ),
-    );
   }
 
   void _openProfile(String userId) {
@@ -150,44 +114,12 @@ class _DiscoveryViewState extends State<DiscoveryView> {
         builder: (_) => Top100Screen(
           discoveryRepository: widget.discoveryRepository,
           dropRepository: widget.dropRepository,
-          popRepository: widget.popRepository,
+          clubPostRepository: widget.clubPostRepository,
+          clubRepository: widget.clubRepository,
           followRepository: widget.followRepository,
           profileRepository: widget.profileRepository,
+          popRepository: widget.popRepository,
           savedRepository: widget.savedRepository,
-        ),
-      ),
-    );
-  }
-
-  void _openClub(Club club) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ClubPage(
-          clubRepository: widget.clubRepository,
-          clubPostRepository: widget.clubPostRepository,
-          clubId: club.id,
-        ),
-      ),
-    );
-  }
-
-  Color _growthIndicatorColor(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark
-          ? WynColors.successDark
-          : WynColors.successLight;
-
-  Widget _sectionHeader(BuildContext context, String title) {
-    return Semantics(
-      header: true,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-            WynSpacing.space3, WynSpacing.space4, WynSpacing.space3, 0),
-        child: Text(
-          title,
-          style: Theme.of(context)
-              .textTheme
-              .titleSmall
-              ?.copyWith(fontWeight: FontWeight.bold),
         ),
       ),
     );
@@ -198,75 +130,63 @@ class _DiscoveryViewState extends State<DiscoveryView> {
     return ListView(
       padding: const EdgeInsets.only(bottom: WynSpacing.space8),
       children: [
-        _sectionHeader(context, 'กำลังนิยม'),
-        _buildTrendingNowSection(context),
-        _sectionHeader(context, 'แฮชแท็กกำลังนิยม'),
-        _buildTrendingHashtagsSection(context),
-        _sectionHeader(context, 'กำลังเติบโต'),
-        _buildRisingSection(context),
-        _sectionHeader(context, 'แนะนำให้ติดตาม'),
-        _buildSuggestedUsersSection(context),
-        _sectionHeader(context, 'Club แนะนำ'),
-        _buildSuggestedClubsSection(context),
+        const SizedBox(height: WynSpacing.space1),
+        const _SectionLabel('แฮชแท็กกำลังนิยม'),
+        _buildTop100Section(),
+        const _SectionLabel('แนะนำให้ติดตาม'),
+        _buildSuggestedUsersSection(),
       ],
     );
   }
 
   // ------------------------------------------------------------
-  // 1. Trending Now -- 3-column grid of TrendingTile (WYN-017, reused
-  // unmodified).
+  // Top 100 (WYN-042, redefined 2026-08-29 as a hashtag leaderboard --
+  // see discovery_repository.dart's fetchTrendingHashtags doc comment)
+  // -- 03-search.tsx's RankRow: right-aligned Fraunces rank numeral,
+  // bold tag, "N โพสต์" meta, hairline divider between rows (none after
+  // the last), then a centered "ดูอันดับทั้งหมด (Top 100)" link.
   // ------------------------------------------------------------
-  Widget _buildTrendingNowSection(BuildContext context) {
-    return FutureBuilder<List<HomeFeedItem>>(
-      future: _trendingNowFuture,
+  Widget _buildTop100Section() {
+    return FutureBuilder<List<RankedHashtag>>(
+      future: _top100Future,
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox.shrink();
 
-        final items = snapshot.data!;
-        if (items.isEmpty) {
+        final ranked = snapshot.data!;
+        if (ranked.isEmpty) {
           return const Padding(
             padding: EdgeInsets.symmetric(
-                horizontal: WynSpacing.space3, vertical: WynSpacing.space4),
-            child: Text('ยังไม่มี content กำลังนิยมตอนนี้'),
+                horizontal: WynSpacing.space4, vertical: WynSpacing.space4),
+            child: Text('ยังไม่มีแฮชแท็กกำลังนิยมตอนนี้'),
           );
         }
 
         return Column(
           children: [
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 2,
-                  mainAxisSpacing: 2,
-                  childAspectRatio: 1,
-                ),
-                itemCount: items.length,
-                itemBuilder: (context, index) {
-                  final item = items[index];
-                  return TrendingTile(
-                    item: item,
-                    onTap: () => item.contentType == HomeContentType.drop
-                        ? _openDrop(item)
-                        : _openPop(item),
-                  );
-                },
+            for (var i = 0; i < ranked.length; i++)
+              HashtagRankRow(
+                rank: i + 1,
+                item: ranked[i],
+                showDivider: i < ranked.length - 1,
+                onTap: () => _openHashtagFeed(ranked[i].tag),
               ),
-            ),
-            // WYN-042: entry point into the "WYN Top 100" leaderboard --
-            // a plain link, not a new section of its own, so Top 100
-            // reads as a distinct full-screen destination rather than
-            // another horizontal list competing with the 5 sections
-            // here. See .wyn/docs/design/wyn-042-top-100.md.
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: _openTop100,
-                child: const Text('ดู Top 100'),
+            InkWell(
+              onTap: _openTop100,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: WynSpacing.space4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'ดูอันดับทั้งหมด (Top 100)',
+                      style: _interStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.sapphire),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right, size: 14, color: WynColors.sapphire),
+                  ],
+                ),
               ),
             ),
           ],
@@ -276,160 +196,11 @@ class _DiscoveryViewState extends State<DiscoveryView> {
   }
 
   // ------------------------------------------------------------
-  // 2. Trending Hashtags -- neutral chips, cyan `#tag` text.
+  // Suggested Users -- unchanged real data/logic (FollowListScreen's own
+  // row shape, FollowActionButton's real 3-state follow logic), restyled
+  // to 03-search.tsx's avatar-ring + name/handle + outline button row.
   // ------------------------------------------------------------
-  Widget _buildTrendingHashtagsSection(BuildContext context) {
-    return FutureBuilder<List<String>>(
-      future: _trendingHashtagsFuture,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox.shrink();
-
-        final tags = snapshot.data!;
-        if (tags.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(
-                horizontal: WynSpacing.space3, vertical: WynSpacing.space4),
-            child: Text('ยังไม่มีแฮชแท็กกำลังนิยมตอนนี้'),
-          );
-        }
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(
-              horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
-          child: Wrap(
-            spacing: WynSpacing.space2,
-            runSpacing: WynSpacing.space2,
-            children: [
-              for (final tag in tags)
-                Semantics(
-                  label: 'แฮชแท็ก #$tag กดเพื่อดูโพสต์ที่มีแฮชแท็กนี้',
-                  button: true,
-                  excludeSemantics: true,
-                  child: ActionChip(
-                    // DS-001 #6 -- neutral chip surface, never Cyan (20
-                    // chips of solid Cyan side by side would blow past
-                    // the "no large continuous background" ≤15% rule).
-                    backgroundColor:
-                        Theme.of(context).colorScheme.surfaceContainerHigh,
-                    label: Text(
-                      '#$tag',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    onPressed: () => _openHashtagFeed(tag),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // ------------------------------------------------------------
-  // 3. Rising -- horizontal row of small vertical cards.
-  // ------------------------------------------------------------
-  Widget _buildRisingSection(BuildContext context) {
-    return FutureBuilder<List<Profile>>(
-      future: _risingFuture,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox.shrink();
-
-        final profiles = snapshot.data!;
-        if (profiles.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(
-                horizontal: WynSpacing.space3, vertical: WynSpacing.space4),
-            child: Text('ยังไม่มีบัญชีที่กำลังเติบโตตอนนี้'),
-          );
-        }
-
-        return SizedBox(
-          height: 168,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
-            itemCount: profiles.length,
-            itemBuilder: (context, index) =>
-                _buildRisingCard(context, profiles[index]),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildRisingCard(BuildContext context, Profile profile) {
-    return SizedBox(
-      width: 120,
-      child: Semantics(
-        label: '${profile.nameOrUsername} ยูสเซอร์เนม ${profile.username} '
-            'บัญชีนี้กำลังเติบโต กดเพื่อดูโปรไฟล์',
-        button: true,
-        excludeSemantics: true,
-        child: InkWell(
-          onTap: () => _openProfile(profile.id),
-          borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
-          child: Padding(
-            padding: const EdgeInsets.all(WynSpacing.space2),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AvatarCircle(
-                  imageUrl: profile.avatarUrl,
-                  fallbackText: profile.username,
-                  radius: 28,
-                ),
-                const SizedBox(height: WynSpacing.space1),
-                Text(
-                  profile.nameOrUsername,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.trending_up,
-                      size: 16,
-                      color: _growthIndicatorColor(context),
-                    ),
-                    const SizedBox(width: WynSpacing.space1),
-                    Flexible(
-                      child: Text(
-                        '@${profile.username}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Theme.of(context).colorScheme.outline,
-                            ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: WynSpacing.space1),
-                FollowActionButton(
-                  profile: profile,
-                  followRepository: widget.followRepository,
-                  followRequestRepository: widget.followRequestRepository,
-                  compact: true,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ------------------------------------------------------------
-  // 4. Suggested Users -- FollowListScreen's own row layout (WYN-008/
-  // 013), plus a trailing Follow button (Design doc's one addition).
-  // ------------------------------------------------------------
-  Widget _buildSuggestedUsersSection(BuildContext context) {
+  Widget _buildSuggestedUsersSection() {
     return FutureBuilder<List<Profile>>(
       future: _suggestedUsersFuture,
       builder: (context, snapshot) {
@@ -439,38 +210,40 @@ class _DiscoveryViewState extends State<DiscoveryView> {
         if (profiles.isEmpty) {
           return const Padding(
             padding: EdgeInsets.symmetric(
-                horizontal: WynSpacing.space3, vertical: WynSpacing.space4),
+                horizontal: WynSpacing.space4, vertical: WynSpacing.space4),
             child: Text('ยังไม่มีบัญชีแนะนำให้ติดตามตอนนี้'),
           );
         }
 
-        return Column(
-          children: [
-            for (final profile in profiles)
-              _buildSuggestedUserRow(context, profile),
-          ],
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
+          child: Column(
+            children: [
+              for (final profile in profiles) _buildSuggestedUserRow(profile),
+            ],
+          ),
         );
       },
     );
   }
 
-  Widget _buildSuggestedUserRow(BuildContext context, Profile profile) {
-    return Semantics(
-      label:
-          'ผู้ใช้ ${profile.nameOrUsername} ยูสเซอร์เนม ${profile.username} กดเพื่อดูโปรไฟล์',
-      button: true,
-      excludeSemantics: true,
-      child: InkWell(
-        onTap: () => _openProfile(profile.id),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-              horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
+  Widget _buildSuggestedUserRow(Profile profile) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
+      child: Semantics(
+        label:
+            'ผู้ใช้ ${profile.nameOrUsername} ยูสเซอร์เนม ${profile.username} กดเพื่อดูโปรไฟล์',
+        button: true,
+        excludeSemantics: true,
+        child: InkWell(
+          onTap: () => _openProfile(profile.id),
           child: Row(
             children: [
               AvatarCircle(
                 imageUrl: profile.avatarUrl,
                 fallbackText: profile.username,
-                radius: 20,
+                radius: 19,
+                ring: true,
               ),
               const SizedBox(width: WynSpacing.space3),
               Expanded(
@@ -479,13 +252,12 @@ class _DiscoveryViewState extends State<DiscoveryView> {
                   children: [
                     Text(
                       profile.nameOrUsername,
-                      style: Theme.of(context).textTheme.titleSmall,
+                      style:
+                          _interStyle(fontSize: 14, fontWeight: FontWeight.w600, color: WynColors.ink),
                     ),
                     Text(
                       '@${profile.username}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.outline,
-                          ),
+                      style: _interStyle(fontSize: 12, color: WynColors.faint),
                     ),
                   ],
                 ),
@@ -502,38 +274,30 @@ class _DiscoveryViewState extends State<DiscoveryView> {
       ),
     );
   }
+}
 
-  // ------------------------------------------------------------
-  // 5. Suggested Clubs -- ClubMiniCard (WYN-017, reused unmodified).
-  // ------------------------------------------------------------
-  Widget _buildSuggestedClubsSection(BuildContext context) {
-    return FutureBuilder<List<Club>>(
-      future: _suggestedClubsFuture,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox.shrink();
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.label);
 
-        final clubs = snapshot.data!;
-        if (clubs.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(
-                horizontal: WynSpacing.space3, vertical: WynSpacing.space4),
-            child: Text('ยังไม่มี Club แนะนำตอนนี้'),
-          );
-        }
+  final String label;
 
-        return SizedBox(
-          height: 108,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
-            itemCount: clubs.length,
-            itemBuilder: (context, index) {
-              final club = clubs[index];
-              return ClubMiniCard(club: club, onTap: () => _openClub(club));
-            },
-          ),
-        );
-      },
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(WynSpacing.space4,
+          WynSpacing.space2, WynSpacing.space4, WynSpacing.space3),
+      child: Text(
+        label,
+        style: _interStyle(fontSize: 11, fontWeight: FontWeight.w600, color: WynColors.mutedNeutral)
+            .copyWith(letterSpacing: 11 * 0.14),
+      ),
     );
   }
 }
+
+TextStyle _interStyle({
+  required double fontSize,
+  FontWeight fontWeight = FontWeight.w400,
+  Color? color,
+}) =>
+    GoogleFonts.inter(fontSize: fontSize, fontWeight: fontWeight, color: color);

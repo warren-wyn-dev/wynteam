@@ -40,29 +40,51 @@ class DiscoveryRepository {
   static const risingLimit = 10;
   static const suggestedUsersLimit = 10;
 
+  // design-reference `03-search.tsx` (2026-08-29, Founder-approved
+  // re-brand -- see .wyn/company/DECISIONS.md): Discovery's preview
+  // shows a short list of ranked hashtags, "Top 100" (Top100Screen) shows
+  // up to this many -- same bound as the candidate window itself
+  // ([HomeRepository.trendingCandidateLimit]), since ranking can never
+  // surface more distinct tags than that many candidate posts anyway.
+  static const top100PreviewLimit = 6;
+  static const top100FullLimit = HomeRepository.trendingCandidateLimit;
+
   /// "กำลังนิยม" section -- same formula as Home's own Trending row (48h
   /// window, like+comment count), just a wider result [limit] (Home
   /// only ever shows the top 10; Discovery shows up to ~30).
+  ///
+  /// Unused by any screen since the `03-search.tsx` re-brand replaced
+  /// Discovery's "Trending Now" photo grid with the Top 100 hashtag list
+  /// below -- kept (not deleted) since it's a real, working capability
+  /// Home's own Trending row also relies on ([HomeRepository.
+  /// fetchTrending] itself, which this just thinly wraps).
   Future<List<HomeFeedItem>> fetchTrendingNow({int limit = trendingNowLimit}) {
     return _homeRepository.fetchTrending(limit: limit);
   }
 
-  /// WYN-042: "WYN Top 100" leaderboard -- same shape as
-  /// [fetchTrendingNow] (thin wrapper), but backed by
+  /// WYN-042: the original content-ranked "WYN Top 100" leaderboard --
+  /// same shape as [fetchTrendingNow] (thin wrapper), but backed by
   /// [HomeRepository.fetchTopContent] instead (its own 7-day window/
   /// wider candidate pool, entirely separate from fetchTrending's).
+  ///
+  /// Unused by any screen since the `03-search.tsx` re-brand redefined
+  /// "Top 100" as a hashtag leaderboard (see [fetchTrendingHashtags])
+  /// instead of a content leaderboard -- kept (not deleted): a real,
+  /// working, previously-shipped ranking capability, not dead code to
+  /// clean up on a styling pass.
   Future<List<HomeFeedItem>> fetchTopContent({
     int limit = HomeRepository.topContentResultLimit,
   }) {
     return _homeRepository.fetchTopContent(limit: limit);
   }
 
-  /// "แฮชแท็กกำลังนิยม" section -- reuses fetchTrending's own 48h/100-
-  /// candidate window purely as a source of recent captions (passing
+  /// "Top 100" (both Discovery's preview and Top100Screen's full list) --
+  /// reuses fetchTrending's own 48h/100-candidate window purely as a
+  /// source of recent captions (passing
   /// [HomeRepository.trendingCandidateLimit] as the result limit
   /// returns every candidate in the window, not just the usual top
   /// 10/30), then ranks by tag frequency via [rankTrendingHashtags].
-  Future<List<String>> fetchTrendingHashtags({
+  Future<List<RankedHashtag>> fetchTrendingHashtags({
     int limit = trendingHashtagsLimit,
   }) async {
     final items = await _homeRepository.fetchTrending(
