@@ -7,6 +7,8 @@ import '../../club/data/club_repository.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/create_drop_screen.dart';
 import '../../follow/data/follow_repository.dart';
+import '../../follow/data/follow_request_repository.dart';
+import '../../home/data/home_preferences_repository.dart';
 import '../../home/data/home_repository.dart';
 import '../../home/presentation/home_feed_screen.dart';
 import '../../moderation/data/appeal_repository.dart';
@@ -16,6 +18,7 @@ import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../saved/data/saved_repository.dart';
+import '../../search/data/discovery_repository.dart';
 import '../../search/presentation/search_screen.dart';
 import '../../push/data/push_token_repository.dart';
 import '../../push/presentation/push_notification_service.dart';
@@ -52,6 +55,9 @@ class RootShell extends StatefulWidget {
     HomeRepository? homeRepository,
     AppealRepository? appealRepository,
     ChatRepository? chatRepository,
+    DiscoveryRepository? discoveryRepository,
+    FollowRequestRepository? followRequestRepository,
+    HomePreferencesRepository? homePreferencesRepository,
   })  : _dropRepository = dropRepository,
         _popRepository = popRepository,
         _followRepository = followRepository,
@@ -63,7 +69,10 @@ class RootShell extends StatefulWidget {
         _zokyRepository = zokyRepository,
         _homeRepository = homeRepository,
         _appealRepository = appealRepository,
-        _chatRepository = chatRepository;
+        _chatRepository = chatRepository,
+        _discoveryRepository = discoveryRepository,
+        _followRequestRepository = followRequestRepository,
+        _homePreferencesRepository = homePreferencesRepository;
 
   // All optional -- default to real Supabase-backed instances built in
   // _RootShellState.initState (see .wyn/learning/PATTERNS.md's "optional
@@ -82,6 +91,13 @@ class RootShell extends StatefulWidget {
   final HomeRepository? _homeRepository;
   final AppealRepository? _appealRepository;
   final ChatRepository? _chatRepository;
+
+  // WYN-072 (WYNOS Design Reference Rollout, Screen 01 -- Home Feed):
+  // HomeFeedScreen's own new required repositories -- see that class's
+  // doc comments for what each is for.
+  final DiscoveryRepository? _discoveryRepository;
+  final FollowRequestRepository? _followRequestRepository;
+  final HomePreferencesRepository? _homePreferencesRepository;
 
   @override
   State<RootShell> createState() => _RootShellState();
@@ -154,6 +170,11 @@ class _RootShellState extends State<RootShell> {
   late final AppealRepository _appealRepository;
   late final ChatRepository _chatRepository;
 
+  // WYN-072: see HomeFeedScreen's own doc comments for what each is for.
+  late final DiscoveryRepository _discoveryRepository;
+  late final FollowRequestRepository _followRequestRepository;
+  late final HomePreferencesRepository _homePreferencesRepository;
+
   @override
   void initState() {
     super.initState();
@@ -171,6 +192,19 @@ class _RootShellState extends State<RootShell> {
     _homeRepository = widget._homeRepository ?? HomeRepository(client);
     _appealRepository = widget._appealRepository ?? AppealRepository(client);
     _chatRepository = widget._chatRepository ?? ChatRepository(client);
+    // DiscoveryRepository's own constructor needs homeRepository/
+    // profileRepository -- reuses the exact instances just built above
+    // rather than constructing 2 more.
+    _discoveryRepository = widget._discoveryRepository ??
+        DiscoveryRepository(
+          client,
+          homeRepository: _homeRepository,
+          profileRepository: _profileRepository,
+        );
+    _followRequestRepository =
+        widget._followRequestRepository ?? FollowRequestRepository(client);
+    _homePreferencesRepository = widget._homePreferencesRepository ??
+        HomePreferencesRepository(client);
 
     // WYN-016 (Push Notification): request permission + register this
     // device's token once, the first time RootShell renders (i.e. right
@@ -259,6 +293,9 @@ class _RootShellState extends State<RootShell> {
         clubPostRepository: _clubPostRepository,
         chatRepository: _chatRepository,
         homeTabReselectSignal: _homeTabReselectSignal,
+        discoveryRepository: _discoveryRepository,
+        followRequestRepository: _followRequestRepository,
+        homePreferencesRepository: _homePreferencesRepository,
       ),
       SearchScreen(
         profileRepository: _profileRepository,

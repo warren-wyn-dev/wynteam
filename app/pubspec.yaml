@@ -31,6 +31,16 @@ dependencies:
   # would break Android builds outright.
   firebase_core: ^3.6.0
   firebase_messaging: ^15.1.3
+  # WYN-072 (WYNOS Design Reference Rollout, Screen 01 -- Home Feed):
+  # SPEC.md Section 2 requires Fraunces (wordmark/empty-state headline
+  # only) and Inter (everywhere else) -- neither ships as a system font
+  # on iOS/Android, and neither was already bundled as an asset, so
+  # google_fonts is added here rather than silently falling back to the
+  # platform system font WynTypography currently uses. Scoped to
+  # app/lib/core/design/wynos_home_tokens.dart -- WynTypography/WynTheme
+  # (DS-001) are untouched, so every other screen keeps the system font
+  # until its own turn in the design-reference rollout.
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:

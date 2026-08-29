@@ -10178,3 +10178,49 @@ where d.image_url is not null
   and not exists (
     select 1 from public.drop_images di where di.drop_id = d.id
   );
+
+-- ============================================================
+-- WYN-072: WYNOS Design Reference Rollout -- Home Feed preferences
+-- ============================================================
+-- See .wyn/tasks/active/WYN-072-wynos-design-reference-home-feed.md,
+-- Requirement R3. The first-time explainer banner (SPEC.md Section 4.2)
+-- must persist its dismissal permanently per-account, not per-session --
+-- mirrors public.notification_settings' exact shape (WYN-044) rather
+-- than a per-device `shared_preferences` flag (unlike
+-- PrivacyNoticeBanner, WYN-071, which is deliberately per-device/
+-- session-scoped UI chrome): this preference is real per-account state
+-- that must survive a reinstall or a second device, same as every other
+-- opt-out-model preference table in this schema. A user who has never
+-- dismissed the banner has no row here at all -- that's this feature's
+-- normal starting state (`explainer_banner_dismissed` defaults false at
+-- the app layer whether or not a row exists), same "no row = default"
+-- posture as notification_settings.
+create table if not exists public.home_preferences (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  explainer_banner_dismissed boolean not null default false,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.home_preferences enable row level security;
+
+-- Mirrors public.notification_settings' RLS shape (WYN-044) exactly:
+-- select/insert/update all restricted to the owning row's own user_id,
+-- no delete policy needed (on delete cascade handles account deletion).
+create policy "Users can view their own home preferences"
+  on public.home_preferences
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can create their own home preferences"
+  on public.home_preferences
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their own home preferences"
+  on public.home_preferences
+  for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

@@ -3,12 +3,13 @@ import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../drop/presentation/drop_detail_screen.dart' show dropShareLink;
-import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/design/wynos_home_tokens.dart';
 import '../../../../core/text_utils.dart';
 import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
+import '../../../../core/widgets/wynos_ringed_avatar.dart';
 import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
 import '../../../report/presentation/report_sheet.dart';
@@ -17,6 +18,32 @@ import '../../../drop/presentation/widgets/poll_card.dart';
 /// A Drop card in the Home feed. Same visual structure as
 /// HomePopCard so the two read as one family, per
 /// .wyn/docs/design/wyn-007-home.md ("ทิศทางภาพรวม").
+///
+/// WYN-072 (WYNOS Design Reference Rollout, Screen 01): restyled to
+/// match `/SPEC.md` Section 4.6-4.9 -- sapphire-ringed avatar, Fraunces/
+/// Inter tokens (see WynosHomeTokens), Share/Bookmark moved out of the
+/// action bar into the "⋯" more-options menu (SPEC 4.6 point 4), the
+/// action bar trimmed to exactly Heart/Comment/Repost/Eye (SPEC 4.9),
+/// and the single available image rendered as a peek-card carousel
+/// (SPEC 4.7). Every existing callback/business-logic wire-up (like,
+/// save, ReDrop, poll vote, hide, report) is unchanged -- only styling
+/// and where Share/Save live moved.
+///
+/// Two SPEC.md sub-components are deliberately NOT implemented this
+/// round, real-data gaps rather than mocked placeholders (see
+/// .wyn/tasks/active/WYN-072-wynos-design-reference-home-feed.md,
+/// Known Issues):
+/// - SPEC 4.8 (liked-by row, stacked avatars of who liked a post) --
+///   `HomeFeedItem`/`home_feed` only ever carry an aggregate
+///   `likeCount`, never a list of liker profiles, for any Home feed
+///   query. Nothing here fakes a placeholder "liked by X and N others"
+///   string.
+/// - SPEC 4.10 (top reply preview, the highest-engagement reply) -- no
+///   repository/RPC anywhere in this codebase returns "the top reply"
+///   for a Drop/Pop; `commentCount` is the only comment-related field
+///   `HomeFeedItem` carries.
+/// - The verified badge (SPEC 4.6 point 3) also has no backing field
+///   anywhere in `Profile`/`HomeFeedItem` yet, so it's never rendered.
 class HomeDropCard extends StatelessWidget {
   const HomeDropCard({
     super.key,
@@ -122,12 +149,51 @@ class HomeDropCard extends StatelessWidget {
     );
   }
 
+  /// WYN-072 (SPEC.md Section 4.6 point 4): Share and Save now live
+  /// here, at the top, above the pre-existing Hide/Report/Delete-ReDrop
+  /// entries -- one shared "⋯" menu rather than a second more-options
+  /// button next to the pre-existing one (SPEC.md Section 0 forbids
+  /// adding components not named in the spec, and the reference itself
+  /// has no Hide/Report concept to give a separate menu to). Kept as a
+  /// bottom sheet (this codebase's existing more-options idiom) rather
+  /// than switching to a literal `top-6 right-0` anchored dropdown --
+  /// SPEC.md Section 6 explicitly allows falling back to "existing
+  /// styling" for anything the reference doesn't give a Flutter
+  /// equivalent for.
   Future<void> _openMoreMenu(BuildContext context) async {
     await showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) => SafeArea(
         child: Wrap(
           children: [
+            ListTile(
+              leading: const Icon(Icons.share_outlined),
+              title: Text('แชร์',
+                  style: WynosHomeTokens.bodySmall(color: WynosHomeTokens.ink)),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _share();
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                item.savedByMe ? Icons.bookmark : Icons.bookmark_border,
+              ),
+              title: Text(
+                item.savedByMe ? 'เอาออกจากบันทึก' : 'บันทึก',
+                style: WynosHomeTokens.bodySmall(color: WynosHomeTokens.ink),
+              ),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                onToggleSave();
+              },
+            ),
+            // A divider between the Share/Save pair above and whatever
+            // Hide/Report/Delete-ReDrop entries follow -- only when at
+            // least one of those actually renders below (matches
+            // whichever of the two guards immediately below resolves
+            // true).
+            if (!_isOwnDrop || _isOwnRedrop) const Divider(height: 1),
             // Reporting your own Drop makes no sense -- same guard
             // _isOwnDrop already applied to this button's own
             // visibility before WYN-034, kept here now that the
@@ -175,6 +241,46 @@ class HomeDropCard extends StatelessWidget {
     );
   }
 
+  /// SPEC.md Section 4.7 (peek-card image carousel). Only one real
+  /// image is available per Drop from the Home feed's own data source
+  /// today (`HomeFeedItem.imageUrl`, always just the cover/first image)
+  /// -- WYN-071's full multi-image list (`drop_images`) exists in the
+  /// schema and is already used by DropDetailScreen's own gallery, but
+  /// wiring every Home feed card to lazily fetch it too would add an
+  /// extra query per card in a paginated list (a real N+1 concern, not
+  /// this task's to solve). See this file's class doc comment / this
+  /// task's Known Issues -- the scaffold below already renders however
+  /// many cards it's given, so it's ready for that data the moment it
+  /// exists.
+  Widget _buildImageCarousel() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = constraints.maxWidth * 0.82;
+        final cardHeight = cardWidth * 5 / 4;
+        return SizedBox(
+          height: cardHeight,
+          child: DoubleTapLike(
+            onLike: onToggleLike,
+            alreadyLiked: item.likedByMe,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(right: WynSpacing.space6),
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: SizedBox(
+                    width: cardWidth,
+                    child: Image.network(item.imageUrl!, fit: BoxFit.cover),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Semantics(
@@ -203,17 +309,15 @@ class HomeDropCard extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.repeat,
-                          size: 14,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          size: 12,
+                          color: WynosHomeTokens.graphite,
                         ),
                         const SizedBox(width: WynSpacing.space1),
                         Text(
                           'ReDrop โดย @${item.redropperUsername}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
+                          style: WynosHomeTokens.redropAttribution,
                         ),
                       ],
                     ),
@@ -224,7 +328,10 @@ class HomeDropCard extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(
                     WynSpacing.space3, 0, WynSpacing.space3, WynSpacing.space2,
                   ),
-                  child: HashtagText(item.quoteText!),
+                  child: _wrapSapphireLinks(
+                    context,
+                    HashtagText(item.quoteText!, style: WynosHomeTokens.postBody),
+                  ),
                 ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space1),
@@ -236,7 +343,7 @@ class HomeDropCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
                         child: Row(
                           children: [
-                            AvatarCircle(
+                            WynosRingedAvatar(
                               imageUrl: item.authorAvatarUrl,
                               fallbackText: item.authorUsername,
                               radius: 16,
@@ -248,13 +355,11 @@ class HomeDropCard extends StatelessWidget {
                                 children: [
                                   Text(
                                     item.authorNameOrUsername,
-                                    style: Theme.of(context).textTheme.titleSmall,
+                                    style: WynosHomeTokens.postAuthorName,
                                   ),
                                   Text(
                                     relativeTimeLabel(item.createdAt, now: DateTime.now()),
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          color: Theme.of(context).colorScheme.outline,
-                                        ),
+                                    style: WynosHomeTokens.caption(),
                                   ),
                                 ],
                               ),
@@ -268,7 +373,8 @@ class HomeDropCard extends StatelessWidget {
                     // which entries actually appear.
                     if (!_isOwnDrop || _isOwnRedrop)
                       IconButton(
-                        icon: const Icon(Icons.more_vert),
+                        icon: const Icon(Icons.more_horiz,
+                            size: 16, color: WynosHomeTokens.faint),
                         tooltip: 'เพิ่มเติม',
                         onPressed: () => _openMoreMenu(context),
                       ),
@@ -286,14 +392,7 @@ class HomeDropCard extends StatelessWidget {
                   onVote: (index) => onVotePoll?.call(index),
                 )
               else if (item.imageUrl != null)
-                DoubleTapLike(
-                  onLike: onToggleLike,
-                  alreadyLiked: item.likedByMe,
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: Image.network(item.imageUrl!, fit: BoxFit.cover),
-                  ),
-                ),
+                _buildImageCarousel(),
               // WYNOS V1.0.0 Beta requirement 2: a Drop can now be
               // caption-only (no image, not a Poll) -- _canShare in
               // CreateDropScreen already guarantees a non-empty caption
@@ -306,12 +405,24 @@ class HomeDropCard extends StatelessWidget {
                       ? DoubleTapLike(
                           onLike: onToggleLike,
                           alreadyLiked: item.likedByMe,
-                          child: HashtagText(item.caption!),
+                          child: _wrapSapphireLinks(
+                            context,
+                            HashtagText(item.caption!, style: WynosHomeTokens.postBody),
+                          ),
                         )
-                      : HashtagText(item.caption!),
+                      : _wrapSapphireLinks(
+                          context,
+                          HashtagText(item.caption!, style: WynosHomeTokens.postBody),
+                        ),
                 ),
+              // SPEC.md Section 4.8 (liked-by row) is deliberately not
+              // rendered here -- see this file's class doc comment.
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),
+                padding: const EdgeInsets.only(
+                  left: WynSpacing.space1,
+                  right: WynSpacing.space1,
+                  top: WynSpacing.space3,
+                ),
                 child: Row(
                   children: [
                     Semantics(
@@ -322,23 +433,30 @@ class HomeDropCard extends StatelessWidget {
                       child: IconButton(
                         icon: Icon(
                           item.likedByMe ? Icons.favorite : Icons.favorite_border,
-                          color: item.likedByMe ? Colors.red : null,
+                          size: 17,
+                          color: item.likedByMe
+                              ? WynosHomeTokens.sapphire
+                              : WynosHomeTokens.graphite,
                         ),
                         onPressed: onToggleLike,
                       ),
                     ),
-                    Text('${item.likeCount}'),
-                    const SizedBox(width: WynSpacing.space2),
+                    Text('${item.likeCount}', style: WynosHomeTokens.caption()),
+                    const SizedBox(width: WynSpacing.space5),
                     Semantics(
                       label: 'ดูคอมเมนต์',
                       excludeSemantics: true,
                       child: IconButton(
-                        icon: const Icon(Icons.mode_comment_outlined, size: 20),
+                        icon: const Icon(
+                          Icons.mode_comment_outlined,
+                          size: 17,
+                          color: WynosHomeTokens.graphite,
+                        ),
                         onPressed: onTap,
                       ),
                     ),
-                    Text('${item.commentCount}'),
-                    const SizedBox(width: WynSpacing.space2),
+                    Text('${item.commentCount}', style: WynosHomeTokens.caption()),
+                    const SizedBox(width: WynSpacing.space5),
                     Semantics(
                       label: item.redroppedByMe
                           ? 'ReDrop แล้ว กดเพื่อเลือกดำเนินการ'
@@ -347,54 +465,65 @@ class HomeDropCard extends StatelessWidget {
                       child: IconButton(
                         icon: Icon(
                           Icons.repeat,
+                          size: 17,
                           color: item.redroppedByMe
-                              ? Theme.of(context).colorScheme.primary
-                              : null,
+                              ? WynosHomeTokens.sapphire
+                              : WynosHomeTokens.graphite,
                         ),
                         onPressed: () => _openRedropSheet(context),
                       ),
                     ),
-                    Text('${item.redropCount}'),
-                    Semantics(
-                      label: 'แชร์',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: const Icon(Icons.share_outlined, size: 20),
-                        onPressed: _share,
-                      ),
-                    ),
+                    Text('${item.redropCount}', style: WynosHomeTokens.caption()),
+                    const SizedBox(width: WynSpacing.space5),
+                    // SPEC.md Section 4.9: view count is display-only,
+                    // never tappable, `faint` (one shade lighter than
+                    // the 3 tappable icons before it).
                     Semantics(
                       label: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
                       excludeSemantics: true,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.visibility_outlined, size: 20),
+                          const Icon(
+                            Icons.visibility_outlined,
+                            size: 16,
+                            color: WynosHomeTokens.faint,
+                          ),
                           const SizedBox(width: WynSpacing.space1),
-                          Text('${item.viewCount}'),
+                          Text('${item.viewCount}',
+                              style: WynosHomeTokens.caption(
+                                  color: WynosHomeTokens.faint)),
                         ],
                       ),
                     ),
-                    const Spacer(),
-                    Semantics(
-                      label: item.savedByMe
-                          ? 'บันทึกแล้ว กดเพื่อเอาออกจาก Saved'
-                          : 'กดเพื่อบันทึก',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: Icon(
-                          item.savedByMe ? Icons.bookmark : Icons.bookmark_border,
-                        ),
-                        onPressed: onToggleSave,
-                      ),
-                    ),
+                    // WYN-072 (SPEC.md Section 4.9): Share and Save are
+                    // no longer in this row -- see [_openMoreMenu].
                   ],
                 ),
               ),
+              // SPEC.md Section 4.10 (top reply preview) is deliberately
+              // not rendered here -- see this file's class doc comment.
             ],
           ),
         ),
       ),
+    );
+  }
+
+  /// Recolors [HashtagText]'s hashtag/mention link color to `sapphire`
+  /// (this screen's one accent, SPEC.md Section 1) without touching
+  /// [HashtagText] itself (which reads `Theme.of(context).colorScheme.
+  /// primary`, still Cyan/DS-001 everywhere else this widget is reused
+  /// -- Chat, DropDetailScreen, ClubPostCard, ...). Scoped to just this
+  /// subtree, same "local Theme override" approach used for any other
+  /// third-party-styled widget this task reuses as-is.
+  Widget _wrapSapphireLinks(BuildContext context, Widget child) {
+    final scheme = Theme.of(context).colorScheme;
+    return Theme(
+      data: Theme.of(context).copyWith(
+        colorScheme: scheme.copyWith(primary: WynosHomeTokens.sapphire),
+      ),
+      child: child,
     );
   }
 }

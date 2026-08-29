@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
@@ -18,16 +19,21 @@ import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/trending_tile.dart';
+import 'package:wyn/features/home/presentation/widgets/wynos_empty_feed_state.dart';
 import 'package:wyn/features/pop/presentation/widgets/pop_comment_sheet.dart';
 import 'package:wyn/features/profile/data/profile.dart';
+import 'package:wyn/features/search/presentation/search_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/fake_video_player_platform.dart';
 import 'support/recording_chat_repository.dart';
 import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
+import 'support/recording_discovery_repository.dart';
 import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
+import 'support/recording_follow_request_repository.dart';
+import 'support/recording_home_preferences_repository.dart';
 import 'support/recording_home_repository.dart';
 import 'support/recording_pop_repository.dart';
 import 'support/recording_profile_repository.dart';
@@ -158,6 +164,10 @@ void main() {
   late RecordingClubRepository sharedClubRepository;
   late RecordingClubPostRepository sharedClubPostRepository;
   late RecordingChatRepository sharedChatRepository;
+  // WYN-072: HomeFeedScreen's own new required repositories.
+  late RecordingDiscoveryRepository sharedDiscoveryRepository;
+  late RecordingFollowRequestRepository sharedFollowRequestRepository;
+  late RecordingHomePreferencesRepository sharedHomePreferencesRepository;
   late RecordingClubPostRepository emptyFromClubsPostRepository;
   late RecordingClubPostRepository fromClubsPostRepository;
   late RecordingHomeRepository mixedFeedHomeRepository;
@@ -231,6 +241,11 @@ void main() {
   // WYN-024: "ติดตาม" (Following) feed mode.
   late RecordingHomeRepository followingTestHomeRepository;
   late RecordingHomeRepository emptyFollowingTestHomeRepository;
+  // WYN-072: distinct from `sharedFollowRepository`'s default
+  // `followingCount: 0` -- this account already follows someone, so
+  // SPEC 4.5's empty state must NOT trigger; the feed being empty here
+  // is purely because that followee hasn't posted yet.
+  late RecordingFollowRepository followingSomeoneFollowRepository;
 
   // WYNOS Unified Home Feed Algorithm V1.0 -- "Hide" User Signal.
   late RecordingHomeRepository hideDropTestHomeRepository;
@@ -250,6 +265,13 @@ void main() {
     await initFakeSupabaseSession(userId: 'me');
     SharedPreferences.setMockInitialValues({});
     VideoPlayerPlatform.instance = FakeVideoPlayerPlatform();
+    // WYN-072: WynosHomeTokens uses google_fonts (Fraunces/Inter) --
+    // disable runtime network fetching in tests so a font-fetch failure
+    // (no network in the test sandbox) can never surface as an
+    // unexpected exception; Flutter falls back to the platform default
+    // font for any glyph rendering this pulls in, same as any other
+    // widget test that never asserts on font rendering specifically.
+    GoogleFonts.config.allowRuntimeFetching = false;
 
     sharedDropRepository = RecordingDropRepository();
     sharedPopRepository = RecordingPopRepository();
@@ -260,6 +282,15 @@ void main() {
     sharedSavedRepository = RecordingSavedRepository();
     sharedClubRepository = RecordingClubRepository();
     sharedChatRepository = RecordingChatRepository();
+    sharedDiscoveryRepository = RecordingDiscoveryRepository();
+    sharedFollowRequestRepository = RecordingFollowRequestRepository();
+    sharedHomePreferencesRepository = RecordingHomePreferencesRepository(
+      // Dismissed by default in most tests -- the banner's own show/
+      // dismiss/persist behavior gets its own dedicated group below
+      // rather than every other test in this file needing to account
+      // for an extra ~90px `ink` banner shifting card positions.
+      explainerBannerDismissedResult: true,
+    );
     sharedClubPostRepository = RecordingClubPostRepository();
     emptyFromClubsPostRepository =
         RecordingClubPostRepository(fromJoinedClubs: []);
@@ -440,6 +471,8 @@ void main() {
       feedItems: [_dropItem(id: 'has-feed')],
       followingFeedItems: [],
     );
+    followingSomeoneFollowRepository =
+        RecordingFollowRepository(followingCount: 3);
 
     hideDropTestHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'hide-d1')],
@@ -477,13 +510,17 @@ void main() {
     RecordingClubPostRepository? clubPostRepository,
     RecordingClubRepository? clubRepository,
     ValueNotifier<int>? homeTabReselectSignal,
+    RecordingFollowRepository? followRepository,
+    RecordingDiscoveryRepository? discoveryRepository,
+    RecordingFollowRequestRepository? followRequestRepository,
+    RecordingHomePreferencesRepository? homePreferencesRepository,
   }) =>
       MaterialApp(
         home: HomeFeedScreen(
           homeRepository: homeRepository,
           dropRepository: dropRepository,
           popRepository: popRepository,
-          followRepository: sharedFollowRepository,
+          followRepository: followRepository ?? sharedFollowRepository,
           profileRepository: sharedProfileRepository,
           savedRepository: sharedSavedRepository,
           clubRepository: clubRepository ?? sharedClubRepository,
@@ -491,6 +528,11 @@ void main() {
           chatRepository: sharedChatRepository,
           homeTabReselectSignal:
               homeTabReselectSignal ?? ValueNotifier<int>(0),
+          discoveryRepository: discoveryRepository ?? sharedDiscoveryRepository,
+          followRequestRepository:
+              followRequestRepository ?? sharedFollowRequestRepository,
+          homePreferencesRepository:
+              homePreferencesRepository ?? sharedHomePreferencesRepository,
         ),
       );
 
@@ -505,11 +547,20 @@ void main() {
     tester.takeException();
 
     expect(find.text('แคปชัน Drop'), findsOneWidget);
-    // Regression for WYN-007 QA round 1: the Drop card's interaction row
-    // must have a working Share button and a tappable Comment icon, not
-    // just Like/Save. See .wyn/tasks/approved/WYN-007-home-feed.md.
-    expect(
-        find.widgetWithIcon(IconButton, Icons.share_outlined), findsOneWidget);
+    // Regression for WYN-007 QA round 1 (Share/Comment must be reachable
+    // on a card), updated for WYN-072: Share moved out of the action bar
+    // into the "⋯" more-options menu (SPEC.md Section 4.6 point 4) -- see
+    // .wyn/tasks/approved/WYN-007-home-feed.md.
+    final dropMoreButton = find.descendant(
+      of: find.byType(HomeDropCard),
+      matching: find.widgetWithIcon(IconButton, Icons.more_horiz),
+    );
+    expect(dropMoreButton, findsOneWidget);
+    tester.widget<IconButton>(dropMoreButton).onPressed!();
+    await tester.pumpAndSettle();
+    expect(find.text('แชร์'), findsOneWidget);
+    Navigator.of(tester.element(find.text('แชร์'))).pop();
+    await tester.pumpAndSettle();
     expect(
       find.widgetWithIcon(IconButton, Icons.mode_comment_outlined),
       findsOneWidget,
@@ -572,12 +623,19 @@ void main() {
     // Same Share/Comment regression check, scoped to the Pop card
     // specifically -- the Drop card above may still be in the element
     // tree (ListView cacheExtent) at this scroll position, so an
-    // unscoped findsOneWidget would over-count.
-    final popCardShare = find.descendant(
+    // unscoped findsOneWidget would over-count. WYN-072: Share moved out
+    // of the action bar into the "⋯" more-options menu, same as
+    // HomeDropCard above.
+    final popCardMoreButton = find.descendant(
       of: find.byType(HomePopCard),
-      matching: find.widgetWithIcon(IconButton, Icons.share_outlined),
+      matching: find.widgetWithIcon(IconButton, Icons.more_horiz),
     );
-    expect(popCardShare, findsOneWidget);
+    expect(popCardMoreButton, findsOneWidget);
+    tester.widget<IconButton>(popCardMoreButton).onPressed!();
+    await tester.pumpAndSettle();
+    expect(find.text('แชร์'), findsOneWidget);
+    Navigator.of(tester.element(find.text('แชร์'))).pop();
+    await tester.pumpAndSettle();
     final popCardComment = find.descendant(
       of: find.byType(HomePopCard),
       matching: find.widgetWithIcon(IconButton, Icons.mode_comment_outlined),
@@ -626,15 +684,93 @@ void main() {
     expect(find.byType(Divider), findsOneWidget);
   });
 
-  testWidgets('shows the empty state when there is no content', (tester) async {
+  testWidgets(
+      'shows the plain empty-feed message on "สำหรับคุณ" when the account '
+      'already follows people (SPEC 4.5\'s own empty state does not apply)',
+      (tester) async {
     await tester.pumpWidget(buildHome(
       emptyHomeRepository,
       dropRepository: sharedDropRepository,
       popRepository: sharedPopRepository,
+      // WYN-072: followingCount > 0 -- SPEC 4.5's "brand-new account"
+      // empty state is specifically for 0 follows, see the dedicated
+      // WynosEmptyFeedState group below for that case.
+      followRepository: followingSomeoneFollowRepository,
     ));
     await tester.pumpAndSettle();
 
     expect(find.text('ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!'), findsOneWidget);
+  });
+
+  group('SPEC.md Section 4.5 empty state (WYN-072)', () {
+    testWidgets(
+        'shows the WYNOS empty-state headline + suggested accounts on '
+        '"สำหรับคุณ" when the account follows 0 people', (tester) async {
+      final discoveryRepository = RecordingDiscoveryRepository()
+        ..suggestedUsers = [
+          const Profile(id: 'sugg-1', username: 'warren', isPrivate: false),
+        ];
+      await tester.pumpWidget(buildHome(
+        emptyHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        // sharedFollowRepository's own default (followingCount: 0).
+        discoveryRepository: discoveryRepository,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ยังไม่มีอะไรให้ดูตรงนี้'), findsOneWidget);
+      expect(find.byType(WynosEmptyFeedState), findsOneWidget);
+      expect(find.text('warren'), findsOneWidget);
+      expect(find.text('@warren'), findsOneWidget);
+      // The old generic message must not also be showing.
+      expect(find.text('ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!'), findsNothing);
+    });
+
+    testWidgets(
+        'shows the same WYNOS empty state on "ติดตาม" when the account '
+        'follows 0 people, instead of the join-prompt message',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        emptyFollowingTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        // sharedFollowRepository's own default (followingCount: 0).
+      ));
+      await tester.pumpAndSettle();
+      // The initial "สำหรับคุณ" load's Drop card has a fake image URL --
+      // same expected noise every other test in this file drains via
+      // takeException() before continuing.
+      tester.takeException();
+
+      await tester.tap(find.text('ติดตาม'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ยังไม่มีอะไรให้ดูตรงนี้'), findsOneWidget);
+      expect(
+        find.text('ยังไม่ได้ follow ใครเลย ลองดู สำหรับคุณ เพื่อค้นหาคนน่าสนใจ'),
+        findsNothing,
+      );
+    });
+
+    testWidgets(
+        'shows the distinct "people you follow haven\'t posted yet" message '
+        'on "ติดตาม" when the account already follows someone', (tester) async {
+      await tester.pumpWidget(buildHome(
+        emptyFollowingTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        followRepository: followingSomeoneFollowRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('ติดตาม'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('คนที่คุณติดตามยังไม่ได้โพสต์อะไรเลย'), findsOneWidget);
+      expect(find.byType(WynosEmptyFeedState), findsNothing);
+    });
   });
 
   testWidgets(
@@ -843,7 +979,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      final moreButton = find.widgetWithIcon(IconButton, Icons.more_vert);
+      final moreButton = find.widgetWithIcon(IconButton, Icons.more_horiz);
       expect(moreButton, findsOneWidget);
       tester.widget<IconButton>(moreButton).onPressed!();
       await tester.pumpAndSettle();
@@ -871,7 +1007,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      final moreButton = find.widgetWithIcon(IconButton, Icons.more_vert);
+      final moreButton = find.widgetWithIcon(IconButton, Icons.more_horiz);
       expect(moreButton, findsOneWidget);
       tester.widget<IconButton>(moreButton).onPressed!();
       await tester.pumpAndSettle();
@@ -898,7 +1034,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      final moreButton = find.widgetWithIcon(IconButton, Icons.more_vert);
+      final moreButton = find.widgetWithIcon(IconButton, Icons.more_horiz);
       expect(moreButton, findsOneWidget);
       tester.widget<IconButton>(moreButton).onPressed!();
       await tester.pumpAndSettle();
@@ -922,13 +1058,13 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      final moreButton = find.widgetWithIcon(IconButton, Icons.more_vert);
+      final moreButton = find.widgetWithIcon(IconButton, Icons.more_horiz);
       tester.widget<IconButton>(moreButton).onPressed!();
       await tester.pumpAndSettle();
       await tester.tap(find.text('ไม่สนใจโพสต์นี้'));
       await tester.pumpAndSettle();
 
-      expect(find.widgetWithIcon(IconButton, Icons.more_vert), findsOneWidget);
+      expect(find.widgetWithIcon(IconButton, Icons.more_horiz), findsOneWidget);
     });
   });
 
@@ -1298,8 +1434,9 @@ void main() {
     });
 
     testWidgets(
-        'a Rainbow accent dot (DS-009) marks whichever segment is active, and only that one',
-        (tester) async {
+        'a sapphire underline (WYN-072, SPEC.md Section 4.3 -- replaces the '
+        'DS-009 rainbow-gradient dot) marks whichever tab is active, and '
+        'only that one', (tester) async {
       await tester.pumpWidget(buildHome(
         mixedFeedHomeRepository,
         dropRepository: sharedDropRepository,
@@ -1308,7 +1445,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      expect(find.byKey(const Key('active_segment_accent')), findsOneWidget);
+      expect(find.byKey(const Key('active_tab_underline')), findsOneWidget);
 
       await tester.tap(find.text('ล่าสุด'));
       await tester.pumpAndSettle();
@@ -1316,7 +1453,7 @@ void main() {
 
       // Still exactly one -- it moved with the selection, it didn't
       // multiply.
-      expect(find.byKey(const Key('active_segment_accent')), findsOneWidget);
+      expect(find.byKey(const Key('active_tab_underline')), findsOneWidget);
     });
 
     testWidgets(
@@ -1368,10 +1505,11 @@ void main() {
     });
 
     testWidgets(
-        'the selected-checkmark icon is off (QA round 3 regression, 2026-08-22) -- '
-        'it ate a fixed width share of whichever segment was active, squeezing '
-        'every label (including the default "สำหรับคุณ") to 1-3 visible characters',
-        (tester) async {
+        'no selected-checkmark icon appears on the active tab (QA round 3 '
+        'regression, 2026-08-22, originally against the old SegmentedButton -- '
+        'kept as a regression guard now that WYN-072 replaced it with a plain '
+        'underline-tab row, which never had a checkmark concept to begin '
+        'with)', (tester) async {
       await tester.pumpWidget(buildHome(
         mixedFeedHomeRepository,
         dropRepository: sharedDropRepository,
@@ -1380,9 +1518,6 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      // SegmentedButton's default selected-icon is Icons.check -- with
-      // showSelectedIcon: false it must never appear, on the default
-      // active segment or any other.
       expect(find.byIcon(Icons.check), findsNothing);
 
       await tester.tap(find.text('ล่าสุด'));
@@ -1433,14 +1568,13 @@ void main() {
 
     for (final width in [360.0, 375.0, 390.0, 414.0, 430.0]) {
       testWidgets(
-          'every segment label (not just the short ones) is fully legible '
-          'at ${width}px once active -- WYN-024 follow-up (2026-08-22): '
-          'SegmentedButton now gets an unbounded width via a horizontal '
-          'SingleChildScrollView + IntrinsicWidth instead of being '
-          'stretched to the screen, so every segment gets its full natural '
-          'width regardless of viewport, and the row scrolls instead. '
-          'Closes the residual gap the round-3 fix above left open for '
-          '"สำหรับคุณ" (the default segment) and "จาก Club ของคุณ".',
+          'every tab label (not just the short ones) is fully legible '
+          'at ${width}px once active -- WYN-024\'s fix (each tab gets an '
+          'unbounded width via a horizontal SingleChildScrollView + '
+          'IntrinsicWidth instead of being stretched/divided across the '
+          'screen) survives WYN-072\'s underline-tab restyle unchanged: '
+          'every tab still gets its own full natural width regardless of '
+          'viewport, and the row scrolls instead of ever truncating one.',
           (tester) async {
         tester.view.physicalSize = Size(width, 800);
         tester.view.devicePixelRatio = 1.0;
@@ -1485,10 +1619,11 @@ void main() {
                   'is the whole point of the scrollable-width fix');
         }
 
-        // The Rainbow indicator (DS-009) must still track exactly one
-        // active segment, even though segments are no longer stretched
-        // to equal widths within the (now scrollable) row.
-        expect(find.byKey(const Key('active_segment_accent')), findsOneWidget);
+        // The sapphire underline (WYN-072, replaces the DS-009 rainbow
+        // indicator) must still track exactly one active tab, even
+        // though tabs are no longer stretched to equal widths within
+        // the (now scrollable) row.
+        expect(find.byKey(const Key('active_tab_underline')), findsOneWidget);
       });
     }
   });
@@ -1515,12 +1650,21 @@ void main() {
     });
 
     testWidgets(
-        'shows a distinct join-prompt-style empty message on "ติดตาม" when '
-        'following no one, not the generic empty state', (tester) async {
+        'shows a distinct "people you follow haven\'t posted" message on '
+        '"ติดตาม" when following someone but their feed is still empty, not '
+        'the generic empty state', (tester) async {
       await tester.pumpWidget(buildHome(
         emptyFollowingTestHomeRepository,
         dropRepository: sharedDropRepository,
         popRepository: sharedPopRepository,
+        // WYN-072: followingCount > 0 -- this test is specifically about
+        // the "you follow people, they just haven't posted" case, not
+        // the "you follow 0 people" case (see the dedicated "SPEC.md
+        // Section 4.5 empty state (WYN-072)" group above for that one --
+        // this is exactly what used to show this test's old assertion
+        // text before SPEC 4.5's richer empty state took over the
+        // followingCount==0 case).
+        followRepository: followingSomeoneFollowRepository,
       ));
       await tester.pumpAndSettle();
       tester.takeException();
@@ -1529,11 +1673,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      expect(
-        find.text(
-            'ยังไม่ได้ follow ใครเลย ลองดู สำหรับคุณ เพื่อค้นหาคนน่าสนใจ'),
-        findsOneWidget,
-      );
+      expect(find.text('คนที่คุณติดตามยังไม่ได้โพสต์อะไรเลย'), findsOneWidget);
       expect(find.text('ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!'), findsNothing);
     });
 
@@ -1761,6 +1901,145 @@ void main() {
       await tester.pump();
       expect(duplicateFetchGuardTestHomeRepository.fetchRankedFeedCalls, 1);
       tester.takeException();
+    });
+  });
+
+  group('WYNOS header (WYN-072, SPEC.md Section 4.1)', () {
+    testWidgets('shows the WYNOS wordmark and hamburger/search icons',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('WYNOS'), findsOneWidget);
+      expect(find.byIcon(Icons.menu), findsOneWidget);
+      expect(find.byIcon(Icons.search), findsOneWidget);
+    });
+
+    testWidgets(
+        'tapping the hamburger shows a "not ready yet" message -- no Side '
+        'Menu screen exists in this app yet (see this task\'s Known Issues)',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.byIcon(Icons.menu));
+      await tester.pump();
+
+      expect(find.text('เมนูนี้จะพร้อมใช้งานเร็ว ๆ นี้'), findsOneWidget);
+    });
+
+    testWidgets('tapping the search icon opens SearchScreen', (tester) async {
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.byIcon(Icons.search));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(SearchScreen), findsOneWidget);
+    });
+  });
+
+  group('First-time explainer banner (WYN-072, SPEC.md Section 4.2)', () {
+    testWidgets('shown when not yet dismissed, with the value-prop text',
+        (tester) async {
+      final prefsRepo = RecordingHomePreferencesRepository(
+        explainerBannerDismissedResult: false,
+      );
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        homePreferencesRepository: prefsRepo,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('ดู → แชร์ → ค้นพบ → ซื้อ'), findsOneWidget);
+    });
+
+    testWidgets('hidden once already permanently dismissed', (tester) async {
+      final prefsRepo = RecordingHomePreferencesRepository(
+        explainerBannerDismissedResult: true,
+      );
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        homePreferencesRepository: prefsRepo,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('ดู → แชร์ → ค้นพบ → ซื้อ'), findsNothing);
+    });
+
+    testWidgets(
+        'tapping the X dismisses the banner immediately and persists it '
+        'permanently via HomePreferencesRepository (not per-session)',
+        (tester) async {
+      final prefsRepo = RecordingHomePreferencesRepository(
+        explainerBannerDismissedResult: false,
+      );
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        homePreferencesRepository: prefsRepo,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(find.text('ดู → แชร์ → ค้นพบ → ซื้อ'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ดู → แชร์ → ค้นพบ → ซื้อ'), findsNothing);
+      expect(prefsRepo.dismissExplainerBannerCalls, 1);
+    });
+  });
+
+  group('More-options menu ("⋯") -- Share/Save moved out of the action bar '
+      '(WYN-072, SPEC.md Section 4.6 point 4)', () {
+    testWidgets(
+        'tapping "บันทึก" in a Drop card\'s more-options menu calls '
+        'toggleSave', (tester) async {
+      final dropRepository = RecordingDropRepository();
+      final homeRepository =
+          RecordingHomeRepository(feedItems: [_dropItem(id: 'menu-save-d1')]);
+      await tester.pumpWidget(buildHome(
+        homeRepository,
+        dropRepository: dropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final moreButton = find.widgetWithIcon(IconButton, Icons.more_horiz);
+      expect(moreButton, findsOneWidget);
+      tester.widget<IconButton>(moreButton).onPressed!();
+      await tester.pumpAndSettle();
+
+      expect(find.text('บันทึก'), findsOneWidget);
+      await tester.tap(find.text('บันทึก'));
+      await tester.pumpAndSettle();
+
+      expect(dropRepository.toggleSaveCalls, 1);
     });
   });
 }
