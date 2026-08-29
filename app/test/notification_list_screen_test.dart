@@ -539,32 +539,42 @@ void main() {
   });
 
   testWidgets(
-      'a row that was unread at fetch time is highlighted and a row that '
-      'was already read is not -- and the unread one keeps its highlight '
-      'for this visit even after markAllAsRead completes in the '
-      'background', (tester) async {
+      'a row that was unread at fetch time shows the sapphire unread dot '
+      'and a row that was already read does not -- and the unread one '
+      'keeps its dot for this visit even after markAllAsRead completes in '
+      'the background', (tester) async {
     await tester.pumpWidget(buildScreen(mixedReadRepo));
     await tester.pumpAndSettle();
     // markAllAsRead is a fire-and-forget call; pumpAndSettle already lets
-    // it complete. The unread row's highlight comes from a snapshot taken
-    // at fetch time, not a live read of WynNotification.isRead, so it
-    // must still be there even though the DB row is now marked read.
+    // it complete. The unread row's dot comes from a snapshot taken at
+    // fetch time, not a live read of WynNotification.isRead, so it must
+    // still be there even though the DB row is now marked read.
     expect(mixedReadRepo.markAllAsReadCalls, 1);
 
-    final unreadContainer = tester.widget<Container>(
-      find.ancestor(
-        of: find.text('น้ำฝน ถูกใจ Drop ของคุณ'),
-        matching: find.byType(Container),
-      ),
+    // design-reference 02-notifications.tsx: unread is a quiet sapphire
+    // dot next to the row, not a background-color highlight.
+    final unreadRow = find.ancestor(
+      of: find.text('น้ำฝน ถูกใจ Drop ของคุณ'),
+      matching: find.byType(InkWell),
     );
-    final readContainer = tester.widget<Container>(
-      find.ancestor(
-        of: find.text('@benz เริ่มติดตามคุณ'),
-        matching: find.byType(Container),
-      ),
+    final readRow = find.ancestor(
+      of: find.text('@benz เริ่มติดตามคุณ'),
+      matching: find.byType(InkWell),
     );
-    expect(unreadContainer.color, isNotNull);
-    expect(readContainer.color, isNull);
+    expect(
+      find.descendant(
+        of: unreadRow,
+        matching: find.byKey(const Key('notification_unread_dot')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: readRow,
+        matching: find.byKey(const Key('notification_unread_dot')),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('tapping a Like Drop notification opens DropDetailScreen',

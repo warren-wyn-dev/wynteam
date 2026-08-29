@@ -11,6 +11,9 @@ dependencies:
     sdk: flutter
   supabase_flutter: ^2.5.0
   cupertino_icons: ^1.0.6
+  # WYNOS design-reference re-brand (2026-08-29): SPEC.md mandates Fraunces
+  # (display/wordmark) + Inter (everything else) -- see wyn_typography.dart.
+  google_fonts: ^6.2.1
   image_picker: ^1.1.2
   share_plus: ^13.3.0
   video_player: ^2.9.2

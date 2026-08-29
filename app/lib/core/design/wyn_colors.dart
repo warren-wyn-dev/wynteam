@@ -2,21 +2,24 @@
 //
 // WYN Design System — color tokens.
 //
-// Every value below is copied verbatim (no rounding, no adjustment) from
-// `.wyn/docs/design/ds-001-color-system.md`:
-//   - Section 2 (Color Scale): raw token values (cyan/orange/neutral/semantic)
-//   - Section 3.1/3.2 (Flutter ColorScheme Mapping): `ColorScheme` slots for
-//     the WYN Social app, light and dark
+// Founder approved switching the WYN Social app's brand color from Cyan to
+// Sapphire on 2026-08-29 (see .wyn/company/DECISIONS.md, "เปลี่ยน Color
+// Direction ของ WYN: Cyan → Sapphire (design-reference re-brand)"), which
+// supersedes the 2026-08-15 "Blue → Cyan" decision for `app/` (this file's
+// scope) only -- `seller_app/`'s ZOKY Orange accent is untouched, and this
+// file's own `orange*`/ZOKY tokens stay as before since the WYN Social
+// app's own ZOKY sub-theme (wyn_zoky_accent.dart) still needs them.
 //
-// Founder approved "Option B" on 2026-08-15 (see .wyn/company/DECISIONS.md,
-// "เปลี่ยน Color Direction ของ WYN: Blue → Cyan"): use the raw Cyan
-// `#00C8FF` / Orange `#FF6B35` values directly in both light and dark mode,
-// not adjusted shades. Some raw-on-white combinations fall below WCAG AA
-// (documented in the source doc) -- this is an accepted, informed risk, not
-// an oversight. Do not "fix" it by changing values here.
+// Every neutral/accent value below is copied verbatim from
+// `/design-reference/SPEC.md`, Section 1 (Design Tokens). `sapphire` is
+// the single accent color for the whole app -- do not add another brand
+// hue here without going back to the Founder first, per that doc's
+// Section 0 ("Do not introduce any color not listed in Section 1").
 //
-// The ZOKY sub-theme (Section 3.4, `tertiary` = Orange for `seller_app/`)
-// is out of scope for this file -- see DS-001b.
+// The ZOKY sub-theme (Section 3.4, `tertiary` = Orange for `seller_app/`,
+// and for the ZOKY-branded screens inside `app/` itself) is out of scope
+// for this re-brand -- see DS-001b and the design-reference README's "out
+// of scope" note on commerce/shop screens.
 import 'package:flutter/material.dart';
 
 /// Raw WYN design-system color tokens, plus the assembled `ColorScheme`s
@@ -30,20 +33,49 @@ class WynColors {
   WynColors._();
 
   // ---------------------------------------------------------------------
-  // 2.1 WYN Cyan (primary brand color)
+  // design-reference SPEC.md, Section 1 — WYNOS neutral/accent palette
   // ---------------------------------------------------------------------
-  static const Color cyan50 = Color(0xFFE6F9FF);
-  static const Color cyan100 = Color(0xFFCCF2FF);
-  static const Color cyan300 = Color(0xFF66DDFF);
-  static const Color cyan500 = Color(0xFF00C8FF);
-  static const Color cyan600 = Color(0xFF00A3D9);
-  static const Color cyan700 = Color(0xFF0090C4);
-  static const Color cyan800 = Color(0xFF00739E);
-  static const Color cyan900 = Color(0xFF00658A);
-  static const Color cyan950 = Color(0xFF003D54);
+
+  /// Primary text, icons at full strength, banner background, active nav.
+  static const Color ink = Color(0xFF12120F);
+
+  /// Page background, card background, text-on-dark.
+  static const Color paper = Color(0xFFFAF9F6);
+
+  /// Outer device bezel background only in the reference mockups -- not
+  /// part of the app UI itself. Kept here only for completeness/parity
+  /// with SPEC.md Section 1; nothing in the real app should reference it.
+  static const Color canvas = Color(0xFFEDEBE5);
+
+  /// Secondary text, inactive icons, metadata.
+  static const Color graphite = Color(0xFF8A8880);
+
+  /// Tertiary text (view counts, disabled states, footer text).
+  static const Color faint = Color(0xFFC7C4BC);
+
+  /// All dividers, all 1px borders.
+  static const Color hairline = Color(0xFFE8E6E0);
+
+  /// The one accent color -- avatar ring, active tab underline, hashtags,
+  /// verified badge fill, primary buttons, liked-heart fill.
+  static const Color sapphire = Color(0xFF1B3A6B);
+
+  /// Sapphire at 20% opacity -- used for exactly one thing, the 1px avatar
+  /// ring border (SPEC.md Section 1: "Nothing else gets an alpha value").
+  static const Color sapphireRing = Color(0x331B3A6B);
 
   // ---------------------------------------------------------------------
-  // 2.2 ZOKY Orange (commerce layer accent)
+  // Notification type-badge colors (02-notifications.tsx) -- Founder-
+  // approved exception to "sapphire is the only accent" (2026-08-29),
+  // scoped explicitly to the small 18px type-icon badge on a notification
+  // row (heart/comment/repost/follow), never a text/large-surface color.
+  // ---------------------------------------------------------------------
+  static const Color notificationBadgeComment = Color(0xFF3A5A40);
+  static const Color notificationBadgeRepost = Color(0xFF8A6D3A);
+
+  // ---------------------------------------------------------------------
+  // ZOKY Orange (commerce layer accent) -- unaffected by the Sapphire
+  // re-brand above, see file-level doc comment.
   // ---------------------------------------------------------------------
   static const Color orange50 = Color(0xFFFFF1EC);
   static const Color orange500 = Color(0xFFFF6B35);
@@ -52,15 +84,14 @@ class WynColors {
   static const Color orange800 = Color(0xFFA63A10);
 
   // ---------------------------------------------------------------------
-  // 2.3 Neutral (core scaffolding of the whole system)
+  // Neutral technical/dark-mode scaffolding not covered by SPEC.md (which
+  // only specifies a light palette) -- kept from the pre-rebrand system so
+  // `dark` ColorScheme below still compiles to something coherent even
+  // though WynApp forces `ThemeMode.light` (WYN-071) and this is unused
+  // in production today.
   // ---------------------------------------------------------------------
-  static const Color ink = Color(0xFF0A0A0A);
   static const Color white = Color(0xFFFFFFFF);
-  static const Color gray500 = Color(0xFF6B7280);
-  static const Color gray400 = Color(0xFF9CA3AF);
-  static const Color borderSubtleLight = Color(0xFFE5E7EB);
   static const Color borderStrongLight = Color(0xFF8B929C);
-  static const Color surfaceMutedLight = Color(0xFFF7F8FA);
   static const Color bgDark = Color(0xFF000000);
   static const Color surfaceDark = Color(0xFF111111);
   static const Color surfaceMutedDark = Color(0xFF1A1A1A);
@@ -118,70 +149,76 @@ class WynColors {
 
   // ---------------------------------------------------------------------
   // 3.1 WYN Social — Light `ColorScheme`
+  //
+  // Deliberately flat: SPEC.md Section 1 defines exactly 7 flat tokens, no
+  // tonal elevation scale, and Section 1's own rule ("nothing else gets an
+  // alpha value; do not invent new tints") forbids synthesizing new
+  // sapphire/neutral shades for Material's container slots. Every
+  // "container" slot below is one of the 7 named tokens verbatim, reused,
+  // never a newly-computed tint -- see .wyn/company/DECISIONS.md,
+  // 2026-08-29.
   // ---------------------------------------------------------------------
   static const ColorScheme socialLightScheme = ColorScheme(
     brightness: Brightness.light,
-    primary: cyan500,
-    onPrimary: ink,
-    primaryContainer: cyan50,
+    primary: sapphire,
+    onPrimary: paper,
+    primaryContainer: paper,
     onPrimaryContainer: ink,
-    secondary: cyan500,
-    onSecondary: ink,
-    // secondaryContainer: neutral tonal container (not a named 2.x token).
-    secondaryContainer: Color(0xFFF2F4F7),
+    secondary: sapphire,
+    onSecondary: paper,
+    secondaryContainer: paper,
     onSecondaryContainer: ink,
-    // tertiary is used as a bare-text link color on light -- 1.96:1, below
-    // AA. Accepted risk per Founder decision (DS-001, Section 3.0/3.1).
-    tertiary: cyan500,
-    onTertiary: ink,
+    tertiary: sapphire,
+    onTertiary: paper,
     error: errorLight,
     onError: white,
-    // errorContainer/onErrorContainer: not named 2.x tokens.
+    // errorContainer/onErrorContainer: semantic, not part of SPEC.md's
+    // brand palette -- unchanged from the pre-rebrand system.
     errorContainer: Color(0xFFFEE2E2),
     onErrorContainer: Color(0xFF7F1D1D),
-    surface: white,
+    surface: paper,
     onSurface: ink,
-    onSurfaceVariant: gray500,
-    surfaceContainerLowest: white,
-    // surfaceContainerLow: not a named 2.x token.
-    surfaceContainerLow: Color(0xFFFAFBFC),
-    surfaceContainer: surfaceMutedLight,
-    surfaceContainerHigh: Color(0xFFF2F4F7),
-    // surfaceContainerHighest: not a named 2.x token.
-    surfaceContainerHighest: Color(0xFFEDEFF3),
-    outlineVariant: borderSubtleLight,
+    onSurfaceVariant: graphite,
+    surfaceContainerLowest: paper,
+    surfaceContainerLow: paper,
+    surfaceContainer: paper,
+    surfaceContainerHigh: paper,
+    surfaceContainerHighest: paper,
+    outlineVariant: hairline,
     outline: borderStrongLight,
     inverseSurface: ink,
-    onInverseSurface: white,
-    inversePrimary: cyan500,
+    onInverseSurface: paper,
+    inversePrimary: sapphire,
     shadow: Color(0xFF000000),
     scrim: Color(0xFF000000),
   );
 
   // ---------------------------------------------------------------------
   // 3.2 WYN Social — Dark `ColorScheme`
+  //
+  // SPEC.md does not define a dark palette (WYNOS ships light-only per
+  // WYN-071/DECISIONS.md 2026-08-24 -- `WynApp` forces `ThemeMode.light`),
+  // so this stays functionally coherent but unexercised in production;
+  // kept, not deleted, so a future dark-mode decision can revisit it.
   // ---------------------------------------------------------------------
   static const ColorScheme socialDarkScheme = ColorScheme(
     brightness: Brightness.dark,
-    primary: cyan500,
-    onPrimary: ink,
-    primaryContainer: cyan950,
-    onPrimaryContainer: cyan100,
-    secondary: cyan500,
-    onSecondary: ink,
+    primary: sapphire,
+    onPrimary: paper,
+    primaryContainer: bgDark,
+    onPrimaryContainer: paper,
+    secondary: sapphire,
+    onSecondary: paper,
     secondaryContainer: surfaceMutedDark,
     onSecondaryContainer: white,
-    // tertiary on dark reads fine as bare text (10.09:1) -- no risk here.
-    tertiary: cyan500,
-    onTertiary: ink,
+    tertiary: sapphire,
+    onTertiary: paper,
     error: errorDark,
     onError: ink,
     surface: bgDark,
     onSurface: white,
-    onSurfaceVariant: gray400,
+    onSurfaceVariant: graphite,
     surfaceContainerLowest: bgDark,
-    // surfaceContainerLow: not a named 2.x token (same value as `ink`, but
-    // documented in Section 3.2 as its own ColorScheme slot).
     surfaceContainerLow: Color(0xFF0A0A0A),
     surfaceContainer: surfaceDark,
     surfaceContainerHigh: surfaceMutedDark,
@@ -190,6 +227,6 @@ class WynColors {
     outline: borderStrongDark,
     inverseSurface: white,
     onInverseSurface: ink,
-    inversePrimary: cyan500,
+    inversePrimary: sapphire,
   );
 }
