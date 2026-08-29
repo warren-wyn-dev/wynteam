@@ -17,6 +17,7 @@ import 'package:wyn/features/home/presentation/home_feed_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
+import 'package:wyn/features/home/presentation/design/wynos_home_tokens.dart';
 import 'package:wyn/features/home/presentation/widgets/trending_tile.dart';
 import 'package:wyn/features/home/presentation/widgets/wynos_image_carousel.dart';
 import 'package:wyn/features/home/presentation/widgets/wynos_verified_badge.dart';
@@ -127,6 +128,16 @@ HomeFeedItem _pollItem({
       pollTotalVotes: totalVotes,
       pollOptionCounts: optionCounts,
     );
+
+/// Finds the filter tab accent bar(s) that are actually painted active
+/// (sapphire), as opposed to every `Key('active_segment_accent')`
+/// widget, which is now always mounted -- see _buildFilterTabs's own
+/// doc comment for why the underline is a color change on an
+/// always-present widget rather than one conditionally added/removed
+/// from the tab's Stack.
+Finder _activeSegmentAccent() => find.byWidgetPredicate((widget) =>
+    widget is DecoratedBox &&
+    (widget.decoration as BoxDecoration).color == WynosHomeColors.sapphire);
 
 /// A RecordingHomeRepository whose fetchRankedFeed never resolves --
 /// used only by the WYN-064 "duplicate call while loading" regression
@@ -1830,7 +1841,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      expect(find.byKey(const Key('active_segment_accent')), findsOneWidget);
+      expect(_activeSegmentAccent(), findsOneWidget);
 
       await tester.tap(find.text('ล่าสุด'));
       await tester.pumpAndSettle();
@@ -1838,7 +1849,7 @@ void main() {
 
       // Still exactly one -- it moved with the selection, it didn't
       // multiply.
-      expect(find.byKey(const Key('active_segment_accent')), findsOneWidget);
+      expect(_activeSegmentAccent(), findsOneWidget);
     });
 
     testWidgets(
@@ -2010,7 +2021,7 @@ void main() {
         // The Rainbow indicator (DS-009) must still track exactly one
         // active segment, even though segments are no longer stretched
         // to equal widths within the (now scrollable) row.
-        expect(find.byKey(const Key('active_segment_accent')), findsOneWidget);
+        expect(_activeSegmentAccent(), findsOneWidget);
       });
     }
   });

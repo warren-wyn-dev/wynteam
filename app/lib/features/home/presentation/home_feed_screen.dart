@@ -877,28 +877,43 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                                 active: _feedMode == mode),
                           ),
                         ),
-                        if (_feedMode == mode)
-                          const Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            child: SizedBox(
-                              // Key name kept from the old SegmentedButton
-                              // implementation this replaces -- existing
-                              // tests (home_feed_screen_test.dart) already
-                              // assert on it, and it's an internal test
-                              // hook with no user-facing meaning to rename.
-                              key: Key('active_segment_accent'),
-                              height: 2,
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: WynosHomeColors.sapphire,
-                                  borderRadius: BorderRadius.all(
-                                      Radius.circular(WynSpacing.radiusFull)),
-                                ),
+                        // Always present (never conditionally added/removed
+                        // from the Stack) -- only its color changes with
+                        // [_feedMode], painted transparent when this tab
+                        // isn't the active one. A previous version only
+                        // included this child `if (_feedMode == mode)`,
+                        // which meant every tab switch added this widget to
+                        // one Stack and removed it from another in the same
+                        // frame; that shape change turned out to be what
+                        // was tripping a Flutter-internal semantics
+                        // invariant ('!semantics.parentDataDirty') on
+                        // pretty much any pumpAndSettle() once this screen
+                        // was mounted, hanging `flutter test` outright. See
+                        // the isolation testing in this branch's commit
+                        // history for how that was tracked down.
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: SizedBox(
+                            // Key name kept from the old SegmentedButton
+                            // implementation this replaces -- existing
+                            // tests (home_feed_screen_test.dart) already
+                            // assert on it, and it's an internal test
+                            // hook with no user-facing meaning to rename.
+                            key: Key('active_segment_accent'),
+                            height: 2,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: _feedMode == mode
+                                    ? WynosHomeColors.sapphire
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.all(
+                                    Radius.circular(WynSpacing.radiusFull)),
                               ),
                             ),
                           ),
+                        ),
                       ],
                     ),
                   ),
