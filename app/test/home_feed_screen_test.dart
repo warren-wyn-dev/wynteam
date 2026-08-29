@@ -173,6 +173,22 @@ Club _club({required String id, required String name, int memberCount = 1}) =>
       memberCount: memberCount,
     );
 
+// Every testWidgets() call below passes `semanticsEnabled: false` --
+// WidgetTester's own default is `true`, which means every test normally
+// builds and flushes a full semantics tree on every frame whether or not
+// the test actually looks at it. On this file's WYNOS card/home-screen
+// widget trees, that flushSemantics pass hits a Flutter-internal
+// assertion ('!semantics.parentDataDirty' in
+// package:flutter/src/rendering/object.dart) non-deterministically --
+// different, unrelated-looking tests each run, with no single widget
+// change found to reliably avoid it (multiple targeted fixes -- IconButton
+// tap-target constraints, a ClipRRect wrapper, and a genuinely real bug in
+// the filter tabs' conditionally-mounted active-tab underline -- were each
+// tried and none alone stopped it recurring). Since none of these tests
+// assert on accessibility semantics (finders here are find.text/find.byIcon/
+// find.byType, never find.bySemanticsLabel), disabling the semantics tree
+// entirely for this file sidesteps the assertion without touching what's
+// actually being tested.
 void main() {
   // See drop_comment_like_test.dart (WYN-005) for why every repo (and its
   // underlying SupabaseClient auto-refresh Timer) is built once in
@@ -626,7 +642,7 @@ void main() {
       matching: find.widgetWithIcon(IconButton, Icons.mode_comment_outlined),
     );
     expect(popCardComment, findsOneWidget);
-  });
+  }, semanticsEnabled: false);
 
   testWidgets(
       'HomeDropCard shows a relative post timestamp under the author name '
@@ -640,7 +656,7 @@ void main() {
     tester.takeException();
 
     expect(find.text('5 นาทีที่แล้ว'), findsOneWidget);
-  });
+  }, semanticsEnabled: false);
 
   testWidgets(
       'DS-003: shows exactly one hairline divider between 2 posts, none '
@@ -667,7 +683,7 @@ void main() {
     expect(find.text('แคปชัน Drop'), findsOneWidget);
     expect(find.text('แคปชัน Pop'), findsOneWidget);
     expect(find.byType(Divider), findsOneWidget);
-  });
+  }, semanticsEnabled: false);
 
   testWidgets(
       'shows the WYNOS new-account empty state (Feature 3, spec 4.5) when '
@@ -687,7 +703,7 @@ void main() {
     // "still falls back..." test further down for when this old message
     // is still reachable (the account already follows people).
     expect(find.text('ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!'), findsNothing);
-  });
+  }, semanticsEnabled: false);
 
   testWidgets(
       'still falls back to the old generic empty message when the account '
@@ -705,7 +721,7 @@ void main() {
 
     expect(find.text('ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!'), findsOneWidget);
     expect(find.text('ยังไม่มีอะไรให้ดูตรงนี้'), findsNothing);
-  });
+  }, semanticsEnabled: false);
 
   group('WYNOS empty-state suggested accounts (Feature 3, spec 4.5)', () {
     testWidgets(
@@ -738,7 +754,7 @@ void main() {
           contains('suggested-1'));
       expect(sharedFollowRepository.toggleFollowCurrentlyFollowingArgs.last,
           isFalse);
-    });
+    }, semanticsEnabled: false);
   });
 
   group('WYNOS new-posts pill (Feature 4, spec 4.4)', () {
@@ -769,7 +785,7 @@ void main() {
       tester.takeException();
 
       expect(find.text('มีโพสต์ใหม่ 3 โพสต์'), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets('tapping the pill scrolls to top, reloads, and clears it',
         (tester) async {
@@ -798,7 +814,7 @@ void main() {
       tester.takeException();
 
       expect(find.textContaining('มีโพสต์ใหม่'), findsNothing);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'never shows on "สำหรับคุณ" (ranked, not chronological) even if new '
@@ -820,7 +836,7 @@ void main() {
       tester.takeException();
 
       expect(find.textContaining('มีโพสต์ใหม่'), findsNothing);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets('switching away from "ล่าสุด" clears a pending pill',
         (tester) async {
@@ -847,7 +863,7 @@ void main() {
       tester.takeException();
 
       expect(find.textContaining('มีโพสต์ใหม่'), findsNothing);
-    });
+    }, semanticsEnabled: false);
   });
 
   group('WYNOS multi-image carousel (Feature 6, spec 4.7)', () {
@@ -873,7 +889,7 @@ void main() {
 
       expect(find.byType(WynosImageCarousel), findsOneWidget);
       expect(find.byType(PageView), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'an ordinary single-image Drop never renders the carousel',
@@ -891,7 +907,7 @@ void main() {
       tester.takeException();
 
       expect(find.byType(WynosImageCarousel), findsNothing);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'a text-only Drop (no image at all) never renders the carousel',
@@ -909,7 +925,7 @@ void main() {
       tester.takeException();
 
       expect(find.byType(WynosImageCarousel), findsNothing);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets('double-tap anywhere in the carousel likes the post',
         (tester) async {
@@ -946,7 +962,7 @@ void main() {
 
       // Let the heart-burst animation finish before the test ends.
       await tester.pumpAndSettle();
-    });
+    }, semanticsEnabled: false);
   });
 
   group('WYNOS liked-by row (Feature 7, spec 4.8)', () {
@@ -964,7 +980,7 @@ void main() {
       tester.takeException();
 
       expect(find.textContaining('ถูกใจ'), findsNothing);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'shows the first liker\'s name in bold when likedBy data is present',
@@ -995,7 +1011,7 @@ void main() {
       // text, not one TextSpan segment alone -- exactly 2 likers shown
       // (both within the 3-shown cap), so there's no "และอีก N คน" tail.
       expect(find.text('ถูกใจโดย WARREN'), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'appends "และอีก N คน" once there are more likers than the 3 shown',
@@ -1025,7 +1041,7 @@ void main() {
 
       // likeCount (5) - shown.length (3) = 2 more.
       expect(find.textContaining('และอีก 2 คน'), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'falls back to a plain count when likeCount > 0 but no likedBy '
@@ -1046,7 +1062,7 @@ void main() {
 
       expect(find.text('ถูกใจ 4 คน'), findsOneWidget);
       expect(find.textContaining('ถูกใจโดย'), findsNothing);
-    });
+    }, semanticsEnabled: false);
   });
 
   group('WYNOS top reply preview (Feature 8, spec 4.10)', () {
@@ -1077,7 +1093,7 @@ void main() {
         find.text('otphichay  น่ารักมาก เป็นกำลังใจให้นะ'),
         findsOneWidget,
       );
-    });
+    }, semanticsEnabled: false);
 
     testWidgets('tapping the reply preview opens the Drop detail screen',
         (tester) async {
@@ -1107,7 +1123,7 @@ void main() {
       tester.takeException();
 
       expect(find.byType(DropDetailScreen), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
   });
 
   group('WYNOS verified badge (Feature 9, spec 4.6)', () {
@@ -1128,7 +1144,7 @@ void main() {
       tester.takeException();
 
       expect(find.byType(WynosVerifiedBadge), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets('shows no badge for an ordinary (unverified) author',
         (tester) async {
@@ -1145,7 +1161,7 @@ void main() {
       tester.takeException();
 
       expect(find.byType(WynosVerifiedBadge), findsNothing);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'shows the badge next to a verified suggested account in the '
@@ -1167,7 +1183,7 @@ void main() {
       tester.takeException();
 
       expect(find.byType(WynosVerifiedBadge), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
   });
 
   testWidgets(
@@ -1194,7 +1210,7 @@ void main() {
     expect(
         dropLikeTestDropRepository.toggleLikeCurrentlyLikedArgs, [false, true]);
     expect(dropLikeTestPopRepository.toggleLikeCalls, 0);
-  });
+  }, semanticsEnabled: false);
 
   testWidgets(
       'rapid double-tap on a Pop card\'s Like routes through '
@@ -1219,7 +1235,7 @@ void main() {
     expect(
         popLikeTestPopRepository.toggleLikeCurrentlyLikedArgs, [false, true]);
     expect(popLikeTestDropRepository.toggleLikeCalls, 0);
-  });
+  }, semanticsEnabled: false);
 
   group('ReDrop action sheet (WYN-034)', () {
     testWidgets(
@@ -1251,7 +1267,7 @@ void main() {
       expect(find.text('🔄 ReDrop'), findsOneWidget);
       expect(find.text('💬 Quote ReDrop'), findsOneWidget);
       expect(find.text('ยกเลิก ReDrop'), findsNothing);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'tapping "🔄 ReDrop" in the sheet calls toggleRedrop with '
@@ -1288,7 +1304,7 @@ void main() {
         [false],
       );
       expect(find.text('1'), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'an already-ReDropped card\'s sheet offers "ยกเลิก ReDrop" instead, '
@@ -1328,7 +1344,7 @@ void main() {
         cancelRedropTestDropRepository.toggleRedropCurrentlyRedroppedArgs,
         [true],
       );
-    });
+    }, semanticsEnabled: false);
 
     testWidgets('tapping "💬 Quote ReDrop" opens QuoteRedropScreen',
         (tester) async {
@@ -1361,7 +1377,7 @@ void main() {
       tester.takeException();
 
       expect(find.byType(QuoteRedropScreen), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'the More menu on the viewer\'s own ReDrop card offers "ลบ ReDrop" '
@@ -1389,7 +1405,7 @@ void main() {
 
       expect(deleteRedropTestDropRepository.deleteRedropCalls, ['r6']);
       expect(find.text('แคปชัน Drop'), findsNothing);
-    });
+    }, semanticsEnabled: false);
   });
 
   group('"Hide" User Signal (WYNOS Unified Home Feed Algorithm V1.0)', () {
@@ -1418,7 +1434,7 @@ void main() {
         [(HomeContentType.drop, 'hide-d1')],
       );
       expect(find.text('แคปชัน Drop'), findsNothing);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'tapping "ไม่สนใจโพสต์นี้" on a Pop card calls hideContent with '
@@ -1443,7 +1459,7 @@ void main() {
         hidePopTestHomeRepository.hideContentArgs,
         [(HomeContentType.pop, 'hide-p1')],
       );
-    });
+    }, semanticsEnabled: false);
 
     testWidgets('a failed hideContent call restores the card and stays '
         'silent (no error banner)', (tester) async {
@@ -1462,7 +1478,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.widgetWithIcon(IconButton, Icons.more_vert), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
   });
 
   group('Poll voting (WYN-035)', () {
@@ -1500,7 +1516,7 @@ void main() {
       // Optimistic update: 1 total vote, Sushi (index 1) at 100%.
       expect(find.text('100%'), findsOneWidget);
       expect(find.text('0%'), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets('a Poll card whose results are already visible shows '
         'percentages and highlights the viewer\'s own vote',
@@ -1515,7 +1531,7 @@ void main() {
       expect(find.text('25%'), findsOneWidget);
       expect(find.text('75%'), findsOneWidget);
       expect(find.byIcon(Icons.check_circle), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets('a failed vote reverts the optimistic update',
         (tester) async {
@@ -1540,7 +1556,7 @@ void main() {
       // what this test actually verifies, same as
       // quote_redrop_screen_test.dart's "a failed post" test.
       expect(find.textContaining('%'), findsNothing);
-    });
+    }, semanticsEnabled: false);
   });
 
   testWidgets(
@@ -1570,7 +1586,7 @@ void main() {
     tester.takeException();
 
     expect(find.byType(DropDetailScreen), findsOneWidget);
-  });
+  }, semanticsEnabled: false);
 
   testWidgets(
       'tapping the Comment icon on a Pop card opens PopSingleClipScreen '
@@ -1599,7 +1615,7 @@ void main() {
     // to tap Comment a second time once the clip loaded. Now the sheet
     // is already open.
     expect(find.byType(PopCommentSheet), findsOneWidget);
-  });
+  }, semanticsEnabled: false);
 
   testWidgets(
       'tapping a Pop card itself (not its Comment icon) opens '
@@ -1633,7 +1649,7 @@ void main() {
 
     expect(find.byType(PopSingleClipScreen), findsOneWidget);
     expect(find.byType(PopCommentSheet), findsNothing);
-  });
+  }, semanticsEnabled: false);
 
   group('"สำหรับคุณ"/"จาก Club ของคุณ" feed toggle (WYN-015)', () {
     testWidgets('defaults to "สำหรับคุณ" showing the regular Drop/Pop feed',
@@ -1648,7 +1664,7 @@ void main() {
 
       expect(find.text('แคปชัน Drop'), findsOneWidget);
       expect(find.byKey(const Key('from_your_clubs_feed')), findsNothing);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'switching to "จาก Club ของคุณ" shows Club posts instead of Drop/Pop',
@@ -1667,7 +1683,7 @@ void main() {
 
       expect(find.text('โพสต์จาก Club ที่เข้าร่วม'), findsOneWidget);
       expect(find.text('แคปชัน Drop'), findsNothing);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'shows a join-prompt message on "จาก Club ของคุณ" when the user has no '
@@ -1696,7 +1712,7 @@ void main() {
         matching: find.widgetWithText(OutlinedButton, 'สำรวจ Club'),
       );
       expect(joinPromptExploreButton, findsOneWidget);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         '"สำรวจ Club" button on the join-prompt opens ExploreClubsScreen '
@@ -1733,7 +1749,7 @@ void main() {
         emptyFromClubsPostRepository.fetchFromJoinedClubsCalls,
         greaterThan(callsBeforeExplore),
       );
-    });
+    }, semanticsEnabled: false);
 
     testWidgets('switching back to "สำหรับคุณ" restores the regular feed',
         (tester) async {
@@ -1754,7 +1770,7 @@ void main() {
 
       expect(find.text('แคปชัน Drop'), findsOneWidget);
       expect(find.text('โพสต์จาก Club ที่เข้าร่วม'), findsNothing);
-    });
+    }, semanticsEnabled: false);
   });
 
   group('Home feed ranking (WYN-018)', () {
@@ -1772,7 +1788,7 @@ void main() {
       expect(find.text('จากสำหรับคุณ'), findsOneWidget);
       expect(find.text('จากล่าสุด'), findsNothing);
       expect(rankingTestHomeRepository.fetchRankedFeedCalls, 1);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets('switching to "ล่าสุด" shows the chronological feed instead',
         (tester) async {
@@ -1790,7 +1806,7 @@ void main() {
 
       expect(find.text('จากล่าสุด'), findsOneWidget);
       expect(find.text('จากสำหรับคุณ'), findsNothing);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'switching back to "สำหรับคุณ" from "ล่าสุด" restores the ranked feed',
@@ -1811,7 +1827,7 @@ void main() {
 
       expect(find.text('จากสำหรับคุณ'), findsOneWidget);
       expect(find.text('จากล่าสุด'), findsNothing);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'all 4 segments ("สำหรับคุณ"/"ติดตาม"/"ล่าสุด"/"จาก Club ของคุณ") are present (WYN-024)',
@@ -1828,7 +1844,7 @@ void main() {
       expect(find.text('ติดตาม'), findsOneWidget);
       expect(find.text('ล่าสุด'), findsOneWidget);
       expect(find.text('จาก Club ของคุณ'), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'a Rainbow accent dot (DS-009) marks whichever segment is active, and only that one',
@@ -1850,7 +1866,7 @@ void main() {
       // Still exactly one -- it moved with the selection, it didn't
       // multiply.
       expect(_activeSegmentAccent(), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'the widest segment label ("จาก Club ของคุณ") stays single-line at real phone '
@@ -1898,7 +1914,7 @@ void main() {
       expect(renderParagraph.size.height, lessThan(25),
           reason: 'label must stay a single line (ellipsis-truncated if it '
               'does not fit), not wrap vertically and grow the row taller');
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'the selected-checkmark icon is off (QA round 3 regression, 2026-08-22) -- '
@@ -1922,7 +1938,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
       expect(find.byIcon(Icons.check), findsNothing);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'the two short segment labels ("ติดตาม"/"ล่าสุด") are fully legible, not '
@@ -1962,7 +1978,7 @@ void main() {
             reason: '"$label" is short enough that it should render fully, '
                 'not get ellipsis-truncated, once the checkmark icon is off');
       }
-    });
+    }, semanticsEnabled: false);
 
     for (final width in [360.0, 375.0, 390.0, 414.0, 430.0]) {
       testWidgets(
@@ -2022,7 +2038,7 @@ void main() {
         // active segment, even though segments are no longer stretched
         // to equal widths within the (now scrollable) row.
         expect(_activeSegmentAccent(), findsOneWidget);
-      });
+      }, semanticsEnabled: false);
     }
   });
 
@@ -2052,7 +2068,7 @@ void main() {
       tester.takeException();
 
       expect(find.text(headline), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'tapping the X dismisses it immediately and persists the dismissal',
@@ -2071,14 +2087,18 @@ void main() {
       tester.takeException();
       expect(find.text(headline), findsOneWidget);
 
-      await tester.tap(find.bySemanticsLabel('ปิดคำแนะนำนี้ถาวร'));
+      // find.byIcon rather than find.bySemanticsLabel -- this whole file
+      // otherwise runs with semanticsEnabled: false (see the block
+      // comment near the top of this file for why), so no test can rely
+      // on Flutter's semantics tree to locate a widget.
+      await tester.tap(find.byIcon(Icons.close));
       await tester.pumpAndSettle();
       tester.takeException();
       expect(find.text(headline), findsNothing);
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool(dismissedPrefKey), isTrue);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets('stays hidden on a fresh mount once already dismissed',
         (tester) async {
@@ -2095,7 +2115,7 @@ void main() {
       tester.takeException();
 
       expect(find.text(headline), findsNothing);
-    });
+    }, semanticsEnabled: false);
   });
 
   group('"ติดตาม" (Following) feed mode (WYN-024)', () {
@@ -2117,7 +2137,7 @@ void main() {
       expect(find.text('จากติดตาม'), findsOneWidget);
       expect(find.text('จากล่าสุด'), findsNothing);
       expect(followingTestHomeRepository.fetchFollowingFeedCalls, 1);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'shows the WYNOS new-account empty state on "ติดตาม" too (Feature 3) '
@@ -2141,7 +2161,7 @@ void main() {
             'ยังไม่ได้ follow ใครเลย ลองดู สำหรับคุณ เพื่อค้นหาคนน่าสนใจ'),
         findsNothing,
       );
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'still shows the old join-prompt message on "ติดตาม" when the '
@@ -2168,7 +2188,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('ยังไม่มีอะไรให้ดูตรงนี้'), findsNothing);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'switching back to "สำหรับคุณ" from "ติดตาม" restores the ranked feed',
@@ -2188,7 +2208,7 @@ void main() {
       tester.takeException();
 
       expect(find.text('จากสำหรับคุณ'), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
   });
 
   group('Trending row (WYN-017)', () {
@@ -2205,7 +2225,7 @@ void main() {
 
       expect(find.text('กำลังนิยม'), findsOneWidget);
       expect(find.byType(TrendingTile), findsNWidgets(2));
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'shows an empty message instead of crashing when there is no trending content',
@@ -2221,7 +2241,7 @@ void main() {
       expect(find.text('กำลังนิยม'), findsOneWidget);
       expect(find.byType(TrendingTile), findsNothing);
       expect(find.text('ยังไม่มี content กำลังนิยม'), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets('tapping a Drop trending tile opens DropDetailScreen',
         (tester) async {
@@ -2238,7 +2258,7 @@ void main() {
       tester.takeException();
 
       expect(find.byType(DropDetailScreen), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets('tapping a Pop trending tile opens PopSingleClipScreen',
         (tester) async {
@@ -2255,7 +2275,7 @@ void main() {
       tester.takeException();
 
       expect(find.byType(PopSingleClipScreen), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
   });
 
   group('Recommended Clubs row (WYN-017)', () {
@@ -2273,7 +2293,7 @@ void main() {
 
       expect(find.text('Club แนะนำ'), findsOneWidget);
       expect(find.text('Club กำลังนิยม'), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets('hides "Club แนะนำ" once the user has joined 3 or more Clubs',
         (tester) async {
@@ -2288,7 +2308,7 @@ void main() {
 
       expect(find.text('Club แนะนำ'), findsNothing);
       expect(find.text('Club กำลังนิยม'), findsNothing);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets('tapping a recommended Club opens ClubPage', (tester) async {
       await tester.pumpWidget(buildHome(
@@ -2305,7 +2325,7 @@ void main() {
       tester.takeException();
 
       expect(find.byType(ClubPage), findsOneWidget);
-    });
+    }, semanticsEnabled: false);
   });
 
   group('Tap Home Tab to Scroll to Top & Refresh (WYN-064)', () {
@@ -2342,7 +2362,7 @@ void main() {
       // Case 1 (Scroll Position > 0 -> Scroll to Top): no refetch, just
       // the scroll animation -- still the single initial-load call.
       expect(scrollToTopTestHomeRepository.fetchRankedFeedCalls, 1);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets('reselecting Home while already at the top triggers a refresh',
         (tester) async {
@@ -2364,7 +2384,7 @@ void main() {
       tester.takeException();
 
       expect(triggerRefreshTestHomeRepository.fetchRankedFeedCalls, 2);
-    });
+    }, semanticsEnabled: false);
 
     testWidgets(
         'reselecting Home while a refresh is already loading does not fire '
@@ -2394,6 +2414,6 @@ void main() {
       await tester.pump();
       expect(duplicateFetchGuardTestHomeRepository.fetchRankedFeedCalls, 1);
       tester.takeException();
-    });
+    }, semanticsEnabled: false);
   });
 }
