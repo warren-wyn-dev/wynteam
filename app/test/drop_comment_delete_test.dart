@@ -78,6 +78,15 @@ void main() {
   testWidgets(
       'shows a delete button only next to the current user\'s own comment',
       (tester) async {
+    // The pinned comment composer footer (now taller with its own
+    // avatar row, see 07-post-detail.tsx's restyle) can overlap a
+    // scrolled-into-view comment row on the default 800x600 test
+    // surface -- a tall custom viewport avoids that, same fix as this
+    // file's own DS-008 touch-target tests elsewhere in this suite.
+    tester.view.physicalSize = const Size(800, 2200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(MaterialApp(
       home: DropDetailScreen(dropRepository: repo, followRepository: followRepo, profileRepository: profileRepo, popRepository: popRepo, savedRepository: savedRepo, drop: drop),
     ));
@@ -104,6 +113,11 @@ void main() {
   testWidgets(
       'deleting an own comment asks for confirmation, then removes it from '
       'the list and decrements the Drop\'s comment count', (tester) async {
+    // Same tall-viewport fix as the test above.
+    tester.view.physicalSize = const Size(800, 2200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(MaterialApp(
       home: DropDetailScreen(dropRepository: repo, followRepository: followRepo, profileRepository: profileRepo, popRepository: popRepo, savedRepository: savedRepo, drop: drop),
     ));
@@ -133,14 +147,17 @@ void main() {
     expect(find.text('คอมเมนต์ของฉันเอง'), findsNothing);
     expect(find.text('คอมเมนต์ของคนอื่น'), findsOneWidget);
 
-    // The Drop's own comment-count label sits in the header, above the
-    // comments -- scroll back up to see it reflect the decrement.
+    // The Drop's own comment-count label sits in the header's stat line,
+    // above the comments -- scroll back up to see it reflect the
+    // decrement. 07-post-detail.tsx's own stat line omits a comment
+    // count entirely, but the real app keeps one (Founder decision,
+    // 2026-08-29) -- see DropDetailScreen._buildStatLine.
     await tester.scrollUntilVisible(
-      find.text('1'),
+      find.text('1 คอมเมนต์'),
       -500,
       scrollable: find.byType(Scrollable).first,
     );
     tester.takeException();
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('1 คอมเมนต์'), findsOneWidget);
   });
 }
