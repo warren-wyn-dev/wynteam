@@ -901,14 +901,14 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                             // tests (home_feed_screen_test.dart) already
                             // assert on it, and it's an internal test
                             // hook with no user-facing meaning to rename.
-                            key: Key('active_segment_accent'),
+                            key: const Key('active_segment_accent'),
                             height: 2,
                             child: DecoratedBox(
                               decoration: BoxDecoration(
                                 color: _feedMode == mode
                                     ? WynosHomeColors.sapphire
                                     : Colors.transparent,
-                                borderRadius: BorderRadius.all(
+                                borderRadius: const BorderRadius.all(
                                     Radius.circular(WynSpacing.radiusFull)),
                               ),
                             ),
