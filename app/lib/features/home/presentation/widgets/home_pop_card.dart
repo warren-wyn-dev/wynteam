@@ -156,51 +156,48 @@ class HomePopCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     // WYNOS Home reference spec 4.7 -- same widget as
                     // HomeDropCard, not scoped to Drop content only.
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: WynosDoubleTapLike(
-                        onLike: onToggleLike,
-                        alreadyLiked: item.likedByMe,
-                        child: AspectRatio(
-                          aspectRatio: 1,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              if (item.thumbnailUrl != null)
-                                Image.network(item.thumbnailUrl!, fit: BoxFit.cover)
-                              else
-                                Container(color: WynColors.imageScrim),
-                              const Center(
-                                child: Icon(
-                                  Icons.play_circle_fill,
-                                  color: Colors.white,
-                                  size: 56,
-                                ),
+                    WynosDoubleTapLike(
+                      onLike: onToggleLike,
+                      alreadyLiked: item.likedByMe,
+                      child: AspectRatio(
+                        aspectRatio: 1,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            if (item.thumbnailUrl != null)
+                              Image.network(item.thumbnailUrl!, fit: BoxFit.cover)
+                            else
+                              Container(color: WynColors.imageScrim),
+                            const Center(
+                              child: Icon(
+                                Icons.play_circle_fill,
+                                color: Colors.white,
+                                size: 56,
                               ),
-                              if (item.durationSeconds != null)
-                                Positioned(
-                                  right: 8,
-                                  bottom: 8,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: WynColors.imageScrim,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      _formatDuration(item.durationSeconds!),
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                      ),
+                            ),
+                            if (item.durationSeconds != null)
+                              Positioned(
+                                right: 8,
+                                bottom: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: WynColors.imageScrim,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    _formatDuration(item.durationSeconds!),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
                                     ),
                                   ),
                                 ),
-                            ],
-                          ),
+                              ),
+                          ],
                         ),
                       ),
                     ),

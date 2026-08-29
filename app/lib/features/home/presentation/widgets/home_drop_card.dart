@@ -381,17 +381,14 @@ class HomeDropCard extends StatelessWidget {
                           // Home only; see that widget's doc comment
                           // for why this isn't just DoubleTapLike with
                           // new numbers.
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: WynosDoubleTapLike(
-                              onLike: onToggleLike,
-                              alreadyLiked: item.likedByMe,
-                              child: AspectRatio(
-                                aspectRatio: 1,
-                                child: Image.network(
-                                  item.imageUrl!,
-                                  fit: BoxFit.cover,
-                                ),
+                          WynosDoubleTapLike(
+                            onLike: onToggleLike,
+                            alreadyLiked: item.likedByMe,
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: Image.network(
+                                item.imageUrl!,
+                                fit: BoxFit.cover,
                               ),
                             ),
                           ),
