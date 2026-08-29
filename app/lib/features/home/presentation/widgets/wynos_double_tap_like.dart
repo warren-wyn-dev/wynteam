@@ -99,6 +99,11 @@ class _WynosDoubleTapLikeState extends State<WynosDoubleTapLike>
     return GestureDetector(
       onDoubleTap: _handleDoubleTap,
       onTap: widget.onTap,
+      // opaque, not the GestureDetector default of deferToChild -- this
+      // wraps an Image.network that may still be loading or have failed
+      // to load (a broken/placeholder frame's own hit-testability isn't
+      // something this widget should depend on to register taps).
+      behavior: HitTestBehavior.opaque,
       child: Stack(
         alignment: Alignment.center,
         children: [

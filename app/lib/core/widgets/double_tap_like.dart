@@ -100,6 +100,9 @@ class _DoubleTapLikeState extends State<DoubleTapLike>
     return GestureDetector(
       onDoubleTap: _handleDoubleTap,
       onTap: widget.onTap,
+      // opaque, not the GestureDetector default of deferToChild -- see
+      // WynosDoubleTapLike's identical doc comment.
+      behavior: HitTestBehavior.opaque,
       child: Stack(
         alignment: Alignment.center,
         children: [

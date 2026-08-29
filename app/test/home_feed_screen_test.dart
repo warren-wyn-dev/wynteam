@@ -1181,8 +1181,11 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
+      // HomeTopReply.authorNameOrUsername falls back to "@username" when
+      // no displayName is set (same shared displayNameOrUsername
+      // convention as Profile/Post/Comment) -- this fixture has none.
       expect(
-        find.text('otphichay  น่ารักมาก เป็นกำลังใจให้นะ'),
+        find.text('@otphichay  น่ารักมาก เป็นกำลังใจให้นะ'),
         findsOneWidget,
       );
     }, semanticsEnabled: false);
@@ -1199,7 +1202,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      await tester.tap(find.text('wor_aa  อยากไปด้วยยย'));
+      await tester.tap(find.text('@wor_aa  อยากไปด้วยยย'));
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -1580,11 +1583,13 @@ void main() {
         of: find.text('Sushi'),
         matching: find.byType(InkWell),
       );
-      // 2 ancestors: HomeDropCard's own outer InkWell (opens the
-      // Drop) and the option's own inner InkWell (votes) -- the
-      // closer (first) one is the option's.
-      expect(sushiInkWell, findsNWidgets(2));
-      tester.widget<InkWell>(sushiInkWell.first).onTap!();
+      // Just the option's own InkWell (votes) -- HomeDropCard's
+      // ambient tap-to-open InkWell sits in a Stack behind the card
+      // content rather than wrapping it (so it never competes with
+      // WynosDoubleTapLike's double-tap recognizer for the media
+      // area), so it's a sibling, not an ancestor, of the Poll.
+      expect(sushiInkWell, findsOneWidget);
+      tester.widget<InkWell>(sushiInkWell).onTap!();
       await tester.pumpAndSettle();
 
       expect(pollVoteTestDropRepository.votePollArgs, [('poll-d1', 1)]);
@@ -1621,8 +1626,9 @@ void main() {
         of: find.text('Pizza'),
         matching: find.byType(InkWell),
       );
-      expect(pizzaInkWell, findsNWidgets(2));
-      tester.widget<InkWell>(pizzaInkWell.first).onTap!();
+      // See the identical assertion's comment in the previous test.
+      expect(pizzaInkWell, findsOneWidget);
+      tester.widget<InkWell>(pizzaInkWell).onTap!();
       await tester.pumpAndSettle();
 
       // RecordingDropRepository.votePoll throws before recording the
@@ -1810,7 +1816,11 @@ void main() {
         of: find.byKey(const Key('from_your_clubs_feed')),
         matching: find.widgetWithText(OutlinedButton, 'สำรวจ Club'),
       );
-      await tester.tap(joinPromptExploreButton);
+      // Same off-screen-hit-test-avoidance as elsewhere in this file --
+      // the empty state's ConstrainedBox(minHeight: full viewport)
+      // centers this button at a position tester.tap() can't reliably
+      // hit-test, so invoke its onPressed directly instead.
+      tester.widget<OutlinedButton>(joinPromptExploreButton).onPressed!();
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -2165,8 +2175,19 @@ void main() {
       // find.byIcon rather than find.bySemanticsLabel -- this whole file
       // otherwise runs with semanticsEnabled: false (see the block
       // comment near the top of this file for why), so no test can rely
-      // on Flutter's semantics tree to locate a widget.
-      await tester.tap(find.byIcon(Icons.close));
+      // on Flutter's semantics tree to locate a widget. Same off-screen/
+      // overlay-obscured-hit-test-avoidance pattern as elsewhere in this
+      // file -- tester.tap() at this icon's coordinate hits the app's
+      // Overlay rather than the banner's own GestureDetector, so invoke
+      // its onTap directly instead.
+      tester
+          .widget<GestureDetector>(
+            find.ancestor(
+              of: find.byIcon(Icons.close),
+              matching: find.byType(GestureDetector),
+            ),
+          )
+          .onTap!();
       await tester.pumpAndSettle();
       tester.takeException();
       expect(find.text(headline), findsNothing);
