@@ -306,6 +306,30 @@ void main() {
   late RecordingHomeRepository newPostsPillTapTestHomeRepository;
   late RecordingHomeRepository newPostsPillRankedTestHomeRepository;
   late RecordingHomeRepository newPostsPillSwitchAwayTestHomeRepository;
+
+  // Same WYN-005 reasoning as the new-posts-pill fixtures above -- these
+  // 12 (WYNOS carousel/liked-by/top-reply/verified-badge groups) were
+  // still building a fresh RecordingHomeRepository() inline per test.
+  // That alone doesn't fail every time (plenty of earlier tests in this
+  // file do the same and pass), but by the time the suite reaches this
+  // point enough SupabaseClients have been constructed across the whole
+  // run that the timing margin for a stray one's auto-refresh Timer to
+  // actually settle before its own test's teardown check runs is gone,
+  // and it fails consistently for every remaining inline-built repo
+  // from here on. Moving them to setUpAll removes them from the count
+  // entirely, the same fix already applied to new-posts-pill.
+  late RecordingHomeRepository carouselMultiImageTestHomeRepository;
+  late RecordingHomeRepository carouselSingleImageTestHomeRepository;
+  late RecordingHomeRepository carouselTextOnlyTestHomeRepository;
+  late RecordingHomeRepository carouselDoubleTapTestHomeRepository;
+  late RecordingHomeRepository likedByZeroTestHomeRepository;
+  late RecordingHomeRepository likedByFirstNameTestHomeRepository;
+  late RecordingHomeRepository likedByMoreTestHomeRepository;
+  late RecordingHomeRepository likedByFallbackTestHomeRepository;
+  late RecordingHomeRepository topReplyShowsTestHomeRepository;
+  late RecordingHomeRepository topReplyTapTestHomeRepository;
+  late RecordingHomeRepository verifiedBadgeShowsTestHomeRepository;
+  late RecordingHomeRepository verifiedBadgeNoneTestHomeRepository;
   late _DelayedHomeRepository duplicateFetchGuardTestHomeRepository;
 
   setUpAll(() async {
@@ -541,6 +565,87 @@ void main() {
     );
     newPostsPillSwitchAwayTestHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'newpost-l4', hasImage: false)],
+    );
+    carouselMultiImageTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'carousel-1', imageCount: 3)],
+    );
+    carouselSingleImageTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'single-1')],
+    );
+    carouselTextOnlyTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'text-only-1', hasImage: false)],
+    );
+    carouselDoubleTapTestHomeRepository = RecordingHomeRepository(
+      feedItems: [
+        _dropItem(id: 'carousel-2', likedByMe: false, imageCount: 2),
+      ],
+    );
+    likedByZeroTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'liked-0', likeCount: 0, hasImage: false)],
+    );
+    likedByFirstNameTestHomeRepository = RecordingHomeRepository(
+      feedItems: [
+        _dropItem(
+          id: 'liked-1',
+          likeCount: 2,
+          hasImage: false,
+          likedBy: const [
+            HomeLiker(username: 'warren', displayName: 'WARREN'),
+            HomeLiker(username: 'zen', displayName: 'ZEN'),
+          ],
+        ),
+      ],
+    );
+    likedByMoreTestHomeRepository = RecordingHomeRepository(
+      feedItems: [
+        _dropItem(
+          id: 'liked-2',
+          likeCount: 5,
+          hasImage: false,
+          likedBy: const [
+            HomeLiker(username: 'a', displayName: 'A'),
+            HomeLiker(username: 'b', displayName: 'B'),
+            HomeLiker(username: 'c', displayName: 'C'),
+          ],
+        ),
+      ],
+    );
+    likedByFallbackTestHomeRepository = RecordingHomeRepository(
+      feedItems: [
+        _dropItem(id: 'liked-3', likeCount: 4, hasImage: false),
+      ],
+    );
+    topReplyShowsTestHomeRepository = RecordingHomeRepository(
+      feedItems: [
+        _dropItem(
+          id: 'reply-1',
+          hasImage: false,
+          topReply: const HomeTopReply(
+            authorUsername: 'otphichay',
+            text: 'น่ารักมาก เป็นกำลังใจให้นะ',
+          ),
+        ),
+      ],
+    );
+    topReplyTapTestHomeRepository = RecordingHomeRepository(
+      feedItems: [
+        _dropItem(
+          id: 'reply-2',
+          hasImage: false,
+          topReply: const HomeTopReply(
+            authorUsername: 'wor_aa',
+            text: 'อยากไปด้วยยย',
+          ),
+        ),
+      ],
+    );
+    verifiedBadgeShowsTestHomeRepository = RecordingHomeRepository(
+      feedItems: [
+        _dropItem(id: 'verified-1', hasImage: false, authorIsVerified: true),
+      ],
+    );
+    verifiedBadgeNoneTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'verified-2', hasImage: false)],
     );
   });
 
@@ -908,9 +1013,7 @@ void main() {
   group('WYNOS multi-image carousel (Feature 6, spec 4.7)', () {
     testWidgets('a Drop with imageCount > 1 renders the peek-card carousel',
         (tester) async {
-      final repo = RecordingHomeRepository(
-        feedItems: [_dropItem(id: 'carousel-1', imageCount: 3)],
-      );
+      final repo = carouselMultiImageTestHomeRepository;
       sharedDropRepository.dropImagesById['carousel-1'] = [
         'https://example.supabase.co/drops/carousel-1-a.jpg',
         'https://example.supabase.co/drops/carousel-1-b.jpg',
@@ -933,9 +1036,7 @@ void main() {
     testWidgets(
         'an ordinary single-image Drop never renders the carousel',
         (tester) async {
-      final repo = RecordingHomeRepository(
-        feedItems: [_dropItem(id: 'single-1')],
-      );
+      final repo = carouselSingleImageTestHomeRepository;
 
       await tester.pumpWidget(buildHome(
         repo,
@@ -951,9 +1052,7 @@ void main() {
     testWidgets(
         'a text-only Drop (no image at all) never renders the carousel',
         (tester) async {
-      final repo = RecordingHomeRepository(
-        feedItems: [_dropItem(id: 'text-only-1', hasImage: false)],
-      );
+      final repo = carouselTextOnlyTestHomeRepository;
 
       await tester.pumpWidget(buildHome(
         repo,
@@ -968,11 +1067,7 @@ void main() {
 
     testWidgets('double-tap anywhere in the carousel likes the post',
         (tester) async {
-      final repo = RecordingHomeRepository(
-        feedItems: [
-          _dropItem(id: 'carousel-2', likedByMe: false, imageCount: 2),
-        ],
-      );
+      final repo = carouselDoubleTapTestHomeRepository;
       sharedDropRepository.dropImagesById['carousel-2'] = [
         'https://example.supabase.co/drops/carousel-2-a.jpg',
         'https://example.supabase.co/drops/carousel-2-b.jpg',
@@ -1006,9 +1101,7 @@ void main() {
 
   group('WYNOS liked-by row (Feature 7, spec 4.8)', () {
     testWidgets('hidden entirely when like count is 0', (tester) async {
-      final repo = RecordingHomeRepository(
-        feedItems: [_dropItem(id: 'liked-0', likeCount: 0, hasImage: false)],
-      );
+      final repo = likedByZeroTestHomeRepository;
 
       await tester.pumpWidget(buildHome(
         repo,
@@ -1024,19 +1117,7 @@ void main() {
     testWidgets(
         'shows the first liker\'s name in bold when likedBy data is present',
         (tester) async {
-      final repo = RecordingHomeRepository(
-        feedItems: [
-          _dropItem(
-            id: 'liked-1',
-            likeCount: 2,
-            hasImage: false,
-            likedBy: const [
-              HomeLiker(username: 'warren', displayName: 'WARREN'),
-              HomeLiker(username: 'zen', displayName: 'ZEN'),
-            ],
-          ),
-        ],
-      );
+      final repo = likedByFirstNameTestHomeRepository;
 
       await tester.pumpWidget(buildHome(
         repo,
@@ -1055,20 +1136,7 @@ void main() {
     testWidgets(
         'appends "และอีก N คน" once there are more likers than the 3 shown',
         (tester) async {
-      final repo = RecordingHomeRepository(
-        feedItems: [
-          _dropItem(
-            id: 'liked-2',
-            likeCount: 5,
-            hasImage: false,
-            likedBy: const [
-              HomeLiker(username: 'a', displayName: 'A'),
-              HomeLiker(username: 'b', displayName: 'B'),
-              HomeLiker(username: 'c', displayName: 'C'),
-            ],
-          ),
-        ],
-      );
+      final repo = likedByMoreTestHomeRepository;
 
       await tester.pumpWidget(buildHome(
         repo,
@@ -1085,11 +1153,7 @@ void main() {
     testWidgets(
         'falls back to a plain count when likeCount > 0 but no likedBy '
         'data is available (e.g. a fromDrop-sourced item)', (tester) async {
-      final repo = RecordingHomeRepository(
-        feedItems: [
-          _dropItem(id: 'liked-3', likeCount: 4, hasImage: false),
-        ],
-      );
+      final repo = likedByFallbackTestHomeRepository;
 
       await tester.pumpWidget(buildHome(
         repo,
@@ -1107,18 +1171,7 @@ void main() {
   group('WYNOS top reply preview (Feature 8, spec 4.10)', () {
     testWidgets('shows the replier\'s name and text when a top reply exists',
         (tester) async {
-      final repo = RecordingHomeRepository(
-        feedItems: [
-          _dropItem(
-            id: 'reply-1',
-            hasImage: false,
-            topReply: const HomeTopReply(
-              authorUsername: 'otphichay',
-              text: 'น่ารักมาก เป็นกำลังใจให้นะ',
-            ),
-          ),
-        ],
-      );
+      final repo = topReplyShowsTestHomeRepository;
 
       await tester.pumpWidget(buildHome(
         repo,
@@ -1136,18 +1189,7 @@ void main() {
 
     testWidgets('tapping the reply preview opens the Drop detail screen',
         (tester) async {
-      final repo = RecordingHomeRepository(
-        feedItems: [
-          _dropItem(
-            id: 'reply-2',
-            hasImage: false,
-            topReply: const HomeTopReply(
-              authorUsername: 'wor_aa',
-              text: 'อยากไปด้วยยย',
-            ),
-          ),
-        ],
-      );
+      final repo = topReplyTapTestHomeRepository;
 
       await tester.pumpWidget(buildHome(
         repo,
@@ -1168,11 +1210,7 @@ void main() {
   group('WYNOS verified badge (Feature 9, spec 4.6)', () {
     testWidgets('shows the badge next to a verified author\'s name',
         (tester) async {
-      final repo = RecordingHomeRepository(
-        feedItems: [
-          _dropItem(id: 'verified-1', hasImage: false, authorIsVerified: true),
-        ],
-      );
+      final repo = verifiedBadgeShowsTestHomeRepository;
 
       await tester.pumpWidget(buildHome(
         repo,
@@ -1187,9 +1225,7 @@ void main() {
 
     testWidgets('shows no badge for an ordinary (unverified) author',
         (tester) async {
-      final repo = RecordingHomeRepository(
-        feedItems: [_dropItem(id: 'verified-2', hasImage: false)],
-      );
+      final repo = verifiedBadgeNoneTestHomeRepository;
 
       await tester.pumpWidget(buildHome(
         repo,

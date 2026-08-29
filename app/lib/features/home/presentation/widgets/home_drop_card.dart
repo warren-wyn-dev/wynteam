@@ -215,18 +215,32 @@ class HomeDropCard extends StatelessWidget {
     return DoubleTapLike(
       onLike: onToggleLike,
       alreadyLiked: item.likedByMe,
+      onTap: onTap,
       child: column,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    // The tap-to-open InkWell sits *behind* the actual content in a
+    // Stack rather than wrapping it -- an ancestor GestureDetector/
+    // InkWell with a plain onTap (no onDoubleTap of its own) always
+    // wins the gesture arena over a descendant's double-tap recognizer
+    // (see WynosDoubleTapLike/DoubleTapLike's onTap doc comments): it
+    // has no reason to wait out the double-tap disambiguation window,
+    // so it resolves and steals the first tap before a second one can
+    // ever arrive. Stacking it underneath means Flutter's hit test
+    // never even reaches it for a point the media widget's own
+    // GestureDetector already claims, while blank areas the content
+    // doesn't paint anything hit-testable over still fall through to
+    // it exactly as before.
     return Semantics(
       label: 'รูปของ ${item.authorNameOrUsername}',
       button: true,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
+      child: Stack(
+        children: [
+          Positioned.fill(child: InkWell(onTap: onTap)),
+          Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: WynosHomeSpacing.pagePadding,
             vertical: WynosHomeSpacing.postVertical,
@@ -371,6 +385,7 @@ class HomeDropCard extends StatelessWidget {
                                 imageUrls: urls,
                                 onLike: onToggleLike,
                                 alreadyLiked: item.likedByMe,
+                                onTap: onTap,
                               );
                             },
                           )
@@ -384,6 +399,7 @@ class HomeDropCard extends StatelessWidget {
                           WynosDoubleTapLike(
                             onLike: onToggleLike,
                             alreadyLiked: item.likedByMe,
+                            onTap: onTap,
                             child: AspectRatio(
                               aspectRatio: 1,
                               child: Image.network(
@@ -517,7 +533,8 @@ class HomeDropCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
+          ),
+        ],
       ),
     );
   }

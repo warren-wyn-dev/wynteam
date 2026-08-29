@@ -31,11 +31,19 @@ class WynosImageCarousel extends StatelessWidget {
     required this.imageUrls,
     required this.onLike,
     required this.alreadyLiked,
+    this.onTap,
   });
 
   final List<String> imageUrls;
   final VoidCallback onLike;
   final bool alreadyLiked;
+
+  /// Forwarded onto the same GestureDetector as the double-tap-to-like
+  /// recognizer on each page (see [WynosDoubleTapLike.onTap]'s doc
+  /// comment) -- opening the Drop detail screen on a single tap must
+  /// share one recognizer with the double-tap-to-like one, not compete
+  /// with it via a second nested GestureDetector.
+  final VoidCallback? onTap;
 
   static const double _cardWidthFraction = 0.82;
   static const double _cardAspectRatio = 4 / 5;
@@ -72,6 +80,7 @@ class WynosImageCarousel extends StatelessWidget {
                   child: WynosDoubleTapLike(
                     onLike: onLike,
                     alreadyLiked: alreadyLiked,
+                    onTap: onTap,
                     child: Image.network(
                       imageUrls[index],
                       fit: BoxFit.cover,

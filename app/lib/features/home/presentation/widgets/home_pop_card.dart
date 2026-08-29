@@ -92,13 +92,18 @@ class HomePopCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // See HomeDropCard.build's identical doc comment -- the tap-to-open
+    // InkWell sits behind the content in a Stack rather than wrapping
+    // it, so it never competes with WynosDoubleTapLike's double-tap
+    // recognizer for the thumbnail area.
     return Semantics(
       label:
           'วิดีโอของ ${item.authorNameOrUsername} ความยาว ${item.durationSeconds} วินาที',
       button: true,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
+      child: Stack(
+        children: [
+          Positioned.fill(child: InkWell(onTap: onTap)),
+          Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: WynosHomeSpacing.pagePadding,
             vertical: WynosHomeSpacing.postVertical,
@@ -159,6 +164,7 @@ class HomePopCard extends StatelessWidget {
                     WynosDoubleTapLike(
                       onLike: onToggleLike,
                       alreadyLiked: item.likedByMe,
+                      onTap: onTap,
                       child: AspectRatio(
                         aspectRatio: 1,
                         child: Stack(
@@ -293,7 +299,8 @@ class HomePopCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
+          ),
+        ],
       ),
     );
   }
