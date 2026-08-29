@@ -1,9 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/design/wyn_colors.dart';
+import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_typography.dart';
 import '../../block/data/block_repository.dart';
 import '../../block/presentation/blocked_list_screen.dart';
 import '../../club/data/club_post_repository.dart';
@@ -28,22 +32,36 @@ import '../data/data_rights_repository.dart';
 import '../data/notification_settings_repository.dart';
 import 'delete_account_screen.dart';
 import 'notification_settings_screen.dart';
-import '../../../core/design/wyn_spacing.dart';
 
-/// Minimal Settings screen (WYN-027/028, "เครื่องมือผู้ดูแล" section added
-/// by WYN-029, "ความเป็นส่วนตัว" section added by WYN-039) -- the full
-/// Settings (Master Spec section 35: Account/Privacy/Notifications/
-/// Security/Safety/Data/Legal) is WYN-045 (Phase 5), not started yet.
-/// Each round adds only the one section it actually needs, since Blocked
-/// List/Muted List/the Private Account toggle all need *somewhere* to
-/// live per their own Product specs. Deliberately not pre-building empty
-/// sections for the other categories -- a menu that opens to nothing yet
-/// is worse than no menu at all. See
-/// .wyn/docs/design/wyn-027-block-system.md, Screen 4,
-/// .wyn/docs/design/wyn-028-mute-system.md, Screen 3,
-/// .wyn/docs/design/wyn-029-moderation-queue.md, Screen 1, and
-/// .wyn/docs/design/wyn-039-private-account-follow-request.md, Screen 1.
-class SettingsScreen extends StatefulWidget {
+/// 11-settings.tsx -- restyled to the reference's exact 7-row list
+/// (บัญชี/ความเป็นส่วนตัว, การแจ้งเตือน/ธีมเข้ม, ช่วยเหลือ/ข้อกำหนดฯ, then a
+/// separated ออกจากระบบ row), grouped-list pattern (GroupLabel + Row,
+/// same shape as Explore Club's "กำลังนิยม"/"ใหม่ล่าสุด" section labels).
+///
+/// The mockup's own list is a screenshot simplification, not a real
+/// information architecture -- this app's actual Settings has ~20 real,
+/// working rows across Privacy/Notifications/Security/Admin
+/// tools/Data rights/Legal (WYN-027/028/029/039/044/045/046/047), none of
+/// which are reachable from anywhere else in the app. Founder decision
+/// 2026-08-29 (asked via AskUserQuestion): keep the top-level page
+/// pixel-matched to the mockup's 7 rows, but relocate -- never delete --
+/// that real functionality one level deeper, behind the two rows a user
+/// would naturally expect it under:
+///   - "บัญชี" -> [_AccountManagementScreen] (ความปลอดภัย: blocked/muted/
+///     recently-deleted, the conditional "เครื่องมือผู้ดูแล" admin section,
+///     and "ข้อมูลของฉัน": export/delete account)
+///   - "ความเป็นส่วนตัว" -> [_PrivacyScreen] (Private Account toggle + the
+///     3 WYN-045 DM/Mention/Comment permission rows)
+///   - "ข้อกำหนดและความเป็นส่วนตัว" -> [_LegalScreen] (all 6 WYN-046 legal
+///     documents, unchanged)
+///
+/// "ธีมเข้ม" and "ช่วยเหลือ" are shown disabled (muted colors, no chevron,
+/// no onTap) rather than wired to something real or silently dropped, per
+/// the same Founder decision: this app is forced to `ThemeMode.light`
+/// always (WYN-071, main.dart's own comment) so a working dark-theme
+/// toggle would contradict that decision, and there is no Help/FAQ screen
+/// anywhere in the app to point the row at.
+class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
     super.key,
     required this.platformRole,
@@ -57,27 +75,9 @@ class SettingsScreen extends StatefulWidget {
 
   /// Passed in directly from ViewProfileScreen's already-fetched own
   /// profile (WYN-029, Screen 1) -- deliberately not queried again here.
-  /// Besides saving a query, this is a real security-in-depth property:
-  /// the value driving "should this section render at all" comes from a
-  /// row RLS already confirmed belongs to `auth.uid()` itself, with no
-  /// way for this widget to be handed some *other* user's role from the
-  /// UI layer.
   final PlatformRole platformRole;
 
-  /// Same "passed in from ViewProfileScreen's already-fetched profile,
-  /// not re-queried" reasoning as [platformRole] -- WYN-039's Privacy
-  /// toggle's initial value.
   final bool isPrivate;
-
-  /// WYN-045's 3 Interaction Privacy Controls -- same "passed in from
-  /// ViewProfileScreen's already-fetched profile" reasoning as
-  /// [isPrivate], but defaulted to InteractionPermission.everyone
-  /// (rather than required like [isPrivate]/[platformRole]) since that
-  /// is genuinely the correct value for any caller that doesn't have a
-  /// freshly-fetched Profile at hand -- it's these columns' own DB
-  /// default (supabase/schema.sql) for every account that has never
-  /// touched this section, so there is no meaningfully-different
-  /// fallback to force every call site to spell out.
   final InteractionPermission dmPermission;
   final InteractionPermission mentionPermission;
   final InteractionPermission commentPermission;
@@ -91,93 +91,228 @@ class SettingsScreen extends StatefulWidget {
   /// export/delete RPCs.
   final DataRightsRepository? dataRightsRepository;
 
+  /// WYN-016: best-effort -- deregistering this device's push token must
+  /// never block or fail sign-out itself. 05-profile.tsx moves the
+  /// standalone header logout icon into this screen instead -- see the
+  /// last row below -- so this is the one place that action lives now.
+  Future<void> _signOut() async {
+    try {
+      await PushNotificationService(
+              PushTokenRepository(Supabase.instance.client))
+          .unregisterCurrentDevice();
+    } catch (_) {
+      // Intentionally silent -- see comment above.
+    }
+    await Supabase.instance.client.auth.signOut();
+  }
+
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: WynColors.paper,
+      appBar: AppBar(
+        backgroundColor: WynColors.paper,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text('ตั้งค่า', style: WynTypography.fraunces(fontSize: 17, color: WynColors.ink)),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, color: WynColors.hairline),
+        ),
+      ),
+      body: ListView(
+        children: [
+          const _GroupLabel('บัญชี'),
+          _SettingsRow(
+            icon: Icons.person_outline,
+            label: 'บัญชี',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => _AccountManagementScreen(
+                  platformRole: platformRole,
+                  dataRightsRepository: dataRightsRepository,
+                ),
+              ),
+            ),
+          ),
+          _SettingsRow(
+            icon: Icons.lock_outline,
+            label: 'ความเป็นส่วนตัว',
+            isLast: true,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => _PrivacyScreen(
+                  isPrivate: isPrivate,
+                  dmPermission: dmPermission,
+                  mentionPermission: mentionPermission,
+                  commentPermission: commentPermission,
+                  profileRepository: profileRepository,
+                ),
+              ),
+            ),
+          ),
+          const _GroupLabel('การตั้งค่าแอป'),
+          _SettingsRow(
+            icon: Icons.notifications_outlined,
+            label: 'การแจ้งเตือน',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => NotificationSettingsScreen(
+                notificationSettingsRepository:
+                    NotificationSettingsRepository(Supabase.instance.client),
+              ),
+            )),
+          ),
+          const _SettingsRow(
+            icon: Icons.dark_mode_outlined,
+            label: 'ธีมเข้ม',
+            isLast: true,
+          ),
+          const _GroupLabel('ช่วยเหลือ'),
+          const _SettingsRow(
+            icon: Icons.help_outline,
+            label: 'ช่วยเหลือ',
+          ),
+          _SettingsRow(
+            icon: Icons.description_outlined,
+            label: 'ข้อกำหนดและความเป็นส่วนตัว',
+            isLast: true,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const _LegalScreen()),
+            ),
+          ),
+          // ออกจากระบบ -- separated, quieter, extra breathing room above it
+          // (11-settings.tsx: "grouped list pattern... logout... separated,
+          // muted red-free, extra spacing above it so it doesn't blend
+          // into the list above it").
+          Padding(
+            padding: const EdgeInsets.only(top: WynSpacing.space8, bottom: WynSpacing.space8),
+            child: Column(
+              children: [
+                const Divider(height: 1, color: WynColors.hairline),
+                const SizedBox(height: WynSpacing.space2),
+                _SettingsRow(
+                  icon: Icons.logout,
+                  label: 'ออกจากระบบ',
+                  isLast: true,
+                  contentColor: WynColors.graphite,
+                  onTap: _signOut,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
-  late final ProfileRepository _profileRepository =
-      widget.profileRepository ?? ProfileRepository(Supabase.instance.client);
+/// 11-settings.tsx's `GroupLabel` -- same shape as Explore Club's own
+/// section-label component (explore_clubs_screen.dart).
+class _GroupLabel extends StatelessWidget {
+  const _GroupLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WynSpacing.space6, WynSpacing.space6, WynSpacing.space6, WynSpacing.space2,
+      ),
+      child: Text(
+        label,
+        style: _interStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: WynColors.mutedNeutral,
+          letterSpacing: 11 * 0.14,
+        ),
+      ),
+    );
+  }
+}
+
+/// 11-settings.tsx's `Row` -- icon + label + chevron, hairline
+/// border-bottom except on the last row of its group. A row with no
+/// [onTap] renders disabled (muted [WynColors.faint] throughout, no
+/// chevron) -- see this file's own doc comment on "ธีมเข้ม"/"ช่วยเหลือ".
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({
+    required this.icon,
+    required this.label,
+    this.onTap,
+    this.isLast = false,
+    this.contentColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final bool isLast;
+
+  /// Overrides the icon+label color for rows that need a quieter look
+  /// than the default ink -- currently only "ออกจากระบบ" (11-settings.tsx's
+  /// own doc comment: "muted red-free", still just graphite text).
+  final Color? contentColor;
+
+  bool get _enabled => onTap != null;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _enabled ? (contentColor ?? WynColors.ink) : WynColors.faint;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space6, vertical: 14),
+        decoration: BoxDecoration(
+          border: isLast
+              ? null
+              : const Border(bottom: BorderSide(color: WynColors.hairline)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: _interStyle(fontSize: 14, fontWeight: FontWeight.w500, color: color),
+              ),
+            ),
+            if (_enabled)
+              const Icon(Icons.chevron_right, size: 15, color: WynColors.faint),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The real destination behind the "บัญชี" row -- everything account-level
+/// that the 11-settings.tsx mockup has no room for: WYN-027/028's
+/// Blocked/Muted lists, WYN-037's Recently Deleted, WYN-029's admin-only
+/// Moderation Queue, and WYN-047's data export/delete account. See this
+/// file's top doc comment for the relocation rationale.
+class _AccountManagementScreen extends StatefulWidget {
+  const _AccountManagementScreen({
+    required this.platformRole,
+    this.dataRightsRepository,
+  });
+
+  final PlatformRole platformRole;
+  final DataRightsRepository? dataRightsRepository;
+
+  @override
+  State<_AccountManagementScreen> createState() => _AccountManagementScreenState();
+}
+
+class _AccountManagementScreenState extends State<_AccountManagementScreen> {
   late final DataRightsRepository _dataRightsRepository =
-      widget.dataRightsRepository ??
-          DataRightsRepository(Supabase.instance.client);
-  late bool _isPrivate = widget.isPrivate;
-  bool _isTogglingPrivate = false;
+      widget.dataRightsRepository ?? DataRightsRepository(Supabase.instance.client);
   bool _isExporting = false;
-
-  late InteractionPermission _dmPermission = widget.dmPermission;
-  late InteractionPermission _mentionPermission = widget.mentionPermission;
-  late InteractionPermission _commentPermission = widget.commentPermission;
-
-  Future<void> _setIsPrivate(bool value) async {
-    final previous = _isPrivate;
-    setState(() {
-      _isPrivate = value;
-      _isTogglingPrivate = true;
-    });
-    try {
-      await _profileRepository.updateIsPrivate(
-        userId: Supabase.instance.client.auth.currentUser!.id,
-        isPrivate: value,
-      );
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _isPrivate = previous);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
-      );
-    } finally {
-      if (mounted) setState(() => _isTogglingPrivate = false);
-    }
-  }
-
-  /// WYN-045's 3 permission rows all funnel through this one helper --
-  /// [category] picks both which state field to read/revert and which
-  /// ProfileRepository method to call, so the 3 call sites below stay a
-  /// one-line `onChanged` each instead of 3 near-duplicate methods.
-  /// Optimistic + revert-on-fail, same shape as [_setIsPrivate] -- but
-  /// deliberately no in-flight lock (unlike WYN-044's
-  /// NotificationSettingsScreen): only 3 independent rows here, each a
-  /// single-value upsert, so last-write-wins on a rapid re-tap is an
-  /// acceptable tradeoff for not needing a per-row busy flag (Design
-  /// spec's Interactions section).
-  Future<void> _setPermission(
-    String category,
-    InteractionPermission value,
-    void Function(InteractionPermission) apply,
-  ) async {
-    final previous = switch (category) {
-      'dm_permission' => _dmPermission,
-      'mention_permission' => _mentionPermission,
-      'comment_permission' => _commentPermission,
-      _ => throw ArgumentError('Unknown permission category: $category'),
-    };
-
-    setState(() => apply(value));
-    try {
-      final userId = Supabase.instance.client.auth.currentUser!.id;
-      switch (category) {
-        case 'dm_permission':
-          await _profileRepository.updateDmPermission(
-              userId: userId, value: value);
-          break;
-        case 'mention_permission':
-          await _profileRepository.updateMentionPermission(
-              userId: userId, value: value);
-          break;
-        case 'comment_permission':
-          await _profileRepository.updateCommentPermission(
-              userId: userId, value: value);
-          break;
-      }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => apply(previous));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
-      );
-    }
-  }
 
   /// WYN-047's "ดาวน์โหลดข้อมูลของฉัน" row -- calls export_my_data()
   /// directly from this row's onTap, no separate screen (Design spec:
@@ -214,109 +349,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  /// WYN-016: best-effort -- deregistering this device's push token must
-  /// never block or fail sign-out itself. Same body as
-  /// ViewProfileScreen's own `_signOut` (05-profile.tsx moves the
-  /// standalone header logout icon into this screen instead -- see the
-  /// "บัญชี" section below -- so this is the one place that action lives
-  /// now).
-  Future<void> _signOut() async {
-    try {
-      await PushNotificationService(
-              PushTokenRepository(Supabase.instance.client))
-          .unregisterCurrentDevice();
-    } catch (_) {
-      // Intentionally silent -- see comment above.
-    }
-    await Supabase.instance.client.auth.signOut();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('ตั้งค่า')),
+      appBar: AppBar(title: const Text('บัญชี')),
       body: ListView(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              WynSpacing.space4,
-              WynSpacing.space4,
-              WynSpacing.space4,
-              WynSpacing.space1,
-            ),
-            child: Text(
-              'ความเป็นส่วนตัว',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-            ),
-          ),
-          SwitchListTile(
-            secondary: const Icon(Icons.lock_outline),
-            title: const Text('บัญชีส่วนตัว (Private Account)'),
-            subtitle: const Text(
-                'เฉพาะผู้ติดตามที่คุณอนุมัติเท่านั้นที่จะเห็น Drop ของคุณได้'),
-            value: _isPrivate,
-            onChanged: _isTogglingPrivate ? null : _setIsPrivate,
-          ),
-          // WYN-045 -- 3 more rows in this same "ความเป็นส่วนตัว" section,
-          // right after Private Account (Design spec: DM -> Mention ->
-          // Comment, ordered most- to least- likely to reach a stranger
-          // first).
-          _PermissionSettingTile(
-            icon: Icons.mail_outline,
-            title: 'ใครทักข้อความคุณได้',
-            subtitle: 'ควบคุมว่าใครเริ่มบทสนทนาใหม่กับคุณได้',
-            value: _dmPermission,
-            onChanged: (v) =>
-                _setPermission('dm_permission', v, (p) => _dmPermission = p),
-          ),
-          _PermissionSettingTile(
-            icon: Icons.alternate_email,
-            title: 'ใครกล่าวถึงคุณได้',
-            subtitle: 'ควบคุมว่าใครกล่าวถึงคุณใน Drop ได้',
-            value: _mentionPermission,
-            onChanged: (v) => _setPermission(
-                'mention_permission', v, (p) => _mentionPermission = p),
-          ),
-          _PermissionSettingTile(
-            icon: Icons.mode_comment_outlined,
-            title: 'ใครคอมเมนต์โพสต์ของคุณได้',
-            subtitle: 'ควบคุมว่าใครคอมเมนต์ Drop และ Pop ของคุณได้',
-            value: _commentPermission,
-            onChanged: (v) => _setPermission(
-                'comment_permission', v, (p) => _commentPermission = p),
-          ),
-          // WYN-044 -- unconditional for every platformRole (unlike
-          // "เครื่องมือผู้ดูแล" below), since notification preferences
-          // belong to every user regardless of role.
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              WynSpacing.space4,
-              WynSpacing.space4,
-              WynSpacing.space4,
-              WynSpacing.space1,
-            ),
-            child: Text(
-              'การแจ้งเตือน',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.notifications_outlined),
-            title: const Text('การแจ้งเตือน'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => NotificationSettingsScreen(
-                  notificationSettingsRepository:
-                      NotificationSettingsRepository(Supabase.instance.client),
-                ),
-              ));
-            },
-          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
               WynSpacing.space4,
@@ -423,11 +461,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
           ],
-          // WYN-047 -- right before "กฎหมาย" (still one of the last
-          // sections, but not the very last one -- "ข้อมูลของฉัน" is an
-          // action a user actually needs occasionally, unlike the legal
-          // reference documents below that almost nobody ever opens).
-          // See .wyn/docs/design/wyn-047-data-rights.md.
           Padding(
             padding: const EdgeInsets.fromLTRB(
               WynSpacing.space4,
@@ -468,74 +501,194 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
             },
           ),
-          // WYN-046 -- always the very last section on the page,
-          // regardless of platformRole (unlike "เครื่องมือผู้ดูแล" above,
-          // which is conditional) -- these are read-only reference
-          // documents nobody taps often, so they belong last rather than
-          // mixed in with the higher-traffic sections above. See
-          // .wyn/docs/design/wyn-046-platform-documents-acceptance.md.
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              WynSpacing.space4,
-              WynSpacing.space4,
-              WynSpacing.space4,
-              WynSpacing.space1,
-            ),
-            child: Text(
-              'กฎหมาย',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The real destination behind the "ความเป็นส่วนตัว" row -- WYN-039's
+/// Private Account toggle plus WYN-045's 3 DM/Mention/Comment
+/// Interaction Privacy Controls. See this file's top doc comment for the
+/// relocation rationale.
+class _PrivacyScreen extends StatefulWidget {
+  const _PrivacyScreen({
+    required this.isPrivate,
+    required this.dmPermission,
+    required this.mentionPermission,
+    required this.commentPermission,
+    this.profileRepository,
+  });
+
+  final bool isPrivate;
+  final InteractionPermission dmPermission;
+  final InteractionPermission mentionPermission;
+  final InteractionPermission commentPermission;
+  final ProfileRepository? profileRepository;
+
+  @override
+  State<_PrivacyScreen> createState() => _PrivacyScreenState();
+}
+
+class _PrivacyScreenState extends State<_PrivacyScreen> {
+  late final ProfileRepository _profileRepository =
+      widget.profileRepository ?? ProfileRepository(Supabase.instance.client);
+  late bool _isPrivate = widget.isPrivate;
+  bool _isTogglingPrivate = false;
+
+  late InteractionPermission _dmPermission = widget.dmPermission;
+  late InteractionPermission _mentionPermission = widget.mentionPermission;
+  late InteractionPermission _commentPermission = widget.commentPermission;
+
+  Future<void> _setIsPrivate(bool value) async {
+    final previous = _isPrivate;
+    setState(() {
+      _isPrivate = value;
+      _isTogglingPrivate = true;
+    });
+    try {
+      await _profileRepository.updateIsPrivate(
+        userId: Supabase.instance.client.auth.currentUser!.id,
+        isPrivate: value,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isPrivate = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    } finally {
+      if (mounted) setState(() => _isTogglingPrivate = false);
+    }
+  }
+
+  /// WYN-045's 3 permission rows all funnel through this one helper --
+  /// [category] picks both which state field to read/revert and which
+  /// ProfileRepository method to call, so the 3 call sites below stay a
+  /// one-line `onChanged` each instead of 3 near-duplicate methods.
+  /// Optimistic + revert-on-fail, same shape as [_setIsPrivate] -- but
+  /// deliberately no in-flight lock (unlike WYN-044's
+  /// NotificationSettingsScreen): only 3 independent rows here, each a
+  /// single-value upsert, so last-write-wins on a rapid re-tap is an
+  /// acceptable tradeoff for not needing a per-row busy flag (Design
+  /// spec's Interactions section).
+  Future<void> _setPermission(
+    String category,
+    InteractionPermission value,
+    void Function(InteractionPermission) apply,
+  ) async {
+    final previous = switch (category) {
+      'dm_permission' => _dmPermission,
+      'mention_permission' => _mentionPermission,
+      'comment_permission' => _commentPermission,
+      _ => throw ArgumentError('Unknown permission category: $category'),
+    };
+
+    setState(() => apply(value));
+    try {
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+      switch (category) {
+        case 'dm_permission':
+          await _profileRepository.updateDmPermission(
+              userId: userId, value: value);
+          break;
+        case 'mention_permission':
+          await _profileRepository.updateMentionPermission(
+              userId: userId, value: value);
+          break;
+        case 'comment_permission':
+          await _profileRepository.updateCommentPermission(
+              userId: userId, value: value);
+          break;
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => apply(previous));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('ความเป็นส่วนตัว')),
+      body: ListView(
+        children: [
+          SwitchListTile(
+            secondary: const Icon(Icons.lock_outline),
+            title: const Text('บัญชีส่วนตัว (Private Account)'),
+            subtitle: const Text(
+                'เฉพาะผู้ติดตามที่คุณอนุมัติเท่านั้นที่จะเห็น Drop ของคุณได้'),
+            value: _isPrivate,
+            onChanged: _isTogglingPrivate ? null : _setIsPrivate,
           ),
-          const _LegalDocumentTile(
+          _PermissionSettingTile(
+            icon: Icons.mail_outline,
+            title: 'ใครทักข้อความคุณได้',
+            subtitle: 'ควบคุมว่าใครเริ่มบทสนทนาใหม่กับคุณได้',
+            value: _dmPermission,
+            onChanged: (v) =>
+                _setPermission('dm_permission', v, (p) => _dmPermission = p),
+          ),
+          _PermissionSettingTile(
+            icon: Icons.alternate_email,
+            title: 'ใครกล่าวถึงคุณได้',
+            subtitle: 'ควบคุมว่าใครกล่าวถึงคุณใน Drop ได้',
+            value: _mentionPermission,
+            onChanged: (v) => _setPermission(
+                'mention_permission', v, (p) => _mentionPermission = p),
+          ),
+          _PermissionSettingTile(
+            icon: Icons.mode_comment_outlined,
+            title: 'ใครคอมเมนต์โพสต์ของคุณได้',
+            subtitle: 'ควบคุมว่าใครคอมเมนต์ Drop และ Pop ของคุณได้',
+            value: _commentPermission,
+            onChanged: (v) => _setPermission(
+                'comment_permission', v, (p) => _commentPermission = p),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The real destination behind the "ข้อกำหนดและความเป็นส่วนตัว" row --
+/// WYN-046's 6 legal reference documents, unchanged from before this
+/// restyle.
+class _LegalScreen extends StatelessWidget {
+  const _LegalScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('กฎหมาย')),
+      body: ListView(
+        children: const [
+          _LegalDocumentTile(
             title: 'ข้อกำหนดการใช้งาน',
             documentType: PlatformDocumentType.termsOfService,
           ),
-          const _LegalDocumentTile(
+          _LegalDocumentTile(
             title: 'นโยบายความเป็นส่วนตัว',
             documentType: PlatformDocumentType.privacyPolicy,
           ),
-          const _LegalDocumentTile(
+          _LegalDocumentTile(
             title: 'แนวทางชุมชน',
             documentType: PlatformDocumentType.communityGuidelines,
           ),
-          const _LegalDocumentTile(
+          _LegalDocumentTile(
             title: 'นโยบายลิขสิทธิ์',
             documentType: PlatformDocumentType.copyrightPolicy,
           ),
-          const _LegalDocumentTile(
+          _LegalDocumentTile(
             title: 'นโยบายการรายงาน',
             documentType: PlatformDocumentType.reportPolicy,
           ),
-          const _LegalDocumentTile(
+          _LegalDocumentTile(
             title: 'นโยบายการอุทธรณ์',
             documentType: PlatformDocumentType.appealPolicy,
-          ),
-          // 05-profile.tsx: the profile header's standalone logout icon
-          // moves here -- "an infrequent, higher-consequence action
-          // belongs inside the settings (gear) menu rather than sitting
-          // in the header with equal visual weight to Settings itself."
-          // Always the very last row on the page, unconditional on
-          // platformRole, same as "กฎหมาย" above it.
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              WynSpacing.space4,
-              WynSpacing.space4,
-              WynSpacing.space4,
-              WynSpacing.space1,
-            ),
-            child: Text(
-              'บัญชี',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.logout),
-            title: const Text('ออกจากระบบ'),
-            onTap: _signOut,
           ),
         ],
       ),
@@ -578,8 +731,8 @@ class _LegalDocumentTile extends StatelessWidget {
 }
 
 /// WYN-045 -- Thai label shown for each of the 3 shared permission
-/// levels, both in a `SettingsScreen` row's trailing summary and as
-/// each option's title inside `_showPermissionPicker`'s bottom sheet.
+/// levels, both in a row's trailing summary and as each option's title
+/// inside `_showPermissionPicker`'s bottom sheet.
 String _permissionLabel(InteractionPermission value) => switch (value) {
       InteractionPermission.everyone => 'ทุกคน',
       InteractionPermission.peopleIFollow => 'คนที่ฉันติดตาม',
@@ -725,3 +878,16 @@ Future<InteractionPermission?> _showPermissionPicker(
     ),
   );
 }
+
+TextStyle _interStyle({
+  required double fontSize,
+  FontWeight fontWeight = FontWeight.w400,
+  Color? color,
+  double? letterSpacing,
+}) =>
+    GoogleFonts.inter(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      letterSpacing: letterSpacing,
+    );
