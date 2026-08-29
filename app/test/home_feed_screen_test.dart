@@ -261,6 +261,22 @@ void main() {
   late RecordingHomeRepository triggerRefreshTestHomeRepository;
   late _DelayedHomeRepository duplicateFetchGuardTestHomeRepository;
 
+  // WYN-072: First-time explainer banner (SPEC.md Section 4.2) -- built
+  // here (not inline inside their testWidgets callbacks) for the exact
+  // same reason as every group above: a RecordingHomePreferencesRepository
+  // constructs a real SupabaseClient, whose GoTrue auto-refresh Timer
+  // leaks and fails the "!timersPending" invariant if that construction
+  // happens inside the FakeAsync zone a testWidgets body runs in.
+  late RecordingHomePreferencesRepository explainerShownTestPrefsRepository;
+  late RecordingHomePreferencesRepository explainerHiddenTestPrefsRepository;
+  late RecordingHomePreferencesRepository explainerDismissTestPrefsRepository;
+
+  // WYN-072: More-options menu ("⋯") -- same reasoning as immediately
+  // above, for the DropRepository/HomeRepository pair the "บันทึก" test
+  // needs.
+  late RecordingDropRepository saveMenuTestDropRepository;
+  late RecordingHomeRepository saveMenuTestHomeRepository;
+
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
     SharedPreferences.setMockInitialValues({});
@@ -291,6 +307,18 @@ void main() {
       // for an extra ~90px `ink` banner shifting card positions.
       explainerBannerDismissedResult: true,
     );
+    explainerShownTestPrefsRepository = RecordingHomePreferencesRepository(
+      explainerBannerDismissedResult: false,
+    );
+    explainerHiddenTestPrefsRepository = RecordingHomePreferencesRepository(
+      explainerBannerDismissedResult: true,
+    );
+    explainerDismissTestPrefsRepository = RecordingHomePreferencesRepository(
+      explainerBannerDismissedResult: false,
+    );
+    saveMenuTestDropRepository = RecordingDropRepository();
+    saveMenuTestHomeRepository =
+        RecordingHomeRepository(feedItems: [_dropItem(id: 'menu-save-d1')]);
     sharedClubPostRepository = RecordingClubPostRepository();
     emptyFromClubsPostRepository =
         RecordingClubPostRepository(fromJoinedClubs: []);
@@ -681,7 +709,21 @@ void main() {
 
     expect(find.text('แคปชัน Drop'), findsOneWidget);
     expect(find.text('แคปชัน Pop'), findsOneWidget);
-    expect(find.byType(Divider), findsOneWidget);
+    // Scoped to the feed's own SliverList (key: 'home_feed_list') rather
+    // than an app-wide `find.byType(Divider)` -- WYN-072 (SPEC.md Section
+    // 4.3) added its own permanent hairline `Divider` directly under the
+    // sticky tabs row (`_buildStickyTabsAndPill`, separating the pinned
+    // tabs from the feed below), which is a different divider serving a
+    // different purpose than this rule (DS-003 is only about the
+    // separator *between posts*), and now also matches an unscoped
+    // `find.byType(Divider)`.
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('home_feed_list')),
+        matching: find.byType(Divider),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
@@ -1958,14 +2000,11 @@ void main() {
   group('First-time explainer banner (WYN-072, SPEC.md Section 4.2)', () {
     testWidgets('shown when not yet dismissed, with the value-prop text',
         (tester) async {
-      final prefsRepo = RecordingHomePreferencesRepository(
-        explainerBannerDismissedResult: false,
-      );
       await tester.pumpWidget(buildHome(
         mixedFeedHomeRepository,
         dropRepository: sharedDropRepository,
         popRepository: sharedPopRepository,
-        homePreferencesRepository: prefsRepo,
+        homePreferencesRepository: explainerShownTestPrefsRepository,
       ));
       await tester.pumpAndSettle();
       tester.takeException();
@@ -1974,14 +2013,11 @@ void main() {
     });
 
     testWidgets('hidden once already permanently dismissed', (tester) async {
-      final prefsRepo = RecordingHomePreferencesRepository(
-        explainerBannerDismissedResult: true,
-      );
       await tester.pumpWidget(buildHome(
         mixedFeedHomeRepository,
         dropRepository: sharedDropRepository,
         popRepository: sharedPopRepository,
-        homePreferencesRepository: prefsRepo,
+        homePreferencesRepository: explainerHiddenTestPrefsRepository,
       ));
       await tester.pumpAndSettle();
       tester.takeException();
@@ -1993,14 +2029,11 @@ void main() {
         'tapping the X dismisses the banner immediately and persists it '
         'permanently via HomePreferencesRepository (not per-session)',
         (tester) async {
-      final prefsRepo = RecordingHomePreferencesRepository(
-        explainerBannerDismissedResult: false,
-      );
       await tester.pumpWidget(buildHome(
         mixedFeedHomeRepository,
         dropRepository: sharedDropRepository,
         popRepository: sharedPopRepository,
-        homePreferencesRepository: prefsRepo,
+        homePreferencesRepository: explainerDismissTestPrefsRepository,
       ));
       await tester.pumpAndSettle();
       tester.takeException();
@@ -2010,7 +2043,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('ดู → แชร์ → ค้นพบ → ซื้อ'), findsNothing);
-      expect(prefsRepo.dismissExplainerBannerCalls, 1);
+      expect(explainerDismissTestPrefsRepository.dismissExplainerBannerCalls, 1);
     });
   });
 
@@ -2019,12 +2052,9 @@ void main() {
     testWidgets(
         'tapping "บันทึก" in a Drop card\'s more-options menu calls '
         'toggleSave', (tester) async {
-      final dropRepository = RecordingDropRepository();
-      final homeRepository =
-          RecordingHomeRepository(feedItems: [_dropItem(id: 'menu-save-d1')]);
       await tester.pumpWidget(buildHome(
-        homeRepository,
-        dropRepository: dropRepository,
+        saveMenuTestHomeRepository,
+        dropRepository: saveMenuTestDropRepository,
         popRepository: sharedPopRepository,
       ));
       await tester.pumpAndSettle();
@@ -2039,7 +2069,7 @@ void main() {
       await tester.tap(find.text('บันทึก'));
       await tester.pumpAndSettle();
 
-      expect(dropRepository.toggleSaveCalls, 1);
+      expect(saveMenuTestDropRepository.toggleSaveCalls, 1);
     });
   });
 }

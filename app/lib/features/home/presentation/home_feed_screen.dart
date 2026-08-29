@@ -684,7 +684,24 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
             child: Align(
               alignment: Alignment.topRight,
               child: Padding(
-                padding: const EdgeInsets.only(right: WynSpacing.space2),
+                // WYN-072 regression fix: this floating badge used to sit
+                // flush with the top-right corner, which was safe while
+                // nothing else occupied that corner. The new WYNOS header
+                // (SPEC.md Section 4.1) now puts its own tappable search
+                // icon in that exact same corner (see _buildWynosHeader,
+                // Row(mainAxisAlignment: spaceBetween)) -- without this
+                // [top] offset the two tap targets physically overlap, so
+                // taps meant for the search icon land on this Material
+                // instead (confirmed via a real widget-test hit-test
+                // failure). [_wynosHeaderRowHeight] pushes this badge
+                // below the header row so both stay independently
+                // reachable, on Home (where the header exists above it)
+                // and anywhere else this same floating action might be
+                // reused.
+                padding: const EdgeInsets.only(
+                  right: WynSpacing.space2,
+                  top: _wynosHeaderRowHeight,
+                ),
                 child: _buildChatAction(),
               ),
             ),
@@ -985,6 +1002,15 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   // py-2.5 (10) top + py-2.5 (10) bottom + the pill button's own
   // py-2 (8+8) vertical padding + ~16px label line height.
   static const double _newPostsPillRowHeight = 52;
+
+  // _buildWynosHeader's own row: WynSpacing.space2 (8) top padding +
+  // WynSpacing.space1 (4) bottom padding + the tallest child (the menu/
+  // search icons' own WynSpacing.space1 (4) all-around padding + their
+  // ~20px icon size) -- same deliberately-generous-estimate approach as
+  // [_tabsRowHeight]/[_newPostsPillRowHeight] above. Used to keep the
+  // floating chat badge (see build()'s second SafeArea) clear of this
+  // row's search icon, which now shares its top-right corner.
+  static const double _wynosHeaderRowHeight = 40;
 
   // WYN-072 (SPEC.md Section 4.1): hamburger — "WYNOS" wordmark — search
   // icon. No border under this row itself (SPEC 4.1: "the visual

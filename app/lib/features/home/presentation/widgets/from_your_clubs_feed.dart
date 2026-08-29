@@ -217,7 +217,7 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
     }
 
     if (_error != null) {
-      return Center(
+      return _CenteredScrollable(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -230,7 +230,7 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
     }
 
     if (_posts.isEmpty) {
-      return Center(
+      return _CenteredScrollable(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
           child: Column(
@@ -275,6 +275,38 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
           );
         },
       ),
+    );
+  }
+}
+
+/// Centers [child] within whatever space is available, but -- unlike a
+/// bare `Center` -- lets it scroll instead of overflowing when that space
+/// is tighter than the content actually needs. This widget sits inside
+/// `home_feed_screen.dart`'s `SliverFillRemaining(hasScrollBody: true)`,
+/// which hands out an exact (not loose) height constraint; before WYN-072
+/// added the WYNOS header + first-time explainer banner above the pinned
+/// tabs, that remaining space was always tall enough for this Column to
+/// fit. It no longer reliably is (see the "จาก Club ของคุณ" join-prompt
+/// regression WYN-072 introduced), so this follows the same
+/// centered-scrollable pattern `WynosEmptyFeedState` already uses for the
+/// exact same sliver shape, rather than depending on a fixed height
+/// budget that can shrink again in the future.
+class _CenteredScrollable extends StatelessWidget {
+  const _CenteredScrollable({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(child: child),
+          ),
+        );
+      },
     );
   }
 }

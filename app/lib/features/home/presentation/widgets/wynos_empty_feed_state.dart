@@ -144,7 +144,17 @@ class _SuggestedRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(profile.nameOrUsername,
+              // SPEC.md Section 4.5: name and handle are two separate
+              // lines here (unlike a post author's single-line
+              // attribution elsewhere, which is what `nameOrUsername`'s
+              // "real display name, else '@username'" fallback is for)
+              // -- using `nameOrUsername` on this line duplicated
+              // "@username" on both lines whenever displayName was unset
+              // (every account in this app today, since there is no
+              // Settings UI to set one yet). Falls back to the bare
+              // username instead, matching the reference's own
+              // `{ name: "WARREN", handle: "@warren" }` shape.
+              Text(profile.displayName ?? profile.username,
                   style: WynosHomeTokens.suggestedFollowName),
               Text('@${profile.username}', style: WynosHomeTokens.caption()),
             ],
