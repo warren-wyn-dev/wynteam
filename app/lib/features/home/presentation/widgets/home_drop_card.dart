@@ -8,6 +8,7 @@ import '../../data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/text_utils.dart';
 import '../../../../core/widgets/double_tap_like.dart';
+import 'wynos_double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
@@ -286,7 +287,12 @@ class HomeDropCard extends StatelessWidget {
                   onVote: (index) => onVotePoll?.call(index),
                 )
               else if (item.imageUrl != null)
-                DoubleTapLike(
+                // WYNOS Home reference spec 4.7 -- the spec's own
+                // heart-burst visual (72px paper heart, exact keyframe
+                // timing), scoped to Home only; see that widget's doc
+                // comment for why this isn't just DoubleTapLike with
+                // new numbers.
+                WynosDoubleTapLike(
                   onLike: onToggleLike,
                   alreadyLiked: item.likedByMe,
                   child: AspectRatio(

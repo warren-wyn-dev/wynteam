@@ -7,8 +7,8 @@ import '../../../pop/presentation/widgets/pop_clip_view.dart' show popShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
-import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
+import 'wynos_double_tap_like.dart';
 
 /// Formats a duration in seconds as "m:ss" (e.g. 45 -> "0:45").
 String _formatDuration(int totalSeconds) {
@@ -129,7 +129,10 @@ class HomePopCard extends StatelessWidget {
                   ],
                 ),
               ),
-              DoubleTapLike(
+              // WYNOS Home reference spec 4.7 -- see that widget's doc
+              // comment for why this is a separate widget from the
+              // shared core one.
+              WynosDoubleTapLike(
                 onLike: onToggleLike,
                 alreadyLiked: item.likedByMe,
                 child: AspectRatio(
