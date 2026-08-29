@@ -11,6 +11,7 @@ import '../../drop/presentation/drop_detail_screen.dart';
 import '../../drop/presentation/quote_redrop_screen.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../pop/data/pop_repository.dart';
+import '../../profile/data/profile.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../saved/data/saved_repository.dart';
@@ -22,6 +23,7 @@ import 'widgets/from_your_clubs_feed.dart';
 import 'widgets/home_drop_card.dart';
 import 'widgets/home_pop_card.dart';
 import 'widgets/trending_tile.dart';
+import 'widgets/wynos_empty_feed_state.dart';
 import 'widgets/wynos_explainer_banner.dart';
 import '../../../core/design/wyn_spacing.dart';
 import 'design/wynos_home_tokens.dart';
@@ -118,6 +120,14 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   // SharedPreferences read is still in flight.
   bool _bannerDismissed = true;
 
+  // WYNOS Home reference spec 4.5 -- null means "not yet known", not
+  // "zero": _buildBodySlivers only ever renders the richer new-account
+  // empty state once this is confirmed to be exactly 0, falling back to
+  // the old generic empty message otherwise (including while this is
+  // still loading) -- see that method's own doc comment.
+  int? _followingCount;
+  List<Profile> _suggestedToFollow = const [];
+
   @override
   void initState() {
     super.initState();
@@ -126,7 +136,45 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     _scrollController.addListener(_onScroll);
     _loadUnreadChatCount();
     _loadBannerDismissed();
+    _loadEmptyStateData();
     widget.homeTabReselectSignal.addListener(_onHomeTabReselected);
+  }
+
+  Future<void> _loadEmptyStateData() async {
+    try {
+      final currentUserId = Supabase.instance.client.auth.currentUser!.id;
+      final followingCount =
+          await widget.followRepository.countFollowing(userId: currentUserId);
+      final suggestions = await widget.followRepository.fetchSuggestedToFollow();
+      if (!mounted) return;
+      setState(() {
+        _followingCount = followingCount;
+        _suggestedToFollow = suggestions;
+      });
+    } catch (_) {
+      // Silent -- same posture as _loadUnreadChatCount/_trendingFuture: a
+      // failed fetch just leaves the generic empty-state message
+      // showing instead of the richer one, not worth a blocking error.
+    }
+  }
+
+  /// WYNOS Home reference spec 4.5 -- the empty state's own follow
+  /// button. Re-runs both _loadEmptyStateData (the followed account
+  /// drops out of future suggestions) and _loadInitial (if they've
+  /// already posted, the feed may stop being empty at all) rather than
+  /// optimistically patching local state -- this is a rare, one-off
+  /// action from a brand-new account, not a hot path worth the extra
+  /// bookkeeping every other toggle in this screen has.
+  Future<void> _followFromEmptyState(Profile profile) async {
+    try {
+      await widget.followRepository
+          .toggleFollow(userId: profile.id, currentlyFollowing: false);
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+    _loadEmptyStateData();
+    _loadInitial();
   }
 
   Future<void> _loadBannerDismissed() async {
@@ -863,10 +911,37 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
 
     if (_items.isEmpty) {
+      // WYNOS Home reference spec 4.5 -- the real trigger is "this
+      // account follows no one yet", not merely "this tab has zero
+      // items" (an established account's "สำหรับคุณ"/"ติดตาม" could in
+      // principle come back empty for other reasons, e.g. everyone they
+      // follow happens to have nothing recent). _followingCount is only
+      // ever compared to exactly 0, never left to a truthy/falsy check
+      // on a possibly-still-loading null -- see its own doc comment.
+      final isNewAccountEmptyState =
+          (_feedMode == _HomeFeedMode.forYou ||
+                  _feedMode == _HomeFeedMode.following) &&
+              _followingCount == 0;
+
+      if (isNewAccountEmptyState) {
+        return [
+          SliverToBoxAdapter(
+            child: WynosEmptyFeedState(
+              suggestions: _suggestedToFollow,
+              onFollow: _followFromEmptyState,
+              onOpenProfile: (profile) => _openProfile(profile.id),
+            ),
+          ),
+        ];
+      }
+
       // "ติดตาม" gets a join-prompt message (mirrors WYN-019's Drop tab
       // Following-tab wording, adapted to this screen's Thai segment
       // labels) rather than the generic "be the first" one, which reads
       // wrong when the real issue is "you aren't following anyone yet".
+      // Reached for "ติดตาม" only once _followingCount is confirmed > 0
+      // (they follow people, but none of those people have posted) --
+      // the wording still reads fine for that rarer case too.
       final message = _feedMode == _HomeFeedMode.following
           ? 'ยังไม่ได้ follow ใครเลย ลองดู สำหรับคุณ เพื่อค้นหาคนน่าสนใจ'
           : 'ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!';

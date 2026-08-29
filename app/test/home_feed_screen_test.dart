@@ -626,15 +626,72 @@ void main() {
     expect(find.byType(Divider), findsOneWidget);
   });
 
-  testWidgets('shows the empty state when there is no content', (tester) async {
+  testWidgets(
+      'shows the WYNOS new-account empty state (Feature 3, spec 4.5) when '
+      'there is no content and the account follows no one -- the shared '
+      'sharedFollowRepository fixture defaults to followingCount: 0, i.e. '
+      'exactly this scenario', (tester) async {
     await tester.pumpWidget(buildHome(
       emptyHomeRepository,
       dropRepository: sharedDropRepository,
       popRepository: sharedPopRepository,
     ));
     await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('ยังไม่มีอะไรให้ดูตรงนี้'), findsOneWidget);
+    // Superseded by the state above for this exact scenario -- see the
+    // "still falls back..." test further down for when this old message
+    // is still reachable (the account already follows people).
+    expect(find.text('ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!'), findsNothing);
+  });
+
+  testWidgets(
+      'still falls back to the old generic empty message when the account '
+      'already follows people (not the new-account state)', (tester) async {
+    sharedFollowRepository.followingCount = 3;
+    addTearDown(() => sharedFollowRepository.followingCount = 0);
+
+    await tester.pumpWidget(buildHome(
+      emptyHomeRepository,
+      dropRepository: sharedDropRepository,
+      popRepository: sharedPopRepository,
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
 
     expect(find.text('ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!'), findsOneWidget);
+    expect(find.text('ยังไม่มีอะไรให้ดูตรงนี้'), findsNothing);
+  });
+
+  group('WYNOS empty-state suggested accounts (Feature 3, spec 4.5)', () {
+    testWidgets(
+        'renders a suggested account\'s name/handle and follows it on tap',
+        (tester) async {
+      const suggestion = Profile(id: 'suggested-1', username: 'namfah');
+      sharedFollowRepository.suggestedToFollow.add(suggestion);
+      addTearDown(sharedFollowRepository.suggestedToFollow.clear);
+
+      await tester.pumpWidget(buildHome(
+        emptyHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('@namfah'), findsOneWidget);
+      expect(find.text('ติดตาม'), findsOneWidget);
+
+      await tester.tap(find.text('ติดตาม'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(sharedFollowRepository.toggleFollowUserIdArgs,
+          contains('suggested-1'));
+      expect(sharedFollowRepository.toggleFollowCurrentlyFollowingArgs.last,
+          isFalse);
+    });
   });
 
   testWidgets(
@@ -1587,8 +1644,36 @@ void main() {
     });
 
     testWidgets(
-        'shows a distinct join-prompt-style empty message on "ติดตาม" when '
-        'following no one, not the generic empty state', (tester) async {
+        'shows the WYNOS new-account empty state on "ติดตาม" too (Feature 3) '
+        'when following no one -- superseding the old join-prompt message '
+        'for this exact scenario', (tester) async {
+      await tester.pumpWidget(buildHome(
+        emptyFollowingTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('ติดตาม'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('ยังไม่มีอะไรให้ดูตรงนี้'), findsOneWidget);
+      expect(
+        find.text(
+            'ยังไม่ได้ follow ใครเลย ลองดู สำหรับคุณ เพื่อค้นหาคนน่าสนใจ'),
+        findsNothing,
+      );
+    });
+
+    testWidgets(
+        'still shows the old join-prompt message on "ติดตาม" when the '
+        'account already follows people (their following feed is just '
+        'empty, not the new-account scenario)', (tester) async {
+      sharedFollowRepository.followingCount = 3;
+      addTearDown(() => sharedFollowRepository.followingCount = 0);
+
       await tester.pumpWidget(buildHome(
         emptyFollowingTestHomeRepository,
         dropRepository: sharedDropRepository,
@@ -1606,7 +1691,7 @@ void main() {
             'ยังไม่ได้ follow ใครเลย ลองดู สำหรับคุณ เพื่อค้นหาคนน่าสนใจ'),
         findsOneWidget,
       );
-      expect(find.text('ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!'), findsNothing);
+      expect(find.text('ยังไม่มีอะไรให้ดูตรงนี้'), findsNothing);
     });
 
     testWidgets(

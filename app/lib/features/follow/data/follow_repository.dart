@@ -118,4 +118,48 @@ class FollowRepository {
         .map((row) => Profile.fromMap(row['following'] as Map<String, dynamic>))
         .toList();
   }
+
+  /// WYNOS Home reference spec 4.5 -- accounts to suggest following in
+  /// the Home feed's empty state (a new account that follows no one
+  /// yet). Same "fetch a bounded candidate set, filter/rank in Dart"
+  /// shape as ClubRepository's own Explore Clubs discovery
+  /// (_fetchDiscoverableClubs/fetchPopularClubs, WYN-015) -- this app's
+  /// existing precedent for a small, unpaginated discovery list rather
+  /// than a scalable ranking system, including that same precedent's
+  /// per-row count RPC call (countFollowers) instead of a batched query.
+  Future<List<Profile>> fetchSuggestedToFollow({int limit = 5}) async {
+    final currentUserId = _client.auth.currentUser!.id;
+
+    final followingRows = await _client
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', currentUserId);
+    final alreadyFollowingIds =
+        followingRows.map((row) => row['following_id'] as String).toSet();
+
+    // Bounded candidate scan (newest accounts first) -- not a real
+    // ranking signal on its own, just keeps the per-row countFollowers
+    // fan-out below small. Final order is by follower count, not
+    // recency.
+    const candidateScanLimit = 20;
+    final candidateRows = await _client
+        .from('profiles')
+        .select()
+        .neq('id', currentUserId)
+        .order('created_at', ascending: false)
+        .limit(candidateScanLimit);
+
+    final candidates = candidateRows
+        .map((row) => Profile.fromMap(row))
+        .where((profile) => !alreadyFollowingIds.contains(profile.id))
+        .toList();
+
+    final ranked = await Future.wait(candidates.map((profile) async {
+      final followerCount = await countFollowers(userId: profile.id);
+      return MapEntry(profile, followerCount);
+    }));
+    ranked.sort((a, b) => b.value.compareTo(a.value));
+
+    return ranked.take(limit).map((entry) => entry.key).toList();
+  }
 }

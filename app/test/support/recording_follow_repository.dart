@@ -13,8 +13,10 @@ class RecordingFollowRepository extends FollowRepository {
     List<Profile>? following,
     this.followerCount = 0,
     this.followingCount = 0,
+    List<Profile>? suggestedToFollow,
   })  : followers = followers ?? [],
         following = following ?? [],
+        suggestedToFollow = suggestedToFollow ?? [],
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   /// Returned by [isFollowing], regardless of userId. Mutable (WYN-039)
@@ -32,8 +34,12 @@ class RecordingFollowRepository extends FollowRepository {
   int followerCount;
   int followingCount;
 
+  /// Returned by [fetchSuggestedToFollow], regardless of limit.
+  final List<Profile> suggestedToFollow;
+
   int toggleFollowCalls = 0;
   final List<bool> toggleFollowCurrentlyFollowingArgs = [];
+  final List<String> toggleFollowUserIdArgs = [];
 
   /// WYN-039 Requirement 3 ("Remove Follower").
   final List<String> removeFollowerArgs = [];
@@ -57,6 +63,7 @@ class RecordingFollowRepository extends FollowRepository {
   }) async {
     toggleFollowCalls++;
     toggleFollowCurrentlyFollowingArgs.add(currentlyFollowing);
+    toggleFollowUserIdArgs.add(userId);
   }
 
   @override
@@ -80,4 +87,8 @@ class RecordingFollowRepository extends FollowRepository {
   }) async {
     return page == 0 ? following : <Profile>[];
   }
+
+  @override
+  Future<List<Profile>> fetchSuggestedToFollow({int limit = 5}) async =>
+      suggestedToFollow.take(limit).toList();
 }
