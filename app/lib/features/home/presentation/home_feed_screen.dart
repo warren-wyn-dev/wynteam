@@ -20,8 +20,8 @@ import 'widgets/from_your_clubs_feed.dart';
 import 'widgets/home_drop_card.dart';
 import 'widgets/home_pop_card.dart';
 import 'widgets/trending_tile.dart';
-import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
+import 'design/wynos_home_tokens.dart';
 
 enum _HomeFeedMode { forYou, following, latest, fromYourClubs }
 
@@ -192,7 +192,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   // _items/_page state and just swap which repository method feeds it --
   // "จาก Club ของคุณ" is a wholly separate widget (FromYourClubsFeed)
   // with its own state, untouched, and never reaches this method (see
-  // the fromYourClubs case below and _buildFeedModeToggle's guard).
+  // the fromYourClubs case below and _onFilterTabSelected's guard).
   Future<List<HomeFeedItem>> _fetchPage(int page) {
     switch (_feedMode) {
       case _HomeFeedMode.forYou:
@@ -536,8 +536,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                   SliverPersistentHeader(
                     pinned: true,
                     delegate: _FeedModeToggleHeaderDelegate(
-                      height: _feedModeToggleHeight,
-                      child: _buildFeedModeToggle(),
+                      height: _stickyTabsHeight,
+                      child: _buildFilterTabs(),
                     ),
                   ),
                   if (_feedMode == _HomeFeedMode.fromYourClubs)
@@ -623,167 +623,116 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
-  // Fixed 3 times now for variations of the same root cause. QA rounds
-  // 2-4 (.wyn/tasks/bugs/WYN-024-segmented-button-active-label-
-  // illegible-all-segments.md) measured that `SegmentedButton` always
-  // clamps every segment's width to `constraints.maxWidth / childCount`
-  // when given a bounded incoming width (confirmed by reading Flutter's
-  // own segmented_button.dart -- `_calculateHorizontalChildSize`'s
-  // `math.min(childWidth, constraints.maxWidth / childCount)`), so no
-  // amount of padding/icon trimming inside the widget can ever fully
-  // solve legibility for a label whose natural width exceeds 1/4 of a
-  // real phone's screen. AI Design's decision (.wyn/docs/design/wyn-024-
-  // segmented-feed-mode-scrollable.md): stop giving it a bounded width
-  // at all -- `SingleChildScrollView` gives its child an UNBOUNDED
-  // width, and `IntrinsicWidth` resolves that to the widget's true
-  // intrinsic width (`computeMaxIntrinsicWidth` sums the *widest single
-  // segment's* natural width, uniform across all 4 -- SegmentedButton
-  // does not support per-segment varying widths, only uniform), so
-  // `constraints.maxWidth / childCount` in the clamp above becomes a
-  // no-op: every segment gets exactly as much width as the widest one
-  // (currently "จาก Club ของคุณ") needs, guaranteeing none are ever
-  // truncated again. The row simply scrolls horizontally once that
-  // total width exceeds the screen -- on anything wide enough to fit
-  // all 4 without scrolling, this is visually identical to before.
+  // WYNOS Home reference spec, section 4.3 ("Filter tabs (sticky)") --
+  // replaces the old SegmentedButton row (see git history for the
+  // 3-rounds-of-QA truncation saga that lived here) with plain
+  // underline-style tabs. That old bug ("จาก Club ของคุณ" getting
+  // squeezed to 1-2 characters) doesn't even apply to this shape:
+  // SegmentedButton divided the *whole row's* width evenly across all 4
+  // segments regardless of each label's own length; a plain `Row` inside
+  // `SingleChildScrollView` gives every tab exactly its own intrinsic
+  // width instead, so nothing is ever divided down in the first place --
+  // the row just scrolls horizontally if the total exceeds the screen.
   //
-  // The Design spec (.wyn/docs/design/ds-009-rainbow-accent.md, point 2)
-  // specifies the active-segment indicator as a thin line placed "นอก
-  // touch target เดิมของปุ่ม ไม่ทับตัวหนังสือ" -- a separate strip below
-  // the button. Since every segment is now genuinely, exactly equal-
-  // width (not just approximately, as when this was still `_isExpanded`-
-  // stretched to the screen), the indicator's own even-split formula
-  // stays correct -- `CrossAxisAlignment.stretch` on the wrapping Column
-  // forces the indicator strip's own LayoutBuilder to measure the exact
-  // same width `SegmentedButton` resolved to (both are stretched to the
-  // Column's IntrinsicWidth-resolved width), so the two never drift out
-  // of sync with each other.
-  Widget _buildFeedModeToggle() {
+  // `_stickyTabsHeight` is a set of numbers this method itself commits
+  // to (12+20+12 content, +1 hairline border below) via explicit
+  // Padding/SizedBox, not a measured value read off the rendered
+  // widget -- unlike the old SegmentedButton (a Material component whose
+  // exact height wasn't under this file's control), every dimension
+  // here is one this method fixes directly, so the two can never drift
+  // out of sync with each other.
+  Widget _buildFilterTabs() {
     const modes = [
       _HomeFeedMode.forYou,
       _HomeFeedMode.following,
       _HomeFeedMode.latest,
       _HomeFeedMode.fromYourClubs,
     ];
-    final activeIndex = modes.indexOf(_feedMode);
+    const labels = {
+      _HomeFeedMode.forYou: 'สำหรับคุณ',
+      _HomeFeedMode.following: 'ติดตาม',
+      _HomeFeedMode.latest: 'ล่าสุด',
+      // Spec section 4.3 lists this tab as "จาก Club" -- kept as the
+      // app's existing real copy instead ("จาก Club ของคุณ") per the
+      // spec's own section 0 rule: only styling/component structure
+      // changes here, real product copy stays as-is.
+      _HomeFeedMode.fromYourClubs: 'จาก Club ของคุณ',
+    };
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-          horizontal: WynSpacing.space3, vertical: WynSpacing.space1),
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: WynosHomeColors.paper,
+        border: Border(
+          bottom: BorderSide(color: WynosHomeColors.hairline, width: 1),
+        ),
+      ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: IntrinsicWidth(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SegmentedButton<_HomeFeedMode>(
-                // Bug fix (QA round 3, 2026-08-22): the Material selected-
-                // checkmark icon (`Icons.check`, shown by default whenever a
-                // segment is selected) eats a fixed chunk of whichever
-                // segment happens to be active, on top of SegmentedButton's
-                // already-equal 4-way width division -- QA round 3 measured
-                // that this squeezes EVERY segment's label to ~1-3 visible
-                // characters at real phone widths when it's the active one,
-                // including "สำหรับคุณ" (the default active segment on first
-                // load, no tap needed). Selection state is already shown by
-                // each segment's own fill/outline color change (Material's
-                // default `SegmentedButton` styling), so the checkmark icon is
-                // redundant here -- turning it off gives that reclaimed width
-                // back to the label instead.
-                showSelectedIcon: false,
-                style: const ButtonStyle(
-                  padding: WidgetStatePropertyAll(
-                      EdgeInsets.symmetric(horizontal: 2)),
-                  visualDensity: VisualDensity.compact,
-                ),
-                // Bug fix (QA round 2, 2026-08-22): plain Text with no
-                // maxLines/overflow wraps to multiple lines rather than
-                // overflowing horizontally when a segment's width is tight --
-                // Flutter only ever throws the layout-overflow assertion for
-                // the *last* line once `maxLines` caps it, never for
-                // unbounded wrapping. Every segment (not just the widest one)
-                // gets `maxLines: 1` + ellipsis so all 4 stay a single line
-                // and the same height regardless of which one is active,
-                // instead of "จาก Club ของคุณ" ballooning the whole row's
-                // height into a tall column of 1-2-character lines whenever
-                // it's selected on a narrow phone (confirmed via screenshot
-                // at 360px before this fix).
-                segments: const [
-                  ButtonSegment(
-                    value: _HomeFeedMode.forYou,
-                    label: Text('สำหรับคุณ',
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                  ButtonSegment(
-                    value: _HomeFeedMode.following,
-                    label: Text('ติดตาม',
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                  ButtonSegment(
-                    value: _HomeFeedMode.latest,
-                    label: Text('ล่าสุด',
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                  ButtonSegment(
-                    value: _HomeFeedMode.fromYourClubs,
-                    label: Text('จาก Club ของคุณ',
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                ],
-                selected: {_feedMode},
-                onSelectionChanged: (selection) {
-                  final newMode = selection.first;
-                  setState(() => _feedMode = newMode);
-                  // "จาก Club ของคุณ" is FromYourClubsFeed's own separate
-                  // widget state -- only forYou/following/latest share
-                  // _items and need a reload when switching between (or
-                  // into) them.
-                  if (newMode != _HomeFeedMode.fromYourClubs) _loadInitial();
-                },
-              ),
-              const SizedBox(height: WynSpacing.space1),
-              // `LayoutBuilder` deliberately avoided here -- it doesn't
-              // support being asked for intrinsic dimensions
-              // (`IntrinsicWidth` above needs every descendant to answer
-              // that), so a `LayoutBuilder` anywhere inside this subtree
-              // throws. A `Row` of `Expanded` children divides its own
-              // resolved width evenly by construction, matching
-              // `SegmentedButton`'s 4 equal-width segments (see the fix
-              // comment above) without ever needing to read
-              // `constraints.maxWidth` directly.
-              SizedBox(
-                height: 2,
-                child: Row(
-                  children: [
-                    for (var i = 0; i < modes.length; i++)
-                      Expanded(
-                        child: Center(
-                          child: AnimatedOpacity(
-                            duration: const Duration(milliseconds: 150),
-                            curve: Curves.easeOut,
-                            opacity: i == activeIndex ? 1 : 0,
-                            child: Container(
-                              key: i == activeIndex
-                                  ? const Key('active_segment_accent')
-                                  : null,
-                              width: 24,
+        padding: const EdgeInsets.symmetric(
+            horizontal: WynosHomeSpacing.pagePadding),
+        child: Row(
+          children: [
+            for (final mode in modes)
+              Padding(
+                padding: const EdgeInsets.only(
+                    right: WynosHomeSpacing.pagePadding),
+                child: GestureDetector(
+                  onTap: () => _onFilterTabSelected(mode),
+                  child: SizedBox(
+                    height: 44,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            labels[mode]!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: WynosHomeText.filterTab(
+                                active: _feedMode == mode),
+                          ),
+                        ),
+                        if (_feedMode == mode)
+                          const Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: SizedBox(
+                              // Key name kept from the old SegmentedButton
+                              // implementation this replaces -- existing
+                              // tests (home_feed_screen_test.dart) already
+                              // assert on it, and it's an internal test
+                              // hook with no user-facing meaning to rename.
+                              key: Key('active_segment_accent'),
                               height: 2,
-                              decoration: const BoxDecoration(
-                                gradient: WynColors.rainbowAccent,
-                                borderRadius: BorderRadius.all(
-                                    Radius.circular(WynSpacing.radiusFull)),
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: WynosHomeColors.sapphire,
+                                  borderRadius: BorderRadius.all(
+                                      Radius.circular(WynSpacing.radiusFull)),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                  ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );
+  }
+
+  void _onFilterTabSelected(_HomeFeedMode mode) {
+    if (mode == _feedMode) return;
+    setState(() => _feedMode = mode);
+    // "จาก Club ของคุณ" is FromYourClubsFeed's own separate widget state
+    // -- only forYou/following/latest share _items and need a reload
+    // when switching between (or into) them.
+    if (mode != _HomeFeedMode.fromYourClubs) _loadInitial();
   }
 
   Widget _buildTrendingSection() {
@@ -968,22 +917,17 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   }
 }
 
-// The feed-mode toggle's pinned SliverPersistentHeader wrapper (see
-// build()'s "Sticky Filter Bar" doc comment). [height] must match the
-// child's actual rendered height exactly -- a SliverPersistentHeader
-// clips its child to min/maxExtent rather than sizing to it, so a
-// mismatch would either clip the toggle or leave dead space under it
-// (which, in turn, throws off how much viewport SliverFillRemaining
-// hands the feed body below -- confirmed by a test regression at wider
-// widths when this was first guessed at 64 instead of measured).
-// _feedModeToggleHeight = SegmentedButton's own measured height (40,
-// compact density + showSelectedIcon:false --
-// tester.getSize(find.byWidgetPredicate((w) => w is SegmentedButton))
-// against the real widget tree, not assumed) + WynSpacing.space1 gap
-// (4) + the 2px active-segment indicator strip + space1 vertical
-// padding top and bottom (4 + 4) from _buildFeedModeToggle()'s own
-// fixed layout.
-const double _feedModeToggleHeight = 40 + 4 + 2 + 4 + 4;
+// The filter tabs' pinned SliverPersistentHeader wrapper (see build()'s
+// "Sticky Filter Bar" doc comment). [height] must match the child's
+// actual rendered height exactly -- a SliverPersistentHeader clips its
+// child to min/maxExtent rather than sizing to it, so a mismatch would
+// either clip the tabs or leave dead space under them (which, in turn,
+// throws off how much viewport SliverFillRemaining hands the feed body
+// below). _stickyTabsHeight = _buildFilterTabs()'s own fixed layout: a
+// 44px SizedBox per tab (12 top padding + a 20px text box + 12 bottom
+// padding, all explicit constants that method itself commits to, not
+// measured off the rendered widget) + 1px hairline bottom border.
+const double _stickyTabsHeight = 44 + 1;
 
 class _FeedModeToggleHeaderDelegate extends SliverPersistentHeaderDelegate {
   const _FeedModeToggleHeaderDelegate({
@@ -1003,14 +947,13 @@ class _FeedModeToggleHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
-    // A Material surface, not a transparent passthrough -- once pinned
-    // above the scrolled-away ClubSection/Trending content, this needs
-    // its own opaque background so feed cards scrolling underneath don't
-    // show through the toggle bar.
-    return Material(
-      color: Theme.of(context).colorScheme.surface,
-      child: child,
-    );
+    // No extra background/Material wrapper needed -- _buildFilterTabs's
+    // own DecoratedBox already paints an opaque WynosHomeColors.paper
+    // background (spec 4.3: "must be opaque paper -- never transparent,
+    // or post content will show through underneath it while scrolling")
+    // plus the hairline bottom border, so this delegate just passes the
+    // child through.
+    return child;
   }
 
   @override
