@@ -290,6 +290,22 @@ void main() {
   // invariant flutter_test enforces after every test).
   late RecordingHomeRepository scrollToTopTestHomeRepository;
   late RecordingHomeRepository triggerRefreshTestHomeRepository;
+
+  // WYNOS new-posts pill (Feature 4) -- built once here rather than
+  // inline in each testWidgets callback (see the WYN-005 note above on
+  // why every repo, and its underlying SupabaseClient auto-refresh
+  // Timer, is built in setUpAll): these 4 tests specifically are the
+  // ones that call `tester.pump(const Duration(seconds: 30))` to
+  // advance past the poll interval, and advancing real time by that
+  // much was enough to actually engage the fresh SupabaseClient's own
+  // periodic auto-refresh timer that a `RecordingHomeRepository()`
+  // built inline would otherwise leave dangling -- caught at teardown
+  // as "A Timer is still pending even after the widget tree was
+  // disposed."
+  late RecordingHomeRepository newPostsPillPollingTestHomeRepository;
+  late RecordingHomeRepository newPostsPillTapTestHomeRepository;
+  late RecordingHomeRepository newPostsPillRankedTestHomeRepository;
+  late RecordingHomeRepository newPostsPillSwitchAwayTestHomeRepository;
   late _DelayedHomeRepository duplicateFetchGuardTestHomeRepository;
 
   setUpAll(() async {
@@ -514,6 +530,18 @@ void main() {
     );
     duplicateFetchGuardTestHomeRepository =
         _DelayedHomeRepository(items: [_dropItem(id: 'guard-1', hasImage: false)]);
+    newPostsPillPollingTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'newpost-l1', hasImage: false)],
+    );
+    newPostsPillTapTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'newpost-l2', hasImage: false)],
+    );
+    newPostsPillRankedTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'newpost-l3', hasImage: false)],
+    );
+    newPostsPillSwitchAwayTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'newpost-l4', hasImage: false)],
+    );
   });
 
   Widget buildHome(
@@ -561,7 +589,13 @@ void main() {
       find.widgetWithIcon(IconButton, Icons.mode_comment_outlined),
       findsOneWidget,
     );
-    await tester.tap(find.widgetWithIcon(IconButton, Icons.more_vert));
+    // Same off-screen-hit-test-avoidance as the Like/ReDrop button tests
+    // elsewhere in this file -- invoke onPressed directly rather than
+    // tester.tap(), which needs the widget to actually be on-screen to
+    // hit-test successfully.
+    tester
+        .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert))
+        .onPressed!();
     await tester.pumpAndSettle();
     expect(find.text('แชร์'), findsOneWidget);
     await tester.tapAt(const Offset(5, 5));
@@ -632,7 +666,7 @@ void main() {
       matching: find.widgetWithIcon(IconButton, Icons.more_vert),
     );
     expect(popCardMoreButton, findsOneWidget);
-    await tester.tap(popCardMoreButton);
+    tester.widget<IconButton>(popCardMoreButton).onPressed!();
     await tester.pumpAndSettle();
     expect(find.text('แชร์'), findsOneWidget);
     await tester.tapAt(const Offset(5, 5));
@@ -727,7 +761,15 @@ void main() {
     testWidgets(
         'renders a suggested account\'s name/handle and follows it on tap',
         (tester) async {
-      const suggestion = Profile(id: 'suggested-1', username: 'namfah');
+      // displayName set -- Profile.nameOrUsername falls back to
+      // '@$username' when there's none, which would otherwise render
+      // "@namfah" twice (once as the name, once as the handle) and make
+      // find.text('@namfah') ambiguous below.
+      const suggestion = Profile(
+        id: 'suggested-1',
+        username: 'namfah',
+        displayName: 'น้ำฝน',
+      );
       sharedFollowRepository.suggestedToFollow.add(suggestion);
       addTearDown(sharedFollowRepository.suggestedToFollow.clear);
 
@@ -739,6 +781,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
+      expect(find.text('น้ำฝน'), findsOneWidget);
       expect(find.text('@namfah'), findsOneWidget);
       // find.text('ติดตาม') alone would also match the "ติดตาม" filter
       // tab's own label -- scope to the suggested row's OutlinedButton
@@ -761,9 +804,7 @@ void main() {
     testWidgets(
         'polling detects new posts on "ล่าสุด" and shows the pill with the '
         'count', (tester) async {
-      final repo = RecordingHomeRepository(
-        feedItems: [_dropItem(id: 'newpost-l1', hasImage: false)],
-      );
+      final repo = newPostsPillPollingTestHomeRepository;
 
       await tester.pumpWidget(buildHome(
         repo,
@@ -789,9 +830,7 @@ void main() {
 
     testWidgets('tapping the pill scrolls to top, reloads, and clears it',
         (tester) async {
-      final repo = RecordingHomeRepository(
-        feedItems: [_dropItem(id: 'newpost-l2', hasImage: false)],
-      );
+      final repo = newPostsPillTapTestHomeRepository;
 
       await tester.pumpWidget(buildHome(
         repo,
@@ -819,9 +858,7 @@ void main() {
     testWidgets(
         'never shows on "สำหรับคุณ" (ranked, not chronological) even if new '
         'posts exist', (tester) async {
-      final repo = RecordingHomeRepository(
-        feedItems: [_dropItem(id: 'newpost-l3', hasImage: false)],
-      )..newPostsCount = 5;
+      final repo = newPostsPillRankedTestHomeRepository..newPostsCount = 5;
 
       await tester.pumpWidget(buildHome(
         repo,
@@ -840,9 +877,7 @@ void main() {
 
     testWidgets('switching away from "ล่าสุด" clears a pending pill',
         (tester) async {
-      final repo = RecordingHomeRepository(
-        feedItems: [_dropItem(id: 'newpost-l4', hasImage: false)],
-      );
+      final repo = newPostsPillSwitchAwayTestHomeRepository;
 
       await tester.pumpWidget(buildHome(
         repo,
