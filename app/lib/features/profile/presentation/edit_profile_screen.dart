@@ -11,6 +11,7 @@ import 'widgets/avatar_circle.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
+import '../../../core/widgets/labeled_field.dart';
 
 /// Same shape as onboarding's UsernameSetupScreen (WYN-002) -- ASCII
 /// alphanumeric/underscore, 3-20 characters. Duplicated rather than
@@ -323,7 +324,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
                 child: Column(
                   children: [
-                    _ProfileField(
+                    LabeledField(
                       key: const Key('username_field'),
                       label: 'ชื่อผู้ใช้',
                       controller: _usernameController,
@@ -355,7 +356,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       onChanged: _onUsernameChanged,
                     ),
                     const Divider(height: 1, color: WynColors.hairline),
-                    _ProfileField(
+                    LabeledField(
                       key: const Key('display_name_field'),
                       label: 'ชื่อแสดง',
                       controller: _displayNameController,
@@ -365,7 +366,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       onChanged: (_) => setState(() {}),
                     ),
                     const Divider(height: 1, color: WynColors.hairline),
-                    _ProfileField(
+                    LabeledField(
                       key: const Key('bio_field'),
                       label: 'Bio',
                       controller: _bioController,
@@ -412,161 +413,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// One field in Edit Profile's card -- 06-edit-profile.tsx's `Field`:
-/// label above a bottom-hairline-only input (no Material floating-label
-/// box), with the helper text + live character counter revealed only
-/// while the field is focused.
-class _ProfileField extends StatefulWidget {
-  const _ProfileField({
-    super.key,
-    required this.label,
-    required this.controller,
-    required this.maxLength,
-    required this.helper,
-    this.enabled = true,
-    this.multiline = false,
-    this.prefix,
-    this.errorText,
-    this.suffix,
-    this.onChanged,
-  });
-
-  final String label;
-  final TextEditingController controller;
-  final int maxLength;
-  final String helper;
-  final bool enabled;
-  final bool multiline;
-  final String? prefix;
-  final String? errorText;
-  final Widget? suffix;
-  final ValueChanged<String>? onChanged;
-
-  @override
-  State<_ProfileField> createState() => _ProfileFieldState();
-}
-
-class _ProfileFieldState extends State<_ProfileField> {
-  final _focusNode = FocusNode();
-  bool _focused = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _focusNode.addListener(_onFocusChanged);
-  }
-
-  void _onFocusChanged() {
-    if (_focused == _focusNode.hasFocus) return;
-    setState(() => _focused = _focusNode.hasFocus);
-  }
-
-  @override
-  void dispose() {
-    _focusNode.removeListener(_onFocusChanged);
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: WynSpacing.space4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            widget.label,
-            style: _interStyle(
-                fontSize: 13, fontWeight: FontWeight.w500, color: WynColors.ink),
-          ),
-          Container(
-            margin: const EdgeInsets.only(top: WynSpacing.space2),
-            padding: const EdgeInsets.only(bottom: 10),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: WynColors.hairline)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (widget.prefix != null)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 2, bottom: 1),
-                    child: Text(
-                      widget.prefix!,
-                      style:
-                          _interStyle(fontSize: 14.5, color: WynColors.graphite),
-                    ),
-                  ),
-                Expanded(
-                  child: TextField(
-                    controller: widget.controller,
-                    focusNode: _focusNode,
-                    maxLength: widget.maxLength,
-                    maxLines: widget.multiline ? 3 : 1,
-                    enabled: widget.enabled,
-                    onChanged: widget.onChanged,
-                    style: _interStyle(fontSize: 14.5, color: WynColors.ink),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      isCollapsed: true,
-                      border: InputBorder.none,
-                      counterText: '',
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ),
-                if (widget.suffix != null) widget.suffix!,
-              ],
-            ),
-          ),
-          if (widget.errorText != null)
-            Padding(
-              padding: const EdgeInsets.only(top: WynSpacing.space1),
-              child: Text(
-                widget.errorText!,
-                style: _interStyle(fontSize: 11.5, color: WynColors.errorLight),
-              ),
-            ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 150),
-            alignment: Alignment.topCenter,
-            child: _focused
-                ? Padding(
-                    padding: const EdgeInsets.only(top: WynSpacing.space1),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            widget.helper,
-                            style: _interStyle(fontSize: 11.5, color: WynColors.faint),
-                          ),
-                        ),
-                        Text(
-                          '${widget.controller.text.length}/${widget.maxLength}',
-                          style: _interStyle(
-                            fontSize: 11.5,
-                            // Not in 06-edit-profile.tsx's own static mockup,
-                            // but a real pre-existing signal worth keeping:
-                            // turns error-colored once few characters remain,
-                            // same 20-character threshold the Material
-                            // InputDecoration counter used before this restyle.
-                            color: widget.maxLength - widget.controller.text.length < 20
-                                ? WynColors.errorLight
-                                : WynColors.faint,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : const SizedBox(width: double.infinity, height: 0),
-          ),
-        ],
       ),
     );
   }

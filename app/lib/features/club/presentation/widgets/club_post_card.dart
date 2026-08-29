@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -7,6 +8,7 @@ import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/club_member.dart';
 import '../../data/club_post.dart';
 import '../club_post_detail_screen.dart' show clubPostShareLink;
+import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import '../../../report/data/report_repository.dart';
@@ -140,29 +142,35 @@ class ClubPostCard extends StatelessWidget {
                   AvatarCircle(
                     imageUrl: post.authorAvatarUrl,
                     fallbackText: post.authorUsername,
-                    radius: 16,
+                    radius: 17,
+                    ring: true,
                   ),
                   const SizedBox(width: WynSpacing.space2),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
                       children: [
-                        Text(
-                          post.authorNameOrUsername,
-                          style: Theme.of(context).textTheme.titleSmall,
+                        Flexible(
+                          child: Text(
+                            post.authorNameOrUsername,
+                            overflow: TextOverflow.ellipsis,
+                            style: _interStyle(
+                                fontSize: 14, fontWeight: FontWeight.w600, color: WynColors.ink),
+                          ),
                         ),
+                        const SizedBox(width: WynSpacing.space2),
                         Text(
                           relativeTimeLabel(post.createdAt, now: DateTime.now()),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.outline,
-                              ),
+                          style: _interStyle(fontSize: 12, color: WynColors.mutedNeutral),
                         ),
                       ],
                     ),
                   ),
                   if (showMoreButton)
                     IconButton(
-                      icon: const Icon(Icons.more_vert),
+                      icon: const Icon(Icons.more_vert,
+                          size: 18, color: WynColors.faint),
                       onPressed: () => _openMoreMenu(context),
                     ),
                 ],
@@ -171,7 +179,10 @@ class ClubPostCard extends StatelessWidget {
             if (post.content != null && post.content!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-                child: HashtagText(post.content!),
+                child: HashtagText(
+                  post.content!,
+                  style: _interStyle(fontSize: 14, color: WynColors.ink, height: 1.5),
+                ),
               ),
             if (post.imageUrls != null && post.imageUrls!.isNotEmpty)
               Padding(
@@ -212,27 +223,34 @@ class ClubPostCard extends StatelessWidget {
                     child: IconButton(
                       icon: Icon(
                         post.likedByMe ? Icons.favorite : Icons.favorite_border,
-                        color: post.likedByMe ? Colors.red : null,
+                        size: 18,
+                        color: post.likedByMe ? WynColors.sapphire : WynColors.graphite,
                       ),
                       onPressed: onToggleLike,
                     ),
                   ),
-                  Text('${post.likeCount}'),
+                  Text('${post.likeCount}',
+                      style: _interStyle(fontSize: 12, color: WynColors.graphite)),
                   const SizedBox(width: WynSpacing.space2),
                   Semantics(
                     label: 'ดูคอมเมนต์',
                     excludeSemantics: true,
                     child: IconButton(
-                      icon: const Icon(Icons.mode_comment_outlined, size: 20),
+                      icon: const Icon(Icons.mode_comment_outlined,
+                          size: 18, color: WynColors.graphite),
                       onPressed: onTap,
                     ),
                   ),
-                  Text('${post.commentCount}'),
+                  Text('${post.commentCount}',
+                      style: _interStyle(fontSize: 12, color: WynColors.graphite)),
+                  // Not in 08-club.tsx's own 3-icon ClubPostRow (real,
+                  // existing capability -- Founder decision, 2026-08-29).
                   Semantics(
                     label: 'แชร์',
                     excludeSemantics: true,
                     child: IconButton(
-                      icon: const Icon(Icons.share_outlined, size: 20),
+                      icon: const Icon(Icons.share_outlined,
+                          size: 18, color: WynColors.graphite),
                       onPressed: _share,
                     ),
                   ),
@@ -241,7 +259,11 @@ class ClubPostCard extends StatelessWidget {
                     label: post.savedByMe ? 'บันทึกแล้ว กดเพื่อเอาออกจาก Saved' : 'กดเพื่อบันทึก',
                     excludeSemantics: true,
                     child: IconButton(
-                      icon: Icon(post.savedByMe ? Icons.bookmark : Icons.bookmark_border),
+                      icon: Icon(
+                        post.savedByMe ? Icons.bookmark : Icons.bookmark_border,
+                        size: 17,
+                        color: WynColors.faint,
+                      ),
                       onPressed: onToggleSave,
                     ),
                   ),
@@ -320,3 +342,16 @@ class _ClubPostImagesState extends State<ClubPostImages> {
     );
   }
 }
+
+TextStyle _interStyle({
+  required double fontSize,
+  FontWeight fontWeight = FontWeight.w400,
+  Color? color,
+  double? height,
+}) =>
+    GoogleFonts.inter(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+    );

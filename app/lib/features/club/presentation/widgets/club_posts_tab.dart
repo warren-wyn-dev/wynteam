@@ -7,6 +7,7 @@ import '../../data/club_post_repository.dart';
 import '../club_post_detail_screen.dart';
 import '../create_club_post_screen.dart';
 import 'club_post_card.dart';
+import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
 
 /// Screen 4-5 — Posts tab. Gated behind approved membership: non-members
@@ -228,6 +229,8 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     return Scaffold(
       body: _buildBody(),
       floatingActionButton: FloatingActionButton(
+        backgroundColor: WynColors.sapphire,
+        foregroundColor: WynColors.paper,
         onPressed: _openCreatePost,
         tooltip: 'สร้างโพสต์',
         child: const Icon(Icons.add),
