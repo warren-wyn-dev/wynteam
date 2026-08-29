@@ -1,0 +1,31 @@
+name: Flutter analyze & test
+
+# Runs on every push and PR so `flutter analyze`/`flutter test` are
+# checked in an environment that actually has the Flutter SDK -- the
+# Claude Code sandbox this repo is often edited in does not, so this is
+# the first real compile/test signal for changes made there. Kept
+# separate from deploy-web.yml (manual-only, build+deploy) so a red
+# test run never blocks or gets confused with a production deploy.
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+
+      - run: flutter pub get
+
+      - run: flutter analyze
+
+      - run: flutter test
