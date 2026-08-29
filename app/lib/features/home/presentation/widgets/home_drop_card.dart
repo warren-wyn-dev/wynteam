@@ -11,6 +11,7 @@ import '../../../../core/text_utils.dart';
 import '../../../../core/widgets/double_tap_like.dart';
 import 'wynos_double_tap_like.dart';
 import 'wynos_image_carousel.dart';
+import 'wynos_liked_by_row.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
@@ -353,6 +354,11 @@ class HomeDropCard extends StatelessWidget {
                         )
                       : HashtagText(item.caption!),
                 ),
+              // WYNOS Home reference spec 4.8 -- own top/bottom margin
+              // (mt-2.5), so it sits correctly whether the card above it
+              // was an image, a carousel, a caption, or (for a Poll) the
+              // PollCard.
+              WynosLikedByRow(likedBy: item.likedBy, likeCount: item.likeCount),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),
                 child: Row(

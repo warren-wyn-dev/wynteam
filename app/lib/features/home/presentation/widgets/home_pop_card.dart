@@ -9,6 +9,7 @@ import '../../data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import 'wynos_double_tap_like.dart';
+import 'wynos_liked_by_row.dart';
 
 /// Formats a duration in seconds as "m:ss" (e.g. 45 -> "0:45").
 String _formatDuration(int totalSeconds) {
@@ -184,6 +185,9 @@ class HomePopCard extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                   child: HashtagText(item.caption!),
                 ),
+              // WYNOS Home reference spec 4.8 -- same widget as
+              // HomeDropCard, not scoped to Drop content only.
+              WynosLikedByRow(likedBy: item.likedBy, likeCount: item.likeCount),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),
                 child: Row(

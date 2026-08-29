@@ -162,6 +162,12 @@ class WynosHomeText {
   static TextStyle likedByName =
       _sans(size: 12, weight: FontWeight.w600, color: WynosHomeColors.ink);
 
+  /// Liked-by mini-avatar's fallback initial (no photo). 9px, Inter 700,
+  /// white -- always on the solid sapphire fallback background, never
+  /// on a photo.
+  static TextStyle miniAvatarInitial =
+      _sans(size: 9, weight: FontWeight.w700, color: WynosHomeColors.paper);
+
   static TextStyle redropAttribution =
       _sans(size: 11.5, weight: FontWeight.w400, color: WynosHomeColors.onInkSecondary);
 

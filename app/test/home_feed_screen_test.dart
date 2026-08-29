@@ -43,6 +43,7 @@ HomeFeedItem _dropItem({
   DateTime? createdAt,
   bool hasImage = true,
   int? imageCount,
+  List<HomeLiker> likedBy = const [],
 }) =>
     HomeFeedItem(
       id: id,
@@ -65,6 +66,9 @@ HomeFeedItem _dropItem({
       // constructor's own default (1 if hasImage, else 0) unless a test
       // explicitly passes imageCount to exercise the carousel.
       imageCount: imageCount,
+      // Feature 7 (WYNOS liked-by row) -- empty by default, same as the
+      // constructor's own default.
+      likedBy: likedBy,
     );
 
 HomeFeedItem _popItem({
@@ -909,6 +913,106 @@ void main() {
 
       // Let the heart-burst animation finish before the test ends.
       await tester.pumpAndSettle();
+    });
+  });
+
+  group('WYNOS liked-by row (Feature 7, spec 4.8)', () {
+    testWidgets('hidden entirely when like count is 0', (tester) async {
+      final repo = RecordingHomeRepository(
+        feedItems: [_dropItem(id: 'liked-0', likeCount: 0, hasImage: false)],
+      );
+
+      await tester.pumpWidget(buildHome(
+        repo,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.textContaining('ถูกใจ'), findsNothing);
+    });
+
+    testWidgets(
+        'shows the first liker\'s name in bold when likedBy data is present',
+        (tester) async {
+      final repo = RecordingHomeRepository(
+        feedItems: [
+          _dropItem(
+            id: 'liked-1',
+            likeCount: 2,
+            hasImage: false,
+            likedBy: const [
+              HomeLiker(username: 'warren', displayName: 'WARREN'),
+              HomeLiker(username: 'zen', displayName: 'ZEN'),
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(buildHome(
+        repo,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // find.text on a Text.rich matches its full concatenated plain
+      // text, not one TextSpan segment alone -- exactly 2 likers shown
+      // (both within the 3-shown cap), so there's no "และอีก N คน" tail.
+      expect(find.text('ถูกใจโดย WARREN'), findsOneWidget);
+    });
+
+    testWidgets(
+        'appends "และอีก N คน" once there are more likers than the 3 shown',
+        (tester) async {
+      final repo = RecordingHomeRepository(
+        feedItems: [
+          _dropItem(
+            id: 'liked-2',
+            likeCount: 5,
+            hasImage: false,
+            likedBy: const [
+              HomeLiker(username: 'a', displayName: 'A'),
+              HomeLiker(username: 'b', displayName: 'B'),
+              HomeLiker(username: 'c', displayName: 'C'),
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(buildHome(
+        repo,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // likeCount (5) - shown.length (3) = 2 more.
+      expect(find.textContaining('และอีก 2 คน'), findsOneWidget);
+    });
+
+    testWidgets(
+        'falls back to a plain count when likeCount > 0 but no likedBy '
+        'data is available (e.g. a fromDrop-sourced item)', (tester) async {
+      final repo = RecordingHomeRepository(
+        feedItems: [
+          _dropItem(id: 'liked-3', likeCount: 4, hasImage: false),
+        ],
+      );
+
+      await tester.pumpWidget(buildHome(
+        repo,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('ถูกใจ 4 คน'), findsOneWidget);
+      expect(find.textContaining('ถูกใจโดย'), findsNothing);
     });
   });
 

@@ -4,6 +4,28 @@ import '../../pop/data/pop.dart';
 
 enum HomeContentType { drop, pop }
 
+/// One of up to 3 most-recent likers surfaced by the Liked-by row
+/// (WYNOS Home reference spec 4.8) -- straight off home_feed's own
+/// `liked_by` jsonb column. Deliberately not the full [Profile] type
+/// this app already has: only the 3 fields the mini-avatar + name text
+/// actually need.
+class HomeLiker {
+  const HomeLiker({required this.username, this.displayName, this.avatarUrl});
+
+  final String username;
+  final String? displayName;
+  final String? avatarUrl;
+
+  String get nameOrUsername =>
+      displayNameOrUsername(displayName: displayName, username: username);
+
+  factory HomeLiker.fromMap(Map<String, dynamic> map) => HomeLiker(
+        username: map['username'] as String? ?? '',
+        displayName: map['display_name'] as String?,
+        avatarUrl: map['avatar_url'] as String?,
+      );
+}
+
 /// One row of the unified Home feed (`public.home_feed` view -- see
 /// supabase/schema.sql, WYN-007 section), which UNIONs `drops` and `pops`
 /// so they can be paginated together in one chronological order. Carries
@@ -44,6 +66,7 @@ class HomeFeedItem {
     this.pollTotalVotes,
     this.pollOptionCounts,
     int? imageCount,
+    this.likedBy = const [],
   }) : imageCount = imageCount ?? (imageUrl != null ? 1 : 0);
 
   final String id;
@@ -115,6 +138,14 @@ class HomeFeedItem {
   /// Whether HomeDropCard should render the peek-card carousel instead
   /// of a single static image.
   bool get hasMultipleImages => imageCount > 1;
+
+  /// WYNOS Home reference spec 4.8 -- up to 3 most-recent likers,
+  /// straight off home_feed's own `liked_by` column. Empty (not null)
+  /// on any row that doesn't carry this data yet ([fromDrop]-sourced
+  /// items, e.g. the hashtag feed) -- WynosLikedByRow falls back to a
+  /// plain count in that case rather than assuming this is always
+  /// populated whenever [likeCount] is positive.
+  final List<HomeLiker> likedBy;
 
   bool get isPoll => pollId != null;
 
@@ -196,6 +227,7 @@ class HomeFeedItem {
         pollTotalVotes: pollTotalVotes ?? this.pollTotalVotes,
         pollOptionCounts: pollOptionCounts ?? this.pollOptionCounts,
         imageCount: imageCount,
+        likedBy: likedBy,
       );
 
   String get redropperNameOrUsername => displayNameOrUsername(
@@ -352,6 +384,13 @@ class HomeFeedItem {
       // applies correctly instead of forcing every such row to look
       // like it has zero images.
       imageCount: (map['image_count'] as num?)?.toInt(),
+      // Defaults to the constructor's own `const []` when the row has
+      // no liked_by column at all (e.g. saved_feed) -- same posture as
+      // imageCount above.
+      likedBy: (map['liked_by'] as List<dynamic>?)
+              ?.map((row) => HomeLiker.fromMap(row as Map<String, dynamic>))
+              .toList() ??
+          const [],
     );
   }
 }
