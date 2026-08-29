@@ -24,6 +24,7 @@ import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../../saved/data/saved_repository.dart';
+import '../../root/presentation/side_menu.dart';
 import '../../search/presentation/search_screen.dart';
 import '../../zoky/data/zoky_repository.dart';
 import '../../zoky/presentation/zoky_order_detail_screen.dart';
@@ -87,6 +88,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
           FollowRequestRepository(Supabase.instance.client);
 
   final _scrollController = ScrollController();
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   final List<WynNotification> _notifications = [];
 
   // Which notification ids were unread *at the moment this screen first
@@ -541,7 +543,17 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: WynColors.paper,
+      drawer: SideMenu(
+        profileRepository: widget.profileRepository,
+        followRepository: widget.followRepository,
+        dropRepository: widget.dropRepository,
+        popRepository: widget.popRepository,
+        savedRepository: widget.savedRepository,
+        clubRepository: widget.clubRepository,
+        clubPostRepository: widget.clubPostRepository,
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -567,18 +579,12 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Placeholder only -- the app has no Side Menu screen yet
-          // (design-reference's 10-side-menu.tsx isn't built). Founder
-          // decision (2026-08-29): show the icon for visual parity with
-          // the reference, wire it up once that screen exists.
+          // 10-side-menu.tsx's ☰ opens a real drawer (see SideMenu) now
+          // that it's built.
           IconButton(
             icon: const Icon(Icons.menu, size: 20, color: WynColors.ink),
             tooltip: 'เมนู',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('เมนูนี้จะเปิดใช้งานเร็ว ๆ นี้')),
-              );
-            },
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
           ),
           Text(
             'การแจ้งเตือน',
@@ -808,6 +814,16 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildMessage(n, message, group.extraActorCount),
+                    if (n.contentPreview != null &&
+                        n.contentPreview!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '“${n.contentPreview}”',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _interStyle(fontSize: 12.5, color: WynColors.graphite),
+                      ),
+                    ],
                     const SizedBox(height: 2),
                     Text(
                       time,

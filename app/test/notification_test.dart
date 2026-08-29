@@ -144,6 +144,88 @@ void main() {
       expect(notification.actorId, isNull);
       expect(notification.reason, 'ระบบจะปิดปรับปรุงคืนนี้');
     });
+
+    // 02-notifications.tsx's preview line (2026-08-29) -- the referenced
+    // Drop/Pop's own caption, embedded via NotificationRepository's
+    // `drop:drops(caption)`/`pop:pops(caption)` select.
+    test(
+        'parses contentPreview from the embedded drop\'s caption for a '
+        'drop-typed notification', () {
+      final notification = WynNotification.fromMap({
+        'id': 'n6',
+        'type': 'like_drop',
+        'actor': {
+          'id': 'u1',
+          'username': 'namfah',
+          'display_name': null,
+          'avatar_url': null,
+        },
+        'drop_id': 'd1',
+        'pop_id': null,
+        'club_id': null,
+        'club_post_id': null,
+        'order_id': null,
+        'reason': null,
+        'drop': {'caption': 'สวัสดีชาว WYNOS'},
+        'pop': null,
+        'is_read': false,
+        'created_at': '2026-01-01T00:00:00Z',
+      });
+
+      expect(notification.contentPreview, 'สวัสดีชาว WYNOS');
+    });
+
+    test(
+        'parses contentPreview from the embedded pop\'s caption for a '
+        'pop-typed notification', () {
+      final notification = WynNotification.fromMap({
+        'id': 'n7',
+        'type': 'like_pop',
+        'actor': {
+          'id': 'u1',
+          'username': 'namfah',
+          'display_name': null,
+          'avatar_url': null,
+        },
+        'drop_id': null,
+        'pop_id': 'p1',
+        'club_id': null,
+        'club_post_id': null,
+        'order_id': null,
+        'reason': null,
+        'drop': null,
+        'pop': {'caption': 'คลิปนี้ฮามาก'},
+        'is_read': false,
+        'created_at': '2026-01-01T00:00:00Z',
+      });
+
+      expect(notification.contentPreview, 'คลิปนี้ฮามาก');
+    });
+
+    test(
+        'contentPreview is null when the row has no drop/pop embed (e.g. '
+        'follow) or the referenced post has no caption', () {
+      final notification = WynNotification.fromMap({
+        'id': 'n8',
+        'type': 'follow',
+        'actor': {
+          'id': 'u1',
+          'username': 'namfah',
+          'display_name': null,
+          'avatar_url': null,
+        },
+        'drop_id': null,
+        'pop_id': null,
+        'club_id': null,
+        'club_post_id': null,
+        'order_id': null,
+        'reason': null,
+        'is_read': false,
+        'created_at': '2026-01-01T00:00:00Z',
+      });
+
+      expect(notification.contentPreview, isNull);
+    });
   });
 
   group('actorNameOrUsername', () {

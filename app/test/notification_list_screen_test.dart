@@ -13,6 +13,8 @@ import 'package:wyn/features/notification/presentation/notification_list_screen.
 import 'package:wyn/features/pop/data/pop.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
 import 'package:wyn/features/profile/presentation/widgets/avatar_circle.dart';
+import 'package:wyn/features/root/presentation/side_menu.dart';
+import 'package:wyn/features/search/presentation/search_screen.dart';
 
 import 'package:wyn/features/zoky/presentation/zoky_order_detail_screen.dart';
 
@@ -55,6 +57,7 @@ void main() {
   late RecordingNotificationRepository allTypesRepo;
   late RecordingNotificationRepository emptyRepo;
   late RecordingNotificationRepository likeDropRepo;
+  late RecordingNotificationRepository likeDropWithPreviewRepo;
   late RecordingNotificationRepository commentDropRepo;
   late RecordingNotificationRepository likePopRepo;
   late RecordingNotificationRepository commentPopRepo;
@@ -84,7 +87,10 @@ void main() {
 
   final now = DateTime.now();
 
-  WynNotification likeDropNotification({bool isRead = false}) =>
+  WynNotification likeDropNotification({
+    bool isRead = false,
+    String? contentPreview,
+  }) =>
       WynNotification(
         id: 'n-like-drop',
         type: NotificationType.likeDrop,
@@ -92,6 +98,7 @@ void main() {
         actorUsername: 'namfah',
         actorDisplayName: 'น้ำฝน',
         dropId: 'd1',
+        contentPreview: contentPreview,
         isRead: isRead,
         createdAt: now.subtract(const Duration(minutes: 5)),
       );
@@ -405,6 +412,13 @@ void main() {
     likeDropRepo = RecordingNotificationRepository(
       notifications: [likeDropNotification()],
     );
+    likeDropWithPreviewRepo = RecordingNotificationRepository(
+      notifications: [
+        likeDropNotification(
+          contentPreview: 'WYNOS เริ่มจากคำถามง่ายๆ ว่าทำไมโซเชียลต้องซับซ้อนขนาดนี้',
+        ),
+      ],
+    );
     commentDropRepo = RecordingNotificationRepository(
       notifications: [commentDropNotification()],
     );
@@ -587,6 +601,49 @@ void main() {
     tester.takeException();
 
     expect(find.byType(DropDetailScreen), findsOneWidget);
+  });
+
+  testWidgets(
+      'shows a quoted preview of the referenced Drop\'s caption when '
+      'contentPreview is set', (tester) async {
+    await tester.pumpWidget(buildScreen(likeDropWithPreviewRepo));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('“WYNOS เริ่มจากคำถามง่ายๆ ว่าทำไมโซเชียลต้องซับซ้อนขนาดนี้”'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('shows no preview line when contentPreview is null',
+      (tester) async {
+    await tester.pumpWidget(buildScreen(likeDropRepo));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('“'), findsNothing);
+  });
+
+  testWidgets('tapping the header menu icon opens the side menu drawer',
+      (tester) async {
+    await tester.pumpWidget(buildScreen(likeDropRepo));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SideMenu), findsNothing);
+    await tester.tap(find.byIcon(Icons.menu));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SideMenu), findsOneWidget);
+  });
+
+  testWidgets('tapping the header search icon opens SearchScreen',
+      (tester) async {
+    await tester.pumpWidget(buildScreen(likeDropRepo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SearchScreen), findsOneWidget);
   });
 
   testWidgets('tapping a Comment Drop notification opens DropDetailScreen',

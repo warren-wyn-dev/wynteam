@@ -151,6 +151,7 @@ class WynNotification {
     this.moderationActionId,
     this.moderationActionType,
     this.conversationId,
+    this.contentPreview,
     required this.isRead,
     required this.createdAt,
   });
@@ -224,6 +225,15 @@ class WynNotification {
   /// [dropId]/[popId]/[clubPostId] play for their own types.
   final String? conversationId;
 
+  /// 02-notifications.tsx's preview line -- the referenced Drop/Pop's own
+  /// `caption` (real data; the DB has no separate stored copy of a
+  /// comment's own text on the notification row, so a comment-type
+  /// notification previews the post it commented on too, same as a like
+  /// -- see SPEC.md Section 0's "keep the app's real data" rule). Null
+  /// whenever [dropId]/[popId] are both null, or the referenced post has
+  /// no caption.
+  final String? contentPreview;
+
   final bool isRead;
   final DateTime createdAt;
 
@@ -248,6 +258,8 @@ class WynNotification {
     final club = map['club'] as Map<String, dynamic>?;
     final order = map['order'] as Map<String, dynamic>?;
     final orderStore = order?['store'] as Map<String, dynamic>?;
+    final drop = map['drop'] as Map<String, dynamic>?;
+    final pop = map['pop'] as Map<String, dynamic>?;
     return WynNotification(
       id: map['id'] as String,
       type: _typeFromString(map['type'] as String),
@@ -266,6 +278,8 @@ class WynNotification {
       moderationActionId: map['moderation_action_id'] as String?,
       moderationActionType: map['moderation_action_type'] as String?,
       conversationId: map['conversation_id'] as String?,
+      contentPreview:
+          (drop?['caption'] ?? pop?['caption']) as String?,
       isRead: map['is_read'] as bool,
       createdAt: DateTime.parse(map['created_at'] as String),
     );
