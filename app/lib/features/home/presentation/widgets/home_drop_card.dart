@@ -12,6 +12,7 @@ import '../../../../core/widgets/double_tap_like.dart';
 import 'wynos_double_tap_like.dart';
 import 'wynos_image_carousel.dart';
 import 'wynos_liked_by_row.dart';
+import 'wynos_top_reply.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
@@ -440,6 +441,8 @@ class HomeDropCard extends StatelessWidget {
                   ],
                 ),
               ),
+              // WYNOS Home reference spec 4.10.
+              WynosTopReply(reply: item.topReply, onTap: onTap),
             ],
           ),
         ),

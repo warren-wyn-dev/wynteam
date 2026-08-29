@@ -44,6 +44,7 @@ HomeFeedItem _dropItem({
   bool hasImage = true,
   int? imageCount,
   List<HomeLiker> likedBy = const [],
+  HomeTopReply? topReply,
 }) =>
     HomeFeedItem(
       id: id,
@@ -69,6 +70,9 @@ HomeFeedItem _dropItem({
       // Feature 7 (WYNOS liked-by row) -- empty by default, same as the
       // constructor's own default.
       likedBy: likedBy,
+      // Feature 8 (WYNOS top reply preview) -- null by default, same as
+      // the constructor's own default.
+      topReply: topReply,
     );
 
 HomeFeedItem _popItem({
@@ -1013,6 +1017,67 @@ void main() {
 
       expect(find.text('ถูกใจ 4 คน'), findsOneWidget);
       expect(find.textContaining('ถูกใจโดย'), findsNothing);
+    });
+  });
+
+  group('WYNOS top reply preview (Feature 8, spec 4.10)', () {
+    testWidgets('shows the replier\'s name and text when a top reply exists',
+        (tester) async {
+      final repo = RecordingHomeRepository(
+        feedItems: [
+          _dropItem(
+            id: 'reply-1',
+            hasImage: false,
+            topReply: const HomeTopReply(
+              authorUsername: 'otphichay',
+              text: 'น่ารักมาก เป็นกำลังใจให้นะ',
+            ),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(buildHome(
+        repo,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(
+        find.text('otphichay  น่ารักมาก เป็นกำลังใจให้นะ'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('tapping the reply preview opens the Drop detail screen',
+        (tester) async {
+      final repo = RecordingHomeRepository(
+        feedItems: [
+          _dropItem(
+            id: 'reply-2',
+            hasImage: false,
+            topReply: const HomeTopReply(
+              authorUsername: 'wor_aa',
+              text: 'อยากไปด้วยยย',
+            ),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(buildHome(
+        repo,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('wor_aa  อยากไปด้วยยย'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(DropDetailScreen), findsOneWidget);
     });
   });
 

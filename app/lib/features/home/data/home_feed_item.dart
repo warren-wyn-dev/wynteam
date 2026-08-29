@@ -26,6 +26,34 @@ class HomeLiker {
       );
 }
 
+/// The single top-level comment surfaced by the Top reply preview
+/// (WYNOS Home reference spec 4.10) -- the most-liked top-level comment
+/// on this Drop/Pop (ties broken by most recent), straight off
+/// home_feed's own `top_reply` jsonb column. Null (never constructed)
+/// when there are no top-level comments at all.
+class HomeTopReply {
+  const HomeTopReply({
+    required this.authorUsername,
+    this.authorDisplayName,
+    required this.text,
+  });
+
+  final String authorUsername;
+  final String? authorDisplayName;
+  final String text;
+
+  String get authorNameOrUsername => displayNameOrUsername(
+        displayName: authorDisplayName,
+        username: authorUsername,
+      );
+
+  factory HomeTopReply.fromMap(Map<String, dynamic> map) => HomeTopReply(
+        authorUsername: map['author_username'] as String? ?? '',
+        authorDisplayName: map['author_display_name'] as String?,
+        text: map['text'] as String? ?? '',
+      );
+}
+
 /// One row of the unified Home feed (`public.home_feed` view -- see
 /// supabase/schema.sql, WYN-007 section), which UNIONs `drops` and `pops`
 /// so they can be paginated together in one chronological order. Carries
@@ -67,6 +95,7 @@ class HomeFeedItem {
     this.pollOptionCounts,
     int? imageCount,
     this.likedBy = const [],
+    this.topReply,
   }) : imageCount = imageCount ?? (imageUrl != null ? 1 : 0);
 
   final String id;
@@ -146,6 +175,13 @@ class HomeFeedItem {
   /// plain count in that case rather than assuming this is always
   /// populated whenever [likeCount] is positive.
   final List<HomeLiker> likedBy;
+
+  /// WYNOS Home reference spec 4.10 -- null (not shown at all) unless
+  /// there's a real top-level comment worth surfacing, straight off
+  /// home_feed's own `top_reply` column. Also null for any row that
+  /// doesn't carry this data yet ([fromDrop]-sourced items), same
+  /// posture as [likedBy].
+  final HomeTopReply? topReply;
 
   bool get isPoll => pollId != null;
 
@@ -228,6 +264,7 @@ class HomeFeedItem {
         pollOptionCounts: pollOptionCounts ?? this.pollOptionCounts,
         imageCount: imageCount,
         likedBy: likedBy,
+        topReply: topReply,
       );
 
   String get redropperNameOrUsername => displayNameOrUsername(
@@ -391,6 +428,13 @@ class HomeFeedItem {
               ?.map((row) => HomeLiker.fromMap(row as Map<String, dynamic>))
               .toList() ??
           const [],
+      // null both when the row has no top_reply column at all (e.g.
+      // saved_feed) and when the column is present but the value
+      // itself is a genuine sql null (no top-level comments) --
+      // WynosTopReply renders nothing either way.
+      topReply: map['top_reply'] != null
+          ? HomeTopReply.fromMap(map['top_reply'] as Map<String, dynamic>)
+          : null,
     );
   }
 }

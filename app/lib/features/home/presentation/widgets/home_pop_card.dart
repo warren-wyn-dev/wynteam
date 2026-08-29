@@ -10,6 +10,7 @@ import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import 'wynos_double_tap_like.dart';
 import 'wynos_liked_by_row.dart';
+import 'wynos_top_reply.dart';
 
 /// Formats a duration in seconds as "m:ss" (e.g. 45 -> "0:45").
 String _formatDuration(int totalSeconds) {
@@ -243,6 +244,8 @@ class HomePopCard extends StatelessWidget {
                   ],
                 ),
               ),
+              // WYNOS Home reference spec 4.10.
+              WynosTopReply(reply: item.topReply, onTap: onTapComment ?? onTap),
             ],
           ),
         ),
