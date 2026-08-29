@@ -389,6 +389,7 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
               onToggleRedrop: () => _toggleDropRedrop(drop.id),
               onQuoteRedrop: () => _quoteDropRedrop(drop.id),
               onVotePoll: (optionIndex) => _voteDropPoll(drop.id, optionIndex),
+              dropRepository: widget.dropRepository,
             );
           }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../drop/data/drop_repository.dart';
 import '../../../drop/presentation/drop_detail_screen.dart' show dropShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
@@ -9,6 +10,7 @@ import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/text_utils.dart';
 import '../../../../core/widgets/double_tap_like.dart';
 import 'wynos_double_tap_like.dart';
+import 'wynos_image_carousel.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
@@ -28,6 +30,7 @@ class HomeDropCard extends StatelessWidget {
     required this.onOpenProfile,
     required this.onToggleRedrop,
     required this.onQuoteRedrop,
+    required this.dropRepository,
     this.onOpenRedropperProfile,
     this.onDeleteRedrop,
     this.onVotePoll,
@@ -39,6 +42,13 @@ class HomeDropCard extends StatelessWidget {
   final VoidCallback onToggleLike;
   final VoidCallback onToggleSave;
   final VoidCallback onOpenProfile;
+
+  /// WYNOS Home reference spec 4.7 -- only ever used to lazily fetch the
+  /// full image list ([DropRepository.fetchDropImages]) for a Drop with
+  /// [HomeFeedItem.hasMultipleImages], the same on-demand fetch
+  /// DropDetailScreen's own full-screen viewer already uses (WYN-071) --
+  /// never eagerly loaded for every card in the feed.
+  final DropRepository dropRepository;
 
   /// WYN-034: Standard ReDrop toggle -- called by the action sheet's
   /// "🔄 ReDrop"/"ยกเลิก ReDrop" entry, never directly by tapping the 🔄
@@ -285,6 +295,33 @@ class HomeDropCard extends StatelessWidget {
                   optionCounts: item.pollOptionCounts,
                   isOwnPoll: _isOwnDrop,
                   onVote: (index) => onVotePoll?.call(index),
+                )
+              else if (item.hasMultipleImages)
+                // WYNOS Home reference spec 4.7 -- the peek-card
+                // carousel. fetchDropImages is on-demand (WYN-071), so
+                // this fetches once per build of a visible multi-image
+                // card, not eagerly for the whole feed.
+                FutureBuilder<List<String>>(
+                  future: dropRepository.fetchDropImages(item.id),
+                  builder: (context, snapshot) {
+                    final urls = snapshot.data;
+                    if (urls == null || urls.length < 2) {
+                      // Still loading, or a (should-never-happen) fetch
+                      // that came back with fewer than the imageCount
+                      // this card was built for -- show the known first
+                      // image as a static placeholder rather than an
+                      // empty gap or a spinner that would jump the
+                      // layout once real content arrives.
+                      return WynosImageCarouselPlaceholder(
+                        imageUrl: item.imageUrl!,
+                      );
+                    }
+                    return WynosImageCarousel(
+                      imageUrls: urls,
+                      onLike: onToggleLike,
+                      alreadyLiked: item.likedByMe,
+                    );
+                  },
                 )
               else if (item.imageUrl != null)
                 // WYNOS Home reference spec 4.7 -- the spec's own

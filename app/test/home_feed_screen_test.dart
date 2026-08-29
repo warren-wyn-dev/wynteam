@@ -18,6 +18,7 @@ import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/trending_tile.dart';
+import 'package:wyn/features/home/presentation/widgets/wynos_image_carousel.dart';
 import 'package:wyn/features/pop/presentation/widgets/pop_comment_sheet.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 
@@ -41,6 +42,7 @@ HomeFeedItem _dropItem({
   int viewCount = 0,
   DateTime? createdAt,
   bool hasImage = true,
+  int? imageCount,
 }) =>
     HomeFeedItem(
       id: id,
@@ -59,6 +61,10 @@ HomeFeedItem _dropItem({
       // HomeDropCard, which real home_feed/saved_feed rows never send
       // (drop_view_count() always returns a real bigint).
       viewCount: viewCount,
+      // Feature 6 (WYNOS multi-image carousel) -- left to the
+      // constructor's own default (1 if hasImage, else 0) unless a test
+      // explicitly passes imageCount to exercise the carousel.
+      imageCount: imageCount,
     );
 
 HomeFeedItem _popItem({
@@ -804,6 +810,105 @@ void main() {
       tester.takeException();
 
       expect(find.textContaining('มีโพสต์ใหม่'), findsNothing);
+    });
+  });
+
+  group('WYNOS multi-image carousel (Feature 6, spec 4.7)', () {
+    testWidgets('a Drop with imageCount > 1 renders the peek-card carousel',
+        (tester) async {
+      final repo = RecordingHomeRepository(
+        feedItems: [_dropItem(id: 'carousel-1', imageCount: 3)],
+      );
+      sharedDropRepository.dropImagesById['carousel-1'] = [
+        'https://example.supabase.co/drops/carousel-1-a.jpg',
+        'https://example.supabase.co/drops/carousel-1-b.jpg',
+        'https://example.supabase.co/drops/carousel-1-c.jpg',
+      ];
+      addTearDown(() => sharedDropRepository.dropImagesById.remove('carousel-1'));
+
+      await tester.pumpWidget(buildHome(
+        repo,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(WynosImageCarousel), findsOneWidget);
+      expect(find.byType(PageView), findsOneWidget);
+    });
+
+    testWidgets(
+        'an ordinary single-image Drop never renders the carousel',
+        (tester) async {
+      final repo = RecordingHomeRepository(
+        feedItems: [_dropItem(id: 'single-1')],
+      );
+
+      await tester.pumpWidget(buildHome(
+        repo,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(WynosImageCarousel), findsNothing);
+    });
+
+    testWidgets(
+        'a text-only Drop (no image at all) never renders the carousel',
+        (tester) async {
+      final repo = RecordingHomeRepository(
+        feedItems: [_dropItem(id: 'text-only-1', hasImage: false)],
+      );
+
+      await tester.pumpWidget(buildHome(
+        repo,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(WynosImageCarousel), findsNothing);
+    });
+
+    testWidgets('double-tap anywhere in the carousel likes the post',
+        (tester) async {
+      final repo = RecordingHomeRepository(
+        feedItems: [
+          _dropItem(id: 'carousel-2', likedByMe: false, imageCount: 2),
+        ],
+      );
+      sharedDropRepository.dropImagesById['carousel-2'] = [
+        'https://example.supabase.co/drops/carousel-2-a.jpg',
+        'https://example.supabase.co/drops/carousel-2-b.jpg',
+      ];
+      addTearDown(() => sharedDropRepository.dropImagesById.remove('carousel-2'));
+
+      await tester.pumpWidget(buildHome(
+        repo,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final carousel = find.byType(WynosImageCarousel);
+      expect(carousel, findsOneWidget);
+
+      final callsBefore = sharedDropRepository.toggleLikeCalls;
+      final center = tester.getCenter(carousel);
+      await tester.tapAt(center);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(center);
+      await tester.pump();
+
+      expect(sharedDropRepository.toggleLikeCalls, callsBefore + 1);
+
+      // Let the heart-burst animation finish before the test ends.
+      await tester.pumpAndSettle();
     });
   });
 

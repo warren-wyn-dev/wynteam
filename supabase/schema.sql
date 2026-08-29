@@ -10178,3 +10178,140 @@ where d.image_url is not null
   and not exists (
     select 1 from public.drop_images di where di.drop_id = d.id
   );
+
+-- ============================================================
+-- WYN-071 follow-up: Home feed inline multi-image carousel
+-- (WYNOS Home reference spec, section 4.7)
+-- ============================================================
+--
+-- WYN-071 deliberately did not touch home_feed when it added
+-- drop_images -- DropDetailScreen's full-screen viewer was the only
+-- consumer at the time, and it already fetches the full image list on
+-- demand via fetchDropImages() once a viewer opens a specific Drop
+-- (see that function's own doc comment: "not every list/feed fetch
+-- eagerly loading every image URL"). The Home feed's own card now
+-- needs to know *whether* a Drop has more than one image (to decide
+-- whether to render the new peek-card carousel at all) without
+-- fetching the full URL list for every visible card -- image_count is
+-- that cheap signal, a correlated-subquery count exactly like
+-- like_count/comment_count already are on this same view, not the
+-- images themselves. HomeDropCard fetches the actual URLs via
+-- DropRepository.fetchDropImages, still on demand, only once a card
+-- with image_count > 1 is actually built.
+--
+-- Same "append a fresh full redefinition rather than editing history
+-- in place" discipline as every prior task that changed one of these
+-- two views.
+create or replace view public.home_feed
+  with (security_invoker = true) as
+select
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  d.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  public.drop_view_count(d.id) as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count,
+  (select count(*) from public.redrops where drop_id = d.id) as redrop_count,
+  null::uuid as redrop_id,
+  null::uuid as redropper_id,
+  null::text as redropper_username,
+  null::text as redropper_display_name,
+  null::text as redropper_avatar_url,
+  null::text as quote_text,
+  dp.id as poll_id,
+  dp.options as poll_options,
+  dp.expires_at as poll_expires_at,
+  (select count(*) from public.drop_images where drop_id = d.id) as image_count
+from public.drops d
+join public.profiles prof on prof.id = d.author_id
+left join public.drop_polls dp on dp.drop_id = d.id
+where not exists (
+  select 1 from public.mutes where muter_id = auth.uid() and muted_id = d.author_id
+)
+union all
+select
+  p.id,
+  'pop'::text as content_type,
+  p.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  p.created_at,
+  p.caption,
+  null::text as image_url,
+  p.video_url,
+  p.thumbnail_url,
+  p.duration_seconds,
+  p.view_count,
+  (select count(*) from public.pop_likes where pop_id = p.id) as like_count,
+  (select count(*) from public.pop_comments where pop_id = p.id) as comment_count,
+  null::bigint as redrop_count,
+  null::uuid as redrop_id,
+  null::uuid as redropper_id,
+  null::text as redropper_username,
+  null::text as redropper_display_name,
+  null::text as redropper_avatar_url,
+  null::text as quote_text,
+  null::uuid as poll_id,
+  null::text[] as poll_options,
+  null::timestamptz as poll_expires_at,
+  0::bigint as image_count
+from public.pops p
+join public.profiles prof on prof.id = p.author_id
+where not exists (
+  select 1 from public.mutes where muter_id = auth.uid() and muted_id = p.author_id
+)
+union all
+select
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  r.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  public.drop_view_count(d.id) as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count,
+  (select count(*) from public.redrops where drop_id = d.id) as redrop_count,
+  r.id as redrop_id,
+  r.redropper_id,
+  redropper.username as redropper_username,
+  redropper.display_name as redropper_display_name,
+  redropper.avatar_url as redropper_avatar_url,
+  r.quote_text,
+  dp.id as poll_id,
+  dp.options as poll_options,
+  dp.expires_at as poll_expires_at,
+  (select count(*) from public.drop_images where drop_id = d.id) as image_count
+from public.redrops r
+join public.drops d on d.id = r.drop_id
+join public.profiles prof on prof.id = d.author_id
+join public.profiles redropper on redropper.id = r.redropper_id
+left join public.drop_polls dp on dp.drop_id = d.id
+where not exists (
+  select 1 from public.mutes
+  where muter_id = auth.uid() and muted_id in (d.author_id, r.redropper_id)
+);
+
+grant select on public.home_feed to authenticated;
+
+-- get_wynos_ranked_feed() needs no change at all -- it selects `hf.*`
+-- from public.home_feed and hands the whole row back as row_data via
+-- to_jsonb (see that function's own doc comment), so image_count rides
+-- along automatically the same way every other home_feed column
+-- already does.

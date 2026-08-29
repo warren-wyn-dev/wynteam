@@ -43,7 +43,8 @@ class HomeFeedItem {
     this.pollMyVoteIndex,
     this.pollTotalVotes,
     this.pollOptionCounts,
-  });
+    int? imageCount,
+  }) : imageCount = imageCount ?? (imageUrl != null ? 1 : 0);
 
   final String id;
   final HomeContentType contentType;
@@ -102,6 +103,18 @@ class HomeFeedItem {
   final int? pollMyVoteIndex;
   final int? pollTotalVotes;
   final List<int>? pollOptionCounts;
+
+  /// WYNOS Home reference spec 4.7 -- how many images this Drop has
+  /// (1-9), mirroring [Drop.imageCount] exactly (including the same
+  /// "defaults to 1 if imageUrl is set, else 0" fallback for any
+  /// existing call site that hasn't been updated to pass this yet).
+  /// The images themselves (URLs 2-9, beyond [imageUrl]) are fetched
+  /// separately and only on demand -- see DropRepository.fetchDropImages.
+  final int imageCount;
+
+  /// Whether HomeDropCard should render the peek-card carousel instead
+  /// of a single static image.
+  bool get hasMultipleImages => imageCount > 1;
 
   bool get isPoll => pollId != null;
 
@@ -182,6 +195,7 @@ class HomeFeedItem {
         pollMyVoteIndex: pollMyVoteIndex ?? this.pollMyVoteIndex,
         pollTotalVotes: pollTotalVotes ?? this.pollTotalVotes,
         pollOptionCounts: pollOptionCounts ?? this.pollOptionCounts,
+        imageCount: imageCount,
       );
 
   String get redropperNameOrUsername => displayNameOrUsername(
@@ -222,6 +236,7 @@ class HomeFeedItem {
         pollMyVoteIndex: pollMyVoteIndex,
         pollTotalVotes: pollTotalVotes,
         pollOptionCounts: pollOptionCounts,
+        imageCount: imageCount,
       );
 
   /// Converts to the full [Pop] object PopClipView expects. Only valid
@@ -276,6 +291,7 @@ class HomeFeedItem {
         pollMyVoteIndex: drop.pollMyVoteIndex,
         pollTotalVotes: drop.pollTotalVotes,
         pollOptionCounts: drop.pollOptionCounts,
+        imageCount: drop.imageCount,
       );
 
   /// [pollId]/[pollOptions]/[pollExpiresAt] read straight off
@@ -330,6 +346,12 @@ class HomeFeedItem {
       pollMyVoteIndex: pollMyVoteIndex,
       pollTotalVotes: pollTotalVotes,
       pollOptionCounts: pollOptionCounts,
+      // Left null (not `?? 0`) when the row has no image_count column
+      // at all (e.g. saved_feed, which this task didn't touch) so the
+      // constructor's own "imageUrl != null ? 1 : 0" fallback still
+      // applies correctly instead of forcing every such row to look
+      // like it has zero images.
+      imageCount: (map['image_count'] as num?)?.toInt(),
     );
   }
 }

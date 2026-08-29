@@ -1177,6 +1177,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                 onOpenProfile: () => _openProfile(item.authorId),
                 onToggleRedrop: () => _toggleRedrop(index),
                 onQuoteRedrop: () => _quoteRedrop(index),
+                dropRepository: widget.dropRepository,
                 onOpenRedropperProfile: item.redropperId == null
                     ? null
                     : () => _openProfile(item.redropperId!),
