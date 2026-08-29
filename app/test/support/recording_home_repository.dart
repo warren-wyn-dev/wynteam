@@ -104,4 +104,26 @@ class RecordingHomeRepository extends HomeRepository {
   Future<void> recordProfileVisit(String profileId) async {
     recordProfileVisitArgs.add(profileId);
   }
+
+  /// Returned by both [countNewSince] and [countNewFollowingSince],
+  /// regardless of the `since` cursor passed in -- Feature 4's new-posts
+  /// pill.
+  int newPostsCount = 0;
+  final List<DateTime> countNewSinceArgs = [];
+  final List<DateTime> countNewFollowingSinceArgs = [];
+
+  @override
+  Future<int> countNewSince(DateTime since) async {
+    countNewSinceArgs.add(since);
+    return newPostsCount;
+  }
+
+  @override
+  Future<int> countNewFollowingSince({
+    required String userId,
+    required DateTime since,
+  }) async {
+    countNewFollowingSinceArgs.add(since);
+    return newPostsCount;
+  }
 }

@@ -681,9 +681,13 @@ void main() {
       tester.takeException();
 
       expect(find.text('@namfah'), findsOneWidget);
-      expect(find.text('ติดตาม'), findsOneWidget);
+      // find.text('ติดตาม') alone would also match the "ติดตาม" filter
+      // tab's own label -- scope to the suggested row's OutlinedButton
+      // specifically.
+      final followButton = find.widgetWithText(OutlinedButton, 'ติดตาม');
+      expect(followButton, findsOneWidget);
 
-      await tester.tap(find.text('ติดตาม'));
+      await tester.tap(followButton);
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -691,6 +695,115 @@ void main() {
           contains('suggested-1'));
       expect(sharedFollowRepository.toggleFollowCurrentlyFollowingArgs.last,
           isFalse);
+    });
+  });
+
+  group('WYNOS new-posts pill (Feature 4, spec 4.4)', () {
+    testWidgets(
+        'polling detects new posts on "ล่าสุด" and shows the pill with the '
+        'count', (tester) async {
+      final repo = RecordingHomeRepository(
+        feedItems: [_dropItem(id: 'newpost-l1', hasImage: false)],
+      );
+
+      await tester.pumpWidget(buildHome(
+        repo,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.text('ล่าสุด'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.textContaining('มีโพสต์ใหม่'), findsNothing);
+
+      repo.newPostsCount = 3;
+      await tester.pump(const Duration(seconds: 30));
+      await tester.pump();
+      tester.takeException();
+
+      expect(find.text('มีโพสต์ใหม่ 3 โพสต์'), findsOneWidget);
+    });
+
+    testWidgets('tapping the pill scrolls to top, reloads, and clears it',
+        (tester) async {
+      final repo = RecordingHomeRepository(
+        feedItems: [_dropItem(id: 'newpost-l2', hasImage: false)],
+      );
+
+      await tester.pumpWidget(buildHome(
+        repo,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ล่าสุด'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      repo.newPostsCount = 2;
+      await tester.pump(const Duration(seconds: 30));
+      await tester.pump();
+      tester.takeException();
+      expect(find.text('มีโพสต์ใหม่ 2 โพสต์'), findsOneWidget);
+
+      await tester.tap(find.text('มีโพสต์ใหม่ 2 โพสต์'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.textContaining('มีโพสต์ใหม่'), findsNothing);
+    });
+
+    testWidgets(
+        'never shows on "สำหรับคุณ" (ranked, not chronological) even if new '
+        'posts exist', (tester) async {
+      final repo = RecordingHomeRepository(
+        feedItems: [_dropItem(id: 'newpost-l3', hasImage: false)],
+      )..newPostsCount = 5;
+
+      await tester.pumpWidget(buildHome(
+        repo,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.pump(const Duration(seconds: 30));
+      await tester.pump();
+      tester.takeException();
+
+      expect(find.textContaining('มีโพสต์ใหม่'), findsNothing);
+    });
+
+    testWidgets('switching away from "ล่าสุด" clears a pending pill',
+        (tester) async {
+      final repo = RecordingHomeRepository(
+        feedItems: [_dropItem(id: 'newpost-l4', hasImage: false)],
+      );
+
+      await tester.pumpWidget(buildHome(
+        repo,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ล่าสุด'));
+      await tester.pumpAndSettle();
+
+      repo.newPostsCount = 1;
+      await tester.pump(const Duration(seconds: 30));
+      await tester.pump();
+      expect(find.text('มีโพสต์ใหม่ 1 โพสต์'), findsOneWidget);
+
+      await tester.tap(find.text('สำหรับคุณ'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.textContaining('มีโพสต์ใหม่'), findsNothing);
     });
   });
 

@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../chat/data/chat_repository.dart';
@@ -128,6 +131,30 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   int? _followingCount;
   List<Profile> _suggestedToFollow = const [];
 
+  // WYNOS Home reference spec 4.4 -- new-posts pill. Only ever
+  // populated for "ล่าสุด"/"ติดตาม" (see _pollForNewPosts's own doc
+  // comment on why "สำหรับคุณ" is excluded); 0 means "hidden", matching
+  // LikedByRow's/every other "hidden below a threshold" widget's own
+  // convention in this codebase rather than a separate bool.
+  int _newPostsCount = 0;
+
+  // Set at the moment _loadInitial's fetch actually started, not off
+  // the loaded items' own createdAt -- an empty page or a tie on the
+  // very newest timestamp would otherwise leave this anchor wrong.
+  // Polling asks "anything newer than this instant", which stays
+  // correct regardless of what came back.
+  DateTime? _feedLoadedAt;
+
+  static const _newPostsPollInterval = Duration(seconds: 30);
+
+  // Only ever running while _feedMode is latest/following (see
+  // _onFilterTabSelected) -- not started here in initState, since the
+  // default mode ("สำหรับคุณ") never polls at all. Most of this
+  // screen's own tests never switch away from that default, so this
+  // keeps a background Timer.periodic from existing for the lifetime of
+  // screens/tests that have no use for it.
+  Timer? _newPostsPollTimer;
+
   @override
   void initState() {
     super.initState();
@@ -138,6 +165,60 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     _loadBannerDismissed();
     _loadEmptyStateData();
     widget.homeTabReselectSignal.addListener(_onHomeTabReselected);
+  }
+
+  /// WYNOS Home reference spec 4.4 -- lightweight polling instead of a
+  /// push signal (see countNewSince's own doc comment for why). Scoped
+  /// to "ล่าสุด"/"ติดตาม" only: "สำหรับคุณ" is a ranked top-N window, not
+  /// a chronological feed, so "posts newer than my last load" isn't a
+  /// question that feed can answer the same way.
+  Future<void> _pollForNewPosts() async {
+    if (!mounted) return;
+    if (_feedMode != _HomeFeedMode.latest &&
+        _feedMode != _HomeFeedMode.following) {
+      return;
+    }
+    final anchor = _feedLoadedAt;
+    if (anchor == null) return;
+
+    try {
+      final count = _feedMode == _HomeFeedMode.latest
+          ? await widget.homeRepository.countNewSince(anchor)
+          : await widget.homeRepository.countNewFollowingSince(
+              userId: Supabase.instance.client.auth.currentUser!.id,
+              since: anchor,
+            );
+      // Re-check mounted/mode/anchor after the await -- the user may
+      // have switched tabs (or this screen may have been popped) while
+      // the count request was in flight.
+      if (!mounted ||
+          (_feedMode != _HomeFeedMode.latest &&
+              _feedMode != _HomeFeedMode.following) ||
+          _feedLoadedAt != anchor) {
+        return;
+      }
+      if (count > 0) setState(() => _newPostsCount = count);
+    } catch (_) {
+      // Silent -- a missed poll just tries again on the next tick, not
+      // worth a blocking error for a background indicator.
+    }
+  }
+
+  /// WYNOS Home reference spec 4.4 -- tapping the pill scrolls to the
+  /// top and actually loads the new posts (never a silent prepend, per
+  /// the spec's own "Do not silently prepend" rule) rather than the
+  /// mock's own "just dismiss" stand-in.
+  Future<void> _onNewPostsPillTap() async {
+    setState(() => _newPostsCount = 0);
+    if (_scrollController.hasClients) {
+      await _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+    if (!mounted) return;
+    await _loadInitial();
   }
 
   Future<void> _loadEmptyStateData() async {
@@ -225,6 +306,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   @override
   void dispose() {
     widget.homeTabReselectSignal.removeListener(_onHomeTabReselected);
+    _newPostsPollTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -284,9 +366,16 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   }
 
   Future<void> _loadInitial() async {
+    // Captured before the fetch, not off whatever comes back -- see
+    // _feedLoadedAt's own doc comment.
+    final loadStartedAt = DateTime.now().toUtc();
     setState(() {
       _isLoadingInitial = true;
       _error = null;
+      // Any fresh load (tab switch, pull-to-refresh, or the pill's own
+      // tap) makes a pending pill stale -- whatever's newer just got
+      // loaded.
+      _newPostsCount = 0;
     });
     try {
       final items = await _fetchPage(0);
@@ -296,6 +385,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
           ..addAll(items);
         _page = 0;
         _hasMore = items.length == HomeRepository.pageSize;
+        _feedLoadedAt = loadStartedAt;
       });
     } catch (_) {
       setState(() => _error = 'โหลด Home ไม่สำเร็จ');
@@ -616,12 +706,23 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                   // has scrolled out of view, so the mode toggle (สำหรับ
                   // คุณ/ติดตาม/ล่าสุด/จาก Club ของคุณ) is always reachable
                   // without scrolling back up -- same request's "Sticky
-                  // Filter Bar" ask.
+                  // Filter Bar" ask. The new-posts pill (spec 4.4) is
+                  // itself part of this same pinned block, directly under
+                  // the tabs, so it never scrolls away independently --
+                  // the header's own height grows by _newPostsPillHeight
+                  // while it's visible.
                   SliverPersistentHeader(
                     pinned: true,
                     delegate: _FeedModeToggleHeaderDelegate(
-                      height: _stickyTabsHeight,
-                      child: _buildFilterTabs(),
+                      height: _stickyTabsHeight +
+                          (_newPostsCount > 0 ? _newPostsPillHeight : 0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildFilterTabs(),
+                          if (_newPostsCount > 0) _buildNewPostsPill(),
+                        ],
+                      ),
                     ),
                   ),
                   if (_feedMode == _HomeFeedMode.fromYourClubs)
@@ -810,9 +911,83 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
+  // WYNOS Home reference spec 4.4 -- the new-posts pill. Every
+  // dimension here is one this method fixes explicitly (a 16px content
+  // box inside px-16/py-8 padding, py-10 outer row padding), same
+  // deterministic-construction approach _buildFilterTabs already uses,
+  // so _newPostsPillHeight below can just be declared rather than
+  // measured off the rendered widget.
+  Widget _buildNewPostsPill() {
+    return DecoratedBox(
+      decoration: const BoxDecoration(color: WynosHomeColors.paper),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Center(
+          child: GestureDetector(
+            onTap: _onNewPostsPillTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: WynosHomeColors.sapphire,
+                borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+                boxShadow: const [
+                  // rgba(27,58,107,0.3) -- sapphire at 30% alpha.
+                  BoxShadow(
+                    color: Color(0x4D1B3A6B),
+                    blurRadius: 14,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: SizedBox(
+                height: 16,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      LucideIcons.arrowUp,
+                      size: 13,
+                      color: WynosHomeColors.paper,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'มีโพสต์ใหม่ $_newPostsCount โพสต์',
+                      style: WynosHomeText.newPostsPill,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _onFilterTabSelected(_HomeFeedMode mode) {
     if (mode == _feedMode) return;
-    setState(() => _feedMode = mode);
+    setState(() {
+      _feedMode = mode;
+      // Covers the fromYourClubs branch below, which never calls
+      // _loadInitial (that method clears this too, but only for the
+      // other 3 modes) -- a stale pill from "ล่าสุด"/"ติดตาม" must not
+      // keep showing once switched away from either.
+      _newPostsCount = 0;
+    });
+
+    // The new-posts poll only ever runs for these two chronological
+    // modes (see _pollForNewPosts's doc comment) -- start it on
+    // entering either, stop it on leaving both, rather than running it
+    // unconditionally for the screen's whole lifetime regardless of
+    // which mode is even active.
+    if (mode == _HomeFeedMode.latest || mode == _HomeFeedMode.following) {
+      _newPostsPollTimer ??=
+          Timer.periodic(_newPostsPollInterval, (_) => _pollForNewPosts());
+    } else {
+      _newPostsPollTimer?.cancel();
+      _newPostsPollTimer = null;
+    }
+
     // "จาก Club ของคุณ" is FromYourClubsFeed's own separate widget state
     // -- only forYou/following/latest share _items and need a reload
     // when switching between (or into) them.
@@ -1039,6 +1214,12 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 // padding, all explicit constants that method itself commits to, not
 // measured off the rendered widget) + 1px hairline bottom border.
 const double _stickyTabsHeight = 44 + 1;
+
+// _buildNewPostsPill()'s own fixed layout: 10px vertical padding on the
+// outer row (top+bottom) + 8px vertical padding inside the pill
+// (top+bottom) + a 16px content box, all explicit constants that method
+// itself commits to -- same reasoning as _stickyTabsHeight above.
+const double _newPostsPillHeight = 10 + 10 + 8 + 8 + 16;
 
 class _FeedModeToggleHeaderDelegate extends SliverPersistentHeaderDelegate {
   const _FeedModeToggleHeaderDelegate({

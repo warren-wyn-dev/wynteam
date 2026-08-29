@@ -726,4 +726,46 @@ class HomeRepository {
       'target_id': profileId,
     });
   }
+
+  /// WYNOS Home reference spec 4.4 -- how many `home_feed` rows exist
+  /// created after [since], for the "ล่าสุด" tab's new-posts pill.
+  /// Backs lightweight client-side polling rather than a push signal --
+  /// this app has no Realtime channel wired up for Drops/Pops the way
+  /// chat_repository.dart has for messages, and adding one is a bigger
+  /// change than this one indicator warrants. Deliberately not offered
+  /// for "สำหรับคุณ" -- that feed is ranked, not chronological
+  /// (fetchRankedFeed's own doc comment), so "newer than X" isn't a
+  /// well-defined question there the way it is for a plain
+  /// `created_at`-ordered feed.
+  Future<int> countNewSince(DateTime since) {
+    return _client
+        .from('home_feed')
+        .count(CountOption.exact)
+        .gt('created_at', since.toIso8601String());
+  }
+
+  /// Same as [countNewSince], scoped to accounts [userId] follows --
+  /// backs the "ติดตาม" tab's own new-posts pill. Mirrors
+  /// [fetchFollowingFeed]'s own follows-then-filter shape (including its
+  /// `author_id`-or-`redropper_id` `.or()` so a followed user's ReDrop
+  /// counts too), just as a count instead of a fetch.
+  Future<int> countNewFollowingSince({
+    required String userId,
+    required DateTime since,
+  }) async {
+    final followRows = await _client
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId);
+    final followingIds =
+        followRows.map((row) => row['following_id'] as String).toList();
+    if (followingIds.isEmpty) return 0;
+
+    final followingList = followingIds.join(',');
+    return _client
+        .from('home_feed')
+        .count(CountOption.exact)
+        .gt('created_at', since.toIso8601String())
+        .or('author_id.in.($followingList),redropper_id.in.($followingList)');
+  }
 }
