@@ -36,13 +36,6 @@ dependencies:
   # Scoped to features/home/presentation/design/wynos_home_tokens.dart
   # only -- every other screen keeps DS-001's system-font default.
   google_fonts: ^6.2.1
-  # Home feed redesign -- the reference spec's icons (menu, search, X,
-  # heart, message-circle, repeat-2, share-2, eye, bookmark,
-  # more-horizontal, badge-check, arrow-up) are all drawn from
-  # lucide-react in the reference .jsx; this is the matching Flutter
-  # port so those icons render as the exact same glyphs instead of an
-  # approximation from Material Icons. Also scoped to Home only.
-  lucide_icons: ^0.257.0
 
 dev_dependencies:
   flutter_test:

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 
 import '../design/wynos_home_tokens.dart';
 
@@ -63,7 +62,7 @@ class WynosExplainerBanner extends StatelessWidget {
                   child: GestureDetector(
                     onTap: onDismiss,
                     child: const Icon(
-                      LucideIcons.x,
+                      Icons.close,
                       size: 15,
                       color: WynosHomeColors.graphite,
                     ),

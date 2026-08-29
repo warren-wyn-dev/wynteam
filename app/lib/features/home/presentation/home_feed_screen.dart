@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../chat/data/chat_repository.dart';
@@ -945,7 +944,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(
-                      LucideIcons.arrowUp,
+                      Icons.arrow_upward,
                       size: 13,
                       color: WynosHomeColors.paper,
                     ),
