@@ -242,8 +242,6 @@ class HomePopCard extends StatelessWidget {
                                 : 'กดเพื่อถูกใจ',
                             excludeSemantics: true,
                             child: IconButton(
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
                               icon: Icon(
                                 item.likedByMe ? Icons.favorite : Icons.favorite_border,
                                 size: 17,
@@ -261,8 +259,6 @@ class HomePopCard extends StatelessWidget {
                             label: 'ดูคอมเมนต์',
                             excludeSemantics: true,
                             child: IconButton(
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
                               icon: const Icon(
                                 Icons.mode_comment_outlined,
                                 size: 17,

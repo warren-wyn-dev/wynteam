@@ -445,8 +445,6 @@ class HomeDropCard extends StatelessWidget {
                                   : 'กดเพื่อถูกใจ',
                               excludeSemantics: true,
                               child: IconButton(
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
                                 icon: Icon(
                                   item.likedByMe ? Icons.favorite : Icons.favorite_border,
                                   size: 17,
@@ -464,8 +462,6 @@ class HomeDropCard extends StatelessWidget {
                               label: 'ดูคอมเมนต์',
                               excludeSemantics: true,
                               child: IconButton(
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
                                 icon: const Icon(
                                   Icons.mode_comment_outlined,
                                   size: 17,
@@ -483,8 +479,6 @@ class HomeDropCard extends StatelessWidget {
                                   : 'กดเพื่อ ReDrop',
                               excludeSemantics: true,
                               child: IconButton(
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
                                 icon: Icon(
                                   Icons.repeat,
                                   size: 17,
