@@ -6,6 +6,7 @@
 |---|---|
 | `00-prototype.jsx` | **Read this first.** A working multi-screen app showing how everything connects: bottom nav, push navigation (Post Detail, Settings), the side menu overlay. This is the map of the app, not pixel-perfect detail for every screen. |
 | `SPEC.md` | Design tokens (colors, fonts, spacing) used across the *entire* app. Read this second, before touching any individual screen. |
+| `DESIGN-PHILOSOPHY.md` | Read this for any screen not covered by files 01–22. The reasoning behind every design decision made across the app — which pattern to reuse for a new screen, when to use a card vs. a loose section, navigation model rules, copyright-safety rules, and what to do if something genuinely new comes up. |
 | `01-home.jsx` | Home feed — full detail, including empty state, sticky tabs, new-posts pill, double-tap-to-like, reply preview, verified badge. |
 | `02-notifications.jsx` | Notifications, grouped by day, with type badges. |
 | `03-search.jsx` | Search / Top 100 trending hashtags. |
@@ -50,11 +51,14 @@ E-commerce/shop screens specifically are out of scope for now — this app is so
 2. อ่าน SPEC.md เพื่อเข้าใจ design tokens ที่ใช้ทั้งแอป (สี, font, spacing)
    ให้แปลงเป็นค่าคงที่ในโปรเจกต์ (theme/tailwind config) ไม่ hardcode
    กระจายในแต่ละไฟล์
-3. อ่านไฟล์แต่ละหน้า (01 ถึง 22) ทีละไฟล์ตามลำดับเลข — ไฟล์เหล่านี้คือ
+3. ถ้าต้องออกแบบหรือสร้างหน้าที่ไม่มีอยู่ในไฟล์ 01-22 ให้อ่าน
+   DESIGN-PHILOSOPHY.md ก่อนเริ่ม เพื่อเข้าใจหลักการตัดสินใจที่ใช้ทั่วทั้งแอป
+   (เมื่อไหร่ควร reuse pattern ไหน, กฎการเลือก navigation, กฎด้านลิขสิทธิ์)
+4. อ่านไฟล์แต่ละหน้า (01 ถึง 22) ทีละไฟล์ตามลำดับเลข — ไฟล์เหล่านี้คือ
    รายละเอียด pixel-level ที่แม่นกว่า prototype ในข้อ 1
-4. ทำทีละหน้าตามลำดับเลข เทียบกับไฟล์ reference ให้ตรง 100% ก่อนไปหน้าถัดไป
+5. ทำทีละหน้าตามลำดับเลข เทียบกับไฟล์ reference ให้ตรง 100% ก่อนไปหน้าถัดไป
    อย่าข้ามหรือทำรวดเดียวทั้งหมด — โชว์ผลแต่ละหน้าให้ดูก่อน
-5. คงโครงสร้าง state/data/API ของแอปจริงไว้ เปลี่ยนแค่ styling และ
+6. คงโครงสร้าง state/data/API ของแอปจริงไว้ เปลี่ยนแค่ styling และ
    component structure ให้ตรงกับ reference
 
 กฎที่ห้ามฝ่าฝืน:
