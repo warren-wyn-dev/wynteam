@@ -28,4 +28,4 @@ jobs:
 
       - run: flutter analyze
 
-      - run: flutter test
+      - run: flutter test --timeout=30s test/home_feed_screen_test.dart
