@@ -4,6 +4,7 @@ import '../../../profile/data/profile.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../design/wynos_home_tokens.dart';
 import 'wynos_avatar_ring.dart';
+import 'wynos_verified_badge.dart';
 
 /// WYNOS Home reference spec 4.5 -- shown when the current tab
 /// ("สำหรับคุณ"/"ติดตาม") has zero posts because the account follows no
@@ -108,15 +109,23 @@ class _SuggestedRow extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // TODO(Feature 9, verified badge): once
-                      // Profile.isVerified exists, render the same
-                      // sapphire-filled check used on the post author
-                      // row next to this name.
-                      Text(
-                        profile.nameOrUsername,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: WynosHomeText.suggestedFollowName,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              profile.nameOrUsername,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: WynosHomeText.suggestedFollowName,
+                            ),
+                          ),
+                          // WYNOS Home reference spec 4.6/4.5.
+                          if (profile.isVerified) ...[
+                            const SizedBox(width: 4),
+                            const WynosVerifiedBadge(size: 13),
+                          ],
+                        ],
                       ),
                       Text(
                         '@${profile.username}',

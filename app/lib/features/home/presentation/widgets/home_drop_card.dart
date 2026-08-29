@@ -13,6 +13,7 @@ import 'wynos_double_tap_like.dart';
 import 'wynos_image_carousel.dart';
 import 'wynos_liked_by_row.dart';
 import 'wynos_top_reply.dart';
+import 'wynos_verified_badge.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
@@ -259,9 +260,22 @@ class HomeDropCard extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    item.authorNameOrUsername,
-                                    style: Theme.of(context).textTheme.titleSmall,
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          item.authorNameOrUsername,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context).textTheme.titleSmall,
+                                        ),
+                                      ),
+                                      // WYNOS Home reference spec 4.6.
+                                      if (item.authorIsVerified) ...[
+                                        const SizedBox(width: WynSpacing.space1),
+                                        const WynosVerifiedBadge(),
+                                      ],
+                                    ],
                                   ),
                                   Text(
                                     relativeTimeLabel(item.createdAt, now: DateTime.now()),

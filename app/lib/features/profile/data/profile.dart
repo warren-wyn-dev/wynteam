@@ -52,6 +52,7 @@ class Profile {
     this.dmPermission = InteractionPermission.everyone,
     this.mentionPermission = InteractionPermission.everyone,
     this.commentPermission = InteractionPermission.everyone,
+    this.isVerified = false,
   });
 
   factory Profile.fromMap(Map<String, dynamic> map) => Profile(
@@ -77,6 +78,11 @@ class Profile {
             map['mention_permission'] as String?),
         commentPermission: interactionPermissionFromString(
             map['comment_permission'] as String?),
+        // WYNOS Home reference spec 4.6 -- admin-only column (never
+        // client-writable, same guard shape as platformRole); defaults
+        // to false for the same "missing key reads as the safe default"
+        // reasoning as isPrivate above.
+        isVerified: map['is_verified'] as bool? ?? false,
       );
 
   final String id;
@@ -89,6 +95,12 @@ class Profile {
   final InteractionPermission dmPermission;
   final InteractionPermission mentionPermission;
   final InteractionPermission commentPermission;
+
+  /// WYNOS Home reference spec 4.6 -- an official account's sapphire-
+  /// filled check badge. Admin-only in practice (see this field's own
+  /// [fromMap] doc comment) -- there is no UI anywhere in the app to
+  /// change this for yourself or anyone else.
+  final bool isVerified;
 
   /// What to show as the profile's name: the display name if set, else
   /// "@username" as a fallback (per the WYN-003 design spec).

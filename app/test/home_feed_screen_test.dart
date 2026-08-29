@@ -19,6 +19,7 @@ import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/trending_tile.dart';
 import 'package:wyn/features/home/presentation/widgets/wynos_image_carousel.dart';
+import 'package:wyn/features/home/presentation/widgets/wynos_verified_badge.dart';
 import 'package:wyn/features/pop/presentation/widgets/pop_comment_sheet.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 
@@ -45,6 +46,7 @@ HomeFeedItem _dropItem({
   int? imageCount,
   List<HomeLiker> likedBy = const [],
   HomeTopReply? topReply,
+  bool authorIsVerified = false,
 }) =>
     HomeFeedItem(
       id: id,
@@ -73,6 +75,9 @@ HomeFeedItem _dropItem({
       // Feature 8 (WYNOS top reply preview) -- null by default, same as
       // the constructor's own default.
       topReply: topReply,
+      // Feature 9 (WYNOS verified badge) -- false by default, same as
+      // the constructor's own default.
+      authorIsVerified: authorIsVerified,
     );
 
 HomeFeedItem _popItem({
@@ -1078,6 +1083,66 @@ void main() {
       tester.takeException();
 
       expect(find.byType(DropDetailScreen), findsOneWidget);
+    });
+  });
+
+  group('WYNOS verified badge (Feature 9, spec 4.6)', () {
+    testWidgets('shows the badge next to a verified author\'s name',
+        (tester) async {
+      final repo = RecordingHomeRepository(
+        feedItems: [
+          _dropItem(id: 'verified-1', hasImage: false, authorIsVerified: true),
+        ],
+      );
+
+      await tester.pumpWidget(buildHome(
+        repo,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(WynosVerifiedBadge), findsOneWidget);
+    });
+
+    testWidgets('shows no badge for an ordinary (unverified) author',
+        (tester) async {
+      final repo = RecordingHomeRepository(
+        feedItems: [_dropItem(id: 'verified-2', hasImage: false)],
+      );
+
+      await tester.pumpWidget(buildHome(
+        repo,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(WynosVerifiedBadge), findsNothing);
+    });
+
+    testWidgets(
+        'shows the badge next to a verified suggested account in the '
+        'empty state too', (tester) async {
+      const suggestion = Profile(
+        id: 'verified-suggestion',
+        username: 'wynos',
+        isVerified: true,
+      );
+      sharedFollowRepository.suggestedToFollow.add(suggestion);
+      addTearDown(sharedFollowRepository.suggestedToFollow.clear);
+
+      await tester.pumpWidget(buildHome(
+        emptyHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(WynosVerifiedBadge), findsOneWidget);
     });
   });
 

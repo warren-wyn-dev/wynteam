@@ -11,6 +11,7 @@ import '../../../../core/widgets/hashtag_text.dart';
 import 'wynos_double_tap_like.dart';
 import 'wynos_liked_by_row.dart';
 import 'wynos_top_reply.dart';
+import 'wynos_verified_badge.dart';
 
 /// Formats a duration in seconds as "m:ss" (e.g. 45 -> "0:45").
 String _formatDuration(int totalSeconds) {
@@ -118,6 +119,11 @@ class HomePopCard extends StatelessWidget {
                               item.authorNameOrUsername,
                               style: Theme.of(context).textTheme.titleSmall,
                             ),
+                            // WYNOS Home reference spec 4.6.
+                            if (item.authorIsVerified) ...[
+                              const SizedBox(width: WynSpacing.space1),
+                              const WynosVerifiedBadge(),
+                            ],
                           ],
                         ),
                       ),

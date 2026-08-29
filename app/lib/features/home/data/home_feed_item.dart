@@ -96,6 +96,7 @@ class HomeFeedItem {
     int? imageCount,
     this.likedBy = const [],
     this.topReply,
+    this.authorIsVerified = false,
   }) : imageCount = imageCount ?? (imageUrl != null ? 1 : 0);
 
   final String id;
@@ -183,6 +184,13 @@ class HomeFeedItem {
   /// posture as [likedBy].
   final HomeTopReply? topReply;
 
+  /// WYNOS Home reference spec 4.6 -- the post author's verified badge
+  /// (admin-only in practice, see [Profile.isVerified]'s own doc
+  /// comment). Defaults to false for any row that doesn't carry
+  /// `author_is_verified` yet ([fromDrop]-sourced items), same posture
+  /// as [likedBy]/[topReply].
+  final bool authorIsVerified;
+
   bool get isPoll => pollId != null;
 
   bool get pollResultsVisible => pollTotalVotes != null;
@@ -265,6 +273,7 @@ class HomeFeedItem {
         imageCount: imageCount,
         likedBy: likedBy,
         topReply: topReply,
+        authorIsVerified: authorIsVerified,
       );
 
   String get redropperNameOrUsername => displayNameOrUsername(
@@ -435,6 +444,10 @@ class HomeFeedItem {
       topReply: map['top_reply'] != null
           ? HomeTopReply.fromMap(map['top_reply'] as Map<String, dynamic>)
           : null,
+      // Defaults to false when the row has no author_is_verified
+      // column at all (e.g. saved_feed) -- same posture as imageCount/
+      // likedBy/topReply above.
+      authorIsVerified: map['author_is_verified'] as bool? ?? false,
     );
   }
 }
