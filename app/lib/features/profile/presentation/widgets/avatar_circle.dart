@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
+import '../../../../core/design/wyn_typography.dart';
 
 /// A circular avatar image, falling back to the first letter of
 /// [fallbackText] on a primary-colored background when [imageUrl] is null
@@ -37,10 +38,15 @@ class AvatarCircle extends StatelessWidget {
       child: imageUrl == null
           ? Text(
               initial,
-              style: TextStyle(
+              // design-reference SPEC.md, Section 2: the avatar initial is
+              // one of the few spots outside the header wordmark/empty-
+              // state headline that every reference screen (Profile,
+              // Edit Profile, Notifications, ...) independently renders
+              // in Fraunces rather than Inter.
+              style: WynTypography.fraunces(
                 fontSize: radius * 0.8,
+                fontWeight: FontWeight.w500,
                 color: Theme.of(context).colorScheme.onPrimary,
-                fontWeight: FontWeight.bold,
               ),
             )
           : null,
