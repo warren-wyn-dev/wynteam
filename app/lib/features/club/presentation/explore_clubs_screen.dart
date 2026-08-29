@@ -1,23 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../data/club.dart';
-import '../data/club_member.dart';
 import '../data/club_post_repository.dart';
 import '../data/club_repository.dart';
 import 'club_page.dart';
 import 'create_club_screen.dart';
-import 'widgets/club_discovery_card.dart';
-import 'widgets/club_ranked_row.dart';
-import 'widgets/club_recommended_card.dart';
+import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_typography.dart';
+import '../../profile/presentation/widgets/avatar_circle.dart';
 
-/// Screen 1 — Explore Clubs (replaces WYN-014's placeholder, redesigned
-/// in WYN-056). Clubs the current user hasn't joined: a hero block, a
-/// personalized "Club แนะนำสำหรับคุณ" row, a ranked "กำลังนิยม" row,
-/// then the original search+Category filter+2-section browse list --
-/// now rendered as a 2-column image grid instead of full-width rows. See
-/// .wyn/docs/design/wyn-015-club-discovery-integration.md, Screen 1, and
-/// .wyn/docs/design/wyn-056-club-discovery-visual-refresh.md, Screen 1.
+typedef _Sections = ({
+  List<Club> popular,
+  List<Club> newest,
+  Set<String> pendingClubIds,
+});
+
+/// Screen 1 — Explore Clubs, restyled to 09-club-explore.tsx.
+///
+/// Founder decisions (2026-08-29):
+/// - Category chips/filter removed from this screen (the reference's
+///   own stated reason -- "no category concept exists anywhere else in
+///   the app" -- doesn't actually hold here, since Create Club/Club
+///   Page both still keep a real `Club.category` field, but the
+///   Founder chose to follow the reference's simplification on this
+///   one screen anyway and keep category as a Club attribute only,
+///   never a discovery filter).
+/// - "Club แนะนำสำหรับคุณ" (personalized carousel) and the ranked
+///   "กำลังนิยม" row are gone -- both "กำลังนิยม" and "ใหม่ล่าสุด" are now
+///   plain avatar+name+member-count+join-button rows (same shape as a
+///   suggested-account row on Search), not a 2-column image grid.
+///   ClubRecommendedCard/ClubRankedRow (and the ClubJoinButton variant
+///   they built on) are unreferenced after this -- kept in the
+///   codebase, not deleted, same "orphan rather than delete a shared
+///   widget on a restyle pass" posture as every prior page.
+/// See .wyn/docs/design/wyn-015-club-discovery-integration.md, Screen 1.
 class ExploreClubsScreen extends StatefulWidget {
   const ExploreClubsScreen({
     super.key,
@@ -32,24 +50,15 @@ class ExploreClubsScreen extends StatefulWidget {
   State<ExploreClubsScreen> createState() => _ExploreClubsScreenState();
 }
 
-typedef _Sections = ({
-  List<Club> recommended,
-  List<Club> popular,
-  List<Club> newest,
-  Set<String> pendingClubIds,
-});
-
 class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
-  static const _recommendedLimit = 8;
-  static const _rankedLimit = 5;
+  static const _limit = 10;
 
-  String? _category;
   String _searchQuery = '';
   late Future<_Sections> _loadFuture;
 
   // Only one Join action can be in flight at a time (mirrors ClubPage's
   // single _isJoinActionInFlight flag) -- tracked by club id so the
-  // right card shows its own spinner, not every card at once.
+  // right row shows its own spinner, not every row at once.
   String? _joinInFlightClubId;
 
   @override
@@ -59,31 +68,14 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
   }
 
   Future<_Sections> _load() async {
-    // The recommended row is personalized and intentionally ignores the
-    // Category filter (same as Home's "Club แนะนำ" row, WYN-017) --
-    // fetched without a category so it doesn't shrink/empty out just
-    // because the user picked a chip.
-    final recommended = await widget.clubRepository.fetchPopularClubs(limit: _recommendedLimit);
-    final popular = await widget.clubRepository.fetchPopularClubs(category: _category);
-    final newest = await widget.clubRepository.fetchNewClubs(category: _category);
+    final popular = await widget.clubRepository.fetchPopularClubs(limit: _limit);
+    final newest = await widget.clubRepository.fetchNewClubs(limit: _limit);
     final pendingClubIds = await widget.clubRepository.fetchPendingClubIds();
-    return (
-      recommended: recommended,
-      popular: popular,
-      newest: newest,
-      pendingClubIds: pendingClubIds,
-    );
+    return (popular: popular, newest: newest, pendingClubIds: pendingClubIds);
   }
 
   void _reload() {
     setState(() => _loadFuture = _load());
-  }
-
-  void _selectCategory(String? category) {
-    setState(() {
-      _category = category;
-      _loadFuture = _load();
-    });
   }
 
   void _openClub(Club club) {
@@ -131,26 +123,32 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
     }
   }
 
-  Future<void> _reportClub(Club club) async {
-    // Report entry point kept minimal here (no dedicated flow wired to
-    // this card yet) -- open the Club itself, where the full report
-    // sheet (ClubPage's More menu, WYN-014) is already available. Avoids
-    // duplicating ReportRepository wiring into a discovery card whose
-    // main job is browsing, not moderation.
-    _openClub(club);
-  }
-
   bool _matchesSearch(Club club) {
     if (_searchQuery.isEmpty) return true;
-    final query = _searchQuery.toLowerCase();
-    return club.name.toLowerCase().contains(query) ||
-        (club.category?.toLowerCase().contains(query) ?? false);
+    return club.name.toLowerCase().contains(_searchQuery.toLowerCase());
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('สำรวจ Club')),
+      backgroundColor: WynColors.paper,
+      appBar: AppBar(
+        backgroundColor: WynColors.paper,
+        centerTitle: true,
+        leading: IconButton(
+          key: const Key('explore_clubs_back_button'),
+          icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          'สำรวจ Club',
+          style: WynTypography.fraunces(fontSize: 17, color: WynColors.ink),
+        ),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, color: WynColors.hairline),
+        ),
+      ),
       body: FutureBuilder<_Sections>(
         future: _loadFuture,
         builder: (context, snapshot) {
@@ -164,16 +162,20 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
           return ListView(
             padding: const EdgeInsets.only(bottom: WynSpacing.space8),
             children: [
-              _buildHero(context),
-              _buildCreateCta(context),
-              const SizedBox(height: WynSpacing.space4),
-              _buildRecommendedRow(sections.recommended, sections.pendingClubIds),
-              _buildRankedRow(sections.popular.take(_rankedLimit).toList(), sections.pendingClubIds),
-              const SizedBox(height: WynSpacing.space2),
+              _buildHero(),
               _buildSearchBar(),
-              _buildCategoryChips(),
-              _buildGridSection('กำลังนิยม', popular),
-              _buildGridSection('ใหม่ล่าสุด', newest),
+              _buildListSection(
+                'กำลังนิยม',
+                popular,
+                sections.pendingClubIds,
+                emptyText: 'ยังไม่มี Club กำลังนิยมตอนนี้',
+              ),
+              _buildListSection(
+                'ใหม่ล่าสุด',
+                newest,
+                sections.pendingClubIds,
+                emptyText: 'ยังไม่มี Club ใหม่ตอนนี้',
+              ),
             ],
           );
         },
@@ -181,155 +183,42 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
     );
   }
 
-  Widget _buildHero(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+  Widget _buildHero() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WynSpacing.space4,
-        WynSpacing.space4,
-        WynSpacing.space4,
-        WynSpacing.space2,
+        WynSpacing.space6, WynSpacing.space6, WynSpacing.space6, 0,
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'CLUB',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: scheme.primary,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                      ),
-                ),
-                const SizedBox(height: WynSpacing.space1),
-                Text.rich(
-                  TextSpan(
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                    children: [
-                      const TextSpan(text: 'เจอคอมมูนิตี้ที่ใช่สำหรับ'),
-                      TextSpan(text: 'คุณ', style: TextStyle(color: scheme.primary)),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: WynSpacing.space1),
-                Text(
-                  'ร่วมคอมมูนิตี้ที่คุณสนใจ เชื่อมต่อกับคนที่คิดเหมือนกัน',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: WynSpacing.space3),
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: scheme.primaryContainer,
-              boxShadow: [
-                BoxShadow(
-                  color: scheme.primary.withValues(alpha: 0.3),
-                  blurRadius: 20,
-                ),
-              ],
-            ),
-            child: Icon(Icons.groups_rounded, size: 28, color: scheme.onPrimaryContainer),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCreateCta(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
-      child: FilledButton.icon(
-        onPressed: _openCreateClub,
-        icon: const Icon(Icons.add),
-        label: const Text('สร้าง Club'),
-      ),
-    );
-  }
-
-  Widget _buildRecommendedRow(List<Club> clubs, Set<String> pendingClubIds) {
-    if (clubs.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: WynSpacing.space4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(WynSpacing.space4, 0, WynSpacing.space4, WynSpacing.space2),
-            child: Text(
-              'Club แนะนำสำหรับคุณ',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+          Text.rich(
+            TextSpan(
+              style: WynTypography.fraunces(fontSize: 21, color: WynColors.ink),
+              children: const [
+                TextSpan(text: 'เจอคอมมูนิตี้ที่ใช่'),
+                TextSpan(text: 'สำหรับคุณ', style: TextStyle(color: WynColors.sapphire)),
+              ],
             ),
           ),
+          const SizedBox(height: WynSpacing.space2),
+          Text(
+            'ร่วมคอมมูนิตี้ที่คุณสนใจ เชื่อมต่อกับคนที่คิดเหมือนกัน',
+            style: _interStyle(fontSize: 13, color: WynColors.graphite, height: 1.4),
+          ),
+          const SizedBox(height: WynSpacing.space4),
           SizedBox(
-            height: 236,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
-              itemCount: clubs.length,
-              separatorBuilder: (_, __) => const SizedBox(width: WynSpacing.space3),
-              itemBuilder: (context, index) {
-                final club = clubs[index];
-                return ClubRecommendedCard(
-                  club: club,
-                  status: pendingClubIds.contains(club.id) ? ClubMemberStatus.pending : null,
-                  isJoinInFlight: _joinInFlightClubId == club.id,
-                  onTap: () => _openClub(club),
-                  onJoinTapped: () => _join(club),
-                  onReport: () => _reportClub(club),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRankedRow(List<Club> clubs, Set<String> pendingClubIds) {
-    if (clubs.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: WynSpacing.space2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(WynSpacing.space4, 0, WynSpacing.space4, WynSpacing.space2),
-            child: Text(
-              'กำลังนิยม',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-            ),
-          ),
-          SizedBox(
-            height: 72,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
-              itemCount: clubs.length,
-              separatorBuilder: (_, __) => const SizedBox(width: WynSpacing.space2),
-              itemBuilder: (context, index) {
-                final club = clubs[index];
-                return ClubRankedRow(
-                  rank: index + 1,
-                  club: club,
-                  status: pendingClubIds.contains(club.id) ? ClubMemberStatus.pending : null,
-                  isJoinInFlight: _joinInFlightClubId == club.id,
-                  onTap: () => _openClub(club),
-                  onJoinTapped: () => _join(club),
-                );
-              },
+            width: double.infinity,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                shape: const StadiumBorder(),
+                padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3),
+                backgroundColor: WynColors.sapphire,
+                foregroundColor: WynColors.paper,
+                textStyle: _interStyle(fontSize: 14, fontWeight: FontWeight.w700),
+              ),
+              onPressed: _openCreateClub,
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('สร้าง Club'),
             ),
           ),
         ],
@@ -339,92 +228,172 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
 
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(WynSpacing.space4, WynSpacing.space2, WynSpacing.space4, 0),
-      child: TextField(
-        onChanged: (value) => setState(() => _searchQuery = value.trim()),
-        decoration: InputDecoration(
-          hintText: 'ค้นหา Club หรือหมวดหมู่',
-          prefixIcon: const Icon(Icons.search),
-          filled: true,
-          isDense: true,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
-            borderSide: BorderSide.none,
-          ),
+      padding: const EdgeInsets.fromLTRB(
+        WynSpacing.space6, WynSpacing.space5, WynSpacing.space6, 0,
+      ),
+      child: Container(
+        height: 42,
+        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
+        decoration: BoxDecoration(
+          // Same one-off search-pill fill 03-search.tsx's own search bar
+          // established (search_screen.dart) -- not one of SPEC.md's 7
+          // named tokens, reused here rather than a new literal.
+          color: const Color(0xFFF1EFE9),
+          borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+          border: Border.all(color: WynColors.hairline),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.search, size: 15, color: WynColors.mutedNeutral),
+            const SizedBox(width: WynSpacing.space2),
+            Expanded(
+              child: TextField(
+                onChanged: (value) => setState(() => _searchQuery = value.trim()),
+                style: _interStyle(fontSize: 13.5, color: WynColors.ink),
+                decoration: InputDecoration(
+                  hintText: 'ค้นหา Club',
+                  hintStyle: _interStyle(fontSize: 13.5, color: WynColors.mutedNeutral),
+                  border: InputBorder.none,
+                  isCollapsed: true,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildCategoryChips() {
-    return SizedBox(
-      height: 48,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(right: WynSpacing.space2),
-            child: ChoiceChip(
-              label: const Text('ทั้งหมด'),
-              selected: _category == null,
-              onSelected: (_) => _selectCategory(null),
-            ),
-          ),
-          ...clubCategories.map(
-            (category) => Padding(
-              padding: const EdgeInsets.only(right: WynSpacing.space2),
-              child: ChoiceChip(
-                label: Text(category),
-                selected: _category == category,
-                onSelected: (_) => _selectCategory(category),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGridSection(String label, List<Club> clubs) {
+  Widget _buildListSection(
+    String label,
+    List<Club> clubs,
+    Set<String> pendingClubIds, {
+    required String emptyText,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Text(label, style: Theme.of(context).textTheme.titleSmall),
+          padding: const EdgeInsets.fromLTRB(
+            WynSpacing.space6, WynSpacing.space6, WynSpacing.space6, WynSpacing.space2,
+          ),
+          child: Text(
+            label,
+            style: _interStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: WynColors.mutedNeutral,
+              letterSpacing: 11 * 0.14,
+            ),
+          ),
         ),
         if (clubs.isEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
+            padding: const EdgeInsets.fromLTRB(
+              WynSpacing.space6, 0, WynSpacing.space6, WynSpacing.space2,
+            ),
             child: Text(
               _searchQuery.isNotEmpty
                   ? 'ไม่พบ Club ที่ตรงกับ "$_searchQuery"'
-                  : 'ยังไม่มี Club ในหมวดนี้',
+                  : emptyText,
+              style: _interStyle(fontSize: 13, color: WynColors.faint),
             ),
           )
         else
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: WynSpacing.space3,
-              crossAxisSpacing: WynSpacing.space3,
-              childAspectRatio: 0.72,
-            ),
-            itemCount: clubs.length,
-            itemBuilder: (context, index) {
-              final club = clubs[index];
-              return ClubDiscoveryCard(
-                club: club,
-                onTap: () => _openClub(club),
-                layout: ClubDiscoveryCardLayout.grid,
-              );
-            },
-          ),
+          for (final club in clubs)
+            _buildClubRow(club, isPending: pendingClubIds.contains(club.id)),
       ],
     );
   }
+
+  Widget _buildClubRow(Club club, {required bool isPending}) {
+    return InkWell(
+      onTap: () => _openClub(club),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: WynSpacing.space6, vertical: WynSpacing.space2,
+        ),
+        child: Row(
+          children: [
+            AvatarCircle(
+              imageUrl: club.iconUrl,
+              fallbackText: club.name,
+              radius: 22,
+              ring: true,
+            ),
+            const SizedBox(width: WynSpacing.space3),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    club.name,
+                    style: _interStyle(fontSize: 14, fontWeight: FontWeight.w600, color: WynColors.ink),
+                  ),
+                  Text(
+                    '${club.memberCount} สมาชิก',
+                    style: _interStyle(fontSize: 12, color: WynColors.mutedNeutral),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: WynSpacing.space2),
+            _buildJoinChip(club, isPending: isPending),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildJoinChip(Club club, {required bool isPending}) {
+    final isInFlight = _joinInFlightClubId == club.id;
+
+    if (isPending) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 6),
+        decoration: BoxDecoration(
+          color: WynColors.hairline,
+          borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+        ),
+        child: Text(
+          'รออนุมัติ',
+          style: _interStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: WynColors.graphite),
+        ),
+      );
+    }
+
+    return OutlinedButton(
+      onPressed: isInFlight ? null : () => _join(club),
+      style: OutlinedButton.styleFrom(
+        shape: const StadiumBorder(),
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 2),
+        foregroundColor: WynColors.sapphire,
+        side: const BorderSide(color: WynColors.sapphire),
+        textStyle: _interStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+      ),
+      child: isInFlight
+          ? const SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Text('เข้าร่วม'),
+    );
+  }
 }
+
+TextStyle _interStyle({
+  required double fontSize,
+  FontWeight fontWeight = FontWeight.w400,
+  Color? color,
+  double? height,
+  double? letterSpacing,
+}) =>
+    GoogleFonts.inter(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+      letterSpacing: letterSpacing,
+    );
