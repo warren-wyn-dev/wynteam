@@ -1,6 +1,7 @@
 import '../../../core/text_utils.dart';
 import '../../drop/data/drop.dart';
 import '../../pop/data/pop.dart';
+import 'home_top_reply.dart';
 
 enum HomeContentType { drop, pop }
 
@@ -27,6 +28,7 @@ class HomeFeedItem {
     this.viewCount,
     required this.likeCount,
     required this.commentCount,
+    this.topReply,
     required this.likedByMe,
     required this.savedByMe,
     this.redropCount = 0,
@@ -65,6 +67,13 @@ class HomeFeedItem {
 
   final int likeCount;
   final int commentCount;
+
+  /// WYNOSHomeSpec.md 4.10: the highest-engagement top-level comment on
+  /// this post, or null when nothing qualifies (see [HomeTopReply]'s
+  /// own doc comment) -- including on any fetch path that doesn't
+  /// embed `home_feed.top_reply` yet.
+  final HomeTopReply? topReply;
+
   final bool likedByMe;
   final bool savedByMe;
 
@@ -166,6 +175,7 @@ class HomeFeedItem {
         viewCount: viewCount,
         likeCount: likeCount ?? this.likeCount,
         commentCount: commentCount ?? this.commentCount,
+        topReply: topReply,
         likedByMe: likedByMe ?? this.likedByMe,
         savedByMe: savedByMe ?? this.savedByMe,
         redropCount: redropCount ?? this.redropCount,
@@ -312,6 +322,7 @@ class HomeFeedItem {
       viewCount: (map['view_count'] as num?)?.toInt(),
       likeCount: (map['like_count'] as num).toInt(),
       commentCount: (map['comment_count'] as num).toInt(),
+      topReply: HomeTopReply.fromHomeFeedMap(map),
       likedByMe: likedByMe,
       savedByMe: savedByMe,
       redropCount: (map['redrop_count'] as num?)?.toInt() ?? 0,

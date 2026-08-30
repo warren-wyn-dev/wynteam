@@ -180,6 +180,58 @@ void main() {
       expect(item.isPoll, isFalse);
       expect(item.pollResultsVisible, isFalse);
     });
+
+    test('parses top_reply into a HomeTopReply (WYNOSHomeSpec.md 4.10)', () {
+      final item = HomeFeedItem.fromMap({
+        'id': 'd1',
+        'content_type': 'drop',
+        'author_id': 'u1',
+        'author_username': 'namfah',
+        'author_display_name': null,
+        'author_avatar_url': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'caption': null,
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'video_url': null,
+        'thumbnail_url': null,
+        'duration_seconds': null,
+        'view_count': null,
+        'like_count': 5,
+        'comment_count': 3,
+        'top_reply': {
+          'author_username': 'zen',
+          'author_display_name': 'Zen',
+          'text': 'สวยมากกก',
+        },
+      }, likedByMe: false, savedByMe: false);
+
+      expect(item.topReply, isNotNull);
+      expect(item.topReply!.authorNameOrUsername, 'Zen');
+      expect(item.topReply!.text, 'สวยมากกก');
+    });
+
+    test('top_reply absent (nothing liked yet, or an older fetch path) '
+        'leaves topReply null', () {
+      final item = HomeFeedItem.fromMap({
+        'id': 'd1',
+        'content_type': 'drop',
+        'author_id': 'u1',
+        'author_username': 'namfah',
+        'author_display_name': null,
+        'author_avatar_url': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'caption': null,
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'video_url': null,
+        'thumbnail_url': null,
+        'duration_seconds': null,
+        'view_count': null,
+        'like_count': 5,
+        'comment_count': 3,
+      }, likedByMe: false, savedByMe: false);
+
+      expect(item.topReply, isNull);
+    });
   });
 
   group('votedPoll (WYN-035)', () {
@@ -237,6 +289,11 @@ void main() {
         'redropper_id': 'u2',
         'redropper_username': 'som',
         'quote_text': 'ดูนี่สิ',
+        'top_reply': {
+          'author_username': 'zen',
+          'author_display_name': null,
+          'text': 'เจ๋งดี',
+        },
       }, likedByMe: false, savedByMe: false);
 
       final copy = item.copyWith(likeCount: 6, redroppedByMe: true);
@@ -250,6 +307,9 @@ void main() {
       expect(copy.redropperUsername, 'som');
       expect(copy.quoteText, 'ดูนี่สิ');
       expect(copy.commentCount, 2);
+      // A Like toggle doesn't refetch the top reply -- copyWith must
+      // still carry it over as-is rather than silently resetting it.
+      expect(copy.topReply?.text, 'เจ๋งดี');
     });
   });
 

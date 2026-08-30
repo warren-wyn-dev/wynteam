@@ -13,10 +13,12 @@ import 'package:wyn/features/club/presentation/explore_clubs_screen.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 import 'package:wyn/features/drop/presentation/quote_redrop_screen.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
+import 'package:wyn/features/home/data/home_top_reply.dart';
 import 'package:wyn/features/home/presentation/home_feed_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
+import 'package:wyn/features/home/presentation/widgets/top_reply_preview.dart';
 import 'package:wyn/features/home/presentation/widgets/trending_tile.dart';
 import 'package:wyn/features/pop/presentation/widgets/pop_comment_sheet.dart';
 import 'package:wyn/features/profile/data/profile.dart';
@@ -41,6 +43,7 @@ HomeFeedItem _dropItem({
   int viewCount = 0,
   DateTime? createdAt,
   bool hasImage = true,
+  HomeTopReply? topReply,
 }) =>
     HomeFeedItem(
       id: id,
@@ -52,6 +55,7 @@ HomeFeedItem _dropItem({
       imageUrl: hasImage ? 'https://example.supabase.co/drops/$id.jpg' : null,
       likeCount: likeCount,
       commentCount: 0,
+      topReply: topReply,
       likedByMe: likedByMe,
       savedByMe: false,
       // WYN-038: defaults to 0 (never left null) -- a null viewCount on
@@ -236,6 +240,10 @@ void main() {
   late RecordingHomeRepository hideDropTestHomeRepository;
   late RecordingHomeRepository hidePopTestHomeRepository;
   late RecordingHomeRepository hideFailTestHomeRepository;
+
+  // WYNOSHomeSpec.md 4.10: Top reply preview.
+  late RecordingHomeRepository topReplyTestHomeRepository;
+  late RecordingHomeRepository noTopReplyTestHomeRepository;
 
   // WYN-064: Tap Home Tab to Scroll to Top & Refresh -- one repository
   // per scenario, same reasoning as every group above (built once here,
@@ -450,6 +458,23 @@ void main() {
     hideFailTestHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'hide-fail-d1')],
     )..hideContentError = Exception('network error');
+
+    topReplyTestHomeRepository = RecordingHomeRepository(
+      feedItems: [
+        _dropItem(
+          id: 'tr1',
+          hasImage: false,
+          topReply: const HomeTopReply(
+            authorUsername: 'zen',
+            authorDisplayName: 'Zen',
+            text: 'สวยมากกก',
+          ),
+        ),
+      ],
+    );
+    noTopReplyTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'tr2', hasImage: false)],
+    );
 
     // hasImage: false -- avoids kicking off 30 concurrent NetworkImage
     // fetches (each fails against the fake "example.supabase.co" host
@@ -1766,6 +1791,56 @@ void main() {
       await tester.pump();
       expect(duplicateFetchGuardTestHomeRepository.fetchRankedFeedCalls, 1);
       tester.takeException();
+    });
+  });
+
+  group('Top reply preview (WYNOSHomeSpec.md 4.10)', () {
+    testWidgets('shows the reply when the card has one', (tester) async {
+      await tester.pumpWidget(buildHome(
+        topReplyTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(TopReplyPreview), findsOneWidget);
+      expect(find.textContaining('Zen'), findsOneWidget);
+      expect(find.textContaining('สวยมากกก'), findsOneWidget);
+    });
+
+    testWidgets('renders nothing when the card has no qualifying reply',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        noTopReplyTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(TopReplyPreview), findsNothing);
+    });
+
+    testWidgets('tapping the reply preview opens DropDetailScreen '
+        '(same destination as tapping the card itself)', (tester) async {
+      await tester.pumpWidget(buildHome(
+        topReplyTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // Same off-screen-hit-test-avoidance as the redrop/comment button
+      // tests above -- the action row can push this preview below the
+      // fold, so this invokes the callback directly rather than
+      // tester.tap(), which needs the widget to actually be on-screen.
+      tester.widget<TopReplyPreview>(find.byType(TopReplyPreview)).onTap();
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(DropDetailScreen), findsOneWidget);
     });
   });
 }
