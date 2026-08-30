@@ -301,6 +301,8 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
       onRefresh: _loadInitial,
       child: ListView.separated(
         controller: _scrollController,
+        // Same missing-bottom-inset fix as ProfileDropGridTab's own list.
+        padding: const EdgeInsets.only(bottom: WynSpacing.space6),
         itemCount: _items.length + (_hasMore ? 1 : 0),
         separatorBuilder: (context, index) => index + 1 < _items.length
             ? const Divider(height: 1)

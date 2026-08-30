@@ -262,6 +262,14 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
       onRefresh: _loadInitial,
       child: ListView.separated(
         controller: _scrollController,
+        // The last full-width post card had no breathing room above the
+        // Bottom Nav (WynSpacing.space6 -- close to what DropDetailScreen's
+        // own comment list already reserves at its own tail end). Root
+        // cause was purely a missing bottom inset here, not the Bottom Nav
+        // actually covering content -- RootShell's Scaffold already
+        // excludes bottomNavigationBar's height from this tab's available
+        // space.
+        padding: const EdgeInsets.only(bottom: WynSpacing.space6),
         itemCount: _drops.length + (_hasMore ? 1 : 0),
         separatorBuilder: (context, index) => index + 1 < _drops.length
             ? const Divider(height: 1)
