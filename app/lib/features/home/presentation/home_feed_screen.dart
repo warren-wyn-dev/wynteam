@@ -22,6 +22,7 @@ import 'pop_single_clip_screen.dart';
 import 'widgets/from_your_clubs_feed.dart';
 import 'widgets/home_drop_card.dart';
 import 'widgets/home_pop_card.dart';
+import 'widgets/new_posts_pill.dart';
 import 'widgets/suggested_follow_list.dart';
 import 'widgets/trending_tile.dart';
 import '../../../core/design/wyn_colors.dart';
@@ -126,6 +127,14 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   late final FollowRequestRepository _followRequestRepository =
       FollowRequestRepository(Supabase.instance.client);
 
+  // WYNOSHomeSpec.md 4.4 (New-posts pill) -- count of Drops/Pops
+  // someone *else* has posted since this feed was last (re)loaded.
+  // Never auto-prepended; only ever cleared by the user tapping the
+  // pill (which reloads) or switching/reloading the feed some other
+  // way (_loadInitial resets it to 0 at the start of every fetch).
+  RealtimeChannel? _newPostsChannel;
+  int _newPostCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -134,6 +143,16 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     _scrollController.addListener(_onScroll);
     _loadUnreadChatCount();
     widget.homeTabReselectSignal.addListener(_onHomeTabReselected);
+    _newPostsChannel = widget.homeRepository.subscribeToNewPosts((authorId) {
+      // Skip the viewer's own new post -- RootShell._openCreateDrop
+      // already bumps _homeVersion (remounting this whole screen fresh)
+      // on a successful post, so counting it again here would just
+      // show a pill for content this viewer already sees.
+      if (!mounted || authorId == Supabase.instance.client.auth.currentUser?.id) {
+        return;
+      }
+      setState(() => _newPostCount++);
+    });
   }
 
   // WYN-032: the badge is "anything needing my attention" -- unread
@@ -167,6 +186,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   @override
   void dispose() {
     widget.homeTabReselectSignal.removeListener(_onHomeTabReselected);
+    final channel = _newPostsChannel;
+    if (channel != null) widget.homeRepository.unsubscribe(channel);
     _scrollController.dispose();
     super.dispose();
   }
@@ -204,6 +225,22 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     _refreshIndicatorKey.currentState?.show();
   }
 
+  // WYNOSHomeSpec.md 4.4: tapping the new-posts pill scrolls to top and
+  // reveals the new posts -- same visible spinner+reload shape as a
+  // manual pull, via _refreshIndicatorKey (mirrors
+  // _onHomeTabReselected's identical scroll-then-refresh shape above).
+  Future<void> _onNewPostsPillTap() async {
+    if (_scrollController.hasClients && _scrollController.position.pixels > 0) {
+      await _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+    if (!mounted) return;
+    _refreshIndicatorKey.currentState?.show();
+  }
+
   // "สำหรับคุณ" (ranked, WYN-018), "ติดตาม" (WYN-024), and "ล่าสุด"
   // (chronological, WYN-007's original behavior) all share this same
   // _items/_page state and just swap which repository method feeds it --
@@ -229,6 +266,9 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     setState(() {
       _isLoadingInitial = true;
       _error = null;
+      // A fresh load already carries every post the pill would have
+      // offered to reveal -- see _newPostCount's own doc comment.
+      _newPostCount = 0;
     });
     try {
       final items = await _fetchPage(0);
@@ -503,6 +543,13 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // WYNOSHomeSpec.md 4.4: the pill only makes sense for the 3 modes
+    // that actually share _items/_page (see _fetchPage's own doc
+    // comment) -- "จาก Club ของคุณ" is a wholly separate widget/data
+    // source a new Drop/Pop insert has nothing to do with.
+    final showNewPostsPill =
+        _feedMode != _HomeFeedMode.fromYourClubs && _newPostCount > 0;
+
     return Scaffold(
       // WYN-031's Chat entry point is a floating overlay (Positioned in
       // the Stack below), not an AppBar -- this screen's fixed-height
@@ -553,8 +600,23 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                   SliverPersistentHeader(
                     pinned: true,
                     delegate: _FeedModeToggleHeaderDelegate(
-                      height: _feedModeToggleHeight,
-                      child: _buildFeedModeToggle(),
+                      height: _feedModeToggleHeight +
+                          (showNewPostsPill ? _newPostsPillHeight : 0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildFeedModeToggle(),
+                          // WYNOSHomeSpec.md 4.4: "itself part of the
+                          // sticky block" -- pinned together with the
+                          // toggle above, not a separate scrolling
+                          // sliver of its own.
+                          if (showNewPostsPill)
+                            NewPostsPill(
+                              count: _newPostCount,
+                              onTap: _onNewPostsPillTap,
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                   if (_feedMode == _HomeFeedMode.fromYourClubs)
@@ -1023,6 +1085,15 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 // padding top and bottom (4 + 4) from _buildFeedModeToggle()'s own
 // fixed layout.
 const double _feedModeToggleHeight = 40 + 4 + 2 + 4 + 4;
+
+// NewPostsPill's own measured height (54 -- tester.getSize against the
+// real widget tree, same "not assumed" discipline as
+// _feedModeToggleHeight above) -- added on top of _feedModeToggleHeight
+// only while the pill is actually shown (see build()'s
+// showNewPostsPill), so the pinned block's extent grows/shrinks exactly
+// in step with the pill's own visibility instead of always reserving
+// dead space for it.
+const double _newPostsPillHeight = 54;
 
 class _FeedModeToggleHeaderDelegate extends SliverPersistentHeaderDelegate {
   const _FeedModeToggleHeaderDelegate({

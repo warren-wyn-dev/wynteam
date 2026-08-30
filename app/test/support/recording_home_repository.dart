@@ -25,7 +25,19 @@ class RecordingHomeRepository extends HomeRepository {
         rankedFeedItems = rankedFeedItems ?? feedItems ?? [],
         followingFeedItems = followingFeedItems ?? feedItems ?? [],
         redropsByUser = redropsByUser ?? [],
+        // A second, independent client just for minting fake
+        // RealtimeChannel objects (see subscribeToNewPosts below) --
+        // HomeRepository's own client is private to its file,
+        // unreachable from this subclass. Same shape as
+        // RecordingChatRepository's identically-named field.
+        _fakeChannelClient = SupabaseClient(
+          'https://example.supabase.co',
+          'test-key',
+          authOptions: const AuthClientOptions(autoRefreshToken: false),
+        ),
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
+
+  final SupabaseClient _fakeChannelClient;
 
   /// Returned by [fetchFeed] for page 0 only (page 1+ returns empty).
   final List<HomeFeedItem> feedItems;
@@ -104,4 +116,28 @@ class RecordingHomeRepository extends HomeRepository {
   Future<void> recordProfileVisit(String profileId) async {
     recordProfileVisitArgs.add(profileId);
   }
+
+  void Function(String authorId)? _newPostsCallback;
+
+  // Deliberately never calls `.subscribe()` on the channel it returns
+  // (that's what attempts a real WebSocket connection) -- `.channel()`
+  // alone just registers a local topic, no network I/O. The real
+  // callback is captured separately for [emitNewPost] to invoke
+  // directly. Mirrors RecordingChatRepository's identical shape for
+  // subscribeToConversationMessages/subscribeToMyMessages.
+  @override
+  RealtimeChannel subscribeToNewPosts(void Function(String authorId) onInsert) {
+    _newPostsCallback = onInsert;
+    return _fakeChannelClient.channel('test-home-feed-new-posts');
+  }
+
+  @override
+  void unsubscribe(RealtimeChannel channel) {
+    // No-op -- the channel was never actually subscribed (see the class
+    // doc comment above), so there's nothing real to tear down.
+  }
+
+  /// Test helper: simulates a new Drop/Pop insert arriving over
+  /// [subscribeToNewPosts]'s channel.
+  void emitNewPost(String authorId) => _newPostsCallback?.call(authorId);
 }

@@ -19,6 +19,7 @@ import 'package:wyn/features/home/presentation/home_feed_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
+import 'package:wyn/features/home/presentation/widgets/new_posts_pill.dart';
 import 'package:wyn/features/home/presentation/widgets/top_reply_preview.dart';
 import 'package:wyn/features/home/presentation/widgets/trending_tile.dart';
 import 'package:wyn/features/home/presentation/widgets/verified_badge.dart';
@@ -257,6 +258,14 @@ void main() {
   late RecordingDropRepository moreMenuTestDropRepository;
   late RecordingPopRepository moreMenuTestPopRepository;
   late RecordingHomeRepository moreMenuTestHomeRepository;
+
+  // WYNOSHomeSpec.md 4.4: New-posts pill. A dedicated repository per
+  // scenario, same one-repo-per-scenario convention as every other
+  // call-count-asserting group above -- newPostsPillTapTestHomeRepository
+  // specifically (whose test asserts fetchRankedFeedCalls) must not
+  // share an instance with any other test in this group.
+  late RecordingHomeRepository newPostsPillTestHomeRepository;
+  late RecordingHomeRepository newPostsPillTapTestHomeRepository;
 
   // WYN-064: Tap Home Tab to Scroll to Top & Refresh -- one repository
   // per scenario, same reasoning as every group above (built once here,
@@ -517,6 +526,13 @@ void main() {
           savedByMe: false,
         ),
       ],
+    );
+
+    newPostsPillTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'np1', hasImage: false)],
+    );
+    newPostsPillTapTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'np2', hasImage: false)],
     );
 
     // hasImage: false -- avoids kicking off 30 concurrent NetworkImage
@@ -1975,6 +1991,87 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(moreMenuTestDropRepository.toggleSaveCalls, 1);
+    });
+  });
+
+  group('New-posts pill (WYNOSHomeSpec.md 4.4)', () {
+    testWidgets(
+        'hidden by default, appears once someone else posts, with the '
+        'right count', (tester) async {
+      await tester.pumpWidget(buildHome(
+        newPostsPillTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(NewPostsPill), findsNothing);
+
+      newPostsPillTestHomeRepository.emitNewPost('someone-else');
+      await tester.pump();
+
+      expect(find.byType(NewPostsPill), findsOneWidget);
+      expect(find.text('มีโพสต์ใหม่ 1 โพสต์'), findsOneWidget);
+    });
+
+    testWidgets('each new post from someone else increments the count',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        newPostsPillTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      newPostsPillTestHomeRepository.emitNewPost('someone-else');
+      newPostsPillTestHomeRepository.emitNewPost('another-user');
+      await tester.pump();
+
+      expect(find.text('มีโพสต์ใหม่ 2 โพสต์'), findsOneWidget);
+    });
+
+    testWidgets(
+        'a post from the current viewer themselves never shows the pill '
+        '(RootShell._openCreateDrop already remounts Home on success)',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        newPostsPillTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // 'me' matches initFakeSupabaseSession's userId (setUpAll above).
+      newPostsPillTestHomeRepository.emitNewPost('me');
+      await tester.pump();
+
+      expect(find.byType(NewPostsPill), findsNothing);
+    });
+
+    testWidgets('tapping the pill reloads the feed and clears the pill',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        newPostsPillTapTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(newPostsPillTapTestHomeRepository.fetchRankedFeedCalls, 1);
+
+      newPostsPillTapTestHomeRepository.emitNewPost('someone-else');
+      await tester.pump();
+      expect(find.byType(NewPostsPill), findsOneWidget);
+
+      await tester.tap(find.byType(NewPostsPill));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(newPostsPillTapTestHomeRepository.fetchRankedFeedCalls, 2);
+      expect(find.byType(NewPostsPill), findsNothing);
     });
   });
 }
