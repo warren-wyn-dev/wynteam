@@ -131,6 +131,68 @@ void main() {
     expect(find.text('น้ำฝน'), findsOneWidget);
   });
 
+  group('"ทั้งหมด" / "ยังไม่อ่าน" tabs (12-chat.tsx)', () {
+    testWidgets('defaults to "ทั้งหมด", showing both read and unread rows',
+        (tester) async {
+      chatRepo.inboxPages = [
+        [
+          conversation(id: 'c1'),
+          conversation(
+            id: 'c2',
+            myLastReadAt: DateTime.parse('2026-08-22T11:00:00Z'),
+          ),
+        ],
+      ];
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('น้ำฝน'), findsNWidgets(2));
+    });
+
+    testWidgets('switching to "ยังไม่อ่าน" filters out already-read rows',
+        (tester) async {
+      chatRepo.inboxPages = [
+        [
+          conversation(id: 'unread', lastMessageText: 'ยังไม่อ่านนะ'),
+          conversation(
+            id: 'read',
+            lastMessageText: 'อ่านแล้ว',
+            // Read after the last message arrived -- not unread.
+            myLastReadAt: DateTime.parse('2026-08-22T11:00:00Z'),
+          ),
+        ],
+      ];
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('ยังไม่อ่านนะ'), findsOneWidget);
+      expect(find.text('อ่านแล้ว'), findsOneWidget);
+
+      await tester.tap(find.text('ยังไม่อ่าน'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ยังไม่อ่านนะ'), findsOneWidget);
+      expect(find.text('อ่านแล้ว'), findsNothing);
+    });
+
+    testWidgets(
+        '"ยังไม่อ่าน" with nothing unread shows its own empty message',
+        (tester) async {
+      chatRepo.inboxPages = [
+        [
+          conversation(myLastReadAt: DateTime.parse('2026-08-22T11:00:00Z')),
+        ],
+      ];
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ยังไม่อ่าน'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ไม่มีบทสนทนาที่ยังไม่อ่าน'), findsOneWidget);
+    });
+  });
+
   group('Message Requests banner (WYN-032)', () {
     testWidgets('hidden when there are no pending requests', (tester) async {
       chatRepo.inboxPages = const [[]];

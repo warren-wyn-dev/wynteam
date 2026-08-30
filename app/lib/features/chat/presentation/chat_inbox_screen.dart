@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_typography.dart';
 import '../../../core/text_utils.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/chat_repository.dart';
@@ -10,7 +13,25 @@ import 'conversation_screen.dart';
 import 'message_request_list_screen.dart';
 
 /// Screen 2 -- the Chat Inbox: every conversation this user is part of,
-/// sorted by most recent activity first. See
+/// sorted by most recent activity first. Restyled to 12-chat.tsx: chevron
+/// back + Fraunces title + a compose (pencil) icon header, a "ทั้งหมด" /
+/// "ยังไม่อ่าน" tab pair (a real client-side filter over the already-loaded
+/// list -- [Conversation.isUnread] already exists, so this isn't a
+/// placeholder), and rows styled like every other "list of people" screen
+/// (avatar ring, hairline separators, an inline dot next to the preview
+/// for unread instead of a corner badge on the avatar).
+///
+/// The compose icon has no real destination yet -- 12-chat.tsx's own doc
+/// comment says as much ("not built out here, but reserved as a real,
+/// tappable affordance rather than omitted"): that's design-reference's
+/// own `17-new-message.tsx`, a later page in this restyle pass. Shown
+/// muted/disabled for now, same "not wired yet" treatment as Settings'
+/// "ธีมเข้ม"/"ช่วยเหลือ" rows -- to be wired once that page is built.
+///
+/// The Message Requests banner (WYN-032) has no equivalent in the mockup
+/// at all -- it's real, working functionality the mockup's static
+/// screenshot simply doesn't depict, so it's kept, just restyled to the
+/// same token system as everything else on this page. See
 /// .wyn/docs/design/wyn-031-chat-1to1.md, Screen 2.
 class ChatInboxScreen extends StatefulWidget {
   const ChatInboxScreen({super.key, required this.chatRepository});
@@ -32,7 +53,17 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
   RealtimeChannel? _channel;
   int _pendingRequestCount = 0;
 
+  // 12-chat.tsx's "ทั้งหมด" (0) / "ยังไม่อ่าน" (1) tabs -- filters the
+  // already-loaded [_conversations] list client-side, same "one shared
+  // list, tab just filters it" pattern notification_list_screen.dart's
+  // own tab pair uses.
+  int _selectedTab = 0;
+
   String get _myUserId => Supabase.instance.client.auth.currentUser!.id;
+
+  List<Conversation> get _visibleConversations => _selectedTab == 1
+      ? _conversations.where((c) => c.isUnread(_myUserId)).toList()
+      : _conversations;
 
   @override
   void initState() {
@@ -190,12 +221,79 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('ข้อความ')),
+      backgroundColor: WynColors.paper,
+      appBar: AppBar(
+        backgroundColor: WynColors.paper,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text('ข้อความ', style: WynTypography.fraunces(fontSize: 17, color: WynColors.ink)),
+        actions: const [
+          IconButton(
+            // No real destination yet -- see this file's own doc comment.
+            icon: Icon(Icons.edit_outlined, size: 19, color: WynColors.faint),
+            tooltip: 'เขียนข้อความใหม่',
+            onPressed: null,
+          ),
+        ],
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, color: WynColors.hairline),
+        ),
+      ),
       body: Column(
         children: [
           if (_pendingRequestCount > 0) _buildRequestsBanner(),
+          _buildTabs(),
           Expanded(child: _buildBody()),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTabs() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space6),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: WynColors.hairline)),
+      ),
+      child: Row(
+        children: [
+          _buildTab('ทั้งหมด', 0),
+          const SizedBox(width: WynSpacing.space6),
+          _buildTab('ยังไม่อ่าน', 1),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTab(String label, int index) {
+    final selected = _selectedTab == index;
+    return InkWell(
+      onTap: () => setState(() => _selectedTab = index),
+      child: IntrinsicWidth(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3),
+              child: Text(
+                label,
+                style: _interStyle(
+                  fontSize: 13.5,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  color: selected ? WynColors.ink : WynColors.mutedNeutral,
+                ),
+              ),
+            ),
+            Container(
+              height: 2,
+              color: selected ? WynColors.sapphire : Colors.transparent,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -208,17 +306,24 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
       child: InkWell(
         onTap: _openMessageRequests,
         child: Container(
-          color: Theme.of(context).colorScheme.surfaceContainer,
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: WynColors.hairline)),
+          ),
           padding: const EdgeInsets.symmetric(
-            horizontal: WynSpacing.space4,
+            horizontal: WynSpacing.space6,
             vertical: WynSpacing.space3,
           ),
           child: Row(
             children: [
-              Icon(Icons.mail_outline, color: Theme.of(context).colorScheme.primary),
+              const Icon(Icons.mail_outline, size: 18, color: WynColors.sapphire),
               const SizedBox(width: WynSpacing.space3),
-              Expanded(child: Text('คำขอข้อความ ($_pendingRequestCount)')),
-              const Icon(Icons.chevron_right),
+              Expanded(
+                child: Text(
+                  'คำขอข้อความ ($_pendingRequestCount)',
+                  style: _interStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: WynColors.ink),
+                ),
+              ),
+              const Icon(Icons.chevron_right, size: 15, color: WynColors.faint),
             ],
           ),
         ),
@@ -244,20 +349,22 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
       );
     }
 
-    if (_conversations.isEmpty) {
+    final visible = _visibleConversations;
+
+    if (visible.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.chat_bubble_outline,
-                size: 56,
-                color: Theme.of(context).colorScheme.outline,
-              ),
+              const Icon(Icons.chat_bubble_outline, size: 56, color: WynColors.faint),
               const SizedBox(height: WynSpacing.space4),
-              const Text('ยังไม่มีบทสนทนา', textAlign: TextAlign.center),
+              Text(
+                _selectedTab == 1 ? 'ไม่มีบทสนทนาที่ยังไม่อ่าน' : 'ยังไม่มีบทสนทนา',
+                textAlign: TextAlign.center,
+                style: _interStyle(fontSize: 14, color: WynColors.graphite),
+              ),
             ],
           ),
         ),
@@ -268,16 +375,16 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
       onRefresh: _loadInitial,
       child: ListView.builder(
         controller: _scrollController,
-        itemCount: _conversations.length + (_hasMore ? 1 : 0),
+        itemCount: visible.length + (_hasMore ? 1 : 0),
         itemBuilder: (context, index) {
-          if (index >= _conversations.length) {
+          if (index >= visible.length) {
             return const Padding(
               padding: EdgeInsets.all(WynSpacing.space4),
               child: Center(child: CircularProgressIndicator()),
             );
           }
 
-          final conversation = _conversations[index];
+          final conversation = visible[index];
           return _ConversationRow(
             conversation: conversation,
             isUnread: conversation.isUnread(_myUserId),
@@ -329,72 +436,71 @@ class _ConversationRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: WynSpacing.space4,
-            vertical: WynSpacing.space2,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space6, vertical: 14),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: WynColors.hairline)),
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  AvatarCircle(
-                    imageUrl: conversation.otherAvatarUrl,
-                    fallbackText: displayName,
-                    radius: 24,
-                  ),
-                  if (isUnread)
-                    Positioned(
-                      right: -1,
-                      top: -1,
-                      child: Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Theme.of(context).colorScheme.surface,
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+              AvatarCircle(
+                imageUrl: conversation.otherAvatarUrl,
+                fallbackText: displayName,
+                radius: 24,
+                ring: true,
               ),
-              const SizedBox(width: WynSpacing.space3),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      displayName,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: isUnread ? FontWeight.bold : null,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _interStyle(
+                              fontSize: 14.5,
+                              fontWeight: isUnread ? FontWeight.w700 : FontWeight.w600,
+                              color: WynColors.ink,
+                            ),
                           ),
+                        ),
+                        const SizedBox(width: WynSpacing.space2),
+                        Text(
+                          time,
+                          style: _interStyle(fontSize: 11.5, color: WynColors.mutedNeutral),
+                        ),
+                      ],
                     ),
-                    Text(
-                      _preview,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontStyle: isDeleted ? FontStyle.italic : null,
-                            color: isDeleted || !isUnread
-                                ? Theme.of(context).colorScheme.onSurfaceVariant
-                                : null,
-                            fontWeight: isUnread ? FontWeight.bold : null,
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        if (isUnread)
+                          const Padding(
+                            padding: EdgeInsets.only(right: WynSpacing.space1),
+                            child: _UnreadDot(),
                           ),
+                        Expanded(
+                          child: Text(
+                            _preview,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _interStyle(
+                              fontSize: 13,
+                              fontStyle: isDeleted ? FontStyle.italic : FontStyle.normal,
+                              fontWeight: isUnread ? FontWeight.w500 : FontWeight.w400,
+                              color: isUnread ? WynColors.ink : WynColors.graphite,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: WynSpacing.space2),
-              Text(
-                time,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
               ),
             ],
           ),
@@ -403,3 +509,24 @@ class _ConversationRow extends StatelessWidget {
     );
   }
 }
+
+class _UnreadDot extends StatelessWidget {
+  const _UnreadDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 6,
+      height: 6,
+      decoration: const BoxDecoration(color: WynColors.sapphire, shape: BoxShape.circle),
+    );
+  }
+}
+
+TextStyle _interStyle({
+  required double fontSize,
+  FontWeight fontWeight = FontWeight.w400,
+  FontStyle fontStyle = FontStyle.normal,
+  Color? color,
+}) =>
+    GoogleFonts.inter(fontSize: fontSize, fontWeight: fontWeight, fontStyle: fontStyle, color: color);
