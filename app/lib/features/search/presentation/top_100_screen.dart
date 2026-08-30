@@ -108,7 +108,7 @@ class _Top100ScreenState extends State<Top100Screen> {
           icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Top 100', style: WynTypography.fraunces(fontSize: 17, color: WynColors.ink)),
+        title: Text('Top 100', style: WynTypography.screenTitle(fontSize: 17, color: WynColors.ink)),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: WynColors.hairline),

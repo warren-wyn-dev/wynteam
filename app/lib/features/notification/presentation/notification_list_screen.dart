@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/text_utils.dart';
@@ -589,7 +588,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
           ),
           Text(
             'การแจ้งเตือน',
-            style: WynTypography.fraunces(
+            style: WynTypography.screenTitle(
               fontSize: 19,
               letterSpacing: 19 * 0.02,
               color: WynColors.ink,
@@ -634,7 +633,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                   const EdgeInsets.symmetric(vertical: WynSpacing.space3),
               child: Text(
                 label,
-                style: _interStyle(
+                style: _textStyle(
                   fontSize: 13.5,
                   fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                   color: active ? WynColors.ink : WynColors.mutedNeutral,
@@ -702,7 +701,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     return _buildList(_notifications, paginated: true);
   }
 
-  // 22-empty-states.tsx: icon-in-tint-circle + Fraunces headline +
+  // 22-empty-states.tsx: icon-in-tint-circle + title-style headline +
   // supportive line, same shared shape the Chat Inbox's own empty state
   // uses.
   Widget _buildEmptyState({required String headline, required String subtext}) {
@@ -770,7 +769,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
             child: Center(
               child: Text(
                 'ไม่มีการแจ้งเตือนเพิ่มเติมแล้ว',
-                style: _interStyle(fontSize: 13, color: WynColors.faint),
+                style: _textStyle(fontSize: 13, color: WynColors.faint),
               ),
             ),
           );
@@ -811,13 +810,13 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                         '“${n.contentPreview}”',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: _interStyle(fontSize: 12.5, color: WynColors.graphite),
+                        style: _textStyle(fontSize: 12.5, color: WynColors.graphite),
                       ),
                     ],
                     const SizedBox(height: 2),
                     Text(
                       time,
-                      style: _interStyle(fontSize: 11.5, color: WynColors.faint),
+                      style: _textStyle(fontSize: 11.5, color: WynColors.faint),
                     ),
                   ],
                 ),
@@ -890,10 +889,10 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
   // more than one distinct actor -- 02-notifications.tsx's own pattern.
   Widget _buildMessage(WynNotification n, String message, int extraActorCount) {
     final name = n.actorNameOrUsername;
-    final baseStyle = _interStyle(fontSize: 13.5, color: _kMessageBodyColor);
+    final baseStyle = _textStyle(fontSize: 13.5, color: _kMessageBodyColor);
     final nameStyle =
-        _interStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: WynColors.ink);
-    final extraStyle = _interStyle(fontSize: 13.5, color: WynColors.graphite);
+        _textStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: WynColors.ink);
+    final extraStyle = _textStyle(fontSize: 13.5, color: WynColors.graphite);
 
     final spans = <InlineSpan>[];
     if (name.isNotEmpty && message.startsWith(name)) {
@@ -1035,12 +1034,12 @@ _TypeBadge? _badgeFor(NotificationType type) {
   }
 }
 
-TextStyle _interStyle({
+TextStyle _textStyle({
   required double fontSize,
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
 }) =>
-    GoogleFonts.inter(fontSize: fontSize, fontWeight: fontWeight, color: color);
+    TextStyle(fontSize: fontSize, fontWeight: fontWeight, color: color);
 
 // 02-notifications.tsx's message-body tone -- ink/faint-adjacent, not one
 // of SPEC.md's Section 1 tokens, same "quieter than the nearest named
@@ -1066,7 +1065,7 @@ class _GroupLabel extends StatelessWidget {
           WynSpacing.space5, WynSpacing.space4, WynSpacing.space1),
       child: Text(
         label,
-        style: _interStyle(fontSize: 11, fontWeight: FontWeight.w600, color: WynColors.mutedNeutral)
+        style: _textStyle(fontSize: 11, fontWeight: FontWeight.w600, color: WynColors.mutedNeutral)
             .copyWith(letterSpacing: 11 * 0.12),
       ),
     );

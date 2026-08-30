@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/widgets/action_sheet_row.dart';
@@ -617,7 +616,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
         ),
         title: Text(
           'โพสต์',
-          style: WynTypography.fraunces(fontSize: 17, color: WynColors.ink),
+          style: WynTypography.screenTitle(fontSize: 17, color: WynColors.ink),
         ),
         titleSpacing: 0,
         bottom: const PreferredSize(
@@ -702,7 +701,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                                         _drop.authorDisplayName ??
                                             _drop.authorUsername,
                                         overflow: TextOverflow.ellipsis,
-                                        style: _interStyle(
+                                        style: _textStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w600,
                                           color: WynColors.ink,
@@ -713,7 +712,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                                     Text(
                                       relativeTimeLabel(_drop.createdAt,
                                           now: DateTime.now()),
-                                      style: _interStyle(
+                                      style: _textStyle(
                                           fontSize: 12.5,
                                           color: WynColors.mutedNeutral),
                                     ),
@@ -721,13 +720,13 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                                 ),
                                 Text(
                                   '@${_drop.authorUsername}',
-                                  style: _interStyle(
+                                  style: _textStyle(
                                       fontSize: 12.5, color: WynColors.mutedNeutral),
                                 ),
                                 if (_drop.wasEdited)
                                   Text(
                                     'แก้ไขแล้ว',
-                                    style: _interStyle(
+                                    style: _textStyle(
                                         fontSize: 12, color: WynColors.faint),
                                   ),
                               ],
@@ -780,7 +779,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                 // screen to itself.
                 HashtagText(
                   _drop.caption!,
-                  style: _interStyle(fontSize: 16, color: WynColors.ink, height: 1.5),
+                  style: _textStyle(fontSize: 16, color: WynColors.ink, height: 1.5),
                 ),
               ],
               const SizedBox(height: WynSpacing.space3),
@@ -857,7 +856,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
             child: Center(
               child: Text(
                 'ไม่มีความคิดเห็นเพิ่มเติมแล้ว',
-                style: _interStyle(fontSize: 13, color: WynColors.faint),
+                style: _textStyle(fontSize: 13, color: WynColors.faint),
               ),
             ),
           ),
@@ -884,14 +883,14 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     TextSpan countSpan(int count, String label) => TextSpan(children: [
           TextSpan(
             text: '$count',
-            style: _interStyle(
+            style: _textStyle(
                 fontSize: 12.5, fontWeight: FontWeight.w700, color: WynColors.ink),
           ),
           TextSpan(text: ' $label'),
         ]);
 
     return DefaultTextStyle.merge(
-      style: _interStyle(fontSize: 12.5, color: WynColors.graphite),
+      style: _textStyle(fontSize: 12.5, color: WynColors.graphite),
       child: Row(
         children: [
           Text.rich(countSpan(_drop.likeCount, 'ถูกใจ')),
@@ -1044,7 +1043,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                       child: Text(
                         comment.authorNameOrUsername,
                         overflow: TextOverflow.ellipsis,
-                        style: _interStyle(
+                        style: _textStyle(
                           fontSize: isReply ? 13.5 : 13.5,
                           fontWeight: FontWeight.w600,
                           color: WynColors.ink,
@@ -1054,7 +1053,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     const SizedBox(width: WynSpacing.space2),
                     Text(
                       relativeTimeLabel(comment.createdAt, now: DateTime.now()),
-                      style: _interStyle(fontSize: 12, color: WynColors.mutedNeutral),
+                      style: _textStyle(fontSize: 12, color: WynColors.mutedNeutral),
                     ),
                   ],
                 ),
@@ -1062,7 +1061,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
                     comment.textContent,
-                    style: _interStyle(
+                    style: _textStyle(
                         fontSize: 14, color: WynColors.ink, height: 1.4),
                   ),
                 ),
@@ -1076,7 +1075,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                       onTap: () => _startReply(comment),
                       child: Text(
                         'ตอบกลับ',
-                        style: _interStyle(
+                        style: _textStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
                           color: WynColors.graphite,
@@ -1125,7 +1124,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
               if (comment.likeCount > 0)
                 Text(
                   '${comment.likeCount}',
-                  style: _interStyle(fontSize: 11.5, color: WynColors.graphite),
+                  style: _textStyle(fontSize: 11.5, color: WynColors.graphite),
                 ),
             ],
           ),
@@ -1170,7 +1169,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   children: [
                     Text(
                       'ตอบกลับ ${_replyingTo!.authorNameOrUsername}',
-                      style: _interStyle(fontSize: 12.5, color: WynColors.graphite),
+                      style: _textStyle(fontSize: 12.5, color: WynColors.graphite),
                     ),
                     const SizedBox(width: WynSpacing.space1),
                     InkWell(
@@ -1196,13 +1195,13 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     controller: _commentController,
                     focusNode: _commentFocusNode,
                     enabled: !_isSendingComment,
-                    style: _interStyle(fontSize: 13.5, color: WynColors.ink),
+                    style: _textStyle(fontSize: 16, color: WynColors.ink),
                     decoration: InputDecoration(
                       isDense: true,
                       border: InputBorder.none,
                       hintText: 'แสดงความคิดเห็น...',
                       hintStyle:
-                          _interStyle(fontSize: 13.5, color: WynColors.faint),
+                          _textStyle(fontSize: 13.5, color: WynColors.faint),
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
@@ -1229,13 +1228,13 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   }
 }
 
-TextStyle _interStyle({
+TextStyle _textStyle({
   required double fontSize,
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
   double? height,
 }) =>
-    GoogleFonts.inter(
+    TextStyle(
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../design/wyn_colors.dart';
 import '../design/wyn_spacing.dart';
@@ -79,7 +78,7 @@ class _LabeledFieldState extends State<LabeledField> {
         children: [
           Text(
             widget.label,
-            style: _interStyle(
+            style: _textStyle(
                 fontSize: 13, fontWeight: FontWeight.w500, color: WynColors.ink),
           ),
           Container(
@@ -97,7 +96,7 @@ class _LabeledFieldState extends State<LabeledField> {
                     child: Text(
                       widget.prefix!,
                       style:
-                          _interStyle(fontSize: 14.5, color: WynColors.graphite),
+                          _textStyle(fontSize: 14.5, color: WynColors.graphite),
                     ),
                   ),
                 Expanded(
@@ -108,7 +107,7 @@ class _LabeledFieldState extends State<LabeledField> {
                     maxLines: widget.multiline ? 3 : 1,
                     enabled: widget.enabled,
                     onChanged: widget.onChanged,
-                    style: _interStyle(fontSize: 14.5, color: WynColors.ink),
+                    style: _textStyle(fontSize: 16, color: WynColors.ink),
                     decoration: const InputDecoration(
                       isDense: true,
                       isCollapsed: true,
@@ -127,7 +126,7 @@ class _LabeledFieldState extends State<LabeledField> {
               padding: const EdgeInsets.only(top: WynSpacing.space1),
               child: Text(
                 widget.errorText!,
-                style: _interStyle(fontSize: 11.5, color: WynColors.errorLight),
+                style: _textStyle(fontSize: 11.5, color: WynColors.errorLight),
               ),
             ),
           AnimatedSize(
@@ -141,12 +140,12 @@ class _LabeledFieldState extends State<LabeledField> {
                         Expanded(
                           child: Text(
                             widget.helper,
-                            style: _interStyle(fontSize: 11.5, color: WynColors.faint),
+                            style: _textStyle(fontSize: 11.5, color: WynColors.faint),
                           ),
                         ),
                         Text(
                           '${widget.controller.text.length}/${widget.maxLength}',
-                          style: _interStyle(
+                          style: _textStyle(
                             fontSize: 11.5,
                             // Not in either reference file's own static
                             // mockup, but a real pre-existing signal worth
@@ -170,9 +169,9 @@ class _LabeledFieldState extends State<LabeledField> {
   }
 }
 
-TextStyle _interStyle({
+TextStyle _textStyle({
   required double fontSize,
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
 }) =>
-    GoogleFonts.inter(fontSize: fontSize, fontWeight: fontWeight, color: color);
+    TextStyle(fontSize: fontSize, fontWeight: fontWeight, color: color);

@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -724,7 +723,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                 child: Text(
                   displayName,
                   overflow: TextOverflow.ellipsis,
-                  style: _interStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: WynColors.ink),
+                  style: _textStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: WynColors.ink),
                 ),
               ),
             ],
@@ -871,7 +870,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
         child: Text(
           'คุณไม่สามารถส่งข้อความถึงผู้ใช้นี้ได้',
           textAlign: TextAlign.center,
-          style: _interStyle(fontSize: 13.5, color: WynColors.graphite),
+          style: _textStyle(fontSize: 13.5, color: WynColors.graphite),
         ),
       );
     }
@@ -881,7 +880,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
         child: Text(
           'บัญชีของคุณถูกระงับ ไม่สามารถส่งข้อความได้ในขณะนี้',
           textAlign: TextAlign.center,
-          style: _interStyle(fontSize: 13.5, color: WynColors.graphite),
+          style: _textStyle(fontSize: 13.5, color: WynColors.graphite),
         ),
       );
     }
@@ -933,10 +932,10 @@ class _ConversationScreenState extends State<ConversationScreen> {
                       maxLines: 6,
                       maxLength: 2000,
                       enabled: !_isSending,
-                      style: _interStyle(fontSize: 13.5, color: WynColors.ink),
+                      style: _textStyle(fontSize: 16, color: WynColors.ink),
                       decoration: InputDecoration(
                         hintText: 'พิมพ์ข้อความ...',
-                        hintStyle: _interStyle(fontSize: 13.5, color: WynColors.mutedNeutral),
+                        hintStyle: _textStyle(fontSize: 16, color: WynColors.mutedNeutral),
                         border: InputBorder.none,
                         isCollapsed: true,
                         counterText: '',
@@ -1038,7 +1037,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
       padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
       child: Text(
         'รอการตอบรับ',
-        style: _interStyle(fontSize: 12, color: WynColors.faint),
+        style: _textStyle(fontSize: 12, color: WynColors.faint),
       ),
     );
   }
@@ -1174,14 +1173,14 @@ class _MessageBubble extends StatelessWidget {
                           : (message.replyPreviewImageUrl != null ? '📷 รูปภาพ' : '')),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: _interStyle(fontSize: 12.5, color: textColor),
+                  style: _textStyle(fontSize: 12.5, color: textColor),
                 ),
               ),
             ),
           if (message.isDeleted)
             Text(
               'ข้อความนี้ถูกลบ',
-              style: _interStyle(fontSize: 14, fontStyle: FontStyle.italic, color: textColor),
+              style: _textStyle(fontSize: 14, fontStyle: FontStyle.italic, color: textColor),
             )
           else ...[
             if (message.imageUrl != null)
@@ -1212,7 +1211,7 @@ class _MessageBubble extends StatelessWidget {
                 ),
               ),
             if (message.text != null)
-              Text(message.text!, style: _interStyle(fontSize: 14, color: textColor, height: 1.4)),
+              Text(message.text!, style: _textStyle(fontSize: 14, color: textColor, height: 1.4)),
           ],
         ],
       ),
@@ -1256,20 +1255,20 @@ class _TimeDivider extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
       child: Center(
-        child: Text(label, style: _interStyle(fontSize: 11, color: WynColors.faint)),
+        child: Text(label, style: _textStyle(fontSize: 11, color: WynColors.faint)),
       ),
     );
   }
 }
 
-TextStyle _interStyle({
+TextStyle _textStyle({
   required double fontSize,
   FontWeight fontWeight = FontWeight.w400,
   FontStyle fontStyle = FontStyle.normal,
   Color? color,
   double? height,
 }) =>
-    GoogleFonts.inter(fontSize: fontSize, fontWeight: fontWeight, fontStyle: fontStyle, color: color, height: height);
+    TextStyle(fontSize: fontSize, fontWeight: fontWeight, fontStyle: fontStyle, color: color, height: height);
 
 /// Screen 4 (WYN-033) -- the shared Drop/Profile/Club preview card
 /// inside a message bubble. See

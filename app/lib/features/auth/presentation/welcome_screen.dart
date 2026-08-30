@@ -29,13 +29,13 @@ class WelcomeScreen extends StatelessWidget {
                   // 19-onboarding.tsx: the one wordmark moment in the
                   // whole app that outranks every other screen's own --
                   // this is the very first thing a brand-new person
-                  // sees, so it carries the Fraunces treatment SPEC.md
-                  // reserves for wordmark/screen-title spots, unlike the
-                  // plain Inter-based Theme.textTheme every other bit of
-                  // text on this form-heavy flow correctly uses as-is.
+                  // sees, so it carries its own explicit size/weight/
+                  // tracking via WynTypography.screenTitle rather than
+                  // the plain Theme.textTheme every other bit of text on
+                  // this form-heavy flow correctly uses as-is.
                   Text(
                     'WYN',
-                    style: WynTypography.fraunces(
+                    style: WynTypography.screenTitle(
                       fontSize: 34,
                       fontWeight: FontWeight.w500,
                       letterSpacing: 34 * 0.03,

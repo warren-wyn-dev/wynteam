@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
@@ -8,7 +7,7 @@ import '../../data/discovery_ranking.dart';
 
 /// One row of `03-search.tsx`'s Top 100 ranked hashtag list -- shared by
 /// [DiscoveryView]'s preview and [Top100Screen]'s full list so the same
-/// row never drifts out of sync between the two. Right-aligned Fraunces
+/// row never drifts out of sync between the two. Right-aligned title-style
 /// rank numeral, bold `#tag`, "N โพสต์" meta, hairline divider (all but
 /// the last row).
 class HashtagRankRow extends StatelessWidget {
@@ -49,7 +48,7 @@ class HashtagRankRow extends StatelessWidget {
                 child: Text(
                   '$rank',
                   textAlign: TextAlign.right,
-                  style: WynTypography.fraunces(
+                  style: WynTypography.screenTitle(
                       fontSize: 17, fontWeight: FontWeight.w500, color: WynColors.faint),
                 ),
               ),
@@ -62,13 +61,13 @@ class HashtagRankRow extends StatelessWidget {
                       '#${item.tag}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
+                      style: const TextStyle(
                           fontSize: 14.5, fontWeight: FontWeight.w700, color: WynColors.ink),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${item.postCount} โพสต์ · กำลังนิยมใน ไทย',
-                      style: GoogleFonts.inter(fontSize: 12, color: WynColors.graphite),
+                      style: const TextStyle(fontSize: 12, color: WynColors.graphite),
                     ),
                   ],
                 ),

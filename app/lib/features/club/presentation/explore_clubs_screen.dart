@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../data/club.dart';
 import '../data/club_post_repository.dart';
@@ -142,7 +141,7 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
         ),
         title: Text(
           'สำรวจ Club',
-          style: WynTypography.fraunces(fontSize: 17, color: WynColors.ink),
+          style: WynTypography.screenTitle(fontSize: 17, color: WynColors.ink),
         ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
@@ -193,7 +192,7 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
         children: [
           Text.rich(
             TextSpan(
-              style: WynTypography.fraunces(fontSize: 21, color: WynColors.ink),
+              style: WynTypography.screenTitle(fontSize: 21, color: WynColors.ink),
               children: const [
                 TextSpan(text: 'เจอคอมมูนิตี้ที่ใช่'),
                 TextSpan(text: 'สำหรับคุณ', style: TextStyle(color: WynColors.sapphire)),
@@ -203,7 +202,7 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
           const SizedBox(height: WynSpacing.space2),
           Text(
             'ร่วมคอมมูนิตี้ที่คุณสนใจ เชื่อมต่อกับคนที่คิดเหมือนกัน',
-            style: _interStyle(fontSize: 13, color: WynColors.graphite, height: 1.4),
+            style: _textStyle(fontSize: 13, color: WynColors.graphite, height: 1.4),
           ),
           const SizedBox(height: WynSpacing.space4),
           SizedBox(
@@ -214,7 +213,7 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
                 padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3),
                 backgroundColor: WynColors.sapphire,
                 foregroundColor: WynColors.paper,
-                textStyle: _interStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                textStyle: _textStyle(fontSize: 14, fontWeight: FontWeight.w700),
               ),
               onPressed: _openCreateClub,
               icon: const Icon(Icons.add, size: 16),
@@ -249,10 +248,10 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
             Expanded(
               child: TextField(
                 onChanged: (value) => setState(() => _searchQuery = value.trim()),
-                style: _interStyle(fontSize: 13.5, color: WynColors.ink),
+                style: _textStyle(fontSize: 16, color: WynColors.ink),
                 decoration: InputDecoration(
                   hintText: 'ค้นหา Club',
-                  hintStyle: _interStyle(fontSize: 13.5, color: WynColors.mutedNeutral),
+                  hintStyle: _textStyle(fontSize: 13.5, color: WynColors.mutedNeutral),
                   border: InputBorder.none,
                   isCollapsed: true,
                 ),
@@ -279,7 +278,7 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
           ),
           child: Text(
             label,
-            style: _interStyle(
+            style: _textStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: WynColors.mutedNeutral,
@@ -296,7 +295,7 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
               _searchQuery.isNotEmpty
                   ? 'ไม่พบ Club ที่ตรงกับ "$_searchQuery"'
                   : emptyText,
-              style: _interStyle(fontSize: 13, color: WynColors.faint),
+              style: _textStyle(fontSize: 13, color: WynColors.faint),
             ),
           )
         else
@@ -328,11 +327,11 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
                 children: [
                   Text(
                     club.name,
-                    style: _interStyle(fontSize: 14, fontWeight: FontWeight.w600, color: WynColors.ink),
+                    style: _textStyle(fontSize: 14, fontWeight: FontWeight.w600, color: WynColors.ink),
                   ),
                   Text(
                     '${club.memberCount} สมาชิก',
-                    style: _interStyle(fontSize: 12, color: WynColors.mutedNeutral),
+                    style: _textStyle(fontSize: 12, color: WynColors.mutedNeutral),
                   ),
                 ],
               ),
@@ -357,7 +356,7 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
         ),
         child: Text(
           'รออนุมัติ',
-          style: _interStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: WynColors.graphite),
+          style: _textStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: WynColors.graphite),
         ),
       );
     }
@@ -370,7 +369,7 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 2),
         foregroundColor: WynColors.sapphire,
         side: const BorderSide(color: WynColors.sapphire),
-        textStyle: _interStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+        textStyle: _textStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
       ),
       child: isInFlight
           ? const SizedBox(
@@ -383,14 +382,14 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
   }
 }
 
-TextStyle _interStyle({
+TextStyle _textStyle({
   required double fontSize,
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
   double? height,
   double? letterSpacing,
 }) =>
-    GoogleFonts.inter(
+    TextStyle(
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color,

@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -117,7 +116,7 @@ class SettingsScreen extends StatelessWidget {
           icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('ตั้งค่า', style: WynTypography.fraunces(fontSize: 17, color: WynColors.ink)),
+        title: Text('ตั้งค่า', style: WynTypography.screenTitle(fontSize: 17, color: WynColors.ink)),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: WynColors.hairline),
@@ -224,7 +223,7 @@ class _GroupLabel extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: _interStyle(
+        style: _textStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
           color: WynColors.mutedNeutral,
@@ -279,7 +278,7 @@ class _SettingsRow extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: _interStyle(fontSize: 14, fontWeight: FontWeight.w500, color: color),
+                style: _textStyle(fontSize: 14, fontWeight: FontWeight.w500, color: color),
               ),
             ),
             if (_enabled)
@@ -879,13 +878,13 @@ Future<InteractionPermission?> _showPermissionPicker(
   );
 }
 
-TextStyle _interStyle({
+TextStyle _textStyle({
   required double fontSize,
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
   double? letterSpacing,
 }) =>
-    GoogleFonts.inter(
+    TextStyle(
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color,

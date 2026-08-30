@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -651,13 +650,13 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                               maxLines: null,
                               minLines: 3,
                               enabled: !_isSharing,
-                              style: GoogleFonts.inter(
+                              style: const TextStyle(
                                   fontSize: 20, color: WynColors.ink, height: 1.4),
                               decoration: InputDecoration(
                                 hintText: _mode == _ComposeMode.poll
                                     ? 'ตั้งคำถามโพล...'
                                     : 'มีอะไรเกิดขึ้นบ้าง',
-                                hintStyle: GoogleFonts.inter(
+                                hintStyle: const TextStyle(
                                     fontSize: 20, color: WynColors.faint, height: 1.4),
                                 border: InputBorder.none,
                                 counterText: '',
@@ -678,7 +677,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                                   alignment: Alignment.centerRight,
                                   child: Text(
                                     '${_captionMaxLength - _captionController.text.length}',
-                                    style: GoogleFonts.inter(
+                                    style: const TextStyle(
                                         fontSize: 11.5, color: WynColors.sapphire),
                                   ),
                                 ),
@@ -726,7 +725,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: Text('ยกเลิก', style: GoogleFonts.inter(fontSize: 14.5, color: WynColors.ink)),
+            child: const Text('ยกเลิก', style: TextStyle(fontSize: 14.5, color: WynColors.ink)),
           ),
           Semantics(
             label: _isRestricted
@@ -751,8 +750,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                         color: _canShare ? WynColors.paper : WynColors.mutedNeutral,
                       ),
                     )
-                  : Text('โพสต์',
-                      style: GoogleFonts.inter(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                  : const Text('โพสต์',
+                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
             ),
           ),
         ],
@@ -832,7 +831,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             padding: const EdgeInsets.only(top: WynSpacing.space1),
             child: Text(
               '${_imagesBytes.length}/$_maxImages',
-              style: GoogleFonts.inter(fontSize: 12, color: WynColors.faint),
+              style: const TextStyle(fontSize: 12, color: WynColors.faint),
             ),
           ),
         ],
@@ -886,10 +885,10 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                       controller: _pollOptionControllers[i],
                       maxLength: _pollOptionMaxLength,
                       enabled: !_isSharing,
-                      style: GoogleFonts.inter(fontSize: 14.5, color: WynColors.ink),
+                      style: const TextStyle(fontSize: 16, color: WynColors.ink),
                       decoration: InputDecoration(
                         hintText: 'ตัวเลือกที่ ${i + 1}',
-                        hintStyle: GoogleFonts.inter(fontSize: 14.5, color: WynColors.faint),
+                        hintStyle: const TextStyle(fontSize: 16, color: WynColors.faint),
                         counterText: '',
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
@@ -926,11 +925,11 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
               onPressed: _isSharing ? null : _addPollOption,
               style: TextButton.styleFrom(foregroundColor: WynColors.sapphire),
               icon: const Icon(Icons.add, size: 18),
-              label: Text('เพิ่มตัวเลือก', style: GoogleFonts.inter(fontSize: 13.5)),
+              label: const Text('เพิ่มตัวเลือก', style: TextStyle(fontSize: 13.5)),
             ),
           const SizedBox(height: WynSpacing.space2),
-          Text('ระยะเวลาโหวต',
-              style: GoogleFonts.inter(
+          const Text('ระยะเวลาโหวต',
+              style: TextStyle(
                   fontSize: 13.5, fontWeight: FontWeight.w600, color: WynColors.ink)),
           const SizedBox(height: WynSpacing.space2),
           SegmentedButton<int>(
@@ -1026,14 +1025,14 @@ class _AudienceChip extends StatelessWidget {
         border: Border.all(color: WynColors.hairline),
         borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
       ),
-      child: Row(
+      child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text('ทุกคน',
-              style: GoogleFonts.inter(
+              style: TextStyle(
                   fontSize: 12.5, fontWeight: FontWeight.w600, color: WynColors.ink)),
-          const SizedBox(width: 2),
-          const Icon(Icons.keyboard_arrow_down, size: 13, color: WynColors.graphite),
+          SizedBox(width: 2),
+          Icon(Icons.keyboard_arrow_down, size: 13, color: WynColors.graphite),
         ],
       ),
     );

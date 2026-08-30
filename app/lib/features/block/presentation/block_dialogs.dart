@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
@@ -7,7 +6,7 @@ import '../../../core/design/wyn_typography.dart';
 import '../../../core/widgets/action_sheet_row.dart';
 
 /// Confirmation for WYN-027 (Block) -- 21-report-block.tsx's
-/// `BlockConfirmSheet`: a bottom sheet (icon + Fraunces title +
+/// `BlockConfirmSheet`: a bottom sheet (icon + title-style header text +
 /// supportive line + two full-width pill buttons), not the plain
 /// `AlertDialog` this used before. `confirmUnblock` stays an
 /// `AlertDialog` -- the reference doesn't design an unblock sheet, and
@@ -33,14 +32,14 @@ Future<bool> confirmBlock(BuildContext context, {required String username}) asyn
                 Text(
                   'บล็อก @$username?',
                   textAlign: TextAlign.center,
-                  style: WynTypography.fraunces(fontSize: 17, color: WynColors.ink),
+                  style: WynTypography.screenTitle(fontSize: 17, color: WynColors.ink),
                 ),
                 const SizedBox(height: WynSpacing.space2),
-                Text(
+                const Text(
                   'คุณจะไม่เห็นเนื้อหาของกันและกันอีกต่อไป การติดตามระหว่างกัน '
                   '(ถ้ามี) จะถูกยกเลิกทันที ยกเลิกการบล็อกได้ภายหลังที่ตั้งค่า',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(fontSize: 13, color: WynColors.graphite, height: 1.4),
+                  style: TextStyle(fontSize: 13, color: WynColors.graphite, height: 1.4),
                 ),
               ],
             ),
