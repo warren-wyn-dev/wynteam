@@ -260,6 +260,8 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
       onRefresh: _loadInitial,
       child: ListView.separated(
         controller: _scrollController,
+        // Same missing-bottom-inset fix as ProfileDropGridTab's own list.
+        padding: const EdgeInsets.only(bottom: WynSpacing.space6),
         itemCount: _drops.length + (_hasMore ? 1 : 0),
         separatorBuilder: (context, index) => index + 1 < _drops.length
             ? const Divider(height: 1)
