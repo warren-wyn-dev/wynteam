@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/text_utils.dart';
+import '../../../core/widgets/action_sheet_row.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../core/widgets/hashtag_text.dart';
 import '../../../core/widgets/restriction_banner.dart';
@@ -283,30 +284,26 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
 
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            if (isOwnComment)
-              ListTile(
-                leading: const Icon(Icons.delete_outline),
-                title: const Text('ลบคอมเมนต์'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _deleteComment(comment.id);
-                },
-              )
-            else
-              ListTile(
-                leading: const Icon(Icons.flag_outlined),
-                title: const Text('รายงานคอมเมนต์'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _reportComment(comment);
-                },
-              ),
-          ],
-        ),
-      ),
+      builder: (sheetContext) => ActionSheetBody(rows: [
+        if (isOwnComment)
+          ActionSheetRow(
+            icon: Icons.delete_outline,
+            label: 'ลบคอมเมนต์',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _deleteComment(comment.id);
+            },
+          )
+        else
+          ActionSheetRow(
+            icon: Icons.flag_outlined,
+            label: 'รายงานคอมเมนต์',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _reportComment(comment);
+            },
+          ),
+      ]),
     );
   }
 

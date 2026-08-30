@@ -4,8 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wyn/features/club/presentation/my_clubs_screen.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
-import 'package:wyn/features/profile/presentation/widgets/profile_saved_tab.dart';
 import 'package:wyn/features/root/presentation/side_menu.dart';
+import 'package:wyn/features/saved/presentation/bookmarks_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_club_post_repository.dart';
@@ -18,11 +18,7 @@ import 'support/recording_saved_repository.dart';
 
 /// 10-side-menu.tsx -- the ☰ drawer, wired up from NotificationListScreen
 /// (see notification_list_screen_test.dart's own "opens the side menu
-/// drawer" test for that half). Real destinations only, no placeholders
-/// -- see side_menu.dart's own doc comment for why "บันทึกไว้" reuses
-/// ViewProfileScreen's existing `_openSaved` destination rather than a
-/// new Bookmarks screen (design-reference's 15-bookmarks.tsx isn't built
-/// yet).
+/// drawer" test for that half). Real destinations only, no placeholders.
 void main() {
   late RecordingProfileRepository profileRepo;
   late RecordingFollowRepository followRepo;
@@ -133,7 +129,7 @@ void main() {
     await tester.tap(find.text('บันทึกไว้'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(ProfileSavedTab), findsOneWidget);
+    expect(find.byType(BookmarksScreen), findsOneWidget);
     // The drawer itself is popped before BookmarksScreen is pushed, so
     // this is BookmarksScreen's own AppBar title (15-bookmarks.tsx),
     // not the drawer row text lingering behind it.

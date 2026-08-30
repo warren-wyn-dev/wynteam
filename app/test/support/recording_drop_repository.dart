@@ -237,6 +237,8 @@ class RecordingDropRepository extends DropRepository {
     votePollArgs.add((pollId, optionIndex));
   }
 
+  Object? toggleLikeError;
+
   @override
   Future<void> toggleLike({
     required String dropId,
@@ -244,7 +246,10 @@ class RecordingDropRepository extends DropRepository {
   }) async {
     toggleLikeCalls++;
     toggleLikeCurrentlyLikedArgs.add(currentlyLiked);
+    if (toggleLikeError != null) throw toggleLikeError!;
   }
+
+  Object? toggleSaveError;
 
   @override
   Future<void> toggleSave({
@@ -252,6 +257,7 @@ class RecordingDropRepository extends DropRepository {
     required bool currentlySaved,
   }) async {
     toggleSaveCalls++;
+    if (toggleSaveError != null) throw toggleSaveError!;
   }
 
   @override

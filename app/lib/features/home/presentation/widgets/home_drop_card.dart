@@ -7,6 +7,7 @@ import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/text_utils.dart';
+import '../../../../core/widgets/action_sheet_row.dart';
 import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import '../../../report/data/report_repository.dart';
@@ -125,53 +126,49 @@ class HomeDropCard extends StatelessWidget {
   Future<void> _openMoreMenu(BuildContext context) async {
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            // Reporting your own Drop makes no sense -- same guard
-            // _isOwnDrop already applied to this button's own
-            // visibility before WYN-034, kept here now that the
-            // button can also show for a reason unrelated to
-            // authorship (_isOwnRedrop).
-            if (!_isOwnDrop && onHide != null)
-              ListTile(
-                leading: const Icon(Icons.visibility_off_outlined),
-                title: const Text('ไม่สนใจโพสต์นี้'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  onHide?.call();
-                },
-              ),
-            if (!_isOwnDrop)
-              ListTile(
-                leading: const Icon(Icons.flag_outlined),
-                title: const Text('รายงานโพสต์'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  showReportSheet(
-                    context,
-                    reportRepository: ReportRepository(Supabase.instance.client),
-                    targetType: ReportTargetType.drop,
-                    targetId: item.id,
-                    targetLabel: 'รายงานโพสต์ของ ${item.authorNameOrUsername}',
-                    associatedUserId: item.authorId,
-                  );
-                },
-              ),
-            // WYN-034: removes *this ReDrop entry* only -- the original
-            // Drop (and any other ReDrops of it) are untouched.
-            if (_isOwnRedrop)
-              ListTile(
-                leading: const Icon(Icons.delete_outline),
-                title: const Text('ลบ ReDrop'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  onDeleteRedrop?.call();
-                },
-              ),
-          ],
-        ),
-      ),
+      builder: (sheetContext) => ActionSheetBody(rows: [
+        // Reporting your own Drop makes no sense -- same guard
+        // _isOwnDrop already applied to this button's own
+        // visibility before WYN-034, kept here now that the
+        // button can also show for a reason unrelated to
+        // authorship (_isOwnRedrop).
+        if (!_isOwnDrop && onHide != null)
+          ActionSheetRow(
+            icon: Icons.visibility_off_outlined,
+            label: 'ไม่สนใจโพสต์นี้',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              onHide?.call();
+            },
+          ),
+        if (!_isOwnDrop)
+          ActionSheetRow(
+            icon: Icons.flag_outlined,
+            label: 'รายงานโพสต์',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              showReportSheet(
+                context,
+                reportRepository: ReportRepository(Supabase.instance.client),
+                targetType: ReportTargetType.drop,
+                targetId: item.id,
+                targetLabel: 'รายงานโพสต์ของ ${item.authorNameOrUsername}',
+                associatedUserId: item.authorId,
+              );
+            },
+          ),
+        // WYN-034: removes *this ReDrop entry* only -- the original
+        // Drop (and any other ReDrops of it) are untouched.
+        if (_isOwnRedrop)
+          ActionSheetRow(
+            icon: Icons.delete_outline,
+            label: 'ลบ ReDrop',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              onDeleteRedrop?.call();
+            },
+          ),
+      ]),
     );
   }
 

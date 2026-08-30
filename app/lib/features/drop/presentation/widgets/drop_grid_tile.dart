@@ -3,6 +3,7 @@ import 'package:flutter/semantics.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/design/wyn_colors.dart';
+import '../../../../core/widgets/action_sheet_row.dart';
 import '../../data/drop.dart';
 import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
@@ -30,27 +31,23 @@ class DropGridTile extends StatelessWidget {
   Future<void> _openMoreMenu(BuildContext context) async {
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.flag_outlined),
-              title: const Text('รายงานโพสต์'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                showReportSheet(
-                  context,
-                  reportRepository: ReportRepository(Supabase.instance.client),
-                  targetType: ReportTargetType.drop,
-                  targetId: drop.id,
-                  targetLabel: 'รายงานโพสต์ของ ${drop.authorNameOrUsername}',
-                  associatedUserId: drop.authorId,
-                );
-              },
-            ),
-          ],
+      builder: (sheetContext) => ActionSheetBody(rows: [
+        ActionSheetRow(
+          icon: Icons.flag_outlined,
+          label: 'รายงานโพสต์',
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            showReportSheet(
+              context,
+              reportRepository: ReportRepository(Supabase.instance.client),
+              targetType: ReportTargetType.drop,
+              targetId: drop.id,
+              targetLabel: 'รายงานโพสต์ของ ${drop.authorNameOrUsername}',
+              associatedUserId: drop.authorId,
+            );
+          },
         ),
-      ),
+      ]),
     );
   }
 

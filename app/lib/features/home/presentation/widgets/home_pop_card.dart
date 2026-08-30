@@ -7,6 +7,7 @@ import '../../../pop/presentation/widgets/pop_clip_view.dart' show popShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/widgets/action_sheet_row.dart';
 import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 
@@ -65,20 +66,16 @@ class HomePopCard extends StatelessWidget {
   Future<void> _openMoreMenu(BuildContext context) async {
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.visibility_off_outlined),
-              title: const Text('ไม่สนใจโพสต์นี้'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                onHide?.call();
-              },
-            ),
-          ],
+      builder: (sheetContext) => ActionSheetBody(rows: [
+        ActionSheetRow(
+          icon: Icons.visibility_off_outlined,
+          label: 'ไม่สนใจโพสต์นี้',
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            onHide?.call();
+          },
         ),
-      ),
+      ]),
     );
   }
 

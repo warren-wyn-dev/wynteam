@@ -3,6 +3,7 @@ import 'package:flutter/semantics.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/widgets/action_sheet_row.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../core/widgets/hashtag_text.dart';
 import '../../../core/widgets/restriction_banner.dart';
@@ -444,20 +445,16 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   Future<void> _openDropMoreMenu() async {
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.flag_outlined),
-              title: const Text('รายงานโพสต์'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                _reportDrop();
-              },
-            ),
-          ],
+      builder: (sheetContext) => ActionSheetBody(rows: [
+        ActionSheetRow(
+          icon: Icons.flag_outlined,
+          label: 'รายงานโพสต์',
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            _reportDrop();
+          },
         ),
-      ),
+      ]),
     );
   }
 
@@ -481,30 +478,26 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
 
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            if (isOwnComment)
-              ListTile(
-                leading: const Icon(Icons.delete_outline),
-                title: const Text('ลบคอมเมนต์'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _deleteComment(comment.id);
-                },
-              )
-            else
-              ListTile(
-                leading: const Icon(Icons.flag_outlined),
-                title: const Text('รายงานคอมเมนต์'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _reportComment(comment);
-                },
-              ),
-          ],
-        ),
-      ),
+      builder: (sheetContext) => ActionSheetBody(rows: [
+        if (isOwnComment)
+          ActionSheetRow(
+            icon: Icons.delete_outline,
+            label: 'ลบคอมเมนต์',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _deleteComment(comment.id);
+            },
+          )
+        else
+          ActionSheetRow(
+            icon: Icons.flag_outlined,
+            label: 'รายงานคอมเมนต์',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _reportComment(comment);
+            },
+          ),
+      ]),
     );
   }
 
@@ -536,35 +529,26 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   Future<void> _openOwnDropMoreMenu() async {
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            if (_canEditDrop)
-              ListTile(
-                leading: const Icon(Icons.edit_outlined),
-                title: const Text('แก้ไข'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _editDrop();
-                },
-              ),
-            ListTile(
-              leading: Icon(
-                Icons.delete_outline,
-                color: Theme.of(context).colorScheme.error,
-              ),
-              title: Text(
-                'ลบ',
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                _deleteDrop();
-              },
-            ),
-          ],
+      builder: (sheetContext) => ActionSheetBody(rows: [
+        if (_canEditDrop)
+          ActionSheetRow(
+            icon: Icons.edit_outlined,
+            label: 'แก้ไข',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _editDrop();
+            },
+          ),
+        ActionSheetRow(
+          icon: Icons.delete_outline,
+          label: 'ลบ',
+          color: Theme.of(sheetContext).colorScheme.error,
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            _deleteDrop();
+          },
         ),
-      ),
+      ]),
     );
   }
 
@@ -676,6 +660,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
             drop: _drop,
             dropRepository: widget.dropRepository,
             onLike: _toggleLike,
+            onDropChanged: (updated) => setState(() => _drop = updated),
           ),
         // WYNOS V1.0.0 Beta requirement 2: a caption-only Drop has no
         // image area at all here -- its caption still renders below via

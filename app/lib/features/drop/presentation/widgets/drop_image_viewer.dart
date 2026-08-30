@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../data/drop.dart';
+import '../../data/drop_repository.dart';
+import '../drop_detail_screen.dart' show dropShareLink;
 
 /// Full-screen, swipeable, pinch-to-zoom image viewer -- WYN-071 Design,
 /// Screen 4. Opened by tapping a multi-image Drop's gallery in
@@ -11,22 +15,37 @@ import '../../../../core/design/wyn_spacing.dart';
 /// comment: "the one screen in the app that intentionally breaks from
 /// the light palette, the way a lightbox does in most apps."
 ///
-/// The reference also shows a like/share/bookmark action row under the
-/// dots -- deliberately not added here: this widget only ever receives
-/// [imageUrls]/[initialIndex], no [Drop] or repositories, so real
-/// like/save state would mean threading those through and duplicating
-/// DropDetailScreen's own interaction logic in a second place, a real
-/// scope expansion rather than a restyle. Left as a flagged gap, not
-/// guessed at, same posture as Bookmarks' own unimplemented per-row
-/// unsave affordance.
+/// Also renders the reference's like/share/save action row. This is a
+/// separate pushed route from DropDetailScreen, so rather than calling
+/// back into DropDetailScreen's own [DropDetailScreen] state (which
+/// would leave this viewer's icons stale if a toggle fails and reverts
+/// while the viewer is still open), like/save get their own optimistic
+/// toggle + revert-on-failure here -- the same shape DropDetailScreen
+/// and HomeFeedScreen each already keep their own copy of for the same
+/// reason (see those files' own `_toggleLike`/`_toggleSave`). [onDropChanged]
+/// fires after every local update (including a revert) so the caller can
+/// keep its own `Drop` in sync in real time, regardless of how this
+/// route eventually closes.
 class DropImageViewer extends StatefulWidget {
   const DropImageViewer({
     super.key,
+    required this.drop,
     required this.imageUrls,
+    required this.dropRepository,
+    required this.onDropChanged,
     this.initialIndex = 0,
   });
 
+  final Drop drop;
   final List<String> imageUrls;
+  final DropRepository dropRepository;
+
+  /// Called with the updated [Drop] every time this viewer's own local
+  /// like/save state changes (optimistic toggle or a failed-call revert)
+  /// -- lets the caller (DropDetailScreen) keep its own copy in sync
+  /// live, rather than only once when this route closes.
+  final ValueChanged<Drop> onDropChanged;
+
   final int initialIndex;
 
   @override
@@ -37,11 +56,50 @@ class _DropImageViewerState extends State<DropImageViewer> {
   late final PageController _pageController =
       PageController(initialPage: widget.initialIndex);
   late int _currentIndex = widget.initialIndex;
+  late Drop _drop = widget.drop;
 
   @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _toggleLike() async {
+    final previous = _drop;
+    setState(() => _drop = _drop.toggledLike());
+    widget.onDropChanged(_drop);
+    try {
+      await widget.dropRepository.toggleLike(
+        dropId: previous.id,
+        currentlyLiked: previous.likedByMe,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _drop = previous);
+      widget.onDropChanged(_drop);
+    }
+  }
+
+  Future<void> _toggleSave() async {
+    final previous = _drop;
+    setState(() => _drop = _drop.toggledSave());
+    widget.onDropChanged(_drop);
+    try {
+      await widget.dropRepository.toggleSave(
+        dropId: previous.id,
+        currentlySaved: previous.savedByMe,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _drop = previous);
+      widget.onDropChanged(_drop);
+    }
+  }
+
+  Future<void> _share() async {
+    await SharePlus.instance.share(
+      ShareParams(text: dropShareLink(_drop.id)),
+    );
   }
 
   @override
@@ -117,6 +175,57 @@ class _DropImageViewerState extends State<DropImageViewer> {
                   ),
                 ),
               ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                WynSpacing.space6, 0, WynSpacing.space6, WynSpacing.space8,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Semantics(
+                    label: _drop.likedByMe
+                        ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
+                        : 'กดเพื่อถูกใจ',
+                    button: true,
+                    excludeSemantics: true,
+                    child: IconButton(
+                      icon: Icon(
+                        _drop.likedByMe ? Icons.favorite : Icons.favorite_border,
+                        size: 22,
+                        color: _drop.likedByMe ? WynColors.sapphire : WynColors.paper,
+                      ),
+                      onPressed: _toggleLike,
+                    ),
+                  ),
+                  const SizedBox(width: WynSpacing.space6),
+                  Semantics(
+                    label: 'แชร์',
+                    button: true,
+                    excludeSemantics: true,
+                    child: IconButton(
+                      icon: const Icon(Icons.send_outlined, size: 20, color: WynColors.paper),
+                      onPressed: _share,
+                    ),
+                  ),
+                  const SizedBox(width: WynSpacing.space6),
+                  Semantics(
+                    label: _drop.savedByMe
+                        ? 'บันทึกแล้ว กดเพื่อเอาออกจาก Saved'
+                        : 'กดเพื่อบันทึก',
+                    button: true,
+                    excludeSemantics: true,
+                    child: IconButton(
+                      icon: Icon(
+                        _drop.savedByMe ? Icons.bookmark : Icons.bookmark_border,
+                        size: 20,
+                        color: _drop.savedByMe ? WynColors.sapphire : WynColors.paper,
+                      ),
+                      onPressed: _toggleSave,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),

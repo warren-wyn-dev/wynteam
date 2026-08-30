@@ -26,7 +26,7 @@ void main() {
 
       expect(find.text('บล็อก @namfah?'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(TextButton, 'บล็อก'));
+      await tester.tap(find.widgetWithText(FilledButton, 'บล็อก'));
       await tester.pumpAndSettle();
 
       expect(result, isTrue);
@@ -40,7 +40,7 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(TextButton, 'ยกเลิก'));
+      await tester.tap(find.widgetWithText(OutlinedButton, 'ยกเลิก'));
       await tester.pumpAndSettle();
 
       expect(result, isFalse);

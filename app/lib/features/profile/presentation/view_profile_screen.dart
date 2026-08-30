@@ -37,6 +37,7 @@ import 'widgets/profile_skeleton.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
+import '../../../core/widgets/action_sheet_row.dart';
 import '../../block/data/block_relationship.dart';
 import '../../block/data/block_repository.dart';
 import '../../block/presentation/block_dialogs.dart';
@@ -465,8 +466,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
 
   /// WYN-071: Saved's tab content pushed as its own screen instead --
   /// see the Row above `_openEdit`'s button. 15-bookmarks.tsx: that
-  /// screen is now [BookmarksScreen] (restyled header, same
-  /// `ProfileSavedTab` body -- see that file's own doc comment).
+  /// screen is [BookmarksScreen], its own full-width post-row list --
+  /// see that file's own doc comment for why it's not `ProfileSavedTab`'s
+  /// grid (which stays as the profile's own Saved tab body, untouched).
   void _openSaved() {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -669,58 +671,52 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.share_outlined),
-              title: const Text('แชร์โปรไฟล์'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                showShareSheet(
-                  context,
-                  chatRepository: _chatRepository,
-                  profileRepository: widget.profileRepository,
-                  sharedContentType: SharedContentType.profile,
-                  sharedContentId: widget.userId,
-                  previewLabel: 'แชร์โปรไฟล์ @${data.profile.username}',
-                  nativeShareText: profileShareLink(data.profile.username),
-                  nativeShareTitle:
-                      data.profile.displayName ?? '@${data.profile.username}',
-                );
-              },
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.flag_outlined),
-              title: const Text('รายงาน'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                _reportUser();
-              },
-            ),
-            if (_isMuted != null &&
-                _blockRelationship == BlockRelationship.none)
-              ListTile(
-                leading: Icon(_isMuted! ? Icons.volume_up : Icons.volume_off),
-                title: Text(_isMuted! ? 'เปิดเสียง' : 'ปิดเสียง'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _onMuteTapped();
-                },
-              ),
-            if (_blockRelationship == BlockRelationship.none)
-              ListTile(
-                leading: const Icon(Icons.block),
-                title: const Text('บล็อก'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _onBlockTapped();
-                },
-              ),
-          ],
+      builder: (sheetContext) => ActionSheetBody(rows: [
+        ActionSheetRow(
+          icon: Icons.share_outlined,
+          label: 'แชร์โปรไฟล์',
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            showShareSheet(
+              context,
+              chatRepository: _chatRepository,
+              profileRepository: widget.profileRepository,
+              sharedContentType: SharedContentType.profile,
+              sharedContentId: widget.userId,
+              previewLabel: 'แชร์โปรไฟล์ @${data.profile.username}',
+              nativeShareText: profileShareLink(data.profile.username),
+              nativeShareTitle:
+                  data.profile.displayName ?? '@${data.profile.username}',
+            );
+          },
         ),
-      ),
+        ActionSheetRow(
+          icon: Icons.flag_outlined,
+          label: 'รายงาน',
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            _reportUser();
+          },
+        ),
+        if (_isMuted != null && _blockRelationship == BlockRelationship.none)
+          ActionSheetRow(
+            icon: _isMuted! ? Icons.volume_up : Icons.volume_off,
+            label: _isMuted! ? 'เปิดเสียง' : 'ปิดเสียง',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _onMuteTapped();
+            },
+          ),
+        if (_blockRelationship == BlockRelationship.none)
+          ActionSheetRow(
+            icon: Icons.block,
+            label: 'บล็อก',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _onBlockTapped();
+            },
+          ),
+      ]),
     );
   }
 

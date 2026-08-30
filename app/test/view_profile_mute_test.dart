@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:wyn/core/widgets/action_sheet_row.dart';
 import 'package:wyn/features/block/data/block_relationship.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
@@ -78,10 +79,9 @@ void main() {
     await tester.tap(find.byIcon(Icons.more_vert));
     await tester.pumpAndSettle();
 
-    final items = tester.widgetList<ListTile>(find.byType(ListTile)).toList();
-    final titles = items
-        .map((tile) => (tile.title as Text).data)
-        .toList(growable: false);
+    final items =
+        tester.widgetList<ActionSheetRow>(find.byType(ActionSheetRow)).toList();
+    final titles = items.map((row) => row.label).toList(growable: false);
     // WYN-033 added "แชร์โปรไฟล์" ahead of the 3 safety items this test
     // originally covered (separated by its own Divider, not asserted
     // here) -- see ViewProfileScreen._openMoreMenu().
