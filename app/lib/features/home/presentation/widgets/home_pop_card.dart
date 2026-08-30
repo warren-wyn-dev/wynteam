@@ -69,14 +69,41 @@ class HomePopCard extends StatelessWidget {
     await showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) => ActionSheetBody(rows: [
+        // WYNOSHomeSpec.md 4.6: Share/Save deliberately live here now,
+        // not in the action bar (see that section's own "deliberate
+        // simplification" note) -- always offered first, regardless of
+        // authorship, ahead of the authorship-gated Hide row below.
         ActionSheetRow(
-          icon: Icons.visibility_off_outlined,
-          label: 'ไม่สนใจโพสต์นี้',
+          icon: Icons.share_outlined,
+          label: 'แชร์',
           onTap: () {
             Navigator.of(sheetContext).pop();
-            onHide?.call();
+            _share();
           },
         ),
+        ActionSheetRow(
+          icon: item.savedByMe ? Icons.bookmark : Icons.bookmark_border,
+          label: item.savedByMe ? 'เอาออกจากบันทึก' : 'บันทึก',
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            onToggleSave();
+          },
+        ),
+        // WYNOS Unified Home Feed Algorithm V1.0 -- only someone else's
+        // Pop can be Hidden from your own feed. Previously this whole
+        // row's *visibility* was gated by never showing the "..."
+        // button at all on your own Pop (the button is now always
+        // shown, since Share/Save above apply regardless of
+        // authorship), so the guard moves onto this row directly.
+        if (!_isOwnPop && onHide != null)
+          ActionSheetRow(
+            icon: Icons.visibility_off_outlined,
+            label: 'ไม่สนใจโพสต์นี้',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              onHide?.call();
+            },
+          ),
       ]),
     );
   }
@@ -126,12 +153,17 @@ class HomePopCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (!_isOwnPop && onHide != null)
-                      IconButton(
-                        icon: const Icon(Icons.more_vert),
-                        tooltip: 'เพิ่มเติม',
-                        onPressed: () => _openMoreMenu(context),
-                      ),
+                    // WYNOSHomeSpec.md 4.6: always shown now, even on the
+                    // viewer's own Pop -- Share/Save moved in here from
+                    // the action bar apply regardless of authorship.
+                    // _openMoreMenu itself still decides whether the
+                    // authorship-gated Hide row appears underneath those
+                    // two.
+                    IconButton(
+                      icon: const Icon(Icons.more_vert),
+                      tooltip: 'เพิ่มเติม',
+                      onPressed: () => _openMoreMenu(context),
+                    ),
                   ],
                 ),
               ),
@@ -215,30 +247,9 @@ class HomePopCard extends StatelessWidget {
                       ),
                     ),
                     Text('${item.commentCount}'),
-                    Semantics(
-                      label: 'แชร์',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: const Icon(Icons.share_outlined, size: 20),
-                        onPressed: _share,
-                      ),
-                    ),
                     const Icon(Icons.visibility_outlined, size: 18),
                     const SizedBox(width: WynSpacing.space1),
                     Text('${item.viewCount}'),
-                    const Spacer(),
-                    Semantics(
-                      label: item.savedByMe
-                          ? 'บันทึกแล้ว กดเพื่อเอาออกจาก Saved'
-                          : 'กดเพื่อบันทึก',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: Icon(
-                          item.savedByMe ? Icons.bookmark : Icons.bookmark_border,
-                        ),
-                        onPressed: onToggleSave,
-                      ),
-                    ),
                   ],
                 ),
               ),

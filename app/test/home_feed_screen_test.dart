@@ -252,6 +252,11 @@ void main() {
   late RecordingHomeRepository verifiedAuthorTestHomeRepository;
   late RecordingHomeRepository unverifiedAuthorTestHomeRepository;
 
+  // WYNOSHomeSpec.md 4.6: Share/Save moved into the "..." menu.
+  late RecordingDropRepository moreMenuTestDropRepository;
+  late RecordingPopRepository moreMenuTestPopRepository;
+  late RecordingHomeRepository moreMenuTestHomeRepository;
+
   // WYN-064: Tap Home Tab to Scroll to Top & Refresh -- one repository
   // per scenario, same reasoning as every group above (built once here,
   // not inline inside a testWidgets callback, so its SupabaseClient's
@@ -492,6 +497,27 @@ void main() {
       feedItems: [_dropItem(id: 'v2', hasImage: false)],
     );
 
+    moreMenuTestDropRepository = RecordingDropRepository();
+    moreMenuTestPopRepository = RecordingPopRepository();
+    moreMenuTestHomeRepository = RecordingHomeRepository(
+      feedItems: [
+        HomeFeedItem(
+          id: 'mm1',
+          contentType: HomeContentType.drop,
+          // 'me' matches initFakeSupabaseSession's userId (setUpAll
+          // above) -- the viewer's own Drop.
+          authorId: 'me',
+          authorUsername: 'me',
+          createdAt: DateTime.now(),
+          caption: 'โพสต์ของฉันเอง',
+          likeCount: 0,
+          commentCount: 0,
+          likedByMe: false,
+          savedByMe: false,
+        ),
+      ],
+    );
+
     // hasImage: false -- avoids kicking off 30 concurrent NetworkImage
     // fetches (each fails against the fake "example.supabase.co" host
     // and flutter_test's takeException() can only absorb one exception
@@ -547,14 +573,26 @@ void main() {
 
     expect(find.text('แคปชัน Drop'), findsOneWidget);
     // Regression for WYN-007 QA round 1: the Drop card's interaction row
-    // must have a working Share button and a tappable Comment icon, not
-    // just Like/Save. See .wyn/tasks/approved/WYN-007-home-feed.md.
-    expect(
-        find.widgetWithIcon(IconButton, Icons.share_outlined), findsOneWidget);
+    // must have a tappable Comment icon, not just Like/Save. See
+    // .wyn/tasks/approved/WYN-007-home-feed.md.
     expect(
       find.widgetWithIcon(IconButton, Icons.mode_comment_outlined),
       findsOneWidget,
     );
+    // WYNOSHomeSpec.md 4.6: Share/Save moved out of the action bar into
+    // the "..." menu -- the menu button is now always shown (even on
+    // the viewer's own plain Drop), and opening it offers both.
+    final dropMoreButton = find.descendant(
+      of: find.byType(HomeDropCard),
+      matching: find.widgetWithIcon(IconButton, Icons.more_vert),
+    );
+    expect(dropMoreButton, findsOneWidget);
+    await tester.tap(dropMoreButton);
+    await tester.pumpAndSettle();
+    expect(find.text('แชร์'), findsOneWidget);
+    expect(find.text('บันทึก'), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
     // WYN-038 QA fix: assert the Drop card's own view count icon here,
     // scoped to HomeDropCard, while it is still mounted -- see the note
     // below (on the unscoped `findsNWidgets(2)` this replaces) for why
@@ -610,15 +648,21 @@ void main() {
     // The Pop card's own view count value (7) is still uniquely
     // findable -- the Drop card above (now unmounted) would have shown 0.
     expect(find.text('7'), findsOneWidget);
-    // Same Share/Comment regression check, scoped to the Pop card
-    // specifically -- the Drop card above may still be in the element
-    // tree (ListView cacheExtent) at this scroll position, so an
-    // unscoped findsOneWidget would over-count.
-    final popCardShare = find.descendant(
+    // Same "..." menu check as the Drop card above, scoped to the Pop
+    // card specifically -- the Drop card above may still be in the
+    // element tree (ListView cacheExtent) at this scroll position, so
+    // an unscoped findsOneWidget would over-count.
+    final popMoreButton = find.descendant(
       of: find.byType(HomePopCard),
-      matching: find.widgetWithIcon(IconButton, Icons.share_outlined),
+      matching: find.widgetWithIcon(IconButton, Icons.more_vert),
     );
-    expect(popCardShare, findsOneWidget);
+    expect(popMoreButton, findsOneWidget);
+    await tester.tap(popMoreButton);
+    await tester.pumpAndSettle();
+    expect(find.text('แชร์'), findsOneWidget);
+    expect(find.text('บันทึก'), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
     final popCardComment = find.descendant(
       of: find.byType(HomePopCard),
       matching: find.widgetWithIcon(IconButton, Icons.mode_comment_outlined),
@@ -1885,6 +1929,51 @@ void main() {
       tester.takeException();
 
       expect(find.byType(VerifiedBadge), findsNothing);
+    });
+  });
+
+  group('"..." menu Share/Save (WYNOSHomeSpec.md 4.6)', () {
+    testWidgets(
+        'the "..." menu is shown even on the viewer\'s own plain Drop, '
+        'and offers only Share/Save (no Report/Hide/Delete ReDrop)',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        moreMenuTestHomeRepository,
+        dropRepository: moreMenuTestDropRepository,
+        popRepository: moreMenuTestPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final moreButton = find.widgetWithIcon(IconButton, Icons.more_vert);
+      expect(moreButton, findsOneWidget);
+
+      await tester.tap(moreButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('แชร์'), findsOneWidget);
+      expect(find.text('บันทึก'), findsOneWidget);
+      expect(find.text('รายงานโพสต์'), findsNothing);
+      expect(find.text('ไม่สนใจโพสต์นี้'), findsNothing);
+      expect(find.text('ลบ ReDrop'), findsNothing);
+    });
+
+    testWidgets('tapping "บันทึก" in the menu calls DropRepository.toggleSave',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        moreMenuTestHomeRepository,
+        dropRepository: moreMenuTestDropRepository,
+        popRepository: moreMenuTestPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.widgetWithIcon(IconButton, Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('บันทึก'));
+      await tester.pumpAndSettle();
+
+      expect(moreMenuTestDropRepository.toggleSaveCalls, 1);
     });
   });
 }

@@ -129,6 +129,28 @@ class HomeDropCard extends StatelessWidget {
     await showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) => ActionSheetBody(rows: [
+        // WYNOSHomeSpec.md 4.6: Share/Save deliberately live here now,
+        // not in the action bar (see that section's own "deliberate
+        // simplification" note) -- always offered first, ahead of the
+        // existing Hide/Report/Delete-ReDrop rows below, which the
+        // spec's own simplified 2-row mockup doesn't have to account
+        // for but this app already does.
+        ActionSheetRow(
+          icon: Icons.share_outlined,
+          label: 'แชร์',
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            _share();
+          },
+        ),
+        ActionSheetRow(
+          icon: item.savedByMe ? Icons.bookmark : Icons.bookmark_border,
+          label: item.savedByMe ? 'เอาออกจากบันทึก' : 'บันทึก',
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            onToggleSave();
+          },
+        ),
         // Reporting your own Drop makes no sense -- same guard
         // _isOwnDrop already applied to this button's own
         // visibility before WYN-034, kept here now that the
@@ -273,15 +295,17 @@ class HomeDropCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // WYN-034: also shown for the viewer's own ReDrop of
-                    // someone else's Drop -- _openMoreMenu itself decides
-                    // which entries actually appear.
-                    if (!_isOwnDrop || _isOwnRedrop)
-                      IconButton(
-                        icon: const Icon(Icons.more_vert),
-                        tooltip: 'เพิ่มเติม',
-                        onPressed: () => _openMoreMenu(context),
-                      ),
+                    // WYNOSHomeSpec.md 4.6: always shown now, even on the
+                    // viewer's own plain (non-ReDrop) Drop -- Share/Save
+                    // moved in here from the action bar apply regardless
+                    // of authorship. _openMoreMenu itself still decides
+                    // which of the authorship-gated rows (Hide/Report/
+                    // Delete ReDrop) actually appear underneath those two.
+                    IconButton(
+                      icon: const Icon(Icons.more_vert),
+                      tooltip: 'เพิ่มเติม',
+                      onPressed: () => _openMoreMenu(context),
+                    ),
                   ],
                 ),
               ),
@@ -366,14 +390,6 @@ class HomeDropCard extends StatelessWidget {
                     ),
                     Text('${item.redropCount}'),
                     Semantics(
-                      label: 'แชร์',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: const Icon(Icons.share_outlined, size: 20),
-                        onPressed: _share,
-                      ),
-                    ),
-                    Semantics(
                       label: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
                       excludeSemantics: true,
                       child: Row(
@@ -383,19 +399,6 @@ class HomeDropCard extends StatelessWidget {
                           const SizedBox(width: WynSpacing.space1),
                           Text('${item.viewCount}'),
                         ],
-                      ),
-                    ),
-                    const Spacer(),
-                    Semantics(
-                      label: item.savedByMe
-                          ? 'บันทึกแล้ว กดเพื่อเอาออกจาก Saved'
-                          : 'กดเพื่อบันทึก',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: Icon(
-                          item.savedByMe ? Icons.bookmark : Icons.bookmark_border,
-                        ),
-                        onPressed: onToggleSave,
                       ),
                     ),
                   ],
