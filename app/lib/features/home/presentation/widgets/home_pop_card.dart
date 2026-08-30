@@ -11,6 +11,7 @@ import '../../../../core/widgets/action_sheet_row.dart';
 import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import 'top_reply_preview.dart';
+import 'verified_badge.dart';
 
 /// Formats a duration in seconds as "m:ss" (e.g. 45 -> "0:45").
 String _formatDuration(int totalSeconds) {
@@ -110,10 +111,17 @@ class HomePopCard extends StatelessWidget {
                               radius: 16,
                             ),
                             const SizedBox(width: WynSpacing.space2),
-                            Text(
-                              item.authorNameOrUsername,
-                              style: Theme.of(context).textTheme.titleSmall,
+                            Flexible(
+                              child: Text(
+                                item.authorNameOrUsername,
+                                style: Theme.of(context).textTheme.titleSmall,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
+                            if (item.authorIsVerified) ...[
+                              const SizedBox(width: WynSpacing.space1),
+                              const VerifiedBadge(),
+                            ],
                           ],
                         ),
                       ),

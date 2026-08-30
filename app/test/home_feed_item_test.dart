@@ -232,6 +232,59 @@ void main() {
 
       expect(item.topReply, isNull);
     });
+
+    test('parses author_is_verified/redropper_is_verified '
+        '(WYNOSHomeSpec.md 4.9)', () {
+      final item = HomeFeedItem.fromMap({
+        'id': 'd1',
+        'content_type': 'drop',
+        'author_id': 'u1',
+        'author_username': 'wynos',
+        'author_display_name': 'WYNOS',
+        'author_avatar_url': null,
+        'author_is_verified': true,
+        'created_at': '2026-01-01T00:00:00Z',
+        'caption': null,
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'video_url': null,
+        'thumbnail_url': null,
+        'duration_seconds': null,
+        'view_count': null,
+        'like_count': 0,
+        'comment_count': 0,
+        'redrop_id': 'r1',
+        'redropper_id': 'u2',
+        'redropper_username': 'zen',
+        'redropper_is_verified': false,
+      }, likedByMe: false, savedByMe: false);
+
+      expect(item.authorIsVerified, isTrue);
+      expect(item.redropperIsVerified, isFalse);
+    });
+
+    test('author_is_verified/redropper_is_verified absent (an older '
+        'fetch path) default to false', () {
+      final item = HomeFeedItem.fromMap({
+        'id': 'd1',
+        'content_type': 'drop',
+        'author_id': 'u1',
+        'author_username': 'namfah',
+        'author_display_name': null,
+        'author_avatar_url': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'caption': null,
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'video_url': null,
+        'thumbnail_url': null,
+        'duration_seconds': null,
+        'view_count': null,
+        'like_count': 0,
+        'comment_count': 0,
+      }, likedByMe: false, savedByMe: false);
+
+      expect(item.authorIsVerified, isFalse);
+      expect(item.redropperIsVerified, isFalse);
+    });
   });
 
   group('votedPoll (WYN-035)', () {

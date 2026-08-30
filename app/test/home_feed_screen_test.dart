@@ -20,6 +20,7 @@ import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/top_reply_preview.dart';
 import 'package:wyn/features/home/presentation/widgets/trending_tile.dart';
+import 'package:wyn/features/home/presentation/widgets/verified_badge.dart';
 import 'package:wyn/features/pop/presentation/widgets/pop_comment_sheet.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 
@@ -44,12 +45,14 @@ HomeFeedItem _dropItem({
   DateTime? createdAt,
   bool hasImage = true,
   HomeTopReply? topReply,
+  bool authorIsVerified = false,
 }) =>
     HomeFeedItem(
       id: id,
       contentType: HomeContentType.drop,
       authorId: 'someone-else',
       authorUsername: 'namfah',
+      authorIsVerified: authorIsVerified,
       createdAt: createdAt ?? DateTime.now(),
       caption: caption,
       imageUrl: hasImage ? 'https://example.supabase.co/drops/$id.jpg' : null,
@@ -244,6 +247,10 @@ void main() {
   // WYNOSHomeSpec.md 4.10: Top reply preview.
   late RecordingHomeRepository topReplyTestHomeRepository;
   late RecordingHomeRepository noTopReplyTestHomeRepository;
+
+  // WYNOSHomeSpec.md 4.9: Verified badge.
+  late RecordingHomeRepository verifiedAuthorTestHomeRepository;
+  late RecordingHomeRepository unverifiedAuthorTestHomeRepository;
 
   // WYN-064: Tap Home Tab to Scroll to Top & Refresh -- one repository
   // per scenario, same reasoning as every group above (built once here,
@@ -474,6 +481,15 @@ void main() {
     );
     noTopReplyTestHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'tr2', hasImage: false)],
+    );
+
+    verifiedAuthorTestHomeRepository = RecordingHomeRepository(
+      feedItems: [
+        _dropItem(id: 'v1', hasImage: false, authorIsVerified: true),
+      ],
+    );
+    unverifiedAuthorTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'v2', hasImage: false)],
     );
 
     // hasImage: false -- avoids kicking off 30 concurrent NetworkImage
@@ -1841,6 +1857,33 @@ void main() {
       tester.takeException();
 
       expect(find.byType(DropDetailScreen), findsOneWidget);
+    });
+  });
+
+  group('Verified badge (WYNOSHomeSpec.md 4.9)', () {
+    testWidgets('shows the badge next to a verified author\'s name',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        verifiedAuthorTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(VerifiedBadge), findsOneWidget);
+    });
+
+    testWidgets('hides the badge for an unverified author', (tester) async {
+      await tester.pumpWidget(buildHome(
+        unverifiedAuthorTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(VerifiedBadge), findsNothing);
     });
   });
 }

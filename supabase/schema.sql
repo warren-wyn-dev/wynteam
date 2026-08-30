@@ -10428,3 +10428,242 @@ where d.image_url is not null
   and not exists (
     select 1 from public.drop_images di where di.drop_id = d.id
   );
+
+-- ============================================================
+-- WYNOSHomeSpec.md 4.9's header row / 4.6's suggested-account row --
+-- Verified badge
+-- ============================================================
+-- Scoped to exactly one account (spec: "Verified badge for the
+-- official WYNOS account", not a general creator-verification
+-- system) -- no client-writable path at all, admin-only via a direct
+-- UPDATE against this column (no RLS insert/update policy grants it,
+-- and profiles' own existing update policy -- see WYN-002/003 -- never
+-- lets a user set this on themselves). Defaults false for every
+-- existing and future row; nobody is flagged yet as of this
+-- migration -- that's a separate, deliberate one-off UPDATE once
+-- Product names the actual account.
+alter table public.profiles
+  add column if not exists is_verified boolean not null default false;
+
+-- Same "append a fresh full redefinition" discipline as every prior
+-- task that changed this view -- adds `author_is_verified` and
+-- `redropper_is_verified` (null on the 2 branches with no redropper)
+-- on top of the liked_by/top_reply columns already added above.
+create or replace view public.home_feed
+  with (security_invoker = true) as
+select
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  prof.is_verified as author_is_verified,
+  d.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  public.drop_view_count(d.id) as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (
+    select coalesce(jsonb_agg(jsonb_build_object(
+      'id', lp.id,
+      'username', lp.username,
+      'display_name', lp.display_name,
+      'avatar_url', lp.avatar_url
+    ) order by dl.created_at desc), '[]'::jsonb)
+    from (
+      select user_id, created_at from public.drop_likes
+      where drop_id = d.id
+      order by created_at desc
+      limit 3
+    ) dl
+    join public.profiles lp on lp.id = dl.user_id
+  ) as liked_by,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count,
+  (
+    select jsonb_build_object(
+      'author_username', tr.author_username,
+      'author_display_name', tr.author_display_name,
+      'text', tr.text_content
+    )
+    from (
+      select
+        c.text_content,
+        cp.username as author_username,
+        cp.display_name as author_display_name,
+        c.created_at,
+        (select count(*) from public.drop_comment_likes dcl where dcl.comment_id = c.id) as like_count
+      from public.drop_comments c
+      join public.profiles cp on cp.id = c.author_id
+      where c.drop_id = d.id and c.parent_comment_id is null
+    ) tr
+    where tr.like_count > 0
+    order by tr.like_count desc, tr.created_at desc
+    limit 1
+  ) as top_reply,
+  (select count(*) from public.redrops where drop_id = d.id) as redrop_count,
+  null::uuid as redrop_id,
+  null::uuid as redropper_id,
+  null::text as redropper_username,
+  null::text as redropper_display_name,
+  null::text as redropper_avatar_url,
+  null::boolean as redropper_is_verified,
+  null::text as quote_text,
+  dp.id as poll_id,
+  dp.options as poll_options,
+  dp.expires_at as poll_expires_at
+from public.drops d
+join public.profiles prof on prof.id = d.author_id
+left join public.drop_polls dp on dp.drop_id = d.id
+where not exists (
+  select 1 from public.mutes where muter_id = auth.uid() and muted_id = d.author_id
+)
+union all
+select
+  p.id,
+  'pop'::text as content_type,
+  p.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  prof.is_verified as author_is_verified,
+  p.created_at,
+  p.caption,
+  null::text as image_url,
+  p.video_url,
+  p.thumbnail_url,
+  p.duration_seconds,
+  p.view_count,
+  (select count(*) from public.pop_likes where pop_id = p.id) as like_count,
+  (
+    select coalesce(jsonb_agg(jsonb_build_object(
+      'id', lp.id,
+      'username', lp.username,
+      'display_name', lp.display_name,
+      'avatar_url', lp.avatar_url
+    ) order by pl.created_at desc), '[]'::jsonb)
+    from (
+      select user_id, created_at from public.pop_likes
+      where pop_id = p.id
+      order by created_at desc
+      limit 3
+    ) pl
+    join public.profiles lp on lp.id = pl.user_id
+  ) as liked_by,
+  (select count(*) from public.pop_comments where pop_id = p.id) as comment_count,
+  (
+    select jsonb_build_object(
+      'author_username', tr.author_username,
+      'author_display_name', tr.author_display_name,
+      'text', tr.text_content
+    )
+    from (
+      select
+        c.text_content,
+        cp.username as author_username,
+        cp.display_name as author_display_name,
+        c.created_at,
+        (select count(*) from public.pop_comment_likes dcl where dcl.comment_id = c.id) as like_count
+      from public.pop_comments c
+      join public.profiles cp on cp.id = c.author_id
+      where c.pop_id = p.id and c.parent_comment_id is null
+    ) tr
+    where tr.like_count > 0
+    order by tr.like_count desc, tr.created_at desc
+    limit 1
+  ) as top_reply,
+  null::bigint as redrop_count,
+  null::uuid as redrop_id,
+  null::uuid as redropper_id,
+  null::text as redropper_username,
+  null::text as redropper_display_name,
+  null::text as redropper_avatar_url,
+  null::boolean as redropper_is_verified,
+  null::text as quote_text,
+  null::uuid as poll_id,
+  null::text[] as poll_options,
+  null::timestamptz as poll_expires_at
+from public.pops p
+join public.profiles prof on prof.id = p.author_id
+where not exists (
+  select 1 from public.mutes where muter_id = auth.uid() and muted_id = p.author_id
+)
+union all
+select
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  prof.is_verified as author_is_verified,
+  r.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  public.drop_view_count(d.id) as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (
+    select coalesce(jsonb_agg(jsonb_build_object(
+      'id', lp.id,
+      'username', lp.username,
+      'display_name', lp.display_name,
+      'avatar_url', lp.avatar_url
+    ) order by dl.created_at desc), '[]'::jsonb)
+    from (
+      select user_id, created_at from public.drop_likes
+      where drop_id = d.id
+      order by created_at desc
+      limit 3
+    ) dl
+    join public.profiles lp on lp.id = dl.user_id
+  ) as liked_by,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count,
+  (
+    select jsonb_build_object(
+      'author_username', tr.author_username,
+      'author_display_name', tr.author_display_name,
+      'text', tr.text_content
+    )
+    from (
+      select
+        c.text_content,
+        cp.username as author_username,
+        cp.display_name as author_display_name,
+        c.created_at,
+        (select count(*) from public.drop_comment_likes dcl where dcl.comment_id = c.id) as like_count
+      from public.drop_comments c
+      join public.profiles cp on cp.id = c.author_id
+      where c.drop_id = d.id and c.parent_comment_id is null
+    ) tr
+    where tr.like_count > 0
+    order by tr.like_count desc, tr.created_at desc
+    limit 1
+  ) as top_reply,
+  (select count(*) from public.redrops where drop_id = d.id) as redrop_count,
+  r.id as redrop_id,
+  r.redropper_id,
+  redropper.username as redropper_username,
+  redropper.display_name as redropper_display_name,
+  redropper.avatar_url as redropper_avatar_url,
+  redropper.is_verified as redropper_is_verified,
+  r.quote_text,
+  dp.id as poll_id,
+  dp.options as poll_options,
+  dp.expires_at as poll_expires_at
+from public.redrops r
+join public.drops d on d.id = r.drop_id
+join public.profiles prof on prof.id = d.author_id
+join public.profiles redropper on redropper.id = r.redropper_id
+left join public.drop_polls dp on dp.drop_id = d.id
+where not exists (
+  select 1 from public.mutes
+  where muter_id = auth.uid() and muted_id in (d.author_id, r.redropper_id)
+);
+
+grant select on public.home_feed to authenticated;

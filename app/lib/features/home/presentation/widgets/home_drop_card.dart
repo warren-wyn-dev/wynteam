@@ -11,6 +11,7 @@ import '../../../../core/widgets/action_sheet_row.dart';
 import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import 'top_reply_preview.dart';
+import 'verified_badge.dart';
 import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
 import '../../../report/presentation/report_sheet.dart';
@@ -244,9 +245,20 @@ class HomeDropCard extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    item.authorNameOrUsername,
-                                    style: Theme.of(context).textTheme.titleSmall,
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          item.authorNameOrUsername,
+                                          style: Theme.of(context).textTheme.titleSmall,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (item.authorIsVerified) ...[
+                                        const SizedBox(width: WynSpacing.space1),
+                                        const VerifiedBadge(),
+                                      ],
+                                    ],
                                   ),
                                   Text(
                                     relativeTimeLabel(item.createdAt, now: DateTime.now()),

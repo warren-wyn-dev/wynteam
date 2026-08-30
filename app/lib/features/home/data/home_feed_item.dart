@@ -19,6 +19,7 @@ class HomeFeedItem {
     required this.authorUsername,
     this.authorDisplayName,
     this.authorAvatarUrl,
+    this.authorIsVerified = false,
     required this.createdAt,
     this.caption,
     this.imageUrl,
@@ -38,6 +39,7 @@ class HomeFeedItem {
     this.redropperUsername,
     this.redropperDisplayName,
     this.redropperAvatarUrl,
+    this.redropperIsVerified = false,
     this.quoteText,
     this.pollId,
     this.pollOptions,
@@ -53,6 +55,13 @@ class HomeFeedItem {
   final String authorUsername;
   final String? authorDisplayName;
   final String? authorAvatarUrl;
+
+  /// WYNOSHomeSpec.md 4.9/4.6: true for exactly one account, the
+  /// official WYNOS account (Product's own manual flag via
+  /// `profiles.is_verified` -- not a general creator-verification
+  /// system). False for every other author.
+  final bool authorIsVerified;
+
   final DateTime createdAt;
   final String? caption;
 
@@ -97,6 +106,12 @@ class HomeFeedItem {
   final String? redropperUsername;
   final String? redropperDisplayName;
   final String? redropperAvatarUrl;
+
+  /// Same [authorIsVerified] semantics, for the redropper -- not
+  /// currently rendered anywhere (WYNOSHomeSpec.md's own reference only
+  /// shows the badge next to the *original* author's name), kept for
+  /// parity with every other author_*/redropper_* field pair here.
+  final bool redropperIsVerified;
 
   /// Set only for a Quote ReDrop (`redropId != null`) -- the redropper's
   /// own commentary. Null for a Standard ReDrop or a plain (non-ReDrop)
@@ -166,6 +181,7 @@ class HomeFeedItem {
         authorUsername: authorUsername,
         authorDisplayName: authorDisplayName,
         authorAvatarUrl: authorAvatarUrl,
+        authorIsVerified: authorIsVerified,
         createdAt: createdAt,
         caption: caption,
         imageUrl: imageUrl,
@@ -185,6 +201,7 @@ class HomeFeedItem {
         redropperUsername: redropperUsername,
         redropperDisplayName: redropperDisplayName,
         redropperAvatarUrl: redropperAvatarUrl,
+        redropperIsVerified: redropperIsVerified,
         quoteText: quoteText,
         pollId: pollId,
         pollOptions: pollOptions,
@@ -313,6 +330,7 @@ class HomeFeedItem {
       authorUsername: map['author_username'] as String? ?? '',
       authorDisplayName: map['author_display_name'] as String?,
       authorAvatarUrl: map['author_avatar_url'] as String?,
+      authorIsVerified: map['author_is_verified'] as bool? ?? false,
       createdAt: DateTime.parse(map['created_at'] as String),
       caption: map['caption'] as String?,
       imageUrl: map['image_url'] as String?,
@@ -332,6 +350,7 @@ class HomeFeedItem {
       redropperUsername: map['redropper_username'] as String?,
       redropperDisplayName: map['redropper_display_name'] as String?,
       redropperAvatarUrl: map['redropper_avatar_url'] as String?,
+      redropperIsVerified: map['redropper_is_verified'] as bool? ?? false,
       quoteText: map['quote_text'] as String?,
       pollId: map['poll_id'] as String?,
       pollOptions: (map['poll_options'] as List<dynamic>?)?.cast<String>(),
