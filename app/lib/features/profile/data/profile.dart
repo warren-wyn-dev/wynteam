@@ -52,6 +52,7 @@ class Profile {
     this.dmPermission = InteractionPermission.everyone,
     this.mentionPermission = InteractionPermission.everyone,
     this.commentPermission = InteractionPermission.everyone,
+    this.isVerified = false,
   });
 
   factory Profile.fromMap(Map<String, dynamic> map) => Profile(
@@ -77,6 +78,11 @@ class Profile {
             map['mention_permission'] as String?),
         commentPermission: interactionPermissionFromString(
             map['comment_permission'] as String?),
+        // WYNOSHomeSpec.md 4.5/4.9: same "missing key defaults to the
+        // least-notable value" reasoning as isPrivate above -- a
+        // partial map without this key (most ProfileRepository selects
+        // don't fetch it) reads as unverified.
+        isVerified: map['is_verified'] as bool? ?? false,
       );
 
   final String id;
@@ -89,6 +95,11 @@ class Profile {
   final InteractionPermission dmPermission;
   final InteractionPermission mentionPermission;
   final InteractionPermission commentPermission;
+
+  /// WYNOSHomeSpec.md 4.5/4.9: same one-account-only semantics as
+  /// [HomeFeedItem.authorIsVerified] -- see that field's own doc
+  /// comment.
+  final bool isVerified;
 
   /// What to show as the profile's name: the display name if set, else
   /// "@username" as a fallback (per the WYN-003 design spec).

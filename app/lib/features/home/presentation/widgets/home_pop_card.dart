@@ -7,9 +7,12 @@ import '../../../pop/presentation/widgets/pop_clip_view.dart' show popShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/widgets/action_metric.dart';
 import '../../../../core/widgets/action_sheet_row.dart';
 import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
+import 'top_reply_preview.dart';
+import 'verified_badge.dart';
 
 /// Formats a duration in seconds as "m:ss" (e.g. 45 -> "0:45").
 String _formatDuration(int totalSeconds) {
@@ -67,14 +70,41 @@ class HomePopCard extends StatelessWidget {
     await showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) => ActionSheetBody(rows: [
+        // WYNOSHomeSpec.md 4.6: Share/Save deliberately live here now,
+        // not in the action bar (see that section's own "deliberate
+        // simplification" note) -- always offered first, regardless of
+        // authorship, ahead of the authorship-gated Hide row below.
         ActionSheetRow(
-          icon: Icons.visibility_off_outlined,
-          label: 'ไม่สนใจโพสต์นี้',
+          icon: Icons.share_outlined,
+          label: 'แชร์',
           onTap: () {
             Navigator.of(sheetContext).pop();
-            onHide?.call();
+            _share();
           },
         ),
+        ActionSheetRow(
+          icon: item.savedByMe ? Icons.bookmark : Icons.bookmark_border,
+          label: item.savedByMe ? 'เอาออกจากบันทึก' : 'บันทึก',
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            onToggleSave();
+          },
+        ),
+        // WYNOS Unified Home Feed Algorithm V1.0 -- only someone else's
+        // Pop can be Hidden from your own feed. Previously this whole
+        // row's *visibility* was gated by never showing the "..."
+        // button at all on your own Pop (the button is now always
+        // shown, since Share/Save above apply regardless of
+        // authorship), so the guard moves onto this row directly.
+        if (!_isOwnPop && onHide != null)
+          ActionSheetRow(
+            icon: Icons.visibility_off_outlined,
+            label: 'ไม่สนใจโพสต์นี้',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              onHide?.call();
+            },
+          ),
       ]),
     );
   }
@@ -109,20 +139,32 @@ class HomePopCard extends StatelessWidget {
                               radius: 16,
                             ),
                             const SizedBox(width: WynSpacing.space2),
-                            Text(
-                              item.authorNameOrUsername,
-                              style: Theme.of(context).textTheme.titleSmall,
+                            Flexible(
+                              child: Text(
+                                item.authorNameOrUsername,
+                                style: Theme.of(context).textTheme.titleSmall,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
+                            if (item.authorIsVerified) ...[
+                              const SizedBox(width: WynSpacing.space1),
+                              const VerifiedBadge(),
+                            ],
                           ],
                         ),
                       ),
                     ),
-                    if (!_isOwnPop && onHide != null)
-                      IconButton(
-                        icon: const Icon(Icons.more_vert),
-                        tooltip: 'เพิ่มเติม',
-                        onPressed: () => _openMoreMenu(context),
-                      ),
+                    // WYNOSHomeSpec.md 4.6: always shown now, even on the
+                    // viewer's own Pop -- Share/Save moved in here from
+                    // the action bar apply regardless of authorship.
+                    // _openMoreMenu itself still decides whether the
+                    // authorship-gated Hide row appears underneath those
+                    // two.
+                    IconButton(
+                      icon: const Icon(Icons.more_vert),
+                      tooltip: 'เพิ่มเติม',
+                      onPressed: () => _openMoreMenu(context),
+                    ),
                   ],
                 ),
               ),
@@ -182,57 +224,47 @@ class HomePopCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),
                 child: Row(
                   children: [
-                    Semantics(
-                      label: item.likedByMe
+                    // Same WYNOSHomeSpec.md 4.9 sizing/color as
+                    // HomeDropCard's action bar (see that file) -- Pop
+                    // has no ReDrop concept, so only 3 of the 4 spec'd
+                    // metrics apply here. Share/Bookmark moved into
+                    // the "..." menu (see _openMoreMenu, spec 4.6).
+                    ActionMetric(
+                      icon: item.likedByMe ? Icons.favorite : Icons.favorite_border,
+                      iconSize: 17,
+                      count: item.likeCount,
+                      color: item.likedByMe ? WynColors.sapphire : WynColors.graphite,
+                      semanticsLabel: item.likedByMe
                           ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
                           : 'กดเพื่อถูกใจ',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: Icon(
-                          item.likedByMe ? Icons.favorite : Icons.favorite_border,
-                          color: item.likedByMe ? Colors.red : null,
-                        ),
-                        onPressed: onToggleLike,
-                      ),
+                      onTap: onToggleLike,
                     ),
-                    Text('${item.likeCount}'),
-                    const SizedBox(width: WynSpacing.space2),
-                    Semantics(
-                      label: 'ดูคอมเมนต์',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: const Icon(Icons.mode_comment_outlined, size: 20),
-                        onPressed: onTapComment ?? onTap,
-                      ),
+                    const SizedBox(width: WynSpacing.space5),
+                    ActionMetric(
+                      icon: Icons.mode_comment_outlined,
+                      iconSize: 17,
+                      count: item.commentCount,
+                      color: WynColors.graphite,
+                      semanticsLabel: 'ดูคอมเมนต์',
+                      onTap: onTapComment ?? onTap,
                     ),
-                    Text('${item.commentCount}'),
-                    Semantics(
-                      label: 'แชร์',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: const Icon(Icons.share_outlined, size: 20),
-                        onPressed: _share,
-                      ),
-                    ),
-                    const Icon(Icons.visibility_outlined, size: 18),
-                    const SizedBox(width: WynSpacing.space1),
-                    Text('${item.viewCount}'),
-                    const Spacer(),
-                    Semantics(
-                      label: item.savedByMe
-                          ? 'บันทึกแล้ว กดเพื่อเอาออกจาก Saved'
-                          : 'กดเพื่อบันทึก',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: Icon(
-                          item.savedByMe ? Icons.bookmark : Icons.bookmark_border,
-                        ),
-                        onPressed: onToggleSave,
-                      ),
+                    const SizedBox(width: WynSpacing.space5),
+                    ActionMetric(
+                      icon: Icons.visibility_outlined,
+                      iconSize: 16,
+                      count: item.viewCount,
+                      color: WynColors.faint,
+                      semanticsLabel: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
+                      onTap: null,
                     ),
                   ],
                 ),
               ),
+              if (item.topReply != null)
+                TopReplyPreview(
+                  reply: item.topReply!,
+                  onTap: onTapComment ?? onTap,
+                ),
             ],
           ),
         ),

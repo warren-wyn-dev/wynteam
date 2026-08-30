@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
+import 'package:wyn/core/widgets/action_metric.dart';
 import 'package:wyn/features/club/data/club.dart';
 import 'package:wyn/features/club/data/club_post.dart';
 import 'package:wyn/features/club/presentation/club_page.dart';
@@ -13,11 +14,15 @@ import 'package:wyn/features/club/presentation/explore_clubs_screen.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 import 'package:wyn/features/drop/presentation/quote_redrop_screen.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
+import 'package:wyn/features/home/data/home_top_reply.dart';
 import 'package:wyn/features/home/presentation/home_feed_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
+import 'package:wyn/features/home/presentation/widgets/new_posts_pill.dart';
+import 'package:wyn/features/home/presentation/widgets/top_reply_preview.dart';
 import 'package:wyn/features/home/presentation/widgets/trending_tile.dart';
+import 'package:wyn/features/home/presentation/widgets/verified_badge.dart';
 import 'package:wyn/features/pop/presentation/widgets/pop_comment_sheet.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 
@@ -41,17 +46,21 @@ HomeFeedItem _dropItem({
   int viewCount = 0,
   DateTime? createdAt,
   bool hasImage = true,
+  HomeTopReply? topReply,
+  bool authorIsVerified = false,
 }) =>
     HomeFeedItem(
       id: id,
       contentType: HomeContentType.drop,
       authorId: 'someone-else',
       authorUsername: 'namfah',
+      authorIsVerified: authorIsVerified,
       createdAt: createdAt ?? DateTime.now(),
       caption: caption,
       imageUrl: hasImage ? 'https://example.supabase.co/drops/$id.jpg' : null,
       likeCount: likeCount,
       commentCount: 0,
+      topReply: topReply,
       likedByMe: likedByMe,
       savedByMe: false,
       // WYN-038: defaults to 0 (never left null) -- a null viewCount on
@@ -236,6 +245,27 @@ void main() {
   late RecordingHomeRepository hideDropTestHomeRepository;
   late RecordingHomeRepository hidePopTestHomeRepository;
   late RecordingHomeRepository hideFailTestHomeRepository;
+
+  // WYNOSHomeSpec.md 4.10: Top reply preview.
+  late RecordingHomeRepository topReplyTestHomeRepository;
+  late RecordingHomeRepository noTopReplyTestHomeRepository;
+
+  // WYNOSHomeSpec.md 4.9: Verified badge.
+  late RecordingHomeRepository verifiedAuthorTestHomeRepository;
+  late RecordingHomeRepository unverifiedAuthorTestHomeRepository;
+
+  // WYNOSHomeSpec.md 4.6: Share/Save moved into the "..." menu.
+  late RecordingDropRepository moreMenuTestDropRepository;
+  late RecordingPopRepository moreMenuTestPopRepository;
+  late RecordingHomeRepository moreMenuTestHomeRepository;
+
+  // WYNOSHomeSpec.md 4.4: New-posts pill. A dedicated repository per
+  // scenario, same one-repo-per-scenario convention as every other
+  // call-count-asserting group above -- newPostsPillTapTestHomeRepository
+  // specifically (whose test asserts fetchRankedFeedCalls) must not
+  // share an instance with any other test in this group.
+  late RecordingHomeRepository newPostsPillTestHomeRepository;
+  late RecordingHomeRepository newPostsPillTapTestHomeRepository;
 
   // WYN-064: Tap Home Tab to Scroll to Top & Refresh -- one repository
   // per scenario, same reasoning as every group above (built once here,
@@ -451,6 +481,60 @@ void main() {
       feedItems: [_dropItem(id: 'hide-fail-d1')],
     )..hideContentError = Exception('network error');
 
+    topReplyTestHomeRepository = RecordingHomeRepository(
+      feedItems: [
+        _dropItem(
+          id: 'tr1',
+          hasImage: false,
+          topReply: const HomeTopReply(
+            authorUsername: 'zen',
+            authorDisplayName: 'Zen',
+            text: 'สวยมากกก',
+          ),
+        ),
+      ],
+    );
+    noTopReplyTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'tr2', hasImage: false)],
+    );
+
+    verifiedAuthorTestHomeRepository = RecordingHomeRepository(
+      feedItems: [
+        _dropItem(id: 'v1', hasImage: false, authorIsVerified: true),
+      ],
+    );
+    unverifiedAuthorTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'v2', hasImage: false)],
+    );
+
+    moreMenuTestDropRepository = RecordingDropRepository();
+    moreMenuTestPopRepository = RecordingPopRepository();
+    moreMenuTestHomeRepository = RecordingHomeRepository(
+      feedItems: [
+        HomeFeedItem(
+          id: 'mm1',
+          contentType: HomeContentType.drop,
+          // 'me' matches initFakeSupabaseSession's userId (setUpAll
+          // above) -- the viewer's own Drop.
+          authorId: 'me',
+          authorUsername: 'me',
+          createdAt: DateTime.now(),
+          caption: 'โพสต์ของฉันเอง',
+          likeCount: 0,
+          commentCount: 0,
+          likedByMe: false,
+          savedByMe: false,
+        ),
+      ],
+    );
+
+    newPostsPillTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'np1', hasImage: false)],
+    );
+    newPostsPillTapTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'np2', hasImage: false)],
+    );
+
     // hasImage: false -- avoids kicking off 30 concurrent NetworkImage
     // fetches (each fails against the fake "example.supabase.co" host
     // and flutter_test's takeException() can only absorb one exception
@@ -506,14 +590,26 @@ void main() {
 
     expect(find.text('แคปชัน Drop'), findsOneWidget);
     // Regression for WYN-007 QA round 1: the Drop card's interaction row
-    // must have a working Share button and a tappable Comment icon, not
-    // just Like/Save. See .wyn/tasks/approved/WYN-007-home-feed.md.
+    // must have a tappable Comment icon, not just Like/Save. See
+    // .wyn/tasks/approved/WYN-007-home-feed.md.
     expect(
-        find.widgetWithIcon(IconButton, Icons.share_outlined), findsOneWidget);
-    expect(
-      find.widgetWithIcon(IconButton, Icons.mode_comment_outlined),
+      find.widgetWithIcon(ActionMetric, Icons.mode_comment_outlined),
       findsOneWidget,
     );
+    // WYNOSHomeSpec.md 4.6: Share/Save moved out of the action bar into
+    // the "..." menu -- the menu button is now always shown (even on
+    // the viewer's own plain Drop), and opening it offers both.
+    final dropMoreButton = find.descendant(
+      of: find.byType(HomeDropCard),
+      matching: find.widgetWithIcon(IconButton, Icons.more_vert),
+    );
+    expect(dropMoreButton, findsOneWidget);
+    await tester.tap(dropMoreButton);
+    await tester.pumpAndSettle();
+    expect(find.text('แชร์'), findsOneWidget);
+    expect(find.text('บันทึก'), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
     // WYN-038 QA fix: assert the Drop card's own view count icon here,
     // scoped to HomeDropCard, while it is still mounted -- see the note
     // below (on the unscoped `findsNWidgets(2)` this replaces) for why
@@ -569,18 +665,24 @@ void main() {
     // The Pop card's own view count value (7) is still uniquely
     // findable -- the Drop card above (now unmounted) would have shown 0.
     expect(find.text('7'), findsOneWidget);
-    // Same Share/Comment regression check, scoped to the Pop card
-    // specifically -- the Drop card above may still be in the element
-    // tree (ListView cacheExtent) at this scroll position, so an
-    // unscoped findsOneWidget would over-count.
-    final popCardShare = find.descendant(
+    // Same "..." menu check as the Drop card above, scoped to the Pop
+    // card specifically -- the Drop card above may still be in the
+    // element tree (ListView cacheExtent) at this scroll position, so
+    // an unscoped findsOneWidget would over-count.
+    final popMoreButton = find.descendant(
       of: find.byType(HomePopCard),
-      matching: find.widgetWithIcon(IconButton, Icons.share_outlined),
+      matching: find.widgetWithIcon(IconButton, Icons.more_vert),
     );
-    expect(popCardShare, findsOneWidget);
+    expect(popMoreButton, findsOneWidget);
+    await tester.tap(popMoreButton);
+    await tester.pumpAndSettle();
+    expect(find.text('แชร์'), findsOneWidget);
+    expect(find.text('บันทึก'), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
     final popCardComment = find.descendant(
       of: find.byType(HomePopCard),
-      matching: find.widgetWithIcon(IconButton, Icons.mode_comment_outlined),
+      matching: find.widgetWithIcon(ActionMetric, Icons.mode_comment_outlined),
     );
     expect(popCardComment, findsOneWidget);
   });
@@ -649,10 +751,10 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    final likeButton = find.widgetWithIcon(IconButton, Icons.favorite_border);
+    final likeButton = find.widgetWithIcon(ActionMetric, Icons.favorite_border);
     expect(likeButton, findsOneWidget);
 
-    final onPressed = tester.widget<IconButton>(likeButton).onPressed!;
+    final onPressed = tester.widget<ActionMetric>(likeButton).onTap!;
     onPressed();
     onPressed();
     await tester.pumpAndSettle();
@@ -674,10 +776,10 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    final likeButton = find.widgetWithIcon(IconButton, Icons.favorite_border);
+    final likeButton = find.widgetWithIcon(ActionMetric, Icons.favorite_border);
     expect(likeButton, findsOneWidget);
 
-    final onPressed = tester.widget<IconButton>(likeButton).onPressed!;
+    final onPressed = tester.widget<ActionMetric>(likeButton).onTap!;
     onPressed();
     onPressed();
     await tester.pumpAndSettle();
@@ -710,9 +812,9 @@ void main() {
       // card's own image, so this invokes the button's onPressed
       // directly rather than tester.tap(), which needs the widget to
       // actually be on-screen to hit-test successfully.
-      final redropButton = find.widgetWithIcon(IconButton, Icons.repeat);
+      final redropButton = find.widgetWithIcon(ActionMetric, Icons.repeat);
       expect(redropButton, findsOneWidget);
-      tester.widget<IconButton>(redropButton).onPressed!();
+      tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
 
       expect(find.text('🔄 ReDrop'), findsOneWidget);
@@ -742,9 +844,9 @@ void main() {
       // card's own image, so this invokes the button's onPressed
       // directly rather than tester.tap(), which needs the widget to
       // actually be on-screen to hit-test successfully.
-      final redropButton = find.widgetWithIcon(IconButton, Icons.repeat);
+      final redropButton = find.widgetWithIcon(ActionMetric, Icons.repeat);
       expect(redropButton, findsOneWidget);
-      tester.widget<IconButton>(redropButton).onPressed!();
+      tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
       await tester.tap(find.text('🔄 ReDrop'));
       await tester.pumpAndSettle();
@@ -779,9 +881,9 @@ void main() {
       // card's own image, so this invokes the button's onPressed
       // directly rather than tester.tap(), which needs the widget to
       // actually be on-screen to hit-test successfully.
-      final redropButton = find.widgetWithIcon(IconButton, Icons.repeat);
+      final redropButton = find.widgetWithIcon(ActionMetric, Icons.repeat);
       expect(redropButton, findsOneWidget);
-      tester.widget<IconButton>(redropButton).onPressed!();
+      tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
 
       expect(find.text('ยกเลิก ReDrop'), findsOneWidget);
@@ -817,9 +919,9 @@ void main() {
       // card's own image, so this invokes the button's onPressed
       // directly rather than tester.tap(), which needs the widget to
       // actually be on-screen to hit-test successfully.
-      final redropButton = find.widgetWithIcon(IconButton, Icons.repeat);
+      final redropButton = find.widgetWithIcon(ActionMetric, Icons.repeat);
       expect(redropButton, findsOneWidget);
-      tester.widget<IconButton>(redropButton).onPressed!();
+      tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
       await tester.tap(find.text('💬 Quote ReDrop'));
       await tester.pumpAndSettle();
@@ -1022,15 +1124,15 @@ void main() {
     tester.takeException();
 
     final commentButton =
-        find.widgetWithIcon(IconButton, Icons.mode_comment_outlined);
+        find.widgetWithIcon(ActionMetric, Icons.mode_comment_outlined);
     expect(commentButton, findsOneWidget);
 
-    // Invoke onPressed directly rather than tester.tap(): the card's
+    // Invoke onTap directly rather than tester.tap(): the card's
     // 1:1 image pushes the interaction row below the 600px test
     // viewport, same as the scroll-to-find issue above -- calling the
     // callback exercises the exact same wiring without needing to
     // scroll it into hit-testable range first.
-    final onPressed = tester.widget<IconButton>(commentButton).onPressed;
+    final onPressed = tester.widget<ActionMetric>(commentButton).onTap;
     expect(onPressed, isNotNull);
     onPressed!();
     await tester.pumpAndSettle();
@@ -1051,10 +1153,10 @@ void main() {
     tester.takeException();
 
     final commentButton =
-        find.widgetWithIcon(IconButton, Icons.mode_comment_outlined);
+        find.widgetWithIcon(ActionMetric, Icons.mode_comment_outlined);
     expect(commentButton, findsOneWidget);
 
-    final onPressed = tester.widget<IconButton>(commentButton).onPressed;
+    final onPressed = tester.widget<ActionMetric>(commentButton).onTap;
     expect(onPressed, isNotNull);
     onPressed!();
     await tester.pumpAndSettle();
@@ -1520,8 +1622,9 @@ void main() {
     });
 
     testWidgets(
-        'shows a distinct join-prompt-style empty message on "ติดตาม" when '
-        'following no one, not the generic empty state', (tester) async {
+        'shows the WYNOSHomeSpec.md 4.5 suggested-follow empty state on '
+        '"ติดตาม" when following no one, not the generic empty state',
+        (tester) async {
       await tester.pumpWidget(buildHome(
         emptyFollowingTestHomeRepository,
         dropRepository: sharedDropRepository,
@@ -1534,9 +1637,9 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
+      expect(find.text('ยังไม่มีอะไรให้ดูตรงนี้'), findsOneWidget);
       expect(
-        find.text(
-            'ยังไม่ได้ follow ใครเลย ลองดู สำหรับคุณ เพื่อค้นหาคนน่าสนใจ'),
+        find.text('ลองติดตามคนที่คุณสนใจ เพื่อเริ่มเห็นโพสต์ในหน้านี้'),
         findsOneWidget,
       );
       expect(find.text('ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!'), findsNothing);
@@ -1766,6 +1869,209 @@ void main() {
       await tester.pump();
       expect(duplicateFetchGuardTestHomeRepository.fetchRankedFeedCalls, 1);
       tester.takeException();
+    });
+  });
+
+  group('Top reply preview (WYNOSHomeSpec.md 4.10)', () {
+    testWidgets('shows the reply when the card has one', (tester) async {
+      await tester.pumpWidget(buildHome(
+        topReplyTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(TopReplyPreview), findsOneWidget);
+      expect(find.textContaining('Zen'), findsOneWidget);
+      expect(find.textContaining('สวยมากกก'), findsOneWidget);
+    });
+
+    testWidgets('renders nothing when the card has no qualifying reply',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        noTopReplyTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(TopReplyPreview), findsNothing);
+    });
+
+    testWidgets('tapping the reply preview opens DropDetailScreen '
+        '(same destination as tapping the card itself)', (tester) async {
+      await tester.pumpWidget(buildHome(
+        topReplyTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // Same off-screen-hit-test-avoidance as the redrop/comment button
+      // tests above -- the action row can push this preview below the
+      // fold, so this invokes the callback directly rather than
+      // tester.tap(), which needs the widget to actually be on-screen.
+      tester.widget<TopReplyPreview>(find.byType(TopReplyPreview)).onTap();
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(DropDetailScreen), findsOneWidget);
+    });
+  });
+
+  group('Verified badge (WYNOSHomeSpec.md 4.9)', () {
+    testWidgets('shows the badge next to a verified author\'s name',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        verifiedAuthorTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(VerifiedBadge), findsOneWidget);
+    });
+
+    testWidgets('hides the badge for an unverified author', (tester) async {
+      await tester.pumpWidget(buildHome(
+        unverifiedAuthorTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(VerifiedBadge), findsNothing);
+    });
+  });
+
+  group('"..." menu Share/Save (WYNOSHomeSpec.md 4.6)', () {
+    testWidgets(
+        'the "..." menu is shown even on the viewer\'s own plain Drop, '
+        'and offers only Share/Save (no Report/Hide/Delete ReDrop)',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        moreMenuTestHomeRepository,
+        dropRepository: moreMenuTestDropRepository,
+        popRepository: moreMenuTestPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final moreButton = find.widgetWithIcon(IconButton, Icons.more_vert);
+      expect(moreButton, findsOneWidget);
+
+      await tester.tap(moreButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('แชร์'), findsOneWidget);
+      expect(find.text('บันทึก'), findsOneWidget);
+      expect(find.text('รายงานโพสต์'), findsNothing);
+      expect(find.text('ไม่สนใจโพสต์นี้'), findsNothing);
+      expect(find.text('ลบ ReDrop'), findsNothing);
+    });
+
+    testWidgets('tapping "บันทึก" in the menu calls DropRepository.toggleSave',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        moreMenuTestHomeRepository,
+        dropRepository: moreMenuTestDropRepository,
+        popRepository: moreMenuTestPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.widgetWithIcon(IconButton, Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('บันทึก'));
+      await tester.pumpAndSettle();
+
+      expect(moreMenuTestDropRepository.toggleSaveCalls, 1);
+    });
+  });
+
+  group('New-posts pill (WYNOSHomeSpec.md 4.4)', () {
+    testWidgets(
+        'hidden by default, appears once someone else posts, with the '
+        'right count', (tester) async {
+      await tester.pumpWidget(buildHome(
+        newPostsPillTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(NewPostsPill), findsNothing);
+
+      newPostsPillTestHomeRepository.emitNewPost('someone-else');
+      await tester.pump();
+
+      expect(find.byType(NewPostsPill), findsOneWidget);
+      expect(find.text('มีโพสต์ใหม่ 1 โพสต์'), findsOneWidget);
+    });
+
+    testWidgets('each new post from someone else increments the count',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        newPostsPillTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      newPostsPillTestHomeRepository.emitNewPost('someone-else');
+      newPostsPillTestHomeRepository.emitNewPost('another-user');
+      await tester.pump();
+
+      expect(find.text('มีโพสต์ใหม่ 2 โพสต์'), findsOneWidget);
+    });
+
+    testWidgets(
+        'a post from the current viewer themselves never shows the pill '
+        '(RootShell._openCreateDrop already remounts Home on success)',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        newPostsPillTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // 'me' matches initFakeSupabaseSession's userId (setUpAll above).
+      newPostsPillTestHomeRepository.emitNewPost('me');
+      await tester.pump();
+
+      expect(find.byType(NewPostsPill), findsNothing);
+    });
+
+    testWidgets('tapping the pill reloads the feed and clears the pill',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        newPostsPillTapTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(newPostsPillTapTestHomeRepository.fetchRankedFeedCalls, 1);
+
+      newPostsPillTapTestHomeRepository.emitNewPost('someone-else');
+      await tester.pump();
+      expect(find.byType(NewPostsPill), findsOneWidget);
+
+      await tester.tap(find.byType(NewPostsPill));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(newPostsPillTapTestHomeRepository.fetchRankedFeedCalls, 2);
+      expect(find.byType(NewPostsPill), findsNothing);
     });
   });
 }

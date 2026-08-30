@@ -213,7 +213,7 @@ class ProfileRepository {
     final rows = await _client
         .from('profiles')
         .select(
-            'id, username, display_name, bio, avatar_url, platform_role, is_private')
+            'id, username, display_name, bio, avatar_url, platform_role, is_private, is_verified')
         .inFilter('id', ids);
 
     final byId = {

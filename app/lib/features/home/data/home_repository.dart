@@ -726,4 +726,44 @@ class HomeRepository {
       'target_id': profileId,
     });
   }
+
+  /// WYNOSHomeSpec.md 4.4 (New-posts pill) -- subscribes to every new
+  /// Drop/Pop insert app-wide so HomeFeedScreen can surface "มีโพสต์ใหม่
+  /// {N} โพสต์" instead of silently prepending on refresh (per spec's
+  /// own "always surface this pill first" rule). [onInsert] is called
+  /// with the new row's author_id so the caller can skip counting a
+  /// post the *current* viewer themselves just made -- mirrors
+  /// ChatRepository.subscribeToConversationMessages/subscribeToMy
+  /// Messages's own realtime shape (see that file). No table-level
+  /// filter (unlike a single-conversation chat subscription) since
+  /// every authenticated viewer may see every new Drop/Pop -- the same
+  /// RLS-scoped-by-default delivery subscribeToMyMessages's own doc
+  /// comment already relies on for `messages`.
+  ///
+  /// Caller must [unsubscribe] in `dispose()` -- leaving a channel
+  /// subscribed after the screen is gone leaks a socket listener.
+  RealtimeChannel subscribeToNewPosts(void Function(String authorId) onInsert) {
+    final channel = _client.channel('home-feed-new-posts');
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'drops',
+          callback: (payload) =>
+              onInsert(payload.newRecord['author_id'] as String),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'pops',
+          callback: (payload) =>
+              onInsert(payload.newRecord['author_id'] as String),
+        )
+        .subscribe();
+    return channel;
+  }
+
+  void unsubscribe(RealtimeChannel channel) {
+    _client.removeChannel(channel);
+  }
 }

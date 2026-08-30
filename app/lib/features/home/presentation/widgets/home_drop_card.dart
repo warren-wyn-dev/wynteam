@@ -5,11 +5,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../drop/presentation/drop_detail_screen.dart' show dropShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
+import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/text_utils.dart';
+import '../../../../core/widgets/action_metric.dart';
 import '../../../../core/widgets/action_sheet_row.dart';
 import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
+import 'top_reply_preview.dart';
+import 'verified_badge.dart';
 import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
 import '../../../report/presentation/report_sheet.dart';
@@ -127,6 +131,28 @@ class HomeDropCard extends StatelessWidget {
     await showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) => ActionSheetBody(rows: [
+        // WYNOSHomeSpec.md 4.6: Share/Save deliberately live here now,
+        // not in the action bar (see that section's own "deliberate
+        // simplification" note) -- always offered first, ahead of the
+        // existing Hide/Report/Delete-ReDrop rows below, which the
+        // spec's own simplified 2-row mockup doesn't have to account
+        // for but this app already does.
+        ActionSheetRow(
+          icon: Icons.share_outlined,
+          label: 'แชร์',
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            _share();
+          },
+        ),
+        ActionSheetRow(
+          icon: item.savedByMe ? Icons.bookmark : Icons.bookmark_border,
+          label: item.savedByMe ? 'เอาออกจากบันทึก' : 'บันทึก',
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            onToggleSave();
+          },
+        ),
         // Reporting your own Drop makes no sense -- same guard
         // _isOwnDrop already applied to this button's own
         // visibility before WYN-034, kept here now that the
@@ -243,9 +269,20 @@ class HomeDropCard extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    item.authorNameOrUsername,
-                                    style: Theme.of(context).textTheme.titleSmall,
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          item.authorNameOrUsername,
+                                          style: Theme.of(context).textTheme.titleSmall,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (item.authorIsVerified) ...[
+                                        const SizedBox(width: WynSpacing.space1),
+                                        const VerifiedBadge(),
+                                      ],
+                                    ],
                                   ),
                                   Text(
                                     relativeTimeLabel(item.createdAt, now: DateTime.now()),
@@ -260,15 +297,17 @@ class HomeDropCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // WYN-034: also shown for the viewer's own ReDrop of
-                    // someone else's Drop -- _openMoreMenu itself decides
-                    // which entries actually appear.
-                    if (!_isOwnDrop || _isOwnRedrop)
-                      IconButton(
-                        icon: const Icon(Icons.more_vert),
-                        tooltip: 'เพิ่มเติม',
-                        onPressed: () => _openMoreMenu(context),
-                      ),
+                    // WYNOSHomeSpec.md 4.6: always shown now, even on the
+                    // viewer's own plain (non-ReDrop) Drop -- Share/Save
+                    // moved in here from the action bar apply regardless
+                    // of authorship. _openMoreMenu itself still decides
+                    // which of the authorship-gated rows (Hide/Report/
+                    // Delete ReDrop) actually appear underneath those two.
+                    IconButton(
+                      icon: const Icon(Icons.more_vert),
+                      tooltip: 'เพิ่มเติม',
+                      onPressed: () => _openMoreMenu(context),
+                    ),
                   ],
                 ),
               ),
@@ -311,83 +350,54 @@ class HomeDropCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),
                 child: Row(
                   children: [
-                    Semantics(
-                      label: item.likedByMe
+                    // Heart/comment/repost/eye sizing+color match
+                    // WYNOSHomeSpec.md 4.9's table exactly -- exactly
+                    // these 4 elements now that Share/Bookmark moved
+                    // into the "..." menu (see _openMoreMenu, spec 4.6).
+                    ActionMetric(
+                      icon: item.likedByMe ? Icons.favorite : Icons.favorite_border,
+                      iconSize: 17,
+                      count: item.likeCount,
+                      color: item.likedByMe ? WynColors.sapphire : WynColors.graphite,
+                      semanticsLabel: item.likedByMe
                           ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
                           : 'กดเพื่อถูกใจ',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: Icon(
-                          item.likedByMe ? Icons.favorite : Icons.favorite_border,
-                          color: item.likedByMe ? Colors.red : null,
-                        ),
-                        onPressed: onToggleLike,
-                      ),
+                      onTap: onToggleLike,
                     ),
-                    Text('${item.likeCount}'),
-                    const SizedBox(width: WynSpacing.space2),
-                    Semantics(
-                      label: 'ดูคอมเมนต์',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: const Icon(Icons.mode_comment_outlined, size: 20),
-                        onPressed: onTap,
-                      ),
+                    const SizedBox(width: WynSpacing.space5),
+                    ActionMetric(
+                      icon: Icons.mode_comment_outlined,
+                      iconSize: 17,
+                      count: item.commentCount,
+                      color: WynColors.graphite,
+                      semanticsLabel: 'ดูคอมเมนต์',
+                      onTap: onTap,
                     ),
-                    Text('${item.commentCount}'),
-                    const SizedBox(width: WynSpacing.space2),
-                    Semantics(
-                      label: item.redroppedByMe
+                    const SizedBox(width: WynSpacing.space5),
+                    ActionMetric(
+                      icon: Icons.repeat,
+                      iconSize: 17,
+                      count: item.redropCount,
+                      color: WynColors.graphite,
+                      semanticsLabel: item.redroppedByMe
                           ? 'ReDrop แล้ว กดเพื่อเลือกดำเนินการ'
                           : 'กดเพื่อ ReDrop',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.repeat,
-                          color: item.redroppedByMe
-                              ? Theme.of(context).colorScheme.primary
-                              : null,
-                        ),
-                        onPressed: () => _openRedropSheet(context),
-                      ),
+                      onTap: () => _openRedropSheet(context),
                     ),
-                    Text('${item.redropCount}'),
-                    Semantics(
-                      label: 'แชร์',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: const Icon(Icons.share_outlined, size: 20),
-                        onPressed: _share,
-                      ),
-                    ),
-                    Semantics(
-                      label: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
-                      excludeSemantics: true,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.visibility_outlined, size: 20),
-                          const SizedBox(width: WynSpacing.space1),
-                          Text('${item.viewCount}'),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    Semantics(
-                      label: item.savedByMe
-                          ? 'บันทึกแล้ว กดเพื่อเอาออกจาก Saved'
-                          : 'กดเพื่อบันทึก',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: Icon(
-                          item.savedByMe ? Icons.bookmark : Icons.bookmark_border,
-                        ),
-                        onPressed: onToggleSave,
-                      ),
+                    const SizedBox(width: WynSpacing.space5),
+                    ActionMetric(
+                      icon: Icons.visibility_outlined,
+                      iconSize: 16,
+                      count: item.viewCount,
+                      color: WynColors.faint,
+                      semanticsLabel: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
+                      onTap: null,
                     ),
                   ],
                 ),
               ),
+              if (item.topReply != null)
+                TopReplyPreview(reply: item.topReply!, onTap: onTap),
             ],
           ),
         ),
