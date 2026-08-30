@@ -1,12 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import '../../../../core/design/wyn_colors.dart';
+import '../../../../core/design/wyn_spacing.dart';
 
 /// Full-screen, swipeable, pinch-to-zoom image viewer -- WYN-071 Design,
 /// Screen 4. Opened by tapping a multi-image Drop's gallery in
-/// DropDetailScreen (see DropImageGallery). Always a black background
-/// regardless of the app's light theme -- a media viewer sitting
-/// directly on photos, not a themed surface, same posture the
-/// image-scrim tokens in WynColors already document for this exact
-/// kind of "always black, unrelated to light/dark theme" case.
+/// DropDetailScreen (see DropImageGallery). Always an ink background
+/// regardless of the app's light theme -- 20-image-viewer.tsx's own doc
+/// comment: "the one screen in the app that intentionally breaks from
+/// the light palette, the way a lightbox does in most apps."
+///
+/// The reference also shows a like/share/bookmark action row under the
+/// dots -- deliberately not added here: this widget only ever receives
+/// [imageUrls]/[initialIndex], no [Drop] or repositories, so real
+/// like/save state would mean threading those through and duplicating
+/// DropDetailScreen's own interaction logic in a second place, a real
+/// scope expansion rather than a restyle. Left as a flagged gap, not
+/// guessed at, same posture as Bookmarks' own unimplemented per-row
+/// unsave affordance.
 class DropImageViewer extends StatefulWidget {
   const DropImageViewer({
     super.key,
@@ -35,38 +47,52 @@ class _DropImageViewerState extends State<DropImageViewer> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: WynColors.ink,
       body: SafeArea(
-        child: Stack(
+        child: Column(
           children: [
-            PageView.builder(
-              controller: _pageController,
-              itemCount: widget.imageUrls.length,
-              onPageChanged: (index) => setState(() => _currentIndex = index),
-              itemBuilder: (context, index) => InteractiveViewer(
-                child: Center(
-                  child: Image.network(widget.imageUrls[index]),
-                ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Semantics(
+                    label: 'ปิด',
+                    button: true,
+                    excludeSemantics: true,
+                    child: IconButton(
+                      icon: const Icon(Icons.close, size: 22, color: WynColors.paper),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      '${_currentIndex + 1} / ${widget.imageUrls.length}',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: WynColors.paper.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 48),
+                ],
               ),
             ),
-            Positioned(
-              top: 8,
-              left: 8,
-              child: Semantics(
-                label: 'ปิด',
-                button: true,
-                excludeSemantics: true,
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => Navigator.of(context).pop(),
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: widget.imageUrls.length,
+                onPageChanged: (index) => setState(() => _currentIndex = index),
+                itemBuilder: (context, index) => InteractiveViewer(
+                  child: Center(
+                    child: Image.network(widget.imageUrls[index]),
+                  ),
                 ),
               ),
             ),
             if (widget.imageUrls.length > 1)
-              Positioned(
-                bottom: 24,
-                left: 0,
-                right: 0,
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3),
                 child: Semantics(
                   label:
                       'รูปที่ ${_currentIndex + 1} จาก ${widget.imageUrls.length}',
@@ -75,15 +101,16 @@ class _DropImageViewerState extends State<DropImageViewer> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       for (var i = 0; i < widget.imageUrls.length; i++)
-                        Container(
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
                           margin: const EdgeInsets.symmetric(horizontal: 3),
-                          width: 6,
-                          height: 6,
+                          width: i == _currentIndex ? 14 : 5,
+                          height: 5,
                           decoration: BoxDecoration(
-                            shape: BoxShape.circle,
+                            borderRadius: BorderRadius.circular(2.5),
                             color: i == _currentIndex
-                                ? Colors.white
-                                : Colors.white38,
+                                ? WynColors.paper
+                                : WynColors.paper.withValues(alpha: 0.33),
                           ),
                         ),
                     ],
