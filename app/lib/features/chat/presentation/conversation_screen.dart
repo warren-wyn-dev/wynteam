@@ -463,8 +463,17 @@ class _ConversationScreenState extends State<ConversationScreen> {
       // error would otherwise be invisible to whoever hits it live.
       debugPrint('ChatRepository.sendMessage failed: $e\n$stackTrace');
       if (!mounted) return;
+      // The real error is also put on screen, not just the console --
+      // reaching DevTools isn't realistic when this fails on a phone
+      // browser, which is exactly how it was first reported (see
+      // .wyn/tasks/bugs/WYN-P0-chat-send-message-failing.md). Temporary,
+      // deliberately blunt debugging aid: once the real cause is known,
+      // this should go back to a plain friendly message.
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ส่งข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(
+          content: Text('ส่งข้อความไม่สำเร็จ: ${_describeError(e)}'),
+          duration: const Duration(seconds: 10),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSending = false);
@@ -1267,6 +1276,19 @@ class _TimeDivider extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A short, human-readable rendering of a caught send failure -- for the
+/// on-screen SnackBar (see `_send()`), not just `debugPrint`'s console
+/// line, since DevTools isn't reachable when this happens on a phone
+/// browser. `PostgrestException`/`StorageException` (the 2 real
+/// exception types `sendMessage()` can throw -- an RLS/constraint
+/// rejection or a storage upload failure) carry a `message` worth
+/// showing directly; anything else falls back to `toString()`.
+String _describeError(Object e) {
+  if (e is PostgrestException) return '[${e.code}] ${e.message}';
+  if (e is StorageException) return '[${e.statusCode}] ${e.message}';
+  return e.toString();
 }
 
 TextStyle _interStyle({
