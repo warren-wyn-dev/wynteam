@@ -98,7 +98,7 @@ void main() {
     expect(find.text('แนะนำให้ติดตาม'), findsOneWidget);
 
     expect(find.text('#wyn'), findsOneWidget);
-    expect(find.text('5 โพสต์'), findsOneWidget);
+    expect(find.text('5 โพสต์ · กำลังนิยมใน ไทย'), findsOneWidget);
     expect(find.text('@suggested_user'), findsOneWidget);
   });
 

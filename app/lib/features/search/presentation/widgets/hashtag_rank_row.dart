@@ -67,7 +67,7 @@ class HashtagRankRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${item.postCount} โพสต์',
+                      '${item.postCount} โพสต์ · กำลังนิยมใน ไทย',
                       style: GoogleFonts.inter(fontSize: 12, color: WynColors.graphite),
                     ),
                   ],

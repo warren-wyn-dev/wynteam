@@ -71,9 +71,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('#wyn'), findsOneWidget);
-    expect(find.text('20 โพสต์'), findsOneWidget);
+    expect(find.text('20 โพสต์ · กำลังนิยมใน ไทย'), findsOneWidget);
     expect(find.text('#flutter'), findsOneWidget);
-    expect(find.text('10 โพสต์'), findsOneWidget);
+    expect(find.text('10 โพสต์ · กำลังนิยมใน ไทย'), findsOneWidget);
 
     // #wyn (rank 1) must render above #flutter (rank 2).
     final firstTop = tester.getTopLeft(find.text('#wyn')).dy;

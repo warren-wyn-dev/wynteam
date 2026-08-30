@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_typography.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
 import '../../drop/data/drop_repository.dart';
@@ -102,8 +103,16 @@ class _Top100ScreenState extends State<Top100Screen> {
       backgroundColor: WynColors.paper,
       appBar: AppBar(
         backgroundColor: WynColors.paper,
-        foregroundColor: WynColors.ink,
-        title: const Text('Top 100'),
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text('Top 100', style: WynTypography.fraunces(fontSize: 17, color: WynColors.ink)),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, color: WynColors.hairline),
+        ),
       ),
       body: _hasError
           ? Center(
