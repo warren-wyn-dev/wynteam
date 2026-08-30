@@ -454,7 +454,14 @@ class _ConversationScreenState extends State<ConversationScreen> {
         _imageExtension = null;
         _replyTo = null;
       });
-    } catch (_) {
+    } catch (e, stackTrace) {
+      // Logged (not just swallowed) so a real failure on a deployed build
+      // is diagnosable from the browser console -- every other catch
+      // block in this screen stays silent-by-design (the UI state itself
+      // is the fallback), but a failed *send* has no such fallback state
+      // to fall back to, so the underlying PostgrestException/network
+      // error would otherwise be invisible to whoever hits it live.
+      debugPrint('ChatRepository.sendMessage failed: $e\n$stackTrace');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ส่งข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
