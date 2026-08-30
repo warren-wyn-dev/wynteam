@@ -33,6 +33,7 @@ import '../data/notification_repository.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
+import '../../../core/widgets/empty_state_block.dart';
 
 /// Screen 2 — Notification list (WYN-012, extended by WYN-015 with 4
 /// Club types). Row structure mirrors FollowListScreen (WYN-008/013)
@@ -701,26 +702,15 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     return _buildList(_notifications, paginated: true);
   }
 
+  // 22-empty-states.tsx: icon-in-tint-circle + Fraunces headline +
+  // supportive line, same shared shape the Chat Inbox's own empty state
+  // uses.
   Widget _buildEmptyState({required String headline, required String subtext}) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              headline,
-              textAlign: TextAlign.center,
-              style: WynTypography.fraunces(fontSize: 20, color: WynColors.ink),
-            ),
-            const SizedBox(height: WynSpacing.space2),
-            Text(
-              subtext,
-              textAlign: TextAlign.center,
-              style: _interStyle(fontSize: 13, color: WynColors.graphite),
-            ),
-          ],
-        ),
+      child: EmptyStateBlock(
+        icon: Icons.notifications_outlined,
+        title: headline,
+        subtitle: subtext,
       ),
     );
   }

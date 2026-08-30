@@ -6,6 +6,7 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
 import '../../../core/text_utils.dart';
+import '../../../core/widgets/empty_state_block.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
@@ -382,21 +383,19 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
     final visible = _visibleConversations;
 
     if (visible.isEmpty) {
+      // 22-empty-states.tsx: icon-in-tint-circle + Fraunces headline +
+      // supportive line -- the "ทั้งหมด" copy is the reference's own
+      // verbatim text (and is now literally accurate: the pencil icon
+      // it points to really does open NewMessageScreen). "ยังไม่อ่าน" has
+      // no reference counterpart (a real WYN-071 tab the mockup doesn't
+      // depict), so it gets matching, but not reference-specified, copy.
       return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.chat_bubble_outline, size: 56, color: WynColors.faint),
-              const SizedBox(height: WynSpacing.space4),
-              Text(
-                _selectedTab == 1 ? 'ไม่มีบทสนทนาที่ยังไม่อ่าน' : 'ยังไม่มีบทสนทนา',
-                textAlign: TextAlign.center,
-                style: _interStyle(fontSize: 14, color: WynColors.graphite),
-              ),
-            ],
-          ),
+        child: EmptyStateBlock(
+          icon: Icons.chat_bubble_outline,
+          title: _selectedTab == 1 ? 'ไม่มีบทสนทนาที่ยังไม่อ่าน' : 'ยังไม่มีข้อความ',
+          subtitle: _selectedTab == 1
+              ? 'บทสนทนาที่ยังไม่อ่านทั้งหมดจะขึ้นตรงนี้'
+              : 'เริ่มแชทกับคนที่คุณติดตาม กดไอคอนดินสอด้านบนได้เลย',
         ),
       );
     }

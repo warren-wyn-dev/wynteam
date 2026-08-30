@@ -53,7 +53,7 @@ void main() {
     await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
 
-    expect(find.text('ยังไม่มีบทสนทนา'), findsOneWidget);
+    expect(find.text('ยังไม่มีข้อความ'), findsOneWidget);
   });
 
   testWidgets('shows the other participant, preview text, and an unread indicator', (tester) async {
@@ -115,7 +115,7 @@ void main() {
     await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
 
-    expect(find.text('ยังไม่มีบทสนทนา'), findsOneWidget);
+    expect(find.text('ยังไม่มีข้อความ'), findsOneWidget);
 
     chatRepo.inboxPages = [
       [conversation()],
