@@ -465,8 +465,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
 
   /// WYN-071: Saved's tab content pushed as its own screen instead --
   /// see the Row above `_openEdit`'s button. 15-bookmarks.tsx: that
-  /// screen is now [BookmarksScreen] (restyled header, same
-  /// `ProfileSavedTab` body -- see that file's own doc comment).
+  /// screen is [BookmarksScreen], its own full-width post-row list --
+  /// see that file's own doc comment for why it's not `ProfileSavedTab`'s
+  /// grid (which stays as the profile's own Saved tab body, untouched).
   void _openSaved() {
     Navigator.of(context).push(
       MaterialPageRoute(

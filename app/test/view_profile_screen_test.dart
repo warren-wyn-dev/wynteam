@@ -9,7 +9,7 @@ import 'package:wyn/features/pop/data/pop.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
 import 'package:wyn/features/profile/presentation/widgets/profile_skeleton.dart';
-import 'package:wyn/features/saved/presentation/widgets/saved_grid_tile.dart';
+import 'package:wyn/features/saved/presentation/widgets/saved_post_row.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_drop_repository.dart';
@@ -416,10 +416,11 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    // SavedGridTile shows only media, not caption text -- assert on the
-    // tile widget itself (mirrors DropGridTile/PopGridTile's own
-    // "no caption on the tile" precedent).
-    expect(find.byType(SavedGridTile), findsOneWidget);
+    // BookmarksScreen (15-bookmarks.tsx) shows its own full-width
+    // SavedPostRow list, not ProfileSavedTab's SavedGridTile grid -- see
+    // bookmarks_screen.dart's own doc comment.
+    expect(find.byType(SavedPostRow), findsOneWidget);
+    expect(find.text('แคปชันที่บันทึกไว้'), findsOneWidget);
   });
 
   // "Club ของฉัน" section (WYN-015) removed -- 05-profile.tsx drops the
