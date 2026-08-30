@@ -21,6 +21,7 @@ import '../data/home_repository.dart';
 import 'pop_single_clip_screen.dart';
 import 'widgets/from_your_clubs_feed.dart';
 import 'widgets/home_drop_card.dart';
+import 'widgets/home_explainer_banner.dart';
 import 'widgets/home_pop_card.dart';
 import 'widgets/new_posts_pill.dart';
 import 'widgets/suggested_follow_list.dart';
@@ -576,6 +577,12 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                 key: const Key('home_feed_scroll_view'),
                 controller: _scrollController,
                 slivers: [
+                  // WYNOSHomeSpec.md item 1 -- the very first thing an
+                  // account sees on Home, shown once total (see
+                  // HomeExplainerBanner's own doc comment); scrolls away
+                  // with everything below it rather than pinning, same as
+                  // ClubSection/Trending underneath.
+                  const SliverToBoxAdapter(child: HomeExplainerBanner()),
                   // ClubSection + Trending scroll away with the rest of the
                   // feed instead of being permanently pinned above it --
                   // the fixed-Column layout this replaces claimed that

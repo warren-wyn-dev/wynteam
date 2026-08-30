@@ -18,6 +18,7 @@ import 'package:wyn/features/home/data/home_top_reply.dart';
 import 'package:wyn/features/home/presentation/home_feed_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
+import 'package:wyn/features/home/presentation/widgets/home_explainer_banner.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/new_posts_pill.dart';
 import 'package:wyn/features/home/presentation/widgets/top_reply_preview.dart';
@@ -267,6 +268,9 @@ void main() {
   late RecordingHomeRepository newPostsPillTestHomeRepository;
   late RecordingHomeRepository newPostsPillTapTestHomeRepository;
 
+  // WYNOSHomeSpec.md item 1: first-time explainer banner.
+  late RecordingHomeRepository explainerBannerTestHomeRepository;
+
   // WYN-064: Tap Home Tab to Scroll to Top & Refresh -- one repository
   // per scenario, same reasoning as every group above (built once here,
   // not inline inside a testWidgets callback, so its SupabaseClient's
@@ -278,7 +282,12 @@ void main() {
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
-    SharedPreferences.setMockInitialValues({});
+    // WYNOSHomeSpec.md item 1: pre-dismissed by default so the one-time
+    // explainer banner doesn't add unexpected height above every other
+    // test in this file (it's exercised on its own, both dismissed and
+    // not, in home_explainer_banner_test.dart and in the dedicated group
+    // below).
+    SharedPreferences.setMockInitialValues({'home_explainer_banner_dismissed': true});
     VideoPlayerPlatform.instance = FakeVideoPlayerPlatform();
 
     sharedDropRepository = RecordingDropRepository();
@@ -533,6 +542,10 @@ void main() {
     );
     newPostsPillTapTestHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'np2', hasImage: false)],
+    );
+
+    explainerBannerTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'exp1', hasImage: false)],
     );
 
     // hasImage: false -- avoids kicking off 30 concurrent NetworkImage
@@ -2072,6 +2085,33 @@ void main() {
 
       expect(newPostsPillTapTestHomeRepository.fetchRankedFeedCalls, 2);
       expect(find.byType(NewPostsPill), findsNothing);
+    });
+  });
+
+  group('First-time explainer banner (WYNOSHomeSpec.md item 1)', () {
+    // The banner's own shown-once/dismiss/persist behavior is covered in
+    // isolation by home_explainer_banner_test.dart -- this just confirms
+    // HomeFeedScreen actually wires it in above the feed. Every other
+    // test in this file pre-dismisses it (see setUpAll's SharedPreferences
+    // mock) so its absence there isn't a regression.
+    testWidgets('is present above the feed', (tester) async {
+      await tester.pumpWidget(buildHome(
+        explainerBannerTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // skipOffstage: false -- every other test in this file pre-
+      // dismisses the banner (see setUpAll), so it renders a zero-size
+      // SizedBox.shrink() here too; the default finder treats that as
+      // offstage and would report 0 matches even though the widget is
+      // genuinely mounted, which is all this test asserts.
+      expect(
+        find.byType(HomeExplainerBanner, skipOffstage: false),
+        findsOneWidget,
+      );
     });
   });
 }
