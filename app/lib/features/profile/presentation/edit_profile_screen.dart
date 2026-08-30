@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../data/profile.dart';
@@ -249,7 +248,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
         title: Text(
           'แก้ไขโปรไฟล์',
-          style: WynTypography.fraunces(fontSize: 17, color: WynColors.ink),
+          style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
         ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
@@ -397,7 +396,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   foregroundColor: WynColors.paper,
                   disabledBackgroundColor: WynColors.hairline,
                   disabledForegroundColor: WynColors.mutedNeutral,
-                  textStyle: _interStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  textStyle: _textStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
                 onPressed: _canSave ? _save : null,
                 child: _isSaving
@@ -418,9 +417,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 }
 
-TextStyle _interStyle({
+TextStyle _textStyle({
   required double fontSize,
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
 }) =>
-    GoogleFonts.inter(fontSize: fontSize, fontWeight: fontWeight, color: color);
+    TextStyle(fontSize: fontSize, fontWeight: fontWeight, color: color);

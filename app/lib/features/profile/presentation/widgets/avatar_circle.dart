@@ -42,8 +42,8 @@ class AvatarCircle extends StatelessWidget {
               // one of the few spots outside the header wordmark/empty-
               // state headline that every reference screen (Profile,
               // Edit Profile, Notifications, ...) independently renders
-              // in Fraunces rather than Inter.
-              style: WynTypography.fraunces(
+              // in the screen-title style.
+              style: WynTypography.screenTitle(
                 fontSize: radius * 0.8,
                 fontWeight: FontWeight.w500,
                 color: Theme.of(context).colorScheme.onPrimary,

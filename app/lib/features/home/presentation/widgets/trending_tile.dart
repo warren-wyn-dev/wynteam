@@ -76,7 +76,7 @@ class TrendingTile extends StatelessWidget {
                     const SizedBox(width: 3),
                     Text(
                       '${item.likeCount}',
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
                     ),
                   ],
                 ),

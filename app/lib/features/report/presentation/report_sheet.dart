@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/design/wyn_colors.dart';
@@ -244,10 +243,10 @@ class _ReportSheetState extends State<ReportSheet> {
                   child: Text(
                     widget.targetLabel,
                     // 21-report-block.tsx: the reason-picker heading
-                    // ("ทำไมคุณถึงรายงานโพสต์นี้") is Fraunces -- same
+                    // ("ทำไมคุณถึงรายงานโพสต์นี้") uses the screen-title style -- same
                     // wordmark/screen-title spot every other reference
                     // screen reserves for it.
-                    style: WynTypography.fraunces(fontSize: 16, color: WynColors.ink),
+                    style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
                   ),
                 ),
                 SizedBox(
@@ -350,7 +349,7 @@ class _ReportSheetState extends State<ReportSheet> {
                       Expanded(
                         child: Text(
                           category.label,
-                          style: GoogleFonts.inter(fontSize: 14, color: WynColors.ink),
+                          style: const TextStyle(fontSize: 15, color: WynColors.ink),
                         ),
                       ),
                       Container(

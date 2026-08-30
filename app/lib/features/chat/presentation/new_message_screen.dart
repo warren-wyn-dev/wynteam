@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/design/wyn_colors.dart';
@@ -169,7 +168,7 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
           icon: const Icon(Icons.close, size: 20, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('ข้อความใหม่', style: WynTypography.fraunces(fontSize: 17, color: WynColors.ink)),
+        title: Text('ข้อความใหม่', style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink)),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: WynColors.hairline),
@@ -205,10 +204,10 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
             Expanded(
               child: TextField(
                 controller: _searchController,
-                style: _interStyle(fontSize: 13.5, color: WynColors.ink),
+                style: _textStyle(fontSize: 16, color: WynColors.ink),
                 decoration: InputDecoration(
                   hintText: 'ค้นหาผู้ใช้',
-                  hintStyle: _interStyle(fontSize: 13.5, color: WynColors.mutedNeutral),
+                  hintStyle: _textStyle(fontSize: 16, color: WynColors.mutedNeutral),
                   border: InputBorder.none,
                   isCollapsed: true,
                 ),
@@ -249,7 +248,7 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
           child: Text(
             'คุณยังไม่ได้ติดตามใครเลย ลองค้นหาคนที่อยากคุยด้วยดูสิ',
             textAlign: TextAlign.center,
-            style: _interStyle(fontSize: 13, color: WynColors.graphite),
+            style: _textStyle(fontSize: 13, color: WynColors.graphite),
           ),
         ),
       );
@@ -262,11 +261,11 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
           ),
           child: Text(
             'ติดตามอยู่',
-            style: _interStyle(
-              fontSize: 11,
+            style: _textStyle(
+              fontSize: 13,
               fontWeight: FontWeight.w600,
               color: WynColors.mutedNeutral,
-              letterSpacing: 11 * 0.14,
+              letterSpacing: 13 * 0.14,
             ),
           ),
         ),
@@ -295,7 +294,7 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
       return Center(
         child: Text(
           'ไม่พบผู้ใช้ที่ตรงกับ "$_query"',
-          style: _interStyle(fontSize: 13, color: WynColors.faint),
+          style: _textStyle(fontSize: 13, color: WynColors.faint),
         ),
       );
     }
@@ -331,11 +330,11 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
                 children: [
                   Text(
                     displayName,
-                    style: _interStyle(fontSize: 14, fontWeight: FontWeight.w600, color: WynColors.ink),
+                    style: _textStyle(fontSize: 15, fontWeight: FontWeight.w600, color: WynColors.ink),
                   ),
                   Text(
                     '@${profile.username}',
-                    style: _interStyle(fontSize: 12, color: WynColors.mutedNeutral),
+                    style: _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
                   ),
                 ],
               ),
@@ -347,13 +346,13 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
   }
 }
 
-TextStyle _interStyle({
+TextStyle _textStyle({
   required double fontSize,
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
   double? letterSpacing,
 }) =>
-    GoogleFonts.inter(
+    TextStyle(
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color,

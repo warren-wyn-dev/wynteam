@@ -35,10 +35,19 @@ migrate_working_dir/
 # so committing our customized app name/title here (instead of
 # Flutter's generic "wyn"/"A new Flutter project" template values)
 # means every future CI deploy keeps it instead of silently reverting.
+# favicon.png/icons/ are committed for the identical reason: without
+# this they'd be Flutter's generic template icon (or wiped back to it
+# on every redeploy) instead of the real WYNOS logo (2026-08-30).
 /web/*
 !/web/flutter_bootstrap.js
 !/web/index.html
 !/web/manifest.json
+!/web/favicon.png
+!/web/icons/
+!/web/icons/Icon-192.png
+!/web/icons/Icon-512.png
+!/web/icons/Icon-maskable-192.png
+!/web/icons/Icon-maskable-512.png
 /linux/
 /macos/
 /windows/

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../design/wyn_colors.dart';
 import '../design/wyn_spacing.dart';
@@ -56,8 +55,8 @@ class ActionSheetRow extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: GoogleFonts.inter(
-                  fontSize: 14.5,
+                style: TextStyle(
+                  fontSize: 15,
                   fontWeight: FontWeight.w500,
                   color: rowColor,
                 ),

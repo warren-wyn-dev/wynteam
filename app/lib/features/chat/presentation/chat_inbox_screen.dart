@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/design/wyn_colors.dart';
@@ -18,7 +17,7 @@ import 'new_message_screen.dart';
 
 /// Screen 2 -- the Chat Inbox: every conversation this user is part of,
 /// sorted by most recent activity first. Restyled to 12-chat.tsx: chevron
-/// back + Fraunces title + a compose (pencil) icon header, a "ทั้งหมด" /
+/// back + title-style header text + a compose (pencil) icon header, a "ทั้งหมด" /
 /// "ยังไม่อ่าน" tab pair (a real client-side filter over the already-loaded
 /// list -- [Conversation.isUnread] already exists, so this isn't a
 /// placeholder), and rows styled like every other "list of people" screen
@@ -261,7 +260,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
           icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('ข้อความ', style: WynTypography.fraunces(fontSize: 17, color: WynColors.ink)),
+        title: Text('ข้อความ', style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink)),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined, size: 19, color: WynColors.ink),
@@ -312,8 +311,8 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
               padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3),
               child: Text(
                 label,
-                style: _interStyle(
-                  fontSize: 13.5,
+                style: _textStyle(
+                  fontSize: 13,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                   color: selected ? WynColors.ink : WynColors.mutedNeutral,
                 ),
@@ -351,7 +350,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
               Expanded(
                 child: Text(
                   'คำขอข้อความ ($_pendingRequestCount)',
-                  style: _interStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: WynColors.ink),
+                  style: _textStyle(fontSize: 15, fontWeight: FontWeight.w500, color: WynColors.ink),
                 ),
               ),
               const Icon(Icons.chevron_right, size: 15, color: WynColors.faint),
@@ -383,7 +382,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
     final visible = _visibleConversations;
 
     if (visible.isEmpty) {
-      // 22-empty-states.tsx: icon-in-tint-circle + Fraunces headline +
+      // 22-empty-states.tsx: icon-in-tint-circle + title-style headline +
       // supportive line -- the "ทั้งหมด" copy is the reference's own
       // verbatim text (and is now literally accurate: the pencil icon
       // it points to really does open NewMessageScreen). "ยังไม่อ่าน" has
@@ -491,8 +490,8 @@ class _ConversationRow extends StatelessWidget {
                             displayName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: _interStyle(
-                              fontSize: 14.5,
+                            style: _textStyle(
+                              fontSize: 15,
                               fontWeight: isUnread ? FontWeight.w700 : FontWeight.w600,
                               color: WynColors.ink,
                             ),
@@ -501,7 +500,7 @@ class _ConversationRow extends StatelessWidget {
                         const SizedBox(width: WynSpacing.space2),
                         Text(
                           time,
-                          style: _interStyle(fontSize: 11.5, color: WynColors.mutedNeutral),
+                          style: _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
                         ),
                       ],
                     ),
@@ -518,7 +517,7 @@ class _ConversationRow extends StatelessWidget {
                             _preview,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: _interStyle(
+                            style: _textStyle(
                               fontSize: 13,
                               fontStyle: isDeleted ? FontStyle.italic : FontStyle.normal,
                               fontWeight: isUnread ? FontWeight.w500 : FontWeight.w400,
@@ -552,10 +551,10 @@ class _UnreadDot extends StatelessWidget {
   }
 }
 
-TextStyle _interStyle({
+TextStyle _textStyle({
   required double fontSize,
   FontWeight fontWeight = FontWeight.w400,
   FontStyle fontStyle = FontStyle.normal,
   Color? color,
 }) =>
-    GoogleFonts.inter(fontSize: fontSize, fontWeight: fontWeight, fontStyle: fontStyle, color: color);
+    TextStyle(fontSize: fontSize, fontWeight: fontWeight, fontStyle: fontStyle, color: color);
