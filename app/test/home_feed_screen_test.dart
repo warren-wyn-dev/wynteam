@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
+import 'package:wyn/core/widgets/action_metric.dart';
 import 'package:wyn/features/club/data/club.dart';
 import 'package:wyn/features/club/data/club_post.dart';
 import 'package:wyn/features/club/presentation/club_page.dart';
@@ -511,7 +512,7 @@ void main() {
     expect(
         find.widgetWithIcon(IconButton, Icons.share_outlined), findsOneWidget);
     expect(
-      find.widgetWithIcon(IconButton, Icons.mode_comment_outlined),
+      find.widgetWithIcon(ActionMetric, Icons.mode_comment_outlined),
       findsOneWidget,
     );
     // WYN-038 QA fix: assert the Drop card's own view count icon here,
@@ -580,7 +581,7 @@ void main() {
     expect(popCardShare, findsOneWidget);
     final popCardComment = find.descendant(
       of: find.byType(HomePopCard),
-      matching: find.widgetWithIcon(IconButton, Icons.mode_comment_outlined),
+      matching: find.widgetWithIcon(ActionMetric, Icons.mode_comment_outlined),
     );
     expect(popCardComment, findsOneWidget);
   });
@@ -649,10 +650,10 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    final likeButton = find.widgetWithIcon(IconButton, Icons.favorite_border);
+    final likeButton = find.widgetWithIcon(ActionMetric, Icons.favorite_border);
     expect(likeButton, findsOneWidget);
 
-    final onPressed = tester.widget<IconButton>(likeButton).onPressed!;
+    final onPressed = tester.widget<ActionMetric>(likeButton).onTap!;
     onPressed();
     onPressed();
     await tester.pumpAndSettle();
@@ -674,10 +675,10 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    final likeButton = find.widgetWithIcon(IconButton, Icons.favorite_border);
+    final likeButton = find.widgetWithIcon(ActionMetric, Icons.favorite_border);
     expect(likeButton, findsOneWidget);
 
-    final onPressed = tester.widget<IconButton>(likeButton).onPressed!;
+    final onPressed = tester.widget<ActionMetric>(likeButton).onTap!;
     onPressed();
     onPressed();
     await tester.pumpAndSettle();
@@ -710,9 +711,9 @@ void main() {
       // card's own image, so this invokes the button's onPressed
       // directly rather than tester.tap(), which needs the widget to
       // actually be on-screen to hit-test successfully.
-      final redropButton = find.widgetWithIcon(IconButton, Icons.repeat);
+      final redropButton = find.widgetWithIcon(ActionMetric, Icons.repeat);
       expect(redropButton, findsOneWidget);
-      tester.widget<IconButton>(redropButton).onPressed!();
+      tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
 
       expect(find.text('🔄 ReDrop'), findsOneWidget);
@@ -742,9 +743,9 @@ void main() {
       // card's own image, so this invokes the button's onPressed
       // directly rather than tester.tap(), which needs the widget to
       // actually be on-screen to hit-test successfully.
-      final redropButton = find.widgetWithIcon(IconButton, Icons.repeat);
+      final redropButton = find.widgetWithIcon(ActionMetric, Icons.repeat);
       expect(redropButton, findsOneWidget);
-      tester.widget<IconButton>(redropButton).onPressed!();
+      tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
       await tester.tap(find.text('🔄 ReDrop'));
       await tester.pumpAndSettle();
@@ -779,9 +780,9 @@ void main() {
       // card's own image, so this invokes the button's onPressed
       // directly rather than tester.tap(), which needs the widget to
       // actually be on-screen to hit-test successfully.
-      final redropButton = find.widgetWithIcon(IconButton, Icons.repeat);
+      final redropButton = find.widgetWithIcon(ActionMetric, Icons.repeat);
       expect(redropButton, findsOneWidget);
-      tester.widget<IconButton>(redropButton).onPressed!();
+      tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
 
       expect(find.text('ยกเลิก ReDrop'), findsOneWidget);
@@ -817,9 +818,9 @@ void main() {
       // card's own image, so this invokes the button's onPressed
       // directly rather than tester.tap(), which needs the widget to
       // actually be on-screen to hit-test successfully.
-      final redropButton = find.widgetWithIcon(IconButton, Icons.repeat);
+      final redropButton = find.widgetWithIcon(ActionMetric, Icons.repeat);
       expect(redropButton, findsOneWidget);
-      tester.widget<IconButton>(redropButton).onPressed!();
+      tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
       await tester.tap(find.text('💬 Quote ReDrop'));
       await tester.pumpAndSettle();
@@ -1022,15 +1023,15 @@ void main() {
     tester.takeException();
 
     final commentButton =
-        find.widgetWithIcon(IconButton, Icons.mode_comment_outlined);
+        find.widgetWithIcon(ActionMetric, Icons.mode_comment_outlined);
     expect(commentButton, findsOneWidget);
 
-    // Invoke onPressed directly rather than tester.tap(): the card's
+    // Invoke onTap directly rather than tester.tap(): the card's
     // 1:1 image pushes the interaction row below the 600px test
     // viewport, same as the scroll-to-find issue above -- calling the
     // callback exercises the exact same wiring without needing to
     // scroll it into hit-testable range first.
-    final onPressed = tester.widget<IconButton>(commentButton).onPressed;
+    final onPressed = tester.widget<ActionMetric>(commentButton).onTap;
     expect(onPressed, isNotNull);
     onPressed!();
     await tester.pumpAndSettle();
@@ -1051,10 +1052,10 @@ void main() {
     tester.takeException();
 
     final commentButton =
-        find.widgetWithIcon(IconButton, Icons.mode_comment_outlined);
+        find.widgetWithIcon(ActionMetric, Icons.mode_comment_outlined);
     expect(commentButton, findsOneWidget);
 
-    final onPressed = tester.widget<IconButton>(commentButton).onPressed;
+    final onPressed = tester.widget<ActionMetric>(commentButton).onTap;
     expect(onPressed, isNotNull);
     onPressed!();
     await tester.pumpAndSettle();

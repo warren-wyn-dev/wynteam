@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../design/wyn_colors.dart';
+
 /// Wraps a post's media area (image/video) with Instagram-style
 /// double-tap-to-like -- WYNOS V1.0.0 Beta requirement 4. Two quick taps
 /// call [onLike] and show a large heart that pops in and fades out over
@@ -58,24 +60,27 @@ class _DoubleTapLikeState extends State<DoubleTapLike>
 
   // Pops past full size then settles, rather than a flat fade-in --
   // reads as a "stamp" the way the real apps this is modeled on do.
+  // Weights below are literally WYNOSHomeSpec.md 4.7's 0%/25%/40%/100%
+  // keyframe breakpoints (25/15/60 out of 700ms), so scale and opacity
+  // hit their "hold" and "start fading" points at the same instant.
   late final Animation<double> _scale = TweenSequence<double>([
     TweenSequenceItem(
-        tween: Tween(begin: 0.5, end: 1.15)
+        tween: Tween(begin: 0.4, end: 1.15)
             .chain(CurveTween(curve: Curves.easeOut)),
-        weight: 35),
+        weight: 25),
     TweenSequenceItem(
         tween: Tween(begin: 1.15, end: 1.0)
             .chain(CurveTween(curve: Curves.easeIn)),
         weight: 15),
-    TweenSequenceItem(tween: ConstantTween(1.0), weight: 20),
+    TweenSequenceItem(tween: ConstantTween(1.0), weight: 60),
   ]).animate(_controller);
 
   late final Animation<double> _opacity = TweenSequence<double>([
-    TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 15),
-    TweenSequenceItem(tween: ConstantTween(1.0), weight: 35),
+    TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 25),
+    TweenSequenceItem(tween: ConstantTween(1.0), weight: 15),
     TweenSequenceItem(
         tween: Tween(begin: 1.0, end: 0.0).chain(CurveTween(curve: Curves.easeIn)),
-        weight: 50),
+        weight: 60),
   ]).animate(_controller);
 
   void _handleDoubleTap() {
@@ -123,13 +128,17 @@ class _DoubleTapLikeState extends State<DoubleTapLike>
                   opacity: _opacity.value,
                   child: Transform.scale(
                     scale: _scale.value,
-                    child: const Icon(
+                    child: Icon(
                       Icons.favorite,
-                      key: Key('double_tap_heart'),
-                      color: Colors.white,
-                      size: 100,
+                      key: const Key('double_tap_heart'),
+                      color: WynColors.paper,
+                      size: 72,
                       shadows: [
-                        Shadow(color: Colors.black38, blurRadius: 16),
+                        Shadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          offset: const Offset(0, 4),
+                          blurRadius: 16,
+                        ),
                       ],
                     ),
                   ),
