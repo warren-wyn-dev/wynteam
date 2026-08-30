@@ -5,6 +5,7 @@ import 'package:wyn/features/chat/data/conversation.dart';
 import 'package:wyn/features/chat/presentation/chat_inbox_screen.dart';
 import 'package:wyn/features/chat/presentation/conversation_screen.dart';
 import 'package:wyn/features/chat/presentation/message_request_list_screen.dart';
+import 'package:wyn/features/chat/presentation/new_message_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_chat_repository.dart';
@@ -191,6 +192,19 @@ void main() {
 
       expect(find.text('ไม่มีบทสนทนาที่ยังไม่อ่าน'), findsOneWidget);
     });
+  });
+
+  testWidgets(
+      '17-new-message.tsx: the pencil icon opens NewMessageScreen',
+      (tester) async {
+    chatRepo.inboxPages = const [[]];
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('เขียนข้อความใหม่'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NewMessageScreen), findsOneWidget);
   });
 
   group('Message Requests banner (WYN-032)', () {

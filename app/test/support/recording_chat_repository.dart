@@ -53,6 +53,7 @@ class RecordingChatRepository extends ChatRepository {
 
   String getOrCreateConversationResult = 'conversation-1';
   Object? getOrCreateConversationError;
+  final List<String> getOrCreateConversationCalls = [];
 
   int markConversationReadCalls = 0;
   String? lastMarkConversationReadId;
@@ -104,6 +105,7 @@ class RecordingChatRepository extends ChatRepository {
 
   @override
   Future<String> getOrCreateConversation(String otherUserId) async {
+    getOrCreateConversationCalls.add(otherUserId);
     final error = getOrCreateConversationError;
     if (error != null) throw error;
     return getOrCreateConversationResult;

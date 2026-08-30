@@ -6,11 +6,14 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
 import '../../../core/text_utils.dart';
+import '../../follow/data/follow_repository.dart';
+import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/chat_repository.dart';
 import '../data/conversation.dart';
 import 'conversation_screen.dart';
 import 'message_request_list_screen.dart';
+import 'new_message_screen.dart';
 
 /// Screen 2 -- the Chat Inbox: every conversation this user is part of,
 /// sorted by most recent activity first. Restyled to 12-chat.tsx: chevron
@@ -21,12 +24,10 @@ import 'message_request_list_screen.dart';
 /// (avatar ring, hairline separators, an inline dot next to the preview
 /// for unread instead of a corner badge on the avatar).
 ///
-/// The compose icon has no real destination yet -- 12-chat.tsx's own doc
-/// comment says as much ("not built out here, but reserved as a real,
-/// tappable affordance rather than omitted"): that's design-reference's
-/// own `17-new-message.tsx`, a later page in this restyle pass. Shown
-/// muted/disabled for now, same "not wired yet" treatment as Settings'
-/// "ธีมเข้ม"/"ช่วยเหลือ" rows -- to be wired once that page is built.
+/// The compose icon now opens [NewMessageScreen] (design-reference's own
+/// `17-new-message.tsx`) -- a person picker that starts a real
+/// conversation, same call `ViewProfileScreen`'s own message button
+/// makes.
 ///
 /// The Message Requests banner (WYN-032) has no equivalent in the mockup
 /// at all -- it's real, working functionality the mockup's static
@@ -34,9 +35,20 @@ import 'message_request_list_screen.dart';
 /// same token system as everything else on this page. See
 /// .wyn/docs/design/wyn-031-chat-1to1.md, Screen 2.
 class ChatInboxScreen extends StatefulWidget {
-  const ChatInboxScreen({super.key, required this.chatRepository});
+  const ChatInboxScreen({
+    super.key,
+    required this.chatRepository,
+    this.profileRepository,
+    this.followRepository,
+  });
 
   final ChatRepository chatRepository;
+
+  /// Optional/defaulted to Supabase.instance.client when omitted, same
+  /// shape as every other repository this app threads through
+  /// optionally -- needed only to open [NewMessageScreen].
+  final ProfileRepository? profileRepository;
+  final FollowRepository? followRepository;
 
   @override
   State<ChatInboxScreen> createState() => _ChatInboxScreenState();
@@ -58,6 +70,11 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
   // list, tab just filters it" pattern notification_list_screen.dart's
   // own tab pair uses.
   int _selectedTab = 0;
+
+  late final ProfileRepository _profileRepository =
+      widget.profileRepository ?? ProfileRepository(Supabase.instance.client);
+  late final FollowRepository _followRepository =
+      widget.followRepository ?? FollowRepository(Supabase.instance.client);
 
   String get _myUserId => Supabase.instance.client.auth.currentUser!.id;
 
@@ -150,6 +167,20 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
     }
   }
 
+  Future<void> _openNewMessage() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => NewMessageScreen(
+          chatRepository: widget.chatRepository,
+          profileRepository: _profileRepository,
+          followRepository: _followRepository,
+        ),
+      ),
+    );
+    // A new conversation may have started while that screen was open.
+    if (mounted) _loadInitial();
+  }
+
   Future<void> _loadMore() async {
     setState(() => _isLoadingMore = true);
     try {
@@ -230,12 +261,11 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text('ข้อความ', style: WynTypography.fraunces(fontSize: 17, color: WynColors.ink)),
-        actions: const [
+        actions: [
           IconButton(
-            // No real destination yet -- see this file's own doc comment.
-            icon: Icon(Icons.edit_outlined, size: 19, color: WynColors.faint),
+            icon: const Icon(Icons.edit_outlined, size: 19, color: WynColors.ink),
             tooltip: 'เขียนข้อความใหม่',
-            onPressed: null,
+            onPressed: _openNewMessage,
           ),
         ],
         bottom: const PreferredSize(
