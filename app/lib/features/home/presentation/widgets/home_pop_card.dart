@@ -10,6 +10,7 @@ import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/widgets/action_sheet_row.dart';
 import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
+import 'liked_by_row.dart';
 
 /// Formats a duration in seconds as "m:ss" (e.g. 45 -> "0:45").
 String _formatDuration(int totalSeconds) {
@@ -177,6 +178,14 @@ class HomePopCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                   child: HashtagText(item.caption!),
+                ),
+              if (item.likedBy.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                  child: LikedByRow(
+                    likedBy: item.likedBy,
+                    totalLikeCount: item.likeCount,
+                  ),
                 ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),

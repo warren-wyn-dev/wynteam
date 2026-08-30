@@ -10,6 +10,7 @@ import '../../../../core/text_utils.dart';
 import '../../../../core/widgets/action_sheet_row.dart';
 import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
+import 'liked_by_row.dart';
 import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
 import '../../../report/presentation/report_sheet.dart';
@@ -306,6 +307,14 @@ class HomeDropCard extends StatelessWidget {
                           child: HashtagText(item.caption!),
                         )
                       : HashtagText(item.caption!),
+                ),
+              if (item.likedBy.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                  child: LikedByRow(
+                    likedBy: item.likedBy,
+                    totalLikeCount: item.likeCount,
+                  ),
                 ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),

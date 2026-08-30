@@ -1,6 +1,7 @@
 import '../../../core/text_utils.dart';
 import '../../drop/data/drop.dart';
 import '../../pop/data/pop.dart';
+import 'home_liker.dart';
 
 enum HomeContentType { drop, pop }
 
@@ -26,6 +27,7 @@ class HomeFeedItem {
     this.durationSeconds,
     this.viewCount,
     required this.likeCount,
+    this.likedBy = const [],
     required this.commentCount,
     required this.likedByMe,
     required this.savedByMe,
@@ -64,6 +66,15 @@ class HomeFeedItem {
   final int? viewCount;
 
   final int likeCount;
+
+  /// WYNOSHomeSpec.md 4.8: the first 3 likers (most-recent first), for
+  /// the stacked-avatar "ถูกใจโดย ..." row. Empty whenever [likeCount]
+  /// is 0, and also empty on any fetch path that doesn't embed
+  /// `home_feed.liked_by` yet (see [HomeLiker.listFromMap]) -- callers
+  /// render nothing rather than a count-only fallback in that case,
+  /// same as the row being genuinely hidden.
+  final List<HomeLiker> likedBy;
+
   final int commentCount;
   final bool likedByMe;
   final bool savedByMe;
@@ -165,6 +176,7 @@ class HomeFeedItem {
         durationSeconds: durationSeconds,
         viewCount: viewCount,
         likeCount: likeCount ?? this.likeCount,
+        likedBy: likedBy,
         commentCount: commentCount ?? this.commentCount,
         likedByMe: likedByMe ?? this.likedByMe,
         savedByMe: savedByMe ?? this.savedByMe,
@@ -311,6 +323,7 @@ class HomeFeedItem {
       durationSeconds: map['duration_seconds'] as int?,
       viewCount: (map['view_count'] as num?)?.toInt(),
       likeCount: (map['like_count'] as num).toInt(),
+      likedBy: HomeLiker.listFromMap(map),
       commentCount: (map['comment_count'] as num).toInt(),
       likedByMe: likedByMe,
       savedByMe: savedByMe,
