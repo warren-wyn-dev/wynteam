@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../chat/data/chat_repository.dart';
 import '../../chat/presentation/chat_inbox_screen.dart';
@@ -9,16 +10,19 @@ import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/drop_detail_screen.dart';
 import '../../drop/presentation/quote_redrop_screen.dart';
 import '../../follow/data/follow_repository.dart';
+import '../../follow/data/follow_request_repository.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../saved/data/saved_repository.dart';
+import '../../search/data/discovery_repository.dart';
 import '../data/home_feed_item.dart';
 import '../data/home_repository.dart';
 import 'pop_single_clip_screen.dart';
 import 'widgets/from_your_clubs_feed.dart';
 import 'widgets/home_drop_card.dart';
 import 'widgets/home_pop_card.dart';
+import 'widgets/suggested_follow_list.dart';
 import 'widgets/trending_tile.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
@@ -108,6 +112,19 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   late Future<List<HomeFeedItem>> _trendingFuture;
 
   int _unreadChatCount = 0;
+
+  // WYNOSHomeSpec.md 4.5 -- built fresh (not threaded through the
+  // constructor) since only the empty state's SuggestedFollowList uses
+  // these here, same "build it locally, don't widen the constructor for
+  // one secondary section" shape as ViewProfileScreen's own
+  // _discoveryRepository (WYN-071 Screen 5).
+  late final DiscoveryRepository _discoveryRepository = DiscoveryRepository(
+    Supabase.instance.client,
+    homeRepository: widget.homeRepository,
+    profileRepository: widget.profileRepository,
+  );
+  late final FollowRequestRepository _followRequestRepository =
+      FollowRequestRepository(Supabase.instance.client);
 
   @override
   void initState() {
@@ -878,21 +895,43 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
 
     if (_items.isEmpty) {
-      // "ติดตาม" gets a join-prompt message (mirrors WYN-019's Drop tab
-      // Following-tab wording, adapted to this screen's Thai segment
-      // labels) rather than the generic "be the first" one, which reads
-      // wrong when the real issue is "you aren't following anyone yet".
-      final message = _feedMode == _HomeFeedMode.following
-          ? 'ยังไม่ได้ follow ใครเลย ลองดู สำหรับคุณ เพื่อค้นหาคนน่าสนใจ'
-          : 'ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!';
-      return [
+      // WYNOSHomeSpec.md 4.5: "ติดตาม" empty is the one real "the
+      // account follows no one yet" case -- get_wynos_ranked_feed()'s
+      // own candidate pool ("สำหรับคุณ"/"ล่าสุด") is never scoped to
+      // following, so either being empty means the *platform* has no
+      // recent content at all (the existing "เป็นคนแรกสิ!" message is
+      // already the right one for that), not "go follow someone".
+      if (_feedMode == _HomeFeedMode.following) {
+        return [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WynSpacing.space6,
+                  vertical: WynSpacing.space4,
+                ),
+                child: SuggestedFollowList(
+                  fetchSuggestedUsers: _discoveryRepository.fetchSuggestedUsers,
+                  followRepository: widget.followRepository,
+                  followRequestRepository: _followRequestRepository,
+                  onOpenProfile: _openProfile,
+                ),
+              ),
+            ),
+          ),
+        ];
+      }
+      return const [
         SliverFillRemaining(
           hasScrollBody: false,
           child: Center(
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
-              child: Text(message, textAlign: TextAlign.center),
+              padding: EdgeInsets.symmetric(horizontal: WynSpacing.space4),
+              child: Text(
+                'ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!',
+                textAlign: TextAlign.center,
+              ),
             ),
           ),
         ),

@@ -1561,8 +1561,9 @@ void main() {
     });
 
     testWidgets(
-        'shows a distinct join-prompt-style empty message on "ติดตาม" when '
-        'following no one, not the generic empty state', (tester) async {
+        'shows the WYNOSHomeSpec.md 4.5 suggested-follow empty state on '
+        '"ติดตาม" when following no one, not the generic empty state',
+        (tester) async {
       await tester.pumpWidget(buildHome(
         emptyFollowingTestHomeRepository,
         dropRepository: sharedDropRepository,
@@ -1575,9 +1576,9 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
+      expect(find.text('ยังไม่มีอะไรให้ดูตรงนี้'), findsOneWidget);
       expect(
-        find.text(
-            'ยังไม่ได้ follow ใครเลย ลองดู สำหรับคุณ เพื่อค้นหาคนน่าสนใจ'),
+        find.text('ลองติดตามคนที่คุณสนใจ เพื่อเริ่มเห็นโพสต์ในหน้านี้'),
         findsOneWidget,
       );
       expect(find.text('ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!'), findsNothing);
