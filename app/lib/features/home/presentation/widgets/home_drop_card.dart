@@ -5,8 +5,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../drop/presentation/drop_detail_screen.dart' show dropShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
+import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/text_utils.dart';
+import '../../../../core/widgets/action_metric.dart';
 import '../../../../core/widgets/action_sheet_row.dart';
 import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
@@ -348,58 +350,48 @@ class HomeDropCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),
                 child: Row(
                   children: [
-                    Semantics(
-                      label: item.likedByMe
+                    // Heart/comment/repost/eye sizing+color match
+                    // WYNOSHomeSpec.md 4.9's table exactly -- exactly
+                    // these 4 elements now that Share/Bookmark moved
+                    // into the "..." menu (see _openMoreMenu, spec 4.6).
+                    ActionMetric(
+                      icon: item.likedByMe ? Icons.favorite : Icons.favorite_border,
+                      iconSize: 17,
+                      count: item.likeCount,
+                      color: item.likedByMe ? WynColors.sapphire : WynColors.graphite,
+                      semanticsLabel: item.likedByMe
                           ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
                           : 'กดเพื่อถูกใจ',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: Icon(
-                          item.likedByMe ? Icons.favorite : Icons.favorite_border,
-                          color: item.likedByMe ? Colors.red : null,
-                        ),
-                        onPressed: onToggleLike,
-                      ),
+                      onTap: onToggleLike,
                     ),
-                    Text('${item.likeCount}'),
-                    const SizedBox(width: WynSpacing.space2),
-                    Semantics(
-                      label: 'ดูคอมเมนต์',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: const Icon(Icons.mode_comment_outlined, size: 20),
-                        onPressed: onTap,
-                      ),
+                    const SizedBox(width: WynSpacing.space5),
+                    ActionMetric(
+                      icon: Icons.mode_comment_outlined,
+                      iconSize: 17,
+                      count: item.commentCount,
+                      color: WynColors.graphite,
+                      semanticsLabel: 'ดูคอมเมนต์',
+                      onTap: onTap,
                     ),
-                    Text('${item.commentCount}'),
-                    const SizedBox(width: WynSpacing.space2),
-                    Semantics(
-                      label: item.redroppedByMe
+                    const SizedBox(width: WynSpacing.space5),
+                    ActionMetric(
+                      icon: Icons.repeat,
+                      iconSize: 17,
+                      count: item.redropCount,
+                      color: WynColors.graphite,
+                      semanticsLabel: item.redroppedByMe
                           ? 'ReDrop แล้ว กดเพื่อเลือกดำเนินการ'
                           : 'กดเพื่อ ReDrop',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.repeat,
-                          color: item.redroppedByMe
-                              ? Theme.of(context).colorScheme.primary
-                              : null,
-                        ),
-                        onPressed: () => _openRedropSheet(context),
-                      ),
+                      onTap: () => _openRedropSheet(context),
                     ),
-                    Text('${item.redropCount}'),
-                    Semantics(
-                      label: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
-                      excludeSemantics: true,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.visibility_outlined, size: 20),
-                          const SizedBox(width: WynSpacing.space1),
-                          Text('${item.viewCount}'),
-                        ],
-                      ),
+                    const SizedBox(width: WynSpacing.space5),
+                    ActionMetric(
+                      icon: Icons.visibility_outlined,
+                      iconSize: 16,
+                      count: item.viewCount,
+                      color: WynColors.faint,
+                      semanticsLabel: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
+                      onTap: null,
                     ),
                   ],
                 ),

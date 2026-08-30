@@ -7,6 +7,7 @@ import '../../../pop/presentation/widgets/pop_clip_view.dart' show popShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/widgets/action_metric.dart';
 import '../../../../core/widgets/action_sheet_row.dart';
 import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
@@ -223,33 +224,39 @@ class HomePopCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),
                 child: Row(
                   children: [
-                    Semantics(
-                      label: item.likedByMe
+                    // Same WYNOSHomeSpec.md 4.9 sizing/color as
+                    // HomeDropCard's action bar (see that file) -- Pop
+                    // has no ReDrop concept, so only 3 of the 4 spec'd
+                    // metrics apply here. Share/Bookmark moved into
+                    // the "..." menu (see _openMoreMenu, spec 4.6).
+                    ActionMetric(
+                      icon: item.likedByMe ? Icons.favorite : Icons.favorite_border,
+                      iconSize: 17,
+                      count: item.likeCount,
+                      color: item.likedByMe ? WynColors.sapphire : WynColors.graphite,
+                      semanticsLabel: item.likedByMe
                           ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
                           : 'กดเพื่อถูกใจ',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: Icon(
-                          item.likedByMe ? Icons.favorite : Icons.favorite_border,
-                          color: item.likedByMe ? Colors.red : null,
-                        ),
-                        onPressed: onToggleLike,
-                      ),
+                      onTap: onToggleLike,
                     ),
-                    Text('${item.likeCount}'),
-                    const SizedBox(width: WynSpacing.space2),
-                    Semantics(
-                      label: 'ดูคอมเมนต์',
-                      excludeSemantics: true,
-                      child: IconButton(
-                        icon: const Icon(Icons.mode_comment_outlined, size: 20),
-                        onPressed: onTapComment ?? onTap,
-                      ),
+                    const SizedBox(width: WynSpacing.space5),
+                    ActionMetric(
+                      icon: Icons.mode_comment_outlined,
+                      iconSize: 17,
+                      count: item.commentCount,
+                      color: WynColors.graphite,
+                      semanticsLabel: 'ดูคอมเมนต์',
+                      onTap: onTapComment ?? onTap,
                     ),
-                    Text('${item.commentCount}'),
-                    const Icon(Icons.visibility_outlined, size: 18),
-                    const SizedBox(width: WynSpacing.space1),
-                    Text('${item.viewCount}'),
+                    const SizedBox(width: WynSpacing.space5),
+                    ActionMetric(
+                      icon: Icons.visibility_outlined,
+                      iconSize: 16,
+                      count: item.viewCount,
+                      color: WynColors.faint,
+                      semanticsLabel: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
+                      onTap: null,
+                    ),
                   ],
                 ),
               ),
