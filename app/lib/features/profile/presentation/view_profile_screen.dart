@@ -13,6 +13,7 @@ import '../../follow/presentation/follow_request_list_screen.dart';
 import '../../home/data/home_repository.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../saved/data/saved_repository.dart';
+import '../../saved/presentation/bookmarks_screen.dart';
 import '../data/profile.dart';
 import '../data/profile_repository.dart';
 import 'edit_profile_screen.dart';
@@ -31,7 +32,6 @@ import 'widgets/profile_drop_grid_tab.dart';
 import 'widgets/profile_likes_tab.dart';
 import 'widgets/profile_recommendation_section.dart';
 import 'widgets/profile_redrops_tab.dart';
-import 'widgets/profile_saved_tab.dart';
 import 'widgets/privacy_notice_banner.dart';
 import 'widgets/profile_skeleton.dart';
 import '../../../core/design/wyn_colors.dart';
@@ -464,21 +464,18 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   }
 
   /// WYN-071: Saved's tab content pushed as its own screen instead --
-  /// see the Row above `_openEdit`'s button. `ProfileSavedTab`/
-  /// `ProfileDraftsTab` themselves are unchanged (still the exact same
-  /// widgets, just no longer mounted inside this screen's TabBarView).
+  /// see the Row above `_openEdit`'s button. 15-bookmarks.tsx: that
+  /// screen is now [BookmarksScreen] (restyled header, same
+  /// `ProfileSavedTab` body -- see that file's own doc comment).
   void _openSaved() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: AppBar(title: const Text('บันทึก')),
-          body: ProfileSavedTab(
-            savedRepository: widget.savedRepository,
-            dropRepository: widget.dropRepository,
-            popRepository: widget.popRepository,
-            followRepository: widget.followRepository,
-            profileRepository: widget.profileRepository,
-          ),
+        builder: (_) => BookmarksScreen(
+          savedRepository: widget.savedRepository,
+          dropRepository: widget.dropRepository,
+          popRepository: widget.popRepository,
+          followRepository: widget.followRepository,
+          profileRepository: widget.profileRepository,
         ),
       ),
     );

@@ -14,8 +14,8 @@ import '../../profile/data/profile.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
-import '../../profile/presentation/widgets/profile_saved_tab.dart';
 import '../../saved/data/saved_repository.dart';
+import '../../saved/presentation/bookmarks_screen.dart';
 
 /// 10-side-menu.tsx -- the drawer opened by the ☰ icon (currently only
 /// wired up from Notifications; see home_feed_screen.dart's own doc
@@ -27,12 +27,8 @@ import '../../saved/data/saved_repository.dart';
 /// open the viewer's own [ViewProfileScreen] (same screen -- an entry
 /// point, not a duplicate profile, per the reference's own design note),
 /// "Club ของฉัน" opens the existing [MyClubsScreen], and "บันทึกไว้" opens
-/// the exact same `Scaffold(AppBar('บันทึก'), ProfileSavedTab(...))`
-/// [ViewProfileScreen]'s own `_openSaved` already pushes -- there is no
-/// separate Bookmarks screen yet (that's design-reference's own
-/// `15-bookmarks.tsx`, a later page), so this reuses the one real "view
-/// my saved content" destination the app already has instead of building
-/// a second one.
+/// the same [BookmarksScreen] [ViewProfileScreen]'s own `_openSaved`
+/// already pushes.
 ///
 /// No verified badge or follower/following counts of "0" placeholders --
 /// counts are fetched for real ([FollowRepository.countFollowers]/
@@ -127,21 +123,18 @@ class _SideMenuState extends State<SideMenu> {
     );
   }
 
-  // Mirrors ViewProfileScreen._openSaved exactly -- see this file's doc
-  // comment on why that's the real destination, not a new screen.
+  // 15-bookmarks.tsx: mirrors ViewProfileScreen._openSaved exactly --
+  // both push the same real [BookmarksScreen] destination.
   void _openSaved() {
     Navigator.of(context).pop();
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: AppBar(title: const Text('บันทึก')),
-          body: ProfileSavedTab(
-            savedRepository: widget.savedRepository,
-            dropRepository: widget.dropRepository,
-            popRepository: widget.popRepository,
-            followRepository: widget.followRepository,
-            profileRepository: widget.profileRepository,
-          ),
+        builder: (_) => BookmarksScreen(
+          savedRepository: widget.savedRepository,
+          dropRepository: widget.dropRepository,
+          popRepository: widget.popRepository,
+          followRepository: widget.followRepository,
+          profileRepository: widget.profileRepository,
         ),
       ),
     );

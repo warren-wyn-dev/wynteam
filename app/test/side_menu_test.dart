@@ -126,7 +126,7 @@ void main() {
     expect(find.byType(MyClubsScreen), findsOneWidget);
   });
 
-  testWidgets('tapping "บันทึกไว้" opens the same Saved screen Profile\'s '
+  testWidgets('tapping "บันทึกไว้" opens the same BookmarksScreen Profile\'s '
       'own icon-row button does', (tester) async {
     await openDrawer(tester);
 
@@ -134,7 +134,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ProfileSavedTab), findsOneWidget);
-    expect(find.text('บันทึก'), findsOneWidget);
+    // The drawer itself is popped before BookmarksScreen is pushed, so
+    // this is BookmarksScreen's own AppBar title (15-bookmarks.tsx),
+    // not the drawer row text lingering behind it.
+    expect(find.text('บันทึกไว้'), findsOneWidget);
   });
 
   testWidgets('the close button closes the drawer', (tester) async {
