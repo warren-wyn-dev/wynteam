@@ -635,3 +635,10 @@
 - **หมายเหตุ**: notification badge (`_badgeFor`, comment เดิมในโค้ดบอกว่า like/follow ใช้ sapphire ตาม `02-notifications.tsx` ที่ Founder เคยอนุมัติไว้ตอน 2026-08-29) — คำสั่งวันนี้ (ระบุชัดเจนพร้อมภาพ) ทับมติเดิมเฉพาะจุด like badge เท่านั้น ไม่แตะ follow badge (ไอคอนคนละแบบ ไม่ใช่หัวใจ ไม่อยู่ในขอบเขตคำขอ)
 - **ไม่แตะ**: `double_tap_like.dart` (หัวใจสีขาวเป็น animation overlay ตอน double-tap รูปภาพ, ไม่ใช่ปุ่มค้าง ถูกออกแบบให้ขาวเพื่อเห็นชัดบนรูปทุกแบบ), `trending_tile.dart`/`drop_grid_tile.dart` (หัวใจสีขาวคู่กับตัวเลขยอดถูกใจที่ลอยทับ thumbnail ใน grid, เป็นสถิติสาธารณะ ไม่ใช่สถานะ "คุณถูกใจ" ส่วนตัว)
 - ยืนยันด้วย `flutter analyze` สะอาด + `flutter test` เต็ม suite 834/834 ผ่าน
+
+### [2026-08-30] Apple Developer Program — ยังไม่สมัคร (งบไม่พอตอนนี้)
+
+- บริบท: ระหว่างคุยเรื่อง emoji/font บน iOS ไม่ตรงกับ Apple native (ข้อจำกัดของ Flutter Web ที่อธิบายไว้แล้วในมติเดียวกันวันนี้ก่อนหน้า) Founder ถามราคา Apple Developer Program → ตอบไปว่า $99 USD/ปี (~3,300-3,500 บาท) → **Founder ตอบตรงๆ ว่า "แพงจ่ายไม่ไหว"**
+- **คำตัดสินใจ**: ยังไม่สมัคร Apple Developer Program ตอนนี้ — ผลคือ iOS native build (TestFlight/App Store), iOS push notification, และ SF Pro/Apple Emoji บน iOS ยังใช้งานไม่ได้ต่อไปอีกระยะ (ไม่มีกำหนดเวลา) — WYNOS ยังอยู่ในรูปแบบ Web App (PWA) บน iOS Safari เท่านั้น
+- แนะนำทางเลือกที่ถูกกว่าไปแล้ว: Google Play Developer ($25 ครั้งเดียว จ่ายครั้งเดียวไม่ต้องต่ออายุ) — ยังไม่มีคำสั่งให้ดำเนินการ รอ Founder ตัดสินใจเพิ่มเติม
+- ไม่กระทบโค้ด ไม่มีการเปลี่ยนแปลงทางเทคนิคจากมตินี้ — บันทึกไว้เป็น known constraint เท่านั้น
