@@ -17,10 +17,21 @@
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
+  <!-- viewport-fit=cover is what makes iOS expose safe-area-inset-* to
+       the page at all -- without it, Flutter's own SafeArea widgets see
+       a zero top inset and page content renders straight under the iOS
+       status bar once WYNOS is opened standalone from an "Add to Home
+       Screen" icon (manifest.json's own "display": "standalone"). -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="WYNOS — mobile social app for Gen Z">
 
   <!-- iOS meta tags & icons -->
+  <!-- apple-mobile-web-app-capable (not just the generic
+       mobile-web-app-capable below, which iOS Safari ignores) is the
+       other half of the safe-area fix above -- both are required for
+       iOS to treat the home-screen icon as a real standalone app. -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="WYNOS Beta">
