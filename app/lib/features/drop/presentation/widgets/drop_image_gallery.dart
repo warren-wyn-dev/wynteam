@@ -20,11 +20,16 @@ class DropImageGallery extends StatefulWidget {
     required this.drop,
     required this.dropRepository,
     required this.onLike,
+    required this.onDropChanged,
   });
 
   final Drop drop;
   final DropRepository dropRepository;
   final VoidCallback onLike;
+
+  /// Forwarded straight through to [DropImageViewer]'s own callback of
+  /// the same name -- see that widget's doc comment.
+  final ValueChanged<Drop> onDropChanged;
 
   @override
   State<DropImageGallery> createState() => _DropImageGalleryState();
@@ -57,8 +62,11 @@ class _DropImageGalleryState extends State<DropImageGallery> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => DropImageViewer(
+          drop: widget.drop,
           imageUrls: imageUrls,
           initialIndex: _currentIndex,
+          dropRepository: widget.dropRepository,
+          onDropChanged: widget.onDropChanged,
         ),
       ),
     );

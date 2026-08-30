@@ -61,6 +61,7 @@ void main() {
           drop: _drop(imageCount: 1),
           dropRepository: singleImageRepo,
           onLike: () {},
+          onDropChanged: (_) {},
         ),
       ),
     ));
@@ -79,6 +80,7 @@ void main() {
           drop: _drop(imageCount: 3),
           dropRepository: multiImageRepo,
           onLike: () {},
+          onDropChanged: (_) {},
         ),
       ),
     ));
@@ -96,6 +98,7 @@ void main() {
           drop: _drop(imageCount: 2),
           dropRepository: tapRepo,
           onLike: () {},
+          onDropChanged: (_) {},
         ),
       ),
     ));
@@ -124,6 +127,7 @@ void main() {
           drop: _drop(imageCount: 4),
           dropRepository: failedFetchRepo,
           onLike: () {},
+          onDropChanged: (_) {},
         ),
       ),
     ));

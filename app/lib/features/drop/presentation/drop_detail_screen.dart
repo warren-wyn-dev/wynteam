@@ -676,6 +676,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
             drop: _drop,
             dropRepository: widget.dropRepository,
             onLike: _toggleLike,
+            onDropChanged: (updated) => setState(() => _drop = updated),
           ),
         // WYNOS V1.0.0 Beta requirement 2: a caption-only Drop has no
         // image area at all here -- its caption still renders below via
