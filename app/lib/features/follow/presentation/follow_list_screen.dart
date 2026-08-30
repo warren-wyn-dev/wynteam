@@ -286,7 +286,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
         ),
         title: Text(
           _ownerDisplayName ?? '',
-          style: WynTypography.screenTitle(fontSize: 17, color: WynColors.ink),
+          style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
         ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
@@ -330,7 +330,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
               label,
               textAlign: TextAlign.center,
               style: _textStyle(
-                fontSize: 13.5,
+                fontSize: 13,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                 color: selected ? WynColors.ink : WynColors.mutedNeutral,
               ),
@@ -474,11 +474,11 @@ class _FollowListScreenState extends State<FollowListScreen> {
                   children: [
                     Text(
                       profile.nameOrUsername,
-                      style: _textStyle(fontSize: 14, fontWeight: FontWeight.w600, color: WynColors.ink),
+                      style: _textStyle(fontSize: 15, fontWeight: FontWeight.w600, color: WynColors.ink),
                     ),
                     Text(
                       '@${profile.username}',
-                      style: _textStyle(fontSize: 12, color: WynColors.mutedNeutral),
+                      style: _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
                     ),
                   ],
                 ),

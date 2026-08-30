@@ -219,7 +219,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
         ),
         title: Text(
           'สร้าง Club',
-          style: WynTypography.screenTitle(fontSize: 17, color: WynColors.ink),
+          style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
         ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
@@ -315,7 +315,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                                   Text(
                                     _category ?? 'ไม่บังคับ',
                                     style: _textStyle(
-                                      fontSize: 14.5,
+                                      fontSize: 15,
                                       color: _category == null
                                           ? WynColors.faint
                                           : WynColors.ink,
@@ -351,7 +351,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                               _privacy == ClubPrivacy.public
                                   ? 'ทุกคนค้นหาและเข้าร่วมได้ทันที'
                                   : 'ต้องส่งคำขอ ผู้ดูแลต้องอนุมัติก่อน',
-                              style: _textStyle(fontSize: 12, color: WynColors.graphite),
+                              style: _textStyle(fontSize: 13, color: WynColors.graphite),
                             ),
                           ],
                         ],
@@ -380,7 +380,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                     foregroundColor: WynColors.paper,
                     disabledBackgroundColor: WynColors.hairline,
                     disabledForegroundColor: WynColors.mutedNeutral,
-                    textStyle: _textStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                    textStyle: _textStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                   onPressed: _canCreate ? _create : null,
                   child: _isCreating
@@ -431,7 +431,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
               label,
               textAlign: TextAlign.center,
               style: _textStyle(
-                fontSize: 13.5,
+                fontSize: 13,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                 color: selected ? WynColors.ink : WynColors.graphite,
               ),
@@ -494,12 +494,12 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                       Text(
                         'แตะเพื่อเลือกรูปปก',
                         style: _textStyle(
-                            fontSize: 12.5, fontWeight: FontWeight.w600, color: WynColors.ink),
+                            fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.ink),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'แนะนำอัตราส่วน 16:9',
-                        style: _textStyle(fontSize: 11, color: WynColors.faint),
+                        style: _textStyle(fontSize: 13, color: WynColors.faint),
                       ),
                     ],
                   ),

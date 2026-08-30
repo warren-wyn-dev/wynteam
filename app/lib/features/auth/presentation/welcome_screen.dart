@@ -75,7 +75,7 @@ class WelcomeScreen extends StatelessWidget {
                 'เชื่อมต่อ แสดงตัวตน และสร้างชุมชนของคุณเอง',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontSize: 14,
+                      fontSize: 15,
                       color: WynColors.graphite,
                     ),
               ),

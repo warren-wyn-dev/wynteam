@@ -678,7 +678,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                                   child: Text(
                                     '${_captionMaxLength - _captionController.text.length}',
                                     style: const TextStyle(
-                                        fontSize: 11.5, color: WynColors.sapphire),
+                                        fontSize: 13, color: WynColors.sapphire),
                                   ),
                                 ),
                               ),
@@ -725,7 +725,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: const Text('ยกเลิก', style: TextStyle(fontSize: 14.5, color: WynColors.ink)),
+            child: const Text('ยกเลิก', style: TextStyle(fontSize: 15, color: WynColors.ink)),
           ),
           Semantics(
             label: _isRestricted
@@ -751,7 +751,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                       ),
                     )
                   : const Text('โพสต์',
-                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -831,7 +831,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             padding: const EdgeInsets.only(top: WynSpacing.space1),
             child: Text(
               '${_imagesBytes.length}/$_maxImages',
-              style: const TextStyle(fontSize: 12, color: WynColors.faint),
+              style: const TextStyle(fontSize: 13, color: WynColors.faint),
             ),
           ),
         ],
@@ -925,12 +925,12 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
               onPressed: _isSharing ? null : _addPollOption,
               style: TextButton.styleFrom(foregroundColor: WynColors.sapphire),
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('เพิ่มตัวเลือก', style: TextStyle(fontSize: 13.5)),
+              label: const Text('เพิ่มตัวเลือก', style: TextStyle(fontSize: 15)),
             ),
           const SizedBox(height: WynSpacing.space2),
           const Text('ระยะเวลาโหวต',
               style: TextStyle(
-                  fontSize: 13.5, fontWeight: FontWeight.w600, color: WynColors.ink)),
+                  fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.ink)),
           const SizedBox(height: WynSpacing.space2),
           SegmentedButton<int>(
             style: SegmentedButton.styleFrom(
@@ -1030,7 +1030,7 @@ class _AudienceChip extends StatelessWidget {
         children: [
           Text('ทุกคน',
               style: TextStyle(
-                  fontSize: 12.5, fontWeight: FontWeight.w600, color: WynColors.ink)),
+                  fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.ink)),
           SizedBox(width: 2),
           Icon(Icons.keyboard_arrow_down, size: 13, color: WynColors.graphite),
         ],

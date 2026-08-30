@@ -43,7 +43,7 @@ class EmptyStateBlock extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: WynTypography.screenTitle(fontSize: 18, color: WynColors.ink),
+            style: WynTypography.screenTitle(fontSize: 20, color: WynColors.ink),
           ),
           const SizedBox(height: WynSpacing.space1 + 2),
           Text(

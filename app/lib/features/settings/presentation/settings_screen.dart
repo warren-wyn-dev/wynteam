@@ -116,7 +116,7 @@ class SettingsScreen extends StatelessWidget {
           icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('ตั้งค่า', style: WynTypography.screenTitle(fontSize: 17, color: WynColors.ink)),
+        title: Text('ตั้งค่า', style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink)),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: WynColors.hairline),
@@ -224,10 +224,10 @@ class _GroupLabel extends StatelessWidget {
       child: Text(
         label,
         style: _textStyle(
-          fontSize: 11,
+          fontSize: 13,
           fontWeight: FontWeight.w600,
           color: WynColors.mutedNeutral,
-          letterSpacing: 11 * 0.14,
+          letterSpacing: 13 * 0.14,
         ),
       ),
     );
@@ -278,7 +278,7 @@ class _SettingsRow extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: _textStyle(fontSize: 14, fontWeight: FontWeight.w500, color: color),
+                style: _textStyle(fontSize: 15, fontWeight: FontWeight.w500, color: color),
               ),
             ),
             if (_enabled)

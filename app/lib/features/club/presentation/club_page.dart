@@ -371,9 +371,9 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                   labelColor: WynColors.ink,
                   unselectedLabelColor: WynColors.mutedNeutral,
                   labelStyle:
-                      _textStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                      _textStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   unselectedLabelStyle:
-                      _textStyle(fontSize: 11.5, fontWeight: FontWeight.w400),
+                      _textStyle(fontSize: 13, fontWeight: FontWeight.w400),
                   tabs: const [
                     Tab(icon: Icon(Icons.article_outlined, size: 16), text: 'โพสต์'),
                     Tab(icon: Icon(Icons.people_outline, size: 16), text: 'สมาชิก'),
@@ -485,10 +485,10 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                   Text(
                     'CLUB',
                     style: _textStyle(
-                      fontSize: 11,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: WynColors.mutedNeutral,
-                      letterSpacing: 11 * 0.14,
+                      letterSpacing: 13 * 0.14,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -551,7 +551,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                   padding: const EdgeInsets.only(top: WynSpacing.space1),
                   child: Text(
                     club.name,
-                    style: _textStyle(fontSize: 17, fontWeight: FontWeight.w700, color: WynColors.ink),
+                    style: _textStyle(fontSize: 16, fontWeight: FontWeight.w700, color: WynColors.ink),
                   ),
                 ),
               ),
@@ -577,7 +577,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
             children: [
               Text(
                 '${club.memberCount} สมาชิก',
-                style: _textStyle(fontSize: 12.5, color: WynColors.graphite),
+                style: _textStyle(fontSize: 13, color: WynColors.graphite),
               ),
               if (club.category != null)
                 Container(
@@ -588,7 +588,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                   ),
                   child: Text(
                     club.category!,
-                    style: _textStyle(fontSize: 11, color: WynColors.graphite),
+                    style: _textStyle(fontSize: 13, color: WynColors.graphite),
                   ),
                 ),
               if (status != null) _buildJoinButton(club, membership),
@@ -598,7 +598,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
             const SizedBox(height: WynSpacing.space3),
             Text(
               club.description!,
-              style: _textStyle(fontSize: 13.5, color: WynColors.ink, height: 1.5),
+              style: _textStyle(fontSize: 15, color: WynColors.ink, height: 1.45),
             ),
           ],
           if (status == null) ...[
@@ -649,7 +649,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3),
               backgroundColor: WynColors.sapphire,
               foregroundColor: WynColors.paper,
-              textStyle: _textStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+              textStyle: _textStyle(fontSize: 15, fontWeight: FontWeight.w600),
             ),
             onPressed: onPressed,
             child: Text(label),
@@ -663,7 +663,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 2),
               foregroundColor: Theme.of(context).colorScheme.outline,
               side: BorderSide(color: Theme.of(context).colorScheme.outline),
-              textStyle: _textStyle(fontSize: 11, fontWeight: FontWeight.w600),
+              textStyle: _textStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
             child: status == ClubMemberStatus.approved
                 ? Row(

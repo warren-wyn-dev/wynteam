@@ -96,7 +96,7 @@ class _LabeledFieldState extends State<LabeledField> {
                     child: Text(
                       widget.prefix!,
                       style:
-                          _textStyle(fontSize: 14.5, color: WynColors.graphite),
+                          _textStyle(fontSize: 16, color: WynColors.graphite),
                     ),
                   ),
                 Expanded(
@@ -126,7 +126,7 @@ class _LabeledFieldState extends State<LabeledField> {
               padding: const EdgeInsets.only(top: WynSpacing.space1),
               child: Text(
                 widget.errorText!,
-                style: _textStyle(fontSize: 11.5, color: WynColors.errorLight),
+                style: _textStyle(fontSize: 13, color: WynColors.errorLight),
               ),
             ),
           AnimatedSize(
@@ -140,13 +140,13 @@ class _LabeledFieldState extends State<LabeledField> {
                         Expanded(
                           child: Text(
                             widget.helper,
-                            style: _textStyle(fontSize: 11.5, color: WynColors.faint),
+                            style: _textStyle(fontSize: 13, color: WynColors.faint),
                           ),
                         ),
                         Text(
                           '${widget.controller.text.length}/${widget.maxLength}',
                           style: _textStyle(
-                            fontSize: 11.5,
+                            fontSize: 13,
                             // Not in either reference file's own static
                             // mockup, but a real pre-existing signal worth
                             // keeping: turns error-colored once few

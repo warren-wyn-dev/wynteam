@@ -349,7 +349,7 @@ class _ReportSheetState extends State<ReportSheet> {
                       Expanded(
                         child: Text(
                           category.label,
-                          style: const TextStyle(fontSize: 14, color: WynColors.ink),
+                          style: const TextStyle(fontSize: 15, color: WynColors.ink),
                         ),
                       ),
                       Container(

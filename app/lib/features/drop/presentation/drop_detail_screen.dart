@@ -616,7 +616,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
         ),
         title: Text(
           'โพสต์',
-          style: WynTypography.screenTitle(fontSize: 17, color: WynColors.ink),
+          style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
         ),
         titleSpacing: 0,
         bottom: const PreferredSize(
@@ -713,7 +713,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                                       relativeTimeLabel(_drop.createdAt,
                                           now: DateTime.now()),
                                       style: _textStyle(
-                                          fontSize: 12.5,
+                                          fontSize: 13,
                                           color: WynColors.mutedNeutral),
                                     ),
                                   ],
@@ -721,13 +721,13 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                                 Text(
                                   '@${_drop.authorUsername}',
                                   style: _textStyle(
-                                      fontSize: 12.5, color: WynColors.mutedNeutral),
+                                      fontSize: 13, color: WynColors.mutedNeutral),
                                 ),
                                 if (_drop.wasEdited)
                                   Text(
                                     'แก้ไขแล้ว',
                                     style: _textStyle(
-                                        fontSize: 12, color: WynColors.faint),
+                                        fontSize: 13, color: WynColors.faint),
                                   ),
                               ],
                             ),
@@ -884,13 +884,13 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
           TextSpan(
             text: '$count',
             style: _textStyle(
-                fontSize: 12.5, fontWeight: FontWeight.w700, color: WynColors.ink),
+                fontSize: 13, fontWeight: FontWeight.w700, color: WynColors.ink),
           ),
           TextSpan(text: ' $label'),
         ]);
 
     return DefaultTextStyle.merge(
-      style: _textStyle(fontSize: 12.5, color: WynColors.graphite),
+      style: _textStyle(fontSize: 13, color: WynColors.graphite),
       child: Row(
         children: [
           Text.rich(countSpan(_drop.likeCount, 'ถูกใจ')),
@@ -1044,7 +1044,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                         comment.authorNameOrUsername,
                         overflow: TextOverflow.ellipsis,
                         style: _textStyle(
-                          fontSize: isReply ? 13.5 : 13.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: WynColors.ink,
                         ),
@@ -1053,7 +1053,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     const SizedBox(width: WynSpacing.space2),
                     Text(
                       relativeTimeLabel(comment.createdAt, now: DateTime.now()),
-                      style: _textStyle(fontSize: 12, color: WynColors.mutedNeutral),
+                      style: _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
                     ),
                   ],
                 ),
@@ -1062,7 +1062,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   child: Text(
                     comment.textContent,
                     style: _textStyle(
-                        fontSize: 14, color: WynColors.ink, height: 1.4),
+                        fontSize: 15, color: WynColors.ink, height: 1.45),
                   ),
                 ),
                 // Replies don't get their own "ตอบกลับ" button -- that's
@@ -1076,7 +1076,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                       child: Text(
                         'ตอบกลับ',
                         style: _textStyle(
-                          fontSize: 11.5,
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: WynColors.graphite,
                         ),
@@ -1124,7 +1124,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
               if (comment.likeCount > 0)
                 Text(
                   '${comment.likeCount}',
-                  style: _textStyle(fontSize: 11.5, color: WynColors.graphite),
+                  style: _textStyle(fontSize: 13, color: WynColors.graphite),
                 ),
             ],
           ),
@@ -1169,7 +1169,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   children: [
                     Text(
                       'ตอบกลับ ${_replyingTo!.authorNameOrUsername}',
-                      style: _textStyle(fontSize: 12.5, color: WynColors.graphite),
+                      style: _textStyle(fontSize: 13, color: WynColors.graphite),
                     ),
                     const SizedBox(width: WynSpacing.space1),
                     InkWell(
@@ -1201,7 +1201,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                       border: InputBorder.none,
                       hintText: 'แสดงความคิดเห็น...',
                       hintStyle:
-                          _textStyle(fontSize: 13.5, color: WynColors.faint),
+                          _textStyle(fontSize: 16, color: WynColors.faint),
                     ),
                     onChanged: (_) => setState(() {}),
                   ),

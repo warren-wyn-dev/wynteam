@@ -168,7 +168,7 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
           icon: const Icon(Icons.close, size: 20, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('ข้อความใหม่', style: WynTypography.screenTitle(fontSize: 17, color: WynColors.ink)),
+        title: Text('ข้อความใหม่', style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink)),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: WynColors.hairline),
@@ -262,10 +262,10 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
           child: Text(
             'ติดตามอยู่',
             style: _textStyle(
-              fontSize: 11,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
               color: WynColors.mutedNeutral,
-              letterSpacing: 11 * 0.14,
+              letterSpacing: 13 * 0.14,
             ),
           ),
         ),
@@ -330,11 +330,11 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
                 children: [
                   Text(
                     displayName,
-                    style: _textStyle(fontSize: 14, fontWeight: FontWeight.w600, color: WynColors.ink),
+                    style: _textStyle(fontSize: 15, fontWeight: FontWeight.w600, color: WynColors.ink),
                   ),
                   Text(
                     '@${profile.username}',
-                    style: _textStyle(fontSize: 12, color: WynColors.mutedNeutral),
+                    style: _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
                   ),
                 ],
               ),

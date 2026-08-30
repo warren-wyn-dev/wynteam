@@ -260,7 +260,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
           icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('ข้อความ', style: WynTypography.screenTitle(fontSize: 17, color: WynColors.ink)),
+        title: Text('ข้อความ', style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink)),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined, size: 19, color: WynColors.ink),
@@ -312,7 +312,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
               child: Text(
                 label,
                 style: _textStyle(
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                   color: selected ? WynColors.ink : WynColors.mutedNeutral,
                 ),
@@ -350,7 +350,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
               Expanded(
                 child: Text(
                   'คำขอข้อความ ($_pendingRequestCount)',
-                  style: _textStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: WynColors.ink),
+                  style: _textStyle(fontSize: 15, fontWeight: FontWeight.w500, color: WynColors.ink),
                 ),
               ),
               const Icon(Icons.chevron_right, size: 15, color: WynColors.faint),
@@ -491,7 +491,7 @@ class _ConversationRow extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: _textStyle(
-                              fontSize: 14.5,
+                              fontSize: 15,
                               fontWeight: isUnread ? FontWeight.w700 : FontWeight.w600,
                               color: WynColors.ink,
                             ),
@@ -500,7 +500,7 @@ class _ConversationRow extends StatelessWidget {
                         const SizedBox(width: WynSpacing.space2),
                         Text(
                           time,
-                          style: _textStyle(fontSize: 11.5, color: WynColors.mutedNeutral),
+                          style: _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
                         ),
                       ],
                     ),

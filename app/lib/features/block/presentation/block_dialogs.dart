@@ -32,7 +32,7 @@ Future<bool> confirmBlock(BuildContext context, {required String username}) asyn
                 Text(
                   'บล็อก @$username?',
                   textAlign: TextAlign.center,
-                  style: WynTypography.screenTitle(fontSize: 17, color: WynColors.ink),
+                  style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
                 ),
                 const SizedBox(height: WynSpacing.space2),
                 const Text(

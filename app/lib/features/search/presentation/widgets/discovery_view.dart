@@ -252,11 +252,11 @@ class _DiscoveryViewState extends State<DiscoveryView> {
                     Text(
                       profile.nameOrUsername,
                       style:
-                          _textStyle(fontSize: 14, fontWeight: FontWeight.w600, color: WynColors.ink),
+                          _textStyle(fontSize: 15, fontWeight: FontWeight.w600, color: WynColors.ink),
                     ),
                     Text(
                       '@${profile.username}',
-                      style: _textStyle(fontSize: 12, color: WynColors.faint),
+                      style: _textStyle(fontSize: 13, color: WynColors.faint),
                     ),
                   ],
                 ),
@@ -287,8 +287,8 @@ class _SectionLabel extends StatelessWidget {
           WynSpacing.space2, WynSpacing.space4, WynSpacing.space3),
       child: Text(
         label,
-        style: _textStyle(fontSize: 11, fontWeight: FontWeight.w600, color: WynColors.mutedNeutral)
-            .copyWith(letterSpacing: 11 * 0.14),
+        style: _textStyle(fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.mutedNeutral)
+            .copyWith(letterSpacing: 13 * 0.14),
       ),
     );
   }

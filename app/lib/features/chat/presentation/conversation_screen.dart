@@ -723,7 +723,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                 child: Text(
                   displayName,
                   overflow: TextOverflow.ellipsis,
-                  style: _textStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: WynColors.ink),
+                  style: _textStyle(fontSize: 16, fontWeight: FontWeight.w700, color: WynColors.ink),
                 ),
               ),
             ],
@@ -870,7 +870,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
         child: Text(
           'คุณไม่สามารถส่งข้อความถึงผู้ใช้นี้ได้',
           textAlign: TextAlign.center,
-          style: _textStyle(fontSize: 13.5, color: WynColors.graphite),
+          style: _textStyle(fontSize: 15, color: WynColors.graphite),
         ),
       );
     }
@@ -880,7 +880,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
         child: Text(
           'บัญชีของคุณถูกระงับ ไม่สามารถส่งข้อความได้ในขณะนี้',
           textAlign: TextAlign.center,
-          style: _textStyle(fontSize: 13.5, color: WynColors.graphite),
+          style: _textStyle(fontSize: 15, color: WynColors.graphite),
         ),
       );
     }
@@ -1037,7 +1037,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
       padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
       child: Text(
         'รอการตอบรับ',
-        style: _textStyle(fontSize: 12, color: WynColors.faint),
+        style: _textStyle(fontSize: 13, color: WynColors.faint),
       ),
     );
   }
@@ -1173,14 +1173,14 @@ class _MessageBubble extends StatelessWidget {
                           : (message.replyPreviewImageUrl != null ? '📷 รูปภาพ' : '')),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: _textStyle(fontSize: 12.5, color: textColor),
+                  style: _textStyle(fontSize: 13, color: textColor),
                 ),
               ),
             ),
           if (message.isDeleted)
             Text(
               'ข้อความนี้ถูกลบ',
-              style: _textStyle(fontSize: 14, fontStyle: FontStyle.italic, color: textColor),
+              style: _textStyle(fontSize: 15, fontStyle: FontStyle.italic, color: textColor),
             )
           else ...[
             if (message.imageUrl != null)
@@ -1211,7 +1211,7 @@ class _MessageBubble extends StatelessWidget {
                 ),
               ),
             if (message.text != null)
-              Text(message.text!, style: _textStyle(fontSize: 14, color: textColor, height: 1.4)),
+              Text(message.text!, style: _textStyle(fontSize: 15, color: textColor, height: 1.45)),
           ],
         ],
       ),
@@ -1255,7 +1255,7 @@ class _TimeDivider extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
       child: Center(
-        child: Text(label, style: _textStyle(fontSize: 11, color: WynColors.faint)),
+        child: Text(label, style: _textStyle(fontSize: 13, color: WynColors.faint)),
       ),
     );
   }

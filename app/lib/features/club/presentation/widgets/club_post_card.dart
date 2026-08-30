@@ -152,13 +152,13 @@ class ClubPostCard extends StatelessWidget {
                             post.authorNameOrUsername,
                             overflow: TextOverflow.ellipsis,
                             style: _textStyle(
-                                fontSize: 14, fontWeight: FontWeight.w600, color: WynColors.ink),
+                                fontSize: 15, fontWeight: FontWeight.w600, color: WynColors.ink),
                           ),
                         ),
                         const SizedBox(width: WynSpacing.space2),
                         Text(
                           relativeTimeLabel(post.createdAt, now: DateTime.now()),
-                          style: _textStyle(fontSize: 12, color: WynColors.mutedNeutral),
+                          style: _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
                         ),
                       ],
                     ),
@@ -177,7 +177,7 @@ class ClubPostCard extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
                 child: HashtagText(
                   post.content!,
-                  style: _textStyle(fontSize: 14, color: WynColors.ink, height: 1.5),
+                  style: _textStyle(fontSize: 16, color: WynColors.ink, height: 1.5),
                 ),
               ),
             if (post.imageUrls != null && post.imageUrls!.isNotEmpty)
@@ -226,7 +226,7 @@ class ClubPostCard extends StatelessWidget {
                     ),
                   ),
                   Text('${post.likeCount}',
-                      style: _textStyle(fontSize: 12, color: WynColors.graphite)),
+                      style: _textStyle(fontSize: 13, color: WynColors.graphite)),
                   const SizedBox(width: WynSpacing.space2),
                   Semantics(
                     label: 'ดูคอมเมนต์',
@@ -238,7 +238,7 @@ class ClubPostCard extends StatelessWidget {
                     ),
                   ),
                   Text('${post.commentCount}',
-                      style: _textStyle(fontSize: 12, color: WynColors.graphite)),
+                      style: _textStyle(fontSize: 13, color: WynColors.graphite)),
                   // Not in 08-club.tsx's own 3-icon ClubPostRow (real,
                   // existing capability -- Founder decision, 2026-08-29).
                   Semantics(

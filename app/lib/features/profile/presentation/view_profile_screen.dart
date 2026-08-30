@@ -861,7 +861,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
           title: isOwnProfile
               ? Text(
                   'โปรไฟล์',
-                  style: WynTypography.screenTitle(fontSize: 18, color: WynColors.ink),
+                  style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
                 )
               : FutureBuilder<_ProfileWithCounts>(
                   future: _loadFuture,
@@ -993,7 +993,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                       Text(
                         profile.nameOrUsername,
                         style: _textStyle(
-                          fontSize: 17,
+                          fontSize: 20,
                           fontWeight: FontWeight.w700,
                           color: WynColors.ink,
                         ),
@@ -1011,9 +1011,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                           profile.bio!,
                           textAlign: TextAlign.center,
                           style: _textStyle(
-                            fontSize: 13,
+                            fontSize: 15,
                             color: _bioTone,
-                            height: 1.4,
+                            height: 1.45,
                           ),
                         ),
                       ],
@@ -1172,10 +1172,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                                       vertical: WynSpacing.space3,
                                     ),
                                     textStyle: _textStyle(
-                                      fontSize: 13.5,
-                                      fontWeight: _isFollowing!
-                                          ? FontWeight.w600
-                                          : FontWeight.w700,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                   onPressed: _isFollowActionInFlight
@@ -1244,9 +1242,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   labelColor: WynColors.ink,
                   unselectedLabelColor: WynColors.mutedNeutral,
                   labelStyle:
-                      _textStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      _textStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   unselectedLabelStyle:
-                      _textStyle(fontSize: 12, fontWeight: FontWeight.w400),
+                      _textStyle(fontSize: 13, fontWeight: FontWeight.w400),
                   tabs: const [
                     Tab(text: 'โพสต์'),
                     Tab(text: 'ReDrop'),
@@ -1391,12 +1389,12 @@ class _StatBlockContent extends StatelessWidget {
         Text(
           '$count',
           style:
-              _textStyle(fontSize: 16, fontWeight: FontWeight.w700, color: WynColors.ink),
+              _textStyle(fontSize: 24, fontWeight: FontWeight.w700, color: WynColors.ink),
         ),
         const SizedBox(height: 2),
         Text(
           label,
-          style: _textStyle(fontSize: 11.5, color: WynColors.graphite),
+          style: _textStyle(fontSize: 13, color: WynColors.graphite),
         ),
       ],
     );

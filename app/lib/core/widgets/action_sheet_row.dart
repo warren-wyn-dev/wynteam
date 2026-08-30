@@ -56,7 +56,7 @@ class ActionSheetRow extends StatelessWidget {
               child: Text(
                 label,
                 style: TextStyle(
-                  fontSize: 14.5,
+                  fontSize: 15,
                   fontWeight: FontWeight.w500,
                   color: rowColor,
                 ),

@@ -183,7 +183,7 @@ class _SideMenuState extends State<SideMenu> {
                           if (profile != null)
                             Text(
                               '@${profile.username}',
-                              style: _textStyle(fontSize: 12.5, color: WynColors.mutedNeutral),
+                              style: _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
                             ),
                           const SizedBox(height: WynSpacing.space1),
                           // Wrap, not Row -- the drawer's fixed Material
@@ -237,11 +237,11 @@ class _CountLabel extends StatelessWidget {
         children: [
           TextSpan(
             text: '${count ?? 0} ',
-            style: _textStyle(fontSize: 12, fontWeight: FontWeight.w700, color: WynColors.ink),
+            style: _textStyle(fontSize: 13, fontWeight: FontWeight.w700, color: WynColors.ink),
           ),
           TextSpan(
             text: label,
-            style: _textStyle(fontSize: 12, color: WynColors.graphite),
+            style: _textStyle(fontSize: 13, color: WynColors.graphite),
           ),
         ],
       ),
@@ -269,7 +269,7 @@ class _MenuRow extends StatelessWidget {
             const SizedBox(width: WynSpacing.space3),
             Text(
               label,
-              style: _textStyle(fontSize: 14.5, fontWeight: FontWeight.w500, color: WynColors.ink),
+              style: _textStyle(fontSize: 15, fontWeight: FontWeight.w500, color: WynColors.ink),
             ),
           ],
         ),

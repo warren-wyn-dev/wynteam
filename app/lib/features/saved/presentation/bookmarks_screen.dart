@@ -198,7 +198,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('บันทึกไว้', style: WynTypography.screenTitle(fontSize: 17, color: WynColors.ink)),
+        title: Text('บันทึกไว้', style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink)),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: WynColors.hairline),

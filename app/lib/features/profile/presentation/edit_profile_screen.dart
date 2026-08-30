@@ -248,7 +248,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
         title: Text(
           'แก้ไขโปรไฟล์',
-          style: WynTypography.screenTitle(fontSize: 17, color: WynColors.ink),
+          style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
         ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
@@ -396,7 +396,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   foregroundColor: WynColors.paper,
                   disabledBackgroundColor: WynColors.hairline,
                   disabledForegroundColor: WynColors.mutedNeutral,
-                  textStyle: _textStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  textStyle: _textStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
                 onPressed: _canSave ? _save : null,
                 child: _isSaving
