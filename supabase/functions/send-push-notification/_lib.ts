@@ -6,13 +6,25 @@
 export interface NotificationRow {
   id: string;
   recipient_id: string;
-  actor_id: string;
+  // Nullable (WYN-029 fix, mirrors WynNotification.actorId in the Dart
+  // client exactly): null only for moderation_warning/
+  // moderation_content_removed and system -- see notification.dart's
+  // own doc comment for why.
+  actor_id: string | null;
   type: string;
   drop_id: string | null;
   pop_id: string | null;
   club_id: string | null;
   club_post_id: string | null;
   order_id: string | null;
+  // WYN-029/030/032 -- added for the moderation/appeal/message-request
+  // types below. Same columns notification.dart's WynNotification
+  // already reads (reason/moderationActionId/moderationActionType/
+  // conversationId).
+  reason: string | null;
+  moderation_action_id: string | null;
+  moderation_action_type: string | null;
+  conversation_id: string | null;
 }
 
 export interface WebhookPayload {
@@ -47,6 +59,11 @@ export function messageFor(
   actorName: string,
   clubName: string | null,
   storeName: string | null,
+  // Optional/trailing so every existing call site (and every existing
+  // test) keeps compiling unchanged -- only the WYN-029/030/032/034/039/
+  // 043 types below read either of these.
+  reason: string | null = null,
+  moderationActionType: string | null = null,
 ): string {
   const club = clubName ?? "Club";
   // Fallback text differs by type in the Dart source this mirrors --
@@ -110,6 +127,55 @@ export function messageFor(
       return `${actorName} กล่าวถึงคุณใน Drop`;
     case "mention_club_post":
       return `${actorName} กล่าวถึงคุณในโพสต์ที่ ${club}`;
+    // WYN-034/043: same destination/data field as like_drop/mentionDrop
+    // (drop_id) -- see buildDataPayload, no new field needed.
+    case "redrop":
+      return `${actorName} ReDrop โพสต์ของคุณ`;
+    // WYN-029: mirrors notification_list_screen.dart's `_messageFor`
+    // word for word. actor_id is null for both of these (WYN-029 fix --
+    // see NotificationRow's own doc comment), which is fine here since
+    // neither template references actorName.
+    case "moderation_warning":
+      return `คุณได้รับคำเตือนจากทีมงาน WYN: ${reason ?? ""}`;
+    case "moderation_content_removed":
+      return `เนื้อหาของคุณถูกลบเนื่องจากละเมิดกฎการใช้งาน WYN -- ` +
+        `เหตุผล: ${reason ?? ""}`;
+    // WYN-030: mirrors the Dart client's per-action-type wording
+    // exactly -- see notification_list_screen.dart's own comment on why
+    // Remove Content's wording may never imply the content itself came
+    // back.
+    case "appeal_approved":
+      switch (moderationActionType) {
+        case "warning":
+          return "อุทธรณ์ของคุณได้รับการอนุมัติแล้ว คำเตือนนี้ถูกลบออกจากประวัติบัญชีของคุณแล้ว";
+        case "restrict":
+          return "อุทธรณ์ของคุณได้รับการอนุมัติแล้ว สิทธิ์การโพสต์ของคุณกลับมาใช้งานได้ตามปกติแล้ว";
+        case "suspend":
+          return "อุทธรณ์ของคุณได้รับการอนุมัติแล้ว บัญชีของคุณกลับมาใช้งานได้ตามปกติแล้ว";
+        case "ban":
+          return "อุทธรณ์ของคุณได้รับการอนุมัติแล้ว บัญชีของคุณกลับมาใช้งานได้ตามปกติแล้ว " +
+            "คุณสามารถเข้าสู่ระบบได้ทันที";
+        case "remove_content":
+          return "อุทธรณ์ของคุณได้รับการอนุมัติแล้ว การละเมิดนี้ถูกลบออกจากประวัติบัญชีของคุณแล้ว";
+        default:
+          return "อุทธรณ์ของคุณได้รับการอนุมัติแล้ว";
+      }
+    case "appeal_rejected":
+      return `อุทธรณ์ของคุณถูกปฏิเสธ -- เหตุผล: ${reason ?? ""}`;
+    // WYN-032/039: actor_id is always real for these 3 -- see
+    // notification.dart's own doc comment.
+    case "message_request":
+      return `${actorName} ส่งคำขอข้อความถึงคุณ`;
+    case "follow_request":
+      return `${actorName} ขอติดตามคุณ`;
+    case "follow_request_accepted":
+      return `${actorName} ยอมรับคำขอติดตามของคุณแล้ว`;
+    // WYN-043: the admin's own message text, shown as-is -- same `reason`
+    // column moderation_warning/moderation_content_removed use above,
+    // just with no fixed prefix (send_system_notification() already
+    // writes the full message).
+    case "system":
+      return reason ?? "มีประกาศจากระบบ WYN";
     default:
       return "คุณมีการแจ้งเตือนใหม่";
   }
@@ -193,16 +259,25 @@ export async function fetchFcmAccessToken(serviceAccount: FcmServiceAccount): Pr
   return json.access_token as string;
 }
 
-/// Which of the 5 `notifications`-row id columns are non-null becomes
-/// the FCM `data` payload -- split out so the "only include set fields,
-/// as strings" logic can be tested without any network/crypto
-/// involved.
+/// Which of the `notifications`-row id columns are non-null becomes the
+/// FCM `data` payload -- split out so the "only include set fields, as
+/// strings" logic can be tested without any network/crypto involved.
+/// `actor_id` is included only when set (WYN-029 fix: null for
+/// moderation_warning/moderation_content_removed/system) -- omitting it
+/// rather than sending the literal string "null" mirrors every other
+/// optional field here.
 export function buildDataPayload(row: NotificationRow): Record<string, string> {
-  const data: Record<string, string> = { type: row.type, actor_id: row.actor_id };
+  const data: Record<string, string> = { type: row.type };
+  if (row.actor_id) data.actor_id = row.actor_id;
   if (row.drop_id) data.drop_id = row.drop_id;
   if (row.pop_id) data.pop_id = row.pop_id;
   if (row.club_id) data.club_id = row.club_id;
   if (row.club_post_id) data.club_post_id = row.club_post_id;
   if (row.order_id) data.order_id = row.order_id;
+  // WYN-032: lets the client open ConversationScreen directly on tap.
+  if (row.conversation_id) data.conversation_id = row.conversation_id;
+  // WYN-030: lets the client open MyModerationActionScreen directly on
+  // tap, for all 4 moderation-related types.
+  if (row.moderation_action_id) data.moderation_action_id = row.moderation_action_id;
   return data;
 }

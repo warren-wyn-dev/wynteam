@@ -1,6 +1,8 @@
 # Product Task — WYN-016
 
 Status: coded + self-verified (QA — PASS, 2026-08-16) — ทุกส่วนที่ไม่ต้องพึ่ง Firebase project จริงเสร็จสมบูรณ์ รอ Founder ทำ 4 ขั้นตอน Firebase setup (ดูหัวข้อด้านล่าง) ก่อนใช้งานจริงได้
+
+**อัปเดต 2026-08-30**: พบระหว่างตรวจระบบแจ้งเตือนทั้งหมดตามคำขอ Founder ว่า push message/deep-link ที่ทำไว้ตอนแรก (รอบนี้) ครอบคลุมแค่ 13 ประเภทแรก (WYN-012/015/ZOKY-005) — 11 ประเภทที่เพิ่มเข้ามาทีหลัง (WYN-021 mention ×2, WYN-034 redrop, WYN-029 moderation ×2, WYN-030 appeal ×2, WYN-032 message request, WYN-039 follow request ×2, WYN-043 system) ไม่เคยถูกเพิ่มเข้า Edge Function/client deep-link handler เลย แก้ครบแล้วทั้งหมด (`_lib.ts`/`index.ts`/`push_notification_service.dart`) — ข้อความ Thai ตรงกับ `notification_list_screen.dart`'s `_messageFor` เป๊ะทุกตัวอักษร, deep-link ปลายทางตรงกับ `_openNotification` เป๊ะ ดูรายละเอียดที่ `.wyn/company/DECISIONS.md` (2026-08-30) — สถานะ Firebase setup ไม่เปลี่ยน ยังรอ Founder เหมือนเดิม
 Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (PASS ในส่วนที่ verify ได้)
 
 Feature: Push Notification (แจ้งเตือนจริง แม้ปิดแอป/ไม่ได้เปิดหน้าจออยู่)

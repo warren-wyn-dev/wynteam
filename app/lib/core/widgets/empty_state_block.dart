@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../design/wyn_colors.dart';
 import '../design/wyn_spacing.dart';
 import '../design/wyn_typography.dart';
 
 /// 22-empty-states.tsx's shared empty-state shape: an icon centered in a
-/// tinted circle, a Fraunces headline, and a muted supportive line below
-/// it -- "the same icon-in-tint-circle + Fraunces headline + supportive
+/// tinted circle, a title-style headline, and a muted supportive line below
+/// it -- "the same icon-in-tint-circle + title-style headline + supportive
 /// line pattern as the empty state already established on Home... and
 /// Bookmarks" (that file's own doc comment). Used by Notifications and
 /// the Chat Inbox; reach for this rather than a one-off empty-state
@@ -44,13 +43,13 @@ class EmptyStateBlock extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: WynTypography.fraunces(fontSize: 18, color: WynColors.ink),
+            style: WynTypography.screenTitle(fontSize: 20, color: WynColors.ink),
           ),
           const SizedBox(height: WynSpacing.space1 + 2),
           Text(
             subtitle,
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(fontSize: 13, color: WynColors.graphite, height: 1.4),
+            style: const TextStyle(fontSize: 13, color: WynColors.graphite, height: 1.4),
           ),
         ],
       ),

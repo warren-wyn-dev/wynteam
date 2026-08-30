@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../club/data/club_post_repository.dart';
@@ -854,7 +853,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
           backgroundColor: WynColors.paper,
           // 18-other-profile.tsx: someone else's profile names them in
           // the header ("@warren", Inter weight 700 -- an identity
-          // label, not a screen-title moment, so no Fraunces here)
+          // label, not a screen-title moment, so no title styling here)
           // instead of a generic "โปรไฟล์" title. Reuses the same
           // _loadFuture the body's own FutureBuilder awaits rather than
           // fetching a second time; shows the generic title until it
@@ -862,7 +861,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
           title: isOwnProfile
               ? Text(
                   'โปรไฟล์',
-                  style: WynTypography.fraunces(fontSize: 18, color: WynColors.ink),
+                  style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
                 )
               : FutureBuilder<_ProfileWithCounts>(
                   future: _loadFuture,
@@ -870,7 +869,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                     final username = snapshot.data?.profile.username;
                     return Text(
                       username == null ? 'โปรไฟล์' : '@$username',
-                      style: _interStyle(fontSize: 15, fontWeight: FontWeight.w700, color: WynColors.ink),
+                      style: _textStyle(fontSize: 15, fontWeight: FontWeight.w700, color: WynColors.ink),
                     );
                   },
                 ),
@@ -993,8 +992,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                       const SizedBox(height: WynSpacing.space3),
                       Text(
                         profile.nameOrUsername,
-                        style: _interStyle(
-                          fontSize: 17,
+                        style: _textStyle(
+                          fontSize: 20,
                           fontWeight: FontWeight.w700,
                           color: WynColors.ink,
                         ),
@@ -1004,17 +1003,17 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                       Text(
                         '@${profile.username}',
                         style:
-                            _interStyle(fontSize: 13, color: WynColors.mutedNeutral),
+                            _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
                       ),
                       if (profile.bio != null && profile.bio!.isNotEmpty) ...[
                         const SizedBox(height: WynSpacing.space3),
                         Text(
                           profile.bio!,
                           textAlign: TextAlign.center,
-                          style: _interStyle(
-                            fontSize: 13,
+                          style: _textStyle(
+                            fontSize: 15,
                             color: _bioTone,
-                            height: 1.4,
+                            height: 1.45,
                           ),
                         ),
                       ],
@@ -1077,7 +1076,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                                 onPressed: () => _openEdit(profile),
                                 child: Text(
                                   'แก้ไขโปรไฟล์',
-                                  style: _interStyle(
+                                  style: _textStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
                                     color: WynColors.ink,
@@ -1172,11 +1171,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                                       horizontal: WynSpacing.space6,
                                       vertical: WynSpacing.space3,
                                     ),
-                                    textStyle: _interStyle(
-                                      fontSize: 13.5,
-                                      fontWeight: _isFollowing!
-                                          ? FontWeight.w600
-                                          : FontWeight.w700,
+                                    textStyle: _textStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                   onPressed: _isFollowActionInFlight
@@ -1245,9 +1242,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   labelColor: WynColors.ink,
                   unselectedLabelColor: WynColors.mutedNeutral,
                   labelStyle:
-                      _interStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      _textStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   unselectedLabelStyle:
-                      _interStyle(fontSize: 12, fontWeight: FontWeight.w400),
+                      _textStyle(fontSize: 13, fontWeight: FontWeight.w400),
                   tabs: const [
                     Tab(text: 'โพสต์'),
                     Tab(text: 'ReDrop'),
@@ -1392,12 +1389,12 @@ class _StatBlockContent extends StatelessWidget {
         Text(
           '$count',
           style:
-              _interStyle(fontSize: 16, fontWeight: FontWeight.w700, color: WynColors.ink),
+              _textStyle(fontSize: 24, fontWeight: FontWeight.w700, color: WynColors.ink),
         ),
         const SizedBox(height: 2),
         Text(
           label,
-          style: _interStyle(fontSize: 11.5, color: WynColors.graphite),
+          style: _textStyle(fontSize: 13, color: WynColors.graphite),
         ),
       ],
     );
@@ -1420,13 +1417,13 @@ Widget _buildStatDivider() => Container(
 /// message-body tone).
 const _bioTone = Color(0xFF2B2A26);
 
-TextStyle _interStyle({
+TextStyle _textStyle({
   required double fontSize,
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
   double? height,
 }) =>
-    GoogleFonts.inter(
+    TextStyle(
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color,

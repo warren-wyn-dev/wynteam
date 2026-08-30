@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/design/wyn_colors.dart';
@@ -173,10 +172,10 @@ class _SearchScreenState extends State<SearchScreen> {
                     controller: _controller,
                     focusNode: _focusNode,
                     autofocus: widget.autofocus,
-                    style: GoogleFonts.inter(fontSize: 13.5, color: WynColors.ink),
-                    decoration: InputDecoration(
+                    style: const TextStyle(fontSize: 16, color: WynColors.ink),
+                    decoration: const InputDecoration(
                       hintText: 'ค้นหา username, Drop, Pop, Club',
-                      hintStyle: GoogleFonts.inter(fontSize: 13.5, color: WynColors.graphite),
+                      hintStyle: TextStyle(fontSize: 16, color: WynColors.graphite),
                       border: InputBorder.none,
                       isCollapsed: true,
                     ),

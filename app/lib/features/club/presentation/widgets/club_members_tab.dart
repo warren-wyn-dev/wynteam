@@ -221,7 +221,7 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
     return Chip(
       label: Text(
         _roleLabel(role),
-        style: TextStyle(color: scheme.onPrimary, fontSize: 11),
+        style: TextStyle(color: scheme.onPrimary, fontSize: 13),
       ),
       backgroundColor: color,
       visualDensity: VisualDensity.compact,

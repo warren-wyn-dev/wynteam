@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/club.dart';
@@ -372,9 +371,9 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                   labelColor: WynColors.ink,
                   unselectedLabelColor: WynColors.mutedNeutral,
                   labelStyle:
-                      _interStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                      _textStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   unselectedLabelStyle:
-                      _interStyle(fontSize: 11.5, fontWeight: FontWeight.w400),
+                      _textStyle(fontSize: 13, fontWeight: FontWeight.w400),
                   tabs: const [
                     Tab(icon: Icon(Icons.article_outlined, size: 16), text: 'โพสต์'),
                     Tab(icon: Icon(Icons.people_outline, size: 16), text: 'สมาชิก'),
@@ -437,7 +436,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   /// 08-club.tsx: "The reference banner is a composited marketing
   /// screenshot ... not something to recreate pixel-for-pixel. Replaced
   /// with an original ink+sapphire abstract banner carrying just the
-  /// Club name in Fraunces." A real uploaded [Club.coverUrl] still
+  /// Club name in the title style." A real uploaded [Club.coverUrl] still
   /// shows as-is when present -- the reference's own reasoning is about
   /// replacing a placeholder marketing asset, not hiding a real photo
   /// the Club's owner actually uploaded via CreateClubScreen's cover
@@ -485,17 +484,17 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                 children: [
                   Text(
                     'CLUB',
-                    style: _interStyle(
-                      fontSize: 11,
+                    style: _textStyle(
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: WynColors.mutedNeutral,
-                      letterSpacing: 11 * 0.14,
+                      letterSpacing: 13 * 0.14,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     club.name,
-                    style: WynTypography.fraunces(fontSize: 22, color: WynColors.paper),
+                    style: WynTypography.screenTitle(fontSize: 22, color: WynColors.paper),
                   ),
                 ],
               ),
@@ -552,7 +551,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                   padding: const EdgeInsets.only(top: WynSpacing.space1),
                   child: Text(
                     club.name,
-                    style: _interStyle(fontSize: 17, fontWeight: FontWeight.w700, color: WynColors.ink),
+                    style: _textStyle(fontSize: 16, fontWeight: FontWeight.w700, color: WynColors.ink),
                   ),
                 ),
               ),
@@ -578,7 +577,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
             children: [
               Text(
                 '${club.memberCount} สมาชิก',
-                style: _interStyle(fontSize: 12.5, color: WynColors.graphite),
+                style: _textStyle(fontSize: 13, color: WynColors.graphite),
               ),
               if (club.category != null)
                 Container(
@@ -589,7 +588,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                   ),
                   child: Text(
                     club.category!,
-                    style: _interStyle(fontSize: 11, color: WynColors.graphite),
+                    style: _textStyle(fontSize: 13, color: WynColors.graphite),
                   ),
                 ),
               if (status != null) _buildJoinButton(club, membership),
@@ -599,7 +598,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
             const SizedBox(height: WynSpacing.space3),
             Text(
               club.description!,
-              style: _interStyle(fontSize: 13.5, color: WynColors.ink, height: 1.5),
+              style: _textStyle(fontSize: 15, color: WynColors.ink, height: 1.45),
             ),
           ],
           if (status == null) ...[
@@ -650,7 +649,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3),
               backgroundColor: WynColors.sapphire,
               foregroundColor: WynColors.paper,
-              textStyle: _interStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+              textStyle: _textStyle(fontSize: 15, fontWeight: FontWeight.w600),
             ),
             onPressed: onPressed,
             child: Text(label),
@@ -664,7 +663,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 2),
               foregroundColor: Theme.of(context).colorScheme.outline,
               side: BorderSide(color: Theme.of(context).colorScheme.outline),
-              textStyle: _interStyle(fontSize: 11, fontWeight: FontWeight.w600),
+              textStyle: _textStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
             child: status == ClubMemberStatus.approved
                 ? Row(
@@ -686,14 +685,14 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   }
 }
 
-TextStyle _interStyle({
+TextStyle _textStyle({
   required double fontSize,
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
   double? height,
   double? letterSpacing,
 }) =>
-    GoogleFonts.inter(
+    TextStyle(
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color,

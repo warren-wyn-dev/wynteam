@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/design/wyn_colors.dart';
@@ -287,7 +286,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
         ),
         title: Text(
           _ownerDisplayName ?? '',
-          style: WynTypography.fraunces(fontSize: 17, color: WynColors.ink),
+          style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
         ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
@@ -330,8 +329,8 @@ class _FollowListScreenState extends State<FollowListScreen> {
             child: Text(
               label,
               textAlign: TextAlign.center,
-              style: _interStyle(
-                fontSize: 13.5,
+              style: _textStyle(
+                fontSize: 13,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                 color: selected ? WynColors.ink : WynColors.mutedNeutral,
               ),
@@ -367,10 +366,10 @@ class _FollowListScreenState extends State<FollowListScreen> {
             Expanded(
               child: TextField(
                 controller: _searchController,
-                style: _interStyle(fontSize: 13, color: WynColors.ink),
+                style: _textStyle(fontSize: 16, color: WynColors.ink),
                 decoration: InputDecoration(
                   hintText: 'ค้นหา',
-                  hintStyle: _interStyle(fontSize: 13, color: WynColors.mutedNeutral),
+                  hintStyle: _textStyle(fontSize: 16, color: WynColors.mutedNeutral),
                   border: InputBorder.none,
                   isCollapsed: true,
                 ),
@@ -425,7 +424,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
           child: Text(
             'ไม่พบผู้ใช้ที่ตรงกับ "$_searchQuery"',
             textAlign: TextAlign.center,
-            style: _interStyle(fontSize: 13, color: WynColors.faint),
+            style: _textStyle(fontSize: 13, color: WynColors.faint),
           ),
         ),
       );
@@ -475,11 +474,11 @@ class _FollowListScreenState extends State<FollowListScreen> {
                   children: [
                     Text(
                       profile.nameOrUsername,
-                      style: _interStyle(fontSize: 14, fontWeight: FontWeight.w600, color: WynColors.ink),
+                      style: _textStyle(fontSize: 15, fontWeight: FontWeight.w600, color: WynColors.ink),
                     ),
                     Text(
                       '@${profile.username}',
-                      style: _interStyle(fontSize: 12, color: WynColors.mutedNeutral),
+                      style: _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
                     ),
                   ],
                 ),
@@ -512,9 +511,9 @@ class _FollowListScreenState extends State<FollowListScreen> {
   }
 }
 
-TextStyle _interStyle({
+TextStyle _textStyle({
   required double fontSize,
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
 }) =>
-    GoogleFonts.inter(fontSize: fontSize, fontWeight: fontWeight, color: color);
+    TextStyle(fontSize: fontSize, fontWeight: fontWeight, color: color);

@@ -89,8 +89,14 @@ Deno.serve(async (req) => {
   }
   const serviceAccount: FcmServiceAccount = JSON.parse(serviceAccountRaw);
 
+  // actor_id is null for moderation_warning/moderation_content_removed/
+  // system (WYN-029 fix) -- skip the lookup entirely rather than query
+  // profiles?id=eq.null, same guard clubName/storeName below already use
+  // for their own optional foreign keys.
   const [actorRows, tokenRows] = await Promise.all([
-    supabaseRestGet(`profiles?id=eq.${row.actor_id}&select=username,display_name`),
+    row.actor_id
+      ? supabaseRestGet(`profiles?id=eq.${row.actor_id}&select=username,display_name`)
+      : Promise.resolve([]),
     supabaseRestGet(`push_tokens?user_id=eq.${row.recipient_id}&select=token`),
   ]);
   if (tokenRows.length === 0) {
@@ -136,7 +142,14 @@ Deno.serve(async (req) => {
     storeName = order?.store?.name ?? null;
   }
 
-  const body = messageFor(messageType, actorName, clubName, storeName);
+  const body = messageFor(
+    messageType,
+    actorName,
+    clubName,
+    storeName,
+    row.reason,
+    row.moderation_action_type,
+  );
   const data = buildDataPayload(row);
 
   const accessToken = await fetchFcmAccessToken(serviceAccount);

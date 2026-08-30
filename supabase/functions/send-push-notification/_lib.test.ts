@@ -106,34 +106,135 @@ Deno.test("messageFor produces the exact same Thai strings as the Dart client, W
   );
 });
 
+// Every field a real webhook payload row always carries (even when
+// null) -- individual tests below only override what they need.
+const baseRow: NotificationRow = {
+  id: "n0",
+  recipient_id: "r1",
+  actor_id: "a1",
+  type: "like_drop",
+  drop_id: null,
+  pop_id: null,
+  club_id: null,
+  club_post_id: null,
+  order_id: null,
+  reason: null,
+  moderation_action_id: null,
+  moderation_action_type: null,
+  conversation_id: null,
+};
+
+// Mirrors app/test/notification_list_screen_test.dart's WYN-034/043
+// redrop assertion word for word.
+Deno.test("messageFor produces the exact same Thai string as the Dart client, WYN-034 redrop", () => {
+  assertEquals(messageFor("redrop", "@ploy", null, null), "@ploy ReDrop โพสต์ของคุณ");
+});
+
+// Mirrors notification_list_screen.dart's WYN-029/030 moderation/appeal
+// wording exactly -- see that file's own _messageFor for the source of
+// truth these must never drift from.
+Deno.test("messageFor produces the exact same Thai strings as the Dart client, WYN-029/030 moderation/appeal types", () => {
+  assertEquals(
+    messageFor("moderation_warning", "มีคน", null, null, "สแปม"),
+    "คุณได้รับคำเตือนจากทีมงาน WYN: สแปม",
+  );
+  assertEquals(
+    messageFor("moderation_content_removed", "มีคน", null, null, "เนื้อหาไม่เหมาะสม"),
+    "เนื้อหาของคุณถูกลบเนื่องจากละเมิดกฎการใช้งาน WYN -- เหตุผล: เนื้อหาไม่เหมาะสม",
+  );
+  assertEquals(
+    messageFor("appeal_approved", "มีคน", null, null, null, "warning"),
+    "อุทธรณ์ของคุณได้รับการอนุมัติแล้ว คำเตือนนี้ถูกลบออกจากประวัติบัญชีของคุณแล้ว",
+  );
+  assertEquals(
+    messageFor("appeal_approved", "มีคน", null, null, null, "restrict"),
+    "อุทธรณ์ของคุณได้รับการอนุมัติแล้ว สิทธิ์การโพสต์ของคุณกลับมาใช้งานได้ตามปกติแล้ว",
+  );
+  assertEquals(
+    messageFor("appeal_approved", "มีคน", null, null, null, "suspend"),
+    "อุทธรณ์ของคุณได้รับการอนุมัติแล้ว บัญชีของคุณกลับมาใช้งานได้ตามปกติแล้ว",
+  );
+  assertEquals(
+    messageFor("appeal_approved", "มีคน", null, null, null, "ban"),
+    "อุทธรณ์ของคุณได้รับการอนุมัติแล้ว บัญชีของคุณกลับมาใช้งานได้ตามปกติแล้ว " +
+      "คุณสามารถเข้าสู่ระบบได้ทันที",
+  );
+  assertEquals(
+    messageFor("appeal_approved", "มีคน", null, null, null, "remove_content"),
+    "อุทธรณ์ของคุณได้รับการอนุมัติแล้ว การละเมิดนี้ถูกลบออกจากประวัติบัญชีของคุณแล้ว",
+  );
+  assertEquals(
+    messageFor("appeal_approved", "มีคน", null, null, null, null),
+    "อุทธรณ์ของคุณได้รับการอนุมัติแล้ว",
+  );
+  assertEquals(
+    messageFor("appeal_rejected", "มีคน", null, null, "ไม่มีหลักฐานเพียงพอ"),
+    "อุทธรณ์ของคุณถูกปฏิเสธ -- เหตุผล: ไม่มีหลักฐานเพียงพอ",
+  );
+});
+
+// Mirrors notification_list_screen.dart's WYN-032/039 wording exactly.
+Deno.test("messageFor produces the exact same Thai strings as the Dart client, WYN-032/039 message/follow-request types", () => {
+  assertEquals(
+    messageFor("message_request", "@ploy", null, null),
+    "@ploy ส่งคำขอข้อความถึงคุณ",
+  );
+  assertEquals(messageFor("follow_request", "@gam", null, null), "@gam ขอติดตามคุณ");
+  assertEquals(
+    messageFor("follow_request_accepted", "@gam", null, null),
+    "@gam ยอมรับคำขอติดตามของคุณแล้ว",
+  );
+});
+
+// Mirrors notification_list_screen.dart's WYN-043 system-announcement
+// wording exactly -- the admin's own message text, shown as-is.
+Deno.test("messageFor produces the exact same Thai strings as the Dart client, WYN-043 system type", () => {
+  assertEquals(
+    messageFor("system", "มีคน", null, null, "แอปจะปิดปรับปรุงคืนนี้"),
+    "แอปจะปิดปรับปรุงคืนนี้",
+  );
+  assertEquals(messageFor("system", "มีคน", null, null, null), "มีประกาศจากระบบ WYN");
+});
+
 Deno.test("buildDataPayload includes only the id columns that are actually set, plus type/actor_id always", () => {
-  const row: NotificationRow = {
-    id: "n1",
-    recipient_id: "r1",
-    actor_id: "a1",
-    type: "like_drop",
-    drop_id: "d1",
-    pop_id: null,
-    club_id: null,
-    club_post_id: null,
-    order_id: null,
-  };
+  const row: NotificationRow = { ...baseRow, id: "n1", type: "like_drop", drop_id: "d1" };
   assertEquals(buildDataPayload(row), { type: "like_drop", actor_id: "a1", drop_id: "d1" });
 });
 
 Deno.test("buildDataPayload includes order_id when set, omits every drop/pop/club field", () => {
-  const row: NotificationRow = {
-    id: "n2",
-    recipient_id: "r1",
-    actor_id: "a1",
-    type: "new_order",
-    drop_id: null,
-    pop_id: null,
-    club_id: null,
-    club_post_id: null,
-    order_id: "o1",
-  };
+  const row: NotificationRow = { ...baseRow, id: "n2", type: "new_order", order_id: "o1" };
   assertEquals(buildDataPayload(row), { type: "new_order", actor_id: "a1", order_id: "o1" });
+});
+
+// WYN-029 fix: actor_id is null for these types -- must be omitted
+// entirely, not sent as the literal string "null".
+Deno.test("buildDataPayload omits actor_id when null", () => {
+  const row: NotificationRow = {
+    ...baseRow,
+    id: "n3",
+    actor_id: null,
+    type: "moderation_warning",
+    moderation_action_id: "ma1",
+    reason: "สแปม",
+  };
+  assertEquals(buildDataPayload(row), {
+    type: "moderation_warning",
+    moderation_action_id: "ma1",
+  });
+});
+
+Deno.test("buildDataPayload includes conversation_id when set (message_request)", () => {
+  const row: NotificationRow = {
+    ...baseRow,
+    id: "n4",
+    type: "message_request",
+    conversation_id: "c1",
+  };
+  assertEquals(buildDataPayload(row), {
+    type: "message_request",
+    actor_id: "a1",
+    conversation_id: "c1",
+  });
 });
 
 Deno.test("base64Url produces URL-safe output with no padding", () => {

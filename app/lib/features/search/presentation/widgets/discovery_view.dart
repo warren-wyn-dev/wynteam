@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
@@ -142,7 +141,7 @@ class _DiscoveryViewState extends State<DiscoveryView> {
   // ------------------------------------------------------------
   // Top 100 (WYN-042, redefined 2026-08-29 as a hashtag leaderboard --
   // see discovery_repository.dart's fetchTrendingHashtags doc comment)
-  // -- 03-search.tsx's RankRow: right-aligned Fraunces rank numeral,
+  // -- 03-search.tsx's RankRow: right-aligned title-style rank numeral,
   // bold tag, "N โพสต์" meta, hairline divider between rows (none after
   // the last), then a centered "ดูอันดับทั้งหมด (Top 100)" link.
   // ------------------------------------------------------------
@@ -180,7 +179,7 @@ class _DiscoveryViewState extends State<DiscoveryView> {
                   children: [
                     Text(
                       'ดูอันดับทั้งหมด (Top 100)',
-                      style: _interStyle(
+                      style: _textStyle(
                           fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.sapphire),
                     ),
                     const SizedBox(width: 4),
@@ -253,11 +252,11 @@ class _DiscoveryViewState extends State<DiscoveryView> {
                     Text(
                       profile.nameOrUsername,
                       style:
-                          _interStyle(fontSize: 14, fontWeight: FontWeight.w600, color: WynColors.ink),
+                          _textStyle(fontSize: 15, fontWeight: FontWeight.w600, color: WynColors.ink),
                     ),
                     Text(
                       '@${profile.username}',
-                      style: _interStyle(fontSize: 12, color: WynColors.faint),
+                      style: _textStyle(fontSize: 13, color: WynColors.faint),
                     ),
                   ],
                 ),
@@ -288,16 +287,16 @@ class _SectionLabel extends StatelessWidget {
           WynSpacing.space2, WynSpacing.space4, WynSpacing.space3),
       child: Text(
         label,
-        style: _interStyle(fontSize: 11, fontWeight: FontWeight.w600, color: WynColors.mutedNeutral)
-            .copyWith(letterSpacing: 11 * 0.14),
+        style: _textStyle(fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.mutedNeutral)
+            .copyWith(letterSpacing: 13 * 0.14),
       ),
     );
   }
 }
 
-TextStyle _interStyle({
+TextStyle _textStyle({
   required double fontSize,
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
 }) =>
-    GoogleFonts.inter(fontSize: fontSize, fontWeight: fontWeight, color: color);
+    TextStyle(fontSize: fontSize, fontWeight: fontWeight, color: color);

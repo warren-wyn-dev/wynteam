@@ -240,31 +240,31 @@ ZokyTheme = WynTheme.copyWith(colorScheme:
 
 ## 5. Typography Scale
 
-**ฟอนต์**: ใช้ฟอนต์ระบบ (San Francisco บน iOS / Roboto บน Android) — ทั้งคู่มี glyph ภาษาไทยครบและ hint ดีบนจอเล็ก **ไม่เพิ่ม dependency ฟอนต์ในรอบนี้** (ตรวจแล้ว `app/pubspec.yaml` ไม่มี `google_fonts` และไม่มี `fonts:` section) DS-001 ปรับเฉพาะ **ขนาด/น้ำหนัก/line-height/letter-spacing** ผ่าน `TextTheme` ซึ่งได้ผลลัพธ์ทางสายตา ~80% ของการเปลี่ยนฟอนต์ โดยไม่เพิ่มขนาด binary และไม่เสี่ยงเรื่อง license
-ถ้าจะเปลี่ยนฟอนต์จริงในอนาคต ตัวเลือกที่รองรับไทย+อังกฤษดี: **IBM Plex Sans Thai**, **Noto Sans Thai**, **Anuphan** — ต้องเป็นงานแยก task เพราะกระทบ layout ทุกหน้า
+**อัปเดต 2026-08-30** (Founder-requested typography-system pass — see `.wyn/company/DECISIONS.md`, 2026-08-30): reverts the 2026-08-29 Fraunces+Inter/`google_fonts` switch back to the platform system font, this time for `app/` too (`seller_app/` never switched). **ฟอนต์**: ใช้ฟอนต์ระบบ (San Francisco บน iOS / Roboto บน Android และบน Flutter Web ทุกแพลตฟอร์ม — CanvasKit ไม่มีสิทธิ์เข้าถึงฟอนต์ระบบของ browser ผู้เข้าชม) — **ไม่มี `google_fonts` dependency**, ไม่มี `fontFamily` override ที่ไหนเลย, ไม่มี `@font-face`/ฟอนต์ดาวน์โหลด ภาษาไทยยังรองรับผ่าน fallback อัตโนมัติของ Flutter engine เอง (Noto Sans Thai) เหมือนเดิม ตารางด้านล่างคือ scale ที่ implement จริงใน `app/lib/core/design/wyn_typography.dart` ตอนนี้ (ค่าตัวเลขต่างจาก draft เดิมของ Section นี้ — เดิมออกแบบคู่กับ Fraunces/Inter, ตอนนี้ปรับตาม typography-system spec ใหม่ของ Founder แทน):
 
 | Token (`TextTheme`) | ขนาด | น้ำหนัก | line-height | Letter-spacing | ใช้กับ |
 |---|---|---|---|---|---|
-| `headlineLarge` | 28 | 700 | 1.25 (35) | -0.4 | หัวข้อ hero (หน้า onboarding/empty state) |
-| `headlineMedium` | 24 | 700 | 1.29 (31) | -0.3 | ชื่อหน้าจอใหญ่, ชื่อโปรไฟล์ |
-| `headlineSmall` | 20 | 600 | 1.30 (26) | -0.2 | หัวข้อ section, หัวข้อ dialog |
-| `titleLarge` | 18 | 600 | 1.33 (24) | -0.1 | AppBar title, ชื่อ Club |
-| `titleMedium` | 16 | 600 | 1.38 (22) | 0 | ชื่อสินค้า, หัวการ์ด |
-| `titleSmall` | 14 | 600 | 1.43 (20) | 0 | **ชื่อผู้เขียนบนการ์ด feed** (ตรงกับที่ `home_drop_card.dart` ใช้อยู่แล้ว) |
-| `bodyLarge` | 16 | 400 | 1.50 (24) | 0 | ข้อความอ่านหลัก (แคปชัน Drop, โพสต์ Club, รายละเอียดสินค้า) |
-| `bodyMedium` | 14 | 400 | 1.50 (21) | 0 | body ค่าเริ่มต้นของทั้งแอป (**ขั้นต่ำตามกติกา 14px ✅**) |
-| `bodySmall` | 14 | 400 | 1.43 (20) | 0 | ข้อความรอง (สี `onSurfaceVariant`) — ขนาดเท่า bodyMedium แต่ต่างที่สี **ไม่ลดต่ำกว่า 14** |
-| `labelLarge` | 15 | 600 | 1.33 (20) | 0.1 | ตัวหนังสือบนปุ่ม |
-| `labelMedium` | 13 | 600 | 1.23 (16) | 0.1 | ชิป, แท็บ, ป้ายสถานะ |
-| `labelSmall` | 12 | 500 | 1.33 (16) | 0.2 | **metadata เท่านั้น** — เวลา ("2 ชม."), ตัวนับ, ป้ายเล็ก **ห้ามใช้กับเนื้อหาที่ผู้ใช้ต้องอ่าน** |
+| `headlineLarge` | 32 | 700 | 1.2 | 0 | Important Number / Statistic (ยังไม่มีจุดใช้จริงใน `app/`, เตรียมไว้) |
+| `headlineMedium` | 24 | 700 | 1.2 | 0 | Page Title |
+| `headlineSmall` | 20 | 700 | 1.25 | 0 | Section Title |
+| `titleLarge` | 22 | 700 | 1.2 | 0 | Shop Price / prominent inline totals |
+| `titleMedium` | 16 | 600 | 1.38 | 0 | Input/floating label (M3 `TextField`/`InputDecorator` default — ไม่แตะเพราะกระทบทุกฟอร์ม) |
+| `titleSmall` | 15 | 600 | 1.3 | 0 | **ชื่อผู้เขียนบนการ์ด feed (Username)** |
+| `bodyLarge` | 16 | 400 | 1.5 | 0 | Post Body — และเป็น M3's actual typed `TextField` text + empty-field placeholder ด้วย |
+| `bodyMedium` | 15 | 400 | 1.45 | 0 | Comment / secondary reading text |
+| `bodySmall` | 15 | 400 | 1.45 | 0 | Comment / secondary reading text (role เดียวกับ `bodyMedium`) — และเป็น M3's implicit input helper/error/counter text |
+| `labelLarge` | 15 | 600 | 1.2 | 0 | Button (M3's default `ElevatedButton`/`FilledButton`/`TextButton` text style) |
+| `labelMedium` | 13 | 500 | 1.2 | 0 | Bottom Navigation (M3 `NavigationBar`'s default label style) |
+| `labelSmall` | 13 | 500 | 1.3 | 0.1 | Metadata (เวลา) / like-comment-share counts |
 
 ### กติกา Typography
 
 1. **ระดับตัวอักษรในหน้าเดียวไม่เกิน 4 ระดับ** — บังคับให้ hierarchy มาจากน้ำหนัก/สี ไม่ใช่การไล่ขนาดถี่ ๆ (นี่คือสิ่งที่ทำให้หน้าจอดู "เรียบ" จริง ไม่ใช่การเอาเส้นออก)
 2. **ภาษาไทยต้องการ line-height สูงกว่าอังกฤษ** เพราะมีสระบน/ล่าง — line-height ทุก body ต้อง ≥ 1.43 (ตารางด้านบนทำครบแล้ว) และ**ห้ามใส่ `maxLines` โดยไม่ตั้ง `height`** ไม่งั้นสระบนจะโดนตัด
 3. **รองรับ dynamic type** — ห้ามใส่ `textScaler: TextScaler.noScaling` ทุกหน้าจอต้องไม่พังที่ 130% (ทดสอบด้วย `MediaQuery` override ใน widget test)
-4. `labelSmall` (12px) เป็นขนาดเล็กสุดในระบบ **ห้ามมีอะไรต่ำกว่านี้**
-5. ตัวเลขราคา ZOKY ใช้ `titleMedium` + `FontWeight.w700` + สี tertiary (ไม่ต้องมี token ราคาแยก)
+4. `labelMedium`/`labelSmall` (13px) เป็นขนาดเล็กสุดในระบบ **ห้ามมีอะไรต่ำกว่านี้สำหรับเนื้อหาที่ผู้ใช้ต้องอ่าน**
+5. Input ที่ผู้ใช้พิมพ์จริง (`TextField`/`TextFormField`/`MentionInput`) ต้อง ≥ 16px เสมอ — ป้องกันปัญหา iOS Safari auto-zoom เวลา focus (บังคับใช้ทั่ว `app/` แล้วในรอบ 2026-08-30 นี้)
+6. ตัวเลขราคา ใช้ `titleLarge` (22px/700) แทน `titleMedium` เดิม — ดู `.wyn/company/DECISIONS.md` 2026-08-30
 
 ---
 

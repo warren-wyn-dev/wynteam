@@ -74,7 +74,7 @@ class OrderStatusBadge extends StatelessWidget {
             const SizedBox(width: WynSpacing.space1),
             Text(
               label,
-              style: TextStyle(color: foreground, fontSize: 12, fontWeight: FontWeight.w600),
+              style: TextStyle(color: foreground, fontSize: 13, fontWeight: FontWeight.w600),
             ),
           ],
         ),
