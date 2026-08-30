@@ -66,7 +66,7 @@ class _SuggestedFollowListState extends State<SuggestedFollowList> {
       children: [
         Text(
           'ยังไม่มีอะไรให้ดูตรงนี้',
-          style: WynTypography.fraunces(fontSize: 20, fontWeight: FontWeight.w500),
+          style: WynTypography.screenTitle(fontSize: 20, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: WynSpacing.space1 + 2),
         const Text(

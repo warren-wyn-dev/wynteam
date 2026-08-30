@@ -205,7 +205,12 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    await tester.tap(find.byType(HomeDropCard));
+    // Same off-screen-hit-test-avoidance as HomeFeedScreen's own tests --
+    // the card's growth (verified badge, top-reply preview, the "..."
+    // menu row) can push tester.tap()'s geometric center onto a nested
+    // tappable (e.g. an ActionMetric) instead of the outer card, so this
+    // invokes the callback directly rather than relying on hit-testing.
+    tester.widget<HomeDropCard>(find.byType(HomeDropCard)).onTap();
     await tester.pumpAndSettle();
     tester.takeException();
 
