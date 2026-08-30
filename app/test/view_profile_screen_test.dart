@@ -288,7 +288,9 @@ void main() {
 
     expect(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์'), findsNothing);
     expect(find.byIcon(Icons.logout), findsNothing);
-    expect(find.widgetWithText(OutlinedButton, 'ติดตาม'), findsOneWidget);
+    // 18-other-profile.tsx: a filled sapphire pill, not an outlined
+    // button (that's Edit Profile's own de-emphasized treatment).
+    expect(find.widgetWithText(FilledButton, 'ติดตาม'), findsOneWidget);
     expect(find.byKey(const Key('profile_saved_button')), findsNothing);
     expect(find.byIcon(Icons.edit_note_outlined), findsNothing);
     expect(find.text('โพสต์'), findsNWidgets(2));
@@ -297,6 +299,45 @@ void main() {
     // Pop is hidden from Profile for WYNOS V1.0.0 Beta -- requirement 3.
     expect(find.text('Pop'), findsNothing);
     expect(find.byType(Tab), findsNWidgets(3));
+  });
+
+  testWidgets('the header stays "โปรไฟล์" for your own profile',
+      (tester) async {
+    await tester.pumpWidget(buildProfile(
+      profileRepository: ownProfileRepo,
+      followRepository: ownFollowRepo,
+      userId: 'me',
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(AppBar, 'โปรไฟล์'), findsOneWidget);
+  });
+
+  testWidgets(
+      '18-other-profile.tsx: the header names the profile owner ("@namfah") '
+      'for someone else\'s profile', (tester) async {
+    await tester.pumpWidget(buildProfile(
+      profileRepository: otherProfileRepo,
+      followRepository: otherFollowRepo,
+      userId: 'someone-else',
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(AppBar, '@namfah'), findsOneWidget);
+  });
+
+  testWidgets(
+      '18-other-profile.tsx: the message button is a circular icon, not '
+      'a labeled "ส่งข้อความ" button', (tester) async {
+    await tester.pumpWidget(buildProfile(
+      profileRepository: otherProfileRepo,
+      followRepository: otherFollowRepo,
+      userId: 'someone-else',
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.send_outlined), findsOneWidget);
+    expect(find.text('ส่งข้อความ'), findsNothing);
   });
 
   testWidgets('Drop tab shows this profile\'s Drops (scoped by author, '

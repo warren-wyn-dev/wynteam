@@ -856,10 +856,28 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
         backgroundColor: WynColors.paper,
         appBar: AppBar(
           backgroundColor: WynColors.paper,
-          title: Text(
-            'โปรไฟล์',
-            style: WynTypography.fraunces(fontSize: 18, color: WynColors.ink),
-          ),
+          // 18-other-profile.tsx: someone else's profile names them in
+          // the header ("@warren", Inter weight 700 -- an identity
+          // label, not a screen-title moment, so no Fraunces here)
+          // instead of a generic "โปรไฟล์" title. Reuses the same
+          // _loadFuture the body's own FutureBuilder awaits rather than
+          // fetching a second time; shows the generic title until it
+          // resolves.
+          title: isOwnProfile
+              ? Text(
+                  'โปรไฟล์',
+                  style: WynTypography.fraunces(fontSize: 18, color: WynColors.ink),
+                )
+              : FutureBuilder<_ProfileWithCounts>(
+                  future: _loadFuture,
+                  builder: (context, snapshot) {
+                    final username = snapshot.data?.profile.username;
+                    return Text(
+                      username == null ? 'โปรไฟล์' : '@$username',
+                      style: _interStyle(fontSize: 15, fontWeight: FontWeight.w700, color: WynColors.ink),
+                    );
+                  },
+                ),
           actions: [
             if (isOwnProfile) ...[
               IconButton(
@@ -1133,16 +1151,36 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              // 18-other-profile.tsx: a filled sapphire
+                              // pill for "ติดตาม"/"ขอติดตามแล้ว" (the
+                              // primary CTA), switching to a quiet tinted
+                              // pill once actually following -- not an
+                              // outlined button either way, unlike Edit
+                              // Profile's own de-emphasized pill above
+                              // (that's occasional/secondary; Follow is
+                              // this screen's primary action toward
+                              // someone else).
                               Semantics(
                                 label: _followButtonSemanticsLabel(profile),
                                 excludeSemantics: true,
-                                child: OutlinedButton(
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor:
-                                        Theme.of(context).colorScheme.primary,
-                                    side: BorderSide(
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
+                                child: FilledButton(
+                                  style: FilledButton.styleFrom(
+                                    shape: const StadiumBorder(),
+                                    backgroundColor: _isFollowing!
+                                        ? const Color(0xFFF1EFE9)
+                                        : WynColors.sapphire,
+                                    foregroundColor: _isFollowing!
+                                        ? WynColors.graphite
+                                        : WynColors.paper,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: WynSpacing.space6,
+                                      vertical: WynSpacing.space3,
+                                    ),
+                                    textStyle: _interStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: _isFollowing!
+                                          ? FontWeight.w600
+                                          : FontWeight.w700,
                                     ),
                                   ),
                                   onPressed: _isFollowActionInFlight
@@ -1151,22 +1189,40 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                                   child: Text(_followButtonLabel(profile)),
                                 ),
                               ),
-                              const SizedBox(width: WynSpacing.space2),
+                              const SizedBox(width: WynSpacing.space3),
                               // WYN-031, Screen 4 -- always reachable
                               // (no Message Request gate this round, see
-                              // the design doc's own scope note).
-                              OutlinedButton(
-                                onPressed: _isStartingChat
-                                    ? null
-                                    : () => _openChat(profile),
-                                child: _isStartingChat
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2),
-                                      )
-                                    : const Text('ส่งข้อความ'),
+                              // the design doc's own scope note). A
+                              // circular icon-only button per
+                              // 18-other-profile.tsx, not a labeled
+                              // "ส่งข้อความ" button.
+                              Semantics(
+                                label: 'ส่งข้อความถึง ${profile.nameOrUsername}',
+                                button: true,
+                                excludeSemantics: true,
+                                child: SizedBox(
+                                  width: 40,
+                                  height: 40,
+                                  child: OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      shape: const CircleBorder(),
+                                      padding: EdgeInsets.zero,
+                                      side: const BorderSide(color: WynColors.hairline),
+                                    ),
+                                    onPressed: _isStartingChat
+                                        ? null
+                                        : () => _openChat(profile),
+                                    child: _isStartingChat
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                                strokeWidth: 2),
+                                          )
+                                        : const Icon(Icons.send_outlined,
+                                            size: 16, color: WynColors.ink),
+                                  ),
+                                ),
                               ),
                             ],
                           ),

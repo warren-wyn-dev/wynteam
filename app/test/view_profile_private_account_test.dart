@@ -131,8 +131,9 @@ void main() {
       // The "Following" count row's own static label is also literally
       // "กำลังติดตาม" -- disambiguate by widget type, same as
       // drop_detail_screen_test.dart's own convention for this exact
-      // string.
-      final followButton = find.widgetWithText(OutlinedButton, 'กำลังติดตาม');
+      // string. 18-other-profile.tsx: a filled (tinted) pill, not an
+      // outlined button.
+      final followButton = find.widgetWithText(FilledButton, 'กำลังติดตาม');
       expect(followButton, findsOneWidget);
       await tester.tap(followButton);
       await tester.pump();
