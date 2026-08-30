@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/widgets/action_sheet_row.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../core/widgets/restriction_banner.dart';
 import '../../block/data/block_relationship.dart';
@@ -583,46 +584,42 @@ class _ConversationScreenState extends State<ConversationScreen> {
     final canReply = message.replyToMessageId == null;
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            if (canReply)
-              ListTile(
-                leading: const Icon(Icons.reply_outlined),
-                title: const Text('ตอบกลับ'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  setState(() => _replyTo = message);
-                },
-              ),
-            if (isMine)
-              ListTile(
-                leading: const Icon(Icons.delete_outline),
-                title: const Text('ลบ'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _deleteMessage(message);
-                },
-              )
-            else
-              ListTile(
-                leading: const Icon(Icons.flag_outlined),
-                title: const Text('รายงาน'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  showReportSheet(
-                    context,
-                    reportRepository: _reportRepository,
-                    targetType: ReportTargetType.message,
-                    targetId: message.id,
-                    targetLabel: 'รายงานข้อความนี้',
-                    associatedUserId: message.senderId,
-                  );
-                },
-              ),
-          ],
-        ),
-      ),
+      builder: (sheetContext) => ActionSheetBody(rows: [
+        if (canReply)
+          ActionSheetRow(
+            icon: Icons.reply_outlined,
+            label: 'ตอบกลับ',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              setState(() => _replyTo = message);
+            },
+          ),
+        if (isMine)
+          ActionSheetRow(
+            icon: Icons.delete_outline,
+            label: 'ลบ',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _deleteMessage(message);
+            },
+          )
+        else
+          ActionSheetRow(
+            icon: Icons.flag_outlined,
+            label: 'รายงาน',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              showReportSheet(
+                context,
+                reportRepository: _reportRepository,
+                targetType: ReportTargetType.message,
+                targetId: message.id,
+                targetLabel: 'รายงานข้อความนี้',
+                associatedUserId: message.senderId,
+              );
+            },
+          ),
+      ]),
     );
   }
 
@@ -631,66 +628,62 @@ class _ConversationScreenState extends State<ConversationScreen> {
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: Icon(isMuted ? Icons.notifications_active_outlined : Icons.notifications_off_outlined),
-              title: Text(isMuted ? 'เปิดแจ้งเตือนบทสนทนานี้' : 'ปิดแจ้งเตือนบทสนทนานี้'),
-              onTap: () async {
-                Navigator.of(sheetContext).pop();
-                try {
-                  if (isMuted) {
-                    await widget.chatRepository.unmuteConversation(widget.conversationId);
-                  } else {
-                    await widget.chatRepository.muteConversation(widget.conversationId);
-                  }
-                } catch (_) {
-                  // Silent -- see ChatInboxScreen's identical toggle.
-                }
-              },
-            ),
-            if (!_blockRelationship.isBlockedEitherWay)
-              ListTile(
-                leading: const Icon(Icons.block),
-                title: const Text('บล็อก'),
-                onTap: () async {
-                  Navigator.of(sheetContext).pop();
-                  final confirmed = await confirmBlock(context, username: widget.otherUsername);
-                  if (!confirmed || !mounted) return;
-                  try {
-                    await _blockRepository.blockUser(widget.otherUserId);
-                    if (mounted) setState(() => _blockRelationship = BlockRelationship.blockedByMe);
-                  } catch (_) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
-                    );
-                  }
-                },
-              ),
-            ListTile(
-              leading: const Icon(Icons.person_outline),
-              title: const Text('ดูโปรไฟล์'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ViewProfileScreen(
-                      profileRepository: _profileRepository,
-                      followRepository: _followRepository,
-                      dropRepository: _dropRepository,
-                      popRepository: _popRepository,
-                      savedRepository: _savedRepository,
-                      userId: widget.otherUserId,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
+      builder: (sheetContext) => ActionSheetBody(rows: [
+        ActionSheetRow(
+          icon: isMuted ? Icons.notifications_active_outlined : Icons.notifications_off_outlined,
+          label: isMuted ? 'เปิดแจ้งเตือนบทสนทนานี้' : 'ปิดแจ้งเตือนบทสนทนานี้',
+          onTap: () async {
+            Navigator.of(sheetContext).pop();
+            try {
+              if (isMuted) {
+                await widget.chatRepository.unmuteConversation(widget.conversationId);
+              } else {
+                await widget.chatRepository.muteConversation(widget.conversationId);
+              }
+            } catch (_) {
+              // Silent -- see ChatInboxScreen's identical toggle.
+            }
+          },
         ),
-      ),
+        if (!_blockRelationship.isBlockedEitherWay)
+          ActionSheetRow(
+            icon: Icons.block,
+            label: 'บล็อก',
+            onTap: () async {
+              Navigator.of(sheetContext).pop();
+              final confirmed = await confirmBlock(context, username: widget.otherUsername);
+              if (!confirmed || !mounted) return;
+              try {
+                await _blockRepository.blockUser(widget.otherUserId);
+                if (mounted) setState(() => _blockRelationship = BlockRelationship.blockedByMe);
+              } catch (_) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
+                );
+              }
+            },
+          ),
+        ActionSheetRow(
+          icon: Icons.person_outline,
+          label: 'ดูโปรไฟล์',
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ViewProfileScreen(
+                  profileRepository: _profileRepository,
+                  followRepository: _followRepository,
+                  dropRepository: _dropRepository,
+                  popRepository: _popRepository,
+                  savedRepository: _savedRepository,
+                  userId: widget.otherUserId,
+                ),
+              ),
+            );
+          },
+        ),
+      ]),
     );
   }
 

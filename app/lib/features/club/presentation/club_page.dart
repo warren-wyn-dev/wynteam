@@ -13,6 +13,7 @@ import 'widgets/club_posts_tab.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
+import '../../../core/widgets/action_sheet_row.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../../chat/data/chat_repository.dart';
 import '../../chat/data/shared_content_type.dart';
@@ -235,80 +236,76 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
 
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            if (role != null && role.canManageClub) ...[
-              ListTile(
-                leading: const Icon(Icons.edit_outlined),
-                title: const Text('แก้ไขข้อมูล Club'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _openEditInfo(club);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.lock_outline),
-                title: const Text('เปลี่ยนความเป็นส่วนตัว'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _changePrivacy(club);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.people_outline),
-                title: const Text('จัดการสิทธิ์สมาชิก'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _tabController.animateTo(1);
-                },
-              ),
-            ] else if (isApproved) ...[
-              ListTile(
-                leading: const Icon(Icons.logout),
-                title: const Text('ออกจาก Club'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _toggleJoin(club, membership);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.flag_outlined),
-                title: const Text('รายงาน Club'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _reportClub(club);
-                },
-              ),
-            ] else if (isPending) ...[
-              ListTile(
-                leading: const Icon(Icons.close),
-                title: const Text('ยกเลิกคำขอ'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _cancelRequest(club.id);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.flag_outlined),
-                title: const Text('รายงาน Club'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _reportClub(club);
-                },
-              ),
-            ] else
-              ListTile(
-                leading: const Icon(Icons.flag_outlined),
-                title: const Text('รายงาน Club'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _reportClub(club);
-                },
-              ),
-          ],
-        ),
-      ),
+      builder: (sheetContext) => ActionSheetBody(rows: [
+        if (role != null && role.canManageClub) ...[
+          ActionSheetRow(
+            icon: Icons.edit_outlined,
+            label: 'แก้ไขข้อมูล Club',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _openEditInfo(club);
+            },
+          ),
+          ActionSheetRow(
+            icon: Icons.lock_outline,
+            label: 'เปลี่ยนความเป็นส่วนตัว',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _changePrivacy(club);
+            },
+          ),
+          ActionSheetRow(
+            icon: Icons.people_outline,
+            label: 'จัดการสิทธิ์สมาชิก',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _tabController.animateTo(1);
+            },
+          ),
+        ] else if (isApproved) ...[
+          ActionSheetRow(
+            icon: Icons.logout,
+            label: 'ออกจาก Club',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _toggleJoin(club, membership);
+            },
+          ),
+          ActionSheetRow(
+            icon: Icons.flag_outlined,
+            label: 'รายงาน Club',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _reportClub(club);
+            },
+          ),
+        ] else if (isPending) ...[
+          ActionSheetRow(
+            icon: Icons.close,
+            label: 'ยกเลิกคำขอ',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _cancelRequest(club.id);
+            },
+          ),
+          ActionSheetRow(
+            icon: Icons.flag_outlined,
+            label: 'รายงาน Club',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _reportClub(club);
+            },
+          ),
+        ] else
+          ActionSheetRow(
+            icon: Icons.flag_outlined,
+            label: 'รายงาน Club',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _reportClub(club);
+            },
+          ),
+      ]),
     );
   }
 

@@ -10,6 +10,7 @@ import '../../data/club_post.dart';
 import '../club_post_detail_screen.dart' show clubPostShareLink;
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/widgets/action_sheet_row.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
@@ -82,43 +83,39 @@ class ClubPostCard extends StatelessWidget {
 
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            if (_isOwnPost || canModerate)
-              ListTile(
-                leading: const Icon(Icons.delete_outline),
-                title: const Text('ลบโพสต์'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _confirmDelete(context);
-                },
-              ),
-            if (!_isOwnPost && canModerate)
-              ListTile(
-                leading: Icon(post.pinned ? Icons.push_pin_outlined : Icons.push_pin),
-                title: Text(post.pinned ? 'เลิกปักหมุด' : 'ปักหมุด'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  onTogglePin();
-                },
-              ),
-            // Report is always the last item and only ever shown for
-            // someone else's post (see wyn-026-report-system.md, Screen
-            // 6) -- everyone who isn't the author can report a post,
-            // regardless of whether they also have moderation rights.
-            if (!_isOwnPost)
-              ListTile(
-                leading: const Icon(Icons.flag_outlined),
-                title: const Text('รายงานโพสต์'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _report(context);
-                },
-              ),
-          ],
-        ),
-      ),
+      builder: (sheetContext) => ActionSheetBody(rows: [
+        if (_isOwnPost || canModerate)
+          ActionSheetRow(
+            icon: Icons.delete_outline,
+            label: 'ลบโพสต์',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _confirmDelete(context);
+            },
+          ),
+        if (!_isOwnPost && canModerate)
+          ActionSheetRow(
+            icon: post.pinned ? Icons.push_pin_outlined : Icons.push_pin,
+            label: post.pinned ? 'เลิกปักหมุด' : 'ปักหมุด',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              onTogglePin();
+            },
+          ),
+        // Report is always the last item and only ever shown for
+        // someone else's post (see wyn-026-report-system.md, Screen
+        // 6) -- everyone who isn't the author can report a post,
+        // regardless of whether they also have moderation rights.
+        if (!_isOwnPost)
+          ActionSheetRow(
+            icon: Icons.flag_outlined,
+            label: 'รายงานโพสต์',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _report(context);
+            },
+          ),
+      ]),
     );
   }
 
