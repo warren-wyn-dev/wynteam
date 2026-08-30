@@ -1192,7 +1192,12 @@ void main() {
 
       expect(find.byType(ExploreClubsScreen), findsOneWidget);
 
-      await tester.pageBack();
+      // ExploreClubsScreen's own header supplies a plain chevron
+      // IconButton (Key 'explore_clubs_back_button'), not a Material/
+      // Cupertino back button -- tester.pageBack() (which looks for
+      // one of those specifically) would find neither. See
+      // 09-club-explore.tsx's restyle.
+      await tester.tap(find.byKey(const Key('explore_clubs_back_button')));
       await tester.pumpAndSettle();
       tester.takeException();
 

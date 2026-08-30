@@ -80,14 +80,19 @@ class RecordingDropRepository extends DropRepository {
   Future<List<Drop>> fetchByAuthor({
     required String authorId,
     required int page,
-    bool onlyWithImages = false,
   }) async {
     if (page != 0) return [];
-    return feedDrops
-        .where((d) =>
-            d.authorId == authorId && (!onlyWithImages || d.imageUrl != null))
-        .toList();
+    return feedDrops.where((d) => d.authorId == authorId).toList();
   }
+
+  /// Returned by [countByAuthor], keyed by authorId -- defaults to 0 for
+  /// any author not present, same "missing key -> harmless default" shape
+  /// as [likedDropsByAuthor].
+  Map<String, int> dropCountByAuthor = {};
+
+  @override
+  Future<int> countByAuthor(String authorId) async =>
+      dropCountByAuthor[authorId] ?? 0;
 
   /// Returned by [fetchLikedByAuthor], keyed by authorId -- WYN-071.
   Map<String, List<Drop>> likedDropsByAuthor = {};

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../data/auth_repository.dart';
 import 'auth_method_screen.dart';
+import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_typography.dart';
 
 /// Screen 1 — Welcome.
 /// See .wyn/docs/design/wyn-002-authentication-onboarding.md
@@ -24,11 +26,21 @@ class WelcomeScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  // 19-onboarding.tsx: the one wordmark moment in the
+                  // whole app that outranks every other screen's own --
+                  // this is the very first thing a brand-new person
+                  // sees, so it carries the Fraunces treatment SPEC.md
+                  // reserves for wordmark/screen-title spots, unlike the
+                  // plain Inter-based Theme.textTheme every other bit of
+                  // text on this form-heavy flow correctly uses as-is.
                   Text(
                     'WYN',
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: WynTypography.fraunces(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 34 * 0.03,
+                      color: WynColors.ink,
+                    ),
                   ),
                   const SizedBox(width: WynSpacing.space2),
                   // Beta label (Founder, 2026-08-24) -- flags this build
@@ -62,7 +74,10 @@ class WelcomeScreen extends StatelessWidget {
               Text(
                 'เชื่อมต่อ แสดงตัวตน และสร้างชุมชนของคุณเอง',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontSize: 14,
+                      color: WynColors.graphite,
+                    ),
               ),
               const Spacer(flex: 4),
               SizedBox(

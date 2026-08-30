@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_typography.dart';
 import '../../block/data/block_relationship.dart';
 import '../../block/data/block_repository.dart';
 import '../../block/presentation/block_dialogs.dart';
@@ -240,7 +243,11 @@ class _ReportSheetState extends State<ReportSheet> {
                 Expanded(
                   child: Text(
                     widget.targetLabel,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    // 21-report-block.tsx: the reason-picker heading
+                    // ("ทำไมคุณถึงรายงานโพสต์นี้") is Fraunces -- same
+                    // wordmark/screen-title spot every other reference
+                    // screen reserves for it.
+                    style: WynTypography.fraunces(fontSize: 16, color: WynColors.ink),
                   ),
                 ),
                 SizedBox(
@@ -310,30 +317,59 @@ class _ReportSheetState extends State<ReportSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // A plain selectable ListTile rather than RadioListTile -- this
+          // A plain selectable row rather than RadioListTile -- this
           // Flutter version deprecates Radio's groupValue/onChanged in
           // favor of a RadioGroup ancestor, which would be a heavier
           // structural change for a single-select list of 10 fixed
           // options with no reuse elsewhere in the app yet.
-          for (final category in ReportCategory.values)
+          //
+          // 21-report-block.tsx: label on the left, a small circle
+          // indicator on the right (not a leading radio icon), with a
+          // hairline border between rows.
+          for (final (index, category) in ReportCategory.values.indexed)
             Semantics(
               label: category.label,
               selected: _category == category,
               excludeSemantics: true,
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  _category == category
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_unchecked,
-                  color: _category == category
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
-                ),
-                title: Text(category.label),
+              child: InkWell(
                 onTap: _isSubmitting
                     ? null
                     : () => setState(() => _category = category),
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: index == 0
+                          ? const BorderSide(color: WynColors.hairline)
+                          : BorderSide.none,
+                      bottom: const BorderSide(color: WynColors.hairline),
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          category.label,
+                          style: GoogleFonts.inter(fontSize: 14, color: WynColors.ink),
+                        ),
+                      ),
+                      Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _category == category
+                                ? WynColors.sapphire
+                                : WynColors.faint,
+                            width: 1.5,
+                          ),
+                          color: _category == category ? WynColors.sapphire : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           const SizedBox(height: WynSpacing.space2),

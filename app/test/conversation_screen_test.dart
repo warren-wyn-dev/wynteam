@@ -4,6 +4,7 @@ import 'package:wyn/features/block/data/block_relationship.dart';
 import 'package:wyn/features/chat/data/chat_message.dart';
 import 'package:wyn/features/chat/presentation/conversation_screen.dart';
 import 'package:wyn/features/moderation/data/moderation_status.dart';
+import 'package:wyn/features/profile/presentation/widgets/avatar_circle.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_block_repository.dart';
@@ -244,6 +245,111 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('ข้อความซ้ำ'), findsOneWidget);
+  });
+
+  group('13-chat-thread.tsx restyle: avatar grouping and time dividers', () {
+    testWidgets(
+        'a consecutive run of "them" messages shows the avatar only once, '
+        'on the oldest bubble of the run', (tester) async {
+      final now = DateTime.now();
+      chatRepo.messagesByConversation = {
+        // Newest first, matching what a real fetch returns.
+        'c1': [
+          ChatMessage(
+              id: 'm3',
+              conversationId: 'c1',
+              senderId: 'other',
+              createdAt: now,
+              text: 'ข้อความที่ 3'),
+          ChatMessage(
+              id: 'm2',
+              conversationId: 'c1',
+              senderId: 'other',
+              createdAt: now.subtract(const Duration(seconds: 30)),
+              text: 'ข้อความที่ 2'),
+          ChatMessage(
+              id: 'm1',
+              conversationId: 'c1',
+              senderId: 'me',
+              createdAt: now.subtract(const Duration(minutes: 1)),
+              text: 'ข้อความที่ 1'),
+        ],
+      };
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('ข้อความที่ 1'), findsOneWidget);
+      expect(find.text('ข้อความที่ 2'), findsOneWidget);
+      expect(find.text('ข้อความที่ 3'), findsOneWidget);
+
+      // Bubble avatars use radius 15 -- distinct from the AppBar's own
+      // identity avatar (radius 14) and the empty-state avatar (radius
+      // 40), so this count only reflects bubbles.
+      final bubbleAvatars = find.byWidgetPredicate(
+        (widget) => widget is AvatarCircle && widget.radius == 15,
+      );
+      expect(bubbleAvatars, findsOneWidget);
+    });
+
+    // Fixed, distinctly-past timestamps (not "today"/"yesterday" relative
+    // to whenever this test happens to run) so the divider label always
+    // takes _dividerLabel's "d/M HH:mm" fallback branch -- deterministic
+    // regardless of wall-clock time or a midnight-crossing test run.
+    final anchor = DateTime(2020, 6, 15, 12);
+
+    testWidgets(
+        'no divider between two closely-timed messages -- only one at the '
+        'very start of the loaded history', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [
+          ChatMessage(
+              id: 'm2',
+              conversationId: 'c1',
+              senderId: 'other',
+              createdAt: anchor,
+              text: 'ข้อความล่าสุด'),
+          ChatMessage(
+              id: 'm1',
+              conversationId: 'c1',
+              senderId: 'other',
+              createdAt: anchor.subtract(const Duration(minutes: 3)),
+              text: 'ข้อความก่อนหน้า'),
+        ],
+      };
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      // Only the oldest-loaded message (no more history) gets a divider
+      // -- the 2 messages are close enough in time not to need one
+      // between them.
+      expect(find.textContaining('15/6'), findsOneWidget);
+    });
+
+    testWidgets('a real time gap between message groups gets its own divider',
+        (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [
+          ChatMessage(
+              id: 'm2',
+              conversationId: 'c1',
+              senderId: 'other',
+              createdAt: anchor,
+              text: 'ข้อความใหม่'),
+          ChatMessage(
+              id: 'm1',
+              conversationId: 'c1',
+              senderId: 'other',
+              createdAt: anchor.subtract(const Duration(hours: 2)),
+              text: 'ข้อความเก่า'),
+        ],
+      };
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      // Both the >30-minute gap between the 2 groups and the very start
+      // of history (the older message) get their own divider.
+      expect(find.textContaining('15/6'), findsNWidgets(2));
+    });
   });
 
   group('Message Request (WYN-032)', () {

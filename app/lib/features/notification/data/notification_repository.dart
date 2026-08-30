@@ -31,7 +31,15 @@ class NotificationRepository {
           'moderation_action_id, moderation_action_type, conversation_id, is_read, created_at, '
           'actor:profiles!notifications_actor_id_fkey(id, username, display_name, avatar_url), '
           'club:clubs(name), '
-          'order:orders(store:stores(name))',
+          'order:orders(store:stores(name)), '
+          // 02-notifications.tsx's preview line -- drop_id/pop_id are the
+          // only FKs from notifications to drops/pops (no `!constraint`
+          // qualifier needed, same as club:clubs(name) above). Only one
+          // of the two is ever non-null per row (WynNotification.dropId/
+          // popId's own doc comments), and WynNotification.fromMap reads
+          // whichever is present.
+          'drop:drops(caption), '
+          'pop:pops(caption)',
         )
         .order('created_at', ascending: false)
         .range(from, to);

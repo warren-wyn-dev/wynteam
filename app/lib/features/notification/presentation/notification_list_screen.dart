@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/text_utils.dart';
@@ -23,11 +24,16 @@ import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../../saved/data/saved_repository.dart';
+import '../../root/presentation/side_menu.dart';
+import '../../search/presentation/search_screen.dart';
 import '../../zoky/data/zoky_repository.dart';
 import '../../zoky/presentation/zoky_order_detail_screen.dart';
 import '../data/notification.dart';
 import '../data/notification_repository.dart';
+import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_typography.dart';
+import '../../../core/widgets/empty_state_block.dart';
 
 /// Screen 2 — Notification list (WYN-012, extended by WYN-015 with 4
 /// Club types). Row structure mirrors FollowListScreen (WYN-008/013)
@@ -83,6 +89,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
           FollowRequestRepository(Supabase.instance.client);
 
   final _scrollController = ScrollController();
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   final List<WynNotification> _notifications = [];
 
   // Which notification ids were unread *at the moment this screen first
@@ -100,6 +107,14 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
   bool _isLoadingMore = false;
   bool _hasMore = true;
   String? _error;
+
+  // 02-notifications.tsx's "ทั้งหมด"/"การกล่าวถึง" tabs -- client-side
+  // filter over the same [_notifications]/pagination state, same
+  // "one shared list, tabs just filter/re-fetch it" pattern
+  // home_feed_screen.dart's own feed-mode toggle uses. Never persisted --
+  // resets to "ทั้งหมด" every time this screen is (re)built fresh, same
+  // posture as Home's _feedMode.
+  _NotificationTab _tab = _NotificationTab.all;
 
   @override
   void initState() {
@@ -352,6 +367,26 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     );
   }
 
+  // 02-notifications.tsx's header search icon -- Search already has its
+  // own bottom-nav tab (root_shell.dart), so this pushes the same
+  // `SearchScreen` ViewProfileScreen/the ZOKY screens already reuse this
+  // way, rather than inventing a second route to the same destination.
+  void _openSearch() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SearchScreen(
+          profileRepository: widget.profileRepository,
+          followRepository: widget.followRepository,
+          dropRepository: widget.dropRepository,
+          popRepository: widget.popRepository,
+          savedRepository: widget.savedRepository,
+          clubRepository: widget.clubRepository,
+          clubPostRepository: widget.clubPostRepository,
+        ),
+      ),
+    );
+  }
+
   void _openClub(String clubId, {required int initialTabIndex}) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -509,10 +544,116 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('การแจ้งเตือน')),
-      body: _buildBody(),
+      key: _scaffoldKey,
+      backgroundColor: WynColors.paper,
+      drawer: SideMenu(
+        profileRepository: widget.profileRepository,
+        followRepository: widget.followRepository,
+        dropRepository: widget.dropRepository,
+        popRepository: widget.popRepository,
+        savedRepository: widget.savedRepository,
+        clubRepository: widget.clubRepository,
+        clubPostRepository: widget.clubPostRepository,
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            _buildTabs(),
+            Expanded(child: _buildBody()),
+          ],
+        ),
+      ),
     );
   }
+
+  // 02-notifications.tsx header: hamburger (left) -- title (center) --
+  // search (right). Custom Row instead of an AppBar, same reasoning
+  // home_feed_screen.dart's own build() doc comment gives for its floating
+  // chat icon: an AppBar claims fixed Column height no matter how compact,
+  // and this screen (like Home) no longer has a use for one now that
+  // Search/Notifications are their own Bottom Nav destinations.
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(WynSpacing.space2,
+          WynSpacing.space1, WynSpacing.space2, WynSpacing.space1),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // 10-side-menu.tsx's ☰ opens a real drawer (see SideMenu) now
+          // that it's built.
+          IconButton(
+            icon: const Icon(Icons.menu, size: 20, color: WynColors.ink),
+            tooltip: 'เมนู',
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+          ),
+          Text(
+            'การแจ้งเตือน',
+            style: WynTypography.fraunces(
+              fontSize: 19,
+              letterSpacing: 19 * 0.02,
+              color: WynColors.ink,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.search, size: 19, color: WynColors.ink),
+            tooltip: 'ค้นหา',
+            onPressed: _openSearch,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabs() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: WynColors.hairline)),
+      ),
+      child: Row(
+        children: [
+          _buildTab(_NotificationTab.all, 'ทั้งหมด'),
+          const SizedBox(width: WynSpacing.space6),
+          _buildTab(_NotificationTab.mentions, 'การกล่าวถึง'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTab(_NotificationTab tab, String label) {
+    final active = _tab == tab;
+    return InkWell(
+      onTap: () => setState(() => _tab = tab),
+      child: IntrinsicWidth(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(vertical: WynSpacing.space3),
+              child: Text(
+                label,
+                style: _interStyle(
+                  fontSize: 13.5,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                  color: active ? WynColors.ink : WynColors.mutedNeutral,
+                ),
+              ),
+            ),
+            Container(
+              height: 2,
+              color: active ? WynColors.sapphire : Colors.transparent,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _isMentionType(WynNotification n) =>
+      n.type == NotificationType.mentionDrop ||
+      n.type == NotificationType.mentionClubPost;
 
   Widget _buildBody() {
     if (_isLoadingInitial) {
@@ -532,121 +673,417 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       );
     }
 
+    // "การกล่าวถึง" filters the same already-fetched [_notifications] list
+    // rather than issuing a separate fetch -- same "one shared list, tab
+    // just filters/re-fetches it" pattern home_feed_screen.dart's own
+    // feed-mode toggle uses for its non-"จาก Club ของคุณ" modes.
+    if (_tab == _NotificationTab.mentions) {
+      final mentions = _notifications.where(_isMentionType).toList();
+      if (mentions.isEmpty) {
+        return _buildEmptyState(
+          headline: 'ยังไม่มีใครกล่าวถึงคุณ',
+          subtext: 'เวลามีคนพูดถึงคุณในโพสต์ จะขึ้นตรงนี้',
+        );
+      }
+      // Not [_hasMore]-paginated on its own -- it's a filtered view over
+      // whatever pages "ทั้งหมด" has already loaded, so neither a
+      // load-more spinner nor the "no more" footer would be accurate here.
+      return _buildList(mentions, paginated: false);
+    }
+
     if (_notifications.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.notifications_none,
-                size: 56,
-                color: Theme.of(context).colorScheme.outline,
-              ),
-              const SizedBox(height: WynSpacing.space4),
-              const Text('ยังไม่มีการแจ้งเตือน', textAlign: TextAlign.center),
-              const SizedBox(height: WynSpacing.space2),
-              Text(
-                'เมื่อมีคนถูกใจ แสดงความคิดเห็น ติดตามคุณ หรือมีความเคลื่อนไหวใน Club จะเห็นที่นี่',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
-              ),
-            ],
-          ),
-        ),
+      return _buildEmptyState(
+        headline: 'ยังไม่มีการแจ้งเตือน',
+        subtext:
+            'เมื่อมีคนถูกใจ แสดงความคิดเห็น ติดตามคุณ หรือมีความเคลื่อนไหวใน Club จะเห็นที่นี่',
       );
     }
+
+    return _buildList(_notifications, paginated: true);
+  }
+
+  // 22-empty-states.tsx: icon-in-tint-circle + Fraunces headline +
+  // supportive line, same shared shape the Chat Inbox's own empty state
+  // uses.
+  Widget _buildEmptyState({required String headline, required String subtext}) {
+    return Center(
+      child: EmptyStateBlock(
+        icon: Icons.notifications_outlined,
+        title: headline,
+        subtitle: subtext,
+      ),
+    );
+  }
+
+  // Groups [items] by day (วันนี้/เมื่อวานนี้/เก่ากว่านี้), then within each
+  // day collapses same-type-same-target rows into one [_NotificationGroup]
+  // (Founder-approved client-side behavior, 2026-08-29 -- see
+  // .wyn/company/DECISIONS.md). Returns a flat list mixing `String` section
+  // labels and [_NotificationGroup]s, in display order, so [_buildList]
+  // can render it with one `ListView.builder` instead of a nested one.
+  List<Object> _buildSections(List<WynNotification> items) {
+    final now = DateTime.now();
+    final byBucket = <_DayBucket, List<WynNotification>>{};
+    for (final n in items) {
+      byBucket.putIfAbsent(_bucketFor(n.createdAt, now), () => []).add(n);
+    }
+
+    final sections = <Object>[];
+    for (final bucket in _DayBucket.values) {
+      final bucketItems = byBucket[bucket];
+      if (bucketItems == null || bucketItems.isEmpty) continue;
+      sections.add(_bucketLabel(bucket));
+      sections.addAll(_groupWithinDay(bucketItems));
+    }
+    return sections;
+  }
+
+  Widget _buildList(List<WynNotification> items, {required bool paginated}) {
+    final sections = _buildSections(items);
+    final showSpinner = paginated && _hasMore;
+    final showFooter = paginated && !_hasMore;
+    final trailingCount = (showSpinner || showFooter) ? 1 : 0;
 
     return RefreshIndicator(
       onRefresh: _loadInitial,
       child: ListView.builder(
         controller: _scrollController,
-        itemCount: _notifications.length + (_hasMore ? 1 : 0),
+        itemCount: sections.length + trailingCount,
         itemBuilder: (context, index) {
-          if (index >= _notifications.length) {
+          if (index < sections.length) {
+            final section = sections[index];
+            return section is String
+                ? _GroupLabel(label: section)
+                : _buildGroupRow(section as _NotificationGroup);
+          }
+          if (showSpinner) {
             return const Padding(
               padding: EdgeInsets.all(WynSpacing.space4),
               child: Center(child: CircularProgressIndicator()),
             );
           }
-
-          final notification = _notifications[index];
-          final isUnread = _unreadSnapshot.contains(notification.id);
-          final message = _messageFor(notification);
-          final time =
-              relativeTimeLabel(notification.createdAt, now: DateTime.now());
-
-          return Container(
-            color: isUnread
-                ? Theme.of(context)
-                    .colorScheme
-                    .primaryContainer
-                    .withValues(alpha: 0.35)
-                : null,
-            child: Semantics(
-              label: '$message $time${isUnread ? ' ยังไม่ได้อ่าน' : ''}',
-              button: true,
-              excludeSemantics: true,
-              child: InkWell(
-                onTap: () => _openNotification(notification),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: WynSpacing.space4,
-                      vertical: WynSpacing.space2),
-                  child: Row(
-                    children: [
-                      if (_hidesActorIdentity(notification.type))
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: Theme.of(context)
-                              .colorScheme
-                              .surfaceContainerHigh,
-                          child: Icon(
-                            _noActorIconFor(notification.type),
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                        )
-                      else
-                        AvatarCircle(
-                          imageUrl: notification.actorAvatarUrl,
-                          // actorUsername is only ever null for the 2
-                          // hidden-identity moderation types, which never
-                          // reach this branch -- the '' fallback is just
-                          // to satisfy the now-nullable type (WYN-029 fix).
-                          fallbackText: notification.actorUsername ?? '',
-                          radius: 20,
-                        ),
-                      const SizedBox(width: WynSpacing.space3),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(message,
-                                style: Theme.of(context).textTheme.bodyMedium),
-                            Text(
-                              time,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                    color:
-                                        Theme.of(context).colorScheme.outline,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+          // 02-notifications.tsx's static end-of-list footer -- shown only
+          // once pagination is truly exhausted, never mid-load.
+          return Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: WynSpacing.space4, vertical: WynSpacing.space8),
+            child: Center(
+              child: Text(
+                'ไม่มีการแจ้งเตือนเพิ่มเติมแล้ว',
+                style: _interStyle(fontSize: 13, color: WynColors.faint),
               ),
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildGroupRow(_NotificationGroup group) {
+    final n = group.head;
+    final isUnread = group.items.any((item) => _unreadSnapshot.contains(item.id));
+    final time = relativeTimeLabel(n.createdAt, now: DateTime.now());
+    final message = _messageFor(n);
+
+    return Semantics(
+      label: '$message $time${isUnread ? ' ยังไม่ได้อ่าน' : ''}',
+      button: true,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: () => _openNotification(n),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildAvatar(n),
+              const SizedBox(width: WynSpacing.space3),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildMessage(n, message, group.extraActorCount),
+                    if (n.contentPreview != null &&
+                        n.contentPreview!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '“${n.contentPreview}”',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _interStyle(fontSize: 12.5, color: WynColors.graphite),
+                      ),
+                    ],
+                    const SizedBox(height: 2),
+                    Text(
+                      time,
+                      style: _interStyle(fontSize: 11.5, color: WynColors.faint),
+                    ),
+                  ],
+                ),
+              ),
+              if (isUnread)
+                const Padding(
+                  padding: EdgeInsets.only(top: 6, left: WynSpacing.space2),
+                  child: _UnreadDot(key: Key('notification_unread_dot')),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Avatar (with SPEC.md's sapphire ring) plus a small type-icon badge
+  // anchored on it (02-notifications.tsx's TypeBadge) -- types outside
+  // [_badgeFor]'s mapping (orders, club, moderation, mentions, message/
+  // follow requests) get no badge, same as the reference's own scope.
+  Widget _buildAvatar(WynNotification n) {
+    final avatar = _hidesActorIdentity(n.type)
+        ? CircleAvatar(
+            radius: 20,
+            backgroundColor: WynColors.hairline,
+            child: Icon(_noActorIconFor(n.type), color: WynColors.graphite),
+          )
+        : AvatarCircle(
+            imageUrl: n.actorAvatarUrl,
+            // actorUsername is only ever null for the 2 hidden-identity
+            // moderation types, which never reach this branch -- the ''
+            // fallback is just to satisfy the now-nullable type (WYN-029
+            // fix).
+            fallbackText: n.actorUsername ?? '',
+            radius: 20,
+            ring: true,
+          );
+
+    final badge = _badgeFor(n.type);
+    if (badge == null) return avatar;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        avatar,
+        Positioned(
+          bottom: -2,
+          right: -2,
+          child: Container(
+            width: 18,
+            height: 18,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: badge.color,
+              border: const Border.fromBorderSide(
+                BorderSide(color: WynColors.paper, width: 1.5),
+              ),
+            ),
+            child: Icon(badge.icon, size: 10, color: WynColors.paper),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Bolds the actor name inside [message] (every [_messageFor] string that
+  // has a real actor starts with `actorNameOrUsername`, e.g. "$name ถูกใจ
+  // ... ของคุณ") and appends "และอีก N คน" when [group]'s row collapsed
+  // more than one distinct actor -- 02-notifications.tsx's own pattern.
+  Widget _buildMessage(WynNotification n, String message, int extraActorCount) {
+    final name = n.actorNameOrUsername;
+    final baseStyle = _interStyle(fontSize: 13.5, color: _kMessageBodyColor);
+    final nameStyle =
+        _interStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: WynColors.ink);
+    final extraStyle = _interStyle(fontSize: 13.5, color: WynColors.graphite);
+
+    final spans = <InlineSpan>[];
+    if (name.isNotEmpty && message.startsWith(name)) {
+      spans.add(TextSpan(text: name, style: nameStyle));
+      spans.add(TextSpan(text: message.substring(name.length), style: baseStyle));
+    } else {
+      spans.add(TextSpan(text: message, style: baseStyle));
+    }
+    if (extraActorCount > 0) {
+      spans.add(TextSpan(text: ' และอีก $extraActorCount คน', style: extraStyle));
+    }
+    return Text.rich(TextSpan(children: spans));
+  }
+}
+
+// 02-notifications.tsx's two-tab split (All / Mentions).
+enum _NotificationTab { all, mentions }
+
+// 02-notifications.tsx groups notifications by recency instead of one
+// unbroken list -- "เก่ากว่านี้" is this app's own addition (the reference
+// mock only ever has data for today/yesterday) so real accounts with older
+// history still get a bucket instead of items falling off the labeled
+// list entirely.
+enum _DayBucket { today, yesterday, older }
+
+_DayBucket _bucketFor(DateTime createdAt, DateTime now) {
+  final day = DateTime(createdAt.year, createdAt.month, createdAt.day);
+  final today = DateTime(now.year, now.month, now.day);
+  final diff = today.difference(day).inDays;
+  if (diff <= 0) return _DayBucket.today;
+  if (diff == 1) return _DayBucket.yesterday;
+  return _DayBucket.older;
+}
+
+String _bucketLabel(_DayBucket bucket) => switch (bucket) {
+      _DayBucket.today => 'วันนี้',
+      _DayBucket.yesterday => 'เมื่อวานนี้',
+      _DayBucket.older => 'เก่ากว่านี้',
+    };
+
+// Types 02-notifications.tsx's "รวมแจ้งเตือนประเภทเดียวกัน จากคนละคน บน
+// เป้าหมายเดียวกัน เป็นแถวเดียว" behavior applies to -- the "social,
+// multi-actor-capable" types the reference's own like/comment/repost/
+// follow examples cover. Order/club/moderation/mention/message-request/
+// follow-request/system notifications keep one row per event: grouping
+// them either has no natural "and N others" reading (a moderation action,
+// a system announcement) or would hide information a single recipient
+// needs to act on individually (an order, a club join request).
+const _groupableTypes = {
+  NotificationType.likeDrop,
+  NotificationType.likePop,
+  NotificationType.commentDrop,
+  NotificationType.commentPop,
+  NotificationType.redrop,
+  NotificationType.follow,
+};
+
+/// Null for a type [_groupableTypes] excludes. For a groupable type, the
+/// key is type + target (dropId/popId, empty for `follow` which has none)
+/// -- multiple different actors on the same key within the same day
+/// collapse into one [_NotificationGroup].
+String? _groupKeyFor(WynNotification n) {
+  if (!_groupableTypes.contains(n.type)) return null;
+  final target = n.dropId ?? n.popId ?? '';
+  return '${n.type}:$target';
+}
+
+List<_NotificationGroup> _groupWithinDay(List<WynNotification> items) {
+  final groups = <_NotificationGroup>[];
+  final indexByKey = <String, int>{};
+  for (final n in items) {
+    final key = _groupKeyFor(n);
+    if (key == null) {
+      groups.add(_NotificationGroup([n]));
+      continue;
+    }
+    final existingIndex = indexByKey[key];
+    if (existingIndex == null) {
+      indexByKey[key] = groups.length;
+      groups.add(_NotificationGroup([n]));
+    } else {
+      groups[existingIndex].items.add(n);
+    }
+  }
+  return groups;
+}
+
+/// One or more [WynNotification]s collapsed into a single displayed row.
+/// [items] stays newest-first, same order [head] and [extraActorCount]
+/// rely on.
+class _NotificationGroup {
+  _NotificationGroup(List<WynNotification> initial) : items = List.of(initial);
+
+  final List<WynNotification> items;
+
+  WynNotification get head => items.first;
+
+  /// Distinct actors among the collapsed rows *other than* [head]'s --
+  /// deliberately de-duplicated by actorId so the same person appearing
+  /// twice (e.g. unliked then re-liked) never inflates the "และอีก N คน"
+  /// count.
+  int get extraActorCount => items
+      .skip(1)
+      .map((n) => n.actorId)
+      .whereType<String>()
+      .toSet()
+      .length;
+}
+
+class _TypeBadge {
+  const _TypeBadge(this.icon, this.color);
+  final IconData icon;
+  final Color color;
+}
+
+// 02-notifications.tsx's TYPE_META -- like/follow use sapphire (the app's
+// one real accent), comment/repost use the 2 Founder-approved exception
+// colors scoped to this 18px badge only (see WynColors.notificationBadge*
+// and .wyn/company/DECISIONS.md, 2026-08-29).
+_TypeBadge? _badgeFor(NotificationType type) {
+  switch (type) {
+    case NotificationType.likeDrop:
+    case NotificationType.likePop:
+    case NotificationType.clubPostLike:
+      return const _TypeBadge(Icons.favorite, WynColors.sapphire);
+    case NotificationType.commentDrop:
+    case NotificationType.commentPop:
+    case NotificationType.clubPostComment:
+      return const _TypeBadge(
+          Icons.chat_bubble, WynColors.notificationBadgeComment);
+    case NotificationType.redrop:
+      return const _TypeBadge(
+          Icons.repeat, WynColors.notificationBadgeRepost);
+    case NotificationType.follow:
+    case NotificationType.followRequestAccepted:
+      return const _TypeBadge(Icons.person_add, WynColors.sapphire);
+    default:
+      return null;
+  }
+}
+
+TextStyle _interStyle({
+  required double fontSize,
+  FontWeight fontWeight = FontWeight.w400,
+  Color? color,
+}) =>
+    GoogleFonts.inter(fontSize: fontSize, fontWeight: fontWeight, color: color);
+
+// 02-notifications.tsx's message-body tone -- ink/faint-adjacent, not one
+// of SPEC.md's Section 1 tokens, same "quieter than the nearest named
+// token" pattern SPEC.md's own Section 4.10 sanctions for Home's reply-
+// preview text (`#5A5850`, "deliberately not full graphite and not full
+// ink"). Kept as a literal, file-scoped constant rather than promoted to
+// WynColors -- a one-off in-between tone specific to this row, not a
+// reusable system token (unlike WynColors.mutedNeutral, `#B7B4AC`, which
+// this file's tab/GroupLabel styling below uses -- that one repeats
+// identically across multiple reference screens, see its own doc
+// comment).
+const Color _kMessageBodyColor = Color(0xFF2B2A26);
+
+class _GroupLabel extends StatelessWidget {
+  const _GroupLabel({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(WynSpacing.space4,
+          WynSpacing.space5, WynSpacing.space4, WynSpacing.space1),
+      child: Text(
+        label,
+        style: _interStyle(fontSize: 11, fontWeight: FontWeight.w600, color: WynColors.mutedNeutral)
+            .copyWith(letterSpacing: 11 * 0.12),
+      ),
+    );
+  }
+}
+
+class _UnreadDot extends StatelessWidget {
+  const _UnreadDot({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 7,
+      height: 7,
+      decoration: const BoxDecoration(
+        color: WynColors.sapphire,
+        shape: BoxShape.circle,
       ),
     );
   }

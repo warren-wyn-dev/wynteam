@@ -46,6 +46,7 @@ class MentionInput extends StatefulWidget {
     this.enabled = true,
     this.decoration,
     this.onChanged,
+    this.style,
   });
 
   final TextEditingController controller;
@@ -57,6 +58,13 @@ class MentionInput extends StatefulWidget {
   final int? minLines;
   final bool enabled;
   final InputDecoration? decoration;
+
+  /// Forwarded to the underlying TextField's own `style` -- lets a
+  /// caller (e.g. a compose screen wanting a large, borderless caption
+  /// field) override the typed-text style without forking this widget.
+  /// Defaults to null, same as a plain TextField, so every existing
+  /// call site keeps its current look unless it opts in.
+  final TextStyle? style;
 
   /// Forwarded to the underlying TextField's onChanged -- for callers
   /// that need to react to every keystroke (e.g. enabling a submit
@@ -203,6 +211,7 @@ class _MentionInputState extends State<MentionInput> {
           enabled: widget.enabled,
           decoration: widget.decoration,
           onChanged: widget.onChanged,
+          style: widget.style,
         ),
         if (_suggestions.isNotEmpty)
           Container(

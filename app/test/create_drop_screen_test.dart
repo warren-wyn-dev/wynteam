@@ -7,6 +7,16 @@ import 'package:wyn/features/drop/presentation/create_drop_screen.dart';
 import 'support/recording_drop_repository.dart';
 import 'support/recording_profile_repository.dart';
 
+/// CreateDropScreen, restyled to `04-drop.tsx` (2026-08-29, Founder-
+/// approved re-brand -- see .wyn/company/DECISIONS.md): the header's
+/// share button is now "โพสต์" (was "แชร์"), "ยกเลิก" is a plain text
+/// button (was an Icons.close leading icon), poll mode is toggled from
+/// the bottom toolbar's poll icon (Key('toolbar_poll_button'), was a top
+/// SegmentedButton with a "โพล" label), and there's no dashed empty-state
+/// image box (picking an image is toolbar-only now). Every real behavior
+/// this file already covered (poll composition, drafts, restricted
+/// accounts, text-only Drops) is unchanged -- only how each test reaches
+/// it is updated to match.
 void main() {
   late RecordingDropRepository repo;
   late RecordingProfileRepository profileRepo;
@@ -42,15 +52,19 @@ void main() {
     textDropRepo = RecordingDropRepository();
   });
 
+  Finder postButton() => find.byKey(const Key('post_button'));
+  Finder cancelButton() => find.byKey(const Key('cancel_button'));
+  Finder pollToggle() => find.byKey(const Key('toolbar_poll_button'));
+
   testWidgets(
-      'the "แชร์" button stays disabled with neither an image nor a '
+      'the "โพสต์" button stays disabled with neither an image nor a '
       'caption, but a caption alone enables it (WYNOS V1.0.0 Beta '
       'requirement 2: image, caption, or both)', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: CreateDropScreen(dropRepository: repo, profileRepository: profileRepo),
     ));
 
-    final shareButton = find.widgetWithText(TextButton, 'แชร์');
+    final shareButton = postButton();
     expect(shareButton, findsOneWidget);
     expect(tester.widget<TextButton>(shareButton).onPressed, isNull);
 
@@ -61,13 +75,17 @@ void main() {
     expect(tester.widget<TextButton>(shareButton).onPressed, isNotNull);
   });
 
-  testWidgets('shows a placeholder prompt (marked optional) before any '
-      'image is picked', (tester) async {
+  testWidgets(
+      'shows no image UI at all before anything is picked -- attaching a '
+      'photo is toolbar-only now, not a tap-anywhere empty-state box',
+      (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: CreateDropScreen(dropRepository: repo, profileRepository: profileRepo),
     ));
 
-    expect(find.text('แตะเพื่อเลือกรูป (ไม่บังคับ)'), findsOneWidget);
+    expect(find.text('แตะเพื่อเลือกรูป (ไม่บังคับ)'), findsNothing);
+    expect(find.byKey(const Key('toolbar_photo_button')), findsOneWidget);
+    expect(find.byKey(const Key('toolbar_camera_button')), findsOneWidget);
   });
 
   testWidgets(
@@ -83,7 +101,7 @@ void main() {
     await tester.enterText(find.byType(TextField), 'แคปชันอย่างเดียว ไม่มีรูป');
     await tester.pump();
 
-    await tester.tap(find.widgetWithText(TextButton, 'แชร์'));
+    await tester.tap(postButton());
     await tester.pumpAndSettle();
 
     expect(textDropRepo.createTextDropArgs, hasLength(1));
@@ -93,29 +111,35 @@ void main() {
   });
 
   group('Poll composer (WYN-035)', () {
-    testWidgets('switching to โพล mode hides the image area and needs '
-        'no photo', (tester) async {
+    testWidgets('tapping the toolbar poll icon hides the image toolbar '
+        'and needs no photo', (tester) async {
       await tester.pumpWidget(MaterialApp(
         home: CreateDropScreen(dropRepository: repo, profileRepository: profileRepo),
       ));
 
-      await tester.tap(find.text('โพล'));
+      await tester.tap(pollToggle());
       await tester.pump();
 
-      expect(find.text('แตะเพื่อเลือกรูป (ไม่บังคับ)'), findsNothing);
       expect(find.text('ตัวเลือกที่ 1'), findsOneWidget);
       expect(find.text('ตัวเลือกที่ 2'), findsOneWidget);
+      // Photo/camera are disabled in poll mode (a Drop carries either an
+      // image or a Poll, never both) -- still present, just inert.
+      final photoIcon = tester.widget<InkWell>(find.descendant(
+        of: find.byKey(const Key('toolbar_photo_button')),
+        matching: find.byType(InkWell),
+      ));
+      expect(photoIcon.onTap, isNull);
     });
 
-    testWidgets('"แชร์" stays disabled until a question and both options '
+    testWidgets('"โพสต์" stays disabled until a question and both options '
         'are filled', (tester) async {
       await tester.pumpWidget(MaterialApp(
         home: CreateDropScreen(dropRepository: repo, profileRepository: profileRepo),
       ));
-      await tester.tap(find.text('โพล'));
+      await tester.tap(pollToggle());
       await tester.pump();
 
-      final shareButton = find.widgetWithText(TextButton, 'แชร์');
+      final shareButton = postButton();
       expect(tester.widget<TextButton>(shareButton).onPressed, isNull);
 
       await tester.enterText(
@@ -126,32 +150,31 @@ void main() {
       // Still no question typed -- must stay disabled.
       expect(tester.widget<TextButton>(shareButton).onPressed, isNull);
 
-      // The caption/question field is the *last* TextField in the tree
-      // in poll mode -- the option fields render above it (see
+      // The caption/question field is the *first* TextField in the tree
+      // in poll mode -- the option fields render below it (see
       // CreateDropScreen.build).
-      await tester.enterText(find.byType(TextField).last, 'กินอะไรดี?');
+      await tester.enterText(find.byType(TextField).first, 'กินอะไรดี?');
       await tester.pump();
 
       expect(tester.widget<TextButton>(shareButton).onPressed, isNotNull);
     });
 
-    testWidgets('duplicate options (case-insensitive) keep "แชร์" disabled',
+    testWidgets('duplicate options (case-insensitive) keep "โพสต์" disabled',
         (tester) async {
       await tester.pumpWidget(MaterialApp(
         home: CreateDropScreen(dropRepository: repo, profileRepository: profileRepo),
       ));
-      await tester.tap(find.text('โพล'));
+      await tester.tap(pollToggle());
       await tester.pump();
 
-      await tester.enterText(find.byType(TextField).last, 'คำถาม');
+      await tester.enterText(find.byType(TextField).first, 'คำถาม');
       await tester.enterText(
           find.widgetWithText(TextField, 'ตัวเลือกที่ 1'), 'Yes');
       await tester.enterText(
           find.widgetWithText(TextField, 'ตัวเลือกที่ 2'), 'yes');
       await tester.pump();
 
-      final shareButton = find.widgetWithText(TextButton, 'แชร์');
-      expect(tester.widget<TextButton>(shareButton).onPressed, isNull);
+      expect(tester.widget<TextButton>(postButton()).onPressed, isNull);
     });
 
     testWidgets('เพิ่มตัวเลือก adds up to 4 options, then hides itself',
@@ -159,7 +182,7 @@ void main() {
       await tester.pumpWidget(MaterialApp(
         home: CreateDropScreen(dropRepository: repo, profileRepository: profileRepo),
       ));
-      await tester.tap(find.text('โพล'));
+      await tester.tap(pollToggle());
       await tester.pump();
 
       await tester.tap(find.text('เพิ่มตัวเลือก'));
@@ -176,23 +199,23 @@ void main() {
       await tester.pumpWidget(MaterialApp(
         home: CreateDropScreen(dropRepository: repo, profileRepository: profileRepo),
       ));
-      await tester.tap(find.text('โพล'));
+      await tester.tap(pollToggle());
       await tester.pump();
 
-      // The AppBar's own leading "close screen" button also uses
-      // Icons.close, so the baseline (2 options, neither removable) is
-      // 1 -- it, not 0.
-      expect(find.byIcon(Icons.close), findsOneWidget);
+      // The header no longer has an Icons.close leading button (it's a
+      // plain "ยกเลิก" text button now) -- baseline with 2 options
+      // (neither removable) is 0.
+      expect(find.byIcon(Icons.close), findsNothing);
 
       await tester.tap(find.text('เพิ่มตัวเลือก'));
       await tester.pump();
-      expect(find.byIcon(Icons.close), findsNWidgets(2));
+      expect(find.byIcon(Icons.close), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('remove_poll_option_2')));
       await tester.pump();
 
       expect(find.text('ตัวเลือกที่ 3'), findsNothing);
-      expect(find.byIcon(Icons.close), findsOneWidget);
+      expect(find.byIcon(Icons.close), findsNothing);
     });
 
     testWidgets('sharing a valid poll calls createPollDrop with the '
@@ -221,18 +244,18 @@ void main() {
       await tester.tap(find.text('เปิด'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('โพล'));
+      await tester.tap(pollToggle());
       await tester.pump();
 
       await tester.enterText(
           find.widgetWithText(TextField, 'ตัวเลือกที่ 1'), 'Pizza');
       await tester.enterText(
           find.widgetWithText(TextField, 'ตัวเลือกที่ 2'), 'Sushi');
-      await tester.enterText(find.byType(TextField).last, 'กินอะไรดี?');
+      await tester.enterText(find.byType(TextField).first, 'กินอะไรดี?');
       await tester.tap(find.text('3 วัน'));
       await tester.pump();
 
-      await tester.tap(find.widgetWithText(TextButton, 'แชร์'));
+      await tester.tap(postButton());
       await tester.pumpAndSettle();
 
       expect(pollRepo.createPollDropArgs, hasLength(1));
@@ -282,7 +305,7 @@ void main() {
         (tester) async {
       await openScreen(tester, repo);
 
-      await tester.tap(find.byIcon(Icons.close));
+      await tester.tap(cancelButton());
       await tester.pumpAndSettle();
 
       expect(find.text('บันทึกเป็นร่างก่อนออกไหม?'), findsNothing);
@@ -295,25 +318,31 @@ void main() {
 
       await tester.enterText(find.byType(TextField), 'ยังไม่เสร็จ');
       await tester.pump();
-      await tester.tap(find.byIcon(Icons.close));
+      await tester.tap(cancelButton());
       await tester.pumpAndSettle();
 
       expect(find.text('บันทึกเป็นร่างก่อนออกไหม?'), findsOneWidget);
       expect(find.widgetWithText(TextButton, 'ทิ้ง'), findsOneWidget);
-      expect(find.widgetWithText(TextButton, 'ยกเลิก'), findsOneWidget);
+      // 2 now: the header's own "ยกเลิก" button underneath, plus the
+      // dialog's -- both coexist since the dialog is an overlay, not a
+      // replacement.
+      expect(find.widgetWithText(TextButton, 'ยกเลิก'), findsNWidgets(2));
       expect(find.widgetWithText(FilledButton, 'บันทึกร่าง'), findsOneWidget);
     });
 
-    testWidgets('"ยกเลิก" closes the dialog and stays on the screen',
-        (tester) async {
+    testWidgets('"ยกเลิก" (in the dialog) closes the dialog and stays on '
+        'the screen', (tester) async {
       await openScreen(tester, repo);
 
       await tester.enterText(find.byType(TextField), 'ยังไม่เสร็จ');
       await tester.pump();
-      await tester.tap(find.byIcon(Icons.close));
+      await tester.tap(cancelButton());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(TextButton, 'ยกเลิก'));
+      // 2 "ยกเลิก" texts now exist on screen (the header button behind
+      // the dialog, and the dialog's own button) -- the dialog's is the
+      // last one on top.
+      await tester.tap(find.widgetWithText(TextButton, 'ยกเลิก').last);
       await tester.pumpAndSettle();
 
       expect(find.text('บันทึกเป็นร่างก่อนออกไหม?'), findsNothing);
@@ -326,7 +355,7 @@ void main() {
 
       await tester.enterText(find.byType(TextField), 'ยังไม่เสร็จ');
       await tester.pump();
-      await tester.tap(find.byIcon(Icons.close));
+      await tester.tap(cancelButton());
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(TextButton, 'ทิ้ง'));
       await tester.pumpAndSettle();
@@ -341,7 +370,7 @@ void main() {
 
       await tester.enterText(find.byType(TextField), 'เดี๋ยวมาเขียนต่อ');
       await tester.pump();
-      await tester.tap(find.byIcon(Icons.close));
+      await tester.tap(cancelButton());
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'บันทึกร่าง'));
       await tester.pumpAndSettle();
@@ -359,7 +388,7 @@ void main() {
 
       await tester.enterText(find.byType(TextField), 'เดี๋ยวมาเขียนต่อ');
       await tester.pump();
-      await tester.tap(find.byIcon(Icons.close));
+      await tester.tap(cancelButton());
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'บันทึกร่าง'));
       await tester.pumpAndSettle();
@@ -384,12 +413,9 @@ void main() {
       expect(find.text('ยังคิดแคปชันไม่ออก'), findsOneWidget);
       final image = tester.widget<Image>(find.byType(Image));
       expect((image.image as NetworkImage).url, 'https://example.com/draft.jpg');
-      // The "แชร์" button is enabled immediately -- the carried-over
+      // The "โพสต์" button is enabled immediately -- the carried-over
       // image counts as picked, no need to re-pick it.
-      expect(
-        tester.widget<TextButton>(find.widgetWithText(TextButton, 'แชร์')).onPressed,
-        isNotNull,
-      );
+      expect(tester.widget<TextButton>(postButton()).onPressed, isNotNull);
     });
 
     testWidgets('opening with a poll-mode draft prefills poll mode, '
@@ -415,7 +441,7 @@ void main() {
       expect(find.text('7 วัน'), findsOneWidget);
     });
 
-    testWidgets('an incomplete poll draft (1 filled option) leaves "แชร์" '
+    testWidgets('an incomplete poll draft (1 filled option) leaves "โพสต์" '
         'disabled -- prefill does not skip validation', (tester) async {
       final draft = DropDraft(
         id: 'draft-3',
@@ -425,10 +451,7 @@ void main() {
       );
       await openScreen(tester, repo, draft: draft);
 
-      expect(
-        tester.widget<TextButton>(find.widgetWithText(TextButton, 'แชร์')).onPressed,
-        isNull,
-      );
+      expect(tester.widget<TextButton>(postButton()).onPressed, isNull);
     });
 
     testWidgets('publishing from an opened draft creates the Drop and '
@@ -443,7 +466,7 @@ void main() {
       // NetworkImageLoadException -- same expected noise as above.
       tester.takeException();
 
-      await tester.tap(find.widgetWithText(TextButton, 'แชร์'));
+      await tester.tap(postButton());
       await tester.pumpAndSettle();
 
       expect(publishFromDraftTestRepo.createDropFromExistingImageArgs, hasLength(1));
@@ -468,18 +491,19 @@ void main() {
       // NetworkImageLoadException -- same expected noise as above.
       tester.takeException();
 
-      // The SegmentedButton never clears _existingImageUrl/_imageBytes
-      // on mode switch -- saveDraft must gate them by _mode itself.
-      await tester.tap(find.text('โพล'));
+      // The toolbar's poll toggle never clears _existingImageUrl/
+      // _imageBytes on mode switch -- saveDraft must gate them by
+      // _mode itself.
+      await tester.tap(pollToggle());
       await tester.pump();
 
       await tester.enterText(
           find.widgetWithText(TextField, 'ตัวเลือกที่ 1'), 'Pizza');
       await tester.enterText(
           find.widgetWithText(TextField, 'ตัวเลือกที่ 2'), 'Sushi');
-      await tester.enterText(find.byType(TextField).last, 'กินอะไรดี?');
+      await tester.enterText(find.byType(TextField).first, 'กินอะไรดี?');
 
-      await tester.tap(find.byIcon(Icons.close));
+      await tester.tap(cancelButton());
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'บันทึกร่าง'));
       await tester.pumpAndSettle();

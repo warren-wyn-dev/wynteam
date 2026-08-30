@@ -7530,6 +7530,25 @@ $$;
 grant execute on function public.follower_count(uuid) to authenticated;
 grant execute on function public.following_count(uuid) to authenticated;
 
+-- 05-profile.tsx's StatsRow adds a 3rd stat ("โพสต์") alongside
+-- follower/following count -- same SECURITY DEFINER shape as
+-- follower_count()/following_count() directly above (an aggregate-only
+-- bypass of drops' own RLS, never individual rows), excluding
+-- soft-deleted rows (WYN-037) the same way every other DropRepository
+-- read path already does.
+create or replace function public.drop_count(p_user_id uuid)
+returns bigint
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select count(*) from public.drops
+  where author_id = p_user_id and deleted_at is null;
+$$;
+
+grant execute on function public.drop_count(uuid) to authenticated;
+
 -- Notification types: 2 new, both ordinary user-action actors (not the
 -- null-actor moderation case) -- mirrors message_request's addition
 -- (WYN-032) exactly, including going ahead of WYN-043/Phase 5's nominal

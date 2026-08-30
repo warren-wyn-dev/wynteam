@@ -7,14 +7,16 @@ import 'package:wyn/core/design/wyn_zoky_accent.dart';
 /// DS-007: [ZokyAccentTheme] is the fix for a real gap DS-007's audit
 /// found -- app/'s ZOKY Marketplace screens read `colorScheme.tertiary`
 /// for price (see product_detail_screen.dart etc.), but `WynTheme` maps
-/// `tertiary` to Cyan (it's WYN Social's bare-link-text color), not
-/// Orange, so every ZOKY price was silently rendering Cyan instead of the
-/// ZOKY Orange DS-001's own spec calls for. These tests verify the swap
-/// actually happens, and that it's scoped to only the wrapped subtree.
+/// `tertiary` to WYN Social's own brand accent (Sapphire since the
+/// 2026-08-29 re-brand, previously Cyan -- it's WYN Social's bare-link-text
+/// color), not Orange, so every ZOKY price was silently rendering the
+/// brand accent instead of the ZOKY Orange DS-001's own spec calls for.
+/// These tests verify the swap actually happens, and that it's scoped to
+/// only the wrapped subtree.
 void main() {
   testWidgets(
       'wraps its child so Theme.of(context).colorScheme.tertiary resolves to '
-      'ZOKY Orange, not WynTheme\'s Cyan', (tester) async {
+      'ZOKY Orange, not WynTheme\'s Sapphire', (tester) async {
     Color? tertiary;
     Color? onTertiary;
 
@@ -36,13 +38,13 @@ void main() {
     expect(tertiary, WynColors.orange500);
     expect(onTertiary, WynColors.ink);
     // Sanity check this isn't a no-op -- WynTheme.light's own tertiary is
-    // Cyan, so the wrapper must have actually changed it.
-    expect(WynTheme.light.colorScheme.tertiary, WynColors.cyan500);
+    // Sapphire, so the wrapper must have actually changed it.
+    expect(WynTheme.light.colorScheme.tertiary, WynColors.sapphire);
   });
 
   testWidgets(
-      'a screen outside ZokyAccentTheme still sees WynTheme\'s Cyan tertiary '
-      '-- the swap does not leak app-wide', (tester) async {
+      'a screen outside ZokyAccentTheme still sees WynTheme\'s Sapphire '
+      'tertiary -- the swap does not leak app-wide', (tester) async {
     Color? tertiary;
 
     await tester.pumpWidget(
@@ -57,7 +59,7 @@ void main() {
       ),
     );
 
-    expect(tertiary, WynColors.cyan500);
+    expect(tertiary, WynColors.sapphire);
   });
 
   testWidgets('every other ColorScheme slot passes through unchanged',

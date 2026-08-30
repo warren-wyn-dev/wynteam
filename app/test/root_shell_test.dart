@@ -128,11 +128,12 @@ void main() {
 
     expect(find.byType(CreateDropScreen), findsOneWidget);
 
-    // CreateDropScreen's AppBar supplies its own `leading` (a close "X"
-    // icon that calls Navigator.pop(false), not the framework's default
-    // back button) -- tester.pageBack() looks for a BackButton/
-    // CupertinoNavigationBarBackButton specifically and finds neither.
-    await tester.tap(find.byIcon(Icons.close));
+    // CreateDropScreen has no AppBar/default back button at all -- its
+    // own header supplies a plain "ยกเลิก" text button (Key
+    // 'cancel_button') that calls Navigator.pop(false), so
+    // tester.pageBack() (which looks for a BackButton/
+    // CupertinoNavigationBarBackButton specifically) would find neither.
+    await tester.tap(find.byKey(const Key('cancel_button')));
     await tester.pumpAndSettle();
 
     // Still on Home, not stuck on some "Drop tab" -- there is none.

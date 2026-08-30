@@ -13,6 +13,8 @@ import 'package:wyn/features/notification/presentation/notification_list_screen.
 import 'package:wyn/features/pop/data/pop.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
 import 'package:wyn/features/profile/presentation/widgets/avatar_circle.dart';
+import 'package:wyn/features/root/presentation/side_menu.dart';
+import 'package:wyn/features/search/presentation/search_screen.dart';
 
 import 'package:wyn/features/zoky/presentation/zoky_order_detail_screen.dart';
 
@@ -55,6 +57,7 @@ void main() {
   late RecordingNotificationRepository allTypesRepo;
   late RecordingNotificationRepository emptyRepo;
   late RecordingNotificationRepository likeDropRepo;
+  late RecordingNotificationRepository likeDropWithPreviewRepo;
   late RecordingNotificationRepository commentDropRepo;
   late RecordingNotificationRepository likePopRepo;
   late RecordingNotificationRepository commentPopRepo;
@@ -84,7 +87,10 @@ void main() {
 
   final now = DateTime.now();
 
-  WynNotification likeDropNotification({bool isRead = false}) =>
+  WynNotification likeDropNotification({
+    bool isRead = false,
+    String? contentPreview,
+  }) =>
       WynNotification(
         id: 'n-like-drop',
         type: NotificationType.likeDrop,
@@ -92,6 +98,7 @@ void main() {
         actorUsername: 'namfah',
         actorDisplayName: 'น้ำฝน',
         dropId: 'd1',
+        contentPreview: contentPreview,
         isRead: isRead,
         createdAt: now.subtract(const Duration(minutes: 5)),
       );
@@ -405,6 +412,13 @@ void main() {
     likeDropRepo = RecordingNotificationRepository(
       notifications: [likeDropNotification()],
     );
+    likeDropWithPreviewRepo = RecordingNotificationRepository(
+      notifications: [
+        likeDropNotification(
+          contentPreview: 'WYNOS เริ่มจากคำถามง่ายๆ ว่าทำไมโซเชียลต้องซับซ้อนขนาดนี้',
+        ),
+      ],
+    );
     commentDropRepo = RecordingNotificationRepository(
       notifications: [commentDropNotification()],
     );
@@ -539,32 +553,42 @@ void main() {
   });
 
   testWidgets(
-      'a row that was unread at fetch time is highlighted and a row that '
-      'was already read is not -- and the unread one keeps its highlight '
-      'for this visit even after markAllAsRead completes in the '
-      'background', (tester) async {
+      'a row that was unread at fetch time shows the sapphire unread dot '
+      'and a row that was already read does not -- and the unread one '
+      'keeps its dot for this visit even after markAllAsRead completes in '
+      'the background', (tester) async {
     await tester.pumpWidget(buildScreen(mixedReadRepo));
     await tester.pumpAndSettle();
     // markAllAsRead is a fire-and-forget call; pumpAndSettle already lets
-    // it complete. The unread row's highlight comes from a snapshot taken
-    // at fetch time, not a live read of WynNotification.isRead, so it
-    // must still be there even though the DB row is now marked read.
+    // it complete. The unread row's dot comes from a snapshot taken at
+    // fetch time, not a live read of WynNotification.isRead, so it must
+    // still be there even though the DB row is now marked read.
     expect(mixedReadRepo.markAllAsReadCalls, 1);
 
-    final unreadContainer = tester.widget<Container>(
-      find.ancestor(
-        of: find.text('น้ำฝน ถูกใจ Drop ของคุณ'),
-        matching: find.byType(Container),
-      ),
+    // design-reference 02-notifications.tsx: unread is a quiet sapphire
+    // dot next to the row, not a background-color highlight.
+    final unreadRow = find.ancestor(
+      of: find.text('น้ำฝน ถูกใจ Drop ของคุณ'),
+      matching: find.byType(InkWell),
     );
-    final readContainer = tester.widget<Container>(
-      find.ancestor(
-        of: find.text('@benz เริ่มติดตามคุณ'),
-        matching: find.byType(Container),
-      ),
+    final readRow = find.ancestor(
+      of: find.text('@benz เริ่มติดตามคุณ'),
+      matching: find.byType(InkWell),
     );
-    expect(unreadContainer.color, isNotNull);
-    expect(readContainer.color, isNull);
+    expect(
+      find.descendant(
+        of: unreadRow,
+        matching: find.byKey(const Key('notification_unread_dot')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: readRow,
+        matching: find.byKey(const Key('notification_unread_dot')),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('tapping a Like Drop notification opens DropDetailScreen',
@@ -577,6 +601,49 @@ void main() {
     tester.takeException();
 
     expect(find.byType(DropDetailScreen), findsOneWidget);
+  });
+
+  testWidgets(
+      'shows a quoted preview of the referenced Drop\'s caption when '
+      'contentPreview is set', (tester) async {
+    await tester.pumpWidget(buildScreen(likeDropWithPreviewRepo));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('“WYNOS เริ่มจากคำถามง่ายๆ ว่าทำไมโซเชียลต้องซับซ้อนขนาดนี้”'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('shows no preview line when contentPreview is null',
+      (tester) async {
+    await tester.pumpWidget(buildScreen(likeDropRepo));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('“'), findsNothing);
+  });
+
+  testWidgets('tapping the header menu icon opens the side menu drawer',
+      (tester) async {
+    await tester.pumpWidget(buildScreen(likeDropRepo));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SideMenu), findsNothing);
+    await tester.tap(find.byIcon(Icons.menu));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SideMenu), findsOneWidget);
+  });
+
+  testWidgets('tapping the header search icon opens SearchScreen',
+      (tester) async {
+    await tester.pumpWidget(buildScreen(likeDropRepo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SearchScreen), findsOneWidget);
   });
 
   testWidgets('tapping a Comment Drop notification opens DropDetailScreen',

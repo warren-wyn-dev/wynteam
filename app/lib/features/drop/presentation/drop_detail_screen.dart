@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
-import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/widgets/confirm_delete_dialog.dart';
@@ -15,6 +15,7 @@ import '../../moderation/data/appeal_status.dart';
 import '../../moderation/data/moderation_repository.dart';
 import '../../moderation/presentation/appeal_form_screen.dart';
 import '../../pop/data/pop_repository.dart';
+import '../../profile/data/profile.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
@@ -27,7 +28,10 @@ import 'quote_redrop_screen.dart';
 import 'widgets/confirm_delete_drop_dialog.dart';
 import 'widgets/drop_image_gallery.dart';
 import 'widgets/poll_card.dart';
+import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_typography.dart';
+import '../../../core/text_utils.dart';
 import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
@@ -103,6 +107,12 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   // mirrors PopClipView's _viewRecorded exactly.
   bool _viewRecorded = false;
 
+  // 07-post-detail.tsx: the comment composer shows the *current viewer's*
+  // own avatar, not the Drop author's -- null until loaded, same
+  // "AvatarCircle falls back to a letter, never a broken image" posture
+  // as every other avatar on this screen.
+  Profile? _myProfile;
+
   bool get _isOwnDrop =>
       _drop.authorId == Supabase.instance.client.auth.currentUser!.id;
 
@@ -128,6 +138,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     _drop = widget.drop;
     _loadComments();
     _loadModerationStatus();
+    _loadMyProfile();
     if (_drop.authorId != Supabase.instance.client.auth.currentUser!.id) {
       _loadFollowStatus();
     }
@@ -138,6 +149,18 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     // step, so a microtask stands in for it) rather than calling
     // setState() synchronously while this State is still being built.
     Future.microtask(_recordViewOnce);
+  }
+
+  Future<void> _loadMyProfile() async {
+    try {
+      final profile = await widget.profileRepository
+          .fetchProfile(Supabase.instance.client.auth.currentUser!.id);
+      if (!mounted) return;
+      setState(() => _myProfile = profile);
+    } catch (_) {
+      // Leave it null -- the composer avatar just stays a placeholder
+      // letter, same posture as every other best-effort fetch here.
+    }
   }
 
   // WYN-038: opening DropDetailScreen is what counts as a "View" (not
@@ -407,14 +430,6 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     );
   }
 
-  Future<void> _copyLink() async {
-    await Clipboard.setData(ClipboardData(text: dropShareLink(_drop.id)));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('คัดลอกลิงก์แล้ว')),
-    );
-  }
-
   Future<void> _reportDrop() {
     return showReportSheet(
       context,
@@ -608,7 +623,24 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     final currentUserId = Supabase.instance.client.auth.currentUser!.id;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Drop')),
+      backgroundColor: WynColors.paper,
+      appBar: AppBar(
+        backgroundColor: WynColors.paper,
+        centerTitle: false,
+        leading: IconButton(
+          icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          'โพสต์',
+          style: WynTypography.fraunces(fontSize: 17, color: WynColors.ink),
+        ),
+        titleSpacing: 0,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, color: WynColors.hairline),
+        ),
+      ),
       body: Column(
         children: [
           Expanded(child: _buildBody(currentUserId)),
@@ -649,7 +681,9 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
         // image area at all here -- its caption still renders below via
         // the same Padding/HashtagText every Drop already gets.
         Padding(
-          padding: const EdgeInsets.all(WynSpacing.space4),
+          padding: const EdgeInsets.fromLTRB(
+            WynSpacing.space4, WynSpacing.space4, WynSpacing.space4, WynSpacing.space2,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -660,33 +694,56 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                       onTap: _openAuthorProfile,
                       borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           AvatarCircle(
                             imageUrl: _drop.authorAvatarUrl,
                             fallbackText: _drop.authorUsername,
-                            radius: 18,
+                            radius: 22,
+                            ring: true,
                           ),
-                          const SizedBox(width: WynSpacing.space2),
+                          const SizedBox(width: WynSpacing.space3),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                                  textBaseline: TextBaseline.alphabetic,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        _drop.authorDisplayName ??
+                                            _drop.authorUsername,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: _interStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          color: WynColors.ink,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: WynSpacing.space2),
+                                    Text(
+                                      relativeTimeLabel(_drop.createdAt,
+                                          now: DateTime.now()),
+                                      style: _interStyle(
+                                          fontSize: 12.5,
+                                          color: WynColors.mutedNeutral),
+                                    ),
+                                  ],
+                                ),
                                 Text(
-                                  _drop.authorNameOrUsername,
-                                  style: Theme.of(context).textTheme.titleSmall,
+                                  '@${_drop.authorUsername}',
+                                  style: _interStyle(
+                                      fontSize: 12.5, color: WynColors.mutedNeutral),
                                 ),
                                 if (_drop.wasEdited)
                                   Text(
                                     'แก้ไขแล้ว',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .outline,
-                                        ),
+                                    style: _interStyle(
+                                        fontSize: 12, color: WynColors.faint),
                                   ),
                               ],
                             ),
@@ -705,11 +762,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                         height: WynSpacing.touchTargetMin,
                         child: OutlinedButton(
                           style: OutlinedButton.styleFrom(
-                            foregroundColor:
-                                Theme.of(context).colorScheme.primary,
-                            side: BorderSide(
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
+                            foregroundColor: WynColors.sapphire,
+                            side: const BorderSide(color: WynColors.sapphire),
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                           ),
                           onPressed: _toggleFollow,
@@ -719,105 +773,37 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     ),
                   if (isOwnDrop)
                     IconButton(
-                      icon: const Icon(Icons.more_vert),
+                      icon: const Icon(Icons.more_vert,
+                          size: 18, color: WynColors.faint),
                       tooltip: 'เพิ่มเติม',
                       onPressed: _openOwnDropMoreMenu,
                     )
                   else
                     IconButton(
-                      icon: const Icon(Icons.more_vert),
+                      icon: const Icon(Icons.more_vert,
+                          size: 18, color: WynColors.faint),
                       tooltip: 'เพิ่มเติม',
                       onPressed: _openDropMoreMenu,
                     ),
                 ],
               ),
               if (_drop.caption != null && _drop.caption!.isNotEmpty) ...[
-                const SizedBox(height: WynSpacing.space2),
-                HashtagText(_drop.caption!),
+                const SizedBox(height: WynSpacing.space3),
+                // 07-post-detail.tsx: the focused post's own text renders
+                // larger (16px) than a feed row's 14.5px -- a permalink
+                // view is the one place a single post has the whole
+                // screen to itself.
+                HashtagText(
+                  _drop.caption!,
+                  style: _interStyle(fontSize: 16, color: WynColors.ink, height: 1.5),
+                ),
               ],
               const SizedBox(height: WynSpacing.space3),
-              Row(
-                children: [
-                  Semantics(
-                    label: _drop.likedByMe
-                        ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
-                        : 'กดเพื่อถูกใจ',
-                    excludeSemantics: true,
-                    child: IconButton(
-                      icon: Icon(
-                        _drop.likedByMe ? Icons.favorite : Icons.favorite_border,
-                        color: _drop.likedByMe ? Colors.red : null,
-                      ),
-                      onPressed: _toggleLike,
-                    ),
-                  ),
-                  Text('${_drop.likeCount}'),
-                  const SizedBox(width: WynSpacing.space3),
-                  IconButton(
-                    icon: const Icon(Icons.mode_comment_outlined),
-                    tooltip: 'ความคิดเห็น',
-                    onPressed: () => _commentFocusNode.requestFocus(),
-                  ),
-                  Text('${_drop.commentCount}'),
-                  const SizedBox(width: WynSpacing.space3),
-                  Semantics(
-                    label: _drop.redroppedByMe
-                        ? 'ReDrop แล้ว กดเพื่อเลือกดำเนินการ'
-                        : 'กดเพื่อ ReDrop',
-                    excludeSemantics: true,
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.repeat,
-                        color: _drop.redroppedByMe
-                            ? Theme.of(context).colorScheme.primary
-                            : null,
-                      ),
-                      onPressed: _openRedropSheet,
-                    ),
-                  ),
-                  Text('${_drop.redropCount}'),
-                  const SizedBox(width: WynSpacing.space3),
-                  IconButton(
-                    icon: const Icon(Icons.share_outlined),
-                    tooltip: 'แชร์',
-                    onPressed: _openShareSheet,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.link),
-                    tooltip: 'คัดลอกลิงก์',
-                    onPressed: _copyLink,
-                  ),
-                  Semantics(
-                    label: 'เข้าชมแล้ว ${_drop.viewCount} ครั้ง',
-                    excludeSemantics: true,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.visibility_outlined),
-                        const SizedBox(width: WynSpacing.space1),
-                        Text('${_drop.viewCount}'),
-                      ],
-                    ),
-                  ),
-                  const Spacer(),
-                  Semantics(
-                    label: _drop.savedByMe
-                        ? 'บันทึกแล้ว กดเพื่อเอาออกจาก Saved'
-                        : 'กดเพื่อบันทึก',
-                    excludeSemantics: true,
-                    child: IconButton(
-                      icon: Icon(
-                        _drop.savedByMe ? Icons.bookmark : Icons.bookmark_border,
-                      ),
-                      onPressed: _toggleSave,
-                    ),
-                  ),
-                ],
-              ),
+              _buildStatLine(),
             ],
           ),
         ),
-        const Divider(height: 1),
+        _buildFocusedActionBar(),
       ],
     );
 
@@ -867,17 +853,158 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
             padding: EdgeInsets.all(WynSpacing.space6),
             child: Center(child: Text('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!')),
           )
-        else
+        else ...[
           // Each top-level comment immediately followed by its own
           // replies (WYN-022) -- one flat fetch already returns every
           // comment for this Drop, so this just orders them for display
-          // rather than issuing a second query.
-          for (final comment in comments.where((c) => c.parentCommentId == null)) ...[
+          // rather than issuing a second query. 07-post-detail.tsx: a
+          // hairline divider between comments, never after the last one.
+          for (final (index, comment)
+              in comments.where((c) => c.parentCommentId == null).indexed) ...[
+            if (index > 0) const Divider(height: 1, color: WynColors.hairline),
             _buildCommentRow(comment, currentUserId, isReply: false),
             for (final reply in comments.where((c) => c.parentCommentId == comment.id))
               _buildCommentRow(reply, currentUserId, isReply: true),
           ],
+          Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: WynSpacing.space6, vertical: WynSpacing.space8),
+            child: Center(
+              child: Text(
+                'ไม่มีความคิดเห็นเพิ่มเติมแล้ว',
+                style: _interStyle(fontSize: 13, color: WynColors.faint),
+              ),
+            ),
+          ),
+        ],
       ],
+    );
+  }
+
+  /// 07-post-detail.tsx: engagement shown as a plain-language stat line
+  /// under the caption -- "for reading" -- distinct from the tappable
+  /// icon row below ("for acting", see [_buildFocusedActionBar]). The
+  /// view-count Semantics label moves here from the old icon row
+  /// (07-post-detail.tsx's own FocusedActionBar has no separate views
+  /// icon at all -- views only ever appears in this stat line).
+  ///
+  /// Founder decision (2026-08-29): the reference's own stat line omits
+  /// a comment count entirely (likes/ReDrop/views only) -- but the real
+  /// app previously showed one, and there's no other number on this
+  /// screen a viewer could read it from (the reference's own comment
+  /// thread just below makes the count visually redundant there; the
+  /// real app's comment thread paginates/scrolls, so it doesn't). Kept
+  /// here, one segment beyond the reference's own 3.
+  Widget _buildStatLine() {
+    TextSpan countSpan(int count, String label) => TextSpan(children: [
+          TextSpan(
+            text: '$count',
+            style: _interStyle(
+                fontSize: 12.5, fontWeight: FontWeight.w700, color: WynColors.ink),
+          ),
+          TextSpan(text: ' $label'),
+        ]);
+
+    return DefaultTextStyle.merge(
+      style: _interStyle(fontSize: 12.5, color: WynColors.graphite),
+      child: Row(
+        children: [
+          Text.rich(countSpan(_drop.likeCount, 'ถูกใจ')),
+          const Text(' · '),
+          Text.rich(countSpan(_drop.commentCount, 'คอมเมนต์')),
+          const Text(' · '),
+          Text.rich(countSpan(_drop.redropCount, 'ReDrop')),
+          const Text(' · '),
+          Semantics(
+            label: 'เข้าชมแล้ว ${_drop.viewCount} ครั้ง',
+            excludeSemantics: true,
+            child: Text.rich(countSpan(_drop.viewCount, 'การเข้าชม')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 07-post-detail.tsx's FocusedActionBar -- 5 equally-spaced, icon-only
+  /// buttons (counts live in [_buildStatLine] instead, "acting" not
+  /// "reading") between two hairline borders. Copy-link folds into
+  /// [_openShareSheet]'s own sheet instead of a 6th icon here -- see
+  /// share_sheet.dart's own doc comment.
+  Widget _buildFocusedActionBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
+      decoration: const BoxDecoration(
+        border: Border.symmetric(horizontal: BorderSide(color: WynColors.hairline)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Semantics(
+              label: _drop.likedByMe
+                  ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
+                  : 'กดเพื่อถูกใจ',
+              excludeSemantics: true,
+              child: IconButton(
+                icon: Icon(
+                  _drop.likedByMe ? Icons.favorite : Icons.favorite_border,
+                  size: 19,
+                  color: _drop.likedByMe ? WynColors.sapphire : WynColors.graphite,
+                ),
+                onPressed: _toggleLike,
+              ),
+            ),
+          ),
+          Expanded(
+            child: IconButton(
+              icon: const Icon(Icons.mode_comment_outlined,
+                  size: 19, color: WynColors.graphite),
+              tooltip: 'ความคิดเห็น',
+              onPressed: () => _commentFocusNode.requestFocus(),
+            ),
+          ),
+          Expanded(
+            child: Semantics(
+              label: _drop.redroppedByMe
+                  ? 'ReDrop แล้ว กดเพื่อเลือกดำเนินการ'
+                  : 'กดเพื่อ ReDrop',
+              excludeSemantics: true,
+              child: IconButton(
+                icon: Icon(
+                  Icons.repeat,
+                  size: 19,
+                  color:
+                      _drop.redroppedByMe ? WynColors.sapphire : WynColors.graphite,
+                ),
+                onPressed: _openRedropSheet,
+              ),
+            ),
+          ),
+          Expanded(
+            child: IconButton(
+              icon: const Icon(Icons.share_outlined,
+                  size: 18, color: WynColors.graphite),
+              tooltip: 'แชร์',
+              onPressed: _openShareSheet,
+            ),
+          ),
+          Expanded(
+            child: Semantics(
+              label: _drop.savedByMe
+                  ? 'บันทึกแล้ว กดเพื่อเอาออกจาก Saved'
+                  : 'กดเพื่อบันทึก',
+              excludeSemantics: true,
+              child: IconButton(
+                icon: Icon(
+                  _drop.savedByMe ? Icons.bookmark : Icons.bookmark_border,
+                  size: 18,
+                  color: WynColors.graphite,
+                ),
+                onPressed: _toggleSave,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -896,39 +1023,79 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       child: GestureDetector(
         onLongPress: () => _openCommentMenu(comment, currentUserId),
         child: Padding(
-      padding: EdgeInsets.fromLTRB(isReply ? 52 : 16, 12, 16, 0),
+      padding: EdgeInsets.fromLTRB(
+          isReply ? 52 : WynSpacing.space4, WynSpacing.space3, WynSpacing.space4, 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 07-post-detail.tsx: a reply is visually connected to its
+          // parent by a short hairline stub, the same idea as the
+          // reference's own indented `CommentReply`.
+          if (isReply)
+            const Padding(
+              padding: EdgeInsets.only(right: WynSpacing.space2),
+              child: SizedBox(
+                width: 1,
+                height: 44,
+                child: ColoredBox(color: WynColors.hairline),
+              ),
+            ),
           AvatarCircle(
             imageUrl: comment.authorAvatarUrl,
             fallbackText: comment.authorUsername,
-            radius: 16,
+            radius: isReply ? 16 : 18,
+            ring: true,
           ),
           const SizedBox(width: WynSpacing.space2),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  comment.authorNameOrUsername,
-                  style: Theme.of(context).textTheme.titleSmall,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        comment.authorNameOrUsername,
+                        overflow: TextOverflow.ellipsis,
+                        style: _interStyle(
+                          fontSize: isReply ? 13.5 : 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: WynColors.ink,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: WynSpacing.space2),
+                    Text(
+                      relativeTimeLabel(comment.createdAt, now: DateTime.now()),
+                      style: _interStyle(fontSize: 12, color: WynColors.mutedNeutral),
+                    ),
+                  ],
                 ),
-                Text(comment.textContent),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    comment.textContent,
+                    style: _interStyle(
+                        fontSize: 14, color: WynColors.ink, height: 1.4),
+                  ),
+                ),
                 // Replies don't get their own "ตอบกลับ" button -- that's
                 // what keeps nesting to one level in the UI (the DB
                 // trigger is the real enforcement either way).
                 if (!isReply)
                   Padding(
-                    padding: const EdgeInsets.only(top: 4),
+                    padding: const EdgeInsets.only(top: WynSpacing.space2),
                     child: InkWell(
                       onTap: () => _startReply(comment),
                       child: Text(
                         'ตอบกลับ',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.outline,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: _interStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: WynColors.graphite,
+                        ),
                       ),
                     ),
                   ),
@@ -942,7 +1109,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
               child: IconButton(
                 padding: EdgeInsets.zero,
                 iconSize: 16,
-                icon: const Icon(Icons.delete_outline),
+                icon: const Icon(Icons.delete_outline, color: WynColors.graphite),
                 tooltip: 'ลบคอมเมนต์',
                 onPressed: () => _deleteComment(comment.id),
               ),
@@ -962,7 +1129,9 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     iconSize: 16,
                     icon: Icon(
                       comment.likedByMe ? Icons.favorite : Icons.favorite_border,
-                      color: comment.likedByMe ? Colors.red : null,
+                      color: comment.likedByMe
+                          ? WynColors.sapphire
+                          : WynColors.graphite,
                     ),
                     onPressed: () => _toggleCommentLike(comment.id),
                   ),
@@ -971,7 +1140,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
               if (comment.likeCount > 0)
                 Text(
                   '${comment.likeCount}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: _interStyle(fontSize: 11.5, color: WynColors.graphite),
                 ),
             ],
           ),
@@ -989,8 +1158,13 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
 
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: const EdgeInsets.all(WynSpacing.space2),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+            horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
+        decoration: const BoxDecoration(
+          color: WynColors.paper,
+          border: Border(top: BorderSide(color: WynColors.hairline)),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -1011,24 +1185,40 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   children: [
                     Text(
                       'ตอบกลับ ${_replyingTo!.authorNameOrUsername}',
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: _interStyle(fontSize: 12.5, color: WynColors.graphite),
                     ),
                     const SizedBox(width: WynSpacing.space1),
                     InkWell(
                       onTap: _cancelReply,
-                      child: const Icon(Icons.close, size: 16),
+                      child: const Icon(Icons.close,
+                          size: 16, color: WynColors.graphite),
                     ),
                   ],
                 ),
               ),
             Row(
               children: [
+                AvatarCircle(
+                  imageUrl: _myProfile?.avatarUrl,
+                  fallbackText: _myProfile?.username ??
+                      Supabase.instance.client.auth.currentUser!.id,
+                  radius: 16,
+                  ring: true,
+                ),
+                const SizedBox(width: WynSpacing.space3),
                 Expanded(
                   child: TextField(
                     controller: _commentController,
                     focusNode: _commentFocusNode,
                     enabled: !_isSendingComment,
-                    decoration: const InputDecoration(hintText: 'เขียนคอมเมนต์'),
+                    style: _interStyle(fontSize: 13.5, color: WynColors.ink),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      border: InputBorder.none,
+                      hintText: 'แสดงความคิดเห็น...',
+                      hintStyle:
+                          _interStyle(fontSize: 13.5, color: WynColors.faint),
+                    ),
                     onChanged: (_) => setState(() {}),
                   ),
                 ),
@@ -1036,7 +1226,11 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   label: _isRestricted ? 'ส่งคอมเมนต์ ปิดใช้งานเนื่องจากบัญชีถูกจำกัดการโพสต์ชั่วคราว' : null,
                   excludeSemantics: _isRestricted,
                   child: IconButton(
-                    icon: const Icon(Icons.send),
+                    icon: Icon(
+                      Icons.send,
+                      size: 18,
+                      color: canSend ? WynColors.sapphire : WynColors.faint,
+                    ),
                     tooltip: 'ส่งคอมเมนต์',
                     onPressed: canSend ? _sendComment : null,
                   ),
@@ -1049,3 +1243,16 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     );
   }
 }
+
+TextStyle _interStyle({
+  required double fontSize,
+  FontWeight fontWeight = FontWeight.w400,
+  Color? color,
+  double? height,
+}) =>
+    GoogleFonts.inter(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+    );

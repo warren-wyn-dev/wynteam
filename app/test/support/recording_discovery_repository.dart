@@ -3,6 +3,7 @@ import 'package:wyn/features/home/data/home_feed_item.dart';
 import 'package:wyn/features/home/data/home_repository.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/data/profile_repository.dart';
+import 'package:wyn/features/search/data/discovery_ranking.dart';
 import 'package:wyn/features/search/data/discovery_repository.dart';
 
 /// A DiscoveryRepository whose network-touching methods are overridden to
@@ -47,7 +48,7 @@ class RecordingDiscoveryRepository extends DiscoveryRepository {
   List<HomeFeedItem> topContentItems;
 
   /// Returned by [fetchTrendingHashtags].
-  List<String> trendingHashtags;
+  List<RankedHashtag> trendingHashtags;
 
   /// Returned by [fetchRisingProfiles].
   List<Profile> risingProfiles;
@@ -62,9 +63,15 @@ class RecordingDiscoveryRepository extends DiscoveryRepository {
   Object? risingProfilesError;
 
   /// When set, [fetchTopContent] throws this instead of returning
-  /// [topContentItems] -- for exercising Top100Screen's error+retry
-  /// state (WYN-042).
+  /// [topContentItems] -- for exercising the original content-leaderboard
+  /// consumer's error+retry state (WYN-042). Unused by any screen since
+  /// the 2026-08-29 re-brand, same as [fetchTopContent] itself.
   Object? topContentError;
+
+  /// When set, [fetchTrendingHashtags] throws this instead of returning
+  /// [trendingHashtags] -- for exercising Top100Screen's error+retry
+  /// state (2026-08-29's hashtag-leaderboard redefinition of WYN-042).
+  Object? trendingHashtagsError;
 
   @override
   Future<List<HomeFeedItem>> fetchTrendingNow({
@@ -82,10 +89,13 @@ class RecordingDiscoveryRepository extends DiscoveryRepository {
   }
 
   @override
-  Future<List<String>> fetchTrendingHashtags({
+  Future<List<RankedHashtag>> fetchTrendingHashtags({
     int limit = DiscoveryRepository.trendingHashtagsLimit,
-  }) async =>
-      trendingHashtags;
+  }) async {
+    final error = trendingHashtagsError;
+    if (error != null) throw error;
+    return trendingHashtags;
+  }
 
   @override
   Future<List<Profile>> fetchRisingProfiles({

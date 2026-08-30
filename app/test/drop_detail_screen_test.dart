@@ -196,7 +196,10 @@ void main() {
 
     final likeButton = find.byIcon(Icons.favorite_border);
     expect(likeButton, findsOneWidget);
-    expect(find.text('3'), findsOneWidget);
+    // 07-post-detail.tsx: the count lives in the plain-language stat
+    // line ("3 ถูกใจ"), not next to the action-bar icon anymore -- see
+    // DropDetailScreen._buildStatLine.
+    expect(find.text('3 ถูกใจ'), findsOneWidget);
 
     // The square image above it (AspectRatio 1, 800px wide in this test
     // viewport) pushes the like button below the visible 600px-tall
@@ -208,7 +211,7 @@ void main() {
     await tester.pump();
 
     expect(find.byIcon(Icons.favorite), findsOneWidget);
-    expect(find.text('4'), findsOneWidget);
+    expect(find.text('4 ถูกใจ'), findsOneWidget);
   });
 
   testWidgets('shows a Follow button for another user\'s Drop',
@@ -823,8 +826,10 @@ void main() {
       expect(viewCountTestRepo.recordViewCalls, 1);
       expect(viewCountTestRepo.recordViewArgs, ['view-1']);
       // The optimistic view-count bump is visible immediately, before
-      // the (fake, network-less) RPC call resolves.
-      expect(find.text('6'), findsOneWidget);
+      // the (fake, network-less) RPC call resolves. Lives in the stat
+      // line now ("6 การเข้าชม"), not a bare number -- see
+      // DropDetailScreen._buildStatLine.
+      expect(find.text('6 การเข้าชม'), findsOneWidget);
     });
 
     testWidgets(
@@ -860,8 +865,8 @@ void main() {
 
       expect(ownDropViewCountTestRepo.recordViewCalls, 0);
       // The count also isn't optimistically bumped -- still shows the
-      // original 5, not 6.
-      expect(find.text('5'), findsOneWidget);
+      // original 5, not 6 (stat line, see DropDetailScreen._buildStatLine).
+      expect(find.text('5 การเข้าชม'), findsOneWidget);
     });
 
     testWidgets(

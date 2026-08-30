@@ -17,6 +17,16 @@ import 'support/fake_supabase_session.dart';
 import 'support/recording_data_rights_repository.dart';
 import 'support/recording_profile_repository.dart';
 
+/// Restyled to 11-settings.tsx's exact 7-row list (see settings_screen.dart's
+/// own doc comment): the top-level SettingsScreen now only shows บัญชี /
+/// ความเป็นส่วนตัว / การแจ้งเตือน / ธีมเข้ม (disabled) / ช่วยเหลือ (disabled)
+/// / ข้อกำหนดและความเป็นส่วนตัว / ออกจากระบบ, with all the pre-existing real
+/// functionality (Blocked/Muted/Recently Deleted, admin tools, data
+/// export/delete account, the Private Account toggle + 3 permission rows,
+/// the 6 legal documents) relocated one level deeper behind "บัญชี" /
+/// "ความเป็นส่วนตัว" / "ข้อกำหนดและความเป็นส่วนตัว" -- these tests drill
+/// into that sub-screen first, then assert what settings_screen_test.dart
+/// used to assert directly on SettingsScreen itself.
 void main() {
   // Constructed in setUpAll (not inline in a test body) so the
   // SupabaseClient each RecordingProfileRepository wraps -- and the
@@ -41,170 +51,287 @@ void main() {
     recordingDataRightsRepository.exportOverride = null;
   });
 
-  testWidgets('ความปลอดภัย section shows both Blocked List and Muted List rows',
+  testWidgets('shows the 7-row mockup structure: 3 groups + a separated '
+      'logout row, nothing else', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+    ));
+    await tester.pumpAndSettle();
+
+    // "บัญชี" and "ช่วยเหลือ" each appear twice -- once as the GroupLabel
+    // heading, once as the Row label directly under it (11-settings.tsx's
+    // own mockup content: `<GroupLabel>บัญชี</GroupLabel>` sits directly
+    // above `{ label: "บัญชี" }`, same for "ช่วยเหลือ").
+    expect(find.text('บัญชี'), findsNWidgets(2));
+    expect(find.text('ความเป็นส่วนตัว'), findsOneWidget);
+    expect(find.text('การแจ้งเตือน'), findsOneWidget);
+    expect(find.text('ธีมเข้ม'), findsOneWidget);
+    expect(find.text('ช่วยเหลือ'), findsNWidgets(2));
+    expect(find.text('ข้อกำหนดและความเป็นส่วนตัว'), findsOneWidget);
+    expect(find.text('ออกจากระบบ'), findsOneWidget);
+    // None of the relocated sub-screen content leaks onto the top-level
+    // page itself.
+    expect(find.text('บัญชีที่ถูกบล็อก'), findsNothing);
+    expect(find.text('บัญชีส่วนตัว (Private Account)'), findsNothing);
+    expect(find.text('ข้อกำหนดการใช้งาน'), findsNothing);
+  });
+
+  testWidgets('"ธีมเข้ม" and "ช่วยเหลือ" are disabled -- no chevron, no tap '
+      'target', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ธีมเข้ม'));
+    await tester.pumpAndSettle();
+    // No navigation happened -- still on SettingsScreen.
+    expect(find.byType(SettingsScreen), findsOneWidget);
+
+    // "ช่วยเหลือ" is ambiguous (GroupLabel + Row share the same text) --
+    // only the Row is wrapped in an InkWell.
+    await tester.tap(find.widgetWithText(InkWell, 'ช่วยเหลือ'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsScreen), findsOneWidget);
+  });
+
+  testWidgets('tapping "การแจ้งเตือน" opens NotificationSettingsScreen '
+      'directly (unchanged, not nested)', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('การแจ้งเตือน'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NotificationSettingsScreen), findsOneWidget);
+  });
+
+  testWidgets('shows "ออกจากระบบ" as the very last row on the page',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(
       home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
     ));
     await tester.pumpAndSettle();
 
-    expect(find.text('ความปลอดภัย'), findsOneWidget);
-    expect(find.text('บัญชีที่ถูกบล็อก'), findsOneWidget);
-    expect(find.text('บัญชีที่ปิดเสียง'), findsOneWidget);
-  });
+    expect(find.text('ออกจากระบบ'), findsOneWidget);
 
-  testWidgets('tapping บัญชีที่ถูกบล็อก opens BlockedListScreen',
-      (tester) async {
-    await tester.pumpWidget(const MaterialApp(
-      home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
-    ));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('บัญชีที่ถูกบล็อก'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(BlockedListScreen), findsOneWidget);
-  });
-
-  testWidgets('tapping บัญชีที่ปิดเสียง opens MutedListScreen', (tester) async {
-    await tester.pumpWidget(const MaterialApp(
-      home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
-    ));
-    await tester.pumpAndSettle();
-
-    // WYN-045's 3 new rows push "ความปลอดภัย" below the 600px test
-    // viewport -- scroll it into the built extent, then ensure it's
-    // actually within the visible/tappable area (not just mounted at
-    // the edge of the cache extent), before tapping. See
-    // .wyn/learning/PATTERNS.md.
-    final mutedListRow = find.text('บัญชีที่ปิดเสียง');
-    await tester.scrollUntilVisible(
-      mutedListRow,
-      500,
-      scrollable: find.byType(Scrollable).first,
+    final listView = tester.widget<ListView>(find.byType(ListView));
+    final children =
+        (listView.childrenDelegate as SliverChildListDelegate).children;
+    // The last child is the separated logout section (a Padding wrapping
+    // a Divider + the logout row), not a bare row like the others.
+    expect(
+      find.descendant(
+        of: find.byWidget(children.last),
+        matching: find.text('ออกจากระบบ'),
+      ),
+      findsOneWidget,
     );
-    await tester.ensureVisible(mutedListRow);
-    await tester.pumpAndSettle();
-    await tester.tap(mutedListRow);
-    await tester.pumpAndSettle();
-
-    expect(find.byType(MutedListScreen), findsOneWidget);
   });
 
-  testWidgets('tapping รายการที่ลบ opens RecentlyDeletedDropsScreen (WYN-037)',
-      (tester) async {
-    await tester.pumpWidget(const MaterialApp(
-      home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
-    ));
-    await tester.pumpAndSettle();
-
-    // See the scroll comment above -- WYN-045's 3 new rows push this
-    // row below the test viewport too.
-    await tester.scrollUntilVisible(
-      find.text('รายการที่ลบ'),
-      500,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('รายการที่ลบ'), findsOneWidget);
-
-    await tester.tap(find.text('รายการที่ลบ'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(RecentlyDeletedDropsScreen), findsOneWidget);
-  });
-
-  // WYN-029, Screen 1 -- an ordinary user must not see even an empty
-  // "เครื่องมือผู้ดูแล" heading, per the Product spec's "ไม่ปรากฏในเมนูของ
-  // ผู้ใช้ทั่วไป".
-  testWidgets(
-      'platformRole == user never shows the "เครื่องมือผู้ดูแล" section at all',
-      (tester) async {
-    await tester.pumpWidget(const MaterialApp(
-      home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
-    ));
-    await tester.pumpAndSettle();
-
-    expect(find.text('เครื่องมือผู้ดูแล'), findsNothing);
-    expect(find.text('คิวตรวจสอบรายงาน'), findsNothing);
-  });
-
-  testWidgets(
-      'platformRole == moderator shows the section and opens ModerationQueueScreen',
-      (tester) async {
-    await tester.pumpWidget(const MaterialApp(
+  Future<void> openAccountManagement(
+    WidgetTester tester, {
+    PlatformRole platformRole = PlatformRole.user,
+    RecordingDataRightsRepository? dataRightsRepository,
+  }) async {
+    await tester.pumpWidget(MaterialApp(
       home: SettingsScreen(
-          platformRole: PlatformRole.moderator, isPrivate: false),
+        platformRole: platformRole,
+        isPrivate: false,
+        dataRightsRepository: dataRightsRepository,
+      ),
     ));
     await tester.pumpAndSettle();
-
-    // See the scroll comment above (tapping บัญชีที่ปิดเสียง) -- WYN-045's 3
-    // new rows push "เครื่องมือผู้ดูแล" beyond the test viewport's built
-    // extent, so find.text() would find nothing at all without this.
-    await tester.scrollUntilVisible(
-      find.text('เครื่องมือผู้ดูแล'),
-      500,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('เครื่องมือผู้ดูแล'), findsOneWidget);
-
-    final moderationQueueRow = find.text('คิวตรวจสอบรายงาน');
-    await tester.scrollUntilVisible(
-      moderationQueueRow,
-      500,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.ensureVisible(moderationQueueRow);
+    // "บัญชี" is ambiguous (GroupLabel + Row share the same text) -- only
+    // the Row is wrapped in an InkWell.
+    await tester.tap(find.widgetWithText(InkWell, 'บัญชี'));
     await tester.pumpAndSettle();
-    expect(moderationQueueRow, findsOneWidget);
+  }
 
-    await tester.tap(moderationQueueRow);
-    await tester.pumpAndSettle();
+  group('"บัญชี" sub-screen', () {
+    testWidgets('ความปลอดภัย section shows Blocked List, Muted List, and '
+        'รายการที่ลบ rows', (tester) async {
+      await openAccountManagement(tester);
 
-    expect(find.byType(ModerationQueueScreen), findsOneWidget);
-  });
+      expect(find.text('ความปลอดภัย'), findsOneWidget);
+      expect(find.text('บัญชีที่ถูกบล็อก'), findsOneWidget);
+      expect(find.text('บัญชีที่ปิดเสียง'), findsOneWidget);
+      expect(find.text('รายการที่ลบ'), findsOneWidget);
+    });
 
-  testWidgets(
-      'platformRole == admin also shows the section (admin sees everything '
-      'moderator does)', (tester) async {
-    await tester.pumpWidget(const MaterialApp(
-      home: SettingsScreen(platformRole: PlatformRole.admin, isPrivate: false),
-    ));
-    await tester.pumpAndSettle();
-
-    // See the scroll comment above.
-    await tester.scrollUntilVisible(
-      find.text('เครื่องมือผู้ดูแล'),
-      500,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('เครื่องมือผู้ดูแล'), findsOneWidget);
-  });
-
-  // WYN-039, Screen 1.
-  group('ความเป็นส่วนตัว section (WYN-039)', () {
-    testWidgets('shows the Private Account toggle, initialized from isPrivate',
+    testWidgets('tapping บัญชีที่ถูกบล็อก opens BlockedListScreen',
         (tester) async {
-      await tester.pumpWidget(const MaterialApp(
-        home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: true),
-      ));
+      await openAccountManagement(tester);
+
+      await tester.tap(find.text('บัญชีที่ถูกบล็อก'));
       await tester.pumpAndSettle();
 
-      expect(find.text('ความเป็นส่วนตัว'), findsOneWidget);
+      expect(find.byType(BlockedListScreen), findsOneWidget);
+    });
+
+    testWidgets('tapping บัญชีที่ปิดเสียง opens MutedListScreen',
+        (tester) async {
+      await openAccountManagement(tester);
+
+      await tester.tap(find.text('บัญชีที่ปิดเสียง'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MutedListScreen), findsOneWidget);
+    });
+
+    testWidgets('tapping รายการที่ลบ opens RecentlyDeletedDropsScreen '
+        '(WYN-037)', (tester) async {
+      await openAccountManagement(tester);
+
+      await tester.tap(find.text('รายการที่ลบ'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(RecentlyDeletedDropsScreen), findsOneWidget);
+    });
+
+    // WYN-029, Screen 1 -- an ordinary user must not see even an empty
+    // "เครื่องมือผู้ดูแล" heading, per the Product spec's "ไม่ปรากฏในเมนูของ
+    // ผู้ใช้ทั่วไป".
+    testWidgets(
+        'platformRole == user never shows the "เครื่องมือผู้ดูแล" section at '
+        'all', (tester) async {
+      await openAccountManagement(tester, platformRole: PlatformRole.user);
+
+      expect(find.text('เครื่องมือผู้ดูแล'), findsNothing);
+      expect(find.text('คิวตรวจสอบรายงาน'), findsNothing);
+    });
+
+    testWidgets(
+        'platformRole == moderator shows the section and opens '
+        'ModerationQueueScreen', (tester) async {
+      await openAccountManagement(tester,
+          platformRole: PlatformRole.moderator);
+
+      expect(find.text('เครื่องมือผู้ดูแล'), findsOneWidget);
+      final moderationQueueRow = find.text('คิวตรวจสอบรายงาน');
+      expect(moderationQueueRow, findsOneWidget);
+
+      await tester.tap(moderationQueueRow);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ModerationQueueScreen), findsOneWidget);
+    });
+
+    testWidgets(
+        'platformRole == admin also shows the section (admin sees '
+        'everything moderator does)', (tester) async {
+      await openAccountManagement(tester, platformRole: PlatformRole.admin);
+
+      expect(find.text('เครื่องมือผู้ดูแล'), findsOneWidget);
+    });
+
+    group('ข้อมูลของฉัน section (WYN-047)', () {
+      testWidgets('shows the heading and both rows', (tester) async {
+        await openAccountManagement(tester,
+            dataRightsRepository: recordingDataRightsRepository);
+
+        expect(find.text('ข้อมูลของฉัน'), findsOneWidget);
+        expect(find.text('ดาวน์โหลดข้อมูลของฉัน'), findsOneWidget);
+        expect(find.text('ลบบัญชี'), findsOneWidget);
+      });
+
+      // Deliberately never resolves [completer] -- once exportMyData()
+      // resolves, _exportData() goes on to call the real
+      // SharePlus.instance.share() to actually open the OS share sheet,
+      // which isn't mockable/testable in a plain widget test (no
+      // platform channel handler registered here) and, empirically,
+      // does not reject/settle within a bounded handful of pump()s
+      // either -- so this test only proves the loading state appears
+      // and the repository call happened, leaving the export
+      // permanently "in flight" rather than ever reaching the
+      // share-sheet call. The complementary "hides again" half of this
+      // behavior is proven by the failed-export test below instead,
+      // whose failure path returns from _exportData() before ever
+      // calling SharePlus.
+      testWidgets(
+          'tapping ดาวน์โหลดข้อมูลของฉัน shows a loading indicator while in '
+          'flight and calls exportMyData', (tester) async {
+        final completer = Completer<void>();
+        recordingDataRightsRepository.exportOverride = () => completer.future;
+        // Never completed -- see this testWidgets' own doc comment above.
+
+        await openAccountManagement(tester,
+            dataRightsRepository: recordingDataRightsRepository);
+
+        final exportRow = find.text('ดาวน์โหลดข้อมูลของฉัน');
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        await tester.tap(exportRow);
+        await tester.pump();
+
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        expect(recordingDataRightsRepository.exportMyDataCalls, 1);
+      });
+
+      testWidgets(
+          'a failed export hides the loading indicator and shows an error '
+          'SnackBar', (tester) async {
+        recordingDataRightsRepository.exportError = Exception('network error');
+
+        await openAccountManagement(tester,
+            dataRightsRepository: recordingDataRightsRepository);
+
+        final exportRow = find.text('ดาวน์โหลดข้อมูลของฉัน');
+        await tester.tap(exportRow);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.text('ดาวน์โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง'),
+            findsOneWidget);
+      });
+
+      testWidgets('tapping ลบบัญชี opens DeleteAccountScreen', (tester) async {
+        await openAccountManagement(tester,
+            dataRightsRepository: recordingDataRightsRepository);
+
+        await tester.tap(find.text('ลบบัญชี'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(DeleteAccountScreen), findsOneWidget);
+      });
+    });
+  });
+
+  Future<void> openPrivacyScreen(
+    WidgetTester tester, {
+    bool isPrivate = false,
+    InteractionPermission dmPermission = InteractionPermission.everyone,
+    RecordingProfileRepository? profileRepository,
+  }) async {
+    await tester.pumpWidget(MaterialApp(
+      home: SettingsScreen(
+        platformRole: PlatformRole.user,
+        isPrivate: isPrivate,
+        dmPermission: dmPermission,
+        profileRepository: profileRepository,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ความเป็นส่วนตัว'));
+    await tester.pumpAndSettle();
+  }
+
+  // WYN-039, Screen 1.
+  group('"ความเป็นส่วนตัว" sub-screen', () {
+    testWidgets('shows the Private Account toggle, initialized from '
+        'isPrivate', (tester) async {
+      await openPrivacyScreen(tester, isPrivate: true);
+
       expect(find.text('บัญชีส่วนตัว (Private Account)'), findsOneWidget);
       final toggle = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
       expect(toggle.value, isTrue);
     });
 
-    testWidgets('flipping the toggle calls updateIsPrivate with the new value',
-        (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: SettingsScreen(
-          platformRole: PlatformRole.user,
-          isPrivate: false,
-          profileRepository: recordingProfileRepository,
-        ),
-      ));
-      await tester.pumpAndSettle();
+    testWidgets('flipping the toggle calls updateIsPrivate with the new '
+        'value', (tester) async {
+      await openPrivacyScreen(tester,
+          profileRepository: recordingProfileRepository);
 
       await tester.tap(find.byType(SwitchListTile));
       await tester.pumpAndSettle();
@@ -216,14 +343,8 @@ void main() {
 
     testWidgets('a failed update reverts the toggle and shows an error',
         (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: SettingsScreen(
-          platformRole: PlatformRole.user,
-          isPrivate: false,
-          profileRepository: throwingProfileRepository,
-        ),
-      ));
-      await tester.pumpAndSettle();
+      await openPrivacyScreen(tester,
+          profileRepository: throwingProfileRepository);
 
       await tester.tap(find.byType(SwitchListTile));
       await tester.pumpAndSettle();
@@ -232,299 +353,83 @@ void main() {
       expect(toggle.value, isFalse);
       expect(find.text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
     });
-  });
 
-  // WYN-044. The section heading and the row's own title share the
-  // exact same Thai text ("การแจ้งเตือน"), unlike every other section in
-  // this file (e.g. "ความปลอดภัย" heading vs. "บัญชีที่ถูกบล็อก" row) --
-  // so `find.text('การแจ้งเตือน')` matches 2 widgets here, and the row
-  // itself must be targeted via `find.widgetWithText(ListTile, ...)`
-  // rather than a bare text finder.
-  group('การแจ้งเตือน section (WYN-044)', () {
-    testWidgets(
-        'shows both the heading and the row for every platformRole '
-        '(unconditional)', (tester) async {
-      await tester.pumpWidget(const MaterialApp(
-        home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
-      ));
-      await tester.pumpAndSettle();
+    // WYN-045 -- 3 rows right after the Private Account toggle.
+    group('Interaction Privacy Controls rows (WYN-045)', () {
+      testWidgets('default rendering: all 3 rows summarize to "ทุกคน"',
+          (tester) async {
+        await openPrivacyScreen(tester);
 
-      expect(find.text('การแจ้งเตือน'), findsNWidgets(2));
-      expect(find.widgetWithText(ListTile, 'การแจ้งเตือน'), findsOneWidget);
-    });
+        expect(find.text('ใครทักข้อความคุณได้'), findsOneWidget);
+        expect(find.text('ใครกล่าวถึงคุณได้'), findsOneWidget);
+        expect(find.text('ใครคอมเมนต์โพสต์ของคุณได้'), findsOneWidget);
+        expect(find.text('ทุกคน'), findsNWidgets(3));
+      });
 
-    testWidgets('tapping the row opens NotificationSettingsScreen',
-        (tester) async {
-      await tester.pumpWidget(const MaterialApp(
-        home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
-      ));
-      await tester.pumpAndSettle();
+      testWidgets(
+          'opening the picker shows a checkmark on the current value only',
+          (tester) async {
+        await openPrivacyScreen(tester,
+            dmPermission: InteractionPermission.peopleIFollow);
 
-      await tester.tap(find.widgetWithText(ListTile, 'การแจ้งเตือน'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('ใครทักข้อความคุณได้'));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(NotificationSettingsScreen), findsOneWidget);
-    });
-  });
+        // Exactly one of the 3 options is checked -- the other 2 are not.
+        expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
+        expect(find.byIcon(Icons.radio_button_unchecked), findsNWidgets(2));
 
-  // WYN-045, still inside "ความเป็นส่วนตัว" -- 3 new rows right after the
-  // Private Account toggle.
-  group('Interaction Privacy Controls rows (WYN-045)', () {
-    testWidgets('default rendering: all 3 rows summarize to "ทุกคน"',
-        (tester) async {
-      await tester.pumpWidget(const MaterialApp(
-        home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
-      ));
-      await tester.pumpAndSettle();
+        final checkedTile = find.ancestor(
+          of: find.byIcon(Icons.radio_button_checked),
+          matching: find.byType(ListTile),
+        );
+        expect(
+          find.descendant(of: checkedTile, matching: find.text('คนที่ฉันติดตาม')),
+          findsOneWidget,
+        );
+      });
 
-      expect(find.text('ใครทักข้อความคุณได้'), findsOneWidget);
-      expect(find.text('ใครกล่าวถึงคุณได้'), findsOneWidget);
-      expect(find.text('ใครคอมเมนต์โพสต์ของคุณได้'), findsOneWidget);
-      expect(find.text('ทุกคน'), findsNWidgets(3));
-    });
+      testWidgets(
+          'selecting a new DM option closes the sheet, updates the row, and '
+          'calls updateDmPermission with the new value', (tester) async {
+        await openPrivacyScreen(tester,
+            profileRepository: recordingProfileRepository);
 
-    testWidgets(
-        'opening the picker shows a checkmark on the current value only',
-        (tester) async {
-      await tester.pumpWidget(const MaterialApp(
-        home: SettingsScreen(
-          platformRole: PlatformRole.user,
-          isPrivate: false,
-          dmPermission: InteractionPermission.peopleIFollow,
-        ),
-      ));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('ใครทักข้อความคุณได้'));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.text('ใครทักข้อความคุณได้'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('ไม่มีใครเลย'));
+        await tester.pumpAndSettle();
 
-      // Exactly one of the 3 options is checked -- the other 2 are not.
-      expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
-      expect(find.byIcon(Icons.radio_button_unchecked), findsNWidgets(2));
+        expect(recordingProfileRepository.updateDmPermissionArgs,
+            [InteractionPermission.noOne]);
+        // Sheet is closed -- its close icon no longer exists anywhere.
+        expect(find.byIcon(Icons.close), findsNothing);
+        // The row's own trailing summary now reflects the new value.
+        expect(find.text('ไม่มีใครเลย'), findsOneWidget);
+      });
 
-      final checkedTile = find.ancestor(
-        of: find.byIcon(Icons.radio_button_checked),
-        matching: find.byType(ListTile),
-      );
-      expect(
-        find.descendant(of: checkedTile, matching: find.text('คนที่ฉันติดตาม')),
-        findsOneWidget,
-      );
-    });
+      testWidgets(
+          'a failed permission update reverts the row and shows an error',
+          (tester) async {
+        await openPrivacyScreen(tester,
+            profileRepository: throwingProfileRepository);
 
-    testWidgets(
-        'selecting a new DM option closes the sheet, updates the row, and '
-        'calls updateDmPermission with the new value', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: SettingsScreen(
-          platformRole: PlatformRole.user,
-          isPrivate: false,
-          profileRepository: recordingProfileRepository,
-        ),
-      ));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('ใครทักข้อความคุณได้'));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.text('ใครทักข้อความคุณได้'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('ไม่มีใครเลย'));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.text('ไม่มีใครเลย'));
-      await tester.pumpAndSettle();
-
-      expect(recordingProfileRepository.updateDmPermissionArgs,
-          [InteractionPermission.noOne]);
-      // Sheet is closed -- its close icon no longer exists anywhere.
-      expect(find.byIcon(Icons.close), findsNothing);
-      // The row's own trailing summary now reflects the new value.
-      expect(find.text('ไม่มีใครเลย'), findsOneWidget);
-    });
-
-    testWidgets('a failed permission update reverts the row and shows an error',
-        (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: SettingsScreen(
-          platformRole: PlatformRole.user,
-          isPrivate: false,
-          profileRepository: throwingProfileRepository,
-        ),
-      ));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('ใครทักข้อความคุณได้'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('ไม่มีใครเลย'));
-      await tester.pumpAndSettle();
-
-      // Reverted -- all 3 rows (this one included) are back to "ทุกคน".
-      expect(find.text('ทุกคน'), findsNWidgets(3));
-      expect(find.text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
+        // Reverted -- all 3 rows (this one included) are back to "ทุกคน".
+        expect(find.text('ทุกคน'), findsNWidgets(3));
+        expect(find.text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
+      });
     });
   });
 
-  // WYN-047 -- "ข้อมูลของฉัน" sits right before "กฎหมาย" (still near the
-  // bottom, but not the very last section -- see settings_screen.dart's
-  // own comment).
-  group('ข้อมูลของฉัน section (WYN-047)', () {
-    testWidgets(
-        'shows the heading and both rows, positioned right before '
-        '"กฎหมาย"', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: SettingsScreen(
-          platformRole: PlatformRole.user,
-          isPrivate: false,
-          dataRightsRepository: recordingDataRightsRepository,
-        ),
-      ));
-      await tester.pumpAndSettle();
-
-      await tester.scrollUntilVisible(
-        find.text('ข้อมูลของฉัน'),
-        500,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.text('ข้อมูลของฉัน'), findsOneWidget);
-
-      await tester.scrollUntilVisible(
-        find.text('ดาวน์โหลดข้อมูลของฉัน'),
-        500,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.text('ดาวน์โหลดข้อมูลของฉัน'), findsOneWidget);
-
-      await tester.scrollUntilVisible(
-        find.text('ลบบัญชี'),
-        500,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.text('ลบบัญชี'), findsOneWidget);
-
-      // Position check: "ข้อมูลของฉัน" section's own rows appear before
-      // "กฎหมาย" in the ListView's child order.
-      final listView = tester.widget<ListView>(find.byType(ListView));
-      final children = listView.childrenDelegate as SliverChildListDelegate;
-      int indexOfText(String text) {
-        return children.children.indexWhere((widget) {
-          if (widget is Padding && widget.child is Text) {
-            return (widget.child as Text).data == text;
-          }
-          return false;
-        });
-      }
-
-      final dataRightsHeadingIndex = indexOfText('ข้อมูลของฉัน');
-      final legalHeadingIndex = indexOfText('กฎหมาย');
-      expect(dataRightsHeadingIndex, greaterThanOrEqualTo(0));
-      expect(legalHeadingIndex, greaterThanOrEqualTo(0));
-      expect(dataRightsHeadingIndex, lessThan(legalHeadingIndex));
-    });
-
-    // Deliberately never resolves [completer] -- once exportMyData()
-    // resolves, _exportData() goes on to call the real
-    // SharePlus.instance.share() to actually open the OS share sheet,
-    // which isn't mockable/testable in a plain widget test (no
-    // platform channel handler registered here) and, empirically,
-    // does not reject/settle within a bounded handful of pump()s
-    // either -- so this test only proves the loading state appears
-    // and the repository call happened, leaving the export
-    // permanently "in flight" rather than ever reaching the
-    // share-sheet call. The complementary "hides again" half of this
-    // behavior is proven by the failed-export test below instead,
-    // whose failure path returns from _exportData() before ever
-    // calling SharePlus.
-    testWidgets(
-        'tapping ดาวน์โหลดข้อมูลของฉัน shows a loading indicator while in '
-        'flight and calls exportMyData', (tester) async {
-      final completer = Completer<void>();
-      recordingDataRightsRepository.exportOverride = () => completer.future;
-      // Never completed -- see this testWidgets' own doc comment above.
-
-      await tester.pumpWidget(MaterialApp(
-        home: SettingsScreen(
-          platformRole: PlatformRole.user,
-          isPrivate: false,
-          dataRightsRepository: recordingDataRightsRepository,
-        ),
-      ));
-      await tester.pumpAndSettle();
-
-      final exportRow = find.text('ดาวน์โหลดข้อมูลของฉัน');
-      await tester.scrollUntilVisible(
-        exportRow,
-        500,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.ensureVisible(exportRow);
-      await tester.pumpAndSettle();
-
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-      await tester.tap(exportRow);
-      await tester.pump();
-
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
-      expect(recordingDataRightsRepository.exportMyDataCalls, 1);
-    });
-
-    testWidgets(
-        'a failed export hides the loading indicator and shows an error '
-        'SnackBar', (tester) async {
-      recordingDataRightsRepository.exportError = Exception('network error');
-
-      await tester.pumpWidget(MaterialApp(
-        home: SettingsScreen(
-          platformRole: PlatformRole.user,
-          isPrivate: false,
-          dataRightsRepository: recordingDataRightsRepository,
-        ),
-      ));
-      await tester.pumpAndSettle();
-
-      final exportRow = find.text('ดาวน์โหลดข้อมูลของฉัน');
-      await tester.scrollUntilVisible(
-        exportRow,
-        500,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.ensureVisible(exportRow);
-      await tester.pumpAndSettle();
-      await tester.tap(exportRow);
-      await tester.pumpAndSettle();
-
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-      expect(find.text('ดาวน์โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง'),
-          findsOneWidget);
-    });
-
-    testWidgets('tapping ลบบัญชี opens DeleteAccountScreen', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: SettingsScreen(
-          platformRole: PlatformRole.user,
-          isPrivate: false,
-          dataRightsRepository: recordingDataRightsRepository,
-        ),
-      ));
-      await tester.pumpAndSettle();
-
-      final deleteRow = find.text('ลบบัญชี');
-      await tester.scrollUntilVisible(
-        deleteRow,
-        500,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.ensureVisible(deleteRow);
-      await tester.pumpAndSettle();
-      await tester.tap(deleteRow);
-      await tester.pumpAndSettle();
-
-      expect(find.byType(DeleteAccountScreen), findsOneWidget);
-    });
-  });
-
-  // WYN-046 -- "กฎหมาย" is always the very last section, unconditional on
-  // platformRole (unlike "เครื่องมือผู้ดูแล" above). Unlike "การแจ้งเตือน"
-  // (WYN-044), none of these 6 row titles collide with the section
-  // heading text ("กฎหมาย" itself never appears as a row title), so a
-  // plain find.text() per row is unambiguous here.
-  group('กฎหมาย section (WYN-046)', () {
+  // WYN-046 -- 6 legal documents, now behind "ข้อกำหนดและความเป็นส่วนตัว".
+  group('"ข้อกำหนดและความเป็นส่วนตัว" sub-screen', () {
     const rowTitles = [
       'ข้อกำหนดการใช้งาน',
       'นโยบายความเป็นส่วนตัว',
@@ -534,48 +439,30 @@ void main() {
       'นโยบายการอุทธรณ์',
     ];
 
-    testWidgets('shows the heading and all 6 document rows', (tester) async {
+    Future<void> openLegalScreen(WidgetTester tester) async {
       await tester.pumpWidget(const MaterialApp(
-        home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+        home:
+            SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
       ));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('ข้อกำหนดและความเป็นส่วนตัว'));
+      await tester.pumpAndSettle();
+    }
 
-      await tester.scrollUntilVisible(
-        find.text('กฎหมาย'),
-        500,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.text('กฎหมาย'), findsOneWidget);
+    testWidgets('shows all 6 document rows', (tester) async {
+      await openLegalScreen(tester);
 
       for (final title in rowTitles) {
-        await tester.scrollUntilVisible(
-          find.text(title),
-          500,
-          scrollable: find.byType(Scrollable).first,
-        );
-        expect(find.text(title), findsOneWidget,
-            reason: '$title should be shown');
+        expect(find.text(title), findsOneWidget, reason: '$title should be shown');
       }
     });
 
     for (final title in rowTitles) {
       testWidgets('tapping "$title" opens DocumentViewerScreen',
           (tester) async {
-        await tester.pumpWidget(const MaterialApp(
-          home:
-              SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
-        ));
-        await tester.pumpAndSettle();
+        await openLegalScreen(tester);
 
-        final row = find.text(title);
-        await tester.scrollUntilVisible(
-          row,
-          500,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.ensureVisible(row);
-        await tester.pumpAndSettle();
-        await tester.tap(row);
+        await tester.tap(find.text(title));
         await tester.pumpAndSettle();
 
         expect(find.byType(DocumentViewerScreen), findsOneWidget);

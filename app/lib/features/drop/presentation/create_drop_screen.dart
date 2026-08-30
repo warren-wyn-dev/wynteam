@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -9,7 +10,9 @@ import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/data/appeal_status.dart';
 import '../../moderation/data/moderation_repository.dart';
 import '../../moderation/presentation/appeal_form_screen.dart';
+import '../../profile/data/profile.dart';
 import '../../profile/data/profile_repository.dart';
+import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/drop_draft.dart';
 import '../data/drop_repository.dart';
 import '../data/square_crop.dart';
@@ -28,9 +31,24 @@ enum _ComposeMode { image, poll }
 /// barrier) behaves the same as [cancel].
 enum _CloseAction { save, discard, cancel }
 
-/// Screen 2 — Create Drop.
-/// See .wyn/docs/design/wyn-005-drop.md, .wyn/docs/design/wyn-035-poll-in-drop.md,
-/// .wyn/docs/design/wyn-036-draft-system.md
+/// Screen 2 — Create Drop, restyled to `04-drop.tsx` (2026-08-29,
+/// Founder-approved re-brand -- see .wyn/company/DECISIONS.md). All real
+/// logic/data kept exactly as before (poll composition, drafts,
+/// restriction banner, up to 9 images, mention/hashtag autocomplete) --
+/// see .wyn/docs/design/wyn-005-drop.md, wyn-035-poll-in-drop.md,
+/// wyn-036-draft-system.md. 3 Founder decisions (2026-08-29) on where
+/// this screen and the reference disagree:
+///  - Poll: the reference's toolbar has a decorative, no-op poll icon
+///    (it never actually built poll composition) -- this screen's real
+///    poll mode is reachable from that same toolbar position instead of
+///    the old top SegmentedButton.
+///  - The reference's reply-permission row ("ทุกคนสามารถตอบกลับ") has no
+///    real per-post backing (only an account-level commentPermission
+///    exists) -- dropped entirely rather than shown fake or reading an
+///    account-level setting as if it were per-post.
+///  - The reference's audience chip ("ทุกคน ⌄") has no real per-post
+///    audience feature either -- kept as a static, non-interactive
+///    "ทุกคน" label for visual parity, not a working dropdown.
 class CreateDropScreen extends StatefulWidget {
   const CreateDropScreen({
     super.key,
@@ -89,6 +107,12 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   late final AppealRepository _appealRepository =
       widget._appealRepository ?? AppealRepository(Supabase.instance.client);
   Set<String> _mentionedUserIds = {};
+
+  // 04-drop.tsx's header avatar -- fetched once, best-effort (a failed
+  // fetch just leaves the avatar on its fallback-letter state, same
+  // fail-open posture as every other identity-summary fetch in this
+  // codebase, e.g. SideMenu's own _load()).
+  Profile? _ownProfile;
 
   // WYN-071: 1-9 images (was a single Uint8List?/String pair) --
   // parallel lists, same order the preview grid shows them in. Both
@@ -175,7 +199,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   /// [_pollOptionMaxLength], and no two options equal
   /// case-insensitively after trim -- mirrors `valid_poll_options()`
   /// in supabase/schema.sql (that's the real enforcement; this is
-  /// just so the "แชร์" button doesn't invite a doomed request).
+  /// just so the "โพสต์" button doesn't invite a doomed request).
   bool get _pollOptionsValid {
     final trimmed = _pollOptionControllers
         .map((c) => c.text.trim())
@@ -192,10 +216,22 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     super.initState();
     _prefillFromDraft();
     _loadModerationStatus();
+    _loadOwnProfile();
     // WYN-035: in poll mode _canShare depends on the caption text (the
     // poll's question) -- image mode never needed this since it only
     // ever depended on _imageBytes, which already goes through setState.
     _captionController.addListener(_onCaptionChanged);
+  }
+
+  Future<void> _loadOwnProfile() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+      final profile = await _profileRepository.fetchProfile(userId);
+      if (!mounted) return;
+      setState(() => _ownProfile = profile);
+    } catch (_) {
+      // Silent -- see the field's own doc comment.
+    }
   }
 
   /// WYN-036 ("Continue Editing"): copies a Draft's saved content into
@@ -289,16 +325,15 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     setState(() => _pollOptionControllers.removeAt(index).dispose());
   }
 
-  /// WYN-071: appends a single image (camera only -- gallery goes
-  /// through [_pickMultipleImages] instead, see [_showImageSourceSheet]).
-  /// A freshly picked image clears [_existingImageUrl] the same way it
-  /// always did pre-multi-image (a Draft's carried-over image and a
-  /// fresh multi-image pick never mix -- see that field's doc comment).
+  /// WYN-071: a single image (camera). A freshly picked image clears
+  /// [_existingImageUrl] the same way it always did pre-multi-image (a
+  /// Draft's carried-over image and a fresh multi-image pick never mix
+  /// -- see that field's doc comment).
   Future<void> _pickImage(ImageSource source) async {
-    // Guards the same race the "แชร์" button guards against (see
+    // Guards the same race the "โพสต์" button guards against (see
     // .wyn/tasks/bugs/WYN-004-feed-and-post.md, QA round 1): without
-    // this, the image area's onTap could reopen the picker sheet while
-    // the previous pick is still being cropped.
+    // this, a rapid double-tap on the toolbar's camera icon could
+    // reopen the picker while the previous pick is still being cropped.
     if (_isCropping || _imagesBytes.length >= _maxImages) return;
 
     final picked = await ImagePicker().pickImage(
@@ -377,36 +412,14 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     });
   }
 
-  Future<void> _showImageSourceSheet() {
-    return showModalBottomSheet<void>(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_camera),
-              title: const Text('ถ่ายรูปใหม่'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                _pickImage(ImageSource.camera);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('เลือกจากคลังภาพ'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                _pickMultipleImages();
-              },
-            ),
-          ],
-        ),
-      ),
+  void _showComingSoon() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('ฟีเจอร์นี้จะเปิดใช้งานเร็ว ๆ นี้')),
     );
   }
 
   Future<void> _share() async {
-    // The "แชร์" button's onPressed is only disabled on the *next*
+    // The "โพสต์" button's onPressed is only disabled on the *next*
     // rebuild (setState schedules it, it doesn't happen synchronously),
     // so a rapid double-tap before that rebuild would otherwise still
     // reach this method a second time. See .wyn/tasks/bugs/WYN-004-feed-and-post.md
@@ -477,12 +490,13 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     }
   }
 
-  /// WYN-036, Screen 1 -- the sole entry point for both the AppBar's X
-  /// button and the system back gesture (via the PopScope wrapping
-  /// [build]'s Scaffold). A direct `Navigator.pop()` call always
-  /// succeeds regardless of PopScope's `canPop` (only `maybePop()`/the
-  /// system back gesture consult it), so every branch below can just
-  /// call it once it's decided the screen should actually close.
+  /// WYN-036, Screen 1 -- the sole entry point for both the header's
+  /// "ยกเลิก" button and the system back gesture (via the PopScope
+  /// wrapping [build]'s Scaffold). A direct `Navigator.pop()` call
+  /// always succeeds regardless of PopScope's `canPop` (only
+  /// `maybePop()`/the system back gesture consult it), so every branch
+  /// below can just call it once it's decided the screen should
+  /// actually close.
   Future<void> _handleClose() async {
     if (_isSharing || _isSavingDraft) return;
 
@@ -534,7 +548,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     setState(() => _isSavingDraft = true);
     try {
       // Gated by _mode so a leftover _imageBytes/_existingImageUrl from
-      // before switching to โพล mode (the SegmentedButton never clears
+      // before switching to โพล mode (the toolbar toggle never clears
       // them -- see onSelectionChanged above) can't leak an image_url
       // into a poll draft, and vice versa.
       final isImageMode = _mode == _ComposeMode.image;
@@ -575,7 +589,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   Widget build(BuildContext context) {
     // WYN-036: canPop stays false while there's unsaved content so the
     // system back gesture/button routes through _handleClose() too
-    // (via onPopInvokedWithResult) -- the AppBar's X button below
+    // (via onPopInvokedWithResult) -- the header's "ยกเลิก" button below
     // always calls _handleClose() directly regardless, since a direct
     // Navigator.pop() call bypasses canPop entirely (only
     // maybePop()/the system back gesture consult it).
@@ -586,208 +600,239 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
         _handleClose();
       },
       child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: _handleClose,
-          ),
-          title: const Text('Drop ใหม่'),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: WynSpacing.space2),
-              child: Center(
-                child: Semantics(
-                  label: _isRestricted
-                      ? 'แชร์ ปิดใช้งานเนื่องจากบัญชีถูกจำกัดการโพสต์ชั่วคราว'
-                      : null,
-                  excludeSemantics: _isRestricted,
-                  child: TextButton(
-                    onPressed: _canShare ? _share : null,
-                    child: _isSharing
-                        ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('แชร์'),
+        backgroundColor: WynColors.paper,
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(),
+              const Divider(height: 1, color: WynColors.hairline),
+              if (_isRestricted)
+                RestrictionBanner(
+                  reason: _restrictReason,
+                  expiresAt: _restrictExpiresAt,
+                  actionId: _restrictActionId,
+                  appealStatus: _restrictAppealStatus,
+                  onAppeal: _openAppeal,
+                ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(WynSpacing.space4,
+                      WynSpacing.space4, WynSpacing.space4, WynSpacing.space4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AvatarCircle(
+                        imageUrl: _ownProfile?.avatarUrl,
+                        fallbackText: _ownProfile?.username ?? '',
+                        radius: 20,
+                        ring: true,
+                      ),
+                      const SizedBox(width: WynSpacing.space3),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const _AudienceChip(),
+                            const SizedBox(height: WynSpacing.space3),
+                            // Shared between both modes -- doubles as the
+                            // Poll's question when _mode is poll (same
+                            // role it always played, just reordered to
+                            // render before the image strip/poll options
+                            // now, matching 04-drop.tsx's textarea-then-
+                            // attachments order instead of the old
+                            // attachments-then-caption order).
+                            MentionInput(
+                              controller: _captionController,
+                              profileRepository: _profileRepository,
+                              hashtagRepository: widget._hashtagRepository,
+                              onMentionedUsersChanged: (ids) =>
+                                  setState(() => _mentionedUserIds = ids),
+                              maxLength: _captionMaxLength,
+                              maxLines: null,
+                              minLines: 3,
+                              enabled: !_isSharing,
+                              style: GoogleFonts.inter(
+                                  fontSize: 20, color: WynColors.ink, height: 1.4),
+                              decoration: InputDecoration(
+                                hintText: _mode == _ComposeMode.poll
+                                    ? 'ตั้งคำถามโพล...'
+                                    : 'มีอะไรเกิดขึ้นบ้าง',
+                                hintStyle: GoogleFonts.inter(
+                                    fontSize: 20, color: WynColors.faint, height: 1.4),
+                                border: InputBorder.none,
+                                counterText: '',
+                                contentPadding: EdgeInsets.zero,
+                                isDense: true,
+                              ),
+                            ),
+                            if (_mode == _ComposeMode.image)
+                              _buildImageStrip()
+                            else
+                              _buildPollComposer(),
+                            if (_captionController.text.length >
+                                _captionMaxLength * 0.8)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.only(top: WynSpacing.space1),
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Text(
+                                    '${_captionMaxLength - _captionController.text.length}',
+                                    style: GoogleFonts.inter(
+                                        fontSize: 11.5, color: WynColors.sapphire),
+                                  ),
+                                ),
+                              ),
+                            if (_errorMessage != null) ...[
+                              const SizedBox(height: WynSpacing.space2),
+                              Text(
+                                _errorMessage!,
+                                style: TextStyle(
+                                    color: Theme.of(context).colorScheme.error),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (_isRestricted)
-                  RestrictionBanner(
-                    reason: _restrictReason,
-                    expiresAt: _restrictExpiresAt,
-                    actionId: _restrictActionId,
-                    appealStatus: _restrictAppealStatus,
-                    onAppeal: _openAppeal,
-                  ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: WynSpacing.space4,
-                    vertical: WynSpacing.space2,
-                  ),
-                  child: SegmentedButton<_ComposeMode>(
-                    segments: const [
-                      ButtonSegment(
-                        value: _ComposeMode.image,
-                        label: Text('รูปภาพ'),
-                        icon: Icon(Icons.image_outlined),
-                      ),
-                      ButtonSegment(
-                        value: _ComposeMode.poll,
-                        label: Text('โพล'),
-                        icon: Icon(Icons.poll_outlined),
-                      ),
-                    ],
-                    selected: {_mode},
-                    onSelectionChanged: _isSharing
-                        ? null
-                        : (selection) =>
-                            setState(() => _mode = selection.first),
-                  ),
-                ),
-                if (_mode == _ComposeMode.image)
-                  _buildImageArea()
-                else
-                  _buildPollComposer(),
-                Padding(
-                  padding: const EdgeInsets.all(WynSpacing.space4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      MentionInput(
-                        controller: _captionController,
-                        profileRepository: _profileRepository,
-                        hashtagRepository: widget._hashtagRepository,
-                        onMentionedUsersChanged: (ids) =>
-                            setState(() => _mentionedUserIds = ids),
-                        maxLength: _captionMaxLength,
-                        maxLines: 4,
-                        minLines: 2,
-                        enabled: !_isSharing,
-                        decoration: InputDecoration(
-                          hintText: _mode == _ComposeMode.poll
-                              ? 'ตั้งคำถามโพล... ใส่ #hashtag หรือ @mention ได้'
-                              : 'เขียนแคปชัน... ใส่ #hashtag หรือ @mention ได้',
-                          border: InputBorder.none,
-                        ),
-                      ),
-                      if (_errorMessage != null) ...[
-                        const SizedBox(height: WynSpacing.space2),
-                        Text(
-                          _errorMessage!,
-                          style: TextStyle(
-                              color: Theme.of(context).colorScheme.error),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              _buildToolbar(),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildImageArea() {
+  // 04-drop.tsx's header: "ยกเลิก" plain text (left) -- filled pill
+  // "โพสต์" (right), sapphire when there's content to post, hairline/
+  // flat when disabled. No center title -- deliberately not an AppBar
+  // (no leading icon slot needed for a text-only cancel action).
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          WynSpacing.space4, WynSpacing.space2, WynSpacing.space4, WynSpacing.space3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          TextButton(
+            key: const Key('cancel_button'),
+            onPressed: _handleClose,
+            style: TextButton.styleFrom(
+              foregroundColor: WynColors.ink,
+              padding: EdgeInsets.zero,
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text('ยกเลิก', style: GoogleFonts.inter(fontSize: 14.5, color: WynColors.ink)),
+          ),
+          Semantics(
+            label: _isRestricted
+                ? 'โพสต์ ปิดใช้งานเนื่องจากบัญชีถูกจำกัดการโพสต์ชั่วคราว'
+                : null,
+            excludeSemantics: _isRestricted,
+            child: TextButton(
+              key: const Key('post_button'),
+              onPressed: _canShare ? _share : null,
+              style: TextButton.styleFrom(
+                backgroundColor: _canShare ? WynColors.sapphire : WynColors.hairline,
+                foregroundColor: _canShare ? WynColors.paper : WynColors.mutedNeutral,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                shape: const StadiumBorder(),
+              ),
+              child: _isSharing
+                  ? SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: _canShare ? WynColors.paper : WynColors.mutedNeutral,
+                      ),
+                    )
+                  : Text('โพสต์',
+                      style: GoogleFonts.inter(fontSize: 13.5, fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 04-drop.tsx's ImageStrip: a horizontal scroll of picked images, each
+  // its own remove button -- rendered only when non-empty (no dashed
+  // empty-state box; picking an image is toolbar-only now, per the
+  // reference's "attachments are optional tools reached through a
+  // toolbar" direction). Draft continuation's already-uploaded image
+  // (WYN-036) renders the same way, as a single-item strip.
+  Widget _buildImageStrip() {
     final existingImageUrl = _existingImageUrl;
 
-    // WYN-036 draft continuation, unchanged: a Draft's already-uploaded
-    // image, not yet replaced by a fresh pick -- single image only,
-    // same as before multi-image existed (see saveDraft's own scope
-    // note above).
     if (existingImageUrl != null && _imagesBytes.isEmpty) {
-      return GestureDetector(
-        onTap: (_isSharing || _isCropping) ? null : _showImageSourceSheet,
-        child: AspectRatio(
-          aspectRatio: 1,
-          child: Semantics(
-            label: 'รูปที่เลือก',
-            child: Container(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              child: _isCropping
-                  ? const Center(child: CircularProgressIndicator())
-                  : Image.network(existingImageUrl, fit: BoxFit.cover),
+      return Padding(
+        padding: const EdgeInsets.only(top: WynSpacing.space3),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(WynSpacing.radiusLg),
+          child: SizedBox(
+            width: 128,
+            height: 160,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Semantics(
+                  label: 'รูปที่เลือก',
+                  child: Container(
+                    color: WynColors.hairline,
+                    child: _isCropping
+                        ? const Center(child: CircularProgressIndicator())
+                        : Image.network(existingImageUrl, fit: BoxFit.cover),
+                  ),
+                ),
+                _buildRemoveButton(
+                    onTap: () => setState(() => _existingImageUrl = null)),
+              ],
             ),
           ),
         ),
       );
     }
 
-    if (_imagesBytes.isEmpty) {
-      return GestureDetector(
-        onTap: (_isSharing || _isCropping) ? null : _showImageSourceSheet,
-        child: AspectRatio(
-          aspectRatio: 1,
-          child: Semantics(
-            label: 'แตะเพื่อเลือกหรือถ่ายรูป',
-            button: true,
-            child: Container(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              child: _isCropping
-                  ? const Center(child: CircularProgressIndicator())
-                  : const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.add_photo_alternate_outlined, size: 40),
-                          SizedBox(height: WynSpacing.space2),
-                          Text('แตะเพื่อเลือกรูป (ไม่บังคับ)'),
-                        ],
-                      ),
-                    ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    // WYN-071: 1-9 picked images -- grid responsive to count, per the
-    // Design doc (1 image: full width, 2-3: single row, 4+: 3 columns).
-    final crossAxisCount = _imagesBytes.length == 1
-        ? 1
-        : (_imagesBytes.length <= 3 ? _imagesBytes.length : 3);
-    final canAddMore =
-        _imagesBytes.length < _maxImages && !_isCropping && !_isSharing;
+    if (_imagesBytes.isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WynSpacing.space4,
-        vertical: WynSpacing.space2,
-      ),
+      padding: const EdgeInsets.only(top: WynSpacing.space3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_isCropping) const LinearProgressIndicator(),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount,
-              crossAxisSpacing: WynSpacing.space2,
-              mainAxisSpacing: WynSpacing.space2,
+          SizedBox(
+            height: 160,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _imagesBytes.length,
+              separatorBuilder: (_, __) => const SizedBox(width: WynSpacing.space2),
+              itemBuilder: (context, index) => ClipRRect(
+                borderRadius: BorderRadius.circular(WynSpacing.radiusLg),
+                child: SizedBox(
+                  width: 128,
+                  height: 160,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.memory(_imagesBytes[index], fit: BoxFit.cover),
+                      _buildRemoveButton(onTap: () => _removeImage(index)),
+                    ],
+                  ),
+                ),
+              ),
             ),
-            itemCount: _imagesBytes.length + (canAddMore ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (index >= _imagesBytes.length) return _buildAddImageTile();
-              return _buildImageThumbnail(index);
-            },
           ),
           Padding(
             padding: const EdgeInsets.only(top: WynSpacing.space1),
             child: Text(
               '${_imagesBytes.length}/$_maxImages',
-              style: Theme.of(context).textTheme.bodySmall,
+              style: GoogleFonts.inter(fontSize: 12, color: WynColors.faint),
             ),
           ),
         ],
@@ -795,67 +840,39 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     );
   }
 
-  Widget _buildImageThumbnail(int index) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.memory(_imagesBytes[index], fit: BoxFit.cover),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: Semantics(
-              label: 'ลบรูปที่ ${index + 1}',
-              button: true,
-              excludeSemantics: true,
-              child: InkWell(
-                onTap: _isSharing ? null : () => _removeImage(index),
-                borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                child: const DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: WynColors.imageScrimStrong,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(2),
-                    child: Icon(Icons.close, size: 16, color: Colors.white),
-                  ),
-                ),
-              ),
+  Widget _buildRemoveButton({required VoidCallback onTap}) {
+    return Positioned(
+      top: 8,
+      right: 8,
+      child: Semantics(
+        label: 'ลบรูปนี้',
+        button: true,
+        excludeSemantics: true,
+        child: InkWell(
+          onTap: _isSharing ? null : onTap,
+          customBorder: const CircleBorder(),
+          child: const DecoratedBox(
+            decoration: BoxDecoration(
+              color: WynColors.imageScrimStrong,
+              shape: BoxShape.circle,
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(5),
+              child: Icon(Icons.close, size: 13, color: WynColors.paper),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAddImageTile() {
-    return Semantics(
-      label: 'เพิ่มรูป เหลือได้อีก ${_maxImages - _imagesBytes.length} รูป',
-      button: true,
-      excludeSemantics: true,
-      child: InkWell(
-        onTap: _showImageSourceSheet,
-        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-          ),
-          child: const Icon(Icons.add_photo_alternate_outlined, size: 32),
         ),
       ),
     );
   }
 
-  /// WYN-035, Design Screen 1 -- replaces [_buildImageArea] when
-  /// [_mode] is [_ComposeMode.poll]. The caption field below this
-  /// (shared with the image mode, see [build]) doubles as the poll's
-  /// question -- no separate question field.
+  /// WYN-035, Design Screen 1 -- replaces the image strip when [_mode]
+  /// is [_ComposeMode.poll]. The caption field above this (shared with
+  /// image mode, see [build]) doubles as the poll's question -- no
+  /// separate question field.
   Widget _buildPollComposer() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
+      padding: const EdgeInsets.only(top: WynSpacing.space3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -869,10 +886,25 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                       controller: _pollOptionControllers[i],
                       maxLength: _pollOptionMaxLength,
                       enabled: !_isSharing,
+                      style: GoogleFonts.inter(fontSize: 14.5, color: WynColors.ink),
                       decoration: InputDecoration(
                         hintText: 'ตัวเลือกที่ ${i + 1}',
+                        hintStyle: GoogleFonts.inter(fontSize: 14.5, color: WynColors.faint),
                         counterText: '',
-                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+                          borderSide: const BorderSide(color: WynColors.hairline),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+                          borderSide: const BorderSide(color: WynColors.hairline),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+                          borderSide: const BorderSide(color: WynColors.sapphire),
+                        ),
                       ),
                       onChanged: (_) => setState(() {}),
                     ),
@@ -882,7 +914,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                   if (i >= _minPollOptions)
                     IconButton(
                       key: ValueKey('remove_poll_option_$i'),
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(Icons.close, color: WynColors.graphite),
                       tooltip: 'ลบตัวเลือกนี้',
                       onPressed: _isSharing ? null : () => _removePollOption(i),
                     ),
@@ -892,13 +924,22 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
           if (_pollOptionControllers.length < _maxPollOptions)
             TextButton.icon(
               onPressed: _isSharing ? null : _addPollOption,
-              icon: const Icon(Icons.add),
-              label: const Text('เพิ่มตัวเลือก'),
+              style: TextButton.styleFrom(foregroundColor: WynColors.sapphire),
+              icon: const Icon(Icons.add, size: 18),
+              label: Text('เพิ่มตัวเลือก', style: GoogleFonts.inter(fontSize: 13.5)),
             ),
           const SizedBox(height: WynSpacing.space2),
-          Text('ระยะเวลาโหวต', style: Theme.of(context).textTheme.labelLarge),
+          Text('ระยะเวลาโหวต',
+              style: GoogleFonts.inter(
+                  fontSize: 13.5, fontWeight: FontWeight.w600, color: WynColors.ink)),
           const SizedBox(height: WynSpacing.space2),
           SegmentedButton<int>(
+            style: SegmentedButton.styleFrom(
+              selectedForegroundColor: WynColors.paper,
+              selectedBackgroundColor: WynColors.sapphire,
+              foregroundColor: WynColors.ink,
+              side: const BorderSide(color: WynColors.hairline),
+            ),
             segments: const [
               ButtonSegment(value: 1, label: Text('1 วัน')),
               ButtonSegment(value: 3, label: Text('3 วัน')),
@@ -911,6 +952,137 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                     setState(() => _pollDurationDays = selection.first),
           ),
         ],
+      ),
+    );
+  }
+
+  // 04-drop.tsx's bottom toolbar: photo (gallery, multi-select) /
+  // camera (single shot) / poll (toggles _mode, replacing the old top
+  // SegmentedButton -- Founder decision 2026-08-29) / location
+  // (placeholder -- drops.location has no UI reading/writing it yet
+  // anywhere in the app, see supabase/schema.sql's own comment on that
+  // column). Photo/camera disabled in poll mode (a Drop carries either
+  // an image or a Poll, never both) and while sharing/cropping.
+  Widget _buildToolbar() {
+    final imageDisabled = _isSharing || _isCropping || _mode == _ComposeMode.poll;
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: WynColors.hairline)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+            horizontal: WynSpacing.space4, vertical: WynSpacing.space3),
+        child: Row(
+          children: [
+            _ToolbarIcon(
+              key: const Key('toolbar_photo_button'),
+              icon: Icons.image_outlined,
+              enabled: !imageDisabled,
+              onTap: _pickMultipleImages,
+              semanticsLabel: 'แนบรูปจากคลังภาพ',
+            ),
+            const SizedBox(width: WynSpacing.space5),
+            _ToolbarIcon(
+              key: const Key('toolbar_camera_button'),
+              icon: Icons.camera_alt_outlined,
+              enabled: !imageDisabled,
+              onTap: () => _pickImage(ImageSource.camera),
+              semanticsLabel: 'ถ่ายรูปใหม่',
+            ),
+            const SizedBox(width: WynSpacing.space5),
+            _ToolbarIcon(
+              key: const Key('toolbar_poll_button'),
+              icon: Icons.bar_chart,
+              enabled: !_isSharing,
+              active: _mode == _ComposeMode.poll,
+              onTap: () => setState(() => _mode =
+                  _mode == _ComposeMode.poll ? _ComposeMode.image : _ComposeMode.poll),
+              semanticsLabel: _mode == _ComposeMode.poll ? 'ยกเลิกโพล' : 'สร้างโพล',
+            ),
+            const SizedBox(width: WynSpacing.space5),
+            _ToolbarIcon(
+              key: const Key('toolbar_location_button'),
+              icon: Icons.location_on_outlined,
+              enabled: true,
+              onTap: _showComingSoon,
+              semanticsLabel: 'เพิ่มตำแหน่งที่ตั้ง',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AudienceChip extends StatelessWidget {
+  const _AudienceChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1EFE9),
+        border: Border.all(color: WynColors.hairline),
+        borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('ทุกคน',
+              style: GoogleFonts.inter(
+                  fontSize: 12.5, fontWeight: FontWeight.w600, color: WynColors.ink)),
+          const SizedBox(width: 2),
+          const Icon(Icons.keyboard_arrow_down, size: 13, color: WynColors.graphite),
+        ],
+      ),
+    );
+  }
+}
+
+class _ToolbarIcon extends StatelessWidget {
+  const _ToolbarIcon({
+    super.key,
+    required this.icon,
+    required this.enabled,
+    required this.onTap,
+    required this.semanticsLabel,
+    this.active = false,
+  });
+
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onTap;
+  final String semanticsLabel;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = !enabled
+        ? WynColors.faint
+        : active
+            ? WynColors.sapphire
+            : WynColors.sapphire;
+    return Semantics(
+      label: semanticsLabel,
+      button: true,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        customBorder: const CircleBorder(),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Container(
+            decoration: active
+                ? const BoxDecoration(
+                    color: WynColors.sapphireRing,
+                    shape: BoxShape.circle,
+                  )
+                : null,
+            padding: active ? const EdgeInsets.all(4) : const EdgeInsets.all(0),
+            child: Icon(icon, size: 19, color: color),
+          ),
+        ),
       ),
     );
   }

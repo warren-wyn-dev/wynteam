@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -12,8 +13,10 @@ import '../../moderation/data/appeal_status.dart';
 import '../../moderation/data/moderation_repository.dart';
 import '../../moderation/presentation/appeal_form_screen.dart';
 import 'club_page.dart';
+import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
-import '../../../core/widgets/dashed_rect_border_painter.dart';
+import '../../../core/design/wyn_typography.dart';
+import '../../../core/widgets/labeled_field.dart';
 import '../../../core/widgets/restriction_banner.dart';
 
 /// Screen 2 — Create Club. Reuses Edit Profile's form/upload pattern
@@ -182,13 +185,53 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
     }
   }
 
+  Future<void> _pickCategory() async {
+    if (_isCreating) return;
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            for (final category in clubCategories)
+              ListTile(
+                title: Text(category),
+                trailing: category == _category
+                    ? const Icon(Icons.check, color: WynColors.sapphire)
+                    : null,
+                onTap: () => Navigator.of(sheetContext).pop(category),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (selected != null) setState(() => _category = selected);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('สร้าง Club')),
+      backgroundColor: WynColors.paper,
+      appBar: AppBar(
+        backgroundColor: WynColors.paper,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          'สร้าง Club',
+          style: WynTypography.fraunces(fontSize: 17, color: WynColors.ink),
+        ),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, color: WynColors.hairline),
+        ),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(WynSpacing.space4),
+          padding: const EdgeInsets.fromLTRB(
+            WynSpacing.space6, WynSpacing.space5, WynSpacing.space6, WynSpacing.space6,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -200,76 +243,130 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                   appealStatus: _restrictAppealStatus,
                   onAppeal: _openAppeal,
                 ),
-              _buildCoverPicker(),
-              const SizedBox(height: WynSpacing.space4),
-              TextField(
-                controller: _nameController,
-                maxLength: _nameMaxLength,
-                enabled: !_isCreating,
-                decoration: const InputDecoration(
-                  labelText: 'ชื่อ Club',
-                  helperText: '1-50 ตัวอักษร',
+              // 08-club.tsx: cover picker, name, description, category, and
+              // privacy all sit inside one bordered card instead of loose
+              // full-width sections -- the card is what gives this screen
+              // its "contained, tidy" feel.
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: WynColors.hairline),
+                  borderRadius: BorderRadius.circular(WynSpacing.radiusLg),
                 ),
-                onChanged: (_) => setState(() {}),
-              ),
-              TextField(
-                controller: _descriptionController,
-                maxLength: _descriptionMaxLength,
-                maxLines: 4,
-                enabled: !_isCreating,
-                decoration: const InputDecoration(
-                  labelText: 'คำอธิบาย',
-                  helperText: 'อธิบาย Club นี้สั้น ๆ (ไม่บังคับ)',
-                ),
-              ),
-              const SizedBox(height: WynSpacing.space2),
-              DropdownButtonFormField<String>(
-                initialValue: _category,
-                decoration: const InputDecoration(labelText: 'หมวดหมู่'),
-                items: clubCategories
-                    .map(
-                      (category) => DropdownMenuItem(
-                        value: category,
-                        child: Text(category),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildCoverPicker(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space5),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          LabeledField(
+                            key: const Key('club_name_field'),
+                            label: 'ชื่อ Club',
+                            controller: _nameController,
+                            maxLength: _nameMaxLength,
+                            helper: '1-$_nameMaxLength ตัวอักษร',
+                            enabled: !_isCreating,
+                            alwaysShowHelper: true,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          const Divider(height: 1, color: WynColors.hairline),
+                          LabeledField(
+                            key: const Key('club_description_field'),
+                            label: 'คำอธิบาย',
+                            controller: _descriptionController,
+                            maxLength: _descriptionMaxLength,
+                            helper: 'อธิบาย Club นี้สั้น ๆ (ไม่บังคับ)',
+                            multiline: true,
+                            enabled: !_isCreating,
+                            alwaysShowHelper: true,
+                          ),
+                        ],
                       ),
-                    )
-                    .toList(),
-                onChanged: _isCreating
-                    ? null
-                    : (value) => setState(() => _category = value),
-              ),
-              const SizedBox(height: WynSpacing.space4),
-              Text('ความเป็นส่วนตัว', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: WynSpacing.space2),
-              SegmentedButton<ClubPrivacy>(
-                segments: const [
-                  ButtonSegment(value: ClubPrivacy.public, label: Text('สาธารณะ')),
-                  ButtonSegment(value: ClubPrivacy.private, label: Text('ส่วนตัว')),
-                ],
-                selected: _privacy == null ? const {} : {_privacy!},
-                emptySelectionAllowed: true,
-                onSelectionChanged: _isCreating
-                    ? null
-                    : (selection) =>
-                        setState(() => _privacy = selection.isEmpty ? null : selection.first),
-              ),
-              if (_privacy != null) ...[
-                const SizedBox(height: WynSpacing.space1),
-                Text(
-                  _privacy == ClubPrivacy.public
-                      ? 'ทุกคนค้นหาและเข้าร่วมได้ทันที'
-                      : 'ต้องส่งคำขอ ผู้ดูแลต้องอนุมัติก่อน',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.outline,
+                    ),
+                    const Divider(height: 1, color: WynColors.hairline),
+                    // Not in 08-club.tsx's own mockup (it doesn't have a
+                    // category field at all), but real, existing
+                    // functionality -- kept in the same card, same
+                    // label-above field language as the name/description
+                    // fields above it.
+                    InkWell(
+                      onTap: _pickCategory,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          WynSpacing.space5, WynSpacing.space4, WynSpacing.space5, WynSpacing.space4,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'หมวดหมู่',
+                                    style: _interStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: WynColors.ink,
+                                    ),
+                                  ),
+                                  const SizedBox(height: WynSpacing.space1),
+                                  Text(
+                                    _category ?? 'ไม่บังคับ',
+                                    style: _interStyle(
+                                      fontSize: 14.5,
+                                      color: _category == null
+                                          ? WynColors.faint
+                                          : WynColors.ink,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right,
+                                size: 18, color: WynColors.faint),
+                          ],
+                        ),
                       ),
+                    ),
+                    const Divider(height: 1, color: WynColors.hairline),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        WynSpacing.space5, WynSpacing.space4, WynSpacing.space5, WynSpacing.space4,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'ความเป็นส่วนตัว',
+                            style: _interStyle(
+                                fontSize: 13, fontWeight: FontWeight.w500, color: WynColors.ink),
+                          ),
+                          const SizedBox(height: WynSpacing.space3),
+                          _buildPrivacyToggle(),
+                          if (_privacy != null) ...[
+                            const SizedBox(height: WynSpacing.space2),
+                            Text(
+                              _privacy == ClubPrivacy.public
+                                  ? 'ทุกคนค้นหาและเข้าร่วมได้ทันที'
+                                  : 'ต้องส่งคำขอ ผู้ดูแลต้องอนุมัติก่อน',
+                              style: _interStyle(fontSize: 12, color: WynColors.graphite),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-              const SizedBox(height: WynSpacing.space4),
+              ),
+              const SizedBox(height: WynSpacing.space6),
               if (_errorMessage != null) ...[
                 Text(
                   _errorMessage!,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  style: const TextStyle(color: WynColors.errorLight),
                 ),
                 const SizedBox(height: WynSpacing.space3),
               ],
@@ -277,12 +374,22 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                 label: _isRestricted ? 'สร้าง Club ปิดใช้งานเนื่องจากบัญชีถูกจำกัดการโพสต์ชั่วคราว' : null,
                 excludeSemantics: _isRestricted,
                 child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    shape: const StadiumBorder(),
+                    padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3 + 2),
+                    backgroundColor: WynColors.sapphire,
+                    foregroundColor: WynColors.paper,
+                    disabledBackgroundColor: WynColors.hairline,
+                    disabledForegroundColor: WynColors.mutedNeutral,
+                    textStyle: _interStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  ),
                   onPressed: _canCreate ? _create : null,
                   child: _isCreating
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: WynColors.paper),
                         )
                       : const Text('สร้าง Club'),
                 ),
@@ -294,62 +401,119 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
     );
   }
 
-  Widget _buildCoverPicker() {
-    final scheme = Theme.of(context).colorScheme;
+  /// 08-club.tsx's rounded pill privacy toggle -- a hairline-filled pill
+  /// container with the active segment raised on a paper background,
+  /// replacing the old `SegmentedButton`. `ClubPrivacy` stays 2 values
+  /// (public/private), so this is still a 2-segment control, just
+  /// restyled.
+  Widget _buildPrivacyToggle() {
+    Widget segment(ClubPrivacy value, String label) {
+      final selected = _privacy == value;
+      return Expanded(
+        child: GestureDetector(
+          onTap: _isCreating ? null : () => setState(() => _privacy = value),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2 + 2),
+            decoration: BoxDecoration(
+              color: selected ? WynColors.paper : Colors.transparent,
+              borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: WynColors.ink.withValues(alpha: 0.10),
+                        blurRadius: 6,
+                        offset: const Offset(0, 1),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: _interStyle(
+                fontSize: 13.5,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                color: selected ? WynColors.ink : WynColors.graphite,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: WynColors.hairline,
+        borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+        border: Border.all(color: WynColors.hairline),
+      ),
+      child: Row(
+        children: [
+          segment(ClubPrivacy.public, 'สาธารณะ'),
+          segment(ClubPrivacy.private, 'ส่วนตัว'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCoverPicker() {
     return GestureDetector(
       onTap: _isCreating ? null : _pickCover,
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: Semantics(
-          label: _coverBytes == null ? 'แตะเพื่อเลือกรูปปก' : 'รูปปกที่เลือก',
-          button: true,
-          child: _coverBytes != null
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
-                  child: Image.memory(_coverBytes!, fit: BoxFit.cover),
-                )
-              : CustomPaint(
-                  painter: DashedRectBorderPainter(
-                    color: scheme.outline,
-                    borderRadius: WynSpacing.radiusMd,
-                  ),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: scheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
-                    ),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: scheme.primaryContainer,
-                            ),
-                            child: Icon(
-                              Icons.add_photo_alternate_outlined,
-                              color: scheme.onPrimaryContainer,
-                            ),
-                          ),
-                          const SizedBox(height: WynSpacing.space2),
-                          const Text('แตะเพื่อเลือกรูปปก'),
-                          Text(
-                            'แนะนำอัตราส่วน 16:9',
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  color: scheme.onSurfaceVariant,
-                                ),
-                          ),
-                        ],
+      child: Semantics(
+        label: _coverBytes == null ? 'แตะเพื่อเลือกรูปปก' : 'รูปปกที่เลือก',
+        button: true,
+        child: _coverBytes != null
+            ? SizedBox(
+                height: 110,
+                width: double.infinity,
+                child: Image.memory(_coverBytes!, fit: BoxFit.cover),
+              )
+            : Container(
+                height: 110,
+                width: double.infinity,
+                color: WynColors.hairline,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: WynColors.sapphireRing,
+                        ),
+                        child: const Icon(
+                          Icons.image_outlined,
+                          size: 16,
+                          color: WynColors.sapphire,
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: WynSpacing.space2),
+                      Text(
+                        'แตะเพื่อเลือกรูปปก',
+                        style: _interStyle(
+                            fontSize: 12.5, fontWeight: FontWeight.w600, color: WynColors.ink),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'แนะนำอัตราส่วน 16:9',
+                        style: _interStyle(fontSize: 11, color: WynColors.faint),
+                      ),
+                    ],
                   ),
                 ),
-        ),
+              ),
       ),
     );
   }
 }
+
+TextStyle _interStyle({
+  required double fontSize,
+  FontWeight fontWeight = FontWeight.w400,
+  Color? color,
+}) =>
+    GoogleFonts.inter(fontSize: fontSize, fontWeight: fontWeight, color: color);

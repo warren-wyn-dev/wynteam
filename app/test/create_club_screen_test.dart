@@ -7,6 +7,15 @@ import 'support/fake_supabase_session.dart';
 import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
 
+/// LabeledField's own label is a sibling of its TextField, not a
+/// descendant -- see edit_profile_screen_test.dart's identical
+/// `_field` helper and comment for why `find.widgetWithText(TextField,
+/// ...)` no longer works here.
+Finder _clubNameField() => find.descendant(
+      of: find.byKey(const Key('club_name_field')),
+      matching: find.byType(TextField),
+    );
+
 /// Regression tests for CreateClubScreen's required-field gating, per
 /// .wyn/docs/design/wyn-014-club-core.md, Screen 2: "disabled จนกว่าจะ
 /// กรอกครบ Name+Privacy อย่างน้อย -- Cover/Icon/Description/Category เป็น
@@ -45,7 +54,7 @@ void main() {
 
     expect(tester.widget<FilledButton>(createButtonFinder()).onPressed, isNull);
 
-    await tester.enterText(find.widgetWithText(TextField, 'ชื่อ Club'), 'ชมรมถ่ายภาพ');
+    await tester.enterText(_clubNameField(), 'ชมรมถ่ายภาพ');
     await tester.pump();
     // Name alone isn't enough -- Privacy is also required.
     expect(tester.widget<FilledButton>(createButtonFinder()).onPressed, isNull);
@@ -67,7 +76,7 @@ void main() {
       'left blank) still calls createClub', (tester) async {
     await pumpScreen(tester);
 
-    await tester.enterText(find.widgetWithText(TextField, 'ชื่อ Club'), 'ชมรมถ่ายภาพ');
+    await tester.enterText(_clubNameField(), 'ชมรมถ่ายภาพ');
     await tester.ensureVisible(find.text('ส่วนตัว'));
     await tester.tap(find.text('ส่วนตัว'));
     await tester.pump();

@@ -1,11 +1,12 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
-import '../../../core/text_utils.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../core/widgets/restriction_banner.dart';
 import '../../block/data/block_relationship.dart';
@@ -37,8 +38,29 @@ import '../data/chat_message.dart';
 import '../data/chat_repository.dart';
 import '../data/shared_content_type.dart';
 
-/// Screen 3 -- the conversation itself. See
-/// .wyn/docs/design/wyn-031-chat-1to1.md, Screen 3.
+/// Screen 3 -- the conversation itself. Restyled to 13-chat-thread.tsx:
+/// sapphire-filled bubbles (mine) vs. tinted #F1EFE9 bubbles (theirs) with
+/// an asymmetric "tail" corner, a small avatar shown only on the first
+/// bubble of each consecutive run from the other person (never repeated
+/// down a burst), and no per-bubble timestamp -- only a centered, muted
+/// divider when there's a real time gap between message groups (see
+/// [_ConversationScreenState._isRunStart]/[_dividerLabelAbove]).
+///
+/// The "..." options menu (mute/block/report/view profile) has no
+/// equivalent in 13-chat-thread.tsx's own header -- its third grid column
+/// is empty -- but removing it would delete real, otherwise-unreachable
+/// safety functionality (mute in particular exists nowhere else), so it's
+/// kept as a trailing AppBar action rather than dropped, same posture as
+/// Post Detail/Club keeping their own real action icons the mockups
+/// omit. No verified badge -- same "no such field anywhere in the real
+/// Profile model" finding as Side Menu/Chat Inbox.
+///
+/// Every other real capability the mockup doesn't depict at all --
+/// replies, image attachments, WYN-033's shared-content preview cards,
+/// the Message Request accept/delete/block/report flow, the Restrict/
+/// Suspend/Ban composer states -- is untouched, just restyled to the
+/// same token system. See .wyn/docs/design/wyn-031-chat-1to1.md,
+/// Screen 3.
 class ConversationScreen extends StatefulWidget {
   const ConversationScreen({
     super.key,
@@ -679,7 +701,14 @@ class _ConversationScreenState extends State<ConversationScreen> {
         : '@${widget.otherUsername}';
 
     return Scaffold(
+      backgroundColor: WynColors.paper,
       appBar: AppBar(
+        backgroundColor: WynColors.paper,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: InkWell(
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
@@ -696,19 +725,29 @@ class _ConversationScreenState extends State<ConversationScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AvatarCircle(imageUrl: widget.otherAvatarUrl, fallbackText: displayName, radius: 16),
+              AvatarCircle(imageUrl: widget.otherAvatarUrl, fallbackText: displayName, radius: 14),
               const SizedBox(width: WynSpacing.space2),
-              Flexible(child: Text(displayName, overflow: TextOverflow.ellipsis)),
+              Flexible(
+                child: Text(
+                  displayName,
+                  overflow: TextOverflow.ellipsis,
+                  style: _interStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: WynColors.ink),
+                ),
+              ),
             ],
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.more_vert),
+            icon: const Icon(Icons.more_vert, color: WynColors.ink),
             tooltip: 'ตัวเลือกเพิ่มเติม',
             onPressed: _showConversationMenu,
           ),
         ],
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, color: WynColors.hairline),
+        ),
       ),
       body: SafeArea(
         child: Column(
@@ -719,6 +758,52 @@ class _ConversationScreenState extends State<ConversationScreen> {
         ),
       ),
     );
+  }
+
+  /// 13-chat-thread.tsx: avatar shows only on the first bubble of each
+  /// consecutive run from the other person -- the chronologically
+  /// *earliest* message in the run, which in this reverse-ordered list
+  /// (index 0 = newest) is the one whose next-older neighbor (index + 1)
+  /// either doesn't exist or is from someone else.
+  bool _isRunStart(int index) {
+    if (index + 1 >= _messages.length) return true;
+    return _messages[index + 1].senderId != _messages[index].senderId;
+  }
+
+  /// The label for a centered time divider that belongs directly above
+  /// (chronologically before) the message at [index], or null when no
+  /// divider belongs there. Shown only for a real time gap (>30 minutes)
+  /// or a day change between this message and the previous one -- never
+  /// per-bubble, matching 13-chat-thread.tsx's own doc comment ("a
+  /// centered, muted timestamp divider appears only when there's a
+  /// meaningful time gap"). The very first message ever (nothing older,
+  /// and no more history left to load) always gets one.
+  String? _dividerLabelAbove(int index) {
+    final current = _messages[index].createdAt;
+    if (index + 1 >= _messages.length) {
+      return _hasMore ? null : _dividerLabel(current);
+    }
+    final previous = _messages[index + 1].createdAt;
+    final gap = current.difference(previous).abs();
+    final sameDay = current.toLocal().year == previous.toLocal().year &&
+        current.toLocal().month == previous.toLocal().month &&
+        current.toLocal().day == previous.toLocal().day;
+    if (gap > const Duration(minutes: 30) || !sameDay) {
+      return _dividerLabel(current);
+    }
+    return null;
+  }
+
+  String _dividerLabel(DateTime dateTime) {
+    final local = dateTime.toLocal();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final date = DateTime(local.year, local.month, local.day);
+    String two(int n) => n.toString().padLeft(2, '0');
+    final time = '${two(local.hour)}:${two(local.minute)}';
+    if (date == today) return 'วันนี้ $time';
+    if (date == today.subtract(const Duration(days: 1))) return 'เมื่อวาน $time';
+    return '${local.day}/${local.month} $time';
   }
 
   Widget _buildMessageList() {
@@ -744,10 +829,14 @@ class _ConversationScreenState extends State<ConversationScreen> {
       );
     }
 
+    final displayName = widget.otherDisplayName?.isNotEmpty == true
+        ? widget.otherDisplayName!
+        : '@${widget.otherUsername}';
+
     return ListView.builder(
       controller: _scrollController,
       reverse: true,
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space3),
       itemCount: _messages.length + (_hasMore ? 1 : 0),
       itemBuilder: (context, index) {
         if (index >= _messages.length) {
@@ -757,9 +846,14 @@ class _ConversationScreenState extends State<ConversationScreen> {
           );
         }
         final message = _messages[index];
-        return _MessageBubble(
+        final isMine = message.senderId == _myUserId;
+        final dividerLabel = _dividerLabelAbove(index);
+        final bubble = _MessageBubble(
           message: message,
-          isMine: message.senderId == _myUserId,
+          isMine: isMine,
+          showAvatar: !isMine && _isRunStart(index),
+          otherAvatarUrl: widget.otherAvatarUrl,
+          otherDisplayName: displayName,
           onLongPress: () => _showMessageMenu(message),
           onTapReplyQuote: message.replyToMessageId == null
               ? null
@@ -767,6 +861,11 @@ class _ConversationScreenState extends State<ConversationScreen> {
           onTapImage: (path) => _openEvidence(path),
           resolveSharedContent: _resolveSharedContent,
           onTapSharedContent: _openSharedContent,
+        );
+        if (dividerLabel == null) return bubble;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [_TimeDivider(label: dividerLabel), bubble],
         );
       },
     );
@@ -779,9 +878,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
         child: Text(
           'คุณไม่สามารถส่งข้อความถึงผู้ใช้นี้ได้',
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+          style: _interStyle(fontSize: 13.5, color: WynColors.graphite),
         ),
       );
     }
@@ -791,9 +888,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
         child: Text(
           'บัญชีของคุณถูกระงับ ไม่สามารถส่งข้อความได้ในขณะนี้',
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+          style: _interStyle(fontSize: 13.5, color: WynColors.graphite),
         ),
       );
     }
@@ -818,44 +913,66 @@ class _ConversationScreenState extends State<ConversationScreen> {
           if (_isPendingAsRequester) _buildAwaitingResponseLabel(),
           if (_replyTo != null) _buildReplyPreviewBar(),
           if (_imageBytes != null) _buildImagePreviewBar(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2, vertical: WynSpacing.space2),
+          Container(
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: WynColors.hairline)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.image_outlined),
+                  icon: const Icon(Icons.image_outlined, size: 20, color: WynColors.graphite),
                   tooltip: 'แนบรูป',
                   onPressed: _isSending ? null : _pickImage,
                 ),
                 Expanded(
-                  child: TextField(
-                    controller: _textController,
-                    minLines: 1,
-                    maxLines: 6,
-                    maxLength: 2000,
-                    enabled: !_isSending,
-                    decoration: const InputDecoration(
-                      hintText: 'พิมพ์ข้อความ...',
-                      border: InputBorder.none,
-                      counterText: '',
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _kBubbleFill,
+                      borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+                      border: Border.all(color: WynColors.hairline),
                     ),
-                    onChanged: (_) => setState(() {}),
+                    child: TextField(
+                      controller: _textController,
+                      minLines: 1,
+                      maxLines: 6,
+                      maxLength: 2000,
+                      enabled: !_isSending,
+                      style: _interStyle(fontSize: 13.5, color: WynColors.ink),
+                      decoration: InputDecoration(
+                        hintText: 'พิมพ์ข้อความ...',
+                        hintStyle: _interStyle(fontSize: 13.5, color: WynColors.mutedNeutral),
+                        border: InputBorder.none,
+                        isCollapsed: true,
+                        counterText: '',
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
                   ),
                 ),
+                const SizedBox(width: WynSpacing.space2),
                 SizedBox(
                   width: WynSpacing.touchTargetMin,
                   height: WynSpacing.touchTargetMin,
-                  child: IconButton(
-                    icon: _isSending
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.send),
-                    tooltip: 'ส่งข้อความ',
-                    onPressed: _canSend ? _send : null,
+                  child: Material(
+                    color: _canSend ? WynColors.sapphire : WynColors.hairline,
+                    shape: const CircleBorder(),
+                    child: IconButton(
+                      icon: _isSending
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: _canSend ? WynColors.paper : WynColors.mutedNeutral,
+                              ),
+                            )
+                          : Icon(Icons.send, size: 15, color: _canSend ? WynColors.paper : WynColors.mutedNeutral),
+                      tooltip: 'ส่งข้อความ',
+                      onPressed: _canSend ? _send : null,
+                    ),
                   ),
                 ),
               ],
@@ -928,9 +1045,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
       padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
       child: Text(
         'รอการตอบรับ',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.outline,
-            ),
+        style: _interStyle(fontSize: 12, color: WynColors.faint),
       ),
     );
   }
@@ -942,7 +1057,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
         : (replyTo.text?.isNotEmpty == true ? replyTo.text! : (replyTo.imageUrl != null ? '📷 รูปภาพ' : ''));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
-      color: Theme.of(context).colorScheme.surfaceContainer,
+      color: _kBubbleFill,
       child: Row(
         children: [
           Expanded(
@@ -960,7 +1075,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   Widget _buildImagePreviewBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
-      color: Theme.of(context).colorScheme.surfaceContainer,
+      color: _kBubbleFill,
       child: Row(
         children: [
           ClipRRect(
@@ -981,10 +1096,18 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }
 }
 
+/// 13-chat-thread.tsx's "list of #F1EFE9 fill" tint -- same literal
+/// already established for input fields/pills elsewhere (search bar,
+/// composer below), reused here for received bubbles.
+const _kBubbleFill = Color(0xFFF1EFE9);
+
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     required this.message,
     required this.isMine,
+    required this.showAvatar,
+    required this.otherAvatarUrl,
+    required this.otherDisplayName,
     required this.onLongPress,
     required this.onTapReplyQuote,
     required this.onTapImage,
@@ -994,6 +1117,14 @@ class _MessageBubble extends StatelessWidget {
 
   final ChatMessage message;
   final bool isMine;
+
+  /// True only for the chronologically-first bubble of a consecutive
+  /// run from the other person -- see
+  /// [_ConversationScreenState._isRunStart]. Always false when [isMine].
+  final bool showAvatar;
+  final String? otherAvatarUrl;
+  final String otherDisplayName;
+
   final VoidCallback onLongPress;
   final VoidCallback? onTapReplyQuote;
   final void Function(String path) onTapImage;
@@ -1003,106 +1134,149 @@ class _MessageBubble extends StatelessWidget {
   final Future<Object?> Function(SharedContentType type, String id) resolveSharedContent;
   final void Function(SharedContentType type, Object content) onTapSharedContent;
 
+  // Reserves the same width whether or not the avatar is actually drawn
+  // this bubble, so a multi-message burst from "them" stays left-aligned
+  // instead of the bubble creeping left once the avatar disappears.
+  static const _avatarSlotWidth = 36.0;
+
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final bubbleColor = message.isDeleted
-        ? colorScheme.surfaceContainer
-        : (isMine ? colorScheme.primaryContainer : colorScheme.surfaceContainerHigh);
-    final textColor = message.isDeleted
-        ? colorScheme.onSurfaceVariant
-        : (isMine ? colorScheme.onPrimaryContainer : colorScheme.onSurface);
+    final bubbleColor = message.isDeleted ? WynColors.hairline : (isMine ? WynColors.sapphire : _kBubbleFill);
+    final textColor = message.isDeleted ? WynColors.graphite : (isMine ? WynColors.paper : WynColors.ink);
 
-    return Align(
-      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-      child: GestureDetector(
-        onLongPress: message.isDeleted ? null : onLongPress,
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: WynSpacing.space1),
-          padding: const EdgeInsets.all(WynSpacing.space3),
-          constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.75),
-          decoration: BoxDecoration(
-            color: bubbleColor,
-            borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (message.replyToMessageId != null && !message.isDeleted)
-                GestureDetector(
-                  onTap: onTapReplyQuote,
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: WynSpacing.space2),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: WynSpacing.space2,
-                      vertical: WynSpacing.space1,
-                    ),
-                    decoration: BoxDecoration(
-                      color: textColor.withValues(alpha: 0.08),
-                      border: Border(left: BorderSide(color: colorScheme.primary, width: 2)),
-                    ),
-                    child: Text(
-                      message.replyPreviewDeletedAt != null
-                          ? 'ข้อความถูกลบ'
-                          : (message.replyPreviewText?.isNotEmpty == true
-                              ? message.replyPreviewText!
-                              : (message.replyPreviewImageUrl != null ? '📷 รูปภาพ' : '')),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: textColor),
+    final bubble = Container(
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2 + 2),
+      constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.72),
+      decoration: BoxDecoration(
+        color: bubbleColor,
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(WynSpacing.radiusLg),
+          topRight: const Radius.circular(WynSpacing.radiusLg),
+          bottomRight: Radius.circular(isMine ? 6 : WynSpacing.radiusLg),
+          bottomLeft: Radius.circular(isMine ? WynSpacing.radiusLg : 6),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (message.replyToMessageId != null && !message.isDeleted)
+            GestureDetector(
+              onTap: onTapReplyQuote,
+              child: Container(
+                margin: const EdgeInsets.only(bottom: WynSpacing.space2),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WynSpacing.space2,
+                  vertical: WynSpacing.space1,
+                ),
+                decoration: BoxDecoration(
+                  color: textColor.withValues(alpha: 0.08),
+                  border: const Border(left: BorderSide(color: WynColors.sapphire, width: 2)),
+                ),
+                child: Text(
+                  message.replyPreviewDeletedAt != null
+                      ? 'ข้อความถูกลบ'
+                      : (message.replyPreviewText?.isNotEmpty == true
+                          ? message.replyPreviewText!
+                          : (message.replyPreviewImageUrl != null ? '📷 รูปภาพ' : '')),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: _interStyle(fontSize: 12.5, color: textColor),
+                ),
+              ),
+            ),
+          if (message.isDeleted)
+            Text(
+              'ข้อความนี้ถูกลบ',
+              style: _interStyle(fontSize: 14, fontStyle: FontStyle.italic, color: textColor),
+            )
+          else ...[
+            if (message.imageUrl != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: WynSpacing.space1),
+                child: GestureDetector(
+                  onTap: () => onTapImage(message.imageUrl!),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+                    child: Container(
+                      width: 160,
+                      height: 160,
+                      color: WynColors.hairline,
+                      child: const Icon(Icons.image_outlined, color: WynColors.graphite),
                     ),
                   ),
                 ),
-              if (message.isDeleted)
-                Text(
-                  'ข้อความนี้ถูกลบ',
-                  style: TextStyle(color: textColor, fontStyle: FontStyle.italic),
-                )
-              else ...[
-                if (message.imageUrl != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: WynSpacing.space1),
-                    child: GestureDetector(
-                      onTap: () => onTapImage(message.imageUrl!),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                        child: Container(
-                          width: 160,
-                          height: 160,
-                          color: colorScheme.surfaceContainerHighest,
-                          child: Icon(Icons.image_outlined, color: colorScheme.onSurfaceVariant),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (message.sharedContentType != null && message.sharedContentId != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: WynSpacing.space1),
-                    child: _SharedContentPreview(
-                      type: message.sharedContentType!,
-                      id: message.sharedContentId!,
-                      textColor: textColor,
-                      resolveSharedContent: resolveSharedContent,
-                      onTapSharedContent: onTapSharedContent,
-                    ),
-                  ),
-                if (message.text != null) Text(message.text!, style: TextStyle(color: textColor)),
-              ],
-              const SizedBox(height: WynSpacing.space1),
-              Text(
-                relativeTimeLabel(message.createdAt, now: DateTime.now()),
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: textColor.withValues(alpha: 0.7),
-                    ),
               ),
+            if (message.sharedContentType != null && message.sharedContentId != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: WynSpacing.space1),
+                child: _SharedContentPreview(
+                  type: message.sharedContentType!,
+                  id: message.sharedContentId!,
+                  textColor: textColor,
+                  resolveSharedContent: resolveSharedContent,
+                  onTapSharedContent: onTapSharedContent,
+                ),
+              ),
+            if (message.text != null)
+              Text(message.text!, style: _interStyle(fontSize: 14, color: textColor, height: 1.4)),
+          ],
+        ],
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: GestureDetector(
+        onLongPress: message.isDeleted ? null : onLongPress,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisAlignment: isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: [
+            if (!isMine) ...[
+              SizedBox(
+                width: _avatarSlotWidth,
+                child: showAvatar
+                    ? AvatarCircle(imageUrl: otherAvatarUrl, fallbackText: otherDisplayName, radius: 15, ring: true)
+                    : null,
+              ),
+              const SizedBox(width: WynSpacing.space2),
             ],
-          ),
+            Flexible(child: bubble),
+          ],
         ),
       ),
     );
   }
 }
+
+/// 13-chat-thread.tsx's `TimeDivider` -- a centered, muted label shown
+/// only for a real time gap between message groups. See
+/// [_ConversationScreenState._dividerLabelAbove].
+class _TimeDivider extends StatelessWidget {
+  const _TimeDivider({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
+      child: Center(
+        child: Text(label, style: _interStyle(fontSize: 11, color: WynColors.faint)),
+      ),
+    );
+  }
+}
+
+TextStyle _interStyle({
+  required double fontSize,
+  FontWeight fontWeight = FontWeight.w400,
+  FontStyle fontStyle = FontStyle.normal,
+  Color? color,
+  double? height,
+}) =>
+    GoogleFonts.inter(fontSize: fontSize, fontWeight: fontWeight, fontStyle: fontStyle, color: color, height: height);
 
 /// Screen 4 (WYN-033) -- the shared Drop/Profile/Club preview card
 /// inside a message bubble. See

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/club.dart';
@@ -9,7 +10,10 @@ import 'edit_club_info_screen.dart';
 import 'widgets/club_about_tab.dart';
 import 'widgets/club_members_tab.dart';
 import 'widgets/club_posts_tab.dart';
+import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_typography.dart';
+import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../../chat/data/chat_repository.dart';
 import '../../chat/data/shared_content_type.dart';
 import '../../chat/presentation/share_sheet.dart';
@@ -311,170 +315,300 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Club')),
-      body: FutureBuilder<_ClubPageData>(
-        future: _loadFuture,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+      backgroundColor: WynColors.paper,
+      body: SafeArea(
+        bottom: false,
+        child: FutureBuilder<_ClubPageData>(
+          future: _loadFuture,
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Stack(
                 children: [
-                  const Text('โหลด Club ไม่สำเร็จ'),
-                  const SizedBox(height: WynSpacing.space3),
-                  TextButton(onPressed: _reload, child: const Text('ลองใหม่')),
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('โหลด Club ไม่สำเร็จ'),
+                        const SizedBox(height: WynSpacing.space3),
+                        TextButton(onPressed: _reload, child: const Text('ลองใหม่')),
+                      ],
+                    ),
+                  ),
+                  _buildBackButton(),
                 ],
-              ),
-            );
-          }
+              );
+            }
 
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final data = snapshot.data!;
-          final myRole = data.membership?.status == ClubMemberStatus.approved
-              ? data.membership!.role
-              : null;
-
-          return Column(
-            children: [
-              _buildHeader(data.club, data.membership),
-              TabBar(
-                controller: _tabController,
-                tabs: const [
-                  Tab(icon: Icon(Icons.article_outlined), text: 'โพสต์'),
-                  Tab(icon: Icon(Icons.people_outline), text: 'สมาชิก'),
-                  Tab(icon: Icon(Icons.info_outline), text: 'เกี่ยวกับ'),
+            if (!snapshot.hasData) {
+              return Stack(
+                children: [
+                  const Center(child: CircularProgressIndicator()),
+                  _buildBackButton(),
                 ],
-              ),
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
+              );
+            }
+
+            final data = snapshot.data!;
+            final myRole = data.membership?.status == ClubMemberStatus.approved
+                ? data.membership!.role
+                : null;
+
+            return Column(
+              children: [
+                Stack(
                   children: [
-                    ClubPostsTab(
-                      clubPostRepository: widget.clubPostRepository,
-                      club: data.club,
-                      myRole: myRole,
-                      onJoinTapped: () => _toggleJoin(data.club, data.membership),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildBanner(data.club),
+                        _buildHeader(data.club, data.membership),
+                      ],
                     ),
-                    ClubMembersTab(
-                      clubRepository: widget.clubRepository,
-                      club: data.club,
-                      myRole: myRole,
-                      onChanged: _reload,
-                    ),
-                    ClubAboutTab(
-                      clubRepository: widget.clubRepository,
-                      club: data.club,
-                      myRole: myRole,
-                      onChanged: _reload,
-                    ),
+                    _buildBackButton(),
                   ],
                 ),
+                TabBar(
+                  controller: _tabController,
+                  indicatorColor: WynColors.sapphire,
+                  indicatorSize: TabBarIndicatorSize.label,
+                  indicatorWeight: 2,
+                  labelColor: WynColors.ink,
+                  unselectedLabelColor: WynColors.mutedNeutral,
+                  labelStyle:
+                      _interStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                  unselectedLabelStyle:
+                      _interStyle(fontSize: 11.5, fontWeight: FontWeight.w400),
+                  tabs: const [
+                    Tab(icon: Icon(Icons.article_outlined, size: 16), text: 'โพสต์'),
+                    Tab(icon: Icon(Icons.people_outline, size: 16), text: 'สมาชิก'),
+                    Tab(icon: Icon(Icons.info_outline, size: 16), text: 'เกี่ยวกับ'),
+                  ],
+                ),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      ClubPostsTab(
+                        clubPostRepository: widget.clubPostRepository,
+                        club: data.club,
+                        myRole: myRole,
+                        onJoinTapped: () => _toggleJoin(data.club, data.membership),
+                      ),
+                      ClubMembersTab(
+                        clubRepository: widget.clubRepository,
+                        club: data.club,
+                        myRole: myRole,
+                        onChanged: _reload,
+                      ),
+                      ClubAboutTab(
+                        clubRepository: widget.clubRepository,
+                        club: data.club,
+                        myRole: myRole,
+                        onChanged: _reload,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// 08-club.tsx's floating back-chevron over the banner (semi-
+  /// transparent paper circle) -- shown in every load state (error/
+  /// loading/loaded) so the screen never strands the viewer without a
+  /// way back, unlike the reference's own single always-loaded mock.
+  Widget _buildBackButton() {
+    return Positioned(
+      left: WynSpacing.space2,
+      top: WynSpacing.space2,
+      child: Material(
+        color: WynColors.paper.withValues(alpha: 0.8),
+        shape: const CircleBorder(),
+        child: IconButton(
+          icon: const Icon(Icons.chevron_left, color: WynColors.ink),
+          tooltip: 'ย้อนกลับ',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+    );
+  }
+
+  /// 08-club.tsx: "The reference banner is a composited marketing
+  /// screenshot ... not something to recreate pixel-for-pixel. Replaced
+  /// with an original ink+sapphire abstract banner carrying just the
+  /// Club name in Fraunces." A real uploaded [Club.coverUrl] still
+  /// shows as-is when present -- the reference's own reasoning is about
+  /// replacing a placeholder marketing asset, not hiding a real photo
+  /// the Club's owner actually uploaded via CreateClubScreen's cover
+  /// picker.
+  Widget _buildBanner(Club club) {
+    if (club.coverUrl != null) {
+      return SizedBox(
+        height: 140,
+        width: double.infinity,
+        child: Image.network(club.coverUrl!, fit: BoxFit.cover),
+      );
+    }
+
+    return Container(
+      height: 140,
+      width: double.infinity,
+      color: WynColors.ink,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            right: -80,
+            top: -100,
+            child: Container(
+              width: 260,
+              height: 260,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [WynColors.sapphire, Colors.transparent],
+                  stops: [0.0, 0.7],
+                ),
               ),
-            ],
-          );
-        },
+            ),
+          ),
+          Positioned(
+            left: WynSpacing.space6,
+            top: 0,
+            bottom: 0,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'CLUB',
+                    style: _interStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: WynColors.mutedNeutral,
+                      letterSpacing: 11 * 0.14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    club.name,
+                    style: WynTypography.fraunces(fontSize: 22, color: WynColors.paper),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCircleIconButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        icon: Icon(icon, size: 14, color: WynColors.ink),
+        tooltip: tooltip,
+        onPressed: onPressed,
+        style: IconButton.styleFrom(
+          side: const BorderSide(color: WynColors.hairline),
+          shape: const CircleBorder(),
+        ),
       ),
     );
   }
 
   Widget _buildHeader(Club club, ClubMember? membership) {
+    final status = membership?.status;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      padding: const EdgeInsets.fromLTRB(
+        WynSpacing.space6, WynSpacing.space4, WynSpacing.space6, WynSpacing.space2,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // A fixed height cap (not AspectRatio at full device width)
-              // per the Design spec -- "cover เป็นการ์ดมุมมนความสูงจำกัด
-              // ... ไม่ใช่เต็มความกว้างจอทะลุขอบแบบ FB" (a limited-height
-              // rounded card, not an FB-style edge-to-edge hero that
-              // scales with screen width).
-              ClipRRect(
-                borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
-                child: SizedBox(
-                  height: 140,
-                  width: double.infinity,
-                  child: club.coverUrl != null
-                      ? Image.network(club.coverUrl!, fit: BoxFit.cover)
-                      : Container(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        ),
-                ),
-              ),
-              Positioned(
-                left: 12,
-                bottom: -24,
-                child: CircleAvatar(
-                  radius: 32,
-                  backgroundColor: Theme.of(context).colorScheme.surface,
-                  child: CircleAvatar(
-                    radius: 28,
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    backgroundImage:
-                        club.iconUrl != null ? NetworkImage(club.iconUrl!) : null,
-                    child: club.iconUrl == null
-                        ? Text(
-                            club.name.isNotEmpty ? club.name[0].toUpperCase() : '?',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onPrimary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: WynSpacing.space8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(club.name, style: Theme.of(context).textTheme.headlineSmall),
+              AvatarCircle(
+                imageUrl: club.iconUrl,
+                fallbackText: club.name,
+                radius: 18,
+                ring: true,
               ),
-              if (club.category != null) ...[
-                const SizedBox(width: WynSpacing.space2),
-                Chip(
-                  label: Text(club.category!),
-                  visualDensity: VisualDensity.compact,
+              const SizedBox(width: WynSpacing.space3),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: WynSpacing.space1),
+                  child: Text(
+                    club.name,
+                    style: _interStyle(fontSize: 17, fontWeight: FontWeight.w700, color: WynColors.ink),
+                  ),
                 ),
-              ],
-            ],
-          ),
-          if (club.description != null && club.description!.isNotEmpty) ...[
-            const SizedBox(height: WynSpacing.space1),
-            Text(club.description!, maxLines: 3, overflow: TextOverflow.ellipsis),
-          ],
-          const SizedBox(height: WynSpacing.space2),
-          Text(
-            '${club.memberCount} สมาชิก',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-          ),
-          const SizedBox(height: WynSpacing.space3),
-          Row(
-            children: [
-              _buildJoinButton(club, membership),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.share_outlined),
+              ),
+              const SizedBox(width: WynSpacing.space2),
+              _buildCircleIconButton(
+                icon: Icons.share_outlined,
                 tooltip: 'แชร์',
                 onPressed: () => _openShareSheet(club),
               ),
-              IconButton(
-                icon: const Icon(Icons.more_vert),
+              const SizedBox(width: WynSpacing.space2),
+              _buildCircleIconButton(
+                icon: Icons.more_vert,
                 tooltip: 'เพิ่มเติม',
                 onPressed: () => _openMoreMenu(club, membership),
               ),
             ],
           ),
+          const SizedBox(height: WynSpacing.space2),
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: WynSpacing.space2,
+            runSpacing: WynSpacing.space1,
+            children: [
+              Text(
+                '${club.memberCount} สมาชิก',
+                style: _interStyle(fontSize: 12.5, color: WynColors.graphite),
+              ),
+              if (club.category != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: WynColors.hairline,
+                    borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+                  ),
+                  child: Text(
+                    club.category!,
+                    style: _interStyle(fontSize: 11, color: WynColors.graphite),
+                  ),
+                ),
+              if (status != null) _buildJoinButton(club, membership),
+            ],
+          ),
+          if (club.description != null && club.description!.isNotEmpty) ...[
+            const SizedBox(height: WynSpacing.space3),
+            Text(
+              club.description!,
+              style: _interStyle(fontSize: 13.5, color: WynColors.ink, height: 1.5),
+            ),
+          ],
+          if (status == null) ...[
+            const SizedBox(height: WynSpacing.space4),
+            SizedBox(width: double.infinity, child: _buildJoinButton(club, membership)),
+          ],
         ],
       ),
     );
@@ -502,17 +636,25 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     }
 
     // "เข้าร่วม" (not a member yet) is the page's single most important
-    // action -- elevated to a filled cyan button (same visual weight as
-    // WYN-056's "+ สร้าง Club" CTA) instead of the same OutlinedButton
+    // action -- elevated to a filled sapphire pill button (08-club.tsx's
+    // own full-width "เข้าร่วม" CTA) instead of the same OutlinedButton
     // style as every other secondary action. "เข้าร่วมแล้ว"/"รออนุมัติ"
-    // stay OutlinedButton -- they're not actions worth drawing the eye
-    // to anymore. See
+    // stay OutlinedButton, restyled as a small pill chip (08-club.tsx's
+    // own "เข้าร่วมแล้ว" chip inline with the member count) -- they're
+    // not actions worth drawing the eye to anymore. See
     // .wyn/docs/design/wyn-057-058-club-create-and-page-visual-polish.md,
     // Screen 2.
     final isPrimaryAction = status == null;
     final button = isPrimaryAction
         ? FilledButton(
             key: const Key('club-header-join-button'),
+            style: FilledButton.styleFrom(
+              shape: const StadiumBorder(),
+              padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3),
+              backgroundColor: WynColors.sapphire,
+              foregroundColor: WynColors.paper,
+              textStyle: _interStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+            ),
             onPressed: onPressed,
             child: Text(label),
           )
@@ -520,10 +662,23 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
             key: const Key('club-header-join-button'),
             onPressed: onPressed,
             style: OutlinedButton.styleFrom(
+              shape: const StadiumBorder(),
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 2),
               foregroundColor: Theme.of(context).colorScheme.outline,
               side: BorderSide(color: Theme.of(context).colorScheme.outline),
+              textStyle: _interStyle(fontSize: 11, fontWeight: FontWeight.w600),
             ),
-            child: Text(label),
+            child: status == ClubMemberStatus.approved
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.check, size: 11),
+                      const SizedBox(width: 4),
+                      Text(label),
+                    ],
+                  )
+                : Text(label),
           );
 
     return Semantics(
@@ -533,3 +688,18 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     );
   }
 }
+
+TextStyle _interStyle({
+  required double fontSize,
+  FontWeight fontWeight = FontWeight.w400,
+  Color? color,
+  double? height,
+  double? letterSpacing,
+}) =>
+    GoogleFonts.inter(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+      letterSpacing: letterSpacing,
+    );
