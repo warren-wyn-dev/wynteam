@@ -1301,6 +1301,11 @@ void main() {
         of: find.byKey(const Key('from_your_clubs_feed')),
         matching: find.widgetWithText(OutlinedButton, 'สำรวจ Club'),
       );
+      // The join-prompt now lives in a scrollable (_CenterOrScroll --
+      // FromYourClubsFeed's own doc comment) rather than a plain Center,
+      // so it can need a scroll into view on a short viewport instead of
+      // always being on-screen already.
+      await tester.ensureVisible(joinPromptExploreButton);
       await tester.tap(joinPromptExploreButton);
       await tester.pumpAndSettle();
       tester.takeException();

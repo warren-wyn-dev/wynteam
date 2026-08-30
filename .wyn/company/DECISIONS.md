@@ -642,3 +642,12 @@
 - **คำตัดสินใจ**: ยังไม่สมัคร Apple Developer Program ตอนนี้ — ผลคือ iOS native build (TestFlight/App Store), iOS push notification, และ SF Pro/Apple Emoji บน iOS ยังใช้งานไม่ได้ต่อไปอีกระยะ (ไม่มีกำหนดเวลา) — WYNOS ยังอยู่ในรูปแบบ Web App (PWA) บน iOS Safari เท่านั้น
 - แนะนำทางเลือกที่ถูกกว่าไปแล้ว: Google Play Developer ($25 ครั้งเดียว จ่ายครั้งเดียวไม่ต้องต่ออายุ) — ยังไม่มีคำสั่งให้ดำเนินการ รอ Founder ตัดสินใจเพิ่มเติม
 - ไม่กระทบโค้ด ไม่มีการเปลี่ยนแปลงทางเทคนิคจากมตินี้ — บันทึกไว้เป็น known constraint เท่านั้น
+
+### [2026-08-30] เพิ่ม Header จริงให้ Home (wordmark + ปุ่มแชท) ให้ตรงกับ design-reference
+
+- บริบท: Founder ส่งภาพ 3 รูปเทียบ "หน้าตอนนี้" (Home บนแอปจริง) กับ "หน้าที่อยากได้" (`design-reference/01-home.tsx`) พร้อมถาม "ทำไมไม่ตรงกัน" และสั่งให้เปลี่ยนไอคอนวงสีเหลือง (search icon ใน mockup) เป็นปุ่มแชท
+- ตรวจโค้ดพบสาเหตุจริง: `HomeFeedScreen` ไม่เคยมี header row เลย (ไม่มี hamburger, ไม่มี wordmark "WYNOS") — มีแค่ไอคอนแชทลอย (floating overlay, Positioned ใน Stack) มุมขวาบน ซึ่งเป็นทางเลือกที่ตั้งใจทำตอน WYN-031 เพื่อเลี่ยง AppBar เพราะตอนนั้น ClubSection/Trending/feed-mode toggle ยังเป็น fixed-height Column ที่เกือบ overflow อยู่แล้วบนจอเล็ก — เหตุผลนั้นหมดอายุไปแล้วตั้งแต่ 2026-08-24 (ClubSection/Trending ย้ายเป็น sliver ในตัว scroll แล้ว)
+- **แก้**: เพิ่ม header row จริง (ไม่ใช่ overlay ลอย) ให้ `HomeFeedScreen` — wordmark "WYNOS" กลาง + ปุ่มแชทขวา (แทนที่ search icon ของ reference ตรงตามที่สั่ง, ใช้ปลายทางเดิม `_openChatInbox`) — **ไม่ใส่ hamburger ซ้าย**: 5 ปลายทางของแอปอยู่ใน Bottom Nav ครบอยู่แล้ว (Settings เข้าถึงได้จาก Profile) ไม่มีเมนูจริงให้ hamburger เปิด การใส่ปุ่มที่กดแล้วไม่ทำอะไรจะแย่กว่าการไม่ใส่
+- **ผลข้างเคียงที่ต้องแก้ตาม**: การเพิ่ม header กินพื้นที่แนวตั้งจริง ทำให้ "จาก Club ของคุณ" ตอนไม่มีโพสต์ (`FromYourClubsFeed`'s empty/error state) overflow บนจอเตี้ย (ยืนยันด้วย `flutter test` บน viewport มาตรฐาน 800×600 — RenderFlex overflow 34px) — แก้ด้วยการห่อ empty/error state ด้วย widget ใหม่ `_CenterOrScroll` (LayoutBuilder + SingleChildScrollView + ConstrainedBox) ให้ scroll แทน overflow เมื่อพื้นที่ไม่พอ แทนที่จะพยายามบีบ header ให้เล็กจนเสีย touch target (ต่ำกว่ามาตรฐาน accessibility 44/48dp)
+- อัปเดต test 2 ไฟล์ (`root_shell_test.dart`, `home_feed_screen_test.dart`) ให้ scroll เข้าหา element ที่อาจอยู่นอกจอก่อน assert/tap ตาม layout ใหม่ที่ตั้งใจให้เป็นแบบนี้ (มี header จริงแล้ว = เนื้อหาด้านล่างเห็นน้อยลงโดยธรรมชาติ ไม่ใช่บั๊ก)
+- ยืนยันด้วย `flutter analyze` สะอาด + `flutter test` เต็ม suite 863/863 ผ่าน

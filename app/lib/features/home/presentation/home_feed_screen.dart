@@ -28,6 +28,7 @@ import 'widgets/suggested_follow_list.dart';
 import 'widgets/trending_tile.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_typography.dart';
 
 enum _HomeFeedMode { forYou, following, latest, fromYourClubs }
 
@@ -37,8 +38,9 @@ enum _HomeFeedMode { forYou, following, latest, fromYourClubs }
 /// absorbs the WYN-019 Drop tab's own Following capability now that Drop
 /// no longer has a separate tab; "ล่าสุด" is the original WYN-007
 /// chronological ordering. Search and Notifications moved out to their
-/// own Bottom Nav tabs as part of WYN-024 -- this screen no longer owns a
-/// top row. See .wyn/docs/design/wyn-007-home.md,
+/// own Bottom Nav tabs as part of WYN-024; this screen's own top row is
+/// now just the WYNOS wordmark + Chat entry point (see _buildHeader),
+/// not a full AppBar. See .wyn/docs/design/wyn-007-home.md,
 /// .wyn/docs/design/wyn-014-club-core.md (Screen 1),
 /// .wyn/docs/design/wyn-018-home-feed-ranking.md, and
 /// .wyn/docs/design/wyn-024-bottom-nav-v1-restructure.md (Screen 2).
@@ -76,12 +78,11 @@ class HomeFeedScreen extends StatefulWidget {
   // reaching into private State from outside.
   final ValueNotifier<int> homeTabReselectSignal;
 
-  // WYN-031 -- Chat's entry point icon lives in this AppBar (see the
-  // class doc comment: this screen "no longer owns a top row" as of
-  // WYN-024, but Master Spec section 18 requires Chat to be reachable
-  // via "a separate icon", never a 6th Bottom Nav tab, and this is the
-  // most natural home-screen-adjacent place for it now that Search/
-  // Notifications moved out).
+  // WYN-031 -- Chat's entry point icon lives in this screen's header
+  // (see _buildHeader): Master Spec section 18 requires Chat to be
+  // reachable via "a separate icon", never a 6th Bottom Nav tab, and
+  // this is the most natural home-screen-adjacent place for it now
+  // that Search/Notifications moved out.
   final ChatRepository chatRepository;
 
   @override
@@ -552,104 +553,134 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         _feedMode != _HomeFeedMode.fromYourClubs && _newPostCount > 0;
 
     return Scaffold(
-      // WYN-031's Chat entry point is a floating overlay (Positioned in
-      // the Stack below), not an AppBar -- this screen's fixed-height
-      // header (ClubSection + Trending + feed-mode toggle) was already
-      // only ~22px away from overflowing a real AppBar's height budget
-      // on a small viewport before this feature existed (confirmed by
-      // adding one: it overflowed root_shell_test.dart's default test
-      // surface immediately). An AppBar claims Column space no matter
-      // how compact; a Stack overlay claims none, so it can't ever
-      // push this already-tight layout over the edge on a short
-      // screen. See .wyn/docs/design/wyn-031-chat-1to1.md, Screen 1 --
-      // this is a deliberate deviation from that doc's original
-      // "AppBar" placement, made during Coding once the real overflow
-      // risk surfaced.
-      body: Stack(
-        children: [
-          SafeArea(
-            child: RefreshIndicator(
-              key: _refreshIndicatorKey,
-              onRefresh: _feedMode == _HomeFeedMode.fromYourClubs
-                  ? () async {}
-                  : _loadInitial,
-              child: CustomScrollView(
-                key: const Key('home_feed_scroll_view'),
-                controller: _scrollController,
-                slivers: [
-                  // WYNOSHomeSpec.md item 1 -- the very first thing an
-                  // account sees on Home, shown once total (see
-                  // HomeExplainerBanner's own doc comment); scrolls away
-                  // with everything below it rather than pinning, same as
-                  // ClubSection/Trending underneath.
-                  const SliverToBoxAdapter(child: HomeExplainerBanner()),
-                  // ClubSection + Trending scroll away with the rest of the
-                  // feed instead of being permanently pinned above it --
-                  // the fixed-Column layout this replaces claimed that
-                  // space on screen no matter how far the user scrolled,
-                  // leaving barely half a real phone's height for actual
-                  // feed content underneath. See the bug report this fixes
-                  // (Founder, 2026-08-24): "ส่วนหัวถูกล็อกความสูงคงที่ไว้
-                  // ด้านบน ทำให้เหลือพื้นที่สกิลดูเนื้อหาฟีดเพียงแค่ครึ่ง
-                  // จอล่างเท่านั้น".
-                  SliverToBoxAdapter(
-                    child: ClubSection(
-                      clubRepository: widget.clubRepository,
-                      clubPostRepository: widget.clubPostRepository,
-                    ),
-                  ),
-                  SliverToBoxAdapter(child: _buildTrendingSection()),
-                  // Pinned: stays visible at the top once the header above
-                  // has scrolled out of view, so the mode toggle (สำหรับ
-                  // คุณ/ติดตาม/ล่าสุด/จาก Club ของคุณ) is always reachable
-                  // without scrolling back up -- same request's "Sticky
-                  // Filter Bar" ask.
-                  SliverPersistentHeader(
-                    pinned: true,
-                    delegate: _FeedModeToggleHeaderDelegate(
-                      height: _feedModeToggleHeight +
-                          (showNewPostsPill ? _newPostsPillHeight : 0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildFeedModeToggle(),
-                          // WYNOSHomeSpec.md 4.4: "itself part of the
-                          // sticky block" -- pinned together with the
-                          // toggle above, not a separate scrolling
-                          // sliver of its own.
-                          if (showNewPostsPill)
-                            NewPostsPill(
-                              count: _newPostCount,
-                              onTap: _onNewPostsPillTap,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (_feedMode == _HomeFeedMode.fromYourClubs)
-                    SliverFillRemaining(
-                      hasScrollBody: true,
-                      child: FromYourClubsFeed(
-                        key: const Key('from_your_clubs_feed'),
+      // A real header row (wordmark + chat entry point), matching
+      // design-reference/01-home.tsx's header -- not the floating
+      // Positioned-over-content overlay this screen used to render the
+      // chat icon as (see WYN-031's original "deviation from AppBar"
+      // note, since superseded). That deviation existed because
+      // ClubSection/Trending/the feed-mode toggle used to be a
+      // fixed-height Column claiming space above the scroll view, which
+      // left a real AppBar's height with nowhere to go on a small
+      // viewport (root_shell_test.dart's default test surface
+      // overflowed). They're all slivers inside the CustomScrollView
+      // now (2026-08-24 fix, see the ClubSection sliver's own doc
+      // comment below), so a real header row above it just shrinks the
+      // visible scroll area on a short screen instead of overflowing
+      // it. See .wyn/docs/design/wyn-031-chat-1to1.md, Screen 1.
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: RefreshIndicator(
+                key: _refreshIndicatorKey,
+                onRefresh: _feedMode == _HomeFeedMode.fromYourClubs
+                    ? () async {}
+                    : _loadInitial,
+                child: CustomScrollView(
+                  key: const Key('home_feed_scroll_view'),
+                  controller: _scrollController,
+                  slivers: [
+                    // WYNOSHomeSpec.md item 1 -- the very first thing an
+                    // account sees on Home, shown once total (see
+                    // HomeExplainerBanner's own doc comment); scrolls away
+                    // with everything below it rather than pinning, same as
+                    // ClubSection/Trending underneath.
+                    const SliverToBoxAdapter(child: HomeExplainerBanner()),
+                    // ClubSection + Trending scroll away with the rest of the
+                    // feed instead of being permanently pinned above it --
+                    // the fixed-Column layout this replaces claimed that
+                    // space on screen no matter how far the user scrolled,
+                    // leaving barely half a real phone's height for actual
+                    // feed content underneath. See the bug report this fixes
+                    // (Founder, 2026-08-24): "ส่วนหัวถูกล็อกความสูงคงที่ไว้
+                    // ด้านบน ทำให้เหลือพื้นที่สกิลดูเนื้อหาฟีดเพียงแค่ครึ่ง
+                    // จอล่างเท่านั้น".
+                    SliverToBoxAdapter(
+                      child: ClubSection(
                         clubRepository: widget.clubRepository,
                         clubPostRepository: widget.clubPostRepository,
                       ),
-                    )
-                  else
-                    ..._buildBodySlivers(),
-                ],
+                    ),
+                    SliverToBoxAdapter(child: _buildTrendingSection()),
+                    // Pinned: stays visible at the top once the header above
+                    // has scrolled out of view, so the mode toggle (สำหรับ
+                    // คุณ/ติดตาม/ล่าสุด/จาก Club ของคุณ) is always reachable
+                    // without scrolling back up -- same request's "Sticky
+                    // Filter Bar" ask.
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _FeedModeToggleHeaderDelegate(
+                        height: _feedModeToggleHeight +
+                            (showNewPostsPill ? _newPostsPillHeight : 0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildFeedModeToggle(),
+                            // WYNOSHomeSpec.md 4.4: "itself part of the
+                            // sticky block" -- pinned together with the
+                            // toggle above, not a separate scrolling
+                            // sliver of its own.
+                            if (showNewPostsPill)
+                              NewPostsPill(
+                                count: _newPostCount,
+                                onTap: _onNewPostsPillTap,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_feedMode == _HomeFeedMode.fromYourClubs)
+                      SliverFillRemaining(
+                        hasScrollBody: true,
+                        child: FromYourClubsFeed(
+                          key: const Key('from_your_clubs_feed'),
+                          clubRepository: widget.clubRepository,
+                          clubPostRepository: widget.clubPostRepository,
+                        ),
+                      )
+                    else
+                      ..._buildBodySlivers(),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // WYNOS wordmark + chat entry point, matching design-reference/01-
+  // home.tsx's header row (hamburger/wordmark/search there). The
+  // reference's hamburger is left out on purpose rather than added as a
+  // dead button: this app's destinations already all live in the Bottom
+  // Nav (Settings itself is reachable from Profile), and there's no
+  // second menu for a hamburger here to open. The reference's search
+  // icon becomes chat, matching what this icon already opens everywhere
+  // else in the app (WYN-031).
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          WynSpacing.space2, WynSpacing.space1, WynSpacing.space2, WynSpacing.space1),
+      child: Row(
+        children: [
+          // Balances the chat IconButton's own ~48px width so the
+          // wordmark sits visually centered rather than drifting left.
+          const SizedBox(width: 48),
+          Expanded(
+            child: Center(
+              child: Text(
+                'WYNOS',
+                style: WynTypography.screenTitle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5,
+                ),
               ),
             ),
           ),
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topRight,
-              child: Padding(
-                padding: const EdgeInsets.only(right: WynSpacing.space2),
-                child: _buildChatAction(),
-              ),
-            ),
-          ),
+          _buildChatAction(),
         ],
       ),
     );
@@ -693,19 +724,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
             ],
           );
 
-    // Solid circular surface (unlike a plain AppBar action) -- this
-    // floats directly over whatever ClubSection/feed content happens
-    // to be underneath it, so it needs its own background to stay
-    // legible rather than relying on an AppBar's.
-    return Material(
-      color: Theme.of(context).colorScheme.surface,
-      shape: const CircleBorder(),
-      elevation: 2,
-      child: IconButton(
-        icon: badge,
-        tooltip: count > 0 ? 'ข้อความ, $count บทสนทนายังไม่อ่าน' : 'ข้อความ',
-        onPressed: _openChatInbox,
-      ),
+    return IconButton(
+      icon: badge,
+      tooltip: count > 0 ? 'ข้อความ, $count บทสนทนายังไม่อ่าน' : 'ข้อความ',
+      onPressed: _openChatInbox,
     );
   }
 

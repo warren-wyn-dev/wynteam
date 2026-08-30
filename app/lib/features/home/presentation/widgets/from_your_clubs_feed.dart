@@ -217,7 +217,7 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
     }
 
     if (_error != null) {
-      return Center(
+      return _CenterOrScroll(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -230,7 +230,7 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
     }
 
     if (_posts.isEmpty) {
-      return Center(
+      return _CenterOrScroll(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
           child: Column(
@@ -274,6 +274,31 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
             onDelete: () => _deletePost(post.id),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Centers [child] when there's room, but scrolls instead of overflowing
+/// when there isn't -- this pane is a `SliverFillRemaining` child, so its
+/// height is whatever's left after Home's own header/ClubSection/
+/// Trending/feed-mode toggle (all outside this widget) claim their
+/// share, which shrinks on a short viewport. A plain `Center` would just
+/// overflow past that in `RenderFlex` once the error/empty-state
+/// message no longer fits.
+class _CenterOrScroll extends StatelessWidget {
+  const _CenterOrScroll({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(child: child),
+        ),
       ),
     );
   }

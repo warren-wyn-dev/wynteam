@@ -29,6 +29,21 @@ import 'support/recording_zoky_repository.dart';
 /// RootShell's constructor doc comment) specifically so this is
 /// testable, rather than only reachable via Supabase.instance like it
 /// was pre-WYN-024. See .wyn/docs/design/wyn-024-bottom-nav-v1-restructure.md.
+
+/// Home's feed-mode toggle (WYN-015) sits below its own header + Club
+/// section + Trending row now (see HomeFeedScreen._buildHeader), so on a
+/// short viewport it can start below the fold instead of always being
+/// on-screen already -- `ensureVisible` scrolls it into view first, same
+/// as any other real, reachable-by-scrolling content. `skipOffstage:
+/// false` finds it regardless of its current on/offstage state so
+/// `ensureVisible` has something to scroll to.
+Future<void> _expectFeedToggleVisible(WidgetTester tester) async {
+  final toggle = find.text('สำหรับคุณ', skipOffstage: false);
+  await tester.ensureVisible(toggle);
+  await tester.pump();
+  expect(toggle, findsOneWidget);
+}
+
 void main() {
   // Bug fix (QA round 1, 2026-08-22): every repository (and its
   // underlying SupabaseClient auto-refresh Timer) must be built once
@@ -98,10 +113,9 @@ void main() {
     expect(find.text('Drop'), findsOneWidget);
     expect(find.text('Notifications'), findsOneWidget);
     expect(find.text('Profile'), findsOneWidget);
-    // Home's own content (no top row anymore -- WYN-024 Screen 2) is
-    // showing by default: the feed-mode toggle is Home's, not any other
-    // tab's.
-    expect(find.text('สำหรับคุณ'), findsOneWidget);
+    // Home's own content is showing by default: the feed-mode toggle is
+    // Home's, not any other tab's.
+    await _expectFeedToggleVisible(tester);
     expect(find.text('ติดตาม'), findsOneWidget);
   });
 
@@ -137,7 +151,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Still on Home, not stuck on some "Drop tab" -- there is none.
-    expect(find.text('สำหรับคุณ'), findsOneWidget);
+    await _expectFeedToggleVisible(tester);
     expect(find.byType(FromYourClubsFeed), findsNothing);
   });
 
@@ -194,7 +208,7 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    expect(find.text('สำหรับคุณ'), findsOneWidget);
+    await _expectFeedToggleVisible(tester);
     expect(find.byType(ViewProfileScreen), findsNothing);
   });
 }
