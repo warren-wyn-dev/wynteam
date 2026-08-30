@@ -220,7 +220,7 @@ class ClubPostCard extends StatelessWidget {
                       icon: Icon(
                         post.likedByMe ? Icons.favorite : Icons.favorite_border,
                         size: 18,
-                        color: post.likedByMe ? WynColors.sapphire : WynColors.graphite,
+                        color: post.likedByMe ? Colors.red : WynColors.graphite,
                       ),
                       onPressed: onToggleLike,
                     ),

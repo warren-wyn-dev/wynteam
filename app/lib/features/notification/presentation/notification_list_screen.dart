@@ -1016,7 +1016,12 @@ _TypeBadge? _badgeFor(NotificationType type) {
     case NotificationType.likeDrop:
     case NotificationType.likePop:
     case NotificationType.clubPostLike:
-      return const _TypeBadge(Icons.favorite, WynColors.sapphire);
+      // Matches the red heart every like button elsewhere in the app
+      // uses (home_drop_card.dart etc.) -- was sapphire (the same
+      // accent color as the follow badge below), inconsistent with the
+      // rest of the app's own "like = red" convention. Founder request,
+      // 2026-08-30.
+      return const _TypeBadge(Icons.favorite, Colors.red);
     case NotificationType.commentDrop:
     case NotificationType.commentPop:
     case NotificationType.clubPostComment:

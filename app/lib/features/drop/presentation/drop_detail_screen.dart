@@ -932,7 +932,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                 icon: Icon(
                   _drop.likedByMe ? Icons.favorite : Icons.favorite_border,
                   size: 19,
-                  color: _drop.likedByMe ? WynColors.sapphire : WynColors.graphite,
+                  color: _drop.likedByMe ? Colors.red : WynColors.graphite,
                 ),
                 onPressed: _toggleLike,
               ),
@@ -1114,7 +1114,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     icon: Icon(
                       comment.likedByMe ? Icons.favorite : Icons.favorite_border,
                       color: comment.likedByMe
-                          ? WynColors.sapphire
+                          ? Colors.red
                           : WynColors.graphite,
                     ),
                     onPressed: () => _toggleCommentLike(comment.id),

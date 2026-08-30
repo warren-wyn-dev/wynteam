@@ -191,7 +191,7 @@ class _DropImageViewerState extends State<DropImageViewer> {
                       icon: Icon(
                         _drop.likedByMe ? Icons.favorite : Icons.favorite_border,
                         size: 22,
-                        color: _drop.likedByMe ? WynColors.sapphire : WynColors.paper,
+                        color: _drop.likedByMe ? Colors.red : WynColors.paper,
                       ),
                       onPressed: _toggleLike,
                     ),
