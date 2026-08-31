@@ -181,6 +181,62 @@ void main() {
       expect(item.pollResultsVisible, isFalse);
     });
 
+    test('parses liked_by into HomeLiker entries (WYNOSHomeSpec.md 4.8)', () {
+      final item = HomeFeedItem.fromMap({
+        'id': 'd1',
+        'content_type': 'drop',
+        'author_id': 'u1',
+        'author_username': 'namfah',
+        'author_display_name': null,
+        'author_avatar_url': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'caption': null,
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'video_url': null,
+        'thumbnail_url': null,
+        'duration_seconds': null,
+        'view_count': null,
+        'like_count': 5,
+        'comment_count': 0,
+        'liked_by': [
+          {
+            'id': 'u2',
+            'username': 'warren',
+            'display_name': 'Warren',
+            'avatar_url': 'https://example.com/warren.jpg',
+          },
+          {'id': 'u3', 'username': 'zen', 'display_name': null, 'avatar_url': null},
+        ],
+      }, likedByMe: false, savedByMe: false);
+
+      expect(item.likedBy, hasLength(2));
+      expect(item.likedBy[0].nameOrUsername, 'Warren');
+      expect(item.likedBy[0].avatarUrl, 'https://example.com/warren.jpg');
+      expect(item.likedBy[1].nameOrUsername, '@zen');
+    });
+
+    test('liked_by absent (an older fetch path) leaves likedBy empty', () {
+      final item = HomeFeedItem.fromMap({
+        'id': 'd1',
+        'content_type': 'drop',
+        'author_id': 'u1',
+        'author_username': 'namfah',
+        'author_display_name': null,
+        'author_avatar_url': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'caption': null,
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'video_url': null,
+        'thumbnail_url': null,
+        'duration_seconds': null,
+        'view_count': null,
+        'like_count': 5,
+        'comment_count': 0,
+      }, likedByMe: false, savedByMe: false);
+
+      expect(item.likedBy, isEmpty);
+    });
+
     test('parses top_reply into a HomeTopReply (WYNOSHomeSpec.md 4.10)', () {
       final item = HomeFeedItem.fromMap({
         'id': 'd1',
@@ -342,6 +398,9 @@ void main() {
         'redropper_id': 'u2',
         'redropper_username': 'som',
         'quote_text': 'ดูนี่สิ',
+        'liked_by': [
+          {'id': 'u2', 'username': 'som', 'display_name': null, 'avatar_url': null},
+        ],
         'top_reply': {
           'author_username': 'zen',
           'author_display_name': null,
@@ -360,6 +419,10 @@ void main() {
       expect(copy.redropperUsername, 'som');
       expect(copy.quoteText, 'ดูนี่สิ');
       expect(copy.commentCount, 2);
+      // A Like toggle doesn't refetch the liker list -- see likedBy's
+      // own doc comment -- but copyWith must still carry it over as-is
+      // rather than silently resetting it to empty.
+      expect(copy.likedBy, hasLength(1));
       // A Like toggle doesn't refetch the top reply -- copyWith must
       // still carry it over as-is rather than silently resetting it.
       expect(copy.topReply?.text, 'เจ๋งดี');

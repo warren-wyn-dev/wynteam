@@ -14,12 +14,14 @@ import 'package:wyn/features/club/presentation/explore_clubs_screen.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 import 'package:wyn/features/drop/presentation/quote_redrop_screen.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
+import 'package:wyn/features/home/data/home_liker.dart';
 import 'package:wyn/features/home/data/home_top_reply.dart';
 import 'package:wyn/features/home/presentation/home_feed_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/home_explainer_banner.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
+import 'package:wyn/features/home/presentation/widgets/liked_by_row.dart';
 import 'package:wyn/features/home/presentation/widgets/new_posts_pill.dart';
 import 'package:wyn/features/home/presentation/widgets/top_reply_preview.dart';
 import 'package:wyn/features/home/presentation/widgets/trending_tile.dart';
@@ -49,6 +51,7 @@ HomeFeedItem _dropItem({
   bool hasImage = true,
   HomeTopReply? topReply,
   bool authorIsVerified = false,
+  List<HomeLiker> likedBy = const [],
 }) =>
     HomeFeedItem(
       id: id,
@@ -60,6 +63,7 @@ HomeFeedItem _dropItem({
       caption: caption,
       imageUrl: hasImage ? 'https://example.supabase.co/drops/$id.jpg' : null,
       likeCount: likeCount,
+      likedBy: likedBy,
       commentCount: 0,
       topReply: topReply,
       likedByMe: likedByMe,
@@ -246,6 +250,10 @@ void main() {
   late RecordingHomeRepository hideDropTestHomeRepository;
   late RecordingHomeRepository hidePopTestHomeRepository;
   late RecordingHomeRepository hideFailTestHomeRepository;
+
+  // WYNOSHomeSpec.md 4.8: Liked-by stacked avatars.
+  late RecordingHomeRepository likedByTestHomeRepository;
+  late RecordingHomeRepository noLikedByTestHomeRepository;
 
   // WYNOSHomeSpec.md 4.10: Top reply preview.
   late RecordingHomeRepository topReplyTestHomeRepository;
@@ -489,6 +497,23 @@ void main() {
     hideFailTestHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'hide-fail-d1')],
     )..hideContentError = Exception('network error');
+
+    likedByTestHomeRepository = RecordingHomeRepository(
+      feedItems: [
+        _dropItem(
+          id: 'lb1',
+          hasImage: false,
+          likeCount: 5,
+          likedBy: const [
+            HomeLiker(id: 'u1', username: 'warren', displayName: 'Warren'),
+            HomeLiker(id: 'u2', username: 'zen', displayName: 'Zen'),
+          ],
+        ),
+      ],
+    );
+    noLikedByTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'lb2', hasImage: false, likeCount: 5)],
+    );
 
     topReplyTestHomeRepository = RecordingHomeRepository(
       feedItems: [
@@ -1887,6 +1912,35 @@ void main() {
       await tester.pump();
       expect(duplicateFetchGuardTestHomeRepository.fetchRankedFeedCalls, 1);
       tester.takeException();
+    });
+  });
+
+  group('Liked-by stacked avatars (WYNOSHomeSpec.md 4.8)', () {
+    testWidgets('shows the row when the card has likers', (tester) async {
+      await tester.pumpWidget(buildHome(
+        likedByTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(LikedByRow), findsOneWidget);
+      expect(find.textContaining('Warren'), findsOneWidget);
+      expect(find.textContaining('และอีก 3 คน'), findsOneWidget);
+    });
+
+    testWidgets('renders nothing when the card has no liker data',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        noLikedByTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.textContaining('ถูกใจโดย'), findsNothing);
     });
   });
 
