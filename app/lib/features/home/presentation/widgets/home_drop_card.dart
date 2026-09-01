@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -328,7 +329,21 @@ class HomeDropCard extends StatelessWidget {
                   alreadyLiked: item.likedByMe,
                   child: AspectRatio(
                     aspectRatio: 1,
-                    child: Image.network(item.imageUrl!, fit: BoxFit.cover),
+                    // WYN-074: a bare Image.network had no placeholder and
+                    // no disk cache, so fast scrolling flashed a blank
+                    // white gap while each image downloaded fresh.
+                    child: CachedNetworkImage(
+                      imageUrl: item.imageUrl!,
+                      fit: BoxFit.cover,
+                      fadeInDuration: const Duration(milliseconds: 150),
+                      placeholder: (context, url) => Container(
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        child: const Icon(Icons.broken_image_outlined),
+                      ),
+                    ),
                   ),
                 ),
               // WYNOS V1.0.0 Beta requirement 2: a Drop can now be
