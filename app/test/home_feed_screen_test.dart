@@ -7,9 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
 import 'package:wyn/core/widgets/action_metric.dart';
-import 'package:wyn/features/club/data/club.dart';
 import 'package:wyn/features/club/data/club_post.dart';
-import 'package:wyn/features/club/presentation/club_page.dart';
 import 'package:wyn/features/club/presentation/explore_clubs_screen.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 import 'package:wyn/features/drop/presentation/quote_redrop_screen.dart';
@@ -24,7 +22,6 @@ import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/liked_by_row.dart';
 import 'package:wyn/features/home/presentation/widgets/new_posts_pill.dart';
 import 'package:wyn/features/home/presentation/widgets/top_reply_preview.dart';
-import 'package:wyn/features/home/presentation/widgets/trending_tile.dart';
 import 'package:wyn/features/home/presentation/widgets/verified_badge.dart';
 import 'package:wyn/features/pop/presentation/widgets/pop_comment_sheet.dart';
 import 'package:wyn/features/profile/data/profile.dart';
@@ -147,16 +144,6 @@ class _DelayedHomeRepository extends RecordingHomeRepository {
   }
 }
 
-Club _club({required String id, required String name, int memberCount = 1}) =>
-    Club(
-      id: id,
-      name: name,
-      privacy: ClubPrivacy.public,
-      ownerId: 'someone-else',
-      createdAt: DateTime.now(),
-      memberCount: memberCount,
-    );
-
 void main() {
   // See drop_comment_like_test.dart (WYN-005) for why every repo (and its
   // underlying SupabaseClient auto-refresh Timer) is built once in
@@ -232,14 +219,6 @@ void main() {
   late RecordingDropRepository pollVoteFailTestDropRepository;
   late RecordingHomeRepository pollVoteFailTestHomeRepository;
 
-  // WYN-017: Trending row + Recommended Clubs row.
-  late RecordingHomeRepository trendingItemsHomeRepository;
-  late RecordingHomeRepository emptyTrendingHomeRepository;
-  late RecordingHomeRepository trendingDropOnlyHomeRepository;
-  late RecordingHomeRepository trendingPopOnlyHomeRepository;
-  late RecordingClubRepository fewClubsRepository;
-  late RecordingClubRepository manyClubsRepository;
-  late RecordingClubRepository noJoinedClubsRepository;
   late RecordingHomeRepository rankingTestHomeRepository;
 
   // WYN-024: "ติดตาม" (Following) feed mode.
@@ -437,42 +416,6 @@ void main() {
     pollVoteFailTestHomeRepository =
         RecordingHomeRepository(feedItems: [_pollItem()]);
 
-    trendingItemsHomeRepository = RecordingHomeRepository(
-      feedItems: [],
-      trendingItems: [_dropItem(id: 'trend-1'), _popItem(id: 'trend-2')],
-    );
-    emptyTrendingHomeRepository =
-        RecordingHomeRepository(feedItems: [], trendingItems: []);
-    trendingDropOnlyHomeRepository = RecordingHomeRepository(
-      feedItems: [],
-      trendingItems: [_dropItem(id: 'trend-drop')],
-    );
-    trendingPopOnlyHomeRepository = RecordingHomeRepository(
-      feedItems: [],
-      trendingItems: [_popItem(id: 'trend-pop')],
-    );
-    fewClubsRepository = RecordingClubRepository(
-      myClubs: [_club(id: 'joined-1', name: 'Club ที่เข้าร่วม')],
-      discoverableClubs: [
-        _club(id: 'popular-1', name: 'Club กำลังนิยม', memberCount: 50)
-      ],
-    );
-    manyClubsRepository = RecordingClubRepository(
-      myClubs: [
-        _club(id: 'joined-1', name: 'Club หนึ่ง'),
-        _club(id: 'joined-2', name: 'Club สอง'),
-        _club(id: 'joined-3', name: 'Club สาม'),
-      ],
-      discoverableClubs: [
-        _club(id: 'popular-1', name: 'Club กำลังนิยม', memberCount: 50)
-      ],
-    );
-    noJoinedClubsRepository = RecordingClubRepository(
-      myClubs: [],
-      discoverableClubs: [
-        _club(id: 'popular-1', name: 'Club กำลังนิยม', memberCount: 50)
-      ],
-    );
     rankingTestHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'latest-only', caption: 'จากล่าสุด')],
       rankedFeedItems: [_dropItem(id: 'ranked-only', caption: 'จากสำหรับคุณ')],
@@ -1709,122 +1652,15 @@ void main() {
     });
   });
 
-  group('Trending row (WYN-017)', () {
-    testWidgets(
-        'shows the "กำลังนิยม" header and items when trending content exists',
-        (tester) async {
-      await tester.pumpWidget(buildHome(
-        trendingItemsHomeRepository,
-        dropRepository: sharedDropRepository,
-        popRepository: sharedPopRepository,
-      ));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      expect(find.text('กำลังนิยม'), findsOneWidget);
-      expect(find.byType(TrendingTile), findsNWidgets(2));
-    });
-
-    testWidgets(
-        'shows an empty message instead of crashing when there is no trending content',
-        (tester) async {
-      await tester.pumpWidget(buildHome(
-        emptyTrendingHomeRepository,
-        dropRepository: sharedDropRepository,
-        popRepository: sharedPopRepository,
-      ));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      expect(find.text('กำลังนิยม'), findsOneWidget);
-      expect(find.byType(TrendingTile), findsNothing);
-      expect(find.text('ยังไม่มี content กำลังนิยม'), findsOneWidget);
-    });
-
-    testWidgets('tapping a Drop trending tile opens DropDetailScreen',
-        (tester) async {
-      await tester.pumpWidget(buildHome(
-        trendingDropOnlyHomeRepository,
-        dropRepository: sharedDropRepository,
-        popRepository: sharedPopRepository,
-      ));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      await tester.tap(find.byType(TrendingTile));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      expect(find.byType(DropDetailScreen), findsOneWidget);
-    });
-
-    testWidgets('tapping a Pop trending tile opens PopSingleClipScreen',
-        (tester) async {
-      await tester.pumpWidget(buildHome(
-        trendingPopOnlyHomeRepository,
-        dropRepository: sharedDropRepository,
-        popRepository: sharedPopRepository,
-      ));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      await tester.tap(find.byType(TrendingTile));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      expect(find.byType(PopSingleClipScreen), findsOneWidget);
-    });
-  });
-
-  group('Recommended Clubs row (WYN-017)', () {
-    testWidgets(
-        'shows "Club แนะนำ" when the user has joined fewer than 3 Clubs',
-        (tester) async {
-      await tester.pumpWidget(buildHome(
-        emptyHomeRepository,
-        dropRepository: sharedDropRepository,
-        popRepository: sharedPopRepository,
-        clubRepository: fewClubsRepository,
-      ));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      expect(find.text('Club แนะนำ'), findsOneWidget);
-      expect(find.text('Club กำลังนิยม'), findsOneWidget);
-    });
-
-    testWidgets('hides "Club แนะนำ" once the user has joined 3 or more Clubs',
-        (tester) async {
-      await tester.pumpWidget(buildHome(
-        emptyHomeRepository,
-        dropRepository: sharedDropRepository,
-        popRepository: sharedPopRepository,
-        clubRepository: manyClubsRepository,
-      ));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      expect(find.text('Club แนะนำ'), findsNothing);
-      expect(find.text('Club กำลังนิยม'), findsNothing);
-    });
-
-    testWidgets('tapping a recommended Club opens ClubPage', (tester) async {
-      await tester.pumpWidget(buildHome(
-        emptyHomeRepository,
-        dropRepository: sharedDropRepository,
-        popRepository: sharedPopRepository,
-        clubRepository: noJoinedClubsRepository,
-      ));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      await tester.tap(find.text('Club กำลังนิยม'));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      expect(find.byType(ClubPage), findsOneWidget);
-    });
-  });
+  // WYN-073: the Trending row (WYN-017) and Recommended Clubs row
+  // (ClubSection) were both removed from Home -- both are already
+  // reachable from the Search tab (Top100Screen, Club discovery/create),
+  // so this is a duplicate-entry-point removal, not a lost capability.
+  // See .wyn/docs/design/wyn-073-home-layout-tabs-restyle.md. Their own
+  // widget tests (TrendingTile, ClubSection) still cover the underlying
+  // widgets directly; only HomeFeedScreen's own wiring of them is gone,
+  // so the "Trending row (WYN-017)"/"Recommended Clubs row (WYN-017)"
+  // groups that used to live here are deleted rather than fixed.
 
   group('Tap Home Tab to Scroll to Top & Refresh (WYN-064)', () {
     testWidgets(
