@@ -11,12 +11,6 @@ dependencies:
     sdk: flutter
   supabase_flutter: ^2.5.0
   cupertino_icons: ^1.0.6
-  # WYN-074 -- HomeDropCard's post image (shared by Home feed + Profile
-  # posts tab) used a bare Image.network with no placeholder/disk cache,
-  # so a blank white gap flashed while each image downloaded, especially
-  # noticeable scrolling fast on Profile. See
-  # .wyn/tasks/bugs/WYN-074-profile-post-image-blank-flash.md.
-  cached_network_image: ^3.4.1
   image_picker: ^1.1.2
   share_plus: ^13.3.0
   video_player: ^2.9.2
