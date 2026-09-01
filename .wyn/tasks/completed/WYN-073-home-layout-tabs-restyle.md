@@ -1,6 +1,6 @@
 # Design Task — WYN-073
 
-Status: approved (QA PASS, 2026-09-01) — พร้อม Deploy
+Status: **completed** — deployed to production (2026-09-01)
 Owner: AI QA & Security (approved) → ส่งต่อ AI Deploy & DevOps
 Screen: Home
 Purpose: 1) จัดลำดับ component ของ Home ใหม่ให้ตรง mockup (Header → Banner → Tabs → New-posts pill → Feed) 2) เอา ClubSection + Trending section ออกจาก Home (ยังเข้าถึงได้ผ่านแท็บค้นหา ไม่เสีย feature) 3) เปลี่ยนสไตล์แท็บ feed-mode จาก SegmentedButton มีกรอบ → text tabs เปล่า + เส้น underline indicator (สี rainbow ตาม DS-009 เดิม ไม่เปลี่ยนเป็น sapphire) — Header (ไอคอนแชท) ไม่เปลี่ยนแปลง
@@ -23,3 +23,9 @@ User Flow / Components / Interactions / States: ดูรายละเอี�
 **Final Status: PASS**
 
 Handoff: ส่งต่อ AI Deploy & DevOps (`/deploy`) — deploy ได้เมื่อ Founder พร้อม (ต้องขอยืนยันก่อนเริ่ม deploy จริงตามกติกาการเปลี่ยนแปลงที่กระทบ production) — ไม่มี schema change ในรอบนี้ (ตรวจแล้ว ไม่แตะ `supabase/schema.sql` เลย) จึงไม่มีความเสี่ยง schema-drift แบบ WYN-072
+
+## Deploy (AI Deploy & DevOps, 2026-09-01) — SUCCESS
+
+Founder อนุมัติ ("Deploy เลย") — merge PR #195 → `main` (commit `a2bfc151f77391d6f273519224b9821872b18f13`) → trigger `deploy-web.yml` (run [`33512075044`](https://github.com/warren-wyn-dev/wynteam/actions/runs/33512075044), completed/success) → verify production: `https://web-neon-sigma-66.vercel.app/` ทุก endpoint HTTP 200, `main.dart.js` ขนาดเปลี่ยนจาก 4,095,595 → 4,087,668 bytes ยืนยันว่าเป็น build ใหม่จริง ไม่ใช่ cache เก่า
+
+รายละเอียดเต็ม: `.wyn/logs/deployments/2026-09-01-wyn-073-real-deploy.md`
