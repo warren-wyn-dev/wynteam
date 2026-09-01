@@ -1,6 +1,6 @@
 # Bug Report — WYN-072 (test-only)
 
-Status: bugs
+Status: review (fixed by AI Debug Engineer, 2026-09-01 — awaiting QA re-check)
 Owner: AI Debug Engineer
 Bug: `flutter test` มี 1 test แดงจากทั้งหมด 877 test: `test/auth_gate_test.dart` — `a guest (Anonymous Sign-In) skips Username Setup and lands on RootShell directly` (test ใหม่ที่ AI Coding เพิ่มพร้อม WYN-072) ล้มเหลวตอน teardown ด้วย `A Timer is still pending even after the widget tree was disposed.` (`!timersPending` assertion) — **ไม่ใช่บั๊กใน production code** ยืนยันแล้วว่า logic ที่ทดสอบ (AuthGate ข้าม Username Setup ให้ anonymous session) ถูกต้อง 100% — เป็น pre-existing architectural gap ของ test infrastructure ที่เพิ่งถูกชนเป็นครั้งแรก
 
@@ -16,3 +16,14 @@ Files Changed (ที่ต้องแก้): `app/lib/features/auth/presentat
 Tests: หลังแก้ ต้องรัน `flutter test test/auth_gate_test.dart` ให้ผ่านทั้งไฟล์ + `flutter test` เต็ม suite ต้องได้ 877/877 (ปัจจุบัน 876/877 เพราะเทสต์นี้ตัวเดียว)
 Regression Risk: ต่ำ — ไม่แตะ production behavior เลยถ้า `rootShellBuilder` ไม่ถูก pass (ทุก call site จริงในแอปไม่ส่ง param นี้ จึงยังคง `const RootShell()` เหมือนเดิม 100%)
 Handoff to QA: หลังแก้ ส่งกลับ AI QA & Security รันเต็ม suite ยืนยัน 877/877 ก่อนอนุมัติ deploy WYN-072 — **ไม่ใช่ blocker ต่อความถูกต้องของฟีเจอร์ guest browsing เอง** (ยืนยันแล้วด้วย test แยก `root_shell_guest_gate_test.dart` ที่ QA เพิ่มเข้ามาว่า gate ทำงานถูกต้องจริงทั้ง 4 จุด) แต่ยังต้องแก้ก่อน suite จะเขียวสมบูรณ์ตามกติกา "ห้ามข้าม QA"
+
+## Resolution (AI Debug Engineer, 2026-09-01)
+
+แก้ตามที่แนะนำเป๊ะ: เพิ่ม `final Widget Function()? rootShellBuilder;` เข้า `AuthGate` (default `() => const RootShell()` ผ่าน `late final Widget Function() _buildRootShell`) ทั้ง 2 จุดที่เคย `return const RootShell();` เปลี่ยนเป็น `return _buildRootShell();` — `auth_gate_test.dart`'s guest test เปลี่ยนไป inject `rootShellBuilder: () => const SizedBox(key: Key('fake_root_shell'))` แทน ตรวจ `find.byKey(...)` แทน `find.byType(RootShell)`
+
+ยืนยันด้วย:
+- `flutter analyze`: 0 issues
+- `flutter test` เต็ม suite: **878/878 ผ่านหมด** (ก่อนแก้ 876/877)
+- รันเจาะจง `auth_gate_test.dart` + `root_shell_guest_gate_test.dart` + `root_shell_test.dart` + `widget_test.dart` รวมกัน: 22/22 ผ่าน
+
+Regression risk: ต่ำมาก ยืนยันจริงแล้ว — ไม่มี call site จริงในแอป (`main.dart` หรือที่ไหนก็ตาม) ส่ง `rootShellBuilder` เข้าไป จึงยังคง `const RootShell()` เหมือนเดิม 100% ทุกจุดที่ไม่ใช่ test

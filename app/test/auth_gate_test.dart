@@ -271,6 +271,23 @@ void main() {
   // hasUsernameResult is deliberately left at its true default here and
   // never asserted on: the whole point is that AuthGate must not even
   // reach that check for an anonymous session.
+  //
+  // Bug fix (WYN-072-auth-gate-test-realtime-timer-leak): injects a
+  // cheap keyed placeholder via rootShellBuilder instead of letting
+  // AuthGate build a *real* RootShell -- a real RootShell's HomeFeedScreen
+  // subscribes to a real Supabase Realtime channel (real HomeRepository,
+  // no injection seam through AuthGate for it), which flutter_test's
+  // automatic widget-tree teardown then disposes, scheduling a real 50s
+  // RealtimeClient pending-disconnect Timer *after* the test body has
+  // already returned -- there is no point in the test that could cancel
+  // it, so `!timersPending` always failed at teardown even though every
+  // assertion below had already passed. Actual behavior tested for the
+  // real (non-anonymous) gate/guest destinations lives in
+  // root_shell_guest_gate_test.dart instead, built directly against
+  // RootShell with injected Recording* repositories (root_shell_test.dart's
+  // own established pattern) -- this test's only job is to prove
+  // *AuthGate's own branch decision*, which doesn't need RootShell's real
+  // internals at all.
   testWidgets(
       'a guest (Anonymous Sign-In) skips Username Setup and lands on '
       'RootShell directly', (tester) async {
@@ -294,11 +311,14 @@ void main() {
         authRepository: authRepository,
         moderationRepository: moderationRepository,
         platformDocumentRepository: platformDocumentRepository,
+        rootShellBuilder: () =>
+            const SizedBox(key: Key('fake_root_shell')),
       ),
     ));
     await tester.pumpAndSettle();
 
     expect(find.byType(UsernameSetupScreen), findsNothing);
-    expect(find.byType(RootShell), findsOneWidget);
+    expect(find.byKey(const Key('fake_root_shell')), findsOneWidget);
+    expect(find.byType(RootShell), findsNothing);
   });
 }
