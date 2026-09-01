@@ -26,6 +26,16 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
   // ซ่อนชั่วคราว").
   static const _phoneLoginEnabled = false;
 
+  // WYN-072: paused for the same reason -- Sign in with Apple requires
+  // an Apple Developer Program membership to actually work (Apple OAuth
+  // provider config, capability entitlement), and Founder confirmed
+  // (2026-08-30) that hasn't been purchased yet ("แพงจ่ายไม่ไหว"). The
+  // button was reachable and tappable but every tap failed silently
+  // server-side -- worse than not offering it at all. Flip back to true
+  // once the Apple Developer Program is set up -- signInWithApple()
+  // itself is untouched in AuthRepository, ready to go.
+  static const _appleLoginEnabled = false;
+
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -56,7 +66,7 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
             children: [
               const SizedBox(height: WynSpacing.space6),
               Text(
-                'เข้าสู่ระบบ WYN',
+                'เข้าสู่ระบบ WYNOS',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: WynSpacing.space8),
@@ -67,14 +77,16 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
                 icon: const Icon(Icons.g_mobiledata),
                 label: const Text('เข้าสู่ระบบด้วย Google'),
               ),
-              const SizedBox(height: WynSpacing.space3),
-              FilledButton.icon(
-                onPressed: _isLoading
-                    ? null
-                    : () => _handle(widget.authRepository.signInWithApple),
-                icon: const Icon(Icons.apple),
-                label: const Text('เข้าสู่ระบบด้วย Apple'),
-              ),
+              if (_appleLoginEnabled) ...[
+                const SizedBox(height: WynSpacing.space3),
+                FilledButton.icon(
+                  onPressed: _isLoading
+                      ? null
+                      : () => _handle(widget.authRepository.signInWithApple),
+                  icon: const Icon(Icons.apple),
+                  label: const Text('เข้าสู่ระบบด้วย Apple'),
+                ),
+              ],
               const SizedBox(height: WynSpacing.space3),
               // Any email + any number of accounts (Founder, 2026-08-24)
               // -- not tied to a single Google/Apple identity, so a
@@ -107,6 +119,44 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
                   child: const Text('ใช้เบอร์โทรศัพท์แทน'),
                 ),
               ],
+              // WYN-072 (Guest Browsing): a lighter, secondary path --
+              // graphite text on a plain TextButton, not paired visually
+              // with Google/อีเมล above as an equal CTA -- deliberately
+              // not "ข้าม" (skip), since this isn't skipping a step in
+              // the same flow, it's a separate path that goes straight
+              // to Home. Uses signInAnonymously() (approved 2026-08-16
+              // for internal testing, never wired into UI until now) --
+              // the RLS on every core table requires an `authenticated`
+              // session to read anything at all, so there is no way to
+              // browse with literally no session; anonymous sign-in is
+              // the one already-approved mechanism that satisfies that
+              // without touching RLS/Auth architecture.
+              const SizedBox(height: WynSpacing.space6),
+              Center(
+                child: Semantics(
+                  label: 'เข้าชม WYNOS โดยไม่ต้องเข้าสู่ระบบ',
+                  button: true,
+                  child: TextButton(
+                    // Graphite/onSurfaceVariant, not the theme's primary
+                    // color -- a deliberately lighter-weight CTA than
+                    // Google/อีเมล above, per the design spec's own "ทาง
+                    // เลือกที่เบา กว่า" note. Semantic token (not a
+                    // hardcoded WynColors.graphite) so it still adapts
+                    // correctly in dark mode, same convention every other
+                    // screen in this app already follows.
+                    style: TextButton.styleFrom(
+                      foregroundColor:
+                          Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    onPressed: _isLoading
+                        ? null
+                        : () => _handle(
+                              () => widget.authRepository.signInAnonymously(),
+                            ),
+                    child: const Text('เข้าชม WYNOS ได้เลย'),
+                  ),
+                ),
+              ),
               if (_isLoading) ...[
                 const SizedBox(height: WynSpacing.space6),
                 const Center(child: CircularProgressIndicator()),

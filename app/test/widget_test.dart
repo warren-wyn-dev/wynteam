@@ -19,7 +19,7 @@ void main() {
       home: WelcomeScreen(authRepository: authRepository),
     ));
 
-    expect(find.text('WYN'), findsOneWidget);
+    expect(find.text('WYNOS'), findsOneWidget);
     expect(find.text('เริ่มต้นใช้งาน'), findsOneWidget);
   });
 
@@ -33,7 +33,11 @@ void main() {
 
     expect(find.byType(AuthMethodScreen), findsOneWidget);
     expect(find.text('เข้าสู่ระบบด้วย Google'), findsOneWidget);
-    expect(find.text('เข้าสู่ระบบด้วย Apple'), findsOneWidget);
+    // Sign in with Apple is temporarily hidden -- no Apple Developer
+    // Program yet (Founder, 2026-08-30 -- "แพงจ่ายไม่ไหว"), so it always
+    // failed server-side right now. See .wyn/company/DECISIONS.md,
+    // 2026-09-01 (WYN-072) and AuthMethodScreen's _appleLoginEnabled flag.
+    expect(find.text('เข้าสู่ระบบด้วย Apple'), findsNothing);
     // Any email + password sign-in (Founder, 2026-08-24) -- see
     // auth_method_screen.dart's own doc comment.
     expect(find.text('เข้าสู่ระบบด้วยอีเมล'), findsOneWidget);
@@ -43,6 +47,10 @@ void main() {
     // ("Phone Login ซ่อนชั่วคราว") and AuthMethodScreen's
     // _phoneLoginEnabled flag.
     expect(find.text('ใช้เบอร์โทรศัพท์แทน'), findsNothing);
+    // WYN-072 (Guest Browsing): the new guest entry point, distinct from
+    // the old WelcomeScreen guest button removed 2026-08-24 (see the test
+    // below) -- this one uses signInAnonymously() and lives here instead.
+    expect(find.text('เข้าชม WYNOS ได้เลย'), findsOneWidget);
   });
 
   // The guest-mode bypass (added 2026-08-16, see .wyn/company/

@@ -288,6 +288,25 @@ class _AuthGateState extends State<AuthGate> {
                   );
                 }
 
+                // WYN-072 (Guest Browsing): a guest (Anonymous Sign-In,
+                // see AuthMethodScreen's "เข้าชม WYNOS ได้เลย") skips
+                // Username Setup entirely and lands straight on Home --
+                // asking a guest to pick a username first would defeat
+                // the point of "browse without logging in". A guest's
+                // `profiles` row is never created at all (not just
+                // missing a username); every screen that would normally
+                // read it is gated behind requireRealAccount() (see
+                // guest_gate.dart) before the guest can reach it, and
+                // RootShell's own eager IndexedStack build of
+                // ViewProfileScreen for the guest's own (nonexistent)
+                // profile already fails open into that screen's own
+                // error state rather than crashing (its own
+                // snapshot.hasError branch) -- confirmed by reading
+                // view_profile_screen.dart, not assumed.
+                if (session.user.isAnonymous) {
+                  return const RootShell();
+                }
+
                 return FutureBuilder<bool>(
                   future: _authRepository.hasUsername(session.user.id),
                   builder: (context, usernameSnapshot) {

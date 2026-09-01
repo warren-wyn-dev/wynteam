@@ -34,7 +34,7 @@ class WelcomeScreen extends StatelessWidget {
                   // the plain Theme.textTheme every other bit of text on
                   // this form-heavy flow correctly uses as-is.
                   Text(
-                    'WYN',
+                    'WYNOS',
                     style: WynTypography.screenTitle(
                       fontSize: 34,
                       fontWeight: FontWeight.w500,

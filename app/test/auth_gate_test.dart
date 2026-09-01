@@ -8,18 +8,20 @@ import 'package:wyn/features/auth/presentation/username_setup_screen.dart';
 import 'package:wyn/features/auth/presentation/welcome_screen.dart';
 import 'package:wyn/features/legal/presentation/document_acceptance_screen.dart';
 import 'package:wyn/features/moderation/data/moderation_status.dart';
+import 'package:wyn/features/root/presentation/root_shell.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_auth_repository.dart';
 import 'support/recording_moderation_repository.dart';
 import 'support/recording_platform_document_repository.dart';
 
-User _fakeUser(String id) => User(
+User _fakeUser(String id, {bool isAnonymous = false}) => User(
       id: id,
       appMetadata: const {},
       userMetadata: const {},
       aud: 'authenticated',
       createdAt: DateTime.now().toIso8601String(),
+      isAnonymous: isAnonymous,
     );
 
 Session _fakeSession(String userId) => Session(
@@ -260,5 +262,43 @@ void main() {
 
     expect(find.byType(DocumentAcceptanceScreen), findsNothing);
     expect(find.byType(UsernameSetupScreen), findsOneWidget);
+  });
+
+  // WYN-072 (Guest Browsing): a guest signed in via Anonymous Sign-In
+  // ("เข้าชม WYNOS ได้เลย" on AuthMethodScreen) must land on RootShell
+  // directly -- never UsernameSetupScreen -- even though hasUsername
+  // would say false for an account with no `profiles` row at all.
+  // hasUsernameResult is deliberately left at its true default here and
+  // never asserted on: the whole point is that AuthGate must not even
+  // reach that check for an anonymous session.
+  testWidgets(
+      'a guest (Anonymous Sign-In) skips Username Setup and lands on '
+      'RootShell directly', (tester) async {
+    final authRepository = RecordingAuthRepository(
+      initialSession: Session(
+        accessToken: 'fake-access-token',
+        tokenType: 'bearer',
+        user: _fakeUser('guest-user', isAnonymous: true),
+      ),
+    );
+    final moderationRepository = RecordingModerationRepository(
+      myStatus: const ModerationStatus(
+        isRestricted: false,
+        isSuspended: false,
+        isBanned: false,
+      ),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: AuthGate(
+        authRepository: authRepository,
+        moderationRepository: moderationRepository,
+        platformDocumentRepository: platformDocumentRepository,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(UsernameSetupScreen), findsNothing);
+    expect(find.byType(RootShell), findsOneWidget);
   });
 }
