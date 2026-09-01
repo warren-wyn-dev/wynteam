@@ -9,7 +9,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// pumped in a widget test. `recoverSession` only makes a network call for
 /// an *expired* session, so a session dated a year out never touches the
 /// network -- see gotrue's `GoTrueClient.recoverSession`.
-Future<void> initFakeSupabaseSession({String userId = 'u1'}) async {
+Future<void> initFakeSupabaseSession({
+  String userId = 'u1',
+  bool isAnonymous = false,
+}) async {
   SharedPreferences.setMockInitialValues({});
   await Supabase.initialize(
     url: 'https://example.supabase.co',
@@ -32,6 +35,7 @@ Future<void> initFakeSupabaseSession({String userId = 'u1'}) async {
       'app_metadata': <String, dynamic>{},
       'user_metadata': <String, dynamic>{},
       'created_at': DateTime.now().toIso8601String(),
+      'is_anonymous': isAnonymous,
     },
   };
 
