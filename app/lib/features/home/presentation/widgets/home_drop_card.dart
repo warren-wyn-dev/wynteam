@@ -387,7 +387,7 @@ class HomeDropCard extends StatelessWidget {
                       icon: item.likedByMe ? Icons.favorite : Icons.favorite_border,
                       iconSize: 17,
                       count: item.likeCount,
-                      color: item.likedByMe ? WynColors.sapphire : WynColors.graphite,
+                      color: item.likedByMe ? Colors.red : WynColors.graphite,
                       semanticsLabel: item.likedByMe
                           ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
                           : 'กดเพื่อถูกใจ',
