@@ -10,7 +10,8 @@
 4. `.wyn/company/WORKFLOW.md`
 5. `.wyn/company/CONTEXT.md`
 6. `.wyn/company/DECISIONS.md`
-7. ไฟล์บทบาทของตัวเองใน `.wyn/agents/`
+7. `.wyn/company/VERSION_CONTROL.md` — กติกา Version/Rollback ของ WYNOS (ห้าม Rollback เองเด็ดขาด)
+8. ไฟล์บทบาทของตัวเองใน `.wyn/agents/`
 
 ## ทีม AI (6 บทบาท)
 
