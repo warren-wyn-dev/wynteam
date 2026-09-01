@@ -1,5 +1,6 @@
 # Bug Report — WYN-075 (P0 — production regression from WYN-074)
 
+Status: **completed** — deployed to production (2026-09-01)
 Reported by: Founder, 2026-09-01 (screenshot on production, หน้าโปรไฟล์)
 Severity: **P0** — every post image, on every screen (Home feed + Profile), fails to load entirely on production. Strictly worse than the WYN-074 bug it was meant to fix.
 
@@ -38,6 +39,12 @@ This keeps the fix for the original blank-flash complaint (still using Flutter's
 **Final Status: PASS**
 
 Handoff: ส่งต่อ AI Deploy & DevOps — P0, deploy ทันทีที่ Founder ยืนยัน ไม่มี schema change
+
+## Deploy (AI Deploy & DevOps, 2026-09-01) — SUCCESS
+
+Founder อนุมัติ ("Deploy") — merge PR #200 → `main` (commit `50c034787c72187da153bbe529c1751d2424225c`) → trigger `deploy-web.yml` (run [`33531506545`](https://github.com/warren-wyn-dev/wynteam/actions/runs/33531506545), completed/success) → verify production: ทุก endpoint HTTP 200, `main.dart.js` ขนาดลดจาก 4,145,796 → 4,088,406 bytes (เล็กลงตามที่ลบ package ออก) ยืนยัน build ใหม่จริง
+
+รายละเอียดเต็ม: `.wyn/logs/deployments/2026-09-01-wyn-075-real-deploy.md`
 
 ## Follow-up (not done in this task)
 If real image caching on Flutter Web is still wanted later, re-investigate `cached_network_image` (or an alternative) with real browser dev-tools access to see the actual console/network error first, rather than guessing again.
