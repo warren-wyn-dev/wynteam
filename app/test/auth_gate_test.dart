@@ -8,18 +8,20 @@ import 'package:wyn/features/auth/presentation/username_setup_screen.dart';
 import 'package:wyn/features/auth/presentation/welcome_screen.dart';
 import 'package:wyn/features/legal/presentation/document_acceptance_screen.dart';
 import 'package:wyn/features/moderation/data/moderation_status.dart';
+import 'package:wyn/features/root/presentation/root_shell.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_auth_repository.dart';
 import 'support/recording_moderation_repository.dart';
 import 'support/recording_platform_document_repository.dart';
 
-User _fakeUser(String id) => User(
+User _fakeUser(String id, {bool isAnonymous = false}) => User(
       id: id,
       appMetadata: const {},
       userMetadata: const {},
       aud: 'authenticated',
       createdAt: DateTime.now().toIso8601String(),
+      isAnonymous: isAnonymous,
     );
 
 Session _fakeSession(String userId) => Session(
@@ -260,5 +262,63 @@ void main() {
 
     expect(find.byType(DocumentAcceptanceScreen), findsNothing);
     expect(find.byType(UsernameSetupScreen), findsOneWidget);
+  });
+
+  // WYN-072 (Guest Browsing): a guest signed in via Anonymous Sign-In
+  // ("เข้าชม WYNOS ได้เลย" on AuthMethodScreen) must land on RootShell
+  // directly -- never UsernameSetupScreen -- even though hasUsername
+  // would say false for an account with no `profiles` row at all.
+  // hasUsernameResult is deliberately left at its true default here and
+  // never asserted on: the whole point is that AuthGate must not even
+  // reach that check for an anonymous session.
+  //
+  // Bug fix (WYN-072-auth-gate-test-realtime-timer-leak): injects a
+  // cheap keyed placeholder via rootShellBuilder instead of letting
+  // AuthGate build a *real* RootShell -- a real RootShell's HomeFeedScreen
+  // subscribes to a real Supabase Realtime channel (real HomeRepository,
+  // no injection seam through AuthGate for it), which flutter_test's
+  // automatic widget-tree teardown then disposes, scheduling a real 50s
+  // RealtimeClient pending-disconnect Timer *after* the test body has
+  // already returned -- there is no point in the test that could cancel
+  // it, so `!timersPending` always failed at teardown even though every
+  // assertion below had already passed. Actual behavior tested for the
+  // real (non-anonymous) gate/guest destinations lives in
+  // root_shell_guest_gate_test.dart instead, built directly against
+  // RootShell with injected Recording* repositories (root_shell_test.dart's
+  // own established pattern) -- this test's only job is to prove
+  // *AuthGate's own branch decision*, which doesn't need RootShell's real
+  // internals at all.
+  testWidgets(
+      'a guest (Anonymous Sign-In) skips Username Setup and lands on '
+      'RootShell directly', (tester) async {
+    final authRepository = RecordingAuthRepository(
+      initialSession: Session(
+        accessToken: 'fake-access-token',
+        tokenType: 'bearer',
+        user: _fakeUser('guest-user', isAnonymous: true),
+      ),
+    );
+    final moderationRepository = RecordingModerationRepository(
+      myStatus: const ModerationStatus(
+        isRestricted: false,
+        isSuspended: false,
+        isBanned: false,
+      ),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: AuthGate(
+        authRepository: authRepository,
+        moderationRepository: moderationRepository,
+        platformDocumentRepository: platformDocumentRepository,
+        rootShellBuilder: () =>
+            const SizedBox(key: Key('fake_root_shell')),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(UsernameSetupScreen), findsNothing);
+    expect(find.byKey(const Key('fake_root_shell')), findsOneWidget);
+    expect(find.byType(RootShell), findsNothing);
   });
 }

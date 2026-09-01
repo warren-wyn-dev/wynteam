@@ -37,6 +37,7 @@ class AuthGate extends StatefulWidget {
     this.moderationRepository,
     this.appealRepository,
     this.platformDocumentRepository,
+    this.rootShellBuilder,
   });
 
   // All optional -- default to real Supabase-backed instances (see
@@ -56,6 +57,23 @@ class AuthGate extends StatefulWidget {
   // Same shape again -- WYN-046's Acceptance Gate.
   final PlatformDocumentRepository? platformDocumentRepository;
 
+  // Bug fix (WYN-072-auth-gate-test-realtime-timer-leak): unlike the
+  // repositories above, RootShell itself was hardcoded (`const
+  // RootShell()`), so a test exercising the "guest reaches RootShell"
+  // branch always got the *real* RootShell -- all-default,
+  // Supabase.instance-backed repositories, including a real
+  // HomeRepository whose HomeFeedScreen subscribes to a real Realtime
+  // channel. flutter_test's automatic widget-tree teardown at test end
+  // then calls HomeFeedScreen.dispose() -> unsubscribe(), which schedules
+  // a real 50s RealtimeClient pending-disconnect Timer *after* the test
+  // body has already returned control to the framework -- there is no
+  // point in the test where that Timer could be cancelled or flushed, so
+  // `!timersPending` always fails. Injectable the same way as every
+  // other dependency above so a test can swap in a cheap placeholder
+  // (e.g. a keyed SizedBox) instead of a real RootShell, without needing
+  // to touch AuthGate's own decision logic at all.
+  final Widget Function()? rootShellBuilder;
+
   @override
   State<AuthGate> createState() => _AuthGateState();
 }
@@ -67,6 +85,8 @@ class _AuthGateState extends State<AuthGate> {
       widget.moderationRepository ?? ModerationRepository(Supabase.instance.client);
   late final AppealRepository _appealRepository =
       widget.appealRepository ?? AppealRepository(Supabase.instance.client);
+  late final Widget Function() _buildRootShell =
+      widget.rootShellBuilder ?? () => const RootShell();
   late final PlatformDocumentRepository _platformDocumentRepository =
       widget.platformDocumentRepository ??
           PlatformDocumentRepository(Supabase.instance.client);
@@ -288,6 +308,25 @@ class _AuthGateState extends State<AuthGate> {
                   );
                 }
 
+                // WYN-072 (Guest Browsing): a guest (Anonymous Sign-In,
+                // see AuthMethodScreen's "เข้าชม WYNOS ได้เลย") skips
+                // Username Setup entirely and lands straight on Home --
+                // asking a guest to pick a username first would defeat
+                // the point of "browse without logging in". A guest's
+                // `profiles` row is never created at all (not just
+                // missing a username); every screen that would normally
+                // read it is gated behind requireRealAccount() (see
+                // guest_gate.dart) before the guest can reach it, and
+                // RootShell's own eager IndexedStack build of
+                // ViewProfileScreen for the guest's own (nonexistent)
+                // profile already fails open into that screen's own
+                // error state rather than crashing (its own
+                // snapshot.hasError branch) -- confirmed by reading
+                // view_profile_screen.dart, not assumed.
+                if (session.user.isAnonymous) {
+                  return _buildRootShell();
+                }
+
                 return FutureBuilder<bool>(
                   future: _authRepository.hasUsername(session.user.id),
                   builder: (context, usernameSnapshot) {
@@ -295,7 +334,7 @@ class _AuthGateState extends State<AuthGate> {
                       return const _LoadingScreen();
                     }
                     if (usernameSnapshot.data == true) {
-                      return const RootShell();
+                      return _buildRootShell();
                     }
                     return UsernameSetupScreen(
                       authRepository: _authRepository,

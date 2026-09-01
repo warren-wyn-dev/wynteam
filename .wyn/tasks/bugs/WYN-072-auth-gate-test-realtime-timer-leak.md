@@ -1,0 +1,29 @@
+# Bug Report — WYN-072 (test-only)
+
+Status: review (fixed by AI Debug Engineer, 2026-09-01 — awaiting QA re-check)
+Owner: AI Debug Engineer
+Bug: `flutter test` มี 1 test แดงจากทั้งหมด 877 test: `test/auth_gate_test.dart` — `a guest (Anonymous Sign-In) skips Username Setup and lands on RootShell directly` (test ใหม่ที่ AI Coding เพิ่มพร้อม WYN-072) ล้มเหลวตอน teardown ด้วย `A Timer is still pending even after the widget tree was disposed.` (`!timersPending` assertion) — **ไม่ใช่บั๊กใน production code** ยืนยันแล้วว่า logic ที่ทดสอบ (AuthGate ข้าม Username Setup ให้ anonymous session) ถูกต้อง 100% — เป็น pre-existing architectural gap ของ test infrastructure ที่เพิ่งถูกชนเป็นครั้งแรก
+
+Reproduction:
+```
+cd app && flutter test test/auth_gate_test.dart --plain-name "guest"
+```
+ล้มเหลวทุกครั้งด้วย error เดียวกัน (`!timersPending`) — สังเกตว่า assertion เกิด "after the test had completed" คือ `expect()` ทุกบรรทัดในเทสต์ผ่านหมดแล้ว มีแค่ post-test cleanup invariant ที่ fail
+
+Root Cause: `AuthGate` (auth_gate.dart) hardcode `return const RootShell();` ตรงๆ ไม่มีช่องให้ inject fake repository เข้าไปเหมือนที่ `authRepository`/`moderationRepository`/`platformDocumentRepository` ทำได้ ดังนั้น test ที่อยาก mount `AuthGate` แล้วให้มันไปถึง `RootShell` จริง จะได้ `RootShell` ที่ผูกกับ **`HomeRepository` ตัวจริง** (ไม่ใช่ `RecordingHomeRepository` ปลอมแบบที่ `root_shell_test.dart` ใช้) — `HomeFeedScreen.initState()` เรียก `homeRepository.subscribeToNewPosts()` ซึ่งสร้าง Supabase Realtime channel จริงผ่าน `SupabaseClient` ที่ชี้ไป `https://example.supabase.co` (fake project) พอ test จบ flutter_test จะ dispose widget tree อัตโนมัติเสมอ → `HomeFeedScreen.dispose()` เรียก `unsubscribe()` → `RealtimeChannel.unsubscribe()` → `RealtimeClient._schedulePendingDisconnect()` ตั้ง `Timer` 50 วินาที (ของจริงใน `realtime_client` package) ค้างไว้ — เกิดขึ้น**หลัง**ที่ test body คืน control ให้ framework แล้ว ไม่มีจังหวะให้ test เอง cancel/flush timer นี้ได้เลย ทำให้ `!timersPending` invariant พังทุกครั้งที่ AuthGate ถูก mount จนถึง RootShell จริงในบรรยากาศ widget test — เป็นเหตุผลเดียวกับที่ test เดิม "a Restricted-only account...logs in normally" (บรรทัดบนๆ ในไฟล์เดียวกัน) จงใจเลือก `hasUsernameResult: false` เพื่อจบที่ `UsernameSetupScreen` แทนที่จะปล่อยให้ถึง `RootShell` — comment เดิมบอกแค่ "irrelevant noise" แต่จริงๆ แล้วคือกันปัญหานี้ไว้ล่วงหน้าโดยไม่รู้ตัว
+Fix (แนะนำ): เพิ่ม optional constructor param ให้ `AuthGate` แบบเดียวกับ `authRepository`/`moderationRepository` ที่มีอยู่แล้ว เช่น `final Widget Function()? rootShellBuilder;` ค่า default `() => const RootShell()` แล้วเปลี่ยนบรรทัด `if (session.user.isAnonymous) { return const RootShell(); }` เป็น `return (widget.rootShellBuilder ?? () => const RootShell())();` — จากนั้น test ใหม่ inject `rootShellBuilder: () => const SizedBox(key: Key('fake_root_shell'))` (หรือ widget placeholder อื่น) แทน `RootShell` จริง หลีกเลี่ยง real `HomeRepository`/Realtime channel ทั้งหมด ตรวจแค่ `find.byKey(const Key('fake_root_shell'))` แทน `find.byType(RootShell)` — pattern เดียวกับที่ `authRepository`/`moderationRepository` ทำอยู่แล้วในไฟล์เดียวกันเป๊ะ ความเสี่ยง regression ต่ำมาก (แค่เพิ่ม field ใหม่ที่ default เป็นพฤติกรรมเดิมทุกจุดที่ไม่ได้ inject)
+Files Changed (ที่ต้องแก้): `app/lib/features/auth/presentation/auth_gate.dart` (เพิ่ม constructor param), `app/test/auth_gate_test.dart` (ใส่ builder ปลอมในเทสต์ guest)
+Tests: หลังแก้ ต้องรัน `flutter test test/auth_gate_test.dart` ให้ผ่านทั้งไฟล์ + `flutter test` เต็ม suite ต้องได้ 877/877 (ปัจจุบัน 876/877 เพราะเทสต์นี้ตัวเดียว)
+Regression Risk: ต่ำ — ไม่แตะ production behavior เลยถ้า `rootShellBuilder` ไม่ถูก pass (ทุก call site จริงในแอปไม่ส่ง param นี้ จึงยังคง `const RootShell()` เหมือนเดิม 100%)
+Handoff to QA: หลังแก้ ส่งกลับ AI QA & Security รันเต็ม suite ยืนยัน 877/877 ก่อนอนุมัติ deploy WYN-072 — **ไม่ใช่ blocker ต่อความถูกต้องของฟีเจอร์ guest browsing เอง** (ยืนยันแล้วด้วย test แยก `root_shell_guest_gate_test.dart` ที่ QA เพิ่มเข้ามาว่า gate ทำงานถูกต้องจริงทั้ง 4 จุด) แต่ยังต้องแก้ก่อน suite จะเขียวสมบูรณ์ตามกติกา "ห้ามข้าม QA"
+
+## Resolution (AI Debug Engineer, 2026-09-01)
+
+แก้ตามที่แนะนำเป๊ะ: เพิ่ม `final Widget Function()? rootShellBuilder;` เข้า `AuthGate` (default `() => const RootShell()` ผ่าน `late final Widget Function() _buildRootShell`) ทั้ง 2 จุดที่เคย `return const RootShell();` เปลี่ยนเป็น `return _buildRootShell();` — `auth_gate_test.dart`'s guest test เปลี่ยนไป inject `rootShellBuilder: () => const SizedBox(key: Key('fake_root_shell'))` แทน ตรวจ `find.byKey(...)` แทน `find.byType(RootShell)`
+
+ยืนยันด้วย:
+- `flutter analyze`: 0 issues
+- `flutter test` เต็ม suite: **878/878 ผ่านหมด** (ก่อนแก้ 876/877)
+- รันเจาะจง `auth_gate_test.dart` + `root_shell_guest_gate_test.dart` + `root_shell_test.dart` + `widget_test.dart` รวมกัน: 22/22 ผ่าน
+
+Regression risk: ต่ำมาก ยืนยันจริงแล้ว — ไม่มี call site จริงในแอป (`main.dart` หรือที่ไหนก็ตาม) ส่ง `rootShellBuilder` เข้าไป จึงยังคง `const RootShell()` เหมือนเดิม 100% ทุกจุดที่ไม่ใช่ test

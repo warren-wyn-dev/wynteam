@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../auth/presentation/widgets/guest_gate.dart';
 import '../../chat/data/chat_repository.dart';
 import '../../chat/presentation/chat_inbox_screen.dart';
 import '../../club/data/club_post_repository.dart';
@@ -176,7 +177,11 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
   }
 
+  // WYN-072 (Guest Browsing): Chat is a conversation with another real
+  // person -- gated the same as Profile/Drop/Notifications in RootShell.
   Future<void> _openChatInbox() async {
+    if (!await requireRealAccount(context)) return;
+    if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ChatInboxScreen(chatRepository: widget.chatRepository),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../auth/presentation/widgets/guest_gate.dart';
 import '../../chat/data/chat_repository.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
@@ -201,7 +202,18 @@ class _RootShellState extends State<RootShell> {
     }
   }
 
-  void _onDestinationSelected(int navIndex) {
+  // WYN-072 (Guest Browsing): Drop ("+")/Notifications/Profile all need a
+  // real identity -- gated the same way regardless of which of the 3 it
+  // is, via the one shared requireRealAccount() dialog. Home and Search
+  // are deliberately not in this set -- a guest can browse both freely,
+  // per Founder's own "ดูโพสต์ได้" (see the design doc's Design Rules).
+  Future<void> _onDestinationSelected(int navIndex) async {
+    final needsRealAccount = navIndex == _dropDestinationIndex ||
+        navIndex == _notificationsDestinationIndex ||
+        navIndex == _profileDestinationIndex;
+    if (needsRealAccount && !await requireRealAccount(context)) return;
+    if (!mounted) return;
+
     if (navIndex == _dropDestinationIndex) {
       _openCreateDrop();
       return;
@@ -300,7 +312,7 @@ class _RootShellState extends State<RootShell> {
       body: IndexedStack(index: _tabIndex, children: tabs),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _navIndexForTab[_tabIndex],
-        onDestinationSelected: _onDestinationSelected,
+        onDestinationSelected: (navIndex) => _onDestinationSelected(navIndex),
         destinations: [
           const NavigationDestination(
             icon: Icon(Icons.home_outlined),
