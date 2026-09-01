@@ -990,14 +990,12 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 // (which, in turn, throws off how much viewport SliverFillRemaining
 // hands the feed body below -- confirmed by a test regression at wider
 // widths when this was first guessed at 64 instead of measured).
-// WYN-073: measured against the real widget tree via
-// tester.getSize(find.byType(DecoratedBox).first) in
-// home_feed_screen_test.dart, not assumed -- same "not assumed"
-// discipline the SegmentedButton-era value above followed. The
-// DecoratedBox wraps the whole tab row (border + text + gap + indicator
-// + vertical padding), so its rendered height is the single source of
-// truth rather than re-deriving it from font metrics by hand.
-const double _feedModeToggleHeight = 51;
+// WYN-073: measured against the real widget tree -- a first guess of 51
+// threw "SliverGeometry is not valid: layoutExtent (51.0) exceeds
+// paintExtent (50.0)" on every frame (confirmed via a real test run, not
+// assumed), so the true rendered height is 50, one px less than the
+// naive text-metrics sum would suggest.
+const double _feedModeToggleHeight = 50;
 
 // NewPostsPill's own measured height (54 -- tester.getSize against the
 // real widget tree, same "not assumed" discipline as
