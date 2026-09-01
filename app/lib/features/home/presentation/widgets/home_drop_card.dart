@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -329,17 +328,23 @@ class HomeDropCard extends StatelessWidget {
                   alreadyLiked: item.likedByMe,
                   child: AspectRatio(
                     aspectRatio: 1,
-                    // WYN-074: a bare Image.network had no placeholder and
-                    // no disk cache, so fast scrolling flashed a blank
-                    // white gap while each image downloaded fresh.
-                    child: CachedNetworkImage(
-                      imageUrl: item.imageUrl!,
+                    // WYN-074: a bare Image.network showed nothing while
+                    // loading, so fast scrolling flashed a blank white
+                    // gap. Went through CachedNetworkImage first, but on
+                    // Flutter Web every image failed to render at all
+                    // (worse than the flash it fixed) -- reverted to
+                    // Image.network's own loadingBuilder/errorBuilder,
+                    // which are proven-working on this exact web build.
+                    child: Image.network(
+                      item.imageUrl!,
                       fit: BoxFit.cover,
-                      fadeInDuration: const Duration(milliseconds: 150),
-                      placeholder: (context, url) => Container(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      ),
-                      errorWidget: (context, url, error) => Container(
+                      loadingBuilder: (context, child, progress) {
+                        if (progress == null) return child;
+                        return Container(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) => Container(
                         color: Theme.of(context).colorScheme.surfaceContainerHighest,
                         child: const Icon(Icons.broken_image_outlined),
                       ),
