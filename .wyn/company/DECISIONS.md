@@ -14,6 +14,16 @@
 
 ## รายการการตัดสินใจ
 
+### [2026-09-01] WYNOS Version Control Policy — กำหนด Baseline และกติกา Rollback
+- บริบท: Founder ส่งกติกา Version Control อย่างเป็นทางการสำหรับ WYNOS ผ่านข้อความ "WYNOS VERSION CONTROL POLICY" ระบุ Baseline ปัจจุบัน กติกาการอัปเดต Version และกติกา Rollback
+- คำตัดสินใจของ Founder:
+  1. **Baseline**: โค้ด/ฟีเจอร์/UI-UX/DB schema/API/config ทั้งหมดที่มีอยู่ ณ ตอนนี้ คือ **WYNOS v1.0.0 Beta1** — ห้ามถือว่าเป็นเวอร์ชันอื่นจนกว่า Owner จะสั่ง
+  2. **Version ใหม่ต้องมาจาก Owner เท่านั้น** — ทีม AI ห้ามเปลี่ยน version number เอง, ห้ามเพิ่ม feature ใหญ่ที่ไม่ได้สั่ง, ห้ามลบ feature เดิมโดยไม่ได้สั่ง, ต้องรักษาความสามารถเดิมไว้เว้นแต่ Owner สั่งเปลี่ยน
+  3. **ห้าม Rollback เองโดยเด็ดขาดไม่ว่ากรณีใด** — เมื่อพบปัญหา (build fail, runtime error, feature/UI พัง, migration พัง, API พัง, security/performance regression) ให้ หยุดการเปลี่ยนแปลงที่ไม่จำเป็น → วิเคราะห์ → รายงานสาเหตุ/ผลกระทบ → เสนอทางแก้ → รอคำสั่ง Owner เท่านั้นก่อน rollback จริง (คำสั่งต้องชัดเจน เช่น "Rollback WYNOS กลับไป v1.0.0 Beta1")
+  4. **Version Integrity**: ต้องตรวจสอบ version ปัจจุบันก่อนเริ่มงานทุกครั้ง และเมื่อมี version ใหม่ต้องบันทึกและรักษาประวัติ version เดิมไว้ ห้ามเขียนทับ/ทำลาย version history
+- ผลกระทบ: สร้างไฟล์นโยบายถาวร `.wyn/company/VERSION_CONTROL.md` (มีตาราง Version History เริ่มจาก v1.0.0 Beta1) และเพิ่มเป็นไฟล์บังคับอ่านก่อนเริ่มงานใน `AGENTS.md` ข้อ 7 — ทุกบทบาท AI (โดยเฉพาะ AI Deploy & DevOps และ AI Debug Engineer) ต้องยึดกติกานี้เมื่อเจอปัญหาหลัง deploy: ห้ามสั่ง rollback อัตโนมัติแม้ระบบพังก็ตาม ต้องรายงานแล้วรอ Owner
+- อ้างอิง (task/PR ถ้ามี): `.wyn/company/VERSION_CONTROL.md`, `RELEASE_NOTES.md`
+
 ### [2026-08-24] WYNOS Visual Refresh (WYN-071) — 3 การตัดสินใจก่อนเริ่ม Design
 - บริบท: Founder ส่ง spec "ออกแบบ UI/UX สำหรับ WYNOS" ผ่าน `/product` (ธีมสว่าง, multi-image Drop, Profile tab ใหม่ ฯลฯ) — AI Product Manager ตรวจโค้ดปัจจุบันแล้วพบว่าธีมสว่างมีอยู่แล้วจริงใน DS-001 (แค่ยังไม่ fix เป็นค่าเริ่มต้น) จึงถามยืนยัน 4 จุดผ่าน popup ก่อนส่งต่อ AI Design
 - คำตัดสินใจของ Founder:
