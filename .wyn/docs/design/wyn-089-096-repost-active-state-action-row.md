@@ -49,7 +49,14 @@ Handoff: AI Coding — แก้ 1 บรรทัดใน `home_drop_card.dart
 
 ---
 
-## Part 2 — WYN-096: แถวปุ่มปฏิสัมพันธ์ใหม่ (draft — รอ Founder ยืนยันกับภาพต้นฉบับ)
+## Part 2 — WYN-096: แถวปุ่มปฏิสัมพันธ์ใหม่ (draft — SUPERSEDED, ดู `.wyn/docs/design/wyn-096-home-feed-action-bar-alignment.md`)
+
+> **อัปเดต 2026-09-02**: Founder ส่งภาพอ้างอิงจริงมาแล้ว (`a279a127-image.jpg`, PDF item 28) —
+> เทียบกับภาพจริงแล้วพบว่า draft ด้านล่างนี้ **ผิดทิศทาง**: ไม่ต้องเปลี่ยนทั้งสไตล์เป็นแบบ
+> Detail screen ตามที่เสนอไว้ — โค้ดปัจจุบันตรงกับภาพอยู่แล้วเกือบทั้งหมด มี gap จริงแค่ padding
+> จุดเดียว ดู spec ฉบับสุดท้ายที่ `.wyn/docs/design/wyn-096-home-feed-action-bar-alignment.md`
+> และ task file `.wyn/tasks/review/WYN-096-home-feed-action-bar-alignment.md` แทน — เนื้อหา
+> draft ด้านล่างนี้เก็บไว้เป็นบันทึกกระบวนการเท่านั้น **ห้ามใช้เป็น spec ขึ้นโค้ด**
 
 Screen: `HomeDropCard`'s action row (ฟีด/โปรไฟล์/hashtag) — `DropDetailScreen`'s action row **อยู่นอกสโคปการเปลี่ยน** (เป็นสไตล์เป้าหมายอยู่แล้ว ดูเหตุผลด้านล่าง)
 
@@ -87,5 +94,7 @@ Design Rules: ห้ามเพิ่มสี/ไอคอนใหม่ท�
 
 ## สรุปสถานะ
 
-- **WYN-089**: พร้อมขึ้นโค้ดทันที ไม่มีอะไรบล็อก
-- **WYN-096**: draft รอ Founder ยืนยันภาพอ้างอิง — ยังไม่ส่ง AI Coding
+- **WYN-089**: ขึ้นโค้ดแล้ว, QA PASS, อยู่ใน `.wyn/tasks/approved/`
+- **WYN-096**: superseded — ดู `.wyn/docs/design/wyn-096-home-feed-action-bar-alignment.md` +
+  `.wyn/tasks/review/WYN-096-home-feed-action-bar-alignment.md` (spec ฉบับจริง เทียบกับภาพ
+  อ้างอิงแล้ว พร้อมส่ง AI Coding)

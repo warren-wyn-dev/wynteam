@@ -1,93 +1,129 @@
-# Design Spec — WYN-091: การ์ดโพสต์ข้อความล้วน (restyle) + Badge "มีโพสต์ใหม่"
+# Design Spec — WYN-091: Text-Only Post Card + "มีโพสต์ใหม่" Pill Text
 
 Owner: AI Design → AI Coding
-Ref: `.wyn/tasks/backlog/WYN-091.md`
-โค้ดที่ตรวจแล้ว: `app/lib/features/home/presentation/widgets/home_drop_card.dart` (caption block), `app/lib/features/home/presentation/widgets/new_posts_pill.dart`, `app/lib/features/home/presentation/home_feed_screen.dart` (`_newPostCount`/`showNewPostsPill`)
-Pattern ที่มีอยู่แล้ว: `.wyn/tasks/review/WYN-086-caption-above-image.md` (caption ย้ายมาอยู่เหนือรูป/Poll แล้ว — งานนี้ไม่แตะลำดับนั้นซ้ำ)
+Ref: `.wyn/tasks/active/WYN-091-text-post-card-and-new-posts-badge.md`
+อ้างอิงภาพต้นฉบับจาก Founder (Beta2 Phase 2 PDF revision list, item 13 — ที่ตั้ง
+`/root/.claude/uploads/874e2b82-2d79-56e1-bb55-bece689d658d/c2a85036-image.jpg`)
+อ้างอิง Design System ปัจจุบัน (Sapphire era): `app/lib/core/design/wyn_colors.dart`,
+`app/lib/core/design/wyn_spacing.dart`, `app/lib/core/design/wyn_typography.dart`,
+`design-reference/SPEC.md` (Section 4.6 "Post — structure top to bottom") —
+**ไม่ใช้** `.wyn/docs/design/ds-001-color-system.md` (Cyan เดิม, ถูกแทนที่แล้วตาม
+`.wyn/company/DECISIONS.md` "เปลี่ยน Color Direction ของ WYN: Cyan → Sapphire", 2026-08-29)
 
-> **ส่วนการ์ดข้อความล้วน**: Founder แนบภาพอ้างอิงมากับ PDF ("เรียบๆหรู เหมือนในรูป") — **session นี้ไม่มีไฟล์ภาพนั้น** ออกแบบจากคำพูด + design system ที่มีอยู่แล้วเท่านั้น เป็น **draft รอ Founder ยืนยันเทียบกับภาพต้นฉบับ**
-> **ส่วน badge "มีโพสต์ใหม่"**: เป็นคำสั่งข้อความล้วน ไม่ต้องพึ่งภาพ — **พร้อมขึ้นโค้ดทันที**
+## หมายเหตุสำคัญ — ภาพอ้างอิงคือ screenshot ของ `design-reference/01-home.tsx` เอง
+
+ตรวจสอบแล้วพบว่าโพสต์ "ZEN" ในภาพอ้างอิงของ Founder (ข้อความ "สักวันหนึ่งคุณจะขอบคุณตัวเองใน
+วันนี้", ถูกใจ 128, คอมเมนต์ 2, รีโพสต์ 4, เข้าชม 340) ตรงกับ mock data `posts[1]` ใน
+`design-reference/01-home.tsx` เป๊ะทุกตัวเลข — ภาพอ้างอิงนี้คือ **screenshot ของ prototype ที่
+Founder อนุมัติไว้แล้วใน repo นี้เอง** (ไม่ใช่ภาพจากแอปคู่แข่งหรือแรงบันดาลใจใหม่) จึงยึด
+`design-reference/SPEC.md` Section 4.6/4.9 เป็นแหล่งอ้างอิงคู่กับภาพได้โดยตรง ไม่ใช่แค่ตีความจาก
+ภาพอย่างเดียว
+
+## สิ่งที่เห็นจริงในภาพอ้างอิง (item 13)
+
+โพสต์ของ "ZEN" ในหน้า Home feed แบบไม่มีรูป (text-only): avatar วงกลมด้านซ้าย ต่อด้วยชื่อ
+"ZEN" ตัวหนา และเวลา "6 ชั่วโมงที่แล้ว" สีเทาอ่อนกว่า จากนั้นข้อความโพสต์ตัวใหญ่กว่าชื่อ
+("สักวันหนึ่งคุณจะขอบคุณตัวเองในวันนี้") ตามด้วยแถว "ถูกใจโดย [avatar] WARREN และอีก 127
+คน" แล้วจบด้วยแถวไอคอน หัวใจ/คอมเมนต์/รีโพสต์/ตา พร้อมจำนวนกำกับแต่ละอัน **ไม่มีกรอบ/พื้น
+หลังการ์ด/เงาใด ๆ ล้อมโพสต์เลย** — ข้อความนั่งอยู่บนพื้นหลังหน้าเพจตรง ๆ (โทนเดียวกับพื้นหลัง
+"เรียบๆหรู" ที่ Founder เขียนกำกับไว้) เหนือโพสต์ถัดไปมีเส้นแบ่งบาง ๆ เท่านั้น ไม่มีเส้นขอบรอบ
+ทั้งการ์ด นอกจากนี้ยังมี pill สีน้ำเงินเข้มรูปแคปซูล "↑ มีโพสต์ใหม่ 3 โพสต์" อยู่เหนือโพสต์ —
+Founder เขียนกำกับ ("ปล.") ว่าต้องการเปลี่ยนข้อความในวงสีน้ำเงินนี้จาก "มีโพสต์ใหม่ 3 โพสต์"
+เป็น "มีโพสต์ใหม่" เฉย ๆ (ไม่มีตัวเลขจำนวนต่อท้าย) ทุกครั้งที่มีโพสต์ใหม่
+
+## เทียบกับโค้ดปัจจุบันจริง
+
+`HomeDropCard` (`app/lib/features/home/presentation/widgets/home_drop_card.dart`) เส้นทาง
+caption-only (`item.imageUrl == null && !item.isPoll`, บรรทัด 359-369) **ตรงกับภาพนี้อยู่แล้ว
+เป็นส่วนใหญ่**: ไม่มี `Container`/`decoration`/เงาใด ๆ ห่อการ์ด — เป็นแค่ `Padding` บน
+`Column` ตรง ๆ นั่งบนพื้นหลัง `WynColors.paper` ของหน้า Home ทั้งหน้า ตรงกับ "เรียบๆหรู" ที่
+Founder ต้องการเป๊ะ ไม่ต้องเพิ่มกรอบ/พื้นหลังใด ๆ ให้การ์ด — โครงสร้าง header (avatar + ชื่อ +
+เวลา) → ข้อความโพสต์ (`HashtagText`) → `LikedByRow` → แถวไอคอน (`ActionMetric` ×4) ก็เรียง
+ลำดับตรงกับภาพเป๊ะอยู่แล้วเช่นกัน ตรงกับ `design-reference/SPEC.md` Section 4.6 ลำดับข้อ 3/5/8/9
+
+**จุดที่ภาพกับโค้ดต่างกันจริง 1 จุด**: ในภาพ ชื่อ "ZEN" กับเวลา "6 ชั่วโมงที่แล้ว" อยู่บรรทัด
+เดียวกัน (baseline เดียวกัน คั่นด้วยช่องว่าง — ตรงกับ SPEC.md 4.6 ข้อ 3 ที่เขียนว่าชื่อ+badge+
+เวลาอยู่ "on the left" แถวเดียวกัน) แต่โค้ดปัจจุบันวางชื่อกับเวลาเป็นคนละบรรทัด (`Column` ซ้อน 2
+บรรทัดใน `Expanded`) — **ตัดสินใจ: ไม่เปลี่ยนกลับเป็นบรรทัดเดียวตามภาพ/SPEC.md** เพราะ layout 2
+บรรทัดนี้เป็นผลจาก WYN-023 R1 (ผ่าน QA แล้ว, ดู `.wyn/docs/design/wyn-023-home-drop-polish.md`)
+ที่ตั้งใจทำให้ `HomeDropCard` ตรงกับ convention เดียวกับอีก 4 จุดในระบบ (Notification/
+ClubPostCard/ZOKY Order/ZOKY Review) ทุกจุดวางเวลาไว้บรรทัดที่ 2 ใต้ชื่อเสมอ — เป็นการตัดสินใจ
+Founder-approved ที่ทำ*ทีหลัง* SPEC.md เดิม (SPEC.md ไม่เคยถูกอัปเดตย้อนหลังตาม WYN-023) การ
+เปลี่ยนกลับไปเป็นบรรทัดเดียวจะทำให้ `HomeDropCard` เพี้ยนออกจาก convention ที่อนุมัติแล้วและ
+regression กับ 4 จุดที่เหลือ จึงยึด "ห้ามคิดทิศทาง visual ใหม่หากมี WYN design system ที่อนุมัติ
+แล้ว" (`.wyn/agents/design.md`) **คงโครงสร้าง 2 บรรทัดเดิมไว้ ไม่แก้**
+
+`NewPostsPill` (`app/lib/features/home/presentation/widgets/new_posts_pill.dart`) ปัจจุบัน:
+พื้นหลัง `WynColors.sapphire`, ไอคอนลูกศรขึ้นสีขาว, รูปแคปซูล (`radiusFull`), เงาสีน้ำเงินจาง
+— ตรงกับภาพและ SPEC.md 4.4 เป๊ะทั้งสี/ทรง/ไอคอน มีจุดเดียวที่ต้องแก้จริงคือ**ข้อความยังมีตัวเลข
+จำนวนต่อท้าย** ("มีโพสต์ใหม่ 3 โพสต์", ตรงกับ SPEC.md 4.4 เดิมที่เขียนไว้ว่า "มีโพสต์ใหม่ {N}
+โพสต์") ซึ่งตรงกับสิ่งที่ Founder เขียนกำกับไว้ตรง ๆ ว่าต้องการให้เอาตัวเลขออก — เป็นการตัดสินใจ
+ใหม่ของ Founder ที่มาทีหลัง SPEC.md เดิมอีกเช่นกัน (เหมือนกรณี WYN-076 ที่ Founder override สี
+หัวใจถูกใจจาก sapphire เป็นแดง) — SPEC.md ไม่ใช่สิ่งที่แก้ไม่ได้ตลอดกาล แต่เป็น baseline ที่
+Founder สามารถ override เป็นจุด ๆ ได้ และคำกำกับในภาพนี้คือ override จุดนี้โดยเฉพาะ
 
 ---
 
-## Part 1 — Badge "มีโพสต์ใหม่ N โพสต์" → "มีโพสต์ใหม่" (พร้อมขึ้นโค้ด)
+Screen: `HomeDropCard` (caption-only path) และ `NewPostsPill` — ทั้งคู่อยู่ใน Home feed
+(`HomeFeedScreen`) และ `NewPostsPill` เป็น widget เดียว ใช้ที่เดียว ไม่ต้องแก้จุดอื่น
 
-### สิ่งที่ตรวจโค้ดจริงแล้วพบ — ครึ่งหนึ่งของ requirement นี้ทำอยู่แล้ว
+Purpose: ยืนยัน (ไม่ใช่คิดใหม่) ว่าการ์ดโพสต์แบบข้อความล้วนของ `HomeDropCard` มีหน้าตา
+"เรียบๆหรู" ตรงกับภาพอ้างอิงของ Founder อยู่แล้ว และปิด gap เดียวที่พบจริง — ข้อความของ pill
+"มีโพสต์ใหม่" ต้องไม่มีตัวเลขจำนวนต่อท้ายอีกต่อไป
 
-`home_feed_screen.dart` บรรทัด 589-590:
-```dart
-final showNewPostsPill =
-    _feedMode != _HomeFeedMode.fromYourClubs && _newPostCount > 0;
-```
-**Pill ถูกซ่อนอยู่แล้วเมื่อ `_newPostCount == 0`** — ส่วน "ขึ้นเฉพาะตอนมีโพสต์ใหม่จริง" ของ Acceptance Criteria **ผ่านอยู่แล้วในโค้ดปัจจุบัน ไม่ต้องแก้อะไรเพิ่ม** สิ่งที่ยังไม่ตรงมีแค่ **ข้อความ** — `new_posts_pill.dart` ยังโชว์ตัวเลข ("มีโพสต์ใหม่ $count โพสต์") ที่ Founder บอกให้เอาออก
-
-Screen: `NewPostsPill` widget (ปักหมุดใต้ feed-mode toggle, เหนือ feed body)
-
-Purpose: ตัดตัวเลขออกจาก label ตามคำขอ Founder โดยตรง ("เปลี่ยนเป็น 'มีโพสต์ใหม่'")
-
-Components: แก้ 2 จุดใน `new_posts_pill.dart`:
-- Semantics label: `'มีโพสต์ใหม่ $count โพสต์ กดเพื่อโหลด'` → `'มีโพสต์ใหม่ กดเพื่อโหลด'`
-- Visible `Text`: `'มีโพสต์ใหม่ $count โพสต์'` → `'มีโพสต์ใหม่'`
-- **`count`/`onTap` parameter คงไว้ทั้งคู่** — `onTap` ยังต้องมีอยู่ (behavior เดิม กดแล้วโหลดโพสต์ใหม่) `count` ยังใช้ประโยชน์ได้ภายใน widget แม้ไม่แสดงเป็นตัวเลขแล้ว (เช่นไว้ debug/log หรือเผื่ออนาคต) — ไม่ต้องลบ parameter ออกจาก constructor เพียงแค่เลิกอ้างอิงมันในข้อความที่แสดง
-
-Interactions: ไม่เปลี่ยน — กด pill ยังโหลดโพสต์ใหม่เหมือนเดิมทุกประการ
-
-States: ไม่มี state ใหม่ — เงื่อนไขการแสดง/ซ่อน pill (`_newPostCount > 0`) **ไม่ต้องแก้** เพราะถูกต้องอยู่แล้วตามที่ตรวจพบข้างบน
-
-Responsive Behavior: ความกว้าง pill สั้นลงเล็กน้อยเพราะไม่มีตัวเลข/คำว่า "โพสต์" ต่อท้าย — ไม่มีความเสี่ยง overflow (สั้นลงกว่าเดิมเสมอ)
-
-Accessibility: Semantics label ยังคงบอกว่ากดเพื่อทำอะไร ("กดเพื่อโหลด") — ไม่สูญเสียข้อมูลสำคัญจากการตัดตัวเลขออก (ตัวเลขจำนวนโพสต์ใหม่ไม่ใช่ข้อมูลจำเป็นต่อการตัดสินใจกด)
-
-Design Rules: ไม่เปลี่ยนสี/รูปทรง/ตำแหน่ง pill (`WynColors.sapphire`, stadium shape, ไอคอนลูกศรขึ้น) — งานนี้แก้แค่ข้อความ
-
-Handoff: AI Coding — แก้ `app/lib/features/home/presentation/widgets/new_posts_pill.dart` (2 จุดข้างบน) — อัปเดต widget test ที่ assert ข้อความเดิม (`find.text('มีโพสต์ใหม่ ... โพสต์')` ถ้ามี) ให้ตรงข้อความใหม่ — รัน `flutter analyze`/`flutter test`
-
----
-
-## Part 2 — การ์ดโพสต์ข้อความล้วน "เรียบ หรู" (draft — รอ Founder ยืนยันกับภาพต้นฉบับ)
-
-Screen: `HomeDropCard` เมื่อ `!item.isPoll && item.imageUrl == null` (โพสต์ข้อความล้วน ไม่มีรูป ไม่ใช่ Poll)
-
-Purpose: ทำให้โพสต์ข้อความล้วนดู "เรียบ หรู" ตามที่ Founder ขอ โดยไม่มีภาพอ้างอิงให้ดูจริง
-
-### สถานะปัจจุบันของโค้ด (จุดเริ่มต้นก่อนแก้)
-
-```dart
-if (item.caption != null && item.caption!.isNotEmpty)
-  Padding(
-    padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-    child: !item.isPoll && item.imageUrl == null
-        ? DoubleTapLike(onLike: onToggleLike, alreadyLiked: item.likedByMe, child: HashtagText(item.caption!))
-        : HashtagText(item.caption!),
-  ),
-```
-ปัจจุบันโพสต์ข้อความล้วนกับโพสต์ที่มีรูป **ใช้ padding เดียวกันเป๊ะ** (`fromLTRB(12, 8, 12, 8)`) และ typography เดียวกัน (`bodyLarge`, ผ่าน `HashtagText`) — ไม่มีการแยกสไตล์ระหว่าง 2 ประเภทนี้เลยตอนนี้
-
-### ทิศทางที่เสนอ (ไม่มีภาพอ้างอิง — อิงคำพูด Founder + design system ที่มีอยู่)
-
-หลักคิด: "เรียบ หรู" ในภาษาที่ design system นี้ใช้มาตลอด (`wyn-071`, `wyn-073`) แปลว่า **whitespace เยอะ, เส้นน้อย, สีน้อย** — ไม่ใช่การเพิ่มกรอบ/เงา/สีตกแต่ง (design-principles.md ห้าม Liquid Glass, และ `DECISIONS.md` 2026-08-29 ล็อก `WynColors.canvas` ไว้เป็น "กรอบมือถือใน mockup เท่านั้น ไม่ใช้ในแอปจริง" — **ห้ามใช้ `canvas` เป็นพื้นหลังการ์ดข้อความ** ตามที่ตัดสินใจไว้แล้ว) ความหรูจึงมาจาก "การให้พื้นที่หายใจ" ไม่ใช่การเพิ่มองค์ประกอบใหม่:
+User Flow: ไม่เปลี่ยนแปลง — ผู้ใช้เลื่อนดู Home feed เห็นโพสต์ข้อความล้วนแทรกอยู่กับโพสต์มีรูป
+ตามปกติ, แตะ pill สีน้ำเงินด้านบนเพื่อโหลดโพสต์ใหม่เหมือนเดิมทุกประการ (พฤติกรรม `onTap`
+ไม่เปลี่ยน มีแค่ label เปลี่ยน)
 
 Components:
-- **Padding เพิ่มขึ้นเฉพาะกรณีข้อความล้วน** (แยก branch จากกรณีมีรูป/Poll ที่ยังใช้ padding เดิม): จาก `EdgeInsets.fromLTRB(12, 8, 12, 8)` เป็น `EdgeInsets.fromLTRB(WynSpacing.space4, WynSpacing.space3, WynSpacing.space4, WynSpacing.space4)` (16/12/16/16) — ใช้ token ที่มีอยู่แล้วในระบบ ไม่เพิ่ม spacing ใหม่ แค่เลือกค่าที่ให้ลมหายใจมากขึ้นสำหรับกรณีที่ไม่มีรูปมาช่วย "ตัด" สายตา
-- **เส้นคั่นบางๆ ใต้ข้อความ** (`Container(height: 1, color: WynColors.hairline)`) ก่อนถึงแถวปุ่มปฏิสัมพันธ์ — เฉพาะกรณีข้อความล้วนเท่านั้น (โพสต์มีรูปไม่ต้องมี เพราะรูปเองทำหน้าที่ "ปิดท้าย" เนื้อหาให้อยู่แล้วทางสายตา) หลักการเดียวกับเส้น hairline ที่ `DropDetailScreen`'s Focused Action Bar ใช้อยู่แล้ว — reuse token สี ไม่ประดิษฐ์ใหม่
-- **Typography ไม่เปลี่ยน** — ยังเป็น `bodyLarge` (16px/400, line-height 1.5) ตาม DS-001 Section 5 เดิม (ไม่เพิ่มระดับตัวอักษรใหม่ ตามกติกา "ระดับตัวอักษรในหน้าเดียวไม่เกิน 4 ระดับ" — ความหรูมาจาก spacing ไม่ใช่ font-size ที่ใหญ่ขึ้น)
+- `HomeDropCard`: **ไม่ต้องแก้โครงสร้างใด ๆ** — ยืนยัน (confirm, ไม่ใช่แก้ไข) ว่าเส้นทาง
+  caption-only ที่มีอยู่แล้ว (บรรทัด 202-436 ของไฟล์) ตรงตามภาพ: ไม่มี `Container`/border/เงา
+  ห่อการ์ด, header (`AvatarCircle` 16px + ชื่อ `titleSmall` + เวลา `bodySmall`/`outline` คนละ
+  บรรทัด ตาม WYN-023), ข้อความโพสต์ (`HashtagText`, padding `fromLTRB(12,8,12,0)`),
+  `LikedByRow` (ถ้ามีคนถูกใจ), แถว `ActionMetric` ×4 (หัวใจ/คอมเมนต์/รีโพสต์/ตา)
+- `NewPostsPill`: แก้ **บรรทัดเดียว** — เปลี่ยนข้อความที่แสดงจาก
+  `'มีโพสต์ใหม่ $count โพสต์'` เป็น literal คงที่ `'มีโพสต์ใหม่'` (ไม่มีตัวแปร `count` ใน
+  ข้อความที่แสดงผลอีกต่อไป) — สี/ไอคอน/รูปทรง/เงา/ตำแหน่ง **ไม่เปลี่ยนอะไรเลย**
 
-Interactions: ไม่เปลี่ยน — `DoubleTapLike` ยังห่อ caption เหมือนเดิม (double-tap ยังไลค์ได้)
+Interactions: `NewPostsPill.onTap` ทำงานเหมือนเดิมทุกประการ (โหลดโพสต์ใหม่) — การเปลี่ยนนี้
+เป็นแค่ label ไม่ใช่ behavior การกด/การโหลด
 
-States: ไม่มี state ใหม่
+States: pill ยังคงแสดง/ซ่อนตาม logic เดิม (มี/ไม่มีโพสต์ใหม่) — parameter `count`
+(`required this.count`) **เก็บไว้ในโค้ดต่อ** (ยังต้อง track ว่ามีโพสต์ใหม่กี่โพสต์เพื่อตัดสินใจ
+ว่าจะแสดง pill หรือไม่ และเพื่อใช้ใน accessibility label ด้านล่าง) — เปลี่ยนแค่ส่วนที่ประกอบ
+เป็นข้อความที่แสดงผลบนจอเท่านั้น
 
-Responsive Behavior: padding ที่เพิ่มขึ้น (16px ซ้ายขวาแทน 12px) ต้องทดสอบว่าข้อความยาวยังไม่ overflow บนจอ 360px — เพิ่มความเสี่ยงเล็กน้อยเพราะพื้นที่ข้อความแคบลง 8px รวม (แต่ `HashtagText` มี wrap อยู่แล้วโดยธรรมชาติ ไม่ใช่ single-line)
+Accessibility: **คง `Semantics.label` ไว้แบบมีจำนวนเหมือนเดิม**
+(`'มีโพสต์ใหม่ $count โพสต์ กดเพื่อโหลด'`) แม้ข้อความที่แสดงผลบนจอจะไม่มีจำนวนแล้ว — เหตุผล:
+ผู้ใช้ screen reader ได้ประโยชน์จากข้อมูลจำนวนที่แม่นยำกว่า ("มีโพสต์ใหม่ 3 โพสต์") มากกว่า
+ข้อความกว้าง ๆ ("มีโพสต์ใหม่") การลดทอนข้อความที่แสดงผลเพื่อความเรียบร้อยทางสายตาไม่จำเป็นต้อง
+ลดทอนข้อมูลที่ screen reader อ่านไปด้วย — Founder เขียนกำกับเรื่องข้อความที่ *แสดงผล* บนจอ
+เท่านั้น ไม่ได้พูดถึง accessibility label
 
-Accessibility: ไม่เปลี่ยน — เส้นคั่นเป็น decorative hairline (ไม่ต้องมี Semantics label ตามที่กติกา WCAG ยกเว้น decoration ไว้แล้วใน DS-001)
+Responsive Behavior: ไม่เปลี่ยน — pill ความกว้างพอดีเนื้อหา (`Row` + `mainAxisSize.min`) จะ
+สั้นลงเล็กน้อยเพราะข้อความสั้นลง เป็นผลข้างเคียงที่ยอมรับได้ ไม่กระทบ layout อื่น
 
 Design Rules:
-- **ห้ามใช้ `WynColors.canvas` เป็นพื้นหลังการ์ด** (ล็อกไว้แล้วว่าใช้ได้แค่ในกรอบ mockup เท่านั้น)
-- **ห้ามเพิ่มกรอบ/เงา/มุมโค้งรอบข้อความ** — คงพื้นผิวเดียวกับ `paper` ทั่วทั้งฟีด (ไม่ใช่ "การ์ดลอย" แบบมีขอบเขตชัด) ตรงกับที่ระบบยึดมาตลอดตั้งแต่ `wyn-071`/`wyn-073` ("เอาได้แค่ความเรียบ ไม่เอาโครงหน้าจอ")
-- นี่คือ**ข้อเสนอเริ่มต้นเท่านั้น** — ถ้าภาพอ้างอิงจริงของ Founder แสดงทิศทางอื่น (เช่น พื้นหลังสีต่าง, จัดกึ่งกลาง, ฟอนต์ใหญ่ขึ้นแบบ pull-quote) ต้องปรับ spec นี้ใหม่หลัง Founder ยืนยัน ไม่ใช่ยึดตามนี้ตายตัว
+- ห้ามเพิ่ม border/shadow/background ให้การ์ดข้อความล้วนของ `HomeDropCard` — พื้นหลังหน้าเพจ
+  (`WynColors.paper`) คือพื้นหลังของโพสต์เอง ไม่มีขอบเขตภาพแยกจากพื้นเพจ ตรงกับ
+  "เรียบๆหรู" ของ Founder
+- ห้ามเปลี่ยนโครงสร้าง header (ชื่อ/เวลา 2 บรรทัด) ของ `HomeDropCard` — คง WYN-023's
+  convention ไว้ ห้าม override ด้วยภาพอ้างอิงนี้ (ภาพนี้เป็น screenshot ของ prototype เดิมก่อน
+  WYN-023 มีอยู่จริง แต่ WYN-023 คือการตัดสินใจที่มาทีหลังและอนุมัติแล้ว)
+- สีทุกจุดต้องมาจาก `WynColors` เท่านั้น (ตรวจแล้ว: `WynColors.paper`, `WynColors.sapphire`,
+  `WynColors.graphite` ที่ใช้อยู่ทั้งหมดถูกต้องตาม `wyn_colors.dart` อยู่แล้ว ไม่มีจุดใดต้องแก้สี)
+- ข้อความ pill เป็น literal คงที่ `'มีโพสต์ใหม่'` เท่านั้น ห้ามใส่ placeholder ตัวเลขกลับเข้าไป
+  ไม่ว่าจะรูปแบบใด (ไม่ใช่แค่เอา `$count` ออกแล้วเผลอใส่ตัวเลขนิ่ง ๆ กลับมาแทน)
 
-Handoff: **อย่าเพิ่งขึ้นโค้ด Part 2** — ส่ง popup ถาม Founder ก่อนว่า draft นี้ตรงกับภาพที่แนบมากับ PDF หรือไม่ (ตัวเลือก: "ตรง ไปต่อได้" / "ไม่ตรง ขอแนบภาพ/อธิบายเพิ่ม") ถ้ายืนยันแล้วส่ง AI Coding แก้ `home_drop_card.dart` (แยก branch padding/เส้นคั่นสำหรับกรณีข้อความล้วนตามที่ระบุ) เขียน widget test ยืนยัน padding/เส้นคั่นใหม่เฉพาะกรณีไม่มีรูป
-
-## สรุปสถานะ
-
-- **Part 1 (badge)**: พร้อมขึ้นโค้ดทันที
-- **Part 2 (การ์ดข้อความล้วน)**: draft รอ Founder ยืนยันภาพอ้างอิง — ยังไม่ส่ง AI Coding
+Handoff: ส่งต่อ AI Coding —
+1. แก้ `app/lib/features/home/presentation/widgets/new_posts_pill.dart` บรรทัดข้อความที่แสดง
+   ผล (บรรทัด ~55) จาก `'มีโพสต์ใหม่ $count โพสต์'` → `'มีโพสต์ใหม่'` **เท่านั้น** — บรรทัด
+   `Semantics.label` (บรรทัด ~28) **ไม่แก้** ยังคงมี `$count` ต่อไปตาม Accessibility ด้านบน
+2. อัปเดตเทสที่ assert ข้อความเดิมให้ตรงกับข้อความใหม่: `app/test/new_posts_pill_test.dart`
+   (บรรทัด 16, `expect(find.text('มีโพสต์ใหม่ 5 โพสต์'), ...)` → เปลี่ยนเป็น
+   `find.text('มีโพสต์ใหม่')`) และ `app/test/home_feed_screen_test.dart` (บรรทัด 1923, 1940
+   — เดียวกัน) — ระวัง: ถ้ามีเทสที่ยัง assert `Semantics.label` แบบมีจำนวนอยู่ ให้คงไว้ตาม
+   Accessibility ด้านบน ไม่ต้องแก้ส่วนนั้น
+3. `HomeDropCard`: **ไม่ต้องแก้โค้ดใด ๆ** — เอกสารนี้เป็นการยืนยันว่าโครงสร้างปัจจุบันถูกต้อง
+   ตรงตามภาพอ้างอิงแล้ว ไม่มี diff ที่ต้องทำ
+4. `flutter analyze` + `flutter test` ต้องผ่านครบหลังแก้ ไม่มี regression กับ WYN-007/WYN-023
