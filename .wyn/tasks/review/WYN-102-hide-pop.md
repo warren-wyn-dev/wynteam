@@ -1,6 +1,6 @@
 # Feature Request — WYN-102
 
-Status: coded, awaiting QA (2026-09-02)
+Status: QA FAIL (2026-09-02) — blocked by `.wyn/tasks/bugs/WYN-102-push-notification-pop-access-leak.md`, ส่งต่อ AI Debug Engineer
 Phase: Phase 3 — New feature
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 11/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -79,3 +79,34 @@ Known Issues:
 - Trigger/RPC ฝั่ง backend (WYN-006's `increment_pop_view_count()` ฯลฯ) ยังทำงานได้ปกติถ้ามีคนเรียก API ตรง — ตรงตามที่ product spec ตั้งใจไว้ (ไม่บล็อกระดับ backend) ไม่ใช่บั๊ก
 
 Handoff: ส่งต่อ AI QA & Security — (1) ยืนยัน Home feed/Trending/Top100/Discovery ไม่มีการ์ด Pop ปนเลยบนอุปกรณ์จริง (2) ทดสอบ tap notification เก่าที่อ้างอิง Pop (ถ้ามีในระบบจริง) ว่าไม่ crash และไม่พาไปเจอ Pop (3) ยืนยัน Search screen เหลือ 3 แท็บ ไม่มีทางกด Pop จากที่ไหนเลย (4) confirm การ revert ทำได้ง่ายจริง (ลบ `.neq()`/คืน Tab กลับ ไม่ต้อง migrate)
+
+## QA Report (2026-09-02)
+
+```
+Feature: ซ่อนฟีเจอร์ Pop จากทุกจุดที่ผู้ใช้เข้าถึงได้ (ไม่ลบโค้ด/schema)
+Environment: อ่านโค้ดจริง (adversarial, เน้นหา access point ที่ 3 นอกเหนือจาก 2 จุดที่ Coding Output พบเองแล้ว — saved_feed, ReDrop-of-Pop) + รัน `flutter analyze`/`flutter test` อิสระ + grep `app/lib` ทั้งหมดอิสระหา content_type/'pop'/PopRepository
+Test Cases:
+  1. ยืนยัน `home_repository.dart` มี `.neq('content_type', _hiddenContentType)` ครบทั้ง 6 public fetch method (fetchFeed/fetchTrending/fetchTopContent/fetchRankedFeed[ผ่าน .where() หลัง RPC]/fetchFollowingFeed/fetchRedropsByUser) — grep `from('home_feed')` นับได้ 5 จุดตรงกับ 5 `.neq()` บวก RPC 1 จุดที่กรองหลังดึงข้อมูล = ครบ
+  2. ยืนยัน `saved_repository.dart` มี `.neq()` เดียวกัน (จุดที่ product spec เองพลาดไปตามที่ Coding Output รายงาน) — ตรวจแล้วถูกต้องจริง
+  3. ยืนยัน `discovery_repository.dart` (Search's Trending/Top100/Discovery preview) wrap ผ่าน `HomeRepository`'s method ที่กรองแล้วทั้งหมด ไม่มี query ตรงของตัวเองที่หลุดจาก filter
+  4. ยืนยัน `notification_list_screen.dart`'s `_openPop()` ถูกเขียนใหม่เป็น SnackBar ไม่ fetch/navigate จริง
+  5. grep `app/lib/features/pop/**`: **ยืนยันด้วย `git diff` ว่าไม่มีไฟล์ใดใน Pop's own code ถูกแตะเลยแม้บรรทัดเดียว** ตรงตามหลักการ "ซ่อน ไม่ลบ"
+  6. ตรวจ `search_screen.dart`/`side_menu.dart`/`root_shell.dart` ยืนยันไม่มี nav path เหลือไปหา Pop จาก UI ปกติ (`ProfilePopGridTab` ถูก unmount ไปตั้งแต่ WYN-071/ก่อนหน้านี้แล้ว ไม่ใช่งานใหม่ของ WYN-102)
+  7. **พบช่องโหว่จริง (ตามที่ถูกขอให้ตรวจหาจุดที่ 3 อย่างจริงจัง)**: ดูรายละเอียดใน Security Findings ด้านล่าง — `push_notification_service.dart`'s `_openFromPushData()`'s `_openPop()` (บรรทัด 129-131, 192-213) ยังคง fetch Pop จริงและ navigate ไป `PopSingleClipScreen` เต็มรูปแบบเมื่อผู้ใช้แตะ push notification ประเภท `like_pop`/`comment_pop` — เป็นโค้ดคนละไฟล์/คนละฟังก์ชันจาก `notification_list_screen.dart`'s `_openPop()` ที่ถูกแก้ไปแล้ว ไม่ได้ถูกแตะเลยในทั้ง diff ของ WYN-102 (ยืนยันด้วย `git diff` — ไฟล์นี้ไม่อยู่ใน 51 ไฟล์ที่เปลี่ยนของ batch นี้เลย)
+  8. ตรวจ `push_notification_service_test.dart` — ไม่มีเทสใดครอบคลุม Pop-type push เลย (ยืนยันว่าช่องโหว่นี้ไม่เคยถูกทดสอบ ไม่ใช่แค่ implement ผิด)
+  9. รัน `flutter analyze` อิสระ: สะอาด
+  10. รัน `flutter test` อิสระเต็ม suite: 917/917 ผ่าน (ไม่มีเทสใดจับ gap นี้ได้ เพราะไม่มีเทสครอบคลุมจุดนี้เลย)
+Passed: ข้อ 1-6, 9-10
+Failed: ข้อ 7 — พบ Pop access point ที่ 3 ที่ยังเปิดอยู่จริง ไม่ถูกปิดตาม Acceptance Criteria
+Severity: Major (ไม่ถึง Critical เพราะไม่ใช่ data breach/auth bypass — แต่ตรงข้ามกับ Acceptance Criteria "หาทางเข้าถึงฟีเจอร์ Pop จากหน้า UI ไม่เจอแล้วทุกจุด" ที่ Founder ระบุตรงๆ ว่าต้องซ่อนให้ครบทุกจุด และเป็นงาน Priority สูงสุดของรอบนี้)
+Reproduction Steps:
+  1. มี Pop เก่าที่ยังมี like/comment เกิดขึ้นได้จริง (ผ่าน API ตรงหรือ record เก่าก่อน WYN-102) ทำให้เกิด notification row ประเภท `like_pop`/`comment_pop` ที่ระบบ push (Edge Function `send-push-notification`) ส่งเป็น native push notification ออกไปจริง (ตรงตาม Known Issue ของ Coding Output เองที่บอกว่า trigger/RPC ฝั่ง backend ยัง insert แถวปกติ ไม่ถูกบล็อก)
+  2. ผู้ใช้แตะ push notification นั้นตอนแอปอยู่ background/terminated (ไม่ใช่ในแอป)
+  3. `PushNotificationService.initialize()`'s `FirebaseMessaging.onMessageOpenedApp`/`getInitialMessage()` เรียก `_openFromPushData(data)` → `case 'like_pop': case 'comment_pop': await _openPop(navigator, client, data['pop_id'])`
+  4. `_openPop()` เรียก `PopRepository(client).fetchById(popId)` ได้ข้อมูล Pop จริง แล้ว `navigator.push(...PopSingleClipScreen(pop: pop, ...))`
+Expected: ผู้ใช้ไม่ควรเข้าถึง Pop content ได้จากทางใดเลยตาม Acceptance Criteria ของ WYN-102 (ควรแสดง SnackBar/no-op เหมือนที่ `notification_list_screen.dart`'s `_openPop()` ถูกแก้ไปแล้ว)
+Actual: ผู้ใช้เห็น Pop content เต็มรูปแบบผ่าน `PopSingleClipScreen` ได้จริง — เป็น access point ที่สมบูรณ์ ไม่ใช่แค่ dead-link
+Security Findings: ไม่ใช่ auth/authorization bypass (RLS ไม่เปลี่ยน ไม่มีการหลุด privilege) — เป็น **content-visibility gap** ที่ขัดกับ Product requirement ตรงๆ (Founder ขอให้ Pop มองไม่เห็นจาก "สายตาผู้ใช้ทั่วไป" ทุกจุด) ผ่านโค้ด production จริงที่ untested/unfixed จุดเดียวที่เหลือเท่าที่ตรวจพบในรอบนี้ — เตือน AI Coding รอบถัดไปว่า `push_notification_service.dart`'s comment ของตัวเองบอกไว้ตรงๆ ว่า "mirrors NotificationListScreen._openNotification's switch exactly" ซึ่งเป็นสัญญาณว่าทั้ง 2 ไฟล์นี้ควรถูกแก้คู่กันเสมอเมื่อแก้ path ใดๆ ที่เกี่ยวกับ notification-driven navigation แต่รอบนี้แก้แค่ไฟล์เดียว
+Recommendation: ส่งต่อ AI Debug Engineer แก้ `push_notification_service.dart`'s `_openPop()` ให้มีพฤติกรรมเดียวกับที่ `notification_list_screen.dart`'s `_openPop()` ถูกแก้ไปแล้ว (แสดง SnackBar/no-op แทนการ fetch+navigate จริง) แล้วเพิ่มเทสครอบคลุมจุดนี้ก่อนส่งกลับมา QA ซ้ำ — เมื่อแก้แล้วควรตรวจอีกครั้งว่าไม่มี notification-driven path อื่นที่หลงเหลือ (เช่น deep-link จาก external URL ถ้ามีในอนาคต)
+Final Status: FAIL
+```
