@@ -1,11 +1,54 @@
-# Design Spec — WYN-095: รีดีไซน์ Layout หน้าโปรไฟล์ (PROPOSED — รอ Founder เลือก)
+# Design Spec — WYN-095: รีดีไซน์ Layout หน้าโปรไฟล์ (Founder เลือก Mockup A — READY FOR CODING)
 
-Owner: AI Design → **รอ Founder เลือก mockup** → AI Coding
+Owner: AI Design (เสร็จ) → AI Coding
 Ref: `.wyn/tasks/backlog/WYN-095.md`
 โค้ดที่ตรวจแล้ว: `app/lib/features/profile/presentation/view_profile_screen.dart` (header ปัจจุบันทั้งหมด, ปุ่ม Follow/Message ที่มีอยู่แล้ว, `_StatBlock`/`_FollowCountTarget`/`_buildStatDivider`), `app/lib/features/profile/presentation/widgets/avatar_circle.dart` (default radius 40)
-Design system: `WynColors`/`WynSpacing` เดิมทั้งหมด (ไม่มี token ใหม่ในเอกสารนี้)
+Design system: `WynColors`/`WynSpacing` เดิมทั้งหมด (ไม่มี token ใหม่ในเอกสารนี้) — **สี = Sapphire `#1B3A6B`/paper/ink/graphite/hairline ตาม `app/lib/core/design/wyn_colors.dart` ปัจจุบัน (re-brand จาก Cyan→Sapphire, 2026-08-29) ไม่ใช่ Cyan ของ DS-001 (2026-08-15) ที่ถูกแทนที่ไปแล้ว**
 
-> **สถานะเอกสารนี้: PROPOSED เท่านั้น — ไม่ใช่ ready-for-coding** ตาม Handoff ของ Product task ที่ระบุไว้ตรงๆ ว่าต้องเสนอ 2-3 mockup ให้ Founder เลือกก่อน (Founder เองบอกว่า "ปุ่มกดติดตาม ส่งข้อความ Bio นึกไม่ออก") — **ห้าม AI Coding เริ่มงานจนกว่า Founder จะเลือก 1 ใน 3 ตัวเลือกด้านล่าง (หรือขอแบบผสม/แบบใหม่)**
+> **อัปเดต 2026-09-02**: Founder เลือก **Mockup A** (กะทัดรัด, ปุ่มคู่เต็มแถว) จาก 3 ตัวเลือกด้านล่าง หลังดู mockup ภาพจริงที่ `https://claude.ai/code/artifact/ec69fff6-4555-44a4-82b8-ade23c49d709` (พรีวิวรอบแรกใช้สี Cyan ผิดพลาด — Founder ทักท้วง แก้เป็น Sapphire ให้ตรงกับแอปจริงแล้วก่อนอนุมัติรอบนี้) — เอกสารนี้พร้อมส่ง AI Coding แล้ว ส่วน Mockup B/C ด้านล่างเก็บไว้เป็นบันทึกการตัดสินใจเท่านั้น ไม่ใช่ทางเลือกที่ใช้งานจริงอีกต่อไป
+
+---
+
+## Final Spec — Mockup A (Founder อนุมัติแล้ว)
+
+**Screen:** `ViewProfileScreen` header (`app/lib/features/profile/presentation/view_profile_screen.dart`) — ทั้งโปรไฟล์ตัวเอง (`isOwnProfile == true`) และโปรไฟล์คนอื่น
+
+**Purpose:** จัดวาง avatar/สถิติ/ชื่อ/username/bio/ปุ่ม ใหม่ตามผังสีที่ Founder วงไว้ (avatar+สถิติแถวเดียวกัน → ชื่อ+username ชิดซ้ายใต้แถวนั้น → bio เต็มความกว้าง → ปุ่ม Follow/Message คู่เต็มแถวแบ่งครึ่ง)
+
+**User Flow:** ไม่เปลี่ยนจากปัจจุบัน — ผู้ใช้เปิดโปรไฟล์คนอื่น → เห็น header ใหม่ → กดปุ่ม "ติดตาม"/"ส่งข้อความ" ทำงานเหมือนเดิมทุกประการ (แค่ตำแหน่ง/ทรงปุ่มเปลี่ยน ไม่ใช่ logic)
+
+**Components** (บนลงล่าง แทนที่ header `Column` เดิมทั้งก้อน):
+1. `Row` บนสุด: `AvatarCircle(radius: 40, ring: true)` ชิดซ้าย + `Expanded` ครอบ `Row` สถิติ 3 ช่อง (ผู้ติดตาม/กำลังติดตาม/โพสต์) ชิดขวา — คงปุ่ม `Semantics(button: true)` ของแต่ละสถิติไว้เหมือนเดิม
+2. ชื่อที่แสดง — `titleLarge`-ish (bold ~20px), ชิดซ้ายเริ่มจากขอบเดียวกับ avatar, `padding-top: WynSpacing.space3`
+3. `@username` — `graphite`, ใต้ชื่อทันที, ไม่มีช่องไฟเพิ่ม
+4. Bio (ถ้ามี) — เต็มความกว้าง, `padding-top: WynSpacing.space2`, ยุบพื้นที่ทิ้งถ้า `bio == null || bio.isEmpty` (พฤติกรรมเดิม)
+5. แถวปุ่ม — `Row` เต็มความกว้าง แบ่งครึ่งเท่ากันด้วย `Expanded` ทั้งคู่, ช่องไฟระหว่างปุ่ม `WynSpacing.space2` (8px), `padding-top: WynSpacing.space4`
+
+**สีที่ใช้จริง** (คัดลอกตรงจาก `view_profile_screen.dart` บรรทัด 1155-1210 ปัจจุบัน — ไม่มีสีใหม่):
+- ปุ่ม Follow — ยังไม่ติดตาม: `FilledButton`, `StadiumBorder`, พื้น `WynColors.sapphire` (`#1B3A6B`), ตัวหนังสือ `WynColors.paper`
+- ปุ่ม Follow — ติดตามแล้ว: พื้น `Color(0xFFF1EFE9)`, ตัวหนังสือ `WynColors.graphite`
+- ปุ่ม Follow — สถานะที่ 3 "ขอติดตามแล้ว" (WYN-039, Private account): คงทรง/สีเดิมของสถานะนี้ทุกประการ แค่ย้ายตำแหน่ง
+- ปุ่ม Message — **เปลี่ยนจาก icon-only วงกลม (`CircleBorder`, 40×40) เป็นเต็มกล่องมี label "ส่งข้อความ"**: `OutlinedButton.icon`, สี/เส้นเดิมทุกประการ (`side: BorderSide(color: WynColors.hairline)`, `foregroundColor: WynColors.ink`) — เปลี่ยนแค่ `shape`/`padding`/เพิ่ม label ไม่เปลี่ยนสี
+- `isOwnProfile == true`: ปุ่ม "แก้ไขโปรไฟล์" เดี่ยวแทนที่ตำแหน่งปุ่มคู่นี้ — สไตล์เดิมเป๊ะ (`OutlinedButton`, `StadiumBorder`, `hairline` border, `ink` text) ไม่ทำเป็น `Expanded` คู่ (ปุ่มเดียวไม่ต้องแบ่งครึ่ง — เต็มความกว้างปุ่มเดียว หรือคงความกว้างเดิมตามโค้ดปัจจุบัน ถ้าเดิม fixed-width ให้คงไว้)
+
+**Interactions:** ปุ่ม Follow/Message กด-แล้ว-ทำงานทันที เหมือนโค้ดปัจจุบันทุกจุด (`_toggleFollow`/`_sendFollowRequest`/`_cancelFollowRequest`/`_openChat`) — งานนี้ไม่แตะ logic เลย
+
+**States:**
+- Bio ว่าง → ยุบพื้นที่ (ไม่เหลือช่องว่าง)
+- `_isFollowing == null` (กำลังโหลดสถานะ) → ปุ่ม Follow/Message ทั้งแถวซ่อนไว้ก่อนเหมือนพฤติกรรมเดิม
+- Blocked persona (WYN-027) → `_buildBlockedBanner()` แทนที่ stats+ปุ่มทั้งหมดเหมือนเดิม ไม่เปลี่ยน
+- Private + ยังไม่ follow (WYN-039) → ปุ่ม Follow 3 สถานะเดิมทั้งหมด แค่อยู่ในตำแหน่งใหม่
+
+**Responsive Behavior:** ที่ 360px ห้าม stats row overflow — เลข follower สูงต้องย่อ (เช่น "1.2K"/"1.2M") ถ้ามี helper อยู่แล้วในระบบให้ใช้ ถ้าไม่มีให้ AI Coding ตัดสินใจ format ตอน implement — ทดสอบที่ 360px ก่อนถือว่าเสร็จ
+
+**Accessibility:**
+- Stats แต่ละตัวคง `Semantics(button: true, label: '$count $label')` เดิม
+- ปุ่ม Message ตอนนี้มี label ข้อความจริงแล้ว ("ส่งข้อความ") — ลด dependency บน semantics label เดี่ยวที่ Mockup B เคยต้องพึ่ง
+- ลำดับการอ่านของ screen reader ต้องตาม visual order ใหม่ (avatar+stats → ชื่อ → username → bio → ปุ่ม) — ทดสอบ TalkBack/VoiceOver order ใหม่หลัง implement
+
+**Design Rules:** ไม่แนะนำ token สีใหม่ใดๆ — ใช้ `WynColors`/`WynSpacing` เดิมทั้งหมด ตรงตามกติกา "ห้ามคิดทิศทาง visual ใหม่หากมี design system ที่อนุมัติแล้ว"
+
+**Handoff:** ส่ง AI Coding ได้ทันที — งานจริงจะแตะ `app/lib/features/profile/presentation/view_profile_screen.dart` (`_ProfileHeaderData`/header `Column` ทั้งก้อน) เท่านั้น ไม่กระทบ Tab bar/tab content ที่เหลือ (`wyn-071` Screen 6-7 ยังใช้ได้ตามเดิม) — เขียน/แก้ widget test ยืนยันตำแหน่งใหม่ (avatar+stats row บนสุด, ชื่อ/username ใต้แถวนั้นชิดซ้าย, ปุ่มคู่เต็มแถวใต้ bio) ก่อนถือว่าเสร็จ
 
 ---
 
@@ -133,12 +176,10 @@ Components: เหมือน Mockup A จนถึง bio แต่ปุ่�
 
 Stats row ข้างๆ avatar ต้องไม่ overflow บนจอแคบ 360px — ถ้าชื่อ/ตัวเลขยาว (เช่น follower เกินล้าน) ให้ตัวเลขย่อรูปแบบ (เช่น "1.2K"/"1.2M" ถ้ามี helper อยู่แล้วในระบบ, ถ้าไม่มีให้ AI Coding ตัดสินใจ format ตอน implement — ไม่ใช่จุดตัดสินใจของเอกสารนี้) — ทดสอบทั้ง 3 mockup ที่ 360px ก่อนถือว่าเสร็จ
 
-## Handoff
+## Handoff (เดิม — เก็บไว้เป็นบันทึกกระบวนการ)
 
-**ไม่ส่ง AI Coding จนกว่า Founder จะเลือก** — ถามผ่าน popup (ตัวเลือกเริ่มต้น): "Mockup A (กะทัดรัด, ปุ่มคู่เต็มแถว)" / "Mockup B (ปุ่มเล็กชิดซ้าย, ต้นทุนต่ำสุด)" / "Mockup C (Editorial, ปุ่มซ้อนเต็มแถว)" / "ไม่ตรงทั้ง 3 แบบ ขออธิบาย/แนบภาพเพิ่มเติม" — แนบสรุปตารางเทียบข้างบนไปกับคำถามด้วย
-
-เมื่อ Founder เลือกแล้ว: กลับมาเขียน Design spec ฉบับสมบูรณ์ (Screen/Purpose/Components/... เต็มรูปแบบตาม format มาตรฐาน) เฉพาะ mockup ที่เลือก ก่อนส่ง AI Coding — งานจริงจะแตะ `app/lib/features/profile/presentation/view_profile_screen.dart` (`_ProfileHeaderData`/header `Column` ทั้งก้อน) เท่านั้น ไม่กระทบ Tab bar/tab content ที่เหลือ (`wyn-071` Screen 6-7 ยังใช้ได้ตามเดิม)
+~~ไม่ส่ง AI Coding จนกว่า Founder จะเลือก~~ — **แก้แล้ว 2026-09-02**: ถามผ่าน popup จริงพร้อมสรุปตารางเทียบ Founder ตอบ "ขอดูตัวอย่าง" ก่อน → ทำ HTML mockup จริงส่งไปให้ดู (รอบแรกสีผิดเป็น Cyan, Founder ทักท้วง → แก้เป็น Sapphire ให้ตรงแอปจริง) → Founder เลือก **Mockup A** ยืนยันแล้ว → เขียน Final Spec เต็มไว้ด้านบนสุดของเอกสารนี้แล้ว (ดู "Final Spec — Mockup A")
 
 ## สรุปสถานะ
 
-**PROPOSED — รอ Founder เลือก mockup (A/B/C/อื่น) ก่อนเข้า AI Coding**
+**READY FOR CODING — Founder อนุมัติ Mockup A แล้ว (2026-09-02)** ดู Final Spec ด้านบนสุดของเอกสารนี้สำหรับรายละเอียดที่ AI Coding ต้อง implement จริง (Mockup B/C ด้านล่างนี้เป็นบันทึกทางเลือกที่ไม่ได้ใช้เท่านั้น)
