@@ -233,11 +233,26 @@ class HomeDropCard extends StatelessWidget {
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: WynSpacing.space1),
-                        Text(
-                          'รีโพสต์โดย @${item.redropperUsername}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
+                        Flexible(
+                          child: Text(
+                            // WYN-087 (Wynos V1.0.0 Beta2, item 26):
+                            // relative time appended, same as a plain
+                            // post's own author row -- Founder: "ตรง
+                            // รีโพสต์ 'รีโพสต์ โดย @sky_blue' ระบุเวลา
+                            // เหมือนโพสต์ด้วย". item.createdAt is
+                            // already the *ReDrop's* own created_at here
+                            // (not the original Drop's), straight from
+                            // home_feed's `r.created_at` for this row --
+                            // no schema change needed, this is exactly
+                            // the "time the redropper pressed ReDrop"
+                            // Founder asked for.
+                            'รีโพสต์โดย @${item.redropperUsername} · '
+                            '${relativeTimeLabel(item.createdAt, now: DateTime.now())}',
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
                         ),
                       ],
                     ),

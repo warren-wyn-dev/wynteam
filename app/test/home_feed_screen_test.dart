@@ -1931,6 +1931,54 @@ void main() {
     });
   });
 
+  group('WYN-087: relative time on the repost header (Wynos V1.0.0 Beta2, '
+      'item 26)', () {
+    testWidgets(
+        'the "รีโพสต์โดย @username" header shows a relative time, using '
+        'the ReDrop\'s own createdAt (not the original Drop\'s)',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            item: HomeFeedItem(
+              id: 'd1',
+              contentType: HomeContentType.drop,
+              authorId: 'someone-else',
+              authorUsername: 'namfah',
+              // home_feed's ReDrop UNION branch selects r.created_at
+              // (the ReDrop row's own timestamp) into this same
+              // created_at column -- see schema.sql. So item.createdAt
+              // here already *is* "the time the redropper pressed
+              // ReDrop", not the original Drop's post time.
+              createdAt: DateTime.now().subtract(const Duration(minutes: 8)),
+              caption: 'แคปชัน Drop',
+              likeCount: 0,
+              commentCount: 0,
+              likedByMe: false,
+              savedByMe: false,
+              redropId: 'r1',
+              redropperId: 'someone-else-2',
+              redropperUsername: 'sky_blue',
+            ),
+            onTap: () {},
+            onToggleLike: () {},
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(
+        find.textContaining('รีโพสต์โดย @sky_blue · 8 นาทีที่แล้ว'),
+        findsOneWidget,
+      );
+    });
+  });
+
   group('Verified badge (WYNOSHomeSpec.md 4.9)', () {
     testWidgets('shows the badge next to a verified author\'s name',
         (tester) async {
