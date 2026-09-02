@@ -95,7 +95,13 @@ This is a **Supabase Dashboard** config issue (Authentication → URL Configurat
 
 **Retest confirmed by Founder: Google Sign-In now works correctly on `https://wynos.online`.** This item is resolved.
 
-## Current status summary (end of incident)
-- ✅ `https://wynos.online` serving production correctly (verified repeatedly via curl)
+## Update 5 — real fix confirmed: Vercel GitHub App access removed at the GitHub side
+The Vercel-dashboard-level "Disconnect" (Settings → Git) never held (see Update 3). Root cause: the Vercel GitHub App was still installed with access to this repo at the GitHub side (`github.com/settings/installations` → Vercel → Configure), and `wynteam` was its only selected repository — GitHub's UI wouldn't allow dropping to 0 repos under "Only select repositories", so Founder used **Uninstall** in the Danger Zone instead (safe here since no other repo was connected to that installation).
+
+**Verified fix**: merged PR #208 (another docs-only change, this log) into `main` as a live test and watched `https://wynos.online/` for 7 minutes straight afterward — stayed `200` the entire time, unlike the #207 test which broke within ~7 minutes. The recurring auto-deploy problem is resolved.
+
+## Current status summary (incident closed)
+- ✅ `https://wynos.online` serving production correctly (verified repeatedly via curl, including a 7-minute watch after a real `main` merge)
 - ✅ Google Sign-In redirect fixed (Supabase Auth URL Configuration updated, Founder-confirmed working)
-- ⚠️ **Unresolved / needs Founder follow-up**: it's still not confirmed that Vercel's GitHub integration on project "web" is fully disconnected. The dashboard-level "Disconnect" in Settings → Git did not hold on the first attempt (production broke a 3rd time after merging PR #207). A GitHub-side fix (removing/scoping the Vercel GitHub App's access to this repo under github.com/settings/installations, or the repo's Settings → Integrations) was suggested but not yet confirmed done. **Every future merge into `main` is a live test** — if it breaks `wynos.online` again, re-run `deploy-web.yml` to restore, and revisit the GitHub App access removal.
+- ✅ Recurring break-on-merge root cause fixed: Vercel GitHub App's access to this repo removed entirely (Uninstall) from the GitHub side — production now deploys exclusively through `.github/workflows/deploy-web.yml`, confirmed by a real merge not breaking it
+- No open items remaining from this incident.
