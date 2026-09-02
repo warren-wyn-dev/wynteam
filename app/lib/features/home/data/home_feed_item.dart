@@ -49,6 +49,8 @@ class HomeFeedItem {
     this.pollMyVoteIndex,
     this.pollTotalVotes,
     this.pollOptionCounts,
+    this.imageWidth,
+    this.imageHeight,
   });
 
   final String id;
@@ -69,6 +71,15 @@ class HomeFeedItem {
 
   /// Set only when [contentType] is [HomeContentType.drop].
   final String? imageUrl;
+
+  /// WYN-093 (Wynos V1.0.0 Beta2, item 19): the primary image's real
+  /// pixel dimensions -- drives HomeDropCard's dynamic-height/
+  /// aspect-fit clamp. Null for a Drop created before this metadata
+  /// existed (or any Pop-typed row); HomeDropCard falls back to the
+  /// old fixed 1:1 square in that case. See [Drop.imageWidth]'s
+  /// identical doc comment.
+  final int? imageWidth;
+  final int? imageHeight;
 
   /// Set only when [contentType] is [HomeContentType.pop].
   final String? videoUrl;
@@ -196,6 +207,8 @@ class HomeFeedItem {
         createdAt: createdAt,
         caption: caption,
         imageUrl: imageUrl,
+        imageWidth: imageWidth,
+        imageHeight: imageHeight,
         videoUrl: videoUrl,
         thumbnailUrl: thumbnailUrl,
         durationSeconds: durationSeconds,
@@ -242,6 +255,8 @@ class HomeFeedItem {
         authorDisplayName: authorDisplayName,
         authorAvatarUrl: authorAvatarUrl,
         imageUrl: imageUrl,
+        imageWidth: imageWidth,
+        imageHeight: imageHeight,
         caption: caption,
         createdAt: createdAt,
         likeCount: likeCount,
@@ -297,6 +312,8 @@ class HomeFeedItem {
         createdAt: drop.createdAt,
         caption: drop.caption,
         imageUrl: drop.imageUrl,
+        imageWidth: drop.imageWidth,
+        imageHeight: drop.imageHeight,
         likeCount: drop.likeCount,
         commentCount: drop.commentCount,
         likedByMe: drop.likedByMe,
@@ -346,6 +363,8 @@ class HomeFeedItem {
       createdAt: DateTime.parse(map['created_at'] as String),
       caption: map['caption'] as String?,
       imageUrl: map['image_url'] as String?,
+      imageWidth: (map['image_width'] as num?)?.toInt(),
+      imageHeight: (map['image_height'] as num?)?.toInt(),
       videoUrl: map['video_url'] as String?,
       thumbnailUrl: map['thumbnail_url'] as String?,
       durationSeconds: map['duration_seconds'] as int?,

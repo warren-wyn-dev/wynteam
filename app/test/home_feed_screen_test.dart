@@ -50,6 +50,8 @@ HomeFeedItem _dropItem({
   HomeTopReply? topReply,
   bool authorIsVerified = false,
   List<HomeLiker> likedBy = const [],
+  int? imageWidth,
+  int? imageHeight,
 }) =>
     HomeFeedItem(
       id: id,
@@ -60,6 +62,8 @@ HomeFeedItem _dropItem({
       createdAt: createdAt ?? DateTime.now(),
       caption: caption,
       imageUrl: hasImage ? 'https://example.supabase.co/drops/$id.jpg' : null,
+      imageWidth: imageWidth,
+      imageHeight: imageHeight,
       likeCount: likeCount,
       likedBy: likedBy,
       commentCount: 0,
@@ -1999,6 +2003,127 @@ void main() {
 
       expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
       expect(find.text('12'), findsOneWidget);
+    });
+  });
+
+  group(
+      'WYN-093: dynamic-height/aspect-fit images (Wynos V1.0.0 Beta2, '
+      'item 19)', () {
+    Future<void> pumpCard(WidgetTester tester, HomeFeedItem item) =>
+        tester.pumpWidget(MaterialApp(
+          home: Scaffold(
+            body: HomeDropCard(
+              item: item,
+              onTap: () {},
+              onToggleLike: () {},
+              onToggleSave: () {},
+              onOpenProfile: () {},
+              onToggleRedrop: () {},
+              onQuoteRedrop: () {},
+            ),
+          ),
+        ));
+
+    testWidgets(
+        'a portrait image within the 4:5 (0.8) .. 1.91:1 clamp range '
+        'renders at its true aspect ratio, not cropped to 1:1',
+        (tester) async {
+      // 800x1000 -> 0.8 exactly, the most-portrait shape allowed.
+      await pumpCard(tester, _dropItem(imageWidth: 800, imageHeight: 1000));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final aspectRatio =
+          tester.widget<AspectRatio>(find.byType(AspectRatio).first);
+      expect(aspectRatio.aspectRatio, 0.8);
+    });
+
+    testWidgets(
+        'a landscape image within the clamp range renders at its true '
+        'aspect ratio', (tester) async {
+      // 1910x1000 -> 1.91 exactly, the most-landscape shape allowed.
+      await pumpCard(tester, _dropItem(imageWidth: 1910, imageHeight: 1000));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final aspectRatio =
+          tester.widget<AspectRatio>(find.byType(AspectRatio).first);
+      expect(aspectRatio.aspectRatio, closeTo(1.91, 0.0001));
+    });
+
+    testWidgets('a square image renders at 1:1 (same as the old fixed '
+        'behavior, just arrived at via its real dimensions now)',
+        (tester) async {
+      await pumpCard(tester, _dropItem(imageWidth: 500, imageHeight: 500));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final aspectRatio =
+          tester.widget<AspectRatio>(find.byType(AspectRatio).first);
+      expect(aspectRatio.aspectRatio, 1);
+    });
+
+    testWidgets(
+        'an extremely tall image (e.g. a chat screenshot) is clamped to '
+        '0.8, not rendered at its uncropped extreme ratio', (tester) async {
+      // 300x1600 -> ~0.1875 true ratio, way past the 0.8 floor.
+      await pumpCard(tester, _dropItem(imageWidth: 300, imageHeight: 1600));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final aspectRatio =
+          tester.widget<AspectRatio>(find.byType(AspectRatio).first);
+      expect(aspectRatio.aspectRatio, 0.8);
+    });
+
+    testWidgets(
+        'an extremely wide image (e.g. a panorama) is clamped to 1.91, '
+        'not rendered at its uncropped extreme ratio', (tester) async {
+      // 2000x500 -> 4.0 true ratio, way past the 1.91 ceiling.
+      await pumpCard(tester, _dropItem(imageWidth: 2000, imageHeight: 500));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final aspectRatio =
+          tester.widget<AspectRatio>(find.byType(AspectRatio).first);
+      expect(aspectRatio.aspectRatio, closeTo(1.91, 0.0001));
+    });
+
+    testWidgets(
+        'a Drop with no image_width/image_height metadata (uploaded '
+        'before this migration) falls back to the old fixed 1:1 square',
+        (tester) async {
+      await pumpCard(
+        tester,
+        _dropItem(imageWidth: null, imageHeight: null),
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final aspectRatio =
+          tester.widget<AspectRatio>(find.byType(AspectRatio).first);
+      expect(aspectRatio.aspectRatio, 1);
+    });
+
+    testWidgets(
+        'the media area is capped at 0.75x the screen height regardless '
+        'of aspect ratio, so one image can never fill nearly the whole '
+        'viewport on a very tall screen', (tester) async {
+      tester.view.physicalSize = const Size(400, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await pumpCard(tester, _dropItem(imageWidth: 800, imageHeight: 1000));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final constrainedBox = tester.widget<ConstrainedBox>(
+        find.ancestor(
+          of: find.byType(AspectRatio).first,
+          matching: find.byType(ConstrainedBox),
+        ),
+      );
+      expect(constrainedBox.constraints.maxHeight, 0.75 * 2000);
     });
   });
 

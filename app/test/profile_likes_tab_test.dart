@@ -83,9 +83,12 @@ void main() {
     tester.takeException();
 
     // A full-width HomeDropCard is much taller than the old grid tile
-    // was -- the 2nd card sits below the default test viewport until
-    // scrolled into view.
-    expect(find.byType(HomeDropCard), findsOneWidget);
+    // was, so the 2nd card isn't guaranteed to be on-screen without
+    // scrolling -- scroll it into view (a no-op if it's already
+    // visible) rather than asserting the exact pre-scroll count, which
+    // depends on card height (and, since WYN-093, on the 0.75x-screen-
+    // height cap on the image area too -- not a fixed number of pixels
+    // this test should hardcode an assumption about).
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('d2')),
       500,

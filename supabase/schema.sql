@@ -10444,6 +10444,29 @@ where d.image_url is not null
   );
 
 -- ============================================================
+-- WYN-093 (Wynos V1.0.0 Beta2, item 19): Dynamic-height feed images
+-- ============================================================
+-- See .wyn/docs/design/wyn-093-dynamic-height-images.md. Nullable on
+-- both tables -- CreateDropScreen/DropRepository.createDrop() writes
+-- the real pixel dimensions (already known in memory before upload, no
+-- extra decode round-trip) for every newly-created Drop, but every
+-- Drop created before this migration has no way to backfill this
+-- cheaply (would need re-downloading and decoding every image in
+-- storage) -- HomeDropCard's client-side aspect-ratio clamp falls back
+-- to the old fixed 1:1 square whenever these are null, same
+-- "known gap, acceptable for old data" posture WYN-071's own
+-- drop_images backfill note took for a different column. `drops`
+-- carries the *primary* image's dimensions (what home_feed/
+-- get_wynos_ranked_feed/HomeFeedItem actually read); `drop_images`
+-- carries per-image dimensions for every position, kept in sync at
+-- insert time for forward-compat with the still-unbuilt multi-image
+-- viewer (WYN-092) -- not read by any consumer yet.
+alter table public.drops add column if not exists image_width integer;
+alter table public.drops add column if not exists image_height integer;
+alter table public.drop_images add column if not exists image_width integer;
+alter table public.drop_images add column if not exists image_height integer;
+
+-- ============================================================
 -- WYNOSHomeSpec.md 4.9's header row / 4.6's suggested-account row --
 -- Verified badge
 -- ============================================================
@@ -10528,7 +10551,13 @@ select
   null::text as quote_text,
   dp.id as poll_id,
   dp.options as poll_options,
-  dp.expires_at as poll_expires_at
+  dp.expires_at as poll_expires_at,
+  -- WYN-093: appended at the end (not interleaved with image_url
+  -- above) -- CREATE OR REPLACE VIEW only allows appending new
+  -- columns, never inserting them mid-list, without dropping the
+  -- view first.
+  d.image_width,
+  d.image_height
 from public.drops d
 join public.profiles prof on prof.id = d.author_id
 left join public.drop_polls dp on dp.drop_id = d.id
@@ -10599,7 +10628,9 @@ select
   null::text as quote_text,
   null::uuid as poll_id,
   null::text[] as poll_options,
-  null::timestamptz as poll_expires_at
+  null::timestamptz as poll_expires_at,
+  null::integer as image_width,
+  null::integer as image_height
 from public.pops p
 join public.profiles prof on prof.id = p.author_id
 where not exists (
@@ -10669,7 +10700,9 @@ select
   r.quote_text,
   dp.id as poll_id,
   dp.options as poll_options,
-  dp.expires_at as poll_expires_at
+  dp.expires_at as poll_expires_at,
+  d.image_width,
+  d.image_height
 from public.redrops r
 join public.drops d on d.id = r.drop_id
 join public.profiles prof on prof.id = d.author_id

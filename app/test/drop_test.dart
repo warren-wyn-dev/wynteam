@@ -307,6 +307,39 @@ void main() {
       expect(withoutViewCount.viewCount, 0);
     });
 
+    test(
+        'parses image_width/image_height when present (WYN-093), and '
+        'leaves them null when absent (a Drop created before this '
+        'metadata existed)', () {
+      final withDimensions = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+        'image_width': 1080,
+        'image_height': 1350,
+      }, likedByMe: false, savedByMe: false);
+      expect(withDimensions.imageWidth, 1080);
+      expect(withDimensions.imageHeight, 1350);
+
+      final withoutDimensions = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+      }, likedByMe: false, savedByMe: false);
+      expect(withoutDimensions.imageWidth, isNull);
+      expect(withoutDimensions.imageHeight, isNull);
+    });
+
     test('redropCount defaults to 0 when the redrops embed is missing', () {
       final drop = Drop.fromMap({
         'id': 'd1',

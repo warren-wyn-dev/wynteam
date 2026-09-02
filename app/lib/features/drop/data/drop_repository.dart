@@ -8,6 +8,7 @@ import '../../home/data/home_ranking.dart';
 import 'drop.dart';
 import 'drop_comment.dart';
 import 'drop_draft.dart';
+import 'image_dimensions.dart';
 
 // PostgREST can't resolve a bare `profiles(...)` embed on its own when a
 // sibling embed in the same select (drop_likes/drop_comments/
@@ -628,6 +629,12 @@ class DropRepository {
     final userId = _client.auth.currentUser!.id;
 
     final imageUrls = <String>[];
+    // WYN-093: decoded from the in-memory bytes already picked/
+    // compressed for upload -- no extra network round-trip, and known
+    // before drops/drop_images are ever inserted so HomeDropCard never
+    // has to wait for Image.network to finish loading before it knows
+    // how tall to render the card.
+    final imageDimensions = <(int, int)>[];
     for (var i = 0; i < imagesBytes.length; i++) {
       final path =
           '$userId/${DateTime.now().millisecondsSinceEpoch}_$i.${imageExtensions[i]}';
@@ -635,11 +642,13 @@ class DropRepository {
           .from('drop-images')
           .uploadBinary(path, imagesBytes[i]);
       imageUrls.add(_client.storage.from('drop-images').getPublicUrl(path));
+      imageDimensions.add(await decodeImageDimensions(imagesBytes[i]));
     }
 
     await _insertDrop(
       imageUrl: imageUrls.first,
       allImageUrls: imageUrls,
+      allImageDimensions: imageDimensions,
       caption: caption,
       mentionedUserIds: mentionedUserIds,
     );
@@ -695,13 +704,23 @@ class DropRepository {
     // (createDropFromExistingImage) call sites, neither of which needs
     // more than the one row image_url already represents.
     List<String> allImageUrls = const [],
+    // WYN-093: parallel to [allImageUrls] (same index = same image).
+    // Empty whenever [allImageUrls] is (or when the caller has no
+    // fresh bytes to measure, e.g. createDropFromExistingImage --
+    // that Drop's `drops.image_width`/`image_height` just stay null,
+    // same accepted gap as any other pre-this-migration Drop).
+    List<(int, int)> allImageDimensions = const [],
   }) async {
+    final primaryDimensions =
+        allImageDimensions.isNotEmpty ? allImageDimensions.first : null;
     final row = await _client
         .from('drops')
         .insert({
           'author_id': _client.auth.currentUser!.id,
           'image_url': imageUrl,
           'caption': normalizeOptionalText(caption.trim()),
+          'image_width': primaryDimensions?.$1,
+          'image_height': primaryDimensions?.$2,
         })
         .select('id')
         .single();
@@ -710,7 +729,13 @@ class DropRepository {
     if (allImageUrls.isNotEmpty) {
       await _client.from('drop_images').insert([
         for (var i = 0; i < allImageUrls.length; i++)
-          {'drop_id': dropId, 'image_url': allImageUrls[i], 'position': i},
+          {
+            'drop_id': dropId,
+            'image_url': allImageUrls[i],
+            'position': i,
+            'image_width': i < allImageDimensions.length ? allImageDimensions[i].$1 : null,
+            'image_height': i < allImageDimensions.length ? allImageDimensions[i].$2 : null,
+          },
       ]);
     }
 

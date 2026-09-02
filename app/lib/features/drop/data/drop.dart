@@ -27,6 +27,8 @@ class Drop {
     this.pollOptionCounts,
     this.editedAt,
     this.deletedAt,
+    this.imageWidth,
+    this.imageHeight,
     int? imageCount,
   }) : imageCount = imageCount ?? (imageUrl != null ? 1 : 0);
 
@@ -89,6 +91,16 @@ class Drop {
   /// but its own author, so an ordinarily-fetched [Drop] never has
   /// this set. Null means live/visible as normal.
   final DateTime? deletedAt;
+
+  /// WYN-093 (Wynos V1.0.0 Beta2, item 19): the primary image's real
+  /// pixel dimensions, captured once at upload time (DropRepository.
+  /// createDrop) -- drives HomeDropCard's dynamic-height/aspect-fit
+  /// clamp. Null for a Drop created before this metadata existed, or
+  /// one with no image at all (Poll/text-only) -- either way,
+  /// HomeDropCard falls back to the old fixed 1:1 square rather than
+  /// guessing.
+  final int? imageWidth;
+  final int? imageHeight;
 
   bool get isPoll => pollId != null;
 
@@ -168,6 +180,8 @@ class Drop {
         pollOptionCounts: pollOptionCounts ?? this.pollOptionCounts,
         editedAt: editedAt,
         deletedAt: deletedAt,
+        imageWidth: imageWidth,
+        imageHeight: imageHeight,
       );
 
   /// A copy with the caption (or Poll question) edited -- WYN-037,
@@ -201,6 +215,8 @@ class Drop {
         pollOptionCounts: pollOptionCounts,
         editedAt: DateTime.now(),
         deletedAt: deletedAt,
+        imageWidth: imageWidth,
+        imageHeight: imageHeight,
       );
 
   /// A copy with the like toggled -- used for optimistic UI updates before
@@ -325,6 +341,8 @@ class Drop {
       deletedAt: map['deleted_at'] != null
           ? DateTime.parse(map['deleted_at'] as String)
           : null,
+      imageWidth: (map['image_width'] as num?)?.toInt(),
+      imageHeight: (map['image_height'] as num?)?.toInt(),
     );
   }
 
