@@ -1,6 +1,6 @@
 # Product Task — WYN-077
 
-Status: review
+Status: review (QA FAIL 2026-09-02 — sent to AI Debug Engineer, see `.wyn/tasks/bugs/WYN-077-analytics-repository-uninitialized-supabase-crash.md`)
 Owner: AI Product Manager
 Feature: Basic Product Analytics (Signup Funnel + Retention)
 Goal: ทำให้วัดผล Go-To-Market ได้จริง (ตอนนี้วัดไม่ได้เลย — ยืนยันจาก scope ของ WYN-050 Admin Dashboard ที่ต้องเลื่อน DAU/WAU/MAU ออกเพราะ "ไม่มี analytics/session tracking เลย")
@@ -50,3 +50,32 @@ Known Issues:
 4. ค่า retention/activation percentage จะเป็น `null` (แสดงเป็น 0% ใน dashboard) จนกว่าจะมี cohort จริง (Phase 1 closed beta วันแรกๆ) — เป็นพฤติกรรมที่ตั้งใจ ไม่ใช่บั๊ก แต่ Admin อาจเข้าใจผิดว่า "0%" คือ "แย่" แทนที่จะเป็น "ยังไม่มีข้อมูล" — Design ไม่ได้ระบุ empty-state แยกสำหรับกรณีนี้ ทิ้งไว้ให้ Design/QA ตัดสินใจในรอบถัดไปถ้าเป็นปัญหาจริง
 
 Handoff: ส่งต่อ AI QA & Security — จุดที่ต้องตรวจเป็นพิเศษ: (1) RLS ของ `analytics_events` (insert own only, ไม่มี select เลย) (2) `signup_completed_24h` vs `signup_conversion_pct` เป็นคนละ cohort กัน (มีคอมเมนต์อธิบายไว้ใน schema.sql แล้ว แต่ QA ควรตรวจว่า Coding เข้าใจถูกจริง ไม่ใช่แค่เขียนคอมเมนต์สวยๆ) (3) fire-and-forget ทุกจุด (4 instrumentation call sites) ต้องไม่มีทาง throw/บล็อก UI จริง (4) Flutter syntax ทั้งหมดยังไม่ได้ compile จริง ต้องรัน `flutter analyze`/`flutter test` ก่อนอนุมัติ
+
+## QA notes (2026-09-02) — FAIL
+
+Feature: WYN-077 Basic Product Analytics
+Environment: local Postgres 16 (independent scratch DB, `schema.sql`'s own pre-existing SCHEMA-002 view bug patched around locally, not in the real file — see below), Node 22 / Next.js 16.3.2 admin app (`npm install && next build && npm run lint`, real). No Flutter SDK available in this sandbox — Dart changes verified by static trace only, not a real `flutter test` run.
+
+Test Cases:
+1. Independently re-derived and re-ran `supabase/tests/wyn_050_admin_dashboard_test.sh` (17 checks) — confirms no regression from extending `admin_dashboard_metrics()`.
+2. Independently re-ran `supabase/tests/wyn_077_basic_product_analytics_test.sh` (11 checks) — all 8 new Growth columns + RLS insert/no-select.
+3. 5 adversarial cases beyond what Coding's own test covered: `anon` role fully blocked (insert+select), an authenticated session with no JWT `sub` claim (`auth.uid()` NULL) correctly rejected on insert (proves this doesn't repeat the WYN-043/WYN-050 null-bypass bug class), an invalid `event_type` rejected by the CHECK constraint, an ordinary `user`-role account still rejected calling the *extended* (dropped+recreated) `admin_dashboard_metrics()` (proves the `coalesce()` role guard survived the recreate), and confirmed (not blocking, see Security Findings) that a normal user can insert unlimited self-attributed fake events with arbitrary `source` text — no rate limit.
+4. `npx next build` + `npm run lint` on `admin/`, independently, from a clean `.next` — both pass, 0 errors/warnings.
+5. Static trace of all 4 `AnalyticsRepository` call sites for a widget-test regression — **found one, see Failed below**.
+
+Passed: 1, 2, 3, 4 (all SQL + Next.js checks — 28 total individual assertions across the 3 test runs, all correct; RLS/security boundary holds; retention/activation cohort window math is correct with no off-by-one).
+
+Failed: `AnalyticsRepository(Supabase.instance.client)` is constructed inline at all 4 call sites, with no error handling around the `Supabase.instance` access itself (only the network `.insert()` call inside `_log()` is wrapped in try/catch). `Supabase.instance` throws synchronously if `Supabase.initialize()` was never called. `app/test/create_drop_screen_test.dart` never initializes Supabase (by design — it's built entirely on `RecordingDropRepository`/`RecordingProfileRepository` fakes specifically so it doesn't need to). Full bug report: `.wyn/tasks/bugs/WYN-077-analytics-repository-uninitialized-supabase-crash.md`.
+Severity: Major — breaks 2 existing, currently-passing regression tests (`'sharing a valid poll calls createPollDrop...'`, `'publishing from an opened draft creates the Drop and deletes the draft'`), and the same root cause is latent (untested, not yet visible as a CI failure) in `EmailAuthScreen`'s sign-up path and `UsernameSetupScreen` (no test file exists for the latter at all).
+Reproduction Steps: See bug report — run either of the two named `create_drop_screen_test.dart` tests.
+Expected: The screen pops (`Navigator.pop(true)`) and `find.byType(CreateDropScreen)` finds nothing, same as before this task.
+Actual (traced, not empirically run — no Flutter SDK in this sandbox): `Supabase.instance` throws while evaluating the analytics call's arguments, inside `_share()`'s existing try block; the catch handler sets an error message instead of popping, so the screen stays open and the `findsNothing` assertion fails.
+
+Security Findings:
+- RLS on `analytics_events`: insert-only, own-row-only, verified against `anon` (fully blocked at grant level), a NULL `auth.uid()` (rejected, not silently bypassed), and cross-user insert (rejected) — solid.
+- `admin_dashboard_metrics()`'s admin/moderator gate survived the drop+recreate this task required — verified with a fresh ordinary-user rejection test against the *extended* function, not just trusting the original WYN-050 test still covers it.
+- No XSS: `source` is fully attacker-controlled (any authenticated user, or anyone with direct REST API access, can set it to arbitrary text including `<script>` tags — demonstrated with 50 inserted rows) and rendered via plain JSX interpolation (`{s.source}`) in `top-sources-card.tsx` with no `dangerouslySetInnerHTML` anywhere in the new code — React escapes it, confirmed by reading the component, not assumed.
+- No rate limiting / anti-gaming on `analytics_events` inserts (unlike `drop_views`, which has one specifically because view counts are a public-facing vanity metric). Not a blocker: this data is Admin-only, never shown to or benefiting the inserting user, so there's no product incentive to game it the way there is for `drop_views`. Worth a note for Product/Design if this table's purpose ever expands, not urgent now.
+
+Recommendation: Fix the bug report above (move `Supabase.instance` access inside `AnalyticsRepository`'s own try/catch, not just the network call) and re-request QA. Everything else in this task — the SQL, the RLS/security boundary, and the Next.js admin dashboard — is solid and does not need to be re-reviewed from scratch next round, just re-confirm the fix and re-run `create_drop_screen_test.dart` for real once a Flutter toolchain is available.
+Final Status: FAIL
