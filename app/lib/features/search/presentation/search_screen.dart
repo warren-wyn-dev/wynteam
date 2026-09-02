@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -76,13 +74,16 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
-  Timer? _debounceTimer;
 
-  // The *effective* search query passed down to the three result tabs --
-  // only updated after the debounce delay elapses (or immediately when
-  // the box is cleared, since that's a cancellation, not a new search).
-  // Deliberately separate from _controller.text, which updates on every
-  // keystroke for the TextField itself.
+  // The *effective* search query passed down to the four result tabs --
+  // WYN-080 (Wynos V1.0.0 Beta2, item 9): only updated by an explicit
+  // [_submit] (search button or keyboard "search" action) now, not on
+  // every keystroke -- Founder didn't like results firing while still
+  // typing. Deliberately separate from _controller.text, which still
+  // updates on every keystroke for the TextField itself and for
+  // DiscoveryView's own live "TikTok feel" (trending hashtags/suggested
+  // content) that keeps showing until a search is actually submitted --
+  // see _showDiscovery below.
   String _query = '';
 
   late final FollowRequestRepository _followRequestRepository =
@@ -98,40 +99,42 @@ class _SearchScreenState extends State<SearchScreen> {
 
   // WYN-040 Design doc, "ทิศทางภาพรวม" -- the same <2-char threshold the
   // result tabs already use internally (SearchUserResultsTab._queryTooShort
-  // etc) to decide not to fire a query, reused here to decide whether the
-  // TabBar+TabBarView shows at all, not just each tab's own empty state.
-  bool get _showDiscovery => _query.trim().length < 2;
+  // etc) to decide not to fire a query.
+  //
+  // WYN-080 (Wynos V1.0.0 Beta2, item 9): also true whenever the box has
+  // been edited since the last submitted search (_controller.text no
+  // longer matches _query) -- not just on a short/empty query -- so
+  // DiscoveryView's live trending/suggested content ("ฟิว TikTok" per
+  // Founder) keeps showing while the user is mid-typing a new search,
+  // and only the actual result tabs from an explicit [_submit] replace
+  // it.
+  bool get _showDiscovery =>
+      _query.trim().length < 2 || _controller.text.trim() != _query;
 
   @override
   void dispose() {
-    _debounceTimer?.cancel();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
   }
 
-  void _onQueryChanged(String text) {
-    _debounceTimer?.cancel();
-    setState(() {}); // repaint the clear button's visibility immediately
+  // Repaints the clear button's visibility and re-evaluates
+  // [_showDiscovery] on every keystroke -- WYN-080: deliberately does
+  // NOT touch [_query] anymore (that only happens in [_submit] now), so
+  // typing alone never fires a search.
+  void _onQueryChanged(String text) => setState(() {});
 
-    final trimmed = text.trim();
-    if (trimmed.isEmpty) {
-      // Clearing the box is a cancellation, not a new search -- go back
-      // to the prompt state right away instead of waiting out the debounce
-      // window for nothing. See .wyn/learning/PATTERNS.md for the general
-      // "cancel, don't just delay" debounce-timer discipline this follows.
-      setState(() => _query = '');
-      return;
-    }
-
-    _debounceTimer = Timer(const Duration(milliseconds: 400), () {
-      if (!mounted) return;
-      setState(() => _query = trimmed);
-    });
+  // WYN-080: the explicit "search" action -- keyboard search key
+  // (TextField's onSubmitted) or the tappable search icon, either one
+  // calls this. Empty/whitespace-only text is the same as never having
+  // submitted (falls back to DiscoveryView via _showDiscovery above),
+  // not an error.
+  void _submit() {
+    setState(() => _query = _controller.text.trim());
+    _focusNode.unfocus();
   }
 
   void _clear() {
-    _debounceTimer?.cancel();
     _controller.clear();
     setState(() => _query = '');
   }
@@ -165,7 +168,20 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.search, size: 16, color: WynColors.mutedNeutral),
+                // WYN-080: now a real button (was a bare, non-interactive
+                // Icon) -- the explicit "ปุ่มให้กดค้นหา" (search button)
+                // Founder asked for, alongside the keyboard's own search
+                // action below.
+                Semantics(
+                  label: 'ค้นหา',
+                  button: true,
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    onTap: _submit,
+                    child: const Icon(Icons.search,
+                        size: 16, color: WynColors.mutedNeutral),
+                  ),
+                ),
                 const SizedBox(width: WynSpacing.space2),
                 Expanded(
                   child: TextField(
@@ -179,7 +195,9 @@ class _SearchScreenState extends State<SearchScreen> {
                       border: InputBorder.none,
                       isCollapsed: true,
                     ),
+                    textInputAction: TextInputAction.search,
                     onChanged: _onQueryChanged,
+                    onSubmitted: (_) => _submit(),
                   ),
                 ),
                 if (_controller.text.isNotEmpty)
