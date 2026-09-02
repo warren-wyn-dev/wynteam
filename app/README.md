@@ -52,6 +52,7 @@ lib/
         auth_method_screen.dart          # Screen 2
         phone_entry_screen.dart          # Screen 3
         otp_verification_screen.dart     # Screen 4
-        username_setup_screen.dart       # Screen 5
+        onboarding/                      # First Login onboarding (Birthday → Username →
+                                          # Display Name → Password → Profile Optional → Finish)
     home/presentation/home_screen.dart   # placeholder — Feed เป็น feature ถัดไป
 ```
