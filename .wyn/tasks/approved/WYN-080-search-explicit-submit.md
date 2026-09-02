@@ -1,6 +1,6 @@
 # Feature Request — WYN-080
 
-Status: coded, awaiting QA (2026-09-02)
+Status: approved — QA PASS (2026-09-02)
 Phase: Phase 1 — Quick fix
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 9/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -51,3 +51,39 @@ Known Issues:
 - R1 (เสี่ยงกระทบ analytics เดิม) — grep แล้วไม่พบ event tracking ใดๆ ผูกกับ auto-search ในโค้ดปัจจุบัน ไม่พบความเสี่ยงจริง
 
 Handoff: ส่งต่อ AI QA & Security — ตรวจ UX จริงว่าตรงกับที่ Founder ต้องการหรือไม่ โดยเฉพาะจุด "ฟิว TikTok ระหว่างพิมพ์" ที่ตีความว่าคือ DiscoveryView เดิม — ถ้า Founder ต้องการ live-suggestion ที่กรองตามคำพิมพ์จริงๆ ให้ส่งกลับเข้า backlog เป็นงานใหม่
+
+---
+
+## QA Report (2026-09-02)
+
+Feature: ช่องค้นหาต้องกดปุ่ม/Enter ถึงค้นหาเนื้อหาเต็ม แต่ยังเห็น Discovery ("ฟิว TikTok") ระหว่างพิมพ์ (Wynos V1.0.0 Beta2, ข้อ 9/28)
+
+Environment: อ่านโค้ดจริง + รัน `flutter analyze`/`flutter test` จริง
+
+Test Cases:
+1. `flutter analyze` สะอาดจริง
+2. `flutter test` เต็ม suite ผ่านจริง (917/917)
+3. อ่าน `search_screen.dart` — ยืนยัน `Timer` debounce เดิมถูกลบออกจริงไม่มีเหลือ, `_query` (ตัวแปรที่ส่งเข้า result tabs จริง) อัปเดตเฉพาะใน `_submit()` เท่านั้น ไม่ใช่ `_onQueryChanged` (ที่แค่ `setState((){})` เพื่อ repaint clear button)
+4. `_showDiscovery` getter — คืน `true` เมื่อคำค้น<2 ตัวอักษร **หรือ** ข้อความในกล่องไม่ตรงกับ `_query` ล่าสุดที่ submit ไปแล้ว — ตรวจ edge case "พิมพ์คำใหม่หลัง submit แล้ว" → เห็น Discovery กลับมาไม่ค้างผลเก่า, "พิมพ์คำเดิมซ้ำแล้ว submit ซ้ำ" → ยังทำงานถูกต้อง (ไม่มี guard กันพลาด แต่ไม่ก่อบั๊ก)
+5. `_submit()` ถูกเรียกทั้งจาก `onTap` ของ `Icon.search` (ตอนนี้เป็นปุ่มกดได้จริงผ่าน `GestureDetector`+`Semantics`) และ `TextField.onSubmitted`/`textInputAction: TextInputAction.search` — ครบทั้ง 2 ทางตามสเปก
+6. `_clear()` เคลียร์ทั้ง controller และ `_query` พร้อมกัน — กด X แล้วกลับไป Discovery ถูกต้อง ไม่มี state ค้าง
+7. Edge case ที่ลองพยายาม break: พิมพ์คำค้นว่างๆ (เว้นวรรคล้วน) แล้ว submit — `_submit()` ใช้ `.trim()` ก่อนเซ็ต `_query` ทำให้ `_query=''` → `_showDiscovery` true → กลับไป Discovery ไม่ error, ตรงตามที่ Coding Output ระบุว่า "เหมือนไม่เคย submit"
+8. `TabBar` ถูกซ่อนพร้อมกับ Discovery (`bottom: _showDiscovery ? null : TabBar(...)`) — ไม่มีสถานะครึ่งๆ กลางๆ ที่เห็น TabBar แต่ body เป็น Discovery
+
+Passed: 1, 2, 3, 4, 5, 6, 7, 8
+
+Failed: ไม่มี
+
+Severity: N/A (PASS)
+
+Reproduction Steps: N/A
+
+Expected: N/A
+
+Actual: N/A
+
+Security Findings: ไม่พบ — UI/UX behavior change ล้วน ไม่แตะ query/RLS logic ฝั่ง backend
+
+Recommendation: อนุมัติ PASS — เห็นด้วยกับ Known Issues ที่ Coding Output ระบุไว้แล้วว่า "ฟิว TikTok ระหว่างพิมพ์" ที่ทำจริงคือ `DiscoveryView` เดิม (trending/suggested แบบ static ไม่กรองตามคำพิมพ์) ไม่ใช่ live-autocomplete ที่กรองตามคำที่พิมพ์อยู่จริงๆ — ถ้า Founder หมายถึง autocomplete แบบหลัง (เช่นพิมพ์ "nam" แล้วเห็น "namfah" โผล่ขึ้นมา) ต้องถามยืนยันกับ Founder แยกก่อนปิดงานนี้เป็น "ตรงตามที่ต้องการ 100%" เพราะเป็นการตีความ requirement ที่มีนัยกว้างพอจะผิดทางได้ — แนะนำให้ AI Product Manager/Founder ยืนยันสั้นๆ ว่าตีความถูกไหมก่อนถือว่าจบเรื่องนี้เต็มรูปแบบ (ไม่ใช่ bug ทางเทคนิค แต่เป็นความเสี่ยงด้าน requirement interpretation)
+
+Final Status: PASS

@@ -1,6 +1,6 @@
 # Feature Request — WYN-081
 
-Status: coded, awaiting QA (2026-09-02)
+Status: blocked on bug fix — QA FAIL (2026-09-02), see `.wyn/tasks/bugs/WYN-081-explore-clubs-reload-future-assertion.md`
 Phase: Phase 1 — Quick fix
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 16/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -56,3 +56,45 @@ Known Issues:
 - ไม่มีเทสสำหรับ `MyClubsScreen` และ `my_moderation_action_screen.dart` เลยแม้แก้โค้ดแล้ว (ไฟล์เทสไม่เคยมีมาก่อนสำหรับทั้งสองหน้านี้) — `flutter analyze` สะอาดและ manual code review เทียบกับ pattern ที่เทสยืนยันแล้วในหน้าอื่น แต่ไม่ได้ verify ด้วย automated test จริง
 
 Handoff: ส่งต่อ AI QA & Security — ตรวจ pull-to-refresh จริงบนอุปกรณ์ทั้งหน้าโปรไฟล์ (เช็คว่าจำนวนผู้ติดตามอัปเดตจริงหลัง pull) และอีก 3 หน้าที่เพิ่มใหม่ โดยเฉพาะ `MyClubsScreen` ที่ไม่มี automated test คุ้มครองอยู่
+
+---
+
+## QA Report (2026-09-02)
+
+Feature: Pull-to-refresh บนหน้าโปรไฟล์ (header + 3 แท็บ) และเพิ่ม RefreshIndicator ให้ ExploreClubsScreen/MyClubsScreen/Top100Screen (Wynos V1.0.0 Beta2, ข้อ 16/28)
+
+Environment: อ่านโค้ดจริง + รัน `flutter analyze`/`flutter test` (Flutter 3.47.2, `app/`) จริงในเครื่อง sandbox นี้ (ไม่มี emulator/device จริง — ตามที่ทุก task บันทึกไว้แล้ว) เขียน widget test เพิ่มเองเพื่อพิสูจน์บั๊กที่เจอ
+
+Test Cases:
+1. `flutter analyze` สะอาดจริงตามที่ Coding Output อ้าง — ยืนยันแล้ว ("No issues found!")
+2. `flutter test` เต็ม suite ผ่านจริง (917/917 ก่อนเพิ่มเทสของ QA รอบนี้ — เลขต่างจาก 879 ที่ WYN-081 เองอ้าง เพราะ branch นี้มีงาน Phase 2/3 อื่น (WYN-089 ถึง WYN-103) รวมเข้ามาด้วยแล้วหลัง WYN-081 ถูก commit ไม่ใช่ความคลาดเคลื่อน)
+3. อ่านโค้ด `view_profile_screen.dart`'s `_reload()` — ยืนยัน block-body แก้ถูกต้องจริง, `onRefreshHeader` ต่อเข้า 3 แท็บ (`profile_drop_grid_tab.dart`/`profile_redrops_tab.dart`/`profile_likes_tab.dart`) ถูกต้อง
+4. อ่านโค้ด `club_page.dart`, `my_moderation_action_screen.dart`, `my_clubs_screen.dart` — ยืนยัน `_reload()`/`_onRefresh()` ทุกจุดเป็น block-body ถูกต้อง
+5. อ่านโค้ด `top_100_screen.dart` — ยืนยันมี `RefreshIndicator` ใหม่จริง
+6. **อ่านโค้ด `explore_clubs_screen.dart` อย่างละเอียด (adversarial) — พบว่า `_reload()` (บรรทัด ~76-78, มีอยู่ก่อนงานนี้) ยัง**เป็น arrow-body เดิม (`setState(() => _loadFuture = _load())`)**ที่ Coding Output เองอ้างว่า "แก้ทั้ง 5 จุดเดิม + 2 จุดใหม่...ทุกจุด" — จุดนี้ถูกมองข้าม
+7. เขียน widget test ยืนยันสมมติฐาน (เพิ่มถาวรใน `app/test/explore_clubs_screen_test.dart`) — จำลองผู้ใช้กด "เข้าร่วม" (Join) บนคลับสาธารณะ แล้วตรวจว่าไม่มี snackbar ผิดพลาด "เข้าร่วม Club ไม่สำเร็จ" ปรากฏหลัง join สำเร็จ → **เทส FAIL จริง (red)**: `joinClubCalls == 1` (join สำเร็จในฝั่ง repository) แต่ยังเห็น snackbar "เข้าร่วม Club ไม่สำเร็จ ลองใหม่อีกครั้ง" ปรากฏขึ้นมาจริง — สาเหตุคือ `_join()`'s `try { ...; _reload(); } catch (_) { ...แสดง snackbar ผิดพลาด... }` จับ `FlutterError: setState() callback argument returned a Future.` ที่ `_reload()` โยนออกมา แล้วเข้าใจผิดว่า join ทั้งกระบวนการล้มเหลว ทั้งที่ `joinClub()` เองสำเร็จไปแล้วก่อนหน้า
+8. บั๊กเดียวกันเข้าถึงได้อีกทางผ่าน `_openCreateClub()` (สร้าง Club สำเร็จแล้วกลับมาหน้านี้ เรียก `_reload()` ตรงๆ ไม่มี try/catch ห่อ)
+9. `bash supabase/tests/wyn_079_feed_signals_unhide_test.sh` และ `wyn_083_...sh` ไม่เกี่ยวกับ WYN-081 โดยตรง แต่รันผ่านครบเพื่อยืนยัน environment พร้อม (ไม่กระทบผลของ task นี้)
+
+Passed: 1, 2, 3, 4, 5, 9 (การเปลี่ยนแปลง header refresh / block-body fix ที่เหลือ / Top100Screen ถูกต้องครบ)
+
+Failed: 6, 7, 8 — `ExploreClubsScreen._reload()` ยังพังอยู่ (arrow-body ที่ return Future) ทำให้ผู้ใช้กด "เข้าร่วม Club" สำเร็จจริงแต่เห็นข้อความ error ผิดๆ ว่า "เข้าร่วม Club ไม่สำเร็จ" — acceptance criteria ของ task นี้เอง ("ดึงหน้าโปรไฟล์ลงแล้วข้อมูลรีเฟรชจริง") ไม่ได้พูดถึง Join โดยตรง แต่ Known Issues/Coding Output เองอ้างชัดเจนว่า "แก้ทั้ง 5 จุดเดิม...ทุกจุด" ซึ่งไม่จริง มีจุดที่ 6 หลุดในไฟล์เดียวกันที่ task นี้แก้ไขอยู่ — เป็น functional bug จริงที่ยืนยันด้วย test ที่รันจริง ไม่ใช่แค่ทฤษฎี
+
+Severity: กลาง-สูง (High-ish) — ไม่ใช่ data-loss/security แต่เป็น false negative ที่หลอกผู้ใช้ตรงๆ ว่าการกระทำล้มเหลวทั้งที่จริงสำเร็จ (misleading error message on a core, frequently-used action — joining a Club), และเกิดจากบั๊กคลาสเดียวกับที่ task นี้เพิ่งอ้างว่าแก้ครบแล้ว
+
+Reproduction Steps:
+1. เปิด Explore Clubs (`ExploreClubsScreen`) ที่มี Club สาธารณะให้กด "เข้าร่วม"
+2. กดปุ่ม "เข้าร่วม" บน Club ใดก็ได้
+3. สังเกต: `ClubRepository.joinClub()` สำเร็จจริง (ยืนยันด้วย `joinClubCalls == 1`) แต่แอปแสดง snackbar "เข้าร่วม Club ไม่สำเร็จ ลองใหม่อีกครั้ง"
+
+Expected: กด "เข้าร่วม" สำเร็จแล้วไม่ควรเห็น error snackbar ใดๆ, หน้าจอควร reload แสดงสถานะล่าสุด (เช่น "รออนุมัติ" ถ้าเป็น private club)
+
+Actual: เห็น error snackbar ผิดๆ ทันทีหลัง join สำเร็จ เพราะ `_reload()` โยน `FlutterError` (setState callback ที่ return Future) ซึ่งถูก `_join()`'s catch block กลืนแล้วตีความผิดว่า join ทั้งหมดล้มเหลว
+
+Security Findings: ไม่พบช่องโหว่ความปลอดภัยใหม่จากงานนี้ — schema/RLS ของงานนี้ไม่มีการเปลี่ยนแปลง (เป็น UI-only change ทั้งหมด)
+
+Recommendation: ส่งต่อ AI Debug Engineer แก้ `ExploreClubsScreen._reload()` ให้เป็น block-body (`setState(() { _loadFuture = _load(); });`) แบบเดียวกับอีก 5 จุดที่แก้ถูกต้องแล้วในงานนี้เอง — one-line fix ความเสี่ยง regression ต่ำมาก ดูรายละเอียดเต็มที่ `.wyn/tasks/bugs/WYN-081-explore-clubs-reload-future-assertion.md` (มี regression test พร้อมพิสูจน์ red แล้วที่ `app/test/explore_clubs_screen_test.dart`, ให้ Debug Engineer ทำให้ผ่าน green หลังแก้) เมื่อแก้เสร็จส่งกลับมา QA รอบ 2 อิสระ (อย่าเชื่อ report ของ Debug เฉยๆ) ตาม WORKFLOW.md's regression-test-memory convention — ระหว่างนี้ pull-to-refresh header/3-tabs บนโปรไฟล์, MyClubsScreen, Top100Screen (ส่วนที่เหลือของ task นี้) ทดสอบผ่านครบแล้ว ไม่ต้องแก้ซ้ำ เหลือแค่จุดนี้จุดเดียว
+
+หมายเหตุ device-only residual (จากที่ task เองระบุไว้แล้วว่าไม่มี automated test): จำนวนผู้ติดตามอัปเดตจริงหลัง pull บนหน้าโปรไฟล์, และ `MyClubsScreen` (ไม่มีไฟล์เทสมาก่อน) — ยืนยันด้วย code review เทียบ pattern เดียวกับหน้าอื่นที่มีเทสคุ้มครองแล้วเท่านั้น ยังต้องการคนทดสอบบนอุปกรณ์จริงก่อนปิดงานสมบูรณ์ (ไม่ใช่สาเหตุของ FAIL รอบนี้ — FAIL มาจากบั๊ก Join ล้วนๆ)
+
+Final Status: FAIL

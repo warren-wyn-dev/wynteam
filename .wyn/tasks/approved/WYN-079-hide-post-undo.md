@@ -1,6 +1,6 @@
 # Feature Request — WYN-079
 
-Status: coded, awaiting QA (2026-09-02)
+Status: approved — QA PASS (2026-09-02)
 Phase: Phase 1 — Quick fix
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 8/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -59,3 +59,39 @@ Known Issues:
 - DELETE policy ใหม่ยังไม่ live ใน production จนกว่า Deploy จะ apply — ถ้า QA ทดสอบกับ production DB จริงตอนนี้ กด "เลิกทำ" จะ fail เงียบๆ (การ์ดยังกลับมาที่ UI แต่ signal ฝั่ง server ไม่ถูกลบจริง จนกว่า migration จะ apply)
 
 Handoff: ส่งต่อ AI QA & Security — (1) ตรวจ SQL policy ตาม `wyn_079_feed_signals_unhide_test.sh` (2) ตรวจ UI flow กด "ไม่สนใจโพสต์นี้" → เห็น Snackbar → กด "เลิกทำ" → การ์ดกลับมา (3) **แจ้ง Founder/AI Deploy เรื่อง schema.sql โหลดสดไม่ผ่าน** เป็นปัญหาที่ควรแก้แยกต่างหากโดยเร็ว เพราะบล็อก SQL regression testing ทั้งระบบ ไม่ใช่แค่งานนี้
+
+---
+
+## QA Report (2026-09-02)
+
+Feature: Undo หลังกด "ไม่สนใจโพสต์นี้" (Snackbar + เลิกทำ) พร้อม DELETE policy ใหม่บน `feed_signals` (Wynos V1.0.0 Beta2, ข้อ 8/28)
+
+Environment: อ่านโค้ดจริง + รัน `flutter analyze`/`flutter test` จริง + รัน `bash supabase/tests/wyn_079_feed_signals_unhide_test.sh` จริงกับ PostgreSQL 16 ที่ตั้งค่าขึ้นเองในเครื่อง sandbox นี้ (`service postgresql start`)
+
+Test Cases:
+1. `flutter analyze` สะอาดจริง
+2. `flutter test` เต็ม suite ผ่านจริง (917/917)
+3. รัน `bash supabase/tests/wyn_079_feed_signals_unhide_test.sh` เอง — **3/3 CHECK ผ่านจริง** (CHECK1 เจ้าของ signal ลบ signal ตัวเองได้, CHECK2 ยืนยันแถวหายไปจริงในมุมมอง superuser (ไม่ใช่แค่ถูกซ่อนจาก SELECT), CHECK3 ผู้ใช้อื่นลบ signal ของคนอื่นไม่ได้ — 0 แถวถูกลบ)
+4. เทียบ SQL ใน `supabase/schema.sql`'s `feed_signals` section (บรรทัด ~10011-10061) กับที่ harness ใช้ — **ตรงกันคำต่อคำ (verbatim)** จริงตามที่ Coding Output อ้าง ไม่ใช่แค่ paraphrase
+5. อ่านโค้ด `HomeRepository.unhideContent()` — filter shape (`user_id`/`signal_type='hide'`/`target_type`/`target_id`) ตรงกับที่ policy ทดสอบไว้เป๊ะ
+6. อ่านโค้ด `HomeFeedScreen._hideItem`/`_undoHideItem` — Snackbar+ปุ่ม "เลิกทำ" แสดงถูกต้องหลัง hide สำเร็จ, undo แทรกการ์ดกลับตำแหน่งเดิม (optimistic) แล้วเรียก `unhideContent` ตาม, ถ้า `unhideContent` fail การ์ดยังอยู่ในฟีด (ไม่ error ผู้ใช้เห็น) — ตรงตามเจตนา
+7. **Edge case ที่ลองพยายาม break**: ถ้าผู้ใช้กด "ไม่สนใจ" หลายโพสต์ติดกันเร็วๆ ก่อนกด Undo ของโพสต์แรก — ตรวจโค้ดแล้ว index ที่ capture ไว้ตอน hide อาจ stale ถ้ามีการ hide โพสต์ที่อยู่ index ต่ำกว่าคั่นกลางก่อน undo จะทำงาน (การ์อาจ insert กลับผิดตำแหน่งเล็กน้อย) — ตรวจสอบแล้วไม่ crash (clamp ด้วย `index <= _items.length ? index : _items.length`) เป็นแค่ cosmetic edge case ไม่ใช่ functional bug ที่ทำให้ acceptance criteria ล้มเหลว ("โพสต์กลับมาแสดงในฟีดตำแหน่งเดิม **หรือใกล้เคียง**" — สเปกเองยอมรับ "ใกล้เคียง" ได้)
+8. `wyn_063_unified_home_feed_test.sh` รันไม่ผ่านจริง — ยืนยันแล้วว่าเป็นปัญหาเดิม (pre-existing, นอกสโคป WYN-079) จาก `schema.sql`'s `home_feed` view migration history ไม่ใช่ regression จากงานนี้
+
+Passed: 1, 2, 3, 4, 5, 6, 7, 8
+
+Failed: ไม่มี
+
+Severity: N/A (PASS)
+
+Reproduction Steps: N/A
+
+Expected: N/A
+
+Actual: N/A
+
+Security Findings: DELETE policy ใหม่ (`"Users can delete their own feed signals"`) จำกัดด้วย `using (auth.uid() = user_id)` เหมือน select/insert policy เดิม — ไม่มี privilege escalation, ผู้ใช้ลบ signal ของคนอื่นไม่ได้จริง (ยืนยันด้วย CHECK3) ไม่มี secret/ข้อมูลส่วนตัวหลุด
+
+Recommendation: อนุมัติ PASS — **ยืนยันซ้ำเรื่อง `schema.sql` โหลดสดไม่ผ่าน (pre-existing bug, นอกสโคป)**: ควรแจ้ง Founder/AI Deploy & DevOps ให้ตั้งเป็นงานแก้แยกต่างหากโดยเร็ว เพราะบล็อก SQL regression testing เต็มรูปแบบทั้งระบบ (ไม่ใช่แค่ WYN-063) ไม่เกี่ยวกับ WYN-079 นี้โดยตรงแต่ยืนยันแล้วว่ายังคงอยู่จริง — **เตือน AI Deploy & DevOps**: DELETE policy ใหม่ยังไม่ apply เข้า production ต้อง migrate แยกก่อนใช้งานจริง (ไม่งั้นกด "เลิกทำ" จะดูเหมือนได้ผลใน UI แต่ signal ฝั่ง server ไม่ถูกลบจริง ตามที่ Coding Output เตือนไว้แล้ว)
+
+Final Status: PASS

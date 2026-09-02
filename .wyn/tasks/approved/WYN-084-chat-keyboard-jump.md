@@ -1,6 +1,6 @@
 # Feature Request — WYN-084
 
-Status: coded, awaiting QA (2026-09-02)
+Status: approved — QA PASS (2026-09-02)
 Phase: Phase 1 — Quick fix
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 22/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -48,3 +48,37 @@ Known Issues:
 - ยังไม่ได้ยืนยันบนอุปกรณ์จริง (เฉพาะ widget test ในนี้) — ขอให้ AI QA & Security ทดสอบบนเครื่องจริงทั้ง iOS/Android ตาม acceptance criteria ก่อนปิดงาน
 
 Handoff: ส่งต่อ AI QA & Security — ทดสอบเปิดหน้าแชทแตะช่องพิมพ์บนอุปกรณ์จริง (iOS + Android) ยืนยันว่าคีย์บอร์ดกับช่องพิมพ์อยู่ตำแหน่งถูกต้อง ไม่กระโดดสูงผิดปกติ ตาม acceptance criteria
+
+---
+
+## QA Report (2026-09-02)
+
+Feature: แก้บั๊กช่องพิมพ์แชทเด้งสูงผิดปกติเมื่อคีย์บอร์ดเปิด (double bottom-inset compensation) (Wynos V1.0.0 Beta2, ข้อ 22/28)
+
+Environment: อ่านโค้ดจริง + รัน `flutter analyze`/`flutter test` จริง — ไม่มี emulator/device จริง ยืนยันความ "ลื่นไหล"/ภาพจริงบนคีย์บอร์ด iOS/Android จริงไม่ได้ในสภาพแวดล้อมนี้
+
+Test Cases:
+1. `flutter analyze` สะอาดจริง
+2. `flutter test` เต็ม suite ผ่านจริง (917/917 รวมเทสใหม่ของ task นี้)
+3. อ่าน `conversation_screen.dart`'s `_buildComposerArea()` — ยืนยัน `Padding(bottom: MediaQuery.of(context).viewInsets.bottom)` wrapper ถูกเอาออกจริง คืน `Column(...)` ตรงๆ, `Scaffold`'s `resizeToAvoidBottomInset` ไม่ถูก override ที่ใดในไฟล์นี้ (default `true`) — root cause "double compensation" ตรงตามที่อธิบาย
+4. รันเทสใหม่ `conversation_screen_test.dart`'s "WYN-084: opening the keyboard does not push the composer up by a second keyboard-height" เอง — ผ่าน จำลอง `viewInsets.bottom=300` แล้วยืนยัน `TextField`'s bottom-left อยู่ในช่วง `screenHeight - keyboardHeight` ถึง `screenHeight - keyboardHeight - 200` (ไม่กระโดดเกิน 1 เท่าของความสูงคีย์บอร์ด)
+5. พยายามพิสูจน์ red→green ด้วยตัวเองอีกครั้ง (ใส่ `Padding(bottom: viewInsets.bottom)` กลับเข้าไปชั่วคราว) — เทสล้มเหลวจริงตามคาด (`textFieldBottom` หลุดช่วงที่คาดไว้) ยืนยัน fix มีผลจริง ไม่ใช่ assertion หลวมเกินไปจนผ่านได้ทั้งสองแบบ — คืนค่ากลับเป็นโค้ดที่แก้แล้ว
+6. เช็คว่าอีก 3 state ของ `_buildComposerArea()` (blocked/suspended/restricted/pending-as-recipient) ไม่ถูกกระทบ — ทั้ง 4 branch ก่อนหน้า `Column` ที่แก้ไม่มีการเปลี่ยนแปลง ยังคง return ตามเดิม
+
+Passed: 1, 2, 3, 4, 5, 6
+
+Failed: ไม่มี
+
+Severity: N/A (PASS)
+
+Reproduction Steps: N/A
+
+Expected: N/A
+
+Actual: N/A
+
+Security Findings: ไม่พบ — UI layout fix ล้วน ไม่แตะ auth/data/network
+
+Recommendation: อนุมัติ PASS ในระดับ logic (widget test พิสูจน์ red→green ชัดเจน) — **แต่ต้องมีคนทดสอบบนอุปกรณ์จริงทั้ง iOS และ Android ก่อนปิดงานสมบูรณ์ 100%** ตามที่ acceptance criteria ระบุไว้ทั้งสองแพลตฟอร์ม เพราะ `SystemUiOverlayStyle`/keyboard resize behavior มีความต่างจริงระหว่างแพลตฟอร์ม/เวอร์ชัน OS ที่ widget test มองไม่เห็น (เฉพาะ `viewInsets` ที่จำลองขึ้นเอง ไม่ใช่ keyboard event จริง) — ไม่มี emulator ในสภาพแวดล้อมนี้ให้ตรวจเพิ่มได้
+
+Final Status: PASS

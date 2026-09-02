@@ -1,6 +1,6 @@
 # Feature Request — WYN-087
 
-Status: coded, awaiting QA (2026-09-02)
+Status: approved — QA PASS (2026-09-02)
 Phase: Phase 1 — Quick fix
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 26/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -46,3 +46,36 @@ Known Issues:
 - **พบเรื่องที่เกี่ยวข้องแต่นอกสโคป**: เวลาใต้ชื่อผู้เขียนต้นฉบับ (author row หลัก ที่อยู่ใต้ avatar/ชื่อของเจ้าของโพสต์จริง) ก็อ่านจาก `item.createdAt` คอลัมน์เดียวกันนี้ — สำหรับการ์ด ReDrop แปลว่าเวลาที่แสดงตรงนั้น **จริงๆแล้วก็คือเวลารีโพสต์เหมือนกัน ไม่ใช่เวลาที่โพสต์ต้นฉบับถูกโพสต์จริง** (เพราะ view ไม่ได้แยกคอลัมน์ `drop_created_at` ออกมาต่างหาก) นี่เป็นพฤติกรรมเดิมของระบบ (ไม่ได้เกิดจากงานนี้) และ Founder ไม่ได้ขอให้แก้จุดนี้ตรงๆ — แต่ถ้าอยากให้ถูกต้องสมบูรณ์ (เวลาใต้ชื่อเจ้าของ = เวลาโพสต์จริง, เวลาที่ "รีโพสต์โดย" = เวลารีโพสต์) ต้องเพิ่มคอลัมน์ใหม่ใน `home_feed` view (schema change) แยกงานต่างหาก ไม่ได้แก้ในนี้เพราะเกินสโคปที่ Founder ระบุและมีความเสี่ยง schema เพิ่ม
 
 Handoff: ส่งต่อ AI QA & Security — (1) ตรวจ UI จริงว่าการ์ดที่ถูกรีโพสต์แสดงเวลากำกับที่ header ถูกต้อง (2) แจ้ง Founder เรื่อง Known Issues ข้างต้น (เวลาใต้ชื่อเจ้าของโพสต์ต้นฉบับบนการ์ด ReDrop จริงๆเป็นเวลารีโพสต์ ไม่ใช่เวลาโพสต์จริง) ถามว่าต้องการให้แก้เป็นงานแยกหรือไม่
+
+---
+
+## QA Report (2026-09-02)
+
+Feature: แสดงเวลาบน header "รีโพสต์โดย @username" (Wynos V1.0.0 Beta2, ข้อ 26/28)
+
+Environment: อ่านโค้ดจริง + รัน `flutter analyze`/`flutter test` จริง
+
+Test Cases:
+1. `flutter analyze` สะอาดจริง
+2. `flutter test` เต็ม suite ผ่านจริง (917/917)
+3. อ่าน `home_drop_card.dart` — ยืนยันบรรทัด "รีโพสต์โดย @${item.redropperUsername} · ${relativeTimeLabel(item.createdAt, ...)}" เพิ่มจริง ห่อด้วย `Flexible`+`TextOverflow.ellipsis` กัน overflow ในการ์ดแคบ
+4. ตรวจ `supabase/schema.sql`'s `home_feed` view (UNION branch ของ ReDrop) — ยืนยัน `r.created_at` (เวลาของแถว `redrops` เอง) ถูก select เข้าคอลัมน์ `created_at` ของ view จริง ไม่ใช่ `d.created_at` ของ Drop ต้นฉบับ — สอดคล้องกับที่ `HomeFeedItem.createdAt` ใช้เวลารีโพสต์จริงตามที่ Founder ต้องการ ("ใช้เวลาที่ผู้ใช้กดรีโพสต์ ไม่ใช่เวลาของโพสต์ต้นฉบับ") ไม่ต้องแก้ schema เลยจริงตามที่ Coding Output อ้าง
+5. Edge case: username ยาว + relative time label ยาว (เช่น "3 ชั่วโมงที่แล้ว") ในการ์ดแคบ — `Flexible`+ellipsis กัน overflow ตรวจโค้ดแล้วถูกต้อง ไม่มี hardcode width ที่จะพังกับ username ยาวผิดปกติ
+
+Passed: 1, 2, 3, 4, 5
+
+Failed: ไม่มี
+
+Severity: N/A (PASS)
+
+Reproduction Steps: N/A
+
+Expected: N/A
+
+Actual: N/A
+
+Security Findings: ไม่พบ — UI-only, ไม่มี schema change, ไม่เปิดเผยข้อมูลใหม่ (เวลามีอยู่แล้วในระบบ แค่แสดงเพิ่ม)
+
+Recommendation: อนุมัติ PASS — เห็นด้วยกับ Known Issues ที่ Coding Output ยกมาเอง: เวลาใต้ชื่อผู้เขียนต้นฉบับ (author row หลัก) บนการ์ด ReDrop จริงๆ ก็คือเวลารีโพสต์เหมือนกัน (อ่านจาก `item.createdAt` คอลัมน์เดียวกัน) ไม่ใช่เวลาที่โพสต์ต้นฉบับถูกโพสต์จริง — เป็นพฤติกรรมเดิมของระบบก่อนงานนี้ ไม่ใช่ regression จากงานนี้ แต่ Founder ควรได้รับแจ้งและยืนยันว่ายอมรับได้หรือควรแยกเป็นงานใหม่ (ต้องเพิ่มคอลัมน์ `drop_created_at` แยกใน view ถ้าต้องการแก้ให้สมบูรณ์)
+
+Final Status: PASS
