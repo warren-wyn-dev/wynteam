@@ -48,3 +48,53 @@ Handoff: ส่งต่อ AI Design (`/design`)
 **จุดที่ยังไม่ปิด (ไม่ block Coding แต่ต้องแจ้ง Founder ก่อน deploy)**: Screen 6 ของ design spec (ซ่อนปุ่มรีโพสต์เมื่อ audience ≠ 'everyone') เป็น requirement ที่ AI Product Manager เสนอเอง ยังไม่ผ่าน Founder ยืนยันตรงๆ — เดินหน้า implement เป็น safe-default ได้เลย
 
 Handoff: ส่งต่อ AI Coding (`/code`)
+
+## Coding Output (2026-09-02)
+
+Root cause: ไม่ใช่บั๊ก — ฟีเจอร์ใหม่ทั้งหมดตรงตามสโคปที่ Design ยืนยันไว้ ทำพร้อมกับ WYN-099 ในรอบเดียวกันตามที่ Design spec แนะนำ (data model ผูกกันโดยตรงผ่าน `internal.is_mutual_follow()`)
+
+การเปลี่ยนแปลง (Backend, `supabase/schema.sql`, ต่อท้ายไฟล์):
+1. `drops.audience` คอลัมน์ใหม่ (5 ค่า, default `'everyone'`) + ตารางใหม่ `close_friends`/`drop_audience_exclusions` พร้อม RLS (`close_friends` select/insert/delete เจ้าของเท่านั้น, insert ต้อง mutual-follow จริง; `drop_audience_exclusions` เจ้าของโพสต์เท่านั้น)
+2. `internal.is_mutual_follow(a,b)` + `internal.can_view_drop_audience(viewer, drop)` — security definer ทั้งคู่ ตามแพทเทิร์นเดียวกับ `internal.can_view_author_content` (WYN-039)
+3. แก้ SELECT policy ของ `drops` ให้ซ้อนทับ `can_view_drop_audience` เพิ่มจาก `can_view_author_content` เดิม (ไม่แทนที่) — จุดเดียว ครอบคลุมทุก entry point (home_feed/saved_feed security_invoker views, redrops, drop_comments, drop_polls, ทุก `.from('drops')` query ตรง) ตามที่ Product spec ระบุ
+4. `get_poll_results()` เพิ่ม `can_view_drop_audience` check ซ้ำ (เป็น security definer เอง บายพาส RLS) กัน poll results รั่วผ่าน poll_id ตรง
+5. `create_poll_drop()` เพิ่ม `p_audience`/`p_excluded_friend_ids` param ใหม่ (มี default รักษาพฤติกรรมเดิม — Postgres รองรับ CREATE OR REPLACE FUNCTION เพิ่ม trailing param ที่มี default ได้โดยไม่สร้าง overload ใหม่)
+6. `fetch_mutual_follows()` RPC ใหม่ — คืนรายชื่อเพื่อน (mutual follow) ของผู้เรียก เรียงตาม username
+
+Frontend:
+- `AudienceOption` enum ใหม่ (`app/lib/features/drop/data/drop.dart`) + field `Drop.audience`/`HomeFeedItem.audience`
+- `DropRepository.createDrop/createTextDrop/createDropFromExistingImage/createPollDrop` เพิ่ม param `audience`/`excludedFriendIds`, เขียนลง `drops.audience` + `drop_audience_exclusions` ผ่าน `_insertDrop`
+- `FollowRepository.fetchMutualFollows/fetchCloseFriends/addCloseFriend/removeCloseFriend` ใหม่
+- `CreateDropScreen`: `_AudienceChip` เปลี่ยนจาก static เป็น stateful (`_showAudiencePicker()` bottom sheet 5 ตัวเลือก ตาม Design Screen 2) — "ซ่อนเพื่อนบางคน" พาไป `ExcludeFriendsScreen` (ใหม่, multi-select), "เพื่อนที่สนิท" ครั้งแรก (list ว่าง) พาไป `CloseFriendsScreen` (ใหม่) พร้อม welcome banner ก่อน
+- `app/lib/features/follow/presentation/exclude_friends_screen.dart`/`close_friends_screen.dart` ใหม่ทั้งคู่ reuse โครง `FollowListScreen`/`_showPermissionPicker`
+- Settings > ความเป็นส่วนตัว: แถวใหม่ "เพื่อนที่สนิท" (`settings_screen.dart`)
+- `HomeDropCard`/`DropDetailScreen`: ซ่อนปุ่ม/ไอคอนรีโพสต์เมื่อ `audience != AudienceOption.everyone` (Design Screen 6 — เป็น requirement ที่ AI PM เสนอเอง ยังไม่ผ่าน Founder ยืนยันตรงๆ ตามที่ spec ระบุไว้แล้ว)
+- `home_feed` view เพิ่มคอลัมน์ `audience` ต่อท้าย (ตาม convention "append a fresh full redefinition" เดิมของไฟล์นี้) ทั้ง 3 branch (drop/pop/redrop) — pop เป็น `'everyone'` เสมอ (ไม่มีแนวคิด audience), redrop สืบทอด audience ของโพสต์ต้นฉบับ
+
+Files Changed:
+- `supabase/schema.sql` (migration ต่อท้าย, ใช้ร่วมกับ WYN-099)
+- `app/lib/features/drop/data/drop.dart`, `drop_repository.dart`
+- `app/lib/features/home/data/home_feed_item.dart`
+- `app/lib/features/follow/data/follow_repository.dart`
+- `app/lib/features/follow/presentation/exclude_friends_screen.dart` (ใหม่), `close_friends_screen.dart` (ใหม่)
+- `app/lib/features/drop/presentation/create_drop_screen.dart`
+- `app/lib/features/home/presentation/widgets/home_drop_card.dart`
+- `app/lib/features/drop/presentation/drop_detail_screen.dart`
+- `app/lib/features/settings/presentation/settings_screen.dart`
+- Tests: `app/test/drop_test.dart`, `home_feed_item_test.dart`, `create_drop_screen_test.dart`, `close_friends_screen_test.dart` (ใหม่), `exclude_friends_screen_test.dart` (ใหม่), `home_feed_screen_test.dart`, `drop_detail_screen_test.dart`, `settings_screen_test.dart` + fakes `support/recording_drop_repository.dart`/`recording_follow_repository.dart` อัปเดต
+
+Reason: Wynos V1.0.0 Beta2.pdf ข้อ 2/28 — Founder: "ปุ่มสีแดงที่วง 'ทุกคน' มีให้เลือกหลายอย่าง เช่น ทุกคน, เพื่อน, ซ่อนเพื่อนบางคน, เพื่อนที่สนิท, เฉพาะฉัน" นิยาม "เพื่อน" = mutual follow ตามที่ Founder ยืนยันแล้วใน DECISIONS.md 2026-09-02
+
+Tests:
+- `flutter analyze`: สะอาด (No issues found!)
+- `flutter test`: 977/978 ผ่าน — **1 ล้มเหลวที่ไม่เกี่ยวข้อง** (`explore_clubs_screen_test.dart`, WYN-081 Club join bug ที่มีอยู่แล้วก่อนงานนี้ ยืนยันแล้วว่าไม่ได้แตะไฟล์ Club ใดๆ เลยในรอบนี้ — เป็น pre-existing bug ที่ QA/Debug ควรรับช่วงแยก)
+
+Build: ไม่ได้รัน `flutter build`/apply migration จริงกับ production (ไม่มี Android SDK/Supabase access ใน session นี้) — SQL migration ตรวจสอบด้วยมืออย่างละเอียด (ชื่อ policy/FK ตรงกับ schema.sql ปัจจุบันจริง ยืนยันด้วย grep) แต่ยังไม่ได้รันจริงกับ Postgres
+
+Known Issues:
+- **ยังไม่ได้ apply migration กับ production จริง** — ต้องตรวจสอบ production schema จริงก่อน apply (เหมือนวินัยที่ WYN-071/072/083 ใช้) ไม่เชื่อ `schema.sql` ตรงๆ
+- Acceptance Criterion สุดท้าย ("ทดสอบเรียก Supabase REST/RPC ตรงๆ ด้วย user ที่ไม่มีสิทธิ์") ต้องทดสอบกับ Supabase จริง ทำไม่ได้ใน sandbox นี้ (ไม่มี network access ไปยัง Supabase)
+- `ExcludeFriendsScreen`/`CloseFriendsScreen` โหลดแค่หน้าแรก (30 คน) ไม่มี infinite-scroll pagination เหมือน `FollowListScreen` — เพื่อนแบบ mutual-follow ปกติควรน้อยกว่า follower list ทั่วไปมาก ยอมรับเป็น scope ที่ลดทอนแล้ว ถ้า Beta พบว่าไม่พอ ทำเป็น fast-follow ได้
+- Pinch/gesture จริงบนอุปกรณ์จริงยังไม่ได้ทดสอบ (เหมือนงานอื่นๆ ใน session นี้)
+
+Handoff: ส่งต่อ AI QA & Security — (1) **สำคัญที่สุด**: ทดสอบ RLS จริงกับ Supabase จริง (โพสต์แบบ "เพื่อน"/"เฉพาะฉัน"/"ซ่อนเพื่อนบางคน"/"เพื่อนที่สนิท" แล้วเช็คว่า user อื่นเห็น/ไม่เห็นถูกต้องจริง รวมถึงยิง REST ตรงข้าม UI) (2) ยืนยัน apply migration กับ production schema จริงก่อน (ตรวจสอบ column/policy ที่มีอยู่จริงก่อน ไม่เชื่อ schema.sql เปล่าๆ) (3) ทดสอบ edge case เลิก mutual follow แล้วมองไม่เห็นโพสต์เก่าทันที (4) รายงานบั๊ก `explore_clubs_screen_test.dart` ที่พบ (ไม่เกี่ยวกับงานนี้) ให้ Debug Engineer แยกต่างหาก

@@ -9,6 +9,7 @@ import 'package:video_player_platform_interface/video_player_platform_interface.
 import 'package:wyn/core/design/wyn_colors.dart';
 import 'package:wyn/core/widgets/action_metric.dart';
 import 'package:wyn/features/club/data/club_post.dart';
+import 'package:wyn/features/drop/data/drop.dart' show AudienceOption;
 import 'package:wyn/features/club/presentation/explore_clubs_screen.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 import 'package:wyn/features/drop/presentation/quote_redrop_screen.dart';
@@ -52,6 +53,7 @@ HomeFeedItem _dropItem({
   List<HomeLiker> likedBy = const [],
   int? imageWidth,
   int? imageHeight,
+  AudienceOption audience = AudienceOption.everyone,
 }) =>
     HomeFeedItem(
       id: id,
@@ -75,6 +77,7 @@ HomeFeedItem _dropItem({
       // HomeDropCard, which real home_feed/saved_feed rows never send
       // (drop_view_count() always returns a real bigint).
       viewCount: viewCount,
+      audience: audience,
     );
 
 HomeFeedItem _popItem({
@@ -211,6 +214,10 @@ void main() {
   late RecordingDropRepository quoteRedropNavTestDropRepository;
   late RecordingPopRepository quoteRedropNavTestPopRepository;
   late RecordingHomeRepository quoteRedropNavTestHomeRepository;
+
+  // WYN-097 -- Screen 6 (hides the ReDrop button when audience !=
+  // everyone).
+  late RecordingHomeRepository hiddenRedropButtonTestHomeRepository;
 
   late RecordingDropRepository deleteRedropTestDropRepository;
   late RecordingPopRepository deleteRedropTestPopRepository;
@@ -358,6 +365,10 @@ void main() {
     openSheetTestPopRepository = RecordingPopRepository();
     openSheetTestHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'd4')],
+    );
+
+    hiddenRedropButtonTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'd4c', audience: AudienceOption.friends)],
     );
 
     toggleRedropTestDropRepository = RecordingDropRepository();
@@ -824,6 +835,27 @@ void main() {
       expect(find.text('🔄 รีโพสต์'), findsOneWidget);
       expect(find.text('💬 Quote รีโพสต์'), findsOneWidget);
       expect(find.text('ยกเลิกรีโพสต์'), findsNothing);
+    });
+
+    // WYN-097, Design spec Screen 6.
+    testWidgets(
+        'the ReDrop button is hidden entirely (not disabled) on a card '
+        'whose audience is not "ทุกคน"', (tester) async {
+      await tester.pumpWidget(buildHome(
+        hiddenRedropButtonTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      // Broken test-fixture image URL -- same expected noise as every
+      // other Drop-card test in this file.
+      tester.takeException();
+
+      expect(find.widgetWithIcon(ActionMetric, Icons.repeat), findsNothing);
+      // The Like/Comment buttons are still there -- only ReDrop is
+      // conditionally hidden.
+      expect(find.widgetWithIcon(ActionMetric, Icons.favorite_border),
+          findsOneWidget);
     });
 
     testWidgets(

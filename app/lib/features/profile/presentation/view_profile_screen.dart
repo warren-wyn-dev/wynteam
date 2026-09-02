@@ -898,6 +898,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                         dmPermission: data.profile.dmPermission,
                         mentionPermission: data.profile.mentionPermission,
                         commentPermission: data.profile.commentPermission,
+                        likesVisibility: data.profile.likesVisibility,
                       ),
                     ),
                   );
@@ -1317,9 +1318,21 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                       Column(
                         children: [
                           if (isOwnProfile)
-                            const PrivacyNoticeBanner(
+                            PrivacyNoticeBanner(
                               prefsKey: 'seen_likes_privacy_notice',
-                              message: 'คนอื่นเห็นสิ่งที่คุณกด Like ได้เหมือนกัน',
+                              // WYN-099: tracks the owner's own current
+                              // likes_visibility setting -- must never
+                              // claim "everyone sees this" once they've
+                              // narrowed it, or the banner contradicts
+                              // the tab's real behavior.
+                              message: switch (profile.likesVisibility) {
+                                LikesVisibility.everyone =>
+                                  'คนอื่นเห็นสิ่งที่คุณกด Like ได้เหมือนกัน',
+                                LikesVisibility.friends =>
+                                  'เฉพาะเพื่อนของคุณเท่านั้นที่เห็นแท็บนี้ได้',
+                                LikesVisibility.onlyMe =>
+                                  'เฉพาะคุณเท่านั้นที่เห็นแท็บนี้',
+                              },
                             ),
                           Expanded(
                             child: ProfileLikesTab(

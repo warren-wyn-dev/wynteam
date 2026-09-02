@@ -173,17 +173,23 @@ class RecordingDropRepository extends DropRepository {
     return dropImagesById[dropId] ?? [];
   }
 
+  /// Each call to [createDrop]'s audience argument, in order -- WYN-097.
+  final List<AudienceOption> createDropAudienceArgs = [];
+
   @override
   Future<void> createDrop({
     required List<Uint8List> imagesBytes,
     required List<String> imageExtensions,
     required String caption,
     Set<String> mentionedUserIds = const {},
+    AudienceOption audience = AudienceOption.everyone,
+    Set<String> excludedFriendIds = const {},
     void Function(int uploaded, int total)? onImageUploaded,
   }) async {
     if (createDropError != null) throw createDropError!;
     createDropImageCountArgs.add(imagesBytes.length);
     createDropMentionedUserIdsArgs.add(mentionedUserIds);
+    createDropAudienceArgs.add(audience);
     final gate = imageUploadGate;
     for (var i = 0; i < imagesBytes.length; i++) {
       if (gate != null && i < gate.length) await gate[i].future;
@@ -200,11 +206,14 @@ class RecordingDropRepository extends DropRepository {
   Future<void> createTextDrop({
     required String caption,
     Set<String> mentionedUserIds = const {},
+    AudienceOption audience = AudienceOption.everyone,
+    Set<String> excludedFriendIds = const {},
   }) async {
     if (createTextDropError != null) throw createTextDropError!;
     createTextDropArgs.add({
       'caption': caption,
       'mentionedUserIds': mentionedUserIds,
+      'audience': audience,
     });
   }
 
@@ -230,6 +239,8 @@ class RecordingDropRepository extends DropRepository {
     required List<String> options,
     required int durationDays,
     Set<String> mentionedUserIds = const {},
+    AudienceOption audience = AudienceOption.everyone,
+    Set<String> excludedFriendIds = const {},
   }) async {
     if (createPollDropError != null) throw createPollDropError!;
     createPollDropArgs.add({
@@ -237,6 +248,7 @@ class RecordingDropRepository extends DropRepository {
       'options': options,
       'durationDays': durationDays,
       'mentionedUserIds': mentionedUserIds,
+      'audience': audience,
     });
   }
 
@@ -459,6 +471,8 @@ class RecordingDropRepository extends DropRepository {
     required String imageUrl,
     required String caption,
     Set<String> mentionedUserIds = const {},
+    AudienceOption audience = AudienceOption.everyone,
+    Set<String> excludedFriendIds = const {},
   }) async {
     if (createDropFromExistingImageError != null) {
       throw createDropFromExistingImageError!;
@@ -467,6 +481,7 @@ class RecordingDropRepository extends DropRepository {
       'imageUrl': imageUrl,
       'caption': caption,
       'mentionedUserIds': mentionedUserIds,
+      'audience': audience,
     });
   }
 }

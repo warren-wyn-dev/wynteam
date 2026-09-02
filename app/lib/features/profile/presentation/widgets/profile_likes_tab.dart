@@ -58,6 +58,14 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
   bool _hasMore = true;
   String? _error;
 
+  // WYN-099: only meaningful (and only fetched) when _drops comes back
+  // empty on the initial load -- distinguishes "no Likes yet" (true,
+  // the ordinary/default case for literally every profile before this
+  // task) from "not allowed to see this tab" (false) per that
+  // profile's own likes_visibility. Left null until that one extra
+  // check actually runs, so a non-empty tab never pays for it at all.
+  bool? _canViewLikes;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -92,12 +100,26 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
         authorId: widget.authorId,
         page: 0,
       );
+      bool? canView = _canViewLikes;
+      if (drops.isEmpty) {
+        try {
+          canView = await widget.profileRepository.canViewLikes(widget.authorId);
+        } catch (_) {
+          // Fails open to "true" (shows the ordinary "no Likes yet"
+          // empty text) -- same fail-open posture as every other
+          // best-effort identity-summary fetch in this codebase, and
+          // strictly less alarming than falsely claiming a privacy
+          // block that isn't real.
+          canView = true;
+        }
+      }
       setState(() {
         _drops
           ..clear()
           ..addAll(drops);
         _page = 0;
         _hasMore = drops.length == DropRepository.pageSize;
+        _canViewLikes = canView;
       });
     } catch (_) {
       setState(() => _error = 'โหลดรายการที่ถูกใจไม่สำเร็จ');
@@ -265,7 +287,14 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
     }
 
     if (_drops.isEmpty) {
-      return Center(child: Text(widget.emptyText));
+      // WYN-099: "not allowed to see this" is a distinct, intentional
+      // state -- not an error, and not the ordinary "no Likes yet"
+      // empty text (see [_canViewLikes]'s own doc comment).
+      return Center(
+        child: Text(
+          _canViewLikes == false ? 'บัญชีนี้ซ่อนรายการที่ถูกใจไว้' : widget.emptyText,
+        ),
+      );
     }
 
     return RefreshIndicator(

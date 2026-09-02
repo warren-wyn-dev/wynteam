@@ -959,23 +959,29 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
               onPressed: () => _commentFocusNode.requestFocus(),
             ),
           ),
-          Expanded(
-            child: Semantics(
-              label: _drop.redroppedByMe
-                  ? 'รีโพสต์แล้ว กดเพื่อเลือกดำเนินการ'
-                  : 'กดเพื่อรีโพสต์',
-              excludeSemantics: true,
-              child: IconButton(
-                icon: Icon(
-                  Icons.repeat,
-                  size: 19,
-                  color:
-                      _drop.redroppedByMe ? WynColors.sapphire : WynColors.graphite,
+          // WYN-097, Design spec Screen 6: same "hide entirely, not
+          // disable" posture as HomeDropCard's identical guard (see
+          // that file's own comment) -- the remaining buttons simply
+          // re-space themselves evenly across the bar (still
+          // `Expanded`, just one fewer of them).
+          if (_drop.audience == AudienceOption.everyone)
+            Expanded(
+              child: Semantics(
+                label: _drop.redroppedByMe
+                    ? 'รีโพสต์แล้ว กดเพื่อเลือกดำเนินการ'
+                    : 'กดเพื่อรีโพสต์',
+                excludeSemantics: true,
+                child: IconButton(
+                  icon: Icon(
+                    Icons.repeat,
+                    size: 19,
+                    color:
+                        _drop.redroppedByMe ? WynColors.sapphire : WynColors.graphite,
+                  ),
+                  onPressed: _openRedropSheet,
                 ),
-                onPressed: _openRedropSheet,
               ),
             ),
-          ),
           Expanded(
             child: IconButton(
               icon: const Icon(Icons.share_outlined,

@@ -10733,3 +10733,666 @@ where not exists (
 );
 
 grant select on public.home_feed to authenticated;
+
+-- ============================================================
+-- WYN-097: Audience Selector (Post-level privacy: ทุกคน/เพื่อน/ซ่อนเพื่อน
+-- บางคน/เพื่อนที่สนิท/เฉพาะฉัน) + "เพื่อน" (mutual follow) primitive +
+-- "เพื่อนที่สนิท" (Close Friends) list. Wynos V1.0.0 Beta2.pdf item 2/28.
+-- See .wyn/docs/product/wyn-097-audience-friends.md for the full spec
+-- this migration implements.
+-- ============================================================
+
+-- 5 values, matching the Product spec's 5 options exactly. Default
+-- 'everyone' -- every existing Drop (before this migration), and every
+-- Poll/text Drop that doesn't pass an explicit choice, still shows to
+-- everyone exactly as today (backward compatible, no data backfill
+-- needed for existing rows).
+alter table public.drops
+  add column if not exists audience text not null default 'everyone'
+  check (audience in ('everyone', 'friends', 'friends_except', 'close_friends', 'only_me'));
+
+-- "เพื่อน" = mutual follow (Founder decision 2026-09-02, see
+-- DECISIONS.md) -- reuses the existing `follows` table, no separate
+-- friend-request system. security definer, same reasoning as
+-- internal.can_view_author_content (WYN-039): called from inside other
+-- tables' RLS policies (drops, close_friends below) without those
+-- policies' own subqueries re-triggering `follows`' own RLS.
+create or replace function internal.is_mutual_follow(a uuid, b uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (select 1 from public.follows where follower_id = a and following_id = b)
+     and exists (select 1 from public.follows where follower_id = b and following_id = a);
+$$;
+
+-- Persistent "close friends" list -- set once, reused across every
+-- Drop the owner posts with audience = 'close_friends' (mirrors
+-- Instagram Close Friends -- not a per-post choice, unlike
+-- drop_audience_exclusions below). A friend never sees their own
+-- presence on this list -- SELECT is owner-only, deliberately (same
+-- "the list itself is the owner's private business" posture Instagram
+-- uses).
+create table if not exists public.close_friends (
+  owner_id uuid not null references public.profiles (id) on delete cascade,
+  friend_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (owner_id, friend_id),
+  constraint close_friends_no_self check (owner_id <> friend_id)
+);
+
+alter table public.close_friends enable row level security;
+
+create policy "Owner views their own close friends list"
+  on public.close_friends
+  for select
+  to authenticated
+  using (auth.uid() = owner_id);
+
+-- Can only add someone who is currently a mutual follow -- re-checked
+-- here (not just relied on client-side), the same "server re-validates
+-- what the UI already filtered to" posture as every other insert
+-- policy in this schema.
+create policy "Owner adds a mutual follow as a close friend"
+  on public.close_friends
+  for insert
+  to authenticated
+  with check (auth.uid() = owner_id and internal.is_mutual_follow(owner_id, friend_id));
+
+create policy "Owner removes a close friend"
+  on public.close_friends
+  for delete
+  to authenticated
+  using (auth.uid() = owner_id);
+
+-- Per-post "hide from these friends" list -- only meaningful when a
+-- Drop's audience = 'friends_except'. Not persisted across posts
+-- (unlike close_friends above) -- a fresh choice on every Drop, per
+-- Product spec's Screen 2/3 flow.
+create table if not exists public.drop_audience_exclusions (
+  drop_id uuid not null references public.drops (id) on delete cascade,
+  excluded_user_id uuid not null references public.profiles (id) on delete cascade,
+  primary key (drop_id, excluded_user_id)
+);
+
+alter table public.drop_audience_exclusions enable row level security;
+
+create policy "Drop author manages their own audience exclusions"
+  on public.drop_audience_exclusions
+  for all
+  to authenticated
+  using (auth.uid() = (select author_id from public.drops where id = drop_id))
+  with check (auth.uid() = (select author_id from public.drops where id = drop_id));
+
+-- Single reusable predicate for all 5 audience values -- security
+-- definer, same reasoning as internal.can_view_author_content, called
+-- from drops' own SELECT policy below.
+create or replace function internal.can_view_drop_audience(p_viewer uuid, p_drop public.drops)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    p_drop.author_id = p_viewer
+    or p_drop.audience = 'everyone'
+    or (p_drop.audience = 'friends' and internal.is_mutual_follow(p_viewer, p_drop.author_id))
+    or (p_drop.audience = 'friends_except'
+        and internal.is_mutual_follow(p_viewer, p_drop.author_id)
+        and not exists (
+          select 1 from public.drop_audience_exclusions
+          where drop_id = p_drop.id and excluded_user_id = p_viewer
+        ))
+    or (p_drop.audience = 'close_friends'
+        and exists (
+          select 1 from public.close_friends
+          where owner_id = p_drop.author_id and friend_id = p_viewer
+        ));
+    -- 'only_me': no branch above matches for anyone but the author
+    -- (already checked first), so this falls through to false.
+$$;
+
+-- The single point of enforcement -- layers on top of (not instead of)
+-- the existing private-account gate (internal.can_view_author_content,
+-- WYN-039). Every existing reader of `drops` (home_feed/saved_feed --
+-- both security_invoker views, redrops, drop_comments, drop_polls, and
+-- every direct `.from('drops')` client query) inherits this
+-- automatically, with no separate change needed at any of those call
+-- sites -- same "one RLS change, every entry point covered" reasoning
+-- WYN-039's own comment on this policy already explains.
+drop policy "Drops are viewable by authenticated users, excluding blocked, deleted, and locked-private authors" on public.drops;
+create policy "Drops are viewable by authenticated users, excluding blocked, deleted, locked-private authors, and out-of-audience"
+  on public.drops
+  for select
+  to authenticated
+  using (
+    not internal.is_blocked_either_way(auth.uid(), author_id)
+    and (deleted_at is null or auth.uid() = author_id)
+    and internal.can_view_author_content(auth.uid(), author_id)
+    and internal.can_view_drop_audience(auth.uid(), drops.*)
+  );
+
+-- get_poll_results() (WYN-035) is SECURITY DEFINER and bypasses drops'
+-- RLS entirely (same reasoning as its own existing
+-- is_blocked_either_way/can_view_author_content duplication, WYN-039)
+-- -- needs the same audience check duplicated too, or a stranger could
+-- still read a "เพื่อน"/"เฉพาะฉัน" Drop's poll results by poll_id even
+-- though the Drop row itself is now correctly hidden from them.
+create or replace function public.get_poll_results(p_poll_ids uuid[])
+returns table(
+  poll_id uuid,
+  visible boolean,
+  total_votes bigint,
+  option_counts bigint[]
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  if v_me is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  return query
+  select
+    dp.id as poll_id,
+    v.is_visible,
+    case when v.is_visible
+      then (select count(*) from public.drop_poll_votes dpv where dpv.poll_id = dp.id)
+      else null end as total_votes,
+    case when v.is_visible
+      then (
+        select array_agg(cnt order by idx)
+        from (
+          select gs as idx, count(pv.id) as cnt
+          from generate_series(0, array_length(dp.options, 1) - 1) as gs
+          left join public.drop_poll_votes pv
+            on pv.poll_id = dp.id and pv.option_index = gs
+          group by gs
+        ) counted
+      )
+      else null end as option_counts
+  from public.drop_polls dp
+  join public.drops d on d.id = dp.drop_id
+  cross join lateral (
+    select
+      dp.expires_at <= now()
+      or d.author_id = v_me
+      or exists (
+        select 1 from public.drop_poll_votes dpv2
+        where dpv2.poll_id = dp.id and dpv2.voter_id = v_me
+      ) as is_visible
+  ) v
+  where dp.id = any(p_poll_ids)
+    and not internal.is_blocked_either_way(v_me, d.author_id)
+    and internal.can_view_author_content(v_me, d.author_id)
+    and internal.can_view_drop_audience(v_me, d);
+end;
+$$;
+
+-- Extends create_poll_drop (WYN-035) with the same audience choice
+-- image/text Drops get (below) -- a Poll Drop is still a Drop, no
+-- reason its own audience selector wouldn't apply. Defaults preserve
+-- every existing call's behavior unchanged (p_audience = 'everyone',
+-- p_excluded_friend_ids = '{}').
+create or replace function public.create_poll_drop(
+  p_caption text,
+  p_options text[],
+  p_duration_days int,
+  p_mentioned_user_ids uuid[] default '{}',
+  p_audience text default 'everyone',
+  p_excluded_friend_ids uuid[] default '{}'
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author uuid := auth.uid();
+  v_drop_id uuid;
+  v_options text[];
+begin
+  if v_author is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if internal.is_posting_blocked(v_author) then
+    raise exception 'Account is posting-restricted';
+  end if;
+
+  if p_caption is null or length(trim(p_caption)) = 0 then
+    raise exception 'Poll question is required';
+  end if;
+
+  -- Trimmed server-side (not just validated-as-trimmed) so a direct
+  -- RPC call bypassing the Flutter client's own .trim() can't leave
+  -- stray leading/trailing whitespace sitting in stored option text.
+  select array_agg(trim(o)) into v_options from unnest(p_options) as o;
+
+  if not public.valid_poll_options(v_options) then
+    raise exception 'Poll must have 2-4 non-empty, non-duplicate options (max 80 characters each)';
+  end if;
+
+  if p_duration_days not in (1, 3, 7) then
+    raise exception 'Poll duration must be 1, 3, or 7 days';
+  end if;
+
+  if p_audience not in ('everyone', 'friends', 'friends_except', 'close_friends', 'only_me') then
+    raise exception 'Invalid audience';
+  end if;
+
+  insert into public.drops (author_id, image_url, caption, audience)
+  values (v_author, null, trim(p_caption), p_audience)
+  returning id into v_drop_id;
+
+  insert into public.drop_polls (drop_id, options, expires_at)
+  values (v_drop_id, v_options, now() + make_interval(days => p_duration_days));
+
+  if p_audience = 'friends_except' then
+    insert into public.drop_audience_exclusions (drop_id, excluded_user_id)
+    select v_drop_id, u
+    from unnest(p_excluded_friend_ids) as u;
+  end if;
+
+  -- WYN-045: this RPC is SECURITY DEFINER and bypasses drop_mentions'
+  -- own RLS INSERT policy entirely -- without this same
+  -- internal.mention_allowed() check the policy below also gained,
+  -- Mention Permission would be fully bypassable via Poll Drop
+  -- creation. Same non-error posture as the block-exclusion right
+  -- next to it: the caption may still literally read "@username", it
+  -- just doesn't produce a drop_mentions row (and therefore no
+  -- notification) for a user who disallows it.
+  insert into public.drop_mentions (drop_id, mentioned_user_id)
+  select v_drop_id, m
+  from unnest(p_mentioned_user_ids) as m
+  where not internal.is_blocked_either_way(v_author, m)
+    and internal.mention_allowed(m, v_author);
+
+  return v_drop_id;
+end;
+$$;
+
+-- "เพื่อนของฉัน" (mutual-follow list) -- the shared candidate list
+-- Screen 3 (เลือกเพื่อนที่จะซ่อน) and Screen 4 (เพื่อนที่สนิท) both
+-- list from. security invoker is fine here -- `profiles` itself is
+-- publicly readable to authenticated users, and is_mutual_follow()
+-- does its own security-definer lookup against `follows` internally
+-- regardless of the caller's own RLS.
+create or replace function public.fetch_mutual_follows(p_page int default 0)
+returns setof public.profiles
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  select p.*
+  from public.profiles p
+  where internal.is_mutual_follow(auth.uid(), p.id)
+  order by p.username
+  offset greatest(p_page, 0) * 30 limit 30;
+$$;
+
+grant execute on function public.fetch_mutual_follows(int) to authenticated;
+
+-- ============================================================
+-- WYN-099: Likes Tab Privacy (ทุกคน/เพื่อน/เฉพาะฉัน). Wynos V1.0.0
+-- Beta2.pdf item 4/28. See .wyn/docs/product/wyn-099-likes-privacy.md.
+-- ============================================================
+
+-- 3 values only (not the 5-value audience above) -- "เพื่อน" here
+-- reuses the exact same mutual-follow definition via
+-- internal.is_mutual_follow, but this is a narrower, account-level
+-- setting (governs every Like a user has ever made, not a per-post
+-- choice) -- its own column rather than reusing drops.audience or
+-- InteractionPermission (WYN-045's people_i_follow != mutual friend --
+-- see Product spec's Architecture Decision).
+alter table public.profiles
+  add column if not exists likes_visibility text not null default 'everyone'
+  check (likes_visibility in ('everyone', 'friends', 'only_me'));
+
+-- Deliberately does NOT touch drop_likes/pop_likes' own RLS (still
+-- `using (true)`) -- those rows are also the sole source for
+-- like_count/liked_by (top-3 avatars) shown on *every* Drop/Pop across
+-- the whole app, which must stay accurate regardless of any individual
+-- liker's own likes_visibility setting. See Product spec's
+-- "Architecture Decision" for the full reasoning and the accepted
+-- residual risk (a caller that queries drop_likes/pop_likes directly,
+-- bypassing fetch_liked_drop_ids/fetch_liked_pop_ids below, still sees
+-- the raw like rows -- only the two RPCs below enforce this setting).
+create or replace function internal.can_view_likes(p_viewer uuid, p_target uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    p_viewer = p_target
+    or (select likes_visibility from public.profiles where id = p_target) = 'everyone'
+    or (
+      (select likes_visibility from public.profiles where id = p_target) = 'friends'
+      and internal.is_mutual_follow(p_viewer, p_target)
+    );
+$$;
+
+-- Public wrapper so the Flutter client can ask this question directly
+-- (`internal.*` functions are never exposed to PostgREST -- only
+-- `public.*` ones are). ProfileLikesTab needs this to tell apart its 2
+-- empty states ("no Likes yet" vs. "not allowed to see this tab" --
+-- fetch_liked_drop_ids alone returns an empty list either way, which
+-- isn't enough to pick the right copy).
+create or replace function public.can_view_likes(p_target uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select internal.can_view_likes(auth.uid(), p_target);
+$$;
+
+grant execute on function public.can_view_likes(uuid) to authenticated;
+
+-- Ordered drop_id list for ProfileLikesTab's Drop side --
+-- DropRepository.fetchLikedByAuthor calls this first, then does a
+-- normal `.from('drops').select($_dropSelect).inFilter('id', ids)` for
+-- the rich card shape, which also re-applies drops' own RLS a second
+-- time for free (defense in depth). This RPC's own join against
+-- `drops` below (security definer, bypasses that RLS) is what actually
+-- has to duplicate the is_blocked_either_way/can_view_author_content/
+-- can_view_drop_audience checks, same reasoning as get_poll_results()
+-- above -- and is exactly Product spec's Edge Case 3: a friend liking
+-- someone else's "เฉพาะฉัน" Drop must never leak that Drop into a
+-- friend's-eye view of the Likes tab.
+create or replace function public.fetch_liked_drop_ids(p_target_user_id uuid, p_page int default 0)
+returns table(drop_id uuid)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select dl.drop_id
+  from public.drop_likes dl
+  join public.drops d on d.id = dl.drop_id
+  where dl.user_id = p_target_user_id
+    and internal.can_view_likes(auth.uid(), p_target_user_id)
+    and not internal.is_blocked_either_way(auth.uid(), d.author_id)
+    and (d.deleted_at is null or auth.uid() = d.author_id)
+    and internal.can_view_author_content(auth.uid(), d.author_id)
+    and internal.can_view_drop_audience(auth.uid(), d)
+  order by dl.created_at desc
+  offset greatest(p_page, 0) * 21 limit 21;
+$$;
+
+grant execute on function public.fetch_liked_drop_ids(uuid, int) to authenticated;
+
+-- Same shape for Pop -- Pop itself is hidden app-wide per WYN-102, but
+-- the underlying table/RLS/RPC still exist, so this stays a direct
+-- parallel to fetch_liked_drop_ids rather than a half-finished feature.
+-- Pop has no audience concept (WYN-097 explicitly out of scope for
+-- Pop), so no can_view_drop_audience-equivalent check is needed here.
+create or replace function public.fetch_liked_pop_ids(p_target_user_id uuid, p_page int default 0)
+returns table(pop_id uuid)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select pl.pop_id
+  from public.pop_likes pl
+  join public.pops p on p.id = pl.pop_id
+  where pl.user_id = p_target_user_id
+    and internal.can_view_likes(auth.uid(), p_target_user_id)
+    and not internal.is_blocked_either_way(auth.uid(), p.author_id)
+  order by pl.created_at desc
+  offset greatest(p_page, 0) * 21 limit 21;
+$$;
+
+grant execute on function public.fetch_liked_pop_ids(uuid, int) to authenticated;
+
+-- home_feed: append `audience` (WYN-097 Screen 6 -- hides the ReDrop
+-- button client-side when a Drop's audience != 'everyone'). Same
+-- "append a fresh full redefinition" discipline as every prior task
+-- that changed this view (see the comment on the previous
+-- redefinition above). Pop has no audience concept, so its branch
+-- carries a literal 'everyone' (it never had a ReDrop-equivalent
+-- button to hide anyway). The redrop branch carries the *original*
+-- Drop's own audience (d.audience) -- a ReDrop of a non-'everyone'
+-- Drop is only reachable at all by someone who could already see the
+-- original per the RLS above, and Screen 6 hides that ReDrop's own
+-- further-ReDrop button the same way its source Drop's button is
+-- hidden.
+create or replace view public.home_feed
+  with (security_invoker = true) as
+select
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  prof.is_verified as author_is_verified,
+  d.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  public.drop_view_count(d.id) as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (
+    select coalesce(jsonb_agg(jsonb_build_object(
+      'id', lp.id,
+      'username', lp.username,
+      'display_name', lp.display_name,
+      'avatar_url', lp.avatar_url
+    ) order by dl.created_at desc), '[]'::jsonb)
+    from (
+      select user_id, created_at from public.drop_likes
+      where drop_id = d.id
+      order by created_at desc
+      limit 3
+    ) dl
+    join public.profiles lp on lp.id = dl.user_id
+  ) as liked_by,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count,
+  (
+    select jsonb_build_object(
+      'author_username', tr.author_username,
+      'author_display_name', tr.author_display_name,
+      'text', tr.text_content
+    )
+    from (
+      select
+        c.text_content,
+        cp.username as author_username,
+        cp.display_name as author_display_name,
+        c.created_at,
+        (select count(*) from public.drop_comment_likes dcl where dcl.comment_id = c.id) as like_count
+      from public.drop_comments c
+      join public.profiles cp on cp.id = c.author_id
+      where c.drop_id = d.id and c.parent_comment_id is null
+    ) tr
+    where tr.like_count > 0
+    order by tr.like_count desc, tr.created_at desc
+    limit 1
+  ) as top_reply,
+  (select count(*) from public.redrops where drop_id = d.id) as redrop_count,
+  null::uuid as redrop_id,
+  null::uuid as redropper_id,
+  null::text as redropper_username,
+  null::text as redropper_display_name,
+  null::text as redropper_avatar_url,
+  null::boolean as redropper_is_verified,
+  null::text as quote_text,
+  dp.id as poll_id,
+  dp.options as poll_options,
+  dp.expires_at as poll_expires_at,
+  d.image_width,
+  d.image_height,
+  d.audience
+from public.drops d
+join public.profiles prof on prof.id = d.author_id
+left join public.drop_polls dp on dp.drop_id = d.id
+where not exists (
+  select 1 from public.mutes where muter_id = auth.uid() and muted_id = d.author_id
+)
+union all
+select
+  p.id,
+  'pop'::text as content_type,
+  p.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  prof.is_verified as author_is_verified,
+  p.created_at,
+  p.caption,
+  null::text as image_url,
+  p.video_url,
+  p.thumbnail_url,
+  p.duration_seconds,
+  p.view_count,
+  (select count(*) from public.pop_likes where pop_id = p.id) as like_count,
+  (
+    select coalesce(jsonb_agg(jsonb_build_object(
+      'id', lp.id,
+      'username', lp.username,
+      'display_name', lp.display_name,
+      'avatar_url', lp.avatar_url
+    ) order by pl.created_at desc), '[]'::jsonb)
+    from (
+      select user_id, created_at from public.pop_likes
+      where pop_id = p.id
+      order by created_at desc
+      limit 3
+    ) pl
+    join public.profiles lp on lp.id = pl.user_id
+  ) as liked_by,
+  (select count(*) from public.pop_comments where pop_id = p.id) as comment_count,
+  (
+    select jsonb_build_object(
+      'author_username', tr.author_username,
+      'author_display_name', tr.author_display_name,
+      'text', tr.text_content
+    )
+    from (
+      select
+        c.text_content,
+        cp.username as author_username,
+        cp.display_name as author_display_name,
+        c.created_at,
+        (select count(*) from public.pop_comment_likes dcl where dcl.comment_id = c.id) as like_count
+      from public.pop_comments c
+      join public.profiles cp on cp.id = c.author_id
+      where c.pop_id = p.id and c.parent_comment_id is null
+    ) tr
+    where tr.like_count > 0
+    order by tr.like_count desc, tr.created_at desc
+    limit 1
+  ) as top_reply,
+  null::bigint as redrop_count,
+  null::uuid as redrop_id,
+  null::uuid as redropper_id,
+  null::text as redropper_username,
+  null::text as redropper_display_name,
+  null::text as redropper_avatar_url,
+  null::boolean as redropper_is_verified,
+  null::text as quote_text,
+  null::uuid as poll_id,
+  null::text[] as poll_options,
+  null::timestamptz as poll_expires_at,
+  null::integer as image_width,
+  null::integer as image_height,
+  'everyone'::text as audience
+from public.pops p
+join public.profiles prof on prof.id = p.author_id
+where not exists (
+  select 1 from public.mutes where muter_id = auth.uid() and muted_id = p.author_id
+)
+union all
+select
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  prof.is_verified as author_is_verified,
+  r.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  public.drop_view_count(d.id) as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (
+    select coalesce(jsonb_agg(jsonb_build_object(
+      'id', lp.id,
+      'username', lp.username,
+      'display_name', lp.display_name,
+      'avatar_url', lp.avatar_url
+    ) order by dl.created_at desc), '[]'::jsonb)
+    from (
+      select user_id, created_at from public.drop_likes
+      where drop_id = d.id
+      order by created_at desc
+      limit 3
+    ) dl
+    join public.profiles lp on lp.id = dl.user_id
+  ) as liked_by,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count,
+  (
+    select jsonb_build_object(
+      'author_username', tr.author_username,
+      'author_display_name', tr.author_display_name,
+      'text', tr.text_content
+    )
+    from (
+      select
+        c.text_content,
+        cp.username as author_username,
+        cp.display_name as author_display_name,
+        c.created_at,
+        (select count(*) from public.drop_comment_likes dcl where dcl.comment_id = c.id) as like_count
+      from public.drop_comments c
+      join public.profiles cp on cp.id = c.author_id
+      where c.drop_id = d.id and c.parent_comment_id is null
+    ) tr
+    where tr.like_count > 0
+    order by tr.like_count desc, tr.created_at desc
+    limit 1
+  ) as top_reply,
+  (select count(*) from public.redrops where drop_id = d.id) as redrop_count,
+  r.id as redrop_id,
+  r.redropper_id,
+  redropper.username as redropper_username,
+  redropper.display_name as redropper_display_name,
+  redropper.avatar_url as redropper_avatar_url,
+  redropper.is_verified as redropper_is_verified,
+  r.quote_text,
+  dp.id as poll_id,
+  dp.options as poll_options,
+  dp.expires_at as poll_expires_at,
+  d.image_width,
+  d.image_height,
+  d.audience
+from public.redrops r
+join public.drops d on d.id = r.drop_id
+join public.profiles prof on prof.id = d.author_id
+join public.profiles redropper on redropper.id = r.redropper_id
+left join public.drop_polls dp on dp.drop_id = d.id
+where not exists (
+  select 1 from public.mutes
+  where muter_id = auth.uid() and muted_id in (d.author_id, r.redropper_id)
+);
+
+grant select on public.home_feed to authenticated;

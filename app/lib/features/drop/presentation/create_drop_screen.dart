@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../follow/data/follow_repository.dart';
+import '../../follow/presentation/close_friends_screen.dart';
+import '../../follow/presentation/exclude_friends_screen.dart';
 import '../../hashtag/data/hashtag_repository.dart';
 import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/data/appeal_status.dart';
@@ -12,6 +15,7 @@ import '../../moderation/presentation/appeal_form_screen.dart';
 import '../../profile/data/profile.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
+import '../data/drop.dart';
 import '../data/drop_draft.dart';
 import '../data/drop_repository.dart';
 import '../data/square_crop.dart';
@@ -56,12 +60,14 @@ class CreateDropScreen extends StatefulWidget {
     HashtagRepository? hashtagRepository,
     ModerationRepository? moderationRepository,
     AppealRepository? appealRepository,
+    FollowRepository? followRepository,
     this.draft,
     @visibleForTesting this.debugInitialImagesBytes,
   })  : _profileRepository = profileRepository,
         _hashtagRepository = hashtagRepository,
         _moderationRepository = moderationRepository,
-        _appealRepository = appealRepository;
+        _appealRepository = appealRepository,
+        _followRepository = followRepository;
 
   final DropRepository dropRepository;
 
@@ -104,6 +110,10 @@ class CreateDropScreen extends StatefulWidget {
   // Same shape again -- WYN-030's appeal entry point on the Restrict banner.
   final AppealRepository? _appealRepository;
 
+  // Same shape again -- WYN-097's Audience Selector (friend list for
+  // "ซ่อนเพื่อนบางคน"/"เพื่อนที่สนิท").
+  final FollowRepository? _followRepository;
+
   @override
   State<CreateDropScreen> createState() => _CreateDropScreenState();
 }
@@ -119,7 +129,18 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
           ModerationRepository(Supabase.instance.client);
   late final AppealRepository _appealRepository =
       widget._appealRepository ?? AppealRepository(Supabase.instance.client);
+  late final FollowRepository _followRepository =
+      widget._followRepository ?? FollowRepository(Supabase.instance.client);
   Set<String> _mentionedUserIds = {};
+
+  // WYN-097: who can see this Drop -- see AudienceOption's own doc
+  // comment. [_excludedFriendIds] only matters when [_audience] is
+  // AudienceOption.friendsExcept -- kept here (parent state), not
+  // ExcludeFriendsScreen's own local state, so a 2nd visit to that
+  // screen in the same composing session shows what was already
+  // selected (Design spec's Screen 3 "กลับมาจาก Screen 3 ครั้งที่ 2").
+  AudienceOption _audience = AudienceOption.everyone;
+  Set<String> _excludedFriendIds = {};
 
   // 04-drop.tsx's header avatar -- fetched once, best-effort (a failed
   // fetch just leaves the avatar on its fallback-letter state, same
@@ -463,6 +484,79 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     );
   }
 
+  /// WYN-097, Design spec Screen 2 -- opens the 5-option Audience
+  /// Selector sheet. "ทุกคน"/"เพื่อน"/"เฉพาะฉัน" apply immediately;
+  /// "ซ่อนเพื่อนบางคน"/"เพื่อนที่สนิท" hand off to a follow-up screen
+  /// each (see [_openExcludeFriends]/[_openCloseFriendsForAudience]).
+  Future<void> _showAudiencePicker() async {
+    final selected = await showModalBottomSheet<AudienceOption>(
+      context: context,
+      builder: (sheetContext) => _AudiencePickerSheet(currentValue: _audience),
+    );
+    if (selected == null || !mounted) return;
+
+    switch (selected) {
+      case AudienceOption.friendsExcept:
+        await _openExcludeFriends();
+      case AudienceOption.closeFriends:
+        await _openCloseFriendsForAudience();
+      case AudienceOption.everyone:
+      case AudienceOption.friends:
+      case AudienceOption.onlyMe:
+        setState(() => _audience = selected);
+    }
+  }
+
+  /// Design spec Screen 3 -- multi-select "เพื่อนที่จะซ่อน", per-post
+  /// (not persisted). Carries [_excludedFriendIds] in as
+  /// [ExcludeFriendsScreen.initiallySelected] so a 2nd visit in the
+  /// same composing session shows what was already picked.
+  Future<void> _openExcludeFriends() async {
+    final result = await Navigator.of(context).push<Set<String>>(
+      MaterialPageRoute(
+        builder: (_) => ExcludeFriendsScreen(
+          followRepository: _followRepository,
+          initiallySelected: _excludedFriendIds,
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _audience = AudienceOption.friendsExcept;
+      _excludedFriendIds = result;
+    });
+  }
+
+  /// Design spec Screen 2/4 -- "เพื่อนที่สนิท" the very first time it's
+  /// picked (empty list) routes through CloseFriendsScreen's welcome
+  /// banner first, rather than selecting immediately -- a Drop posted
+  /// with audience = close_friends against an empty list would be
+  /// visible to nobody but the author, a confusing silent trap. Once a
+  /// list already exists, picking this option again just selects it
+  /// immediately, same as "ทุกคน"/"เพื่อน"/"เฉพาะฉัน".
+  Future<void> _openCloseFriendsForAudience() async {
+    List<Profile> existingCloseFriends;
+    try {
+      existingCloseFriends = await _followRepository.fetchCloseFriends();
+    } catch (_) {
+      existingCloseFriends = [];
+    }
+    if (!mounted) return;
+
+    if (existingCloseFriends.isEmpty) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CloseFriendsScreen(
+            followRepository: _followRepository,
+            showWelcomeBanner: true,
+          ),
+        ),
+      );
+      if (!mounted) return;
+    }
+    setState(() => _audience = AudienceOption.closeFriends);
+  }
+
   void _showComingSoon() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('ฟีเจอร์นี้จะเปิดใช้งานเร็ว ๆ นี้')),
@@ -490,6 +584,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
           options: _pollOptionControllers.map((c) => c.text.trim()).toList(),
           durationDays: _pollDurationDays,
           mentionedUserIds: _mentionedUserIds,
+          audience: _audience,
+          excludedFriendIds: _excludedFriendIds,
         );
       } else {
         final existingImageUrl = _existingImageUrl;
@@ -499,6 +595,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             imageExtensions: _imageExtensions,
             caption: _captionController.text,
             mentionedUserIds: _mentionedUserIds,
+            audience: _audience,
+            excludedFriendIds: _excludedFriendIds,
             onImageUploaded: (uploaded, total) {
               if (mounted) setState(() => _uploadedImageCount = uploaded);
             },
@@ -512,6 +610,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             imageUrl: existingImageUrl,
             caption: _captionController.text,
             mentionedUserIds: _mentionedUserIds,
+            audience: _audience,
+            excludedFriendIds: _excludedFriendIds,
           );
         } else {
           // WYNOS V1.0.0 Beta requirement 2: no image at all -- _canShare
@@ -519,6 +619,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
           await widget.dropRepository.createTextDrop(
             caption: _captionController.text,
             mentionedUserIds: _mentionedUserIds,
+            audience: _audience,
+            excludedFriendIds: _excludedFriendIds,
           );
         }
       }
@@ -688,7 +790,10 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const _AudienceChip(),
+                            _AudienceChip(
+                              value: _audience,
+                              onTap: _isSharing ? null : _showAudiencePicker,
+                            ),
                             const SizedBox(height: WynSpacing.space3),
                             // Shared between both modes -- doubles as the
                             // Poll's question when _mode is poll (same
@@ -1107,27 +1212,182 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   }
 }
 
+/// WYN-097, Design spec Screen 1 -- was a static "ทุกคน ⌄" label with no
+/// state/interaction; now a real trigger for [_showAudiencePicker]
+/// whose label tracks the current [AudienceOption]. Same container/
+/// border/radius as the reference's original static chip -- only the
+/// text and the `InkWell`/tap handler are new.
+String audienceOptionLabel(AudienceOption value) => switch (value) {
+      AudienceOption.everyone => 'ทุกคน',
+      AudienceOption.friends => 'เพื่อน',
+      AudienceOption.friendsExcept => 'ซ่อนเพื่อนบางคน',
+      AudienceOption.closeFriends => 'เพื่อนที่สนิท',
+      AudienceOption.onlyMe => 'เฉพาะฉัน',
+    };
+
+String audienceOptionDescription(AudienceOption value) => switch (value) {
+      AudienceOption.everyone => 'ทุกคนเห็นโพสต์นี้ได้',
+      AudienceOption.friends => 'เฉพาะเพื่อนของคุณเท่านั้นที่เห็นได้',
+      AudienceOption.friendsExcept => 'เพื่อนทุกคนเห็นได้ ยกเว้นคนที่คุณเลือกซ่อน',
+      AudienceOption.closeFriends => 'เฉพาะเพื่อนที่สนิทที่คุณเลือกไว้เท่านั้น',
+      AudienceOption.onlyMe => 'เห็นเฉพาะคุณคนเดียว',
+    };
+
+IconData _audienceOptionIcon(AudienceOption value) => switch (value) {
+      AudienceOption.everyone => Icons.public,
+      AudienceOption.friends => Icons.people_outline,
+      AudienceOption.friendsExcept => Icons.person_off_outlined,
+      AudienceOption.closeFriends => Icons.star_outline,
+      AudienceOption.onlyMe => Icons.lock_outline,
+    };
+
 class _AudienceChip extends StatelessWidget {
-  const _AudienceChip();
+  const _AudienceChip({required this.value, required this.onTap});
+
+  final AudienceOption value;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1EFE9),
-        border: Border.all(color: WynColors.hairline),
+    return Semantics(
+      label: 'เลือกกลุ่มผู้ชมโพสต์ ตอนนี้เลือก ${audienceOptionLabel(value)}',
+      button: true,
+      excludeSemantics: true,
+      child: InkWell(
         borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+        onTap: onTap,
+        child: Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1EFE9),
+            border: Border.all(color: WynColors.hairline),
+            borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(audienceOptionLabel(value),
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.ink)),
+              const SizedBox(width: 2),
+              const Icon(Icons.keyboard_arrow_down, size: 13, color: WynColors.graphite),
+            ],
+          ),
+        ),
       ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('ทุกคน',
-              style: TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.ink)),
-          SizedBox(width: 2),
-          Icon(Icons.keyboard_arrow_down, size: 13, color: WynColors.graphite),
-        ],
+    );
+  }
+}
+
+/// WYN-097, Design spec Screen 2 -- the 5-option Audience Selector
+/// sheet. Same drag-handle/title/close-button structure as
+/// `_showPermissionPicker` (settings_screen.dart), duplicated rather
+/// than shared across the two files (Settings and Drop are separate
+/// features in this codebase, same posture as every other
+/// intentionally-not-shared bottom-sheet builder here) -- the part
+/// that's actually new is the icon+subtitle per row, and the 2 options
+/// ("ซ่อนเพื่อนบางคน"/"เพื่อนที่สนิท") that show a `chevron_right`
+/// instead of a radio because they hand off to a follow-up screen
+/// (see [_CreateDropScreenState._showAudiencePicker]) rather than
+/// applying immediately.
+class _AudiencePickerSheet extends StatelessWidget {
+  const _AudiencePickerSheet({required this.currentValue});
+
+  final AudienceOption currentValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
+        // Design spec's Responsive Behavior: 5 rows+subtitle is taller
+        // than the 3-row permission picker this is otherwise modeled
+        // on -- can overflow a short screen height. SingleChildScrollView
+        // wraps the whole sheet body (header included) rather than just
+        // the row list, the simpler of the two shapes Flutter's modal
+        // bottom sheet sizing (bounded, not unbounded, height) actually
+        // supports without extra plumbing -- the header only scrolls
+        // away too on a screen short enough that this matters at all.
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: WynSpacing.space2),
+              Center(
+                child: Container(
+                  width: 32,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: WynSpacing.space4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text('ใครเห็นโพสต์นี้ได้บ้าง',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  ),
+                  SizedBox(
+                    width: WynSpacing.touchTargetMin,
+                    height: WynSpacing.touchTargetMin,
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      icon: const Icon(Icons.close),
+                      tooltip: 'ปิด',
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: WynSpacing.space2),
+              for (final option in AudienceOption.values)
+              Semantics(
+                label:
+                    '${audienceOptionLabel(option)} — ${audienceOptionDescription(option)}',
+                selected: option == currentValue,
+                excludeSemantics: true,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(_audienceOptionIcon(option)),
+                  title: Text(audienceOptionLabel(option)),
+                  subtitle: Text(audienceOptionDescription(option)),
+                  // "ซ่อนเพื่อนบางคน"/"เพื่อนที่สนิท" always show both a
+                  // radio (when currently selected) and a chevron
+                  // (Design spec's "โชว์ทั้ง radio (checked) และ chevron
+                  // คู่กัน" -- signals "selected" AND "tap to edit the
+                  // list" at once for those 2 options specifically).
+                  trailing: switch (option) {
+                    AudienceOption.friendsExcept || AudienceOption.closeFriends =>
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (option == currentValue)
+                            Icon(Icons.radio_button_checked,
+                                color: Theme.of(context).colorScheme.primary),
+                          const Icon(Icons.chevron_right),
+                        ],
+                      ),
+                    _ => Icon(
+                        option == currentValue
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        color: option == currentValue
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                  },
+                  onTap: () => Navigator.of(context).pop(option),
+                ),
+              ),
+              const SizedBox(height: WynSpacing.space4),
+            ],
+          ),
+        ),
       ),
     );
   }

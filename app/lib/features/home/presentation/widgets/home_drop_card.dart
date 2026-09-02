@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../drop/data/drop.dart' show AudienceOption;
 import '../../../drop/presentation/drop_detail_screen.dart' show dropShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
@@ -444,25 +445,33 @@ class HomeDropCard extends StatelessWidget {
                       semanticsLabel: 'ดูคอมเมนต์',
                       onTap: onTap,
                     ),
-                    const SizedBox(width: WynSpacing.space5),
-                    ActionMetric(
-                      icon: Icons.repeat,
-                      iconSize: 17,
-                      count: item.redropCount,
-                      // WYN-089: same active-state color the Focused Action
-                      // Bar (DropDetailScreen._buildFocusedActionBar) has
-                      // used for this all along -- only the icon changes
-                      // color, the count stays graphite (same convention
-                      // as Like: the number is a total, not a status
-                      // indicator).
-                      color: item.redroppedByMe
-                          ? WynColors.sapphire
-                          : WynColors.graphite,
-                      semanticsLabel: item.redroppedByMe
-                          ? 'รีโพสต์แล้ว กดเพื่อเลือกดำเนินการ'
-                          : 'กดเพื่อรีโพสต์',
-                      onTap: () => _openRedropSheet(context),
-                    ),
+                    // WYN-097, Design spec Screen 6: hidden entirely
+                    // (not disabled/greyed) once this post's audience
+                    // isn't "ทุกคน" -- prevents "รีโพสต์ได้แต่คนอื่นเห็น
+                    // แค่บางคน" confusion, same "ซ่อนเองอัตโนมัติ"
+                    // posture the 9-image toolbar limit (WYN-071)
+                    // already established.
+                    if (item.audience == AudienceOption.everyone) ...[
+                      const SizedBox(width: WynSpacing.space5),
+                      ActionMetric(
+                        icon: Icons.repeat,
+                        iconSize: 17,
+                        count: item.redropCount,
+                        // WYN-089: same active-state color the Focused Action
+                        // Bar (DropDetailScreen._buildFocusedActionBar) has
+                        // used for this all along -- only the icon changes
+                        // color, the count stays graphite (same convention
+                        // as Like: the number is a total, not a status
+                        // indicator).
+                        color: item.redroppedByMe
+                            ? WynColors.sapphire
+                            : WynColors.graphite,
+                        semanticsLabel: item.redroppedByMe
+                            ? 'รีโพสต์แล้ว กดเพื่อเลือกดำเนินการ'
+                            : 'กดเพื่อรีโพสต์',
+                        onTap: () => _openRedropSheet(context),
+                      ),
+                    ],
                     // WYN-088: hidden on the Home feed (showViewCount:
                     // false there) -- still shown everywhere else this
                     // card is reused (Profile's 3 tabs, hashtag feed).

@@ -1006,4 +1006,70 @@ void main() {
       );
     });
   });
+
+  // WYN-097, Design spec Screen 6.
+  group('ReDrop button hidden for non-"ทุกคน" audience (WYN-097)', () {
+    testWidgets('the FocusedActionBar has no ReDrop icon when the '
+        "Drop's audience is not everyone", (tester) async {
+      final drop = Drop(
+        id: 'd-audience',
+        authorId: 'someone-else',
+        authorUsername: 'namfah',
+        imageUrl: 'https://example.supabase.co/drops/d-audience.jpg',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+        audience: AudienceOption.onlyMe,
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: repo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
+        ),
+      ));
+      await tester.pump();
+      tester.takeException();
+
+      expect(find.byIcon(Icons.repeat), findsNothing);
+      // Like is still there -- only ReDrop is conditionally hidden.
+      expect(find.byIcon(Icons.favorite_border), findsOneWidget);
+    });
+
+    testWidgets('the ReDrop icon is shown as usual for audience == '
+        'everyone (no regression)', (tester) async {
+      final drop = Drop(
+        id: 'd-audience-2',
+        authorId: 'someone-else',
+        authorUsername: 'namfah',
+        imageUrl: 'https://example.supabase.co/drops/d-audience-2.jpg',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: repo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
+        ),
+      ));
+      await tester.pump();
+      tester.takeException();
+
+      expect(find.byIcon(Icons.repeat), findsOneWidget);
+    });
+  });
 }

@@ -51,6 +51,7 @@ class HomeFeedItem {
     this.pollOptionCounts,
     this.imageWidth,
     this.imageHeight,
+    this.audience = AudienceOption.everyone,
   });
 
   final String id;
@@ -149,6 +150,13 @@ class HomeFeedItem {
   final int? pollTotalVotes;
   final List<int>? pollOptionCounts;
 
+  /// WYN-097: see [Drop.audience]'s identical doc comment -- 'everyone'
+  /// for every Pop-typed row (Pop has no audience concept) and, for a
+  /// ReDrop-sourced row, the *original* Drop's own audience (a ReDrop
+  /// of a non-'everyone' Drop is only reachable at all by someone who
+  /// could already see the original, per RLS).
+  final AudienceOption audience;
+
   bool get isPoll => pollId != null;
 
   bool get pollResultsVisible => pollTotalVotes != null;
@@ -234,6 +242,7 @@ class HomeFeedItem {
         pollMyVoteIndex: pollMyVoteIndex ?? this.pollMyVoteIndex,
         pollTotalVotes: pollTotalVotes ?? this.pollTotalVotes,
         pollOptionCounts: pollOptionCounts ?? this.pollOptionCounts,
+        audience: audience,
       );
 
   String get redropperNameOrUsername => displayNameOrUsername(
@@ -276,6 +285,7 @@ class HomeFeedItem {
         pollMyVoteIndex: pollMyVoteIndex,
         pollTotalVotes: pollTotalVotes,
         pollOptionCounts: pollOptionCounts,
+        audience: audience,
       );
 
   /// Converts to the full [Pop] object PopClipView expects. Only valid
@@ -332,6 +342,7 @@ class HomeFeedItem {
         pollMyVoteIndex: drop.pollMyVoteIndex,
         pollTotalVotes: drop.pollTotalVotes,
         pollOptionCounts: drop.pollOptionCounts,
+        audience: drop.audience,
       );
 
   /// [pollId]/[pollOptions]/[pollExpiresAt] read straight off
@@ -392,6 +403,10 @@ class HomeFeedItem {
       pollMyVoteIndex: pollMyVoteIndex,
       pollTotalVotes: pollTotalVotes,
       pollOptionCounts: pollOptionCounts,
+      // WYN-097: home_feed's own trailing column (see supabase/schema.sql's
+      // "append a fresh full redefinition" of this view) -- defaults to
+      // `everyone` on any fetch path/fixture that doesn't select it yet.
+      audience: audienceOptionFromString(map['audience'] as String?),
     );
   }
 }

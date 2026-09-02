@@ -200,27 +200,53 @@ class DropRepository {
   /// WYN-071: Profile's "Likes" tab -- Drops [authorId] has Liked, newest
   /// Like first (not newest Drop first -- ordered by `drop_likes.
   /// created_at`, mirroring how a Likes tab reads on the reference apps
-  /// this was modeled on). `drop_likes` is already public-read (`using
-  /// (true)`, see schema.sql) -- Founder decision 2026-08-24 makes this
-  /// tab itself public the same way, so no new RLS is needed at all,
-  /// only this query. The embedded `drops!inner(...)` still goes
-  /// through `drops`' own RLS, so a Liked-but-since-moderated/deleted/
-  /// blocked-author Drop is silently excluded rather than surfaced.
+  /// this was modeled on).
+  ///
+  /// WYN-099: no longer a raw `.from('drop_likes')` query -- that would
+  /// bypass [authorId]'s own `likes_visibility` setting entirely (see
+  /// .wyn/docs/product/wyn-099-likes-privacy.md's "Architecture
+  /// Decision" for why `drop_likes` itself still has to stay
+  /// public-read: `like_count`/`liked_by` on every Drop across the app
+  /// depend on it too). Calls `fetch_liked_drop_ids()` first -- a
+  /// SECURITY DEFINER RPC that enforces `internal.can_view_likes()`
+  /// (and, per that spec's Edge Case 3, `internal.can_view_drop_audience()`
+  /// so a friend's "เฉพาะฉัน" Drop that [authorId] liked never leaks
+  /// through this tab) -- then fetches the rich card shape for exactly
+  /// those ids, preserving the RPC's own order. The second query still
+  /// goes through `drops`' own RLS as an ordinary client select
+  /// (defense in depth), so a Liked-but-since-moderated/deleted/
+  /// blocked-author Drop is silently excluded rather than surfaced,
+  /// same as before this change.
   Future<List<Drop>> fetchLikedByAuthor({
     required String authorId,
     required int page,
   }) async {
     final userId = _client.auth.currentUser!.id;
-    final from = page * pageSize;
-    final to = from + pageSize - 1;
 
-    final likeRows = await _client
-        .from('drop_likes')
-        .select('drops!inner($_dropSelect)')
-        .eq('user_id', authorId)
-        .order('created_at', ascending: false)
-        .range(from, to);
-    final rows = likeRows.map((row) => row['drops'] as Map<String, dynamic>).toList();
+    final idRows = await _client.rpc(
+      'fetch_liked_drop_ids',
+      params: {'p_target_user_id': authorId, 'p_page': page},
+    ) as List<dynamic>;
+    final orderedIds =
+        idRows.map((row) => row['drop_id'] as String).toList(growable: false);
+    if (orderedIds.isEmpty) return [];
+
+    final fetched = await _client
+        .from('drops')
+        .select(_dropSelect)
+        .inFilter('id', orderedIds);
+    final byId = {
+      for (final row in fetched) row['id'] as String: row,
+    };
+    // fetch_liked_drop_ids' own order is the source of truth (newest
+    // Like first) -- the second query above has no ORDER BY of its own
+    // to match it, and a row missing here (blocked/private/deleted,
+    // filtered out by drops' RLS on this second query) is simply
+    // skipped rather than raising.
+    final rows = [
+      for (final id in orderedIds)
+        if (byId[id] != null) byId[id]!,
+    ];
 
     final dropIds = rows.map((row) => row['id'] as String).toList();
     final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
@@ -579,12 +605,18 @@ class DropRepository {
     required List<String> options,
     required int durationDays,
     Set<String> mentionedUserIds = const {},
+    // WYN-097: same audience choice image/text Drops get (see
+    // [createDrop]/[_insertDrop]) -- a Poll Drop is still a Drop.
+    AudienceOption audience = AudienceOption.everyone,
+    Set<String> excludedFriendIds = const {},
   }) {
     return _client.rpc('create_poll_drop', params: {
       'p_caption': question.trim(),
       'p_options': options,
       'p_duration_days': durationDays,
       'p_mentioned_user_ids': mentionedUserIds.toList(),
+      'p_audience': audience.dbValue,
+      'p_excluded_friend_ids': excludedFriendIds.toList(),
     });
   }
 
@@ -623,6 +655,11 @@ class DropRepository {
     required List<String> imageExtensions,
     required String caption,
     Set<String> mentionedUserIds = const {},
+    // WYN-097: who can see this Drop -- see [AudienceOption]'s doc
+    // comment. [excludedFriendIds] only matters when [audience] is
+    // [AudienceOption.friendsExcept] (Product spec's "ซ่อนเพื่อนบางคน").
+    AudienceOption audience = AudienceOption.everyone,
+    Set<String> excludedFriendIds = const {},
     // WYN-094: fired after each image finishes uploading (not a
     // byte-level callback -- the Supabase storage client this app
     // uses doesn't expose one -- but real progress per image, driven
@@ -658,6 +695,8 @@ class DropRepository {
       allImageDimensions: imageDimensions,
       caption: caption,
       mentionedUserIds: mentionedUserIds,
+      audience: audience,
+      excludedFriendIds: excludedFriendIds,
     );
   }
 
@@ -672,11 +711,15 @@ class DropRepository {
     required String imageUrl,
     required String caption,
     Set<String> mentionedUserIds = const {},
+    AudienceOption audience = AudienceOption.everyone,
+    Set<String> excludedFriendIds = const {},
   }) {
     return _insertDrop(
       imageUrl: imageUrl,
       caption: caption,
       mentionedUserIds: mentionedUserIds,
+      audience: audience,
+      excludedFriendIds: excludedFriendIds,
     );
   }
 
@@ -689,6 +732,8 @@ class DropRepository {
   Future<void> createTextDrop({
     required String caption,
     Set<String> mentionedUserIds = const {},
+    AudienceOption audience = AudienceOption.everyone,
+    Set<String> excludedFriendIds = const {},
   }) {
     if (caption.trim().isEmpty) {
       throw ArgumentError('A text-only Drop needs a non-empty caption');
@@ -697,6 +742,8 @@ class DropRepository {
       imageUrl: null,
       caption: caption,
       mentionedUserIds: mentionedUserIds,
+      audience: audience,
+      excludedFriendIds: excludedFriendIds,
     );
   }
 
@@ -704,6 +751,13 @@ class DropRepository {
     required String? imageUrl,
     required String caption,
     required Set<String> mentionedUserIds,
+    // WYN-097: written straight onto the new `drops.audience` column;
+    // [excludedFriendIds] only produces `drop_audience_exclusions` rows
+    // when [audience] is [AudienceOption.friendsExcept] -- an unrelated
+    // choice for any other audience value is silently ignored rather
+    // than raising, so a caller doesn't have to conditionally omit it.
+    AudienceOption audience = AudienceOption.everyone,
+    Set<String> excludedFriendIds = const {},
     // WYN-071: every image (including [imageUrl] itself, at position 0)
     // -- same "position 0 lives in drop_images too" convention the
     // schema.sql backfill migration establishes. Empty/omitted for the
@@ -728,10 +782,21 @@ class DropRepository {
           'caption': normalizeOptionalText(caption.trim()),
           'image_width': primaryDimensions?.$1,
           'image_height': primaryDimensions?.$2,
+          'audience': audience.dbValue,
         })
         .select('id')
         .single();
     final dropId = row['id'] as String;
+
+    // WYN-097: only meaningful for AudienceOption.friendsExcept -- a
+    // non-empty excludedFriendIds passed alongside any other audience
+    // is silently ignored (see this method's own doc comment).
+    if (audience == AudienceOption.friendsExcept && excludedFriendIds.isNotEmpty) {
+      await _client.from('drop_audience_exclusions').insert([
+        for (final excludedId in excludedFriendIds)
+          {'drop_id': dropId, 'excluded_user_id': excludedId},
+      ]);
+    }
 
     if (allImageUrls.isNotEmpty) {
       await _client.from('drop_images').insert([

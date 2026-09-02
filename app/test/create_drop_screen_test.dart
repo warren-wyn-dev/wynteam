@@ -4,10 +4,15 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/data/drop_draft.dart';
 import 'package:wyn/features/drop/presentation/create_drop_screen.dart';
+import 'package:wyn/features/follow/presentation/close_friends_screen.dart';
+import 'package:wyn/features/follow/presentation/exclude_friends_screen.dart';
+import 'package:wyn/features/profile/data/profile.dart';
 
 import 'support/recording_drop_repository.dart';
+import 'support/recording_follow_repository.dart';
 import 'support/recording_profile_repository.dart';
 
 /// CreateDropScreen, restyled to `04-drop.tsx` (2026-08-29, Founder-
@@ -647,6 +652,170 @@ void main() {
       expect(find.byType(LinearProgressIndicator), findsNothing);
       expect(find.text('แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
       expect(tester.widget<TextButton>(postButton()).onPressed, isNotNull);
+    });
+  });
+
+  // WYN-097 -- Audience Selector.
+  group('Audience Selector (WYN-097)', () {
+    late RecordingDropRepository audienceRepo;
+    late RecordingFollowRepository followRepo;
+
+    setUp(() {
+      audienceRepo = RecordingDropRepository();
+      followRepo = RecordingFollowRepository();
+    });
+
+    Widget buildScreen() => MaterialApp(
+          home: CreateDropScreen(
+            dropRepository: audienceRepo,
+            profileRepository: profileRepo,
+            followRepository: followRepo,
+          ),
+        );
+
+    testWidgets('defaults to "ทุกคน" and posting without touching it '
+        'passes AudienceOption.everyone', (tester) async {
+      await tester.pumpWidget(buildScreen());
+      expect(find.text('ทุกคน'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(postButton());
+      await tester.pumpAndSettle();
+
+      expect(audienceRepo.createTextDropArgs.single['audience'],
+          AudienceOption.everyone);
+    });
+
+    testWidgets('tapping the chip opens a sheet with all 5 options',
+        (tester) async {
+      await tester.pumpWidget(buildScreen());
+
+      await tester.tap(find.text('ทุกคน'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ใครเห็นโพสต์นี้ได้บ้าง'), findsOneWidget);
+      expect(find.text('ทุกคนเห็นโพสต์นี้ได้'), findsOneWidget);
+      expect(find.text('เพื่อน'), findsOneWidget);
+      expect(find.text('ซ่อนเพื่อนบางคน'), findsOneWidget);
+      expect(find.text('เพื่อนที่สนิท'), findsOneWidget);
+      expect(find.text('เฉพาะฉัน'), findsOneWidget);
+    });
+
+    testWidgets('selecting "เพื่อน" applies immediately, updates the chip, '
+        'and is passed to createTextDrop', (tester) async {
+      await tester.pumpWidget(buildScreen());
+
+      await tester.tap(find.text('ทุกคน'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('เพื่อน'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('เพื่อน'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(postButton());
+      await tester.pumpAndSettle();
+
+      expect(audienceRepo.createTextDropArgs.single['audience'],
+          AudienceOption.friends);
+    });
+
+    testWidgets('selecting "เฉพาะฉัน" applies immediately and updates the '
+        'chip', (tester) async {
+      await tester.pumpWidget(buildScreen());
+
+      await tester.tap(find.text('ทุกคน'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('เฉพาะฉัน'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('เฉพาะฉัน'), findsOneWidget);
+    });
+
+    testWidgets(
+        'selecting "ซ่อนเพื่อนบางคน" opens ExcludeFriendsScreen; picking '
+        'friends there sets the chip and is passed through on post',
+        (tester) async {
+      followRepo.mutualFollows = [
+        const Profile(id: 'u1', username: 'namfah', displayName: 'Nam Fah'),
+      ];
+
+      await tester.pumpWidget(buildScreen());
+
+      await tester.tap(find.text('ทุกคน'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ซ่อนเพื่อนบางคน'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ExcludeFriendsScreen), findsOneWidget);
+
+      await tester.tap(find.text('@namfah'));
+      await tester.pump();
+      await tester.tap(find.text('เสร็จสิ้น (1)'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ซ่อนเพื่อนบางคน'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(postButton());
+      await tester.pumpAndSettle();
+
+      final args = audienceRepo.createTextDropArgs.single;
+      expect(args['audience'], AudienceOption.friendsExcept);
+    });
+
+    testWidgets(
+        'selecting "เพื่อนที่สนิท" with an empty list routes through '
+        'CloseFriendsScreen\'s welcome banner first, then selects it',
+        (tester) async {
+      // At least one mutual follow, so CloseFriendsScreen renders its
+      // welcome banner + list instead of the (higher-priority) "no
+      // friends at all" empty state -- this test is specifically about
+      // the empty *close-friends* list, not an empty mutual-follow list.
+      followRepo.mutualFollows = [
+        const Profile(id: 'u1', username: 'namfah', displayName: 'Nam Fah'),
+      ];
+
+      await tester.pumpWidget(buildScreen());
+
+      await tester.tap(find.text('ทุกคน'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('เพื่อนที่สนิท'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CloseFriendsScreen), findsOneWidget);
+      expect(
+        find.text('คุณยังไม่มีเพื่อนที่สนิท เลือกจากรายชื่อเพื่อนของคุณได้เลย'),
+        findsOneWidget,
+      );
+
+      // Back out of CloseFriendsScreen -- selecting it doesn't require
+      // adding anyone right there, per Design spec.
+      await tester.tap(find.byIcon(Icons.chevron_left));
+      await tester.pumpAndSettle();
+
+      expect(find.text('เพื่อนที่สนิท'), findsOneWidget);
+      expect(find.byType(CreateDropScreen), findsOneWidget);
+    });
+
+    testWidgets(
+        'selecting "เพื่อนที่สนิท" with an existing (non-empty) list '
+        'selects immediately, without opening CloseFriendsScreen',
+        (tester) async {
+      followRepo.closeFriends = [const Profile(id: 'u1', username: 'namfah', displayName: 'Nam Fah')];
+
+      await tester.pumpWidget(buildScreen());
+
+      await tester.tap(find.text('ทุกคน'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('เพื่อนที่สนิท'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CloseFriendsScreen), findsNothing);
+      expect(find.text('เพื่อนที่สนิท'), findsOneWidget);
     });
   });
 }
