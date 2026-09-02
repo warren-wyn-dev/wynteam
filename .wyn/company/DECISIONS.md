@@ -754,3 +754,10 @@
 - **Founder เลือก LocationIQ** — นี่คือคำตัดสินใจสุดท้าย ไม่ใช่คำถามเปิดอีกต่อไป
 - ผลกระทบ: WYN-098's Product spec ทั้งฉบับออกแบบอิงกับ LocationIQ โดยตรง (endpoint `/v1/autocomplete`/`/v1/search` สำหรับ forward geocoding, `/v1/reverse` สำหรับ reverse geocoding) — API key ต้องเก็บเป็น secret ผ่าน Supabase Edge Function ใหม่เท่านั้น (ห้ามฝังในแอป Flutter) มิเรอร์ pattern `send-push-notification` ของ WYN-016 — **ยังบล็อกด้วย Founder/DevOps action**: ต้องสมัคร LocationIQ account จริงแล้วให้ API key มาก่อนถึงจะทดสอบ end-to-end จริงได้ (implement UI/data-model ทำได้ทันทีไม่ต้องรอ)
 - อ้างอิง: `.wyn/tasks/backlog/WYN-098.md`, `.wyn/docs/product/wyn-098-location-checkin.md`
+
+### [2026-09-02] Phase 3 AI PM full-spec pass เสร็จ — Founder ยืนยัน 2 จุดที่ scope เปลี่ยนจากที่ตัดสินใจไว้เดิม
+
+- บริบท: AI Product Manager ทำ full-spec pass ให้ WYN-097, 099–105 (ไม่รวม WYN-098 ที่แยกทำไปแล้ว) ตรวจโค้ด/schema จริงก่อนเขียนทุกฉบับ พบ 2 จุดที่ premise เดิมที่ Founder ใช้ตัดสินใจคลาดเคลื่อนจากความจริงของโค้ด ถามยืนยันกลับผ่าน popup แล้ว
+- **WYN-100 (เมนู 3 ขีด + สร้าง Club)**: ระบบ "สร้าง Club" มีอยู่แล้วครบเต็มรูปแบบตั้งแต่ WYN-014 (ผ่าน QA แล้ว) ต่างจากที่ backlog เดิมสื่อไว้ว่ายังไม่มี — สโคปจริงที่เหลือคือแค่เพิ่มไอคอน hamburger ที่ Home (เปิด `SideMenu` ที่มีอยู่แล้ว) บวกเพิ่มแถว "สร้าง Club" เข้าไปในเมนูนั้น **Founder ยืนยันให้เดินหน้าตามสโคปจริงนี้** (เล็กกว่าที่ตัดสินใจไว้เดิมมาก) — ดูรายละเอียดเต็มที่ `.wyn/docs/product/wyn-100-club-menu-create-club.md`
+- **WYN-105 (ระบบ 3 ธีมสี)**: งานใหญ่กว่าที่ backlog เดิมประเมินไว้มาก เพราะโค้ดสีทั้งแอปอ้างอิงแบบ static const ไม่ผ่าน `Theme.of(context)` ต้องไล่แก้เกือบทุกไฟล์ UI **Founder เห็นด้วยให้เลื่อนไปทำท้ายสุดของรอบ Beta2** (ตรงกับ Priority note เดิมของ backlog file อยู่แล้ว "ต้องทำท้ายๆ เพื่อลดการชนกับงาน UI อื่นที่ยังไม่นิ่ง") — ดูรายละเอียดเต็มที่ `.wyn/docs/product/wyn-105-theme-system.md`
+- อ้างอิง: `.wyn/docs/product/wyn-100-club-menu-create-club.md`, `.wyn/docs/product/wyn-105-theme-system.md`, `.wyn/tasks/backlog/WYN-100.md`, `.wyn/tasks/backlog/WYN-105.md`
