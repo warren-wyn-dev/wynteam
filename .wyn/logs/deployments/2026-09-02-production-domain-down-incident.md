@@ -44,5 +44,20 @@ This cannot be diagnosed or fixed from this session: no Vercel dashboard/API cre
 ## Rollback Plan
 No code rollback needed/possible — no code changed, and the last deploy (run #32, WYN-076) already succeeded on this exact same alias before the domain change. Recovery is entirely on the Vercel side (Project Settings → Domains), owned by Founder's Vercel account access.
 
+## Update — root cause confirmed, app is NOT actually down
+Founder confirmed the domain added was **`wynos.online`**. Checked it directly:
+
+```
+curl -sS -D - https://wynos.online/          -> HTTP/2 200 (Vercel, serves the WYNOS Beta Flutter web build)
+curl https://wynos.online/main.dart.js       -> 200
+curl https://wynos.online/flutter_bootstrap.js -> 200
+curl https://wynos.online/manifest.json      -> 200
+curl https://www.wynos.online/               -> 200
+```
+
+**The production app is live and fully functional at `https://wynos.online`** (and `www.wynos.online`). Root cause of the screenshot: adding `wynos.online` as a custom domain on the "web" project detached the project's old auto-generated default domain `web-neon-sigma-66.vercel.app` from the project (a known Vercel behavior — the default `.vercel.app` alias isn't guaranteed to keep working once a custom domain takes over production; here it shows `DEPLOYMENT_NOT_FOUND` instead of redirecting). This is a **stale/cosmetic broken link, not a real production outage** — nothing served to real users on `wynos.online` is affected.
+
 ## Next step
-Reported to Founder with a request for: (a) what domain was added, and (b) a check of Vercel Dashboard → project "web" → Settings → Domains to see whether `web-neon-sigma-66.vercel.app` is still listed under that project.
+Asked Founder whether:
+1. `wynos.online` should become the documented canonical production URL going forward (replacing `web-neon-sigma-66.vercel.app` everywhere it's referenced in `.wyn/company/CONTEXT.md` and elsewhere), and
+2. Whether they still want the old `web-neon-sigma-66.vercel.app` link restored (optional — cosmetic only, requires Vercel Dashboard → project "web" → Settings → Domains → re-add it, if Vercel allows).
