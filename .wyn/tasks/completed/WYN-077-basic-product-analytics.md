@@ -109,3 +109,9 @@ Severity: N/A
 Security Findings: Unchanged from the first round (see that section) — this fix didn't touch RLS, the SQL schema, or the admin dashboard.
 Recommendation: Approve. The one remaining honest caveat, carried over from both rounds: nothing in this task has been verified against a real Flutter toolchain (`flutter analyze`/`flutter test`), because none is available in this sandbox — this is a pre-existing, structural environment limitation (see `.wyn/company/CONTEXT.md`'s many prior notes on this same gap), not something specific to this task's quality. AI Deploy & DevOps or whoever has a real Flutter toolchain available should run `flutter test app/test/create_drop_screen_test.dart` for real before this ships, as a final empirical confirmation of everything this round traced by hand.
 Final Status: PASS
+
+## Deploy notes (2026-09-02) — DEPLOYED
+
+Merged via PR #211 → `main`. Real merge conflict with a concurrent PR (#210/#212, "WYNOS First Login/Account Onboarding" — also collided on task ID "WYN-077", a naming collision from two independent sessions, not resolved). Resolved by relocating `logSignupCompleted()` from the deleted `UsernameSetupScreen` to the new `OnboardingFlow._enterWynos()`. A staging mistake during that resolution meant the first deploy (run #36, `b87872c`) shipped without that one call; caught immediately by this session's own stop-hook, fixed in PR #213, redeployed as run #37 (`8dc18d4`) — both `deploy-web.yml` runs completed `success`. Full narrative: `.wyn/logs/deployments/2026-09-02-wyn-077-real-deploy.md`.
+
+Founder said they'd run the production SQL migration via Supabase Dashboard before this deploy — not independently confirmed from this session (no Supabase credentials here). Admin Dashboard's Growth section remains undeployed (no live `admin/` Vercel project yet — pre-existing gap, not new).
