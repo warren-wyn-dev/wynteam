@@ -26,12 +26,24 @@ User _fakeUser({
       createdAt: DateTime.now().toIso8601String(),
     );
 
-// Same "SupabaseClient() only stores config, makes no network calls until
-// a method is invoked" reasoning as email_auth_screen_test.dart -- lets
-// ProfileOptionalStep's uploadAvatar callback exist without ever touching
-// Supabase.instance (which nothing in this file initializes).
-ProfileRepository _fakeProfileRepository() =>
-    ProfileRepository(SupabaseClient('https://example.supabase.co', 'test-key'));
+// autoRefreshToken: false -- same reasoning as
+// RecordingAuthRepository's own SupabaseClient (see that file's doc
+// comment): a *default* SupabaseClient starts GoTrueClient's periodic
+// auto-refresh Timer immediately on construction, which is still
+// pending when flutter_test tears the test's zone down at the end of
+// each `testWidgets` body ("A Timer is still pending" failure).
+// Otherwise, same "SupabaseClient() only stores config, makes no
+// network calls until a method is invoked" reasoning as
+// email_auth_screen_test.dart -- lets ProfileOptionalStep's
+// uploadAvatar callback exist without ever touching Supabase.instance
+// (which nothing in this file initializes).
+ProfileRepository _fakeProfileRepository() => ProfileRepository(
+      SupabaseClient(
+        'https://example.supabase.co',
+        'test-key',
+        authOptions: const AuthClientOptions(autoRefreshToken: false),
+      ),
+    );
 
 Future<void> _fillBirthday(
   WidgetTester tester, {

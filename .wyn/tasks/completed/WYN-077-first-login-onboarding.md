@@ -1,6 +1,6 @@
 # Task — WYN-077: WYNOS First Login / Account Onboarding
 
-Status: implemented, pending real QA/deploy (no Flutter SDK or Supabase project available in this session's sandbox -- see Known Issues below)
+Status: implemented, `flutter analyze`/`flutter test` verified green (2026-09-02, see Verification below), pending real Supabase project/device QA -- see Known Issues below
 Owner: Founder (product + design spec provided directly) -> AI Coding (this session)
 Feature: Extends WYN-002 (Authentication & Onboarding) / WYN-003 (User Profile) -- does NOT replace either. WYN-002's Google/Apple/email/phone sign-in, guest browsing (WYN-072), moderation gate (WYN-029/030), and Document Acceptance gate (WYN-046) are all unchanged.
 
@@ -91,18 +91,41 @@ WELCOME -> GOOGLE AUTH -> BIRTHDAY -> USERNAME -> DISPLAY NAME -> PASSWORD
   "fully onboarded" so every unrelated existing test keeps passing
   unchanged) and recording overrides for every new onboarding method.
 
+## Verification (2026-09-02, after PR #210 merged)
+
+This sandbox had no Flutter SDK for the first pass (PR #210, commit
+`fd8af81`) -- every file was reviewed manually instead, and every
+less-certain `supabase_flutter`/`gotrue` API call (`UserAttributes`,
+`AuthWeakPasswordException`, `User.appMetadata`/`userMetadata`
+nullability, `updateUser`) was independently verified against the pinned
+`gotrue: 2.27.2` package docs before use. As a follow-up (still this
+Founder request, "ทำให้เสร็จทุกอย่าง"), downloaded the project's own exact
+pinned Flutter SDK (3.47.1 stable, matching `.metadata`'s revision
+`6655482ec0` byte-for-byte, sha256-verified) directly from
+`storage.googleapis.com/flutter_infra_release` and ran the real thing for
+the first time on this branch:
+
+- `flutter analyze`: found 2 real issues on the first run --
+  `ambiguous_import` (`onboarding_flow.dart` imported both
+  `AuthRepository`'s and `ProfileRepository`'s separately-declared
+  `UsernameTakenException` unprefixed) and `unused_field` (`_displayName`
+  captured but never read). Both fixed (hid the unused import, wired
+  `_displayName` into a personalized Finish greeting) -- **0 issues**
+  after.
+- `flutter test`: found `onboarding_flow_test.dart`'s own
+  `_fakeProfileRepository()` helper was missing `autoRefreshToken: false`
+  on its `SupabaseClient`, leaving GoTrueClient's auto-refresh Timer
+  pending at every test's teardown (all 17 new tests failed on this one
+  bug). Fixed -- **full suite: 888/888 tests pass, 0 failures**
+  (`test/onboarding_flow_test.dart`'s own 17 included).
+
+Fix commit: `aaf7aab` on `claude/wynos-first-login-onboarding-lhn507`
+(PR #210 had already merged by the time these were found, so this
+branch was restarted from `main` per this repo's merged-PR convention
+and the fix pushed as a new PR).
+
 ## Known issues / not done in this session
 
-- **No Flutter SDK available in this sandbox** -- `flutter analyze`/
-  `flutter test`/`flutter build` could not be run here at all (previous
-  WYN-002 sessions at least had `flutter analyze`/`test`; this one has
-  neither). Every new/changed file was reviewed manually line-by-line
-  instead, and every less-certain `supabase_flutter`/`gotrue` API call
-  (`UserAttributes`, `AuthWeakPasswordException`, `User.appMetadata`/
-  `userMetadata` nullability, `updateUser`) was independently verified
-  against the pinned `gotrue: 2.27.2` package docs before use. Still,
-  **running `flutter analyze` and `flutter test` on a machine with the
-  Flutter SDK is the required next step before this merges**.
 - **No Supabase project available** -- same limitation WYN-002 has
   documented from the start. The schema migration needs to be applied
   (`supabase/schema.sql`'s new section, from the `profile_private` table
@@ -116,6 +139,7 @@ WELCOME -> GOOGLE AUTH -> BIRTHDAY -> USERNAME -> DISPLAY NAME -> PASSWORD
   progress as "4 of 4" (recalculated, not literally skipping a number) --
   intentional, not a bug.
 
-Handoff: needs `flutter analyze`/`flutter test` + AI QA & Security review
-on a machine with the Flutter SDK, then the schema migration applied to a
-real Supabase project, before AI Deploy & DevOps can ship this.
+Handoff: `flutter analyze`/`flutter test` are now verified green (see
+Verification above). Still needs: AI QA & Security review, the schema
+migration applied to a real Supabase project, and one real device/browser
+pass, before AI Deploy & DevOps can ship this.

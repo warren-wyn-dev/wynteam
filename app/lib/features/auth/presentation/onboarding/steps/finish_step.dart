@@ -11,11 +11,19 @@ class FinishStep extends StatelessWidget {
   const FinishStep({
     super.key,
     required this.onEnter,
+    this.displayName,
     this.isLoading = false,
     this.errorText,
   });
 
   final VoidCallback onEnter;
+
+  /// Only set when the Display Name step actually ran earlier in *this*
+  /// session (see OnboardingFlow's own doc comment on `_displayName`) --
+  /// null on a resumed session that started past that step, in which
+  /// case the greeting below falls back to a generic one rather than
+  /// re-fetching just for this.
+  final String? displayName;
   final bool isLoading;
   final String? errorText;
 
@@ -45,10 +53,12 @@ class FinishStep extends StatelessWidget {
                     fontSize: 26, fontWeight: FontWeight.w700, color: WynColors.ink),
               ),
               const SizedBox(height: WynSpacing.space2),
-              const Text(
-                'ยินดีต้อนรับสู่ WYNOS 👋',
+              Text(
+                displayName == null || displayName!.isEmpty
+                    ? 'ยินดีต้อนรับสู่ WYNOS 👋'
+                    : 'ยินดีต้อนรับสู่ WYNOS, $displayName 👋',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15, color: WynColors.graphite),
+                style: const TextStyle(fontSize: 15, color: WynColors.graphite),
               ),
               const Spacer(flex: 4),
               if (errorText != null) ...[
