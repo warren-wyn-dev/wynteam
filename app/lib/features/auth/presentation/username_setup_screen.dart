@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../analytics/data/analytics_repository.dart';
 import '../data/auth_repository.dart';
 import '../../../core/design/wyn_spacing.dart';
 
@@ -64,6 +66,11 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
     try {
       await widget.authRepository
           .setUsername(widget.userId, _controller.text);
+      // WYN-077: this screen only ever shows for an account that has no
+      // username yet, regardless of sign-in method -- so reaching here
+      // successfully is exactly "onboarding just finished" (see
+      // AnalyticsRepository.logSignupCompleted's doc comment).
+      unawaited(AnalyticsRepository(Supabase.instance.client).logSignupCompleted());
       widget.onUsernameSet();
     } on UsernameTakenException {
       setState(() => _status = _UsernameStatus.taken);

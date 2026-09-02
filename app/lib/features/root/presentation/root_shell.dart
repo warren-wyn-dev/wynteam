@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../analytics/data/analytics_repository.dart';
 import '../../auth/presentation/widgets/guest_gate.dart';
 import '../../chat/data/chat_repository.dart';
 import '../../club/data/club_post_repository.dart';
@@ -180,6 +181,18 @@ class _RootShellState extends State<RootShell> {
     // before Firebase is configured -- PushNotificationService.initialize
     // checks Firebase.apps itself and no-ops if empty.
     PushNotificationService(PushTokenRepository(client)).initialize();
+
+    // WYN-077: fire-once-per-session proxy for "a real user is actively
+    // using the app" -- same shape as the push-notification call above
+    // (bare, unawaited call in initState; RootShell's State survives
+    // AuthGate's rebuilds via const-widget identity, see AuthGate's own
+    // doc comment, so this genuinely runs once per sign-in rather than
+    // once per rebuild). Guests (Anonymous Sign-In, WYN-072) are
+    // excluded -- there is no "signup" to attribute a guest's session to.
+    final currentUser = client.auth.currentUser;
+    if (currentUser != null && !currentUser.isAnonymous) {
+      AnalyticsRepository(client).logSessionStart();
+    }
 
     _loadUnreadNotificationCount();
   }

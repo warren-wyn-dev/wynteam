@@ -1,5 +1,9 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../analytics/data/analytics_repository.dart';
 import '../data/auth_repository.dart';
 import '../../../core/design/wyn_spacing.dart';
 
@@ -51,6 +55,14 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
     try {
       if (_isSignUp) {
         await widget.authRepository.signUpWithEmail(email, password);
+        // WYN-077: only the sign-up branch counts as "started" a new
+        // account -- see AnalyticsRepository's doc comment for why
+        // Google/Apple OAuth isn't instrumented the same way this round.
+        unawaited(
+          AnalyticsRepository(Supabase.instance.client).logSignupStarted(
+            source: AnalyticsRepository.currentWebSource(),
+          ),
+        );
       } else {
         await widget.authRepository.signInWithEmail(email, password);
       }
