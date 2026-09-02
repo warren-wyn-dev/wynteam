@@ -424,9 +424,14 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   /// WYNOS Unified Home Feed Algorithm V1.0 -- records the "Hide" User
   /// Signal for the item at [index] and removes it from the feed right
   /// away (optimistic, same "remove now, put back on failure" shape as
-  /// [_deleteRedrop] -- there's nothing meaningful to "undo to" here
-  /// either, hiding is a one-way action for this round, see
-  /// HomeRepository.hideContent's own doc comment).
+  /// [_deleteRedrop]).
+  ///
+  /// WYN-079 (Wynos V1.0.0 Beta2, item 8): Founder wants a way back after
+  /// hiding by mistake, so a successful hide now offers a Snackbar
+  /// "เลิกทำ" (Undo) action for a few seconds -- tapping it re-inserts
+  /// the item at its original position and reverses the signal via
+  /// [HomeRepository.unhideContent]. Letting the Snackbar time out (or
+  /// dismissing it) leaves the hide in place, same as before this task.
   Future<void> _hideItem(int index) async {
     if (index < 0 || index >= _items.length) return;
     final item = _items[index];
@@ -440,6 +445,42 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _items.insert(index, item));
+      return;
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('ไม่สนใจโพสต์นี้แล้ว'),
+        action: SnackBarAction(
+          label: 'เลิกทำ',
+          onPressed: () => _undoHideItem(index, item),
+        ),
+      ),
+    );
+  }
+
+  /// Reverses a hide [item] was doing right after [_hideItem] recorded
+  /// it -- see that method's own doc comment. Re-inserts at [index]
+  /// (nothing removes items ahead of it in that window other than more
+  /// hides, which this same guard already protects against) and deletes
+  /// the "hide" feed_signals row via HomeRepository.unhideContent so a
+  /// later refresh doesn't exclude it again.
+  Future<void> _undoHideItem(int index, HomeFeedItem item) async {
+    if (!mounted) return;
+    setState(() {
+      final insertAt = index <= _items.length ? index : _items.length;
+      _items.insert(insertAt, item);
+    });
+    try {
+      await widget.homeRepository.unhideContent(
+        contentType: item.contentType,
+        contentId: item.id,
+      );
+    } catch (_) {
+      // The item is back in the feed either way (the whole point of
+      // Undo) -- a failed unhideContent just means the next fetch may
+      // exclude it again, not that this tap silently did nothing.
     }
   }
 

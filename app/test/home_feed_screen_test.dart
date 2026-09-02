@@ -229,6 +229,13 @@ void main() {
   late RecordingHomeRepository hideDropTestHomeRepository;
   late RecordingHomeRepository hidePopTestHomeRepository;
   late RecordingHomeRepository hideFailTestHomeRepository;
+  // WYN-079: dedicated instance, not shared with hideDropTestHomeRepository
+  // above -- every fixture in this file is set up once in setUpAll (see
+  // below), not per-test, so two tests sharing one RecordingHomeRepository
+  // would leak call-log state (hideContentArgs/unhideContentArgs) between
+  // them the same way every other "Hide" test here already avoids by
+  // using its own dedicated instance.
+  late RecordingHomeRepository hideDropUndoTimeoutTestHomeRepository;
 
   // WYNOSHomeSpec.md 4.8: Liked-by stacked avatars.
   late RecordingHomeRepository likedByTestHomeRepository;
@@ -440,6 +447,9 @@ void main() {
     hideFailTestHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'hide-fail-d1')],
     )..hideContentError = Exception('network error');
+    hideDropUndoTimeoutTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'hide-undo-timeout-d1')],
+    );
 
     likedByTestHomeRepository = RecordingHomeRepository(
       feedItems: [
@@ -1012,6 +1022,71 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.widgetWithIcon(IconButton, Icons.more_vert), findsOneWidget);
+    });
+
+    testWidgets(
+        'WYN-079: hiding a card offers a Snackbar "เลิกทำ" (Undo) action, '
+        'and tapping it restores the card and calls unhideContent',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        hideDropTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final moreButton = find.widgetWithIcon(IconButton, Icons.more_vert);
+      tester.widget<IconButton>(moreButton).onPressed!();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ไม่สนใจโพสต์นี้'));
+      await tester.pump();
+
+      expect(find.text('แคปชัน Drop'), findsNothing);
+      expect(find.text('เลิกทำ'), findsOneWidget);
+
+      // Same off-screen-hit-test-avoidance as elsewhere in this file (see
+      // the Poll option test above) -- the Snackbar sits at the bottom
+      // of the 800x600 test viewport, below where tester.tap() can
+      // reliably hit-test, so this invokes SnackBarAction.onPressed
+      // directly instead.
+      final undoAction =
+          find.widgetWithText(SnackBarAction, 'เลิกทำ');
+      tester.widget<SnackBarAction>(undoAction).onPressed();
+      await tester.pumpAndSettle();
+
+      expect(find.text('แคปชัน Drop'), findsOneWidget);
+      expect(
+        hideDropTestHomeRepository.unhideContentArgs,
+        [(HomeContentType.drop, 'hide-d1')],
+      );
+    });
+
+    testWidgets(
+        'WYN-079: letting the Undo Snackbar time out without tapping it '
+        'leaves the card hidden and never calls unhideContent',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        hideDropUndoTimeoutTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final moreButton = find.widgetWithIcon(IconButton, Icons.more_vert);
+      tester.widget<IconButton>(moreButton).onPressed!();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ไม่สนใจโพสต์นี้'));
+      await tester.pump();
+
+      // Not tapping "เลิกทำ" -- the card stays hidden and
+      // unhideContent is never called, whether or not/whenever the
+      // Snackbar itself eventually auto-dismisses (a stock Flutter
+      // SnackBar behavior this task doesn't change, so not re-verified
+      // here).
+      expect(find.text('แคปชัน Drop'), findsNothing);
+      expect(hideDropUndoTimeoutTestHomeRepository.unhideContentArgs, isEmpty);
     });
   });
 

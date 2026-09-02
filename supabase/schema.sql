@@ -10034,6 +10034,18 @@ create policy "Users can record their own feed signals"
   to authenticated
   with check (auth.uid() = user_id);
 
+-- WYN-079 (Wynos V1.0.0 Beta2, item 8): Founder wants "ไม่สนใจโพสต์นี้"
+-- (Hide) reversible via a Snackbar "เลิกทำ" (Undo) action, overriding
+-- this table's original "hide is one-way, no delete policy" posture --
+-- own-row-only, same auth.uid() = user_id shape as the select/insert
+-- policies above, so a user can only ever unhide content they
+-- themselves hid.
+create policy "Users can delete their own feed signals"
+  on public.feed_signals
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
 -- Total Save count for one piece of content, regardless of who's
 -- asking -- mirrors drop_view_count()'s exact reasoning (WYN-038):
 -- `saves`' own SELECT policy only lets a user see *their own* saves
