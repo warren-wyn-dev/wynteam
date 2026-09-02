@@ -14,6 +14,7 @@ import '../../follow/data/follow_request_repository.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
+import '../../root/presentation/side_menu.dart';
 import '../../saved/data/saved_repository.dart';
 import '../../search/data/discovery_repository.dart';
 import '../data/home_feed_item.dart';
@@ -38,8 +39,9 @@ enum _HomeFeedMode { forYou, following, fromYourClubs }
 /// no longer has a separate tab; "ล่าสุด" is the original WYN-007
 /// chronological ordering. Search and Notifications moved out to their
 /// own Bottom Nav tabs as part of WYN-024; this screen's own top row is
-/// now just the WYNOS wordmark + Chat entry point (see _buildHeader),
-/// not a full AppBar. See .wyn/docs/design/wyn-007-home.md,
+/// the hamburger (opens SideMenu, WYN-100) + WYNOS wordmark + Chat entry
+/// point (see _buildHeader), not a full AppBar. See
+/// .wyn/docs/design/wyn-007-home.md,
 /// .wyn/docs/design/wyn-014-club-core.md (Screen 1),
 /// .wyn/docs/design/wyn-018-home-feed-ranking.md, and
 /// .wyn/docs/design/wyn-024-bottom-nav-v1-restructure.md (Screen 2).
@@ -89,6 +91,9 @@ class HomeFeedScreen extends StatefulWidget {
 }
 
 class _HomeFeedScreenState extends State<HomeFeedScreen> {
+  // WYN-100: opens the SideMenu drawer (mirrors
+  // notification_list_screen.dart's own _scaffoldKey exactly).
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _scrollController = ScrollController();
   // WYN-064: lets _onHomeTabReselected trigger the same visual
   // pull-to-refresh affordance a manual pull would (spinner + onRefresh),
@@ -588,6 +593,16 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         _feedMode != _HomeFeedMode.fromYourClubs && _newPostCount > 0;
 
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: SideMenu(
+        profileRepository: widget.profileRepository,
+        followRepository: widget.followRepository,
+        dropRepository: widget.dropRepository,
+        popRepository: widget.popRepository,
+        savedRepository: widget.savedRepository,
+        clubRepository: widget.clubRepository,
+        clubPostRepository: widget.clubPostRepository,
+      ),
       // A real header row (wordmark + chat entry point), matching
       // design-reference/01-home.tsx's header -- not the floating
       // Positioned-over-content overlay this screen used to render the
@@ -674,23 +689,26 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
-  // WYNOS wordmark + chat entry point, matching design-reference/01-
-  // home.tsx's header row (hamburger/wordmark/search there). The
-  // reference's hamburger is left out on purpose rather than added as a
-  // dead button: this app's destinations already all live in the Bottom
-  // Nav (Settings itself is reachable from Profile), and there's no
-  // second menu for a hamburger here to open. The reference's search
-  // icon becomes chat, matching what this icon already opens everywhere
-  // else in the app (WYN-031).
+  // WYNOS wordmark + hamburger + chat entry point, matching design-
+  // reference/01-home.tsx's header row. WYN-100: the hamburger now opens
+  // the real SideMenu drawer above (Club shortcuts live there --
+  // "สร้าง Club"/"Club ของฉัน" -- previously only reachable from
+  // Notifications). Icon/size/color/tooltip match
+  // notification_list_screen.dart's own hamburger exactly (see
+  // .wyn/docs/design/wyn-100-club-menu-create-club.md, Screen 1). The
+  // reference's search icon becomes chat, matching what this icon
+  // already opens everywhere else in the app (WYN-031).
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
           WynSpacing.space2, WynSpacing.space1, WynSpacing.space2, WynSpacing.space1),
       child: Row(
         children: [
-          // Balances the chat IconButton's own ~48px width so the
-          // wordmark sits visually centered rather than drifting left.
-          const SizedBox(width: 48),
+          IconButton(
+            icon: const Icon(Icons.menu, size: 20, color: WynColors.ink),
+            tooltip: 'เมนู',
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+          ),
           Expanded(
             child: Center(
               child: Text(

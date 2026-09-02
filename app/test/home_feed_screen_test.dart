@@ -574,6 +574,26 @@ void main() {
         ),
       );
 
+  // WYN-100: hamburger icon on Home opens the real SideMenu drawer (it
+  // used to be a bare SizedBox(width: 48) spacer -- Home had no way to
+  // open the drawer at all before this).
+  testWidgets('the hamburger icon opens the SideMenu drawer', (tester) async {
+    await tester.pumpWidget(buildHome(
+      mixedFeedHomeRepository,
+      dropRepository: sharedDropRepository,
+      popRepository: sharedPopRepository,
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.byIcon(Icons.menu), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.menu));
+    await tester.pumpAndSettle();
+
+    expect(find.text('สร้าง Club'), findsOneWidget);
+    expect(find.text('Club ของฉัน'), findsOneWidget);
+  });
+
   testWidgets('renders a mix of Drop and Pop cards with type-specific UI',
       (tester) async {
     await tester.pumpWidget(buildHome(

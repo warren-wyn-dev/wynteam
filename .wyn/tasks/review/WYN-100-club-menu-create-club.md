@@ -42,3 +42,32 @@ Handoff: รอ Founder ยืนยันสโคปที่ปรับใ�
 เขียน design spec (light pass) เสร็จแล้วที่ `.wyn/docs/design/wyn-100-club-menu-create-club.md` — ยืนยันตามที่ Product spec ขอ: (1) ไอคอน hamburger บน Home **ใช้ไอคอน/สไตล์เดียวกับที่มีอยู่แล้วจริงใน `notification_list_screen.dart`เป๊ะ** (`Icons.menu`, size 20, สี `WynColors.ink`, tooltip "เมนู") แทนที่ `SizedBox(width: 48)` เดิม ตำแหน่งเดิมตรงกับที่ Founder วงไว้ในภาพ PDF อยู่แล้ว (2) แถวใหม่ "สร้าง Club" ใน `SideMenu` reuse `_MenuRow` widget เดิม (icon `Icons.add_circle_outline`) วางเหนือ "Club ของฉัน" ให้อยู่กลุ่มเดียวกัน — ทั้งสองจุด reuse component/pattern ที่มีอยู่แล้ว 100% ไม่มี component ใหม่ ไม่มี schema change ตรงตามที่ Product spec ประเมินว่างานเล็ก/เสี่ยงต่ำ
 
 Handoff: ส่งต่อ AI Coding (`/code`)
+
+## Coding Output (2026-09-02)
+
+Root cause: ไม่ใช่บั๊ก — งานใหม่ตรงตามสโคปที่ Design ยืนยันไว้ (light pass, reuse 100%)
+
+การเปลี่ยนแปลง:
+1. **`app/lib/features/home/presentation/home_feed_screen.dart`**: เพิ่ม `_scaffoldKey = GlobalKey<ScaffoldState>()` (มิเรอร์ `notification_list_screen.dart` เป๊ะ), เพิ่ม `key: _scaffoldKey` + `drawer: SideMenu(...)` เข้า `Scaffold` (ผูก repository ที่ `HomeFeedScreen` มีอยู่แล้วทุกตัว ไม่ต้อง thread dependency ใหม่ — `profileRepository`/`followRepository`/`dropRepository`/`popRepository`/`savedRepository`/`clubRepository`/`clubPostRepository` มีครบในมืออยู่แล้ว), แทนที่ `const SizedBox(width: 48)` ใน `_buildHeader()` ด้วย `IconButton(icon: Icons.menu, size: 20, color: WynColors.ink, tooltip: 'เมนู', onPressed: () => _scaffoldKey.currentState?.openDrawer())` ตรงตาม Design spec เป๊ะ — อัปเดต doc comment เดิมที่เคยบอกว่า "hamburger ตั้งใจไม่ใส่เพราะไม่มีเมนูให้เปิด" ให้ตรงกับความจริงใหม่
+2. **`app/lib/features/root/presentation/side_menu.dart`**: import `create_club_screen.dart`, เพิ่ม `_openCreateClub()` (มิเรอร์ `_openMyClubs()` เป๊ะ — pop แล้ว push `CreateClubScreen(clubRepository:..., clubPostRepository:...)`), เพิ่มแถว `_MenuRow(icon: Icons.add_circle_outline, label: 'สร้าง Club', onTap: _openCreateClub)` เหนือ "Club ของฉัน" ตามลำดับที่ Design ระบุ (โปรไฟล์ → สร้าง Club → Club ของฉัน → บันทึกไว้) — อัปเดต doc comment เดิมที่บอกว่า drawer "เปิดได้จาก Notification เท่านั้น" ให้ตรงกับความจริงใหม่ (เปิดได้จาก Home ด้วย)
+
+Files Changed:
+- `app/lib/features/home/presentation/home_feed_screen.dart`
+- `app/lib/features/root/presentation/side_menu.dart`
+- `app/test/home_feed_screen_test.dart` — เพิ่มเทส "the hamburger icon opens the SideMenu drawer" (แตะไอคอน `Icons.menu` แล้วยืนยันเห็น "สร้าง Club"/"Club ของฉัน" ใน drawer ที่เปิดมา)
+- `app/test/side_menu_test.dart` — เพิ่มเทส "tapping 'สร้าง Club' opens CreateClubScreen (WYN-100)"
+
+Reason: Founder ข้อ 7/28 (สโคปปรับใหม่ตามที่ยืนยันแล้วใน DECISIONS.md 2026-09-02) — เพิ่มไอคอน hamburger บน Home + ทางลัด "สร้าง Club" ใน `SideMenu` ที่มีอยู่แล้ว (ระบบสร้าง Club เต็มรูปแบบมีอยู่แล้วตั้งแต่ WYN-014 ไม่ต้องสร้างใหม่)
+
+Tests:
+- `flutter analyze`: สะอาด (No issues found!)
+- `flutter test`: **919/919 ผ่านหมด** (เพิ่มจาก 917 เดิม — เพิ่มสุทธิ 2 เทสใหม่)
+- Red→green พิสูจน์จริง: รันเทสทั้งสองไฟล์ก่อนแก้โค้ด (เทสใหม่ยืนยัน fail จริงเพราะยังไม่มี `Icons.menu`/drawer บน Home และยังไม่มีแถว "สร้าง Club" ใน `SideMenu`) แก้โค้ดแล้วรันซ้ำผ่านหมดทั้งไฟล์
+
+Build: ไม่ได้รัน `flutter build` จริง (ไม่มี Android SDK/Xcode ใน session นี้) — ไม่แตะ schema/backend เลย เป็นการเปลี่ยน UI ล้วนๆ
+
+Known Issues:
+- ยังไม่ได้ทดสอบภาพจริงบนอุปกรณ์ (ไม่มี simulator/emulator) — โดยเฉพาะ (1) wordmark "WYNOS" ยังอยู่กึ่งกลางจริงหลังแทนที่ `SizedBox(width: 48)` ด้วย `IconButton` ที่ความกว้างจอต่างๆ (360-430px ตาม Design spec Responsive Behavior) (2) swipe-from-edge เปิด Drawer ไม่ชนกับ gesture อื่นของ Home (feed-mode tab horizontal scroll) ตาม Risk R2 ของ Product spec — ทดสอบใน widget test ทำได้แค่ tap ไอคอนตรงๆ ไม่ได้ทดสอบ edge-swipe gesture จริง
+- ไม่ได้เพิ่ม regression test แยกสำหรับ "Club ของฉัน"/"บันทึกไว้"/"โปรไฟล์" ใน Drawer เดิมยังทำงานปกติ — ของเดิมมีเทสอยู่แล้วครบใน `side_menu_test.dart` (ไม่ได้แตะ/ลบเทสเดิมเลย ยังผ่านหมดตามที่รายงานด้านบน) จึงไม่ต้องเขียนซ้ำ
+
+Handoff: ส่งต่อ AI QA & Security — (1) ยืนยัน wordmark กึ่งกลางจริงที่ทุกความกว้างจอบนอุปกรณ์จริง/เบราว์เซอร์ (2) ยืนยัน edge-swipe ของ Home ไม่ชนกับ Drawer ใหม่ (3) ยืนยัน "สร้าง Club" จาก Home ไปจบที่ `CreateClubScreen` ได้จริงและ flow สร้าง Club เดิม (WYN-014) ยังทำงานถูกต้องทุกจุด (4) ยืนยัน Drawer เปิดได้จากทั้ง Home และ Notification โดยไม่มี regression กับจุดเดิม
