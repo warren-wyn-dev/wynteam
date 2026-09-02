@@ -264,7 +264,7 @@ void main() {
     // match the reference exactly. "โพสต์" appears twice (the StatsRow
     // label and the Tab both say it).
     expect(find.text('โพสต์'), findsNWidgets(2));
-    expect(find.text('ReDrop'), findsOneWidget);
+    expect(find.text('รีโพสต์'), findsOneWidget);
     expect(find.text('ถูกใจ'), findsOneWidget);
     expect(find.text('Replies'), findsNothing);
     expect(find.text('Media'), findsNothing);
@@ -294,7 +294,7 @@ void main() {
     expect(find.byKey(const Key('profile_saved_button')), findsNothing);
     expect(find.byIcon(Icons.edit_note_outlined), findsNothing);
     expect(find.text('โพสต์'), findsNWidgets(2));
-    expect(find.text('ReDrop'), findsOneWidget);
+    expect(find.text('รีโพสต์'), findsOneWidget);
     expect(find.text('ถูกใจ'), findsOneWidget);
     // Pop is hidden from Profile for WYNOS V1.0.0 Beta -- requirement 3.
     expect(find.text('Pop'), findsNothing);
@@ -340,6 +340,24 @@ void main() {
     expect(find.text('ส่งข้อความ'), findsNothing);
   });
 
+  testWidgets(
+      'WYN-085: someone else\'s profile has no notifications bell icon '
+      '(it used to push NotificationListScreen, a back-button-less screen '
+      'that stranded the viewer with no way to navigate elsewhere)',
+      (tester) async {
+    await tester.pumpWidget(buildProfile(
+      profileRepository: otherProfileRepo,
+      followRepository: otherFollowRepo,
+      userId: 'someone-else',
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.notifications_outlined), findsNothing);
+    // The search shortcut (also WYN-071) is unaffected -- it pushes a
+    // screen with a real AppBar/back button, so it stays.
+    expect(find.byIcon(Icons.search), findsOneWidget);
+  });
+
   testWidgets('Drop tab shows this profile\'s Drops (scoped by author, '
       'not the global feed)', (tester) async {
     await tester.pumpWidget(MaterialApp(
@@ -380,14 +398,14 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    await tester.tap(find.text('ReDrop'));
+    await tester.tap(find.text('รีโพสต์'));
     await tester.pumpAndSettle();
     tester.takeException();
 
     expect(contentTestHomeRepo.fetchRedropsByUserUserIdArgs, contains('me'));
     expect(find.text('ดูนี่สิ'), findsOneWidget);
     expect(find.text('แคปชัน Drop ต้นฉบับ'), findsOneWidget);
-    expect(find.textContaining('ReDrop โดย @me_user'), findsOneWidget);
+    expect(find.textContaining('รีโพสต์โดย @me_user'), findsOneWidget);
   });
 
   // "switching to the Pop tab shows this profile's Pops" removed -- Pop is
@@ -427,7 +445,8 @@ void main() {
   // shelf from Profile entirely (still reachable via Home's "From Your
   // Clubs" feed). See view_profile_screen.dart's own comment on
   // ClubRepository/ClubPostRepository still being threaded through
-  // (only for _openSearch/_openNotifications now).
+  // (only for _openSearch now -- see that comment for why its former
+  // sibling _openNotifications is gone, WYN-085).
 
   group('"Profile Visit" User Signal (WYNOS Unified Home Feed Algorithm '
       'V1.0)', () {

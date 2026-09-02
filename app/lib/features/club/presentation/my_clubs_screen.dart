@@ -34,7 +34,29 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
     _loadFuture = widget.clubRepository.fetchMyClubs();
   }
 
-  void _reload() => setState(() => _loadFuture = widget.clubRepository.fetchMyClubs());
+  // Block body, not `() => _loadFuture = ...` -- see
+  // ViewProfileScreen._reload's identical fix/comment (WYN-081) for why
+  // an arrow body here trips setState()'s "returned a Future" assertion.
+  void _reload() => setState(() {
+        _loadFuture = widget.clubRepository.fetchMyClubs();
+      });
+
+  // WYN-081 (Wynos V1.0.0 Beta2, item 16): RefreshIndicator needs an
+  // awaitable Future to know when to stop spinning -- _reload() itself
+  // is fire-and-forget (just triggers a setState), so this wraps it.
+  Future<void> _onRefresh() async {
+    final future = widget.clubRepository.fetchMyClubs();
+    setState(() {
+      _loadFuture = future;
+    });
+    // A failure still surfaces normally -- the FutureBuilder below reads
+    // this same future and shows its existing error state/"ลองใหม่"
+    // button. Swallowed here only so RefreshIndicator itself doesn't
+    // propagate it as an unhandled async error.
+    try {
+      await future;
+    } catch (_) {}
+  }
 
   void _openClub(Club club) {
     Navigator.of(context).push(
@@ -85,27 +107,34 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
             );
           }
 
-          return ListView.builder(
-            itemCount: clubs.length,
-            itemBuilder: (context, index) {
-              final club = clubs[index];
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  backgroundImage:
-                      club.iconUrl != null ? NetworkImage(club.iconUrl!) : null,
-                  child: club.iconUrl == null
-                      ? Text(
-                          club.name.isNotEmpty ? club.name[0].toUpperCase() : '?',
-                          style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
-                        )
-                      : null,
-                ),
-                title: Text(club.name),
-                subtitle: Text('${club.memberCount} สมาชิก'),
-                onTap: () => _openClub(club),
-              );
-            },
+          return RefreshIndicator(
+            onRefresh: _onRefresh,
+            child: ListView.builder(
+              itemCount: clubs.length,
+              itemBuilder: (context, index) {
+                final club = clubs[index];
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    backgroundImage: club.iconUrl != null
+                        ? NetworkImage(club.iconUrl!)
+                        : null,
+                    child: club.iconUrl == null
+                        ? Text(
+                            club.name.isNotEmpty
+                                ? club.name[0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.onPrimary),
+                          )
+                        : null,
+                  ),
+                  title: Text(club.name),
+                  subtitle: Text('${club.memberCount} สมาชิก'),
+                  onTap: () => _openClub(club),
+                );
+              },
+            ),
           );
         },
       ),

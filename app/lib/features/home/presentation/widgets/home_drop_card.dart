@@ -37,6 +37,7 @@ class HomeDropCard extends StatelessWidget {
     this.onDeleteRedrop,
     this.onVotePoll,
     this.onHide,
+    this.showViewCount = true,
   });
 
   final HomeFeedItem item;
@@ -78,6 +79,15 @@ class HomeDropCard extends StatelessWidget {
   /// post from your own feed isn't a meaningful action.
   final VoidCallback? onHide;
 
+  /// WYN-088 (Wynos V1.0.0 Beta2, item 27): the eye/view-count
+  /// ActionMetric is hidden on the Home feed (every tab) now, but this
+  /// same [HomeDropCard] is also reused on the viewer's own Profile
+  /// (drop grid/ReDrops/Likes tabs), where Founder wants it kept --
+  /// "จะได้รู้ว่ามีใครเห็นโพสต์นี้กี่คนดู". Defaults to true (shown) so
+  /// every other call site (Profile's 3 tabs, hashtag feed) is
+  /// unaffected -- only home_feed_screen.dart passes false.
+  final bool showViewCount;
+
   bool get _isOwnDrop =>
       item.authorId == Supabase.instance.client.auth.currentUser!.id;
 
@@ -108,7 +118,7 @@ class HomeDropCard extends StatelessWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.repeat),
-              title: Text(item.redroppedByMe ? 'ยกเลิก ReDrop' : '🔄 ReDrop'),
+              title: Text(item.redroppedByMe ? 'ยกเลิกรีโพสต์' : '🔄 รีโพสต์'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 onToggleRedrop();
@@ -116,7 +126,7 @@ class HomeDropCard extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.chat_bubble_outline),
-              title: const Text('💬 Quote ReDrop'),
+              title: const Text('💬 Quote รีโพสต์'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 onQuoteRedrop();
@@ -189,7 +199,7 @@ class HomeDropCard extends StatelessWidget {
         if (_isOwnRedrop)
           ActionSheetRow(
             icon: Icons.delete_outline,
-            label: 'ลบ ReDrop',
+            label: 'ลบรีโพสต์',
             onTap: () {
               Navigator.of(sheetContext).pop();
               onDeleteRedrop?.call();
@@ -233,11 +243,26 @@ class HomeDropCard extends StatelessWidget {
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: WynSpacing.space1),
-                        Text(
-                          'ReDrop โดย @${item.redropperUsername}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
+                        Flexible(
+                          child: Text(
+                            // WYN-087 (Wynos V1.0.0 Beta2, item 26):
+                            // relative time appended, same as a plain
+                            // post's own author row -- Founder: "ตรง
+                            // รีโพสต์ 'รีโพสต์ โดย @sky_blue' ระบุเวลา
+                            // เหมือนโพสต์ด้วย". item.createdAt is
+                            // already the *ReDrop's* own created_at here
+                            // (not the original Drop's), straight from
+                            // home_feed's `r.created_at` for this row --
+                            // no schema change needed, this is exactly
+                            // the "time the redropper pressed ReDrop"
+                            // Founder asked for.
+                            'รีโพสต์โดย @${item.redropperUsername} · '
+                            '${relativeTimeLabel(item.createdAt, now: DateTime.now())}',
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
                         ),
                       ],
                     ),
@@ -312,6 +337,26 @@ class HomeDropCard extends StatelessWidget {
                   ],
                 ),
               ),
+              // WYN-086 (Wynos V1.0.0 Beta2, item 25): caption goes above
+              // the image/poll now, not below -- Founder: "อยากให้ข้อความ
+              // ที่โพสต์อยู่ด้านบน ส่วนรูปอยู่ด้านล่าง". A caption-only
+              // Drop still just shows caption with nothing under it, same
+              // as before. WYNOS V1.0.0 Beta requirement 2: a Drop can be
+              // caption-only (no image, not a Poll) -- _canShare in
+              // CreateDropScreen already guarantees a non-empty caption
+              // whenever that's the case, so this is never reached with
+              // a null/empty caption for a plain (non-poll) card.
+              if (item.caption != null && item.caption!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                  child: !item.isPoll && item.imageUrl == null
+                      ? DoubleTapLike(
+                          onLike: onToggleLike,
+                          alreadyLiked: item.likedByMe,
+                          child: HashtagText(item.caption!),
+                        )
+                      : HashtagText(item.caption!),
+                ),
               if (item.isPoll)
                 PollCard(
                   options: item.pollOptions!,
@@ -350,22 +395,6 @@ class HomeDropCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                ),
-              // WYNOS V1.0.0 Beta requirement 2: a Drop can now be
-              // caption-only (no image, not a Poll) -- _canShare in
-              // CreateDropScreen already guarantees a non-empty caption
-              // whenever that's the case, so this is never reached with
-              // a null/empty caption for a plain (non-poll) card.
-              if (item.caption != null && item.caption!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                  child: !item.isPoll && item.imageUrl == null
-                      ? DoubleTapLike(
-                          onLike: onToggleLike,
-                          alreadyLiked: item.likedByMe,
-                          child: HashtagText(item.caption!),
-                        )
-                      : HashtagText(item.caption!),
                 ),
               if (item.likedBy.isNotEmpty)
                 Padding(
@@ -409,19 +438,24 @@ class HomeDropCard extends StatelessWidget {
                       count: item.redropCount,
                       color: WynColors.graphite,
                       semanticsLabel: item.redroppedByMe
-                          ? 'ReDrop แล้ว กดเพื่อเลือกดำเนินการ'
-                          : 'กดเพื่อ ReDrop',
+                          ? 'รีโพสต์แล้ว กดเพื่อเลือกดำเนินการ'
+                          : 'กดเพื่อรีโพสต์',
                       onTap: () => _openRedropSheet(context),
                     ),
-                    const SizedBox(width: WynSpacing.space5),
-                    ActionMetric(
-                      icon: Icons.visibility_outlined,
-                      iconSize: 16,
-                      count: item.viewCount,
-                      color: WynColors.faint,
-                      semanticsLabel: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
-                      onTap: null,
-                    ),
+                    // WYN-088: hidden on the Home feed (showViewCount:
+                    // false there) -- still shown everywhere else this
+                    // card is reused (Profile's 3 tabs, hashtag feed).
+                    if (showViewCount) ...[
+                      const SizedBox(width: WynSpacing.space5),
+                      ActionMetric(
+                        icon: Icons.visibility_outlined,
+                        iconSize: 16,
+                        count: item.viewCount,
+                        color: WynColors.faint,
+                        semanticsLabel: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
+                        onTap: null,
+                      ),
+                    ],
                   ],
                 ),
               ),

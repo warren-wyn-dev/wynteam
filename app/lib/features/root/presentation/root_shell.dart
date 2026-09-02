@@ -327,7 +327,7 @@ class _RootShellState extends State<RootShell> {
           NavigationDestination(
             icon: _buildDropAction(),
             selectedIcon: _buildDropAction(),
-            label: 'Drop',
+            label: 'โพสต์',
           ),
           NavigationDestination(
             icon: _buildNotificationsIcon(context, selected: false),
@@ -360,7 +360,7 @@ class _RootShellState extends State<RootShell> {
   Widget _buildDropAction() {
     final scheme = Theme.of(context).colorScheme;
     return Semantics(
-      label: 'สร้าง Drop ใหม่',
+      label: 'สร้างโพสต์ใหม่',
       button: true,
       child: ExcludeSemantics(
         child: Container(

@@ -688,13 +688,15 @@ class HomeRepository {
   /// Records a "Hide" User Signal (WYNOS Unified Home Feed Algorithm
   /// V1.0) -- a hard negative signal: `get_wynos_ranked_feed()` excludes
   /// this content from this user's ranked feed entirely from the next
-  /// fetch on, permanently (no "unhide" this round -- matches the
-  /// Product spec's own framing of Hide as removal, not a temporary
-  /// demotion; `not_interested` in `feed_signals`' own check constraint
-  /// is reserved for that softer variant if it's ever built). Only
-  /// affects [contentType]/[contentId] for the *current user* -- the
-  /// content itself is untouched and still visible to everyone else,
-  /// same posture as a Mute (WYN-028) rather than a Report (WYN-026).
+  /// fetch on. Only affects [contentType]/[contentId] for the *current
+  /// user* -- the content itself is untouched and still visible to
+  /// everyone else, same posture as a Mute (WYN-028) rather than a
+  /// Report (WYN-026).
+  ///
+  /// WYN-079 (Wynos V1.0.0 Beta2, item 8): Founder overrode this task's
+  /// original "no unhide this round" decision -- reversible now via
+  /// [unhideContent], surfaced as a Snackbar "เลิกทำ" action right after
+  /// hiding (see HomeFeedScreen._hideItem).
   Future<void> hideContent({
     required HomeContentType contentType,
     required String contentId,
@@ -706,6 +708,24 @@ class HomeRepository {
       'target_type': contentType == HomeContentType.drop ? 'drop' : 'pop',
       'target_id': contentId,
     });
+  }
+
+  /// Reverses [hideContent] -- deletes this user's own "hide" signal row
+  /// for [contentType]/[contentId], if one exists, so the content is no
+  /// longer excluded from their ranked feed. WYN-079: backs the Snackbar
+  /// "เลิกทำ" action HomeFeedScreen._hideItem shows right after hiding.
+  Future<void> unhideContent({
+    required HomeContentType contentType,
+    required String contentId,
+  }) {
+    final userId = _client.auth.currentUser!.id;
+    return _client
+        .from('feed_signals')
+        .delete()
+        .eq('user_id', userId)
+        .eq('signal_type', 'hide')
+        .eq('target_type', contentType == HomeContentType.drop ? 'drop' : 'pop')
+        .eq('target_id', contentId);
   }
 
   /// Records a "Profile Visit" User Signal (WYNOS Unified Home Feed

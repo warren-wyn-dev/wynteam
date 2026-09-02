@@ -310,7 +310,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     if (!mounted) return;
     if (drop == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Drop นี้ถูกลบไปแล้ว')),
+        const SnackBar(content: Text('โพสต์นี้ถูกลบไปแล้ว')),
       );
       return;
     }
@@ -428,11 +428,11 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     final club = notification.clubName ?? 'Club';
     switch (notification.type) {
       case NotificationType.likeDrop:
-        return '$name ถูกใจ Drop ของคุณ';
+        return '$name ถูกใจโพสต์ของคุณ';
       case NotificationType.likePop:
         return '$name ถูกใจ Pop ของคุณ';
       case NotificationType.commentDrop:
-        return '$name แสดงความคิดเห็นใน Drop ของคุณ';
+        return '$name แสดงความคิดเห็นในโพสต์ของคุณ';
       case NotificationType.commentPop:
         return '$name แสดงความคิดเห็นใน Pop ของคุณ';
       case NotificationType.follow:
@@ -460,11 +460,11 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       case NotificationType.orderRefunded:
         return 'คำสั่งซื้อของคุณจาก ${notification.orderStoreName ?? 'ร้านค้า'} ถูกคืนเงินแล้ว';
       case NotificationType.mentionDrop:
-        return '$name กล่าวถึงคุณใน Drop';
+        return '$name กล่าวถึงคุณในโพสต์';
       case NotificationType.mentionClubPost:
         return '$name กล่าวถึงคุณในโพสต์ที่ $club';
       case NotificationType.redrop:
-        return '$name ReDrop โพสต์ของคุณ';
+        return '$name รีโพสต์โพสต์ของคุณ';
       case NotificationType.moderationWarning:
         return 'คุณได้รับคำเตือนจากทีมงาน WYN: ${notification.reason ?? ''}';
       case NotificationType.moderationContentRemoved:

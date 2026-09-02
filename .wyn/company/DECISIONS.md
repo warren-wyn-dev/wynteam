@@ -682,3 +682,68 @@
 - **พบเพิ่มระหว่างตรวจ**: `.wyn/logs/deployments/` ไม่มี entry บันทึก real deploy หลัง 2026-08-25 เลย แต่เช็ค GitHub Actions run history ตรงๆ พบว่ามี **deploy สำเร็จจริง 7 ครั้ง** ระหว่าง 2026-08-25–31 ที่ไม่เคยถูกบันทึกไว้ (WYN-071 docs, restyle gaps 3 จุด, push notification fix, Home restyle ก้อนใหญ่, explainer banner, Home header, liked-by fix) — เป็น **documentation gap ไม่ใช่ deployment gap** บันทึกไว้กันสับสนในอนาคต: **ต้องเชื่อ GitHub Actions run history เป็น ground truth เวลาเช็คว่า deploy จริงไปหรือยัง ไม่ใช่แค่เชื่อโฟลเดอร์ `.wyn/logs/deployments/`**
 - ผลลัพธ์: deploy สำเร็จ (`deploy-web.yml` run 33503100073, PR #193 merge เข้า `main` @ `33150ae`) production verification ผ่านทุกจุด (index.html/main.dart.js/manifest.json/flutter_bootstrap.js HTTP 200, REST query คอลัมน์ใหม่ของ home_feed ไม่ error) — **สรุปว่า Home feed ของ production น่าจะพังอยู่ประมาณ 2 วัน** (ตั้งแต่ deploy run 20 เมื่อ 2026-08-30 ที่มีโค้ดพึ่ง column ใหม่ จนถึงตอนแก้ schema วันนี้) ก่อนจะถูกแก้ไปพร้อมกับ WYN-072 รอบนี้
 - อ้างอิง: `.wyn/logs/deployments/2026-09-01-wyn-072-real-deploy.md`, `.wyn/tasks/completed/WYN-072-onboarding-polish-guest-browsing.md`
+
+### [2026-09-02] Wynos V1.0.0 Beta2 — Founder ส่งรายการแก้ไข 28 ข้อ (PDF), แบ่งเป็น backlog 4 phase
+
+- บริบท: Founder แนบไฟล์ `Wynos_V1.0.0_Beta2.pdf` (export จาก Apple Notes, 21 หน้าจริง) ระบุจุดที่ต้องแก้/เพิ่ม 28 ข้อ พร้อมภาพหน้าจอวงสีอธิบายประกอบเกือบทุกข้อ สั่งให้สรุปเป็นงานก่อน ถามถ้าสงสัย แล้วค่อยเริ่มทำ
+- AI ถามคำถามคืน 4 ข้อ (ผ่าน popup) — Founder ตอบและมอบให้ AI ตัดสินใจแทนในบางจุด:
+  1. **นิยาม "เพื่อน" (ข้อ 2 — post audience selector)**: Founder ขอให้ AI แนะนำ → เสนอ **mutual follow = เพื่อน** (ไม่สร้างระบบคำขอเป็นเพื่อนแยก), "เพื่อนที่สนิท" เป็นรายชื่อเลือกเองจาก mutual-follow list (แบบ IG Close Friends) — ยังไม่ได้ผ่าน Founder ยืนยันรอบสุดท้ายเป็นข้อความตรงๆ (ถามแบบ "แนะนำหน่อย") ถือเป็นข้อเสนอที่ AI จะเดินหน้าตามนี้จนกว่าจะมีคำทักท้วง บันทึกไว้ที่ `.wyn/tasks/backlog/WYN-097.md`
+  2. **Location API สำหรับเช็คอินสถานที่ (ข้อ 3)**: Founder ถาม "Google API ฟรีไหม" → ตอบว่าไม่ฟรี 100% (เครดิตฟรี $200/เดือนแต่ต้องผูกบัตร) → เสนอ LocationIQ/Geoapify (free tier ไม่ต้องผูกบัตร) เป็นทางเลือกเริ่มต้นแทน — **ยังไม่ได้เลือก provider สุดท้าย รอ Founder ยืนยันก่อนเริ่ม implement จริง** (`.wyn/tasks/backlog/WYN-098.md`)
+  3. **ขอบเขต "สร้าง Club" (ข้อ 7 — ไอคอน 3 ขีด)**: Founder เลือกชัดเจน "สร้างฟีเจอร์ 'สร้าง Club' แบบเต็ม" — **นี่คือฟีเจอร์ใหม่ขนาดใหญ่ กระทบ data model มาก** (Club core มีอยู่แล้วบางส่วนจาก WYN-014/015 แต่ไม่มีทาง "สร้าง Club" เอง) บันทึกที่ `.wyn/tasks/backlog/WYN-100.md` — ต้องให้ AI Product Manager ตรวจของเดิมให้ครบก่อนเขียน spec เต็ม กันสร้างซ้ำซ้อน
+  4. **สูตร trending hashtag (ข้อ 10)**: Founder ให้ AI เสนอสูตร → เสนอ `(likes×1 + comments×2 + reposts×3 + views×0.1) / (ชั่วโมงที่ผ่านมา+2)^1.5` (engagement-weighted + time-decay) เป็น draft แรก ปรับ weight ได้ภายหลัง — บันทึกที่ `.wyn/tasks/backlog/WYN-101.md`
+- **แบ่งงานเป็น backlog 29 ไฟล์ (WYN-077 ถึง WYN-105)** ครอบคลุมครบ 28 ข้อ (ข้อ 5 แยกเป็น 2 งาน: WYN-078 บั๊กพื้นหลังไม่เต็มจอ กับ WYN-105 ระบบธีมสี 3 แบบ) จัดเป็น 4 phase ตามความเสี่ยง/dependency:
+  - **Phase 0** (WYN-077): เปลี่ยนคำ Drop→โพสต์, ReDrop→รีโพสต์ ทั่วแอป (UI string เท่านั้น ไม่แตะชื่อ field/table/class เดิม)
+  - **Phase 1** (WYN-078 ถึง WYN-088, 11 งาน): bug fix ด่วนเสี่ยงต่ำ ไม่ต้องผ่าน Design spec เต็มรูปแบบ
+  - **Phase 2** (WYN-089 ถึง WYN-096, 8 งาน): รีดีไซน์ UI ต้องผ่าน AI Design ก่อน
+  - **Phase 3** (WYN-097 ถึง WYN-105, 9 งาน): ฟีเจอร์ใหม่/ของใหญ่ ต้องผ่าน AI Product Manager spec เต็มก่อน (2 งานยังรอ Founder ตัดสินใจเพิ่มก่อนเริ่ม coding จริง: WYN-098 provider แผนที่, WYN-095 ตำแหน่งปุ่มติดตาม/ส่งข้อความ/bio ที่ Founder เองบอกว่า "นึกไม่ออก")
+- Founder ยืนยัน **"เริ่ม Phase 0/1 ได้เลย"** (2026-09-02) — เข้าสู่ AI Coding รอบนี้สำหรับ WYN-077 ถึง WYN-088 (12 งาน) โดยตรง (Recommendation ของแต่ละ backlog file เองระบุไว้แล้วว่า "ทำได้ทันที ไม่ต้อง Design spec")
+- อ้างอิง: `.wyn/tasks/backlog/WYN-077.md` ถึง `WYN-105.md`, PDF ต้นฉบับที่ Founder แนบมา (`Wynos_V1.0.0_Beta2.pdf`)
+
+### [2026-09-02] พบปัญหา: schema.sql โหลดสดเข้า PostgreSQL ว่างเปล่าไม่ผ่าน (pre-existing, บล็อก SQL regression testing ทั้งระบบ)
+
+- บริบท: ระหว่างทำ WYN-079 (เพิ่ม DELETE policy ให้ `feed_signals`) พยายามรัน `supabase/tests/wyn_063_unified_home_feed_test.sh` เพื่อยืนยัน schema.sql ยังโหลดผ่านปกติ พบว่า **รันไม่ผ่านตั้งแต่ก่อนถึงส่วนที่แก้เลย**: `psql:.../schema.sql:7365: ERROR: cannot change name of view column "comment_count" to "liked_by"`
+- ยืนยันด้วย `git stash` (เอาการเปลี่ยนแปลงของ WYN-079 ออกชั่วคราว) แล้วรันซ้ำ — **error เดิมทุกตัวอักษร** พิสูจน์ว่าไม่เกี่ยวกับงาน WYN-079 เลย เป็นปัญหาที่มีอยู่ก่อนแล้วใน `main`/branch นี้
+- root cause: มี `create or replace view public.home_feed` สะสมอยู่ **7 จุด** ในไฟล์ (บรรทัด 456/3982/5965/6381/7033/7156/10464 — migration history สะสมทับกันมาเรื่อยๆ) อย่างน้อย 1 คู่ในนั้นพยายามเปลี่ยนตำแหน่ง/ชื่อคอลัมน์ (`comment_count`→`liked_by`) ซึ่ง PostgreSQL's `CREATE OR REPLACE VIEW` ไม่ยอมให้ทำ (ต้องใช้ `ALTER VIEW ... RENAME COLUMN` แทน หรือ `DROP VIEW` แล้ว `CREATE` ใหม่) — เป็น error class เดียวกับ P0 incident ที่เจอใน **production จริง** ตอน WYN-071 (2026-08-25, `liked_by`/`top_reply` columns) และ WYN-072 (2026-09-01, `profiles.is_verified`/`home_feed` view) ที่บันทึกไว้แล้วในมติก่อนหน้า — **แต่ทั้งสองครั้งนั้นแก้ที่ production database ตรงๆ ผ่าน Supabase Management API ไม่เคยแก้ไฟล์ `schema.sql` เองให้ history สอดคล้องกัน** จึงยังเหลือปัญหานี้ค้างอยู่ในไฟล์จนถึงตอนนี้
+- ผลกระทบ: **`supabase/tests/*.sh` ทุกไฟล์ที่โหลด `schema.sql` เต็มไฟล์เข้า Postgres ว่างเปล่า (ไม่ใช่แค่ `wyn_063_unified_home_feed_test.sh`) ใช้งานไม่ได้จนกว่าจะแก้** — บล็อก SQL regression testing ทั้งระบบ ไม่ใช่แค่งานใดงานหนึ่ง เป็นความเสี่ยงที่ QA/Coding รอบถัดๆ ไปจะเจอปัญหาเดียวกันซ้ำถ้าไม่รู้ล่วงหน้า
+- **ยังไม่แก้** — ไม่อยู่ในสโคปของ WYN-079 (Phase 1 quick fix เล็กๆ) และการไล่แก้ history ของ view ที่สะสมมา 7 รอบเป็นงานที่เสี่ยงถ้าไม่เข้าใจทุกจุดที่เปลี่ยนแปลงจริง ควรเป็นงานแยกต่างหากที่ AI Deploy & DevOps หรือ Coding รอบถัดไปตรวจ column order จริงจาก production (เหมือนวิธีที่เคยแก้ P0 incident 2 ครั้งก่อนหน้า) แล้ว consolidate ทั้ง 7 นิยามให้เหลือ path เดียวที่โหลดสดได้จริง โดยไม่กระทบ production ที่ใช้งานอยู่
+- Workaround ที่ใช้ระหว่างนี้: เขียน SQL regression test แบบ standalone/minimal (สร้างเฉพาะตาราง+policy ที่เกี่ยวข้องจริงในงานนั้นๆ ไม่โหลด schema.sql เต็มไฟล์) ดูตัวอย่างที่ `supabase/tests/wyn_079_feed_signals_unhide_test.sh` — ใช้ได้ชั่วคราวแต่ไม่ครอบคลุมเท่าการทดสอบ schema.sql จริงทั้งไฟล์
+
+### [2026-09-02] พบและแก้บั๊ก: `setState(() => _loadFuture = _load())` คืนค่า Future จริง (masked by tester.takeException() ในเทสเดิม)
+
+- บริบท: ระหว่างทำ WYN-081 (เพิ่ม pull-to-refresh หลายหน้า) เขียนเทสใหม่ที่เรียก `RefreshIndicator.onRefresh()` ตรงๆ (ไม่ผ่าน `tester.takeException()`) แล้วเจอ `setState() callback argument returned a Future` assertion จริง
+- root cause: `_loadFuture = _load()` เป็น assignment expression ซึ่งใน Dart ประเมินค่าเป็นค่าที่ assign (คือตัว `Future` เอง ไม่ใช่ `void`) — เขียนเป็น arrow-body closure `() => _loadFuture = _load()` ส่งเข้า `setState()` จึงทำให้ closure นั้น **return Future จริงๆ** ซึ่ง Flutter's `setState()` มี debug assertion ดักไว้ตรงๆ
+- พบ pattern นี้ซ้ำใน **5 จุด**: `view_profile_screen.dart`, `club_page.dart`, `my_moderation_action_screen.dart` (ทั้ง 3 มีมาก่อน WYN-081) + 2 จุดใหม่ที่เขียนซ้ำ pattern เดิมโดยไม่ทันสังเกตระหว่างทำ WYN-081 เอง (`explore_clubs_screen.dart`, `my_clubs_screen.dart`)
+- **ทำไมไม่เคยมีใครเจอมาก่อน**: เทสเดิมที่ใช้งาน `_reload()` จริง (เช่นหลัง join club, หลังแก้โปรไฟล์) เรียก `tester.takeException()` หลัง `pumpAndSettle()` เสมอ (ตามธรรมเนียม pattern "harmless expected exception" ของโปรเจกต์นี้ เช่น `NetworkImageLoadException` ตอน test โหลดรูป) — การเรียก `takeException()` แบบไม่เจาะจงประเภท exception ไปกลืน assertion error ตัวนี้ไปด้วยแบบเงียบๆ ไม่มีใครสังเกต เพราะเทสยัง PASS ปกติ
+- **แก้แล้วทั้ง 5 จุด**: เปลี่ยนจาก arrow-body (`() => x = y`) เป็น block-body (`() { x = y; }`) — semantic เดิมทุกประการ แค่ทำให้ closure return `void` จริงแทนที่จะ return ค่า assignment โดยไม่ตั้งใจ
+- **บทเรียน**: `tester.takeException()` แบบไม่เจาะจงประเภท เป็นดาบสองคม — กลืน exception ที่ "รู้อยู่แล้วว่าไม่เป็นไร" (เช่น network image ใน test env) ได้จริง แต่ก็กลืนบั๊กจริงไปด้วยแบบไม่รู้ตัว ควรระวังเวลาเขียนเทสใหม่ที่ต้องเรียก callback ตรงๆ (ไม่ผ่าน gesture simulation) — การไม่เรียก `takeException()` แบบไม่เจาะจงจะช่วยให้เทสจับบั๊กประเภทนี้ได้ไวขึ้น
+
+### [2026-09-02] WYN-083: Founder ย้อนมติ WYN-038 — นับวิว Drop ต้องรวมเจ้าของโพสต์ + ไม่ dedup
+
+- บริบท: Founder ข้อ 21/28 ของ Wynos V1.0.0 Beta2 — "การนับวิว จะนับตั้งแต่วินาทีแรก ที่มีคนเห็น รวมถึงเจ้าของโพสต์ด้วย นับไม่จำกัด" — ตรงข้ามกับมติเดิมของ WYN-038 (Product spec เดิม) ที่ตั้งใจ exclude self-view และ dedup แบบ unique-viewer lifetime
+- **คำตัดสินใจใหม่**: `drop_views` เปลี่ยนจาก "unique-viewer ledger" (primary key `(drop_id, viewer_id)`) เป็น "view-event log" ธรรมดา (surrogate `id` primary key, ไม่มี dedup) — `record_drop_view()` ไม่ exclude เจ้าของโพสต์อีกต่อไป — ทำให้ Drop's view-counting กลับมาเหมือน Pop's `increment_pop_view_count()` (WYN-006) ที่ไม่เคยมี dedup/self-exclusion ตั้งแต่ต้นอยู่แล้ว
+- **สิ่งที่ยังคงไว้ไม่เปลี่ยน**: rate-limit (20 req/60s/account) และ velocity-cap (50 req/10s/โพสต์) กันบอทปั่นวิว — ตีความ "นับไม่จำกัด" ว่าหมายถึงไม่ cap ยอดสะสมที่ถูกต้อง ไม่ใช่คำสั่งให้เปิดช่องให้บอทยิงรัวไม่จำกัด (ยังไม่ได้ถาม Founder ยืนยันเรื่องนี้ตรงๆ — เป็นการตีความของ AI Coding)
+- **"นับตั้งแต่วินาทีแรกที่มีคนเห็น" ตีความว่า** = นับทันทีไม่มีดีเลย์เทียม (พฤติกรรมเดิมทำอยู่แล้ว) **ไม่ใช่** = นับตั้งแต่โพสต์ปรากฏในฟีดตอน scroll ผ่าน (ยังคงนับเฉพาะตอนเปิด DropDetailScreen เหมือนเดิม) — ถ้า Founder หมายถึงแบบหลังจริงๆ ต้องแจ้งกลับมาเป็นงานแยก (ฟีเจอร์ใหญ่กว่า ต้องมี scroll-visibility detection ใหม่)
+- **Migration risk**: `drop_views` มีข้อมูลจริงอยู่แล้วใน production (ตาราง live ตั้งแต่ WYN-038 deploy) — เปลี่ยน primary key ต้องใช้ `alter table` ที่รักษาข้อมูลเดิม ไม่ใช่ drop+recreate — ยังไม่ได้ apply เข้า production (รอ AI Deploy & DevOps)
+- อ้างอิง: `.wyn/tasks/review/WYN-083-view-count-owner-uncapped.md`
+
+### [2026-09-02] Wynos V1.0.0 Beta2 — Phase 0/1 ทำครบทั้ง 12 งานแล้ว (WYN-077 ถึง WYN-088), ส่งต่อ QA
+
+- Founder สั่ง "เริ่ม Phase 0/1 ได้เลย" (2026-09-02) — ทำครบทั้ง 12 งานในรอบเดียว แต่ละงาน: อ่าน spec → เช็ค codebase เดิม → แก้เล็กที่สุด/ปลอดภัยที่สุด → เขียน/แก้เทส พิสูจน์ red→green จริงทุกงาน → `flutter analyze`/`flutter test` ผ่านสะอาดหลังทุก commit → commit+push แยกทีละงาน (ไม่รวบ) → ย้ายไฟล์ task จาก `backlog/` ไป `review/` พร้อม "Coding Output" section
+- **ผลลัพธ์รวม**: `flutter analyze` สะอาดตลอด, `flutter test` ไต่จาก 871 (ก่อนเริ่ม) → **887 ผ่านหมด** (16 เทสใหม่/แก้จากเดิม), ไม่มี regression หลงเหลือ
+- **สรุปแต่ละงาน** (รายละเอียดเต็มอยู่ใน `.wyn/tasks/review/WYN-0XX-*.md` แต่ละไฟล์):
+  - WYN-077: เปลี่ยนคำ Drop→โพสต์, ReDrop→รีโพสต์ ทั่วแอป+push notification text (ไม่แตะชื่อ field/table/class เดิม)
+  - WYN-078: เพิ่ม `SystemChrome.setSystemUIOverlayStyle` ให้พื้นหลังเต็มจอจริง
+  - WYN-079: เพิ่มปุ่ม "เลิกทำ" (Undo) หลังกด "ไม่สนใจโพสต์นี้" — เพิ่ม DELETE policy ให้ `feed_signals`
+  - WYN-080: ค้นหาต้องกดยืนยัน (ไอคอน/Enter) ไม่ใช่ auto-search ทุกตัวอักษร
+  - WYN-081: เพิ่ม pull-to-refresh ให้หน้าโปรไฟล์ (3 tab) + Club/Top100 อีกหลายหน้า
+  - WYN-082: เพิ่ม dialog ยืนยันก่อนออกจากระบบ
+  - WYN-083: **ย้อนมติเดิมของ WYN-038** — นับวิวรวมเจ้าของโพสต์+ไม่ dedup (ดูมติแยกด้านบน) — **ต้อง migrate `drop_views` primary key บน production ด้วยความระมัดระวัง (มีข้อมูลจริงอยู่แล้ว)**
+  - WYN-084: เอา `Padding(bottom: viewInsets.bottom)` ซ้ำซ้อนออกจากช่องพิมพ์แชท (double keyboard-compensation bug)
+  - WYN-085: เอาปุ่มกระดิ่งแจ้งเตือนออกจากหน้าโปรไฟล์คนอื่น (เคย push ไปหน้าที่ไม่มีปุ่มย้อนกลับ ทำให้ผู้ใช้ติดค้าง)
+  - WYN-086: สลับลำดับ caption มาอยู่เหนือรูป/Poll ใน `HomeDropCard` และ `DropDetailScreen` (Poll เองยังไม่สลับ — นอกสโคปที่ระบุ)
+  - WYN-087: เพิ่มเวลาสัมพัทธ์ต่อท้าย "รีโพสต์โดย @username" — ใช้ข้อมูลที่มีอยู่แล้ว (`r.created_at`) ไม่ต้องแก้ schema
+  - WYN-088: ซ่อนไอคอนดวงตา/ยอดวิวจาก Home feed (Drop+Pop) แต่ยังโชว์ปกติทุกจุดอื่น (โปรไฟล์/hashtag feed) ผ่าน parameter `showViewCount` ใหม่
+- **ปัญหาที่พบระหว่างทำแต่ไม่ได้แก้ (นอกสโคป Phase 1, บันทึกแยกไว้แล้วในมติก่อนหน้า)**: schema.sql โหลดสดเข้า Postgres ว่างเปล่าไม่ผ่าน (บล็อก SQL regression suite เต็มรูปแบบ), `setState()`+Future bug pattern (แก้ไปแล้ว 5 จุดระหว่าง WYN-081)
+- **ยังไม่ยืนยันบนอุปกรณ์จริง**: ทุกงานผ่านแค่ widget test ในนี้ (ไม่มี simulator/emulator ในสภาพแวดล้อมนี้) — AI QA & Security ต้องทดสอบ UI จริงบน iOS/Android ก่อนอนุมัติ deploy โดยเฉพาะ WYN-084 (keyboard behavior จริง) และ WYN-083 (migration ต้องเช็ค column order จริงจาก production ก่อน apply เหมือนที่เคยทำ WYN-071/072)
+- **Phase 2/3 ยังไม่เริ่ม** (WYN-089–105, รอ Founder อนุมัติแยกตามที่ตกลงกันไว้ตอนสรุปงาน — Phase 2 ต้องผ่าน AI Design ก่อน, Phase 3 ต้องผ่าน AI Product Manager spec เต็มก่อน)
+- อ้างอิง: `.wyn/tasks/review/WYN-077-*.md` ถึง `WYN-088-*.md` (12 ไฟล์)

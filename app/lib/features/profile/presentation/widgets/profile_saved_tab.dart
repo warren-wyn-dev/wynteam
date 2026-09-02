@@ -165,7 +165,7 @@ class _ProfileSavedTabState extends State<ProfileSavedTab>
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: WynSpacing.space8),
           child: Text(
-            'ยังไม่มีอะไรที่บันทึกไว้ ลองกดบันทึก Drop หรือ Pop ที่ชอบดูสิ',
+            'ยังไม่มีอะไรที่บันทึกไว้ ลองกดบันทึกโพสต์หรือ Pop ที่ชอบดูสิ',
             textAlign: TextAlign.center,
           ),
         ),

@@ -95,6 +95,39 @@ void main() {
     expect(find.byType(HomeDropCard), findsNWidgets(2));
   });
 
+  testWidgets(
+      'WYN-081: pulling to refresh also calls onRefreshHeader, not just '
+      "this tab's own reload", (tester) async {
+    var refreshHeaderCalls = 0;
+    await tester.pumpWidget(_wrap(ProfileLikesTab(
+      dropRepository: listRepo,
+      followRepository: followRepo,
+      profileRepository: profileRepo,
+      popRepository: popRepo,
+      savedRepository: savedRepo,
+      authorId: 'someone-else',
+      emptyText: 'ยังไม่มีอะไรที่ถูกใจ',
+      onRefreshHeader: () => refreshHeaderCalls++,
+    )));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(refreshHeaderCalls, 0,
+        reason: 'the initial load must not have triggered it');
+
+    // Same off-screen-hit-test-avoidance as elsewhere in this suite --
+    // invoke RefreshIndicator.onRefresh directly rather than simulating
+    // a physical drag gesture.
+    final indicator = tester.widget<RefreshIndicator>(
+      find.byType(RefreshIndicator),
+    );
+    await indicator.onRefresh();
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(refreshHeaderCalls, 1);
+  });
+
   testWidgets('a fetch failure shows an error with a retry button',
       (tester) async {
     await tester.pumpWidget(_wrap(ProfileLikesTab(

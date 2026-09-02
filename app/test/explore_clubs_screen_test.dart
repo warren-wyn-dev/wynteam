@@ -116,6 +116,26 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, 'เข้าร่วม'), findsNWidgets(4));
   });
 
+  testWidgets(
+      'WYN-081: pulling to refresh re-fetches and shows a newly added '
+      'club', (tester) async {
+    await pumpScreen(tester, twoClubsRepo);
+    expect(find.text('Club c'), findsNothing);
+
+    twoClubsRepo.discoverableClubs.add(club('c', memberCount: 3));
+
+    // Same off-screen-hit-test-avoidance as elsewhere in this suite --
+    // invoke RefreshIndicator.onRefresh directly rather than simulating
+    // a physical drag gesture.
+    final indicator = tester.widget<RefreshIndicator>(
+      find.byType(RefreshIndicator),
+    );
+    await indicator.onRefresh();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Club c'), findsNWidgets(2));
+  });
+
   testWidgets('shows the empty-state message for each section when there '
       'are no discoverable clubs', (tester) async {
     await pumpScreen(tester, emptyRepo);

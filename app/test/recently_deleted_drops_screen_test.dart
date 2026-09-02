@@ -59,7 +59,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('ไม่มี Drop ที่ลบไว้'), findsOneWidget);
+    expect(find.text('ไม่มีโพสต์ที่ลบไว้'), findsOneWidget);
   });
 
   testWidgets('shows every deleted Drop returned by fetchDeletedDrops',

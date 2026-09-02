@@ -105,6 +105,32 @@ class SettingsScreen extends StatelessWidget {
     await Supabase.instance.client.auth.signOut();
   }
 
+  // WYN-082 (Wynos V1.0.0 Beta2, item 17): Founder found the old
+  // one-tap-and-you're-out behavior too easy to trigger by accident --
+  // confirms first now, copy specified verbatim by Founder ("ออกจาก
+  // ระบบบัญชีของคุณใช่ไหม" / "ยกเลิก" | "ออกจากระบบ").
+  Future<void> _confirmSignOut(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('ออกจากระบบบัญชีของคุณใช่ไหม'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('ออกจากระบบ'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await _signOut();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -197,7 +223,7 @@ class SettingsScreen extends StatelessWidget {
                   label: 'ออกจากระบบ',
                   isLast: true,
                   contentColor: WynColors.graphite,
-                  onTap: _signOut,
+                  onTap: () => _confirmSignOut(context),
                 ),
               ],
             ),
@@ -619,7 +645,7 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
             secondary: const Icon(Icons.lock_outline),
             title: const Text('บัญชีส่วนตัว (Private Account)'),
             subtitle: const Text(
-                'เฉพาะผู้ติดตามที่คุณอนุมัติเท่านั้นที่จะเห็น Drop ของคุณได้'),
+                'เฉพาะผู้ติดตามที่คุณอนุมัติเท่านั้นที่จะเห็นโพสต์ของคุณได้'),
             value: _isPrivate,
             onChanged: _isTogglingPrivate ? null : _setIsPrivate,
           ),
@@ -634,7 +660,7 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
           _PermissionSettingTile(
             icon: Icons.alternate_email,
             title: 'ใครกล่าวถึงคุณได้',
-            subtitle: 'ควบคุมว่าใครกล่าวถึงคุณใน Drop ได้',
+            subtitle: 'ควบคุมว่าใครกล่าวถึงคุณในโพสต์ได้',
             value: _mentionPermission,
             onChanged: (v) => _setPermission(
                 'mention_permission', v, (p) => _mentionPermission = p),
@@ -642,7 +668,7 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
           _PermissionSettingTile(
             icon: Icons.mode_comment_outlined,
             title: 'ใครคอมเมนต์โพสต์ของคุณได้',
-            subtitle: 'ควบคุมว่าใครคอมเมนต์ Drop และ Pop ของคุณได้',
+            subtitle: 'ควบคุมว่าใครคอมเมนต์โพสต์และ Pop ของคุณได้',
             value: _commentPermission,
             onChanged: (v) => _setPermission(
                 'comment_permission', v, (p) => _commentPermission = p),

@@ -407,7 +407,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
     if (tab.profiles.isEmpty) {
       final emptyText = _selectedMode == FollowListMode.followers
           ? 'ยังไม่มีใครติดตามคุณเลย'
-          : 'คุณยังไม่ได้ติดตามใครเลย ลองกดติดตามจาก Drop หรือ Pop ที่ชอบดูสิ';
+          : 'คุณยังไม่ได้ติดตามใครเลย ลองกดติดตามจากโพสต์หรือ Pop ที่ชอบดูสิ';
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),

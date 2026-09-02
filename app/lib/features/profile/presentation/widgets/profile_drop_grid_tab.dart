@@ -30,6 +30,7 @@ class ProfileDropGridTab extends StatefulWidget {
     required this.savedRepository,
     required this.authorId,
     required this.emptyText,
+    this.onRefreshHeader,
   });
 
   final DropRepository dropRepository;
@@ -39,6 +40,15 @@ class ProfileDropGridTab extends StatefulWidget {
   final SavedRepository savedRepository;
   final String authorId;
   final String emptyText;
+
+  // WYN-081 (Wynos V1.0.0 Beta2, item 16): pulling to refresh this tab
+  // also refreshes ViewProfileScreen's own header (follower/following/
+  // post counts, profile info) above the TabBar -- see
+  // ViewProfileScreen's own doc comment on why that needed wiring at
+  // all (the header has its own separate _loadFuture, untouched by any
+  // one tab's own refresh). Optional/null in every existing test that
+  // builds this tab directly.
+  final VoidCallback? onRefreshHeader;
 
   @override
   State<ProfileDropGridTab> createState() => _ProfileDropGridTabState();
@@ -96,10 +106,17 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
         _hasMore = drops.length == DropRepository.pageSize;
       });
     } catch (_) {
-      setState(() => _error = 'โหลด Drop ไม่สำเร็จ');
+      setState(() => _error = 'โหลดโพสต์ไม่สำเร็จ');
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }
+  }
+
+  // Only used by RefreshIndicator's pull gesture, not initState's own
+  // first load -- see [onRefreshHeader]'s doc comment.
+  Future<void> _onPullToRefresh() async {
+    widget.onRefreshHeader?.call();
+    await _loadInitial();
   }
 
   Future<void> _loadMore() async {
@@ -259,7 +276,7 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
     }
 
     return RefreshIndicator(
-      onRefresh: _loadInitial,
+      onRefresh: _onPullToRefresh,
       child: ListView.separated(
         controller: _scrollController,
         itemCount: _drops.length + (_hasMore ? 1 : 0),

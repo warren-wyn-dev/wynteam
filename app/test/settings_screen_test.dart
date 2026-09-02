@@ -131,6 +131,48 @@ void main() {
     );
   });
 
+  group('WYN-082: logout confirmation', () {
+    testWidgets(
+        'tapping "ออกจากระบบ" shows a confirm dialog with Founder\'s exact '
+        'copy, instead of signing out immediately', (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ออกจากระบบ'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.text('ออกจากระบบบัญชีของคุณใช่ไหม'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'ยกเลิก'), findsOneWidget);
+      // 'ออกจากระบบ' now finds 2: the row underneath (dimmed by the
+      // dialog barrier, still in the tree) and the dialog's own action.
+      expect(find.text('ออกจากระบบ'), findsNWidgets(2));
+      // Still on SettingsScreen -- confirming didn't happen, so no
+      // sign-out/navigation occurred yet.
+      expect(find.byType(SettingsScreen), findsOneWidget);
+    });
+
+    testWidgets('tapping "ยกเลิก" dismisses the dialog and stays signed in',
+        (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ออกจากระบบ'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'ยกเลิก'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(SettingsScreen), findsOneWidget);
+      expect(find.text('ออกจากระบบ'), findsOneWidget,
+          reason: 'back to just the one row, dialog gone');
+    });
+  });
+
   Future<void> openAccountManagement(
     WidgetTester tester, {
     PlatformRole platformRole = PlatformRole.user,
