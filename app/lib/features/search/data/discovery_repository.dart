@@ -90,10 +90,7 @@ class DiscoveryRepository {
     final items = await _homeRepository.fetchTrending(
       limit: HomeRepository.trendingCandidateLimit,
     );
-    return rankTrendingHashtags(
-      items.map((item) => item.caption),
-      limit: limit,
-    );
+    return rankTrendingHashtags(items, limit: limit);
   }
 
   /// "กำลังเติบโต" section -- calls the `rising_profiles()` RPC
