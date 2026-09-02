@@ -9,7 +9,7 @@
 
 ## ลิงก์ใช้งานจริง
 
-- เว็บ: https://web-neon-sigma-66.vercel.app (Flutter Web build)
+- เว็บ: https://wynos.online (Flutter Web build; เดิม `web-neon-sigma-66.vercel.app` ก่อนเพิ่ม custom domain เมื่อ 2026-09-02 — ดู `.wyn/logs/deployments/2026-09-02-production-domain-down-incident.md`)
 - Backend: Supabase project จริง (`kqokpocajhfbidcxpvhh`) — real Postgres, real Auth, real Storage
 
 ## เข้าสู่ระบบได้ด้วย
