@@ -725,3 +725,25 @@
 - **"นับตั้งแต่วินาทีแรกที่มีคนเห็น" ตีความว่า** = นับทันทีไม่มีดีเลย์เทียม (พฤติกรรมเดิมทำอยู่แล้ว) **ไม่ใช่** = นับตั้งแต่โพสต์ปรากฏในฟีดตอน scroll ผ่าน (ยังคงนับเฉพาะตอนเปิด DropDetailScreen เหมือนเดิม) — ถ้า Founder หมายถึงแบบหลังจริงๆ ต้องแจ้งกลับมาเป็นงานแยก (ฟีเจอร์ใหญ่กว่า ต้องมี scroll-visibility detection ใหม่)
 - **Migration risk**: `drop_views` มีข้อมูลจริงอยู่แล้วใน production (ตาราง live ตั้งแต่ WYN-038 deploy) — เปลี่ยน primary key ต้องใช้ `alter table` ที่รักษาข้อมูลเดิม ไม่ใช่ drop+recreate — ยังไม่ได้ apply เข้า production (รอ AI Deploy & DevOps)
 - อ้างอิง: `.wyn/tasks/review/WYN-083-view-count-owner-uncapped.md`
+
+### [2026-09-02] Wynos V1.0.0 Beta2 — Phase 0/1 ทำครบทั้ง 12 งานแล้ว (WYN-077 ถึง WYN-088), ส่งต่อ QA
+
+- Founder สั่ง "เริ่ม Phase 0/1 ได้เลย" (2026-09-02) — ทำครบทั้ง 12 งานในรอบเดียว แต่ละงาน: อ่าน spec → เช็ค codebase เดิม → แก้เล็กที่สุด/ปลอดภัยที่สุด → เขียน/แก้เทส พิสูจน์ red→green จริงทุกงาน → `flutter analyze`/`flutter test` ผ่านสะอาดหลังทุก commit → commit+push แยกทีละงาน (ไม่รวบ) → ย้ายไฟล์ task จาก `backlog/` ไป `review/` พร้อม "Coding Output" section
+- **ผลลัพธ์รวม**: `flutter analyze` สะอาดตลอด, `flutter test` ไต่จาก 871 (ก่อนเริ่ม) → **887 ผ่านหมด** (16 เทสใหม่/แก้จากเดิม), ไม่มี regression หลงเหลือ
+- **สรุปแต่ละงาน** (รายละเอียดเต็มอยู่ใน `.wyn/tasks/review/WYN-0XX-*.md` แต่ละไฟล์):
+  - WYN-077: เปลี่ยนคำ Drop→โพสต์, ReDrop→รีโพสต์ ทั่วแอป+push notification text (ไม่แตะชื่อ field/table/class เดิม)
+  - WYN-078: เพิ่ม `SystemChrome.setSystemUIOverlayStyle` ให้พื้นหลังเต็มจอจริง
+  - WYN-079: เพิ่มปุ่ม "เลิกทำ" (Undo) หลังกด "ไม่สนใจโพสต์นี้" — เพิ่ม DELETE policy ให้ `feed_signals`
+  - WYN-080: ค้นหาต้องกดยืนยัน (ไอคอน/Enter) ไม่ใช่ auto-search ทุกตัวอักษร
+  - WYN-081: เพิ่ม pull-to-refresh ให้หน้าโปรไฟล์ (3 tab) + Club/Top100 อีกหลายหน้า
+  - WYN-082: เพิ่ม dialog ยืนยันก่อนออกจากระบบ
+  - WYN-083: **ย้อนมติเดิมของ WYN-038** — นับวิวรวมเจ้าของโพสต์+ไม่ dedup (ดูมติแยกด้านบน) — **ต้อง migrate `drop_views` primary key บน production ด้วยความระมัดระวัง (มีข้อมูลจริงอยู่แล้ว)**
+  - WYN-084: เอา `Padding(bottom: viewInsets.bottom)` ซ้ำซ้อนออกจากช่องพิมพ์แชท (double keyboard-compensation bug)
+  - WYN-085: เอาปุ่มกระดิ่งแจ้งเตือนออกจากหน้าโปรไฟล์คนอื่น (เคย push ไปหน้าที่ไม่มีปุ่มย้อนกลับ ทำให้ผู้ใช้ติดค้าง)
+  - WYN-086: สลับลำดับ caption มาอยู่เหนือรูป/Poll ใน `HomeDropCard` และ `DropDetailScreen` (Poll เองยังไม่สลับ — นอกสโคปที่ระบุ)
+  - WYN-087: เพิ่มเวลาสัมพัทธ์ต่อท้าย "รีโพสต์โดย @username" — ใช้ข้อมูลที่มีอยู่แล้ว (`r.created_at`) ไม่ต้องแก้ schema
+  - WYN-088: ซ่อนไอคอนดวงตา/ยอดวิวจาก Home feed (Drop+Pop) แต่ยังโชว์ปกติทุกจุดอื่น (โปรไฟล์/hashtag feed) ผ่าน parameter `showViewCount` ใหม่
+- **ปัญหาที่พบระหว่างทำแต่ไม่ได้แก้ (นอกสโคป Phase 1, บันทึกแยกไว้แล้วในมติก่อนหน้า)**: schema.sql โหลดสดเข้า Postgres ว่างเปล่าไม่ผ่าน (บล็อก SQL regression suite เต็มรูปแบบ), `setState()`+Future bug pattern (แก้ไปแล้ว 5 จุดระหว่าง WYN-081)
+- **ยังไม่ยืนยันบนอุปกรณ์จริง**: ทุกงานผ่านแค่ widget test ในนี้ (ไม่มี simulator/emulator ในสภาพแวดล้อมนี้) — AI QA & Security ต้องทดสอบ UI จริงบน iOS/Android ก่อนอนุมัติ deploy โดยเฉพาะ WYN-084 (keyboard behavior จริง) และ WYN-083 (migration ต้องเช็ค column order จริงจาก production ก่อน apply เหมือนที่เคยทำ WYN-071/072)
+- **Phase 2/3 ยังไม่เริ่ม** (WYN-089–105, รอ Founder อนุมัติแยกตามที่ตกลงกันไว้ตอนสรุปงาน — Phase 2 ต้องผ่าน AI Design ก่อน, Phase 3 ต้องผ่าน AI Product Manager spec เต็มก่อน)
+- อ้างอิง: `.wyn/tasks/review/WYN-077-*.md` ถึง `WYN-088-*.md` (12 ไฟล์)
