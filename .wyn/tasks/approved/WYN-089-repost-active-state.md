@@ -1,6 +1,6 @@
 # Feature Request — WYN-089
 
-Status: design complete, ready for coding (2026-09-02)
+Status: QA PASS — approved (2026-09-02)
 Phase: Phase 2 — UI redesign
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 6/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -58,3 +58,26 @@ Known Issues:
 - ยังไม่ได้ทดสอบภาพจริงบนอุปกรณ์ (widget test เท่านั้น ไม่มี simulator/emulator)
 
 Handoff: ส่งต่อ AI QA & Security — (1) ตรวจ UI จริงว่าไอคอนรีโพสต์ในฟีด/โปรไฟล์/hashtag feed เปลี่ยนเป็นสี sapphire หลังกดรีโพสต์ และตรงกับสีที่ `DropDetailScreen` ใช้เป๊ะ (2) แจ้ง AI Design เรื่อง Known Issues ข้างบน (ตัวเลขนับเปลี่ยนสีตามด้วย ไม่ใช่แค่ไอคอน) ว่าตรงกับที่ตั้งใจหรือไม่ (3) ยืนยันว่า WYN-096 ยังไม่ถูกแตะ (scope guard)
+
+## QA Report (2026-09-02)
+
+```
+Feature: ไอคอนรีโพสต์ใน HomeDropCard เปลี่ยนสีเป็น active state เมื่อผู้ใช้เคยรีโพสต์โพสต์นั้นแล้ว
+Environment: อ่านโค้ดจริง (adversarial) + รัน `flutter analyze`/`flutter test` อิสระเองจาก app/ (ไม่เชื่อตัวเลขที่ Coding รายงาน) — ไม่มี simulator/emulator ในสภาพแวดล้อมนี้ (บันทึกไว้ตรงๆ ตาม hard constraint)
+Test Cases:
+  1. อ่าน home_drop_card.dart บรรทัด ActionMetric ตัวรีโพสต์ ยืนยัน color ผูกกับ item.redroppedByMe ตรงตามที่ระบุ
+  2. เทียบสีกับ DropDetailScreen._buildFocusedActionBar (WynColors.sapphire ทั้งคู่ — สอดคล้องกัน 100%)
+  3. ตรวจ action_metric.dart ยืนยัน Known Issue ที่ Coding รายงาน (icon+count ใช้ color เดียวกัน) เป็นความจริง และเทียบกับ Like's ActionMetric (บรรทัด 432) ยืนยันว่าเป็น convention เดิมของ widget จริง ไม่ใช่บั๊กใหม่
+  4. git diff ยืนยันว่า WYN-096 (DropDetailScreen action-row restyle) ไม่ถูกแตะเลยในรอบนี้ (scope guard)
+  5. รัน `flutter analyze` อิสระ: สะอาด
+  6. รัน `flutter test` อิสระเต็ม suite: 917/917 ผ่าน (ตรงกับตัวเลขที่ Coding รายงานสะสมจนถึงงานสุดท้ายของ batch)
+Passed: ทั้ง 6 ข้อข้างต้น
+Failed: ไม่มี
+Severity: -
+Reproduction Steps: -
+Expected: -
+Actual: -
+Security Findings: ไม่พบ — เป็น UI-only change ไม่แตะ auth/API/schema
+Recommendation: อนุมัติ — Known Issue (ตัวเลขนับเปลี่ยนสีตามไอคอน) เป็นพฤติกรรมเดิมของ ActionMetric ที่มีอยู่แล้ว ไม่ใช่ regression ควรแจ้ง AI Design ทราบเพื่อยืนยัน spec ให้ตรงกับพฤติกรรมจริงในรอบ WYN-096 ถัดไป (ไม่ block) — ยังต้องมีคนตรวจภาพจริงบนอุปกรณ์ก่อน sign-off production ขั้นสุดท้าย (residual, ไม่ block QA รอบนี้)
+Final Status: PASS
+```

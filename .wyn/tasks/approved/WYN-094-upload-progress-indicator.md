@@ -1,6 +1,6 @@
 # Feature Request — WYN-094
 
-Status: coded, awaiting QA (2026-09-02)
+Status: QA PASS — approved (2026-09-02)
 Phase: Phase 2 — UI redesign
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 20/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -63,3 +63,26 @@ Known Issues:
 - % ที่แสดงคำนวณจาก "จำนวนรูปเสร็จ/ทั้งหมด" ไม่ใช่ byte-level จริง — โพสต์รูปเดียวจะกระโดดจาก 0%→100% ทันที (ตามที่ design doc ยอมรับไว้แล้วว่าเป็น trade-off ที่ยอมรับได้)
 
 Handoff: ส่งต่อ AI QA & Security — (1) ทดสอบ flow จริงบนอุปกรณ์: เลือกรูป 1 และหลายรูปแล้วกดโพสต์ ดูว่าแถบ progress ขึ้นจริงและขยับตามจำนวนรูป (2) ทดสอบโพสต์ข้อความล้วน/Poll → ต้องไม่มีแถบเลย (3) ทดสอบ error (เช่น ปิด network กลางทาง) → แถบหายไป ปุ่มกลับมากดซ้ำได้ (4) สังเกตว่า % ไม่ได้ smooth แบบ byte-level เป็นพฤติกรรมที่ตั้งใจ ไม่ใช่บั๊ก
+
+## QA Report (2026-09-02)
+
+```
+Feature: Progress bar (%/N รูป) ระหว่างอัปโหลดรูปหลังกดโพสต์ ใน CreateDropScreen
+Environment: อ่านโค้ดจริง (adversarial) + รัน `flutter analyze`/`flutter test` อิสระ — ไม่มี simulator/emulator, ไม่สามารถทดสอบ flow เลือกรูปจริงผ่าน image_picker ได้ในสภาพแวดล้อมนี้ (ข้อจำกัดที่บันทึกไว้แล้วใน DECISIONS.md 2026-09-02)
+Test Cases:
+  1. ตรวจ DropRepository.createDrop()'s upload loop ยืนยัน onImageUploaded(i+1, total) ถูกเรียก**หลัง** `_client.storage.from('drop-images').uploadBinary()` สำเร็จจริงต่อรูปเท่านั้น (ไม่ใช่ค่าเดา/timer ปลอม)
+  2. ตรวจ CreateDropScreen._buildUploadProgress() ยืนยัน guard `_isSharing && _imagesBytes.isNotEmpty` ป้องกัน total=0 (หารด้วยศูนย์) ได้จริง — แถบไม่มีทางถูกสร้างตอน total เป็น 0
+  3. grep `debugInitialImagesBytes` ทั้ง `app/lib` ยืนยันเป็น `@visibleForTesting` seam ที่ไม่มี production call site ใดๆ เรียกใช้เลย (มีแค่ constructor default ในไฟล์ตัวเอง + เทส) — call site จริง 2 จุด (root_shell.dart, profile_drafts_tab.dart) ไม่ส่ง parameter นี้เลย — ยืนยันว่า seam ไม่รั่วเข้า production flow จริง
+  4. อ่านเทสใหม่ 3 เทสใน create_drop_screen_test.dart ยืนยันครอบคลุมจริง (progress ขึ้น+หาย, ไม่มีรูป→ไม่มีแถบ, error→แถบหาย+ปุ่มกลับมา enable)
+  5. รัน `flutter analyze` อิสระ: สะอาด
+  6. รัน `flutter test` อิสระเต็ม suite: 917/917 ผ่าน
+Passed: ทั้ง 6 ข้อข้างต้น
+Failed: ไม่มี
+Severity: -
+Reproduction Steps: -
+Expected: -
+Actual: -
+Security Findings: ไม่พบ — ไม่แตะ auth/API surface ใหม่
+Recommendation: อนุมัติในเชิง logic — **ต้องมีคนทดสอบบนอุปกรณ์จริงก่อน sign-off production** โดยเฉพาะ flow "เลือกรูปจริงจาก UI แล้วเห็น progress" ซึ่งตรวจไม่ได้เลยในสภาพแวดล้อมนี้ (ข้อจำกัด sandbox แท้จริง ไม่ใช่ gap ของ logic) — ไม่ block การอนุมัติรอบนี้เพราะ logic ที่ตรวจได้ทั้งหมด (callback wiring, guard, test-only seam) ถูกต้องและปลอดภัย
+Final Status: PASS
+```

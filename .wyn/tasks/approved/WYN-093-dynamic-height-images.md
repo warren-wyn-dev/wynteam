@@ -1,6 +1,6 @@
 # Feature Request — WYN-093
 
-Status: design complete, ready for coding (2026-09-02)
+Status: QA PASS — approved (2026-09-02)
 Phase: Phase 2 — UI redesign
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 19/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -78,3 +78,29 @@ Known Issues:
 5. ยังไม่ได้ทดสอบภาพจริงบนอุปกรณ์เลย (widget test เท่านั้น) — โดยเฉพาะการ crop ที่ขอบ 0.8/1.91 ควรดูภาพจริงเทียบ
 
 Handoff: ส่งต่อ AI QA & Security — (1) ตรวจ UI จริงว่ารูปแนวตั้ง/แนวนอน/จัตุรัสแสดงเต็มภาพไม่ crop ในฟีด ตามเกณฑ์ clamp (2) ทดสอบ scroll จริงบนอุปกรณ์ที่มีรูปหลายสัดส่วนต่อกัน ดูว่า jank หรือไม่ (Known Issue ข้อ 4) (3) ทดสอบโพสต์รูปจริงผ่าน `CreateDropScreen` แล้วเช็คใน DB ว่า `drops.image_width/height` ถูกเขียนค่าจริง ไม่ใช่แค่ผ่าน widget test (4) แจ้ง AI Deploy & DevOps เรื่อง schema delta ใหม่ (คอลัมน์ 4 ตัว + view definition ใหม่) ต้อง apply เข้า production แยกจาก deploy โค้ด ตามขั้นตอนปกติ + ต้องเช็ค column/view state จริงบน production ก่อน apply เหมือน WYN-071/072/083 (5) พิจารณา Known Issue ข้อ 1 (เทสที่แก้ไป) ว่า behavior ใหม่ (การ์ดพอดีจอโดยไม่ต้อง scroll ในบางกรณี) ตรงใจ Founder หรือไม่
+
+## QA Report (2026-09-02)
+
+```
+Feature: รูปในฟีดยึดสัดส่วนจริง (dynamic-height/aspect-fit) แทน fixed 1:1 crop, พร้อม clamp 0.8–1.91 + เพดาน 0.75×screen height
+Environment: อ่านโค้ดจริง (adversarial) + รัน `flutter analyze`/`flutter test` อิสระ + รัน SQL regression script อิสระเองต่อ local PostgreSQL 16 (สร้าง/ทำลายทิ้งหลังทดสอบ) — ไม่มี simulator/emulator
+Test Cases:
+  1. อ่าน _feedImageAspectRatio()/ConstrainedBox+AspectRatio composition ใน home_drop_card.dart ยืนยัน clamp (0.8, 1.91) และ maxHeight ceiling ตรงตาม design spec, fallback เป็น 1 เมื่อไม่มี metadata/height<=0 (ไม่มีทาง crash จาก division by zero)
+  2. ตรวจ home_feed view definition ตัวสุดท้าย (บรรทัด 10508) ยืนยันว่า image_width/image_height ถูกต่อท้ายสุดของทั้ง 3 branch (drop/pop/redrop-of-drop) จริง ไม่ใช่แทรกกลาง — ยืนยันเป็น "create or replace view" ตัวเดียวที่ถูกแก้ (grep ยืนยันอีก 6 นิยามเก่าไม่ถูกแตะ)
+  3. รัน `bash supabase/tests/wyn_093_home_feed_image_dimensions_test.sh` อิสระเอง: **4/4 CHECK ผ่านหมด** (real dimensions, old-Drop null fallback, pop branch type-check เป็น null, row count ไม่เปลี่ยน)
+  4. ทดสอบ syntactic soundness ของ CHECK constraint และ append-only column ผ่าน ad-hoc PostgreSQL จริง (ไม่ใช่แค่อ่านโค้ด)
+  5. ตรวจ drop_repository.dart ยืนยัน decodeImageDimensions() เรียกหลัง uploadBinary() สำเร็จจริงต่อรูป ไม่ใช่ค่าเดา
+  6. ตรวจ profile_likes_tab_test.dart's แก้ไข (Known Issue #1) — ยืนยันเป็นการลบ assertion ที่ผูกกับ pixel-height สมมติ ไม่ใช่การลด coverage ของพฤติกรรมจริงที่ทดสอบ (assertion ท้ายสุดหลัง scroll ยังคงอยู่ครบ)
+  7. ยืนยัน DropGridTile/DropDetailScreen ไม่ถูกแตะ ตรงตามสโคปที่ประกาศไว้ (grep ไม่พบ _feedImageAspectRatio/imageWidth ใน drop_detail_screen.dart)
+  8. รัน `flutter analyze` อิสระ: สะอาด
+  9. รัน `flutter test` อิสระเต็ม suite: 917/917 ผ่าน
+Passed: ทั้ง 9 ข้อข้างต้น
+Failed: ไม่มี
+Severity: -
+Reproduction Steps: -
+Expected: -
+Actual: -
+Security Findings: ไม่พบ — schema เปลี่ยนแปลงเป็น additive/nullable column เท่านั้น ไม่กระทบ RLS/auth
+Recommendation: อนุมัติ — schema delta (คอลัมน์ 4 ตัว + view ใหม่) ยังไม่ apply เข้า production ตามที่ Coding Output ระบุไว้ตรงๆ แล้ว ต้องส่งต่อ AI Deploy & DevOps ตรวจ column/view state จริงก่อน apply เหมือน WYN-071/072/083 — Performance ระหว่าง scroll จริงบนอุปกรณ์ยังไม่ได้ยืนยัน (residual, ไม่ block เพราะ mitigation เชิงสถาปัตยกรรมสมเหตุสมผลแล้ว — metadata รู้ล่วงหน้า ไม่ต้องรอโหลดรูป)
+Final Status: PASS
+```
