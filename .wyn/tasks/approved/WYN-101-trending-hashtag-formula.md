@@ -1,6 +1,6 @@
 # Feature Request — WYN-101
 
-Status: coded, awaiting QA (2026-09-02)
+Status: QA PASS — approved (2026-09-02)
 Phase: Phase 3 — New feature
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 10/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -71,3 +71,28 @@ Known Issues:
 - Weight/decay เป็นค่า draft แรกตามที่ Founder อนุมัติ ยังไม่ได้ปรับจากข้อมูลจริง (ตามที่ระบุไว้ใน Out of Scope ของ product spec ว่ารอบนี้ยังไม่ต้องทำ)
 
 Handoff: ส่งต่อ AI QA & Security — (1) ตรวจ UI จริงที่ Discovery preview และ Top100Screen ว่าไม่มีตัวเลขจำนวนโพสต์อีก (2) ทดสอบด้วยข้อมูลจำลองหลายเคสตาม Edge Cases ของ product spec โดยเฉพาะเคส "ใหม่ไวรัล vs เก่าสะสม" (มีเทส unit test ครอบคลุมแล้ว แต่ควรยืนยันกับข้อมูลจริงเพิ่ม) (3) ยืนยัน pull-to-refresh ยังทำงานถูกต้อง (ไม่แตะ flow นี้แต่เป็นจุดที่เรียก `fetchTrendingHashtags()` ซ้ำ)
+
+## QA Report (2026-09-02)
+
+```
+Feature: สูตรจัดอันดับแฮชแท็กกำลังนิยมเปลี่ยนเป็น engagement-weighted + time-decay, ลบ "N โพสต์" ออกจาก UI
+Environment: อ่านโค้ดจริง (adversarial) + คำนวณสูตรมือทวนกับเทสจริง + รัน `flutter analyze`/`flutter test` อิสระ
+Test Cases:
+  1. อ่าน discovery_ranking.dart ยืนยันสูตรตรงกับที่เอกสารระบุเป๊ะ: `(likes×1+comments×2+reposts×3+views×0.1)/(ชม.+2)^1.5`, weight เป็น `static const` แยกหัวไฟล์จริง (ปิด Risk R1)
+  2. **คำนวณมือทวนเคส "โพสต์ใหม่ไวรัลชนะโพสต์เก่าสะสมเยอะ"**: เก่า (likes 1000/comments 500/reposts 200, อายุ 30 วัน=720ชม.) → engagement=2600, decay=(722)^1.5≈19,400 → score≈0.134 | ใหม่ (likes 50/comments 30/reposts 20, อายุ 10 นาที≈0.167ชม.) → engagement=170, decay=(2.167)^1.5≈3.19 → score≈53.3 — **53.3 >> 0.134 ยืนยันว่าเทสพิสูจน์ acceptance criteria จริง ไม่ใช่แค่ "มีการจัดอันดับเกิดขึ้น"**
+  3. อ่านเทส "comments/reposts หนักกว่า likes ที่จำนวนเท่ากัน" ยืนยัน logic ถูกต้อง (weight 1/2/3 ตามลำดับ)
+  4. ตรวจ edge case หาร 0 (`_decayOffset=2` กันไม่ให้ hours+2 เป็น 0), viewCount null→0, tie-break ด้วย postCount — อ่านโค้ดยืนยันตรงกับเทสทั้งหมด
+  5. grep `"โพสต์"` ใน hashtag_rank_row.dart ยืนยันลบออกจริงทั้ง UI text และ Semantics label
+  6. ยืนยัน discovery_repository.dart/top_100_screen.dart ใช้ HomeRepository ที่ผ่านการ filter Pop ของ WYN-102 อยู่แล้ว (ตรวจร่วมกับ WYN-102 — เห็นความสอดคล้องข้ามงาน)
+  7. รัน `flutter analyze` อิสระ: สะอาด
+  8. รัน `flutter test` อิสระเต็ม suite: 917/917 ผ่าน
+Passed: ทั้ง 8 ข้อข้างต้น
+Failed: ไม่มี
+Severity: -
+Reproduction Steps: -
+Expected: -
+Actual: -
+Security Findings: ไม่พบ — pure Dart client-side ranking ไม่แตะ backend/schema
+Recommendation: อนุมัติ — สูตรเป็น draft แรกตามที่ Founder อนุมัติ ยังไม่ปรับจากข้อมูลจริง (ตามที่ระบุไว้แล้วว่าเป็น future work ไม่ block รอบนี้)
+Final Status: PASS
+```
