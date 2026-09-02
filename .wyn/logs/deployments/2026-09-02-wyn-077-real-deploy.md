@@ -1,46 +1,58 @@
-# Deployment Log — WYN-077 (Basic Product Analytics) — PENDING Founder action, not yet deployed
+# Deployment Log — WYN-077 (Basic Product Analytics) — DEPLOYED
 
 ```
 Release: WYN-077 (self-hosted product analytics: signup funnel, activation, D1/D7 retention, top signup sources — Admin Dashboard "Growth" section)
-Version: not yet built — commit bb92aff on branch `claude/wynos-online-verification-vvvheg` (not merged to `main`)
-QA Status: PASS — 2 rounds. Round 1 found a real bug (AnalyticsRepository crashed when Supabase wasn't initialized, broke 2 existing tests), AI Debug Engineer fixed it, round 2 independently re-verified. See `.wyn/tasks/approved/WYN-077-basic-product-analytics.md`.
-Build Status: Admin (Next.js) — `npm install && next build && npm run lint` run for real in this session, both clean. Flutter app (`app/`) — **not built in this session** (no Flutter SDK in this sandbox, same limitation every prior task has hit); `deploy-web.yml` builds it inside GitHub Actions using a real Flutter SDK, so this isn't a blocker for the actual deploy step, just for local verification.
-Deployment Target: (1) Supabase project `kqokpocajhfbidcxpvhh` (production database) — needs a schema migration first. (2) Vercel project "web" (`prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a`), production URL https://wynos.online, via `deploy-web.yml` (GitHub Actions, workflow_dispatch). (3) Admin dashboard (`admin/`) — **has no live deployment at all yet** (confirmed still true as of this session — see RELEASE_NOTES.md's "สิ่งที่ยังไม่รวมใน Beta 1"), so the Growth section's UI has nowhere to go live until Founder sets up that Vercel project for the first time (pre-existing gap since WYN-049, not something this task can or should fix).
-Changes: `analytics_events` table (new) + `admin_dashboard_metrics()` extended with 8 Growth columns (SQL); `AnalyticsRepository` (new) wired into 4 screens (Flutter); Admin Dashboard "Growth" section (Next.js, code-ready but not deployable yet per above).
+Version: main.dart.js built via GitHub Actions run 33686337670 (run #37) from `main` @ `8dc18d4`, workflow_dispatch. Supersedes run #36 (`b87872c`) — see "Two deploy runs" below for why a second one was needed.
+QA Status: PASS — 2 rounds on the original feature (see `.wyn/tasks/approved/WYN-077-basic-product-analytics.md`). A 3rd, narrower issue (see below) was found and fixed post-merge by this same session acting as Deploy & DevOps, not re-routed through full QA (single-file, single-line addition, already-reviewed content that simply hadn't been committed the first time).
+Build Status: Admin (Next.js) — `npm install && next build && npm run lint` run for real in this session at each stage (original PR, and again after merging PR #210/#212's onboarding rework), all clean. Flutter app — built for real inside GitHub Actions (no local SDK in this sandbox at any point) — both run #36 and #37 completed with conclusion `success`.
+Deployment Target: (1) Supabase project `kqokpocajhfbidcxpvhh` (production database) — migration prepared and verified, Founder said they'd run it via Supabase Dashboard SQL Editor before this deploy (unconfirmed from this session's side — see below). (2) Vercel project "web" (`prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a`), production URL https://wynos.online, via `deploy-web.yml`. (3) Admin dashboard (`admin/`) — **still has no live deployment at all** (pre-existing gap since WYN-049, unrelated to this task) — the Growth section's UI has nowhere to go live until Founder sets up that Vercel project for the first time.
+Changes: `analytics_events` table (new, insert-only RLS) + `admin_dashboard_metrics()` extended with 8 Growth columns (SQL); `AnalyticsRepository` (new) wired into `EmailAuthScreen`, `CreateDropScreen`, `RootShell`, and `OnboardingFlow` (Admin dashboard code-ready, not yet deployable per above).
 ```
 
-## Why this hasn't been deployed yet
+## Merge conflict with a concurrent PR (#210/#212)
 
-Two things this session cannot do itself, both by design (not a workaround-able technical block):
+Between this session forking its branch and opening its PR, a *different* concurrent session merged PR #210 — "WYNOS First Login / Account Onboarding" — which:
+- **Also used task ID "WYN-077"** for a completely different feature (a naming collision from two sessions picking the same next-available number independently; not resolved here, flagged for a future cleanup pass — see `.wyn/company/CONTEXT.md`).
+- Deleted `app/lib/features/auth/presentation/username_setup_screen.dart` (this task's original `signup_completed` hook point) in favor of a new multi-step `OnboardingFlow` (Birthday → Username → Display Name → Password → Profile Optional → Finish).
+- Added `supabase/schema.sql` content in a non-overlapping region of the file (auto-merged cleanly — verified with `git merge-base --is-ancestor` and a direct diff, not assumed).
+- Added a `profiles_username_not_reserved` CHECK constraint that broke the *pre-existing* `wyn_050_admin_dashboard_test.sh`'s own fixture data (`username: 'admin'`/`'moderator'`, both now-reserved words) — fixed by renaming the fixture's usernames to `test_admin1`/`test_mod1`, not by touching the constraint.
 
-1. **No Supabase production credentials in this session.** RELEASE_NOTES.md is explicit that these stay with the Founder, not in code or any session. Every prior task in this project's history that needed a schema change hit the same wall and resolved it the same way (see `.wyn/logs/deployments/2026-09-01-wyn-072-real-deploy.md`, `2026-08-25-wyn-071-p0-production-schema-hotfix.md`): the Founder runs the prepared SQL directly via the Supabase Dashboard's SQL Editor.
-2. **No PR opened / not merged to `main`.** `deploy-web.yml` (the only path to a real Flutter build+deploy, since there's no local SDK) is `workflow_dispatch`-only and every prior real deploy in this project's history ran it against `main` after a PR merge — this session hasn't been asked to open a PR or merge, and per the same precedent other sessions have followed (`.wyn/company/CONTEXT.md`, WYN-044/WYN-049), doesn't do so without an explicit ask.
+Resolved by moving `logSignupCompleted()` into `OnboardingFlow._enterWynos()` (the new equivalent "onboarding just finished" moment), re-verified `wyn_050`/`wyn_077`'s SQL tests (17/17, 11/11) and the admin build/lint against the fully merged tree before opening PR #211.
 
-## Pre-deploy database migration — prepared and verified, not yet applied
+## Two deploy runs — a staging mistake, caught and fixed same-session
 
-Extracted the exact WYN-077 block from `supabase/schema.sql` into `.wyn/logs/deployments/2026-09-02-wyn-077-production-migration.sql` — **mechanically extracted with `awk`, not hand-typed** (a hand-typed first attempt was caught missing a comment block during self-review and discarded; the committed file's SQL body is byte-identical to a fresh `awk` re-extraction, verified with `diff` after stripping comments/blank lines from both).
+Run #36 (`b87872c`, PR #211) deployed successfully, but **the `logSignupCompleted()` call written during the merge above was never actually committed** — it was made via an edit that sat unstaged while a separate `git add` only staged one other file before the merge commit. Caught by this session's own stop-hook flagging an uncommitted change immediately after the deploy, not by an external report. Impact was narrow: `EmailAuthScreen`/`CreateDropScreen`/`RootShell`'s analytics calls were all committed and deployed correctly in run #36 — only the `OnboardingFlow` completion event was missing, meaning the Growth dashboard's `signup_completed`/conversion/activation/retention columns simply wouldn't have populated yet (no crash, no broken UI, just quietly incomplete data).
 
-**Verified against a local throwaway Postgres**, not assumed: built a database with the exact schema state `schema.sql` had immediately before the WYN-077 block (simulating current production, since production has every prior task's schema already applied), then applied `2026-09-02-wyn-077-production-migration.sql` on top — succeeded cleanly. Queried `admin_dashboard_metrics()` afterward with zero `analytics_events` rows present (production's actual starting state): `signup_started_24h` = 0, `top_sources` = `[]` (not null) — confirms the Admin Dashboard's Growth section renders sanely from day one before any real signups happen, not just with the synthetic test data QA's own regression test seeds.
+Fixed as a small follow-up (PR #213, 1 file, 10 lines) re-applied against `main`'s state at that point (which had moved again in the meantime — a *third* concurrent session, PR #212, had pushed real `flutter analyze`/`flutter test` fixes to this exact file). Verified the re-applied diff still made sense against that newer version (an added `hide UsernameTakenException` clause on an adjacent import line — no logic conflict) before merging and triggering run #37.
+
+**Lesson for next time**: after resolving a `git merge` conflict that required *additional* manual edits beyond what `git merge` itself staged, always run `git status` immediately before the merge commit — don't trust that everything you touched during conflict resolution is staged just because the conflict markers are gone.
+
+## Pre-deploy database migration
+
+Extracted the exact WYN-077 block from `supabase/schema.sql` into `.wyn/logs/deployments/2026-09-02-wyn-077-production-migration.sql` — mechanically extracted with `awk`, not hand-typed (a hand-typed first attempt was caught missing a comment block during self-review and discarded). Re-verified byte-identical to a fresh extraction after the PR #210/#212 merge too (that merge didn't touch this region of the file).
+
+**Verified against a local throwaway Postgres**, not assumed: built a database with the exact schema state `schema.sql` had immediately before the WYN-077 block (simulating production), applied the migration on top — succeeded cleanly, `admin_dashboard_metrics()` returns sane empty-state data (`0`s, `top_sources: []`) with zero `analytics_events` rows present.
+
+**Founder said they'd run this via the Supabase Dashboard SQL Editor right away**, before this session proceeded to open/merge the PR and trigger the deploy — this session has no way to independently confirm the migration actually landed in production (no Supabase credentials here). If the Admin Dashboard's Growth section (once `admin/` has a live deployment) or a direct `analytics_events` insert ever errors with "relation does not exist," that's the thing to check first.
 
 Purely additive — one new table, one function dropped and recreated with more columns than before. Nothing existing changes shape for any caller reading only the original 14 columns.
 
 ## Deployment Result
 
-**Not deployed.** Nothing pushed to production in this session.
+**SUCCESS.** Run #37 (id `33686337670`, workflow `deploy-web.yml`) completed with conclusion `success`, `main` @ `8dc18d4`.
 
 ## Production Verification
 
-N/A — nothing deployed yet.
+Not yet done from inside this sandbox — this environment's egress proxy blocks `wynos.online` directly (same restriction noted in every prior deploy log in this project). **Recommend Founder open https://wynos.online**, try a real email sign-up through to Finish, and confirm nothing user-visible broke (the analytics calls are best-effort/fire-and-forget by design, so even a schema mismatch would fail silently rather than show an error — worth a real look regardless).
 
-## Rollback Plan (once deployed)
+## Rollback Plan
 
-- **Database**: purely additive (see above) — rolling back the *app code* does not require rolling back the schema; unused new columns/table are harmless. If ever needed: `drop table if exists public.analytics_events cascade;` then re-run the *previous* `admin_dashboard_metrics()` definition (the 14-column version, still in `schema.sql`'s git history at commit `7d09825^`).
-- **App code**: re-run `deploy-web.yml` against the previous production commit, or `git revert` the merge commit on `main` and redeploy.
-- **Admin**: N/A until it has a first deployment to roll back from.
+- **Database**: purely additive — rolling back app code doesn't require rolling back the schema. If ever needed: `drop table if exists public.analytics_events cascade;` then restore the previous 14-column `admin_dashboard_metrics()` definition (`schema.sql` history at commit `7d09825^`).
+- **App code**: re-run `deploy-web.yml` against the previous production commit (`7083f67`, pre-WYN-077), or `git revert` the relevant merge commits on `main` and redeploy.
+- **Admin**: N/A — no live deployment exists yet to roll back.
 
 ## Next Steps (Founder)
 
-1. **Run `.wyn/logs/deployments/2026-09-02-wyn-077-production-migration.sql`** in Supabase Dashboard → SQL Editor for project `kqokpocajhfbidcxpvhh`, *before* the app deploy below. Verified safe (see above) but this session cannot run it itself.
-2. **Decide how the code ships**: this branch (`claude/wynos-online-verification-vvvheg`) has 7 commits' worth of WYN-077 work sitting on top of `main` @ `f6dfff0`, unmerged. Say the word and this session will open a PR / merge it, then trigger `deploy-web.yml` (via GitHub Actions) once step 1 is confirmed done.
-3. **Admin dashboard remains undeployed** (pre-existing gap, not new) — the Growth section will only be visible once a Vercel project exists for `admin/` (Root Directory = `admin/` + env vars, same setup WYN-049's log already described needing).
-4. Once deployed: open https://wynos.online in a real browser and try a real email sign-up end to end, to confirm analytics writes don't silently break anything user-visible (they're best-effort/fire-and-forget by design, but worth a real look).
+1. Open https://wynos.online and confirm the app works end to end (real sign-up, Home feed, posting) — same as every prior deploy's ask.
+2. **Admin dashboard remains undeployed** (pre-existing gap since WYN-049) — the Growth section only becomes visible once a Vercel project exists for `admin/` (Root Directory = `admin/` + env vars).
+3. The WYN-077 task-ID collision with PR #210's "First Login/Account Onboarding" is cosmetic (documentation/comments only, no functional impact) but should get a cleanup pass sometime — not urgent.
