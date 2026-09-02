@@ -10667,3 +10667,96 @@ where not exists (
 );
 
 grant select on public.home_feed to authenticated;
+
+-- ===========================================================================
+-- WYNOS First Login / Account Onboarding -- multi-step onboarding state
+-- (Birthday, Username, Display Name, WYNOS Password, Optional Profile).
+-- Extends WYN-002 (Authentication & Onboarding)/WYN-003 (User Profile),
+-- which already own `profiles.username`/`display_name`/`bio`/`avatar_url`
+-- -- this section only adds what's missing: a birthday (privacy-sensitive,
+-- so it lives in its own table with owner-only RLS, never the
+-- "viewable by any authenticated user" policy `profiles` itself has), and
+-- an explicit onboarding-completion flag AuthGate can check in one read
+-- instead of inferring "done" from `username is not null` the way WYN-002
+-- originally did.
+-- ===========================================================================
+
+-- A separate table, not new columns on `profiles`, specifically so
+-- `date_of_birth` is never covered by "Profiles are viewable by
+-- authenticated users" (see that policy above) -- PostgREST/Supabase RLS
+-- is row-level, not column-level, so the only reliable way to keep one
+-- column private while the rest of a row stays public is to not store it
+-- in that row at all. Any authenticated user can still discover *that* a
+-- profile_private row exists (not useful on its own -- every fully
+-- onboarded account has one), but never its `date_of_birth` value, which
+-- is the actual privacy requirement.
+create table if not exists public.profile_private (
+  id uuid primary key references public.profiles (id) on delete cascade,
+  date_of_birth date,
+  -- Whether this account already has a password credential set on its
+  -- Supabase Auth user (via the onboarding Password step, or -- checked
+  -- client-side instead of stored here -- by having signed up with
+  -- email+password directly, see AuthRepository.fetchOnboardingState).
+  -- Lets a returning user resume onboarding without being asked to set a
+  -- password twice.
+  password_set boolean not null default false,
+  onboarding_completed boolean not null default false,
+  onboarding_completed_at timestamptz
+);
+
+alter table public.profile_private enable row level security;
+
+create policy "Users can view their own private profile fields"
+  on public.profile_private
+  for select
+  to authenticated
+  using (auth.uid() = id);
+
+create policy "Users can insert their own private profile fields"
+  on public.profile_private
+  for insert
+  to authenticated
+  with check (auth.uid() = id);
+
+create policy "Users can update their own private profile fields"
+  on public.profile_private
+  for update
+  to authenticated
+  using (auth.uid() = id);
+
+alter table public.profile_private
+  add constraint profile_private_date_of_birth_not_future
+  check (date_of_birth is null or date_of_birth <= current_date);
+
+-- Minimum age 13 (Founder, industry-standard minimum for a social
+-- platform -- see .wyn/company/DECISIONS.md). Revisit here (and in
+-- BirthdayStep's client-side copy of this same rule) if that policy ever
+-- changes.
+alter table public.profile_private
+  add constraint profile_private_date_of_birth_min_age
+  check (date_of_birth is null or date_of_birth <= (current_date - interval '13 years'));
+
+-- Defense in depth alongside AuthRepository's own reservedUsernames set
+-- (lib/features/auth/data/auth_repository.dart) -- keep both lists in
+-- sync. A client-side check alone would not stop a direct REST call.
+alter table public.profiles
+  add constraint profiles_username_not_reserved
+  check (
+    username is null or lower(username) not in (
+      'admin', 'administrator', 'support', 'help', 'wynos', 'wyn', 'zoky',
+      'official', 'root', 'api', 'moderator', 'staff', 'security', 'system',
+      'null', 'undefined', 'everyone', 'here', 'channel', 'settings',
+      'about', 'terms', 'privacy', 'www', 'app'
+    )
+  );
+
+-- Backfill: every account that already finished the old (WYN-002)
+-- onboarding -- i.e. has a username -- must not be asked to onboard again
+-- just because this new `onboarding_completed` flag didn't exist yet when
+-- they signed up. Existing users are never sent through Birthday/Display
+-- Name/Password/Profile Optional retroactively.
+insert into public.profile_private (id, onboarding_completed, onboarding_completed_at)
+select id, true, created_at
+from public.profiles
+where username is not null
+on conflict (id) do nothing;

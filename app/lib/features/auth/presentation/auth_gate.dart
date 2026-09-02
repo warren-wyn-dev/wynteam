@@ -14,19 +14,24 @@ import '../../push/data/push_token_repository.dart';
 import '../../push/presentation/push_notification_service.dart';
 import '../../root/presentation/root_shell.dart';
 import '../data/auth_repository.dart';
+import '../data/onboarding_state.dart';
 import 'account_restricted_screen.dart';
-import 'username_setup_screen.dart';
+import 'onboarding/onboarding_flow.dart';
 import 'welcome_screen.dart';
 
 /// Decides which screen to show based on auth + onboarding state:
 /// signed out -> Welcome, signed in but Suspended/Banned -> Account
-/// Restricted (WYN-029, checked *before* the username check below --
+/// Restricted (WYN-029, checked *before* the onboarding check below --
 /// see the design doc's Screen 6), signed in but missing acceptance of
 /// a current mandatory platform document -> Document Acceptance
 /// (WYN-046, checked *after* the moderation check above and *before*
-/// the username check below -- applies uniformly to brand-new and
-/// existing users alike, per that task's Product spec), signed in
-/// without a username -> Username Setup, fully onboarded -> RootShell
+/// the onboarding check below -- applies uniformly to brand-new and
+/// existing users alike, per that task's Product spec), signed in but
+/// onboarding not yet complete -> OnboardingFlow (First Login /
+/// Account Onboarding: Birthday -> Username -> Display Name ->
+/// Password -> Profile Optional -> Finish, resumable -- see
+/// .wyn/docs/design/wyn-002-authentication-onboarding.md and
+/// AuthRepository.fetchOnboardingState), fully onboarded -> RootShell
 /// (the Home/Drop/Pop/Profile Bottom Nav from "WYN V0.1 — CORE APP
 /// FEATURE PROMPT", see .wyn/company/DECISIONS.md 2026-08-14 —
 /// replaces the old single-screen FeedScreen from WYN-004).
@@ -130,7 +135,7 @@ class _AuthGateState extends State<AuthGate> {
     // starts or ends -- from the OTP screen, an OAuth deep-link callback,
     // or a logout button buried in a pushed screen like
     // ViewProfileScreen -- pop back to this route so the user sees what
-    // AuthGate now renders (UsernameSetupScreen/RootShell on sign-in,
+    // AuthGate now renders (OnboardingFlow/RootShell on sign-in,
     // WelcomeScreen on sign-out) instead of staying stuck on the screen
     // that triggered the change. See .wyn/learning/MISTAKES.md.
     _authSubscription = _authRepository.authStateChanges.listen((state) {
@@ -327,26 +332,30 @@ class _AuthGateState extends State<AuthGate> {
                   return _buildRootShell();
                 }
 
-                return FutureBuilder<bool>(
-                  future: _authRepository.hasUsername(session.user.id),
-                  builder: (context, usernameSnapshot) {
-                    if (!usernameSnapshot.hasData) {
+                return FutureBuilder<OnboardingState>(
+                  future: _authRepository.fetchOnboardingState(session.user),
+                  builder: (context, onboardingSnapshot) {
+                    if (!onboardingSnapshot.hasData) {
                       return const _LoadingScreen();
                     }
-                    if (usernameSnapshot.data == true) {
+                    final onboardingState = onboardingSnapshot.data!;
+                    if (onboardingState.completed) {
                       return _buildRootShell();
                     }
-                    return UsernameSetupScreen(
+                    return OnboardingFlow(
                       authRepository: _authRepository,
-                      userId: session.user.id,
-                      // A saved username is a Postgres write, not a Supabase auth
-                      // event, so nothing else tells this widget to re-check and
-                      // switch to RootShell -- rebuilding here re-runs the
-                      // hasUsername() FutureBuilder above, which then returns
-                      // RootShell as AuthGate's own child (keeping this State,
-                      // and its auth-state subscription, alive for logout to
-                      // keep working).
-                      onUsernameSet: () => setState(() {}),
+                      user: session.user,
+                      initialState: onboardingState,
+                      // Completing onboarding is a Postgres write, not a
+                      // Supabase auth event, so nothing else tells this
+                      // widget to re-check and switch to RootShell --
+                      // rebuilding here re-runs the fetchOnboardingState()
+                      // FutureBuilder above, which then returns RootShell
+                      // as AuthGate's own child (keeping this State, and
+                      // its auth-state subscription, alive for logout to
+                      // keep working). Same shape as the old
+                      // UsernameSetupScreen.onUsernameSet under WYN-002.
+                      onCompleted: () => setState(() {}),
                     );
                   },
                 );
