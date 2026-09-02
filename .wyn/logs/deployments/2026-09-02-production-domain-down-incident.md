@@ -77,3 +77,25 @@ This proves project **"web" now has Vercel's GitHub integration connected** (pre
 
 ## Recommendation (needs Founder action in Vercel Dashboard — cannot be done from this session)
 Go to **Vercel Dashboard → project "web" → Settings → Git** and **disconnect the GitHub repository connection** for this project. Production should continue to be deployed exclusively through `.github/workflows/deploy-web.yml` (which actually knows how to build Flutter web), same as it has been since 2026-08-25's correction — the difference is this time the setting needs fixing on project "web" itself, not just "wynteam".
+
+## Update 3 — disconnect did not hold: broke a 3rd time after merging PR #207
+Founder reported disconnecting the Git integration in Vercel Dashboard. To verify, merged PR #207 (another docs-only change, the log entry above) into `main` as a real test. **Production broke again within ~7 minutes**, same signature as Update 2 (`x-vercel-error: NOT_FOUND`). This means either:
+1. The disconnect didn't actually save/apply on project "web", or
+2. Something disconnected a *different* project (there may be more than one Vercel project in this account that looks similarly named), or
+3. Vercel's GitHub App is still installed with access to this repo at the GitHub side (Settings → Integrations → Installed GitHub Apps → Vercel) even though the per-project "connected repo" toggle was changed, and that's enough to keep triggering auto-deploys.
+
+Re-ran `deploy-web.yml` again to restore production. **Asked Founder to re-verify the disconnect** (confirm they were on project "web" specifically, that the Git section actually shows "no repository connected" after refreshing the page) and, if it still doesn't hold, to check from the GitHub side whether the Vercel GitHub App's repository access can be scoped/removed for this repo entirely as a more forceful fix.
+
+## Update 4 — separate bug found: Google Sign-In redirects to the dead old domain
+Founder reported a *different* failure while testing: tapping "เข้าสู่ระบบด้วย Google" on `wynos.online` immediately showed the old `web-neon-sigma-66.vercel.app` domain's `404 DEPLOYMENT_NOT_FOUND` page (screenshot: URL bar showing `...sigma-66.vercel.app`).
+
+Root cause: per `app/lib/features/auth/data/auth_repository.dart` (comments + `WYN-P0-google-signin-broken-on-web.md`), `signInWithGoogle`/`signInWithApple` pass `redirectTo: null` on web by design, so `supabase_flutter` falls back to the current page's own origin as the OAuth callback — but that origin has to already be in the Supabase project's Auth `uri_allow_list` (confirmed via Management API in the WYN-P0 fix: previously only `https://web-neon-sigma-66.vercel.app` and `https://web-neon-sigma-66.vercel.app/**`). Since `wynos.online` was never added to that allow-list, Supabase falls back to the stale configured Site URL (the dead old domain) instead.
+
+This is a **Supabase Dashboard** config issue (Authentication → URL Configuration → Site URL + Redirect URLs), not a code bug — no Supabase Management API credentials are available in this session to fix it directly, so instructions were given to Founder to update it manually: Site URL → `https://wynos.online`, add `https://wynos.online/**` to Redirect URLs. Founder confirmed making the change; verification of the actual OAuth round-trip (Google consent screen → redirect back) is pending Founder's own retest, since this session cannot drive a real Google OAuth flow through a browser.
+
+**Retest confirmed by Founder: Google Sign-In now works correctly on `https://wynos.online`.** This item is resolved.
+
+## Current status summary (end of incident)
+- ✅ `https://wynos.online` serving production correctly (verified repeatedly via curl)
+- ✅ Google Sign-In redirect fixed (Supabase Auth URL Configuration updated, Founder-confirmed working)
+- ⚠️ **Unresolved / needs Founder follow-up**: it's still not confirmed that Vercel's GitHub integration on project "web" is fully disconnected. The dashboard-level "Disconnect" in Settings → Git did not hold on the first attempt (production broke a 3rd time after merging PR #207). A GitHub-side fix (removing/scoping the Vercel GitHub App's access to this repo under github.com/settings/installations, or the repo's Settings → Integrations) was suggested but not yet confirmed done. **Every future merge into `main` is a live test** — if it breaks `wynos.online` again, re-run `deploy-web.yml` to restore, and revisit the GitHub App access removal.
