@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../analytics/data/analytics_repository.dart';
 // Hides ProfileRepository's own UsernameTakenException -- a second,
 // separately-declared type with the same name as AuthRepository's (see
 // that file's own doc comment on why the two aren't shared), which
@@ -136,6 +139,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     });
     try {
       await widget.authRepository.completeOnboarding(widget.user.id);
+      // WYN-077 (Basic Product Analytics): this is "signup completed" --
+      // onboarding just finished for real, regardless of which sign-in
+      // method got the user here (email/password direct, or the
+      // Password step above for an OAuth account) -- see
+      // AnalyticsRepository's own doc comment for why this moment, not
+      // account creation, is what that means in this app.
+      unawaited(const AnalyticsRepository().logSignupCompleted());
       // Deliberately no local setState back to isLoading: false on
       // success -- AuthGate's own setState (triggered by onCompleted)
       // rebuilds it into RootShell shortly, unmounting this whole widget.
