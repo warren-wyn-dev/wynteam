@@ -340,6 +340,24 @@ void main() {
     expect(find.text('ส่งข้อความ'), findsNothing);
   });
 
+  testWidgets(
+      'WYN-085: someone else\'s profile has no notifications bell icon '
+      '(it used to push NotificationListScreen, a back-button-less screen '
+      'that stranded the viewer with no way to navigate elsewhere)',
+      (tester) async {
+    await tester.pumpWidget(buildProfile(
+      profileRepository: otherProfileRepo,
+      followRepository: otherFollowRepo,
+      userId: 'someone-else',
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.notifications_outlined), findsNothing);
+    // The search shortcut (also WYN-071) is unaffected -- it pushes a
+    // screen with a real AppBar/back button, so it stays.
+    expect(find.byIcon(Icons.search), findsOneWidget);
+  });
+
   testWidgets('Drop tab shows this profile\'s Drops (scoped by author, '
       'not the global feed)', (tester) async {
     await tester.pumpWidget(MaterialApp(
@@ -427,7 +445,8 @@ void main() {
   // shelf from Profile entirely (still reachable via Home's "From Your
   // Clubs" feed). See view_profile_screen.dart's own comment on
   // ClubRepository/ClubPostRepository still being threaded through
-  // (only for _openSearch/_openNotifications now).
+  // (only for _openSearch now -- see that comment for why its former
+  // sibling _openNotifications is gone, WYN-085).
 
   group('"Profile Visit" User Signal (WYNOS Unified Home Feed Algorithm '
       'V1.0)', () {
