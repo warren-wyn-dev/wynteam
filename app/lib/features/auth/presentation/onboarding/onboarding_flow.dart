@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../profile/data/profile_repository.dart';
+// Hides ProfileRepository's own UsernameTakenException -- a second,
+// separately-declared type with the same name as AuthRepository's (see
+// that file's own doc comment on why the two aren't shared), which
+// _messageFor below would otherwise be unable to resolve unambiguously.
+import '../../../profile/data/profile_repository.dart' hide UsernameTakenException;
 import '../../data/auth_repository.dart';
 import '../../data/onboarding_state.dart';
 import 'onboarding_scaffold.dart';
@@ -254,6 +258,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       case _LocalStep.finish:
         return FinishStep(
           key: const ValueKey(_LocalStep.finish),
+          displayName: _displayName,
           isLoading: _isLoading,
           errorText: _errorText,
           onEnter: _enterWynos,
