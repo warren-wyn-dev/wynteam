@@ -312,6 +312,26 @@ class HomeDropCard extends StatelessWidget {
                   ],
                 ),
               ),
+              // WYN-086 (Wynos V1.0.0 Beta2, item 25): caption goes above
+              // the image/poll now, not below -- Founder: "อยากให้ข้อความ
+              // ที่โพสต์อยู่ด้านบน ส่วนรูปอยู่ด้านล่าง". A caption-only
+              // Drop still just shows caption with nothing under it, same
+              // as before. WYNOS V1.0.0 Beta requirement 2: a Drop can be
+              // caption-only (no image, not a Poll) -- _canShare in
+              // CreateDropScreen already guarantees a non-empty caption
+              // whenever that's the case, so this is never reached with
+              // a null/empty caption for a plain (non-poll) card.
+              if (item.caption != null && item.caption!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                  child: !item.isPoll && item.imageUrl == null
+                      ? DoubleTapLike(
+                          onLike: onToggleLike,
+                          alreadyLiked: item.likedByMe,
+                          child: HashtagText(item.caption!),
+                        )
+                      : HashtagText(item.caption!),
+                ),
               if (item.isPoll)
                 PollCard(
                   options: item.pollOptions!,
@@ -350,22 +370,6 @@ class HomeDropCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                ),
-              // WYNOS V1.0.0 Beta requirement 2: a Drop can now be
-              // caption-only (no image, not a Poll) -- _canShare in
-              // CreateDropScreen already guarantees a non-empty caption
-              // whenever that's the case, so this is never reached with
-              // a null/empty caption for a plain (non-poll) card.
-              if (item.caption != null && item.caption!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                  child: !item.isPoll && item.imageUrl == null
-                      ? DoubleTapLike(
-                          onLike: onToggleLike,
-                          alreadyLiked: item.likedByMe,
-                          child: HashtagText(item.caption!),
-                        )
-                      : HashtagText(item.caption!),
                 ),
               if (item.likedBy.isNotEmpty)
                 Padding(

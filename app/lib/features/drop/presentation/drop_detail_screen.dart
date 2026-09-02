@@ -647,26 +647,15 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     final header = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (_drop.isPoll)
-          PollCard(
-            options: _drop.pollOptions!,
-            expiresAt: _drop.pollExpiresAt!,
-            myVoteIndex: _drop.pollMyVoteIndex,
-            totalVotes: _drop.pollTotalVotes,
-            optionCounts: _drop.pollOptionCounts,
-            isOwnPoll: isOwnDrop,
-            onVote: _votePoll,
-          )
-        else if (_drop.imageUrl != null)
-          DropImageGallery(
-            drop: _drop,
-            dropRepository: widget.dropRepository,
-            onLike: _toggleLike,
-            onDropChanged: (updated) => setState(() => _drop = updated),
-          ),
+        // WYN-086 (Wynos V1.0.0 Beta2, item 25): the author row + caption
+        // now come before the image/poll, not after -- Founder: "อยากให้
+        // ข้อความที่โพสต์อยู่ด้านบน ส่วนรูปอยู่ด้านล่าง". Used to be one
+        // Padding/Column holding author row + caption + _buildStatLine,
+        // placed *after* the image/poll -- split in two so the
+        // image/poll can sit between caption and stat line instead.
         // WYNOS V1.0.0 Beta requirement 2: a caption-only Drop has no
-        // image area at all here -- its caption still renders below via
-        // the same Padding/HashtagText every Drop already gets.
+        // image area at all -- its caption still renders here the same
+        // way either way.
         Padding(
           padding: const EdgeInsets.fromLTRB(
             WynSpacing.space4, WynSpacing.space4, WynSpacing.space4, WynSpacing.space2,
@@ -785,10 +774,31 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   style: _textStyle(fontSize: 16, color: WynColors.ink, height: 1.5),
                 ),
               ],
-              const SizedBox(height: WynSpacing.space3),
-              _buildStatLine(),
             ],
           ),
+        ),
+        if (_drop.isPoll)
+          PollCard(
+            options: _drop.pollOptions!,
+            expiresAt: _drop.pollExpiresAt!,
+            myVoteIndex: _drop.pollMyVoteIndex,
+            totalVotes: _drop.pollTotalVotes,
+            optionCounts: _drop.pollOptionCounts,
+            isOwnPoll: isOwnDrop,
+            onVote: _votePoll,
+          )
+        else if (_drop.imageUrl != null)
+          DropImageGallery(
+            drop: _drop,
+            dropRepository: widget.dropRepository,
+            onLike: _toggleLike,
+            onDropChanged: (updated) => setState(() => _drop = updated),
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            WynSpacing.space4, WynSpacing.space3, WynSpacing.space4, WynSpacing.space2,
+          ),
+          child: _buildStatLine(),
         ),
         _buildFocusedActionBar(),
       ],

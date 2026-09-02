@@ -1905,6 +1905,32 @@ void main() {
     });
   });
 
+  group('WYN-086: caption above image (Wynos V1.0.0 Beta2, item 25)', () {
+    testWidgets(
+        'a Drop card with both a caption and an image shows the caption '
+        'above the image, not below it', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            item: _dropItem(caption: 'ข้อความโพสต์', hasImage: true),
+            onTap: () {},
+            onToggleLike: () {},
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final captionTop = tester.getTopLeft(find.text('ข้อความโพสต์')).dy;
+      final imageTop = tester.getTopLeft(find.byType(Image)).dy;
+      expect(captionTop, lessThan(imageTop));
+    });
+  });
+
   group('Verified badge (WYNOSHomeSpec.md 4.9)', () {
     testWidgets('shows the badge next to a verified author\'s name',
         (tester) async {

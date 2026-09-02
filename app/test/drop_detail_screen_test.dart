@@ -172,6 +172,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+      'WYN-086: a Drop with both a caption and an image shows the caption '
+      'above the image, not below it', (tester) async {
+    final captionAboveImageDrop = Drop(
+      id: 'd-caption-image-order',
+      authorId: 'u1',
+      authorUsername: 'namfah',
+      imageUrl: 'https://example.supabase.co/drops/order.jpg',
+      caption: 'ข้อความโพสต์',
+      createdAt: DateTime.now(),
+      likeCount: 0,
+      commentCount: 0,
+      likedByMe: false,
+      savedByMe: false,
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: DropDetailScreen(
+        dropRepository: repo,
+        followRepository: followRepo,
+        profileRepository: profileRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
+        drop: captionAboveImageDrop,
+      ),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    tester.takeException();
+
+    final captionTop = tester.getTopLeft(find.text('ข้อความโพสต์')).dy;
+    final imageTop = tester.getTopLeft(find.byType(Image)).dy;
+    expect(captionTop, lessThan(imageTop));
+  });
+
   testWidgets('toggling Like flips the icon and count optimistically',
       (tester) async {
     final drop = Drop(
