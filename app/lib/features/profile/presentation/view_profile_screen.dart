@@ -1247,7 +1247,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                       _textStyle(fontSize: 13, fontWeight: FontWeight.w400),
                   tabs: const [
                     Tab(text: 'โพสต์'),
-                    Tab(text: 'ReDrop'),
+                    Tab(text: 'รีโพสต์'),
                     Tab(text: 'ถูกใจ'),
                     // Pop tab intentionally omitted here -- see the
                     // import comment above (WYNOS V1.0.0 Beta requirement 3).
@@ -1283,7 +1283,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                           isOwnProfile: isOwnProfile,
                           isBlockedEitherWay: isBlockedEitherWay,
                           isLockedPrivate: isLockedPrivate,
-                          contentLabel: 'ReDrop',
+                          contentLabel: 'รีโพสต์',
                           profile: profile,
                         ),
                       ),

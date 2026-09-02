@@ -110,7 +110,7 @@ class _NotificationSettingsScreenState
         SwitchListTile(
           secondary: const Icon(Icons.favorite_border),
           title: const Text('ถูกใจ'),
-          subtitle: const Text('เมื่อมีคนถูกใจ Drop, Pop หรือ ReDrop โพสต์ของคุณ'),
+          subtitle: const Text('เมื่อมีคนถูกใจโพสต์, Pop หรือรีโพสต์ของคุณ'),
           value: _settings.likes,
           onChanged:
               _saving.contains('likes') ? null : (v) => _toggle('likes', v),
@@ -118,7 +118,7 @@ class _NotificationSettingsScreenState
         SwitchListTile(
           secondary: const Icon(Icons.mode_comment_outlined),
           title: const Text('คอมเมนต์'),
-          subtitle: const Text('เมื่อมีคนแสดงความคิดเห็นหรือกล่าวถึงคุณใน Drop'),
+          subtitle: const Text('เมื่อมีคนแสดงความคิดเห็นหรือกล่าวถึงคุณในโพสต์'),
           value: _settings.comments,
           onChanged: _saving.contains('comments')
               ? null

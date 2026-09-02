@@ -783,7 +783,7 @@ void main() {
       await tester.tap(find.text('ลบ'));
       await tester.pumpAndSettle();
 
-      expect(find.text('ลบ Drop นี้?'), findsOneWidget);
+      expect(find.text('ลบโพสต์นี้?'), findsOneWidget);
 
       await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
       await tester.pumpAndSettle();

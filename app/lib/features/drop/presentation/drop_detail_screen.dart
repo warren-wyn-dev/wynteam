@@ -300,7 +300,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.repeat),
-              title: Text(_drop.redroppedByMe ? 'ยกเลิก ReDrop' : '🔄 ReDrop'),
+              title: Text(_drop.redroppedByMe ? 'ยกเลิกรีโพสต์' : '🔄 รีโพสต์'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _toggleRedrop();
@@ -308,7 +308,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.chat_bubble_outline),
-              title: const Text('💬 Quote ReDrop'),
+              title: const Text('💬 Quote รีโพสต์'),
               onTap: () async {
                 Navigator.of(sheetContext).pop();
                 final posted = await Navigator.of(context).push<bool>(
@@ -424,9 +424,9 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       profileRepository: widget.profileRepository,
       sharedContentType: SharedContentType.drop,
       sharedContentId: _drop.id,
-      previewLabel: 'แชร์ Drop',
+      previewLabel: 'แชร์โพสต์',
       nativeShareText: dropShareLink(_drop.id),
-      nativeShareTitle: 'Drop บน WYN',
+      nativeShareTitle: 'โพสต์บน WYN',
     );
   }
 
@@ -511,7 +511,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบ Drop ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: Text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -897,7 +897,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
           const Text(' · '),
           Text.rich(countSpan(_drop.commentCount, 'คอมเมนต์')),
           const Text(' · '),
-          Text.rich(countSpan(_drop.redropCount, 'ReDrop')),
+          Text.rich(countSpan(_drop.redropCount, 'รีโพสต์')),
           const Text(' · '),
           Semantics(
             label: 'เข้าชมแล้ว ${_drop.viewCount} ครั้ง',
@@ -949,8 +949,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
           Expanded(
             child: Semantics(
               label: _drop.redroppedByMe
-                  ? 'ReDrop แล้ว กดเพื่อเลือกดำเนินการ'
-                  : 'กดเพื่อ ReDrop',
+                  ? 'รีโพสต์แล้ว กดเพื่อเลือกดำเนินการ'
+                  : 'กดเพื่อรีโพสต์',
               excludeSemantics: true,
               child: IconButton(
                 icon: Icon(

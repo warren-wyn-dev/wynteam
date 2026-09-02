@@ -205,7 +205,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Drop'));
+    await tester.tap(find.text('โพสต์'));
     await tester.pumpAndSettle();
     tester.takeException();
 

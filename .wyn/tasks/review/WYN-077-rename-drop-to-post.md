@@ -1,6 +1,6 @@
 # Feature Request — WYN-077
 
-Status: backlog (ยังไม่เริ่ม — รอหยิบขึ้นมาทำตามลำดับ Phase)
+Status: coded, awaiting QA (2026-09-02)
 Phase: Phase 0 — Global rename
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 1/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -23,3 +23,30 @@ Risks:
 | R1 | เผลอเปลี่ยนชื่อ field/table ในโค้ดจนพัง | ต่ำ | จำกัดการเปลี่ยนเฉพาะ UI string เท่านั้น |
 Recommendation: อนุมัติ ทำได้ทันทีเป็นงานแรก
 Handoff: AI Coding ทำตรงได้เลย (ไม่ต้องผ่าน Design เพราะเป็นแค่เปลี่ยนข้อความ)
+
+---
+
+## Coding Output (2026-09-02)
+
+Implementation: grep ทุก UI string literal ที่มีคำว่า "Drop"/"ReDrop" ใน `app/lib` (แยกจาก code comment และชื่อ class/type เช่น `Drop`/`DropRepository` ที่ไม่แตะ) แล้วเปลี่ยนเป็น "โพสต์"/"รีโพสต์" ทุกจุด รวม 23 ไฟล์ใน `app/lib` — ครอบคลุม bottom nav label, ปุ่ม "สร้างโพสต์ใหม่" (semantics), search hint/tab, profile tab (โพสต์/รีโพสต์), dialog ลบโพสต์, notification message ทั้ง in-app และ push (ดูด้านล่าง), settings, delete-account bullet list, moderation label ฯลฯ — **พบและแก้เพิ่มเติมนอกสโคปเดิมของ requirement**: ข้อความ push notification ใน `supabase/functions/send-push-notification/_lib.ts` (`like_drop`/`comment_drop`/`mention_drop`/`redrop` message templates) ต้องแก้คู่กันเพราะโค้ด/เทสเดิมมีกติกาบังคับว่าต้องตรงกับ `notification_list_screen.dart`'s `_messageFor` เป๊ะทุกตัวอักษร (ดู WYN-016) — ถ้าไม่แก้คู่กันจะเกิดข้อความ push ไม่ตรงกับ in-app
+
+Files Changed (35 ไฟล์):
+- `app/lib/` 23 ไฟล์ (UI string rename เท่านั้น ไม่แตะชื่อ class/field/table)
+- `app/test/` 9 ไฟล์ (`drop_detail_screen_test.dart`, `follow_list_screen_test.dart`, `home_feed_screen_test.dart`, `notification_list_screen_test.dart`, `recently_deleted_drops_screen_test.dart`, `root_shell_guest_gate_test.dart`, `root_shell_test.dart`, `search_screen_test.dart`, `view_profile_screen_test.dart`) — อัปเดต assertion string ให้ตรงกับข้อความใหม่
+- `supabase/functions/send-push-notification/_lib.ts` + `_lib.test.ts` — mirror การเปลี่ยนข้อความเดียวกัน กัน push/in-app message ไม่ตรงกัน
+
+Reason: Founder สั่งตรง (ข้อ 1/28, `Wynos_V1.0.0_Beta2.pdf`) — "เปลี่ยนจากคำว่า Drop เป็น โพสต์ หรือ รีดรอป เป็น รีโพสต์"
+
+Tests:
+- `flutter analyze` (app/): สะอาด ไม่มี issue
+- `flutter test` (app/): **871/871 ผ่านหมด** (แก้ 16 test string assertion ที่ยังอ้างอิงคำเดิมก่อนหน้านั้นจนครบ)
+- `deno check` + `deno lint` (send-push-notification): สะอาดทั้ง 3 ไฟล์
+- `deno test`: **รันไม่ได้ในสภาพแวดล้อมนี้** — `jsr.io` (แหล่งของ `@std/assert` ที่เทสไฟล์ import) ตอบ HTTP 403 ทั้งทางตรงและผ่าน proxy ไม่ใช่ปัญหาโค้ด เป็นข้อจำกัด network policy ของ sandbox นี้เท่านั้น — การแก้ข้อความใน `_lib.ts`/`_lib.test.ts` เป็น string literal ล้วนๆ ไม่มี logic เปลี่ยน และ `deno check` ยืนยัน type-safe แล้ว ความเสี่ยงต่ำ แต่ **QA ควรรัน `deno test` จริงอีกครั้งในสภาพแวดล้อมที่เข้าถึง jsr.io ได้ก่อนอนุมัติเต็มรูปแบบ**
+
+Build: ไม่ได้รัน `flutter build` เต็มรูปแบบรอบนี้ (เป็น text-only change, `flutter analyze` สะอาดเพียงพอสำหรับความเสี่ยงระดับนี้)
+
+Known Issues:
+- คำว่า "Pop"/"Club" ยังคงเป็นภาษาอังกฤษปนอยู่ (เช่น search hint "ค้นหา username, โพสต์, Pop, Club") — ตรงตามสโคปที่ Founder สั่งเฉพาะ Drop/ReDrop เท่านั้น ไม่ได้แตะ Pop/Club
+- `ArgumentError('A text-only Drop needs a non-empty caption')` ใน `drop_repository.dart` ไม่ได้แก้ — เป็น internal error message (developer-facing, ไม่โผล่ใน UI ที่ผู้ใช้เห็น) ไม่ใช่ UI string ตามสโคป requirement
+
+Handoff: ส่งต่อ AI QA & Security — ตรวจ (1) grep ยืนยันไม่มี "Drop"/"ReDrop" หลุดเหลือใน UI string จุดใดอีก (2) รัน `deno test` จริงถ้าสภาพแวดล้อม QA เข้าถึง jsr.io ได้ (3) สุ่มตรวจหน้าจอที่แก้ไขจริงว่าข้อความไทยอ่านลื่น ไม่มีจุดไหนคำซ้ำ/ประโยคแปลก (โดยเฉพาะ "รีโพสต์โพสต์ของคุณ" ที่ตั้งใจให้อ่านแบบนี้เพราะ "รีโพสต์" เป็นคำกริยาคำเดียวไม่ใช่ "รี"+"โพสต์" แยกกัน)

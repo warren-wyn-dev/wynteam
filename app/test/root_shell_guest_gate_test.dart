@@ -102,7 +102,7 @@ void main() {
     await tester.pumpWidget(buildShell());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Drop'));
+    await tester.tap(find.text('โพสต์'));
     await tester.pumpAndSettle();
 
     expect(find.text('เข้าสู่ระบบเพื่อดำเนินการต่อ'), findsOneWidget);

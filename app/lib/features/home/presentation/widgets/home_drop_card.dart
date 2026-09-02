@@ -108,7 +108,7 @@ class HomeDropCard extends StatelessWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.repeat),
-              title: Text(item.redroppedByMe ? 'ยกเลิก ReDrop' : '🔄 ReDrop'),
+              title: Text(item.redroppedByMe ? 'ยกเลิกรีโพสต์' : '🔄 รีโพสต์'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 onToggleRedrop();
@@ -116,7 +116,7 @@ class HomeDropCard extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.chat_bubble_outline),
-              title: const Text('💬 Quote ReDrop'),
+              title: const Text('💬 Quote รีโพสต์'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 onQuoteRedrop();
@@ -189,7 +189,7 @@ class HomeDropCard extends StatelessWidget {
         if (_isOwnRedrop)
           ActionSheetRow(
             icon: Icons.delete_outline,
-            label: 'ลบ ReDrop',
+            label: 'ลบรีโพสต์',
             onTap: () {
               Navigator.of(sheetContext).pop();
               onDeleteRedrop?.call();
@@ -234,7 +234,7 @@ class HomeDropCard extends StatelessWidget {
                         ),
                         const SizedBox(width: WynSpacing.space1),
                         Text(
-                          'ReDrop โดย @${item.redropperUsername}',
+                          'รีโพสต์โดย @${item.redropperUsername}',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
@@ -409,8 +409,8 @@ class HomeDropCard extends StatelessWidget {
                       count: item.redropCount,
                       color: WynColors.graphite,
                       semanticsLabel: item.redroppedByMe
-                          ? 'ReDrop แล้ว กดเพื่อเลือกดำเนินการ'
-                          : 'กดเพื่อ ReDrop',
+                          ? 'รีโพสต์แล้ว กดเพื่อเลือกดำเนินการ'
+                          : 'กดเพื่อรีโพสต์',
                       onTap: () => _openRedropSheet(context),
                     ),
                     const SizedBox(width: WynSpacing.space5),

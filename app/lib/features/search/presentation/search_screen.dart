@@ -174,7 +174,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     autofocus: widget.autofocus,
                     style: const TextStyle(fontSize: 16, color: WynColors.ink),
                     decoration: const InputDecoration(
-                      hintText: 'ค้นหา username, Drop, Pop, Club',
+                      hintText: 'ค้นหา username, โพสต์, Pop, Club',
                       hintStyle: TextStyle(fontSize: 16, color: WynColors.graphite),
                       border: InputBorder.none,
                       isCollapsed: true,
@@ -206,7 +206,7 @@ class _SearchScreenState extends State<SearchScreen> {
               : const TabBar(
                   tabs: [
                     Tab(icon: Icon(Icons.person_outline), text: 'User'),
-                    Tab(icon: Icon(Icons.grid_view_outlined), text: 'Drop'),
+                    Tab(icon: Icon(Icons.grid_view_outlined), text: 'โพสต์'),
                     Tab(icon: Icon(Icons.play_circle_outline), text: 'Pop'),
                     Tab(icon: Icon(Icons.groups_outlined), text: 'Club'),
                   ],

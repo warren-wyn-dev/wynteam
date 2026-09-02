@@ -264,7 +264,7 @@ void main() {
     // match the reference exactly. "โพสต์" appears twice (the StatsRow
     // label and the Tab both say it).
     expect(find.text('โพสต์'), findsNWidgets(2));
-    expect(find.text('ReDrop'), findsOneWidget);
+    expect(find.text('รีโพสต์'), findsOneWidget);
     expect(find.text('ถูกใจ'), findsOneWidget);
     expect(find.text('Replies'), findsNothing);
     expect(find.text('Media'), findsNothing);
@@ -294,7 +294,7 @@ void main() {
     expect(find.byKey(const Key('profile_saved_button')), findsNothing);
     expect(find.byIcon(Icons.edit_note_outlined), findsNothing);
     expect(find.text('โพสต์'), findsNWidgets(2));
-    expect(find.text('ReDrop'), findsOneWidget);
+    expect(find.text('รีโพสต์'), findsOneWidget);
     expect(find.text('ถูกใจ'), findsOneWidget);
     // Pop is hidden from Profile for WYNOS V1.0.0 Beta -- requirement 3.
     expect(find.text('Pop'), findsNothing);
@@ -380,14 +380,14 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    await tester.tap(find.text('ReDrop'));
+    await tester.tap(find.text('รีโพสต์'));
     await tester.pumpAndSettle();
     tester.takeException();
 
     expect(contentTestHomeRepo.fetchRedropsByUserUserIdArgs, contains('me'));
     expect(find.text('ดูนี่สิ'), findsOneWidget);
     expect(find.text('แคปชัน Drop ต้นฉบับ'), findsOneWidget);
-    expect(find.textContaining('ReDrop โดย @me_user'), findsOneWidget);
+    expect(find.textContaining('รีโพสต์โดย @me_user'), findsOneWidget);
   });
 
   // "switching to the Pop tab shows this profile's Pops" removed -- Pop is

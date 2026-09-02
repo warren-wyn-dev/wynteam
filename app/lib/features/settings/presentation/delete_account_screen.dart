@@ -156,13 +156,13 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
               const SizedBox(height: WynSpacing.space3),
               const Text('การลบบัญชีจะทำให้สิ่งต่อไปนี้หายไปทั้งหมด:'),
               const SizedBox(height: WynSpacing.space2),
-              const _BulletItem('Drop, Pop และ Comment ทั้งหมดของคุณ'),
+              const _BulletItem('โพสต์, Pop และ Comment ทั้งหมดของคุณ'),
               const _BulletItem('Follower และ Following ทั้งหมด'),
               const _BulletItem('ข้อความแชททั้งหมดที่คุณส่ง'),
               const _BulletItem('การเป็นสมาชิก Club ทั้งหมด'),
               const SizedBox(height: WynSpacing.space3),
               Text(
-                'การลบบัญชีไม่สามารถย้อนกลับได้ ไม่มีระยะเวลาผ่อนผันเหมือนการลบ Drop',
+                'การลบบัญชีไม่สามารถย้อนกลับได้ ไม่มีระยะเวลาผ่อนผันเหมือนการลบโพสต์',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: colorScheme.error,
                       fontWeight: FontWeight.bold,

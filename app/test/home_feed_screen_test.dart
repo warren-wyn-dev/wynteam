@@ -798,9 +798,9 @@ void main() {
       tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
 
-      expect(find.text('🔄 ReDrop'), findsOneWidget);
-      expect(find.text('💬 Quote ReDrop'), findsOneWidget);
-      expect(find.text('ยกเลิก ReDrop'), findsNothing);
+      expect(find.text('🔄 รีโพสต์'), findsOneWidget);
+      expect(find.text('💬 Quote รีโพสต์'), findsOneWidget);
+      expect(find.text('ยกเลิกรีโพสต์'), findsNothing);
     });
 
     testWidgets(
@@ -829,7 +829,7 @@ void main() {
       expect(redropButton, findsOneWidget);
       tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
-      await tester.tap(find.text('🔄 ReDrop'));
+      await tester.tap(find.text('🔄 รีโพสต์'));
       await tester.pumpAndSettle();
 
       expect(toggleRedropTestDropRepository.toggleRedropCalls, 1);
@@ -867,10 +867,10 @@ void main() {
       tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
 
-      expect(find.text('ยกเลิก ReDrop'), findsOneWidget);
-      expect(find.text('🔄 ReDrop'), findsNothing);
+      expect(find.text('ยกเลิกรีโพสต์'), findsOneWidget);
+      expect(find.text('🔄 รีโพสต์'), findsNothing);
 
-      await tester.tap(find.text('ยกเลิก ReDrop'));
+      await tester.tap(find.text('ยกเลิกรีโพสต์'));
       await tester.pumpAndSettle();
 
       expect(cancelRedropTestDropRepository.toggleRedropCalls, 1);
@@ -904,7 +904,7 @@ void main() {
       expect(redropButton, findsOneWidget);
       tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
-      await tester.tap(find.text('💬 Quote ReDrop'));
+      await tester.tap(find.text('💬 Quote รีโพสต์'));
       await tester.pumpAndSettle();
       // QuoteRedropScreen's own preview card loads the same broken
       // fixture image URL again -- same expected noise, consumed again.
@@ -932,9 +932,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('รายงานโพสต์'), findsOneWidget);
-      expect(find.text('ลบ ReDrop'), findsOneWidget);
+      expect(find.text('ลบรีโพสต์'), findsOneWidget);
 
-      await tester.tap(find.text('ลบ ReDrop'));
+      await tester.tap(find.text('ลบรีโพสต์'));
       await tester.pumpAndSettle();
 
       expect(deleteRedropTestDropRepository.deleteRedropCalls, ['r6']);
@@ -1880,7 +1880,7 @@ void main() {
       expect(find.text('บันทึก'), findsOneWidget);
       expect(find.text('รายงานโพสต์'), findsNothing);
       expect(find.text('ไม่สนใจโพสต์นี้'), findsNothing);
-      expect(find.text('ลบ ReDrop'), findsNothing);
+      expect(find.text('ลบรีโพสต์'), findsNothing);
     });
 
     testWidgets('tapping "บันทึก" in the menu calls DropRepository.toggleSave',

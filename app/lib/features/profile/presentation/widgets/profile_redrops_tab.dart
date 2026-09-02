@@ -97,7 +97,7 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
         _hasMore = items.length == HomeRepository.pageSize;
       });
     } catch (_) {
-      setState(() => _error = 'โหลด ReDrop ไม่สำเร็จ');
+      setState(() => _error = 'โหลดรีโพสต์ไม่สำเร็จ');
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }

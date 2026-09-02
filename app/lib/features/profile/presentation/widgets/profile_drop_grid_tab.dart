@@ -96,7 +96,7 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
         _hasMore = drops.length == DropRepository.pageSize;
       });
     } catch (_) {
-      setState(() => _error = 'โหลด Drop ไม่สำเร็จ');
+      setState(() => _error = 'โหลดโพสต์ไม่สำเร็จ');
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }

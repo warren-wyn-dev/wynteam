@@ -74,11 +74,11 @@ export function messageFor(
   const store = storeName ?? "ร้านค้า";
   switch (type) {
     case "like_drop":
-      return `${actorName} ถูกใจ Drop ของคุณ`;
+      return `${actorName} ถูกใจโพสต์ของคุณ`;
     case "like_pop":
       return `${actorName} ถูกใจ Pop ของคุณ`;
     case "comment_drop":
-      return `${actorName} แสดงความคิดเห็นใน Drop ของคุณ`;
+      return `${actorName} แสดงความคิดเห็นในโพสต์ของคุณ`;
     case "comment_pop":
       return `${actorName} แสดงความคิดเห็นใน Pop ของคุณ`;
     case "follow":
@@ -124,13 +124,13 @@ export function messageFor(
     // WYN-021: mirrors app/'s notification_list_screen.dart's
     // `_messageFor` word for word (seller_app has no mention concept).
     case "mention_drop":
-      return `${actorName} กล่าวถึงคุณใน Drop`;
+      return `${actorName} กล่าวถึงคุณในโพสต์`;
     case "mention_club_post":
       return `${actorName} กล่าวถึงคุณในโพสต์ที่ ${club}`;
     // WYN-034/043: same destination/data field as like_drop/mentionDrop
     // (drop_id) -- see buildDataPayload, no new field needed.
     case "redrop":
-      return `${actorName} ReDrop โพสต์ของคุณ`;
+      return `${actorName} รีโพสต์โพสต์ของคุณ`;
     // WYN-029: mirrors notification_list_screen.dart's `_messageFor`
     // word for word. actor_id is null for both of these (WYN-029 fix --
     // see NotificationRow's own doc comment), which is fine here since

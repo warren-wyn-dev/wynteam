@@ -619,7 +619,7 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
             secondary: const Icon(Icons.lock_outline),
             title: const Text('บัญชีส่วนตัว (Private Account)'),
             subtitle: const Text(
-                'เฉพาะผู้ติดตามที่คุณอนุมัติเท่านั้นที่จะเห็น Drop ของคุณได้'),
+                'เฉพาะผู้ติดตามที่คุณอนุมัติเท่านั้นที่จะเห็นโพสต์ของคุณได้'),
             value: _isPrivate,
             onChanged: _isTogglingPrivate ? null : _setIsPrivate,
           ),
@@ -634,7 +634,7 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
           _PermissionSettingTile(
             icon: Icons.alternate_email,
             title: 'ใครกล่าวถึงคุณได้',
-            subtitle: 'ควบคุมว่าใครกล่าวถึงคุณใน Drop ได้',
+            subtitle: 'ควบคุมว่าใครกล่าวถึงคุณในโพสต์ได้',
             value: _mentionPermission,
             onChanged: (v) => _setPermission(
                 'mention_permission', v, (p) => _mentionPermission = p),
@@ -642,7 +642,7 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
           _PermissionSettingTile(
             icon: Icons.mode_comment_outlined,
             title: 'ใครคอมเมนต์โพสต์ของคุณได้',
-            subtitle: 'ควบคุมว่าใครคอมเมนต์ Drop และ Pop ของคุณได้',
+            subtitle: 'ควบคุมว่าใครคอมเมนต์โพสต์และ Pop ของคุณได้',
             value: _commentPermission,
             onChanged: (v) => _setPermission(
                 'comment_permission', v, (p) => _commentPermission = p),

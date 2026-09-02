@@ -113,7 +113,7 @@ class _ProfileDraftsTabState extends State<ProfileDraftsTab>
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: WynSpacing.space8),
           child: Text(
-            'ยังไม่มีร่าง เริ่มเขียน Drop แล้วบันทึกไว้ก่อนได้เลย',
+            'ยังไม่มีร่าง เริ่มเขียนโพสต์แล้วบันทึกไว้ก่อนได้เลย',
             textAlign: TextAlign.center,
           ),
         ),

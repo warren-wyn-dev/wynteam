@@ -137,7 +137,7 @@ class _SearchDropResultsTabState extends State<SearchDropResultsTab>
     if (_queryTooShort) {
       return const SearchStateMessage(
         icon: Icons.grid_view_outlined,
-        text: 'พิมพ์คำในแคปชันเพื่อค้นหา Drop',
+        text: 'พิมพ์คำในแคปชันเพื่อค้นหาโพสต์',
       );
     }
 
@@ -164,7 +164,7 @@ class _SearchDropResultsTabState extends State<SearchDropResultsTab>
     if (_drops.isEmpty) {
       return SearchStateMessage(
         icon: Icons.grid_view_outlined,
-        text: 'ไม่พบ Drop สำหรับ "${widget.query.trim()}"',
+        text: 'ไม่พบโพสต์สำหรับ "${widget.query.trim()}"',
       );
     }
 
