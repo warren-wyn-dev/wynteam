@@ -747,3 +747,10 @@
 - **ยังไม่ยืนยันบนอุปกรณ์จริง**: ทุกงานผ่านแค่ widget test ในนี้ (ไม่มี simulator/emulator ในสภาพแวดล้อมนี้) — AI QA & Security ต้องทดสอบ UI จริงบน iOS/Android ก่อนอนุมัติ deploy โดยเฉพาะ WYN-084 (keyboard behavior จริง) และ WYN-083 (migration ต้องเช็ค column order จริงจาก production ก่อน apply เหมือนที่เคยทำ WYN-071/072)
 - **Phase 2/3 ยังไม่เริ่ม** (WYN-089–105, รอ Founder อนุมัติแยกตามที่ตกลงกันไว้ตอนสรุปงาน — Phase 2 ต้องผ่าน AI Design ก่อน, Phase 3 ต้องผ่าน AI Product Manager spec เต็มก่อน)
 - อ้างอิง: `.wyn/tasks/review/WYN-077-*.md` ถึง `WYN-088-*.md` (12 ไฟล์)
+
+### [2026-09-02] WYN-098: Founder เลือก LocationIQ เป็น location-data provider สำหรับระบบเช็คอินสถานที่
+
+- บริบท: ระหว่างเขียน Product full spec ของ WYN-098 (Phase 3 ของ Wynos V1.0.0 Beta2) AI Product Manager ถาม Founder ตรงๆ ผ่าน popup ว่าจะเลือก provider ตัวไหนระหว่าง **LocationIQ** กับ **Geoapify** (ทั้งคู่เป็นทางเลือกฟรีไม่ต้องผูกบัตรเครดิตที่เสนอไว้ตั้งแต่มติก่อนหน้า แทนที่ Google Maps Platform ที่ต้องผูกบัตรแม้มีเครดิตฟรี $200/เดือน — ดูมติ "Wynos V1.0.0 Beta2 — Founder ส่งรายการแก้ไข 28 ข้อ" ด้านบน)
+- **Founder เลือก LocationIQ** — นี่คือคำตัดสินใจสุดท้าย ไม่ใช่คำถามเปิดอีกต่อไป
+- ผลกระทบ: WYN-098's Product spec ทั้งฉบับออกแบบอิงกับ LocationIQ โดยตรง (endpoint `/v1/autocomplete`/`/v1/search` สำหรับ forward geocoding, `/v1/reverse` สำหรับ reverse geocoding) — API key ต้องเก็บเป็น secret ผ่าน Supabase Edge Function ใหม่เท่านั้น (ห้ามฝังในแอป Flutter) มิเรอร์ pattern `send-push-notification` ของ WYN-016 — **ยังบล็อกด้วย Founder/DevOps action**: ต้องสมัคร LocationIQ account จริงแล้วให้ API key มาก่อนถึงจะทดสอบ end-to-end จริงได้ (implement UI/data-model ทำได้ทันทีไม่ต้องรอ)
+- อ้างอิง: `.wyn/tasks/backlog/WYN-098.md`, `.wyn/docs/product/wyn-098-location-checkin.md`
