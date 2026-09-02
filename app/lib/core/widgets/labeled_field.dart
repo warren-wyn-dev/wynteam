@@ -22,6 +22,9 @@ class LabeledField extends StatefulWidget {
     this.errorText,
     this.suffix,
     this.onChanged,
+    this.onSubmitted,
+    this.obscureText = false,
+    this.keyboardType,
     // Edit Profile's own `Field` only reveals helper/counter while
     // focused (an animated show/hide); Create Club's `Field` shows them
     // unconditionally -- the two reference files genuinely differ here,
@@ -39,7 +42,17 @@ class LabeledField extends StatefulWidget {
   final String? errorText;
   final Widget? suffix;
   final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
   final bool alwaysShowHelper;
+
+  /// Masks input as dots -- WYNOS Password step's password/confirm
+  /// fields. Defaults to false so every pre-existing call site
+  /// (EditProfileScreen, CreateClubScreen) is unaffected.
+  final bool obscureText;
+
+  /// Defaults to [TextInputType.text] (TextField's own default) when
+  /// null.
+  final TextInputType? keyboardType;
 
   @override
   State<LabeledField> createState() => _LabeledFieldState();
@@ -106,7 +119,10 @@ class _LabeledFieldState extends State<LabeledField> {
                     maxLength: widget.maxLength,
                     maxLines: widget.multiline ? 3 : 1,
                     enabled: widget.enabled,
+                    obscureText: widget.obscureText,
+                    keyboardType: widget.keyboardType,
                     onChanged: widget.onChanged,
+                    onSubmitted: widget.onSubmitted,
                     style: _textStyle(fontSize: 16, color: WynColors.ink),
                     decoration: const InputDecoration(
                       isDense: true,

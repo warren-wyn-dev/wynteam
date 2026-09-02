@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:wyn/features/auth/data/onboarding_state.dart';
 import 'package:wyn/features/auth/presentation/account_restricted_screen.dart';
 import 'package:wyn/features/auth/presentation/auth_gate.dart';
-import 'package:wyn/features/auth/presentation/username_setup_screen.dart';
+import 'package:wyn/features/auth/presentation/onboarding/onboarding_flow.dart';
 import 'package:wyn/features/auth/presentation/welcome_screen.dart';
 import 'package:wyn/features/legal/presentation/document_acceptance_screen.dart';
 import 'package:wyn/features/moderation/data/moderation_status.dart';
@@ -155,15 +156,15 @@ void main() {
       (tester) async {
     final authRepository = RecordingAuthRepository(
       initialSession: _fakeSession('restricted-user'),
-    // hasUsernameResult: false (UsernameSetupScreen, not RootShell) --
-    // deliberately the lighter of the two "not blocked" outcomes: RootShell
+    // onboardingStateResult: not completed (OnboardingFlow, not RootShell)
+    // -- deliberately the lighter of the two "not blocked" outcomes: RootShell
     // mounts every Bottom Nav tab at once (IndexedStack, see
     // .wyn/company/CONTEXT.md's WYN-008 notes), which cascades into
     // real (against a fake project, failing) Supabase calls from several
     // other screens' own initState -- irrelevant noise for what this
     // test needs to prove (that the moderation gate itself let a
     // Restricted-only account through to the *next* check at all).
-      )..hasUsernameResult = false;
+      )..onboardingStateResult = OnboardingState.notStarted();
     final moderationRepository = RecordingModerationRepository(
       myStatus: ModerationStatus(
         isRestricted: true,
@@ -194,7 +195,7 @@ void main() {
     expect(authRepository.signOutCalls, 0);
     expect(find.byType(AccountRestrictedScreen), findsNothing);
     expect(find.byType(DocumentAcceptanceScreen), findsNothing);
-    expect(find.byType(UsernameSetupScreen), findsOneWidget);
+    expect(find.byType(OnboardingFlow), findsOneWidget);
   });
 
   // WYN-046 -- the Acceptance Gate itself: an account that is not
@@ -209,7 +210,7 @@ void main() {
       (tester) async {
     final authRepository = RecordingAuthRepository(
       initialSession: _fakeSession('needs-acceptance-user'),
-    )..hasUsernameResult = false;
+    )..onboardingStateResult = OnboardingState.notStarted();
     final moderationRepository = RecordingModerationRepository(
       myStatus: const ModerationStatus(
         isRestricted: false,
@@ -230,7 +231,7 @@ void main() {
 
     expect(find.byType(AccountRestrictedScreen), findsNothing);
     expect(find.byType(DocumentAcceptanceScreen), findsOneWidget);
-    expect(find.byType(UsernameSetupScreen), findsNothing);
+    expect(find.byType(OnboardingFlow), findsNothing);
   });
 
   // WYN-046 Product spec's Risks -- a transient load error checking
@@ -241,7 +242,7 @@ void main() {
       'block login)', (tester) async {
     final authRepository = RecordingAuthRepository(
       initialSession: _fakeSession('accept-check-error-user'),
-    )..hasUsernameResult = false;
+    )..onboardingStateResult = OnboardingState.notStarted();
     final moderationRepository = RecordingModerationRepository(
       myStatus: const ModerationStatus(
         isRestricted: false,
@@ -261,16 +262,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(DocumentAcceptanceScreen), findsNothing);
-    expect(find.byType(UsernameSetupScreen), findsOneWidget);
+    expect(find.byType(OnboardingFlow), findsOneWidget);
   });
 
   // WYN-072 (Guest Browsing): a guest signed in via Anonymous Sign-In
   // ("เข้าชม WYNOS ได้เลย" on AuthMethodScreen) must land on RootShell
-  // directly -- never UsernameSetupScreen -- even though hasUsername
-  // would say false for an account with no `profiles` row at all.
-  // hasUsernameResult is deliberately left at its true default here and
-  // never asserted on: the whole point is that AuthGate must not even
-  // reach that check for an anonymous session.
+  // directly -- never OnboardingFlow -- even though
+  // fetchOnboardingState would say not-completed for an account with no
+  // `profiles` row at all. onboardingStateResult is deliberately left at
+  // its "completed" default here and never asserted on: the whole point
+  // is that AuthGate must not even reach that check for an anonymous
+  // session.
   //
   // Bug fix (WYN-072-auth-gate-test-realtime-timer-leak): injects a
   // cheap keyed placeholder via rootShellBuilder instead of letting
@@ -317,7 +319,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.byType(UsernameSetupScreen), findsNothing);
+    expect(find.byType(OnboardingFlow), findsNothing);
     expect(find.byKey(const Key('fake_root_shell')), findsOneWidget);
     expect(find.byType(RootShell), findsNothing);
   });

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wyn/features/auth/data/auth_repository.dart';
+import 'package:wyn/features/auth/data/onboarding_state.dart';
 
 /// An AuthRepository whose auth-state stream/session are fully
 /// controlled by the test instead of a real GoTrue backend -- needed to
@@ -34,8 +35,20 @@ class RecordingAuthRepository extends AuthRepository {
   final _controller = StreamController<AuthState>.broadcast();
   Session? _session;
 
-  /// Returned by [hasUsername] unless overridden per test.
-  bool hasUsernameResult = true;
+  /// Returned by [fetchOnboardingState] unless overridden per test --
+  /// defaults to "fully onboarded" (completed: true) so every existing
+  /// test that only cares about reaching RootShell (not about the
+  /// onboarding flow itself) keeps working unchanged. Set
+  /// `onboardingStateResult = const OnboardingState(..., completed:
+  /// false, ...)` (or use [OnboardingState.notStarted]) to exercise
+  /// OnboardingFlow instead.
+  OnboardingState onboardingStateResult = const OnboardingState(
+    hasDateOfBirth: true,
+    username: 'test-user',
+    displayName: 'Test User',
+    hasPassword: true,
+    completed: true,
+  );
 
   int signOutCalls = 0;
 
@@ -66,7 +79,74 @@ class RecordingAuthRepository extends AuthRepository {
   }
 
   @override
-  Future<bool> hasUsername(String userId) async => hasUsernameResult;
+  Future<OnboardingState> fetchOnboardingState(User user) async =>
+      onboardingStateResult;
+
+  // --- OnboardingFlow step methods -----------------------------------
+  // Each records what it was called with (for assertions) and can be
+  // made to throw via the matching *Error field, without ever touching
+  // the fake SupabaseClient's placeholder URL over the network.
+
+  final List<DateTime> setDateOfBirthCalls = [];
+
+  @override
+  Future<void> setDateOfBirth(String userId, DateTime dateOfBirth) async {
+    setDateOfBirthCalls.add(dateOfBirth);
+  }
+
+  /// Returned by [isUsernameAvailable] unless overridden per test.
+  bool usernameAvailableResult = true;
+
+  @override
+  Future<bool> isUsernameAvailable(String username) async =>
+      usernameAvailableResult;
+
+  final List<String> setUsernameCalls = [];
+  Exception? setUsernameError;
+
+  @override
+  Future<void> setUsername(String userId, String username) async {
+    if (setUsernameError != null) throw setUsernameError!;
+    setUsernameCalls.add(username);
+  }
+
+  final List<String> setDisplayNameCalls = [];
+
+  @override
+  Future<void> setDisplayName(String userId, String displayName) async {
+    setDisplayNameCalls.add(displayName);
+  }
+
+  final List<String> setPasswordCalls = [];
+  Exception? setPasswordError;
+
+  @override
+  Future<void> setPassword(String userId, String password) async {
+    if (setPasswordError != null) throw setPasswordError!;
+    setPasswordCalls.add(password);
+  }
+
+  int saveOptionalProfileCalls = 0;
+  String? lastSavedAvatarUrl;
+  String? lastSavedBio;
+
+  @override
+  Future<void> saveOptionalProfile(
+    String userId, {
+    String? avatarUrl,
+    String? bio,
+  }) async {
+    saveOptionalProfileCalls++;
+    lastSavedAvatarUrl = avatarUrl;
+    lastSavedBio = bio;
+  }
+
+  int completeOnboardingCalls = 0;
+
+  @override
+  Future<void> completeOnboarding(String userId) async {
+    completeOnboardingCalls++;
+  }
 
   void dispose() => _controller.close();
 }
