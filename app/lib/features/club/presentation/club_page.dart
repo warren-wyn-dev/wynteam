@@ -89,7 +89,12 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     return (club: club, membership: membership);
   }
 
-  void _reload() => setState(() => _loadFuture = _load());
+  // Block body, not `() => _loadFuture = _load()` -- see
+  // ViewProfileScreen._reload's identical fix/comment (WYN-081) for why
+  // an arrow body here trips setState()'s "returned a Future" assertion.
+  void _reload() => setState(() {
+        _loadFuture = _load();
+      });
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));

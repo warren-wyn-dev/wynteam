@@ -30,6 +30,7 @@ class ProfileRedropsTab extends StatefulWidget {
     required this.savedRepository,
     required this.authorId,
     required this.emptyText,
+    this.onRefreshHeader,
   });
 
   final HomeRepository homeRepository;
@@ -40,6 +41,10 @@ class ProfileRedropsTab extends StatefulWidget {
   final SavedRepository savedRepository;
   final String authorId;
   final String emptyText;
+
+  // WYN-081 (Wynos V1.0.0 Beta2, item 16): see ProfileDropGridTab's
+  // identical field for why this exists.
+  final VoidCallback? onRefreshHeader;
 
   @override
   State<ProfileRedropsTab> createState() => _ProfileRedropsTabState();
@@ -101,6 +106,13 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }
+  }
+
+  // Only used by RefreshIndicator's pull gesture, not initState's own
+  // first load -- see [onRefreshHeader]'s doc comment.
+  Future<void> _onPullToRefresh() async {
+    widget.onRefreshHeader?.call();
+    await _loadInitial();
   }
 
   Future<void> _loadMore() async {
@@ -298,7 +310,7 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
     }
 
     return RefreshIndicator(
-      onRefresh: _loadInitial,
+      onRefresh: _onPullToRefresh,
       child: ListView.separated(
         controller: _scrollController,
         itemCount: _items.length + (_hasMore ? 1 : 0),

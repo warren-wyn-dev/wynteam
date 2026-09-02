@@ -81,6 +81,33 @@ void main() {
     expect(firstTop, lessThan(secondTop));
   });
 
+  testWidgets(
+      'WYN-081: pulling to refresh re-fetches and shows a newly trending '
+      'hashtag', (tester) async {
+    discoveryRepo.trendingHashtags = const [
+      RankedHashtag(tag: 'wyn', postCount: 20),
+    ];
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+    expect(find.text('#new'), findsNothing);
+
+    discoveryRepo.trendingHashtags = const [
+      RankedHashtag(tag: 'wyn', postCount: 20),
+      RankedHashtag(tag: 'new', postCount: 15),
+    ];
+
+    // Same off-screen-hit-test-avoidance as elsewhere in this suite --
+    // invoke RefreshIndicator.onRefresh directly rather than simulating
+    // a physical drag gesture.
+    final indicator = tester.widget<RefreshIndicator>(
+      find.byType(RefreshIndicator),
+    );
+    await indicator.onRefresh();
+    await tester.pumpAndSettle();
+
+    expect(find.text('#new'), findsOneWidget);
+  });
+
   testWidgets('shows the empty state when there are no trending hashtags',
       (tester) async {
     await tester.pumpWidget(buildScreen());

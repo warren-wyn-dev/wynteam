@@ -77,6 +77,22 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
     setState(() => _loadFuture = _load());
   }
 
+  // WYN-081 (Wynos V1.0.0 Beta2, item 16): RefreshIndicator needs an
+  // awaitable Future to know when to stop spinning -- _reload() itself
+  // is fire-and-forget (just triggers a setState), so this wraps it.
+  Future<void> _onRefresh() async {
+    final future = _load();
+    setState(() {
+      _loadFuture = future;
+    });
+    // Swallowed here only so RefreshIndicator itself doesn't propagate
+    // it as an unhandled async error -- FutureBuilder below still reads
+    // this same future.
+    try {
+      await future;
+    } catch (_) {}
+  }
+
   void _openClub(Club club) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -158,24 +174,27 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
           final popular = sections.popular.where(_matchesSearch).toList();
           final newest = sections.newest.where(_matchesSearch).toList();
 
-          return ListView(
-            padding: const EdgeInsets.only(bottom: WynSpacing.space8),
-            children: [
-              _buildHero(),
-              _buildSearchBar(),
-              _buildListSection(
-                'กำลังนิยม',
-                popular,
-                sections.pendingClubIds,
-                emptyText: 'ยังไม่มี Club กำลังนิยมตอนนี้',
-              ),
-              _buildListSection(
-                'ใหม่ล่าสุด',
-                newest,
-                sections.pendingClubIds,
-                emptyText: 'ยังไม่มี Club ใหม่ตอนนี้',
-              ),
-            ],
+          return RefreshIndicator(
+            onRefresh: _onRefresh,
+            child: ListView(
+              padding: const EdgeInsets.only(bottom: WynSpacing.space8),
+              children: [
+                _buildHero(),
+                _buildSearchBar(),
+                _buildListSection(
+                  'กำลังนิยม',
+                  popular,
+                  sections.pendingClubIds,
+                  emptyText: 'ยังไม่มี Club กำลังนิยมตอนนี้',
+                ),
+                _buildListSection(
+                  'ใหม่ล่าสุด',
+                  newest,
+                  sections.pendingClubIds,
+                  emptyText: 'ยังไม่มี Club ใหม่ตอนนี้',
+                ),
+              ],
+            ),
           );
         },
       ),

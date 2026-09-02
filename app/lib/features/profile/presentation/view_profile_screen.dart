@@ -261,7 +261,17 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   }
 
   void _reload() {
-    setState(() => _loadFuture = _load());
+    // Block body, not `() => _loadFuture = _load()` -- an assignment
+    // expression evaluates to the assigned value, so an arrow body here
+    // would make this closure literally return the Future, which trips
+    // setState()'s own "did you accidentally do async work in here?"
+    // debug assertion the instant this runs inside one (found via
+    // WYN-081, which made this method reachable from a RefreshIndicator
+    // pull for the first time -- see the 3 profile tabs'
+    // onRefreshHeader).
+    setState(() {
+      _loadFuture = _load();
+    });
   }
 
   Future<void> _loadFollowStatus() async {
@@ -1263,6 +1273,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                         popRepository: widget.popRepository,
                         savedRepository: widget.savedRepository,
                         authorId: widget.userId,
+                        onRefreshHeader: _reload,
                         emptyText: _gridEmptyText(
                           isOwnProfile: isOwnProfile,
                           isBlockedEitherWay: isBlockedEitherWay,
@@ -1279,6 +1290,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                         popRepository: widget.popRepository,
                         savedRepository: widget.savedRepository,
                         authorId: widget.userId,
+                        onRefreshHeader: _reload,
                         emptyText: _gridEmptyText(
                           isOwnProfile: isOwnProfile,
                           isBlockedEitherWay: isBlockedEitherWay,
@@ -1302,6 +1314,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                               popRepository: widget.popRepository,
                               savedRepository: widget.savedRepository,
                               authorId: widget.userId,
+                              onRefreshHeader: _reload,
                               emptyText: _gridEmptyText(
                                 isOwnProfile: isOwnProfile,
                                 isBlockedEitherWay: isBlockedEitherWay,
