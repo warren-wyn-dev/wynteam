@@ -780,3 +780,22 @@
 - **Workaround ที่ใช้**: เพิ่ม `@visibleForTesting` seam (`debugInitialImagesBytes`) ให้ `CreateDropScreen` เพื่อ seed `_imagesBytes` ตรงๆ แทนการเลือกรูปจริงผ่าน UI ในเทส — ใช้ bytes ปลอม (decode ไม่ผ่าน) คู่กับ `tester.takeException()` (pattern เดียวกับที่ใช้กับ `NetworkImageLoadException` อยู่แล้วในไฟล์นี้) เพื่อไม่ให้เทสพัง — วิธีนี้พิสูจน์ logic ของ WYN-094 (progress bar/percentage/visibility) ได้ครบ แต่ **ไม่ครอบคลุม flow "เลือกรูปจริงจาก UI"** อันนั้นต้องพึ่ง AI QA & Security ทดสอบบนอุปกรณ์จริงแทน
 - **สำหรับ AI Coding งานถัดไปที่ต้องเทส flow ที่มีรูปภาพจริงผ่าน widget test**: อย่าเสียเวลาไล่ debug ปัญหาเดิมซ้ำ — ถ้าเทสค้างแบบไม่มี error message ชัดเจน (โดยเฉพาะ stack `dart:isolate _RawReceivePort._handleMessage`) ให้สงสัยเรื่องนี้ก่อน แล้วใช้ pattern เดียวกัน (seed bytes ตรงๆ ผ่าน `@visibleForTesting` param หรือคล้ายกัน แทนการพึ่ง `Image`/`ImageProvider` ที่ decode รูปจริงผ่าน widget tree)
 - อ้างอิง: `.wyn/tasks/review/WYN-094-upload-progress-indicator.md`, `app/test/create_drop_screen_test.dart`
+
+### [2026-09-02] Wynos V1.0.0 Beta2 — Phase 2/3 batch ทำเสร็จ 8 งาน (WYN-089/090/093/094/095/101/102/103), ส่งต่อ QA
+
+- Founder สั่ง "ส่งที่พร้อมไป AI Coding/Design เลย" — AI Coding ทำ 8 งานที่ AI Design/AI Product Manager ปล่อยผ่านมาแล้วในรอบเดียว (รอบแรก agent ตัวหนึ่งชน session rate limit กลางทาง หลัง WYN-090/089/093 เสร็จ — session หลักรับช่วงทำต่อจนครบ ไม่มีงานหาย เพราะ commit แยกทีละงานตามวินัยเดิม)
+- **ผลลัพธ์รวม**: `flutter analyze` สะอาดตลอด, `flutter test` ไต่จาก 905 (ก่อนเริ่ม) → **917 ผ่านหมด** ไม่มี regression หลงเหลือ
+- **สรุปแต่ละงาน** (รายละเอียดเต็มใน `.wyn/tasks/review/WYN-0XX-*.md` แต่ละไฟล์):
+  - WYN-090: ตัดแท็บ "ล่าสุด" ออกจาก Home เหลือ 3 แท็บ
+  - WYN-089: ไอคอนรีโพสต์เปลี่ยนสีเมื่อผู้ใช้เคยรีโพสต์แล้ว (`HomeDropCard`)
+  - WYN-093: รูปในฟีดยึดสัดส่วนจริง (dynamic-height/aspect-fit) แทน fixed-height crop
+  - WYN-095: รีดีไซน์ header หน้าโปรไฟล์ตาม Mockup A ที่ Founder เลือก (avatar+สถิติแถวเดียวกัน, ปุ่ม Follow/Message แบ่งครึ่งเต็มแถว) — ระหว่างเลือก mockup พบและแก้บั๊กสำคัญ: พรีวิวรอบแรกใช้สี Cyan ที่ล้าสมัย (DS-001 ถูก re-brand เป็น Sapphire ไปแล้ว) ดู entry แยกด้านบน
+  - WYN-094: progress bar ระหว่างอัปโหลดรูป คำนวณจากจำนวนรูปที่ upload เสร็จจริง (ไม่ใช่ค่าเดา) — ค้นพบข้อจำกัด sandbox สำคัญเรื่อง image decode ผ่าน widget tree ค้าง ดู entry แยกด้านบน
+  - WYN-103: จำกัด 9 รูปให้สอดคล้องกันทั้ง `CreateDropScreen`/`CreateClubPostScreen` (เดิม 10) + SnackBar แจ้งเตือนเมื่อครบ + CHECK constraint เสริมที่ DB (ยังไม่ apply production)
+  - WYN-101: สูตรจัดอันดับแฮชแท็กกำลังนิยมเปลี่ยนเป็น engagement-weighted + time-decay แทนนับความถี่ดิบ, เอา "N โพสต์" ออกจาก UI
+  - WYN-102: ซ่อน Pop จากทุกจุดที่ผู้ใช้เข้าถึงได้ (Search tab, Home feed/Trending/Top100/Saved tab ผ่าน query filter, notification tap) โดยไม่ลบโค้ด/schema แม้แต่บรรทัดเดียว — ระหว่างทำพบ 2 จุดที่ product spec เองพลาดไป (`saved_feed` view, ReDrop ของ Pop) และปิดเพิ่มเอง
+- **บทเรียนสำคัญที่บันทึกแยกไว้แล้วด้านบน**: (1) WYN-095 — พรีวิวสีต้องอ่านจากไฟล์ token จริง (`wyn_colors.dart`) ไม่ใช่เอกสาร design system เก่าที่อาจล้าสมัย (2) WYN-094 — image decode ผ่าน widget tree ค้างใน sandbox นี้ (ไม่ใช่แค่ `image_picker`) ใช้ `@visibleForTesting` seed-bytes seam แทนเสมอ
+- **สิ่งที่ยังไม่ apply เข้า production**: CHECK constraint 2 จุดใหม่ของ WYN-103 (`club_posts_image_urls_length` 10→9, `drop_images_position_max_9`) — รอ AI Deploy & DevOps ตรวจ column/data จริงก่อน apply ตามวินัยเดิม
+- **ยังไม่ยืนยันบนอุปกรณ์จริง**: ทุกงานผ่านแค่ widget test (ไม่มี simulator/emulator ในสภาพแวดล้อมนี้) — โดยเฉพาะ WYN-094 (upload progress ผ่านการเลือกรูปจริง), WYN-103 (compression จริงข้าม platform), WYN-102 (Home feed/Trending ไม่มี Pop ปนจริงบนอุปกรณ์)
+- **คงเหลือใน Phase 2/3**: WYN-091 (ครึ่งหลัง restyle การ์ด)/WYN-092/WYN-096 ยังบล็อกด้วยภาพอ้างอิงจาก PDF ที่ไม่มีในเซสชันนี้ — WYN-097/098/099/100/104 ผ่าน AI Design แล้ว "ready for AI Coding" รอหยิบขึ้นทำรอบถัดไป — WYN-105 เลื่อนไปท้ายสุดของรอบตามที่ Founder ยืนยัน
+- อ้างอิง: `.wyn/tasks/review/WYN-089-*.md` ถึง `WYN-103-*.md` (8 ไฟล์)
