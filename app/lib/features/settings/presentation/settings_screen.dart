@@ -105,6 +105,32 @@ class SettingsScreen extends StatelessWidget {
     await Supabase.instance.client.auth.signOut();
   }
 
+  // WYN-082 (Wynos V1.0.0 Beta2, item 17): Founder found the old
+  // one-tap-and-you're-out behavior too easy to trigger by accident --
+  // confirms first now, copy specified verbatim by Founder ("ออกจาก
+  // ระบบบัญชีของคุณใช่ไหม" / "ยกเลิก" | "ออกจากระบบ").
+  Future<void> _confirmSignOut(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('ออกจากระบบบัญชีของคุณใช่ไหม'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('ออกจากระบบ'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await _signOut();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -197,7 +223,7 @@ class SettingsScreen extends StatelessWidget {
                   label: 'ออกจากระบบ',
                   isLast: true,
                   contentColor: WynColors.graphite,
-                  onTap: _signOut,
+                  onTap: () => _confirmSignOut(context),
                 ),
               ],
             ),
