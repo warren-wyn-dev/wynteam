@@ -1,6 +1,6 @@
 # Feature Request — WYN-095
 
-Status: coded, awaiting QA (2026-09-02)
+Status: QA PASS — approved (2026-09-02)
 Phase: Phase 2 — UI redesign
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 24/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -72,3 +72,27 @@ Known Issues:
 - `compactCountLabel()` ยังไม่ได้ใช้ที่จุดอื่นในแอปที่แสดงตัวเลขนับคล้ายกัน (เช่น like count) — อยู่นอกสโคปของ WYN-095 ตั้งใจไม่แตะจุดอื่น เผื่ออนาคตอยากทำให้สม่ำเสมอทั้งแอปควรเป็น task แยก
 
 Handoff: ส่งต่อ AI QA & Security — (1) ตรวจ UI จริงที่หน้าโปรไฟล์ทั้งของตัวเองและคนอื่น ยืนยัน layout ตรงผังสีของ Founder (2) ทดสอบที่ 360px ยืนยันไม่ overflow (3) ยืนยัน follower count หลักพัน/ล้านแสดงเป็น "1.2K"/"1M" ถูกต้อง (4) ทดสอบปุ่ม Follow ทั้ง 3 สถานะ + ปุ่ม Message ยังทำงานถูกต้องในตำแหน่งใหม่
+
+## QA Report (2026-09-02)
+
+```
+Feature: รีดีไซน์ header หน้าโปรไฟล์ตาม Mockup A (avatar+สถิติแถวเดียวกัน, ชื่อ/username ใต้แถวนั้น, ปุ่ม Follow/Message แบ่งครึ่งเต็มแถว, compactCountLabel)
+Environment: อ่านโค้ดจริง (adversarial) + รัน `flutter analyze`/`flutter test` อิสระ — ไม่มี simulator/emulator
+Test Cases:
+  1. **ตรวจจุดเสี่ยงที่ระบุไว้ก่อนเริ่มงาน**: grep `compactCountLabel` ใน view_profile_screen.dart ยืนยันถูกเรียกจริงใน `_StatBlockContent` (ใช้ร่วมกันทั้ง `_FollowCountTarget`/`_StatBlock` = ครบทั้ง 3 สถิติ: ผู้ติดตาม/กำลังติดตาม/โพสต์) ไม่ใช่แค่ประกาศฟังก์ชันทิ้งไว้เฉยๆ — ยืนยันด้วยว่า Semantics label ยังคงอ่านเลขเต็ม (`'$count $label'`) แยกจาก visible text ที่ใช้เลขย่อ ตรงตาม accessibility ที่ design spec ตั้งใจ
+  2. อ่าน compactCountLabel() ใน text_utils.dart คำนวณมือ: 1000→"1K", 1200→"1.2K", 1,000,000→"1M", 1260→ scaled 1.26→round(1.3)→"1.3K" (ปัดเศษถูกต้อง ไม่ปัดทิ้ง) ตรงกับเทสทั้ง 4 เคสที่เขียนไว้
+  3. อ่าน Row(avatar+stats)/Column(name/username) ยืนยัน layout ตรงผังสีของ Founder จริง (avatar ซ้าย, สถิติ 3 ช่องข้างๆ, ชื่อ/username ใต้แถวนั้น ชิดซ้าย)
+  4. อ่านปุ่ม Follow/Message ยืนยันใช้ `Expanded` คู่แบ่งครึ่งเต็มแถวจริงตามที่ระบุ, ปุ่ม "แก้ไขโปรไฟล์" (โปรไฟล์ตัวเอง) ไม่ถูกทำเป็น Expanded ตามสเปก
+  5. อ่านเทสใหม่ 2 ตัวใน view_profile_screen_test.dart ยืนยันครอบคลุมโครงสร้างจริง (ไม่ใช่แค่ smoke test)
+  6. รัน `flutter analyze` อิสระ: สะอาด
+  7. รัน `flutter test` อิสระเต็ม suite: 917/917 ผ่าน
+Passed: ทั้ง 7 ข้อข้างต้น — **ยืนยันจุดที่มอบหมายให้ตรวจเข้มเป็นพิเศษ (compactCountLabel wiring) ผ่านจริง ไม่ใช่แค่มีอยู่เฉยๆ**
+Failed: ไม่มี
+Severity: -
+Reproduction Steps: -
+Expected: -
+Actual: -
+Security Findings: ไม่พบ — UI-only, ไม่แตะ auth/schema
+Recommendation: อนุมัติ — ต้องมีคนตรวจภาพจริงบนอุปกรณ์ (โดยเฉพาะที่ 360px ตามที่ design spec กำหนด และตัวเลขสถิติหลักพัน/ล้านจริง) ก่อน sign-off production ขั้นสุดท้าย (residual, ไม่ block)
+Final Status: PASS
+```
