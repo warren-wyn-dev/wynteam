@@ -29,7 +29,7 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
 
-enum _HomeFeedMode { forYou, following, latest, fromYourClubs }
+enum _HomeFeedMode { forYou, following, fromYourClubs }
 
 /// Screen 1 — Home tab (Bottom Nav, index 0). A feed mixing Drop and Pop
 /// content, with the CLUB section (WYN-014) directly above the feed.
@@ -251,8 +251,6 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         return widget.homeRepository.fetchRankedFeed(page: page);
       case _HomeFeedMode.following:
         return widget.homeRepository.fetchFollowingFeed(page: page);
-      case _HomeFeedMode.latest:
-        return widget.homeRepository.fetchFeed(page: page);
       case _HomeFeedMode.fromYourClubs:
         throw StateError(
           '_fetchPage is never called in fromYourClubs mode -- see build()',
@@ -776,13 +774,11 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     const modes = [
       _HomeFeedMode.forYou,
       _HomeFeedMode.following,
-      _HomeFeedMode.latest,
       _HomeFeedMode.fromYourClubs,
     ];
     const labels = {
       _HomeFeedMode.forYou: 'สำหรับคุณ',
       _HomeFeedMode.following: 'ติดตาม',
-      _HomeFeedMode.latest: 'ล่าสุด',
       _HomeFeedMode.fromYourClubs: 'จาก Club ของคุณ',
     };
 

@@ -1397,48 +1397,9 @@ void main() {
       expect(rankingTestHomeRepository.fetchRankedFeedCalls, 1);
     });
 
-    testWidgets('switching to "ล่าสุด" shows the chronological feed instead',
-        (tester) async {
-      await tester.pumpWidget(buildHome(
-        rankingTestHomeRepository,
-        dropRepository: sharedDropRepository,
-        popRepository: sharedPopRepository,
-      ));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      await tester.tap(find.text('ล่าสุด'));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      expect(find.text('จากล่าสุด'), findsOneWidget);
-      expect(find.text('จากสำหรับคุณ'), findsNothing);
-    });
-
     testWidgets(
-        'switching back to "สำหรับคุณ" from "ล่าสุด" restores the ranked feed',
-        (tester) async {
-      await tester.pumpWidget(buildHome(
-        rankingTestHomeRepository,
-        dropRepository: sharedDropRepository,
-        popRepository: sharedPopRepository,
-      ));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      await tester.tap(find.text('ล่าสุด'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('สำหรับคุณ'));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      expect(find.text('จากสำหรับคุณ'), findsOneWidget);
-      expect(find.text('จากล่าสุด'), findsNothing);
-    });
-
-    testWidgets(
-        'all 4 segments ("สำหรับคุณ"/"ติดตาม"/"ล่าสุด"/"จาก Club ของคุณ") are present (WYN-024)',
-        (tester) async {
+        'only 3 segments ("สำหรับคุณ"/"ติดตาม"/"จาก Club ของคุณ") are present '
+        '-- "ล่าสุด" was removed (WYN-090)', (tester) async {
       await tester.pumpWidget(buildHome(
         mixedFeedHomeRepository,
         dropRepository: sharedDropRepository,
@@ -1449,7 +1410,7 @@ void main() {
 
       expect(find.text('สำหรับคุณ'), findsOneWidget);
       expect(find.text('ติดตาม'), findsOneWidget);
-      expect(find.text('ล่าสุด'), findsOneWidget);
+      expect(find.text('ล่าสุด'), findsNothing);
       expect(find.text('จาก Club ของคุณ'), findsOneWidget);
     });
 
@@ -1466,7 +1427,7 @@ void main() {
 
       expect(find.byKey(const Key('active_segment_accent')), findsOneWidget);
 
-      await tester.tap(find.text('ล่าสุด'));
+      await tester.tap(find.text('ติดตาม'));
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -1541,26 +1502,27 @@ void main() {
       // active segment or any other.
       expect(find.byIcon(Icons.check), findsNothing);
 
-      await tester.tap(find.text('ล่าสุด'));
+      await tester.tap(find.text('ติดตาม'));
       await tester.pumpAndSettle();
       tester.takeException();
       expect(find.byIcon(Icons.check), findsNothing);
     });
 
     testWidgets(
-        'the two short segment labels ("ติดตาม"/"ล่าสุด") are fully legible, not '
+        'the short segment label ("ติดตาม") is fully legible, not '
         'ellipsis-truncated, once active at a typical phone width (QA round 3 '
         'regression, 2026-08-22)', (tester) async {
       // 390px (iPhone 14/15) rather than round 2's 360px floor -- QA round 3
       // measured that even after reclaiming width from the removed
-      // checkmark icon and tightened padding, the two 6-character labels
+      // checkmark icon and tightened padding, the short 6-character label
       // only became fully non-truncated from ~390px up under THAT fix.
       // The two longer labels ("สำหรับคุณ" 9 chars, "จาก Club ของคุณ" 15
       // chars) still weren't covered by that round's fix -- but the
       // scrollable-width fix below (WYN-024 follow-up, 2026-08-22)
-      // supersedes this entirely: see the comprehensive all-4-segments
+      // supersedes this entirely: see the comprehensive all-segments
       // test further down, which covers every label, at every real
-      // width, with no residual gap.
+      // width, with no residual gap. ("ล่าสุด" itself was removed in
+      // WYN-090.)
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -1573,7 +1535,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      for (final label in ['ติดตาม', 'ล่าสุด']) {
+      for (final label in ['ติดตาม']) {
         await tester.tap(find.text(label));
         await tester.pumpAndSettle();
         final exception = tester.takeException();
@@ -1613,7 +1575,6 @@ void main() {
         for (final label in [
           'สำหรับคุณ',
           'ติดตาม',
-          'ล่าสุด',
           'จาก Club ของคุณ',
         ]) {
           await tester.dragUntilVisible(
