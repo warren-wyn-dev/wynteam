@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
+import 'package:wyn/core/design/wyn_colors.dart';
 import 'package:wyn/core/widgets/action_metric.dart';
 import 'package:wyn/features/club/data/club_post.dart';
 import 'package:wyn/features/club/presentation/explore_clubs_screen.dart';
@@ -876,6 +877,48 @@ void main() {
         cancelRedropTestDropRepository.toggleRedropCurrentlyRedroppedArgs,
         [true],
       );
+    });
+
+    testWidgets(
+        'WYN-089: the repost icon is WynColors.sapphire when the current '
+        'user already reposted, matching DropDetailScreen\'s Focused Action '
+        'Bar', (tester) async {
+      await tester.pumpWidget(buildHome(
+        alreadyRedroppedTestHomeRepository,
+        dropRepository: cancelRedropTestDropRepository,
+        popRepository: cancelRedropTestPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final redroppedIcon = tester.widget<Icon>(
+        find.descendant(
+          of: find.widgetWithIcon(ActionMetric, Icons.repeat),
+          matching: find.byIcon(Icons.repeat),
+        ),
+      );
+      expect(redroppedIcon.color, WynColors.sapphire);
+    });
+
+    testWidgets(
+        'WYN-089: the repost icon stays WynColors.graphite when the current '
+        'user has not reposted -- the color is a 2-state indicator, not '
+        'always-on', (tester) async {
+      await tester.pumpWidget(buildHome(
+        toggleRedropTestHomeRepository,
+        dropRepository: toggleRedropTestDropRepository,
+        popRepository: toggleRedropTestPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final notRedroppedIcon = tester.widget<Icon>(
+        find.descendant(
+          of: find.widgetWithIcon(ActionMetric, Icons.repeat),
+          matching: find.byIcon(Icons.repeat),
+        ),
+      );
+      expect(notRedroppedIcon.color, WynColors.graphite);
     });
 
     testWidgets('tapping "💬 Quote ReDrop" opens QuoteRedropScreen',

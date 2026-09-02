@@ -436,7 +436,15 @@ class HomeDropCard extends StatelessWidget {
                       icon: Icons.repeat,
                       iconSize: 17,
                       count: item.redropCount,
-                      color: WynColors.graphite,
+                      // WYN-089: same active-state color the Focused Action
+                      // Bar (DropDetailScreen._buildFocusedActionBar) has
+                      // used for this all along -- only the icon changes
+                      // color, the count stays graphite (same convention
+                      // as Like: the number is a total, not a status
+                      // indicator).
+                      color: item.redroppedByMe
+                          ? WynColors.sapphire
+                          : WynColors.graphite,
                       semanticsLabel: item.redroppedByMe
                           ? 'รีโพสต์แล้ว กดเพื่อเลือกดำเนินการ'
                           : 'กดเพื่อรีโพสต์',
