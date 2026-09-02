@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../data/profile.dart';
 import '../data/profile_repository.dart';
+import 'profile_photo_crop_screen.dart';
 import 'widgets/avatar_circle.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
@@ -137,13 +138,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (picked == null) return;
 
     final bytes = await picked.readAsBytes();
-    final extension = picked.name.contains('.')
-        ? picked.name.split('.').last.toLowerCase()
-        : 'jpg';
+    if (!mounted) return;
+
+    // WYN-104: crop happens here, before this screen ever shows the
+    // picked image as a preview -- see ProfilePhotoCropScreen's own doc
+    // comment. Cancelling the crop screen (pops null) leaves this
+    // screen's avatar exactly as it was, as if nothing had been picked
+    // at all (Product spec Edge Case 1).
+    final cropped = await Navigator.of(context).push<Uint8List>(
+      MaterialPageRoute(
+        builder: (_) => ProfilePhotoCropScreen(imageBytes: bytes),
+      ),
+    );
+    if (cropped == null || !mounted) return;
 
     setState(() {
-      _pickedImageBytes = bytes;
-      _pickedImageExtension = extension;
+      _pickedImageBytes = cropped;
+      // cropToCircleSquare always encodes PNG (profile_photo_crop.dart) --
+      // the originally-picked file's own extension no longer applies to
+      // what's actually being uploaded.
+      _pickedImageExtension = 'png';
     });
   }
 
