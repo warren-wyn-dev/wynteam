@@ -360,7 +360,15 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     // .wyn/tasks/bugs/WYN-004-feed-and-post.md, QA round 1): without
     // this, a rapid double-tap on the toolbar's camera icon could
     // reopen the picker while the previous pick is still being cropped.
-    if (_isCropping || _imagesBytes.length >= _maxImages) return;
+    if (_isCropping) return;
+    // WYN-103: the toolbar icon stays tappable at 9/9 (see the toolbar's
+    // `enabled:` -- it never gates on _imagesBytes.length) so a SnackBar
+    // is reachable here, rather than the icon just going inert/disabled
+    // with no explanation.
+    if (_imagesBytes.length >= _maxImages) {
+      _showImageLimitSnackBar();
+      return;
+    }
 
     final picked = await ImagePicker().pickImage(
       source: source,
@@ -398,7 +406,11 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   /// that many, which is simpler and clearer feedback than letting them
   /// over-select and then silently trimming the result afterward.
   Future<void> _pickMultipleImages() async {
-    if (_isCropping || _imagesBytes.length >= _maxImages) return;
+    if (_isCropping) return;
+    if (_imagesBytes.length >= _maxImages) {
+      _showImageLimitSnackBar();
+      return;
+    }
 
     final remaining = _maxImages - _imagesBytes.length;
     final picked = await ImagePicker().pickMultiImage(
@@ -412,7 +424,10 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     setState(() => _isCropping = true);
     try {
       final croppedList = <Uint8List>[];
-      for (final file in picked) {
+      // WYN-103 Edge Case 2: `limit` above is the native picker's own
+      // cap, which isn't honored on every platform -- truncate again
+      // here so _imagesBytes can never exceed _maxImages regardless.
+      for (final file in picked.take(remaining)) {
         final rawBytes = await file.readAsBytes();
         croppedList.add(await centerCropToSquare(rawBytes));
       }
@@ -436,6 +451,16 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       _imagesBytes.removeAt(index);
       _imageExtensions.removeAt(index);
     });
+  }
+
+  /// WYN-103: shown instead of the toolbar's photo/camera icon just
+  /// silently doing nothing once `_imagesBytes` is already at
+  /// `_maxImages` -- a disabled-looking-but-not-actually-disabled icon
+  /// is confusing on its own.
+  void _showImageLimitSnackBar() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('เพิ่มรูปได้สูงสุด 9 รูปต่อโพสต์')),
+    );
   }
 
   void _showComingSoon() {

@@ -22,6 +22,7 @@ class CreateClubPostScreen extends StatefulWidget {
     required this.club,
     ProfileRepository? profileRepository,
     HashtagRepository? hashtagRepository,
+    @visibleForTesting this.debugInitialImagesBytes,
   })  : _profileRepository = profileRepository,
         _hashtagRepository = hashtagRepository;
 
@@ -36,12 +37,22 @@ class CreateClubPostScreen extends StatefulWidget {
   // Same optional/defaulted shape -- WYNOS V1.0.0 Beta requirement 7.
   final HashtagRepository? _hashtagRepository;
 
+  /// WYN-103 (test-only escape hatch, same reasoning/posture as
+  /// CreateDropScreen's identically named field -- see its doc comment
+  /// for the full story on why real image_picker can't be widget-tested
+  /// in this sandbox). Never read outside tests.
+  @visibleForTesting
+  final List<Uint8List>? debugInitialImagesBytes;
+
   @override
   State<CreateClubPostScreen> createState() => _CreateClubPostScreenState();
 }
 
 class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
-  static const _maxImages = 10;
+  // WYN-103: was 10 -- Founder's "สูงสุด 9 รูป ห้ามเกิน" (item 15/28)
+  // applies to every place a post can carry images, Club posts included,
+  // not just CreateDropScreen (which already used 9).
+  static const _maxImages = 9;
 
   final _contentController = TextEditingController();
   final _linkController = TextEditingController();
@@ -61,6 +72,16 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
           _linkController.text.trim().isNotEmpty);
 
   @override
+  void initState() {
+    super.initState();
+    final debugBytes = widget.debugInitialImagesBytes;
+    if (debugBytes != null) {
+      _images.addAll(debugBytes);
+      _imageExtensions.addAll(List.filled(debugBytes.length, 'jpg'));
+    }
+  }
+
+  @override
   void dispose() {
     _contentController.dispose();
     _linkController.dispose();
@@ -69,7 +90,15 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
 
   Future<void> _pickImages() async {
     final remaining = _maxImages - _images.length;
-    if (remaining <= 0) return;
+    if (remaining <= 0) {
+      // WYN-103: the "+" button stays tappable at 9/9 (see its
+      // `onPressed:` below -- it no longer disables on image count) so
+      // this is reachable, rather than the button just going inert.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('เพิ่มรูปได้สูงสุด 9 รูปต่อโพสต์')),
+      );
+      return;
+    }
 
     final picked = await ImagePicker().pickMultiImage(
       maxWidth: 1600,
@@ -170,7 +199,10 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
               if (_images.isNotEmpty) _buildImageRow(),
               const SizedBox(height: WynSpacing.space2),
               OutlinedButton.icon(
-                onPressed: (_isPosting || _images.length >= _maxImages) ? null : _pickImages,
+                // WYN-103: stays tappable at 9/9 -- _pickImages() itself
+                // shows a SnackBar in that case, clearer than a disabled
+                // button the user can't tell apart from "posting".
+                onPressed: _isPosting ? null : _pickImages,
                 icon: const Icon(Icons.add_photo_alternate_outlined),
                 label: const Text('แนบรูป'),
               ),

@@ -1212,8 +1212,20 @@ create table if not exists public.club_posts (
   created_at timestamptz not null default now(),
   constraint club_posts_content_length
     check (content is null or char_length(content) between 1 and 2000),
+  -- WYN-103 (Wynos V1.0.0 Beta2, item 15, 2026-09-02): was "between 1
+  -- and 10" -- lowered to 9 to match _maxImages everywhere a post can
+  -- carry images (CreateDropScreen already used 9; this table's own
+  -- limit was the one place still inconsistent). Production still has
+  -- the old "between 1 and 10" constraint until AI Deploy & DevOps
+  -- applies the matching `alter table public.club_posts drop
+  -- constraint club_posts_image_urls_length, add constraint
+  -- club_posts_image_urls_length check (image_urls is null or
+  -- array_length(image_urls, 1) between 1 and 9);` -- safe to apply
+  -- any time since the UI has capped this at 10 (soon 9) for every row
+  -- that could ever have been inserted, so no existing row can violate
+  -- the tighter bound.
   constraint club_posts_image_urls_length
-    check (image_urls is null or array_length(image_urls, 1) between 1 and 10),
+    check (image_urls is null or array_length(image_urls, 1) between 1 and 9),
   -- A club post needs at least one of text, images, or a link -- no
   -- completely empty post allowed.
   constraint club_posts_have_content
@@ -10404,7 +10416,14 @@ create table if not exists public.drop_images (
   drop_id uuid not null references public.drops (id) on delete cascade,
   image_url text not null,
   position int not null,
-  unique (drop_id, position)
+  unique (drop_id, position),
+  -- WYN-103 (Wynos V1.0.0 Beta2, item 15, 2026-09-02) defense-in-depth:
+  -- CreateDropScreen's `_maxImages = 9` already blocks this at the UI,
+  -- but nothing enforced it at the DB before this -- a direct REST
+  -- insert could otherwise add a 10th image row (position 9) to a Drop.
+  -- Positions are 0-based (see the loop that assigns them in
+  -- DropRepository.createDrop), so 9 positions is 0..8.
+  constraint drop_images_position_max_9 check (position >= 0 and position < 9)
 );
 
 alter table public.drop_images enable row level security;
