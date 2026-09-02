@@ -1,6 +1,6 @@
 # Feature Request — WYN-086
 
-Status: coded, awaiting QA (2026-09-02)
+Status: approved — QA PASS (2026-09-02)
 Phase: Phase 1 — Quick fix
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 25/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -57,3 +57,38 @@ Known Issues:
 - ยังไม่ได้ทดสอบภาพจริงบนอุปกรณ์ (เฉพาะ widget test ตรวจตำแหน่ง Y) — ขอให้ AI QA & Security เปิดโพสต์ตัวอย่างจริงที่มีทั้งข้อความและรูปดูภาพหน้าจอจริงอีกชั้น
 
 Handoff: ส่งต่อ AI QA & Security — (1) ตรวจ UI จริงที่ฟีด/โปรไฟล์/หน้ารายละเอียดโพสต์ ว่า caption อยู่บนรูปเสมอ (2) ยืนยันกับ Founder เรื่อง Poll (ยังไม่สลับ) และตำแหน่ง stat line ใหม่ใน DropDetailScreen ตามที่ระบุใน Known Issues (3) แจ้ง AI Design ให้ทราบเรื่องงานนี้ทำไปแล้วก่อน WYN-091/092 เผื่อต้องออกแบบให้สอดคล้องกันตอน restyle จริง
+
+---
+
+## QA Report (2026-09-02)
+
+Feature: สลับลำดับการ์ดโพสต์: ข้อความ (caption) อยู่บน รูปอยู่ล่าง (Wynos V1.0.0 Beta2, ข้อ 25/28)
+
+Environment: อ่านโค้ดจริง + รัน `flutter analyze`/`flutter test` จริง
+
+Test Cases:
+1. `flutter analyze` สะอาดจริง
+2. `flutter test` เต็ม suite ผ่านจริง (917/917)
+3. อ่าน `home_drop_card.dart`'s `build()` — ยืนยัน `caption` block (`if (item.caption != null...)`) มาก่อน `isPoll`/`imageUrl` block จริงตามลำดับ children ใน `Column` (ใช้ร่วมกันทั้งฟีด Home, โปรไฟล์ 3 tab, hashtag feed — reuse widget เดียว ยืนยันด้วย `grep -rln "HomeDropCard("`)
+4. อ่าน `drop_detail_screen.dart`'s `_buildBody` — ยืนยันแยกเป็น 2 `Padding` block จริง: block แรก (author row + caption) มาก่อน แล้วตามด้วย image/poll แล้วปิดท้ายด้วย `_buildStatLine()` — ลำดับ author→caption→image/poll→stat line→action bar ตรงตามที่อธิบาย
+5. Edge case: โพสต์ caption-only (ไม่มีรูป ไม่ใช่ poll) — `HomeDropCard` ยัง render caption ปกติไม่มีอะไรอยู่ใต้ ตรวจแล้วไม่ crash/ไม่มีช่องว่างแปลกๆ เพราะโครงสร้าง `if` แต่ละ block เป็นอิสระต่อกัน
+6. Edge case: โพสต์ที่เป็น Poll — ยืนยันว่า **Poll ยังอยู่ก่อน caption เหมือนเดิม ไม่ได้สลับ** ตรงตามที่ Known Issues ระบุไว้ตรงๆ ว่าตั้งใจไม่แตะ (requirement พูดถึงแค่ "ข้อความ+รูป")
+7. เช็ค `DoubleTapLike` wrapper (double-tap เพื่อกดไลค์) — ยังคงห่อรูป/caption-only ถูกต้องตามโครงสร้างเดิม ไม่หลุดหายไปหลังสลับลำดับ
+
+Passed: 1, 2, 3, 4, 5, 6, 7
+
+Failed: ไม่มี
+
+Severity: N/A (PASS)
+
+Reproduction Steps: N/A
+
+Expected: N/A
+
+Actual: N/A
+
+Security Findings: ไม่พบ — สลับลำดับ widget ล้วน ไม่แตะ data/auth
+
+Recommendation: อนุมัติ PASS — เห็นด้วยกับข้อกังวลที่ Coding Output ยกมาเอง 2 จุด ควรให้ Founder/AI Design ยืนยันก่อนถือว่าจบสมบูรณ์: (1) Poll ยังไม่ถูกสลับให้ caption ขึ้นก่อนเหมือน image/text ปกติ — อาจดูไม่สม่ำเสมอถ้า Founder ต้องการให้ Poll สอดคล้องกันด้วย (2) `DropDetailScreen`'s stat line ย้ายจาก "อยู่ใต้ caption ทันที" (ตามที่ spec เดิม 07-post-detail.tsx เคยระบุ) เป็น "อยู่ใต้ image/poll" แทน — เป็นผลข้างเคียงจากการสลับลำดับที่สมเหตุสมผลแต่เปลี่ยน layout เดิม ควรให้ AI Design ยืนยันก่อนทำ WYN-091/092 restyle ต่อ ไม่ใช่ blocker ของงานนี้ (ตรงตาม requirement/acceptance criteria ที่ระบุไว้ครบแล้ว) แต่เป็นความเสี่ยง scope-creep ที่ต้อง sync กับ Design งานถัดไป — ต้องมีคนดูภาพจริงบนอุปกรณ์เพื่อยืนยันความสวยงามสุดท้ายเช่นเดียวกับทุกงาน UI (widget test ยืนยันแค่ตำแหน่ง Y เท่านั้น)
+
+Final Status: PASS

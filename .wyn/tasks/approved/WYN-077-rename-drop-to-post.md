@@ -1,6 +1,6 @@
 # Feature Request — WYN-077
 
-Status: coded, awaiting QA (2026-09-02)
+Status: approved — QA PASS (2026-09-02)
 Phase: Phase 0 — Global rename
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 1/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -50,3 +50,37 @@ Known Issues:
 - `ArgumentError('A text-only Drop needs a non-empty caption')` ใน `drop_repository.dart` ไม่ได้แก้ — เป็น internal error message (developer-facing, ไม่โผล่ใน UI ที่ผู้ใช้เห็น) ไม่ใช่ UI string ตามสโคป requirement
 
 Handoff: ส่งต่อ AI QA & Security — ตรวจ (1) grep ยืนยันไม่มี "Drop"/"ReDrop" หลุดเหลือใน UI string จุดใดอีก (2) รัน `deno test` จริงถ้าสภาพแวดล้อม QA เข้าถึง jsr.io ได้ (3) สุ่มตรวจหน้าจอที่แก้ไขจริงว่าข้อความไทยอ่านลื่น ไม่มีจุดไหนคำซ้ำ/ประโยคแปลก (โดยเฉพาะ "รีโพสต์โพสต์ของคุณ" ที่ตั้งใจให้อ่านแบบนี้เพราะ "รีโพสต์" เป็นคำกริยาคำเดียวไม่ใช่ "รี"+"โพสต์" แยกกัน)
+
+---
+
+## QA Report (2026-09-02)
+
+Feature: เปลี่ยนคำว่า "Drop"/"ReDrop" เป็น "โพสต์"/"รีโพสต์" ในทุก UI string (Wynos V1.0.0 Beta2, ข้อ 1/28)
+
+Environment: อ่านโค้ดจริง + รัน `flutter analyze`/`flutter test` (Flutter 3.47.2, `app/`) จริงในเครื่อง sandbox — ไม่มี `deno`/network เข้าถึง jsr.io ในสภาพแวดล้อมนี้เช่นกัน (ยืนยันด้วยตัวเอง: `deno: command not found`) จึงตรวจความสอดคล้องของ `_lib.ts`/`_lib.test.ts` แบบ static (เทียบ string เป๊ะทีละบรรทัด) แทนการรัน `deno test` จริง
+
+Test Cases:
+1. `flutter analyze` สะอาดจริง ("No issues found!")
+2. `flutter test` เต็ม suite ผ่านจริง (917/917 ในสถานะ branch ปัจจุบัน)
+3. `grep -rn` หาคำว่า "Drop"/"ReDrop" ที่เป็น UI string literal (กรองชื่อ class/field/table ออก) ทั่ว `app/lib` — เจอเหลือ 2 จุดเท่านั้น: (a) `conversation_screen.dart:1345` เป็นแค่ type-cast `content as Drop` ไม่ใช่ข้อความที่ผู้ใช้เห็น (b) `drop_repository.dart:694`'s `ArgumentError` เป็น developer-facing exception message ไม่โผล่ใน UI — ตรงกับ Known Issues ที่ Coding Output ระบุไว้แล้วว่าตั้งใจไม่แก้เพราะนอกสโคป (ไม่ใช่ UI string)
+4. `grep` หา "ReDrop" ที่เหลือ — ไม่พบเลย
+5. เปรียบเทียบ `notification_list_screen.dart`'s `_messageFor` กับ `supabase/functions/send-push-notification/_lib.ts`'s `messageFor` — ข้อความ "รีโพสต์โพสต์ของคุณ" ตรงกันเป๊ะทั้ง 2 ฝั่ง (WYN-016's กติกาบังคับ push=in-app) และเทียบ `_lib.test.ts`'s assertion strings กับ `_lib.ts`'s actual strings — ตรงกันทุกบรรทัดที่ตรวจ (static verification, ไม่ได้รัน deno test จริง)
+6. อ่านข้อความ "รีโพสต์โดย @sky_blue" ใน `home_drop_card.dart` — อ่านลื่น ไม่มีคำซ้ำ/ประโยคแปลก
+
+Passed: 1, 2, 3, 4, 5, 6
+
+Failed: ไม่มี
+
+Severity: N/A (PASS)
+
+Reproduction Steps: N/A
+
+Expected: N/A
+
+Actual: N/A
+
+Security Findings: ไม่พบ — เป็น UI string rename ล้วน ไม่แตะ auth/RLS/schema/secret ใดๆ
+
+Recommendation: อนุมัติ PASS แต่มี residual ที่ QA รอบนี้ยืนยันไม่ได้เต็มร้อย: (1) `deno test` จริง — ไม่มี `deno` ในสภาพแวดล้อมนี้ ต้องรันจริงในสภาพแวดล้อมที่เข้าถึง jsr.io ได้ก่อนปิดงานสมบูรณ์ (ตรวจ static แล้วว่า string ตรงกันทุกจุด ความเสี่ยงต่ำ) (2) สุ่มดูภาพหน้าจอจริงว่าคำไทยไม่ล้น/ตัดคำแปลกบนอุปกรณ์จริง — ไม่มี emulator ในสภาพแวดล้อมนี้ ต้องให้คนตรวจบนอุปกรณ์จริงอีกชั้นตามที่ Coding Output เองระบุไว้แล้ว
+
+Final Status: PASS

@@ -1,6 +1,6 @@
 # Feature Request — WYN-083
 
-Status: coded, awaiting QA (2026-09-02)
+Status: approved — QA PASS (2026-09-02)
 Phase: Phase 1 — Quick fix
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 21/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -69,3 +69,39 @@ Known Issues:
 - **Migration บน production ต้องระวังเป็นพิเศษ**: `drop_views` เปลี่ยน primary key จาก composite เป็น surrogate `id` — ต้อง `alter table` ไม่ใช่ `drop`+`create` ใหม่ (จะเสียข้อมูล view history เดิม) — AI Deploy & DevOps ควรเตรียม migration SQL ที่รักษาข้อมูลเดิมไว้ ไม่ใช่ copy schema.sql section ไปรันตรงๆ
 
 Handoff: ส่งต่อ AI QA & Security — (1) ตรวจ SQL behavior ตาม `wyn_083_view_count_owner_and_repeat_test.sh` (2) ตรวจ UI จริงว่าเปิดโพสต์ตัวเองแล้ววิวขึ้นจริง เปิดซ้ำแล้วเพิ่มขึ้นเรื่อยๆ (3) ยืนยันกับ Founder ว่าการตีความ "นับตั้งแต่วินาทีแรกที่เห็น" แบบนี้ตรงกับที่ต้องการหรือไม่ (4) เตือน AI Deploy & DevOps เรื่อง migration ที่ต้องรักษาข้อมูล `drop_views` เดิมไว้
+
+---
+
+## QA Report (2026-09-02)
+
+Feature: นับวิว Drop รวมเจ้าของโพสต์ + ไม่จำกัดจำนวน (ยกเลิก unique-viewer dedup) (Wynos V1.0.0 Beta2, ข้อ 21/28)
+
+Environment: อ่านโค้ดจริง + รัน `flutter analyze`/`flutter test` จริง + รัน `bash supabase/tests/wyn_083_view_count_owner_and_repeat_test.sh` จริงกับ PostgreSQL 16 ในเครื่อง sandbox นี้
+
+Test Cases:
+1. `flutter analyze` สะอาดจริง
+2. `flutter test` เต็ม suite ผ่านจริง (917/917)
+3. รัน `bash supabase/tests/wyn_083_view_count_owner_and_repeat_test.sh` เอง — **4/4 CHECK ผ่านจริง**: CHECK1 (viewer คนเดิมเปิดซ้ำ 3 ครั้งนับครบ 3), CHECK2 (เจ้าของโพสต์เปิดเองก็นับ), CHECK3a/b (rate-limit 20/60s ยัง cap อยู่ ไม่ถูกลบไปด้วยความเข้าใจผิด)
+4. อ่าน `supabase/schema.sql`'s `drop_views` section (บรรทัด ~6885-7013) — ยืนยัน primary key เปลี่ยนจาก `(drop_id, viewer_id)` composite เป็น `id uuid` surrogate จริง, `record_drop_view()` ไม่มี `if v_drop.author_id = v_me then return;` (self-exclusion) เหลืออยู่แล้ว, ไม่มี `on conflict...do nothing` แล้ว — insert ทุกครั้งที่ผ่าน rate-limit/velocity-cap เป็นแถวใหม่เสมอ ตรงตามที่อ้าง
+5. อ่าน `DropDetailScreen._recordViewOnce()` — ไม่มี `if (_isOwnDrop) return;` เหลืออยู่ ตรงกับฝั่ง server
+6. ยืนยัน rate-limit (20/60s ต่อ account) และ velocity-cap (50/10s ต่อโพสต์) **ยังอยู่ครบ ไม่ได้ถูกเอาออกไปด้วย** — ตรงตามที่ Founder สั่งแค่ "นับไม่จำกัด" (ไม่ cap จำนวนสะสม) ไม่ใช่เปิดช่องให้บอทยิงรัวไม่จำกัด — ถูกต้องตามการตีความที่ปลอดภัย
+7. Edge case ที่ลองพยายาม break: เจ้าของโพสต์เปิดโพสต์ตัวเองซ้ำๆ เกิน rate-limit (>20 ครั้งใน 60 วินาที) — ตรวจ SQL แล้ว rate-limit ยังบังคับกับเจ้าของโพสต์เหมือนผู้ใช้อื่นทุกประการ (ไม่มีการยกเว้นเจ้าของโพสต์จาก rate-limit) ถูกต้อง ไม่มีช่องโหว่ปั่นวิวผ่านการเป็นเจ้าของโพสต์เอง
+8. `wyn_038_view_counting_test.sh` รันไม่ผ่านจริง — มี comment เตือนไว้ที่หัวไฟล์แล้วตามที่ระบุ ยืนยันว่าไม่ใช่ regression ใหม่จากงานนี้ (schema.sql โหลดสดไม่ผ่าน เป็นปัญหาเดิม)
+
+Passed: 1, 2, 3, 4, 5, 6, 7, 8
+
+Failed: ไม่มี
+
+Severity: N/A (PASS)
+
+Reproduction Steps: N/A
+
+Expected: N/A
+
+Actual: N/A
+
+Security Findings: ไม่พบช่องโหว่ใหม่ — `drop_views` ยังไม่มี INSERT/UPDATE/DELETE policy ให้ client เขียนตรง (เขียนผ่าน SECURITY DEFINER function เท่านั้น) SELECT policy ("Users can view only their own Drop view history") ไม่เปลี่ยน ยังจำกัดผู้ใช้เห็นแค่ประวัติการดูของตัวเอง ไม่รั่วไหลข้อมูลว่าใครดูอะไรให้คนอื่นเห็น — rate-limit/velocity-cap กันปั่นวิวยังทำงานปกติ ยืนยันด้วย CHECK3a/b
+
+Recommendation: อนุมัติ PASS — **เตือนซ้ำเรื่อง production migration**: `drop_views` เปลี่ยน primary key จาก composite เป็น surrogate `id` มีข้อมูลจริงอยู่แล้วในตาราง ต้องใช้ `alter table` ที่รักษาข้อมูลเดิม ไม่ใช่ copy schema.sql section ไปรันตรงๆ (ตามที่ Coding Output เตือนไว้แล้ว) — ส่งต่อ AI Deploy & DevOps ให้เตรียม migration SQL เฉพาะก่อน apply จริง — เรื่องการตีความ "นับตั้งแต่วินาทีแรกที่เห็น" (แค่ไม่ดีเลย์ ไม่ใช่ scroll-visibility ในฟีด) ควรให้ Founder ยืนยันสั้นๆ ว่าตรงกับที่ต้องการหรือไม่ก่อนถือว่าจบสมบูรณ์ 100%
+
+Final Status: PASS

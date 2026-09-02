@@ -1,6 +1,6 @@
 # Feature Request — WYN-078
 
-Status: coded, awaiting QA (2026-09-02)
+Status: approved — QA PASS (2026-09-02)
 Phase: Phase 1 — Quick fix
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 5 (ส่วนพื้นหลัง)/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -45,3 +45,36 @@ Known Issues:
 - ไม่สามารถ verify ภาพจริงบนอุปกรณ์ได้ในสภาพแวดล้อมนี้ (ไม่มี emulator/device) — QA ควรตรวจภาพจริงเทียบกับภาพที่ Founder แนบมาก่อนปิดงาน
 
 Handoff: ส่งต่อ AI QA & Security — ตรวจภาพจริงบนอุปกรณ์/emulator ทั้ง iOS และ Android (โดยเฉพาะ Android เวอร์ชันใหม่ที่บังคับ edge-to-edge) ว่าแถบสีที่ขอบบน/ล่างจอกลืนกับ `WynColors.paper` แล้วจริง ไม่ใช่แค่ analyze/test สะอาด
+
+---
+
+## QA Report (2026-09-02)
+
+Feature: แก้พื้นหลัง WYNOS ให้เต็มจอ ไม่มีขอบ/แถบสีเพี้ยนด้านบน (Wynos V1.0.0 Beta2, ข้อ 5/28)
+
+Environment: อ่านโค้ดจริง + รัน `flutter analyze`/`flutter test` (Flutter 3.47.2) จริงในเครื่อง sandbox — **ไม่มี emulator/device จริง** ในสภาพแวดล้อมนี้ ยืนยันภาพจริงบนหน้าจอไม่ได้ (ตามที่ทุก task บันทึกไว้แล้ว, `SystemChrome.setSystemUIOverlayStyle` เป็น platform channel call ล้วนๆ ที่ widget test มองไม่เห็นผลจริง)
+
+Test Cases:
+1. `flutter analyze` สะอาดจริง
+2. `flutter test` เต็ม suite ผ่านจริง (917/917)
+3. อ่าน `app/lib/main.dart` — ยืนยันมีการเรียก `SystemChrome.setSystemUIOverlayStyle(...)` ก่อน `runApp()` จริง ค่าที่ตั้ง (`statusBarColor: Colors.transparent`, `statusBarIconBrightness: Brightness.dark`, `systemNavigationBarColor: WynColors.paper`, `systemNavigationBarIconBrightness: Brightness.dark`) สอดคล้องกับพื้นหลังสว่าง (`paper` #FAF9F6) ถูกต้องตามหลักการที่อธิบายไว้
+4. `grep` ยืนยันว่าไม่มีการเรียก `SystemChrome`/`AppBarTheme.systemOverlayStyle` ซ้ำซ้อนที่อื่นในแอปที่อาจ override ค่านี้ทับ
+5. ยืนยัน `Scaffold`s ทุกหน้าหลักไม่ตั้ง `scaffoldBackgroundColor` เอง (ปล่อยให้ Material 3's `colorScheme.surface` = `WynColors.paper` ทำงาน) — ตรงตามคำอธิบาย root cause
+
+Passed: 1, 2, 3, 4, 5
+
+Failed: ไม่มี (ในขอบเขตที่ตรวจได้จริงในสภาพแวดล้อมนี้)
+
+Severity: N/A (PASS พร้อม residual)
+
+Reproduction Steps: N/A
+
+Expected: N/A
+
+Actual: N/A
+
+Security Findings: ไม่พบ — UI-only change ระดับแอป ไม่แตะ auth/data
+
+Recommendation: อนุมัติ PASS ในระดับโค้ด/logic แต่**ยังไม่สามารถยืนยันภาพจริงบนอุปกรณ์ได้ในสภาพแวดล้อมนี้เด็ดขาด** — นี่คือ platform channel behavior ล้วนๆ ที่ต่างกันจริงระหว่าง iOS/Android เวอร์ชัน (โดยเฉพาะ Android edge-to-edge บังคับใน Android 15+) ต้องมีมนุษย์ตรวจบนอุปกรณ์จริงเทียบกับภาพที่ Founder แนบมาก่อนถือว่าปิดงานสมบูรณ์ 100% ตามที่ Coding Output เองระบุไว้แล้ว — แนะนำให้ AI Deploy & DevOps/Founder ยืนยันภาพจริงในขั้นถัดไปก่อน sign-off เต็มรูปแบบ ไม่ควรถือว่า "เสร็จสมบูรณ์" จนกว่าจะมีคนเห็นหน้าจอจริง
+
+Final Status: PASS

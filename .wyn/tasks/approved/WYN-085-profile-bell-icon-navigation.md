@@ -1,6 +1,6 @@
 # Feature Request — WYN-085
 
-Status: coded, awaiting QA (2026-09-02)
+Status: approved — QA PASS (2026-09-02)
 Phase: Phase 1 — Quick fix
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 23/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -58,3 +58,38 @@ Known Issues:
 - ไม่ได้ทดสอบบนอุปกรณ์จริง เฉพาะ widget test — ขอให้ AI QA & Security ยืนยันซ้ำบนเครื่องจริงตาม acceptance criteria
 
 Handoff: ส่งต่อ AI QA & Security — (1) เปิดโปรไฟล์คนอื่นยืนยันไม่มีไอคอนกระดิ่งอีก (2) ยืนยันปุ่ม/tab อื่นจากหน้าโปรไฟล์คนอื่นนำทางได้ปกติ (3) เช็คแล้วด้วย `grep -rln "NotificationListScreen(" app/lib/` — มีแค่ 2 จุดในโค้ดเบส คือตัวไฟล์ `notification_list_screen.dart` เอง กับ `root_shell.dart` (Bottom Nav root, ถูกต้องแล้ว) ไม่มีจุด push อื่นที่จะเจอบั๊กเดียวกันซ้ำ
+
+---
+
+## QA Report (2026-09-02)
+
+Feature: เอาปุ่มแจ้งเตือน (bell icon) ออกจากหน้าโปรไฟล์คนอื่น แก้ navigation dead-end (Wynos V1.0.0 Beta2, ข้อ 23/28)
+
+Environment: อ่านโค้ดจริง + รัน `flutter analyze`/`flutter test` จริง
+
+Test Cases:
+1. `flutter analyze` สะอาดจริง (รวมยืนยันว่าไม่มี unused_import เหลือจาก import ที่ลบ)
+2. `flutter test` เต็ม suite ผ่านจริง (917/917)
+3. อ่าน `view_profile_screen.dart`'s AppBar `actions` — ยืนยันกรณี `!isOwnProfile` (โปรไฟล์คนอื่น) เหลือแค่ปุ่มค้นหา (`Icons.search`) + `more_vert` เท่านั้น ไม่มีปุ่มกระดิ่ง/`_openNotifications()` เหลืออยู่แล้วจริง
+4. รัน `grep -rln "NotificationListScreen(" app/lib/` เอง — ยืนยัน**ตรงกับที่ Coding Output อ้าง**: มีแค่ 2 จุด (`notification_list_screen.dart` ตัวเอง + `root_shell.dart`'s Bottom Nav root) ไม่มีจุด push อื่นที่จะเจอบั๊ก "ติดหน้าไม่มีทางออก" ซ้ำ
+5. อ่าน `NotificationListScreen` เอง — ยืนยันยังใช้ hamburger/SideMenu header ปกติในฐานะ Bottom Nav root ไม่ถูกแตะ ตรงตามที่ Coding Output ไม่ได้เปลี่ยนดีไซน์หน้านั้น
+6. ตรวจปุ่มค้นหา (`_openSearch`) ที่ยังอยู่ — push ไป `SearchScreen` ซึ่งมี `Scaffold(appBar: AppBar(...))` จริง ได้ปุ่มย้อนกลับอัตโนมัติจาก Flutter — ไม่มีปัญหาเดียวกัน ยืนยันแล้ว
+7. Edge case ที่ลองพยายาม break: ตรวจว่าการลบ import (`notification_repository.dart`, `notification_list_screen.dart`, `appeal_repository.dart`, `zoky_repository.dart`) ไม่ได้ทำให้ field/method อื่นที่ยังต้องใช้ import เหล่านี้พังไปด้วย — `flutter analyze` สะอาดยืนยันแล้วว่าไม่มี broken reference เหลือ
+
+Passed: 1, 2, 3, 4, 5, 6, 7
+
+Failed: ไม่มี
+
+Severity: N/A (PASS)
+
+Reproduction Steps: N/A
+
+Expected: N/A
+
+Actual: N/A
+
+Security Findings: ไม่พบ — เป็นการลบ entry point ที่ผิดที่ผิดทาง (bell icon ของ "เรา" ไม่ควรอยู่บนโปรไฟล์ "คนอื่น") ไม่มีการเปลี่ยน RLS/auth ใดๆ
+
+Recommendation: อนุมัติ PASS — งานนี้ตรวจได้ครบทั้งหมดด้วยโค้ด/เทสจริง ไม่มี residual ที่ต้องรอมนุษย์ตรวจอุปกรณ์จริงเพิ่มเติมนอกเหนือจากการยืนยันภาพหน้าจอมาตรฐานตามปกติ
+
+Final Status: PASS

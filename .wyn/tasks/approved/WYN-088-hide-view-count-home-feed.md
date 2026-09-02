@@ -1,6 +1,6 @@
 # Feature Request — WYN-088
 
-Status: coded, awaiting QA (2026-09-02)
+Status: approved — QA PASS (2026-09-02)
 Phase: Phase 1 — Quick fix
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 27/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -53,3 +53,37 @@ Known Issues:
 - **Pop card**: แก้ให้ด้วยแม้ requirement จะพูดถึง "โพสต์" แบบกว้างๆไม่ได้ระบุเจาะจง Drop — ตีความว่าครอบคลุม Pop ด้วยเพราะเป็นการ์ดบน Home feed เหมือนกัน ถ้า Founder หมายถึงเฉพาะ Drop ต้องแจ้งกลับมา
 
 Handoff: ส่งต่อ AI QA & Security — (1) ตรวจ UI จริงว่าหน้า Home feed (ทั้ง 4 mode) ไม่มีไอคอนดวงตาอีก ทั้ง Drop และ Pop card (2) ยืนยันหน้าโปรไฟล์ตัวเอง (Drop/ReDrops/Likes 3 tab) ยังเห็นไอคอนดวงตาปกติ (3) ยืนยันกับ Founder เรื่อง Known Issues (hashtag feed / โปรไฟล์คนอื่น / Pop card) ว่าตีความสโคปถูกต้องหรือไม่
+
+---
+
+## QA Report (2026-09-02)
+
+Feature: เอาไอคอนดวงตา (ยอดวิว) ออกจากหน้า Home feed แต่คงไว้ในหน้าโปรไฟล์ตัวเอง (Wynos V1.0.0 Beta2, ข้อ 27/28)
+
+Environment: อ่านโค้ดจริง + รัน `flutter analyze`/`flutter test` จริง
+
+Test Cases:
+1. `flutter analyze` สะอาดจริง
+2. `flutter test` เต็ม suite ผ่านจริง (917/917)
+3. อ่าน `home_drop_card.dart`/`home_pop_card.dart` — ยืนยัน param `showViewCount` (bool, default `true`) เพิ่มจริง ห่อ `ActionMetric` ไอคอนดวงตาด้วย `if (showViewCount)` ทั้งคู่
+4. อ่าน `home_feed_screen.dart` — ยืนยันทั้ง 2 call site (`HomeDropCard`/`HomePopCard`) ส่ง `showViewCount: false` จริง ครอบคลุมทั้ง 4 mode (สำหรับคุณ/ติดตาม/ล่าสุด/จาก Club — build method เดียวกันใช้ร่วมกันตามที่อธิบาย ยกเว้น "จาก Club ของคุณ" ที่เป็น widget แยก `FromYourClubsFeed` — ไม่ใช้ `HomeDropCard`/`HomePopCard` เลยจึงไม่มี view count ให้ซ่อนอยู่แล้วโดยธรรมชาติ ไม่ใช่ gap)
+5. ยืนยัน `profile_drop_grid_tab.dart`/`profile_redrops_tab.dart`/`profile_likes_tab.dart` **ไม่ส่ง** `showViewCount` เลย → ใช้ default `true` → ยังเห็นไอคอนดวงตาปกติตาม acceptance criteria "หน้าโปรไฟล์ตัวเอง...ยังเห็นยอดวิวตามปกติ"
+6. Edge case ที่ลองพยายาม break: ตรวจ `hashtag_feed_screen.dart` และการเปิดโปรไฟล์ "คนอื่น" (ใช้ `HomeDropCard`/`ProfileDropGridTab` เดียวกัน) — ยืนยันตรงตามที่ Known Issues ระบุไว้ตรงๆ ว่า**ยังไม่ได้ซ่อน**ทั้งสองจุดนี้ (ตีความสโคปว่า requirement พูดถึงแค่ "Home feed" ตรงๆ) — ไม่ใช่บั๊ก แต่เป็นการตีความสโคปที่ Founder ควรยืนยันซ้ำ
+
+Passed: 1, 2, 3, 4, 5, 6
+
+Failed: ไม่มี
+
+Severity: N/A (PASS)
+
+Reproduction Steps: N/A
+
+Expected: N/A
+
+Actual: N/A
+
+Security Findings: ไม่พบ — เป็นการซ่อน UI element ล้วน ไม่แตะ ข้อมูล/permission ที่แท้จริง (view count ยังถูกเก็บ/นับปกติ แค่ไม่แสดงบางหน้า)
+
+Recommendation: อนุมัติ PASS — requirement/acceptance criteria ที่ Founder ระบุตรงๆ ("หน้า Home" / "หน้าโปรไฟล์ของเรา") ทำครบถูกต้อง 100% แต่มีจุดตีความสโคปกว้าง/แคบที่ Coding Output เองยกธงไว้แล้วและควรให้ Founder ยืนยันก่อนถือว่าจบสมบูรณ์: (1) hashtag feed screen ยังเห็นไอคอนดวงตาอยู่ (2) โปรไฟล์ "คนอื่น" ยังเห็นไอคอนดวงตาอยู่ (3) Pop card ถูกซ่อนไปด้วยทั้งที่ requirement พูดถึงกว้างๆว่า "โพสต์" — ถ้า Founder อยากให้ครอบคลุมกว้าง/แคบกว่านี้ โครงสร้าง `showViewCount` parameter ที่เตรียมไว้แล้วรองรับการแก้เพิ่มได้ทันทีโดยไม่ต้อง refactor ใหญ่
+
+Final Status: PASS
