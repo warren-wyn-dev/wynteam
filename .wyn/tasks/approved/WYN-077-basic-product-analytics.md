@@ -1,6 +1,6 @@
 # Product Task — WYN-077
 
-Status: review (Debug fix applied 2026-09-02, sent back to AI QA & Security for re-verification — see `.wyn/tasks/bugs/WYN-077-analytics-repository-uninitialized-supabase-crash.md`)
+Status: approved (QA PASS 2026-09-02, re-verified after Debug fix — see `.wyn/tasks/bugs/WYN-077-analytics-repository-uninitialized-supabase-crash.md`)
 Owner: AI Product Manager
 Feature: Basic Product Analytics (Signup Funnel + Retention)
 Goal: ทำให้วัดผล Go-To-Market ได้จริง (ตอนนี้วัดไม่ได้เลย — ยืนยันจาก scope ของ WYN-050 Admin Dashboard ที่ต้องเลื่อน DAU/WAU/MAU ออกเพราะ "ไม่มี analytics/session tracking เลย")
@@ -90,3 +90,22 @@ Tests: Full detail in the bug report — still no Flutter SDK available in this 
 Regression Risk: Low — contained to `analytics_repository.dart` plus 4 one-line call-site updates, no business logic touched.
 Lessons recorded: `.wyn/learning/MISTAKES.md` and `.wyn/learning/LESSONS_LEARNED.md` (2026-09-02 entries — copying a "fire-and-forget, no DI" pattern without checking whether the *safety condition* that made the original safe still holds at the new call site; a best-effort helper depending on an external singleton must resolve that singleton *inside its own error handling*, not accept it as a constructor argument evaluated by the caller).
 Handoff to QA: Sent back — re-verify `create_drop_screen_test.dart`'s 2 previously-broken tests, and re-confirm nothing else regressed. SQL/RLS/security/Next.js findings from the first QA round are unaffected by this fix and don't need re-review.
+
+## QA re-verification (2026-09-02) — PASS
+
+Feature: WYN-077 Basic Product Analytics (post-fix re-verification)
+Environment: same as first round — no Flutter SDK available, re-verified by independent static trace (not empirically run) of the fixed code, not a re-read of Debug's own claim.
+
+Test Cases: Re-traced all 4 `AnalyticsRepository` call sites against the fixed `analytics_repository.dart` by hand:
+1. Confirmed `Supabase.instance` is no longer evaluated anywhere outside `_log()`'s own `try` block — grep-verified zero remaining `AnalyticsRepository(<argument>)` call sites (all 4 now `const AnalyticsRepository()`, matching the new no-arg constructor).
+2. Traced `_log()`'s execution precisely: `Supabase.instance.client` access happens *inside* the `try`, before the `await`, in the synchronous prefix of the `async` function — a throw there is caught by the same `catch (_) {}` as a real network failure, exactly like Dart's normal try/catch semantics (no async-specific gap). No exception can escape `_log()`, `logX()`, or reach `unawaited()`'s argument evaluation at any of the 4 call sites anymore.
+3. Confirmed `EmailAuthScreen`/`UsernameSetupScreen` no longer import `supabase_flutter` at all (dead import removed) and have zero remaining `Supabase.` references — would have been an `unused_import` lint failure otherwise.
+4. Confirmed `CreateDropScreen`/`RootShell` still correctly import/use `supabase_flutter` for their own pre-existing, unrelated reasons (not broken by the removal in the other 2 files).
+5. Re-confirmed via `git show --stat` that this fix touched only the 5 Dart files — zero SQL/Next.js changes, so the first round's SQL/RLS/security/Next.js PASS findings stand unchanged and don't need re-running.
+
+Passed: All 5 checks above — the exact failure mode from the first round (a synchronous throw landing in `_share()`'s outer catch before `Navigator.pop`) can no longer occur, by construction.
+Failed: None.
+Severity: N/A
+Security Findings: Unchanged from the first round (see that section) — this fix didn't touch RLS, the SQL schema, or the admin dashboard.
+Recommendation: Approve. The one remaining honest caveat, carried over from both rounds: nothing in this task has been verified against a real Flutter toolchain (`flutter analyze`/`flutter test`), because none is available in this sandbox — this is a pre-existing, structural environment limitation (see `.wyn/company/CONTEXT.md`'s many prior notes on this same gap), not something specific to this task's quality. AI Deploy & DevOps or whoever has a real Flutter toolchain available should run `flutter test app/test/create_drop_screen_test.dart` for real before this ships, as a final empirical confirmation of everything this round traced by hand.
+Final Status: PASS
