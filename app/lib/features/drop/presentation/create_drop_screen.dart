@@ -57,6 +57,7 @@ class CreateDropScreen extends StatefulWidget {
     ModerationRepository? moderationRepository,
     AppealRepository? appealRepository,
     this.draft,
+    @visibleForTesting this.debugInitialImagesBytes,
   })  : _profileRepository = profileRepository,
         _hashtagRepository = hashtagRepository,
         _moderationRepository = moderationRepository,
@@ -68,6 +69,19 @@ class CreateDropScreen extends StatefulWidget {
   /// content ("Continue Editing") instead of a blank one. Null for
   /// the ordinary "new Drop" entry point.
   final DropDraft? draft;
+
+  /// WYN-094 (test-only escape hatch): seeds `_imagesBytes` directly,
+  /// bypassing the real image_picker + centerCropToSquare pipeline.
+  /// Exists because `image_picker`'s default `MethodChannelImagePicker`
+  /// instance hangs when exercised under `AutomatedTestWidgetsFlutterBinding`
+  /// in this project's sandbox (reproduced in complete isolation, with no
+  /// app code involved at all -- an `ImagePickerPlatform.instance` fake +
+  /// a bare `testWidgets` pump is enough to hang; the identical call
+  /// sequence in a plain `test()` returns instantly) -- there is no
+  /// working way to widget-test the real picker flow here today. Never
+  /// read outside tests: production call sites never pass this.
+  @visibleForTesting
+  final List<Uint8List>? debugInitialImagesBytes;
 
   // Optional -- defaults to a real Supabase-backed instance (see
   // _CreateDropScreenState's late final below) so existing call sites
@@ -126,6 +140,14 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
 
   bool _isSharing = false;
   String? _errorMessage;
+
+  // WYN-094: how many of _imagesBytes have finished uploading during
+  // the in-flight _share() call -- drives the progress bar below the
+  // header. Real progress (bumped by DropRepository.createDrop's own
+  // onImageUploaded callback after each image actually finishes, not
+  // a fake timer). Only meaningful while _isSharing; reset at the
+  // start of each _share() call.
+  int _uploadedImageCount = 0;
 
   // WYN-035: Poll composer state. Starts at 2 options (the minimum),
   // capped at 4 by _addPollOption -- see .wyn/tasks/active/WYN-035-poll-in-drop.md.
@@ -214,6 +236,11 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   void initState() {
     super.initState();
     _prefillFromDraft();
+    final debugBytes = widget.debugInitialImagesBytes;
+    if (debugBytes != null) {
+      _imagesBytes.addAll(debugBytes);
+      _imageExtensions.addAll(List.filled(debugBytes.length, 'png'));
+    }
     _loadModerationStatus();
     _loadOwnProfile();
     // WYN-035: in poll mode _canShare depends on the caption text (the
@@ -428,6 +455,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     setState(() {
       _isSharing = true;
       _errorMessage = null;
+      _uploadedImageCount = 0;
     });
 
     try {
@@ -446,6 +474,9 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             imageExtensions: _imageExtensions,
             caption: _captionController.text,
             mentionedUserIds: _mentionedUserIds,
+            onImageUploaded: (uploaded, total) {
+              if (mounted) setState(() => _uploadedImageCount = uploaded);
+            },
           );
         } else if (existingImageUrl != null) {
           // WYN-036: continuing a Draft without picking a new image --
@@ -605,6 +636,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             children: [
               _buildHeader(),
               const Divider(height: 1, color: WynColors.hairline),
+              if (_isSharing && _imagesBytes.isNotEmpty) _buildUploadProgress(),
               if (_isRestricted)
                 RestrictionBanner(
                   reason: _restrictReason,
@@ -709,6 +741,43 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   // "โพสต์" (right), sapphire when there's content to post, hairline/
   // flat when disabled. No center title -- deliberately not an AppBar
   // (no leading icon slot needed for a text-only cancel action).
+  // WYN-094: only shown while actually uploading image bytes (a
+  // caption/Poll-only Drop publishes fast enough that a real progress
+  // bar wouldn't reflect anything meaningful -- see
+  // wyn-094-upload-progress-indicator.md's "เงื่อนไขการแสดงแถบ"). The
+  // percent is derived from _uploadedImageCount, which only advances
+  // when DropRepository.createDrop's onImageUploaded callback fires
+  // for a real finished upload -- never a fake/animated value.
+  Widget _buildUploadProgress() {
+    final total = _imagesBytes.length;
+    final percent = ((_uploadedImageCount / total) * 100).round();
+    return Semantics(
+      label:
+          'กำลังอัปโหลด $_uploadedImageCount จาก $total รูป, $percent เปอร์เซ็นต์',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                WynSpacing.space4, 0, WynSpacing.space4, WynSpacing.space1),
+            child: Text(
+              'กำลังอัปโหลด $_uploadedImageCount/$total รูป... $percent%',
+              style: const TextStyle(fontSize: 13, color: WynColors.graphite),
+            ),
+          ),
+          SizedBox(
+            height: 3,
+            child: LinearProgressIndicator(
+              value: _uploadedImageCount / total,
+              backgroundColor: WynColors.hairline,
+              color: WynColors.sapphire,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(

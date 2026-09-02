@@ -623,6 +623,12 @@ class DropRepository {
     required List<String> imageExtensions,
     required String caption,
     Set<String> mentionedUserIds = const {},
+    // WYN-094: fired after each image finishes uploading (not a
+    // byte-level callback -- the Supabase storage client this app
+    // uses doesn't expose one -- but real progress per image, driven
+    // by this loop actually finishing an upload, not a fake timer).
+    // [uploaded] is 1-based; [total] is imagesBytes.length.
+    void Function(int uploaded, int total)? onImageUploaded,
   }) async {
     assert(imagesBytes.length == imageExtensions.length);
     assert(imagesBytes.isNotEmpty && imagesBytes.length <= 9);
@@ -643,6 +649,7 @@ class DropRepository {
           .uploadBinary(path, imagesBytes[i]);
       imageUrls.add(_client.storage.from('drop-images').getPublicUrl(path));
       imageDimensions.add(await decodeImageDimensions(imagesBytes[i]));
+      onImageUploaded?.call(i + 1, imagesBytes.length);
     }
 
     await _insertDrop(

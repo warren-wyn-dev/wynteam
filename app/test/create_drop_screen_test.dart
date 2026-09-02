@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -39,6 +42,16 @@ void main() {
   // WYNOS V1.0.0 Beta requirement 2 -- same setUpAll discipline as
   // every other repo above.
   late RecordingDropRepository textDropRepo;
+  // WYN-094 -- same setUpAll discipline as every other repo above
+  // (constructing a RecordingDropRepository inline inside a testWidgets
+  // body attributes its real SupabaseClient's GoTrue auto-refresh Timer
+  // to that single test's FakeAsync zone, which doesn't just get flagged
+  // as a "leaked timer" -- it can hang the test outright, since that
+  // Timer is real-wall-clock and not integrated with pumpAndSettle's
+  // frame-scheduling wait loop. Learned the hard way while building this
+  // group: see .wyn/company/DECISIONS.md, 2026-09-02).
+  late RecordingDropRepository progressRepo;
+  late RecordingDropRepository progressFailRepo;
   setUpAll(() {
     repo = RecordingDropRepository();
     profileRepo = RecordingProfileRepository();
@@ -49,6 +62,9 @@ void main() {
     saveDraftFailTestRepo = RecordingDropRepository()
       ..saveDraftError = Exception('network error');
     switchModeDraftTestRepo = RecordingDropRepository();
+    progressRepo = RecordingDropRepository();
+    progressFailRepo = RecordingDropRepository()
+      ..createDropError = Exception('network error');
     textDropRepo = RecordingDropRepository();
   });
 
@@ -512,6 +528,125 @@ void main() {
       expect(args['imageBytes'], isNull);
       expect(args['existingImageUrl'], isNull);
       expect(args['pollOptions'], ['Pizza', 'Sushi']);
+    });
+  });
+
+  group('Upload progress (WYN-094)', () {
+    // image_picker's default MethodChannelImagePicker instance hangs
+    // when exercised under AutomatedTestWidgetsFlutterBinding in this
+    // sandbox (reproduced in complete isolation -- an ImagePickerPlatform
+    // fake + a bare testWidgets pump alone hangs; the identical call
+    // sequence in a plain test() returns instantly). There is no working
+    // way to widget-test the real tap-toolbar-button-to-pick-an-image
+    // flow here, so these tests go through CreateDropScreen's
+    // debugInitialImagesBytes test-only seam instead of a real pick --
+    // everything downstream of "_imagesBytes is populated" (the actual
+    // WYN-094 behavior: the progress bar, its percentage math, and its
+    // visibility rules) is exercised for real.
+    //
+    // The seeded bytes are deliberately NOT a real decodable image:
+    // decoding a genuinely valid image through the widget tree's
+    // Image.memory (PaintingBinding.instantiateImageCodecWithSize) hangs
+    // the same way in this sandbox, while invalid bytes fail fast with a
+    // caught "Invalid image data" exception -- same "harmless expected
+    // exception in a test env" shape as this suite's existing
+    // NetworkImageLoadException/tester.takeException() pattern (see the
+    // Draft group above), swallowed the same way.
+    Widget buildWithImages(
+      RecordingDropRepository dropRepository,
+      int imageCount,
+    ) =>
+        MaterialApp(
+          home: CreateDropScreen(
+            dropRepository: dropRepository,
+            profileRepository: profileRepo,
+            debugInitialImagesBytes: List.generate(
+              imageCount,
+              (i) => Uint8List.fromList([1, 2, 3]),
+            ),
+          ),
+        );
+
+    testWidgets(
+        'posting with images shows a progress bar that advances as each '
+        'image actually finishes uploading, then disappears on success',
+        (tester) async {
+      final gate = [Completer<void>(), Completer<void>()];
+      progressRepo.imageUploadGate = gate;
+
+      await tester.pumpWidget(buildWithImages(progressRepo, 2));
+      // Invalid-image-data decode failure -- see group comment above.
+      tester.takeException();
+
+      expect(find.text('2/9'), findsOneWidget);
+      // No progress bar yet -- _isSharing is still false before "โพสต์"
+      // is tapped.
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+
+      await tester.tap(postButton());
+      await tester.pump();
+
+      // 1st image not finished yet -- 0/2.
+      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      expect(find.textContaining('0/2'), findsOneWidget);
+      expect(find.textContaining('0%'), findsOneWidget);
+
+      gate[0].complete();
+      await tester.pump();
+      await tester.pump();
+
+      // 1st image done, 2nd still in flight -- 1/2, 50%.
+      expect(find.textContaining('1/2'), findsOneWidget);
+      expect(find.textContaining('50%'), findsOneWidget);
+
+      gate[1].complete();
+      await tester.pumpAndSettle();
+
+      // Both done -- createDrop resolves, the screen pops (success),
+      // so the progress bar is gone along with the rest of the form.
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(progressRepo.createDropImageCountArgs, [2]);
+    });
+
+    testWidgets(
+        'posting a caption-only Drop (no images) never shows a progress '
+        'bar -- publishing without images is fast enough that a real bar '
+        "wouldn't reflect anything meaningful", (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: CreateDropScreen(
+          dropRepository: textDropRepo,
+          profileRepository: profileRepo,
+        ),
+      ));
+
+      await tester.enterText(
+          find.byType(TextField), 'แคปชันอย่างเดียว ไม่มีรูป (WYN-094)');
+      await tester.pump();
+
+      await tester.tap(postButton());
+      await tester.pump();
+
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets(
+        'a failed upload hides the progress bar and re-enables the "โพสต์" '
+        'button instead of leaving it stuck at a stale percentage',
+        (tester) async {
+      await tester.pumpWidget(buildWithImages(progressFailRepo, 1));
+      // Invalid-image-data decode failure -- see group comment above.
+      tester.takeException();
+
+      await tester.tap(postButton());
+      await tester.pumpAndSettle();
+      // A 2nd occurrence can surface here too depending on frame timing.
+      tester.takeException();
+
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(find.text('แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
+      expect(tester.widget<TextButton>(postButton()).onPressed, isNotNull);
     });
   });
 }

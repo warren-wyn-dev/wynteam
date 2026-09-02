@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -153,6 +154,15 @@ class RecordingDropRepository extends DropRepository {
   final List<int> createDropImageCountArgs = [];
   Object? createDropError;
 
+  /// WYN-094: when set, [createDrop] awaits one entry per image (in
+  /// order) before firing that image's `onImageUploaded` callback --
+  /// lets a test observe progress landing one image at a time by
+  /// completing these itself, instead of every image "uploading"
+  /// within a single microtask. Left null (the default) so every
+  /// pre-existing test that doesn't care about upload progress keeps
+  /// working unchanged (all images resolve immediately, in order).
+  List<Completer<void>>? imageUploadGate;
+
   /// Returned by [fetchDropImages], keyed by dropId -- WYN-071.
   Map<String, List<String>> dropImagesById = {};
   Object? fetchDropImagesError;
@@ -169,10 +179,16 @@ class RecordingDropRepository extends DropRepository {
     required List<String> imageExtensions,
     required String caption,
     Set<String> mentionedUserIds = const {},
+    void Function(int uploaded, int total)? onImageUploaded,
   }) async {
     if (createDropError != null) throw createDropError!;
     createDropImageCountArgs.add(imagesBytes.length);
     createDropMentionedUserIdsArgs.add(mentionedUserIds);
+    final gate = imageUploadGate;
+    for (var i = 0; i < imagesBytes.length; i++) {
+      if (gate != null && i < gate.length) await gate[i].future;
+      onImageUploaded?.call(i + 1, imagesBytes.length);
+    }
   }
 
   /// Each call to [createTextDrop]'s arguments, in order -- WYNOS
