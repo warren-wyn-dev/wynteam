@@ -692,3 +692,9 @@
   3. **เริ่มงานจริง**: **ยังไม่เริ่ม** Phase 1 closed beta และยังไม่ให้ AI Design เริ่ม WYN-077/078 — Founder ขออ่านแผนเต็มก่อนตัดสินใจ
 - ผลกระทบ: WYN-077 (Basic Product Analytics) และ WYN-078 (Invite-Only Access Gate) ค้างสถานะ `backlog` ต่อไป ไม่ส่งต่อ AI Design จนกว่า Founder จะสั่งต่อ — ไม่มีโค้ด/production ใดถูกแตะต้องจากรอบนี้
 - อ้างอิง (task/PR ถ้ามี): `.wyn/docs/product/wynos-gtm-roadmap.md`, `.wyn/tasks/backlog/WYN-077-basic-product-analytics.md`, `.wyn/tasks/backlog/WYN-078-invite-only-access-gate.md`
+
+### [2026-09-02] WYN-077 (Analytics) — Founder อนุมัติแนวทาง เก็บเองใน Supabase, เริ่มงานทันที
+
+- คำตัดสินใจของ Founder: เก็บ analytics event เองใน Supabase table ใหม่ (ไม่ใช้ third-party เช่น PostHog/Firebase) — ไม่มีข้อมูลผู้ใช้ไหลออกนอกระบบ, ตอบคำถามที่ AI Product Manager ถามไว้ใน `.wyn/tasks/backlog/WYN-077-basic-product-analytics.md` (ก่อนย้ายไป active) — สั่ง "เริ่มเลย"
+- ผลกระทบ: WYN-077 ย้ายจาก `.wyn/tasks/backlog/` ไป `.wyn/tasks/active/` สถานะ `active` พร้อมส่งต่อ AI Design ทันที — ไม่กระทบ WYN-078 (ยังอยู่ backlog รอคำสั่งแยก) และไม่กระทบ Phase 1 closed beta (Founder ยังไม่สั่งเริ่ม)
+- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/active/WYN-077-basic-product-analytics.md`
