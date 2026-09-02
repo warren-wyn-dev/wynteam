@@ -1,6 +1,6 @@
 # Product Task — WYN-077
 
-Status: review (QA FAIL 2026-09-02 — sent to AI Debug Engineer, see `.wyn/tasks/bugs/WYN-077-analytics-repository-uninitialized-supabase-crash.md`)
+Status: review (Debug fix applied 2026-09-02, sent back to AI QA & Security for re-verification — see `.wyn/tasks/bugs/WYN-077-analytics-repository-uninitialized-supabase-crash.md`)
 Owner: AI Product Manager
 Feature: Basic Product Analytics (Signup Funnel + Retention)
 Goal: ทำให้วัดผล Go-To-Market ได้จริง (ตอนนี้วัดไม่ได้เลย — ยืนยันจาก scope ของ WYN-050 Admin Dashboard ที่ต้องเลื่อน DAU/WAU/MAU ออกเพราะ "ไม่มี analytics/session tracking เลย")
@@ -79,3 +79,14 @@ Security Findings:
 
 Recommendation: Fix the bug report above (move `Supabase.instance` access inside `AnalyticsRepository`'s own try/catch, not just the network call) and re-request QA. Everything else in this task — the SQL, the RLS/security boundary, and the Next.js admin dashboard — is solid and does not need to be re-reviewed from scratch next round, just re-confirm the fix and re-run `create_drop_screen_test.dart` for real once a Flutter toolchain is available.
 Final Status: FAIL
+
+## Debug notes (2026-09-02) — Fixed
+
+Bug: `.wyn/tasks/bugs/WYN-077-analytics-repository-uninitialized-supabase-crash.md`
+Root Cause: `AnalyticsRepository(Supabase.instance.client)` evaluated `Supabase.instance` (throws synchronously if uninitialized) as a constructor *argument*, outside any of this class's own error handling — reached by `create_drop_screen_test.dart`'s existing tests, which never initialize Supabase by design.
+Fix: `AnalyticsRepository` is now a no-arg `const` class; `Supabase.instance.client` is resolved inside `_log()`'s own `try` block instead, alongside the network call. Updated all 4 call sites (`EmailAuthScreen`, `UsernameSetupScreen`, `CreateDropScreen`, `RootShell`) to `const AnalyticsRepository().logX(...)`; removed the now-unused `supabase_flutter` import from `EmailAuthScreen`/`UsernameSetupScreen` (still needed and kept in the other two, used elsewhere there).
+Files Changed: `app/lib/features/analytics/data/analytics_repository.dart`, `app/lib/features/auth/presentation/email_auth_screen.dart`, `app/lib/features/auth/presentation/username_setup_screen.dart`, `app/lib/features/drop/presentation/create_drop_screen.dart`, `app/lib/features/root/presentation/root_shell.dart`
+Tests: Full detail in the bug report — still no Flutter SDK available in this sandbox to run `create_drop_screen_test.dart` for real; re-verified by re-tracing the exact failure path by hand and confirming it can no longer occur (`Supabase.instance` is no longer evaluated outside `_log()`'s try block anywhere). `EmailAuthScreen`'s equivalent test gap is pre-existing (not introduced or closed by this task) and out of scope to fix here.
+Regression Risk: Low — contained to `analytics_repository.dart` plus 4 one-line call-site updates, no business logic touched.
+Lessons recorded: `.wyn/learning/MISTAKES.md` and `.wyn/learning/LESSONS_LEARNED.md` (2026-09-02 entries — copying a "fire-and-forget, no DI" pattern without checking whether the *safety condition* that made the original safe still holds at the new call site; a best-effort helper depending on an external singleton must resolve that singleton *inside its own error handling*, not accept it as a constructor argument evaluated by the caller).
+Handoff to QA: Sent back — re-verify `create_drop_screen_test.dart`'s 2 previously-broken tests, and re-confirm nothing else regressed. SQL/RLS/security/Next.js findings from the first QA round are unaffected by this fix and don't need re-review.

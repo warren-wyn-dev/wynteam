@@ -485,7 +485,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       // action" for activation purposes -- safe to log unconditionally
       // every time (see AnalyticsRepository.logFirstCoreAction's doc
       // comment), not just for a literal first-ever post.
-      unawaited(AnalyticsRepository(Supabase.instance.client).logFirstCoreAction());
+      unawaited(const AnalyticsRepository().logFirstCoreAction());
 
       if (!mounted) return;
       Navigator.of(context).pop(true);

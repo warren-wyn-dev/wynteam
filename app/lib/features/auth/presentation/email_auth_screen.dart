@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../analytics/data/analytics_repository.dart';
 import '../data/auth_repository.dart';
@@ -59,7 +58,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
         // account -- see AnalyticsRepository's doc comment for why
         // Google/Apple OAuth isn't instrumented the same way this round.
         unawaited(
-          AnalyticsRepository(Supabase.instance.client).logSignupStarted(
+          const AnalyticsRepository().logSignupStarted(
             source: AnalyticsRepository.currentWebSource(),
           ),
         );

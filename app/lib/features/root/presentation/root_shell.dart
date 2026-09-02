@@ -191,7 +191,7 @@ class _RootShellState extends State<RootShell> {
     // excluded -- there is no "signup" to attribute a guest's session to.
     final currentUser = client.auth.currentUser;
     if (currentUser != null && !currentUser.isAnonymous) {
-      AnalyticsRepository(client).logSessionStart();
+      const AnalyticsRepository().logSessionStart();
     }
 
     _loadUnreadNotificationCount();

@@ -15,6 +15,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// failed analytics write must never surface as a user-visible error or
 /// delay a real product flow (signing up, posting a Drop, ...).
 ///
+/// **No constructor parameter** -- deliberately resolves
+/// `Supabase.instance.client` itself, inside `_log`'s own try block,
+/// instead of taking a `SupabaseClient` from the caller. A caller doing
+/// `AnalyticsRepository(Supabase.instance.client)` would evaluate
+/// `Supabase.instance` (which throws synchronously if
+/// `Supabase.initialize()` was never called) *before* this class's own
+/// error handling ever runs -- exactly what broke
+/// `create_drop_screen_test.dart`'s poll-submit and publish-from-draft
+/// tests the first time this class existed, since that test file never
+/// touches Supabase at all by design (it's built entirely on
+/// `RecordingDropRepository`/`RecordingProfileRepository` fakes). See
+/// `.wyn/tasks/bugs/WYN-077-analytics-repository-uninitialized-supabase-crash.md`.
+///
 /// **Known scope limit**: [logSignupStarted] is only wired up from the
 /// email/password sign-up flow (`EmailAuthScreen`) -- Google/Apple OAuth
 /// sign-in can't cheaply tell a brand-new account from a returning one on
@@ -24,9 +37,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// shown to an account that doesn't have a username yet -- true
 /// regardless of which sign-in method created it.
 class AnalyticsRepository {
-  AnalyticsRepository(this._client);
-
-  final SupabaseClient _client;
+  const AnalyticsRepository();
 
   /// A brand-new account was just created via email/password sign-up.
   /// [source] is the UTM/referral value captured from the current page's
@@ -60,10 +71,16 @@ class AnalyticsRepository {
   Future<void> logSessionStart() => _log('session_start');
 
   Future<void> _log(String eventType, {String? source}) async {
-    final userId = _client.auth.currentUser?.id;
-    if (userId == null) return;
     try {
-      await _client.from('analytics_events').insert({
+      // Supabase.instance itself (not just the insert call below) has to
+      // be inside this try -- it throws synchronously if
+      // Supabase.initialize() was never called, and that must be
+      // swallowed exactly like a failed network call. See this class's
+      // own doc comment.
+      final client = Supabase.instance.client;
+      final userId = client.auth.currentUser?.id;
+      if (userId == null) return;
+      await client.from('analytics_events').insert({
         'user_id': userId,
         'event_type': eventType,
         if (source != null) 'source': source,
