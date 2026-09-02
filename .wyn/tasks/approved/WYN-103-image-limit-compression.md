@@ -1,6 +1,6 @@
 # Feature Request — WYN-103
 
-Status: coded, awaiting QA (2026-09-02)
+Status: QA PASS — approved (2026-09-02)
 Phase: Phase 3 — New feature
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 15/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -67,3 +67,28 @@ Known Issues:
 - Multi-select truncation (Edge Case 2) เทสไม่ได้เพราะเลี่ยง real ImagePicker ทั้งหมด (ตามข้อจำกัด sandbox) — ตรรกะ `.take(remaining)` ตรวจด้วยการอ่านโค้ดเท่านั้น ต้อง QA ยืนยันบนอุปกรณ์จริงถ้าเป็นไปได้
 
 Handoff: ส่งต่อ AI QA & Security — (1) ทดสอบเลือกรูปเกิน 9 รูปพร้อมกัน (multi-select) บนอุปกรณ์จริงทั้ง iOS/Android/Web ว่าได้แค่ 9 รูปแรกเสมอ (2) ทดสอบ compression จริงเทียบขนาดไฟล์ก่อน-หลัง (3) ยืนยัน SnackBar ข้อความและตำแหน่งถูกต้องทั้ง Drop และ Club post → ส่งต่อ AI Deploy & DevOps สำหรับ CHECK constraint migration
+
+## QA Report (2026-09-02)
+
+```
+Feature: จำกัด 9 รูปต่อโพสต์ (Drop+Club post สอดคล้องกัน) + SnackBar แจ้งเตือนเมื่อครบ + CHECK constraint เสริมที่ DB
+Environment: อ่านโค้ดจริง (adversarial) + รัน `flutter analyze`/`flutter test` อิสระ + ทดสอบ CHECK constraint จริงต่อ local PostgreSQL 16 (สร้าง/ทำลายทิ้งหลังทดสอบ)
+Test Cases:
+  1. อ่าน create_drop_screen.dart/create_club_post_screen.dart ยืนยัน `_maxImages = 9` ตรงกันทั้ง 2 หน้าแล้วจริง (เดิม Club post = 10)
+  2. ยืนยัน `.take(remaining)` (defense-in-depth สำหรับ multi-select) มีอยู่จริงทั้ง 2 หน้า — ป้องกัน exceed 9 ได้แม้ native picker คืนเกิน remaining
+  3. ยืนยันปุ่มเพิ่มรูปไม่ disable ที่ 9/9 แต่โชว์ SnackBar แทนจริงทั้ง 2 หน้า (ตรวจ onPressed condition + SnackBar helper)
+  4. **grep `debugInitialImagesBytes` ทั้ง `app/lib` อิสระเอง (จุดที่มอบหมายให้ตรวจเข้ม)**: พบใช้เฉพาะใน create_drop_screen.dart/create_club_post_screen.dart เอง (constructor param) และไฟล์เทส 2 ไฟล์เท่านั้น — grep หา 2 จุดที่สร้าง `CreateClubPostScreen(...)`/`CreateDropScreen(...)` จริงใน production code (`club_posts_tab.dart`, `profile_drafts_tab.dart`, `root_shell.dart`) ยืนยันว่าไม่มีจุดใดส่ง parameter นี้เลย — **seam เป็น test-only จริง ไม่รั่วเข้า production flow**
+  5. **ทดสอบ CHECK constraint จริงต่อ PostgreSQL** (ไม่ใช่แค่อ่านโค้ด): จำลอง `club_posts_image_urls_length`/`drop_images_position_max_9` — insert position=8 ผ่าน, position=9 ถูกปฏิเสธถูกต้องตามที่ตั้งใจ — สรุปว่า**ทั้งสอง constraint syntactically sound และทำงานถูกต้องตามเจตนา**
+  6. **ตรวจว่า Coding Output ยอมรับตรงๆ ว่ายังไม่ apply เข้า production หรือไม่**: ยืนยันแล้ว — ทั้ง Coding Output ("ยังไม่ apply เข้า production") และ Known Issues ("ต้องส่งต่อ AI Deploy & DevOps รัน alter table") ระบุตรงไปตรงมา ไม่ได้เคลมว่าทำเสร็จแล้วอย่างเงียบๆ — **หมายเหตุเล็กน้อย**: comment ของ `drop_images_position_max_9` อธิบายเหตุผลไว้ครบแต่ไม่ได้สะกดคำสั่ง `alter table ... add constraint` ตรงๆ ไว้ให้ (ต่างจาก `club_posts_image_urls_length` ที่ comment มีคำสั่งเต็มให้เลย) — ไม่ block เพราะ AI Deploy & DevOps ต้องตรวจ column/data จริงบน production ก่อน apply ตามวินัยเดิมของ WYN-071/072/083 อยู่แล้ว แต่แนะนำเพิ่มคำสั่งให้ชัดเจนเพื่อลดโอกาสพลาด
+  7. รัน `flutter analyze` อิสระ: สะอาด
+  8. รัน `flutter test` อิสระเต็ม suite: 917/917 ผ่าน
+Passed: ทั้ง 8 ข้อข้างต้น
+Failed: ไม่มี
+Severity: -
+Reproduction Steps: -
+Expected: -
+Actual: -
+Security Findings: ไม่พบ — CHECK constraint เป็น defense-in-depth ที่ปลอดภัย (UI บังคับ ≤9 อยู่แล้ว ไม่มีแถวเดิมที่จะ violate เมื่อ apply)
+Recommendation: อนุมัติ — แนะนำ AI Deploy & DevOps เติมคำสั่ง `alter table public.drop_images add constraint drop_images_position_max_9 check (...)` ให้ชัดเจนก่อน apply (ดูข้อ 6) — compression จริงข้าม platform (iOS/Android/Web) ยังตรวจไม่ได้ในสภาพแวดล้อมนี้ (residual, ไม่ block เพราะเป็นพฤติกรรมเดิมที่ไม่ได้แตะตั้งแต่ WYN-071)
+Final Status: PASS
+```
