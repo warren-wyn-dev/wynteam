@@ -77,3 +77,11 @@ This proves project **"web" now has Vercel's GitHub integration connected** (pre
 
 ## Recommendation (needs Founder action in Vercel Dashboard — cannot be done from this session)
 Go to **Vercel Dashboard → project "web" → Settings → Git** and **disconnect the GitHub repository connection** for this project. Production should continue to be deployed exclusively through `.github/workflows/deploy-web.yml` (which actually knows how to build Flutter web), same as it has been since 2026-08-25's correction — the difference is this time the setting needs fixing on project "web" itself, not just "wynteam".
+
+## Update 3 — disconnect did not hold: broke a 3rd time after merging PR #207
+Founder reported disconnecting the Git integration in Vercel Dashboard. To verify, merged PR #207 (another docs-only change, the log entry above) into `main` as a real test. **Production broke again within ~7 minutes**, same signature as Update 2 (`x-vercel-error: NOT_FOUND`). This means either:
+1. The disconnect didn't actually save/apply on project "web", or
+2. Something disconnected a *different* project (there may be more than one Vercel project in this account that looks similarly named), or
+3. Vercel's GitHub App is still installed with access to this repo at the GitHub side (Settings → Integrations → Installed GitHub Apps → Vercel) even though the per-project "connected repo" toggle was changed, and that's enough to keep triggering auto-deploys.
+
+Re-ran `deploy-web.yml` again to restore production. **Asked Founder to re-verify the disconnect** (confirm they were on project "web" specifically, that the Git section actually shows "no repository connected" after refreshing the page) and, if it still doesn't hold, to check from the GitHub side whether the Vercel GitHub App's repository access can be scoped/removed for this repo entirely as a more forceful fix.
