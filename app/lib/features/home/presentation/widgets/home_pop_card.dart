@@ -37,6 +37,7 @@ class HomePopCard extends StatelessWidget {
     required this.onOpenProfile,
     this.onTapComment,
     this.onHide,
+    this.showViewCount = true,
   });
 
   final HomeFeedItem item;
@@ -57,6 +58,11 @@ class HomePopCard extends StatelessWidget {
   /// "someone else's content only" gating as HomeDropCard's identical
   /// field -- see [_isOwnPop].
   final VoidCallback? onHide;
+
+  /// WYN-088 (Wynos V1.0.0 Beta2, item 27): same eye/view-count toggle
+  /// as [HomeDropCard]'s identical field -- see that doc comment.
+  /// Defaults to true; only home_feed_screen.dart passes false.
+  final bool showViewCount;
 
   bool get _isOwnPop =>
       item.authorId == Supabase.instance.client.auth.currentUser!.id;
@@ -257,15 +263,23 @@ class HomePopCard extends StatelessWidget {
                       semanticsLabel: 'ดูคอมเมนต์',
                       onTap: onTapComment ?? onTap,
                     ),
-                    const SizedBox(width: WynSpacing.space5),
-                    ActionMetric(
-                      icon: Icons.visibility_outlined,
-                      iconSize: 16,
-                      count: item.viewCount,
-                      color: WynColors.faint,
-                      semanticsLabel: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
-                      onTap: null,
-                    ),
+                    // WYN-088: hidden on the Home feed (showViewCount:
+                    // false there) -- HomePopCard has no other call
+                    // site today, but this stays symmetric with
+                    // HomeDropCard's identical toggle for whenever Pop
+                    // returns to Profile (ProfilePopGridTab already
+                    // exists, just unwired -- see its own doc comment).
+                    if (showViewCount) ...[
+                      const SizedBox(width: WynSpacing.space5),
+                      ActionMetric(
+                        icon: Icons.visibility_outlined,
+                        iconSize: 16,
+                        count: item.viewCount,
+                        color: WynColors.faint,
+                        semanticsLabel: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
+                        onTap: null,
+                      ),
+                    ],
                   ],
                 ),
               ),

@@ -37,6 +37,7 @@ class HomeDropCard extends StatelessWidget {
     this.onDeleteRedrop,
     this.onVotePoll,
     this.onHide,
+    this.showViewCount = true,
   });
 
   final HomeFeedItem item;
@@ -77,6 +78,15 @@ class HomeDropCard extends StatelessWidget {
   /// [_openMoreMenu]), same gating as "รายงานโพสต์" -- hiding your own
   /// post from your own feed isn't a meaningful action.
   final VoidCallback? onHide;
+
+  /// WYN-088 (Wynos V1.0.0 Beta2, item 27): the eye/view-count
+  /// ActionMetric is hidden on the Home feed (every tab) now, but this
+  /// same [HomeDropCard] is also reused on the viewer's own Profile
+  /// (drop grid/ReDrops/Likes tabs), where Founder wants it kept --
+  /// "จะได้รู้ว่ามีใครเห็นโพสต์นี้กี่คนดู". Defaults to true (shown) so
+  /// every other call site (Profile's 3 tabs, hashtag feed) is
+  /// unaffected -- only home_feed_screen.dart passes false.
+  final bool showViewCount;
 
   bool get _isOwnDrop =>
       item.authorId == Supabase.instance.client.auth.currentUser!.id;
@@ -432,15 +442,20 @@ class HomeDropCard extends StatelessWidget {
                           : 'กดเพื่อรีโพสต์',
                       onTap: () => _openRedropSheet(context),
                     ),
-                    const SizedBox(width: WynSpacing.space5),
-                    ActionMetric(
-                      icon: Icons.visibility_outlined,
-                      iconSize: 16,
-                      count: item.viewCount,
-                      color: WynColors.faint,
-                      semanticsLabel: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
-                      onTap: null,
-                    ),
+                    // WYN-088: hidden on the Home feed (showViewCount:
+                    // false there) -- still shown everywhere else this
+                    // card is reused (Profile's 3 tabs, hashtag feed).
+                    if (showViewCount) ...[
+                      const SizedBox(width: WynSpacing.space5),
+                      ActionMetric(
+                        icon: Icons.visibility_outlined,
+                        iconSize: 16,
+                        count: item.viewCount,
+                        color: WynColors.faint,
+                        semanticsLabel: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
+                        onTap: null,
+                      ),
+                    ],
                   ],
                 ),
               ),

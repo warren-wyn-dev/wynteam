@@ -601,16 +601,17 @@ void main() {
     expect(find.text('บันทึก'), findsOneWidget);
     await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
-    // WYN-038 QA fix: assert the Drop card's own view count icon here,
-    // scoped to HomeDropCard, while it is still mounted -- see the note
-    // below (on the unscoped `findsNWidgets(2)` this replaces) for why
-    // checking it again after scrolling to the Pop card is not reliable.
+    // WYN-088: the Home feed no longer shows the view-count icon at all
+    // (Founder: "หน้า Home เอาดวงตาที่นับยอดคนดูออกจากหน้า Home feed") --
+    // used to assert findsOneWidget here (WYN-038 QA fix); still kept
+    // (only on Profile now) is covered separately, see WYN-088's own
+    // dedicated test group below.
     expect(
       find.descendant(
         of: find.byType(HomeDropCard),
         matching: find.byIcon(Icons.visibility_outlined),
       ),
-      findsOneWidget,
+      findsNothing,
     );
 
     // The Drop card's 1:1 image (800px wide in this 800x600 test
@@ -634,28 +635,15 @@ void main() {
     // Only the Pop card has a play icon and a duration badge.
     expect(find.byIcon(Icons.play_circle_fill), findsOneWidget);
     expect(find.text('0:42'), findsOneWidget);
-    // WYN-038 QA fix: both card types show a view count icon/number now
-    // (the Drop card gained one this task, mirroring the Pop card's own,
-    // which already existed since WYN-006/WYN-007) -- but the original
-    // unscoped `find.byIcon(Icons.visibility_outlined), findsNWidgets(2)`
-    // here was a real, confirmed-red bug: this ListView is lazily built
-    // (see the "ListView only mounts elements near the viewport" note
-    // above), so by the time we've scrolled this far to bring the Pop
-    // card into view, the Drop card above has actually been unmounted --
-    // only 1 of the 2 view-count icons exists in the tree at this point,
-    // not 2. The Drop card's own icon was already asserted above, before
-    // scrolling away from it; scope this one to the Pop card specifically
-    // (same reasoning the popCardShare/popCardComment finders below this
-    // already use, which correctly anticipated the Drop card being
-    // unreliable to unscoped-count at this scroll position).
+    // WYN-088: same removal as the Drop card's own check above -- the
+    // Pop card's view-count icon (previously asserted findsOneWidget
+    // here per the WYN-038 QA fix note this replaces) is gone from the
+    // Home feed too now.
     final popCardViewCount = find.descendant(
       of: find.byType(HomePopCard),
       matching: find.byIcon(Icons.visibility_outlined),
     );
-    expect(popCardViewCount, findsOneWidget);
-    // The Pop card's own view count value (7) is still uniquely
-    // findable -- the Drop card above (now unmounted) would have shown 0.
-    expect(find.text('7'), findsOneWidget);
+    expect(popCardViewCount, findsNothing);
     // Same "..." menu check as the Drop card above, scoped to the Pop
     // card specifically -- the Drop card above may still be in the
     // element tree (ListView cacheExtent) at this scroll position, so
@@ -1976,6 +1964,37 @@ void main() {
         find.textContaining('รีโพสต์โดย @sky_blue · 8 นาทีที่แล้ว'),
         findsOneWidget,
       );
+    });
+  });
+
+  group('WYN-088: view-count icon (Wynos V1.0.0 Beta2, item 27)', () {
+    // The Home feed's own removal is covered by "renders a mix of Drop
+    // and Pop cards with type-specific UI" above (findsNothing there
+    // now) -- this group instead proves the *default* (every other
+    // HomeDropCard call site: Profile's 3 tabs, hashtag feed) still
+    // shows it, since Founder explicitly wants it kept on Profile.
+    testWidgets(
+        'HomeDropCard shows the view-count icon by default (i.e. '
+        'everywhere except the Home feed, which passes showViewCount: '
+        'false explicitly)', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            item: _dropItem(viewCount: 12),
+            onTap: () {},
+            onToggleLike: () {},
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
+      expect(find.text('12'), findsOneWidget);
     });
   });
 

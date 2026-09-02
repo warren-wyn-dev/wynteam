@@ -1003,6 +1003,13 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                 onDeleteRedrop: () => _deleteRedrop(index),
                 onVotePoll: (optionIndex) => _votePoll(index, optionIndex),
                 onHide: () => _hideItem(index),
+                // WYN-088 (Wynos V1.0.0 Beta2, item 27): Founder wants
+                // the eye/view-count icon off the Home feed specifically
+                // (every tab -- this build method serves all 4), while
+                // Profile keeps it (HomeDropCard's other call sites --
+                // profile_drop_grid_tab.dart etc. -- don't pass this,
+                // so they keep the default true).
+                showViewCount: false,
               );
             }
             return HomePopCard(
@@ -1014,6 +1021,9 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
               onToggleSave: () => _toggleSave(index),
               onOpenProfile: () => _openProfile(item.authorId),
               onHide: () => _hideItem(index),
+              // WYN-088 -- same reasoning as HomeDropCard's identical
+              // param above.
+              showViewCount: false,
             );
           },
           childCount: itemCount * 2 - 1,
