@@ -1,6 +1,6 @@
 # Feature Request — WYN-090
 
-Status: design complete, ready for coding (2026-09-02)
+Status: QA PASS — approved (2026-09-02)
 Phase: Phase 2 — UI redesign
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 12/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -56,3 +56,25 @@ Known Issues:
 - หมายเหตุ environment: sandbox นี้ไม่มี Flutter SDK ติดตั้งมาก่อน (ต่างจากที่ Phase 0/1 อาจสมมติไว้) ต้อง `git clone https://github.com/flutter/flutter.git -b stable --depth 1` เข้า `/home/user/flutter` เองก่อนจะรัน `flutter analyze`/`flutter test` ได้ (Flutter 3.47.2, Dart 3.13.2) — ไม่ได้แก้ไข repository ใดๆ เพื่อเรื่องนี้ แค่บันทึกไว้เผื่อ session ถัดไปต้องทำซ้ำ
 
 Handoff: ส่งต่อ AI QA & Security — (1) ตรวจ UI จริงที่หน้า Home ว่าเหลือ 3 แท็บ (สำหรับคุณ/ติดตาม/จาก Club ของคุณ) เรียงลำดับถูกต้อง ไม่มี "ล่าสุด" หลงเหลือ (2) ยืนยันว่าไม่มีจุดอื่นในแอป (เช่น analytics event name, deep-link) อ้างอิงโหมด "ล่าสุด" อยู่นอกเหนือจาก grep ที่ AI Design ตรวจไว้แล้ว
+
+## QA Report (2026-09-02)
+
+```
+Feature: ตัดแท็บ "ล่าสุด" ออกจากหน้า Home feed เหลือ 3 แท็บ (สำหรับคุณ/ติดตาม/จาก Club ของคุณ)
+Environment: อ่านโค้ดจริง (adversarial) + รัน `flutter analyze`/`flutter test` อิสระเองจาก app/ — ไม่มี simulator/emulator
+Test Cases:
+  1. grep `_HomeFeedMode.latest` ทั้ง `app/lib` อิสระเอง — ยืนยันไม่พบเหลืออยู่จุดใดเลย (ลบครบทั้ง enum/switch/toggle list)
+  2. grep string `'ล่าสุด'`/`"latest"` ทั้ง `app/lib` (นอกเหนือจากไฟล์เทส) — ไม่พบจุดอื่นอ้างอิงเหลือ (ปิด Risk R1 จริง ไม่ใช่แค่คำกล่าวอ้าง)
+  3. อ่าน home_feed_screen.dart ยืนยันลำดับแท็บที่เหลือ (forYou → following → fromYourClubs = สำหรับคุณ/ติดตาม/จาก Club ของคุณ) ตรงตาม Acceptance Criteria
+  4. รัน `flutter analyze` อิสระ: สะอาด
+  5. รัน `flutter test` อิสระเต็ม suite: 917/917 ผ่าน
+Passed: ทั้ง 5 ข้อข้างต้น
+Failed: ไม่มี
+Severity: -
+Reproduction Steps: -
+Expected: -
+Actual: -
+Security Findings: ไม่พบ — UI-only removal ไม่แตะ backend/API
+Recommendation: อนุมัติ — ต้องมีคนตรวจภาพจริงบนอุปกรณ์ก่อน sign-off production ขั้นสุดท้าย (residual, ไม่ block QA รอบนี้)
+Final Status: PASS
+```
