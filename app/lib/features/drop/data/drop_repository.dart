@@ -850,10 +850,12 @@ class DropRepository {
   /// Records a View via a security-definer RPC (rather than a direct
   /// client insert into `drop_views`, which has no client-facing INSERT
   /// policy at all) -- see supabase/schema.sql's record_drop_view() for
-  /// the unique-viewer/self-view/rate-limit/velocity-cap rules it
-  /// enforces. Mirrors [PopRepository.recordView] -- WYN-038. Silently
-  /// no-ops server-side (never throws for a normal rejection like
-  /// "you're the author" or "over quota"), same posture as Pop's.
+  /// the rate-limit/velocity-cap rules it enforces (WYN-083: no more
+  /// unique-viewer dedup or self-view exclusion -- every call counts,
+  /// including repeats and the Drop's own author). Mirrors
+  /// [PopRepository.recordView] -- WYN-038. Silently no-ops server-side
+  /// (never throws for a normal rejection like "over quota"), same
+  /// posture as Pop's.
   Future<void> recordView(String dropId) {
     return _client.rpc('record_drop_view', params: {'p_drop_id': dropId});
   }

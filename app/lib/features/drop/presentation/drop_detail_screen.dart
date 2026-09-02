@@ -165,14 +165,17 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
 
   // WYN-038: opening DropDetailScreen is what counts as a "View" (not
   // just a Home Feed card scrolling past) -- mirrors PopClipView's
-  // _recordViewOnce() exactly, one difference: the owner's own Drop
-  // never even calls the RPC (Design's handoff item 4) -- the client
-  // already knows it would be a no-op server-side, so there's no need
-  // to send the request (or bump the optimistic count) at all.
+  // _recordViewOnce() exactly.
+  //
+  // WYN-083 (Wynos V1.0.0 Beta2, item 21): Founder wants the Drop's own
+  // author counted too ("รวมถึงเจ้าของโพสต์ด้วย") -- the old
+  // `if (_isOwnDrop) return;` skip here (and the matching server-side
+  // exclusion in record_drop_view()) is gone, bringing this in line
+  // with PopClipView's own _recordViewOnce(), which never had an
+  // owner-skip in the first place.
   void _recordViewOnce() {
     if (!mounted || _viewRecorded) return;
     _viewRecorded = true;
-    if (_isOwnDrop) return;
     setState(() => _drop = _drop.withExtraView());
     widget.dropRepository.recordView(_drop.id).catchError((_) {
       // A failed view-count RPC isn't worth surfacing to the user --

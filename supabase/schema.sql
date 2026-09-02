@@ -6854,34 +6854,44 @@ create policy "Users can comment on drops as themselves, excluding blocked autho
   );
 
 -- ============================================================
--- WYN-038: View Counting System (Drop) -- unique viewer, rate limit,
--- velocity cap
+-- WYN-038: View Counting System (Drop) -- rate limit, velocity cap
+--
+-- WYN-083 (Wynos V1.0.0 Beta2, item 21, 2026-09-02): Founder overrode
+-- this task's original "unique-viewer, lifetime dedup, exclude the
+-- author" design -- "การนับวิว จะนับตั้งแต่วินาทีแรก ที่มีคนเห็น
+-- รวมถึงเจ้าของโพสต์ด้วย นับไม่จำกัด" (count from the first moment
+-- someone sees it, including the post's own author, uncapped). This
+-- table went from a "has this viewer ever seen this Drop" ledger (one
+-- row per (drop_id, viewer_id) pair, enforced by that pair being the
+-- primary key) to a plain view-event log -- one row per View, repeats
+-- from the same viewer (including the author) all count. Matches
+-- Pop's own increment_pop_view_count() (WYN-006), which never had a
+-- dedup/self-view exclusion in the first place -- this brings Drop's
+-- view counting in line with Pop's rather than the other way around.
 -- ============================================================
 
--- One row per (Drop, viewer) pair ever recorded -- the primary key
--- itself IS the unique-viewer/lifetime dedup mechanism (Product's own
--- design): a second insert attempt for the same pair always conflicts,
--- so "has this viewer ever seen this Drop" needs no separate flag or
--- session-scoped client state, unlike Pop's WYN-006 view_count (a bare
--- +1 counter with no dedup at all -- see this task's Product spec
--- "Problem" section for why that gap is *not* being carried forward
--- here; Pop's own view_count is explicitly out of scope this round).
 create table if not exists public.drop_views (
+  id uuid not null default gen_random_uuid() primary key,
   drop_id uuid not null references public.drops (id) on delete cascade,
   viewer_id uuid not null references public.profiles (id) on delete cascade,
-  created_at timestamptz not null default now(),
-  primary key (drop_id, viewer_id)
+  created_at timestamptz not null default now()
 );
 
 -- Read hot-path for record_drop_view()'s rate-limit/velocity-cap
--- window queries below -- both filter on created_at (one further
--- scoped to viewer_id, the other to drop_id, both already covered by
--- the primary key/its implicit index), so a plain created_at index
--- keeps "how many rows in the last N seconds" cheap as this table
--- grows without bound (there is no purge/archival job yet -- see this
--- task's Product spec Risks).
+-- window queries below (one filters created_at scoped to viewer_id,
+-- the other created_at scoped to drop_id) and for drop_view_count()'s
+-- per-drop total -- three separate access patterns now that drop_id
+-- is no longer part of a composite primary key/its implicit index, so
+-- each gets its own plain index instead of the one composite index
+-- used to cover both. There is no purge/archival job yet (this task's
+-- original Product spec, "Risks") -- more true than ever now that
+-- repeat views are no longer deduped away, so this table grows faster
+-- than before.
 create index if not exists drop_views_created_at_idx
   on public.drop_views (created_at);
+
+create index if not exists drop_views_drop_id_idx
+  on public.drop_views (drop_id);
 
 alter table public.drop_views enable row level security;
 
@@ -6912,9 +6922,10 @@ create policy "Users can view only their own Drop view history"
 
 -- No INSERT/UPDATE/DELETE policy at all, on purpose -- every write
 -- goes through record_drop_view() below (SECURITY DEFINER), which is
--- the only place the unique-viewer/self-view/rate-limit/velocity-cap
--- rules are enforced. A raw client insert would bypass every one of
--- those checks, so there is deliberately no way to perform one --
+-- the only place the rate-limit/velocity-cap rules (WYN-083: the only
+-- ones left -- see this table's own doc comment) are enforced. A raw
+-- client insert would bypass those checks, so there is deliberately
+-- no way to perform one --
 -- mirrors drop_views' sibling policy comment above and
 -- increment_pop_view_count()'s identical "no update policy" reasoning
 -- (WYN-006).
@@ -6955,16 +6966,7 @@ begin
     return;
   end if;
 
-  -- (b) The Drop's own author viewing their own Drop never counts --
-  -- cheapest, most direct anti-inflation measure (Product's "Self-view
-  -- exclusion"). The client already skips calling this RPC at all for
-  -- its own Drop (DropDetailScreen); this check is defense-in-depth
-  -- against a direct RPC call that bypasses that client-side skip.
-  if v_drop.author_id = v_me then
-    return;
-  end if;
-
-  -- (c) Rate limit, per account: at most 20 new View rows from this
+  -- (b) Rate limit, per account: at most 20 new View rows from this
   -- account in the trailing 60 seconds.
   select count(*) into v_account_recent_count
   from public.drop_views
@@ -6973,7 +6975,7 @@ begin
     return;
   end if;
 
-  -- (d) Velocity cap, per Drop: at most 50 new View rows landing on
+  -- (c) Velocity cap, per Drop: at most 50 new View rows landing on
   -- this one Drop in the trailing 10 seconds, regardless of which
   -- account each came from -- catches a bot ring (many different
   -- accounts) piling onto a single Drop to fake virality, which the
@@ -6985,14 +6987,14 @@ begin
     return;
   end if;
 
-  -- Every check above passed -- record the View. ON CONFLICT DO
-  -- NOTHING is a second, belt-and-suspenders dedup layer on top of the
-  -- primary key itself (guards a race between two concurrent calls for
-  -- the same (drop_id, viewer_id) pair, e.g. a double-tap into the
-  -- screen before the first call resolves).
+  -- Every check above passed -- record the View. WYN-083: no more
+  -- ON CONFLICT DO NOTHING/unique-viewer dedup -- every call that
+  -- clears (a)-(c) above is its own new View row now, including
+  -- repeats from the same viewer and the Drop's own author (the
+  -- client-side skip for the author case is gone too -- see
+  -- DropDetailScreen._recordViewOnce()).
   insert into public.drop_views (drop_id, viewer_id)
-  values (p_drop_id, v_me)
-  on conflict (drop_id, viewer_id) do nothing;
+  values (p_drop_id, v_me);
 end;
 $$;
 

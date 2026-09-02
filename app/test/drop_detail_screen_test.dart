@@ -833,10 +833,8 @@ void main() {
     });
 
     testWidgets(
-        "does not call recordView for the current user's own Drop -- "
-        'the client already knows the server-side self-view exclusion '
-        'would just no-op it, so there is no need to even ask',
-        (tester) async {
+        'WYN-083: also calls recordView for the current user\'s own Drop '
+        'now -- Founder wants the author\'s own views counted', (tester) async {
       final ownDrop = Drop(
         id: 'view-own-1',
         authorId: 'me',
@@ -863,10 +861,11 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      expect(ownDropViewCountTestRepo.recordViewCalls, 0);
-      // The count also isn't optimistically bumped -- still shows the
-      // original 5, not 6 (stat line, see DropDetailScreen._buildStatLine).
-      expect(find.text('5 การเข้าชม'), findsOneWidget);
+      expect(ownDropViewCountTestRepo.recordViewCalls, 1);
+      expect(ownDropViewCountTestRepo.recordViewArgs, ['view-own-1']);
+      // Optimistically bumped the same as any other viewer -- 5 -> 6
+      // (stat line, see DropDetailScreen._buildStatLine).
+      expect(find.text('6 การเข้าชม'), findsOneWidget);
     });
 
     testWidgets(
@@ -964,8 +963,11 @@ void main() {
       // gap out of scope for this task (affects Like/Follow/ReDrop/Save
       // too, not just View count) -- flagged as a non-blocking finding
       // in this round's QA report instead of fixed here.
+      // 43, not the fixture's 42 -- WYN-083: this Drop's author is "me"
+      // (the current viewer), and the author's own view now counts
+      // too, so opening this screen optimistically bumps 42 -> 43.
       expect(
-        find.bySemanticsLabel(RegExp('เข้าชมแล้ว 42 ครั้ง')),
+        find.bySemanticsLabel(RegExp('เข้าชมแล้ว 43 ครั้ง')),
         findsOneWidget,
       );
     });
