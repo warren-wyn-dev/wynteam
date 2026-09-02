@@ -15,7 +15,6 @@ import '../../drop/presentation/drop_detail_screen.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../follow/data/follow_request_repository.dart';
 import '../../follow/presentation/follow_request_list_screen.dart';
-import '../../home/presentation/pop_single_clip_screen.dart';
 import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/presentation/my_moderation_action_screen.dart';
 import '../../pop/data/pop_repository.dart';
@@ -328,26 +327,18 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     );
   }
 
+  // WYN-102 (Wynos V1.0.0 Beta2, item 11, 2026-09-02): Pop is hidden
+  // from the app entirely -- tapping an old likePop/commentPop
+  // notification used to fetch and open the real Pop regardless (Pop
+  // content/PopRepository/PopSingleClipScreen are all still there, just
+  // unreachable through normal navigation now). Never navigates there
+  // anymore, so an old notification can't become a live access point --
+  // same "content not available" copy [_openDrop] already uses for a
+  // deleted Drop, since from the user's side the two look identical
+  // (tap it, it's gone).
   Future<void> _openPop(String popId) async {
-    final pop = await widget.popRepository.fetchById(popId);
-    if (!mounted) return;
-    if (pop == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pop นี้ถูกลบไปแล้ว')),
-      );
-      return;
-    }
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => PopSingleClipScreen(
-          pop: pop,
-          popRepository: widget.popRepository,
-          followRepository: widget.followRepository,
-          profileRepository: widget.profileRepository,
-          dropRepository: widget.dropRepository,
-          savedRepository: widget.savedRepository,
-        ),
-      ),
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('เนื้อหานี้ไม่พร้อมใช้งานแล้ว')),
     );
   }
 

@@ -55,8 +55,18 @@ class HomeRepository {
   static const _topContentCandidateLimit = 500;
   static const topContentResultLimit = 100;
 
+  // WYN-102 (Wynos V1.0.0 Beta2, item 11, 2026-09-02): Founder ordered
+  // Pop hidden from the app entirely ("พักเก็บไว้" -- shelved, not
+  // deleted). `home_feed` is a UNION ALL of drops+pops (see
+  // supabase/schema.sql) and this task deliberately does NOT touch that
+  // view (it has known pre-existing load issues, see DECISIONS.md) --
+  // every query below that reads from it filters this content_type out
+  // in Dart instead. Reverting Pop later is deleting this one constant's
+  // usages, not a migration.
+  static const _hiddenContentType = 'pop';
+
   /// Fetches one page (0-indexed) of the unified Home feed, newest first
-  /// across both Drop and Pop content.
+  /// across Drop content (Pop is hidden -- see [_excludePop]).
   Future<List<HomeFeedItem>> fetchFeed({required int page}) async {
     final userId = _client.auth.currentUser!.id;
     final from = page * pageSize;
@@ -65,6 +75,7 @@ class HomeRepository {
     final rows = await _client
         .from('home_feed')
         .select()
+        .neq('content_type', _hiddenContentType)
         .order('created_at', ascending: false)
         .range(from, to);
 
@@ -146,6 +157,7 @@ class HomeRepository {
     final rows = await _client
         .from('home_feed')
         .select()
+        .neq('content_type', _hiddenContentType)
         .gte('created_at', since.toIso8601String())
         .order('created_at', ascending: false)
         .limit(trendingCandidateLimit);
@@ -232,6 +244,7 @@ class HomeRepository {
     final rows = await _client
         .from('home_feed')
         .select()
+        .neq('content_type', _hiddenContentType)
         .gte('created_at', since.toIso8601String())
         .order('created_at', ascending: false)
         .limit(_topContentCandidateLimit);
@@ -336,9 +349,15 @@ class HomeRepository {
     // flattening it back out here is what lets fromMap keep working
     // completely unmodified, exactly as if this were still a plain
     // home_feed row. See get_wynos_ranked_feed()'s own doc comment.
+    // WYN-102: get_wynos_ranked_feed() is a SECURITY DEFINER RPC, not a
+    // plain query builder chain -- there's no `.neq()` to attach before
+    // it runs, so Pop rows are filtered out of what it returns instead
+    // (same "don't touch the SQL side, filter in Dart" posture as every
+    // other fetch* method in this file -- see _hiddenContentType).
     final rows = rawRows
         .map((raw) => Map<String, dynamic>.from(
             raw['row_data'] as Map<String, dynamic>))
+        .where((row) => row['content_type'] != _hiddenContentType)
         .toList();
 
     final dropIds = <String>[];
@@ -451,6 +470,7 @@ class HomeRepository {
         .from('home_feed')
         .select()
         .or('author_id.in.($followingList),redropper_id.in.($followingList)')
+        .neq('content_type', _hiddenContentType)
         .order('created_at', ascending: false)
         .range(from, to);
 
@@ -526,6 +546,11 @@ class HomeRepository {
         .from('home_feed')
         .select()
         .eq('redropper_id', userId)
+        // WYN-102: a Pop can be ReDropped too (redropper_id isn't
+        // Drop-exclusive, per this method's own doc comment above) --
+        // without this, a hidden Pop could still surface here via
+        // someone's ReDrop of it.
+        .neq('content_type', _hiddenContentType)
         .order('created_at', ascending: false)
         .range(from, to);
 

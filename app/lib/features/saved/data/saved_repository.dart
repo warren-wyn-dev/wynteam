@@ -17,6 +17,14 @@ class SavedRepository {
 
   static const pageSize = 21;
 
+  // WYN-102 (Wynos V1.0.0 Beta2, item 11, 2026-09-02): same "hide, don't
+  // delete" filter HomeRepository applies to every home_feed query --
+  // see that class's own _hiddenContentType doc comment. A previously-
+  // saved Pop is exactly the kind of easy-to-miss access point that
+  // task's own Risk section warned about (not the obvious nav/tab
+  // spots), so this view gets the same treatment.
+  static const _hiddenContentType = 'pop';
+
   Future<List<HomeFeedItem>> fetchFeed({required int page}) async {
     final userId = _client.auth.currentUser!.id;
     final from = page * pageSize;
@@ -25,6 +33,7 @@ class SavedRepository {
     final rows = await _client
         .from('saved_feed')
         .select()
+        .neq('content_type', _hiddenContentType)
         .order('saved_at', ascending: false)
         .range(from, to);
 

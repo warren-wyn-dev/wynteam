@@ -658,28 +658,32 @@ void main() {
     expect(find.byType(DropDetailScreen), findsOneWidget);
   });
 
-  testWidgets('tapping a Like Pop notification opens PopSingleClipScreen',
-      (tester) async {
+  testWidgets(
+      'WYN-102: tapping a Like Pop notification shows a "content not '
+      'available" SnackBar instead of opening PopSingleClipScreen -- '
+      'Pop is hidden from the app entirely now', (tester) async {
     await tester.pumpWidget(buildScreen(likePopRepo));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('@ploy ถูกใจ Pop ของคุณ'));
-    await tester.pumpAndSettle();
-    tester.takeException();
+    await tester.pump();
 
-    expect(find.byType(PopSingleClipScreen), findsOneWidget);
+    expect(find.text('เนื้อหานี้ไม่พร้อมใช้งานแล้ว'), findsOneWidget);
+    expect(find.byType(PopSingleClipScreen), findsNothing);
   });
 
-  testWidgets('tapping a Comment Pop notification opens PopSingleClipScreen',
+  testWidgets(
+      'WYN-102: tapping a Comment Pop notification shows a "content not '
+      'available" SnackBar instead of opening PopSingleClipScreen',
       (tester) async {
     await tester.pumpWidget(buildScreen(commentPopRepo));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('@ploy แสดงความคิดเห็นใน Pop ของคุณ'));
-    await tester.pumpAndSettle();
-    tester.takeException();
+    await tester.pump();
 
-    expect(find.byType(PopSingleClipScreen), findsOneWidget);
+    expect(find.text('เนื้อหานี้ไม่พร้อมใช้งานแล้ว'), findsOneWidget);
+    expect(find.byType(PopSingleClipScreen), findsNothing);
   });
 
   testWidgets('tapping a Follow notification opens ViewProfileScreen',

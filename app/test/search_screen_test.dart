@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
-import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/pop/data/pop.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
@@ -209,6 +208,31 @@ void main() {
         reason: 'editing alone must not have fired a second query yet');
   });
 
+  testWidgets(
+      'WYN-102: the Pop tab is gone -- 3 tabs (User/โพสต์/Club), no '
+      '"Pop" text anywhere, and the search placeholder no longer names '
+      'it', (tester) async {
+    await tester.pumpWidget(buildSearch());
+    await tester.pumpAndSettle();
+
+    // Placeholder is visible from the start (Discovery state).
+    expect(find.text('ค้นหา username, โพสต์, Club'), findsOneWidget);
+
+    // The TabBar itself only renders once Discovery gives way to the
+    // result tabs (see the screen's own `bottom: _showDiscovery ? null
+    // : TabBar(...)`).
+    await tester.enterText(find.byType(TextField), 'namfah');
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.byType(Tab), findsNWidgets(3));
+    expect(find.text('User'), findsOneWidget);
+    expect(find.text('โพสต์'), findsOneWidget);
+    expect(find.text('Club'), findsOneWidget);
+    expect(find.text('Pop'), findsNothing);
+  });
+
   testWidgets('finding a matching user opens ViewProfileScreen when tapped',
       (tester) async {
     await tester.pumpWidget(buildSearch());
@@ -217,11 +241,11 @@ void main() {
     await tester.enterText(find.byType(TextField), 'namfah');
     await tester.tap(find.byIcon(Icons.search));
     await tester.pumpAndSettle();
-    // The Drop/Pop tabs are also built (TabBarView keeps every tab's
-    // widget mounted, not just the visible one) and searched with the
-    // same shared query -- DropGridTile's Image.network fails to load in
-    // the test env, same harmless/expected exception as every other test
-    // in this suite that renders one. See .wyn/learning/PATTERNS.md.
+    // The โพสต์ tab is also built (TabBarView keeps every tab's widget
+    // mounted, not just the visible one) and searched with the same
+    // shared query -- DropGridTile's Image.network fails to load in the
+    // test env, same harmless/expected exception as every other test in
+    // this suite that renders one. See .wyn/learning/PATTERNS.md.
     tester.takeException();
 
     expect(find.text('@namfah'), findsOneWidget);
@@ -254,28 +278,6 @@ void main() {
     tester.takeException();
 
     expect(find.byType(DropDetailScreen), findsOneWidget);
-  });
-
-  testWidgets('finding a matching Pop opens PopSingleClipScreen when tapped',
-      (tester) async {
-    await tester.pumpWidget(buildSearch());
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.byType(TextField), 'namfah');
-    await tester.tap(find.byIcon(Icons.search));
-    await tester.pumpAndSettle();
-    tester.takeException();
-
-    await tester.tap(find.text('Pop'));
-    await tester.pumpAndSettle();
-    tester.takeException();
-
-    expect(popRepo.searchByCaptionQueryArgs, ['namfah']);
-    await tester.tap(find.byIcon(Icons.play_circle_fill));
-    await tester.pumpAndSettle();
-    tester.takeException();
-
-    expect(find.byType(PopSingleClipScreen), findsOneWidget);
   });
 
   testWidgets(

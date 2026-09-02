@@ -16,12 +16,12 @@ import '../data/discovery_repository.dart';
 import 'widgets/discovery_view.dart';
 import 'widgets/search_club_results_tab.dart';
 import 'widgets/search_drop_results_tab.dart';
-import 'widgets/search_pop_results_tab.dart';
 import 'widgets/search_user_results_tab.dart';
 
 /// Search tab (Bottom Nav, WYN-024 -- previously opened from Home's
-/// search bar, WYN-009). One shared query box above a User/Drop/Pop/Club
-/// TabBar (Club tab added WYN-015) rather than a per-tab search box: the
+/// search bar, WYN-009). One shared query box above a User/โพสต์/Club
+/// TabBar (Club tab added WYN-015; Pop's own tab hidden -- not deleted
+/// -- by WYN-102) rather than a per-tab search box: the
 /// user types once and flips tabs to see what matches, rather than
 /// retyping four times. See .wyn/docs/design/wyn-009-search.md,
 /// .wyn/docs/design/wyn-015-club-discovery-integration.md (Screen 2), and
@@ -142,7 +142,13 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      // WYN-102 (Wynos V1.0.0 Beta2, item 11, 2026-09-02): was 4 (User/
+      // โพสต์/Pop/Club) -- Pop's own tab is hidden, not deleted (see the
+      // removed Tab/SearchPopResultsTab below and Pop's own code, still
+      // untouched under app/lib/features/pop/). widget.popRepository
+      // stays required: DiscoveryView and the other result tabs below
+      // still use it.
+      length: 3,
       child: Scaffold(
         backgroundColor: WynColors.paper,
         appBar: AppBar(
@@ -190,7 +196,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     autofocus: widget.autofocus,
                     style: const TextStyle(fontSize: 16, color: WynColors.ink),
                     decoration: const InputDecoration(
-                      hintText: 'ค้นหา username, โพสต์, Pop, Club',
+                      hintText: 'ค้นหา username, โพสต์, Club',
                       hintStyle: TextStyle(fontSize: 16, color: WynColors.graphite),
                       border: InputBorder.none,
                       isCollapsed: true,
@@ -225,7 +231,6 @@ class _SearchScreenState extends State<SearchScreen> {
                   tabs: [
                     Tab(icon: Icon(Icons.person_outline), text: 'User'),
                     Tab(icon: Icon(Icons.grid_view_outlined), text: 'โพสต์'),
-                    Tab(icon: Icon(Icons.play_circle_outline), text: 'Pop'),
                     Tab(icon: Icon(Icons.groups_outlined), text: 'Club'),
                   ],
                 ),
@@ -258,14 +263,6 @@ class _SearchScreenState extends State<SearchScreen> {
                     followRepository: widget.followRepository,
                     profileRepository: widget.profileRepository,
                     popRepository: widget.popRepository,
-                    savedRepository: widget.savedRepository,
-                  ),
-                  SearchPopResultsTab(
-                    query: _query,
-                    popRepository: widget.popRepository,
-                    followRepository: widget.followRepository,
-                    profileRepository: widget.profileRepository,
-                    dropRepository: widget.dropRepository,
                     savedRepository: widget.savedRepository,
                   ),
                   SearchClubResultsTab(

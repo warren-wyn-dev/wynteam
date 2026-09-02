@@ -668,7 +668,11 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
           _PermissionSettingTile(
             icon: Icons.mode_comment_outlined,
             title: 'ใครคอมเมนต์โพสต์ของคุณได้',
-            subtitle: 'ควบคุมว่าใครคอมเมนต์โพสต์และ Pop ของคุณได้',
+            // WYN-102: was "...โพสต์และ Pop ของคุณได้" -- the setting
+            // itself still governs Pop comments too (unchanged, Pop's
+            // own backend/permission checks aren't touched by this
+            // task), just no longer named in UI copy the user reads.
+            subtitle: 'ควบคุมว่าใครคอมเมนต์โพสต์ของคุณได้',
             value: _commentPermission,
             onChanged: (v) => _setPermission(
                 'comment_permission', v, (p) => _commentPermission = p),

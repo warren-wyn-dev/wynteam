@@ -110,7 +110,10 @@ class _NotificationSettingsScreenState
         SwitchListTile(
           secondary: const Icon(Icons.favorite_border),
           title: const Text('ถูกใจ'),
-          subtitle: const Text('เมื่อมีคนถูกใจโพสต์, Pop หรือรีโพสต์ของคุณ'),
+          // WYN-102: was "...โพสต์, Pop หรือรีโพสต์..." -- the setting
+          // still governs Pop-like notifications too (unchanged), just
+          // no longer names Pop in UI copy.
+          subtitle: const Text('เมื่อมีคนถูกใจโพสต์หรือรีโพสต์ของคุณ'),
           value: _settings.likes,
           onChanged:
               _saving.contains('likes') ? null : (v) => _toggle('likes', v),
