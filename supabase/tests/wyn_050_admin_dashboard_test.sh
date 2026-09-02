@@ -143,9 +143,14 @@ insert into auth.users (id, email) values
   ('70000000-0000-0000-0000-000000000003', 'bob@test.com'),
   ('70000000-0000-0000-0000-000000000004', 'carol@test.com');
 
+-- Usernames 'admin'/'moderator' (not the platform_role column, which
+-- legitimately uses those exact enum-like values) would collide with
+-- profiles_username_not_reserved (added later, WYNOS First Login/
+-- Account Onboarding) -- test_admin1/test_mod1 sidestep that reserved
+-- list without changing what this test is actually verifying.
 insert into public.profiles (id, username, display_name, platform_role, is_private) values
-  ('70000000-0000-0000-0000-000000000001', 'admin', 'admin', 'admin', false),
-  ('70000000-0000-0000-0000-000000000002', 'moderator', 'moderator', 'moderator', false),
+  ('70000000-0000-0000-0000-000000000001', 'test_admin1', 'admin', 'admin', false),
+  ('70000000-0000-0000-0000-000000000002', 'test_mod1', 'moderator', 'moderator', false),
   ('70000000-0000-0000-0000-000000000003', 'bob', 'bob', 'user', false),
   ('70000000-0000-0000-0000-000000000004', 'carol', 'carol', 'user', false);
 

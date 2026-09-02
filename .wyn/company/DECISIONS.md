@@ -682,3 +682,19 @@
 - **พบเพิ่มระหว่างตรวจ**: `.wyn/logs/deployments/` ไม่มี entry บันทึก real deploy หลัง 2026-08-25 เลย แต่เช็ค GitHub Actions run history ตรงๆ พบว่ามี **deploy สำเร็จจริง 7 ครั้ง** ระหว่าง 2026-08-25–31 ที่ไม่เคยถูกบันทึกไว้ (WYN-071 docs, restyle gaps 3 จุด, push notification fix, Home restyle ก้อนใหญ่, explainer banner, Home header, liked-by fix) — เป็น **documentation gap ไม่ใช่ deployment gap** บันทึกไว้กันสับสนในอนาคต: **ต้องเชื่อ GitHub Actions run history เป็น ground truth เวลาเช็คว่า deploy จริงไปหรือยัง ไม่ใช่แค่เชื่อโฟลเดอร์ `.wyn/logs/deployments/`**
 - ผลลัพธ์: deploy สำเร็จ (`deploy-web.yml` run 33503100073, PR #193 merge เข้า `main` @ `33150ae`) production verification ผ่านทุกจุด (index.html/main.dart.js/manifest.json/flutter_bootstrap.js HTTP 200, REST query คอลัมน์ใหม่ของ home_feed ไม่ error) — **สรุปว่า Home feed ของ production น่าจะพังอยู่ประมาณ 2 วัน** (ตั้งแต่ deploy run 20 เมื่อ 2026-08-30 ที่มีโค้ดพึ่ง column ใหม่ จนถึงตอนแก้ schema วันนี้) ก่อนจะถูกแก้ไปพร้อมกับ WYN-072 รอบนี้
 - อ้างอิง: `.wyn/logs/deployments/2026-09-01-wyn-072-real-deploy.md`, `.wyn/tasks/completed/WYN-072-onboarding-polish-guest-browsing.md`
+
+### [2026-09-02] WYNOS Go-To-Market — ยืนยันทิศทางเริ่มต้น (organic-first, web-first)
+
+- บริบท: หลังเสนอ `.wyn/docs/product/wynos-gtm-roadmap.md` (5 phase) Founder ตอบคำถามผ่าน popup 3 ข้อ
+- **คำตัดสินใจ**:
+  1. **งบการตลาด**: ยังไม่มีงบเลยตอนนี้ — เริ่มจาก organic channel ก่อน (Phase 1-2 ของ roadmap ที่ไม่ใช้เงิน) ค่อยกลับมาคุยเรื่องงบตอนใกล้ Phase 3
+  2. **Native mobile app**: เน้น **web-first ต่อไปก่อน** — ยังไม่เร่งทำ native build (iOS/Android) จนกว่าจะเห็นสัญญาณดีจาก closed beta
+  3. **เริ่มงานจริง**: **ยังไม่เริ่ม** Phase 1 closed beta และยังไม่ให้ AI Design เริ่ม WYN-077/078 — Founder ขออ่านแผนเต็มก่อนตัดสินใจ
+- ผลกระทบ: WYN-077 (Basic Product Analytics) และ WYN-078 (Invite-Only Access Gate) ค้างสถานะ `backlog` ต่อไป ไม่ส่งต่อ AI Design จนกว่า Founder จะสั่งต่อ — ไม่มีโค้ด/production ใดถูกแตะต้องจากรอบนี้
+- อ้างอิง (task/PR ถ้ามี): `.wyn/docs/product/wynos-gtm-roadmap.md`, `.wyn/tasks/backlog/WYN-077-basic-product-analytics.md`, `.wyn/tasks/backlog/WYN-078-invite-only-access-gate.md`
+
+### [2026-09-02] WYN-077 (Analytics) — Founder อนุมัติแนวทาง เก็บเองใน Supabase, เริ่มงานทันที
+
+- คำตัดสินใจของ Founder: เก็บ analytics event เองใน Supabase table ใหม่ (ไม่ใช้ third-party เช่น PostHog/Firebase) — ไม่มีข้อมูลผู้ใช้ไหลออกนอกระบบ, ตอบคำถามที่ AI Product Manager ถามไว้ใน `.wyn/tasks/backlog/WYN-077-basic-product-analytics.md` (ก่อนย้ายไป active) — สั่ง "เริ่มเลย"
+- ผลกระทบ: WYN-077 ย้ายจาก `.wyn/tasks/backlog/` ไป `.wyn/tasks/active/` สถานะ `active` พร้อมส่งต่อ AI Design ทันที — ไม่กระทบ WYN-078 (ยังอยู่ backlog รอคำสั่งแยก) และไม่กระทบ Phase 1 closed beta (Founder ยังไม่สั่งเริ่ม)
+- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/active/WYN-077-basic-product-analytics.md`

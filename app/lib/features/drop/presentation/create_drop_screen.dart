@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../analytics/data/analytics_repository.dart';
 import '../../hashtag/data/hashtag_repository.dart';
 import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/data/appeal_status.dart';
@@ -478,6 +480,12 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
           // Ignored -- see comment above.
         }
       }
+
+      // WYN-077: publishing a Drop counts as this user's "first core
+      // action" for activation purposes -- safe to log unconditionally
+      // every time (see AnalyticsRepository.logFirstCoreAction's doc
+      // comment), not just for a literal first-ever post.
+      unawaited(const AnalyticsRepository().logFirstCoreAction());
 
       if (!mounted) return;
       Navigator.of(context).pop(true);

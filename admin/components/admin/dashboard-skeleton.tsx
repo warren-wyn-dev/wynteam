@@ -7,6 +7,10 @@ const SECTIONS = [
   { title: "เนื้อหา", count: 3 },
   { title: "การมีส่วนร่วม", count: 4 },
   { title: "รายงาน", count: 1 },
+  // WYN-077 -- same "count" cards as DashboardMetrics' Growth section;
+  // the wide Top Sources card is a separate block below, not counted
+  // here.
+  { title: "การเติบโต", count: 5 },
 ];
 
 export function DashboardSkeleton() {
@@ -20,6 +24,11 @@ export function DashboardSkeleton() {
               <div key={i} className="h-28 animate-pulse rounded-xl border bg-muted/40" />
             ))}
           </div>
+          {section.title === "การเติบโต" ? (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+              <div className="h-28 animate-pulse rounded-xl border bg-muted/40 lg:col-span-2" />
+            </div>
+          ) : null}
         </div>
       ))}
     </div>

@@ -9,9 +9,13 @@ import {
   Repeat2,
   Mail,
   Flag,
+  CheckCircle2,
+  Zap,
+  RotateCcw,
 } from "lucide-react";
 
 import { StatCard } from "@/components/admin/stat-card";
+import { TopSourcesCard } from "@/components/admin/top-sources-card";
 import { fetchAdminDashboardMetrics } from "@/lib/admin-metrics";
 
 /**
@@ -75,6 +79,46 @@ export async function DashboardMetrics() {
             secondaryLabel="รอดำเนินการ"
             secondaryTone="warn"
           />
+        </div>
+      </section>
+
+      {/*
+        WYN-077: always appended last, never inserted between existing
+        sections -- keeps the Admin's existing mental model of section
+        order intact. See .wyn/docs/design/wyn-077-basic-product-analytics.md.
+      */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-medium text-muted-foreground">การเติบโต</h2>
+        <p className="-mt-2 text-xs text-muted-foreground">
+          Retention นับจากผู้ใช้ที่กลับมามีกิจกรรมบนแพลตฟอร์ม ไม่ใช่แค่เปิดเว็บทิ้งไว้ ·
+          ช่องทางนับจากลิงก์ที่มี UTM parameter เท่านั้น ผู้ใช้ที่พิมพ์ URL เข้าเองจะขึ้นเป็น
+          &quot;ไม่ระบุที่มา&quot;
+        </p>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="สมัครใหม่" value={m.signup_started_24h} icon={UserPlus} sublabel="ใน 24 ชม.ล่าสุด" />
+          <StatCard
+            label="สมัครสำเร็จ"
+            value={m.signup_completed_24h}
+            icon={CheckCircle2}
+            // Cohort with 0 signups today -> the RPC returns null, not a
+            // misleading "0%" -- shown as plain 0 here, same convention
+            // every other stat card in this dashboard already uses for
+            // "genuinely nothing happened yet" (e.g. new_users_today).
+            secondaryValue={m.signup_conversion_pct ?? 0}
+            secondaryLabel="อัตราสมัครสำเร็จ (%)"
+          />
+          <StatCard
+            label="Activation"
+            value={m.activation_pct_24h ?? 0}
+            icon={Zap}
+            secondaryValue={m.activation_count_24h}
+            secondaryLabel="คน"
+          />
+          <StatCard label="D1 Retention" value={m.retention_d1_pct ?? 0} icon={RotateCcw} sublabel="% กลับมาใช้วันที่ 1" />
+          <StatCard label="D7 Retention" value={m.retention_d7_pct ?? 0} icon={RotateCcw} sublabel="% กลับมาใช้วันที่ 7" />
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+          <TopSourcesCard sources={m.top_sources} />
         </div>
       </section>
     </div>

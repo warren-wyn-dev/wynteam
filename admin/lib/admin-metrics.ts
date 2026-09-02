@@ -6,6 +6,11 @@ import { createClient } from "@/lib/supabase/server";
  * admin/moderator gate (raises otherwise) -- this function doesn't
  * re-check role, it just surfaces whatever the RPC decides.
  */
+export type TopSource = {
+  source: string;
+  count: number;
+};
+
 export type AdminDashboardMetrics = {
   new_users_today: number;
   dau: number;
@@ -21,6 +26,18 @@ export type AdminDashboardMetrics = {
   messages_today: number;
   reports_total: number;
   reports_pending: number;
+  // WYN-077 additions -- see .wyn/docs/design/wyn-077-basic-product-analytics.md.
+  // Percentages are null (not 0) when their cohort is empty (e.g. no
+  // signups at all in the relevant window) -- the RPC's own `case when
+  // ... = 0 then null` guards against a misleading "0%".
+  signup_started_24h: number;
+  signup_completed_24h: number;
+  signup_conversion_pct: number | null;
+  activation_pct_24h: number | null;
+  activation_count_24h: number;
+  retention_d1_pct: number | null;
+  retention_d7_pct: number | null;
+  top_sources: TopSource[];
 };
 
 export async function fetchAdminDashboardMetrics(): Promise<AdminDashboardMetrics> {
