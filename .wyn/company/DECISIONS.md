@@ -862,3 +862,20 @@
 - **(4) "โปรไฟล์ ก็ต้องคล้ายฟีด" → ตรวจแล้วเหมือนอยู่แล้ว + "คง Grid ไว้"**: แท็บหลักทั้งสามของ Profile (โพสต์/รีโพสต์/ถูกใจ) เป็น `ListView` ของ `HomeDropCard` **ตัวเดียวกับ Feed** มาตั้งแต่ WYN-013 แล้ว — **AI รายงานผิดในรอบแรกว่า Profile เป็น Grid** (วาด mockup ผิดและเขียนผิดในเอกสาร แก้ทั้งสองที่แล้ว) ช่องที่ยังไม่เหมือนจริง ๆ คือ *พฤติกรรม*: โพสต์หลายรูปบนโปรไฟล์ยังยิง request รูปทีละการ์ด (N+1 ที่เอาออกจาก Home ไปแล้ว) แก้ด้วยการ batch รูปทั้งหน้าใน `DropRepository._fetchViewerState` ครอบคลุม Profile โพสต์+ถูกใจ · Search แท็บโพสต์ · hashtag feed · Draft · `fetchById` — จากนั้น Founder ยืนยันว่า **Grid ที่เหลือ (Search แท็บโพสต์ · Saved · Draft) ให้คงไว้** ไม่เปลี่ยนเป็นการ์ดแบบฟีด เพราะเป็น Content Overview คนละหน้าที่กับ Content Flow (ตรงกับข้อ 4 ของบรีฟ Beta3: "ไม่ต้องทำให้ทุกหน้าเหมือนกัน 100% ให้แต่ละบริบทเหมาะสมกับหน้าที่")
 - **สถานะ ณ เวลาบันทึก**: `flutter analyze` สะอาด · `flutter test` 1,107 ผ่านหมด · `flutter build web --release` สำเร็จ · `supabase/tests` 27/33 เท่า baseline Beta2 พอดี (Beta3 ไม่แตะ SQL เลย) · **push ขึ้น feature branch แล้ว ยังไม่เปิด PR ยังไม่ merge ยังไม่ deploy ไม่แตะ production** ตามข้อ 37 ของบรีฟ
 - อ้างอิง: `.wyn/docs/qa/wynos-v1.0.0-beta3-{system-map,ux-audit,performance,security-audit,final-readiness,future-ideas}.md`
+
+### [2026-09-03] WYN-106: Founder อนุมัติ Button System หน้า Home + แก้ touch target ปุ่มปิดแบนเนอร์
+
+- บริบท: Founder ขอ "ออกแบบ UX UI ปุ่มต่างๆ ขอโทนสีเดิมทั้งหมด เริ่มจากหน้าจอ Home" — AI Design รวบรวม
+  ปุ่มทุกแบบที่มีอยู่จริงบนหน้า Home เป็น 6 ประเภท (Primary Pill / Secondary Outline / Icon /
+  Text Tab / Icon+Count / Dismiss Icon) ใช้ token สีเดิมทั้งหมด (sapphire/ink/graphite/faint/hairline
+  จาก `wyn_colors.dart` — ไม่ใช่ `ds-001-color-system.md` เก่าที่ล้าสมัยตามบทเรียน 2026-09-02) ไม่มีการ
+  เสนอสี/ทรงใหม่ — ส่ง Artifact preview ("Home Button System") ให้ Founder ตรวจ
+- ตรวจพบ 1 gap จริงระหว่าง audit: ปุ่ม X ปิด `HomeExplainerBanner` มีพื้นที่กดจริง ~19×19px ต่ำกว่า
+  เกณฑ์ขั้นต่ำของระบบเอง (`WynSpacing.touchTargetMin` 44×44px, DS-001 §6/DS-008 §1) — หลุดจาก audit
+  เดิมของ DS-008 (คนละรอบ/คนละไฟล์)
+- **Founder ตัดสินใจ (ผ่าน popup)**: "อนุมัติ ส่ง AI Coding แก้เลย" — อนุมัติภาพรวมทั้งหมด และให้แก้
+  จุด touch target ทันที ไม่ต้องรอ — ส่งต่อ AI Coding แล้ว (`.wyn/tasks/active/WYN-106-home-button-system.md`)
+- ข้อสังเกตรอง (ไม่เร่งด่วน ยังไม่ตัดสินใจ): ไอคอน "⋯" more-options ใน `home_drop_card.dart` ไม่ระบุ
+  size/color ชัดเจนตาม `design-reference/SPEC.md` §4.6 (ควรเป็น 16px, faint) — touch target ผ่านอยู่แล้ว
+  ไม่กระทบ accessibility เก็บไว้เป็น known note รอ Founder ตัดสินใจภายหลังว่าคุ้มแก้หรือไม่
+- อ้างอิง: `.wyn/docs/design/wyn-106-home-button-system.md`, `.wyn/tasks/active/WYN-106-home-button-system.md`
