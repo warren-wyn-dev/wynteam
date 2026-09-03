@@ -168,7 +168,7 @@ class _SearchScreenState extends State<SearchScreen> {
               // search box's own slightly-off-paper fill, same "single
               // contained use" precedent as _kMessageBodyColor
               // (notification_list_screen.dart).
-              color: const Color(0xFFF1EFE9),
+              color: WynColors.surfaceTint,
               borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
               border: Border.all(color: WynColors.hairline),
             ),

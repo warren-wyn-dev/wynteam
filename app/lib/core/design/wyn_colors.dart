@@ -78,6 +78,40 @@ class WynColors {
   /// a local literal per file.
   static const Color mutedNeutral = Color(0xFFB7B4AC);
 
+  /// The warm off-white fill used by every quiet, non-interactive
+  /// surface that sits *on* paper: search bars, the empty-state icon
+  /// circle, an incoming chat bubble, and the "กำลังติดตาม" button once
+  /// you already follow someone.
+  ///
+  /// Beta4 §10/§22 promoted this from 12 identical inline
+  /// `Color(0xFFF1EFE9)` literals across 11 files (plus two private
+  /// per-file constants that had each given it a different local name).
+  /// Same promotion, same reasoning, as [mutedNeutral]: a value that
+  /// appears identically in that many independent places is a system
+  /// token whether or not anyone named it, and the alternative to
+  /// naming it is that the twelfth copy is where it drifts.
+  ///
+  /// Not a new colour, and not a computed tint of [sapphire] -- SPEC.md
+  /// Section 1 forbids synthesizing shades, and this is a neutral, not
+  /// an accent.
+  static const Color surfaceTint = Color(0xFFF1EFE9);
+
+  /// Reading text that should sit a step quieter than [ink] without
+  /// dropping all the way to [graphite]: a profile bio, a notification's
+  /// message line.
+  ///
+  /// Beta4 §10 promoted this from two private per-file constants
+  /// (`_bioTone` and `_kMessageBodyColor`) that held the same value and
+  /// each described itself as a one-off. Two files independently
+  /// reaching the same "quieter than the nearest named token" answer is
+  /// the definition of a shared need. SPEC.md Section 4.10 sanctions the
+  /// tone; it just had nowhere to live.
+  ///
+  /// Beta4 §18 asks specifically that Feed and Notifications read as one
+  /// visual language -- this is one of the two places they already
+  /// agreed by coincidence rather than by construction.
+  static const Color inkSoft = Color(0xFF2B2A26);
+
   // ---------------------------------------------------------------------
   // Notification type-badge colors (02-notifications.tsx) -- Founder-
   // approved exception to "sapphire is the only accent" (2026-08-29),

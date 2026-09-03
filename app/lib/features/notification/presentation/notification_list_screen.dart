@@ -1066,7 +1066,7 @@ TextStyle _textStyle({
 // this file's tab/GroupLabel styling below uses -- that one repeats
 // identically across multiple reference screens, see its own doc
 // comment).
-const Color _kMessageBodyColor = Color(0xFF2B2A26);
+const Color _kMessageBodyColor = WynColors.inkSoft;
 
 class _GroupLabel extends StatelessWidget {
   const _GroupLabel({required this.label});

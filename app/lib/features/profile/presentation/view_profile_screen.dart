@@ -1229,7 +1229,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                                           style: FilledButton.styleFrom(
                                             shape: const StadiumBorder(),
                                             backgroundColor: _isFollowing!
-                                                ? const Color(0xFFF1EFE9)
+                                                ? WynColors.surfaceTint
                                                 : WynColors.sapphire,
                                             foregroundColor: _isFollowing!
                                                 ? WynColors.graphite
@@ -1585,7 +1585,7 @@ Widget _buildStatDivider() => Container(
 /// SPEC.md's own Section 4.10 sanctions for Home's reply-preview text
 /// (see notification_list_screen.dart's identical reasoning for its own
 /// message-body tone).
-const _bioTone = Color(0xFF2B2A26);
+const _bioTone = WynColors.inkSoft;
 
 TextStyle _textStyle({
   required double fontSize,

@@ -258,7 +258,7 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
           // Same one-off search-pill fill 03-search.tsx's own search bar
           // established (search_screen.dart) -- not one of SPEC.md's 7
           // named tokens, reused here rather than a new literal.
-          color: const Color(0xFFF1EFE9),
+          color: WynColors.surfaceTint,
           borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
           border: Border.all(color: WynColors.hairline),
         ),

@@ -1360,7 +1360,7 @@ class _AudienceChip extends StatelessWidget {
           padding:
               const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 4),
           decoration: BoxDecoration(
-            color: const Color(0xFFF1EFE9),
+            color: WynColors.surfaceTint,
             border: Border.all(color: WynColors.hairline),
             borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
           ),
@@ -1509,7 +1509,7 @@ class _LocationChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1EFE9),
+        color: WynColors.surfaceTint,
         border: Border.all(color: WynColors.hairline),
         borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
       ),
