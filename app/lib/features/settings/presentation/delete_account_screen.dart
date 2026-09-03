@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/design/wyn_spacing.dart';
+import '../../account_switcher/data/account_switcher_repository.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../push/data/push_token_repository.dart';
 import '../../push/presentation/push_notification_service.dart';
@@ -98,6 +99,13 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
     );
     if (confirmed != true || !mounted) return;
 
+    // Captured before deleteMyAccount()/signOut() below -- currentUser
+    // reads null once the session is gone, and multi-account switching
+    // needs this account's id specifically to remove it from the
+    // on-device switcher (see the forgetAndSwitchToNextIfAny call at the
+    // end of this method).
+    final deletedUserId = Supabase.instance.client.auth.currentUser?.id;
+
     setState(() => _isDeleting = true);
     try {
       await _dataRightsRepository.deleteMyAccount();
@@ -116,8 +124,9 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
     // ViewProfileScreen._signOut/AuthGate._leaveBlockedScreen: never
     // let a push-token failure block leaving. No further setState
     // after signOut() -- AuthGate's auth-state listener pops back to
-    // its own route and renders WelcomeScreen on its own, this screen
-    // does not navigate itself.
+    // its own route and renders WelcomeScreen (or, with other accounts
+    // still added on this device, the next one -- see below) on its
+    // own, this screen does not navigate itself.
     try {
       await PushNotificationService(
               PushTokenRepository(Supabase.instance.client))
@@ -126,6 +135,22 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       // Intentionally silent -- see ViewProfileScreen._signOut.
     }
     await _authRepository.signOut();
+
+    // Multi-account switching: same "logging out/losing this account
+    // lands you on another already-added one instead of WelcomeScreen"
+    // behavior as SettingsScreen._signOut -- a deleted account obviously
+    // can never be switched back to, so it's removed from the switcher
+    // unconditionally either way. Best-effort, same posture as the
+    // push-token deregistration above -- a secure-storage hiccup here
+    // must never leave account deletion looking stuck or failed.
+    if (deletedUserId != null) {
+      try {
+        await AccountSwitcherRepository().forgetAndSwitchToNextIfAny(
+            deletedUserId, Supabase.instance.client);
+      } catch (_) {
+        // Intentionally silent -- see comment above.
+      }
+    }
   }
 
   @override

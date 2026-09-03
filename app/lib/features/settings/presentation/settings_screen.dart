@@ -7,6 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
+import '../../account_switcher/data/account_switcher_repository.dart';
+import '../../account_switcher/presentation/account_switcher_sheet.dart';
 import '../../block/data/block_repository.dart';
 import '../../block/presentation/blocked_list_screen.dart';
 import '../../club/data/club_post_repository.dart';
@@ -94,15 +96,36 @@ class SettingsScreen extends StatelessWidget {
   /// never block or fail sign-out itself. 05-profile.tsx moves the
   /// standalone header logout icon into this screen instead -- see the
   /// last row below -- so this is the one place that action lives now.
+  ///
+  /// Multi-account switching: if this device has other accounts added,
+  /// logging out of this one lands you straight on the next rather than
+  /// WelcomeScreen -- same "logging out never leaves the app with zero
+  /// accounts while others are still added" behavior as Instagram/
+  /// Twitter. Only removes/switches after the real sign-out above has
+  /// already revoked this session -- see AccountSwitcherRepository
+  /// .forgetAndSwitchToNextIfAny's own doc comment on why the ordering
+  /// matters. Best-effort, same posture as the push-token deregistration
+  /// right above it -- a secure-storage hiccup here must never leave the
+  /// user stuck mid-sign-out; worst case they just land on WelcomeScreen
+  /// instead of another already-added account and can switch manually.
   Future<void> _signOut() async {
+    final client = Supabase.instance.client;
+    final userId = client.auth.currentUser?.id;
     try {
-      await PushNotificationService(
-              PushTokenRepository(Supabase.instance.client))
+      await PushNotificationService(PushTokenRepository(client))
           .unregisterCurrentDevice();
     } catch (_) {
       // Intentionally silent -- see comment above.
     }
-    await Supabase.instance.client.auth.signOut();
+    await client.auth.signOut();
+    if (userId != null) {
+      try {
+        await AccountSwitcherRepository()
+            .forgetAndSwitchToNextIfAny(userId, client);
+      } catch (_) {
+        // Intentionally silent -- see comment above.
+      }
+    }
   }
 
   @override
@@ -354,6 +377,28 @@ class _AccountManagementScreenState extends State<_AccountManagementScreen> {
       appBar: AppBar(title: const Text('บัญชี')),
       body: ListView(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              WynSpacing.space4,
+              WynSpacing.space4,
+              WynSpacing.space4,
+              WynSpacing.space1,
+            ),
+            child: Text(
+              'หลายบัญชี',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.swap_horiz),
+            title: const Text('สลับบัญชี'),
+            subtitle:
+                const Text('เพิ่มได้สูงสุด ${AccountSwitcherRepository.maxAccounts} บัญชีต่อเครื่อง'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => showAccountSwitcherSheet(context),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
               WynSpacing.space4,
