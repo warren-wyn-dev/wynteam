@@ -26,7 +26,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "verify = look only · create = install/replace · remove = drop"
+        description: "verify = look only · create = install/replace (enables webhooks first if needed) · remove = drop · enable = turn on webhooks only"
         required: true
         default: verify
         type: choice
@@ -34,6 +34,7 @@ on:
           - verify
           - create
           - remove
+          - enable
 
 jobs:
   webhook:
@@ -73,6 +74,7 @@ jobs:
         run: |
           set -euo pipefail
           API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          ENABLE_API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/webhooks/enable"
 
           # Every statement goes through here so failures surface as the
           # message Postgres actually gave, not as a bare non-zero exit.
@@ -104,6 +106,34 @@ jobs:
             rm -f "$out"
           }
 
+          # The same operation the Dashboard's "Enable webhooks" button
+          # performs -- that button calls this endpoint. So this is still
+          # Supabase running their own migration (pg_net + the
+          # supabase_functions schema and their http_request), not this
+          # workflow hand-writing their internals, which is the thing
+          # worth refusing to do.
+          enable_webhooks() {
+            local out code
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$ENABLE_API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d '{}')
+            echo "Enable webhooks -> HTTP $code"
+            cat "$out"; echo
+            rm -f "$out"
+            case "$code" in
+              200|201|204) return 0 ;;
+              404)
+                echo "::error::This Supabase API does not expose an enable endpoint for this project."
+                echo "::error::Do it once by hand instead: Dashboard > Database > Webhooks > 'Enable webhooks'."
+                return 1 ;;
+              *)
+                echo "::error::Enable failed with HTTP $code -- see the body above."
+                return 1 ;;
+            esac
+          }
+
           show() {
             echo "--- current state of trigger $TRIGGER_NAME ---"
             run_sql "select tgname as trigger_name,
@@ -120,6 +150,7 @@ jobs:
           # Three separate facts, because "webhooks are off" has three
           # different causes and they need three different fixes. A
           # single yes/no here would send someone to the wrong one.
+          probe_prereqs() {
           echo "=== Is the webhook machinery enabled on this project? ==="
           probe=$(run_sql "select
                     (select count(*) from pg_extension where extname = 'pg_net')          as pg_net_installed,
@@ -131,19 +162,30 @@ jobs:
                         and p.proname = 'http_request')                                   as http_request_exists;")
           echo "$probe" | jq .
           has_fn=$(echo "$probe" | jq -r '.[0].http_request_exists')
+          }
 
-          if [ "$has_fn" = "0" ]; then
-            echo "::error::supabase_functions.http_request does not exist, so no webhook can be created yet."
-            echo "::error::Fix, once, in the Dashboard: Database > Webhooks > 'Enable webhooks'."
-            echo "::error::That button runs Supabase's own migration -- it installs pg_net AND creates the"
-            echo "::error::supabase_functions schema with their http_request(). This workflow deliberately"
-            echo "::error::does not hand-write that function: a near-copy would look like it worked while"
-            echo "::error::the Dashboard failed to recognise the hook and their next migration collided"
-            echo "::error::with it. Press the button, then re-run this with action=create."
-            exit 1
-          fi
+          probe_prereqs
 
           case "${{ inputs.action }}" in
+            enable|create)
+              if [ "$has_fn" = "0" ]; then
+                echo "=== Webhooks are not enabled yet -- enabling ==="
+                enable_webhooks || exit 1
+                probe_prereqs
+                if [ "$has_fn" = "0" ]; then
+                  echo "::error::Enable reported success but supabase_functions.http_request still does not exist."
+                  exit 1
+                fi
+                echo "Webhooks are enabled now."
+              fi
+              ;;
+          esac
+
+          case "${{ inputs.action }}" in
+            enable)
+              echo "Nothing else to do -- run again with action=create to install the trigger."
+              ;;
+
             verify)
               show
               ;;
