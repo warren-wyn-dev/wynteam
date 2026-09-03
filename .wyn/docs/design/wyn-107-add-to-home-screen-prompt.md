@@ -44,20 +44,21 @@ Components:
 - ปุ่มปิด (X) ขนาด 16px มุมขวา — แตะเพื่อ dismiss เท่านั้น ไม่เปิด sheet (ต้องเป็นพื้นที่แตะแยกจากตัว banner ที่เหลือ ไม่ให้แตะ X แล้วเผลอเปิด sheet)
 
 Interactions:
-- แตะพื้นที่ banner (ยกเว้นปุ่ม X) → `showModalBottomSheet` เปิด Screen 2 — **ไม่ dismiss banner ทันทีตอนแตะ** (ผู้ใช้อาจกลับมาดูซ้ำได้ในเซสชันเดียวกันถ้ายังไม่ปิด X) การ dismiss ถาวรเกิดจากแตะ X เท่านั้น หรือ (ตัวเลือก) หลังจากปิด sheet ไปแล้วครั้งหนึ่ง — ดู Design Rules ข้อ persistence
-- แตะ X → `shared_preferences` เขียนค่า dismissed = true ทันที banner หายจากจอด้วย `setState`
+- แตะพื้นที่ banner (ยกเว้นปุ่ม X) → `showModalBottomSheet` เปิด Screen 2 — **ไม่ snooze banner ทันทีตอนแตะ**
+- แตะ X → **Founder ยืนยันแล้ว (2026-09-03, Open Question ข้อ 2): ไม่ใช่ dismiss ถาวร** — เขียนค่า `shared_preferences` เป็น `lastSnoozedAt = DateTime.now()` (ไม่ใช่ boolean `dismissed`) banner หายจากจอด้วย `setState` ทันที แล้ว**กลับมาแสดงใหม่อัตโนมัติหลังจากผ่านไป `kSnoozeDuration` (แนะนำ 7 วัน — ค่าคงที่ปรับได้ทีหลังโดยไม่ต้อง migrate schema)** นับจากครั้งล่าสุดที่ปิด — เหตุผลที่เลือก 7 วัน: ยาวพอไม่ให้รู้สึกโดนรบกวนถี่เกินไป (ต่างจาก tip ทั่วไป นี่คือช่องทางกระจายแอปหลัก) แต่สั้นพอที่จะเจอผู้ใช้อีกครั้งในสัปดาห์ถัดไปที่ยังไม่ได้ติดตั้งจริง — Founder ปรับตัวเลขนี้ได้ทีหลังหาก 7 วันถี่/ห่างเกินไปจากข้อมูลจริง โดยไม่กระทบโครงสร้าง
+- **จุดหยุดแสดงถาวรจริงมีทางเดียวเท่านั้น: ตรวจพบ standalone mode แล้ว** (ติดตั้งสำเร็จจริง) — ไม่มี "ปิดไม่ต้องถามอีก" แบบถาวรที่ผู้ใช้กดเลือกเองได้ เพราะนี่คือช่องทางกระจายแอปหลักตอนนี้ ไม่ใช่ tip ทั่วไปแบบ `HomeExplainerBanner`/`PrivacyNoticeBanner`
 
 States:
 - Hidden (default จนกว่า platform-check + pref-check จะ resolve ครบ — ไม่กระพริบ visible-then-hidden เหมือน `HomeExplainerBanner`/`PrivacyNoticeBanner`)
 - Visible (เงื่อนไขครบตาม Design Rules)
-- Dismissed (ถาวร ผ่าน `shared_preferences`)
+- Snoozed (ซ่อนชั่วคราวจนครบ `kSnoozeDuration` นับจาก `lastSnoozedAt` — **ไม่ใช่สถานะถาวร** ต่างจาก `HomeExplainerBanner`/`PrivacyNoticeBanner` โดยตั้งใจ ตาม Founder's decision)
 
 Responsive Behavior: เต็มความกว้างจอเสมอ (มือถือเท่านั้นในทางปฏิบัติ เพราะ desktop ไม่แสดงเลย — ดู Design Rules) ข้อความตัด ellipsis ไม่ wrap 2 บรรทัด (คงความเป็น "แถบบาง" ไว้)
 
 Accessibility: `Semantics(label: 'เพิ่ม WYNOS ไว้ที่หน้าจอหลัก แตะเพื่อดูวิธีทำ', button: true)` ครอบพื้นที่ banner หลัก, ปุ่ม X มี `Semantics(label: 'ปิดข้อความแนะนำ', button: true)` แยกจากกันชัดเจน (เหมือน `HomeExplainerBanner` ทำอยู่แล้ว)
 
 Design Rules:
-- **แสดงเฉพาะเมื่อครบทุกเงื่อนไข**: (1) `kIsWeb == true` (2) ตรวจแล้วว่า**ไม่ได้รันอยู่ในโหมด standalone** (ดู Handoff ข้อ 1 — เป็น hard requirement, ไม่ใช่ nice-to-have) (3) ตรวจแพลตฟอร์มแล้วได้ iOS Safari หรือ Android Chrome เท่านั้น (ไม่ใช่ desktop/ตรวจไม่ได้ — ดู Screen 2's "ขอบเขต Desktop") (4) ยังไม่เคยถูกปิดถาวรมาก่อน (`shared_preferences`)
+- **แสดงเฉพาะเมื่อครบทุกเงื่อนไข**: (1) `kIsWeb == true` (2) ตรวจแล้วว่า**ไม่ได้รันอยู่ในโหมด standalone** (ดู Handoff ข้อ 1 — เป็น hard requirement, ไม่ใช่ nice-to-have) (3) ตรวจแพลตฟอร์มแล้วได้ iOS Safari หรือ Android Chrome เท่านั้น (ไม่ใช่ desktop/ตรวจไม่ได้ — ดู Screen 2's "ขอบเขต Desktop") (4) ยังไม่เคยถูก snooze มาก่อน **หรือ** `DateTime.now().difference(lastSnoozedAt) >= kSnoozeDuration` (7 วัน)
 - **แสดงหลังจาก `HomeExplainerBanner` ถูกปิดไปแล้วเท่านั้น** — เช็คค่า `shared_preferences` ของ `HomeExplainerBanner` ก่อนตัดสินใจแสดง banner นี้ เพื่อไม่ให้ผู้ใช้ใหม่เจอ banner พื้นเข้ม + พื้นเบาพร้อมกันตั้งแต่เปิดแอปครั้งแรก (ดู Handoff ข้อ 2 สำหรับวิธี implement โดยไม่ต้อง hardcode string key ซ้ำ)
 - ตำแหน่ง: sliver ถัดจาก `HomeExplainerBanner` เดิม (ก่อน `_FeedModeToggleHeaderDelegate`) — ไม่ pin, เลื่อนหายไปพร้อมเนื้อหาด้านบนเหมือน `HomeExplainerBanner`
 - **ไม่แสดงซ้ำใน session เดียวกันถ้าปิด sheet ไปแล้วโดยไม่กด X** — banner ยังอยู่ (ผู้ใช้เห็นได้ถ้าเลื่อนกลับขึ้นมาบนสุด) แต่ **ไม่ auto-reopen sheet เอง** ไม่ว่ากรณีใด
@@ -100,13 +101,13 @@ Design Rules:
 - **แสดงชุดขั้นตอนเดียวตามแพลตฟอร์มที่ตรวจพบจริง ไม่ใช่ทั้งสองชุด/ให้ผู้ใช้เลือกเอง** — ผู้ใช้ไม่รู้ว่าตัวเอง "อยู่บนแพลตฟอร์มไหน" ในเชิงเทคนิค การให้เลือกเองเพิ่ม friction โดยไม่จำเป็นในเมื่อตรวจอัตโนมัติได้แม่นยำพออยู่แล้ว (ดู Handoff ข้อ 1 เรื่องความแม่นยำของการตรวจ)
 - **ขอบเขต Desktop — ไม่แสดง banner/sheet นี้เลยบน desktop browser** (คำแนะนำจาก AI Design ไม่ใช่คำสั่งที่ยืนยันแล้ว — ดู Open Questions ข้อ 3): เหตุผล (a) WYNOS ประกาศตัวเป็น mobile-first app อยู่แล้ว (`app/web/index.html`'s meta description: "mobile social app for Gen Z") คุณค่าของ "เพิ่มไปที่หน้าจอหลัก" อ่อนกว่ามากบน desktop ที่มี bookmark/tab อยู่แล้วเป็นทางเลือกที่สะดวกพอๆ กัน (b) UI การติดตั้งบน desktop ต่างกันมากระหว่าง Chrome (ไอคอนติดตั้งใน address bar)/Edge/Firefox (ไม่รองรับ PWA install ที่ดีเท่า) — เพิ่ม branch ที่ 3 เพิ่มความซับซ้อนและความเสี่ยงบอกขั้นตอนผิดสำหรับกลุ่มผู้ใช้ที่ไม่ใช่กลุ่มเป้าหมายหลักของ WYNOS
 - **ห้ามใช้ Liquid Glass/พื้นผิวโปร่งแสง** บน sheet นี้ (กติกาตายตัวของทั้งแอป) — พื้นหลังทึบ `WynColors.paper` เสมอ
-- ห้ามเพิ่ม CTA ปิด sheet แบบ "ปิดถาวร ไม่ต้องถามอีก" แยกจากปุ่ม X ของ banner — จุดตัดสินใจ "ไม่อยากเห็นอีก" มีที่เดียวคือปุ่ม X บน banner (Screen 1) เท่านั้น sheet เองไม่ใช่จุด dismiss ถาวร
+- ห้ามเพิ่ม CTA ปิด sheet แบบ "ปิดถาวร ไม่ต้องถามอีก" ใดๆ ทั้งสิ้น (ไม่ใช่แค่ในนี้ — ทั่วทั้งฟีเจอร์นี้ไม่มีปุ่ม "ไม่อยากเห็นอีก" แบบถาวรเลย ตาม Founder's decision ข้อ Persistence: จุดหยุดแสดงถาวรมีทางเดียวคือตรวจพบ standalone mode จริง) sheet ปิดได้ปกติ (swipe/แตะพื้นหลัง/ปุ่มปิด) แต่ไม่ส่งผลต่อ snooze ของ banner
 
 ---
 
 ## Component เสริม: Settings — แถวทางเข้าถาวร ("ช่วยเหลือ" group)
 
-Purpose: ให้ผู้ใช้ที่กด X ปิด banner ไปแล้ว (หรือพลาดเห็นตอนแรก) ยังหาวิธีติดตั้งได้ภายหลัง — แก้ปัญหา "dismiss-once-forever" ของ banner โดยไม่ต้องเปลี่ยนพฤติกรรม dismiss ของ banner เอง (ดู Open Questions ข้อ 2)
+Purpose: ให้ผู้ใช้ที่กด X ปิด banner ไปแล้ว (อยู่ระหว่างช่วง snooze 7 วัน) หรือพลาดเห็นตอนแรก ยังหาวิธีติดตั้งได้ทันทีโดยไม่ต้องรอ banner กลับมาเอง
 
 Components: เพิ่ม `_SettingsRow` ใหม่ 1 แถวใน `SettingsScreen.build()` (`app/lib/features/settings/presentation/settings_screen.dart`) ภายใต้ group **"ช่วยเหลือ"** (บรรทัด 233-245 ปัจจุบัน) วางไว้**ก่อน**แถว "ช่วยเหลือ" เดิม (เป็นเรื่อง how-to เฉพาะเจาะจงกว่า generic help):
 ```
@@ -136,17 +137,17 @@ Design Rules:
 
 ---
 
-## Open Questions — ต้องให้ Founder ยืนยัน (ไม่ใช่สิ่งที่ AI Design ควรเดาเอง)
+## Open Questions — ตัดสินใจแล้วโดย Founder (2026-09-03)
 
-1. **Timing/audience**: banner นี้ควรแสดงให้ **guest (anonymous session, WYN-072) เห็นด้วยหรือไม่** — AI Design แนะนำ **ให้เห็น** เพราะการติดตั้งเป็นเรื่องระดับอุปกรณ์/เบราว์เซอร์ ไม่เกี่ยวกับสถานะบัญชี (เหตุผลเดียวกับที่ WYN-106's native ads เลือกให้ guest เห็นโฆษณาด้วย) แต่นี่เป็นการตีความ ไม่ใช่คำสั่งตรงจาก Founder
-2. **Persistence model**: AI Design เลือก **dismiss-once-forever ผ่าน banner + settings row ถาวรเป็นทางกลับมาดูซ้ำ** (hybrid) แทนที่จะแสดงซ้ำทุก session จนกว่าจะติดตั้งจริง เหตุผล: มาตรฐานเดิมของแอปนี้ (`HomeExplainerBanner`/`PrivacyNoticeBanner`) เป็น dismiss-once-forever ทั้งคู่ ไม่มี precedent ของ banner ที่ "โผล่ซ้ำทุก session" เลยในโค้ดเบสนี้ — **แต่เพราะนี่คือช่องทางกระจายแอปหลักของ WYNOS ตอนนี้ (business-critical กว่า tip ทั่วไปมาก) Founder อาจต้องการความถี่ที่สูงกว่านี้** (เช่น โผล่ซ้ำทุก N วันจนกว่าจะตรวจพบว่า standalone แล้วจริง) — ธง**คำถามนี้ให้ Founder ตัดสินใจตรงๆ** ก่อน Coding เริ่ม เพราะเปลี่ยน persistence model ทีหลังมีต้นทุน (migrate `shared_preferences` key/logic)
-3. **ขอบเขต Desktop**: AI Design แนะนำไม่แสดงอะไรเลยบน desktop (เหตุผลในหัวข้อ Screen 2's Design Rules) — ยืนยัน/ปฏิเสธจาก Founder ก่อน Coding เริ่ม
+1. **Timing/audience**: ✅ **ให้ guest เห็นด้วย** ยืนยันตามคำแนะนำ
+2. **Persistence model**: ✅ **โผล่ซ้ำเป็นระยะจนกว่าจะติดตั้งจริง** (ไม่ใช่ dismiss-once-forever ตามที่ AI Design แนะนำไว้เดิม) — แก้ไขทั้งฉบับด้านบนแล้วให้สอดคล้อง: ปุ่ม X = snooze `kSnoozeDuration` (ตั้งเป็น **7 วัน** เป็นค่าเริ่มต้น ปรับได้ทีหลังโดยไม่กระทบโครงสร้าง) ไม่ใช่ dismiss ถาวร จุดหยุดแสดงถาวรจริงมีทางเดียวคือตรวจพบ standalone mode
+3. **ขอบเขต Desktop**: ✅ **ไม่แสดงเลยบน desktop** ยืนยันตามคำแนะนำ
 
 ---
 
 ## Handoff
 
-**รอ Founder ตอบ Open Questions 1-3 ก่อนส่ง Coding เริ่มงานจริง** (โดยเฉพาะข้อ 2 — persistence model กระทบโครงสร้าง `shared_preferences` key ตั้งแต่ต้น เปลี่ยนทีหลังมีต้นทุน) หลังจากนั้น:
+**Open Questions ข้อ 1-3 ตัดสินใจครบแล้วโดย Founder (2026-09-03) — ส่งต่อ AI Coding ได้:**
 
 1. **Platform-interop shim ใหม่** (แนะนำ `app/lib/core/web/home_screen_platform.dart` + conditional import คู่ `_home_screen_platform_web.dart`/`_home_screen_platform_stub.dart` ตามแบบ pattern มาตรฐานของ Dart conditional-import สำหรับโค้ดที่ต้องแยก web/non-web — ไม่มี precedent เดิมในแอปนี้ ต้องสร้างใหม่ทั้งหมด): expose อย่างน้อย `bool isRunningStandalone()` และ enum detection เช่น `WebPlatformKind detectWebPlatformKind()` ({iosSafari, androidChrome, desktopOrOther}) ผ่าน `package:web`/`dart:js_interop` (แนะนำมากกว่า `dart:html` ที่เป็น legacy API) — ดูรายละเอียดข้อกำหนดเต็มในหัวข้อ "Platform Detection" ด้านบน ต้อง fail-closed เสมอเมื่อเรียกไม่สำเร็จ
 2. **`HomeExplainerBanner`'s prefs key ต้อง public** — เปลี่ยน `HomeExplainerBanner._prefsKey` (private) เป็น `HomeExplainerBanner.prefsKey` (public static const) เพื่อให้ widget ใหม่ใน Screen 1 อ่านค่านี้ได้โดยไม่ hardcode string literal ซ้ำ (ป้องกัน key สอง copy ที่อาจ drift กันในอนาคต)
@@ -154,7 +155,7 @@ Design Rules:
 4. Widget/ฟังก์ชันใหม่เปิด sheet (แนะนำ `showAddToHomeScreenSheet(context)` ที่ `app/lib/features/home/presentation/widgets/add_to_home_screen_sheet.dart` มิเรอร์ `showAccountSwitcherSheet` เป๊ะ) ตาม Screen 2 — เนื้อหา 2 ชุด (iOS/Android) ตามที่ระบุไว้ข้างบน คำต่อคำ **ห้ามแก้คำแปล/ลำดับขั้นตอนเอง** ถ้าต้องปรับ ให้กลับมาที่ AI Design ก่อน
 5. `settings_screen.dart`: เพิ่ม `_SettingsRow` ใหม่ตาม Component เสริมด้านบน เรียก `showAddToHomeScreenSheet` เดียวกับข้อ 4 (**ห้าม copy เนื้อหา sheet ซ้ำ**)
 6. Unit test ของ platform-interop shim (ข้อ 1): ต้อง fake/mock ผลลัพธ์ของ `matchMedia`/`navigator.standalone`/`userAgent` ได้ (แนะนำ inject เป็น parameter/interface แทนเรียก global โดยตรง เพื่อให้ test ได้โดยไม่ต้องพึ่ง browser จริง) — เขียน regression test อย่างน้อย: (a) standalone == true → banner/settings row ไม่แสดง (b) UA ตรวจไม่ได้ → fail-closed ไม่แสดง (c) iOS UA → เนื้อหาชุด iOS เท่านั้น (d) Android UA → เนื้อหาชุด Android เท่านั้น
-7. Widget test: banner ไม่แสดงก่อนที่ `HomeExplainerBanner` ถูกปิด (ข้อ 2 ของ Screen 1's Design Rules), banner หายถาวรหลังแตะ X, แตะ banner (ไม่ใช่ X) เปิด sheet ได้จริง, settings row แสดง/ซ่อนตามเงื่อนไข standalone อิสระจากสถานะ dismissed ของ banner
+7. Widget test: banner ไม่แสดงก่อนที่ `HomeExplainerBanner` ถูกปิด (ข้อ 2 ของ Screen 1's Design Rules), banner หายทันทีหลังแตะ X แล้ว**กลับมาแสดงใหม่เมื่อ `lastSnoozedAt` เก่ากว่า `kSnoozeDuration`** (ใช้ fake/injectable clock ใน test ไม่ใช่ `DateTime.now()` จริง เพื่อไม่ต้องรอ 7 วันจริงตอนรัน test), banner **ยังไม่กลับมาถ้ายังไม่ครบ 7 วัน**, แตะ banner (ไม่ใช่ X) เปิด sheet ได้จริงโดยไม่ยุ่งกับ snooze, settings row แสดง/ซ่อนตามเงื่อนไข standalone อิสระจากสถานะ snooze ของ banner (เห็นได้เสมอไม่ว่า banner จะ snooze อยู่หรือไม่)
 8. `flutter analyze`/`flutter test` เต็ม suite ต้องผ่าน ไม่มี regression กับ `home_feed_screen_test.dart`/`settings_screen_test.dart` เดิม (ถ้ามี)
 9. QA ต้องตรวจเพิ่มเติมเฉพาะงานนี้: ทดสอบจริงบน iOS Safari (banner ขึ้น → sheet ขึ้นขั้นตอน iOS → ทำตามจริงแล้วติดตั้งสำเร็จ → เปิดจากไอคอนหน้าจอหลัก → banner/settings row ต้องหายไปเพราะตรวจ standalone ได้ถูกต้อง), ทดสอบเดียวกันบน Android Chrome, ทดสอบว่า desktop Chrome/Safari ไม่เห็น banner เลย (ถ้า Founder ยืนยัน Open Question ข้อ 3 ตามคำแนะนำ), ทดสอบ contrast/ขนาดตัวอักษรของ banner/sheet ที่ 360px viewport
 
