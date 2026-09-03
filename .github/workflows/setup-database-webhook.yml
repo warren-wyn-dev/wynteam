@@ -1,0 +1,177 @@
+name: Database Webhook (notifications -> push)
+
+# The last manual step of WYN-016. Everything else about push is either
+# code in this repo or a value in a secret store; this one piece lived
+# only as a paragraph of Dashboard instructions, which is the same shape
+# of problem that left `send-push-notification` un-deployed for a whole
+# release: a change that only exists as someone's clicks is a change
+# nobody can verify, reproduce, or undo from here.
+#
+# What it creates is exactly what the Dashboard's "Database Webhooks"
+# form creates -- an AFTER INSERT trigger calling
+# supabase_functions.http_request -- so the hook still shows up in, and
+# stays manageable from, that same Dashboard page. This is a different
+# way to press the same button, not a second mechanism.
+#
+# Why the trigger still is NOT in schema.sql: unchanged from WYN-016 --
+# supabase_functions.http_request() does not exist in plain Postgres, so
+# putting it there would break the local Postgres 16 run that is the only
+# way `schema.sql` gets verified. That reasoning was always about
+# schema.sql specifically, not about refusing to automate the step.
+#
+# `verify` is the default action on purpose: the useful thing to do most
+# often is look, and looking should never be one mis-click away from
+# changing production.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "verify = look only · create = install/replace · remove = drop"
+        required: true
+        default: verify
+        type: choice
+        options:
+          - verify
+          - create
+          - remove
+
+jobs:
+  webhook:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      TRIGGER_NAME: send_push_on_notification
+    steps:
+      - name: Pre-flight
+        run: |
+          fail=0
+          # Never print these; only whether they arrived. Each is read as
+          # its own secrets.X above -- referencing the whole secrets
+          # context is what blocked two Edge Function runs with
+          # action_required and zero jobs.
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "$(eval echo \"\$$name\")" ]; then
+              echo "::error::$name is empty -- add it under Settings > Secrets and variables > Actions."
+              fail=1
+            else
+              echo "  $name  present"
+            fi
+          done
+          [ "$fail" = "0" ] || exit 1
+
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          if [ -z "$PROJECT_REF" ] || [ "$PROJECT_REF" = "$SUPABASE_URL" ]; then
+            echo "::error::Could not read a project ref out of SUPABASE_URL."
+            exit 1
+          fi
+          echo "PROJECT_REF=$PROJECT_REF" >> "$GITHUB_ENV"
+          echo "Project: $PROJECT_REF"
+
+      - name: Run
+        run: |
+          set -euo pipefail
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          # Every statement goes through here so failures surface as the
+          # message Postgres actually gave, not as a bare non-zero exit.
+          # SQL string literal: single quotes, with any internal single
+          # quote doubled. jq -R produces JSON syntax ("..." with
+          # backslash escapes), which Postgres reads as an identifier,
+          # not a string -- close enough to look right and guaranteed to
+          # fail.
+          sqlq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/''/g")"; }
+
+          run_sql() {
+            local sql="$1"
+            local body out code
+            body=$(jq -n --arg q "$sql" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::Supabase answered HTTP $code"
+              # The publishable key is public by design, but there is no
+              # reason to widen where it appears -- redact it anyway.
+              sed -E 's/sb_publishable_[A-Za-z0-9_-]+/sb_publishable_***/g' "$out"
+              rm -f "$out"
+              return 1
+            fi
+            sed -E 's/sb_publishable_[A-Za-z0-9_-]+/sb_publishable_***/g' "$out"
+            rm -f "$out"
+          }
+
+          show() {
+            echo "--- current state of trigger $TRIGGER_NAME ---"
+            run_sql "select tgname as trigger_name,
+                            tgenabled as enabled,
+                            regexp_replace(pg_get_triggerdef(oid),
+                                           'sb_publishable_[A-Za-z0-9_-]+',
+                                           'sb_publishable_***', 'g') as definition
+                     from pg_trigger
+                     where tgrelid = 'public.notifications'::regclass
+                       and not tgisinternal
+                       and tgname = '$TRIGGER_NAME';" | jq .
+          }
+
+          echo "=== Is the webhook machinery enabled on this project? ==="
+          has_fn=$(run_sql "select count(*) as n
+                            from pg_proc p
+                            join pg_namespace n on n.oid = p.pronamespace
+                            where n.nspname = 'supabase_functions'
+                              and p.proname = 'http_request';" | jq -r '.[0].n')
+          echo "supabase_functions.http_request found: $has_fn"
+
+          if [ "$has_fn" = "0" ]; then
+            echo "::error::Database Webhooks have never been enabled on this project."
+            echo "::error::Open Dashboard > Database > Webhooks and press 'Enable webhooks' once"
+            echo "::error::(it installs pg_net and the supabase_functions schema), then re-run this."
+            exit 1
+          fi
+
+          case "${{ inputs.action }}" in
+            verify)
+              show
+              ;;
+
+            remove)
+              run_sql "drop trigger if exists $TRIGGER_NAME on public.notifications;" >/dev/null
+              echo "Dropped (if it existed)."
+              show
+              ;;
+
+            create)
+              # The function URL and the key both come from secrets, so
+              # this repo stores no environment-specific value -- same
+              # reasoning as the --dart-define block in deploy-web.yml.
+              FN_URL="$SUPABASE_URL/functions/v1/send-push-notification"
+              HEADERS=$(jq -nc --arg auth "Bearer $SUPABASE_PUBLISHABLE_KEY" \
+                        '{"Content-type":"application/json", "Authorization":$auth}')
+
+              # Dropped first so re-running is a safe way to correct a
+              # bad header rather than an error to work around.
+              run_sql "drop trigger if exists $TRIGGER_NAME on public.notifications;" >/dev/null
+
+              # 5000 ms, not the Dashboard's default 1000: this function
+              # talks to Google for an OAuth token and then to FCM, and a
+              # timeout here only ends Postgres's wait -- the function
+              # still runs to completion and the push is still delivered.
+              # The longer value keeps net._http_response readable instead
+              # of full of timeouts that did not actually fail.
+              run_sql "create trigger $TRIGGER_NAME
+                       after insert on public.notifications
+                       for each row
+                       execute function supabase_functions.http_request(
+                         $(sqlq "$FN_URL"),
+                         'POST',
+                         $(sqlq "$HEADERS"),
+                         '{}',
+                         '5000'
+                       );" >/dev/null
+              echo "Created."
+              show
+              ;;
+          esac
