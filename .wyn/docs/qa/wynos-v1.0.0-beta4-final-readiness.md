@@ -2,7 +2,14 @@
 
 > วันที่: 2026-09-03
 > Branch: `claude/wynos-beta4-master-implementation-j5lke8`
-> สถานะ: **push ขึ้น feature branch แล้ว · ยังไม่เปิด PR · ยังไม่ merge · ยังไม่ deploy** — รอคำสั่ง/อนุมัติจาก Founder ตาม §0
+> สถานะตอนเขียนรายงาน: **push ขึ้น feature branch แล้ว · ยังไม่เปิด PR · ยังไม่ merge · ยังไม่ deploy** — รอคำสั่ง/อนุมัติจาก Founder ตาม §0
+>
+> **อัปเดต 2026-09-03 17:24 — หลัง Founder สั่ง "PR Merge deploy ต่อเลย":**
+> PR เปิดและ merge เข้า `main` แล้ว · deploy production แล้ว (`https://wynos.online`) ·
+> Edge Function `send-push-notification` deploy แล้ว (run `33780460047`) ·
+> **Firebase Web config ครบทั้ง 7 ค่าใน production build แล้ว** (run `33784128418`, `0ffcc15`) →
+> `PushEnv.isWebPushConfigured == true` บน production
+> เหลือฝั่ง server 2 ชิ้นก่อนส่ง push ได้จริง: `FCM_SERVICE_ACCOUNT` ใน Supabase และ Database Webhook (ดู K-1)
 > Environment: Flutter 3.47.1 (SDK เดียวกับที่ `ci.yml` และ `deploy-web.yml` pin) · Deno 2.x · PostgreSQL ไม่ได้ใช้ใน session นี้
 > **ไม่มี Supabase production credential และไม่มี Firebase project ใน session นี้** — ทุกข้อความในเอกสารชุด Beta4 ระบุว่าตรวจที่ไหน
 
@@ -182,7 +189,7 @@
 * ❌ ไม่ทำ Database Migration
 * ❌ ไม่ Rewrite Architecture (ไม่แตะ state management, ไม่เปลี่ยนโครง navigation)
 * ❌ ไม่ลบ functionality ที่ยังจำเป็น (Saved/Draft ย้ายทางเข้า ไม่ได้ลบ)
-* ❌ **ไม่ deploy · ไม่ merge · ไม่เปิด PR**
+* ❌ **ไม่ deploy · ไม่ merge · ไม่เปิด PR** — จริงตลอดช่วง implement · ทั้งสามอย่างเกิดขึ้นภายหลัง **ตามคำสั่งตรงของ Founder** ("PR Merge deploy ต่อเลย") ไม่ใช่การตัดสินใจเอง
 
 ---
 
@@ -201,7 +208,7 @@
 | # | เรื่อง | ความรุนแรง |
 |---|---|---|
 | ~~K-1c~~ | ~~**Edge Function ที่ Beta4 แก้ ยังไม่ได้ deploy**~~ → **✅ ปิดแล้ว** deploy สำเร็จ run `33780460047` (2026-09-03 16:45): `Deployed Functions on project kqokpocajhfbidcxpvhh: send-push-notification` · production ได้ collapse key กัน notification ซ้ำแล้ว · ใช้เวลา 8 runs — 6 ครั้งแรกติดที่ secret/สิทธิ์ ไม่ใช่ที่โค้ด ประวัติครบอยู่ใน notification audit ข้อ 7 · ผลพลอยได้: มี `.github/workflows/deploy-edge-functions.yml` ให้กดปุ่มเดียวได้ตลอดไป | ปิดแล้ว |
-| K-1 | **Web Push / Push ทุก platform ยังไม่เคยส่งจริงแม้แต่ครั้งเดียว** — ไม่มี Firebase project ใน session นี้ ทุกอย่างยืนยันด้วยการอ่านโค้ด + widget test + `deno test` เท่านั้น **end-to-end delivery ยังไม่ได้พิสูจน์** | — (ต้องทดสอบหลังตั้งค่า) |
+| K-1 | **Push ยังไม่เคยส่งจริงแม้แต่ครั้งเดียว** — อัปเดต 2026-09-03 17:24: ฝั่ง client ครบแล้ว (Firebase project `wynos-78e85` · 7 secret `present` ใน build จริง · service worker เสิร์ฟที่ production `200`) และ Edge Function deploy แล้ว · **ยังเหลือ `FCM_SERVICE_ACCOUNT` ใน Supabase และ Database Webhook บน `notifications`** ซึ่งเป็นสองชิ้นสุดท้ายของเส้นทาง · ทุกอย่างยังยืนยันด้วยการอ่านโค้ด + widget test + `deno test` เท่านั้น **end-to-end delivery ยังไม่ได้พิสูจน์** | — (ต้องทดสอบหลังตั้งค่าครบ) |
 | K-1b | **`web/firebase-messaging-sw.js` เกือบไม่ได้ถูก commit** — `app/.gitignore` ทำ `/web/*` แล้ว allowlist ทีละไฟล์ (มีมาก่อน Beta4) service worker ใหม่จึงถูก ignore เงียบๆ · จับได้ตอนอ่าน `deploy-web.yml` ก่อน deploy ครั้งแรก · **แก้แล้ว** — ถ้าไม่เจอ production จะไม่มีไฟล์นี้และ Web Push จะยังเป็นไปไม่ได้ ทั้งที่เอกสารบอกว่าทำได้ | — (แก้แล้ว) |
 | K-2 | Android Gradle plugin ของ google-services ยังไม่ apply — push บน Android จะยังไม่ทำงาน (เจตนาเดิมตั้งแต่ WYN-016: apply โดยไม่มีไฟล์จริงจะพัง build) | กลาง |
 | K-3 | Badge ยังไม่ realtime — อัปเดตตอน resume และตอน foreground push เท่านั้น | ต่ำ |
@@ -221,7 +228,7 @@
 
 1. **ตัดสิน F-1 ก่อน merge** — เป็นเรื่องเดียวที่ทำให้ CI ไม่เขียวทั้งหมด และมันไม่ใช่ของ Beta4 แต่ Beta4 เป็นรอบที่เจอมัน
 2. ตอบ Q-1 (`📍`) และ Q-2 (max-width บนจอกว้าง) เมื่อสะดวก — ไม่บล็อก
-3. ถ้าต้องการให้ Push ทำงานจริง ต้องทำ 7 ขั้นตอนใน `wynos-v1.0.0-beta4-notification-audit.md` §10 (เป็นงานตั้งค่าทั้งหมด ไม่ใช่งานโค้ด) แล้วจึงทดสอบ end-to-end (K-1)
+3. ถ้าต้องการให้ Push ทำงานจริง ต้องทำ 7 ขั้นตอนใน `wynos-v1.0.0-beta4-notification-audit.md` §10 (เป็นงานตั้งค่าทั้งหมด ไม่ใช่งานโค้ด) แล้วจึงทดสอบ end-to-end (K-1) — **ข้อ 1/2(web)/3/4/7 เสร็จแล้ว เหลือข้อ 5 และ 6** (ข้อ 2 ฝั่ง native ยังคงเป็น K-2 ตามเดิม)
 4. Beta4 พร้อมให้ QA รอบมนุษย์บนอุปกรณ์จริง (K-11) — สิ่งที่ automated test พิสูจน์ไม่ได้
 
 ---

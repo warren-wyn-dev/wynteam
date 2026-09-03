@@ -79,3 +79,35 @@ production ตอนนี้มีทั้ง Beta4 และ AdSense tag ค�
 * ทั้งสองทางทำผ่าน `deploy-web.yml` โดยเลือก ref — ไม่ต้องแตะ database
 
 **ข้อควรระวังตอน rollback:** `main` @ `590106d` **ไม่มี** AdSense tag เหมือนกัน ถ้า rollback ไปจุดนั้นต้อง cherry-pick `48eb03a` ซ้ำ
+
+---
+
+## Run #50 — `33784128418` · Firebase Web config เข้า production build
+
+* Commit: `0ffcc15` · trigger: `workflow_dispatch` บน `main` · conclusion: **success** (17:22 → 17:24)
+* Log ของ step "Build web bundle":
+
+  ```
+  Firebase secrets seen by this build:
+    FIREBASE_WEB_API_KEY           present
+    FIREBASE_WEB_APP_ID            present
+    FIREBASE_MESSAGING_SENDER_ID   present
+    FIREBASE_PROJECT_ID            present
+    FIREBASE_AUTH_DOMAIN           present
+    FIREBASE_STORAGE_BUCKET        present
+    FIREBASE_VAPID_KEY             present
+  Web Push: configured -- this build can request a push token.
+  ```
+
+* ยืนยันกับ production หลัง deploy (ไม่เชื่อแค่ log ของ CI):
+
+  | ตรวจอะไร | วิธี | ผล |
+  |---|---|---|
+  | service worker ถูกเสิร์ฟ | `curl -o /dev/null -w %{http_code} https://wynos.online/firebase-messaging-sw.js` | `200` |
+  | config ถูก bake เข้า bundle จริง | `curl https://wynos.online/main.dart.js \| grep -c wynos-78e85` | `1` (พบ) |
+  | AdSense ไม่หายอีก (regression ของ run #46) | `grep ca-pub-` บน `/` เทียบกับ `app/web/index.html` | ตรงกัน — `ca-pub-9156145951260801` |
+
+* **ความหมาย:** `PushEnv.isWebPushConfigured == true` บน production เป็นครั้งแรก
+  การ์ดขออนุญาตใน Notification settings จะไม่เป็น `unsupported` และขอ FCM token ได้จริง
+* **ยังส่ง push ไม่ได้** — เหลือฝั่ง server 2 ชิ้น: `FCM_SERVICE_ACCOUNT` ใน Supabase Edge Function secrets
+  และ Database Webhook บน `public.notifications` INSERT → `send-push-notification`

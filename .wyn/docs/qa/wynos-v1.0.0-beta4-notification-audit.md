@@ -260,11 +260,34 @@ Collapse key **ไม่ได้กันการส่งครั้งท�
 
 **ทั้งหมดนี้เป็นงานตั้งค่า ไม่ใช่งานโค้ด** — โค้ดพร้อมแล้วและ dormant อย่างปลอดภัยจนกว่าจะตั้งค่า
 
-1. สร้าง Firebase project (ถ้ายังไม่มี)
+1. ✅ **เสร็จแล้ว** — Firebase project `wynos-78e85` (Web app ลงทะเบียนแล้ว)
 2. **Native:** วาง `google-services.json` (Android) / `GoogleService-Info.plist` (iOS)
    ⚠️ Android ต้อง apply google-services Gradle plugin ด้วย — **ยังไม่ได้ทำ** เพราะการ apply โดยไม่มีไฟล์จริงจะพัง build ทันที (ตัดสินใจไว้ตั้งแต่ WYN-016 ไม่เปลี่ยนใน Beta4)
-3. **Web:** Firebase Console → Project Settings → Cloud Messaging → Web Push certificates → generate VAPID key
-4. เพิ่ม 7 `--dart-define` ใน `deploy-web.yml`
+3. ✅ **เสร็จแล้ว** — **Web:** Firebase Console → Project Settings → Cloud Messaging → Web Push certificates → generate VAPID key (VAPID key เป็นครึ่ง public ของคู่กุญแจ ไม่ใช่ความลับ)
+4. ✅ **เสร็จแล้ว** — เพิ่ม 7 `--dart-define` ใน `deploy-web.yml` แล้ว และ **secret ครบทั้ง 7 ตัวใน production build จริง**
+
+   run `33784128418` (2026-09-03 17:24, `0ffcc15`, conclusion `success`) พิมพ์รายตัว:
+
+   ```
+   Firebase secrets seen by this build:
+     FIREBASE_WEB_API_KEY           present
+     FIREBASE_WEB_APP_ID            present
+     FIREBASE_MESSAGING_SENDER_ID   present
+     FIREBASE_PROJECT_ID            present
+     FIREBASE_AUTH_DOMAIN           present
+     FIREBASE_STORAGE_BUCKET        present
+     FIREBASE_VAPID_KEY             present
+   Web Push: configured -- this build can request a push token.
+   ```
+
+   ยืนยันกับ production จริงหลัง deploy:
+   · `https://wynos.online/firebase-messaging-sw.js` → `200`
+   · `main.dart.js` มี `wynos-78e85` อยู่จริง (config ถูก bake เข้า bundle แล้ว ไม่ใช่แค่ CI เห็น secret)
+   · `<meta name="google-adsense-account">` `ca-pub-9156145951260801` ยังอยู่ครบ (regression check ของ run #46/#48)
+
+   **แปลว่า `PushEnv.isWebPushConfigured == true` บน production** — การ์ดขออนุญาตใน
+   Notification settings จะไม่เป็น `unsupported` อีกต่อไป และกดขอ token ได้จริง
+   **แต่ยังส่ง push ไม่ได้จนกว่าจะทำข้อ 5 และ 6** (ดู K-1)
 5. `supabase secrets set FCM_SERVICE_ACCOUNT='<service account JSON>'`
 6. ตั้ง Database Webhook บน `public.notifications` INSERT → `send-push-notification`
 7. Deploy Edge Function — **ตอนนี้กดปุ่มเดียวได้แล้ว** ไม่ต้องใช้ CLI จากเครื่องตัวเอง:
@@ -345,7 +368,7 @@ Collapse key **ไม่ได้กันการส่งครั้งท�
 
 | # | เรื่อง | ความรุนแรง | รายละเอียด |
 |---|---|---|---|
-| K-1 | **ยังไม่เคยส่ง push จริงแม้แต่ครั้งเดียว** | — | ไม่มี Firebase project ใน session นี้ ทุกอย่างในเอกสารนี้ยืนยันด้วย: การอ่านโค้ด, widget test (permission flow ครบ 4 สถานะ), `deno check` + `deno test` (payload/collapse key), และการอ่าน RLS ใน `schema.sql` **end-to-end delivery ยังไม่ได้พิสูจน์** |
+| K-1 | **ยังไม่เคยส่ง push จริงแม้แต่ครั้งเดียว** | — | อัปเดต 2026-09-03 17:24: ฝั่ง client ตั้งค่าครบแล้วบน production (ข้อ 1/3/4 ข้างบน ✅) และ Edge Function deploy แล้ว **แต่ยังเหลือข้อ 5 (`FCM_SERVICE_ACCOUNT`) และข้อ 6 (Database Webhook)** ซึ่งเป็นสองชิ้นที่ทำให้ notification แถวหนึ่งกลายเป็น push จริง — จนกว่าจะครบ ยังส่งไม่ได้ · ทุกอย่างในเอกสารนี้ยืนยันด้วย: การอ่านโค้ด, widget test (permission flow ครบ 4 สถานะ), `deno check` + `deno test` (payload/collapse key), และการอ่าน RLS ใน `schema.sql` **end-to-end delivery ยังไม่ได้พิสูจน์** |
 | K-2 | Android Gradle plugin ยังไม่ apply | กลาง | Push บน Android จะยังไม่ทำงานจนกว่าจะทำข้อ 2 ข้างบน — เจตนาเดิมตั้งแต่ WYN-016 |
 | K-3 | Badge ยังไม่ realtime | ต่ำ | อัปเดตตอน resume และตอน foreground push การแจ้งเตือนที่มาถึงระหว่างแอปเปิดอยู่ *และ* push ไม่ได้ตั้งค่า จะยังไม่ขยับจนกว่าจะ resume — การเพิ่ม Realtime channel เป็นทางแก้ที่ไม่ใช่ polling แต่เพิ่ม subscription ตลอด session ควรเป็น task แยกที่ Founder ตัดสิน |
 | K-4 | iOS Safari ต้องติดตั้งเป็น PWA ก่อน | ต่ำ | ข้อจำกัดของ Apple — ควรบอกผู้ใช้ในภายหน้า ยังไม่มี UI อธิบายเรื่องนี้ |
