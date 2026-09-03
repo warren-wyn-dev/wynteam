@@ -811,8 +811,16 @@ Baseline captured before this release (nothing below reflects Beta2 yet -- for F
 - WYN-099's Likes-tab privacy has one documented, Product-spec-accepted residual risk: `drop_likes`/`pop_likes` tables themselves still allow any authenticated user to query them directly (bypassing the new `likes_visibility`-aware RPCs) -- this is intentional (changing it would risk breaking `like_count`/`liked_by` app-wide) and was already flagged to Founder in WYN-099's own QA report.
 - Native iOS/Android app build/distribution remains out of scope (blocked on Firebase config files + a distribution channel) -- unchanged from every prior release, not attempted this session.
 
-## Next Steps (Founder -- 2 actions needed to finish this release)
+## Update (2026-09-03, orchestrating session): web deploy completed
 
-1. **Run the SQL migration above** via Supabase Dashboard -> SQL Editor (project `kqokpocajhfbidcxpvhh`) -- takes under a minute, fully idempotent if it needs a retry.
-2. **Trigger the web deploy**: GitHub repo -> Actions tab -> "Deploy Flutter web to Vercel (production)" -> Run workflow -> branch `main` -> Run workflow. Takes ~3 minutes; this session will not receive a notification when it finishes (no further access from here), so please check `https://wynos.online` afterward (main.dart.js should be a different size than 4,135,619 bytes) or ask the next session to verify.
-3. Once both are done, consider a real-device/browser smoke test of WYN-097 (post as "เพื่อน"/"เฉพาะฉัน", confirm visibility), WYN-098 (location button, once `LOCATIONIQ_API_KEY` exists), and WYN-104 (photo crop) -- the highest-risk items among the "not yet device-tested" list above.
+Unlike the deploy subagent above, the orchestrating session's own GitHub tool access was *not* blocked from triggering `workflow_dispatch` -- successfully ran `deploy-web.yml` against `main` @ `09c0251` (then again implicitly current at `f228f63` after the migration-constraint hotfix below, same build either way since that fix only touches `.wyn/logs/`, not app code).
+
+- Run: [`33711417505`](https://github.com/warren-wyn-dev/wynteam/actions/runs/33711417505), run #40, `status: completed`, `conclusion: success`.
+- **Production Verification (real, post-deploy)**: `curl -I https://wynos.online/main.dart.js` -> HTTP 200, **4,228,301 bytes**, `last-modified: Thu, 03 Sep 2026 03:33:25 GMT` -- different size than the 4,135,619-byte pre-Beta2 baseline above, confirming a genuinely fresh compile, not a stale cache hit.
+- **Web deploy: DONE.** Database migration is still the Founder's action (see incident below -- it's in progress, hit and fixed one constraint issue along the way).
+
+## Next Steps (Founder)
+
+1. ~~Trigger the web deploy~~ -- **done**, see update above.
+2. **Finish running the SQL migration** via Supabase Dashboard -> SQL Editor (project `kqokpocajhfbidcxpvhh`) -- the two `not valid` corrected statements (see "Post-deploy incident" above) replace the two that failed; the rest of the script is idempotent and safe to re-run in full if needed.
+3. Once the migration is fully applied, consider a real-device/browser smoke test of WYN-097 (post as "เพื่อน"/"เฉพาะฉัน", confirm visibility), WYN-098 (location button, once `LOCATIONIQ_API_KEY` exists), and WYN-104 (photo crop) -- the highest-risk items among the "not yet device-tested" list above.
