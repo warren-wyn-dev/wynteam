@@ -1,6 +1,6 @@
 # Product Task — WYN-092
 
-Status: review
+Status: **PASS — QA อิสระ, 2026-09-03** — ย้ายเข้า `approved/` แล้ว
 Owner: AI Design → AI Coding
 
 Feature: Home Feed — Multi-Image Drop "Peek" Carousel
@@ -148,3 +148,43 @@ gesture ในแนวนอนของ carousel ไม่ชนกับ vert
 Handoff: ส่งต่อ AI QA & Security — (1) ยืนยัน migration `image_count` ปลอดภัยกับ query plan เดิม
 ของ `home_feed` (ranking algorithm ที่พึ่งพา view เดียวกัน) (2) ยืนยัน gesture จริงบนอุปกรณ์/
 เบราว์เซอร์ (3) รัน `supabase/tests/wyn_092_home_feed_image_count_test.sh`
+
+---
+
+## QA Report (AI QA & Security, 2026-09-03)
+
+Feature: Home Feed — Multi-Image Drop "Peek" Carousel (Wynos V1.0.0 Beta2 Phase 2, item 14) — งานใหญ่ที่สุดในรอบ QA นี้ กระทบ SQL view + model + widget ใหม่ + merge-reconciliation กับ WYN-097/098/099
+
+Environment: อ่านโค้ดจริง + รัน `flutter analyze`/`flutter test` (Flutter 3.47.2, Dart 3.13.2, `app/`) + ทดสอบ SQL อิสระด้วย PostgreSQL 16 จริง (local cluster, `/var/run/postgresql`) — worktree ยืนยันแล้วว่าอยู่บน `claude/wynos-beta2-phase2-handoff-w4mi5m` @ `40cafac`
+
+Test Cases:
+1. **ยืนยัน merge-reconciliation ของ `public.home_feed` view ไม่เชื่อ comment เฉยๆ**: หา `create or replace view public.home_feed` ทุกจุดในไฟล์ (10 จุด, บรรทัด 456 ถึง 11821) ยืนยันว่านิยามที่บรรทัด 11821 (มี "Merge-reconciliation note" กำกับ) เป็นจุด**สุดท้ายจริง** ในไฟล์ (คือนิยามที่ PostgreSQL จะใช้จริงเมื่อโหลด schema.sql ทั้งไฟล์แบบลำดับ) — เทียบ diff บรรทัดต่อบรรทัดกับนิยามก่อนหน้าทันที (บรรทัด 11572, ของ WYN-098) พบว่าเหมือนกันทุกตัวอักษร **ยกเว้น** `image_count` ที่ถูกเพิ่มเป็นคอลัมน์สุดท้ายของทั้ง 3 branch (drop/pop/redrop) เท่านั้น — ยืนยัน column order/type ตรงกันครบ 34 คอลัมน์ทั้ง 3 branch (นับมือ), `audience`/`location` (จาก WYN-097/098) และ `image_count` (จาก WYN-092) **อยู่ครบทั้งคู่ไม่มีฝ่ายไหนถูกกลืนหาย**
+2. **ทดสอบ SQL จริงกับ PostgreSQL 16 ที่รันในเครื่อง sandbox นี้ (ไม่ใช่แค่อ่านอย่างเดียว)**: เปิด local Postgres cluster (`pg_ctlcluster 16 main start`), สร้างตารางขั้นต่ำ (profiles/drops/pops/redrops/drop_images/drop_polls/ฯลฯ พร้อม stub `auth.uid()`/`drop_view_count()`) แล้ว **extract โค้ด SQL ของนิยาม view ตัวจริงจาก schema.sql บรรทัด 11821-12053 แบบ byte-for-byte** มารันตรงๆ (ไม่ใช่ structural analog) — `CREATE VIEW` สำเร็จ ไม่มี syntax/type error ใดๆ แล้ว insert ข้อมูลทดสอบจริง (Drop 3 รูป, Drop 1 รูป, Drop ไม่มีรูป, Pop, Redrop ของ Drop 3 รูป) แล้ว query — ผลลัพธ์ถูกต้องครบ: `image_count` = 3/1/0/NULL(pop)/3(redrop) ตามลำดับ, `audience`/`location` ผ่านมาถูกต้องพร้อมกัน (เช่น Drop 3 รูปมี `location='Bangkok'`, `audience='everyone'` และ `image_count=3` ในแถวเดียวกันถูกต้อง) — พิสูจน์ว่า reconciliation ถูกต้องจริงในทางปฏิบัติ ไม่ใช่แค่ในทางทฤษฎี
+3. รัน `bash supabase/tests/wyn_092_home_feed_image_count_test.sh` ตามที่ task ขอ — **ALL CHECKS PASSED** ทั้ง 5 check (multi-image=3, single-image=1, text-only=0, pop branch type-checks เป็น NULL, redrop นับรูปของ Drop ต้นฉบับถูกต้อง)
+4. อ่านโค้ด `HomeFeedItem` (`home_feed_item.dart`) — ยืนยัน `imageCount`/`hasMultipleImages` ผ่านครบทุก path: `fromMap` (อ่าน `map['image_count']`), `copyWith`, `toDrop()`, `fromDrop()` — ไม่มีจุดไหนตกหล่น
+5. อ่านโค้ด `HomeDropCard` — ยืนยัน branch ใหม่ `else if (item.imageUrl != null && item.hasMultipleImages)` แทรกอยู่**ก่อน** branch เดิมของ single-image (ซึ่งไม่ถูกแก้แม้แต่บรรทัดเดียว) — โครงสร้าง `else if` รับประกันว่า Drop รูปเดียว/ไม่มีรูปไม่มีทางเข้า branch ใหม่ได้เลย
+6. รัน `flutter test test/home_feed_screen_test.dart` เฉพาะกลุ่ม "WYN-092: multi-image peek carousel" — ยืนยันครบทุกเคส: (a) single-image ไม่ build carousel เลย ยังเห็น `Image` เดียวเหมือนเดิม (b) multi-image build carousel จริง แสดงรูปแรกทันทีก่อน fetch เสร็จ (c) หลัง fetch เสร็จแสดงครบทุกรูปที่ 82% width/4:5 aspect ratio ถูกต้อง (ยืนยันด้วยการวัดขนาดจริงจาก `tester.getSize`) (d) fetch fail แล้ว fallback เหลือรูปแรกแบบ silent ไม่มี error UI (e) double-tap ที่ตำแหน่งกึ่งกลาง carousel เรียก `onToggleLike` แค่ 1 ครั้ง (f) single-tap (ไม่ตามด้วย tap ที่ 2) เปิด Detail ผ่าน `HomeDropCard`'s outer `InkWell` เหมือน single-image case ทุกประการ — ครบทุกเคสตาม Acceptance Criteria
+7. อ่านโค้ด `DoubleTapLike`/`HomeFeedImagePeekCarousel` — ยืนยัน gesture-arena ปลอดภัยเชิงสถาปัตยกรรม: `GestureDetector` ตัวเดียว (double-tap+tap) ห่อ**ทั้ง** carousel (ไม่ใช่ต่อรูป) ส่วน horizontal drag เป็น `ListView`'s Scrollable ที่ซ้อนอยู่ข้างใน — Flutter's gesture arena แยก drag (touch-slop exceeded) ออกจาก tap ให้เองโดยธรรมชาติ ไม่ชนกัน ตรงกับที่ WYN-071 เคยแก้บั๊กคลาสเดียวกันมาก่อนแล้วสำหรับ Detail screen — เนื่องจากเป็น `GestureDetector` เดียวครอบทั้งแถว การดับเบิลแทปที่ตำแหน่งรูปใดก็ตาม (ไม่ใช่แค่รูปแรก) ต้องเรียก `onLike` เหมือนกันหมดตามสถาปัตยกรรมนี้ ไม่ใช่แค่ที่ตำแหน่งที่เทสทดสอบ
+8. อ่านโค้ด callers ทั้ง 6 ไฟล์ของ `HomeDropCard` (constructor เปลี่ยนเป็น required param `dropRepository`) — ยืนยันส่ง `dropRepository: widget.dropRepository` ครบทุกจุด (ยืนยันซ้ำด้วย `flutter analyze` สะอาด — ถ้าตกหล่นจุดไหนจะ compile error ทันที)
+9. ยืนยัน `HomePopCard`/`ActionMetric`/`DropImageGallery`/`DropImageViewer`/`DropDetailScreen`/`CreateDropScreen` ไม่ถูกแตะเลยจากงานนี้ (ตรวจ `git show 71ec4d6 --stat` — `home_pop_card.dart` มีแค่ diff ของ WYN-096 คนละงาน)
+10. ยืนยัน query จาก `home_repository.dart` ใช้ `.from('home_feed').select(...)` ผ่าน Supabase/PostgREST ซึ่ง map คอลัมน์ด้วยชื่อ ไม่ใช่ตำแหน่ง — เพิ่มคอลัมน์ท้ายตารางจึงไม่กระทบ ranking algorithm (WYN-063/WYN-018) เดิมที่อ่าน column อื่นด้วยชื่ออยู่แล้ว
+11. รัน `flutter analyze` เต็ม `app/` — "No issues found!"
+12. รัน `flutter test` เต็ม suite — **1011/1011 ผ่านหมด** ไม่มี regression กับ WYN-007/WYN-018/WYN-063/WYN-071
+
+Passed: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 (ทั้งหมด)
+
+Failed: ไม่มี
+
+Severity: N/A
+
+Reproduction Steps: เปิด Home feed ที่มี Drop โพสต์แบบหลายรูป → เห็นรูปแรกกว้าง ~82% การ์ด, รูปที่ 2 โผล่ขอบขวา → ปาดดูรูปถัดไปได้ในฟีดโดยตรง → ดับเบิลแทปที่รูปใดก็ได้ถูกใจได้ → แทปครั้งเดียวเปิด Detail
+
+Expected: ตรงตาม R1/R2/R3 และ Acceptance Criteria ทุกข้อ, Drop รูปเดียวไม่เปลี่ยนแปลงเลย
+
+Actual: ตรงตาม Expected ทุกจุด — ยืนยันทั้งด้วยการอ่านโค้ด, รัน SQL จริง, และรัน widget test จริง
+
+Security Findings: ตรวจ SQL view ใหม่แล้วไม่พบการรั่วไหลข้อมูล — `image_count` เป็นแค่ scalar count ไม่ embed URL รายการเต็ม (ตามที่ Design ระบุห้ามไว้), view ยังคง `security_invoker = true` และ `where not exists (select 1 from mutes ...)` เหมือนเดิมทุกจุด (mute filtering ไม่ถูกรบกวน), ไม่มีการเปลี่ยนแปลง RLS policy ใดๆ ในงานนี้
+
+Recommendation: อนุมัติ ย้ายเข้า `.wyn/tasks/approved/` — หมายเหตุ Known Issue ที่ task เองระบุไว้แล้ว (ยังไม่ยืนยัน gesture จริงบนอุปกรณ์/เบราว์เซอร์จริง เนื่องจากไม่มี simulator/emulator ในสภาพแวดล้อมนี้) ยังคงเป็น residual risk ต่ำที่ควรให้คนทดสอบยืนยันอีกชั้นก่อน mass rollout แต่ไม่ใช่ blocker สำหรับ PASS รอบนี้ เพราะการวิเคราะห์ gesture-arena เชิงสถาปัตยกรรม + เทสอัตโนมัติที่มีอยู่ยืนยันแล้วว่าไม่มี conflict ในทางทฤษฎี
+
+Final Status: PASS
