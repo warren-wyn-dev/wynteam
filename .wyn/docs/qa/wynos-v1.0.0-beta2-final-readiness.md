@@ -348,13 +348,15 @@ ERROR: cannot change name of view column "comment_count" to "liked_by"
 | # | ขั้นตอน | ใครทำ |
 |---|---|---|
 | 1 | Apply `supabase/migrations_beta2_indexes.sql` กับ production | ผู้มี credential |
-| 2 | Apply SCHEMA-002 + SCHEMA-003 กับ production (2 `drop view` + 2 `drop function` ท้าย `schema.sql`) | ผู้มี credential |
+| 2 | Apply **SCHEMA-003 เท่านั้น** (2 `drop function` ท้าย `schema.sql`) — ⚠️ **ห้าม** รัน 2 บรรทัด `drop view if exists public.home_feed;` ของ SCHEMA-002 แยกเดี่ยวกับ production เด็ดขาด มันมีไว้ให้ `schema.sql` โหลดลงฐานข้อมูลเปล่าเท่านั้น (แต่ละบรรทัดตามด้วย `create or replace view` ที่สร้างคืนทันที) — รันเดี่ยว ๆ = **view หายไปเฉย ๆ Home/Search/Saved/Profile feed ล่มทั้งหมด** production มี view ตัวสุดท้ายที่ถูกต้องอยู่แล้ว ไม่ต้อง apply | ผู้มี credential |
 | 3 | Verify: index ครบ 9 ตัว · `create_poll_drop` เหลือ overload เดียว | ผู้มี credential |
 | 4 | `EXPLAIN ANALYZE` บนข้อมูลจริง แล้วรายงานส่วนต่างจากผลในเครื่อง | ผู้มี credential |
 | 5 | AI QA & Security ทดสอบเชิงพฤติกรรมตาม `WORKFLOW.md` | AI QA |
 | 6 | Smoke test อุปกรณ์จริง: login → feed → โพสต์ → like → comment → profile → follow → search → notification → logout | Founder/QA |
 
 > ⚠️ **ห้าม apply `pending_approval_rls_with_check.sql`** — ไม่อยู่ใน Beta2 deployment
+
+> 📄 **ใช้ `supabase/apply_to_production_beta2.sql`** — รวมทุกอย่างที่ production ต้องรัน (9 index + 2 `drop function`) พร้อม verify query ในไฟล์เดียว paste ลง Supabase SQL Editor แล้วรันครั้งเดียวจบ ทุกคำสั่ง idempotent และไฟล์ระบุชัดว่าอะไร**ห้าม**รัน
 
 ### SQL สำหรับ verify หลัง apply
 
