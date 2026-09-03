@@ -6,6 +6,7 @@ import 'chat_message.dart';
 import 'conversation.dart';
 import 'message_request.dart';
 import 'shared_content_type.dart';
+import '../../../core/storage_upload_options.dart';
 
 /// The 2 columns `ConversationScreen` needs to decide which of its 4
 /// composer-area states applies (WYN-032) -- deliberately not the full
@@ -187,7 +188,11 @@ class ChatRepository {
     if (imageBytes != null) {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       imagePath = '$conversationId/$_myUserId-$timestamp.${imageExtension ?? 'jpg'}';
-      await _client.storage.from(_bucket).uploadBinary(imagePath, imageBytes);
+      await _client.storage.from(_bucket).uploadBinary(
+            imagePath,
+            imageBytes,
+            fileOptions: immutableUploadFileOptions,
+          );
     }
 
     final row = await _client

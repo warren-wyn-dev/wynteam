@@ -184,6 +184,7 @@ class _PopClipViewState extends State<PopClipView> {
       // here would just be a redundant duplicate call in the common case.
       if (widget.muted) await controller.setVolume(0);
       await controller.play();
+      if (!mounted) return;
       setState(() {});
       _recordViewOnce();
     } catch (_) {

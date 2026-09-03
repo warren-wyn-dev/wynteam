@@ -7167,6 +7167,19 @@ grant select on public.home_feed to authenticated;
 --     {author_username, author_display_name, text}.
 -- Same "append a fresh full redefinition" discipline as every prior
 -- task that changed this view.
+-- SCHEMA-002 (Beta2 audit, 2026-09-03): dropped first, not just
+-- replaced. This redefinition inserts `liked_by` *before*
+-- `comment_count` rather than appending it, and CREATE OR REPLACE VIEW
+-- refuses to rename or reorder an existing column -- so a fresh load of
+-- this file aborted here with `cannot change name of view column
+-- "comment_count" to "liked_by"`, leaving the database half-migrated.
+-- Production was built up statement by statement and so never hit it,
+-- but no new environment (staging, disaster recovery, a developer's
+-- machine) could be created from this file, and 29 of the 33
+-- supabase/tests/*.sh could not run at all because each one starts by
+-- loading it. Nothing references the view at this point in the file, so
+-- dropping it here is safe and the end state is byte-for-byte the same.
+drop view if exists public.home_feed;
 create or replace view public.home_feed
   with (security_invoker = true) as
 select
@@ -10727,6 +10740,13 @@ alter table public.profiles
 -- task that changed this view -- adds `author_is_verified` and
 -- `redropper_is_verified` (null on the 2 branches with no redropper)
 -- on top of the liked_by/top_reply columns already added above.
+-- SCHEMA-002: same reason as the drop above -- this redefinition
+-- inserts `author_is_verified` before `created_at` instead of
+-- appending it. The only thing referencing home_feed by now is
+-- get_wynos_ranked_feed(), a dollar-quoted `language sql` function,
+-- for which PostgreSQL records no hard dependency -- so this drop
+-- needs no CASCADE and takes nothing else with it.
+drop view if exists public.home_feed;
 create or replace view public.home_feed
   with (security_invoker = true) as
 select
@@ -12395,3 +12415,133 @@ select id, true, created_at
 from public.profiles
 where username is not null
 on conflict (id) do nothing;
+
+-- ---------------------------------------------------------------------
+-- Beta2 audit (2026-09-03) — indexes for the feed, social-graph and
+-- Club queries the app actually runs.
+--
+-- Purely additive: no table, column, policy, or constraint is touched,
+-- and no query changes behaviour -- only how Postgres finds the rows.
+-- Safe to run at any time, and safe to re-run. Identical copy kept at
+-- supabase/migrations_beta2_indexes.sql for applying on its own.
+--
+-- Every index below was checked against a real call site before being
+-- included, and each one is listed with the query it serves. Composite
+-- primary keys are the recurring reason these are needed: a PK on
+-- (a, b) cannot serve a lookup by `b` alone, and several of these
+-- queries read in exactly that direction.
+--
+-- Two indexes proposed in the first draft of the audit were REMOVED
+-- after that re-check, because they would have helped nothing:
+--   * blocks (blocked_id) -- internal.is_blocked_either_way() checks
+--     `(blocker_id = a and blocked_id = b) or (blocker_id = b and
+--     blocked_id = a)`; both branches pin the leading PK column, so the
+--     PK already serves them. Every other blocks query does too.
+--   * mutes (muted_id) -- every mute check in the schema and in Dart is
+--     `muter_id = auth.uid() and muted_id = ?`, again leading-column.
+-- (Both columns are un-indexed foreign keys, so an account deletion
+-- cascade scans them -- but that is true of many FK columns here, is
+-- rare, and is not what these indexes were claimed to fix.)
+--
+-- The counterpart work -- denormalised like/comment counters so
+-- `public.home_feed` stops running eight correlated subqueries per row
+-- -- is deliberately NOT here: that changes the schema's shape and needs
+-- Founder approval plus a backfill. See
+-- .wyn/docs/qa/wynos-v1.0.0-beta2-full-audit.md §5.5.
+--
+-- NOTE for whoever applies this: on a table with substantial existing
+-- data, `create index concurrently` avoids holding a write lock -- it
+-- cannot run inside a transaction block, so it has to be run statement
+-- by statement rather than as part of this file. At Beta2's data volume
+-- the plain form below is fine.
+
+-- 1. The Home feed's own ordering: `order by created_at desc` on
+--    home_feed, every tab, every page.
+create index if not exists drops_created_at_idx
+  on public.drops (created_at desc);
+
+-- 2. Profile's post grid and count (fetchByAuthor / countByAuthor:
+--    `author_id = ? order by created_at desc`), and the Following
+--    feed's `author_id in (...)`.
+create index if not exists drops_author_created_idx
+  on public.drops (author_id, created_at desc);
+
+-- 3. Profile's "ถูกใจ" tab -- fetch_liked_drop_ids() runs
+--    `user_id = ? order by created_at desc offset ? limit 21`. The PK
+--    is (drop_id, user_id), so a user-first read could use neither the
+--    filter nor the sort; this serves both.
+create index if not exists drop_likes_user_idx
+  on public.drop_likes (user_id, created_at desc);
+
+-- 4. Every comment list (`drop_id = ? order by created_at`), plus the
+--    comment_count and top_reply subqueries inside home_feed itself,
+--    which run per feed row.
+create index if not exists drop_comments_drop_created_idx
+  on public.drop_comments (drop_id, created_at);
+
+-- 5. Follower lists and follower_count() (`following_id = ? order by
+--    created_at desc`), plus the suggested-users ranking's
+--    `count(*) where following_id = p.id`. The PK is
+--    (follower_id, following_id) -- only the "who do I follow"
+--    direction.
+create index if not exists follows_following_idx
+  on public.follows (following_id, created_at desc);
+
+-- 6. The incoming follow-request list and its badge count
+--    (`target_id = ? order by created_at desc`), and the trigger that
+--    clears requests when an account goes public. Same PK-direction
+--    problem: the PK is (requester_id, target_id).
+create index if not exists follow_requests_target_idx
+  on public.follow_requests (target_id, created_at desc);
+
+-- 7. content_save_count() is `count(*) from saves where content_id = ?`
+--    with no user_id at all -- a full scan of saves on every call,
+--    since the PK leads with user_id. Indexed on content_id alone:
+--    an earlier draft used (content_type, content_id), whose leading
+--    column has about three distinct values and so would not have
+--    served this lookup well.
+create index if not exists saves_content_idx
+  on public.saves (content_id);
+
+-- 8. A Club's post list -- `club_id = ? order by pinned desc,
+--    created_at desc`. club_posts had no index of any kind beyond its
+--    own id. Column order matches the query's sort exactly.
+create index if not exists club_posts_club_pinned_created_idx
+  on public.club_posts (club_id, pinned desc, created_at desc);
+
+-- 9. A Club post's comment list (`club_post_id = ? order by
+--    created_at`) -- the Club-side counterpart of index 4.
+create index if not exists club_post_comments_post_created_idx
+  on public.club_post_comments (club_post_id, created_at);
+
+-- ---------------------------------------------------------------------
+-- SCHEMA-003 (Beta2 audit, 2026-09-03) — drop the two obsolete
+-- `create_poll_drop` overloads.
+--
+-- `create or replace function` only replaces a function with the *same
+-- signature*. WYN-097 added `p_audience`/`p_excluded_friend_ids` and
+-- WYN-098 added the four location parameters, so each of those grew the
+-- parameter list -- and quietly created a new function each time instead
+-- of replacing the old one. All three ended up coexisting, all three
+-- SECURITY DEFINER, all three executable by `authenticated`.
+--
+-- Two consequences:
+--   1. A 4-argument call is ambiguous -- `function ... is not unique` --
+--      which is what fails 5 of the supabase/tests/*.sh.
+--   2. The two stale overloads are reachable SECURITY DEFINER entry
+--      points that skip the audience (WYN-097) and location (WYN-098)
+--      handling the current one performs.
+--
+-- The app is unaffected either way: DropRepository.createPollDrop is the
+-- only call site in the repository and passes all ten named parameters,
+-- which matches the surviving overload exactly (verified before this
+-- change). Dropping the other two therefore removes dead code, not a
+-- code path anything uses.
+--
+-- Placed at the end of the file rather than edited in place so this
+-- file's history stays intact and a fresh load ends with exactly one
+-- create_poll_drop. Signatures are spelled out in full because that is
+-- what identifies a function to `drop function` -- and `if exists` keeps
+-- the statement safe to re-run.
+drop function if exists public.create_poll_drop(text, text[], int, uuid[]);
+drop function if exists public.create_poll_drop(text, text[], int, uuid[], text, uuid[]);

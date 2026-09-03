@@ -1,9 +1,11 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/design/wyn_colors.dart';
+import 'core/design/wyn_spacing.dart';
 import 'core/design/wyn_theme.dart';
 import 'core/env.dart';
 import 'core/navigation/app_navigator.dart';
@@ -55,7 +57,45 @@ Future<void> main() async {
     // Intentionally silent -- see comment above.
   }
 
+  // A build-time exception used to paint Flutter's raw grey/red error
+  // box straight into the user's screen -- a stack trace where a card or
+  // a whole tab should be. This replaces it with something a person can
+  // act on, in release only: in debug the standard box is far more
+  // useful to whoever is looking at it, so it stays.
+  //
+  // Not a crash reporter, and not a substitute for one -- monitoring is
+  // still unwired (see the audit's "Monitoring readiness"). This is the
+  // last line of defence between a bug and the person holding the phone.
+  if (kReleaseMode) {
+    ErrorWidget.builder = (details) => const _AppErrorBox();
+  }
+
   runApp(const WynApp());
+}
+
+/// What a widget that failed to build shows in release. Deliberately
+/// tiny and self-contained: it may be rendered in a broken tree, at any
+/// size, with no Material ancestor to inherit from.
+class _AppErrorBox extends StatelessWidget {
+  const _AppErrorBox();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: WynColors.paper,
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.all(WynSpacing.space4),
+          child: Text(
+            'ส่วนนี้แสดงผลไม่สำเร็จ ลองรีเฟรชหรือกลับมาใหม่อีกครั้ง',
+            textAlign: TextAlign.center,
+            textDirection: TextDirection.ltr,
+            style: TextStyle(fontSize: 13, color: WynColors.graphite),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class WynApp extends StatelessWidget {

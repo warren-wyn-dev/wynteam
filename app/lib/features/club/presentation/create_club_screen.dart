@@ -203,7 +203,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
         ),
       ),
     );
-    if (selected != null) setState(() => _category = selected);
+    if (selected != null && mounted) setState(() => _category = selected);
   }
 
   @override

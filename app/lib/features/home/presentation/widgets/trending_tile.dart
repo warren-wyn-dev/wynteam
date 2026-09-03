@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/design/wyn_colors.dart';
 import '../../data/home_feed_item.dart';
 import '../../../drop/presentation/widgets/poll_placeholder_tile.dart';
+import '../../../../core/widgets/network_thumbnail.dart';
 
 /// One square tile in Home's "กำลังนิยม" (Trending) row -- WYN-017.
 /// Visually modeled on DropGridTile (image + like-count scrim), but
@@ -43,7 +44,7 @@ class TrendingTile extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           if (imageUrl != null)
-            Image.network(imageUrl, fit: BoxFit.cover)
+            NetworkThumbnail(imageUrl: imageUrl)
           else if (item.isPoll)
             const PollPlaceholderTile()
           else

@@ -82,11 +82,26 @@ class RecordingClubRepository extends ClubRepository {
   @override
   Future<ClubMember?> fetchMyMembership(String clubId) async => myMembership;
 
-  @override
-  Future<List<ClubMember>> fetchApprovedMembers(String clubId) async => approvedMembers;
+  /// Every page [fetchApprovedMembers] was asked for, in order.
+  final List<int> fetchApprovedMembersPageArgs = [];
 
   @override
-  Future<List<ClubMember>> fetchPendingMembers(String clubId) async => pendingMembers;
+  Future<List<ClubMember>> fetchApprovedMembers(
+    String clubId, {
+    int page = 0,
+  }) async {
+    fetchApprovedMembersPageArgs.add(page);
+    // Page 0 returns the canned list, later pages are empty -- so a
+    // screen under test settles instead of paging forever.
+    return page == 0 ? approvedMembers : <ClubMember>[];
+  }
+
+  @override
+  Future<List<ClubMember>> fetchPendingMembers(
+    String clubId, {
+    int page = 0,
+  }) async =>
+      page == 0 ? pendingMembers : <ClubMember>[];
 
   @override
   Future<List<Club>> fetchPopularClubs({String? category, int limit = 10}) async {

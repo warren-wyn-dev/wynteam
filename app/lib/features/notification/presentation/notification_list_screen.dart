@@ -32,6 +32,7 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
 import '../../../core/widgets/empty_state_block.dart';
+import '../../../core/network_error.dart';
 
 /// Screen 2 — Notification list (WYN-012, extended by WYN-015 with 4
 /// Club types). Row structure mirrors FollowListScreen (WYN-008/013)
@@ -157,8 +158,10 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       // time it's built, and this screen's own highlight intentionally
       // keeps using _unreadSnapshot regardless of this call's outcome.
       unawaited(widget.notificationRepository.markAllAsRead());
-    } catch (_) {
-      setState(() => _error = 'โหลดการแจ้งเตือนไม่สำเร็จ');
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = errorMessageFor(error,
+          serverMessage: 'โหลดการแจ้งเตือนไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }

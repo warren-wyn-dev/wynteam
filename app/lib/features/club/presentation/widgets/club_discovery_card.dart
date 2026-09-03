@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/club.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/widgets/network_thumbnail.dart';
 
 /// Which visual shape [ClubDiscoveryCard] renders as -- [row] (the
 /// original, full-width) or [grid] (WYN-056, vertical/image-led, for
@@ -67,7 +68,7 @@ class ClubDiscoveryCard extends StatelessWidget {
             child: AspectRatio(
               aspectRatio: 4 / 3,
               child: club.coverUrl != null
-                  ? Image.network(club.coverUrl!, fit: BoxFit.cover)
+                  ? NetworkThumbnail(imageUrl: club.coverUrl!)
                   : Container(
                       color: scheme.primaryContainer,
                       alignment: Alignment.center,

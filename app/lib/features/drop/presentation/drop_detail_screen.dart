@@ -88,6 +88,14 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   // null while the initial load is in flight.
   List<DropComment>? _comments;
   bool _commentsErrored = false;
+
+  /// Comment pagination (see [_loadMoreComments]). [_hasMoreComments] is
+  /// true whenever the last page came back full, which is the only
+  /// signal a range query gives that there may be more behind it.
+  int _commentPage = 0;
+  bool _hasMoreComments = false;
+  bool _isLoadingMoreComments = false;
+  bool _moreCommentsErrored = false;
   final _commentController = TextEditingController();
   final _commentFocusNode = FocusNode();
   bool _isSendingComment = false;
@@ -226,14 +234,49 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     setState(() {
       _comments = null;
       _commentsErrored = false;
+      _commentPage = 0;
+      _hasMoreComments = false;
     });
     try {
       final comments = await widget.dropRepository.fetchComments(_drop.id);
       if (!mounted) return;
-      setState(() => _comments = comments);
+      setState(() {
+        _comments = comments;
+        _hasMoreComments =
+            comments.length == DropRepository.commentPageSize;
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() => _commentsErrored = true);
+    }
+  }
+
+  /// Appends the next page of comments (see
+  /// [DropRepository.fetchComments], which explains why paging keeps the
+  /// reply nesting correct). Explicit button rather than infinite scroll:
+  /// a comment thread has an end the reader is walking towards, unlike
+  /// the feed.
+  Future<void> _loadMoreComments() async {
+    if (_isLoadingMoreComments) return;
+    setState(() {
+      _isLoadingMoreComments = true;
+      _moreCommentsErrored = false;
+    });
+    try {
+      final nextPage = _commentPage + 1;
+      final more =
+          await widget.dropRepository.fetchComments(_drop.id, page: nextPage);
+      if (!mounted) return;
+      setState(() {
+        _comments = [...?_comments, ...more];
+        _commentPage = nextPage;
+        _hasMoreComments = more.length == DropRepository.commentPageSize;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _moreCommentsErrored = true);
+    } finally {
+      if (mounted) setState(() => _isLoadingMoreComments = false);
     }
   }
 
@@ -874,16 +917,39 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
             for (final reply in comments.where((c) => c.parentCommentId == comment.id))
               _buildCommentRow(reply, currentUserId, isReply: true),
           ],
-          Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: WynSpacing.space6, vertical: WynSpacing.space8),
-            child: Center(
-              child: Text(
-                'ไม่มีความคิดเห็นเพิ่มเติมแล้ว',
-                style: _textStyle(fontSize: 13, color: WynColors.faint),
+          // "That's all of them" is only true once there is nothing
+          // left to page in -- otherwise the reader gets the button.
+          if (_hasMoreComments || _moreCommentsErrored)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: WynSpacing.space6, vertical: WynSpacing.space6),
+              child: Center(
+                child: _isLoadingMoreComments
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : TextButton(
+                        key: const Key('drop_detail_load_more_comments'),
+                        onPressed: _loadMoreComments,
+                        child: Text(_moreCommentsErrored
+                            ? 'โหลดคอมเมนต์เพิ่มไม่สำเร็จ แตะเพื่อลองใหม่'
+                            : 'ดูคอมเมนต์เพิ่มเติม'),
+                      ),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: WynSpacing.space6, vertical: WynSpacing.space8),
+              child: Center(
+                child: Text(
+                  'ไม่มีความคิดเห็นเพิ่มเติมแล้ว',
+                  style: _textStyle(fontSize: 13, color: WynColors.faint),
+                ),
               ),
             ),
-          ),
         ],
       ],
     );

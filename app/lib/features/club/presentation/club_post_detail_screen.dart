@@ -65,6 +65,15 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
   late ClubPost _post;
   List<ClubPostComment>? _comments;
   bool _commentsErrored = false;
+
+  /// Comment pagination -- mirrors DropDetailScreen's, see
+  /// ClubPostRepository.fetchComments. [_hasMoreComments] is true
+  /// whenever the last page came back full, the only signal a range
+  /// query gives that there may be more behind it.
+  int _commentPage = 0;
+  bool _hasMoreComments = false;
+  bool _isLoadingMoreComments = false;
+  bool _moreCommentsErrored = false;
   final _commentController = TextEditingController();
   final _commentFocusNode = FocusNode();
   bool _isSendingComment = false;
@@ -135,15 +144,51 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
     super.dispose();
   }
 
+  /// Appends the next page of comments -- see
+  /// ClubPostRepository.fetchComments for why paging keeps the reply
+  /// nesting correct. Explicit button, not infinite scroll: a thread has
+  /// an end the reader is walking towards, unlike a feed. Mirrors
+  /// DropDetailScreen._loadMoreComments exactly.
+  Future<void> _loadMoreComments() async {
+    if (_isLoadingMoreComments) return;
+    setState(() {
+      _isLoadingMoreComments = true;
+      _moreCommentsErrored = false;
+    });
+    try {
+      final nextPage = _commentPage + 1;
+      final more = await widget.clubPostRepository
+          .fetchComments(_post.id, page: nextPage);
+      if (!mounted) return;
+      setState(() {
+        _comments = [...?_comments, ...more];
+        _commentPage = nextPage;
+        _hasMoreComments =
+            more.length == ClubPostRepository.commentPageSize;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _moreCommentsErrored = true);
+    } finally {
+      if (mounted) setState(() => _isLoadingMoreComments = false);
+    }
+  }
+
   Future<void> _loadComments() async {
     setState(() {
       _comments = null;
       _commentsErrored = false;
+      _commentPage = 0;
+      _hasMoreComments = false;
     });
     try {
       final comments = await widget.clubPostRepository.fetchComments(_post.id);
       if (!mounted) return;
-      setState(() => _comments = comments);
+      setState(() {
+        _comments = comments;
+        _hasMoreComments =
+            comments.length == ClubPostRepository.commentPageSize;
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() => _commentsErrored = true);
@@ -494,6 +539,26 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
             for (final reply in comments.where((c) => c.parentCommentId == comment.id))
               _buildCommentRow(reply, currentUserId, isReply: true),
           ],
+        if (_hasMoreComments || _moreCommentsErrored)
+          Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: WynSpacing.space6, vertical: WynSpacing.space6),
+            child: Center(
+              child: _isLoadingMoreComments
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : TextButton(
+                      key: const Key('club_post_load_more_comments'),
+                      onPressed: _loadMoreComments,
+                      child: Text(_moreCommentsErrored
+                          ? 'โหลดคอมเมนต์เพิ่มไม่สำเร็จ แตะเพื่อลองใหม่'
+                          : 'ดูคอมเมนต์เพิ่มเติม'),
+                    ),
+            ),
+          ),
       ],
     );
   }

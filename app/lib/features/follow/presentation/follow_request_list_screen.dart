@@ -134,7 +134,7 @@ class _FollowRequestListScreenState extends State<FollowRequestListScreen> {
           ),
         ) ??
         false;
-    if (!confirmed || _inFlight.contains(requester.id)) return;
+    if (!confirmed || !mounted || _inFlight.contains(requester.id)) return;
 
     setState(() => _inFlight.add(requester.id));
     try {

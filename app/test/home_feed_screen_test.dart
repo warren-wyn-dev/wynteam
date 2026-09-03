@@ -21,6 +21,7 @@ import 'package:wyn/features/home/presentation/home_feed_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/home_explainer_banner.dart';
+import 'package:wyn/features/home/presentation/widgets/home_feed_skeleton.dart';
 import 'package:wyn/features/home/presentation/widgets/home_feed_image_peek_carousel.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/liked_by_row.dart';
@@ -162,6 +163,81 @@ class _DelayedHomeRepository extends RecordingHomeRepository {
   }
 }
 
+/// A RecordingHomeRepository whose ranked feed pages the way offset
+/// pagination really does when the list grows underneath the viewer:
+/// page 1 comes back carrying page 0's last item again. Used by the
+/// duplicate-row regression test below.
+class _OverlappingPageHomeRepository extends RecordingHomeRepository {
+  _OverlappingPageHomeRepository({
+    required this.page0,
+    required this.page1,
+  }) : super(rankedFeedItems: page0);
+
+  final List<HomeFeedItem> page0;
+  final List<HomeFeedItem> page1;
+
+  @override
+  Future<List<HomeFeedItem>> fetchRankedFeed({required int page}) async {
+    fetchRankedFeedCalls++;
+    if (page == 0) return page0;
+    if (page == 1) return page1;
+    return <HomeFeedItem>[];
+  }
+}
+
+/// A RecordingHomeRepository whose second page always fails -- for the
+/// load-more error/retry test.
+class _FailingSecondPageHomeRepository extends RecordingHomeRepository {
+  _FailingSecondPageHomeRepository({required this.page0})
+      : super(rankedFeedItems: page0);
+
+  final List<HomeFeedItem> page0;
+
+  /// Flipped by the test so the retry can be seen to succeed.
+  bool failNextPage = true;
+
+  @override
+  Future<List<HomeFeedItem>> fetchRankedFeed({required int page}) async {
+    fetchRankedFeedCalls++;
+    if (page == 0) return page0;
+    if (failNextPage) throw Exception('network down');
+    return <HomeFeedItem>[];
+  }
+}
+
+/// A RecordingDropRepository whose toggleLike stays unresolved until the
+/// test releases it -- lets the serialization test observe what happens
+/// while the first write is genuinely still in flight, the same
+/// controlled-Completer shape _DelayedHomeRepository uses above. Tracks
+/// how many writes were open at once, which is the property under test.
+class _PendingLikeDropRepository extends RecordingDropRepository {
+  // Created on first use, inside the test body's own async zone, rather
+  // than in the setUpAll that constructs this repository -- a Completer
+  // built in the setUpAll zone schedules its continuations there, and
+  // pumpAndSettle would never flush them (the test would hang on a write
+  // that can't resume).
+  Completer<void>? _gate;
+
+  int openWrites = 0;
+  int maxConcurrentWrites = 0;
+
+  void release() => _gate?.complete();
+
+  @override
+  Future<void> toggleLike({
+    required String dropId,
+    required bool currentlyLiked,
+  }) async {
+    final gate = _gate ??= Completer<void>();
+    toggleLikeCalls++;
+    toggleLikeCurrentlyLikedArgs.add(currentlyLiked);
+    openWrites++;
+    if (openWrites > maxConcurrentWrites) maxConcurrentWrites = openWrites;
+    if (!gate.isCompleted) await gate.future;
+    openWrites--;
+  }
+}
+
 void main() {
   // See drop_comment_like_test.dart (WYN-005) for why every repo (and its
   // underlying SupabaseClient auto-refresh Timer) is built once in
@@ -286,6 +362,12 @@ void main() {
   // share an instance with any other test in this group.
   late RecordingHomeRepository newPostsPillTestHomeRepository;
   late RecordingHomeRepository newPostsPillTapTestHomeRepository;
+  late _OverlappingPageHomeRepository overlappingPageHomeRepository;
+  late _PendingLikeDropRepository pendingLikeDropRepository;
+  late RecordingHomeRepository pendingLikeHomeRepository;
+  late RecordingHomeRepository backFromDetailHomeRepository;
+  late _FailingSecondPageHomeRepository failingSecondPageHomeRepository;
+  late RecordingHomeRepository slowInitialHomeRepository;
 
   // WYNOSHomeSpec.md item 1: first-time explainer banner.
   late RecordingHomeRepository explainerBannerTestHomeRepository;
@@ -576,6 +658,47 @@ void main() {
     );
     duplicateFetchGuardTestHomeRepository =
         _DelayedHomeRepository(items: [_dropItem(id: 'guard-1', hasImage: false)]);
+
+    // A full page (pageSize == 10, so _hasMore stays true and the feed
+    // will ask for page 1), whose last item comes back at the head of
+    // page 1 -- exactly what offset pagination returns when someone
+    // posts while the viewer is scrolling. hasImage: false for the same
+    // reason scrollToTopTestHomeRepository uses it.
+    overlappingPageHomeRepository = _OverlappingPageHomeRepository(
+      page0: [
+        for (var i = 0; i < 10; i++)
+          _dropItem(id: 'dup-\$i', caption: 'โพสต์ที่ \$i', hasImage: false),
+      ],
+      page1: [
+        _dropItem(id: 'dup-9', caption: 'โพสต์ที่ 9', hasImage: false),
+        _dropItem(id: 'dup-10', caption: 'โพสต์ที่ 10', hasImage: false),
+      ],
+    );
+
+    pendingLikeDropRepository = _PendingLikeDropRepository();
+    pendingLikeHomeRepository = RecordingHomeRepository(
+      rankedFeedItems: [_dropItem(id: 'pending-like-1', hasImage: false)],
+    );
+
+    backFromDetailHomeRepository = RecordingHomeRepository(
+      rankedFeedItems: [
+        for (var i = 0; i < 30; i++)
+          _dropItem(id: 'back-\$i', caption: 'โพสต์ที่ \$i', hasImage: false),
+      ],
+    );
+    // What Detail's changes look like when the row is re-read: the post
+    // the test opens comes back with one more like.
+    backFromDetailHomeRepository.itemsById['back-5:'] =
+        _dropItem(id: 'back-5', caption: 'โพสต์ที่ 5', hasImage: false, likeCount: 1);
+
+    failingSecondPageHomeRepository = _FailingSecondPageHomeRepository(
+      page0: [
+        for (var i = 0; i < 10; i++)
+          _dropItem(id: 'fail-\$i', caption: 'หน้าแรกที่ \$i', hasImage: false),
+      ],
+    );
+    slowInitialHomeRepository =
+        _DelayedHomeRepository(items: [_dropItem(id: 'slow-1', hasImage: false)]);
   });
 
   Widget buildHome(
@@ -2622,6 +2745,196 @@ void main() {
         find.byType(HomeExplainerBanner, skipOffstage: false),
         findsOneWidget,
       );
+    });
+  });
+
+  group('feed integrity under real pagination/tap behaviour (Beta2 audit)',
+      () {
+    testWidgets(
+        'a row that offset pagination hands back on both pages is shown '
+        'once, not twice', (tester) async {
+      await tester.pumpWidget(buildHome(
+        overlappingPageHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // Scroll far enough past the bottom to trip the load-more
+      // threshold, then let page 1 arrive.
+      await tester.drag(
+        find.byKey(const Key('home_feed_scroll_view')),
+        const Offset(0, -4000),
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(overlappingPageHomeRepository.fetchRankedFeedCalls, 2,
+          reason: 'page 1 should have been requested');
+      // Scrolled to the bottom, the tail of the list is what's on
+      // screen: the row both pages returned, and the genuinely new one
+      // behind it. Before the dedupe, "โพสต์ที่ 9" was appended a second
+      // time and rendered twice in a row (with a duplicate ValueKey).
+      expect(find.text('โพสต์ที่ 10'), findsOneWidget);
+      expect(find.text('โพสต์ที่ 9'), findsOneWidget);
+    });
+
+    testWidgets(
+        'a second Like tap while the first write is still in flight is '
+        'queued behind it, not sent concurrently', (tester) async {
+      await tester.pumpWidget(buildHome(
+        pendingLikeHomeRepository,
+        dropRepository: pendingLikeDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final like = find.byWidgetPredicate(
+        (w) => w is ActionMetric && w.semanticsLabel.contains('ถูกใจ'),
+      );
+      expect(like, findsOneWidget);
+
+      final onTap = tester.widget<ActionMetric>(like).onTap!;
+      onTap();
+      onTap();
+      await tester.pump();
+
+      // Both taps are real user intent and both must reach the server --
+      // but the second one waits for the first, so an INSERT and its
+      // DELETE can never be in flight together and race each other.
+      expect(pendingLikeDropRepository.toggleLikeCalls, 1,
+          reason: 'the second write is queued, not issued yet');
+      expect(pendingLikeDropRepository.maxConcurrentWrites, 1);
+
+      pendingLikeDropRepository.release();
+      await tester.pumpAndSettle();
+
+      expect(pendingLikeDropRepository.toggleLikeCalls, 2);
+      expect(pendingLikeDropRepository.toggleLikeCurrentlyLikedArgs,
+          [false, true],
+          reason: 'each write still carries the state at its own tap');
+      expect(pendingLikeDropRepository.maxConcurrentWrites, 1,
+          reason: 'the two writes never overlapped');
+    });
+
+    testWidgets(
+        'coming back from Detail refreshes only that card, keeping the '
+        "viewer's scroll position instead of rebuilding the feed",
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        backFromDetailHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final scrollView = find.byKey(const Key('home_feed_scroll_view'));
+      await tester.drag(scrollView, const Offset(0, -600));
+      await tester.pumpAndSettle();
+
+      // Resolved upward from a card rather than by finding Scrollables
+      // under the CustomScrollView -- the pinned tab bar contributes one
+      // of its own, and this way there is no ambiguity about which
+      // scroll view is meant.
+      ScrollPosition position() =>
+          Scrollable.of(tester.element(find.byType(HomeDropCard).first))
+              .position;
+      final pixelsBefore = position().pixels;
+      expect(pixelsBefore, greaterThan(0),
+          reason: 'the test needs to actually be scrolled down');
+
+      // Whichever card the scroll happened to land on -- the point is
+      // that the viewer opens something that is not the first row.
+      final card = tester.widget<HomeDropCard>(find.byType(HomeDropCard).first);
+      backFromDetailHomeRepository.itemsById['${card.item.id}:'] =
+          card.item.copyWith(likeCount: card.item.likeCount + 1);
+      final fetchesBefore = backFromDetailHomeRepository.fetchRankedFeedCalls;
+
+      // Invoked directly rather than via tester.tap(): the card's own
+      // onTap is what a real tap on the body resolves to, and calling it
+      // avoids depending on which part of a partially-scrolled card
+      // happens to be hit-testable -- the same approach the Comment-icon
+      // test above uses, for the same reason.
+      card.onTap();
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(find.byType(DropDetailScreen), findsOneWidget);
+
+      // Popped through the Navigator rather than tester.pageBack(),
+      // which looks for a Cupertino back button this Material app never
+      // renders.
+      tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(backFromDetailHomeRepository.fetchItemByIdCalls, 1,
+          reason: 'just the one card is re-read');
+      expect(backFromDetailHomeRepository.fetchRankedFeedCalls, fetchesBefore,
+          reason: 'the feed is not reloaded from page 0');
+      expect(position().pixels, pixelsBefore,
+          reason: 'the viewer stays exactly where they were');
+    });
+
+    testWidgets(
+        'a failed load-more offers a retry instead of stopping silently',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        failingSecondPageHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.drag(
+        find.byKey(const Key('home_feed_scroll_view')),
+        const Offset(0, -4000),
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final retry = find.byKey(const Key('home_feed_load_more_retry'));
+      expect(retry, findsOneWidget,
+          reason: 'the user can see the page failed, and ask again');
+      final callsAfterFailure =
+          failingSecondPageHomeRepository.fetchRankedFeedCalls;
+
+      // Scrolling again does not silently re-fire the request that just
+      // failed -- the retry button is the way back.
+      await tester.drag(
+        find.byKey(const Key('home_feed_scroll_view')),
+        const Offset(0, -200),
+      );
+      await tester.pumpAndSettle();
+      expect(failingSecondPageHomeRepository.fetchRankedFeedCalls,
+          callsAfterFailure);
+
+      failingSecondPageHomeRepository.failNextPage = false;
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(failingSecondPageHomeRepository.fetchRankedFeedCalls,
+          callsAfterFailure + 1);
+      expect(find.byKey(const Key('home_feed_load_more_retry')), findsNothing);
+    });
+
+    testWidgets('the initial load shows card-shaped placeholders, not a bare '
+        'spinner', (tester) async {
+      await tester.pumpWidget(buildHome(
+        slowInitialHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      // A plain pump, not pumpAndSettle: this repository's fetch never
+      // resolves, so the feed stays in its loading state for the test.
+      await tester.pump();
+
+      expect(find.byType(HomeFeedSkeleton), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
     });
   });
 }

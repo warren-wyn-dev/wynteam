@@ -256,10 +256,21 @@ class ProfileRepository {
     final from = page * searchPageSize;
     final to = from + searchPageSize - 1;
 
+    // The value is quoted, not interpolated raw: `.or()` takes PostgREST
+    // *filter grammar*, where `,`/`.`/`()` are separators -- a query
+    // like "John, Jane" would otherwise break the filter into a 400 the
+    // user sees as "ค้นหาไม่สำเร็จ", and a crafted query could append
+    // filters of its own. See quotePostgrestFilterValue's doc comment.
+    // The `.ilike()`-based searches elsewhere in this app (Drop, Club,
+    // ZOKY) were already safe for the reason zoky_repository.dart's own
+    // comment gives -- a single-value builder call parameterizes the
+    // value instead of splicing it into a filter string. This was the
+    // only `.or()` in the app carrying user input.
+    final pattern = quotePostgrestFilterValue('%$query%');
     final rows = await _client
         .from('profiles')
         .select('id, username, display_name, bio, avatar_url')
-        .or('username.ilike.%$query%,display_name.ilike.%$query%')
+        .or('username.ilike.$pattern,display_name.ilike.$pattern')
         .range(from, to);
 
     return rows.map((row) => Profile.fromMap(row)).toList();

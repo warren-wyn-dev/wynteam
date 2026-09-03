@@ -14,6 +14,7 @@ import '../../../../core/widgets/hashtag_text.dart';
 import 'liked_by_row.dart';
 import 'top_reply_preview.dart';
 import 'verified_badge.dart';
+import '../../../../core/widgets/network_thumbnail.dart';
 
 /// Formats a duration in seconds as "m:ss" (e.g. 45 -> "0:45").
 String _formatDuration(int totalSeconds) {
@@ -184,7 +185,9 @@ class HomePopCard extends StatelessWidget {
                     fit: StackFit.expand,
                     children: [
                       if (item.thumbnailUrl != null)
-                        Image.network(item.thumbnailUrl!, fit: BoxFit.cover)
+                        Image.network(item.thumbnailUrl!, fit: BoxFit.cover,
+                          errorBuilder: networkImageErrorBuilder,
+                        )
                       else
                         Container(
                           color: Theme.of(context).colorScheme.surfaceContainerHighest,

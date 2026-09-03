@@ -95,6 +95,23 @@ class RecordingHomeRepository extends HomeRepository {
     return page == 0 ? redropsByUser : <HomeFeedItem>[];
   }
 
+  /// Rows [fetchItemById] hands back, keyed by `'id:redropId'` (the
+  /// same composite key the feed itself uses). A key that is present
+  /// with a null value stands for "this row is gone server-side"; a key
+  /// that is absent entirely means the same thing, since fetchItemById
+  /// returns null for a row it cannot find.
+  final Map<String, HomeFeedItem?> itemsById = {};
+  int fetchItemByIdCalls = 0;
+
+  @override
+  Future<HomeFeedItem?> fetchItemById({
+    required String id,
+    String? redropId,
+  }) async {
+    fetchItemByIdCalls++;
+    return itemsById['$id:${redropId ?? ''}'];
+  }
+
   /// Each call to [hideContent]'s arguments, in order -- WYNOS Unified
   /// Home Feed Algorithm V1.0.
   final List<(HomeContentType, String)> hideContentArgs = [];

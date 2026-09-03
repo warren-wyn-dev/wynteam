@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/network_thumbnail.dart';
 
 /// Minimal full-screen image viewer for one appeal evidence image --
 /// shared by MyModerationActionScreen (Screen 4) and AppealDetailScreen
@@ -16,7 +17,9 @@ class EvidenceImageViewer extends StatelessWidget {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          Center(child: Image.network(signedUrl)),
+          Center(child: Image.network(signedUrl,
+            errorBuilder: networkImageErrorBuilder,
+          )),
           SafeArea(
             child: Align(
               alignment: Alignment.topLeft,

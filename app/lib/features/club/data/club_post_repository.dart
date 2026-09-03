@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/text_utils.dart';
 import 'club_post.dart';
 import 'club_post_comment.dart';
+import '../../../core/storage_upload_options.dart';
 
 // See DropRepository's identical comment for why this needs the exact
 // foreign key name -- PostgREST can't resolve a bare `profiles(...)`
@@ -32,6 +33,10 @@ class ClubPostRepository {
   final SupabaseClient _client;
 
   static const pageSize = 20;
+
+  /// Comments page separately from posts -- same value and same
+  /// reasoning as DropRepository.commentPageSize.
+  static const commentPageSize = 50;
   static const _bucket = 'club-media';
   // Same private-bucket / sign-on-read reasoning as ClubRepository -- see
   // that file's _signedUrlTtlSeconds comment.
@@ -278,7 +283,11 @@ class ClubPostRepository {
       for (var i = 0; i < images.length; i++) {
         final extension = imageExtensions![i];
         final path = '$clubId/posts/$userId-$timestamp-$i.$extension';
-        await _client.storage.from(_bucket).uploadBinary(path, images[i]);
+        await _client.storage.from(_bucket).uploadBinary(
+              path,
+              images[i],
+              fileOptions: immutableUploadFileOptions,
+            );
         imagePaths.add(path);
       }
     }
@@ -356,14 +365,30 @@ class ClubPostRepository {
     }
   }
 
-  /// Oldest first, like DropRepository.fetchComments -- reads
+  /// One page of [commentPageSize] comments, oldest first -- reads
   /// top-to-bottom like a conversation.
-  Future<List<ClubPostComment>> fetchComments(String postId) async {
+  ///
+  /// Paged for exactly the reason DropRepository.fetchComments is (see
+  /// its doc comment): an unbounded fetch on a post with thousands of
+  /// comments is a huge response to parse and hold, and it is the
+  /// popular posts -- the ones people most want to read -- that suffer
+  /// it. Paging by position in the same ascending order keeps the
+  /// WYN-022 reply nesting intact for free, since a page is always a
+  /// prefix of the conversation and a reply is always newer than the
+  /// comment it hangs under.
+  Future<List<ClubPostComment>> fetchComments(
+    String postId, {
+    int page = 0,
+  }) async {
+    final from = page * commentPageSize;
+    final to = from + commentPageSize - 1;
+
     final rows = await _client
         .from('club_post_comments')
         .select('*, $_commentAuthorSelect')
         .eq('club_post_id', postId)
-        .order('created_at', ascending: true);
+        .order('created_at', ascending: true)
+        .range(from, to);
 
     return rows.map((row) => ClubPostComment.fromMap(row)).toList();
   }

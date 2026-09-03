@@ -92,7 +92,7 @@ class _BlockedListScreenState extends State<BlockedListScreen> {
 
   Future<void> _unblock(Profile profile) async {
     final confirmed = await confirmUnblock(context, username: profile.username);
-    if (!confirmed) return;
+    if (!confirmed || !mounted) return;
 
     setState(() => _unblockingIds.add(profile.id));
     try {

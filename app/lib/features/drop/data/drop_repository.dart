@@ -10,6 +10,7 @@ import 'drop_comment.dart';
 import 'drop_draft.dart';
 import 'image_dimensions.dart';
 import 'location_result.dart';
+import '../../../core/storage_upload_options.dart';
 
 // PostgREST can't resolve a bare `profiles(...)` embed on its own when a
 // sibling embed in the same select (drop_likes/drop_comments/
@@ -62,6 +63,10 @@ class DropRepository {
 
   // 21 (a multiple of 3) so a full page always fills whole grid rows.
   static const pageSize = 21;
+
+  /// Comments are paged separately from Drops -- a conversation reads
+  /// top-to-bottom in bigger runs than a grid does. See [fetchComments].
+  static const commentPageSize = 50;
 
   // The ranked "For You" tab (WYN-018 follow-up) is a bounded top-N
   // window, not true infinite ranking -- see fetchRankedFeed's doc
@@ -693,9 +698,11 @@ class DropRepository {
     for (var i = 0; i < imagesBytes.length; i++) {
       final path =
           '$userId/${DateTime.now().millisecondsSinceEpoch}_$i.${imageExtensions[i]}';
-      await _client.storage
-          .from('drop-images')
-          .uploadBinary(path, imagesBytes[i]);
+      await _client.storage.from('drop-images').uploadBinary(
+            path,
+            imagesBytes[i],
+            fileOptions: immutableUploadFileOptions,
+          );
       imageUrls.add(_client.storage.from('drop-images').getPublicUrl(path));
       imageDimensions.add(await decodeImageDimensions(imagesBytes[i]));
       onImageUploaded?.call(i + 1, imagesBytes.length);
@@ -942,9 +949,17 @@ class DropRepository {
           .eq('drop_id', dropId)
           .eq('user_id', userId);
     } else {
+      // upsert(ignoreDuplicates) rather than a plain insert: liking
+      // something already liked is the user's intent either way, so the
+      // duplicate-key error a second insert raises is noise, not a
+      // failure to report. It surfaced as a *wrong* UI state -- the
+      // caller's catch rolls the card back to "not liked" while the row
+      // is in fact stored. Reaches here from a second device, a retry,
+      // or a tap that raced its predecessor.
       await _client
           .from('drop_likes')
-          .insert({'drop_id': dropId, 'user_id': userId});
+          .upsert({'drop_id': dropId, 'user_id': userId},
+              ignoreDuplicates: true);
     }
   }
 
@@ -961,11 +976,12 @@ class DropRepository {
           .eq('content_type', _savesContentType)
           .eq('content_id', dropId);
     } else {
-      await _client.from('saves').insert({
+      // Same reasoning as toggleLike's upsert above.
+      await _client.from('saves').upsert({
         'user_id': userId,
         'content_type': _savesContentType,
         'content_id': dropId,
-      });
+      }, ignoreDuplicates: true);
     }
   }
 
@@ -1032,14 +1048,36 @@ class DropRepository {
 
   /// Oldest first, unlike the grid -- comments read top-to-bottom like a
   /// conversation.
-  Future<List<DropComment>> fetchComments(String dropId) async {
+  /// One page of [commentPageSize] comments, oldest first.
+  ///
+  /// This used to fetch *every* comment on a Drop in one unbounded
+  /// query. On a post with thousands of comments that is a huge response
+  /// to parse and hold, and the follow-up "which of these did I like"
+  /// lookup put every one of those ids into a query string -- past a few
+  /// thousand it exceeds the URL length the server accepts, so the whole
+  /// comment section fails to load. The more comments a post earns, the
+  /// more certainly it breaks: exactly backwards.
+  ///
+  /// Paging by position in the same ascending order keeps the reply
+  /// nesting intact without any extra work, because a page is always a
+  /// prefix of the conversation and a reply is always newer than its
+  /// parent -- so a reply can never load before the comment it belongs
+  /// under. (The reverse is fine: a parent whose replies are still on a
+  /// later page simply shows them once that page loads.)
+  Future<List<DropComment>> fetchComments(
+    String dropId, {
+    int page = 0,
+  }) async {
     final userId = _client.auth.currentUser!.id;
+    final from = page * commentPageSize;
+    final to = from + commentPageSize - 1;
 
     final rows = await _client
         .from('drop_comments')
         .select('*, $_commentAuthorSelect, drop_comment_likes(count)')
         .eq('drop_id', dropId)
-        .order('created_at', ascending: true);
+        .order('created_at', ascending: true)
+        .range(from, to);
 
     final commentIds = rows.map((row) => row['id'] as String).toList();
     final likedIds =
@@ -1162,7 +1200,11 @@ class DropRepository {
     if (imageBytes != null) {
       final path =
           '$userId/${DateTime.now().millisecondsSinceEpoch}.$imageExtension';
-      await _client.storage.from('drop-images').uploadBinary(path, imageBytes);
+      await _client.storage.from('drop-images').uploadBinary(
+            path,
+            imageBytes,
+            fileOptions: immutableUploadFileOptions,
+          );
       imageUrl = _client.storage.from('drop-images').getPublicUrl(path);
     }
 

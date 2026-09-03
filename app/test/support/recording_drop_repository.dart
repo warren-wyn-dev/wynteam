@@ -347,7 +347,16 @@ class RecordingDropRepository extends DropRepository {
   }
 
   @override
-  Future<List<DropComment>> fetchComments(String dropId) async => comments;
+  Future<List<DropComment>> fetchComments(String dropId, {int page = 0}) async {
+    fetchCommentsPageArgs.add(page);
+    // Page 0 returns the canned list; later pages are empty, so a screen
+    // under test settles instead of paging forever. A test that needs a
+    // real second page overrides this method.
+    return page == 0 ? comments : <DropComment>[];
+  }
+
+  /// Every page [fetchComments] was asked for, in order.
+  final List<int> fetchCommentsPageArgs = [];
 
   int addCommentCalls = 0;
   final List<String?> addCommentParentIdArgs = [];

@@ -6,6 +6,7 @@ import '../../../../core/design/wyn_spacing.dart';
 import '../../data/drop.dart';
 import '../../data/drop_repository.dart';
 import '../drop_detail_screen.dart' show dropShareLink;
+import '../../../../core/widgets/network_thumbnail.dart';
 
 /// Full-screen, swipeable, pinch-to-zoom image viewer -- WYN-071 Design,
 /// Screen 4. Opened by tapping a multi-image Drop's gallery in
@@ -142,7 +143,9 @@ class _DropImageViewerState extends State<DropImageViewer> {
                 onPageChanged: (index) => setState(() => _currentIndex = index),
                 itemBuilder: (context, index) => InteractiveViewer(
                   child: Center(
-                    child: Image.network(widget.imageUrls[index]),
+                    child: Image.network(widget.imageUrls[index],
+                      errorBuilder: networkImageErrorBuilder,
+                    ),
                   ),
                 ),
               ),

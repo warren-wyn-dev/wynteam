@@ -21,6 +21,7 @@ import '../../profile/data/profile_repository.dart';
 import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
+import '../../../core/widgets/network_thumbnail.dart';
 
 /// Placeholder share link -- same "no real hosting/domain yet" caveat as
 /// dropShareLink/popShareLink (WYN-005/006).
@@ -451,7 +452,9 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
       return SizedBox(
         height: 140,
         width: double.infinity,
-        child: Image.network(club.coverUrl!, fit: BoxFit.cover),
+        child: Image.network(club.coverUrl!, fit: BoxFit.cover,
+          errorBuilder: networkImageErrorBuilder,
+        ),
       );
     }
 

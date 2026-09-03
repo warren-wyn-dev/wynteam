@@ -110,8 +110,20 @@ class RecordingClubPostRepository extends ClubPostRepository {
     toggleSaveCalls++;
   }
 
+  /// Every page [fetchComments] was asked for, in order.
+  final List<int> fetchCommentsPageArgs = [];
+
   @override
-  Future<List<ClubPostComment>> fetchComments(String postId) async => comments;
+  Future<List<ClubPostComment>> fetchComments(
+    String postId, {
+    int page = 0,
+  }) async {
+    fetchCommentsPageArgs.add(page);
+    // Page 0 returns the canned list; later pages are empty, so a screen
+    // under test settles instead of paging forever. A test that needs a
+    // real second page overrides this method.
+    return page == 0 ? comments : <ClubPostComment>[];
+  }
 
   final List<String?> addCommentParentIdArgs = [];
 

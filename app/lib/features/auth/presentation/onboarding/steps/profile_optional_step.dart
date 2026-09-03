@@ -123,6 +123,7 @@ class _ProfileOptionalStepState extends State<ProfileOptionalStep> {
 
     var avatarUrl = widget.initialAvatarUrl;
     if (_pickedBytes != null) {
+      if (!mounted) return;
       setState(() => _isUploading = true);
       try {
         avatarUrl = await widget.uploadAvatar(

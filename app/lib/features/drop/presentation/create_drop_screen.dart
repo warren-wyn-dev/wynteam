@@ -28,6 +28,7 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/widgets/mention_input.dart';
 import '../../../core/widgets/restriction_banner.dart';
+import '../../../core/widgets/network_thumbnail.dart';
 
 /// WYN-035: a Drop carries either an image or a Poll this round, never
 /// both -- see .wyn/docs/design/wyn-035-poll-in-drop.md's Screen 1.
@@ -414,7 +415,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       maxHeight: 1600,
       imageQuality: 85,
     );
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
 
     setState(() => _isCropping = true);
     try {
@@ -457,7 +458,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       imageQuality: 85,
       limit: remaining,
     );
-    if (picked.isEmpty) return;
+    if (picked.isEmpty || !mounted) return;
 
     setState(() => _isCropping = true);
     try {
@@ -520,7 +521,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       case AudienceOption.everyone:
       case AudienceOption.friends:
       case AudienceOption.onlyMe:
-        setState(() => _audience = selected);
+        if (mounted) setState(() => _audience = selected);
     }
   }
 
@@ -1027,7 +1028,9 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                     color: WynColors.hairline,
                     child: _isCropping
                         ? const Center(child: CircularProgressIndicator())
-                        : Image.network(existingImageUrl, fit: BoxFit.cover),
+                        : Image.network(existingImageUrl, fit: BoxFit.cover,
+                          errorBuilder: networkImageErrorBuilder,
+                        ),
                   ),
                 ),
                 _buildRemoveButton(
