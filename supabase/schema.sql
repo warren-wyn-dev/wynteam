@@ -10706,24 +10706,39 @@ create table if not exists public.profile_private (
 
 alter table public.profile_private enable row level security;
 
+-- `drop policy if exists` first on every policy/constraint below (not
+-- just `create table if not exists` on the table itself) -- this whole
+-- block must be safely re-runnable from scratch. A production run hit
+-- `profiles_username_not_reserved` failing on a pre-existing row (see
+-- that constraint's own comment) partway through the original version of
+-- this script; Supabase's SQL Editor does not guarantee the earlier
+-- statements in a multi-statement paste rolled back together with that
+-- failure, so simply re-pasting a non-idempotent script could then hit
+-- "policy/constraint already exists" on whatever *did* commit before the
+-- failure. Every statement here is now safe to run any number of times.
+drop policy if exists "Users can view their own private profile fields" on public.profile_private;
 create policy "Users can view their own private profile fields"
   on public.profile_private
   for select
   to authenticated
   using (auth.uid() = id);
 
+drop policy if exists "Users can insert their own private profile fields" on public.profile_private;
 create policy "Users can insert their own private profile fields"
   on public.profile_private
   for insert
   to authenticated
   with check (auth.uid() = id);
 
+drop policy if exists "Users can update their own private profile fields" on public.profile_private;
 create policy "Users can update their own private profile fields"
   on public.profile_private
   for update
   to authenticated
   using (auth.uid() = id);
 
+alter table public.profile_private
+  drop constraint if exists profile_private_date_of_birth_not_future;
 alter table public.profile_private
   add constraint profile_private_date_of_birth_not_future
   check (date_of_birth is null or date_of_birth <= current_date);
@@ -10733,12 +10748,26 @@ alter table public.profile_private
 -- BirthdayStep's client-side copy of this same rule) if that policy ever
 -- changes.
 alter table public.profile_private
+  drop constraint if exists profile_private_date_of_birth_min_age;
+alter table public.profile_private
   add constraint profile_private_date_of_birth_min_age
   check (date_of_birth is null or date_of_birth <= (current_date - interval '13 years'));
 
 -- Defense in depth alongside AuthRepository's own reservedUsernames set
 -- (lib/features/auth/data/auth_repository.dart) -- keep both lists in
 -- sync. A client-side check alone would not stop a direct REST call.
+--
+-- `not valid`: a plain `add constraint` validates every *existing* row
+-- immediately, which fails outright if even one pre-existing account
+-- already has a reserved-looking username (a seed/test account predating
+-- this rule, for example) -- exactly what happened against production.
+-- `not valid` grandfathers whatever is already there and enforces the
+-- rule only on every INSERT/UPDATE from this point forward, which is the
+-- actual goal here (stop *new* reserved-username signups) without either
+-- silently renaming/deleting an existing account or blocking this
+-- migration on manually finding and fixing it first.
+alter table public.profiles
+  drop constraint if exists profiles_username_not_reserved;
 alter table public.profiles
   add constraint profiles_username_not_reserved
   check (
@@ -10748,7 +10777,7 @@ alter table public.profiles
       'null', 'undefined', 'everyone', 'here', 'channel', 'settings',
       'about', 'terms', 'privacy', 'www', 'app'
     )
-  );
+  ) not valid;
 
 -- Backfill: every account that already finished the old (WYN-002)
 -- onboarding -- i.e. has a username -- must not be asked to onboard again
