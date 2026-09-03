@@ -171,6 +171,91 @@ void main() {
     expect(find.text('3'), findsNothing);
   });
 
+  /// RootShell's own [WidgetsBindingObserver] -- see the lifecycle
+  /// tests below for why they talk to it directly.
+  WidgetsBindingObserver lifecycleObserverOf(WidgetTester tester) =>
+      tester.state(find.byType(RootShell)) as WidgetsBindingObserver;
+
+  testWidgets(
+      'RootShell registers itself as a lifecycle observer, so the real '
+      'binding reaches the handler the tests below drive directly',
+      (tester) async {
+    await tester.pumpWidget(buildShell(
+      notificationRepository: fewUnreadNotificationRepository,
+    ));
+    await tester.pumpAndSettle();
+
+    expect(tester.state(find.byType(RootShell)),
+        isA<WidgetsBindingObserver>());
+  });
+
+  // Beta4 §11.4 -- "Refresh แล้วไม่เพี้ยน".
+  //
+  // The badge was read once, in initState, and nothing ever told it to
+  // read again. So a notification that arrived while the app was
+  // backgrounded left the bell showing whatever it showed when the
+  // person left: come back an hour later, still stale, until either the
+  // Notifications tab was opened or the app was restarted.
+  //
+  // Fixed on resume rather than on a timer: §11.7 rules out polling,
+  // and a poll would spend a query every interval on the common case
+  // where nothing has changed. Resuming is both the moment the app's
+  // picture is most likely to be wrong and the only moment a person can
+  // see the badge again anyway.
+  testWidgets(
+      'the badge re-reads the unread count when the app is resumed, so it '
+      'is not stale after time in the background', (tester) async {
+    await tester.pumpWidget(buildShell(
+      notificationRepository: fewUnreadNotificationRepository,
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('3'), findsOneWidget);
+    final readsAfterFirstBuild =
+        fewUnreadNotificationRepository.countUnreadCalls;
+
+    // Two notifications arrived while the app was away.
+    fewUnreadNotificationRepository.unreadCount = 5;
+
+    // Delivered to RootShell's own observer rather than through
+    // `tester.binding.handleAppLifecycleStateChanged`. Driving the
+    // global binding also wakes supabase_flutter's own lifecycle
+    // observer, which restarts GoTrue's auto-refresh on `resumed` and
+    // leaves a periodic Timer inside the test's FakeAsync zone --
+    // `!timersPending` then fails at teardown for a reason that has
+    // nothing to do with the badge. This delivers the same callback the
+    // real binding would, to the object under test.
+    lifecycleObserverOf(tester)
+        .didChangeAppLifecycleState(AppLifecycleState.paused);
+    lifecycleObserverOf(tester)
+        .didChangeAppLifecycleState(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(fewUnreadNotificationRepository.countUnreadCalls,
+        greaterThan(readsAfterFirstBuild));
+    expect(find.text('5'), findsOneWidget);
+    expect(find.text('3'), findsNothing);
+  });
+
+  testWidgets(
+      'going to the background alone does not re-read -- only coming back '
+      'does', (tester) async {
+    await tester.pumpWidget(buildShell(
+      notificationRepository: manyUnreadNotificationRepository,
+    ));
+    await tester.pumpAndSettle();
+
+    final before = manyUnreadNotificationRepository.countUnreadCalls;
+    lifecycleObserverOf(tester)
+        .didChangeAppLifecycleState(AppLifecycleState.inactive);
+    lifecycleObserverOf(tester)
+        .didChangeAppLifecycleState(AppLifecycleState.paused);
+    await tester.pumpAndSettle();
+
+    expect(manyUnreadNotificationRepository.countUnreadCalls, before,
+        reason: 'a query on the way out is spent on a badge nobody can see');
+  });
+
   testWidgets('caps the notification badge at "9+"', (tester) async {
     await tester.pumpWidget(buildShell(
       notificationRepository: manyUnreadNotificationRepository,

@@ -89,9 +89,26 @@ enum PushPermissionState { unsupported, notDetermined, granted, denied }
 /// the Notifications screen and the switch in Notification Settings,
 /// both of which say what push is for *before* the OS dialog appears.
 class PushNotificationService {
-  PushNotificationService(this._tokenRepository);
+  PushNotificationService(this._tokenRepository, {this.onForegroundMessage});
 
   final PushTokenRepository _tokenRepository;
+
+  /// Called when a push arrives while the app is in the foreground.
+  ///
+  /// Beta4 §11.4 (Unread & Badge). FCM does not display a notification
+  /// itself while the app is foregrounded -- by design, since the app
+  /// is presumed to be showing the information already. WYNOS was not:
+  /// `RootShell` read the unread count once, in `initState`, and
+  /// nothing ever told it to read again, so a notification arriving
+  /// while someone browsed Home left the bell's badge stale until the
+  /// app was restarted or the Notifications tab was opened.
+  ///
+  /// This is the event-driven answer to that, and deliberately not a
+  /// poll: §11.7 forbids adding polling, and a timer would also be
+  /// wrong -- it would spend queries on the overwhelmingly common case
+  /// where nothing has happened. The callback fires exactly when
+  /// something has.
+  final VoidCallback? onForegroundMessage;
 
   static bool get _isReady => Firebase.apps.isNotEmpty;
 
@@ -187,6 +204,15 @@ class PushNotificationService {
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
       _openFromPushData(message.data);
     });
+
+    // Beta4 §11.4 -- see [onForegroundMessage]. Nothing is *displayed*
+    // here: a foreground push is not turned into an in-app banner (that
+    // would be a new UI surface, which Beta4's scope rules out), it just
+    // tells whoever is listening that the unread count has moved.
+    final onForeground = onForegroundMessage;
+    if (onForeground != null) {
+      FirebaseMessaging.onMessage.listen((_) => onForeground());
+    }
     final initialMessage = await messaging.getInitialMessage();
     if (initialMessage != null) {
       _openFromPushData(initialMessage.data);

@@ -17,7 +17,13 @@ class RecordingNotificationRepository extends NotificationRepository {
   /// empty).
   final List<WynNotification> notifications;
 
-  final int unreadCount;
+  /// Mutable so a test can move the count between reads -- Beta4 §11.4
+  /// needs to prove the badge *re-reads*, which a fixed value cannot
+  /// distinguish from never reading again.
+  int unreadCount;
+
+  /// How many times the badge has asked for the count.
+  int countUnreadCalls = 0;
 
   int markAllAsReadCalls = 0;
 
@@ -27,7 +33,10 @@ class RecordingNotificationRepository extends NotificationRepository {
   }
 
   @override
-  Future<int> countUnread() async => unreadCount;
+  Future<int> countUnread() async {
+    countUnreadCalls++;
+    return unreadCount;
+  }
 
   @override
   Future<void> markAllAsRead() async {
