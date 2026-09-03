@@ -215,11 +215,15 @@ final dropCount      = await countByAuthor(...);       // RTT 4
 | `follower_count()` RPC | ❌ เหมือนกัน | Seq Scan |
 | `fetchComments`: `drop_comments where drop_id = ?` | ❌ | Seq Scan |
 | `fetchLikedByAuthor`: `drop_likes where user_id = ?` | ❌ (PK `(drop_id, user_id)`) | Seq Scan |
-| block check `blocks where blocked_id = ?` | ❌ (PK `(blocker_id, blocked_id)`) | Seq Scan — **ถูกเรียกในทุก RLS policy ของทุกแถว** |
-| `mutes where muted_id = ?` (อยู่ใน `home_feed` view เอง) | ❌ | Seq Scan ต่อแถว |
+| ~~block check `blocks where blocked_id = ?`~~ | — | ⚠️ **ข้อนี้ผมระบุผิด — ถอนแล้ว (2026-09-03 re-check)** `internal.is_blocked_either_way()` เขียนว่า `(blocker_id = a and blocked_id = b) or (blocker_id = b and blocked_id = a)` ทั้งสองสาขาระบุ `blocker_id` ซึ่งเป็นคอลัมน์นำของ PK → PK ใช้ได้อยู่แล้ว |
+| ~~`mutes where muted_id = ?`~~ | — | ⚠️ **ระบุผิดเช่นกัน — ถอนแล้ว** ทุก query เป็น `muter_id = auth.uid() and muted_id = ?` ซึ่งเป็นคอลัมน์นำของ PK |
+| ฟีดโพสต์ใน Club `club_posts where club_id = ? order by pinned desc, created_at desc` | ❌ **ไม่มี index เลยนอกจาก PK บน `id`** | Seq Scan + Sort (พบเพิ่มตอน re-check) |
+| comment ของโพสต์ใน Club `club_post_comments where club_post_id = ?` | ❌ | Seq Scan (พบเพิ่มตอน re-check) |
 | `follow_requests where target_id = ?` | ❌ | Seq Scan |
 
-ตอนนี้ยังไม่เจ็บเพราะข้อมูลน้อย แต่ **นี่คือระเบิดเวลาที่แน่นอน** — ทั้ง 9 query นี้จะช้าลงเป็นเชิงเส้นตามจำนวนผู้ใช้ และ `blocks`/`mutes` จะเจ็บก่อนเพื่อนเพราะถูกเรียกซ้ำในทุกแถวของทุก query
+ตอนนี้ยังไม่เจ็บเพราะข้อมูลน้อย แต่ query เหล่านี้จะช้าลงเป็นเชิงเส้นตามจำนวนผู้ใช้ ตัวที่จะเจ็บก่อนเพื่อนคือ `drop_comments` เพราะ `home_feed` เรียก subquery นับ comment และหา top_reply **ต่อทุกแถวของฟีด** ทุกครั้งที่โหลดหน้า
+
+> **หมายเหตุการแก้ไขตัวเอง (2026-09-03):** ฉบับแรกของหัวข้อนี้ระบุ `blocks`/`mutes` ว่าเป็น seq scan ซึ่ง**ผิด** — ตรวจซ้ำกับ `internal.is_blocked_either_way()` และทุก query จริงแล้วพบว่า composite PK รองรับอยู่แล้ว จึงถอน index ทั้งสองตัวออกจาก migration และเพิ่ม `club_posts`/`club_post_comments` ที่ตรวจเจอเพิ่มแทน รายละเอียดเต็มอยู่ใน `.wyn/docs/qa/wynos-v1.0.0-beta2-readiness.md` §3
 
 ### 5.5 [P2] `home_feed` view หนักโดยโครงสร้าง
 

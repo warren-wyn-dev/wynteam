@@ -12397,19 +12397,31 @@ where username is not null
 on conflict (id) do nothing;
 
 -- ---------------------------------------------------------------------
--- Beta2 audit (2026-09-03) — indexes for the feed and social-graph
--- queries the app actually runs.
+-- Beta2 audit (2026-09-03) — indexes for the feed, social-graph and
+-- Club queries the app actually runs.
 --
 -- Purely additive: no table, column, policy, or constraint is touched,
 -- and no query changes behaviour -- only how Postgres finds the rows.
--- Safe to run against production at any time, and safe to re-run.
+-- Safe to run at any time, and safe to re-run. Identical copy kept at
+-- supabase/migrations_beta2_indexes.sql for applying on its own.
 --
--- Why these specific ones: every query below is on Wynos' hot path and,
--- before this block, had no usable index at all. `drop_likes`, `saves`,
--- `follows`, `blocks` and `mutes` do have composite primary keys, but a
--- PK on (a, b) cannot serve a lookup by `b` alone -- which is exactly
--- the direction several of these read in (who follows *me*, who has
--- blocked *me*, everything *I* liked).
+-- Every index below was checked against a real call site before being
+-- included, and each one is listed with the query it serves. Composite
+-- primary keys are the recurring reason these are needed: a PK on
+-- (a, b) cannot serve a lookup by `b` alone, and several of these
+-- queries read in exactly that direction.
+--
+-- Two indexes proposed in the first draft of the audit were REMOVED
+-- after that re-check, because they would have helped nothing:
+--   * blocks (blocked_id) -- internal.is_blocked_either_way() checks
+--     `(blocker_id = a and blocked_id = b) or (blocker_id = b and
+--     blocked_id = a)`; both branches pin the leading PK column, so the
+--     PK already serves them. Every other blocks query does too.
+--   * mutes (muted_id) -- every mute check in the schema and in Dart is
+--     `muter_id = auth.uid() and muted_id = ?`, again leading-column.
+-- (Both columns are un-indexed foreign keys, so an account deletion
+-- cascade scans them -- but that is true of many FK columns here, is
+-- rare, and is not what these indexes were claimed to fix.)
 --
 -- The counterpart work -- denormalised like/comment counters so
 -- `public.home_feed` stops running eight correlated subqueries per row
@@ -12423,45 +12435,61 @@ on conflict (id) do nothing;
 -- by statement rather than as part of this file. At Beta2's data volume
 -- the plain form below is fine.
 
--- The Home feed's own ordering (`order by created_at desc` on
--- `home_feed`, every tab, every page) and Profile's post grid
--- (`author_id = ? order by created_at desc`).
+-- 1. The Home feed's own ordering: `order by created_at desc` on
+--    home_feed, every tab, every page.
 create index if not exists drops_created_at_idx
   on public.drops (created_at desc);
+
+-- 2. Profile's post grid and count (fetchByAuthor / countByAuthor:
+--    `author_id = ? order by created_at desc`), and the Following
+--    feed's `author_id in (...)`.
 create index if not exists drops_author_created_idx
   on public.drops (author_id, created_at desc);
 
--- Profile's "ถูกใจ" tab (`drop_likes where user_id = ?`) -- the PK is
--- (drop_id, user_id), so a user-first lookup could not use it.
+-- 3. Profile's "ถูกใจ" tab -- fetch_liked_drop_ids() runs
+--    `user_id = ? order by created_at desc offset ? limit 21`. The PK
+--    is (drop_id, user_id), so a user-first read could use neither the
+--    filter nor the sort; this serves both.
 create index if not exists drop_likes_user_idx
   on public.drop_likes (user_id, created_at desc);
 
--- Every comment list (`drop_comments where drop_id = ? order by
--- created_at`), plus the top_reply subquery inside `home_feed`.
+-- 4. Every comment list (`drop_id = ? order by created_at`), plus the
+--    comment_count and top_reply subqueries inside home_feed itself,
+--    which run per feed row.
 create index if not exists drop_comments_drop_created_idx
   on public.drop_comments (drop_id, created_at);
 
--- Follower lists and follower_count() (`follows where following_id =
--- ?`) -- the PK is (follower_id, following_id), which only serves the
--- "who do I follow" direction.
+-- 5. Follower lists and follower_count() (`following_id = ? order by
+--    created_at desc`), plus the suggested-users ranking's
+--    `count(*) where following_id = p.id`. The PK is
+--    (follower_id, following_id) -- only the "who do I follow"
+--    direction.
 create index if not exists follows_following_idx
   on public.follows (following_id, created_at desc);
 
--- Incoming follow requests (`follow_requests where target_id = ?`),
--- same PK-direction problem.
+-- 6. The incoming follow-request list and its badge count
+--    (`target_id = ? order by created_at desc`), and the trigger that
+--    clears requests when an account goes public. Same PK-direction
+--    problem: the PK is (requester_id, target_id).
 create index if not exists follow_requests_target_idx
   on public.follow_requests (target_id, created_at desc);
 
--- internal.is_blocked_either_way() runs on every row of every Drop/
--- Pop/comment SELECT, and half of it looks up `blocked_id` -- the
--- non-leading half of the PK. Same for the mute check embedded in the
--- `home_feed` view itself.
-create index if not exists blocks_blocked_idx
-  on public.blocks (blocked_id);
-create index if not exists mutes_muted_idx
-  on public.mutes (muted_id);
-
--- Bookmarks and the per-page "did I save this" lookup read saves by
--- content, not just by user.
+-- 7. content_save_count() is `count(*) from saves where content_id = ?`
+--    with no user_id at all -- a full scan of saves on every call,
+--    since the PK leads with user_id. Indexed on content_id alone:
+--    an earlier draft used (content_type, content_id), whose leading
+--    column has about three distinct values and so would not have
+--    served this lookup well.
 create index if not exists saves_content_idx
-  on public.saves (content_type, content_id);
+  on public.saves (content_id);
+
+-- 8. A Club's post list -- `club_id = ? order by pinned desc,
+--    created_at desc`. club_posts had no index of any kind beyond its
+--    own id. Column order matches the query's sort exactly.
+create index if not exists club_posts_club_pinned_created_idx
+  on public.club_posts (club_id, pinned desc, created_at desc);
+
+-- 9. A Club post's comment list (`club_post_id = ? order by
+--    created_at`) -- the Club-side counterpart of index 4.
+create index if not exists club_post_comments_post_created_idx
+  on public.club_post_comments (club_post_id, created_at);
