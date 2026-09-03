@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../analytics/data/analytics_repository.dart';
 import '../data/auth_repository.dart';
@@ -53,7 +54,8 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
     final password = _passwordController.text;
     try {
       if (_isSignUp) {
-        await widget.authRepository.signUpWithEmail(email, password);
+        final response =
+            await widget.authRepository.signUpWithEmail(email, password);
         // WYN-077: only the sign-up branch counts as "started" a new
         // account -- see AnalyticsRepository's doc comment for why
         // Google/Apple OAuth isn't instrumented the same way this round.
@@ -62,6 +64,23 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
             source: AnalyticsRepository.currentWebSource(),
           ),
         );
+        // If the Supabase project has "Confirm email" turned on,
+        // signUp() succeeds (no exception) but returns a null session --
+        // there is no account to sign into yet until the user clicks the
+        // confirmation link Supabase just emailed them. Without this
+        // check the button looked completely broken: _isLoading flips
+        // back to false, no error, no navigation, nothing visibly
+        // happens at all (bug report, Founder 2026-09-03: "ปุ่มด้านล่าง
+        // เข้าสู่ระบบด้วยเมล ไม่เคยเข้าได้นะ"). AuthGate's listener still
+        // does the real navigation once a session does exist -- this
+        // branch only covers the "not yet" case.
+        if (response.session == null && mounted) {
+          setState(() {
+            _errorMessage =
+                'ส่งอีเมลยืนยันไปที่ $email แล้ว กรุณากดลิงก์ในอีเมลก่อนเข้าสู่ระบบ';
+            _isSignUp = false;
+          });
+        }
       } else {
         await widget.authRepository.signInWithEmail(email, password);
       }
@@ -73,6 +92,14 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
       setState(() {
         _errorMessage = 'อีเมลนี้มีบัญชีอยู่แล้ว ลองเข้าสู่ระบบแทน';
         _isSignUp = false;
+      });
+    } on AuthApiException catch (e) {
+      setState(() {
+        _errorMessage = e.code == 'email_not_confirmed'
+            ? 'บัญชีนี้ยังไม่ได้ยืนยันอีเมล กรุณากดลิงก์ยืนยันในอีเมลที่ส่งให้ก่อนเข้าสู่ระบบ'
+            : (_isSignUp
+                ? 'สมัครสมาชิกไม่สำเร็จ ลองใหม่อีกครั้ง'
+                : 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
       });
     } catch (_) {
       setState(() {
