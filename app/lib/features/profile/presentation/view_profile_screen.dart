@@ -941,32 +941,14 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               return Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: WynSpacing.space5),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('โหลดโปรไฟล์ไม่สำเร็จ'),
-                      const SizedBox(height: WynSpacing.space3),
-                      TextButton(
-                          onPressed: _reload, child: const Text('ลองใหม่')),
-                      // TEMP (2026-09-03): surfaces the raw exception so
-                      // the Founder can screenshot it on a phone with no
-                      // dev-tools access, to diagnose a live production
-                      // report -- remove once WYN production-profile-load
-                      // incident is resolved and root-caused.
-                      const SizedBox(height: WynSpacing.space3),
-                      SelectableText(
-                        snapshot.error.toString(),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: WynColors.graphite,
-                        ),
-                      ),
-                    ],
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('โหลดโปรไฟล์ไม่สำเร็จ'),
+                    const SizedBox(height: WynSpacing.space3),
+                    TextButton(
+                        onPressed: _reload, child: const Text('ลองใหม่')),
+                  ],
                 ),
               );
             }

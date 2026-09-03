@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/design/wyn_spacing.dart';
 import '../../legal/data/platform_document_repository.dart';
 import '../../legal/presentation/document_acceptance_screen.dart';
 import '../../moderation/data/appeal_repository.dart';
@@ -343,6 +344,26 @@ class _AuthGateState extends State<AuthGate> {
                 return FutureBuilder<OnboardingState>(
                   future: _authRepository.fetchOnboardingState(session.user),
                   builder: (context, onboardingSnapshot) {
+                    // Unlike the moderation-status and document-acceptance
+                    // gates above, this one has no safe direction to fail
+                    // *open* in: treating an unknown state as "onboarded"
+                    // lands a half-onboarded user on Home with no username
+                    // (and trips captureCurrentAccount's own username
+                    // requirement below), while treating it as "not
+                    // onboarded" walks an existing user back through
+                    // Birthday/Username/Display Name from scratch --
+                    // resumeStep derives from data this branch precisely
+                    // does not have. So it fails *visibly* instead: a real
+                    // error state with a retry, never the indefinite
+                    // spinner this used to show on any transient network
+                    // hiccup (with nothing left to trigger a rebuild, that
+                    // was a permanent dead end for the whole app).
+                    // `future:` is re-created on every build, deliberately
+                    // (see onCompleted below), so a bare setState here is
+                    // a genuine re-query.
+                    if (onboardingSnapshot.hasError) {
+                      return _ErrorRetryScreen(onRetry: () => setState(() {}));
+                    }
                     if (!onboardingSnapshot.hasData) {
                       return const _LoadingScreen();
                     }
@@ -358,11 +379,27 @@ class _AuthGateState extends State<AuthGate> {
                       // switcher's 5-account limit, ...) must never block
                       // reaching Home, so this is never awaited and never
                       // gates the return below.
-                      unawaited(_accountSwitcherRepository.captureCurrentAccount(
-                        session: session,
-                        username: onboardingState.username!,
-                        displayName: onboardingState.displayName,
-                      ));
+                      //
+                      // Null-guarded rather than the `username!` this used
+                      // to force-unwrap: `completed` and `username` live in
+                      // two different tables (profile_private
+                      // .onboarding_completed vs. profiles.username) with
+                      // nothing enforcing that they agree, so one
+                      // inconsistent row would crash every login for that
+                      // account. A switcher entry needs a username to label
+                      // itself with, so a completed account somehow missing
+                      // one just isn't captured -- the same silent skip a
+                      // guest or a 6th account already gets -- instead of
+                      // taking the login down with it.
+                      final onboardingUsername = onboardingState.username;
+                      if (onboardingUsername != null) {
+                        unawaited(
+                            _accountSwitcherRepository.captureCurrentAccount(
+                          session: session,
+                          username: onboardingUsername,
+                          displayName: onboardingState.displayName,
+                        ));
+                      }
                       return _buildRootShell();
                     }
                     return OnboardingFlow(
@@ -414,6 +451,33 @@ class _LoadingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+/// Shown when AuthGate genuinely cannot decide what to render -- today
+/// only when fetchOnboardingState() fails (see that FutureBuilder's own
+/// comment for why neither failing open nor failing closed is safe
+/// there). Deliberately a dead end *with a way out*, rather than the
+/// [_LoadingScreen] that would otherwise stay on screen forever.
+class _ErrorRetryScreen extends StatelessWidget {
+  const _ErrorRetryScreen({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'),
+            const SizedBox(height: WynSpacing.space3),
+            TextButton(onPressed: onRetry, child: const Text('ลองใหม่')),
+          ],
+        ),
+      ),
     );
   }
 }

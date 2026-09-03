@@ -83,7 +83,20 @@ class Profile {
 
   factory Profile.fromMap(Map<String, dynamic> map) => Profile(
         id: map['id'] as String,
-        username: map['username'] as String,
+        // `profiles.username` is nullable in the schema (`username text
+        // unique`) and a row genuinely can exist without one:
+        // LegalRepository.acceptMandatoryDocuments() and
+        // AuthRepository.setDateOfBirth() both upsert a stub
+        // `{'id': userId}` row *before* onboarding ever reaches the
+        // Username step. A bare `as String` therefore threw a TypeError
+        // on any such profile and took the whole screen reading it down
+        // with it (ViewProfileScreen's snapshot.hasError branch). Falls
+        // back to '' -- the same convention every other username-parsing
+        // factory in this app already uses (Drop/Pop/ClubPost/
+        // HomeFeedItem/... all read `as String? ?? ''`), which
+        // displayNameOrUsername then renders as the display name when
+        // one is set.
+        username: map['username'] as String? ?? '',
         displayName: map['display_name'] as String?,
         bio: map['bio'] as String?,
         avatarUrl: map['avatar_url'] as String?,
