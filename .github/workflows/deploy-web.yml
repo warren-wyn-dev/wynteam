@@ -45,20 +45,74 @@ jobs:
       # inside the JSON string and fails `flutter build` with a
       # FormatException. Trimming here means a slightly-sloppy paste
       # into the Secrets UI doesn't need to be perfectly exact.
+      # Beta4 adds the 7 FIREBASE_* values, for Web Push. A Flutter Web
+      # build has no native google-services file to read, so without
+      # these `Firebase.initializeApp()` cannot start on web at all and
+      # every push path no-ops -- see `app/lib/core/push_env.dart`.
+      #
+      # A Firebase Web config is public by design (it ships inside every
+      # web bundle that uses it, and Google documents it as such), so
+      # these are secrets only in the same sense SUPABASE_URL is: kept
+      # out of the repo, not kept from the browser. The VAPID key is the
+      # *public* half of the Web Push key pair; its private half never
+      # leaves the Firebase Console.
+      #
+      # Every one is optional. A build with none of them set produces
+      # empty strings, `PushEnv.isConfigured` returns false, and the app
+      # behaves exactly as it did before Beta4 -- so this step is safe to
+      # merge before the secrets exist, which is the point: the secrets
+      # can be added later and the next deploy picks them up with no
+      # further code change.
       - name: Write dart_define.json
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
+          FIREBASE_WEB_APP_ID: ${{ secrets.FIREBASE_WEB_APP_ID }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_VAPID_KEY: ${{ secrets.FIREBASE_VAPID_KEY }}
         run: |
           clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
-          CLEAN_URL=$(clean "$SUPABASE_URL")
-          CLEAN_KEY=$(clean "$SUPABASE_PUBLISHABLE_KEY")
-          cat > dart_define.json <<EOF
-          {
-            "SUPABASE_URL": "$CLEAN_URL",
-            "SUPABASE_PUBLISHABLE_KEY": "$CLEAN_KEY"
-          }
-          EOF
+
+          # Built with jq rather than a heredoc. The heredoc was fine for
+          # two values, but nine interpolations into hand-written JSON is
+          # one stray quote away from a FormatException at build time,
+          # and jq escapes each value correctly by construction.
+          jq -n \
+            --arg supabase_url            "$(clean "$SUPABASE_URL")" \
+            --arg supabase_key            "$(clean "$SUPABASE_PUBLISHABLE_KEY")" \
+            --arg fb_api_key              "$(clean "$FIREBASE_WEB_API_KEY")" \
+            --arg fb_app_id               "$(clean "$FIREBASE_WEB_APP_ID")" \
+            --arg fb_sender_id            "$(clean "$FIREBASE_MESSAGING_SENDER_ID")" \
+            --arg fb_project_id           "$(clean "$FIREBASE_PROJECT_ID")" \
+            --arg fb_auth_domain          "$(clean "$FIREBASE_AUTH_DOMAIN")" \
+            --arg fb_storage_bucket       "$(clean "$FIREBASE_STORAGE_BUCKET")" \
+            --arg fb_vapid_key            "$(clean "$FIREBASE_VAPID_KEY")" \
+            '{
+              SUPABASE_URL:                 $supabase_url,
+              SUPABASE_PUBLISHABLE_KEY:     $supabase_key,
+              FIREBASE_WEB_API_KEY:         $fb_api_key,
+              FIREBASE_WEB_APP_ID:          $fb_app_id,
+              FIREBASE_MESSAGING_SENDER_ID: $fb_sender_id,
+              FIREBASE_PROJECT_ID:          $fb_project_id,
+              FIREBASE_AUTH_DOMAIN:         $fb_auth_domain,
+              FIREBASE_STORAGE_BUCKET:      $fb_storage_bucket,
+              FIREBASE_VAPID_KEY:           $fb_vapid_key
+            }' > dart_define.json
+
+          # Says whether this build will ship a working Web Push setup,
+          # without printing any value. Without this the only way to
+          # find out is to open the deployed site and watch a push not
+          # arrive.
+          if [ -n "$(clean "$FIREBASE_WEB_API_KEY")" ] && [ -n "$(clean "$FIREBASE_VAPID_KEY")" ]; then
+            echo "Web Push: configured -- this build can request a push token."
+          else
+            echo "Web Push: NOT configured -- this build behaves as before Beta4 (every push path no-ops)."
+            echo "To enable it, add the FIREBASE_* repository secrets and deploy again."
+          fi
 
       - run: flutter build web --release --dart-define-from-file=dart_define.json
 
