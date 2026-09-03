@@ -67,14 +67,23 @@ alter table public.drop_images add column if not exists image_height integer;
 
 -- ---- WYN-103: image count limit 10 -> 9 (defense-in-depth at the DB,
 -- matching the app's own _maxImages = 9) ----
+--
+-- Production incident (2026-09-03): applying these two constraints
+-- without `not valid` failed with 23514 -- real production has
+-- drops/club_posts predating the app's 9-image limit that already have
+-- 9+/10 images. `not valid` enforces the constraint on every new
+-- insert/update from here on (the actual goal, defense-in-depth for
+-- new posts) without retroactively validating -- and therefore without
+-- touching or rejecting -- any pre-existing row. No user data is
+-- read, modified, or deleted by this constraint either way.
 alter table public.club_posts drop constraint if exists club_posts_image_urls_length;
 alter table public.club_posts
   add constraint club_posts_image_urls_length
-  check (image_urls is null or array_length(image_urls, 1) between 1 and 9);
+  check (image_urls is null or array_length(image_urls, 1) between 1 and 9) not valid;
 
 alter table public.drop_images drop constraint if exists drop_images_position_max_9;
 alter table public.drop_images
-  add constraint drop_images_position_max_9 check (position >= 0 and position < 9);
+  add constraint drop_images_position_max_9 check (position >= 0 and position < 9) not valid;
 
 -- ---- WYN-097: Post Audience Selector + "friends" (mutual follow) +
 -- Close Friends ----

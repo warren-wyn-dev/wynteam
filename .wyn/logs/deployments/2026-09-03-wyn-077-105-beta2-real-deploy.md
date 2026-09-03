@@ -163,14 +163,23 @@ alter table public.drop_images add column if not exists image_height integer;
 
 -- ---- WYN-103: image count limit 10 -> 9 (defense-in-depth at the DB,
 -- matching the app's own _maxImages = 9) ----
+--
+-- Production incident (2026-09-03): applying these two constraints
+-- without `not valid` failed with 23514 -- real production has
+-- drops/club_posts predating the app's 9-image limit that already have
+-- 9+/10 images. `not valid` enforces the constraint on every new
+-- insert/update from here on (the actual goal, defense-in-depth for
+-- new posts) without retroactively validating -- and therefore without
+-- touching or rejecting -- any pre-existing row. No user data is
+-- read, modified, or deleted by this constraint either way.
 alter table public.club_posts drop constraint if exists club_posts_image_urls_length;
 alter table public.club_posts
   add constraint club_posts_image_urls_length
-  check (image_urls is null or array_length(image_urls, 1) between 1 and 9);
+  check (image_urls is null or array_length(image_urls, 1) between 1 and 9) not valid;
 
 alter table public.drop_images drop constraint if exists drop_images_position_max_9;
 alter table public.drop_images
-  add constraint drop_images_position_max_9 check (position >= 0 and position < 9);
+  add constraint drop_images_position_max_9 check (position >= 0 and position < 9) not valid;
 
 -- ---- WYN-097: Post Audience Selector + "friends" (mutual follow) +
 -- Close Friends ----
@@ -770,6 +779,16 @@ select 'MIGRATION APPLIED OK' as status;
 ## Deployment Result
 
 **PARTIAL.** Code merge: **SUCCESS** (PR #216, merge commit `56e56a7`). Database migration: **PREPARED, NOT APPLIED** (blocked on Founder running the SQL above). Web deploy: **NOT TRIGGERED** (blocked on Founder running `deploy-web.yml` manually -- this session cannot trigger GitHub Actions runs, confirmed via 2 independent 403s, one of them an explicit Anthropic session-type policy block).
+
+## Post-deploy incident: `drop_images_position_max_9` violated by real production data (2026-09-03)
+
+While running the migration above, the Founder hit `ERROR: 23514: check constraint "drop_images_position_max_9" of relation "drop_images" is violated by some row` -- real production has `drops` with more than 9 images already (posted before the app enforced the 9-image limit), so the plain `add constraint ... check (...)` form (which validates every existing row by default) correctly rejected them.
+
+**Root cause**: this session's local-Postgres validation (see step 5 above) used a synthetic seed dataset that never included a row exceeding the new bound, so it never exercised this failure path -- a real gap in that test, not a flaw in the constraint's logic itself.
+
+**Fix**: both narrowing-a-limit constraints in the migration (`club_posts_image_urls_length` 10->9, `drop_images_position_max_9`, the only two of this shape in the whole script) now use `check (...) not valid` instead of `check (...)`. `not valid` enforces the constraint on every future insert/update (the actual defense-in-depth goal) without validating -- and therefore without touching or rejecting -- any pre-existing row. This is the standard Postgres pattern for adding a constraint to a table with legacy data that predates the new rule; no user data was read, modified, or deleted to resolve this. The orchestrating session applied this fix directly to both this file and `2026-09-03-wyn-077-105-beta2-production-migration.sql` and relayed the two corrected statements to the Founder to run in place of the failed ones -- the rest of the script is unaffected and safe to re-run in full (every statement is `if not exists`/`if exists`/`create or replace` guarded).
+
+**Follow-up (not done here, flagged for Product/Coding)**: some real Drops in production have more than 9 images. Whether to backfill/trim them, grandfather them as-is (the app's read path already renders however many `drop_images` rows exist per Drop, so this is not a functional bug -- just means the DB no longer matches the app's own forward-looking limit for those specific old rows), or something else, is a product decision, not something to resolve unilaterally in a hotfix.
 
 ## Production Verification
 

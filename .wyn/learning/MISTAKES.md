@@ -14,6 +14,12 @@
 
 ## รายการ
 
+### [2026-09-03] WYN-103 production migration — `drop_images_position_max_9`/`club_posts_image_urls_length` ตรวจสอบข้อมูลเก่าย้อนหลังแล้วพัง เพราะ local-Postgres validation ไม่มี seed data ที่จำลองเคสนี้
+- ข้อผิดพลาด: AI Deploy & DevOps เตรียม migration SQL เพิ่ม CHECK constraint จำกัดรูปไม่เกิน 9 รูป (`add constraint ... check (...)` แบบธรรมดา ไม่ใส่ `not valid`) แล้วทดสอบกับ local PostgreSQL จำลอง production แต่ seed data ที่ใช้ทดสอบไม่มีแถวไหนเกิน 9 รูปเลย จึงไม่เจอปัญหานี้ตอนทดสอบ ทั้งที่ production จริงมีโพสต์เก่าที่มีมากกว่า 9 รูปอยู่แล้ว (โพสต์ก่อนแอปบังคับ limit 9 รูป)
+- ผลกระทบ: Founder รัน migration จริงแล้วเจอ `ERROR: 23514: check constraint "drop_images_position_max_9" ... is violated by some row` กลางทาง — migration หยุดค้าง ต้องหยุดแล้วรอ fix ก่อนรันต่อ (ไม่มีข้อมูลเสียหาย เพราะ Postgres reject การเพิ่ม constraint เอง ไม่ได้ลบ/แก้อะไร)
+- วิธีป้องกันในอนาคต: เวลาเพิ่ม CHECK constraint ที่ "จำกัดขอบเขตให้แคบลง" (เช่น ลด limit จาก 10 เป็น 9) บนตารางที่มีข้อมูลจริงอยู่แล้ว ต้องใช้ `check (...) not valid` เสมอ (บังคับกับแถวใหม่/ที่ update เท่านั้น ไม่ตรวจย้อนหลังกับแถวเก่า) ไม่ใช่ `check (...)` เฉยๆ — และเวลาทดสอบ migration กับ local Postgres จำลอง ต้อง seed ข้อมูลที่ตั้งใจ "ละเมิด" กติกาใหม่ไว้ด้วยเสมอ (ไม่ใช่แค่ข้อมูลที่ผ่านกติกาใหม่) ถึงจะจับเคสแบบนี้ได้ตั้งแต่ก่อนรันจริง
+- Regression test ที่เพิ่ม: ไม่มี (เป็นเรื่อง production data migration ไม่ใช่โค้ดแอป — แก้ที่ SQL migration script โดยตรงแล้ว ดู `.wyn/logs/deployments/2026-09-03-wyn-077-105-beta2-real-deploy.md`'s "Post-deploy incident" section)
+
 ### [2026-09-02] Task WYN-081 (QA รอบ 2 → Debug — `ExploreClubsScreen._reload()` ยัง arrow-body `setState` ที่ return Future อยู่ ทั้งที่ commit เดียวกันอ้างว่า "แก้ครบ 5 จุดแล้ว")
 - ข้อผิดพลาด: WYN-081's Coding Output เอง (commit `563049e`) พบและแก้บั๊ก `setState(() => x = asyncCall())` (arrow-body closure ที่ return Future แทน void) ใน 5 จุดทั่วโปรเจกต์ แล้วอ้างว่า "แก้ทั้ง 5 จุดเดิม + 2 จุดใหม่...ทุกจุด" — แต่ `ExploreClubsScreen._reload()` (ไฟล์เดียวกันที่ commit นี้กำลังแก้ไขอยู่พอดี) ยังเหลือ pattern เดียวกันอยู่ ไม่ถูกแก้ เป็น pre-existing method ที่อยู่ติดกับ `_onRefresh()` ตัวใหม่ที่เพิ่งเขียนถูกในงานเดียวกัน
 - ผลกระทบ: กด "เข้าร่วม Club" สำเร็จจริง (`joinClub()` resolve แล้ว) แต่ผู้ใช้เห็น snackbar "เข้าร่วม Club ไม่สำเร็จ ลองใหม่อีกครั้ง" ผิดๆ ทันที เพราะ `_reload()` โยน `FlutterError` ที่ถูก `_join()`'s catch block กลืนแล้วตีความผิดว่า join ทั้งกระบวนการล้มเหลว — misleading error บนฟีเจอร์หลักที่ใช้บ่อย
