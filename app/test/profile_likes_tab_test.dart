@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/drop/data/drop.dart';
+import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/profile/presentation/widgets/profile_likes_tab.dart';
 
@@ -41,6 +42,13 @@ void main() {
   late RecordingProfileRepository canViewFalseRepo;
   late int countingRepoCalls;
   late _CountingCanViewLikesProfileRepository countingRepo;
+  // Beta3 -- built here, not in the test bodies: a fresh
+  // RecordingDropRepository constructs a SupabaseClient, whose GoTrue
+  // auto-refresh Timer.periodic would be attributed to that one test's
+  // FakeAsync zone and trip flutter_test's !timersPending invariant at
+  // teardown (see this group's own comment above).
+  late RecordingDropRepository backFromDetailRepo;
+  late RecordingDropRepository unlikedInDetailRepo;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
@@ -60,6 +68,8 @@ void main() {
     countingRepo = _CountingCanViewLikesProfileRepository(
       onCall: () => countingRepoCalls++,
     );
+    backFromDetailRepo = RecordingDropRepository();
+    unlikedInDetailRepo = RecordingDropRepository();
   });
 
   testWidgets('shows the empty state when the author has liked nothing',
@@ -214,6 +224,97 @@ void main() {
       tester.takeException();
 
       expect(countingRepoCalls, 0);
+    });
+  });
+
+  group('Beta3 -- coming back from Detail', () {
+    testWidgets(
+        'refreshes only the row that was opened, instead of reloading the '
+        'whole tab', (tester) async {
+      // The defect: _openDropDetail ended in _loadInitial(), which
+      // flipped _isLoadingInitial back to true -- the list was replaced
+      // by a spinner, the ListView (and its scroll position) was torn
+      // down, and every page paged in so far was thrown away. Open the
+      // 30th post on a profile, come back, and it was somewhere far
+      // below you again.
+      final repo = backFromDetailRepo
+        ..likedDropsByAuthor = {
+          'someone-else': [_drop(id: 'd1'), _drop(id: 'd2')],
+        };
+
+      await tester.pumpWidget(_wrap(ProfileLikesTab(
+        dropRepository: repo,
+        followRepository: followRepo,
+        profileRepository: profileRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
+        authorId: 'someone-else',
+        emptyText: 'ยังไม่มีอะไรที่ถูกใจ',
+      )));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(repo.fetchLikedByAuthorCalls, 1);
+
+      // The row comes back with one more like on it than it went in
+      // with -- the resync has to actually pick that up.
+      repo.fetchByIdResults['d1'] =
+          _drop(id: 'd1').copyWith(likeCount: 9);
+
+      // The comment metric, not the card body: the body's centre is
+      // the image, whose double-tap-to-like recognizer holds a single
+      // tap for the disambiguation window. Both open Detail.
+      await tester.tap(find.bySemanticsLabel('ดูคอมเมนต์').first);
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(find.byType(DropDetailScreen), findsOneWidget);
+
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      navigator.pop();
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // One targeted refresh of the row that was open...
+      expect(repo.fetchByIdCalls, 1);
+      // ...and no second page-0 reload of the list behind it.
+      expect(repo.fetchLikedByAuthorCalls, 1);
+      // The list itself is still standing -- never replaced by the
+      // initial-load spinner.
+      expect(find.byType(HomeDropCard), findsNWidgets(2));
+      expect(find.text('9'), findsOneWidget);
+    });
+
+    testWidgets('drops a row that was unliked while Detail was open',
+        (tester) async {
+      // This is the Likes tab: a post the viewer unliked no longer
+      // belongs in it, the same way a deleted post doesn't.
+      final repo = unlikedInDetailRepo
+        ..likedDropsByAuthor = {
+          'me': [_drop(id: 'd1'), _drop(id: 'd2')],
+        };
+      repo.fetchByIdResults['d1'] =
+          _drop(id: 'd1').copyWith(likedByMe: false, likeCount: 0);
+
+      await tester.pumpWidget(_wrap(ProfileLikesTab(
+        dropRepository: repo,
+        followRepository: followRepo,
+        profileRepository: profileRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
+        authorId: 'me',
+        emptyText: 'ยังไม่มีอะไรที่ถูกใจ',
+      )));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.bySemanticsLabel('ดูคอมเมนต์').first);
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(HomeDropCard), findsOneWidget);
     });
   });
 }

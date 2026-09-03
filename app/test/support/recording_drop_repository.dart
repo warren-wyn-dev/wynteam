@@ -100,11 +100,17 @@ class RecordingDropRepository extends DropRepository {
   Map<String, List<Drop>> likedDropsByAuthor = {};
   Object? fetchLikedByAuthorError;
 
+  /// Beta3: how many times [fetchLikedByAuthor] was called -- lets a
+  /// test assert that coming back from Detail refreshes one row rather
+  /// than reloading the whole tab from page 0.
+  int fetchLikedByAuthorCalls = 0;
+
   @override
   Future<List<Drop>> fetchLikedByAuthor({
     required String authorId,
     required int page,
   }) async {
+    fetchLikedByAuthorCalls++;
     if (fetchLikedByAuthorError != null) throw fetchLikedByAuthorError!;
     if (page != 0) return [];
     return likedDropsByAuthor[authorId] ?? [];
@@ -124,10 +130,22 @@ class RecordingDropRepository extends DropRepository {
     return repliesByAuthor[authorId] ?? [];
   }
 
-  /// Looks [dropId] up in [feedDrops]; returns null if not present
-  /// (mirrors the real fetchById's "deleted content" null case).
+  /// Beta3: how many times [fetchById] was called, and what to hand
+  /// back instead of the [feedDrops] lookup -- lets a test assert that
+  /// coming back from Detail refreshes exactly the one row it was
+  /// showing (and can see that row change), rather than reloading the
+  /// whole list.
+  int fetchByIdCalls = 0;
+  final Map<String, Drop?> fetchByIdResults = {};
+
+  /// Looks [dropId] up in [fetchByIdResults] first, then [feedDrops];
+  /// returns null if in neither (mirrors the real fetchById's "deleted
+  /// content" null case). A key present in [fetchByIdResults] with a
+  /// null value means "deleted" and wins over any [feedDrops] entry.
   @override
   Future<Drop?> fetchById(String dropId) async {
+    fetchByIdCalls++;
+    if (fetchByIdResults.containsKey(dropId)) return fetchByIdResults[dropId];
     for (final drop in feedDrops) {
       if (drop.id == dropId) return drop;
     }
@@ -168,8 +186,14 @@ class RecordingDropRepository extends DropRepository {
   Map<String, List<String>> dropImagesById = {};
   Object? fetchDropImagesError;
 
+  /// Beta3: how many times [fetchDropImages] was called -- lets a test
+  /// assert that a Drop already carrying its image list (batch-loaded
+  /// with the feed page) costs no request of its own.
+  int fetchDropImagesCalls = 0;
+
   @override
   Future<List<String>> fetchDropImages(String dropId) async {
+    fetchDropImagesCalls++;
     if (fetchDropImagesError != null) throw fetchDropImagesError!;
     return dropImagesById[dropId] ?? [];
   }
