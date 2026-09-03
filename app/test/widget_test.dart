@@ -65,4 +65,46 @@ void main() {
 
     expect(find.text('ทดลองใช้โดยไม่ต้องเข้าสู่ระบบ'), findsNothing);
   });
+
+  // Multi-account switching: AccountSwitcherSheet's "เพิ่มบัญชี" row pushes
+  // this exact screen with isAddingAccount: true (see that screen's own
+  // doc comment) -- these two cases prove what changes on screen.
+  group('isAddingAccount', () {
+    testWidgets('shows "เพิ่มบัญชี" as the title instead of "เข้าสู่ระบบ WYNOS"',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: AuthMethodScreen(
+          authRepository: authRepository,
+          isAddingAccount: true,
+        ),
+      ));
+
+      expect(find.text('เพิ่มบัญชี WYNOS'), findsOneWidget);
+      expect(find.text('เข้าสู่ระบบ WYNOS'), findsNothing);
+    });
+
+    testWidgets('hides the guest-browsing option', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: AuthMethodScreen(
+          authRepository: authRepository,
+          isAddingAccount: true,
+        ),
+      ));
+
+      expect(find.text('เข้าชม WYNOS ได้เลย'), findsNothing);
+      // Google/email sign-in still work exactly as normal -- only guest
+      // browsing is specific to "not adding a second account".
+      expect(find.text('เข้าสู่ระบบด้วย Google'), findsOneWidget);
+      expect(find.text('เข้าสู่ระบบด้วยอีเมล'), findsOneWidget);
+    });
+
+    testWidgets('AuthMethodScreen still shows guest browsing when not adding an account',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: AuthMethodScreen(authRepository: authRepository),
+      ));
+
+      expect(find.text('เข้าชม WYNOS ได้เลย'), findsOneWidget);
+    });
+  });
 }

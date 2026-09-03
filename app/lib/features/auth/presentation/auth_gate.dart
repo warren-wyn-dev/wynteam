@@ -12,6 +12,7 @@ import '../../moderation/data/moderation_status.dart';
 import '../../moderation/presentation/appeal_form_screen.dart';
 import '../../push/data/push_token_repository.dart';
 import '../../push/presentation/push_notification_service.dart';
+import '../../account_switcher/data/account_switcher_repository.dart';
 import '../../root/presentation/root_shell.dart';
 import '../data/auth_repository.dart';
 import '../data/onboarding_state.dart';
@@ -43,6 +44,7 @@ class AuthGate extends StatefulWidget {
     this.appealRepository,
     this.platformDocumentRepository,
     this.rootShellBuilder,
+    this.accountSwitcherRepository,
   });
 
   // All optional -- default to real Supabase-backed instances (see
@@ -79,6 +81,10 @@ class AuthGate extends StatefulWidget {
   // to touch AuthGate's own decision logic at all.
   final Widget Function()? rootShellBuilder;
 
+  // Same shape again -- multi-account switching's capture point (see
+  // _AuthGateState.build's own comment on where this is called).
+  final AccountSwitcherRepository? accountSwitcherRepository;
+
   @override
   State<AuthGate> createState() => _AuthGateState();
 }
@@ -92,6 +98,8 @@ class _AuthGateState extends State<AuthGate> {
       widget.appealRepository ?? AppealRepository(Supabase.instance.client);
   late final Widget Function() _buildRootShell =
       widget.rootShellBuilder ?? () => const RootShell();
+  late final AccountSwitcherRepository _accountSwitcherRepository =
+      widget.accountSwitcherRepository ?? AccountSwitcherRepository();
   late final PlatformDocumentRepository _platformDocumentRepository =
       widget.platformDocumentRepository ??
           PlatformDocumentRepository(Supabase.instance.client);
@@ -340,6 +348,21 @@ class _AuthGateState extends State<AuthGate> {
                     }
                     final onboardingState = onboardingSnapshot.data!;
                     if (onboardingState.completed) {
+                      // Multi-account switching's one explicit capture
+                      // point: exactly once an account is confirmed
+                      // fully onboarded and about to show RootShell, make
+                      // sure it's in the on-device switcher. Fire-and-
+                      // forget/best-effort on purpose (see that method's
+                      // own doc comment) -- a failure here (secure
+                      // storage unavailable, 6th account past the
+                      // switcher's 5-account limit, ...) must never block
+                      // reaching Home, so this is never awaited and never
+                      // gates the return below.
+                      unawaited(_accountSwitcherRepository.captureCurrentAccount(
+                        session: session,
+                        username: onboardingState.username!,
+                        displayName: onboardingState.displayName,
+                      ));
                       return _buildRootShell();
                     }
                     return OnboardingFlow(

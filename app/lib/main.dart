@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/design/wyn_theme.dart';
 import 'core/env.dart';
 import 'core/navigation/app_navigator.dart';
+import 'features/account_switcher/data/account_switcher_repository.dart';
 import 'features/auth/presentation/auth_gate.dart';
 
 Future<void> main() async {
@@ -14,6 +15,15 @@ Future<void> main() async {
     url: Env.supabaseUrl,
     publishableKey: Env.supabasePublishableKey,
   );
+
+  // Multi-account switching: keeps whichever account is currently active
+  // fresh in the on-device switcher every time its access/refresh token
+  // auto-rotates, for the whole lifetime of the app -- see
+  // AccountSwitcherRepository.startSyncingActiveSession's own doc
+  // comment. A no-op until an account is first captured (AuthGate, once
+  // it reaches RootShell), so this is safe to start unconditionally here
+  // even before any user has signed in.
+  AccountSwitcherRepository().startSyncingActiveSession(Supabase.instance.client);
 
   // WYN-016 (Push Notification): throws until the Founder adds real
   // `google-services.json`/`GoogleService-Info.plist` -- caught here so
