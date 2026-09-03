@@ -44,7 +44,7 @@ User Flow: เปิด Home (แท็บ "สำหรับคุณ") → �
 - ห้ามโฆษณาเป็น row แรกสุดของฟีด (ธรรมชาติของการนับ N≥5 ก็ทำให้เป็นแบบนี้อยู่แล้วโดยไม่ต้องมีกติกาพิเศษเพิ่ม)
 - โฆษณาไม่ปรากฏเลยถ้าฟีดยังมีโพสต์จริงไม่ถึง N โพสต์ (หน้าแรกสุด/บัญชีใหม่ที่มีคนโพสต์น้อย) — ไม่ต้อง "ยัด" ให้ครบ
 
-**ข้อเสนอค่า N = 8** (ต้องการคำอนุมัติจาก Founder — ดู Open Questions) เหตุผล:
+**ค่า N = 8** (✅ ยืนยันโดย Founder 2026-09-03 — ดู Open Questions) เหตุผล:
 - Facebook มือถือ: ราว 1 โฆษณาใน organic post ทุก ~5 โพสต์ (อ้างอิงพฤติกรรมที่รู้จักกันทั่วไปของแพลตฟอร์ม ไม่ใช่ตัวเลขทางการจาก Meta)
 - Instagram: เบาบางกว่า Facebook ในฟีดหลัก มักอยู่ราว 1:8-1:12
 - WYNOS เป็นแอปใหม่ที่กำลังสร้างความน่าเชื่อถือกับผู้ใช้กลุ่ม Gen Z (ตาม GTM roadmap ที่ยังอยู่ระยะ Closed Beta — ดู `.wyn/docs/product/wynos-gtm-roadmap.md`) — เริ่มแบบ "อนุรักษ์นิยม" กว่า Facebook (เบาบางกว่า) ปลอดภัยกว่าในการปกป้องความประทับใจแรก แล้วค่อยปรับความถี่ขึ้นทีหลังจากข้อมูลจริง ดีกว่าเริ่มถี่แล้วต้องลดลงหลังโดนฟีดแบ็กลบ
@@ -145,13 +145,13 @@ User Flow: เปิด Home (แท็บ "สำหรับคุณ") → �
 
 ---
 
-## Open Questions — ต้องรอ Founder ตัดสินใจ (อย่าเดาเอง)
+## Open Questions — ตัดสินใจแล้วโดย Founder (2026-09-03)
 
-1. **ค่า N (จำนวนโพสต์จริงต่อโฆษณา 1 ใบ) — แนะนำ N=8** ทางเลือกอื่น: N=5 (ใกล้ Facebook มือถือ, สร้างรายได้เร็วกว่าแต่เสี่ยง fatigue เร็วกว่าสำหรับแอปที่เพิ่งเริ่ม), N=12 (ระมัดระวังที่สุด, กระทบรายได้/ความถี่การมองเห็นโฆษณามากสุด)
-2. **ขยายไปแท็บ "ติดตาม" ด้วยหรือไม่** — แนะนำ: ยังไม่ทำในรอบนี้ (เก็บไว้ดูข้อมูลจาก "สำหรับคุณ" ก่อน)
-3. **ค่า N ควรเป็นค่าคงที่ในแอป (เร็วกว่าในการ ship) หรือเป็น config ฝั่ง server แบบเดียวกับ `feed_ranking_config` ที่มีอยู่แล้ว (ปรับความถี่ได้โดยไม่ต้อง release แอปใหม่)** — แนะนำแบบ server-side config เพื่อความยืดหยุ่นระยะยาว แต่รับทราบว่าเพิ่มงาน schema/RPC เล็กน้อยให้ AI Coding เทียบกับ hardcode — ให้ Founder/AI Coding ชั่งน้ำหนักความเร็วในการ ship V1
-4. **ต้องมีปุ่ม custom "ไม่สนใจโฆษณานี้"/"รายงานโฆษณานี้" ของ WYNOS เองเพิ่มจาก AdChoices ของ SDK หรือไม่** — แนะนำ: ไม่ต้องใน V1 (AdChoices ของ Google ให้ user control ระดับ ad settings อยู่แล้ว, เพิ่มความซับซ้อนเรื่อง suppress ครีเอทีฟเฉพาะที่ยังไม่มี ROI ชัดเจน)
-5. **การนับ "มีโพสต์ใหม่" (`NewPostsPill`/`_newPostCount`) กับโฆษณา** — คำตอบ: **ไม่นับรวม** และนี่ไม่ใช่แค่เรื่องสไตล์ แต่เป็นข้อจำกัดเชิงโครงสร้าง — `_newPostCount` เพิ่มค่าเฉพาะจาก `homeRepository.subscribeToNewPosts()`'s realtime callback บน insert ของตาราง `drops`/`pops` เท่านั้น (ดู `home_feed_screen.dart` บรรทัด 161-170) โฆษณาไม่ใช่แถวในตารางเหล่านั้นเลย ไม่มีทางเข้าไปนับรวมได้โดยไม่เพิ่ม plumbing ใหม่ที่ไม่มีใครขอ — แจ้งเพื่อ confirm ว่า Founder เห็นด้วยกับผลลัพธ์นี้ ไม่ใช่คำถามที่มีทางเลือกจริงจัง
+1. **ค่า N = 8** — ✅ ยืนยันตามคำแนะนำ
+2. **ขยายไปแท็บ "ติดตาม"** — ✅ **ไม่ทำในรอบนี้** เฉพาะแท็บ "สำหรับคุณ" ก่อนตามคำแนะนำ
+3. **N เป็นค่าคงที่ในแอปหรือ server config** — ✅ **Hardcode ในแอป** (เร็วกว่าในการ ship V1, ไม่ต้องเพิ่ม schema/RPC ใหม่) — ถ้าต้องปรับความถี่ในอนาคตต้อง release แอปใหม่ ยอมรับ trade-off นี้แล้ว
+4. **ปุ่ม custom "ไม่สนใจ/รายงานโฆษณา" เพิ่มจาก AdChoices** — ไม่มีข้อคัดค้าน ใช้ค่า default ตามคำแนะนำ: **ไม่ต้องใน V1**
+5. **การนับ "มีโพสต์ใหม่" กับโฆษณา** — ไม่มีข้อคัดค้าน ยืนยัน: **ไม่นับรวม** ตามข้อจำกัดเชิงโครงสร้างที่ระบุไว้
 
 ---
 
@@ -159,17 +159,17 @@ User Flow: เปิด Home (แท็บ "สำหรับคุณ") → �
 
 1. Native Advanced Ads ผ่าน custom `NativeAdView` เนียนกับการ์ด Drop/Post — ✅ หัวข้อ Components (mirror `HomeDropCard` เป๊ะ ยกเว้นจุดที่ระบุเหตุผลไว้)
 2. ป้าย "โฆษณา" บังคับ มองเห็นชัดเจนทุกใบ แก้ไม่ได้ — ✅ หัวข้อ 4
-3. Frequency capping ชัดเจน (N=8 แนะนำ, รอ Founder ยืนยัน) ไม่คลัสเตอร์ — ✅ หัวข้อ 1
+3. Frequency capping ชัดเจน (N=8, ยืนยันโดย Founder) ไม่คลัสเตอร์ — ✅ หัวข้อ 1
 4. ไม่กระทบ `feed_diversity.dart` — เป็น interleaving pass แยก — ✅ หัวข้อ 2 (Audit + Design Rules)
 5. Loading/error = collapse เงียบๆ ไม่มี placeholder พัง — ✅ หัวข้อ 3
 6. Tap behavior + แยกแยะจากโพสต์จริงชัดเจนไม่หลอกลวง — ✅ หัวข้อ 5
 
 ## Handoff
 
-ส่งต่อ AI Coding — **เฉพาะหลังจาก Founder ตอบ Open Questions ข้อ 1-3 แล้ว** (ข้อ 4-5 มีคำแนะนำ default ที่ทำต่อได้เลยถ้าไม่มีข้อคัดค้าน):
+**Open Questions ข้อ 1-5 ตัดสินใจครบแล้วโดย Founder (2026-09-03) — ส่งต่อ AI Coding ได้:**
 
 1. งาน AdMob SDK integration (App ID, `MobileAds.instance.initialize()`, `NativeAd` load/dispose lifecycle, platform-specific `NativeAdView`/`GADNativeAdView` factory) เป็นงาน implementation แยกทั้งหมด ไม่อยู่ในสโคปเอกสารนี้
-2. เพิ่มไฟล์ใหม่ (แนะนำ `app/lib/features/home/data/feed_ad_slots.dart`) pure function กำหนดตำแหน่ง ad-slot จากตัวนับโพสต์จริงสะสม — unit test ได้แบบเดียวกับ `feed_diversity_test.dart` ที่มีอยู่แล้ว (ไม่ต้อง mock AdMob SDK เลยสำหรับ logic ส่วนนี้)
+2. เพิ่มไฟล์ใหม่ (แนะนำ `app/lib/features/home/data/feed_ad_slots.dart`) pure function กำหนดตำแหน่ง ad-slot จากตัวนับโพสต์จริงสะสม — ใช้ **ค่าคงที่ `kFeedAdInterval = 8` hardcode ในแอป** (ไม่ใช่ server config ตามที่ Founder ยืนยัน) — unit test ได้แบบเดียวกับ `feed_diversity_test.dart` ที่มีอยู่แล้ว (ไม่ต้อง mock AdMob SDK เลยสำหรับ logic ส่วนนี้)
 3. แก้ `_buildBodySlivers()`'s `SliverChildBuilderDelegate` เพิ่ม row-kind ที่ 3 (organic/divider/ad) ต่อยอดจาก index-parity math ที่มีอยู่แล้ว — ไม่แตะ `_items`/`_toggleLike`/`_toggleSave`/`_hideItem`/ทุก method ที่ index เข้า `_items[index]` เลย
 4. `HomeFeedSkeleton` ไม่ต้องแก้
 5. Widget ใหม่ (เช่น `HomeNativeAdCard`) ตามหัวข้อ Components ข้างบน — reuse `WynColors`/`WynSpacing`/`WynTypography` เดิมทั้งหมด ไม่สร้าง token ใหม่
