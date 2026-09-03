@@ -79,3 +79,28 @@ Known Issues:
 - `public.can_view_likes` RPC ไม่ได้ระบุชื่อ/ลายเซ็นชัดเจนใน Product/Design spec (spec พูดถึงแค่ RPC `fetch_liked_drops`/`fetch_liked_pops` สำหรับดึงข้อมูล) — เพิ่มเองเพราะจำเป็นทางเทคนิคสำหรับแยก 2 empty state ตาม UI requirement ข้อ 2 ของ spec เอง ("ต้องแยกแยะ 'ว่างเพราะไม่มีสิทธิ์' กับ 'ว่างเพราะยังไม่เคยกด Like เลย'... วิธีแยกสองเคสนี้ให้ AI Coding ตัดสินใจตามความเหมาะสมทางเทคนิค")
 
 Handoff: ส่งต่อ AI QA & Security — (1) ทดสอบว่า `like_count`/`liked_by` ของทุกโพสต์ **ไม่เปลี่ยน** ไม่ว่า `likes_visibility` ของใครจะตั้งเป็นอะไร (จุดพิสูจน์ architecture ถูกต้องตาม spec) (2) ยิง `fetch_liked_drop_ids` RPC ตรงๆ ด้วย user ที่ไม่มีสิทธิ์ → ต้องว่างเปล่า (3) ทดสอบ Edge Case 3 จริง (เพื่อนไลค์โพสต์ "เฉพาะฉัน" ของคนอื่น ต้องไม่โผล่ในแท็บถูกใจ) (4) รับทราบ residual risk ของ raw table query ตามที่ Product spec ระบุไว้ชัดเจนแล้ว ไม่ใช่ปิดสนิท 100%
+
+## QA Report (2026-09-03)
+
+```
+Feature: WYN-099 — Likes Tab Privacy (ทุกคน/เพื่อน/เฉพาะฉัน ควบคุมว่าใครเห็นรายการที่เรากดถูกใจ)
+Environment: Static/adversarial code review ของ commit 40cafac บน claude/wynos-beta2-phase2-handoff-w4mi5m (worktree ยืนยันตรง base แล้ว) — อ่าน `supabase/schema.sql` migration บล็อกของ WYN-099 (บรรทัด ~11045-11159) + โค้ด Flutter (`profile.dart`, `profile_repository.dart`, `drop_repository.dart`'s `fetchLikedByAuthor`, `settings_screen.dart`, `profile_likes_tab.dart`, `view_profile_screen.dart`) + รัน `flutter analyze`/`flutter test` เต็ม suite อิสระ ไม่โหลด schema.sql เต็มไฟล์เข้า Postgres จริงตาม DECISIONS.md
+Test Cases:
+  1. ยืนยัน `profiles.likes_visibility` มี CHECK constraint 3 ค่า ('everyone'/'friends'/'only_me') default 'everyone' — backward compatible ไม่กระทบ user เดิม
+  2. ยืนยัน `internal.can_view_likes(viewer, target)`: เจ้าของเห็นตัวเองเสมอ, everyone เห็นทุกคน, friends ต้อง `is_mutual_follow` จริง, only_me ไม่มี branch จับ (fallthrough false)
+  3. ยืนยัน **สถาปัตยกรรมสำคัญที่สุดของงานนี้**: `drop_likes`/`pop_likes`' RLS policy ("...are viewable by authenticated users") ยังเป็น `using (true)` เหมือนเดิมทุกตัวอักษร — grep ยืนยันตรง ไม่ถูกแก้เลย ตามที่ Product spec ตั้งใจ (ป้องกัน like_count/liked_by ของทุกโพสต์ทั่วแอปพังจากการเปลี่ยน RLS ของตารางที่ใช้ร่วมกัน)
+  4. ยืนยัน `fetch_liked_drop_ids`/`fetch_liked_pop_ids` (SECURITY DEFINER, PostgREST-exposed ผ่าน public wrapper) เช็ค `can_view_likes` ก่อนคืนผลทุกครั้ง — user ไม่มีสิทธิ์ยิง RPC ตรงจะได้ list ว่างเปล่า
+  5. ยืนยัน Edge Case 3 (เพื่อนไลค์โพสต์ "เฉพาะฉัน"/"เพื่อน" ของคนอื่น ต้องไม่รั่วผ่านแท็บถูกใจ): `fetch_liked_drop_ids` join `drops` แล้วเช็ค `can_view_drop_audience` ซ้อนอีกชั้น (เชื่อมกับ WYN-097 โดยตรงตามที่ spec ต้องการ) — `fetch_liked_pop_ids` ไม่มีเช็คนี้ เพราะ Pop ไม่มีแนวคิด audience (ตามคอมเมนต์ในโค้ด ถูกต้องตาม scope WYN-097 ที่ไม่รวม Pop)
+  6. ยืนยัน residual risk ที่ Coding Output ประกาศไว้ตรงๆ ("drop_likes/pop_likes table เองยังเปิด SELECT ให้ authenticated ทุกคน") **เป็นความจริงที่ตรวจสอบได้จาก SQL จริง ไม่ใช่การพูดเกินจริงหรือปิดบัง** — สอดคล้องกับ Product spec's Architecture Decision ที่บันทึกเหตุผลไว้ชัดเจนทั้งใน Product spec และ comment ในตัว schema.sql เอง (บรรทัด 11060-11068) ถือเป็น **accepted scope ตาม Product spec จริง ไม่ใช่จุดที่ QA ควร FAIL** — แต่ต้องแจ้ง Founder รับทราบก่อน deploy ตามที่ Coding Output ขอ
+  7. ยืนยัน Frontend: `ProfileLikesTab` เรียก `canViewLikes` เฉพาะตอน list ว่างเปล่าเท่านั้น (ไม่เสีย extra query ตอน list ไม่ว่าง) แยก 2 empty state ถูกต้อง ("ยังไม่เคยกด Like" vs "บัญชีนี้ซ่อนรายการที่ถูกใจไว้")
+  8. รัน `flutter analyze`: สะอาด, `flutter test` เต็ม suite: 1011/1011 ผ่าน (รวมกับ WYN-097 commit เดียวกัน)
+Passed: ข้อ 1-8
+Failed: ไม่มี
+Severity: N/A (PASS)
+Reproduction Steps: N/A
+Expected: N/A
+Actual: N/A
+Security Findings: Residual risk 1 จุดที่ **รับทราบและยอมรับแล้วตาม Product spec** (ไม่ใช่ FAIL): การยิง query ตรงเข้า `drop_likes`/`pop_likes` table (bypass RPC) ยังเห็น raw like rows ได้ไม่ว่า `likes_visibility` จะตั้งเป็นอะไร — เป็นข้อจำกัดทางสถาปัตยกรรมที่ตั้งใจ (ปิดสนิทต้องรีไรท์ RLS ทั้งแอปซึ่งใหญ่กว่าสโคปนี้มาก) ไม่ใช่บั๊กที่พลาดไป ต้องแจ้ง Founder รับทราบก่อน deploy จริงตามที่ Product/Coding ระบุไว้แล้ว — ไม่มีช่องโหว่อื่นที่ตรวจพบเพิ่มเติมจาก static review
+Recommendation: อนุมัติเข้า approved — AI Deploy & DevOps ต้อง apply migration กับ production schema จริงก่อน (ร่วมกับ WYN-097 migration เดียวกัน) แล้วทดสอบ RPC จริงกับ Supabase project จริง (ยิง `fetch_liked_drop_ids` ด้วย user ไม่มีสิทธิ์ต้องว่างเปล่าจริง) — แจ้ง Founder รับทราบ residual risk ของ raw table query ก่อนประกาศ feature ว่า "ปิดสนิท 100%"
+Final Status: PASS
+```

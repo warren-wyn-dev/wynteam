@@ -69,3 +69,29 @@ Known Issues:
 - ทั้งสอง Acceptance Criteria ผ่านตามที่ตรวจสอบได้ในทางเทคนิค (unit test พิสูจน์ position math ถูกต้องจริงด้วย pixel sampling) แต่ยังไม่ผ่านการทดสอบบนอุปกรณ์จริง
 
 Handoff: ส่งต่อ AI QA & Security — (1) ทดสอบ pinch-to-zoom/drag บนอุปกรณ์สัมผัสจริง (iOS/Android/Web) ลื่นไหลจริงตาม Acceptance Criterion 1 (2) ยืนยันรูปที่ crop จริงตรงกับตำแหน่ง/ซูมที่ปรับ (Acceptance Criterion 2) บนอุปกรณ์จริง ไม่ใช่แค่ unit test (3) ทดสอบ EXIF orientation ด้วยรูปจากกล้อง iOS จริง (Risk R2) (4) ยืนยัน "ยกเลิก" ไม่กระทบ avatar เดิมเลย
+
+## QA Report (2026-09-03)
+
+```
+Feature: WYN-104 — Profile Photo Crop screen (pinch-to-zoom + drag, วงกลม preview)
+Environment: Static/adversarial code review ของ commit 40cafac บน claude/wynos-beta2-phase2-handoff-w4mi5m (worktree ยืนยันตรง base แล้ว) — อ่าน `profile_photo_crop.dart`/`profile_photo_crop_screen.dart`/`edit_profile_screen.dart` เต็มไฟล์ + รัน `flutter analyze`/`flutter test` อิสระ ไม่มี simulator/emulator/อุปกรณ์สัมผัสจริงใน sandbox นี้เช่นกัน (ตรงตามที่ Coding Output ระบุไว้แล้ว) — ยืนยันว่าใช้ pattern `@visibleForTesting` seam + invalid-bytes + `tester.takeException()` ตามที่ `.wyn/company/DECISIONS.md` (2026-09-02, "พบข้อจำกัดใหม่ของ sandbox") บันทึกไว้ว่าเป็น workaround ที่ถูกต้อง ไม่ใช่ shortcut ที่ต้อง flag
+Test Cases:
+  1. ยืนยัน `profile_photo_crop.dart` เป็น pure math ล้วน (ไม่มี widget tree/`ui.instantiateImageCodec` ใน hot path ของการคำนวณตำแหน่ง) แยกออกจาก image decode/render ตามที่ตั้งใจ — `baseCropScaleFactor`/`cropDisplaySize`/`centeredCropOffset`/`clampCropOffset`/`computeCropSourceRect` ตรวจ math ด้วยมือ: ถูกต้องตามคณิตศาสตร์ (scale factor จาก shorter side, offset คำนวณจาก (viewportSize - displaySize)/2, clamp ป้องกันเห็นขอบว่างเมื่อ scale >= 1.0 เสมอเพราะ minDx/minDy <= 0 เสมอ)
+  2. ยืนยัน `cropToCircleSquare()` มี defensive clamp กัน floating-point rounding ที่ขอบ (`maxLeft`/`maxTop`) ก่อนตัดจริงด้วย `Canvas.drawImageRect` — ป้องกัน crash จาก source rect เกินขอบภาพจริง
+  3. ยืนยัน output เป็น PNG สี่เหลี่ยมจัตุรัสจริง (ไม่ใช่วงกลมโปร่งใส) ตรงตาม Product spec's เหตุผลป้องกันปัญหาพื้นหลังโปร่งใส — วงกลมยังเป็นแค่ visual clip เหมือนเดิม ไม่เปลี่ยนพฤติกรรมเดิมของระบบที่ใช้รูปนี้ที่อื่น
+  4. รัน `flutter test test/profile_photo_crop_test.dart` อิสระ: **13/13 ผ่าน** รวมเทส end-to-end กับ pixel จริงที่ decode แล้ว (quadrant-color PNG พิสูจน์ตำแหน่ง crop ถูกต้องจริงทั้ง 3 กรณี: centered 1.0x, pan ไปมุมซ้ายบน, pan ไปมุมขวาล่าง) — พิสูจน์ Acceptance Criterion 2 ("รูปที่บันทึกตรงกับตำแหน่ง/ซูมที่ปรับไว้จริง") ด้วยข้อมูลจริงระดับ pixel ไม่ใช่แค่ทฤษฎี
+  5. รัน `flutter test test/profile_photo_crop_screen_test.dart` อิสระ: **6/6 ผ่าน** รวม AppBar/zoom bar, ยกเลิก pop null, +/- ปุ่ม clamp, slider, crop failure error state (ไม่ crash), load failure error state (ไม่ crash/ไม่ spinner ค้าง) — ใช้ seam `debugInitialDimensions` + invalid bytes + `tester.takeException()` ตามที่คาดหวังจาก DECISIONS.md จริง
+  6. ยืนยัน `edit_profile_screen.dart`'s `_pickImage()`: push `ProfilePhotoCropScreen` ก่อนเสมอหลังเลือกรูป, `if (cropped == null || !mounted) return;` gate การ `setState` ไว้ถูกต้อง — ยกเลิกหน้า crop (pop null) ทำให้ `_pickedImageBytes`/avatar เดิมไม่ถูกแตะเลยจริง (อ่านโค้ดยืนยันตรง ไม่มี side-effect ก่อน guard)
+  7. ยืนยัน `_pickedImageExtension = 'png'` ถูกตั้งค่าคู่กับ cropped bytes เสมอ ตรงกับที่ `cropToCircleSquare` เข้ารหัส PNG เสมอ (ไม่มี mismatch ระหว่างนามสกุลไฟล์ที่ประกาศกับ format จริงที่อัปโหลด)
+  8. ตรวจ `app/pubspec.yaml`: ยืนยันไม่มี dependency ใหม่ถูกเพิ่ม (ตัดสินใจไม่ติดตั้ง `crop_your_image` ตามที่ Coding Output ระบุ ใช้ `GestureDetector`/`dart:ui` ล้วน) — ลด attack surface/platform-support risk ตรงตาม Risk R1 ของ Product spec ที่กังวลเรื่อง package ข้าม platform
+  9. รัน `flutter analyze`: สะอาด, `flutter test` เต็ม suite: 1011/1011 ผ่าน
+Passed: ข้อ 1-9
+Failed: ไม่มี
+Severity: N/A (PASS)
+Reproduction Steps: N/A
+Expected: N/A
+Actual: N/A
+Security Findings: ไม่มี (ฟีเจอร์ client-side ล้วน ไม่แตะ schema/RLS/authentication/API key ใดๆ)
+Recommendation: อนุมัติเข้า approved — Known Issues ที่ Coding Output เปิดค้างไว้ (pinch-to-zoom gesture จริงบนอุปกรณ์สัมผัส, EXIF orientation จากกล้อง iOS จริง) เป็นข้อจำกัดของ sandbox ที่บันทึกไว้แล้วใน DECISIONS.md ไม่ใช่จุดที่ QA ควร FAIL เพราะ math/position ถูกพิสูจน์ถูกต้องแล้วด้วย pixel sampling จริง — แนะนำให้ Founder/AI Deploy ทดสอบ pinch-to-zoom + รูปจากกล้อง iOS จริงบนอุปกรณ์จริง 1 รอบก่อนประกาศ feature พร้อมใช้งานเต็มรูปแบบ (ไม่ใช่ pre-deploy blocker ระดับ backend เพราะไม่มี schema/migration ในงานนี้เลย)
+Final Status: PASS
+```

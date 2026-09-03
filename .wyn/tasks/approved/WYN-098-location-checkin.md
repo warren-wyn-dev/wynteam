@@ -87,3 +87,30 @@ Known Issues:
 - Android `minSdkVersion` ใช้ค่า default ของ Flutter (`flutter.minSdkVersion`) ไม่ได้ระบุขั้นต่ำเองแยก — ควรเพียงพอสำหรับ `geolocator_android` แต่ยังไม่ได้ build APK จริงเพื่อยืนยัน
 
 Handoff: ส่งต่อ AI QA & Security — (1) ทดสอบ end-to-end จริงทันทีที่ Founder/DevOps ให้ `LOCATIONIQ_API_KEY` มา (ค้นหา, reverse geocoding, rate-limit จริงที่เกิน 20 req/นาที) (2) ยืนยัน API key ไม่หลุดออกมาที่ client build ใดๆ (ตรวจ build artifact ตรงตาม Acceptance Criterion) (3) ทดสอบสิทธิ์ GPS จริงบนอุปกรณ์ (ปฏิเสธสิทธิ์ต้องไม่ทำให้แอป crash) (4) ยืนยัน migration/Edge Function deploy กับ production ตามวินัย WYN-071/072/083 (5) Regression เต็มรูปแบบตามที่ backlog เดิมระบุ
+
+## QA Report (2026-09-03)
+
+```
+Feature: WYN-098 — Location Check-in (LocationIQ search + reverse geocoding)
+Environment: Static/adversarial code review ของ commit 40cafac บน claude/wynos-beta2-phase2-handoff-w4mi5m (worktree ยืนยันตรง base แล้ว) — อ่าน `supabase/schema.sql` migration (บรรทัด ~11405-11545), `supabase/functions/location-search/{index.ts,_lib.ts}` เต็มไฟล์, `app/lib/features/drop/data/location_repository.dart`/`location_result.dart`, `app/lib/features/drop/presentation/location_picker_screen.dart` + รัน `flutter analyze`/`flutter test`/`deno test`/`deno check` อิสระทั้งหมด **ยืนยันแล้วว่า `LOCATIONIQ_API_KEY` ไม่ได้ตั้งค่าไว้ในsandbox นี้จริง (ตามที่ Coding Output ระบุ) — ทดสอบ end-to-end กับ LocationIQ จริงทำไม่ได้ในรอบนี้เช่นกัน** เน้นตรวจโครงสร้างโค้ด/error handling/graceful degradation แทน
+Test Cases:
+  1. ยืนยัน API key (`LOCATIONIQ_API_KEY`) ไม่ปรากฏในโค้ดฝั่ง client เลย (grep `app/lib` ทั้งหมด) — อยู่เฉพาะ `Deno.env.get()` ฝั่ง Edge Function เท่านั้น ไม่เคยถูกส่งกลับใน response body ใดๆ (`index.ts` คืนแค่ `{results: [...]}`หรือ `{error: "..."}`)
+  2. ยืนยัน `index.ts` เช็ค `Authorization` header ก่อนเสมอ (401 ถ้าไม่มี), เช็ค rate limit (`countRecentRequests`) **ก่อน**เรียก LocationIQ เสมอ (429 ถ้าเกิน, ไม่แตะ quota จริง), เช็ค method POST เท่านั้น
+  3. ยืนยัน graceful degradation เมื่อไม่มี API key: คืน 503 "LocationIQ not configured" ทันที ไม่ throw/crash — ฝั่ง client (`LocationRepository._invoke`) catch `FunctionException` แปลงเป็น `LocationSearchFailedException`/`LocationSearchRateLimitedException` ที่ typed ชัดเจน ไม่ปล่อย exception ดิบขึ้นไปหา UI
+  4. ยืนยัน `fetchLocationIq()` มี timeout 7 วินาที (`AbortController`) ตรงตาม Product spec's "5-8 วินาที" — timeout/network error ถูก catch ที่ระดับบนสุดของ `Deno.serve` คืน 502 "Location search failed" เสมอ ไม่ทำให้ Edge Function ค้าง
+  5. ยืนยัน `_lib.ts`'s pure functions (`parseSearchResults`/`parseReverseGeocodeResult`/`buildSearchUrl`/`buildReverseUrl`/`isRateLimited`/`userIdFromAuthHeader`) ครอบ edge case ที่สำคัญ: response ไม่ใช่ array, lat/lon ไม่ใช่ตัวเลข, display_name segment เดียว (ไม่มี comma), place_id ขาดหาย (fallback เป็น osm_type:osm_id), JWT header ผิดรูปแบบ — รัน `deno test` อิสระ: **13/13 ผ่าน**, `deno check`: สะอาด
+  6. ยืนยัน `location_search_requests` table RLS enabled แต่**ไม่มี policy ให้ client เลย** (service-role only ผ่าน Edge Function) — ป้องกัน client เขียน/อ่านตรงเพื่อปลอมแปลง rate limit ของตัวเอง
+  7. ยืนยัน constraint คู่ (`drops_location_lat_lon_together`, `drops_location_place_id_needs_name`) ถูกต้องตาม logic ที่ตั้งใจ (lat/lon ต้อง null คู่กันเท่านั้น, place_id ต้องมี location name คู่กันเสมอ) — ใช้ `drop constraint if exists` ก่อน `add constraint` ทำให้ migration รันซ้ำได้ปลอดภัย (ไม่มี `add constraint if not exists` ใน PostgreSQL จริง ตรงตามคอมเมนต์)
+  8. ยืนยันไม่มี RLS change ที่ `drops` เอง สำหรับ location fields — สืบทอด audience/visibility เดิมของ WYN-097 อัตโนมัติ (ไม่มี privacy gap ใหม่)
+  9. ยืนยัน `LocationPickerScreen` มี error state ที่แยกชัดเจน (rate-limited vs generic failure vs permission denied) ผ่านการรัน `flutter test test/location_picker_screen_test.dart` อิสระ: 12/12 ผ่าน รวมเทส "a denied location permission shows the specific permission-denied copy, without crashing" — ยืนยันว่าปฏิเสธสิทธิ์ GPS ไม่ทำให้แอป crash ตามที่ Handoff ข้อ (3) ขอ (ผ่าน `@visibleForTesting debugResolveCurrentPosition` seam ไม่ใช่ gesture/permission จริงบนอุปกรณ์ — ยังต้องทดสอบจริงบนอุปกรณ์ตามที่ Known Issues ระบุไว้แล้ว)
+  10. รัน `flutter analyze`: สะอาด, `flutter test` เต็ม suite: 1011/1011 ผ่าน
+Passed: ข้อ 1-10
+Failed: ไม่มี
+Severity: N/A (PASS)
+Reproduction Steps: N/A
+Expected: N/A
+Actual: N/A
+Security Findings: ไม่พบช่องโหว่ — API key อยู่ฝั่ง server เท่านั้นจริง, rate-limit บังคับที่ server ก่อนเรียก LocationIQ เสมอ (ไม่ใช่แค่ debounce ฝั่ง client), JWT auth ถูกต้อง (พึ่ง platform-level verify_jwt ของ Supabase ก่อนโค้ดรัน ไม่ re-verify เองซึ่งถูกต้องตามสถาปัตยกรรม Edge Function ของ Supabase) — **ยังไม่ได้ทดสอบ end-to-end กับ LocationIQ จริง** (ไม่มี API key ใน sandbox นี้) ตามที่ Coding Output ระบุไว้เอง เป็นข้อจำกัดที่ยอมรับได้ ไม่ใช่จุดที่ QA ควร FAIL เพราะโค้ดถูกออกแบบให้ fail gracefully ระหว่างรอ (verify ได้แล้วว่า "โพสต์ยังโพสต์ได้ตามปกติโดยไม่มีสถานที่แนบ" เมื่อค้นหาล้มเหลว)
+Recommendation: อนุมัติเข้า approved — แต่ยังมี pre-deploy blocker ที่ AI Deploy & DevOps/Founder ต้องทำ: (1) Founder/DevOps ต้องสมัคร LocationIQ และตั้งค่า `LOCATIONIQ_API_KEY` secret จริงก่อน feature ใช้งานได้จริง (2) หลังมี key แล้วต้องทดสอบ end-to-end จริงอีกรอบ (ค้นหา, reverse geocoding, rate-limit ที่ >20 req/นาทีจริง) ก่อนประกาศพร้อมใช้งาน (3) apply migration + deploy Edge Function กับ production ตามวินัย WYN-071/072/083 (4) ทดสอบสิทธิ์ GPS จริงบนอุปกรณ์จริง (ไม่ใช่ seam) ก่อน sign off ขั้นสุดท้าย
+Final Status: PASS
+```

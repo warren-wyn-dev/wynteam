@@ -1,6 +1,6 @@
 # Bug Report — WYN-102
 
-Status: qa (fixed by AI Debug Engineer, 2026-09-02 — awaiting QA re-check)
+Status: closed — fixed by AI Debug Engineer (2026-09-02), re-verified PASS by AI QA & Security round 2 (2026-09-03, see `.wyn/tasks/approved/WYN-102-hide-pop.md`'s "QA Report — Round 2" section)
 Owner: AI Debug Engineer
 
 Bug: `PushNotificationService._openFromPushData()` (`app/lib/features/push/presentation/push_notification_service.dart`) still opens Pop content in full when a user taps a native OS push notification of type `like_pop`/`comment_pop`. WYN-102's job was to remove every user-facing access point to Pop; it fixed the in-app equivalent (`NotificationListScreen._openNotification`'s `_openPop()`, now a no-op SnackBar) but never touched this separate, parallel code path that the same file's own doc comment says "mirrors `NotificationListScreen._openNotification`'s switch exactly." `git diff` across the whole WYN-102 change confirms `push_notification_service.dart` was not modified at all — it is not in the list of 51 changed files for the WYN-089/090/093/094/095/101/102/103 batch.

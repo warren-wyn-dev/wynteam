@@ -1,6 +1,6 @@
 # Feature Request — WYN-102
 
-Status: fixed by AI Debug Engineer (2026-09-02) — awaiting QA round 2, see `.wyn/tasks/qa/WYN-102-push-notification-pop-access-leak.md`
+Status: QA round 2 — PASS (2026-09-03), moved to approved. See `.wyn/tasks/qa/WYN-102-push-notification-pop-access-leak.md` for the round-1 FAIL + Debug Engineer resolution this round re-verifies.
 Phase: Phase 3 — New feature
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 11/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -116,3 +116,34 @@ Final Status: FAIL
 ## Debug Engineer Resolution (2026-09-02)
 
 Fixed `push_notification_service.dart`'s `_openPop()` to mirror `notification_list_screen.dart`'s already-approved SnackBar-instead-of-navigate pattern exactly, per QA's recommendation above. Added a companion `appScaffoldMessengerKey` (alongside the existing `appNavigatorKey`) so the service can show the SnackBar without a widget `BuildContext`. Added a `WYN-102` regression test group to `push_notification_service_test.dart` (`like_pop`/`comment_pop`), proven red→green. Full `flutter test` 892/892, `flutter analyze` clean. Full details at `.wyn/tasks/qa/WYN-102-push-notification-pop-access-leak.md`. Did not re-run the broader exhaustive Pop-access-point grep across all of `app/lib` — that remains QA's item to independently re-confirm. Ready for AI QA & Security round 2.
+
+## QA Report — Round 2 (2026-09-03)
+
+```
+Feature: WYN-102 — Hide Pop from every user-facing access point (round 2: re-verify push-notification fix + exhaustive final sweep)
+Environment: Static/adversarial code review ของ commit 40cafac บน claude/wynos-beta2-phase2-handoff-w4mi5m (worktree ยืนยันตรง base แล้ว) — อ่าน `push_notification_service.dart`/`notification_list_screen.dart`/`app_navigator.dart`/`main.dart` เต็มไฟล์ + รัน `flutter test test/push_notification_service_test.dart test/notification_list_screen_test.dart` อิสระ + grep ทั้ง `app/lib` หา `PopRepository`/`PopSingleClipScreen`/`CreatePopScreen`/`ProfilePopGridTab`/`SearchPopResultsTab`/`HomePopCard`/content_type 'pop' อิสระ (item ที่ 3 ตามที่ QA รอบ 1 + Debug Engineer ขอให้ทำก่อนปิดงาน) + รัน `flutter analyze`/`flutter test` เต็ม suite
+Test Cases:
+  1. ยืนยัน `push_notification_service.dart`'s `_openPop()` มิเรอร์ `notification_list_screen.dart`'s `_openPop()` เป๊ะจริง: ข้อความ SnackBar เดียวกันตรงตัวอักษร ('เนื้อหานี้ไม่พร้อมใช้งานแล้ว') ไม่มีการ fetch/navigate ใดๆ เหลืออยู่ (เทียบโค้ด 2 ไฟล์)
+  2. ยืนยัน `appScaffoldMessengerKey` ถูกประกาศใน `app_navigator.dart` และ wire เข้า `MaterialApp.scaffoldMessengerKey` ใน `main.dart` จริง (ไม่ใช่แค่ประกาศไว้เฉยๆ)
+  3. ยืนยัน `debugOpenFromPushData()` เป็น `@visibleForTesting` entry point ที่ถูกต้อง มีแค่ passthrough ไปยัง `_openFromPushData` ไม่มี logic เพิ่มที่ต่างจาก production path
+  4. รัน `flutter test test/push_notification_service_test.dart test/notification_list_screen_test.dart` อิสระ: **40/40 ผ่านหมด** (รวม 2 เทสใหม่ของ WYN-102: `like_pop`/`comment_pop` push ยืนยัน SnackBar ปรากฏ + `find.byType(PopSingleClipScreen)` = `findsNothing`) — NetworkImageLoadException ที่เห็นใน log เป็น test-environment noise ปกติ (ไม่มี network จริงใน sandbox) ไม่ใช่ test failure
+  5. **Exhaustive sweep (item 3 ที่ทั้ง QA รอบ 1 และ Debug Engineer ขอให้ทำก่อนปิดงาน)**: grep `PopRepository`/`PopSingleClipScreen`/`CreatePopScreen`/`ProfilePopGridTab`/`SearchPopResultsTab` ทั้ง `app/lib` พบ 50 ไฟล์ที่มีคำว่า "pop" ปรากฏ — ไล่ตรวจทีละจุดที่มีการ instantiate/navigate จริง (ไม่ใช่แค่ `Navigator.pop()`/`required this.popRepository` เฉยๆ):
+     - `home_feed_screen.dart:_openPop()` เรียกจาก `HomePopCard` branch เท่านั้น (บรรทัด 1030) ซึ่งเรนเดอร์ก็ต่อเมื่อ `item.contentType != drop` — ตรวจ `home_repository.dart` ยืนยันทุก fetch method (`fetchFeed`/`fetchTrending`/`fetchTopContent`/`fetchRankedFeed`/`fetchFollowingFeed`/`fetchRedropsByUser`) กรอง `content_type != 'pop'` ครบแล้ว → เป็น dead code ที่ unreachable จริงในทางปฏิบัติ ("hide, don't delete" ตรงตามหลักการ)
+     - `bookmarks_screen.dart`/`profile_saved_tab.dart` navigate ไป `PopSingleClipScreen` เช่นกัน แต่ทั้งคู่ดึงข้อมูลจาก `SavedRepository.fetchFeed()` ซึ่งกรอง `_hiddenContentType` แล้ว (ยืนยันจาก grep `_hiddenContentType` ใน `saved_repository.dart`) → unreachable เช่นกัน
+     - `profile_pop_grid_tab.dart`/`search_pop_results_tab.dart` (ทั้งคู่มี `PopSingleClipScreen(...)` navigation ในตัวเอง) — grep การ instantiate (`ProfilePopGridTab(`/`SearchPopResultsTab(`) ทั้ง `app/lib`: **ไม่พบการ mount ที่ไหนเลยนอกจากไฟล์ตัวเอง** → orphaned ตาม "hide, don't delete" (ProfilePopGridTab ถูก unmount มาตั้งแต่ก่อน WYN-102 แล้ว, SearchPopResultsTab ถูก unmount โดย WYN-102 เอง — grep `search_screen.dart` ยืนยัน TabBar เหลือ 3 แท็บจริง ไม่มี Pop)
+     - `moderation_queue_screen.dart`/`moderation_report_detail_screen.dart` ยังใช้ `PopRepository` ได้ (เครื่องมือแอดมิน) — ตรวจ `settings_screen.dart` ยืนยัน gate ด้วย `if (widget.platformRole != PlatformRole.user)` จริง ไม่ปรากฏกับ user ทั่วไป ตรงตามที่ Coding Output ระบุว่าเป็น "นอกสโคป"
+     - `discovery_repository.dart`/`top_100_screen.dart`/`hashtag_feed_screen.dart`: ตรวจแล้วไม่มี query ตรงถึง Pop เลย (top_100 ใช้แค่ `fetchTrendingHashtags`, hashtag feed ใช้แค่ `dropRepository.searchByCaption` เป็น Drop-only)
+     - `create_pop_screen.dart` (`CreatePopScreen`): grep การ instantiate ทั้ง `app/lib` พบแค่จุดเดียวคือ `pop_feed_screen.dart` เอง (ซึ่งเองก็ไม่ถูก mount จากที่ไหนแล้ว ตรวจสอบไม่พบ `PopFeedScreen(` instantiate ภายนอกไฟล์ตัวเอง) → ไม่มีทางเข้าถึงจาก UI ปกติจริง
+  6. **ไม่พบ Pop access point ที่ 4** — การ sweep รอบนี้ครอบคลุมกว่ารอบก่อนหน้า (ทั้ง data-source filtering และ navigation instantiation) ไม่พบช่องโหว่เพิ่มเติม
+  7. ยืนยันด้วย `git diff` ว่าไม่มีไฟล์ใดใน `app/lib/features/pop/**` ถูกแตะเลยตลอดทั้ง batch (73f619b..40cafac) — โค้ด/schema/table ของ Pop เองยังอยู่ครบตามหลักการ "ซ่อน ไม่ลบ"
+  8. รัน `flutter analyze`: สะอาด, `flutter test` เต็ม suite: 1011/1011 ผ่าน
+Passed: ข้อ 1-8
+Failed: ไม่มี
+Severity: N/A (PASS)
+Reproduction Steps: N/A
+Expected: N/A
+Actual: N/A
+Security Findings: ไม่พบ Pop access point ที่เหลืออยู่ — เป็น content-visibility gap เดิม (ไม่ใช่ auth/authorization bypass) ที่ปิดครบแล้วทั้ง 3 จุดที่เคยพบ (Search tab, Home feed/Trending/Top100/Saved/Following/ReDrop query filter, notification-list tap, push-notification tap) หมายเหตุเล็กน้อยที่ไม่นับเป็นช่องโหว่: `home_feed_screen.dart`'s `subscribeToNewPosts()` (พรี-อยู่ก่อน WYN-102) ยัง subscribe insert event ของทั้ง `drops`/`pops` ทำให้ตัวนับ "new posts pill" อาจนับ Pop ใหม่รวมด้วย — เป็นแค่ตัวเลข ไม่เปิดเผยเนื้อหา Pop เมื่อกด (แค่ reload feed ที่กรองแล้ว) ไม่กระทบ Acceptance Criteria ของ WYN-102 ("หาทางเข้าถึงฟีเจอร์ Pop จากหน้า UI ไม่เจอแล้วทุกจุด" หมายถึงเข้าถึง*เนื้อหา* ไม่ใช่ตัวเลขนับโพสต์)
+Recommendation: อนุมัติเข้า approved — ปิดงาน WYN-102 ทั้ง 3 รอบของช่องโหว่ที่พบ (Product spec รอบแรกพบ 2 จุด, QA รอบ 1 พบจุดที่ 3, QA รอบ 2 นี้ไม่พบจุดที่ 4) ไม่มี pre-deploy blocker เพิ่มเติมสำหรับงานนี้โดยเฉพาะ (ไม่มี schema/migration ใหม่ — เป็น query-layer filter ล้วน) แนะนำบันทึกไว้ใน `.wyn/learning/LESSONS_LEARNED.md` ว่า "notification-tap และ push-notification-tap เป็น 2 code path คู่ขนานที่ต้องแก้พร้อมกันเสมอเมื่อแก้ navigation-gating ใดๆ" เพื่อป้องกันการพลาดจุดคู่ขนานแบบนี้ซ้ำในงานอื่นในอนาคต
+Final Status: PASS
+```

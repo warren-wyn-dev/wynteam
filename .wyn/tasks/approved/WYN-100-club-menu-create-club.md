@@ -71,3 +71,28 @@ Known Issues:
 - ไม่ได้เพิ่ม regression test แยกสำหรับ "Club ของฉัน"/"บันทึกไว้"/"โปรไฟล์" ใน Drawer เดิมยังทำงานปกติ — ของเดิมมีเทสอยู่แล้วครบใน `side_menu_test.dart` (ไม่ได้แตะ/ลบเทสเดิมเลย ยังผ่านหมดตามที่รายงานด้านบน) จึงไม่ต้องเขียนซ้ำ
 
 Handoff: ส่งต่อ AI QA & Security — (1) ยืนยัน wordmark กึ่งกลางจริงที่ทุกความกว้างจอบนอุปกรณ์จริง/เบราว์เซอร์ (2) ยืนยัน edge-swipe ของ Home ไม่ชนกับ Drawer ใหม่ (3) ยืนยัน "สร้าง Club" จาก Home ไปจบที่ `CreateClubScreen` ได้จริงและ flow สร้าง Club เดิม (WYN-014) ยังทำงานถูกต้องทุกจุด (4) ยืนยัน Drawer เปิดได้จากทั้ง Home และ Notification โดยไม่มี regression กับจุดเดิม
+
+## QA Report (2026-09-03)
+
+```
+Feature: WYN-100 — Hamburger icon บน Home + "สร้าง Club" shortcut ใน SideMenu drawer (reuse WYN-014 flow เดิม)
+Environment: Static/adversarial code review ของ commit 40cafac บน claude/wynos-beta2-phase2-handoff-w4mi5m (worktree ยืนยันตรง base แล้ว) — อ่าน `home_feed_screen.dart`, `side_menu.dart` เต็มไฟล์ + รัน `flutter analyze`/`flutter test` อิสระทั้งหมด (ไม่มี Android SDK/Xcode/simulator ใน sandbox นี้เช่นกัน — ตรวจ layout math จากโค้ดจริงแทนการรันบนอุปกรณ์)
+Test Cases:
+  1. ยืนยัน `_scaffoldKey = GlobalKey<ScaffoldState>()` + `drawer: SideMenu(...)` ผูกเข้า `Scaffold` ถูกต้อง มิเรอร์ `notification_list_screen.dart` เป๊ะจริง (เทียบโค้ดทั้ง 2 ไฟล์)
+  2. ยืนยัน hamburger icon (`Icons.menu`, size 20, สี `WynColors.ink`, tooltip 'เมนู') แทนที่ `SizedBox(width: 48)` เดิมจริง เรียก `_scaffoldKey.currentState?.openDrawer()` ถูกต้อง
+  3. **ตรวจ wordmark centering ที่ Known Issue ของ Coding Output กังวล**: ทั้ง hamburger `IconButton` (ซ้าย) และ chat `IconButton` (ขวา, `_buildChatAction()`) ไม่ override `padding`/`constraints` ใดๆ — Material `IconButton` ค่า default คือ tap target ขั้นต่ำ 48×48 เท่ากันทั้งคู่ไม่ว่า icon size จะต่างกัน (20 vs default 24) หรือฝั่งขวามี badge Stack ซ้อนอยู่ก็ตาม (Stack ที่ไม่มี Positioned เกิน bound ไม่ขยาย IconButton เอง) → wordmark ที่อยู่ใน `Expanded(child: Center(...))` กึ่งกลางจริงตามทฤษฎี layout ไม่ขึ้นกับความกว้างจอ **ยืนยันด้วยการอ่านโค้ดเท่านั้น ยังไม่ได้เห็นภาพจริงบนอุปกรณ์/เบราว์เซอร์ตามที่ Coding Output ระบุไว้แล้ว**
+  4. ยืนยัน `side_menu.dart`'s `_openCreateClub()` มิเรอร์ `_openMyClubs()` เป๊ะ (pop แล้ว push `CreateClubScreen` พร้อม repository ที่มีอยู่แล้ว) แถวเรียงลำดับ โปรไฟล์ → สร้าง Club → Club ของฉัน → บันทึกไว้ ตรงตาม Design spec
+  5. ยืนยัน `CreateClubScreen` เป็นของเดิมจาก WYN-014 100% ไม่ได้ถูกแก้ไขเลยในการเปลี่ยนแปลงนี้ (grep เห็นแค่ import + instantiate ใหม่ ไม่มีการแก้ไฟล์ `create_club_screen.dart`)
+  6. รัน `flutter test test/home_feed_screen_test.dart test/side_menu_test.dart` อิสระ: 87+ เทสผ่านหมด รวมเทสใหม่ "the hamburger icon opens the SideMenu drawer" และ "tapping 'สร้าง Club' opens CreateClubScreen (WYN-100)" — เทสเดิมของ `side_menu_test.dart` (Club ของฉัน/บันทึกไว้/โปรไฟล์) ยังผ่านหมด ไม่มี regression
+  7. ยืนยัน `subscribeToNewPosts()` (New-posts pill, พรี-อยู่ก่อน WYN-100 ไม่ใช่งานนี้) subscribe ทั้ง `drops`/`pops` insert — เป็นแค่ตัวนับ ไม่เปิดเผยเนื้อหา Pop ใดๆ เมื่อกด (แค่ reload feed ที่ถูกกรอง Pop ออกแล้วตาม WYN-102) **หมายเหตุเล็กน้อยเท่านั้น ไม่ใช่บั๊กของ WYN-100 และไม่กระทบ Acceptance Criteria ของงานนี้**
+  8. รัน `flutter analyze`: สะอาด, `flutter test` เต็ม suite: 1011/1011 ผ่าน
+Passed: ข้อ 1-8
+Failed: ไม่มี
+Severity: N/A (PASS)
+Reproduction Steps: N/A
+Expected: N/A
+Actual: N/A
+Security Findings: ไม่มี (งาน UI ล้วน ไม่แตะ schema/RLS/authentication เลย)
+Recommendation: อนุมัติเข้า approved — Known Issues ที่ Coding Output เปิดค้างไว้ (wordmark centering ที่ทุกความกว้างจอจริง, edge-swipe gesture ไม่ชนกับ Drawer) ยืนยันด้วย static review แล้วว่าไม่น่ามีปัญหาเชิงทฤษฎี แต่ยังต้องดูภาพจริงบนอุปกรณ์/เบราว์เซอร์ก่อนถือว่าปิดสมบูรณ์ 100% — แนะนำให้ Founder/AI Deploy ตรวจสอบภาพจริง 1 ครั้งหลัง build จริงได้ (ไม่ใช่ pre-deploy blocker ระดับ backend เพราะไม่มี schema/migration ในงานนี้เลย)
+Final Status: PASS
+```

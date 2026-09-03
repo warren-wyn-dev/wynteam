@@ -98,3 +98,32 @@ Known Issues:
 - Pinch/gesture จริงบนอุปกรณ์จริงยังไม่ได้ทดสอบ (เหมือนงานอื่นๆ ใน session นี้)
 
 Handoff: ส่งต่อ AI QA & Security — (1) **สำคัญที่สุด**: ทดสอบ RLS จริงกับ Supabase จริง (โพสต์แบบ "เพื่อน"/"เฉพาะฉัน"/"ซ่อนเพื่อนบางคน"/"เพื่อนที่สนิท" แล้วเช็คว่า user อื่นเห็น/ไม่เห็นถูกต้องจริง รวมถึงยิง REST ตรงข้าม UI) (2) ยืนยัน apply migration กับ production schema จริงก่อน (ตรวจสอบ column/policy ที่มีอยู่จริงก่อน ไม่เชื่อ schema.sql เปล่าๆ) (3) ทดสอบ edge case เลิก mutual follow แล้วมองไม่เห็นโพสต์เก่าทันที (4) รายงานบั๊ก `explore_clubs_screen_test.dart` ที่พบ (ไม่เกี่ยวกับงานนี้) ให้ Debug Engineer แยกต่างหาก
+
+## QA Report (2026-09-03)
+
+```
+Feature: WYN-097 — Post Audience Selector (ทุกคน/เพื่อน/ซ่อนเพื่อนบางคน/เพื่อนที่สนิท/เฉพาะฉัน) + "เพื่อน" = mutual follow + Close Friends list
+Environment: Static/adversarial code review ของ commit 40cafac บน branch claude/wynos-beta2-phase2-handoff-w4mi5m (worktree ถูกรีเซ็ตให้ตรง base ที่ถูกต้องก่อนเริ่มงาน ยืนยันด้วย `git merge-base --is-ancestor`) — อ่าน `supabase/schema.sql` migration บล็อกทั้งหมดของ WYN-097 (บรรทัด ~10740-11040) + โค้ด Flutter จริง (`drop.dart`, `drop_repository.dart`, `create_drop_screen.dart`, `exclude_friends_screen.dart`, `close_friends_screen.dart`, `home_drop_card.dart`, `drop_detail_screen.dart`) + รัน `flutter analyze`/`flutter test` เต็ม suite อิสระ ไม่โหลด schema.sql เต็มไฟล์เข้า Postgres จริง (ตาม DECISIONS.md — pre-existing view-loading issue) ใช้การอ่าน SQL policy/function โดยตรงแทน (targeted review)
+Test Cases:
+  1. ยืนยัน `drops.audience` มี CHECK constraint 5 ค่าตรงกับ Product spec ('everyone'/'friends'/'friends_except'/'close_friends'/'only_me') และ `AudienceOptionDbValue` extension ฝั่ง Dart แม็ปตรงกับ SQL enum ทุกค่า
+  2. ยืนยัน `internal.is_mutual_follow(a,b)` เช็ค follow ทั้ง 2 ทิศทางจริง (2 exists ตรงข้ามทิศทาง)
+  3. ยืนยัน `internal.can_view_drop_audience()` ครอบทุกเงื่อนไข 5 audience ถูกต้อง: author เห็นเสมอ, everyone เห็นทุกคน, friends ต้อง mutual follow, friends_except ต้อง mutual follow และไม่อยู่ใน exclusion list, close_friends ต้องอยู่ใน close_friends table ของ author, only_me ไม่มี branch ใดจับ (fallthrough false ตามคอมเมนต์)
+  4. ยืนยัน `drops` SELECT policy ใหม่ซ้อน `can_view_drop_audience` เพิ่มจาก `can_view_author_content`/`is_blocked_either_way` เดิม (ไม่แทนที่) — ครอบทุก entry point (home_feed/saved_feed security_invoker views, redrops, drop_comments, drop_polls, .from('drops') ตรง) เพราะเป็นจุดเดียวที่ RLS บังคับ
+  5. ยืนยัน `get_poll_results()` (SECURITY DEFINER, bypass RLS ของ drops) เพิ่ม `can_view_drop_audience` ซ้ำ — ปิดช่องโหว่ poll results รั่วผ่าน poll_id ตรงสำหรับโพสต์ "เพื่อน"/"เฉพาะฉัน"
+  6. ยืนยัน `close_friends` table RLS: SELECT owner-only (เพื่อนไม่เห็นตัวเองอยู่ในลิสต์ของใคร ตามที่ตั้งใจ), INSERT ต้อง `is_mutual_follow` จริง (server เช็คซ้ำ ไม่เชื่อ client), DELETE owner-only
+  7. ยืนยัน `drop_audience_exclusions` RLS: `for all` จำกัดเฉพาะ author ของโพสต์นั้น (ผ่าน subquery `drops.author_id`)
+  8. ยืนยัน `create_poll_drop()` validate `p_audience` ก่อน insert (raise exception ถ้าไม่ใช่ 1 ใน 5 ค่า) และ insert exclusions เฉพาะเมื่อ audience = 'friends_except' เท่านั้น
+  9. ยืนยัน Frontend: `CreateDropScreen._showAudiencePicker()` ครบ 5 ตัวเลือก, `ExcludeFriendsScreen`/`CloseFriendsScreen` ใหม่ reuse `FollowListScreen` โครงเดิม, `DropRepository.createDrop/createTextDrop/createDropFromExistingImage/createPollDrop` ทุกตัวรับ/ส่ง audience+excludedFriendIds ตรงกับ RPC param
+  10. ยืนยัน `HomeDropCard`/`DropDetailScreen` ซ่อนปุ่มรีโพสต์เมื่อ `audience != AudienceOption.everyone` จริง (grep พบทั้ง 2 จุด)
+  11. รัน `flutter analyze`: สะอาด, `flutter test` เต็ม suite: 1011/1011 ผ่าน (รวม `explore_clubs_screen_test.dart` ที่เคยถูกรายงานว่าพังไม่เกี่ยวกับงานนี้ — ตอนนี้ผ่านแล้ว ไม่ใช่ปัญหาเปิดค้าง)
+  12. grep secret exposure ในทุก commit ของ batch นี้ (73f619b..40cafac): ไม่พบ API key/secret หลุดใน diff
+Passed: ข้อ 1-12
+Failed: ไม่มี
+Severity: N/A (PASS)
+Reproduction Steps: N/A
+Expected: N/A
+Actual: N/A
+Security Findings: ไม่พบช่องโหว่ privacy leak ในโค้ดที่ตรวจสอบได้แบบ static — การบังคับสิทธิ์อยู่ที่ RLS ระดับ backend (`drops` SELECT policy + `get_poll_results`) จุดเดียว ครอบคลุมทุก entry point ตามที่ Product spec ต้องการ ไม่ใช่แค่กรองฝั่ง UI — **ยังไม่ได้ทดสอบ end-to-end กับ Supabase project จริง** (ยิง REST ตรงด้วย user ไม่มีสิทธิ์, edge case เลิก mutual follow) ตามที่ Coding Output ระบุไว้เอง เพราะ sandbox นี้ไม่มี network access ไปยัง Supabase จริง — ต้องทดสอบซ้ำกับ Supabase project จริงหลัง apply migration ก่อน sign off ขั้นสุดท้ายสำหรับ production
+Recommendation: อนุมัติเข้า approved — แต่ AI Deploy & DevOps ต้อง (1) apply migration กับ production schema จริงหลังตรวจสอบ column/policy ที่มีอยู่จริงก่อน (ไม่เชื่อ schema.sql ตรงๆ ตามวินัย WYN-071/072/083) (2) รัน end-to-end RLS test กับ Supabase project จริงหลัง deploy ก่อนประกาศ feature พร้อมใช้งานเต็มรูปแบบ — นี่คือ pre-deploy blocker ที่ยังไม่ได้ทำ ไม่ใช่งานของ QA ใน sandbox นี้
+Final Status: PASS
+```
