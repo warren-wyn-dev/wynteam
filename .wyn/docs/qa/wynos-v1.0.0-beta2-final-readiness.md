@@ -8,6 +8,12 @@
 
 ---
 
+> **อัปเดต 2026-09-03T07:56Z — deploy ขึ้น production แล้ว**
+> PR #222 merge เป็น `e93327d` · `deploy-web.yml` run #43/#44 สำเร็จ · https://wynos.online เสิร์ฟบิลด์ใหม่จริง (`main.dart.js` 4,236,817 → 4,247,510 bytes)
+> Database migration: **Founder รายงานว่า apply แล้ว — ยังไม่ได้ verify จาก session นี้** (ไม่มี credential)
+> Founder smoke test บนเว็บจริง: ผ่านทั้ง 4 ข้อ (debug text หาย · scroll position คงเดิม · Like มี animation+haptic · ฟีดลื่นไม่มีโพสต์ซ้ำ)
+> รายละเอียดเต็ม: `.wyn/logs/deployments/2026-09-03-beta2-audit-completeness-deploy.md`
+
 ## 🚦 ระดับความพร้อม: **QA READY** (ยังไม่ Production Ready)
 
 | ระดับ | สถานะ | เหตุผล |
