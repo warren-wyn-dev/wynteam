@@ -65,6 +65,7 @@ class _ViewerDropState {
     required this.redroppedIds,
     required this.pollStates,
     required this.followedAuthorIds,
+    required this.imageUrlsByDropId,
   });
 
   final Set<String> likedIds;
@@ -74,6 +75,13 @@ class _ViewerDropState {
 
   /// Empty unless the caller asked -- only fetchRankedFeed does.
   final Set<String> followedAuthorIds;
+
+  /// The ordered image list of every multi-image Drop in the page,
+  /// keyed by drop id -- one query for the whole page instead of one
+  /// per card, exactly as HomeRepository does for `home_feed`. Only
+  /// holds entries for Drops with more than one image; a single-image
+  /// Drop already carries its only URL in `image_url`.
+  final Map<String, List<String>> imageUrlsByDropId;
 }
 
 /// Wraps the `drops`/`drop_likes`/`drop_comments`/`saves` reads/writes and
@@ -125,6 +133,7 @@ class DropRepository {
               pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
               pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
               pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+              imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
             ))
         .toList();
   }
@@ -161,6 +170,7 @@ class DropRepository {
               pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
               pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
               pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+              imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
             ))
         .toList();
   }
@@ -200,6 +210,7 @@ class DropRepository {
               pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
               pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
               pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+              imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
             ))
         .toList();
   }
@@ -280,6 +291,7 @@ class DropRepository {
               pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
               pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
               pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+              imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
             ))
         .toList();
   }
@@ -366,6 +378,7 @@ class DropRepository {
               pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
               pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
               pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+              imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
             ))
         .toList();
   }
@@ -415,6 +428,7 @@ class DropRepository {
               pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
               pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
               pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+              imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
             ))
         .toList();
 
@@ -481,6 +495,7 @@ class DropRepository {
       pollMyVoteIndex: viewer.pollStates[pollId]?.myVoteIndex,
       pollTotalVotes: viewer.pollStates[pollId]?.totalVotes,
       pollOptionCounts: viewer.pollStates[pollId]?.optionCounts,
+      imageUrls: viewer.imageUrlsByDropId[dropId],
     );
   }
 
@@ -512,6 +527,7 @@ class DropRepository {
       _fetchSavedDropIds(userId: userId, dropIds: dropIds),
       _fetchRedroppedDropIds(userId: userId, dropIds: dropIds),
       _fetchPollStates(userId: userId, pollIds: pollIds),
+      _fetchImageUrls(rows),
       if (authorIdsToCheckFollowing != null)
         _fetchFollowedAuthorIds(
           userId: userId,
@@ -524,9 +540,68 @@ class DropRepository {
       savedIds: results[1] as Set<String>,
       redroppedIds: results[2] as Set<String>,
       pollStates: results[3] as Map<String, _PollState>,
+      imageUrlsByDropId: results[4] as Map<String, List<String>>,
       followedAuthorIds:
-          results.length > 4 ? results[4] as Set<String> : const {},
+          results.length > 5 ? results[5] as Set<String> : const {},
     );
+  }
+
+  /// The ordered image list of every multi-image Drop in [rows], in one
+  /// query -- the same batch HomeRepository makes for the Home feed,
+  /// made here so every *other* surface that shows post cards gets it
+  /// too: Profile's Posts and Likes tabs, Search's post results, the
+  /// hashtag feed, drafts, and the single-Drop resync behind every
+  /// "came back from Detail".
+  ///
+  /// Those surfaces build the same [HomeDropCard] the feed does, so a
+  /// multi-image post there was still asking the server for its own
+  /// images from inside the card's initState -- one request per card,
+  /// fired after the page was already on screen. The Home feed stopped
+  /// doing that; Profile had not, which is exactly the kind of "same
+  /// card, different behaviour" gap this release exists to close.
+  ///
+  /// Reads `drop_images` straight off its `unique (drop_id, position)`
+  /// index. No query at all when the page holds no multi-image Drop,
+  /// and a failure is swallowed: the batch is an optimization, every
+  /// consumer still has its own on-demand fetch to fall back on, and a
+  /// hiccup here must never take a whole page down with it.
+  Future<Map<String, List<String>>> _fetchImageUrls(
+    List<Map<String, dynamic>> rows,
+  ) async {
+    // `drop_images(count)` comes back from PostgREST as a
+    // single-element list -- `[{'count': 3}]` -- the same shape
+    // Drop.fromMap reads for every other embedded count. A row from a
+    // query whose select didn't ask for it simply isn't multi-image as
+    // far as this batch is concerned, and that card keeps its own
+    // on-demand fetch.
+    int imageCount(dynamic embedded) {
+      final list = embedded as List<dynamic>?;
+      if (list == null || list.isEmpty) return 0;
+      return (list.first as Map<String, dynamic>)['count'] as int? ?? 0;
+    }
+
+    final ids = <String>{
+      for (final row in rows)
+        if (imageCount(row['drop_images']) > 1) row['id'] as String,
+    };
+    if (ids.isEmpty) return const {};
+
+    try {
+      final imageRows = await _client
+          .from('drop_images')
+          .select('drop_id, image_url')
+          .inFilter('drop_id', ids.toList())
+          .order('position');
+
+      final byDropId = <String, List<String>>{};
+      for (final row in imageRows) {
+        (byDropId[row['drop_id'] as String] ??= <String>[])
+            .add(row['image_url'] as String);
+      }
+      return byDropId;
+    } catch (_) {
+      return const {};
+    }
   }
 
   Future<Set<String>> _fetchLikedDropIds({

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:wyn/core/widgets/post_media.dart';
 import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/data/drop_repository.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
@@ -27,6 +28,24 @@ Drop _drop({String id = 'd1', String? caption}) => Drop(
       savedByMe: false,
     );
 
+extension on Drop {
+  /// A copy of this fixture that has several images, with the ordered
+  /// list already in hand -- what a batch-loaded page hands down.
+  Drop copyWithImages({required int count, required List<String> urls}) => Drop(
+        id: id,
+        authorId: authorId,
+        authorUsername: authorUsername,
+        imageUrl: imageUrl,
+        createdAt: createdAt,
+        likeCount: likeCount,
+        commentCount: commentCount,
+        likedByMe: likedByMe,
+        savedByMe: savedByMe,
+        imageCount: count,
+        imageUrls: urls,
+      );
+}
+
 Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
 
 void main() {
@@ -52,6 +71,7 @@ void main() {
   late RecordingDropRepository backFromDetailRepo;
   late RecordingDropRepository unlikedInDetailRepo;
   late RecordingDropRepository overlappingPagesRepo;
+  late RecordingDropRepository carriedImagesRepo;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
@@ -74,6 +94,7 @@ void main() {
     backFromDetailRepo = RecordingDropRepository();
     unlikedInDetailRepo = RecordingDropRepository();
     overlappingPagesRepo = RecordingDropRepository();
+    carriedImagesRepo = RecordingDropRepository();
   });
 
   testWidgets('shows the empty state when the author has liked nothing',
@@ -378,6 +399,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('ROW-AT-THE-PAGE-BOUNDARY'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'Beta3: a multi-image post on a profile costs no image request of its '
+      'own, the same as in the feed', (tester) async {
+    // Founder, 2026-09-03: "โปรไฟล์ ก็ต้องคล้ายฟีดดิ (โพสต์)". These
+    // tabs already build the feed's own HomeDropCard -- but they build
+    // it from a plain Drop, which used to carry no image list, so a
+    // multi-image post here still asked the server for its own images
+    // from inside the card. The feed stopped doing that; this is the
+    // same card, so it stops here too.
+    final withImages = _drop(id: 'multi').copyWithImages(
+      count: 3,
+      urls: const [
+        'https://example.supabase.co/drops/multi_0.jpg',
+        'https://example.supabase.co/drops/multi_1.jpg',
+        'https://example.supabase.co/drops/multi_2.jpg',
+      ],
+    );
+    final repo = carriedImagesRepo
+      ..likedDropsByAuthor = {
+        'someone-else': [withImages],
+      };
+
+    await tester.pumpWidget(_wrap(ProfileLikesTab(
+      dropRepository: repo,
+      followRepository: followRepo,
+      profileRepository: profileRepo,
+      popRepository: popRepo,
+      savedRepository: savedRepo,
+      authorId: 'someone-else',
+      emptyText: 'ยังไม่มีอะไรที่ถูกใจ',
+    )));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(repo.fetchDropImagesCalls, 0);
+    // ...and the card row is built on the first frame, snapping cards
+    // and all, rather than a lone photo that swaps a moment later.
+    expect(find.byType(PostImageCarousel), findsOneWidget);
   });
 }
 

@@ -364,6 +364,7 @@ class Drop {
     int? pollMyVoteIndex,
     int? pollTotalVotes,
     List<int>? pollOptionCounts,
+    List<String>? imageUrls,
   }) {
     final author = map['author'] as Map<String, dynamic>?;
     final poll = _embeddedPoll(map['drop_polls']);
@@ -382,6 +383,9 @@ class Drop {
       imageCount: map.containsKey('drop_images')
           ? _embeddedCount(map['drop_images'] as List<dynamic>?)
           : null,
+      // Not a `drops` column -- batch-loaded alongside the page and
+      // passed in by the caller (DropRepository._fetchImageUrls).
+      imageUrls: imageUrls,
       caption: map['caption'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
       likeCount: _embeddedCount(map['drop_likes'] as List<dynamic>?),

@@ -97,7 +97,9 @@ Profile row  →  Text (caption)  →  Media  →  Actions  →  [Comments เ�
 | Home feed (รูปเดียว) | `HomeDropCard` | สัดส่วนจริง clamp 4:5..1.91:1, สูงไม่เกิน 75% ของจอ |
 | Home feed (หลายรูป) | `HomeFeedImagePeekCarousel` | ListView แนวนอน, การ์ดกว้าง 82%, 4:5, มุมโค้ง 16 |
 | Post Detail | `DropImageGallery` | **1:1 ตายตัว + BoxFit.cover** ← ต้นตอข้อ 4/5 ของ Founder |
-| Profile grid | `DropGridTile` → `NetworkThumbnail` | จัตุรัส (ถูกต้องแล้ว — Grid คือ Content Overview) |
+| Profile — โพสต์ / รีโพสต์ / ถูกใจ | `HomeDropCard` (ตัวเดียวกับ Feed) | **เหมือน Feed ทุกอย่าง** — เป็น ListView ของการ์ดเต็มความกว้าง ไม่ใช่ Grid มาตั้งแต่ WYN-013 |
+| Profile — Saved / Draft | `SavedGridTile` / `DraftGridTile` | Grid 3 คอลัมน์ (เข้าจากแถวไอคอน ไม่ใช่แท็บหลัก) |
+| Search — แท็บโพสต์ | `DropGridTile` → `NetworkThumbnail` | Grid 3 คอลัมน์ จัตุรัส |
 | Club post | `ClubPostImages` | 1:1 (`club_posts` ไม่เก็บ dimension เลย จึงไม่มีอะไรให้คำนวณ) |
 | Full screen | `DropImageViewer` | pinch-to-zoom |
 

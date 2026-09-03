@@ -107,14 +107,20 @@ PostImageFrame              →  ratio + เพดานความสูง + 
 | Peek carousel | `PostImage` (รูปทรง 82%/4:5 ของ carousel เหมือนเดิม) + fallback ใช้ `PostImageFrame` |
 | Post Detail รูปเดียว | `PostImageFrame` เพดาน **85%** ของจอ |
 | Post Detail หลายรูป | `PageView` ในสัดส่วนเดียวกัน เพดาน 85% |
-| Profile grid | **จัตุรัสเหมือนเดิม ไม่แตะ** |
+| Profile — โพสต์/รีโพสต์/ถูกใจ | ใช้ `HomeDropCard` ตัวเดียวกับ Feed อยู่แล้ว ได้ทุกอย่างที่ Feed ได้ |
+| Search แท็บโพสต์ / Saved / Draft | Grid 3 คอลัมน์จัตุรัสเหมือนเดิม ไม่แตะ |
 | Club post | 1:1 เหมือนเดิม (`club_posts` ไม่เก็บ dimension เลย ไม่มีอะไรให้คำนวณ) แก้เฉพาะการ decode |
 
 **ทำไม Detail ได้ 85% แต่ Feed ได้ 75%:** Detail คือหน้าที่มีโพสต์เดียวอยู่บนจอ รูปตั้งจึงกินพื้นที่ได้มากกว่า
 แต่ยังต้องมีเพดาน เพื่อให้ caption ด้านบนและแถบ action ด้านล่างไม่ถูกดันหายไปจากจอสูง ๆ
 
 **เจตนาที่รักษาไว้ตามข้อ 4:** *"ไม่ต้องทำให้ทุกหน้าเหมือนกัน 100% ให้แต่ละบริบทเหมาะสมกับหน้าที่"*
-Grid ของ Profile ยังเป็น Grid เพราะมันคือ Content Overview — คนละหน้าที่กับ Content Flow ของ Feed
+Grid ที่ยังเป็น Grid คือ Search แท็บโพสต์, Saved และ Draft — เป็น Content Overview คนละหน้าที่กับ Content Flow
+
+⚠️ **แก้ข้อผิดพลาดของเอกสารฉบับก่อน (2026-09-03):** เอกสารรุ่นแรกและ artifact ที่ส่งให้ Founder
+เขียน/วาดว่า "Profile เป็น Grid" — **ผิด** แท็บหลักทั้งสามของ Profile (โพสต์ / รีโพสต์ / ถูกใจ)
+เป็น `ListView` ของ `HomeDropCard` เหมือน Feed มาตั้งแต่ WYN-013 แล้ว ตัวที่เป็น Grid จริงคือ
+Search แท็บโพสต์, Saved และ Draft ซึ่งเป็นคนละที่กัน
 
 ---
 
@@ -225,7 +231,24 @@ Follow / Unfollow / Follow Request (approve, reject, cancel) / Remove follower /
 
 ---
 
-## 10. PROFILE (ข้อ 15)
+## 10. PROFILE (ข้อ 15) — และ "โปรไฟล์ต้องคล้ายฟีด"
+
+**คำสั่ง Founder (2026-09-03):** *"โปรไฟล์ ก็ต้องคล้ายฟีดดิ (โพสต์)"*
+
+**ตรวจแล้ว: หน้าตาเหมือน Feed อยู่แล้ว — แต่พฤติกรรมยังไม่เหมือน**
+
+แท็บหลักทั้งสาม (โพสต์ / รีโพสต์ / ถูกใจ) เป็น `ListView.separated` ของ `HomeDropCard`
+**ตัวเดียวกับที่ Feed ใช้** มาตั้งแต่ WYN-013 — โครงสร้าง Profile → Text → Media → Actions
+เหมือนกันทุกอย่าง รวมถึงแถวการ์ดรูปหลายรูปที่ snap และสัดส่วนรูปที่ Beta3 แก้ไป
+
+**ช่องที่ยังไม่เหมือน และแก้แล้ว:** แท็บพวกนี้สร้างการ์ดจาก `Drop` ธรรมดา ซึ่งไม่เคยพกรายการรูปมาด้วย
+โพสต์หลายรูปบนโปรไฟล์จึงยัง**ยิง request รูปของตัวเองทีละการ์ด** — N+1 ตัวเดียวกับที่ Beta3
+เอาออกจาก Home ไปแล้ว ตอนนี้ `DropRepository._fetchViewerState` batch รูปทั้งหน้าใน query เดียว
+เหมือนที่ `HomeRepository` ทำ จึงครอบคลุมพร้อมกัน: **Profile แท็บโพสต์ + แท็บถูกใจ · Search แท็บโพสต์ ·
+hashtag feed · Draft · และ `fetchById` ที่อยู่เบื้องหลังทุกครั้งที่กลับจาก Detail**
+(แท็บรีโพสต์ใช้ `HomeRepository` อยู่แล้วจึงได้มาตั้งแต่รอบก่อน)
+
+**Test:** โพสต์ 3 รูปบนแท็บถูกใจ → `fetchDropImages` ถูกเรียก **0 ครั้ง** และแถวการ์ดขึ้นครบตั้งแต่เฟรมแรก
 
 * avatar / username / display name / bio / posts / followers / following / relationship state ✅ ครบ
 * **Back จาก Post → กลับตำแหน่งเดิม** ✅ แก้แล้ว (§5)
