@@ -273,13 +273,36 @@ Collapse key **ไม่ได้กันการส่งครั้งท�
    **`Deploy Supabase Edge Function`** จากแท็บ Actions เลือก function ที่จะ deploy
    · project ref ถูกดึงจาก `SUPABASE_URL` ที่มีอยู่แล้วจึงไม่ต้องเพิ่ม secret ตัวที่สอง
    · workflow รัน `deno check` + `deno test` ก่อน deploy เสมอ
-   · **รันจริงแล้ว 1 ครั้ง** (run id `33776152809`, `227c9bd`) — ทุกขั้นผ่านจนถึงขั้นสุดท้าย:
+   · **รันจริงแล้ว 6 ครั้ง ยังไม่สำเร็จ — ติดที่ secret ไม่ใช่ที่ workflow** (ดูตารางท้ายหัวข้อนี้)
+   · run แรก (`33776152809`, `227c9bd`) — ทุกขั้นผ่านจนถึงขั้นสุดท้าย:
      checkout ✅ · setup-deno ✅ · **`deno check` + `deno test` ✅** · setup-cli ✅ ·
      **การดึง project ref ทำงานถูกกับ secret จริงใน CI** — log พิมพ์
      `Deploying send-push-notification to project kqokpocajhfbidcxpvhh` ตรงกับ project จริง
      · ล้มที่ขั้น deploy ด้วยเหตุผลเดียวคือ `Access token not provided` เพราะ
      secret `SUPABASE_ACCESS_TOKEN` ยังไม่มีในrepo (log แสดง `SUPABASE_ACCESS_TOKEN:` ว่าง)
-     · **แปลว่า workflow ถูกต้องทั้งเส้นทาง เหลือแค่ Founder ใส่ secret 1 ตัวแล้วกดรันซ้ำ**
+     · **แปลว่า workflow ถูกต้องทั้งเส้นทาง เหลือแค่ secret ตัวเดียว**
+
+   **ประวัติการรันทั้ง 6 ครั้ง:**
+
+   | run | ผล | อ่านได้ว่า |
+   |---|---|---|
+   | `33776152809` | failure ที่ขั้น Deploy | `Access token not provided` — secret ยังไม่มี |
+   | `33776444947` | failure ที่ขั้น Deploy | เหมือนเดิม หลัง Founder แจ้งว่าใส่ secret แล้ว |
+   | `33776911753` | failure ที่ pre-flight | pre-flight ที่เพิ่มเข้าไปจับได้เอง หลัง Founder ยืนยันว่าเป็น Repository secret |
+   | `33777087001` | **`action_required` · 0 jobs** | ถูกบล็อกก่อนสร้าง job — เพิ่ม step ที่ serialise secrets context ทั้งก้อน |
+   | `33777275459` | **`action_required` · 0 jobs** | ยังบล็อก แม้จะพิมพ์แค่ boolean — การ *อ้างถึง* context ทั้งก้อนก็พอแล้ว |
+   | `33777467741` | failure ที่ pre-flight | เอา reference ออกหมด → รันได้ปกติอีกครั้ง · probe รายงาน `SUPABASE_ACCESS_TOKEN non-empty: false` |
+
+   **บทเรียนที่ได้จาก run 4-5:** GitHub บล็อก workflow ที่อ้าง `secrets` context ทั้งก้อน
+   (ทั้งแบบ dump ชื่อ และแบบ `contains(...)` ที่พิมพ์แค่ boolean) — บล็อกตั้งแต่ก่อนสร้าง job
+   จึงไม่มี log ให้อ่านเลย **อย่าใช้วิธีนั้น diagnose secret ใน repo นี้**
+   วิธีที่ปลอดภัยและใช้ได้จริงคือ `secrets.X != ''` ซึ่งอ้างถึง secret ตัวเดียว
+
+   **สถานะปัจจุบัน:** ทุกขั้นของ workflow ผ่านหมด — `deno check`/`deno test` ผ่าน,
+   CLI ติดตั้งได้, project ref ดึงถูก (`kqokpocajhfbidcxpvhh`) — ค้างที่ขั้นเดียวคือ
+   `SUPABASE_ACCESS_TOKEN` ยังอ่านค่าไม่ได้ (`non-empty: false`)
+   **ต้องให้ Founder ตรวจว่า secret ถูกบันทึกที่ Repository secret ของ repo นี้จริง
+   และมีค่าไม่ว่าง (ค่าต้องขึ้นต้น `sbp_`)**
 
 ---
 
