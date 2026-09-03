@@ -26,7 +26,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "verify = look only · create = install/replace · test = fire one harmless request · remove = drop · enable = turn on webhooks only"
+        description: "verify = look only · create = install/replace · test = fire one harmless request · remove = drop · enable = turn on webhooks only · diagnose = why did no push arrive"
         required: true
         default: verify
         type: choice
@@ -36,6 +36,7 @@ on:
           - remove
           - enable
           - test
+          - diagnose
 
 jobs:
   webhook:
@@ -223,6 +224,43 @@ jobs:
               run_sql "select status_code, content, error_msg
                        from net._http_response where id = $req;" | jq .
               echo "Expect status_code 200 and content \"Ignored\"."
+              ;;
+
+            diagnose)
+              # Reads every link of the chain in one run, in the order a
+              # push actually travels, so the first section that looks
+              # wrong is the one that broke. All read-only, and none of
+              # it prints a token, a notification body, or a full user id.
+              echo
+              echo "=== 1. Is the trigger still installed? ==="
+              show
+
+              echo
+              echo "=== 2. Did any notification rows get created in the last hour? ==="
+              echo "(no row here means the like/comment never reached the DB -- an app problem, not a push one)"
+              run_sql "select id, type, created_at
+                       from public.notifications
+                       where created_at > now() - interval '1 hour'
+                       order by created_at desc limit 10;" | jq .
+
+              echo
+              echo "=== 3. Has any device registered for push? ==="
+              echo "(zero here means the browser never handed us a token -- on iOS that is usually"
+              echo " the app not being installed to the Home Screen, so Safari refuses to issue one)"
+              run_sql "select platform, count(*) as devices, max(updated_at) as newest
+                       from public.push_tokens group by platform;" | jq .
+
+              echo
+              echo "=== 4. What did the webhook actually send, and what came back? ==="
+              echo "(this is the decisive one -- content is the Edge Function's own reply)"
+              run_sql "select r.id, r.status_code, left(r.content, 300) as content,
+                              r.error_msg, r.created
+                       from net._http_response r
+                       order by r.id desc limit 10;" | jq .
+
+              echo
+              echo "=== 5. Anything still queued or failed inside pg_net? ==="
+              run_sql "select count(*) as queued from net.http_request_queue;" | jq .
               ;;
 
             remove)
