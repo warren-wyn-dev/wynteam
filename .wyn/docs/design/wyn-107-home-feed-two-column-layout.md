@@ -22,9 +22,10 @@ Founder วงแดงที่แถวปุ่มในภาพพรีว
 
 ## Screen
 
-`HomeDropCard` (`app/lib/features/home/presentation/widgets/home_drop_card.dart`) — ใช้ในฟีด Home
-ทุกแท็บ, 3 แท็บของ Profile, hashtag feed
-**`HomePopCard` อยู่ในสโคปด้วยหรือไม่ — รอ Founder ตัดสิน** (ดูหัวข้อ "คำถามค้าง" ท้ายเอกสาร)
+- `HomeDropCard` (`app/lib/features/home/presentation/widgets/home_drop_card.dart`) — ใช้ในฟีด Home
+  ทุกแท็บ, 3 แท็บของ Profile, hashtag feed
+- `HomePopCard` (`app/lib/features/home/presentation/widgets/home_pop_card.dart`) — **อยู่ในสโคปด้วย**
+  Founder อนุมัติเป็นข้อยกเว้นของกติกา "ห้ามแก้ไฟล์ Pop" เฉพาะไฟล์นี้ (ดูท้ายเอกสาร)
 
 ## Purpose
 
@@ -121,10 +122,12 @@ Padding(vertical: 16)
 
 ## Handoff
 
-ส่ง AI Coding — แก้ `home_drop_card.dart` ไฟล์เดียวเป็นหลัก:
+ส่ง AI Coding:
 
 1. เปลี่ยนโครง `Column` เป็น `Row(avatar, Expanded(Column))` ตามผังด้านบน — ย้าย `Padding` แนวนอน
    จากระดับ section ไปเป็น `right: 24` ต่อ section ภายในคอลัมน์ และ **เว้น right padding เฉพาะแถวรูป**
+   — ทำทั้ง **`home_drop_card.dart`** และ **`home_pop_card.dart`** (การ์ด Pop มีคลิปแทนรูป และมีปุ่ม
+   น้อยกว่า 1 ปุ่ม แต่โครงสองคอลัมน์เหมือนกันทุกประการ) · **ห้ามแตะไฟล์ Pop อื่น**
 2. `HomeFeedImagePeekCarousel` / `PostImageCarousel`: เปลี่ยนฐานที่คูณ 82% จากความกว้างทั้งจอเป็น
    ความกว้างคอลัมน์เนื้อหาที่หัก 24 แล้ว (ค่า `postCardWidthFraction` เองไม่ต้องแก้)
 3. `PostImageFrame` (รูปเดียว): เพิ่มมุมโค้ง 16 — ตรวจว่าไม่กระทบ Drop Detail ที่ใช้ widget เดียวกัน
@@ -132,12 +135,26 @@ Padding(vertical: 16)
 4. อัปเดต widget test / golden ที่ผูกกับตำแหน่ง pixel ของการ์ด — คาดว่ามีหลายตัวที่ต้องแก้ค่าคาดหวัง
 5. `flutter analyze` สะอาด + `flutter test` ผ่านครบ ไม่มี regression
 
-## คำถามค้าง (ต้องได้คำตอบก่อนเริ่ม)
+## คำตอบ 2 ข้อที่ค้าง (Founder ตอบแล้ว 2026-09-03)
 
-1. **`HomePopCard` เอาด้วยไหม** — Pop card อยู่ในฟีด Home เดียวกันและใช้โครง stack แบบเดียวกันเป๊ะ
-   ถ้าแก้แค่ Drop ฟีดจะมีการ์ด 2 สไตล์ปนกันเห็นชัด แต่มีกติกาเดิมว่า **"ห้ามแก้ไฟล์ Pop โดยตรง"**
-   (Pop ถูกระงับการพัฒนา — DS-001 Risk R3 / DECISIONS 2026-08-14) จึงต้องให้ Founder ตัดสิน
-2. **ทรงหัวใจ** — Founder สั่งว่า "รูปหัวใจ ทำสวยๆหน่อย" AI Design เสนอ 3 ทรงไว้ใน Artifact
-   "ฟีดจัดแนวใหม่ กับหัวใจสามทรง" (A = Material ของเดิม / B = lucide ตามไฟล์อ้างอิง / C = เพรียวกว่า)
-   ยังไม่ได้เลือก — ถ้าเลือก B หรือ C ต้องทำเป็น SVG asset ของ WYN เอง (แยกเป็นงานย่อยได้
-   ไม่ block งานจัดแนวนี้)
+### 1. `HomePopCard` — **แก้ด้วย** ("ให้ทั้งฟีดหน้าตาเหมือนกัน")
+
+Founder อนุมัติให้แตะ `home_pop_card.dart` เป็นข้อยกเว้นเฉพาะงานนี้ เหตุผลคือการ์ด Pop อยู่ในฟีด Home
+เดียวกันและใช้โครง stack เหมือนกันเป๊ะ ถ้าแก้แค่ Drop ฟีดจะมีการ์ด 2 สไตล์ปนกันเห็นชัด
+
+**ขอบเขตของข้อยกเว้นนี้**: เฉพาะ `home_pop_card.dart` (ไฟล์ของฟีด Home) เท่านั้น — ไฟล์ Pop อื่น
+(`pop_clip_view.dart`, `pop_comment_sheet.dart`, `pop_single_clip_screen.dart`) **ยังอยู่ใต้กติกาเดิม
+"ห้ามแก้ไฟล์ Pop โดยตรง"** ห้ามแตะ
+
+การ์ด Pop มี 3 ปุ่ม (ถูกใจ/คอมเมนต์ — ไม่มีรีโพสต์เพราะ Pop ไม่มีคอนเซปต์ ReDrop) และมีคลิปแทนรูป
+โครงสองคอลัมน์ใช้เหมือนกันทุกประการ
+
+### 2. ทรงหัวใจ — **แบบ B (lucide)**
+
+Founder เลือกทรงที่ไฟล์อ้างอิงใช้จริง — ต้นเหตุที่หัวใจในแอปดูไม่ตรงกับที่ออกแบบไว้คือ `01-home.tsx`
+ใช้ไอคอนจาก `lucide-react` แต่ตอน implement ใช้ `Icons.favorite` ของ Material ซึ่งเป็นคนละทรง
+(Material อ้วนกว่า ไหล่กว้างกว่า ปลายมนกว่า)
+
+**แยกเป็นงานย่อย WYN-108** ไม่รวมในรอบนี้ เพราะเป็นคนละลักษณะงาน (สร้าง icon widget + ไล่เปลี่ยน
+ทั้งแอป) และถ้ารวมกับการรื้อโครงการ์ดจะเป็น PR ใหญ่เกินไปจนรีวิวยาก — ดูรายละเอียดที่
+`.wyn/docs/design/wyn-108-wyn-heart-icon.md`
