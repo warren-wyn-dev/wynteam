@@ -33,3 +33,16 @@ Handoff: AI Design (กำหนด palette แต่ละธีมให้ค
 ดูรายละเอียดเต็มที่ `.wyn/docs/product/wyn-105-theme-system.md`
 
 Handoff: ส่งต่อ AI Design (`/design`) — ต้องตัดสินใจ Architecture Decision (วิธีทำให้สลับธีมได้จริง) ก่อนเริ่ม Coding
+
+## Founder Scope Decision (2026-09-03)
+
+Founder ตอบกลับหลังเห็นขนาดงานจริง (ดู `.wyn/company/DECISIONS.md` entry เดียวกันวันที่นี้): **ไม่ต้องทำระบบสลับธีม/หน้าตั้งค่าเลย** ต้องการแค่ "เปลี่ยนสีพื้นหลังแอปเป็นสีขาว เหมือนกับแอปอื่นๆ" เท่านั้น — คือธีม "ขาวบริสุทธิ์" ในสโคปเดิม แต่ตัดตัวเลือกสลับธีม/ธีมดำ/sync ข้ามอุปกรณ์ออกทั้งหมด
+
+**สโคปจริงของ WYN-105 ในรอบ Beta2 นี้ (เล็กกว่ามาก):**
+- เปลี่ยนค่า `WynColors.paper` จาก off-white/cream ปัจจุบัน (`0xFFFAF9F6`) เป็นสีขาวบริสุทธิ์ (`0xFFFFFFFF`) — ไม่ต้องแตะ token อื่นเลย เพราะทุกหน้าจอ (background/surface/card) อ้างอิง `paper` เป็น token กลางร่วมกันอยู่แล้ว
+- ไม่ต้องมีหน้าตั้งค่าธีม ไม่ต้องมี dark mode ไม่ต้อง sync ข้ามอุปกรณ์ ไม่ต้องเพิ่มคอลัมน์ `profiles.theme_preference`
+- Design check (ทำแล้วโดย orchestrating session ก่อนส่งต่อ Coding): เทียบ contrast `hairline` (`#E8E6E0`) และ `faint` (`#C7C4BC`) กับพื้นหลังใหม่ `0xFFFFFFFF` เทียบกับพื้นหลังเดิม `0xFFFAF9F6` — contrast **เพิ่มขึ้น** เล็กน้อยทั้งคู่ (เส้นคั่น/ข้อความจางเห็นชัดขึ้น ไม่จางลง) ไม่มีความเสี่ยงด้าน accessibility
+
+**สิ่งที่ยังไม่ทำในรอบนี้** (เก็บไว้เป็นงานอนาคตแยกต่างหาก อ้างอิง `.wyn/docs/product/wyn-105-theme-system.md`): ระบบเลือกธีม 3 แบบเต็มรูปแบบ, dark mode ที่ใช้งานได้จริง, การ refactor ให้ทุกไฟล์ UI อ่านสีผ่าน `Theme.of(context)` แทน static const
+
+Handoff: ส่งต่อ AI Coding โดยตรง (ไม่ต้องผ่าน AI Design เพิ่มเติม — Design check เบื้องต้นทำเสร็จแล้วข้างบน งานเป็นแค่เปลี่ยนค่า 1 token)
