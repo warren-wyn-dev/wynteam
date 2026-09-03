@@ -817,3 +817,12 @@
 - **ผลรวม**: `flutter analyze` สะอาด, `flutter test` **1011/1011 ผ่านหมด** (ตรงกับที่ merge commit อ้างไว้) — ทั้ง 4 task ย้ายเข้า `.wyn/tasks/approved/` แล้ว **Phase 2 (WYN-089 ถึง WYN-096) ปิดครบ 8/8**
 - Postgres cluster ที่เปิดขึ้นมาทดสอบ WYN-092 เป็น local/throwaway ในเครื่อง sandbox นี้เท่านั้น (สร้าง/ลบ database ทดสอบเองแล้ว dropdb หลังใช้เสร็จ) ไม่แตะ production ใดๆ
 - อ้างอิง: `.wyn/tasks/approved/WYN-081-pull-to-refresh.md`, `.wyn/tasks/approved/WYN-091-text-post-card-and-new-posts-badge.md`, `.wyn/tasks/approved/WYN-092-home-feed-multi-image-peek-carousel.md`, `.wyn/tasks/approved/WYN-096-home-feed-action-bar-alignment.md`
+
+### [2026-09-03] QA PASS — WYN-105 (พื้นหลังขาวบริสุทธิ์) ปิด backlog Wynos Beta2 ครบ 29/29
+
+- บริบท: worktree นี้ก็ spawn ผิดสาขาซ้ำอีกเช่นเคย (อยู่บน `c00e0db`/`origin/main` แทน `aad25ea` บน `claude/wynos-beta2-phase2-handoff-w4mi5m`) — ตรวจพบและแก้ก่อนเริ่มงานจริงด้วย `git fetch` + `git reset --hard origin/claude/wynos-beta2-phase2-handoff-w4mi5m` (ปลอดภัย ไม่มี commit ของตัวเองก่อนหน้า) ยืนยัน `git log` ว่า HEAD = `aad25ea` ตรงตามที่คาดแล้วจึงเริ่ม QA
+- ตรวจไม่เชื่อคำอ้างของ Coding Output เฉยๆ: grep อิสระทั้ง repo หา `FAF9F6` (case-insensitive) ยืนยันไม่มี hardcode หลงเหลือใน `app/` เลย (มีแค่ doc comment ที่จงใจอ้างค่าเดิมเป็นประวัติ), คำนวณ WCAG contrast ratio จริงด้วย Python (ไม่เชื่อคำอ้างว่า "contrast เพิ่มขึ้น" เฉยๆ) ยืนยันเพิ่มขึ้นจริงทุกคู่สี (`hairline` 1.1854→1.2480, `faint` 1.6552→1.7427, `ink` 17.8225→18.7644, `graphite` 3.3726→3.5509), `git show aad25ea` ยืนยัน diff เป็น 1 บรรทัดเปลี่ยนค่า + doc comment เท่านั้น ไม่มี token อื่นถูกแตะ
+- พบ Flutter SDK ติดตั้งอยู่แล้วที่ `/home/user/flutter` (Flutter 3.47.2 stable) ในเครื่อง sandbox นี้ — รัน `flutter analyze`/`flutter test` จริงแทนการเชื่อรายงานเดิม: `flutter analyze` สะอาด, `flutter test` **1011/1011 ผ่านหมด** ตรงเป๊ะกับตัวเลขที่ Coding Output อ้างไว้
+- **ผลลัพธ์**: WYN-105 — **PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — เป็น**งานสุดท้ายของ backlog Wynos Beta2 ทั้งหมด (29/29)**
+- ข้อจำกัดที่ทราบและยอมรับได้ (ไม่ block): ยังไม่มี visual confirmation บนอุปกรณ์/browser จริง (ไม่มี device/simulator ในสภาพแวดล้อมนี้) — ความเสี่ยงต่ำมากเพราะเป็นการเปลี่ยนค่าคงที่สี 1 ตัว ไม่กระทบ layout/logic แนะนำให้ Founder ตรวจ visual sanity หนึ่งครั้งบนอุปกรณ์จริงหลัง deploy (ไม่ block deploy)
+- อ้างอิง: `.wyn/tasks/approved/WYN-105-white-background.md`

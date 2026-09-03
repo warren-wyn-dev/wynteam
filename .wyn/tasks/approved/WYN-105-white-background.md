@@ -1,6 +1,6 @@
 # Feature Request — WYN-105
 
-Status: full spec complete, ready for AI Design — scope larger than originally estimated (2026-09-02)
+Status: QA PASS (2026-09-03) — scope reduced by Founder to single token change, verified and approved, moved to `.wyn/tasks/approved/`
 Phase: Phase 3 — New feature
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 5 (ส่วนธีมสี)/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -100,3 +100,49 @@ Known Issues: ไม่มี — งานนี้ไม่แตะ token อ
 dark mode, ไม่ sync ข้ามอุปกรณ์) ตรงตาม Founder Scope Decision ทุกประการ
 
 Handoff: ส่งต่อ AI QA & Security (ไฟล์นี้อยู่ใน `.wyn/tasks/review/` ต่อ — ไม่ย้ายเอง)
+
+## QA Report (2026-09-03)
+
+Feature: เปลี่ยนพื้นหลังแอปจาก off-white (`#FAF9F6`) เป็นสีขาวบริสุทธิ์ (`#FFFFFF`) — `WynColors.paper` (Wynos V1.0.0 Beta2, WYN-105, สโคปที่ Founder ตัดลงมาแล้ว)
+
+Environment: อ่านโค้ดจริง + `git show`/`git log` ตรวจ diff จริง + grep ทวนซ้ำทั้ง repo อิสระจาก Coding + คำนวณ WCAG contrast ratio จริงด้วย Python + ติดตั้ง/พบ Flutter SDK (`/home/user/flutter`, Flutter 3.47.2 stable) แล้วรัน `flutter analyze`/`flutter test` เต็มจริงในเครื่อง (ไม่เชื่อรายงานเดิมเฉยๆ)
+
+**หมายเหตุ worktree**: worktree นี้ spawn มาผิดสาขาเช่นเดียวกับที่เตือนไว้ล่วงหน้า (อยู่บน `c00e0db`/`origin/main` ไม่ใช่ descendant ของ `aad25ea`) — แก้แล้วด้วย `git fetch origin claude/wynos-beta2-phase2-handoff-w4mi5m && git reset --hard origin/claude/wynos-beta2-phase2-handoff-w4mi5m` ก่อนเริ่มตรวจ (ปลอดภัย ไม่มี commit ของตัวเองใน worktree ก่อนหน้า) ยืนยัน `git log --oneline -3` ว่า HEAD = `aad25ea` ตรงกับที่คาดไว้แล้ว
+
+Test Cases:
+1. ตรวจค่าสีจริงในโค้ด: `grep -n "static const Color paper"` → `Color(0xFFFFFFFF)` ตรงตาม spec (pure white) ✓
+2. Grep อิสระทั้ง `app/` หา `FAF9F6`/`faf9f6` (ไม่สนตัวพิมพ์): พบ **เพียง 1 จุด** คือ doc comment ใน `wyn_colors.dart` ที่จงใจอ้างอิงค่าเดิมเป็นประวัติ ("off-white/cream `#FAF9F6` to pure white `#FFFFFF`") ไม่ใช่ hardcode ที่หลงเหลือ — ไม่มี `0xFFFAF9F6` literal เหลืออยู่ที่ไหนใน `app/` เลย ตรงกับที่ Coding Output อ้าง ✓
+3. Grep ทั้ง repo (นอก `app/`): พบใน `design-reference/*.tsx` หลายไฟล์ (mockup source นอกสโคป Flutter app ตามที่ Coding Output ระบุ ถูกต้อง) และในเอกสาร decision log/spec เดิม (`DECISIONS.md`, `WYN-078-...md`, `wyn-097-099-...md`, `wyn-105-theme-system.md`) ซึ่งเป็นบันทึกประวัติศาสตร์ที่ถูกต้องตามบริบทตอนเขียน ไม่ควรแก้ย้อนหลัง — ไม่มีจุดใดที่ควรแก้แต่ตกหล่นไป ✓
+4. ตรวจ `seller_app/lib/core/design/wyn_colors.dart`: ไม่มี token ชื่อ `paper` เลยจริง (ยืนยันคำอ้างว่าเป็นไฟล์คนละชุด token ไม่เกี่ยวกับงานนี้) ✓
+5. คำนวณ WCAG 2.1 relative-luminance contrast ratio จริง (ไม่เชื่อคำอ้างเฉยๆ) เทียบพื้นหลังเดิม (`#FAF9F6`, luminance 0.94729) กับพื้นหลังใหม่ (`#FFFFFF`, luminance 1.0):
+   - `hairline` (`#E8E6E0`, เส้นคั่น) : 1.1854:1 (เดิม) → **1.2480:1 (ใหม่, เพิ่มขึ้น)**
+   - `faint` (`#C7C4BC`, ข้อความจาง) : 1.6552:1 (เดิม) → **1.7427:1 (ใหม่, เพิ่มขึ้น)**
+   - `ink` (`#12120F`, ข้อความหลัก) : 17.8225:1 (เดิม) → **18.7644:1 (ใหม่, เพิ่มขึ้น)** — ผ่าน WCAG AAA สบายๆ ทั้งสองกรณี
+   - `graphite` (`#8A8880`, ข้อความรอง) : 3.3726:1 (เดิม) → **3.5509:1 (ใหม่, เพิ่มขึ้น)**
+   - สรุป: contrast เพิ่มขึ้นจริงทุกคู่สีที่ตรวจ ยืนยันคำกล่าวอ้างของ Design/Coding reasoning ว่าถูกต้อง ไม่ใช่แค่คำกล่าวอ้างเฉยๆ — ไม่มีความเสี่ยงด้าน accessibility จากการเปลี่ยนนี้
+   - Observation (ไม่ block, ไม่ใช่ regression จากงานนี้): `hairline`/`faint` มี contrast ต่ำกว่ามาตรฐาน WCAG AA ทั่วไปทั้งก่อนและหลังเปลี่ยน (เป็นดีไซน์ที่ตั้งใจให้เส้นคั่น/ข้อความ tertiary ดูจางอยู่แล้ว) — ไม่ใช่สิ่งที่ WYN-105 ทำให้แย่ลง จึงไม่ fail แต่บันทึกไว้เป็นข้อสังเกตสำหรับ AI Design ในอนาคตถ้าต้องการปรับปรุง contrast ของ token เหล่านี้
+6. `git show aad25ea -- app/lib/core/design/wyn_colors.dart`: diff ยืนยันเป็น **1 บรรทัดเปลี่ยนค่า + doc comment เพิ่ม** เท่านั้น ไม่มี token อื่นถูกแตะเลย — อ่านทั้งไฟล์ (246 บรรทัด) ยืนยัน `ink`/`canvas`/`graphite`/`faint`/`hairline`/`sapphire`/`sapphireRing`/`mutedNeutral`/notification badges/ZOKY orange/dark-mode scaffolding/semantic colors/rainbow accent/scrim tokens/`socialLightScheme`/`socialDarkScheme` ทั้งหมดคงค่าเดิมไม่เปลี่ยน ✓
+7. `git show aad25ea -- app/lib/main.dart`: diff ยืนยันเป็น comment-only เปลี่ยนจาก `paper (#FAF9F6)` เป็น `paper (#FFFFFF, WYN-105)` โค้ดจริงยังคงอ้างอิง `WynColors.paper` เป็น symbol เดิม ไม่กระทบ behavior ✓
+8. Grep `WynColors.paper` usage ทั้งแอป: พบ 27 ไฟล์อ้างอิงผ่าน symbol เดียวกันหมด ไม่มีจุดใด hardcode ค่าสีตรงๆ แทนการอ้าง token — ยืนยันคำอ้างว่า "เปลี่ยนจุดเดียวครอบคลุมทั้งแอป" เป็นจริง ✓
+9. `flutter analyze` (รันจริง, Flutter 3.47.2 stable): **"No issues found! (ran in 6.7s)"** ตรงกับที่ Coding Output อ้าง ✓
+10. `flutter test` เต็ม suite (รันจริง): **"All tests passed!"** นับได้ **1011/1011** ตรงเป๊ะกับตัวเลขที่ Coding Output อ้าง ไม่มี test ใด fail/skip ผิดปกติ ✓
+
+Passed: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 (ทั้งหมด)
+
+Failed: ไม่มี
+
+Severity: N/A (PASS)
+
+Reproduction Steps: N/A
+
+Expected: N/A
+
+Actual: N/A
+
+Security Findings: ไม่พบ — เปลี่ยนค่าคงที่สี 1 ตัวใน Dart source ล้วนๆ ไม่มี schema/RLS/auth/API/secret ใดเกี่ยวข้อง ไม่มีการเปิดเผยข้อมูลผู้ใช้หรือ credential ใดๆ ไม่มี attack surface ใหม่
+
+**ข้อจำกัดที่ทราบและยอมรับได้ (ไม่ block PASS)**: sandbox นี้ไม่มี device/simulator จริงสำหรับตรวจ visual confirmation บนหน้าจอจริง (เช่น screenshot เทียบก่อน-หลัง) — ตรวจได้เฉพาะระดับโค้ด/ค่าคงที่/คำนวณ contrast/`flutter analyze`+`flutter test` เท่านั้น เป็นข้อจำกัดที่มีบันทึกเป็นแนวปฏิบัติมาก่อนแล้วในหลาย QA report ก่อนหน้า (เช่น WYN-056 "ไม่มี screenshot จริงของ Light mode") ไม่ใช่เหตุผลให้ FAIL เนื่องจากความเสี่ยงของการเปลี่ยนแปลงนี้ต่ำมาก (ค่าคงที่สีเดียว, ไม่กระทบ layout/logic)
+
+Recommendation: อนุมัติ PASS — งานนี้เป็นการเปลี่ยนแปลงที่เล็ก ตรงสโคป และมีความเสี่ยงต่ำมาก diff surgical จริงตามที่อ้าง ไม่มี token/ไฟล์อื่นถูกแตะโดยไม่ตั้งใจ contrast เพิ่มขึ้นจริงตามการคำนวณอิสระ `flutter analyze`/`flutter test` เขียวจริง 1011/1011 — WYN-105 เป็น task สุดท้ายของ backlog Beta2 (29/29) พร้อมส่งต่อ AI Deploy & DevOps ได้ทันที เมื่อ Founder พร้อมสำหรับ visual sanity check บน device จริงครั้งเดียวหลัง deploy (ไม่ block deploy)
+
+Final Status: PASS
