@@ -103,15 +103,41 @@ jobs:
               FIREBASE_VAPID_KEY:           $fb_vapid_key
             }' > dart_define.json
 
-          # Says whether this build will ship a working Web Push setup,
-          # without printing any value. Without this the only way to
-          # find out is to open the deployed site and watch a push not
-          # arrive.
+          # Reports each Firebase secret individually, present/missing,
+          # never its value. A single pass/fail line only says "something
+          # is missing"; with seven long names typed by hand, which one
+          # is the entire question -- and every wrong answer costs a
+          # five-minute build to discover.
+          #
+          # Deliberately never fails the build: a missing Firebase secret
+          # only means push stays off, and the app is perfectly
+          # deployable that way (it is how production ran before Beta4).
+          # Blocking a web deploy over it would be the wrong trade.
+          report() {
+            if [ -n "$(clean "$2")" ]; then
+              printf '  %-30s present\n' "$1"
+            else
+              printf '  %-30s MISSING\n' "$1"
+            fi
+          }
+          echo "Firebase secrets seen by this build:"
+          report FIREBASE_WEB_API_KEY         "$FIREBASE_WEB_API_KEY"
+          report FIREBASE_WEB_APP_ID          "$FIREBASE_WEB_APP_ID"
+          report FIREBASE_MESSAGING_SENDER_ID "$FIREBASE_MESSAGING_SENDER_ID"
+          report FIREBASE_PROJECT_ID          "$FIREBASE_PROJECT_ID"
+          report FIREBASE_AUTH_DOMAIN         "$FIREBASE_AUTH_DOMAIN"
+          report FIREBASE_STORAGE_BUCKET      "$FIREBASE_STORAGE_BUCKET"
+          report FIREBASE_VAPID_KEY           "$FIREBASE_VAPID_KEY"
+          echo ""
+
+          # The two that actually gate Web Push. The other five are
+          # required by Firebase's own config shape but are not what
+          # decides whether a token can be obtained -- see PushEnv.
           if [ -n "$(clean "$FIREBASE_WEB_API_KEY")" ] && [ -n "$(clean "$FIREBASE_VAPID_KEY")" ]; then
             echo "Web Push: configured -- this build can request a push token."
           else
             echo "Web Push: NOT configured -- this build behaves as before Beta4 (every push path no-ops)."
-            echo "To enable it, add the FIREBASE_* repository secrets and deploy again."
+            echo "Any name marked MISSING above is either absent, misspelled, or saved with an empty value."
           fi
 
       - run: flutter build web --release --dart-define-from-file=dart_define.json
