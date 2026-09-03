@@ -1,12 +1,13 @@
-# Deployment Log — Wynos V1.0.0 Beta2 (WYN-077 through WYN-105, 29 tasks) — PR MERGED, DATABASE MIGRATION PREPARED, WEB DEPLOY BLOCKED ON FOUNDER ACTION
+# Deployment Log — Wynos V1.0.0 Beta2 (WYN-077 through WYN-105, 29 tasks) — COMPLETE
 
 ```
 Release: Wynos V1.0.0 Beta2 -- 29 tasks (WYN-077 through WYN-105), all QA PASS. PR #216 (`claude/wynos-beta2-phase2-handoff-w4mi5m` -> `main`) merged via merge commit `56e56a7368eb7601be044db75fa12de16f36e357`.
-Version: `main` HEAD is now `56e56a7`. `deploy-web.yml` has NOT yet been run against this commit -- see "Web deploy: blocked on Founder action" below. Production is still serving the *previous* build (run #39, commit `f0da5df`, `main.dart.js` 4,135,619 bytes, last-modified 2026-09-03T03:18:24Z) as of this log.
+Version: `main` HEAD `56e56a7` (later `f228f63`/`c955049`, docs-only migration-fix commits, same app build). Web build live via `deploy-web.yml` run #40.
 QA Status: PASS -- all 29 tasks (`.wyn/tasks/approved/WYN-077-*.md` through `WYN-105-*.md`), confirmed individually before merging (see "QA verification" below).
-Build Status: `flutter analyze` clean and `flutter test` green (1044/1044) on the fully-merged tree, run locally in this session (Flutter 3.47.2 at `/home/user/flutter`) before merging -- not yet built by GitHub Actions (that only happens inside `deploy-web.yml`, which has not run for this commit yet).
-Deployment Target: (1) Supabase project `kqokpocajhfbidcxpvhh` (production database) -- migration prepared, NOT YET APPLIED, must be run by Founder (see below, this session was blocked from applying it directly, as expected). (2) Vercel project "web" (`prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a`), production URL **https://wynos.online**, via `deploy-web.yml` -- NOT YET TRIGGERED for this commit (see below, this session was blocked from triggering it, unexpectedly).
+Build Status: `flutter analyze` clean and `flutter test` green (1044/1044) on the fully-merged tree, then rebuilt for real inside GitHub Actions run #40.
+Deployment Target: (1) Supabase project `kqokpocajhfbidcxpvhh` (production database) -- migration **APPLIED** (Founder ran it via SQL Editor, 2026-09-03, after one constraint fix -- see "Post-deploy incident" below). (2) Vercel project "web" (`prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a`), production URL **https://wynos.online** -- **LIVE**, `deploy-web.yml` run #40, `main.dart.js` 4,228,301 bytes (was 4,135,619 pre-release).
 Changes: PR #216, merge commit `56e56a7` -- 29 tasks across Phase 0/1/2/3, see PR description (https://github.com/warren-wyn-dev/wynteam/pull/216) for the full task-by-task summary.
+Known gap: WYN-098's `location-search` Edge Function is code-complete but not deployed/functional -- awaiting Founder's `LOCATIONIQ_API_KEY` (not a blocker for the rest of the release).
 ```
 
 ## 0. Ground-truth check before starting (per this repo's own established discipline)
@@ -819,8 +820,14 @@ Unlike the deploy subagent above, the orchestrating session's own GitHub tool ac
 - **Production Verification (real, post-deploy)**: `curl -I https://wynos.online/main.dart.js` -> HTTP 200, **4,228,301 bytes**, `last-modified: Thu, 03 Sep 2026 03:33:25 GMT` -- different size than the 4,135,619-byte pre-Beta2 baseline above, confirming a genuinely fresh compile, not a stale cache hit.
 - **Web deploy: DONE.** Database migration is still the Founder's action (see incident below -- it's in progress, hit and fixed one constraint issue along the way).
 
-## Next Steps (Founder)
+## Update (2026-09-03): database migration applied -- release complete
 
-1. ~~Trigger the web deploy~~ -- **done**, see update above.
-2. **Finish running the SQL migration** via Supabase Dashboard -> SQL Editor (project `kqokpocajhfbidcxpvhh`) -- the two `not valid` corrected statements (see "Post-deploy incident" above) replace the two that failed; the rest of the script is idempotent and safe to re-run in full if needed.
-3. Once the migration is fully applied, consider a real-device/browser smoke test of WYN-097 (post as "เพื่อน"/"เฉพาะฉัน", confirm visibility), WYN-098 (location button, once `LOCATIONIQ_API_KEY` exists), and WYN-104 (photo crop) -- the highest-risk items among the "not yet device-tested" list above.
+Founder ran the corrected migration script (with both `not valid` fixes) via Supabase Dashboard -> SQL Editor. Result: **Success. No rows returned** (expected -- the script is almost entirely DDL, which returns no rows; the trailing `select 'MIGRATION APPLIED OK' as status` diagnostic is a single informational row, not something the Founder needed to act on).
+
+**This closes out the Wynos V1.0.0 Beta2 release.** All 3 deployment legs are done: code merged (PR #216), database migrated, web build live at https://wynos.online.
+
+## Next Steps (Founder) -- optional follow-ups, not blockers
+
+1. When ready, provide `LOCATIONIQ_API_KEY` so WYN-098's location check-in becomes functional (code is already live, just gracefully no-ops without a key).
+2. Consider a real-device/browser smoke test of WYN-097 (post as "เพื่อน"/"เฉพาะฉัน", confirm visibility), WYN-098 (location button, once the key above exists), and WYN-104 (photo crop) -- the highest-risk items among the "not yet device-tested" list above.
+3. Separately, decide whether to do anything about the handful of pre-existing Drops in production with more than 9 images (see "Post-deploy incident" above) -- not urgent, not a bug, just a product call whenever convenient.
