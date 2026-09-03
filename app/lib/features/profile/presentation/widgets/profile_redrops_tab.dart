@@ -54,6 +54,23 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
     with AutomaticKeepAliveClientMixin {
   final _scrollController = ScrollController();
   final List<HomeFeedItem> _items = [];
+  /// Keys of every row already shown this load cycle. Offset pagination
+  /// re-reads a list that can have grown at the top since the previous
+  /// page -- one new row shifts everything down by one, so the last row
+  /// of page N comes back as the first row of page N+1. Appended
+  /// blindly that showed the row twice *and* put two identical
+  /// [ValueKey]s in one list, which Flutter rejects outright: the
+  /// screen throws rather than merely looking wrong. Home already
+  /// guards its feed this way (see HomeFeedScreen's own _seenKeys);
+  /// this list never got the same treatment.
+  final Set<String> _seenKeys = {};
+
+  /// The identity of a row -- `id` alone isn't unique, since the same
+  /// Drop can appear both plainly and via someone's ReDrop of it
+  /// (WYN-034). Matches the [ValueKey] the itemBuilder builds.
+  static String _keyFor(HomeFeedItem item) =>
+      '${item.id}:${item.redropId ?? ''}';
+
   int _page = 0;
   bool _isLoadingInitial = true;
   bool _isLoadingMore = false;
@@ -98,6 +115,9 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
         _items
           ..clear()
           ..addAll(items);
+        _seenKeys
+          ..clear()
+          ..addAll(items.map(_keyFor));
         _page = 0;
         _hasMore = items.length == HomeRepository.pageSize;
       });
@@ -124,7 +144,12 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
         page: nextPage,
       );
       setState(() {
-        _items.addAll(items);
+        // _hasMore is still driven by what the server returned, not
+        // by what survived the filter: a full page that happens to be
+        // all duplicates still means there is more behind it.
+        for (final item in items) {
+          if (_seenKeys.add(_keyFor(item))) _items.add(item);
+        }
         _page = nextPage;
         _hasMore = items.length == HomeRepository.pageSize;
       });
@@ -289,9 +314,9 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
   /// the full reasoning (this tab had the identical `_loadInitial()`
   /// call, and lost scroll position the same way).
   ///
-  /// Located by the same composite `id:redropId` key the feed uses,
-  /// not by `id` alone: one Drop can appear in this list more than once
-  /// when the profile owner ReDropped it and it is also their own post.
+  /// Located by [_keyFor], not by `id` alone: one Drop can appear in
+  /// this list more than once when the profile owner ReDropped it and
+  /// it is also their own post.
   Future<void> _refreshRow(HomeFeedItem item) async {
     final HomeFeedItem? fresh;
     try {
@@ -304,10 +329,8 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
     }
     if (!mounted) return;
 
-    String keyFor(HomeFeedItem candidate) =>
-        '${candidate.id}:${candidate.redropId ?? ''}';
-    final key = keyFor(item);
-    final index = _items.indexWhere((candidate) => keyFor(candidate) == key);
+    final key = _keyFor(item);
+    final index = _items.indexWhere((candidate) => _keyFor(candidate) == key);
     if (index < 0) return;
     setState(() {
       if (fresh == null) {

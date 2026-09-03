@@ -15,6 +15,7 @@ import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
 import '../../../report/presentation/report_sheet.dart';
 import '../../../../core/widgets/network_thumbnail.dart';
+import '../../../../core/widgets/post_media.dart';
 
 /// A Club post card for the Posts tab list. Same interaction-row family
 /// as HomeDropCard/HomePopCard (Like/Comment/Share/Bookmark), plus a
@@ -313,10 +314,16 @@ class _ClubPostImagesState extends State<ClubPostImages> {
             controller: _pageController,
             itemCount: widget.imageUrls.length,
             onPageChanged: (page) => setState(() => _page = page),
+            // Beta3: the same decode-bounded image the single-image
+            // branch above already used (NetworkThumbnail) and every
+            // post-shaped surface now uses -- this branch was the one
+            // bare Image.network left in a Club post, decoding a
+            // full-size upload for a box a fraction of its width.
+            // The 1:1 shape is unchanged: `club_posts` carries no
+            // image dimensions, so there is nothing to lay a real
+            // aspect ratio out from here.
             itemBuilder: (context, index) =>
-                Image.network(widget.imageUrls[index], fit: BoxFit.cover,
-                  errorBuilder: networkImageErrorBuilder,
-                ),
+                PostImage(imageUrl: widget.imageUrls[index]),
           ),
         ),
         const SizedBox(height: 6),

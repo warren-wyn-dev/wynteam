@@ -105,6 +105,15 @@ class RecordingDropRepository extends DropRepository {
   /// than reloading the whole tab from page 0.
   int fetchLikedByAuthorCalls = 0;
 
+  /// Beta3: real multi-page results, keyed by authorId -- page N is
+  /// `likedDropPagesByAuthor[authorId][N]`. Takes precedence over
+  /// [likedDropsByAuthor] (single-page) when an entry exists, so every
+  /// existing test keeps its one-page behaviour untouched. Exists so a
+  /// test can hand back a page 1 that overlaps page 0, which is what
+  /// offset pagination really does when a row is added at the top
+  /// mid-scroll.
+  Map<String, List<List<Drop>>> likedDropPagesByAuthor = {};
+
   @override
   Future<List<Drop>> fetchLikedByAuthor({
     required String authorId,
@@ -112,6 +121,8 @@ class RecordingDropRepository extends DropRepository {
   }) async {
     fetchLikedByAuthorCalls++;
     if (fetchLikedByAuthorError != null) throw fetchLikedByAuthorError!;
+    final pages = likedDropPagesByAuthor[authorId];
+    if (pages != null) return page < pages.length ? pages[page] : <Drop>[];
     if (page != 0) return [];
     return likedDropsByAuthor[authorId] ?? [];
   }

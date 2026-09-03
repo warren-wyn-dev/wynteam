@@ -21,7 +21,6 @@ import '../../profile/data/profile_repository.dart';
 import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
-import '../../../core/widgets/network_thumbnail.dart';
 
 /// Placeholder share link -- same "no real hosting/domain yet" caveat as
 /// dropShareLink/popShareLink (WYN-005/006).
@@ -442,22 +441,20 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   /// 08-club.tsx: "The reference banner is a composited marketing
   /// screenshot ... not something to recreate pixel-for-pixel. Replaced
   /// with an original ink+sapphire abstract banner carrying just the
-  /// Club name in the title style." A real uploaded [Club.coverUrl] still
-  /// shows as-is when present -- the reference's own reasoning is about
-  /// replacing a placeholder marketing asset, not hiding a real photo
-  /// the Club's owner actually uploaded via CreateClubScreen's cover
-  /// picker.
+  /// Club name in the title style."
+  ///
+  /// Beta3 (Founder decision, 2026-09-03): this background is now the
+  /// *only* thing this strip ever shows. It used to be a fallback --
+  /// an uploaded [Club.coverUrl] took its place when one existed -- so
+  /// the top of a Club read as two unrelated designs depending on
+  /// whether its owner had happened to pick a photo, and the Club's own
+  /// name disappeared from the banner in the case where it did. Founder
+  /// asked for the Background Image only, scoped to this screen: the
+  /// cover picker on Create/Edit Club is untouched, and
+  /// [Club.coverUrl] still leads the Club cards in Explore and the
+  /// recommendation rows, where a photo is what distinguishes one card
+  /// from the next. Nothing was removed from the database.
   Widget _buildBanner(Club club) {
-    if (club.coverUrl != null) {
-      return SizedBox(
-        height: 140,
-        width: double.infinity,
-        child: Image.network(club.coverUrl!, fit: BoxFit.cover,
-          errorBuilder: networkImageErrorBuilder,
-        ),
-      );
-    }
-
     return Container(
       height: 140,
       width: double.infinity,

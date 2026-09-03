@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/drop/data/drop.dart';
+import 'package:wyn/features/drop/data/drop_repository.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/profile/presentation/widgets/profile_likes_tab.dart';
@@ -13,8 +14,9 @@ import 'support/recording_pop_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
 
-Drop _drop({String id = 'd1'}) => Drop(
+Drop _drop({String id = 'd1', String? caption}) => Drop(
       id: id,
+      caption: caption,
       authorId: 'someone-else',
       authorUsername: 'namfah',
       imageUrl: 'https://example.supabase.co/drops/$id.jpg',
@@ -49,6 +51,7 @@ void main() {
   // teardown (see this group's own comment above).
   late RecordingDropRepository backFromDetailRepo;
   late RecordingDropRepository unlikedInDetailRepo;
+  late RecordingDropRepository overlappingPagesRepo;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
@@ -70,6 +73,7 @@ void main() {
     );
     backFromDetailRepo = RecordingDropRepository();
     unlikedInDetailRepo = RecordingDropRepository();
+    overlappingPagesRepo = RecordingDropRepository();
   });
 
   testWidgets('shows the empty state when the author has liked nothing',
@@ -316,6 +320,64 @@ void main() {
 
       expect(find.byType(HomeDropCard), findsOneWidget);
     });
+  });
+
+  testWidgets(
+      'Beta3: a second page that overlaps the first does not put the same '
+      'row in the list twice', (tester) async {
+    // What offset pagination really does: someone adds a row at the top
+    // while the reader is scrolling, so everything shifts down one and
+    // the last row of page 0 comes back as the first row of page 1.
+    // Appended blindly that showed the row twice *and* put two
+    // identical ValueKeys in one ListView -- which Flutter rejects
+    // outright, so the tab threw rather than merely looking wrong.
+    final pageZero = [
+      for (var i = 0; i < DropRepository.pageSize - 1; i++) _drop(id: 'd$i'),
+      // The boundary row, captioned so the test can count how many
+      // times it actually renders.
+      _drop(id: 'boundary', caption: 'ROW-AT-THE-PAGE-BOUNDARY'),
+    ];
+    final repo = overlappingPagesRepo
+      ..likedDropPagesByAuthor = {
+        'someone-else': [
+          pageZero,
+          // Page 1 leads with page 0's last row, then genuinely new ones.
+          [pageZero.last, _drop(id: 'new-1'), _drop(id: 'new-2')],
+        ],
+      };
+
+    await tester.pumpWidget(_wrap(ProfileLikesTab(
+      dropRepository: repo,
+      followRepository: followRepo,
+      profileRepository: profileRepo,
+      popRepository: popRepo,
+      savedRepository: savedRepo,
+      authorId: 'someone-else',
+      emptyText: 'ยังไม่มีอะไรที่ถูกใจ',
+    )));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    await tester.scrollUntilVisible(
+      find.byType(CircularProgressIndicator),
+      600,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(repo.fetchLikedByAuthorCalls, 2);
+    // The boundary row is in the list exactly once. Without the guard
+    // it is appended a second time immediately after itself -- both
+    // copies adjacent, both in the viewport, both carrying
+    // ValueKey('boundary').
+    await tester.scrollUntilVisible(
+      find.text('ROW-AT-THE-PAGE-BOUNDARY'),
+      -200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('ROW-AT-THE-PAGE-BOUNDARY'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
 

@@ -38,6 +38,12 @@ void main() {
   late RecordingClubRepository approvedMemberRepo;
   late RecordingClubRepository ownerRepo;
   late RecordingClubPostRepository clubPostRepo;
+  // Beta3 -- built in setUp() with every other repo, never inline in a
+  // testWidgets body: a fresh RecordingClubRepository constructs a
+  // SupabaseClient whose GoTrue auto-refresh timer would otherwise be
+  // attributed to that one test's FakeAsync zone (.wyn/learning/
+  // PATTERNS.md).
+  late RecordingClubRepository withCoverRepo;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'viewer');
@@ -58,6 +64,18 @@ void main() {
       myMembership: membership(role: ClubMemberRole.owner, status: ClubMemberStatus.approved),
     );
     clubPostRepo = RecordingClubPostRepository();
+    withCoverRepo = RecordingClubRepository(
+      club: Club(
+        id: 'club-cover',
+        name: 'Cover Club',
+        privacy: ClubPrivacy.public,
+        ownerId: 'owner-1',
+        createdAt: DateTime.now(),
+        memberCount: 4,
+        coverUrl: 'https://example.supabase.co/clubs/cover.jpg',
+      ),
+      myMembership: null,
+    );
   });
 
   Future<void> pumpPage(WidgetTester tester, RecordingClubRepository repo) async {
@@ -160,4 +178,39 @@ void main() {
     expect(find.text('ออกจาก Club'), findsNothing);
     expect(find.text('แก้ไขข้อมูล Club'), findsNothing);
   });
+  testWidgets(
+      'Beta3: a Club with an uploaded cover shows the generated background '
+      'banner anyway, never the photo', (tester) async {
+    // Founder decision (2026-09-03), Beta3 item 12: this strip shows
+    // the Background Image only. It used to swap in club.cover_url
+    // whenever one existed, so the top of a Club read as two unrelated
+    // designs depending on whether its owner had picked a photo -- and
+    // the Club's own name vanished from the banner in the case where
+    // they had. The cover picker on Create/Edit Club and the cover-led
+    // Club cards in Explore are deliberately untouched.
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ClubPage(
+          clubRepository: withCoverRepo,
+          clubPostRepository: clubPostRepo,
+          clubId: 'club-cover',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    // The banner's own "CLUB" eyebrow, which only the generated
+    // background carries -- the uploaded-photo branch had no text at
+    // all.
+    expect(find.text('CLUB'), findsOneWidget);
+    // ...and the cover photo is nowhere on the page.
+    final coverImages = tester.widgetList<Image>(find.byType(Image)).where(
+          (image) =>
+              image.image is NetworkImage &&
+              (image.image as NetworkImage).url.contains('clubs/cover.jpg'),
+        );
+    expect(coverImages, isEmpty);
+  });
+
 }
