@@ -264,7 +264,7 @@ class _RootShellState extends State<RootShell> {
         builder: (_) => CreateDropScreen(dropRepository: _dropRepository),
       ),
     );
-    if (created == true) setState(() => _homeVersion++);
+    if (created == true && mounted) setState(() => _homeVersion++);
   }
 
   @override

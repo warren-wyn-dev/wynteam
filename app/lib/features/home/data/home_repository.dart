@@ -88,6 +88,59 @@ class HomeRepository {
   // usages, not a migration.
   static const _hiddenContentType = 'pop';
 
+  /// Re-reads a single feed row -- the one identified by [id], or by
+  /// [redropId] when the row is someone's ReDrop of it (the same
+  /// composite identity the feed keys cards on, since one Drop can
+  /// appear both plainly and via a ReDrop). Returns null when the row is
+  /// gone: deleted, or now hidden from this viewer by a block/audience/
+  /// moderation rule, all of which RLS applies to this query exactly as
+  /// it does to a feed page.
+  ///
+  /// Exists so returning from Detail can refresh just the card the user
+  /// was looking at. Home used to reload the entire feed from page 0 on
+  /// every back-navigation, which threw away the viewer's scroll
+  /// position: open the 40th post, come back, and you are at the top
+  /// again with the post you just read somewhere below. No mature feed
+  /// behaves that way, and the reload existed only because syncing one
+  /// row back was harder than starting over -- which is what this makes
+  /// easy.
+  Future<HomeFeedItem?> fetchItemById({
+    required String id,
+    String? redropId,
+  }) async {
+    final userId = _client.auth.currentUser!.id;
+
+    var query = _client.from('home_feed').select().eq('id', id);
+    // A plain row and a ReDrop of the same Drop share `id`, so the
+    // ReDrop column is what disambiguates them.
+    query = redropId == null
+        ? query.isFilter('redrop_id', null)
+        : query.eq('redrop_id', redropId);
+    final row = await query.maybeSingle();
+    if (row == null) return null;
+
+    final isDrop = row['content_type'] == 'drop';
+    final viewer = await _fetchViewerState(
+      userId: userId,
+      rows: [row],
+      dropIds: isDrop ? [id] : const [],
+      popIds: isDrop ? const [] : [id],
+    );
+    final pollState = viewer.pollStates[row['poll_id'] as String?];
+
+    return HomeFeedItem.fromMap(
+      row,
+      likedByMe: isDrop
+          ? viewer.likedDropIds.contains(id)
+          : viewer.likedPopIds.contains(id),
+      savedByMe: viewer.savedIds.contains(id),
+      redroppedByMe: isDrop && viewer.redroppedIds.contains(id),
+      pollMyVoteIndex: pollState?.myVoteIndex,
+      pollTotalVotes: pollState?.totalVotes,
+      pollOptionCounts: pollState?.optionCounts,
+    );
+  }
+
   /// Fetches one page (0-indexed) of the unified Home feed, newest first
   /// across Drop content (Pop is hidden -- see [_excludePop]).
   Future<List<HomeFeedItem>> fetchFeed({required int page}) async {

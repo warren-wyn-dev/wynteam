@@ -23,6 +23,7 @@ import 'pop_single_clip_screen.dart';
 import 'widgets/from_your_clubs_feed.dart';
 import 'widgets/home_drop_card.dart';
 import 'widgets/home_explainer_banner.dart';
+import 'widgets/home_feed_skeleton.dart';
 import 'widgets/home_pop_card.dart';
 import 'widgets/new_posts_pill.dart';
 import 'widgets/suggested_follow_list.dart';
@@ -114,6 +115,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   int _page = 0;
   bool _isLoadingInitial = true;
   bool _isLoadingMore = false;
+
+  /// True when the most recent [_loadMore] failed -- swaps the trailing
+  /// spinner for a tappable retry (see [_buildBodySlivers]).
+  bool _loadMoreFailed = false;
   bool _hasMore = true;
   String? _error;
 
@@ -206,7 +211,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   }
 
   void _onScroll() {
-    if (_isLoadingMore || !_hasMore) return;
+    // _loadMoreFailed: after a failure the user asks again with the
+    // retry button, rather than every scroll tick re-firing a request
+    // that just failed.
+    if (_isLoadingMore || !_hasMore || _loadMoreFailed) return;
     if (_scrollController.position.pixels >
         _scrollController.position.maxScrollExtent - 300) {
       _loadMore();
@@ -277,6 +285,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     setState(() {
       _isLoadingInitial = true;
       _error = null;
+      _loadMoreFailed = false;
       // A fresh load already carries every post the pill would have
       // offered to reveal -- see _newPostCount's own doc comment.
       _newPostCount = 0;
@@ -303,7 +312,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   }
 
   Future<void> _loadMore() async {
-    setState(() => _isLoadingMore = true);
+    setState(() {
+      _isLoadingMore = true;
+      _loadMoreFailed = false;
+    });
     try {
       final nextPage = _page + 1;
       final items = await _fetchPage(nextPage);
@@ -328,8 +340,15 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         _page = nextPage;
       });
     } catch (_) {
-      // Silent: an infinite-scroll load-more failure doesn't need a
-      // blocking error state -- scrolling again just retries it.
+      // Not a blocking error state -- the rows already loaded stay
+      // exactly as they are -- but not silent either. It used to be:
+      // the spinner at the bottom simply stopped, leaving the user
+      // staring at a feed that had quietly stopped growing with no way
+      // to tell whether it had ended or failed, and no way to ask again
+      // except to guess and scroll. [_onScroll] also won't retry on its
+      // own while the list is already at its maximum extent, so without
+      // a tap target a failure here can be genuinely terminal.
+      if (mounted) setState(() => _loadMoreFailed = true);
     } finally {
       if (mounted) setState(() => _isLoadingMore = false);
     }
@@ -619,10 +638,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         ),
       ),
     );
-    // The detail screen can change like/comment/save state or delete the
-    // Drop entirely -- reload rather than trying to sync partial state
-    // back into the feed (same approach as DropFeedScreen, WYN-005).
-    _loadInitial();
+    await _refreshRow(item);
   }
 
   Future<void> _openPop(HomeFeedItem item, {bool openComments = false}) async {
@@ -639,7 +655,48 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         ),
       ),
     );
-    _loadInitial();
+    await _refreshRow(item);
+  }
+
+  /// Brings one card back in sync after Detail, which can change its
+  /// like/save/ReDrop state and its comment count, or delete the post
+  /// outright.
+  ///
+  /// This used to be a whole-feed `_loadInitial()`, which also reset the
+  /// scroll position: the user opened the 40th post, came back, and
+  /// found themselves at the top of a feed that had been rebuilt around
+  /// them. Refreshing the one row they were looking at keeps everything
+  /// else -- position, the rows already loaded, the pages already paged
+  /// -- exactly where they left it.
+  ///
+  /// Located by key rather than by a captured index, because a hide or
+  /// an Undo can shift positions while Detail is open. A row that is
+  /// gone server-side (deleted, or newly out of view for this viewer) is
+  /// removed here too. A failed refresh leaves the card as it was: a
+  /// stale count is a much smaller problem than a feed that empties
+  /// itself because one request timed out.
+  Future<void> _refreshRow(HomeFeedItem item) async {
+    final HomeFeedItem? fresh;
+    try {
+      fresh = await widget.homeRepository.fetchItemById(
+        id: item.id,
+        redropId: item.redropId,
+      );
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+
+    final key = _keyFor(item);
+    final index = _items.indexWhere((candidate) => _keyFor(candidate) == key);
+    if (index < 0) return;
+    setState(() {
+      if (fresh == null) {
+        _items.removeAt(index);
+      } else {
+        _items[index] = fresh;
+      }
+    });
   }
 
   void _openProfile(String userId) {
@@ -971,11 +1028,12 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   // doc comment on why that header no longer owns fixed Column space).
   List<Widget> _buildBodySlivers() {
     if (_isLoadingInitial) {
+      // A sliver of card-shaped placeholders rather than a spinner in an
+      // empty viewport -- see HomeFeedSkeleton. Scrolls with the list it
+      // stands in for, so the pinned mode toggle above behaves exactly
+      // as it will once real cards arrive.
       return [
-        const SliverFillRemaining(
-          hasScrollBody: false,
-          child: Center(child: CircularProgressIndicator()),
-        ),
+        const SliverToBoxAdapter(child: HomeFeedSkeleton()),
       ];
     }
 
@@ -1063,6 +1121,19 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
             final index = i ~/ 2;
 
             if (index >= _items.length) {
+              if (_loadMoreFailed) {
+                return Padding(
+                  padding: const EdgeInsets.all(WynSpacing.space4),
+                  child: Center(
+                    child: TextButton.icon(
+                      key: const Key('home_feed_load_more_retry'),
+                      onPressed: _loadMore,
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('โหลดเพิ่มไม่สำเร็จ แตะเพื่อลองใหม่'),
+                    ),
+                  ),
+                );
+              }
               return const Padding(
                 padding: EdgeInsets.all(WynSpacing.space4),
                 child: Center(child: CircularProgressIndicator()),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../design/wyn_spacing.dart';
 
@@ -9,7 +10,7 @@ import '../design/wyn_spacing.dart';
 /// to fit several evenly-`gap-5`-spaced metrics on one row). Shared by
 /// [HomeDropCard] (heart/comment/repost/eye) and [HomePopCard]
 /// (heart/comment/eye -- Pop has no ReDrop concept).
-class ActionMetric extends StatelessWidget {
+class ActionMetric extends StatefulWidget {
   const ActionMetric({
     super.key,
     required this.icon,
@@ -33,11 +34,61 @@ class ActionMetric extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
+  State<ActionMetric> createState() => _ActionMetricState();
+}
+
+class _ActionMetricState extends State<ActionMetric>
+    with SingleTickerProviderStateMixin {
+  // A single, short pop when the metric's *state* changes -- the heart
+  // filling on Like, the arrows filling on ReDrop. Tapping Like was the
+  // most-used interaction in the product and had no feedback at all
+  // beyond the colour swapping instantly; every mature feed acknowledges
+  // it. Driven off the icon changing (rather than fired from the tap)
+  // so it plays for the real state change, including one that arrives
+  // from elsewhere, and does NOT play while scrolling builds new cards.
+  late final AnimationController _pop = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+    value: 1,
+  );
+  late final Animation<double> _scale = Tween<double>(begin: 0.75, end: 1)
+      .animate(CurvedAnimation(parent: _pop, curve: Curves.easeOutBack));
+
+  @override
+  void didUpdateWidget(covariant ActionMetric oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.icon != widget.icon) _pop.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _pop.dispose();
+    super.dispose();
+  }
+
+  void _handleTap() {
+    // Matches ViewProfileScreen's own Follow button, which already
+    // pairs its state change with a light impact.
+    HapticFeedback.lightImpact();
+    widget.onTap!();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final icon = widget.icon;
+    final iconSize = widget.iconSize;
+    final count = widget.count;
+    final color = widget.color;
+    final semanticsLabel = widget.semanticsLabel;
+    final onTap = widget.onTap;
+
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: iconSize, color: color),
+        ScaleTransition(
+          scale: _scale,
+          child: Icon(icon, size: iconSize, color: color),
+        ),
         const SizedBox(width: 6),
         Text(
           '${count ?? 0}',
@@ -75,7 +126,7 @@ class ActionMetric extends StatelessWidget {
           minHeight: WynSpacing.touchTargetMin,
         ),
         child: InkWell(
-          onTap: onTap,
+          onTap: _handleTap,
           borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
           child: Padding(
             padding: const EdgeInsets.symmetric(

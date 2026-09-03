@@ -414,7 +414,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       maxHeight: 1600,
       imageQuality: 85,
     );
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
 
     setState(() => _isCropping = true);
     try {
@@ -457,7 +457,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       imageQuality: 85,
       limit: remaining,
     );
-    if (picked.isEmpty) return;
+    if (picked.isEmpty || !mounted) return;
 
     setState(() => _isCropping = true);
     try {
@@ -520,7 +520,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       case AudienceOption.everyone:
       case AudienceOption.friends:
       case AudienceOption.onlyMe:
-        setState(() => _audience = selected);
+        if (mounted) setState(() => _audience = selected);
     }
   }
 

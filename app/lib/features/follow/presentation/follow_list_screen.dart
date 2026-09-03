@@ -254,7 +254,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
           ),
         ) ??
         false;
-    if (!confirmed || _removingIds.contains(profile.id)) return;
+    if (!confirmed || !mounted || _removingIds.contains(profile.id)) return;
 
     setState(() => _removingIds.add(profile.id));
     try {
