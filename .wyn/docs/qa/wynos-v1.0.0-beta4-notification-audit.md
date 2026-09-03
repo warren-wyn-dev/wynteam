@@ -294,7 +294,33 @@ Collapse key **ไม่ได้กันการส่งครั้งท�
      สิ่งที่ยืนยันได้คือฝั่งโค้ด: `index.ts:82` อ่าน `Deno.env.get("FCM_SERVICE_ACCOUNT")`
      และถ้าไม่มีค่า จะตอบ `200 FCM not configured` เงียบๆ ไม่ทำให้ webhook retry
    · ค่านี้เป็นความลับจริง (มี `private_key`) — ไม่เคยผ่านมาที่ผมและไม่ควรผ่าน
-6. ตั้ง Database Webhook บน `public.notifications` INSERT → `send-push-notification`
+6. ✅ **เสร็จแล้ว** (2026-09-03 18:0x) — Database Webhook บน `public.notifications` INSERT → `send-push-notification`
+   ทำผ่าน `.github/workflows/setup-database-webhook.yml` (ปุ่มเดียว มี 5 โหมด: `verify` `create` `test` `remove` `enable`)
+   ไม่ได้กรอกฟอร์มใน Dashboard เพราะ Founder ทำจาก iPad และหาหน้านั้นไม่เจอ
+
+   · **เปิดกลไก webhook ให้ด้วย** — probe ก่อน/หลังยืนยันว่าเปลี่ยนจริง:
+     ก่อน `pg_net 0 · schema 0 · http_request 0` → `POST /v1/projects/{ref}/database/webhooks/enable` → `201`
+     → หลัง `pg_net 1 · schema 1 · http_request 1`
+     เป็น endpoint เดียวกับที่ปุ่ม **Enable webhooks** ใน Dashboard เรียก จึงเป็น Supabase รัน migration ของเขาเอง
+     **ไม่ใช่**การเขียน `supabase_functions.http_request` ขึ้นมาเลียนแบบ ซึ่งจงใจไม่ทำ เพราะสำเนาที่ไม่เหมือนเป๊ะ
+     จะทำให้ Dashboard ไม่รู้จัก hook และชนกับ migration ครั้งต่อไปของ Supabase
+   · trigger ที่ได้: `AFTER INSERT ON public.notifications FOR EACH ROW`, enabled (`tgenabled = 'O'`), timeout `5000`
+   · **ยิงทดสอบจริงแล้ว** (โหมด `test`, run `33787465510`) — `net.http_post` ด้วย payload `type=UPDATE`
+     ที่โค้ดตั้งใจ ignore จึงไม่เขียนแถวและไม่ push หาใคร:
+
+     ```
+     { "status_code": 200, "content": "Ignored", "error_msg": null }
+     ```
+
+     `200` = ผ่านด่าน JWT · `"Ignored"` = ข้อความจาก `index.ts:76` ของเราเอง จึงพิสูจน์ว่าไปถึงโค้ดจริง
+     ไม่ใช่แค่ถึง gateway · **ยืนยันครบทั้งเส้น: Postgres → pg_net → URL → auth → Edge Function**
+   · **สิ่งเดียวที่ยังไม่ได้พิสูจน์คือ trigger ยิงเองตอน INSERT จริง** และการส่ง FCM จริง (ดู K-1)
+
+   **บั๊กที่เจอระหว่างทาง — `create` ครั้งแรกสร้าง webhook ที่ยิงไม่ได้เลย:**
+   secret `SUPABASE_URL` มี newline ติดท้ายมาจากการ copy-paste ใน UI ของ GitHub
+   URL จึงกลายเป็น `https://….supabase.co\n/functions/v1/…` เห็นได้ที่เดียวคือใน `pg_get_triggerdef`
+   ทุกที่ที่คนจะไปดูจะดูปกติหมด · `deploy-edge-functions.yml` มี `clean()` กันเรื่องนี้อยู่แล้วแต่ไม่ได้ยกมาใช้
+   · แก้แล้วใน `81bbdad` (`tr -d '[:space:]'` ทั้ง 3 ค่า) และ `create` รอบใหม่ให้ URL ที่ถูกต้อง
    · **ต้องมี HTTP header `Authorization: Bearer <anon key>`** เพราะ function ถูก deploy โดย
      **ไม่ใช้** `--no-verify-jwt` (เจตนา — ดู §8) ถ้าไม่มี header นี้ platform จะตอบ `401`
      ตั้งแต่ก่อนเข้า code ของเรา และ push จะเงียบโดยไม่มี error ให้เห็นในฝั่งแอปเลย
@@ -382,7 +408,7 @@ Collapse key **ไม่ได้กันการส่งครั้งท�
 
 | # | เรื่อง | ความรุนแรง | รายละเอียด |
 |---|---|---|---|
-| K-1 | **ยังไม่เคยส่ง push จริงแม้แต่ครั้งเดียว** | — | อัปเดต 2026-09-03 17:24: ฝั่ง client ตั้งค่าครบแล้วบน production (ข้อ 1/3/4 ข้างบน ✅) และ Edge Function deploy แล้ว **แต่ยังเหลือข้อ 5 (`FCM_SERVICE_ACCOUNT`) และข้อ 6 (Database Webhook)** ซึ่งเป็นสองชิ้นที่ทำให้ notification แถวหนึ่งกลายเป็น push จริง — จนกว่าจะครบ ยังส่งไม่ได้ · ทุกอย่างในเอกสารนี้ยืนยันด้วย: การอ่านโค้ด, widget test (permission flow ครบ 4 สถานะ), `deno check` + `deno test` (payload/collapse key), และการอ่าน RLS ใน `schema.sql` **end-to-end delivery ยังไม่ได้พิสูจน์** |
+| K-1 | **ยังไม่เคยส่ง push จริงแม้แต่ครั้งเดียว** | — | อัปเดต 2026-09-03 18:0x: **ข้อ 1–7 ของ §10 เสร็จหมดแล้ว** (client · Edge Function · `FCM_SERVICE_ACCOUNT` · Webhook) และเส้นทาง Postgres → Edge Function ยืนยันด้วยการยิงจริง (`200 Ignored`) **เหลือเฉพาะสองช่วงท้ายที่ยังไม่มีอะไรพิสูจน์: trigger ยิงเองตอน INSERT จริง และ FCM ส่งถึงเครื่องจริง** ทั้งสองต้องมีเครื่องที่กดอนุญาต push แล้วเท่านั้นจึงจะทดสอบได้ (ดู K-11) · ทุกอย่างในเอกสารนี้ยืนยันด้วย: การอ่านโค้ด, widget test (permission flow ครบ 4 สถานะ), `deno check` + `deno test` (payload/collapse key), และการอ่าน RLS ใน `schema.sql` **end-to-end delivery ยังไม่ได้พิสูจน์** |
 | K-2 | Android Gradle plugin ยังไม่ apply | กลาง | Push บน Android จะยังไม่ทำงานจนกว่าจะทำข้อ 2 ข้างบน — เจตนาเดิมตั้งแต่ WYN-016 |
 | K-3 | Badge ยังไม่ realtime | ต่ำ | อัปเดตตอน resume และตอน foreground push การแจ้งเตือนที่มาถึงระหว่างแอปเปิดอยู่ *และ* push ไม่ได้ตั้งค่า จะยังไม่ขยับจนกว่าจะ resume — การเพิ่ม Realtime channel เป็นทางแก้ที่ไม่ใช่ polling แต่เพิ่ม subscription ตลอด session ควรเป็น task แยกที่ Founder ตัดสิน |
 | K-4 | iOS Safari ต้องติดตั้งเป็น PWA ก่อน | ต่ำ | ข้อจำกัดของ Apple — ควรบอกผู้ใช้ในภายหน้า ยังไม่มี UI อธิบายเรื่องนี้ |
