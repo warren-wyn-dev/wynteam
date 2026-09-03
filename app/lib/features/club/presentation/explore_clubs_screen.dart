@@ -336,7 +336,7 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
         child: Row(
           children: [
             AvatarCircle(
-              imageUrl: club.iconUrl,
+              imageUrl: club.identityImageUrl,
               fallbackText: club.name,
               radius: 22,
               ring: true,

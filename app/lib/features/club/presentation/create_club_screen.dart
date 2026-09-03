@@ -19,10 +19,28 @@ import '../../../core/widgets/labeled_field.dart';
 import '../../../core/widgets/restriction_banner.dart';
 
 /// Screen 2 — Create Club. Reuses Edit Profile's form/upload pattern
-/// (WYN-003) for Name/Description/Cover per the Design spec (icon
-/// upload removed per Founder decision, 2026-08-24 -- cover image
-/// alone is enough; see .wyn/company/DECISIONS.md).
+/// (WYN-003) for Name/Description/Image per the Design spec.
 /// See .wyn/docs/design/wyn-014-club-core.md, Screen 2.
+///
+/// ## Beta4 §8.2 -- the order of the questions
+///
+/// §8.2 asks the flow to follow: ชื่อ Club → คำอธิบาย → เลือกรูป Club →
+/// ตั้งค่า → ตรวจสอบข้อมูล → สร้าง Club. This screen used to open with
+/// the image picker, before the name field: a 110px grey slab asking
+/// for a picture of a thing that did not have a name yet. Nobody
+/// chooses a Club's photo before deciding what the Club is. The card's
+/// contents are now in §8.2's order, with the picker demoted from
+/// full-bleed banner to a labelled row like every other optional field
+/// beside it, and a review summary added above the button so the last
+/// thing before "สร้าง Club" is what you are about to create.
+///
+/// Deliberately still **one screen**, not a 6-step wizard. §8.2's own
+/// words are "จัด Flow ให้ใกล้เคียงแนวคิด" -- arrange the flow to
+/// approximate it -- and a Club has exactly two required answers (name,
+/// privacy). Paginating two required fields across six screens would
+/// make a 30-second task feel like an application form, and it is the
+/// kind of "Rewrite Architecture" §0 rules out. The order is what §8.2
+/// is about, and the order is now right.
 class CreateClubScreen extends StatefulWidget {
   const CreateClubScreen({
     super.key,
@@ -55,8 +73,9 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
   String? _category;
   ClubPrivacy? _privacy;
 
-  Uint8List? _coverBytes;
-  String? _coverExtension;
+  // Beta4 §8.1: one image, not a cover *and* an icon.
+  Uint8List? _imageBytes;
+  String? _imageExtension;
 
   bool _isCreating = false;
   String? _errorMessage;
@@ -124,11 +143,16 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
     super.dispose();
   }
 
-  Future<void> _pickCover() async {
+  Future<void> _pickImage() async {
     final picked = await ImagePicker().pickImage(
       source: ImageSource.gallery,
+      // Beta4 §8.1: square bounds, not the old 1600x900. This is now
+      // the Club's identity image -- it appears as a round avatar on
+      // the Club page, in "Club ของฉัน" and in every mini card, and as
+      // the page banner. A 16:9 source guaranteed that every circular
+      // rendering cropped the sides off whatever the owner framed.
       maxWidth: 1600,
-      maxHeight: 900,
+      maxHeight: 1600,
       imageQuality: 85,
     );
     if (picked == null) return;
@@ -140,8 +164,8 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
 
     if (!mounted) return;
     setState(() {
-      _coverBytes = bytes;
-      _coverExtension = extension;
+      _imageBytes = bytes;
+      _imageExtension = extension;
     });
   }
 
@@ -160,8 +184,8 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
         description: _descriptionController.text,
         category: _category,
         privacy: privacy,
-        coverBytes: _coverBytes,
-        coverExtension: _coverExtension,
+        imageBytes: _imageBytes,
+        imageExtension: _imageExtension,
       );
       if (!mounted) return;
       // The creator is the Owner automatically (clubs_add_owner_membership
@@ -255,7 +279,9 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildCoverPicker(),
+                    // Beta4 §8.2, step 1-2: name, then description --
+                    // first, where they belong. The image picker used to
+                    // sit above these.
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space5),
                       child: Column(
@@ -285,6 +311,9 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                         ],
                       ),
                     ),
+                    const Divider(height: 1, color: WynColors.hairline),
+                    // Beta4 §8.2, step 3: the one Club image.
+                    _buildImagePicker(),
                     const Divider(height: 1, color: WynColors.hairline),
                     // Not in 08-club.tsx's own mockup (it doesn't have a
                     // category field at all), but real, existing
@@ -360,6 +389,18 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                   ],
                 ),
               ),
+              // Beta4 §8.2, step 5: "ตรวจสอบข้อมูล". A summary of what
+              // is about to be created, immediately above the button
+              // that creates it -- the fields are spread down a
+              // scrolling card, so by the time the button is on screen
+              // the name usually is not. Appears only once the two
+              // required answers exist, so it is a confirmation rather
+              // than a checklist of what is still missing (the button's
+              // own disabled state already says that).
+              if (_canCreate) ...[
+                const SizedBox(height: WynSpacing.space5),
+                _buildReviewSummary(),
+              ],
               const SizedBox(height: WynSpacing.space6),
               if (_errorMessage != null) ...[
                 Text(
@@ -457,54 +498,158 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
     );
   }
 
-  Widget _buildCoverPicker() {
-    return GestureDetector(
-      onTap: _isCreating ? null : _pickCover,
-      child: Semantics(
-        label: _coverBytes == null ? 'แตะเพื่อเลือกรูปปก' : 'รูปปกที่เลือก',
-        button: true,
-        child: _coverBytes != null
-            ? SizedBox(
-                height: 110,
-                width: double.infinity,
-                child: Image.memory(_coverBytes!, fit: BoxFit.cover),
-              )
-            : Container(
-                height: 110,
-                width: double.infinity,
-                color: WynColors.hairline,
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: WynColors.sapphireRing,
+  /// Beta4 §8.1/§8.2, step 3 -- "เลือกรูป Club 1 รูป".
+  ///
+  /// A labelled row with a square 56px thumbnail, not the 110px
+  /// full-bleed grey banner this screen used to open with. Two reasons
+  /// it changed shape, not just position:
+  ///
+  /// * It is no longer a *cover*. §8.1 makes this the Club's single
+  ///   identity image, and the shape it is shown in most often is a
+  ///   circle (the Club page header, "Club ของฉัน", every mini card).
+  ///   A wide 16:9 preview promised a framing the product never uses.
+  /// * As a banner it dominated the form -- the largest, most colourful
+  ///   element on a screen whose only required answers are a name and a
+  ///   privacy setting, for a field that is optional.
+  ///
+  /// Same row shape as "หมวดหมู่" directly below it, so the three
+  /// optional settings read as one group.
+  Widget _buildImagePicker() {
+    final hasImage = _imageBytes != null;
+    return Semantics(
+      label: hasImage ? 'รูป Club ที่เลือก แตะเพื่อเปลี่ยน' : 'แตะเพื่อเลือกรูป Club',
+      button: true,
+      excludeSemantics: true,
+      child: InkWell(
+        key: const Key('club_image_picker'),
+        onTap: _isCreating ? null : _pickImage,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            WynSpacing.space5, WynSpacing.space4, WynSpacing.space5, WynSpacing.space4,
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+                child: SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: hasImage
+                      ? Image.memory(_imageBytes!, fit: BoxFit.cover)
+                      : Container(
+                          color: WynColors.hairline,
+                          child: const Icon(
+                            Icons.image_outlined,
+                            size: 20,
+                            color: WynColors.sapphire,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.image_outlined,
-                          size: 16,
-                          color: WynColors.sapphire,
-                        ),
-                      ),
-                      const SizedBox(height: WynSpacing.space2),
-                      Text(
-                        'แตะเพื่อเลือกรูปปก',
-                        style: _textStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.ink),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'แนะนำอัตราส่วน 16:9',
-                        style: _textStyle(fontSize: 13, color: WynColors.faint),
-                      ),
-                    ],
-                  ),
                 ),
               ),
+              const SizedBox(width: WynSpacing.space4),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'รูป Club',
+                      style: _textStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: WynColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: WynSpacing.space1),
+                    Text(
+                      hasImage ? 'เลือกรูปแล้ว — แตะเพื่อเปลี่ยน' : 'ไม่บังคับ',
+                      style: _textStyle(
+                        fontSize: 15,
+                        color: hasImage ? WynColors.ink : WynColors.faint,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, size: 18, color: WynColors.faint),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Beta4 §8.2, step 5 -- "ตรวจสอบข้อมูล".
+  ///
+  /// Deliberately plain text on the page background rather than another
+  /// bordered card: a second card would read as more form to fill in,
+  /// when the point is that there is nothing left to fill in. Says only
+  /// what a person can still get wrong -- the name they typed, whether
+  /// the Club will be public, and whether it has a picture.
+  Widget _buildReviewSummary() {
+    final name = _nameController.text.trim();
+    final isPublic = _privacy == ClubPrivacy.public;
+    return Container(
+      key: const Key('club_review_summary'),
+      padding: const EdgeInsets.all(WynSpacing.space4),
+      decoration: BoxDecoration(
+        color: WynColors.hairline,
+        borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'ตรวจสอบข้อมูล',
+            style: _textStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: WynColors.graphite,
+            ),
+          ),
+          const SizedBox(height: WynSpacing.space2),
+          _ReviewLine(icon: Icons.groups_outlined, text: name),
+          _ReviewLine(
+            icon: isPublic ? Icons.public : Icons.lock_outline,
+            text: isPublic
+                ? 'สาธารณะ — ทุกคนค้นหาและเข้าร่วมได้ทันที'
+                : 'ส่วนตัว — ต้องส่งคำขอ ผู้ดูแลต้องอนุมัติก่อน',
+          ),
+          if (_category != null)
+            _ReviewLine(icon: Icons.sell_outlined, text: _category!),
+          _ReviewLine(
+            icon: _imageBytes != null
+                ? Icons.image_outlined
+                : Icons.hide_image_outlined,
+            text: _imageBytes != null ? 'มีรูป Club' : 'ยังไม่ได้เลือกรูป Club',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReviewLine extends StatelessWidget {
+  const _ReviewLine({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: WynColors.graphite),
+          const SizedBox(width: WynSpacing.space2),
+          Expanded(
+            child: Text(
+              text,
+              style: _textStyle(fontSize: 13, color: WynColors.ink),
+            ),
+          ),
+        ],
       ),
     );
   }

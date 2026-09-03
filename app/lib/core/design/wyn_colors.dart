@@ -113,6 +113,45 @@ class WynColors {
   static const Color borderStrongDark = Color(0xFF666666);
 
   // ---------------------------------------------------------------------
+  // Interactive icon states -- the one place that says what colour an
+  // action icon is in each of its states, so "the same state looks the
+  // same everywhere" is enforced by the type system rather than by
+  // remembering. Beta4 §10/§15: these are NOT new colours. Every value
+  // below is the exact colour those states were already painted, moved
+  // out of ~30 inline literals scattered across 10 widgets.
+  // ---------------------------------------------------------------------
+
+  /// An action icon at rest -- the heart, comment, ReDrop, and share
+  /// icons before anything has happened to them.
+  static const Color iconIdle = graphite;
+
+  /// A non-Like action icon in its *on* state -- ReDropped, Saved.
+  /// Sapphire, per WYN-089's own "same active-state color the Focused
+  /// Action Bar has used all along".
+  static const Color iconActive = sapphire;
+
+  /// The liked heart, in every surface that draws one: feed card, post
+  /// detail, comment row, full-screen viewer, Club post, and the
+  /// Notifications type badge.
+  ///
+  /// The value is Material's `Colors.red` (`#F44336`) **unchanged** --
+  /// that exact colour is a standing Founder decision ("ใจอยากได้สีแดง",
+  /// 2026-09-01; see `.wyn/tasks/completed/WYN-076-liked-heart-still-
+  /// sapphire-in-2-spots.md`, which fixed the last 2 spots that had
+  /// drifted to sapphire). Beta4 only gives that decision a name: before
+  /// this, "the liked heart is red" lived as 10 separate `Colors.red`
+  /// literals plus a doc comment, which is exactly how WYN-076 came to
+  /// exist in the first place. Naming it does not repaint a single
+  /// pixel, and it means the next divergence is a compile-time rename
+  /// rather than a screenshot from the Founder.
+  ///
+  /// Deliberately NOT [likeLight] (`#E11D48`): that token predates the
+  /// Founder decision above, is referenced by nothing, and adopting it
+  /// here would be changing a colour the Founder chose. Left in place,
+  /// unused, rather than silently repurposed.
+  static const Color iconLikeActive = Color(0xFFF44336);
+
+  // ---------------------------------------------------------------------
   // 2.4 Semantic (status colors -- not brand colors, not reinvented)
   // ---------------------------------------------------------------------
   static const Color successLight = Color(0xFF15803D);

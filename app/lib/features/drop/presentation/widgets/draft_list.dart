@@ -1,21 +1,33 @@
 import 'package:flutter/material.dart';
 
-import '../../../drop/data/drop_draft.dart';
-import '../../../drop/data/drop_repository.dart';
-import '../../../drop/presentation/create_drop_screen.dart';
-import '../../../drop/presentation/widgets/draft_grid_tile.dart';
-import '../../data/profile_repository.dart';
+import '../../../profile/data/profile_repository.dart';
+import '../../data/drop_draft.dart';
+import '../../data/drop_repository.dart';
+import '../create_drop_screen.dart';
+import 'draft_grid_tile.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/widgets/empty_state_block.dart';
 
-/// "ร่าง" (Draft) tab on a profile (WYN-036) -- only ever shown for the
-/// current user's own profile (see ViewProfileScreen), same
-/// own-profile-only posture as ProfileSavedTab. Not paginated -- a
-/// single `fetchDrafts()` call, same "still a small personal list"
-/// reasoning ClubRepository.fetchPopularClubs/HomeRepository.fetchTrending
-/// already use elsewhere in this codebase, and unlike Saved/ReDrops
-/// there's no reasonable path to a Draft list large enough to need it.
-class ProfileDraftsTab extends StatefulWidget {
-  const ProfileDraftsTab({
+/// The user's saved Drafts (WYN-036), as a 3-column grid.
+///
+/// Beta4 §5 moved this out of Profile. A Draft is an unfinished post,
+/// not something you have published -- it never belonged on the surface
+/// whose entire job is showing what you *have* published, and it was
+/// only reachable there through an unlabelled icon next to "แก้ไข
+/// โปรไฟล์". It now lives where a draft is actually resumed: the post
+/// composer's own "ร่าง" action (see [DraftsScreen], opened from
+/// [CreateDropScreen]). Nothing about the Draft system itself changed --
+/// this is the same widget, same repository calls, same tiles; only its
+/// entry point and its home directory moved (`profile/` -> `drop/`,
+/// where every other piece of the Draft feature already lived).
+///
+/// Not paginated -- a single `fetchDrafts()` call, same "still a small
+/// personal list" reasoning ClubRepository.fetchPopularClubs/
+/// HomeRepository.fetchTrending already use elsewhere in this codebase,
+/// and unlike Saved/ReDrops there's no reasonable path to a Draft list
+/// large enough to need it.
+class DraftList extends StatefulWidget {
+  const DraftList({
     super.key,
     required this.dropRepository,
     required this.profileRepository,
@@ -25,10 +37,10 @@ class ProfileDraftsTab extends StatefulWidget {
   final ProfileRepository profileRepository;
 
   @override
-  State<ProfileDraftsTab> createState() => _ProfileDraftsTabState();
+  State<DraftList> createState() => _DraftListState();
 }
 
-class _ProfileDraftsTabState extends State<ProfileDraftsTab>
+class _DraftListState extends State<DraftList>
     with AutomaticKeepAliveClientMixin {
   List<DropDraft>? _drafts;
   String? _error;
@@ -109,13 +121,17 @@ class _ProfileDraftsTabState extends State<ProfileDraftsTab>
     }
 
     if (drafts.isEmpty) {
+      // Beta4 §18: the shared [EmptyStateBlock] every other empty list
+      // in the app uses (Notifications, Chat Inbox, Bookmarks), not the
+      // bare centred sentence this screen had while it was a profile
+      // tab -- a Draft list is empty far more often than it is full, so
+      // this is the state most people will actually see.
       return const Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: Text(
-            'ยังไม่มีร่าง เริ่มเขียนโพสต์แล้วบันทึกไว้ก่อนได้เลย',
-            textAlign: TextAlign.center,
-          ),
+        child: EmptyStateBlock(
+          icon: Icons.edit_note_outlined,
+          title: 'ยังไม่มีร่าง',
+          subtitle: 'เริ่มเขียนโพสต์แล้วกดบันทึกร่างไว้ก่อน '
+              'จะกลับมาเขียนต่อที่นี่ได้ทุกเมื่อ',
         ),
       );
     }

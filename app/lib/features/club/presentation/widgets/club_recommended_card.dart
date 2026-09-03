@@ -64,8 +64,9 @@ class ClubRecommendedCard extends StatelessWidget {
                     ),
                     child: AspectRatio(
                       aspectRatio: 16 / 9,
-                      child: club.coverUrl != null
-                          ? NetworkThumbnail(imageUrl: club.coverUrl!)
+                      // Beta4 §8.1 -- one image per Club.
+                      child: club.identityImageUrl != null
+                          ? NetworkThumbnail(imageUrl: club.identityImageUrl!)
                           : Container(
                               color: scheme.primaryContainer,
                               alignment: Alignment.center,
@@ -85,36 +86,24 @@ class ClubRecommendedCard extends StatelessWidget {
                     top: 4,
                     child: _MoreMenuButton(onReport: onReport),
                   ),
-                  Positioned(
-                    left: 8,
-                    bottom: -16,
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: scheme.surfaceContainer,
-                      child: CircleAvatar(
-                        radius: 16,
-                        backgroundColor: scheme.primary,
-                        backgroundImage:
-                            club.iconUrl != null ? NetworkImage(club.iconUrl!) : null,
-                        child: club.iconUrl == null
-                            ? Text(
-                                club.name.isNotEmpty ? club.name[0].toUpperCase() : '?',
-                                style: TextStyle(
-                                  color: scheme.onPrimary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              )
-                            : null,
-                      ),
-                    ),
-                  ),
+                  // Beta4 §8.1: the small avatar disc that used to
+                  // overlap the bottom-left of the hero is gone. It
+                  // read `icon_url` while the hero read `cover_url`,
+                  // so the card was built to show a Club's *two*
+                  // images -- one of which nothing in the product
+                  // could ever set, meaning in practice every card
+                  // showed a photo with a grey initial-disc stuck to
+                  // its corner. With one identity image the disc
+                  // would now be a shrunken duplicate of the picture
+                  // directly behind it.
                 ],
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   WynSpacing.space3,
-                  WynSpacing.space3 + 8,
+                  // Was `space3 + 8`, the extra 8 reserving room for
+                  // the removed disc's overhang.
+                  WynSpacing.space3,
                   WynSpacing.space3,
                   WynSpacing.space2,
                 ),

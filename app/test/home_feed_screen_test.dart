@@ -42,6 +42,7 @@ import 'support/recording_home_repository.dart';
 import 'support/recording_pop_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
+import 'package:wyn/core/widgets/action_sheet_row.dart';
 
 HomeFeedItem _dropItem({
   String id = 'd1',
@@ -947,8 +948,9 @@ void main() {
 
   group('ReDrop action sheet (WYN-034)', () {
     testWidgets(
-        'tapping 🔄 on a not-yet-ReDropped card opens a sheet offering '
-        '"🔄 ReDrop" and "💬 Quote ReDrop"', (tester) async {
+        'Beta4 §6: tapping the ReDrop icon opens an ActionSheetBody '
+        'offering "รีโพสต์" and "อ้างอิง", with real icons and no emoji',
+        (tester) async {
       await tester.pumpWidget(buildHome(
         openSheetTestHomeRepository,
         dropRepository: openSheetTestDropRepository,
@@ -972,9 +974,38 @@ void main() {
       tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
 
-      expect(find.text('🔄 รีโพสต์'), findsOneWidget);
-      expect(find.text('💬 Quote รีโพสต์'), findsOneWidget);
+      // Beta4 §6: the WYNOS action-sheet family, not a bare Wrap of
+      // ListTiles -- so these two rows get the same 18px icon, the same
+      // divider, the same chevron and the same press state as every
+      // other "..." menu in the app.
+      expect(find.byType(ActionSheetBody), findsOneWidget);
+      expect(find.byType(ActionSheetRow), findsNWidgets(2));
+
+      expect(find.text('รีโพสต์'), findsOneWidget);
+      expect(find.text('อ้างอิง'), findsOneWidget);
       expect(find.text('ยกเลิกรีโพสต์'), findsNothing);
+
+      // The emoji that used to stand in for icons are gone entirely --
+      // an emoji cannot take a colour, a size, or a pressed state from
+      // the icon system.
+      expect(find.textContaining('🔄'), findsNothing);
+      expect(find.textContaining('💬'), findsNothing);
+
+      // Real icons in their place, inside the sheet.
+      expect(
+        find.descendant(
+          of: find.byType(ActionSheetBody),
+          matching: find.byIcon(Icons.repeat),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(ActionSheetBody),
+          matching: find.byIcon(Icons.format_quote),
+        ),
+        findsOneWidget,
+      );
     });
 
     // WYN-097, Design spec Screen 6.
@@ -1014,7 +1045,7 @@ void main() {
     });
 
     testWidgets(
-        'tapping "🔄 ReDrop" in the sheet calls toggleRedrop with '
+        'tapping "รีโพสต์" in the sheet calls toggleRedrop with '
         'currentlyRedropped: false and updates the count optimistically',
         (tester) async {
       await tester.pumpWidget(buildHome(
@@ -1039,7 +1070,7 @@ void main() {
       expect(redropButton, findsOneWidget);
       tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
-      await tester.tap(find.text('🔄 รีโพสต์'));
+      await tester.tap(find.text('รีโพสต์'));
       await tester.pumpAndSettle();
 
       expect(toggleRedropTestDropRepository.toggleRedropCalls, 1);
@@ -1078,7 +1109,18 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('ยกเลิกรีโพสต์'), findsOneWidget);
-      expect(find.text('🔄 รีโพสต์'), findsNothing);
+      expect(find.text('รีโพสต์'), findsNothing);
+      // Beta4 §6: the ReDrop row keeps its icon in the undo state too.
+      // The old emoji version showed '🔄' on one label and nothing on
+      // the other, so the row visibly changed shape with your own
+      // ReDrop state.
+      expect(
+        find.descendant(
+          of: find.byType(ActionSheetBody),
+          matching: find.byIcon(Icons.repeat),
+        ),
+        findsOneWidget,
+      );
 
       await tester.tap(find.text('ยกเลิกรีโพสต์'));
       await tester.pumpAndSettle();
@@ -1132,7 +1174,7 @@ void main() {
       expect(notRedroppedIcon.color, WynColors.graphite);
     });
 
-    testWidgets('tapping "💬 Quote ReDrop" opens QuoteRedropScreen',
+    testWidgets('tapping "อ้างอิง" opens QuoteRedropScreen',
         (tester) async {
       await tester.pumpWidget(buildHome(
         quoteRedropNavTestHomeRepository,
@@ -1156,7 +1198,7 @@ void main() {
       expect(redropButton, findsOneWidget);
       tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
-      await tester.tap(find.text('💬 Quote รีโพสต์'));
+      await tester.tap(find.text('อ้างอิง'));
       await tester.pumpAndSettle();
       // QuoteRedropScreen's own preview card loads the same broken
       // fixture image URL again -- same expected noise, consumed again.

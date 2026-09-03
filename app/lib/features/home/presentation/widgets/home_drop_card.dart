@@ -23,6 +23,7 @@ import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
 import '../../../report/presentation/report_sheet.dart';
 import '../../../drop/presentation/widgets/poll_card.dart';
+import '../../../drop/presentation/widgets/redrop_action_sheet.dart';
 
 /// A Drop card in the Home feed. Same visual structure as
 /// HomePopCard so the two read as one family, per
@@ -117,36 +118,30 @@ class HomeDropCard extends StatelessWidget {
     );
   }
 
-  /// WYN-034: the 🔄 icon opens a small action sheet rather than
+  /// WYN-034: the ReDrop icon opens a small action sheet rather than
   /// toggling directly on tap -- ReDrop broadcasts to the redropper's
   /// own followers, a bigger-consequence action than a Like, so it
   /// gets the same 2-step "tap icon → pick an action" shape as most
   /// platforms' own Repost/Quote entry point, not a single-tap toggle.
-  Future<void> _openRedropSheet(BuildContext context) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.repeat),
-              title: Text(item.redroppedByMe ? 'ยกเลิกรีโพสต์' : '🔄 รีโพสต์'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                onToggleRedrop();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.chat_bubble_outline),
-              title: const Text('💬 Quote รีโพสต์'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                onQuoteRedrop();
-              },
-            ),
-          ],
-        ),
-      ),
+  ///
+  /// Beta4 §6: built from [ActionSheetBody]/[ActionSheetRow], the same
+  /// two widgets every other "..." sheet in the app is built from --
+  /// this was the last sheet still hand-rolling a bare `Wrap` of
+  /// `ListTile`s, and the only place in the product where an emoji
+  /// ('🔄'/'💬') stood in for an icon. An emoji is not part of the
+  /// icon system: it renders in the platform's own colour, at the
+  /// font's own metrics, on its own baseline, and has no pressed,
+  /// active, or disabled state to give -- so the two most consequential
+  /// rows in the feed were also the two that could not follow the icon
+  /// system's rules. [showRedropSheet] is now shared with Drop Detail
+  /// so both entry points to the same two actions cannot drift apart
+  /// again.
+  Future<void> _openRedropSheet(BuildContext context) {
+    return showRedropSheet(
+      context,
+      isRedropped: item.redroppedByMe,
+      onToggleRedrop: onToggleRedrop,
+      onQuoteRedrop: onQuoteRedrop,
     );
   }
 
@@ -449,7 +444,9 @@ class HomeDropCard extends StatelessWidget {
                       icon: item.likedByMe ? Icons.favorite : Icons.favorite_border,
                       iconSize: 17,
                       count: item.likeCount,
-                      color: item.likedByMe ? Colors.red : WynColors.graphite,
+                      color: item.likedByMe
+                          ? WynColors.iconLikeActive
+                          : WynColors.iconIdle,
                       semanticsLabel: item.likedByMe
                           ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
                           : 'กดเพื่อถูกใจ',

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/club.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/widgets/network_thumbnail.dart';
+import 'club_avatar.dart';
 
 /// Which visual shape [ClubDiscoveryCard] renders as -- [row] (the
 /// original, full-width) or [grid] (WYN-056, vertical/image-led, for
@@ -67,8 +68,13 @@ class ClubDiscoveryCard extends StatelessWidget {
                 const BorderRadius.vertical(top: Radius.circular(WynSpacing.radiusMd)),
             child: AspectRatio(
               aspectRatio: 4 / 3,
-              child: club.coverUrl != null
-                  ? NetworkThumbnail(imageUrl: club.coverUrl!)
+              // Beta4 §8.1: the Club's single identity image, not a
+              // separate cover. This card's grid layout is the one
+              // Club surface that shows the image large, so the hero
+              // slot is where it goes -- the row layout beside it uses
+              // the same image as a circle (ClubAvatar).
+              child: club.identityImageUrl != null
+                  ? NetworkThumbnail(imageUrl: club.identityImageUrl!)
                   : Container(
                       color: scheme.primaryContainer,
                       alignment: Alignment.center,
@@ -119,20 +125,7 @@ class ClubDiscoveryCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            backgroundImage: club.iconUrl != null ? NetworkImage(club.iconUrl!) : null,
-            child: club.iconUrl == null
-                ? Text(
-                    club.name.isNotEmpty ? club.name[0].toUpperCase() : '?',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onPrimary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  )
-                : null,
-          ),
+          ClubAvatar(club: club),
           const SizedBox(width: WynSpacing.space3),
           Expanded(
             child: Column(

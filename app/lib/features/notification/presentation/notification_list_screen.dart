@@ -26,6 +26,8 @@ import '../../root/presentation/side_menu.dart';
 import '../../search/presentation/search_screen.dart';
 import '../../zoky/data/zoky_repository.dart';
 import '../../zoky/presentation/zoky_order_detail_screen.dart';
+import '../../push/presentation/push_notification_service.dart';
+import '../../push/presentation/push_permission_card.dart';
 import '../data/notification.dart';
 import '../data/notification_repository.dart';
 import '../../../core/design/wyn_colors.dart';
@@ -53,6 +55,7 @@ class NotificationListScreen extends StatefulWidget {
     required this.appealRepository,
     required this.chatRepository,
     this.followRequestRepository,
+    this.pushNotificationService,
   });
 
   final NotificationRepository notificationRepository;
@@ -77,6 +80,12 @@ class NotificationListScreen extends StatefulWidget {
   /// ViewProfileScreen's own comment on the pattern) -- WYN-039's
   /// followRequest opens FollowRequestListScreen directly.
   final FollowRequestRepository? followRequestRepository;
+
+  /// Beta4 §11.2 -- same optional/defaulted shape. Only exists so a
+  /// widget test can drive [PushPermissionCard]'s four states without a
+  /// real Firebase app; production always leaves this null and the card
+  /// builds the real service itself.
+  final PushNotificationService? pushNotificationService;
 
   @override
   State<NotificationListScreen> createState() => _NotificationListScreenState();
@@ -552,6 +561,14 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         child: Column(
           children: [
             _buildHeader(),
+            // Beta4 §11.2: the push opt-in explainer, above the tabs so
+            // it reads as a property of this screen rather than of
+            // whichever tab happens to be selected. Renders nothing at
+            // all unless there is genuinely an ask to make -- see
+            // [PushPermissionCard].
+            PushPermissionCard(
+              pushNotificationService: widget.pushNotificationService,
+            ),
             _buildTabs(),
             Expanded(child: _buildBody()),
           ],
@@ -1015,7 +1032,7 @@ _TypeBadge? _badgeFor(NotificationType type) {
       // accent color as the follow badge below), inconsistent with the
       // rest of the app's own "like = red" convention. Founder request,
       // 2026-08-30.
-      return const _TypeBadge(Icons.favorite, Colors.red);
+      return const _TypeBadge(Icons.favorite, WynColors.iconLikeActive);
     case NotificationType.commentDrop:
     case NotificationType.commentPop:
     case NotificationType.clubPostComment:

@@ -313,7 +313,7 @@ void main() {
         authRepository: authRepository,
         moderationRepository: moderationRepository,
         platformDocumentRepository: platformDocumentRepository,
-        rootShellBuilder: () =>
+        rootShellBuilder: (_) =>
             const SizedBox(key: Key('fake_root_shell')),
       ),
     ));

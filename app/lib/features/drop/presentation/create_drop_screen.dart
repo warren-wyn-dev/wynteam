@@ -19,6 +19,7 @@ import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/drop.dart';
 import '../data/drop_draft.dart';
+import 'drafts_screen.dart';
 import '../data/drop_repository.dart';
 import '../data/location_repository.dart';
 import '../data/location_result.dart';
@@ -735,6 +736,22 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     }
   }
 
+  /// Beta4 §5: opens the Draft list ([DraftsScreen]) from the composer
+  /// header. Tapping a draft there pushes a *second* composer prefilled
+  /// from it (DraftList's own `_openDraft`), which is why this screen
+  /// hides its own "ร่าง" button once it is itself a draft -- see
+  /// _buildHeader.
+  Future<void> _openDrafts() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => DraftsScreen(
+          dropRepository: widget.dropRepository,
+          profileRepository: _profileRepository,
+        ),
+      ),
+    );
+  }
+
   /// WYN-036: inserts a new draft row, or updates the one this screen
   /// was opened from ([_draftId]) in place -- never a duplicate on a
   /// second save within the same editing session.
@@ -970,6 +987,38 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             ),
             child: const Text('ยกเลิก', style: TextStyle(fontSize: 15, color: WynColors.ink)),
           ),
+          // Beta4 §5: "สร้างโพสต์ → ร่าง". The Draft list's entry point
+          // now sits in the composer's own header, between Cancel and
+          // Post -- a draft is written here and resumed here, so this
+          // is the one place a person looks for one. It used to be an
+          // unlabelled icon on the viewer's own Profile, two taps away
+          // and on a surface about published posts.
+          //
+          // Hidden while this composer *is* an open draft
+          // ([_draftId] set, i.e. opened from the list this button
+          // opens) -- offering a way back into the list you just came
+          // from would stack the same screen on itself. Hidden while
+          // restricted, for the same reason the Post button is
+          // disabled there.
+          if (_draftId == null && !_isRestricted)
+            TextButton.icon(
+              key: const Key('open_drafts_button'),
+              onPressed: _isSharing || _isSavingDraft ? null : _openDrafts,
+              style: TextButton.styleFrom(
+                foregroundColor: WynColors.ink,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: WynSpacing.space2),
+                minimumSize: const Size(0, WynSpacing.touchTargetMin),
+                visualDensity: VisualDensity.compact,
+              ),
+              icon: const Icon(Icons.edit_note_outlined,
+                  size: 18, color: WynColors.ink),
+              label: const Text('ร่าง',
+                  style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: WynColors.ink)),
+            ),
           Semantics(
             label: _isRestricted
                 ? 'โพสต์ ปิดใช้งานเนื่องจากบัญชีถูกจำกัดการโพสต์ชั่วคราว'

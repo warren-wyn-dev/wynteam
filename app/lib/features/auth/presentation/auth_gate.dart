@@ -80,7 +80,7 @@ class AuthGate extends StatefulWidget {
   // other dependency above so a test can swap in a cheap placeholder
   // (e.g. a keyed SizedBox) instead of a real RootShell, without needing
   // to touch AuthGate's own decision logic at all.
-  final Widget Function()? rootShellBuilder;
+  final Widget Function(Session session)? rootShellBuilder;
 
   // Same shape again -- multi-account switching's capture point (see
   // _AuthGateState.build's own comment on where this is called).
@@ -97,8 +97,44 @@ class _AuthGateState extends State<AuthGate> {
       widget.moderationRepository ?? ModerationRepository(Supabase.instance.client);
   late final AppealRepository _appealRepository =
       widget.appealRepository ?? AppealRepository(Supabase.instance.client);
-  late final Widget Function() _buildRootShell =
-      widget.rootShellBuilder ?? () => const RootShell();
+  /// Beta4 §13 (Account Switching Safety): keyed by the signed-in
+  /// user's id, not `const RootShell()`.
+  ///
+  /// This is the fix for the one real state-isolation bug the Beta4
+  /// audit found. `const RootShell()` is canonicalized by Dart, so
+  /// every rebuild of this widget handed Flutter the *same widget
+  /// instance* -- which is exactly what `Widget.canUpdate` uses to
+  /// decide that the existing [State] should be kept. That was
+  /// deliberate and correct for an ordinary rebuild (RootShell builds
+  /// every repository in its own `initState`; throwing that away on
+  /// each AuthGate rebuild would refetch the world). But switching
+  /// accounts is an AuthGate rebuild too, and `canUpdate` cannot tell
+  /// the two apart, so account B inherited account A's entire
+  /// `_RootShellState`:
+  ///
+  /// * `_unreadNotificationCount` -- A's badge number, on B's bell.
+  /// * `_profileVisitKey`/`_notificationsVisitKey`/`_homeVersion`
+  ///   unchanged, so the four `IndexedStack` children never remounted:
+  ///   A's feed, A's notification list, and A's profile all stayed on
+  ///   screen under B's session. ([ViewProfileScreen] has no
+  ///   `didUpdateWidget` for a changed `userId`, so even the profile
+  ///   tab's `userId` changing to B's did not reload it.)
+  /// * `PushNotificationService.initialize()` runs once in
+  ///   `initState`, so this device's FCM token stayed registered to
+  ///   A's `user_id` in `push_tokens` -- B was signed in and A's push
+  ///   notifications kept arriving on the device (§11.5/§11.8).
+  ///
+  /// A [ValueKey] on the user id is stable for the same account (so an
+  /// ordinary rebuild still preserves state exactly as before) and
+  /// changes the moment a different account becomes current, which
+  /// tears the whole subtree down and builds it again from
+  /// `initState`: fresh repositories, fresh badge count, fresh tabs,
+  /// fresh push registration. One key, and every item on §13's list is
+  /// covered by construction rather than by remembering to clear each
+  /// one.
+  late final Widget Function(Session) _buildRootShell =
+      widget.rootShellBuilder ??
+          (session) => RootShell(key: ValueKey(session.user.id));
   late final AccountSwitcherRepository _accountSwitcherRepository =
       widget.accountSwitcherRepository ?? AccountSwitcherRepository();
   late final PlatformDocumentRepository _platformDocumentRepository =
@@ -338,7 +374,7 @@ class _AuthGateState extends State<AuthGate> {
                 // snapshot.hasError branch) -- confirmed by reading
                 // view_profile_screen.dart, not assumed.
                 if (session.user.isAnonymous) {
-                  return _buildRootShell();
+                  return _buildRootShell(session);
                 }
 
                 return FutureBuilder<OnboardingState>(
@@ -400,7 +436,7 @@ class _AuthGateState extends State<AuthGate> {
                           displayName: onboardingState.displayName,
                         ));
                       }
-                      return _buildRootShell();
+                      return _buildRootShell(session);
                     }
                     return OnboardingFlow(
                       authRepository: _authRepository,

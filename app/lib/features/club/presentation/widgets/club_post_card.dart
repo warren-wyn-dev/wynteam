@@ -14,7 +14,6 @@ import '../../../../core/widgets/hashtag_text.dart';
 import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
 import '../../../report/presentation/report_sheet.dart';
-import '../../../../core/widgets/network_thumbnail.dart';
 import '../../../../core/widgets/post_media.dart';
 
 /// A Club post card for the Posts tab list. Same interaction-row family
@@ -222,7 +221,9 @@ class ClubPostCard extends StatelessWidget {
                       icon: Icon(
                         post.likedByMe ? Icons.favorite : Icons.favorite_border,
                         size: 18,
-                        color: post.likedByMe ? Colors.red : WynColors.graphite,
+                        color: post.likedByMe
+                            ? WynColors.iconLikeActive
+                            : WynColors.iconIdle,
                       ),
                       onPressed: onToggleLike,
                     ),
@@ -278,76 +279,49 @@ class ClubPostCard extends StatelessWidget {
 /// Single image: 1:1 like Drop. Multiple images: a horizontal carousel
 /// with a dot indicator -- Club's first Multiple Images pattern in the
 /// app (Drop only ever has one image).
-class ClubPostImages extends StatefulWidget {
+/// A Club post's photos.
+///
+/// Beta4 §7 ("Different contexts, same WYNOS visual language"): this is
+/// a post, so it uses the same [PostImageFrame]/[PostImageCarousel] a
+/// WYNOS Drop uses on the feed and on Post Detail -- a row of cards
+/// with the next one peeking in at the edge, not the full-bleed
+/// `PageView` slab this used to be. Before Beta4 the same person's
+/// photos were a card row in one part of the app and a one-at-a-time
+/// slab in another, for no reason a reader could see.
+///
+/// §7 also says explicitly not to force every surface onto one layout,
+/// and this is not that: the aspect ratio still differs from a Drop's,
+/// because it has to. `club_posts` carries no image dimensions at all
+/// (unlike `drops`, which gained `image_width`/`image_height` in
+/// WYN-093), so there is nothing here to lay a true aspect ratio out
+/// from -- [PostImageFrame] falls back to 1:1 when dimensions are
+/// absent, which is exactly the shape this widget hardcoded before.
+/// The shape is unchanged; the arrangement, the snapping, the decode
+/// bound and the loading/error states are now the shared ones.
+class ClubPostImages extends StatelessWidget {
   const ClubPostImages({super.key, required this.imageUrls});
 
   final List<String> imageUrls;
 
   @override
-  State<ClubPostImages> createState() => _ClubPostImagesState();
-}
-
-class _ClubPostImagesState extends State<ClubPostImages> {
-  final _pageController = PageController();
-  int _page = 0;
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (widget.imageUrls.length == 1) {
-      return AspectRatio(
-        aspectRatio: 1,
-        child: NetworkThumbnail(imageUrl: widget.imageUrls.first),
+    if (imageUrls.length == 1) {
+      // Null dimensions on purpose: `club_posts` has no width/height
+      // columns, and PostImageFrame's documented fallback for unknown
+      // dimensions is 1:1 -- the exact shape this widget used before.
+      return PostImageFrame(
+        imageUrl: imageUrls.first,
+        imageWidth: null,
+        imageHeight: null,
       );
     }
-
-    return Column(
-      children: [
-        AspectRatio(
-          aspectRatio: 1,
-          child: PageView.builder(
-            controller: _pageController,
-            itemCount: widget.imageUrls.length,
-            onPageChanged: (page) => setState(() => _page = page),
-            // Beta3: the same decode-bounded image the single-image
-            // branch above already used (NetworkThumbnail) and every
-            // post-shaped surface now uses -- this branch was the one
-            // bare Image.network left in a Club post, decoding a
-            // full-size upload for a box a fraction of its width.
-            // The 1:1 shape is unchanged: `club_posts` carries no
-            // image dimensions, so there is nothing to lay a real
-            // aspect ratio out from here.
-            itemBuilder: (context, index) =>
-                PostImage(imageUrl: widget.imageUrls[index]),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(
-            widget.imageUrls.length,
-            (index) => Container(
-              margin: const EdgeInsets.symmetric(horizontal: 2),
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: index == _page
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.outlineVariant,
-              ),
-            ),
-          ),
-        ),
-      ],
+    return PostImageCarousel(
+      imageUrls: imageUrls,
+      semanticLabelBuilder: (index, total) => 'รูปที่ ${index + 1} จาก $total',
     );
   }
 }
+
 
 TextStyle _textStyle({
   required double fontSize,

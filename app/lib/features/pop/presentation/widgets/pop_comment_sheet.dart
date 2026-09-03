@@ -6,6 +6,7 @@ import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/pop_comment.dart';
 import '../../data/pop_repository.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/design/wyn_colors.dart';
 
 /// Comment bottom sheet for Screen 1 (Pop Feed) -- reuses
 /// DropDetailScreen's comment-list-with-Like-and-Delete pattern (WYN-005,
@@ -293,7 +294,7 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
                     iconSize: 16,
                     icon: Icon(
                       comment.likedByMe ? Icons.favorite : Icons.favorite_border,
-                      color: comment.likedByMe ? Colors.red : null,
+                      color: comment.likedByMe ? WynColors.iconLikeActive : null,
                     ),
                     onPressed: () => _toggleCommentLike(comment.id),
                   ),

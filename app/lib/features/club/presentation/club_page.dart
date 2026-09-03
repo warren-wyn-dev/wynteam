@@ -13,7 +13,6 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
 import '../../../core/widgets/action_sheet_row.dart';
-import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../../chat/data/chat_repository.dart';
 import '../../chat/data/shared_content_type.dart';
 import '../../chat/presentation/share_sheet.dart';
@@ -21,6 +20,8 @@ import '../../profile/data/profile_repository.dart';
 import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
+import '../../../core/widgets/network_thumbnail.dart';
+import 'widgets/club_avatar.dart';
 
 /// Placeholder share link -- same "no real hosting/domain yet" caveat as
 /// dropShareLink/popShareLink (WYN-005/006).
@@ -438,47 +439,92 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     );
   }
 
-  /// 08-club.tsx: "The reference banner is a composited marketing
-  /// screenshot ... not something to recreate pixel-for-pixel. Replaced
-  /// with an original ink+sapphire abstract banner carrying just the
-  /// Club name in the title style."
+  /// The Club's banner -- Beta4 §8.3, "Club Identity Image".
   ///
-  /// Beta3 (Founder decision, 2026-09-03): this background is now the
-  /// *only* thing this strip ever shows. It used to be a fallback --
-  /// an uploaded [Club.coverUrl] took its place when one existed -- so
-  /// the top of a Club read as two unrelated designs depending on
-  /// whether its owner had happened to pick a photo, and the Club's own
-  /// name disappeared from the banner in the case where it did. Founder
-  /// asked for the Background Image only, scoped to this screen: the
-  /// cover picker on Create/Edit Club is untouched, and
-  /// [Club.coverUrl] still leads the Club cards in Explore and the
-  /// recommendation rows, where a photo is what distinguishes one card
-  /// from the next. Nothing was removed from the database.
+  /// ## What changed, and why it is not a revert
+  ///
+  /// Beta3 (Founder, 2026-09-03) removed the uploaded image from this
+  /// strip and left only a generated ink+sapphire background. The
+  /// reason it was removed is on the record and was a good one: the
+  /// banner *swapped* between two unrelated designs depending on
+  /// whether the owner happened to have picked a photo, **and the
+  /// Club's own name disappeared from the banner in the case where
+  /// they had** -- the name was drawn only on the generated variant.
+  ///
+  /// Beta4 §8.3 asks for the identity image back on this page. So it is
+  /// back, with the actual defect fixed rather than reintroduced: the
+  /// image is a *background layer* under the same "CLUB" eyebrow and
+  /// Club name that the generated variant draws, over a scrim heavy
+  /// enough to keep them legible on any photograph. There is now one
+  /// banner design, not two: same height, same type, same position, in
+  /// both cases. The photo changes what is behind the name; it never
+  /// replaces it.
+  ///
+  /// The generated ink+sapphire gradient stays as the no-image case --
+  /// it is what a Club without a picture still looks like, and it is
+  /// also what shows underneath while a photo is loading, so the strip
+  /// never flashes empty.
   Widget _buildBanner(Club club) {
-    return Container(
+    final imageUrl = club.identityImageUrl;
+    return SizedBox(
       height: 140,
       width: double.infinity,
-      color: WynColors.ink,
       child: Stack(
+        fit: StackFit.expand,
         clipBehavior: Clip.none,
         children: [
-          Positioned(
-            right: -80,
-            top: -100,
-            child: Container(
-              width: 260,
-              height: 260,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [WynColors.sapphire, Colors.transparent],
-                  stops: [0.0, 0.7],
+          // Layer 1 -- the generated background. Always painted, so it
+          // is both the no-image design and the placeholder behind a
+          // loading photo.
+          Container(
+            color: WynColors.ink,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  right: -80,
+                  top: -100,
+                  child: Container(
+                    width: 260,
+                    height: 260,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [WynColors.sapphire, Colors.transparent],
+                        stops: [0.0, 0.7],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Layer 2 -- the identity image, when there is one.
+          // NetworkThumbnail bounds the decode to the strip's real size
+          // (Beta4 §7): the source is a 1600px upload and this box is
+          // 140px tall, and it also carries the neutral placeholder and
+          // broken-image fallback a bare Image.network has none of.
+          if (imageUrl != null)
+            NetworkThumbnail(imageUrl: imageUrl, key: const Key('club_banner_image')),
+          // Layer 3 -- the scrim, only where there is a photo to darken.
+          // A left-to-right gradient rather than a flat wash: the text
+          // is left-aligned, so the right side of the photo stays as
+          // close to unobscured as legibility allows.
+          if (imageUrl != null)
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [WynColors.imageScrimStrong, WynColors.imageScrim],
                 ),
               ),
             ),
-          ),
+          // Layer 4 -- the Club's identity in words. Drawn in both
+          // cases, which is the whole point (see the doc comment).
           Positioned(
             left: WynSpacing.space6,
+            right: WynSpacing.space6,
             top: 0,
             bottom: 0,
             child: Align(
@@ -499,6 +545,12 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                   const SizedBox(height: 4),
                   Text(
                     club.name,
+                    // Two lines, then ellipsis: a 50-character Club name
+                    // (the column's own limit) does not fit on one line
+                    // at 22px on a small phone, and the old single-line
+                    // Text had nothing to stop it overflowing the strip.
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: WynTypography.screenTitle(fontSize: 22, color: WynColors.paper),
                   ),
                 ],
@@ -544,12 +596,11 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AvatarCircle(
-                imageUrl: club.iconUrl,
-                fallbackText: club.name,
-                radius: 18,
-                ring: true,
-              ),
+              // Beta4 §7/§22: the shared [ClubAvatar], the same widget
+              // every other Club surface uses -- see its doc comment
+              // for the three defects the five hand-rolled copies
+              // shared.
+              ClubAvatar(club: club, radius: 18, ring: true),
               const SizedBox(width: WynSpacing.space3),
               Expanded(
                 child: Padding(

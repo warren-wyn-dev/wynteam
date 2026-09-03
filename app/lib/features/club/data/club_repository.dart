@@ -231,10 +231,14 @@ class ClubRepository {
     required String description,
     String? category,
     required ClubPrivacy privacy,
-    Uint8List? coverBytes,
-    String? coverExtension,
-    Uint8List? iconBytes,
-    String? iconExtension,
+    // Beta4 §8.1: one image per Club. Was `coverBytes`/`coverExtension`
+    // plus a second `iconBytes`/`iconExtension` pair -- two uploads for
+    // one Club, which §8.1 forbids outright. Only Create Club ever
+    // called this, and only ever with the cover pair, so collapsing the
+    // two into one changes no caller's behaviour; it removes the
+    // *possibility* of a Club with two pictures.
+    Uint8List? imageBytes,
+    String? imageExtension,
   }) async {
     final userId = _client.auth.currentUser!.id;
 
@@ -255,29 +259,25 @@ class ClubRepository {
     // created the owner's own approved membership row synchronously as
     // part of the insert above -- no separate join call needed, and the
     // fresh club always starts with exactly 1 member.
-    String? coverPath;
-    String? iconPath;
-    if (coverBytes != null && coverExtension != null) {
-      coverPath = await _uploadClubImage(
+    // Beta4 §8.1: written to `icon_url`, the column [Club.identityImageUrl]
+    // reads first and the one the majority of Club surfaces (Club page
+    // header, "Club ของฉัน", ranked rows, mini cards) already read
+    // directly. `cover_url` is left null on every Club created from
+    // here on; it survives only as the fallback that keeps pre-Beta4
+    // Clubs' images visible.
+    String? imagePath;
+    if (imageBytes != null && imageExtension != null) {
+      imagePath = await _uploadClubImage(
         clubId: clubId,
-        filename: 'cover.$coverExtension',
-        bytes: coverBytes,
+        filename: 'icon.$imageExtension',
+        bytes: imageBytes,
       );
-      await _client.from('clubs').update({'cover_url': coverPath}).eq('id', clubId);
-    }
-    if (iconBytes != null && iconExtension != null) {
-      iconPath = await _uploadClubImage(
-        clubId: clubId,
-        filename: 'icon.$iconExtension',
-        bytes: iconBytes,
-      );
-      await _client.from('clubs').update({'icon_url': iconPath}).eq('id', clubId);
+      await _client.from('clubs').update({'icon_url': imagePath}).eq('id', clubId);
     }
 
-    final coverUrl = await _signedUrl(coverPath);
-    final iconUrl = await _signedUrl(iconPath);
+    final imageUrl = await _signedUrl(imagePath);
     return Club.fromMap(
-      {...row, 'cover_url': coverUrl, 'icon_url': iconUrl},
+      {...row, 'cover_url': null, 'icon_url': imageUrl},
       memberCount: 1,
     );
   }
@@ -308,21 +308,19 @@ class ClubRepository {
         .update({'rules': normalizeOptionalText(rules.trim())}).eq('id', clubId);
   }
 
-  Future<String> uploadClubCover({
-    required String clubId,
-    required Uint8List bytes,
-    required String fileExtension,
-  }) async {
-    final path = await _uploadClubImage(
-      clubId: clubId,
-      filename: 'cover.$fileExtension',
-      bytes: bytes,
-    );
-    await _client.from('clubs').update({'cover_url': path}).eq('id', clubId);
-    return (await _signedUrl(path))!;
-  }
-
-  Future<String> uploadClubIcon({
+  /// Replaces this Club's single identity image (Beta4 §8.1).
+  ///
+  /// Replaces both `uploadClubCover` and `uploadClubIcon`, which were
+  /// two methods writing two columns for what §8.1 requires to be one
+  /// picture. Only Edit Club ever called either, and only ever the
+  /// cover one.
+  ///
+  /// Also clears `cover_url`: on a Club created before Beta4 the old
+  /// image lives there, and leaving it behind would mean
+  /// [Club.identityImageUrl]'s fallback still pointed at the picture
+  /// the owner just replaced if the new upload were ever removed. One
+  /// image in, one image stored.
+  Future<String> uploadClubIdentityImage({
     required String clubId,
     required Uint8List bytes,
     required String fileExtension,
@@ -332,7 +330,9 @@ class ClubRepository {
       filename: 'icon.$fileExtension',
       bytes: bytes,
     );
-    await _client.from('clubs').update({'icon_url': path}).eq('id', clubId);
+    await _client
+        .from('clubs')
+        .update({'icon_url': path, 'cover_url': null}).eq('id', clubId);
     return (await _signedUrl(path))!;
   }
 

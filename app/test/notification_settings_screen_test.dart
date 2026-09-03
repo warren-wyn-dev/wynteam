@@ -130,6 +130,14 @@ void main() {
     await tester.pumpWidget(buildScreen(repo));
     await tester.pumpAndSettle();
 
+    // Beta4 §11.2 added the device-permission section above the 7
+    // category switches, so the last of them ("ระบบ") now sits below
+    // the fold of the 800x600 default test viewport. The list scrolls
+    // in the real app; scroll to the row before tapping it rather than
+    // asserting against a viewport height no phone has.
+    await tester.ensureVisible(find.widgetWithText(SwitchListTile, 'ระบบ'));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.widgetWithText(SwitchListTile, 'ระบบ'));
     await tester.pumpAndSettle();
 

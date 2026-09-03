@@ -259,6 +259,38 @@ export async function fetchFcmAccessToken(serviceAccount: FcmServiceAccount): Pr
   return json.access_token as string;
 }
 
+/// The de-duplication key for one notification, used by all three
+/// delivery layers (Beta4 §11.6).
+///
+/// The problem this solves is not hypothetical: `send-push-notification`
+/// is driven by a Supabase Database Webhook, and a webhook that does not
+/// receive a timely 200 is retried. Before Beta4 a retry produced a
+/// second, identical notification on the device -- the row insert had
+/// already happened, so the in-app list was correct, but the phone
+/// showed the same thing twice.
+///
+/// A collapse key does not prevent the second *send*; it makes the
+/// second send land on top of the first instead of beside it, which is
+/// the behaviour every platform offers and the only one available
+/// without giving this function its own delivery ledger. FCM's own
+/// per-platform names for the same idea:
+/// * Web -- `webpush.headers.Topic`, plus the `tag` the service worker
+///   sets on `showNotification`.
+/// * Android -- `android.collapse_key`.
+/// * iOS -- `apns.headers.apns-collapse-id`.
+///
+/// Keyed on the notification row id rather than, say, type+target: two
+/// different people liking the same post are two notifications a person
+/// should see separately, and the in-app list already groups those (see
+/// `_groupWithinDay` in notification_list_screen.dart). This collapses
+/// only a literal redelivery of one row.
+///
+/// APNs caps `apns-collapse-id` at 64 bytes; a uuid is 36, so no
+/// truncation is needed for any id this table produces.
+export function collapseKeyFor(row: NotificationRow): string {
+  return row.id;
+}
+
 /// Which of the `notifications`-row id columns are non-null becomes the
 /// FCM `data` payload -- split out so the "only include set fields, as
 /// strings" logic can be tested without any network/crypto involved.
@@ -268,6 +300,18 @@ export async function fetchFcmAccessToken(serviceAccount: FcmServiceAccount): Pr
 /// optional field here.
 export function buildDataPayload(row: NotificationRow): Record<string, string> {
   const data: Record<string, string> = { type: row.type };
+  // Beta4 §11.6 (Duplicate Protection): the notification's own row id,
+  // carried so every delivery layer can collapse a repeat of the *same*
+  // notification onto the one already showing -- see
+  // [collapseKeyFor]/the `webpush`/`android`/`apns` blocks in index.ts,
+  // and the `tag` the web service worker sets from this field.
+  //
+  // This is the id of the row that triggered the webhook, so it is
+  // stable across a webhook retry and distinct between two genuinely
+  // different notifications (even two of the same type about the same
+  // post). It is not read by the client's deep-link switch -- that
+  // keys off `type` plus the target id, exactly as before.
+  data.notification_id = row.id;
   if (row.actor_id) data.actor_id = row.actor_id;
   if (row.drop_id) data.drop_id = row.drop_id;
   if (row.pop_id) data.pop_id = row.pop_id;

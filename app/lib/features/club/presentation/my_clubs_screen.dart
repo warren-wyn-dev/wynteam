@@ -5,6 +5,7 @@ import '../data/club_post_repository.dart';
 import '../data/club_repository.dart';
 import 'club_page.dart';
 import '../../../core/design/wyn_spacing.dart';
+import 'widgets/club_avatar.dart';
 
 /// "Club ของฉัน" -- the full-list destination behind the Home CLUB
 /// section's "ดูทั้งหมด" link (Screen 1). No pagination: ClubRepository.
@@ -114,21 +115,7 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
               itemBuilder: (context, index) {
                 final club = clubs[index];
                 return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    backgroundImage: club.iconUrl != null
-                        ? NetworkImage(club.iconUrl!)
-                        : null,
-                    child: club.iconUrl == null
-                        ? Text(
-                            club.name.isNotEmpty
-                                ? club.name[0].toUpperCase()
-                                : '?',
-                            style: TextStyle(
-                                color: Theme.of(context).colorScheme.onPrimary),
-                          )
-                        : null,
-                  ),
+                  leading: ClubAvatar(club: club),
                   title: Text(club.name),
                   subtitle: Text('${club.memberCount} สมาชิก'),
                   onTap: () => _openClub(club),

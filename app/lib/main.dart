@@ -8,6 +8,7 @@ import 'core/design/wyn_colors.dart';
 import 'core/design/wyn_spacing.dart';
 import 'core/design/wyn_theme.dart';
 import 'core/env.dart';
+import 'core/push_env.dart';
 import 'core/navigation/app_navigator.dart';
 import 'features/account_switcher/data/account_switcher_repository.dart';
 import 'features/auth/presentation/auth_gate.dart';
@@ -51,8 +52,31 @@ Future<void> main() async {
   // the app boots exactly as it did before this feature existed.
   // PushNotificationService's own methods check Firebase.apps and no-op
   // the same way, so nothing downstream needs to know this failed.
+  //
+  // Beta4 §11.2: web takes the explicit-options path. A Flutter Web
+  // build has no native config file to read, so the no-argument call
+  // below threw on *every* web launch regardless of how well Firebase
+  // was set up -- see PushEnv's doc comment. When the build carries no
+  // `--dart-define` config either, this is skipped entirely and the
+  // behaviour is exactly what it was before: Firebase.apps stays empty
+  // and every push path no-ops.
   try {
-    await Firebase.initializeApp();
+    if (kIsWeb) {
+      if (PushEnv.isConfigured) {
+        await Firebase.initializeApp(
+          options: const FirebaseOptions(
+            apiKey: PushEnv.apiKey,
+            appId: PushEnv.appId,
+            messagingSenderId: PushEnv.messagingSenderId,
+            projectId: PushEnv.projectId,
+            authDomain: PushEnv.authDomain,
+            storageBucket: PushEnv.storageBucket,
+          ),
+        );
+      }
+    } else {
+      await Firebase.initializeApp();
+    }
   } catch (_) {
     // Intentionally silent -- see comment above.
   }
