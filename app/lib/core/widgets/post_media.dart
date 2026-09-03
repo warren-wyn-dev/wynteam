@@ -171,12 +171,18 @@ const double postCardAspectRatio = 4 / 5;
 /// A post's photos as a row of rounded cards, scrolled horizontally,
 /// with the next card peeking in at the right edge.
 ///
-/// Deliberately free-scrolling rather than page-snapping, which is what
-/// the Home feed has always done: a snap fights the reader on the way
-/// past a post they are only glancing at. [onIndexChanged] still
-/// reports which card is in front, computed from the scroll offset, so
-/// a caller that wants a position indicator (Drop Detail's counter and
-/// dots) can have one without the row having to snap for it.
+/// The row snaps one card at a time -- Founder, 2026-09-03: "ให้ snap
+/// ทีละการ์ดเลย". It used to scroll freely (WYN-092), which left a card
+/// parked half off the edge as often as not; a snap means a photo is
+/// either the one you are looking at or the one peeking, never a
+/// third thing in between. A decisive flick advances exactly one card
+/// however hard it was thrown, so a fast scroll through a 9-photo post
+/// stays a sequence of photos rather than a blur -- see
+/// [_CardSnapPhysics].
+///
+/// [onIndexChanged] reports which card is in front, computed from the
+/// scroll offset, for a caller that wants a position indicator (Drop
+/// Detail's counter and dots).
 class PostImageCarousel extends StatefulWidget {
   const PostImageCarousel({
     super.key,
@@ -209,6 +215,24 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
   final _controller = ScrollController();
   int _index = 0;
 
+  // Rebuilt only when the card stride actually changes (a rotation, a
+  // resize), not on every build -- handing Scrollable a fresh physics
+  // object each frame is wasteful and, worse, can interrupt a
+  // simulation that is mid-flight.
+  double? _stride;
+  ScrollPhysics? _physics;
+
+  ScrollPhysics _physicsFor(double stride) {
+    if (_physics == null || _stride != stride) {
+      _stride = stride;
+      _physics = _CardSnapPhysics(
+        stride: stride,
+        parent: const ClampingScrollPhysics(),
+      );
+    }
+    return _physics!;
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -217,8 +241,10 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
 
   /// Which card is in front, from the scroll offset: each step is one
   /// card plus the gap after it. Rounding (not flooring) means the
-  /// indicator flips at the halfway point, where a reader would say
-  /// the next card has taken over.
+  /// indicator flips at the halfway point, and lands exactly on a card
+  /// once the snap settles -- including at the very end of the row,
+  /// where the last card stops short of a whole stride because there
+  /// is nothing left to scroll into.
   void _updateIndex(double stride) {
     if (!_controller.hasClients || stride <= 0) return;
     final next = (_controller.position.pixels / stride)
@@ -252,7 +278,7 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
             child: ListView.builder(
               controller: _controller,
               scrollDirection: Axis.horizontal,
-              physics: const ClampingScrollPhysics(),
+              physics: _physicsFor(stride),
               itemCount: widget.imageUrls.length,
               itemBuilder: (context, index) {
                 final isLast = index == widget.imageUrls.length - 1;
@@ -298,4 +324,74 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
       },
     );
   }
+}
+
+
+/// Snaps a [PostImageCarousel]'s row to one card at a time.
+///
+/// A row of 82%-wide cards can't use [PageScrollPhysics], which snaps
+/// to whole viewports, and a `PageView` would have to fold the gap
+/// between cards into its own `viewportFraction` -- making the card's
+/// width depend on the gap and drift from the 82% the design is
+/// specified in. Snapping to multiples of the card's stride keeps both
+/// numbers exactly what they say they are.
+class _CardSnapPhysics extends ScrollPhysics {
+  const _CardSnapPhysics({required this.stride, super.parent});
+
+  /// One card plus the gap that follows it.
+  final double stride;
+
+  @override
+  _CardSnapPhysics applyTo(ScrollPhysics? ancestor) =>
+      _CardSnapPhysics(stride: stride, parent: buildParent(ancestor));
+
+  /// Where the row should come to rest.
+  ///
+  /// A deliberate flick moves exactly one card in the direction it was
+  /// thrown, however hard -- that is what makes a 9-photo post a
+  /// sequence of photos rather than a blur that ends somewhere
+  /// arbitrary. A slow drag simply settles on whichever card is
+  /// nearest when the finger lifts.
+  double _target(ScrollMetrics position, double velocity) {
+    final current = position.pixels / stride;
+    final double index;
+    if (velocity < -minFlingVelocity) {
+      index = current.floorToDouble();
+    } else if (velocity > minFlingVelocity) {
+      index = current.ceilToDouble();
+    } else {
+      index = current.roundToDouble();
+    }
+    return (index * stride)
+        .clamp(position.minScrollExtent, position.maxScrollExtent);
+  }
+
+  @override
+  Simulation? createBallisticSimulation(
+    ScrollMetrics position,
+    double velocity,
+  ) {
+    // Past either end, the parent owns the behaviour (the clamped
+    // stop, or a bounce on iOS) -- snapping there would fight it.
+    if ((velocity <= 0.0 && position.pixels <= position.minScrollExtent) ||
+        (velocity >= 0.0 && position.pixels >= position.maxScrollExtent)) {
+      return super.createBallisticSimulation(position, velocity);
+    }
+
+    final tolerance = toleranceFor(position);
+    final target = _target(position, velocity);
+    if ((target - position.pixels).abs() < tolerance.distance) return null;
+    return ScrollSpringSimulation(
+      spring,
+      position.pixels,
+      target,
+      velocity,
+      tolerance: tolerance,
+    );
+  }
+
+  /// A snapping row has no meaningful intermediate resting places, so
+  /// assistive tech should not try to scroll it by arbitrary amounts.
+  @override
+  bool get allowImplicitScrolling => false;
 }

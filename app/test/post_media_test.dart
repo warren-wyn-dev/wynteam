@@ -112,4 +112,111 @@ void main() {
       );
     });
   });
+  group('PostImageCarousel', () {
+    const urls = [
+      'https://example.supabase.co/drops/d1_0.jpg',
+      'https://example.supabase.co/drops/d1_1.jpg',
+      'https://example.supabase.co/drops/d1_2.jpg',
+    ];
+
+    Future<ScrollableState> pumpRow(
+      WidgetTester tester, {
+      ValueChanged<int>? onIndexChanged,
+    }) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 400,
+            child: PostImageCarousel(
+              imageUrls: urls,
+              onIndexChanged: onIndexChanged,
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      return tester.state<ScrollableState>(find.byType(Scrollable));
+    }
+
+    testWidgets('lays cards out at 82% of the row, so the next one peeks',
+        (tester) async {
+      await pumpRow(tester);
+
+      final firstCard = tester.getRect(find.byType(ClipRRect).first);
+      expect(firstCard.width, closeTo(400 * postCardWidthFraction, 0.5));
+      expect(
+        firstCard.width / firstCard.height,
+        closeTo(postCardAspectRatio, 0.01),
+      );
+    });
+
+    testWidgets('a drag settles on a card boundary, never between two',
+        (tester) async {
+      // Founder, 2026-09-03: "ให้ snap ทีละการ์ดเลย". Before this the
+      // row scrolled freely and could come to rest with a card parked
+      // half off the edge.
+      final scrollable = await pumpRow(tester);
+      const stride = 400 * postCardWidthFraction + 8;
+
+      // A short, slow drag -- less than half a card, so it should
+      // settle back where it started rather than creep.
+      await tester.drag(find.byType(PostImageCarousel), const Offset(-60, 0));
+      await tester.pumpAndSettle();
+      expect(scrollable.position.pixels, closeTo(0, 0.5));
+
+      // Past the halfway point, it settles on card two exactly.
+      await tester.drag(find.byType(PostImageCarousel), const Offset(-220, 0));
+      await tester.pumpAndSettle();
+      expect(scrollable.position.pixels, closeTo(stride, 0.5));
+    });
+
+    testWidgets('a flick advances exactly one card, however hard',
+        (tester) async {
+      final scrollable = await pumpRow(tester);
+      const stride = 400 * postCardWidthFraction + 8;
+
+      await tester.fling(
+        find.byType(PostImageCarousel),
+        const Offset(-100, 0),
+        6000,
+      );
+      await tester.pumpAndSettle();
+
+      // One card, not three -- a 9-photo post stays a sequence of
+      // photos instead of a blur that ends somewhere arbitrary.
+      expect(scrollable.position.pixels, closeTo(stride, 0.5));
+    });
+
+    testWidgets('reports the card in front as it changes', (tester) async {
+      final reported = <int>[];
+      await pumpRow(tester, onIndexChanged: reported.add);
+
+      await tester.drag(find.byType(PostImageCarousel), const Offset(-220, 0));
+      await tester.pumpAndSettle();
+      expect(reported.last, 1);
+
+      await tester.drag(find.byType(PostImageCarousel), const Offset(220, 0));
+      await tester.pumpAndSettle();
+      expect(reported.last, 0);
+    });
+
+    testWidgets('the last card stops at the end of the row, not past it',
+        (tester) async {
+      final scrollable = await pumpRow(tester);
+
+      await tester.fling(
+        find.byType(PostImageCarousel),
+        const Offset(-1200, 0),
+        8000,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        scrollable.position.pixels,
+        lessThanOrEqualTo(scrollable.position.maxScrollExtent + 0.5),
+      );
+    });
+  });
+
 }
