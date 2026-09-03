@@ -117,18 +117,29 @@ jobs:
                        and tgname = '$TRIGGER_NAME';" | jq .
           }
 
+          # Three separate facts, because "webhooks are off" has three
+          # different causes and they need three different fixes. A
+          # single yes/no here would send someone to the wrong one.
           echo "=== Is the webhook machinery enabled on this project? ==="
-          has_fn=$(run_sql "select count(*) as n
-                            from pg_proc p
-                            join pg_namespace n on n.oid = p.pronamespace
-                            where n.nspname = 'supabase_functions'
-                              and p.proname = 'http_request';" | jq -r '.[0].n')
-          echo "supabase_functions.http_request found: $has_fn"
+          probe=$(run_sql "select
+                    (select count(*) from pg_extension where extname = 'pg_net')          as pg_net_installed,
+                    (select count(*) from pg_available_extensions where name = 'pg_net')   as pg_net_available,
+                    (select count(*) from pg_namespace where nspname = 'supabase_functions') as schema_exists,
+                    (select count(*) from pg_proc p
+                       join pg_namespace n on n.oid = p.pronamespace
+                      where n.nspname = 'supabase_functions'
+                        and p.proname = 'http_request')                                   as http_request_exists;")
+          echo "$probe" | jq .
+          has_fn=$(echo "$probe" | jq -r '.[0].http_request_exists')
 
           if [ "$has_fn" = "0" ]; then
-            echo "::error::Database Webhooks have never been enabled on this project."
-            echo "::error::Open Dashboard > Database > Webhooks and press 'Enable webhooks' once"
-            echo "::error::(it installs pg_net and the supabase_functions schema), then re-run this."
+            echo "::error::supabase_functions.http_request does not exist, so no webhook can be created yet."
+            echo "::error::Fix, once, in the Dashboard: Database > Webhooks > 'Enable webhooks'."
+            echo "::error::That button runs Supabase's own migration -- it installs pg_net AND creates the"
+            echo "::error::supabase_functions schema with their http_request(). This workflow deliberately"
+            echo "::error::does not hand-write that function: a near-copy would look like it worked while"
+            echo "::error::the Dashboard failed to recognise the hook and their next migration collided"
+            echo "::error::with it. Press the button, then re-run this with action=create."
             exit 1
           fi
 
