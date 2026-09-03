@@ -26,7 +26,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "verify = look only · create = install/replace · test = fire one harmless request · remove = drop · enable = turn on webhooks only · diagnose = why did no push arrive"
+        description: "verify = look only · create = install/replace · test = fire one harmless request · remove = drop · enable = turn on webhooks only · diagnose = why did no push arrive · secrets = list Edge Function secret NAMES"
         required: true
         default: verify
         type: choice
@@ -37,6 +37,7 @@ on:
           - enable
           - test
           - diagnose
+          - secrets
 
 jobs:
   webhook:
@@ -261,6 +262,35 @@ jobs:
               echo
               echo "=== 5. Anything still queued or failed inside pg_net? ==="
               run_sql "select count(*) as queued from net.http_request_queue;" | jq .
+              ;;
+
+            secrets)
+              # Names only. This endpoint returns values too, and there
+              # is no reason for one of them to pass through a log: the
+              # question here is only whether FCM_SERVICE_ACCOUNT exists
+              # and is spelled exactly that, which the names answer.
+              echo "=== Edge Function secrets on this project (names only) ==="
+              out=$(mktemp)
+              code=$(curl -sS -o "$out" -w '%{http_code}' \
+                "https://api.supabase.com/v1/projects/$PROJECT_REF/secrets" \
+                -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN")
+              if [ "$code" != "200" ]; then
+                echo "::error::Supabase answered HTTP $code when listing secrets."
+                rm -f "$out"; exit 1
+              fi
+              # Quoted and with the length, so a trailing space or a
+              # zero-width character in the name is visible rather than
+              # invisible -- that is the failure this is looking for.
+              jq -r '.[] | "  \"" + .name + "\"  (" + (.name | length | tostring) + " chars)"' "$out" | sort
+              echo
+              if jq -e 'any(.[]; .name == "FCM_SERVICE_ACCOUNT")' "$out" >/dev/null; then
+                echo "FCM_SERVICE_ACCOUNT: present under exactly that name."
+                echo "So an empty value, not a missing key, is what the function is seeing."
+              else
+                echo "FCM_SERVICE_ACCOUNT: NOT present under that exact name."
+                echo "That is why the function answers 'FCM not configured'."
+              fi
+              rm -f "$out"
               ;;
 
             remove)
