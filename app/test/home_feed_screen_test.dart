@@ -23,6 +23,7 @@ import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/home_explainer_banner.dart';
 import 'package:wyn/features/home/presentation/widgets/home_feed_skeleton.dart';
 import 'package:wyn/features/home/presentation/widgets/home_feed_image_peek_carousel.dart';
+import 'package:wyn/features/home/presentation/widgets/home_native_ad_card.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/liked_by_row.dart';
 import 'package:wyn/features/home/presentation/widgets/new_posts_pill.dart';
@@ -373,6 +374,11 @@ void main() {
   // WYNOSHomeSpec.md item 1: first-time explainer banner.
   late RecordingHomeRepository explainerBannerTestHomeRepository;
 
+  // WYN-106: Native In-Feed Ads -- more than kFeedAdInterval (8) real
+  // posts, on the default "สำหรับคุณ" tab, so an ad-slot *would* be
+  // eligible to appear if this build had a real AdMob config.
+  late RecordingHomeRepository adSlotTestHomeRepository;
+
   // WYN-064: Tap Home Tab to Scroll to Top & Refresh -- one repository
   // per scenario, same reasoning as every group above (built once here,
   // not inline inside a testWidgets callback, so its SupabaseClient's
@@ -640,6 +646,19 @@ void main() {
 
     explainerBannerTestHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'exp1', hasImage: false)],
+    );
+
+    // WYN-106: 9 real posts on "สำหรับคุณ" -- one more than
+    // kFeedAdInterval, so if this test build somehow had a real AdMob
+    // config, position 8 (right after the 8th post) would be an
+    // ad-slot. hasImage: false for the same "avoid concurrent
+    // NetworkImage failures" reason scrollToTopTestHomeRepository uses
+    // it above.
+    adSlotTestHomeRepository = RecordingHomeRepository(
+      rankedFeedItems: [
+        for (var i = 0; i < 9; i++)
+          _dropItem(id: 'ad-slot-$i', caption: 'โพสต์ที่ $i', hasImage: false),
+      ],
     );
 
     // hasImage: false -- avoids kicking off 30 concurrent NetworkImage
@@ -2977,6 +2996,49 @@ void main() {
 
       expect(find.byType(HomeFeedSkeleton), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
+  });
+
+  group('WYN-106: Native In-Feed Ads (unconfigured build -- clean no-op)',
+      () {
+    testWidgets(
+        'renders zero HomeNativeAdCard widgets when the build has no real '
+        'AdMob config, even with more real posts than kFeedAdInterval on '
+        '"สำหรับคุณ"', (tester) async {
+      await tester.pumpWidget(buildHome(
+        adSlotTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // AdEnv.isConfigured is always false in this test binary (no
+      // --dart-define carries a real AdMob App ID/native ad unit id) --
+      // design spec Handoff item 6's own requirement, pinned here as an
+      // executable regression: a feed deep enough to cross
+      // kFeedAdInterval (9 real posts here, one past the 8-post
+      // interval) must still show *zero* ad-slots, not a broken
+      // placeholder, not a gap.
+      expect(find.text('โพสต์ที่ 0'), findsOneWidget);
+      expect(find.byType(HomeNativeAdCard), findsNothing);
+
+      // Scroll to where an ad-slot would sit (right after the 8th post,
+      // if this build had a real AdMob config) and confirm it's still
+      // absent once that row is actually built/on screen, not just
+      // absent from what happened to be mounted at the top.
+      await tester.scrollUntilVisible(
+        find.text('โพสต์ที่ 8'),
+        500,
+        scrollable: find.descendant(
+          of: find.byKey(const Key('home_feed_scroll_view')),
+          matching: find.byType(Scrollable),
+        ).first,
+      );
+      tester.takeException();
+
+      expect(find.text('โพสต์ที่ 8'), findsOneWidget);
+      expect(find.byType(HomeNativeAdCard), findsNothing);
     });
   });
 }

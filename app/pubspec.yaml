@@ -42,6 +42,19 @@ dependencies:
   # reverse geocoding) goes through the new `location-search` Edge
   # Function (LocationIQ), never this package directly.
   geolocator: ^13.0.2
+  # WYN-106 (Native In-Feed Ads, Home feed "สำหรับคุณ") -- see
+  # lib/core/ad_env.dart and
+  # lib/features/home/presentation/widgets/home_native_ad_card.dart for
+  # why this compiles and cleanly no-ops today: no real AdMob App ID/
+  # native ad unit id has been supplied yet (same "safe to add before
+  # real credentials exist" posture as firebase_core/firebase_messaging
+  # above). Pinned to 5.3.1 (not the current latest major) since that is
+  # the newest version whose own `environment: sdk` constraint
+  # (>=2.17.0 <4.0.0) is still satisfied by this project's own
+  # `>=3.3.0 <4.0.0` floor -- a newer major here could otherwise force
+  # this project's own Dart SDK floor up as an unrelated side effect of
+  # this one dependency.
+  google_mobile_ads: ^5.3.1
 
 dev_dependencies:
   flutter_test:

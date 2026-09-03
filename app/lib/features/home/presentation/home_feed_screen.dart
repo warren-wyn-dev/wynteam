@@ -17,6 +17,7 @@ import '../../profile/presentation/view_profile_screen.dart';
 import '../../root/presentation/side_menu.dart';
 import '../../saved/data/saved_repository.dart';
 import '../../search/data/discovery_repository.dart';
+import '../data/feed_ad_slots.dart';
 import '../data/home_feed_item.dart';
 import '../data/home_repository.dart';
 import 'pop_single_clip_screen.dart';
@@ -24,9 +25,11 @@ import 'widgets/from_your_clubs_feed.dart';
 import 'widgets/home_drop_card.dart';
 import 'widgets/home_explainer_banner.dart';
 import 'widgets/home_feed_skeleton.dart';
+import 'widgets/home_native_ad_card.dart';
 import 'widgets/home_pop_card.dart';
 import 'widgets/new_posts_pill.dart';
 import 'widgets/suggested_follow_list.dart';
+import '../../../core/ad_env.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
@@ -1102,27 +1105,43 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       ];
     }
 
-    // Interleaves a hairline divider between posts only (DS-003) -- never
+    // WYN-106 (Native In-Feed Ads): "สำหรับคุณ" only, and only once a
+    // real AdMob config exists (AdEnv.isConfigured) -- design spec
+    // section 1 ("สโคป V1 -- เฉพาะแท็บ 'สำหรับคุณ'") and Handoff item 6
+    // ("ต้องมี toggle/flag ปิดโฆษณาทั้งหมดได้ง่ายๆ ... สำหรับ QA/dev
+    // environment ที่ยังไม่มี AdMob App ID จริง"). Every other feed mode
+    // that reaches this method ("ติดตาม") and every build without a
+    // real AdMob config renders the exact same 2-kind (item/divider)
+    // sequence this always has, byte for byte -- see feed_ad_slots.dart
+    // for the pure placement math this delegates to when true. _items
+    // itself never changes shape either way, only this rendered
+    // index-to-row mapping does.
+    final adsEnabled = _feedMode == _HomeFeedMode.forYou && AdEnv.isConfigured;
+
+    // Interleaves a hairline divider between rows (DS-003) -- never
     // before the loading spinner at the end, which isn't content -- the
     // same rule ListView.separated enforced, just written out by hand
     // since SliverChildBuilderDelegate has no separated variant. Each
-    // real item sits at an even index, each divider at the following odd
-    // index, so index~/2 recovers the item index below.
-    final itemCount = _items.length + (_hasMore ? 1 : 0);
+    // real row (a post, or -- WYN-106 -- an ad-slot) sits at an even
+    // delegate index, each divider at the following odd index, so
+    // i~/2 recovers the row position below.
+    final realAndAdRowCount =
+        adsEnabled ? feedContentRowCount(_items.length) : _items.length;
+    final itemCount = realAndAdRowCount + (_hasMore ? 1 : 0);
     return [
       SliverList(
         key: const Key('home_feed_list'),
         delegate: SliverChildBuilderDelegate(
           (context, i) {
             if (i.isOdd) {
-              final itemIndex = i ~/ 2;
-              return itemIndex + 1 < _items.length
+              final position = i ~/ 2;
+              return position + 1 < realAndAdRowCount
                   ? const Divider(height: 1)
                   : const SizedBox.shrink();
             }
-            final index = i ~/ 2;
+            final position = i ~/ 2;
 
-            if (index >= _items.length) {
+            if (position >= realAndAdRowCount) {
               if (_loadMoreFailed) {
                 return Padding(
                   padding: const EdgeInsets.all(WynSpacing.space4),
@@ -1141,6 +1160,23 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                 child: Center(child: CircularProgressIndicator()),
               );
             }
+
+            // WYN-106: an ad-slot never reaches _items -- see
+            // feed_ad_slots.dart's own doc comment for why this row kind
+            // is computed live here rather than stored anywhere. When
+            // ads are disabled for this render, every position is a
+            // plain real-post row (position itself is already the
+            // _items index, exactly the pre-WYN-106 behavior).
+            final row = adsEnabled
+                ? feedContentRowAt(position)
+                : FeedRealPostRow(position);
+            if (row is FeedAdSlotRow) {
+              return HomeNativeAdCard(
+                key: ValueKey('ad-${row.adSlotIndex}'),
+                adSlotIndex: row.adSlotIndex,
+              );
+            }
+            final index = (row as FeedRealPostRow).itemIndex;
 
             final item = _items[index];
             // WYN-034: id alone is no longer a unique widget key -- the

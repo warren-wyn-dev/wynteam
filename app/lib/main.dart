@@ -2,8 +2,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/ad_env.dart';
 import 'core/design/wyn_colors.dart';
 import 'core/design/wyn_spacing.dart';
 import 'core/design/wyn_theme.dart';
@@ -79,6 +81,23 @@ Future<void> main() async {
     }
   } catch (_) {
     // Intentionally silent -- see comment above.
+  }
+
+  // WYN-106 (Native In-Feed Ads, Home feed "สำหรับคุณ") -- only attempted
+  // once Founder supplies a real AdMob App ID + native ad unit id
+  // (AdEnv.isConfigured); every other build (every CI run, every dev
+  // machine today) skips this entirely, so HomeNativeAdCard's own
+  // load-time isConfigured guard is backed up by never even
+  // initializing the SDK in the first place. Same "wrap in try/catch,
+  // no-op until real config lands" posture as Firebase.initializeApp()
+  // above.
+  if (AdEnv.isConfigured) {
+    try {
+      await MobileAds.instance.initialize();
+    } catch (_) {
+      // Intentionally silent -- HomeNativeAdCard's own load already
+      // treats a failed/absent ad the same as "no ad-slot at all".
+    }
   }
 
   // A build-time exception used to paint Flutter's raw grey/red error
