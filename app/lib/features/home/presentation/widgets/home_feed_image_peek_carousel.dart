@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
-import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/post_media.dart';
 import '../../../drop/data/drop_repository.dart';
@@ -122,61 +121,28 @@ class _HomeFeedImagePeekCarouselState
   }
 
   Widget _peekCarousel(BuildContext context, List<String> imageUrls) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final itemWidth = constraints.maxWidth * _peekWidthFraction;
-        final itemHeight = itemWidth / _peekAspectRatio;
-        return SizedBox(
-          height: itemHeight,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            physics: const ClampingScrollPhysics(),
-            itemCount: imageUrls.length,
-            itemBuilder: (context, index) {
-              final isLast = index == imageUrls.length - 1;
-              return Padding(
-                padding: EdgeInsets.only(
-                  right: isLast ? 0 : WynSpacing.space2,
-                ),
-                child: Semantics(
-                  label: 'รูปที่ ${index + 1} จาก ${imageUrls.length} ของ '
-                      '${widget.item.authorNameOrUsername}',
-                  image: true,
-                  excludeSemantics: true,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(WynSpacing.radiusLg),
-                    child: SizedBox(
-                      width: itemWidth,
-                      height: itemHeight,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          PostImage(imageUrl: imageUrls[index]),
-                          // WYN-092: shown on the first card only, same
-                          // "small icon in the corner, no count" the
-                          // Founder's reference image shows -- unlike
-                          // DropImageGallery's "1/3" text badge (a
-                          // Detail-screen-only convention, out of
-                          // scope here per this widget's own doc
-                          // comment).
-                          if (index == 0)
-                            const Positioned(
-                              right: 8,
-                              bottom: 8,
-                              child: ExcludeSemantics(
-                                child: _PeekMultiImageBadge(),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        );
-      },
+    // Beta3: the row itself is [PostImageCarousel] now -- the same
+    // widget Drop Detail builds, so a post's photos are one card row
+    // with the same geometry wherever you meet them. Nothing about how
+    // this looks in the feed changed: same 82% card, same 4:5, same
+    // 16px corners, same 8px gap, same free scroll.
+    return PostImageCarousel(
+      imageUrls: imageUrls,
+      semanticLabelBuilder: (index, total) =>
+          'รูปที่ ${index + 1} จาก $total ของ '
+          '${widget.item.authorNameOrUsername}',
+      // WYN-092: shown on the first card only, same "small icon in the
+      // corner, no count" the Founder's reference image shows --
+      // unlike Drop Detail's "1/3" counter, which belongs to a screen
+      // where you are looking at one post rather than scrolling past
+      // it.
+      cardOverlayBuilder: (context, index) => index == 0
+          ? const Positioned(
+              right: 8,
+              bottom: 8,
+              child: ExcludeSemantics(child: _PeekMultiImageBadge()),
+            )
+          : null,
     );
   }
 
@@ -228,10 +194,3 @@ class _PeekMultiImageBadge extends StatelessWidget {
     );
   }
 }
-
-// 82% of the row's width, 4:5 (portrait) aspect ratio -- both taken
-// directly from design-reference/SPEC.md 4.7 ("Image carousel
-// (peek-card style)") and the Founder's own reference image
-// (f91d7b63-image.jpg, Beta2 Phase 2 PDF item 14).
-const double _peekWidthFraction = 0.82;
-const double _peekAspectRatio = 4 / 5;

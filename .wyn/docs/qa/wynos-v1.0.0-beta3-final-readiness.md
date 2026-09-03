@@ -31,6 +31,7 @@
 | 4 | โพสต์หลายรูปยิง 1 request **ต่อการ์ด** หลังหน้าขึ้นแล้ว + ยิงซ้ำอีกครั้งตอนเปิดโพสต์ | 9, 25 |
 | 5 | `DropRepository` ทุก fetch path รอ 4 round trip เรียงกัน ทั้งที่ 4 query ไม่ขึ้นต่อกัน | 9, 25 |
 | 6 | 4 ลิสต์ append หน้าใหม่แบบไม่กันซ้ำ ทั้งที่ใส่ `ValueKey` → **key ซ้ำทำให้ ListView throw** ไม่ใช่แค่แสดงซ้ำ | 8 |
+| 7 | Post Detail แสดงรูปหลายรูปเป็น `PageView` เต็มความกว้างทีละรูป ไม่ใช่การ์ดเรียงกัน — โพสต์เดียวกันเป็นการ์ดใน Feed แล้วกลายเป็นแผ่นเดียวตอนเปิด (คำสั่ง Founder 2026-09-03) | 3 |
 
 ### งานตามคำสั่งเฉพาะ
 
@@ -61,7 +62,7 @@ Index ครบทุกตัวที่ต้องใช้ (ข้อ 24) �
 
 | กลุ่ม | ไฟล์ |
 |---|---|
-| Media (รวมกติกาไว้ที่เดียว) | `core/widgets/post_media.dart` · `home_drop_card.dart` · `home_feed_image_peek_carousel.dart` · `drop_image_gallery.dart` · `club_post_card.dart` |
+| Media (รวมกติกา + แถวการ์ดไว้ที่เดียว) | `core/widgets/post_media.dart` · `home_drop_card.dart` · `home_feed_image_peek_carousel.dart` · `drop_image_gallery.dart` · `club_post_card.dart` |
 | Post Detail scroll | `drop_detail_screen.dart` |
 | Back navigation | `profile_drop_grid_tab.dart` · `profile_likes_tab.dart` · `profile_redrops_tab.dart` · `hashtag_feed_screen.dart` |
 | กันแถวซ้ำ | 3 แท็บข้างบน + `bookmarks_screen.dart` |
@@ -129,7 +130,7 @@ Index ครบทุกตัวที่ต้องใช้ (ข้อ 24) �
 | ชุด | ผล |
 |---|---|
 | `flutter analyze` | ✅ **No issues found** |
-| `flutter test` | ✅ **1,100 ผ่านทั้งหมด** (baseline 1,086 + **14 test ใหม่**) |
+| `flutter test` | ✅ **1,101 ผ่านทั้งหมด** (baseline 1,086 + **15 test ใหม่**) |
 | `flutter build web --release` | ✅ **สำเร็จ** |
 | `schema.sql` โหลดสดบน PostgreSQL 16.13 | ✅ **0 ERROR** |
 | `supabase/tests/*.sh` (33 ไฟล์) | ⚠️ **27 ผ่าน / 6 fail** — **เท่า baseline ของ Beta2 พอดี ไม่มี regression** |
@@ -145,7 +146,8 @@ Index ครบทุกตัวที่ต้องใช้ (ข้อ 24) �
 **14 test ใหม่ครอบอะไร:**
 กติกา aspect ratio + fallback ทั้งหมด · รูป decode ตามขนาดที่วาดจริง · รูปตั้งไม่ถูกบีบเป็นจัตุรัสบน Detail ·
 โพสต์ที่พก image list มาแล้วไม่ยิง request · กลับจาก Detail รีเฟรชแถวเดียวและรับค่าที่เปลี่ยนได้ ·
-แถวที่ถูก unlike หลุดจากแท็บถูกใจ · **หน้า 1 ที่ทับหน้า 0 ไม่ทำให้แถวขึ้นซ้ำ** · Club แสดง background เสมอ
+แถวที่ถูก unlike หลุดจากแท็บถูกใจ · **หน้า 1 ที่ทับหน้า 0 ไม่ทำให้แถวขึ้นซ้ำ** · Club แสดง background เสมอ ·
+**รูปหลายรูปบน Detail เป็นการ์ด 82% สัดส่วน 4:5 และรูปที่ 2 โผล่น้อยกว่า 1 ใน 3 ของการ์ด**
 
 **หมายเหตุเรื่องคุณภาพ test:** test "หน้าซ้อนกัน" ถูก **ยืนยันว่า fail จริงถ้าเอา guard ออก** ไม่ใช่ test ที่ผ่านอยู่แล้วโดยบังเอิญ
 
@@ -173,7 +175,8 @@ Index ครบทุกตัวที่ต้องใช้ (ข้อ 24) �
 
 | # | ต้องตัดสินใจ | ทางเลือก |
 |---|---|---|
-| **D-1** | **รูปทรงตาม artifact ที่ส่งไปโอเคไหม** | โดยเฉพาะเพดานความสูงรูป 85% ของจอบน Post Detail (Feed ใช้ 75%) และแถบหัวข้อที่เลื่อนหายได้ — ถ้าไม่ชอบข้อไหนบอกได้ ปรับเป็นตัวเลขอื่นหรือย้อนกลับได้ทั้งคู่ |
+| **D-1** | **รูปที่ 2 โผล่เท่านี้พอไหม** | การ์ดกว้าง 82% ของแถว → บนจอ 390pt รูปที่ 2 โผล่ราว 62pt ถ้าอยากให้โผล่น้อยกว่านี้ บอกตัวเลขได้ — ปรับที่ `postCardWidthFraction` ค่าเดียว เปลี่ยนพร้อมกันทั้ง Feed และ Detail |
+| **D-1b** | **รูปทรงอื่นตาม artifact โอเคไหม** | เพดานความสูงรูป 85% ของจอบน Post Detail (Feed ใช้ 75%) · แถบหัวข้อที่เลื่อนหายได้ · แถวการ์ดเป็น free scroll ไม่ snap (เหมือน Feed เดิม) — ถ้าอยากให้ snap ทั้งสองจอ บอกได้ แก้ที่เดียว |
 | **D-2** | **ให้เปิด PR ได้หรือยัง** | ข้อ 37 ห้ามเปิด PR / merge / deploy โดยไม่ได้รับอนุญาต — ยังไม่ทำทั้งสามอย่าง<br>งาน push ขึ้น `claude/wynos-beta3-polish-performance-aes6ld` แล้ว เพราะ container ของ session นี้เป็น ephemeral ถ้าไม่ push งานจะหายทั้งหมดเมื่อ session จบ — branch นี้ไม่ใช่ production และไม่ได้ถูก merge เข้าที่ไหน |
 | **D-3** | R-4 — Profile header เลื่อนหายด้วยไหม | ทำ / ไม่ทำ — ไม่ได้อยู่ในคำสั่ง Beta3 และมีความเสี่ยง regression ที่ไม่คุ้มถ้าไม่ได้สั่ง |
 | **D-4** | R-3 — ซ่อม test fixture 5+1 ตัวที่ค้างแดง | ทำใน Beta3 / แยกเป็นงานต่างหาก — เป็นงานเล็กแต่ไม่ใช่ขอบเขต Beta3 |
