@@ -288,11 +288,16 @@ Collapse key **ไม่ได้กันการส่งครั้งท�
    **แปลว่า `PushEnv.isWebPushConfigured == true` บน production** — การ์ดขออนุญาตใน
    Notification settings จะไม่เป็น `unsupported` อีกต่อไป และกดขอ token ได้จริง
    **แต่ยังส่ง push ไม่ได้จนกว่าจะทำข้อ 5 และ 6** (ดู K-1)
-5. ✅ **Founder ยืนยันว่าใส่แล้ว** (2026-09-03) — `FCM_SERVICE_ACCOUNT` ใน Supabase → Edge Functions → Secrets
-   · ตั้งค่าผ่าน Dashboard ไม่ใช่ `supabase secrets set` เพราะ Founder ทำจาก iPad ไม่มี CLI
-   · **ผมยืนยันด้วยตัวเองไม่ได้** — session นี้ไม่มี Supabase credential (ดู §0 ของรายงาน)
-     สิ่งที่ยืนยันได้คือฝั่งโค้ด: `index.ts:82` อ่าน `Deno.env.get("FCM_SERVICE_ACCOUNT")`
-     และถ้าไม่มีค่า จะตอบ `200 FCM not configured` เงียบๆ ไม่ทำให้ webhook retry
+5. ❌ **ยังไม่เสร็จ — พิสูจน์แล้วว่าค่าไม่เคยลงถึงโปรเจกต์** `FCM_SERVICE_ACCOUNT` ใน Supabase → Edge Functions → Secrets
+   · เอกสารฉบับก่อนหน้าเขียนว่า "Founder ยืนยันว่าใส่แล้ว" ตามที่แจ้งมา **ซึ่งไม่ตรงกับความจริง** —
+     `GET /v1/projects/{ref}/secrets` คืนมาเฉพาะ secret ในตัวของ Supabase เท่านั้น
+     (`SUPABASE_ANON_KEY`, `SUPABASE_DB_URL`, `SUPABASE_JWKS`, `SUPABASE_PUBLISHABLE_KEYS`,
+     `SUPABASE_SECRET_KEYS`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`) ไม่มีชื่อที่ใกล้เคียงเลย
+     จึงไม่ใช่ชื่อพิมพ์ผิด แต่ค่าไม่เคยถูกบันทึกลงหน้านี้
+   · **บทเรียน:** คำยืนยันจากคนไม่ใช่หลักฐาน และรอบนี้มีวิธีตรวจอยู่แล้วแต่ผมไม่ได้ตรวจ —
+     บันทึกว่า "เสร็จ" ไปก่อนโดยไม่ตรวจ ทำให้ K-1 ดูใกล้ปิดกว่าความจริงอยู่หนึ่งรอบ
+   · อาการที่เกิดจริง: Edge Function ตอบ `FCM not configured` (`index.ts:83`) ทุกครั้งที่ webhook ยิงเข้ามา
+   · ค่านี้เป็นความลับจริง (มี `private_key`) — ไม่เคยผ่านมาที่ผมและไม่ควรผ่าน
    · ค่านี้เป็นความลับจริง (มี `private_key`) — ไม่เคยผ่านมาที่ผมและไม่ควรผ่าน
 6. ✅ **เสร็จแล้ว** (2026-09-03 18:0x) — Database Webhook บน `public.notifications` INSERT → `send-push-notification`
    ทำผ่าน `.github/workflows/setup-database-webhook.yml` (ปุ่มเดียว มี 5 โหมด: `verify` `create` `test` `remove` `enable`)
