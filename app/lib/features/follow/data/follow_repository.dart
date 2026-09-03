@@ -118,4 +118,58 @@ class FollowRepository {
         .map((row) => Profile.fromMap(row['following'] as Map<String, dynamic>))
         .toList();
   }
+
+  /// WYN-097: "เพื่อน" -- the caller's own mutual-follow list (people who
+  /// follow the caller back), alphabetical by username. Backs both the
+  /// "เลือกเพื่อนที่จะซ่อน" (ExcludeFriendsScreen) and "เพื่อนที่สนิท"
+  /// (CloseFriendsScreen) pickers -- see `public.fetch_mutual_follows()`
+  /// in supabase/schema.sql, which does the actual two-way `follows`
+  /// check server-side (not reproduced with two client queries here,
+  /// same "let Postgres do the join" posture as every other RPC-backed
+  /// read in this repository).
+  static const mutualFollowsPageSize = 30;
+
+  Future<List<Profile>> fetchMutualFollows({required int page}) async {
+    final rows = await _client.rpc(
+      'fetch_mutual_follows',
+      params: {'p_page': page},
+    ) as List<dynamic>;
+    return rows
+        .map((row) => Profile.fromMap(row as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// WYN-097: the caller's own persistent "เพื่อนที่สนิท" (Close
+  /// Friends) list -- unpaginated (same "one screen, no pagination"
+  /// shape MutedListScreen/BlockedListScreen already use for a
+  /// similarly-bounded personal list) since RLS already restricts this
+  /// to rows the caller themselves added (`close_friends`' own SELECT
+  /// policy is owner-only).
+  Future<List<Profile>> fetchCloseFriends() async {
+    final rows = await _client
+        .from('close_friends')
+        .select('friend:profiles!close_friends_friend_id_fkey(*)')
+        .order('created_at', ascending: false);
+    return rows
+        .map((row) => Profile.fromMap(row['friend'] as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Adds [friendId] to the caller's Close Friends list -- rejected
+  /// server-side (RLS INSERT policy) unless [friendId] is currently a
+  /// mutual follow of the caller.
+  Future<void> addCloseFriend({required String friendId}) {
+    final currentUserId = _client.auth.currentUser!.id;
+    return _client.from('close_friends').insert(
+        {'owner_id': currentUserId, 'friend_id': friendId});
+  }
+
+  Future<void> removeCloseFriend({required String friendId}) {
+    final currentUserId = _client.auth.currentUser!.id;
+    return _client
+        .from('close_friends')
+        .delete()
+        .eq('owner_id', currentUserId)
+        .eq('friend_id', friendId);
+  }
 }

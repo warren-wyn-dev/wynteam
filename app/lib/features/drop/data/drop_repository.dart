@@ -8,6 +8,8 @@ import '../../home/data/home_ranking.dart';
 import 'drop.dart';
 import 'drop_comment.dart';
 import 'drop_draft.dart';
+import 'image_dimensions.dart';
+import 'location_result.dart';
 
 // PostgREST can't resolve a bare `profiles(...)` embed on its own when a
 // sibling embed in the same select (drop_likes/drop_comments/
@@ -199,27 +201,53 @@ class DropRepository {
   /// WYN-071: Profile's "Likes" tab -- Drops [authorId] has Liked, newest
   /// Like first (not newest Drop first -- ordered by `drop_likes.
   /// created_at`, mirroring how a Likes tab reads on the reference apps
-  /// this was modeled on). `drop_likes` is already public-read (`using
-  /// (true)`, see schema.sql) -- Founder decision 2026-08-24 makes this
-  /// tab itself public the same way, so no new RLS is needed at all,
-  /// only this query. The embedded `drops!inner(...)` still goes
-  /// through `drops`' own RLS, so a Liked-but-since-moderated/deleted/
-  /// blocked-author Drop is silently excluded rather than surfaced.
+  /// this was modeled on).
+  ///
+  /// WYN-099: no longer a raw `.from('drop_likes')` query -- that would
+  /// bypass [authorId]'s own `likes_visibility` setting entirely (see
+  /// .wyn/docs/product/wyn-099-likes-privacy.md's "Architecture
+  /// Decision" for why `drop_likes` itself still has to stay
+  /// public-read: `like_count`/`liked_by` on every Drop across the app
+  /// depend on it too). Calls `fetch_liked_drop_ids()` first -- a
+  /// SECURITY DEFINER RPC that enforces `internal.can_view_likes()`
+  /// (and, per that spec's Edge Case 3, `internal.can_view_drop_audience()`
+  /// so a friend's "เฉพาะฉัน" Drop that [authorId] liked never leaks
+  /// through this tab) -- then fetches the rich card shape for exactly
+  /// those ids, preserving the RPC's own order. The second query still
+  /// goes through `drops`' own RLS as an ordinary client select
+  /// (defense in depth), so a Liked-but-since-moderated/deleted/
+  /// blocked-author Drop is silently excluded rather than surfaced,
+  /// same as before this change.
   Future<List<Drop>> fetchLikedByAuthor({
     required String authorId,
     required int page,
   }) async {
     final userId = _client.auth.currentUser!.id;
-    final from = page * pageSize;
-    final to = from + pageSize - 1;
 
-    final likeRows = await _client
-        .from('drop_likes')
-        .select('drops!inner($_dropSelect)')
-        .eq('user_id', authorId)
-        .order('created_at', ascending: false)
-        .range(from, to);
-    final rows = likeRows.map((row) => row['drops'] as Map<String, dynamic>).toList();
+    final idRows = await _client.rpc(
+      'fetch_liked_drop_ids',
+      params: {'p_target_user_id': authorId, 'p_page': page},
+    ) as List<dynamic>;
+    final orderedIds =
+        idRows.map((row) => row['drop_id'] as String).toList(growable: false);
+    if (orderedIds.isEmpty) return [];
+
+    final fetched = await _client
+        .from('drops')
+        .select(_dropSelect)
+        .inFilter('id', orderedIds);
+    final byId = {
+      for (final row in fetched) row['id'] as String: row,
+    };
+    // fetch_liked_drop_ids' own order is the source of truth (newest
+    // Like first) -- the second query above has no ORDER BY of its own
+    // to match it, and a row missing here (blocked/private/deleted,
+    // filtered out by drops' RLS on this second query) is simply
+    // skipped rather than raising.
+    final rows = [
+      for (final id in orderedIds)
+        if (byId[id] != null) byId[id]!,
+    ];
 
     final dropIds = rows.map((row) => row['id'] as String).toList();
     final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
@@ -578,12 +606,26 @@ class DropRepository {
     required List<String> options,
     required int durationDays,
     Set<String> mentionedUserIds = const {},
+    // WYN-097: same audience choice image/text Drops get (see
+    // [createDrop]/[_insertDrop]) -- a Poll Drop is still a Drop.
+    AudienceOption audience = AudienceOption.everyone,
+    Set<String> excludedFriendIds = const {},
+    // WYN-098: same check-in a Poll Drop can carry as an image/text
+    // one -- CreateDropScreen's location toolbar button is reachable
+    // in both compose modes.
+    LocationResult? location,
   }) {
     return _client.rpc('create_poll_drop', params: {
       'p_caption': question.trim(),
       'p_options': options,
       'p_duration_days': durationDays,
       'p_mentioned_user_ids': mentionedUserIds.toList(),
+      'p_audience': audience.dbValue,
+      'p_excluded_friend_ids': excludedFriendIds.toList(),
+      'p_location': location?.name,
+      'p_location_lat': location?.lat,
+      'p_location_lon': location?.lon,
+      'p_location_place_id': location?.placeId,
     });
   }
 
@@ -622,12 +664,32 @@ class DropRepository {
     required List<String> imageExtensions,
     required String caption,
     Set<String> mentionedUserIds = const {},
+    // WYN-097: who can see this Drop -- see [AudienceOption]'s doc
+    // comment. [excludedFriendIds] only matters when [audience] is
+    // [AudienceOption.friendsExcept] (Product spec's "ซ่อนเพื่อนบางคน").
+    AudienceOption audience = AudienceOption.everyone,
+    Set<String> excludedFriendIds = const {},
+    // WYN-098: the place check-in chip picked from LocationPickerScreen,
+    // if any.
+    LocationResult? location,
+    // WYN-094: fired after each image finishes uploading (not a
+    // byte-level callback -- the Supabase storage client this app
+    // uses doesn't expose one -- but real progress per image, driven
+    // by this loop actually finishing an upload, not a fake timer).
+    // [uploaded] is 1-based; [total] is imagesBytes.length.
+    void Function(int uploaded, int total)? onImageUploaded,
   }) async {
     assert(imagesBytes.length == imageExtensions.length);
     assert(imagesBytes.isNotEmpty && imagesBytes.length <= 9);
     final userId = _client.auth.currentUser!.id;
 
     final imageUrls = <String>[];
+    // WYN-093: decoded from the in-memory bytes already picked/
+    // compressed for upload -- no extra network round-trip, and known
+    // before drops/drop_images are ever inserted so HomeDropCard never
+    // has to wait for Image.network to finish loading before it knows
+    // how tall to render the card.
+    final imageDimensions = <(int, int)>[];
     for (var i = 0; i < imagesBytes.length; i++) {
       final path =
           '$userId/${DateTime.now().millisecondsSinceEpoch}_$i.${imageExtensions[i]}';
@@ -635,13 +697,19 @@ class DropRepository {
           .from('drop-images')
           .uploadBinary(path, imagesBytes[i]);
       imageUrls.add(_client.storage.from('drop-images').getPublicUrl(path));
+      imageDimensions.add(await decodeImageDimensions(imagesBytes[i]));
+      onImageUploaded?.call(i + 1, imagesBytes.length);
     }
 
     await _insertDrop(
       imageUrl: imageUrls.first,
       allImageUrls: imageUrls,
+      allImageDimensions: imageDimensions,
       caption: caption,
       mentionedUserIds: mentionedUserIds,
+      audience: audience,
+      excludedFriendIds: excludedFriendIds,
+      location: location,
     );
   }
 
@@ -656,11 +724,17 @@ class DropRepository {
     required String imageUrl,
     required String caption,
     Set<String> mentionedUserIds = const {},
+    AudienceOption audience = AudienceOption.everyone,
+    Set<String> excludedFriendIds = const {},
+    LocationResult? location,
   }) {
     return _insertDrop(
       imageUrl: imageUrl,
       caption: caption,
       mentionedUserIds: mentionedUserIds,
+      audience: audience,
+      excludedFriendIds: excludedFriendIds,
+      location: location,
     );
   }
 
@@ -673,6 +747,9 @@ class DropRepository {
   Future<void> createTextDrop({
     required String caption,
     Set<String> mentionedUserIds = const {},
+    AudienceOption audience = AudienceOption.everyone,
+    Set<String> excludedFriendIds = const {},
+    LocationResult? location,
   }) {
     if (caption.trim().isEmpty) {
       throw ArgumentError('A text-only Drop needs a non-empty caption');
@@ -681,6 +758,9 @@ class DropRepository {
       imageUrl: null,
       caption: caption,
       mentionedUserIds: mentionedUserIds,
+      audience: audience,
+      excludedFriendIds: excludedFriendIds,
+      location: location,
     );
   }
 
@@ -688,6 +768,17 @@ class DropRepository {
     required String? imageUrl,
     required String caption,
     required Set<String> mentionedUserIds,
+    // WYN-097: written straight onto the new `drops.audience` column;
+    // [excludedFriendIds] only produces `drop_audience_exclusions` rows
+    // when [audience] is [AudienceOption.friendsExcept] -- an unrelated
+    // choice for any other audience value is silently ignored rather
+    // than raising, so a caller doesn't have to conditionally omit it.
+    AudienceOption audience = AudienceOption.everyone,
+    Set<String> excludedFriendIds = const {},
+    // WYN-098: written straight onto `drops.location`/`location_lat`/
+    // `location_lon`/`location_place_id` -- null (every field) when no
+    // place was picked, the ordinary case for most Drops.
+    LocationResult? location,
     // WYN-071: every image (including [imageUrl] itself, at position 0)
     // -- same "position 0 lives in drop_images too" convention the
     // schema.sql backfill migration establishes. Empty/omitted for the
@@ -695,22 +786,53 @@ class DropRepository {
     // (createDropFromExistingImage) call sites, neither of which needs
     // more than the one row image_url already represents.
     List<String> allImageUrls = const [],
+    // WYN-093: parallel to [allImageUrls] (same index = same image).
+    // Empty whenever [allImageUrls] is (or when the caller has no
+    // fresh bytes to measure, e.g. createDropFromExistingImage --
+    // that Drop's `drops.image_width`/`image_height` just stay null,
+    // same accepted gap as any other pre-this-migration Drop).
+    List<(int, int)> allImageDimensions = const [],
   }) async {
+    final primaryDimensions =
+        allImageDimensions.isNotEmpty ? allImageDimensions.first : null;
     final row = await _client
         .from('drops')
         .insert({
           'author_id': _client.auth.currentUser!.id,
           'image_url': imageUrl,
           'caption': normalizeOptionalText(caption.trim()),
+          'image_width': primaryDimensions?.$1,
+          'image_height': primaryDimensions?.$2,
+          'audience': audience.dbValue,
+          'location': location?.name,
+          'location_lat': location?.lat,
+          'location_lon': location?.lon,
+          'location_place_id': location?.placeId,
         })
         .select('id')
         .single();
     final dropId = row['id'] as String;
 
+    // WYN-097: only meaningful for AudienceOption.friendsExcept -- a
+    // non-empty excludedFriendIds passed alongside any other audience
+    // is silently ignored (see this method's own doc comment).
+    if (audience == AudienceOption.friendsExcept && excludedFriendIds.isNotEmpty) {
+      await _client.from('drop_audience_exclusions').insert([
+        for (final excludedId in excludedFriendIds)
+          {'drop_id': dropId, 'excluded_user_id': excludedId},
+      ]);
+    }
+
     if (allImageUrls.isNotEmpty) {
       await _client.from('drop_images').insert([
         for (var i = 0; i < allImageUrls.length; i++)
-          {'drop_id': dropId, 'image_url': allImageUrls[i], 'position': i},
+          {
+            'drop_id': dropId,
+            'image_url': allImageUrls[i],
+            'position': i,
+            'image_width': i < allImageDimensions.length ? allImageDimensions[i].$1 : null,
+            'image_height': i < allImageDimensions.length ? allImageDimensions[i].$2 : null,
+          },
       ]);
     }
 
@@ -850,10 +972,12 @@ class DropRepository {
   /// Records a View via a security-definer RPC (rather than a direct
   /// client insert into `drop_views`, which has no client-facing INSERT
   /// policy at all) -- see supabase/schema.sql's record_drop_view() for
-  /// the unique-viewer/self-view/rate-limit/velocity-cap rules it
-  /// enforces. Mirrors [PopRepository.recordView] -- WYN-038. Silently
-  /// no-ops server-side (never throws for a normal rejection like
-  /// "you're the author" or "over quota"), same posture as Pop's.
+  /// the rate-limit/velocity-cap rules it enforces (WYN-083: no more
+  /// unique-viewer dedup or self-view exclusion -- every call counts,
+  /// including repeats and the Drop's own author). Mirrors
+  /// [PopRepository.recordView] -- WYN-038. Silently no-ops server-side
+  /// (never throws for a normal rejection like "over quota"), same
+  /// posture as Pop's.
   Future<void> recordView(String dropId) {
     return _client.rpc('record_drop_view', params: {'p_drop_id': dropId});
   }

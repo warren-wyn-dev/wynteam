@@ -31,7 +31,7 @@ class DraftGridTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: draft.isPoll ? 'ร่างโพล' : 'ร่าง Drop',
+      label: draft.isPoll ? 'ร่างโพล' : 'ร่างโพสต์',
       button: true,
       customSemanticsActions: {
         const CustomSemanticsAction(label: 'ลบร่าง'): () =>

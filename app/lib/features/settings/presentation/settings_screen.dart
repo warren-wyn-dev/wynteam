@@ -9,6 +9,7 @@ import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
 import '../../block/data/block_repository.dart';
 import '../../block/presentation/blocked_list_screen.dart';
+import '../../follow/presentation/close_friends_screen.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
 import '../../drop/data/drop_repository.dart';
@@ -68,8 +69,10 @@ class SettingsScreen extends StatelessWidget {
     this.dmPermission = InteractionPermission.everyone,
     this.mentionPermission = InteractionPermission.everyone,
     this.commentPermission = InteractionPermission.everyone,
+    this.likesVisibility = LikesVisibility.everyone,
     this.profileRepository,
     this.dataRightsRepository,
+    this.followRepository,
   });
 
   /// Passed in directly from ViewProfileScreen's already-fetched own
@@ -81,6 +84,9 @@ class SettingsScreen extends StatelessWidget {
   final InteractionPermission mentionPermission;
   final InteractionPermission commentPermission;
 
+  /// WYN-099 -- see [LikesVisibility]'s own doc comment.
+  final LikesVisibility likesVisibility;
+
   /// Optional/defaulted to Supabase.instance.client when omitted, same
   /// shape as every other repository this app threads through
   /// optionally (see ViewProfileScreen's own comment on the pattern).
@@ -89,6 +95,10 @@ class SettingsScreen extends StatelessWidget {
   /// Same "optional/defaulted" shape as [profileRepository] -- WYN-047's
   /// export/delete RPCs.
   final DataRightsRepository? dataRightsRepository;
+
+  /// Same "optional/defaulted" shape again -- WYN-097's "เพื่อนที่สนิท"
+  /// row, needed by CloseFriendsScreen.
+  final FollowRepository? followRepository;
 
   /// WYN-016: best-effort -- deregistering this device's push token must
   /// never block or fail sign-out itself. 05-profile.tsx moves the
@@ -103,6 +113,32 @@ class SettingsScreen extends StatelessWidget {
       // Intentionally silent -- see comment above.
     }
     await Supabase.instance.client.auth.signOut();
+  }
+
+  // WYN-082 (Wynos V1.0.0 Beta2, item 17): Founder found the old
+  // one-tap-and-you're-out behavior too easy to trigger by accident --
+  // confirms first now, copy specified verbatim by Founder ("ออกจาก
+  // ระบบบัญชีของคุณใช่ไหม" / "ยกเลิก" | "ออกจากระบบ").
+  Future<void> _confirmSignOut(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('ออกจากระบบบัญชีของคุณใช่ไหม'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('ออกจากระบบ'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await _signOut();
+    }
   }
 
   @override
@@ -148,7 +184,9 @@ class SettingsScreen extends StatelessWidget {
                   dmPermission: dmPermission,
                   mentionPermission: mentionPermission,
                   commentPermission: commentPermission,
+                  likesVisibility: likesVisibility,
                   profileRepository: profileRepository,
+                  followRepository: followRepository,
                 ),
               ),
             ),
@@ -197,7 +235,7 @@ class SettingsScreen extends StatelessWidget {
                   label: 'ออกจากระบบ',
                   isLast: true,
                   contentColor: WynColors.graphite,
-                  onTap: _signOut,
+                  onTap: () => _confirmSignOut(context),
                 ),
               ],
             ),
@@ -516,14 +554,18 @@ class _PrivacyScreen extends StatefulWidget {
     required this.dmPermission,
     required this.mentionPermission,
     required this.commentPermission,
+    this.likesVisibility = LikesVisibility.everyone,
     this.profileRepository,
+    this.followRepository,
   });
 
   final bool isPrivate;
   final InteractionPermission dmPermission;
   final InteractionPermission mentionPermission;
   final InteractionPermission commentPermission;
+  final LikesVisibility likesVisibility;
   final ProfileRepository? profileRepository;
+  final FollowRepository? followRepository;
 
   @override
   State<_PrivacyScreen> createState() => _PrivacyScreenState();
@@ -532,12 +574,15 @@ class _PrivacyScreen extends StatefulWidget {
 class _PrivacyScreenState extends State<_PrivacyScreen> {
   late final ProfileRepository _profileRepository =
       widget.profileRepository ?? ProfileRepository(Supabase.instance.client);
+  late final FollowRepository _followRepository =
+      widget.followRepository ?? FollowRepository(Supabase.instance.client);
   late bool _isPrivate = widget.isPrivate;
   bool _isTogglingPrivate = false;
 
   late InteractionPermission _dmPermission = widget.dmPermission;
   late InteractionPermission _mentionPermission = widget.mentionPermission;
   late InteractionPermission _commentPermission = widget.commentPermission;
+  late LikesVisibility _likesVisibility = widget.likesVisibility;
 
   Future<void> _setIsPrivate(bool value) async {
     final previous = _isPrivate;
@@ -609,6 +654,27 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
     }
   }
 
+  /// WYN-099 -- same optimistic + revert-on-fail shape as
+  /// [_setPermission], just a single field instead of a 3-way category
+  /// switch (only one likes-visibility setting exists, unlike the 3
+  /// InteractionPermission rows).
+  Future<void> _setLikesVisibility(LikesVisibility value) async {
+    final previous = _likesVisibility;
+    setState(() => _likesVisibility = value);
+    try {
+      await _profileRepository.updateLikesVisibility(
+        userId: Supabase.instance.client.auth.currentUser!.id,
+        value: value,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _likesVisibility = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -619,9 +685,25 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
             secondary: const Icon(Icons.lock_outline),
             title: const Text('บัญชีส่วนตัว (Private Account)'),
             subtitle: const Text(
-                'เฉพาะผู้ติดตามที่คุณอนุมัติเท่านั้นที่จะเห็น Drop ของคุณได้'),
+                'เฉพาะผู้ติดตามที่คุณอนุมัติเท่านั้นที่จะเห็นโพสต์ของคุณได้'),
             value: _isPrivate,
             onChanged: _isTogglingPrivate ? null : _setIsPrivate,
+          ),
+          // WYN-097 -- placed right after Private Account (a second
+          // "ใครเห็นอะไรของคุณ" row) and before the 3 interaction-
+          // permission rows below ("ใครโต้ตอบกับคุณได้"), per Design
+          // spec's Screen 5 grouping.
+          ListTile(
+            leading: const Icon(Icons.star_outline),
+            title: const Text('เพื่อนที่สนิท'),
+            subtitle: const Text('จัดการรายชื่อเพื่อนที่สนิทของคุณ'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    CloseFriendsScreen(followRepository: _followRepository),
+              ),
+            ),
           ),
           _PermissionSettingTile(
             icon: Icons.mail_outline,
@@ -634,7 +716,7 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
           _PermissionSettingTile(
             icon: Icons.alternate_email,
             title: 'ใครกล่าวถึงคุณได้',
-            subtitle: 'ควบคุมว่าใครกล่าวถึงคุณใน Drop ได้',
+            subtitle: 'ควบคุมว่าใครกล่าวถึงคุณในโพสต์ได้',
             value: _mentionPermission,
             onChanged: (v) => _setPermission(
                 'mention_permission', v, (p) => _mentionPermission = p),
@@ -642,10 +724,21 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
           _PermissionSettingTile(
             icon: Icons.mode_comment_outlined,
             title: 'ใครคอมเมนต์โพสต์ของคุณได้',
-            subtitle: 'ควบคุมว่าใครคอมเมนต์ Drop และ Pop ของคุณได้',
+            // WYN-102: was "...โพสต์และ Pop ของคุณได้" -- the setting
+            // itself still governs Pop comments too (unchanged, Pop's
+            // own backend/permission checks aren't touched by this
+            // task), just no longer named in UI copy the user reads.
+            subtitle: 'ควบคุมว่าใครคอมเมนต์โพสต์ของคุณได้',
             value: _commentPermission,
             onChanged: (v) => _setPermission(
                 'comment_permission', v, (p) => _commentPermission = p),
+          ),
+          // WYN-099 -- 4th row, its own picker (3 values: ทุกคน/เพื่อน/
+          // เฉพาะฉัน -- not InteractionPermission's 3, a different
+          // vocabulary, see LikesVisibility's own doc comment).
+          _LikesVisibilitySettingTile(
+            value: _likesVisibility,
+            onChanged: _setLikesVisibility,
           ),
         ],
       ),
@@ -867,6 +960,146 @@ Future<InteractionPermission?> _showPermissionPicker(
                   ),
                   title: Text(_permissionLabel(option)),
                   subtitle: Text(_permissionDescription(option)),
+                  onTap: () => Navigator.of(sheetContext).pop(option),
+                ),
+              ),
+            const SizedBox(height: WynSpacing.space4),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// WYN-099 -- Thai label for each of the 3 [LikesVisibility] levels,
+/// same "row summary + picker option title" dual role
+/// [_permissionLabel] plays for InteractionPermission.
+String _likesVisibilityLabel(LikesVisibility value) => switch (value) {
+      LikesVisibility.everyone => 'ทุกคน',
+      LikesVisibility.friends => 'เพื่อน',
+      LikesVisibility.onlyMe => 'เฉพาะฉัน',
+    };
+
+String _likesVisibilityDescription(LikesVisibility value) => switch (value) {
+      LikesVisibility.everyone => 'ค่าเริ่มต้น -- ทุกคนเห็นแท็บถูกใจของคุณได้',
+      LikesVisibility.friends => 'เฉพาะเพื่อน (ติดตามกันทั้งสองทาง) เท่านั้นที่เห็นได้',
+      LikesVisibility.onlyMe => 'เฉพาะคุณเท่านั้นที่เห็นแท็บนี้',
+    };
+
+/// WYN-099 -- mirrors [_PermissionSettingTile]'s exact shape (icon+
+/// title+subtitle row, trailing = current label + chevron, tap opens a
+/// picker) with a different value type/picker underneath, per Design
+/// spec's Addendum Screen A.
+class _LikesVisibilitySettingTile extends StatelessWidget {
+  const _LikesVisibilitySettingTile({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final LikesVisibility value;
+  final ValueChanged<LikesVisibility> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.favorite_border),
+      title: const Text('ใครเห็นสิ่งที่คุณถูกใจได้'),
+      subtitle: const Text('ควบคุมว่าใครเห็นแท็บถูกใจบนโปรไฟล์ของคุณ'),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(_likesVisibilityLabel(value)),
+          const SizedBox(width: WynSpacing.space1),
+          const Icon(Icons.chevron_right),
+        ],
+      ),
+      onTap: () async {
+        final selected = await _showLikesVisibilityPicker(
+          context,
+          currentValue: value,
+        );
+        if (selected != null) onChanged(selected);
+      },
+    );
+  }
+}
+
+/// Same drag-handle/title/close-button/pseudo-radio structure as
+/// [_showPermissionPicker] -- see that function's own comment for why
+/// this Flutter version avoids `RadioListTile`.
+Future<LikesVisibility?> _showLikesVisibilityPicker(
+  BuildContext context, {
+  required LikesVisibility currentValue,
+}) {
+  return showModalBottomSheet<LikesVisibility>(
+    context: context,
+    builder: (sheetContext) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: WynSpacing.space2),
+            Center(
+              child: Container(
+                width: 32,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: WynSpacing.space4),
+                decoration: BoxDecoration(
+                  color: Theme.of(sheetContext).colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'ใครเห็นสิ่งที่คุณถูกใจได้',
+                    style: Theme.of(sheetContext).textTheme.titleMedium,
+                  ),
+                ),
+                SizedBox(
+                  width: WynSpacing.touchTargetMin,
+                  height: WynSpacing.touchTargetMin,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: const Icon(Icons.close),
+                    tooltip: 'ปิด',
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: WynSpacing.space2),
+            for (final option in LikesVisibility.values)
+              Semantics(
+                label: _likesVisibilityLabel(option),
+                selected: option == currentValue,
+                excludeSemantics: true,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    switch (option) {
+                      LikesVisibility.everyone => Icons.public,
+                      LikesVisibility.friends => Icons.people_outline,
+                      LikesVisibility.onlyMe => Icons.lock_outline,
+                    },
+                    color: option == currentValue
+                        ? Theme.of(sheetContext).colorScheme.primary
+                        : null,
+                  ),
+                  title: Text(_likesVisibilityLabel(option)),
+                  subtitle: Text(_likesVisibilityDescription(option)),
+                  trailing: Icon(
+                    option == currentValue
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    color: option == currentValue
+                        ? Theme.of(sheetContext).colorScheme.primary
+                        : null,
+                  ),
                   onTap: () => Navigator.of(sheetContext).pop(option),
                 ),
               ),

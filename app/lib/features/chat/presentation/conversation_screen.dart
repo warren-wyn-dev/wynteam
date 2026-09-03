@@ -897,81 +897,88 @@ class _ConversationScreenState extends State<ConversationScreen> {
       return _buildMessageRequestActionArea();
     }
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_isPendingAsRequester) _buildAwaitingResponseLabel(),
-          if (_replyTo != null) _buildReplyPreviewBar(),
-          if (_imageBytes != null) _buildImagePreviewBar(),
-          Container(
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: WynColors.hairline)),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.image_outlined, size: 20, color: WynColors.graphite),
-                  tooltip: 'แนบรูป',
-                  onPressed: _isSending ? null : _pickImage,
-                ),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _kBubbleFill,
-                      borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
-                      border: Border.all(color: WynColors.hairline),
-                    ),
-                    child: TextField(
-                      controller: _textController,
-                      minLines: 1,
-                      maxLines: 6,
-                      maxLength: 2000,
-                      enabled: !_isSending,
-                      style: _textStyle(fontSize: 16, color: WynColors.ink),
-                      decoration: InputDecoration(
-                        hintText: 'พิมพ์ข้อความ...',
-                        hintStyle: _textStyle(fontSize: 16, color: WynColors.mutedNeutral),
-                        border: InputBorder.none,
-                        isCollapsed: true,
-                        counterText: '',
-                      ),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: WynSpacing.space2),
-                SizedBox(
-                  width: WynSpacing.touchTargetMin,
-                  height: WynSpacing.touchTargetMin,
-                  child: Material(
-                    color: _canSend ? WynColors.sapphire : WynColors.hairline,
-                    shape: const CircleBorder(),
-                    child: IconButton(
-                      icon: _isSending
-                          ? SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: _canSend ? WynColors.paper : WynColors.mutedNeutral,
-                              ),
-                            )
-                          : Icon(Icons.send, size: 15, color: _canSend ? WynColors.paper : WynColors.mutedNeutral),
-                      tooltip: 'ส่งข้อความ',
-                      onPressed: _canSend ? _send : null,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+    // WYN-084 (Wynos V1.0.0 Beta2, item 22): this used to be wrapped in
+    // `Padding(bottom: MediaQuery.of(context).viewInsets.bottom)` --
+    // double-compensating for the keyboard, since Scaffold already
+    // resizes its body by that same viewInsets.bottom by default
+    // (resizeToAvoidBottomInset defaults to true, never overridden on
+    // this screen's Scaffold). The composer already sits right above
+    // the keyboard once the body resizes; the extra manual padding
+    // pushed it up a *second* keyboard-height's worth, which is the
+    // "jumps up way too high" bug Founder reported. No Padding needed
+    // here at all now -- Column, directly.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_isPendingAsRequester) _buildAwaitingResponseLabel(),
+        if (_replyTo != null) _buildReplyPreviewBar(),
+        if (_imageBytes != null) _buildImagePreviewBar(),
+        Container(
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: WynColors.hairline)),
           ),
-        ],
-      ),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.image_outlined, size: 20, color: WynColors.graphite),
+                tooltip: 'แนบรูป',
+                onPressed: _isSending ? null : _pickImage,
+              ),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _kBubbleFill,
+                    borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+                    border: Border.all(color: WynColors.hairline),
+                  ),
+                  child: TextField(
+                    controller: _textController,
+                    minLines: 1,
+                    maxLines: 6,
+                    maxLength: 2000,
+                    enabled: !_isSending,
+                    style: _textStyle(fontSize: 16, color: WynColors.ink),
+                    decoration: InputDecoration(
+                      hintText: 'พิมพ์ข้อความ...',
+                      hintStyle: _textStyle(fontSize: 16, color: WynColors.mutedNeutral),
+                      border: InputBorder.none,
+                      isCollapsed: true,
+                      counterText: '',
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+              ),
+              const SizedBox(width: WynSpacing.space2),
+              SizedBox(
+                width: WynSpacing.touchTargetMin,
+                height: WynSpacing.touchTargetMin,
+                child: Material(
+                  color: _canSend ? WynColors.sapphire : WynColors.hairline,
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    icon: _isSending
+                        ? SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: _canSend ? WynColors.paper : WynColors.mutedNeutral,
+                            ),
+                          )
+                        : Icon(Icons.send, size: 15, color: _canSend ? WynColors.paper : WynColors.mutedNeutral),
+                    tooltip: 'ส่งข้อความ',
+                    onPressed: _canSend ? _send : null,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

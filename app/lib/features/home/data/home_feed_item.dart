@@ -49,6 +49,11 @@ class HomeFeedItem {
     this.pollMyVoteIndex,
     this.pollTotalVotes,
     this.pollOptionCounts,
+    this.imageWidth,
+    this.imageHeight,
+    this.audience = AudienceOption.everyone,
+    this.location,
+    this.imageCount,
   });
 
   final String id;
@@ -69,6 +74,25 @@ class HomeFeedItem {
 
   /// Set only when [contentType] is [HomeContentType.drop].
   final String? imageUrl;
+
+  /// WYN-093 (Wynos V1.0.0 Beta2, item 19): the primary image's real
+  /// pixel dimensions -- drives HomeDropCard's dynamic-height/
+  /// aspect-fit clamp. Null for a Drop created before this metadata
+  /// existed (or any Pop-typed row); HomeDropCard falls back to the
+  /// old fixed 1:1 square in that case. See [Drop.imageWidth]'s
+  /// identical doc comment.
+  final int? imageWidth;
+  final int? imageHeight;
+
+  /// WYN-092 (Wynos V1.0.0 Beta2 Phase 2, item 14): total images the
+  /// underlying Drop has (1-9), sourced from `home_feed.image_count` --
+  /// mirrors [Drop.imageCount] exactly (same field name/meaning), but
+  /// stays nullable here (unlike [Drop.imageCount]'s non-null default)
+  /// because Pop-typed rows and any fetch path that doesn't embed this
+  /// column yet genuinely have no value, same posture as [viewCount].
+  /// Drives [hasMultipleImages] below, which HomeDropCard uses to
+  /// decide whether to show the new peek carousel.
+  final int? imageCount;
 
   /// Set only when [contentType] is [HomeContentType.pop].
   final String? videoUrl;
@@ -138,7 +162,26 @@ class HomeFeedItem {
   final int? pollTotalVotes;
   final List<int>? pollOptionCounts;
 
+  /// WYN-097: see [Drop.audience]'s identical doc comment -- 'everyone'
+  /// for every Pop-typed row (Pop has no audience concept) and, for a
+  /// ReDrop-sourced row, the *original* Drop's own audience (a ReDrop
+  /// of a non-'everyone' Drop is only reachable at all by someone who
+  /// could already see the original, per RLS).
+  final AudienceOption audience;
+
+  /// WYN-098: see [Drop.location]'s identical doc comment -- null for
+  /// every Pop-typed row (out of scope) and, for a ReDrop-sourced row,
+  /// the *original* Drop's own location.
+  final String? location;
+
   bool get isPoll => pollId != null;
+
+  /// WYN-092: mirrors [Drop.hasMultipleImages] exactly -- treats an
+  /// unknown [imageCount] (any fetch path that doesn't embed
+  /// `image_count` yet, or a Pop-typed row) as "1", i.e. not multiple,
+  /// same "assume the common single-image case" default every other
+  /// nullable-count field in this app already uses.
+  bool get hasMultipleImages => (imageCount ?? 1) > 1;
 
   bool get pollResultsVisible => pollTotalVotes != null;
 
@@ -196,6 +239,9 @@ class HomeFeedItem {
         createdAt: createdAt,
         caption: caption,
         imageUrl: imageUrl,
+        imageWidth: imageWidth,
+        imageHeight: imageHeight,
+        imageCount: imageCount,
         videoUrl: videoUrl,
         thumbnailUrl: thumbnailUrl,
         durationSeconds: durationSeconds,
@@ -221,6 +267,8 @@ class HomeFeedItem {
         pollMyVoteIndex: pollMyVoteIndex ?? this.pollMyVoteIndex,
         pollTotalVotes: pollTotalVotes ?? this.pollTotalVotes,
         pollOptionCounts: pollOptionCounts ?? this.pollOptionCounts,
+        audience: audience,
+        location: location,
       );
 
   String get redropperNameOrUsername => displayNameOrUsername(
@@ -242,6 +290,13 @@ class HomeFeedItem {
         authorDisplayName: authorDisplayName,
         authorAvatarUrl: authorAvatarUrl,
         imageUrl: imageUrl,
+        imageWidth: imageWidth,
+        imageHeight: imageHeight,
+        // Drop's own constructor already falls back to
+        // (imageUrl != null ? 1 : 0) when this is null, same "defer to
+        // the field's own default" posture as every other pass-through
+        // here.
+        imageCount: imageCount,
         caption: caption,
         createdAt: createdAt,
         likeCount: likeCount,
@@ -261,6 +316,8 @@ class HomeFeedItem {
         pollMyVoteIndex: pollMyVoteIndex,
         pollTotalVotes: pollTotalVotes,
         pollOptionCounts: pollOptionCounts,
+        audience: audience,
+        location: location,
       );
 
   /// Converts to the full [Pop] object PopClipView expects. Only valid
@@ -297,6 +354,9 @@ class HomeFeedItem {
         createdAt: drop.createdAt,
         caption: drop.caption,
         imageUrl: drop.imageUrl,
+        imageWidth: drop.imageWidth,
+        imageHeight: drop.imageHeight,
+        imageCount: drop.imageCount,
         likeCount: drop.likeCount,
         commentCount: drop.commentCount,
         likedByMe: drop.likedByMe,
@@ -315,6 +375,8 @@ class HomeFeedItem {
         pollMyVoteIndex: drop.pollMyVoteIndex,
         pollTotalVotes: drop.pollTotalVotes,
         pollOptionCounts: drop.pollOptionCounts,
+        audience: drop.audience,
+        location: drop.location,
       );
 
   /// [pollId]/[pollOptions]/[pollExpiresAt] read straight off
@@ -346,6 +408,9 @@ class HomeFeedItem {
       createdAt: DateTime.parse(map['created_at'] as String),
       caption: map['caption'] as String?,
       imageUrl: map['image_url'] as String?,
+      imageWidth: (map['image_width'] as num?)?.toInt(),
+      imageHeight: (map['image_height'] as num?)?.toInt(),
+      imageCount: (map['image_count'] as num?)?.toInt(),
       videoUrl: map['video_url'] as String?,
       thumbnailUrl: map['thumbnail_url'] as String?,
       durationSeconds: map['duration_seconds'] as int?,
@@ -373,6 +438,14 @@ class HomeFeedItem {
       pollMyVoteIndex: pollMyVoteIndex,
       pollTotalVotes: pollTotalVotes,
       pollOptionCounts: pollOptionCounts,
+      // WYN-097: home_feed's own trailing column (see supabase/schema.sql's
+      // "append a fresh full redefinition" of this view) -- defaults to
+      // `everyone` on any fetch path/fixture that doesn't select it yet.
+      audience: audienceOptionFromString(map['audience'] as String?),
+      // WYN-098: home_feed's own trailing column (same "append a fresh
+      // full redefinition" discipline as above) -- null (no location
+      // shown) on any fetch path/fixture that doesn't select it yet.
+      location: map['location'] as String?,
     );
   }
 }

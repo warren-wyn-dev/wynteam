@@ -130,13 +130,16 @@ class _Top100ScreenState extends State<Top100Screen> {
               : items.isEmpty
                   ? const Center(
                       child: Text('ยังไม่มีแฮชแท็กกำลังนิยมตอนนี้'))
-                  : ListView.builder(
-                      itemCount: items.length,
-                      itemBuilder: (context, index) => HashtagRankRow(
-                        rank: index + 1,
-                        item: items[index],
-                        showDivider: index < items.length - 1,
-                        onTap: () => _openHashtagFeed(items[index].tag),
+                  : RefreshIndicator(
+                      onRefresh: _load,
+                      child: ListView.builder(
+                        itemCount: items.length,
+                        itemBuilder: (context, index) => HashtagRankRow(
+                          rank: index + 1,
+                          item: items[index],
+                          showDivider: index < items.length - 1,
+                          onTap: () => _openHashtagFeed(items[index].tag),
+                        ),
                       ),
                     ),
     );

@@ -8,8 +8,15 @@ import '../../data/discovery_ranking.dart';
 /// One row of `03-search.tsx`'s Top 100 ranked hashtag list -- shared by
 /// [DiscoveryView]'s preview and [Top100Screen]'s full list so the same
 /// row never drifts out of sync between the two. Right-aligned title-style
-/// rank numeral, bold `#tag`, "N โพสต์" meta, hairline divider (all but
-/// the last row).
+/// rank numeral, bold `#tag`, meta line, hairline divider (all but the
+/// last row).
+///
+/// WYN-101 (Wynos V1.0.0 Beta2, item 10, 2026-09-02): the meta line no
+/// longer shows a post count ("N โพสต์") -- Founder: "ปล. ใต้แฮชแท็ก
+/// ห้ามระบุว่ากี่โพสต์". This reverses the 2026-08-29 design-reference
+/// re-brand decision that had added the count in the first place (see
+/// .wyn/company/DECISIONS.md, 2026-09-02) -- a 2nd reversal, not a
+/// conflict to resolve.
 class HashtagRankRow extends StatelessWidget {
   const HashtagRankRow({
     super.key,
@@ -27,8 +34,7 @@ class HashtagRankRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'อันดับที่ $rank #${item.tag} ${item.postCount} โพสต์ '
-          'กดเพื่อดูโพสต์ที่มีแฮชแท็กนี้',
+      label: 'อันดับที่ $rank #${item.tag} กดเพื่อดูโพสต์ที่มีแฮชแท็กนี้',
       button: true,
       excludeSemantics: true,
       child: InkWell(
@@ -65,9 +71,9 @@ class HashtagRankRow extends StatelessWidget {
                           fontSize: 15, fontWeight: FontWeight.w700, color: WynColors.ink),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      '${item.postCount} โพสต์ · กำลังนิยมใน ไทย',
-                      style: const TextStyle(fontSize: 13, color: WynColors.graphite),
+                    const Text(
+                      'กำลังนิยมใน ไทย',
+                      style: TextStyle(fontSize: 13, color: WynColors.graphite),
                     ),
                   ],
                 ),

@@ -212,7 +212,7 @@ class ModerationRepository {
         ? (hasImage
             ? '📷 รูปภาพ'
             : switch (sharedContentType) {
-                'drop' => '🔗 แชร์ Drop',
+                'drop' => '🔗 แชร์โพสต์',
                 'profile' => '🔗 แชร์โปรไฟล์',
                 'club' => '🔗 แชร์ Club',
                 _ => '(ข้อความว่าง)',

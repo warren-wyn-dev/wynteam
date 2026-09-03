@@ -15,7 +15,6 @@ import '../../drop/presentation/drop_detail_screen.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../follow/data/follow_request_repository.dart';
 import '../../follow/presentation/follow_request_list_screen.dart';
-import '../../home/presentation/pop_single_clip_screen.dart';
 import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/presentation/my_moderation_action_screen.dart';
 import '../../pop/data/pop_repository.dart';
@@ -310,7 +309,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     if (!mounted) return;
     if (drop == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Drop นี้ถูกลบไปแล้ว')),
+        const SnackBar(content: Text('โพสต์นี้ถูกลบไปแล้ว')),
       );
       return;
     }
@@ -328,26 +327,18 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     );
   }
 
+  // WYN-102 (Wynos V1.0.0 Beta2, item 11, 2026-09-02): Pop is hidden
+  // from the app entirely -- tapping an old likePop/commentPop
+  // notification used to fetch and open the real Pop regardless (Pop
+  // content/PopRepository/PopSingleClipScreen are all still there, just
+  // unreachable through normal navigation now). Never navigates there
+  // anymore, so an old notification can't become a live access point --
+  // same "content not available" copy [_openDrop] already uses for a
+  // deleted Drop, since from the user's side the two look identical
+  // (tap it, it's gone).
   Future<void> _openPop(String popId) async {
-    final pop = await widget.popRepository.fetchById(popId);
-    if (!mounted) return;
-    if (pop == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pop นี้ถูกลบไปแล้ว')),
-      );
-      return;
-    }
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => PopSingleClipScreen(
-          pop: pop,
-          popRepository: widget.popRepository,
-          followRepository: widget.followRepository,
-          profileRepository: widget.profileRepository,
-          dropRepository: widget.dropRepository,
-          savedRepository: widget.savedRepository,
-        ),
-      ),
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('เนื้อหานี้ไม่พร้อมใช้งานแล้ว')),
     );
   }
 
@@ -428,11 +419,11 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     final club = notification.clubName ?? 'Club';
     switch (notification.type) {
       case NotificationType.likeDrop:
-        return '$name ถูกใจ Drop ของคุณ';
+        return '$name ถูกใจโพสต์ของคุณ';
       case NotificationType.likePop:
         return '$name ถูกใจ Pop ของคุณ';
       case NotificationType.commentDrop:
-        return '$name แสดงความคิดเห็นใน Drop ของคุณ';
+        return '$name แสดงความคิดเห็นในโพสต์ของคุณ';
       case NotificationType.commentPop:
         return '$name แสดงความคิดเห็นใน Pop ของคุณ';
       case NotificationType.follow:
@@ -460,11 +451,11 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       case NotificationType.orderRefunded:
         return 'คำสั่งซื้อของคุณจาก ${notification.orderStoreName ?? 'ร้านค้า'} ถูกคืนเงินแล้ว';
       case NotificationType.mentionDrop:
-        return '$name กล่าวถึงคุณใน Drop';
+        return '$name กล่าวถึงคุณในโพสต์';
       case NotificationType.mentionClubPost:
         return '$name กล่าวถึงคุณในโพสต์ที่ $club';
       case NotificationType.redrop:
-        return '$name ReDrop โพสต์ของคุณ';
+        return '$name รีโพสต์โพสต์ของคุณ';
       case NotificationType.moderationWarning:
         return 'คุณได้รับคำเตือนจากทีมงาน WYN: ${notification.reason ?? ''}';
       case NotificationType.moderationContentRemoved:

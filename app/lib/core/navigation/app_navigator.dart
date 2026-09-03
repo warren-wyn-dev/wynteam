@@ -8,3 +8,13 @@ import 'package:flutter/material.dart';
 /// there's no widget-local context available to call
 /// `Navigator.of(context)` from at that point.
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
+/// App-wide `ScaffoldMessenger` key, attached to
+/// `MaterialApp.scaffoldMessengerKey` in main.dart -- same rationale as
+/// [appNavigatorKey] above (no widget-local `BuildContext` at the app
+/// root), needed by WYN-102's push-notification `_openPop` so it can show
+/// a "content not available" SnackBar instead of navigating to a hidden
+/// Pop, without a `BuildContext` of its own to call
+/// `ScaffoldMessenger.of(context)` from.
+final GlobalKey<ScaffoldMessengerState> appScaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();

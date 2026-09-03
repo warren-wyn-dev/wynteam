@@ -72,7 +72,7 @@ class _QuoteRedropScreenState extends State<QuoteRedropScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Quote ReDrop'),
+        title: const Text('Quote รีโพสต์'),
         actions: [
           TextButton(
             onPressed: _canPost ? _post : null,

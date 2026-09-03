@@ -77,7 +77,7 @@ class _RecentlyDeletedDropsScreenState
           : drops == null
               ? const Center(child: CircularProgressIndicator())
               : drops.isEmpty
-                  ? const Center(child: Text('ไม่มี Drop ที่ลบไว้'))
+                  ? const Center(child: Text('ไม่มีโพสต์ที่ลบไว้'))
                   : ListView.separated(
                       itemCount: drops.length,
                       separatorBuilder: (_, __) => const Divider(height: 1),

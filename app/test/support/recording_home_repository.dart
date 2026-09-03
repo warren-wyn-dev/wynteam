@@ -109,6 +109,19 @@ class RecordingHomeRepository extends HomeRepository {
     hideContentArgs.add((contentType, contentId));
   }
 
+  /// Each call to [unhideContent]'s arguments, in order -- WYN-079 Undo.
+  final List<(HomeContentType, String)> unhideContentArgs = [];
+  Object? unhideContentError;
+
+  @override
+  Future<void> unhideContent({
+    required HomeContentType contentType,
+    required String contentId,
+  }) async {
+    if (unhideContentError != null) throw unhideContentError!;
+    unhideContentArgs.add((contentType, contentId));
+  }
+
   /// Each call to [recordProfileVisit]'s profileId argument, in order.
   final List<String> recordProfileVisitArgs = [];
 

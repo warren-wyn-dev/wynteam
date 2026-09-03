@@ -307,6 +307,39 @@ void main() {
       expect(withoutViewCount.viewCount, 0);
     });
 
+    test(
+        'parses image_width/image_height when present (WYN-093), and '
+        'leaves them null when absent (a Drop created before this '
+        'metadata existed)', () {
+      final withDimensions = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+        'image_width': 1080,
+        'image_height': 1350,
+      }, likedByMe: false, savedByMe: false);
+      expect(withDimensions.imageWidth, 1080);
+      expect(withDimensions.imageHeight, 1350);
+
+      final withoutDimensions = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+      }, likedByMe: false, savedByMe: false);
+      expect(withoutDimensions.imageWidth, isNull);
+      expect(withoutDimensions.imageHeight, isNull);
+    });
+
     test('redropCount defaults to 0 when the redrops embed is missing', () {
       final drop = Drop.fromMap({
         'id': 'd1',
@@ -453,6 +486,124 @@ void main() {
 
       expect(edited.caption, isNull);
       expect(edited.wasEdited, isTrue);
+    });
+
+    test('preserves audience across an edit (WYN-097)', () {
+      final drop = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': 'hello',
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+        'audience': 'friends',
+      }, likedByMe: false, savedByMe: false);
+
+      expect(drop.withEditedCaption('new').audience, AudienceOption.friends);
+    });
+  });
+
+  group('AudienceOption (WYN-097)', () {
+    test('audienceOptionFromString round-trips every dbValue', () {
+      for (final option in AudienceOption.values) {
+        expect(audienceOptionFromString(option.dbValue), option);
+      }
+    });
+
+    test('audienceOptionFromString defaults to everyone for null/unknown '
+        'values -- same "missing key = least-restrictive value" posture '
+        'as InteractionPermission', () {
+      expect(audienceOptionFromString(null), AudienceOption.everyone);
+      expect(audienceOptionFromString('made_up'), AudienceOption.everyone);
+    });
+
+    test('Drop.fromMap parses audience, defaulting to everyone when '
+        'absent', () {
+      final withAudience = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+        'audience': 'only_me',
+      }, likedByMe: false, savedByMe: false);
+      expect(withAudience.audience, AudienceOption.onlyMe);
+
+      expect(_drop().audience, AudienceOption.everyone);
+    });
+
+    test('copyWith preserves audience (not overridable -- same posture '
+        'as authorId/imageUrl/other identity fields)', () {
+      final drop = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+        'audience': 'close_friends',
+      }, likedByMe: false, savedByMe: false);
+
+      expect(drop.toggledLike().audience, AudienceOption.closeFriends);
+    });
+  });
+
+  group('location (WYN-098)', () {
+    test('Drop.fromMap parses the existing `location` column, defaulting '
+        'to null when absent (the ordinary case for most Drops)', () {
+      final withLocation = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+        'location': 'สยามพารากอน',
+      }, likedByMe: false, savedByMe: false);
+      expect(withLocation.location, 'สยามพารากอน');
+
+      expect(_drop().location, isNull);
+    });
+
+    test('copyWith/toggledLike preserve location (not overridable)', () {
+      final drop = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+        'location': 'วัดพระแก้ว',
+      }, likedByMe: false, savedByMe: false);
+
+      expect(drop.toggledLike().location, 'วัดพระแก้ว');
+    });
+
+    test('withEditedCaption preserves location', () {
+      final drop = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': 'hello',
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+        'location': 'วัดพระแก้ว',
+      }, likedByMe: false, savedByMe: false);
+
+      expect(drop.withEditedCaption('new').location, 'วัดพระแก้ว');
     });
   });
 }

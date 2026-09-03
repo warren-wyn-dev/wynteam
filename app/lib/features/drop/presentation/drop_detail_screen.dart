@@ -165,14 +165,17 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
 
   // WYN-038: opening DropDetailScreen is what counts as a "View" (not
   // just a Home Feed card scrolling past) -- mirrors PopClipView's
-  // _recordViewOnce() exactly, one difference: the owner's own Drop
-  // never even calls the RPC (Design's handoff item 4) -- the client
-  // already knows it would be a no-op server-side, so there's no need
-  // to send the request (or bump the optimistic count) at all.
+  // _recordViewOnce() exactly.
+  //
+  // WYN-083 (Wynos V1.0.0 Beta2, item 21): Founder wants the Drop's own
+  // author counted too ("รวมถึงเจ้าของโพสต์ด้วย") -- the old
+  // `if (_isOwnDrop) return;` skip here (and the matching server-side
+  // exclusion in record_drop_view()) is gone, bringing this in line
+  // with PopClipView's own _recordViewOnce(), which never had an
+  // owner-skip in the first place.
   void _recordViewOnce() {
     if (!mounted || _viewRecorded) return;
     _viewRecorded = true;
-    if (_isOwnDrop) return;
     setState(() => _drop = _drop.withExtraView());
     widget.dropRepository.recordView(_drop.id).catchError((_) {
       // A failed view-count RPC isn't worth surfacing to the user --
@@ -300,7 +303,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.repeat),
-              title: Text(_drop.redroppedByMe ? 'ยกเลิก ReDrop' : '🔄 ReDrop'),
+              title: Text(_drop.redroppedByMe ? 'ยกเลิกรีโพสต์' : '🔄 รีโพสต์'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _toggleRedrop();
@@ -308,7 +311,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.chat_bubble_outline),
-              title: const Text('💬 Quote ReDrop'),
+              title: const Text('💬 Quote รีโพสต์'),
               onTap: () async {
                 Navigator.of(sheetContext).pop();
                 final posted = await Navigator.of(context).push<bool>(
@@ -424,9 +427,9 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       profileRepository: widget.profileRepository,
       sharedContentType: SharedContentType.drop,
       sharedContentId: _drop.id,
-      previewLabel: 'แชร์ Drop',
+      previewLabel: 'แชร์โพสต์',
       nativeShareText: dropShareLink(_drop.id),
-      nativeShareTitle: 'Drop บน WYN',
+      nativeShareTitle: 'โพสต์บน WYN',
     );
   }
 
@@ -511,7 +514,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบ Drop ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: Text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -644,26 +647,15 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     final header = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (_drop.isPoll)
-          PollCard(
-            options: _drop.pollOptions!,
-            expiresAt: _drop.pollExpiresAt!,
-            myVoteIndex: _drop.pollMyVoteIndex,
-            totalVotes: _drop.pollTotalVotes,
-            optionCounts: _drop.pollOptionCounts,
-            isOwnPoll: isOwnDrop,
-            onVote: _votePoll,
-          )
-        else if (_drop.imageUrl != null)
-          DropImageGallery(
-            drop: _drop,
-            dropRepository: widget.dropRepository,
-            onLike: _toggleLike,
-            onDropChanged: (updated) => setState(() => _drop = updated),
-          ),
+        // WYN-086 (Wynos V1.0.0 Beta2, item 25): the author row + caption
+        // now come before the image/poll, not after -- Founder: "อยากให้
+        // ข้อความที่โพสต์อยู่ด้านบน ส่วนรูปอยู่ด้านล่าง". Used to be one
+        // Padding/Column holding author row + caption + _buildStatLine,
+        // placed *after* the image/poll -- split in two so the
+        // image/poll can sit between caption and stat line instead.
         // WYNOS V1.0.0 Beta requirement 2: a caption-only Drop has no
-        // image area at all here -- its caption still renders below via
-        // the same Padding/HashtagText every Drop already gets.
+        // image area at all -- its caption still renders here the same
+        // way either way.
         Padding(
           padding: const EdgeInsets.fromLTRB(
             WynSpacing.space4, WynSpacing.space4, WynSpacing.space4, WynSpacing.space2,
@@ -709,12 +701,23 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: WynSpacing.space2),
-                                    Text(
-                                      relativeTimeLabel(_drop.createdAt,
-                                          now: DateTime.now()),
-                                      style: _textStyle(
-                                          fontSize: 13,
-                                          color: WynColors.mutedNeutral),
+                                    Flexible(
+                                      child: Text(
+                                        // WYN-098, Design spec Screen 4:
+                                        // same "appended to the time
+                                        // text, not a new row" treatment
+                                        // as HomeDropCard's identical
+                                        // spot -- see that file's own
+                                        // comment.
+                                        _drop.location != null
+                                            ? '${relativeTimeLabel(_drop.createdAt, now: DateTime.now())} · 📍 ${_drop.location}'
+                                            : relativeTimeLabel(_drop.createdAt,
+                                                now: DateTime.now()),
+                                        overflow: TextOverflow.ellipsis,
+                                        style: _textStyle(
+                                            fontSize: 13,
+                                            color: WynColors.mutedNeutral),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -782,10 +785,31 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   style: _textStyle(fontSize: 16, color: WynColors.ink, height: 1.5),
                 ),
               ],
-              const SizedBox(height: WynSpacing.space3),
-              _buildStatLine(),
             ],
           ),
+        ),
+        if (_drop.isPoll)
+          PollCard(
+            options: _drop.pollOptions!,
+            expiresAt: _drop.pollExpiresAt!,
+            myVoteIndex: _drop.pollMyVoteIndex,
+            totalVotes: _drop.pollTotalVotes,
+            optionCounts: _drop.pollOptionCounts,
+            isOwnPoll: isOwnDrop,
+            onVote: _votePoll,
+          )
+        else if (_drop.imageUrl != null)
+          DropImageGallery(
+            drop: _drop,
+            dropRepository: widget.dropRepository,
+            onLike: _toggleLike,
+            onDropChanged: (updated) => setState(() => _drop = updated),
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            WynSpacing.space4, WynSpacing.space3, WynSpacing.space4, WynSpacing.space2,
+          ),
+          child: _buildStatLine(),
         ),
         _buildFocusedActionBar(),
       ],
@@ -897,7 +921,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
           const Text(' · '),
           Text.rich(countSpan(_drop.commentCount, 'คอมเมนต์')),
           const Text(' · '),
-          Text.rich(countSpan(_drop.redropCount, 'ReDrop')),
+          Text.rich(countSpan(_drop.redropCount, 'รีโพสต์')),
           const Text(' · '),
           Semantics(
             label: 'เข้าชมแล้ว ${_drop.viewCount} ครั้ง',
@@ -946,23 +970,29 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
               onPressed: () => _commentFocusNode.requestFocus(),
             ),
           ),
-          Expanded(
-            child: Semantics(
-              label: _drop.redroppedByMe
-                  ? 'ReDrop แล้ว กดเพื่อเลือกดำเนินการ'
-                  : 'กดเพื่อ ReDrop',
-              excludeSemantics: true,
-              child: IconButton(
-                icon: Icon(
-                  Icons.repeat,
-                  size: 19,
-                  color:
-                      _drop.redroppedByMe ? WynColors.sapphire : WynColors.graphite,
+          // WYN-097, Design spec Screen 6: same "hide entirely, not
+          // disable" posture as HomeDropCard's identical guard (see
+          // that file's own comment) -- the remaining buttons simply
+          // re-space themselves evenly across the bar (still
+          // `Expanded`, just one fewer of them).
+          if (_drop.audience == AudienceOption.everyone)
+            Expanded(
+              child: Semantics(
+                label: _drop.redroppedByMe
+                    ? 'รีโพสต์แล้ว กดเพื่อเลือกดำเนินการ'
+                    : 'กดเพื่อรีโพสต์',
+                excludeSemantics: true,
+                child: IconButton(
+                  icon: Icon(
+                    Icons.repeat,
+                    size: 19,
+                    color:
+                        _drop.redroppedByMe ? WynColors.sapphire : WynColors.graphite,
+                  ),
+                  onPressed: _openRedropSheet,
                 ),
-                onPressed: _openRedropSheet,
               ),
             ),
-          ),
           Expanded(
             child: IconButton(
               icon: const Icon(Icons.share_outlined,

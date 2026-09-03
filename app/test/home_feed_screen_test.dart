@@ -1,13 +1,16 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
+import 'package:wyn/core/design/wyn_colors.dart';
 import 'package:wyn/core/widgets/action_metric.dart';
 import 'package:wyn/features/club/data/club_post.dart';
+import 'package:wyn/features/drop/data/drop.dart' show AudienceOption;
 import 'package:wyn/features/club/presentation/explore_clubs_screen.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 import 'package:wyn/features/drop/presentation/quote_redrop_screen.dart';
@@ -18,6 +21,7 @@ import 'package:wyn/features/home/presentation/home_feed_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/home_explainer_banner.dart';
+import 'package:wyn/features/home/presentation/widgets/home_feed_image_peek_carousel.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/liked_by_row.dart';
 import 'package:wyn/features/home/presentation/widgets/new_posts_pill.dart';
@@ -49,6 +53,11 @@ HomeFeedItem _dropItem({
   HomeTopReply? topReply,
   bool authorIsVerified = false,
   List<HomeLiker> likedBy = const [],
+  int? imageWidth,
+  int? imageHeight,
+  AudienceOption audience = AudienceOption.everyone,
+  String? location,
+  int? imageCount,
 }) =>
     HomeFeedItem(
       id: id,
@@ -59,6 +68,13 @@ HomeFeedItem _dropItem({
       createdAt: createdAt ?? DateTime.now(),
       caption: caption,
       imageUrl: hasImage ? 'https://example.supabase.co/drops/$id.jpg' : null,
+      imageWidth: imageWidth,
+      imageHeight: imageHeight,
+      // WYN-092: null (the default) means "unknown/not multi-image" --
+      // every pre-existing call site that doesn't pass this keeps
+      // rendering the single-image path unchanged (hasMultipleImages
+      // is false for a null-or-1 imageCount).
+      imageCount: imageCount,
       likeCount: likeCount,
       likedBy: likedBy,
       commentCount: 0,
@@ -70,6 +86,8 @@ HomeFeedItem _dropItem({
       // HomeDropCard, which real home_feed/saved_feed rows never send
       // (drop_view_count() always returns a real bigint).
       viewCount: viewCount,
+      audience: audience,
+      location: location,
     );
 
 HomeFeedItem _popItem({
@@ -207,6 +225,13 @@ void main() {
   late RecordingPopRepository quoteRedropNavTestPopRepository;
   late RecordingHomeRepository quoteRedropNavTestHomeRepository;
 
+  // WYN-097 -- Screen 6 (hides the ReDrop button when audience !=
+  // everyone).
+  late RecordingHomeRepository hiddenRedropButtonTestHomeRepository;
+
+  // WYN-098 -- Screen 4 (shows the check-in location on the card).
+  late RecordingHomeRepository locationTestHomeRepository;
+
   late RecordingDropRepository deleteRedropTestDropRepository;
   late RecordingPopRepository deleteRedropTestPopRepository;
   late RecordingHomeRepository ownRedropTestHomeRepository;
@@ -229,6 +254,13 @@ void main() {
   late RecordingHomeRepository hideDropTestHomeRepository;
   late RecordingHomeRepository hidePopTestHomeRepository;
   late RecordingHomeRepository hideFailTestHomeRepository;
+  // WYN-079: dedicated instance, not shared with hideDropTestHomeRepository
+  // above -- every fixture in this file is set up once in setUpAll (see
+  // below), not per-test, so two tests sharing one RecordingHomeRepository
+  // would leak call-log state (hideContentArgs/unhideContentArgs) between
+  // them the same way every other "Hide" test here already avoids by
+  // using its own dedicated instance.
+  late RecordingHomeRepository hideDropUndoTimeoutTestHomeRepository;
 
   // WYNOSHomeSpec.md 4.8: Liked-by stacked avatars.
   late RecordingHomeRepository likedByTestHomeRepository;
@@ -348,6 +380,14 @@ void main() {
       feedItems: [_dropItem(id: 'd4')],
     );
 
+    hiddenRedropButtonTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'd4c', audience: AudienceOption.friends)],
+    );
+
+    locationTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'd4d', location: 'สยามพารากอน')],
+    );
+
     toggleRedropTestDropRepository = RecordingDropRepository();
     toggleRedropTestPopRepository = RecordingPopRepository();
     toggleRedropTestHomeRepository = RecordingHomeRepository(
@@ -440,6 +480,9 @@ void main() {
     hideFailTestHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'hide-fail-d1')],
     )..hideContentError = Exception('network error');
+    hideDropUndoTimeoutTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'hide-undo-timeout-d1')],
+    );
 
     likedByTestHomeRepository = RecordingHomeRepository(
       feedItems: [
@@ -559,6 +602,26 @@ void main() {
         ),
       );
 
+  // WYN-100: hamburger icon on Home opens the real SideMenu drawer (it
+  // used to be a bare SizedBox(width: 48) spacer -- Home had no way to
+  // open the drawer at all before this).
+  testWidgets('the hamburger icon opens the SideMenu drawer', (tester) async {
+    await tester.pumpWidget(buildHome(
+      mixedFeedHomeRepository,
+      dropRepository: sharedDropRepository,
+      popRepository: sharedPopRepository,
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.byIcon(Icons.menu), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.menu));
+    await tester.pumpAndSettle();
+
+    expect(find.text('สร้าง Club'), findsOneWidget);
+    expect(find.text('Club ของฉัน'), findsOneWidget);
+  });
+
   testWidgets('renders a mix of Drop and Pop cards with type-specific UI',
       (tester) async {
     await tester.pumpWidget(buildHome(
@@ -591,16 +654,17 @@ void main() {
     expect(find.text('บันทึก'), findsOneWidget);
     await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
-    // WYN-038 QA fix: assert the Drop card's own view count icon here,
-    // scoped to HomeDropCard, while it is still mounted -- see the note
-    // below (on the unscoped `findsNWidgets(2)` this replaces) for why
-    // checking it again after scrolling to the Pop card is not reliable.
+    // WYN-088: the Home feed no longer shows the view-count icon at all
+    // (Founder: "หน้า Home เอาดวงตาที่นับยอดคนดูออกจากหน้า Home feed") --
+    // used to assert findsOneWidget here (WYN-038 QA fix); still kept
+    // (only on Profile now) is covered separately, see WYN-088's own
+    // dedicated test group below.
     expect(
       find.descendant(
         of: find.byType(HomeDropCard),
         matching: find.byIcon(Icons.visibility_outlined),
       ),
-      findsOneWidget,
+      findsNothing,
     );
 
     // The Drop card's 1:1 image (800px wide in this 800x600 test
@@ -624,28 +688,15 @@ void main() {
     // Only the Pop card has a play icon and a duration badge.
     expect(find.byIcon(Icons.play_circle_fill), findsOneWidget);
     expect(find.text('0:42'), findsOneWidget);
-    // WYN-038 QA fix: both card types show a view count icon/number now
-    // (the Drop card gained one this task, mirroring the Pop card's own,
-    // which already existed since WYN-006/WYN-007) -- but the original
-    // unscoped `find.byIcon(Icons.visibility_outlined), findsNWidgets(2)`
-    // here was a real, confirmed-red bug: this ListView is lazily built
-    // (see the "ListView only mounts elements near the viewport" note
-    // above), so by the time we've scrolled this far to bring the Pop
-    // card into view, the Drop card above has actually been unmounted --
-    // only 1 of the 2 view-count icons exists in the tree at this point,
-    // not 2. The Drop card's own icon was already asserted above, before
-    // scrolling away from it; scope this one to the Pop card specifically
-    // (same reasoning the popCardShare/popCardComment finders below this
-    // already use, which correctly anticipated the Drop card being
-    // unreliable to unscoped-count at this scroll position).
+    // WYN-088: same removal as the Drop card's own check above -- the
+    // Pop card's view-count icon (previously asserted findsOneWidget
+    // here per the WYN-038 QA fix note this replaces) is gone from the
+    // Home feed too now.
     final popCardViewCount = find.descendant(
       of: find.byType(HomePopCard),
       matching: find.byIcon(Icons.visibility_outlined),
     );
-    expect(popCardViewCount, findsOneWidget);
-    // The Pop card's own view count value (7) is still uniquely
-    // findable -- the Drop card above (now unmounted) would have shown 0.
-    expect(find.text('7'), findsOneWidget);
+    expect(popCardViewCount, findsNothing);
     // Same "..." menu check as the Drop card above, scoped to the Pop
     // card specifically -- the Drop card above may still be in the
     // element tree (ListView cacheExtent) at this scroll position, so
@@ -798,9 +849,45 @@ void main() {
       tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
 
-      expect(find.text('🔄 ReDrop'), findsOneWidget);
-      expect(find.text('💬 Quote ReDrop'), findsOneWidget);
-      expect(find.text('ยกเลิก ReDrop'), findsNothing);
+      expect(find.text('🔄 รีโพสต์'), findsOneWidget);
+      expect(find.text('💬 Quote รีโพสต์'), findsOneWidget);
+      expect(find.text('ยกเลิกรีโพสต์'), findsNothing);
+    });
+
+    // WYN-097, Design spec Screen 6.
+    testWidgets(
+        'the ReDrop button is hidden entirely (not disabled) on a card '
+        'whose audience is not "ทุกคน"', (tester) async {
+      await tester.pumpWidget(buildHome(
+        hiddenRedropButtonTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      // Broken test-fixture image URL -- same expected noise as every
+      // other Drop-card test in this file.
+      tester.takeException();
+
+      expect(find.widgetWithIcon(ActionMetric, Icons.repeat), findsNothing);
+      // The Like/Comment buttons are still there -- only ReDrop is
+      // conditionally hidden.
+      expect(find.widgetWithIcon(ActionMetric, Icons.favorite_border),
+          findsOneWidget);
+    });
+
+    // WYN-098, Design spec Screen 4.
+    testWidgets(
+        'shows "· 📍 {location}" appended to the relative-time line when '
+        'a Drop has a check-in', (tester) async {
+      await tester.pumpWidget(buildHome(
+        locationTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.textContaining('📍 สยามพารากอน'), findsOneWidget);
     });
 
     testWidgets(
@@ -829,7 +916,7 @@ void main() {
       expect(redropButton, findsOneWidget);
       tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
-      await tester.tap(find.text('🔄 ReDrop'));
+      await tester.tap(find.text('🔄 รีโพสต์'));
       await tester.pumpAndSettle();
 
       expect(toggleRedropTestDropRepository.toggleRedropCalls, 1);
@@ -867,10 +954,10 @@ void main() {
       tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
 
-      expect(find.text('ยกเลิก ReDrop'), findsOneWidget);
-      expect(find.text('🔄 ReDrop'), findsNothing);
+      expect(find.text('ยกเลิกรีโพสต์'), findsOneWidget);
+      expect(find.text('🔄 รีโพสต์'), findsNothing);
 
-      await tester.tap(find.text('ยกเลิก ReDrop'));
+      await tester.tap(find.text('ยกเลิกรีโพสต์'));
       await tester.pumpAndSettle();
 
       expect(cancelRedropTestDropRepository.toggleRedropCalls, 1);
@@ -878,6 +965,48 @@ void main() {
         cancelRedropTestDropRepository.toggleRedropCurrentlyRedroppedArgs,
         [true],
       );
+    });
+
+    testWidgets(
+        'WYN-089: the repost icon is WynColors.sapphire when the current '
+        'user already reposted, matching DropDetailScreen\'s Focused Action '
+        'Bar', (tester) async {
+      await tester.pumpWidget(buildHome(
+        alreadyRedroppedTestHomeRepository,
+        dropRepository: cancelRedropTestDropRepository,
+        popRepository: cancelRedropTestPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final redroppedIcon = tester.widget<Icon>(
+        find.descendant(
+          of: find.widgetWithIcon(ActionMetric, Icons.repeat),
+          matching: find.byIcon(Icons.repeat),
+        ),
+      );
+      expect(redroppedIcon.color, WynColors.sapphire);
+    });
+
+    testWidgets(
+        'WYN-089: the repost icon stays WynColors.graphite when the current '
+        'user has not reposted -- the color is a 2-state indicator, not '
+        'always-on', (tester) async {
+      await tester.pumpWidget(buildHome(
+        toggleRedropTestHomeRepository,
+        dropRepository: toggleRedropTestDropRepository,
+        popRepository: toggleRedropTestPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final notRedroppedIcon = tester.widget<Icon>(
+        find.descendant(
+          of: find.widgetWithIcon(ActionMetric, Icons.repeat),
+          matching: find.byIcon(Icons.repeat),
+        ),
+      );
+      expect(notRedroppedIcon.color, WynColors.graphite);
     });
 
     testWidgets('tapping "💬 Quote ReDrop" opens QuoteRedropScreen',
@@ -904,7 +1033,7 @@ void main() {
       expect(redropButton, findsOneWidget);
       tester.widget<ActionMetric>(redropButton).onTap!();
       await tester.pumpAndSettle();
-      await tester.tap(find.text('💬 Quote ReDrop'));
+      await tester.tap(find.text('💬 Quote รีโพสต์'));
       await tester.pumpAndSettle();
       // QuoteRedropScreen's own preview card loads the same broken
       // fixture image URL again -- same expected noise, consumed again.
@@ -932,9 +1061,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('รายงานโพสต์'), findsOneWidget);
-      expect(find.text('ลบ ReDrop'), findsOneWidget);
+      expect(find.text('ลบรีโพสต์'), findsOneWidget);
 
-      await tester.tap(find.text('ลบ ReDrop'));
+      await tester.tap(find.text('ลบรีโพสต์'));
       await tester.pumpAndSettle();
 
       expect(deleteRedropTestDropRepository.deleteRedropCalls, ['r6']);
@@ -1012,6 +1141,71 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.widgetWithIcon(IconButton, Icons.more_vert), findsOneWidget);
+    });
+
+    testWidgets(
+        'WYN-079: hiding a card offers a Snackbar "เลิกทำ" (Undo) action, '
+        'and tapping it restores the card and calls unhideContent',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        hideDropTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final moreButton = find.widgetWithIcon(IconButton, Icons.more_vert);
+      tester.widget<IconButton>(moreButton).onPressed!();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ไม่สนใจโพสต์นี้'));
+      await tester.pump();
+
+      expect(find.text('แคปชัน Drop'), findsNothing);
+      expect(find.text('เลิกทำ'), findsOneWidget);
+
+      // Same off-screen-hit-test-avoidance as elsewhere in this file (see
+      // the Poll option test above) -- the Snackbar sits at the bottom
+      // of the 800x600 test viewport, below where tester.tap() can
+      // reliably hit-test, so this invokes SnackBarAction.onPressed
+      // directly instead.
+      final undoAction =
+          find.widgetWithText(SnackBarAction, 'เลิกทำ');
+      tester.widget<SnackBarAction>(undoAction).onPressed();
+      await tester.pumpAndSettle();
+
+      expect(find.text('แคปชัน Drop'), findsOneWidget);
+      expect(
+        hideDropTestHomeRepository.unhideContentArgs,
+        [(HomeContentType.drop, 'hide-d1')],
+      );
+    });
+
+    testWidgets(
+        'WYN-079: letting the Undo Snackbar time out without tapping it '
+        'leaves the card hidden and never calls unhideContent',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        hideDropUndoTimeoutTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final moreButton = find.widgetWithIcon(IconButton, Icons.more_vert);
+      tester.widget<IconButton>(moreButton).onPressed!();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ไม่สนใจโพสต์นี้'));
+      await tester.pump();
+
+      // Not tapping "เลิกทำ" -- the card stays hidden and
+      // unhideContent is never called, whether or not/whenever the
+      // Snackbar itself eventually auto-dismisses (a stock Flutter
+      // SnackBar behavior this task doesn't change, so not re-verified
+      // here).
+      expect(find.text('แคปชัน Drop'), findsNothing);
+      expect(hideDropUndoTimeoutTestHomeRepository.unhideContentArgs, isEmpty);
     });
   });
 
@@ -1334,48 +1528,9 @@ void main() {
       expect(rankingTestHomeRepository.fetchRankedFeedCalls, 1);
     });
 
-    testWidgets('switching to "ล่าสุด" shows the chronological feed instead',
-        (tester) async {
-      await tester.pumpWidget(buildHome(
-        rankingTestHomeRepository,
-        dropRepository: sharedDropRepository,
-        popRepository: sharedPopRepository,
-      ));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      await tester.tap(find.text('ล่าสุด'));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      expect(find.text('จากล่าสุด'), findsOneWidget);
-      expect(find.text('จากสำหรับคุณ'), findsNothing);
-    });
-
     testWidgets(
-        'switching back to "สำหรับคุณ" from "ล่าสุด" restores the ranked feed',
-        (tester) async {
-      await tester.pumpWidget(buildHome(
-        rankingTestHomeRepository,
-        dropRepository: sharedDropRepository,
-        popRepository: sharedPopRepository,
-      ));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      await tester.tap(find.text('ล่าสุด'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('สำหรับคุณ'));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      expect(find.text('จากสำหรับคุณ'), findsOneWidget);
-      expect(find.text('จากล่าสุด'), findsNothing);
-    });
-
-    testWidgets(
-        'all 4 segments ("สำหรับคุณ"/"ติดตาม"/"ล่าสุด"/"จาก Club ของคุณ") are present (WYN-024)',
-        (tester) async {
+        'only 3 segments ("สำหรับคุณ"/"ติดตาม"/"จาก Club ของคุณ") are present '
+        '-- "ล่าสุด" was removed (WYN-090)', (tester) async {
       await tester.pumpWidget(buildHome(
         mixedFeedHomeRepository,
         dropRepository: sharedDropRepository,
@@ -1386,7 +1541,7 @@ void main() {
 
       expect(find.text('สำหรับคุณ'), findsOneWidget);
       expect(find.text('ติดตาม'), findsOneWidget);
-      expect(find.text('ล่าสุด'), findsOneWidget);
+      expect(find.text('ล่าสุด'), findsNothing);
       expect(find.text('จาก Club ของคุณ'), findsOneWidget);
     });
 
@@ -1403,7 +1558,7 @@ void main() {
 
       expect(find.byKey(const Key('active_segment_accent')), findsOneWidget);
 
-      await tester.tap(find.text('ล่าสุด'));
+      await tester.tap(find.text('ติดตาม'));
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -1478,26 +1633,27 @@ void main() {
       // active segment or any other.
       expect(find.byIcon(Icons.check), findsNothing);
 
-      await tester.tap(find.text('ล่าสุด'));
+      await tester.tap(find.text('ติดตาม'));
       await tester.pumpAndSettle();
       tester.takeException();
       expect(find.byIcon(Icons.check), findsNothing);
     });
 
     testWidgets(
-        'the two short segment labels ("ติดตาม"/"ล่าสุด") are fully legible, not '
+        'the short segment label ("ติดตาม") is fully legible, not '
         'ellipsis-truncated, once active at a typical phone width (QA round 3 '
         'regression, 2026-08-22)', (tester) async {
       // 390px (iPhone 14/15) rather than round 2's 360px floor -- QA round 3
       // measured that even after reclaiming width from the removed
-      // checkmark icon and tightened padding, the two 6-character labels
+      // checkmark icon and tightened padding, the short 6-character label
       // only became fully non-truncated from ~390px up under THAT fix.
       // The two longer labels ("สำหรับคุณ" 9 chars, "จาก Club ของคุณ" 15
       // chars) still weren't covered by that round's fix -- but the
       // scrollable-width fix below (WYN-024 follow-up, 2026-08-22)
-      // supersedes this entirely: see the comprehensive all-4-segments
+      // supersedes this entirely: see the comprehensive all-segments
       // test further down, which covers every label, at every real
-      // width, with no residual gap.
+      // width, with no residual gap. ("ล่าสุด" itself was removed in
+      // WYN-090.)
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -1510,7 +1666,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      for (final label in ['ติดตาม', 'ล่าสุด']) {
+      for (final label in ['ติดตาม']) {
         await tester.tap(find.text(label));
         await tester.pumpAndSettle();
         final exception = tester.takeException();
@@ -1550,7 +1706,6 @@ void main() {
         for (final label in [
           'สำหรับคุณ',
           'ติดตาม',
-          'ล่าสุด',
           'จาก Club ของคุณ',
         ]) {
           await tester.dragUntilVisible(
@@ -1830,6 +1985,452 @@ void main() {
     });
   });
 
+  group('WYN-086: caption above image (Wynos V1.0.0 Beta2, item 25)', () {
+    testWidgets(
+        'a Drop card with both a caption and an image shows the caption '
+        'above the image, not below it', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            item: _dropItem(caption: 'ข้อความโพสต์', hasImage: true),
+            dropRepository: sharedDropRepository,
+            onTap: () {},
+            onToggleLike: () {},
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final captionTop = tester.getTopLeft(find.text('ข้อความโพสต์')).dy;
+      final imageTop = tester.getTopLeft(find.byType(Image)).dy;
+      expect(captionTop, lessThan(imageTop));
+    });
+  });
+
+  group('WYN-087: relative time on the repost header (Wynos V1.0.0 Beta2, '
+      'item 26)', () {
+    testWidgets(
+        'the "รีโพสต์โดย @username" header shows a relative time, using '
+        'the ReDrop\'s own createdAt (not the original Drop\'s)',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            dropRepository: sharedDropRepository,
+            item: HomeFeedItem(
+              id: 'd1',
+              contentType: HomeContentType.drop,
+              authorId: 'someone-else',
+              authorUsername: 'namfah',
+              // home_feed's ReDrop UNION branch selects r.created_at
+              // (the ReDrop row's own timestamp) into this same
+              // created_at column -- see schema.sql. So item.createdAt
+              // here already *is* "the time the redropper pressed
+              // ReDrop", not the original Drop's post time.
+              createdAt: DateTime.now().subtract(const Duration(minutes: 8)),
+              caption: 'แคปชัน Drop',
+              likeCount: 0,
+              commentCount: 0,
+              likedByMe: false,
+              savedByMe: false,
+              redropId: 'r1',
+              redropperId: 'someone-else-2',
+              redropperUsername: 'sky_blue',
+            ),
+            onTap: () {},
+            onToggleLike: () {},
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(
+        find.textContaining('รีโพสต์โดย @sky_blue · 8 นาทีที่แล้ว'),
+        findsOneWidget,
+      );
+    });
+  });
+
+  group('WYN-088: view-count icon (Wynos V1.0.0 Beta2, item 27)', () {
+    // The Home feed's own removal is covered by "renders a mix of Drop
+    // and Pop cards with type-specific UI" above (findsNothing there
+    // now) -- this group instead proves the *default* (every other
+    // HomeDropCard call site: Profile's 3 tabs, hashtag feed) still
+    // shows it, since Founder explicitly wants it kept on Profile.
+    testWidgets(
+        'HomeDropCard shows the view-count icon by default (i.e. '
+        'everywhere except the Home feed, which passes showViewCount: '
+        'false explicitly)', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            item: _dropItem(viewCount: 12),
+            dropRepository: sharedDropRepository,
+            onTap: () {},
+            onToggleLike: () {},
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
+      expect(find.text('12'), findsOneWidget);
+    });
+  });
+
+  group(
+      'WYN-093: dynamic-height/aspect-fit images (Wynos V1.0.0 Beta2, '
+      'item 19)', () {
+    Future<void> pumpCard(WidgetTester tester, HomeFeedItem item) =>
+        tester.pumpWidget(MaterialApp(
+          home: Scaffold(
+            body: HomeDropCard(
+              item: item,
+              dropRepository: sharedDropRepository,
+              onTap: () {},
+              onToggleLike: () {},
+              onToggleSave: () {},
+              onOpenProfile: () {},
+              onToggleRedrop: () {},
+              onQuoteRedrop: () {},
+            ),
+          ),
+        ));
+
+    testWidgets(
+        'a portrait image within the 4:5 (0.8) .. 1.91:1 clamp range '
+        'renders at its true aspect ratio, not cropped to 1:1',
+        (tester) async {
+      // 800x1000 -> 0.8 exactly, the most-portrait shape allowed.
+      await pumpCard(tester, _dropItem(imageWidth: 800, imageHeight: 1000));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final aspectRatio =
+          tester.widget<AspectRatio>(find.byType(AspectRatio).first);
+      expect(aspectRatio.aspectRatio, 0.8);
+    });
+
+    testWidgets(
+        'a landscape image within the clamp range renders at its true '
+        'aspect ratio', (tester) async {
+      // 1910x1000 -> 1.91 exactly, the most-landscape shape allowed.
+      await pumpCard(tester, _dropItem(imageWidth: 1910, imageHeight: 1000));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final aspectRatio =
+          tester.widget<AspectRatio>(find.byType(AspectRatio).first);
+      expect(aspectRatio.aspectRatio, closeTo(1.91, 0.0001));
+    });
+
+    testWidgets('a square image renders at 1:1 (same as the old fixed '
+        'behavior, just arrived at via its real dimensions now)',
+        (tester) async {
+      await pumpCard(tester, _dropItem(imageWidth: 500, imageHeight: 500));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final aspectRatio =
+          tester.widget<AspectRatio>(find.byType(AspectRatio).first);
+      expect(aspectRatio.aspectRatio, 1);
+    });
+
+    testWidgets(
+        'an extremely tall image (e.g. a chat screenshot) is clamped to '
+        '0.8, not rendered at its uncropped extreme ratio', (tester) async {
+      // 300x1600 -> ~0.1875 true ratio, way past the 0.8 floor.
+      await pumpCard(tester, _dropItem(imageWidth: 300, imageHeight: 1600));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final aspectRatio =
+          tester.widget<AspectRatio>(find.byType(AspectRatio).first);
+      expect(aspectRatio.aspectRatio, 0.8);
+    });
+
+    testWidgets(
+        'an extremely wide image (e.g. a panorama) is clamped to 1.91, '
+        'not rendered at its uncropped extreme ratio', (tester) async {
+      // 2000x500 -> 4.0 true ratio, way past the 1.91 ceiling.
+      await pumpCard(tester, _dropItem(imageWidth: 2000, imageHeight: 500));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final aspectRatio =
+          tester.widget<AspectRatio>(find.byType(AspectRatio).first);
+      expect(aspectRatio.aspectRatio, closeTo(1.91, 0.0001));
+    });
+
+    testWidgets(
+        'a Drop with no image_width/image_height metadata (uploaded '
+        'before this migration) falls back to the old fixed 1:1 square',
+        (tester) async {
+      await pumpCard(
+        tester,
+        _dropItem(imageWidth: null, imageHeight: null),
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final aspectRatio =
+          tester.widget<AspectRatio>(find.byType(AspectRatio).first);
+      expect(aspectRatio.aspectRatio, 1);
+    });
+
+    testWidgets(
+        'the media area is capped at 0.75x the screen height regardless '
+        'of aspect ratio, so one image can never fill nearly the whole '
+        'viewport on a very tall screen', (tester) async {
+      tester.view.physicalSize = const Size(400, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await pumpCard(tester, _dropItem(imageWidth: 800, imageHeight: 1000));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final constrainedBox = tester.widget<ConstrainedBox>(
+        find.ancestor(
+          of: find.byType(AspectRatio).first,
+          matching: find.byType(ConstrainedBox),
+        ),
+      );
+      expect(constrainedBox.constraints.maxHeight, 0.75 * 2000);
+    });
+  });
+
+  group(
+      'WYN-092: multi-image peek carousel (Wynos V1.0.0 Beta2 Phase 2, '
+      'item 14)', () {
+    // Constructed in setUp, not inline inside a testWidgets body -- see
+    // drop_image_gallery_test.dart's identical rationale (a fresh
+    // RecordingDropRepository's underlying SupabaseClient starts a
+    // GoTrue auto-refresh Timer that would otherwise get attributed to
+    // that one test's FakeAsync zone and trip flutter_test's own
+    // `!timersPending` invariant at teardown).
+    late RecordingDropRepository multiImageRepo;
+    late RecordingDropRepository failedFetchRepo;
+
+    setUp(() {
+      multiImageRepo = RecordingDropRepository()
+        ..dropImagesById = {
+          'd1': [
+            'https://example.supabase.co/drops/d1.jpg',
+            'https://example.supabase.co/drops/d1_1.jpg',
+            'https://example.supabase.co/drops/d1_2.jpg',
+          ],
+        };
+      failedFetchRepo = RecordingDropRepository()
+        ..fetchDropImagesError = Exception('network');
+    });
+
+    testWidgets(
+        'a single-image Drop (imageCount 1 or null) never builds the '
+        'carousel -- renders exactly as it always has', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            item: _dropItem(imageCount: 1),
+            dropRepository: sharedDropRepository,
+            onTap: () {},
+            onToggleLike: () {},
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(HomeFeedImagePeekCarousel), findsNothing);
+      expect(find.byType(Image), findsOneWidget);
+    });
+
+    testWidgets(
+        'a multi-image Drop (imageCount > 1) shows the first image '
+        'immediately, before the full list has been fetched',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            item: _dropItem(imageCount: 3),
+            dropRepository: multiImageRepo,
+            onTap: () {},
+            onToggleLike: () {},
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      // Deliberately no pumpAndSettle here -- checking the state before
+      // fetchDropImages resolves.
+      tester.takeException();
+
+      expect(find.byType(HomeFeedImagePeekCarousel), findsOneWidget);
+      expect(find.byType(Image), findsOneWidget);
+    });
+
+    testWidgets(
+        'once fetched, a multi-image Drop shows every image at 82% of '
+        'the row width with a 4:5 aspect ratio', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            item: _dropItem(imageCount: 3),
+            dropRepository: multiImageRepo,
+            onTap: () {},
+            onToggleLike: () {},
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // The ListView itself always has all 3 items in its delegate --
+      // whether every one of them is actually *built* yet depends on
+      // how much of the 656px-wide (82% of an 800px test viewport)
+      // first item's neighbors fit within the viewport + cacheExtent,
+      // same lazy-building behavior any ListView.builder has. This
+      // checks the data model directly rather than assuming a
+      // particular number of built Image widgets.
+      final listView = tester.widget<ListView>(find.byType(ListView));
+      final delegate =
+          listView.childrenDelegate as SliverChildBuilderDelegate;
+      expect(delegate.childCount, 3);
+
+      final rowWidth = tester.getSize(find.byType(HomeDropCard)).width;
+      final firstImageSize = tester.getSize(find.byType(Image).first);
+      expect(firstImageSize.width, closeTo(rowWidth * 0.82, 0.5));
+      expect(
+        firstImageSize.height,
+        closeTo(firstImageSize.width * 5 / 4, 0.5),
+      );
+
+      // The "multiple photos" badge only appears once, on the first
+      // card -- not repeated on every image.
+      expect(find.byIcon(Icons.photo_library_outlined), findsOneWidget);
+    });
+
+    testWidgets(
+        'a failed fetchDropImages falls back to showing just the first '
+        'image, silently (no error UI)', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            item: _dropItem(imageCount: 4),
+            dropRepository: failedFetchRepo,
+            onTap: () {},
+            onToggleLike: () {},
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(Image), findsOneWidget);
+      expect(find.byIcon(Icons.photo_library_outlined), findsNothing);
+    });
+
+    testWidgets('double-tapping any image in the carousel likes the Drop',
+        (tester) async {
+      var likeCalls = 0;
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            item: _dropItem(imageCount: 3),
+            dropRepository: multiImageRepo,
+            onTap: () {},
+            onToggleLike: () => likeCalls++,
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final center = tester.getCenter(find.byType(HomeFeedImagePeekCarousel));
+      await tester.tapAt(center);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(center);
+      await tester.pump();
+      tester.takeException();
+
+      expect(likeCalls, 1);
+
+      // Let DoubleTapLike's heart-animation AnimationController finish
+      // ticking before the test ends -- otherwise it trips
+      // flutter_test's "no pending timers at teardown" invariant, same
+      // as double_tap_like_test.dart's identical pattern.
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets(
+        'a single tap (no second tap) on the carousel opens Detail via '
+        "the card's own outer InkWell -- same as the single-image case",
+        (tester) async {
+      var tapCalls = 0;
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            item: _dropItem(imageCount: 3),
+            dropRepository: multiImageRepo,
+            onTap: () => tapCalls++,
+            onToggleLike: () {},
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.byType(HomeFeedImagePeekCarousel));
+      // A lone tap on a GestureDetector that also has onDoubleTap is
+      // deliberately held for kDoubleTapTimeout to see if a second tap
+      // follows (see DoubleTapLike.onTap's doc comment) -- pumpAndSettle
+      // alone doesn't advance that bare Timer since no frame is
+      // scheduled while waiting on it.
+      await tester.pump(kDoubleTapTimeout + const Duration(milliseconds: 50));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(tapCalls, 1);
+    });
+  });
+
   group('Verified badge (WYNOSHomeSpec.md 4.9)', () {
     testWidgets('shows the badge next to a verified author\'s name',
         (tester) async {
@@ -1880,7 +2481,7 @@ void main() {
       expect(find.text('บันทึก'), findsOneWidget);
       expect(find.text('รายงานโพสต์'), findsNothing);
       expect(find.text('ไม่สนใจโพสต์นี้'), findsNothing);
-      expect(find.text('ลบ ReDrop'), findsNothing);
+      expect(find.text('ลบรีโพสต์'), findsNothing);
     });
 
     testWidgets('tapping "บันทึก" in the menu calls DropRepository.toggleSave',
@@ -1920,7 +2521,15 @@ void main() {
       await tester.pump();
 
       expect(find.byType(NewPostsPill), findsOneWidget);
-      expect(find.text('มีโพสต์ใหม่ 1 โพสต์'), findsOneWidget);
+      // WYN-091: the visible text is a constant "มีโพสต์ใหม่" now (no
+      // count) -- the "right count" this test's own description refers
+      // to is still tracked internally (drives the Semantics label,
+      // see new_posts_pill_test.dart), just not shown on screen.
+      expect(find.text('มีโพสต์ใหม่'), findsOneWidget);
+      expect(
+        tester.widget<NewPostsPill>(find.byType(NewPostsPill)).count,
+        1,
+      );
     });
 
     testWidgets('each new post from someone else increments the count',
@@ -1937,7 +2546,13 @@ void main() {
       newPostsPillTestHomeRepository.emitNewPost('another-user');
       await tester.pump();
 
-      expect(find.text('มีโพสต์ใหม่ 2 โพสต์'), findsOneWidget);
+      // WYN-091: no count in the visible text anymore -- assert the
+      // internal count directly instead (the pill's own text stays the
+      // constant "มีโพสต์ใหม่" the whole time).
+      expect(
+        tester.widget<NewPostsPill>(find.byType(NewPostsPill)).count,
+        2,
+      );
     });
 
     testWidgets(

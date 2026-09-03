@@ -18,7 +18,6 @@ import '../../drop/presentation/drop_detail_screen.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../follow/data/follow_request_repository.dart';
 import '../../follow/presentation/follow_request_list_screen.dart';
-import '../../home/presentation/pop_single_clip_screen.dart';
 import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/presentation/my_moderation_action_screen.dart';
 import '../../pop/data/pop_repository.dart';
@@ -100,6 +99,17 @@ class PushNotificationService {
     if (kIsWeb) return PushPlatform.web;
     return Platform.isIOS ? PushPlatform.ios : PushPlatform.android;
   }
+
+  /// Test-only entry point for [_openFromPushData]. Production code
+  /// never calls this directly -- real push taps only ever reach
+  /// `_openFromPushData` through [initialize]'s own two listeners
+  /// (`onMessageOpenedApp`/`getInitialMessage`), both of which require
+  /// a real Firebase app to fire at all. `_openFromPushData` is
+  /// private and this class otherwise has no public surface a widget
+  /// test can drive to exercise a specific push `type` end to end.
+  @visibleForTesting
+  Future<void> debugOpenFromPushData(Map<String, dynamic> data) =>
+      _openFromPushData(data);
 
   /// [data] carries the same fields as a `notifications` row (`type`
   /// plus whichever of `drop_id`/`pop_id`/`club_id`/`club_post_id`/
@@ -189,26 +199,23 @@ class PushNotificationService {
     );
   }
 
+  // WYN-102 (Wynos V1.0.0 Beta2, item 11, 2026-09-02): Pop is hidden
+  // from the app entirely -- tapping a push notification for an old
+  // like_pop/comment_pop used to fetch and open the real Pop
+  // regardless (Pop content/PopRepository/PopSingleClipScreen are all
+  // still there, just unreachable through normal navigation now).
+  // Never fetches or navigates anymore, so a push tap can't become a
+  // live access point either -- mirrors
+  // `NotificationListScreen._openPop()`'s fix exactly (same "content
+  // not available" copy), shown via [appScaffoldMessengerKey] since
+  // this class runs outside any widget's own BuildContext.
   Future<void> _openPop(
     NavigatorState navigator,
     SupabaseClient client,
     String? popId,
   ) async {
-    if (popId == null) return;
-    final popRepository = PopRepository(client);
-    final pop = await popRepository.fetchById(popId);
-    if (pop == null) return;
-    navigator.push(
-      MaterialPageRoute(
-        builder: (_) => PopSingleClipScreen(
-          pop: pop,
-          popRepository: popRepository,
-          followRepository: FollowRepository(client),
-          profileRepository: ProfileRepository(client),
-          dropRepository: DropRepository(client),
-          savedRepository: SavedRepository(client),
-        ),
-      ),
+    appScaffoldMessengerKey.currentState?.showSnackBar(
+      const SnackBar(content: Text('เนื้อหานี้ไม่พร้อมใช้งานแล้ว')),
     );
   }
 

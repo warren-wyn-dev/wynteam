@@ -1,10 +1,21 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/data/drop_draft.dart';
+import 'package:wyn/features/drop/data/location_result.dart';
 import 'package:wyn/features/drop/presentation/create_drop_screen.dart';
+import 'package:wyn/features/drop/presentation/location_picker_screen.dart';
+import 'package:wyn/features/follow/presentation/close_friends_screen.dart';
+import 'package:wyn/features/follow/presentation/exclude_friends_screen.dart';
+import 'package:wyn/features/profile/data/profile.dart';
 
 import 'support/recording_drop_repository.dart';
+import 'support/recording_follow_repository.dart';
+import 'support/recording_location_repository.dart';
 import 'support/recording_profile_repository.dart';
 
 /// CreateDropScreen, restyled to `04-drop.tsx` (2026-08-29, Founder-
@@ -39,6 +50,16 @@ void main() {
   // WYNOS V1.0.0 Beta requirement 2 -- same setUpAll discipline as
   // every other repo above.
   late RecordingDropRepository textDropRepo;
+  // WYN-094 -- same setUpAll discipline as every other repo above
+  // (constructing a RecordingDropRepository inline inside a testWidgets
+  // body attributes its real SupabaseClient's GoTrue auto-refresh Timer
+  // to that single test's FakeAsync zone, which doesn't just get flagged
+  // as a "leaked timer" -- it can hang the test outright, since that
+  // Timer is real-wall-clock and not integrated with pumpAndSettle's
+  // frame-scheduling wait loop. Learned the hard way while building this
+  // group: see .wyn/company/DECISIONS.md, 2026-09-02).
+  late RecordingDropRepository progressRepo;
+  late RecordingDropRepository progressFailRepo;
   setUpAll(() {
     repo = RecordingDropRepository();
     profileRepo = RecordingProfileRepository();
@@ -49,6 +70,9 @@ void main() {
     saveDraftFailTestRepo = RecordingDropRepository()
       ..saveDraftError = Exception('network error');
     switchModeDraftTestRepo = RecordingDropRepository();
+    progressRepo = RecordingDropRepository();
+    progressFailRepo = RecordingDropRepository()
+      ..createDropError = Exception('network error');
     textDropRepo = RecordingDropRepository();
   });
 
@@ -512,6 +536,398 @@ void main() {
       expect(args['imageBytes'], isNull);
       expect(args['existingImageUrl'], isNull);
       expect(args['pollOptions'], ['Pizza', 'Sushi']);
+    });
+  });
+
+  group('Upload progress (WYN-094)', () {
+    // image_picker's default MethodChannelImagePicker instance hangs
+    // when exercised under AutomatedTestWidgetsFlutterBinding in this
+    // sandbox (reproduced in complete isolation -- an ImagePickerPlatform
+    // fake + a bare testWidgets pump alone hangs; the identical call
+    // sequence in a plain test() returns instantly). There is no working
+    // way to widget-test the real tap-toolbar-button-to-pick-an-image
+    // flow here, so these tests go through CreateDropScreen's
+    // debugInitialImagesBytes test-only seam instead of a real pick --
+    // everything downstream of "_imagesBytes is populated" (the actual
+    // WYN-094 behavior: the progress bar, its percentage math, and its
+    // visibility rules) is exercised for real.
+    //
+    // The seeded bytes are deliberately NOT a real decodable image:
+    // decoding a genuinely valid image through the widget tree's
+    // Image.memory (PaintingBinding.instantiateImageCodecWithSize) hangs
+    // the same way in this sandbox, while invalid bytes fail fast with a
+    // caught "Invalid image data" exception -- same "harmless expected
+    // exception in a test env" shape as this suite's existing
+    // NetworkImageLoadException/tester.takeException() pattern (see the
+    // Draft group above), swallowed the same way.
+    Widget buildWithImages(
+      RecordingDropRepository dropRepository,
+      int imageCount,
+    ) =>
+        MaterialApp(
+          home: CreateDropScreen(
+            dropRepository: dropRepository,
+            profileRepository: profileRepo,
+            debugInitialImagesBytes: List.generate(
+              imageCount,
+              (i) => Uint8List.fromList([1, 2, 3]),
+            ),
+          ),
+        );
+
+    testWidgets(
+        'posting with images shows a progress bar that advances as each '
+        'image actually finishes uploading, then disappears on success',
+        (tester) async {
+      final gate = [Completer<void>(), Completer<void>()];
+      progressRepo.imageUploadGate = gate;
+
+      await tester.pumpWidget(buildWithImages(progressRepo, 2));
+      // Invalid-image-data decode failure -- see group comment above.
+      tester.takeException();
+
+      expect(find.text('2/9'), findsOneWidget);
+      // No progress bar yet -- _isSharing is still false before "โพสต์"
+      // is tapped.
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+
+      await tester.tap(postButton());
+      await tester.pump();
+
+      // 1st image not finished yet -- 0/2.
+      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      expect(find.textContaining('0/2'), findsOneWidget);
+      expect(find.textContaining('0%'), findsOneWidget);
+
+      gate[0].complete();
+      await tester.pump();
+      await tester.pump();
+
+      // 1st image done, 2nd still in flight -- 1/2, 50%.
+      expect(find.textContaining('1/2'), findsOneWidget);
+      expect(find.textContaining('50%'), findsOneWidget);
+
+      gate[1].complete();
+      await tester.pumpAndSettle();
+
+      // Both done -- createDrop resolves, the screen pops (success),
+      // so the progress bar is gone along with the rest of the form.
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(progressRepo.createDropImageCountArgs, [2]);
+    });
+
+    testWidgets(
+        'posting a caption-only Drop (no images) never shows a progress '
+        'bar -- publishing without images is fast enough that a real bar '
+        "wouldn't reflect anything meaningful", (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: CreateDropScreen(
+          dropRepository: textDropRepo,
+          profileRepository: profileRepo,
+        ),
+      ));
+
+      await tester.enterText(
+          find.byType(TextField), 'แคปชันอย่างเดียว ไม่มีรูป (WYN-094)');
+      await tester.pump();
+
+      await tester.tap(postButton());
+      await tester.pump();
+
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets(
+        'a failed upload hides the progress bar and re-enables the "โพสต์" '
+        'button instead of leaving it stuck at a stale percentage',
+        (tester) async {
+      await tester.pumpWidget(buildWithImages(progressFailRepo, 1));
+      // Invalid-image-data decode failure -- see group comment above.
+      tester.takeException();
+
+      await tester.tap(postButton());
+      await tester.pumpAndSettle();
+      // A 2nd occurrence can surface here too depending on frame timing.
+      tester.takeException();
+
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(find.text('แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
+      expect(tester.widget<TextButton>(postButton()).onPressed, isNotNull);
+    });
+  });
+
+  // WYN-097 -- Audience Selector.
+  group('Audience Selector (WYN-097)', () {
+    late RecordingDropRepository audienceRepo;
+    late RecordingFollowRepository followRepo;
+
+    setUp(() {
+      audienceRepo = RecordingDropRepository();
+      followRepo = RecordingFollowRepository();
+    });
+
+    Widget buildScreen() => MaterialApp(
+          home: CreateDropScreen(
+            dropRepository: audienceRepo,
+            profileRepository: profileRepo,
+            followRepository: followRepo,
+          ),
+        );
+
+    testWidgets('defaults to "ทุกคน" and posting without touching it '
+        'passes AudienceOption.everyone', (tester) async {
+      await tester.pumpWidget(buildScreen());
+      expect(find.text('ทุกคน'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(postButton());
+      await tester.pumpAndSettle();
+
+      expect(audienceRepo.createTextDropArgs.single['audience'],
+          AudienceOption.everyone);
+    });
+
+    testWidgets('tapping the chip opens a sheet with all 5 options',
+        (tester) async {
+      await tester.pumpWidget(buildScreen());
+
+      await tester.tap(find.text('ทุกคน'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ใครเห็นโพสต์นี้ได้บ้าง'), findsOneWidget);
+      expect(find.text('ทุกคนเห็นโพสต์นี้ได้'), findsOneWidget);
+      expect(find.text('เพื่อน'), findsOneWidget);
+      expect(find.text('ซ่อนเพื่อนบางคน'), findsOneWidget);
+      expect(find.text('เพื่อนที่สนิท'), findsOneWidget);
+      expect(find.text('เฉพาะฉัน'), findsOneWidget);
+    });
+
+    testWidgets('selecting "เพื่อน" applies immediately, updates the chip, '
+        'and is passed to createTextDrop', (tester) async {
+      await tester.pumpWidget(buildScreen());
+
+      await tester.tap(find.text('ทุกคน'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('เพื่อน'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('เพื่อน'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(postButton());
+      await tester.pumpAndSettle();
+
+      expect(audienceRepo.createTextDropArgs.single['audience'],
+          AudienceOption.friends);
+    });
+
+    testWidgets('selecting "เฉพาะฉัน" applies immediately and updates the '
+        'chip', (tester) async {
+      await tester.pumpWidget(buildScreen());
+
+      await tester.tap(find.text('ทุกคน'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('เฉพาะฉัน'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('เฉพาะฉัน'), findsOneWidget);
+    });
+
+    testWidgets(
+        'selecting "ซ่อนเพื่อนบางคน" opens ExcludeFriendsScreen; picking '
+        'friends there sets the chip and is passed through on post',
+        (tester) async {
+      followRepo.mutualFollows = [
+        const Profile(id: 'u1', username: 'namfah', displayName: 'Nam Fah'),
+      ];
+
+      await tester.pumpWidget(buildScreen());
+
+      await tester.tap(find.text('ทุกคน'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ซ่อนเพื่อนบางคน'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ExcludeFriendsScreen), findsOneWidget);
+
+      await tester.tap(find.text('@namfah'));
+      await tester.pump();
+      await tester.tap(find.text('เสร็จสิ้น (1)'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ซ่อนเพื่อนบางคน'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(postButton());
+      await tester.pumpAndSettle();
+
+      final args = audienceRepo.createTextDropArgs.single;
+      expect(args['audience'], AudienceOption.friendsExcept);
+    });
+
+    testWidgets(
+        'selecting "เพื่อนที่สนิท" with an empty list routes through '
+        'CloseFriendsScreen\'s welcome banner first, then selects it',
+        (tester) async {
+      // At least one mutual follow, so CloseFriendsScreen renders its
+      // welcome banner + list instead of the (higher-priority) "no
+      // friends at all" empty state -- this test is specifically about
+      // the empty *close-friends* list, not an empty mutual-follow list.
+      followRepo.mutualFollows = [
+        const Profile(id: 'u1', username: 'namfah', displayName: 'Nam Fah'),
+      ];
+
+      await tester.pumpWidget(buildScreen());
+
+      await tester.tap(find.text('ทุกคน'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('เพื่อนที่สนิท'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CloseFriendsScreen), findsOneWidget);
+      expect(
+        find.text('คุณยังไม่มีเพื่อนที่สนิท เลือกจากรายชื่อเพื่อนของคุณได้เลย'),
+        findsOneWidget,
+      );
+
+      // Back out of CloseFriendsScreen -- selecting it doesn't require
+      // adding anyone right there, per Design spec.
+      await tester.tap(find.byIcon(Icons.chevron_left));
+      await tester.pumpAndSettle();
+
+      expect(find.text('เพื่อนที่สนิท'), findsOneWidget);
+      expect(find.byType(CreateDropScreen), findsOneWidget);
+    });
+
+    testWidgets(
+        'selecting "เพื่อนที่สนิท" with an existing (non-empty) list '
+        'selects immediately, without opening CloseFriendsScreen',
+        (tester) async {
+      followRepo.closeFriends = [const Profile(id: 'u1', username: 'namfah', displayName: 'Nam Fah')];
+
+      await tester.pumpWidget(buildScreen());
+
+      await tester.tap(find.text('ทุกคน'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('เพื่อนที่สนิท'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CloseFriendsScreen), findsNothing);
+      expect(find.text('เพื่อนที่สนิท'), findsOneWidget);
+    });
+  });
+
+  // WYN-098 -- Location Check-in.
+  group('Location Check-in (WYN-098)', () {
+    late RecordingDropRepository locationTestRepo;
+    late RecordingLocationRepository locationRepo;
+
+    setUp(() {
+      locationTestRepo = RecordingDropRepository();
+      locationRepo = RecordingLocationRepository();
+    });
+
+    Widget buildScreen() => MaterialApp(
+          home: CreateDropScreen(
+            dropRepository: locationTestRepo,
+            profileRepository: profileRepo,
+            locationRepository: locationRepo,
+          ),
+        );
+
+    testWidgets('tapping the location toolbar icon opens '
+        'LocationPickerScreen', (tester) async {
+      await tester.pumpWidget(buildScreen());
+
+      await tester.tap(find.byKey(const Key('toolbar_location_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(LocationPickerScreen), findsOneWidget);
+    });
+
+    testWidgets(
+        'picking a place shows a chip on the composer and passes it to '
+        'createTextDrop on post', (tester) async {
+      locationRepo.searchResultsByQuery = {
+        'starbucks': [
+          const LocationResult(
+            name: 'Starbucks',
+            address: 'สยามพารากอน',
+            lat: 13.7466,
+            lon: 100.5347,
+            placeId: '1',
+          ),
+        ],
+      };
+
+      await tester.pumpWidget(buildScreen());
+      await tester.tap(find.byKey(const Key('toolbar_location_button')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'starbucks');
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Starbucks'));
+      await tester.pumpAndSettle();
+
+      // Back on CreateDropScreen -- the chip shows the place name.
+      expect(find.byType(CreateDropScreen), findsOneWidget);
+      expect(find.text('Starbucks'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('post_button')));
+      await tester.pumpAndSettle();
+
+      final args = locationTestRepo.createTextDropArgs.single;
+      final location = args['location'] as LocationResult?;
+      expect(location?.name, 'Starbucks');
+      expect(location?.placeId, '1');
+    });
+
+    testWidgets('tapping X on the location chip removes it', (tester) async {
+      locationRepo.searchResultsByQuery = {
+        'starbucks': [
+          const LocationResult(
+            name: 'Starbucks',
+            address: null,
+            lat: 13.7466,
+            lon: 100.5347,
+            placeId: '1',
+          ),
+        ],
+      };
+
+      await tester.pumpWidget(buildScreen());
+      await tester.tap(find.byKey(const Key('toolbar_location_button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'starbucks');
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Starbucks'));
+      await tester.pumpAndSettle();
+      expect(find.text('Starbucks'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.close).last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Starbucks'), findsNothing);
+    });
+
+    testWidgets('posting without picking a location passes a null '
+        'location', (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('post_button')));
+      await tester.pumpAndSettle();
+
+      expect(locationTestRepo.createTextDropArgs.single['location'], isNull);
     });
   });
 }

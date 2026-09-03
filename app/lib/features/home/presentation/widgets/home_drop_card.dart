@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../drop/data/drop.dart' show AudienceOption;
+import '../../../drop/data/drop_repository.dart';
 import '../../../drop/presentation/drop_detail_screen.dart' show dropShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
+import 'home_feed_image_peek_carousel.dart';
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/text_utils.dart';
@@ -27,6 +30,7 @@ class HomeDropCard extends StatelessWidget {
   const HomeDropCard({
     super.key,
     required this.item,
+    required this.dropRepository,
     required this.onTap,
     required this.onToggleLike,
     required this.onToggleSave,
@@ -37,9 +41,17 @@ class HomeDropCard extends StatelessWidget {
     this.onDeleteRedrop,
     this.onVotePoll,
     this.onHide,
+    this.showViewCount = true,
   });
 
   final HomeFeedItem item;
+
+  /// WYN-092: only used to fetch the full image list for a
+  /// multi-image Drop's peek carousel (`fetchDropImages`, reused
+  /// as-is from WYN-071) -- untouched for every other Drop shape
+  /// this card renders (text-only, Poll, single-image).
+  final DropRepository dropRepository;
+
   final VoidCallback onTap;
   final VoidCallback onToggleLike;
   final VoidCallback onToggleSave;
@@ -78,6 +90,15 @@ class HomeDropCard extends StatelessWidget {
   /// post from your own feed isn't a meaningful action.
   final VoidCallback? onHide;
 
+  /// WYN-088 (Wynos V1.0.0 Beta2, item 27): the eye/view-count
+  /// ActionMetric is hidden on the Home feed (every tab) now, but this
+  /// same [HomeDropCard] is also reused on the viewer's own Profile
+  /// (drop grid/ReDrops/Likes tabs), where Founder wants it kept --
+  /// "จะได้รู้ว่ามีใครเห็นโพสต์นี้กี่คนดู". Defaults to true (shown) so
+  /// every other call site (Profile's 3 tabs, hashtag feed) is
+  /// unaffected -- only home_feed_screen.dart passes false.
+  final bool showViewCount;
+
   bool get _isOwnDrop =>
       item.authorId == Supabase.instance.client.auth.currentUser!.id;
 
@@ -108,7 +129,7 @@ class HomeDropCard extends StatelessWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.repeat),
-              title: Text(item.redroppedByMe ? 'ยกเลิก ReDrop' : '🔄 ReDrop'),
+              title: Text(item.redroppedByMe ? 'ยกเลิกรีโพสต์' : '🔄 รีโพสต์'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 onToggleRedrop();
@@ -116,7 +137,7 @@ class HomeDropCard extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.chat_bubble_outline),
-              title: const Text('💬 Quote ReDrop'),
+              title: const Text('💬 Quote รีโพสต์'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 onQuoteRedrop();
@@ -189,7 +210,7 @@ class HomeDropCard extends StatelessWidget {
         if (_isOwnRedrop)
           ActionSheetRow(
             icon: Icons.delete_outline,
-            label: 'ลบ ReDrop',
+            label: 'ลบรีโพสต์',
             onTap: () {
               Navigator.of(sheetContext).pop();
               onDeleteRedrop?.call();
@@ -233,11 +254,26 @@ class HomeDropCard extends StatelessWidget {
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: WynSpacing.space1),
-                        Text(
-                          'ReDrop โดย @${item.redropperUsername}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
+                        Flexible(
+                          child: Text(
+                            // WYN-087 (Wynos V1.0.0 Beta2, item 26):
+                            // relative time appended, same as a plain
+                            // post's own author row -- Founder: "ตรง
+                            // รีโพสต์ 'รีโพสต์ โดย @sky_blue' ระบุเวลา
+                            // เหมือนโพสต์ด้วย". item.createdAt is
+                            // already the *ReDrop's* own created_at here
+                            // (not the original Drop's), straight from
+                            // home_feed's `r.created_at` for this row --
+                            // no schema change needed, this is exactly
+                            // the "time the redropper pressed ReDrop"
+                            // Founder asked for.
+                            'รีโพสต์โดย @${item.redropperUsername} · '
+                            '${relativeTimeLabel(item.createdAt, now: DateTime.now())}',
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
                         ),
                       ],
                     ),
@@ -286,7 +322,19 @@ class HomeDropCard extends StatelessWidget {
                                     ],
                                   ),
                                   Text(
-                                    relativeTimeLabel(item.createdAt, now: DateTime.now()),
+                                    // WYN-098, Design spec Screen 4:
+                                    // appended to the same line (not a
+                                    // 3rd row) when this Drop has a
+                                    // check-in -- plain text, no Icon
+                                    // widget (matches Product spec's
+                                    // literal "📍 {ชื่อสถานที่}" copy),
+                                    // and deliberately not wrapped in
+                                    // any tap handler (not tappable,
+                                    // per that spec's Out of Scope).
+                                    item.location != null
+                                        ? '${relativeTimeLabel(item.createdAt, now: DateTime.now())} · 📍 ${item.location}'
+                                        : relativeTimeLabel(item.createdAt, now: DateTime.now()),
+                                    overflow: TextOverflow.ellipsis,
                                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                           color: Theme.of(context).colorScheme.outline,
                                         ),
@@ -312,6 +360,26 @@ class HomeDropCard extends StatelessWidget {
                   ],
                 ),
               ),
+              // WYN-086 (Wynos V1.0.0 Beta2, item 25): caption goes above
+              // the image/poll now, not below -- Founder: "อยากให้ข้อความ
+              // ที่โพสต์อยู่ด้านบน ส่วนรูปอยู่ด้านล่าง". A caption-only
+              // Drop still just shows caption with nothing under it, same
+              // as before. WYNOS V1.0.0 Beta requirement 2: a Drop can be
+              // caption-only (no image, not a Poll) -- _canShare in
+              // CreateDropScreen already guarantees a non-empty caption
+              // whenever that's the case, so this is never reached with
+              // a null/empty caption for a plain (non-poll) card.
+              if (item.caption != null && item.caption!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                  child: !item.isPoll && item.imageUrl == null
+                      ? DoubleTapLike(
+                          onLike: onToggleLike,
+                          alreadyLiked: item.likedByMe,
+                          child: HashtagText(item.caption!),
+                        )
+                      : HashtagText(item.caption!),
+                ),
               if (item.isPoll)
                 PollCard(
                   options: item.pollOptions!,
@@ -322,50 +390,60 @@ class HomeDropCard extends StatelessWidget {
                   isOwnPoll: _isOwnDrop,
                   onVote: (index) => onVotePoll?.call(index),
                 )
+              // WYN-092 (Wynos V1.0.0 Beta2 Phase 2, item 14): a
+              // multi-image Drop gets the new peek carousel instead --
+              // everything below (single-image DoubleTapLike +
+              // ConstrainedBox + AspectRatio + Image.network) is
+              // completely untouched for the single-image case, which
+              // is still the overwhelming majority of Drops in the
+              // feed.
+              else if (item.imageUrl != null && item.hasMultipleImages)
+                HomeFeedImagePeekCarousel(
+                  item: item,
+                  dropRepository: dropRepository,
+                  onLike: onToggleLike,
+                )
               else if (item.imageUrl != null)
                 DoubleTapLike(
                   onLike: onToggleLike,
                   alreadyLiked: item.likedByMe,
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    // WYN-074: a bare Image.network showed nothing while
-                    // loading, so fast scrolling flashed a blank white
-                    // gap. Went through CachedNetworkImage first, but on
-                    // Flutter Web every image failed to render at all
-                    // (worse than the flash it fixed) -- reverted to
-                    // Image.network's own loadingBuilder/errorBuilder,
-                    // which are proven-working on this exact web build.
-                    child: Image.network(
-                      item.imageUrl!,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, progress) {
-                        if (progress == null) return child;
-                        return Container(
+                  // WYN-093 (Wynos V1.0.0 Beta2, item 19): the extra
+                  // ConstrainedBox is the "maxHeight = 0.75 * screen
+                  // height" ceiling from the Design spec -- a second,
+                  // independent cap on top of the aspect-ratio clamp
+                  // below, so even a Drop right at the 0.8 (4:5)
+                  // portrait bound can't fill almost the whole screen
+                  // on a very tall viewport (e.g. a tablet held
+                  // upright).
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: 0.75 * MediaQuery.of(context).size.height,
+                    ),
+                    child: AspectRatio(
+                      aspectRatio: _feedImageAspectRatio(item),
+                      // WYN-074: a bare Image.network showed nothing while
+                      // loading, so fast scrolling flashed a blank white
+                      // gap. Went through CachedNetworkImage first, but on
+                      // Flutter Web every image failed to render at all
+                      // (worse than the flash it fixed) -- reverted to
+                      // Image.network's own loadingBuilder/errorBuilder,
+                      // which are proven-working on this exact web build.
+                      child: Image.network(
+                        item.imageUrl!,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, progress) {
+                          if (progress == null) return child;
+                          return Container(
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) => Container(
                           color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        child: const Icon(Icons.broken_image_outlined),
+                          child: const Icon(Icons.broken_image_outlined),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              // WYNOS V1.0.0 Beta requirement 2: a Drop can now be
-              // caption-only (no image, not a Poll) -- _canShare in
-              // CreateDropScreen already guarantees a non-empty caption
-              // whenever that's the case, so this is never reached with
-              // a null/empty caption for a plain (non-poll) card.
-              if (item.caption != null && item.caption!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                  child: !item.isPoll && item.imageUrl == null
-                      ? DoubleTapLike(
-                          onLike: onToggleLike,
-                          alreadyLiked: item.likedByMe,
-                          child: HashtagText(item.caption!),
-                        )
-                      : HashtagText(item.caption!),
                 ),
               if (item.likedBy.isNotEmpty)
                 Padding(
@@ -376,7 +454,14 @@ class HomeDropCard extends StatelessWidget {
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),
+                // WYN-096 (Wynos V1.0.0 Beta2 Phase 2, item 28): space3
+                // (12px) matches the horizontal padding of every other
+                // section of this same card (header, caption,
+                // LikedByRow above) -- was space1 (4px), which left the
+                // action bar visibly out of alignment with the content
+                // above it. ActionMetric's own internal spacing is
+                // untouched -- only this outer wrapper changed.
+                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
                 child: Row(
                   children: [
                     // Heart/comment/repost/eye sizing+color match
@@ -402,26 +487,47 @@ class HomeDropCard extends StatelessWidget {
                       semanticsLabel: 'ดูคอมเมนต์',
                       onTap: onTap,
                     ),
-                    const SizedBox(width: WynSpacing.space5),
-                    ActionMetric(
-                      icon: Icons.repeat,
-                      iconSize: 17,
-                      count: item.redropCount,
-                      color: WynColors.graphite,
-                      semanticsLabel: item.redroppedByMe
-                          ? 'ReDrop แล้ว กดเพื่อเลือกดำเนินการ'
-                          : 'กดเพื่อ ReDrop',
-                      onTap: () => _openRedropSheet(context),
-                    ),
-                    const SizedBox(width: WynSpacing.space5),
-                    ActionMetric(
-                      icon: Icons.visibility_outlined,
-                      iconSize: 16,
-                      count: item.viewCount,
-                      color: WynColors.faint,
-                      semanticsLabel: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
-                      onTap: null,
-                    ),
+                    // WYN-097, Design spec Screen 6: hidden entirely
+                    // (not disabled/greyed) once this post's audience
+                    // isn't "ทุกคน" -- prevents "รีโพสต์ได้แต่คนอื่นเห็น
+                    // แค่บางคน" confusion, same "ซ่อนเองอัตโนมัติ"
+                    // posture the 9-image toolbar limit (WYN-071)
+                    // already established.
+                    if (item.audience == AudienceOption.everyone) ...[
+                      const SizedBox(width: WynSpacing.space5),
+                      ActionMetric(
+                        icon: Icons.repeat,
+                        iconSize: 17,
+                        count: item.redropCount,
+                        // WYN-089: same active-state color the Focused Action
+                        // Bar (DropDetailScreen._buildFocusedActionBar) has
+                        // used for this all along -- only the icon changes
+                        // color, the count stays graphite (same convention
+                        // as Like: the number is a total, not a status
+                        // indicator).
+                        color: item.redroppedByMe
+                            ? WynColors.sapphire
+                            : WynColors.graphite,
+                        semanticsLabel: item.redroppedByMe
+                            ? 'รีโพสต์แล้ว กดเพื่อเลือกดำเนินการ'
+                            : 'กดเพื่อรีโพสต์',
+                        onTap: () => _openRedropSheet(context),
+                      ),
+                    ],
+                    // WYN-088: hidden on the Home feed (showViewCount:
+                    // false there) -- still shown everywhere else this
+                    // card is reused (Profile's 3 tabs, hashtag feed).
+                    if (showViewCount) ...[
+                      const SizedBox(width: WynSpacing.space5),
+                      ActionMetric(
+                        icon: Icons.visibility_outlined,
+                        iconSize: 16,
+                        count: item.viewCount,
+                        color: WynColors.faint,
+                        semanticsLabel: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
+                        onTap: null,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -434,3 +540,28 @@ class HomeDropCard extends StatelessWidget {
     );
   }
 }
+
+/// WYN-093 (Wynos V1.0.0 Beta2, item 19): the aspect ratio to render
+/// [item]'s image at -- its true width/height when known, clamped to
+/// [_minFeedImageAspectRatio] (4:5, the most-portrait shape allowed
+/// without cropping) .. [_maxFeedImageAspectRatio] (1.91:1, the most-
+/// landscape shape allowed without cropping). Outside that range the
+/// image still renders (via BoxFit.cover, unchanged), just cropped at
+/// whichever edge it overshoots -- same as every image did
+/// unconditionally before this task. Falls back to the old fixed 1:1
+/// square when [HomeFeedItem.imageWidth]/[HomeFeedItem.imageHeight]
+/// aren't known yet (any Drop uploaded before this metadata existed,
+/// or an invalid non-positive height) -- see
+/// .wyn/docs/design/wyn-093-dynamic-height-images.md.
+double _feedImageAspectRatio(HomeFeedItem item) {
+  final width = item.imageWidth;
+  final height = item.imageHeight;
+  if (width == null || height == null || height <= 0) return 1;
+  return (width / height).clamp(
+    _minFeedImageAspectRatio,
+    _maxFeedImageAspectRatio,
+  );
+}
+
+const double _minFeedImageAspectRatio = 0.8;
+const double _maxFeedImageAspectRatio = 1.91;
