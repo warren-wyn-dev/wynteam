@@ -38,8 +38,18 @@ migrate_working_dir/
 # favicon.png/icons/ are committed for the identical reason: without
 # this they'd be Flutter's generic template icon (or wiped back to it
 # on every redeploy) instead of the real WYNOS logo (2026-08-30).
+#
+# firebase-messaging-sw.js is committed for a stronger version of the
+# same reason (Beta4): it is the browser half of Web Push, and Firebase
+# only looks for it at exactly this path. `flutter create` would never
+# generate it -- it is not part of Flutter's web template at all -- so
+# without this line the file lives only on whoever's machine wrote it,
+# and every deploy ships a build where background push has nowhere to
+# be delivered. This was caught before the first Beta4 deploy, not
+# after: `git ls-files app/web/` did not list it.
 /web/*
 !/web/flutter_bootstrap.js
+!/web/firebase-messaging-sw.js
 !/web/index.html
 !/web/manifest.json
 !/web/favicon.png
