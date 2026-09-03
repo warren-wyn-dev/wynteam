@@ -68,6 +68,20 @@ jobs:
       # Same trailing-newline/whitespace guard deploy-web.yml applies to
       # its own secrets -- a value pasted into the GitHub Secrets UI
       # (especially on mobile) can silently carry a trailing newline.
+      # Prints the *names* of every secret available to this workflow.
+      # Values are masked by the runner (that masking is what turns an
+      # existing secret into '***'), so this leaks nothing -- and it is
+      # the only thing that distinguishes the two failures that look
+      # identical from inside the job: a secret whose NAME is wrong
+      # (missing from this list) from one whose VALUE is empty (present
+      # in the list, still resolves to nothing). Three runs died here
+      # without that distinction being answerable.
+      - name: Which secrets can this workflow actually see
+        if: ${{ !cancelled() }}
+        run: |
+          echo "Secret names visible to this workflow:"
+          echo '${{ toJSON(secrets) }}' | grep -oE '"[A-Za-z0-9_]+"[[:space:]]*:' | tr -d '":' | sed 's/^/  - /' | sort
+
       - name: Deploy
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -83,7 +97,7 @@ jobs:
           CLEAN_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
           if [ -z "$CLEAN_TOKEN" ]; then
             echo "::error::SUPABASE_ACCESS_TOKEN resolved to an empty string, so the secret is not reaching this workflow."
-            echo "::error::GitHub masks a secret that exists as '***' in the env block above; an empty value means no secret was found under that exact name."
+            echo "::error::Either no secret exists under that exact name, or one exists with an empty value -- see the 'Which secrets can this workflow actually see' step above, which lists the names it can reach."
             echo "::error::Check, in this order:"
             echo "::error::  1. Name is exactly SUPABASE_ACCESS_TOKEN (no trailing space, no typo, case-sensitive)."
             echo "::error::  2. It is a *Repository* secret (Settings -> Secrets and variables -> Actions -> Repository secrets)."
