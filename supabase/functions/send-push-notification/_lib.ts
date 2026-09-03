@@ -291,6 +291,32 @@ export function collapseKeyFor(row: NotificationRow): string {
   return row.id;
 }
 
+/// A short, safe description of a thrown value, for the one place a
+/// failure here is visible from: the response body, which pg_net stores
+/// in `net._http_response`.
+///
+/// Without this, every failure in the function is an opaque 500. That
+/// cost a real debugging round: a service-account key that would not
+/// parse looked exactly like a key that would not sign, and neither
+/// could be told apart from the outside. The push path is
+/// fire-and-forget by design -- nobody is watching a screen when it
+/// fails -- so the stored reply is the only record there will be.
+///
+/// It is scrubbed rather than passed through, because the values in
+/// scope when things go wrong here include a Firebase private key and
+/// an FCM access token, and `net._http_response` is readable by anyone
+/// with database access. PEM blocks and long base64 runs come out; the
+/// error's name and a truncated message stay, which is what actually
+/// distinguishes the cases.
+export function safeErrorMessage(err: unknown): string {
+  const name = err instanceof Error ? err.name : "Error";
+  const raw = err instanceof Error ? err.message : String(err);
+  const scrubbed = raw
+    .replace(/-----BEGIN[\s\S]*?-----END[^-]*-----/g, "[pem]")
+    .replace(/[A-Za-z0-9+/_-]{40,}={0,2}/g, "[redacted]");
+  return `${name}: ${scrubbed}`.slice(0, 300);
+}
+
 /// Which of the `notifications`-row id columns are non-null becomes the
 /// FCM `data` payload -- split out so the "only include set fields, as
 /// strings" logic can be tested without any network/crypto involved.

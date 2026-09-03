@@ -12,6 +12,7 @@ import {
   importPrivateKey,
   messageFor,
   type NotificationRow,
+  safeErrorMessage,
 } from "./_lib.ts";
 
 Deno.test("displayNameOrUsername falls back to @username when displayName is null", () => {
@@ -362,4 +363,39 @@ Deno.test("buildSignedJwtAssertion produces a JWT whose signature verifies again
   const importedKey = await importPrivateKey(standardPem);
   assertEquals(importedKey.type, "private");
   assertEquals(importedKey.usages, ["sign"]);
+});
+
+// The point of safeErrorMessage is that it is safe, so the tests are
+// mostly about what must NOT come out. A leak here is worse than the
+// opaque 500 it replaces: net._http_response is readable by anyone with
+// database access, and it keeps rows indefinitely.
+Deno.test("safeErrorMessage keeps the error name and message", () => {
+  assertEquals(
+    safeErrorMessage(new SyntaxError("Unexpected end of JSON input")),
+    "SyntaxError: Unexpected end of JSON input",
+  );
+});
+
+Deno.test("safeErrorMessage handles a thrown non-Error", () => {
+  assertEquals(safeErrorMessage("boom"), "Error: boom");
+});
+
+Deno.test("safeErrorMessage strips a PEM private key out of a message", () => {
+  const pem = "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkq\n-----END PRIVATE KEY-----";
+  const out = safeErrorMessage(new Error(`bad key: ${pem}`));
+  assertEquals(out.includes("MIIEvQIBADANBgkq"), false);
+  assertEquals(out.includes("BEGIN PRIVATE KEY"), false);
+  assertEquals(out, "Error: bad key: [pem]");
+});
+
+Deno.test("safeErrorMessage redacts a long base64 run, such as an access token", () => {
+  const token = "ya29." + "A".repeat(120);
+  const out = safeErrorMessage(new Error(`FCM rejected ${token}`));
+  assertEquals(out.includes(token), false);
+  assertMatch(out, /\[redacted\]/);
+});
+
+Deno.test("safeErrorMessage truncates so one message cannot fill the log", () => {
+  const out = safeErrorMessage(new Error("x ".repeat(500)));
+  assertEquals(out.length, 300);
 });

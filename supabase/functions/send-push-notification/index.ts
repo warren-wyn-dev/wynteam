@@ -34,6 +34,7 @@ import {
   fetchFcmAccessToken,
   type FcmServiceAccount,
   messageFor,
+  safeErrorMessage,
   type WebhookPayload,
 } from "./_lib.ts";
 
@@ -65,7 +66,7 @@ async function deletePushToken(token: string): Promise<void> {
   });
 }
 
-Deno.serve(async (req) => {
+async function handleWebhook(req: Request): Promise<Response> {
   let payload: WebhookPayload;
   try {
     payload = await req.json();
@@ -212,4 +213,23 @@ Deno.serve(async (req) => {
   );
 
   return new Response("OK", { status: 200 });
+}
+
+// Anything thrown above used to reach the caller as a bare 500 with the
+// body "Internal Server Error", which says only that this function is
+// where it broke. Since the only caller is a database webhook, that
+// string is also the entire record of the failure -- it is what lands
+// in net._http_response, and nobody sees anything else.
+//
+// Returning the reason (scrubbed, see safeErrorMessage) makes a failed
+// push diagnosable from the database alone. The status stays 500 so the
+// failure keeps counting as a failure.
+Deno.serve(async (req) => {
+  try {
+    return await handleWebhook(req);
+  } catch (err) {
+    const message = safeErrorMessage(err);
+    console.error("send-push-notification failed:", message);
+    return new Response(message, { status: 500 });
+  }
 });
