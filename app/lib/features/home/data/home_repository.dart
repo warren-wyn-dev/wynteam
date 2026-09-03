@@ -26,6 +26,7 @@ class _ViewerFeedState {
     required this.redroppedIds,
     required this.pollStates,
     required this.blockedAuthorIds,
+    required this.imageUrlsByDropId,
   });
 
   final Set<String> likedDropIds;
@@ -37,6 +38,13 @@ class _ViewerFeedState {
   /// Empty unless the caller asked for the sanction check -- only the
   /// ranked/leaderboard surfaces (fetchTrending/fetchTopContent) do.
   final Set<String> blockedAuthorIds;
+
+  /// Beta3: the ordered image list of every multi-image Drop in the
+  /// page, keyed by drop id -- one query for the whole page instead of
+  /// one per card. Only ever holds entries for rows whose
+  /// `image_count` is greater than 1; a single-image Drop already
+  /// carries its only URL in `image_url`.
+  final Map<String, List<String>> imageUrlsByDropId;
 }
 
 /// Reads the unified `home_feed` view (see supabase/schema.sql, WYN-007
@@ -138,6 +146,7 @@ class HomeRepository {
       pollMyVoteIndex: pollState?.myVoteIndex,
       pollTotalVotes: pollState?.totalVotes,
       pollOptionCounts: pollState?.optionCounts,
+      imageUrls: viewer.imageUrlsByDropId[id],
     );
   }
 
@@ -191,6 +200,7 @@ class HomeRepository {
         pollMyVoteIndex: pollState?.myVoteIndex,
         pollTotalVotes: pollState?.totalVotes,
         pollOptionCounts: pollState?.optionCounts,
+        imageUrls: viewer.imageUrlsByDropId[id],
       );
     }).toList();
   }
@@ -264,6 +274,7 @@ class HomeRepository {
         pollMyVoteIndex: pollState?.myVoteIndex,
         pollTotalVotes: pollState?.totalVotes,
         pollOptionCounts: pollState?.optionCounts,
+        imageUrls: viewer.imageUrlsByDropId[id],
       );
     }).toList()
       ..removeWhere((item) => blockedAuthorIds.contains(item.authorId));
@@ -338,6 +349,7 @@ class HomeRepository {
         pollMyVoteIndex: pollState?.myVoteIndex,
         pollTotalVotes: pollState?.totalVotes,
         pollOptionCounts: pollState?.optionCounts,
+        imageUrls: viewer.imageUrlsByDropId[id],
       );
     }).toList()
       ..removeWhere((item) => blockedAuthorIds.contains(item.authorId));
@@ -472,6 +484,7 @@ class HomeRepository {
         pollMyVoteIndex: pollState?.myVoteIndex,
         pollTotalVotes: pollState?.totalVotes,
         pollOptionCounts: pollState?.optionCounts,
+        imageUrls: viewer.imageUrlsByDropId[id],
       );
     }).toList();
 
@@ -571,6 +584,7 @@ class HomeRepository {
         pollMyVoteIndex: pollState?.myVoteIndex,
         pollTotalVotes: pollState?.totalVotes,
         pollOptionCounts: pollState?.optionCounts,
+        imageUrls: viewer.imageUrlsByDropId[id],
       );
     }).toList();
   }
@@ -627,15 +641,17 @@ class HomeRepository {
         pollMyVoteIndex: pollState?.myVoteIndex,
         pollTotalVotes: pollState?.totalVotes,
         pollOptionCounts: pollState?.optionCounts,
+        imageUrls: viewer.imageUrlsByDropId[id],
       );
     }).toList();
   }
 
-  /// Everything about a page of `home_feed` rows that depends on *who
-  /// is looking*: which of them this viewer liked, saved, ReDropped,
-  /// how they voted in any Polls, and (for the ranked/leaderboard
-  /// surfaces that need it) which candidate authors are under an active
-  /// moderation sanction.
+  /// Everything a page of `home_feed` rows needs beyond the rows
+  /// themselves: which of them this viewer liked, saved, ReDropped, how
+  /// they voted in any Polls, (for the ranked/leaderboard surfaces that
+  /// need it) which candidate authors are under an active moderation
+  /// sanction, and (Beta3) the image list of every multi-image Drop in
+  /// the page.
   ///
   /// Every fetch* method above needed this same set, and each one used
   /// to `await` the five/six lookups one after another -- five sequential
@@ -678,6 +694,7 @@ class HomeRepository {
       _fetchSavedIds(userId: userId, ids: [...dropIds, ...popIds]),
       _fetchRedroppedIds(userId: userId, dropIds: dropIds),
       _fetchPollStates(userId: userId, pollIds: pollIds),
+      _fetchImageUrls(rows),
       if (authorIdsForBlockCheck != null)
         _fetchPostingBlockedAuthorIds(authorIdsForBlockCheck),
     ]);
@@ -688,9 +705,59 @@ class HomeRepository {
       savedIds: results[2] as Set<String>,
       redroppedIds: results[3] as Set<String>,
       pollStates: results[4] as Map<String, _PollState>,
+      imageUrlsByDropId: results[5] as Map<String, List<String>>,
       blockedAuthorIds:
-          results.length > 5 ? results[5] as Set<String> : const {},
+          results.length > 6 ? results[6] as Set<String> : const {},
     );
+  }
+
+  /// The ordered image list of every multi-image Drop in [rows], in one
+  /// query.
+  ///
+  /// Before this, nobody fetched these with the page: the feed card
+  /// rendered, saw `image_count > 1`, and only then asked the server
+  /// for that one Drop's images from inside a widget's `initState` --
+  /// so a page holding 8 multi-image Drops cost 8 extra round trips,
+  /// fired after the page was already on screen, each one replacing a
+  /// single image with a carousel under the reader's thumb as it
+  /// landed. The rows are read here, together, before a single card is
+  /// built.
+  ///
+  /// `drop_images` has a `unique (drop_id, position)` constraint, so
+  /// this filter-and-order is served straight off that index. Returns
+  /// an empty map (no query at all) when the page has no multi-image
+  /// Drop in it, which is the common case for a feed of single-image
+  /// and text-only posts. A failure here is swallowed: the images are
+  /// an optimization, and every consumer still falls back to its own
+  /// on-demand fetch, so a hiccup on this one query must never take
+  /// the whole feed page down with it.
+  Future<Map<String, List<String>>> _fetchImageUrls(
+    List<Map<String, dynamic>> rows,
+  ) async {
+    final ids = <String>{
+      for (final row in rows)
+        if (row['content_type'] == 'drop' &&
+            ((row['image_count'] as num?)?.toInt() ?? 0) > 1)
+          row['id'] as String,
+    };
+    if (ids.isEmpty) return const {};
+
+    try {
+      final imageRows = await _client
+          .from('drop_images')
+          .select('drop_id, image_url')
+          .inFilter('drop_id', ids.toList())
+          .order('position');
+
+      final byDropId = <String, List<String>>{};
+      for (final row in imageRows) {
+        (byDropId[row['drop_id'] as String] ??= <String>[])
+            .add(row['image_url'] as String);
+      }
+      return byDropId;
+    } catch (_) {
+      return const {};
+    }
   }
 
   /// Same shape as DropRepository's identically-named private method

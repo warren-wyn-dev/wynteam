@@ -53,6 +53,37 @@ class _PollState {
   final List<int>? optionCounts;
 }
 
+/// The per-viewer overlay applied to one page of `drops` rows --
+/// [DropRepository._fetchViewerState]'s result. Mirrors
+/// HomeRepository's identically-named private class (same reasoning,
+/// same shape); [followedAuthorIds] is the one field only the ranked
+/// surface asks for.
+class _ViewerDropState {
+  const _ViewerDropState({
+    required this.likedIds,
+    required this.savedIds,
+    required this.redroppedIds,
+    required this.pollStates,
+    required this.followedAuthorIds,
+    required this.imageUrlsByDropId,
+  });
+
+  final Set<String> likedIds;
+  final Set<String> savedIds;
+  final Set<String> redroppedIds;
+  final Map<String, _PollState> pollStates;
+
+  /// Empty unless the caller asked -- only fetchRankedFeed does.
+  final Set<String> followedAuthorIds;
+
+  /// The ordered image list of every multi-image Drop in the page,
+  /// keyed by drop id -- one query for the whole page instead of one
+  /// per card, exactly as HomeRepository does for `home_feed`. Only
+  /// holds entries for Drops with more than one image; a single-image
+  /// Drop already carries its only URL in `image_url`.
+  final Map<String, List<String>> imageUrlsByDropId;
+}
+
 /// Wraps the `drops`/`drop_likes`/`drop_comments`/`saves` reads/writes and
 /// drop-image storage needed for WYN-005 (Drop). See supabase/schema.sql
 /// for the RLS policies this relies on.
@@ -87,15 +118,11 @@ class DropRepository {
         .order('created_at', ascending: false)
         .range(from, to);
 
-    final dropIds = rows.map((row) => row['id'] as String).toList();
-    final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
-    final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
-    final redroppedIds =
-        await _fetchRedroppedDropIds(userId: userId, dropIds: dropIds);
-    final pollStates = await _fetchPollStates(
-      userId: userId,
-      pollIds: rows.map(_pollIdFromRow).whereType<String>().toList(),
-    );
+    final viewer = await _fetchViewerState(userId: userId, rows: rows);
+    final likedIds = viewer.likedIds;
+    final savedIds = viewer.savedIds;
+    final redroppedIds = viewer.redroppedIds;
+    final pollStates = viewer.pollStates;
 
     return rows
         .map((row) => Drop.fromMap(
@@ -106,6 +133,7 @@ class DropRepository {
               pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
               pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
               pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+              imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
             ))
         .toList();
   }
@@ -127,15 +155,11 @@ class DropRepository {
         .order('created_at', ascending: false)
         .range(from, to);
 
-    final dropIds = rows.map((row) => row['id'] as String).toList();
-    final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
-    final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
-    final redroppedIds =
-        await _fetchRedroppedDropIds(userId: userId, dropIds: dropIds);
-    final pollStates = await _fetchPollStates(
-      userId: userId,
-      pollIds: rows.map(_pollIdFromRow).whereType<String>().toList(),
-    );
+    final viewer = await _fetchViewerState(userId: userId, rows: rows);
+    final likedIds = viewer.likedIds;
+    final savedIds = viewer.savedIds;
+    final redroppedIds = viewer.redroppedIds;
+    final pollStates = viewer.pollStates;
 
     return rows
         .map((row) => Drop.fromMap(
@@ -146,6 +170,7 @@ class DropRepository {
               pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
               pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
               pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+              imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
             ))
         .toList();
   }
@@ -170,15 +195,11 @@ class DropRepository {
         .order('created_at', ascending: false)
         .range(from, to);
 
-    final dropIds = rows.map((row) => row['id'] as String).toList();
-    final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
-    final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
-    final redroppedIds =
-        await _fetchRedroppedDropIds(userId: userId, dropIds: dropIds);
-    final pollStates = await _fetchPollStates(
-      userId: userId,
-      pollIds: rows.map(_pollIdFromRow).whereType<String>().toList(),
-    );
+    final viewer = await _fetchViewerState(userId: userId, rows: rows);
+    final likedIds = viewer.likedIds;
+    final savedIds = viewer.savedIds;
+    final redroppedIds = viewer.redroppedIds;
+    final pollStates = viewer.pollStates;
 
     return rows
         .map((row) => Drop.fromMap(
@@ -189,6 +210,7 @@ class DropRepository {
               pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
               pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
               pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+              imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
             ))
         .toList();
   }
@@ -254,15 +276,11 @@ class DropRepository {
         if (byId[id] != null) byId[id]!,
     ];
 
-    final dropIds = rows.map((row) => row['id'] as String).toList();
-    final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
-    final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
-    final redroppedIds =
-        await _fetchRedroppedDropIds(userId: userId, dropIds: dropIds);
-    final pollStates = await _fetchPollStates(
-      userId: userId,
-      pollIds: rows.map(_pollIdFromRow).whereType<String>().toList(),
-    );
+    final viewer = await _fetchViewerState(userId: userId, rows: rows);
+    final likedIds = viewer.likedIds;
+    final savedIds = viewer.savedIds;
+    final redroppedIds = viewer.redroppedIds;
+    final pollStates = viewer.pollStates;
 
     return rows
         .map((row) => Drop.fromMap(
@@ -273,6 +291,7 @@ class DropRepository {
               pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
               pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
               pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+              imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
             ))
         .toList();
   }
@@ -344,15 +363,11 @@ class DropRepository {
         .order('created_at', ascending: false)
         .range(from, to);
 
-    final dropIds = rows.map((row) => row['id'] as String).toList();
-    final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
-    final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
-    final redroppedIds =
-        await _fetchRedroppedDropIds(userId: userId, dropIds: dropIds);
-    final pollStates = await _fetchPollStates(
-      userId: userId,
-      pollIds: rows.map(_pollIdFromRow).whereType<String>().toList(),
-    );
+    final viewer = await _fetchViewerState(userId: userId, rows: rows);
+    final likedIds = viewer.likedIds;
+    final savedIds = viewer.savedIds;
+    final redroppedIds = viewer.redroppedIds;
+    final pollStates = viewer.pollStates;
 
     return rows
         .map((row) => Drop.fromMap(
@@ -363,6 +378,7 @@ class DropRepository {
               pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
               pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
               pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+              imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
             ))
         .toList();
   }
@@ -391,20 +407,17 @@ class DropRepository {
         .order('created_at', ascending: false)
         .limit(_rankedCandidateLimit);
 
-    final dropIds = rows.map((row) => row['id'] as String).toList();
-    final authorIds = rows.map((row) => row['author_id'] as String).toSet();
-    final likedIds = await _fetchLikedDropIds(userId: userId, dropIds: dropIds);
-    final savedIds = await _fetchSavedDropIds(userId: userId, dropIds: dropIds);
-    final redroppedIds =
-        await _fetchRedroppedDropIds(userId: userId, dropIds: dropIds);
-    final followedAuthorIds = await _fetchFollowedAuthorIds(
+    final viewer = await _fetchViewerState(
       userId: userId,
-      authorIds: authorIds,
+      rows: rows,
+      authorIdsToCheckFollowing:
+          rows.map((row) => row['author_id'] as String).toSet(),
     );
-    final pollStates = await _fetchPollStates(
-      userId: userId,
-      pollIds: rows.map(_pollIdFromRow).whereType<String>().toList(),
-    );
+    final likedIds = viewer.likedIds;
+    final savedIds = viewer.savedIds;
+    final redroppedIds = viewer.redroppedIds;
+    final followedAuthorIds = viewer.followedAuthorIds;
+    final pollStates = viewer.pollStates;
 
     final drops = rows
         .map((row) => Drop.fromMap(
@@ -415,6 +428,7 @@ class DropRepository {
               pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
               pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
               pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+              imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
             ))
         .toList();
 
@@ -467,27 +481,127 @@ class DropRepository {
         .maybeSingle();
     if (row == null) return null;
 
-    final likedIds =
-        await _fetchLikedDropIds(userId: userId, dropIds: [dropId]);
-    final savedIds =
-        await _fetchSavedDropIds(userId: userId, dropIds: [dropId]);
-    final redroppedIds =
-        await _fetchRedroppedDropIds(userId: userId, dropIds: [dropId]);
+    // Four sequential round trips before this, for one post -- and
+    // this is the method every "came back from Detail, resync the row
+    // I was looking at" path now calls. See [_fetchViewerState].
+    final viewer = await _fetchViewerState(userId: userId, rows: [row]);
     final pollId = _pollIdFromRow(row);
-    final pollStates = await _fetchPollStates(
-      userId: userId,
-      pollIds: pollId == null ? const [] : [pollId],
-    );
 
     return Drop.fromMap(
       row,
-      likedByMe: likedIds.contains(dropId),
-      savedByMe: savedIds.contains(dropId),
-      redroppedByMe: redroppedIds.contains(dropId),
-      pollMyVoteIndex: pollStates[pollId]?.myVoteIndex,
-      pollTotalVotes: pollStates[pollId]?.totalVotes,
-      pollOptionCounts: pollStates[pollId]?.optionCounts,
+      likedByMe: viewer.likedIds.contains(dropId),
+      savedByMe: viewer.savedIds.contains(dropId),
+      redroppedByMe: viewer.redroppedIds.contains(dropId),
+      pollMyVoteIndex: viewer.pollStates[pollId]?.myVoteIndex,
+      pollTotalVotes: viewer.pollStates[pollId]?.totalVotes,
+      pollOptionCounts: viewer.pollStates[pollId]?.optionCounts,
+      imageUrls: viewer.imageUrlsByDropId[dropId],
     );
+  }
+
+  /// Everything about a page of `drops` rows that depends on *who is
+  /// looking*: which of them this viewer liked, saved and ReDropped,
+  /// how they voted in any Polls, and (for the ranked surface only)
+  /// which of the candidate authors they follow.
+  ///
+  /// Every paginated read in this file needed the same set, and each
+  /// one `await`ed the four lookups one after another -- four
+  /// sequential round trips before a single card could be built, for
+  /// queries with no dependency on each other whatsoever. On a link
+  /// where a query costs 100ms that is 400ms of nothing happening on
+  /// every profile tab, every search, every saved list. They are
+  /// issued together now, so a page costs roughly one round trip of
+  /// viewer state instead of four -- the same consolidation
+  /// HomeRepository._fetchViewerState already made for `home_feed`,
+  /// and for the same reason.
+  Future<_ViewerDropState> _fetchViewerState({
+    required String userId,
+    required List<Map<String, dynamic>> rows,
+    Set<String>? authorIdsToCheckFollowing,
+  }) async {
+    final dropIds = rows.map((row) => row['id'] as String).toList();
+    final pollIds = rows.map(_pollIdFromRow).whereType<String>().toList();
+
+    final results = await Future.wait([
+      _fetchLikedDropIds(userId: userId, dropIds: dropIds),
+      _fetchSavedDropIds(userId: userId, dropIds: dropIds),
+      _fetchRedroppedDropIds(userId: userId, dropIds: dropIds),
+      _fetchPollStates(userId: userId, pollIds: pollIds),
+      _fetchImageUrls(rows),
+      if (authorIdsToCheckFollowing != null)
+        _fetchFollowedAuthorIds(
+          userId: userId,
+          authorIds: authorIdsToCheckFollowing,
+        ),
+    ]);
+
+    return _ViewerDropState(
+      likedIds: results[0] as Set<String>,
+      savedIds: results[1] as Set<String>,
+      redroppedIds: results[2] as Set<String>,
+      pollStates: results[3] as Map<String, _PollState>,
+      imageUrlsByDropId: results[4] as Map<String, List<String>>,
+      followedAuthorIds:
+          results.length > 5 ? results[5] as Set<String> : const {},
+    );
+  }
+
+  /// The ordered image list of every multi-image Drop in [rows], in one
+  /// query -- the same batch HomeRepository makes for the Home feed,
+  /// made here so every *other* surface that shows post cards gets it
+  /// too: Profile's Posts and Likes tabs, Search's post results, the
+  /// hashtag feed, drafts, and the single-Drop resync behind every
+  /// "came back from Detail".
+  ///
+  /// Those surfaces build the same [HomeDropCard] the feed does, so a
+  /// multi-image post there was still asking the server for its own
+  /// images from inside the card's initState -- one request per card,
+  /// fired after the page was already on screen. The Home feed stopped
+  /// doing that; Profile had not, which is exactly the kind of "same
+  /// card, different behaviour" gap this release exists to close.
+  ///
+  /// Reads `drop_images` straight off its `unique (drop_id, position)`
+  /// index. No query at all when the page holds no multi-image Drop,
+  /// and a failure is swallowed: the batch is an optimization, every
+  /// consumer still has its own on-demand fetch to fall back on, and a
+  /// hiccup here must never take a whole page down with it.
+  Future<Map<String, List<String>>> _fetchImageUrls(
+    List<Map<String, dynamic>> rows,
+  ) async {
+    // `drop_images(count)` comes back from PostgREST as a
+    // single-element list -- `[{'count': 3}]` -- the same shape
+    // Drop.fromMap reads for every other embedded count. A row from a
+    // query whose select didn't ask for it simply isn't multi-image as
+    // far as this batch is concerned, and that card keeps its own
+    // on-demand fetch.
+    int imageCount(dynamic embedded) {
+      final list = embedded as List<dynamic>?;
+      if (list == null || list.isEmpty) return 0;
+      return (list.first as Map<String, dynamic>)['count'] as int? ?? 0;
+    }
+
+    final ids = <String>{
+      for (final row in rows)
+        if (imageCount(row['drop_images']) > 1) row['id'] as String,
+    };
+    if (ids.isEmpty) return const {};
+
+    try {
+      final imageRows = await _client
+          .from('drop_images')
+          .select('drop_id, image_url')
+          .inFilter('drop_id', ids.toList())
+          .order('position');
+
+      final byDropId = <String, List<String>>{};
+      for (final row in imageRows) {
+        (byDropId[row['drop_id'] as String] ??= <String>[])
+            .add(row['image_url'] as String);
+      }
+      return byDropId;
+    } catch (_) {
+      return const {};
+    }
   }
 
   Future<Set<String>> _fetchLikedDropIds({

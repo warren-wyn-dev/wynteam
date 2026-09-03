@@ -15,6 +15,7 @@ import '../../../../core/widgets/action_metric.dart';
 import '../../../../core/widgets/action_sheet_row.dart';
 import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
+import '../../../../core/widgets/post_media.dart';
 import 'liked_by_row.dart';
 import 'top_reply_preview.dart';
 import 'verified_badge.dart';
@@ -407,42 +408,18 @@ class HomeDropCard extends StatelessWidget {
                 DoubleTapLike(
                   onLike: onToggleLike,
                   alreadyLiked: item.likedByMe,
-                  // WYN-093 (Wynos V1.0.0 Beta2, item 19): the extra
-                  // ConstrainedBox is the "maxHeight = 0.75 * screen
-                  // height" ceiling from the Design spec -- a second,
-                  // independent cap on top of the aspect-ratio clamp
-                  // below, so even a Drop right at the 0.8 (4:5)
-                  // portrait bound can't fill almost the whole screen
-                  // on a very tall viewport (e.g. a tablet held
-                  // upright).
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: 0.75 * MediaQuery.of(context).size.height,
-                    ),
-                    child: AspectRatio(
-                      aspectRatio: _feedImageAspectRatio(item),
-                      // WYN-074: a bare Image.network showed nothing while
-                      // loading, so fast scrolling flashed a blank white
-                      // gap. Went through CachedNetworkImage first, but on
-                      // Flutter Web every image failed to render at all
-                      // (worse than the flash it fixed) -- reverted to
-                      // Image.network's own loadingBuilder/errorBuilder,
-                      // which are proven-working on this exact web build.
-                      child: Image.network(
-                        item.imageUrl!,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, progress) {
-                          if (progress == null) return child;
-                          return Container(
-                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                          child: const Icon(Icons.broken_image_outlined),
-                        ),
-                      ),
-                    ),
+                  // Beta3: the aspect-ratio clamp (WYN-093), the
+                  // 0.75-of-viewport height cap, and the placeholder/
+                  // error pair all moved into PostImageFrame, which
+                  // Drop Detail's gallery now shares -- so a photo is
+                  // the same shape in the feed and in the post, which
+                  // it was not before (Detail hard-cropped every photo
+                  // into a square). Same widget also bounds the decode
+                  // size, which a bare Image.network here never did.
+                  child: PostImageFrame(
+                    imageUrl: item.imageUrl!,
+                    imageWidth: item.imageWidth,
+                    imageHeight: item.imageHeight,
                   ),
                 ),
               if (item.likedBy.isNotEmpty)
@@ -540,28 +517,3 @@ class HomeDropCard extends StatelessWidget {
     );
   }
 }
-
-/// WYN-093 (Wynos V1.0.0 Beta2, item 19): the aspect ratio to render
-/// [item]'s image at -- its true width/height when known, clamped to
-/// [_minFeedImageAspectRatio] (4:5, the most-portrait shape allowed
-/// without cropping) .. [_maxFeedImageAspectRatio] (1.91:1, the most-
-/// landscape shape allowed without cropping). Outside that range the
-/// image still renders (via BoxFit.cover, unchanged), just cropped at
-/// whichever edge it overshoots -- same as every image did
-/// unconditionally before this task. Falls back to the old fixed 1:1
-/// square when [HomeFeedItem.imageWidth]/[HomeFeedItem.imageHeight]
-/// aren't known yet (any Drop uploaded before this metadata existed,
-/// or an invalid non-positive height) -- see
-/// .wyn/docs/design/wyn-093-dynamic-height-images.md.
-double _feedImageAspectRatio(HomeFeedItem item) {
-  final width = item.imageWidth;
-  final height = item.imageHeight;
-  if (width == null || height == null || height <= 0) return 1;
-  return (width / height).clamp(
-    _minFeedImageAspectRatio,
-    _maxFeedImageAspectRatio,
-  );
-}
-
-const double _minFeedImageAspectRatio = 0.8;
-const double _maxFeedImageAspectRatio = 1.91;

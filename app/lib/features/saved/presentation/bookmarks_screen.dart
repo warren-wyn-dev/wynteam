@@ -47,6 +47,23 @@ class BookmarksScreen extends StatefulWidget {
 class _BookmarksScreenState extends State<BookmarksScreen> {
   final _scrollController = ScrollController();
   final List<HomeFeedItem> _items = [];
+  /// Keys of every row already shown this load cycle. Offset pagination
+  /// re-reads a list that can have grown at the top since the previous
+  /// page -- one new row shifts everything down by one, so the last row
+  /// of page N comes back as the first row of page N+1. Appended
+  /// blindly that showed the row twice *and* put two identical
+  /// [ValueKey]s in one list, which Flutter rejects outright: the
+  /// screen throws rather than merely looking wrong. Home already
+  /// guards its feed this way (see HomeFeedScreen's own _seenKeys);
+  /// this list never got the same treatment.
+  final Set<String> _seenKeys = {};
+
+  /// The identity of a row -- `id` alone isn't unique, since the same
+  /// Drop can appear both plainly and via someone's ReDrop of it
+  /// (WYN-034). Matches the [ValueKey] the itemBuilder builds.
+  static String _keyFor(HomeFeedItem item) =>
+      '${item.id}:${item.redropId ?? ''}';
+
   int _page = 0;
   bool _isLoadingInitial = true;
   bool _isLoadingMore = false;
@@ -85,6 +102,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         _items
           ..clear()
           ..addAll(items);
+        _seenKeys
+          ..clear()
+          ..addAll(items.map(_keyFor));
         _page = 0;
         _hasMore = items.length == SavedRepository.pageSize;
       });
@@ -101,7 +121,12 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
       final nextPage = _page + 1;
       final items = await widget.savedRepository.fetchFeed(page: nextPage);
       setState(() {
-        _items.addAll(items);
+        // _hasMore is still driven by what the server returned, not
+        // by what survived the filter: a full page that happens to be
+        // all duplicates still means there is more behind it.
+        for (final item in items) {
+          if (_seenKeys.add(_keyFor(item))) _items.add(item);
+        }
         _page = nextPage;
         _hasMore = items.length == SavedRepository.pageSize;
       });

@@ -54,6 +54,7 @@ class HomeFeedItem {
     this.audience = AudienceOption.everyone,
     this.location,
     this.imageCount,
+    this.imageUrls,
   });
 
   final String id;
@@ -93,6 +94,21 @@ class HomeFeedItem {
   /// Drives [hasMultipleImages] below, which HomeDropCard uses to
   /// decide whether to show the new peek carousel.
   final int? imageCount;
+
+  /// Beta3: the full ordered image list for a multi-image Drop, when
+  /// the fetch that built this row already batch-loaded it (see
+  /// [HomeRepository.attachImageUrls]). Null means "not known here",
+  /// never "no images" -- [imageCount] is the authority on how many
+  /// there are, and a consumer without this list falls back to
+  /// [DropRepository.fetchDropImages] exactly as it did before.
+  ///
+  /// This is what turns the feed's multi-image carousel from one
+  /// request *per card* into one request per page: HomeFeedImagePeek-
+  /// Carousel used to call fetchDropImages from its own initState, so
+  /// a page with 8 multi-image Drops in it issued 8 extra round trips
+  /// after the page had already loaded, each one arriving late enough
+  /// to visibly swap a single image for a carousel under the reader.
+  final List<String>? imageUrls;
 
   /// Set only when [contentType] is [HomeContentType.pop].
   final String? videoUrl;
@@ -242,6 +258,7 @@ class HomeFeedItem {
         imageWidth: imageWidth,
         imageHeight: imageHeight,
         imageCount: imageCount,
+        imageUrls: imageUrls,
         videoUrl: videoUrl,
         thumbnailUrl: thumbnailUrl,
         durationSeconds: durationSeconds,
@@ -297,6 +314,7 @@ class HomeFeedItem {
         // the field's own default" posture as every other pass-through
         // here.
         imageCount: imageCount,
+        imageUrls: imageUrls,
         caption: caption,
         createdAt: createdAt,
         likeCount: likeCount,
@@ -357,6 +375,7 @@ class HomeFeedItem {
         imageWidth: drop.imageWidth,
         imageHeight: drop.imageHeight,
         imageCount: drop.imageCount,
+        imageUrls: drop.imageUrls,
         likeCount: drop.likeCount,
         commentCount: drop.commentCount,
         likedByMe: drop.likedByMe,
@@ -394,6 +413,7 @@ class HomeFeedItem {
     int? pollMyVoteIndex,
     int? pollTotalVotes,
     List<int>? pollOptionCounts,
+    List<String>? imageUrls,
   }) {
     final contentType = map['content_type'] as String;
     return HomeFeedItem(
@@ -411,6 +431,9 @@ class HomeFeedItem {
       imageWidth: (map['image_width'] as num?)?.toInt(),
       imageHeight: (map['image_height'] as num?)?.toInt(),
       imageCount: (map['image_count'] as num?)?.toInt(),
+      // Not a `home_feed` column -- batch-loaded alongside the page
+      // and passed in by the caller (HomeRepository.attachImageUrls).
+      imageUrls: imageUrls,
       videoUrl: map['video_url'] as String?,
       thumbnailUrl: map['thumbnail_url'] as String?,
       durationSeconds: map['duration_seconds'] as int?,

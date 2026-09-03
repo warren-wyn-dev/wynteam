@@ -52,6 +52,17 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
     with AutomaticKeepAliveClientMixin {
   final _scrollController = ScrollController();
   final List<Drop> _drops = [];
+  /// Keys of every row already shown this load cycle. Offset pagination
+  /// re-reads a list that can have grown at the top since the previous
+  /// page -- one new row shifts everything down by one, so the last row
+  /// of page N comes back as the first row of page N+1. Appended
+  /// blindly that showed the row twice *and* put two identical
+  /// [ValueKey]s in one list, which Flutter rejects outright: the tab
+  /// throws rather than merely looking wrong. Home already guards its
+  /// feed this way (see HomeFeedScreen's own _seenKeys); these lists
+  /// never got the same treatment.
+  final Set<String> _seenKeys = {};
+
   int _page = 0;
   bool _isLoadingInitial = true;
   bool _isLoadingMore = false;
@@ -117,6 +128,9 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
         _drops
           ..clear()
           ..addAll(drops);
+        _seenKeys
+          ..clear()
+          ..addAll(drops.map((d) => d.id));
         _page = 0;
         _hasMore = drops.length == DropRepository.pageSize;
         _canViewLikes = canView;
@@ -144,7 +158,9 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
         page: nextPage,
       );
       setState(() {
-        _drops.addAll(drops);
+        for (final drop in drops) {
+          if (_seenKeys.add(drop.id)) _drops.add(drop);
+        }
         _page = nextPage;
         _hasMore = drops.length == DropRepository.pageSize;
       });
@@ -262,7 +278,35 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
         ),
       ),
     );
-    _loadInitial();
+    await _refreshRow(drop.id);
+  }
+
+  /// Brings one row back in sync after Detail instead of rebuilding the
+  /// whole tab -- see ProfileDropGridTab._refreshRow's doc comment for
+  /// the full reasoning (this tab had the identical `_loadInitial()`
+  /// call, and lost scroll position the same way).
+  ///
+  /// One extra rule here that the Posts tab doesn't need: this is the
+  /// *Likes* tab, so a post the viewer unliked while in Detail no
+  /// longer belongs in it and is removed, exactly as a deleted post is.
+  Future<void> _refreshRow(String dropId) async {
+    final Drop? fresh;
+    try {
+      fresh = await widget.dropRepository.fetchById(dropId);
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+
+    final index = _drops.indexWhere((d) => d.id == dropId);
+    if (index < 0) return;
+    setState(() {
+      if (fresh == null || !fresh.likedByMe) {
+        _drops.removeAt(index);
+      } else {
+        _drops[index] = fresh;
+      }
+    });
   }
 
   @override

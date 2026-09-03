@@ -59,6 +59,7 @@ class Drop {
     this.imageHeight,
     this.audience = AudienceOption.everyone,
     this.location,
+    this.imageUrls,
     int? imageCount,
   }) : imageCount = imageCount ?? (imageUrl != null ? 1 : 0);
 
@@ -78,9 +79,24 @@ class Drop {
   /// that doesn't pass this explicitly (fixtures, older tests, any
   /// fetch path not yet updated to embed the count) still gets the
   /// correct value for the single-image case it always represented.
-  /// The images themselves (URLs 2-9, beyond [imageUrl]) are fetched
-  /// separately and only on demand -- see DropRepository.fetchDropImages.
+  /// The images themselves (URLs 2-9, beyond [imageUrl]) live in
+  /// [imageUrls] when a fetch path resolved them, and are otherwise
+  /// fetched on demand -- see DropRepository.fetchDropImages.
   final int imageCount;
+
+  /// Beta3: the full ordered image list, when whoever built this [Drop]
+  /// already had it -- the Home feed batch-loads one page's worth in a
+  /// single query (see HomeRepository.attachImageUrls) and hands it
+  /// down, so opening a multi-image post from the feed no longer costs
+  /// a per-card round trip on the way in and another on the way to
+  /// Detail.
+  ///
+  /// Null means "not known here", never "this Drop has no images" --
+  /// [imageCount] is the authority on how many there are. A consumer
+  /// that needs the list falls back to
+  /// [DropRepository.fetchDropImages], exactly as it did before this
+  /// field existed.
+  final List<String>? imageUrls;
 
   final String? caption;
   final DateTime createdAt;
@@ -209,6 +225,7 @@ class Drop {
         authorAvatarUrl: authorAvatarUrl,
         imageUrl: imageUrl,
         imageCount: imageCount,
+        imageUrls: imageUrls,
         caption: caption,
         createdAt: createdAt,
         likeCount: likeCount ?? this.likeCount,
@@ -246,6 +263,7 @@ class Drop {
         authorAvatarUrl: authorAvatarUrl,
         imageUrl: imageUrl,
         imageCount: imageCount,
+        imageUrls: imageUrls,
         caption: caption,
         createdAt: createdAt,
         likeCount: likeCount,
@@ -346,6 +364,7 @@ class Drop {
     int? pollMyVoteIndex,
     int? pollTotalVotes,
     List<int>? pollOptionCounts,
+    List<String>? imageUrls,
   }) {
     final author = map['author'] as Map<String, dynamic>?;
     final poll = _embeddedPoll(map['drop_polls']);
@@ -364,6 +383,9 @@ class Drop {
       imageCount: map.containsKey('drop_images')
           ? _embeddedCount(map['drop_images'] as List<dynamic>?)
           : null,
+      // Not a `drops` column -- batch-loaded alongside the page and
+      // passed in by the caller (DropRepository._fetchImageUrls).
+      imageUrls: imageUrls,
       caption: map['caption'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
       likeCount: _embeddedCount(map['drop_likes'] as List<dynamic>?),

@@ -58,6 +58,17 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
     with AutomaticKeepAliveClientMixin {
   final _scrollController = ScrollController();
   final List<Drop> _drops = [];
+  /// Keys of every row already shown this load cycle. Offset pagination
+  /// re-reads a list that can have grown at the top since the previous
+  /// page -- one new row shifts everything down by one, so the last row
+  /// of page N comes back as the first row of page N+1. Appended
+  /// blindly that showed the row twice *and* put two identical
+  /// [ValueKey]s in one list, which Flutter rejects outright: the tab
+  /// throws rather than merely looking wrong. Home already guards its
+  /// feed this way (see HomeFeedScreen's own _seenKeys); these lists
+  /// never got the same treatment.
+  final Set<String> _seenKeys = {};
+
   int _page = 0;
   bool _isLoadingInitial = true;
   bool _isLoadingMore = false;
@@ -102,6 +113,9 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
         _drops
           ..clear()
           ..addAll(drops);
+        _seenKeys
+          ..clear()
+          ..addAll(drops.map((d) => d.id));
         _page = 0;
         _hasMore = drops.length == DropRepository.pageSize;
       });
@@ -128,7 +142,12 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
         page: nextPage,
       );
       setState(() {
-        _drops.addAll(drops);
+        // _hasMore is still driven by what the server returned, not
+        // by what survived the filter: a full page that happens to be
+        // all duplicates still means there is more behind it.
+        for (final drop in drops) {
+          if (_seenKeys.add(drop.id)) _drops.add(drop);
+        }
         _page = nextPage;
         _hasMore = drops.length == DropRepository.pageSize;
       });
@@ -247,7 +266,45 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
         ),
       ),
     );
-    _loadInitial();
+    await _refreshRow(drop.id);
+  }
+
+  /// Brings one row back in sync after Detail, which can change its
+  /// like/save/ReDrop state and its comment count, or delete the post
+  /// outright.
+  ///
+  /// This used to be `_loadInitial()`, which flipped [_isLoadingInitial]
+  /// back to true: the whole tab was replaced by a spinner, the
+  /// ListView (and with it the scroll position) was torn down, every
+  /// page paged in so far was thrown away, and the reader was returned
+  /// to the top of a rebuilt list. Open the 30th post on someone's
+  /// profile, come back, and the post you just read was somewhere far
+  /// below. Home already refreshed just the one row it was showing
+  /// (HomeRepository.fetchItemById's own doc comment says why); this is
+  /// the same fix for Profile's tabs, using DropRepository.fetchById.
+  ///
+  /// A row that is gone server-side (deleted from Detail) is removed
+  /// here too. A failed refresh leaves the row exactly as it was: a
+  /// stale count is a far smaller problem than a list that empties
+  /// itself because one request timed out.
+  Future<void> _refreshRow(String dropId) async {
+    final Drop? fresh;
+    try {
+      fresh = await widget.dropRepository.fetchById(dropId);
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+
+    final index = _drops.indexWhere((d) => d.id == dropId);
+    if (index < 0) return;
+    setState(() {
+      if (fresh == null) {
+        _drops.removeAt(index);
+      } else {
+        _drops[index] = fresh;
+      }
+    });
   }
 
   @override
