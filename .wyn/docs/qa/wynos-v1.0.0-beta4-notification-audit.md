@@ -288,8 +288,22 @@ Collapse key **ไม่ได้กันการส่งครั้งท�
    **แปลว่า `PushEnv.isWebPushConfigured == true` บน production** — การ์ดขออนุญาตใน
    Notification settings จะไม่เป็น `unsupported` อีกต่อไป และกดขอ token ได้จริง
    **แต่ยังส่ง push ไม่ได้จนกว่าจะทำข้อ 5 และ 6** (ดู K-1)
-5. `supabase secrets set FCM_SERVICE_ACCOUNT='<service account JSON>'`
+5. ✅ **Founder ยืนยันว่าใส่แล้ว** (2026-09-03) — `FCM_SERVICE_ACCOUNT` ใน Supabase → Edge Functions → Secrets
+   · ตั้งค่าผ่าน Dashboard ไม่ใช่ `supabase secrets set` เพราะ Founder ทำจาก iPad ไม่มี CLI
+   · **ผมยืนยันด้วยตัวเองไม่ได้** — session นี้ไม่มี Supabase credential (ดู §0 ของรายงาน)
+     สิ่งที่ยืนยันได้คือฝั่งโค้ด: `index.ts:82` อ่าน `Deno.env.get("FCM_SERVICE_ACCOUNT")`
+     และถ้าไม่มีค่า จะตอบ `200 FCM not configured` เงียบๆ ไม่ทำให้ webhook retry
+   · ค่านี้เป็นความลับจริง (มี `private_key`) — ไม่เคยผ่านมาที่ผมและไม่ควรผ่าน
 6. ตั้ง Database Webhook บน `public.notifications` INSERT → `send-push-notification`
+   · **ต้องมี HTTP header `Authorization: Bearer <anon key>`** เพราะ function ถูก deploy โดย
+     **ไม่ใช้** `--no-verify-jwt` (เจตนา — ดู §8) ถ้าไม่มี header นี้ platform จะตอบ `401`
+     ตั้งแต่ก่อนเข้า code ของเรา และ push จะเงียบโดยไม่มี error ให้เห็นในฝั่งแอปเลย
+   · anon key ใช้ได้ (เป็น JWT ที่เซ็นด้วย JWT secret ของ project) และ **ไม่ต้องใช้ service-role**
+     เพราะ function ไม่ได้ใช้ตัวตนของผู้เรียกเลย — มันใช้ `SUPABASE_SERVICE_ROLE_KEY` ของตัวเอง
+     จาก env ในการ query (`index.ts:41`) การใส่ service-role ลง header ของ webhook จึงเป็น
+     การเอาความลับที่แรงกว่าไปวางไว้อีกที่โดยไม่ได้อะไรเพิ่ม
+   · payload ที่ function คาดหวังคือรูปแบบมาตรฐานของ Supabase webhook พอดี
+     (`{type, table, record, schema}` — `_lib.ts:30`) จึงไม่ต้องตั้ง custom payload ใดๆ
 7. Deploy Edge Function — **ตอนนี้กดปุ่มเดียวได้แล้ว** ไม่ต้องใช้ CLI จากเครื่องตัวเอง:
    เพิ่ม secret `SUPABASE_ACCESS_TOKEN` ครั้งเดียว (personal access token จาก
    https://supabase.com/dashboard/account/tokens) แล้วรัน workflow
