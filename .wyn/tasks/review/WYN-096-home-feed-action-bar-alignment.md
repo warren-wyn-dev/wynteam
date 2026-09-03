@@ -74,3 +74,26 @@ Handoff ถึง AI Coding (รายละเอียดเต็มดู de
 Design Rules ที่ต้องยึด: ห้ามแก้สีหัวใจถูกใจกลับเป็น sapphire (WYN-076 override), ห้ามแก้ไอคอน/
 ขนาด/ระยะห่างภายในของ `ActionMetric`, padding ใหม่ต้องตรงกับ padding แนวนอนของทุกส่วนอื่นใน
 การ์ดเดียวกันเสมอ
+
+---
+
+## Coding Output (2026-09-02)
+
+Root cause: ไม่ใช่บั๊ก — padding value เดียวตามที่ Design ระบุ
+
+การเปลี่ยนแปลง:
+1. **`app/lib/features/home/presentation/widgets/home_drop_card.dart`**: `Padding` ที่ห่อแถว
+   `ActionMetric` ×4 เปลี่ยนจาก `WynSpacing.space1` (4px) → `WynSpacing.space3` (12px)
+2. **`app/lib/features/home/presentation/widgets/home_pop_card.dart`**: จุดเดียวกันทุกประการ
+3. `ActionMetric`, สีหัวใจถูกใจ (`Colors.red`, WYN-076 override) ไม่ถูกแตะเลย
+
+Files Changed:
+- `app/lib/features/home/presentation/widgets/home_drop_card.dart`
+- `app/lib/features/home/presentation/widgets/home_pop_card.dart`
+
+Tests: `flutter analyze` สะอาด, `flutter test` ผ่านครบ (ยกเว้น WYN-081's regression test ที่ยัง
+red อยู่ในสาขานี้ ณ ตอนโค้ด — คนละงาน กำลังถูกแก้แยกโดย AI Debug Engineer อยู่แล้ว) — ไม่ได้เพิ่ม
+เทสใหม่แยกต่างหากสำหรับ padding นี้ (ความเสี่ยงต่ำมาก, เทส layout ที่มีอยู่แล้วยังผ่านหมด ไม่มี
+regression)
+
+Handoff: ส่งต่อ AI QA & Security

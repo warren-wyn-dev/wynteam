@@ -51,6 +51,7 @@ class HomeFeedItem {
     this.pollOptionCounts,
     this.imageWidth,
     this.imageHeight,
+    this.imageCount,
   });
 
   final String id;
@@ -80,6 +81,16 @@ class HomeFeedItem {
   /// identical doc comment.
   final int? imageWidth;
   final int? imageHeight;
+
+  /// WYN-092 (Wynos V1.0.0 Beta2 Phase 2, item 14): total images the
+  /// underlying Drop has (1-9), sourced from `home_feed.image_count` --
+  /// mirrors [Drop.imageCount] exactly (same field name/meaning), but
+  /// stays nullable here (unlike [Drop.imageCount]'s non-null default)
+  /// because Pop-typed rows and any fetch path that doesn't embed this
+  /// column yet genuinely have no value, same posture as [viewCount].
+  /// Drives [hasMultipleImages] below, which HomeDropCard uses to
+  /// decide whether to show the new peek carousel.
+  final int? imageCount;
 
   /// Set only when [contentType] is [HomeContentType.pop].
   final String? videoUrl;
@@ -151,6 +162,13 @@ class HomeFeedItem {
 
   bool get isPoll => pollId != null;
 
+  /// WYN-092: mirrors [Drop.hasMultipleImages] exactly -- treats an
+  /// unknown [imageCount] (any fetch path that doesn't embed
+  /// `image_count` yet, or a Pop-typed row) as "1", i.e. not multiple,
+  /// same "assume the common single-image case" default every other
+  /// nullable-count field in this app already uses.
+  bool get hasMultipleImages => (imageCount ?? 1) > 1;
+
   bool get pollResultsVisible => pollTotalVotes != null;
 
   bool get pollIsClosed =>
@@ -209,6 +227,7 @@ class HomeFeedItem {
         imageUrl: imageUrl,
         imageWidth: imageWidth,
         imageHeight: imageHeight,
+        imageCount: imageCount,
         videoUrl: videoUrl,
         thumbnailUrl: thumbnailUrl,
         durationSeconds: durationSeconds,
@@ -257,6 +276,11 @@ class HomeFeedItem {
         imageUrl: imageUrl,
         imageWidth: imageWidth,
         imageHeight: imageHeight,
+        // Drop's own constructor already falls back to
+        // (imageUrl != null ? 1 : 0) when this is null, same "defer to
+        // the field's own default" posture as every other pass-through
+        // here.
+        imageCount: imageCount,
         caption: caption,
         createdAt: createdAt,
         likeCount: likeCount,
@@ -314,6 +338,7 @@ class HomeFeedItem {
         imageUrl: drop.imageUrl,
         imageWidth: drop.imageWidth,
         imageHeight: drop.imageHeight,
+        imageCount: drop.imageCount,
         likeCount: drop.likeCount,
         commentCount: drop.commentCount,
         likedByMe: drop.likedByMe,
@@ -365,6 +390,7 @@ class HomeFeedItem {
       imageUrl: map['image_url'] as String?,
       imageWidth: (map['image_width'] as num?)?.toInt(),
       imageHeight: (map['image_height'] as num?)?.toInt(),
+      imageCount: (map['image_count'] as num?)?.toInt(),
       videoUrl: map['video_url'] as String?,
       thumbnailUrl: map['thumbnail_url'] as String?,
       durationSeconds: map['duration_seconds'] as int?,

@@ -236,7 +236,11 @@ class HomePopCard extends StatelessWidget {
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),
+                // WYN-096 (Wynos V1.0.0 Beta2 Phase 2, item 28): same
+                // fix as HomeDropCard's identical action bar -- space3
+                // (12px) matches the header/caption/LikedByRow padding
+                // above it in this same card, was space1 (4px).
+                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
                 child: Row(
                   children: [
                     // Same WYNOSHomeSpec.md 4.9 sizing/color as

@@ -88,3 +88,63 @@ Handoff ถึง AI Coding (รายละเอียดเต็มดู de
 Design Rules ที่ต้องยึด: ห้ามใช้ pattern `PageView`/full-bleed 1:1 แบบ `DropImageGallery` กับ
 Home feed (ต้องเป็น peek-card 82%/4:5 เท่านั้น), ห้ามเปลี่ยน treatment รูปเดี่ยว, สีทุกจุดมาจาก
 `WynColors` เท่านั้น, ต้อง reuse `fetchDropImages()` เดิม ห้ามสร้าง query ใหม่ซ้ำ
+
+---
+
+## Coding Output (2026-09-02)
+
+Root cause: ไม่ใช่บั๊ก — งานใหม่ตามสโคป Design (SQL view + model field + widget ใหม่)
+
+การเปลี่ยนแปลง:
+1. **`supabase/schema.sql`**: `create or replace view public.home_feed` ฉบับใหม่ (append เต็ม
+   ตาม convention เดิมของไฟล์นี้ — ไม่แก้ของเก่า) เพิ่ม `image_count` เป็นคอลัมน์สุดท้ายของทุก
+   branch — drop branch: `(select count(*) from public.drop_images where drop_id = d.id)`,
+   pop branch: `null::bigint` (พิมพ์ตรงกับ bigint ของ count(*))
+2. **`app/lib/features/home/data/home_feed_item.dart`**: เพิ่ม `imageCount`/`hasMultipleImages`
+   (getter จาก `imageCount > 1`) ผ่านครบทุก path (`fromMap`/`copyWith`)
+3. **`app/lib/features/home/presentation/widgets/home_feed_image_peek_carousel.dart`** (ไฟล์
+   ใหม่): `HomeFeedImagePeekCarousel` — reuse `DropRepository.fetchDropImages()` เดิม, แสดง
+   `item.imageUrl` ทันทีระหว่างรอ fetch/ถ้า fetch fail (fallback เหมือน single-image เดิม),
+   container 82% width/4:5 aspect/มุมโค้ง 16px (`WynSpacing.radiusLg`)/gap 8px
+   (`WynSpacing.space2`) ใน `ListView.builder` แนวนอน, ครอบด้วย `DoubleTapLike` เดียวทั้ง
+   carousel (ไม่มี `onTap` ของตัวเอง — อาศัย `HomeDropCard`'s outer `InkWell` เดิมเปิด Detail
+   เหมือน single-image case), badge ไอคอนรูปภาพเล็กที่มุมขวาล่างของรูปแรกเท่านั้น (ไม่มีตัวเลข
+   นับ ตามภาพอ้างอิง ต่างจาก `DropImageGallery`'s "1/3" badge โดยเจตนา)
+4. **`app/lib/features/home/presentation/widgets/home_drop_card.dart`**: เพิ่ม required
+   `dropRepository` param, เพิ่ม branch `else if (item.imageUrl != null && item.hasMultipleImages)`
+   เรียก `HomeFeedImagePeekCarousel` ก่อน single-image branch เดิม (ซึ่งไม่ถูกแตะเลย)
+5. Caller ทั้งหมดของ `HomeDropCard` (constructor เปลี่ยนเป็น required param ใหม่) อัปเดตให้ส่ง
+   `dropRepository` เข้าไป: `hashtag_feed_screen.dart`, `home_feed_screen.dart`,
+   `profile_drop_grid_tab.dart`, `profile_likes_tab.dart`, `profile_redrops_tab.dart`
+6. `DropImageGallery`/`DropImageViewer`/`DropDetailScreen`/`CreateDropScreen` ไม่ถูกแตะเลยตามที่
+   Design กำหนด
+
+Files Changed:
+- `supabase/schema.sql`
+- `app/lib/features/home/data/home_feed_item.dart`
+- `app/lib/features/home/presentation/widgets/home_feed_image_peek_carousel.dart` (ใหม่)
+- `app/lib/features/home/presentation/widgets/home_drop_card.dart`
+- `app/lib/features/hashtag/presentation/hashtag_feed_screen.dart`,
+  `app/lib/features/home/presentation/home_feed_screen.dart`,
+  `app/lib/features/profile/presentation/widgets/profile_drop_grid_tab.dart`,
+  `app/lib/features/profile/presentation/widgets/profile_likes_tab.dart`,
+  `app/lib/features/profile/presentation/widgets/profile_redrops_tab.dart`
+- `app/test/home_feed_screen_test.dart` — เทสใหม่ครอบคลุม peek carousel (multi-image แสดง
+  carousel, single-image ไม่เปลี่ยน, double-tap ถูกใจทำงานในทุกรูป)
+- `supabase/tests/wyn_092_home_feed_image_count_test.sh` (ใหม่) — standalone SQL regression
+  (ไม่โหลด schema.sql เต็มไฟล์ ตามข้อจำกัดที่บันทึกไว้ใน DECISIONS.md)
+
+Tests: `flutter analyze` สะอาด (No issues found!), `flutter test` เต็ม suite ผ่าน 944/945
+(ตัวที่ fail คือ WYN-081's regression test ที่ยัง red ในสาขานี้ ณ ตอนโค้ด — คนละงาน กำลังถูกแก้
+แยกโดย AI Debug Engineer อยู่แล้ว ไม่เกี่ยวกับ WYN-092)
+
+Build: ไม่ได้รัน migration จริงกับ production DB (ไม่มีสิทธิ์ใน session นี้) — `schema.sql`
+เพิ่มเฉพาะ view definition ใหม่ ไม่มี `alter table`/breaking change ใดๆ
+
+Known Issues: ยังไม่ได้ทดสอบภาพจริงบนอุปกรณ์ (ไม่มี simulator/emulator) — โดยเฉพาะ swipe
+gesture ในแนวนอนของ carousel ไม่ชนกับ vertical scroll ของ feed เอง (ClampingScrollPhysics
+ควรป้องกันได้ตามทฤษฎี แต่ยังไม่ยืนยันบนอุปกรณ์จริง)
+
+Handoff: ส่งต่อ AI QA & Security — (1) ยืนยัน migration `image_count` ปลอดภัยกับ query plan เดิม
+ของ `home_feed` (ranking algorithm ที่พึ่งพา view เดียวกัน) (2) ยืนยัน gesture จริงบนอุปกรณ์/
+เบราว์เซอร์ (3) รัน `supabase/tests/wyn_092_home_feed_image_count_test.sh`

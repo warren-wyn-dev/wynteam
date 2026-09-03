@@ -66,3 +66,27 @@ Handoff ถึง AI Coding (รายละเอียดเต็มดู de
 Design Rules ที่ต้องยึด: ห้ามเพิ่ม border/shadow ให้การ์ดข้อความล้วน, ห้ามเปลี่ยนโครงสร้าง header
 2 บรรทัดของ `HomeDropCard` (WYN-023 convention), สีทุกจุดต้องมาจาก `WynColors` เท่านั้น
 (ตรวจแล้วถูกต้อง), ข้อความ pill เป็น literal คงที่เท่านั้น ห้ามใส่ placeholder ตัวเลขกลับมา
+
+---
+
+## Coding Output (2026-09-02)
+
+Root cause: ไม่ใช่บั๊ก — ตรงตามสโคปที่ Design ยืนยันแล้วว่า `HomeDropCard` ไม่ต้องแก้ เหลือแค่
+`NewPostsPill`
+
+การเปลี่ยนแปลง:
+1. **`app/lib/features/home/presentation/widgets/new_posts_pill.dart`**: ข้อความที่แสดงผลจาก
+   `'มีโพสต์ใหม่ $count โพสต์'` → literal คงที่ `'มีโพสต์ใหม่'` — `Semantics.label` ยังคงมี
+   `$count` เหมือนเดิมสำหรับ screen reader, พารามิเตอร์ `count`/`onTap` ไม่ถูกลบออกจาก
+   constructor (ยังใช้ควบคุมว่า pill แสดงหรือไม่)
+2. `HomeDropCard` ไม่ถูกแตะเลยตามที่ Design ยืนยัน
+
+Files Changed:
+- `app/lib/features/home/presentation/widgets/new_posts_pill.dart`
+- `app/test/new_posts_pill_test.dart` — อัปเดตเทสที่ assert ข้อความเดิม
+- `app/test/home_feed_screen_test.dart` — อัปเดตจุดที่อ้างอิงข้อความ pill เดิม
+
+Tests: `flutter analyze` สะอาด, `flutter test` ผ่านครบ (ยกเว้น WYN-081's regression test ที่ยัง
+red อยู่ในสาขานี้ ณ ตอนโค้ด — เป็นเรื่องคนละงาน กำลังถูกแก้แยกโดย AI Debug Engineer อยู่แล้ว)
+
+Handoff: ส่งต่อ AI QA & Security

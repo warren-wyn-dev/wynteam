@@ -1005,6 +1005,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
               return HomeDropCard(
                 key: itemKey,
                 item: item,
+                dropRepository: widget.dropRepository,
                 onTap: () => _openDrop(item),
                 onToggleLike: () => _toggleLike(index),
                 onToggleSave: () => _toggleSave(index),
