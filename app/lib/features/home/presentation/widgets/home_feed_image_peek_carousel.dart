@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/widgets/double_tap_like.dart';
+import '../../../../core/widgets/post_media.dart';
 import '../../../drop/data/drop_repository.dart';
 import '../../data/home_feed_item.dart';
 
@@ -58,17 +59,37 @@ class HomeFeedImagePeekCarousel extends StatefulWidget {
 
 class _HomeFeedImagePeekCarouselState
     extends State<HomeFeedImagePeekCarousel> {
-  // Null until the fetch below resolves, or forever if it fails (see
-  // _load's catch clause) -- in either case the build method falls
-  // back to showing just the first image ([HomeFeedItem.imageUrl]),
-  // same "show what we already have while more loads" posture as
-  // DropImageGallery's identical field.
+  // Null until the images are known -- which, since Beta3, is almost
+  // always immediately: HomeRepository batch-loads every multi-image
+  // Drop of a page in one query and hands the list down on the item
+  // itself, so this widget usually builds its carousel on the very
+  // first frame with no request of its own. [_load] is the fallback
+  // for the paths that don't carry the list (Profile's tabs and the
+  // hashtag feed build their cards from a plain Drop), and for a
+  // batch that failed. In every "not known yet" case the build method
+  // shows just the first image ([HomeFeedItem.imageUrl]) rather than a
+  // spinner, same "show what we already have while more loads" posture
+  // as DropImageGallery's identical field.
   List<String>? _imageUrls;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _imageUrls = widget.item.imageUrls;
+    if (_imageUrls == null) _load();
+  }
+
+  @override
+  void didUpdateWidget(HomeFeedImagePeekCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A row refreshed in place (a Like from this card, a single-row
+    // resync after Detail) rebuilds this widget with a new item that
+    // carries its own freshly batch-loaded list -- take it rather than
+    // holding the one captured at mount, which may now be stale.
+    final incoming = widget.item.imageUrls;
+    if (incoming != null && incoming != _imageUrls) {
+      _imageUrls = incoming;
+    }
   }
 
   Future<void> _load() async {
@@ -85,35 +106,18 @@ class _HomeFeedImagePeekCarouselState
     }
   }
 
-  /// The exact "dynamic aspect ratio, clamped max height" treatment
-  /// HomeDropCard's own single-image path uses -- shown while
+  /// The shared [PostImageFrame] treatment HomeDropCard's own
+  /// single-image path uses -- shown while
   /// [_imageUrls] hasn't resolved yet (no loading spinner, "show what
   /// we already have") and as the silent fallback if the fetch fails
   /// outright or somehow comes back with 1 or 0 images.
   Widget _singleImageFallback(BuildContext context) {
     final url = widget.item.imageUrl;
     if (url == null) return const SizedBox.shrink();
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: 0.75 * MediaQuery.of(context).size.height,
-      ),
-      child: AspectRatio(
-        aspectRatio: _fallbackAspectRatio(widget.item),
-        child: Image.network(
-          url,
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, progress) {
-            if (progress == null) return child;
-            return Container(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            );
-          },
-          errorBuilder: (context, error, stackTrace) => Container(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: const Icon(Icons.broken_image_outlined),
-          ),
-        ),
-      ),
+    return PostImageFrame(
+      imageUrl: url,
+      imageWidth: widget.item.imageWidth,
+      imageHeight: widget.item.imageHeight,
     );
   }
 
@@ -147,25 +151,7 @@ class _HomeFeedImagePeekCarouselState
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image.network(
-                            imageUrls[index],
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, progress) {
-                              if (progress == null) return child;
-                              return Container(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHighest,
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) =>
-                                Container(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .surfaceContainerHighest,
-                              child: const Icon(Icons.broken_image_outlined),
-                            ),
-                          ),
+                          PostImage(imageUrl: imageUrls[index]),
                           // WYN-092: shown on the first card only, same
                           // "small icon in the corner, no count" the
                           // Founder's reference image shows -- unlike
@@ -249,17 +235,3 @@ class _PeekMultiImageBadge extends StatelessWidget {
 // (f91d7b63-image.jpg, Beta2 Phase 2 PDF item 14).
 const double _peekWidthFraction = 0.82;
 const double _peekAspectRatio = 4 / 5;
-
-/// Same fallback aspect ratio logic as HomeDropCard's private
-/// `_feedImageAspectRatio` (WYN-093) -- duplicated rather than shared
-/// because that function is file-private to home_drop_card.dart and
-/// this loading/error fallback is a small enough sliver of logic that
-/// exporting it just for this one reuse isn't worth the extra public
-/// surface. Falls back to the old fixed 1:1 square when
-/// [HomeFeedItem.imageWidth]/[imageHeight] aren't known.
-double _fallbackAspectRatio(HomeFeedItem item) {
-  final width = item.imageWidth;
-  final height = item.imageHeight;
-  if (width == null || height == null || height <= 0) return 1;
-  return (width / height).clamp(0.8, 1.91);
-}

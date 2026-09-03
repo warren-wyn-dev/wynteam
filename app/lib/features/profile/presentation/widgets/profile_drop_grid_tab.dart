@@ -247,7 +247,45 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
         ),
       ),
     );
-    _loadInitial();
+    await _refreshRow(drop.id);
+  }
+
+  /// Brings one row back in sync after Detail, which can change its
+  /// like/save/ReDrop state and its comment count, or delete the post
+  /// outright.
+  ///
+  /// This used to be `_loadInitial()`, which flipped [_isLoadingInitial]
+  /// back to true: the whole tab was replaced by a spinner, the
+  /// ListView (and with it the scroll position) was torn down, every
+  /// page paged in so far was thrown away, and the reader was returned
+  /// to the top of a rebuilt list. Open the 30th post on someone's
+  /// profile, come back, and the post you just read was somewhere far
+  /// below. Home already refreshed just the one row it was showing
+  /// (HomeRepository.fetchItemById's own doc comment says why); this is
+  /// the same fix for Profile's tabs, using DropRepository.fetchById.
+  ///
+  /// A row that is gone server-side (deleted from Detail) is removed
+  /// here too. A failed refresh leaves the row exactly as it was: a
+  /// stale count is a far smaller problem than a list that empties
+  /// itself because one request timed out.
+  Future<void> _refreshRow(String dropId) async {
+    final Drop? fresh;
+    try {
+      fresh = await widget.dropRepository.fetchById(dropId);
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+
+    final index = _drops.indexWhere((d) => d.id == dropId);
+    if (index < 0) return;
+    setState(() {
+      if (fresh == null) {
+        _drops.removeAt(index);
+      } else {
+        _drops[index] = fresh;
+      }
+    });
   }
 
   @override

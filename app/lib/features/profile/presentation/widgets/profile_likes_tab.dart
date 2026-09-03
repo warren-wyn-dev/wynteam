@@ -262,7 +262,35 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
         ),
       ),
     );
-    _loadInitial();
+    await _refreshRow(drop.id);
+  }
+
+  /// Brings one row back in sync after Detail instead of rebuilding the
+  /// whole tab -- see ProfileDropGridTab._refreshRow's doc comment for
+  /// the full reasoning (this tab had the identical `_loadInitial()`
+  /// call, and lost scroll position the same way).
+  ///
+  /// One extra rule here that the Posts tab doesn't need: this is the
+  /// *Likes* tab, so a post the viewer unliked while in Detail no
+  /// longer belongs in it and is removed, exactly as a deleted post is.
+  Future<void> _refreshRow(String dropId) async {
+    final Drop? fresh;
+    try {
+      fresh = await widget.dropRepository.fetchById(dropId);
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+
+    final index = _drops.indexWhere((d) => d.id == dropId);
+    if (index < 0) return;
+    setState(() {
+      if (fresh == null || !fresh.likedByMe) {
+        _drops.removeAt(index);
+      } else {
+        _drops[index] = fresh;
+      }
+    });
   }
 
   @override

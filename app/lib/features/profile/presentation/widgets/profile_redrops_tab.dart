@@ -281,7 +281,41 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
         ),
       ),
     );
-    _loadInitial();
+    await _refreshRow(item);
+  }
+
+  /// Brings one row back in sync after Detail instead of rebuilding the
+  /// whole tab -- see ProfileDropGridTab._refreshRow's doc comment for
+  /// the full reasoning (this tab had the identical `_loadInitial()`
+  /// call, and lost scroll position the same way).
+  ///
+  /// Located by the same composite `id:redropId` key the feed uses,
+  /// not by `id` alone: one Drop can appear in this list more than once
+  /// when the profile owner ReDropped it and it is also their own post.
+  Future<void> _refreshRow(HomeFeedItem item) async {
+    final HomeFeedItem? fresh;
+    try {
+      fresh = await widget.homeRepository.fetchItemById(
+        id: item.id,
+        redropId: item.redropId,
+      );
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+
+    String keyFor(HomeFeedItem candidate) =>
+        '${candidate.id}:${candidate.redropId ?? ''}';
+    final key = keyFor(item);
+    final index = _items.indexWhere((candidate) => keyFor(candidate) == key);
+    if (index < 0) return;
+    setState(() {
+      if (fresh == null) {
+        _items.removeAt(index);
+      } else {
+        _items[index] = fresh;
+      }
+    });
   }
 
   @override

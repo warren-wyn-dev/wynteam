@@ -298,7 +298,41 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
         ),
       ),
     );
-    _load();
+    await _refreshDrop(drop.id);
+  }
+
+  /// Brings one Drop back in sync after Detail instead of re-running
+  /// the whole hashtag search.
+  ///
+  /// This used to be `_load()`, which flips [_isLoading] back to true:
+  /// the entire list was replaced by a spinner, the scroll position was
+  /// gone, and both the Drop and Club-post searches ran again -- two
+  /// ILIKE queries and a role lookup -- to redraw a list that had not
+  /// changed except for the one row the reader had just been looking
+  /// at. Same fix as Home's own single-row refresh (see
+  /// HomeRepository.fetchItemById), applied to the one row that can
+  /// actually have changed.
+  ///
+  /// A Drop that is gone server-side (deleted from Detail) drops out of
+  /// the list here too; a failed refresh leaves the row as it was.
+  Future<void> _refreshDrop(String dropId) async {
+    final Drop? fresh;
+    try {
+      fresh = await widget.dropRepository.fetchById(dropId);
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+
+    final index = _drops.indexWhere((d) => d.id == dropId);
+    if (index < 0) return;
+    setState(() {
+      if (fresh == null) {
+        _drops.removeAt(index);
+      } else {
+        _drops[index] = fresh;
+      }
+    });
   }
 
   void _openProfile(String userId) {

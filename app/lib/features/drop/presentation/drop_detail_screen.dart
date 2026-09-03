@@ -653,29 +653,67 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
 
     return Scaffold(
       backgroundColor: WynColors.paper,
-      appBar: AppBar(
-        backgroundColor: WynColors.paper,
-        centerTitle: false,
-        leading: IconButton(
-          icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          'โพสต์',
-          style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
-        ),
-        titleSpacing: 0,
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: WynColors.hairline),
-        ),
-      ),
+      // Beta3: the title bar is a *sliver* inside the post's own scroll
+      // view now (see [_buildAppBarSliver]), not a Scaffold `appBar:`
+      // pinned above it -- Founder: the post "เห็นแค่ประมาณครึ่งเดียว...
+      // ไม่สามารถเลื่อนขึ้นไปใช้พื้นที่ได้เต็มที่". A permanently fixed
+      // 57px strip is exactly that: viewport this screen never gets
+      // back, on the one screen whose entire job is showing one post as
+      // large as it will go. The composer below stays fixed, because a
+      // text field you have to scroll to reach is a worse trade.
       body: Column(
         children: [
           Expanded(child: _buildBody(currentUserId)),
           _buildCommentInput(),
         ],
       ),
+    );
+  }
+
+  /// The screen's title bar, as the first sliver of the post's own
+  /// scroll view: it scrolls away with the post's author row on the way
+  /// down and comes straight back on the first upward flick
+  /// (`floating` + `snap`), so the back affordance is never more than
+  /// one gesture away while the reader gets the full viewport for
+  /// reading.
+  Widget _buildAppBarSliver() {
+    return SliverAppBar(
+      backgroundColor: WynColors.paper,
+      surfaceTintColor: WynColors.paper,
+      floating: true,
+      snap: true,
+      centerTitle: false,
+      leading: IconButton(
+        icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      title: Text(
+        'โพสต์',
+        style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
+      ),
+      titleSpacing: 0,
+      bottom: const PreferredSize(
+        preferredSize: Size.fromHeight(1),
+        child: Divider(height: 1, color: WynColors.hairline),
+      ),
+    );
+  }
+
+  /// Every part of this screen -- title bar, author row, caption,
+  /// media, stat line, action bar, comments -- in one scroll view, so
+  /// they move together as one continuous page rather than as a fixed
+  /// frame around a scrolling middle.
+  ///
+  /// [SliverChildListDelegate] rather than a builder because these
+  /// children are already built eagerly by the callers below (exactly
+  /// as `ListView(children: ...)`, which this replaces, always did) --
+  /// this is a change of scroll *structure*, not of what gets built.
+  Widget _buildScrollView(List<Widget> children) {
+    return CustomScrollView(
+      slivers: [
+        _buildAppBarSliver(),
+        SliverList(delegate: SliverChildListDelegate(children)),
+      ],
     );
   }
 
@@ -859,8 +897,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     );
 
     if (_commentsErrored) {
-      return ListView(
-        children: [
+      return _buildScrollView(
+        [
           header,
           Padding(
             padding: const EdgeInsets.all(WynSpacing.space6),
@@ -884,8 +922,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
 
     final comments = _comments;
     if (comments == null) {
-      return ListView(
-        children: [
+      return _buildScrollView(
+        [
           header,
           const Padding(
             padding: EdgeInsets.all(WynSpacing.space6),
@@ -895,9 +933,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       );
     }
 
-    return ListView(
-      padding: const EdgeInsets.only(bottom: WynSpacing.space4),
-      children: [
+    return _buildScrollView(
+      [
         header,
         if (comments.isEmpty)
           const Padding(
@@ -951,6 +988,9 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
               ),
             ),
         ],
+        // Replaces the bottom padding the ListView this replaced
+        // carried, so the last comment still clears the composer.
+        const SizedBox(height: WynSpacing.space4),
       ],
     );
   }
