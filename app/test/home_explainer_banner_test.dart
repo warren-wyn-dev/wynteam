@@ -45,4 +45,21 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool('home_explainer_banner_dismissed'), isTrue);
   });
+
+  testWidgets(
+      'WYN-106: the dismiss X meets the 44px touch target minimum '
+      '(WCAG 2.5.5), not the ~19x19px box it used to be squeezed into',
+      (tester) async {
+    await tester.pumpWidget(_wrap(const HomeExplainerBanner()));
+    await tester.pumpAndSettle();
+
+    final closeButtonSize = tester.getSize(
+      find.ancestor(
+        of: find.byIcon(Icons.close),
+        matching: find.byType(ConstrainedBox),
+      ).first,
+    );
+    expect(closeButtonSize.width, greaterThanOrEqualTo(44));
+    expect(closeButtonSize.height, greaterThanOrEqualTo(44));
+  });
 }
