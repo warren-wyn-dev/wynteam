@@ -26,7 +26,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "verify = look only · create = install/replace (enables webhooks first if needed) · remove = drop · enable = turn on webhooks only"
+        description: "verify = look only · create = install/replace · test = fire one harmless request · remove = drop · enable = turn on webhooks only"
         required: true
         default: verify
         type: choice
@@ -35,6 +35,7 @@ on:
           - create
           - remove
           - enable
+          - test
 
 jobs:
   webhook:
@@ -73,6 +74,17 @@ jobs:
       - name: Run
         run: |
           set -euo pipefail
+          # A secret pasted into the GitHub UI keeps whatever trailing
+          # newline came with the copy. The first create wrote a URL with
+          # a literal \n inside it -- a webhook that could never fire, and
+          # one that reads as correct everywhere except the trigger
+          # definition. deploy-edge-functions.yml already learned this
+          # about the access token; the lesson just was not carried over.
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_PUBLISHABLE_KEY=$(clean "$SUPABASE_PUBLISHABLE_KEY")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+
           API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
           ENABLE_API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/webhooks/enable"
 
@@ -188,6 +200,29 @@ jobs:
 
             verify)
               show
+              ;;
+
+            test)
+              # Sends the payload the function ignores by design
+              # (type=UPDATE), so this proves the whole path -- pg_net,
+              # the URL, the auth header, the function answering -- while
+              # writing nothing and pushing nothing to anybody.
+              FN_URL="$SUPABASE_URL/functions/v1/send-push-notification"
+              HEADERS=$(jq -nc --arg auth "Bearer $SUPABASE_PUBLISHABLE_KEY" \
+                        '{"Content-type":"application/json", "Authorization":$auth}')
+              req=$(run_sql "select net.http_post(
+                               url := $(sqlq "$FN_URL"),
+                               headers := $(sqlq "$HEADERS")::jsonb,
+                               body := '{\"type\":\"UPDATE\",\"table\":\"notifications\",\"record\":{},\"schema\":\"public\"}'::jsonb
+                             ) as request_id;" | jq -r '.[0].request_id')
+              echo "pg_net request id: $req"
+              # pg_net's background worker polls, so the reply is not
+              # there the instant the statement returns.
+              run_sql "select pg_sleep(5);" >/dev/null
+              echo "--- what came back ---"
+              run_sql "select status_code, content, error_msg
+                       from net._http_response where id = $req;" | jq .
+              echo "Expect status_code 200 and content \"Ignored\"."
               ;;
 
             remove)
