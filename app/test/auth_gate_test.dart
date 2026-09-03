@@ -323,4 +323,60 @@ void main() {
     expect(find.byKey(const Key('fake_root_shell')), findsOneWidget);
     expect(find.byType(RootShell), findsNothing);
   });
+
+  // Bug fix (2026-09-03 Beta2 review): this gate used to render only
+  // `if (!snapshot.hasData) return _LoadingScreen()`, with no hasError
+  // branch at all -- unlike the moderation-status and document-acceptance
+  // gates above, which both fail open explicitly. A single transient
+  // failure of fetchOnboardingState() therefore parked every signed-in
+  // user on a spinner with nothing left in the tree to trigger a rebuild:
+  // a permanent dead end for the whole app, not a slow load. Neither
+  // fail-open nor fail-closed is safe here (see the branch's own comment
+  // in auth_gate.dart), so it fails visibly with a retry instead.
+  testWidgets(
+      'a load error reading onboarding state shows a retry state instead of '
+      'an indefinite spinner, and the retry really re-queries',
+      (tester) async {
+    final authRepository = RecordingAuthRepository(
+      initialSession: _fakeSession('onboarding-check-error-user'),
+    )..onboardingStateError = Exception('network error');
+    final moderationRepository = RecordingModerationRepository(
+      myStatus: const ModerationStatus(
+        isRestricted: false,
+        isSuspended: false,
+        isBanned: false,
+      ),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: AuthGate(
+        authRepository: authRepository,
+        moderationRepository: moderationRepository,
+        platformDocumentRepository: platformDocumentRepository,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), findsOneWidget);
+    expect(find.text('ลองใหม่'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byType(OnboardingFlow), findsNothing);
+    expect(find.byType(WelcomeScreen), findsNothing);
+
+    // The recovery half: `future:` is re-created on every build, so the
+    // retry's bare setState is a genuine re-query, not a no-op rebuild
+    // of an already-failed Future. Lands on OnboardingFlow (rather than
+    // RootShell) deliberately -- the completed: true path would reach
+    // captureCurrentAccount and its real platform Keychain channel,
+    // which is not what this test is about.
+    authRepository
+      ..onboardingStateError = null
+      ..onboardingStateResult = OnboardingState.notStarted();
+
+    await tester.tap(find.text('ลองใหม่'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), findsNothing);
+    expect(find.byType(OnboardingFlow), findsOneWidget);
+  });
 }

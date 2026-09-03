@@ -50,6 +50,12 @@ class RecordingAuthRepository extends AuthRepository {
     completed: true,
   );
 
+  /// Thrown by [fetchOnboardingState] when set, instead of returning
+  /// [onboardingStateResult] -- used to prove AuthGate shows a retry
+  /// state on a load error rather than an indefinite spinner. Mirrors
+  /// RecordingPlatformDocumentRepository.hasAcceptedError exactly.
+  Object? onboardingStateError;
+
   int signOutCalls = 0;
 
   @override
@@ -79,8 +85,11 @@ class RecordingAuthRepository extends AuthRepository {
   }
 
   @override
-  Future<OnboardingState> fetchOnboardingState(User user) async =>
-      onboardingStateResult;
+  Future<OnboardingState> fetchOnboardingState(User user) async {
+    final error = onboardingStateError;
+    if (error != null) throw error;
+    return onboardingStateResult;
+  }
 
   // --- OnboardingFlow step methods -----------------------------------
   // Each records what it was called with (for assertions) and can be
