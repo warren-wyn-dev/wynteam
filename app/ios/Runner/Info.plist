@@ -30,6 +30,8 @@
 	<string>WYN ต้องเข้าถึงคลังภาพเพื่อให้คุณเลือกรูปโปรไฟล์</string>
 	<key>NSCameraUsageDescription</key>
 	<string>WYN ต้องเข้าถึงกล้องเพื่อให้คุณถ่ายรูปโปรไฟล์ใหม่</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>WYN ต้องเข้าถึงตำแหน่งของคุณเพื่อแนะนำสถานที่เช็คอินตอนโพสต์</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

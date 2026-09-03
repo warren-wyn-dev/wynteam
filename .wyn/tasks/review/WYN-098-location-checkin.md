@@ -41,3 +41,49 @@ Handoff: ส่งต่อ AI Design ก่อน AI Coding (ฟีเจอร
 **ยังบล็อกด้วย Founder/DevOps action**: ต้องมี LocationIQ API key จริงก่อนทดสอบ end-to-end ได้ (ไม่ block การเริ่ม Coding — implement ด้วย mock/placeholder response ระหว่างรอ ตามที่ Product spec แนะนำ)
 
 Handoff: ส่งต่อ AI Coding (`/code`)
+
+## Coding Output (2026-09-02)
+
+Root cause: ไม่ใช่บั๊ก — ฟีเจอร์ใหม่ทั้งหมดตรงตามสโคปที่ Design ยืนยันไว้ implement ด้วย LocationIQ จริง (ไม่ใช่ mock) แต่ยังไม่ได้ทดสอบ end-to-end จริงเพราะยังไม่มี `LOCATIONIQ_API_KEY` (บล็อกด้วย Founder/DevOps action ตามที่ backlog เดิมระบุไว้แล้ว)
+
+การเปลี่ยนแปลง (Backend):
+1. `supabase/schema.sql`: คอลัมน์ใหม่ `drops.location_lat`/`location_lon`/`location_place_id` (reuse `drops.location` เดิมตั้งแต่ WYN-019 เป็นชื่อสถานที่) + constraint คู่ (lat/lon null พร้อมกันเท่านั้น, place_id ต้องมี location คู่กัน) + ตาราง `location_search_requests` ใหม่ (RLS เปิดแต่ไม่มี policy ให้ client เลย — service-role only) สำหรับ rate-limit + `create_poll_drop()` เพิ่ม 4 param location ใหม่ (default null, ไม่กระทบ call เดิม) + `home_feed` view เพิ่ม `location` ต่อท้าย (append เต็มรูปแบบทั้ง 3 branch ตาม convention เดิม)
+2. **`supabase/functions/location-search/`** (Edge Function ใหม่ตัวที่ 2 ของโปรเจกต์ ต่อจาก `send-push-notification`): `_lib.ts` (pure logic: parse LocationIQ response, build request URL, rate-limit check, decode JWT — ตรวจสอบด้วย `deno test` จริง 13 เทสผ่านหมด + `deno check` ผ่าน) + `index.ts` (thin orchestrator: verify auth จาก JWT ที่ platform verify_jwt เช็คให้แล้ว, เช็ค rate limit จาก `location_search_requests` ก่อนเรียก LocationIQ เสมอ, timeout 7 วินาที, fail gracefully) — API key (`LOCATIONIQ_API_KEY`) อยู่ฝั่ง server เท่านั้น ไม่เคยส่งให้ client เห็น ตามที่ Product spec เน้นย้ำ (ความเสี่ยงร้ายแรงถ้าหลุด)
+
+Frontend:
+- `Drop.location`/`HomeFeedItem.location` field ใหม่ (reuse คอลัมน์ `location` เดิม)
+- `LocationResult` model + `LocationRepository` ใหม่ (เรียก Edge Function ผ่าน `supabase.functions.invoke`, แยก `LocationSearchRateLimitedException`/`LocationSearchFailedException`)
+- `LocationPickerScreen` ใหม่ (full-screen push แทน bottom sheet — Design spec อนุญาตให้ AI Coding ตัดสินใจได้ เลือก full-screen เพราะ keyboard handling ง่ายกว่า เหมือน `FollowListScreen`/`ExcludeFriendsScreen`): ค้นหาแบบ debounce 450ms + race-condition guard, ปุ่ม "ใช้ตำแหน่งปัจจุบันของฉัน" ผ่าน `package:geolocator` ใหม่ (เพิ่ม dependency + permission declaration ใน `AndroidManifest.xml`/`Info.plist`)
+- `CreateDropScreen`: ปุ่มปักหมุด toolbar เปลี่ยนจาก `_showComingSoon` เป็น `_showLocationPicker`, เพิ่ม `_LocationChip` (มิเรอร์ทรง `_AudienceChip`) แสดง/ลบสถานที่ที่เลือก
+- `DropRepository`: `createDrop`/`createTextDrop`/`createDropFromExistingImage`/`createPollDrop` ทุกตัวรับ `location` param ใหม่ เขียนลง `drops.location`/`location_lat`/`location_lon`/`location_place_id`
+- `HomeDropCard`/`DropDetailScreen`: ต่อท้าย " · 📍 {location}" ในบรรทัดเวลา (ไม่สร้างแถวใหม่) เมื่อมี location เท่านั้น ไม่ tappable ตาม Product spec
+
+Files Changed:
+- `supabase/schema.sql` (migration ต่อท้าย)
+- `supabase/functions/location-search/_lib.ts`, `index.ts`, `_lib.test.ts` (ใหม่ทั้ง 3)
+- `app/pubspec.yaml`/`pubspec.lock` (เพิ่ม `geolocator: ^13.0.2`)
+- `app/android/app/src/main/AndroidManifest.xml`, `app/ios/Runner/Info.plist` (location permission declarations)
+- `app/lib/features/drop/data/drop.dart`, `drop_repository.dart`, `location_result.dart` (ใหม่), `location_repository.dart` (ใหม่)
+- `app/lib/features/drop/presentation/create_drop_screen.dart`, `location_picker_screen.dart` (ใหม่)
+- `app/lib/features/home/data/home_feed_item.dart`
+- `app/lib/features/home/presentation/widgets/home_drop_card.dart`
+- `app/lib/features/drop/presentation/drop_detail_screen.dart`
+- Tests: `app/test/drop_test.dart`, `home_feed_item_test.dart`, `create_drop_screen_test.dart`, `home_feed_screen_test.dart`, `drop_detail_screen_test.dart`, `location_result_test.dart` (ใหม่), `location_picker_screen_test.dart` (ใหม่) + fake `support/recording_drop_repository.dart`/`recording_location_repository.dart` (ใหม่) อัปเดต
+
+Reason: Wynos V1.0.0 Beta2.pdf ข้อ 3/28 — Founder: "ปุ่มวงสีแดง คือจุดเช็คอินสถานที่ยังใช้งานไม่ได้" + Founder เลือก LocationIQ เป็น provider แล้ว (DECISIONS.md 2026-09-02)
+
+Tests:
+- `flutter analyze`: สะอาด (No issues found!)
+- `flutter test`: 981/981 ผ่านหมด (รวมกับ WYN-097/099 ในรอบนี้)
+- `deno test` (location-search): 13/13 ผ่านหมด, `deno check`: สะอาด
+
+Build: ไม่ได้รัน `flutter build`/deploy Edge Function จริง (ไม่มี Android SDK/Supabase CLI access ใน session นี้)
+
+Known Issues:
+- **บล็อกด้วย Founder/DevOps action ตามที่ backlog เดิมระบุไว้แล้ว**: ยังไม่มี `LOCATIONIQ_API_KEY` จริง ทดสอบ end-to-end (ค้นหาสถานที่จริง, reverse geocoding จริง) ไม่ได้จนกว่าจะมี — โค้ดพร้อมใช้งานจริงทันทีที่มี key (fail gracefully ระหว่างรอ ไม่ block การโพสต์)
+- ยังไม่ได้ apply migration จริงกับ production + ยังไม่ได้ deploy Edge Function จริง
+- Geolocator permission flow (ขอสิทธิ์ GPS จริงบนอุปกรณ์) ยังไม่ได้ทดสอบบนอุปกรณ์จริง (ไม่มี simulator/emulator ใน sandbox) — ทดสอบผ่าน `@visibleForTesting debugResolveCurrentPosition` seam แทน (เหมือน pattern อื่นๆ ที่บันทึกไว้ใน DECISIONS.md)
+- Rate-limit เพดาน (20 req/นาที) เป็นตัวเลขเริ่มต้นจาก AI Product Manager ยังไม่ได้ยืนยันกับหน้า pricing จริงของ LocationIQ ตามที่ Product spec เตือนไว้แล้ว
+- Android `minSdkVersion` ใช้ค่า default ของ Flutter (`flutter.minSdkVersion`) ไม่ได้ระบุขั้นต่ำเองแยก — ควรเพียงพอสำหรับ `geolocator_android` แต่ยังไม่ได้ build APK จริงเพื่อยืนยัน
+
+Handoff: ส่งต่อ AI QA & Security — (1) ทดสอบ end-to-end จริงทันทีที่ Founder/DevOps ให้ `LOCATIONIQ_API_KEY` มา (ค้นหา, reverse geocoding, rate-limit จริงที่เกิน 20 req/นาที) (2) ยืนยัน API key ไม่หลุดออกมาที่ client build ใดๆ (ตรวจ build artifact ตรงตาม Acceptance Criterion) (3) ทดสอบสิทธิ์ GPS จริงบนอุปกรณ์ (ปฏิเสธสิทธิ์ต้องไม่ทำให้แอป crash) (4) ยืนยัน migration/Edge Function deploy กับ production ตามวินัย WYN-071/072/083 (5) Regression เต็มรูปแบบตามที่ backlog เดิมระบุ

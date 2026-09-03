@@ -312,7 +312,19 @@ class HomeDropCard extends StatelessWidget {
                                     ],
                                   ),
                                   Text(
-                                    relativeTimeLabel(item.createdAt, now: DateTime.now()),
+                                    // WYN-098, Design spec Screen 4:
+                                    // appended to the same line (not a
+                                    // 3rd row) when this Drop has a
+                                    // check-in -- plain text, no Icon
+                                    // widget (matches Product spec's
+                                    // literal "📍 {ชื่อสถานที่}" copy),
+                                    // and deliberately not wrapped in
+                                    // any tap handler (not tappable,
+                                    // per that spec's Out of Scope).
+                                    item.location != null
+                                        ? '${relativeTimeLabel(item.createdAt, now: DateTime.now())} · 📍 ${item.location}'
+                                        : relativeTimeLabel(item.createdAt, now: DateTime.now()),
+                                    overflow: TextOverflow.ellipsis,
                                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                           color: Theme.of(context).colorScheme.outline,
                                         ),

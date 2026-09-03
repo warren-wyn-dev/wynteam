@@ -554,4 +554,56 @@ void main() {
       expect(drop.toggledLike().audience, AudienceOption.closeFriends);
     });
   });
+
+  group('location (WYN-098)', () {
+    test('Drop.fromMap parses the existing `location` column, defaulting '
+        'to null when absent (the ordinary case for most Drops)', () {
+      final withLocation = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+        'location': 'สยามพารากอน',
+      }, likedByMe: false, savedByMe: false);
+      expect(withLocation.location, 'สยามพารากอน');
+
+      expect(_drop().location, isNull);
+    });
+
+    test('copyWith/toggledLike preserve location (not overridable)', () {
+      final drop = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+        'location': 'วัดพระแก้ว',
+      }, likedByMe: false, savedByMe: false);
+
+      expect(drop.toggledLike().location, 'วัดพระแก้ว');
+    });
+
+    test('withEditedCaption preserves location', () {
+      final drop = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': 'hello',
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+        'location': 'วัดพระแก้ว',
+      }, likedByMe: false, savedByMe: false);
+
+      expect(drop.withEditedCaption('new').location, 'วัดพระแก้ว');
+    });
+  });
 }

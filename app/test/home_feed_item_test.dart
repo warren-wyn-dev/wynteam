@@ -651,4 +651,63 @@ void main() {
       expect(item.toDrop().audience, AudienceOption.onlyMe);
     });
   });
+
+  group('location (WYN-098)', () {
+    test('HomeFeedItem.fromMap parses the location column, defaulting to '
+        'null when absent', () {
+      final withLocation = HomeFeedItem.fromMap({
+        'id': 'd1',
+        'content_type': 'drop',
+        'author_id': 'u1',
+        'author_username': 'namfah',
+        'created_at': '2026-01-01T00:00:00Z',
+        'caption': null,
+        'image_url': null,
+        'video_url': null,
+        'thumbnail_url': null,
+        'duration_seconds': null,
+        'view_count': null,
+        'like_count': 0,
+        'comment_count': 0,
+        'location': 'สยามพารากอน',
+      }, likedByMe: false, savedByMe: false);
+      expect(withLocation.location, 'สยามพารากอน');
+
+      final withoutLocation = HomeFeedItem.fromMap({
+        'id': 'd1',
+        'content_type': 'drop',
+        'author_id': 'u1',
+        'author_username': 'namfah',
+        'created_at': '2026-01-01T00:00:00Z',
+        'caption': null,
+        'image_url': null,
+        'video_url': null,
+        'thumbnail_url': null,
+        'duration_seconds': null,
+        'view_count': null,
+        'like_count': 0,
+        'comment_count': 0,
+      }, likedByMe: false, savedByMe: false);
+      expect(withoutLocation.location, isNull);
+    });
+
+    test('fromDrop/toDrop round-trip location', () {
+      final drop = Drop(
+        id: 'd1',
+        authorId: 'u1',
+        authorUsername: 'namfah',
+        imageUrl: 'https://example.supabase.co/drops/d1.jpg',
+        createdAt: DateTime(2026, 1, 1),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+        location: 'วัดพระแก้ว',
+      );
+
+      final item = HomeFeedItem.fromDrop(drop);
+      expect(item.location, 'วัดพระแก้ว');
+      expect(item.toDrop().location, 'วัดพระแก้ว');
+    });
+  });
 }

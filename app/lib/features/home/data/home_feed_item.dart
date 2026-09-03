@@ -52,6 +52,7 @@ class HomeFeedItem {
     this.imageWidth,
     this.imageHeight,
     this.audience = AudienceOption.everyone,
+    this.location,
   });
 
   final String id;
@@ -157,6 +158,11 @@ class HomeFeedItem {
   /// could already see the original, per RLS).
   final AudienceOption audience;
 
+  /// WYN-098: see [Drop.location]'s identical doc comment -- null for
+  /// every Pop-typed row (out of scope) and, for a ReDrop-sourced row,
+  /// the *original* Drop's own location.
+  final String? location;
+
   bool get isPoll => pollId != null;
 
   bool get pollResultsVisible => pollTotalVotes != null;
@@ -243,6 +249,7 @@ class HomeFeedItem {
         pollTotalVotes: pollTotalVotes ?? this.pollTotalVotes,
         pollOptionCounts: pollOptionCounts ?? this.pollOptionCounts,
         audience: audience,
+        location: location,
       );
 
   String get redropperNameOrUsername => displayNameOrUsername(
@@ -286,6 +293,7 @@ class HomeFeedItem {
         pollTotalVotes: pollTotalVotes,
         pollOptionCounts: pollOptionCounts,
         audience: audience,
+        location: location,
       );
 
   /// Converts to the full [Pop] object PopClipView expects. Only valid
@@ -343,6 +351,7 @@ class HomeFeedItem {
         pollTotalVotes: drop.pollTotalVotes,
         pollOptionCounts: drop.pollOptionCounts,
         audience: drop.audience,
+        location: drop.location,
       );
 
   /// [pollId]/[pollOptions]/[pollExpiresAt] read straight off
@@ -407,6 +416,10 @@ class HomeFeedItem {
       // "append a fresh full redefinition" of this view) -- defaults to
       // `everyone` on any fetch path/fixture that doesn't select it yet.
       audience: audienceOptionFromString(map['audience'] as String?),
+      // WYN-098: home_feed's own trailing column (same "append a fresh
+      // full redefinition" discipline as above) -- null (no location
+      // shown) on any fetch path/fixture that doesn't select it yet.
+      location: map['location'] as String?,
     );
   }
 }

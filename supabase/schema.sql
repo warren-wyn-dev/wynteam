@@ -11396,3 +11396,406 @@ where not exists (
 );
 
 grant select on public.home_feed to authenticated;
+
+-- ============================================================
+-- WYN-098: Location Check-in (LocationIQ). Wynos V1.0.0 Beta2.pdf
+-- item 3/28. See .wyn/docs/product/wyn-098-location-checkin.md for
+-- the full spec this migration implements.
+-- ============================================================
+
+-- `drops.location` (free text, display name) already exists since
+-- WYN-019 -- reused as-is per Product spec ("อนาคต" that column was
+-- prepared for has arrived). These 3 are new: metadata for referring
+-- back to the LocationIQ result and the real coordinates, kept purely
+-- server-side/non-displayed per Product spec's Privacy section (the
+-- app only ever shows `location`, the human-readable name -- never
+-- these lat/lon/place_id values directly to a user).
+alter table public.drops add column if not exists location_lat double precision;
+alter table public.drops add column if not exists location_lon double precision;
+alter table public.drops add column if not exists location_place_id text;
+
+-- lat/lon must be null together or set together (never just one) --
+-- and a place_id always implies a name is present too (no ID-only
+-- rows with nothing to display). Deliberately does NOT require the
+-- reverse (a `location` name with no lat/lon/place_id) -- Product spec
+-- leaves room for a future free-text-only entry path that never goes
+-- through LocationIQ at all.
+-- drop-then-add (not `add constraint if not exists`, which plain
+-- PostgreSQL doesn't support -- only `drop constraint if exists` is a
+-- thing) so this migration is safe to re-run.
+alter table public.drops drop constraint if exists drops_location_lat_lon_together;
+alter table public.drops
+  add constraint drops_location_lat_lon_together
+  check ((location_lat is null) = (location_lon is null));
+
+alter table public.drops drop constraint if exists drops_location_place_id_needs_name;
+alter table public.drops
+  add constraint drops_location_place_id_needs_name
+  check (location_place_id is null or location is not null);
+
+-- No RLS changes needed on `drops` itself -- location/location_lat/
+-- location_lon/location_place_id are just 3 more columns on a row
+-- already governed by drops' own SELECT policy (WYN-039/WYN-097's
+-- can_view_author_content/can_view_drop_audience) -- a Drop's
+-- check-in inherits that same audience automatically, with no
+-- separate policy to keep in sync (see Product spec's Privacy
+-- section, and its explicit "this is why reuse a column on `drops`
+-- instead of a new table" reasoning).
+
+-- Server-side-only rate-limit log for the `location-search` Edge
+-- Function (WYN-098's own LOCATIONIQ_API_KEY quota is shared across
+-- every WYN user, so a single user hammering search-as-you-type could
+-- exhaust the whole app's daily quota without this) -- one row per
+-- *actual* LocationIQ call (not every Edge Function invocation; a
+-- request rejected for being over-limit is never logged, so a sustained
+-- flood doesn't inflate the very count that would eventually let it
+-- back in). Mirrors drop_views' "count rows in a recent window before
+-- allowing another" shape (WYN-038/WYN-083), but this table serves the
+-- exact opposite direction (reject once over a cap, not just skip a
+-- duplicate). RLS enabled with **zero policies** -- deliberately
+-- inaccessible to every client role; only the Edge Function's
+-- service-role key (which bypasses RLS entirely) ever touches it. Same
+-- "audit/internal-only, no policy grants at all" posture as this
+-- schema's moderation audit tables.
+create table if not exists public.location_search_requests (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  requested_at timestamptz not null default now()
+);
+
+alter table public.location_search_requests enable row level security;
+
+create index if not exists location_search_requests_user_id_requested_at_idx
+  on public.location_search_requests (user_id, requested_at desc);
+
+-- Extends create_poll_drop (WYN-035) with the same location check-in
+-- fields image/text Drops get (via _insertDrop, DropRepository) --
+-- the location toolbar button in CreateDropScreen is already reachable
+-- in both image and poll compose modes (never gated by _mode, unlike
+-- the photo/camera buttons), so a Poll Drop needs the same 4 fields.
+-- Defaults preserve every existing call's behavior unchanged.
+create or replace function public.create_poll_drop(
+  p_caption text,
+  p_options text[],
+  p_duration_days int,
+  p_mentioned_user_ids uuid[] default '{}',
+  p_audience text default 'everyone',
+  p_excluded_friend_ids uuid[] default '{}',
+  p_location text default null,
+  p_location_lat double precision default null,
+  p_location_lon double precision default null,
+  p_location_place_id text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author uuid := auth.uid();
+  v_drop_id uuid;
+  v_options text[];
+begin
+  if v_author is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if internal.is_posting_blocked(v_author) then
+    raise exception 'Account is posting-restricted';
+  end if;
+
+  if p_caption is null or length(trim(p_caption)) = 0 then
+    raise exception 'Poll question is required';
+  end if;
+
+  -- Trimmed server-side (not just validated-as-trimmed) so a direct
+  -- RPC call bypassing the Flutter client's own .trim() can't leave
+  -- stray leading/trailing whitespace sitting in stored option text.
+  select array_agg(trim(o)) into v_options from unnest(p_options) as o;
+
+  if not public.valid_poll_options(v_options) then
+    raise exception 'Poll must have 2-4 non-empty, non-duplicate options (max 80 characters each)';
+  end if;
+
+  if p_duration_days not in (1, 3, 7) then
+    raise exception 'Poll duration must be 1, 3, or 7 days';
+  end if;
+
+  if p_audience not in ('everyone', 'friends', 'friends_except', 'close_friends', 'only_me') then
+    raise exception 'Invalid audience';
+  end if;
+
+  insert into public.drops (
+    author_id, image_url, caption, audience,
+    location, location_lat, location_lon, location_place_id
+  )
+  values (
+    v_author, null, trim(p_caption), p_audience,
+    p_location, p_location_lat, p_location_lon, p_location_place_id
+  )
+  returning id into v_drop_id;
+
+  insert into public.drop_polls (drop_id, options, expires_at)
+  values (v_drop_id, v_options, now() + make_interval(days => p_duration_days));
+
+  if p_audience = 'friends_except' then
+    insert into public.drop_audience_exclusions (drop_id, excluded_user_id)
+    select v_drop_id, u
+    from unnest(p_excluded_friend_ids) as u;
+  end if;
+
+  -- WYN-045: this RPC is SECURITY DEFINER and bypasses drop_mentions'
+  -- own RLS INSERT policy entirely -- without this same
+  -- internal.mention_allowed() check the policy below also gained,
+  -- Mention Permission would be fully bypassable via Poll Drop
+  -- creation. Same non-error posture as the block-exclusion right
+  -- next to it: the caption may still literally read "@username", it
+  -- just doesn't produce a drop_mentions row (and therefore no
+  -- notification) for a user who disallows it.
+  insert into public.drop_mentions (drop_id, mentioned_user_id)
+  select v_drop_id, m
+  from unnest(p_mentioned_user_ids) as m
+  where not internal.is_blocked_either_way(v_author, m)
+    and internal.mention_allowed(m, v_author);
+
+  return v_drop_id;
+end;
+$$;
+
+-- home_feed: append `location` (Design spec Screen 4 -- shown on
+-- HomeDropCard/DropDetailScreen, " · 📍 {location}" after the
+-- relative-time text, only when set). Same "append a fresh full
+-- redefinition" discipline as every prior task that changed this
+-- view. Pop has no location/check-in concept (out of scope), so its
+-- branch carries a literal null. The redrop branch carries the
+-- *original* Drop's own location (d.location).
+create or replace view public.home_feed
+  with (security_invoker = true) as
+select
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  prof.is_verified as author_is_verified,
+  d.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  public.drop_view_count(d.id) as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (
+    select coalesce(jsonb_agg(jsonb_build_object(
+      'id', lp.id,
+      'username', lp.username,
+      'display_name', lp.display_name,
+      'avatar_url', lp.avatar_url
+    ) order by dl.created_at desc), '[]'::jsonb)
+    from (
+      select user_id, created_at from public.drop_likes
+      where drop_id = d.id
+      order by created_at desc
+      limit 3
+    ) dl
+    join public.profiles lp on lp.id = dl.user_id
+  ) as liked_by,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count,
+  (
+    select jsonb_build_object(
+      'author_username', tr.author_username,
+      'author_display_name', tr.author_display_name,
+      'text', tr.text_content
+    )
+    from (
+      select
+        c.text_content,
+        cp.username as author_username,
+        cp.display_name as author_display_name,
+        c.created_at,
+        (select count(*) from public.drop_comment_likes dcl where dcl.comment_id = c.id) as like_count
+      from public.drop_comments c
+      join public.profiles cp on cp.id = c.author_id
+      where c.drop_id = d.id and c.parent_comment_id is null
+    ) tr
+    where tr.like_count > 0
+    order by tr.like_count desc, tr.created_at desc
+    limit 1
+  ) as top_reply,
+  (select count(*) from public.redrops where drop_id = d.id) as redrop_count,
+  null::uuid as redrop_id,
+  null::uuid as redropper_id,
+  null::text as redropper_username,
+  null::text as redropper_display_name,
+  null::text as redropper_avatar_url,
+  null::boolean as redropper_is_verified,
+  null::text as quote_text,
+  dp.id as poll_id,
+  dp.options as poll_options,
+  dp.expires_at as poll_expires_at,
+  d.image_width,
+  d.image_height,
+  d.audience,
+  d.location
+from public.drops d
+join public.profiles prof on prof.id = d.author_id
+left join public.drop_polls dp on dp.drop_id = d.id
+where not exists (
+  select 1 from public.mutes where muter_id = auth.uid() and muted_id = d.author_id
+)
+union all
+select
+  p.id,
+  'pop'::text as content_type,
+  p.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  prof.is_verified as author_is_verified,
+  p.created_at,
+  p.caption,
+  null::text as image_url,
+  p.video_url,
+  p.thumbnail_url,
+  p.duration_seconds,
+  p.view_count,
+  (select count(*) from public.pop_likes where pop_id = p.id) as like_count,
+  (
+    select coalesce(jsonb_agg(jsonb_build_object(
+      'id', lp.id,
+      'username', lp.username,
+      'display_name', lp.display_name,
+      'avatar_url', lp.avatar_url
+    ) order by pl.created_at desc), '[]'::jsonb)
+    from (
+      select user_id, created_at from public.pop_likes
+      where pop_id = p.id
+      order by created_at desc
+      limit 3
+    ) pl
+    join public.profiles lp on lp.id = pl.user_id
+  ) as liked_by,
+  (select count(*) from public.pop_comments where pop_id = p.id) as comment_count,
+  (
+    select jsonb_build_object(
+      'author_username', tr.author_username,
+      'author_display_name', tr.author_display_name,
+      'text', tr.text_content
+    )
+    from (
+      select
+        c.text_content,
+        cp.username as author_username,
+        cp.display_name as author_display_name,
+        c.created_at,
+        (select count(*) from public.pop_comment_likes dcl where dcl.comment_id = c.id) as like_count
+      from public.pop_comments c
+      join public.profiles cp on cp.id = c.author_id
+      where c.pop_id = p.id and c.parent_comment_id is null
+    ) tr
+    where tr.like_count > 0
+    order by tr.like_count desc, tr.created_at desc
+    limit 1
+  ) as top_reply,
+  null::bigint as redrop_count,
+  null::uuid as redrop_id,
+  null::uuid as redropper_id,
+  null::text as redropper_username,
+  null::text as redropper_display_name,
+  null::text as redropper_avatar_url,
+  null::boolean as redropper_is_verified,
+  null::text as quote_text,
+  null::uuid as poll_id,
+  null::text[] as poll_options,
+  null::timestamptz as poll_expires_at,
+  null::integer as image_width,
+  null::integer as image_height,
+  'everyone'::text as audience,
+  null::text as location
+from public.pops p
+join public.profiles prof on prof.id = p.author_id
+where not exists (
+  select 1 from public.mutes where muter_id = auth.uid() and muted_id = p.author_id
+)
+union all
+select
+  d.id,
+  'drop'::text as content_type,
+  d.author_id,
+  prof.username as author_username,
+  prof.display_name as author_display_name,
+  prof.avatar_url as author_avatar_url,
+  prof.is_verified as author_is_verified,
+  r.created_at,
+  d.caption,
+  d.image_url,
+  null::text as video_url,
+  null::text as thumbnail_url,
+  null::integer as duration_seconds,
+  public.drop_view_count(d.id) as view_count,
+  (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+  (
+    select coalesce(jsonb_agg(jsonb_build_object(
+      'id', lp.id,
+      'username', lp.username,
+      'display_name', lp.display_name,
+      'avatar_url', lp.avatar_url
+    ) order by dl.created_at desc), '[]'::jsonb)
+    from (
+      select user_id, created_at from public.drop_likes
+      where drop_id = d.id
+      order by created_at desc
+      limit 3
+    ) dl
+    join public.profiles lp on lp.id = dl.user_id
+  ) as liked_by,
+  (select count(*) from public.drop_comments where drop_id = d.id) as comment_count,
+  (
+    select jsonb_build_object(
+      'author_username', tr.author_username,
+      'author_display_name', tr.author_display_name,
+      'text', tr.text_content
+    )
+    from (
+      select
+        c.text_content,
+        cp.username as author_username,
+        cp.display_name as author_display_name,
+        c.created_at,
+        (select count(*) from public.drop_comment_likes dcl where dcl.comment_id = c.id) as like_count
+      from public.drop_comments c
+      join public.profiles cp on cp.id = c.author_id
+      where c.drop_id = d.id and c.parent_comment_id is null
+    ) tr
+    where tr.like_count > 0
+    order by tr.like_count desc, tr.created_at desc
+    limit 1
+  ) as top_reply,
+  (select count(*) from public.redrops where drop_id = d.id) as redrop_count,
+  r.id as redrop_id,
+  r.redropper_id,
+  redropper.username as redropper_username,
+  redropper.display_name as redropper_display_name,
+  redropper.avatar_url as redropper_avatar_url,
+  redropper.is_verified as redropper_is_verified,
+  r.quote_text,
+  dp.id as poll_id,
+  dp.options as poll_options,
+  dp.expires_at as poll_expires_at,
+  d.image_width,
+  d.image_height,
+  d.audience,
+  d.location
+from public.redrops r
+join public.drops d on d.id = r.drop_id
+join public.profiles prof on prof.id = d.author_id
+join public.profiles redropper on redropper.id = r.redropper_id
+left join public.drop_polls dp on dp.drop_id = d.id
+where not exists (
+  select 1 from public.mutes
+  where muter_id = auth.uid() and muted_id in (d.author_id, r.redropper_id)
+);
+
+grant select on public.home_feed to authenticated;

@@ -54,6 +54,7 @@ HomeFeedItem _dropItem({
   int? imageWidth,
   int? imageHeight,
   AudienceOption audience = AudienceOption.everyone,
+  String? location,
 }) =>
     HomeFeedItem(
       id: id,
@@ -78,6 +79,7 @@ HomeFeedItem _dropItem({
       // (drop_view_count() always returns a real bigint).
       viewCount: viewCount,
       audience: audience,
+      location: location,
     );
 
 HomeFeedItem _popItem({
@@ -218,6 +220,9 @@ void main() {
   // WYN-097 -- Screen 6 (hides the ReDrop button when audience !=
   // everyone).
   late RecordingHomeRepository hiddenRedropButtonTestHomeRepository;
+
+  // WYN-098 -- Screen 4 (shows the check-in location on the card).
+  late RecordingHomeRepository locationTestHomeRepository;
 
   late RecordingDropRepository deleteRedropTestDropRepository;
   late RecordingPopRepository deleteRedropTestPopRepository;
@@ -369,6 +374,10 @@ void main() {
 
     hiddenRedropButtonTestHomeRepository = RecordingHomeRepository(
       feedItems: [_dropItem(id: 'd4c', audience: AudienceOption.friends)],
+    );
+
+    locationTestHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'd4d', location: 'สยามพารากอน')],
     );
 
     toggleRedropTestDropRepository = RecordingDropRepository();
@@ -856,6 +865,21 @@ void main() {
       // conditionally hidden.
       expect(find.widgetWithIcon(ActionMetric, Icons.favorite_border),
           findsOneWidget);
+    });
+
+    // WYN-098, Design spec Screen 4.
+    testWidgets(
+        'shows "· 📍 {location}" appended to the relative-time line when '
+        'a Drop has a check-in', (tester) async {
+      await tester.pumpWidget(buildHome(
+        locationTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.textContaining('📍 สยามพารากอน'), findsOneWidget);
     });
 
     testWidgets(

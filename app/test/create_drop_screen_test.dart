@@ -6,13 +6,16 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/data/drop_draft.dart';
+import 'package:wyn/features/drop/data/location_result.dart';
 import 'package:wyn/features/drop/presentation/create_drop_screen.dart';
+import 'package:wyn/features/drop/presentation/location_picker_screen.dart';
 import 'package:wyn/features/follow/presentation/close_friends_screen.dart';
 import 'package:wyn/features/follow/presentation/exclude_friends_screen.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 
 import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
+import 'support/recording_location_repository.dart';
 import 'support/recording_profile_repository.dart';
 
 /// CreateDropScreen, restyled to `04-drop.tsx` (2026-08-29, Founder-
@@ -816,6 +819,115 @@ void main() {
 
       expect(find.byType(CloseFriendsScreen), findsNothing);
       expect(find.text('เพื่อนที่สนิท'), findsOneWidget);
+    });
+  });
+
+  // WYN-098 -- Location Check-in.
+  group('Location Check-in (WYN-098)', () {
+    late RecordingDropRepository locationTestRepo;
+    late RecordingLocationRepository locationRepo;
+
+    setUp(() {
+      locationTestRepo = RecordingDropRepository();
+      locationRepo = RecordingLocationRepository();
+    });
+
+    Widget buildScreen() => MaterialApp(
+          home: CreateDropScreen(
+            dropRepository: locationTestRepo,
+            profileRepository: profileRepo,
+            locationRepository: locationRepo,
+          ),
+        );
+
+    testWidgets('tapping the location toolbar icon opens '
+        'LocationPickerScreen', (tester) async {
+      await tester.pumpWidget(buildScreen());
+
+      await tester.tap(find.byKey(const Key('toolbar_location_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(LocationPickerScreen), findsOneWidget);
+    });
+
+    testWidgets(
+        'picking a place shows a chip on the composer and passes it to '
+        'createTextDrop on post', (tester) async {
+      locationRepo.searchResultsByQuery = {
+        'starbucks': [
+          const LocationResult(
+            name: 'Starbucks',
+            address: 'สยามพารากอน',
+            lat: 13.7466,
+            lon: 100.5347,
+            placeId: '1',
+          ),
+        ],
+      };
+
+      await tester.pumpWidget(buildScreen());
+      await tester.tap(find.byKey(const Key('toolbar_location_button')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'starbucks');
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Starbucks'));
+      await tester.pumpAndSettle();
+
+      // Back on CreateDropScreen -- the chip shows the place name.
+      expect(find.byType(CreateDropScreen), findsOneWidget);
+      expect(find.text('Starbucks'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('post_button')));
+      await tester.pumpAndSettle();
+
+      final args = locationTestRepo.createTextDropArgs.single;
+      final location = args['location'] as LocationResult?;
+      expect(location?.name, 'Starbucks');
+      expect(location?.placeId, '1');
+    });
+
+    testWidgets('tapping X on the location chip removes it', (tester) async {
+      locationRepo.searchResultsByQuery = {
+        'starbucks': [
+          const LocationResult(
+            name: 'Starbucks',
+            address: null,
+            lat: 13.7466,
+            lon: 100.5347,
+            placeId: '1',
+          ),
+        ],
+      };
+
+      await tester.pumpWidget(buildScreen());
+      await tester.tap(find.byKey(const Key('toolbar_location_button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'starbucks');
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Starbucks'));
+      await tester.pumpAndSettle();
+      expect(find.text('Starbucks'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.close).last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Starbucks'), findsNothing);
+    });
+
+    testWidgets('posting without picking a location passes a null '
+        'location', (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('post_button')));
+      await tester.pumpAndSettle();
+
+      expect(locationTestRepo.createTextDropArgs.single['location'], isNull);
     });
   });
 }

@@ -9,6 +9,7 @@ import 'drop.dart';
 import 'drop_comment.dart';
 import 'drop_draft.dart';
 import 'image_dimensions.dart';
+import 'location_result.dart';
 
 // PostgREST can't resolve a bare `profiles(...)` embed on its own when a
 // sibling embed in the same select (drop_likes/drop_comments/
@@ -609,6 +610,10 @@ class DropRepository {
     // [createDrop]/[_insertDrop]) -- a Poll Drop is still a Drop.
     AudienceOption audience = AudienceOption.everyone,
     Set<String> excludedFriendIds = const {},
+    // WYN-098: same check-in a Poll Drop can carry as an image/text
+    // one -- CreateDropScreen's location toolbar button is reachable
+    // in both compose modes.
+    LocationResult? location,
   }) {
     return _client.rpc('create_poll_drop', params: {
       'p_caption': question.trim(),
@@ -617,6 +622,10 @@ class DropRepository {
       'p_mentioned_user_ids': mentionedUserIds.toList(),
       'p_audience': audience.dbValue,
       'p_excluded_friend_ids': excludedFriendIds.toList(),
+      'p_location': location?.name,
+      'p_location_lat': location?.lat,
+      'p_location_lon': location?.lon,
+      'p_location_place_id': location?.placeId,
     });
   }
 
@@ -660,6 +669,9 @@ class DropRepository {
     // [AudienceOption.friendsExcept] (Product spec's "ซ่อนเพื่อนบางคน").
     AudienceOption audience = AudienceOption.everyone,
     Set<String> excludedFriendIds = const {},
+    // WYN-098: the place check-in chip picked from LocationPickerScreen,
+    // if any.
+    LocationResult? location,
     // WYN-094: fired after each image finishes uploading (not a
     // byte-level callback -- the Supabase storage client this app
     // uses doesn't expose one -- but real progress per image, driven
@@ -697,6 +709,7 @@ class DropRepository {
       mentionedUserIds: mentionedUserIds,
       audience: audience,
       excludedFriendIds: excludedFriendIds,
+      location: location,
     );
   }
 
@@ -713,6 +726,7 @@ class DropRepository {
     Set<String> mentionedUserIds = const {},
     AudienceOption audience = AudienceOption.everyone,
     Set<String> excludedFriendIds = const {},
+    LocationResult? location,
   }) {
     return _insertDrop(
       imageUrl: imageUrl,
@@ -720,6 +734,7 @@ class DropRepository {
       mentionedUserIds: mentionedUserIds,
       audience: audience,
       excludedFriendIds: excludedFriendIds,
+      location: location,
     );
   }
 
@@ -734,6 +749,7 @@ class DropRepository {
     Set<String> mentionedUserIds = const {},
     AudienceOption audience = AudienceOption.everyone,
     Set<String> excludedFriendIds = const {},
+    LocationResult? location,
   }) {
     if (caption.trim().isEmpty) {
       throw ArgumentError('A text-only Drop needs a non-empty caption');
@@ -744,6 +760,7 @@ class DropRepository {
       mentionedUserIds: mentionedUserIds,
       audience: audience,
       excludedFriendIds: excludedFriendIds,
+      location: location,
     );
   }
 
@@ -758,6 +775,10 @@ class DropRepository {
     // than raising, so a caller doesn't have to conditionally omit it.
     AudienceOption audience = AudienceOption.everyone,
     Set<String> excludedFriendIds = const {},
+    // WYN-098: written straight onto `drops.location`/`location_lat`/
+    // `location_lon`/`location_place_id` -- null (every field) when no
+    // place was picked, the ordinary case for most Drops.
+    LocationResult? location,
     // WYN-071: every image (including [imageUrl] itself, at position 0)
     // -- same "position 0 lives in drop_images too" convention the
     // schema.sql backfill migration establishes. Empty/omitted for the
@@ -783,6 +804,10 @@ class DropRepository {
           'image_width': primaryDimensions?.$1,
           'image_height': primaryDimensions?.$2,
           'audience': audience.dbValue,
+          'location': location?.name,
+          'location_lat': location?.lat,
+          'location_lon': location?.lon,
+          'location_place_id': location?.placeId,
         })
         .select('id')
         .single();

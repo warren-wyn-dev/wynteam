@@ -6,6 +6,7 @@ import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/data/drop_comment.dart';
 import 'package:wyn/features/drop/data/drop_draft.dart';
 import 'package:wyn/features/drop/data/drop_repository.dart';
+import 'package:wyn/features/drop/data/location_result.dart';
 
 /// A DropRepository whose network-touching methods are overridden to just
 /// record what they were called with, instead of making a real Supabase
@@ -176,6 +177,9 @@ class RecordingDropRepository extends DropRepository {
   /// Each call to [createDrop]'s audience argument, in order -- WYN-097.
   final List<AudienceOption> createDropAudienceArgs = [];
 
+  /// Each call to [createDrop]'s location argument, in order -- WYN-098.
+  final List<LocationResult?> createDropLocationArgs = [];
+
   @override
   Future<void> createDrop({
     required List<Uint8List> imagesBytes,
@@ -184,12 +188,14 @@ class RecordingDropRepository extends DropRepository {
     Set<String> mentionedUserIds = const {},
     AudienceOption audience = AudienceOption.everyone,
     Set<String> excludedFriendIds = const {},
+    LocationResult? location,
     void Function(int uploaded, int total)? onImageUploaded,
   }) async {
     if (createDropError != null) throw createDropError!;
     createDropImageCountArgs.add(imagesBytes.length);
     createDropMentionedUserIdsArgs.add(mentionedUserIds);
     createDropAudienceArgs.add(audience);
+    createDropLocationArgs.add(location);
     final gate = imageUploadGate;
     for (var i = 0; i < imagesBytes.length; i++) {
       if (gate != null && i < gate.length) await gate[i].future;
@@ -208,12 +214,14 @@ class RecordingDropRepository extends DropRepository {
     Set<String> mentionedUserIds = const {},
     AudienceOption audience = AudienceOption.everyone,
     Set<String> excludedFriendIds = const {},
+    LocationResult? location,
   }) async {
     if (createTextDropError != null) throw createTextDropError!;
     createTextDropArgs.add({
       'caption': caption,
       'mentionedUserIds': mentionedUserIds,
       'audience': audience,
+      'location': location,
     });
   }
 
@@ -241,6 +249,7 @@ class RecordingDropRepository extends DropRepository {
     Set<String> mentionedUserIds = const {},
     AudienceOption audience = AudienceOption.everyone,
     Set<String> excludedFriendIds = const {},
+    LocationResult? location,
   }) async {
     if (createPollDropError != null) throw createPollDropError!;
     createPollDropArgs.add({
@@ -249,6 +258,7 @@ class RecordingDropRepository extends DropRepository {
       'durationDays': durationDays,
       'mentionedUserIds': mentionedUserIds,
       'audience': audience,
+      'location': location,
     });
   }
 
@@ -473,6 +483,7 @@ class RecordingDropRepository extends DropRepository {
     Set<String> mentionedUserIds = const {},
     AudienceOption audience = AudienceOption.everyone,
     Set<String> excludedFriendIds = const {},
+    LocationResult? location,
   }) async {
     if (createDropFromExistingImageError != null) {
       throw createDropFromExistingImageError!;
@@ -482,6 +493,7 @@ class RecordingDropRepository extends DropRepository {
       'caption': caption,
       'mentionedUserIds': mentionedUserIds,
       'audience': audience,
+      'location': location,
     });
   }
 }

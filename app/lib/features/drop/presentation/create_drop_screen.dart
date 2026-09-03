@@ -18,7 +18,10 @@ import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/drop.dart';
 import '../data/drop_draft.dart';
 import '../data/drop_repository.dart';
+import '../data/location_repository.dart';
+import '../data/location_result.dart';
 import '../data/square_crop.dart';
+import 'location_picker_screen.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/widgets/mention_input.dart';
@@ -49,9 +52,10 @@ enum _CloseAction { save, discard, cancel }
 ///    real per-post backing (only an account-level commentPermission
 ///    exists) -- dropped entirely rather than shown fake or reading an
 ///    account-level setting as if it were per-post.
-///  - The reference's audience chip ("ทุกคน ⌄") has no real per-post
-///    audience feature either -- kept as a static, non-interactive
-///    "ทุกคน" label for visual parity, not a working dropdown.
+///  - The reference's audience chip ("ทุกคน ⌄") originally had no real
+///    per-post audience feature -- WYN-097 (Wynos V1.0.0 Beta2 item
+///    2/28) made it real: a working Audience Selector sheet backed by
+///    `drops.audience` + RLS, see [_AudienceChip]/[_showAudiencePicker].
 class CreateDropScreen extends StatefulWidget {
   const CreateDropScreen({
     super.key,
@@ -61,13 +65,15 @@ class CreateDropScreen extends StatefulWidget {
     ModerationRepository? moderationRepository,
     AppealRepository? appealRepository,
     FollowRepository? followRepository,
+    LocationRepository? locationRepository,
     this.draft,
     @visibleForTesting this.debugInitialImagesBytes,
   })  : _profileRepository = profileRepository,
         _hashtagRepository = hashtagRepository,
         _moderationRepository = moderationRepository,
         _appealRepository = appealRepository,
-        _followRepository = followRepository;
+        _followRepository = followRepository,
+        _locationRepository = locationRepository;
 
   final DropRepository dropRepository;
 
@@ -114,6 +120,9 @@ class CreateDropScreen extends StatefulWidget {
   // "ซ่อนเพื่อนบางคน"/"เพื่อนที่สนิท").
   final FollowRepository? _followRepository;
 
+  // Same shape again -- WYN-098's location check-in picker.
+  final LocationRepository? _locationRepository;
+
   @override
   State<CreateDropScreen> createState() => _CreateDropScreenState();
 }
@@ -131,6 +140,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       widget._appealRepository ?? AppealRepository(Supabase.instance.client);
   late final FollowRepository _followRepository =
       widget._followRepository ?? FollowRepository(Supabase.instance.client);
+  late final LocationRepository _locationRepository =
+      widget._locationRepository ?? LocationRepository(Supabase.instance.client);
   Set<String> _mentionedUserIds = {};
 
   // WYN-097: who can see this Drop -- see AudienceOption's own doc
@@ -141,6 +152,10 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   // selected (Design spec's Screen 3 "กลับมาจาก Screen 3 ครั้งที่ 2").
   AudienceOption _audience = AudienceOption.everyone;
   Set<String> _excludedFriendIds = {};
+
+  // WYN-098: the place check-in chip (Design spec Screen 3), if any --
+  // null means no location attached (the default for every new Drop).
+  LocationResult? _selectedLocation;
 
   // 04-drop.tsx's header avatar -- fetched once, best-effort (a failed
   // fetch just leaves the avatar on its fallback-letter state, same
@@ -557,11 +572,20 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     setState(() => _audience = AudienceOption.closeFriends);
   }
 
-  void _showComingSoon() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('ฟีเจอร์นี้จะเปิดใช้งานเร็ว ๆ นี้')),
+  /// WYN-098, Design spec Screen 1 -- opens the new location picker
+  /// (replacing the toolbar's old placeholder `_showComingSoon`).
+  Future<void> _showLocationPicker() async {
+    final selected = await Navigator.of(context).push<LocationResult>(
+      MaterialPageRoute(
+        builder: (_) =>
+            LocationPickerScreen(locationRepository: _locationRepository),
+      ),
     );
+    if (selected == null || !mounted) return;
+    setState(() => _selectedLocation = selected);
   }
+
+  void _removeLocation() => setState(() => _selectedLocation = null);
 
   Future<void> _share() async {
     // The "โพสต์" button's onPressed is only disabled on the *next*
@@ -586,6 +610,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
           mentionedUserIds: _mentionedUserIds,
           audience: _audience,
           excludedFriendIds: _excludedFriendIds,
+          location: _selectedLocation,
         );
       } else {
         final existingImageUrl = _existingImageUrl;
@@ -597,6 +622,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             mentionedUserIds: _mentionedUserIds,
             audience: _audience,
             excludedFriendIds: _excludedFriendIds,
+            location: _selectedLocation,
             onImageUploaded: (uploaded, total) {
               if (mounted) setState(() => _uploadedImageCount = uploaded);
             },
@@ -612,6 +638,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             mentionedUserIds: _mentionedUserIds,
             audience: _audience,
             excludedFriendIds: _excludedFriendIds,
+            location: _selectedLocation,
           );
         } else {
           // WYNOS V1.0.0 Beta requirement 2: no image at all -- _canShare
@@ -621,6 +648,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             mentionedUserIds: _mentionedUserIds,
             audience: _audience,
             excludedFriendIds: _excludedFriendIds,
+            location: _selectedLocation,
           );
         }
       }
@@ -830,6 +858,13 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                               _buildImageStrip()
                             else
                               _buildPollComposer(),
+                            if (_selectedLocation != null) ...[
+                              const SizedBox(height: WynSpacing.space3),
+                              _LocationChip(
+                                location: _selectedLocation!,
+                                onRemove: _isSharing ? null : _removeLocation,
+                              ),
+                            ],
                             if (_captionController.text.length >
                                 _captionMaxLength * 0.8)
                               Padding(
@@ -1156,11 +1191,11 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
 
   // 04-drop.tsx's bottom toolbar: photo (gallery, multi-select) /
   // camera (single shot) / poll (toggles _mode, replacing the old top
-  // SegmentedButton -- Founder decision 2026-08-29) / location
-  // (placeholder -- drops.location has no UI reading/writing it yet
-  // anywhere in the app, see supabase/schema.sql's own comment on that
-  // column). Photo/camera disabled in poll mode (a Drop carries either
-  // an image or a Poll, never both) and while sharing/cropping.
+  // SegmentedButton -- Founder decision 2026-08-29) / location (WYN-098,
+  // Wynos V1.0.0 Beta2 item 3/28 -- opens LocationPickerScreen; reachable
+  // in both image and poll compose modes, same as the Audience button).
+  // Photo/camera disabled in poll mode (a Drop carries either an image
+  // or a Poll, never both) and while sharing/cropping.
   Widget _buildToolbar() {
     final imageDisabled = _isSharing || _isCropping || _mode == _ComposeMode.poll;
     return DecoratedBox(
@@ -1201,8 +1236,9 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             _ToolbarIcon(
               key: const Key('toolbar_location_button'),
               icon: Icons.location_on_outlined,
-              enabled: true,
-              onTap: _showComingSoon,
+              enabled: !_isSharing,
+              active: _selectedLocation != null,
+              onTap: _showLocationPicker,
               semanticsLabel: 'เพิ่มตำแหน่งที่ตั้ง',
             ),
           ],
@@ -1388,6 +1424,61 @@ class _AudiencePickerSheet extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// WYN-098, Design spec Screen 3 -- the selected check-in place, shown
+/// once a location has been picked. Same container/border/radius as
+/// [_AudienceChip] ("แถบข้อมูลเสริมตอนโพสต์" both audience and
+/// location chips share the same shape, per that spec's own note) --
+/// only the content and the trailing X (remove, not a dropdown) differ.
+class _LocationChip extends StatelessWidget {
+  const _LocationChip({required this.location, required this.onRemove});
+
+  final LocationResult location;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1EFE9),
+        border: Border.all(color: WynColors.hairline),
+        borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.location_on, size: 14, color: WynColors.sapphire),
+          const SizedBox(width: 4),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 180),
+            child: Text(
+              location.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.ink),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Semantics(
+            label: 'นำสถานที่ออก',
+            button: true,
+            excludeSemantics: true,
+            child: InkWell(
+              onTap: onRemove,
+              customBorder: const CircleBorder(),
+              child: const Padding(
+                padding: EdgeInsets.all(2),
+                child: Icon(Icons.close, size: 14, color: WynColors.graphite),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

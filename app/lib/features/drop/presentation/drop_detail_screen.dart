@@ -701,12 +701,23 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: WynSpacing.space2),
-                                    Text(
-                                      relativeTimeLabel(_drop.createdAt,
-                                          now: DateTime.now()),
-                                      style: _textStyle(
-                                          fontSize: 13,
-                                          color: WynColors.mutedNeutral),
+                                    Flexible(
+                                      child: Text(
+                                        // WYN-098, Design spec Screen 4:
+                                        // same "appended to the time
+                                        // text, not a new row" treatment
+                                        // as HomeDropCard's identical
+                                        // spot -- see that file's own
+                                        // comment.
+                                        _drop.location != null
+                                            ? '${relativeTimeLabel(_drop.createdAt, now: DateTime.now())} · 📍 ${_drop.location}'
+                                            : relativeTimeLabel(_drop.createdAt,
+                                                now: DateTime.now()),
+                                        overflow: TextOverflow.ellipsis,
+                                        style: _textStyle(
+                                            fontSize: 13,
+                                            color: WynColors.mutedNeutral),
+                                      ),
                                     ),
                                   ],
                                 ),

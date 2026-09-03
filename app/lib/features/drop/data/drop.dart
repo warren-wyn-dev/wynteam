@@ -58,6 +58,7 @@ class Drop {
     this.imageWidth,
     this.imageHeight,
     this.audience = AudienceOption.everyone,
+    this.location,
     int? imageCount,
   }) : imageCount = imageCount ?? (imageUrl != null ? 1 : 0);
 
@@ -137,6 +138,15 @@ class Drop {
   /// client-side UI decisions (e.g. hiding the ReDrop button when this
   /// isn't [AudienceOption.everyone] -- Product spec Edge Case 2).
   final AudienceOption audience;
+
+  /// WYN-098: the human-readable place name attached at Compose time
+  /// (e.g. "สยามพารากอน") -- null for every Drop without a check-in
+  /// (the overwhelming majority). This is the *only* location field
+  /// this app ever displays; the raw coordinates/LocationIQ place id
+  /// (`drops.location_lat`/`location_lon`/`location_place_id`) are
+  /// stored server-side for a possible future feature but deliberately
+  /// never fetched/shown here -- see Product spec's Privacy section.
+  final String? location;
 
   bool get isPoll => pollId != null;
 
@@ -219,6 +229,7 @@ class Drop {
         imageWidth: imageWidth,
         imageHeight: imageHeight,
         audience: audience,
+        location: location,
       );
 
   /// A copy with the caption (or Poll question) edited -- WYN-037,
@@ -255,6 +266,7 @@ class Drop {
         imageWidth: imageWidth,
         imageHeight: imageHeight,
         audience: audience,
+        location: location,
       );
 
   /// A copy with the like toggled -- used for optimistic UI updates before
@@ -387,6 +399,10 @@ class Drop {
       // least-restrictive value" reasoning as InteractionPermission's
       // own fromString.
       audience: audienceOptionFromString(map['audience'] as String?),
+      // WYN-098: `*` in _dropSelect already includes this existing
+      // `drops.location` column -- see that field's own doc comment
+      // for why the lat/lon/place_id siblings are never read here.
+      location: map['location'] as String?,
     );
   }
 

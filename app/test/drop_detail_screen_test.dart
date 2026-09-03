@@ -1072,4 +1072,68 @@ void main() {
       expect(find.byIcon(Icons.repeat), findsOneWidget);
     });
   });
+
+  // WYN-098, Design spec Screen 4.
+  group('Location check-in display (WYN-098)', () {
+    testWidgets('shows "· 📍 {location}" appended to the relative-time '
+        'text when the Drop has a check-in', (tester) async {
+      final drop = Drop(
+        id: 'd-location',
+        authorId: 'someone-else',
+        authorUsername: 'namfah',
+        imageUrl: 'https://example.supabase.co/drops/d-location.jpg',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+        location: 'สยามพารากอน',
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: repo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
+        ),
+      ));
+      await tester.pump();
+      tester.takeException();
+
+      expect(find.textContaining('📍 สยามพารากอน'), findsOneWidget);
+    });
+
+    testWidgets('shows nothing extra when the Drop has no location '
+        '(no regression)', (tester) async {
+      final drop = Drop(
+        id: 'd-no-location',
+        authorId: 'someone-else',
+        authorUsername: 'namfah',
+        imageUrl: 'https://example.supabase.co/drops/d-no-location.jpg',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: repo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
+        ),
+      ));
+      await tester.pump();
+      tester.takeException();
+
+      expect(find.textContaining('📍'), findsNothing);
+    });
+  });
 }
