@@ -1008,8 +1008,12 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                 foregroundColor: WynColors.ink,
                 padding: const EdgeInsets.symmetric(
                     horizontal: WynSpacing.space2),
+                // Beta4 §9 (Touch Target): the design system's 44px
+                // minimum, honoured. Deliberately no
+                // `visualDensity: compact` here -- it subtracts 8 from
+                // the minimum height, which quietly puts this button
+                // back under 44 (caught by this button's own test).
                 minimumSize: const Size(0, WynSpacing.touchTargetMin),
-                visualDensity: VisualDensity.compact,
               ),
               icon: const Icon(Icons.edit_note_outlined,
                   size: 18, color: WynColors.ink),

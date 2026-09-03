@@ -1074,6 +1074,22 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                               const SizedBox(height: WynSpacing.space2),
                               Text(
                                 profile.bio!,
+                                // Beta4 §14: bounded. This header is
+                                // not scrollable -- it sits above a
+                                // TabBar in a Column, with the tab
+                                // content taking the remainder -- so an
+                                // unbounded bio pushed the whole thing
+                                // past a short screen's height (a real
+                                // 102px bottom overflow at 320x568,
+                                // caught by this screen's own
+                                // small-mobile test). A profile bio is
+                                // capped at 160 characters, which fits
+                                // in 4 lines at every width the app
+                                // supports except the very narrowest,
+                                // where it now ellipsizes instead of
+                                // breaking the layout.
+                                maxLines: 4,
+                                overflow: TextOverflow.ellipsis,
                                 style: _textStyle(
                                   fontSize: 15,
                                   color: _bioTone,
@@ -1095,23 +1111,36 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                               // sketch. Two stats only; the third
                               // ("โพสต์") is gone, see
                               // [_ProfileWithCounts].
+                              // Beta4 §14: both stats are Expanded, so
+                              // they share the identity column instead
+                              // of taking their natural width and
+                              // overflowing it. On a 320px screen that
+                              // column is ~170px wide, and two
+                              // natural-width stats plus the divider
+                              // wanted 200px more than that -- a real
+                              // RenderFlex overflow, caught by this
+                              // screen's own small-mobile test.
                               Row(
                                 children: [
-                                  _FollowCountTarget(
-                                    count: data.followingCount,
-                                    label: 'กำลังติดตาม',
-                                    onTap: () => _openFollowList(
-                                      FollowListMode.following,
-                                      isLockedPrivate: isLockedPrivate,
+                                  Expanded(
+                                    child: _FollowCountTarget(
+                                      count: data.followingCount,
+                                      label: 'กำลังติดตาม',
+                                      onTap: () => _openFollowList(
+                                        FollowListMode.following,
+                                        isLockedPrivate: isLockedPrivate,
+                                      ),
                                     ),
                                   ),
                                   _buildStatDivider(),
-                                  _FollowCountTarget(
-                                    count: data.followerCount,
-                                    label: 'ผู้ติดตาม',
-                                    onTap: () => _openFollowList(
-                                      FollowListMode.followers,
-                                      isLockedPrivate: isLockedPrivate,
+                                  Expanded(
+                                    child: _FollowCountTarget(
+                                      count: data.followerCount,
+                                      label: 'ผู้ติดตาม',
+                                      onTap: () => _openFollowList(
+                                        FollowListMode.followers,
+                                        isLockedPrivate: isLockedPrivate,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -1504,22 +1533,36 @@ class _StatBlockContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Beta4 §14: each line scales down only if it genuinely cannot fit
+    // the column it was given -- at every width from 360px up this is a
+    // no-op and the type is exactly the size the design system says.
+    // It exists for the 320px case, where "กำลังติดตาม" at 13px is
+    // wider than half the identity column; shrinking a label a few
+    // points there is better than ellipsizing a word or overflowing.
     return Column(
       children: [
-        Text(
-          // WYN-095: the stat now sits in a 3-way row squeezed beside
-          // the avatar rather than spanning the full screen width, so
-          // a large raw number risks overflowing at 360px -- the
-          // Semantics label above still reads the exact count out
-          // loud, this is the visible text only.
-          compactCountLabel(count),
-          style:
-              _textStyle(fontSize: 24, fontWeight: FontWeight.w700, color: WynColors.ink),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            // WYN-095: the stat sits in a row squeezed beside the
+            // avatar rather than spanning the full screen width, so a
+            // large raw number is abbreviated -- the Semantics label on
+            // the tap target still reads the exact count out loud, this
+            // is the visible text only.
+            compactCountLabel(count),
+            maxLines: 1,
+            style: _textStyle(
+                fontSize: 24, fontWeight: FontWeight.w700, color: WynColors.ink),
+          ),
         ),
         const SizedBox(height: 2),
-        Text(
-          label,
-          style: _textStyle(fontSize: 13, color: WynColors.graphite),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            maxLines: 1,
+            style: _textStyle(fontSize: 13, color: WynColors.graphite),
+          ),
         ),
       ],
     );
@@ -1531,7 +1574,9 @@ class _StatBlockContent extends StatelessWidget {
 Widget _buildStatDivider() => Container(
       width: 1,
       height: 32,
-      margin: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
+      // Beta4 §14: space3, not space4 -- 8px of the identity column back
+      // for the two stats either side of it on a small screen.
+      margin: const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
       color: WynColors.hairline,
     );
 
