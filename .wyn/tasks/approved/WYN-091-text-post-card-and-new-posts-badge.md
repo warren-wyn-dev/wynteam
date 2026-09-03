@@ -1,6 +1,6 @@
 # Product Task — WYN-091
 
-Status: review
+Status: **PASS — QA อิสระ, 2026-09-03** — ย้ายเข้า `approved/` แล้ว
 Owner: AI Design → AI Coding
 
 Feature: Home Feed — Text-Only Post Card Confirmation + "มีโพสต์ใหม่" Pill Text Simplification
@@ -90,3 +90,38 @@ Tests: `flutter analyze` สะอาด, `flutter test` ผ่านครบ (
 red อยู่ในสาขานี้ ณ ตอนโค้ด — เป็นเรื่องคนละงาน กำลังถูกแก้แยกโดย AI Debug Engineer อยู่แล้ว)
 
 Handoff: ส่งต่อ AI QA & Security
+
+---
+
+## QA Report (AI QA & Security, 2026-09-03)
+
+Feature: Home Feed — `NewPostsPill` visible text simplification (Wynos V1.0.0 Beta2 Phase 2, item 13)
+
+Environment: อ่านโค้ดจริง + รัน `flutter analyze`/`flutter test` (Flutter 3.47.2, Dart 3.13.2, `app/`) จริงในเครื่อง sandbox นี้ — worktree ยืนยันแล้วว่าอยู่บน `claude/wynos-beta2-phase2-handoff-w4mi5m` @ `40cafac`
+
+Test Cases:
+1. อ่านโค้ด `new_posts_pill.dart` โดยตรง — ยืนยันข้อความที่แสดงผลเป็น literal คงที่ `'มีโพสต์ใหม่'` เท่านั้น ไม่มีตัวแปร `$count` ต่อท้ายอีกต่อไป
+2. ยืนยัน `Semantics.label` ยังคงเป็น `'มีโพสต์ใหม่ $count โพสต์ กดเพื่อโหลด'` (มีจำนวนกำกับ) — ไม่ลดข้อมูลสำหรับ screen reader ตาม Acceptance Criteria
+3. ยืนยัน constructor parameter `count`/`onTap` ไม่ถูกลบออก — `count` ยังคงถูกใช้ควบคุมว่า pill แสดงหรือไม่ (ผ่าน `_newPostCount` ใน `home_feed_screen.dart`)
+4. รัน `flutter test test/new_posts_pill_test.dart` แยกอิสระ — ยืนยันเทส `'shows the icon and constant "มีโพสต์ใหม่" text (no count)'` ผ่านจริง พร้อม assertion `find.text('มีโพสต์ใหม่ 5 โพสต์')` → `findsNothing` (ยืนยันเชิงลบว่าไม่มีเลขหลงเหลือ) และ `find.bySemanticsLabel('มีโพสต์ใหม่ 5 โพสต์ กดเพื่อโหลด')` ยังพบ (accessibility label คงอยู่)
+5. อ่านโค้ด `HomeDropCard`'s caption-only path — ยืนยันไม่ถูกแตะเลยตามที่ Design/Coding ยืนยัน (ไม่มี diff ในไฟล์นี้จาก commit `71ec4d6`)
+6. รัน `flutter analyze` เต็ม `app/` — "No issues found!"
+7. รัน `flutter test` เต็ม suite — **1011/1011 ผ่านหมด** รวมเทส `home_feed_screen_test.dart` ที่อัปเดตให้ตรงกับข้อความใหม่ (ไม่มี regression กับ WYN-007/WYN-023)
+
+Passed: 1, 2, 3, 4, 5, 6, 7 (ทั้งหมด)
+
+Failed: ไม่มี
+
+Severity: N/A
+
+Reproduction Steps: เปิด Home feed ขณะมีโพสต์ใหม่ค้างอยู่ (เลื่อนลงจากบนสุด) → เห็น pill สีน้ำเงินเขียนว่า "มีโพสต์ใหม่" (ไม่มีตัวเลข) เท่านั้น
+
+Expected: ข้อความ pill คงที่ "มีโพสต์ใหม่" ไม่ว่าจะมีโพสต์ใหม่กี่โพสต์ก็ตาม, screen reader ยังอ่านจำนวนได้
+
+Actual: ตรงตาม Expected ทุกจุด
+
+Security Findings: ไม่พบช่องโหว่ — เป็นการเปลี่ยนข้อความ UI ล้วนๆ ไม่มีการเปลี่ยนแปลง schema/RLS/auth/data flow ใดๆ
+
+Recommendation: อนุมัติ ย้ายเข้า `.wyn/tasks/approved/`
+
+Final Status: PASS

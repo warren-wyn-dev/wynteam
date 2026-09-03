@@ -1,6 +1,6 @@
 # Product Task — WYN-096
 
-Status: review
+Status: **PASS — QA อิสระ, 2026-09-03** — ย้ายเข้า `approved/` แล้ว
 Owner: AI Design → AI Coding
 
 Feature: Home Feed — Action Bar (Like/Comment/Repost/View) Left-Alignment Fix
@@ -97,3 +97,38 @@ red อยู่ในสาขานี้ ณ ตอนโค้ด — คน
 regression)
 
 Handoff: ส่งต่อ AI QA & Security
+
+---
+
+## QA Report (AI QA & Security, 2026-09-03)
+
+Feature: Home Feed — Action Bar left-alignment fix (Wynos V1.0.0 Beta2 Phase 2, item 28)
+
+Environment: อ่านโค้ดจริง + รัน `flutter analyze`/`flutter test` (Flutter 3.47.2, Dart 3.13.2, `app/`) จริงในเครื่อง sandbox นี้ — worktree ยืนยันแล้วว่าอยู่บน `claude/wynos-beta2-phase2-handoff-w4mi5m` @ `40cafac`
+
+Test Cases:
+1. อ่านโค้ด `home_drop_card.dart` — ยืนยัน `Padding` ที่ห่อแถว `ActionMetric` ×4 เปลี่ยนจาก `WynSpacing.space1` เป็น `WynSpacing.space3` จริง (ยืนยันค่าคงที่: `space1 = 4`, `space3 = 12` จาก `wyn_spacing.dart`)
+2. อ่านโค้ด `home_pop_card.dart` — ยืนยันจุดเดียวกันทุกประการ (diff ตรงกับ `home_drop_card.dart` เป๊ะ)
+3. ยืนยันด้วยการอ่าน padding ของทุกส่วนอื่นในไฟล์เดียวกัน (header/caption/`LikedByRow`) ว่าใช้ `WynSpacing.space3` เป็น horizontal padding เหมือนกันจริง — ไม่ใช่แค่เชื่อคำอธิบายใน Design/Coding Output เฉยๆ (พบที่บรรทัด header/caption/LikedByRow ทั้ง 3 จุดใน `home_drop_card.dart` ใช้ `space3` ตรงกับ action bar ที่แก้ใหม่)
+4. **ยืนยัน WYN-076 liked-heart red override ไม่ถูกย้อนกลับ** — grep หา `Colors.red` ในทั้ง `home_drop_card.dart` และ `home_pop_card.dart` พบทั้งคู่: `color: item.likedByMe ? Colors.red : WynColors.graphite` ยังคงอยู่ครบ ไม่ได้เปลี่ยนกลับเป็น sapphire
+5. ยืนยัน `ActionMetric` widget เอง (`action_metric.dart` หรือไฟล์ที่เกี่ยวข้อง) ไม่ถูกแตะเลยจากงานนี้ (ไม่มีใน diff ของ commit `71ec4d6`) — ไอคอน/ขนาด/gap ภายในแถวไม่เปลี่ยน
+6. รัน `flutter analyze` เต็ม `app/` — "No issues found!"
+7. รัน `flutter test` เต็ม suite — **1011/1011 ผ่านหมด** ไม่มี regression กับ WYN-023/WYN-034/WYN-076
+
+Passed: 1, 2, 3, 4, 5, 6, 7 (ทั้งหมด)
+
+Failed: ไม่มี
+
+Severity: N/A
+
+Reproduction Steps: เปิด Home feed ดู Drop/Pop การ์ดใดก็ได้ที่มีแถวไอคอน action bar → สังเกตแนวซ้ายของแถวไอคอนตรงกับ header/ข้อความ/liked-by row ด้านบน
+
+Expected: action bar อยู่แนวซ้ายเดียวกับเนื้อหาอื่นในการ์ด, สีหัวใจถูกใจยังเป็นสีแดง
+
+Actual: ตรงตาม Expected ทุกจุด
+
+Security Findings: ไม่พบช่องโหว่ — เป็นการเปลี่ยนค่า padding เดียวใน UI ล้วนๆ ไม่มีการเปลี่ยนแปลง schema/RLS/auth/data flow ใดๆ
+
+Recommendation: อนุมัติ ย้ายเข้า `.wyn/tasks/approved/`
+
+Final Status: PASS

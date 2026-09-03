@@ -1,6 +1,6 @@
 # Feature Request — WYN-081
 
-Status: fixed by AI Debug Engineer (2026-09-02) — awaiting QA round 2, see `.wyn/tasks/qa/WYN-081-explore-clubs-reload-future-assertion.md`
+Status: **PASS — QA อิสระรอบ 2, 2026-09-03** — ย้ายเข้า `approved/` แล้ว (ดู QA Report รอบ 2 ด้านล่าง และ `.wyn/tasks/qa/WYN-081-explore-clubs-reload-future-assertion.md` สำหรับรายละเอียด bug/fix เดิม)
 Phase: Phase 1 — Quick fix
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 16/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -104,3 +104,40 @@ Final Status: FAIL
 ## Debug Engineer Resolution (2026-09-02)
 
 Fixed `ExploreClubsScreen._reload()` (arrow-body → block-body), exactly per QA's recommendation above. `explore_clubs_screen_test.dart` now green (was red), full `flutter test` 892/892, `flutter analyze` clean. Full details/re-audit at `.wyn/tasks/qa/WYN-081-explore-clubs-reload-future-assertion.md`. Ready for AI QA & Security round 2.
+
+---
+
+## QA Report — Round 2 (AI QA & Security, 2026-09-03)
+
+Feature: Pull-to-refresh บนหน้าโปรไฟล์ (header + 3 แท็บ) + `RefreshIndicator` บน `ExploreClubsScreen`/`MyClubsScreen`/`Top100Screen` (Wynos V1.0.0 Beta2, ข้อ 16/28) — QA รอบ 2 หลัง AI Debug Engineer แก้บั๊ก `ExploreClubsScreen._reload()` (`setState(() => ...)` arrow-body คืนค่า Future)
+
+Environment: อ่านโค้ดจริง + รัน `flutter analyze`/`flutter test` (Flutter 3.47.2, Dart 3.13.2, `app/`) จริงในเครื่อง sandbox นี้ (ไม่มี emulator/device จริง) หลังยืนยัน worktree อยู่บน `claude/wynos-beta2-phase2-handoff-w4mi5m` @ `40cafac` (ไม่ใช่ `main` ที่มี WYNOS First Login Onboarding ปนมา)
+
+Test Cases:
+1. อ่านโค้ด `explore_clubs_screen.dart`'s `_reload()` (บรรทัด 76-80) โดยตรง — ยืนยันเป็น block-body `setState(() { _loadFuture = _load(); });` จริงตามที่ Debug Engineer รายงาน
+2. รัน `flutter test test/explore_clubs_screen_test.dart` แยกอิสระ (ไม่เชื่อ report เฉยๆ) — ยืนยัน 9/9 ผ่านหมด รวมถึงเทส `'QA (WYN-081): a successful Join does not show the "เข้าร่วม Club ไม่สำเร็จ" failure snackbar'` ที่เคย red กลาย **green** จริง
+3. รัน `flutter analyze` เต็ม `app/` — "No issues found!"
+4. รัน `flutter test` เต็ม suite — **1011/1011 ผ่านหมด**, ไม่มี regression
+5. Re-audit อิสระทั่วทั้ง `app/lib` (ไม่จำกัดแค่ club/profile/moderation เหมือนรอบก่อน) ด้วย `grep -rn "setState(() =>"` แล้วตรวจทุก match (250+ จุด) ว่าไม่มีจุดไหนที่ RHS เป็นการเรียก async function ตรงๆ (เช่น `_loadFuture = _load()` ที่ไม่ผ่าน `await` มาก่อน) — พบว่าทุกจุด assign ค่า synchronous ทั้งหมด (bool/String/int/List/ผลลัพธ์ `.toggledX()` ซึ่ง return ตัว object เดิมทันที ไม่ใช่ Future) รวมถึงตรวจ field `Future<T>` ทั้งหมดในโปรเจกต์ (`grep "Future<\w+>\s*_\w+;"` พบ 7 ไฟล์) — ทุกจุดที่ assign field เหล่านี้ (`_feePercentFuture`, `_summaryFuture` ฯลฯ) เป็น plain assignment นอก `setState` (ใน `initState`) ไม่ใช่ arrow-body closure — **ไม่พบจุดที่ 7 ของบั๊กคลาสนี้**
+6. ยืนยัน pull-to-refresh ส่วนที่เหลือของ task (header 3 แท็บบนโปรไฟล์, `MyClubsScreen`, `Top100Screen`) ไม่ถูกแตะในการแก้บั๊กรอบนี้เลย (`git show` ยืนยัน diff มีแค่ `explore_clubs_screen.dart`) — QA รอบ 1 เคยยืนยันส่วนนี้ผ่านแล้วและยังไม่มีการเปลี่ยนแปลงใดๆ เพิ่มเติม
+
+Passed: 1, 2, 3, 4, 5, 6 (ทั้งหมด)
+
+Failed: ไม่มี
+
+Severity: N/A (ไม่พบบั๊กใหม่)
+
+Reproduction Steps: (ยืนยันซ้ำจาก bug report เดิม เพื่อพิสูจน์ว่าแก้จริง)
+1. เปิด Explore Clubs ที่มี Club สาธารณะให้กด "เข้าร่วม"
+2. กดปุ่ม "เข้าร่วม"
+3. สังเกต: ไม่มี snackbar "เข้าร่วม Club ไม่สำเร็จ" ปรากฏอีกต่อไปหลัง join สำเร็จ (ยืนยันด้วยเทสอัตโนมัติที่รันจริง)
+
+Expected: กด "เข้าร่วม" สำเร็จแล้วไม่เห็น error snackbar ใดๆ
+
+Actual: ตรงตาม Expected — บั๊กหายจริง
+
+Security Findings: ไม่พบช่องโหว่ความปลอดภัยใหม่ — งานนี้เป็น UI-only fix ทั้งหมด ไม่มีการเปลี่ยนแปลง schema/RLS/auth
+
+Recommendation: อนุมัติ ย้ายเข้า `.wyn/tasks/approved/` — WYN-081 ปิดงานสมบูรณ์ทั้ง 2 รอบ QA แล้ว หมายเหตุ device-only residual ที่ยังไม่เคยทดสอบบนอุปกรณ์จริง (จำนวนผู้ติดตามอัปเดตหลัง pull บนหน้าโปรไฟล์, `MyClubsScreen` ที่ไม่มี automated test คุ้มครอง) ยังคงเหมือนที่ QA รอบ 1 ระบุไว้ — ไม่ใช่ blocker สำหรับ PASS รอบนี้ (ไม่ใช่ประเด็นที่ทำให้ FAIL รอบ 1, เป็นแค่ข้อสังเกตสำหรับ manual QA บนอุปกรณ์จริงในอนาคต)
+
+Final Status: PASS
