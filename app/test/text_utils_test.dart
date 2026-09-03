@@ -59,4 +59,27 @@ void main() {
       expect(extractHashtags(''), isEmpty);
     });
   });
+
+  group('compactCountLabel (WYN-095)', () {
+    test('leaves a count under 1000 untouched', () {
+      expect(compactCountLabel(0), '0');
+      expect(compactCountLabel(999), '999');
+    });
+
+    test('formats thousands as "X.XK", dropping a trailing .0', () {
+      expect(compactCountLabel(1000), '1K');
+      expect(compactCountLabel(1200), '1.2K');
+      expect(compactCountLabel(500000), '500K');
+    });
+
+    test('formats millions as "X.XM", dropping a trailing .0', () {
+      expect(compactCountLabel(1000000), '1M');
+      expect(compactCountLabel(2500000), '2.5M');
+    });
+
+    test('rounds to 1 decimal place rather than truncating', () {
+      // 1,260 / 1000 = 1.26 -> rounds to 1.3, not truncates to 1.2.
+      expect(compactCountLabel(1260), '1.3K');
+    });
+  });
 }

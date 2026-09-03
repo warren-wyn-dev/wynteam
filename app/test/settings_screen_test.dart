@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/block/presentation/blocked_list_screen.dart';
 import 'package:wyn/features/drop/presentation/recently_deleted_drops_screen.dart';
+import 'package:wyn/features/follow/presentation/close_friends_screen.dart';
 import 'package:wyn/features/legal/presentation/document_viewer_screen.dart';
 import 'package:wyn/features/moderation/presentation/moderation_queue_screen.dart';
 import 'package:wyn/features/mute/presentation/muted_list_screen.dart';
@@ -15,6 +16,7 @@ import 'package:wyn/features/settings/presentation/settings_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_data_rights_repository.dart';
+import 'support/recording_follow_repository.dart';
 import 'support/recording_profile_repository.dart';
 
 /// Restyled to 11-settings.tsx's exact 7-row list (see settings_screen.dart's
@@ -37,12 +39,15 @@ void main() {
   late RecordingProfileRepository recordingProfileRepository;
   late _ThrowingProfileRepository throwingProfileRepository;
   late RecordingDataRightsRepository recordingDataRightsRepository;
+  // WYN-097 -- same setUpAll discipline as every repo above.
+  late RecordingFollowRepository recordingFollowRepository;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
     recordingProfileRepository = RecordingProfileRepository();
     throwingProfileRepository = _ThrowingProfileRepository();
     recordingDataRightsRepository = RecordingDataRightsRepository();
+    recordingFollowRepository = RecordingFollowRepository();
   });
 
   setUp(() {
@@ -129,6 +134,48 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  group('WYN-082: logout confirmation', () {
+    testWidgets(
+        'tapping "ออกจากระบบ" shows a confirm dialog with Founder\'s exact '
+        'copy, instead of signing out immediately', (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ออกจากระบบ'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.text('ออกจากระบบบัญชีของคุณใช่ไหม'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'ยกเลิก'), findsOneWidget);
+      // 'ออกจากระบบ' now finds 2: the row underneath (dimmed by the
+      // dialog barrier, still in the tree) and the dialog's own action.
+      expect(find.text('ออกจากระบบ'), findsNWidgets(2));
+      // Still on SettingsScreen -- confirming didn't happen, so no
+      // sign-out/navigation occurred yet.
+      expect(find.byType(SettingsScreen), findsOneWidget);
+    });
+
+    testWidgets('tapping "ยกเลิก" dismisses the dialog and stays signed in',
+        (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ออกจากระบบ'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'ยกเลิก'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(SettingsScreen), findsOneWidget);
+      expect(find.text('ออกจากระบบ'), findsOneWidget,
+          reason: 'back to just the one row, dialog gone');
+    });
   });
 
   Future<void> openAccountManagement(
@@ -302,14 +349,18 @@ void main() {
     WidgetTester tester, {
     bool isPrivate = false,
     InteractionPermission dmPermission = InteractionPermission.everyone,
+    LikesVisibility likesVisibility = LikesVisibility.everyone,
     RecordingProfileRepository? profileRepository,
+    RecordingFollowRepository? followRepository,
   }) async {
     await tester.pumpWidget(MaterialApp(
       home: SettingsScreen(
         platformRole: PlatformRole.user,
         isPrivate: isPrivate,
         dmPermission: dmPermission,
+        likesVisibility: likesVisibility,
         profileRepository: profileRepository,
+        followRepository: followRepository,
       ),
     ));
     await tester.pumpAndSettle();
@@ -363,7 +414,9 @@ void main() {
         expect(find.text('ใครทักข้อความคุณได้'), findsOneWidget);
         expect(find.text('ใครกล่าวถึงคุณได้'), findsOneWidget);
         expect(find.text('ใครคอมเมนต์โพสต์ของคุณได้'), findsOneWidget);
-        expect(find.text('ทุกคน'), findsNWidgets(3));
+        // 4, not 3 -- WYN-099's "ใครเห็นสิ่งที่คุณถูกใจได้" row (below
+        // these 3) also defaults to "ทุกคน".
+        expect(find.text('ทุกคน'), findsNWidgets(4));
       });
 
       testWidgets(
@@ -421,9 +474,82 @@ void main() {
         await tester.tap(find.text('ไม่มีใครเลย'));
         await tester.pumpAndSettle();
 
-        // Reverted -- all 3 rows (this one included) are back to "ทุกคน".
-        expect(find.text('ทุกคน'), findsNWidgets(3));
+        // Reverted -- all 3 rows (this one included), plus WYN-099's
+        // likes-visibility row, are back to/still "ทุกคน".
+        expect(find.text('ทุกคน'), findsNWidgets(4));
         expect(find.text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
+      });
+    });
+
+    // WYN-097 -- entry point to CloseFriendsScreen, right after Private
+    // Account.
+    group('"เพื่อนที่สนิท" row (WYN-097)', () {
+      testWidgets('shows the row with its subtitle', (tester) async {
+        await openPrivacyScreen(tester);
+
+        expect(find.text('เพื่อนที่สนิท'), findsOneWidget);
+        expect(find.text('จัดการรายชื่อเพื่อนที่สนิทของคุณ'), findsOneWidget);
+      });
+
+      testWidgets('tapping it opens CloseFriendsScreen without the '
+          'welcome banner (this entry point is deliberate, unlike the '
+          'first-time-from-audience-picker one)', (tester) async {
+        await openPrivacyScreen(tester,
+            followRepository: recordingFollowRepository);
+
+        await tester.tap(find.text('เพื่อนที่สนิท'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(CloseFriendsScreen), findsOneWidget);
+        expect(
+          find.text('คุณยังไม่มีเพื่อนที่สนิท เลือกจากรายชื่อเพื่อนของคุณได้เลย'),
+          findsNothing,
+        );
+      });
+    });
+
+    // WYN-099 -- 4th row, own picker (ทุกคน/เพื่อน/เฉพาะฉัน).
+    group('"ใครเห็นสิ่งที่คุณถูกใจได้" row (WYN-099)', () {
+      testWidgets('default rendering summarizes to "ทุกคน"', (tester) async {
+        await openPrivacyScreen(tester);
+
+        expect(find.text('ใครเห็นสิ่งที่คุณถูกใจได้'), findsOneWidget);
+        // 4 "ทุกคน" now: the 3 InteractionPermission rows + this one.
+        expect(find.text('ทุกคน'), findsNWidgets(4));
+      });
+
+      testWidgets(
+          'selecting "เฉพาะฉัน" closes the sheet, updates the row, and '
+          'calls updateLikesVisibility', (tester) async {
+        await openPrivacyScreen(tester,
+            profileRepository: recordingProfileRepository);
+
+        await tester.tap(find.text('ใครเห็นสิ่งที่คุณถูกใจได้'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('เฉพาะฉัน').last);
+        await tester.pumpAndSettle();
+
+        expect(recordingProfileRepository.updateLikesVisibilityArgs,
+            [LikesVisibility.onlyMe]);
+        expect(find.text('เฉพาะฉัน'), findsOneWidget);
+      });
+
+      testWidgets('opening the picker with likesVisibility == friends '
+          'shows a checked radio on "เพื่อน" only', (tester) async {
+        await openPrivacyScreen(tester,
+            likesVisibility: LikesVisibility.friends);
+
+        await tester.tap(find.text('ใครเห็นสิ่งที่คุณถูกใจได้'));
+        await tester.pumpAndSettle();
+
+        expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
+        final checkedTile = find.ancestor(
+          of: find.byIcon(Icons.radio_button_checked),
+          matching: find.byType(ListTile),
+        );
+        expect(find.descendant(of: checkedTile, matching: find.text('เพื่อน')),
+            findsOneWidget);
       });
     });
   });

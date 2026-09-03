@@ -5,6 +5,13 @@
          camera source. -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+    <!-- WYN-098 (Location Check-in) — "ใช้ตำแหน่งปัจจุบันของฉัน" in the
+         location picker. Coarse alone would be enough for a place-name
+         lookup, but fine is requested too since `geolocator` asks for
+         both together by default and a slightly more precise fix only
+         improves which nearby place reverse-geocoding picks first. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <application
         android:label="WYNOS Beta"
         android:name="${applicationName}"

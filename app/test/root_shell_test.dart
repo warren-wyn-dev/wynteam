@@ -110,7 +110,7 @@ void main() {
 
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Search'), findsOneWidget);
-    expect(find.text('Drop'), findsOneWidget);
+    expect(find.text('โพสต์'), findsOneWidget);
     expect(find.text('Notifications'), findsOneWidget);
     expect(find.text('Profile'), findsOneWidget);
     // Home's own content is showing by default: the feed-mode toggle is
@@ -137,7 +137,7 @@ void main() {
     await tester.pumpWidget(buildShell());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Drop'));
+    await tester.tap(find.text('โพสต์'));
     await tester.pumpAndSettle();
 
     expect(find.byType(CreateDropScreen), findsOneWidget);

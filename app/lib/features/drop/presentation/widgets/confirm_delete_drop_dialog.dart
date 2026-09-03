@@ -11,9 +11,9 @@ Future<bool> confirmDeleteDrop(BuildContext context) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('ลบ Drop นี้?'),
+      title: const Text('ลบโพสต์นี้?'),
       content: const Text(
-        'Drop นี้จะหายไปจากทุกที่ทันที แต่คุณกู้คืนได้ภายใน 30 วัน '
+        'โพสต์นี้จะหายไปจากทุกที่ทันที แต่คุณกู้คืนได้ภายใน 30 วัน '
         'จาก "รายการที่ลบ" ในหน้าการตั้งค่า',
       ),
       actions: [

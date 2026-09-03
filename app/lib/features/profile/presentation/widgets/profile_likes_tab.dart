@@ -29,6 +29,7 @@ class ProfileLikesTab extends StatefulWidget {
     required this.savedRepository,
     required this.authorId,
     required this.emptyText,
+    this.onRefreshHeader,
   });
 
   final DropRepository dropRepository;
@@ -38,6 +39,10 @@ class ProfileLikesTab extends StatefulWidget {
   final SavedRepository savedRepository;
   final String authorId;
   final String emptyText;
+
+  // WYN-081 (Wynos V1.0.0 Beta2, item 16): see ProfileDropGridTab's
+  // identical field for why this exists.
+  final VoidCallback? onRefreshHeader;
 
   @override
   State<ProfileLikesTab> createState() => _ProfileLikesTabState();
@@ -52,6 +57,14 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
   bool _isLoadingMore = false;
   bool _hasMore = true;
   String? _error;
+
+  // WYN-099: only meaningful (and only fetched) when _drops comes back
+  // empty on the initial load -- distinguishes "no Likes yet" (true,
+  // the ordinary/default case for literally every profile before this
+  // task) from "not allowed to see this tab" (false) per that
+  // profile's own likes_visibility. Left null until that one extra
+  // check actually runs, so a non-empty tab never pays for it at all.
+  bool? _canViewLikes;
 
   @override
   bool get wantKeepAlive => true;
@@ -87,18 +100,39 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
         authorId: widget.authorId,
         page: 0,
       );
+      bool? canView = _canViewLikes;
+      if (drops.isEmpty) {
+        try {
+          canView = await widget.profileRepository.canViewLikes(widget.authorId);
+        } catch (_) {
+          // Fails open to "true" (shows the ordinary "no Likes yet"
+          // empty text) -- same fail-open posture as every other
+          // best-effort identity-summary fetch in this codebase, and
+          // strictly less alarming than falsely claiming a privacy
+          // block that isn't real.
+          canView = true;
+        }
+      }
       setState(() {
         _drops
           ..clear()
           ..addAll(drops);
         _page = 0;
         _hasMore = drops.length == DropRepository.pageSize;
+        _canViewLikes = canView;
       });
     } catch (_) {
       setState(() => _error = 'โหลดรายการที่ถูกใจไม่สำเร็จ');
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }
+  }
+
+  // Only used by RefreshIndicator's pull gesture, not initState's own
+  // first load -- see [onRefreshHeader]'s doc comment.
+  Future<void> _onPullToRefresh() async {
+    widget.onRefreshHeader?.call();
+    await _loadInitial();
   }
 
   Future<void> _loadMore() async {
@@ -253,11 +287,18 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
     }
 
     if (_drops.isEmpty) {
-      return Center(child: Text(widget.emptyText));
+      // WYN-099: "not allowed to see this" is a distinct, intentional
+      // state -- not an error, and not the ordinary "no Likes yet"
+      // empty text (see [_canViewLikes]'s own doc comment).
+      return Center(
+        child: Text(
+          _canViewLikes == false ? 'บัญชีนี้ซ่อนรายการที่ถูกใจไว้' : widget.emptyText,
+        ),
+      );
     }
 
     return RefreshIndicator(
-      onRefresh: _loadInitial,
+      onRefresh: _onPullToRefresh,
       child: ListView.separated(
         controller: _scrollController,
         itemCount: _drops.length + (_hasMore ? 1 : 0),
@@ -276,6 +317,7 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
           return HomeDropCard(
             key: ValueKey(drop.id),
             item: HomeFeedItem.fromDrop(drop),
+            dropRepository: widget.dropRepository,
             onTap: () => _openDropDetail(drop),
             onToggleLike: () => _toggleLike(drop.id),
             onToggleSave: () => _toggleSave(drop.id),

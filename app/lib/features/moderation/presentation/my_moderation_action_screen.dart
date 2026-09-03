@@ -47,7 +47,12 @@ class _MyModerationActionScreenState extends State<MyModerationActionScreen> {
     return (action: action, appeal: appeal);
   }
 
-  void _reload() => setState(() => _loadFuture = _load());
+  // Block body, not `() => _loadFuture = _load()` -- see
+  // ViewProfileScreen._reload's identical fix/comment (WYN-081) for why
+  // an arrow body here trips setState()'s "returned a Future" assertion.
+  void _reload() => setState(() {
+        _loadFuture = _load();
+      });
 
   Future<void> _openAppealForm(MyModerationAction action) async {
     final submitted = await Navigator.of(context).push<bool>(

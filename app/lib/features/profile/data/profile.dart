@@ -38,6 +38,31 @@ extension InteractionPermissionDbValue on InteractionPermission {
       };
 }
 
+/// WYN-099: who can see the "ถูกใจ" (Likes) tab on this profile --
+/// deliberately its own 3-value enum, not a reuse of
+/// [InteractionPermission] (whose `peopleIFollow` means "people I
+/// follow", one-directional -- this setting's "friends" means mutual
+/// follow, the exact same definition WYN-097's `AudienceOption.friends`
+/// uses, a different relationship entirely). `everyone` is the
+/// default, matching `profiles.likes_visibility`'s own
+/// `not null default 'everyone'` -- no behavior change for any profile
+/// that never touches this new Settings row.
+enum LikesVisibility { everyone, friends, onlyMe }
+
+LikesVisibility likesVisibilityFromString(String? value) => switch (value) {
+      'friends' => LikesVisibility.friends,
+      'only_me' => LikesVisibility.onlyMe,
+      _ => LikesVisibility.everyone,
+    };
+
+extension LikesVisibilityDbValue on LikesVisibility {
+  String get dbValue => switch (this) {
+        LikesVisibility.everyone => 'everyone',
+        LikesVisibility.friends => 'friends',
+        LikesVisibility.onlyMe => 'only_me',
+      };
+}
+
 /// A WYN user profile row. See supabase/schema.sql (WYN-003 section,
 /// platformRole added by WYN-029).
 class Profile {
@@ -52,6 +77,7 @@ class Profile {
     this.dmPermission = InteractionPermission.everyone,
     this.mentionPermission = InteractionPermission.everyone,
     this.commentPermission = InteractionPermission.everyone,
+    this.likesVisibility = LikesVisibility.everyone,
     this.isVerified = false,
   });
 
@@ -78,6 +104,11 @@ class Profile {
             map['mention_permission'] as String?),
         commentPermission: interactionPermissionFromString(
             map['comment_permission'] as String?),
+        // WYN-099: same "missing key defaults to the least-restrictive
+        // value" reasoning as dmPermission/mentionPermission/
+        // commentPermission above.
+        likesVisibility:
+            likesVisibilityFromString(map['likes_visibility'] as String?),
         // WYNOSHomeSpec.md 4.5/4.9: same "missing key defaults to the
         // least-notable value" reasoning as isPrivate above -- a
         // partial map without this key (most ProfileRepository selects
@@ -95,6 +126,9 @@ class Profile {
   final InteractionPermission dmPermission;
   final InteractionPermission mentionPermission;
   final InteractionPermission commentPermission;
+
+  /// WYN-099 -- see [LikesVisibility]'s own doc comment.
+  final LikesVisibility likesVisibility;
 
   /// WYNOSHomeSpec.md 4.5/4.9: same one-account-only semantics as
   /// [HomeFeedItem.authorIsVerified] -- see that field's own doc

@@ -78,6 +78,25 @@ class RecordingProfileRepository extends ProfileRepository {
     updateCommentPermissionArgs.add(value);
   }
 
+  /// Recorded calls to [updateLikesVisibility] -- WYN-099.
+  final List<LikesVisibility> updateLikesVisibilityArgs = [];
+
+  @override
+  Future<void> updateLikesVisibility({
+    required String userId,
+    required LikesVisibility value,
+  }) async {
+    updateLikesVisibilityArgs.add(value);
+  }
+
+  /// Returned by [canViewLikes], regardless of targetUserId -- WYN-099.
+  /// Defaults to true (the ordinary case for almost every profile,
+  /// since `likes_visibility` itself defaults to `everyone`).
+  bool canViewLikesResult = true;
+
+  @override
+  Future<bool> canViewLikes(String targetUserId) async => canViewLikesResult;
+
   @override
   Future<Profile?> fetchProfileByUsername(String username) async =>
       byUsernameResult;

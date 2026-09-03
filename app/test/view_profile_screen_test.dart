@@ -8,6 +8,7 @@ import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/pop/data/pop.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
+import 'package:wyn/features/profile/presentation/widgets/avatar_circle.dart';
 import 'package:wyn/features/profile/presentation/widgets/profile_skeleton.dart';
 import 'package:wyn/features/saved/presentation/widgets/saved_post_row.dart';
 
@@ -169,6 +170,66 @@ void main() {
   });
 
   testWidgets(
+      'WYN-095 Mockup A: avatar sits beside the stats row (same top '
+      'edge), with display name/username left-aligned below that row, '
+      'not the old fully-centered avatar-then-name-then-stats order',
+      (tester) async {
+    await tester.pumpWidget(buildProfile(
+      profileRepository: ownProfileRepo,
+      followRepository: ownFollowRepo,
+      userId: 'me',
+    ));
+    await tester.pumpAndSettle();
+
+    final avatarRect = tester.getRect(find.byType(AvatarCircle));
+    final statsCenterY = tester.getCenter(find.text('ผู้ติดตาม')).dy;
+    final nameTop = tester.getTopLeft(find.text('ตัวฉันเอง')).dy;
+    final usernameTop = tester.getTopLeft(find.text('@me_user')).dy;
+
+    // The stats row's vertical center falls inside the avatar's own
+    // vertical span -- i.e. they're cross-axis-centered in one shared
+    // Row (the avatar is taller than the stat text, so their tops
+    // don't match, but neither is "below" the other).
+    expect(statsCenterY, greaterThan(avatarRect.top));
+    expect(statsCenterY, lessThan(avatarRect.bottom));
+    // Display name comes entirely after the avatar+stats row, not
+    // beside it.
+    expect(nameTop, greaterThanOrEqualTo(avatarRect.bottom));
+    // Username comes right after the display name.
+    expect(usernameTop, greaterThan(nameTop));
+
+    // Display name/username are left-aligned with the avatar, not
+    // centered on screen (the old wyn-071 layout centered everything).
+    final avatarLeft = tester.getTopLeft(find.byType(AvatarCircle)).dx;
+    final nameLeft = tester.getTopLeft(find.text('ตัวฉันเอง')).dx;
+    expect((avatarLeft - nameLeft).abs(), lessThan(1));
+  });
+
+  testWidgets(
+      'WYN-095 Mockup A: Follow and Message buttons split a full-width '
+      'row evenly, replacing the old natural-width pill + 40x40 icon '
+      'button pair', (tester) async {
+    await tester.pumpWidget(buildProfile(
+      profileRepository: otherProfileRepo,
+      followRepository: otherFollowRepo,
+      userId: 'someone-else',
+    ));
+    await tester.pumpAndSettle();
+
+    final followWidth =
+        tester.getSize(find.widgetWithText(FilledButton, 'ติดตาม')).width;
+    final messageWidth =
+        tester.getSize(find.widgetWithText(OutlinedButton, 'ส่งข้อความ')).width;
+
+    // Both buttons are wide (full-width split), not a small pill next
+    // to a 40px icon-only circle like the pre-WYN-095 layout.
+    expect(followWidth, greaterThan(250));
+    expect(messageWidth, greaterThan(250));
+    // Split evenly (Expanded on both sides of the Row).
+    expect((followWidth - messageWidth).abs(), lessThan(2));
+  });
+
+  testWidgets(
       'shows a skeleton loading state (not a bare spinner) while the '
       'initial fetch is in flight', (tester) async {
     await tester.pumpWidget(buildProfile(
@@ -264,7 +325,7 @@ void main() {
     // match the reference exactly. "โพสต์" appears twice (the StatsRow
     // label and the Tab both say it).
     expect(find.text('โพสต์'), findsNWidgets(2));
-    expect(find.text('ReDrop'), findsOneWidget);
+    expect(find.text('รีโพสต์'), findsOneWidget);
     expect(find.text('ถูกใจ'), findsOneWidget);
     expect(find.text('Replies'), findsNothing);
     expect(find.text('Media'), findsNothing);
@@ -294,7 +355,7 @@ void main() {
     expect(find.byKey(const Key('profile_saved_button')), findsNothing);
     expect(find.byIcon(Icons.edit_note_outlined), findsNothing);
     expect(find.text('โพสต์'), findsNWidgets(2));
-    expect(find.text('ReDrop'), findsOneWidget);
+    expect(find.text('รีโพสต์'), findsOneWidget);
     expect(find.text('ถูกใจ'), findsOneWidget);
     // Pop is hidden from Profile for WYNOS V1.0.0 Beta -- requirement 3.
     expect(find.text('Pop'), findsNothing);
@@ -327,8 +388,8 @@ void main() {
   });
 
   testWidgets(
-      '18-other-profile.tsx: the message button is a circular icon, not '
-      'a labeled "ส่งข้อความ" button', (tester) async {
+      'WYN-095 Mockup A: the message button is a full-width labeled '
+      '"ส่งข้อความ" pill, not a circular icon-only button', (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: otherProfileRepo,
       followRepository: otherFollowRepo,
@@ -337,7 +398,25 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.send_outlined), findsOneWidget);
-    expect(find.text('ส่งข้อความ'), findsNothing);
+    expect(find.text('ส่งข้อความ'), findsOneWidget);
+  });
+
+  testWidgets(
+      'WYN-085: someone else\'s profile has no notifications bell icon '
+      '(it used to push NotificationListScreen, a back-button-less screen '
+      'that stranded the viewer with no way to navigate elsewhere)',
+      (tester) async {
+    await tester.pumpWidget(buildProfile(
+      profileRepository: otherProfileRepo,
+      followRepository: otherFollowRepo,
+      userId: 'someone-else',
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.notifications_outlined), findsNothing);
+    // The search shortcut (also WYN-071) is unaffected -- it pushes a
+    // screen with a real AppBar/back button, so it stays.
+    expect(find.byIcon(Icons.search), findsOneWidget);
   });
 
   testWidgets('Drop tab shows this profile\'s Drops (scoped by author, '
@@ -380,14 +459,14 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    await tester.tap(find.text('ReDrop'));
+    await tester.tap(find.text('รีโพสต์'));
     await tester.pumpAndSettle();
     tester.takeException();
 
     expect(contentTestHomeRepo.fetchRedropsByUserUserIdArgs, contains('me'));
     expect(find.text('ดูนี่สิ'), findsOneWidget);
     expect(find.text('แคปชัน Drop ต้นฉบับ'), findsOneWidget);
-    expect(find.textContaining('ReDrop โดย @me_user'), findsOneWidget);
+    expect(find.textContaining('รีโพสต์โดย @me_user'), findsOneWidget);
   });
 
   // "switching to the Pop tab shows this profile's Pops" removed -- Pop is
@@ -427,7 +506,8 @@ void main() {
   // shelf from Profile entirely (still reachable via Home's "From Your
   // Clubs" feed). See view_profile_screen.dart's own comment on
   // ClubRepository/ClubPostRepository still being threaded through
-  // (only for _openSearch/_openNotifications now).
+  // (only for _openSearch now -- see that comment for why its former
+  // sibling _openNotifications is gone, WYN-085).
 
   group('"Profile Visit" User Signal (WYNOS Unified Home Feed Algorithm '
       'V1.0)', () {

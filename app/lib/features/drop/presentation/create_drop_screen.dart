@@ -6,6 +6,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../analytics/data/analytics_repository.dart';
+import '../../follow/data/follow_repository.dart';
+import '../../follow/presentation/close_friends_screen.dart';
+import '../../follow/presentation/exclude_friends_screen.dart';
 import '../../hashtag/data/hashtag_repository.dart';
 import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/data/appeal_status.dart';
@@ -14,9 +17,13 @@ import '../../moderation/presentation/appeal_form_screen.dart';
 import '../../profile/data/profile.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
+import '../data/drop.dart';
 import '../data/drop_draft.dart';
 import '../data/drop_repository.dart';
+import '../data/location_repository.dart';
+import '../data/location_result.dart';
 import '../data/square_crop.dart';
+import 'location_picker_screen.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/widgets/mention_input.dart';
@@ -47,9 +54,10 @@ enum _CloseAction { save, discard, cancel }
 ///    real per-post backing (only an account-level commentPermission
 ///    exists) -- dropped entirely rather than shown fake or reading an
 ///    account-level setting as if it were per-post.
-///  - The reference's audience chip ("ทุกคน ⌄") has no real per-post
-///    audience feature either -- kept as a static, non-interactive
-///    "ทุกคน" label for visual parity, not a working dropdown.
+///  - The reference's audience chip ("ทุกคน ⌄") originally had no real
+///    per-post audience feature -- WYN-097 (Wynos V1.0.0 Beta2 item
+///    2/28) made it real: a working Audience Selector sheet backed by
+///    `drops.audience` + RLS, see [_AudienceChip]/[_showAudiencePicker].
 class CreateDropScreen extends StatefulWidget {
   const CreateDropScreen({
     super.key,
@@ -58,11 +66,16 @@ class CreateDropScreen extends StatefulWidget {
     HashtagRepository? hashtagRepository,
     ModerationRepository? moderationRepository,
     AppealRepository? appealRepository,
+    FollowRepository? followRepository,
+    LocationRepository? locationRepository,
     this.draft,
+    @visibleForTesting this.debugInitialImagesBytes,
   })  : _profileRepository = profileRepository,
         _hashtagRepository = hashtagRepository,
         _moderationRepository = moderationRepository,
-        _appealRepository = appealRepository;
+        _appealRepository = appealRepository,
+        _followRepository = followRepository,
+        _locationRepository = locationRepository;
 
   final DropRepository dropRepository;
 
@@ -70,6 +83,19 @@ class CreateDropScreen extends StatefulWidget {
   /// content ("Continue Editing") instead of a blank one. Null for
   /// the ordinary "new Drop" entry point.
   final DropDraft? draft;
+
+  /// WYN-094 (test-only escape hatch): seeds `_imagesBytes` directly,
+  /// bypassing the real image_picker + centerCropToSquare pipeline.
+  /// Exists because `image_picker`'s default `MethodChannelImagePicker`
+  /// instance hangs when exercised under `AutomatedTestWidgetsFlutterBinding`
+  /// in this project's sandbox (reproduced in complete isolation, with no
+  /// app code involved at all -- an `ImagePickerPlatform.instance` fake +
+  /// a bare `testWidgets` pump is enough to hang; the identical call
+  /// sequence in a plain `test()` returns instantly) -- there is no
+  /// working way to widget-test the real picker flow here today. Never
+  /// read outside tests: production call sites never pass this.
+  @visibleForTesting
+  final List<Uint8List>? debugInitialImagesBytes;
 
   // Optional -- defaults to a real Supabase-backed instance (see
   // _CreateDropScreenState's late final below) so existing call sites
@@ -92,6 +118,13 @@ class CreateDropScreen extends StatefulWidget {
   // Same shape again -- WYN-030's appeal entry point on the Restrict banner.
   final AppealRepository? _appealRepository;
 
+  // Same shape again -- WYN-097's Audience Selector (friend list for
+  // "ซ่อนเพื่อนบางคน"/"เพื่อนที่สนิท").
+  final FollowRepository? _followRepository;
+
+  // Same shape again -- WYN-098's location check-in picker.
+  final LocationRepository? _locationRepository;
+
   @override
   State<CreateDropScreen> createState() => _CreateDropScreenState();
 }
@@ -107,7 +140,24 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
           ModerationRepository(Supabase.instance.client);
   late final AppealRepository _appealRepository =
       widget._appealRepository ?? AppealRepository(Supabase.instance.client);
+  late final FollowRepository _followRepository =
+      widget._followRepository ?? FollowRepository(Supabase.instance.client);
+  late final LocationRepository _locationRepository =
+      widget._locationRepository ?? LocationRepository(Supabase.instance.client);
   Set<String> _mentionedUserIds = {};
+
+  // WYN-097: who can see this Drop -- see AudienceOption's own doc
+  // comment. [_excludedFriendIds] only matters when [_audience] is
+  // AudienceOption.friendsExcept -- kept here (parent state), not
+  // ExcludeFriendsScreen's own local state, so a 2nd visit to that
+  // screen in the same composing session shows what was already
+  // selected (Design spec's Screen 3 "กลับมาจาก Screen 3 ครั้งที่ 2").
+  AudienceOption _audience = AudienceOption.everyone;
+  Set<String> _excludedFriendIds = {};
+
+  // WYN-098: the place check-in chip (Design spec Screen 3), if any --
+  // null means no location attached (the default for every new Drop).
+  LocationResult? _selectedLocation;
 
   // 04-drop.tsx's header avatar -- fetched once, best-effort (a failed
   // fetch just leaves the avatar on its fallback-letter state, same
@@ -128,6 +178,14 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
 
   bool _isSharing = false;
   String? _errorMessage;
+
+  // WYN-094: how many of _imagesBytes have finished uploading during
+  // the in-flight _share() call -- drives the progress bar below the
+  // header. Real progress (bumped by DropRepository.createDrop's own
+  // onImageUploaded callback after each image actually finishes, not
+  // a fake timer). Only meaningful while _isSharing; reset at the
+  // start of each _share() call.
+  int _uploadedImageCount = 0;
 
   // WYN-035: Poll composer state. Starts at 2 options (the minimum),
   // capped at 4 by _addPollOption -- see .wyn/tasks/active/WYN-035-poll-in-drop.md.
@@ -216,6 +274,11 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   void initState() {
     super.initState();
     _prefillFromDraft();
+    final debugBytes = widget.debugInitialImagesBytes;
+    if (debugBytes != null) {
+      _imagesBytes.addAll(debugBytes);
+      _imageExtensions.addAll(List.filled(debugBytes.length, 'png'));
+    }
     _loadModerationStatus();
     _loadOwnProfile();
     // WYN-035: in poll mode _canShare depends on the caption text (the
@@ -335,7 +398,15 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     // .wyn/tasks/bugs/WYN-004-feed-and-post.md, QA round 1): without
     // this, a rapid double-tap on the toolbar's camera icon could
     // reopen the picker while the previous pick is still being cropped.
-    if (_isCropping || _imagesBytes.length >= _maxImages) return;
+    if (_isCropping) return;
+    // WYN-103: the toolbar icon stays tappable at 9/9 (see the toolbar's
+    // `enabled:` -- it never gates on _imagesBytes.length) so a SnackBar
+    // is reachable here, rather than the icon just going inert/disabled
+    // with no explanation.
+    if (_imagesBytes.length >= _maxImages) {
+      _showImageLimitSnackBar();
+      return;
+    }
 
     final picked = await ImagePicker().pickImage(
       source: source,
@@ -373,7 +444,11 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   /// that many, which is simpler and clearer feedback than letting them
   /// over-select and then silently trimming the result afterward.
   Future<void> _pickMultipleImages() async {
-    if (_isCropping || _imagesBytes.length >= _maxImages) return;
+    if (_isCropping) return;
+    if (_imagesBytes.length >= _maxImages) {
+      _showImageLimitSnackBar();
+      return;
+    }
 
     final remaining = _maxImages - _imagesBytes.length;
     final picked = await ImagePicker().pickMultiImage(
@@ -387,7 +462,10 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     setState(() => _isCropping = true);
     try {
       final croppedList = <Uint8List>[];
-      for (final file in picked) {
+      // WYN-103 Edge Case 2: `limit` above is the native picker's own
+      // cap, which isn't honored on every platform -- truncate again
+      // here so _imagesBytes can never exceed _maxImages regardless.
+      for (final file in picked.take(remaining)) {
         final rawBytes = await file.readAsBytes();
         croppedList.add(await centerCropToSquare(rawBytes));
       }
@@ -413,11 +491,103 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     });
   }
 
-  void _showComingSoon() {
+  /// WYN-103: shown instead of the toolbar's photo/camera icon just
+  /// silently doing nothing once `_imagesBytes` is already at
+  /// `_maxImages` -- a disabled-looking-but-not-actually-disabled icon
+  /// is confusing on its own.
+  void _showImageLimitSnackBar() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('ฟีเจอร์นี้จะเปิดใช้งานเร็ว ๆ นี้')),
+      const SnackBar(content: Text('เพิ่มรูปได้สูงสุด 9 รูปต่อโพสต์')),
     );
   }
+
+  /// WYN-097, Design spec Screen 2 -- opens the 5-option Audience
+  /// Selector sheet. "ทุกคน"/"เพื่อน"/"เฉพาะฉัน" apply immediately;
+  /// "ซ่อนเพื่อนบางคน"/"เพื่อนที่สนิท" hand off to a follow-up screen
+  /// each (see [_openExcludeFriends]/[_openCloseFriendsForAudience]).
+  Future<void> _showAudiencePicker() async {
+    final selected = await showModalBottomSheet<AudienceOption>(
+      context: context,
+      builder: (sheetContext) => _AudiencePickerSheet(currentValue: _audience),
+    );
+    if (selected == null || !mounted) return;
+
+    switch (selected) {
+      case AudienceOption.friendsExcept:
+        await _openExcludeFriends();
+      case AudienceOption.closeFriends:
+        await _openCloseFriendsForAudience();
+      case AudienceOption.everyone:
+      case AudienceOption.friends:
+      case AudienceOption.onlyMe:
+        setState(() => _audience = selected);
+    }
+  }
+
+  /// Design spec Screen 3 -- multi-select "เพื่อนที่จะซ่อน", per-post
+  /// (not persisted). Carries [_excludedFriendIds] in as
+  /// [ExcludeFriendsScreen.initiallySelected] so a 2nd visit in the
+  /// same composing session shows what was already picked.
+  Future<void> _openExcludeFriends() async {
+    final result = await Navigator.of(context).push<Set<String>>(
+      MaterialPageRoute(
+        builder: (_) => ExcludeFriendsScreen(
+          followRepository: _followRepository,
+          initiallySelected: _excludedFriendIds,
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _audience = AudienceOption.friendsExcept;
+      _excludedFriendIds = result;
+    });
+  }
+
+  /// Design spec Screen 2/4 -- "เพื่อนที่สนิท" the very first time it's
+  /// picked (empty list) routes through CloseFriendsScreen's welcome
+  /// banner first, rather than selecting immediately -- a Drop posted
+  /// with audience = close_friends against an empty list would be
+  /// visible to nobody but the author, a confusing silent trap. Once a
+  /// list already exists, picking this option again just selects it
+  /// immediately, same as "ทุกคน"/"เพื่อน"/"เฉพาะฉัน".
+  Future<void> _openCloseFriendsForAudience() async {
+    List<Profile> existingCloseFriends;
+    try {
+      existingCloseFriends = await _followRepository.fetchCloseFriends();
+    } catch (_) {
+      existingCloseFriends = [];
+    }
+    if (!mounted) return;
+
+    if (existingCloseFriends.isEmpty) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CloseFriendsScreen(
+            followRepository: _followRepository,
+            showWelcomeBanner: true,
+          ),
+        ),
+      );
+      if (!mounted) return;
+    }
+    setState(() => _audience = AudienceOption.closeFriends);
+  }
+
+  /// WYN-098, Design spec Screen 1 -- opens the new location picker
+  /// (replacing the toolbar's old placeholder `_showComingSoon`).
+  Future<void> _showLocationPicker() async {
+    final selected = await Navigator.of(context).push<LocationResult>(
+      MaterialPageRoute(
+        builder: (_) =>
+            LocationPickerScreen(locationRepository: _locationRepository),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    setState(() => _selectedLocation = selected);
+  }
+
+  void _removeLocation() => setState(() => _selectedLocation = null);
 
   Future<void> _share() async {
     // The "โพสต์" button's onPressed is only disabled on the *next*
@@ -430,6 +600,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     setState(() {
       _isSharing = true;
       _errorMessage = null;
+      _uploadedImageCount = 0;
     });
 
     try {
@@ -439,6 +610,9 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
           options: _pollOptionControllers.map((c) => c.text.trim()).toList(),
           durationDays: _pollDurationDays,
           mentionedUserIds: _mentionedUserIds,
+          audience: _audience,
+          excludedFriendIds: _excludedFriendIds,
+          location: _selectedLocation,
         );
       } else {
         final existingImageUrl = _existingImageUrl;
@@ -448,6 +622,12 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             imageExtensions: _imageExtensions,
             caption: _captionController.text,
             mentionedUserIds: _mentionedUserIds,
+            audience: _audience,
+            excludedFriendIds: _excludedFriendIds,
+            location: _selectedLocation,
+            onImageUploaded: (uploaded, total) {
+              if (mounted) setState(() => _uploadedImageCount = uploaded);
+            },
           );
         } else if (existingImageUrl != null) {
           // WYN-036: continuing a Draft without picking a new image --
@@ -458,6 +638,9 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             imageUrl: existingImageUrl,
             caption: _captionController.text,
             mentionedUserIds: _mentionedUserIds,
+            audience: _audience,
+            excludedFriendIds: _excludedFriendIds,
+            location: _selectedLocation,
           );
         } else {
           // WYNOS V1.0.0 Beta requirement 2: no image at all -- _canShare
@@ -465,6 +648,9 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
           await widget.dropRepository.createTextDrop(
             caption: _captionController.text,
             mentionedUserIds: _mentionedUserIds,
+            audience: _audience,
+            excludedFriendIds: _excludedFriendIds,
+            location: _selectedLocation,
           );
         }
       }
@@ -613,6 +799,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             children: [
               _buildHeader(),
               const Divider(height: 1, color: WynColors.hairline),
+              if (_isSharing && _imagesBytes.isNotEmpty) _buildUploadProgress(),
               if (_isRestricted)
                 RestrictionBanner(
                   reason: _restrictReason,
@@ -639,7 +826,10 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const _AudienceChip(),
+                            _AudienceChip(
+                              value: _audience,
+                              onTap: _isSharing ? null : _showAudiencePicker,
+                            ),
                             const SizedBox(height: WynSpacing.space3),
                             // Shared between both modes -- doubles as the
                             // Poll's question when _mode is poll (same
@@ -676,6 +866,13 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                               _buildImageStrip()
                             else
                               _buildPollComposer(),
+                            if (_selectedLocation != null) ...[
+                              const SizedBox(height: WynSpacing.space3),
+                              _LocationChip(
+                                location: _selectedLocation!,
+                                onRemove: _isSharing ? null : _removeLocation,
+                              ),
+                            ],
                             if (_captionController.text.length >
                                 _captionMaxLength * 0.8)
                               Padding(
@@ -717,6 +914,43 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   // "โพสต์" (right), sapphire when there's content to post, hairline/
   // flat when disabled. No center title -- deliberately not an AppBar
   // (no leading icon slot needed for a text-only cancel action).
+  // WYN-094: only shown while actually uploading image bytes (a
+  // caption/Poll-only Drop publishes fast enough that a real progress
+  // bar wouldn't reflect anything meaningful -- see
+  // wyn-094-upload-progress-indicator.md's "เงื่อนไขการแสดงแถบ"). The
+  // percent is derived from _uploadedImageCount, which only advances
+  // when DropRepository.createDrop's onImageUploaded callback fires
+  // for a real finished upload -- never a fake/animated value.
+  Widget _buildUploadProgress() {
+    final total = _imagesBytes.length;
+    final percent = ((_uploadedImageCount / total) * 100).round();
+    return Semantics(
+      label:
+          'กำลังอัปโหลด $_uploadedImageCount จาก $total รูป, $percent เปอร์เซ็นต์',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                WynSpacing.space4, 0, WynSpacing.space4, WynSpacing.space1),
+            child: Text(
+              'กำลังอัปโหลด $_uploadedImageCount/$total รูป... $percent%',
+              style: const TextStyle(fontSize: 13, color: WynColors.graphite),
+            ),
+          ),
+          SizedBox(
+            height: 3,
+            child: LinearProgressIndicator(
+              value: _uploadedImageCount / total,
+              backgroundColor: WynColors.hairline,
+              color: WynColors.sapphire,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -965,11 +1199,11 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
 
   // 04-drop.tsx's bottom toolbar: photo (gallery, multi-select) /
   // camera (single shot) / poll (toggles _mode, replacing the old top
-  // SegmentedButton -- Founder decision 2026-08-29) / location
-  // (placeholder -- drops.location has no UI reading/writing it yet
-  // anywhere in the app, see supabase/schema.sql's own comment on that
-  // column). Photo/camera disabled in poll mode (a Drop carries either
-  // an image or a Poll, never both) and while sharing/cropping.
+  // SegmentedButton -- Founder decision 2026-08-29) / location (WYN-098,
+  // Wynos V1.0.0 Beta2 item 3/28 -- opens LocationPickerScreen; reachable
+  // in both image and poll compose modes, same as the Audience button).
+  // Photo/camera disabled in poll mode (a Drop carries either an image
+  // or a Poll, never both) and while sharing/cropping.
   Widget _buildToolbar() {
     final imageDisabled = _isSharing || _isCropping || _mode == _ComposeMode.poll;
     return DecoratedBox(
@@ -1010,8 +1244,9 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             _ToolbarIcon(
               key: const Key('toolbar_location_button'),
               icon: Icons.location_on_outlined,
-              enabled: true,
-              onTap: _showComingSoon,
+              enabled: !_isSharing,
+              active: _selectedLocation != null,
+              onTap: _showLocationPicker,
               semanticsLabel: 'เพิ่มตำแหน่งที่ตั้ง',
             ),
           ],
@@ -1021,8 +1256,197 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   }
 }
 
+/// WYN-097, Design spec Screen 1 -- was a static "ทุกคน ⌄" label with no
+/// state/interaction; now a real trigger for [_showAudiencePicker]
+/// whose label tracks the current [AudienceOption]. Same container/
+/// border/radius as the reference's original static chip -- only the
+/// text and the `InkWell`/tap handler are new.
+String audienceOptionLabel(AudienceOption value) => switch (value) {
+      AudienceOption.everyone => 'ทุกคน',
+      AudienceOption.friends => 'เพื่อน',
+      AudienceOption.friendsExcept => 'ซ่อนเพื่อนบางคน',
+      AudienceOption.closeFriends => 'เพื่อนที่สนิท',
+      AudienceOption.onlyMe => 'เฉพาะฉัน',
+    };
+
+String audienceOptionDescription(AudienceOption value) => switch (value) {
+      AudienceOption.everyone => 'ทุกคนเห็นโพสต์นี้ได้',
+      AudienceOption.friends => 'เฉพาะเพื่อนของคุณเท่านั้นที่เห็นได้',
+      AudienceOption.friendsExcept => 'เพื่อนทุกคนเห็นได้ ยกเว้นคนที่คุณเลือกซ่อน',
+      AudienceOption.closeFriends => 'เฉพาะเพื่อนที่สนิทที่คุณเลือกไว้เท่านั้น',
+      AudienceOption.onlyMe => 'เห็นเฉพาะคุณคนเดียว',
+    };
+
+IconData _audienceOptionIcon(AudienceOption value) => switch (value) {
+      AudienceOption.everyone => Icons.public,
+      AudienceOption.friends => Icons.people_outline,
+      AudienceOption.friendsExcept => Icons.person_off_outlined,
+      AudienceOption.closeFriends => Icons.star_outline,
+      AudienceOption.onlyMe => Icons.lock_outline,
+    };
+
 class _AudienceChip extends StatelessWidget {
-  const _AudienceChip();
+  const _AudienceChip({required this.value, required this.onTap});
+
+  final AudienceOption value;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'เลือกกลุ่มผู้ชมโพสต์ ตอนนี้เลือก ${audienceOptionLabel(value)}',
+      button: true,
+      excludeSemantics: true,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+        onTap: onTap,
+        child: Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1EFE9),
+            border: Border.all(color: WynColors.hairline),
+            borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(audienceOptionLabel(value),
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.ink)),
+              const SizedBox(width: 2),
+              const Icon(Icons.keyboard_arrow_down, size: 13, color: WynColors.graphite),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// WYN-097, Design spec Screen 2 -- the 5-option Audience Selector
+/// sheet. Same drag-handle/title/close-button structure as
+/// `_showPermissionPicker` (settings_screen.dart), duplicated rather
+/// than shared across the two files (Settings and Drop are separate
+/// features in this codebase, same posture as every other
+/// intentionally-not-shared bottom-sheet builder here) -- the part
+/// that's actually new is the icon+subtitle per row, and the 2 options
+/// ("ซ่อนเพื่อนบางคน"/"เพื่อนที่สนิท") that show a `chevron_right`
+/// instead of a radio because they hand off to a follow-up screen
+/// (see [_CreateDropScreenState._showAudiencePicker]) rather than
+/// applying immediately.
+class _AudiencePickerSheet extends StatelessWidget {
+  const _AudiencePickerSheet({required this.currentValue});
+
+  final AudienceOption currentValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
+        // Design spec's Responsive Behavior: 5 rows+subtitle is taller
+        // than the 3-row permission picker this is otherwise modeled
+        // on -- can overflow a short screen height. SingleChildScrollView
+        // wraps the whole sheet body (header included) rather than just
+        // the row list, the simpler of the two shapes Flutter's modal
+        // bottom sheet sizing (bounded, not unbounded, height) actually
+        // supports without extra plumbing -- the header only scrolls
+        // away too on a screen short enough that this matters at all.
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: WynSpacing.space2),
+              Center(
+                child: Container(
+                  width: 32,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: WynSpacing.space4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text('ใครเห็นโพสต์นี้ได้บ้าง',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  ),
+                  SizedBox(
+                    width: WynSpacing.touchTargetMin,
+                    height: WynSpacing.touchTargetMin,
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      icon: const Icon(Icons.close),
+                      tooltip: 'ปิด',
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: WynSpacing.space2),
+              for (final option in AudienceOption.values)
+              Semantics(
+                label:
+                    '${audienceOptionLabel(option)} — ${audienceOptionDescription(option)}',
+                selected: option == currentValue,
+                excludeSemantics: true,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(_audienceOptionIcon(option)),
+                  title: Text(audienceOptionLabel(option)),
+                  subtitle: Text(audienceOptionDescription(option)),
+                  // "ซ่อนเพื่อนบางคน"/"เพื่อนที่สนิท" always show both a
+                  // radio (when currently selected) and a chevron
+                  // (Design spec's "โชว์ทั้ง radio (checked) และ chevron
+                  // คู่กัน" -- signals "selected" AND "tap to edit the
+                  // list" at once for those 2 options specifically).
+                  trailing: switch (option) {
+                    AudienceOption.friendsExcept || AudienceOption.closeFriends =>
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (option == currentValue)
+                            Icon(Icons.radio_button_checked,
+                                color: Theme.of(context).colorScheme.primary),
+                          const Icon(Icons.chevron_right),
+                        ],
+                      ),
+                    _ => Icon(
+                        option == currentValue
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        color: option == currentValue
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                  },
+                  onTap: () => Navigator.of(context).pop(option),
+                ),
+              ),
+              const SizedBox(height: WynSpacing.space4),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// WYN-098, Design spec Screen 3 -- the selected check-in place, shown
+/// once a location has been picked. Same container/border/radius as
+/// [_AudienceChip] ("แถบข้อมูลเสริมตอนโพสต์" both audience and
+/// location chips share the same shape, per that spec's own note) --
+/// only the content and the trailing X (remove, not a dropdown) differ.
+class _LocationChip extends StatelessWidget {
+  const _LocationChip({required this.location, required this.onRemove});
+
+  final LocationResult location;
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -1033,14 +1457,35 @@ class _AudienceChip extends StatelessWidget {
         border: Border.all(color: WynColors.hairline),
         borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('ทุกคน',
-              style: TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.ink)),
-          SizedBox(width: 2),
-          Icon(Icons.keyboard_arrow_down, size: 13, color: WynColors.graphite),
+          const Icon(Icons.location_on, size: 14, color: WynColors.sapphire),
+          const SizedBox(width: 4),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 180),
+            child: Text(
+              location.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.ink),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Semantics(
+            label: 'นำสถานที่ออก',
+            button: true,
+            excludeSemantics: true,
+            child: InkWell(
+              onTap: onRemove,
+              customBorder: const CircleBorder(),
+              child: const Padding(
+                padding: EdgeInsets.all(2),
+                child: Icon(Icons.close, size: 14, color: WynColors.graphite),
+              ),
+            ),
+          ),
         ],
       ),
     );

@@ -167,6 +167,32 @@ void main() {
     expect(find.text('ข้อความนี้ถูกลบ'), findsOneWidget);
   });
 
+  testWidgets(
+      'WYN-084: opening the keyboard does not push the composer up by a second '
+      'keyboard-height (no double bottom-inset compensation)', (tester) async {
+    chatRepo.messagesByConversation = const {'c1': []};
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    const keyboardHeight = 300.0;
+    tester.view.viewInsets = const FakeViewPadding(bottom: keyboardHeight);
+    await tester.pumpAndSettle();
+
+    // Scaffold's own resizeToAvoidBottomInset (default true) already
+    // shrinks the body by keyboardHeight, so the composer's TextField
+    // should sit right above the keyboard -- screenHeight - keyboardHeight
+    // -- not pushed up by a *second* keyboardHeight's worth on top of
+    // that (the old bug: a redundant Padding(bottom: viewInsets.bottom)
+    // wrapped around the composer double-compensated).
+    final textFieldBottom = tester.getBottomLeft(find.byType(TextField)).dy;
+    expect(textFieldBottom, lessThanOrEqualTo(844 - keyboardHeight));
+    expect(textFieldBottom, greaterThan(844 - keyboardHeight - 200));
+  });
+
   testWidgets('blocked either way hides the composer with an explanatory message',
       (tester) async {
     blockRepo.blockRelationshipResult = BlockRelationship.blockedByMe;

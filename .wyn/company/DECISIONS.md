@@ -14,6 +14,13 @@
 
 ## รายการการตัดสินใจ
 
+### [2026-09-03] WYN-105 ลดสโคปจาก "ระบบ 3 ธีมสี" เหลือ "เปลี่ยนพื้นหลังเป็นสีขาว" เท่านั้น
+
+- บริบท: AI Product Manager เขียน full spec ของ WYN-105 (ระบบเลือกธีม 3 แบบ: ขาวนวล/ขาวบริสุทธิ์/ดำ) แล้วพบว่าใหญ่กว่าที่ backlog เดิมประเมินไว้มาก — สีทั้งแอปอ้างอิงผ่าน `WynColors` static const โดยตรง ไม่ผ่าน `Theme.of(context)` เลย ต้องไล่แก้เกือบทุกไฟล์ UI ในโปรเจกต์ถึงจะสลับธีมได้จริง จึงถามยืนยันแนวทางกับ Founder ก่อนเริ่ม Design/Coding
+- คำตัดสินใจของ Founder: **ไม่ต้องทำระบบสลับธีม/หน้าตั้งค่าธีมเลย** — ต้องการแค่ "เปลี่ยนสีพื้นหลังแอปเป็นสีขาว เหมือนกับแอปอื่นๆ" เท่านั้น (คือธีม "ขาวบริสุทธิ์" ในสโคปเดิม แต่ไม่ต้องมีตัวเลือกให้สลับ ไม่ต้องมีธีมดำ ไม่ต้อง sync ข้ามอุปกรณ์)
+- ผลกระทบ: งานลดขนาดจาก "refactor สถาปัตยกรรมสีทั้งแอป" เหลือแค่เปลี่ยนค่า `WynColors.paper` (ปัจจุบัน `0xFFFAF9F6` off-white/cream) เป็นสีขาวบริสุทธิ์ (`0xFFFFFFFF`) จุดเดียว — เพราะ `paper` เป็น token กลางที่ทุกหน้าจอ (background/surface/card) อ้างอิงร่วมกันอยู่แล้ว ตรวจ contrast กับ `hairline`(`#E8E6E0`)/`faint`(`#C7C4BC`) แล้วพบว่าเปลี่ยนเป็นขาวบริสุทธิ์ทำให้ contrast **เพิ่มขึ้น** เล็กน้อย (เส้นคั่น/ข้อความจางเห็นชัดขึ้น ไม่ใช่จางลง) จึงไม่มีความเสี่ยงด้าน accessibility — ระบบ 3 ธีม/dark mode เต็มรูปแบบตาม Product spec เดิม (`.wyn/docs/product/wyn-105-theme-system.md`) เก็บไว้เป็น**งานอนาคตแยกต่างหาก นอกรอบ Beta2 นี้** ไม่ใช่สโคปที่ต้องทำตอนนี้
+- อ้างอิง: `.wyn/tasks/backlog/WYN-105.md`, `.wyn/docs/product/wyn-105-theme-system.md` (เก็บไว้อ้างอิงสำหรับงานอนาคต)
+
 ### [2026-09-01] WYNOS Version Control Policy — กำหนด Baseline และกติกา Rollback
 - บริบท: Founder ส่งกติกา Version Control อย่างเป็นทางการสำหรับ WYNOS ผ่านข้อความ "WYNOS VERSION CONTROL POLICY" ระบุ Baseline ปัจจุบัน กติกาการอัปเดต Version และกติกา Rollback
 - คำตัดสินใจของ Founder:
@@ -698,3 +705,140 @@
 - คำตัดสินใจของ Founder: เก็บ analytics event เองใน Supabase table ใหม่ (ไม่ใช้ third-party เช่น PostHog/Firebase) — ไม่มีข้อมูลผู้ใช้ไหลออกนอกระบบ, ตอบคำถามที่ AI Product Manager ถามไว้ใน `.wyn/tasks/backlog/WYN-077-basic-product-analytics.md` (ก่อนย้ายไป active) — สั่ง "เริ่มเลย"
 - ผลกระทบ: WYN-077 ย้ายจาก `.wyn/tasks/backlog/` ไป `.wyn/tasks/active/` สถานะ `active` พร้อมส่งต่อ AI Design ทันที — ไม่กระทบ WYN-078 (ยังอยู่ backlog รอคำสั่งแยก) และไม่กระทบ Phase 1 closed beta (Founder ยังไม่สั่งเริ่ม)
 - อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/active/WYN-077-basic-product-analytics.md`
+
+### [2026-09-02] Wynos V1.0.0 Beta2 — Founder ส่งรายการแก้ไข 28 ข้อ (PDF), แบ่งเป็น backlog 4 phase
+
+- บริบท: Founder แนบไฟล์ `Wynos_V1.0.0_Beta2.pdf` (export จาก Apple Notes, 21 หน้าจริง) ระบุจุดที่ต้องแก้/เพิ่ม 28 ข้อ พร้อมภาพหน้าจอวงสีอธิบายประกอบเกือบทุกข้อ สั่งให้สรุปเป็นงานก่อน ถามถ้าสงสัย แล้วค่อยเริ่มทำ
+- AI ถามคำถามคืน 4 ข้อ (ผ่าน popup) — Founder ตอบและมอบให้ AI ตัดสินใจแทนในบางจุด:
+  1. **นิยาม "เพื่อน" (ข้อ 2 — post audience selector)**: Founder ขอให้ AI แนะนำ → เสนอ **mutual follow = เพื่อน** (ไม่สร้างระบบคำขอเป็นเพื่อนแยก), "เพื่อนที่สนิท" เป็นรายชื่อเลือกเองจาก mutual-follow list (แบบ IG Close Friends) — ยังไม่ได้ผ่าน Founder ยืนยันรอบสุดท้ายเป็นข้อความตรงๆ (ถามแบบ "แนะนำหน่อย") ถือเป็นข้อเสนอที่ AI จะเดินหน้าตามนี้จนกว่าจะมีคำทักท้วง บันทึกไว้ที่ `.wyn/tasks/backlog/WYN-097.md`
+  2. **Location API สำหรับเช็คอินสถานที่ (ข้อ 3)**: Founder ถาม "Google API ฟรีไหม" → ตอบว่าไม่ฟรี 100% (เครดิตฟรี $200/เดือนแต่ต้องผูกบัตร) → เสนอ LocationIQ/Geoapify (free tier ไม่ต้องผูกบัตร) เป็นทางเลือกเริ่มต้นแทน — **ยังไม่ได้เลือก provider สุดท้าย รอ Founder ยืนยันก่อนเริ่ม implement จริง** (`.wyn/tasks/backlog/WYN-098.md`)
+  3. **ขอบเขต "สร้าง Club" (ข้อ 7 — ไอคอน 3 ขีด)**: Founder เลือกชัดเจน "สร้างฟีเจอร์ 'สร้าง Club' แบบเต็ม" — **นี่คือฟีเจอร์ใหม่ขนาดใหญ่ กระทบ data model มาก** (Club core มีอยู่แล้วบางส่วนจาก WYN-014/015 แต่ไม่มีทาง "สร้าง Club" เอง) บันทึกที่ `.wyn/tasks/backlog/WYN-100.md` — ต้องให้ AI Product Manager ตรวจของเดิมให้ครบก่อนเขียน spec เต็ม กันสร้างซ้ำซ้อน
+  4. **สูตร trending hashtag (ข้อ 10)**: Founder ให้ AI เสนอสูตร → เสนอ `(likes×1 + comments×2 + reposts×3 + views×0.1) / (ชั่วโมงที่ผ่านมา+2)^1.5` (engagement-weighted + time-decay) เป็น draft แรก ปรับ weight ได้ภายหลัง — บันทึกที่ `.wyn/tasks/backlog/WYN-101.md`
+- **แบ่งงานเป็น backlog 29 ไฟล์ (WYN-077 ถึง WYN-105)** ครอบคลุมครบ 28 ข้อ (ข้อ 5 แยกเป็น 2 งาน: WYN-078 บั๊กพื้นหลังไม่เต็มจอ กับ WYN-105 ระบบธีมสี 3 แบบ) จัดเป็น 4 phase ตามความเสี่ยง/dependency:
+  - **Phase 0** (WYN-077): เปลี่ยนคำ Drop→โพสต์, ReDrop→รีโพสต์ ทั่วแอป (UI string เท่านั้น ไม่แตะชื่อ field/table/class เดิม)
+  - **Phase 1** (WYN-078 ถึง WYN-088, 11 งาน): bug fix ด่วนเสี่ยงต่ำ ไม่ต้องผ่าน Design spec เต็มรูปแบบ
+  - **Phase 2** (WYN-089 ถึง WYN-096, 8 งาน): รีดีไซน์ UI ต้องผ่าน AI Design ก่อน
+  - **Phase 3** (WYN-097 ถึง WYN-105, 9 งาน): ฟีเจอร์ใหม่/ของใหญ่ ต้องผ่าน AI Product Manager spec เต็มก่อน (2 งานยังรอ Founder ตัดสินใจเพิ่มก่อนเริ่ม coding จริง: WYN-098 provider แผนที่, WYN-095 ตำแหน่งปุ่มติดตาม/ส่งข้อความ/bio ที่ Founder เองบอกว่า "นึกไม่ออก")
+- Founder ยืนยัน **"เริ่ม Phase 0/1 ได้เลย"** (2026-09-02) — เข้าสู่ AI Coding รอบนี้สำหรับ WYN-077 ถึง WYN-088 (12 งาน) โดยตรง (Recommendation ของแต่ละ backlog file เองระบุไว้แล้วว่า "ทำได้ทันที ไม่ต้อง Design spec")
+- อ้างอิง: `.wyn/tasks/backlog/WYN-077.md` ถึง `WYN-105.md`, PDF ต้นฉบับที่ Founder แนบมา (`Wynos_V1.0.0_Beta2.pdf`)
+
+### [2026-09-02] พบปัญหา: schema.sql โหลดสดเข้า PostgreSQL ว่างเปล่าไม่ผ่าน (pre-existing, บล็อก SQL regression testing ทั้งระบบ)
+
+- บริบท: ระหว่างทำ WYN-079 (เพิ่ม DELETE policy ให้ `feed_signals`) พยายามรัน `supabase/tests/wyn_063_unified_home_feed_test.sh` เพื่อยืนยัน schema.sql ยังโหลดผ่านปกติ พบว่า **รันไม่ผ่านตั้งแต่ก่อนถึงส่วนที่แก้เลย**: `psql:.../schema.sql:7365: ERROR: cannot change name of view column "comment_count" to "liked_by"`
+- ยืนยันด้วย `git stash` (เอาการเปลี่ยนแปลงของ WYN-079 ออกชั่วคราว) แล้วรันซ้ำ — **error เดิมทุกตัวอักษร** พิสูจน์ว่าไม่เกี่ยวกับงาน WYN-079 เลย เป็นปัญหาที่มีอยู่ก่อนแล้วใน `main`/branch นี้
+- root cause: มี `create or replace view public.home_feed` สะสมอยู่ **7 จุด** ในไฟล์ (บรรทัด 456/3982/5965/6381/7033/7156/10464 — migration history สะสมทับกันมาเรื่อยๆ) อย่างน้อย 1 คู่ในนั้นพยายามเปลี่ยนตำแหน่ง/ชื่อคอลัมน์ (`comment_count`→`liked_by`) ซึ่ง PostgreSQL's `CREATE OR REPLACE VIEW` ไม่ยอมให้ทำ (ต้องใช้ `ALTER VIEW ... RENAME COLUMN` แทน หรือ `DROP VIEW` แล้ว `CREATE` ใหม่) — เป็น error class เดียวกับ P0 incident ที่เจอใน **production จริง** ตอน WYN-071 (2026-08-25, `liked_by`/`top_reply` columns) และ WYN-072 (2026-09-01, `profiles.is_verified`/`home_feed` view) ที่บันทึกไว้แล้วในมติก่อนหน้า — **แต่ทั้งสองครั้งนั้นแก้ที่ production database ตรงๆ ผ่าน Supabase Management API ไม่เคยแก้ไฟล์ `schema.sql` เองให้ history สอดคล้องกัน** จึงยังเหลือปัญหานี้ค้างอยู่ในไฟล์จนถึงตอนนี้
+- ผลกระทบ: **`supabase/tests/*.sh` ทุกไฟล์ที่โหลด `schema.sql` เต็มไฟล์เข้า Postgres ว่างเปล่า (ไม่ใช่แค่ `wyn_063_unified_home_feed_test.sh`) ใช้งานไม่ได้จนกว่าจะแก้** — บล็อก SQL regression testing ทั้งระบบ ไม่ใช่แค่งานใดงานหนึ่ง เป็นความเสี่ยงที่ QA/Coding รอบถัดๆ ไปจะเจอปัญหาเดียวกันซ้ำถ้าไม่รู้ล่วงหน้า
+- **ยังไม่แก้** — ไม่อยู่ในสโคปของ WYN-079 (Phase 1 quick fix เล็กๆ) และการไล่แก้ history ของ view ที่สะสมมา 7 รอบเป็นงานที่เสี่ยงถ้าไม่เข้าใจทุกจุดที่เปลี่ยนแปลงจริง ควรเป็นงานแยกต่างหากที่ AI Deploy & DevOps หรือ Coding รอบถัดไปตรวจ column order จริงจาก production (เหมือนวิธีที่เคยแก้ P0 incident 2 ครั้งก่อนหน้า) แล้ว consolidate ทั้ง 7 นิยามให้เหลือ path เดียวที่โหลดสดได้จริง โดยไม่กระทบ production ที่ใช้งานอยู่
+- Workaround ที่ใช้ระหว่างนี้: เขียน SQL regression test แบบ standalone/minimal (สร้างเฉพาะตาราง+policy ที่เกี่ยวข้องจริงในงานนั้นๆ ไม่โหลด schema.sql เต็มไฟล์) ดูตัวอย่างที่ `supabase/tests/wyn_079_feed_signals_unhide_test.sh` — ใช้ได้ชั่วคราวแต่ไม่ครอบคลุมเท่าการทดสอบ schema.sql จริงทั้งไฟล์
+
+### [2026-09-02] พบและแก้บั๊ก: `setState(() => _loadFuture = _load())` คืนค่า Future จริง (masked by tester.takeException() ในเทสเดิม)
+
+- บริบท: ระหว่างทำ WYN-081 (เพิ่ม pull-to-refresh หลายหน้า) เขียนเทสใหม่ที่เรียก `RefreshIndicator.onRefresh()` ตรงๆ (ไม่ผ่าน `tester.takeException()`) แล้วเจอ `setState() callback argument returned a Future` assertion จริง
+- root cause: `_loadFuture = _load()` เป็น assignment expression ซึ่งใน Dart ประเมินค่าเป็นค่าที่ assign (คือตัว `Future` เอง ไม่ใช่ `void`) — เขียนเป็น arrow-body closure `() => _loadFuture = _load()` ส่งเข้า `setState()` จึงทำให้ closure นั้น **return Future จริงๆ** ซึ่ง Flutter's `setState()` มี debug assertion ดักไว้ตรงๆ
+- พบ pattern นี้ซ้ำใน **5 จุด**: `view_profile_screen.dart`, `club_page.dart`, `my_moderation_action_screen.dart` (ทั้ง 3 มีมาก่อน WYN-081) + 2 จุดใหม่ที่เขียนซ้ำ pattern เดิมโดยไม่ทันสังเกตระหว่างทำ WYN-081 เอง (`explore_clubs_screen.dart`, `my_clubs_screen.dart`)
+- **ทำไมไม่เคยมีใครเจอมาก่อน**: เทสเดิมที่ใช้งาน `_reload()` จริง (เช่นหลัง join club, หลังแก้โปรไฟล์) เรียก `tester.takeException()` หลัง `pumpAndSettle()` เสมอ (ตามธรรมเนียม pattern "harmless expected exception" ของโปรเจกต์นี้ เช่น `NetworkImageLoadException` ตอน test โหลดรูป) — การเรียก `takeException()` แบบไม่เจาะจงประเภท exception ไปกลืน assertion error ตัวนี้ไปด้วยแบบเงียบๆ ไม่มีใครสังเกต เพราะเทสยัง PASS ปกติ
+- **แก้แล้วทั้ง 5 จุด**: เปลี่ยนจาก arrow-body (`() => x = y`) เป็น block-body (`() { x = y; }`) — semantic เดิมทุกประการ แค่ทำให้ closure return `void` จริงแทนที่จะ return ค่า assignment โดยไม่ตั้งใจ
+- **บทเรียน**: `tester.takeException()` แบบไม่เจาะจงประเภท เป็นดาบสองคม — กลืน exception ที่ "รู้อยู่แล้วว่าไม่เป็นไร" (เช่น network image ใน test env) ได้จริง แต่ก็กลืนบั๊กจริงไปด้วยแบบไม่รู้ตัว ควรระวังเวลาเขียนเทสใหม่ที่ต้องเรียก callback ตรงๆ (ไม่ผ่าน gesture simulation) — การไม่เรียก `takeException()` แบบไม่เจาะจงจะช่วยให้เทสจับบั๊กประเภทนี้ได้ไวขึ้น
+
+### [2026-09-02] WYN-083: Founder ย้อนมติ WYN-038 — นับวิว Drop ต้องรวมเจ้าของโพสต์ + ไม่ dedup
+
+- บริบท: Founder ข้อ 21/28 ของ Wynos V1.0.0 Beta2 — "การนับวิว จะนับตั้งแต่วินาทีแรก ที่มีคนเห็น รวมถึงเจ้าของโพสต์ด้วย นับไม่จำกัด" — ตรงข้ามกับมติเดิมของ WYN-038 (Product spec เดิม) ที่ตั้งใจ exclude self-view และ dedup แบบ unique-viewer lifetime
+- **คำตัดสินใจใหม่**: `drop_views` เปลี่ยนจาก "unique-viewer ledger" (primary key `(drop_id, viewer_id)`) เป็น "view-event log" ธรรมดา (surrogate `id` primary key, ไม่มี dedup) — `record_drop_view()` ไม่ exclude เจ้าของโพสต์อีกต่อไป — ทำให้ Drop's view-counting กลับมาเหมือน Pop's `increment_pop_view_count()` (WYN-006) ที่ไม่เคยมี dedup/self-exclusion ตั้งแต่ต้นอยู่แล้ว
+- **สิ่งที่ยังคงไว้ไม่เปลี่ยน**: rate-limit (20 req/60s/account) และ velocity-cap (50 req/10s/โพสต์) กันบอทปั่นวิว — ตีความ "นับไม่จำกัด" ว่าหมายถึงไม่ cap ยอดสะสมที่ถูกต้อง ไม่ใช่คำสั่งให้เปิดช่องให้บอทยิงรัวไม่จำกัด (ยังไม่ได้ถาม Founder ยืนยันเรื่องนี้ตรงๆ — เป็นการตีความของ AI Coding)
+- **"นับตั้งแต่วินาทีแรกที่มีคนเห็น" ตีความว่า** = นับทันทีไม่มีดีเลย์เทียม (พฤติกรรมเดิมทำอยู่แล้ว) **ไม่ใช่** = นับตั้งแต่โพสต์ปรากฏในฟีดตอน scroll ผ่าน (ยังคงนับเฉพาะตอนเปิด DropDetailScreen เหมือนเดิม) — ถ้า Founder หมายถึงแบบหลังจริงๆ ต้องแจ้งกลับมาเป็นงานแยก (ฟีเจอร์ใหญ่กว่า ต้องมี scroll-visibility detection ใหม่)
+- **Migration risk**: `drop_views` มีข้อมูลจริงอยู่แล้วใน production (ตาราง live ตั้งแต่ WYN-038 deploy) — เปลี่ยน primary key ต้องใช้ `alter table` ที่รักษาข้อมูลเดิม ไม่ใช่ drop+recreate — ยังไม่ได้ apply เข้า production (รอ AI Deploy & DevOps)
+- อ้างอิง: `.wyn/tasks/review/WYN-083-view-count-owner-uncapped.md`
+
+### [2026-09-02] Wynos V1.0.0 Beta2 — Phase 0/1 ทำครบทั้ง 12 งานแล้ว (WYN-077 ถึง WYN-088), ส่งต่อ QA
+
+- Founder สั่ง "เริ่ม Phase 0/1 ได้เลย" (2026-09-02) — ทำครบทั้ง 12 งานในรอบเดียว แต่ละงาน: อ่าน spec → เช็ค codebase เดิม → แก้เล็กที่สุด/ปลอดภัยที่สุด → เขียน/แก้เทส พิสูจน์ red→green จริงทุกงาน → `flutter analyze`/`flutter test` ผ่านสะอาดหลังทุก commit → commit+push แยกทีละงาน (ไม่รวบ) → ย้ายไฟล์ task จาก `backlog/` ไป `review/` พร้อม "Coding Output" section
+- **ผลลัพธ์รวม**: `flutter analyze` สะอาดตลอด, `flutter test` ไต่จาก 871 (ก่อนเริ่ม) → **887 ผ่านหมด** (16 เทสใหม่/แก้จากเดิม), ไม่มี regression หลงเหลือ
+- **สรุปแต่ละงาน** (รายละเอียดเต็มอยู่ใน `.wyn/tasks/review/WYN-0XX-*.md` แต่ละไฟล์):
+  - WYN-077: เปลี่ยนคำ Drop→โพสต์, ReDrop→รีโพสต์ ทั่วแอป+push notification text (ไม่แตะชื่อ field/table/class เดิม)
+  - WYN-078: เพิ่ม `SystemChrome.setSystemUIOverlayStyle` ให้พื้นหลังเต็มจอจริง
+  - WYN-079: เพิ่มปุ่ม "เลิกทำ" (Undo) หลังกด "ไม่สนใจโพสต์นี้" — เพิ่ม DELETE policy ให้ `feed_signals`
+  - WYN-080: ค้นหาต้องกดยืนยัน (ไอคอน/Enter) ไม่ใช่ auto-search ทุกตัวอักษร
+  - WYN-081: เพิ่ม pull-to-refresh ให้หน้าโปรไฟล์ (3 tab) + Club/Top100 อีกหลายหน้า
+  - WYN-082: เพิ่ม dialog ยืนยันก่อนออกจากระบบ
+  - WYN-083: **ย้อนมติเดิมของ WYN-038** — นับวิวรวมเจ้าของโพสต์+ไม่ dedup (ดูมติแยกด้านบน) — **ต้อง migrate `drop_views` primary key บน production ด้วยความระมัดระวัง (มีข้อมูลจริงอยู่แล้ว)**
+  - WYN-084: เอา `Padding(bottom: viewInsets.bottom)` ซ้ำซ้อนออกจากช่องพิมพ์แชท (double keyboard-compensation bug)
+  - WYN-085: เอาปุ่มกระดิ่งแจ้งเตือนออกจากหน้าโปรไฟล์คนอื่น (เคย push ไปหน้าที่ไม่มีปุ่มย้อนกลับ ทำให้ผู้ใช้ติดค้าง)
+  - WYN-086: สลับลำดับ caption มาอยู่เหนือรูป/Poll ใน `HomeDropCard` และ `DropDetailScreen` (Poll เองยังไม่สลับ — นอกสโคปที่ระบุ)
+  - WYN-087: เพิ่มเวลาสัมพัทธ์ต่อท้าย "รีโพสต์โดย @username" — ใช้ข้อมูลที่มีอยู่แล้ว (`r.created_at`) ไม่ต้องแก้ schema
+  - WYN-088: ซ่อนไอคอนดวงตา/ยอดวิวจาก Home feed (Drop+Pop) แต่ยังโชว์ปกติทุกจุดอื่น (โปรไฟล์/hashtag feed) ผ่าน parameter `showViewCount` ใหม่
+- **ปัญหาที่พบระหว่างทำแต่ไม่ได้แก้ (นอกสโคป Phase 1, บันทึกแยกไว้แล้วในมติก่อนหน้า)**: schema.sql โหลดสดเข้า Postgres ว่างเปล่าไม่ผ่าน (บล็อก SQL regression suite เต็มรูปแบบ), `setState()`+Future bug pattern (แก้ไปแล้ว 5 จุดระหว่าง WYN-081)
+- **ยังไม่ยืนยันบนอุปกรณ์จริง**: ทุกงานผ่านแค่ widget test ในนี้ (ไม่มี simulator/emulator ในสภาพแวดล้อมนี้) — AI QA & Security ต้องทดสอบ UI จริงบน iOS/Android ก่อนอนุมัติ deploy โดยเฉพาะ WYN-084 (keyboard behavior จริง) และ WYN-083 (migration ต้องเช็ค column order จริงจาก production ก่อน apply เหมือนที่เคยทำ WYN-071/072)
+- **Phase 2/3 ยังไม่เริ่ม** (WYN-089–105, รอ Founder อนุมัติแยกตามที่ตกลงกันไว้ตอนสรุปงาน — Phase 2 ต้องผ่าน AI Design ก่อน, Phase 3 ต้องผ่าน AI Product Manager spec เต็มก่อน)
+- อ้างอิง: `.wyn/tasks/review/WYN-077-*.md` ถึง `WYN-088-*.md` (12 ไฟล์)
+
+### [2026-09-02] WYN-098: Founder เลือก LocationIQ เป็น location-data provider สำหรับระบบเช็คอินสถานที่
+
+- บริบท: ระหว่างเขียน Product full spec ของ WYN-098 (Phase 3 ของ Wynos V1.0.0 Beta2) AI Product Manager ถาม Founder ตรงๆ ผ่าน popup ว่าจะเลือก provider ตัวไหนระหว่าง **LocationIQ** กับ **Geoapify** (ทั้งคู่เป็นทางเลือกฟรีไม่ต้องผูกบัตรเครดิตที่เสนอไว้ตั้งแต่มติก่อนหน้า แทนที่ Google Maps Platform ที่ต้องผูกบัตรแม้มีเครดิตฟรี $200/เดือน — ดูมติ "Wynos V1.0.0 Beta2 — Founder ส่งรายการแก้ไข 28 ข้อ" ด้านบน)
+- **Founder เลือก LocationIQ** — นี่คือคำตัดสินใจสุดท้าย ไม่ใช่คำถามเปิดอีกต่อไป
+- ผลกระทบ: WYN-098's Product spec ทั้งฉบับออกแบบอิงกับ LocationIQ โดยตรง (endpoint `/v1/autocomplete`/`/v1/search` สำหรับ forward geocoding, `/v1/reverse` สำหรับ reverse geocoding) — API key ต้องเก็บเป็น secret ผ่าน Supabase Edge Function ใหม่เท่านั้น (ห้ามฝังในแอป Flutter) มิเรอร์ pattern `send-push-notification` ของ WYN-016 — **ยังบล็อกด้วย Founder/DevOps action**: ต้องสมัคร LocationIQ account จริงแล้วให้ API key มาก่อนถึงจะทดสอบ end-to-end จริงได้ (implement UI/data-model ทำได้ทันทีไม่ต้องรอ)
+- อ้างอิง: `.wyn/tasks/backlog/WYN-098.md`, `.wyn/docs/product/wyn-098-location-checkin.md`
+
+### [2026-09-02] Phase 3 AI PM full-spec pass เสร็จ — Founder ยืนยัน 2 จุดที่ scope เปลี่ยนจากที่ตัดสินใจไว้เดิม
+
+- บริบท: AI Product Manager ทำ full-spec pass ให้ WYN-097, 099–105 (ไม่รวม WYN-098 ที่แยกทำไปแล้ว) ตรวจโค้ด/schema จริงก่อนเขียนทุกฉบับ พบ 2 จุดที่ premise เดิมที่ Founder ใช้ตัดสินใจคลาดเคลื่อนจากความจริงของโค้ด ถามยืนยันกลับผ่าน popup แล้ว
+- **WYN-100 (เมนู 3 ขีด + สร้าง Club)**: ระบบ "สร้าง Club" มีอยู่แล้วครบเต็มรูปแบบตั้งแต่ WYN-014 (ผ่าน QA แล้ว) ต่างจากที่ backlog เดิมสื่อไว้ว่ายังไม่มี — สโคปจริงที่เหลือคือแค่เพิ่มไอคอน hamburger ที่ Home (เปิด `SideMenu` ที่มีอยู่แล้ว) บวกเพิ่มแถว "สร้าง Club" เข้าไปในเมนูนั้น **Founder ยืนยันให้เดินหน้าตามสโคปจริงนี้** (เล็กกว่าที่ตัดสินใจไว้เดิมมาก) — ดูรายละเอียดเต็มที่ `.wyn/docs/product/wyn-100-club-menu-create-club.md`
+- **WYN-105 (ระบบ 3 ธีมสี)**: งานใหญ่กว่าที่ backlog เดิมประเมินไว้มาก เพราะโค้ดสีทั้งแอปอ้างอิงแบบ static const ไม่ผ่าน `Theme.of(context)` ต้องไล่แก้เกือบทุกไฟล์ UI **Founder เห็นด้วยให้เลื่อนไปทำท้ายสุดของรอบ Beta2** (ตรงกับ Priority note เดิมของ backlog file อยู่แล้ว "ต้องทำท้ายๆ เพื่อลดการชนกับงาน UI อื่นที่ยังไม่นิ่ง") — ดูรายละเอียดเต็มที่ `.wyn/docs/product/wyn-105-theme-system.md`
+- อ้างอิง: `.wyn/docs/product/wyn-100-club-menu-create-club.md`, `.wyn/docs/product/wyn-105-theme-system.md`, `.wyn/tasks/backlog/WYN-100.md`, `.wyn/tasks/backlog/WYN-105.md`
+- **WYN-097 (นิยาม "เพื่อน")**: Product full spec ถามยืนยันครั้งสุดท้ายก่อนส่ง AI Design — **Founder ยืนยัน "เพื่อน" = mutual follow (ติดตามกันสองทาง) ไม่มีระบบคำขอเป็นเพื่อนแยกต่างหาก** ตามที่ AI เคยเสนอไว้ 2026-09-02 ก่อนหน้า — ตอนนี้เป็นมติสุดท้าย ไม่ใช่ข้อเสนอที่รอยืนยันอีกต่อไป — อ้างอิง `.wyn/docs/product/wyn-097-audience-friends.md`
+
+### [2026-09-02] WYN-095: Founder เลือก Mockup A — และพบว่าพรีวิวรอบแรกใช้สีผิด (Cyan แทน Sapphire)
+
+- บริบท: หลัง AI Design เสนอ 3 mockup (A/B/C) ให้ Founder เลือกผ่าน popup, Founder ตอบ "ขอดูตัวอย่าง" แทนการเลือกจากคำอธิบายข้อความ/ASCII diagram เฉยๆ — AI สร้าง HTML mockup จริงส่งให้ดู (Artifact) แทน
+- **บั๊กที่พบ**: พรีวิวรอบแรกใช้สี Cyan `#00C8FF` จาก DS-001 (มติ 2026-08-15) ซึ่ง**ถูก re-brand ทับไปแล้วตั้งแต่ 2026-08-29** ("เปลี่ยน Color Direction ของ WYN: Cyan → Sapphire") — โค้ดจริงในแอปตอนนี้ใช้ **Sapphire `#1B3A6B`** เป็น accent เดียว (`app/lib/core/design/wyn_colors.dart`) ไม่ใช่ Cyan อีกต่อไป AI Design's ตัว design doc เอง (`wyn-095-profile-layout-redesign.md`) เขียนอ้างอิง `WynColors.sapphire` ถูกต้องอยู่แล้วตลอด — ที่ผิดคือแค่สีในไฟล์ HTML พรีวิวที่สร้างขึ้นมาใหม่ต่างหาก (ไม่ได้เช็คโค้ดจริงก่อนเลือกสี ใช้ DS-001 เก่าแทน)
+- **Founder ทักท้วงเรื่องสีทันที** ("เลือก A แต่โทนสี ตรงตามดีไซน์เดิม") — แก้พรีวิวใหม่ให้ใช้ token จริงจาก `wyn_colors.dart` (sapphire/paper/ink/graphite/hairline) แล้วส่งให้ดูซ้ำก่อนถือว่าอนุมัติ
+- **Founder เลือก Mockup A** (กะทัดรัด, ปุ่มคู่เต็มแถว, bio ก่อนปุ่ม) — เขียน Final Spec เต็มลงใน `.wyn/docs/design/wyn-095-profile-layout-redesign.md` แล้ว พร้อมส่ง AI Coding
+- **บทเรียนสำหรับ AI Design ทุกงานถัดไปที่ต้องสร้างภาพพรีวิว**: ต้องอ่านค่าสีจริงจาก `app/lib/core/design/wyn_colors.dart` (หรือไฟล์ token ที่ implement จริง) เสมอ **ไม่ใช้ค่าจากเอกสาร design system เก่าที่อาจถูก re-brand ทับไปแล้วโดยไม่รู้ตัว** — เอกสาร `.wyn/docs/design/` เก่าอาจไม่ได้อัปเดตตามหลัง code เปลี่ยน (เหมือนที่ DS-001 ยังพูดถึง Cyan ทั้งที่โค้ดเปลี่ยนเป็น Sapphire ไปแล้ว 2 สัปดาห์ก่อนหน้า) — โค้ดจริงคือความจริงสูงสุด ไม่ใช่เอกสารที่เขียนไว้ก่อนหน้า
+- อ้างอิง: `.wyn/docs/design/wyn-095-profile-layout-redesign.md`, `.wyn/tasks/backlog/WYN-095.md`, `app/lib/core/design/wyn_colors.dart`
+
+### [2026-09-02] พบข้อจำกัดใหม่ของ sandbox: การ decode รูปจริงผ่าน widget tree ค้าง (hang) ภายใต้ AutomatedTestWidgetsFlutterBinding
+
+- บริบท: ระหว่างทำ WYN-094 (upload progress indicator) พยายามเขียน widget test ที่ tap ปุ่มเลือกรูปจริง (`image_picker`) แล้วดูแถบ progress ขึ้น — เทสค้าง (timeout 10 นาที, stack `dart:isolate _RawReceivePort._handleMessage`) ซ้ำหลายรอบ
+- **ไล่ debug จนแยกสาเหตุได้ชัดเจน** (isolate ทีละชั้นด้วยไฟล์เทสแยกต่างหาก + `Timeout` สั้นๆ กันเสียเวลารอบละ 10 นาที): ไม่ใช่บั๊กของโค้ด WYN-094 เอง และไม่ใช่แค่ `image_picker` อย่างที่คิดตอนแรก — **สาเหตุจริงคือการ decode รูปภาพที่ valid จริงๆ ผ่าน widget tree (`Image.memory`/`PaintingBinding.instantiateImageCodecWithSize`) ค้างในสภาพแวดล้อม sandbox นี้ (software rendering)** — ยืนยันด้วยการทดสอบสลับ: bytes ปลอมที่ decode ไม่ผ่าน → fail เร็ว (exception ปกติ), bytes จริงที่ decode ผ่านได้ → ค้างตลอด
+- **สิ่งที่ยังใช้งานได้ปกติ ไม่ค้าง**: การสร้างรูปด้วย `ui.PictureRecorder()`/`Canvas`/`toImage()`/`toByteData()` (ใช้ใน `square_crop_test.dart`/`image_dimensions_test.dart` มาก่อนแล้ว), การเรียก `ImagePicker()`/`ImagePickerPlatform` fake ตรงๆ นอก widget tree (plain `test()`), การ tap ปุ่มอื่นที่ไม่ใช่ปุ่มเลือกรูป — ทั้งหมดนี้เร็วและไม่ค้าง
+- **Workaround ที่ใช้**: เพิ่ม `@visibleForTesting` seam (`debugInitialImagesBytes`) ให้ `CreateDropScreen` เพื่อ seed `_imagesBytes` ตรงๆ แทนการเลือกรูปจริงผ่าน UI ในเทส — ใช้ bytes ปลอม (decode ไม่ผ่าน) คู่กับ `tester.takeException()` (pattern เดียวกับที่ใช้กับ `NetworkImageLoadException` อยู่แล้วในไฟล์นี้) เพื่อไม่ให้เทสพัง — วิธีนี้พิสูจน์ logic ของ WYN-094 (progress bar/percentage/visibility) ได้ครบ แต่ **ไม่ครอบคลุม flow "เลือกรูปจริงจาก UI"** อันนั้นต้องพึ่ง AI QA & Security ทดสอบบนอุปกรณ์จริงแทน
+- **สำหรับ AI Coding งานถัดไปที่ต้องเทส flow ที่มีรูปภาพจริงผ่าน widget test**: อย่าเสียเวลาไล่ debug ปัญหาเดิมซ้ำ — ถ้าเทสค้างแบบไม่มี error message ชัดเจน (โดยเฉพาะ stack `dart:isolate _RawReceivePort._handleMessage`) ให้สงสัยเรื่องนี้ก่อน แล้วใช้ pattern เดียวกัน (seed bytes ตรงๆ ผ่าน `@visibleForTesting` param หรือคล้ายกัน แทนการพึ่ง `Image`/`ImageProvider` ที่ decode รูปจริงผ่าน widget tree)
+- อ้างอิง: `.wyn/tasks/review/WYN-094-upload-progress-indicator.md`, `app/test/create_drop_screen_test.dart`
+
+### [2026-09-02] Wynos V1.0.0 Beta2 — Phase 2/3 batch ทำเสร็จ 8 งาน (WYN-089/090/093/094/095/101/102/103), ส่งต่อ QA
+
+- Founder สั่ง "ส่งที่พร้อมไป AI Coding/Design เลย" — AI Coding ทำ 8 งานที่ AI Design/AI Product Manager ปล่อยผ่านมาแล้วในรอบเดียว (รอบแรก agent ตัวหนึ่งชน session rate limit กลางทาง หลัง WYN-090/089/093 เสร็จ — session หลักรับช่วงทำต่อจนครบ ไม่มีงานหาย เพราะ commit แยกทีละงานตามวินัยเดิม)
+- **ผลลัพธ์รวม**: `flutter analyze` สะอาดตลอด, `flutter test` ไต่จาก 905 (ก่อนเริ่ม) → **917 ผ่านหมด** ไม่มี regression หลงเหลือ
+- **สรุปแต่ละงาน** (รายละเอียดเต็มใน `.wyn/tasks/review/WYN-0XX-*.md` แต่ละไฟล์):
+  - WYN-090: ตัดแท็บ "ล่าสุด" ออกจาก Home เหลือ 3 แท็บ
+  - WYN-089: ไอคอนรีโพสต์เปลี่ยนสีเมื่อผู้ใช้เคยรีโพสต์แล้ว (`HomeDropCard`)
+  - WYN-093: รูปในฟีดยึดสัดส่วนจริง (dynamic-height/aspect-fit) แทน fixed-height crop
+  - WYN-095: รีดีไซน์ header หน้าโปรไฟล์ตาม Mockup A ที่ Founder เลือก (avatar+สถิติแถวเดียวกัน, ปุ่ม Follow/Message แบ่งครึ่งเต็มแถว) — ระหว่างเลือก mockup พบและแก้บั๊กสำคัญ: พรีวิวรอบแรกใช้สี Cyan ที่ล้าสมัย (DS-001 ถูก re-brand เป็น Sapphire ไปแล้ว) ดู entry แยกด้านบน
+  - WYN-094: progress bar ระหว่างอัปโหลดรูป คำนวณจากจำนวนรูปที่ upload เสร็จจริง (ไม่ใช่ค่าเดา) — ค้นพบข้อจำกัด sandbox สำคัญเรื่อง image decode ผ่าน widget tree ค้าง ดู entry แยกด้านบน
+  - WYN-103: จำกัด 9 รูปให้สอดคล้องกันทั้ง `CreateDropScreen`/`CreateClubPostScreen` (เดิม 10) + SnackBar แจ้งเตือนเมื่อครบ + CHECK constraint เสริมที่ DB (ยังไม่ apply production)
+  - WYN-101: สูตรจัดอันดับแฮชแท็กกำลังนิยมเปลี่ยนเป็น engagement-weighted + time-decay แทนนับความถี่ดิบ, เอา "N โพสต์" ออกจาก UI
+  - WYN-102: ซ่อน Pop จากทุกจุดที่ผู้ใช้เข้าถึงได้ (Search tab, Home feed/Trending/Top100/Saved tab ผ่าน query filter, notification tap) โดยไม่ลบโค้ด/schema แม้แต่บรรทัดเดียว — ระหว่างทำพบ 2 จุดที่ product spec เองพลาดไป (`saved_feed` view, ReDrop ของ Pop) และปิดเพิ่มเอง
+- **บทเรียนสำคัญที่บันทึกแยกไว้แล้วด้านบน**: (1) WYN-095 — พรีวิวสีต้องอ่านจากไฟล์ token จริง (`wyn_colors.dart`) ไม่ใช่เอกสาร design system เก่าที่อาจล้าสมัย (2) WYN-094 — image decode ผ่าน widget tree ค้างใน sandbox นี้ (ไม่ใช่แค่ `image_picker`) ใช้ `@visibleForTesting` seed-bytes seam แทนเสมอ
+- **สิ่งที่ยังไม่ apply เข้า production**: CHECK constraint 2 จุดใหม่ของ WYN-103 (`club_posts_image_urls_length` 10→9, `drop_images_position_max_9`) — รอ AI Deploy & DevOps ตรวจ column/data จริงก่อน apply ตามวินัยเดิม
+- **ยังไม่ยืนยันบนอุปกรณ์จริง**: ทุกงานผ่านแค่ widget test (ไม่มี simulator/emulator ในสภาพแวดล้อมนี้) — โดยเฉพาะ WYN-094 (upload progress ผ่านการเลือกรูปจริง), WYN-103 (compression จริงข้าม platform), WYN-102 (Home feed/Trending ไม่มี Pop ปนจริงบนอุปกรณ์)
+- **คงเหลือใน Phase 2/3**: WYN-091 (ครึ่งหลัง restyle การ์ด)/WYN-092/WYN-096 ยังบล็อกด้วยภาพอ้างอิงจาก PDF ที่ไม่มีในเซสชันนี้ — WYN-097/098/099/100/104 ผ่าน AI Design แล้ว "ready for AI Coding" รอหยิบขึ้นทำรอบถัดไป — WYN-105 เลื่อนไปท้ายสุดของรอบตามที่ Founder ยืนยัน
+- อ้างอิง: `.wyn/tasks/review/WYN-089-*.md` ถึง `WYN-103-*.md` (8 ไฟล์)
+
+### [2026-09-03] QA ปิด Phase 2 ครบ 8/8 — WYN-081 (round 2)/WYN-091/WYN-092/WYN-096 ทั้งหมด PASS
+
+- บริบท: worktree นี้ถูกสร้างขึ้นจาก `origin/main` ผิดพลาด (ปัญหาเดิมที่เคยเจอซ้ำในเซสชันนี้ — ได้ commit `c00e0db` ที่มี "WYNOS First Login Onboarding" ปนมาจาก main แทนที่จะเป็น `claude/wynos-beta2-phase2-handoff-w4mi5m` @ `40cafac`) — ตรวจพบก่อนเริ่มงานจริงตามที่สั่งไว้ แก้ด้วย `git fetch` + `git reset --hard origin/claude/wynos-beta2-phase2-handoff-w4mi5m` (ปลอดภัย เพราะ worktree ยังไม่มี commit ของตัวเองตอนตรวจพบ) แล้วยืนยัน `git merge-base --is-ancestor 40cafac HEAD` เป็น YES ก่อนเริ่ม QA จริง
+- **WYN-081 (QA round 2)**: ยืนยันบั๊ก `ExploreClubsScreen._reload()`'s arrow-body `setState` ที่ AI Debug Engineer แก้ไปแล้วถูกต้องจริง — รัน `test/explore_clubs_screen_test.dart` แยกอิสระ ยืนยัน "QA (WYN-081)" test เขียว, re-audit ทั่ว `app/lib` ทั้งหมด (ไม่จำกัดแค่ 3 feature เดิม) ด้วย `grep -rn "setState(() =>"` (250+ จุด) + ตรวจทุก field `Future<T>` ในโปรเจกต์ (7 ไฟล์) ยืนยัน**ไม่พบจุดที่ 7 ของบั๊กคลาสเดียวกัน**
+- **WYN-091**: `NewPostsPill` แสดง literal คงที่ "มีโพสต์ใหม่" (ไม่มีเลข) ถูกต้อง, `Semantics.label` ยังมี `$count` สำหรับ screen reader ครบ
+- **WYN-092 (งานใหญ่ที่สุด)**: ตรวจ merge-reconciliation ของ `public.home_feed` view **ไม่เชื่อ comment เฉยๆ** — diff บรรทัดต่อบรรทัดกับนิยามก่อนหน้า (WYN-098's) ยืนยันเหมือนกันทุกตัวอักษรยกเว้น `image_count` ที่เพิ่มมาเป็นคอลัมน์สุดท้าย, จากนั้น**เปิด local PostgreSQL 16 จริงในเครื่อง sandbox** (`pg_ctlcluster 16 main start`), extract โค้ด SQL ของนิยาม view ตัวจริงจาก `schema.sql` บรรทัด 11821-12053 แบบ byte-for-byte มารันตรงกับตารางขั้นต่ำที่สร้างเอง — `CREATE VIEW` สำเร็จ, insert ข้อมูลทดสอบจริงแล้ว query ยืนยัน `image_count`/`audience`/`location` ถูกต้องพร้อมกันครบทุก branch (drop/pop/redrop) — เป็นการพิสูจน์เชิงประจักษ์ (ไม่ใช่แค่ทฤษฎี) ว่า merge ที่ orchestrating session ทำมาถูกต้องจริง — รัน `supabase/tests/wyn_092_home_feed_image_count_test.sh` ผ่านครบ 5/5 checks ด้วย
+- **WYN-096**: padding action bar เปลี่ยนจาก `space1`→`space3` ถูกต้องทั้ง `HomeDropCard`/`HomePopCard`, ยืนยัน WYN-076's `Colors.red` liked-heart override ยังอยู่ครบ ไม่ถูกย้อนกลับ
+- **ผลรวม**: `flutter analyze` สะอาด, `flutter test` **1011/1011 ผ่านหมด** (ตรงกับที่ merge commit อ้างไว้) — ทั้ง 4 task ย้ายเข้า `.wyn/tasks/approved/` แล้ว **Phase 2 (WYN-089 ถึง WYN-096) ปิดครบ 8/8**
+- Postgres cluster ที่เปิดขึ้นมาทดสอบ WYN-092 เป็น local/throwaway ในเครื่อง sandbox นี้เท่านั้น (สร้าง/ลบ database ทดสอบเองแล้ว dropdb หลังใช้เสร็จ) ไม่แตะ production ใดๆ
+- อ้างอิง: `.wyn/tasks/approved/WYN-081-pull-to-refresh.md`, `.wyn/tasks/approved/WYN-091-text-post-card-and-new-posts-badge.md`, `.wyn/tasks/approved/WYN-092-home-feed-multi-image-peek-carousel.md`, `.wyn/tasks/approved/WYN-096-home-feed-action-bar-alignment.md`
+
+### [2026-09-03] QA PASS — WYN-105 (พื้นหลังขาวบริสุทธิ์) ปิด backlog Wynos Beta2 ครบ 29/29
+
+- บริบท: worktree นี้ก็ spawn ผิดสาขาซ้ำอีกเช่นเคย (อยู่บน `c00e0db`/`origin/main` แทน `aad25ea` บน `claude/wynos-beta2-phase2-handoff-w4mi5m`) — ตรวจพบและแก้ก่อนเริ่มงานจริงด้วย `git fetch` + `git reset --hard origin/claude/wynos-beta2-phase2-handoff-w4mi5m` (ปลอดภัย ไม่มี commit ของตัวเองก่อนหน้า) ยืนยัน `git log` ว่า HEAD = `aad25ea` ตรงตามที่คาดแล้วจึงเริ่ม QA
+- ตรวจไม่เชื่อคำอ้างของ Coding Output เฉยๆ: grep อิสระทั้ง repo หา `FAF9F6` (case-insensitive) ยืนยันไม่มี hardcode หลงเหลือใน `app/` เลย (มีแค่ doc comment ที่จงใจอ้างค่าเดิมเป็นประวัติ), คำนวณ WCAG contrast ratio จริงด้วย Python (ไม่เชื่อคำอ้างว่า "contrast เพิ่มขึ้น" เฉยๆ) ยืนยันเพิ่มขึ้นจริงทุกคู่สี (`hairline` 1.1854→1.2480, `faint` 1.6552→1.7427, `ink` 17.8225→18.7644, `graphite` 3.3726→3.5509), `git show aad25ea` ยืนยัน diff เป็น 1 บรรทัดเปลี่ยนค่า + doc comment เท่านั้น ไม่มี token อื่นถูกแตะ
+- พบ Flutter SDK ติดตั้งอยู่แล้วที่ `/home/user/flutter` (Flutter 3.47.2 stable) ในเครื่อง sandbox นี้ — รัน `flutter analyze`/`flutter test` จริงแทนการเชื่อรายงานเดิม: `flutter analyze` สะอาด, `flutter test` **1011/1011 ผ่านหมด** ตรงเป๊ะกับตัวเลขที่ Coding Output อ้างไว้
+- **ผลลัพธ์**: WYN-105 — **PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — เป็น**งานสุดท้ายของ backlog Wynos Beta2 ทั้งหมด (29/29)**
+- ข้อจำกัดที่ทราบและยอมรับได้ (ไม่ block): ยังไม่มี visual confirmation บนอุปกรณ์/browser จริง (ไม่มี device/simulator ในสภาพแวดล้อมนี้) — ความเสี่ยงต่ำมากเพราะเป็นการเปลี่ยนค่าคงที่สี 1 ตัว ไม่กระทบ layout/logic แนะนำให้ Founder ตรวจ visual sanity หนึ่งครั้งบนอุปกรณ์จริงหลัง deploy (ไม่ block deploy)
+- อ้างอิง: `.wyn/tasks/approved/WYN-105-white-background.md`

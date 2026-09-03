@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -5,6 +6,7 @@ import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/data/drop_comment.dart';
 import 'package:wyn/features/drop/data/drop_draft.dart';
 import 'package:wyn/features/drop/data/drop_repository.dart';
+import 'package:wyn/features/drop/data/location_result.dart';
 
 /// A DropRepository whose network-touching methods are overridden to just
 /// record what they were called with, instead of making a real Supabase
@@ -153,6 +155,15 @@ class RecordingDropRepository extends DropRepository {
   final List<int> createDropImageCountArgs = [];
   Object? createDropError;
 
+  /// WYN-094: when set, [createDrop] awaits one entry per image (in
+  /// order) before firing that image's `onImageUploaded` callback --
+  /// lets a test observe progress landing one image at a time by
+  /// completing these itself, instead of every image "uploading"
+  /// within a single microtask. Left null (the default) so every
+  /// pre-existing test that doesn't care about upload progress keeps
+  /// working unchanged (all images resolve immediately, in order).
+  List<Completer<void>>? imageUploadGate;
+
   /// Returned by [fetchDropImages], keyed by dropId -- WYN-071.
   Map<String, List<String>> dropImagesById = {};
   Object? fetchDropImagesError;
@@ -163,16 +174,33 @@ class RecordingDropRepository extends DropRepository {
     return dropImagesById[dropId] ?? [];
   }
 
+  /// Each call to [createDrop]'s audience argument, in order -- WYN-097.
+  final List<AudienceOption> createDropAudienceArgs = [];
+
+  /// Each call to [createDrop]'s location argument, in order -- WYN-098.
+  final List<LocationResult?> createDropLocationArgs = [];
+
   @override
   Future<void> createDrop({
     required List<Uint8List> imagesBytes,
     required List<String> imageExtensions,
     required String caption,
     Set<String> mentionedUserIds = const {},
+    AudienceOption audience = AudienceOption.everyone,
+    Set<String> excludedFriendIds = const {},
+    LocationResult? location,
+    void Function(int uploaded, int total)? onImageUploaded,
   }) async {
     if (createDropError != null) throw createDropError!;
     createDropImageCountArgs.add(imagesBytes.length);
     createDropMentionedUserIdsArgs.add(mentionedUserIds);
+    createDropAudienceArgs.add(audience);
+    createDropLocationArgs.add(location);
+    final gate = imageUploadGate;
+    for (var i = 0; i < imagesBytes.length; i++) {
+      if (gate != null && i < gate.length) await gate[i].future;
+      onImageUploaded?.call(i + 1, imagesBytes.length);
+    }
   }
 
   /// Each call to [createTextDrop]'s arguments, in order -- WYNOS
@@ -184,11 +212,16 @@ class RecordingDropRepository extends DropRepository {
   Future<void> createTextDrop({
     required String caption,
     Set<String> mentionedUserIds = const {},
+    AudienceOption audience = AudienceOption.everyone,
+    Set<String> excludedFriendIds = const {},
+    LocationResult? location,
   }) async {
     if (createTextDropError != null) throw createTextDropError!;
     createTextDropArgs.add({
       'caption': caption,
       'mentionedUserIds': mentionedUserIds,
+      'audience': audience,
+      'location': location,
     });
   }
 
@@ -214,6 +247,9 @@ class RecordingDropRepository extends DropRepository {
     required List<String> options,
     required int durationDays,
     Set<String> mentionedUserIds = const {},
+    AudienceOption audience = AudienceOption.everyone,
+    Set<String> excludedFriendIds = const {},
+    LocationResult? location,
   }) async {
     if (createPollDropError != null) throw createPollDropError!;
     createPollDropArgs.add({
@@ -221,6 +257,8 @@ class RecordingDropRepository extends DropRepository {
       'options': options,
       'durationDays': durationDays,
       'mentionedUserIds': mentionedUserIds,
+      'audience': audience,
+      'location': location,
     });
   }
 
@@ -443,6 +481,9 @@ class RecordingDropRepository extends DropRepository {
     required String imageUrl,
     required String caption,
     Set<String> mentionedUserIds = const {},
+    AudienceOption audience = AudienceOption.everyone,
+    Set<String> excludedFriendIds = const {},
+    LocationResult? location,
   }) async {
     if (createDropFromExistingImageError != null) {
       throw createDropFromExistingImageError!;
@@ -451,6 +492,8 @@ class RecordingDropRepository extends DropRepository {
       'imageUrl': imageUrl,
       'caption': caption,
       'mentionedUserIds': mentionedUserIds,
+      'audience': audience,
+      'location': location,
     });
   }
 }

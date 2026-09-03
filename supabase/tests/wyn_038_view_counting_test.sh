@@ -1,4 +1,36 @@
 #!/usr/bin/env bash
+# ============================================================
+# STALE as of WYN-083 (Wynos V1.0.0 Beta2, item 21, 2026-09-02) -- DO
+# NOT TRUST CHECK2/CHECK3 (or anything numerically downstream of them,
+# which is most of the rest of this file) UNTIL RE-AUDITED.
+#
+# Founder reversed 2 of this task's own original design decisions:
+# "การนับวิว จะนับตั้งแต่วินาทีแรก ที่มีคนเห็น รวมถึงเจ้าของโพสต์ด้วย
+# นับไม่จำกัด" -- record_drop_view() no longer excludes the Drop's own
+# author (CHECK3 now asserts the wrong thing) and drop_views is no
+# longer a unique-viewer/lifetime-dedup ledger, so a repeat View from
+# the same viewer now increments the count again (CHECK2 now asserts
+# the wrong thing too). See supabase/schema.sql's drop_views/
+# record_drop_view() doc comments and .wyn/company/DECISIONS.md
+# (2026-09-02) for the full change.
+#
+# This file could not be run *at all* in the WYN-083 session to verify
+# a rewrite -- schema.sql currently fails to load fresh into an empty
+# Postgres 16 (a separate, pre-existing, unrelated bug -- a home_feed
+# view migration-history conflict, also documented in DECISIONS.md
+# 2026-09-02) -- so rewriting all the interdependent counts below
+# blind, with no way to execute and catch a mistake, was judged too
+# risky to do as part of that task. WYN-083 instead added a small,
+# actually-runnable standalone test (not dependent on schema.sql
+# loading) that directly proves the 2 new behaviors:
+# wyn_083_view_count_owner_and_repeat_test.sh.
+#
+# Whoever picks this file up next: fix the schema.sql load issue
+# first (or work around it the same way wyn_083's test does), then
+# re-derive every count below by hand against the new behavior, then
+# actually run it before trusting it again.
+# ============================================================
+#
 # Regression test for WYN-038 (View Counting System -- Drop) -- proves
 # record_drop_view()/drop_view_count() enforce their business rules at
 # the database layer under the real `authenticated` role (not the
