@@ -39,7 +39,7 @@ void main() {
       expect(isNetworkError(SocketException('Failed host lookup')), isTrue);
     });
 
-    test("a web ClientException is a network error", () {
+    test('a web ClientException is a network error', () {
       expect(isNetworkError(ClientException('XMLHttpRequest error')), isTrue);
     });
 

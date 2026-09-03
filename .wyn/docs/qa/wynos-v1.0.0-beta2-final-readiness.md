@@ -1,21 +1,30 @@
 # WYNOS v1.0.0 Beta2 — Final QA & Readiness Report
 
-> วันที่: 2026-09-03
-> Branch: `claude/wynos-beta2-audit-fevu5g` — **ยังไม่เปิด PR ยังไม่ merge** ตามคำสั่ง Founder
-> เอกสารก่อนหน้า: `wynos-v1.0.0-beta2-full-audit.md` (Phase 1) · `wynos-v1.0.0-beta2-readiness.md` (รอบก่อน)
-> Environment: PostgreSQL 16.13 ในเครื่อง (ติดตั้งใน session นี้) · Flutter 3.47.1 (SDK เดียวกับ CI/production)
-> **ไม่มี Supabase production credential ใน session นี้** — ทุกข้อความในรายงานติดป้ายกำกับว่าตรวจที่ไหน
+> วันที่: 2026-09-03 (อัปเดตหลัง Founder Final Decision)
+> Branch: `claude/wynos-beta2-audit-fevu5g` — **ยังไม่เปิด PR ยังไม่ merge ยังไม่ deploy**
+> เอกสารก่อนหน้า: `wynos-v1.0.0-beta2-full-audit.md` (Phase 1) · `wynos-v1.0.0-beta2-readiness.md`
+> Environment: PostgreSQL 16.13 ในเครื่อง · Flutter 3.47.1 (SDK เดียวกับ CI/production)
+> **ไม่มี Supabase production credential ใน session นี้** — ทุกข้อความติดป้ายว่าตรวจที่ไหน
 
 ---
 
-## 🚦 ระดับความพร้อม: **QA READY** (ยังไม่ใช่ Production Ready)
+## 🚦 ระดับความพร้อม: **QA READY** (ยังไม่ Production Ready)
 
 | ระดับ | สถานะ | เหตุผล |
 |---|:--:|---|
 | Development Ready | ✅ | analyze 0 issues · test 1,086 ผ่าน · build web สำเร็จ |
-| **QA Ready** | ✅ **อยู่ตรงนี้** | ทุกงานที่อนุมัติทำเสร็จและตรวจแล้วในเครื่อง ไม่มีอะไรค้างครึ่ง ๆ กลาง ๆ |
-| Production Ready | ❌ | ยังไม่มีอะไรถูก apply กับ production เลย และมี **ข้อบกพร่องระดับ release-engineering 1 ข้อที่ต้องตัดสินใจก่อน** (§7 — `schema.sql` โหลดลงฐานข้อมูลเปล่าไม่ได้) |
-| Blocked by Security | ❌ | ไม่มีช่องโหว่ที่ยืนยันได้ — **รวมถึงข้อที่ผมเคยรายงานว่าเป็น P0 ซึ่งกลายเป็นว่าไม่ใช่ ดู §2** |
+| **QA Ready** | ✅ **อยู่ตรงนี้** | คำสั่ง Founder ครบทุกข้อ · supabase test **27/33** (จาก 4/33) · ไม่มีบั๊กผลิตภัณฑ์ค้าง |
+| Production Ready | ❌ | เหลืออย่างเดียว: **ยังไม่มีอะไรถูก apply กับ production** (ไม่มี credential) + ยังไม่ผ่าน QA เชิงพฤติกรรมโดยมนุษย์ |
+| Blocked by Security | ❌ | ไม่มีช่องโหว่ที่ยืนยันได้ — P0 ที่เคยรายงานพิสูจน์แล้วว่าไม่มีจริง (§0) |
+
+### ผลตาม Founder Final Decision (2026-09-03)
+
+| ข้อ | คำสั่ง | สถานะ |
+|---|---|---|
+| 1 | schema.sql patch — **APPROVED** | ✅ **ทำแล้ว** — เติม `drop view if exists` 2 บรรทัด · test 4/33 → 23/33 |
+| 2 | WITH CHECK — **DO NOT APPLY** | ✅ **ไม่ apply** — ติดป้าย `NOT APPROVED FOR BETA2 PRODUCTION` ในไฟล์ + บันทึกใน APPROVALS.md · ไม่แตะ RLS policy อื่นเลย |
+| 3 | `create_poll_drop` — **APPROVED** | ✅ **ทำแล้ว** — verify call site ก่อน · drop 2 overload เก่า · test 23/33 → **27/33** |
+| 4 | Index 9 ตัว — **APPROVED for production** | ⏸️ **ยังไม่ apply** — session ไม่มี production credential (ดู §8) |
 
 ---
 
@@ -42,7 +51,8 @@ PostgreSQL มีพฤติกรรมที่ผมมองข้าม: *
 **ผลที่ตามมา:**
 - ไม่เคยมีช่องโหว่ ไม่มีข้อมูลผู้ใช้เสี่ยง ไม่ต้องเร่ง
 - การเพิ่ม `WITH CHECK` แบบชัดเจนเป็น **no-op ทางความหมาย** — เปลี่ยนพฤติกรรม 0
-- ผมยัง apply ให้ในเครื่องตามที่อนุมัติ และยืนยันว่าไม่พังอะไร (§2) แต่ **Founder ควรตัดสินใจใหม่บนข้อมูลที่ถูกต้อง** ว่าจะ apply กับ production หรือไม่ เพราะเหตุผลที่ให้อนุมัติไปนั้นไม่เป็นความจริง
+- **Founder ตัดสินใหม่บนข้อมูลที่ถูกต้องแล้ว (2026-09-03): ไม่ apply ใน Beta2** — ไฟล์ถูกติดป้าย `NOT APPROVED FOR BETA2 PRODUCTION` ไว้ที่หัวไฟล์ และบันทึกเหตุผลไว้ใน `.wyn/company/APPROVALS.md` แล้ว
+- ไม่มี RLS policy อื่นถูกแตะหรือ revert ตามคำสั่ง
 
 **คุณค่าที่ยังเหลืออยู่ (เล็กแต่มีจริง):** `WITH CHECK` ที่เขียนชัดเจนกันความผิดพลาดในอนาคต — ถ้าวันหนึ่งมีคนแก้ `using` ให้กว้างขึ้น (เช่นเป็น `using (true)` เพื่อจุดประสงค์การอ่าน) เงื่อนไขฝั่งเขียนจะไม่กว้างตามไปเงียบ ๆ นี่คือ defence in depth ไม่ใช่การอุดช่องโหว่
 
@@ -75,13 +85,18 @@ PostgreSQL มีพฤติกรรมที่ผมมองข้าม: *
 
 ## 2. Security Status
 
-### 2.1 WITH CHECK — apply และตรวจแล้ว (Locally verified)
+### 2.1 WITH CHECK — ❌ **ไม่ apply** (Founder decision ข้อ 2)
 
-```
-apply supabase/pending_approval_rls_with_check.sql → exit 0
-```
+**สถานะสุดท้าย: ไม่เป็นส่วนหนึ่งของ Beta2 production deployment**
 
-**ยืนยันหลัง apply ว่า policy ทั้ง 6 ตัวมี `with_check` ชัดเจน:**
+- ไฟล์ `supabase/pending_approval_rls_with_check.sql` ยังอยู่ แต่ติดป้าย `❌ NOT APPROVED FOR BETA2 PRODUCTION — DO NOT APPLY` ที่หัวไฟล์ พร้อมเหตุผลเต็ม
+- **ไม่ได้ถูกผนวกเข้า `supabase/schema.sql`** จึงไม่มีทางถูก apply โดยบังเอิญตอน migrate
+- **ไม่มี RLS policy อื่นถูกแก้หรือ revert**
+- บันทึกคำตัดสินไว้ใน `.wyn/company/APPROVALS.md` (สถานะ: ปฏิเสธสำหรับ Beta2)
+
+ข้อมูลการทดลอง apply **ในฐานข้อมูล QA ในเครื่องเท่านั้น** (ทำก่อน Founder ตัดสิน เพื่อพิสูจน์ว่าเป็น no-op) เก็บไว้เป็นหลักฐานประกอบ:
+
+**policy ทั้ง 6 ตัวมี `with_check` ชัดเจนหลัง apply:**
 
 | Policy | with_check ที่อ่านได้จาก `pg_policies` |
 |---|---|
@@ -110,7 +125,7 @@ ERROR: new row violates row-level security policy for table "club_posts"
 | pin / unpin โพสต์ใน Club ที่ตัวเองเป็น staff | ✅ |
 | เปลี่ยนชื่อ Club ที่ตัวเองเป็น owner | ✅ |
 
-**สรุป:** ไม่มี flow ไหนพัง ไม่มีพฤติกรรมไหนเปลี่ยน — ตรงกับที่คาดไว้ว่าเป็น no-op (§0)
+**สรุปการทดลอง:** ไม่มี flow ไหนพัง ไม่มีพฤติกรรมไหนเปลี่ยน — ยืนยันว่าเป็น no-op ซึ่งเป็นข้อมูลที่ Founder ใช้ตัดสินว่าไม่ต้อง apply ใน Beta2
 
 > ⚠️ `storage.objects` ทดสอบพฤติกรรมจริงไม่ได้ในเครื่อง เพราะเป็นตาราง stub (ไม่มี Supabase Storage platform) — ยืนยันได้แค่ว่า policy ถูกสร้างถูกต้อง → **Not verified** ในเชิงพฤติกรรม
 
@@ -131,12 +146,20 @@ ERROR: new row violates row-level security policy for table "club_posts"
 
 ## 3. Database Status
 
-### 3.1 Index — apply และตรวจครบ (Locally verified)
+### 3.1 Index — ✅ อนุมัติแล้ว · ตรวจครบในเครื่อง · ⏸️ **ยังไม่ apply กับ production**
 
 ```
-apply supabase/migrations_beta2_indexes.sql → exit 0 (idempotent: รันซ้ำได้)
-verify: 9 / 9 index ถูกสร้าง
+apply supabase/migrations_beta2_indexes.sql (ฐานข้อมูลในเครื่อง) → exit 0
+verify: 9 / 9 index ถูกสร้าง · รันซ้ำได้ (idempotent: ทุกคำสั่งเป็น if not exists)
 ```
+
+**Pre-apply checks ที่ Founder สั่งให้ทำก่อน apply production — ทำครบแล้ว:**
+
+| ตรวจ | ผล |
+|---|---|
+| migration ตรงกับเวอร์ชันที่ review หรือไม่ | ✅ `supabase/migrations_beta2_indexes.sql` เหมือนกับบล็อกท้าย `schema.sql` แบบ byte-identical (ตรวจด้วย diff) |
+| มี duplicate/redundant index ใหม่หรือไม่ | ✅ ไม่มี — ตรวจ prefix ของทุก index ใน schema `public` |
+| ปลอดภัยที่จะรันหรือไม่ | ✅ additive ล้วน · ไม่แตะตาราง/คอลัมน์/policy/ข้อมูล · ย้อนกลับด้วย `drop index` 9 ตัว |
 
 **ตรวจ duplicate / redundant:** ไม่มี index ใหม่ตัวไหนซ้ำซ้อนกับของเดิม (query เทียบ prefix ของทุก index ใน schema `public`)
 
@@ -161,7 +184,7 @@ verify: 9 / 9 index ถูกสร้าง
 
 **ข้อจำกัดที่ต้องพูดตรง ๆ:** ตัวเลขเหล่านี้มาจากข้อมูลจำลอง ไม่ใช่ข้อมูล production จริง การกระจายตัวของข้อมูลจริงต่างออกไปได้ และ planner อาจเลือกต่างไป — **ต้อง `EXPLAIN ANALYZE` ซ้ำหลัง apply จริง**
 
-### 3.3 พบใหม่ระหว่าง QA: `create_poll_drop` มี 3 overload ที่เรียกชนกัน
+### 3.3 ✅ แก้แล้ว (SCHEMA-003): `create_poll_drop` เหลือ overload เดียว
 
 `create or replace function` ที่เปลี่ยน **จำนวนพารามิเตอร์** ไม่ได้แทนที่ของเดิม แต่สร้างฟังก์ชันใหม่ ทำให้ตอนนี้มีพร้อมกัน 3 ตัว:
 
@@ -177,7 +200,20 @@ create_poll_drop(text,text[],integer,uuid[],text,uuid[],text,float,float,text) -
 - **แต่ทำให้ test 5 ไฟล์ล้ม** เพราะ test เรียกด้วย 4 พารามิเตอร์ → `ERROR: function public.create_poll_drop(...) is not unique`
 - **ความเสี่ยงที่เหลือ:** overload เก่า 2 ตัวเป็นโค้ด SECURITY DEFINER ที่ยังเรียกถึงได้และข้าม logic ใหม่ (audience/location) ไม่ใช่การยกระดับสิทธิ์ (ค่า default คือ `everyone` ซึ่งกว้างที่สุดอยู่แล้ว) แต่เป็นทางเข้าที่ไม่ควรเปิดทิ้งไว้
 
-**ข้อเสนอ (ต้องอนุมัติ ยังไม่ทำ):** `drop function public.create_poll_drop(text,text[],integer,uuid[]);` และตัว 6 พารามิเตอร์ แล้วเก็บเฉพาะตัวล่าสุด
+**ทำแล้วตาม Founder decision ข้อ 3** — เพิ่มท้าย `schema.sql` 2 คำสั่ง:
+```sql
+drop function if exists public.create_poll_drop(text, text[], int, uuid[]);
+drop function if exists public.create_poll_drop(text, text[], int, uuid[], text, uuid[]);
+```
+
+**Pre-check ที่สั่งให้ทำก่อนลบ — ทำครบแล้ว:**
+
+| ตรวจ | ผล |
+|---|---|
+| ตรวจ call site ทุกจุด | ✅ มีจุดเดียวในทั้ง repo: `drop_repository.dart:623` (grep ทั้ง `app/`, `admin/`, `seller_app/`) |
+| signature ที่เหลือคือตัวที่แอปใช้จริงหรือไม่ | ✅ แอปส่งชื่อพารามิเตอร์ครบ 10 ตัวตรงกับ overload 10 พารามิเตอร์เป๊ะ |
+| รัน database/RLS test | ✅ supabase test 23/33 → **27/33** (test 4 ไฟล์ที่เคยล้มเพราะเรียกชนกลับมาผ่าน) |
+| พฤติกรรมแอปเปลี่ยนหรือไม่ | ✅ ไม่เปลี่ยน — `flutter test` 1,086 ผ่านเท่าเดิม, ไม่มีโค้ด Dart ถูกแก้ |
 
 ---
 
@@ -194,28 +230,26 @@ create_poll_drop(text,text[],integer,uuid[],text,uuid[],text,float,float,text) -
 
 ### 4.2 Supabase RLS/Database tests (`supabase/tests/*.sh`) — PostgreSQL 16.13
 
-**นี่คือส่วนที่รอบก่อนยังทำไม่ได้ และตอนนี้ทำได้แล้ว**
+**รันกับ `supabase/schema.sql` จริงใน repo (ไม่ใช่สำเนา patch แล้ว):**
 
-| การรัน | ผล |
+| จุดวัด | ผล |
 |---|---|
-| **(ก) `schema.sql` ตามที่อยู่ใน repo ตอนนี้** | **4 ผ่าน / 29 ล้ม** |
-| **(ข) `schema.sql` + patch 2 บรรทัด (สำเนาในเครื่อง)** | **23 ผ่าน / 10 ล้ม** |
-| **(ค) แบบ (ข) + `WITH CHECK` + index ที่อนุมัติ** | **23 ผ่าน / 10 ล้ม — เหมือน (ข) ทุกตัว** |
+| ก่อนเริ่มงานรอบนี้ (schema.sql เดิม) | **4 ผ่าน / 29 ล้ม** |
+| หลัง SCHEMA-002 (patch 2 บรรทัด) | **23 ผ่าน / 10 ล้ม** |
+| **หลัง SCHEMA-003 (drop 2 overload) — สถานะปัจจุบัน** | ✅ **27 ผ่าน / 6 ล้ม** |
 
-**สิ่งที่ตัวเลขนี้บอก:**
+**27 ตัวที่ผ่าน** ครอบคลุม RLS/security ของ: club post mentions · block RPC exposure · moderation queue · appeal · chat · message request · share-to-chat · redrop · poll in drop · draft system · edit/delete drop · private account · discovery · privacy controls · notification settings · platform documents · data rights · audit log · admin dashboard · unified home feed · multi-image drop · recommendation dismissal · analytics · feed signals · view count (WYN-083) · image count · image dimensions
 
-1. **(ก) → (ข):** 29 ตัวที่ล้มในสภาพปัจจุบัน **ไม่ได้ล้มเพราะโค้ดผิด** แต่ล้มเพราะ `schema.sql` โหลดลงฐานข้อมูลเปล่าไม่ได้ (§7) ทั้ง 29 ล้มที่บรรทัดเดียวกันเป๊ะ
-2. **(ข) → (ค):** การเปลี่ยนแปลงที่ Founder อนุมัติ **ไม่ทำให้ test ตัวไหนเปลี่ยนสถานะเลยแม้แต่ตัวเดียว** — นี่คือหลักฐาน regression ที่ตรงที่สุด
-3. **23 ตัวที่ผ่าน** ครอบคลุม RLS/security ของ: club post mentions, block RPC exposure, moderation queue, appeal, chat, message request, share-to-chat, redrop, private account, discovery, notification settings, platform documents, data rights, audit log, admin dashboard, unified home feed, multi-image drop, recommendation dismissal, analytics, feed signals, view count, image count/dimensions
+**6 ตัวที่ยังล้ม — ตรวจแล้วทุกตัว ไม่มีตัวไหนเป็นบั๊กผลิตภัณฑ์:**
 
-**10 ตัวที่ยังล้ม — ทั้งหมดเป็นของเดิม ไม่มีตัวไหนเกิดจากงานรอบนี้:**
-
-| สาเหตุ | ไฟล์ | ประเภท |
+| ไฟล์ | สาเหตุ | ประเภท |
 |---|---|---|
-| `create_poll_drop` เรียกชนกัน (§3.3) | 035, 036, 037, 038, 045 | ข้อบกพร่อง schema จริง |
-| test seed username ที่ constraint `profiles_username_not_reserved` (เพิ่มทีหลังใน WYN-077) ห้าม | 041, 043, 051, 052, 054_055 | test เก่าไม่ทันกับ schema — ไม่ใช่บั๊กของผลิตภัณฑ์ |
+| `wyn_041`, `wyn_043`, `wyn_051`, `wyn_052`, `wyn_054_055` | test seed username ที่ constraint `profiles_username_not_reserved` (เพิ่มทีหลังใน WYN-077) ห้าม | **test เก่าไม่ทันกับ schema** |
+| `wyn_038_view_counting` | CHECK2/3/3b/4 assert ว่ามี unique-viewer dedup และตัด self-view ออก ซึ่ง **WYN-083 เอาออกโดยตั้งใจ** ("every call counts, including repeats and the Drop's own author" — comment ใน `drop_repository.dart:992`) | **test ถูกแทนที่แล้ว** |
 
----
+**หลักฐานว่า `wyn_038` เป็น test เก่าไม่ใช่บั๊ก:** `wyn_083_view_count_owner_and_repeat_test.sh` **ผ่าน** โดย assert พฤติกรรมตรงข้ามเป๊ะ — `CHECK1_repeat_views_from_same_viewer_all_count` (ได้ 3/3) และ `CHECK2_authors_own_view_counts` (ได้ 4/4) test สองไฟล์นี้ขัดกันเอง และไฟล์ใหม่คือไฟล์ที่ตรงกับ product decision ปัจจุบัน
+
+> **สรุป: 0 บั๊กผลิตภัณฑ์จาก 33 ไฟล์** ส่วนที่เหลือคืองานทำความสะอาด test fixture (P3 — §6.2)
 
 ## 5. Regression Results
 
@@ -252,56 +286,54 @@ create_poll_drop(text,text[],integer,uuid[],text,uuid[],text,float,float,text) -
 
 ## 6. Remaining Issues
 
-### 6.1 ต้องตัดสินใจก่อน Production (เรียงตามความสำคัญ)
+### 6.1 Remaining blockers — เหลืออย่างเดียว
 
-| # | เรื่อง | ทำไมสำคัญ | ต้องการอะไร |
+| # | เรื่อง | สถานะ | ต้องการอะไร |
 |---|---|---|---|
-| **1** | **`schema.sql` โหลดลงฐานข้อมูลเปล่าไม่ได้** (§7) | สร้าง environment ใหม่ / กู้คืน / staging ไม่ได้ และทำให้ automated RLS coverage ตายไป 29/33 | อนุมัติ patch 2 บรรทัด |
-| 2 | `create_poll_drop` 3 overload (§3.3) | โค้ด SECURITY DEFINER เก่าที่ยังเรียกถึงได้ + ทำให้ test 5 ไฟล์ล้ม | อนุมัติ `drop function` 2 ตัวเก่า |
-| 3 | `WITH CHECK` — **ตัดสินใจใหม่** (§0) | อนุมัติไปบนข้อมูลที่ผมให้ผิด ไม่ใช่การอุดช่องโหว่ | ยืนยันว่ายังจะ apply หรือไม่ |
-| 4 | Apply index กับ production | โค้ดพร้อม ยืนยันในเครื่องแล้ว แต่ production ยังไม่ได้อะไร | สั่ง apply + verify |
-| 5 | test 5 ไฟล์ seed username ต้องห้าม | ไม่ใช่บั๊กผลิตภัณฑ์ แต่ทำให้ตัวเลข coverage ดูแย่กว่าความจริง | แก้ fixture (งานเล็ก) |
+| **1** | **Apply index 9 ตัวกับ production** | อนุมัติแล้ว · ตรวจครบในเครื่อง · **ยังไม่ apply** | Supabase production credential — session นี้ไม่มี |
 
-### 6.2 งานที่รู้ตัวว่ายังไม่ทำ (ไม่ได้อยู่ในคำสั่งรอบนี้)
+**ไม่มี blocker อื่นเหลือ** — 3 เรื่องที่เคยค้างในรายงานรอบก่อนปิดครบแล้ว:
+- ✅ `schema.sql` โหลดไม่ได้ → แก้แล้ว (SCHEMA-002)
+- ✅ `create_poll_drop` overload → แก้แล้ว (SCHEMA-003)
+- ✅ `WITH CHECK` → Founder ตัดสินว่าไม่ apply
 
-| เรื่อง | สถานะ |
-|---|---|
-| `pop_likes` index | รอ Pop กลับ active scope ตามคำสั่ง |
-| index ซ้ำซ้อนเดิม 3 ตัว | เปลืองพื้นที่/ต้นทุนเขียนเล็กน้อย ไม่ได้แก้ (ไม่ได้อนุมัติ) |
-| `errorMessageFor` ยังต่อแค่ 3 หน้าจอ | Home / Search / Notifications — หน้าจอที่เหลือ (~60 catch block) ยังใช้ข้อความเดิม |
-| `home_feed` มี correlated subquery 8 ตัวต่อแถว | ทางแก้จริงคือ denormalized counter → Beta3 |
-| ZOKY: 4 จุด `mounted` + รูปสินค้าไม่มี cacheWidth | **ห้ามแตะตามคำสั่ง** — ส่งต่อเจ้าของ track |
+### 6.2 งานที่รู้ตัวว่ายังไม่ทำ (ไม่ใช่ blocker)
+
+| เรื่อง | เหตุผล | P |
+|---|---|---|
+| test fixture 6 ไฟล์ล้าสมัย (5 ไฟล์ seed username ต้องห้าม + `wyn_038` ที่ถูก `wyn_083` แทนที่) | ไม่ใช่บั๊กผลิตภัณฑ์ แต่ทำให้ตัวเลข coverage ดูแย่กว่าความจริง | P3 |
+| `pop_likes` index | รอ Pop กลับ active scope ตามคำสั่ง | — |
+| index ซ้ำซ้อนเดิม 3 ตัว (`cart_items_user_id_idx`, `conversations_user_a_idx`, `drop_poll_votes_poll_idx`) | เปลืองพื้นที่/ต้นทุนเขียนเล็กน้อย ไม่ได้อนุมัติให้แก้ | P3 |
+| `errorMessageFor` ต่อแค่ 3 หน้าจอ (Home/Search/Notifications) | อีก ~60 catch block ยังใช้ข้อความเดิม | P2 |
+| `home_feed` มี correlated subquery 8 ตัวต่อแถว | ทางแก้จริงคือ denormalized counter → **Beta3** | — |
+| ZOKY: 4 จุด `mounted` + รูปสินค้าไม่มี cacheWidth | **ห้ามแตะตามคำสั่ง** — ส่งต่อเจ้าของ track | — |
 
 ---
 
 ## 7. Known Limitations
 
-### 7.1 ⚠️ ข้อจำกัดที่ใหญ่ที่สุด: `schema.sql` โหลดลงฐานข้อมูลเปล่าไม่ได้
+### 7.1 ✅ แก้แล้ว: `schema.sql` โหลดลงฐานข้อมูลเปล่าไม่ได้ (SCHEMA-002)
 
-**อาการ:** รัน `schema.sql` กับฐานข้อมูลใหม่จะหยุดกลางคันที่บรรทัด 7379
+**เดิม:** รัน `schema.sql` กับฐานข้อมูลใหม่จะหยุดกลางคัน
 ```
 ERROR: cannot change name of view column "comment_count" to "liked_by"
 ```
 
-**สาเหตุ (หาเจอในรอบนี้):** `public.home_feed` ถูกนิยามซ้ำ 10 ครั้งในไฟล์ และ 2 ครั้งในนั้น **แทรกคอลัมน์กลางลิสต์แทนที่จะต่อท้าย** ซึ่ง `create or replace view` ของ PostgreSQL ไม่ยอม:
-- บรรทัด 7170 — แทรก `liked_by` ก่อน `comment_count` (ตำแหน่งที่ 14)
-- บรรทัด 10730 — แทรก `author_is_verified` ก่อน `created_at` (ตำแหน่งที่ 6)
+**สาเหตุ:** `public.home_feed` ถูกนิยามซ้ำ 10 ครั้ง และ 2 ครั้งในนั้นแทรกคอลัมน์กลางลิสต์แทนที่จะต่อท้าย ซึ่ง `create or replace view` ไม่ยอม — บรรทัด 7170 (แทรก `liked_by` ก่อน `comment_count`) และ 10730 (แทรก `author_is_verified` ก่อน `created_at`)
 
-**ยืนยันว่านี่คือสาเหตุเดียว:** เติม `drop view if exists public.home_feed;` ก่อน 2 statement นั้น (แค่ 2 บรรทัด) แล้ว schema โหลดสะอาดทันที และ test ที่รันได้เพิ่มจาก 4 → 23
+**แก้แล้วด้วยการเปลี่ยนแปลงที่เล็กที่สุด:** เติม `drop view if exists public.home_feed;` 2 บรรทัดก่อน 2 statement นั้น — **insert อย่างเดียว ไม่ลบ ไม่แก้บรรทัดเดิมแม้แต่บรรทัดเดียว** ผลลัพธ์ปลายทางเหมือนเดิมทุกประการ
 
-**ผลกระทบ:** สร้าง staging / กู้คืน / เปิดเครื่อง dev ใหม่จาก `schema.sql` ไม่ได้ · automated RLS coverage 29/33 รันไม่ได้ · production ไม่ได้รับผลกระทบเพราะสร้างมาแบบสะสมทีละ statement
+**ปลอดภัยเพราะ:** จุดแรกไม่มีอะไรพึ่งพา view เลย · จุดที่สองมีแค่ `get_wynos_ranked_feed()` ซึ่งเป็น dollar-quoted `language sql` function ที่ PostgreSQL ไม่บันทึก hard dependency จึง drop ได้โดยไม่ต้อง CASCADE และไม่พาอะไรไปด้วย
 
-**สิ่งที่ผมทำ:** patch **เฉพาะสำเนาในเครื่อง** เพื่อทำ QA — **ไม่แตะ `supabase/schema.sql` ใน repo** เพราะเป็นการเปลี่ยนโครงสร้าง database ที่ยังไม่ได้รับอนุมัติ
-
-**ข้อเสนอ (รออนุมัติ):** เติม 2 บรรทัดนั้นลง `schema.sql` — ปลอดภัยเพราะไม่มีอะไรพึ่งพา view ณ จุดแรก และจุดที่สองมีแค่ `get_wynos_ranked_feed()` ซึ่งเป็น `language sql` แบบ dollar-quoted (PostgreSQL ไม่สร้าง hard dependency) ผลลัพธ์ปลายทางเหมือนเดิมทุกประการ
+**ผลที่วัดได้:** supabase test **4/33 → 23/33** และหลัง SCHEMA-003 เป็น **27/33**
 
 ### 7.2 อะไรตรวจที่ไหน — แยกให้ชัดตามที่สั่ง
 
 | ระดับ | ครอบคลุมอะไร |
 |---|---|
-| ✅ **Locally verified** | ทุกอย่างในรายงานนี้ที่ติดป้าย ✅ — Flutter analyze/test/build, PostgreSQL 16.13 ในเครื่อง (โหลด schema, apply ทั้ง 2 ไฟล์, verify policy/index, EXPLAIN, attack matrix, supabase test 33 ไฟล์) |
-| ❌ **Production verified** | **ไม่มีเลย — ศูนย์รายการ** session นี้ไม่มี Supabase production credential ไม่มีอะไรถูก apply กับ production และผมไม่ได้เชื่อมต่อ production แม้แต่ครั้งเดียว |
-| ⚠️ **Not verified** | พฤติกรรม `storage.objects` policy (ตาราง stub) · UX บนอุปกรณ์จริง (iOS/Android/เบราว์เซอร์) · ตัวเลข memory ของรูป (คำนวณจาก `w×h×4` ไม่ได้วัดด้วย DevTools) · performance บนข้อมูล production จริง · การทดสอบเชิงพฤติกรรมโดยมนุษย์ · push notification (ต้องมี Firebase จริง) · Google Sign-In flow |
+| ✅ **Locally verified** | ทุกอย่างในรายงานนี้ที่ติดป้าย ✅ — `flutter analyze` (0 issues) · `flutter test` (1,086 ผ่าน) · `flutter build web --release` (สำเร็จ) · PostgreSQL 16.13 ในเครื่อง: โหลด `schema.sql` จริงสะอาด, supabase test 33 ไฟล์ (27 ผ่าน), verify index 9/9, EXPLAIN ทั้ง 9, duplicate-index check, attack matrix, legitimate-flow matrix · `check_schema_ordering.py` OK |
+| ❌ **Production verified** | **ไม่มีเลย — ศูนย์รายการ** session นี้ไม่มี Supabase production credential ไม่ได้เชื่อมต่อ production แม้แต่ครั้งเดียว **ไม่มี index ตัวไหนถูกสร้างบน production** และ **ไม่มี schema change ใดถูก apply กับ production** |
+| ⚠️ **Not verified** | พฤติกรรม `storage.objects` policy (ตาราง stub ในเครื่อง ไม่มี Supabase Storage จริง) · UX บนอุปกรณ์จริง (iOS/Android/เบราว์เซอร์) · ตัวเลข memory ของรูป (คำนวณจาก `w×h×4` ไม่ได้วัดด้วย DevTools) · performance บนข้อมูล production จริง (EXPLAIN ใช้ข้อมูลจำลอง) · การทดสอบเชิงพฤติกรรมโดยมนุษย์ · push notification (ต้องมี Firebase จริง) · Google Sign-In flow |
 
 ---
 
@@ -309,20 +341,49 @@ ERROR: cannot change name of view column "comment_count" to "liked_by"
 
 ### สรุป: **QA READY — ยังไม่ Production Ready**
 
-**เหตุผลที่ยังไม่ใช่ Production Ready ไม่ใช่เรื่องคุณภาพโค้ด:**
+**เหลืออุปสรรคเดียว และไม่ใช่เรื่องคุณภาพโค้ด:** ยังไม่มีอะไรถูก apply กับ production เพราะ session นี้ไม่มี Supabase credential
 
-1. **ยังไม่มีอะไรถูก apply กับ production เลย** — index และ policy ยังอยู่แค่ในไฟล์
-2. **มี 3 เรื่องที่ต้องให้ Founder ตัดสินก่อน** — §7.1 (schema โหลดไม่ได้), §3.3 (overload), §0 (WITH CHECK ที่อนุมัติบนข้อมูลผิด)
-3. **ยังไม่มีการทดสอบโดยมนุษย์บนอุปกรณ์จริง** — CI และ 1,086 test แทน AI QA & Security เชิงพฤติกรรมไม่ได้ ตาม `.wyn/company/WORKFLOW.md`
+### เงื่อนไขที่เหลือเพื่อเป็น Production Ready
 
-**เงื่อนไขที่จะเป็น Production Ready:**
+| # | ขั้นตอน | ใครทำ |
+|---|---|---|
+| 1 | Apply `supabase/migrations_beta2_indexes.sql` กับ production | ผู้มี credential |
+| 2 | Apply SCHEMA-002 + SCHEMA-003 กับ production (2 `drop view` + 2 `drop function` ท้าย `schema.sql`) | ผู้มี credential |
+| 3 | Verify: index ครบ 9 ตัว · `create_poll_drop` เหลือ overload เดียว | ผู้มี credential |
+| 4 | `EXPLAIN ANALYZE` บนข้อมูลจริง แล้วรายงานส่วนต่างจากผลในเครื่อง | ผู้มี credential |
+| 5 | AI QA & Security ทดสอบเชิงพฤติกรรมตาม `WORKFLOW.md` | AI QA |
+| 6 | Smoke test อุปกรณ์จริง: login → feed → โพสต์ → like → comment → profile → follow → search → notification → logout | Founder/QA |
 
-1. ตัดสิน §7.1 / §3.3 / §0
-2. apply index กับ production แล้ว verify ว่าครบ 9 ตัว (SQL สำหรับ verify อยู่ในรายงานรอบก่อน §3)
-3. `EXPLAIN ANALYZE` ซ้ำบนข้อมูลจริง
-4. AI QA & Security ทดสอบเชิงพฤติกรรมตาม `WORKFLOW.md` แล้ว PASS
-5. Smoke test บนอุปกรณ์จริงอย่างน้อย: login → feed → โพสต์ → like → comment → profile → follow → search → notification → logout
+> ⚠️ **ห้าม apply `pending_approval_rls_with_check.sql`** — ไม่อยู่ใน Beta2 deployment
 
-**สิ่งที่ Beta2 บรรลุแล้ว ตรงกับเป้าหมายที่ Founder ตั้งไว้:** ไม่มีฟีเจอร์ใหม่ถูกเพิ่มแม้แต่ตัวเดียวในรอบนี้ ทุกการเปลี่ยนแปลงคือการทำของเดิมให้เสร็จ — feed ที่เรียงถูก รูปที่ไม่กินหน่วยความจำเกินจำเป็น การกดที่ไม่ race กัน comment ที่ไม่พังเมื่อโพสต์ดัง scroll ที่ไม่หาย error ที่บอกความจริง และปุ่มที่กดโดนตามมาตรฐานของ design system ตัวเอง
+### SQL สำหรับ verify หลัง apply
 
-> **สถานะการหยุด:** ไม่ apply อะไรกับ production · ไม่เปิด PR · ไม่ merge · รอ Founder review
+```sql
+-- 1) index ต้องได้ครบ 9 แถว
+select indexname, tablename from pg_indexes
+where indexname in (
+  'drops_created_at_idx','drops_author_created_idx','drop_likes_user_idx',
+  'drop_comments_drop_created_idx','follows_following_idx',
+  'follow_requests_target_idx','saves_content_idx',
+  'club_posts_club_pinned_created_idx','club_post_comments_post_created_idx'
+) order by tablename;
+
+-- 2) create_poll_drop ต้องเหลือแถวเดียว (10 พารามิเตอร์)
+select p.oid::regprocedure from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public' and p.proname = 'create_poll_drop';
+
+-- 3) ต้องไม่มี WITH CHECK ถูก apply โดยบังเอิญ -- ควรได้ 6 แถว (สถานะเดิม)
+select tablename, policyname from pg_policies
+where cmd = 'UPDATE' and with_check is null order by 1;
+```
+
+---
+
+## 9. ปิดท้าย
+
+**Beta2 ทำตามเป้าหมายที่ Founder ตั้งไว้:** ไม่มีฟีเจอร์ใหม่ถูกเพิ่มแม้แต่ตัวเดียวตลอดทั้ง audit ทุกการเปลี่ยนแปลงคือการทำของเดิมให้เสร็จ — feed ที่เรียงถูก, รูปที่ไม่กินหน่วยความจำเกินจำเป็น, การกดที่ไม่ race กัน, comment ที่ไม่พังเมื่อโพสต์ดัง, scroll ที่ไม่หาย, error ที่บอกความจริง, ปุ่มที่กดโดนตามมาตรฐานของ design system ตัวเอง และตอนนี้ฐานข้อมูลที่สร้างใหม่จากไฟล์ได้จริงพร้อม test ที่รันได้ 27 จาก 33
+
+**Beta3 ยังไม่เริ่ม** ตามคำสั่ง — งานที่ยกไป Beta3 (denormalized counter, cursor pagination, state management, image CDN) บันทึกไว้ใน `wynos-v1.0.0-beta2-full-audit.md` §11 แล้ว
+
+> **สถานะการหยุด:** ไม่ apply อะไรกับ production · ไม่เปิด PR · ไม่ merge · ไม่ deploy application code · รอ Founder review

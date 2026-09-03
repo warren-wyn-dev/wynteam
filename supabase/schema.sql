@@ -7167,6 +7167,19 @@ grant select on public.home_feed to authenticated;
 --     {author_username, author_display_name, text}.
 -- Same "append a fresh full redefinition" discipline as every prior
 -- task that changed this view.
+-- SCHEMA-002 (Beta2 audit, 2026-09-03): dropped first, not just
+-- replaced. This redefinition inserts `liked_by` *before*
+-- `comment_count` rather than appending it, and CREATE OR REPLACE VIEW
+-- refuses to rename or reorder an existing column -- so a fresh load of
+-- this file aborted here with `cannot change name of view column
+-- "comment_count" to "liked_by"`, leaving the database half-migrated.
+-- Production was built up statement by statement and so never hit it,
+-- but no new environment (staging, disaster recovery, a developer's
+-- machine) could be created from this file, and 29 of the 33
+-- supabase/tests/*.sh could not run at all because each one starts by
+-- loading it. Nothing references the view at this point in the file, so
+-- dropping it here is safe and the end state is byte-for-byte the same.
+drop view if exists public.home_feed;
 create or replace view public.home_feed
   with (security_invoker = true) as
 select
@@ -10727,6 +10740,13 @@ alter table public.profiles
 -- task that changed this view -- adds `author_is_verified` and
 -- `redropper_is_verified` (null on the 2 branches with no redropper)
 -- on top of the liked_by/top_reply columns already added above.
+-- SCHEMA-002: same reason as the drop above -- this redefinition
+-- inserts `author_is_verified` before `created_at` instead of
+-- appending it. The only thing referencing home_feed by now is
+-- get_wynos_ranked_feed(), a dollar-quoted `language sql` function,
+-- for which PostgreSQL records no hard dependency -- so this drop
+-- needs no CASCADE and takes nothing else with it.
+drop view if exists public.home_feed;
 create or replace view public.home_feed
   with (security_invoker = true) as
 select
@@ -12493,3 +12513,35 @@ create index if not exists club_posts_club_pinned_created_idx
 --    created_at`) -- the Club-side counterpart of index 4.
 create index if not exists club_post_comments_post_created_idx
   on public.club_post_comments (club_post_id, created_at);
+
+-- ---------------------------------------------------------------------
+-- SCHEMA-003 (Beta2 audit, 2026-09-03) — drop the two obsolete
+-- `create_poll_drop` overloads.
+--
+-- `create or replace function` only replaces a function with the *same
+-- signature*. WYN-097 added `p_audience`/`p_excluded_friend_ids` and
+-- WYN-098 added the four location parameters, so each of those grew the
+-- parameter list -- and quietly created a new function each time instead
+-- of replacing the old one. All three ended up coexisting, all three
+-- SECURITY DEFINER, all three executable by `authenticated`.
+--
+-- Two consequences:
+--   1. A 4-argument call is ambiguous -- `function ... is not unique` --
+--      which is what fails 5 of the supabase/tests/*.sh.
+--   2. The two stale overloads are reachable SECURITY DEFINER entry
+--      points that skip the audience (WYN-097) and location (WYN-098)
+--      handling the current one performs.
+--
+-- The app is unaffected either way: DropRepository.createPollDrop is the
+-- only call site in the repository and passes all ten named parameters,
+-- which matches the surviving overload exactly (verified before this
+-- change). Dropping the other two therefore removes dead code, not a
+-- code path anything uses.
+--
+-- Placed at the end of the file rather than edited in place so this
+-- file's history stays intact and a fresh load ends with exactly one
+-- create_poll_drop. Signatures are spelled out in full because that is
+-- what identifies a function to `drop function` -- and `if exists` keeps
+-- the statement safe to re-run.
+drop function if exists public.create_poll_drop(text, text[], int, uuid[]);
+drop function if exists public.create_poll_drop(text, text[], int, uuid[], text, uuid[]);

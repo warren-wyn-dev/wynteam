@@ -1,3 +1,32 @@
+-- =====================================================================
+-- ❌ NOT APPROVED FOR BETA2 PRODUCTION — DO NOT APPLY
+--
+-- Founder decision, 2026-09-03: this migration is NOT part of the
+-- WYNOS v1.0.0 Beta2 production deployment. Kept for reference only.
+--
+-- WHY: the P0 finding this file was written to fix was WRONG. PostgreSQL
+-- uses an UPDATE policy's USING expression as its WITH CHECK when
+-- WITH CHECK is omitted, so the six policies below were never missing
+-- their write-side check and no ownership-transfer hole ever existed.
+--
+-- Verified against PostgreSQL 16.13 *before* applying anything: every
+-- attack described below is already rejected with "new row violates
+-- row-level security policy" -- profiles.id, profile_private.id,
+-- cart_items.user_id and club_posts.club_id all refuse to move to
+-- another owner, and clubs.owner_id is additionally blocked by the
+-- pre-existing clubs_prevent_owner_id_change() trigger. Applying this
+-- file was then verified to change nothing: the same attacks are still
+-- rejected and all five legitimate update flows still succeed.
+--
+-- WHAT IS STILL WORTH SOMETHING: an explicit WITH CHECK is defence in
+-- depth for a *future* edit. If someone later widens a USING clause
+-- (say to `using (true)` for a read-side reason), the write-side check
+-- would silently widen with it. That is a hardening idea for a later
+-- version, not a Beta2 fix, and not urgent.
+--
+-- See .wyn/docs/qa/wynos-v1.0.0-beta2-final-readiness.md §0 and §2.
+-- =====================================================================
+
 -- ---------------------------------------------------------------------
 -- PENDING FOUNDER APPROVAL — DO NOT APPLY TO PRODUCTION YET
 --

@@ -57,5 +57,17 @@
 - Risks: ต่ำมาก — ตรวจแล้วว่า `.update(` ทั้ง 25 จุดใน `app/lib/` ไม่มีจุดไหนเขียนทับคอลัมน์เจ้าของ (`id`/`user_id`/`author_id`/`club_id`) เลย จึงไม่มี flow ที่ใช้งานถูกต้องอยู่แล้วที่จะพังจากการเพิ่มเงื่อนไขนี้ ทุกคำสั่งเป็น idempotent (`drop policy if exists` ก่อน `create policy`) และย้อนกลับได้ด้วยการรัน policy เดิม
 - Files affected: `supabase/pending_approval_rls_with_check.sql` (ไฟล์ใหม่ รอ apply), `supabase/schema.sql` (จะย้าย policy เข้าไปแทนของเดิมหลังได้รับอนุมัติและ apply แล้ว)
 - Recommendation: อนุมัติและ apply — นี่คือช่องโหว่ระดับ P0 เดียวที่พบใน audit ที่ต้องแก้ที่ฝั่ง database และเป็นการแก้ที่ความเสี่ยงต่ำที่สุดเท่าที่เป็นไปได้ (เพิ่มเงื่อนไข ไม่ลบเงื่อนไข)
-- สถานะ: รออนุมัติ
-- วันที่ตัดสินใจ: -
+- สถานะ: **ปฏิเสธสำหรับ Beta2 (ไม่ apply)**
+- วันที่ตัดสินใจ: 2026-09-03
+- **หมายเหตุแก้ไขข้อเท็จจริง [2026-09-03]**: คำขอนี้ตั้งอยู่บนข้อมูลที่ AI รายงานผิด — **ช่องโหว่ไม่มีอยู่จริง** PostgreSQL ใช้ `USING` เป็น `WITH CHECK` ให้เองเมื่อ UPDATE policy ไม่ระบุ `WITH CHECK` ทดสอบยืนยันบน PostgreSQL 16.13 ก่อน apply ใด ๆ ว่าการย้ายความเป็นเจ้าของแถวทุกกรณี (`profiles.id`, `profile_private.id`, `cart_items.user_id`, `club_posts.club_id`) ถูกปฏิเสธอยู่แล้ว และ `clubs.owner_id` ถูกกันด้วย trigger `clubs_prevent_owner_id_change()` ที่มีอยู่เดิม การ apply จึงเป็น no-op เชิงพฤติกรรม — Founder ตัดสิน 2026-09-03 ว่า **ไม่ apply ใน Beta2** ไฟล์ `supabase/pending_approval_rls_with_check.sql` ถูกติดป้าย NOT APPROVED FOR BETA2 PRODUCTION ไว้แล้ว เก็บไว้เป็นแนวทาง hardening ในอนาคตเท่านั้น
+
+### APPROVAL_REQUIRED — [2026-09-03] SCHEMA-002/SCHEMA-003 + Beta2 production indexes
+- Proposed change: (1) **SCHEMA-002** เติม `drop view if exists public.home_feed;` 2 บรรทัดใน `supabase/schema.sql` ก่อน redefinition 2 จุดที่แทรกคอลัมน์กลางลิสต์ (2) **SCHEMA-003** `drop function` overload เก่าของ `create_poll_drop` 2 ตัว (3) apply `supabase/migrations_beta2_indexes.sql` (9 index) กับ production
+- Reason: (1) `schema.sql` โหลดลงฐานข้อมูลเปล่าไม่ได้ ทำให้สร้าง staging/กู้คืนไม่ได้ และ supabase test 29/33 รันไม่ได้ (2) overload เก่าเป็น SECURITY DEFINER ที่ยังเรียกถึงได้และข้าม logic audience/location ทั้งยังทำให้ test 5 ไฟล์ล้มเพราะเรียกชนกัน (3) ตารางหลักของ feed/social graph ไม่มี index ที่ใช้ได้
+- Benefits: test coverage เพิ่มจาก 4/33 เป็น 23/33 · ลบทางเข้า SECURITY DEFINER ที่ไม่ได้ใช้ · query หลักเปลี่ยนจาก Seq Scan เป็น Index Scan (พิสูจน์ด้วย EXPLAIN)
+- Risks: ต่ำ — (1) ไม่มีอะไรพึ่งพา view ณ จุด drop จุดแรก และจุดที่สองมีแค่ `get_wynos_ranked_feed()` ซึ่งเป็น dollar-quoted `language sql` (ไม่มี hard dependency) (2) ตรวจแล้วว่ามี call site เดียวใน repo และส่งครบ 10 พารามิเตอร์ตรงกับ overload ที่เหลือ (3) index เป็น additive ล้วน `if not exists` ทุกคำสั่ง
+- Files affected: `supabase/schema.sql`, `supabase/migrations_beta2_indexes.sql`
+- Recommendation: อนุมัติทั้งสามข้อ
+- สถานะ: **อนุมัติแล้ว**
+- วันที่ตัดสินใจ: 2026-09-03
+- **หมายเหตุ**: ข้อ (1) และ (2) ทำใน repo แล้ว · ข้อ (3) **ยังไม่ apply กับ production** เพราะ session ไม่มี Supabase credential — ต้อง apply + verify แยกต่างหาก
