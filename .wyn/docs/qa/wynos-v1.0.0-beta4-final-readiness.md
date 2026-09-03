@@ -200,6 +200,7 @@
 
 | # | เรื่อง | ความรุนแรง |
 |---|---|---|
+| K-1c | **Edge Function ที่ Beta4 แก้ ยังไม่ได้ deploy** — production ยังรัน function ตัวเก่า (ไม่มี collapse key กัน notification ซ้ำ) · ของเดิมยังทำงานปกติทุกอย่าง แค่ยังไม่มี dedupe · เพิ่ม `.github/workflows/deploy-edge-functions.yml` ให้กดปุ่มเดียวได้แล้ว รอ Founder ใส่ secret `SUPABASE_ACCESS_TOKEN` ครั้งเดียว | กลาง |
 | K-1 | **Web Push / Push ทุก platform ยังไม่เคยส่งจริงแม้แต่ครั้งเดียว** — ไม่มี Firebase project ใน session นี้ ทุกอย่างยืนยันด้วยการอ่านโค้ด + widget test + `deno test` เท่านั้น **end-to-end delivery ยังไม่ได้พิสูจน์** | — (ต้องทดสอบหลังตั้งค่า) |
 | K-1b | **`web/firebase-messaging-sw.js` เกือบไม่ได้ถูก commit** — `app/.gitignore` ทำ `/web/*` แล้ว allowlist ทีละไฟล์ (มีมาก่อน Beta4) service worker ใหม่จึงถูก ignore เงียบๆ · จับได้ตอนอ่าน `deploy-web.yml` ก่อน deploy ครั้งแรก · **แก้แล้ว** — ถ้าไม่เจอ production จะไม่มีไฟล์นี้และ Web Push จะยังเป็นไปไม่ได้ ทั้งที่เอกสารบอกว่าทำได้ | — (แก้แล้ว) |
 | K-2 | Android Gradle plugin ของ google-services ยังไม่ apply — push บน Android จะยังไม่ทำงาน (เจตนาเดิมตั้งแต่ WYN-016: apply โดยไม่มีไฟล์จริงจะพัง build) | กลาง |

@@ -1,0 +1,95 @@
+name: Deploy Supabase Edge Function
+
+# Manual-only, same reasoning as deploy-web.yml: shipping server-side
+# code is a decision, not something that should ride along with every
+# merge to main.
+#
+# Why this workflow exists at all: until Beta4, Edge Functions were
+# deployed by hand with the Supabase CLI from someone's own machine.
+# That is how `send-push-notification` came to be changed in Beta4
+# (notification_id + per-platform collapse keys, so a webhook retry
+# replaces a notification instead of stacking a second copy) and
+# shipped nowhere -- the code was merged and deployed to the web, and
+# the function running in production stayed the old one. A change that
+# can only be deployed from one person's laptop is a change that gets
+# forgotten.
+#
+# `ci.yml` already runs `deno check` + `deno test` on every PR. This
+# runs them again immediately before deploying, against the exact ref
+# being shipped -- CI proves the code was good when it merged, this
+# proves it is good right now.
+on:
+  workflow_dispatch:
+    inputs:
+      function:
+        description: "Which Edge Function to deploy"
+        required: true
+        default: send-push-notification
+        type: choice
+        options:
+          - send-push-notification
+          - location-search
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # Gate: never deploy a function whose own tests do not pass.
+      # `deno test` is a no-op for a function with no test file
+      # (location-search), which is fine -- `deno check` still runs.
+      - name: Verify the function before shipping it
+        working-directory: supabase/functions/${{ inputs.function }}
+        run: |
+          deno check index.ts
+          if ls ./*.test.ts >/dev/null 2>&1; then
+            deno test
+          else
+            echo "No test file for ${{ inputs.function }} -- deno check only."
+          fi
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # The project ref is the subdomain of SUPABASE_URL
+      # (https://<ref>.supabase.co), so the only NEW secret this
+      # workflow needs is SUPABASE_ACCESS_TOKEN -- a Supabase personal
+      # access token from https://supabase.com/dashboard/account/tokens.
+      # Deriving the ref instead of asking for a second secret keeps the
+      # one-time setup to a single step, and keeps the ref in exactly
+      # one place rather than two that can disagree.
+      #
+      # Same trailing-newline/whitespace guard deploy-web.yml applies to
+      # its own secrets -- a value pasted into the GitHub Secrets UI
+      # (especially on mobile) can silently carry a trailing newline.
+      - name: Deploy
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        run: |
+          clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          CLEAN_URL=$(clean "$SUPABASE_URL")
+          PROJECT_REF=$(printf '%s' "$CLEAN_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+
+          if [ -z "$PROJECT_REF" ] || [ "$PROJECT_REF" = "$CLEAN_URL" ]; then
+            echo "::error::Could not derive the project ref from SUPABASE_URL."
+            echo "::error::Expected https://<ref>.supabase.co"
+            exit 1
+          fi
+          echo "Deploying ${{ inputs.function }} to project $PROJECT_REF"
+
+          # Deliberately NOT passing --no-verify-jwt. The default (JWT
+          # verification on) is what these functions already run under,
+          # and a Supabase Database Webhook created through the
+          # Dashboard sends an Authorization header, so it satisfies it.
+          # Turning verification off would make the endpoint callable by
+          # anyone on the internet -- not a change to make as a side
+          # effect of automating a deploy.
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN") \
+            supabase functions deploy "${{ inputs.function }}" --project-ref "$PROJECT_REF"

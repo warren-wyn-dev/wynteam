@@ -267,7 +267,16 @@ Collapse key **ไม่ได้กันการส่งครั้งท�
 4. เพิ่ม 7 `--dart-define` ใน `deploy-web.yml`
 5. `supabase secrets set FCM_SERVICE_ACCOUNT='<service account JSON>'`
 6. ตั้ง Database Webhook บน `public.notifications` INSERT → `send-push-notification`
-7. Deploy Edge Function
+7. Deploy Edge Function — **ตอนนี้กดปุ่มเดียวได้แล้ว** ไม่ต้องใช้ CLI จากเครื่องตัวเอง:
+   เพิ่ม secret `SUPABASE_ACCESS_TOKEN` ครั้งเดียว (personal access token จาก
+   https://supabase.com/dashboard/account/tokens) แล้วรัน workflow
+   **`Deploy Supabase Edge Function`** จากแท็บ Actions เลือก function ที่จะ deploy
+   · project ref ถูกดึงจาก `SUPABASE_URL` ที่มีอยู่แล้วจึงไม่ต้องเพิ่ม secret ตัวที่สอง
+   · workflow รัน `deno check` + `deno test` ก่อน deploy เสมอ
+   · **ยังไม่ได้รันจริงแม้แต่ครั้งเดียว** — session ที่เขียนมันไม่มี token จึงทดสอบได้แค่
+     ส่วนที่ทดสอบได้: YAML parse ผ่าน, การดึง project ref จาก URL จริงได้
+     `kqokpocajhfbidcxpvhh` ถูกต้อง, และ guard ปฏิเสธ URL ว่าง/ผิดรูปแบบทั้ง 2 กรณี
+     ส่วนที่เหลือ (setup-cli, `supabase functions deploy`) จะพิสูจน์ได้ตอนรันจริงครั้งแรก
 
 ---
 

@@ -30,7 +30,18 @@ docs: update product requirements
 
 ## Continuous Integration (CI)
 
-`.github/workflows/ci.yml` รันอัตโนมัติทุก pull request และทุก push เข้า `main` — ไม่ต้องกดเอง (ต่างจาก `deploy-web.yml` ที่เป็น manual `workflow_dispatch` เพราะโควตา deploy ของ Vercel free tier ใช้ร่วมกันทั้งบัญชี)
+`.github/workflows/ci.yml` รันอัตโนมัติทุก pull request และทุก push เข้า `main` — ไม่ต้องกดเอง
+
+Workflow ที่เป็น manual (`workflow_dispatch`) มี 2 ตัว:
+
+| Workflow | ทำอะไร | ทำไมต้องกดเอง |
+|---|---|---|
+| `deploy-web.yml` | build Flutter web → Vercel production (`wynos.online`) | โควตา deploy ของ Vercel free tier ใช้ร่วมกันทั้งบัญชี |
+| `deploy-edge-functions.yml` | deploy Supabase Edge Function 1 ตัวที่เลือก | การปล่อยโค้ดฝั่ง server เป็นการตัดสินใจ ไม่ควรติดไปกับทุก merge |
+
+**`deploy-edge-functions.yml` ต้องมี secret `SUPABASE_ACCESS_TOKEN`** (personal access token จาก https://supabase.com/dashboard/account/tokens) — project ref ถูกดึงมาจาก `SUPABASE_URL` ที่มีอยู่แล้ว จึงไม่ต้องเพิ่ม secret ตัวที่สอง
+
+**ข้อควรระวัง:** ก่อน Beta4 Edge Function ถูก deploy ด้วยมือจากเครื่องใครสักคน ผลคือ Beta4 แก้ `send-push-notification` แล้ว merge และ deploy web ไปแล้ว แต่ function ที่รันจริงบน production ยังเป็นตัวเก่า — **แก้ไฟล์ใน `supabase/functions/` เมื่อไหร่ ต้อง deploy แยกเสมอ `deploy-web.yml` ไม่ได้ deploy ให้**
 
 | Job | รันอะไร |
 |---|---|
