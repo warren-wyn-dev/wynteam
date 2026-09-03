@@ -1,6 +1,6 @@
 # Feature Request — WYN-081
 
-Status: blocked on bug fix — QA FAIL (2026-09-02), see `.wyn/tasks/bugs/WYN-081-explore-clubs-reload-future-assertion.md`
+Status: fixed by AI Debug Engineer (2026-09-02) — awaiting QA round 2, see `.wyn/tasks/qa/WYN-081-explore-clubs-reload-future-assertion.md`
 Phase: Phase 1 — Quick fix
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 16/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -98,3 +98,9 @@ Recommendation: ส่งต่อ AI Debug Engineer แก้ `ExploreClubsScre
 หมายเหตุ device-only residual (จากที่ task เองระบุไว้แล้วว่าไม่มี automated test): จำนวนผู้ติดตามอัปเดตจริงหลัง pull บนหน้าโปรไฟล์, และ `MyClubsScreen` (ไม่มีไฟล์เทสมาก่อน) — ยืนยันด้วย code review เทียบ pattern เดียวกับหน้าอื่นที่มีเทสคุ้มครองแล้วเท่านั้น ยังต้องการคนทดสอบบนอุปกรณ์จริงก่อนปิดงานสมบูรณ์ (ไม่ใช่สาเหตุของ FAIL รอบนี้ — FAIL มาจากบั๊ก Join ล้วนๆ)
 
 Final Status: FAIL
+
+---
+
+## Debug Engineer Resolution (2026-09-02)
+
+Fixed `ExploreClubsScreen._reload()` (arrow-body → block-body), exactly per QA's recommendation above. `explore_clubs_screen_test.dart` now green (was red), full `flutter test` 892/892, `flutter analyze` clean. Full details/re-audit at `.wyn/tasks/qa/WYN-081-explore-clubs-reload-future-assertion.md`. Ready for AI QA & Security round 2.

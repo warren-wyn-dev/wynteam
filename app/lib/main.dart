@@ -55,6 +55,7 @@ class WynApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: appNavigatorKey,
+      scaffoldMessengerKey: appScaffoldMessengerKey,
       title: 'WYNOS Beta',
       debugShowCheckedModeBanner: false,
       // WYN Design System (Cyan/Orange, Option B) -- see

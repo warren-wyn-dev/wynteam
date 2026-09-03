@@ -1,6 +1,6 @@
 # Bug Report — WYN-102
 
-Status: bugs
+Status: qa (fixed by AI Debug Engineer, 2026-09-02 — awaiting QA re-check)
 Owner: AI Debug Engineer
 
 Bug: `PushNotificationService._openFromPushData()` (`app/lib/features/push/presentation/push_notification_service.dart`) still opens Pop content in full when a user taps a native OS push notification of type `like_pop`/`comment_pop`. WYN-102's job was to remove every user-facing access point to Pop; it fixed the in-app equivalent (`NotificationListScreen._openNotification`'s `_openPop()`, now a no-op SnackBar) but never touched this separate, parallel code path that the same file's own doc comment says "mirrors `NotificationListScreen._openNotification`'s switch exactly." `git diff` across the whole WYN-102 change confirms `push_notification_service.dart` was not modified at all — it is not in the list of 51 changed files for the WYN-089/090/093/094/095/101/102/103 batch.
@@ -24,3 +24,28 @@ Tests: none yet. Recommend adding coverage to `push_notification_service_test.da
 Regression Risk: low — the fix should be a narrow, isolated change to `_openPop()`'s body only; `_openDrop`/`_openProfile`/`_openClub`/etc. in the same file are unrelated and should not be touched.
 
 Handoff to QA: after the fix, AI QA & Security should re-verify (1) the fix mirrors `notification_list_screen.dart`'s behavior, (2) a new test exists and genuinely proves red→green (fails before the fix, passes after), (3) no other notification-tap-driven path was missed — this is now the 3rd Pop access point found across the WYN-102 effort (product spec found 2 originally missed by the backlog, this QA pass found a 3rd), so a final, exhaustive grep for `PopRepository`/`content_type.*pop`/`'pop'` across all of `app/lib` (not just the files WYN-102 touched) is warranted before signing off again.
+
+## Resolution (AI Debug Engineer, 2026-09-02)
+
+Reproduced first: read `push_notification_service.dart`'s `_openPop()` (pre-fix) — confirmed it still fetched a real `Pop` via `PopRepository.fetchById()` and pushed `PopSingleClipScreen`, exactly as reported. Since `_openFromPushData`/`_openPop` are private with no existing test coverage, wrote the regression test first, confirmed it fails red against the pre-fix code (network exception from the fake Supabase project, since `_openPop` tried to actually fetch), then applied the fix and confirmed green.
+
+Root cause confirmed as described: `push_notification_service.dart`'s `_openPop()` was a separate, parallel code path from `notification_list_screen.dart`'s `_openPop()` (already fixed) and was missed by WYN-102's original change.
+
+Fix: mirrored `notification_list_screen.dart`'s already-approved `_openPop()` pattern exactly — no fetch, no navigation, just the same `'เนื้อหานี้ไม่พร้อมใช้งานแล้ว'` SnackBar copy. Since `PushNotificationService` has no widget `BuildContext` of its own to call `ScaffoldMessenger.of(context)` from (same problem `appNavigatorKey` already solves for navigation), added a companion `appScaffoldMessengerKey` (`app/lib/core/navigation/app_navigator.dart`), wired it into `MaterialApp.scaffoldMessengerKey` in `main.dart` (same place `appNavigatorKey` is already wired), and used `appScaffoldMessengerKey.currentState?.showSnackBar(...)` in `_openPop()`. Removed the now-unused `pop_single_clip_screen.dart` import; `pop_repository.dart` stays imported (`PopRepository` is still used by `_openDrop`/`_openProfile` for unrelated params). Also added a `@visibleForTesting` `debugOpenFromPushData()` passthrough to `_openFromPushData()` so a widget test can drive a specific push `type` end to end (the class previously had no public surface for this — production code only ever reaches `_openFromPushData` through `initialize()`'s two Firebase listeners, which don't fire in `flutter test`).
+
+Files Changed:
+- `app/lib/features/push/presentation/push_notification_service.dart` — `_openPop()` rewritten (no fetch/navigate, shows SnackBar via `appScaffoldMessengerKey`), removed unused `PopSingleClipScreen` import, added `debugOpenFromPushData()` test entry point
+- `app/lib/core/navigation/app_navigator.dart` — added `appScaffoldMessengerKey`
+- `app/lib/main.dart` — wired `scaffoldMessengerKey: appScaffoldMessengerKey` into `MaterialApp`
+- `app/test/push_notification_service_test.dart` — new `WYN-102` test group (`like_pop`/`comment_pop`), proven red→green
+- This bug report and the corresponding `.wyn/tasks/review/WYN-102-hide-pop.md` Status line
+
+Tests:
+- `flutter test test/push_notification_service_test.dart`: all 4 tests pass (2 pre-existing + 2 new WYN-102 tests).
+- `flutter test test/notification_list_screen_test.dart`: unaffected, all pass (confirms the sibling fix this mirrors is untouched).
+- `flutter analyze`: no issues found.
+- Full `flutter test`: **892/892 passed**, no other regressions.
+
+Regression Risk: low, as predicted — `_openPop()`'s body only, plus a new app-wide key that defaults to `null` `currentState` until `MaterialApp` mounts (same null-safe pattern `appNavigatorKey` already uses); no other `_open*` method in this file was touched.
+
+Handoff to QA: ready for round 2 independent re-verification, per this report's own instructions above. Did not re-run the full exhaustive `PopRepository`/`content_type`/`'pop'` grep across all of `app/lib` beyond this file — that broader sweep is QA's item (3) to independently re-confirm, per the Recommendation above.

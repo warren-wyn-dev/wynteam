@@ -1,6 +1,6 @@
 # Bug Report — WYN-081
 
-Status: bugs
+Status: qa (fixed by AI Debug Engineer, 2026-09-02 — awaiting QA re-check)
 Owner: AI Debug Engineer
 Bug: `ExploreClubsScreen._reload()` (`app/lib/features/club/presentation/explore_clubs_screen.dart:76-78`) still uses `setState(() => _loadFuture = _load())` — an arrow-body closure whose body is an assignment expression, which evaluates to (and therefore returns) the `Future<_Sections>` produced by `_load()`. `setState()`'s callback is declared as `VoidCallback` but Dart's void-context rule lets a non-void return value through at compile time; at runtime Flutter's own `State.setState()` implementation asserts that the callback did not return a `Future` and throws `FlutterError: setState() callback argument returned a Future.` when it does (debug/checked mode, which is how `flutter test`, `flutter run --debug`, and every real device the Founder tests on all run by default).
 
@@ -46,3 +46,22 @@ Tests: A permanent regression test already exists and currently fails (red) agai
 Regression Risk: Low — this is a one-line syntax fix (arrow body → block body) with identical runtime behavior once fixed (same as the other 5 already-fixed sites), no API/schema/UI change.
 
 Handoff to QA: Once fixed, send back to AI QA & Security for round 2 — must independently re-run `explore_clubs_screen_test.dart` (not just trust this report), re-verify the Join flow no longer shows the false failure snackbar, and re-confirm the rest of WYN-081's acceptance criteria (Profile header pull-to-refresh, ExploreClubsScreen/MyClubsScreen/Top100Screen `RefreshIndicator`s) are unaffected, per `.wyn/company/WORKFLOW.md`'s regression-test-memory convention.
+
+## Resolution (AI Debug Engineer, 2026-09-02)
+
+Reproduced first: ran `flutter test test/explore_clubs_screen_test.dart` before touching any code — confirmed red exactly as this report describes (`joinClubCalls=1` but the false "เข้าร่วม Club ไม่สำเร็จ ลองใหม่อีกครั้ง" snackbar was present).
+
+Fixed exactly as recommended: changed `ExploreClubsScreen._reload()` (`app/lib/features/club/presentation/explore_clubs_screen.dart`) from the arrow-body `setState(() => _loadFuture = _load());` to a block-body `setState(() { _loadFuture = _load(); });` — no other behavior change.
+
+Re-audit (report's item 3): confirmed `club_page.dart`, `my_clubs_screen.dart`, `my_moderation_action_screen.dart`, and `view_profile_screen.dart` all already use a block-body (or an arrow-body method whose own `setState` argument is itself a block body) for their `_reload()` — no 7th instance of this pattern found. No other file under `app/lib/features/club`/`app/lib/features/profile`/`app/lib/features/moderation` matches `setState(() => .*= .*());` with an async RHS.
+
+Tests:
+- `flutter test test/explore_clubs_screen_test.dart`: now green, all 9 tests pass, including `'QA (WYN-081): a successful Join does not show the "เข้าร่วม Club ไม่สำเร็จ" failure snackbar'`.
+- `flutter analyze`: no issues found.
+- Full `flutter test`: **892/892 passed**, no other regressions.
+
+Regression Risk: confirmed low, as predicted — one-line syntax fix, identical runtime behavior once fixed.
+
+Files Changed: `app/lib/features/club/presentation/explore_clubs_screen.dart` only (plus this bug report and the corresponding `.wyn/tasks/review/WYN-081-pull-to-refresh.md` Status line).
+
+Handoff to QA: ready for round 2 independent re-verification, per this report's own instructions above.

@@ -74,7 +74,9 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
   }
 
   void _reload() {
-    setState(() => _loadFuture = _load());
+    setState(() {
+      _loadFuture = _load();
+    });
   }
 
   // WYN-081 (Wynos V1.0.0 Beta2, item 16): RefreshIndicator needs an

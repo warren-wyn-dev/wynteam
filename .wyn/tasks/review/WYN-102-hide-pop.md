@@ -1,6 +1,6 @@
 # Feature Request — WYN-102
 
-Status: QA FAIL (2026-09-02) — blocked by `.wyn/tasks/bugs/WYN-102-push-notification-pop-access-leak.md`, ส่งต่อ AI Debug Engineer
+Status: fixed by AI Debug Engineer (2026-09-02) — awaiting QA round 2, see `.wyn/tasks/qa/WYN-102-push-notification-pop-access-leak.md`
 Phase: Phase 3 — New feature
 แหล่งที่มา: `Wynos V1.0.0 Beta2.pdf` (Founder แนบมาพร้อมคำสั่ง 2026-09-02, ข้อ 11/28) — ดูรายละเอียดคำถาม/คำตอบเพิ่มเติมใน `.wyn/company/DECISIONS.md` (2026-09-02)
 
@@ -110,3 +110,9 @@ Security Findings: ไม่ใช่ auth/authorization bypass (RLS ไม่�
 Recommendation: ส่งต่อ AI Debug Engineer แก้ `push_notification_service.dart`'s `_openPop()` ให้มีพฤติกรรมเดียวกับที่ `notification_list_screen.dart`'s `_openPop()` ถูกแก้ไปแล้ว (แสดง SnackBar/no-op แทนการ fetch+navigate จริง) แล้วเพิ่มเทสครอบคลุมจุดนี้ก่อนส่งกลับมา QA ซ้ำ — เมื่อแก้แล้วควรตรวจอีกครั้งว่าไม่มี notification-driven path อื่นที่หลงเหลือ (เช่น deep-link จาก external URL ถ้ามีในอนาคต)
 Final Status: FAIL
 ```
+
+---
+
+## Debug Engineer Resolution (2026-09-02)
+
+Fixed `push_notification_service.dart`'s `_openPop()` to mirror `notification_list_screen.dart`'s already-approved SnackBar-instead-of-navigate pattern exactly, per QA's recommendation above. Added a companion `appScaffoldMessengerKey` (alongside the existing `appNavigatorKey`) so the service can show the SnackBar without a widget `BuildContext`. Added a `WYN-102` regression test group to `push_notification_service_test.dart` (`like_pop`/`comment_pop`), proven red→green. Full `flutter test` 892/892, `flutter analyze` clean. Full details at `.wyn/tasks/qa/WYN-102-push-notification-pop-access-leak.md`. Did not re-run the broader exhaustive Pop-access-point grep across all of `app/lib` — that remains QA's item to independently re-confirm. Ready for AI QA & Security round 2.
