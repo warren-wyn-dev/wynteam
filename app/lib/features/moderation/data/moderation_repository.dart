@@ -91,7 +91,19 @@ class ModerationRepository {
     if (row == null) {
       return const ModerationTargetSummary(exists: false, label: '(บัญชีนี้ถูกลบไปแล้ว)');
     }
-    final username = row['username'] as String;
+    // Same nullable-username case as Profile.fromMap's own comment -- and
+    // reachable here in particular: an account that accepted the platform
+    // documents and then abandoned onboarding has a `profiles` row with no
+    // username, and is exactly the kind of account that gets reported and
+    // lands on this screen. `as String` threw and took the whole report
+    // detail screen down with it.
+    final username = row['username'] as String?;
+    if (username == null) {
+      return const ModerationTargetSummary(
+        exists: true,
+        label: '(บัญชีที่ยังตั้งค่าไม่เสร็จ)',
+      );
+    }
     return ModerationTargetSummary(exists: true, label: '@$username', ownerUsername: username);
   }
 

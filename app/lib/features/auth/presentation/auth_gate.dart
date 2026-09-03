@@ -379,11 +379,27 @@ class _AuthGateState extends State<AuthGate> {
                       // switcher's 5-account limit, ...) must never block
                       // reaching Home, so this is never awaited and never
                       // gates the return below.
-                      unawaited(_accountSwitcherRepository.captureCurrentAccount(
-                        session: session,
-                        username: onboardingState.username!,
-                        displayName: onboardingState.displayName,
-                      ));
+                      //
+                      // Null-guarded rather than the `username!` this used
+                      // to force-unwrap: `completed` and `username` live in
+                      // two different tables (profile_private
+                      // .onboarding_completed vs. profiles.username) with
+                      // nothing enforcing that they agree, so one
+                      // inconsistent row would crash every login for that
+                      // account. A switcher entry needs a username to label
+                      // itself with, so a completed account somehow missing
+                      // one just isn't captured -- the same silent skip a
+                      // guest or a 6th account already gets -- instead of
+                      // taking the login down with it.
+                      final onboardingUsername = onboardingState.username;
+                      if (onboardingUsername != null) {
+                        unawaited(
+                            _accountSwitcherRepository.captureCurrentAccount(
+                          session: session,
+                          username: onboardingUsername,
+                          displayName: onboardingState.displayName,
+                        ));
+                      }
                       return _buildRootShell();
                     }
                     return OnboardingFlow(
