@@ -366,6 +366,31 @@ sequence ที่เกิดจริงเมื่อผู้ใช้ก�
 
 ทั้งหมดเป็น **การปรับปรุงฟีเจอร์ที่มีอยู่แล้ว (ประเภท A)** ไม่มีฟีเจอร์ใหม่ ไม่มีการเปลี่ยนสถาปัตยกรรม
 
+| # | งาน | ประเภท | P | สถานะ (2026-09-03) |
+|---|---|---|---|---|
+| B2-01 | แก้ PostgREST filter injection ใน `searchProfiles` | A | P0 | ✅ ทำแล้ว + test |
+| B2-02 | เพิ่ม `WITH CHECK` ใน UPDATE policy 6 ตัว | A | P0 | ⏸️ **รออนุมัติ Founder** — SQL พร้อมที่ `supabase/pending_approval_rls_with_check.sql` |
+| B2-03 | แก้ index mismatch ใน `fetchRankedFeed` | A | P1 | ✅ ทำแล้ว + test |
+| B2-04 | cache ranked window ต่อรอบการโหลด | A | P1 | ✅ ทำแล้ว |
+| B2-05 | `Future.wait` แทน await เรียงกัน | A | P1 | ✅ ทำแล้ว (profile + ทุก fetch ของ home) |
+| B2-06 | `cacheWidth` ให้ grid/thumbnail/avatar | A | P1 | ✅ ทำแล้ว + test (`NetworkThumbnail`) |
+| B2-07 | dedupe item ตอน `_loadMore` | A | P1 | ✅ ทำแล้ว + test |
+| B2-08 | กันการกดซ้ำ + idempotent write | A | P1 | ✅ ทำแล้ว + test (serialize ต่อแถว ไม่ทิ้ง tap) |
+| B2-09 | เพิ่ม index ที่ขาด | A | P1 | ✅ เขียนใน `schema.sql` แล้ว — **ต้อง apply เอง** |
+| B2-10 | pagination ให้ comment | A | P1 | ✅ ทำแล้ว + test (50 ต่อหน้า) |
+| B2-11 | คืน scroll position หลังกลับจาก detail | A | P1 | ✅ ทำแล้ว + test |
+| B2-12 | ขยาย touch target ของ `ActionMetric` เป็น 44 | A | P2 | ✅ ทำแล้ว |
+| B2-13 | skeleton ให้ Home feed | A | P2 | ✅ ทำแล้ว + test |
+| B2-14 | retry ที่มองเห็นได้เมื่อ `_loadMore` ล้มเหลว | A | P2 | ✅ ทำแล้ว + test |
+| B2-15 | loading/error placeholder ให้รูป | A | P2 | ⚠️ ทำแล้วบางส่วน — grid tile + avatar เสร็จ ส่วน club card/trending tile/saved row ยังเป็น `Image.network` เปล่า |
+| B2-16 | `mounted` guard | A | P2 | ⚠️ ทำแล้ว 11 จุดฝั่ง Wynos — เหลือ 4 จุดใน `features/zoky/` (คนละ track) |
+| B2-17 | `cacheControl` ตอน upload | A | P2 | ✅ ทำแล้ว (ทุก path ที่ immutable — ไม่แตะ avatar โดยตั้งใจ) |
+| B2-18 | แยกข้อความ error เน็ตหลุด/server | A | P2 | ❌ ยังไม่ทำ |
+| B2-19 | global error boundary | A | P2 | ✅ ทำแล้ว (release only) |
+| B2-20 | animation + haptic ตอนกด Like | A | P3 | ✅ ทำแล้ว |
+
+### ตารางเดิม (รายละเอียดความเสี่ยงตอนวางแผน)
+
 | # | งาน | ประเภท | P | ความเสี่ยง |
 |---|---|---|---|---|
 | B2-01 | แก้ PostgREST filter injection ใน `searchProfiles` | A | P0 | ต่ำ |
@@ -390,6 +415,38 @@ sequence ที่เกิดจริงเมื่อผู้ใช้ก�
 | B2-20 | animation + haptic ตอนกด Like | A | P3 | ต่ำ |
 
 ---
+
+## 10.1 ผลการ implement (Phase 3) และการตรวจ regression
+
+**Gate ที่รันจริงทุกครั้งหลังแก้ (ไม่ใช่การอ้างลอย ๆ):**
+
+| การตรวจ | ก่อนเริ่ม | หลังจบ |
+|---|---|---|
+| `flutter analyze` | ✅ 0 issues | ✅ 0 issues |
+| `flutter test` | ✅ 1,048 ผ่าน | ✅ **1,078 ผ่าน** (+30 test ใหม่) |
+| `flutter build web --release` | — | ✅ build สำเร็จ (main.dart.js 4.2 MB) |
+| `python3 supabase/check_schema_ordering.py` | ✅ OK | ✅ OK |
+
+**ไม่มี test เดิมตัวไหนถูกแก้หรือลบ ยกเว้น 1 ตัว:** `avatar_circle_test.dart` ที่ assert ว่า `backgroundImage` เป็น `NetworkImage` ตรง ๆ — เปลี่ยนเป็น assert `ResizeImage` ที่ห่อ `NetworkImage` เพราะการห่อคือตัวการแก้ปัญหาหน่วยความจำโดยเจตนา (ยังคง assert ว่าข้างในเป็น `NetworkImage` เหมือนเดิม)
+
+**สิ่งที่ทดสอบไว้เป็น regression protection ของงานรอบนี้ (30 test):**
+
+- `quotePostgrestFilterValue` — comma/quote/backslash/วงเล็บ (6)
+- `rankedCandidateRows` — คะแนนไม่เลื่อนตำแหน่งเมื่อมีแถวถูกกรองออก (5)
+- `decodeWidthFor` + `NetworkThumbnail` — ขนาด decode และ placeholder เมื่อโหลดล้มเหลว (10)
+- `AvatarCircle` — decode ตามขนาดจริง + fallback ตัวอักษรเมื่อรูปโหลดไม่สำเร็จ (2)
+- Home feed — ไม่แสดงโพสต์ซ้ำ, tap ซ้อนถูก queue ไม่ race, กลับจาก detail แล้ว scroll position คงเดิม, retry เมื่อ load-more ล้ม, skeleton ตอนโหลดครั้งแรก (5)
+- Drop detail — comment pagination ทั้งกรณีมีหน้าถัดไปและไม่มี (2)
+
+**สิ่งที่ยัง "ยังไม่เสร็จ" อย่างตรงไปตรงมา:**
+
+1. **B2-02 (P0)** — ยังไม่ apply เพราะเป็น security architecture ต้องรออนุมัติ Founder ตาม `RULES.md` ช่องโหว่ยังเปิดอยู่จนกว่าจะได้รับอนุมัติและ apply
+2. **B2-09 (P1)** — index เขียนลง `schema.sql` แล้วแต่ **ยังไม่ได้รันกับ production** (session นี้ไม่มี credential ของ Supabase) ต้องมีคนรันไฟล์ให้
+3. **B2-15/B2-16** — ทำบางส่วนตามที่ระบุในตาราง
+4. **B2-18** — ยังไม่ทำ
+5. **ZOKY (`app/lib/features/zoky/`)** — ไม่แตะเลยตามขอบเขต audit แต่พบว่ามีปัญหาแบบเดียวกันอยู่ 4 จุด (`setState` หลัง `await` โดยไม่เช็ค `mounted` ที่ `zoky_order_detail_screen.dart` 2 จุด, `review_form_sheet.dart`, `zoky_product_results_tab.dart`) และรูปสินค้าใน grid 2 คอลัมน์ก็ไม่มี `cacheWidth` เช่นกัน — ส่งต่อให้เจ้าของ track นั้น
+
+⸻
 
 ## 11. ข้อเสนอที่อยู่นอกขอบเขต Beta2 (ห้าม implement ตอนนี้)
 

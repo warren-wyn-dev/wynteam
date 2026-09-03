@@ -64,6 +64,10 @@ class DropRepository {
   // 21 (a multiple of 3) so a full page always fills whole grid rows.
   static const pageSize = 21;
 
+  /// Comments are paged separately from Drops -- a conversation reads
+  /// top-to-bottom in bigger runs than a grid does. See [fetchComments].
+  static const commentPageSize = 50;
+
   // The ranked "For You" tab (WYN-018 follow-up) is a bounded top-N
   // window, not true infinite ranking -- see fetchRankedFeed's doc
   // comment. A multiple of pageSize so _hasMore's "did this page come
@@ -1044,14 +1048,36 @@ class DropRepository {
 
   /// Oldest first, unlike the grid -- comments read top-to-bottom like a
   /// conversation.
-  Future<List<DropComment>> fetchComments(String dropId) async {
+  /// One page of [commentPageSize] comments, oldest first.
+  ///
+  /// This used to fetch *every* comment on a Drop in one unbounded
+  /// query. On a post with thousands of comments that is a huge response
+  /// to parse and hold, and the follow-up "which of these did I like"
+  /// lookup put every one of those ids into a query string -- past a few
+  /// thousand it exceeds the URL length the server accepts, so the whole
+  /// comment section fails to load. The more comments a post earns, the
+  /// more certainly it breaks: exactly backwards.
+  ///
+  /// Paging by position in the same ascending order keeps the reply
+  /// nesting intact without any extra work, because a page is always a
+  /// prefix of the conversation and a reply is always newer than its
+  /// parent -- so a reply can never load before the comment it belongs
+  /// under. (The reverse is fine: a parent whose replies are still on a
+  /// later page simply shows them once that page loads.)
+  Future<List<DropComment>> fetchComments(
+    String dropId, {
+    int page = 0,
+  }) async {
     final userId = _client.auth.currentUser!.id;
+    final from = page * commentPageSize;
+    final to = from + commentPageSize - 1;
 
     final rows = await _client
         .from('drop_comments')
         .select('*, $_commentAuthorSelect, drop_comment_likes(count)')
         .eq('drop_id', dropId)
-        .order('created_at', ascending: true);
+        .order('created_at', ascending: true)
+        .range(from, to);
 
     final commentIds = rows.map((row) => row['id'] as String).toList();
     final likedIds =

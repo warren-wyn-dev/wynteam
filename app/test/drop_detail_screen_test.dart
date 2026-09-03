@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/data/drop_comment.dart';
+import 'package:wyn/features/drop/data/drop_repository.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 import 'package:wyn/features/drop/presentation/edit_drop_caption_screen.dart';
 import 'package:wyn/features/profile/data/profile.dart';
@@ -14,6 +15,39 @@ import 'support/recording_follow_repository.dart';
 import 'support/recording_pop_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
+
+/// A RecordingDropRepository with two full pages of comments, so the
+/// paging path can be exercised end to end.
+class _PagedCommentDropRepository extends RecordingDropRepository {
+  _PagedCommentDropRepository();
+
+  static DropComment _comment(String id) => DropComment(
+        id: id,
+        dropId: 'd1',
+        authorId: 'someone-else',
+        authorUsername: 'namfah',
+        textContent: 'คอมเมนต์ $id',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        likedByMe: false,
+      );
+
+  static final page0 = [
+    for (var i = 0; i < DropRepository.commentPageSize; i++)
+      _comment('p0-$i'),
+  ];
+  static final page1 = [_comment('p1-0'), _comment('p1-1')];
+
+  final List<int> pagesRequested = [];
+
+  @override
+  Future<List<DropComment>> fetchComments(String dropId, {int page = 0}) async {
+    pagesRequested.add(page);
+    if (page == 0) return page0;
+    if (page == 1) return page1;
+    return <DropComment>[];
+  }
+}
 
 void main() {
   // DropDetailScreen reads Supabase.instance.client.auth.currentUser
@@ -45,9 +79,24 @@ void main() {
   late RecordingDropRepository ownDropViewCountTestRepo;
   late RecordingDropRepository viewCountNoRepeatTestRepo;
   late RecordingDropRepository viewCountSemanticsTestRepo;
+  late _PagedCommentDropRepository pagedCommentRepo;
+  late RecordingDropRepository singleCommentRepo;
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
     repo = RecordingDropRepository();
+    pagedCommentRepo = _PagedCommentDropRepository();
+    singleCommentRepo = RecordingDropRepository(comments: [
+      DropComment(
+        id: 'only-one',
+        dropId: 'd1',
+        authorId: 'someone-else',
+        authorUsername: 'namfah',
+        textContent: 'คอมเมนต์เดียว',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        likedByMe: false,
+      ),
+    ]);
     ownCommentRepo = RecordingDropRepository(comments: [
       DropComment(
         id: 'c1',
@@ -1134,6 +1183,84 @@ void main() {
       tester.takeException();
 
       expect(find.textContaining('📍'), findsNothing);
+    });
+  });
+
+  group('comment pagination (Beta2 audit)', () {
+    final drop = Drop(
+      id: 'd1',
+      authorId: 'u1',
+      authorUsername: 'namfah',
+      imageUrl: null,
+      caption: 'โพสต์ที่มีคอมเมนต์เยอะ',
+      createdAt: DateTime.now(),
+      likeCount: 0,
+      commentCount: 52,
+      likedByMe: false,
+      savedByMe: false,
+    );
+
+    testWidgets(
+        'a full first page offers "ดูคอมเมนต์เพิ่มเติม" and loading it '
+        'appends the next page rather than refetching everything',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: pagedCommentRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(pagedCommentRepo.pagesRequested, [0]);
+      // The end-of-thread line is not shown while there is more to load
+      // -- it would be a lie.
+      expect(find.text('ไม่มีความคิดเห็นเพิ่มเติมแล้ว'), findsNothing);
+
+      final loadMore =
+          find.byKey(const Key('drop_detail_load_more_comments'));
+      // The comment list is the outermost Scrollable on this screen;
+      // naming it explicitly avoids matching the composer's own.
+      await tester.scrollUntilVisible(
+        loadMore,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(loadMore);
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(pagedCommentRepo.pagesRequested, [0, 1]);
+      // Page 1 was short, so the thread really has ended now.
+      expect(find.byKey(const Key('drop_detail_load_more_comments')),
+          findsNothing);
+    });
+
+    testWidgets(
+        'a short first page shows the end-of-thread line and never asks '
+        'for a second page', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: singleCommentRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(singleCommentRepo.fetchCommentsPageArgs, [0]);
+      expect(find.byKey(const Key('drop_detail_load_more_comments')),
+          findsNothing);
+      expect(find.text('ไม่มีความคิดเห็นเพิ่มเติมแล้ว'), findsOneWidget);
     });
   });
 }
