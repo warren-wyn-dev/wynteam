@@ -148,6 +148,10 @@ class ClubRepository {
 
   static const searchPageSize = 20;
 
+  /// Members page separately from Clubs -- a member row is a single
+  /// line, so a page can be larger than a page of Club cards.
+  static const memberPageSize = 50;
+
   /// Clubs whose name contains [query] (case insensitive), newest first
   /// -- for WYN-009 Search's new Club tab. Unlike Explore, this doesn't
   /// exclude already-joined clubs (Search finds any Club by name, same
@@ -184,25 +188,41 @@ class ClubRepository {
     return row == null ? null : ClubMember.fromMap(row);
   }
 
-  Future<List<ClubMember>> fetchApprovedMembers(String clubId) async {
+  /// One page of [memberPageSize] approved members, oldest-joined
+  /// first. Bounded because a Club's membership is the one list here
+  /// with no natural ceiling -- an unbounded fetch made the members tab
+  /// of a large Club slower the more successful that Club became.
+  Future<List<ClubMember>> fetchApprovedMembers(
+    String clubId, {
+    int page = 0,
+  }) async {
+    final from = page * memberPageSize;
+    final to = from + memberPageSize - 1;
     final rows = await _client
         .from('club_members')
         .select('*, $_memberProfileSelect')
         .eq('club_id', clubId)
         .eq('status', 'approved')
-        .order('created_at', ascending: true);
+        .order('created_at', ascending: true)
+        .range(from, to);
     return rows.map((row) => ClubMember.fromMap(row)).toList();
   }
 
   /// Empty for anyone but that club's own owner/admin -- enforced by RLS,
   /// not a client-side check.
-  Future<List<ClubMember>> fetchPendingMembers(String clubId) async {
+  Future<List<ClubMember>> fetchPendingMembers(
+    String clubId, {
+    int page = 0,
+  }) async {
+    final from = page * memberPageSize;
+    final to = from + memberPageSize - 1;
     final rows = await _client
         .from('club_members')
         .select('*, $_memberProfileSelect')
         .eq('club_id', clubId)
         .eq('status', 'pending')
-        .order('created_at', ascending: true);
+        .order('created_at', ascending: true)
+        .range(from, to);
     return rows.map((row) => ClubMember.fromMap(row)).toList();
   }
 

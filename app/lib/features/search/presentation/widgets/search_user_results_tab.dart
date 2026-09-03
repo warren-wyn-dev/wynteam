@@ -10,6 +10,7 @@ import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../../saved/data/saved_repository.dart';
 import 'search_state_message.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/network_error.dart';
 
 /// Search's User tab (WYN-009) -- reuses FollowListScreen's own row
 /// layout (WYN-008/013) exactly, since it's the same "tappable
@@ -108,9 +109,10 @@ class _SearchUserResultsTabState extends State<SearchUserResultsTab>
         _page = page;
         _hasMore = results.length == ProfileRepository.searchPageSize;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      setState(() => _error = 'ค้นหาไม่สำเร็จ');
+      setState(() =>
+          _error = errorMessageFor(error, serverMessage: 'ค้นหาไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

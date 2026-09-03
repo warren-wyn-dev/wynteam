@@ -14,6 +14,7 @@ import '../../../../core/widgets/hashtag_text.dart';
 import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
 import '../../../report/presentation/report_sheet.dart';
+import '../../../../core/widgets/network_thumbnail.dart';
 
 /// A Club post card for the Posts tab list. Same interaction-row family
 /// as HomeDropCard/HomePopCard (Like/Comment/Share/Bookmark), plus a
@@ -300,7 +301,7 @@ class _ClubPostImagesState extends State<ClubPostImages> {
     if (widget.imageUrls.length == 1) {
       return AspectRatio(
         aspectRatio: 1,
-        child: Image.network(widget.imageUrls.first, fit: BoxFit.cover),
+        child: NetworkThumbnail(imageUrl: widget.imageUrls.first),
       );
     }
 
@@ -313,7 +314,9 @@ class _ClubPostImagesState extends State<ClubPostImages> {
             itemCount: widget.imageUrls.length,
             onPageChanged: (page) => setState(() => _page = page),
             itemBuilder: (context, index) =>
-                Image.network(widget.imageUrls[index], fit: BoxFit.cover),
+                Image.network(widget.imageUrls[index], fit: BoxFit.cover,
+                  errorBuilder: networkImageErrorBuilder,
+                ),
           ),
         ),
         const SizedBox(height: 6),

@@ -28,6 +28,7 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/widgets/mention_input.dart';
 import '../../../core/widgets/restriction_banner.dart';
+import '../../../core/widgets/network_thumbnail.dart';
 
 /// WYN-035: a Drop carries either an image or a Poll this round, never
 /// both -- see .wyn/docs/design/wyn-035-poll-in-drop.md's Screen 1.
@@ -1027,7 +1028,9 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                     color: WynColors.hairline,
                     child: _isCropping
                         ? const Center(child: CircularProgressIndicator())
-                        : Image.network(existingImageUrl, fit: BoxFit.cover),
+                        : Image.network(existingImageUrl, fit: BoxFit.cover,
+                          errorBuilder: networkImageErrorBuilder,
+                        ),
                   ),
                 ),
                 _buildRemoveButton(

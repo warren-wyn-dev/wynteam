@@ -6,6 +6,7 @@ import '../../../../core/text_utils.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import '../../../home/data/home_feed_item.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
+import '../../../../core/widgets/network_thumbnail.dart';
 
 /// One row of the Bookmarks list (15-bookmarks.tsx's `SavedRow`) --
 /// avatar, name, relative time, caption, like/comment/repost counts, and
@@ -146,24 +147,19 @@ class SavedPostRow extends StatelessWidget {
               const SizedBox(width: WynSpacing.space3),
               ClipRRect(
                 borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                child: Image.network(
-                  thumbnailUrl,
+                // The SizedBox is load-bearing, not decoration: this row
+                // is the one place a fixed-size thumbnail sits beside an
+                // Expanded sibling in a Row, so an unbounded failure
+                // state would overflow the row rather than just the
+                // image (the reason this call site grew an errorBuilder
+                // of its own before NetworkThumbnail existed). Bounding
+                // it also gives NetworkThumbnail a finite width to
+                // decode against, so a 56px thumbnail stops decoding a
+                // full-size upload.
+                child: SizedBox(
                   width: 56,
                   height: 56,
-                  fit: BoxFit.cover,
-                  // Without this, a load failure (expired signed URL,
-                  // transient network error) leaves Image's internal
-                  // error state unbounded in width -- fine everywhere
-                  // else this app uses Image.network (a full-width hero
-                  // or a fixed-aspect grid cell), but this row is the
-                  // first place a fixed-size thumbnail sits beside an
-                  // Expanded sibling in a Row, where that unbounded
-                  // width overflows the row instead of just the image.
-                  errorBuilder: (context, error, stackTrace) => const SizedBox(
-                    width: 56,
-                    height: 56,
-                    child: ColoredBox(color: WynColors.hairline),
-                  ),
+                  child: NetworkThumbnail(imageUrl: thumbnailUrl),
                 ),
               ),
             ],

@@ -6,6 +6,7 @@ import '../data/drop.dart';
 import '../data/drop_repository.dart';
 import 'widgets/poll_placeholder_tile.dart';
 import 'widgets/text_drop_placeholder_tile.dart';
+import '../../../core/widgets/network_thumbnail.dart';
 
 /// Screen 2 (WYN-034) -- write a comment to go with a ReDrop. See
 /// .wyn/docs/design/wyn-034-redrop.md, Screen 2.
@@ -155,7 +156,7 @@ class _OriginalDropPreview extends StatelessWidget {
           AspectRatio(
             aspectRatio: 1,
             child: drop.imageUrl != null
-                ? Image.network(drop.imageUrl!, fit: BoxFit.cover)
+                ? NetworkThumbnail(imageUrl: drop.imageUrl!)
                 : drop.isPoll
                     ? const PollPlaceholderTile()
                     : TextDropPlaceholderTile(caption: drop.caption ?? ''),

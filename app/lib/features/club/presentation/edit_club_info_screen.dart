@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../data/club.dart';
 import '../data/club_repository.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/widgets/network_thumbnail.dart';
 
 /// Owner/Admin "แก้ไขข้อมูล Club" -- reuses CreateClubScreen's form shape
 /// for Name/Description/Cover/Category, pre-filled with the current
@@ -179,7 +180,9 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
             child: _coverBytes != null
                 ? Image.memory(_coverBytes!, fit: BoxFit.cover)
                 : widget.club.coverUrl != null
-                    ? Image.network(widget.club.coverUrl!, fit: BoxFit.cover)
+                    ? Image.network(widget.club.coverUrl!, fit: BoxFit.cover,
+                      errorBuilder: networkImageErrorBuilder,
+                    )
                     : const Center(child: Icon(Icons.add_photo_alternate_outlined, size: 32)),
           ),
         ),

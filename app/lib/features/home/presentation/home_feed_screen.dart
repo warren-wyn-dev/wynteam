@@ -30,6 +30,7 @@ import 'widgets/suggested_follow_list.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
+import '../../../core/network_error.dart';
 
 enum _HomeFeedMode { forYou, following, fromYourClubs }
 
@@ -303,9 +304,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         _page = 0;
         _hasMore = items.length == HomeRepository.pageSize;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      setState(() => _error = 'โหลด Home ไม่สำเร็จ');
+      setState(() => _error =
+          errorMessageFor(error, serverMessage: 'โหลด Home ไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }

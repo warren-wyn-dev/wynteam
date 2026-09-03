@@ -89,3 +89,23 @@ int? decodeWidthFor(
   final physical = (bounded * devicePixelRatio).round();
   return physical < 1 ? 1 : physical;
 }
+
+/// The shared `errorBuilder` for a network image that is NOT a
+/// [NetworkThumbnail] -- a hero image, a full-screen viewer, a picked-
+/// image preview. Those are meant to be seen at full resolution, so
+/// they must not be downsampled, but they still need to show *something*
+/// when a load fails.
+///
+/// Without one, `Image.network` renders nothing at all on failure: the
+/// user gets a silent hole where a photo should be, with no way to tell
+/// a broken image from a post that simply has none.
+Widget networkImageErrorBuilder(
+  BuildContext context,
+  Object error,
+  StackTrace? stackTrace,
+) {
+  return ColoredBox(
+    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+    child: const Center(child: Icon(Icons.broken_image_outlined, size: 24)),
+  );
+}

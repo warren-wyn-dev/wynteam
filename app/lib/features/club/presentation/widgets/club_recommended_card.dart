@@ -5,6 +5,7 @@ import '../../data/club_member.dart';
 import 'club_join_button.dart';
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/widgets/network_thumbnail.dart';
 
 /// A cover-image-led Club card for ExploreClubsScreen's "Club
 /// แนะนำสำหรับคุณ" row -- richer than the icon-only ClubMiniCard used on
@@ -64,7 +65,7 @@ class ClubRecommendedCard extends StatelessWidget {
                     child: AspectRatio(
                       aspectRatio: 16 / 9,
                       child: club.coverUrl != null
-                          ? Image.network(club.coverUrl!, fit: BoxFit.cover)
+                          ? NetworkThumbnail(imageUrl: club.coverUrl!)
                           : Container(
                               color: scheme.primaryContainer,
                               alignment: Alignment.center,

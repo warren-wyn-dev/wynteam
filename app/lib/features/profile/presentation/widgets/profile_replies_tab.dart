@@ -9,6 +9,7 @@ import '../../../saved/data/saved_repository.dart';
 import '../../data/profile_repository.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/text_utils.dart';
+import '../../../../core/widgets/network_thumbnail.dart';
 
 /// "Replies" tab on a profile -- WYN-071 Design, Screen 6/7. A plain
 /// list (not the grid every other tab on this screen uses) since a
@@ -185,10 +186,7 @@ class _ProfileRepliesTabState extends State<ProfileRepliesTab>
               child: reply.dropImageUrl != null
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                      child: Image.network(
-                        reply.dropImageUrl!,
-                        fit: BoxFit.cover,
-                      ),
+                      child: NetworkThumbnail(imageUrl: reply.dropImageUrl!),
                     )
                   : null,
             ),

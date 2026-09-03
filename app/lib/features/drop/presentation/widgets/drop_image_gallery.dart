@@ -5,6 +5,7 @@ import '../../../../core/widgets/double_tap_like.dart';
 import '../../data/drop.dart';
 import '../../data/drop_repository.dart';
 import 'drop_image_viewer.dart';
+import '../../../../core/widgets/network_thumbnail.dart';
 
 /// DropDetailScreen's image area -- WYN-071 Design, Screens 3-4. A
 /// single-image Drop renders exactly as it always has (this widget
@@ -90,7 +91,9 @@ class _DropImageGalleryState extends State<DropImageGallery> {
         alreadyLiked: widget.drop.likedByMe,
         child: AspectRatio(
           aspectRatio: 1,
-          child: Image.network(url, fit: BoxFit.cover),
+          child: Image.network(url, fit: BoxFit.cover,
+            errorBuilder: networkImageErrorBuilder,
+          ),
         ),
       );
     }
@@ -113,7 +116,9 @@ class _DropImageGalleryState extends State<DropImageGallery> {
               itemCount: imageUrls.length,
               onPageChanged: (index) => setState(() => _currentIndex = index),
               itemBuilder: (context, index) =>
-                  Image.network(imageUrls[index], fit: BoxFit.cover),
+                  Image.network(imageUrls[index], fit: BoxFit.cover,
+                    errorBuilder: networkImageErrorBuilder,
+                  ),
             ),
             Positioned(
               top: 8,

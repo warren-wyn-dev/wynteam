@@ -32,6 +32,12 @@ class ClubMembersTab extends StatefulWidget {
 class _ClubMembersTabState extends State<ClubMembersTab> {
   List<ClubMember>? _approved;
   List<ClubMember>? _pending;
+
+  /// Member-list pagination -- see ClubRepository.fetchApprovedMembers.
+  /// A full page back means there may be more behind it.
+  int _memberPage = 0;
+  bool _hasMoreMembers = false;
+  bool _isLoadingMoreMembers = false;
   bool _errored = false;
 
   bool get _canManage => widget.myRole?.canManageClub ?? false;
@@ -47,19 +53,53 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
       _approved = null;
       _pending = null;
       _errored = false;
+      _memberPage = 0;
+      _hasMoreMembers = false;
     });
     try {
-      final approved = await widget.clubRepository.fetchApprovedMembers(widget.club.id);
-      final pending =
-          _canManage ? await widget.clubRepository.fetchPendingMembers(widget.club.id) : <ClubMember>[];
+      // Issued together: neither list depends on the other, and awaiting
+      // them in sequence just doubled the tab's time to first paint.
+      final results = await Future.wait([
+        widget.clubRepository.fetchApprovedMembers(widget.club.id),
+        if (_canManage)
+          widget.clubRepository.fetchPendingMembers(widget.club.id)
+        else
+          Future.value(<ClubMember>[]),
+      ]);
       if (!mounted) return;
       setState(() {
-        _approved = approved;
-        _pending = pending;
+        _approved = results[0];
+        _pending = results[1];
+        _hasMoreMembers =
+            results[0].length == ClubRepository.memberPageSize;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() => _errored = true);
+    }
+  }
+
+  /// Appends the next page of approved members. Explicit button rather
+  /// than infinite scroll, matching how comments page elsewhere in the
+  /// app -- a membership list is something you scan, not a feed.
+  Future<void> _loadMoreMembers() async {
+    if (_isLoadingMoreMembers) return;
+    setState(() => _isLoadingMoreMembers = true);
+    try {
+      final nextPage = _memberPage + 1;
+      final more = await widget.clubRepository
+          .fetchApprovedMembers(widget.club.id, page: nextPage);
+      if (!mounted) return;
+      setState(() {
+        _approved = [...?_approved, ...more];
+        _memberPage = nextPage;
+        _hasMoreMembers = more.length == ClubRepository.memberPageSize;
+      });
+    } catch (_) {
+      // Leaves the button in place so the user can simply tap again --
+      // nothing already loaded is lost.
+    } finally {
+      if (mounted) setState(() => _isLoadingMoreMembers = false);
     }
   }
 
@@ -266,6 +306,23 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
             const Divider(),
           ],
           ...approved.map((member) => _buildApprovedRow(member)),
+          if (_hasMoreMembers)
+            Padding(
+              padding: const EdgeInsets.all(WynSpacing.space4),
+              child: Center(
+                child: _isLoadingMoreMembers
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : TextButton(
+                        key: const Key('club_load_more_members'),
+                        onPressed: _loadMoreMembers,
+                        child: const Text('ดูสมาชิกเพิ่มเติม'),
+                      ),
+              ),
+            ),
         ],
       ),
     );
