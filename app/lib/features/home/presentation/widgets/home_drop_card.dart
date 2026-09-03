@@ -3,9 +3,11 @@ import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../drop/data/drop.dart' show AudienceOption;
+import '../../../drop/data/drop_repository.dart';
 import '../../../drop/presentation/drop_detail_screen.dart' show dropShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
+import 'home_feed_image_peek_carousel.dart';
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/text_utils.dart';
@@ -28,6 +30,7 @@ class HomeDropCard extends StatelessWidget {
   const HomeDropCard({
     super.key,
     required this.item,
+    required this.dropRepository,
     required this.onTap,
     required this.onToggleLike,
     required this.onToggleSave,
@@ -42,6 +45,13 @@ class HomeDropCard extends StatelessWidget {
   });
 
   final HomeFeedItem item;
+
+  /// WYN-092: only used to fetch the full image list for a
+  /// multi-image Drop's peek carousel (`fetchDropImages`, reused
+  /// as-is from WYN-071) -- untouched for every other Drop shape
+  /// this card renders (text-only, Poll, single-image).
+  final DropRepository dropRepository;
+
   final VoidCallback onTap;
   final VoidCallback onToggleLike;
   final VoidCallback onToggleSave;
@@ -380,6 +390,19 @@ class HomeDropCard extends StatelessWidget {
                   isOwnPoll: _isOwnDrop,
                   onVote: (index) => onVotePoll?.call(index),
                 )
+              // WYN-092 (Wynos V1.0.0 Beta2 Phase 2, item 14): a
+              // multi-image Drop gets the new peek carousel instead --
+              // everything below (single-image DoubleTapLike +
+              // ConstrainedBox + AspectRatio + Image.network) is
+              // completely untouched for the single-image case, which
+              // is still the overwhelming majority of Drops in the
+              // feed.
+              else if (item.imageUrl != null && item.hasMultipleImages)
+                HomeFeedImagePeekCarousel(
+                  item: item,
+                  dropRepository: dropRepository,
+                  onLike: onToggleLike,
+                )
               else if (item.imageUrl != null)
                 DoubleTapLike(
                   onLike: onToggleLike,
@@ -431,7 +454,14 @@ class HomeDropCard extends StatelessWidget {
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),
+                // WYN-096 (Wynos V1.0.0 Beta2 Phase 2, item 28): space3
+                // (12px) matches the horizontal padding of every other
+                // section of this same card (header, caption,
+                // LikedByRow above) -- was space1 (4px), which left the
+                // action bar visibly out of alignment with the content
+                // above it. ActionMetric's own internal spacing is
+                // untouched -- only this outer wrapper changed.
+                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
                 child: Row(
                   children: [
                     // Heart/comment/repost/eye sizing+color match

@@ -317,6 +317,7 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
           return HomeDropCard(
             key: ValueKey(drop.id),
             item: HomeFeedItem.fromDrop(drop),
+            dropRepository: widget.dropRepository,
             onTap: () => _openDropDetail(drop),
             onToggleLike: () => _toggleLike(drop.id),
             onToggleSave: () => _toggleSave(drop.id),

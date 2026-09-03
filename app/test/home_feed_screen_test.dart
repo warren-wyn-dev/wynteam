@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +21,7 @@ import 'package:wyn/features/home/presentation/home_feed_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/home_explainer_banner.dart';
+import 'package:wyn/features/home/presentation/widgets/home_feed_image_peek_carousel.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/liked_by_row.dart';
 import 'package:wyn/features/home/presentation/widgets/new_posts_pill.dart';
@@ -55,6 +57,7 @@ HomeFeedItem _dropItem({
   int? imageHeight,
   AudienceOption audience = AudienceOption.everyone,
   String? location,
+  int? imageCount,
 }) =>
     HomeFeedItem(
       id: id,
@@ -67,6 +70,11 @@ HomeFeedItem _dropItem({
       imageUrl: hasImage ? 'https://example.supabase.co/drops/$id.jpg' : null,
       imageWidth: imageWidth,
       imageHeight: imageHeight,
+      // WYN-092: null (the default) means "unknown/not multi-image" --
+      // every pre-existing call site that doesn't pass this keeps
+      // rendering the single-image path unchanged (hasMultipleImages
+      // is false for a null-or-1 imageCount).
+      imageCount: imageCount,
       likeCount: likeCount,
       likedBy: likedBy,
       commentCount: 0,
@@ -1985,6 +1993,7 @@ void main() {
         home: Scaffold(
           body: HomeDropCard(
             item: _dropItem(caption: 'ข้อความโพสต์', hasImage: true),
+            dropRepository: sharedDropRepository,
             onTap: () {},
             onToggleLike: () {},
             onToggleSave: () {},
@@ -2012,6 +2021,7 @@ void main() {
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
           body: HomeDropCard(
+            dropRepository: sharedDropRepository,
             item: HomeFeedItem(
               id: 'd1',
               contentType: HomeContentType.drop,
@@ -2065,6 +2075,7 @@ void main() {
         home: Scaffold(
           body: HomeDropCard(
             item: _dropItem(viewCount: 12),
+            dropRepository: sharedDropRepository,
             onTap: () {},
             onToggleLike: () {},
             onToggleSave: () {},
@@ -2090,6 +2101,7 @@ void main() {
           home: Scaffold(
             body: HomeDropCard(
               item: item,
+              dropRepository: sharedDropRepository,
               onTap: () {},
               onToggleLike: () {},
               onToggleSave: () {},
@@ -2203,6 +2215,222 @@ void main() {
     });
   });
 
+  group(
+      'WYN-092: multi-image peek carousel (Wynos V1.0.0 Beta2 Phase 2, '
+      'item 14)', () {
+    // Constructed in setUp, not inline inside a testWidgets body -- see
+    // drop_image_gallery_test.dart's identical rationale (a fresh
+    // RecordingDropRepository's underlying SupabaseClient starts a
+    // GoTrue auto-refresh Timer that would otherwise get attributed to
+    // that one test's FakeAsync zone and trip flutter_test's own
+    // `!timersPending` invariant at teardown).
+    late RecordingDropRepository multiImageRepo;
+    late RecordingDropRepository failedFetchRepo;
+
+    setUp(() {
+      multiImageRepo = RecordingDropRepository()
+        ..dropImagesById = {
+          'd1': [
+            'https://example.supabase.co/drops/d1.jpg',
+            'https://example.supabase.co/drops/d1_1.jpg',
+            'https://example.supabase.co/drops/d1_2.jpg',
+          ],
+        };
+      failedFetchRepo = RecordingDropRepository()
+        ..fetchDropImagesError = Exception('network');
+    });
+
+    testWidgets(
+        'a single-image Drop (imageCount 1 or null) never builds the '
+        'carousel -- renders exactly as it always has', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            item: _dropItem(imageCount: 1),
+            dropRepository: sharedDropRepository,
+            onTap: () {},
+            onToggleLike: () {},
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(HomeFeedImagePeekCarousel), findsNothing);
+      expect(find.byType(Image), findsOneWidget);
+    });
+
+    testWidgets(
+        'a multi-image Drop (imageCount > 1) shows the first image '
+        'immediately, before the full list has been fetched',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            item: _dropItem(imageCount: 3),
+            dropRepository: multiImageRepo,
+            onTap: () {},
+            onToggleLike: () {},
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      // Deliberately no pumpAndSettle here -- checking the state before
+      // fetchDropImages resolves.
+      tester.takeException();
+
+      expect(find.byType(HomeFeedImagePeekCarousel), findsOneWidget);
+      expect(find.byType(Image), findsOneWidget);
+    });
+
+    testWidgets(
+        'once fetched, a multi-image Drop shows every image at 82% of '
+        'the row width with a 4:5 aspect ratio', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            item: _dropItem(imageCount: 3),
+            dropRepository: multiImageRepo,
+            onTap: () {},
+            onToggleLike: () {},
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // The ListView itself always has all 3 items in its delegate --
+      // whether every one of them is actually *built* yet depends on
+      // how much of the 656px-wide (82% of an 800px test viewport)
+      // first item's neighbors fit within the viewport + cacheExtent,
+      // same lazy-building behavior any ListView.builder has. This
+      // checks the data model directly rather than assuming a
+      // particular number of built Image widgets.
+      final listView = tester.widget<ListView>(find.byType(ListView));
+      final delegate =
+          listView.childrenDelegate as SliverChildBuilderDelegate;
+      expect(delegate.childCount, 3);
+
+      final rowWidth = tester.getSize(find.byType(HomeDropCard)).width;
+      final firstImageSize = tester.getSize(find.byType(Image).first);
+      expect(firstImageSize.width, closeTo(rowWidth * 0.82, 0.5));
+      expect(
+        firstImageSize.height,
+        closeTo(firstImageSize.width * 5 / 4, 0.5),
+      );
+
+      // The "multiple photos" badge only appears once, on the first
+      // card -- not repeated on every image.
+      expect(find.byIcon(Icons.photo_library_outlined), findsOneWidget);
+    });
+
+    testWidgets(
+        'a failed fetchDropImages falls back to showing just the first '
+        'image, silently (no error UI)', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            item: _dropItem(imageCount: 4),
+            dropRepository: failedFetchRepo,
+            onTap: () {},
+            onToggleLike: () {},
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(Image), findsOneWidget);
+      expect(find.byIcon(Icons.photo_library_outlined), findsNothing);
+    });
+
+    testWidgets('double-tapping any image in the carousel likes the Drop',
+        (tester) async {
+      var likeCalls = 0;
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            item: _dropItem(imageCount: 3),
+            dropRepository: multiImageRepo,
+            onTap: () {},
+            onToggleLike: () => likeCalls++,
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final center = tester.getCenter(find.byType(HomeFeedImagePeekCarousel));
+      await tester.tapAt(center);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(center);
+      await tester.pump();
+      tester.takeException();
+
+      expect(likeCalls, 1);
+
+      // Let DoubleTapLike's heart-animation AnimationController finish
+      // ticking before the test ends -- otherwise it trips
+      // flutter_test's "no pending timers at teardown" invariant, same
+      // as double_tap_like_test.dart's identical pattern.
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets(
+        'a single tap (no second tap) on the carousel opens Detail via '
+        "the card's own outer InkWell -- same as the single-image case",
+        (tester) async {
+      var tapCalls = 0;
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            item: _dropItem(imageCount: 3),
+            dropRepository: multiImageRepo,
+            onTap: () => tapCalls++,
+            onToggleLike: () {},
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.tap(find.byType(HomeFeedImagePeekCarousel));
+      // A lone tap on a GestureDetector that also has onDoubleTap is
+      // deliberately held for kDoubleTapTimeout to see if a second tap
+      // follows (see DoubleTapLike.onTap's doc comment) -- pumpAndSettle
+      // alone doesn't advance that bare Timer since no frame is
+      // scheduled while waiting on it.
+      await tester.pump(kDoubleTapTimeout + const Duration(milliseconds: 50));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(tapCalls, 1);
+    });
+  });
+
   group('Verified badge (WYNOSHomeSpec.md 4.9)', () {
     testWidgets('shows the badge next to a verified author\'s name',
         (tester) async {
@@ -2293,7 +2521,15 @@ void main() {
       await tester.pump();
 
       expect(find.byType(NewPostsPill), findsOneWidget);
-      expect(find.text('มีโพสต์ใหม่ 1 โพสต์'), findsOneWidget);
+      // WYN-091: the visible text is a constant "มีโพสต์ใหม่" now (no
+      // count) -- the "right count" this test's own description refers
+      // to is still tracked internally (drives the Semantics label,
+      // see new_posts_pill_test.dart), just not shown on screen.
+      expect(find.text('มีโพสต์ใหม่'), findsOneWidget);
+      expect(
+        tester.widget<NewPostsPill>(find.byType(NewPostsPill)).count,
+        1,
+      );
     });
 
     testWidgets('each new post from someone else increments the count',
@@ -2310,7 +2546,13 @@ void main() {
       newPostsPillTestHomeRepository.emitNewPost('another-user');
       await tester.pump();
 
-      expect(find.text('มีโพสต์ใหม่ 2 โพสต์'), findsOneWidget);
+      // WYN-091: no count in the visible text anymore -- assert the
+      // internal count directly instead (the pill's own text stays the
+      // constant "มีโพสต์ใหม่" the whole time).
+      expect(
+        tester.widget<NewPostsPill>(find.byType(NewPostsPill)).count,
+        2,
+      );
     });
 
     testWidgets(

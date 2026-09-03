@@ -382,6 +382,7 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
             return HomeDropCard(
               key: ValueKey('drop_${drop.id}'),
               item: HomeFeedItem.fromDrop(drop),
+              dropRepository: widget.dropRepository,
               onTap: () => _openDrop(drop),
               onToggleLike: () => _toggleDropLike(drop.id),
               onToggleSave: () => _toggleDropSave(drop.id),

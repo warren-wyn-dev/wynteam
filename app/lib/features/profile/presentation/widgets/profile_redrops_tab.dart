@@ -329,6 +329,7 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
           return HomeDropCard(
             key: ValueKey('${item.id}:${item.redropId ?? ''}'),
             item: item,
+            dropRepository: widget.dropRepository,
             onTap: () => _openDrop(item),
             onToggleLike: () => _toggleLike(index),
             onToggleSave: () => _toggleSave(index),
