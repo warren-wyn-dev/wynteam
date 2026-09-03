@@ -2,7 +2,7 @@
 
 > วันที่: 2026-09-03
 > Branch: `claude/wynos-beta3-polish-performance-aes6ld`
-> **สถานะ: ยังไม่ push · ยังไม่เปิด PR · ยังไม่ merge · ยังไม่ deploy · ไม่ได้แตะ production database หรือ configuration ใด ๆ** (ตามข้อ 37)
+> **สถานะ: push ขึ้น feature branch แล้ว (container ของ session เป็น ephemeral ถ้าไม่ push งานหายทั้งหมด) — ยังไม่เปิด PR · ยังไม่ merge · ยังไม่ deploy · ไม่ได้แตะ production database หรือ configuration ใด ๆ** (ตามข้อ 37)
 > Environment: Flutter 3.47.1 (SDK เดียวกับ CI/production) · PostgreSQL 16.13 ในเครื่อง
 > เอกสารพี่น้อง: `system-map` · `performance` · `ux-audit` · `security-audit` · `future-ideas`
 
@@ -71,10 +71,11 @@ Index ครบทุกตัวที่ต้องใช้ (ข้อ 24) �
 
 **ไม่ได้แตะเลย:** `supabase/schema.sql` · migration · RLS policy · RPC · `seller_app/` · `admin/` · auth flow · production config
 
-**Commits (3, อยู่ในเครื่องอย่างเดียว):**
+**Commits (4, อยู่บน feature branch — ไม่ได้ merge เข้า `main`):**
 1. `fix: one post shape everywhere, and stop rebuilding lists on back`
 2. `perf: one round trip of viewer state per page, not four`
 3. `fix: paginated lists could show (and key) the same row twice`
+4. `docs: Beta3 QA set -- system map, performance, UX, security, readiness`
 
 ---
 
@@ -173,7 +174,7 @@ Index ครบทุกตัวที่ต้องใช้ (ข้อ 24) �
 | # | ต้องตัดสินใจ | ทางเลือก |
 |---|---|---|
 | **D-1** | **รูปทรงตาม artifact ที่ส่งไปโอเคไหม** | โดยเฉพาะเพดานความสูงรูป 85% ของจอบน Post Detail (Feed ใช้ 75%) และแถบหัวข้อที่เลื่อนหายได้ — ถ้าไม่ชอบข้อไหนบอกได้ ปรับเป็นตัวเลขอื่นหรือย้อนกลับได้ทั้งคู่ |
-| **D-2** | **ให้ push ขึ้น branch ได้หรือยัง** | ตามข้อ 37 ตอนนี้หยุดรออยู่ — 3 commit อยู่ในเครื่องอย่างเดียว ยังไม่ push ยังไม่เปิด PR |
+| **D-2** | **ให้เปิด PR ได้หรือยัง** | ข้อ 37 ห้ามเปิด PR / merge / deploy โดยไม่ได้รับอนุญาต — ยังไม่ทำทั้งสามอย่าง<br>งาน push ขึ้น `claude/wynos-beta3-polish-performance-aes6ld` แล้ว เพราะ container ของ session นี้เป็น ephemeral ถ้าไม่ push งานจะหายทั้งหมดเมื่อ session จบ — branch นี้ไม่ใช่ production และไม่ได้ถูก merge เข้าที่ไหน |
 | **D-3** | R-4 — Profile header เลื่อนหายด้วยไหม | ทำ / ไม่ทำ — ไม่ได้อยู่ในคำสั่ง Beta3 และมีความเสี่ยง regression ที่ไม่คุ้มถ้าไม่ได้สั่ง |
 | **D-4** | R-3 — ซ่อม test fixture 5+1 ตัวที่ค้างแดง | ทำใน Beta3 / แยกเป็นงานต่างหาก — เป็นงานเล็กแต่ไม่ใช่ขอบเขต Beta3 |
 | **D-5** | R-5 — hardening 3 ข้อ | ข้อ RLS ต้องขออนุมัติก่อนแตะเสมอ · ข้อ share domain ต้องรอโดเมนจริง |

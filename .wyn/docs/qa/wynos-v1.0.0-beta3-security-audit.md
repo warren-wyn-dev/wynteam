@@ -1,7 +1,7 @@
 # WYNOS v1.0.0 Beta3 — Security Audit
 
 > วันที่: 2026-09-03
-> Branch: `claude/wynos-beta3-polish-performance-aes6ld` — **ยังไม่ push · ยังไม่ deploy**
+> Branch: `claude/wynos-beta3-polish-performance-aes6ld` — push ขึ้น feature branch แล้ว · **ยังไม่ deploy**
 > Environment: PostgreSQL 16.13 ในเครื่อง + Supabase stub · **ไม่มี production credential ใน session นี้**
 
 ---

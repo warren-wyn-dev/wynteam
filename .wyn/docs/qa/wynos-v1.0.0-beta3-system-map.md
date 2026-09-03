@@ -1,7 +1,7 @@
 # WYNOS v1.0.0 Beta3 — System Map
 
 > วันที่: 2026-09-03
-> Branch: `claude/wynos-beta3-polish-performance-aes6ld` — **ยังไม่ push · ยังไม่เปิด PR · ยังไม่ merge · ยังไม่ deploy**
+> Branch: `claude/wynos-beta3-polish-performance-aes6ld` — push ขึ้น feature branch แล้ว · **ยังไม่เปิด PR · ยังไม่ merge · ยังไม่ deploy**
 > ขอบเขต: Phase 0–1 ของ Beta3 (Repository Audit + System Map) — อ่านระบบให้เข้าใจ **ก่อน** แก้
 > Environment: Flutter 3.47.1 (SDK เดียวกับ CI และ production build) · PostgreSQL 16.13 ในเครื่อง
 > **ไม่มี Supabase production credential ใน session นี้** — ทุกข้อความในเอกสารชุด Beta3 ติดป้ายว่าตรวจที่ไหน

@@ -1,7 +1,7 @@
 # WYNOS v1.0.0 Beta3 — UX Audit
 
 > วันที่: 2026-09-03
-> Branch: `claude/wynos-beta3-polish-performance-aes6ld` — **ยังไม่ push · ยังไม่เปิด PR**
+> Branch: `claude/wynos-beta3-polish-performance-aes6ld` — push ขึ้น feature branch แล้ว · **ยังไม่เปิด PR**
 > หน้าเปรียบเทียบภาพ ก่อน/หลัง: ส่งให้ Founder แล้วเป็น artifact แยก (ข้อ "ส่งรูปมาตรวจก่อน")
 > ตรวจโดยอ่านโค้ดและรัน widget test — **ไม่มีการทดสอบบนอุปกรณ์จริงใน session นี้**
 
