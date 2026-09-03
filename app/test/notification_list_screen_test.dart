@@ -529,8 +529,8 @@ void main() {
     await tester.pumpWidget(buildScreen(allTypesRepo));
     await tester.pumpAndSettle();
 
-    expect(find.text('น้ำฝน ถูกใจ Drop ของคุณ'), findsOneWidget);
-    expect(find.text('น้ำฝน แสดงความคิดเห็นใน Drop ของคุณ'), findsOneWidget);
+    expect(find.text('น้ำฝน ถูกใจโพสต์ของคุณ'), findsOneWidget);
+    expect(find.text('น้ำฝน แสดงความคิดเห็นในโพสต์ของคุณ'), findsOneWidget);
     expect(find.text('@ploy ถูกใจ Pop ของคุณ'), findsOneWidget);
     expect(find.text('@ploy แสดงความคิดเห็นใน Pop ของคุณ'), findsOneWidget);
     expect(find.text('@benz เริ่มติดตามคุณ'), findsOneWidget);
@@ -568,7 +568,7 @@ void main() {
     // design-reference 02-notifications.tsx: unread is a quiet sapphire
     // dot next to the row, not a background-color highlight.
     final unreadRow = find.ancestor(
-      of: find.text('น้ำฝน ถูกใจ Drop ของคุณ'),
+      of: find.text('น้ำฝน ถูกใจโพสต์ของคุณ'),
       matching: find.byType(InkWell),
     );
     final readRow = find.ancestor(
@@ -596,7 +596,7 @@ void main() {
     await tester.pumpWidget(buildScreen(likeDropRepo));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('น้ำฝน ถูกใจ Drop ของคุณ'));
+    await tester.tap(find.text('น้ำฝน ถูกใจโพสต์ของคุณ'));
     await tester.pumpAndSettle();
     tester.takeException();
 
@@ -651,35 +651,39 @@ void main() {
     await tester.pumpWidget(buildScreen(commentDropRepo));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('น้ำฝน แสดงความคิดเห็นใน Drop ของคุณ'));
+    await tester.tap(find.text('น้ำฝน แสดงความคิดเห็นในโพสต์ของคุณ'));
     await tester.pumpAndSettle();
     tester.takeException();
 
     expect(find.byType(DropDetailScreen), findsOneWidget);
   });
 
-  testWidgets('tapping a Like Pop notification opens PopSingleClipScreen',
-      (tester) async {
+  testWidgets(
+      'WYN-102: tapping a Like Pop notification shows a "content not '
+      'available" SnackBar instead of opening PopSingleClipScreen -- '
+      'Pop is hidden from the app entirely now', (tester) async {
     await tester.pumpWidget(buildScreen(likePopRepo));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('@ploy ถูกใจ Pop ของคุณ'));
-    await tester.pumpAndSettle();
-    tester.takeException();
+    await tester.pump();
 
-    expect(find.byType(PopSingleClipScreen), findsOneWidget);
+    expect(find.text('เนื้อหานี้ไม่พร้อมใช้งานแล้ว'), findsOneWidget);
+    expect(find.byType(PopSingleClipScreen), findsNothing);
   });
 
-  testWidgets('tapping a Comment Pop notification opens PopSingleClipScreen',
+  testWidgets(
+      'WYN-102: tapping a Comment Pop notification shows a "content not '
+      'available" SnackBar instead of opening PopSingleClipScreen',
       (tester) async {
     await tester.pumpWidget(buildScreen(commentPopRepo));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('@ploy แสดงความคิดเห็นใน Pop ของคุณ'));
-    await tester.pumpAndSettle();
-    tester.takeException();
+    await tester.pump();
 
-    expect(find.byType(PopSingleClipScreen), findsOneWidget);
+    expect(find.text('เนื้อหานี้ไม่พร้อมใช้งานแล้ว'), findsOneWidget);
+    expect(find.byType(PopSingleClipScreen), findsNothing);
   });
 
   testWidgets('tapping a Follow notification opens ViewProfileScreen',
@@ -828,10 +832,10 @@ void main() {
         buildScreen(deletedDropRepo, dropRepository: emptyDropRepo));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('น้ำฝน ถูกใจ Drop ของคุณ'));
+    await tester.tap(find.text('น้ำฝน ถูกใจโพสต์ของคุณ'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Drop นี้ถูกลบไปแล้ว'), findsOneWidget);
+    expect(find.text('โพสต์นี้ถูกลบไปแล้ว'), findsOneWidget);
     expect(find.byType(DropDetailScreen), findsNothing);
   });
 
@@ -872,7 +876,7 @@ void main() {
       await tester.pumpWidget(buildScreen(allMentionTypesRepo));
       await tester.pumpAndSettle();
 
-      expect(find.text('@gam กล่าวถึงคุณใน Drop'), findsOneWidget);
+      expect(find.text('@gam กล่าวถึงคุณในโพสต์'), findsOneWidget);
       expect(
           find.text('@gam กล่าวถึงคุณในโพสต์ที่ ชมรมถ่ายภาพ'), findsOneWidget);
     });
@@ -883,7 +887,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      await tester.tap(find.text('@gam กล่าวถึงคุณใน Drop'));
+      await tester.tap(find.text('@gam กล่าวถึงคุณในโพสต์'));
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -1040,8 +1044,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      expect(find.text('น้ำฝน ReDrop โพสต์ของคุณ'), findsOneWidget);
-      expect(find.text('น้ำฝน ถูกใจ Drop ของคุณ'), findsOneWidget);
+      expect(find.text('น้ำฝน รีโพสต์โพสต์ของคุณ'), findsOneWidget);
+      expect(find.text('น้ำฝน ถูกใจโพสต์ของคุณ'), findsOneWidget);
     });
 
     testWidgets('tapping a redrop notification opens DropDetailScreen',
@@ -1049,7 +1053,7 @@ void main() {
       await tester.pumpWidget(buildScreen(redropRepo));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('น้ำฝน ReDrop โพสต์ของคุณ'));
+      await tester.tap(find.text('น้ำฝน รีโพสต์โพสต์ของคุณ'));
       await tester.pumpAndSettle();
       tester.takeException();
 

@@ -36,6 +36,11 @@ void main() {
   late RecordingProfileRepository profileRepo;
   late RecordingPopRepository popRepo;
   late RecordingSavedRepository savedRepo;
+  // WYN-099 -- same setUpAll discipline as every repo above.
+  late RecordingProfileRepository canViewTrueRepo;
+  late RecordingProfileRepository canViewFalseRepo;
+  late int countingRepoCalls;
+  late _CountingCanViewLikesProfileRepository countingRepo;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
@@ -49,6 +54,12 @@ void main() {
     profileRepo = RecordingProfileRepository();
     popRepo = RecordingPopRepository();
     savedRepo = RecordingSavedRepository();
+    canViewTrueRepo = RecordingProfileRepository()..canViewLikesResult = true;
+    canViewFalseRepo = RecordingProfileRepository()..canViewLikesResult = false;
+    countingRepoCalls = 0;
+    countingRepo = _CountingCanViewLikesProfileRepository(
+      onCall: () => countingRepoCalls++,
+    );
   });
 
   testWidgets('shows the empty state when the author has liked nothing',
@@ -83,9 +94,12 @@ void main() {
     tester.takeException();
 
     // A full-width HomeDropCard is much taller than the old grid tile
-    // was -- the 2nd card sits below the default test viewport until
-    // scrolled into view.
-    expect(find.byType(HomeDropCard), findsOneWidget);
+    // was, so the 2nd card isn't guaranteed to be on-screen without
+    // scrolling -- scroll it into view (a no-op if it's already
+    // visible) rather than asserting the exact pre-scroll count, which
+    // depends on card height (and, since WYN-093, on the 0.75x-screen-
+    // height cap on the image area too -- not a fixed number of pixels
+    // this test should hardcode an assumption about).
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('d2')),
       500,
@@ -93,6 +107,39 @@ void main() {
     );
     tester.takeException();
     expect(find.byType(HomeDropCard), findsNWidgets(2));
+  });
+
+  testWidgets(
+      'WYN-081: pulling to refresh also calls onRefreshHeader, not just '
+      "this tab's own reload", (tester) async {
+    var refreshHeaderCalls = 0;
+    await tester.pumpWidget(_wrap(ProfileLikesTab(
+      dropRepository: listRepo,
+      followRepository: followRepo,
+      profileRepository: profileRepo,
+      popRepository: popRepo,
+      savedRepository: savedRepo,
+      authorId: 'someone-else',
+      emptyText: 'ยังไม่มีอะไรที่ถูกใจ',
+      onRefreshHeader: () => refreshHeaderCalls++,
+    )));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(refreshHeaderCalls, 0,
+        reason: 'the initial load must not have triggered it');
+
+    // Same off-screen-hit-test-avoidance as elsewhere in this suite --
+    // invoke RefreshIndicator.onRefresh directly rather than simulating
+    // a physical drag gesture.
+    final indicator = tester.widget<RefreshIndicator>(
+      find.byType(RefreshIndicator),
+    );
+    await indicator.onRefresh();
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(refreshHeaderCalls, 1);
   });
 
   testWidgets('a fetch failure shows an error with a retry button',
@@ -111,4 +158,74 @@ void main() {
     expect(find.text('โหลดรายการที่ถูกใจไม่สำเร็จ'), findsOneWidget);
     expect(find.widgetWithText(TextButton, 'ลองใหม่'), findsOneWidget);
   });
+
+  group('WYN-099: distinguishing "no Likes yet" from "not allowed to see '
+      'this"', () {
+    testWidgets(
+        'an empty list + canViewLikes true shows the ordinary empty '
+        'text, not the privacy-blocked one', (tester) async {
+      await tester.pumpWidget(_wrap(ProfileLikesTab(
+        dropRepository: emptyRepo,
+        followRepository: followRepo,
+        profileRepository: canViewTrueRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
+        authorId: 'someone-else',
+        emptyText: 'ยังไม่มีอะไรที่ถูกใจ',
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ยังไม่มีอะไรที่ถูกใจ'), findsOneWidget);
+      expect(find.text('บัญชีนี้ซ่อนรายการที่ถูกใจไว้'), findsNothing);
+    });
+
+    testWidgets(
+        'an empty list + canViewLikes false shows the privacy-blocked '
+        'empty state instead of the ordinary "no Likes yet" text',
+        (tester) async {
+      await tester.pumpWidget(_wrap(ProfileLikesTab(
+        dropRepository: emptyRepo,
+        followRepository: followRepo,
+        profileRepository: canViewFalseRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
+        authorId: 'someone-else',
+        emptyText: 'ยังไม่มีอะไรที่ถูกใจ',
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.text('บัญชีนี้ซ่อนรายการที่ถูกใจไว้'), findsOneWidget);
+      expect(find.text('ยังไม่มีอะไรที่ถูกใจ'), findsNothing);
+    });
+
+    testWidgets(
+        'a non-empty list never calls canViewLikes at all -- the RPC '
+        'itself already filtered to only what is visible', (tester) async {
+      await tester.pumpWidget(_wrap(ProfileLikesTab(
+        dropRepository: listRepo,
+        followRepository: followRepo,
+        profileRepository: countingRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
+        authorId: 'someone-else',
+        emptyText: 'ยังไม่มีอะไรที่ถูกใจ',
+      )));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(countingRepoCalls, 0);
+    });
+  });
+}
+
+class _CountingCanViewLikesProfileRepository extends RecordingProfileRepository {
+  _CountingCanViewLikesProfileRepository({required this.onCall});
+
+  final VoidCallback onCall;
+
+  @override
+  Future<bool> canViewLikes(String targetUserId) async {
+    onCall();
+    return super.canViewLikes(targetUserId);
+  }
 }

@@ -89,7 +89,9 @@ void main() {
   testWidgets('renders both section labels, and each section\'s data',
       (tester) async {
     discoveryRepo
-      ..trendingHashtags = const [RankedHashtag(tag: 'wyn', postCount: 5)]
+      ..trendingHashtags = const [
+        RankedHashtag(tag: 'wyn', postCount: 5, score: 50)
+      ]
       ..suggestedUsers = const [suggestedProfile];
 
     await pumpDiscovery(tester);
@@ -98,7 +100,8 @@ void main() {
     expect(find.text('แนะนำให้ติดตาม'), findsOneWidget);
 
     expect(find.text('#wyn'), findsOneWidget);
-    expect(find.text('5 โพสต์ · กำลังนิยมใน ไทย'), findsOneWidget);
+    // WYN-101: no post-count meta anymore.
+    expect(find.text('กำลังนิยมใน ไทย'), findsOneWidget);
     expect(find.text('@suggested_user'), findsOneWidget);
   });
 
@@ -114,7 +117,7 @@ void main() {
   testWidgets('tapping a ranked hashtag row opens HashtagFeedScreen',
       (tester) async {
     discoveryRepo.trendingHashtags = const [
-      RankedHashtag(tag: 'wyn', postCount: 5),
+      RankedHashtag(tag: 'wyn', postCount: 5, score: 50),
     ];
     await pumpDiscovery(tester);
 
@@ -160,7 +163,7 @@ void main() {
   testWidgets('tapping "ดูอันดับทั้งหมด (Top 100)" opens Top100Screen',
       (tester) async {
     discoveryRepo.trendingHashtags = const [
-      RankedHashtag(tag: 'wyn', postCount: 5),
+      RankedHashtag(tag: 'wyn', postCount: 5, score: 50),
     ];
     await pumpDiscovery(tester);
 

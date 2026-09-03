@@ -80,4 +80,45 @@ class RecordingFollowRepository extends FollowRepository {
   }) async {
     return page == 0 ? following : <Profile>[];
   }
+
+  /// Returned by [fetchMutualFollows] for page 0 only -- WYN-097.
+  List<Profile> mutualFollows = [];
+  Object? fetchMutualFollowsError;
+
+  @override
+  Future<List<Profile>> fetchMutualFollows({required int page}) async {
+    if (fetchMutualFollowsError != null) throw fetchMutualFollowsError!;
+    return page == 0 ? mutualFollows : <Profile>[];
+  }
+
+  /// Returned by [fetchCloseFriends] -- WYN-097. Mutable so a test can
+  /// observe [addCloseFriend]/[removeCloseFriend] actually changing it,
+  /// the same optimistic-then-re-fetch shape CloseFriendsScreen itself
+  /// uses.
+  List<Profile> closeFriends = [];
+  final List<String> addCloseFriendArgs = [];
+  final List<String> removeCloseFriendArgs = [];
+  Object? addCloseFriendError;
+  Object? removeCloseFriendError;
+  Object? fetchCloseFriendsError;
+
+  @override
+  Future<List<Profile>> fetchCloseFriends() async {
+    if (fetchCloseFriendsError != null) throw fetchCloseFriendsError!;
+    return closeFriends;
+  }
+
+  @override
+  Future<void> addCloseFriend({required String friendId}) async {
+    addCloseFriendArgs.add(friendId);
+    final error = addCloseFriendError;
+    if (error != null) throw error;
+  }
+
+  @override
+  Future<void> removeCloseFriend({required String friendId}) async {
+    removeCloseFriendArgs.add(friendId);
+    final error = removeCloseFriendError;
+    if (error != null) throw error;
+  }
 }

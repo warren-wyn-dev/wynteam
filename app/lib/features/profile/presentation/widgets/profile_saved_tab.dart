@@ -165,7 +165,10 @@ class _ProfileSavedTabState extends State<ProfileSavedTab>
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: WynSpacing.space8),
           child: Text(
-            'ยังไม่มีอะไรที่บันทึกไว้ ลองกดบันทึก Drop หรือ Pop ที่ชอบดูสิ',
+            // WYN-102: was "...โพสต์หรือ Pop ที่ชอบดูสิ" -- Pop is
+            // hidden, so suggesting it here would point at a feature
+            // the user can no longer reach through this UI.
+            'ยังไม่มีอะไรที่บันทึกไว้ ลองกดบันทึกโพสต์ที่ชอบดูสิ',
             textAlign: TextAlign.center,
           ),
         ),

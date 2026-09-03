@@ -116,6 +116,26 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, 'เข้าร่วม'), findsNWidgets(4));
   });
 
+  testWidgets(
+      'WYN-081: pulling to refresh re-fetches and shows a newly added '
+      'club', (tester) async {
+    await pumpScreen(tester, twoClubsRepo);
+    expect(find.text('Club c'), findsNothing);
+
+    twoClubsRepo.discoverableClubs.add(club('c', memberCount: 3));
+
+    // Same off-screen-hit-test-avoidance as elsewhere in this suite --
+    // invoke RefreshIndicator.onRefresh directly rather than simulating
+    // a physical drag gesture.
+    final indicator = tester.widget<RefreshIndicator>(
+      find.byType(RefreshIndicator),
+    );
+    await indicator.onRefresh();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Club c'), findsNWidgets(2));
+  });
+
   testWidgets('shows the empty-state message for each section when there '
       'are no discoverable clubs', (tester) async {
     await pumpScreen(tester, emptyRepo);
@@ -180,6 +200,41 @@ void main() {
 
     expect(find.text('รออนุมัติ'), findsNWidgets(2));
     expect(find.widgetWithText(OutlinedButton, 'เข้าร่วม'), findsNothing);
+  });
+
+  testWidgets(
+      'QA (WYN-081): a successful Join does not show the "เข้าร่วม Club '
+      'ไม่สำเร็จ" failure snackbar', (tester) async {
+    // Regression test for a real bug found during WYN-081 QA: this
+    // screen's pre-existing `_reload()` (called by `_join()` on success,
+    // used since before WYN-081 existed) still uses the exact
+    // `setState(() => _loadFuture = _load())` arrow-body shape that
+    // WYN-081's own Coding Output says it found and fixed in "5 places"
+    // -- this 6th, already-reachable call site in the very file WYN-081
+    // touched was missed. `_load()` returns a Future, so the closure
+    // passed to setState() trips Flutter's "setState() callback argument
+    // returned a Future" debug assertion; that exception is then caught
+    // by `_join()`'s own `catch (_)`, which shows this *failure*
+    // snackbar even though `joinClub` above it already succeeded --
+    // silently misleading the user into thinking a successful Join
+    // failed (same "tests swallow the exception, no one notices"
+    // pattern WYN-081's own commit message describes for the other 5).
+    await pumpScreen(tester, twoClubsRepo);
+
+    final joinButton = find.widgetWithText(OutlinedButton, 'เข้าร่วม').first;
+    await tester.tap(joinButton);
+    await tester.pumpAndSettle();
+
+    expect(twoClubsRepo.joinClubCalls, 1);
+    expect(
+      find.text('เข้าร่วม Club ไม่สำเร็จ ลองใหม่อีกครั้ง'),
+      findsNothing,
+      reason:
+          'joinClub already succeeded (joinClubCalls == 1) -- this '
+          'snackbar means _reload() threw and _join() misreported a '
+          'successful join as a failure. See WYN-081 QA report '
+          '(.wyn/tasks/bugs/) for the root cause.',
+    );
   });
 
   testWidgets(

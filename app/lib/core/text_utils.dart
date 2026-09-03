@@ -73,6 +73,33 @@ String dateLabel(DateTime dateTime) {
   return '${two(local.day)}/${two(local.month)}/${local.year}';
 }
 
+/// A compact label for a large count ("999" stays as-is, "1,200" becomes
+/// "1.2K", "1,200,000" becomes "1.2M") -- introduced for WYN-095's Profile
+/// header redesign (Wynos V1.0.0 Beta2, item 24), where the follower/
+/// following/post counts now sit in a 3-way row squeezed next to the
+/// avatar rather than spanning the full screen width, so a large raw
+/// number risks overflowing at narrow phone widths (360px). Drops a
+/// trailing ".0" (e.g. exactly 1000 -> "1K", not "1.0K") since that's
+/// visual noise for a round number, same "no decimal when it's whole"
+/// posture as [thaiBahtLabel].
+String compactCountLabel(int count) {
+  if (count < 1000) return '$count';
+  double scaled;
+  String suffix;
+  if (count < 1000000) {
+    scaled = count / 1000;
+    suffix = 'K';
+  } else {
+    scaled = count / 1000000;
+    suffix = 'M';
+  }
+  final rounded = (scaled * 10).round() / 10;
+  final isWhole = rounded == rounded.roundToDouble();
+  final numberPart =
+      isWhole ? rounded.toStringAsFixed(0) : rounded.toStringAsFixed(1);
+  return '$numberPart$suffix';
+}
+
 /// A Thai Baht price label with thousand separators ("฿1,000" or
 /// "฿1,299.50") -- introduced for ZOKY-001's product cards/detail page.
 /// Drops the decimal part entirely when it's a whole number rather than

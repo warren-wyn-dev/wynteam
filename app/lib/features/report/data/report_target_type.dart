@@ -31,8 +31,8 @@ extension ReportTargetTypeWire on ReportTargetType {
   /// knows what it's reporting), so this is new with WYN-029.
   String get label => switch (this) {
         ReportTargetType.user => 'ผู้ใช้',
-        ReportTargetType.drop => 'โพสต์ Drop',
-        ReportTargetType.dropComment => 'คอมเมนต์ Drop',
+        ReportTargetType.drop => 'โพสต์',
+        ReportTargetType.dropComment => 'คอมเมนต์โพสต์',
         ReportTargetType.club => 'Club',
         ReportTargetType.clubPost => 'โพสต์ Club',
         ReportTargetType.clubPostComment => 'คอมเมนต์โพสต์ Club',

@@ -61,8 +61,8 @@ void main() {
   testWidgets('shows a loading spinner, then the ranked hashtag list '
       'in order', (tester) async {
     discoveryRepo.trendingHashtags = const [
-      RankedHashtag(tag: 'wyn', postCount: 20),
-      RankedHashtag(tag: 'flutter', postCount: 10),
+      RankedHashtag(tag: 'wyn', postCount: 20, score: 200),
+      RankedHashtag(tag: 'flutter', postCount: 10, score: 100),
     ];
 
     await tester.pumpWidget(buildScreen());
@@ -71,14 +71,42 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('#wyn'), findsOneWidget);
-    expect(find.text('20 โพสต์ · กำลังนิยมใน ไทย'), findsOneWidget);
     expect(find.text('#flutter'), findsOneWidget);
-    expect(find.text('10 โพสต์ · กำลังนิยมใน ไทย'), findsOneWidget);
+    // WYN-101: no post-count meta anymore, just the 2 rows -- see
+    // findsNWidgets(2) below.
+    expect(find.text('กำลังนิยมใน ไทย'), findsNWidgets(2));
 
     // #wyn (rank 1) must render above #flutter (rank 2).
     final firstTop = tester.getTopLeft(find.text('#wyn')).dy;
     final secondTop = tester.getTopLeft(find.text('#flutter')).dy;
     expect(firstTop, lessThan(secondTop));
+  });
+
+  testWidgets(
+      'WYN-081: pulling to refresh re-fetches and shows a newly trending '
+      'hashtag', (tester) async {
+    discoveryRepo.trendingHashtags = const [
+      RankedHashtag(tag: 'wyn', postCount: 20, score: 200),
+    ];
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+    expect(find.text('#new'), findsNothing);
+
+    discoveryRepo.trendingHashtags = const [
+      RankedHashtag(tag: 'wyn', postCount: 20, score: 200),
+      RankedHashtag(tag: 'new', postCount: 15, score: 150),
+    ];
+
+    // Same off-screen-hit-test-avoidance as elsewhere in this suite --
+    // invoke RefreshIndicator.onRefresh directly rather than simulating
+    // a physical drag gesture.
+    final indicator = tester.widget<RefreshIndicator>(
+      find.byType(RefreshIndicator),
+    );
+    await indicator.onRefresh();
+    await tester.pumpAndSettle();
+
+    expect(find.text('#new'), findsOneWidget);
   });
 
   testWidgets('shows the empty state when there are no trending hashtags',
@@ -94,7 +122,7 @@ void main() {
       'retrying re-fetches successfully', (tester) async {
     discoveryRepo.trendingHashtagsError = Exception('boom');
     discoveryRepo.trendingHashtags = const [
-      RankedHashtag(tag: 'wyn', postCount: 5),
+      RankedHashtag(tag: 'wyn', postCount: 5, score: 50),
     ];
 
     await tester.pumpWidget(buildScreen());
@@ -114,7 +142,7 @@ void main() {
   testWidgets('tapping a ranked hashtag row opens HashtagFeedScreen',
       (tester) async {
     discoveryRepo.trendingHashtags = const [
-      RankedHashtag(tag: 'wyn', postCount: 5),
+      RankedHashtag(tag: 'wyn', postCount: 5, score: 50),
     ];
 
     await tester.pumpWidget(buildScreen());

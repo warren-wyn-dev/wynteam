@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
-import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/pop/data/pop.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
@@ -116,15 +115,19 @@ void main() {
     expect(profileRepo.searchProfilesCalls, 0);
   });
 
+  // WYN-080 (Wynos V1.0.0 Beta2, item 9): typing alone never searches
+  // anymore -- Founder didn't like results firing while still typing.
+  // An explicit submit (the search icon, tapped here, or the keyboard's
+  // own "search" action, covered by its own test below) is required.
   testWidgets(
-      'typing fewer than 2 characters does not fire a query, even after '
-      'the debounce window passes, and keeps showing DiscoveryView',
+      'typing alone (no submit) never fires a query, no matter how long '
+      'or how much time passes -- keeps showing DiscoveryView',
       (tester) async {
     await tester.pumpWidget(buildSearch());
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'n');
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.enterText(find.byType(TextField), 'namfah');
+    await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
     expect(profileRepo.searchProfilesCalls, 0);
@@ -133,41 +136,101 @@ void main() {
   });
 
   testWidgets(
-      'typing a second time before the first debounce timer fires cancels '
-      'it, instead of both eventually firing and searching twice',
-      (tester) async {
-    // Deliberately timed so each timer's firing is observed via its own
-    // separate tester.pump() call rather than one pump long enough to
-    // cover both -- pumping past both deadlines in a single pump() only
-    // triggers one rebuild at the end either way, which would make a
-    // still-pending (uncancelled) first timer indistinguishable from a
-    // properly cancelled one. Splitting the pumps is what actually
-    // exercises Timer.cancel(). See .wyn/learning/PATTERNS.md.
-    final field = find.byType(TextField);
+      'submitting fewer than 2 characters still does not fire a query, '
+      'and keeps showing DiscoveryView', (tester) async {
     await tester.pumpWidget(buildSearch());
     await tester.pumpAndSettle();
 
-    // 'na' is a *valid* (>= 2 char) query on its own -- if its debounce
-    // timer isn't cancelled, it will fire and search on its own, which
-    // 'n' alone (too short to search) wouldn't have caught.
-    await tester.enterText(field, 'na');
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.enterText(field, 'namfah');
+    await tester.enterText(find.byType(TextField), 'n');
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
 
-    // Crosses only 'na''s 400ms deadline (fires at 400ms from its own
-    // creation, i.e. 500ms of total elapsed time) -- 'namfah''s timer
-    // (created 100ms later) isn't due yet.
-    await tester.pump(const Duration(milliseconds: 350));
+    expect(profileRepo.searchProfilesCalls, 0);
+    expect(find.byType(DiscoveryView), findsOneWidget);
+    expect(find.byType(TabBar), findsNothing);
+  });
+
+  testWidgets(
+      'tapping the search icon submits the current text and fires the '
+      'query exactly once', (tester) async {
+    await tester.pumpWidget(buildSearch());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'namfah');
     expect(profileRepo.searchProfilesCalls, 0,
-        reason: '"na"\'s debounce timer should have been cancelled when '
-            '"namfah" was typed, so it must not have fired here');
+        reason: 'still just typing -- not submitted yet');
 
-    // Now cross 'namfah''s deadline too.
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
     tester.takeException();
 
     expect(profileRepo.searchProfilesCalls, 1);
     expect(profileRepo.searchProfilesQueryArgs, ['namfah']);
+  });
+
+  testWidgets(
+      "the keyboard's own search action (TextField.onSubmitted) submits "
+      'the same way the search icon does', (tester) async {
+    await tester.pumpWidget(buildSearch());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'namfah');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(profileRepo.searchProfilesCalls, 1);
+    expect(profileRepo.searchProfilesQueryArgs, ['namfah']);
+  });
+
+  testWidgets(
+      'editing the text again after a submitted search goes back to '
+      'DiscoveryView (not stale results) until submitted again',
+      (tester) async {
+    await tester.pumpWidget(buildSearch());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'namfah');
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+    tester.takeException();
+    expect(find.byType(DiscoveryView), findsNothing);
+    expect(find.text('@namfah'), findsOneWidget);
+
+    // Typing again without re-submitting -- back to Discovery, old
+    // result no longer shown.
+    await tester.enterText(find.byType(TextField), 'namfah2');
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DiscoveryView), findsOneWidget);
+    expect(find.text('@namfah'), findsNothing);
+    expect(profileRepo.searchProfilesCalls, 1,
+        reason: 'editing alone must not have fired a second query yet');
+  });
+
+  testWidgets(
+      'WYN-102: the Pop tab is gone -- 3 tabs (User/โพสต์/Club), no '
+      '"Pop" text anywhere, and the search placeholder no longer names '
+      'it', (tester) async {
+    await tester.pumpWidget(buildSearch());
+    await tester.pumpAndSettle();
+
+    // Placeholder is visible from the start (Discovery state).
+    expect(find.text('ค้นหา username, โพสต์, Club'), findsOneWidget);
+
+    // The TabBar itself only renders once Discovery gives way to the
+    // result tabs (see the screen's own `bottom: _showDiscovery ? null
+    // : TabBar(...)`).
+    await tester.enterText(find.byType(TextField), 'namfah');
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.byType(Tab), findsNWidgets(3));
+    expect(find.text('User'), findsOneWidget);
+    expect(find.text('โพสต์'), findsOneWidget);
+    expect(find.text('Club'), findsOneWidget);
+    expect(find.text('Pop'), findsNothing);
   });
 
   testWidgets('finding a matching user opens ViewProfileScreen when tapped',
@@ -176,13 +239,13 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'namfah');
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.byIcon(Icons.search));
     await tester.pumpAndSettle();
-    // The Drop/Pop tabs are also built (TabBarView keeps every tab's
-    // widget mounted, not just the visible one) and searched with the
-    // same shared query -- DropGridTile's Image.network fails to load in
-    // the test env, same harmless/expected exception as every other test
-    // in this suite that renders one. See .wyn/learning/PATTERNS.md.
+    // The โพสต์ tab is also built (TabBarView keeps every tab's widget
+    // mounted, not just the visible one) and searched with the same
+    // shared query -- DropGridTile's Image.network fails to load in the
+    // test env, same harmless/expected exception as every other test in
+    // this suite that renders one. See .wyn/learning/PATTERNS.md.
     tester.takeException();
 
     expect(find.text('@namfah'), findsOneWidget);
@@ -202,10 +265,10 @@ void main() {
     // Query is lowercase, the Drop's caption has "Namfah" capitalized --
     // proves the match is case-insensitive.
     await tester.enterText(find.byType(TextField), 'namfah');
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.byIcon(Icons.search));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Drop'));
+    await tester.tap(find.text('โพสต์'));
     await tester.pumpAndSettle();
     tester.takeException();
 
@@ -217,28 +280,6 @@ void main() {
     expect(find.byType(DropDetailScreen), findsOneWidget);
   });
 
-  testWidgets('finding a matching Pop opens PopSingleClipScreen when tapped',
-      (tester) async {
-    await tester.pumpWidget(buildSearch());
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.byType(TextField), 'namfah');
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pumpAndSettle();
-    tester.takeException();
-
-    await tester.tap(find.text('Pop'));
-    await tester.pumpAndSettle();
-    tester.takeException();
-
-    expect(popRepo.searchByCaptionQueryArgs, ['namfah']);
-    await tester.tap(find.byIcon(Icons.play_circle_fill));
-    await tester.pumpAndSettle();
-    tester.takeException();
-
-    expect(find.byType(PopSingleClipScreen), findsOneWidget);
-  });
-
   testWidgets(
       'a query with no matches shows a tab-specific "not found" '
       'message, not an error or a stuck loading state', (tester) async {
@@ -246,29 +287,26 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'zzz');
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.byIcon(Icons.search));
     await tester.pumpAndSettle();
     tester.takeException();
 
     expect(find.text('ไม่พบผู้ใช้สำหรับ "zzz"'), findsOneWidget);
   });
 
-  testWidgets(
-      'clearing the query goes back to DiscoveryView immediately, '
-      'without waiting for the debounce window', (tester) async {
+  testWidgets('clearing the query goes back to DiscoveryView immediately',
+      (tester) async {
     await tester.pumpWidget(buildSearch());
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'namfah');
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.byIcon(Icons.search));
     await tester.pumpAndSettle();
     tester.takeException();
     expect(find.text('@namfah'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), '');
-    // Deliberately pump for less than the debounce window -- clearing
-    // must not wait it out.
-    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump();
 
     expect(find.byType(DiscoveryView), findsOneWidget);
     expect(find.text('@namfah'), findsNothing);

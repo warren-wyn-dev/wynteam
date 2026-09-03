@@ -14,6 +14,7 @@ import '../../follow/data/follow_request_repository.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
+import '../../root/presentation/side_menu.dart';
 import '../../saved/data/saved_repository.dart';
 import '../../search/data/discovery_repository.dart';
 import '../data/home_feed_item.dart';
@@ -29,7 +30,7 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
 
-enum _HomeFeedMode { forYou, following, latest, fromYourClubs }
+enum _HomeFeedMode { forYou, following, fromYourClubs }
 
 /// Screen 1 — Home tab (Bottom Nav, index 0). A feed mixing Drop and Pop
 /// content, with the CLUB section (WYN-014) directly above the feed.
@@ -38,8 +39,9 @@ enum _HomeFeedMode { forYou, following, latest, fromYourClubs }
 /// no longer has a separate tab; "ล่าสุด" is the original WYN-007
 /// chronological ordering. Search and Notifications moved out to their
 /// own Bottom Nav tabs as part of WYN-024; this screen's own top row is
-/// now just the WYNOS wordmark + Chat entry point (see _buildHeader),
-/// not a full AppBar. See .wyn/docs/design/wyn-007-home.md,
+/// the hamburger (opens SideMenu, WYN-100) + WYNOS wordmark + Chat entry
+/// point (see _buildHeader), not a full AppBar. See
+/// .wyn/docs/design/wyn-007-home.md,
 /// .wyn/docs/design/wyn-014-club-core.md (Screen 1),
 /// .wyn/docs/design/wyn-018-home-feed-ranking.md, and
 /// .wyn/docs/design/wyn-024-bottom-nav-v1-restructure.md (Screen 2).
@@ -89,6 +91,9 @@ class HomeFeedScreen extends StatefulWidget {
 }
 
 class _HomeFeedScreenState extends State<HomeFeedScreen> {
+  // WYN-100: opens the SideMenu drawer (mirrors
+  // notification_list_screen.dart's own _scaffoldKey exactly).
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _scrollController = ScrollController();
   // WYN-064: lets _onHomeTabReselected trigger the same visual
   // pull-to-refresh affordance a manual pull would (spinner + onRefresh),
@@ -251,8 +256,6 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         return widget.homeRepository.fetchRankedFeed(page: page);
       case _HomeFeedMode.following:
         return widget.homeRepository.fetchFollowingFeed(page: page);
-      case _HomeFeedMode.latest:
-        return widget.homeRepository.fetchFeed(page: page);
       case _HomeFeedMode.fromYourClubs:
         throw StateError(
           '_fetchPage is never called in fromYourClubs mode -- see build()',
@@ -424,9 +427,14 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   /// WYNOS Unified Home Feed Algorithm V1.0 -- records the "Hide" User
   /// Signal for the item at [index] and removes it from the feed right
   /// away (optimistic, same "remove now, put back on failure" shape as
-  /// [_deleteRedrop] -- there's nothing meaningful to "undo to" here
-  /// either, hiding is a one-way action for this round, see
-  /// HomeRepository.hideContent's own doc comment).
+  /// [_deleteRedrop]).
+  ///
+  /// WYN-079 (Wynos V1.0.0 Beta2, item 8): Founder wants a way back after
+  /// hiding by mistake, so a successful hide now offers a Snackbar
+  /// "เลิกทำ" (Undo) action for a few seconds -- tapping it re-inserts
+  /// the item at its original position and reverses the signal via
+  /// [HomeRepository.unhideContent]. Letting the Snackbar time out (or
+  /// dismissing it) leaves the hide in place, same as before this task.
   Future<void> _hideItem(int index) async {
     if (index < 0 || index >= _items.length) return;
     final item = _items[index];
@@ -440,6 +448,42 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _items.insert(index, item));
+      return;
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('ไม่สนใจโพสต์นี้แล้ว'),
+        action: SnackBarAction(
+          label: 'เลิกทำ',
+          onPressed: () => _undoHideItem(index, item),
+        ),
+      ),
+    );
+  }
+
+  /// Reverses a hide [item] was doing right after [_hideItem] recorded
+  /// it -- see that method's own doc comment. Re-inserts at [index]
+  /// (nothing removes items ahead of it in that window other than more
+  /// hides, which this same guard already protects against) and deletes
+  /// the "hide" feed_signals row via HomeRepository.unhideContent so a
+  /// later refresh doesn't exclude it again.
+  Future<void> _undoHideItem(int index, HomeFeedItem item) async {
+    if (!mounted) return;
+    setState(() {
+      final insertAt = index <= _items.length ? index : _items.length;
+      _items.insert(insertAt, item);
+    });
+    try {
+      await widget.homeRepository.unhideContent(
+        contentType: item.contentType,
+        contentId: item.id,
+      );
+    } catch (_) {
+      // The item is back in the feed either way (the whole point of
+      // Undo) -- a failed unhideContent just means the next fetch may
+      // exclude it again, not that this tap silently did nothing.
     }
   }
 
@@ -549,6 +593,16 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         _feedMode != _HomeFeedMode.fromYourClubs && _newPostCount > 0;
 
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: SideMenu(
+        profileRepository: widget.profileRepository,
+        followRepository: widget.followRepository,
+        dropRepository: widget.dropRepository,
+        popRepository: widget.popRepository,
+        savedRepository: widget.savedRepository,
+        clubRepository: widget.clubRepository,
+        clubPostRepository: widget.clubPostRepository,
+      ),
       // A real header row (wordmark + chat entry point), matching
       // design-reference/01-home.tsx's header -- not the floating
       // Positioned-over-content overlay this screen used to render the
@@ -635,23 +689,26 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
-  // WYNOS wordmark + chat entry point, matching design-reference/01-
-  // home.tsx's header row (hamburger/wordmark/search there). The
-  // reference's hamburger is left out on purpose rather than added as a
-  // dead button: this app's destinations already all live in the Bottom
-  // Nav (Settings itself is reachable from Profile), and there's no
-  // second menu for a hamburger here to open. The reference's search
-  // icon becomes chat, matching what this icon already opens everywhere
-  // else in the app (WYN-031).
+  // WYNOS wordmark + hamburger + chat entry point, matching design-
+  // reference/01-home.tsx's header row. WYN-100: the hamburger now opens
+  // the real SideMenu drawer above (Club shortcuts live there --
+  // "สร้าง Club"/"Club ของฉัน" -- previously only reachable from
+  // Notifications). Icon/size/color/tooltip match
+  // notification_list_screen.dart's own hamburger exactly (see
+  // .wyn/docs/design/wyn-100-club-menu-create-club.md, Screen 1). The
+  // reference's search icon becomes chat, matching what this icon
+  // already opens everywhere else in the app (WYN-031).
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
           WynSpacing.space2, WynSpacing.space1, WynSpacing.space2, WynSpacing.space1),
       child: Row(
         children: [
-          // Balances the chat IconButton's own ~48px width so the
-          // wordmark sits visually centered rather than drifting left.
-          const SizedBox(width: 48),
+          IconButton(
+            icon: const Icon(Icons.menu, size: 20, color: WynColors.ink),
+            tooltip: 'เมนู',
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+          ),
           Expanded(
             child: Center(
               child: Text(
@@ -735,13 +792,11 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     const modes = [
       _HomeFeedMode.forYou,
       _HomeFeedMode.following,
-      _HomeFeedMode.latest,
       _HomeFeedMode.fromYourClubs,
     ];
     const labels = {
       _HomeFeedMode.forYou: 'สำหรับคุณ',
       _HomeFeedMode.following: 'ติดตาม',
-      _HomeFeedMode.latest: 'ล่าสุด',
       _HomeFeedMode.fromYourClubs: 'จาก Club ของคุณ',
     };
 
@@ -950,6 +1005,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
               return HomeDropCard(
                 key: itemKey,
                 item: item,
+                dropRepository: widget.dropRepository,
                 onTap: () => _openDrop(item),
                 onToggleLike: () => _toggleLike(index),
                 onToggleSave: () => _toggleSave(index),
@@ -962,6 +1018,13 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                 onDeleteRedrop: () => _deleteRedrop(index),
                 onVotePoll: (optionIndex) => _votePoll(index, optionIndex),
                 onHide: () => _hideItem(index),
+                // WYN-088 (Wynos V1.0.0 Beta2, item 27): Founder wants
+                // the eye/view-count icon off the Home feed specifically
+                // (every tab -- this build method serves all 4), while
+                // Profile keeps it (HomeDropCard's other call sites --
+                // profile_drop_grid_tab.dart etc. -- don't pass this,
+                // so they keep the default true).
+                showViewCount: false,
               );
             }
             return HomePopCard(
@@ -973,6 +1036,9 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
               onToggleSave: () => _toggleSave(index),
               onOpenProfile: () => _openProfile(item.authorId),
               onHide: () => _hideItem(index),
+              // WYN-088 -- same reasoning as HomeDropCard's identical
+              // param above.
+              showViewCount: false,
             );
           },
           childCount: itemCount * 2 - 1,

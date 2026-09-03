@@ -30,11 +30,11 @@ Deno.test("displayNameOrUsername uses displayName when set", () => {
 // sets (Dart client vs this Deno function) must never drift apart, so
 // this test is the guard for that.
 Deno.test("messageFor produces the exact same Thai strings as the Dart client, WYN-012/015 types", () => {
-  assertEquals(messageFor("like_drop", "น้ำฝน", null, null), "น้ำฝน ถูกใจ Drop ของคุณ");
+  assertEquals(messageFor("like_drop", "น้ำฝน", null, null), "น้ำฝน ถูกใจโพสต์ของคุณ");
   assertEquals(messageFor("like_pop", "@ploy", null, null), "@ploy ถูกใจ Pop ของคุณ");
   assertEquals(
     messageFor("comment_drop", "น้ำฝน", null, null),
-    "น้ำฝน แสดงความคิดเห็นใน Drop ของคุณ",
+    "น้ำฝน แสดงความคิดเห็นในโพสต์ของคุณ",
   );
   assertEquals(
     messageFor("comment_pop", "@ploy", null, null),
@@ -99,7 +99,7 @@ Deno.test("messageFor falls back to a generic message for an unrecognized type",
 // Mirrors app/test/notification_list_screen_test.dart's WYN-021 mention
 // assertions word for word (seller_app has no mention concept).
 Deno.test("messageFor produces the exact same Thai strings as the Dart client, WYN-021 mention types", () => {
-  assertEquals(messageFor("mention_drop", "@ploy", null, null), "@ploy กล่าวถึงคุณใน Drop");
+  assertEquals(messageFor("mention_drop", "@ploy", null, null), "@ploy กล่าวถึงคุณในโพสต์");
   assertEquals(
     messageFor("mention_club_post", "@ploy", "ชมรมถ่ายภาพ", null),
     "@ploy กล่าวถึงคุณในโพสต์ที่ ชมรมถ่ายภาพ",
@@ -127,7 +127,7 @@ const baseRow: NotificationRow = {
 // Mirrors app/test/notification_list_screen_test.dart's WYN-034/043
 // redrop assertion word for word.
 Deno.test("messageFor produces the exact same Thai string as the Dart client, WYN-034 redrop", () => {
-  assertEquals(messageFor("redrop", "@ploy", null, null), "@ploy ReDrop โพสต์ของคุณ");
+  assertEquals(messageFor("redrop", "@ploy", null, null), "@ploy รีโพสต์โพสต์ของคุณ");
 });
 
 // Mirrors notification_list_screen.dart's WYN-029/030 moderation/appeal

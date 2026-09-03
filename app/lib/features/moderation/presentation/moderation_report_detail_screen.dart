@@ -133,7 +133,7 @@ class _ModerationReportDetailScreenState extends State<ModerationReportDetailScr
     if (!mounted) return;
     if (drop == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Drop นี้ถูกลบไปแล้ว')),
+        const SnackBar(content: Text('โพสต์นี้ถูกลบไปแล้ว')),
       );
       return;
     }

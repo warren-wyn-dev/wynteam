@@ -1,5 +1,33 @@
 import '../../../core/text_utils.dart';
 
+/// WYN-097: who can see one Drop, chosen per-post at Compose time (the
+/// Audience Selector chip/sheet) -- mirrors [InteractionPermission]'s
+/// shape (WYN-045) but is its own type: a completely different
+/// vocabulary (5 values, not 3) for a completely different question
+/// ("who sees this post" vs. "who can DM/mention/comment on me").
+/// `everyone` is the default, matching `drops.audience`'s own
+/// `not null default 'everyone'` (supabase/schema.sql) -- every Drop
+/// created before this feature existed reads as `everyone`.
+enum AudienceOption { everyone, friends, friendsExcept, closeFriends, onlyMe }
+
+AudienceOption audienceOptionFromString(String? value) => switch (value) {
+      'friends' => AudienceOption.friends,
+      'friends_except' => AudienceOption.friendsExcept,
+      'close_friends' => AudienceOption.closeFriends,
+      'only_me' => AudienceOption.onlyMe,
+      _ => AudienceOption.everyone,
+    };
+
+extension AudienceOptionDbValue on AudienceOption {
+  String get dbValue => switch (this) {
+        AudienceOption.everyone => 'everyone',
+        AudienceOption.friends => 'friends',
+        AudienceOption.friendsExcept => 'friends_except',
+        AudienceOption.closeFriends => 'close_friends',
+        AudienceOption.onlyMe => 'only_me',
+      };
+}
+
 /// A WYN Drop (image post) row, joined with its author's profile and
 /// like/comment counts. See supabase/schema.sql (WYN-005 section).
 class Drop {
@@ -27,6 +55,10 @@ class Drop {
     this.pollOptionCounts,
     this.editedAt,
     this.deletedAt,
+    this.imageWidth,
+    this.imageHeight,
+    this.audience = AudienceOption.everyone,
+    this.location,
     int? imageCount,
   }) : imageCount = imageCount ?? (imageUrl != null ? 1 : 0);
 
@@ -89,6 +121,32 @@ class Drop {
   /// but its own author, so an ordinarily-fetched [Drop] never has
   /// this set. Null means live/visible as normal.
   final DateTime? deletedAt;
+
+  /// WYN-093 (Wynos V1.0.0 Beta2, item 19): the primary image's real
+  /// pixel dimensions, captured once at upload time (DropRepository.
+  /// createDrop) -- drives HomeDropCard's dynamic-height/aspect-fit
+  /// clamp. Null for a Drop created before this metadata existed, or
+  /// one with no image at all (Poll/text-only) -- either way,
+  /// HomeDropCard falls back to the old fixed 1:1 square rather than
+  /// guessing.
+  final int? imageWidth;
+  final int? imageHeight;
+
+  /// WYN-097: who can see this Drop -- see [AudienceOption]'s own doc
+  /// comment. Enforced server-side via RLS (supabase/schema.sql's
+  /// `internal.can_view_drop_audience`); this field only drives
+  /// client-side UI decisions (e.g. hiding the ReDrop button when this
+  /// isn't [AudienceOption.everyone] -- Product spec Edge Case 2).
+  final AudienceOption audience;
+
+  /// WYN-098: the human-readable place name attached at Compose time
+  /// (e.g. "สยามพารากอน") -- null for every Drop without a check-in
+  /// (the overwhelming majority). This is the *only* location field
+  /// this app ever displays; the raw coordinates/LocationIQ place id
+  /// (`drops.location_lat`/`location_lon`/`location_place_id`) are
+  /// stored server-side for a possible future feature but deliberately
+  /// never fetched/shown here -- see Product spec's Privacy section.
+  final String? location;
 
   bool get isPoll => pollId != null;
 
@@ -168,6 +226,10 @@ class Drop {
         pollOptionCounts: pollOptionCounts ?? this.pollOptionCounts,
         editedAt: editedAt,
         deletedAt: deletedAt,
+        imageWidth: imageWidth,
+        imageHeight: imageHeight,
+        audience: audience,
+        location: location,
       );
 
   /// A copy with the caption (or Poll question) edited -- WYN-037,
@@ -201,6 +263,10 @@ class Drop {
         pollOptionCounts: pollOptionCounts,
         editedAt: DateTime.now(),
         deletedAt: deletedAt,
+        imageWidth: imageWidth,
+        imageHeight: imageHeight,
+        audience: audience,
+        location: location,
       );
 
   /// A copy with the like toggled -- used for optimistic UI updates before
@@ -325,6 +391,18 @@ class Drop {
       deletedAt: map['deleted_at'] != null
           ? DateTime.parse(map['deleted_at'] as String)
           : null,
+      imageWidth: (map['image_width'] as num?)?.toInt(),
+      imageHeight: (map['image_height'] as num?)?.toInt(),
+      // WYN-097: defaults to `everyone` when the query didn't select it
+      // (the `*` in _dropSelect already includes it, but a fixture/test
+      // map built by hand may not) -- same "missing key defaults to the
+      // least-restrictive value" reasoning as InteractionPermission's
+      // own fromString.
+      audience: audienceOptionFromString(map['audience'] as String?),
+      // WYN-098: `*` in _dropSelect already includes this existing
+      // `drops.location` column -- see that field's own doc comment
+      // for why the lat/lon/place_id siblings are never read here.
+      location: map['location'] as String?,
     );
   }
 

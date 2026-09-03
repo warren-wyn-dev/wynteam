@@ -99,7 +99,7 @@ class _EditDropCaptionScreenState extends State<EditDropCaptionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('แก้ไข Drop'),
+        title: const Text('แก้ไขโพสต์'),
         actions: [
           TextButton(
             onPressed: _canSave ? _save : null,

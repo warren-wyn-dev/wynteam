@@ -38,7 +38,7 @@ class ProfileRepository {
         // (WYN-045) feed SettingsScreen's 3 new permission rows the same
         // "already-fetched, not re-queried" way.
         .select(
-            'id, username, display_name, bio, avatar_url, platform_role, is_private, dm_permission, mention_permission, comment_permission')
+            'id, username, display_name, bio, avatar_url, platform_role, is_private, dm_permission, mention_permission, comment_permission, likes_visibility')
         .eq('id', userId)
         .single();
     return Profile.fromMap(row);
@@ -171,6 +171,30 @@ class ProfileRepository {
     return _client
         .from('profiles')
         .update({'comment_permission': value.dbValue}).eq('id', userId);
+  }
+
+  /// WYN-099 -- whether the *current viewer* is allowed to see
+  /// [targetUserId]'s "ถูกใจ" (Likes) tab, per that profile's own
+  /// `likes_visibility` setting. `fetch_liked_drops`/`fetch_liked_pops`
+  /// alone can't tell [ProfileLikesTab] apart's 2 empty states ("no
+  /// Likes yet" vs. "not allowed to see this") since both return an
+  /// empty list either way -- this is what actually distinguishes them.
+  Future<bool> canViewLikes(String targetUserId) async {
+    final result = await _client
+        .rpc('can_view_likes', params: {'p_target': targetUserId});
+    return result as bool;
+  }
+
+  /// WYN-099 Settings -- who can see this user's "ถูกใจ" (Likes) tab on
+  /// their profile. Gated server-side by internal.can_view_likes() (see
+  /// supabase/schema.sql); this just persists the choice.
+  Future<void> updateLikesVisibility({
+    required String userId,
+    required LikesVisibility value,
+  }) {
+    return _client
+        .from('profiles')
+        .update({'likes_visibility': value.dbValue}).eq('id', userId);
   }
 
   /// Uploads [bytes] to the `avatars` bucket under the user's own folder

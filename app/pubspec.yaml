@@ -36,6 +36,12 @@ dependencies:
   # deliberately not shared_preferences (used elsewhere in this app for
   # non-sensitive prefs), since these are real, long-lived credentials.
   flutter_secure_storage: ^11.0.0
+  # WYN-098 (Location Check-in) -- "ใช้ตำแหน่งปัจจุบันของฉัน" in the new
+  # LocationPickerSheet. Only used for the device's own GPS permission
+  # request + one-shot position read; the actual place lookup (search/
+  # reverse geocoding) goes through the new `location-search` Edge
+  # Function (LocationIQ), never this package directly.
+  geolocator: ^13.0.2
 
 dev_dependencies:
   flutter_test:
