@@ -18,7 +18,7 @@ Future<void> main() async {
   // WynColors.paper show through -- visible as a mismatched blank strip
   // at the top (and bottom, on Android) of every screen, since nothing
   // in this app ever called SystemChrome before. Dark icons/text because
-  // paper (#FAF9F6) is a light background.
+  // paper (#FFFFFF, WYN-105) is a light background.
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,

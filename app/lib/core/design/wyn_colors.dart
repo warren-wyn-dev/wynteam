@@ -40,7 +40,12 @@ class WynColors {
   static const Color ink = Color(0xFF12120F);
 
   /// Page background, card background, text-on-dark.
-  static const Color paper = Color(0xFFFAF9F6);
+  ///
+  /// WYN-105 (Wynos V1.0.0 Beta2): Founder scope-reduced the original
+  /// 3-theme system request down to just this -- switched from the
+  /// off-white/cream `#FAF9F6` to pure white `#FFFFFF` ("เปลี่ยนสีพื้นหลังแอป
+  /// เป็นสีขาว เหมือนกับแอปอื่นๆ"). See `.wyn/tasks/review/WYN-105-white-background.md`.
+  static const Color paper = Color(0xFFFFFFFF);
 
   /// Outer device bezel background only in the reference mockups -- not
   /// part of the app UI itself. Kept here only for completeness/parity

@@ -46,3 +46,57 @@ Founder ตอบกลับหลังเห็นขนาดงานจร
 **สิ่งที่ยังไม่ทำในรอบนี้** (เก็บไว้เป็นงานอนาคตแยกต่างหาก อ้างอิง `.wyn/docs/product/wyn-105-theme-system.md`): ระบบเลือกธีม 3 แบบเต็มรูปแบบ, dark mode ที่ใช้งานได้จริง, การ refactor ให้ทุกไฟล์ UI อ่านสีผ่าน `Theme.of(context)` แทน static const
 
 Handoff: ส่งต่อ AI Coding โดยตรง (ไม่ต้องผ่าน AI Design เพิ่มเติม — Design check เบื้องต้นทำเสร็จแล้วข้างบน งานเป็นแค่เปลี่ยนค่า 1 token)
+
+## Coding Output (2026-09-03)
+
+Worktree base ยืนยันแล้วว่าอยู่บน `claude/wynos-beta2-phase2-handoff-w4mi5m` @ `228918a` ก่อนเริ่มงาน
+(worktree เดิม spawn มาจาก `origin/main` ผิดสาขา — reset ด้วย `git reset --hard
+origin/claude/wynos-beta2-phase2-handoff-w4mi5m` ก่อน เพราะยังไม่มี commit ของตัวเองอยู่ ปลอดภัย)
+
+การเปลี่ยนแปลง:
+1. **`app/lib/core/design/wyn_colors.dart`**: `WynColors.paper` เปลี่ยนจาก `Color(0xFFFAF9F6)`
+   (off-white/cream) เป็น `Color(0xFFFFFFFF)` (ขาวบริสุทธิ์) ตาม Founder Scope Decision ข้างบน —
+   เพิ่ม doc comment อธิบายที่มา (WYN-105) ไว้เหนือ token นี้ด้วย ดัง doc comment เดิม ("Page
+   background, card background, text-on-dark.") ไม่ได้บรรยายสีว่าเป็น "off-white"/"cream"
+   ตรงๆ อยู่แล้ว จึงไม่ต้องแก้ถ้อยคำส่วนนั้น — token นี้เป็นค่ากลางเดียวที่ `ColorScheme` ทั้งแอป
+   (background/surface/card, light theme) อ้างอิงอยู่แล้ว (`surface`,
+   `surfaceContainerLowest/Low/Container/High/Highest`, ฯลฯ ใน `lightColorScheme` ในไฟล์เดียวกัน)
+   จึงเปลี่ยนจุดเดียวก็ครอบคลุมทั้งแอปตามที่ Design check ระบุไว้
+2. **`app/lib/main.dart`**: comment ที่บรรยาย `paper (#FAF9F6)` (เขียนไว้ตอน WYN-078) อัปเดตเป็น
+   `paper (#FFFFFF, WYN-105)` ให้ตรงกับค่าใหม่ — โค้ดจริงตรงนั้นอ้างอิง `WynColors.paper` symbol
+   อยู่แล้ว (ไม่ได้ hardcode) จึงไม่มีผลต่อ behavior เปลี่ยนแค่ comment ให้ไม่ทำให้คนอ่านสับสน
+
+Grep หา `FAF9F6`/`faf9f6` (ไม่สนตัวพิมพ์) ทั้ง repo เพื่อหา hardcode ค่าเดิมนอกเหนือจาก token:
+- `app/`: พบ 2 จุดข้างบนเท่านั้น (`wyn_colors.dart` ตัว token เอง + comment ใน `main.dart`) —
+  แก้ครบทั้งคู่แล้ว ไม่มี hardcode อื่นในโค้ด Dart ของ `app/`
+- `seller_app/`: grep ไม่พบเลย — `seller_app/lib/core/design/wyn_colors.dart` เป็นไฟล์คนละชุด
+  token (Cyan/Orange palette เดิม, ไม่มี token ชื่อ `paper`) ไม่เกี่ยวกับงานนี้ ไม่ต้องแก้
+- `design-reference/*.tsx`: พบหลายจุด (มาจาก mockup/reference source ของ design-reference เดิม
+  ที่อ้างอิง SPEC.md เวอร์ชันก่อนหน้า) — **ไม่แก้** เพราะเป็นไฟล์ reference/มaterials ต้นทาง ไม่ใช่
+  แอปจริง อยู่นอกสโคปตามที่ Founder Scope Decision ระบุ (เปลี่ยนแค่ token เดียวใน Flutter app)
+  ถ้าจะอัปเดต reference mockup ให้ตรงกับ production ต้องเป็นงาน AI Design แยกต่างหาก — flag ไว้
+  ตรงนี้ ไม่ได้แก้เอง
+- `.wyn/company/DECISIONS.md`, `.wyn/tasks/approved/WYN-078-...md`,
+  `.wyn/docs/design/wyn-097-099-...md`, `.wyn/docs/product/wyn-105-theme-system.md`,
+  `.wyn/tasks/review/WYN-105-...md` (ไฟล์นี้เอง): เป็นบันทึกประวัติศาสตร์ (decision log/spec เดิม)
+  ที่อธิบายค่าที่ถูกต้อง ณ ตอนที่เขียน — ไม่แก้ย้อนหลัง เพราะจะทำให้ประวัติผิดเพี้ยน
+  (ค่าถัดจากนี้ในเอกสารเหล่านั้นอ้างอิงถึงบริบทตอนนั้นตรงตามจริง)
+
+`app/test/`: grep `FAF9F6` ไม่พบ hardcode ในเทสเลยแม้แต่จุดเดียว — ไม่มีเทสใดต้องแก้
+
+Files Changed:
+- `app/lib/core/design/wyn_colors.dart`
+- `app/lib/main.dart` (comment only, ไม่กระทบ behavior)
+
+Tests: รันเต็ม `flutter analyze` และ `flutter test` จริงในเครื่อง (Flutter 3.x, `app/`)
+- `flutter analyze`: **"No issues found!"**
+- `flutter test`: **1011/1011 ผ่านหมด** ตรงกับ baseline ของสาขานี้ ไม่มี regression ใหม่เลย
+
+Build: ไม่ได้รัน platform build เต็ม (`flutter build ...`) เพราะเป็นการเปลี่ยนค่าสีคงที่ 1 ตัวใน
+Dart source ล้วนๆ ไม่กระทบ build config/dependency ใดๆ — ความเสี่ยงต่ำมาก และ `flutter
+analyze`/`flutter test` ครอบคลุมพอแล้วสำหรับขอบเขตงานนี้
+
+Known Issues: ไม่มี — งานนี้ไม่แตะ token อื่นเลยตามสโคปที่ตัดลงมาแล้ว (ไม่มีหน้าตั้งค่าธีม, ไม่มี
+dark mode, ไม่ sync ข้ามอุปกรณ์) ตรงตาม Founder Scope Decision ทุกประการ
+
+Handoff: ส่งต่อ AI QA & Security (ไฟล์นี้อยู่ใน `.wyn/tasks/review/` ต่อ — ไม่ย้ายเอง)
