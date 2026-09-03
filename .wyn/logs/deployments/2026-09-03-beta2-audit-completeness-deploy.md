@@ -7,7 +7,7 @@ Release: WYNOS v1.0.0 Beta2 full product audit + completeness pass. PR #222
   No new feature in any commit -- every change makes an existing feature work
   properly, per the Founder's framing of Beta2.
 Version: `main` HEAD `e93327d`.
-QA Status: PASS -- flutter analyze clean, flutter test 1,086/1,086,
+QA Status: build/test PASS -- flutter analyze clean, flutter test 1,086/1,086,
   flutter build web --release succeeds, supabase/tests/*.sh 27/33 on
   PostgreSQL 16.13 (up from 4/33; the 6 remaining failures are stale
   fixtures, not product defects -- see the final readiness report §4.2).
@@ -126,16 +126,47 @@ will mask a genuine failure later.
 
 ## 5. Founder smoke test on production (reported)
 
-Founder confirmed on the live site after deploy:
+Two rounds, and the first one is the part worth keeping.
 
-| # | Check | Result |
-|---|---|---|
-| 1 | Profile screen — the temporary raw-exception debug text is gone | ✅ |
-| 2 | Open a post, go back — scroll position is kept, no jump to top | ✅ |
-| 3 | Tap Like — scale-pop animation + haptic | ✅ |
-| 4 | Long feed scroll — smoother, no duplicate posts | ✅ |
+**Round 1 — all four checks reported BROKEN.** The Founder's exact words were
+"1-2-3-4 เจอปัญหาหมดเลย" (problems with all four). This session initially
+misread an earlier "เจอหมดเลย" as "all four are working" and recorded a passing
+smoke test here; that entry was wrong and this section replaces it.
 
-Overall: "ปกติ" (normal).
+**Round 2 — Founder reported it resolved** ("เสร็จแล้ว เรียบร้อย").
+
+| # | Check | Round 1 | Round 2 |
+|---|---|---|---|
+| 1 | Profile — temporary raw-exception debug text gone | ❌ | ✅ |
+| 2 | Open a post, go back — scroll position kept | ❌ | ✅ |
+| 3 | Tap Like — scale-pop animation + haptic | ❌ | ✅ |
+| 4 | Long feed scroll — smoother, no duplicate posts | ❌ | ✅ |
+
+**Cause: not confirmed.** The most likely explanation is a stale browser cache on
+the Founder's device during round 1, because all four failing *simultaneously* is
+the signature of running the previous build rather than four unrelated
+regressions — and the four changes have nothing in common in the code. Against
+that, the server side was definitively serving the new build the whole time:
+
+```
+GET https://wynos.online/main.dart.js
+  content-length: 4247510          (pre-deploy baseline was 4,236,817)
+  last-modified:  Thu, 03 Sep 2026 07:52:03 GMT   (run #44 finished 07:51:15Z)
+  cache-control:  public, max-age=0, must-revalidate
+```
+
+So the bytes at the origin were correct before, during and after round 1. What
+was not established is what the Founder's browser was actually running at that
+moment, and no diagnosis was performed before it self-resolved.
+
+**Left open on purpose:** if this was a cache issue it will recur on every
+future deploy, for every user, and "hard-refresh and it fixes itself" is not an
+acceptable answer for a consumer app -- most users will never do it, they will
+just see an app that did not change. `deploy-web.yml` already keeps a custom
+`flutter_bootstrap.js` specifically to disable Flutter's default service-worker
+registration for this exact reason (see the comment in that workflow), so the
+mechanism is known to have bitten this project before. Worth confirming the
+cause rather than assuming it is gone.
 
 ## 6. What this release actually changed
 
