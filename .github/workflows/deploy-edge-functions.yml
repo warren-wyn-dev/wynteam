@@ -68,19 +68,30 @@ jobs:
       # Same trailing-newline/whitespace guard deploy-web.yml applies to
       # its own secrets -- a value pasted into the GitHub Secrets UI
       # (especially on mobile) can silently carry a trailing newline.
-      # Prints the *names* of every secret available to this workflow.
-      # Values are masked by the runner (that masking is what turns an
-      # existing secret into '***'), so this leaks nothing -- and it is
-      # the only thing that distinguishes the two failures that look
-      # identical from inside the job: a secret whose NAME is wrong
-      # (missing from this list) from one whose VALUE is empty (present
-      # in the list, still resolves to nothing). Three runs died here
-      # without that distinction being answerable.
-      - name: Which secrets can this workflow actually see
-        if: ${{ !cancelled() }}
+      # Answers the one question three failed runs could not: is the
+      # secret NAME wrong, or is the name right with an EMPTY VALUE?
+      # From inside the job both print nothing and look identical.
+      #
+      # `contains(toJSON(secrets), ...)` is evaluated by the Actions
+      # expression engine and only its boolean result reaches the log --
+      # no names, no values, nothing dumped. An earlier attempt printed
+      # every secret name via `toJSON(secrets)`; that leaks nothing in
+      # theory (the runner masks values) but it is the exact shape of a
+      # secret-exfiltration step, GitHub blocked the run outright
+      # (`action_required`, zero jobs created), and it was the wrong
+      # instinct regardless. This asks about one name and learns the
+      # same thing.
+      - name: Is the secret reaching this workflow
         run: |
-          echo "Secret names visible to this workflow:"
-          echo '${{ toJSON(secrets) }}' | grep -oE '"[A-Za-z0-9_]+"[[:space:]]*:' | tr -d '":' | sed 's/^/  - /' | sort
+          NAME_PRESENT="${{ contains(toJSON(secrets), 'SUPABASE_ACCESS_TOKEN') }}"
+          VALUE_PRESENT="${{ secrets.SUPABASE_ACCESS_TOKEN != '' }}"
+          echo "SUPABASE_ACCESS_TOKEN -- name visible to this workflow: $NAME_PRESENT"
+          echo "SUPABASE_ACCESS_TOKEN -- value non-empty:               $VALUE_PRESENT"
+          if [ "$NAME_PRESENT" = "true" ] && [ "$VALUE_PRESENT" != "true" ]; then
+            echo "::error::The secret exists under the right name but its value is empty -- re-enter the token value and save again."
+          elif [ "$NAME_PRESENT" != "true" ]; then
+            echo "::error::No secret named SUPABASE_ACCESS_TOKEN is visible here. Check the exact spelling, and that it is a Repository secret under Settings -> Secrets and variables -> Actions (not an Environment or Dependabot secret, and on this repo)."
+          fi
 
       - name: Deploy
         env:
