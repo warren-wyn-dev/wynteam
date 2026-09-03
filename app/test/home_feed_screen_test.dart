@@ -162,6 +162,61 @@ class _DelayedHomeRepository extends RecordingHomeRepository {
   }
 }
 
+/// A RecordingHomeRepository whose ranked feed pages the way offset
+/// pagination really does when the list grows underneath the viewer:
+/// page 1 comes back carrying page 0's last item again. Used by the
+/// duplicate-row regression test below.
+class _OverlappingPageHomeRepository extends RecordingHomeRepository {
+  _OverlappingPageHomeRepository({
+    required this.page0,
+    required this.page1,
+  }) : super(rankedFeedItems: page0);
+
+  final List<HomeFeedItem> page0;
+  final List<HomeFeedItem> page1;
+
+  @override
+  Future<List<HomeFeedItem>> fetchRankedFeed({required int page}) async {
+    fetchRankedFeedCalls++;
+    if (page == 0) return page0;
+    if (page == 1) return page1;
+    return <HomeFeedItem>[];
+  }
+}
+
+/// A RecordingDropRepository whose toggleLike stays unresolved until the
+/// test releases it -- lets the serialization test observe what happens
+/// while the first write is genuinely still in flight, the same
+/// controlled-Completer shape _DelayedHomeRepository uses above. Tracks
+/// how many writes were open at once, which is the property under test.
+class _PendingLikeDropRepository extends RecordingDropRepository {
+  // Created on first use, inside the test body's own async zone, rather
+  // than in the setUpAll that constructs this repository -- a Completer
+  // built in the setUpAll zone schedules its continuations there, and
+  // pumpAndSettle would never flush them (the test would hang on a write
+  // that can't resume).
+  Completer<void>? _gate;
+
+  int openWrites = 0;
+  int maxConcurrentWrites = 0;
+
+  void release() => _gate?.complete();
+
+  @override
+  Future<void> toggleLike({
+    required String dropId,
+    required bool currentlyLiked,
+  }) async {
+    final gate = _gate ??= Completer<void>();
+    toggleLikeCalls++;
+    toggleLikeCurrentlyLikedArgs.add(currentlyLiked);
+    openWrites++;
+    if (openWrites > maxConcurrentWrites) maxConcurrentWrites = openWrites;
+    if (!gate.isCompleted) await gate.future;
+    openWrites--;
+  }
+}
+
 void main() {
   // See drop_comment_like_test.dart (WYN-005) for why every repo (and its
   // underlying SupabaseClient auto-refresh Timer) is built once in
@@ -286,6 +341,9 @@ void main() {
   // share an instance with any other test in this group.
   late RecordingHomeRepository newPostsPillTestHomeRepository;
   late RecordingHomeRepository newPostsPillTapTestHomeRepository;
+  late _OverlappingPageHomeRepository overlappingPageHomeRepository;
+  late _PendingLikeDropRepository pendingLikeDropRepository;
+  late RecordingHomeRepository pendingLikeHomeRepository;
 
   // WYNOSHomeSpec.md item 1: first-time explainer banner.
   late RecordingHomeRepository explainerBannerTestHomeRepository;
@@ -576,6 +634,27 @@ void main() {
     );
     duplicateFetchGuardTestHomeRepository =
         _DelayedHomeRepository(items: [_dropItem(id: 'guard-1', hasImage: false)]);
+
+    // A full page (pageSize == 10, so _hasMore stays true and the feed
+    // will ask for page 1), whose last item comes back at the head of
+    // page 1 -- exactly what offset pagination returns when someone
+    // posts while the viewer is scrolling. hasImage: false for the same
+    // reason scrollToTopTestHomeRepository uses it.
+    overlappingPageHomeRepository = _OverlappingPageHomeRepository(
+      page0: [
+        for (var i = 0; i < 10; i++)
+          _dropItem(id: 'dup-\$i', caption: 'โพสต์ที่ \$i', hasImage: false),
+      ],
+      page1: [
+        _dropItem(id: 'dup-9', caption: 'โพสต์ที่ 9', hasImage: false),
+        _dropItem(id: 'dup-10', caption: 'โพสต์ที่ 10', hasImage: false),
+      ],
+    );
+
+    pendingLikeDropRepository = _PendingLikeDropRepository();
+    pendingLikeHomeRepository = RecordingHomeRepository(
+      rankedFeedItems: [_dropItem(id: 'pending-like-1', hasImage: false)],
+    );
   });
 
   Widget buildHome(
@@ -2622,6 +2701,78 @@ void main() {
         find.byType(HomeExplainerBanner, skipOffstage: false),
         findsOneWidget,
       );
+    });
+  });
+
+  group('feed integrity under real pagination/tap behaviour (Beta2 audit)',
+      () {
+    testWidgets(
+        'a row that offset pagination hands back on both pages is shown '
+        'once, not twice', (tester) async {
+      await tester.pumpWidget(buildHome(
+        overlappingPageHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // Scroll far enough past the bottom to trip the load-more
+      // threshold, then let page 1 arrive.
+      await tester.drag(
+        find.byKey(const Key('home_feed_scroll_view')),
+        const Offset(0, -4000),
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(overlappingPageHomeRepository.fetchRankedFeedCalls, 2,
+          reason: 'page 1 should have been requested');
+      // Scrolled to the bottom, the tail of the list is what's on
+      // screen: the row both pages returned, and the genuinely new one
+      // behind it. Before the dedupe, "โพสต์ที่ 9" was appended a second
+      // time and rendered twice in a row (with a duplicate ValueKey).
+      expect(find.text('โพสต์ที่ 10'), findsOneWidget);
+      expect(find.text('โพสต์ที่ 9'), findsOneWidget);
+    });
+
+    testWidgets(
+        'a second Like tap while the first write is still in flight is '
+        'queued behind it, not sent concurrently', (tester) async {
+      await tester.pumpWidget(buildHome(
+        pendingLikeHomeRepository,
+        dropRepository: pendingLikeDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final like = find.byWidgetPredicate(
+        (w) => w is ActionMetric && w.semanticsLabel.contains('ถูกใจ'),
+      );
+      expect(like, findsOneWidget);
+
+      final onTap = tester.widget<ActionMetric>(like).onTap!;
+      onTap();
+      onTap();
+      await tester.pump();
+
+      // Both taps are real user intent and both must reach the server --
+      // but the second one waits for the first, so an INSERT and its
+      // DELETE can never be in flight together and race each other.
+      expect(pendingLikeDropRepository.toggleLikeCalls, 1,
+          reason: 'the second write is queued, not issued yet');
+      expect(pendingLikeDropRepository.maxConcurrentWrites, 1);
+
+      pendingLikeDropRepository.release();
+      await tester.pumpAndSettle();
+
+      expect(pendingLikeDropRepository.toggleLikeCalls, 2);
+      expect(pendingLikeDropRepository.toggleLikeCurrentlyLikedArgs,
+          [false, true],
+          reason: 'each write still carries the state at its own tap');
+      expect(pendingLikeDropRepository.maxConcurrentWrites, 1,
+          reason: 'the two writes never overlapped');
     });
   });
 }

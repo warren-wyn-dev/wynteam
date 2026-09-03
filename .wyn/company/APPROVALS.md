@@ -49,3 +49,13 @@
 - Recommendation: อนุมัติให้สร้างระบบเทคนิค + placeholder content เพื่อทดสอบ flow ได้ตอนนี้ — Founder ควรปรึกษาผู้เชี่ยวชาญกฎหมายไทยเรื่อง (1) เนื้อหาเอกสารทั้ง 6 ฉบับ (2) การวิเคราะห์ว่า WYN เข้าข่าย DPS ประเภทไหน ก่อนวันที่จะ deploy จริงให้ผู้ใช้ใช้งาน (ยังไม่เร่งด่วนตอนนี้เพราะยังไม่มี production)
 - สถานะ: รออนุมัติ
 - วันที่ตัดสินใจ: -
+
+### APPROVAL_REQUIRED — [2026-09-03] เพิ่ม `WITH CHECK` ให้ UPDATE policy 6 ตัว (ผลจาก Beta2 Full Audit §8.1)
+- Proposed change: เพิ่ม `with check (...)` ที่มีเงื่อนไขเดียวกับ `using (...)` ให้ RLS UPDATE policy 6 ตัว — `public.profiles`, `public.profile_private`, `public.cart_items`, `public.clubs`, `public.club_posts`, `storage.objects` (avatar) — SQL เตรียมไว้แล้วที่ `supabase/pending_approval_rls_with_check.sql` **ยังไม่ถูก apply และยังไม่ถูกใส่ใน `supabase/schema.sql`**
+- Reason: ใน PostgreSQL `using` คุมว่า "แถวไหนแก้ได้" ส่วน `with check` คุมว่า "แถวหลังแก้หน้าตาต้องเป็นอย่างไร" — ถ้าไม่มี `with check` ผู้ใช้แก้แถวของตัวเองให้กลายเป็นของคนอื่นได้ เช่น เปลี่ยน `profiles.id` ของตัวเองไปเป็น uuid ของ auth user ที่ยังไม่มีแถว profile (ยึดตัวตน), ย้ายสินค้าใน `cart_items` ไปตะกร้าคนอื่น, ย้าย `club_posts` ไป Club ที่ตัวเองไม่มีสิทธิ์, ย้ายไฟล์ออกจากโฟลเดอร์ avatar ของตัวเอง
+- Benefits: ปิดช่องโอนความเป็นเจ้าของแถวทั้งหมดในครั้งเดียว เป็นการ **เพิ่มความเข้มงวดล้วน** ไม่ได้ให้สิทธิ์ใหม่แก่ใคร
+- Risks: ต่ำมาก — ตรวจแล้วว่า `.update(` ทั้ง 25 จุดใน `app/lib/` ไม่มีจุดไหนเขียนทับคอลัมน์เจ้าของ (`id`/`user_id`/`author_id`/`club_id`) เลย จึงไม่มี flow ที่ใช้งานถูกต้องอยู่แล้วที่จะพังจากการเพิ่มเงื่อนไขนี้ ทุกคำสั่งเป็น idempotent (`drop policy if exists` ก่อน `create policy`) และย้อนกลับได้ด้วยการรัน policy เดิม
+- Files affected: `supabase/pending_approval_rls_with_check.sql` (ไฟล์ใหม่ รอ apply), `supabase/schema.sql` (จะย้าย policy เข้าไปแทนของเดิมหลังได้รับอนุมัติและ apply แล้ว)
+- Recommendation: อนุมัติและ apply — นี่คือช่องโหว่ระดับ P0 เดียวที่พบใน audit ที่ต้องแก้ที่ฝั่ง database และเป็นการแก้ที่ความเสี่ยงต่ำที่สุดเท่าที่เป็นไปได้ (เพิ่มเงื่อนไข ไม่ลบเงื่อนไข)
+- สถานะ: รออนุมัติ
+- วันที่ตัดสินใจ: -

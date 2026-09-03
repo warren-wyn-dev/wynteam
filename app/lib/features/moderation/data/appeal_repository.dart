@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'appeal.dart';
 import 'my_appeal.dart';
 import 'my_moderation_action.dart';
+import '../../../core/storage_upload_options.dart';
 
 /// Wraps `appeals`, the `appeal-evidence` storage bucket, and the
 /// `submit_appeal()`/`decide_appeal()`/`get_my_moderation_action()`
@@ -61,7 +62,11 @@ class AppealRepository {
       for (var i = 0; i < evidenceImages.length; i++) {
         final extension = evidenceExtensions![i];
         final path = '$userId/$timestamp-$i.$extension';
-        await _client.storage.from(_bucket).uploadBinary(path, evidenceImages[i]);
+        await _client.storage.from(_bucket).uploadBinary(
+              path,
+              evidenceImages[i],
+              fileOptions: immutableUploadFileOptions,
+            );
         evidencePaths.add(path);
       }
     }

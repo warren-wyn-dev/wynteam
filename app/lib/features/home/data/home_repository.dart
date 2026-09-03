@@ -16,6 +16,29 @@ class _PollState {
   final List<int>? optionCounts;
 }
 
+/// The per-viewer overlay applied to one page of `home_feed` rows --
+/// see [HomeRepository._fetchViewerState].
+class _ViewerFeedState {
+  const _ViewerFeedState({
+    required this.likedDropIds,
+    required this.likedPopIds,
+    required this.savedIds,
+    required this.redroppedIds,
+    required this.pollStates,
+    required this.blockedAuthorIds,
+  });
+
+  final Set<String> likedDropIds;
+  final Set<String> likedPopIds;
+  final Set<String> savedIds;
+  final Set<String> redroppedIds;
+  final Map<String, _PollState> pollStates;
+
+  /// Empty unless the caller asked for the sanction check -- only the
+  /// ranked/leaderboard surfaces (fetchTrending/fetchTopContent) do.
+  final Set<String> blockedAuthorIds;
+}
+
 /// Reads the unified `home_feed` view (see supabase/schema.sql, WYN-007
 /// section) for the Home tab. Only handles fetching -- Like/Save/Delete
 /// actions on a card are delegated straight to DropRepository/
@@ -89,31 +112,17 @@ class HomeRepository {
       }
     }
 
-    final likedDropIds = await _fetchLikedIds(
-      table: 'drop_likes',
-      idColumn: 'drop_id',
+    final viewer = await _fetchViewerState(
       userId: userId,
-      ids: dropIds,
+      rows: rows,
+      dropIds: dropIds,
+      popIds: popIds,
     );
-    final likedPopIds = await _fetchLikedIds(
-      table: 'pop_likes',
-      idColumn: 'pop_id',
-      userId: userId,
-      ids: popIds,
-    );
-    final savedIds = await _fetchSavedIds(
-      userId: userId,
-      ids: [...dropIds, ...popIds],
-    );
-    final redroppedIds =
-        await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
-    final pollStates = await _fetchPollStates(
-      userId: userId,
-      pollIds: rows
-          .map((row) => row['poll_id'] as String?)
-          .whereType<String>()
-          .toList(),
-    );
+    final likedDropIds = viewer.likedDropIds;
+    final likedPopIds = viewer.likedPopIds;
+    final savedIds = viewer.savedIds;
+    final redroppedIds = viewer.redroppedIds;
+    final pollStates = viewer.pollStates;
 
     return rows.map((row) {
       final id = row['id'] as String;
@@ -174,32 +183,19 @@ class HomeRepository {
       }
     }
 
-    final likedDropIds = await _fetchLikedIds(
-      table: 'drop_likes',
-      idColumn: 'drop_id',
+    final viewer = await _fetchViewerState(
       userId: userId,
-      ids: dropIds,
+      rows: rows,
+      dropIds: dropIds,
+      popIds: popIds,
+      authorIdsForBlockCheck: authorIds,
     );
-    final likedPopIds = await _fetchLikedIds(
-      table: 'pop_likes',
-      idColumn: 'pop_id',
-      userId: userId,
-      ids: popIds,
-    );
-    final savedIds = await _fetchSavedIds(
-      userId: userId,
-      ids: [...dropIds, ...popIds],
-    );
-    final redroppedIds =
-        await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
-    final pollStates = await _fetchPollStates(
-      userId: userId,
-      pollIds: rows
-          .map((row) => row['poll_id'] as String?)
-          .whereType<String>()
-          .toList(),
-    );
-    final blockedAuthorIds = await _fetchPostingBlockedAuthorIds(authorIds);
+    final likedDropIds = viewer.likedDropIds;
+    final likedPopIds = viewer.likedPopIds;
+    final savedIds = viewer.savedIds;
+    final redroppedIds = viewer.redroppedIds;
+    final pollStates = viewer.pollStates;
+    final blockedAuthorIds = viewer.blockedAuthorIds;
 
     final items = rows.map((row) {
       final id = row['id'] as String;
@@ -261,32 +257,19 @@ class HomeRepository {
       }
     }
 
-    final likedDropIds = await _fetchLikedIds(
-      table: 'drop_likes',
-      idColumn: 'drop_id',
+    final viewer = await _fetchViewerState(
       userId: userId,
-      ids: dropIds,
+      rows: rows,
+      dropIds: dropIds,
+      popIds: popIds,
+      authorIdsForBlockCheck: authorIds,
     );
-    final likedPopIds = await _fetchLikedIds(
-      table: 'pop_likes',
-      idColumn: 'pop_id',
-      userId: userId,
-      ids: popIds,
-    );
-    final savedIds = await _fetchSavedIds(
-      userId: userId,
-      ids: [...dropIds, ...popIds],
-    );
-    final redroppedIds =
-        await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
-    final pollStates = await _fetchPollStates(
-      userId: userId,
-      pollIds: rows
-          .map((row) => row['poll_id'] as String?)
-          .whereType<String>()
-          .toList(),
-    );
-    final blockedAuthorIds = await _fetchPostingBlockedAuthorIds(authorIds);
+    final likedDropIds = viewer.likedDropIds;
+    final likedPopIds = viewer.likedPopIds;
+    final savedIds = viewer.savedIds;
+    final redroppedIds = viewer.redroppedIds;
+    final pollStates = viewer.pollStates;
+    final blockedAuthorIds = viewer.blockedAuthorIds;
 
     final items = rows.map((row) {
       final id = row['id'] as String;
@@ -337,10 +320,40 @@ class HomeRepository {
   /// tradeoff WYN-018 already accepted, just with an extra reordering
   /// step now sitting in front of the slice).
   Future<List<HomeFeedItem>> fetchRankedFeed({required int page}) async {
-    final userId = _client.auth.currentUser!.id;
     final from = page * pageSize;
     final to = from + pageSize - 1;
     if (from >= _rankedCandidateLimit) return [];
+
+    // Page 0 is the start of a fresh scroll (initial load, pull-to-
+    // refresh, feed-mode switch, new-posts pill) -- rebuild the window
+    // then, and slice every later page out of that same one.
+    //
+    // Before this, every page re-ran get_wynos_ranked_feed(), which
+    // re-scores the whole 200-candidate pool server-side: scrolling 10
+    // pages meant scoring 2,000 candidates to show 100 posts. Worse, it
+    // quietly broke the very property the doc comment above promises --
+    // "page N always slices out the same items regardless of how many
+    // times it's re-fetched" only holds for one *fixed* window, and a
+    // window re-fetched a minute later (new posts, changed engagement)
+    // reorders, so a slice could repeat or skip items across pages.
+    final window = page == 0 || _rankedWindow == null
+        ? await _buildRankedWindow()
+        : _rankedWindow!;
+
+    if (from >= window.length) return [];
+    return window.sublist(
+        from, to + 1 > window.length ? window.length : to + 1);
+  }
+
+  /// The bounded, already-diversity-ordered window [fetchRankedFeed]
+  /// pages through -- cached between pages of one scroll, rebuilt
+  /// whenever page 0 is requested again. Never a stale-data risk beyond
+  /// what the feed already accepted: the items in it were fetched at the
+  /// same moment page 0's were.
+  List<HomeFeedItem>? _rankedWindow;
+
+  Future<List<HomeFeedItem>> _buildRankedWindow() async {
+    final userId = _client.auth.currentUser!.id;
 
     final rawRows =
         await _client.rpc('get_wynos_ranked_feed') as List<dynamic>;
@@ -354,11 +367,21 @@ class HomeRepository {
     // it runs, so Pop rows are filtered out of what it returns instead
     // (same "don't touch the SQL side, filter in Dart" posture as every
     // other fetch* method in this file -- see _hiddenContentType).
-    final rows = rawRows
-        .map((raw) => Map<String, dynamic>.from(
-            raw['row_data'] as Map<String, dynamic>))
-        .where((row) => row['content_type'] != _hiddenContentType)
-        .toList();
+    //
+    // The ranking metadata (`wynos_score`/`is_discovery`) is carried
+    // alongside each row through the filter by [rankedCandidateRows],
+    // not looked up by position afterwards. It used to be read as
+    // `rawRows[i]` while `i` indexed the *filtered* list -- so the
+    // moment a single Pop row appeared anywhere in the 200 candidates,
+    // every item after it was scored with some other item's numbers and
+    // the whole "สำหรับคุณ" ordering (and Feed Diversity's discovery
+    // quota with it) came out wrong, silently: nothing throws, and the
+    // feed still renders.
+    final ranked = rankedCandidateRows(
+      rawRows,
+      excludeContentTypes: const {_hiddenContentType},
+    );
+    final rows = [for (final e in ranked) e.row];
 
     final dropIds = <String>[];
     final popIds = <String>[];
@@ -370,31 +393,17 @@ class HomeRepository {
       }
     }
 
-    final likedDropIds = await _fetchLikedIds(
-      table: 'drop_likes',
-      idColumn: 'drop_id',
+    final viewer = await _fetchViewerState(
       userId: userId,
-      ids: dropIds,
+      rows: rows,
+      dropIds: dropIds,
+      popIds: popIds,
     );
-    final likedPopIds = await _fetchLikedIds(
-      table: 'pop_likes',
-      idColumn: 'pop_id',
-      userId: userId,
-      ids: popIds,
-    );
-    final savedIds = await _fetchSavedIds(
-      userId: userId,
-      ids: [...dropIds, ...popIds],
-    );
-    final redroppedIds =
-        await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
-    final pollStates = await _fetchPollStates(
-      userId: userId,
-      pollIds: rows
-          .map((row) => row['poll_id'] as String?)
-          .whereType<String>()
-          .toList(),
-    );
+    final likedDropIds = viewer.likedDropIds;
+    final likedPopIds = viewer.likedPopIds;
+    final savedIds = viewer.savedIds;
+    final redroppedIds = viewer.redroppedIds;
+    final pollStates = viewer.pollStates;
 
     final items = rows.map((row) {
       final id = row['id'] as String;
@@ -424,8 +433,8 @@ class HomeRepository {
         FeedDiversityCandidate(
           key: keyFor(items[i]),
           authorId: items[i].authorId,
-          wynosScore: (rawRows[i]['wynos_score'] as num).toDouble(),
-          isDiscovery: rawRows[i]['is_discovery'] as bool,
+          wynosScore: ranked[i].score,
+          isDiscovery: ranked[i].discovery,
         ),
     ];
     final itemsByKey = {for (final item in items) keyFor(item): item};
@@ -433,9 +442,8 @@ class HomeRepository {
         .map((c) => itemsByKey[c.key]!)
         .toList();
 
-    if (from >= ordered.length) return [];
-    return ordered.sublist(
-        from, to + 1 > ordered.length ? ordered.length : to + 1);
+    _rankedWindow = ordered;
+    return ordered;
   }
 
   /// The "ติดตาม" (Following) feed mode (WYN-024): Drop+Pop content from
@@ -484,31 +492,17 @@ class HomeRepository {
       }
     }
 
-    final likedDropIds = await _fetchLikedIds(
-      table: 'drop_likes',
-      idColumn: 'drop_id',
+    final viewer = await _fetchViewerState(
       userId: userId,
-      ids: dropIds,
+      rows: rows,
+      dropIds: dropIds,
+      popIds: popIds,
     );
-    final likedPopIds = await _fetchLikedIds(
-      table: 'pop_likes',
-      idColumn: 'pop_id',
-      userId: userId,
-      ids: popIds,
-    );
-    final savedIds = await _fetchSavedIds(
-      userId: userId,
-      ids: [...dropIds, ...popIds],
-    );
-    final redroppedIds =
-        await _fetchRedroppedIds(userId: userId, dropIds: dropIds);
-    final pollStates = await _fetchPollStates(
-      userId: userId,
-      pollIds: rows
-          .map((row) => row['poll_id'] as String?)
-          .whereType<String>()
-          .toList(),
-    );
+    final likedDropIds = viewer.likedDropIds;
+    final likedPopIds = viewer.likedPopIds;
+    final savedIds = viewer.savedIds;
+    final redroppedIds = viewer.redroppedIds;
+    final pollStates = viewer.pollStates;
 
     return rows.map((row) {
       final id = row['id'] as String;
@@ -555,22 +549,19 @@ class HomeRepository {
         .range(from, to);
 
     final dropIds = rows.map((row) => row['id'] as String).toList();
-    final likedIds = await _fetchLikedIds(
-      table: 'drop_likes',
-      idColumn: 'drop_id',
+    // popIds is empty on purpose -- the Pop rows this list could contain
+    // are already filtered out by the .neq above, so there is never a
+    // pop_likes lookup to make here.
+    final viewer = await _fetchViewerState(
       userId: viewerId,
-      ids: dropIds,
+      rows: rows,
+      dropIds: dropIds,
+      popIds: const [],
     );
-    final savedIds = await _fetchSavedIds(userId: viewerId, ids: dropIds);
-    final redroppedIds =
-        await _fetchRedroppedIds(userId: viewerId, dropIds: dropIds);
-    final pollStates = await _fetchPollStates(
-      userId: viewerId,
-      pollIds: rows
-          .map((row) => row['poll_id'] as String?)
-          .whereType<String>()
-          .toList(),
-    );
+    final likedIds = viewer.likedDropIds;
+    final savedIds = viewer.savedIds;
+    final redroppedIds = viewer.redroppedIds;
+    final pollStates = viewer.pollStates;
 
     return rows.map((row) {
       final id = row['id'] as String;
@@ -585,6 +576,68 @@ class HomeRepository {
         pollOptionCounts: pollState?.optionCounts,
       );
     }).toList();
+  }
+
+  /// Everything about a page of `home_feed` rows that depends on *who
+  /// is looking*: which of them this viewer liked, saved, ReDropped,
+  /// how they voted in any Polls, and (for the ranked/leaderboard
+  /// surfaces that need it) which candidate authors are under an active
+  /// moderation sanction.
+  ///
+  /// Every fetch* method above needed this same set, and each one used
+  /// to `await` the five/six lookups one after another -- five sequential
+  /// round-trips before a single card could render, for queries that
+  /// have no dependency on each other whatsoever. They are issued
+  /// together now, so a feed page costs roughly one round-trip of viewer
+  /// state instead of five. Consolidating them here also removes the
+  /// five copies of the identical block that had to be kept in step by
+  /// hand.
+  ///
+  /// [authorIdsForBlockCheck] is null for the plain feeds (which don't
+  /// filter by sanction) and a real set for fetchTrending/
+  /// fetchTopContent; [ViewerFeedState.blockedAuthorIds] is empty when
+  /// it's null, so a caller that doesn't ask never pays for the RPC.
+  Future<_ViewerFeedState> _fetchViewerState({
+    required String userId,
+    required List<Map<String, dynamic>> rows,
+    required List<String> dropIds,
+    required List<String> popIds,
+    Set<String>? authorIdsForBlockCheck,
+  }) async {
+    final pollIds = rows
+        .map((row) => row['poll_id'] as String?)
+        .whereType<String>()
+        .toList();
+
+    final results = await Future.wait([
+      _fetchLikedIds(
+        table: 'drop_likes',
+        idColumn: 'drop_id',
+        userId: userId,
+        ids: dropIds,
+      ),
+      _fetchLikedIds(
+        table: 'pop_likes',
+        idColumn: 'pop_id',
+        userId: userId,
+        ids: popIds,
+      ),
+      _fetchSavedIds(userId: userId, ids: [...dropIds, ...popIds]),
+      _fetchRedroppedIds(userId: userId, dropIds: dropIds),
+      _fetchPollStates(userId: userId, pollIds: pollIds),
+      if (authorIdsForBlockCheck != null)
+        _fetchPostingBlockedAuthorIds(authorIdsForBlockCheck),
+    ]);
+
+    return _ViewerFeedState(
+      likedDropIds: results[0] as Set<String>,
+      likedPopIds: results[1] as Set<String>,
+      savedIds: results[2] as Set<String>,
+      redroppedIds: results[3] as Set<String>,
+      pollStates: results[4] as Map<String, _PollState>,
+      blockedAuthorIds:
+          results.length > 5 ? results[5] as Set<String> : const {},
+    );
   }
 
   /// Same shape as DropRepository's identically-named private method

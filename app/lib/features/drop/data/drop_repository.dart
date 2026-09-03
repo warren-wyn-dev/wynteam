@@ -10,6 +10,7 @@ import 'drop_comment.dart';
 import 'drop_draft.dart';
 import 'image_dimensions.dart';
 import 'location_result.dart';
+import '../../../core/storage_upload_options.dart';
 
 // PostgREST can't resolve a bare `profiles(...)` embed on its own when a
 // sibling embed in the same select (drop_likes/drop_comments/
@@ -693,9 +694,11 @@ class DropRepository {
     for (var i = 0; i < imagesBytes.length; i++) {
       final path =
           '$userId/${DateTime.now().millisecondsSinceEpoch}_$i.${imageExtensions[i]}';
-      await _client.storage
-          .from('drop-images')
-          .uploadBinary(path, imagesBytes[i]);
+      await _client.storage.from('drop-images').uploadBinary(
+            path,
+            imagesBytes[i],
+            fileOptions: immutableUploadFileOptions,
+          );
       imageUrls.add(_client.storage.from('drop-images').getPublicUrl(path));
       imageDimensions.add(await decodeImageDimensions(imagesBytes[i]));
       onImageUploaded?.call(i + 1, imagesBytes.length);
@@ -942,9 +945,17 @@ class DropRepository {
           .eq('drop_id', dropId)
           .eq('user_id', userId);
     } else {
+      // upsert(ignoreDuplicates) rather than a plain insert: liking
+      // something already liked is the user's intent either way, so the
+      // duplicate-key error a second insert raises is noise, not a
+      // failure to report. It surfaced as a *wrong* UI state -- the
+      // caller's catch rolls the card back to "not liked" while the row
+      // is in fact stored. Reaches here from a second device, a retry,
+      // or a tap that raced its predecessor.
       await _client
           .from('drop_likes')
-          .insert({'drop_id': dropId, 'user_id': userId});
+          .upsert({'drop_id': dropId, 'user_id': userId},
+              ignoreDuplicates: true);
     }
   }
 
@@ -961,11 +972,12 @@ class DropRepository {
           .eq('content_type', _savesContentType)
           .eq('content_id', dropId);
     } else {
-      await _client.from('saves').insert({
+      // Same reasoning as toggleLike's upsert above.
+      await _client.from('saves').upsert({
         'user_id': userId,
         'content_type': _savesContentType,
         'content_id': dropId,
-      });
+      }, ignoreDuplicates: true);
     }
   }
 
@@ -1162,7 +1174,11 @@ class DropRepository {
     if (imageBytes != null) {
       final path =
           '$userId/${DateTime.now().millisecondsSinceEpoch}.$imageExtension';
-      await _client.storage.from('drop-images').uploadBinary(path, imageBytes);
+      await _client.storage.from('drop-images').uploadBinary(
+            path,
+            imageBytes,
+            fileOptions: immutableUploadFileOptions,
+          );
       imageUrl = _client.storage.from('drop-images').getPublicUrl(path);
     }
 

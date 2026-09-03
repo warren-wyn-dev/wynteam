@@ -12395,3 +12395,73 @@ select id, true, created_at
 from public.profiles
 where username is not null
 on conflict (id) do nothing;
+
+-- ---------------------------------------------------------------------
+-- Beta2 audit (2026-09-03) — indexes for the feed and social-graph
+-- queries the app actually runs.
+--
+-- Purely additive: no table, column, policy, or constraint is touched,
+-- and no query changes behaviour -- only how Postgres finds the rows.
+-- Safe to run against production at any time, and safe to re-run.
+--
+-- Why these specific ones: every query below is on Wynos' hot path and,
+-- before this block, had no usable index at all. `drop_likes`, `saves`,
+-- `follows`, `blocks` and `mutes` do have composite primary keys, but a
+-- PK on (a, b) cannot serve a lookup by `b` alone -- which is exactly
+-- the direction several of these read in (who follows *me*, who has
+-- blocked *me*, everything *I* liked).
+--
+-- The counterpart work -- denormalised like/comment counters so
+-- `public.home_feed` stops running eight correlated subqueries per row
+-- -- is deliberately NOT here: that changes the schema's shape and needs
+-- Founder approval plus a backfill. See
+-- .wyn/docs/qa/wynos-v1.0.0-beta2-full-audit.md §5.5.
+--
+-- NOTE for whoever applies this: on a table with substantial existing
+-- data, `create index concurrently` avoids holding a write lock -- it
+-- cannot run inside a transaction block, so it has to be run statement
+-- by statement rather than as part of this file. At Beta2's data volume
+-- the plain form below is fine.
+
+-- The Home feed's own ordering (`order by created_at desc` on
+-- `home_feed`, every tab, every page) and Profile's post grid
+-- (`author_id = ? order by created_at desc`).
+create index if not exists drops_created_at_idx
+  on public.drops (created_at desc);
+create index if not exists drops_author_created_idx
+  on public.drops (author_id, created_at desc);
+
+-- Profile's "ถูกใจ" tab (`drop_likes where user_id = ?`) -- the PK is
+-- (drop_id, user_id), so a user-first lookup could not use it.
+create index if not exists drop_likes_user_idx
+  on public.drop_likes (user_id, created_at desc);
+
+-- Every comment list (`drop_comments where drop_id = ? order by
+-- created_at`), plus the top_reply subquery inside `home_feed`.
+create index if not exists drop_comments_drop_created_idx
+  on public.drop_comments (drop_id, created_at);
+
+-- Follower lists and follower_count() (`follows where following_id =
+-- ?`) -- the PK is (follower_id, following_id), which only serves the
+-- "who do I follow" direction.
+create index if not exists follows_following_idx
+  on public.follows (following_id, created_at desc);
+
+-- Incoming follow requests (`follow_requests where target_id = ?`),
+-- same PK-direction problem.
+create index if not exists follow_requests_target_idx
+  on public.follow_requests (target_id, created_at desc);
+
+-- internal.is_blocked_either_way() runs on every row of every Drop/
+-- Pop/comment SELECT, and half of it looks up `blocked_id` -- the
+-- non-leading half of the PK. Same for the mute check embedded in the
+-- `home_feed` view itself.
+create index if not exists blocks_blocked_idx
+  on public.blocks (blocked_id);
+create index if not exists mutes_muted_idx
+  on public.mutes (muted_id);
+
+-- Bookmarks and the per-page "did I save this" lookup read saves by
+-- content, not just by user.
+create index if not exists saves_content_idx
+  on public.saves (content_type, content_id);

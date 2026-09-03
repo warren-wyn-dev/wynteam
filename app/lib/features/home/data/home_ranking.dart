@@ -53,3 +53,41 @@ double rankingScore(
 
   return recencyScore + engagementScore(item) + followingBoost;
 }
+
+/// One `get_wynos_ranked_feed()` row: the `home_feed` columns plus the
+/// two ranking values the RPC computed for it.
+typedef RankedCandidateRow = ({
+  Map<String, dynamic> row,
+  double score,
+  bool discovery,
+});
+
+/// Flattens `get_wynos_ranked_feed()`'s raw rows into
+/// [RankedCandidateRow]s, dropping any whose `content_type` is in
+/// [excludeContentTypes] (WYN-102 hides `pop`).
+///
+/// Exists as a pure function -- rather than inline in
+/// `HomeRepository.fetchRankedFeed` where it used to live -- because
+/// keeping each row's score attached to the row *through* the filter is
+/// the whole point. The previous version filtered the rows into a new
+/// list, then read scores back out of the unfiltered list by position
+/// (`rawRows[i]`), so one excluded row anywhere shifted every score
+/// after it onto the wrong item and silently mis-ordered the entire
+/// "สำหรับคุณ" feed. That is a correctness property worth a test of its
+/// own, and a method that needs a live Supabase client can't have one.
+List<RankedCandidateRow> rankedCandidateRows(
+  List<dynamic> rawRows, {
+  Set<String> excludeContentTypes = const {},
+}) {
+  final result = <RankedCandidateRow>[];
+  for (final raw in rawRows) {
+    final row = Map<String, dynamic>.from(raw['row_data'] as Map<String, dynamic>);
+    if (excludeContentTypes.contains(row['content_type'])) continue;
+    result.add((
+      row: row,
+      score: (raw['wynos_score'] as num).toDouble(),
+      discovery: raw['is_discovery'] as bool,
+    ));
+  }
+  return result;
+}

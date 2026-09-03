@@ -117,3 +117,25 @@ String thaiBahtLabel(double price) {
   final wholePart = buffer.toString();
   return parts.length > 1 ? '฿$wholePart.${parts[1]}' : '฿$wholePart';
 }
+
+/// Quotes [value] so it can be embedded safely inside a PostgREST
+/// filter-DSL string such as the one `.or()` takes.
+///
+/// `.or('username.ilike.%$query%,display_name.ilike.%$query%')` builds
+/// *filter grammar*, not a parameterized value: `,` separates filters,
+/// `.` separates column/operator/value, and `()` groups them. A raw
+/// user-typed query containing any of those characters therefore either
+/// breaks the whole filter (a search for "John, Jane" comes back as a
+/// 400, surfacing to the user as "ค้นหาไม่สำเร็จ" when nothing is
+/// actually wrong) or lets the user append filters of their own.
+///
+/// PostgREST's own answer is to double-quote the value, with `\` and `"`
+/// backslash-escaped inside it -- which is exactly what this returns,
+/// including the surrounding quotes. Single-value builder methods
+/// (`.ilike()`, `.eq()`, ...) are already safe on their own and must NOT
+/// use this: they send the value as its own query-string parameter, so
+/// quotes added here would be matched literally.
+String quotePostgrestFilterValue(String value) {
+  final escaped = value.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
+  return '"$escaped"';
+}

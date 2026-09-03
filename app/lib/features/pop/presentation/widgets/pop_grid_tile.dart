@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/design/wyn_colors.dart';
 import '../../data/pop.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/widgets/network_thumbnail.dart';
 
 /// Formats a duration in seconds as "m:ss" (e.g. 45 -> "0:45").
 String _formatDuration(int totalSeconds) {
@@ -35,7 +36,7 @@ class PopGridTile extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               if (pop.thumbnailUrl != null)
-                Image.network(pop.thumbnailUrl!, fit: BoxFit.cover)
+                NetworkThumbnail(imageUrl: pop.thumbnailUrl!)
               else
                 Container(
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,

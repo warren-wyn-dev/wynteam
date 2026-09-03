@@ -58,15 +58,32 @@ class ActionMetric extends StatelessWidget {
       label: semanticsLabel,
       button: true,
       excludeSemantics: true,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: WynSpacing.space1,
-            vertical: WynSpacing.space1,
+      // The tap target is [WynSpacing.touchTargetMin] tall while the
+      // *visible* icon+count stays exactly the size the spec calls for:
+      // the extra height is transparent padding around the same content,
+      // so nothing moves on screen.
+      //
+      // Before this, the action row's own math (a 17px icon plus 4px of
+      // padding) gave the most-tapped controls in the whole product --
+      // Like, comment, ReDrop on every feed card -- a ~25px tall target,
+      // 43% under the minimum this app's own design system defines and
+      // already honours in 27 other places. A row of small targets is
+      // where mis-taps come from, and a mis-tapped Like is a mis-tap the
+      // user has to notice and undo.
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minHeight: WynSpacing.touchTargetMin,
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: WynSpacing.space1,
+              vertical: WynSpacing.space1,
+            ),
+            child: Center(widthFactor: 1, child: content),
           ),
-          child: content,
         ),
       ),
     );

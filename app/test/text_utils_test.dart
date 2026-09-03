@@ -82,4 +82,39 @@ void main() {
       expect(compactCountLabel(1260), '1.3K');
     });
   });
+
+  group('quotePostgrestFilterValue', () {
+    test('wraps an ordinary value in double quotes', () {
+      expect(quotePostgrestFilterValue('%wyn%'), '"%wyn%"');
+    });
+
+    test('a comma stays inside the quoted value instead of splitting the '
+        'filter -- the "John, Jane" search that used to 400', () {
+      expect(quotePostgrestFilterValue('%John, Jane%'), '"%John, Jane%"');
+    });
+
+    test('parentheses and dots stay inside the quoted value too', () {
+      expect(
+        quotePostgrestFilterValue('%a.b(c)%'),
+        '"%a.b(c)%"',
+      );
+    });
+
+    test('escapes a double quote so a crafted query cannot close the value '
+        'early and append a filter of its own', () {
+      expect(
+        quotePostgrestFilterValue('%",id.eq.x%'),
+        r'"%\",id.eq.x%"',
+      );
+    });
+
+    test('escapes a backslash before quotes, so a trailing backslash cannot '
+        'escape the closing quote', () {
+      expect(quotePostgrestFilterValue(r'%a\%'), r'"%a\\%"');
+    });
+
+    test('leaves an empty value as a valid empty quoted string', () {
+      expect(quotePostgrestFilterValue(''), '""');
+    });
+  });
 }

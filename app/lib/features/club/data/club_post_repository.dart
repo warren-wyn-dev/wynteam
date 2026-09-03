@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/text_utils.dart';
 import 'club_post.dart';
 import 'club_post_comment.dart';
+import '../../../core/storage_upload_options.dart';
 
 // See DropRepository's identical comment for why this needs the exact
 // foreign key name -- PostgREST can't resolve a bare `profiles(...)`
@@ -278,7 +279,11 @@ class ClubPostRepository {
       for (var i = 0; i < images.length; i++) {
         final extension = imageExtensions![i];
         final path = '$clubId/posts/$userId-$timestamp-$i.$extension';
-        await _client.storage.from(_bucket).uploadBinary(path, images[i]);
+        await _client.storage.from(_bucket).uploadBinary(
+              path,
+              images[i],
+              fileOptions: immutableUploadFileOptions,
+            );
         imagePaths.add(path);
       }
     }

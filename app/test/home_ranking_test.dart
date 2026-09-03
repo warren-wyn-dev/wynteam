@@ -196,4 +196,81 @@ void main() {
       );
     });
   });
+
+  group('rankedCandidateRows (get_wynos_ranked_feed row flattening)', () {
+    // Shaped like what the RPC actually returns: the whole home_feed row
+    // nested under row_data, with the two ranking values as siblings.
+    Map<String, dynamic> raw(String id, String contentType, double score,
+            {bool discovery = false}) =>
+        {
+          'row_data': {'id': id, 'content_type': contentType},
+          'wynos_score': score,
+          'is_discovery': discovery,
+        };
+
+    test('keeps every row, with its own score, when nothing is excluded', () {
+      final rows = rankedCandidateRows([
+        raw('a', 'drop', 9),
+        raw('b', 'drop', 5),
+      ]);
+
+      expect(rows.map((e) => e.row['id']), ['a', 'b']);
+      expect(rows.map((e) => e.score), [9, 5]);
+    });
+
+    test('an excluded row does not shift the scores of the rows after it '
+        '-- the silent "สำหรับคุณ" mis-ordering this replaced', () {
+      // Before the fix, the Pop at index 1 was dropped from the row list
+      // but not from the score list, so 'c' (the 3rd raw row) was scored
+      // with rawRows[1]'s 8.0 -- the Pop's score -- and every later item
+      // shifted the same way.
+      final rows = rankedCandidateRows(
+        [
+          raw('a', 'drop', 9),
+          raw('pop1', 'pop', 8),
+          raw('c', 'drop', 7, discovery: true),
+          raw('d', 'drop', 6),
+        ],
+        excludeContentTypes: const {'pop'},
+      );
+
+      expect(rows.map((e) => e.row['id']), ['a', 'c', 'd']);
+      expect(rows.map((e) => e.score), [9, 7, 6]);
+    });
+
+    test('is_discovery follows its own row past an exclusion too', () {
+      final rows = rankedCandidateRows(
+        [
+          raw('pop1', 'pop', 8, discovery: true),
+          raw('b', 'drop', 7),
+        ],
+        excludeContentTypes: const {'pop'},
+      );
+
+      expect(rows.single.row['id'], 'b');
+      expect(rows.single.discovery, isFalse);
+    });
+
+    test('accepts an int wynos_score (Postgres numeric can arrive either '
+        'way) without throwing', () {
+      final rows = rankedCandidateRows([
+        {
+          'row_data': {'id': 'a', 'content_type': 'drop'},
+          'wynos_score': 3,
+          'is_discovery': false,
+        },
+      ]);
+
+      expect(rows.single.score, 3.0);
+    });
+
+    test('returns an empty list when every row is excluded', () {
+      final rows = rankedCandidateRows(
+        [raw('pop1', 'pop', 8), raw('pop2', 'pop', 7)],
+        excludeContentTypes: const {'pop'},
+      );
+
+      expect(rows, isEmpty);
+    });
+  });
 }

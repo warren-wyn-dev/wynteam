@@ -238,21 +238,27 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   // future so there's a single loading state, not counts appearing in a
   // separate flicker after the profile itself. See
   // .wyn/docs/design/wyn-008-follow.md, Screen 4.
+  // Issued together, not one after another: none of the four depends on
+  // another's result, so awaiting them in sequence just multiplied the
+  // screen's time-to-first-paint by four round-trips (~800ms instead of
+  // ~200ms on a 200ms-RTT mobile connection). Future.wait still fails
+  // the whole future if any one call throws, so the single combined
+  // loading/error state this screen is built around is unchanged.
   Future<_ProfileWithCounts> _load() async {
-    final profile = await widget.profileRepository.fetchProfile(widget.userId);
-    final followerCount =
-        await widget.followRepository.countFollowers(userId: widget.userId);
-    final followingCount =
-        await widget.followRepository.countFollowing(userId: widget.userId);
-    // 05-profile.tsx's StatsRow 3rd stat -- loaded alongside the other
-    // two so there's still just the one combined loading state, same
-    // reasoning as follower/following count above.
-    final dropCount = await widget.dropRepository.countByAuthor(widget.userId);
+    final results = await Future.wait([
+      widget.profileRepository.fetchProfile(widget.userId),
+      widget.followRepository.countFollowers(userId: widget.userId),
+      widget.followRepository.countFollowing(userId: widget.userId),
+      // 05-profile.tsx's StatsRow 3rd stat -- loaded alongside the other
+      // two so there's still just the one combined loading state, same
+      // reasoning as follower/following count above.
+      widget.dropRepository.countByAuthor(widget.userId),
+    ]);
     return (
-      profile: profile,
-      followerCount: followerCount,
-      followingCount: followingCount,
-      dropCount: dropCount,
+      profile: results[0] as Profile,
+      followerCount: results[1] as int,
+      followingCount: results[2] as int,
+      dropCount: results[3] as int,
     );
   }
 

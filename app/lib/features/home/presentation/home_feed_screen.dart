@@ -101,6 +101,16 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   // indicator.
   final _refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
   final List<HomeFeedItem> _items = [];
+
+  /// Keys of every row already shown this load cycle -- see [_loadMore]
+  /// for why offset pagination can hand back a row twice. Cleared and
+  /// rebuilt by [_loadInitial] along with [_items].
+  final Set<String> _seenKeys = {};
+
+  /// The tail of each row's in-flight like/save/ReDrop write chain,
+  /// keyed by `action:rowKey` -- see [_serializeWrite].
+  final Map<String, Future<void>> _pendingWrites = {};
+
   int _page = 0;
   bool _isLoadingInitial = true;
   bool _isLoadingMore = false;
@@ -273,14 +283,19 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     });
     try {
       final items = await _fetchPage(0);
+      if (!mounted) return;
       setState(() {
         _items
           ..clear()
           ..addAll(items);
+        _seenKeys
+          ..clear()
+          ..addAll(items.map(_keyFor));
         _page = 0;
         _hasMore = items.length == HomeRepository.pageSize;
       });
     } catch (_) {
+      if (!mounted) return;
       setState(() => _error = 'โหลด Home ไม่สำเร็จ');
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
@@ -292,10 +307,25 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     try {
       final nextPage = _page + 1;
       final items = await _fetchPage(nextPage);
+      if (!mounted) return;
       setState(() {
-        _items.addAll(items);
-        _page = nextPage;
+        // Offset pagination re-reads a list that may have grown at the
+        // top since the previous page: someone posting while the viewer
+        // scrolls shifts every row down one, so the last item of page N
+        // comes back as the first item of page N+1. Appending blindly
+        // showed that post twice in a row and put two identical
+        // ValueKeys in one SliverList. Dropping already-present keys is
+        // enough -- and cheap, since _seenKeys is maintained alongside
+        // _items rather than rescanned per page.
+        //
+        // _hasMore is still driven by what the server returned, not by
+        // what survived the filter: a full page that happens to be all
+        // duplicates still means there is more behind it.
         _hasMore = items.length == HomeRepository.pageSize;
+        for (final item in items) {
+          if (_seenKeys.add(_keyFor(item))) _items.add(item);
+        }
+        _page = nextPage;
       });
     } catch (_) {
       // Silent: an infinite-scroll load-more failure doesn't need a
@@ -305,6 +335,13 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
   }
 
+  /// The identity of a feed row -- `id` alone isn't unique, since the
+  /// same Drop can appear both plainly and via someone's ReDrop of it
+  /// (WYN-034). Matches the ValueKey the itemBuilder builds, and the
+  /// composite key HomeRepository uses for the same reason.
+  static String _keyFor(HomeFeedItem item) =>
+      '${item.id}:${item.redropId ?? ''}';
+
   // Takes the list index directly rather than re-locating the item by
   // id (the pre-WYN-034 approach): once a Drop can appear twice in the
   // same page -- once as a plain drop, once via someone's ReDrop of it
@@ -313,27 +350,67 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   // index is captured directly from itemBuilder's own `index`, which
   // stays valid across setState here since this list is only ever
   // appended to (pagination), never reordered or spliced.
+  /// Runs [write] only once every earlier write of [action] on the same
+  /// row has settled, and reports whether it succeeded.
+  ///
+  /// Taps are never dropped -- a fast like/unlike/like is three real
+  /// intentions and all three reach the server -- but they no longer
+  /// *overlap*. They used to: three taps fired INSERT, DELETE, INSERT
+  /// concurrently, so whichever request reached Postgres last decided
+  /// the stored state, and a second INSERT racing the first hit the
+  /// `(drop_id, user_id)` primary key, whose error rolled the card back
+  /// to "not liked" while the like was in fact saved. Serializing per
+  /// row means the last tap is always the last write. The optimistic
+  /// flip the user sees still happens at tap time, before this is even
+  /// called, so the card stays exactly as responsive as before.
+  Future<bool> _serializeWrite(
+    HomeFeedItem item,
+    String action,
+    Future<void> Function() write,
+  ) async {
+    final key = '$action:${_keyFor(item)}';
+    final previous = _pendingWrites[key];
+    var ok = true;
+    Future<void> run() async {
+      try {
+        await write();
+      } catch (_) {
+        ok = false;
+      }
+    }
+
+    // Called straight through when nothing is queued, so the very first
+    // tap still issues its request synchronously rather than waiting for
+    // an event-loop turn -- only a tap that actually has a predecessor
+    // pays for the wait.
+    final chained = previous == null ? run() : previous.then((_) => run());
+    _pendingWrites[key] = chained;
+    await chained;
+    // Only the tail of the chain clears the entry -- an earlier link
+    // finishing must not let a later tap jump the queue.
+    if (identical(_pendingWrites[key], chained)) _pendingWrites.remove(key);
+    return ok;
+  }
+
   Future<void> _toggleLike(int index) async {
     if (index < 0 || index >= _items.length) return;
     final previous = _items[index];
 
     setState(() => _items[index] = _withToggledLike(previous));
-    try {
+    final ok = await _serializeWrite(previous, 'like', () {
       if (previous.contentType == HomeContentType.drop) {
-        await widget.dropRepository.toggleLike(
+        return widget.dropRepository.toggleLike(
           dropId: previous.id,
           currentlyLiked: previous.likedByMe,
         );
-      } else {
-        await widget.popRepository.toggleLike(
-          popId: previous.id,
-          currentlyLiked: previous.likedByMe,
-        );
       }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _items[index] = previous);
-    }
+      return widget.popRepository.toggleLike(
+        popId: previous.id,
+        currentlyLiked: previous.likedByMe,
+      );
+    });
+    if (ok || !mounted) return;
+    setState(() => _items[index] = previous);
   }
 
   Future<void> _toggleSave(int index) async {
@@ -341,22 +418,20 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     final previous = _items[index];
 
     setState(() => _items[index] = _withToggledSave(previous));
-    try {
+    final ok = await _serializeWrite(previous, 'save', () {
       if (previous.contentType == HomeContentType.drop) {
-        await widget.dropRepository.toggleSave(
+        return widget.dropRepository.toggleSave(
           dropId: previous.id,
           currentlySaved: previous.savedByMe,
         );
-      } else {
-        await widget.popRepository.toggleSave(
-          popId: previous.id,
-          currentlySaved: previous.savedByMe,
-        );
       }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _items[index] = previous);
-    }
+      return widget.popRepository.toggleSave(
+        popId: previous.id,
+        currentlySaved: previous.savedByMe,
+      );
+    });
+    if (ok || !mounted) return;
+    setState(() => _items[index] = previous);
   }
 
   /// Standard ReDrop toggle (WYN-034) -- Pop content has no ReDrop, so
@@ -368,15 +443,14 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     final previous = _items[index];
 
     setState(() => _items[index] = _withToggledRedrop(previous));
-    try {
-      await widget.dropRepository.toggleRedrop(
+    final ok = await _serializeWrite(previous, 'redrop', () {
+      return widget.dropRepository.toggleRedrop(
         dropId: previous.id,
         currentlyRedropped: previous.redroppedByMe,
       );
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _items[index] = previous);
-    }
+    });
+    if (ok || !mounted) return;
+    setState(() => _items[index] = previous);
   }
 
   /// WYN-035: casts (or changes) the viewer's vote on the Poll at

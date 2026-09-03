@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/text_utils.dart';
 import 'pop.dart';
 import 'pop_comment.dart';
+import '../../../core/storage_upload_options.dart';
 
 // See DropRepository's identical comment for why this needs the exact
 // foreign key name -- PostgREST can't resolve a bare `profiles(...)`
@@ -190,17 +191,21 @@ class PopRepository {
     final baseName = DateTime.now().millisecondsSinceEpoch;
 
     final videoPath = '$userId/$baseName.$videoExtension';
-    await _client.storage
-        .from('pop-videos')
-        .uploadBinary(videoPath, videoBytes);
+    await _client.storage.from('pop-videos').uploadBinary(
+          videoPath,
+          videoBytes,
+          fileOptions: immutableUploadFileOptions,
+        );
     final videoUrl = _client.storage.from('pop-videos').getPublicUrl(videoPath);
 
     String? thumbnailUrl;
     if (thumbnailBytes != null) {
       final thumbnailPath = '$userId/thumb_$baseName.jpg';
-      await _client.storage
-          .from('pop-videos')
-          .uploadBinary(thumbnailPath, thumbnailBytes);
+      await _client.storage.from('pop-videos').uploadBinary(
+            thumbnailPath,
+            thumbnailBytes,
+            fileOptions: immutableUploadFileOptions,
+          );
       thumbnailUrl =
           _client.storage.from('pop-videos').getPublicUrl(thumbnailPath);
     }
@@ -230,9 +235,17 @@ class PopRepository {
           .eq('pop_id', popId)
           .eq('user_id', userId);
     } else {
+      // upsert(ignoreDuplicates) rather than a plain insert: liking
+      // something already liked is the user's intent either way, so the
+      // duplicate-key error a second insert raises is noise, not a
+      // failure to report. It surfaced as a *wrong* UI state -- the
+      // caller's catch rolls the card back to "not liked" while the row
+      // is in fact stored. Reaches here from a second device, a retry,
+      // or a tap that raced its predecessor.
       await _client
           .from('pop_likes')
-          .insert({'pop_id': popId, 'user_id': userId});
+          .upsert({'pop_id': popId, 'user_id': userId},
+              ignoreDuplicates: true);
     }
   }
 
@@ -249,11 +262,12 @@ class PopRepository {
           .eq('content_type', _savesContentType)
           .eq('content_id', popId);
     } else {
-      await _client.from('saves').insert({
+      // Same reasoning as toggleLike's upsert above.
+      await _client.from('saves').upsert({
         'user_id': userId,
         'content_type': _savesContentType,
         'content_id': popId,
-      });
+      }, ignoreDuplicates: true);
     }
   }
 
