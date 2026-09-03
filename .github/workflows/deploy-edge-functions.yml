@@ -74,6 +74,27 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         run: |
           clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+
+          # Pre-flight, because the Supabase CLI's own message for this
+          # ("Access token not provided") says the token is missing but
+          # not *why* -- and every reason is a different fix. This turns
+          # one generic line into the actual checklist. Learned the hard
+          # way: the first two runs of this workflow both died here.
+          CLEAN_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$CLEAN_TOKEN" ]; then
+            echo "::error::SUPABASE_ACCESS_TOKEN resolved to an empty string, so the secret is not reaching this workflow."
+            echo "::error::GitHub masks a secret that exists as '***' in the env block above; an empty value means no secret was found under that exact name."
+            echo "::error::Check, in this order:"
+            echo "::error::  1. Name is exactly SUPABASE_ACCESS_TOKEN (no trailing space, no typo, case-sensitive)."
+            echo "::error::  2. It is a *Repository* secret (Settings -> Secrets and variables -> Actions -> Repository secrets)."
+            echo "::error::     An *Environment* secret is invisible unless this job declares 'environment:', and this job does not."
+            echo "::error::     A *Dependabot* secret is a separate store that Actions never reads."
+            echo "::error::  3. It is on warren-wyn-dev/wynteam itself, not another repo or the org with this repo unselected."
+            echo "::error::  4. Get the value from https://supabase.com/dashboard/account/tokens -- a personal access token (sbp_...),"
+            echo "::error::     NOT the anon/publishable key and NOT the service_role key; neither can deploy a function."
+            exit 1
+          fi
+
           CLEAN_URL=$(clean "$SUPABASE_URL")
           PROJECT_REF=$(printf '%s' "$CLEAN_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
 
@@ -91,5 +112,5 @@ jobs:
           # Turning verification off would make the endpoint callable by
           # anyone on the internet -- not a change to make as a side
           # effect of automating a deploy.
-          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN") \
+          SUPABASE_ACCESS_TOKEN="$CLEAN_TOKEN" \
             supabase functions deploy "${{ inputs.function }}" --project-ref "$PROJECT_REF"
