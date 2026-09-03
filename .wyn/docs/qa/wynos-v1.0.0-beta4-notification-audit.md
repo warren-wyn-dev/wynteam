@@ -292,17 +292,35 @@ Collapse key **ไม่ได้กันการส่งครั้งท�
    | `33777087001` | **`action_required` · 0 jobs** | ถูกบล็อกก่อนสร้าง job — เพิ่ม step ที่ serialise secrets context ทั้งก้อน |
    | `33777275459` | **`action_required` · 0 jobs** | ยังบล็อก แม้จะพิมพ์แค่ boolean — การ *อ้างถึง* context ทั้งก้อนก็พอแล้ว |
    | `33777467741` | failure ที่ pre-flight | เอา reference ออกหมด → รันได้ปกติอีกครั้ง · probe รายงาน `SUPABASE_ACCESS_TOKEN non-empty: false` |
+   | `33778330387` | failure ที่ขั้น Deploy | **secret ใช้ได้แล้ว** (`non-empty: true`) · bundle ผ่าน · upload 13 kB ผ่าน · **ล้มที่ Supabase ตอบ `403`** |
+
+   **สถานะล่าสุด — ปัญหาเปลี่ยนชนิดแล้ว** (`33778330387`, 2026-09-03 16:23):
+
+   ```
+   ✅ deno check + deno test        20/20 passed
+   ✅ SUPABASE_ACCESS_TOKEN         non-empty: true
+   ✅ Deploying ... to project      kqokpocajhfbidcxpvhh
+   ✅ Bundling Function             send-push-notification
+   ✅ Deploying Function            (script size: 13 kB)
+   ❌ unexpected create function status 403:
+      "Your account does not have the necessary privileges to access this endpoint."
+   ```
+
+   **`403` ไม่ใช่ `401`** — token ผ่านการยืนยันตัวตนแล้ว (ถ้า token ผิดหรือหมดอายุจะเป็น `401`)
+   สิ่งที่ขาดคือ **สิทธิ์ของบัญชีเจ้าของ token บน project/organization นั้น** ไม่ใช่ตัว token
+   และไม่ใช่ workflow — ทุกอย่างฝั่ง GitHub ทำงานครบแล้ว
+
+   **ต้องแก้ที่ Supabase:** ให้บัญชีที่สร้าง token มีสิทธิ์ระดับ Owner/Administrator
+   บน organization ที่เป็นเจ้าของ project `kqokpocajhfbidcxpvhh`
+   (Supabase Dashboard → Organization settings → Team) หรือสร้าง token ใหม่จากบัญชีที่มีสิทธิ์นั้นอยู่แล้ว
+   ดู https://supabase.com/docs/guides/platform/access-control
 
    **บทเรียนที่ได้จาก run 4-5:** GitHub บล็อก workflow ที่อ้าง `secrets` context ทั้งก้อน
    (ทั้งแบบ dump ชื่อ และแบบ `contains(...)` ที่พิมพ์แค่ boolean) — บล็อกตั้งแต่ก่อนสร้าง job
    จึงไม่มี log ให้อ่านเลย **อย่าใช้วิธีนั้น diagnose secret ใน repo นี้**
    วิธีที่ปลอดภัยและใช้ได้จริงคือ `secrets.X != ''` ซึ่งอ้างถึง secret ตัวเดียว
 
-   **สถานะปัจจุบัน:** ทุกขั้นของ workflow ผ่านหมด — `deno check`/`deno test` ผ่าน,
-   CLI ติดตั้งได้, project ref ดึงถูก (`kqokpocajhfbidcxpvhh`) — ค้างที่ขั้นเดียวคือ
-   `SUPABASE_ACCESS_TOKEN` ยังอ่านค่าไม่ได้ (`non-empty: false`)
-   **ต้องให้ Founder ตรวจว่า secret ถูกบันทึกที่ Repository secret ของ repo นี้จริง
-   และมีค่าไม่ว่าง (ค่าต้องขึ้นต้น `sbp_`)**
+   **สรุป:** ฝั่ง GitHub เสร็จสมบูรณ์แล้วทุกขั้น เหลือเรื่องเดียวคือสิทธิ์ของบัญชี Supabase
 
 ---
 
