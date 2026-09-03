@@ -1,0 +1,142 @@
+name: CI
+
+# Runs on every pull request and on every push to main. Deliberately
+# separate from deploy-web.yml (manual `workflow_dispatch` only, because
+# the Vercel account's free-tier deploy quota is shared) -- this one is
+# free to run on every change, and is meant to.
+#
+# Why this exists: until 2026-09-03 nothing in this repo ran
+# `flutter analyze` or `flutter test` automatically. Every check was a
+# human/AI role remembering to run it and reporting the result by hand,
+# which is exactly how the Wynos V1.0.0 Beta2 release shipped a build
+# whose profile screen could not load (see
+# .wyn/logs/deployments/2026-09-03-wyn-077-105-beta2-real-deploy.md).
+# Nothing here replaces the AI QA role -- it just makes the mechanical
+# half of the check impossible to forget.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# A new push to the same branch cancels the previous, still-running run
+# -- CI minutes are better spent on the current state of a PR than on a
+# commit that has already been superseded. `main` pushes are keyed
+# separately by ref, so a PR run never cancels a main run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The Flutter apps: `app` is Wynos (the user-facing product), and
+  # `seller_app` is ZOKY (a separate track -- see RELEASE_NOTES.md).
+  # Same SDK constraint and same flutter_lints version, so one matrix
+  # covers both. fail-fast: false so one app going red still reports the
+  # other's real result instead of masking it.
+  flutter:
+    name: Flutter — ${{ matrix.package }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [app, seller_app]
+    defaults:
+      run:
+        working-directory: ${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pinned to the exact version deploy-web.yml builds production
+      # with. An analyzer/SDK version that drifts from the one that
+      # actually ships would make a green CI meaningless -- keep these
+      # two files' flutter-version in sync whenever either is bumped.
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - run: flutter pub get
+
+      # Both plain, no extra flags -- the same two commands this
+      # project's roles already run by hand before every merge, so CI
+      # agrees with the established local workflow rather than
+      # introducing a stricter bar nobody has been held to yet.
+      - run: flutter analyze
+      - run: flutter test
+
+  # The Next.js admin panel (`admin/`). No test suite exists there yet,
+  # so this is lint + typecheck only.
+  admin:
+    name: Admin (Next.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+
+      # `next typegen` must run before tsc: Next 16 generates the
+      # LayoutProps/PageProps globals that app/layout.tsx annotates
+      # against into .next/types/, which does not exist on a clean
+      # checkout -- a bare `tsc --noEmit` fails with
+      # "TS2304: Cannot find name 'LayoutProps'" without it.
+      - run: npx next typegen
+      - run: npx tsc --noEmit
+
+      # `next build` is deliberately NOT run here: admin/lib/supabase/*
+      # read NEXT_PUBLIC_SUPABASE_URL/NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+      # at module load, so prerendering needs real project credentials CI
+      # has no business holding. The typecheck above covers the same
+      # compile errors a build would have caught.
+
+  # Supabase Edge Functions (Deno). The *.test.ts files cover the pure
+  # logic in each _lib.ts (no network, no Deno.serve, no real LocationIQ
+  # or FCM account needed -- see those files' own headers); `deno check`
+  # additionally type-checks the index.ts entrypoints, which have no
+  # tests of their own.
+  edge-functions:
+    name: Supabase Edge Functions (Deno)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - run: deno check supabase/functions/*/index.ts
+      - run: deno test supabase/functions/
+
+  # Static guard on supabase/schema.sql. SCHEMA-001 (a `create table`
+  # referencing a table defined later in the same file) aborted a real
+  # migration partway through and left the database half-applied; this
+  # script is the regression test for that bug class. Pure stdlib
+  # Python, no database connection needed.
+  schema:
+    name: schema.sql ordering
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 supabase/check_schema_ordering.py
+
+  # NOT COVERED HERE YET -- supabase/tests/*.sh (30+ scripts). Each
+  # spins up a throwaway database with `createdb` and loads schema.sql
+  # into it, so they need a running local PostgreSQL 16 the runner's
+  # user can create databases on. Adding a Postgres service (or
+  # `sudo systemctl start postgresql` + the scripts' existing
+  # `sudo -u postgres` fallback) is the obvious next step for this
+  # workflow -- these are the only automated coverage the RLS policies
+  # and view definitions have.

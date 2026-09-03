@@ -28,6 +28,25 @@ test: add profile regression tests
 docs: update product requirements
 ```
 
+## Continuous Integration (CI)
+
+`.github/workflows/ci.yml` รันอัตโนมัติทุก pull request และทุก push เข้า `main` — ไม่ต้องกดเอง (ต่างจาก `deploy-web.yml` ที่เป็น manual `workflow_dispatch` เพราะโควตา deploy ของ Vercel free tier ใช้ร่วมกันทั้งบัญชี)
+
+| Job | รันอะไร |
+|---|---|
+| Flutter — `app` / `seller_app` | `flutter analyze` + `flutter test` (matrix, แยกผลกันคนละ job) |
+| Admin (Next.js) | `npm run lint` + `next typegen` + `tsc --noEmit` |
+| Supabase Edge Functions | `deno check` (index.ts) + `deno test` |
+| schema.sql ordering | `python3 supabase/check_schema_ordering.py` (regression test ของ SCHEMA-001) |
+
+**สิ่งที่ CI ยังไม่ครอบคลุม — ยังต้องตรวจเอง:**
+
+- `supabase/tests/*.sh` (30+ ไฟล์) ต้องมี PostgreSQL 16 ที่สร้าง database ได้ ยังไม่ได้ต่อเข้า CI — นี่คือ automated coverage เดียวที่ RLS policy กับ view definition มี
+- `next build` ของ admin (ต้องใช้ credential จริงตอน prerender)
+- QA เชิงพฤติกรรม/ความปลอดภัยทั้งหมด — CI แทน AI QA & Security ไม่ได้ ดู `.wyn/company/WORKFLOW.md`
+
+**ข้อควรระวัง:** `flutter-version` ใน `ci.yml` ถูก pin ให้ตรงกับ `deploy-web.yml` เป๊ะๆ ถ้าแก้ไฟล์ไหนต้องแก้อีกไฟล์ด้วยเสมอ — ไม่งั้น CI เขียวด้วย SDK คนละตัวกับที่ build ขึ้น production ซึ่งทำให้ CI ที่เขียวไม่มีความหมาย
+
 ## Change Control
 
 - เปลี่ยนแปลงเท่าที่จำเป็น หลีกเลี่ยง refactor ที่ไม่เกี่ยวข้อง
