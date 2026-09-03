@@ -48,10 +48,20 @@ class AuthRepository {
 
   Session? get currentSession => _client.auth.currentSession;
 
+  /// `prompt: select_account` forces Google's own account-chooser screen
+  /// every time, regardless of whether the browser/webview already has an
+  /// active Google session cookie -- without it, Google silently signs
+  /// straight into whichever account is already logged in there, with no
+  /// way to pick a different one. Critical specifically for multi-account
+  /// switching's "เพิ่มบัญชี" (Add Account) flow, whose entire point is
+  /// letting the user choose a *different* Google account than the one
+  /// they're currently using in WYNOS -- confirmed broken without this
+  /// (Founder, 2026-09-03: "กดเข้าตรงนี้มันจะเด้งไปบัญชีเดิมที่เคยล็อกอินตลอด").
   Future<void> signInWithGoogle() {
     return _client.auth.signInWithOAuth(
       OAuthProvider.google,
       redirectTo: kIsWeb ? null : _mobileOauthRedirect,
+      queryParams: const {'prompt': 'select_account'},
     );
   }
 
