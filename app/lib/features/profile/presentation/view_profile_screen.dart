@@ -13,12 +13,10 @@ import '../../follow/presentation/follow_request_list_screen.dart';
 import '../../home/data/home_repository.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../saved/data/saved_repository.dart';
-import '../../saved/presentation/bookmarks_screen.dart';
 import '../data/profile.dart';
 import '../data/profile_repository.dart';
 import 'edit_profile_screen.dart';
 import 'widgets/avatar_circle.dart';
-import 'widgets/profile_drafts_tab.dart';
 import 'widgets/profile_drop_grid_tab.dart';
 // Pop is hidden from Profile for WYNOS V1.0.0 Beta (Product spec
 // requirement 3) -- the Pop system itself (ProfilePopGridTab,
@@ -38,6 +36,7 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
 import '../../../core/widgets/action_sheet_row.dart';
+import '../../account_switcher/presentation/account_switcher_sheet.dart';
 import '../../block/data/block_relationship.dart';
 import '../../block/data/block_repository.dart';
 import '../../block/presentation/block_dialogs.dart';
@@ -57,11 +56,17 @@ import '../../settings/presentation/settings_screen.dart';
 /// dropShareLink/clubShareLink (WYN-005/014).
 String profileShareLink(String username) => 'https://wyn.app/@$username';
 
+/// Beta4 §1: "Profile Stats -- แสดงเฉพาะ Following / Followers.
+/// ไม่เพิ่ม: จำนวนโพสต์". `dropCount` is gone from this record, and with
+/// it the `countByAuthor` round trip [_load] used to make -- the post
+/// count was a third stat squeezed into a row that now has room to
+/// breathe, and it duplicated what the "โพสต์" tab below already shows
+/// by simply being full or empty. [DropRepository.countByAuthor] itself
+/// is untouched and still used elsewhere.
 typedef _ProfileWithCounts = ({
   Profile profile,
   int followerCount,
   int followingCount,
-  int dropCount,
 });
 
 /// Screen 1 — View Profile. Doubles as both personas WYN-013 needs (the
@@ -249,16 +254,11 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       widget.profileRepository.fetchProfile(widget.userId),
       widget.followRepository.countFollowers(userId: widget.userId),
       widget.followRepository.countFollowing(userId: widget.userId),
-      // 05-profile.tsx's StatsRow 3rd stat -- loaded alongside the other
-      // two so there's still just the one combined loading state, same
-      // reasoning as follower/following count above.
-      widget.dropRepository.countByAuthor(widget.userId),
     ]);
     return (
       profile: results[0] as Profile,
       followerCount: results[1] as int,
       followingCount: results[2] as int,
-      dropCount: results[3] as int,
     );
   }
 
@@ -467,38 +467,53 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     );
   }
 
-  /// WYN-071: Saved's tab content pushed as its own screen instead --
-  /// see the Row above `_openEdit`'s button. 15-bookmarks.tsx: that
-  /// screen is [BookmarksScreen], its own full-width post-row list --
-  /// see that file's own doc comment for why it's not `ProfileSavedTab`'s
-  /// grid (which stays as the profile's own Saved tab body, untouched).
-  void _openSaved() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => BookmarksScreen(
-          savedRepository: widget.savedRepository,
-          dropRepository: widget.dropRepository,
-          popRepository: widget.popRepository,
-          followRepository: widget.followRepository,
-          profileRepository: widget.profileRepository,
-        ),
-      ),
-    );
+  /// Beta4 §2: the account switcher, opened from the "ชื่อที่แสดง ⌄"
+  /// control on your own profile.
+  ///
+  /// The switcher sheet itself is unchanged (WYN's existing
+  /// [showAccountSwitcherSheet] -- add/switch/remove, up to 5 accounts
+  /// per device, Keychain-backed refresh tokens). What changes is where
+  /// it is reachable from: until now its only entry point was Settings
+  /// → บัญชี → สลับบัญชี, three taps deep in a screen about
+  /// preferences, when the thing being switched is the identity written
+  /// across the top of this very screen. The chevron sits on the name
+  /// because the name is what changes.
+  ///
+  /// Own profile only. [_isOwnProfile] gates the call site, so a pushed
+  /// view of someone else's profile can never reach this -- offering
+  /// "switch account" under *their* name would read as an action on
+  /// them.
+  Future<void> _openAccountSwitcher() async {
+    await showAccountSwitcherSheet(context);
+    // Switching accounts never returns here: AuthGate tears this whole
+    // route down and rebuilds for the new account (see
+    // AccountSwitcherSheet._switchTo, and RootShell's own per-account
+    // key). This runs on the ordinary dismiss-without-switching path,
+    // and on the add-account path when the user backed out -- reload in
+    // case a display name/avatar changed in the meantime, which is
+    // cheap and keeps the header honest.
+    if (mounted) _reload();
   }
 
-  void _openDrafts() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: AppBar(title: const Text('ร่าง')),
-          body: ProfileDraftsTab(
-            dropRepository: widget.dropRepository,
-            profileRepository: widget.profileRepository,
-          ),
-        ),
-      ),
-    );
-  }
+  // Beta4 §4/§5: `_openSaved` and `_openDrafts` are gone from this
+  // screen along with the two icon buttons that called them.
+  //
+  // Saved: unchanged system, unchanged destination ([BookmarksScreen])
+  // -- it is simply reached from Home's ☰ menu now ("บันทึกไว้", which
+  // SideMenu has offered since WYN-100), a labelled row in a menu
+  // instead of a bookmark glyph beside "แก้ไขโปรไฟล์". Profile is where
+  // you show what you published; Saved is what you kept from other
+  // people, which is nobody's business but yours and was never
+  // profile-shaped.
+  //
+  // Draft: unchanged system too, moved to where a draft is written and
+  // resumed -- the composer's own header (see [DraftsScreen] and
+  // [CreateDropScreen._openDrafts]).
+  //
+  // `ProfileSavedTab` (the grid, distinct from BookmarksScreen's row
+  // list) is left in the codebase untouched and unreferenced rather
+  // than deleted -- same posture as ProfilePopGridTab/ProfileRepliesTab
+  // above, which are also unmounted-not-removed.
 
   void _openFollowRequests() {
     Navigator.of(context)
@@ -982,276 +997,309 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
 
             return Column(
               children: [
+                // Beta4 §1 -- the profile identity block. Founder's own
+                // layout sketch:
+                //
+                //   👤            ชื่อที่แสดง ⌄
+                //                 @username
+                //
+                //                 Bio
+                //
+                //        Following      Followers
+                //
+                //          [ แก้ไขโปรไฟล์ ]
+                //
+                // i.e. avatar on the left, and *everything* that
+                // identifies the account in one left-aligned column
+                // beside it. WYN-095's Mockup A had put the stats row
+                // beside the avatar and the name/username *below* both,
+                // which split identity across two zones: your face sat
+                // next to two numbers, and your name sat under them
+                // with nothing to anchor it. Reading order now goes
+                // name → handle → bio → reach → action, top to bottom,
+                // in one column.
+                //
+                // The stats row and the action button deliberately sit
+                // inside that same right-hand column rather than
+                // spanning the full card width, so the whole block
+                // reads as one object next to the avatar instead of
+                // three stacked bands.
                 Padding(
-                  padding: const EdgeInsets.all(WynSpacing.space6),
-                  child: Column(
+                  padding: const EdgeInsets.fromLTRB(
+                    WynSpacing.space6,
+                    WynSpacing.space5,
+                    WynSpacing.space6,
+                    WynSpacing.space4,
+                  ),
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // WYN-095 (Wynos V1.0.0 Beta2, item 24) Mockup A:
-                      // avatar left + stats row right, same row --
-                      // replaces the old fully-centered wyn-071 layout
-                      // (avatar/name/username/bio/stats all centered,
-                      // stats below bio) per Founder's own annotated
-                      // layout sketch (see wyn-095-profile-layout-
-                      // redesign.md's "Final Spec -- Mockup A").
-                      Row(
-                        children: [
-                          AvatarCircle(
-                            imageUrl: profile.avatarUrl,
-                            fallbackText: profile.username,
-                            ring: true,
-                          ),
-                          // Blocked persona (WYN-027 Design, Screen 3):
-                          // no stats to show at all in that case --
-                          // _buildBlockedBanner() below (in the old
-                          // stats+buttons slot) covers it, so this row
-                          // is just the avatar alone rather than an
-                          // empty Expanded next to it.
-                          if (!isBlockedEitherWay) ...[
-                            const SizedBox(width: WynSpacing.space4),
-                            Expanded(
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  _FollowCountTarget(
-                                    count: data.followerCount,
-                                    label: 'ผู้ติดตาม',
-                                    onTap: () => _openFollowList(
-                                      FollowListMode.followers,
-                                      isLockedPrivate: isLockedPrivate,
-                                    ),
-                                  ),
-                                  _buildStatDivider(),
-                                  _FollowCountTarget(
-                                    count: data.followingCount,
-                                    label: 'กำลังติดตาม',
-                                    onTap: () => _openFollowList(
-                                      FollowListMode.following,
-                                      isLockedPrivate: isLockedPrivate,
-                                    ),
-                                  ),
-                                  _buildStatDivider(),
-                                  _StatBlock(
-                                      count: data.dropCount, label: 'โพสต์'),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
+                      AvatarCircle(
+                        imageUrl: profile.avatarUrl,
+                        fallbackText: profile.username,
+                        ring: true,
                       ),
-                      const SizedBox(height: WynSpacing.space3),
-                      Text(
-                        profile.nameOrUsername,
-                        style: _textStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: WynColors.ink,
-                        ),
-                      ),
-                      const SizedBox(height: WynSpacing.space1),
-                      Text(
-                        '@${profile.username}',
-                        style:
-                            _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
-                      ),
-                      if (profile.bio != null && profile.bio!.isNotEmpty) ...[
-                        const SizedBox(height: WynSpacing.space2),
-                        Text(
-                          profile.bio!,
-                          style: _textStyle(
-                            fontSize: 15,
-                            color: _bioTone,
-                            height: 1.45,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: WynSpacing.space4),
-                      // Blocked persona (WYN-027 Design, Screen 3): the
-                      // Follow button is replaced by a banner -- a
-                      // relationship that's been severed has no
-                      // meaningful action to offer, and "disabled but
-                      // visible" would be less clear than just saying
-                      // why outright.
-                      if (isBlockedEitherWay)
-                        _buildBlockedBanner()
-                      else if (isOwnProfile) ...[
-                        Row(
+                      const SizedBox(width: WynSpacing.space4),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // 05-profile.tsx de-emphasizes this: a
-                            // small pill, not a full-width bordered
-                            // button -- editing your own profile is
-                            // occasional, not this screen's primary
-                            // action, so it no longer competes with
-                            // the identity block above it. WYN-095:
-                            // kept at its original (non-Expanded)
-                            // width -- a single button doesn't need to
-                            // split a row in half the way the
-                            // Follow+Message pair below does.
-                            OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                shape: const StadiumBorder(),
-                                side: const BorderSide(
-                                    color: WynColors.hairline),
-                                foregroundColor: WynColors.ink,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: WynSpacing.space5,
-                                  vertical: WynSpacing.space2,
-                                ),
-                              ),
-                              onPressed: () => _openEdit(profile),
-                              child: Text(
-                                'แก้ไขโปรไฟล์',
-                                style: _textStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: WynColors.ink,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: WynSpacing.space4),
-                            // WYN-071: Saved/Draft moved off the
-                            // public tab row (Posts/ReDrops/Replies/
-                            // Media/Likes is now the same set for
-                            // every viewer) into these two
-                            // owner-only icons -- neither capability
-                            // was removed, just relocated (see the
-                            // Design doc, Screen 6).
-                            Semantics(
-                              label: 'บันทึก',
-                              button: true,
-                              excludeSemantics: true,
-                              child: IconButton(
-                                key: const Key('profile_saved_button'),
-                                icon: const Icon(Icons.bookmark_border,
-                                    color: WynColors.graphite),
-                                onPressed: _openSaved,
-                              ),
-                            ),
-                            Semantics(
-                              label: 'ร่าง',
-                              button: true,
-                              excludeSemantics: true,
-                              child: IconButton(
-                                icon: const Icon(Icons.edit_note_outlined,
-                                    color: WynColors.graphite),
-                                onPressed: _openDrafts,
-                              ),
-                            ),
-                          ],
-                        ),
-                        // WYN-039 Design, Screen 3's entry point --
-                        // only for a Private account with at least 1
-                        // request waiting (see _loadPendingRequestCount:
-                        // stays 0, so hidden, for a Public account,
-                        // which can never accumulate a pending request
-                        // in the first place).
-                        if (profile.isPrivate &&
-                            _pendingRequestCount > 0) ...[
-                          const SizedBox(height: WynSpacing.space2),
-                          InkWell(
-                            onTap: _openFollowRequests,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: WynSpacing.space4,
-                                vertical: WynSpacing.space2,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.person_add_alt, size: 18),
-                                  const SizedBox(width: WynSpacing.space2),
-                                  Text('คำขอติดตาม ($_pendingRequestCount)'),
-                                  const Icon(Icons.chevron_right, size: 18),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ] else if (_isFollowing != null)
-                        // WYN-095: was a small filled pill + a 40x40
-                        // icon-only circle side by side (natural
-                        // width, centered) -- now a full-width Row
-                        // split evenly in half, both StadiumBorder
-                        // pills, per Mockup A. The Message button
-                        // gains a visible "ส่งข้อความ" label (was
-                        // icon-only) -- same border/foreground color
-                        // as before, just a different shape/padding +
-                        // the new label.
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Semantics(
-                                label: _followButtonSemanticsLabel(profile),
-                                excludeSemantics: true,
-                                child: FilledButton(
-                                  style: FilledButton.styleFrom(
-                                    shape: const StadiumBorder(),
-                                    backgroundColor: _isFollowing!
-                                        ? const Color(0xFFF1EFE9)
-                                        : WynColors.sapphire,
-                                    foregroundColor: _isFollowing!
-                                        ? WynColors.graphite
-                                        : WynColors.paper,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: WynSpacing.space3,
-                                    ),
-                                    textStyle: _textStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  onPressed: _isFollowActionInFlight
-                                      ? null
-                                      : () => _onFollowButtonPressed(profile),
-                                  child: Text(_followButtonLabel(profile)),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: WynSpacing.space2),
-                            // WYN-031, Screen 4 -- always reachable (no
-                            // Message Request gate this round, see the
-                            // design doc's own scope note).
-                            Expanded(
-                              child: Semantics(
-                                label:
-                                    'ส่งข้อความถึง ${profile.nameOrUsername}',
-                                button: true,
-                                excludeSemantics: true,
-                                child: OutlinedButton.icon(
-                                  style: OutlinedButton.styleFrom(
-                                    shape: const StadiumBorder(),
-                                    side: const BorderSide(
-                                        color: WynColors.hairline),
-                                    foregroundColor: WynColors.ink,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: WynSpacing.space3,
-                                    ),
-                                  ),
-                                  onPressed: _isStartingChat
-                                      ? null
-                                      : () => _openChat(profile),
-                                  icon: _isStartingChat
-                                      ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                              strokeWidth: 2),
-                                        )
-                                      : const Icon(Icons.send_outlined,
-                                          size: 16, color: WynColors.ink),
-                                  label: Text(
-                                    'ส่งข้อความ',
+                            // Beta4 §2: the display name doubles as the
+                            // account switcher's entry point on your own
+                            // profile -- "ชื่อที่แสดง ⌄". On anyone
+                            // else's profile it is a plain, unstyled
+                            // name with no chevron and no tap target,
+                            // per §2's "Profile ของคนอื่นไม่มีปุ่มนี้".
+                            isOwnProfile
+                                ? _AccountSwitcherName(
+                                    name: profile.nameOrUsername,
+                                    onTap: _openAccountSwitcher,
+                                  )
+                                : Text(
+                                    profile.nameOrUsername,
                                     style: _textStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700,
                                       color: WynColors.ink,
                                     ),
                                   ),
+                            const SizedBox(height: WynSpacing.space1),
+                            Text(
+                              '@${profile.username}',
+                              style: _textStyle(
+                                  fontSize: 13, color: WynColors.mutedNeutral),
+                            ),
+                            if (profile.bio != null &&
+                                profile.bio!.isNotEmpty) ...[
+                              const SizedBox(height: WynSpacing.space2),
+                              Text(
+                                profile.bio!,
+                                // Beta4 §14: bounded. This header is
+                                // not scrollable -- it sits above a
+                                // TabBar in a Column, with the tab
+                                // content taking the remainder -- so an
+                                // unbounded bio pushed the whole thing
+                                // past a short screen's height (a real
+                                // 102px bottom overflow at 320x568,
+                                // caught by this screen's own
+                                // small-mobile test). A profile bio is
+                                // capped at 160 characters, which fits
+                                // in 4 lines at every width the app
+                                // supports except the very narrowest,
+                                // where it now ellipsizes instead of
+                                // breaking the layout.
+                                maxLines: 4,
+                                overflow: TextOverflow.ellipsis,
+                                style: _textStyle(
+                                  fontSize: 15,
+                                  color: _bioTone,
+                                  height: 1.45,
                                 ),
                               ),
-                            ),
+                            ],
+                            // Blocked persona (WYN-027 Design, Screen
+                            // 3): no stats and no action to offer at
+                            // all -- the banner replaces both, exactly
+                            // as it did before Beta4 moved them.
+                            if (isBlockedEitherWay) ...[
+                              const SizedBox(height: WynSpacing.space4),
+                              _buildBlockedBanner(),
+                            ] else ...[
+                              const SizedBox(height: WynSpacing.space3),
+                              // Beta4 §1: Following first, then
+                              // Followers -- the order in the Founder's
+                              // sketch. Two stats only; the third
+                              // ("โพสต์") is gone, see
+                              // [_ProfileWithCounts].
+                              // Beta4 §14: both stats are Expanded, so
+                              // they share the identity column instead
+                              // of taking their natural width and
+                              // overflowing it. On a 320px screen that
+                              // column is ~170px wide, and two
+                              // natural-width stats plus the divider
+                              // wanted 200px more than that -- a real
+                              // RenderFlex overflow, caught by this
+                              // screen's own small-mobile test.
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _FollowCountTarget(
+                                      count: data.followingCount,
+                                      label: 'กำลังติดตาม',
+                                      onTap: () => _openFollowList(
+                                        FollowListMode.following,
+                                        isLockedPrivate: isLockedPrivate,
+                                      ),
+                                    ),
+                                  ),
+                                  _buildStatDivider(),
+                                  Expanded(
+                                    child: _FollowCountTarget(
+                                      count: data.followerCount,
+                                      label: 'ผู้ติดตาม',
+                                      onTap: () => _openFollowList(
+                                        FollowListMode.followers,
+                                        isLockedPrivate: isLockedPrivate,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: WynSpacing.space4),
+                              if (isOwnProfile) ...[
+                                // Beta4 §1: one action, full width of
+                                // the identity column. The Saved and
+                                // Draft icon buttons that used to sit
+                                // beside it are gone from this screen
+                                // -- Saved lives in Home's ☰ menu (§4,
+                                // already there as "บันทึกไว้") and
+                                // Draft in the composer (§5,
+                                // [DraftsScreen]). Neither capability
+                                // was removed; both are now labelled
+                                // words in a menu instead of two
+                                // unlabelled glyphs next to a button.
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      shape: const StadiumBorder(),
+                                      side: const BorderSide(
+                                          color: WynColors.hairline),
+                                      foregroundColor: WynColors.ink,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: WynSpacing.space2 + 2,
+                                      ),
+                                    ),
+                                    onPressed: () => _openEdit(profile),
+                                    child: Text(
+                                      'แก้ไขโปรไฟล์',
+                                      style: _textStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        color: WynColors.ink,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // WYN-039 Design, Screen 3's entry point
+                                // -- only for a Private account with at
+                                // least 1 request waiting (see
+                                // _loadPendingRequestCount).
+                                if (profile.isPrivate &&
+                                    _pendingRequestCount > 0) ...[
+                                  const SizedBox(height: WynSpacing.space2),
+                                  InkWell(
+                                    onTap: _openFollowRequests,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: WynSpacing.space2,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.person_add_alt,
+                                              size: 18),
+                                          const SizedBox(
+                                              width: WynSpacing.space2),
+                                          Text(
+                                              'คำขอติดตาม ($_pendingRequestCount)'),
+                                          const Icon(Icons.chevron_right,
+                                              size: 18),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ] else if (_isFollowing != null)
+                                // Beta4 §3: "[ ติดตาม ] [ ส่งข้อความ ]"
+                                // -- unchanged from WYN-095 apart from
+                                // now living inside the identity column
+                                // like every other element here.
+                                // Messaging reuses the existing chat
+                                // system (WYN-031), per §3's own rule
+                                // against building a new one.
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Semantics(
+                                        label: _followButtonSemanticsLabel(
+                                            profile),
+                                        excludeSemantics: true,
+                                        child: FilledButton(
+                                          style: FilledButton.styleFrom(
+                                            shape: const StadiumBorder(),
+                                            backgroundColor: _isFollowing!
+                                                ? WynColors.surfaceTint
+                                                : WynColors.sapphire,
+                                            foregroundColor: _isFollowing!
+                                                ? WynColors.graphite
+                                                : WynColors.paper,
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: WynSpacing.space2 + 2,
+                                            ),
+                                            textStyle: _textStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          onPressed: _isFollowActionInFlight
+                                              ? null
+                                              : () => _onFollowButtonPressed(
+                                                  profile),
+                                          child: Text(
+                                              _followButtonLabel(profile)),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: WynSpacing.space2),
+                                    // WYN-031, Screen 4.
+                                    Expanded(
+                                      child: Semantics(
+                                        label:
+                                            'ส่งข้อความถึง ${profile.nameOrUsername}',
+                                        button: true,
+                                        excludeSemantics: true,
+                                        child: OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            shape: const StadiumBorder(),
+                                            side: const BorderSide(
+                                                color: WynColors.hairline),
+                                            foregroundColor: WynColors.ink,
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: WynSpacing.space2 + 2,
+                                            ),
+                                          ),
+                                          onPressed: _isStartingChat
+                                              ? null
+                                              : () => _openChat(profile),
+                                          icon: _isStartingChat
+                                              ? const SizedBox(
+                                                  width: 16,
+                                                  height: 16,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                          strokeWidth: 2),
+                                                )
+                                              : const Icon(Icons.send_outlined,
+                                                  size: 16,
+                                                  color: WynColors.ink),
+                                          label: Text(
+                                            'ส่งข้อความ',
+                                            style: _textStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                              color: WynColors.ink,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                            ],
                           ],
                         ),
+                      ),
                     ],
                   ),
                 ),
@@ -1372,6 +1420,81 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   }
 }
 
+/// Beta4 §2 -- "ชื่อที่แสดง ⌄": the display name on your own profile,
+/// with the chevron that opens the account switcher.
+///
+/// The whole name+chevron is one tap target, not just the glyph: a
+/// 12px chevron on its own is far under the 44px this design system
+/// requires ([WynSpacing.touchTargetMin]), and a person reaching for
+/// "switch account" aims at the name they want to change, not at the
+/// arrow beside it. The row is [MainAxisSize.min] so the target ends
+/// where the name ends rather than swallowing the empty space to its
+/// right, which would otherwise make the bio area below feel tappable
+/// too.
+///
+/// The chevron is [Icons.keyboard_arrow_down] at 22px against the 20px
+/// name: it needs to read as the "there is more here" affordance the
+/// Founder's own "⌄" sketch shows, and the smaller
+/// [Icons.expand_more] at text size disappears next to a 700-weight
+/// name. Colour is [WynColors.graphite], not ink -- the name is the
+/// content, the chevron is the hint.
+class _AccountSwitcherName extends StatelessWidget {
+  const _AccountSwitcherName({required this.name, required this.onTap});
+
+  final String name;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      // Says what the control *does*, not just what it shows -- Beta4
+      // §2: "ต้องสื่อชัดว่าใช้เปลี่ยนบัญชี". A screen-reader user
+      // hearing only the name would have no way to know the name is a
+      // button at all, let alone what it opens.
+      label: '$name, แตะเพื่อสลับบัญชี',
+      button: true,
+      excludeSemantics: true,
+      child: InkWell(
+        key: const Key('profile_account_switcher'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minHeight: WynSpacing.touchTargetMin,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Flexible, not Expanded: the row stays content-width
+              // (see the class doc) but a very long display name still
+              // ellipsizes instead of overflowing the identity column
+              // on a small phone.
+              Flexible(
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _textStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: WynColors.ink,
+                  ),
+                ),
+              ),
+              const SizedBox(width: WynSpacing.space1),
+              const Icon(
+                Icons.keyboard_arrow_down,
+                size: 22,
+                color: WynColors.graphite,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _FollowCountTarget extends StatelessWidget {
   const _FollowCountTarget({
     required this.count,
@@ -1402,27 +1525,6 @@ class _FollowCountTarget extends StatelessWidget {
   }
 }
 
-/// The non-interactive 3rd stat (05-profile.tsx's "โพสต์") -- unlike
-/// [_FollowCountTarget], this doesn't open a list of its own (there's no
-/// separate "my posts" screen distinct from the Posts tab already on
-/// this very page), so it's a plain Column, not wrapped in a
-/// Semantics(button: true)/InkWell.
-class _StatBlock extends StatelessWidget {
-  const _StatBlock({required this.count, required this.label});
-
-  final int count;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-          horizontal: WynSpacing.space2, vertical: WynSpacing.space1),
-      child: _StatBlockContent(count: count, label: label),
-    );
-  }
-}
-
 class _StatBlockContent extends StatelessWidget {
   const _StatBlockContent({required this.count, required this.label});
 
@@ -1431,22 +1533,36 @@ class _StatBlockContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Beta4 §14: each line scales down only if it genuinely cannot fit
+    // the column it was given -- at every width from 360px up this is a
+    // no-op and the type is exactly the size the design system says.
+    // It exists for the 320px case, where "กำลังติดตาม" at 13px is
+    // wider than half the identity column; shrinking a label a few
+    // points there is better than ellipsizing a word or overflowing.
     return Column(
       children: [
-        Text(
-          // WYN-095: the stat now sits in a 3-way row squeezed beside
-          // the avatar rather than spanning the full screen width, so
-          // a large raw number risks overflowing at 360px -- the
-          // Semantics label above still reads the exact count out
-          // loud, this is the visible text only.
-          compactCountLabel(count),
-          style:
-              _textStyle(fontSize: 24, fontWeight: FontWeight.w700, color: WynColors.ink),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            // WYN-095: the stat sits in a row squeezed beside the
+            // avatar rather than spanning the full screen width, so a
+            // large raw number is abbreviated -- the Semantics label on
+            // the tap target still reads the exact count out loud, this
+            // is the visible text only.
+            compactCountLabel(count),
+            maxLines: 1,
+            style: _textStyle(
+                fontSize: 24, fontWeight: FontWeight.w700, color: WynColors.ink),
+          ),
         ),
         const SizedBox(height: 2),
-        Text(
-          label,
-          style: _textStyle(fontSize: 13, color: WynColors.graphite),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            maxLines: 1,
+            style: _textStyle(fontSize: 13, color: WynColors.graphite),
+          ),
         ),
       ],
     );
@@ -1458,7 +1574,9 @@ class _StatBlockContent extends StatelessWidget {
 Widget _buildStatDivider() => Container(
       width: 1,
       height: 32,
-      margin: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
+      // Beta4 §14: space3, not space4 -- 8px of the identity column back
+      // for the two stats either side of it on a small screen.
+      margin: const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
       color: WynColors.hairline,
     );
 
@@ -1467,7 +1585,7 @@ Widget _buildStatDivider() => Container(
 /// SPEC.md's own Section 4.10 sanctions for Home's reply-preview text
 /// (see notification_list_screen.dart's identical reasoning for its own
 /// message-body tone).
-const _bioTone = Color(0xFF2B2A26);
+const _bioTone = WynColors.inkSoft;
 
 TextStyle _textStyle({
   required double fontSize,

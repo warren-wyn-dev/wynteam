@@ -28,6 +28,7 @@ import 'quote_redrop_screen.dart';
 import 'widgets/confirm_delete_drop_dialog.dart';
 import 'widgets/drop_image_gallery.dart';
 import 'widgets/poll_card.dart';
+import 'widgets/redrop_action_sheet.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
@@ -338,42 +339,30 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     }
   }
 
+  /// Beta4 §6: the same [showRedropSheet] the feed card opens, rather
+  /// than this screen's own second copy of it -- see that function's
+  /// doc comment for why the emoji labels are gone.
   Future<void> _openRedropSheet() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.repeat),
-              title: Text(_drop.redroppedByMe ? 'ยกเลิกรีโพสต์' : '🔄 รีโพสต์'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                _toggleRedrop();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.chat_bubble_outline),
-              title: const Text('💬 Quote รีโพสต์'),
-              onTap: () async {
-                Navigator.of(sheetContext).pop();
-                final posted = await Navigator.of(context).push<bool>(
-                  MaterialPageRoute(
-                    builder: (_) => QuoteRedropScreen(
-                      dropRepository: widget.dropRepository,
-                      drop: _drop,
-                    ),
-                  ),
-                );
-                if (posted == true && mounted) {
-                  setState(() => _drop = _drop.withExtraRedrop());
-                }
-              },
-            ),
-          ],
+    await showRedropSheet(
+      context,
+      isRedropped: _drop.redroppedByMe,
+      onToggleRedrop: _toggleRedrop,
+      onQuoteRedrop: _openQuoteRedrop,
+    );
+  }
+
+  Future<void> _openQuoteRedrop() async {
+    final posted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => QuoteRedropScreen(
+          dropRepository: widget.dropRepository,
+          drop: _drop,
         ),
       ),
     );
+    if (posted == true && mounted) {
+      setState(() => _drop = _drop.withExtraRedrop());
+    }
   }
 
   Future<void> _loadFollowStatus() async {
@@ -1062,7 +1051,9 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                 icon: Icon(
                   _drop.likedByMe ? Icons.favorite : Icons.favorite_border,
                   size: 19,
-                  color: _drop.likedByMe ? Colors.red : WynColors.graphite,
+                  color: _drop.likedByMe
+                      ? WynColors.iconLikeActive
+                      : WynColors.iconIdle,
                 ),
                 onPressed: _toggleLike,
               ),
@@ -1250,8 +1241,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     icon: Icon(
                       comment.likedByMe ? Icons.favorite : Icons.favorite_border,
                       color: comment.likedByMe
-                          ? Colors.red
-                          : WynColors.graphite,
+                          ? WynColors.iconLikeActive
+                          : WynColors.iconIdle,
                     ),
                     onPressed: () => _toggleCommentLike(comment.id),
                   ),

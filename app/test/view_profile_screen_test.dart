@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:wyn/core/design/wyn_spacing.dart';
 import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/follow/presentation/follow_list_screen.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
@@ -10,7 +11,6 @@ import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
 import 'package:wyn/features/profile/presentation/widgets/avatar_circle.dart';
 import 'package:wyn/features/profile/presentation/widgets/profile_skeleton.dart';
-import 'package:wyn/features/saved/presentation/widgets/saved_post_row.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_drop_repository.dart';
@@ -41,6 +41,14 @@ void main() {
   late RecordingProfileRepository otherProfileRepo;
   late RecordingFollowRepository otherFollowRepo;
 
+  // Beta4 §14 -- built in setUpAll, not per-test: every Recording*
+  // repository in this project is, because constructing one inside a
+  // test body leaves a GoTrue auto-refresh Timer pending past the
+  // widget tree's disposal and trips flutter_test's `!timersPending`
+  // invariant. See .wyn/learning/PATTERNS.md.
+  late RecordingProfileRepository longTextProfileRepo;
+  late RecordingFollowRepository largeCountFollowRepo;
+
   late RecordingProfileRepository contentTestProfileRepo;
   late RecordingFollowRepository contentTestFollowRepo;
   late RecordingDropRepository contentTestDropRepo;
@@ -59,6 +67,18 @@ void main() {
 
     otherProfileRepo = RecordingProfileRepository(profile: otherProfile);
     otherFollowRepo = RecordingFollowRepository(followerCount: 3, followingCount: 8);
+
+    longTextProfileRepo = RecordingProfileRepository(
+      profile: const Profile(
+        id: 'me',
+        username: 'a_rather_long_username_here',
+        displayName: 'ชื่อที่แสดงยาวมากจนน่าจะล้นออกนอกจอถ้าไม่ได้ตัดคำ',
+        bio: 'ไบโอที่ยาวพอสมควร เขียนต่อกันหลายบรรทัดเพื่อดูว่า layout '
+            'ยังอยู่ดีไหมเมื่อเจอข้อความจริงที่ไม่ได้สั้นแบบ fixture',
+      ),
+    );
+    largeCountFollowRepo =
+        RecordingFollowRepository(followerCount: 123456, followingCount: 98765);
 
     contentTestProfileRepo = RecordingProfileRepository(profile: ownProfile);
     contentTestFollowRepo = RecordingFollowRepository();
@@ -150,9 +170,124 @@ void main() {
         ),
       );
 
+  group('Beta4 §2 -- account switcher on the display name', () {
+    testWidgets(
+        'your own display name is a button labelled as the account '
+        'switcher, with a chevron', (tester) async {
+      await tester.pumpWidget(buildProfile(
+        profileRepository: ownProfileRepo,
+        followRepository: ownFollowRepo,
+        userId: 'me',
+      ));
+      await tester.pumpAndSettle();
+
+      final switcher = find.byKey(const Key('profile_account_switcher'));
+      expect(switcher, findsOneWidget);
+
+      // The Founder's sketch: "ชื่อที่แสดง ⌄".
+      expect(
+        find.descendant(of: switcher, matching: find.text('ตัวฉันเอง')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+            of: switcher, matching: find.byIcon(Icons.keyboard_arrow_down)),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+        'the whole name+chevron is one tap target, at least '
+        'touchTargetMin tall -- not just the 22px glyph', (tester) async {
+      await tester.pumpWidget(buildProfile(
+        profileRepository: ownProfileRepo,
+        followRepository: ownFollowRepo,
+        userId: 'me',
+      ));
+      await tester.pumpAndSettle();
+
+      final size = tester.getSize(find.byKey(const Key('profile_account_switcher')));
+      expect(size.height, greaterThanOrEqualTo(WynSpacing.touchTargetMin));
+      // Wide enough to cover the name, not just the arrow.
+      expect(size.width,
+          greaterThan(tester.getSize(find.text('ตัวฉันเอง')).width));
+    });
+
+    testWidgets(
+        'Beta4 §2: the semantics say what it does, not just the name -- '
+        '"ต้องสื่อชัดว่าใช้เปลี่ยนบัญชี"', (tester) async {
+      await tester.pumpWidget(buildProfile(
+        profileRepository: ownProfileRepo,
+        followRepository: ownFollowRepo,
+        userId: 'me',
+      ));
+      await tester.pumpAndSettle();
+
+      final semantics = tester.getSemantics(
+        find.byKey(const Key('profile_account_switcher')),
+      );
+      expect(semantics.label, contains('สลับบัญชี'));
+      expect(
+        semantics.flagsCollection.isButton,
+        isTrue,
+        reason: 'a screen-reader user hearing only a name would have no '
+            'way to know it is a control at all',
+      );
+    });
+
+    testWidgets(
+        "Beta4 §2: someone else's profile has no account switcher -- their "
+        'name is plain text', (tester) async {
+      await tester.pumpWidget(buildProfile(
+        profileRepository: otherProfileRepo,
+        followRepository: otherFollowRepo,
+        userId: 'someone-else',
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('profile_account_switcher')), findsNothing);
+      expect(find.byIcon(Icons.keyboard_arrow_down), findsNothing);
+      // The name is still shown -- it just is not a control.
+      expect(find.text('น้ำฝน'), findsOneWidget);
+    });
+  });
+
+  // Beta4 §14 (Responsive). The narrowest screen WYNOS supports; the
+  // identity column is at its most cramped here, and the header now
+  // holds more than it did (name, handle, bio, stats, action all in one
+  // column beside the avatar).
+  group('Beta4 §14 -- profile header at small-mobile width', () {
+    testWidgets('no overflow at 320x568, with a long display name and bio',
+        (tester) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(buildProfile(
+        profileRepository: longTextProfileRepo,
+        followRepository: largeCountFollowRepo,
+        userId: 'me',
+      ));
+      await tester.pumpAndSettle();
+
+      // A RenderFlex overflow paints as the yellow/black stripe and
+      // reports through the error framework -- takeException() would
+      // return it. Nothing else in this tree throws.
+      expect(tester.takeException(), isNull);
+
+      // Both stats and the action are still on screen and inside it.
+      expect(find.text('กำลังติดตาม'), findsOneWidget);
+      expect(find.text('ผู้ติดตาม'), findsOneWidget);
+      final button =
+          tester.getRect(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์'));
+      expect(button.left, greaterThanOrEqualTo(0));
+      expect(button.right, lessThanOrEqualTo(320));
+    });
+  });
+
   testWidgets(
-      'shows Follower/Following/Post counts loaded alongside the profile '
-      '(05-profile.tsx\'s 3rd StatsRow stat)', (tester) async {
+      'Beta4 §1: shows exactly two stats -- Following and Followers -- '
+      'and no post count', (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: ownProfileRepo,
       followRepository: ownFollowRepo,
@@ -164,15 +299,19 @@ void main() {
     expect(find.text('ผู้ติดตาม'), findsOneWidget);
     expect(find.text('5'), findsOneWidget);
     expect(find.text('กำลังติดตาม'), findsOneWidget);
-    expect(find.text('6'), findsOneWidget);
-    // The StatsRow label and the "โพสต์" Tab both say the same word.
-    expect(find.text('โพสต์'), findsNWidgets(2));
+
+    // Beta4 §1: "แสดงเฉพาะ Following / Followers. ไม่เพิ่ม: จำนวนโพสต์".
+    // The Drop count (6, per this fixture) is no longer fetched or
+    // shown, so "โพสต์" now appears exactly once on this screen -- as
+    // the tab label, not as a third stat.
+    expect(find.text('6'), findsNothing);
+    expect(find.text('โพสต์'), findsOneWidget);
+    expect(find.byType(Tab), findsNWidgets(3));
   });
 
   testWidgets(
-      'WYN-095 Mockup A: avatar sits beside the stats row (same top '
-      'edge), with display name/username left-aligned below that row, '
-      'not the old fully-centered avatar-then-name-then-stats order',
+      'Beta4 §1: avatar on the left, and the whole identity column '
+      '(name, username, stats, action) to its right, in that order',
       (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: ownProfileRepo,
@@ -182,27 +321,60 @@ void main() {
     await tester.pumpAndSettle();
 
     final avatarRect = tester.getRect(find.byType(AvatarCircle));
-    final statsCenterY = tester.getCenter(find.text('ผู้ติดตาม')).dy;
-    final nameTop = tester.getTopLeft(find.text('ตัวฉันเอง')).dy;
+    final nameRect = tester.getRect(find.text('ตัวฉันเอง'));
     final usernameTop = tester.getTopLeft(find.text('@me_user')).dy;
+    final statsTop = tester.getTopLeft(find.text('ผู้ติดตาม')).dy;
+    final buttonTop =
+        tester.getTopLeft(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์')).dy;
 
-    // The stats row's vertical center falls inside the avatar's own
-    // vertical span -- i.e. they're cross-axis-centered in one shared
-    // Row (the avatar is taller than the stat text, so their tops
-    // don't match, but neither is "below" the other).
-    expect(statsCenterY, greaterThan(avatarRect.top));
-    expect(statsCenterY, lessThan(avatarRect.bottom));
-    // Display name comes entirely after the avatar+stats row, not
-    // beside it.
-    expect(nameTop, greaterThanOrEqualTo(avatarRect.bottom));
-    // Username comes right after the display name.
-    expect(usernameTop, greaterThan(nameTop));
+    // The name sits *beside* the avatar, not below it -- WYN-095's
+    // Mockup A had the stats there and the name underneath, which split
+    // the identity across two zones (see the layout comment in
+    // view_profile_screen.dart).
+    expect(nameRect.left, greaterThan(avatarRect.right));
+    expect(nameRect.center.dy, greaterThan(avatarRect.top));
 
-    // Display name/username are left-aligned with the avatar, not
-    // centered on screen (the old wyn-071 layout centered everything).
-    final avatarLeft = tester.getTopLeft(find.byType(AvatarCircle)).dx;
-    final nameLeft = tester.getTopLeft(find.text('ตัวฉันเอง')).dx;
-    expect((avatarLeft - nameLeft).abs(), lessThan(1));
+    // Reading order down the right-hand column: name → handle → bio →
+    // stats → action.
+    expect(usernameTop, greaterThan(nameRect.top));
+    expect(statsTop, greaterThan(usernameTop));
+    expect(buttonTop, greaterThan(statsTop));
+
+    // Everything in that column shares one left edge: the name, the
+    // handle, and the action button all start where the column starts.
+    //
+    // The stats row is measured by its extent, not its left edge --
+    // Beta4 §14 made the two stats Expanded so they share the column
+    // instead of overflowing it on a small screen, which centres each
+    // one's *text* inside its own half. So the meaningful assertion is
+    // that the row spans the column, which the two stats' combined
+    // horizontal reach shows.
+    final columnLeft = tester.getTopLeft(find.text('@me_user')).dx;
+    expect((nameRect.left - columnLeft).abs(), lessThan(2));
+
+    final buttonRect =
+        tester.getRect(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์'));
+    expect((buttonRect.left - columnLeft).abs(), lessThan(2));
+
+    final followingX = tester.getCenter(find.text('กำลังติดตาม')).dx;
+    final followersX = tester.getCenter(find.text('ผู้ติดตาม')).dx;
+    expect(followingX, greaterThan(columnLeft));
+    expect(followersX, lessThan(buttonRect.right));
+  });
+
+  testWidgets(
+      'Beta4 §1: Following is listed before Followers, per the '
+      'Founder\'s own layout sketch', (tester) async {
+    await tester.pumpWidget(buildProfile(
+      profileRepository: ownProfileRepo,
+      followRepository: ownFollowRepo,
+      userId: 'me',
+    ));
+    await tester.pumpAndSettle();
+
+    final followingX = tester.getCenter(find.text('กำลังติดตาม')).dx;
+    final followersX = tester.getCenter(find.text('ผู้ติดตาม')).dx;
+    expect(followingX, lessThan(followersX));
   });
 
   testWidgets(
@@ -247,8 +419,8 @@ void main() {
   });
 
   testWidgets(
-      'the Edit Profile button is a small centered pill, not a full-width '
-      'bordered button (05-profile.tsx de-emphasizes it)', (tester) async {
+      'Beta4 §1: the Edit Profile button spans the identity column, '
+      'now that it is the only action there', (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: ownProfileRepo,
       followRepository: ownFollowRepo,
@@ -256,13 +428,16 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    final buttonFinder =
-        find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์');
-    final buttonWidth = tester.getSize(buttonFinder).width;
-    // Sized to its content (a pill), well under the ~450px a
-    // full-width button would span on the 800px-wide default test
-    // viewport.
-    expect(buttonWidth, lessThan(250));
+    final buttonRect =
+        tester.getRect(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์'));
+    final usernameLeft = tester.getTopLeft(find.text('@me_user')).dx;
+
+    // It used to be a natural-width pill sharing its row with two
+    // unlabelled icon buttons (Saved and Draft). Those moved out
+    // entirely (§4/§5), so the one remaining action fills the column
+    // instead of floating at its left edge.
+    expect((buttonRect.left - usernameLeft).abs(), lessThan(2));
+    expect(buttonRect.width, greaterThan(300));
   });
 
   testWidgets('tapping the Followers count opens FollowListScreen in '
@@ -302,9 +477,8 @@ void main() {
   });
 
   testWidgets(
-      'own profile shows Edit, Saved/Draft icons, 3 public tabs, no '
-      'Follow button, and no logout icon (WYN-013, WYN-071, '
-      '05-profile.tsx)',
+      'Beta4 §1/§4/§5: own profile shows Edit Profile and 3 public tabs, '
+      'and no longer carries Saved or Draft',
       (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: ownProfileRepo,
@@ -318,13 +492,19 @@ void main() {
     // moved into SettingsScreen instead, see settings_screen_test.dart.
     expect(find.byIcon(Icons.logout), findsNothing);
     expect(find.widgetWithText(OutlinedButton, 'ติดตาม'), findsNothing);
-    // WYN-071: Saved/Draft are icons next to "แก้ไขโปรไฟล์" now, not tabs.
-    expect(find.byKey(const Key('profile_saved_button')), findsOneWidget);
-    expect(find.byIcon(Icons.edit_note_outlined), findsOneWidget);
-    // 05-profile.tsx cuts Replies/Media -- 3 tabs now, Thai-labeled to
-    // match the reference exactly. "โพสต์" appears twice (the StatsRow
-    // label and the Tab both say it).
-    expect(find.text('โพสต์'), findsNWidgets(2));
+
+    // Beta4 §4: Saved is in Home's ☰ menu ("บันทึกไว้", see
+    // side_menu_test.dart). Beta4 §5: Draft is in the post composer
+    // (see create_drop_screen_test.dart). Neither belongs on Profile,
+    // and neither of the two unlabelled icon buttons that used to open
+    // them is here any more.
+    expect(find.byKey(const Key('profile_saved_button')), findsNothing);
+    expect(find.byIcon(Icons.bookmark_border), findsNothing);
+    expect(find.byIcon(Icons.edit_note_outlined), findsNothing);
+
+    // 05-profile.tsx cuts Replies/Media -- 3 tabs. "โพสต์" appears once
+    // now (the tab); the StatsRow no longer has a third stat saying it.
+    expect(find.text('โพสต์'), findsOneWidget);
     expect(find.text('รีโพสต์'), findsOneWidget);
     expect(find.text('ถูกใจ'), findsOneWidget);
     expect(find.text('Replies'), findsNothing);
@@ -354,7 +534,7 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'ติดตาม'), findsOneWidget);
     expect(find.byKey(const Key('profile_saved_button')), findsNothing);
     expect(find.byIcon(Icons.edit_note_outlined), findsNothing);
-    expect(find.text('โพสต์'), findsNWidgets(2));
+    expect(find.text('โพสต์'), findsOneWidget);
     expect(find.text('รีโพสต์'), findsOneWidget);
     expect(find.text('ถูกใจ'), findsOneWidget);
     // Pop is hidden from Profile for WYNOS V1.0.0 Beta -- requirement 3.
@@ -475,32 +655,12 @@ void main() {
   // own widget test, if any) is untouched -- only this screen stopped
   // wiring it up.
 
-  testWidgets(
-      'tapping the Saved icon opens saved Drop/Pop content (WYN-071: no '
-      'longer a tab)', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: ViewProfileScreen(
-        profileRepository: contentTestProfileRepo,
-        followRepository: contentTestFollowRepo,
-        dropRepository: contentTestDropRepo,
-        popRepository: contentTestPopRepo,
-        savedRepository: contentTestSavedRepo,
-        userId: 'me',
-      ),
-    ));
-    await tester.pumpAndSettle();
-    tester.takeException();
-
-    await tester.tap(find.byKey(const Key('profile_saved_button')));
-    await tester.pumpAndSettle();
-    tester.takeException();
-
-    // BookmarksScreen (15-bookmarks.tsx) shows its own full-width
-    // SavedPostRow list, not ProfileSavedTab's SavedGridTile grid -- see
-    // bookmarks_screen.dart's own doc comment.
-    expect(find.byType(SavedPostRow), findsOneWidget);
-    expect(find.text('แคปชันที่บันทึกไว้'), findsOneWidget);
-  });
+  // Beta4 §4: the "tapping the Saved icon opens BookmarksScreen" test
+  // that lived here is gone with the icon it exercised. Saved did not
+  // change -- BookmarksScreen is the same screen, reached from Home's ☰
+  // menu, and side_menu_test.dart's own "บันทึกไว้" test covers that
+  // path (it already did before Beta4, since SideMenu has offered the
+  // row since WYN-100).
 
   // "Club ของฉัน" section (WYN-015) removed -- 05-profile.tsx drops the
   // shelf from Profile entirely (still reachable via Home's "From Your

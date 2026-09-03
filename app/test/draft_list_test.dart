@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wyn/features/drop/data/drop_draft.dart';
 import 'package:wyn/features/drop/presentation/create_drop_screen.dart';
 import 'package:wyn/features/drop/presentation/widgets/draft_grid_tile.dart';
-import 'package:wyn/features/profile/presentation/widgets/profile_drafts_tab.dart';
+import 'package:wyn/features/drop/presentation/widgets/draft_list.dart';
 
 import 'support/recording_drop_repository.dart';
 import 'support/recording_profile_repository.dart';
@@ -52,7 +52,7 @@ void main() {
 
   testWidgets('shows a loading spinner, then the empty state when there '
       'are no drafts', (tester) async {
-    await tester.pumpWidget(_wrap(ProfileDraftsTab(
+    await tester.pumpWidget(_wrap(DraftList(
       dropRepository: emptyRepo,
       profileRepository: emptyProfileRepo,
     )));
@@ -65,7 +65,7 @@ void main() {
   });
 
   testWidgets('shows every draft returned by fetchDrafts', (tester) async {
-    await tester.pumpWidget(_wrap(ProfileDraftsTab(
+    await tester.pumpWidget(_wrap(DraftList(
       dropRepository: listRepo,
       profileRepository: listProfileRepo,
     )));
@@ -77,7 +77,7 @@ void main() {
 
   testWidgets('a fetch failure shows an error with a retry button',
       (tester) async {
-    await tester.pumpWidget(_wrap(ProfileDraftsTab(
+    await tester.pumpWidget(_wrap(DraftList(
       dropRepository: errorRepo,
       profileRepository: errorProfileRepo,
     )));
@@ -89,7 +89,7 @@ void main() {
 
   testWidgets('tapping a draft opens CreateDropScreen prefilled with it',
       (tester) async {
-    await tester.pumpWidget(_wrap(ProfileDraftsTab(
+    await tester.pumpWidget(_wrap(DraftList(
       dropRepository: tapRepo,
       profileRepository: tapProfileRepo,
     )));
@@ -105,7 +105,7 @@ void main() {
 
   testWidgets('deleting a draft removes it from the grid and calls '
       'deleteDraft', (tester) async {
-    await tester.pumpWidget(_wrap(ProfileDraftsTab(
+    await tester.pumpWidget(_wrap(DraftList(
       dropRepository: deleteRepo,
       profileRepository: deleteProfileRepo,
     )));

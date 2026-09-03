@@ -29,6 +29,7 @@
 //                                    Generate new private key).
 import {
   buildDataPayload,
+  collapseKeyFor,
   displayNameOrUsername,
   fetchFcmAccessToken,
   type FcmServiceAccount,
@@ -151,6 +152,7 @@ Deno.serve(async (req) => {
     row.moderation_action_type,
   );
   const data = buildDataPayload(row);
+  const collapseKey = collapseKeyFor(row);
 
   const accessToken = await fetchFcmAccessToken(serviceAccount);
   const fcmUrl =
@@ -169,6 +171,28 @@ Deno.serve(async (req) => {
             token,
             notification: { title: "WYN", body },
             data,
+            // Beta4 §11.6 (Duplicate Protection). Each platform spells
+            // the same idea differently; all three make a redelivery of
+            // this exact notification replace the one already on the
+            // device instead of stacking a second copy. See
+            // collapseKeyFor's doc comment for why a webhook retry made
+            // that a real, user-visible duplicate before this.
+            webpush: {
+              headers: { Topic: collapseKey },
+              // Beta4 §11.2: web needs its notification shaped here --
+              // FCM's generic `notification` block above does not carry
+              // an icon to a browser, and without one the OS shows the
+              // browser's own logo rather than WYNOS's.
+              notification: {
+                title: "WYN",
+                body,
+                icon: "/icons/Icon-192.png",
+                badge: "/icons/Icon-192.png",
+                tag: collapseKey,
+              },
+            },
+            android: { collapse_key: collapseKey },
+            apns: { headers: { "apns-collapse-id": collapseKey } },
           },
         }),
       });

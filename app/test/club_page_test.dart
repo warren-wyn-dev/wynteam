@@ -178,39 +178,86 @@ void main() {
     expect(find.text('ออกจาก Club'), findsNothing);
     expect(find.text('แก้ไขข้อมูล Club'), findsNothing);
   });
-  testWidgets(
-      'Beta3: a Club with an uploaded cover shows the generated background '
-      'banner anyway, never the photo', (tester) async {
-    // Founder decision (2026-09-03), Beta3 item 12: this strip shows
-    // the Background Image only. It used to swap in club.cover_url
-    // whenever one existed, so the top of a Club read as two unrelated
-    // designs depending on whether its owner had picked a photo -- and
-    // the Club's own name vanished from the banner in the case where
-    // they had. The cover picker on Create/Edit Club and the cover-led
-    // Club cards in Explore are deliberately untouched.
-    await tester.pumpWidget(
-      MaterialApp(
-        home: ClubPage(
-          clubRepository: withCoverRepo,
-          clubPostRepository: clubPostRepo,
-          clubId: 'club-cover',
+  group('Beta4 §8.3 -- the Club banner carries the identity image', () {
+    // History, because this is a reversal and the reason matters.
+    //
+    // Beta3 (Founder, 2026-09-03) removed the uploaded image from this
+    // strip. The reason was a real defect: the banner *swapped* between
+    // two unrelated designs depending on whether the owner happened to
+    // have picked a photo, and the Club's own name disappeared in the
+    // case where they had -- the name was drawn only on the generated
+    // variant.
+    //
+    // Beta4 §8.3 asks for the identity image back on this page. So it is
+    // back with that defect fixed rather than reintroduced: the image is
+    // a background layer under the same eyebrow and name the generated
+    // variant draws, over a scrim. There is one banner design now, not
+    // two. The tests below pin both halves -- the image appears, and the
+    // name never stops appearing.
+    testWidgets(
+        'a Club with an image shows it, and still shows the eyebrow and '
+        'the Club name over it', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ClubPage(
+            clubRepository: withCoverRepo,
+            clubPostRepository: clubPostRepo,
+            clubId: 'club-cover',
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    tester.takeException();
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
 
-    // The banner's own "CLUB" eyebrow, which only the generated
-    // background carries -- the uploaded-photo branch had no text at
-    // all.
-    expect(find.text('CLUB'), findsOneWidget);
-    // ...and the cover photo is nowhere on the page.
-    final coverImages = tester.widgetList<Image>(find.byType(Image)).where(
-          (image) =>
-              image.image is NetworkImage &&
-              (image.image as NetworkImage).url.contains('clubs/cover.jpg'),
-        );
-    expect(coverImages, isEmpty);
+      expect(find.byKey(const Key('club_banner_image')), findsOneWidget);
+      // The exact thing Beta3 removed the photo over: with the photo
+      // showing, the Club still says which Club it is.
+      expect(find.text('CLUB'), findsOneWidget);
+      expect(find.text('Cover Club'), findsWidgets);
+    });
+
+    testWidgets(
+        'a Club with no image still gets the generated background, with '
+        'the same eyebrow and name -- one design, not two', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ClubPage(
+            clubRepository: notJoinedRepo,
+            clubPostRepository: clubPostRepo,
+            clubId: 'club-1',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byKey(const Key('club_banner_image')), findsNothing);
+      expect(find.text('CLUB'), findsOneWidget);
+      expect(find.text('Test Club'), findsWidgets);
+    });
+
+    testWidgets(
+        'a pre-Beta4 Club, whose one image lives in cover_url, still shows '
+        'it (Beta4 §8.1)', (tester) async {
+      // withCoverRepo's Club has coverUrl set and iconUrl null -- the
+      // exact shape of every Club created before Beta4, since the old
+      // create form only ever wrote cover_url. Without
+      // identityImageUrl's fallback these would all have gone
+      // image-less the day Beta4 shipped.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ClubPage(
+            clubRepository: withCoverRepo,
+            clubPostRepository: clubPostRepo,
+            clubId: 'club-cover',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byKey(const Key('club_banner_image')), findsOneWidget);
+    });
   });
 
 }

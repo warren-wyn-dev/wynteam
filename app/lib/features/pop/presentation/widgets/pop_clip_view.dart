@@ -479,7 +479,7 @@ class _PopClipViewState extends State<PopClipView> {
                 child: IconButton(
                   icon: Icon(
                     _pop.likedByMe ? Icons.favorite : Icons.favorite_border,
-                    color: _pop.likedByMe ? Colors.red : Colors.white,
+                    color: _pop.likedByMe ? WynColors.iconLikeActive : Colors.white,
                   ),
                   onPressed: _toggleLike,
                 ),

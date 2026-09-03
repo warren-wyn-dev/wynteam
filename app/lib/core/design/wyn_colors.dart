@@ -78,6 +78,40 @@ class WynColors {
   /// a local literal per file.
   static const Color mutedNeutral = Color(0xFFB7B4AC);
 
+  /// The warm off-white fill used by every quiet, non-interactive
+  /// surface that sits *on* paper: search bars, the empty-state icon
+  /// circle, an incoming chat bubble, and the "กำลังติดตาม" button once
+  /// you already follow someone.
+  ///
+  /// Beta4 §10/§22 promoted this from 12 identical inline
+  /// `Color(0xFFF1EFE9)` literals across 11 files (plus two private
+  /// per-file constants that had each given it a different local name).
+  /// Same promotion, same reasoning, as [mutedNeutral]: a value that
+  /// appears identically in that many independent places is a system
+  /// token whether or not anyone named it, and the alternative to
+  /// naming it is that the twelfth copy is where it drifts.
+  ///
+  /// Not a new colour, and not a computed tint of [sapphire] -- SPEC.md
+  /// Section 1 forbids synthesizing shades, and this is a neutral, not
+  /// an accent.
+  static const Color surfaceTint = Color(0xFFF1EFE9);
+
+  /// Reading text that should sit a step quieter than [ink] without
+  /// dropping all the way to [graphite]: a profile bio, a notification's
+  /// message line.
+  ///
+  /// Beta4 §10 promoted this from two private per-file constants
+  /// (`_bioTone` and `_kMessageBodyColor`) that held the same value and
+  /// each described itself as a one-off. Two files independently
+  /// reaching the same "quieter than the nearest named token" answer is
+  /// the definition of a shared need. SPEC.md Section 4.10 sanctions the
+  /// tone; it just had nowhere to live.
+  ///
+  /// Beta4 §18 asks specifically that Feed and Notifications read as one
+  /// visual language -- this is one of the two places they already
+  /// agreed by coincidence rather than by construction.
+  static const Color inkSoft = Color(0xFF2B2A26);
+
   // ---------------------------------------------------------------------
   // Notification type-badge colors (02-notifications.tsx) -- Founder-
   // approved exception to "sapphire is the only accent" (2026-08-29),
@@ -111,6 +145,45 @@ class WynColors {
   static const Color surfaceMutedDark = Color(0xFF1A1A1A);
   static const Color borderSubtleDark = Color(0xFF222222);
   static const Color borderStrongDark = Color(0xFF666666);
+
+  // ---------------------------------------------------------------------
+  // Interactive icon states -- the one place that says what colour an
+  // action icon is in each of its states, so "the same state looks the
+  // same everywhere" is enforced by the type system rather than by
+  // remembering. Beta4 §10/§15: these are NOT new colours. Every value
+  // below is the exact colour those states were already painted, moved
+  // out of ~30 inline literals scattered across 10 widgets.
+  // ---------------------------------------------------------------------
+
+  /// An action icon at rest -- the heart, comment, ReDrop, and share
+  /// icons before anything has happened to them.
+  static const Color iconIdle = graphite;
+
+  /// A non-Like action icon in its *on* state -- ReDropped, Saved.
+  /// Sapphire, per WYN-089's own "same active-state color the Focused
+  /// Action Bar has used all along".
+  static const Color iconActive = sapphire;
+
+  /// The liked heart, in every surface that draws one: feed card, post
+  /// detail, comment row, full-screen viewer, Club post, and the
+  /// Notifications type badge.
+  ///
+  /// The value is Material's `Colors.red` (`#F44336`) **unchanged** --
+  /// that exact colour is a standing Founder decision ("ใจอยากได้สีแดง",
+  /// 2026-09-01; see `.wyn/tasks/completed/WYN-076-liked-heart-still-
+  /// sapphire-in-2-spots.md`, which fixed the last 2 spots that had
+  /// drifted to sapphire). Beta4 only gives that decision a name: before
+  /// this, "the liked heart is red" lived as 10 separate `Colors.red`
+  /// literals plus a doc comment, which is exactly how WYN-076 came to
+  /// exist in the first place. Naming it does not repaint a single
+  /// pixel, and it means the next divergence is a compile-time rename
+  /// rather than a screenshot from the Founder.
+  ///
+  /// Deliberately NOT [likeLight] (`#E11D48`): that token predates the
+  /// Founder decision above, is referenced by nothing, and adopting it
+  /// here would be changing a colour the Founder chose. Left in place,
+  /// unused, rather than silently repurposed.
+  static const Color iconLikeActive = Color(0xFFF44336);
 
   // ---------------------------------------------------------------------
   // 2.4 Semantic (status colors -- not brand colors, not reinvented)

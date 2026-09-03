@@ -89,7 +89,7 @@ class RootShell extends StatefulWidget {
   State<RootShell> createState() => _RootShellState();
 }
 
-class _RootShellState extends State<RootShell> {
+class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   // The 5 NavigationBar destinations, in display order. Index 2 (Drop) is
   // a create action, not a page -- it never becomes _tabIndex and is
   // never the "selected" destination.
@@ -174,13 +174,31 @@ class _RootShellState extends State<RootShell> {
     _appealRepository = widget._appealRepository ?? AppealRepository(client);
     _chatRepository = widget._chatRepository ?? ChatRepository(client);
 
-    // WYN-016 (Push Notification): request permission + register this
-    // device's token once, the first time RootShell renders (i.e. right
-    // after onboarding, not from the Welcome screen where the user
-    // doesn't know the app yet). Safe to call unconditionally even
-    // before Firebase is configured -- PushNotificationService.initialize
-    // checks Firebase.apps itself and no-ops if empty.
-    PushNotificationService(PushTokenRepository(client)).initialize();
+    // WYN-016 (Push Notification): register this device's token and
+    // start listening, once, the first time RootShell renders for this
+    // account. Safe to call unconditionally even before Firebase is
+    // configured -- PushNotificationService.initialize checks
+    // Firebase.apps itself and no-ops if empty.
+    //
+    // Beta4 §11.2: this no longer *asks* for permission. It adopts a
+    // permission that has already been granted and otherwise does
+    // nothing; the ask lives behind an explicit user action on the
+    // Notifications screen and in Notification Settings. See that
+    // class's own doc comment for why an unexplained prompt fired from
+    // here was a one-shot the app could never recover.
+    //
+    // Beta4 §13: this runs once per *account*, not once per app launch
+    // -- AuthGate keys this shell by user id, so switching accounts
+    // tears the whole shell down and builds it again, re-registering
+    // for whoever is now signed in.
+    PushNotificationService(
+      PushTokenRepository(client),
+      // Beta4 §11.4 -- a push that lands while the app is foregrounded
+      // moves the unread count, and nothing used to tell the badge.
+      onForegroundMessage: _loadUnreadNotificationCount,
+    ).initialize();
+
+    WidgetsBinding.instance.addObserver(this);
 
     // WYN-077: fire-once-per-session proxy for "a real user is actively
     // using the app" -- same shape as the push-notification call above
@@ -199,8 +217,30 @@ class _RootShellState extends State<RootShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _homeTabReselectSignal.dispose();
     super.dispose();
+  }
+
+  /// Beta4 §11.4 (Unread & Badge): "Refresh แล้วไม่เพี้ยน".
+  ///
+  /// The badge was read once in [initState] and never again, so it drifted
+  /// out of date the moment anything happened while the app was
+  /// backgrounded -- come back an hour later and the bell still showed
+  /// whatever it showed when you left, until you either opened the
+  /// Notifications tab or restarted the app.
+  ///
+  /// One query on resume, not a timer: §11.7 rules out polling, and a
+  /// poll would spend a query every interval on the common case where
+  /// nothing has changed. Resuming is the moment the app's own picture
+  /// of the world is most likely to be wrong, and the only moment a
+  /// person can see the badge again anyway.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      _loadUnreadNotificationCount();
+    }
   }
 
   Future<void> _loadUnreadNotificationCount() async {

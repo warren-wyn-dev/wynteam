@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../data/profile_photo_crop.dart';
 
@@ -267,7 +268,13 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Text(
                   _errorMessage!,
-                  style: const TextStyle(color: Colors.redAccent),
+                  // Beta4 §10: was an ad-hoc `Colors.redAccent`, the one
+                  // error colour in the app that came from Material
+                  // rather than the design system. This screen's surface
+                  // is black (see the Scaffold above), so the system's
+                  // on-dark error token is the correct one of the two --
+                  // errorLight (#DC2626) is tuned for paper.
+                  style: const TextStyle(color: WynColors.errorDark),
                   textAlign: TextAlign.center,
                 ),
               ),

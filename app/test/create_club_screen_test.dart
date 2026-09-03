@@ -65,15 +65,55 @@ void main() {
     expect(tester.widget<FilledButton>(createButtonFinder()).onPressed, isNotNull);
   });
 
-  testWidgets('shows the cover-picker placeholder hint before a cover is picked', (tester) async {
+  testWidgets('Beta4 §8.1: offers exactly one Club image picker, labelled '
+      '"รูป Club" -- no separate cover and icon', (tester) async {
     await pumpScreen(tester);
 
-    expect(find.text('แตะเพื่อเลือกรูปปก'), findsOneWidget);
-    expect(find.text('แนะนำอัตราส่วน 16:9'), findsOneWidget);
+    expect(find.byKey(const Key('club_image_picker')), findsOneWidget);
+    expect(find.text('รูป Club'), findsOneWidget);
+    // The old copy promised a 16:9 *cover*; this image is the Club's
+    // identity and is rendered as a circle on most surfaces.
+    expect(find.text('แตะเพื่อเลือกรูปปก'), findsNothing);
+    expect(find.text('แนะนำอัตราส่วน 16:9'), findsNothing);
+    expect(find.textContaining('ไอคอน'), findsNothing);
   });
 
-  testWidgets('creating with only Name and Privacy set (Category/Description/Cover/Icon '
-      'left blank) still calls createClub', (tester) async {
+  testWidgets('Beta4 §8.2: the form asks for the name before the image, '
+      'and ends with a review summary above the create button',
+      (tester) async {
+    await pumpScreen(tester);
+
+    // Name field comes first -- the screen used to open with a
+    // full-bleed image picker, asking for a photo of a thing that had
+    // no name yet.
+    final nameY = tester.getTopLeft(_clubNameField()).dy;
+    final imageY =
+        tester.getTopLeft(find.byKey(const Key('club_image_picker'))).dy;
+    expect(nameY, lessThan(imageY));
+
+    // The review summary appears only once the required answers exist.
+    expect(find.byKey(const Key('club_review_summary')), findsNothing);
+
+    await tester.enterText(_clubNameField(), 'ชมรมถ่ายภาพ');
+    await tester.ensureVisible(find.text('สาธารณะ'));
+    await tester.tap(find.text('สาธารณะ'));
+    await tester.pumpAndSettle();
+
+    final summary = find.byKey(const Key('club_review_summary'));
+    expect(summary, findsOneWidget);
+    await tester.ensureVisible(summary);
+    expect(find.text('ตรวจสอบข้อมูล'), findsOneWidget);
+    // Says what is about to be created, including that no image was
+    // chosen -- so "I forgot the picture" is catchable before the tap.
+    expect(find.text('ยังไม่ได้เลือกรูป Club'), findsOneWidget);
+    expect(
+      tester.getTopLeft(summary).dy,
+      lessThan(tester.getTopLeft(createButtonFinder()).dy),
+    );
+  });
+
+  testWidgets('creating with only Name and Privacy set (Category/Description/Image '
+      'left blank) still calls createClub, with no image bytes', (tester) async {
     await pumpScreen(tester);
 
     await tester.enterText(_clubNameField(), 'ชมรมถ่ายภาพ');
@@ -86,5 +126,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(clubRepo.createClubCalls, 1);
+    // Beta4 §8.1: one image parameter, and it is genuinely optional.
+    expect(clubRepo.lastCreateImageBytes, isNull);
+    expect(clubRepo.lastCreateImageExtension, isNull);
   });
 }

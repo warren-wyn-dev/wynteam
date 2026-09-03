@@ -255,7 +255,9 @@ class HomePopCard extends StatelessWidget {
                       icon: item.likedByMe ? Icons.favorite : Icons.favorite_border,
                       iconSize: 17,
                       count: item.likeCount,
-                      color: item.likedByMe ? Colors.red : WynColors.graphite,
+                      color: item.likedByMe
+                          ? WynColors.iconLikeActive
+                          : WynColors.iconIdle,
                       semanticsLabel: item.likedByMe
                           ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
                           : 'กดเพื่อถูกใจ',

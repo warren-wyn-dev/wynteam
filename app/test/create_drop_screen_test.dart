@@ -7,7 +7,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/data/drop_draft.dart';
 import 'package:wyn/features/drop/data/location_result.dart';
+import 'package:wyn/core/design/wyn_spacing.dart';
 import 'package:wyn/features/drop/presentation/create_drop_screen.dart';
+import 'package:wyn/features/drop/presentation/drafts_screen.dart';
+import 'package:wyn/features/drop/presentation/widgets/draft_list.dart';
 import 'package:wyn/features/drop/presentation/location_picker_screen.dart';
 import 'package:wyn/features/follow/presentation/close_friends_screen.dart';
 import 'package:wyn/features/follow/presentation/exclude_friends_screen.dart';
@@ -928,6 +931,87 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(locationTestRepo.createTextDropArgs.single['location'], isNull);
+    });
+  });
+
+  /// Beta4 §5 -- "Draft ไม่อยู่ใน Profile ... สร้างโพสต์ → ร่าง".
+  ///
+  /// The Draft *system* is unchanged (WYN-036): same repository calls,
+  /// same DraftList grid, same tiles, all covered by draft_list_test.dart
+  /// and the "Draft (WYN-036)" group above. What Beta4 moved is the
+  /// entry point, from an unlabelled `edit_note` icon on your own
+  /// profile to a labelled action in the composer's own header. These
+  /// tests guard that entry point.
+  group('Beta4 §5 -- the Draft list opens from the composer header', () {
+    Widget buildScreen({DropDraft? draft}) => MaterialApp(
+          home: CreateDropScreen(
+            dropRepository: repo,
+            profileRepository: profileRepo,
+            draft: draft,
+          ),
+        );
+
+    testWidgets('the composer header offers a labelled "ร่าง" action',
+        (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      final button = find.byKey(const Key('open_drafts_button'));
+      expect(button, findsOneWidget);
+      // A word, not a bare glyph -- the profile entry point it replaces
+      // was an icon with nothing to say what it opened.
+      expect(
+        find.descendant(of: button, matching: find.text('ร่าง')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+            of: button, matching: find.byIcon(Icons.edit_note_outlined)),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the "ร่าง" action has a full-size tap target',
+        (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      final size = tester.getSize(find.byKey(const Key('open_drafts_button')));
+      expect(size.height, greaterThanOrEqualTo(WynSpacing.touchTargetMin));
+    });
+
+    testWidgets('tapping it opens the Draft list', (tester) async {
+      repo.draftsToReturn = [
+        DropDraft(
+          id: 'draft-1',
+          caption: 'ยังคิดไม่ออก',
+          updatedAt: DateTime(2026, 1, 1),
+        ),
+      ];
+
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('open_drafts_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DraftsScreen), findsOneWidget);
+      expect(find.byType(DraftList), findsOneWidget);
+    });
+
+    testWidgets(
+        'a composer opened *from* a draft hides the action, so the list '
+        'cannot be stacked on itself', (tester) async {
+      await tester.pumpWidget(buildScreen(
+        draft: DropDraft(
+          id: 'draft-1',
+          caption: 'ร่างที่เปิดอยู่',
+          updatedAt: DateTime(2026, 1, 1),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('open_drafts_button')), findsNothing);
     });
   });
 }

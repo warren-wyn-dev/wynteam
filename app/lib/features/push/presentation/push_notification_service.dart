@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/navigation/app_navigator.dart';
+import '../../../core/push_env.dart';
 import '../../chat/data/chat_repository.dart';
 import '../../chat/presentation/conversation_screen.dart';
 import '../../club/data/club_post_repository.dart';
@@ -28,7 +29,29 @@ import '../../zoky/data/zoky_repository.dart';
 import '../../zoky/presentation/zoky_order_detail_screen.dart';
 import '../data/push_token_repository.dart';
 
-/// Wires up WYN-016 push notifications: permission request + token
+/// Where this device stands with the OS/browser on push notifications.
+///
+/// Beta4 §11.2 requires all four outcomes to be handled distinctly, and
+/// they are genuinely different situations, not shades of "off":
+///
+/// * [unsupported] -- there is nothing to ask. Firebase never
+///   initialized (no config; see `main.dart`), or this is a web build
+///   with no VAPID key. The UI must not offer a toggle it cannot
+///   honour.
+/// * [notDetermined] -- nobody has asked yet. This is the *only* state
+///   in which showing the OS prompt is allowed, and only after the
+///   in-app explainer (see `PushPermissionCard`).
+/// * [granted] -- includes iOS's `provisional` (quiet delivery, which
+///   is a real grant, not a half one).
+/// * [denied] -- the person said no, or dismissed the prompt on a
+///   platform that treats dismissal as a refusal. **Unrecoverable
+///   in-app**: neither iOS nor any browser will show the prompt a
+///   second time, so the UI's only honest move is to point at system
+///   settings. Asking again does nothing at all -- silently, which is
+///   worse than saying so.
+enum PushPermissionState { unsupported, notDetermined, granted, denied }
+
+/// Wires up WYN-016 push notifications: permission handling + token
 /// registration, and tapping a push open to the right screen (mirrors
 /// `NotificationListScreen._openNotification`'s switch exactly, since
 /// the push payload's `data` fields are the same columns the
@@ -38,30 +61,140 @@ import '../data/push_token_repository.dart';
 /// Every public method checks [Firebase.apps] first and no-ops if empty
 /// -- `Firebase.initializeApp()` (called in `main.dart`, wrapped in its
 /// own try/catch) throws until the Founder adds real
-/// `google-services.json`/`GoogleService-Info.plist` files, and nothing
-/// here should ever surface that as a user-visible error. This class
-/// builds its own repository instances from `Supabase.instance.client`
-/// (same pattern `root_shell.dart`/`SellerAuthGate` already use) rather
-/// than being threaded repositories from wherever it's constructed,
-/// since it's instantiated once at the app root, not from inside a
-/// screen that already has them all in scope.
+/// `google-services.json`/`GoogleService-Info.plist` files (and, on
+/// web, until `--dart-define` carries a config -- see [PushEnv]), and
+/// nothing here should ever surface that as a user-visible error. This
+/// class builds its own repository instances from
+/// `Supabase.instance.client` (same pattern `root_shell.dart`/
+/// `SellerAuthGate` already use) rather than being threaded
+/// repositories from wherever it's constructed, since it's instantiated
+/// once at the app root, not from inside a screen that already has them
+/// all in scope.
+///
+/// ## Beta4 §11.2: permission is no longer requested on sight
+///
+/// [initialize] used to call `requestPermission()` outright, from
+/// `RootShell.initState` -- so the OS dialog fired the instant a user
+/// finished onboarding, before they had seen a single notification and
+/// with no explanation of what they were agreeing to. That is the one
+/// permission prompt a person only ever gets asked once: a reflexive
+/// "Don't Allow" there is permanent, and no amount of later UI can
+/// re-open it.
+///
+/// So [initialize] now only *adopts* a permission that already exists:
+/// it registers a token and wires up listeners when the answer is
+/// already [PushPermissionState.granted], and otherwise does nothing at
+/// all. The ask itself moved behind an explicit user action --
+/// [requestPermissionAndRegister], called from the explainer card on
+/// the Notifications screen and the switch in Notification Settings,
+/// both of which say what push is for *before* the OS dialog appears.
 class PushNotificationService {
-  PushNotificationService(this._tokenRepository);
+  PushNotificationService(this._tokenRepository, {this.onForegroundMessage});
 
   final PushTokenRepository _tokenRepository;
 
+  /// Called when a push arrives while the app is in the foreground.
+  ///
+  /// Beta4 §11.4 (Unread & Badge). FCM does not display a notification
+  /// itself while the app is foregrounded -- by design, since the app
+  /// is presumed to be showing the information already. WYNOS was not:
+  /// `RootShell` read the unread count once, in `initState`, and
+  /// nothing ever told it to read again, so a notification arriving
+  /// while someone browsed Home left the bell's badge stale until the
+  /// app was restarted or the Notifications tab was opened.
+  ///
+  /// This is the event-driven answer to that, and deliberately not a
+  /// poll: §11.7 forbids adding polling, and a timer would also be
+  /// wrong -- it would spend queries on the overwhelmingly common case
+  /// where nothing has happened. The callback fires exactly when
+  /// something has.
+  final VoidCallback? onForegroundMessage;
+
   static bool get _isReady => Firebase.apps.isNotEmpty;
 
-  /// Call once, after the user is signed in and onboarded (see
-  /// `RootShell.initState`) -- requests notification permission, then
-  /// registers the current device's FCM token and starts listening for
-  /// both token refreshes and notification taps.
-  Future<void> initialize() async {
-    if (!_isReady) return;
+  /// Web needs a VAPID key on top of a Firebase app before a token can
+  /// be obtained at all -- see [PushEnv.isWebPushConfigured].
+  static bool get _canObtainToken =>
+      _isReady && (!kIsWeb || PushEnv.isWebPushConfigured);
 
+  static PushPermissionState _stateFrom(AuthorizationStatus status) =>
+      switch (status) {
+        // `provisional` is iOS's quiet-delivery grant: notifications
+        // arrive, they just land in the Notification Centre without
+        // interrupting. That is a grant -- re-prompting on top of it
+        // would ask a question the person has already answered.
+        AuthorizationStatus.authorized ||
+        AuthorizationStatus.provisional =>
+          PushPermissionState.granted,
+        AuthorizationStatus.notDetermined => PushPermissionState.notDetermined,
+        AuthorizationStatus.denied => PushPermissionState.denied,
+      };
+
+  /// What the OS/browser currently says, without asking for anything.
+  ///
+  /// Safe to call on any platform and at any time: `getNotificationSettings`
+  /// reads state, it never prompts.
+  Future<PushPermissionState> currentPermissionState() async {
+    if (!_canObtainToken) return PushPermissionState.unsupported;
+    try {
+      final settings =
+          await FirebaseMessaging.instance.getNotificationSettings();
+      return _stateFrom(settings.authorizationStatus);
+    } catch (_) {
+      // A browser with the Notification API absent or blocked by
+      // policy, or a platform channel that isn't there. Nothing to
+      // offer, and nothing worth an error dialog over.
+      return PushPermissionState.unsupported;
+    }
+  }
+
+  /// Call once, after the user is signed in and onboarded (see
+  /// `RootShell.initState`).
+  ///
+  /// Registers this device's token and starts listening for token
+  /// refreshes and notification taps -- but **only if permission has
+  /// already been granted**. Never prompts; see the class doc comment.
+  Future<void> initialize() async {
+    if (!_canObtainToken) return;
+
+    final state = await currentPermissionState();
+    if (state != PushPermissionState.granted) return;
+
+    await _startDelivery();
+  }
+
+  /// The explicit opt-in: shows the OS prompt (once -- see
+  /// [PushPermissionState.denied]) and, on a grant, registers this
+  /// device immediately so the next notification actually arrives.
+  ///
+  /// Returns the state the device ended up in, so the caller can tell
+  /// "you're set up" from "you'll have to turn this on in system
+  /// settings" without a second round trip.
+  Future<PushPermissionState> requestPermissionAndRegister() async {
+    if (!_canObtainToken) return PushPermissionState.unsupported;
+
+    final PushPermissionState state;
+    try {
+      final settings = await FirebaseMessaging.instance.requestPermission();
+      state = _stateFrom(settings.authorizationStatus);
+    } catch (_) {
+      return PushPermissionState.unsupported;
+    }
+
+    if (state == PushPermissionState.granted) {
+      await _startDelivery();
+    }
+    return state;
+  }
+
+  /// Token registration + the two listeners, shared by [initialize]
+  /// (permission already granted) and [requestPermissionAndRegister]
+  /// (just granted). Idempotent by construction: the token upsert keys
+  /// on the token itself, and re-listening on a stream this app never
+  /// cancels only ever happens once per [RootShell] lifetime, which is
+  /// once per signed-in account since Beta4 keyed that shell by user id.
+  Future<void> _startDelivery() async {
     final messaging = FirebaseMessaging.instance;
-    final settings = await messaging.requestPermission();
-    if (settings.authorizationStatus == AuthorizationStatus.denied) return;
 
     await _registerCurrentToken(messaging);
     messaging.onTokenRefresh.listen((token) {
@@ -71,6 +204,15 @@ class PushNotificationService {
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
       _openFromPushData(message.data);
     });
+
+    // Beta4 §11.4 -- see [onForegroundMessage]. Nothing is *displayed*
+    // here: a foreground push is not turned into an in-app banner (that
+    // would be a new UI surface, which Beta4's scope rules out), it just
+    // tells whoever is listening that the unread count has moved.
+    final onForeground = onForegroundMessage;
+    if (onForeground != null) {
+      FirebaseMessaging.onMessage.listen((_) => onForeground());
+    }
     final initialMessage = await messaging.getInitialMessage();
     if (initialMessage != null) {
       _openFromPushData(initialMessage.data);
@@ -78,19 +220,36 @@ class PushNotificationService {
   }
 
   /// Deletes this device's currently-registered token -- call on
-  /// sign-out. See the RLS comment in supabase/schema.sql for why this
-  /// (not an RLS-permitted cross-user update) is what lets a different
-  /// WYN account cleanly register the same token afterward.
+  /// sign-out, and **before switching accounts** (Beta4 §11.5). See the
+  /// RLS comment in supabase/schema.sql for why this (not an
+  /// RLS-permitted cross-user update) is what lets a different WYN
+  /// account cleanly register the same token afterward.
+  ///
+  /// Beta4 §11.5/§11.8, why the "before switching accounts" half
+  /// matters: `push_tokens` is unique on `token`, and its RLS forbids
+  /// one user from retargeting a row another user owns. So on a device
+  /// where account A had registered, account B's own registration
+  /// *fails* -- silently, since the upsert is fire-and-forget -- and
+  /// the row stays pointed at A. Every push meant for A then lands on a
+  /// device where B is signed in. Deleting the row as A (who does own
+  /// it) is the only sequence that leaves B able to register at all.
   Future<void> unregisterCurrentDevice() async {
-    if (!_isReady) return;
-    final token = await FirebaseMessaging.instance.getToken();
+    if (!_canObtainToken) return;
+    final token = await FirebaseMessaging.instance.getToken(
+      vapidKey: kIsWeb ? PushEnv.vapidKey : null,
+    );
     if (token != null) {
       await _tokenRepository.deleteToken(token);
     }
   }
 
   Future<void> _registerCurrentToken(FirebaseMessaging messaging) async {
-    final token = await messaging.getToken();
+    // `vapidKey` is web-only and must be omitted (null) elsewhere --
+    // passing one on Android/iOS is not merely ignored by every version
+    // of the plugin.
+    final token = await messaging.getToken(
+      vapidKey: kIsWeb ? PushEnv.vapidKey : null,
+    );
     if (token == null) return;
     await _tokenRepository.upsertToken(token: token, platform: _currentPlatform);
   }

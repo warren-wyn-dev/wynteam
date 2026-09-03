@@ -1098,7 +1098,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
 /// 13-chat-thread.tsx's "list of #F1EFE9 fill" tint -- same literal
 /// already established for input fields/pills elsewhere (search bar,
 /// composer below), reused here for received bubbles.
-const _kBubbleFill = Color(0xFFF1EFE9);
+const _kBubbleFill = WynColors.surfaceTint;
 
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({

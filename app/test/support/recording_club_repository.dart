@@ -188,21 +188,24 @@ class RecordingClubRepository extends ClubRepository {
   @override
   Future<void> updateRules({required String clubId, required String rules}) async {}
 
-  @override
-  Future<String> uploadClubCover({
-    required String clubId,
-    required Uint8List bytes,
-    required String fileExtension,
-  }) async =>
-      'https://example.supabase.co/club-media/$clubId/cover.$fileExtension';
+  /// Beta4 §8.1: one image per Club -- replaces the recorded
+  /// `uploadClubCover`/`uploadClubIcon` pair.
+  int uploadIdentityImageCalls = 0;
 
   @override
-  Future<String> uploadClubIcon({
+  Future<String> uploadClubIdentityImage({
     required String clubId,
     required Uint8List bytes,
     required String fileExtension,
-  }) async =>
-      'https://example.supabase.co/club-media/$clubId/icon.$fileExtension';
+  }) async {
+    uploadIdentityImageCalls++;
+    return 'https://example.supabase.co/club-media/$clubId/icon.$fileExtension';
+  }
+
+  /// The bytes/extension the last [createClub] was given, so a test can
+  /// assert a Club is created with exactly one image (Beta4 §8.1).
+  Uint8List? lastCreateImageBytes;
+  String? lastCreateImageExtension;
 
   @override
   Future<Club> createClub({
@@ -210,12 +213,12 @@ class RecordingClubRepository extends ClubRepository {
     required String description,
     String? category,
     required ClubPrivacy privacy,
-    Uint8List? coverBytes,
-    String? coverExtension,
-    Uint8List? iconBytes,
-    String? iconExtension,
+    Uint8List? imageBytes,
+    String? imageExtension,
   }) async {
     createClubCalls++;
+    lastCreateImageBytes = imageBytes;
+    lastCreateImageExtension = imageExtension;
     return club ??
         Club(
           id: 'new-club',

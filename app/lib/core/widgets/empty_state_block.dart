@@ -34,7 +34,7 @@ class EmptyStateBlock extends StatelessWidget {
             width: 64,
             height: 64,
             decoration: const BoxDecoration(
-              color: Color(0xFFF1EFE9),
+              color: WynColors.surfaceTint,
               shape: BoxShape.circle,
             ),
             child: Icon(icon, size: 26, color: WynColors.sapphire),

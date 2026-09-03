@@ -5,6 +5,8 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../auth/presentation/auth_method_screen.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
+import '../../push/data/push_token_repository.dart';
+import '../../push/presentation/push_notification_service.dart';
 import '../data/account_switcher_repository.dart';
 import '../data/stored_account.dart';
 
@@ -50,6 +52,32 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
       _errorText = null;
     });
     try {
+      // Beta4 §11.5 (Notification Account Isolation) -- hand this
+      // device's push registration over *before* the session changes.
+      //
+      // `push_tokens` is unique on `token` and its RLS forbids one user
+      // from retargeting a row owned by another, so once account A has
+      // registered this device, account B's own registration is
+      // rejected and the row keeps pointing at A: A's push
+      // notifications go on arriving on a phone where B is signed in.
+      // Deleting the row while A is still the current session is the
+      // only moment anyone is permitted to remove it -- after
+      // `switchTo` returns, the client is B and the row is A's.
+      //
+      // Best-effort on purpose, and deliberately *not* a reason to
+      // abort the switch: failing to clean up a push registration must
+      // never leave a person stuck on an account they asked to leave.
+      // The worst case if this throws is the pre-Beta4 behaviour, and
+      // the server drops unknown tokens on its own (see
+      // send-push-notification's UNREGISTERED handling).
+      try {
+        await PushNotificationService(
+          PushTokenRepository(Supabase.instance.client),
+        ).unregisterCurrentDevice();
+      } catch (_) {
+        // Intentionally silent -- see above.
+      }
+
       await _repository.switchTo(account, Supabase.instance.client);
       // No manual pop/navigation on success -- AuthGate's own auth-state
       // listener pops every route (this sheet included) back to itself

@@ -5,6 +5,7 @@ import { assertEquals, assertMatch } from "jsr:@std/assert@1";
 import {
   base64Url,
   buildDataPayload,
+  collapseKeyFor,
   buildSignedJwtAssertion,
   displayNameOrUsername,
   type FcmServiceAccount,
@@ -198,12 +199,22 @@ Deno.test("messageFor produces the exact same Thai strings as the Dart client, W
 
 Deno.test("buildDataPayload includes only the id columns that are actually set, plus type/actor_id always", () => {
   const row: NotificationRow = { ...baseRow, id: "n1", type: "like_drop", drop_id: "d1" };
-  assertEquals(buildDataPayload(row), { type: "like_drop", actor_id: "a1", drop_id: "d1" });
+  assertEquals(buildDataPayload(row), {
+    type: "like_drop",
+    notification_id: "n1",
+    actor_id: "a1",
+    drop_id: "d1",
+  });
 });
 
 Deno.test("buildDataPayload includes order_id when set, omits every drop/pop/club field", () => {
   const row: NotificationRow = { ...baseRow, id: "n2", type: "new_order", order_id: "o1" };
-  assertEquals(buildDataPayload(row), { type: "new_order", actor_id: "a1", order_id: "o1" });
+  assertEquals(buildDataPayload(row), {
+    type: "new_order",
+    notification_id: "n2",
+    actor_id: "a1",
+    order_id: "o1",
+  });
 });
 
 // WYN-029 fix: actor_id is null for these types -- must be omitted
@@ -219,6 +230,7 @@ Deno.test("buildDataPayload omits actor_id when null", () => {
   };
   assertEquals(buildDataPayload(row), {
     type: "moderation_warning",
+    notification_id: "n3",
     moderation_action_id: "ma1",
   });
 });
@@ -232,9 +244,42 @@ Deno.test("buildDataPayload includes conversation_id when set (message_request)"
   };
   assertEquals(buildDataPayload(row), {
     type: "message_request",
+    notification_id: "n4",
     actor_id: "a1",
     conversation_id: "c1",
   });
+});
+
+// Beta4 §11.6 (Duplicate Protection).
+Deno.test("collapseKeyFor is the notification row id, so a webhook retry of the same row collapses", () => {
+  const row: NotificationRow = { ...baseRow, id: "n5", type: "like_drop", drop_id: "d1" };
+  assertEquals(collapseKeyFor(row), "n5");
+  // Same row delivered twice -> same key -> the second replaces the first.
+  assertEquals(collapseKeyFor({ ...row }), collapseKeyFor(row));
+});
+
+Deno.test("collapseKeyFor distinguishes two different notifications about the same post", () => {
+  // Two people liking one Drop are two notifications a person should
+  // see separately -- collapsing is per-row, never per-target.
+  const first: NotificationRow = { ...baseRow, id: "n6", type: "like_drop", drop_id: "d1" };
+  const second: NotificationRow = {
+    ...baseRow,
+    id: "n7",
+    actor_id: "a2",
+    type: "like_drop",
+    drop_id: "d1",
+  };
+  assertEquals(collapseKeyFor(first) === collapseKeyFor(second), false);
+});
+
+Deno.test("collapseKeyFor stays inside the 64-byte APNs apns-collapse-id limit", () => {
+  const row: NotificationRow = {
+    ...baseRow,
+    // A real uuid, the widest value this column ever holds.
+    id: "3f2504e0-4f89-11d3-9a0c-0305e82c3301",
+    type: "follow",
+  };
+  assertEquals(new TextEncoder().encode(collapseKeyFor(row)).length <= 64, true);
 });
 
 Deno.test("base64Url produces URL-safe output with no padding", () => {

@@ -23,6 +23,7 @@ import '../../../core/design/wyn_spacing.dart';
 import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
+import '../../../core/design/wyn_colors.dart';
 
 /// Placeholder share link -- same "no real hosting/domain yet" caveat as
 /// dropShareLink/popShareLink (WYN-005/006).
@@ -455,7 +456,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                 child: IconButton(
                   icon: Icon(
                     _post.likedByMe ? Icons.favorite : Icons.favorite_border,
-                    color: _post.likedByMe ? Colors.red : null,
+                    color: _post.likedByMe ? WynColors.iconLikeActive : null,
                   ),
                   onPressed: _toggleLike,
                 ),

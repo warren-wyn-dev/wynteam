@@ -4,6 +4,7 @@ import '../../data/club.dart';
 import '../../data/club_member.dart';
 import 'club_join_button.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import 'club_avatar.dart';
 
 /// A ranked row (1-5) for ExploreClubsScreen's "กำลังนิยม" row --
 /// reuses the same `fetchPopularClubs` result already sorted by member
@@ -63,17 +64,7 @@ class ClubRankedRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: WynSpacing.space1),
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: scheme.primary,
-                  backgroundImage: club.iconUrl != null ? NetworkImage(club.iconUrl!) : null,
-                  child: club.iconUrl == null
-                      ? Text(
-                          club.name.isNotEmpty ? club.name[0].toUpperCase() : '?',
-                          style: TextStyle(color: scheme.onPrimary, fontWeight: FontWeight.bold),
-                        )
-                      : null,
-                ),
+                ClubAvatar(club: club, radius: 18),
                 const SizedBox(width: WynSpacing.space2),
                 Expanded(
                   child: Column(

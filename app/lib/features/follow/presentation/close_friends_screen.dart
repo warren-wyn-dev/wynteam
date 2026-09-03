@@ -156,7 +156,7 @@ class _CloseFriendsScreenState extends State<CloseFriendsScreen> {
         height: 40,
         padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
         decoration: BoxDecoration(
-          color: const Color(0xFFF1EFE9),
+          color: WynColors.surfaceTint,
           borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
           border: Border.all(color: WynColors.hairline),
         ),

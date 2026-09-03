@@ -36,8 +36,9 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
   late final TextEditingController _descriptionController;
   String? _category;
 
-  Uint8List? _coverBytes;
-  String? _coverExtension;
+  // Beta4 §8.1: one image per Club -- see [Club.identityImageUrl].
+  Uint8List? _imageBytes;
+  String? _imageExtension;
 
   bool _isSaving = false;
   String? _errorMessage;
@@ -57,11 +58,14 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
     super.dispose();
   }
 
-  Future<void> _pickCover() async {
+  Future<void> _pickImage() async {
     final picked = await ImagePicker().pickImage(
       source: ImageSource.gallery,
+      // Square bounds, matching CreateClubScreen's own picker -- see
+      // its `_pickImage` for why the old 16:9 was wrong for an image
+      // that is rendered as a circle on most surfaces.
       maxWidth: 1600,
-      maxHeight: 900,
+      maxHeight: 1600,
       imageQuality: 85,
     );
     if (picked == null) return;
@@ -70,8 +74,8 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
         picked.name.contains('.') ? picked.name.split('.').last.toLowerCase() : 'jpg';
     if (!mounted) return;
     setState(() {
-      _coverBytes = bytes;
-      _coverExtension = extension;
+      _imageBytes = bytes;
+      _imageExtension = extension;
     });
   }
 
@@ -82,11 +86,11 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
     });
 
     try {
-      if (_coverBytes != null && _coverExtension != null) {
-        await widget.clubRepository.uploadClubCover(
+      if (_imageBytes != null && _imageExtension != null) {
+        await widget.clubRepository.uploadClubIdentityImage(
           clubId: widget.club.id,
-          bytes: _coverBytes!,
-          fileExtension: _coverExtension!,
+          bytes: _imageBytes!,
+          fileExtension: _imageExtension!,
         );
       }
       await widget.clubRepository.updateClubInfo(
@@ -117,7 +121,7 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildCoverPicker(),
+              _buildImagePicker(),
               const SizedBox(height: WynSpacing.space4),
               TextField(
                 controller: _nameController,
@@ -168,22 +172,57 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
     );
   }
 
-  Widget _buildCoverPicker() {
-    return GestureDetector(
-      onTap: _isSaving ? null : _pickCover,
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
-          child: Container(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: _coverBytes != null
-                ? Image.memory(_coverBytes!, fit: BoxFit.cover)
-                : widget.club.coverUrl != null
-                    ? Image.network(widget.club.coverUrl!, fit: BoxFit.cover,
-                      errorBuilder: networkImageErrorBuilder,
-                    )
-                    : const Center(child: Icon(Icons.add_photo_alternate_outlined, size: 32)),
+  /// Beta4 §8.1: the Club's one identity image, previewed square and
+  /// centred at the size it is actually used -- not the old full-width
+  /// 16:9 slab, which showed a framing no Club surface ever renders.
+  ///
+  /// Reads [Club.identityImageUrl], so a Club created before Beta4
+  /// (whose picture lives in `cover_url`) still shows the image its
+  /// owner chose rather than an empty "add a photo" box that would
+  /// imply it had none.
+  Widget _buildImagePicker() {
+    final existingUrl = widget.club.identityImageUrl;
+    return Center(
+      child: Semantics(
+        label: 'รูป Club แตะเพื่อเปลี่ยน',
+        button: true,
+        excludeSemantics: true,
+        child: GestureDetector(
+          key: const Key('club_image_picker'),
+          onTap: _isSaving ? null : _pickImage,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(WynSpacing.radiusLg),
+                child: SizedBox(
+                  width: 96,
+                  height: 96,
+                  child: ColoredBox(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    child: _imageBytes != null
+                        ? Image.memory(_imageBytes!, fit: BoxFit.cover)
+                        : existingUrl != null
+                            // NetworkThumbnail, not a bare Image.network:
+                            // decodes at the 96px this box paints instead
+                            // of the full 1600px upload (Beta4 §7).
+                            ? NetworkThumbnail(imageUrl: existingUrl)
+                            : const Center(
+                                child: Icon(Icons.add_photo_alternate_outlined,
+                                    size: 32),
+                              ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: WynSpacing.space2),
+              Text(
+                'รูป Club',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
         ),
       ),

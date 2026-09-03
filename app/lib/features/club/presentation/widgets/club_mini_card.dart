@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/club.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import 'club_avatar.dart';
 
 /// A joined-Club shortcut card for the Home CLUB section's horizontal
 /// row -- icon + name + member count, ~100px wide. See
@@ -27,21 +28,7 @@ class ClubMiniCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: WynSpacing.space2),
             child: Column(
               children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  backgroundImage:
-                      club.iconUrl != null ? NetworkImage(club.iconUrl!) : null,
-                  child: club.iconUrl == null
-                      ? Text(
-                          club.name.isNotEmpty ? club.name[0].toUpperCase() : '?',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.onPrimary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      : null,
-                ),
+                ClubAvatar(club: club, radius: 24),
                 const SizedBox(height: WynSpacing.space1),
                 Text(
                   club.name,
