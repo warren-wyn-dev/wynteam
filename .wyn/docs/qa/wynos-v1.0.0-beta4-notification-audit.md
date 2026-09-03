@@ -293,8 +293,24 @@ Collapse key **ไม่ได้กันการส่งครั้งท�
    | `33777275459` | **`action_required` · 0 jobs** | ยังบล็อก แม้จะพิมพ์แค่ boolean — การ *อ้างถึง* context ทั้งก้อนก็พอแล้ว |
    | `33777467741` | failure ที่ pre-flight | เอา reference ออกหมด → รันได้ปกติอีกครั้ง · probe รายงาน `SUPABASE_ACCESS_TOKEN non-empty: false` |
    | `33778330387` | failure ที่ขั้น Deploy | **secret ใช้ได้แล้ว** (`non-empty: true`) · bundle ผ่าน · upload 13 kB ผ่าน · **ล้มที่ Supabase ตอบ `403`** |
+   | `33780460047` | ✅ **success** | หลัง Founder สร้าง token ใหม่จากบัญชีที่ถูกต้อง — `Deployed Functions on project kqokpocajhfbidcxpvhh: send-push-notification` |
 
-   **สถานะล่าสุด — ปัญหาเปลี่ยนชนิดแล้ว** (`33778330387`, 2026-09-03 16:23):
+   **✅ DEPLOYED แล้ว** — run `33780460047` (2026-09-03 16:45) สำเร็จ:
+
+   ```
+   ✅ deno check + deno test        20/20 passed
+   ✅ SUPABASE_ACCESS_TOKEN         non-empty: true
+   ✅ Bundling Function             send-push-notification
+   ✅ Deploying Function            (script size: 13 kB)
+   ✅ Deployed Functions on project kqokpocajhfbidcxpvhh: send-push-notification
+   ```
+
+   สาเหตุที่ 6 runs ก่อนหน้าไม่ผ่าน คือ token มาจากบัญชี Supabase ที่ไม่มีสิทธิ์บน project นี้
+   (ตอบ `403` ไม่ใช่ `401`) — Founder สร้าง token ใหม่จากบัญชีที่ถูกต้องแล้วผ่านทันที
+
+   ---
+
+   **ประวัติเดิม — ปัญหาตอน run ที่ 7** (`33778330387`, 2026-09-03 16:23):
 
    ```
    ✅ deno check + deno test        20/20 passed
@@ -320,7 +336,8 @@ Collapse key **ไม่ได้กันการส่งครั้งท�
    จึงไม่มี log ให้อ่านเลย **อย่าใช้วิธีนั้น diagnose secret ใน repo นี้**
    วิธีที่ปลอดภัยและใช้ได้จริงคือ `secrets.X != ''` ซึ่งอ้างถึง secret ตัวเดียว
 
-   **สรุป:** ฝั่ง GitHub เสร็จสมบูรณ์แล้วทุกขั้น เหลือเรื่องเดียวคือสิทธิ์ของบัญชี Supabase
+   **สรุป:** ปิดเรียบร้อย — Edge Function ที่ Beta4 แก้ อยู่บน production แล้ว
+   และครั้งหน้าแก้ `supabase/functions/` เมื่อไหร่ กดปุ่มเดียวจบ ไม่ต้องใช้ CLI จากเครื่องใคร
 
 ---
 
