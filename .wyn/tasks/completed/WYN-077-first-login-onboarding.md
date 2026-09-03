@@ -1,6 +1,6 @@
 # Task — WYN-077: WYNOS First Login / Account Onboarding
 
-Status: implemented, `flutter analyze`/`flutter test` verified green (2026-09-02, see Verification below), pending real Supabase project/device QA -- see Known Issues below
+Status: **shipped and confirmed working in production** (2026-09-02) -- code merged (#210, #212), migration applied to the real Supabase project (`kqokpocajhfbidcxpvhh`, one round-trip fixing a real bug -- see #217), Google OAuth provider enabled, Founder confirmed the live flow works end to end
 Owner: Founder (product + design spec provided directly) -> AI Coding (this session)
 Feature: Extends WYN-002 (Authentication & Onboarding) / WYN-003 (User Profile) -- does NOT replace either. WYN-002's Google/Apple/email/phone sign-in, guest browsing (WYN-072), moderation gate (WYN-029/030), and Document Acceptance gate (WYN-046) are all unchanged.
 
@@ -124,13 +124,44 @@ Fix commit: `aaf7aab` on `claude/wynos-first-login-onboarding-lhn507`
 branch was restarted from `main` per this repo's merged-PR convention
 and the fix pushed as a new PR).
 
-## Known issues / not done in this session
+## Production deploy (2026-09-02, Founder)
 
-- **No Supabase project available** -- same limitation WYN-002 has
-  documented from the start. The schema migration needs to be applied
-  (`supabase/schema.sql`'s new section, from the `profile_private` table
-  onward) to a real project, and the full flow needs one real
-  device/browser run against it, before production deploy.
+This sandbox has no network access to Supabase/Vercel/Google Cloud
+Console at all (confirmed via direct test -- every request rejected at
+the egress proxy with a policy denial, same as the WYN-072 incident's
+"sandbox safety classifier บล็อกไว้ตามที่ตั้งใจ"), so every step below was
+done by Founder directly against the real project, following SQL/
+instructions prepared in this session:
+
+1. **Migration applied** to Supabase project `kqokpocajhfbidcxpvhh` --
+   hit a real bug on the first attempt: `profiles_username_not_reserved`
+   (a plain `ADD CONSTRAINT`) failed immediately because a pre-existing
+   production account already had a reserved-looking username (a seed/
+   test account predating this rule). Fixed by adding the constraint
+   `NOT VALID` instead (grandfathers existing rows, enforces only on
+   future INSERT/UPDATE) and making the whole block idempotent
+   (`drop ... if exists` before every policy/constraint, not just the
+   table) so a corrected re-paste is always safe regardless of what
+   partially committed before the failure -- see PR #217. Second run:
+   **Success. No rows returned.**
+2. **Google OAuth provider enabled** in Supabase Dashboard ->
+   Authentication -> Providers -> Google, with the Client ID/Secret
+   Founder provided (rotated after being shared in this chat -- see the
+   credential-handling note below).
+3. **Founder confirmed the live flow works end to end** on the real app
+   (Google sign-in -> onboarding -> Home).
+
+**Credential handling note**: Founder pasted a live Supabase Personal
+Access Token, database password, Vercel deploy token, and Google OAuth
+client secret directly into this chat at one point. None of it was ever
+usable from this sandbox (network blocked, confirmed above), so none of
+it was stored beyond a single session-scratch file that was deleted
+immediately after confirming it couldn't be reached, and none of it was
+ever committed to the repo. Founder rotated all of it afterward per this
+session's own recommendation.
+
+## Known issues / not done
+
 - Username-availability checks (and auth generally) rely on Supabase's
   own built-in rate limiting; no bespoke rate-limit table was added for
   this task specifically (would be disproportionate scope for this
@@ -138,8 +169,9 @@ and the fix pushed as a new PR).
 - `OnboardingScaffold`'s Profile Optional -> Password-skipped case shows
   progress as "4 of 4" (recalculated, not literally skipping a number) --
   intentional, not a bug.
+- No formal AI QA & Security review round was run against this task
+  (Founder verified the live flow directly instead). Worth doing a
+  proper `/qa` pass later if this repo's usual QA-gate convention should
+  apply retroactively.
 
-Handoff: `flutter analyze`/`flutter test` are now verified green (see
-Verification above). Still needs: AI QA & Security review, the schema
-migration applied to a real Supabase project, and one real device/browser
-pass, before AI Deploy & DevOps can ship this.
+Handoff: done. Live in production, confirmed working by Founder.
