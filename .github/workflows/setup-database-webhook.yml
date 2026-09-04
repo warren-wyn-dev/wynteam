@@ -370,6 +370,40 @@ jobs:
               echo "recipient, who has no INSERT path until the request is accepted -- and the client's own"
               echo "restriction/composer state fails open on a fetch error, so this can be invisible in the UI"
               echo "(see conversation_screen.dart's _loadSafetyState/_loadConversationMeta doc comments)."
+
+              # Every condition the RLS with-check names came back clean
+              # above -- neither posting-blocked, not blocked either way,
+              # conversation already active. If that is really the whole
+              # policy, an insert as u1 (warren) into their real
+              # conversation should succeed. Running it for real, as the
+              # `authenticated` role with u1's own claims (exactly what
+              # PostgREST does per request), inside a transaction this
+              # rolls back, is what actually answers that instead of
+              # reasoning about it -- and rollback means nothing here is
+              # ever visible to either account, win or lose.
+              echo
+              echo "=== Simulating warren's own INSERT into that conversation (rolled back) ==="
+              U1_ID=$(run_sql "select id from public.profiles where lower(username) = lower($(sqlq "$U1"));" | jq -r '.[0].id')
+              CONVO_ID=$(run_sql "select c.id from public.conversations c
+                                   where c.user_a_id in (select id from public.profiles where lower(username) in (lower($(sqlq "$U1")), lower($(sqlq "$U2"))))
+                                     and c.user_b_id in (select id from public.profiles where lower(username) in (lower($(sqlq "$U1")), lower($(sqlq "$U2"))));" | jq -r '.[0].id')
+              if [ -z "$U1_ID" ] || [ "$U1_ID" = "null" ] || [ -z "$CONVO_ID" ] || [ "$CONVO_ID" = "null" ]; then
+                echo "::error::Could not resolve warren's id or the conversation id -- skipping the insert test."
+              else
+                run_sql "begin;
+                         set local role authenticated;
+                         set local request.jwt.claim.sub = $(sqlq "$U1_ID");
+                         set local request.jwt.claim.role = 'authenticated';
+                         insert into public.messages (conversation_id, sender_id, text)
+                         values ($(sqlq "$CONVO_ID"), $(sqlq "$U1_ID"), 'diagnostic -- never persisted, rolled back')
+                         returning left(id::text, 8) as would_be_message_id, created_at;
+                         rollback;" | jq .
+                echo
+                echo "An array with one row above means the insert succeeded and RLS is not the problem at all --"
+                echo "the failure is somewhere in the client (a stale local id, a request that never reaches"
+                echo "Supabase, something the network tab on a desktop browser would show). An ::error:: with a"
+                echo "Postgres message instead is the actual reason, verbatim."
+              fi
               ;;
 
             moderation-check)
