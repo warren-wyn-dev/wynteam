@@ -88,6 +88,45 @@ export function currentActiveAction(
   );
 }
 
+export type DirectorySort = "newest" | "oldest" | "most_active" | "dormant";
+export type DirectoryStatus = "normal" | "restrict" | "suspend" | "ban";
+
+export type DirectoryUser = {
+  id: string;
+  username: string;
+  display_name: string | null;
+  platform_role: "user" | "moderator" | "admin";
+  created_at: string;
+  last_active_at: string | null;
+  activity_count: number;
+  current_status: DirectoryStatus;
+};
+
+/**
+ * The "wide-angle" view -- rank/filter every user by activity or
+ * status, no username typed. Mirrors admin_user_directory()'s
+ * RETURNS TABLE column list exactly (supabase/schema.sql). Separate
+ * from searchUsers() on purpose: that one is a plain `profiles` select
+ * (its own SELECT policy already allows it, no RPC needed) with no
+ * activity/status computed, so keeping this as its own RPC+fetcher
+ * avoids overloading searchUsers()'s simpler contract.
+ */
+export async function fetchUserDirectory(params: {
+  sort?: DirectorySort;
+  role?: "user" | "moderator" | "admin";
+  status?: DirectoryStatus;
+}): Promise<DirectoryUser[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_user_directory", {
+    p_sort: params.sort ?? "newest",
+    p_role: params.role ?? null,
+    p_status: params.status ?? null,
+  });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
 export type ReportRow = {
   id: string;
   category: string;

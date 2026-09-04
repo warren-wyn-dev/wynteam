@@ -8150,6 +8150,114 @@ where internal.current_platform_role() <> 'user';
 grant select on public.admin_user_moderation_history to authenticated;
 
 -- ============================================================
+-- Admin User Management: directory (sort/filter, wide-angle view)
+-- ============================================================
+-- Added directly per the Founder's request -- User Management could
+-- only ever show one user at a time (typed a username, got a row).
+-- This is the "see the whole picture" complement: rank/filter every
+-- user by activity or status, no query typed. Same "did-something"
+-- union every other admin RPC in this file already builds
+-- (admin_dashboard_metrics()/admin_dashboard_trends()'s DAU calc) --
+-- duplicated rather than shared for the same reason those two are: no
+-- cross-function CTE reuse in Postgres, and each RPC stays
+-- self-contained and independently readable.
+create or replace function public.admin_user_directory(
+  p_sort text default 'newest',
+  p_role text default null,
+  p_status text default null,
+  p_limit int default 50
+)
+returns table (
+  id uuid,
+  username text,
+  display_name text,
+  platform_role text,
+  created_at timestamptz,
+  last_active_at timestamptz,
+  activity_count bigint,
+  current_status text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if coalesce(internal.current_platform_role(), '') not in ('admin', 'moderator') then
+    raise exception 'Not permitted to view the user directory';
+  end if;
+
+  return query
+  with actions as (
+    select user_id as actor_id, created_at from public.drop_likes
+    union all
+    select user_id, created_at from public.pop_likes
+    union all
+    select user_id, created_at from public.club_post_likes
+    union all
+    select author_id, created_at from public.drop_comments
+    union all
+    select author_id, created_at from public.pop_comments
+    union all
+    select author_id, created_at from public.club_post_comments
+    union all
+    select redropper_id, created_at from public.redrops
+    union all
+    select sender_id, created_at from public.messages where deleted_at is null
+    union all
+    select author_id, created_at from public.drops
+  ),
+  activity as (
+    select actor_id, max(created_at) as last_active_at, count(*) as activity_count
+    from actions
+    group by actor_id
+  ),
+  -- Same "still-active restrict/suspend, or any ban, not overturned"
+  -- rule as currentActiveAction() in admin/lib/admin-users.ts applies
+  -- client-side to one user's own history -- computed here instead so
+  -- every row in a many-user directory gets it without an N+1 query per
+  -- user. `distinct on` picks the most recent qualifying row per user,
+  -- matching that helper's "the" (singular) active action assumption.
+  active_action as (
+    select distinct on (target_user_id)
+      target_user_id,
+      action_type
+    from public.moderation_actions
+    where overturned_at is null
+      and (
+        action_type = 'ban'
+        or (action_type in ('restrict', 'suspend') and expires_at > now())
+      )
+    order by target_user_id, created_at desc
+  )
+  select
+    p.id,
+    p.username,
+    p.display_name,
+    p.platform_role,
+    p.created_at,
+    a.last_active_at,
+    coalesce(a.activity_count, 0),
+    coalesce(aa.action_type, 'normal')
+  from public.profiles p
+  left join activity a on a.actor_id = p.id
+  left join active_action aa on aa.target_user_id = p.id
+  where (p_role is null or p.platform_role = p_role)
+    and (p_status is null or coalesce(aa.action_type, 'normal') = p_status)
+  order by
+    case when p_sort = 'newest' then p.created_at end desc,
+    case when p_sort = 'oldest' then p.created_at end asc,
+    case when p_sort = 'most_active' then coalesce(a.activity_count, 0) end desc,
+    -- Never-active users (last_active_at null) count as the most
+    -- dormant of all, not sorted to the bottom -- nulls first is the
+    -- point, not an artifact.
+    case when p_sort = 'dormant' then a.last_active_at end asc nulls first
+  limit p_limit;
+end;
+$$;
+
+grant execute on function public.admin_user_directory(text, text, text, int) to authenticated;
+
+-- ============================================================
 -- WYN-052: WYN Admin Content Moderation (Search Drop, Remove,
 -- Restore -- Drop only in V1)
 -- ============================================================
