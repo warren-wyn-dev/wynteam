@@ -37,3 +37,17 @@ migration ตรวจซ้ำบน PostgreSQL 16.13 จริงแล้ว:
 `.wyn/tasks/bugs/WYN-109-compose-preview-fixed-aspect.md`
 
 รายงานเต็ม: `.wyn/docs/qa/wyn-106-107-108-109-home-cards-qa.md`
+
+---
+
+## สถานะ migration (2026-09-04)
+
+- **ส่วนที่ 1 — คอลัมน์: รันบน production แล้ว** Founder รัน
+  `supabase/migrations_wyn109a_column_only.sql` ใน Supabase SQL Editor ผลลัพธ์
+  `Success. No rows returned` → `drops.image_aspect_ratio` มีอยู่จริงบน production แล้ว
+  ผลที่ตามมาทันที: ฝั่งเขียนใช้ได้ (`_insertDrop` ส่งคอลัมน์นี้เมื่อมีค่า) และทุก query ที่ใช้
+  `_dropSelect` (ขึ้นต้นด้วย `*` จากตาราง `drops`) อ่านค่าได้เอง — Drop Detail / Drop grid /
+  โปรไฟล์ แสดงสัดส่วนถูกต้องแล้ว
+- **ส่วนที่ 2 — view `home_feed`: ยังไม่ได้เขียน** ฟีดหน้า Home อ่านจาก view ซึ่งยังไม่มีคอลัมน์นี้
+  จึง fallback เป็น 4:5 ทุกโพสต์ (ไม่พัง แต่ยังไม่สมบูรณ์) เขียน migration ส่วนนี้ไม่ได้จนกว่าจะรู้
+  นิยามจริงของ view บน production — ดู SCHEMA-004 รอผลคำสั่ง `information_schema.columns` จาก Founder
