@@ -23,9 +23,14 @@ export async function UserDirectory({
   try {
     users = await fetchUserDirectory({ sort, role, status });
   } catch (e) {
+    // supabase-js throws the raw PostgrestError object as-is (plain
+    // {message, details, hint, code}, not a real Error instance), so
+    // `e instanceof Error` is false for exactly the RPC-error case this
+    // is here to catch -- JSON.stringify(e) on its own enumerable
+    // fields, always, is what actually shows the real error either way.
     return (
       <pre className="m-6 whitespace-pre-wrap break-words rounded-lg border border-destructive bg-destructive/10 p-4 text-xs text-destructive">
-        {e instanceof Error ? `${e.name}: ${e.message}\n${JSON.stringify(e, null, 2)}` : String(e)}
+        {JSON.stringify(e, Object.getOwnPropertyNames(Object(e)), 2)}
       </pre>
     );
   }
