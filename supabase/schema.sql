@@ -10720,6 +10720,22 @@ alter table public.drops add column if not exists image_height integer;
 alter table public.drop_images add column if not exists image_width integer;
 alter table public.drop_images add column if not exists image_height integer;
 
+-- WYN-109: the aspect ratio the poster chose for this Drop's photos,
+-- applied to all of them. NULL = posted before WYN-109, which the client
+-- renders at 4:5 -- the shape those photos were already cropped to.
+-- Founder-approved 2026-09-04, see .wyn/company/APPROVALS.md.
+alter table public.drops add column if not exists image_aspect_ratio text;
+
+alter table public.drops
+  drop constraint if exists drops_image_aspect_ratio_valid;
+
+alter table public.drops
+  add constraint drops_image_aspect_ratio_valid
+  check (
+    image_aspect_ratio is null
+    or image_aspect_ratio in ('original', '1:1', '4:5', '16:9')
+  );
+
 -- ============================================================
 -- WYNOSHomeSpec.md 4.9's header row / 4.6's suggested-account row --
 -- Verified badge
@@ -12130,7 +12146,8 @@ select
   d.image_height,
   d.audience,
   d.location,
-  (select count(*) from public.drop_images where drop_id = d.id) as image_count
+  (select count(*) from public.drop_images where drop_id = d.id) as image_count,
+  d.image_aspect_ratio
 from public.drops d
 join public.profiles prof on prof.id = d.author_id
 left join public.drop_polls dp on dp.drop_id = d.id
@@ -12206,7 +12223,8 @@ select
   null::integer as image_height,
   'everyone'::text as audience,
   null::text as location,
-  null::bigint as image_count
+  null::bigint as image_count,
+  null::text as image_aspect_ratio
 from public.pops p
 join public.profiles prof on prof.id = p.author_id
 where not exists (
@@ -12281,7 +12299,8 @@ select
   d.image_height,
   d.audience,
   d.location,
-  (select count(*) from public.drop_images where drop_id = d.id) as image_count
+  (select count(*) from public.drop_images where drop_id = d.id) as image_count,
+  d.image_aspect_ratio
 from public.redrops r
 join public.drops d on d.id = r.drop_id
 join public.profiles prof on prof.id = d.author_id
