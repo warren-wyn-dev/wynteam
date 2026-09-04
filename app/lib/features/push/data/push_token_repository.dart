@@ -46,6 +46,33 @@ class PushTokenRepository {
     );
   }
 
+  /// One row of `push_tokens` as the owner can see it.
+  ///
+  /// Only ever the current user's own rows -- RLS on this table has no
+  /// authenticated-wide select (see supabase/schema.sql), which is why
+  /// this is safe to read from the client at all while the Edge
+  /// Function needs the service-role key to read across users.
+  ///
+  /// [token] is carried so the caller can tell whether the device it is
+  /// running on is one of these rows. Nothing displays it: see
+  /// `PushDiagnostics.tokenTail`.
+  Future<List<RegisteredPushDevice>> devicesForCurrentUser() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return const [];
+    final rows = await _client
+        .from('push_tokens')
+        .select('token, platform, updated_at')
+        .eq('user_id', userId);
+    return [
+      for (final row in rows as List<dynamic>)
+        RegisteredPushDevice(
+          token: (row as Map<String, dynamic>)['token'] as String,
+          platform: row['platform'] as String,
+          updatedAt: DateTime.tryParse(row['updated_at'] as String? ?? ''),
+        ),
+    ];
+  }
+
   /// Removes [token] on sign-out -- see the RLS comment in
   /// supabase/schema.sql: this is what actually lets a different WYN
   /// account register the same token cleanly afterward on a shared/
@@ -54,4 +81,18 @@ class PushTokenRepository {
   Future<void> deleteToken(String token) {
     return _client.from('push_tokens').delete().eq('token', token);
   }
+}
+
+
+/// A device registered to receive push for the signed-in account.
+class RegisteredPushDevice {
+  const RegisteredPushDevice({
+    required this.token,
+    required this.platform,
+    this.updatedAt,
+  });
+
+  final String token;
+  final String platform;
+  final DateTime? updatedAt;
 }

@@ -46,6 +46,21 @@ class FakePushNotificationService extends PushNotificationService {
     return currentState;
   }
 
+  /// What [collectDiagnostics] reports. Null means "answer from
+  /// [currentState] with nothing else set", which is what a device with
+  /// no Firebase app would really produce.
+  PushDiagnostics? diagnostics;
+
+  @override
+  Future<PushDiagnostics> collectDiagnostics() async {
+    return diagnostics ??
+        PushDiagnostics(
+          firebaseReady: false,
+          webPushConfigured: false,
+          permission: currentState,
+        );
+  }
+
   @override
   Future<PushPermissionState> requestPermissionAndRegister() async {
     requestCalls++;

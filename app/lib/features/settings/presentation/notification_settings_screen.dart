@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/notification_settings_repository.dart';
 import '../../push/data/push_token_repository.dart';
+import '../../push/presentation/push_diagnostics_sheet.dart';
 import '../../push/presentation/push_notification_service.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
@@ -166,6 +167,7 @@ class _NotificationSettingsScreenState
     return ListView(
       children: [
         _buildDeviceSection(),
+        _buildDiagnosticsRow(),
         _buildCategoryHeader(),
         SwitchListTile(
           secondary: const Icon(Icons.favorite_border),
@@ -294,6 +296,25 @@ class _NotificationSettingsScreenState
       // too, which work regardless.
       PushPermissionState.unsupported => const SizedBox.shrink(),
     };
+  }
+
+  /// Shown in every state, including [PushPermissionState.unsupported]
+  /// where the row above renders nothing: "unsupported" is exactly when
+  /// a person most needs to be told why, and it is the one state whose
+  /// cause (a browser that cannot receive push, or a web app opened
+  /// outside the Home Screen on iOS) is invisible from here.
+  Widget _buildDiagnosticsRow() {
+    return ListTile(
+      key: const Key('push_diagnostics_entry'),
+      leading: const Icon(Icons.help_outline, color: WynColors.graphite),
+      title: const Text('ไม่ได้รับการแจ้งเตือน?'),
+      subtitle: const Text('ตรวจสอบทีละขั้นว่าติดตรงไหน'),
+      trailing: const Icon(Icons.chevron_right, color: WynColors.faint),
+      onTap: () => showPushDiagnosticsSheet(
+        context,
+        pushNotificationService: widget.pushNotificationService,
+      ),
+    );
   }
 
   /// Names what the switches below actually control, now that a

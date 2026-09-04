@@ -233,6 +233,68 @@ class PushNotificationService {
   /// the row stays pointed at A. Every push meant for A then lands on a
   /// device where B is signed in. Deleting the row as A (who does own
   /// it) is the only sequence that leaves B able to register at all.
+  /// Everything this device can say about its own push setup, in one
+  /// read.
+  ///
+  /// Written because a push that fails delivers no evidence anywhere a
+  /// person can reach. Chasing one took a whole session of asking the
+  /// Founder to read system settings aloud, and the question that
+  /// actually mattered -- *is the account I am watching registered on
+  /// the device I am holding?* -- was the one nothing could answer: the
+  /// server sees tokens without knowing which browser owns them, and
+  /// the device sees a permission without knowing whether its token
+  /// ever reached the table.
+  ///
+  /// So this is deliberately the join of the two. It never prompts, and
+  /// it never shows a token: [PushDiagnostics.tokenTail] is the last
+  /// eight characters, which is enough to match a device to a row and
+  /// useless to anyone who intercepts it.
+  Future<PushDiagnostics> collectDiagnostics() async {
+    final permission = await currentPermissionState();
+    if (!_canObtainToken) {
+      return PushDiagnostics(
+        firebaseReady: _isReady,
+        webPushConfigured: !kIsWeb || PushEnv.isWebPushConfigured,
+        permission: permission,
+      );
+    }
+
+    String? token;
+    String? failure;
+    try {
+      token = await FirebaseMessaging.instance.getToken(
+        vapidKey: kIsWeb ? PushEnv.vapidKey : null,
+      );
+    } catch (error) {
+      // Reported rather than swallowed: on iOS a PWA that was opened
+      // from Safari instead of the Home Screen throws here, and that is
+      // precisely the case a person cannot otherwise distinguish from
+      // "push is broken".
+      failure = error.toString();
+    }
+
+    List<RegisteredPushDevice> devices = const [];
+    try {
+      devices = await _tokenRepository.devicesForCurrentUser();
+    } catch (error) {
+      failure ??= error.toString();
+    }
+
+    return PushDiagnostics(
+      firebaseReady: _isReady,
+      webPushConfigured: !kIsWeb || PushEnv.isWebPushConfigured,
+      permission: permission,
+      hasToken: token != null,
+      tokenTail: token == null || token.length < 8
+          ? null
+          : token.substring(token.length - 8),
+      thisDeviceRegistered:
+          token != null && devices.any((device) => device.token == token),
+      registeredDeviceCount: devices.length,
+      failure: failure,
+    );
+  }
+
   Future<void> unregisterCurrentDevice() async {
     if (!_canObtainToken) return;
     final token = await FirebaseMessaging.instance.getToken(
@@ -512,4 +574,58 @@ class PushNotificationService {
       ),
     );
   }
+}
+
+
+/// A snapshot of one device's push setup, produced by
+/// [PushNotificationService.collectDiagnostics].
+///
+/// Every field answers a question that was, at some point, unanswerable
+/// from either side alone -- see that method's doc comment.
+class PushDiagnostics {
+  const PushDiagnostics({
+    required this.firebaseReady,
+    required this.webPushConfigured,
+    required this.permission,
+    this.hasToken = false,
+    this.tokenTail,
+    this.thisDeviceRegistered = false,
+    this.registeredDeviceCount = 0,
+    this.failure,
+  });
+
+  /// A Firebase app exists in this build at all.
+  final bool firebaseReady;
+
+  /// On web, a VAPID key was compiled in; always true elsewhere, where
+  /// no such key applies.
+  final bool webPushConfigured;
+
+  final PushPermissionState permission;
+
+  /// The browser/OS issued a token to this device.
+  final bool hasToken;
+
+  /// The last eight characters of it, for matching a device to a row.
+  /// Never the whole token.
+  final String? tokenTail;
+
+  /// This device's token is one of the rows stored for the signed-in
+  /// account. False with [hasToken] true means the token exists but was
+  /// never saved -- a different failure from never having one.
+  final bool thisDeviceRegistered;
+
+  /// How many devices the signed-in account has registered in total.
+  final int registeredDeviceCount;
+
+  /// Why a step could not be completed, when one could not be.
+  final String? failure;
+
+  /// True when nothing stands between this device and a push arriving.
+  bool get isReadyToReceive =>
+      firebaseReady &&
+      webPushConfigured &&
+      permission == PushPermissionState.granted &&
+      hasToken &&
+      thisDeviceRegistered;
 }
