@@ -130,6 +130,18 @@ class PushNotificationService {
         AuthorizationStatus.denied => PushPermissionState.denied,
       };
 
+  /// How long any single Firebase call is given before this class stops
+  /// waiting on it.
+  ///
+  /// Not defensive padding: on an iOS web app this observably never
+  /// returns at all -- no value, no error -- and every caller is
+  /// written to await it. The settings screen sat on "กำลังตรวจสอบ..."
+  /// permanently, and worse, [initialize] awaits the same call before
+  /// deciding whether to register, so a device it hangs on never
+  /// registers a token and silently receives nothing forever. A hang is
+  /// the one failure mode a try/catch cannot see.
+  static const Duration _probeTimeout = Duration(seconds: 5);
+
   /// What the OS/browser currently says, without asking for anything.
   ///
   /// Safe to call on any platform and at any time: `getNotificationSettings`
@@ -137,13 +149,15 @@ class PushNotificationService {
   Future<PushPermissionState> currentPermissionState() async {
     if (!_canObtainToken) return PushPermissionState.unsupported;
     try {
-      final settings =
-          await FirebaseMessaging.instance.getNotificationSettings();
+      final settings = await FirebaseMessaging.instance
+          .getNotificationSettings()
+          .timeout(_probeTimeout);
       return _stateFrom(settings.authorizationStatus);
     } catch (_) {
       // A browser with the Notification API absent or blocked by
-      // policy, or a platform channel that isn't there. Nothing to
-      // offer, and nothing worth an error dialog over.
+      // policy, a platform channel that isn't there, or the call simply
+      // never answering (see [_probeTimeout]). Nothing to offer, and
+      // nothing worth an error dialog over.
       return PushPermissionState.unsupported;
     }
   }
@@ -262,9 +276,9 @@ class PushNotificationService {
     String? token;
     String? failure;
     try {
-      token = await FirebaseMessaging.instance.getToken(
-        vapidKey: kIsWeb ? PushEnv.vapidKey : null,
-      );
+      token = await FirebaseMessaging.instance
+          .getToken(vapidKey: kIsWeb ? PushEnv.vapidKey : null)
+          .timeout(_probeTimeout);
     } catch (error) {
       // Reported rather than swallowed: on iOS a PWA that was opened
       // from Safari instead of the Home Screen throws here, and that is
@@ -309,9 +323,17 @@ class PushNotificationService {
     // `vapidKey` is web-only and must be omitted (null) elsewhere --
     // passing one on Android/iOS is not merely ignored by every version
     // of the plugin.
-    final token = await messaging.getToken(
-      vapidKey: kIsWeb ? PushEnv.vapidKey : null,
-    );
+    // Bounded for the same reason as [_probeTimeout]: an unanswered
+    // getToken here leaves _startDelivery half-done -- no token stored,
+    // and no listener attached either, because both come after it.
+    final String? token;
+    try {
+      token = await messaging
+          .getToken(vapidKey: kIsWeb ? PushEnv.vapidKey : null)
+          .timeout(_probeTimeout);
+    } catch (_) {
+      return;
+    }
     if (token == null) return;
     await _tokenRepository.upsertToken(token: token, platform: _currentPlatform);
   }
