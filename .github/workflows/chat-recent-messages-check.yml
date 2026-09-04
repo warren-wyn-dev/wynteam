@@ -1,0 +1,60 @@
+name: Chat -- recent messages in warren<->wynos_online
+
+# Founder reports a message "shows up but doesn't actually send" after
+# the reply_to embed fix -- ambiguous whether that means (a) it renders
+# locally but the recipient never receives it, or (b) it disappears again
+# on reload (never really persisted). ChatRepository.sendMessage() is not
+# optimistic -- a message is only ever added to the UI list after the
+# insert+select round-trip actually returns successfully, so if a bubble
+# rendered at all, the row should be really committed. This queries the
+# real conversation directly to see exactly what's in the table right
+# now: read-only, no data touched.
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== Last 10 messages in the real warren<->wynos_online conversation ==="
+          run_sql "select left(m.id::text,8) as id,
+                          left(m.sender_id::text,8) as sender,
+                          p.username as sender_username,
+                          m.text, m.created_at, m.deleted_at
+                   from public.messages m
+                   join public.conversations c on c.id = m.conversation_id
+                   join public.profiles p on p.id = m.sender_id
+                   where c.user_a_id in (select id from public.profiles where lower(username) in ('warren','wynos_online'))
+                     and c.user_b_id in (select id from public.profiles where lower(username) in ('warren','wynos_online'))
+                   order by m.created_at desc
+                   limit 10;" | jq .
+          echo
+          echo "Rows here are real, committed messages -- if 'สวัสดีครับ' shows twice with recent"
+          echo "created_at timestamps, both sends genuinely persisted. If it's missing entirely, the"
+          echo "send never actually reached the database despite rendering locally (a different bug --"
+          echo "worth checking network tab / actual HTTP status on that attempt, not this query alone)."
