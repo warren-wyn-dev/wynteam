@@ -251,6 +251,27 @@ jobs:
               run_sql "select platform, count(*) as devices, max(updated_at) as newest
                        from public.push_tokens group by platform;" | jq .
 
+              # Which device holds which token matters once FCM starts
+              # reporting sent=1 while nothing appears: the push may be
+              # going to a browser that is not the one being watched.
+              # There is no user-agent column, so registration time is
+              # the only way to tell a freshly-installed PWA from an
+              # older browser session. Ids are truncated -- matching a
+              # token to a recipient needs only the prefix, and the full
+              # uuid is not this log's business.
+              echo
+              echo "  which account registered which device, newest first:"
+              run_sql "select left(user_id::text, 8) as user_prefix, platform,
+                              created_at, updated_at
+                       from public.push_tokens order by updated_at desc;" | jq .
+              echo "  who the recent notifications were addressed to:"
+              run_sql "select left(recipient_id::text, 8) as recipient_prefix, type, created_at
+                       from public.notifications
+                       order by created_at desc limit 5;" | jq .
+              echo "  (a recipient with no row in the table above got no push at all;"
+              echo "   a recipient whose token predates the Home Screen install is being"
+              echo "   delivered to whatever browser registered it back then)"
+
               echo
               echo "=== 4. What did the webhook actually send, and what came back? ==="
               echo "(this is the decisive one -- content is the Edge Function's own reply)"
