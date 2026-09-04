@@ -25,7 +25,21 @@ import { fetchAdminDashboardMetrics } from "@/lib/admin-metrics";
  * flight, without delaying the rest of the page (header/refresh button).
  */
 export async function DashboardMetrics() {
-  const m = await fetchAdminDashboardMetrics();
+  // TEMPORARY diagnostic (remove once the production RPC failure is
+  // root-caused): Next.js redacts thrown Server Component error
+  // messages before they reach the client error boundary, so the only
+  // way to actually see the real Postgres/PostgREST error text is to
+  // catch it here and render it directly instead of letting it throw.
+  let m;
+  try {
+    m = await fetchAdminDashboardMetrics();
+  } catch (e) {
+    return (
+      <pre className="m-6 whitespace-pre-wrap break-words rounded-lg border border-destructive bg-destructive/10 p-4 text-xs text-destructive">
+        {e instanceof Error ? `${e.name}: ${e.message}\n${JSON.stringify(e, null, 2)}` : String(e)}
+      </pre>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6 p-6">
