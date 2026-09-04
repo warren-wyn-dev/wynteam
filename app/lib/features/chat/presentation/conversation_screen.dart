@@ -143,6 +143,7 @@ class ConversationScreen extends StatefulWidget {
 class _ConversationScreenState extends State<ConversationScreen> with WidgetsBindingObserver {
   final _scrollController = ScrollController();
   final _textController = TextEditingController();
+  final _textFieldFocusNode = FocusNode();
   final List<ChatMessage> _messages = [];
 
   late final BlockRepository _blockRepository =
@@ -265,6 +266,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     _revealTimer?.cancel();
     _scrollController.dispose();
     _textController.dispose();
+    _textFieldFocusNode.dispose();
     super.dispose();
   }
 
@@ -555,6 +557,16 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// error toast already says to try again).
   Future<void> _send() async {
     if (!_canSend) return;
+    // Re-affirm focus synchronously, in the same tap that triggered this
+    // -- on Flutter *Web*, tapping any other on-screen control (like the
+    // send button itself) can blur the underlying native text-input
+    // element the mobile browser uses to show its keyboard, even though
+    // this TextField's own FocusNode never actually loses focus. Asking
+    // again right here, before anything else runs, gives the browser the
+    // best chance of treating it as still part of the same user gesture
+    // and keeping the keyboard up (not guaranteed on every browser, but
+    // costs nothing to try).
+    _textFieldFocusNode.requestFocus();
     final text = _textController.text;
     final imageBytes = _imageBytes;
     final imageExtension = _imageExtension;
@@ -1195,6 +1207,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                   ),
                   child: TextField(
                     controller: _textController,
+                    focusNode: _textFieldFocusNode,
                     minLines: 1,
                     maxLines: 6,
                     maxLength: 2000,
