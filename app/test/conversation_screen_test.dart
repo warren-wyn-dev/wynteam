@@ -555,7 +555,7 @@ void main() {
     });
 
     testWidgets(
-        "the last outgoing bubble flips from sent to read when the other "
+        'the last outgoing bubble flips from sent to read when the other '
         "participant's last-read timestamp moves past it (realtime "
         'conversation-meta update)', (tester) async {
       final sentAt = DateTime.now();
