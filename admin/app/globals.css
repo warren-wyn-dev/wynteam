@@ -1,6 +1,19 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
+/*
+ * WYN-106 fix: this used to be `&:is(.dark *)` (class-based), but no JS
+ * anywhere in this app ever adds a `.dark` class to the DOM -- there is
+ * no manual theme toggle. Every semantic-token class (bg-background,
+ * text-foreground, etc.) already flips correctly via the CSS custom
+ * properties in the `@media (prefers-color-scheme: dark)` block below;
+ * a class-based `dark:` variant just silently never activates, which is
+ * exactly how Badge's `dark:bg-white/10` (gray-tonal variant) shipped as
+ * dead code -- see .wyn/tasks/bugs/WYN-106-admin-badge-dark-mode-dead-variant.md.
+ * Media-query-based instead, so every `dark:`-prefixed utility (present
+ * or future) activates consistently with the same OS preference the
+ * token layer already reads.
+ */
+@custom-variant dark (@media (prefers-color-scheme: dark));
 
 /*
  * shadcn/ui's standard "neutral" base theme, now aligned end-to-end with
