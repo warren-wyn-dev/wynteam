@@ -405,31 +405,17 @@ jobs:
                 echo "Postgres message instead is the actual reason, verbatim."
               fi
 
-              # The insert test above went straight to Postgres with
-              # `run_sql` (the Management API's /database/query), not
-              # through PostgREST -- so it never touches PostgREST's own
-              # schema cache. That cache is a separate, in-memory copy of
-              # the schema that PostgREST builds once at boot/reload and
-              # does NOT refresh on its own when a migration runs `psql`/
-              # the Management API directly against the database (only a
-              # `NOTIFY pgrst, 'reload schema'` or a dashboard-driven
-              # migration does that). A large schema.sql edit applied
-              # anywhere close in time to this bug's onset is exactly the
-              # kind of change that can leave PostgREST answering from a
-              # stale picture -- including for tables this specific chat
-              # bug never touched, since the reload is all-or-nothing.
-              #
-              # This replays the *exact* select `ChatRepository.sendMessage`/
-              # `fetchMessages` send after every insert (same columns, same
-              # `reply_to:messages!messages_reply_to_message_id_fkey(...)`
-              # self-embed) straight at PostgREST itself, anonymously
-              # (limit=0, no auth beyond the public anon key -- RLS will
-              # filter every row out regardless, which is fine: parsing the
-              # select/embed happens before RLS filtering, so a schema-cache
-              # problem still surfaces as a 400 here even though 0 rows
-              # would come back either way).
+              # The insert above went straight to Postgres via the
+              # Management API, bypassing PostgREST -- so it can't rule
+              # out a stale PostgREST schema cache, a separate in-memory
+              # copy that does NOT auto-refresh when a migration runs
+              # directly against the DB (only a pgrst reload NOTIFY or a
+              # dashboard migration does that). This replays the exact
+              # select+self-embed ChatRepository.sendMessage/fetchMessages
+              # use, straight at PostgREST, anon, limit=0 -- select/embed
+              # parsing happens before RLS, so a stale cache 400s here too.
               echo
-              echo "=== Does PostgREST's schema cache still recognize messages' own select+embed? ==="
+              echo "=== PostgREST schema cache: does it still know messages' select+embed? ==="
               SELECT_COLS='id,conversation_id,sender_id,text,image_url,reply_to_message_id,shared_content_type,shared_content_id,deleted_at,created_at,reply_to:messages!messages_reply_to_message_id_fkey(text,image_url,deleted_at)'
               HTTP_CODE=$(curl -sS -o /tmp/pgrst_check.json -w '%{http_code}' \
                 "$SUPABASE_URL/rest/v1/messages?select=$SELECT_COLS&limit=0" \
@@ -439,13 +425,11 @@ jobs:
               cat /tmp/pgrst_check.json | jq . 2>/dev/null || cat /tmp/pgrst_check.json
               echo
               if [ "$HTTP_CODE" = "200" ]; then
-                echo "200 -- PostgREST's schema cache is current. Not this."
+                echo "200 -- schema cache is current. Not this."
               else
-                echo "::error::Non-200 above. If the body names a missing column/relationship (e.g. PGRST200/PGRST204,"
-                echo "'Could not find a relationship'), PostgREST is serving a stale schema cache and every"
-                echo "send+read-back from the real app fails exactly like this, with the DB itself completely"
-                echo "healthy -- which is why the rolled-back raw insert above succeeded while the app did not."
-                echo "Fix: reload PostgREST's schema cache for this project (Dashboard: Settings > API > reload,"
+                echo "::error::Non-200. A missing column/relationship error (PGRST200/204, 'Could not find a"
+                echo "relationship') means PostgREST is stale and every real send fails exactly like this while"
+                echo "the DB itself is healthy. Fix: reload the schema cache (Dashboard > Settings > API > reload,"
                 echo "or run_sql \"NOTIFY pgrst, 'reload schema';\") -- no code change needed."
               fi
               rm -f /tmp/pgrst_check.json
