@@ -17,13 +17,14 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "get = read current postgrest config only (safe, read-only) · restart = GET then PATCH the same values back to force a reload"
+        description: "get = read current postgrest config only (safe, read-only) · restart = PATCH identical values back (no-op if the platform diffs before restarting) · bump = actually change db_pool_acquisition_timeout by +1 then back, two real PATCHes, to force a restart even if a same-value PATCH no-ops"
         required: true
         default: get
         type: choice
         options:
           - get
           - restart
+          - bump
 
 jobs:
   restart:
@@ -68,20 +69,40 @@ jobs:
             exit 0
           fi
 
-          echo
-          echo "=== PATCHing the same config back, to force PostgREST to restart/reload ==="
-          out=$(mktemp)
-          code=$(curl -sS -o "$out" -w '%{http_code}' -X PATCH "$API" \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "$cfg")
-          echo "PATCH -> HTTP $code"
-          cat "$out" | jq . 2>/dev/null || cat "$out"
-          rm -f "$out"
-          if [ "$code" = "200" ] || [ "$code" = "201" ]; then
+          patch() {
+            local out code
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X PATCH "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$1")
+            echo "PATCH -> HTTP $code"
+            cat "$out" | jq . 2>/dev/null || cat "$out"
+            rm -f "$out"
+            [ "$code" = "200" ] || [ "$code" = "201" ]
+          }
+
+          if [ "${{ inputs.action }}" = "restart" ]; then
+            echo
+            echo "=== PATCHing the same config back, to force PostgREST to restart/reload ==="
+            patch "$cfg" || { echo "::error::PATCH failed -- see body above."; exit 1; }
             echo
             echo "Sent. Give it 10-20s, then re-run chat-pgrst-cache-check.yml to confirm 200."
-          else
-            echo "::error::PATCH failed -- see the body above for which field it rejected."
-            exit 1
+            exit 0
           fi
+
+          # bump: a same-value PATCH returned 200 last time but the cache
+          # check still failed afterward -- if the platform diffs the body
+          # before actually restarting the service, an identical PATCH is
+          # a silent no-op despite the 200. This forces two real value
+          # transitions instead.
+          orig=$(echo "$cfg" | jq -r '.db_pool_acquisition_timeout')
+          bumped=$(echo "$cfg" | jq --argjson v "$((orig + 1))" '.db_pool_acquisition_timeout = $v')
+          echo
+          echo "=== Step 1/2: db_pool_acquisition_timeout $orig -> $((orig + 1)) ==="
+          patch "$bumped" || { echo "::error::Bump PATCH failed -- see body above."; exit 1; }
+          echo
+          echo "=== Step 2/2: db_pool_acquisition_timeout $((orig + 1)) -> $orig ==="
+          patch "$cfg" || { echo "::error::Restore PATCH failed -- see body above. Config may be left bumped -- re-run action=get to check."; exit 1; }
+          echo
+          echo "Both real changes applied. Give it 10-20s, then re-run chat-pgrst-cache-check.yml to confirm 200."
