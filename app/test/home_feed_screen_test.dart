@@ -9,6 +9,7 @@ import 'package:video_player_platform_interface/video_player_platform_interface.
 
 import 'package:wyn/core/design/wyn_colors.dart';
 import 'package:wyn/core/widgets/action_metric.dart';
+import 'package:wyn/core/widgets/hashtag_text.dart';
 import 'package:wyn/features/club/data/club_post.dart';
 import 'package:wyn/features/drop/data/drop.dart' show AudienceOption;
 import 'package:wyn/features/club/presentation/explore_clubs_screen.dart';
@@ -19,6 +20,7 @@ import 'package:wyn/features/home/data/home_liker.dart';
 import 'package:wyn/features/home/data/home_top_reply.dart';
 import 'package:wyn/features/home/presentation/home_feed_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
+import 'package:wyn/features/home/presentation/widgets/home_card_metrics.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/home_explainer_banner.dart';
 import 'package:wyn/features/home/presentation/widgets/home_feed_skeleton.dart';
@@ -2455,6 +2457,56 @@ void main() {
       expect(find.byType(Image), findsOneWidget);
     });
 
+    // WYN-107. The Founder circled this card's action row and wrote
+    // "ปุ่มควรขยับ ให้ตรงชื่อ" -- the whole task is that one alignment, so
+    // it gets an assertion rather than living only in a screenshot. The
+    // card is two columns now: the avatar is the left one, and every
+    // other thing the post says starts at the same left edge in the
+    // right one.
+    testWidgets(
+        'every section of a card starts on the same left edge as the '
+        "author's name (WYN-107 two-column layout)", (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HomeDropCard(
+            item: _dropItem(imageCount: 3),
+            dropRepository: multiImageRepo,
+            onTap: () {},
+            onToggleLike: () {},
+            onToggleSave: () {},
+            onOpenProfile: () {},
+            onToggleRedrop: () {},
+            onQuoteRedrop: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final cardLeft = tester.getTopLeft(find.byType(HomeDropCard)).dx;
+      final nameLeft = tester.getTopLeft(find.text('@namfah')).dx;
+
+      // The name sits exactly one avatar column in from the card's edge.
+      expect(nameLeft - cardLeft, closeTo(homeCardContentInset, 0.5));
+
+      // ...and so does everything below it: the caption, the photo row,
+      // and the action row the Founder pointed at. Before this task each
+      // of these was 12px from the screen edge instead, a different
+      // vertical line from the name they belong to.
+      final sections = <String, Finder>{
+        'caption': find.byType(HashtagText),
+        'photo row': find.byType(HomeFeedImagePeekCarousel),
+        'action bar': find.byType(ActionMetric).first,
+      };
+      for (final entry in sections.entries) {
+        expect(
+          tester.getTopLeft(entry.value).dx - cardLeft,
+          closeTo(homeCardContentInset, 0.5),
+          reason: 'the ${entry.key} is off the content column',
+        );
+      }
+    });
+
     testWidgets(
         'once fetched, a multi-image Drop shows every image at 82% of '
         'the row width with a 4:5 aspect ratio', (tester) async {
@@ -2477,19 +2529,27 @@ void main() {
 
       // The ListView itself always has all 3 items in its delegate --
       // whether every one of them is actually *built* yet depends on
-      // how much of the 656px-wide (82% of an 800px test viewport)
-      // first item's neighbors fit within the viewport + cacheExtent,
-      // same lazy-building behavior any ListView.builder has. This
-      // checks the data model directly rather than assuming a
+      // how much of the first item's neighbors fit within the viewport
+      // + cacheExtent, same lazy-building behavior any ListView.builder
+      // has. This checks the data model directly rather than assuming a
       // particular number of built Image widgets.
       final listView = tester.widget<ListView>(find.byType(ListView));
       final delegate =
           listView.childrenDelegate as SliverChildBuilderDelegate;
       expect(delegate.childCount, 3);
 
-      final rowWidth = tester.getSize(find.byType(HomeDropCard)).width;
+      // WYN-107: 82% of the *content column* the post is written in, not
+      // of the whole card. The column starts after the avatar column
+      // (homeCardContentInset) and the card holds its own right inset
+      // off the screen (homeCardEdgeInset) -- the photo row is laid out
+      // past that inset so the next card can peek towards the screen
+      // edge, but a card is still sized off the column, which is what
+      // keeps a photo lined up with the caption above it.
+      final cardWidth = tester.getSize(find.byType(HomeDropCard)).width;
+      final columnWidth =
+          cardWidth - homeCardContentInset - homeCardEdgeInset;
       final firstImageSize = tester.getSize(find.byType(Image).first);
-      expect(firstImageSize.width, closeTo(rowWidth * 0.82, 0.5));
+      expect(firstImageSize.width, closeTo(columnWidth * 0.82, 0.5));
       expect(
         firstImageSize.height,
         closeTo(firstImageSize.width * 5 / 4, 0.5),

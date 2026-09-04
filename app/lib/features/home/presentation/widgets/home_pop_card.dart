@@ -11,6 +11,7 @@ import '../../../../core/widgets/action_metric.dart';
 import '../../../../core/widgets/action_sheet_row.dart';
 import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
+import 'home_card_metrics.dart';
 import 'liked_by_row.dart';
 import 'top_reply_preview.dart';
 import 'verified_badge.dart';
@@ -126,177 +127,242 @@ class HomePopCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
+          padding: const EdgeInsets.symmetric(vertical: WynSpacing.space4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space1),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: onOpenProfile,
-                        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AvatarCircle(
-                              imageUrl: item.authorAvatarUrl,
-                              fallbackText: item.authorUsername,
-                              radius: 16,
-                            ),
-                            const SizedBox(width: WynSpacing.space2),
-                            Flexible(
-                              child: Text(
-                                item.authorNameOrUsername,
-                                style: Theme.of(context).textTheme.titleSmall,
-                                overflow: TextOverflow.ellipsis,
+              // WYN-107: the same two columns HomeDropCard uses -- these
+              // two cards sit one after the other in the same feed, so
+              // they are laid out on one shared geometry
+              // (home_card_metrics.dart) rather than each carrying its
+              // own copy of the numbers.
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: homeCardEdgeInset),
+                    child: InkWell(
+                      onTap: onOpenProfile,
+                      borderRadius:
+                          BorderRadius.circular(WynSpacing.radiusFull),
+                      child: AvatarCircle(
+                        imageUrl: item.authorAvatarUrl,
+                        fallbackText: item.authorUsername,
+                        radius: homeCardAvatarDiameter / 2,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: homeCardAvatarGap),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding:
+                              const EdgeInsets.only(right: homeCardEdgeInset),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: InkWell(
+                                  onTap: onOpenProfile,
+                                  borderRadius: BorderRadius.circular(
+                                      WynSpacing.radiusSm),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          item.authorNameOrUsername,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleSmall,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (item.authorIsVerified) ...[
+                                        const SizedBox(
+                                            width: WynSpacing.space1),
+                                        const VerifiedBadge(),
+                                      ],
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ),
-                            if (item.authorIsVerified) ...[
-                              const SizedBox(width: WynSpacing.space1),
-                              const VerifiedBadge(),
+                              // WYNOSHomeSpec.md 4.6: always shown now,
+                              // even on the viewer's own Pop --
+                              // Share/Save moved in here from the action
+                              // bar apply regardless of authorship.
+                              // _openMoreMenu itself still decides
+                              // whether the authorship-gated Hide row
+                              // appears underneath those two.
+                              IconButton(
+                                icon: const Icon(Icons.more_vert),
+                                tooltip: 'เพิ่มเติม',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints.tightFor(
+                                  width: WynSpacing.touchTargetMin,
+                                  height: WynSpacing.touchTargetMin,
+                                ),
+                                onPressed: () => _openMoreMenu(context),
+                              ),
                             ],
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                    // WYNOSHomeSpec.md 4.6: always shown now, even on the
-                    // viewer's own Pop -- Share/Save moved in here from
-                    // the action bar apply regardless of authorship.
-                    // _openMoreMenu itself still decides whether the
-                    // authorship-gated Hide row appears underneath those
-                    // two.
-                    IconButton(
-                      icon: const Icon(Icons.more_vert),
-                      tooltip: 'เพิ่มเติม',
-                      onPressed: () => _openMoreMenu(context),
-                    ),
-                  ],
-                ),
-              ),
-              DoubleTapLike(
-                onLike: onToggleLike,
-                alreadyLiked: item.likedByMe,
-                child: AspectRatio(
-                  aspectRatio: 1,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (item.thumbnailUrl != null)
-                        Image.network(item.thumbnailUrl!, fit: BoxFit.cover,
-                          errorBuilder: networkImageErrorBuilder,
-                        )
-                      else
-                        Container(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        ),
-                      const Center(
-                        child: Icon(
-                          Icons.play_circle_fill,
-                          color: Colors.white,
-                          size: 56,
-                        ),
-                      ),
-                      if (item.durationSeconds != null)
-                        Positioned(
-                          right: 8,
-                          bottom: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: WynColors.imageScrim,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              _formatDuration(item.durationSeconds!),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
+                        Padding(
+                          padding:
+                              const EdgeInsets.only(right: homeCardEdgeInset),
+                          child: DoubleTapLike(
+                            onLike: onToggleLike,
+                            alreadyLiked: item.likedByMe,
+                            child: ClipRRect(
+                              // Rounded for the same reason the Drop
+                              // card's own photo is (WYN-107): inside
+                              // the column, a square corner on white
+                              // reads as unfinished.
+                              borderRadius:
+                                  BorderRadius.circular(WynSpacing.radiusLg),
+                              child: AspectRatio(
+                                aspectRatio: 1,
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    if (item.thumbnailUrl != null)
+                                      Image.network(
+                                        item.thumbnailUrl!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: networkImageErrorBuilder,
+                                      )
+                                    else
+                                      Container(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .surfaceContainerHighest,
+                                      ),
+                                    const Center(
+                                      child: Icon(
+                                        Icons.play_circle_fill,
+                                        color: Colors.white,
+                                        size: 56,
+                                      ),
+                                    ),
+                                    if (item.durationSeconds != null)
+                                      Positioned(
+                                        right: 8,
+                                        bottom: 8,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: WynColors.imageScrim,
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            _formatDuration(
+                                                item.durationSeconds!),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                    ],
-                  ),
-                ),
-              ),
-              if (item.caption != null && item.caption!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                  child: HashtagText(item.caption!),
-                ),
-              if (item.likedBy.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-                  child: LikedByRow(
-                    likedBy: item.likedBy,
-                    totalLikeCount: item.likeCount,
-                  ),
-                ),
-              Padding(
-                // WYN-096 (Wynos V1.0.0 Beta2 Phase 2, item 28): same
-                // fix as HomeDropCard's identical action bar -- space3
-                // (12px) matches the header/caption/LikedByRow padding
-                // above it in this same card, was space1 (4px).
-                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
-                child: Row(
-                  children: [
-                    // Same WYNOSHomeSpec.md 4.9 sizing/color as
-                    // HomeDropCard's action bar (see that file) -- Pop
-                    // has no ReDrop concept, so only 3 of the 4 spec'd
-                    // metrics apply here. Share/Bookmark moved into
-                    // the "..." menu (see _openMoreMenu, spec 4.6).
-                    ActionMetric(
-                      icon: item.likedByMe ? Icons.favorite : Icons.favorite_border,
-                      iconSize: 17,
-                      count: item.likeCount,
-                      color: item.likedByMe
-                          ? WynColors.iconLikeActive
-                          : WynColors.iconIdle,
-                      semanticsLabel: item.likedByMe
-                          ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
-                          : 'กดเพื่อถูกใจ',
-                      onTap: onToggleLike,
+                        if (item.caption != null && item.caption!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                                0, WynSpacing.space2, homeCardEdgeInset, 0),
+                            child: HashtagText(item.caption!),
+                          ),
+                        if (item.likedBy.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                                0, WynSpacing.space2 + 2, homeCardEdgeInset, 0),
+                            child: LikedByRow(
+                              likedBy: item.likedBy,
+                              totalLikeCount: item.likeCount,
+                            ),
+                          ),
+                        Padding(
+                          // WYN-096 aligned this row with the rest of
+                          // the card; WYN-107 moved the card into a
+                          // content column, so that alignment is now the
+                          // column's own left edge -- same change, same
+                          // reason, as HomeDropCard's identical row.
+                          padding:
+                              const EdgeInsets.only(right: homeCardEdgeInset),
+                          child: Row(
+                            children: [
+                              // Same WYNOSHomeSpec.md 4.9 sizing/color as
+                              // HomeDropCard's action bar (see that file) -- Pop
+                              // has no ReDrop concept, so only 3 of the 4 spec'd
+                              // metrics apply here. Share/Bookmark moved into
+                              // the "..." menu (see _openMoreMenu, spec 4.6).
+                              ActionMetric(
+                                icon: item.likedByMe
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
+                                iconSize: 17,
+                                count: item.likeCount,
+                                color: item.likedByMe
+                                    ? WynColors.iconLikeActive
+                                    : WynColors.iconIdle,
+                                semanticsLabel: item.likedByMe
+                                    ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
+                                    : 'กดเพื่อถูกใจ',
+                                onTap: onToggleLike,
+                              ),
+                              const SizedBox(width: WynSpacing.space5),
+                              ActionMetric(
+                                icon: Icons.mode_comment_outlined,
+                                iconSize: 17,
+                                count: item.commentCount,
+                                color: WynColors.graphite,
+                                semanticsLabel: 'ดูคอมเมนต์',
+                                onTap: onTapComment ?? onTap,
+                              ),
+                              // WYN-088: hidden on the Home feed (showViewCount:
+                              // false there) -- HomePopCard has no other call
+                              // site today, but this stays symmetric with
+                              // HomeDropCard's identical toggle for whenever Pop
+                              // returns to Profile (ProfilePopGridTab already
+                              // exists, just unwired -- see its own doc comment).
+                              if (showViewCount) ...[
+                                const SizedBox(width: WynSpacing.space5),
+                                ActionMetric(
+                                  icon: Icons.visibility_outlined,
+                                  iconSize: 16,
+                                  count: item.viewCount,
+                                  color: WynColors.faint,
+                                  semanticsLabel:
+                                      'เข้าชมแล้ว ${item.viewCount} ครั้ง',
+                                  onTap: null,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (item.topReply != null)
+                          Padding(
+                            padding:
+                                const EdgeInsets.only(right: homeCardEdgeInset),
+                            child: TopReplyPreview(
+                              reply: item.topReply!,
+                              onTap: onTapComment ?? onTap,
+                            ),
+                          ),
+                      ],
                     ),
-                    const SizedBox(width: WynSpacing.space5),
-                    ActionMetric(
-                      icon: Icons.mode_comment_outlined,
-                      iconSize: 17,
-                      count: item.commentCount,
-                      color: WynColors.graphite,
-                      semanticsLabel: 'ดูคอมเมนต์',
-                      onTap: onTapComment ?? onTap,
-                    ),
-                    // WYN-088: hidden on the Home feed (showViewCount:
-                    // false there) -- HomePopCard has no other call
-                    // site today, but this stays symmetric with
-                    // HomeDropCard's identical toggle for whenever Pop
-                    // returns to Profile (ProfilePopGridTab already
-                    // exists, just unwired -- see its own doc comment).
-                    if (showViewCount) ...[
-                      const SizedBox(width: WynSpacing.space5),
-                      ActionMetric(
-                        icon: Icons.visibility_outlined,
-                        iconSize: 16,
-                        count: item.viewCount,
-                        color: WynColors.faint,
-                        semanticsLabel: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
-                        onTap: null,
-                      ),
-                    ],
-                  ],
-                ),
+                  ),
+                ],
               ),
-              if (item.topReply != null)
-                TopReplyPreview(
-                  reply: item.topReply!,
-                  onTap: onTapComment ?? onTap,
-                ),
             ],
           ),
         ),
