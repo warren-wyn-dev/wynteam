@@ -14,3 +14,26 @@ Design Rules: หนึ่งโพสต์ใช้สัดส่วนเด
 Handoff: ยังไม่ส่ง AI Coding รอ
 1. คำตอบ: ลากเลือกจุดครอปเองได้ไหม (AI Design แนะนำให้ได้ — reuse หน้าครอปของรูปโปรไฟล์ WYN-104)
 2. อนุมัติเพิ่มคอลัมน์ DB เก็บสัดส่วนระดับโพสต์ (ไม่งั้นฟีดยังวาด 4:5 ตายตัว งานนี้จะไม่มีผลกับคนที่เลือก 16:9)
+
+---
+
+## QA & Security — รอบ 1 (2026-09-04) — ตรวจ 109b/c/d
+
+**Final Status: FAIL**
+
+ผ่าน: flow รูปโปรไฟล์ (WYN-104) ไม่เปลี่ยนแม้แต่จุดเดียว (default 1:1 + circular, กรอบ 260×260,
+สูตร scale เดิมตรงกันถึง 1e-12) · ฝั่งอ่าน fallback 4:5 ถูกต้องเมื่อ production ยังไม่มีคอลัมน์ ·
+migration ตรวจซ้ำบน PostgreSQL 16.13 จริงแล้ว: additive, idempotent, ไม่แตะข้อมูลเดิม,
+ไม่แตะ RLS/policy/grant, `home_feed` ยัง `security_invoker=true`, CHECK ทำงานถูก
+
+**B-109-1 (Critical)** — `_insertDrop` ส่ง key `image_aspect_ratio` เสมอแม้ค่า null →
+ถ้า deploy ก่อนรัน SQL การสร้างโพสต์ **ทุกชนิด** จะพัง (`drop_repository.dart:945`)
+`.wyn/tasks/bugs/WYN-109-insert-sends-missing-column.md`
+
+**B-109-2 (Major)** — Drop Detail ยังวาด 4:5 ไม่สนสัดส่วนที่เลือก (ฟีด 1.78 vs หน้าโพสต์ 0.8)
+`.wyn/tasks/bugs/WYN-109-detail-gallery-ignores-aspect-ratio.md`
+
+**B-109-3 (Major)** — รูปพรีวิวในหน้าสร้างโพสต์ไม่เปลี่ยนสัดส่วนตามชิป (กรอบ 128×160 ตายตัว + BoxFit.cover)
+`.wyn/tasks/bugs/WYN-109-compose-preview-fixed-aspect.md`
+
+รายงานเต็ม: `.wyn/docs/qa/wyn-106-107-108-109-home-cards-qa.md`
