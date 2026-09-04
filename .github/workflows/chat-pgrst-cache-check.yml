@@ -46,11 +46,10 @@ jobs:
           fi
 
           check() {
-            local label="$1" select="$2" bust
-            bust="_cb=$(date +%s%N)"
+            local label="$1" select="$2"
             echo "=== $label ==="
             HTTP_CODE=$(curl -sS -D /tmp/pgrst_headers.txt -o /tmp/pgrst_check.json -w '%{http_code}' \
-              "$SUPABASE_URL/rest/v1/messages?select=$select&limit=0&$bust" \
+              "$SUPABASE_URL/rest/v1/messages?select=$select&limit=0" \
               -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
               -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY" \
               -H "Cache-Control: no-cache")
