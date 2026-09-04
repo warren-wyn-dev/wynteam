@@ -538,16 +538,27 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       (_textController.text.trim().isNotEmpty || _imageBytes != null);
 
   /// Optimistic: a placeholder bubble (real content, temp id) appears
-  /// immediately with a "sending" receipt (spec section 7) -- the
-  /// composer itself isn't cleared until the real send actually
-  /// succeeds, so a failure leaves the text/image/reply exactly as
-  /// typed rather than losing it, same as before this was optimistic.
+  /// immediately with a "sending" receipt (spec section 7), and the
+  /// composer clears right away too -- Founder feedback: clearing only
+  /// on success left the TextField disabled (`enabled: !_isSending`)
+  /// while a send was in flight, which drops focus and dismisses the
+  /// keyboard the instant "send" is tapped, exactly when someone wants
+  /// to keep typing the next message. The TextField now stays enabled
+  /// throughout (see its own comment below), so this is the only thing
+  /// standing between "send" and typing again immediately.
+  ///
+  /// A failure restores what was cleared -- but only if the composer is
+  /// still exactly as this left it (nothing retyped, no new image, no
+  /// new reply picked in the meantime): restoring over a draft the user
+  /// has already started composing while this was in flight would
+  /// clobber it, which is worse than just losing the failed send (the
+  /// error toast already says to try again).
   Future<void> _send() async {
     if (!_canSend) return;
     final text = _textController.text;
     final imageBytes = _imageBytes;
     final imageExtension = _imageExtension;
-    final replyToId = _replyTo?.id;
+    final replyTo = _replyTo;
     final pendingId = '$_pendingIdPrefix${DateTime.now().microsecondsSinceEpoch}';
     final pending = ChatMessage(
       id: pendingId,
@@ -555,11 +566,15 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       senderId: _myUserId,
       createdAt: DateTime.now(),
       text: text.trim().isEmpty ? null : text.trim(),
-      replyToMessageId: replyToId,
+      replyToMessageId: replyTo?.id,
     );
+    _textController.clear();
     setState(() {
       _isSending = true;
       _messages.insert(0, pending);
+      _imageBytes = null;
+      _imageExtension = null;
+      _replyTo = null;
     });
     try {
       final sent = await widget.chatRepository.sendMessage(
@@ -567,7 +582,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
         text: text,
         imageBytes: imageBytes,
         imageExtension: imageExtension,
-        replyToMessageId: replyToId,
+        replyToMessageId: replyTo?.id,
       );
       if (!mounted) return;
       setState(() {
@@ -579,15 +594,17 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
           _messages.insert(0, sent);
         }
       });
-      _textController.clear();
-      setState(() {
-        _imageBytes = null;
-        _imageExtension = null;
-        _replyTo = null;
-      });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _messages.removeWhere((m) => m.id == pendingId));
+      setState(() {
+        _messages.removeWhere((m) => m.id == pendingId);
+        if (_textController.text.isEmpty && _imageBytes == null && _replyTo == null) {
+          _textController.text = text;
+          _imageBytes = imageBytes;
+          _imageExtension = imageExtension;
+          _replyTo = replyTo;
+        }
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ส่งข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
@@ -1181,7 +1198,12 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                     minLines: 1,
                     maxLines: 6,
                     maxLength: 2000,
-                    enabled: !_isSending,
+                    // Deliberately never disabled while sending -- a
+                    // disabled TextField drops focus and dismisses the
+                    // keyboard, which used to happen the instant "send"
+                    // was tapped. _send() is optimistic and clears the
+                    // composer itself right away, so there's nothing
+                    // left for disabling this to protect against.
                     style: _textStyle(fontSize: 16, color: WynColors.ink),
                     decoration: InputDecoration(
                       hintText: 'พิมพ์ข้อความ...',

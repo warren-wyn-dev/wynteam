@@ -542,11 +542,11 @@ void main() {
       await tester.tap(find.byIcon(Icons.send));
       await tester.pump(); // Optimistic insert lands; sendMessage is still gated.
 
-      // 2, not 1: the composer's own TextField isn't cleared until the
-      // send actually succeeds (so a failure doesn't lose what was
-      // typed), so the same text is still showing there too, alongside
-      // the new pending bubble -- find.text() matches both.
-      expect(find.text('กำลังส่ง'), findsNWidgets(2));
+      // The composer clears immediately (optimistic, not on success) --
+      // keeps the TextField's content, focus, and keyboard undisturbed
+      // for typing the next message -- so only the new pending bubble
+      // shows this text now, not also the (already-emptied) TextField.
+      expect(find.text('กำลังส่ง'), findsOneWidget);
       expect(find.byIcon(Icons.fiber_manual_record), findsOneWidget);
       expect(find.byIcon(Icons.check), findsNothing);
 
