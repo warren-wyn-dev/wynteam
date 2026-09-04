@@ -55,6 +55,17 @@ dependencies:
   # this project's own Dart SDK floor up as an unrelated side effect of
   # this one dependency.
   google_mobile_ads: ^5.3.1
+  # WYN-107 (Add to Home Screen prompt) -- lib/core/web/
+  # _home_screen_platform_web.dart's only new dependency, for
+  # `window.matchMedia`/`navigator.userAgent` (typed) access; the one
+  # non-standard signal it also needs (iOS's `navigator.standalone`) goes
+  # through raw `dart:js_interop` in that same file instead, since it
+  # isn't part of `package:web`'s typed WebIDL surface. Was already a
+  # transitive dependency (pulled in indirectly, e.g. via shared_preferences_web)
+  # at the same 1.1.1 resolved here -- promoted to a direct dependency now
+  # that this app's own code imports it directly, rather than relying on
+  # an indirect resolution nothing here declared.
+  web: ^1.1.0
 
 dev_dependencies:
   flutter_test:

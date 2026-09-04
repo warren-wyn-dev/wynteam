@@ -2,10 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:wyn/core/web/home_screen_platform.dart';
 import 'package:wyn/features/block/presentation/blocked_list_screen.dart';
 import 'package:wyn/features/drop/presentation/recently_deleted_drops_screen.dart';
 import 'package:wyn/features/follow/presentation/close_friends_screen.dart';
+import 'package:wyn/features/home/presentation/widgets/add_to_home_screen_sheet.dart';
 import 'package:wyn/features/legal/presentation/document_viewer_screen.dart';
 import 'package:wyn/features/moderation/presentation/moderation_queue_screen.dart';
 import 'package:wyn/features/mute/presentation/muted_list_screen.dart';
@@ -594,6 +597,95 @@ void main() {
         expect(find.byType(DocumentViewerScreen), findsOneWidget);
       });
     }
+  });
+
+  // WYN-107 (Add to Home Screen prompt) -- "เพิ่มไปที่หน้าจอหลัก" row under
+  // "ช่วยเหลือ". Every real production instantiation of SettingsScreen
+  // (including every other test above, all of which use the default
+  // constructor with no overrides) runs with kIsWeb == false, so this row
+  // stays hidden there -- exactly why none of the tests above needed any
+  // changes for this feature. These tests inject the platform-eligibility
+  // overrides directly to exercise the row's own visible branch.
+  group('WYN-107: "เพิ่มไปที่หน้าจอหลัก" row', () {
+    testWidgets('hidden by default (VM test target is never kIsWeb)',
+        (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('เพิ่มไปที่หน้าจอหลัก'), findsNothing);
+    });
+
+    testWidgets('shown when the eligibility overrides say web + iOS Safari '
+        '+ not standalone', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          isWebForAddToHomeScreen: true,
+          isStandaloneForAddToHomeScreen: () => false,
+          platformKindForAddToHomeScreen: () => WebPlatformKind.iosSafari,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('เพิ่มไปที่หน้าจอหลัก'), findsOneWidget);
+    });
+
+    testWidgets('hidden once standalone == true, even when web + iOS Safari',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          isWebForAddToHomeScreen: true,
+          isStandaloneForAddToHomeScreen: () => true,
+          platformKindForAddToHomeScreen: () => WebPlatformKind.iosSafari,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('เพิ่มไปที่หน้าจอหลัก'), findsNothing);
+    });
+
+    testWidgets('visibility does not depend on AddToHomeScreenBanner\'s own '
+        'snooze state -- shown even with no shared_preferences set at all',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          isWebForAddToHomeScreen: true,
+          isStandaloneForAddToHomeScreen: () => false,
+          platformKindForAddToHomeScreen: () => WebPlatformKind.androidChrome,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('เพิ่มไปที่หน้าจอหลัก'), findsOneWidget);
+    });
+
+    testWidgets('tapping it opens the same AddToHomeScreenSheet as the '
+        'banner', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          isWebForAddToHomeScreen: true,
+          isStandaloneForAddToHomeScreen: () => false,
+          platformKindForAddToHomeScreen: () => WebPlatformKind.iosSafari,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('เพิ่มไปที่หน้าจอหลัก'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AddToHomeScreenSheet), findsOneWidget);
+    });
   });
 }
 

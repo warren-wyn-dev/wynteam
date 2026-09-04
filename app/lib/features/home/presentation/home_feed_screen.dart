@@ -21,6 +21,7 @@ import '../data/feed_ad_slots.dart';
 import '../data/home_feed_item.dart';
 import '../data/home_repository.dart';
 import 'pop_single_clip_screen.dart';
+import 'widgets/add_to_home_screen_banner.dart';
 import 'widgets/from_your_clubs_feed.dart';
 import 'widgets/home_drop_card.dart';
 import 'widgets/home_explainer_banner.dart';
@@ -772,6 +773,17 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                     // HomeExplainerBanner's own doc comment); scrolls away
                     // with everything below it rather than pinning.
                     const SliverToBoxAdapter(child: HomeExplainerBanner()),
+                    // WYN-107 (Add to Home Screen prompt) -- right after
+                    // HomeExplainerBanner, per the design doc's Screen 1
+                    // "ตำแหน่ง" rule. Only ever visible once
+                    // HomeExplainerBanner's own dark banner has already
+                    // been dismissed (so the two never stack on a
+                    // brand-new user's first load), on web, on iOS
+                    // Safari/Android Chrome, and not currently snoozed --
+                    // see AddToHomeScreenBanner's own doc comment. Not
+                    // pinned, same "scrolls away with everything below
+                    // it" behavior as HomeExplainerBanner above.
+                    const SliverToBoxAdapter(child: AddToHomeScreenBanner()),
                     // WYN-073: ClubSection/Trending (formerly here) removed
                     // from Home -- both are already reachable from the
                     // Search tab (club discovery/create, Top100), so this

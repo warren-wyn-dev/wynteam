@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -7,11 +8,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
+import '../../../core/web/home_screen_platform.dart';
 import '../../account_switcher/data/account_switcher_repository.dart';
 import '../../account_switcher/presentation/account_switcher_sheet.dart';
 import '../../block/data/block_repository.dart';
 import '../../block/presentation/blocked_list_screen.dart';
 import '../../follow/presentation/close_friends_screen.dart';
+import '../../home/presentation/widgets/add_to_home_screen_sheet.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
 import '../../drop/data/drop_repository.dart';
@@ -75,6 +78,9 @@ class SettingsScreen extends StatelessWidget {
     this.profileRepository,
     this.dataRightsRepository,
     this.followRepository,
+    this.isWebForAddToHomeScreen = kIsWeb,
+    this.isStandaloneForAddToHomeScreen = isRunningStandalone,
+    this.platformKindForAddToHomeScreen = detectWebPlatformKind,
   });
 
   /// Passed in directly from ViewProfileScreen's already-fetched own
@@ -101,6 +107,17 @@ class SettingsScreen extends StatelessWidget {
   /// Same "optional/defaulted" shape again -- WYN-097's "เพื่อนที่สนิท"
   /// row, needed by CloseFriendsScreen.
   final FollowRepository? followRepository;
+
+  /// WYN-107 (Add to Home Screen prompt) -- gates the "เพิ่มไปที่หน้าจอหลัก"
+  /// row below, independent of `AddToHomeScreenBanner`'s own snooze state
+  /// (see [isAddToHomeScreenEligible]'s own doc comment on why that's a
+  /// shared function rather than duplicated logic here). Injectable
+  /// purely for tests -- production callers never pass these three;
+  /// they default to the real `kIsWeb`/[isRunningStandalone]/
+  /// [detectWebPlatformKind].
+  final bool isWebForAddToHomeScreen;
+  final bool Function() isStandaloneForAddToHomeScreen;
+  final WebPlatformKind Function() platformKindForAddToHomeScreen;
 
   /// WYN-016: best-effort -- deregistering this device's push token must
   /// never block or fail sign-out itself. 05-profile.tsx moves the
@@ -166,6 +183,16 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // WYN-107 -- same eligibility gate as AddToHomeScreenBanner, deliberately
+    // independent of that banner's own snooze state (see this field's own
+    // doc comment): a user who snoozed the banner must still be able to
+    // find this row.
+    final showAddToHomeScreenRow = isAddToHomeScreenEligible(
+      isWeb: isWebForAddToHomeScreen,
+      isStandalone: isStandaloneForAddToHomeScreen,
+      platformKind: platformKindForAddToHomeScreen,
+    );
+
     return Scaffold(
       backgroundColor: WynColors.paper,
       appBar: AppBar(
@@ -231,6 +258,19 @@ class SettingsScreen extends StatelessWidget {
             isLast: true,
           ),
           const _GroupLabel('ช่วยเหลือ'),
+          // WYN-107 -- placed before the generic "ช่วยเหลือ" row (a
+          // specific how-to, not general help), reusing showAddToHomeScreenSheet
+          // (Screen 2) unchanged rather than duplicating its content --
+          // see this file's own doc comment on isWebForAddToHomeScreen.
+          if (showAddToHomeScreenRow)
+            _SettingsRow(
+              icon: Icons.add_to_home_screen,
+              label: 'เพิ่มไปที่หน้าจอหลัก',
+              onTap: () => showAddToHomeScreenSheet(
+                context,
+                platformKind: platformKindForAddToHomeScreen,
+              ),
+            ),
           const _SettingsRow(
             icon: Icons.help_outline,
             label: 'ช่วยเหลือ',

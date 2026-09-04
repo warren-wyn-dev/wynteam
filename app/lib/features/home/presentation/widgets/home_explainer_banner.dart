@@ -16,7 +16,11 @@ import '../../../../core/design/wyn_spacing.dart';
 class HomeExplainerBanner extends StatefulWidget {
   const HomeExplainerBanner({super.key});
 
-  static const _prefsKey = 'home_explainer_banner_dismissed';
+  /// WYN-107: public (was `_prefsKey`) so `AddToHomeScreenBanner` can
+  /// check whether this banner has already been dismissed without
+  /// duplicating the string literal (see that widget's own doc comment
+  /// on why it waits for this one to be dismissed first).
+  static const prefsKey = 'home_explainer_banner_dismissed';
 
   @override
   State<HomeExplainerBanner> createState() => _HomeExplainerBannerState();
@@ -38,7 +42,7 @@ class _HomeExplainerBannerState extends State<HomeExplainerBanner> {
       final prefs = await SharedPreferences.getInstance();
       if (!mounted) return;
       setState(() =>
-          _shouldShow = !(prefs.getBool(HomeExplainerBanner._prefsKey) ?? false));
+          _shouldShow = !(prefs.getBool(HomeExplainerBanner.prefsKey) ?? false));
     } catch (_) {
       if (!mounted) return;
       setState(() => _shouldShow = false);
@@ -49,7 +53,7 @@ class _HomeExplainerBannerState extends State<HomeExplainerBanner> {
     setState(() => _shouldShow = false);
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(HomeExplainerBanner._prefsKey, true);
+      await prefs.setBool(HomeExplainerBanner.prefsKey, true);
     } catch (_) {
       // Worst case it shows again next time -- not worth surfacing an
       // error for a one-time informational banner.
