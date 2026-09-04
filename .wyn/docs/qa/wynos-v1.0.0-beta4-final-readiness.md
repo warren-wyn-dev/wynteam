@@ -13,6 +13,8 @@
 > ติดตั้งด้วย `.github/workflows/setup-database-webhook.yml` (ซึ่งเปิดกลไก webhook ให้ด้วย ผ่าน
 > endpoint เดียวกับปุ่มใน Dashboard) · ยิงทดสอบจริงได้ `200 Ignored`
 >
+> **อัปเดต 2026-09-04 13:17 — push ทำงานจริงบน production แล้ว (K-1 ปิด)**
+> ต่อไปนี้คือบันทึกตอนที่ยังไม่เด้ง เก็บไว้เพราะเส้นทางที่ไล่มาคือที่มาของบั๊กทั้งสาม:
 > **ทดสอบบนเครื่องจริงแล้ว push ไม่เด้ง** — `diagnose` ชี้จุดพังได้จุดเดียว: trigger ยิงตรงเวลาทุกแถว
 > webhook ส่งถึงทุกครั้ง มี push token 2 เครื่อง แต่ Edge Function ตอบ `FCM not configured` ทุกครั้ง
 > เพราะ `FCM_SERVICE_ACCOUNT` ไม่มีอยู่ในโปรเจกต์เลย (ตรวจด้วย `GET /v1/projects/{ref}/secrets`)
@@ -135,7 +137,7 @@
 | **Responsive (§20)** | ✅ | 320/390/430/834 บน Profile + Club + Create Club — วัด `takeException()` และพิกัดจริง |
 | **Security (§19)** | ✅ | อ่าน RLS ของ `notifications` / `push_tokens` / `clubs` จาก `schema.sql` โดยตรง ไม่มี policy ไหนถูกแตะ |
 | **Account Switching (§13)** | ✅ | 2 test ที่ยืนยันกลไก key |
-| **Notification (§11)** | ✅ (ยกเว้น end-to-end) | ดู §7 K-1 |
+| **Notification (§11)** | ✅ **รวม end-to-end แล้ว** | ดู §7 K-1 — พิสูจน์บนเครื่องจริง 2026-09-04 |
 | **Regression (§21)** | ✅ | 1164/1164 — Auth, Feed, Post, Like, Comment, Follow, Search, Notifications, Profile, Saved, Draft, ReDrop/Quote, Club ครบ |
 
 ---
@@ -167,7 +169,7 @@
 | Responsive Club ผ่าน | ✅ **แก้บั๊กจริง 1 ตัว** |
 | Account Switching Safety ผ่าน | ✅ |
 | In-App Notifications ผ่าน | ✅ |
-| Web Push ทำงานตาม Platform ที่รองรับ | ⚠️ **โค้ดครบ ยังไม่ได้ทดสอบจริง** — ดู §7 K-1 |
+| Web Push ทำงานตาม Platform ที่รองรับ | ✅ **ทดสอบจริงแล้ว 2026-09-04** — เด้งบน iOS PWA ขณะแอปปิด (ดู §7 K-1) |
 | Notification Permission Flow ผ่าน | ✅ |
 | Notification Badge ถูกต้อง | ✅ **แก้บั๊กจริง** |
 | Notification Deep Link ผ่าน | ✅ (ไม่เปลี่ยน 24 type) |
@@ -214,7 +216,8 @@
 | # | เรื่อง | ความรุนแรง |
 |---|---|---|
 | ~~K-1c~~ | ~~**Edge Function ที่ Beta4 แก้ ยังไม่ได้ deploy**~~ → **✅ ปิดแล้ว** deploy สำเร็จ run `33780460047` (2026-09-03 16:45): `Deployed Functions on project kqokpocajhfbidcxpvhh: send-push-notification` · production ได้ collapse key กัน notification ซ้ำแล้ว · ใช้เวลา 8 runs — 6 ครั้งแรกติดที่ secret/สิทธิ์ ไม่ใช่ที่โค้ด ประวัติครบอยู่ใน notification audit ข้อ 7 · ผลพลอยได้: มี `.github/workflows/deploy-edge-functions.yml` ให้กดปุ่มเดียวได้ตลอดไป | ปิดแล้ว |
-| K-1 | **Push ยังไม่เคยส่งจริงแม้แต่ครั้งเดียว** — อัปเดต 2026-09-03 17:24: ฝั่ง client ครบแล้ว (Firebase project `wynos-78e85` · 7 secret `present` ใน build จริง · service worker เสิร์ฟที่ production `200`) และ Edge Function deploy แล้ว · อัปเดต 2026-09-03 18:1x — **ทดสอบบนเครื่องจริงแล้ว** และเส้นทางเดินได้ไกลกว่าที่เคยพิสูจน์มาก: **trigger ยิงเองตอน INSERT จริง** (เวลาห่างกัน ~11ms ทุกแถว) · webhook ส่งถึงทุกครั้ง ไม่มี error/timeout · **มี push token 2 เครื่อง (`web`)** แปลว่าฝั่ง client ทั้งเส้นทำงานจริง — **เหลือช่วงเดียว: function → FCM** ซึ่งตันเพราะ `FCM_SERVICE_ACCOUNT` ไม่มีอยู่ในโปรเจกต์ · ทุกอย่างยังยืนยันด้วยการอ่านโค้ด + widget test + `deno test` เท่านั้น **end-to-end delivery ยังไม่ได้พิสูจน์** | — (ต้องทดสอบหลังตั้งค่าครบ) |
+| ~~K-1~~ | ✅ **ปิดแล้ว 2026-09-04 13:17** — push จริงเด้งบนหน้าจอล็อกของ iPhone ขณะแอปปิดสนิท · ฝั่ง server ตรงกัน (`OK sent=3`, ไม่มี failed) · เส้นทางครบตั้งแต่กดไลก์จนถึงหน้าจอล็อก · **ต้องแก้บั๊กจริง 3 ตัวก่อน** ซึ่งไม่มี test ไหนจับได้และไม่มีชั้นไหนรายงานว่าล้มเหลว — `Topic` header ยาวเกิน RFC 8030 (FCM ตอบสำเร็จ Apple ทิ้งเงียบทีหลัง) · **service worker ไม่เคยมี Firebase config เลย** (ฆ่า push ทุกครั้งที่เคยส่งไปเบราว์เซอร์) · `getNotificationSettings()` ค้างถาวรบน iOS จนเครื่องนั้นไม่เคยลงทะเบียน token · ดู notification audit §11 พร้อมเครื่องมือ 4 ชิ้นที่ต้องสร้างก่อนถึงจะหาเจอ | ปิดแล้ว |
+| ~~K-1 (ข้อความเดิม)~~ | **Push ยังไม่เคยส่งจริงแม้แต่ครั้งเดียว** — อัปเดต 2026-09-03 17:24: ฝั่ง client ครบแล้ว (Firebase project `wynos-78e85` · 7 secret `present` ใน build จริง · service worker เสิร์ฟที่ production `200`) และ Edge Function deploy แล้ว · อัปเดต 2026-09-03 18:1x — **ทดสอบบนเครื่องจริงแล้ว** และเส้นทางเดินได้ไกลกว่าที่เคยพิสูจน์มาก: **trigger ยิงเองตอน INSERT จริง** (เวลาห่างกัน ~11ms ทุกแถว) · webhook ส่งถึงทุกครั้ง ไม่มี error/timeout · **มี push token 2 เครื่อง (`web`)** แปลว่าฝั่ง client ทั้งเส้นทำงานจริง — **เหลือช่วงเดียว: function → FCM** ซึ่งตันเพราะ `FCM_SERVICE_ACCOUNT` ไม่มีอยู่ในโปรเจกต์ · ทุกอย่างยังยืนยันด้วยการอ่านโค้ด + widget test + `deno test` เท่านั้น **end-to-end delivery ยังไม่ได้พิสูจน์** | — (ต้องทดสอบหลังตั้งค่าครบ) |
 | K-1b | **`web/firebase-messaging-sw.js` เกือบไม่ได้ถูก commit** — `app/.gitignore` ทำ `/web/*` แล้ว allowlist ทีละไฟล์ (มีมาก่อน Beta4) service worker ใหม่จึงถูก ignore เงียบๆ · จับได้ตอนอ่าน `deploy-web.yml` ก่อน deploy ครั้งแรก · **แก้แล้ว** — ถ้าไม่เจอ production จะไม่มีไฟล์นี้และ Web Push จะยังเป็นไปไม่ได้ ทั้งที่เอกสารบอกว่าทำได้ | — (แก้แล้ว) |
 | K-2 | Android Gradle plugin ของ google-services ยังไม่ apply — push บน Android จะยังไม่ทำงาน (เจตนาเดิมตั้งแต่ WYN-016: apply โดยไม่มีไฟล์จริงจะพัง build) | กลาง |
 | K-3 | Badge ยังไม่ realtime — อัปเดตตอน resume และตอน foreground push เท่านั้น | ต่ำ |
