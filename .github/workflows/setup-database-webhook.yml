@@ -26,7 +26,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "verify = look only · create = install/replace · test = fire one harmless request · remove = drop · enable = turn on webhooks only · diagnose = why did no push arrive · secrets = list Edge Function secret NAMES · moderation-check = is anyone currently restricted/suspended/banned"
+        description: "verify = look only · create = install/replace · test = fire one harmless request · remove = drop · enable = turn on webhooks only · diagnose = why did no push arrive · secrets = list Edge Function secret NAMES · moderation-check = is anyone currently restricted/suspended/banned · chat-check = why can wynos.online<->warren not message each other"
         required: true
         default: verify
         type: choice
@@ -39,6 +39,7 @@ on:
           - diagnose
           - secrets
           - moderation-check
+          - chat-check
 
 jobs:
   webhook:
@@ -315,6 +316,58 @@ jobs:
                 echo "That is why the function answers 'FCM not configured'."
               fi
               rm -f "$out"
+              ;;
+
+            chat-check)
+              # One-off, named after the two usernames because that is
+              # genuinely what this run is checking: nobody is
+              # currently restricted (moderation-check ruled that out),
+              # and the send fails identically for every recipient
+              # tried -- both point away from anything recipient-
+              # specific (blocks, dm_permission) and toward either the
+              # sender's own state or a bug in how the client evaluates
+              # what to show, versus what public.profiles/conversations
+              # actually holds.
+              #
+              # Usernames are public (profile pages show them to
+              # anyone); this reads no email, no auth identity, nothing
+              # beyond what those two profile pages already display,
+              # and prints only truncated ids and booleans.
+              U1="warren"
+              U2="wynos.online"
+              run_sql "with u1 as (select id, dm_permission from public.profiles where lower(username) = lower($(sqlq "$U1"))),
+                            u2 as (select id, dm_permission from public.profiles where lower(username) = lower($(sqlq "$U2")))
+                       select (select count(*) from u1) as u1_found,
+                              (select count(*) from u2) as u2_found,
+                              (select dm_permission from u1) as u1_dm_permission,
+                              (select dm_permission from u2) as u2_dm_permission,
+                              (select internal.is_posting_blocked(id) from u1) as u1_posting_blocked,
+                              (select internal.is_posting_blocked(id) from u2) as u2_posting_blocked,
+                              (select internal.is_blocked_either_way((select id from u1), (select id from u2))) as blocked_either_way;" | jq .
+
+              run_sql "select left(c.id::text, 8) as conversation_id,
+                              left(c.user_a_id::text, 8) as user_a,
+                              left(c.user_b_id::text, 8) as user_b,
+                              c.status, left(c.requested_by::text, 8) as requested_by,
+                              c.user_a_id = (select id from public.profiles where lower(username) = lower($(sqlq "$U1"))) as user_a_is_u1,
+                              c.created_at
+                       from public.conversations c
+                       where c.user_a_id in (
+                               select id from public.profiles
+                               where lower(username) in (lower($(sqlq "$U1")), lower($(sqlq "$U2")))
+                             )
+                         and c.user_b_id in (
+                               select id from public.profiles
+                               where lower(username) in (lower($(sqlq "$U1")), lower($(sqlq "$U2")))
+                             );" | jq .
+              echo
+              echo "u1/u2_posting_blocked true -> that account is currently restricted/suspended/banned"
+              echo "(should already read false/false per moderation-check, this re-checks these two specifically)."
+              echo "blocked_either_way true -> RLS rejects every send between them regardless of conversation status."
+              echo "status=pending with requested_by NOT matching the sender -> that sender is the pending"
+              echo "recipient, who has no INSERT path until the request is accepted -- and the client's own"
+              echo "restriction/composer state fails open on a fetch error, so this can be invisible in the UI"
+              echo "(see conversation_screen.dart's _loadSafetyState/_loadConversationMeta doc comments)."
               ;;
 
             moderation-check)
