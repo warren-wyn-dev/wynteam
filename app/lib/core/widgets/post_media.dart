@@ -190,6 +190,10 @@ class PostImageFrame extends StatelessWidget {
 // deliberately overhangs its column (WYN-107's Home feed card) still
 // sizes its cards off the column.
 const double postCardWidthFraction = 0.82;
+
+/// The card shape a post's photos are laid out at when the post does not
+/// say otherwise -- a Drop written before WYN-109, whose photos were
+/// squares the feed already drew in a 4:5 card.
 const double postCardAspectRatio = 4 / 5;
 
 /// A post's photos as a row of rounded cards, scrolled horizontally,
@@ -215,6 +219,7 @@ class PostImageCarousel extends StatefulWidget {
     this.semanticLabelBuilder,
     this.cardOverlayBuilder,
     this.trailingBleed = 0,
+    this.aspectRatio = postCardAspectRatio,
   });
 
   /// Two or more URLs. A caller with one image wants [PostImageFrame].
@@ -232,6 +237,12 @@ class PostImageCarousel extends StatefulWidget {
   /// of the `-mr-6 pr-6` the CSS prototype in
   /// design-reference/01-home.tsx uses on this exact row.
   final double trailingBleed;
+
+  /// The shape of each card in the row -- WYN-109, where the poster
+  /// chooses it. Was a constant 4:5, which meant a photo posted as 16:9
+  /// got cropped back to portrait on its way into the feed and the
+  /// choice was no choice at all.
+  final double aspectRatio;
 
   /// Called with the index of the card currently in front, whenever
   /// that changes.
@@ -301,7 +312,7 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
         final columnWidth = (constraints.maxWidth - widget.trailingBleed)
             .clamp(0.0, double.infinity);
         final cardWidth = columnWidth * postCardWidthFraction;
-        final cardHeight = cardWidth / postCardAspectRatio;
+        final cardHeight = cardWidth / widget.aspectRatio;
         final stride = cardWidth + WynSpacing.space2;
 
         return SizedBox(

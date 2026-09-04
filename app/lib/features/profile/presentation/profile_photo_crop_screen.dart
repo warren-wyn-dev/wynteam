@@ -50,10 +50,31 @@ class ProfilePhotoCropScreen extends StatefulWidget {
   const ProfilePhotoCropScreen({
     super.key,
     required this.imageBytes,
+    this.aspectRatio = 1,
+    this.circular = true,
     @visibleForTesting this.debugInitialDimensions,
   });
 
   final Uint8List imageBytes;
+
+  /// Width over height of the crop frame. Defaults to 1 -- a square,
+  /// which is the only shape this screen cropped to before WYN-109 and
+  /// the only shape an avatar has ever wanted.
+  ///
+  /// WYN-109 lets a post's photo be 1:1, 4:5 or 16:9, and rather than
+  /// write a second cropper for it, the frame became a parameter: the
+  /// pan/zoom maths in profile_photo_crop.dart was always general enough
+  /// (a square is just the case where both viewport axes are equal), it
+  /// simply had no caller that needed to say so.
+  final double aspectRatio;
+
+  /// Whether the frame is drawn as a circle. True for an avatar, which
+  /// is masked to a circle everywhere it renders; false for a post's
+  /// photo, which is a rounded rectangle in the feed. Purely how the
+  /// frame *looks* -- the bytes this screen returns are the same
+  /// rectangle either way (see cropToSourceRect's own note on why the
+  /// avatar's output was never actually a circle).
+  final bool circular;
 
   /// Test-only seam: skips the real `decodeImageDimensions` call (which
   /// needs genuinely decodable bytes -- decoding real image bytes
@@ -70,7 +91,22 @@ class ProfilePhotoCropScreen extends StatefulWidget {
 }
 
 class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
-  static const double _viewportSize = 260;
+  static const double _frameLongestSide = 260;
+
+  /// The crop frame's width. For the square avatar case this is exactly
+  /// the 260 this screen always used; a wide frame keeps that as its
+  /// width, a tall one gives it up to its height so the frame never
+  /// grows past the old footprint in either axis.
+  double get _viewportSize => widget.aspectRatio >= 1
+      ? _frameLongestSide
+      : _frameLongestSide * widget.aspectRatio;
+
+  /// The crop frame's height -- equal to [_viewportSize] for a square,
+  /// which is what every call into profile_photo_crop.dart assumed
+  /// before WYN-109.
+  double get _viewportHeight => widget.aspectRatio >= 1
+      ? _frameLongestSide / widget.aspectRatio
+      : _frameLongestSide;
   static const double _minScale = 1.0;
   static const double _maxScale = 3.0;
   static const double _zoomButtonStep = 0.25;
@@ -110,6 +146,7 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
           originalWidth: width,
           originalHeight: height,
           viewportSize: _viewportSize,
+          viewportHeight: _viewportHeight,
           scale: _scale,
         );
       });
@@ -143,6 +180,7 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
       originalWidth: width,
       originalHeight: height,
       viewportSize: _viewportSize,
+      viewportHeight: _viewportHeight,
       scale: newScale,
     );
     setState(() {
@@ -165,6 +203,7 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
         originalWidth: width,
         originalHeight: height,
         viewportSize: _viewportSize,
+        viewportHeight: _viewportHeight,
         scale: clampedScale,
       );
     });
@@ -184,10 +223,11 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
         originalWidth: width,
         originalHeight: height,
         viewportSize: _viewportSize,
+        viewportHeight: _viewportHeight,
         scale: _scale,
         offset: _offset,
       );
-      final cropped = await cropToCircleSquare(
+      final cropped = await cropToSourceRect(
         bytes: widget.imageBytes,
         sourceRect: sourceRect,
       );
@@ -290,6 +330,7 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
       originalWidth: width,
       originalHeight: height,
       viewportSize: _viewportSize,
+      viewportHeight: _viewportHeight,
       scale: _scale,
     );
     return GestureDetector(
@@ -302,11 +343,14 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
       // mask overlay มาตรฐาน".
       child: SizedBox(
         width: _viewportSize,
-        height: _viewportSize,
+        height: _viewportHeight,
         child: Stack(
           fit: StackFit.expand,
           children: [
-            ClipOval(
+            ClipRRect(
+              borderRadius: widget.circular
+                  ? BorderRadius.circular(_viewportSize)
+                  : BorderRadius.circular(WynSpacing.radiusLg),
               child: ColoredBox(
                 color: Colors.grey.shade900,
                 child: Stack(
@@ -329,7 +373,11 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
             IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
+                  shape:
+                      widget.circular ? BoxShape.circle : BoxShape.rectangle,
+                  borderRadius: widget.circular
+                      ? null
+                      : BorderRadius.circular(WynSpacing.radiusLg),
                   border: Border.all(color: Colors.white, width: 1.5),
                 ),
               ),

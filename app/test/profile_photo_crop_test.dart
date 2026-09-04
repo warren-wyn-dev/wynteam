@@ -317,4 +317,108 @@ void main() {
       expect(color.toARGB32(), const ui.Color(0xFFFFFF00).toARGB32());
     });
   });
+
+  // WYN-109: the same maths, asked for a frame that is not a square.
+  // The avatar never needed this -- a post's photo does, and rather than
+  // grow a second cropper the viewport became two numbers instead of
+  // one. These hold the general form to the one property that matters:
+  // the region handed to the canvas has the frame's shape, and the image
+  // still covers the frame with nothing empty showing at any edge.
+  group('WYN-109 non-square crop frames', () {
+    test('a 4:5 frame yields a 4:5 source region', () {
+      // 260-tall portrait frame, per the crop screen's own sizing.
+      const viewportWidth = 208.0;
+      const viewportHeight = 260.0;
+      final rect = computeCropSourceRect(
+        originalWidth: 1000,
+        originalHeight: 1000,
+        viewportSize: viewportWidth,
+        viewportHeight: viewportHeight,
+        scale: 1,
+        offset: centeredCropOffset(
+          originalWidth: 1000,
+          originalHeight: 1000,
+          viewportSize: viewportWidth,
+          viewportHeight: viewportHeight,
+          scale: 1,
+        ),
+      );
+      expect(rect.width / rect.height, closeTo(4 / 5, 0.001));
+      // A square source can supply a portrait crop only by giving up
+      // width, never by reaching outside itself.
+      expect(rect.height, closeTo(1000, 0.001));
+      expect(rect.width, closeTo(800, 0.001));
+      expect(rect.left, greaterThanOrEqualTo(0));
+      expect(rect.right, lessThanOrEqualTo(1000.001));
+    });
+
+    test('a 16:9 frame covers a portrait photo without empty edges', () {
+      const viewportWidth = 260.0;
+      const viewportHeight = 146.25;
+      // A tall photo in a wide frame: the binding axis is width, which
+      // the shorter-side rule the square case used would have got wrong.
+      final rect = computeCropSourceRect(
+        originalWidth: 600,
+        originalHeight: 1200,
+        viewportSize: viewportWidth,
+        viewportHeight: viewportHeight,
+        scale: 1,
+        offset: centeredCropOffset(
+          originalWidth: 600,
+          originalHeight: 1200,
+          viewportSize: viewportWidth,
+          viewportHeight: viewportHeight,
+          scale: 1,
+        ),
+      );
+      expect(rect.width / rect.height, closeTo(16 / 9, 0.001));
+      expect(rect.width, closeTo(600, 0.001));
+      expect(rect.left, closeTo(0, 0.001));
+      expect(rect.top, greaterThan(0));
+      expect(rect.bottom, lessThanOrEqualTo(1200.001));
+    });
+
+    test('the square case is untouched by the new parameter', () {
+      // Omitting viewportHeight has to mean exactly what the avatar flow
+      // has always done -- this is the guard on that promise.
+      ui.Rect at({double? height}) => computeCropSourceRect(
+            originalWidth: 800,
+            originalHeight: 600,
+            viewportSize: 260,
+            viewportHeight: height,
+            scale: 1.5,
+            offset: const Offset(-40, -20),
+          );
+      expect(at(), at(height: 260));
+    });
+
+    test('clamping still forbids empty space on either axis of a tall frame',
+        () {
+      const viewportWidth = 208.0;
+      const viewportHeight = 260.0;
+      final offset = clampCropOffset(
+        // Dragged far past any legal position, in both directions.
+        offset: const Offset(500, 500),
+        originalWidth: 1000,
+        originalHeight: 1000,
+        viewportSize: viewportWidth,
+        viewportHeight: viewportHeight,
+        scale: 1,
+      );
+      // Clamped back to "no gap at the top-left".
+      expect(offset.dx, lessThanOrEqualTo(0));
+      expect(offset.dy, lessThanOrEqualTo(0));
+
+      final (displayWidth, displayHeight) = cropDisplaySize(
+        originalWidth: 1000,
+        originalHeight: 1000,
+        viewportSize: viewportWidth,
+        viewportHeight: viewportHeight,
+        scale: 1,
+      );
+      // ...and no gap at the bottom-right either.
+      expect(offset.dx + displayWidth, greaterThanOrEqualTo(viewportWidth));
+      expect(offset.dy + displayHeight, greaterThanOrEqualTo(viewportHeight));
+    });
+  });
 }

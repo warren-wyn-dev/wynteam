@@ -46,10 +46,20 @@ double baseCropScaleFactor({
   required int originalWidth,
   required int originalHeight,
   required double viewportSize,
+  double? viewportHeight,
 }) {
-  final shorterSide =
-      originalWidth < originalHeight ? originalWidth : originalHeight;
-  return viewportSize / shorterSide;
+  // "Cover the viewport" -- the image has to be at least as wide and at
+  // least as tall as the frame, so the binding constraint is whichever
+  // axis needs the most magnification.
+  //
+  // For a square viewport this is the same number the shorter-side form
+  // gave: max(V/w, V/h) == V/min(w, h). WYN-109 needs the general form
+  // because a post's frame can be 4:5 or 16:9, where neither axis is
+  // "the short one" by construction.
+  final height = viewportHeight ?? viewportSize;
+  final byWidth = viewportSize / originalWidth;
+  final byHeight = height / originalHeight;
+  return byWidth > byHeight ? byWidth : byHeight;
 }
 
 /// The image's displayed (on-screen) width/height at the given [scale],
@@ -59,11 +69,13 @@ double baseCropScaleFactor({
   required int originalHeight,
   required double viewportSize,
   required double scale,
+  double? viewportHeight,
 }) {
   final factor = baseCropScaleFactor(
         originalWidth: originalWidth,
         originalHeight: originalHeight,
         viewportSize: viewportSize,
+        viewportHeight: viewportHeight,
       ) *
       scale;
   return (originalWidth * factor, originalHeight * factor);
@@ -77,16 +89,18 @@ Offset centeredCropOffset({
   required int originalHeight,
   required double viewportSize,
   required double scale,
+  double? viewportHeight,
 }) {
   final (displayWidth, displayHeight) = cropDisplaySize(
     originalWidth: originalWidth,
     originalHeight: originalHeight,
     viewportSize: viewportSize,
     scale: scale,
+    viewportHeight: viewportHeight,
   );
   return Offset(
     (viewportSize - displayWidth) / 2,
-    (viewportSize - displayHeight) / 2,
+    ((viewportHeight ?? viewportSize) - displayHeight) / 2,
   );
 }
 
@@ -100,17 +114,20 @@ Offset clampCropOffset({
   required int originalHeight,
   required double viewportSize,
   required double scale,
+  double? viewportHeight,
 }) {
   final (displayWidth, displayHeight) = cropDisplaySize(
     originalWidth: originalWidth,
     originalHeight: originalHeight,
     viewportSize: viewportSize,
     scale: scale,
+    viewportHeight: viewportHeight,
   );
-  // displayWidth/Height are always >= viewportSize (scale >= 1.0), so
-  // these mins are always <= 0.
+  // displayWidth/Height are always >= the viewport on both axes
+  // (scale >= 1.0 on top of a factor that already covers it), so these
+  // mins are always <= 0.
   final minDx = viewportSize - displayWidth;
-  final minDy = viewportSize - displayHeight;
+  final minDy = (viewportHeight ?? viewportSize) - displayHeight;
   return Offset(
     offset.dx.clamp(minDx, 0.0),
     offset.dy.clamp(minDy, 0.0),
@@ -128,17 +145,23 @@ Rect computeCropSourceRect({
   required double viewportSize,
   required double scale,
   required Offset offset,
+  double? viewportHeight,
 }) {
   final factor = baseCropScaleFactor(
         originalWidth: originalWidth,
         originalHeight: originalHeight,
         viewportSize: viewportSize,
+        viewportHeight: viewportHeight,
       ) *
       scale;
   final left = -offset.dx / factor;
   final top = -offset.dy / factor;
-  final side = viewportSize / factor;
-  return Rect.fromLTWH(left, top, side, side);
+  return Rect.fromLTWH(
+    left,
+    top,
+    viewportSize / factor,
+    (viewportHeight ?? viewportSize) / factor,
+  );
 }
 
 /// Crops [bytes] to [sourceRect] (in the source image's own pixel
@@ -150,6 +173,22 @@ Rect computeCropSourceRect({
 /// dart:ui-only approach as [square_crop.dart]'s `centerCropToSquare` --
 /// no extra image-processing package.
 Future<Uint8List> cropToCircleSquare({
+  required Uint8List bytes,
+  required Rect sourceRect,
+}) =>
+    cropToSourceRect(bytes: bytes, sourceRect: sourceRect);
+
+/// Crops [bytes] to [sourceRect] at whatever shape that rect is, encoded
+/// as PNG.
+///
+/// [cropToCircleSquare] is this function under its avatar-shaped name,
+/// kept because that is what the avatar flow reads as at its call site --
+/// a square rect in gives a square raster out, byte for byte what it
+/// always did. WYN-109 posts a photo at 1:1, 4:5, 16:9 or its own
+/// original shape, so the general form is the one that had to exist; the
+/// square was never anything more than the case the product happened to
+/// need first.
+Future<Uint8List> cropToSourceRect({
   required Uint8List bytes,
   required Rect sourceRect,
 }) async {
@@ -171,17 +210,18 @@ Future<Uint8List> cropToCircleSquare({
     sourceRect.height,
   );
 
-  final side = sourceRect.width.round();
+  final outWidth = sourceRect.width.round();
+  final outHeight = sourceRect.height.round();
   final recorder = ui.PictureRecorder();
   final canvas = ui.Canvas(recorder);
   canvas.drawImageRect(
     image,
     clampedRect,
-    ui.Rect.fromLTWH(0, 0, side.toDouble(), side.toDouble()),
+    ui.Rect.fromLTWH(0, 0, outWidth.toDouble(), outHeight.toDouble()),
     ui.Paint(),
   );
 
-  final cropped = await recorder.endRecording().toImage(side, side);
+  final cropped = await recorder.endRecording().toImage(outWidth, outHeight);
   final byteData = await cropped.toByteData(format: ui.ImageByteFormat.png);
   return byteData!.buffer.asUint8List();
 }

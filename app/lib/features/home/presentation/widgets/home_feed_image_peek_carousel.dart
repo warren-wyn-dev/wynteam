@@ -137,6 +137,14 @@ class _HomeFeedImagePeekCarouselState extends State<HomeFeedImagePeekCarousel> {
       // of the *column* the post is written in -- the Flutter equivalent
       // of the reference prototype's `-mr-6 pr-6` on this same row.
       trailingBleed: homeCardEdgeInset,
+      // WYN-109: the shape the poster chose, not a fixed 4:5. A Drop
+      // from before that column existed reports 4:5 and so lands
+      // exactly where it always did.
+      aspectRatio: widget.item.aspectRatio.ratio ??
+          postImageAspectRatio(
+            widget.item.imageWidth,
+            widget.item.imageHeight,
+          ),
       semanticLabelBuilder: (index, total) =>
           'รูปที่ ${index + 1} จาก $total ของ '
           '${widget.item.authorNameOrUsername}',

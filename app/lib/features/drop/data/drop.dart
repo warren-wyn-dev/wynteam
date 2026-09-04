@@ -1,3 +1,4 @@
+import 'square_crop.dart' show DropAspectRatio;
 import '../../../core/text_utils.dart';
 
 /// WYN-097: who can see one Drop, chosen per-post at Compose time (the
@@ -61,6 +62,7 @@ class Drop {
     this.location,
     this.imageUrls,
     int? imageCount,
+    this.aspectRatio = DropAspectRatio.portrait,
   }) : imageCount = imageCount ?? (imageUrl != null ? 1 : 0);
 
   final String id;
@@ -83,6 +85,11 @@ class Drop {
   /// [imageUrls] when a fetch path resolved them, and are otherwise
   /// fetched on demand -- see DropRepository.fetchDropImages.
   final int imageCount;
+
+  /// WYN-109: the shape the poster chose for this Drop's photos. Defaults
+  /// to 4:5 -- what a Drop written before the column existed already
+  /// looks like in the feed.
+  final DropAspectRatio aspectRatio;
 
   /// Beta3: the full ordered image list, when whoever built this [Drop]
   /// already had it -- the Home feed batch-loads one page's worth in a
@@ -225,6 +232,7 @@ class Drop {
         authorAvatarUrl: authorAvatarUrl,
         imageUrl: imageUrl,
         imageCount: imageCount,
+        aspectRatio: aspectRatio,
         imageUrls: imageUrls,
         caption: caption,
         createdAt: createdAt,
@@ -263,6 +271,7 @@ class Drop {
         authorAvatarUrl: authorAvatarUrl,
         imageUrl: imageUrl,
         imageCount: imageCount,
+        aspectRatio: aspectRatio,
         imageUrls: imageUrls,
         caption: caption,
         createdAt: createdAt,
@@ -413,6 +422,8 @@ class Drop {
       deletedAt: map['deleted_at'] != null
           ? DateTime.parse(map['deleted_at'] as String)
           : null,
+      aspectRatio:
+          DropAspectRatio.fromWire(map['image_aspect_ratio'] as String?),
       imageWidth: (map['image_width'] as num?)?.toInt(),
       imageHeight: (map['image_height'] as num?)?.toInt(),
       // WYN-097: defaults to `everyone` when the query didn't select it

@@ -23,6 +23,7 @@ import 'drafts_screen.dart';
 import '../data/drop_repository.dart';
 import '../data/location_repository.dart';
 import '../data/location_result.dart';
+import '../../profile/presentation/profile_photo_crop_screen.dart';
 import '../data/square_crop.dart';
 import 'location_picker_screen.dart';
 import '../../../core/design/wyn_colors.dart';
@@ -174,6 +175,22 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   // file that already threaded bytes/extension separately.
   final List<Uint8List> _imagesBytes = [];
   final List<String> _imageExtensions = [];
+
+  /// WYN-109: what the picker actually returned, before any cropping.
+  /// Parallel to [_imagesBytes] (same index = same photo).
+  ///
+  /// Kept so changing the ratio re-cuts from the original every time
+  /// rather than cutting an already-cut photo -- otherwise switching
+  /// 4:5 -> 16:9 -> 4:5 would quietly shave the picture down a step at
+  /// each hop, and the poster would have no way to get back what they
+  /// started with short of removing the photo and picking it again.
+  final List<Uint8List> _rawImagesBytes = [];
+
+  /// WYN-109: one ratio for every photo in the post -- Founder,
+  /// 2026-09-04: "อัตราส่วน 4:5 เท่ากัน". Defaults to the shape the feed's
+  /// card row already draws, so the common case is the one that is never
+  /// cropped a second time on the way out.
+  DropAspectRatio _aspectRatio = DropAspectRatio.initial;
   static const _maxImages = 9;
 
   bool _isCropping = false;
@@ -395,6 +412,73 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   /// [_existingImageUrl] the same way it always did pre-multi-image (a
   /// Draft's carried-over image and a fresh multi-image pick never mix
   /// -- see that field's doc comment).
+  /// Cuts [raw] to the currently chosen ratio, or hands it back
+  /// untouched for [DropAspectRatio.original] -- the one choice whose
+  /// whole point is that nothing is removed.
+  Future<Uint8List> _applyRatio(Uint8List raw) async {
+    final ratio = _aspectRatio.ratio;
+    if (ratio == null) return raw;
+    return centerCropToRatio(raw, ratio);
+  }
+
+  /// Re-cuts every already-picked photo to a newly chosen ratio, always
+  /// from [_rawImagesBytes] rather than from what is on screen now.
+  ///
+  /// A photo the poster had positioned by hand loses that positioning:
+  /// a crop region is a region *of a particular shape*, and there is no
+  /// honest way to carry a 16:9 choice over to a 4:5 frame. Re-centering
+  /// is the predictable answer, and the cropper is one tap away.
+  Future<void> _onAspectRatioChanged(DropAspectRatio ratio) async {
+    if (ratio == _aspectRatio || _isCropping) return;
+    setState(() {
+      _aspectRatio = ratio;
+      _isCropping = true;
+    });
+    try {
+      final recut = <Uint8List>[
+        for (final raw in _rawImagesBytes) await _applyRatio(raw),
+      ];
+      if (!mounted) return;
+      setState(() {
+        _imagesBytes
+          ..clear()
+          ..addAll(recut);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _errorMessage = 'ปรับสัดส่วนรูปไม่สำเร็จ ลองใหม่อีกครั้ง');
+    } finally {
+      if (mounted) setState(() => _isCropping = false);
+    }
+  }
+
+  /// Opens the cropper on one photo so the poster can say which part of
+  /// it to keep -- the same screen the avatar flow uses (WYN-104), asked
+  /// for this post's ratio instead of a square.
+  ///
+  /// Always opens on the *raw* photo, so what they are positioning is
+  /// the whole picture and not the centre slice a previous pass left
+  /// behind.
+  Future<void> _repositionImage(int index) async {
+    final ratio = _aspectRatio.ratio;
+    // "ต้นฉบับ" keeps the whole photo -- there is no framing left to
+    // choose, so there is nothing for the cropper to do.
+    if (ratio == null || index >= _rawImagesBytes.length || _isCropping) {
+      return;
+    }
+    final cropped = await Navigator.of(context).push<Uint8List>(
+      MaterialPageRoute(
+        builder: (_) => ProfilePhotoCropScreen(
+          imageBytes: _rawImagesBytes[index],
+          aspectRatio: ratio,
+          circular: false,
+        ),
+      ),
+    );
+    if (cropped == null || !mounted) return;
+    setState(() => _imagesBytes[index] = cropped);
+  }
+
   Future<void> _pickImage(ImageSource source) async {
     // Guards the same race the "โพสต์" button guards against (see
     // .wyn/tasks/bugs/WYN-004-feed-and-post.md, QA round 1): without
@@ -423,9 +507,10 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       final rawBytes = await picked.readAsBytes();
       // Cropped to a fresh PNG, so the original extension no longer
       // reflects the actual encoded bytes.
-      final cropped = await centerCropToSquare(rawBytes);
+      final cropped = await _applyRatio(rawBytes);
       if (!mounted) return;
       setState(() {
+        _rawImagesBytes.add(rawBytes);
         _imagesBytes.add(cropped);
         _imageExtensions.add('png');
         _existingImageUrl = null;
@@ -464,15 +549,18 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     setState(() => _isCropping = true);
     try {
       final croppedList = <Uint8List>[];
+      final rawList = <Uint8List>[];
       // WYN-103 Edge Case 2: `limit` above is the native picker's own
       // cap, which isn't honored on every platform -- truncate again
       // here so _imagesBytes can never exceed _maxImages regardless.
       for (final file in picked.take(remaining)) {
         final rawBytes = await file.readAsBytes();
-        croppedList.add(await centerCropToSquare(rawBytes));
+        rawList.add(rawBytes);
+        croppedList.add(await _applyRatio(rawBytes));
       }
       if (!mounted) return;
       setState(() {
+        _rawImagesBytes.addAll(rawList);
         _imagesBytes.addAll(croppedList);
         _imageExtensions.addAll(List.filled(croppedList.length, 'png'));
         _existingImageUrl = null;
@@ -490,6 +578,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     setState(() {
       _imagesBytes.removeAt(index);
       _imageExtensions.removeAt(index);
+      if (index < _rawImagesBytes.length) _rawImagesBytes.removeAt(index);
     });
   }
 
@@ -630,6 +719,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             onImageUploaded: (uploaded, total) {
               if (mounted) setState(() => _uploadedImageCount = uploaded);
             },
+            aspectRatio: _aspectRatio,
           );
         } else if (existingImageUrl != null) {
           // WYN-036: continuing a Draft without picking a new image --
@@ -1117,7 +1207,23 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.memory(_imagesBytes[index], fit: BoxFit.cover),
+                      // WYN-109: tapping the photo opens the cropper on
+                      // it, so "which part of this do you want kept" is
+                      // a question the poster can answer. Before this
+                      // the app answered it for them, always with the
+                      // centre.
+                      Semantics(
+                        label: 'รูปที่ ${index + 1} กดเพื่อปรับตำแหน่ง',
+                        button: true,
+                        excludeSemantics: true,
+                        child: GestureDetector(
+                          onTap: () => _repositionImage(index),
+                          child: Image.memory(
+                            _imagesBytes[index],
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
                       _buildRemoveButton(onTap: () => _removeImage(index)),
                     ],
                   ),
@@ -1125,6 +1231,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
               ),
             ),
           ),
+          _buildAspectRatioChips(),
           Padding(
             padding: const EdgeInsets.only(top: WynSpacing.space1),
             child: Text(
@@ -1133,6 +1240,37 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// WYN-109's ratio picker: one choice for the whole post, sitting
+  /// directly under the photos it reshapes so the effect of tapping a
+  /// chip is visible in the same glance.
+  ///
+  /// Chips rather than a dropdown because there are four options and
+  /// they are all worth seeing at once; the shape of each little glyph
+  /// says what the words would have to spell out.
+  Widget _buildAspectRatioChips() {
+    return Padding(
+      padding: const EdgeInsets.only(top: WynSpacing.space2),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final ratio in DropAspectRatio.values)
+              Padding(
+                padding: const EdgeInsets.only(right: WynSpacing.space2),
+                child: _AspectRatioChip(
+                  ratio: ratio,
+                  selected: ratio == _aspectRatio,
+                  onTap: _isCropping
+                      ? null
+                      : () => _onAspectRatioChanged(ratio),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1589,6 +1727,103 @@ class _ToolbarIcon extends StatelessWidget {
                 : null,
             padding: active ? const EdgeInsets.all(4) : const EdgeInsets.all(0),
             child: Icon(icon, size: 19, color: color),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One ratio choice in the create-post screen's picker (WYN-109).
+///
+/// Uses the app's existing quiet-chip treatment -- hairline border and
+/// graphite label at rest, sapphire when chosen -- rather than a new
+/// control: the ratio is a small, reversible framing choice, not
+/// something to shout about. The little outline to the left of the label
+/// is the shape itself, drawn at the ratio it names, which reads faster
+/// than the numbers do.
+class _AspectRatioChip extends StatelessWidget {
+  const _AspectRatioChip({
+    required this.ratio,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final DropAspectRatio ratio;
+  final bool selected;
+
+  /// Null while a re-cut is in flight -- tapping a second chip midway
+  /// would race the first one's work.
+  final VoidCallback? onTap;
+
+  static const Map<DropAspectRatio, String> _labels = {
+    DropAspectRatio.original: 'ต้นฉบับ',
+    DropAspectRatio.square: '1:1',
+    DropAspectRatio.portrait: '4:5',
+    DropAspectRatio.landscape: '16:9',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? WynColors.sapphire : WynColors.graphite;
+    // The glyph is the shape being offered, at its own ratio, sized to
+    // sit on the label's line.
+    final glyphRatio = ratio.ratio ?? 4 / 3;
+    const glyphLongSide = 14.0;
+    final glyphWidth =
+        glyphRatio >= 1 ? glyphLongSide : glyphLongSide * glyphRatio;
+    final glyphHeight =
+        glyphRatio >= 1 ? glyphLongSide / glyphRatio : glyphLongSide;
+
+    return Semantics(
+      label: 'สัดส่วน ${_labels[ratio]}',
+      button: true,
+      selected: selected,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+        child: Container(
+          constraints: const BoxConstraints(
+            minHeight: WynSpacing.touchTargetMin,
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: WynSpacing.space3,
+            vertical: WynSpacing.space2,
+          ),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: selected ? WynColors.sapphire : WynColors.hairline,
+            ),
+            borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: glyphLongSide,
+                height: glyphLongSide,
+                child: Center(
+                  child: Container(
+                    width: glyphWidth,
+                    height: glyphHeight,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: color, width: 1.4),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: WynSpacing.space2 - 2),
+              Text(
+                _labels[ratio]!,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  color: color,
+                ),
+              ),
+            ],
           ),
         ),
       ),
