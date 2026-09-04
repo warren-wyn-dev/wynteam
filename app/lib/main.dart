@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/design/wyn_colors.dart';
@@ -10,11 +13,20 @@ import 'core/design/wyn_theme.dart';
 import 'core/env.dart';
 import 'core/push_env.dart';
 import 'core/navigation/app_navigator.dart';
+import 'core/navigation/deep_link_coordinator.dart';
 import 'features/account_switcher/data/account_switcher_repository.dart';
 import 'features/auth/presentation/auth_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Share links (clubShareLink & co., wynos.online/club/<id> etc.) are
+  // real paths, not fragments -- without this, Flutter web's default
+  // hash strategy would put that path after a `#/`, which
+  // DeepLinkCoordinator.start()'s `Uri.base` read never sees, and Vercel
+  // (see app/web/vercel.json) has nothing to rewrite either. Safe to
+  // call unconditionally: it's a no-op on non-web platforms.
+  if (kIsWeb) usePathUrlStrategy();
 
   // WYN-078 (Wynos V1.0.0 Beta2, item 5): without this, the OS draws its
   // own default status bar/nav bar scrim (often white or black depending
@@ -46,6 +58,14 @@ Future<void> main() async {
   // it reaches RootShell), so this is safe to start unconditionally here
   // even before any user has signed in.
   AccountSwitcherRepository().startSyncingActiveSession(Supabase.instance.client);
+
+  // Share links (wynos.online/club/<id> etc.) opening the right screen,
+  // not just the app -- see deep_link_coordinator.dart. Unawaited: on
+  // native this reads a platform channel (getInitialAppLink) that has
+  // no reason to hold up the very first frame, and RootShell.initState
+  // retries once content is actually reachable regardless of exactly
+  // when this resolves.
+  unawaited(DeepLinkCoordinator.instance.start());
 
   // WYN-016 (Push Notification): throws until the Founder adds real
   // `google-services.json`/`GoogleService-Info.plist` -- caught here so

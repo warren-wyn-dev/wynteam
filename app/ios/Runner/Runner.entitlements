@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Universal Links for share links (clubShareLink & co.,
+	     wynos.online/club/<id> etc.) -- see
+	     core/navigation/deep_link_coordinator.dart. iOS checks
+	     web/.well-known/apple-app-site-association before treating this
+	     app as the owner of these links; until that file's real Apple
+	     Team ID replaces its placeholder, verification just fails and
+	     links keep opening in Safari exactly as they do today. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:wynos.online</string>
+	</array>
+</dict>
+</plist>

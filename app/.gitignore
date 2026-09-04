@@ -58,6 +58,17 @@ migrate_working_dir/
 !/web/icons/Icon-512.png
 !/web/icons/Icon-maskable-192.png
 !/web/icons/Icon-maskable-512.png
+# vercel.json: the SPA-fallback rewrite that makes a direct load of
+# wynos.online/club/<id> (a share link, not a link tapped inside a
+# running session) serve the Flutter app instead of a Vercel 404 --
+# `flutter create` has no template equivalent, same reasoning as
+# firebase-messaging-sw.js above. .well-known/: Universal Links (iOS)/
+# App Links (Android) verification files -- also not part of Flutter's
+# web template, and must be committed to be deployed at all.
+!/web/vercel.json
+!/web/.well-known/
+!/web/.well-known/apple-app-site-association
+!/web/.well-known/assetlinks.json
 /linux/
 /macos/
 /windows/

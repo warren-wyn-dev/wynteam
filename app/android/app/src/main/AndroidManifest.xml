@@ -37,6 +37,20 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- App Links for share links (clubShareLink & co.,
+                 wynos.online/club/<id> etc.) -- see
+                 core/navigation/deep_link_coordinator.dart. autoVerify
+                 makes Android check web/.well-known/assetlinks.json
+                 before treating this app as the owner of these links;
+                 until that file's real SHA-256 fingerprint replaces its
+                 placeholder, verification just fails and links keep
+                 opening in the browser exactly as they do today. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="wynos.online"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

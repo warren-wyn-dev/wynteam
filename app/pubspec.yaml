@@ -42,6 +42,17 @@ dependencies:
   # reverse geocoding) goes through the new `location-search` Edge
   # Function (LocationIQ), never this package directly.
   geolocator: ^13.0.2
+  # Share links (wynos.online/club/<id> etc.) opening the right screen on
+  # native, not just the app -- see core/navigation/deep_link_coordinator.dart.
+  # Reads Universal Links (iOS)/App Links (Android); web needs no plugin
+  # (Uri.base + flutter_web_plugins' usePathUrlStrategy below cover it).
+  app_links: ^6.3.3
+  # web-only, but importing it on native is always safe (a normal Dart
+  # package with a stub non-web implementation) -- see main.dart's
+  # `usePathUrlStrategy()` call. `sdk: flutter` because it ships inside
+  # the Flutter SDK itself, not on pub.dev.
+  flutter_web_plugins:
+    sdk: flutter
 
 dev_dependencies:
   flutter_test:

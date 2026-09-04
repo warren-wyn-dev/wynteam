@@ -23,9 +23,13 @@ import '../../report/presentation/report_sheet.dart';
 import '../../../core/widgets/network_thumbnail.dart';
 import 'widgets/club_avatar.dart';
 
-/// Placeholder share link -- same "no real hosting/domain yet" caveat as
-/// dropShareLink/popShareLink (WYN-005/006).
-String clubShareLink(String clubId) => 'https://wyn.app/club/$clubId';
+/// wynos.online is the real, owned domain (see .wyn/company/DECISIONS.md,
+/// "live ที่ https://wynos.online แล้ว") -- wyn.app was never WYN's to
+/// begin with, so sharing it sent people to a GoDaddy domain-parking
+/// page instead of this Club. See content_link.dart for the other half
+/// of the fix: turning an incoming .../club/<id> link back into this
+/// screen (web path-based routing + native App/Universal Links).
+String clubShareLink(String clubId) => 'https://wynos.online/club/$clubId';
 
 typedef _ClubPageData = ({Club club, ClubMember? membership});
 

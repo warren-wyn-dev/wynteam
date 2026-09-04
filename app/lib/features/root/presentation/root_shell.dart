@@ -22,6 +22,7 @@ import '../../search/presentation/search_screen.dart';
 import '../../push/data/push_token_repository.dart';
 import '../../push/presentation/push_notification_service.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/navigation/deep_link_coordinator.dart';
 
 /// The Bottom Navigation shell -- 5 destinations per the WYNOS V1.0.0
 /// Master Spec (Section 34): Home / Search / Drop ("+", a create action,
@@ -194,6 +195,16 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
     ).initialize();
 
     WidgetsBinding.instance.addObserver(this);
+
+    // A share link (wynos.online/club/<id> etc.) that arrived before
+    // there was anywhere ready to show it -- cold start with no session
+    // yet, so DeepLinkCoordinator.start() had nothing to open -- is held
+    // until now. Same "runs once per sign-in, guest or full account"
+    // shape as the push-notification registration above: whichever
+    // account just reached Home (or Guest Browsing, WYN-072) is the
+    // first point a Club/Drop/Profile screen can actually be pushed on
+    // top of. A no-op if nothing is pending.
+    DeepLinkCoordinator.instance.retryPending();
 
     // WYN-077: fire-once-per-session proxy for "a real user is actively
     // using the app" -- same shape as the push-notification call above

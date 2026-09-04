@@ -18,11 +18,14 @@ import 'confirm_delete_pop_dialog.dart';
 import 'pop_comment_sheet.dart';
 import '../../../../core/design/wyn_spacing.dart';
 
-/// Placeholder share link -- there's no real hosting/domain yet, same
-/// situation as Drop's share link (see .wyn/tasks/approved/WYN-005-drop-post-image.md
-/// Risks). Not a reachable URL; revisit once Founder confirms a real
-/// domain before Deploy.
-String popShareLink(String popId) => 'https://wyn.app/pop/$popId';
+/// wynos.online is the real, owned domain (see .wyn/company/DECISIONS.md,
+/// "live ที่ https://wynos.online แล้ว") -- wyn.app was never WYN's, and
+/// sharing it sent people to a GoDaddy domain-parking page instead of
+/// this content. Pop itself is unmounted from normal navigation
+/// (WYN-102), so this link currently resolves to the "not available"
+/// message in content_link.dart, same as a push notification for old
+/// Pop activity.
+String popShareLink(String popId) => 'https://wynos.online/pop/$popId';
 
 /// One full-screen clip: video playback, scrim overlay, and the
 /// Like/Comment/Share/Save/View interaction row. Extracted out of

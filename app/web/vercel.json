@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/.well-known/(.*)", "destination": "/.well-known/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
