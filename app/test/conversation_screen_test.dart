@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wyn/core/design/wyn_colors.dart';
 import 'package:wyn/features/block/data/block_relationship.dart';
 import 'package:wyn/features/chat/data/chat_message.dart';
 import 'package:wyn/features/chat/presentation/conversation_screen.dart';
@@ -273,10 +276,12 @@ void main() {
     expect(find.text('ข้อความซ้ำ'), findsOneWidget);
   });
 
-  group('13-chat-thread.tsx restyle: avatar grouping and time dividers', () {
+  group('Chat Screen Message Grouping & Bubble Behavior spec: avatar '
+      'grouping and date separators', () {
     testWidgets(
         'a consecutive run of "them" messages shows the avatar only once, '
-        'on the oldest bubble of the run', (tester) async {
+        'on the newest (bottom-most on screen) bubble of the group -- '
+        'grouping rule: same sender within 60s, same day', (tester) async {
       final now = DateTime.now();
       chatRepo.messagesByConversation = {
         // Newest first, matching what a real fetch returns.
@@ -315,17 +320,25 @@ void main() {
         (widget) => widget is AvatarCircle && widget.radius == 15,
       );
       expect(bubbleAvatars, findsOneWidget);
+
+      // It sits beside the newest bubble of the "other" run (m3, closer
+      // to the composer) rather than the run's oldest bubble (m2).
+      final avatarY = tester.getCenter(bubbleAvatars).dy;
+      final m3Y = tester.getCenter(find.text('ข้อความที่ 3')).dy;
+      final m2Y = tester.getCenter(find.text('ข้อความที่ 2')).dy;
+      expect((avatarY - m3Y).abs(), lessThan((avatarY - m2Y).abs()));
     });
 
-    // Fixed, distinctly-past timestamps (not "today"/"yesterday" relative
-    // to whenever this test happens to run) so the divider label always
-    // takes _dividerLabel's "d/M HH:mm" fallback branch -- deterministic
+    // Fixed, distinctly-past date (not "today"/"yesterday" relative to
+    // whenever this test happens to run) so the separator label always
+    // takes _dateLabel's "D <Thai month>" fallback branch -- deterministic
     // regardless of wall-clock time or a midnight-crossing test run.
     final anchor = DateTime(2020, 6, 15, 12);
 
     testWidgets(
-        'no divider between two closely-timed messages -- only one at the '
-        'very start of the loaded history', (tester) async {
+        'no date separator between two same-day messages -- only one at '
+        'the very start of the loaded history, even hours apart (spec: '
+        'date-only, not a 30-minute time gap)', (tester) async {
       chatRepo.messagesByConversation = {
         'c1': [
           ChatMessage(
@@ -338,21 +351,20 @@ void main() {
               id: 'm1',
               conversationId: 'c1',
               senderId: 'other',
-              createdAt: anchor.subtract(const Duration(minutes: 3)),
+              createdAt: anchor.subtract(const Duration(hours: 2)),
               text: 'ข้อความก่อนหน้า'),
         ],
       };
       await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
 
-      // Only the oldest-loaded message (no more history) gets a divider
-      // -- the 2 messages are close enough in time not to need one
-      // between them.
-      expect(find.textContaining('15/6'), findsOneWidget);
+      // Same calendar day despite the 2-hour gap -- only the
+      // start-of-history separator, date-only, no time.
+      expect(find.text('15 มิถุนายน'), findsOneWidget);
     });
 
-    testWidgets('a real time gap between message groups gets its own divider',
-        (tester) async {
+    testWidgets('a message on a different calendar day gets its own date '
+        'separator', (tester) async {
       chatRepo.messagesByConversation = {
         'c1': [
           ChatMessage(
@@ -365,16 +377,17 @@ void main() {
               id: 'm1',
               conversationId: 'c1',
               senderId: 'other',
-              createdAt: anchor.subtract(const Duration(hours: 2)),
+              createdAt: anchor.subtract(const Duration(days: 1)),
               text: 'ข้อความเก่า'),
         ],
       };
       await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
 
-      // Both the >30-minute gap between the 2 groups and the very start
-      // of history (the older message) get their own divider.
-      expect(find.textContaining('15/6'), findsNWidgets(2));
+      // The day boundary between the 2 messages, and the very start of
+      // history (the older message), each get their own separator.
+      expect(find.text('15 มิถุนายน'), findsOneWidget);
+      expect(find.text('14 มิถุนายน'), findsOneWidget);
     });
   });
 
@@ -382,7 +395,7 @@ void main() {
     testWidgets(
         'as the recipient (not requestedBy): messages readable, composer replaced '
         'with Accept/Delete/Block/Report', (tester) async {
-      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other');
+      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other', otherUserLastReadAt: null);
       chatRepo.messagesByConversation = {
         'c1': [message(text: 'อยากรู้จักครับ')],
       };
@@ -400,7 +413,7 @@ void main() {
 
     testWidgets('tapping ยอมรับ accepts the request and the composer becomes normal',
         (tester) async {
-      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other');
+      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other', otherUserLastReadAt: null);
       chatRepo.messagesByConversation = {
         'c1': [message()],
       };
@@ -417,7 +430,7 @@ void main() {
 
     testWidgets('tapping ลบ confirms then deletes the request and pops the screen',
         (tester) async {
-      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other');
+      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other', otherUserLastReadAt: null);
       chatRepo.messagesByConversation = {
         'c1': [message()],
       };
@@ -461,7 +474,7 @@ void main() {
 
     testWidgets('tapping บล็อก blocks the sender and switches to the blocked message',
         (tester) async {
-      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other');
+      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other', otherUserLastReadAt: null);
       chatRepo.messagesByConversation = {
         'c1': [message()],
       };
@@ -479,7 +492,7 @@ void main() {
     });
 
     testWidgets('tapping รายงาน opens the report sheet targeting the user', (tester) async {
-      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other');
+      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other', otherUserLastReadAt: null);
       chatRepo.messagesByConversation = {
         'c1': [message()],
       };
@@ -494,7 +507,7 @@ void main() {
 
     testWidgets('as the requester (requestedBy == me): composer stays normal with an '
         'awaiting-response label', (tester) async {
-      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'me');
+      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'me', otherUserLastReadAt: null);
       chatRepo.messagesByConversation = {
         'c1': [message()],
       };
@@ -505,5 +518,97 @@ void main() {
       expect(find.text('รอการตอบรับ'), findsOneWidget);
       expect(find.text('ยอมรับ'), findsNothing);
     });
+  });
+
+  group('Delivery/read receipt (spec section 7)', () {
+    testWidgets(
+        'sending shows a pending bubble with the sending indicator; it '
+        'flips to a plain sent checkmark once the send resolves',
+        (tester) async {
+      chatRepo.messagesByConversation = const {'c1': []};
+      chatRepo.sendMessageGate = Completer<void>();
+      chatRepo.sendMessageResult = ChatMessage(
+        id: 'm-sent',
+        conversationId: 'c1',
+        senderId: 'me',
+        createdAt: DateTime.now(),
+        text: 'กำลังส่ง',
+      );
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'กำลังส่ง');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.send));
+      await tester.pump(); // Optimistic insert lands; sendMessage is still gated.
+
+      expect(find.text('กำลังส่ง'), findsOneWidget);
+      expect(find.byIcon(Icons.fiber_manual_record), findsOneWidget);
+      expect(find.byIcon(Icons.check), findsNothing);
+
+      chatRepo.sendMessageGate!.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.fiber_manual_record), findsNothing);
+      final checkIcon = tester.widget<Icon>(find.byIcon(Icons.check));
+      expect(checkIcon.color, WynColors.faint);
+    });
+
+    testWidgets(
+        "the last outgoing bubble flips from sent to read when the other "
+        "participant's last-read timestamp moves past it (realtime "
+        'conversation-meta update)', (tester) async {
+      final sentAt = DateTime.now();
+      chatRepo.messagesByConversation = {
+        'c1': [
+          ChatMessage(
+              id: 'm1',
+              conversationId: 'c1',
+              senderId: 'me',
+              createdAt: sentAt,
+              text: 'อ่านหรือยัง'),
+        ],
+      };
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      var checkIcon = tester.widget<Icon>(find.byIcon(Icons.check));
+      expect(checkIcon.color, WynColors.faint);
+
+      chatRepo.emitConversationMetaUpdate((
+        status: 'active',
+        requestedBy: null,
+        otherUserLastReadAt: sentAt.add(const Duration(seconds: 1)),
+      ));
+      await tester.pumpAndSettle();
+
+      checkIcon = tester.widget<Icon>(find.byIcon(Icons.check));
+      expect(checkIcon.color, WynColors.sapphire);
+    });
+  });
+
+  testWidgets(
+      'tapping a bubble reveals its time label for ~2 seconds, then it '
+      'auto-dismisses (spec section 6)', (tester) async {
+    final sentAt = DateTime(2020, 6, 15, 18, 44);
+    chatRepo.messagesByConversation = {
+      'c1': [
+        ChatMessage(
+            id: 'm1', conversationId: 'c1', senderId: 'me', createdAt: sentAt, text: 'แตะดูเวลา'),
+      ],
+    };
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    expect(find.text('18:44'), findsNothing);
+
+    await tester.tap(find.text('แตะดูเวลา'));
+    await tester.pump();
+
+    expect(find.text('18:44'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+
+    expect(find.text('18:44'), findsNothing);
   });
 }

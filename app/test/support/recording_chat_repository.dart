@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -67,6 +68,13 @@ class RecordingChatRepository extends ChatRepository {
   SharedContentType? lastSendMessageSharedContentType;
   String? lastSendMessageSharedContentId;
 
+  /// Set by a test to hold [sendMessage] open until it completes the
+  /// gate -- lets a test observe ConversationScreen's optimistic
+  /// "sending" bubble/receipt before the real send resolves, instead of
+  /// it resolving on the very next microtask same as everything else
+  /// here. Mirrors RecordingDropRepository's `imageUploadGate`.
+  Completer<void>? sendMessageGate;
+
   Object? deleteMessageError;
   int deleteMessageCalls = 0;
   String? lastDeleteMessageId;
@@ -91,6 +99,7 @@ class RecordingChatRepository extends ChatRepository {
 
   void Function(ChatMessage message)? _conversationCallback;
   void Function(ChatMessage message)? _inboxCallback;
+  void Function(ConversationMeta meta)? _conversationMetaCallback;
 
   @override
   Future<List<Conversation>> fetchInbox({required int page}) async {
@@ -155,6 +164,8 @@ class RecordingChatRepository extends ChatRepository {
     lastSendMessageReplyToId = replyToMessageId;
     lastSendMessageSharedContentType = sharedContentType;
     lastSendMessageSharedContentId = sharedContentId;
+    final gate = sendMessageGate;
+    if (gate != null) await gate.future;
     final error = sendMessageError;
     if (error != null) throw error;
     return sendMessageResult ??
@@ -245,6 +256,15 @@ class RecordingChatRepository extends ChatRepository {
   }
 
   @override
+  RealtimeChannel subscribeToConversationMeta(
+    String conversationId,
+    void Function(ConversationMeta meta) onUpdate,
+  ) {
+    _conversationMetaCallback = onUpdate;
+    return _fakeChannelClient.channel('test-conversation-meta-$conversationId');
+  }
+
+  @override
   void unsubscribe(RealtimeChannel channel) {
     // No-op -- the channel was never actually subscribed (see the class
     // doc comment), so there's nothing real to tear down.
@@ -257,4 +277,9 @@ class RecordingChatRepository extends ChatRepository {
   /// Test helper: simulates a new message arriving over
   /// [subscribeToMyMessages]'s channel.
   void emitMyMessage(ChatMessage message) => _inboxCallback?.call(message);
+
+  /// Test helper: simulates a `conversations` row UPDATE arriving over
+  /// [subscribeToConversationMeta]'s channel -- e.g. the other
+  /// participant reading up to a given message, for read-receipt tests.
+  void emitConversationMetaUpdate(ConversationMeta meta) => _conversationMetaCallback?.call(meta);
 }

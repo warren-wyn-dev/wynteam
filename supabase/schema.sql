@@ -4098,14 +4098,30 @@ $$;
 
 grant execute on function public.count_unread_conversations() to authenticated;
 
--- Enables realtime for the `messages` table -- guarded so schema.sql
--- still applies cleanly against a bare local Postgres test harness
--- (supabase/tests/*.sh's stub never creates the `supabase_realtime`
--- publication, only a real Supabase project does by default).
+-- Enables realtime for `messages` (new/edited/deleted messages) and
+-- `conversations` (so a "read" receipt -- the other participant's
+-- user_a_last_read_at/user_b_last_read_at moving forward -- reaches an
+-- already-open ConversationScreen live, not just on next reload) --
+-- guarded so schema.sql still applies cleanly against a bare local
+-- Postgres test harness (supabase/tests/*.sh's stub never creates the
+-- `supabase_realtime` publication, only a real Supabase project does by
+-- default), and guarded per-table against already being a member so
+-- re-running this against an already-migrated project doesn't error.
 do $$
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    execute 'alter publication supabase_realtime add table public.messages';
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'messages'
+    ) then
+      execute 'alter publication supabase_realtime add table public.messages';
+    end if;
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'conversations'
+    ) then
+      execute 'alter publication supabase_realtime add table public.conversations';
+    end if;
   end if;
 end
 $$;

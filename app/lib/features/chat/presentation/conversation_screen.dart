@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -39,12 +40,27 @@ import '../data/chat_repository.dart';
 import '../data/shared_content_type.dart';
 
 /// Screen 3 -- the conversation itself. Restyled to 13-chat-thread.tsx:
-/// sapphire-filled bubbles (mine) vs. tinted #F1EFE9 bubbles (theirs) with
-/// an asymmetric "tail" corner, a small avatar shown only on the first
-/// bubble of each consecutive run from the other person (never repeated
-/// down a burst), and no per-bubble timestamp -- only a centered, muted
-/// divider when there's a real time gap between message groups (see
-/// [_ConversationScreenState._isRunStart]/[_dividerLabelAbove]).
+/// sapphire-filled bubbles (mine) vs. tinted #F1EFE9 bubbles (theirs).
+///
+/// Message grouping/bubble behavior (per
+/// .wyn/docs/design/wyn-031-chat-message-grouping-bubble-spec.md):
+/// consecutive messages from the same sender
+/// within 60 seconds and the same calendar day form a group -- 4px apart
+/// within a group, 16px between groups from the same sender, 20px
+/// between groups from different senders (see
+/// [_ConversationScreenState._isSameGroup]/[_gapBelowMessage]). The
+/// avatar (incoming only) and the delivery/read-receipt row (outgoing,
+/// last message in the whole conversation only) attach to the
+/// chronologically-latest bubble of a group -- the one rendered at the
+/// bottom of that group on screen (see [_ConversationScreenState._isGroupEnd]).
+/// Corners tighten (18px -> 4px) on whichever side touches the next
+/// bubble in the same group, stitching the group together visually,
+/// while the true first/last bubble's outer corners stay full radius
+/// (see [_MessageBubble._cornerRadius]). No per-bubble timestamp by
+/// default -- only a centered date separator once per calendar day (see
+/// [_ConversationScreenState._dateSeparatorAbove]); tapping any bubble
+/// reveals its own time label for ~2 seconds (see
+/// [_ConversationScreenState._onTapBubble]).
 ///
 /// The "..." options menu (mute/block/report/view profile) has no
 /// equivalent in 13-chat-thread.tsx's own header -- its third grid column
@@ -186,7 +202,26 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   String? _requestedBy;
   bool _isDecidingRequest = false;
 
+  /// The other participant's own last-read timestamp -- null until
+  /// loaded, or if they've never read this conversation. Drives the
+  /// last-outgoing-bubble delivery/read receipt (spec section 7):
+  /// "read" once this is no earlier than that bubble's `createdAt`.
+  DateTime? _otherUserLastReadAt;
+
   RealtimeChannel? _channel;
+  RealtimeChannel? _metaChannel;
+
+  /// Reserved id prefix for the optimistic placeholder `_send()` inserts
+  /// immediately (before the network round-trip resolves) so the
+  /// delivery-receipt row has a real "sending" state to show, instead of
+  /// the removed spinner-over-bubble treatment the spec calls out.
+  static const _pendingIdPrefix = 'pending-';
+
+  /// Which bubble's tap-revealed time label (spec section 6) is
+  /// currently shown, if any -- at most one at a time, auto-dismissed by
+  /// [_revealTimer] after 2 seconds or replaced by tapping another bubble.
+  String? _revealedTimestampMessageId;
+  Timer? _revealTimer;
 
   /// True only for the recipient of a still-pending Message Request --
   /// the requester keeps a normal composer while waiting (see
@@ -214,6 +249,10 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       widget.conversationId,
       _onRealtimeMessage,
     );
+    _metaChannel = widget.chatRepository.subscribeToConversationMeta(
+      widget.conversationId,
+      _onConversationMetaUpdate,
+    );
   }
 
   @override
@@ -221,6 +260,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     WidgetsBinding.instance.removeObserver(this);
     final channel = _channel;
     if (channel != null) widget.chatRepository.unsubscribe(channel);
+    final metaChannel = _metaChannel;
+    if (metaChannel != null) widget.chatRepository.unsubscribe(metaChannel);
+    _revealTimer?.cancel();
     _scrollController.dispose();
     _textController.dispose();
     super.dispose();
@@ -246,7 +288,22 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       widget.conversationId,
       _onRealtimeMessage,
     );
-    await _refreshLatest();
+    final oldMetaChannel = _metaChannel;
+    if (oldMetaChannel != null) widget.chatRepository.unsubscribe(oldMetaChannel);
+    _metaChannel = widget.chatRepository.subscribeToConversationMeta(
+      widget.conversationId,
+      _onConversationMetaUpdate,
+    );
+    await Future.wait([_refreshLatest(), _loadConversationMeta()]);
+  }
+
+  void _onConversationMetaUpdate(ConversationMeta meta) {
+    if (!mounted) return;
+    setState(() {
+      _conversationStatus = meta.status;
+      _requestedBy = meta.requestedBy;
+      _otherUserLastReadAt = meta.otherUserLastReadAt;
+    });
   }
 
   void _onRealtimeMessage(ChatMessage message) {
@@ -360,11 +417,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   Future<void> _loadConversationMeta() async {
     try {
       final meta = await widget.chatRepository.fetchConversationMeta(widget.conversationId);
-      if (!mounted || meta == null) return;
-      setState(() {
-        _conversationStatus = meta.status;
-        _requestedBy = meta.requestedBy;
-      });
+      if (meta != null) _onConversationMetaUpdate(meta);
     } catch (_) {
       // Fails open to the 'active' default -- the messages INSERT
       // policy is the real boundary regardless of what this screen
@@ -484,21 +537,48 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       !_isComposerDisabled &&
       (_textController.text.trim().isNotEmpty || _imageBytes != null);
 
+  /// Optimistic: a placeholder bubble (real content, temp id) appears
+  /// immediately with a "sending" receipt (spec section 7) -- the
+  /// composer itself isn't cleared until the real send actually
+  /// succeeds, so a failure leaves the text/image/reply exactly as
+  /// typed rather than losing it, same as before this was optimistic.
   Future<void> _send() async {
     if (!_canSend) return;
-    setState(() => _isSending = true);
+    final text = _textController.text;
+    final imageBytes = _imageBytes;
+    final imageExtension = _imageExtension;
+    final replyToId = _replyTo?.id;
+    final pendingId = '$_pendingIdPrefix${DateTime.now().microsecondsSinceEpoch}';
+    final pending = ChatMessage(
+      id: pendingId,
+      conversationId: widget.conversationId,
+      senderId: _myUserId,
+      createdAt: DateTime.now(),
+      text: text.trim().isEmpty ? null : text.trim(),
+      replyToMessageId: replyToId,
+    );
+    setState(() {
+      _isSending = true;
+      _messages.insert(0, pending);
+    });
     try {
       final sent = await widget.chatRepository.sendMessage(
         conversationId: widget.conversationId,
-        text: _textController.text,
-        imageBytes: _imageBytes,
-        imageExtension: _imageExtension,
-        replyToMessageId: _replyTo?.id,
+        text: text,
+        imageBytes: imageBytes,
+        imageExtension: imageExtension,
+        replyToMessageId: replyToId,
       );
       if (!mounted) return;
-      if (!_messages.any((m) => m.id == sent.id)) {
-        setState(() => _messages.insert(0, sent));
-      }
+      setState(() {
+        final index = _messages.indexWhere((m) => m.id == pendingId);
+        if (index != -1) _messages.removeAt(index);
+        // The realtime echo of this same insert can win the race and
+        // arrive first -- don't double-insert if it already has.
+        if (!_messages.any((m) => m.id == sent.id)) {
+          _messages.insert(0, sent);
+        }
+      });
       _textController.clear();
       setState(() {
         _imageBytes = null;
@@ -507,6 +587,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       });
     } catch (_) {
       if (!mounted) return;
+      setState(() => _messages.removeWhere((m) => m.id == pendingId));
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ส่งข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
@@ -809,50 +890,124 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     );
   }
 
-  /// 13-chat-thread.tsx: avatar shows only on the first bubble of each
-  /// consecutive run from the other person -- the chronologically
-  /// *earliest* message in the run, which in this reverse-ordered list
-  /// (index 0 = newest) is the one whose next-older neighbor (index + 1)
-  /// either doesn't exist or is from someone else.
-  bool _isRunStart(int index) {
-    if (index + 1 >= _messages.length) return true;
-    return _messages[index + 1].senderId != _messages[index].senderId;
+  static const _groupGapThreshold = Duration(seconds: 60);
+
+  /// Grouping rule: same sender, within 60 seconds of each other, same
+  /// calendar day. Symmetric -- order of [a]/[b] doesn't matter.
+  bool _isSameGroup(ChatMessage a, ChatMessage b) {
+    if (a.senderId != b.senderId) return false;
+    if (a.createdAt.difference(b.createdAt).abs() > _groupGapThreshold) return false;
+    final aLocal = a.createdAt.toLocal();
+    final bLocal = b.createdAt.toLocal();
+    return aLocal.year == bLocal.year && aLocal.month == bLocal.month && aLocal.day == bLocal.day;
   }
 
-  /// The label for a centered time divider that belongs directly above
-  /// (chronologically before) the message at [index], or null when no
-  /// divider belongs there. Shown only for a real time gap (>30 minutes)
-  /// or a day change between this message and the previous one -- never
-  /// per-bubble, matching 13-chat-thread.tsx's own doc comment ("a
-  /// centered, muted timestamp divider appears only when there's a
-  /// meaningful time gap"). The very first message ever (nothing older,
-  /// and no more history left to load) always gets one.
-  String? _dividerLabelAbove(int index) {
-    final current = _messages[index].createdAt;
+  /// True for the chronologically-*earliest* bubble of its group -- the
+  /// one rendered at the *top* of the group on screen (index 0 = newest
+  /// in this reverse-ordered list, so "earliest in the group" is the
+  /// highest index whose next-older neighbor, index + 1, either doesn't
+  /// exist or isn't part of the same group).
+  bool _isGroupStart(int index) {
+    if (index + 1 >= _messages.length) return true;
+    return !_isSameGroup(_messages[index], _messages[index + 1]);
+  }
+
+  /// True for the chronologically-*latest* bubble of its group -- the
+  /// one rendered at the *bottom* of the group on screen, where the
+  /// avatar (incoming) and delivery/read receipt (outgoing, last message
+  /// overall only) attach.
+  bool _isGroupEnd(int index) {
+    if (index == 0) return true;
+    return !_isSameGroup(_messages[index - 1], _messages[index]);
+  }
+
+  /// Vertical gap to render below the bubble at [index] (toward its
+  /// next-older neighbor, index + 1) -- 4px within a group, 16px between
+  /// groups from the same sender, 20px between groups from different
+  /// senders. Zero when there's no older neighbor in this list.
+  double _gapBelowMessage(int index) {
+    if (index + 1 >= _messages.length) return 0;
+    final current = _messages[index];
+    final older = _messages[index + 1];
+    if (_isSameGroup(current, older)) return 4;
+    return current.senderId == older.senderId ? 16 : 20;
+  }
+
+  /// A centered date-separator label belonging directly above
+  /// (chronologically before) the message at [index], or null when none
+  /// belongs there -- shown once per calendar day, never per-group and
+  /// never carrying a time (tap-to-reveal handles time -- see
+  /// [_onTapBubble]). The very first message ever (nothing older, and no
+  /// more history left to load) always gets one.
+  String? _dateSeparatorAbove(int index) {
+    final current = _messages[index].createdAt.toLocal();
     if (index + 1 >= _messages.length) {
-      return _hasMore ? null : _dividerLabel(current);
+      return _hasMore ? null : _dateLabel(current);
     }
-    final previous = _messages[index + 1].createdAt;
-    final gap = current.difference(previous).abs();
-    final sameDay = current.toLocal().year == previous.toLocal().year &&
-        current.toLocal().month == previous.toLocal().month &&
-        current.toLocal().day == previous.toLocal().day;
-    if (gap > const Duration(minutes: 30) || !sameDay) {
-      return _dividerLabel(current);
+    final previous = _messages[index + 1].createdAt.toLocal();
+    final sameDay =
+        current.year == previous.year && current.month == previous.month && current.day == previous.day;
+    return sameDay ? null : _dateLabel(current);
+  }
+
+  static const _thaiMonths = [
+    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', //
+    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
+  ];
+
+  String _dateLabel(DateTime local) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final date = DateTime(local.year, local.month, local.day);
+    if (date == today) return 'วันนี้';
+    if (date == today.subtract(const Duration(days: 1))) return 'เมื่อวาน';
+    return '${local.day} ${_thaiMonths[local.month - 1]}';
+  }
+
+  String _timeLabel(DateTime dateTime) {
+    final local = dateTime.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(local.hour)}:${two(local.minute)}';
+  }
+
+  /// Tap-to-reveal timestamp (spec section 6): tapping a bubble shows its
+  /// time for ~2 seconds, dismissed early by tapping any bubble again
+  /// (including the same one, which just toggles it off) or by the timer.
+  void _onTapBubble(String messageId) {
+    _revealTimer?.cancel();
+    if (_revealedTimestampMessageId == messageId) {
+      setState(() => _revealedTimestampMessageId = null);
+      return;
+    }
+    setState(() => _revealedTimestampMessageId = messageId);
+    _revealTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _revealedTimestampMessageId = null);
+    });
+  }
+
+  /// The index of the most recent message this user sent -- not
+  /// necessarily index 0, since the other person may have sent the most
+  /// recent message overall. Null if this user has never sent one.
+  /// Computed once per list build, not per bubble.
+  int? _lastMineMessageIndex() {
+    for (var i = 0; i < _messages.length; i++) {
+      if (_messages[i].senderId == _myUserId) return i;
     }
     return null;
   }
 
-  String _dividerLabel(DateTime dateTime) {
-    final local = dateTime.toLocal();
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final date = DateTime(local.year, local.month, local.day);
-    String two(int n) => n.toString().padLeft(2, '0');
-    final time = '${two(local.hour)}:${two(local.minute)}';
-    if (date == today) return 'วันนี้ $time';
-    if (date == today.subtract(const Duration(days: 1))) return 'เมื่อวาน $time';
-    return '${local.day}/${local.month} $time';
+  /// The delivery/read receipt (spec section 7) for the bubble at
+  /// [index], or null everywhere except the single last-outgoing-bubble
+  /// in the whole conversation. [lastMineIndex] is
+  /// [_lastMineMessageIndex]'s result, passed in rather than recomputed
+  /// per bubble.
+  _DeliveryStatus? _deliveryStatusAt(int index, int? lastMineIndex) {
+    if (index != lastMineIndex) return null;
+    final message = _messages[index];
+    if (message.id.startsWith(_pendingIdPrefix)) return _DeliveryStatus.sending;
+    final otherRead = _otherUserLastReadAt;
+    if (otherRead != null && !otherRead.isBefore(message.createdAt)) return _DeliveryStatus.read;
+    return _DeliveryStatus.sent;
   }
 
   Widget _buildMessageList() {
@@ -893,6 +1048,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     final displayName = widget.otherDisplayName?.isNotEmpty == true
         ? widget.otherDisplayName!
         : '@${widget.otherUsername}';
+    final lastMineIndex = _lastMineMessageIndex();
 
     return ListView.builder(
       controller: _scrollController,
@@ -912,25 +1068,38 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
         }
         final message = _messages[index];
         final isMine = message.senderId == _myUserId;
-        final dividerLabel = _dividerLabelAbove(index);
+        final isPending = message.id.startsWith(_pendingIdPrefix);
+        final isGroupStart = _isGroupStart(index);
+        final isGroupEnd = _isGroupEnd(index);
+        final dateSeparator = _dateSeparatorAbove(index);
         final bubble = _MessageBubble(
           message: message,
           isMine: isMine,
-          showAvatar: !isMine && _isRunStart(index),
+          showAvatar: !isMine && isGroupEnd,
+          isGroupStart: isGroupStart,
+          isGroupEnd: isGroupEnd,
           otherAvatarUrl: widget.otherAvatarUrl,
           otherDisplayName: displayName,
-          onLongPress: () => _showMessageMenu(message),
+          isTimestampRevealed: _revealedTimestampMessageId == message.id,
+          timeLabel: _timeLabel(message.createdAt),
+          onTap: () => _onTapBubble(message.id),
+          onLongPress: isPending ? null : () => _showMessageMenu(message),
           onTapReplyQuote: message.replyToMessageId == null
               ? null
               : () => _scrollToMessage(message.replyToMessageId!),
           onTapImage: (path) => _openEvidence(path),
           resolveSharedContent: _resolveSharedContent,
           onTapSharedContent: _openSharedContent,
+          deliveryStatus: _deliveryStatusAt(index, lastMineIndex),
         );
-        if (dividerLabel == null) return bubble;
+        final gap = _gapBelowMessage(index);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [_TimeDivider(label: dividerLabel), bubble],
+          children: [
+            if (dateSeparator != null) _DateSeparator(label: dateSeparator),
+            bubble,
+            if (gap > 0) SizedBox(height: gap),
+          ],
         );
       },
     );
@@ -1173,31 +1342,54 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
 /// composer below), reused here for received bubbles.
 const _kBubbleFill = WynColors.surfaceTint;
 
+/// Delivery/read receipt states (spec section 7) -- applies only to the
+/// single last-outgoing-bubble-in-the-conversation; see
+/// [_ConversationScreenState._deliveryStatusAt].
+enum _DeliveryStatus { sending, sent, read }
+
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     required this.message,
     required this.isMine,
     required this.showAvatar,
+    required this.isGroupStart,
+    required this.isGroupEnd,
     required this.otherAvatarUrl,
     required this.otherDisplayName,
+    required this.isTimestampRevealed,
+    required this.timeLabel,
+    required this.onTap,
     required this.onLongPress,
     required this.onTapReplyQuote,
     required this.onTapImage,
     required this.resolveSharedContent,
     required this.onTapSharedContent,
+    required this.deliveryStatus,
   });
 
   final ChatMessage message;
   final bool isMine;
 
-  /// True only for the chronologically-first bubble of a consecutive
-  /// run from the other person -- see
-  /// [_ConversationScreenState._isRunStart]. Always false when [isMine].
+  /// True only for the chronologically-latest (bottom-most on screen)
+  /// bubble of a consecutive run from the other person -- see
+  /// [_ConversationScreenState._isGroupEnd]. Always false when [isMine].
   final bool showAvatar;
+
+  /// Group position, for corner radius only (spec section 5) -- see
+  /// [_ConversationScreenState._isGroupStart]/[_isGroupEnd].
+  final bool isGroupStart;
+  final bool isGroupEnd;
+
   final String? otherAvatarUrl;
   final String otherDisplayName;
 
-  final VoidCallback onLongPress;
+  /// Tap-to-reveal timestamp (spec section 6) -- see
+  /// [_ConversationScreenState._onTapBubble].
+  final bool isTimestampRevealed;
+  final String timeLabel;
+  final VoidCallback onTap;
+
+  final VoidCallback? onLongPress;
   final VoidCallback? onTapReplyQuote;
   final void Function(String path) onTapImage;
 
@@ -1206,10 +1398,43 @@ class _MessageBubble extends StatelessWidget {
   final Future<Object?> Function(SharedContentType type, String id) resolveSharedContent;
   final void Function(SharedContentType type, Object content) onTapSharedContent;
 
+  /// Delivery/read receipt (spec section 7) -- null on every bubble
+  /// except the single last-outgoing-message-in-the-conversation one.
+  final _DeliveryStatus? deliveryStatus;
+
   // Reserves the same width whether or not the avatar is actually drawn
   // this bubble, so a multi-message burst from "them" stays left-aligned
   // instead of the bubble creeping left once the avatar disappears.
   static const _avatarSlotWidth = 36.0;
+
+  static const _fullRadius = Radius.circular(18);
+  static const _tightRadius = Radius.circular(4);
+
+  /// Spec section 5: 18px on every corner, except the corner touching
+  /// the *next* bubble in the same group -- that one tightens to 4px, to
+  /// visually stitch the group together (the "tail" is always the
+  /// group's true outer corner, left alone). A single-message group (both
+  /// true) has no adjacent group-mate to stitch to, so stays full 18px
+  /// on every corner.
+  BorderRadius _cornerRadius() {
+    if (isGroupStart && isGroupEnd) {
+      return const BorderRadius.all(_fullRadius);
+    }
+    if (isMine) {
+      return BorderRadius.only(
+        topLeft: _fullRadius,
+        bottomLeft: _fullRadius,
+        topRight: isGroupStart ? _fullRadius : _tightRadius,
+        bottomRight: isGroupEnd ? _fullRadius : _tightRadius,
+      );
+    }
+    return BorderRadius.only(
+      topRight: _fullRadius,
+      bottomRight: _fullRadius,
+      topLeft: isGroupStart ? _fullRadius : _tightRadius,
+      bottomLeft: isGroupEnd ? _fullRadius : _tightRadius,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1221,12 +1446,7 @@ class _MessageBubble extends StatelessWidget {
       constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.72),
       decoration: BoxDecoration(
         color: bubbleColor,
-        borderRadius: BorderRadius.only(
-          topLeft: const Radius.circular(WynSpacing.radiusLg),
-          topRight: const Radius.circular(WynSpacing.radiusLg),
-          bottomRight: Radius.circular(isMine ? 6 : WynSpacing.radiusLg),
-          bottomLeft: Radius.circular(isMine ? WynSpacing.radiusLg : 6),
-        ),
+        borderRadius: _cornerRadius(),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1297,36 +1517,71 @@ class _MessageBubble extends StatelessWidget {
       ),
     );
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: GestureDetector(
-        onLongPress: message.isDeleted ? null : onLongPress,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisAlignment: isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
-          children: [
-            if (!isMine) ...[
-              SizedBox(
-                width: _avatarSlotWidth,
-                child: showAvatar
-                    ? AvatarCircle(imageUrl: otherAvatarUrl, fallbackText: otherDisplayName, radius: 15, ring: true)
-                    : null,
-              ),
-              const SizedBox(width: WynSpacing.space2),
+    // Reserved for a left-aligned incoming bubble's timestamp/nothing;
+    // right-aligned (mine) bubbles have no avatar slot to offset past.
+    final leadingInset = isMine ? 0.0 : _avatarSlotWidth + WynSpacing.space2;
+
+    return GestureDetector(
+      onTap: message.isDeleted ? null : onTap,
+      onLongPress: message.isDeleted ? null : onLongPress,
+      child: Column(
+        crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
+            children: [
+              if (!isMine) ...[
+                SizedBox(
+                  width: _avatarSlotWidth,
+                  child: showAvatar
+                      ? AvatarCircle(imageUrl: otherAvatarUrl, fallbackText: otherDisplayName, radius: 15, ring: true)
+                      : null,
+                ),
+                const SizedBox(width: WynSpacing.space2),
+              ],
+              Flexible(child: bubble),
             ],
-            Flexible(child: bubble),
-          ],
-        ),
+          ),
+          // Spec section 6: hidden by default, revealed on tap for ~2s.
+          if (isTimestampRevealed)
+            Padding(
+              padding: EdgeInsets.only(top: 2, left: leadingInset),
+              child: Text(timeLabel, style: _textStyle(fontSize: 11, color: WynColors.faint)),
+            ),
+          // Spec section 7: only ever set on the single last-outgoing
+          // bubble in the whole conversation.
+          if (deliveryStatus != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: _DeliveryStatusIcon(status: deliveryStatus!),
+            ),
+        ],
       ),
     );
   }
 }
 
-/// 13-chat-thread.tsx's `TimeDivider` -- a centered, muted label shown
-/// only for a real time gap between message groups. See
-/// [_ConversationScreenState._dividerLabelAbove].
-class _TimeDivider extends StatelessWidget {
-  const _TimeDivider({required this.label});
+class _DeliveryStatusIcon extends StatelessWidget {
+  const _DeliveryStatusIcon({required this.status});
+
+  final _DeliveryStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (status) {
+      _DeliveryStatus.sending => const Icon(Icons.fiber_manual_record, size: 8, color: WynColors.faint),
+      _DeliveryStatus.sent => const Icon(Icons.check, size: 14, color: WynColors.faint),
+      _DeliveryStatus.read => const Icon(Icons.check, size: 14, color: WynColors.sapphire),
+    };
+  }
+}
+
+/// Spec section 6: a centered, muted date-only label shown once per
+/// calendar day -- never per-group, never carrying a time. See
+/// [_ConversationScreenState._dateSeparatorAbove].
+class _DateSeparator extends StatelessWidget {
+  const _DateSeparator({required this.label});
 
   final String label;
 

@@ -8,11 +8,12 @@ import 'message_request.dart';
 import 'shared_content_type.dart';
 import '../../../core/storage_upload_options.dart';
 
-/// The 2 columns `ConversationScreen` needs to decide which of its 4
-/// composer-area states applies (WYN-032) -- deliberately not the full
-/// `Conversation` row, since this is fetched fresh on every open
-/// rather than trusted from a possibly-stale list-row prop.
-typedef ConversationMeta = ({String status, String? requestedBy});
+/// What `ConversationScreen` needs to decide which of its 4 composer-area
+/// states applies (WYN-032), plus [otherUserLastReadAt] for the last-
+/// outgoing-bubble read receipt -- deliberately not the full
+/// `Conversation` row, since this is fetched fresh on every open rather
+/// than trusted from a possibly-stale list-row prop.
+typedef ConversationMeta = ({String status, String? requestedBy, DateTime? otherUserLastReadAt});
 
 // Hinted by column name (`reply_to_message_id`), not by the FK's
 // constraint name (`messages_reply_to_message_id_fkey`). PostgREST 400s
@@ -142,11 +143,58 @@ class ChatRepository {
   Future<ConversationMeta?> fetchConversationMeta(String conversationId) async {
     final row = await _client
         .from('conversations')
-        .select('status, requested_by')
+        .select('status, requested_by, user_a_id, user_b_id, user_a_last_read_at, user_b_last_read_at')
         .eq('id', conversationId)
         .maybeSingle();
     if (row == null) return null;
-    return (status: row['status'] as String, requestedBy: row['requested_by'] as String?);
+    return (
+      status: row['status'] as String,
+      requestedBy: row['requested_by'] as String?,
+      otherUserLastReadAt: _otherUserLastReadAt(row),
+    );
+  }
+
+  /// [row] must carry `user_a_id`/`user_b_id`/`user_a_last_read_at`/
+  /// `user_b_last_read_at` -- shared by [fetchConversationMeta] and the
+  /// realtime UPDATE payload [subscribeToConversationMeta] delivers,
+  /// which is always the plain row with no embed (same as every other
+  /// `postgres_changes` payload in this repository).
+  DateTime? _otherUserLastReadAt(Map<String, dynamic> row) {
+    final iAmUserA = row['user_a_id'] as String == _myUserId;
+    final raw = iAmUserA ? row['user_b_last_read_at'] : row['user_a_last_read_at'];
+    return raw == null ? null : DateTime.parse(raw as String);
+  }
+
+  /// Subscribes to changes on [conversationId]'s own `conversations` row
+  /// -- specifically so the last-outgoing-bubble read receipt in
+  /// `ConversationScreen` flips from "sent" to "read" live the moment the
+  /// other participant's `mark_conversation_read()` call moves their
+  /// `user_a_last_read_at`/`user_b_last_read_at` column forward, instead
+  /// of only catching up on next reload/pull-to-refresh. Caller must
+  /// `unsubscribe()` in `dispose()`, same as
+  /// [subscribeToConversationMessages].
+  RealtimeChannel subscribeToConversationMeta(
+    String conversationId,
+    void Function(ConversationMeta meta) onUpdate,
+  ) {
+    final channel = _client.channel('conversation-meta-$conversationId');
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'conversations',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'id', value: conversationId),
+          callback: (payload) {
+            final row = payload.newRecord;
+            onUpdate((
+              status: row['status'] as String,
+              requestedBy: row['requested_by'] as String?,
+              otherUserLastReadAt: _otherUserLastReadAt(row),
+            ));
+          },
+        )
+        .subscribe();
+    return channel;
   }
 
   /// Newest first (matches `ConversationScreen`'s `reverse: true`
