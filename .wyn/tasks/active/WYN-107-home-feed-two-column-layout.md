@@ -1,6 +1,6 @@
 # Design Task — WYN-107
 
-Status: active (Founder อนุมัติโครงแล้ว 2026-09-03 — "ชอบแบบนี้" · เหลือ 2 คำถามค้างก่อนส่งโค้ด)
+Status: review (โค้ดเสร็จแล้ว 2026-09-04 — flutter analyze สะอาด, flutter test 1166/1166 ผ่าน, push แล้ว รอ AI QA ตรวจ)
 Owner: AI Design → AI Coding
 Screen: `HomeDropCard` (ฟีด Home ทุกแท็บ, 3 แท็บ Profile, hashtag feed) — `HomePopCard` รอ Founder ตัดสิน
 Purpose: เปลี่ยนการ์ดโพสต์จาก stack เต็มความกว้าง เป็นสองคอลัมน์ (avatar ซ้าย / เนื้อหาขวา) ให้ทุกอย่าง
