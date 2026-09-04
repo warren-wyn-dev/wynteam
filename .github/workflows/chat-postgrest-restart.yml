@@ -1,0 +1,83 @@
+name: Chat -- restart PostgREST (schema cache truly stuck)
+
+# `NOTIFY pgrst, 'reload schema'` (setup-database-webhook.yml's
+# reload-pgrst-cache action) was sent successfully but
+# chat-pgrst-cache-check.yml still gets the identical PGRST200 afterward,
+# even though the FK it complains about (messages_reply_to_message_id_fkey)
+# and all 3 columns genuinely exist on this database (verified directly via
+# information_schema/pg_constraint). That combination -- real schema, stale
+# PostgREST -- means the NOTIFY isn't reaching Supabase's managed PostgREST
+# (plausible if it connects through a pooler that doesn't carry LISTEN
+# reliably). The Management API has no direct "reload schema cache"
+# endpoint, but PATCHing the project's own postgrest config back with its
+# current values is what actually restarts/reloads it -- this workflow
+# does exactly that: GET the config, PATCH the same values back, changing
+# nothing.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "get = read current postgrest config only (safe, read-only) · restart = GET then PATCH the same values back to force a reload"
+        required: true
+        default: get
+        type: choice
+        options:
+          - get
+          - restart
+
+jobs:
+  restart:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          if [ -z "$PROJECT_REF" ] || [ "$PROJECT_REF" = "$SUPABASE_URL" ]; then
+            echo "::error::Could not read a project ref out of SUPABASE_URL."
+            exit 1
+          fi
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/postgrest"
+
+          echo "=== Current postgrest config ==="
+          out=$(mktemp)
+          code=$(curl -sS -o "$out" -w '%{http_code}' -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" "$API")
+          if [ "$code" != "200" ]; then
+            echo "::error::GET $API -> HTTP $code"
+            cat "$out"; exit 1
+          fi
+          # jwt_secret (if present at all) is not something to ever echo,
+          # even to this log -- drop it before printing or reusing.
+          cfg=$(jq 'del(.jwt_secret)' "$out")
+          echo "$cfg" | jq .
+          rm -f "$out"
+
+          if [ "${{ inputs.action }}" = "get" ]; then
+            echo
+            echo "Read-only run. Re-run with action=restart to PATCH these same values back and force a reload."
+            exit 0
+          fi
+
+          echo
+          echo "=== PATCHing the same config back, to force PostgREST to restart/reload ==="
+          out=$(mktemp)
+          code=$(curl -sS -o "$out" -w '%{http_code}' -X PATCH "$API" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$cfg")
+          echo "PATCH -> HTTP $code"
+          cat "$out" | jq . 2>/dev/null || cat "$out"
+          rm -f "$out"
+          if [ "$code" = "200" ] || [ "$code" = "201" ]; then
+            echo
+            echo "Sent. Give it 10-20s, then re-run chat-pgrst-cache-check.yml to confirm 200."
+          else
+            echo "::error::PATCH failed -- see the body above for which field it rejected."
+            exit 1
+          fi
