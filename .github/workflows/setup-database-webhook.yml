@@ -335,6 +335,15 @@ jobs:
               # and prints only truncated ids and booleans.
               U1="warren"
               U2="wynos.online"
+
+              # First run showed u2_found: 0 -- "Wynos.online" as typed
+              # is almost certainly the display_name shown in the app,
+              # not the @username underneath it. Confirm that, and
+              # surface the real username, before trying u2 again.
+              echo "=== Does any profile have this display_name? ==="
+              run_sql "select username, left(id::text, 8) as user_prefix
+                       from public.profiles
+                       where lower(display_name) = lower($(sqlq "$U2"));" | jq .
               run_sql "with u1 as (select id, dm_permission from public.profiles where lower(username) = lower($(sqlq "$U1"))),
                             u2 as (select id, dm_permission from public.profiles where lower(username) = lower($(sqlq "$U2")))
                        select (select count(*) from u1) as u1_found,
