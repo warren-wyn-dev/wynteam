@@ -14,7 +14,15 @@ import '../../../core/storage_upload_options.dart';
 /// rather than trusted from a possibly-stale list-row prop.
 typedef ConversationMeta = ({String status, String? requestedBy});
 
-const _replyEmbed = 'reply_to:messages!messages_reply_to_message_id_fkey(text, image_url, deleted_at)';
+// Hinted by column name (`reply_to_message_id`), not by the FK's
+// constraint name (`messages_reply_to_message_id_fkey`). PostgREST 400s
+// with PGRST200 ("Could not find a relationship between 'messages' and
+// 'messages'") on the constraint-name form for this specific *self*-
+// referencing relationship even though that exact constraint genuinely
+// exists -- verified directly against production. Since this embed is
+// part of every `_messageColumns` select, that alone made every chat
+// send and fetch 400 unconditionally, reply or not.
+const _replyEmbed = 'reply_to:messages!reply_to_message_id(text, image_url, deleted_at)';
 const _messageColumns = 'id, conversation_id, sender_id, text, image_url, reply_to_message_id, '
     'shared_content_type, shared_content_id, deleted_at, created_at, $_replyEmbed';
 
