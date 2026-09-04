@@ -64,3 +64,20 @@ Design Rules:
 - ใช้ WYN Cyan (`--primary`) กับ icon ของแต่ละการ์ดเท่านั้น (ความสม่ำเสมอของ accent เดียวที่ WYN-049 วางไว้) ไม่ใช้สีอื่นนอกจาก destructive (แดง) สำหรับ pending reports > 0 โดยเฉพาะ
 
 Handoff: AI Coding — RPC `admin_dashboard_metrics()` ต้องคืนโครงสร้างข้อมูลที่ map ตรงกับตาราง metric ด้านบนได้ตรงๆ (1 round-trip, 1 object ครอบคลุมทั้ง 12 การ์ด) — ฝั่ง client fetch ครั้งเดียวตอน mount (Server Component, ไม่ต้อง client-side loading state สำหรับการโหลดครั้งแรก) ส่วนปุ่มรีเฟรชเป็น client component ที่เรียก RPC ผ่าน browser client ซ้ำ (`router.refresh()` หรือเทียบเท่า เพื่อให้ Server Component fetch ใหม่)
+
+---
+
+## Visual Refresh (2026-09-04) — Black & White Premium
+
+**สถานะ**: RPC/data-fetching/metric ทั้ง 11 หัวข้อ + 12 การ์ด/4 หมวด **ไม่เปลี่ยนแม้แต่จุดเดียว** — re-skin ล้วนๆ ดูรายละเอียดเต็มที่ `.wyn/docs/design/wyn-admin-design-system.md`
+
+สิ่งที่เปลี่ยนจริง (visual เท่านั้น):
+- **ไอคอนของ StatCard ทุกใบ**: จาก `text-primary` (cyan) → `gray-400` — เพราะไอคอนเหล่านี้เป็นแค่ decoration ช่วยสแกนสายตา ไม่ใช่สัญญาณที่ต้องการความสนใจ (ดูกติกาสีข้อ 3.3 ของเอกสารระบบใหม่ — "ทุกที่ที่ไม่ใช่ destructive/critical/primary-action = grayscale ล้วน")
+- **ตัวเลขหลัก (metric)**: จาก `text-foreground` (ไม่เปลี่ยน — คือ `ink` อยู่แล้วโดยพฤตินัย) — **ไม่เปลี่ยน**
+- **ตัวเลข Reports-pending เมื่อ > 0**: ยังใช้ `text-destructive` เหมือนเดิมทุกประการ (ตอนนี้คือ `#DC2626`/`#F87171` ตรงตามหัวข้อ 3.2 ของเอกสารระบบใหม่ — ค่าเดียวกับที่ implement อยู่แล้ว ไม่ต้องแก้)
+- **ปุ่ม "รีเฟรช"**: ยัง `variant="outline"` เหมือนเดิม (ไม่ใช่ primary action ของหน้านี้ — หน้า Dashboard ไม่มี "ปุ่ม primary เดียว" ที่ต้องเน้น เพราะเป็นหน้าดูข้อมูลอย่างเดียว ไม่มี action ที่ต้องผลักดันให้กด)
+- **Card**: เอา `shadow-sm` ออก เหลือ border `gray-200` (เหมือนทุกหน้า)
+
+**ส่วนต่อขยายจาก WYN-077 (Basic Product Analytics, completed)**: section "การเติบโต" (5 stat card + `TopSourcesCard`) ที่เพิ่มเข้ามาภายหลัง reuse `StatCard`/`Card` เดิมทั้งหมด จึง**inherit re-skin นี้โดยอัตโนมัติ** (ไอคอน → `gray-400`, ไม่มี card ไหนใน section นี้ที่ต้องมีสีพิเศษเพราะ Growth metric ไม่มี "เกณฑ์อันตราย" แบบ pending report — คงตามที่ `wyn-077-basic-product-analytics.md` ระบุไว้เดิม) ไม่ต้องแก้ไฟล์นั้นเพิ่มเติม
+
+สิ่งที่ **ไม่เปลี่ยนเลย**: โครงสร้าง 12 การ์ด/4 หมวด, DAU/WAU/MAU disclaimer (ข้อความ+ตำแหน่งเดิมเป๊ะ), Loading/Refreshing/Error state ทั้งหมด, การไม่มี card สำหรับ Storage/Errors/Server Health, การไม่มี graph/chart, responsive grid breakpoints, accessibility labels

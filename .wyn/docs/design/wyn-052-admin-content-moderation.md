@@ -51,3 +51,19 @@ Design Rules:
 - สีแดง (`destructive`) ใช้กับปุ่ม Remove และ badge "ลบแล้ว" เท่านั้น — ปุ่ม Restore ใช้สีปกติ (`default`, ไม่ใช่สีเตือน เพราะเป็นการคืนสภาพ ไม่ใช่การกระทำที่มีความเสี่ยง)
 
 Handoff: AI Coding (เมื่อ Founder อนุมัติแนวทางแก้ `restore_drop()` ตาม Product spec's Recommendation แล้ว) — Screen 1/2 ทั้งคู่ reuse `ActionDialog`/`Badge`/table layout จาก WYN-051 ได้เกือบทั้งหมด ส่วนที่ต้องเขียนใหม่จริงๆ มีแค่: grid การ์ดรูปภาพ (Screen 1), รูปเต็ม+ปุ่มเดี่ยว (Screen 2 header) — SQL ต้องทำ `restore_drop()`'s เงื่อนไขใหม่ตาม Product's Requirement 2 **ก่อน** เปิดใช้ `admin_remove_drop()` จริง ไม่ใช่ทำคู่ขนานแล้วค่อยแก้ทีหลัง (ป้องกันหน้าต่างเวลาที่ช่องโหว่เปิดอยู่จริงแม้แค่ชั่วคราว)
+
+---
+
+## Visual Refresh (2026-09-04) — Black & White Premium
+
+**สถานะ**: Search/Detail flow, RPC calls (`admin_remove_drop`/`admin_restore_drop`/`admin_search_drops`/`admin_get_drop`), single-action-per-state logic (Remove หรือ Restore ไม่พร้อมกัน) **ไม่เปลี่ยนแม้แต่จุดเดียวในเชิงฟังก์ชัน** — re-skin ล้วนๆ ดูรายละเอียดเต็มที่ `.wyn/docs/design/wyn-admin-design-system.md`
+
+สิ่งที่เปลี่ยนจริง (visual เท่านั้น):
+- **Badge "ลบแล้ว"** (ทั้งบน grid card มุมบนขวา และบน Detail header): ยัง `variant="destructive"` (แดง) เหมือนเดิมทุกประการ — เป็น critical alert ที่แท้จริงตามกติกาสีใหม่ (badge นี้บอก Admin ว่าเนื้อหานี้ "ไม่ active" ต้องรู้ก่อนตัดสินใจ)
+- **Badge shape**: pill เต็ม (`rounded-full`) แทน `rounded-md` เดิม (เหมือนทุก Badge ในระบบ)
+- **ปุ่ม Remove**: ยัง `variant="destructive"` เหมือนเดิมทุกประการ (destructive action ที่แท้จริง — แม้จะกู้คืนได้ผ่าน Restore แต่ ณ เวลาที่กด มันคือการทำให้เนื้อหาหายไปทันที จึงยังสมควรเป็นสีแดงตามกติกาข้อ 1 ของหัวข้อ 3.3)
+- **ปุ่ม Restore**: ยัง `variant="default"` เหมือนเดิม — ตอนนี้คือ `ink` เต็ม+ตัวหนังสือขาว (เปลี่ยนจาก cyan เดิม, เป็น "ปุ่ม primary action เดียวของหน้า" ในสถานะที่ Drop ถูกลบไปแล้ว)
+- **พื้นหลังเทาอ่อนหลังรูปภาพที่ไม่เต็มกรอบ** (`object-contain` fallback): เปลี่ยนจาก `bg-muted`/`bg-secondary` เดิม (ซึ่งเป็น neutral อยู่แล้วโดยพฤตินัย) → ยืนยันเป็น `gray-100` ตาม token ใหม่ — ไม่เปลี่ยนความรู้สึกภาพ
+- **Card**: เอา shadow ออก เหลือ border `gray-200`
+
+สิ่งที่ **ไม่เปลี่ยนเลย**: grid 2/4/6 คอลัมน์ตาม breakpoint, การไม่มีปุ่ม Remove+Restore พร้อมกัน, ข้อความกำกับ "ลบโดยผู้ดูแลระบบ"/"ลบโดยเจ้าของเอง" ใต้ปุ่ม Restore, Reports/History table (reuse จาก WYN-051 เป๊ะ), `alt` text ของรูปภาพ, การไม่มี Restore สำหรับ Comment/Club Post (ยัง hard-delete ถาวรเหมือนเดิม ตามขอบเขต V1 ที่ Founder อนุมัติไว้แล้ว)

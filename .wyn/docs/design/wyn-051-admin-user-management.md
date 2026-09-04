@@ -80,3 +80,20 @@ Design Rules:
 - สีแดง (`destructive`) ใช้เฉพาะ Ban เท่านั้นในกลุ่มปุ่ม action — Warn/Restrict/Suspend/Unban ใช้ `outline`/`default` ปกติ (ระดับความรุนแรงสื่อผ่านสีตามลำดับ ไม่ใช่ทุกปุ่มเป็นสีเดียวกันหมด)
 
 Handoff: AI Coding — `admin_apply_user_action()`/`admin_unban_user()` เรียกผ่าน browser client ปกติ (client component ของ Dialog) ไม่ต้องผ่าน Server Action เพราะไม่มี cookie/redirect logic เกี่ยวข้อง (ต่างจาก sign-in/sign-out ของ WYN-049) — reload ข้อมูลด้วย `router.refresh()` เหมือน WYN-050's RefreshButton เป๊ะ
+
+---
+
+## Visual Refresh (2026-09-04) — Black & White Premium
+
+**สถานะ**: Search/Detail flow, RPC calls, ปุ่ม action ทั้ง 5, Dialog ทั้ง 5 แบบ (Warn/Restrict/Suspend/Ban/Unban), Reports/History table **ไม่เปลี่ยนแม้แต่จุดเดียวในเชิงฟังก์ชัน** — re-skin ล้วนๆ ดูรายละเอียดเต็มที่ `.wyn/docs/design/wyn-admin-design-system.md`
+
+สิ่งที่เปลี่ยนจริง (visual เท่านั้น):
+- **Role Badge (`admin`=ม่วง, `moderator`=น้ำเงิน, `user`=เทา เดิม) → เปลี่ยนทั้งชุดเป็น weight-based neutral** (ไม่มีสีอีกต่อไป): `admin` = pill พื้น `ink` เต็ม+ตัวหนังสือขาว, `moderator` = pill พื้น `gray-200`+ตัวหนังสือ `ink`, `user` = pill โปร่งใส border `gray-300`+ตัวหนังสือ `gray-600` — hierarchy สื่อผ่านความเข้มของพื้น ไม่ใช่ hue (ดูหัวข้อ 6.2 ของเอกสารระบบใหม่) นี่คือการเปลี่ยนแปลงที่ใหญ่ที่สุดของหน้านี้ เพราะเป็นสีตกแต่งที่ชัดเจนที่สุดจุดหนึ่งในระบบเดิม
+- **Badge สถานะ (Restricted/Suspended/Banned)**: ยังเป็นสีแดง (`destructive`) เหมือนเดิมทุกประการเมื่อ active — ค่าตอนนี้คือ `#DC2626`/`#F87171` ตรงหัวข้อ 3.2 (critical alert ที่แท้จริง, ไม่เปลี่ยนพฤติกรรม "แสดงเฉพาะตอน active")
+- **Badge shape**: จาก `rounded-md` (เหลี่ยมมน) → pill เต็ม (`rounded-full`) ทุก Badge ในหน้านี้ (role/status/history) — เปลี่ยนรูปทรงเดียวกันทั้งระบบ ไม่ใช่แค่หน้านี้
+- **ปุ่ม Ban**: ยัง `variant="destructive"` (แดง) เหมือนเดิมทุกประการ — เป็น 1 ใน 3 กรณีที่กติกาสีใหม่อนุญาตให้มีสี (destructive action)
+- **ปุ่ม Warn/Unban ที่ยืนยันแล้ว (`variant="default"` เดิม)**: ตอนนี้ = `ink` เต็ม+ตัวหนังสือขาว (เปลี่ยนจาก cyan เดิม)
+- **History badge "ถูกยกเลิกแล้ว"**: ยังเป็น pill เทาจาง (`gray-100`+`gray-600`) เหมือนเดิม — **ไม่เปลี่ยนพฤติกรรม** (ยืนยันซ้ำว่า "ไม่ใช่สีเตือน" ยิ่งชัดเจนขึ้นเพราะตอนนี้ไม่มีสีอื่นให้เลือกเลยนอกจาก grayscale)
+- **Card**: เอา shadow ออก เหลือ border `gray-200`
+
+สิ่งที่ **ไม่เปลี่ยนเลย**: การค้นหา/limit 30 แถว, ปุ่ม action ครบทั้ง 5 (Warn/Restrict/Suspend/Ban/Unban), Ban's typed-confirmation gate, duration select (1/3/7 วัน) สำหรับ Restrict/Suspend, การไม่มีปุ่ม Force Logout/Remove Content, reviewer username ที่แสดงใน History, การซ่อน reporter identity ใน Reports table, responsive/accessibility requirements ทั้งหมด

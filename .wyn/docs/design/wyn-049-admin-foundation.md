@@ -84,3 +84,19 @@ Design Rules:
 - Placeholder ทั้ง 5 หน้าต้องใช้ copy เดียวกันทุกจุด (แค่เปลี่ยนชื่อ feature/เลข task) — ไม่ต้องออกแบบ empty-state graphic ใหม่ต่อหน้า (ประหยัดเวลา เพราะเนื้อหาจริงจะมาแทนที่ทั้งหมดใน task ถัดไปอยู่แล้ว)
 
 Handoff: AI Coding — Layout shell เป็น Next.js layout component (`app/(admin)/layout.tsx` หรือเทียบเท่าตาม App Router convention) ที่ wrap ทุกหน้าหลัง auth — role check ต้องเกิดที่ layout level (server-side) ไม่ใช่ทำซ้ำในทุกหน้าลูก
+
+---
+
+## Visual Refresh (2026-09-04) — Black & White Premium
+
+**สถานะ**: เนื้อหาด้านบนทั้งหมด (User Flow/Components/States/Accessibility/routing) **ยังใช้ได้ 100% ไม่เปลี่ยน** — นี่คือ **re-skin ล้วนๆ** ไม่ใช่การออกแบบใหม่ ดูรายละเอียดเต็มที่ `.wyn/docs/design/wyn-admin-design-system.md` (แหล่งความจริงเดียวของ visual language ตั้งแต่นี้ไป)
+
+สิ่งที่เปลี่ยนจริง (visual เท่านั้น):
+- **หมายเหตุเรื่อง Design System ที่ต้นไฟล์นี้ (ย่อหน้า "สิ่งที่ borrow มาจริง") ถูกแทนที่แล้ว** — Admin **เลิกใช้ WYN Cyan เป็น accent** ทั้งระบบ (เหตุผลเดิมคือ "รักษาความต่อเนื่องของแบรนด์" แต่ Founder ตัดสินใจใหม่ว่า Admin ควรเป็นขาว-ดำ-เทาล้วน สื่อความต่อเนื่องผ่านแค่ 2 ค่าที่ยืมมาตรงๆ คือ `ink #0A0A0A` กับสี destructive แดง ดูหัวข้อ 2 ของเอกสารระบบใหม่)
+- **ปุ่ม Submit ของ Sign-in**: จาก `bg-[#00C8FF]`/`--primary` (cyan) → `ink #0A0A0A` เต็ม + ตัวหนังสือขาว (นี่คือกรณี "ปุ่ม primary action เดียวของหน้า" ตรงๆ ตามกติกาสีใหม่ — ยังคงเป็น "primary button" แนวคิดเดิมทุกประการ แค่เปลี่ยน hue เป็น neutral)
+- **Sidebar active nav item**: จาก cyan-50 bg + cyan-700 text → `gray-100` bg + `ink` text/icon + font-semibold (สื่อ active state ด้วยน้ำหนักตัวอักษร ไม่ใช่สี — ดูหัวข้อ 6.8 ของเอกสารระบบใหม่)
+- **Focus ring**: จาก cyan → `ink`(light)/`white`(dark) — คง thickness/offset เดิม
+- **Card**: เอา `shadow-sm` ออก เหลือ border 1px `gray-200` เท่านั้น (ลด visual noise ตามหลักการ "Apple-like")
+- **Wordmark "WYN Admin"**: ยังเป็นข้อความล้วน ไม่มีโลโก้กราฟิก (ไม่เปลี่ยน) — สี `ink` (จากเดิมที่ไม่ได้ระบุสีชัดเจน)
+
+สิ่งที่ **ไม่เปลี่ยนเลย**: auth flow ทั้งหมด, server-side role check, ข้อความ error, placeholder copy ของ 5 หน้า, layout structure (sidebar ซ้าย 240px + header บน), responsive behavior, accessibility requirements — Product spec (WYN-049) approved แล้วและไม่มีการเปลี่ยนแปลงฟังก์ชันใดๆ ในรอบนี้
