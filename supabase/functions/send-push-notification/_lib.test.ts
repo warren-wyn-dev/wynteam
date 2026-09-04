@@ -13,6 +13,7 @@ import {
   messageFor,
   type NotificationRow,
   safeErrorMessage,
+  summariseOutcomes,
 } from "./_lib.ts";
 
 Deno.test("displayNameOrUsername falls back to @username when displayName is null", () => {
@@ -398,4 +399,35 @@ Deno.test("safeErrorMessage redacts a long base64 run, such as an access token",
 Deno.test("safeErrorMessage truncates so one message cannot fill the log", () => {
   const out = safeErrorMessage(new Error("x ".repeat(500)));
   assertEquals(out.length, 300);
+});
+
+Deno.test("summariseOutcomes reports a clean fan-out", () => {
+  assertEquals(summariseOutcomes(["sent", "sent"]), "OK sent=2");
+});
+
+// The case that made this function necessary: every device rejected,
+// and the old code said "OK" exactly as it did on success.
+Deno.test("summariseOutcomes distinguishes a total failure from a success", () => {
+  assertEquals(
+    summariseOutcomes(["404 UNREGISTERED", "404 UNREGISTERED"]),
+    "OK sent=0 failed=2 (404 UNREGISTERED)",
+  );
+});
+
+Deno.test("summariseOutcomes reports a partial failure with both counts", () => {
+  assertEquals(
+    summariseOutcomes(["sent", "403 SENDER_ID_MISMATCH"]),
+    "OK sent=1 failed=1 (403 SENDER_ID_MISMATCH)",
+  );
+});
+
+Deno.test("summariseOutcomes deduplicates repeated reasons but keeps distinct ones", () => {
+  assertEquals(
+    summariseOutcomes(["404 UNREGISTERED", "404 UNREGISTERED", "429 QUOTA_EXCEEDED"]),
+    "OK sent=0 failed=3 (404 UNREGISTERED, 429 QUOTA_EXCEEDED)",
+  );
+});
+
+Deno.test("summariseOutcomes handles a notification with no devices at all", () => {
+  assertEquals(summariseOutcomes([]), "OK sent=0");
 });

@@ -35,6 +35,7 @@ import {
   type FcmServiceAccount,
   messageFor,
   safeErrorMessage,
+  summariseOutcomes,
   type WebhookPayload,
 } from "./_lib.ts";
 
@@ -159,7 +160,7 @@ async function handleWebhook(req: Request): Promise<Response> {
   const fcmUrl =
     `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`;
 
-  await Promise.all(
+  const outcomes = await Promise.all(
     (tokenRows as { token: string }[]).map(async ({ token }) => {
       const response = await fetch(fcmUrl, {
         method: "POST",
@@ -197,22 +198,31 @@ async function handleWebhook(req: Request): Promise<Response> {
           },
         }),
       });
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => null);
-        const status = errorBody?.error?.status as string | undefined;
-        // Self-cleaning: a token FCM no longer recognizes (app
-        // uninstalled, token rotated without us hearing about it yet)
-        // should stop being tried on every future notification. Any
-        // other failure (rate limit, transient network) is left alone
-        // -- deleting on those would be wrong, the token is still good.
-        if (status === "UNREGISTERED" || status === "NOT_FOUND" || status === "INVALID_ARGUMENT") {
-          await deletePushToken(token);
-        }
+      if (response.ok) return "sent";
+
+      const errorBody = await response.json().catch(() => null);
+      const status = errorBody?.error?.status as string | undefined;
+      // Self-cleaning: a token FCM no longer recognizes (app
+      // uninstalled, token rotated without us hearing about it yet)
+      // should stop being tried on every future notification. Any
+      // other failure (rate limit, transient network) is left alone
+      // -- deleting on those would be wrong, the token is still good.
+      if (status === "UNREGISTERED" || status === "NOT_FOUND" || status === "INVALID_ARGUMENT") {
+        await deletePushToken(token);
       }
+      return `${response.status} ${status ?? "unknown"}`;
     }),
   );
 
-  return new Response("OK", { status: 200 });
+  // Swallowing a per-token rejection is deliberate -- one dead device
+  // must not stop the others -- but reporting only "OK" afterwards made
+  // "delivered to everyone" and "rejected by FCM for everyone" the same
+  // two characters in net._http_response, which is the only place this
+  // is ever observed. The counts and FCM's own status strings are what
+  // separate them; tokens are not included, and FCM's status values are
+  // a fixed vocabulary (UNREGISTERED, SENDER_ID_MISMATCH, ...), not user
+  // data.
+  return new Response(summariseOutcomes(outcomes), { status: 200 });
 }
 
 // Anything thrown above used to reach the caller as a bare 500 with the

@@ -308,6 +308,26 @@ export function collapseKeyFor(row: NotificationRow): string {
 /// with database access. PEM blocks and long base64 runs come out; the
 /// error's name and a truncated message stay, which is what actually
 /// distinguishes the cases.
+/// Condenses the per-token results of one notification's fan-out into a
+/// single line for the response body.
+///
+/// "OK" alone was ambiguous in the way that matters: the function
+/// returns it after FCM has rejected every device just as readily as
+/// after it accepted them all, and net._http_response is the only place
+/// anyone ever sees this. `sent=0 failed=2 (404 UNREGISTERED)` says in
+/// one line both that nothing arrived and why.
+///
+/// Reasons are deduplicated because a fan-out to many devices usually
+/// fails the same way on all of them, and a row of identical strings
+/// would push the useful part out of a truncated log.
+export function summariseOutcomes(outcomes: string[]): string {
+  const sent = outcomes.filter((o) => o === "sent").length;
+  const failures = outcomes.filter((o) => o !== "sent");
+  if (failures.length === 0) return `OK sent=${sent}`;
+  const reasons = [...new Set(failures)].join(", ");
+  return `OK sent=${sent} failed=${failures.length} (${reasons})`;
+}
+
 export function safeErrorMessage(err: unknown): string {
   const name = err instanceof Error ? err.name : "Error";
   const raw = err instanceof Error ? err.message : String(err);
