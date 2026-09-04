@@ -1,0 +1,59 @@
+name: Chat -- is messages actually in the supabase_realtime publication?
+
+# Founder reports chat feels slow / not realtime -- messages only show up
+# after a manual reload, not live. schema.sql has a guarded DO block that
+# adds public.messages to the supabase_realtime publication, but only
+# runs when schema.sql itself is (re-)applied against a real project;
+# if that step was skipped or ran before this table existed, the
+# ChatRepository.subscribeToConversationMessages() postgres_changes
+# subscription would silently never fire (Realtime only broadcasts
+# changes for tables actually in that publication) -- read-only check.
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== Tables in the supabase_realtime publication ==="
+          run_sql "select schemaname, tablename
+                   from pg_publication_tables
+                   where pubname = 'supabase_realtime'
+                   order by tablename;" | jq .
+          echo
+          echo "=== Is public.messages specifically in it? ==="
+          run_sql "select exists (
+                     select 1 from pg_publication_tables
+                     where pubname = 'supabase_realtime'
+                       and schemaname = 'public' and tablename = 'messages'
+                   ) as messages_is_realtime_enabled;" | jq .
+          echo
+          echo "false above means the client's postgres_changes subscription can never fire for this"
+          echo "table -- Realtime only broadcasts changes for tables actually in the publication, no"
+          echo "error is raised client-side, it just silently never delivers. Fix: run"
+          echo "'alter publication supabase_realtime add table public.messages;' once (safe, no data touched)."
