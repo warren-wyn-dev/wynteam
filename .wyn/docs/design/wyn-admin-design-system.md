@@ -1,6 +1,6 @@
 # WYN Admin Design System — Black & White Premium (V1)
 
-Status: PROPOSED — รอ Founder รีวิว/อนุมัติก่อนส่งต่อ AI Coding (เป็น visual direction ใหม่ทั้งระบบของ `admin/`, ไม่ใช่แค่ 1 หน้า จึงขอ sign-off เดียวครอบคลุมทั้งฉบับ แทนที่จะขอทีละหน้า)
+Status: APPROVED — Founder อนุมัติแล้ว (2026-09-04) หลังรีวิว mockup ส่งต่อ AI Coding ได้
 Owner: AI Design
 วันที่: 2026-09-04
 ขอบเขต: `admin/` (WYN Admin, Next.js/TypeScript/Tailwind/shadcn) เท่านั้น — **ไม่แตะ** `app/`/`seller_app/` หรือ DS-001/design-principles.md ของ Consumer app เลยแม้แต่บรรทัดเดียว
