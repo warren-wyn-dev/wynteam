@@ -10736,6 +10736,17 @@ alter table public.drops
     or image_aspect_ratio in ('original', '1:1', '4:5', '16:9')
   );
 
+-- Deliberately NOT added to the public.home_feed / public.saved_feed
+-- views below, and it must stay that way. `create or replace view` only
+-- permits appending columns, production's home_feed has drifted from
+-- this file (SCHEMA-004), and the attempt to append there failed with
+-- 42P16 on 2026-09-04. Rather than rewrite a production view nobody can
+-- see the current text of, HomeRepository reads this column off the
+-- `drops` table in the feed page's existing batched Future.wait
+-- (_fetchAspectRatios). Adding it to the views here would put this file
+-- back out of step with the database it is supposed to describe, for a
+-- column no reader needs there.
+
 -- ============================================================
 -- WYNOSHomeSpec.md 4.9's header row / 4.6's suggested-account row --
 -- Verified badge
@@ -12146,8 +12157,7 @@ select
   d.image_height,
   d.audience,
   d.location,
-  (select count(*) from public.drop_images where drop_id = d.id) as image_count,
-  d.image_aspect_ratio
+  (select count(*) from public.drop_images where drop_id = d.id) as image_count
 from public.drops d
 join public.profiles prof on prof.id = d.author_id
 left join public.drop_polls dp on dp.drop_id = d.id
@@ -12223,8 +12233,7 @@ select
   null::integer as image_height,
   'everyone'::text as audience,
   null::text as location,
-  null::bigint as image_count,
-  null::text as image_aspect_ratio
+  null::bigint as image_count
 from public.pops p
 join public.profiles prof on prof.id = p.author_id
 where not exists (
@@ -12299,8 +12308,7 @@ select
   d.image_height,
   d.audience,
   d.location,
-  (select count(*) from public.drop_images where drop_id = d.id) as image_count,
-  d.image_aspect_ratio
+  (select count(*) from public.drop_images where drop_id = d.id) as image_count
 from public.redrops r
 join public.drops d on d.id = r.drop_id
 join public.profiles prof on prof.id = d.author_id
