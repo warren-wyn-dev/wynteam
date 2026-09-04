@@ -1,0 +1,22 @@
+name: Admin -- fetch recent Vercel runtime logs (read-only)
+
+# The Admin Dashboard throws on every load ("โหลดข้อมูลไม่สำเร็จ") --
+# app/(admin)/error.tsx deliberately shows only a generic message to the
+# browser, so the real thrown error (from fetchAdminDashboardMetrics())
+# only exists in this deployment's own runtime function logs. Read-only:
+# fetches logs, changes nothing.
+on:
+  workflow_dispatch:
+
+jobs:
+  logs:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Fetch recent runtime logs
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          VERCEL_TOKEN=$(clean "$VERCEL_TOKEN")
+          npx --yes vercel@latest inspect https://admin-lilac-seven-85.vercel.app --logs --token="$VERCEL_TOKEN" --wait || true
