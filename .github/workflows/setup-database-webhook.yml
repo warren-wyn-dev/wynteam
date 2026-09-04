@@ -26,7 +26,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "verify = look only · create = install/replace · test = fire one harmless request · remove = drop · enable = turn on webhooks only · diagnose = why did no push arrive · secrets = list Edge Function secret NAMES"
+        description: "verify = look only · create = install/replace · test = fire one harmless request · remove = drop · enable = turn on webhooks only · diagnose = why did no push arrive · secrets = list Edge Function secret NAMES · moderation-check = is anyone currently restricted/suspended/banned"
         required: true
         default: verify
         type: choice
@@ -38,6 +38,7 @@ on:
           - test
           - diagnose
           - secrets
+          - moderation-check
 
 jobs:
   webhook:
@@ -314,6 +315,36 @@ jobs:
                 echo "That is why the function answers 'FCM not configured'."
               fi
               rm -f "$out"
+              ;;
+
+            moderation-check)
+              # A chat send failed with a generic error for every
+              # recipient tried -- the RLS insert policy on
+              # public.messages rejects the sender when
+              # internal.is_posting_blocked(auth.uid()) is true, which
+              # is the one condition that would explain a send failing
+              # identically regardless of who the recipient is. The
+              # client's own restriction banner fails open on a fetch
+              # error (see conversation_screen.dart's _loadSafetyState),
+              # so a real restriction can be invisible in the UI while
+              # still correctly enforced at the database.
+              #
+              # Ids are truncated to 8 characters -- enough to match
+              # against "does this look like the account I'm testing
+              # with", not enough to identify anyone from this log alone.
+              echo "=== Anyone currently restricted, suspended, or banned? ==="
+              run_sql "select left(target_user_id::text, 8) as user_prefix,
+                              action_type, reason, expires_at, created_at
+                       from public.moderation_actions
+                       where overturned_at is null
+                         and (
+                           (action_type in ('restrict', 'suspend') and expires_at > now())
+                           or action_type = 'ban'
+                         )
+                       order by created_at desc;" | jq .
+              echo
+              echo "An empty array above means nobody is currently blocked from posting --"
+              echo "the chat failure has some other cause and this was not it."
               ;;
 
             remove)
