@@ -89,6 +89,31 @@ export async function fetchAdminDashboardTrends(): Promise<AdminDashboardTrends>
 }
 
 /**
+ * "How many signups per day/week/month/year" -- admin_dashboard_metrics()'s
+ * new_users_today only ever answers the "today" slice of that question.
+ * Its own tiny RPC (mirrors admin_signup_counts()'s RETURNS TABLE
+ * exactly) rather than more columns on an existing function, same
+ * reasoning as AdminDashboardTrends above.
+ */
+export type SignupCounts = {
+  today: number;
+  this_week: number;
+  this_month: number;
+  this_year: number;
+};
+
+export async function fetchSignupCounts(): Promise<SignupCounts> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_signup_counts").single();
+
+  if (error || !data) {
+    throw error ?? new Error("admin_signup_counts() returned no row");
+  }
+
+  return data as SignupCounts;
+}
+
+/**
  * Yesterday=0 makes a percent delta meaningless (division by zero, or a
  * misleading "+∞%") -- null tells the UI to show "ใหม่" (brand new
  * activity) instead of a percentage, same convention

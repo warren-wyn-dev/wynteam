@@ -7934,6 +7934,47 @@ $$;
 grant execute on function public.admin_dashboard_trends() to authenticated;
 
 -- ============================================================
+-- Admin Dashboard: signup counts by calendar period
+-- ============================================================
+-- Added directly per the Founder's request ("กี่คน ต่อวัน ต่ออาทิตย์
+-- ต่อเดือน ต่อปี") -- admin_dashboard_metrics()'s new_users_today only
+-- ever answers the "today" slice of this question. Deliberately its
+-- own tiny RPC rather than more columns on either existing dashboard
+-- function: no joins, no CTEs, every value plain `count(*) from
+-- profiles`, cheap enough that a 4th/5th RPC round trip isn't worth
+-- optimizing away by bolting it onto a function that already does much
+-- more work.
+create or replace function public.admin_signup_counts()
+returns table (
+  today bigint,
+  this_week bigint,
+  this_month bigint,
+  this_year bigint
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if coalesce(internal.current_platform_role(), '') not in ('admin', 'moderator') then
+    raise exception 'Not permitted to view signup counts';
+  end if;
+
+  return query
+  select
+    (select count(*) from public.profiles where created_at >= date_trunc('day', now())),
+    -- date_trunc('week', ...) starts on Monday (ISO 8601), matching the
+    -- Thai business-week convention already assumed elsewhere in this
+    -- schema (nothing here currently disagrees with it).
+    (select count(*) from public.profiles where created_at >= date_trunc('week', now())),
+    (select count(*) from public.profiles where created_at >= date_trunc('month', now())),
+    (select count(*) from public.profiles where created_at >= date_trunc('year', now()));
+end;
+$$;
+
+grant execute on function public.admin_signup_counts() to authenticated;
+
+-- ============================================================
 -- WYN-051: WYN Admin User Management (direct Warn/Restrict/Suspend/
 -- Ban/Unban, not tied to a Report)
 -- ============================================================

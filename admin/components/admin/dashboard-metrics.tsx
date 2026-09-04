@@ -18,7 +18,12 @@ import {
 import { StatCard } from "@/components/admin/stat-card";
 import { TopSourcesCard } from "@/components/admin/top-sources-card";
 import { DauTrendChart } from "@/components/admin/dau-trend-chart";
-import { deltaPct, fetchAdminDashboardMetrics, fetchAdminDashboardTrends } from "@/lib/admin-metrics";
+import {
+  deltaPct,
+  fetchAdminDashboardMetrics,
+  fetchAdminDashboardTrends,
+  fetchSignupCounts,
+} from "@/lib/admin-metrics";
 
 /**
  * The actual data-fetching grid, per Design spec's Screen -- lives in
@@ -40,7 +45,11 @@ import { deltaPct, fetchAdminDashboardMetrics, fetchAdminDashboardTrends } from 
  *    before -- both less immediately actionable day-to-day.
  */
 export async function DashboardMetrics() {
-  const [m, t] = await Promise.all([fetchAdminDashboardMetrics(), fetchAdminDashboardTrends()]);
+  const [m, t, s] = await Promise.all([
+    fetchAdminDashboardMetrics(),
+    fetchAdminDashboardTrends(),
+    fetchSignupCounts(),
+  ]);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -77,6 +86,20 @@ export async function DashboardMetrics() {
           <StatCard label="DAU" value={m.dau} icon={Activity} sublabel="Active ใน 1 วัน" />
           <StatCard label="WAU" value={m.wau} icon={Activity} sublabel="Active ใน 7 วัน" />
           <StatCard label="MAU" value={m.mau} icon={Activity} sublabel="Active ใน 30 วัน" />
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-medium text-muted-foreground">ผู้สมัครสมาชิกใหม่</h2>
+        <p className="-mt-2 text-xs text-muted-foreground">
+          จำนวนบัญชีที่สมัครสำเร็จ นับแยกตามช่วงเวลาปัจจุบัน (แต่ละช่วงนับซ้อนกัน เช่น
+          &quot;เดือนนี้&quot; รวม &quot;วันนี้&quot; อยู่ในนั้นแล้ว) — สัปดาห์เริ่มวันจันทร์
+        </p>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="วันนี้" value={s.today} icon={UserPlus} />
+          <StatCard label="สัปดาห์นี้" value={s.this_week} icon={UserPlus} />
+          <StatCard label="เดือนนี้" value={s.this_month} icon={UserPlus} />
+          <StatCard label="ปีนี้" value={s.this_year} icon={UserPlus} />
         </div>
       </section>
 
