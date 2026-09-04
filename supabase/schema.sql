@@ -7834,6 +7834,106 @@ $$;
 grant execute on function public.admin_dashboard_metrics() to authenticated;
 
 -- ============================================================
+-- Admin Dashboard: trends (vs-yesterday deltas + 14-day DAU chart)
+-- ============================================================
+-- Added directly per the Founder's request to make the Dashboard "more
+-- detailed, easier to understand" -- a separate RPC, not more columns
+-- bolted onto admin_dashboard_metrics(), on purpose: that function was
+-- *just* fixed after today's production migration-gap incident (it had
+-- silently been running WYN-050's original 14-column shape in
+-- production long after WYN-077 added 8 more), so this keeps the new,
+-- purely-additive work isolated rather than risking another
+-- drop-and-recreate on the one already confirmed working.
+create or replace function public.admin_dashboard_trends()
+returns table (
+  new_users_yesterday bigint,
+  drops_yesterday bigint,
+  views_yesterday bigint,
+  likes_yesterday bigint,
+  comments_yesterday bigint,
+  redrops_yesterday bigint,
+  messages_yesterday bigint,
+  -- One point per calendar day, oldest first -- see admin-metrics.ts's
+  -- DauDay type. Deliberately DAU specifically (not new signups or
+  -- drops): every other section of this dashboard already treats DAU as
+  -- the platform's primary rolling-activity pulse (see
+  -- admin_dashboard_metrics()'s own DAU/WAU/MAU comment above), so it's
+  -- the one metric worth a full trend line rather than a single
+  -- vs-yesterday badge.
+  dau_last_14d jsonb
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if coalesce(internal.current_platform_role(), '') not in ('admin', 'moderator') then
+    raise exception 'Not permitted to view admin dashboard trends';
+  end if;
+
+  return query
+  -- Same "every did-something table" union admin_dashboard_metrics()
+  -- uses for its own DAU/WAU/MAU -- duplicated here rather than shared,
+  -- since Postgres has no cross-function CTE reuse and this keeps each
+  -- RPC's SQL self-contained and independently readable.
+  with actions as (
+    select user_id as actor_id, created_at from public.drop_likes
+    union all
+    select user_id, created_at from public.pop_likes
+    union all
+    select user_id, created_at from public.club_post_likes
+    union all
+    select author_id, created_at from public.drop_comments
+    union all
+    select author_id, created_at from public.pop_comments
+    union all
+    select author_id, created_at from public.club_post_comments
+    union all
+    select redropper_id, created_at from public.redrops
+    union all
+    select sender_id, created_at from public.messages where deleted_at is null
+    union all
+    select author_id, created_at from public.drops
+  ),
+  days as (
+    select generate_series(
+      date_trunc('day', now()) - interval '13 days',
+      date_trunc('day', now()),
+      interval '1 day'
+    )::date as day
+  ),
+  daily_dau as (
+    select d.day, count(distinct a.actor_id) as cnt
+    from days d
+    left join actions a
+      on a.created_at >= d.day and a.created_at < d.day + interval '1 day'
+    group by d.day
+  )
+  select
+    (select count(*) from public.profiles
+      where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day'),
+    (select count(*) from public.drops
+      where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day'),
+    (select count(*) from public.drop_views
+      where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day'),
+    (select count(*) from public.drop_likes where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day')
+      + (select count(*) from public.pop_likes where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day')
+      + (select count(*) from public.club_post_likes where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day'),
+    (select count(*) from public.drop_comments where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day')
+      + (select count(*) from public.pop_comments where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day')
+      + (select count(*) from public.club_post_comments where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day'),
+    (select count(*) from public.redrops
+      where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day'),
+    (select count(*) from public.messages where deleted_at is null
+      and created_at >= now() - interval '2 days' and created_at < now() - interval '1 day'),
+    (select coalesce(jsonb_agg(jsonb_build_object('date', day, 'count', cnt) order by day), '[]'::jsonb)
+      from daily_dau);
+end;
+$$;
+
+grant execute on function public.admin_dashboard_trends() to authenticated;
+
+-- ============================================================
 -- WYN-051: WYN Admin User Management (direct Warn/Restrict/Suspend/
 -- Ban/Unban, not tied to a Report)
 -- ============================================================

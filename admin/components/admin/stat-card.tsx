@@ -3,11 +3,36 @@ import type { LucideIcon } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
+/**
+ * Trend badge for a "_today" metric vs the same metric yesterday.
+ * Deliberately grayscale-only (▲/▼ glyph + weight, no green/red hue) --
+ * wyn-admin-design-system.md section 3.3 reserves color for exactly 3
+ * cases (destructive action, active critical alert, primary button);
+ * "growth is good" is not one of them, so direction is conveyed by the
+ * glyph, not a hue.
+ */
+function TrendBadge({ deltaPct }: { deltaPct: number | null }) {
+  if (deltaPct === null) {
+    return <span className="text-xs font-medium text-muted-foreground">ใหม่วันนี้</span>;
+  }
+  if (deltaPct === 0) {
+    return <span className="text-xs font-medium text-muted-foreground">เท่ากับเมื่อวาน</span>;
+  }
+  const isUp = deltaPct > 0;
+  return (
+    <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-foreground">
+      {isUp ? "▲" : "▼"} {Math.abs(deltaPct).toLocaleString("th-TH")}%
+      <span className="font-normal text-muted-foreground">จากเมื่อวาน</span>
+    </span>
+  );
+}
+
 export function StatCard({
   label,
   value,
   icon: Icon,
   sublabel,
+  deltaPct,
   secondaryValue,
   secondaryLabel,
   secondaryTone = "muted",
@@ -17,6 +42,8 @@ export function StatCard({
   icon: LucideIcon;
   /** e.g. "ใน 24 ชม.ล่าสุด" -- shown under the main number. */
   sublabel?: string;
+  /** vs. the same metric yesterday -- omit for metrics with no "yesterday" (e.g. rolling DAU/WAU/MAU, all-time totals). */
+  deltaPct?: number | null;
   /** For the 2-number cards (Clubs, Reports) -- Design spec's Screen. */
   secondaryValue?: number;
   secondaryLabel?: string;
@@ -56,6 +83,11 @@ export function StatCard({
         {sublabel ? <p className="mt-1 text-xs text-muted-foreground">{sublabel}</p> : null}
         {secondaryLabel ? (
           <p className="text-xs text-muted-foreground">{secondaryLabel}</p>
+        ) : null}
+        {deltaPct !== undefined ? (
+          <div className="mt-2">
+            <TrendBadge deltaPct={deltaPct} />
+          </div>
         ) : null}
       </CardContent>
     </Card>

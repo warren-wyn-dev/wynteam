@@ -50,3 +50,52 @@ export async function fetchAdminDashboardMetrics(): Promise<AdminDashboardMetric
 
   return data as AdminDashboardMetrics;
 }
+
+/** One day's DAU point in DauDay's `dau_last_14d` array. */
+export type DauDay = {
+  date: string;
+  count: number;
+};
+
+/**
+ * Deliberately a separate RPC from admin_dashboard_metrics(), not more
+ * columns bolted onto it -- that function was just fixed after a
+ * production migration gap, and today's whole incident is reason enough
+ * to keep this purely-additive change isolated rather than risk another
+ * drop-and-recreate on the one already working. Mirrors
+ * admin_dashboard_trends()'s RETURNS TABLE column list exactly
+ * (supabase/schema.sql).
+ */
+export type AdminDashboardTrends = {
+  new_users_yesterday: number;
+  drops_yesterday: number;
+  views_yesterday: number;
+  likes_yesterday: number;
+  comments_yesterday: number;
+  redrops_yesterday: number;
+  messages_yesterday: number;
+  dau_last_14d: DauDay[];
+};
+
+export async function fetchAdminDashboardTrends(): Promise<AdminDashboardTrends> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_dashboard_trends").single();
+
+  if (error || !data) {
+    throw error ?? new Error("admin_dashboard_trends() returned no row");
+  }
+
+  return data as AdminDashboardTrends;
+}
+
+/**
+ * Yesterday=0 makes a percent delta meaningless (division by zero, or a
+ * misleading "+∞%") -- null tells the UI to show "ใหม่" (brand new
+ * activity) instead of a percentage, same convention
+ * admin_dashboard_metrics() already uses for its own cohort-percent
+ * columns.
+ */
+export function deltaPct(today: number, yesterday: number): number | null {
+  if (yesterday === 0) return null;
+  return Math.round(((today - yesterday) / yesterday) * 1000) / 10;
+}
