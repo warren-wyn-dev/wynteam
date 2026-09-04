@@ -15,10 +15,24 @@
 // Configuration
 // ---------------------------------------------------------------------
 // A service worker is a static file served by the host -- it is NOT part
-// of the Flutter bundle and cannot read `--dart-define` values. So the
-// config is read from the query string Firebase appends when the app
-// registers the worker, which is how `PushEnv`'s single source of truth
-// reaches this file without a second copy of the values living here.
+// of the Flutter bundle and cannot read `--dart-define` values. The
+// values below are therefore substituted into this file at build time
+// by .github/workflows/deploy-web.yml, from the same secrets it passes
+// to `--dart-define`, so `PushEnv` stays the single source of truth and
+// no environment value is committed here.
+//
+// This file previously read them from the query string, on the belief
+// that Firebase appends the config when it registers the worker. It
+// does not: the JS SDK registers `/firebase-messaging-sw.js` at a fixed
+// path with no parameters. Nothing failed loudly -- a token was still
+// issued, because the *page* creates the push subscription, and FCM and
+// Apple both accepted and delivered every message. They arrived here,
+// at a worker whose `initializeApp` guard had never passed, so
+// `onBackgroundMessage` was never registered and nothing was ever
+// shown. Every push WYNOS has sent to a browser died in this file.
+//
+// The query string is still read as a fallback, for a worker registered
+// by hand with parameters during debugging; the baked values win.
 //
 // These are public values by design (a Firebase Web config ships in
 // every web bundle that uses it, and Google documents it as such), so
@@ -41,13 +55,31 @@ importScripts(
 
 const params = new URL(self.location).searchParams;
 
+// Replaced by the deploy workflow. A build that does not replace them
+// leaves the placeholders, and `baked` reads those as absent -- which
+// is correct: such a build has no Firebase config anywhere else either,
+// so the guard below should fail and this worker should do nothing.
+const BAKED = {
+  apiKey: '__FIREBASE_WEB_API_KEY__',
+  appId: '__FIREBASE_WEB_APP_ID__',
+  messagingSenderId: '__FIREBASE_MESSAGING_SENDER_ID__',
+  projectId: '__FIREBASE_PROJECT_ID__',
+  authDomain: '__FIREBASE_AUTH_DOMAIN__',
+  storageBucket: '__FIREBASE_STORAGE_BUCKET__',
+};
+
+const baked = (key) => {
+  const value = BAKED[key];
+  return value && !value.startsWith('__FIREBASE_') ? value : null;
+};
+
 const firebaseConfig = {
-  apiKey: params.get('apiKey'),
-  appId: params.get('appId'),
-  messagingSenderId: params.get('messagingSenderId'),
-  projectId: params.get('projectId'),
-  authDomain: params.get('authDomain'),
-  storageBucket: params.get('storageBucket'),
+  apiKey: baked('apiKey') || params.get('apiKey'),
+  appId: baked('appId') || params.get('appId'),
+  messagingSenderId: baked('messagingSenderId') || params.get('messagingSenderId'),
+  projectId: baked('projectId') || params.get('projectId'),
+  authDomain: baked('authDomain') || params.get('authDomain'),
+  storageBucket: baked('storageBucket') || params.get('storageBucket'),
 };
 
 // Guard: without the four required values there is nothing to

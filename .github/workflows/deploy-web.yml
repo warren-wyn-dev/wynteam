@@ -140,6 +140,60 @@ jobs:
             echo "Any name marked MISSING above is either absent, misspelled, or saved with an empty value."
           fi
 
+      # The service worker is a static file, not part of the bundle, so
+      # it cannot read a --dart-define. It used to try to read the
+      # config from a query string on the belief that Firebase appends
+      # one when registering the worker; it does not, so the worker's
+      # init guard never passed and every background push was delivered
+      # to a worker with no handler and silently shown to nobody.
+      #
+      # Substituted before the build so `flutter build web` copies the
+      # filled-in file. The values are the same ones going into
+      # --dart-define and are public by design (they ship in every web
+      # bundle that uses them), so this writes nothing here that the
+      # bundle does not already carry.
+      - name: Bake the Firebase config into the service worker
+        env:
+          FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
+          FIREBASE_WEB_APP_ID: ${{ secrets.FIREBASE_WEB_APP_ID }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+        run: |
+          SW=app/web/firebase-messaging-sw.js
+          for name in FIREBASE_WEB_API_KEY FIREBASE_WEB_APP_ID \
+                      FIREBASE_MESSAGING_SENDER_ID FIREBASE_PROJECT_ID \
+                      FIREBASE_AUTH_DOMAIN FIREBASE_STORAGE_BUCKET; do
+            # Same trailing-whitespace guard the other secret-reading
+            # steps use: a newline pasted into the Secrets UI would
+            # otherwise end up inside a JavaScript string literal.
+            value=$(printf '%s' "$(eval echo \"\$$name\")" | tr -d '[:space:]')
+            if [ -z "$value" ]; then
+              echo "  $name  MISSING -- the service worker will stay inert"
+              continue
+            fi
+            python3 - "$SW" "__${name}__" "$value" <<'PY'
+          import sys
+          path, placeholder, value = sys.argv[1], sys.argv[2], sys.argv[3]
+          with open(path, encoding='utf-8') as handle:
+              text = handle.read()
+          with open(path, 'w', encoding='utf-8') as handle:
+              handle.write(text.replace(placeholder, value))
+          PY
+            echo "  $name  baked in"
+          done
+          # Prove it, rather than trusting the loop: a placeholder left
+          # behind is exactly the silent failure this replaces.
+          # Anchored on the closing __ so the worker's own
+          # startsWith('__FIREBASE_') guard is not mistaken for one.
+          if grep -qE "__FIREBASE_[A-Z_]+__" "$SW"; then
+            echo "::warning::Some placeholders are still present -- background push stays off:"
+            grep -oE "__FIREBASE_[A-Z_]+__" "$SW" | sort -u | sed 's/^/    /'
+          else
+            echo "Service worker: every placeholder replaced."
+          fi
+
       - run: flutter build web --release --dart-define-from-file=dart_define.json
 
       # Deploys straight to the existing "web" Vercel project (set as
