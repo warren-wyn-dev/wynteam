@@ -30,7 +30,6 @@ class DeepLinkCoordinator {
   static final DeepLinkCoordinator instance = DeepLinkCoordinator._();
 
   ContentLink? _pending;
-  StreamSubscription<Uri>? _subscription;
 
   /// Call once, from main() before runApp.
   Future<void> start() async {
@@ -48,9 +47,13 @@ class DeepLinkCoordinator {
 
     try {
       final appLinks = AppLinks();
-      final initial = await appLinks.getInitialAppLink();
+      final initial = await appLinks.getInitialLink();
       if (initial != null) _handle(initial);
-      _subscription = appLinks.uriLinkStream.listen(_handle);
+      // Never cancelled: this coordinator is one process-wide instance
+      // for the whole app lifetime (see the class doc comment), same as
+      // PushNotificationService's own onMessageOpenedApp/onTokenRefresh
+      // listeners never being cancelled either.
+      appLinks.uriLinkStream.listen(_handle);
     } catch (_) {
       // No platform channel handler for this host/test environment --
       // deep links simply don't arrive, same fail-open posture

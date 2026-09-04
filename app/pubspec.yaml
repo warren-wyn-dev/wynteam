@@ -46,7 +46,7 @@ dependencies:
   # native, not just the app -- see core/navigation/deep_link_coordinator.dart.
   # Reads Universal Links (iOS)/App Links (Android); web needs no plugin
   # (Uri.base + flutter_web_plugins' usePathUrlStrategy below cover it).
-  app_links: ^6.3.3
+  app_links: ^7.2.1
   # web-only, but importing it on native is always safe (a normal Dart
   # package with a stub non-web implementation) -- see main.dart's
   # `usePathUrlStrategy()` call. `sdk: flutter` because it ships inside
