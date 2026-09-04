@@ -285,7 +285,9 @@ jobs:
               echo
               if jq -e 'any(.[]; .name == "FCM_SERVICE_ACCOUNT")' "$out" >/dev/null; then
                 echo "FCM_SERVICE_ACCOUNT: present under exactly that name."
-                echo "So an empty value, not a missing key, is what the function is seeing."
+                echo "So if pushes still fail, the name is not the reason -- read the reply body"
+                echo "in diagnose section 4. The function returns its own error there now, and a"
+                echo "SyntaxError with a character position means the stored value is malformed."
               else
                 echo "FCM_SERVICE_ACCOUNT: NOT present under that exact name."
                 echo "That is why the function answers 'FCM not configured'."
