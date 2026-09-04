@@ -1,0 +1,59 @@
+name: Chat -- recent PostgREST request/response logs for messages
+
+# The reply_to embed fix is confirmed working (the DB proves both sides'
+# sends are actually persisting), but the Founder reports the client
+# shows the "ส่งข้อความไม่สำเร็จ" error EVERY single time regardless, with
+# the send button left spinning afterward -- a live, deterministic
+# client-side symptom that a DB read alone can't explain. This pulls the
+# actual recent /rest/v1/messages request/response entries straight from
+# Supabase's own edge log store (status code, timing, any error body) to
+# see exactly what the client is receiving on that call.
+on:
+  workflow_dispatch:
+
+jobs:
+  logs:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+
+          query() {
+            local sql="$1" enc out code
+            enc=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$sql")
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              "https://api.supabase.com/v1/projects/$PROJECT_REF/analytics/endpoints/logs.all?sql=$enc")
+            echo "HTTP $code"
+            cat "$out" | jq . 2>/dev/null || cat "$out"
+            rm -f "$out"
+          }
+
+          echo "=== Attempt A: edge_logs, minimal shape, last 15 min ==="
+          query "select id, timestamp, event_message
+                 from edge_logs
+                 where timestamp > (extract(epoch from now() - interval '15 minutes') * 1000000)
+                 order by timestamp desc
+                 limit 5" || true
+          echo
+
+          echo "=== Attempt B: edge_logs metadata.request/response nested (typical Logflare shape) ==="
+          query "select t.timestamp,
+                        m.request.method as method,
+                        m.request.path as path,
+                        m.response.status_code as status,
+                        m.response.origin_time as origin_time_ms
+                 from edge_logs t
+                 cross join unnest(t.metadata) m
+                 where m.request.path like '%/rest/v1/messages%'
+                 order by t.timestamp desc
+                 limit 15" || true
