@@ -31,21 +31,16 @@ permissions:
   contents: read
 
 jobs:
-  # The Flutter apps: `app` is Wynos (the user-facing product), and
-  # `seller_app` is ZOKY (a separate track -- see RELEASE_NOTES.md).
-  # Same SDK constraint and same flutter_lints version, so one matrix
-  # covers both. fail-fast: false so one app going red still reports the
-  # other's real result instead of masking it.
+  # The Flutter app (`app/`) -- Wynos, the only product this repo ships.
+  # `seller_app` (ZOKY, a commerce/marketplace track) was removed
+  # entirely; this job used to run as a [app, seller_app] matrix and is
+  # single-package now that there is only one.
   flutter:
-    name: Flutter — ${{ matrix.package }}
+    name: Flutter
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        package: [app, seller_app]
     defaults:
       run:
-        working-directory: ${{ matrix.package }}
+        working-directory: app
     steps:
       - uses: actions/checkout@v4
 

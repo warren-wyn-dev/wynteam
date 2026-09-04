@@ -1,14 +1,9 @@
-// CANONICAL SOURCE: app/lib/core/design/wyn_colors.dart — DO NOT EDIT THE MIRROR IN seller_app/ DIRECTLY.
-//
 // WYN Design System — color tokens.
 //
 // Founder approved switching the WYN Social app's brand color from Cyan to
 // Sapphire on 2026-08-29 (see .wyn/company/DECISIONS.md, "เปลี่ยน Color
 // Direction ของ WYN: Cyan → Sapphire (design-reference re-brand)"), which
-// supersedes the 2026-08-15 "Blue → Cyan" decision for `app/` (this file's
-// scope) only -- `seller_app/`'s ZOKY Orange accent is untouched, and this
-// file's own `orange*`/ZOKY tokens stay as before since the WYN Social
-// app's own ZOKY sub-theme (wyn_zoky_accent.dart) still needs them.
+// supersedes the 2026-08-15 "Blue → Cyan" decision.
 //
 // Every neutral/accent value below is copied verbatim from
 // `/design-reference/SPEC.md`, Section 1 (Design Tokens). `sapphire` is
@@ -16,10 +11,9 @@
 // hue here without going back to the Founder first, per that doc's
 // Section 0 ("Do not introduce any color not listed in Section 1").
 //
-// The ZOKY sub-theme (Section 3.4, `tertiary` = Orange for `seller_app/`,
-// and for the ZOKY-branded screens inside `app/` itself) is out of scope
-// for this re-brand -- see DS-001b and the design-reference README's "out
-// of scope" note on commerce/shop screens.
+// ZOKY (the commerce/marketplace product, and its Orange accent) was
+// removed from WYN entirely -- see the deletion commit for scope. The
+// tokens below no longer include an orange ramp.
 import 'package:flutter/material.dart';
 
 /// Raw WYN design-system color tokens, plus the assembled `ColorScheme`s
@@ -120,16 +114,6 @@ class WynColors {
   // ---------------------------------------------------------------------
   static const Color notificationBadgeComment = Color(0xFF3A5A40);
   static const Color notificationBadgeRepost = Color(0xFF8A6D3A);
-
-  // ---------------------------------------------------------------------
-  // ZOKY Orange (commerce layer accent) -- unaffected by the Sapphire
-  // re-brand above, see file-level doc comment.
-  // ---------------------------------------------------------------------
-  static const Color orange50 = Color(0xFFFFF1EC);
-  static const Color orange500 = Color(0xFFFF6B35);
-  static const Color orange600 = Color(0xFFE85A24);
-  static const Color orange700 = Color(0xFFCC4A16);
-  static const Color orange800 = Color(0xFFA63A10);
 
   // ---------------------------------------------------------------------
   // Neutral technical/dark-mode scaffolding not covered by SPEC.md (which

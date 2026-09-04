@@ -35,78 +35,45 @@ Deno.test("displayNameOrUsername uses displayName when set", () => {
 // sets (Dart client vs this Deno function) must never drift apart, so
 // this test is the guard for that.
 Deno.test("messageFor produces the exact same Thai strings as the Dart client, WYN-012/015 types", () => {
-  assertEquals(messageFor("like_drop", "น้ำฝน", null, null), "น้ำฝน ถูกใจโพสต์ของคุณ");
-  assertEquals(messageFor("like_pop", "@ploy", null, null), "@ploy ถูกใจ Pop ของคุณ");
+  assertEquals(messageFor("like_drop", "น้ำฝน", null), "น้ำฝน ถูกใจโพสต์ของคุณ");
+  assertEquals(messageFor("like_pop", "@ploy", null), "@ploy ถูกใจ Pop ของคุณ");
   assertEquals(
-    messageFor("comment_drop", "น้ำฝน", null, null),
+    messageFor("comment_drop", "น้ำฝน", null),
     "น้ำฝน แสดงความคิดเห็นในโพสต์ของคุณ",
   );
   assertEquals(
-    messageFor("comment_pop", "@ploy", null, null),
+    messageFor("comment_pop", "@ploy", null),
     "@ploy แสดงความคิดเห็นใน Pop ของคุณ",
   );
-  assertEquals(messageFor("follow", "@benz", null, null), "@benz เริ่มติดตามคุณ");
+  assertEquals(messageFor("follow", "@benz", null), "@benz เริ่มติดตามคุณ");
   assertEquals(
-    messageFor("club_join_request", "@gam", "ชมรมถ่ายภาพ", null),
+    messageFor("club_join_request", "@gam", "ชมรมถ่ายภาพ"),
     "@gam ขอเข้าร่วม ชมรมถ่ายภาพ ของคุณ",
   );
   assertEquals(
-    messageFor("club_join_approved", "@owner_user", "ชมรมถ่ายภาพ", null),
+    messageFor("club_join_approved", "@owner_user", "ชมรมถ่ายภาพ"),
     "@owner_user อนุมัติคำขอเข้าร่วม ชมรมถ่ายภาพ ของคุณแล้ว",
   );
   assertEquals(
-    messageFor("club_post_like", "@gam", "ชมรมถ่ายภาพ", null),
+    messageFor("club_post_like", "@gam", "ชมรมถ่ายภาพ"),
     "@gam ถูกใจโพสต์ของคุณใน ชมรมถ่ายภาพ",
   );
   assertEquals(
-    messageFor("club_post_comment", "@gam", "ชมรมถ่ายภาพ", null),
+    messageFor("club_post_comment", "@gam", "ชมรมถ่ายภาพ"),
     "@gam แสดงความคิดเห็นในโพสต์ของคุณใน ชมรมถ่ายภาพ",
   );
 });
 
-// Mirrors app/test/notification_list_screen_test.dart's "Order
-// notification types (ZOKY-005 R1)" test and seller_app/test/
-// seller_notification_list_screen_test.dart's equivalent, word for
-// word.
-Deno.test("messageFor produces the exact same Thai strings as the Dart clients, ZOKY-005 order types", () => {
-  assertEquals(
-    messageFor("new_order", "@buyer_user", null, "ร้านทดสอบ"),
-    "@buyer_user สั่งซื้อสินค้าจาก ร้านทดสอบ",
-  );
-  assertEquals(
-    messageFor("new_order", "@buyer_user", null, null),
-    "@buyer_user สั่งซื้อสินค้าจาก ร้านของคุณ",
-  );
-  assertEquals(
-    messageFor("order_shipped", "", null, "ร้านทดสอบ"),
-    "คำสั่งซื้อของคุณจาก ร้านทดสอบ ถูกจัดส่งแล้ว",
-  );
-  // Buyer cancelled -> seller is the recipient -- seller_app's wording.
-  assertEquals(
-    messageFor("order_cancelled_seller", "ผู้ซื้อทดสอบ", null, null),
-    "ผู้ซื้อทดสอบ ยกเลิกคำสั่งซื้อที่ร้านของคุณ",
-  );
-  // Seller cancelled -> buyer is the recipient -- app/'s wording.
-  assertEquals(
-    messageFor("order_cancelled_buyer", "", null, "ร้านทดสอบ"),
-    "คำสั่งซื้อจากร้าน ร้านทดสอบ ถูกยกเลิก",
-  );
-  assertEquals(
-    messageFor("order_refunded", "", null, "ร้านทดสอบ"),
-    "คำสั่งซื้อของคุณจาก ร้านทดสอบ ถูกคืนเงินแล้ว",
-  );
-});
-
 Deno.test("messageFor falls back to a generic message for an unrecognized type", () => {
-  assertEquals(messageFor("something_new", "x", null, null), "คุณมีการแจ้งเตือนใหม่");
+  assertEquals(messageFor("something_new", "x", null), "คุณมีการแจ้งเตือนใหม่");
 });
 
 // Mirrors app/test/notification_list_screen_test.dart's WYN-021 mention
-// assertions word for word (seller_app has no mention concept).
+// assertions word for word.
 Deno.test("messageFor produces the exact same Thai strings as the Dart client, WYN-021 mention types", () => {
-  assertEquals(messageFor("mention_drop", "@ploy", null, null), "@ploy กล่าวถึงคุณในโพสต์");
+  assertEquals(messageFor("mention_drop", "@ploy", null), "@ploy กล่าวถึงคุณในโพสต์");
   assertEquals(
-    messageFor("mention_club_post", "@ploy", "ชมรมถ่ายภาพ", null),
+    messageFor("mention_club_post", "@ploy", "ชมรมถ่ายภาพ"),
     "@ploy กล่าวถึงคุณในโพสต์ที่ ชมรมถ่ายภาพ",
   );
 });
@@ -122,7 +89,6 @@ const baseRow: NotificationRow = {
   pop_id: null,
   club_id: null,
   club_post_id: null,
-  order_id: null,
   reason: null,
   moderation_action_id: null,
   moderation_action_type: null,
@@ -132,7 +98,7 @@ const baseRow: NotificationRow = {
 // Mirrors app/test/notification_list_screen_test.dart's WYN-034/043
 // redrop assertion word for word.
 Deno.test("messageFor produces the exact same Thai string as the Dart client, WYN-034 redrop", () => {
-  assertEquals(messageFor("redrop", "@ploy", null, null), "@ploy รีโพสต์โพสต์ของคุณ");
+  assertEquals(messageFor("redrop", "@ploy", null), "@ploy รีโพสต์โพสต์ของคุณ");
 });
 
 // Mirrors notification_list_screen.dart's WYN-029/030 moderation/appeal
@@ -140,40 +106,40 @@ Deno.test("messageFor produces the exact same Thai string as the Dart client, WY
 // truth these must never drift from.
 Deno.test("messageFor produces the exact same Thai strings as the Dart client, WYN-029/030 moderation/appeal types", () => {
   assertEquals(
-    messageFor("moderation_warning", "มีคน", null, null, "สแปม"),
+    messageFor("moderation_warning", "มีคน", null, "สแปม"),
     "คุณได้รับคำเตือนจากทีมงาน WYN: สแปม",
   );
   assertEquals(
-    messageFor("moderation_content_removed", "มีคน", null, null, "เนื้อหาไม่เหมาะสม"),
+    messageFor("moderation_content_removed", "มีคน", null, "เนื้อหาไม่เหมาะสม"),
     "เนื้อหาของคุณถูกลบเนื่องจากละเมิดกฎการใช้งาน WYN -- เหตุผล: เนื้อหาไม่เหมาะสม",
   );
   assertEquals(
-    messageFor("appeal_approved", "มีคน", null, null, null, "warning"),
+    messageFor("appeal_approved", "มีคน", null, null, "warning"),
     "อุทธรณ์ของคุณได้รับการอนุมัติแล้ว คำเตือนนี้ถูกลบออกจากประวัติบัญชีของคุณแล้ว",
   );
   assertEquals(
-    messageFor("appeal_approved", "มีคน", null, null, null, "restrict"),
+    messageFor("appeal_approved", "มีคน", null, null, "restrict"),
     "อุทธรณ์ของคุณได้รับการอนุมัติแล้ว สิทธิ์การโพสต์ของคุณกลับมาใช้งานได้ตามปกติแล้ว",
   );
   assertEquals(
-    messageFor("appeal_approved", "มีคน", null, null, null, "suspend"),
+    messageFor("appeal_approved", "มีคน", null, null, "suspend"),
     "อุทธรณ์ของคุณได้รับการอนุมัติแล้ว บัญชีของคุณกลับมาใช้งานได้ตามปกติแล้ว",
   );
   assertEquals(
-    messageFor("appeal_approved", "มีคน", null, null, null, "ban"),
+    messageFor("appeal_approved", "มีคน", null, null, "ban"),
     "อุทธรณ์ของคุณได้รับการอนุมัติแล้ว บัญชีของคุณกลับมาใช้งานได้ตามปกติแล้ว " +
       "คุณสามารถเข้าสู่ระบบได้ทันที",
   );
   assertEquals(
-    messageFor("appeal_approved", "มีคน", null, null, null, "remove_content"),
+    messageFor("appeal_approved", "มีคน", null, null, "remove_content"),
     "อุทธรณ์ของคุณได้รับการอนุมัติแล้ว การละเมิดนี้ถูกลบออกจากประวัติบัญชีของคุณแล้ว",
   );
   assertEquals(
-    messageFor("appeal_approved", "มีคน", null, null, null, null),
+    messageFor("appeal_approved", "มีคน", null, null, null),
     "อุทธรณ์ของคุณได้รับการอนุมัติแล้ว",
   );
   assertEquals(
-    messageFor("appeal_rejected", "มีคน", null, null, "ไม่มีหลักฐานเพียงพอ"),
+    messageFor("appeal_rejected", "มีคน", null, "ไม่มีหลักฐานเพียงพอ"),
     "อุทธรณ์ของคุณถูกปฏิเสธ -- เหตุผล: ไม่มีหลักฐานเพียงพอ",
   );
 });
@@ -181,12 +147,12 @@ Deno.test("messageFor produces the exact same Thai strings as the Dart client, W
 // Mirrors notification_list_screen.dart's WYN-032/039 wording exactly.
 Deno.test("messageFor produces the exact same Thai strings as the Dart client, WYN-032/039 message/follow-request types", () => {
   assertEquals(
-    messageFor("message_request", "@ploy", null, null),
+    messageFor("message_request", "@ploy", null),
     "@ploy ส่งคำขอข้อความถึงคุณ",
   );
-  assertEquals(messageFor("follow_request", "@gam", null, null), "@gam ขอติดตามคุณ");
+  assertEquals(messageFor("follow_request", "@gam", null), "@gam ขอติดตามคุณ");
   assertEquals(
-    messageFor("follow_request_accepted", "@gam", null, null),
+    messageFor("follow_request_accepted", "@gam", null),
     "@gam ยอมรับคำขอติดตามของคุณแล้ว",
   );
 });
@@ -195,10 +161,10 @@ Deno.test("messageFor produces the exact same Thai strings as the Dart client, W
 // wording exactly -- the admin's own message text, shown as-is.
 Deno.test("messageFor produces the exact same Thai strings as the Dart client, WYN-043 system type", () => {
   assertEquals(
-    messageFor("system", "มีคน", null, null, "แอปจะปิดปรับปรุงคืนนี้"),
+    messageFor("system", "มีคน", null, "แอปจะปิดปรับปรุงคืนนี้"),
     "แอปจะปิดปรับปรุงคืนนี้",
   );
-  assertEquals(messageFor("system", "มีคน", null, null, null), "มีประกาศจากระบบ WYN");
+  assertEquals(messageFor("system", "มีคน", null, null), "มีประกาศจากระบบ WYN");
 });
 
 Deno.test("buildDataPayload includes only the id columns that are actually set, plus type/actor_id always", () => {
@@ -208,16 +174,6 @@ Deno.test("buildDataPayload includes only the id columns that are actually set, 
     notification_id: "n1",
     actor_id: "a1",
     drop_id: "d1",
-  });
-});
-
-Deno.test("buildDataPayload includes order_id when set, omits every drop/pop/club field", () => {
-  const row: NotificationRow = { ...baseRow, id: "n2", type: "new_order", order_id: "o1" };
-  assertEquals(buildDataPayload(row), {
-    type: "new_order",
-    notification_id: "n2",
-    actor_id: "a1",
-    order_id: "o1",
   });
 });
 
@@ -473,7 +429,7 @@ Deno.test("webPushTopic keeps distinct notifications distinct", () => {
 // name while the person's name sat mid-sentence below it.
 Deno.test("splitPushMessage lifts the actor's name into the title", () => {
   assertEquals(
-    splitPushMessage(messageFor("redrop", "namfah", null, null), "namfah"),
+    splitPushMessage(messageFor("redrop", "namfah", null), "namfah"),
     { title: "namfah", body: "รีโพสต์โพสต์ของคุณ" },
   );
 });
@@ -481,26 +437,26 @@ Deno.test("splitPushMessage lifts the actor's name into the title", () => {
 Deno.test("splitPushMessage handles an @username actor", () => {
   const actor = displayNameOrUsername(null, "namfah");
   assertEquals(
-    splitPushMessage(messageFor("like_drop", actor, null, null), actor),
+    splitPushMessage(messageFor("like_drop", actor, null), actor),
     { title: "@namfah", body: "ถูกใจโพสต์ของคุณ" },
   );
 });
 
-// Whole families of notification have no actor -- orders, moderation,
-// system announcements -- and titling those with a person's name would
-// be a lie. They keep WYN.
+// Whole families of notification have no actor -- moderation, system
+// announcements -- and titling those with a person's name would be a
+// lie. They keep WYN.
 Deno.test("splitPushMessage keeps WYN when nobody did it", () => {
-  const message = messageFor("order_shipped", "มีคน", null, "ร้านลุงหมี");
+  const message = messageFor("system", "มีคน", null, "แอปจะปิดปรับปรุงคืนนี้");
   assertEquals(splitPushMessage(message, "มีคน"), {
     title: "WYN",
-    body: "คำสั่งซื้อของคุณจาก ร้านลุงหมี ถูกจัดส่งแล้ว",
+    body: "แอปจะปิดปรับปรุงคืนนี้",
   });
 });
 
 Deno.test("splitPushMessage leaves a mid-sentence actor name alone", () => {
-  // order_cancelled_buyer names no actor, so a name appearing anywhere
+  // moderation_warning names no actor, so a name appearing anywhere
   // other than the front must not be mistaken for a prefix.
-  const message = messageFor("moderation_warning", "ทีมงาน", null, null, "สแปม");
+  const message = messageFor("moderation_warning", "ทีมงาน", null, "สแปม");
   const result = splitPushMessage(message, "ทีมงาน");
   assertEquals(result.title, "WYN");
   assertEquals(result.body, message);

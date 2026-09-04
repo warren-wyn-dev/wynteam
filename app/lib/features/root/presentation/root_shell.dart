@@ -21,7 +21,6 @@ import '../../saved/data/saved_repository.dart';
 import '../../search/presentation/search_screen.dart';
 import '../../push/data/push_token_repository.dart';
 import '../../push/presentation/push_notification_service.dart';
-import '../../zoky/data/zoky_repository.dart';
 import '../../../core/design/wyn_spacing.dart';
 
 /// The Bottom Navigation shell -- 5 destinations per the WYNOS V1.0.0
@@ -31,10 +30,11 @@ import '../../../core/design/wyn_spacing.dart';
 /// 2026-08-14 and 2026-08-22). Renders as AuthGate's signed-in +
 /// onboarded state.
 ///
-/// Pop and ZOKY are unmounted here, not deleted -- their screens/data/DB
-/// tables are untouched, just no longer reachable from normal UI, per
-/// the V1.0.0 roadmap (Pop -> V3, WYN Shop/Marketplace -> V2). The old
-/// Drop tab's own social feed (WYN-019-022: For You/Following/Latest +
+/// Pop is unmounted here, not deleted -- its screens/data/DB tables are
+/// untouched, just no longer reachable from normal UI, per the V1.0.0
+/// roadmap (Pop -> V3). ZOKY/WYN Shop was removed outright (code and DB
+/// tables both), not unmounted -- see the deletion commit for why. The
+/// old Drop tab's own social feed (WYN-019-022: For You/Following/Latest +
 /// hashtag/mention/reply) is different: it's fully absorbed into Home's
 /// feed-mode selector (see HomeFeedScreen), so DropFeedScreen itself is
 /// deleted, not just unmounted. See
@@ -50,7 +50,6 @@ class RootShell extends StatefulWidget {
     NotificationRepository? notificationRepository,
     ClubRepository? clubRepository,
     ClubPostRepository? clubPostRepository,
-    ZokyRepository? zokyRepository,
     HomeRepository? homeRepository,
     AppealRepository? appealRepository,
     ChatRepository? chatRepository,
@@ -62,7 +61,6 @@ class RootShell extends StatefulWidget {
         _notificationRepository = notificationRepository,
         _clubRepository = clubRepository,
         _clubPostRepository = clubPostRepository,
-        _zokyRepository = zokyRepository,
         _homeRepository = homeRepository,
         _appealRepository = appealRepository,
         _chatRepository = chatRepository;
@@ -80,7 +78,6 @@ class RootShell extends StatefulWidget {
   final NotificationRepository? _notificationRepository;
   final ClubRepository? _clubRepository;
   final ClubPostRepository? _clubPostRepository;
-  final ZokyRepository? _zokyRepository;
   final HomeRepository? _homeRepository;
   final AppealRepository? _appealRepository;
   final ChatRepository? _chatRepository;
@@ -151,7 +148,6 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   late final NotificationRepository _notificationRepository;
   late final ClubRepository _clubRepository;
   late final ClubPostRepository _clubPostRepository;
-  late final ZokyRepository _zokyRepository;
   late final HomeRepository _homeRepository;
   late final AppealRepository _appealRepository;
   late final ChatRepository _chatRepository;
@@ -169,7 +165,6 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
         widget._notificationRepository ?? NotificationRepository(client);
     _clubRepository = widget._clubRepository ?? ClubRepository(client);
     _clubPostRepository = widget._clubPostRepository ?? ClubPostRepository(client);
-    _zokyRepository = widget._zokyRepository ?? ZokyRepository(client);
     _homeRepository = widget._homeRepository ?? HomeRepository(client);
     _appealRepository = widget._appealRepository ?? AppealRepository(client);
     _chatRepository = widget._chatRepository ?? ChatRepository(client);
@@ -344,7 +339,6 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
         savedRepository: _savedRepository,
         clubRepository: _clubRepository,
         clubPostRepository: _clubPostRepository,
-        zokyRepository: _zokyRepository,
         appealRepository: _appealRepository,
         chatRepository: _chatRepository,
       ),

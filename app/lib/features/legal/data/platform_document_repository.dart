@@ -2,9 +2,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// The 6 document types Master Spec section 27 defines for WYN
 /// (`platform_documents.type`'s CHECK constraint, supabase/schema.sql,
-/// WYN-046 section). No "Future Commerce Terms" entry -- see that same
-/// schema comment for why (ZOKY/Marketplace parked for V2, nothing to
-/// cover yet).
+/// WYN-046 section). No "Future Commerce Terms" entry -- ZOKY/Marketplace
+/// was removed from the product entirely, not merely parked, so there is
+/// nothing for that entry to cover.
 enum PlatformDocumentType {
   termsOfService('terms_of_service'),
   privacyPolicy('privacy_policy'),

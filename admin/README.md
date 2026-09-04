@@ -1,8 +1,8 @@
 # WYN Admin
 
-Web-based admin panel for WYN (Phase 7 of the V1.0.0 roadmap, `.wyn/docs/product/wyn-v1.0.0-roadmap.md`) — completely separate from the Consumer app (`app/`) and ZOKY Sellers app (`seller_app/`) per Master Spec section 36 ("WYN App ≠ WYN Admin — Admin ต้องเป็นระบบแยกโดยสิ้นเชิง"). Only accounts with `platform_role` set to `admin` or `moderator` (on the same shared `profiles` table) can sign in.
+Web-based admin panel for WYN (Phase 7 of the V1.0.0 roadmap, `.wyn/docs/product/wyn-v1.0.0-roadmap.md`) — completely separate from the Consumer app (`app/`) per Master Spec section 36 ("WYN App ≠ WYN Admin — Admin ต้องเป็นระบบแยกโดยสิ้นเชิง"). Only accounts with `platform_role` set to `admin` or `moderator` (on the same shared `profiles` table) can sign in.
 
-Stack (approved by the Founder as a Major Architecture decision, `.wyn/company/DECISIONS.md` 2026-08-24): **Next.js (App Router) + TypeScript + Tailwind CSS + shadcn/ui**, connected to the same Supabase project as `app/`/`seller_app/` via `@supabase/ssr`, deployed on Vercel.
+Stack (approved by the Founder as a Major Architecture decision, `.wyn/company/DECISIONS.md` 2026-08-24): **Next.js (App Router) + TypeScript + Tailwind CSS + shadcn/ui**, connected to the same Supabase project as `app/` via `@supabase/ssr`, deployed on Vercel.
 
 See `.wyn/tasks/approved/WYN-049-admin-foundation.md` and `.wyn/docs/design/wyn-049-admin-foundation.md` for the full Product/Design spec this scaffold implements.
 

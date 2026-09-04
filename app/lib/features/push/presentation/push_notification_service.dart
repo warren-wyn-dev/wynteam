@@ -25,8 +25,6 @@ import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../saved/data/saved_repository.dart';
-import '../../zoky/data/zoky_repository.dart';
-import '../../zoky/presentation/zoky_order_detail_screen.dart';
 import '../data/push_token_repository.dart';
 
 /// Where this device stands with the OS/browser on push notifications.
@@ -393,11 +391,6 @@ class PushNotificationService {
       case 'club_post_comment':
       case 'mention_club_post':
         await _openClubPost(navigator, client, data['club_post_id'] as String?);
-      case 'new_order':
-      case 'order_shipped':
-      case 'order_cancelled':
-      case 'order_refunded':
-        _openOrder(navigator, client, data['order_id'] as String?);
       case 'moderation_warning':
       case 'moderation_content_removed':
       case 'appeal_approved':
@@ -513,18 +506,6 @@ class PushNotificationService {
           clubPostRepository: clubPostRepository,
           post: post,
           myRole: null,
-        ),
-      ),
-    );
-  }
-
-  void _openOrder(NavigatorState navigator, SupabaseClient client, String? orderId) {
-    if (orderId == null) return;
-    navigator.push(
-      MaterialPageRoute(
-        builder: (_) => ZokyOrderDetailScreen(
-          zokyRepository: ZokyRepository(client),
-          orderId: orderId,
         ),
       ),
     );

@@ -261,9 +261,8 @@ class ProfileRepository {
     // like "John, Jane" would otherwise break the filter into a 400 the
     // user sees as "ค้นหาไม่สำเร็จ", and a crafted query could append
     // filters of its own. See quotePostgrestFilterValue's doc comment.
-    // The `.ilike()`-based searches elsewhere in this app (Drop, Club,
-    // ZOKY) were already safe for the reason zoky_repository.dart's own
-    // comment gives -- a single-value builder call parameterizes the
+    // The `.ilike()`-based searches elsewhere in this app (Drop, Club)
+    // were already safe: a single-value builder call parameterizes the
     // value instead of splicing it into a filter string. This was the
     // only `.or()` in the app carrying user input.
     final pattern = quotePostgrestFilterValue('%$query%');

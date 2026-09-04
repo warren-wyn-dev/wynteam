@@ -1,5 +1,3 @@
-// CANONICAL SOURCE: app/lib/core/design/wyn_theme.dart — DO NOT EDIT THE MIRROR IN seller_app/ DIRECTLY.
-//
 // WYN Design System — assembled `ThemeData`.
 //
 // Combines `wyn_colors.dart` (`ColorScheme`) and `wyn_typography.dart`
@@ -9,9 +7,6 @@
 // brand colors (Cyan `#00C8FF` primary, etc.), not Material-generated
 // tones, which is what produced the "Material default" look the doc
 // flags as the root cause to fix.
-//
-// The ZOKY sub-theme (`.wyn/docs/design/ds-001-color-system.md`,
-// Section 3.4) is out of scope here -- that is DS-001b.
 //
 // `cardTheme` (added DS-002 Part 2, R3): every `Card()` in both apps used
 // Material 3's default (elevation 1, tonal shadow) with no per-site

@@ -136,7 +136,7 @@ class AuthRepository {
   /// client-side-only check can always be bypassed by calling the REST
   /// API directly. Keep both lists in sync.
   static const reservedUsernames = {
-    'admin', 'administrator', 'support', 'help', 'wynos', 'wyn', 'zoky',
+    'admin', 'administrator', 'support', 'help', 'wynos', 'wyn',
     'official', 'root', 'api', 'moderator', 'staff', 'security', 'system',
     'null', 'undefined', 'everyone', 'here', 'channel', 'settings',
     'about', 'terms', 'privacy', 'www', 'app',

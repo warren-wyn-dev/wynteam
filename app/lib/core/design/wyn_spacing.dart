@@ -1,5 +1,3 @@
-// CANONICAL SOURCE: app/lib/core/design/wyn_spacing.dart — DO NOT EDIT THE MIRROR IN seller_app/ DIRECTLY.
-//
 // WYN Design System — spacing / radius / touch-target tokens.
 // Values copied verbatim from `.wyn/docs/design/ds-001-color-system.md`,
 // Section 6 (Spacing / Radius / Touch Target). Token names skip numbers
@@ -52,7 +50,7 @@ class WynSpacing {
   /// Default radius -- buttons, inputs, cards.
   static const double radiusMd = 12;
 
-  /// Bottom sheets, dialogs, ZOKY product cards.
+  /// Bottom sheets, dialogs.
   static const double radiusLg = 16;
 
   /// Avatars, round buttons, pills.

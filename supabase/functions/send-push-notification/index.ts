@@ -3,10 +3,10 @@
 // Triggered by a Supabase Database Webhook on `public.notifications`
 // INSERT (configured once in the Dashboard by the Founder -- see
 // .wyn/docs/design/wyn-016-push-notifications.md for why this isn't a
-// SQL trigger in schema.sql). Every one of the 13 existing
-// notify_* trigger functions (WYN-012/WYN-015/ZOKY-005) already inserts
-// into `notifications` -- this function adds a push-delivery side
-// effect on top without touching any of them.
+// SQL trigger in schema.sql). Every existing notify_* trigger function
+// (WYN-012/WYN-015 and others since) already inserts into
+// `notifications` -- this function adds a push-delivery side effect on
+// top without touching any of them.
 //
 // Pure logic (message templates, JWT signing, data-payload shaping)
 // lives in _lib.ts and has its own unit tests (_lib.test.ts) -- this
@@ -96,8 +96,8 @@ async function handleWebhook(req: Request): Promise<Response> {
 
   // actor_id is null for moderation_warning/moderation_content_removed/
   // system (WYN-029 fix) -- skip the lookup entirely rather than query
-  // profiles?id=eq.null, same guard clubName/storeName below already use
-  // for their own optional foreign keys.
+  // profiles?id=eq.null, same guard clubName below already uses
+  // for its own optional foreign key.
   const [actorRows, tokenRows] = await Promise.all([
     row.actor_id
       ? supabaseRestGet(`profiles?id=eq.${row.actor_id}&select=username,display_name`)
@@ -119,39 +119,10 @@ async function handleWebhook(req: Request): Promise<Response> {
     clubName = (clubRows[0] as { name: string } | undefined)?.name ?? null;
   }
 
-  let storeName: string | null = null;
-  let messageType = row.type;
-  if (row.order_id && row.type === "order_cancelled") {
-    // Bidirectional type (see notify_order_cancelled in
-    // supabase/schema.sql) -- the recipient of *this specific row*
-    // tells us which direction/wording applies: if the recipient is
-    // the order's buyer, the seller cancelled (app/'s wording);
-    // otherwise the recipient is the seller and the buyer cancelled
-    // (seller_app's wording). See _lib.ts's messageFor for the two
-    // resulting pseudo-types this resolves to.
-    const orderRows = await supabaseRestGet(
-      `orders?id=eq.${row.order_id}&select=buyer_id,store:stores(name)`,
-    );
-    const order = orderRows[0] as
-      | { buyer_id: string; store: { name: string } | null }
-      | undefined;
-    storeName = order?.store?.name ?? null;
-    messageType = order?.buyer_id === row.recipient_id
-      ? "order_cancelled_buyer"
-      : "order_cancelled_seller";
-  } else if (row.order_id) {
-    const orderRows = await supabaseRestGet(
-      `orders?id=eq.${row.order_id}&select=store:stores(name)`,
-    );
-    const order = orderRows[0] as { store: { name: string } | null } | undefined;
-    storeName = order?.store?.name ?? null;
-  }
-
   const body = messageFor(
-    messageType,
+    row.type,
     actorName,
     clubName,
-    storeName,
     row.reason,
     row.moderation_action_type,
   );

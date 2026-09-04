@@ -80,8 +80,7 @@ String dateLabel(DateTime dateTime) {
 /// avatar rather than spanning the full screen width, so a large raw
 /// number risks overflowing at narrow phone widths (360px). Drops a
 /// trailing ".0" (e.g. exactly 1000 -> "1K", not "1.0K") since that's
-/// visual noise for a round number, same "no decimal when it's whole"
-/// posture as [thaiBahtLabel].
+/// visual noise for a round number.
 String compactCountLabel(int count) {
   if (count < 1000) return '$count';
   double scaled;
@@ -98,24 +97,6 @@ String compactCountLabel(int count) {
   final numberPart =
       isWhole ? rounded.toStringAsFixed(0) : rounded.toStringAsFixed(1);
   return '$numberPart$suffix';
-}
-
-/// A Thai Baht price label with thousand separators ("฿1,000" or
-/// "฿1,299.50") -- introduced for ZOKY-001's product cards/detail page.
-/// Drops the decimal part entirely when it's a whole number rather than
-/// always showing ".00", since most seed/demo prices are round numbers.
-String thaiBahtLabel(double price) {
-  final isWhole = price == price.roundToDouble();
-  final fixed = price.toStringAsFixed(isWhole ? 0 : 2);
-  final parts = fixed.split('.');
-  final digits = parts[0];
-  final buffer = StringBuffer();
-  for (var i = 0; i < digits.length; i++) {
-    if (i > 0 && (digits.length - i) % 3 == 0) buffer.write(',');
-    buffer.write(digits[i]);
-  }
-  final wholePart = buffer.toString();
-  return parts.length > 1 ? '฿$wholePart.${parts[1]}' : '฿$wholePart';
 }
 
 /// Quotes [value] so it can be embedded safely inside a PostgREST

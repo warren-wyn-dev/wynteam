@@ -19,7 +19,6 @@ import 'support/recording_notification_repository.dart';
 import 'support/recording_pop_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
-import 'support/recording_zoky_repository.dart';
 
 /// WYN-072 (Guest Browsing): requireRealAccount() (guest_gate.dart) must
 /// intercept Profile/Drop("+")/Notifications/Chat for an Anonymous
@@ -41,7 +40,6 @@ void main() {
   late RecordingSavedRepository sharedSavedRepository;
   late RecordingClubRepository sharedClubRepository;
   late RecordingClubPostRepository sharedClubPostRepository;
-  late RecordingZokyRepository sharedZokyRepository;
   late RecordingHomeRepository sharedHomeRepository;
   late RecordingNotificationRepository sharedNotificationRepository;
 
@@ -56,7 +54,6 @@ void main() {
     sharedSavedRepository = RecordingSavedRepository();
     sharedClubRepository = RecordingClubRepository();
     sharedClubPostRepository = RecordingClubPostRepository();
-    sharedZokyRepository = RecordingZokyRepository();
     sharedHomeRepository = RecordingHomeRepository(feedItems: []);
     sharedNotificationRepository = RecordingNotificationRepository();
   });
@@ -78,7 +75,6 @@ void main() {
           notificationRepository: sharedNotificationRepository,
           clubRepository: sharedClubRepository,
           clubPostRepository: sharedClubPostRepository,
-          zokyRepository: sharedZokyRepository,
           homeRepository: sharedHomeRepository,
         ),
       );

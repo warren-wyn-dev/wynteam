@@ -19,7 +19,6 @@ import 'support/recording_notification_repository.dart';
 import 'support/recording_pop_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
-import 'support/recording_zoky_repository.dart';
 
 /// WYN-024: the Bottom Nav shell now owns real logic (5 visual
 /// destinations mapping to 4 actual tabs + 1 create action, the unread
@@ -60,7 +59,6 @@ void main() {
   late RecordingSavedRepository sharedSavedRepository;
   late RecordingClubRepository sharedClubRepository;
   late RecordingClubPostRepository sharedClubPostRepository;
-  late RecordingZokyRepository sharedZokyRepository;
   late RecordingHomeRepository defaultHomeRepository;
   late RecordingNotificationRepository defaultNotificationRepository;
   late RecordingNotificationRepository fewUnreadNotificationRepository;
@@ -77,7 +75,6 @@ void main() {
     sharedSavedRepository = RecordingSavedRepository();
     sharedClubRepository = RecordingClubRepository();
     sharedClubPostRepository = RecordingClubPostRepository();
-    sharedZokyRepository = RecordingZokyRepository();
     defaultHomeRepository = RecordingHomeRepository(feedItems: []);
     defaultNotificationRepository = RecordingNotificationRepository();
     fewUnreadNotificationRepository = RecordingNotificationRepository(unreadCount: 3);
@@ -98,7 +95,6 @@ void main() {
           notificationRepository: notificationRepository ?? defaultNotificationRepository,
           clubRepository: sharedClubRepository,
           clubPostRepository: sharedClubPostRepository,
-          zokyRepository: sharedZokyRepository,
           homeRepository: homeRepository ?? defaultHomeRepository,
         ),
       );

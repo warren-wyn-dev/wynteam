@@ -63,8 +63,7 @@ void main() {
     // Directly overriding fetch isn't possible on the recording double
     // (it always resolves immediately) -- controlledFetchRepo's [future]
     // field is reassigned to a fresh completer's Future here instead of
-    // constructing a new repository, mirroring RecordingZokyRepository's
-    // own createOrdersOverride style but for fetch() specifically.
+    // constructing a new repository.
     controlledFetchRepo.future = completer.future;
 
     await tester.pumpWidget(buildScreen(controlledFetchRepo));

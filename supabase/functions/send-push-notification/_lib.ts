@@ -16,7 +16,6 @@ export interface NotificationRow {
   pop_id: string | null;
   club_id: string | null;
   club_post_id: string | null;
-  order_id: string | null;
   // WYN-029/030/032 -- added for the moderation/appeal/message-request
   // types below. Same columns notification.dart's WynNotification
   // already reads (reason/moderationActionId/moderationActionType/
@@ -43,12 +42,10 @@ export interface FcmServiceAccount {
 // ---------------------------------------------------------------------
 // Thai message templates -- mirror `_messageFor` in
 // app/lib/features/notification/presentation/notification_list_screen.dart
-// and seller_app/lib/features/notification/presentation/
-// seller_notification_list_screen.dart *exactly*, word for word. If
-// either of those ever changes wording, this must change too -- there
-// is no shared source of truth across Dart and this Deno function (no
-// package-sharing infra in this project, same reasoning as every other
-// cross-app/cross-language duplication here).
+// *exactly*, word for word. If that ever changes wording, this must
+// change too -- there is no shared source of truth across Dart and
+// this Deno function (no package-sharing infra in this project, same
+// reasoning as every other cross-language duplication here).
 // ---------------------------------------------------------------------
 export function displayNameOrUsername(displayName: string | null, username: string): string {
   return displayName && displayName.length > 0 ? displayName : `@${username}`;
@@ -58,7 +55,6 @@ export function messageFor(
   type: string,
   actorName: string,
   clubName: string | null,
-  storeName: string | null,
   // Optional/trailing so every existing call site (and every existing
   // test) keeps compiling unchanged -- only the WYN-029/030/032/034/039/
   // 043 types below read either of these.
@@ -66,12 +62,6 @@ export function messageFor(
   moderationActionType: string | null = null,
 ): string {
   const club = clubName ?? "Club";
-  // Fallback text differs by type in the Dart source this mirrors --
-  // `new_order` (app/'s NotificationListScreen._messageFor) falls back
-  // to "ร้านของคุณ" specifically; order_shipped/order_cancelled_buyer/
-  // order_refunded fall back to "ร้านค้า". Not a typo -- read both
-  // exactly before touching either.
-  const store = storeName ?? "ร้านค้า";
   switch (type) {
     case "like_drop":
       return `${actorName} ถูกใจโพสต์ของคุณ`;
@@ -91,38 +81,8 @@ export function messageFor(
       return `${actorName} ถูกใจโพสต์ของคุณใน ${club}`;
     case "club_post_comment":
       return `${actorName} แสดงความคิดเห็นในโพสต์ของคุณใน ${club}`;
-    // The 2 order_cancelled_* pseudo-types below don't exist as a DB
-    // `type` value -- the caller (index.ts) resolves the real
-    // bidirectional `order_cancelled` type (see notify_order_cancelled
-    // in supabase/schema.sql) to one of these two based on who the
-    // *recipient* of this specific row actually is, before calling
-    // this function. See index.ts for that resolution.
-    case "new_order": {
-      // Uses the real store name when known -- exactly app/'s wording
-      // (`'$name สั่งซื้อสินค้าจาก $store'`, store falling back to
-      // "ร้านของคุณ"), not seller_app's fixed "...จากร้านของคุณ" wording
-      // for the same type (the two apps render this notification type
-      // slightly differently in-app too -- see notification.dart's
-      // `_messageFor` vs seller_notification.dart's -- this picks the
-      // more informative one since a push body is a single fixed
-      // string, unlike in-app which re-renders per viewing app).
-      const newOrderStore = storeName ?? "ร้านของคุณ";
-      return `${actorName} สั่งซื้อสินค้าจาก ${newOrderStore}`;
-    }
-    case "order_shipped":
-      return `คำสั่งซื้อของคุณจาก ${store} ถูกจัดส่งแล้ว`;
-    case "order_cancelled_seller":
-      // Recipient is the seller (buyer cancelled) -- mirrors seller_
-      // notification_list_screen.dart's orderCancelled wording exactly.
-      return `${actorName} ยกเลิกคำสั่งซื้อที่ร้านของคุณ`;
-    case "order_cancelled_buyer":
-      // Recipient is the buyer (seller cancelled) -- mirrors app/'s
-      // NotificationType.orderCancelled wording exactly.
-      return `คำสั่งซื้อจากร้าน ${store} ถูกยกเลิก`;
-    case "order_refunded":
-      return `คำสั่งซื้อของคุณจาก ${store} ถูกคืนเงินแล้ว`;
     // WYN-021: mirrors app/'s notification_list_screen.dart's
-    // `_messageFor` word for word (seller_app has no mention concept).
+    // `_messageFor` word for word.
     case "mention_drop":
       return `${actorName} กล่าวถึงคุณในโพสต์`;
     case "mention_club_post":
@@ -415,7 +375,6 @@ export function buildDataPayload(row: NotificationRow): Record<string, string> {
   if (row.pop_id) data.pop_id = row.pop_id;
   if (row.club_id) data.club_id = row.club_id;
   if (row.club_post_id) data.club_post_id = row.club_post_id;
-  if (row.order_id) data.order_id = row.order_id;
   // WYN-032: lets the client open ConversationScreen directly on tap.
   if (row.conversation_id) data.conversation_id = row.conversation_id;
   // WYN-030: lets the client open MyModerationActionScreen directly on

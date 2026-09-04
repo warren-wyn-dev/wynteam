@@ -45,7 +45,7 @@ Workflow ที่เป็น manual (`workflow_dispatch`) มี 2 ตัว:
 
 | Job | รันอะไร |
 |---|---|
-| Flutter — `app` / `seller_app` | `flutter analyze` + `flutter test` (matrix, แยกผลกันคนละ job) |
+| Flutter — `app` | `flutter analyze` + `flutter test` |
 | Admin (Next.js) | `npm run lint` + `next typegen` + `tsc --noEmit` |
 | Supabase Edge Functions | `deno check` (index.ts) + `deno test` |
 | schema.sql ordering | `python3 supabase/check_schema_ordering.py` (regression test ของ SCHEMA-001) |

@@ -1,5 +1,3 @@
-// CANONICAL SOURCE: app/lib/core/design/wyn_typography.dart — DO NOT EDIT THE MIRROR IN seller_app/ DIRECTLY.
-//
 // WYN Design System — typography scale.
 //
 // 2026-08-30: reverts the 2026-08-29 Fraunces+Inter/`google_fonts` switch

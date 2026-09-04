@@ -27,11 +27,10 @@ class NotificationRepository {
     final rows = await _client
         .from('notifications')
         .select(
-          'id, type, drop_id, pop_id, club_id, club_post_id, order_id, reason, '
+          'id, type, drop_id, pop_id, club_id, club_post_id, reason, '
           'moderation_action_id, moderation_action_type, conversation_id, is_read, created_at, '
           'actor:profiles!notifications_actor_id_fkey(id, username, display_name, avatar_url), '
           'club:clubs(name), '
-          'order:orders(store:stores(name)), '
           // 02-notifications.tsx's preview line -- drop_id/pop_id are the
           // only FKs from notifications to drops/pops (no `!constraint`
           // qualifier needed, same as club:clubs(name) above). Only one

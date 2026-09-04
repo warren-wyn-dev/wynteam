@@ -24,8 +24,6 @@ import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../../saved/data/saved_repository.dart';
 import '../../root/presentation/side_menu.dart';
 import '../../search/presentation/search_screen.dart';
-import '../../zoky/data/zoky_repository.dart';
-import '../../zoky/presentation/zoky_order_detail_screen.dart';
 import '../../push/presentation/push_notification_service.dart';
 import '../../push/presentation/push_permission_card.dart';
 import '../data/notification.dart';
@@ -51,7 +49,6 @@ class NotificationListScreen extends StatefulWidget {
     required this.savedRepository,
     required this.clubRepository,
     required this.clubPostRepository,
-    required this.zokyRepository,
     required this.appealRepository,
     required this.chatRepository,
     this.followRequestRepository,
@@ -66,7 +63,6 @@ class NotificationListScreen extends StatefulWidget {
   final SavedRepository savedRepository;
   final ClubRepository clubRepository;
   final ClubPostRepository clubPostRepository;
-  final ZokyRepository zokyRepository;
 
   /// WYN-030: all 4 moderation-related notification types now open
   /// MyModerationActionScreen, which needs this to load the action +
@@ -220,11 +216,6 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       case NotificationType.clubPostLike:
       case NotificationType.clubPostComment:
         await _openClubPost(notification.clubPostId!);
-      case NotificationType.newOrder:
-      case NotificationType.orderShipped:
-      case NotificationType.orderCancelled:
-      case NotificationType.orderRefunded:
-        _openOrder(notification.orderId!);
       case NotificationType.mentionDrop:
         await _openDrop(notification.dropId!);
       case NotificationType.mentionClubPost:
@@ -305,17 +296,6 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     }
   }
 
-  void _openOrder(String orderId) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ZokyOrderDetailScreen(
-          zokyRepository: widget.zokyRepository,
-          orderId: orderId,
-        ),
-      ),
-    );
-  }
-
   Future<void> _openDrop(String dropId) async {
     final drop = await widget.dropRepository.fetchById(dropId);
     if (!mounted) return;
@@ -371,8 +351,8 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
 
   // 02-notifications.tsx's header search icon -- Search already has its
   // own bottom-nav tab (root_shell.dart), so this pushes the same
-  // `SearchScreen` ViewProfileScreen/the ZOKY screens already reuse this
-  // way, rather than inventing a second route to the same destination.
+  // `SearchScreen` ViewProfileScreen elsewhere already reuses this way,
+  // rather than inventing a second route to the same destination.
   void _openSearch() {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -448,20 +428,6 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         return '$name ถูกใจโพสต์ของคุณใน $club';
       case NotificationType.clubPostComment:
         return '$name แสดงความคิดเห็นในโพสต์ของคุณใน $club';
-      case NotificationType.newOrder:
-        final store = notification.orderStoreName ?? 'ร้านของคุณ';
-        return '$name สั่งซื้อสินค้าจาก $store';
-      case NotificationType.orderShipped:
-        return 'คำสั่งซื้อของคุณจาก ${notification.orderStoreName ?? 'ร้านค้า'} ถูกจัดส่งแล้ว';
-      case NotificationType.orderCancelled:
-        // Bidirectional (see notify_order_cancelled in supabase/schema.sql
-        // -- either the buyer or the seller can be the recipient here),
-        // so this is deliberately worded to read correctly from either
-        // side, unlike orderShipped/orderRefunded above which are always
-        // buyer-recipient.
-        return 'คำสั่งซื้อจากร้าน ${notification.orderStoreName ?? 'ร้านค้า'} ถูกยกเลิก';
-      case NotificationType.orderRefunded:
-        return 'คำสั่งซื้อของคุณจาก ${notification.orderStoreName ?? 'ร้านค้า'} ถูกคืนเงินแล้ว';
       case NotificationType.mentionDrop:
         return '$name กล่าวถึงคุณในโพสต์';
       case NotificationType.mentionClubPost:

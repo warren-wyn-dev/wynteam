@@ -23,9 +23,9 @@
 #   8. Turning `system` off blocks send_system_notification()'s insert;
 #      turning it back on restores it.
 #   9. A user with *every* category turned off still gets
-#      `moderation_warning` (apply_moderation_action), `appeal_approved`
-#      (decide_appeal), and `new_order` (ZOKY order trigger) inserted --
-#      those code paths are never gated, by design.
+#      `moderation_warning` (apply_moderation_action) and `appeal_approved`
+#      (decide_appeal) inserted -- those code paths are never gated, by
+#      design.
 #  10. RLS: user A can neither SELECT nor UPDATE user B's
 #      `notification_settings` row.
 #  11. (WYN-044 debug fix) internal.notification_enabled() has no
@@ -491,8 +491,8 @@ end
 $$;
 
 -- ------------------------------------------------------------
--- CHECK 15-17: alice now has EVERY category turned off -- prove
--- moderation_warning/appeal_approved/new_order are still inserted
+-- CHECK 15-16: alice now has EVERY category turned off -- prove
+-- moderation_warning/appeal_approved are still inserted
 -- unconditionally, exactly as before this task (never gated, by
 -- design).
 -- ------------------------------------------------------------
@@ -560,28 +560,6 @@ begin
   where recipient_id = '61000000-0000-0000-0000-000000000001' and type = 'appeal_approved';
 
   insert into results select 'CHECK16_appeal_approved_never_gated', v_count, 1;
-end
-$$;
-
-insert into public.stores (id, owner_id, name) values
-  ('61000000-0000-0000-0000-0000000000a2', '61000000-0000-0000-0000-000000000001', 'Alice Store');
-
-insert into public.orders (
-  buyer_id, store_id, recipient_name, recipient_phone, shipping_address,
-  subtotal, fee_percent, fee_amount, total
-) values (
-  '61000000-0000-0000-0000-000000000002', '61000000-0000-0000-0000-0000000000a2',
-  'Bob', '0800000000', '123 Test Street', 100, 10, 10, 110
-);
-
-do $$
-declare
-  v_count int;
-begin
-  select count(*) into v_count from public.notifications
-  where recipient_id = '61000000-0000-0000-0000-000000000001' and type = 'new_order';
-
-  insert into results select 'CHECK17_new_order_never_gated', v_count, 1;
 end
 $$;
 
