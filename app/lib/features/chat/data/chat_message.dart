@@ -51,7 +51,19 @@ class ChatMessage {
   final DateTime? replyPreviewDeletedAt;
 
   factory ChatMessage.fromMap(Map<String, dynamic> map) {
-    final reply = map['reply_to'] as Map<String, dynamic>?;
+    // PostgREST's self-referencing embed (`reply_to:messages!reply_to_message_id(...)`
+    // in ChatRepository) is meant to be a to-one relationship, returned
+    // as a single object or null -- but self-joins are exactly where
+    // PostgREST's to-one/to-many inference is least reliable (see that
+    // constant's own comment: the constraint-name hint form 400s outright
+    // for this relationship, which the column-name form now used does
+    // not). A `List` shape here would throw on a bare
+    // `as Map<String, dynamic>?` and take every send/fetch down with it,
+    // so accept either shape defensively rather than trust one blindly.
+    final rawReply = map['reply_to'];
+    final reply = rawReply is Map<String, dynamic>
+        ? rawReply
+        : (rawReply is List && rawReply.isNotEmpty ? rawReply.first as Map<String, dynamic> : null);
     return ChatMessage(
       id: map['id'] as String,
       conversationId: map['conversation_id'] as String,
