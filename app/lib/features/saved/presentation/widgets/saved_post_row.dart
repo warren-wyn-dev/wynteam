@@ -7,6 +7,7 @@ import '../../../../core/widgets/hashtag_text.dart';
 import '../../../home/data/home_feed_item.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../../../core/widgets/network_thumbnail.dart';
+import '../../../../core/widgets/wyn_heart_icon.dart';
 
 /// One row of the Bookmarks list (15-bookmarks.tsx's `SavedRow`) --
 /// avatar, name, relative time, caption, like/comment/repost counts, and
@@ -114,7 +115,7 @@ class SavedPostRow extends StatelessWidget {
                     padding: const EdgeInsets.only(top: WynSpacing.space3),
                     child: Row(
                       children: [
-                        _Metric(icon: Icons.favorite_border, count: item.likeCount),
+                        _Metric.heart(count: item.likeCount),
                         const SizedBox(width: WynSpacing.space5),
                         _Metric(icon: Icons.mode_comment_outlined, count: item.commentCount),
                         const SizedBox(width: WynSpacing.space5),
@@ -171,17 +172,29 @@ class SavedPostRow extends StatelessWidget {
 }
 
 class _Metric extends StatelessWidget {
-  const _Metric({required this.icon, required this.count});
+  const _Metric({required IconData this.icon, required this.count})
+      : isHeart = false;
 
-  final IconData icon;
+  /// The Like metric -- WYN's own heart (WYN-108) rather than a Material
+  /// glyph, so it has no [IconData] to name.
+  const _Metric.heart({required this.count})
+      : icon = null,
+        isHeart = true;
+
+  final IconData? icon;
   final int count;
+  final bool isHeart;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: WynColors.graphite),
+        if (isHeart)
+          const WynHeartIcon(
+              filled: false, size: 16, color: WynColors.graphite)
+        else
+          Icon(icon!, size: 16, color: WynColors.graphite),
         const SizedBox(width: WynSpacing.space1),
         Text(
           '$count',

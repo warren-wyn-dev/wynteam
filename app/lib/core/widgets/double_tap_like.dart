@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../design/wyn_colors.dart';
+import '../../core/widgets/wyn_heart_icon.dart';
 
 /// Wraps a post's media area (image/video) with Instagram-style
 /// double-tap-to-like -- WYNOS V1.0.0 Beta requirement 4. Two quick taps
@@ -128,9 +129,9 @@ class _DoubleTapLikeState extends State<DoubleTapLike>
                   opacity: _opacity.value,
                   child: Transform.scale(
                     scale: _scale.value,
-                    child: Icon(
-                      Icons.favorite,
+                    child: WynHeartIcon(
                       key: const Key('double_tap_heart'),
+                      filled: true,
                       color: WynColors.paper,
                       size: 72,
                       shadows: [

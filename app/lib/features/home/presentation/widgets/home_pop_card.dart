@@ -8,6 +8,7 @@ import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/widgets/action_metric.dart';
+import '../../../../core/widgets/wyn_heart_icon.dart';
 import '../../../../core/widgets/action_sheet_row.dart';
 import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
@@ -306,10 +307,14 @@ class HomePopCard extends StatelessWidget {
                               // metrics apply here. Share/Bookmark moved into
                               // the "..." menu (see _openMoreMenu, spec 4.6).
                               ActionMetric(
-                                icon: item.likedByMe
-                                    ? Icons.favorite
-                                    : Icons.favorite_border,
-                                iconSize: 17,
+                                icon: WynHeartIcon(
+                                  filled: item.likedByMe,
+                                  size: 17,
+                                  color: item.likedByMe
+                                      ? WynColors.iconLikeActive
+                                      : WynColors.iconIdle,
+                                ),
+                                iconState: item.likedByMe,
                                 count: item.likeCount,
                                 color: item.likedByMe
                                     ? WynColors.iconLikeActive
@@ -321,8 +326,9 @@ class HomePopCard extends StatelessWidget {
                               ),
                               const SizedBox(width: WynSpacing.space5),
                               ActionMetric(
-                                icon: Icons.mode_comment_outlined,
-                                iconSize: 17,
+                                icon: const Icon(Icons.mode_comment_outlined,
+                                    size: 17, color: WynColors.graphite),
+                                iconState: Icons.mode_comment_outlined,
                                 count: item.commentCount,
                                 color: WynColors.graphite,
                                 semanticsLabel: 'ดูคอมเมนต์',
@@ -337,8 +343,9 @@ class HomePopCard extends StatelessWidget {
                               if (showViewCount) ...[
                                 const SizedBox(width: WynSpacing.space5),
                                 ActionMetric(
-                                  icon: Icons.visibility_outlined,
-                                  iconSize: 16,
+                                  icon: const Icon(Icons.visibility_outlined,
+                                      size: 16, color: WynColors.faint),
+                                  iconState: Icons.visibility_outlined,
                                   count: item.viewCount,
                                   color: WynColors.faint,
                                   semanticsLabel:

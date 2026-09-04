@@ -11,6 +11,7 @@ import '../../../report/presentation/report_sheet.dart';
 import 'poll_placeholder_tile.dart';
 import 'text_drop_placeholder_tile.dart';
 import '../../../../core/widgets/network_thumbnail.dart';
+import '../../../../core/widgets/wyn_heart_icon.dart';
 
 /// One square tile in DropFeedScreen's grid. Deliberately minimal (just
 /// the image + a like-count scrim) -- full detail (caption, comments,
@@ -109,7 +110,8 @@ class DropGridTile extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.favorite, size: 13, color: Colors.white),
+                        const WynHeartIcon(
+                            filled: true, size: 13, color: Colors.white),
                         const SizedBox(width: 3),
                         Text(
                           '${drop.likeCount}',

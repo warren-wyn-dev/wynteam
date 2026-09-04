@@ -45,6 +45,7 @@ import 'support/recording_pop_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
 import 'package:wyn/core/widgets/action_sheet_row.dart';
+import 'support/heart_finder.dart';
 
 HomeFeedItem _dropItem({
   String id = 'd1',
@@ -909,7 +910,7 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    final likeButton = find.widgetWithIcon(ActionMetric, Icons.favorite_border);
+    final likeButton = findHeartButton<ActionMetric>(filled: false);
     expect(likeButton, findsOneWidget);
 
     final onPressed = tester.widget<ActionMetric>(likeButton).onTap!;
@@ -934,7 +935,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    final likeButton = find.widgetWithIcon(ActionMetric, Icons.favorite_border);
+    final likeButton = findHeartButton<ActionMetric>(filled: false);
     expect(likeButton, findsOneWidget);
 
     final onPressed = tester.widget<ActionMetric>(likeButton).onTap!;
@@ -1027,7 +1028,7 @@ void main() {
       expect(find.widgetWithIcon(ActionMetric, Icons.repeat), findsNothing);
       // The Like/Comment buttons are still there -- only ReDrop is
       // conditionally hidden.
-      expect(find.widgetWithIcon(ActionMetric, Icons.favorite_border),
+      expect(findHeartButton<ActionMetric>(filled: false),
           findsOneWidget);
     });
 

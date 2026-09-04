@@ -36,6 +36,7 @@ import '../../../core/text_utils.dart';
 import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
+import '../../../core/widgets/wyn_heart_icon.dart';
 
 /// Placeholder share link -- there's no real hosting/domain yet (see
 /// .wyn/tasks/active/WYN-005-drop-post-image.md Risks). Not a reachable
@@ -1048,8 +1049,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   : 'กดเพื่อถูกใจ',
               excludeSemantics: true,
               child: IconButton(
-                icon: Icon(
-                  _drop.likedByMe ? Icons.favorite : Icons.favorite_border,
+                icon: WynHeartIcon(
+                  filled: _drop.likedByMe,
                   size: 19,
                   color: _drop.likedByMe
                       ? WynColors.iconLikeActive
@@ -1238,8 +1239,9 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   child: IconButton(
                     padding: EdgeInsets.zero,
                     iconSize: 16,
-                    icon: Icon(
-                      comment.likedByMe ? Icons.favorite : Icons.favorite_border,
+                    icon: WynHeartIcon(
+                      filled: comment.likedByMe,
+                      size: 24,
                       color: comment.likedByMe
                           ? WynColors.iconLikeActive
                           : WynColors.iconIdle,

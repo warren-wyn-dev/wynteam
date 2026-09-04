@@ -24,6 +24,7 @@ import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
 import '../../../core/design/wyn_colors.dart';
+import '../../../core/widgets/wyn_heart_icon.dart';
 
 /// Placeholder share link -- same "no real hosting/domain yet" caveat as
 /// dropShareLink/popShareLink (WYN-005/006).
@@ -454,9 +455,17 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                 label: _post.likedByMe ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ' : 'กดเพื่อถูกใจ',
                 excludeSemantics: true,
                 child: IconButton(
-                  icon: Icon(
-                    _post.likedByMe ? Icons.favorite : Icons.favorite_border,
-                    color: _post.likedByMe ? WynColors.iconLikeActive : null,
+                  icon: WynHeartIcon(
+                    filled: _post.likedByMe,
+                    size: 24,
+                    // Was `null` -- IconButton's own default, which
+                    // resolves to onSurfaceVariant, which is graphite,
+                    // which is iconIdle. Naming it changes no pixel and
+                    // means the idle heart is the same token here as
+                    // everywhere else.
+                    color: _post.likedByMe
+                        ? WynColors.iconLikeActive
+                        : WynColors.iconIdle,
                   ),
                   onPressed: _toggleLike,
                 ),

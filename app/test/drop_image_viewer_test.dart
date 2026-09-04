@@ -5,6 +5,7 @@ import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/presentation/widgets/drop_image_viewer.dart';
 
 import 'support/recording_drop_repository.dart';
+import 'support/heart_finder.dart';
 
 /// 20-image-viewer.tsx's like/share/save action row under the dots.
 /// DropImageViewer keeps its own local like/save state (a separate
@@ -52,7 +53,7 @@ void main() {
     await tester.pumpWidget(buildViewer(drop: drop(), onDropChanged: (_) {}));
     tester.takeException();
 
-    expect(find.byIcon(Icons.favorite_border), findsOneWidget);
+    expect(findHeart(filled: false), findsOneWidget);
     expect(find.byIcon(Icons.send_outlined), findsOneWidget);
     expect(find.byIcon(Icons.bookmark_border), findsOneWidget);
   });
@@ -65,7 +66,7 @@ void main() {
     ));
     tester.takeException();
 
-    expect(find.byIcon(Icons.favorite), findsOneWidget);
+    expect(findHeart(filled: true), findsOneWidget);
     expect(find.byIcon(Icons.bookmark), findsOneWidget);
   });
 
@@ -79,10 +80,10 @@ void main() {
     ));
     tester.takeException();
 
-    await tester.tap(find.byIcon(Icons.favorite_border));
+    await tester.tap(findHeart(filled: false));
     await tester.pump();
 
-    expect(find.byIcon(Icons.favorite), findsOneWidget);
+    expect(findHeart(filled: true), findsOneWidget);
     expect(dropRepo.toggleLikeCalls, 1);
     expect(dropRepo.toggleLikeCurrentlyLikedArgs, [false]);
     expect(reported?.likedByMe, isTrue);
@@ -98,10 +99,10 @@ void main() {
     ));
     tester.takeException();
 
-    await tester.tap(find.byIcon(Icons.favorite_border));
+    await tester.tap(findHeart(filled: false));
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.favorite_border), findsOneWidget);
+    expect(findHeart(filled: false), findsOneWidget);
     expect(reports, [true, false]);
   });
 

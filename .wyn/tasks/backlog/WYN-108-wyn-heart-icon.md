@@ -1,6 +1,6 @@
 # Design Task — WYN-108
 
-Status: backlog (Founder เลือกทรงแล้ว รอ WYN-107 merge ก่อนเริ่ม — ทั้งสองงานแตะไฟล์การ์ดเดียวกัน)
+Status: review (เขียนเสร็จแล้ว 2026-09-04 · analyze สะอาด · test 1188/1188 · รอ AI QA ตรวจ)
 Owner: AI Design → AI Coding
 Screen: ทุกจุดในแอปที่วาดหัวใจถูกใจ (13 ไฟล์)
 Purpose: เปลี่ยนทรงหัวใจทั้งแอปเป็นทรง lucide ตามไฟล์อ้างอิง — ต้นเหตุคือ 01-home.tsx ใช้ไอคอน lucide

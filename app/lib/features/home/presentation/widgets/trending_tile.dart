@@ -4,6 +4,7 @@ import '../../../../core/design/wyn_colors.dart';
 import '../../data/home_feed_item.dart';
 import '../../../drop/presentation/widgets/poll_placeholder_tile.dart';
 import '../../../../core/widgets/network_thumbnail.dart';
+import '../../../../core/widgets/wyn_heart_icon.dart';
 
 /// One square tile in Home's "กำลังนิยม" (Trending) row -- WYN-017.
 /// Visually modeled on DropGridTile (image + like-count scrim), but
@@ -73,7 +74,8 @@ class TrendingTile extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.favorite, size: 13, color: Colors.white),
+                    const WynHeartIcon(
+                        filled: true, size: 13, color: Colors.white),
                     const SizedBox(width: 3),
                     Text(
                       '${item.likeCount}',
