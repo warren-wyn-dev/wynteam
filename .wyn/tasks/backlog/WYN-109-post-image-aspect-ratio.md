@@ -1,6 +1,6 @@
 # Design Task — WYN-109
 
-Status: backlog (Founder เลือก "4:5 เท่ากันทั้งโพสต์" แล้ว — รออีก 2 อย่างก่อนส่งโค้ด)
+Status: review (109b–d เขียนเสร็จแล้ว 2026-09-04 · analyze สะอาด · test 1180/1180 · รอ Founder รัน SQL (109a) และ AI QA ตรวจ)
 Owner: AI Design → AI Coding
 Screen: CreateDropScreen + square_crop.dart (และ post_media.dart ฝั่งฟีด)
 Purpose: ให้คนโพสต์เลือกสัดส่วนรูปได้เอง แทนที่จะโดนบังคับครอปจัตุรัสแล้วโดนตัดซ้ำอีกรอบตอนแสดงผล
