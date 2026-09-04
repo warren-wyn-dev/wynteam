@@ -8186,30 +8186,42 @@ begin
     raise exception 'Not permitted to view the user directory';
   end if;
 
+  -- Every column/table alias in this query body is deliberately named
+  -- to NOT match any name in this function's own RETURNS TABLE list
+  -- (created_at/last_active_at/activity_count/current_status) --
+  -- PL/pgSQL's RETURNS TABLE OUT parameters are visible as variables
+  -- for the whole function body, so a bare `created_at` inside the
+  -- query below is genuinely ambiguous between "the OUT parameter" and
+  -- "the table column" (Postgres error 42702) the moment more than one
+  -- table in scope has a same-named column -- confirmed the hard way
+  -- against production. Table-qualifying alone doesn't fully dodge it
+  -- (a bare alias like `acted_at` still could, in principle, coincide
+  -- with a future OUT param), so every intermediate name here is
+  -- chosen to be distinct from the OUT list on top of being qualified.
   return query
   with actions as (
-    select user_id as actor_id, created_at from public.drop_likes
+    select dl.user_id as actor_id, dl.created_at as acted_at from public.drop_likes dl
     union all
-    select user_id, created_at from public.pop_likes
+    select pl.user_id, pl.created_at from public.pop_likes pl
     union all
-    select user_id, created_at from public.club_post_likes
+    select cpl.user_id, cpl.created_at from public.club_post_likes cpl
     union all
-    select author_id, created_at from public.drop_comments
+    select dc.author_id, dc.created_at from public.drop_comments dc
     union all
-    select author_id, created_at from public.pop_comments
+    select pc.author_id, pc.created_at from public.pop_comments pc
     union all
-    select author_id, created_at from public.club_post_comments
+    select cpc.author_id, cpc.created_at from public.club_post_comments cpc
     union all
-    select redropper_id, created_at from public.redrops
+    select r.redropper_id, r.created_at from public.redrops r
     union all
-    select sender_id, created_at from public.messages where deleted_at is null
+    select m.sender_id, m.created_at from public.messages m where m.deleted_at is null
     union all
-    select author_id, created_at from public.drops
+    select d.author_id, d.created_at from public.drops d
   ),
   activity as (
-    select actor_id, max(created_at) as last_active_at, count(*) as activity_count
-    from actions
-    group by actor_id
+    select act.actor_id, max(act.acted_at) as last_active, count(*) as total_actions
+    from actions act
+    group by act.actor_id
   ),
   -- Same "still-active restrict/suspend, or any ban, not overturned"
   -- rule as currentActiveAction() in admin/lib/admin-users.ts applies
@@ -8218,16 +8230,16 @@ begin
   -- user. `distinct on` picks the most recent qualifying row per user,
   -- matching that helper's "the" (singular) active action assumption.
   active_action as (
-    select distinct on (target_user_id)
-      target_user_id,
-      action_type
-    from public.moderation_actions
-    where overturned_at is null
+    select distinct on (ma.target_user_id)
+      ma.target_user_id,
+      ma.action_type as resolved_action_type
+    from public.moderation_actions ma
+    where ma.overturned_at is null
       and (
-        action_type = 'ban'
-        or (action_type in ('restrict', 'suspend') and expires_at > now())
+        ma.action_type = 'ban'
+        or (ma.action_type in ('restrict', 'suspend') and ma.expires_at > now())
       )
-    order by target_user_id, created_at desc
+    order by ma.target_user_id, ma.created_at desc
   )
   select
     p.id,
@@ -8235,22 +8247,22 @@ begin
     p.display_name,
     p.platform_role,
     p.created_at,
-    a.last_active_at,
-    coalesce(a.activity_count, 0),
-    coalesce(aa.action_type, 'normal')
+    act.last_active,
+    coalesce(act.total_actions, 0),
+    coalesce(aa.resolved_action_type, 'normal')
   from public.profiles p
-  left join activity a on a.actor_id = p.id
+  left join activity act on act.actor_id = p.id
   left join active_action aa on aa.target_user_id = p.id
   where (p_role is null or p.platform_role = p_role)
-    and (p_status is null or coalesce(aa.action_type, 'normal') = p_status)
+    and (p_status is null or coalesce(aa.resolved_action_type, 'normal') = p_status)
   order by
     case when p_sort = 'newest' then p.created_at end desc,
     case when p_sort = 'oldest' then p.created_at end asc,
-    case when p_sort = 'most_active' then coalesce(a.activity_count, 0) end desc,
-    -- Never-active users (last_active_at null) count as the most
+    case when p_sort = 'most_active' then coalesce(act.total_actions, 0) end desc,
+    -- Never-active users (last_active is null) count as the most
     -- dormant of all, not sorted to the bottom -- nulls first is the
     -- point, not an artifact.
-    case when p_sort = 'dormant' then a.last_active_at end asc nulls first
+    case when p_sort = 'dormant' then act.last_active end asc nulls first
   limit p_limit;
 end;
 $$;
