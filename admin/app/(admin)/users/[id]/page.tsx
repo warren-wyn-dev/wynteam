@@ -15,6 +15,14 @@ const ROLE_LABEL: Record<string, string> = {
   user: "User",
 };
 
+// Weight-based role hierarchy, not color, per wyn-admin-design-system.md
+// section 6.2 (replaces the old purple/blue/gray role badge colors).
+const ROLE_BADGE_VARIANT: Record<string, "ink-solid" | "gray-tonal" | "outline"> = {
+  admin: "ink-solid",
+  moderator: "gray-tonal",
+  user: "outline",
+};
+
 const ACTION_LABEL: Record<string, string> = {
   warning: "Warn",
   restrict: "Restrict",
@@ -65,7 +73,9 @@ export default async function UserDetailPage({
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-2xl font-bold">{profile.username}</h2>
-          <Badge variant="outline">{ROLE_LABEL[profile.platform_role]}</Badge>
+          <Badge variant={ROLE_BADGE_VARIANT[profile.platform_role] ?? "outline"}>
+            {ROLE_LABEL[profile.platform_role]}
+          </Badge>
           {active ? (
             <Badge variant="destructive">
               {active.action_type === "ban"

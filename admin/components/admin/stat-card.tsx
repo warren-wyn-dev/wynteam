@@ -31,7 +31,11 @@ export function StatCard({
     <Card aria-label={ariaLabel}>
       <CardHeader className="flex-row items-start justify-between space-y-0">
         <span className="text-sm font-medium text-muted-foreground">{label}</span>
-        <Icon className="size-4 text-primary" aria-hidden="true" />
+        {/* Per wyn-admin-design-system.md section 3.3/6.7: this icon is
+            decoration only, not a signal -- was `text-primary` (cyan),
+            now the doc's "gray-400" neutral-scale token (zinc-400 is the
+            exact hex match, see section 3.1's Zinc-based scale). */}
+        <Icon className="size-4 text-zinc-400" aria-hidden="true" />
       </CardHeader>
       <CardContent>
         <div className="flex items-baseline gap-3">

@@ -7,7 +7,10 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card"
       className={cn(
-        "flex flex-col gap-6 rounded-xl border bg-card py-6 text-card-foreground shadow-sm",
+        // No shadow at rest per wyn-admin-design-system.md section 5
+        // (Elevation) -- a hairline border communicates the card's edge
+        // on its own; shadow is reserved for overlay contexts (Dialog).
+        "flex flex-col gap-6 rounded-xl border bg-card py-6 text-card-foreground",
         className,
       )}
       {...props}

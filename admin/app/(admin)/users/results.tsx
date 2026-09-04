@@ -9,6 +9,14 @@ const ROLE_LABEL: Record<string, string> = {
   user: "User",
 };
 
+// Weight-based role hierarchy, not color, per wyn-admin-design-system.md
+// section 6.2 (replaces the old purple/blue/gray role badge colors).
+const ROLE_BADGE_VARIANT: Record<string, "ink-solid" | "gray-tonal" | "outline"> = {
+  admin: "ink-solid",
+  moderator: "gray-tonal",
+  user: "outline",
+};
+
 export async function SearchResults({ query }: { query: string }) {
   const results = await searchUsers(query);
 
@@ -34,7 +42,9 @@ export async function SearchResults({ query }: { query: string }) {
               <p className="text-sm text-muted-foreground">{user.display_name}</p>
             ) : null}
           </div>
-          <Badge variant="outline">{ROLE_LABEL[user.platform_role] ?? user.platform_role}</Badge>
+          <Badge variant={ROLE_BADGE_VARIANT[user.platform_role] ?? "outline"}>
+            {ROLE_LABEL[user.platform_role] ?? user.platform_role}
+          </Badge>
         </Link>
       ))}
       {results.length === 30 ? (

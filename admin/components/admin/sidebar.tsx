@@ -25,14 +25,15 @@ export function AdminSidebar() {
             aria-current={isActive ? "page" : undefined}
             className={cn(
               "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-              // Exact WynColors.cyan50/cyan700 pairing from the Flutter
-              // app (app/lib/core/design/wyn_colors.dart), not the
-              // brand --primary token itself -- --primary (cyan500) is
-              // too light for accessible text-on-light-background
-              // contrast; cyan700 is the shade WYN's own design system
-              // already uses for that purpose. See the Design spec.
+              // Per wyn-admin-design-system.md section 6.8/3.3: no more
+              // color-coded active state (was cyan50/cyan700 from the
+              // Flutter app's wyn_colors.dart). Active state is now
+              // conveyed by neutral weight/contrast alone -- `bg-muted`/
+              // `text-foreground` already equal the doc's "gray-100 bg +
+              // ink text" (light) / "gray-800 bg + white text" (dark)
+              // tokens exactly, so this stays dark-mode-safe for free.
               isActive
-                ? "bg-[#E6F9FF] text-[#0090C4]"
+                ? "bg-muted font-semibold text-foreground"
                 : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
             )}
           >

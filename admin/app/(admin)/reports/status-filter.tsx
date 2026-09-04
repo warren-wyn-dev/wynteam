@@ -23,8 +23,12 @@ export function StatusFilter() {
           onClick={() => router.push(`/reports?status=${opt.value}`)}
           className={
             "rounded-md px-3 py-1.5 text-sm font-medium transition-colors " +
+            // Per wyn-admin-design-system.md section 3.3: no color accent
+            // for a plain filter toggle (was leftover cyan). `bg-muted`/
+            // `text-foreground` match the doc's neutral "active" treatment
+            // used elsewhere (see components/admin/sidebar.tsx).
             (current === opt.value
-              ? "bg-[#E6F9FF] text-[#0090C4]"
+              ? "bg-muted font-semibold text-foreground"
               : "text-muted-foreground hover:bg-accent hover:text-accent-foreground")
           }
         >
