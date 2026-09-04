@@ -942,7 +942,23 @@ class DropRepository {
           'location_lat': location?.lat,
           'location_lon': location?.lon,
           'location_place_id': location?.placeId,
-          'image_aspect_ratio': aspectRatio?.wireValue,
+          // WYN-109: only named when there is a shape to record, i.e.
+          // when this Drop has photos the poster chose one for.
+          //
+          // Sending the key unconditionally made every kind of post --
+          // text, poll, a Draft republished from an existing URL --
+          // depend on a column that only the photo feature needs. On a
+          // database that has not run the WYN-109 migration yet,
+          // PostgREST rejects an insert naming a column it cannot see,
+          // so posting anything at all would fail. That is a real state:
+          // production runs this code the moment it is deployed, and the
+          // migration is applied by hand.
+          //
+          // Omitting the key does not remove the ordering requirement
+          // for photo posts -- run the migration before deploying, per
+          // supabase/migrations_wyn109_image_aspect_ratio.sql -- it
+          // confines the requirement to the feature that introduced it.
+          if (aspectRatio != null) 'image_aspect_ratio': aspectRatio.wireValue,
         })
         .select('id')
         .single();

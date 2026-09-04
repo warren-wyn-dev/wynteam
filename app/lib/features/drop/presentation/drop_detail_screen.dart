@@ -1238,10 +1238,15 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   height: WynSpacing.touchTargetMin,
                   child: IconButton(
                     padding: EdgeInsets.zero,
-                    iconSize: 16,
+                    // WYN-108: the size lives on the heart itself now.
+                    // IconButton's `iconSize` reaches an [Icon] through
+                    // IconTheme and cannot reach a widget that sizes
+                    // itself, so leaving the 16 here and a 24 below drew
+                    // the comment heart half again as large as the one
+                    // it replaced.
                     icon: WynHeartIcon(
                       filled: comment.likedByMe,
-                      size: 24,
+                      size: 16,
                       color: comment.likedByMe
                           ? WynColors.iconLikeActive
                           : WynColors.iconIdle,

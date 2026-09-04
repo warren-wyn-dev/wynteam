@@ -1216,7 +1216,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
         children: [
           if (_isCropping) const LinearProgressIndicator(),
           SizedBox(
-            height: 160,
+            height: _previewHeight,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: _imagesBytes.length,
@@ -1224,8 +1224,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
               itemBuilder: (context, index) => ClipRRect(
                 borderRadius: BorderRadius.circular(WynSpacing.radiusLg),
                 child: SizedBox(
-                  width: 128,
-                  height: 160,
+                  width: _previewWidth,
+                  height: _previewHeight,
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
@@ -1242,7 +1242,16 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                           onTap: () => _repositionImage(index),
                           child: Image.memory(
                             _imagesBytes[index],
-                            fit: BoxFit.cover,
+                            // The bytes are already cut to the chosen
+                            // shape, and the frame is that shape too, so
+                            // cover crops nothing. "ต้นฉบับ" is the
+                            // exception: its frame is a fixed box the
+                            // photo has to fit inside rather than fill,
+                            // or the preview would crop what that choice
+                            // exists to keep.
+                            fit: _aspectRatio.ratio == null
+                                ? BoxFit.contain
+                                : BoxFit.cover,
                           ),
                         ),
                       ),
@@ -1264,6 +1273,24 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
         ],
       ),
     );
+  }
+
+  /// The photo strip's frame. WYN-109: it takes the shape the poster
+  /// chose, so tapping a chip visibly re-shapes the photos -- which is
+  /// the whole point of offering the choice. It used to be a fixed
+  /// 128x160 with `BoxFit.cover`, so every ratio looked identical and
+  /// the poster could not see what they were picking.
+  ///
+  /// Height is constant; width follows the ratio. 4:5 lands back on
+  /// 128x160 exactly, so the default is the frame this screen always
+  /// had. "ต้นฉบับ" has no ratio to take, so it keeps that box and fits
+  /// the photo inside it instead.
+  static const double _previewHeight = 160;
+
+  double get _previewWidth {
+    final ratio = _aspectRatio.ratio;
+    if (ratio == null) return 128;
+    return _previewHeight * ratio;
   }
 
   /// WYN-109's ratio picker: one choice for the whole post, sitting

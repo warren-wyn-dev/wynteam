@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -123,6 +124,66 @@ void main() {
             .aspectRatio,
         DropAspectRatio.portrait,
       );
+    });
+  });
+
+  // The four defects QA found on the first pass (2026-09-04). Each one
+  // is here so it cannot come back quietly.
+  group('WYN-109/108 QA round 1 regressions', () {
+    test(
+        'a post with no photos does not name the aspect-ratio column '
+        '(B-109-1, Critical)', () {
+      // The insert used to name `image_aspect_ratio` on every Drop --
+      // text, poll, Draft included -- so on a database that had not run
+      // the migration yet, PostgREST rejected the insert and posting
+      // anything at all failed. The column belongs to the photo
+      // feature; nothing else should depend on it existing.
+      final source =
+          File('lib/features/drop/data/drop_repository.dart').readAsStringSync();
+      expect(
+        source.contains(
+            "if (aspectRatio != null) 'image_aspect_ratio': aspectRatio.wireValue"),
+        isTrue,
+        reason: 'the column must only be named when there is a ratio to store',
+      );
+      expect(
+        source.contains("'image_aspect_ratio': aspectRatio?.wireValue"),
+        isFalse,
+        reason: 'naming it unconditionally is what broke every post type',
+      );
+    });
+
+    test('the comment heart is 16px, the size it replaced (B-108-1)', () {
+      // IconButton's `iconSize` reaches an Icon through IconTheme and
+      // cannot reach a widget that sizes itself, so the 24 written here
+      // silently drew the comment heart half again as large.
+      final source = File('lib/features/drop/presentation/drop_detail_screen.dart')
+          .readAsStringSync();
+      final commentHeart = RegExp(
+        r'icon: WynHeartIcon\(\s*filled: comment\.likedByMe,\s*size: (\d+)',
+      ).firstMatch(source);
+      expect(commentHeart, isNotNull);
+      expect(commentHeart!.group(1), '16');
+    });
+
+    test('the post-detail gallery draws the chosen ratio (B-109-2)', () {
+      // A 16:9 post looked right in the feed and was cropped back to
+      // 4:5 the moment you opened it -- the second crop this whole
+      // feature exists to remove.
+      final source =
+          File('lib/features/drop/presentation/widgets/drop_image_gallery.dart')
+              .readAsStringSync();
+      expect(source.contains('aspectRatio: widget.drop.aspectRatio.ratio'), isTrue);
+    });
+
+    test('the compose preview is shaped by the chosen ratio (B-109-3)', () {
+      // A fixed 128x160 frame meant every chip looked identical, so the
+      // poster could not see what they were choosing.
+      final source =
+          File('lib/features/drop/presentation/create_drop_screen.dart')
+              .readAsStringSync();
+      expect(source.contains('double get _previewWidth'), isTrue);
+      expect(source.contains('width: _previewWidth'), isTrue);
     });
   });
 }
