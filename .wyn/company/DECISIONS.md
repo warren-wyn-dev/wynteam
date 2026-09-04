@@ -862,3 +862,91 @@
 - **(4) "โปรไฟล์ ก็ต้องคล้ายฟีด" → ตรวจแล้วเหมือนอยู่แล้ว + "คง Grid ไว้"**: แท็บหลักทั้งสามของ Profile (โพสต์/รีโพสต์/ถูกใจ) เป็น `ListView` ของ `HomeDropCard` **ตัวเดียวกับ Feed** มาตั้งแต่ WYN-013 แล้ว — **AI รายงานผิดในรอบแรกว่า Profile เป็น Grid** (วาด mockup ผิดและเขียนผิดในเอกสาร แก้ทั้งสองที่แล้ว) ช่องที่ยังไม่เหมือนจริง ๆ คือ *พฤติกรรม*: โพสต์หลายรูปบนโปรไฟล์ยังยิง request รูปทีละการ์ด (N+1 ที่เอาออกจาก Home ไปแล้ว) แก้ด้วยการ batch รูปทั้งหน้าใน `DropRepository._fetchViewerState` ครอบคลุม Profile โพสต์+ถูกใจ · Search แท็บโพสต์ · hashtag feed · Draft · `fetchById` — จากนั้น Founder ยืนยันว่า **Grid ที่เหลือ (Search แท็บโพสต์ · Saved · Draft) ให้คงไว้** ไม่เปลี่ยนเป็นการ์ดแบบฟีด เพราะเป็น Content Overview คนละหน้าที่กับ Content Flow (ตรงกับข้อ 4 ของบรีฟ Beta3: "ไม่ต้องทำให้ทุกหน้าเหมือนกัน 100% ให้แต่ละบริบทเหมาะสมกับหน้าที่")
 - **สถานะ ณ เวลาบันทึก**: `flutter analyze` สะอาด · `flutter test` 1,107 ผ่านหมด · `flutter build web --release` สำเร็จ · `supabase/tests` 27/33 เท่า baseline Beta2 พอดี (Beta3 ไม่แตะ SQL เลย) · **push ขึ้น feature branch แล้ว ยังไม่เปิด PR ยังไม่ merge ยังไม่ deploy ไม่แตะ production** ตามข้อ 37 ของบรีฟ
 - อ้างอิง: `.wyn/docs/qa/wynos-v1.0.0-beta3-{system-map,ux-audit,performance,security-audit,final-readiness,future-ideas}.md`
+
+### [2026-09-03] WYN-106: Founder อนุมัติ Button System หน้า Home + แก้ touch target ปุ่มปิดแบนเนอร์
+
+- บริบท: Founder ขอ "ออกแบบ UX UI ปุ่มต่างๆ ขอโทนสีเดิมทั้งหมด เริ่มจากหน้าจอ Home" — AI Design รวบรวม
+  ปุ่มทุกแบบที่มีอยู่จริงบนหน้า Home เป็น 6 ประเภท (Primary Pill / Secondary Outline / Icon /
+  Text Tab / Icon+Count / Dismiss Icon) ใช้ token สีเดิมทั้งหมด (sapphire/ink/graphite/faint/hairline
+  จาก `wyn_colors.dart` — ไม่ใช่ `ds-001-color-system.md` เก่าที่ล้าสมัยตามบทเรียน 2026-09-02) ไม่มีการ
+  เสนอสี/ทรงใหม่ — ส่ง Artifact preview ("Home Button System") ให้ Founder ตรวจ
+- ตรวจพบ 1 gap จริงระหว่าง audit: ปุ่ม X ปิด `HomeExplainerBanner` มีพื้นที่กดจริง ~19×19px ต่ำกว่า
+  เกณฑ์ขั้นต่ำของระบบเอง (`WynSpacing.touchTargetMin` 44×44px, DS-001 §6/DS-008 §1) — หลุดจาก audit
+  เดิมของ DS-008 (คนละรอบ/คนละไฟล์)
+- **Founder ตัดสินใจ (ผ่าน popup)**: "อนุมัติ ส่ง AI Coding แก้เลย" — อนุมัติภาพรวมทั้งหมด และให้แก้
+  จุด touch target ทันที ไม่ต้องรอ — ส่งต่อ AI Coding แล้ว (`.wyn/tasks/active/WYN-106-home-button-system.md`)
+- ข้อสังเกตรอง (ไม่เร่งด่วน ยังไม่ตัดสินใจ): ไอคอน "⋯" more-options ใน `home_drop_card.dart` ไม่ระบุ
+  size/color ชัดเจนตาม `design-reference/SPEC.md` §4.6 (ควรเป็น 16px, faint) — touch target ผ่านอยู่แล้ว
+  ไม่กระทบ accessibility เก็บไว้เป็น known note รอ Founder ตัดสินใจภายหลังว่าคุ้มแก้หรือไม่
+- อ้างอิง: `.wyn/docs/design/wyn-106-home-button-system.md`, `.wyn/tasks/active/WYN-106-home-button-system.md`
+
+### [2026-09-03] Founder Decision — ต้องเห็นรูป (mockup/preview) ก่อนทุกครั้ง ก่อนสั่งเขียนโค้ด
+
+- Founder พูดตรงๆ ระหว่างงาน WYN-106: **"ขอดูรูปก่อน เขียนโค้ดนะ"** — นับเป็นกติกาถาวรตาม RULES.md
+  หมวด "Founder Feedback" (ระบุแนวทางที่ต้องทำต่อไป)
+- **กติกาที่บังคับใช้จากนี้**: งานดีไซน์/UI ใดๆ ที่จะนำไปสู่การแก้โค้ดจริง **ต้องมีภาพ (Artifact/mockup)
+  ให้ Founder ดูและอนุมัติก่อนเสมอ** ห้ามส่งต่อ AI Coding จากแค่คำอธิบายเป็นข้อความ/ตาราง state ล้วนๆ
+  โดยไม่มีภาพประกอบ แม้จะเป็นการเปลี่ยนแปลงเล็กน้อยก็ตาม — ต่อยอดจากบทเรียนเดิม 2026-09-02 (WYN-095,
+  "ต้องอ่านค่าสีจริงจาก wyn_colors.dart เวลาสร้างพรีวิว") ให้ครอบคลุมกว้างขึ้นเป็น "ต้องมีพรีวิวก่อนเขียน
+  โค้ดทุกครั้ง" ไม่ใช่แค่เรื่องสีที่ถูกต้อง
+- ผลกับงานที่ทำไปแล้ว: WYN-106's touch-target fix (ปุ่ม X ปิดแบนเนอร์) มีการโชว์ Artifact "Home Button
+  System" (มีภาพ before/after ของจุดนี้อยู่แล้วในตัว) ก่อนอนุมัติ — เข้าเกณฑ์นี้พอดี ไม่ต้องแก้ย้อนหลัง
+  ส่วนการยืนยันเรื่องตัดไอคอน "เข้าชม" ออกจากแถวปุ่ม (พบว่าทำไปแล้วตั้งแต่ WYN-088 ไม่มีโค้ดใหม่ที่ต้อง
+  เขียน) ไม่กระทบกติกานี้เช่นกันเพราะไม่มีการเขียนโค้ดเกิดขึ้นจริง
+- อ้างอิง: ข้อความ Founder ตรงในเซสชัน WYN-106, `.wyn/docs/design/wyn-106-home-button-system.md`
+
+### [2026-09-03] WYN-107: Founder อนุมัติเปลี่ยนการ์ดโพสต์หน้า Home เป็นโครงสองคอลัมน์
+
+- บริบท: Founder ส่งภาพหน้าฟีด Threads + ไฟล์ `design-reference/01-home.tsx` มาแล้วเขียนกำกับว่า
+  **"ปุ่มควรขยับ ให้ตรงชื่อ"** (วงแดงที่แถวปุ่มในภาพพรีวิว) — ตรวจแล้วพบว่าไฟล์อ้างอิงกำหนด `Post` ไว้เป็น
+  **2 คอลัมน์** (avatar ซ้าย / ชื่อ+ข้อความ+รูป+ปุ่ม+คอมเมนต์ อยู่คอลัมน์ขวาแนวเดียวกันหมด) แต่ตอน
+  implement ทำเป็น stack เต็มความกว้าง (ทุก section ชิดขอบจอ 12px) จึงไม่ตรงกับที่ออกแบบไว้ตั้งแต่ต้น
+- **ไม่ใช่การละเมิดกติกา "ห้ามลอก Threads" (2026-08-14)** — โครงนี้มาจากไฟล์อ้างอิงของ WYN เองที่
+  อนุมัติไว้แล้ว 2026-08-29 ไม่ใช่การลอกโครงหน้าจอคู่แข่ง
+- **Founder ตัดสินใจ**: ดู Artifact เทียบก่อน/หลังแล้วตอบ **"ชอบแบบนี้"** ชี้ที่แผงโครงสองคอลัมน์ →
+  อนุมัติให้เปลี่ยน · ระยะขอบการ์ด 12 → 24 · แนวเนื้อหาเริ่มที่ 78 · รูปเข้าคอลัมน์เดียวกับข้อความ
+  ล้นเฉพาะขอบขวา · การ์ดรูปหลายใบ 236 โผล่ 68 บนจอ 390 (ผลจากการเปลี่ยนฐานที่คูณ 82% ไม่ใช่การแก้ค่า)
+- **6 จุดในไฟล์อ้างอิงที่ห้ามทำตาม** เพราะถูกสั่งเปลี่ยนไปแล้วทีหลัง: สีหัวใจ (แดง ไม่ใช่ sapphire) ·
+  แถวปุ่ม 3 ปุ่ม (ไม่ใช่ 4) · แท็บ 3 อัน (ไม่ใช่ 4) · ไอคอนขวาบนเป็นแชท (ไม่ใช่แว่นขยาย) · ฟอนต์ระบบ
+  (ไม่ใช่ Fraunces/Inter) · พื้นขาว `#FFFFFF` (ไม่ใช่ครีม `#FAF9F6`) — บันทึกไว้เพราะถ้าลอกไฟล์เป๊ะ
+  จะย้อนคำสั่ง Founder 6 เรื่องกลับโดยไม่ตั้งใจ
+- **Founder ตอบ 2 ข้อที่ค้างแล้ว (ผ่าน popup)**:
+  - **(1) `HomePopCard` แก้ด้วย** — "ให้ทั้งฟีดหน้าตาเหมือนกัน" → **เป็นข้อยกเว้นของกติกา "ห้ามแก้ไฟล์
+    Pop โดยตรง" (DS-001 Risk R3 / DECISIONS 2026-08-14) เฉพาะไฟล์ `home_pop_card.dart` ไฟล์เดียว**
+    เพราะเป็นไฟล์ของฟีด Home ที่การ์ดปนอยู่กับการ์ด Drop — ไฟล์ Pop อื่น (`pop_clip_view.dart`,
+    `pop_comment_sheet.dart`, `pop_single_clip_screen.dart`) ยังอยู่ใต้กติกาเดิม ห้ามแตะ
+  - **(2) ทรงหัวใจ = แบบ B (lucide)** — ต้นเหตุที่หัวใจในแอปไม่ตรงกับแบบที่อนุมัติไว้คือ
+    `01-home.tsx` ใช้ไอคอนจาก `lucide-react` แต่ตอน implement ใช้ `Icons.favorite` ของ Material
+    ซึ่งเป็นคนละทรง → แยกเป็น **WYN-108** (`WynHeartIcon` แบบ `CustomPainter` ไม่เพิ่ม dependency
+    ไล่เปลี่ยน 13 จุดทั้งแอป) ทำหลัง WYN-107 merge เพราะแตะไฟล์การ์ดเดียวกัน
+- อ้างอิง: `.wyn/docs/design/wyn-107-home-feed-two-column-layout.md`,
+  `.wyn/tasks/active/WYN-107-home-feed-two-column-layout.md`, `design-reference/01-home.tsx`
+
+## [2026-09-04] WYN-109: ฟีด Home อ่านอัตราส่วนรูปจากตาราง `drops` ไม่แก้ view `home_feed`
+
+**เดิม**: จะ `create or replace view home_feed` เพื่อเพิ่มคอลัมน์ `image_aspect_ratio`
+**ล้มจริงบน production**: `ERROR 42P16: cannot change name of view column "created_at" to
+"author_is_verified"` — `create or replace view` ต่อท้ายคอลัมน์ได้อย่างเดียว และ view จริงบน
+production มีลำดับคอลัมน์ไม่ตรงกับ `supabase/schema.sql` (SCHEMA-004)
+
+**ตัดสินใจ**: **ไม่แก้ view เลย ทั้งตอนนี้และตลอดไป** เปลี่ยนเป็นให้
+`HomeRepository._fetchAspectRatios()` อ่านคอลัมน์จากตาราง `drops` ตรง ๆ แบบ batch โดยเสียบเข้า
+`Future.wait` ชุดเดิมของ `_fetchViewerState` (ขนานกับอีก 6 query ที่หน้าฟีดจ่ายอยู่แล้ว → ไม่เพิ่ม
+round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` ทางพารามิเตอร์ — pattern เดียวกับ `imageUrls`
+
+**เหตุผล**:
+1. ไม่ต้องแตะโครงสร้าง production ที่มองไม่เห็นนิยามจริง — ความเสี่ยงหายทั้งก้อน
+2. WYN-109 เลิกขึ้นกับ SCHEMA-004 (ซึ่งยัง open และยังไม่รู้สาเหตุ)
+3. ต้นทุน runtime แทบเป็นศูนย์ และมี fallback 4:5 ทุกเส้นทางถ้า query ล้ม
+
+**ผลพ่วง**: `supabase/schema.sql` ต้องไม่มีคอลัมน์นี้ในนิยาม view ด้วย (revert แล้ว + ใส่คอมเมนต์
+อธิบาย) เพื่อให้ไฟล์ schema ยังบรรยายฐานข้อมูลจริง ไม่ใช่เจตนาที่ไม่มีวันเกิด
+
+**SQL ที่รันจริงบน production**: `supabase/migrations_wyn109a_column_only.sql` (Founder รันเอง
+2026-09-04 ผล `Success. No rows returned`) — เพิ่มคอลัมน์ในตาราง `drops` + CHECK constraint
+เท่านั้น ไม่แตะ view · `supabase/migrations_wyn109_image_aspect_ratio.sql` = ไฟล์ที่ล้ม ห้ามรัน
+
+**ยังไม่ครอบคลุม**: หน้า Saved (`saved_feed`) ยังวาด 4:5 ทุกรูป — นอกขอบเขต WYN-109 ต้องเปิดงานใหม่
+
+อ้างอิง: `.wyn/tasks/bugs/SCHEMA-004-production-view-drift.md`,
+`.wyn/docs/qa/wyn-106-107-108-109-home-cards-qa-round2.md`

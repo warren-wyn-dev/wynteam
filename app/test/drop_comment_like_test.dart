@@ -12,6 +12,7 @@ import 'support/recording_follow_repository.dart';
 import 'support/recording_pop_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
+import 'package:wyn/core/widgets/wyn_heart_icon.dart';
 
 void main() {
   // RecordingDropRepository constructs a SupabaseClient, which starts a
@@ -80,12 +81,19 @@ void main() {
     );
     tester.takeException();
 
-    // The Drop's own header also has a favorite_border Like button, so
-    // disambiguate by the comment button's distinctive small iconSize
-    // (16, set in DropDetailScreen's comment row -- the header's Like
-    // button uses the default size).
-    final likeButton = find.byWidgetPredicate(
-      (widget) => widget is IconButton && widget.iconSize == 16,
+    // The Drop's own header also has a Like button, so disambiguate by
+    // the comment heart's distinctive small size (16, against the
+    // header's 19).
+    //
+    // WYN-108 moved that size off IconButton.iconSize and onto the
+    // heart itself: iconSize reaches an Icon through IconTheme and
+    // cannot reach a widget that sizes itself, so the size now lives
+    // where it is actually applied -- and this finder follows it there.
+    final likeButton = find.ancestor(
+      of: find.byWidgetPredicate(
+        (widget) => widget is WynHeartIcon && widget.size == 16,
+      ),
+      matching: find.byType(IconButton),
     );
     await tester.ensureVisible(likeButton);
     await tester.pumpAndSettle();

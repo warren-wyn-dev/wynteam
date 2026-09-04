@@ -143,6 +143,17 @@ class _DropImageGalleryState extends State<DropImageGallery> {
         children: [
           PostImageCarousel(
             imageUrls: imageUrls,
+            // WYN-109: the shape the poster chose, same as the feed
+            // draws it. Without this the row fell back to a constant
+            // 4:5, so a 16:9 post looked right in the feed and was
+            // cropped back to portrait the moment you opened it --
+            // the exact "cropped a second time, by something the poster
+            // never chose" this feature exists to end.
+            aspectRatio: widget.drop.aspectRatio.ratio ??
+                postImageAspectRatio(
+                  widget.drop.imageWidth,
+                  widget.drop.imageHeight,
+                ),
             onIndexChanged: (index) => setState(() => _currentIndex = index),
             semanticLabelBuilder: (index, total) =>
                 'รูปที่ ${index + 1} จาก $total',

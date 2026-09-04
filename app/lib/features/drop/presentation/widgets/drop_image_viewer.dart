@@ -7,6 +7,7 @@ import '../../data/drop.dart';
 import '../../data/drop_repository.dart';
 import '../drop_detail_screen.dart' show dropShareLink;
 import '../../../../core/widgets/network_thumbnail.dart';
+import '../../../../core/widgets/wyn_heart_icon.dart';
 
 /// Full-screen, swipeable, pinch-to-zoom image viewer -- WYN-071 Design,
 /// Screen 4. Opened by tapping a multi-image Drop's gallery in
@@ -191,8 +192,8 @@ class _DropImageViewerState extends State<DropImageViewer> {
                     button: true,
                     excludeSemantics: true,
                     child: IconButton(
-                      icon: Icon(
-                        _drop.likedByMe ? Icons.favorite : Icons.favorite_border,
+                      icon: WynHeartIcon(
+                        filled: _drop.likedByMe,
                         size: 22,
                         color: _drop.likedByMe ? WynColors.iconLikeActive : WynColors.paper,
                       ),

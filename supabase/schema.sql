@@ -9532,6 +9532,33 @@ alter table public.drops add column if not exists image_height integer;
 alter table public.drop_images add column if not exists image_width integer;
 alter table public.drop_images add column if not exists image_height integer;
 
+-- WYN-109: the aspect ratio the poster chose for this Drop's photos,
+-- applied to all of them. NULL = posted before WYN-109, which the client
+-- renders at 4:5 -- the shape those photos were already cropped to.
+-- Founder-approved 2026-09-04, see .wyn/company/APPROVALS.md.
+alter table public.drops add column if not exists image_aspect_ratio text;
+
+alter table public.drops
+  drop constraint if exists drops_image_aspect_ratio_valid;
+
+alter table public.drops
+  add constraint drops_image_aspect_ratio_valid
+  check (
+    image_aspect_ratio is null
+    or image_aspect_ratio in ('original', '1:1', '4:5', '16:9')
+  );
+
+-- Deliberately NOT added to the public.home_feed / public.saved_feed
+-- views below, and it must stay that way. `create or replace view` only
+-- permits appending columns, production's home_feed has drifted from
+-- this file (SCHEMA-004), and the attempt to append there failed with
+-- 42P16 on 2026-09-04. Rather than rewrite a production view nobody can
+-- see the current text of, HomeRepository reads this column off the
+-- `drops` table in the feed page's existing batched Future.wait
+-- (_fetchAspectRatios). Adding it to the views here would put this file
+-- back out of step with the database it is supposed to describe, for a
+-- column no reader needs there.
+
 -- ============================================================
 -- WYNOSHomeSpec.md 4.9's header row / 4.6's suggested-account row --
 -- Verified badge

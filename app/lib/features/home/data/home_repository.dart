@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../drop/data/square_crop.dart';
 import 'feed_diversity.dart';
 import 'home_feed_item.dart';
 import 'home_ranking.dart';
@@ -27,6 +28,7 @@ class _ViewerFeedState {
     required this.pollStates,
     required this.blockedAuthorIds,
     required this.imageUrlsByDropId,
+    required this.aspectRatioByDropId,
   });
 
   final Set<String> likedDropIds;
@@ -45,6 +47,20 @@ class _ViewerFeedState {
   /// `image_count` is greater than 1; a single-image Drop already
   /// carries its only URL in `image_url`.
   final Map<String, List<String>> imageUrlsByDropId;
+
+  /// WYN-109: the aspect ratio the poster chose for every image Drop in
+  /// the page, keyed by drop id. Read from the `drops` table rather
+  /// than off the row, because `home_feed` -- the view every method
+  /// here selects from -- has no `image_aspect_ratio` column and
+  /// cannot be given one without a `create or replace view` against a
+  /// production definition that has drifted from the repo's schema.sql
+  /// (SCHEMA-004). Batched into [_fetchViewerState]'s existing
+  /// `Future.wait`, so it shares the round-trip the page already pays
+  /// for and costs no extra latency. Missing entries (a text-only
+  /// Drop, a Pop, or a failed lookup) fall back to
+  /// [DropAspectRatio.initial] in [HomeFeedItem.fromMap], which is the
+  /// 4:5 every card drew before this existed.
+  final Map<String, DropAspectRatio> aspectRatioByDropId;
 }
 
 /// Reads the unified `home_feed` view (see supabase/schema.sql, WYN-007
@@ -147,6 +163,7 @@ class HomeRepository {
       pollTotalVotes: pollState?.totalVotes,
       pollOptionCounts: pollState?.optionCounts,
       imageUrls: viewer.imageUrlsByDropId[id],
+      aspectRatio: viewer.aspectRatioByDropId[id],
     );
   }
 
@@ -201,6 +218,7 @@ class HomeRepository {
         pollTotalVotes: pollState?.totalVotes,
         pollOptionCounts: pollState?.optionCounts,
         imageUrls: viewer.imageUrlsByDropId[id],
+        aspectRatio: viewer.aspectRatioByDropId[id],
       );
     }).toList();
   }
@@ -275,6 +293,7 @@ class HomeRepository {
         pollTotalVotes: pollState?.totalVotes,
         pollOptionCounts: pollState?.optionCounts,
         imageUrls: viewer.imageUrlsByDropId[id],
+        aspectRatio: viewer.aspectRatioByDropId[id],
       );
     }).toList()
       ..removeWhere((item) => blockedAuthorIds.contains(item.authorId));
@@ -350,6 +369,7 @@ class HomeRepository {
         pollTotalVotes: pollState?.totalVotes,
         pollOptionCounts: pollState?.optionCounts,
         imageUrls: viewer.imageUrlsByDropId[id],
+        aspectRatio: viewer.aspectRatioByDropId[id],
       );
     }).toList()
       ..removeWhere((item) => blockedAuthorIds.contains(item.authorId));
@@ -420,8 +440,7 @@ class HomeRepository {
   Future<List<HomeFeedItem>> _buildRankedWindow() async {
     final userId = _client.auth.currentUser!.id;
 
-    final rawRows =
-        await _client.rpc('get_wynos_ranked_feed') as List<dynamic>;
+    final rawRows = await _client.rpc('get_wynos_ranked_feed') as List<dynamic>;
     // row_data carries every public.home_feed column (plus some
     // ranking-internal ones HomeFeedItem.fromMap simply never reads) --
     // flattening it back out here is what lets fromMap keep working
@@ -485,6 +504,7 @@ class HomeRepository {
         pollTotalVotes: pollState?.totalVotes,
         pollOptionCounts: pollState?.optionCounts,
         imageUrls: viewer.imageUrlsByDropId[id],
+        aspectRatio: viewer.aspectRatioByDropId[id],
       );
     }).toList();
 
@@ -585,6 +605,7 @@ class HomeRepository {
         pollTotalVotes: pollState?.totalVotes,
         pollOptionCounts: pollState?.optionCounts,
         imageUrls: viewer.imageUrlsByDropId[id],
+        aspectRatio: viewer.aspectRatioByDropId[id],
       );
     }).toList();
   }
@@ -642,6 +663,7 @@ class HomeRepository {
         pollTotalVotes: pollState?.totalVotes,
         pollOptionCounts: pollState?.optionCounts,
         imageUrls: viewer.imageUrlsByDropId[id],
+        aspectRatio: viewer.aspectRatioByDropId[id],
       );
     }).toList();
   }
@@ -695,6 +717,7 @@ class HomeRepository {
       _fetchRedroppedIds(userId: userId, dropIds: dropIds),
       _fetchPollStates(userId: userId, pollIds: pollIds),
       _fetchImageUrls(rows),
+      _fetchAspectRatios(rows),
       if (authorIdsForBlockCheck != null)
         _fetchPostingBlockedAuthorIds(authorIdsForBlockCheck),
     ]);
@@ -706,8 +729,9 @@ class HomeRepository {
       redroppedIds: results[3] as Set<String>,
       pollStates: results[4] as Map<String, _PollState>,
       imageUrlsByDropId: results[5] as Map<String, List<String>>,
+      aspectRatioByDropId: results[6] as Map<String, DropAspectRatio>,
       blockedAuthorIds:
-          results.length > 6 ? results[6] as Set<String> : const {},
+          results.length > 7 ? results[7] as Set<String> : const {},
     );
   }
 
@@ -755,6 +779,46 @@ class HomeRepository {
             .add(row['image_url'] as String);
       }
       return byDropId;
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// WYN-109: the poster-chosen aspect ratio of every image Drop in
+  /// [rows], in one query.
+  ///
+  /// The column lives on `drops`, not on the `home_feed` view this
+  /// repository reads -- see [_ViewerFeedState.aspectRatioByDropId] for
+  /// why it is fetched instead of selected. Only image Drops are asked
+  /// for: a text-only Drop and a Pop have no image to shape, and a page
+  /// made entirely of those costs no query at all.
+  ///
+  /// A failure is swallowed exactly as [_fetchImageUrls] swallows its
+  /// own: every card falls back to the 4:5 it drew before this existed,
+  /// so a hiccup here changes the shape of some photos for one page
+  /// rather than taking the whole feed down. That fallback is also what
+  /// runs against a database where the column has not been added yet.
+  Future<Map<String, DropAspectRatio>> _fetchAspectRatios(
+    List<Map<String, dynamic>> rows,
+  ) async {
+    final ids = <String>{
+      for (final row in rows)
+        if (row['content_type'] == 'drop' && row['image_url'] != null)
+          row['id'] as String,
+    };
+    if (ids.isEmpty) return const {};
+
+    try {
+      final dropRows = await _client
+          .from('drops')
+          .select('id, image_aspect_ratio')
+          .inFilter('id', ids.toList());
+
+      return {
+        for (final row in dropRows)
+          row['id'] as String:
+              DropAspectRatio.fromWire(row['image_aspect_ratio'] as String?),
+      };
     } catch (_) {
       return const {};
     }

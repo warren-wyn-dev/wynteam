@@ -33,6 +33,7 @@ import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
 import '../../../core/widgets/empty_state_block.dart';
 import '../../../core/network_error.dart';
+import '../../../core/widgets/wyn_heart_icon.dart';
 
 /// Screen 2 — Notification list (WYN-012, extended by WYN-015 with 4
 /// Club types). Row structure mirrors FollowListScreen (WYN-008/013)
@@ -852,7 +853,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                 BorderSide(color: WynColors.paper, width: 1.5),
               ),
             ),
-            child: Icon(badge.icon, size: 10, color: WynColors.paper),
+            child: badge.glyph(size: 10, color: WynColors.paper),
           ),
         ),
       ],
@@ -979,9 +980,27 @@ class _NotificationGroup {
 }
 
 class _TypeBadge {
-  const _TypeBadge(this.icon, this.color);
-  final IconData icon;
+  const _TypeBadge(IconData this.icon, this.color) : isHeart = false;
+
+  /// The Like badge -- WYN's own heart (WYN-108), which has no
+  /// [IconData] to name.
+  const _TypeBadge.heart(this.color)
+      : icon = null,
+        isHeart = true;
+
+  final IconData? icon;
   final Color color;
+
+  /// WYN-108: the like badge draws WYN's own heart rather than
+  /// Material's, so the shape agrees with every other heart in the
+  /// product. The other three badges are Material icons and stay that
+  /// way -- this task changed the heart, not the icon set.
+  final bool isHeart;
+
+  /// The glyph, at the size the badge draws it.
+  Widget glyph({required double size, required Color color}) => isHeart
+      ? WynHeartIcon(filled: true, size: size, color: color)
+      : Icon(icon!, size: size, color: color);
 }
 
 // 02-notifications.tsx's TYPE_META -- like/follow use sapphire (the app's
@@ -998,7 +1017,7 @@ _TypeBadge? _badgeFor(NotificationType type) {
       // accent color as the follow badge below), inconsistent with the
       // rest of the app's own "like = red" convention. Founder request,
       // 2026-08-30.
-      return const _TypeBadge(Icons.favorite, WynColors.iconLikeActive);
+      return const _TypeBadge.heart(WynColors.iconLikeActive);
     case NotificationType.commentDrop:
     case NotificationType.commentPop:
     case NotificationType.clubPostComment:

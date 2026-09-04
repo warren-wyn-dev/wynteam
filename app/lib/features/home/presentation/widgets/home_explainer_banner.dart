@@ -105,12 +105,30 @@ class _HomeExplainerBannerState extends State<HomeExplainerBanner> {
               label: 'ปิดข้อความแนะนำ',
               button: true,
               excludeSemantics: true,
-              child: InkWell(
-                onTap: _dismiss,
-                borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                child: const Padding(
-                  padding: EdgeInsets.all(2),
-                  child: Icon(Icons.close, size: 15, color: WynColors.graphite),
+              // DS-008-style touch-target fix: the tap target is
+              // [WynSpacing.touchTargetMin] (44x44) in both dimensions,
+              // same pattern as [ActionMetric], while the *visible* icon
+              // stays the exact size/colour/position it always was.
+              // `Alignment.topRight` (rather than dead-centre) pins the
+              // icon to the same top-right corner, 2px in from the edge,
+              // that it already occupied -- the extra hit area grows
+              // transparently to the left and down instead of shifting
+              // the icon itself.
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minWidth: WynSpacing.touchTargetMin,
+                  minHeight: WynSpacing.touchTargetMin,
+                ),
+                child: InkWell(
+                  onTap: _dismiss,
+                  borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+                  child: const Align(
+                    alignment: Alignment.topRight,
+                    child: Padding(
+                      padding: EdgeInsets.all(2),
+                      child: Icon(Icons.close, size: 15, color: WynColors.graphite),
+                    ),
+                  ),
                 ),
               ),
             ),

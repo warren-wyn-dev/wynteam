@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
+import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/post_media.dart';
 import '../../../drop/data/drop_repository.dart';
 import '../../data/home_feed_item.dart';
+import 'home_card_metrics.dart';
 
 /// Home feed's "peek" carousel for a multi-image Drop -- WYN-092
 /// (Wynos V1.0.0 Beta2 Phase 2, item 14). Only ever built by
@@ -56,8 +58,7 @@ class HomeFeedImagePeekCarousel extends StatefulWidget {
       _HomeFeedImagePeekCarouselState();
 }
 
-class _HomeFeedImagePeekCarouselState
-    extends State<HomeFeedImagePeekCarousel> {
+class _HomeFeedImagePeekCarouselState extends State<HomeFeedImagePeekCarousel> {
   // Null until the images are known -- which, since Beta3, is almost
   // always immediately: HomeRepository batch-loads every multi-image
   // Drop of a page in one query and hands the list down on the item
@@ -93,8 +94,7 @@ class _HomeFeedImagePeekCarouselState
 
   Future<void> _load() async {
     try {
-      final urls =
-          await widget.dropRepository.fetchDropImages(widget.item.id);
+      final urls = await widget.dropRepository.fetchDropImages(widget.item.id);
       if (!mounted) return;
       setState(() => _imageUrls = urls);
     } catch (_) {
@@ -117,6 +117,10 @@ class _HomeFeedImagePeekCarouselState
       imageUrl: url,
       imageWidth: widget.item.imageWidth,
       imageHeight: widget.item.imageHeight,
+      // Same rounding HomeDropCard's own single-photo path uses -- this
+      // is that path's stand-in while the list resolves, so it has to
+      // look like it (WYN-107).
+      borderRadius: WynSpacing.radiusLg,
     );
   }
 
@@ -128,6 +132,19 @@ class _HomeFeedImagePeekCarouselState
     // 16px corners, same 8px gap, same free scroll.
     return PostImageCarousel(
       imageUrls: imageUrls,
+      // WYN-107: the row is laid out past the card's right inset so the
+      // next card peeks towards the screen edge, but a card is still 82%
+      // of the *column* the post is written in -- the Flutter equivalent
+      // of the reference prototype's `-mr-6 pr-6` on this same row.
+      trailingBleed: homeCardEdgeInset,
+      // WYN-109: the shape the poster chose, not a fixed 4:5. A Drop
+      // from before that column existed reports 4:5 and so lands
+      // exactly where it always did.
+      aspectRatio: widget.item.aspectRatio.ratio ??
+          postImageAspectRatio(
+            widget.item.imageWidth,
+            widget.item.imageHeight,
+          ),
       semanticLabelBuilder: (index, total) =>
           'รูปที่ ${index + 1} จาก $total ของ '
           '${widget.item.authorNameOrUsername}',

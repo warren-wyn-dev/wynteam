@@ -15,6 +15,7 @@ import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
 import '../../../report/presentation/report_sheet.dart';
 import '../../../../core/widgets/post_media.dart';
+import '../../../../core/widgets/wyn_heart_icon.dart';
 
 /// A Club post card for the Posts tab list. Same interaction-row family
 /// as HomeDropCard/HomePopCard (Like/Comment/Share/Bookmark), plus a
@@ -218,8 +219,8 @@ class ClubPostCard extends StatelessWidget {
                     label: post.likedByMe ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ' : 'กดเพื่อถูกใจ',
                     excludeSemantics: true,
                     child: IconButton(
-                      icon: Icon(
-                        post.likedByMe ? Icons.favorite : Icons.favorite_border,
+                      icon: WynHeartIcon(
+                        filled: post.likedByMe,
                         size: 18,
                         color: post.likedByMe
                             ? WynColors.iconLikeActive

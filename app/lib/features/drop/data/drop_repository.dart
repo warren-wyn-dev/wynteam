@@ -8,6 +8,7 @@ import '../../home/data/home_ranking.dart';
 import 'drop.dart';
 import 'drop_comment.dart';
 import 'drop_draft.dart';
+import 'square_crop.dart' show DropAspectRatio;
 import 'image_dimensions.dart';
 import 'location_result.dart';
 import '../../../core/storage_upload_options.dart';
@@ -797,6 +798,11 @@ class DropRepository {
     // by this loop actually finishing an upload, not a fake timer).
     // [uploaded] is 1-based; [total] is imagesBytes.length.
     void Function(int uploaded, int total)? onImageUploaded,
+    // WYN-109: one ratio for the whole post -- Founder, 2026-09-04:
+    // "อัตราส่วน 4:5 เท่ากัน". The bytes arriving here are already cut to
+    // it; this records *which* shape they were cut to, so the feed can
+    // draw the card at that shape instead of assuming 4:5.
+    DropAspectRatio aspectRatio = DropAspectRatio.initial,
   }) async {
     assert(imagesBytes.length == imageExtensions.length);
     assert(imagesBytes.isNotEmpty && imagesBytes.length <= 9);
@@ -831,6 +837,7 @@ class DropRepository {
       audience: audience,
       excludedFriendIds: excludedFriendIds,
       location: location,
+      aspectRatio: aspectRatio,
     );
   }
 
@@ -913,6 +920,12 @@ class DropRepository {
     // that Drop's `drops.image_width`/`image_height` just stay null,
     // same accepted gap as any other pre-this-migration Drop).
     List<(int, int)> allImageDimensions = const [],
+    // WYN-109: the shape the poster chose for this Drop's photos,
+    // applied to all of them. Null for a Drop with no photos to shape
+    // (createTextDrop) and for a Draft republished from an already-
+    // uploaded URL, whose photo was cropped under the old rules and is
+    // not being re-cropped now.
+    DropAspectRatio? aspectRatio,
   }) async {
     final primaryDimensions =
         allImageDimensions.isNotEmpty ? allImageDimensions.first : null;
@@ -929,6 +942,23 @@ class DropRepository {
           'location_lat': location?.lat,
           'location_lon': location?.lon,
           'location_place_id': location?.placeId,
+          // WYN-109: only named when there is a shape to record, i.e.
+          // when this Drop has photos the poster chose one for.
+          //
+          // Sending the key unconditionally made every kind of post --
+          // text, poll, a Draft republished from an existing URL --
+          // depend on a column that only the photo feature needs. On a
+          // database that has not run the WYN-109 migration yet,
+          // PostgREST rejects an insert naming a column it cannot see,
+          // so posting anything at all would fail. That is a real state:
+          // production runs this code the moment it is deployed, and the
+          // migration is applied by hand.
+          //
+          // Omitting the key does not remove the ordering requirement
+          // for photo posts -- run the migration before deploying, per
+          // supabase/migrations_wyn109_image_aspect_ratio.sql -- it
+          // confines the requirement to the feature that introduced it.
+          if (aspectRatio != null) 'image_aspect_ratio': aspectRatio.wireValue,
         })
         .select('id')
         .single();

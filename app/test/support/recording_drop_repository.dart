@@ -6,6 +6,7 @@ import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/data/drop_comment.dart';
 import 'package:wyn/features/drop/data/drop_draft.dart';
 import 'package:wyn/features/drop/data/drop_repository.dart';
+import 'package:wyn/features/drop/data/square_crop.dart';
 import 'package:wyn/features/drop/data/location_result.dart';
 
 /// A DropRepository whose network-touching methods are overridden to just
@@ -215,6 +216,10 @@ class RecordingDropRepository extends DropRepository {
   /// Each call to [createDrop]'s location argument, in order -- WYN-098.
   final List<LocationResult?> createDropLocationArgs = [];
 
+  /// Each call to [createDrop]'s aspect-ratio argument, in order --
+  /// WYN-109.
+  final List<DropAspectRatio> createDropAspectRatioArgs = [];
+
   @override
   Future<void> createDrop({
     required List<Uint8List> imagesBytes,
@@ -225,9 +230,11 @@ class RecordingDropRepository extends DropRepository {
     Set<String> excludedFriendIds = const {},
     LocationResult? location,
     void Function(int uploaded, int total)? onImageUploaded,
+    DropAspectRatio aspectRatio = DropAspectRatio.initial,
   }) async {
     if (createDropError != null) throw createDropError!;
     createDropImageCountArgs.add(imagesBytes.length);
+    createDropAspectRatioArgs.add(aspectRatio);
     createDropMentionedUserIdsArgs.add(mentionedUserIds);
     createDropAudienceArgs.add(audience);
     createDropLocationArgs.add(location);

@@ -15,6 +15,7 @@ import 'support/recording_follow_repository.dart';
 import 'support/recording_pop_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
+import 'support/heart_finder.dart';
 
 /// A RecordingDropRepository with two full pages of comments, so the
 /// paging path can be exercised end to end.
@@ -277,7 +278,7 @@ void main() {
     // irrelevant to what this test checks (that the like state toggles).
     tester.takeException();
 
-    final likeButton = find.byIcon(Icons.favorite_border);
+    final likeButton = findHeart(filled: false);
     expect(likeButton, findsOneWidget);
     // 07-post-detail.tsx: the count lives in the plain-language stat
     // line ("3 ถูกใจ"), not next to the action-bar icon anymore -- see
@@ -293,7 +294,7 @@ void main() {
     await tester.tap(likeButton);
     await tester.pump();
 
-    expect(find.byIcon(Icons.favorite), findsOneWidget);
+    expect(findHeart(filled: true), findsOneWidget);
     expect(find.text('4 ถูกใจ'), findsOneWidget);
   });
 
@@ -390,7 +391,7 @@ void main() {
 
     final likeButtonSize = tester.getSize(
       find.ancestor(
-        of: find.widgetWithIcon(IconButton, Icons.favorite_border),
+        of: findHeartButton<IconButton>(filled: false),
         matching: find.byType(SizedBox),
       ).first,
     );
@@ -981,7 +982,7 @@ void main() {
       tester.takeException();
       expect(viewCountNoRepeatTestRepo.recordViewCalls, 1);
 
-      final likeButton = find.byIcon(Icons.favorite_border);
+      final likeButton = findHeart(filled: false);
       await tester.ensureVisible(likeButton);
       await tester.pumpAndSettle();
       tester.takeException();
@@ -1088,7 +1089,7 @@ void main() {
 
       expect(find.byIcon(Icons.repeat), findsNothing);
       // Like is still there -- only ReDrop is conditionally hidden.
-      expect(find.byIcon(Icons.favorite_border), findsOneWidget);
+      expect(findHeart(filled: false), findsOneWidget);
     });
 
     testWidgets('the ReDrop icon is shown as usual for audience == '

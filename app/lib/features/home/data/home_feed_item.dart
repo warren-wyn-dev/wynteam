@@ -1,5 +1,6 @@
 import '../../../core/text_utils.dart';
 import '../../drop/data/drop.dart';
+import '../../drop/data/square_crop.dart' show DropAspectRatio;
 import '../../pop/data/pop.dart';
 import 'home_liker.dart';
 import 'home_top_reply.dart';
@@ -54,6 +55,7 @@ class HomeFeedItem {
     this.audience = AudienceOption.everyone,
     this.location,
     this.imageCount,
+    this.aspectRatio = DropAspectRatio.portrait,
     this.imageUrls,
   });
 
@@ -94,6 +96,13 @@ class HomeFeedItem {
   /// Drives [hasMultipleImages] below, which HomeDropCard uses to
   /// decide whether to show the new peek carousel.
   final int? imageCount;
+
+  /// WYN-109: the shape the poster chose for this post's photos. Falls
+  /// back to [DropAspectRatio.portrait] for a Drop written before the
+  /// column existed -- those photos are squares drawn in a 4:5 card, so
+  /// 4:5 is what they already look like and what they keep looking
+  /// like.
+  final DropAspectRatio aspectRatio;
 
   /// Beta3: the full ordered image list for a multi-image Drop, when
   /// the fetch that built this row already batch-loaded it (see
@@ -222,7 +231,9 @@ class HomeFeedItem {
 
     return copyWith(
       pollMyVoteIndex: optionIndex,
-      pollTotalVotes: previousVote == null ? (pollTotalVotes ?? 0) + 1 : pollTotalVotes ?? 1,
+      pollTotalVotes: previousVote == null
+          ? (pollTotalVotes ?? 0) + 1
+          : pollTotalVotes ?? 1,
       pollOptionCounts: counts,
     );
   }
@@ -258,6 +269,7 @@ class HomeFeedItem {
         imageWidth: imageWidth,
         imageHeight: imageHeight,
         imageCount: imageCount,
+        aspectRatio: aspectRatio,
         imageUrls: imageUrls,
         videoUrl: videoUrl,
         thumbnailUrl: thumbnailUrl,
@@ -314,6 +326,7 @@ class HomeFeedItem {
         // the field's own default" posture as every other pass-through
         // here.
         imageCount: imageCount,
+        aspectRatio: aspectRatio,
         imageUrls: imageUrls,
         caption: caption,
         createdAt: createdAt,
@@ -414,6 +427,7 @@ class HomeFeedItem {
     int? pollTotalVotes,
     List<int>? pollOptionCounts,
     List<String>? imageUrls,
+    DropAspectRatio? aspectRatio,
   }) {
     final contentType = map['content_type'] as String;
     return HomeFeedItem(
@@ -431,6 +445,16 @@ class HomeFeedItem {
       imageWidth: (map['image_width'] as num?)?.toInt(),
       imageHeight: (map['image_height'] as num?)?.toInt(),
       imageCount: (map['image_count'] as num?)?.toInt(),
+      // WYN-109: `home_feed` has no `image_aspect_ratio` column (it
+      // lives on `drops`, and the view cannot be replaced -- see
+      // SCHEMA-004), so the Home surfaces batch-load it per page and
+      // pass it in here, the same way [imageUrls] arrives. The row is
+      // still read as a fallback so this keeps working unchanged for
+      // any caller whose source *does* carry the column, and a null
+      // from both ends at [DropAspectRatio.initial] -- the 4:5 every
+      // card drew before the ratio was selectable.
+      aspectRatio: aspectRatio ??
+          DropAspectRatio.fromWire(map['image_aspect_ratio'] as String?),
       // Not a `home_feed` column -- batch-loaded alongside the page
       // and passed in by the caller (HomeRepository.attachImageUrls).
       imageUrls: imageUrls,

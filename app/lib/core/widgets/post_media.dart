@@ -129,6 +129,7 @@ class PostImageFrame extends StatelessWidget {
     required this.imageWidth,
     required this.imageHeight,
     this.maxHeightFraction = 0.75,
+    this.borderRadius = WynSpacing.radiusNone,
     this.semanticLabel,
   });
 
@@ -139,33 +140,60 @@ class PostImageFrame extends StatelessWidget {
   /// Share of the viewport height this photo may occupy at most.
   final double maxHeightFraction;
 
+  /// Corner radius the photo is clipped to.
+  ///
+  /// Defaults to [WynSpacing.radiusNone] -- "let the image be the hero"
+  /// for the surfaces where a photo still runs into both screen edges
+  /// (Drop Detail, Club), where a rounded corner would only carve a
+  /// notch out of a full-bleed slab. WYN-107 gives the Home feed's own
+  /// photo [WynSpacing.radiusLg] instead: once the photo sits inside
+  /// the card's content column it no longer touches the left edge, and
+  /// a square corner floating on white reads as unfinished. A parameter
+  /// rather than a hardcoded value precisely because the two cases are
+  /// both right, in their own surface.
+  final double borderRadius;
+
   final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
+    final image = PostImage(imageUrl: imageUrl, semanticLabel: semanticLabel);
     return ConstrainedBox(
       constraints: BoxConstraints(
         maxHeight: maxHeightFraction * MediaQuery.sizeOf(context).height,
       ),
       child: AspectRatio(
         aspectRatio: postImageAspectRatio(imageWidth, imageHeight),
-        child: PostImage(imageUrl: imageUrl, semanticLabel: semanticLabel),
+        child: borderRadius == WynSpacing.radiusNone
+            ? image
+            : ClipRRect(
+                borderRadius: BorderRadius.circular(borderRadius),
+                child: image,
+              ),
       ),
     );
   }
 }
-
 
 // The card row's geometry, shared by every surface that shows a post's
 // photos. 82% of the row's width and a 4:5 (portrait) card, both taken
 // from design-reference/SPEC.md 4.7 ("Image carousel (peek-card
 // style)") and the Founder's own reference image (f91d7b63-image.jpg,
 // Beta2 Phase 2 PDF item 14). 82% is what makes the next card "โผล่
-// นิดเดียว": on a 390pt-wide phone the card is 320pt and the next one
-// shows about 62pt of itself past the 8pt gap -- enough to read as
-// "there is another photo", not enough to read as two photos side by
-// side.
+// นิดเดียว": the next card shows a sliver of itself past the 8pt gap --
+// enough to read as "there is another photo", not enough to read as two
+// photos side by side.
+//
+// The 82% is of the *column the post is written in*, not of whatever
+// box the row happens to be painted into -- see
+// [PostImageCarousel.trailingBleed], which is how a row that
+// deliberately overhangs its column (WYN-107's Home feed card) still
+// sizes its cards off the column.
 const double postCardWidthFraction = 0.82;
+
+/// The card shape a post's photos are laid out at when the post does not
+/// say otherwise -- a Drop written before WYN-109, whose photos were
+/// squares the feed already drew in a 4:5 card.
 const double postCardAspectRatio = 4 / 5;
 
 /// A post's photos as a row of rounded cards, scrolled horizontally,
@@ -190,10 +218,31 @@ class PostImageCarousel extends StatefulWidget {
     this.onIndexChanged,
     this.semanticLabelBuilder,
     this.cardOverlayBuilder,
+    this.trailingBleed = 0,
+    this.aspectRatio = postCardAspectRatio,
   });
 
   /// Two or more URLs. A caller with one image wants [PostImageFrame].
   final List<String> imageUrls;
+
+  /// How far this row is laid out *past* the trailing edge of the
+  /// column the post is written in, so the next card can peek out
+  /// towards the screen edge instead of stopping short of it.
+  ///
+  /// [postCardWidthFraction] is measured against the column, not the
+  /// row: a card is 82% of what a paragraph of this post is wide. With
+  /// the default 0 the two are the same box (Drop Detail, Club, where
+  /// the row already spans the whole content width). WYN-107's Home
+  /// feed card passes its own right inset here, the Flutter equivalent
+  /// of the `-mr-6 pr-6` the CSS prototype in
+  /// design-reference/01-home.tsx uses on this exact row.
+  final double trailingBleed;
+
+  /// The shape of each card in the row -- WYN-109, where the poster
+  /// chooses it. Was a constant 4:5, which meant a photo posted as 16:9
+  /// got cropped back to portrait on its way into the feed and the
+  /// choice was no choice at all.
+  final double aspectRatio;
 
   /// Called with the index of the card currently in front, whenever
   /// that changes.
@@ -259,8 +308,11 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final cardWidth = constraints.maxWidth * postCardWidthFraction;
-        final cardHeight = cardWidth / postCardAspectRatio;
+        // The column, not the row -- see [trailingBleed].
+        final columnWidth = (constraints.maxWidth - widget.trailingBleed)
+            .clamp(0.0, double.infinity);
+        final cardWidth = columnWidth * postCardWidthFraction;
+        final cardHeight = cardWidth / widget.aspectRatio;
         final stride = cardWidth + WynSpacing.space2;
 
         return SizedBox(
@@ -282,8 +334,7 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
               itemCount: widget.imageUrls.length,
               itemBuilder: (context, index) {
                 final isLast = index == widget.imageUrls.length - 1;
-                final overlay =
-                    widget.cardOverlayBuilder?.call(context, index);
+                final overlay = widget.cardOverlayBuilder?.call(context, index);
                 final card = ClipRRect(
                   borderRadius: BorderRadius.circular(WynSpacing.radiusLg),
                   child: SizedBox(
@@ -325,7 +376,6 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
     );
   }
 }
-
 
 /// Snaps a [PostImageCarousel]'s row to one card at a time.
 ///

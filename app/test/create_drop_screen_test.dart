@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:wyn/core/design/wyn_colors.dart';
+import 'package:wyn/features/drop/data/square_crop.dart';
 import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/data/drop_draft.dart';
 import 'package:wyn/features/drop/data/location_result.dart';
@@ -63,6 +65,11 @@ void main() {
   // group: see .wyn/company/DECISIONS.md, 2026-09-02).
   late RecordingDropRepository progressRepo;
   late RecordingDropRepository progressFailRepo;
+  /// WYN-109. Its own recorder because progressRepo is shared by the
+  /// whole file, and built here rather than in the test body for the
+  /// reason the note above gives: a repository constructed inside a test
+  /// leaves its client's refresh Timer pending in that test's zone.
+  late RecordingDropRepository ratioRepo;
   setUpAll(() {
     repo = RecordingDropRepository();
     profileRepo = RecordingProfileRepository();
@@ -74,6 +81,7 @@ void main() {
       ..saveDraftError = Exception('network error');
     switchModeDraftTestRepo = RecordingDropRepository();
     progressRepo = RecordingDropRepository();
+    ratioRepo = RecordingDropRepository();
     progressFailRepo = RecordingDropRepository()
       ..createDropError = Exception('network error');
     textDropRepo = RecordingDropRepository();
@@ -577,6 +585,84 @@ void main() {
             ),
           ),
         );
+
+    // WYN-109. The ratio picker sits under the photos in this screen.
+    // The happy path -- picking 16:9 and watching the photos re-cut --
+    // cannot be driven here: it decodes real image bytes, which hangs
+    // under this sandbox's test binding (see this group's own note
+    // above, and .wyn/company/DECISIONS.md 2026-09-02). The cutting
+    // itself is covered against real pixels in drop_aspect_ratio_test.dart;
+    // what these cover is the wiring around it, including what happens
+    // when the cut fails.
+    testWidgets('offers all four ratios, with 4:5 chosen to begin with',
+        (tester) async {
+      await tester.pumpWidget(buildWithImages(progressRepo, 1));
+      await tester.pump();
+      tester.takeException();
+
+      for (final label in ['ต้นฉบับ', '1:1', '4:5', '16:9']) {
+        expect(find.text(label), findsOneWidget, reason: 'missing $label');
+      }
+
+      // 4:5 is the default because it is the shape the feed's card row
+      // already draws -- the one choice that is never cut a second time
+      // on the way out.
+      final selected = tester.widget<Text>(find.text('4:5'));
+      expect(selected.style?.fontWeight, FontWeight.w600);
+      expect(selected.style?.color, WynColors.sapphire);
+      final unselected = tester.widget<Text>(find.text('16:9'));
+      expect(unselected.style?.color, WynColors.graphite);
+    });
+
+    testWidgets(
+        'a failed re-cut keeps the photos and puts the ratio back, so the '
+        'recorded shape never disagrees with the bytes', (tester) async {
+      // The seeded bytes are deliberately undecodable (see the group
+      // note), so asking for a different shape fails -- which is exactly
+      // the path worth pinning: the post is mid-composition and losing
+      // its photos to a failed re-cut would be the worst outcome.
+      await tester.pumpWidget(buildWithImages(progressRepo, 2));
+      await tester.pump();
+      tester.takeException();
+
+      expect(find.byType(Image), findsNWidgets(2));
+
+      await tester.tap(find.text('16:9'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      tester.takeException();
+
+      // Both photos survive...
+      expect(find.byType(Image), findsNWidgets(2));
+      // ...the choice reverts rather than sticking to a shape the bytes
+      // were never cut to...
+      expect(
+        tester.widget<Text>(find.text('4:5')).style?.color,
+        WynColors.sapphire,
+      );
+      expect(
+        tester.widget<Text>(find.text('16:9')).style?.color,
+        WynColors.graphite,
+      );
+      // ...and the poster is told, rather than left wondering.
+      expect(find.text('ปรับสัดส่วนรูปไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
+    });
+
+    testWidgets('records the chosen ratio on the post it creates',
+        (tester) async {
+      await tester.pumpWidget(buildWithImages(ratioRepo, 1));
+      await tester.pump();
+      tester.takeException();
+
+      await tester.enterText(find.byType(TextField).first, 'ทดสอบสัดส่วน');
+      await tester.pump();
+      await tester.tap(find.text('โพสต์'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      tester.takeException();
+
+      expect(ratioRepo.createDropAspectRatioArgs, [DropAspectRatio.portrait]);
+    });
 
     testWidgets(
         'posting with images shows a progress bar that advances as each '

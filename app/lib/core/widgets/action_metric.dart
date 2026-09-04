@@ -14,15 +14,29 @@ class ActionMetric extends StatefulWidget {
   const ActionMetric({
     super.key,
     required this.icon,
-    required this.iconSize,
+    required this.iconState,
     required this.count,
     required this.color,
     required this.semanticsLabel,
     required this.onTap,
   });
 
-  final IconData icon;
-  final double iconSize;
+  /// The glyph itself, already sized and coloured by the caller.
+  ///
+  /// WYN-108: was an [IconData], which could only ever be a Material
+  /// icon. The Like heart is WYN's own shape now ([WynHeartIcon]), and a
+  /// widget is the only thing both it and a plain [Icon] are.
+  final Widget icon;
+
+  /// What "the state this metric is in" means for the pop animation --
+  /// `likedByMe` for the heart, the icon for everything else.
+  ///
+  /// The animation used to fire on the [IconData] changing, which worked
+  /// only because Like was the one metric whose glyph swapped. A widget
+  /// cannot be compared that way (two identically-configured widgets are
+  /// not equal), so the thing that actually changed is now passed
+  /// explicitly rather than inferred.
+  final Object iconState;
 
   /// Nullable because HomeFeedItem.viewCount can be null (view tracking
   /// not yet backfilled for an older Drop) -- rendered as 0 either way.
@@ -57,7 +71,7 @@ class _ActionMetricState extends State<ActionMetric>
   @override
   void didUpdateWidget(covariant ActionMetric oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.icon != widget.icon) _pop.forward(from: 0);
+    if (oldWidget.iconState != widget.iconState) _pop.forward(from: 0);
   }
 
   @override
@@ -75,8 +89,6 @@ class _ActionMetricState extends State<ActionMetric>
 
   @override
   Widget build(BuildContext context) {
-    final icon = widget.icon;
-    final iconSize = widget.iconSize;
     final count = widget.count;
     final color = widget.color;
     final semanticsLabel = widget.semanticsLabel;
@@ -85,10 +97,7 @@ class _ActionMetricState extends State<ActionMetric>
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ScaleTransition(
-          scale: _scale,
-          child: Icon(icon, size: iconSize, color: color),
-        ),
+        ScaleTransition(scale: _scale, child: widget.icon),
         const SizedBox(width: 6),
         Text(
           '${count ?? 0}',
