@@ -45,22 +45,36 @@ jobs:
             exit 1
           fi
 
-          echo "=== PostgREST schema cache: does it still know messages' select+embed? ==="
-          SELECT_COLS='id,conversation_id,sender_id,text,image_url,reply_to_message_id,shared_content_type,shared_content_id,deleted_at,created_at,reply_to:messages!messages_reply_to_message_id_fkey(text,image_url,deleted_at)'
-          HTTP_CODE=$(curl -sS -o /tmp/pgrst_check.json -w '%{http_code}' \
-            "$SUPABASE_URL/rest/v1/messages?select=$SELECT_COLS&limit=0" \
-            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
-            -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY")
-          echo "HTTP $HTTP_CODE"
-          cat /tmp/pgrst_check.json | jq . 2>/dev/null || cat /tmp/pgrst_check.json
-          echo
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "200 -- schema cache is current. Not this."
-          else
-            echo "::error::Non-200. A missing column/relationship error (PGRST200/204, 'Could not find a"
-            echo "relationship') means PostgREST is stale and every real chat send fails exactly like this"
-            echo "while the DB itself is healthy. Fix: reload the schema cache (Dashboard > Settings > API >"
-            echo "reload, or run the moderation-check/chat-check workflow's run_sql helper with"
-            echo "\"NOTIFY pgrst, 'reload schema';\") -- no code change needed."
-          fi
-          rm -f /tmp/pgrst_check.json
+          check() {
+            local label="$1" select="$2" bust
+            bust="_cb=$(date +%s%N)"
+            echo "=== $label ==="
+            HTTP_CODE=$(curl -sS -D /tmp/pgrst_headers.txt -o /tmp/pgrst_check.json -w '%{http_code}' \
+              "$SUPABASE_URL/rest/v1/messages?select=$select&limit=0&$bust" \
+              -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+              -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY" \
+              -H "Cache-Control: no-cache")
+            echo "HTTP $HTTP_CODE"
+            grep -iE '^(cf-cache-status|age|x-cache|via|server|cache-control):' /tmp/pgrst_headers.txt || echo "(no cache-related headers)"
+            cat /tmp/pgrst_check.json | jq . 2>/dev/null || cat /tmp/pgrst_check.json
+            echo
+          }
+
+          # Plain columns, no embed at all -- isolates whether it's the
+          # self-embed specifically, or something broader.
+          check "1) Plain columns, no embed" 'id,conversation_id,sender_id,text,image_url,reply_to_message_id,shared_content_type,shared_content_id,deleted_at,created_at'
+
+          # The exact embed ChatRepository actually sends, by constraint name.
+          check "2) Embed by constraint-name hint (what the app sends)" 'id,reply_to:messages!messages_reply_to_message_id_fkey(text,image_url,deleted_at)'
+
+          # Same embed, hinted by column name instead of constraint name --
+          # PostgREST accepts either form; if this one works and #2 doesn't,
+          # the constraint-name hint itself is the problem, not the cache.
+          check "3) Same embed, hinted by column name instead" 'id,reply_to:messages!reply_to_message_id(text,image_url,deleted_at)'
+
+          echo "Cache-related response headers above would point at a CDN/edge cache serving a stale"
+          echo "error independent of PostgREST itself. #1 succeeding while #2 fails isolates it to the"
+          echo "embed specifically. #3 succeeding where #2 fails means the constraint-name hint string"
+          echo "is the actual problem -- a naming mismatch in chat_repository.dart, not a cache/restart"
+          echo "issue at all (the direct SQL check already confirmed that exact name really exists)."
+          rm -f /tmp/pgrst_check.json /tmp/pgrst_headers.txt
