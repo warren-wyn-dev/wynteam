@@ -35,6 +35,7 @@ import {
   type FcmServiceAccount,
   messageFor,
   safeErrorMessage,
+  splitPushMessage,
   summariseOutcomes,
   type WebhookPayload,
   webPushTopic,
@@ -154,6 +155,9 @@ async function handleWebhook(req: Request): Promise<Response> {
     row.reason,
     row.moderation_action_type,
   );
+  // Who did it becomes the title, what they did becomes the body --
+  // see splitPushMessage for why, and for the types that keep "WYN".
+  const { title, body: pushBody } = splitPushMessage(body, actorName);
   const data = buildDataPayload(row);
   const collapseKey = collapseKeyFor(row);
 
@@ -172,7 +176,7 @@ async function handleWebhook(req: Request): Promise<Response> {
         body: JSON.stringify({
           message: {
             token,
-            notification: { title: "WYN", body },
+            notification: { title, body: pushBody },
             data,
             // Beta4 §11.6 (Duplicate Protection). Each platform spells
             // the same idea differently; all three make a redelivery of
@@ -190,8 +194,8 @@ async function handleWebhook(req: Request): Promise<Response> {
               // an icon to a browser, and without one the OS shows the
               // browser's own logo rather than WYNOS's.
               notification: {
-                title: "WYN",
-                body,
+                title,
+                body: pushBody,
                 icon: "/icons/Icon-192.png",
                 badge: "/icons/Icon-192.png",
                 tag: collapseKey,

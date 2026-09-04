@@ -13,6 +13,7 @@ import {
   messageFor,
   type NotificationRow,
   safeErrorMessage,
+  splitPushMessage,
   summariseOutcomes,
   webPushTopic,
 } from "./_lib.ts";
@@ -465,4 +466,51 @@ Deno.test("webPushTopic keeps distinct notifications distinct", () => {
   const a = webPushTopic("00000000-0000-0000-0000-00000000000a");
   const b = webPushTopic("00000000-0000-0000-0000-00000000000b");
   assertEquals(a === b, false);
+});
+
+// iOS writes "from WYNOS Beta" under every web push, so a title of
+// "WYN" spent the most prominent line on the screen repeating the app's
+// name while the person's name sat mid-sentence below it.
+Deno.test("splitPushMessage lifts the actor's name into the title", () => {
+  assertEquals(
+    splitPushMessage(messageFor("redrop", "namfah", null, null), "namfah"),
+    { title: "namfah", body: "รีโพสต์โพสต์ของคุณ" },
+  );
+});
+
+Deno.test("splitPushMessage handles an @username actor", () => {
+  const actor = displayNameOrUsername(null, "namfah");
+  assertEquals(
+    splitPushMessage(messageFor("like_drop", actor, null, null), actor),
+    { title: "@namfah", body: "ถูกใจโพสต์ของคุณ" },
+  );
+});
+
+// Whole families of notification have no actor -- orders, moderation,
+// system announcements -- and titling those with a person's name would
+// be a lie. They keep WYN.
+Deno.test("splitPushMessage keeps WYN when nobody did it", () => {
+  const message = messageFor("order_shipped", "มีคน", null, "ร้านลุงหมี");
+  assertEquals(splitPushMessage(message, "มีคน"), {
+    title: "WYN",
+    body: "คำสั่งซื้อของคุณจาก ร้านลุงหมี ถูกจัดส่งแล้ว",
+  });
+});
+
+Deno.test("splitPushMessage leaves a mid-sentence actor name alone", () => {
+  // order_cancelled_buyer names no actor, so a name appearing anywhere
+  // other than the front must not be mistaken for a prefix.
+  const message = messageFor("moderation_warning", "ทีมงาน", null, null, "สแปม");
+  const result = splitPushMessage(message, "ทีมงาน");
+  assertEquals(result.title, "WYN");
+  assertEquals(result.body, message);
+});
+
+// A name that is a prefix of the sentence only by coincidence would be
+// truncated; requiring the trailing space is what prevents it.
+Deno.test("splitPushMessage requires the whole name, not a prefix of it", () => {
+  assertEquals(splitPushMessage("namfahsuda ถูกใจโพสต์ของคุณ", "namfah"), {
+    title: "WYN",
+    body: "namfahsuda ถูกใจโพสต์ของคุณ",
+  });
 });

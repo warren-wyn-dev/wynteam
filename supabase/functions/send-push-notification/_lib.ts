@@ -350,6 +350,36 @@ export function summariseOutcomes(outcomes: string[]): string {
   return `OK sent=${sent} failed=${failures.length} (${reasons})`;
 }
 
+/// Splits one notification sentence into the two lines a push actually
+/// gets: who did it, and what they did.
+///
+/// A push had been titled "WYN" with the whole sentence beneath it. iOS
+/// already writes "from WYNOS Beta" under any web push, so the most
+/// prominent line on the screen was spent repeating the app's name,
+/// and the person's name -- the part that decides whether a
+/// notification is worth opening -- sat mid-sentence in the smaller
+/// line.
+///
+/// The wording itself is not touched. [messageFor] stays the single
+/// source of it, because those strings mirror the in-app notification
+/// list word for word across two languages and two apps, and a second
+/// set written for push would drift from the first within a release.
+/// The actor's name is simply lifted off the front when it is there.
+///
+/// It is there for most types and absent for whole families of them --
+/// orders, moderation, system announcements -- and those keep "WYN" as
+/// a title, which is right: no person did them.
+export function splitPushMessage(
+  message: string,
+  actorName: string,
+): { title: string; body: string } {
+  const prefix = `${actorName} `;
+  if (!message.startsWith(prefix)) {
+    return { title: "WYN", body: message };
+  }
+  return { title: actorName, body: message.slice(prefix.length) };
+}
+
 export function safeErrorMessage(err: unknown): string {
   const name = err instanceof Error ? err.name : "Error";
   const raw = err instanceof Error ? err.message : String(err);
