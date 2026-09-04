@@ -53,8 +53,12 @@ jobs:
             cat "$out"; exit 1
           fi
           # jwt_secret (if present at all) is not something to ever echo,
-          # even to this log -- drop it before printing or reusing.
-          cfg=$(jq 'del(.jwt_secret)' "$out")
+          # even to this log -- drop it before printing or reusing. Nulls
+          # (e.g. db_pool: null) round-trip fine on GET but PATCH's schema
+          # wants them omitted entirely, not sent as null -- confirmed by
+          # the first real attempt's 400 ("db_pool: Invalid input:
+          # expected number, received null").
+          cfg=$(jq 'del(.jwt_secret) | with_entries(select(.value != null))' "$out")
           echo "$cfg" | jq .
           rm -f "$out"
 
