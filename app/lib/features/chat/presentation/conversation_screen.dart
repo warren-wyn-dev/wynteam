@@ -124,7 +124,7 @@ class ConversationScreen extends StatefulWidget {
   State<ConversationScreen> createState() => _ConversationScreenState();
 }
 
-class _ConversationScreenState extends State<ConversationScreen> {
+class _ConversationScreenState extends State<ConversationScreen> with WidgetsBindingObserver {
   final _scrollController = ScrollController();
   final _textController = TextEditingController();
   final List<ChatMessage> _messages = [];
@@ -204,6 +204,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadInitial();
     _loadSafetyState();
     _loadConversationMeta();
@@ -217,11 +218,35 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     final channel = _channel;
     if (channel != null) widget.chatRepository.unsubscribe(channel);
     _scrollController.dispose();
     _textController.dispose();
     super.dispose();
+  }
+
+  // A backgrounded PWA/browser tab commonly drops its websocket outright
+  // (iOS Safari in particular suspends it aggressively) -- the realtime
+  // subscription doesn't reconnect and re-deliver missed inserts on its
+  // own, so messages sent while this screen was backgrounded would
+  // otherwise only show up once something else happens to refetch. Redo
+  // the subscription and pull the latest page on every resume so coming
+  // back to the app catches up immediately, without the user having to
+  // know to pull-to-refresh.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _resubscribeAndRefresh();
+  }
+
+  Future<void> _resubscribeAndRefresh() async {
+    final oldChannel = _channel;
+    if (oldChannel != null) widget.chatRepository.unsubscribe(oldChannel);
+    _channel = widget.chatRepository.subscribeToConversationMessages(
+      widget.conversationId,
+      _onRealtimeMessage,
+    );
+    await _refreshLatest();
   }
 
   void _onRealtimeMessage(ChatMessage message) {
@@ -230,6 +255,33 @@ class _ConversationScreenState extends State<ConversationScreen> {
     setState(() => _messages.insert(0, message));
     if (message.senderId != _myUserId) {
       widget.chatRepository.markConversationRead(widget.conversationId);
+    }
+  }
+
+  /// Pull-to-refresh, and the resume-from-background catch-up above --
+  /// re-fetches the newest page and merges it into [_messages]: inserts
+  /// anything missing (a message sent while disconnected), and replaces
+  /// anything that already exists by id (picks up an edit-in-place like
+  /// a delete that happened while this screen wasn't listening). Never
+  /// touches older, already-loaded history below the newest page.
+  Future<void> _refreshLatest() async {
+    try {
+      final fresh = await widget.chatRepository.fetchMessages(widget.conversationId);
+      if (!mounted) return;
+      setState(() {
+        for (final message in fresh) {
+          final index = _messages.indexWhere((existing) => existing.id == message.id);
+          if (index == -1) {
+            _messages.insert(0, message);
+          } else {
+            _messages[index] = message;
+          }
+        }
+        _messages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      });
+    } catch (_) {
+      // Fails open -- a pull-to-refresh that silently does nothing beats
+      // one that throws, matching every other list load's posture here.
     }
   }
 
@@ -744,7 +796,12 @@ class _ConversationScreenState extends State<ConversationScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            Expanded(child: _buildMessageList()),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _refreshLatest,
+                child: _buildMessageList(),
+              ),
+            ),
             _buildComposerArea(),
           ],
         ),
@@ -806,18 +863,30 @@ class _ConversationScreenState extends State<ConversationScreen> {
       final displayName = widget.otherDisplayName?.isNotEmpty == true
           ? widget.otherDisplayName!
           : '@${widget.otherUsername}';
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(WynSpacing.space6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AvatarCircle(imageUrl: widget.otherAvatarUrl, fallbackText: displayName, radius: 40),
-              const SizedBox(height: WynSpacing.space4),
-              Text('เริ่มบทสนทนากับ $displayName', textAlign: TextAlign.center),
-            ],
+      // A plain non-scrollable Center here would never receive the drag
+      // RefreshIndicator (wrapping this whole build) needs to trigger --
+      // CustomScrollView + SliverFillRemaining keeps this centered *and*
+      // pull-to-refresh-able even for a brand new, empty conversation.
+      return CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(WynSpacing.space6),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AvatarCircle(imageUrl: widget.otherAvatarUrl, fallbackText: displayName, radius: 40),
+                    const SizedBox(height: WynSpacing.space4),
+                    Text('เริ่มบทสนทนากับ $displayName', textAlign: TextAlign.center),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
+        ],
       );
     }
 
@@ -827,6 +896,10 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
     return ListView.builder(
       controller: _scrollController,
+      // Needed for RefreshIndicator's pull gesture to register even on a
+      // short conversation that doesn't fill the viewport -- without
+      // this, a list with no overflow to scroll never reports the drag.
+      physics: const AlwaysScrollableScrollPhysics(),
       reverse: true,
       padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space3),
       itemCount: _messages.length + (_hasMore ? 1 : 0),
