@@ -37,6 +37,7 @@ import {
   safeErrorMessage,
   summariseOutcomes,
   type WebhookPayload,
+  webPushTopic,
 } from "./_lib.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -180,7 +181,10 @@ async function handleWebhook(req: Request): Promise<Response> {
             // collapseKeyFor's doc comment for why a webhook retry made
             // that a real, user-visible duplicate before this.
             webpush: {
-              headers: { Topic: collapseKey },
+              // Not `collapseKey`: Web Push caps this header at 32
+              // characters and a uuid is 36, which Apple rejects
+              // outright. See webPushTopic.
+              headers: { Topic: webPushTopic(collapseKey) },
               // Beta4 §11.2: web needs its notification shaped here --
               // FCM's generic `notification` block above does not carry
               // an icon to a browser, and without one the OS shows the

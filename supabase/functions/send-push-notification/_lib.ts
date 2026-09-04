@@ -286,9 +286,31 @@ export async function fetchFcmAccessToken(serviceAccount: FcmServiceAccount): Pr
 /// only a literal redelivery of one row.
 ///
 /// APNs caps `apns-collapse-id` at 64 bytes; a uuid is 36, so no
-/// truncation is needed for any id this table produces.
+/// truncation is needed for any id this table produces. Web Push is
+/// stricter and needs `webPushTopic` below -- that limit was missed when
+/// this was written, and it is what kept push off iOS entirely.
 export function collapseKeyFor(row: NotificationRow): string {
   return row.id;
+}
+
+/// The same collapse key, cut to what the Web Push protocol actually
+/// allows in a `Topic` header.
+///
+/// RFC 8030 section 5.4 defines it as `1*32(ALPHA / DIGIT / "-" / "_")`
+/// -- at most 32 characters. A uuid is 36, so every push this function
+/// has ever sent to a browser carried an illegal header. Apple's push
+/// service enforces the limit and rejects the request; FCM does not
+/// check it and had already answered 200 by then, because delivery to
+/// the browser's push service happens after FCM accepts. That is why
+/// the Edge Function could report `sent=1` for a notification no device
+/// would ever show, and why nothing anywhere recorded an error.
+///
+/// Dropping the hyphens is what makes this exact rather than lossy: a
+/// uuid without them is 32 characters on the nose, so the whole id
+/// survives. Truncating instead would have thrown away four hex digits
+/// and made two notifications collapsible that are not the same.
+export function webPushTopic(collapseKey: string): string {
+  return collapseKey.replace(/-/g, "").replace(/[^A-Za-z0-9_]/g, "").slice(0, 32);
 }
 
 /// A short, safe description of a thrown value, for the one place a

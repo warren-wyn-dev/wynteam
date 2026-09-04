@@ -14,6 +14,7 @@ import {
   type NotificationRow,
   safeErrorMessage,
   summariseOutcomes,
+  webPushTopic,
 } from "./_lib.ts";
 
 Deno.test("displayNameOrUsername falls back to @username when displayName is null", () => {
@@ -430,4 +431,38 @@ Deno.test("summariseOutcomes deduplicates repeated reasons but keeps distinct on
 
 Deno.test("summariseOutcomes handles a notification with no devices at all", () => {
   assertEquals(summariseOutcomes([]), "OK sent=0");
+});
+
+// RFC 8030 section 5.4: Topic = 1*32(ALPHA / DIGIT / "-" / "_").
+// Sending a 36-character uuid here is what kept push from ever
+// appearing on iOS while FCM reported success, so these assert the
+// limit itself, not just the current implementation.
+Deno.test("webPushTopic fits a uuid in 32 characters without losing any of it", () => {
+  const topic = webPushTopic("1240968d-75ed-4a9e-92bc-ce57060899d9");
+  assertEquals(topic, "1240968d75ed4a9e92bcce57060899d9");
+  assertEquals(topic.length, 32);
+});
+
+Deno.test("webPushTopic output is always within the protocol's limits", () => {
+  for (
+    const id of [
+      "1240968d-75ed-4a9e-92bc-ce57060899d9",
+      "e4db84e2-c2e3-4565-8448-105fb54df810",
+      "x".repeat(200),
+      "",
+    ]
+  ) {
+    const topic = webPushTopic(id);
+    assertEquals(topic.length <= 32, true);
+    assertMatch(topic, /^[A-Za-z0-9_]*$/);
+  }
+});
+
+// Two different notifications must not collapse into one. Truncating a
+// uuid to its first 32 characters would keep only 28 hex digits;
+// dropping the hyphens keeps all 32.
+Deno.test("webPushTopic keeps distinct notifications distinct", () => {
+  const a = webPushTopic("00000000-0000-0000-0000-00000000000a");
+  const b = webPushTopic("00000000-0000-0000-0000-00000000000b");
+  assertEquals(a === b, false);
 });
