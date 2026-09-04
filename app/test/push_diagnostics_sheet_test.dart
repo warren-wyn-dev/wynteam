@@ -4,12 +4,19 @@ import 'package:wyn/features/push/presentation/push_diagnostics_sheet.dart';
 import 'package:wyn/features/push/presentation/push_notification_service.dart';
 
 import 'support/fake_push_notification_service.dart';
+import 'support/fake_supabase_session.dart';
 
 /// The sheet exists to answer, on the device, questions that neither the
 /// device nor the server could answer alone. These tests are written
 /// around those answers being *legible* -- a row that says nothing
 /// useful is the same failure as no sheet at all.
 void main() {
+  // FakePushNotificationService builds a real PushTokenRepository, which
+  // reaches Supabase.instance in its constructor.
+  setUpAll(() async {
+    await initFakeSupabaseSession(userId: 'me');
+  });
+
   Future<void> pumpSheet(WidgetTester tester, PushDiagnostics result) async {
     final service = FakePushNotificationService()..diagnostics = result;
     await tester.pumpWidget(

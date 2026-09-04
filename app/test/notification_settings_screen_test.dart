@@ -36,6 +36,19 @@ void main() {
     repo.upsertCategoryArgs.clear();
   });
 
+  /// The default 800x600 test window is shorter than this screen: the
+  /// list has a device-permission row, a diagnostics row and seven
+  /// category switches, and a `ListView` only builds what fits, so a
+  /// finder for an off-screen switch matches nothing at all. Tests that
+  /// read every switch grow the window instead of scrolling between
+  /// each one -- scrolling would assert about layout, and these tests
+  /// are about values.
+  void useTallWindow(WidgetTester tester) {
+    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+  }
+
   Widget buildScreen(NotificationSettingsRepository repo) {
     return MaterialApp(
       home: NotificationSettingsScreen(
@@ -69,6 +82,7 @@ void main() {
       'no row for the user (default NotificationSettings) shows every '
       'toggle enabled', (tester) async {
     repo.settings = const NotificationSettings();
+    useTallWindow(tester);
 
     await tester.pumpWidget(buildScreen(repo));
     await tester.pumpAndSettle();
@@ -126,15 +140,15 @@ void main() {
   testWidgets('a failed upsert reverts the row and shows the error SnackBar',
       (tester) async {
     repo.upsertCategoryException = Exception('network error');
+    // "ระบบ" is the last of the seven switches, and the rows above it
+    // have grown twice now (the device-permission section, then the
+    // diagnostics entry). ensureVisible cannot reach a row a lazy
+    // ListView has not built, so give the window the height instead.
+    useTallWindow(tester);
 
     await tester.pumpWidget(buildScreen(repo));
     await tester.pumpAndSettle();
 
-    // Beta4 §11.2 added the device-permission section above the 7
-    // category switches, so the last of them ("ระบบ") now sits below
-    // the fold of the 800x600 default test viewport. The list scrolls
-    // in the real app; scroll to the row before tapping it rather than
-    // asserting against a viewport height no phone has.
     await tester.ensureVisible(find.widgetWithText(SwitchListTile, 'ระบบ'));
     await tester.pumpAndSettle();
 
