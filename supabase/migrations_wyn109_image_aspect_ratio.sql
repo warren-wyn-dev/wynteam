@@ -15,9 +15,14 @@
 --   Part 1, ready now: migrations_wyn109a_column_only.sql
 --                      (the column; touches no view, so production's
 --                      own shape cannot matter to it)
---   Part 2, pending:   the view, to be written against production's
---                      real definition once it is known -- not
---                      against this repo's.
+--   Part 2, ABANDONED: the view is never changed. HomeRepository
+--                      reads drops.image_aspect_ratio in the feed
+--                      page's existing batched Future.wait instead
+--                      (_fetchAspectRatios), so home_feed needs no
+--                      column and production's drift stops mattering
+--                      to this feature at all. See SCHEMA-004.
+--
+-- With part 1 applied, WYN-109 needs no further SQL of any kind.
 -- =====================================================================
 
 -- WYN-109 -- per-post photo aspect ratio.

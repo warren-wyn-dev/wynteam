@@ -125,6 +125,48 @@ void main() {
         DropAspectRatio.portrait,
       );
     });
+
+    // The `home_feed` view has no `image_aspect_ratio` column and
+    // cannot be given one (SCHEMA-004), so HomeRepository reads the
+    // value off `drops` in the page's existing batched Future.wait and
+    // hands it to fromMap. These three cover what that argument does.
+    test('the batched lookup supplies the ratio when the row cannot', () {
+      final withoutColumn = row(null)..remove('image_aspect_ratio');
+      expect(
+        HomeFeedItem.fromMap(
+          withoutColumn,
+          likedByMe: false,
+          savedByMe: false,
+          aspectRatio: DropAspectRatio.landscape,
+        ).aspectRatio,
+        DropAspectRatio.landscape,
+      );
+    });
+
+    test('the batched lookup wins over a value on the row', () {
+      expect(
+        HomeFeedItem.fromMap(
+          row('1:1'),
+          likedByMe: false,
+          savedByMe: false,
+          aspectRatio: DropAspectRatio.landscape,
+        ).aspectRatio,
+        DropAspectRatio.landscape,
+      );
+    });
+
+    test('a drop the batched lookup missed still renders at 4:5', () {
+      final withoutColumn = row(null)..remove('image_aspect_ratio');
+      expect(
+        HomeFeedItem.fromMap(
+          withoutColumn,
+          likedByMe: false,
+          savedByMe: false,
+          aspectRatio: null,
+        ).aspectRatio,
+        DropAspectRatio.portrait,
+      );
+    });
   });
 
   // The four defects QA found on the first pass (2026-09-04). Each one

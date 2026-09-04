@@ -231,7 +231,9 @@ class HomeFeedItem {
 
     return copyWith(
       pollMyVoteIndex: optionIndex,
-      pollTotalVotes: previousVote == null ? (pollTotalVotes ?? 0) + 1 : pollTotalVotes ?? 1,
+      pollTotalVotes: previousVote == null
+          ? (pollTotalVotes ?? 0) + 1
+          : pollTotalVotes ?? 1,
       pollOptionCounts: counts,
     );
   }
@@ -425,6 +427,7 @@ class HomeFeedItem {
     int? pollTotalVotes,
     List<int>? pollOptionCounts,
     List<String>? imageUrls,
+    DropAspectRatio? aspectRatio,
   }) {
     final contentType = map['content_type'] as String;
     return HomeFeedItem(
@@ -442,7 +445,15 @@ class HomeFeedItem {
       imageWidth: (map['image_width'] as num?)?.toInt(),
       imageHeight: (map['image_height'] as num?)?.toInt(),
       imageCount: (map['image_count'] as num?)?.toInt(),
-      aspectRatio:
+      // WYN-109: `home_feed` has no `image_aspect_ratio` column (it
+      // lives on `drops`, and the view cannot be replaced -- see
+      // SCHEMA-004), so the Home surfaces batch-load it per page and
+      // pass it in here, the same way [imageUrls] arrives. The row is
+      // still read as a fallback so this keeps working unchanged for
+      // any caller whose source *does* carry the column, and a null
+      // from both ends at [DropAspectRatio.initial] -- the 4:5 every
+      // card drew before the ratio was selectable.
+      aspectRatio: aspectRatio ??
           DropAspectRatio.fromWire(map['image_aspect_ratio'] as String?),
       // Not a `home_feed` column -- batch-loaded alongside the page
       // and passed in by the caller (HomeRepository.attachImageUrls).

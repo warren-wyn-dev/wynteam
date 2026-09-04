@@ -1,6 +1,6 @@
 # Bug — SCHEMA-004: public.home_feed บน production ไม่ตรงกับ schema.sql
 
-Status: open (รอข้อมูลจาก production)
+Status: open — **ไม่ block งานไหนอยู่แล้ว** (WYN-109 เลิกพึ่ง view ไปแล้ว ดูท้ายไฟล์)
 Severity: Major — ไม่กระทบผู้ใช้ตอนนี้ แต่ทำให้ migration ที่แตะ view ทุกตัวในอนาคตล้ม
 พบเมื่อ: 2026-09-04 ตอน Founder รัน `supabase/migrations_wyn109_image_aspect_ratio.sql`
 
@@ -48,3 +48,21 @@ error บอกว่าตำแหน่งที่ production มี `create
 
 แยก WYN-109 ออกเป็น 2 ส่วน — `migrations_wyn109a_column_only.sql` เพิ่มคอลัมน์อย่างเดียว
 ไม่แตะ view เลย จึงไม่ขึ้นกับ drift นี้ ทดสอบแล้วบน DB ที่จำลอง drift: ผ่าน รันซ้ำได้ ข้อมูลเดิมไม่ถูกแตะ
+
+
+## อัปเดต 2026-09-04 — เลิกเป็นตัว block
+
+WYN-109 ถูกออกแบบใหม่ให้ **ไม่แตะ view เลย**: `HomeRepository._fetchAspectRatios()` อ่าน
+`image_aspect_ratio` จากตาราง `drops` ตรง ๆ แบบ batch เสียบใน `Future.wait` ที่หน้าฟีดจ่ายอยู่แล้ว
+(ไม่เพิ่ม round-trip) แล้วส่งเข้า `HomeFeedItem.fromMap` ทางพารามิเตอร์ — วิธีเดียวกับที่ `imageUrls`
+ใช้มาก่อนแล้ว จึงไม่ต้องรอ SCHEMA-004 อีกต่อไป
+
+บั๊กนี้ยัง **open** อยู่ เพราะ drift ยังมีจริงและจะทำให้ migration ตัวไหนก็ตามที่ redefine `home_feed`
+ในอนาคตล้มแบบเดิม แต่ตอนนี้ไม่มีงานค้างรอมันแล้ว จึงลดความเร่งด่วนลง
+
+คำสั่งอ่านอย่างเดียวในข้อ 1 ยังใช้ได้ ถ้า Founder ส่งผลมาเมื่อไหร่ก็สืบต่อได้ทันที
+(เพิ่มเติม: `select pg_get_viewdef('public.home_feed'::regclass, true);` ให้นิยามเต็มของ view
+ในเซลล์เดียว ซึ่งเป็นสิ่งที่ต้องใช้จริงถ้าจะ sync repo ↔ production)
+
+**บทเรียนที่ควรถือเป็นกติกา**: ถ้าเลี่ยงการแก้ view ได้ ให้เลี่ยง — การอ่านเพิ่มหนึ่ง query แบบ batch
+ที่ขนานกับของเดิมนั้นถูกกว่าและปลอดภัยกว่าการ redefine view บน production มาก

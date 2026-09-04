@@ -48,6 +48,19 @@ migration ตรวจซ้ำบน PostgreSQL 16.13 จริงแล้ว:
   ผลที่ตามมาทันที: ฝั่งเขียนใช้ได้ (`_insertDrop` ส่งคอลัมน์นี้เมื่อมีค่า) และทุก query ที่ใช้
   `_dropSelect` (ขึ้นต้นด้วย `*` จากตาราง `drops`) อ่านค่าได้เอง — Drop Detail / Drop grid /
   โปรไฟล์ แสดงสัดส่วนถูกต้องแล้ว
-- **ส่วนที่ 2 — view `home_feed`: ยังไม่ได้เขียน** ฟีดหน้า Home อ่านจาก view ซึ่งยังไม่มีคอลัมน์นี้
-  จึง fallback เป็น 4:5 ทุกโพสต์ (ไม่พัง แต่ยังไม่สมบูรณ์) เขียน migration ส่วนนี้ไม่ได้จนกว่าจะรู้
-  นิยามจริงของ view บน production — ดู SCHEMA-004 รอผลคำสั่ง `information_schema.columns` จาก Founder
+- **ส่วนที่ 2 — view `home_feed`: ยกเลิก ไม่ต้องแก้ view แล้ว** เดิมวางแผนจะ
+  `create or replace view home_feed` เพื่อเพิ่มคอลัมน์เข้าไป แต่ทำไม่ได้จริงเพราะนิยาม view
+  บน production เพี้ยนจาก `schema.sql` (SCHEMA-004) และ `create or replace view` ต่อท้ายได้อย่างเดียว
+  ห้ามสลับ/เปลี่ยนชื่อคอลัมน์ — คือ error `42P16` ที่เจอมาแล้ว
+
+  แทนที่ด้วย **การอ่านแบบ batch จากตาราง `drops` ตรง ๆ**: `HomeRepository._fetchAspectRatios(rows)`
+  ยิง `select id, image_aspect_ratio from drops where id in (...)` เฉพาะ drop ที่มีรูปในหน้านั้น
+  แล้วเสียบเข้า `Future.wait` ชุดเดิมของ `_fetchViewerState` — **ไม่เพิ่ม round-trip** เพราะวิ่งขนานกับ
+  6 query ที่หน้านั้นจ่ายอยู่แล้ว ค่าเดินทางเข้า `HomeFeedItem.fromMap` ทางพารามิเตอร์ `aspectRatio`
+  แบบเดียวกับ `imageUrls` ที่ทำมาก่อนหน้า
+
+  ผลลัพธ์: **ไม่ต้องแตะ production view เลยแม้แต่ครั้งเดียว** งาน WYN-109 จบได้โดยไม่ต้องรอ SCHEMA-004
+  ถ้า query นี้ล้ม จะ swallow แล้ว fallback 4:5 เหมือนเดิม (pattern เดียวกับ `_fetchImageUrls`)
+  และถ้าวันหนึ่ง view มีคอลัมน์นี้ขึ้นมาจริง `fromMap` ยังอ่านจาก row เป็น fallback อยู่ ไม่ต้องแก้อะไร
+- **หน้า Saved (`saved_feed` view) ยังวาด 4:5 ทุกรูป** อยู่นอกขอบเขต WYN-109 (ซึ่งระบุหน้า Home)
+  และ `SavedRepository` ยังไม่ batch แม้แต่ image URL — ถ้าจะทำต้องเปิดงานใหม่
