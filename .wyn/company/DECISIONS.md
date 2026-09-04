@@ -921,3 +921,32 @@
     ไล่เปลี่ยน 13 จุดทั้งแอป) ทำหลัง WYN-107 merge เพราะแตะไฟล์การ์ดเดียวกัน
 - อ้างอิง: `.wyn/docs/design/wyn-107-home-feed-two-column-layout.md`,
   `.wyn/tasks/active/WYN-107-home-feed-two-column-layout.md`, `design-reference/01-home.tsx`
+
+## [2026-09-04] WYN-109: ฟีด Home อ่านอัตราส่วนรูปจากตาราง `drops` ไม่แก้ view `home_feed`
+
+**เดิม**: จะ `create or replace view home_feed` เพื่อเพิ่มคอลัมน์ `image_aspect_ratio`
+**ล้มจริงบน production**: `ERROR 42P16: cannot change name of view column "created_at" to
+"author_is_verified"` — `create or replace view` ต่อท้ายคอลัมน์ได้อย่างเดียว และ view จริงบน
+production มีลำดับคอลัมน์ไม่ตรงกับ `supabase/schema.sql` (SCHEMA-004)
+
+**ตัดสินใจ**: **ไม่แก้ view เลย ทั้งตอนนี้และตลอดไป** เปลี่ยนเป็นให้
+`HomeRepository._fetchAspectRatios()` อ่านคอลัมน์จากตาราง `drops` ตรง ๆ แบบ batch โดยเสียบเข้า
+`Future.wait` ชุดเดิมของ `_fetchViewerState` (ขนานกับอีก 6 query ที่หน้าฟีดจ่ายอยู่แล้ว → ไม่เพิ่ม
+round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` ทางพารามิเตอร์ — pattern เดียวกับ `imageUrls`
+
+**เหตุผล**:
+1. ไม่ต้องแตะโครงสร้าง production ที่มองไม่เห็นนิยามจริง — ความเสี่ยงหายทั้งก้อน
+2. WYN-109 เลิกขึ้นกับ SCHEMA-004 (ซึ่งยัง open และยังไม่รู้สาเหตุ)
+3. ต้นทุน runtime แทบเป็นศูนย์ และมี fallback 4:5 ทุกเส้นทางถ้า query ล้ม
+
+**ผลพ่วง**: `supabase/schema.sql` ต้องไม่มีคอลัมน์นี้ในนิยาม view ด้วย (revert แล้ว + ใส่คอมเมนต์
+อธิบาย) เพื่อให้ไฟล์ schema ยังบรรยายฐานข้อมูลจริง ไม่ใช่เจตนาที่ไม่มีวันเกิด
+
+**SQL ที่รันจริงบน production**: `supabase/migrations_wyn109a_column_only.sql` (Founder รันเอง
+2026-09-04 ผล `Success. No rows returned`) — เพิ่มคอลัมน์ในตาราง `drops` + CHECK constraint
+เท่านั้น ไม่แตะ view · `supabase/migrations_wyn109_image_aspect_ratio.sql` = ไฟล์ที่ล้ม ห้ามรัน
+
+**ยังไม่ครอบคลุม**: หน้า Saved (`saved_feed`) ยังวาด 4:5 ทุกรูป — นอกขอบเขต WYN-109 ต้องเปิดงานใหม่
+
+อ้างอิง: `.wyn/tasks/bugs/SCHEMA-004-production-view-drift.md`,
+`.wyn/docs/qa/wyn-106-107-108-109-home-cards-qa-round2.md`

@@ -64,3 +64,12 @@ migration ตรวจซ้ำบน PostgreSQL 16.13 จริงแล้ว:
   และถ้าวันหนึ่ง view มีคอลัมน์นี้ขึ้นมาจริง `fromMap` ยังอ่านจาก row เป็น fallback อยู่ ไม่ต้องแก้อะไร
 - **หน้า Saved (`saved_feed` view) ยังวาด 4:5 ทุกรูป** อยู่นอกขอบเขต WYN-109 (ซึ่งระบุหน้า Home)
   และ `SavedRepository` ยังไม่ batch แม้แต่ image URL — ถ้าจะทำต้องเปิดงานใหม่
+
+---
+
+## QA & Security — รอบ 2 (2026-09-04)
+
+**Final Status: PASS** — `flutter analyze` สะอาด · `flutter test` 1253/1253 ผ่าน
+รายงานเต็ม: `.wyn/docs/qa/wyn-106-107-108-109-home-cards-qa-round2.md`
+
+ย้ายมา `approved/` แล้ว รอ merge + deploy

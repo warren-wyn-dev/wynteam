@@ -126,3 +126,28 @@
 - Bug: `AnalyticsRepository(Supabase.instance.client)` evaluate `Supabase.instance` (throw synchronous ถ้ายังไม่ initialize) เป็น argument ตอน *construct* ก่อนที่ class's ` try/catch` ภายในจะเริ่มทำงานเลยด้วยซ้ำ — `unawaited()` ครอบไม่ถึงเพราะ argument evaluation เกิดก่อน `unawaited()` จะถูกเรียกจริง
 - Fix: เปลี่ยน `AnalyticsRepository` ให้เป็น `const` constructor ไม่รับ `SupabaseClient` จากภายนอกเลย แล้วให้แต่ละ log method resolve `Supabase.instance.client` เอง **ข้างในของ `try` block เดียวกันกับ network call** — เพื่อให้ "ยังไม่ initialize" ถูกจับเหมือน network error ธรรมดา
 - **การนำไปใช้ในอนาคต**: เวลาเขียน helper แบบ "fire-and-forget, best-effort, ห้าม throw เด็ดขาด" ที่ต้องพึ่งพา external singleton (เช่น `Supabase.instance`, `Firebase.app`) — การ resolve singleton นั้นต้องอยู่ *ข้างในเมธอดของ helper เอง* ไม่ใช่ให้ caller resolve แล้วส่งเข้ามาทาง constructor/parameter เพราะ caller อาจ evaluate มันตอนไหนก็ได้ที่ error handling ของ helper ยังไม่ทันเริ่ม (โดยเฉพาะตอนเป็น constructor argument ซึ่ง evaluate ก่อนตัว constructor เองด้วยซ้ำ)
+
+### [2026-09-04] WYN-109 / SCHEMA-004: อย่าแก้ view บน production เพื่อคอลัมน์เดียว ถ้าอ่านจากตารางต้นทางแบบ batch ได้
+
+- บริบท: WYN-109 ต้องให้ฟีด Home รู้อัตราส่วนรูปที่ผู้โพสต์เลือก ฟีดอ่านจาก view `home_feed`
+  แผนแรกจึงเป็น `create or replace view home_feed` เพื่อเพิ่มคอลัมน์ — **ล้มบน production ด้วย
+  `ERROR 42P16`** เพราะ `create or replace view` ของ PostgreSQL ต่อท้ายคอลัมน์ได้อย่างเดียว
+  ห้ามแทรก/สลับ/เปลี่ยนชื่อ และ view จริงบน production มีลำดับคอลัมน์ไม่ตรงกับ `supabase/schema.sql`
+  (SCHEMA-004 — ยังไม่รู้สาเหตุว่าเพี้ยนตั้งแต่เมื่อไหร่)
+- **บทเรียนที่ 1 (การซ้อม migration ที่หลอกตัวเอง)**: การซ้อมโดยโหลด `schema.sql` จาก repo ขึ้น
+  scratch DB แล้วรัน migration ทับ **พิสูจน์ได้แค่ว่าไฟล์ไม่ขัดกับตัวเอง** ไม่ได้พิสูจน์อะไรเลยเกี่ยวกับ
+  production เพราะทดสอบกับ*สิ่งที่เราเขียนเอง* ถ้าจะซ้อม migration ที่แตะ view ต้องดึงนิยามจริงจาก
+  production (`pg_get_viewdef`) มาเป็นฐานก่อนเสมอ
+- **บทเรียนที่ 2 (ทางออกที่ถูกกว่ามาก)**: แทนที่จะไปแก้ view ให้ได้ ให้ถามว่า *ต้องอ่านจาก view จริงไหม*
+  — คำตอบคือไม่ `HomeRepository._fetchViewerState` มี `Future.wait` ที่ยิง 6 query ขนานกันต่อหนึ่งหน้าฟีด
+  อยู่แล้ว การเสียบ query ที่ 7 (`select id, image_aspect_ratio from drops where id in (...)`) เข้าไปใน
+  ชุดนั้น **ไม่เพิ่ม round-trip เลย** แล้วส่งค่าเข้า `HomeFeedItem.fromMap` ทางพารามิเตอร์ — เป็น pattern
+  ที่ `imageUrls` ใช้อยู่ก่อนแล้วตั้งแต่ Beta3 ผลคือได้ฟีเจอร์ครบโดย **ไม่แตะ production view เลย**
+  ความเสี่ยงหายไปทั้งก้อน และ SCHEMA-004 เลิกเป็นตัว block ทันที
+- **บทเรียนที่ 3 (repo ต้องบรรยายของจริง)**: commit แรกเผลอเพิ่มคอลัมน์เข้านิยาม view ใน `schema.sql`
+  ด้วย ทั้งที่ตัดสินใจแล้วว่าจะไม่แก้ view จริง — ปล่อยไว้ = ไฟล์ schema โกหก และเป็นการ*เพิ่ม* drift
+  เข้าไปอีกชั้นบนโรคที่กำลังรักษาอยู่ ต้อง revert ออกและเขียนคอมเมนต์บอกว่าจงใจไม่ใส่ เพราะอะไร
+- **การนำไปใช้ในอนาคต**: (1) ก่อนเขียน migration ที่ redefine view ให้ถามก่อนเสมอว่าอ่านจากตารางต้นทาง
+  แบบ batch แทนได้ไหม — ถ้ามี `Future.wait` ต่อหน้าอยู่แล้ว ต้นทุนแทบเป็นศูนย์ (2) ถ้าเลี่ยงไม่ได้จริง
+  ต้องดึง `pg_get_viewdef` จาก production มาก่อน ห้ามเขียนจาก `schema.sql` (3) ทุกครั้งที่ตัดสินใจ
+  "จะไม่ทำ X กับ production" ต้องไล่ลบร่องรอยของ X ออกจาก repo ด้วย ไม่ใช่ทิ้งไว้เป็นเจตนาที่ไม่มีวันเกิด

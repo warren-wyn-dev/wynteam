@@ -37,3 +37,12 @@ Handoff:
 Minor: ปุ่มรีโพสต์ได้ pop animation ที่เดิมไม่มี · ไม่ได้ใส่ `ExcludeSemantics` ตามที่ spec สั่ง (ไม่มีผลจริง)
 
 รายงานเต็ม: `.wyn/docs/qa/wyn-106-107-108-109-home-cards-qa.md`
+
+---
+
+## QA & Security — รอบ 2 (2026-09-04)
+
+**Final Status: PASS** — `flutter analyze` สะอาด · `flutter test` 1253/1253 ผ่าน
+รายงานเต็ม: `.wyn/docs/qa/wyn-106-107-108-109-home-cards-qa-round2.md`
+
+ย้ายมา `approved/` แล้ว รอ merge + deploy
