@@ -26,7 +26,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "verify = look only · create = install/replace · test = fire one harmless request · remove = drop · enable = turn on webhooks only · diagnose = why did no push arrive · secrets = list Edge Function secret NAMES · moderation-check = is anyone currently restricted/suspended/banned · chat-check = why can wynos.online<->warren not message each other"
+        description: "verify = look only · create = install/replace · test = fire one harmless request · remove = drop · enable = turn on webhooks only · diagnose = why did no push arrive · secrets = list Edge Function secret NAMES · moderation-check = is anyone currently restricted/suspended/banned · chat-check = why can wynos.online<->warren not message each other · reload-pgrst-cache = fix a stale PostgREST schema cache (chat-pgrst-cache-check.yml found messages' reply_to embed missing from it)"
         required: true
         default: verify
         type: choice
@@ -40,6 +40,7 @@ on:
           - secrets
           - moderation-check
           - chat-check
+          - reload-pgrst-cache
 
 jobs:
   webhook:
@@ -472,5 +473,21 @@ jobs:
                        );" >/dev/null
               echo "Created."
               show
+              ;;
+
+            reload-pgrst-cache)
+              # Same effect as the Dashboard's Settings > API > "Reload
+              # schema cache" button -- chat-pgrst-cache-check.yml found
+              # PGRST200 "Could not find a relationship between 'messages'
+              # and 'messages'" on the exact select+embed
+              # ChatRepository.sendMessage/fetchMessages use, meaning
+              # PostgREST is serving a schema snapshot from before that
+              # FK/embed existed even though the DB itself is fine (a
+              # rolled-back real INSERT already proved that in chat-check
+              # above). This just asks PostgREST to re-read the schema;
+              # it does not touch any data.
+              run_sql "NOTIFY pgrst, 'reload schema';" >/dev/null
+              echo "Sent. Reload is async, usually done within a few seconds."
+              echo "Re-run chat-pgrst-cache-check.yml to confirm it now answers 200."
               ;;
           esac
