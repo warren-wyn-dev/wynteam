@@ -1,3 +1,25 @@
+-- =====================================================================
+-- DO NOT RUN THIS FILE. Superseded 2026-09-04.
+--
+-- It failed on production:
+--   ERROR: 42P16: cannot change name of view column "created_at"
+--          to "author_is_verified"
+--
+-- `create or replace view` only permits appending columns, and
+-- production's public.home_feed has a different column list from the
+-- one this file was written from (this repo's schema.sql). Nothing
+-- was applied -- the file is one transaction and the error rolled all
+-- of it back, confirmed by reproducing it on a scratch database.
+--
+-- Split in two:
+--   Part 1, ready now: migrations_wyn109a_column_only.sql
+--                      (the column; touches no view, so production's
+--                      own shape cannot matter to it)
+--   Part 2, pending:   the view, to be written against production's
+--                      real definition once it is known -- not
+--                      against this repo's.
+-- =====================================================================
+
 -- WYN-109 -- per-post photo aspect ratio.
 --
 -- Founder approved this column on 2026-09-04 ("อนุมัติเพิ่มคอลัมน์"), see
