@@ -296,6 +296,10 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     final debugBytes = widget.debugInitialImagesBytes;
     if (debugBytes != null) {
       _imagesBytes.addAll(debugBytes);
+      // WYN-109: seeded bytes stand in for both the picked original and
+      // the cut result, so the two lists stay the same length here as
+      // they do on every real pick.
+      _rawImagesBytes.addAll(debugBytes);
       _imageExtensions.addAll(List.filled(debugBytes.length, 'png'));
     }
     _loadModerationStatus();
@@ -430,13 +434,24 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   /// is the predictable answer, and the cropper is one tap away.
   Future<void> _onAspectRatioChanged(DropAspectRatio ratio) async {
     if (ratio == _aspectRatio || _isCropping) return;
+    final previous = _aspectRatio;
     setState(() {
       _aspectRatio = ratio;
       _isCropping = true;
     });
     try {
       final recut = <Uint8List>[
-        for (final raw in _rawImagesBytes) await _applyRatio(raw),
+        for (var i = 0; i < _imagesBytes.length; i++)
+          // A photo with no original behind it keeps what it has. That
+          // should not happen -- every path that adds to one list adds
+          // to the other -- but the failure mode if it ever did is a
+          // photo silently disappearing from a post being written,
+          // which is not a risk worth carrying for the sake of a
+          // shorter loop.
+          if (i < _rawImagesBytes.length)
+            await _applyRatio(_rawImagesBytes[i])
+          else
+            _imagesBytes[i],
       ];
       if (!mounted) return;
       setState(() {
@@ -446,7 +461,14 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _errorMessage = 'ปรับสัดส่วนรูปไม่สำเร็จ ลองใหม่อีกครั้ง');
+      setState(() {
+        // Put the choice back where it was. The photos still have their
+        // old shape, and a post whose recorded ratio disagrees with its
+        // own bytes would have the feed draw the card at one shape and
+        // the photo at another -- worse than the failure itself.
+        _aspectRatio = previous;
+        _errorMessage = 'ปรับสัดส่วนรูปไม่สำเร็จ ลองใหม่อีกครั้ง';
+      });
     } finally {
       if (mounted) setState(() => _isCropping = false);
     }
