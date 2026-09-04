@@ -1,0 +1,66 @@
+name: Chat -- PostgREST schema cache check
+
+# One-off diagnostic, split into its own file because
+# setup-database-webhook.yml is already right at GitHub Actions' 21000-char
+# limit for a single `run:` block (a field containing a `${{ }}` expression
+# is capped at 21000 chars total, not just the expression itself -- adding
+# this pushed that file over and made it fail to parse at all).
+#
+# Why this check, given chat-check (setup-database-webhook.yml) already
+# proved the DB/RLS side is healthy: that check's INSERT test went straight
+# to Postgres via the Management API, bypassing PostgREST entirely. It
+# can't rule out a stale PostgREST schema cache -- a separate in-memory
+# copy PostgREST builds once at boot/reload that does NOT auto-refresh
+# just because a migration ran directly against the database (only a
+# `NOTIFY pgrst, 'reload schema'` or a dashboard-driven migration does
+# that). A large schema.sql edit applied anywhere near this bug's onset is
+# exactly the kind of change that can leave PostgREST answering from a
+# stale picture project-wide, including for tables that edit never touched.
+#
+# This replays the exact select+self-embed
+# ChatRepository.sendMessage/fetchMessages send after every insert
+# (app/lib/features/chat/data/chat_repository.dart's `_messageColumns`)
+# straight at PostgREST itself, anonymously, limit=0 -- select/embed
+# parsing happens before RLS filtering, so a stale-cache error surfaces as
+# a 400 here regardless of who's asking or whether any row would match.
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_PUBLISHABLE_KEY=$(clean "$SUPABASE_PUBLISHABLE_KEY")
+
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "::error::SUPABASE_URL or SUPABASE_PUBLISHABLE_KEY is empty."
+            exit 1
+          fi
+
+          echo "=== PostgREST schema cache: does it still know messages' select+embed? ==="
+          SELECT_COLS='id,conversation_id,sender_id,text,image_url,reply_to_message_id,shared_content_type,shared_content_id,deleted_at,created_at,reply_to:messages!messages_reply_to_message_id_fkey(text,image_url,deleted_at)'
+          HTTP_CODE=$(curl -sS -o /tmp/pgrst_check.json -w '%{http_code}' \
+            "$SUPABASE_URL/rest/v1/messages?select=$SELECT_COLS&limit=0" \
+            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY")
+          echo "HTTP $HTTP_CODE"
+          cat /tmp/pgrst_check.json | jq . 2>/dev/null || cat /tmp/pgrst_check.json
+          echo
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "200 -- schema cache is current. Not this."
+          else
+            echo "::error::Non-200. A missing column/relationship error (PGRST200/204, 'Could not find a"
+            echo "relationship') means PostgREST is stale and every real chat send fails exactly like this"
+            echo "while the DB itself is healthy. Fix: reload the schema cache (Dashboard > Settings > API >"
+            echo "reload, or run the moderation-check/chat-check workflow's run_sql helper with"
+            echo "\"NOTIFY pgrst, 'reload schema';\") -- no code change needed."
+          fi
+          rm -f /tmp/pgrst_check.json

@@ -404,35 +404,6 @@ jobs:
                 echo "Supabase, something the network tab on a desktop browser would show). An ::error:: with a"
                 echo "Postgres message instead is the actual reason, verbatim."
               fi
-
-              # The insert above went straight to Postgres via the
-              # Management API, bypassing PostgREST -- so it can't rule
-              # out a stale PostgREST schema cache, a separate in-memory
-              # copy that does NOT auto-refresh when a migration runs
-              # directly against the DB (only a pgrst reload NOTIFY or a
-              # dashboard migration does that). This replays the exact
-              # select+self-embed ChatRepository.sendMessage/fetchMessages
-              # use, straight at PostgREST, anon, limit=0 -- select/embed
-              # parsing happens before RLS, so a stale cache 400s here too.
-              echo
-              echo "=== PostgREST schema cache: does it still know messages' select+embed? ==="
-              SELECT_COLS='id,conversation_id,sender_id,text,image_url,reply_to_message_id,shared_content_type,shared_content_id,deleted_at,created_at,reply_to:messages!messages_reply_to_message_id_fkey(text,image_url,deleted_at)'
-              HTTP_CODE=$(curl -sS -o /tmp/pgrst_check.json -w '%{http_code}' \
-                "$SUPABASE_URL/rest/v1/messages?select=$SELECT_COLS&limit=0" \
-                -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
-                -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY")
-              echo "HTTP $HTTP_CODE"
-              cat /tmp/pgrst_check.json | jq . 2>/dev/null || cat /tmp/pgrst_check.json
-              echo
-              if [ "$HTTP_CODE" = "200" ]; then
-                echo "200 -- schema cache is current. Not this."
-              else
-                echo "::error::Non-200. A missing column/relationship error (PGRST200/204, 'Could not find a"
-                echo "relationship') means PostgREST is stale and every real send fails exactly like this while"
-                echo "the DB itself is healthy. Fix: reload the schema cache (Dashboard > Settings > API > reload,"
-                echo "or run_sql \"NOTIFY pgrst, 'reload schema';\") -- no code change needed."
-              fi
-              rm -f /tmp/pgrst_check.json
               ;;
 
             moderation-check)
