@@ -1,0 +1,73 @@
+name: Supabase -- full project restart (pause + restore)
+
+# LAST RESORT: two separate PostgREST-only restarts (NOTIFY, then a
+# config-value bump/restore PATCH) both failed to make PostgREST pick
+# up admin_dashboard_metrics()'s new 22-column signature -- it kept
+# serving the old cached 14-column shape on every retry. This restarts
+# the entire project (pause, then restore), which takes down every
+# service -- not just PostgREST, the whole Postgres instance and API
+# layer -- for the live Consumer app too, for roughly 1-2 minutes.
+# Founder explicitly approved this specific action given the two
+# lighter restarts already failed.
+on:
+  workflow_dispatch:
+
+jobs:
+  restart:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Pause then restore the project
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          BASE="https://api.supabase.com/v1/projects/$PROJECT_REF"
+
+          get_status() {
+            curl -sS -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" "$BASE" | jq -r '.status'
+          }
+
+          echo "=== Status before ==="
+          get_status
+
+          echo "=== Pausing ==="
+          code=$(curl -sS -o /tmp/pause.json -w '%{http_code}' -X POST "$BASE/pause" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN")
+          echo "POST /pause -> HTTP $code"
+          cat /tmp/pause.json
+
+          echo
+          echo "=== Waiting for PAUSED (up to 3 min) ==="
+          for i in $(seq 1 18); do
+            s=$(get_status || echo "unknown")
+            echo "  [$i] status=$s"
+            if [ "$s" = "INACTIVE" ] || [ "$s" = "PAUSED" ]; then break; fi
+            sleep 10
+          done
+
+          echo
+          echo "=== Restoring ==="
+          code=$(curl -sS -o /tmp/restore.json -w '%{http_code}' -X POST "$BASE/restore" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H "Content-Type: application/json" -d '{}')
+          echo "POST /restore -> HTTP $code"
+          cat /tmp/restore.json
+
+          echo
+          echo "=== Waiting for ACTIVE_HEALTHY (up to 5 min) ==="
+          for i in $(seq 1 30); do
+            s=$(get_status || echo "unknown")
+            echo "  [$i] status=$s"
+            if [ "$s" = "ACTIVE_HEALTHY" ]; then
+              echo "Project is back up."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Project did not reach ACTIVE_HEALTHY within the wait window -- check the dashboard directly."
+          exit 1
