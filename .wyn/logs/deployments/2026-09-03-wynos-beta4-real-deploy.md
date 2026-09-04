@@ -111,3 +111,40 @@ production ตอนนี้มีทั้ง Beta4 และ AdSense tag ค�
   การ์ดขออนุญาตใน Notification settings จะไม่เป็น `unsupported` และขอ FCM token ได้จริง
 * **ยังส่ง push ไม่ได้** — เหลือฝั่ง server 2 ชิ้น: `FCM_SERVICE_ACCOUNT` ใน Supabase Edge Function secrets
   และ Database Webhook บน `public.notifications` INSERT → `send-push-notification`
+
+---
+
+## 2026-09-04 — Push ทำงานจริงครั้งแรก (K-1 ปิด)
+
+**13:17** — notification เด้งบนหน้าจอล็อกของ iPhone ขณะแอปปิดสนิท:
+`WYN · from WYNOS Beta · Wynos.online รีโพสต์โพสต์ของคุณ` (และ `ถูกใจโพสต์ของคุณ`)
+
+ฝั่ง server ยืนยันตรงกัน — `net._http_response` id 39–41:
+
+```
+200 · "OK sent=3"   06:17:02Z
+200 · "OK sent=3"   06:17:00Z
+200 · "OK sent=2"
+```
+
+ไม่มี `failed` สักรายการ
+
+**บั๊กที่ต้องแก้ก่อนถึงจะถึงจุดนี้** (รายละเอียดใน notification audit §11):
+
+| commit | บั๊ก |
+|---|---|
+| `a16b0ba` | `Topic` header 36 ตัว เกิน RFC 8030 §5.4 ที่กำหนด 32 — Apple ทิ้งเงียบหลัง FCM ตอบสำเร็จไปแล้ว |
+| `264aedd` | `getNotificationSettings()` ค้างถาวรบน iOS web — เครื่องที่ค้างไม่เคยลงทะเบียน token |
+| `5f88cfd` `b4bad59` | **service worker ไม่เคยมี Firebase config** — อ่านจาก query string ที่ไม่มีอยู่จริง `onBackgroundMessage` จึงไม่เคยถูกลงทะเบียน |
+
+**การยืนยัน production ทำจากไฟล์ที่เสิร์ฟจริง ไม่ใช่จาก log ของ CI:**
+
+```
+curl https://wynos.online/firebase-messaging-sw.js
+  → const BAKED = { apiKey: 'AIzaSyBBAeg…', projectId: 'wynos-78e85', … }
+  → placeholder เหลือ 0 ตัว
+  → onBackgroundMessage ยังอยู่
+```
+
+**`6805d1f`** — หัวข้อ notification เปลี่ยนจาก `WYN` เป็นชื่อคนที่ทำ เพราะ iOS
+เขียน `from WYNOS Beta` ให้เองอยู่แล้ว บรรทัดเด่นที่สุดจึงถูกใช้ไปกับชื่อแอปซ้ำ
