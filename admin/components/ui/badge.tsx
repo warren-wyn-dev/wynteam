@@ -21,7 +21,11 @@ const badgeVariants = cva(
         // reuses the existing `outline` variant above -- already neutral,
         // no new variant needed for that tier).
         "ink-solid": "border-transparent bg-primary text-primary-foreground",
-        "gray-tonal": "border-transparent bg-zinc-200 text-foreground",
+        // bg-zinc-200 is a literal (non-token) color, so it doesn't flip
+        // in dark mode the way text-foreground does -- dark:bg-white/10
+        // mirrors section 3.1's "gray-100 on dark, mixed with opacity"
+        // guidance so the pill stays legible against near-white text.
+        "gray-tonal": "border-transparent bg-zinc-200 text-foreground dark:bg-white/10",
       },
     },
     defaultVariants: {
