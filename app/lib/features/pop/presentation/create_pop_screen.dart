@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 
+import '../../../core/interaction/wyn_feedback.dart';
 import '../data/pop_repository.dart';
 import '../../../core/design/wyn_spacing.dart';
 
@@ -172,9 +173,11 @@ class _CreatePopScreenState extends State<CreatePopScreen> {
         caption: _captionController.text,
       );
       if (!mounted) return;
+      WynFeedback.completed();
       Navigator.of(context).pop(true);
     } catch (_) {
       if (!mounted) return;
+      WynFeedback.failed();
       setState(() => _errorMessage = 'แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง');
     } finally {
       if (mounted) setState(() => _isSharing = false);

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/interaction/wyn_feedback.dart';
 import '../../hashtag/data/hashtag_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/club.dart';
@@ -127,6 +128,15 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
   }
 
   Future<void> _post() async {
+    // Same synchronous double-submit guard CreateDropScreen._share and
+    // CreatePopScreen._share already have, and the only composer that
+    // was missing it: `onPressed: _canPost ? _post : null` only stops
+    // the *second* tap once the rebuild setState schedules has actually
+    // run, so a fast double-tap reaches this method twice and posts
+    // twice. See .wyn/tasks/bugs/WYN-004-feed-and-post.md (QA round 1)
+    // for the original bug of this class.
+    if (!_canPost) return;
+
     setState(() {
       _isPosting = true;
       _errorMessage = null;
@@ -142,9 +152,11 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
         mentionedUserIds: _mentionedUserIds,
       );
       if (!mounted) return;
+      WynFeedback.completed();
       Navigator.of(context).pop(true);
     } catch (_) {
       if (!mounted) return;
+      WynFeedback.failed();
       setState(() => _errorMessage = 'โพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง');
     } finally {
       if (mounted) setState(() => _isPosting = false);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/interaction/wyn_feedback.dart';
 import '../../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/pop_comment.dart';
@@ -145,6 +146,7 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
         parentCommentId: _replyingTo?.id,
       );
       if (!mounted) return;
+      WynFeedback.commentSent();
       setState(() {
         _comments = [...?_comments, comment];
         _commentController.clear();
@@ -153,6 +155,7 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
       widget.onCommentCountChanged(1);
     } catch (_) {
       // Keep the typed text in the box so the user can just retry sending.
+      WynFeedback.failed();
     } finally {
       if (mounted) setState(() => _isSendingComment = false);
     }

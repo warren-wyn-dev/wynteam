@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/interaction/wyn_feedback.dart';
+import '../../../core/interaction/wyn_state_pop.dart';
 import '../../../core/widgets/action_sheet_row.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../core/widgets/hashtag_text.dart';
@@ -285,6 +287,11 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   Future<void> _toggleLike() async {
     final previous = _drop;
     setState(() => _drop = _drop.toggledLike());
+    // This screen's action bar is plain IconButtons, not the feed's
+    // shared ActionMetric, so it carries its own haptic -- without this
+    // the exact same Like felt different depending on whether you tapped
+    // it on the feed card or after opening the post.
+    WynFeedback.like();
     try {
       await widget.dropRepository.toggleLike(
         dropId: previous.id,
@@ -299,6 +306,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   Future<void> _toggleSave() async {
     final previous = _drop;
     setState(() => _drop = _drop.toggledSave());
+    WynFeedback.save();
     try {
       await widget.dropRepository.toggleSave(
         dropId: previous.id,
@@ -441,12 +449,14 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     try {
       await widget.dropRepository.deleteComment(commentId);
       if (!mounted) return;
+      WynFeedback.deleted();
       setState(() {
         _comments = _comments?.where((c) => c.id != commentId).toList();
         _drop = _drop.withRemovedComment();
       });
     } catch (_) {
       if (!mounted) return;
+      WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
@@ -543,9 +553,11 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     try {
       await widget.dropRepository.deleteDrop(_drop.id);
       if (!mounted) return;
+      WynFeedback.deleted();
       Navigator.of(context).pop();
     } catch (_) {
       if (!mounted) return;
+      WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
@@ -617,6 +629,10 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
         parentCommentId: _replyingTo?.id,
       );
       if (!mounted) return;
+      // Only once the comment actually exists server-side -- an
+      // optimistic buzz for a comment that then fails to send is worse
+      // than no buzz at all.
+      WynFeedback.commentSent();
       setState(() {
         _comments = [...?_comments, comment];
         _drop = _drop.withExtraComment();
@@ -625,6 +641,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       });
     } catch (_) {
       // Keep the typed text in the box so the user can just retry sending.
+      WynFeedback.failed();
     } finally {
       if (mounted) setState(() => _isSendingComment = false);
     }
@@ -1049,12 +1066,15 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   : 'กดเพื่อถูกใจ',
               excludeSemantics: true,
               child: IconButton(
-                icon: WynHeartIcon(
-                  filled: _drop.likedByMe,
-                  size: 19,
-                  color: _drop.likedByMe
-                      ? WynColors.iconLikeActive
-                      : WynColors.iconIdle,
+                icon: WynStatePop(
+                  state: _drop.likedByMe,
+                  child: WynHeartIcon(
+                    filled: _drop.likedByMe,
+                    size: 19,
+                    color: _drop.likedByMe
+                        ? WynColors.iconLikeActive
+                        : WynColors.iconIdle,
+                  ),
                 ),
                 onPressed: _toggleLike,
               ),
@@ -1106,10 +1126,13 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   : 'กดเพื่อบันทึก',
               excludeSemantics: true,
               child: IconButton(
-                icon: Icon(
-                  _drop.savedByMe ? Icons.bookmark : Icons.bookmark_border,
-                  size: 18,
-                  color: WynColors.graphite,
+                icon: WynStatePop(
+                  state: _drop.savedByMe,
+                  child: Icon(
+                    _drop.savedByMe ? Icons.bookmark : Icons.bookmark_border,
+                    size: 18,
+                    color: WynColors.graphite,
+                  ),
                 ),
                 onPressed: _toggleSave,
               ),

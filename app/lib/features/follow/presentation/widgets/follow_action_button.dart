@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
+import '../../../../core/interaction/wyn_feedback.dart';
+import '../../../../core/interaction/wyn_motion.dart';
 import '../../../profile/data/profile.dart';
 import '../../data/follow_repository.dart';
 import '../../data/follow_request_repository.dart';
@@ -96,7 +97,7 @@ class _FollowActionButtonState extends State<FollowActionButton> {
   Future<void> _toggleFollow() async {
     final previous = _isFollowing!;
     setState(() => _isFollowing = !previous);
-    HapticFeedback.lightImpact();
+    WynFeedback.follow();
     try {
       await widget.followRepository.toggleFollow(
         userId: widget.profile.id,
@@ -114,6 +115,9 @@ class _FollowActionButtonState extends State<FollowActionButton> {
       _isActionInFlight = true;
       _hasPendingRequest = true;
     });
+    // Asking to follow is the same commitment as following, from the
+    // user's side -- same light acknowledgement as [_toggleFollow].
+    WynFeedback.follow();
     try {
       await widget.followRequestRepository
           .sendRequest(userId: widget.profile.id);
@@ -153,6 +157,7 @@ class _FollowActionButtonState extends State<FollowActionButton> {
       _isActionInFlight = true;
       _hasPendingRequest = false;
     });
+    WynFeedback.follow();
     try {
       await widget.followRequestRepository
           .cancelRequest(userId: widget.profile.id);
@@ -205,7 +210,7 @@ class _FollowActionButtonState extends State<FollowActionButton> {
         // text snapping instantly -- key on the label text itself so
         // AnimatedSwitcher only triggers when it actually changes.
         child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 180),
+          duration: WynMotion.duration(context, WynMotion.quick),
           child: Text(_label, key: ValueKey(_label)),
         ),
       ),

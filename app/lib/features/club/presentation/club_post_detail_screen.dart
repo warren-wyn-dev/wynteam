@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/interaction/wyn_feedback.dart';
 import '../../../core/text_utils.dart';
 import '../../../core/widgets/action_sheet_row.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
@@ -200,6 +201,9 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
   Future<void> _toggleLike() async {
     final previous = _post;
     setState(() => _post = _post.toggledLike());
+    // Club posts use plain IconButtons here rather than the feed's
+    // shared ActionMetric, so the haptic belongs in the handler.
+    WynFeedback.like();
     try {
       await widget.clubPostRepository.toggleLike(
         postId: previous.id,
@@ -214,6 +218,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
   Future<void> _toggleSave() async {
     final previous = _post;
     setState(() => _post = _post.toggledSave());
+    WynFeedback.save();
     try {
       await widget.clubPostRepository.toggleSave(
         postId: previous.id,
@@ -260,9 +265,11 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
     try {
       await widget.clubPostRepository.deletePost(_post.id);
       if (!mounted) return;
+      WynFeedback.deleted();
       Navigator.of(context).pop();
     } catch (_) {
       if (!mounted) return;
+      WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
@@ -276,12 +283,14 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
     try {
       await widget.clubPostRepository.deleteComment(commentId);
       if (!mounted) return;
+      WynFeedback.deleted();
       setState(() {
         _comments = _comments?.where((c) => c.id != commentId).toList();
         _post = _post.withRemovedComment();
       });
     } catch (_) {
       if (!mounted) return;
+      WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
@@ -300,6 +309,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
         parentCommentId: _replyingTo?.id,
       );
       if (!mounted) return;
+      WynFeedback.commentSent();
       setState(() {
         _comments = [...?_comments, comment];
         _post = _post.withExtraComment();
@@ -308,6 +318,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
       });
     } catch (_) {
       // Keep the typed text so the user can retry.
+      WynFeedback.failed();
     } finally {
       if (mounted) setState(() => _isSendingComment = false);
     }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/interaction/wyn_feedback.dart';
 import '../../analytics/data/analytics_repository.dart';
 import '../../auth/presentation/widgets/guest_gate.dart';
 import '../../chat/data/chat_repository.dart';
@@ -277,6 +278,15 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
     }
 
     final tabIndex = _navIndexForTab.indexOf(navIndex);
+    // Selection, not light: switching tabs is moving between peers, and
+    // it is the *only* navigation in WYNOS that gets a haptic at all.
+    // Every push/pop deliberately gets none -- a buzz on each of the
+    // dozens of navigations in a browsing session stops carrying
+    // meaning and starts costing battery. Fired here, past the guest
+    // gate and past the "+" action and the tap-Home-again reselect
+    // (both returned above), so it only ever marks a tab that really
+    // changed.
+    WynFeedback.selectionChanged();
     setState(() {
       if (tabIndex == _profileTab && _tabIndex != _profileTab) {
         _profileVisitKey++;

@@ -9,6 +9,7 @@ import '../../data/club_post.dart';
 import '../club_post_detail_screen.dart' show clubPostShareLink;
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/interaction/wyn_state_pop.dart';
 import '../../../../core/widgets/action_sheet_row.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import '../../../report/data/report_repository.dart';
@@ -219,12 +220,16 @@ class ClubPostCard extends StatelessWidget {
                     label: post.likedByMe ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ' : 'กดเพื่อถูกใจ',
                     excludeSemantics: true,
                     child: IconButton(
-                      icon: WynHeartIcon(
-                        filled: post.likedByMe,
-                        size: 18,
-                        color: post.likedByMe
-                            ? WynColors.iconLikeActive
-                            : WynColors.iconIdle,
+                      // Shared state-change pop -- see ActionMetric.
+                      icon: WynStatePop(
+                        state: post.likedByMe,
+                        child: WynHeartIcon(
+                          filled: post.likedByMe,
+                          size: 18,
+                          color: post.likedByMe
+                              ? WynColors.iconLikeActive
+                              : WynColors.iconIdle,
+                        ),
                       ),
                       onPressed: onToggleLike,
                     ),
@@ -259,10 +264,15 @@ class ClubPostCard extends StatelessWidget {
                     label: post.savedByMe ? 'บันทึกแล้ว กดเพื่อเอาออกจาก Saved' : 'กดเพื่อบันทึก',
                     excludeSemantics: true,
                     child: IconButton(
-                      icon: Icon(
-                        post.savedByMe ? Icons.bookmark : Icons.bookmark_border,
-                        size: 17,
-                        color: WynColors.faint,
+                      icon: WynStatePop(
+                        state: post.savedByMe,
+                        child: Icon(
+                          post.savedByMe
+                              ? Icons.bookmark
+                              : Icons.bookmark_border,
+                          size: 17,
+                          color: WynColors.faint,
+                        ),
                       ),
                       onPressed: onToggleSave,
                     ),
