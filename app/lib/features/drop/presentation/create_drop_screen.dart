@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/interaction/wyn_feedback.dart';
 import '../../analytics/data/analytics_repository.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../follow/presentation/close_friends_screen.dart';
@@ -788,9 +789,17 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       unawaited(const AnalyticsRepository().logFirstCoreAction());
 
       if (!mounted) return;
+      // The one action in WYNOS with a real wait in front of it -- the
+      // upload. Success is announced the moment it lands, before the
+      // screen closes, so the confirmation is felt on the composer the
+      // user was watching rather than after the transition. The
+      // double-submit guard is [_canShare] at the top of this method,
+      // unchanged: this adds feedback, not a second code path.
+      WynFeedback.completed();
       Navigator.of(context).pop(true);
     } catch (_) {
       if (!mounted) return;
+      WynFeedback.failed();
       setState(() => _errorMessage = 'แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง');
     } finally {
       if (mounted) setState(() => _isSharing = false);

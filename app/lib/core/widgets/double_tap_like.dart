@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../design/wyn_colors.dart';
+import '../interaction/wyn_feedback.dart';
+import '../interaction/wyn_motion.dart';
 import '../../core/widgets/wyn_heart_icon.dart';
 
 /// Wraps a post's media area (image/video) with Instagram-style
@@ -54,9 +55,14 @@ class DoubleTapLike extends StatefulWidget {
 
 class _DoubleTapLikeState extends State<DoubleTapLike>
     with SingleTickerProviderStateMixin {
+  /// WYNOSHomeSpec.md 4.7's own figure -- left as a literal rather than
+  /// a WynMotion token because it is a one-off "stamp" length spec'd for
+  /// this single animation, not a system duration other widgets share.
+  static const Duration _burstDuration = Duration(milliseconds: 700);
+
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 700),
+    duration: _burstDuration,
   );
 
   // Pops past full size then settles, rather than a flat fade-in --
@@ -90,8 +96,16 @@ class _DoubleTapLikeState extends State<DoubleTapLike>
     // class doc) but shouldn't buzz again since nothing changed.
     if (!widget.alreadyLiked) {
       widget.onLike();
-      HapticFeedback.lightImpact();
+      WynFeedback.like();
     }
+    // The burst is this gesture's *only* visible acknowledgement (the
+    // small heart is elsewhere on the card, often off-screen behind the
+    // photo), so reduced motion shortens it rather than removing it --
+    // the user still sees the heart appear and clear, just without the
+    // 700ms of travel.
+    _controller.duration = WynMotion.isReduced(context)
+        ? WynMotion.emphasized
+        : _burstDuration;
     _controller.forward(from: 0);
   }
 

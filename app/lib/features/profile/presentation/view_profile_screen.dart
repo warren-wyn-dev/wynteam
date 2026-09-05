@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/interaction/wyn_feedback.dart';
 import '../../../core/text_utils.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
@@ -292,7 +292,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     final previous = _isFollowing;
     if (previous == null) return;
     setState(() => _isFollowing = !previous);
-    HapticFeedback.lightImpact();
+    WynFeedback.follow();
     try {
       await widget.followRepository.toggleFollow(
         userId: widget.userId,

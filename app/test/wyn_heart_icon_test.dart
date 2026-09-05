@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wyn/core/design/wyn_colors.dart';
+import 'package:wyn/core/interaction/wyn_state_pop.dart';
 import 'package:wyn/core/widgets/action_metric.dart';
 import 'package:wyn/core/widgets/wyn_heart_icon.dart';
 
@@ -102,9 +103,17 @@ void main() {
           ),
         );
 
+    // Reads the *state-change* pop specifically. This used to search
+    // upward for any ScaleTransition above the heart, which was
+    // unambiguous only while ActionMetric had exactly one scale in it.
+    // It now also has WYNOS's standard press feedback (WynPressScale ->
+    // AnimatedScale, which itself builds a ScaleTransition), so the old
+    // finder matched two widgets and threw "Too many elements". Naming
+    // the pop widget is both unambiguous and a truer statement of what
+    // this group is guarding.
     double heartScale(WidgetTester tester) => tester
-        .widget<ScaleTransition>(find.ancestor(
-          of: find.byType(WynHeartIcon),
+        .widget<ScaleTransition>(find.descendant(
+          of: find.byType(WynStatePop),
           matching: find.byType(ScaleTransition),
         ))
         .scale

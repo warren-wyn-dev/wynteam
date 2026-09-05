@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../design/wyn_spacing.dart';
+import '../interaction/wyn_feedback.dart';
+import '../interaction/wyn_press_scale.dart';
+import '../interaction/wyn_state_pop.dart';
 
 /// A tappable icon+count pair used in a feed card's action bar --
 /// WYNOSHomeSpec.md 4.9 (icon size, per-metric color, and the `gap-1.5`
@@ -51,39 +53,28 @@ class ActionMetric extends StatefulWidget {
   State<ActionMetric> createState() => _ActionMetricState();
 }
 
-class _ActionMetricState extends State<ActionMetric>
-    with SingleTickerProviderStateMixin {
-  // A single, short pop when the metric's *state* changes -- the heart
-  // filling on Like, the arrows filling on ReDrop. Tapping Like was the
-  // most-used interaction in the product and had no feedback at all
-  // beyond the colour swapping instantly; every mature feed acknowledges
-  // it. Driven off the icon changing (rather than fired from the tap)
-  // so it plays for the real state change, including one that arrives
-  // from elsewhere, and does NOT play while scrolling builds new cards.
-  late final AnimationController _pop = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 220),
-    value: 1,
-  );
-  late final Animation<double> _scale = Tween<double>(begin: 0.75, end: 1)
-      .animate(CurvedAnimation(parent: _pop, curve: Curves.easeOutBack));
+class _ActionMetricState extends State<ActionMetric> {
+  /// Held while the finger is down -- WYNOS's standard press feedback
+  /// (WynPressScale), which is separate from the state-change pop
+  /// below: the press scale answers the touch, the pop answers the
+  /// state change, and on a Like the user gets both because both things
+  /// really happened.
+  bool _pressed = false;
 
-  @override
-  void didUpdateWidget(covariant ActionMetric oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.iconState != widget.iconState) _pop.forward(from: 0);
-  }
-
-  @override
-  void dispose() {
-    _pop.dispose();
-    super.dispose();
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
   }
 
   void _handleTap() {
-    // Matches ViewProfileScreen's own Follow button, which already
-    // pairs its state change with a light impact.
-    HapticFeedback.lightImpact();
+    // Every metric on this row is a reversible toggle (or, for comment,
+    // an open) -- light, per the Interaction Feedback System's rules.
+    // The generic [WynFeedback.toggle] rather than [WynFeedback.like]
+    // because this one widget is the heart, the comment button, the
+    // ReDrop arrows and the view count; routing it through WynFeedback
+    // at all is what stops the row drifting away from the Like haptic
+    // DoubleTapLike fires on the very same card.
+    WynFeedback.toggle();
     widget.onTap!();
   }
 
@@ -94,10 +85,23 @@ class _ActionMetricState extends State<ActionMetric>
     final semanticsLabel = widget.semanticsLabel;
     final onTap = widget.onTap;
 
+    // The short pop when the metric's *state* changes -- the heart
+    // filling on Like, the arrows filling on ReDrop -- now the shared
+    // [WynStatePop] rather than this widget's own controller, so the Pop
+    // rail and the Club card get the exact same 220ms instead of three
+    // copies that drift apart.
+    Widget icon = WynStatePop(state: widget.iconState, child: widget.icon);
+    // Press feedback only where there is a press to feed back: the view
+    // count is display-only, and every feed card carries one, so it does
+    // not need an AnimatedScale that can never move.
+    if (onTap != null) {
+      icon = WynPressScale(pressed: _pressed, child: icon);
+    }
+
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ScaleTransition(scale: _scale, child: widget.icon),
+        icon,
         const SizedBox(width: 6),
         Text(
           '${count ?? 0}',
@@ -136,6 +140,11 @@ class _ActionMetricState extends State<ActionMetric>
         ),
         child: InkWell(
           onTap: _handleTap,
+          // Press state comes off the same InkWell that already owns the
+          // tap -- no second gesture recogniser competing for it.
+          onTapDown: (_) => _setPressed(true),
+          onTapUp: (_) => _setPressed(false),
+          onTapCancel: () => _setPressed(false),
           borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
           child: Padding(
             padding: const EdgeInsets.symmetric(

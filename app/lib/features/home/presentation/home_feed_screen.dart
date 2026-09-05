@@ -30,6 +30,7 @@ import 'widgets/suggested_follow_list.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
+import '../../../core/interaction/wyn_feedback.dart';
 import '../../../core/network_error.dart';
 
 enum _HomeFeedMode { forYou, following, fromYourClubs }
@@ -439,6 +440,11 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     final previous = _items[index];
 
     setState(() => _items[index] = _withToggledSave(previous));
+    // Save is reached from the card's overflow sheet, which -- unlike
+    // the action row's Like -- has no haptic of its own. Fired next to
+    // the optimistic state change so the buzz matches what the user
+    // already sees, and rolled back silently below if the write fails.
+    WynFeedback.save();
     final ok = await _serializeWrite(previous, 'save', () {
       if (previous.contentType == HomeContentType.drop) {
         return widget.dropRepository.toggleSave(

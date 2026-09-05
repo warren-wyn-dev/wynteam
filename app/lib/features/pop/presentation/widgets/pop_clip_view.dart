@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../../core/design/wyn_colors.dart';
+import '../../../../core/interaction/wyn_feedback.dart';
+import '../../../../core/interaction/wyn_state_pop.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import '../../../drop/data/drop_repository.dart';
 import '../../../follow/data/follow_repository.dart';
@@ -224,6 +226,10 @@ class _PopClipViewState extends State<PopClipView> {
   Future<void> _toggleLike() async {
     final previous = _pop;
     setState(() => _pop = _pop.toggledLike());
+    // Pop's action rail is plain IconButtons, not ActionMetric, so the
+    // haptic belongs here rather than being inherited from the shared
+    // feed-metric widget.
+    WynFeedback.like();
     try {
       await widget.popRepository.toggleLike(
         popId: previous.id,
@@ -238,6 +244,7 @@ class _PopClipViewState extends State<PopClipView> {
   Future<void> _toggleSave() async {
     final previous = _pop;
     setState(() => _pop = _pop.toggledSave());
+    WynFeedback.save();
     try {
       await widget.popRepository.toggleSave(
         popId: previous.id,
@@ -255,9 +262,11 @@ class _PopClipViewState extends State<PopClipView> {
 
     try {
       await widget.popRepository.deletePop(_pop.id);
+      WynFeedback.deleted();
       widget.onDeleted();
     } catch (_) {
       if (!mounted) return;
+      WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ลบ Pop ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
@@ -477,9 +486,15 @@ class _PopClipViewState extends State<PopClipView> {
                     _pop.likedByMe ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ' : 'กดเพื่อถูกใจ',
                 excludeSemantics: true,
                 child: IconButton(
-                  icon: Icon(
-                    _pop.likedByMe ? Icons.favorite : Icons.favorite_border,
-                    color: _pop.likedByMe ? WynColors.iconLikeActive : Colors.white,
+                  // Same shared state-change pop the feed's ActionMetric
+                  // uses, so Like reads identically on Pop and on Home.
+                  icon: WynStatePop(
+                    state: _pop.likedByMe,
+                    child: Icon(
+                      _pop.likedByMe ? Icons.favorite : Icons.favorite_border,
+                      color:
+                          _pop.likedByMe ? WynColors.iconLikeActive : Colors.white,
+                    ),
                   ),
                   onPressed: _toggleLike,
                 ),
@@ -515,9 +530,12 @@ class _PopClipViewState extends State<PopClipView> {
                     : 'กดเพื่อบันทึก',
                 excludeSemantics: true,
                 child: IconButton(
-                  icon: Icon(
-                    _pop.savedByMe ? Icons.bookmark : Icons.bookmark_border,
-                    color: Colors.white,
+                  icon: WynStatePop(
+                    state: _pop.savedByMe,
+                    child: Icon(
+                      _pop.savedByMe ? Icons.bookmark : Icons.bookmark_border,
+                      color: Colors.white,
+                    ),
                   ),
                   onPressed: _toggleSave,
                 ),
