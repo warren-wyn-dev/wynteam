@@ -291,7 +291,18 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
       _stride = stride;
       _physics = _CardSnapPhysics(
         stride: stride,
-        parent: const ClampingScrollPhysics(),
+        // Founder, 2026-09-05: "รูปสุดท้าย ควรเลื่อน จนสุดเป็นสีขาว" --
+        // dragging past the last (or before the first) card should
+        // rubber-band and reveal plain white the way Threads does,
+        // rather than stopping dead. _CardSnapPhysics's own
+        // createBallisticSimulation already defers entirely to this
+        // parent at either end (see its comment); ClampingScrollPhysics
+        // (Android-style hard stop) was silencing that on every
+        // platform, contradicting this file's own doc comment about a
+        // bounce on iOS. BouncingScrollPhysics gives the same rubber-band
+        // regardless of platform, which is what a single shared widget
+        // needs -- not a platform check.
+        parent: const BouncingScrollPhysics(),
       );
     }
     return _physics!;
@@ -335,6 +346,29 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
         .abs()
         .clamp(0.0, 1.0);
     return 1 + (postCardPeekScale - 1) * distance;
+  }
+
+  /// Which edge [Transform.scale] shrinks card [index] towards.
+  ///
+  /// Founder, 2026-09-05, watching this play back: "เห็นสีขาว ตรงรูปแรก
+  /// ไหม" -- a gap of bare white between the front card and the next one
+  /// peeking in. [Transform.scale]'s default alignment (center) shrinks
+  /// a card in from *both* edges, so a peeking card -- already laid out
+  /// flush against its neighbour -- visibly pulls away from it as it
+  /// recedes. Threads' cards never pull away from each other: the side
+  /// facing the front card has to stay put while only the far side
+  /// recedes. A card ahead of the current scroll position (peeking on
+  /// the right) anchors its left edge; a card already scrolled past
+  /// (peeking on the left) anchors its right edge. Exactly at a card's
+  /// own resting position its scale is 1, so which edge is anchored
+  /// stops mattering right as the two would otherwise disagree.
+  Alignment _scaleAlignmentFor(int index, double stride) {
+    if (!_controller.hasClients || stride <= 0) {
+      return index <= _index ? Alignment.centerRight : Alignment.centerLeft;
+    }
+    return index * stride >= _controller.position.pixels
+        ? Alignment.centerLeft
+        : Alignment.centerRight;
   }
 
   @override
@@ -384,6 +418,7 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
                   // layout and desync _CardSnapPhysics's fixed stride
                   // from where cards actually end up).
                   scale: _scaleFor(index, stride),
+                  alignment: _scaleAlignmentFor(index, stride),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(WynSpacing.radiusLg),
                     child: SizedBox(
