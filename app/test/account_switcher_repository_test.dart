@@ -148,6 +148,29 @@ void main() {
       expect(accounts.single.displayName, 'Worapon');
     });
 
+    // Regression: every row in AccountSwitcherSheet showed a fallback
+    // initial instead of the account's real avatar, because this method
+    // never stored one at all -- `StoredAccount.avatarUrl` stayed null for
+    // every account regardless of what its `profiles.avatar_url` actually
+    // was.
+    test('also stores the session account\'s avatarUrl', () async {
+      final session = Session(
+        accessToken: 'at',
+        tokenType: 'bearer',
+        refreshToken: 'rt-captured',
+        user: _fakeUser('u1'),
+      );
+
+      await repository.captureCurrentAccount(
+        session: session,
+        username: 'worapon',
+        avatarUrl: 'https://example.com/avatar.png',
+      );
+
+      final accounts = await repository.loadAccounts();
+      expect(accounts.single.avatarUrl, 'https://example.com/avatar.png');
+    });
+
     test('silently does nothing when the session has no refresh token', () async {
       final session = Session(
         accessToken: 'at',

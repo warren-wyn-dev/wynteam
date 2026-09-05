@@ -19,6 +19,7 @@ class OnboardingState {
     required this.displayName,
     required this.hasPassword,
     required this.completed,
+    this.avatarUrl,
   });
 
   /// A brand-new sign-in (no `profiles` row yet, no `profile_private` row
@@ -35,6 +36,13 @@ class OnboardingState {
   final bool hasDateOfBirth;
   final String? username;
   final String? displayName;
+
+  /// Read alongside [username]/[displayName] purely so AuthGate's
+  /// [AccountSwitcherRepository.captureCurrentAccount] call has an avatar
+  /// to store -- unused by [resumeStep], since Profile Optional (where an
+  /// avatar is actually set) already comes after every field that
+  /// determines resume position.
+  final String? avatarUrl;
 
   /// True once the account has a password credential -- either it signed
   /// up with email+password directly (already has one), or it completed
