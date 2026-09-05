@@ -18,12 +18,21 @@ class ClubMembersTab extends StatefulWidget {
     required this.club,
     required this.myRole,
     required this.onChanged,
+    required this.onInvite,
   });
 
   final ClubRepository clubRepository;
   final Club club;
   final ClubMemberRole? myRole;
   final VoidCallback onChanged;
+
+  /// Opens the same share-to-chat flow ClubPage's own "แชร์" header
+  /// button already uses (ShareToChatScreen, SharedContentType.club) --
+  /// inviting someone to a Club and sending them its shareable card are
+  /// the same real action, so this reuses that flow rather than a
+  /// separate one. Founder request: a Club should have "ปุ่มเชิญคนอื่น
+  /// เข้ากลุ่ม" (an invite-others button).
+  final VoidCallback onInvite;
 
   @override
   State<ClubMembersTab> createState() => _ClubMembersTabState();
@@ -294,6 +303,23 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
       onRefresh: _load,
       child: ListView(
         children: [
+          // Only an approved member can invite -- there is nothing to
+          // invite people *into* from outside the Club, and a non-member
+          // never reaches this tab's real content in the first place
+          // (see ClubPage's role gating).
+          if (widget.myRole != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  WynSpacing.space4, WynSpacing.space4, WynSpacing.space4, 0),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: widget.onInvite,
+                  icon: const Icon(Icons.person_add_alt_outlined),
+                  label: const Text('เชิญเพื่อน'),
+                ),
+              ),
+            ),
           if (pending.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),

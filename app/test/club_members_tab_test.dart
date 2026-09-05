@@ -117,6 +117,7 @@ void main() {
     WidgetTester tester,
     RecordingClubRepository repo, {
     required ClubMemberRole? myRole,
+    VoidCallback? onInvite,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -126,6 +127,7 @@ void main() {
             club: club,
             myRole: myRole,
             onChanged: () {},
+            onInvite: onInvite ?? () {},
           ),
         ),
       ),
@@ -240,6 +242,31 @@ void main() {
 
     expect(find.byKey(const ValueKey('member-menu-viewer')), findsNothing);
     expect(find.byKey(const ValueKey('member-menu-u-member-2')), findsNothing);
+  });
+
+  group('Invite button', () {
+    testWidgets('is shown for an approved member and calls onInvite when tapped',
+        (tester) async {
+      var invited = false;
+      await pumpTab(
+        tester,
+        memberViewingMemberRepo,
+        myRole: ClubMemberRole.member,
+        onInvite: () => invited = true,
+      );
+
+      expect(find.text('เชิญเพื่อน'), findsOneWidget);
+      await tester.tap(find.text('เชิญเพื่อน'));
+      await tester.pump();
+
+      expect(invited, isTrue);
+    });
+
+    testWidgets('is hidden for a non-member (myRole null)', (tester) async {
+      await pumpTab(tester, memberViewingMemberRepo, myRole: null);
+
+      expect(find.text('เชิญเพื่อน'), findsNothing);
+    });
   });
 
   group('Pending-requests section', () {
