@@ -88,3 +88,11 @@ Widget test แยกสำหรับ `HomeDropCard` เอง (ไม่ต�
 
 รอ PM/Founder ตัดสินว่าจะเปิด task ใหม่ (แนะนำ WYN-096e หรือเลขใหม่) หรือรวมกับงานถัดไปที่แตะ
 `home_drop_card.dart` — เมื่อแก้แล้วให้ QA ตรวจ 320/360/390/430 ซ้ำทั้ง Home feed และ 3 แท็บโปรไฟล์
+
+## QA รอบ 2 (2026-09-05) — ยืนยันซ้ำว่ายังไม่ถูกแก้ ยังนอกขอบเขต
+
+รันซ้ำ `app/test/qa_wyn110_profile_scroll_header_test.dart` กลุ่ม "6." หลัง WYN-110/WYN-111 อยู่บน
+branch เดียวกัน — เคส 320px ยังคง fail ด้วย error เดิมเป๊ะ (`home_drop_card.dart:534`, ล้น 3px) ยืนยัน
+`git diff de4b4b0..HEAD -- app/lib/features/home/presentation/widgets/home_drop_card.dart` ว่างเปล่า —
+ไฟล์นี้ไม่ถูกแตะโดยทั้ง WYN-110-001 (fix guard) และ WYN-111 (carousel scale) เลย จึงยังไม่บล็อกการ
+อนุมัติทั้ง 2 งานตามเดิม รอ PM/Founder เปิด task แยกเช่นเดิม

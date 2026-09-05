@@ -163,3 +163,33 @@ coding/debug agent) — ส่งกลับให้ QA พิจารณา�
 
 `flutter analyze`: 0 issues. `flutter test` เต็มชุด: 1158/1162 ผ่าน (4 ที่เหลือคือ 3 เคสข้างต้น +
 QA-WYN-110-002 ที่ทราบอยู่แล้วว่านอกขอบเขต)
+
+## QA รอบ 2 (2026-09-05) — ยืนยันปิดบั๊กจริง + วิเคราะห์ delta ของ Debug Engineer ถูกต้อง
+
+ตรวจสอบการวิเคราะห์ "Fix Applied" ข้างบนเองอิสระ (อ่าน Flutter framework source
+`flutter_test/lib/src/controller.dart` โดยตรง: `scrollUntilVisible` แปลง `delta` เป็น
+`moveStep = Offset(0, -delta)` สำหรับ `AxisDirection.down`, และ `dragUntilVisible`'s docstring
+ยืนยัน "a negative Offset.dy swipes up, revealing items below") — **การวิเคราะห์ถูกต้อง 100%** ยืนยัน
+ด้วยการรันจริง: ก่อนแก้ delta เทสต์ fail ที่บรรทัด `scrollUntilVisible(..., -300, ...)` ด้วย
+`StateError: Bad state: No element` เป๊ะตามที่รายงานไว้ (ไม่ fail ที่ `expect(...Calls, 2)` อีกต่อไป —
+ยืนยันว่า core fix ของบั๊กนี้ถูกต้องแล้วจริง)
+
+แก้ `app/test/qa_wyn110_profile_scroll_header_test.dart` เองตามคำแนะนำ (delta `-300` → `300` ทั้ง 3
+จุด) พบบั๊กที่ 2 ในเทสต์ของ QA เองซ้อนอยู่หลังจากนั้น (ถูกบั๊กแรกบังไว้ตลอด): `expect(find.byType(
+HomeDropCard), findsNWidgets(pageSize + 2))` เป็นการเช็คที่ผิดหลักการสำหรับ list ที่ build แบบ lazy —
+`CustomScrollView`/`SliverList.separated` ไม่ mount widget ทั้งหมดพร้อมกัน มีแค่แถวที่อยู่ในหรือใกล้
+viewport เท่านั้น (วัดได้จริง: พบแค่ 4 widgets จาก 23 ที่คาดไว้) แก้โดยเปลี่ยนเป็นเช็ค
+`findsOneWidget` ที่แถวสุดท้าย (พิสูจน์ไม่มี duplicate ที่ tail) + scroll กลับขึ้นไปเช็ค
+`findsOneWidget` ที่แถวแรกของ page 0 (พิสูจน์ไม่มี corruption ที่ head) แทน — ไม่ลดความเข้มงวดของสิ่งที่
+พิสูจน์จริง (duplicate ValueKey ยังคงถูกจับด้วย `tester.takeException()` ตลอดทั้งเทสต์เหมือนเดิม)
+
+เพิ่มเทสต์ QA รอบ 2 อีก 3 ตัว (group "7.") พยายาม break guard fix เพิ่มเติมตามที่ได้รับมอบหมาย: fast
+fling ผ่าน threshold, ลากติดกันหลายครั้งโดยไม่รอ settle ระหว่างกลาง, สลับทิศทางกลางคัน (ลากลงผ่าน
+threshold แล้วลากขึ้นทันทีก่อนเฟรมถัดไป) — **ทั้ง 3 กรณี fetch หน้าถัดไปครั้งเดียวพอดี (`Calls == 2`)
+ไม่มี over-fetch หลุดออกมาอีกเลย** ยืนยันว่า fix ของ Debug Engineer ปิดช่องโหว่ได้ครบจริง ไม่ใช่แค่กรณี
+`tester.drag()` เดี่ยวที่เทสต์เดิมใช้
+
+`flutter analyze`: 0 issues (หลังลบ import `home_drop_card.dart` ที่ไม่ใช้แล้วออกจากไฟล์เทสต์นี้).
+`flutter test` เต็มชุด: 1163/1164 ผ่าน (เหลือแค่ QA-WYN-110-002 ที่ทราบอยู่แล้วว่านอกขอบเขต) —
+**Bug นี้ถือว่าปิดแล้ว ไม่มีการ over-fetch หลงเหลือในทุกกรณีที่ทดสอบ** ดูรายงาน QA รอบ 2 เต็มที่
+`.wyn/docs/qa/wyn-110-111-round2-qa.md`

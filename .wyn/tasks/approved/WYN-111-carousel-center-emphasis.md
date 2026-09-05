@@ -1,6 +1,7 @@
 # Design Task — WYN-111
 
-Status: active (Founder อนุมัติ preview แล้ว 2026-09-05 — "ทำเลย" — ส่งต่อ AI Coding)
+Status: approved (QA รอบ 2 ผ่าน 2026-09-05 — ดู `.wyn/docs/qa/wyn-110-111-round2-qa.md` — ส่งต่อ AI
+Deploy & DevOps)
 Owner: AI Design → AI Coding
 Screen: `PostImageCarousel` (`core/widgets/post_media.dart`) — ใช้ร่วมกัน 3 หน้า: การ์ดฟีด Home,
 Drop Detail, Club

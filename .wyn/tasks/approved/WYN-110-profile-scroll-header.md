@@ -1,6 +1,7 @@
 # Design Task — WYN-110
 
-Status: active (Founder อนุมัติ preview แล้ว 2026-09-05 — "ทำเลย" — ส่งต่อ AI Coding)
+Status: approved (QA รอบ 2 ผ่าน 2026-09-05 — ดู `.wyn/docs/qa/wyn-110-111-round2-qa.md` — ส่งต่อ AI
+Deploy & DevOps)
 Owner: AI Design → AI Coding
 Screen: `ViewProfileScreen` (ทั้งโปรไฟล์ตัวเองและโปรไฟล์คนอื่น)
 Purpose: แก้บั๊กที่ Founder รายงาน — หัวโปรไฟล์ไม่เลื่อนหายไปตามการเลื่อนโพสต์ กินพื้นที่จอค้างไว้
