@@ -244,7 +244,17 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     _loadInitial();
     _loadSafetyState();
     _loadConversationMeta();
-    widget.chatRepository.markConversationRead(widget.conversationId);
+    // .catchError (not a bare call) on purpose: PostgrestBuilder is a
+    // lazy Future -- it implements Future<T> but only actually sends
+    // the request from inside its own then() override (see
+    // postgrest_builder.dart's `then()`/`_execute()`). A bare,
+    // un-awaited call here was a complete no-op every single time --
+    // markConversationRead()'s RPC never reached the server at all, not
+    // just a timing race, which is why the Home badge stayed stuck no
+    // matter how many times or how quickly the refresh trigger fired.
+    widget.chatRepository
+        .markConversationRead(widget.conversationId)
+        .catchError((_) {});
     _scrollController.addListener(_onScroll);
     _channel = widget.chatRepository.subscribeToConversationMessages(
       widget.conversationId,
@@ -313,7 +323,11 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     if (_messages.any((m) => m.id == message.id)) return;
     setState(() => _messages.insert(0, message));
     if (message.senderId != _myUserId) {
-      widget.chatRepository.markConversationRead(widget.conversationId);
+      // .catchError -- see the identical call in initState for why a
+      // bare call here never actually reaches the server at all.
+      widget.chatRepository
+          .markConversationRead(widget.conversationId)
+          .catchError((_) {});
     }
   }
 
