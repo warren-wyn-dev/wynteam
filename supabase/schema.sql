@@ -7627,6 +7627,18 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  -- "Today" means the Thai calendar day (00:00-23:59 Asia/Bangkok), not
+  -- a rolling 24-hour window ending at whatever instant the RPC happens
+  -- to run -- Founder feedback ("24ชม นับจาก 00:00-23:59 ของแต่ละวัน
+  -- เวลาไทย จะได้เข้าใจง่ายๆ"). A rolling window is left alone for a
+  -- stat with no fixed reset time (DAU/WAU/MAU below), but every
+  -- *_today/*_24h column here answers "what happened today" in the one
+  -- calendar sense a person actually means -- Bangkok's, not whatever
+  -- timezone this database session happens to default to (Supabase
+  -- projects default to UTC, 7 hours behind Bangkok). Computed once so
+  -- every *_today/*_24h column below shares the exact same boundary.
+  v_today_start timestamptz := date_trunc('day', now() at time zone 'Asia/Bangkok') at time zone 'Asia/Bangkok';
 begin
   -- coalesce() is load-bearing, not decoration: current_platform_role()
   -- returns NULL for a caller with no `profiles` row at all, and
@@ -7711,7 +7723,7 @@ begin
         )
       ) as completed_count
     from signup_started_rows s
-    where s.created_at >= now() - interval '1 day'
+    where s.created_at >= v_today_start
   ),
   -- Activation: of users whose signup_completed (onboarding finished --
   -- see the Design spec) fell in the last 24h, what share did their
@@ -7728,7 +7740,7 @@ begin
         )
       ) as activated_count
     from signup_completed_rows c
-    where c.created_at >= now() - interval '1 day'
+    where c.created_at >= v_today_start
   ),
   -- D1 retention cohort: users who completed signup in the [2, 3) days-
   -- ago bucket -- old enough that their "day 1 after signup" window has
@@ -7782,22 +7794,22 @@ begin
     limit 5
   )
   select
-    (select count(*) from public.profiles where created_at >= now() - interval '1 day'),
+    (select count(*) from public.profiles where created_at >= v_today_start),
     (select count(distinct actor_id) from actions where created_at >= now() - interval '1 day'),
     (select count(distinct actor_id) from actions where created_at >= now() - interval '7 days'),
     (select count(distinct actor_id) from actions where created_at >= now() - interval '30 days'),
-    (select count(*) from public.drops where created_at >= now() - interval '1 day'),
-    (select count(*) from public.drop_views where created_at >= now() - interval '1 day'),
+    (select count(*) from public.drops where created_at >= v_today_start),
+    (select count(*) from public.drop_views where created_at >= v_today_start),
     (select count(*) from public.clubs),
-    (select count(*) from public.clubs where created_at >= now() - interval '1 day'),
-    (select count(*) from public.drop_likes where created_at >= now() - interval '1 day')
-      + (select count(*) from public.pop_likes where created_at >= now() - interval '1 day')
-      + (select count(*) from public.club_post_likes where created_at >= now() - interval '1 day'),
-    (select count(*) from public.drop_comments where created_at >= now() - interval '1 day')
-      + (select count(*) from public.pop_comments where created_at >= now() - interval '1 day')
-      + (select count(*) from public.club_post_comments where created_at >= now() - interval '1 day'),
-    (select count(*) from public.redrops where created_at >= now() - interval '1 day'),
-    (select count(*) from public.messages where deleted_at is null and created_at >= now() - interval '1 day'),
+    (select count(*) from public.clubs where created_at >= v_today_start),
+    (select count(*) from public.drop_likes where created_at >= v_today_start)
+      + (select count(*) from public.pop_likes where created_at >= v_today_start)
+      + (select count(*) from public.club_post_likes where created_at >= v_today_start),
+    (select count(*) from public.drop_comments where created_at >= v_today_start)
+      + (select count(*) from public.pop_comments where created_at >= v_today_start)
+      + (select count(*) from public.club_post_comments where created_at >= v_today_start),
+    (select count(*) from public.redrops where created_at >= v_today_start),
+    (select count(*) from public.messages where deleted_at is null and created_at >= v_today_start),
     (select count(*) from public.reports),
     (select count(*) from public.reports where status = 'pending'),
     (select started_count from conversion_calc),
@@ -7866,6 +7878,14 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  -- Same Bangkok-calendar-day fix as admin_dashboard_metrics()'s
+  -- v_today_start (see that function's own comment) -- "yesterday" here
+  -- must be the same 00:00-23:59 Thai calendar day _today_start's own
+  -- "today" is one day after, not a rolling now()-2d..now()-1d window,
+  -- or the two numbers a person compares side by side on the Dashboard
+  -- would silently be using two different definitions of "day".
+  v_today_start timestamptz := date_trunc('day', now() at time zone 'Asia/Bangkok') at time zone 'Asia/Bangkok';
 begin
   if coalesce(internal.current_platform_role(), '') not in ('admin', 'moderator') then
     raise exception 'Not permitted to view admin dashboard trends';
@@ -7897,36 +7917,41 @@ begin
   ),
   days as (
     select generate_series(
-      date_trunc('day', now()) - interval '13 days',
-      date_trunc('day', now()),
+      v_today_start - interval '13 days',
+      v_today_start,
       interval '1 day'
-    )::date as day
+    ) as day_start
   ),
   daily_dau as (
-    select d.day, count(distinct a.actor_id) as cnt
+    select d.day_start, count(distinct a.actor_id) as cnt
     from days d
     left join actions a
-      on a.created_at >= d.day and a.created_at < d.day + interval '1 day'
-    group by d.day
+      on a.created_at >= d.day_start and a.created_at < d.day_start + interval '1 day'
+    group by d.day_start
   )
   select
     (select count(*) from public.profiles
-      where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day'),
+      where created_at >= v_today_start - interval '1 day' and created_at < v_today_start),
     (select count(*) from public.drops
-      where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day'),
+      where created_at >= v_today_start - interval '1 day' and created_at < v_today_start),
     (select count(*) from public.drop_views
-      where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day'),
-    (select count(*) from public.drop_likes where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day')
-      + (select count(*) from public.pop_likes where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day')
-      + (select count(*) from public.club_post_likes where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day'),
-    (select count(*) from public.drop_comments where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day')
-      + (select count(*) from public.pop_comments where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day')
-      + (select count(*) from public.club_post_comments where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day'),
+      where created_at >= v_today_start - interval '1 day' and created_at < v_today_start),
+    (select count(*) from public.drop_likes where created_at >= v_today_start - interval '1 day' and created_at < v_today_start)
+      + (select count(*) from public.pop_likes where created_at >= v_today_start - interval '1 day' and created_at < v_today_start)
+      + (select count(*) from public.club_post_likes where created_at >= v_today_start - interval '1 day' and created_at < v_today_start),
+    (select count(*) from public.drop_comments where created_at >= v_today_start - interval '1 day' and created_at < v_today_start)
+      + (select count(*) from public.pop_comments where created_at >= v_today_start - interval '1 day' and created_at < v_today_start)
+      + (select count(*) from public.club_post_comments where created_at >= v_today_start - interval '1 day' and created_at < v_today_start),
     (select count(*) from public.redrops
-      where created_at >= now() - interval '2 days' and created_at < now() - interval '1 day'),
+      where created_at >= v_today_start - interval '1 day' and created_at < v_today_start),
     (select count(*) from public.messages where deleted_at is null
-      and created_at >= now() - interval '2 days' and created_at < now() - interval '1 day'),
-    (select coalesce(jsonb_agg(jsonb_build_object('date', day, 'count', cnt) order by day), '[]'::jsonb)
+      and created_at >= v_today_start - interval '1 day' and created_at < v_today_start),
+    -- day_start is a Bangkok midnight instant -- converted back to
+    -- Bangkok wall-clock time before casting to `date` so the label
+    -- itself can't drift a day off in either direction depending on
+    -- this session's own timezone setting (the same class of bug this
+    -- whole fix is for).
+    (select coalesce(jsonb_agg(jsonb_build_object('date', (day_start at time zone 'Asia/Bangkok')::date, 'count', cnt) order by day_start), '[]'::jsonb)
       from daily_dau);
 end;
 $$;
@@ -7962,13 +7987,23 @@ begin
 
   return query
   select
-    (select count(*) from public.profiles where created_at >= date_trunc('day', now())),
+    -- Bangkok calendar boundaries, not whatever timezone this database
+    -- session defaults to (Supabase projects default to UTC, 7 hours
+    -- behind Bangkok) -- same fix, and the same Founder feedback, as
+    -- admin_dashboard_metrics()'s v_today_start. date_trunc(..., now())
+    -- with no explicit zone was silently rolling "today" over at 07:00
+    -- Thai time instead of midnight.
+    (select count(*) from public.profiles
+      where created_at >= date_trunc('day', now() at time zone 'Asia/Bangkok') at time zone 'Asia/Bangkok'),
     -- date_trunc('week', ...) starts on Monday (ISO 8601), matching the
     -- Thai business-week convention already assumed elsewhere in this
     -- schema (nothing here currently disagrees with it).
-    (select count(*) from public.profiles where created_at >= date_trunc('week', now())),
-    (select count(*) from public.profiles where created_at >= date_trunc('month', now())),
-    (select count(*) from public.profiles where created_at >= date_trunc('year', now()));
+    (select count(*) from public.profiles
+      where created_at >= date_trunc('week', now() at time zone 'Asia/Bangkok') at time zone 'Asia/Bangkok'),
+    (select count(*) from public.profiles
+      where created_at >= date_trunc('month', now() at time zone 'Asia/Bangkok') at time zone 'Asia/Bangkok'),
+    (select count(*) from public.profiles
+      where created_at >= date_trunc('year', now() at time zone 'Asia/Bangkok') at time zone 'Asia/Bangkok');
 end;
 $$;
 
