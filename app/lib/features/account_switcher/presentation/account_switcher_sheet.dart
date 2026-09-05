@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../auth/presentation/auth_method_screen.dart';
+import '../../home/presentation/widgets/verified_badge.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../../push/data/push_token_repository.dart';
 import '../../push/presentation/push_notification_service.dart';
@@ -247,7 +248,22 @@ class _AccountRow extends StatelessWidget {
         fallbackText: account.username,
         radius: 20,
       ),
-      title: Text(account.nameOrUsername),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              account.nameOrUsername,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (account.isVerified) ...[
+            const SizedBox(width: WynSpacing.space1),
+            const VerifiedBadge(),
+          ],
+        ],
+      ),
       subtitle: Text('@${account.username}'),
       trailing: isSwitching
           ? const SizedBox(

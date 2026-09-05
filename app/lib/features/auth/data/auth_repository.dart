@@ -191,7 +191,7 @@ class AuthRepository {
     final row = await _client
         .from('profiles')
         .select(
-            'username, display_name, avatar_url, profile_private(date_of_birth, password_set, onboarding_completed)')
+            'username, display_name, avatar_url, is_verified, profile_private(date_of_birth, password_set, onboarding_completed)')
         .eq('id', user.id)
         .maybeSingle();
     if (row == null) return OnboardingState.notStarted();
@@ -204,6 +204,7 @@ class AuthRepository {
       username: row['username'] as String?,
       displayName: row['display_name'] as String?,
       avatarUrl: row['avatar_url'] as String?,
+      isVerified: row['is_verified'] as bool? ?? false,
       hasPassword:
           signedUpWithEmailPassword || (private?['password_set'] as bool? ?? false),
       completed: private?['onboarding_completed'] as bool? ?? false,
