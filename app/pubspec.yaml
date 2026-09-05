@@ -42,6 +42,16 @@ dependencies:
   # reverse geocoding) goes through the new `location-search` Edge
   # Function (LocationIQ), never this package directly.
   geolocator: ^13.0.2
+  # "Add to Home Screen" banner (AddToHomeScreenBanner) -- only ever
+  # imported from pwa_display_mode_web.dart, itself only ever reached
+  # via a conditional import guarded on `dart.library.js_interop` (a
+  # web-only compile target), so this dependency is inert on
+  # Android/iOS builds. Already present transitively (supabase_flutter
+  # and others depend on it); declared directly here because
+  # pwa_display_mode_web.dart imports it by name, and pub only allows
+  # importing a package a pubspec actually lists as a dependency of its
+  # own, not merely a transitive one.
+  web: ^1.1.0
 
 dev_dependencies:
   flutter_test:
