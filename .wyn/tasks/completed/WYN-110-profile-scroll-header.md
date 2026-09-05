@@ -21,3 +21,12 @@ Handoff:
 3. เทสต์คุม: header เลื่อนหายได้จริง, TabBar sticky, infinite-scroll, pull-to-refresh,
    ตำแหน่งเลื่อนต่อแท็บไม่รีเซ็ตตอนสลับแท็บ
 4. flutter analyze + flutter test ผ่านครบ
+
+---
+
+## COMPLETED — 2026-09-05
+
+Deploy ขึ้น production แล้ว (workflow run #64, commit `ee917d1`) และ **Founder ยืนยันด้วยตาแล้วว่า
+ใช้งานได้จริงบน `wynos.online`** ("โอเคแล้ว")
+
+Deployment log: `.wyn/logs/deployments/2026-09-05-wyn-110-111-real-deploy.md`
