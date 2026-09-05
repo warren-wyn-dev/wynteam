@@ -130,4 +130,35 @@ void main() {
     expect(clubRepo.lastCreateImageBytes, isNull);
     expect(clubRepo.lastCreateImageExtension, isNull);
   });
+
+  testWidgets(
+      'a fast double-tap on "สร้าง Club" -- before the button has a '
+      'chance to disable itself -- still creates only one Club',
+      (tester) async {
+    await pumpScreen(tester);
+
+    await tester.enterText(_clubNameField(), 'ชมรมถ่ายภาพ');
+    await tester.ensureVisible(find.text('สาธารณะ'));
+    await tester.tap(find.text('สาธารณะ'));
+    await tester.pump();
+
+    // Grabs the button's *current* onPressed closure and invokes it
+    // twice directly, rather than tapping twice: a real fast double-tap
+    // is two pointer events resolved against the same not-yet-rebuilt
+    // element, both routed to the one onPressed callback that widget
+    // was built with -- calling that captured closure twice reproduces
+    // exactly that, deterministically, without depending on whether
+    // flutter_test happens to have pumped a frame between two tap()
+    // calls (it can, depending on layout, and then the second tap can
+    // silently miss the widget instead of exercising the race at all).
+    // Without the guard this reproduces WYN-004's bug class: two Clubs
+    // named "ชมรมถ่ายภาพ" (schema has no unique constraint on the name).
+    final onPressed =
+        tester.widget<FilledButton>(createButtonFinder()).onPressed!;
+    onPressed();
+    onPressed();
+    await tester.pumpAndSettle();
+
+    expect(clubRepo.createClubCalls, 1);
+  });
 }
