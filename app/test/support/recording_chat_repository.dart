@@ -79,6 +79,13 @@ class RecordingChatRepository extends ChatRepository {
   int deleteMessageCalls = 0;
   String? lastDeleteMessageId;
 
+  /// The full message [deleteMessage] was last called with -- lets a
+  /// test confirm the caller (ConversationScreen) still threads the
+  /// whole [ChatMessage] through (specifically its `imageUrl`), not just
+  /// the id, now that the real ChatRepository needs it to also clean up
+  /// the message's storage object.
+  ChatMessage? lastDeletedMessage;
+
   Map<String, bool> mutedConversations = const {};
   int muteCalls = 0;
   int unmuteCalls = 0;
@@ -182,9 +189,10 @@ class RecordingChatRepository extends ChatRepository {
   }
 
   @override
-  Future<void> deleteMessage(String messageId) async {
+  Future<void> deleteMessage(ChatMessage message) async {
     deleteMessageCalls++;
-    lastDeleteMessageId = messageId;
+    lastDeleteMessageId = message.id;
+    lastDeletedMessage = message;
     final error = deleteMessageError;
     if (error != null) throw error;
   }

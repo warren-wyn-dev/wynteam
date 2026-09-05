@@ -267,8 +267,30 @@ class ChatRepository {
     return ChatMessage.fromMap(row);
   }
 
-  Future<void> deleteMessage(String messageId) {
-    return _client.rpc('delete_message', params: {'p_message_id': messageId});
+  /// Also best-effort deletes the underlying `chat-media` storage object
+  /// when [message] carried an image -- `delete_message()` itself only
+  /// ever nulled `messages.image_url` (the DB reference), leaving the
+  /// actual file orphaned in storage forever regardless of how many
+  /// messages got "deleted" (confirmed by reading that function in
+  /// supabase/schema.sql: it has never touched `storage.objects`).
+  /// Takes the full [ChatMessage], not just its id, because the storage
+  /// path lives in [ChatMessage.imageUrl] -- the RPC call below nulls it
+  /// in the same statement that sets `deleted_at`, so there is no way to
+  /// recover the path afterward.
+  Future<void> deleteMessage(ChatMessage message) async {
+    await _client.rpc('delete_message', params: {'p_message_id': message.id});
+    final path = message.imageUrl;
+    if (path != null) {
+      try {
+        await _client.storage.from(_bucket).remove([path]);
+      } catch (_) {
+        // Best-effort, deliberately: a failure here must never surface
+        // as "delete failed" once the message itself (the thing the
+        // user actually asked to delete) already succeeded. Worst case
+        // is an orphaned file -- the same pre-existing condition this
+        // change fixes going forward, not a new failure mode.
+      }
+    }
   }
 
   Future<ChatMessage?> fetchMessage(String messageId) async {

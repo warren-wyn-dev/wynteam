@@ -33,6 +33,7 @@ void main() {
     String id = 'm1',
     String senderId = 'other',
     String? text = 'สวัสดี',
+    String? imageUrl,
     String? replyToMessageId,
     DateTime? deletedAt,
   }) =>
@@ -42,6 +43,7 @@ void main() {
         senderId: senderId,
         createdAt: DateTime.now().subtract(const Duration(minutes: 1)),
         text: text,
+        imageUrl: imageUrl,
         replyToMessageId: replyToMessageId,
         deletedAt: deletedAt,
       );
@@ -168,6 +170,40 @@ void main() {
     expect(chatRepo.deleteMessageCalls, 1);
     expect(chatRepo.lastDeleteMessageId, 'm1');
     expect(find.text('ข้อความนี้ถูกลบ'), findsOneWidget);
+  });
+
+  // Regression: ChatRepository.deleteMessage now needs the message's
+  // imageUrl (not just its id) to also clean up the underlying
+  // chat-media storage object -- delete_message() itself only ever
+  // nulled the DB reference, leaving the file orphaned forever. This
+  // proves ConversationScreen still passes the *whole* message through
+  // after that signature change, not just `message.id`.
+  testWidgets(
+      'deleting my own image message passes the full message (with its '
+      'imageUrl) to deleteMessage', (tester) async {
+    chatRepo.messagesByConversation = {
+      'c1': [
+        message(
+          id: 'm1',
+          senderId: 'me',
+          text: null,
+          imageUrl: 'c1/me-123.jpg',
+        ),
+      ],
+    };
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.byIcon(Icons.image_outlined).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ลบ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ลบ').last);
+    await tester.pumpAndSettle();
+
+    expect(chatRepo.deleteMessageCalls, 1);
+    expect(chatRepo.lastDeletedMessage?.id, 'm1');
+    expect(chatRepo.lastDeletedMessage?.imageUrl, 'c1/me-123.jpg');
   });
 
   testWidgets(

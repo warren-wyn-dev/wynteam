@@ -36,7 +36,11 @@
 #       their own mute row, never another user's.
 #   11. RLS on the `chat-media` storage bucket: a participant can
 #       INSERT under their conversation's folder, a non-participant
-#       cannot.
+#       cannot. A sender can DELETE their own uploaded object (Founder
+#       feedback -- deleting a message should also free the storage it
+#       used); the *other* participant cannot delete it even though
+#       they're a participant too, and the sender cannot delete an
+#       object that isn't theirs.
 #   12. mark_conversation_read()/count_unread_conversations(): unread
 #       count is 1 right after the other side sends, and drops to 0
 #       after the caller marks the conversation read -- and
@@ -157,7 +161,7 @@ $$;
 grant usage on schema public to authenticated, anon;
 grant usage on schema storage to authenticated, anon;
 alter default privileges in schema public grant select, insert, update, delete on tables to authenticated;
-grant select, insert on storage.objects to authenticated;
+grant select, insert, delete on storage.objects to authenticated;
 grant select on storage.buckets to authenticated;
 EOF
 
@@ -746,6 +750,57 @@ begin
     insert into results values ('CHECK26_non_participant_upload_rejected', 1, 1);
   end;
   reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+
+  -- CHECK27-28 use a fresh object named the way ChatRepository.
+  -- sendMessage() actually names one in production --
+  -- {sender_id}-{timestamp}.ext, the real uuid, not CHECK25/26's
+  -- human-readable "alice-1.jpg"/"sneaky.jpg" stand-ins (which the
+  -- DELETE policy's own uid-prefix match would never recognize as
+  -- alice's). Inserted as alice, bypassing the INSERT policy check via
+  -- superuser reconnect further down is unnecessary here since alice is
+  -- already a legitimate participant -- reuse her own role/claims.
+  set role authenticated;
+  set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+  set request.jwt.claim.role = 'authenticated';
+  insert into storage.objects (bucket_id, name, owner)
+  values (
+    'chat-media',
+    v_conv_id::text || '/11111111-1111-1111-1111-111111111111-1700000000000.jpg',
+    '11111111-1111-1111-1111-111111111111'
+  );
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+
+  -- CHECK27: bob (a real participant, but not this object's sender)
+  -- cannot delete it -- the storage DELETE policy is scoped to the
+  -- object's own {sender_id}-{timestamp}.ext filename prefix matching
+  -- the caller, not "any participant of this conversation" the way
+  -- SELECT/INSERT are.
+  set role authenticated;
+  set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+  set request.jwt.claim.role = 'authenticated';
+  delete from storage.objects
+  where bucket_id = 'chat-media'
+    and name = v_conv_id::text || '/11111111-1111-1111-1111-111111111111-1700000000000.jpg';
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+  insert into results
+  select 'CHECK27_other_participant_cannot_delete_senders_media', count(*), 1
+  from storage.objects
+  where bucket_id = 'chat-media'
+    and name = v_conv_id::text || '/11111111-1111-1111-1111-111111111111-1700000000000.jpg';
+
+  -- CHECK28: alice (the actual uploader) can delete her own object.
+  set role authenticated;
+  set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+  set request.jwt.claim.role = 'authenticated';
+  delete from storage.objects
+  where bucket_id = 'chat-media'
+    and name = v_conv_id::text || '/11111111-1111-1111-1111-111111111111-1700000000000.jpg';
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+  insert into results
+  select 'CHECK28_sender_can_delete_own_media', count(*), 0
+  from storage.objects
+  where bucket_id = 'chat-media'
+    and name = v_conv_id::text || '/11111111-1111-1111-1111-111111111111-1700000000000.jpg';
 end
 $$;
 
@@ -759,7 +814,7 @@ set role authenticated;
 set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 set request.jwt.claim.role = 'authenticated';
 insert into results
-select 'CHECK27_unread_before_mark_read', public.count_unread_conversations(), 1;
+select 'CHECK29_unread_before_mark_read', public.count_unread_conversations(), 1;
 reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
 
 do $$
@@ -782,13 +837,13 @@ set role authenticated;
 set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 set request.jwt.claim.role = 'authenticated';
 insert into results
-select 'CHECK28_unread_zero_after_mark_read', public.count_unread_conversations(), 0;
+select 'CHECK30_unread_zero_after_mark_read', public.count_unread_conversations(), 0;
 reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
 
--- CHECK29: mark_conversation_read() only touched alice's own column --
+-- CHECK31: mark_conversation_read() only touched alice's own column --
 -- bob's own last-read column is still null.
 insert into results
-select 'CHECK29_mark_read_only_touches_callers_own_column',
+select 'CHECK31_mark_read_only_touches_callers_own_column',
   (case when user_b_last_read_at is null then 1 else 0 end), 1
 from public.conversations
 where user_a_id = '11111111-1111-1111-1111-111111111111'::uuid

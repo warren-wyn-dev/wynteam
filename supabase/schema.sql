@@ -11553,3 +11553,45 @@ as $$
 $$;
 
 grant execute on function public.trending_hashtag_candidates(int, int) to authenticated;
+
+-- Founder feedback ("ส่งรูปแล้วอีกฝ่ายกดดูแล้วหาย เหมือน IG จะได้เซฟพื้นที่"):
+-- while scoping that request, found that `delete_message()` (WYN-031,
+-- defined earlier in this file) has never actually deleted anything
+-- from `chat-media` storage -- it only ever nulled `messages.image_url`
+-- (the DB reference), leaving the real file orphaned in the bucket
+-- forever regardless of how many image messages got "deleted". A
+-- storage bucket only ever had SELECT ("Participants can view media in
+-- their conversations") and INSERT ("Participants can upload media to
+-- their conversations") policies -- no DELETE policy existed at all, so
+-- even a client that tried to call `.remove()` on its own uploaded path
+-- would have been rejected by RLS regardless.
+--
+-- This is the fix: lets ChatRepository.deleteMessage() (app/lib/
+-- features/chat/data/chat_repository.dart) actually call
+-- `storage.from('chat-media').remove([path])` for the sender's own
+-- upload. Scoped to the path's own {sender_id}-{timestamp}.ext filename
+-- segment matching the caller's uid -- deliberately *not* the same
+-- "look up the conversation, check auth.uid() is a participant" shape
+-- the SELECT/INSERT policies above use, because the path already
+-- encodes exactly one identity claim that matters here (whoever
+-- uploaded a given object is the only one ever allowed to delete it,
+-- full stop) -- a participant-of-the-conversation check would
+-- additionally let the *other* participant delete a sender's image out
+-- from under them, which is not what "the sender deleted their own
+-- message" means.
+--
+-- Only fixes the problem going forward -- a message already deleted
+-- before this policy existed has `image_url` already null in the DB,
+-- so there is no path left to reconstruct which storage objects are
+-- now orphaned from that history. A one-time sweep (list every
+-- chat-media object, delete whichever isn't referenced by any current
+-- non-deleted message) is a separate, explicit cleanup task, not
+-- something this policy attempts.
+create policy "Senders can delete their own chat media"
+  on storage.objects
+  for delete
+  to authenticated
+  using (
+    bucket_id = 'chat-media'
+    and split_part(name, '/', 2) like (auth.uid()::text || '-%')
+  );
