@@ -531,88 +531,101 @@ class HomeDropCard extends StatelessWidget {
                           // ActionMetric's own internal spacing stays untouched.
                           padding:
                               const EdgeInsets.only(right: homeCardEdgeInset),
-                          child: Row(
-                            children: [
-                              // Heart/comment/repost/eye sizing+color match
-                              // WYNOSHomeSpec.md 4.9's table exactly -- exactly
-                              // these 4 elements now that Share/Bookmark moved
-                              // into the "..." menu (see _openMoreMenu, spec 4.6).
-                              ActionMetric(
-                                icon: WynHeartIcon(
-                                  filled: item.likedByMe,
-                                  size: 17,
+                          // QA-WYN-110-002: at 320px width the 4 ActionMetrics
+                          // + their spacing overflow the available column by
+                          // 3px even at count 0 -- not a long-number problem.
+                          // FittedBox(scaleDown) is a no-op the instant the Row
+                          // already fits (everything 360px and up), and only
+                          // uniformly shrinks by the few percent needed to
+                          // close a few-pixel gap at 320px, rather than a
+                          // breakpoint-specific spacing change.
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Row(
+                              children: [
+                                // Heart/comment/repost/eye sizing+color match
+                                // WYNOSHomeSpec.md 4.9's table exactly -- exactly
+                                // these 4 elements now that Share/Bookmark moved
+                                // into the "..." menu (see _openMoreMenu, spec 4.6).
+                                ActionMetric(
+                                  icon: WynHeartIcon(
+                                    filled: item.likedByMe,
+                                    size: 17,
+                                    color: item.likedByMe
+                                        ? WynColors.iconLikeActive
+                                        : WynColors.iconIdle,
+                                  ),
+                                  iconState: item.likedByMe,
+                                  count: item.likeCount,
                                   color: item.likedByMe
                                       ? WynColors.iconLikeActive
                                       : WynColors.iconIdle,
+                                  semanticsLabel: item.likedByMe
+                                      ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
+                                      : 'กดเพื่อถูกใจ',
+                                  onTap: onToggleLike,
                                 ),
-                                iconState: item.likedByMe,
-                                count: item.likeCount,
-                                color: item.likedByMe
-                                    ? WynColors.iconLikeActive
-                                    : WynColors.iconIdle,
-                                semanticsLabel: item.likedByMe
-                                    ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
-                                    : 'กดเพื่อถูกใจ',
-                                onTap: onToggleLike,
-                              ),
-                              const SizedBox(width: WynSpacing.space5),
-                              ActionMetric(
-                                icon: const Icon(Icons.mode_comment_outlined,
-                                    size: 17, color: WynColors.graphite),
-                                iconState: Icons.mode_comment_outlined,
-                                count: item.commentCount,
-                                color: WynColors.graphite,
-                                semanticsLabel: 'ดูคอมเมนต์',
-                                onTap: onTap,
-                              ),
-                              // WYN-097, Design spec Screen 6: hidden entirely
-                              // (not disabled/greyed) once this post's audience
-                              // isn't "ทุกคน" -- prevents "รีโพสต์ได้แต่คนอื่นเห็น
-                              // แค่บางคน" confusion, same "ซ่อนเองอัตโนมัติ"
-                              // posture the 9-image toolbar limit (WYN-071)
-                              // already established.
-                              if (item.audience == AudienceOption.everyone) ...[
                                 const SizedBox(width: WynSpacing.space5),
                                 ActionMetric(
-                                  icon: Icon(Icons.repeat,
-                                      size: 17,
-                                      color: item.redroppedByMe
-                                          ? WynColors.iconActive
-                                          : WynColors.iconIdle),
-                                  iconState: item.redroppedByMe,
-                                  count: item.redropCount,
-                                  // WYN-089: same active-state color the Focused Action
-                                  // Bar (DropDetailScreen._buildFocusedActionBar) has
-                                  // used for this all along -- only the icon changes
-                                  // color, the count stays graphite (same convention
-                                  // as Like: the number is a total, not a status
-                                  // indicator).
-                                  color: item.redroppedByMe
-                                      ? WynColors.sapphire
-                                      : WynColors.graphite,
-                                  semanticsLabel: item.redroppedByMe
-                                      ? 'รีโพสต์แล้ว กดเพื่อเลือกดำเนินการ'
-                                      : 'กดเพื่อรีโพสต์',
-                                  onTap: () => _openRedropSheet(context),
+                                  icon: const Icon(Icons.mode_comment_outlined,
+                                      size: 17, color: WynColors.graphite),
+                                  iconState: Icons.mode_comment_outlined,
+                                  count: item.commentCount,
+                                  color: WynColors.graphite,
+                                  semanticsLabel: 'ดูคอมเมนต์',
+                                  onTap: onTap,
                                 ),
+                                // WYN-097, Design spec Screen 6: hidden entirely
+                                // (not disabled/greyed) once this post's audience
+                                // isn't "ทุกคน" -- prevents "รีโพสต์ได้แต่คนอื่นเห็น
+                                // แค่บางคน" confusion, same "ซ่อนเองอัตโนมัติ"
+                                // posture the 9-image toolbar limit (WYN-071)
+                                // already established.
+                                if (item.audience ==
+                                    AudienceOption.everyone) ...[
+                                  const SizedBox(width: WynSpacing.space5),
+                                  ActionMetric(
+                                    icon: Icon(Icons.repeat,
+                                        size: 17,
+                                        color: item.redroppedByMe
+                                            ? WynColors.iconActive
+                                            : WynColors.iconIdle),
+                                    iconState: item.redroppedByMe,
+                                    count: item.redropCount,
+                                    // WYN-089: same active-state color the Focused Action
+                                    // Bar (DropDetailScreen._buildFocusedActionBar) has
+                                    // used for this all along -- only the icon changes
+                                    // color, the count stays graphite (same convention
+                                    // as Like: the number is a total, not a status
+                                    // indicator).
+                                    color: item.redroppedByMe
+                                        ? WynColors.sapphire
+                                        : WynColors.graphite,
+                                    semanticsLabel: item.redroppedByMe
+                                        ? 'รีโพสต์แล้ว กดเพื่อเลือกดำเนินการ'
+                                        : 'กดเพื่อรีโพสต์',
+                                    onTap: () => _openRedropSheet(context),
+                                  ),
+                                ],
+                                // WYN-088: hidden on the Home feed (showViewCount:
+                                // false there) -- still shown everywhere else this
+                                // card is reused (Profile's 3 tabs, hashtag feed).
+                                if (showViewCount) ...[
+                                  const SizedBox(width: WynSpacing.space5),
+                                  ActionMetric(
+                                    icon: const Icon(Icons.visibility_outlined,
+                                        size: 16, color: WynColors.faint),
+                                    iconState: Icons.visibility_outlined,
+                                    count: item.viewCount,
+                                    color: WynColors.faint,
+                                    semanticsLabel:
+                                        'เข้าชมแล้ว ${item.viewCount} ครั้ง',
+                                    onTap: null,
+                                  ),
+                                ],
                               ],
-                              // WYN-088: hidden on the Home feed (showViewCount:
-                              // false there) -- still shown everywhere else this
-                              // card is reused (Profile's 3 tabs, hashtag feed).
-                              if (showViewCount) ...[
-                                const SizedBox(width: WynSpacing.space5),
-                                ActionMetric(
-                                  icon: const Icon(Icons.visibility_outlined,
-                                      size: 16, color: WynColors.faint),
-                                  iconState: Icons.visibility_outlined,
-                                  count: item.viewCount,
-                                  color: WynColors.faint,
-                                  semanticsLabel:
-                                      'เข้าชมแล้ว ${item.viewCount} ครั้ง',
-                                  onTap: null,
-                                ),
-                              ],
-                            ],
+                            ),
                           ),
                         ),
                         if (item.topReply != null)
