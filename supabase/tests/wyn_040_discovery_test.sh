@@ -42,6 +42,35 @@
 #       function's declared return type is exactly `TABLE(profile_id
 #       uuid)`, a single column, never a follower-growth/follower-count
 #       number.
+#   16. suggested_users() excludes an incomplete-onboarding account (a
+#       `profiles` row with no matching profile_private with
+#       onboarding_completed = true) -- 2026-09-05 fix, see schema.sql's
+#       own comment on it. Proven by ranking, not just presence: sGhost
+#       has more followers than every real candidate here and would win
+#       p_limit=1 outright without the fix.
+#
+# 2026-09-05: trending_hashtag_candidates() (Founder: "อยากได้เหมือน X")
+# -- a third SECURITY DEFINER RPC added to this same Discovery page
+# area, so its checks live here too rather than in a new file:
+#   17. A Drop from a public account, audience 'everyone', within the
+#       window, appears in the result -- even for a viewer who has
+#       personally blocked its author. Personal blocks must never
+#       affect this RPC -- that is the entire point of the fix (Trending
+#       must be the same for every viewer, the way it is on X).
+#   18. Two totally unrelated callers -- one who blocked the author in
+#       CHECK17, one who has no relationship to anyone in this fixture
+#       at all -- get back the *identical* candidate id set. Not just
+#       "both non-empty": the same ids in the same multiset.
+#   19. A Drop from a private account is excluded even though its own
+#       audience is 'everyone' -- a private account's content is never
+#       "public" regardless of that Drop's own audience setting.
+#   20. A Drop whose audience is 'friends' (not 'everyone') is excluded.
+#   21. A Drop from an author with an active moderation ban is excluded
+#       (internal.is_posting_blocked -- already exhaustively covered by
+#       wyn_041_trending_engine_test.sh; this only proves this RPC
+#       actually calls it, not moderation's own edge cases again).
+#   22. A soft-deleted Drop (deleted_at set) is excluded.
+#   23. A Drop older than the p_hours window is excluded.
 #
 # Requirements: a local PostgreSQL 16 server reachable either as the
 # current OS user or via `sudo -u postgres` (mirrors
@@ -517,6 +546,128 @@ begin
 
   insert into results select 'CHECK15b_suggested_users_returns_only_profile_id',
     case when v_suggested_result = 'TABLE(profile_id uuid)' then 1 else 0 end, 1;
+end
+$$;
+
+-- ------------------------------------------------------------
+-- CHECKS 17-23: trending_hashtag_candidates() -- fixture.
+--
+-- pubAuthor: a normal public account -- its Drop is the one real
+-- candidate every check below expects to see. privAuthor: is_private =
+-- true, otherwise identical Drop (audience 'everyone' too) -- proves
+-- audience alone isn't enough, the account itself has to be public.
+-- bannedAuthor: an active moderation ban. viewerBlocker: personally
+-- blocks pubAuthor (WYN-027) -- and must still see pubAuthor's Drop
+-- here, unlike everywhere else in this app. viewerStranger: no
+-- relationship to anyone in this fixture at all.
+insert into auth.users (id, email) values
+  ('20000000-0000-0000-0000-000000000001', 'pubauthor@test.com'),
+  ('20000000-0000-0000-0000-000000000002', 'privauthor@test.com'),
+  ('20000000-0000-0000-0000-000000000003', 'bannedauthor@test.com'),
+  ('20000000-0000-0000-0000-000000000004', 'viewerblocker@test.com'),
+  ('20000000-0000-0000-0000-000000000005', 'viewerstranger@test.com'),
+  ('20000000-0000-0000-0000-000000000006', 'reporter@test.com'),
+  ('20000000-0000-0000-0000-000000000007', 'reviewer@test.com');
+
+insert into public.profiles (id, username, is_private) values
+  ('20000000-0000-0000-0000-000000000001', 'pubauthor', false),
+  ('20000000-0000-0000-0000-000000000002', 'privauthor', true),
+  ('20000000-0000-0000-0000-000000000003', 'bannedauthor', false),
+  ('20000000-0000-0000-0000-000000000004', 'viewerblocker', false),
+  ('20000000-0000-0000-0000-000000000005', 'viewerstranger', false),
+  ('20000000-0000-0000-0000-000000000006', 'reporter', false),
+  ('20000000-0000-0000-0000-000000000007', 'reviewer', false);
+
+-- WYN-027: viewerBlocker personally blocks pubAuthor. This must have
+-- zero effect on trending_hashtag_candidates() -- CHECK17 is exactly
+-- that assertion.
+insert into public.blocks (blocker_id, blocked_id) values
+  ('20000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000001');
+
+-- bannedAuthor: minimal fixture for an active ban (report_id/reviewer_id
+-- are FK requirements of moderation_actions, not part of what this test
+-- is proving -- internal.is_posting_blocked's own edge cases are
+-- wyn_041_trending_engine_test.sh's job, not this file's).
+insert into public.reports (id, reporter_id, target_type, target_id, category, status) values
+  ('20000000-0000-0000-0000-000000000100',
+   '20000000-0000-0000-0000-000000000006',
+   'user',
+   '20000000-0000-0000-0000-000000000003',
+   'harassment',
+   'actioned');
+insert into public.moderation_actions
+  (id, report_id, target_user_id, reviewer_id, action_type, reason) values
+  ('20000000-0000-0000-0000-000000000101',
+   '20000000-0000-0000-0000-000000000100',
+   '20000000-0000-0000-0000-000000000003',
+   '20000000-0000-0000-0000-000000000007',
+   'ban', 'test fixture ban');
+
+-- One Drop per candidate, each with a caption that IS the hashtag being
+-- tested (nothing else to tokenize) so the checks below can match on
+-- caption text directly instead of tracking Drop ids.
+insert into public.drops (id, author_id, caption, audience, created_at) values
+  ('20000000-0000-0000-0000-000000000201',
+   '20000000-0000-0000-0000-000000000001', '#globaltrend', 'everyone', now() - interval '1 hour'),
+  ('20000000-0000-0000-0000-000000000202',
+   '20000000-0000-0000-0000-000000000002', '#privatetrend', 'everyone', now() - interval '1 hour'),
+  ('20000000-0000-0000-0000-000000000203',
+   '20000000-0000-0000-0000-000000000001', '#friendstrend', 'friends', now() - interval '1 hour'),
+  ('20000000-0000-0000-0000-000000000204',
+   '20000000-0000-0000-0000-000000000003', '#bannedtrend', 'everyone', now() - interval '1 hour'),
+  ('20000000-0000-0000-0000-000000000205',
+   '20000000-0000-0000-0000-000000000001', '#deletedtrend', 'everyone', now() - interval '1 hour'),
+  ('20000000-0000-0000-0000-000000000206',
+   '20000000-0000-0000-0000-000000000001', '#oldtrend', 'everyone', now() - interval '90 hours');
+
+update public.drops set deleted_at = now()
+  where id = '20000000-0000-0000-0000-000000000205';
+
+do $$
+declare
+  v_captions_as_blocker text[];
+  v_captions_as_stranger text[];
+begin
+  -- CHECK17/19-23 as viewerBlocker -- the account that personally
+  -- blocked pubAuthor. Default p_hours/p_limit (48h/100), matching what
+  -- DiscoveryRepository.fetchTrendingHashtags actually calls.
+  set role authenticated;
+  set request.jwt.claim.sub = '20000000-0000-0000-0000-000000000004';
+  set request.jwt.claim.role = 'authenticated';
+  select array_agg(caption) into v_captions_as_blocker
+    from public.trending_hashtag_candidates(48, 100);
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+
+  insert into results select 'CHECK17_global_ignores_viewers_own_block',
+    case when '#globaltrend' = any(v_captions_as_blocker) then 1 else 0 end, 1;
+
+  insert into results select 'CHECK19_excludes_private_account_even_if_audience_everyone',
+    case when '#privatetrend' = any(v_captions_as_blocker) then 1 else 0 end, 0;
+
+  insert into results select 'CHECK20_excludes_non_everyone_audience',
+    case when '#friendstrend' = any(v_captions_as_blocker) then 1 else 0 end, 0;
+
+  insert into results select 'CHECK21_excludes_moderation_banned_author',
+    case when '#bannedtrend' = any(v_captions_as_blocker) then 1 else 0 end, 0;
+
+  insert into results select 'CHECK22_excludes_soft_deleted_drop',
+    case when '#deletedtrend' = any(v_captions_as_blocker) then 1 else 0 end, 0;
+
+  insert into results select 'CHECK23_excludes_drop_older_than_window',
+    case when '#oldtrend' = any(v_captions_as_blocker) then 1 else 0 end, 0;
+
+  -- CHECK18: an unrelated stranger, same call, must see the identical
+  -- multiset of captions -- not just "also non-empty".
+  set role authenticated;
+  set request.jwt.claim.sub = '20000000-0000-0000-0000-000000000005';
+  set request.jwt.claim.role = 'authenticated';
+  select array_agg(caption order by caption) into v_captions_as_stranger
+    from public.trending_hashtag_candidates(48, 100);
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+
+  insert into results select 'CHECK18_identical_result_for_unrelated_caller',
+    case when (select array_agg(c order by c) from unnest(v_captions_as_blocker) c)
+      = v_captions_as_stranger then 1 else 0 end, 1;
 end
 $$;
 

@@ -10,10 +10,15 @@ import 'discovery_ranking.dart';
 /// `SearchScreen` (WYN-009) shown while the query is empty/shorter than
 /// 2 characters. See .wyn/docs/design/wyn-040-discovery-page.md.
 ///
-/// Trending Now/Trending Hashtags reuse `HomeRepository.fetchTrending`
-/// directly rather than duplicating its 48h-window/candidate-fetch
-/// logic here. Rising/Suggested Users call the two new SECURITY
-/// DEFINER RPCs (`rising_profiles`/`suggested_users`, see
+/// Trending Now reuses `HomeRepository.fetchTrending` directly rather
+/// than duplicating its 48h-window/candidate-fetch logic here --
+/// unchanged, still scoped to what the viewer themself can see (a post
+/// grid genuinely showing content, unlike a hashtag name, has to
+/// respect blocks/private accounts/audience the normal way). Trending
+/// Hashtags (2026-09-05: "อยากได้เหมือน X") is the one exception --
+/// see [fetchTrendingHashtags]'s own doc comment for why its candidate
+/// source is a global RPC instead. Rising/Suggested Users call the two
+/// SECURITY DEFINER RPCs (`rising_profiles`/`suggested_users`, see
 /// supabase/schema.sql) -- both return only an already-ranked
 /// `profile_id` list (never the raw ranking signal itself, per the
 /// Design doc's anti-gaming note), which this joins back to full
@@ -78,20 +83,63 @@ class DiscoveryRepository {
     return _homeRepository.fetchTopContent(limit: limit);
   }
 
-  /// "Top 100" (both Discovery's preview and Top100Screen's full list) --
-  /// reuses fetchTrending's own 48h/100-candidate window purely as a
-  /// source of recent captions (passing
-  /// [HomeRepository.trendingCandidateLimit] as the result limit
-  /// returns every candidate in the window, not just the usual top
-  /// 10/30), then ranks by tag frequency via [rankTrendingHashtags].
+  /// "Top 100" (both Discovery's preview and Top100Screen's full list).
+  ///
+  /// 2026-09-05: was `_homeRepository.fetchTrending()` -- the exact same
+  /// viewer-scoped candidate source Trending Now's post grid uses, via
+  /// `public.home_feed` (RLS `security_invoker`). That meant two
+  /// accounts with different block lists, or different follow/audience
+  /// visibility, could see a genuinely different #1 trending hashtag --
+  /// correct for a personalized feed, but this is presented as a single
+  /// leaderboard ("Top 100"), the way X's Trending is: one ranking every
+  /// viewer sees, computed from public content, not filtered by *your*
+  /// personal blocks. Founder, seeing the mismatch first-hand: "อยากได้
+  /// เหมือน X".
+  ///
+  /// Candidates now come from `trending_hashtag_candidates()` (see
+  /// supabase/schema.sql) -- a SECURITY DEFINER RPC scoped to one
+  /// explicit, viewer-independent definition of "public" (audience =
+  /// everyone, non-private author, not under moderation sanction, not
+  /// deleted) instead of the caller's own RLS-scoped view. Same 48h
+  /// window/100-candidate cap [HomeRepository.trendingCandidateLimit]
+  /// already used -- a candidate-source swap, not a behavior change to
+  /// the window itself. The actual ranking is still
+  /// [rankTrendingHashtags] (WYN-101's tested engagement-weighted/
+  /// time-decay formula), completely untouched -- only where its input
+  /// comes from changed. Constructed [HomeFeedItem]s below carry
+  /// placeholder author fields because ranking never reads them (see
+  /// that class's constructor and `rankTrendingHashtags`'s own doc
+  /// comment for the exact 6 fields it does read).
   Future<List<RankedHashtag>> fetchTrendingHashtags({
     int limit = trendingHashtagsLimit,
   }) async {
-    final items = await _homeRepository.fetchTrending(
-      limit: HomeRepository.trendingCandidateLimit,
-    );
+    final rows = await _client.rpc('trending_hashtag_candidates', params: {
+      'p_hours': _trendingHashtagWindowHours,
+      'p_limit': HomeRepository.trendingCandidateLimit,
+    }) as List<dynamic>;
+
+    final items = rows.map((row) => HomeFeedItem(
+          id: row['id'] as String,
+          contentType: HomeContentType.drop,
+          authorId: '',
+          authorUsername: '',
+          createdAt: DateTime.parse(row['created_at'] as String),
+          caption: row['caption'] as String?,
+          likeCount: row['like_count'] as int,
+          commentCount: row['comment_count'] as int,
+          redropCount: row['redrop_count'] as int,
+          viewCount: row['view_count'] as int?,
+          likedByMe: false,
+          savedByMe: false,
+        ));
+
     return rankTrendingHashtags(items, limit: limit);
   }
+
+  /// Matches `HomeRepository._trendingWindow` exactly (48h) -- see
+  /// [fetchTrendingHashtags]'s own doc comment for why this stays in
+  /// sync with that constant rather than picking its own.
+  static const _trendingHashtagWindowHours = 48;
 
   /// "กำลังเติบโต" section -- calls the `rising_profiles()` RPC
   /// (SECURITY DEFINER, see supabase/schema.sql) for an already-ranked,
