@@ -776,13 +776,15 @@ void main() {
       // shows this text now, not also the (already-emptied) TextField.
       expect(find.text('กำลังส่ง'), findsOneWidget);
       expect(find.byIcon(Icons.fiber_manual_record), findsOneWidget);
-      expect(find.byIcon(Icons.check), findsNothing);
+      expect(find.byIcon(Icons.done), findsNothing);
 
       chatRepo.sendMessageGate!.complete();
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.fiber_manual_record), findsNothing);
-      final checkIcon = tester.widget<Icon>(find.byIcon(Icons.check));
+      // A single check for "sent" -- distinct in shape (not just color)
+      // from "read"'s double check, see the test below.
+      final checkIcon = tester.widget<Icon>(find.byIcon(Icons.done));
       expect(checkIcon.color, WynColors.faint);
     });
 
@@ -804,8 +806,11 @@ void main() {
       await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
 
-      var checkIcon = tester.widget<Icon>(find.byIcon(Icons.check));
-      expect(checkIcon.color, WynColors.faint);
+      // Sent (not yet read): a single check.
+      expect(find.byIcon(Icons.done), findsOneWidget);
+      expect(find.byIcon(Icons.done_all), findsNothing);
+      final sentIcon = tester.widget<Icon>(find.byIcon(Icons.done));
+      expect(sentIcon.color, WynColors.faint);
 
       chatRepo.emitConversationMetaUpdate((
         status: 'active',
@@ -814,8 +819,10 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      checkIcon = tester.widget<Icon>(find.byIcon(Icons.check));
-      expect(checkIcon.color, WynColors.sapphire);
+      // Read: a double check, not just the same glyph recolored.
+      expect(find.byIcon(Icons.done), findsNothing);
+      final readIcon = tester.widget<Icon>(find.byIcon(Icons.done_all));
+      expect(readIcon.color, WynColors.sapphire);
     });
   });
 

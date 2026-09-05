@@ -1827,10 +1827,14 @@ class _DeliveryStatusIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A single vs. double check -- not just a color swap -- so "sent"
+    // and "read" are told apart by shape too (Founder feedback: a lone
+    // checkmark that only changes shade reads as "just a checkmark" no
+    // matter which state it's in). Same convention as WhatsApp/LINE.
     return switch (status) {
       _DeliveryStatus.sending => const Icon(Icons.fiber_manual_record, size: 8, color: WynColors.faint),
-      _DeliveryStatus.sent => const Icon(Icons.check, size: 14, color: WynColors.faint),
-      _DeliveryStatus.read => const Icon(Icons.check, size: 14, color: WynColors.sapphire),
+      _DeliveryStatus.sent => const Icon(Icons.done, size: 14, color: WynColors.faint),
+      _DeliveryStatus.read => const Icon(Icons.done_all, size: 14, color: WynColors.sapphire),
     };
   }
 }
