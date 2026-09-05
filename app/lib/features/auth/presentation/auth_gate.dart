@@ -470,6 +470,7 @@ class _AuthGateState extends State<AuthGate> {
                           session: session,
                           username: onboardingUsername,
                           displayName: onboardingState.displayName,
+                          avatarUrl: onboardingState.avatarUrl,
                         ));
                       }
                       return _buildRootShell(session);

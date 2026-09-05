@@ -144,6 +144,7 @@ class AccountSwitcherRepository {
     required Session session,
     required String username,
     String? displayName,
+    String? avatarUrl,
   }) async {
     final refreshToken = session.refreshToken;
     if (refreshToken == null) return;
@@ -154,6 +155,7 @@ class AccountSwitcherRepository {
         username: username,
         email: session.user.email,
         displayName: displayName,
+        avatarUrl: avatarUrl,
       ));
     } on TooManyAccountsException {
       // Intentionally silent -- see doc comment above.
