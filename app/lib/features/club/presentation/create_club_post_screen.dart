@@ -6,9 +6,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/interaction/wyn_feedback.dart';
 import '../../hashtag/data/hashtag_repository.dart';
+import '../../profile/data/profile.dart';
 import '../../profile/data/profile_repository.dart';
+import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/club.dart';
 import '../data/club_post_repository.dart';
+import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/widgets/mention_input.dart';
 
@@ -16,6 +19,16 @@ import '../../../core/widgets/mention_input.dart';
 /// opened from -- creating a Club post from anywhere else isn't in scope
 /// this round, per the Product spec. See
 /// .wyn/docs/design/wyn-014-club-core.md, Screen 5.
+///
+/// Restyled onto the same shell CreateDropScreen uses (04-drop.tsx --
+/// plain "ยกเลิก"/"โพสต์" header row instead of an AppBar, own-avatar +
+/// borderless composer body) so posting into a Club and posting a normal
+/// Drop feel like the same product action, per Founder request: "ปุ่มโพส
+/// กดเข้าไปแล้ว ต้องเป็นหน้าโพสต์เหมือนหน้าโพสต์ปกติใช้อยู่". The locked
+/// destination ("โพสต์ใน [ชื่อ Club]") takes the exact slot Drop's own
+/// (tappable) audience chip sits in, styled as a plain, non-tappable
+/// chip -- there is no destination picker here, only Drop composing
+/// keeps that choice.
 class CreateClubPostScreen extends StatefulWidget {
   const CreateClubPostScreen({
     super.key,
@@ -63,6 +76,11 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
   final List<Uint8List> _images = [];
   final List<String> _imageExtensions = [];
 
+  // Same fail-open, best-effort fetch as CreateDropScreen's own
+  // _ownProfile -- a failed fetch just leaves the header avatar on its
+  // fallback-letter state rather than blocking the composer.
+  Profile? _ownProfile;
+
   bool _isPosting = false;
   String? _errorMessage;
 
@@ -79,6 +97,18 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
     if (debugBytes != null) {
       _images.addAll(debugBytes);
       _imageExtensions.addAll(List.filled(debugBytes.length, 'jpg'));
+    }
+    _loadOwnProfile();
+  }
+
+  Future<void> _loadOwnProfile() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+      final profile = await _profileRepository.fetchProfile(userId);
+      if (!mounted) return;
+      setState(() => _ownProfile = profile);
+    } catch (_) {
+      // Silent -- see the field's own doc comment.
     }
   }
 
@@ -163,124 +193,244 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
     }
   }
 
+  void _handleClose() => Navigator.of(context).pop(false);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(false),
-        ),
-        title: Text('โพสต์ใน ${widget.club.name}'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: WynSpacing.space2),
-            child: Center(
-              child: TextButton(
-                onPressed: _canPost ? _post : null,
-                child: _isPosting
-                    ? const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('โพสต์'),
+      backgroundColor: WynColors.paper,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            const Divider(height: 1, color: WynColors.hairline),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(WynSpacing.space4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AvatarCircle(
+                      imageUrl: _ownProfile?.avatarUrl,
+                      fallbackText: _ownProfile?.username ?? '',
+                      radius: 20,
+                      ring: true,
+                    ),
+                    const SizedBox(width: WynSpacing.space3),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _LockedClubChip(clubName: widget.club.name),
+                          const SizedBox(height: WynSpacing.space3),
+                          MentionInput(
+                            controller: _contentController,
+                            profileRepository: _profileRepository,
+                            hashtagRepository: widget._hashtagRepository,
+                            onMentionedUsersChanged: (ids) =>
+                                setState(() => _mentionedUserIds = ids),
+                            maxLength: 2000,
+                            maxLines: null,
+                            minLines: 3,
+                            enabled: !_isPosting,
+                            style: const TextStyle(
+                                fontSize: 20, color: WynColors.ink, height: 1.4),
+                            decoration: InputDecoration(
+                              hintText: 'มีอะไรอยากบอก Club นี้บ้าง?',
+                              hintStyle: const TextStyle(
+                                  fontSize: 20, color: WynColors.faint, height: 1.4),
+                              border: InputBorder.none,
+                              counterText: '',
+                              contentPadding: EdgeInsets.zero,
+                              isDense: true,
+                            ),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          if (_images.isNotEmpty) _buildImageStrip(),
+                          const SizedBox(height: WynSpacing.space3),
+                          OutlinedButton.icon(
+                            // WYN-103: stays tappable at 9/9 -- _pickImages()
+                            // itself shows a SnackBar in that case, clearer
+                            // than a disabled button the user can't tell
+                            // apart from "posting".
+                            onPressed: _isPosting ? null : _pickImages,
+                            icon: const Icon(Icons.add_photo_alternate_outlined),
+                            label: const Text('แนบรูป'),
+                          ),
+                          const SizedBox(height: WynSpacing.space4),
+                          TextField(
+                            controller: _linkController,
+                            enabled: !_isPosting,
+                            decoration: const InputDecoration(
+                              labelText: 'ลิงก์ (ไม่บังคับ)',
+                              hintText: 'https://...',
+                            ),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          if (_errorMessage != null) ...[
+                            const SizedBox(height: WynSpacing.space4),
+                            Text(
+                              _errorMessage!,
+                              style: TextStyle(color: Theme.of(context).colorScheme.error),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(WynSpacing.space4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              MentionInput(
-                controller: _contentController,
-                profileRepository: _profileRepository,
-                hashtagRepository: widget._hashtagRepository,
-                onMentionedUsersChanged: (ids) => setState(() => _mentionedUserIds = ids),
-                maxLength: 2000,
-                maxLines: 6,
-                minLines: 3,
-                enabled: !_isPosting,
-                decoration: const InputDecoration(hintText: 'มีอะไรอยากบอก Club นี้บ้าง?'),
-                onChanged: (_) => setState(() {}),
-              ),
-              if (_images.isNotEmpty) _buildImageRow(),
-              const SizedBox(height: WynSpacing.space2),
-              OutlinedButton.icon(
-                // WYN-103: stays tappable at 9/9 -- _pickImages() itself
-                // shows a SnackBar in that case, clearer than a disabled
-                // button the user can't tell apart from "posting".
-                onPressed: _isPosting ? null : _pickImages,
-                icon: const Icon(Icons.add_photo_alternate_outlined),
-                label: const Text('แนบรูป'),
-              ),
-              const SizedBox(height: WynSpacing.space4),
-              TextField(
-                controller: _linkController,
-                enabled: !_isPosting,
-                decoration: const InputDecoration(
-                  labelText: 'ลิงก์ (ไม่บังคับ)',
-                  hintText: 'https://...',
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-              if (_errorMessage != null) ...[
-                const SizedBox(height: WynSpacing.space4),
-                Text(
-                  _errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-              ],
-            ],
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildImageRow() {
-    return SizedBox(
-      height: 88,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
-        itemCount: _images.length,
-        separatorBuilder: (context, index) => const SizedBox(width: WynSpacing.space2),
-        itemBuilder: (context, index) {
-          return Stack(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                child: Image.memory(
-                  _images[index],
-                  width: 80,
-                  height: 80,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: GestureDetector(
-                  onTap: _isPosting ? null : () => _removeImage(index),
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Colors.black54,
-                      shape: BoxShape.circle,
+  // Same "ยกเลิก" (left, plain text) / filled pill "โพสต์" (right) header
+  // CreateDropScreen's own _buildHeader draws -- see that method's doc
+  // comment for the exact 04-drop.tsx reference this mirrors.
+  Widget _buildHeader() {
+    final canPost = _canPost;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          WynSpacing.space4, WynSpacing.space2, WynSpacing.space4, WynSpacing.space3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          TextButton(
+            onPressed: _isPosting ? null : _handleClose,
+            style: TextButton.styleFrom(
+              foregroundColor: WynColors.ink,
+              padding: EdgeInsets.zero,
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text('ยกเลิก', style: TextStyle(fontSize: 15, color: WynColors.ink)),
+          ),
+          TextButton(
+            onPressed: canPost ? _post : null,
+            style: TextButton.styleFrom(
+              backgroundColor: canPost ? WynColors.sapphire : WynColors.hairline,
+              foregroundColor: canPost ? WynColors.paper : WynColors.mutedNeutral,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+              shape: const StadiumBorder(),
+            ),
+            child: _isPosting
+                ? SizedBox(
+                    height: 16,
+                    width: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: canPost ? WynColors.paper : WynColors.mutedNeutral,
                     ),
-                    child: const Icon(Icons.close, size: 14, color: Colors.white),
+                  )
+                : const Text('โพสต์', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Same rounded-box strip + circular remove button CreateDropScreen's
+  // own _buildImageStrip draws for a freshly-picked photo (128x160,
+  // radiusLg) -- Club posts don't get the aspect-ratio picker/cropper a
+  // Drop's images do (`club_posts` has no image_width/image_height
+  // columns to lay a real ratio out from, same reasoning ClubPostImages'
+  // own doc comment already gives), so this stays a plain preview strip.
+  Widget _buildImageStrip() {
+    return Padding(
+      padding: const EdgeInsets.only(top: WynSpacing.space3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 160,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _images.length,
+              separatorBuilder: (_, __) => const SizedBox(width: WynSpacing.space2),
+              itemBuilder: (context, index) => ClipRRect(
+                borderRadius: BorderRadius.circular(WynSpacing.radiusLg),
+                child: SizedBox(
+                  width: 128,
+                  height: 160,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.memory(_images[index], fit: BoxFit.cover),
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Semantics(
+                          label: 'ลบรูปนี้',
+                          button: true,
+                          excludeSemantics: true,
+                          child: InkWell(
+                            onTap: _isPosting ? null : () => _removeImage(index),
+                            customBorder: const CircleBorder(),
+                            child: const DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: WynColors.imageScrimStrong,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Padding(
+                                padding: EdgeInsets.all(5),
+                                child: Icon(Icons.close, size: 13, color: WynColors.paper),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ],
-          );
-        },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: WynSpacing.space1),
+            child: Text(
+              '${_images.length}/$_maxImages',
+              style: const TextStyle(fontSize: 13, color: WynColors.faint),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The locked "โพสต์ใน [ชื่อ Club]" chip -- takes the same slot
+/// CreateDropScreen's own (tappable) `_AudienceChip` sits in, styled as
+/// plain and non-interactive since there is no destination to pick here.
+class _LockedClubChip extends StatelessWidget {
+  const _LockedClubChip({required this.clubName});
+
+  final String clubName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 6),
+      decoration: BoxDecoration(
+        color: WynColors.hairline,
+        borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.groups_outlined, size: 14, color: WynColors.graphite),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              'โพสต์ใน $clubName',
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.graphite),
+            ),
+          ),
+        ],
       ),
     );
   }

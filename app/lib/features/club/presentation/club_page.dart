@@ -401,6 +401,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                         club: data.club,
                         myRole: myRole,
                         onChanged: _reload,
+                        onInvite: () => _openShareSheet(data.club),
                       ),
                       ClubAboutTab(
                         clubRepository: widget.clubRepository,

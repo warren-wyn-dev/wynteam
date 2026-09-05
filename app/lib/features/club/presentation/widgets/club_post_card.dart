@@ -3,14 +3,16 @@ import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/text_utils.dart';
+import '../../../home/presentation/widgets/home_card_metrics.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/club_member.dart';
 import '../../data/club_post.dart';
 import '../club_post_detail_screen.dart' show clubPostShareLink;
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
-import '../../../../core/interaction/wyn_state_pop.dart';
+import '../../../../core/widgets/action_metric.dart';
 import '../../../../core/widgets/action_sheet_row.dart';
+import '../../../../core/widgets/double_tap_like.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
@@ -18,9 +20,17 @@ import '../../../report/presentation/report_sheet.dart';
 import '../../../../core/widgets/post_media.dart';
 import '../../../../core/widgets/wyn_heart_icon.dart';
 
-/// A Club post card for the Posts tab list. Same interaction-row family
-/// as HomeDropCard/HomePopCard (Like/Comment/Share/Bookmark), plus a
-/// role-gated More menu per the Design spec, Screen 5.
+/// A Club post card for the Posts tab list. Restyled onto the exact same
+/// two-column geometry ([homeCardEdgeInset]/[homeCardAvatarGap]/
+/// [homeCardAvatarDiameter]) and Like/Comment [ActionMetric] row
+/// HomeDropCard/HomePopCard use, so a Club's feed reads as one family
+/// with Home rather than a visually distinct list -- Founder request:
+/// "ในคลับ ฟีดโพสต์ ควรหน้าตาแบบหน้า Home". Share/Save moved into the
+/// "..." menu, same simplification WYNOSHomeSpec.md 4.6 made for Home's
+/// own action bar. Not a byte-for-byte port: a Club post has no
+/// verified-author badge, ReDrop, Poll, view count, or liked-by list in
+/// its data model ([ClubPost] has none of those fields), so this card
+/// only carries over the parts Home and Club posts actually share.
 class ClubPostCard extends StatelessWidget {
   const ClubPostCard({
     super.key,
@@ -86,6 +96,26 @@ class ClubPostCard extends StatelessWidget {
     await showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) => ActionSheetBody(rows: [
+        // Same "Share/Save live in the menu" simplification Home's own
+        // action bar made (WYNOSHomeSpec.md 4.6) -- always offered first,
+        // regardless of authorship/role, ahead of the Club-specific rows
+        // below.
+        ActionSheetRow(
+          icon: Icons.share_outlined,
+          label: 'แชร์',
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            _share();
+          },
+        ),
+        ActionSheetRow(
+          icon: post.savedByMe ? Icons.bookmark : Icons.bookmark_border,
+          label: post.savedByMe ? 'เอาออกจากบันทึก' : 'บันทึก',
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            onToggleSave();
+          },
+        ),
         if (_isOwnPost || canModerate)
           ActionSheetRow(
             icon: Icons.delete_outline,
@@ -123,164 +153,170 @@ class ClubPostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Everyone can open the More menu now that a non-moderator, non-
-    // author viewer still has "รายงานโพสต์" to see there (WYN-026).
-    const showMoreButton = true;
+    final hasImages = post.imageUrls != null && post.imageUrls!.isNotEmpty;
 
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space1),
-              child: Row(
-                children: [
-                  AvatarCircle(
-                    imageUrl: post.authorAvatarUrl,
-                    fallbackText: post.authorUsername,
-                    radius: 17,
-                    ring: true,
-                  ),
-                  const SizedBox(width: WynSpacing.space2),
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            post.authorNameOrUsername,
-                            overflow: TextOverflow.ellipsis,
-                            style: _textStyle(
-                                fontSize: 15, fontWeight: FontWeight.w600, color: WynColors.ink),
+    return Semantics(
+      label: 'โพสต์ของ ${post.authorNameOrUsername}',
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          // Same vertical rhythm as HomeDropCard/HomePopCard (WYN-107).
+          padding: const EdgeInsets.symmetric(vertical: WynSpacing.space4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: homeCardEdgeInset),
+                child: AvatarCircle(
+                  imageUrl: post.authorAvatarUrl,
+                  fallbackText: post.authorUsername,
+                  radius: homeCardAvatarDiameter / 2,
+                ),
+              ),
+              const SizedBox(width: homeCardAvatarGap),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: homeCardEdgeInset),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    post.authorNameOrUsername,
+                                    style: Theme.of(context).textTheme.titleSmall,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Text(
+                                  relativeTimeLabel(post.createdAt, now: DateTime.now()),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: Theme.of(context).colorScheme.outline,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Same 44x44 tap-target-only box HomeDropCard uses --
+                          // see its own comment for why this stays smaller
+                          // than IconButton's default 48.
+                          IconButton(
+                            icon: const Icon(Icons.more_vert),
+                            tooltip: 'เพิ่มเติม',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints.tightFor(
+                              width: WynSpacing.touchTargetMin,
+                              height: WynSpacing.touchTargetMin,
+                            ),
+                            onPressed: () => _openMoreMenu(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (post.content != null && post.content!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          0,
+                          WynSpacing.space2,
+                          homeCardEdgeInset,
+                          WynSpacing.space2,
+                        ),
+                        child: !hasImages
+                            ? DoubleTapLike(
+                                onLike: onToggleLike,
+                                alreadyLiked: post.likedByMe,
+                                child: HashtagText(post.content!),
+                              )
+                            : HashtagText(post.content!),
+                      ),
+                    if (hasImages)
+                      Padding(
+                        padding: const EdgeInsets.only(right: homeCardEdgeInset),
+                        child: DoubleTapLike(
+                          onLike: onToggleLike,
+                          alreadyLiked: post.likedByMe,
+                          child: ClubPostImages(imageUrls: post.imageUrls!),
+                        ),
+                      ),
+                    if (post.linkUrl != null && post.linkUrl!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          0, WynSpacing.space2, homeCardEdgeInset, 0,
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                            borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.link, size: 16),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  post.linkUrl!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: WynSpacing.space2),
-                        Text(
-                          relativeTimeLabel(post.createdAt, now: DateTime.now()),
-                          style: _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        right: homeCardEdgeInset, top: WynSpacing.space2,
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          children: [
+                            ActionMetric(
+                              icon: WynHeartIcon(
+                                filled: post.likedByMe,
+                                size: 17,
+                                color: post.likedByMe
+                                    ? WynColors.iconLikeActive
+                                    : WynColors.iconIdle,
+                              ),
+                              iconState: post.likedByMe,
+                              count: post.likeCount,
+                              color: post.likedByMe
+                                  ? WynColors.iconLikeActive
+                                  : WynColors.iconIdle,
+                              semanticsLabel: post.likedByMe
+                                  ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
+                                  : 'กดเพื่อถูกใจ',
+                              onTap: onToggleLike,
+                            ),
+                            const SizedBox(width: WynSpacing.space5),
+                            ActionMetric(
+                              icon: const Icon(Icons.mode_comment_outlined,
+                                  size: 17, color: WynColors.graphite),
+                              iconState: Icons.mode_comment_outlined,
+                              count: post.commentCount,
+                              color: WynColors.graphite,
+                              semanticsLabel: 'ดูคอมเมนต์',
+                              onTap: onTap,
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                  if (showMoreButton)
-                    IconButton(
-                      icon: const Icon(Icons.more_vert,
-                          size: 18, color: WynColors.faint),
-                      onPressed: () => _openMoreMenu(context),
-                    ),
-                ],
-              ),
-            ),
-            if (post.content != null && post.content!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-                child: HashtagText(
-                  post.content!,
-                  style: _textStyle(fontSize: 16, color: WynColors.ink, height: 1.5),
+                  ],
                 ),
               ),
-            if (post.imageUrls != null && post.imageUrls!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: WynSpacing.space2),
-                child: ClubPostImages(imageUrls: post.imageUrls!),
-              ),
-            if (post.linkUrl != null && post.linkUrl!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-                    borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.link, size: 16),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          post.linkUrl!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1),
-              child: Row(
-                children: [
-                  Semantics(
-                    label: post.likedByMe ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ' : 'กดเพื่อถูกใจ',
-                    excludeSemantics: true,
-                    child: IconButton(
-                      // Shared state-change pop -- see ActionMetric.
-                      icon: WynStatePop(
-                        state: post.likedByMe,
-                        child: WynHeartIcon(
-                          filled: post.likedByMe,
-                          size: 18,
-                          color: post.likedByMe
-                              ? WynColors.iconLikeActive
-                              : WynColors.iconIdle,
-                        ),
-                      ),
-                      onPressed: onToggleLike,
-                    ),
-                  ),
-                  Text('${post.likeCount}',
-                      style: _textStyle(fontSize: 13, color: WynColors.graphite)),
-                  const SizedBox(width: WynSpacing.space2),
-                  Semantics(
-                    label: 'ดูคอมเมนต์',
-                    excludeSemantics: true,
-                    child: IconButton(
-                      icon: const Icon(Icons.mode_comment_outlined,
-                          size: 18, color: WynColors.graphite),
-                      onPressed: onTap,
-                    ),
-                  ),
-                  Text('${post.commentCount}',
-                      style: _textStyle(fontSize: 13, color: WynColors.graphite)),
-                  // Not in 08-club.tsx's own 3-icon ClubPostRow (real,
-                  // existing capability -- Founder decision, 2026-08-29).
-                  Semantics(
-                    label: 'แชร์',
-                    excludeSemantics: true,
-                    child: IconButton(
-                      icon: const Icon(Icons.share_outlined,
-                          size: 18, color: WynColors.graphite),
-                      onPressed: _share,
-                    ),
-                  ),
-                  const Spacer(),
-                  Semantics(
-                    label: post.savedByMe ? 'บันทึกแล้ว กดเพื่อเอาออกจาก Saved' : 'กดเพื่อบันทึก',
-                    excludeSemantics: true,
-                    child: IconButton(
-                      icon: WynStatePop(
-                        state: post.savedByMe,
-                        child: Icon(
-                          post.savedByMe
-                              ? Icons.bookmark
-                              : Icons.bookmark_border,
-                          size: 17,
-                          color: WynColors.faint,
-                        ),
-                      ),
-                      onPressed: onToggleSave,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -332,17 +368,3 @@ class ClubPostImages extends StatelessWidget {
     );
   }
 }
-
-
-TextStyle _textStyle({
-  required double fontSize,
-  FontWeight fontWeight = FontWeight.w400,
-  Color? color,
-  double? height,
-}) =>
-    TextStyle(
-      fontSize: fontSize,
-      fontWeight: fontWeight,
-      color: color,
-      height: height,
-    );
