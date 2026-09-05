@@ -235,9 +235,9 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                             enabled: !_isPosting,
                             style: const TextStyle(
                                 fontSize: 20, color: WynColors.ink, height: 1.4),
-                            decoration: InputDecoration(
+                            decoration: const InputDecoration(
                               hintText: 'มีอะไรอยากบอก Club นี้บ้าง?',
-                              hintStyle: const TextStyle(
+                              hintStyle: TextStyle(
                                   fontSize: 20, color: WynColors.faint, height: 1.4),
                               border: InputBorder.none,
                               counterText: '',

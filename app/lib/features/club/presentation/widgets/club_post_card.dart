@@ -183,16 +183,27 @@ class ClubPostCard extends StatelessWidget {
                       padding: const EdgeInsets.only(right: homeCardEdgeInset),
                       child: Row(
                         children: [
+                          // Not Flexible/Expanded -- this Column's only
+                          // constraint is width (from the Row's own
+                          // Expanded below), never height, and giving one
+                          // of two vertically-stacked Text children a
+                          // flex factor inside a Column with unbounded
+                          // height crashes: RenderFlex lays out with
+                          // invalid parentData every frame, which then
+                          // fails the semantics tree's own
+                          // `!parentDataDirty` invariant and floods
+                          // pumpAndSettle with repeated assertions until
+                          // it times out. Reproduced and bisected down to
+                          // this exact `Flexible` in
+                          // club_posts_tab_test.dart's DS-005 case.
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Flexible(
-                                  child: Text(
-                                    post.authorNameOrUsername,
-                                    style: Theme.of(context).textTheme.titleSmall,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                                Text(
+                                  post.authorNameOrUsername,
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                                 Text(
                                   relativeTimeLabel(post.createdAt, now: DateTime.now()),
