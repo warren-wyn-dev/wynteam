@@ -52,8 +52,8 @@ class ProfileRedropsTab extends StatefulWidget {
 
 class _ProfileRedropsTabState extends State<ProfileRedropsTab>
     with AutomaticKeepAliveClientMixin {
-  final _scrollController = ScrollController();
   final List<HomeFeedItem> _items = [];
+
   /// Keys of every row already shown this load cycle. Offset pagination
   /// re-reads a list that can have grown at the top since the previous
   /// page -- one new row shifts everything down by one, so the last row
@@ -84,21 +84,28 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
   void initState() {
     super.initState();
     _loadInitial();
-    _scrollController.addListener(_onScroll);
   }
 
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_isLoadingMore || !_hasMore) return;
-    if (_scrollController.position.pixels >
-        _scrollController.position.maxScrollExtent - 300) {
-      _loadMore();
+  // WYN-110: see ProfileDropGridTab's identical doc comment -- this
+  // tab is now one of NestedScrollView's inner scrollables, which owns
+  // the controller itself, so pagination detection moved from a
+  // private ScrollController's listener to notification bubbling.
+  bool _onScrollNotification(ScrollNotification notification) {
+    if (_isLoadingMore || !_hasMore) return false;
+    if (notification.metrics.pixels >
+        notification.metrics.maxScrollExtent - 300) {
+      // Not called directly: this notification can fire mid-layout (a
+      // ballistic correction dispatches ScrollStartNotification from
+      // inside RenderViewport.performLayout when the content shrinks
+      // under an active scroll position), and setState from inside
+      // layout is illegal ("Build scheduled during frame"). Deferring
+      // one frame is what every NotificationListener-driven infinite
+      // scroll needs for exactly this reason.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadMore();
+      });
     }
+    return false;
   }
 
   Future<void> _loadInitial() async {
@@ -170,8 +177,9 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
     final previous = _items[index];
     setState(() => _items[index] = previous.copyWith(
           likedByMe: !previous.likedByMe,
-          likeCount:
-              previous.likedByMe ? previous.likeCount - 1 : previous.likeCount + 1,
+          likeCount: previous.likedByMe
+              ? previous.likeCount - 1
+              : previous.likeCount + 1,
         ));
     try {
       await widget.dropRepository.toggleLike(
@@ -187,7 +195,8 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
   Future<void> _toggleSave(int index) async {
     if (index < 0 || index >= _items.length) return;
     final previous = _items[index];
-    setState(() => _items[index] = previous.copyWith(savedByMe: !previous.savedByMe));
+    setState(() =>
+        _items[index] = previous.copyWith(savedByMe: !previous.savedByMe));
     try {
       await widget.dropRepository.toggleSave(
         dropId: previous.id,
@@ -368,38 +377,46 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
 
     return RefreshIndicator(
       onRefresh: _onPullToRefresh,
-      child: ListView.separated(
-        controller: _scrollController,
-        itemCount: _items.length + (_hasMore ? 1 : 0),
-        separatorBuilder: (context, index) => index + 1 < _items.length
-            ? const Divider(height: 1)
-            : const SizedBox.shrink(),
-        itemBuilder: (context, index) {
-          if (index >= _items.length) {
-            return const Padding(
-              padding: EdgeInsets.all(WynSpacing.space4),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _onScrollNotification,
+        // WYN-110: see ProfileDropGridTab's identical doc comment on
+        // why no SliverOverlapAbsorber/Injector pair is needed here.
+        child: CustomScrollView(
+          slivers: [
+            SliverList.separated(
+              itemCount: _items.length + (_hasMore ? 1 : 0),
+              separatorBuilder: (context, index) => index + 1 < _items.length
+                  ? const Divider(height: 1)
+                  : const SizedBox.shrink(),
+              itemBuilder: (context, index) {
+                if (index >= _items.length) {
+                  return const Padding(
+                    padding: EdgeInsets.all(WynSpacing.space4),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
 
-          final item = _items[index];
-          return HomeDropCard(
-            key: ValueKey('${item.id}:${item.redropId ?? ''}'),
-            item: item,
-            dropRepository: widget.dropRepository,
-            onTap: () => _openDrop(item),
-            onToggleLike: () => _toggleLike(index),
-            onToggleSave: () => _toggleSave(index),
-            onOpenProfile: () => _openProfile(item.authorId),
-            onToggleRedrop: () => _toggleRedrop(index),
-            onQuoteRedrop: () => _quoteRedrop(index),
-            onOpenRedropperProfile: item.redropperId == null
-                ? null
-                : () => _openProfile(item.redropperId!),
-            onDeleteRedrop: () => _deleteRedrop(index),
-            onVotePoll: (optionIndex) => _votePoll(index, optionIndex),
-          );
-        },
+                final item = _items[index];
+                return HomeDropCard(
+                  key: ValueKey('${item.id}:${item.redropId ?? ''}'),
+                  item: item,
+                  dropRepository: widget.dropRepository,
+                  onTap: () => _openDrop(item),
+                  onToggleLike: () => _toggleLike(index),
+                  onToggleSave: () => _toggleSave(index),
+                  onOpenProfile: () => _openProfile(item.authorId),
+                  onToggleRedrop: () => _toggleRedrop(index),
+                  onQuoteRedrop: () => _quoteRedrop(index),
+                  onOpenRedropperProfile: item.redropperId == null
+                      ? null
+                      : () => _openProfile(item.redropperId!),
+                  onDeleteRedrop: () => _deleteRedrop(index),
+                  onVotePoll: (optionIndex) => _votePoll(index, optionIndex),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
