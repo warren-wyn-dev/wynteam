@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
  * "growth is good" is not one of them, so direction is conveyed by the
  * glyph, not a hue.
  */
-function TrendBadge({ deltaPct }: { deltaPct: number | null }) {
+export function TrendBadge({ deltaPct }: { deltaPct: number | null }) {
   if (deltaPct === null) {
     return <span className="text-xs font-medium text-muted-foreground">ใหม่วันนี้</span>;
   }

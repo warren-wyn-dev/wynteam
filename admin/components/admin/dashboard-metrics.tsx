@@ -8,121 +8,195 @@ import {
   MessageCircle,
   Repeat2,
   Mail,
+  MessagesSquare,
   Flag,
+  ShieldAlert,
+  Radio,
   CheckCircle2,
   Zap,
   RotateCcw,
   AlertTriangle,
 } from "lucide-react";
 
+import { KpiTile } from "@/components/admin/kpi-tile";
 import { StatCard } from "@/components/admin/stat-card";
 import { TopSourcesCard } from "@/components/admin/top-sources-card";
+import { ActivityTrendChart } from "@/components/admin/activity-trend-chart";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   deltaPct,
+  fetchAdminActivityTrend,
   fetchAdminDashboardMetrics,
   fetchAdminDashboardTrends,
   fetchSignupCounts,
 } from "@/lib/admin-metrics";
 
 /**
- * The actual data-fetching grid, per Design spec's Screen -- lives in
- * its own async component (not inline in page.tsx) so `<Suspense>` in
- * page.tsx can show DashboardSkeleton while this specific fetch is in
- * flight, without delaying the rest of the page (header/refresh button).
+ * 0/1-5/>5 traffic-light status, shared by Section 1's combined
+ * "ต้องดำเนินการ" tile and Section 6's per-queue tiles -- exact
+ * thresholds from the Admin Dashboard restructure spec ("0 = ปกติ,
+ * 1-5 = ต้องตรวจสอบ, มากกว่า 5 = ต้องดำเนินการ").
+ */
+function actionStatusFor(count: number): { level: "ok" | "watch" | "urgent"; label: string } {
+  if (count === 0) return { level: "ok", label: "ปกติ" };
+  if (count <= 5) {
+    return { level: "watch", label: `มี ${count.toLocaleString("th-TH")} รายการที่ต้องตรวจสอบ` };
+  }
+  return { level: "urgent", label: `มี ${count.toLocaleString("th-TH")} รายการที่ต้องดำเนินการ` };
+}
+
+/**
+ * Admin Dashboard restructure (Founder spec, 2026-09-05): a full
+ * reflow of the Dashboard around 7 sections, priority-ordered so the
+ * platform's state reads in a few seconds instead of scrolling past a
+ * wall of equally-sized cards --
  *
- * Section order is priority order, not a fixed layout -- reordered per
- * the Founder's ask to see what matters most first:
- * 1. A reports-pending alert (only when there's actually something to
- *    act on -- wyn-admin-design-system.md section 3.3's "critical alert
- *    that's active" case, the one place besides destructive actions
- *    color is allowed at all).
- * 2. ผู้ใช้งาน / เนื้อหา / การมีส่วนร่วม -- with a vs-yesterday badge on
- *    every "_today" count, not just the raw number.
- * 3. รายงาน (the full card, kept even when nothing's pending, since
- *    reports_total is still useful context) and การเติบโต last, same as
- *    before -- both less immediately actionable day-to-day.
+ * 1. ภาพรวมวันนี้ -- the 4 things that matter most, first, each
+ *    clickable through to its own detail page where one exists.
+ * 2. ผู้ใช้งาน -- DAU/WAU/MAU (now calendar-anchored, see
+ *    admin_dashboard_metrics()'s comment) + a 7/30/90-day trend.
+ * 3. สมาชิกใหม่ -- signup counts by calendar period, "ทั้งหมด" added.
+ * 4. เนื้อหาและ Engagement -- today's content activity + its own trend.
+ * 5. การสื่อสารและกิจกรรม -- only real metrics (messages_today,
+ *    active_conversations); no invented "recent activity" feed.
+ * 6. สิ่งที่ต้องดำเนินการ -- the queues an Admin/Moderator actually
+ *    works from, each with its own status. System Alerts has no real
+ *    metric behind it yet (this app has no monitoring/alerting at
+ *    all) -- shown as a disabled placeholder, never a fake "0",
+ *    exactly per the spec's "ห้ามสร้างข้อมูล ... หากระบบยังไม่มี Metric
+ *    จริง".
+ * 7. Growth & Retention -- the funnel, for Management/Executive
+ *    analysis, unchanged in substance from the existing WYN-077 work
+ *    (still real cohort data, still null instead of a misleading "0%"
+ *    for an empty cohort) but redrawn as an explicit flow per the spec.
  *
- * No trend chart -- the Founder asked for it removed; t.dau_last_14d
- * is still fetched (fetchAdminDashboardTrends() also carries the
- * *_yesterday deltas every StatCard below uses) but nothing renders it.
+ * Every vs-yesterday delta on this page reads from
+ * AdminDashboardTrends' *_yesterday_matched fields, never the plain
+ * *_yesterday ones -- see that type's own doc comment for why a
+ * still-in-progress "today" can only fairly compare against yesterday
+ * up to the same elapsed clock time, not yesterday in full.
  */
 export async function DashboardMetrics() {
-  const [m, t, s] = await Promise.all([
+  const [m, t, s, activity] = await Promise.all([
     fetchAdminDashboardMetrics(),
     fetchAdminDashboardTrends(),
     fetchSignupCounts(),
+    fetchAdminActivityTrend(90),
   ]);
 
-  return (
-    <div className="flex flex-col gap-6 p-6">
-      {m.reports_pending > 0 ? (
-        <div
-          role="alert"
-          className="flex items-center gap-3 rounded-lg border border-destructive bg-destructive/10 p-4"
-        >
-          <AlertTriangle className="size-5 shrink-0 text-destructive" aria-hidden="true" />
-          <p className="text-sm text-destructive">
-            มีรายงานรอดำเนินการ <span className="font-bold">{m.reports_pending.toLocaleString("th-TH")}</span> รายการ
-            — ไปที่ Report Center เพื่อตรวจสอบ
-          </p>
-        </div>
-      ) : null}
+  const engagementToday = m.likes_today + m.comments_today + m.redrops_today;
+  const engagementYesterdayMatched =
+    t.likes_yesterday_matched + t.comments_yesterday_matched + t.redrops_yesterday_matched;
+  const actionNeeded = m.reports_pending + m.appeals_pending;
+  const overallStatus = actionStatusFor(actionNeeded);
 
+  return (
+    <div className="flex flex-col gap-8 p-6">
+      {/* Section 1 -- ภาพรวมวันนี้ */}
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-muted-foreground">ผู้ใช้งาน</h2>
-        <p className="-mt-2 text-xs text-muted-foreground">
-          DAU/WAU/MAU นับจากผู้ใช้ที่มีกิจกรรมบนแพลตฟอร์ม (โพสต์/ถูกใจ/คอมเมนต์/ReDrop/ส่งข้อความ)
-          ไม่ใช่จำนวนครั้งที่เปิดแอป — DAU/WAU/MAU เป็นค่าเฉลี่ยนับย้อนหลัง จึงไม่มีตัวเลขเทียบกับเมื่อวาน
-          เหมือน &quot;ผู้ใช้ใหม่&quot;
-        </p>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            label="ผู้ใช้ใหม่"
+        <h2 className="text-sm font-medium text-muted-foreground">ภาพรวมวันนี้</h2>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <KpiTile
+            label="ผู้ใช้งานวันนี้"
+            value={m.dau}
+            icon={Users}
+            sublabel="Active Users"
+            href="/users"
+            deltaPct={deltaPct(m.dau, t.active_users_yesterday_matched)}
+          />
+          <KpiTile
+            label="ผู้ใช้ใหม่วันนี้"
             value={m.new_users_today}
             icon={UserPlus}
-            sublabel="วันนี้ (เวลาไทย)"
-            deltaPct={deltaPct(m.new_users_today, t.new_users_yesterday)}
+            sublabel="New Users"
+            href="/users"
+            deltaPct={deltaPct(m.new_users_today, t.new_users_yesterday_matched)}
           />
-          <StatCard label="DAU" value={m.dau} icon={Activity} sublabel="Active ใน 1 วัน" />
-          <StatCard label="WAU" value={m.wau} icon={Activity} sublabel="Active ใน 7 วัน" />
-          <StatCard label="MAU" value={m.mau} icon={Activity} sublabel="Active ใน 30 วัน" />
+          <KpiTile
+            label="Engagement วันนี้"
+            value={engagementToday}
+            icon={Zap}
+            sublabel="Interactions"
+            deltaPct={deltaPct(engagementToday, engagementYesterdayMatched)}
+          />
+          <KpiTile
+            label="ต้องดำเนินการ"
+            value={actionNeeded}
+            icon={AlertTriangle}
+            href="/reports"
+            status={overallStatus}
+          />
         </div>
       </section>
 
+      {/* Section 2 -- ผู้ใช้งาน */}
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-muted-foreground">ผู้สมัครสมาชิกใหม่</h2>
+        <h2 className="text-sm font-medium text-muted-foreground">ผู้ใช้งาน</h2>
         <p className="-mt-2 text-xs text-muted-foreground">
-          จำนวนบัญชีที่สมัครสำเร็จ นับแยกตามช่วงเวลาปัจจุบัน (แต่ละช่วงนับซ้อนกัน เช่น
-          &quot;เดือนนี้&quot; รวม &quot;วันนี้&quot; อยู่ในนั้นแล้ว) — สัปดาห์เริ่มวันจันทร์
+          นับจากผู้ใช้ที่มีกิจกรรมบนแพลตฟอร์ม (โพสต์/ถูกใจ/คอมเมนต์/ReDrop/ส่งข้อความ) ไม่ใช่จำนวนครั้งที่เปิดแอป
+          — ตามวันปฏิทินเวลาไทย: DAU = วันนี้ 00:00 ถึงตอนนี้, WAU/MAU = 7/30 วันปฏิทินล่าสุด (รวมวันนี้)
         </p>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <StatCard label="DAU" value={m.dau} icon={Activity} sublabel="Active วันนี้" />
+          <StatCard label="WAU" value={m.wau} icon={Activity} sublabel="Active ใน 7 วันล่าสุด" />
+          <StatCard label="MAU" value={m.mau} icon={Activity} sublabel="Active ใน 30 วันล่าสุด" />
+        </div>
+        <ActivityTrendChart title="Active Users Trend" unitLabel="คน/วัน" days={activity} series="active_users" />
+      </section>
+
+      {/* Section 3 -- สมาชิกใหม่ */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-medium text-muted-foreground">สมาชิกใหม่</h2>
+        <p className="-mt-2 text-xs text-muted-foreground">
+          จำนวนบัญชีที่สมัครสำเร็จ นับแยกตามช่วงเวลาปัจจุบัน (แต่ละช่วงนับซ้อนกัน เช่น &quot;เดือนนี้&quot;
+          รวม &quot;วันนี้&quot; อยู่ในนั้นแล้ว) — สัปดาห์เริ่มวันจันทร์ เวลาไทย
+        </p>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
           <StatCard label="วันนี้" value={s.today} icon={UserPlus} />
           <StatCard label="สัปดาห์นี้" value={s.this_week} icon={UserPlus} />
           <StatCard label="เดือนนี้" value={s.this_month} icon={UserPlus} />
           <StatCard label="ปีนี้" value={s.this_year} icon={UserPlus} />
+          <StatCard label="ทั้งหมด" value={s.all_time} icon={UserPlus} />
         </div>
       </section>
 
+      {/* Section 4 -- เนื้อหาและ Engagement */}
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-muted-foreground">เนื้อหา</h2>
+        <h2 className="text-sm font-medium text-muted-foreground">เนื้อหาและการมีส่วนร่วม</h2>
         <p className="-mt-2 text-xs text-muted-foreground">
-          กิจกรรมสร้างเนื้อหาใหม่บนแพลตฟอร์มวันนี้ (นับตั้งแต่ 00:00 น. เวลาไทย) — Club เดียวที่นับ
-          &quot;ทั้งหมด&quot; แทน &quot;วันนี้&quot; เพราะเป็นตัวเลขสะสม ไม่ใช่กิจกรรมรายวัน
+          กิจกรรมวันนี้ (นับตั้งแต่ 00:00 น. เวลาไทย) — Club เดียวที่นับ &quot;ทั้งหมด&quot; แทน
+          &quot;วันนี้&quot; เพราะเป็นตัวเลขสะสม ไม่ใช่กิจกรรมรายวัน
         </p>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
           <StatCard
             label="Drop"
             value={m.drops_today}
             icon={ImageIcon}
-            sublabel="วันนี้ (เวลาไทย)"
-            deltaPct={deltaPct(m.drops_today, t.drops_yesterday)}
+            deltaPct={deltaPct(m.drops_today, t.drops_yesterday_matched)}
           />
           <StatCard
             label="ยอดดู Drop"
             value={m.views_today}
             icon={Eye}
-            sublabel="วันนี้ (เวลาไทย)"
-            deltaPct={deltaPct(m.views_today, t.views_yesterday)}
+            deltaPct={deltaPct(m.views_today, t.views_yesterday_matched)}
+          />
+          <StatCard
+            label="ถูกใจ"
+            value={m.likes_today}
+            icon={Heart}
+            deltaPct={deltaPct(m.likes_today, t.likes_yesterday_matched)}
+          />
+          <StatCard
+            label="คอมเมนต์"
+            value={m.comments_today}
+            icon={MessageCircle}
+            deltaPct={deltaPct(m.comments_today, t.comments_yesterday_matched)}
+          />
+          <StatCard
+            label="ReDrop"
+            value={m.redrops_today}
+            icon={Repeat2}
+            deltaPct={deltaPct(m.redrops_today, t.redrops_yesterday_matched)}
           />
           <StatCard
             label="Club"
@@ -132,88 +206,79 @@ export async function DashboardMetrics() {
             secondaryLabel="สร้างใหม่วันนี้ (เวลาไทย)"
           />
         </div>
+        <ActivityTrendChart title="Engagement Trend" unitLabel="ครั้ง/วัน" days={activity} series="engagement" />
       </section>
 
+      {/* Section 5 -- การสื่อสารและกิจกรรม */}
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-muted-foreground">การมีส่วนร่วม</h2>
-        <p className="-mt-2 text-xs text-muted-foreground">
-          ปฏิกิริยาที่ผู้ใช้มีต่อเนื้อหา (ถูกใจ/คอมเมนต์/ReDrop) และการพูดคุยส่วนตัว (ข้อความ) วันนี้
-          (นับตั้งแต่ 00:00 น. เวลาไทย)
-        </p>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <h2 className="text-sm font-medium text-muted-foreground">การสื่อสารและกิจกรรม</h2>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <StatCard
-            label="ถูกใจ"
-            value={m.likes_today}
-            icon={Heart}
-            sublabel="วันนี้ (เวลาไทย)"
-            deltaPct={deltaPct(m.likes_today, t.likes_yesterday)}
-          />
-          <StatCard
-            label="คอมเมนต์"
-            value={m.comments_today}
-            icon={MessageCircle}
-            sublabel="วันนี้ (เวลาไทย)"
-            deltaPct={deltaPct(m.comments_today, t.comments_yesterday)}
-          />
-          <StatCard
-            label="ReDrop"
-            value={m.redrops_today}
-            icon={Repeat2}
-            sublabel="วันนี้ (เวลาไทย)"
-            deltaPct={deltaPct(m.redrops_today, t.redrops_yesterday)}
-          />
-          <StatCard
-            label="ข้อความ"
+            label="ข้อความใหม่"
             value={m.messages_today}
             icon={Mail}
             sublabel="วันนี้ (เวลาไทย)"
-            deltaPct={deltaPct(m.messages_today, t.messages_yesterday)}
+            deltaPct={deltaPct(m.messages_today, t.messages_yesterday_matched)}
           />
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-muted-foreground">รายงาน</h2>
-        <p className="-mt-2 text-xs text-muted-foreground">
-          ยอดสะสมทั้งหมดตั้งแต่เปิดระบบ ไม่ใช่แค่วันนี้ — ตัวเลข &quot;รอดำเนินการ&quot; คือสิ่งที่ต้องรีบตรวจสอบ
-        </p>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            label="รายงาน"
-            value={m.reports_total}
-            icon={Flag}
-            secondaryValue={m.reports_pending}
-            secondaryLabel="รอดำเนินการ"
-            secondaryTone="warn"
+            label="การสนทนาที่ Active"
+            value={m.active_conversations}
+            icon={MessagesSquare}
           />
         </div>
       </section>
 
-      {/*
-        WYN-077: always appended last, never inserted between existing
-        sections -- keeps the Admin's existing mental model of section
-        order intact. See .wyn/docs/design/wyn-077-basic-product-analytics.md.
-      */}
+      {/* Section 6 -- สิ่งที่ต้องดำเนินการ */}
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-muted-foreground">การเติบโต</h2>
+        <h2 className="text-sm font-medium text-muted-foreground">สิ่งที่ต้องดำเนินการ</h2>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <KpiTile
+            label="Reports Pending"
+            value={m.reports_pending}
+            icon={Flag}
+            href="/reports"
+            status={actionStatusFor(m.reports_pending)}
+          />
+          <KpiTile
+            label="Moderation Pending"
+            value={m.appeals_pending}
+            icon={ShieldAlert}
+            sublabel="อุทธรณ์ที่รอการตัดสิน"
+            status={actionStatusFor(m.appeals_pending)}
+          />
+          <Card className="opacity-60">
+            <CardHeader className="flex-row items-start justify-between space-y-0">
+              <span className="text-sm font-medium text-muted-foreground">System Alerts</span>
+              <Radio className="size-4 text-zinc-400" aria-hidden="true" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                ยังไม่มีระบบ Monitoring/Alert ในแพลตฟอร์มนี้ — จะเพิ่มตัวเลขจริงเมื่อมี Metric รองรับ
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* Section 7 -- Growth & Retention */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-medium text-muted-foreground">การเติบโตและ Retention</h2>
         <p className="-mt-2 text-xs text-muted-foreground">
-          Retention นับจากผู้ใช้ที่กลับมามีกิจกรรมบนแพลตฟอร์ม ไม่ใช่แค่เปิดเว็บทิ้งไว้ ·
-          ช่องทางนับจากลิงก์ที่มี UTM parameter เท่านั้น ผู้ใช้ที่พิมพ์ URL เข้าเองจะขึ้นเป็น
-          &quot;ไม่ระบุที่มา&quot;
+          D1/D7 Retention นับจากผู้ใช้ที่สมัครสำเร็จเมื่อ 2-3 / 8-9 วันก่อน (ให้เวลาครบรอบพอดี ไม่ใช่ของวันนี้) และ
+          &quot;กลับมา&quot; หมายถึงมีกิจกรรมจริงบนแพลตฟอร์ม ไม่ใช่แค่เปิดเว็บทิ้งไว้ · ช่องทางนับจากลิงก์ที่มี UTM
+          parameter เท่านั้น
         </p>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="สมัครใหม่" value={m.signup_started_24h} icon={UserPlus} sublabel="วันนี้ (เวลาไทย)" />
+        <div className="flex flex-col gap-2">
+          <StatCard label="สมัครใหม่" value={m.signup_started_24h} icon={UserPlus} sublabel="ใน 24 ชม.ล่าสุด" />
+          <p className="text-center text-muted-foreground" aria-hidden="true">↓</p>
           <StatCard
             label="สมัครสำเร็จ"
             value={m.signup_completed_24h}
             icon={CheckCircle2}
-            // Cohort with 0 signups today -> the RPC returns null, not a
-            // misleading "0%" -- shown as plain 0 here, same convention
-            // every other stat card in this dashboard already uses for
-            // "genuinely nothing happened yet" (e.g. new_users_today).
             secondaryValue={m.signup_conversion_pct ?? 0}
             secondaryLabel="อัตราสมัครสำเร็จ (%)"
           />
+          <p className="text-center text-muted-foreground" aria-hidden="true">↓</p>
           <StatCard
             label="Activation"
             value={m.activation_pct_24h ?? 0}
@@ -221,8 +286,11 @@ export async function DashboardMetrics() {
             secondaryValue={m.activation_count_24h}
             secondaryLabel="คน"
           />
-          <StatCard label="D1 Retention" value={m.retention_d1_pct ?? 0} icon={RotateCcw} sublabel="% กลับมาใช้วันที่ 1" />
-          <StatCard label="D7 Retention" value={m.retention_d7_pct ?? 0} icon={RotateCcw} sublabel="% กลับมาใช้วันที่ 7" />
+          <p className="text-center text-muted-foreground" aria-hidden="true">↓</p>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <StatCard label="D1 Retention" value={m.retention_d1_pct ?? 0} icon={RotateCcw} sublabel="% กลับมาใช้วันที่ 1" />
+            <StatCard label="D7 Retention" value={m.retention_d7_pct ?? 0} icon={RotateCcw} sublabel="% กลับมาใช้วันที่ 7" />
+          </div>
         </div>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
           <TopSourcesCard sources={m.top_sources} />

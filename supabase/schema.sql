@@ -7611,6 +7611,16 @@ returns table (
   messages_today bigint,
   reports_total bigint,
   reports_pending bigint,
+  -- Admin Dashboard restructure (Founder spec, "ต้องปรับปรุงหน้า WYNOS
+  -- Admin Dashboard ใหม่ทั้งระบบ"): Section 6's "สิ่งที่ต้องดำเนินการ"
+  -- needs a real moderation-queue count alongside reports_pending, not
+  -- a fabricated one -- appeals.status = 'pending' is exactly that
+  -- (someone is waiting on a moderator's decision), already in the
+  -- schema and never surfaced here before. Section 5's "การสนทนาที่
+  -- Active" is the same story: conversations.status = 'active' already
+  -- exists, just never queried by this RPC.
+  appeals_pending bigint,
+  active_conversations bigint,
   -- WYN-077 additions below -- see
   -- .wyn/docs/design/wyn-077-basic-product-analytics.md's stat card
   -- table for what each one renders as.
@@ -7631,13 +7641,14 @@ declare
   -- "Today" means the Thai calendar day (00:00-23:59 Asia/Bangkok), not
   -- a rolling 24-hour window ending at whatever instant the RPC happens
   -- to run -- Founder feedback ("24ชม นับจาก 00:00-23:59 ของแต่ละวัน
-  -- เวลาไทย จะได้เข้าใจง่ายๆ"). A rolling window is left alone for a
-  -- stat with no fixed reset time (DAU/WAU/MAU below), but every
-  -- *_today/*_24h column here answers "what happened today" in the one
-  -- calendar sense a person actually means -- Bangkok's, not whatever
-  -- timezone this database session happens to default to (Supabase
-  -- projects default to UTC, 7 hours behind Bangkok). Computed once so
-  -- every *_today/*_24h column below shares the exact same boundary.
+  -- เวลาไทย จะได้เข้าใจง่ายๆ"), later formalized in the Admin Dashboard
+  -- restructure spec's own "มาตรฐานการนับเวลา" section: WYNOS Admin
+  -- uses calendar days throughout, Asia/Bangkok. That spec also brought
+  -- DAU/WAU/MAU under the same rule (previously deliberately left as
+  -- rolling windows -- see WAU/MAU's own comment below for why that
+  -- was reconsidered, not silently changed). Computed once so every
+  -- *_today/*_24h/DAU/WAU/MAU column below shares the exact same
+  -- boundary.
   v_today_start timestamptz := date_trunc('day', now() at time zone 'Asia/Bangkok') at time zone 'Asia/Bangkok';
 begin
   -- coalesce() is load-bearing, not decoration: current_platform_role()
@@ -7795,9 +7806,18 @@ begin
   )
   select
     (select count(*) from public.profiles where created_at >= v_today_start),
-    (select count(distinct actor_id) from actions where created_at >= now() - interval '1 day'),
-    (select count(distinct actor_id) from actions where created_at >= now() - interval '7 days'),
-    (select count(distinct actor_id) from actions where created_at >= now() - interval '30 days'),
+    -- DAU/WAU/MAU: calendar-anchored per the Admin Dashboard restructure
+    -- spec's "มาตรฐาน DAU/WAU/MAU" section -- "7/30 วันล่าสุดตามวัน
+    -- ปฏิทิน" means the last 7/30 calendar days *including today*
+    -- (today + 6/29 days back to midnight), not a rolling 7*24h/30*24h
+    -- window from this exact instant. Previously deliberately left
+    -- rolling (see this function's git history) on the theory that a
+    -- stat with no fixed reset time didn't need one; the Founder's own
+    -- spec now defines one explicitly, so that reasoning no longer
+    -- applies here.
+    (select count(distinct actor_id) from actions where created_at >= v_today_start),
+    (select count(distinct actor_id) from actions where created_at >= v_today_start - interval '6 days'),
+    (select count(distinct actor_id) from actions where created_at >= v_today_start - interval '29 days'),
     (select count(*) from public.drops where created_at >= v_today_start),
     (select count(*) from public.drop_views where created_at >= v_today_start),
     (select count(*) from public.clubs),
@@ -7812,6 +7832,8 @@ begin
     (select count(*) from public.messages where deleted_at is null and created_at >= v_today_start),
     (select count(*) from public.reports),
     (select count(*) from public.reports where status = 'pending'),
+    (select count(*) from public.appeals where status = 'pending'),
+    (select count(*) from public.conversations where status = 'active'),
     (select started_count from conversion_calc),
     -- signup_completed_24h is an absolute daily count (every
     -- signup_completed event in the last 24h), independent of when
@@ -7846,7 +7868,7 @@ $$;
 grant execute on function public.admin_dashboard_metrics() to authenticated;
 
 -- ============================================================
--- Admin Dashboard: trends (vs-yesterday deltas + 14-day DAU chart)
+-- Admin Dashboard: trends (vs-yesterday deltas)
 -- ============================================================
 -- Added directly per the Founder's request to make the Dashboard "more
 -- detailed, easier to understand" -- a separate RPC, not more columns
@@ -7856,6 +7878,13 @@ grant execute on function public.admin_dashboard_metrics() to authenticated;
 -- production long after WYN-077 added 8 more), so this keeps the new,
 -- purely-additive work isolated rather than risking another
 -- drop-and-recreate on the one already confirmed working.
+--
+-- dau_last_14d (a fixed 14-day DAU-only series) is gone as of the Admin
+-- Dashboard restructure -- superseded, not just deleted: it computed
+-- the exact same per-day DAU admin_activity_trend(p_days) now also
+-- computes, alongside engagement and any range from 1-365 days, so
+-- keeping both would mean two sources of truth for "DAU per day"
+-- drifting from each other the moment one of them is touched again.
 create or replace function public.admin_dashboard_trends()
 returns table (
   new_users_yesterday bigint,
@@ -7865,14 +7894,29 @@ returns table (
   comments_yesterday bigint,
   redrops_yesterday bigint,
   messages_yesterday bigint,
-  -- One point per calendar day, oldest first -- see admin-metrics.ts's
-  -- DauDay type. Deliberately DAU specifically (not new signups or
-  -- drops): every other section of this dashboard already treats DAU as
-  -- the platform's primary rolling-activity pulse (see
-  -- admin_dashboard_metrics()'s own DAU/WAU/MAU comment above), so it's
-  -- the one metric worth a full trend line rather than a single
-  -- vs-yesterday badge.
-  dau_last_14d jsonb
+  -- Admin Dashboard restructure spec, "การเปรียบเทียบข้อมูล": comparing
+  -- today-so-far against a *full* yesterday overstates or understates
+  -- every swing depending purely on what time of day it is right now
+  -- (spec's own example: 5 ก.ย. 00:00-12:54 must compare against 4 ก.ย.
+  -- 00:00-12:54, never 4 ก.ย.'s full day) -- so every vs-yesterday delta
+  -- badge on the Dashboard now reads from these _matched columns
+  -- instead of the plain *_yesterday ones above. The plain columns stay
+  -- (still a meaningful "yesterday, in full" figure on their own, and
+  -- removing them isn't necessary to fix the comparison), but nothing
+  -- here uses now() - interval '1 day' style math for a comparison
+  -- again -- see v_yesterday_matched_end below.
+  new_users_yesterday_matched bigint,
+  drops_yesterday_matched bigint,
+  views_yesterday_matched bigint,
+  likes_yesterday_matched bigint,
+  comments_yesterday_matched bigint,
+  redrops_yesterday_matched bigint,
+  messages_yesterday_matched bigint,
+  -- Section 1's "ผู้ใช้งานวันนี้" tile (DAU) needs the same fair,
+  -- clock-matched comparison as every other tile -- distinct actors,
+  -- not a plain count(*), so it gets its own column rather than fitting
+  -- the count(*) shape every column above shares.
+  active_users_yesterday_matched bigint
 )
 language plpgsql
 security definer
@@ -7886,9 +7930,116 @@ declare
   -- or the two numbers a person compares side by side on the Dashboard
   -- would silently be using two different definitions of "day".
   v_today_start timestamptz := date_trunc('day', now() at time zone 'Asia/Bangkok') at time zone 'Asia/Bangkok';
+  v_yesterday_start timestamptz;
+  -- How far into today we are, right now -- e.g. now() at 12:54 gives
+  -- '12 hours 54 minutes'. Added to v_yesterday_start below, this
+  -- yields yesterday's clock-matched cutoff, so "today so far" and
+  -- "yesterday so far" cover the exact same elapsed duration.
+  v_yesterday_matched_end timestamptz;
 begin
   if coalesce(internal.current_platform_role(), '') not in ('admin', 'moderator') then
     raise exception 'Not permitted to view admin dashboard trends';
+  end if;
+
+  v_yesterday_start := v_today_start - interval '1 day';
+  v_yesterday_matched_end := v_yesterday_start + (now() - v_today_start);
+
+  return query
+  -- Same "every did-something table" union admin_dashboard_metrics()
+  -- uses for its own DAU/WAU/MAU -- only needed here for
+  -- active_users_yesterday_matched below, duplicated rather than
+  -- shared since Postgres has no cross-function CTE reuse.
+  with actions as (
+    select user_id as actor_id, created_at from public.drop_likes
+    union all
+    select user_id, created_at from public.pop_likes
+    union all
+    select user_id, created_at from public.club_post_likes
+    union all
+    select author_id, created_at from public.drop_comments
+    union all
+    select author_id, created_at from public.pop_comments
+    union all
+    select author_id, created_at from public.club_post_comments
+    union all
+    select redropper_id, created_at from public.redrops
+    union all
+    select sender_id, created_at from public.messages where deleted_at is null
+    union all
+    select author_id, created_at from public.drops
+  )
+  select
+    (select count(*) from public.profiles
+      where created_at >= v_yesterday_start and created_at < v_today_start),
+    (select count(*) from public.drops
+      where created_at >= v_yesterday_start and created_at < v_today_start),
+    (select count(*) from public.drop_views
+      where created_at >= v_yesterday_start and created_at < v_today_start),
+    (select count(*) from public.drop_likes where created_at >= v_yesterday_start and created_at < v_today_start)
+      + (select count(*) from public.pop_likes where created_at >= v_yesterday_start and created_at < v_today_start)
+      + (select count(*) from public.club_post_likes where created_at >= v_yesterday_start and created_at < v_today_start),
+    (select count(*) from public.drop_comments where created_at >= v_yesterday_start and created_at < v_today_start)
+      + (select count(*) from public.pop_comments where created_at >= v_yesterday_start and created_at < v_today_start)
+      + (select count(*) from public.club_post_comments where created_at >= v_yesterday_start and created_at < v_today_start),
+    (select count(*) from public.redrops
+      where created_at >= v_yesterday_start and created_at < v_today_start),
+    (select count(*) from public.messages where deleted_at is null
+      and created_at >= v_yesterday_start and created_at < v_today_start),
+    (select count(*) from public.profiles
+      where created_at >= v_yesterday_start and created_at < v_yesterday_matched_end),
+    (select count(*) from public.drops
+      where created_at >= v_yesterday_start and created_at < v_yesterday_matched_end),
+    (select count(*) from public.drop_views
+      where created_at >= v_yesterday_start and created_at < v_yesterday_matched_end),
+    (select count(*) from public.drop_likes where created_at >= v_yesterday_start and created_at < v_yesterday_matched_end)
+      + (select count(*) from public.pop_likes where created_at >= v_yesterday_start and created_at < v_yesterday_matched_end)
+      + (select count(*) from public.club_post_likes where created_at >= v_yesterday_start and created_at < v_yesterday_matched_end),
+    (select count(*) from public.drop_comments where created_at >= v_yesterday_start and created_at < v_yesterday_matched_end)
+      + (select count(*) from public.pop_comments where created_at >= v_yesterday_start and created_at < v_yesterday_matched_end)
+      + (select count(*) from public.club_post_comments where created_at >= v_yesterday_start and created_at < v_yesterday_matched_end),
+    (select count(*) from public.redrops
+      where created_at >= v_yesterday_start and created_at < v_yesterday_matched_end),
+    (select count(*) from public.messages where deleted_at is null
+      and created_at >= v_yesterday_start and created_at < v_yesterday_matched_end),
+    (select count(distinct actor_id) from actions
+      where created_at >= v_yesterday_start and created_at < v_yesterday_matched_end);
+end;
+$$;
+
+grant execute on function public.admin_dashboard_trends() to authenticated;
+
+-- ============================================================
+-- Admin Dashboard: activity trend (Active Users / Engagement charts)
+-- ============================================================
+-- Admin Dashboard restructure spec, Sections 2 & 4: "Active Users
+-- Trend" and "Engagement Trend", both selectable 7/30/90 days.
+-- Deliberately one RPC, not two: both charts bucket the exact same way
+-- (one row per Bangkok calendar day) over the exact same lookback
+-- window, so this returns both series from a single scan and the
+-- client slices the 90-day result down to 7/30 locally -- no second
+-- round trip for a shorter range. Superseded admin_dashboard_trends()'s
+-- old dau_last_14d for the same reason (see that function's comment).
+create or replace function public.admin_activity_trend(p_days int default 30)
+returns table (
+  day date,
+  active_users bigint,
+  engagement bigint
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_today_start timestamptz := date_trunc('day', now() at time zone 'Asia/Bangkok') at time zone 'Asia/Bangkok';
+  -- Clamped rather than trusted as-is: this is exposed to every
+  -- admin/moderator, and an unbounded p_days would let a typo (or a
+  -- deliberately huge value) ask generate_series for years of empty
+  -- daily buckets. 365 is already far past the 90-day ceiling the UI
+  -- exposes, so nothing legitimate is ever clamped in practice.
+  v_days int := greatest(1, least(coalesce(p_days, 30), 365));
+begin
+  if coalesce(internal.current_platform_role(), '') not in ('admin', 'moderator') then
+    raise exception 'Not permitted to view admin activity trend';
   end if;
 
   return query
@@ -7915,48 +8066,54 @@ begin
     union all
     select author_id, created_at from public.drops
   ),
+  -- Engagement Trend (Section 4) is specifically ถูกใจ/คอมเมนต์/ReDrop --
+  -- the same 3 event types Section 4's own stat cards total, not every
+  -- action DAU counts (that would double-count Drop/message activity
+  -- Section 4 never claims as "engagement").
+  engagement_events as (
+    select created_at from public.drop_likes
+    union all select created_at from public.pop_likes
+    union all select created_at from public.club_post_likes
+    union all select created_at from public.drop_comments
+    union all select created_at from public.pop_comments
+    union all select created_at from public.club_post_comments
+    union all select created_at from public.redrops
+  ),
   days as (
     select generate_series(
-      v_today_start - interval '13 days',
+      v_today_start - (v_days - 1) * interval '1 day',
       v_today_start,
       interval '1 day'
     ) as day_start
   ),
-  daily_dau as (
+  daily_active as (
     select d.day_start, count(distinct a.actor_id) as cnt
     from days d
     left join actions a
       on a.created_at >= d.day_start and a.created_at < d.day_start + interval '1 day'
     group by d.day_start
+  ),
+  daily_engagement as (
+    select d.day_start, count(*) as cnt
+    from days d
+    left join engagement_events e
+      on e.created_at >= d.day_start and e.created_at < d.day_start + interval '1 day'
+    group by d.day_start
   )
-  select
-    (select count(*) from public.profiles
-      where created_at >= v_today_start - interval '1 day' and created_at < v_today_start),
-    (select count(*) from public.drops
-      where created_at >= v_today_start - interval '1 day' and created_at < v_today_start),
-    (select count(*) from public.drop_views
-      where created_at >= v_today_start - interval '1 day' and created_at < v_today_start),
-    (select count(*) from public.drop_likes where created_at >= v_today_start - interval '1 day' and created_at < v_today_start)
-      + (select count(*) from public.pop_likes where created_at >= v_today_start - interval '1 day' and created_at < v_today_start)
-      + (select count(*) from public.club_post_likes where created_at >= v_today_start - interval '1 day' and created_at < v_today_start),
-    (select count(*) from public.drop_comments where created_at >= v_today_start - interval '1 day' and created_at < v_today_start)
-      + (select count(*) from public.pop_comments where created_at >= v_today_start - interval '1 day' and created_at < v_today_start)
-      + (select count(*) from public.club_post_comments where created_at >= v_today_start - interval '1 day' and created_at < v_today_start),
-    (select count(*) from public.redrops
-      where created_at >= v_today_start - interval '1 day' and created_at < v_today_start),
-    (select count(*) from public.messages where deleted_at is null
-      and created_at >= v_today_start - interval '1 day' and created_at < v_today_start),
-    -- day_start is a Bangkok midnight instant -- converted back to
-    -- Bangkok wall-clock time before casting to `date` so the label
-    -- itself can't drift a day off in either direction depending on
-    -- this session's own timezone setting (the same class of bug this
-    -- whole fix is for).
-    (select coalesce(jsonb_agg(jsonb_build_object('date', (day_start at time zone 'Asia/Bangkok')::date, 'count', cnt) order by day_start), '[]'::jsonb)
-      from daily_dau);
+  -- day_start is a Bangkok midnight instant -- converted back to
+  -- Bangkok wall-clock time before casting to `date` so the label
+  -- itself can't drift a day off in either direction depending on this
+  -- session's own timezone setting (the same class of bug the earlier
+  -- Thai-timezone fix addressed throughout this file).
+  select (d.day_start at time zone 'Asia/Bangkok')::date, coalesce(da.cnt, 0), coalesce(de.cnt, 0)
+  from days d
+  left join daily_active da on da.day_start = d.day_start
+  left join daily_engagement de on de.day_start = d.day_start
+  order by d.day_start;
 end;
 $$;
 
-grant execute on function public.admin_dashboard_trends() to authenticated;
+grant execute on function public.admin_activity_trend(int) to authenticated;
 
 -- ============================================================
 -- Admin Dashboard: signup counts by calendar period
@@ -7974,7 +8131,11 @@ returns table (
   today bigint,
   this_week bigint,
   this_month bigint,
-  this_year bigint
+  this_year bigint,
+  -- Admin Dashboard restructure spec, Section 3's "ทั้งหมด" row --
+  -- every other column here is a calendar-period slice; this is the
+  -- one with no lower bound at all.
+  all_time bigint
 )
 language plpgsql
 security definer
@@ -8003,7 +8164,8 @@ begin
     (select count(*) from public.profiles
       where created_at >= date_trunc('month', now() at time zone 'Asia/Bangkok') at time zone 'Asia/Bangkok'),
     (select count(*) from public.profiles
-      where created_at >= date_trunc('year', now() at time zone 'Asia/Bangkok') at time zone 'Asia/Bangkok');
+      where created_at >= date_trunc('year', now() at time zone 'Asia/Bangkok') at time zone 'Asia/Bangkok'),
+    (select count(*) from public.profiles);
 end;
 $$;
 
