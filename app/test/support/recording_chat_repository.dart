@@ -226,8 +226,13 @@ class RecordingChatRepository extends ChatRepository {
     if (error != null) throw error;
   }
 
+  int imageSignedUrlCalls = 0;
+
   @override
-  Future<String?> imageSignedUrl(String path) async => signedUrlResult;
+  Future<String?> imageSignedUrl(String path) async {
+    imageSignedUrlCalls++;
+    return signedUrlResult;
+  }
 
   @override
   Future<bool> isConversationMuted(String conversationId) async =>

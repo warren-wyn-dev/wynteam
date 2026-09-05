@@ -155,6 +155,45 @@ void main() {
     expect(find.text('ตอบกลับ'), findsNothing);
   });
 
+  // Founder feedback: tapping a reply quote used to scroll to
+  // `index * 72.0` -- a fixed-height guess that drifts off target the
+  // moment the bubbles in between aren't a plain one-line text message.
+  // Every filler here is a 160x160 image bubble specifically so the old
+  // guess (sized for ordinary text rows) undershoots by a wide, obvious
+  // margin rather than coincidentally landing close by luck.
+  testWidgets(
+      'tapping a reply quote scrolls to the actual original message, not '
+      'a fixed-height guess', (tester) async {
+    final fillers = List.generate(
+      25,
+      (i) => message(id: 'filler-${i + 1}', text: null, imageUrl: 'c1/filler-${i + 1}.jpg'),
+    );
+    chatRepo.signedUrlResult = 'https://example.supabase.co/signed/filler.jpg';
+    chatRepo.messagesByConversation = {
+      'c1': [
+        message(id: 'reply', text: 'ตอบกลับ', replyToMessageId: 'target'),
+        ...fillers,
+        message(id: 'target', text: 'ข้อความต้นฉบับที่อยู่ไกลมาก'),
+      ],
+    };
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+    // The filler messages' fake signed image URLs 404 in a test --
+    // harmless NetworkImageLoadException noise, same convention as
+    // bookmarks_screen_test.dart's own takeException() calls.
+    tester.takeException();
+
+    // Far enough away that it isn't built at all yet -- proves this
+    // actually scrolled there, not that it was already on screen.
+    expect(find.text('ข้อความต้นฉบับที่อยู่ไกลมาก'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('reply_quote_reply')));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('ข้อความต้นฉบับที่อยู่ไกลมาก'), findsOneWidget);
+  });
+
   testWidgets('deleting my own message calls deleteMessage and shows the deleted placeholder',
       (tester) async {
     chatRepo.messagesByConversation = {
@@ -198,7 +237,7 @@ void main() {
     await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
 
-    await tester.longPress(find.byIcon(Icons.image_outlined).first);
+    await tester.longPress(find.byKey(const Key('chat_image_m1')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('ลบ'));
     await tester.pumpAndSettle();
@@ -208,6 +247,75 @@ void main() {
     expect(chatRepo.deleteMessageCalls, 1);
     expect(chatRepo.lastDeletedMessage?.id, 'm1');
     expect(chatRepo.lastDeletedMessage?.imageUrl, 'c1/me-123.jpg');
+  });
+
+  // Founder feedback: an ordinary (not View Once) chat photo used to
+  // render a fixed gray placeholder icon forever -- the real image was
+  // only ever fetched once the recipient tapped it open full-screen.
+  group('Chat photo thumbnails (Founder feedback)', () {
+    testWidgets('renders the actual photo inline, not a placeholder icon',
+        (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [message(id: 'm1', text: null, imageUrl: 'c1/other-1.jpg')],
+      };
+      chatRepo.signedUrlResult = 'https://example.supabase.co/signed/other-1.jpg';
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+      // The signed URL 404s in a test -- harmless NetworkImageLoadException
+      // noise, same convention as bookmarks_screen_test.dart's own
+      // takeException() calls (the errorBuilder inside NetworkThumbnail
+      // keeps this from affecting layout).
+      tester.takeException();
+
+      expect(find.byKey(const Key('chat_image_m1')), findsOneWidget);
+      expect(find.byType(Image), findsOneWidget);
+      final image = tester.widget<Image>(find.byType(Image));
+      // NetworkThumbnail decodes at a bounded size via `cacheWidth`,
+      // which wraps the underlying NetworkImage in a ResizeImage.
+      final resized = image.image as ResizeImage;
+      expect((resized.imageProvider as NetworkImage).url, chatRepo.signedUrlResult);
+    });
+
+    testWidgets(
+        'a photo whose signed URL fails to mint (e.g. the object was '
+        'already deleted) shows a broken-image icon, not a silent hole',
+        (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [message(id: 'm1', text: null, imageUrl: 'c1/gone.jpg')],
+      };
+      chatRepo.signedUrlResult = null;
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
+      expect(find.byType(Image), findsNothing);
+    });
+
+    testWidgets(
+        'a new incoming message does not re-fetch the signed URL for an '
+        'already-rendered photo further down the list', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [message(id: 'm1', text: null, imageUrl: 'c1/other-1.jpg')],
+      };
+      chatRepo.signedUrlResult = 'https://example.supabase.co/signed/other-1.jpg';
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(chatRepo.imageSignedUrlCalls, 1);
+
+      // New messages are inserted at the front (see ConversationScreen's
+      // own reverse:true list) -- this shifts m1's bubble down a slot.
+      // Without ConversationScreen's own signed-URL cache, that shift
+      // alone (not just a second image message) would trigger a second
+      // fetch for the exact same path.
+      chatRepo.emitConversationMessage(
+        message(id: 'm2', senderId: 'other', text: 'ข้อความใหม่'),
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(chatRepo.imageSignedUrlCalls, 1);
+    });
   });
 
   // Founder feedback -- View Once chat photos.
