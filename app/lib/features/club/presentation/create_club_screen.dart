@@ -170,6 +170,17 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
   }
 
   Future<void> _create() async {
+    // Same synchronous double-submit guard CreateDropScreen._share and
+    // CreatePopScreen._share already have: `onPressed: _canCreate ?
+    // _create : null` only disables once the setState below's rebuild
+    // has actually run, so a fast double-tap before that reaches this
+    // method twice and creates two Clubs with the same name (schema has
+    // no unique constraint on clubs.name -- nothing else stops it). See
+    // .wyn/tasks/bugs/WYN-004-feed-and-post.md (QA round 1) for the
+    // original bug of this class, and CreateClubPostScreen._post for
+    // the same fix applied there.
+    if (!_canCreate) return;
+
     final privacy = _privacy;
     if (privacy == null) return;
 
