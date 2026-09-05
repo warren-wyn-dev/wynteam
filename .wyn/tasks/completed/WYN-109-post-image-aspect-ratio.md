@@ -73,3 +73,12 @@ migration ตรวจซ้ำบน PostgreSQL 16.13 จริงแล้ว:
 รายงานเต็ม: `.wyn/docs/qa/wyn-106-107-108-109-home-cards-qa-round2.md`
 
 ย้ายมา `approved/` แล้ว รอ merge + deploy
+
+---
+
+## COMPLETED — 2026-09-05
+
+Deploy ขึ้น production แล้ว (workflow run #63, commit `cb4d02d`) และ **Founder ยืนยันด้วยตาแล้วว่า
+ใช้งานได้จริงบน `wynos.online`** ("เช็คแล้ว ใช้ได้")
+
+Deployment log: `.wyn/logs/deployments/2026-09-05-wyn-106-107-108-109-home-cards-deploy.md`
