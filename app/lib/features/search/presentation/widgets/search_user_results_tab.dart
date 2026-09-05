@@ -5,6 +5,7 @@ import '../../../drop/data/drop_repository.dart';
 import '../../../follow/data/follow_repository.dart';
 import '../../../follow/data/follow_request_repository.dart';
 import '../../../follow/presentation/widgets/follow_action_button.dart';
+import '../../../home/presentation/widgets/verified_badge.dart';
 import '../../../pop/data/pop_repository.dart';
 import '../../../profile/data/profile.dart';
 import '../../../profile/data/profile_repository.dart';
@@ -216,9 +217,21 @@ class _SearchUserResultsTabState extends State<SearchUserResultsTab>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          profile.nameOrUsername,
-                          style: Theme.of(context).textTheme.titleSmall,
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                profile.nameOrUsername,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                            ),
+                            if (profile.isVerified) ...[
+                              const SizedBox(width: WynSpacing.space1),
+                              const VerifiedBadge(),
+                            ],
+                          ],
                         ),
                         Text(
                           '@${profile.username}',

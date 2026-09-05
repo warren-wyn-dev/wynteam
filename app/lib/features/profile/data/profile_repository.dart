@@ -36,9 +36,15 @@ class ProfileRepository {
         // Privacy toggle and ViewProfileScreen's Locked persona the same
         // way. dm_permission/mention_permission/comment_permission
         // (WYN-045) feed SettingsScreen's 3 new permission rows the same
-        // "already-fetched, not re-queried" way.
+        // "already-fetched, not re-queried" way. is_verified was missing
+        // entirely until Founder feedback pointed out the official
+        // WYNOS account's checkmark (VerifiedBadge, already rendered on
+        // Home/Suggested Follows) never showed on the profile page
+        // itself -- Profile.fromMap defaults a missing column to false,
+        // so every profile silently read as unverified here regardless
+        // of what profiles.is_verified actually held.
         .select(
-            'id, username, display_name, bio, avatar_url, platform_role, is_private, dm_permission, mention_permission, comment_permission, likes_visibility')
+            'id, username, display_name, bio, avatar_url, platform_role, is_private, is_verified, dm_permission, mention_permission, comment_permission, likes_visibility')
         .eq('id', userId)
         .single();
     return Profile.fromMap(row);
@@ -268,7 +274,7 @@ class ProfileRepository {
     final pattern = quotePostgrestFilterValue('%$query%');
     final rows = await _client
         .from('profiles')
-        .select('id, username, display_name, bio, avatar_url')
+        .select('id, username, display_name, bio, avatar_url, is_verified')
         .or('username.ilike.$pattern,display_name.ilike.$pattern')
         .range(from, to);
 
