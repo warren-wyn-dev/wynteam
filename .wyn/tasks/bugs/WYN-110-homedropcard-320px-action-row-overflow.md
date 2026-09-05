@@ -96,3 +96,21 @@ branch เดียวกัน — เคส 320px ยังคง fail ด้�
 `git diff de4b4b0..HEAD -- app/lib/features/home/presentation/widgets/home_drop_card.dart` ว่างเปล่า —
 ไฟล์นี้ไม่ถูกแตะโดยทั้ง WYN-110-001 (fix guard) และ WYN-111 (carousel scale) เลย จึงยังไม่บล็อกการ
 อนุมัติทั้ง 2 งานตามเดิม รอ PM/Founder เปิด task แยกเช่นเดิม
+
+## Fix Applied — 2026-09-05
+
+CI บน `main` แดงหลัง PR #227 merge เพราะเทสต์ใหม่ของ QA เอง (กลุ่ม "6.") ยืนยันบั๊กนี้ตรง ๆ ที่ 320px
+— บั๊กนี้ยังนอกขอบเขตของ WYN-110/WYN-111 ตามเดิม แต่ต้องแก้ทันทีเพื่อให้ deploy production ต่อได้
+(ตามกติกา ห้าม skip/disable เทสต์ที่ fail จริงเพื่อให้ผ่าน CI)
+
+แก้ตามแนวทางที่ 2 ที่เสนอไว้ข้างต้น: ห่อ `Row` ของ action bar ด้วย `FittedBox(fit: BoxFit.scaleDown,
+alignment: Alignment.centerLeft)` — เป็น no-op ทันทีที่ Row พอดีอยู่แล้ว (360px ขึ้นไป ไม่มีผลใด ๆ)
+ย่อสัดส่วนลงเล็กน้อยเท่าที่จำเป็นเฉพาะตอนแคบเกิน (320px) แทนการปรับ spacing เฉพาะ breakpoint
+
+ยืนยันด้วย:
+1. `app/test/qa_wyn110_profile_scroll_header_test.dart` กลุ่ม "6." ทั้ง 4 ความกว้าง (320/360/390/430) ผ่านหมด
+2. เทสต์ใหม่เฉพาะของ `HomeDropCard` เอง (ไม่พ่วง scroll/NestedScrollView) ที่
+   `app/test/home_drop_card_overflow_test.dart` — 8 testWidgets (4 ความกว้าง × ยอด 0/ยอด 5 หลัก) ผ่านหมด
+3. `flutter analyze`: 0 issues, `flutter test` เต็มชุด: 1173/1173 ผ่าน
+
+**ปิดแล้ว 2026-09-05** — รอ QA ตรวจยืนยันซ้ำก่อน merge/deploy จริง
