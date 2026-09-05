@@ -11,6 +11,7 @@ import '../../follow/data/follow_request_repository.dart';
 import '../../follow/presentation/follow_list_screen.dart';
 import '../../follow/presentation/follow_request_list_screen.dart';
 import '../../home/data/home_repository.dart';
+import '../../home/presentation/widgets/verified_badge.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../saved/data/saved_repository.dart';
 import '../data/profile.dart';
@@ -1072,15 +1073,29 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                               isOwnProfile
                                   ? _AccountSwitcherName(
                                       name: profile.nameOrUsername,
+                                      isVerified: profile.isVerified,
                                       onTap: _openAccountSwitcher,
                                     )
-                                  : Text(
-                                      profile.nameOrUsername,
-                                      style: _textStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w700,
-                                        color: WynColors.ink,
-                                      ),
+                                  : Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            profile.nameOrUsername,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: _textStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w700,
+                                              color: WynColors.ink,
+                                            ),
+                                          ),
+                                        ),
+                                        if (profile.isVerified) ...[
+                                          const SizedBox(width: WynSpacing.space1),
+                                          const VerifiedBadge(),
+                                        ],
+                                      ],
                                     ),
                               const SizedBox(height: WynSpacing.space1),
                               Text(
@@ -1468,9 +1483,14 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
 /// name. Colour is [WynColors.graphite], not ink -- the name is the
 /// content, the chevron is the hint.
 class _AccountSwitcherName extends StatelessWidget {
-  const _AccountSwitcherName({required this.name, required this.onTap});
+  const _AccountSwitcherName({
+    required this.name,
+    required this.isVerified,
+    required this.onTap,
+  });
 
   final String name;
+  final bool isVerified;
   final VoidCallback onTap;
 
   @override
@@ -1510,6 +1530,10 @@ class _AccountSwitcherName extends StatelessWidget {
                   ),
                 ),
               ),
+              if (isVerified) ...[
+                const SizedBox(width: WynSpacing.space1),
+                const VerifiedBadge(),
+              ],
               const SizedBox(width: WynSpacing.space1),
               const Icon(
                 Icons.keyboard_arrow_down,
