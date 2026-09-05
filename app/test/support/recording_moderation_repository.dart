@@ -55,8 +55,11 @@ class RecordingModerationRepository extends ModerationRepository {
   String? lastReason;
   int? lastDurationDays;
 
+  int fetchMyStatusCalls = 0;
+
   @override
   Future<ModerationStatus> fetchMyStatus() async {
+    fetchMyStatusCalls++;
     final error = myStatusError;
     if (error != null) throw error;
     return myStatus;

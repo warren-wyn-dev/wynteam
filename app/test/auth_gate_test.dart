@@ -483,4 +483,105 @@ void main() {
     expect(find.text('เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), findsNothing);
     expect(find.byType(OnboardingFlow), findsOneWidget);
   });
+
+  // Founder report, 2026-09-05: "เวลากดเปลี่ยนแอด ป็อปอัพไม่ลง มันค้าง
+  // แต่เปลี่ยนแอคให้อยู่" (switching accounts leaves the Account
+  // Switcher's own bottom sheet stuck open, even though the account
+  // really did switch underneath it). Root cause: switchTo's
+  // `setSession(refreshToken)` call fires `tokenRefreshed`, not
+  // `signedIn` -- see auth_gate.dart's own comment on the fix, and
+  // emitTokenRefreshed's doc comment on why the real SDK behaves this
+  // way. These two tests are the regression pair: one proves the fix
+  // catches a real account switch, the other proves it does not
+  // over-fire on GoTrue's own unrelated background token refresh (which
+  // reaches this exact same code path for the *same* user).
+  group('Account Switcher fix -- tokenRefreshed carrying a new user id', () {
+    Future<(RecordingAuthRepository, RecordingModerationRepository)>
+        pumpSignedInGate(WidgetTester tester) async {
+      final authRepository = RecordingAuthRepository(
+        initialSession: _fakeSession('account-a'),
+      );
+      final moderationRepository = RecordingModerationRepository(
+        myStatus: const ModerationStatus(
+          isRestricted: false,
+          isSuspended: false,
+          isBanned: false,
+        ),
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: AuthGate(
+          authRepository: authRepository,
+          moderationRepository: moderationRepository,
+          platformDocumentRepository: platformDocumentRepository,
+          rootShellBuilder: (session) =>
+              SizedBox(key: ValueKey('root_shell_${session.user.id}')),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      // fetchMyStatus already ran once for the initial sign-in above --
+      // both tests below only care about what happens *after* this
+      // point, so this doesn't leak into either assertion.
+      moderationRepository.fetchMyStatusCalls = 0;
+
+      // Simulates the Account Switcher sheet itself (or any other
+      // screen) pushed on top of AuthGate -- the thing that must get
+      // popped away on a real switch, and must NOT on an ordinary
+      // background refresh.
+      tester
+          .state<NavigatorState>(find.byType(Navigator))
+          .push(MaterialPageRoute<void>(
+            builder: (_) => const SizedBox(key: Key('pushed_on_top')),
+          ));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('pushed_on_top')), findsOneWidget);
+
+      return (authRepository, moderationRepository);
+    }
+
+    testWidgets(
+        'a tokenRefreshed event carrying a DIFFERENT user id pops back to '
+        'AuthGate and re-fetches moderation status for the new account',
+        (tester) async {
+      final (authRepository, moderationRepository) =
+          await pumpSignedInGate(tester);
+
+      authRepository.emitTokenRefreshed(_fakeSession('account-b'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('pushed_on_top')), findsNothing,
+          reason: 'the account genuinely switched -- whatever was pushed '
+              'on top of AuthGate must not still be showing');
+      expect(find.byKey(const ValueKey('root_shell_account-b')),
+          findsOneWidget,
+          reason: 'and AuthGate must be showing account-b\'s shell, not '
+              'account-a\'s left over');
+      expect(moderationRepository.fetchMyStatusCalls, 1,
+          reason: 'account-b might be Suspended/Banned even if account-a '
+              'was not -- the moderation gate must re-check, not keep '
+              "account-a's stale status");
+    });
+
+    testWidgets(
+        "a tokenRefreshed event for the SAME user id (GoTrue's own "
+        'background refresh) does not touch navigation or re-fetch '
+        'moderation status', (tester) async {
+      final (authRepository, moderationRepository) =
+          await pumpSignedInGate(tester);
+
+      // Same user, same shape a silent background token renewal has:
+      // a new access token, same account.
+      authRepository.emitTokenRefreshed(_fakeSession('account-a'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('pushed_on_top')), findsOneWidget,
+          reason: 'a routine token renewal for the account already active '
+              'must never pop the user back out of whatever they were '
+              'doing');
+      expect(moderationRepository.fetchMyStatusCalls, 0,
+          reason: 'nothing about this account changed -- re-checking '
+              'moderation status on every silent token renewal would be '
+              'pure waste');
+    });
+  });
 }
