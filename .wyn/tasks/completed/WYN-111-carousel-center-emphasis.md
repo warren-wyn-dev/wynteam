@@ -18,3 +18,13 @@ Handoff:
 1. เพิ่ม `Transform.scale` ต่อการ์ดใน `PostImageCarousel` คำนวณจากระยะห่างจากตำแหน่งเลื่อนปัจจุบัน
 2. เทสต์เดิม 5 ตัวต้องผ่านไม่ต้องแก้ + เพิ่มเทสต์ใหม่คุมพฤติกรรม scale
 3. flutter analyze + flutter test ผ่านครบ
+
+---
+
+## COMPLETED — 2026-09-05
+
+Deploy ขึ้น production 2 รอบ: รอบแรก (workflow run #64, commit `ee917d1`) และรอบแก้บั๊กช่องขาว/bounce
+ที่ Founder เจอจากคลิปหลัง deploy รอบแรก (workflow run #65, commit `95c1653`, PR #230) **Founder
+ยืนยันด้วยตาแล้วว่าใช้งานได้จริงบน `wynos.online`** ("โอเคแล้ว")
+
+Deployment log: `.wyn/logs/deployments/2026-09-05-wyn-110-111-real-deploy.md`
