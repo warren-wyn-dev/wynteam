@@ -325,17 +325,116 @@ void main() {
         await tester.pumpAndSettle();
 
         // Not "exactly 82%": the *last* card's rest position is
-        // wherever ClampingScrollPhysics stops scrolling (there is no
-        // further card to peek at, so the row doesn't reserve that
-        // trailing space) -- not necessarily a clean multiple of
-        // [stride], so its distance-from-front is a little short of 0
-        // and its scale a little short of 1. What must still hold: it
-        // reads clearly bigger than whatever else is still built, the
-        // same "one card, not a wall of identical photos" result a
-        // reader actually sees.
+        // wherever BouncingScrollPhysics settles back to after the
+        // fling's overscroll (there is no further card to peek at, so
+        // the row doesn't reserve that trailing space) -- not
+        // necessarily a clean multiple of [stride], so its
+        // distance-from-front is a little short of 0 and its scale a
+        // little short of 1. What must still hold: it reads clearly
+        // bigger than whatever else is still built, the same "one
+        // card, not a wall of identical photos" result a reader
+        // actually sees.
         final widths = builtWidths(tester)..sort();
         expect(widths.length, greaterThanOrEqualTo(2));
         expect(widths.last, greaterThan(widths[widths.length - 2] + 5));
+      });
+    });
+
+    // Founder, 2026-09-05, watching this play back live: "เห็นสีขาว ตรง
+    // รูปแรกไหม" -- a gap of bare white opened up between the front card
+    // and the one peeking in next. Transform.scale's default alignment
+    // (center) shrinks a card in from *both* edges, so a peeking card
+    // -- laid out flush against its neighbour -- visibly pulled away
+    // from it as it receded, instead of hugging up against it the way
+    // Threads' cards do.
+    group('WYN-111 fix: a peeking card hugs the front card', () {
+      testWidgets(
+          'at rest, the gap between the front card and the one peeking '
+          'in next is only the row\'s own small gap -- not that plus '
+          'half the shrink', (tester) async {
+        await pumpRow(tester);
+
+        final front = tester.getRect(find.byType(ClipRRect).at(0));
+        final peek = tester.getRect(find.byType(ClipRRect).at(1));
+
+        // WynSpacing.space2 (8) is the Padding this row already puts
+        // between cards -- the defect added roughly half of the
+        // peeking card's own shrink (cardWidth * (1 - 0.86) / 2, tens
+        // of pixels) on top of that.
+        expect(peek.left - front.right, closeTo(8, 0.5));
+      });
+
+      testWidgets(
+          'after settling on the middle card, every still-built pair of '
+          'neighbouring cards hugs with no extra gap between them',
+          (tester) async {
+        await pumpRow(tester);
+        await tester.drag(
+            find.byType(PostImageCarousel), const Offset(-336, 0));
+        await tester.pumpAndSettle();
+
+        // Index-agnostic, same discipline as builtWidths() above: a
+        // card scrolled far enough behind the viewport (further back
+        // than ListView's own cache extent) is disposed outright, not
+        // just shrunk, so this checks whatever pairs of cards are
+        // still built rather than assuming specific indices survive.
+        final rects = [
+          for (final e in find.byType(ClipRRect).evaluate())
+            tester.getRect(find.byWidget(e.widget)),
+        ]..sort((a, b) => a.left.compareTo(b.left));
+
+        expect(rects.length, greaterThanOrEqualTo(2));
+        for (var i = 1; i < rects.length; i++) {
+          expect(rects[i].left - rects[i - 1].right, closeTo(8, 0.5));
+        }
+      });
+    });
+
+    // Founder, 2026-09-05: "รูปสุดท้าย ควรเลื่อน จนสุดเป็นสีขาว" -- dragging
+    // past the last (or before the first) card should rubber-band and
+    // reveal plain white, the way Threads does, instead of stopping
+    // dead. ClampingScrollPhysics (Android-style hard stop) was the
+    // parent physics on every platform, silencing that everywhere.
+    group('WYN-111 fix: the row rubber-bands past either end', () {
+      testWidgets(
+          'dragging past the last card overscrolls instead of '
+          'stopping dead at it', (tester) async {
+        final scrollable = await pumpRow(tester);
+
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byType(PostImageCarousel)),
+        );
+        // Past the last card's own resting position (2 * stride = 672)
+        // by a further 200 -- ClampingScrollPhysics would hold pixels
+        // at maxScrollExtent exactly; BouncingScrollPhysics lets it
+        // overscroll past that, further with every extra pixel dragged.
+        await gesture.moveBy(const Offset(-900, 0));
+        await tester.pump();
+
+        expect(
+          scrollable.position.pixels,
+          greaterThan(scrollable.position.maxScrollExtent + 5),
+        );
+
+        await gesture.up();
+        await tester.pumpAndSettle();
+      });
+
+      testWidgets(
+          'dragging before the first card overscrolls instead of '
+          'stopping dead at it', (tester) async {
+        final scrollable = await pumpRow(tester);
+
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byType(PostImageCarousel)),
+        );
+        await gesture.moveBy(const Offset(200, 0));
+        await tester.pump();
+
+        expect(scrollable.position.pixels, lessThan(-5));
+
+        await gesture.up();
+        await tester.pumpAndSettle();
       });
     });
   });
