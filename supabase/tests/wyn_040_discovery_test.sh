@@ -187,7 +187,8 @@ insert into auth.users (id, email) values
   ('10000000-0000-0000-0000-00000000000f', 'rmuted@test.com'),
   ('10000000-0000-0000-0000-000000000010', 'stranger@test.com'),
   ('10000000-0000-0000-0000-000000000011', 'shigh@test.com'),
-  ('10000000-0000-0000-0000-000000000012', 'slow@test.com');
+  ('10000000-0000-0000-0000-000000000012', 'slow@test.com'),
+  ('10000000-0000-0000-0000-000000000013', 'sghost@test.com');
 
 -- 6 filler followers for rA/rFollowed/rBlocked/rOld/rMuted, all created
 -- "now" (within any window) unless noted otherwise -- gives every one
@@ -275,6 +276,39 @@ select id, '10000000-0000-0000-0000-000000000012', now() - interval '1 day'
 from public.profiles
 where username like 'filler%'
 limit 1;
+
+-- suggested_users() now excludes an incomplete-onboarding account (a
+-- `profiles` row with no matching profile_private.onboarding_completed
+-- = true -- see schema.sql's appended fix, 2026-09-05). sHigh/sLow
+-- stand in for real, fully-onboarded accounts for CHECK13/CHECK14, so
+-- they need that row same as any account past the Username step really
+-- would; every rising_profiles()-only fixture above (rA/rB/rFollowed/
+-- rBlocked/rOld/rMuted/stranger) is untouched by that filter and
+-- deliberately left without one.
+insert into public.profile_private (id, onboarding_completed) values
+  ('10000000-0000-0000-0000-000000000011', true),
+  ('10000000-0000-0000-0000-000000000012', true);
+
+-- sGhost -- the regression fixture for the 2026-09-05 fix itself: a
+-- `profiles` row exactly like one AuthRepository.setDateOfBirth creates
+-- on the very first onboarding step, abandoned before Username ever
+-- ran -- no profile_private row at all (not even one with
+-- onboarding_completed = false; a real abandoned signup never reaches
+-- the point of creating that row either, since Birthday is the step
+-- that upserts `profiles` and Username is what runs after). Given all
+-- 12 available filler followers -- deliberately more than sHigh's 9 --
+-- so CHECK16 actually proves exclusion, not just "wasn't ranked #1
+-- anyway". Backdated outside the 7-day window, same reasoning and same
+-- pattern as sHigh's own fixture comment above: suggested_users() ranks
+-- by total followers regardless of when gained, so this doesn't blunt
+-- CHECK16 at all, but it keeps sGhost's 12 followers from also reading
+-- as this month's single biggest *rising* profile and stealing CHECK6's
+-- #1 growth spot out from under rA.
+insert into public.follows (follower_id, following_id, created_at)
+select id, '10000000-0000-0000-0000-000000000013', now() - interval '30 days'
+from public.profiles
+where username like 'filler%'
+limit 12;
 
 -- ------------------------------------------------------------
 -- CHECK 1-3, 5, 8: rising_profiles(), default params, as viewer.
@@ -434,6 +468,32 @@ begin
 
   insert into results select 'CHECK14_stranger_sees_suggested_via_security_definer',
     case when '10000000-0000-0000-0000-000000000011' = any(v_ids) then 1 else 0 end, 1;
+end
+$$;
+
+-- ------------------------------------------------------------
+-- CHECK 16 (2026-09-05 fix): sGhost has more followers than every
+-- other suggested_users() candidate here (12, vs. sHigh's 9) and would
+-- win p_limit=1 outright if the fix didn't exclude it -- proves the fix
+-- by ranking, not just by presence/absence in a big list.
+-- ------------------------------------------------------------
+do $$
+declare
+  v_top uuid;
+  v_ids uuid[];
+begin
+  set role authenticated;
+  set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+  set request.jwt.claim.role = 'authenticated';
+  select profile_id into v_top from public.suggested_users(1);
+  select array_agg(profile_id) into v_ids from public.suggested_users(50);
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+
+  insert into results select 'CHECK16a_suggested_excludes_incomplete_onboarding_from_top',
+    case when v_top = '10000000-0000-0000-0000-000000000013' then 1 else 0 end, 0;
+
+  insert into results select 'CHECK16b_suggested_excludes_incomplete_onboarding_entirely',
+    case when '10000000-0000-0000-0000-000000000013' = any(v_ids) then 1 else 0 end, 0;
 end
 $$;
 
