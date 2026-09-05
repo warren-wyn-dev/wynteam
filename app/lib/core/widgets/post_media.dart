@@ -206,6 +206,24 @@ const double postCardWidthFraction = 0.82;
 /// untouched.
 const double postCardPeekScale = 0.86;
 
+/// WYN-111 fix: half of what a card doesn't use of its own column
+/// (`postCardWidthFraction` already leaves the rest free) reserved as a
+/// scroll-offset -- so a card already scrolled past keeps a visible
+/// sliver on the left once the row settles, the same way the card still
+/// ahead already peeks in on the right. Founder, 2026-09-05, on the
+/// deployed carousel: "ทำไมรูปแรกที่เลื่อนผ่าน ไม่ให้เห็นรูปแรกด้วย แบบ
+/// โผล่มา" (why doesn't the picture I scrolled past also peek in) --
+/// [_CardSnapPhysics] was settling every card flush against the
+/// viewport's own left edge, which by definition shows nothing before
+/// it; only *half* the slack, not all of it, so a middle card still
+/// gives up some of that same space to the next one peeking in on the
+/// right rather than trading away all of it. Never applied to card 0
+/// (see every use below): it has nothing behind it to peek at, and
+/// keeps giving its full slack to the one card it does have ahead, same
+/// as before this fix.
+double _leadingPeekFor(double columnWidth, double cardWidth) =>
+    (columnWidth - cardWidth).clamp(0.0, double.infinity) / 2;
+
 /// The card shape a post's photos are laid out at when the post does not
 /// say otherwise -- a Drop written before WYN-109, whose photos were
 /// squares the feed already drew in a 4:5 card.
@@ -284,13 +302,16 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
   // object each frame is wasteful and, worse, can interrupt a
   // simulation that is mid-flight.
   double? _stride;
+  double? _leadingPeek;
   ScrollPhysics? _physics;
 
-  ScrollPhysics _physicsFor(double stride) {
-    if (_physics == null || _stride != stride) {
+  ScrollPhysics _physicsFor(double stride, double leadingPeek) {
+    if (_physics == null || _stride != stride || _leadingPeek != leadingPeek) {
       _stride = stride;
+      _leadingPeek = leadingPeek;
       _physics = _CardSnapPhysics(
         stride: stride,
+        leadingPeek: leadingPeek,
         // Founder, 2026-09-05: "รูปสุดท้าย ควรเลื่อน จนสุดเป็นสีขาว" --
         // dragging past the last (or before the first) card should
         // rubber-band and reveal plain white the way Threads does,
@@ -314,15 +335,42 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
     super.dispose();
   }
 
+  /// Card [index]'s own resting scroll offset -- 0 for the first card
+  /// (flush against the viewport's own start, nothing behind it to
+  /// peek at), [index] * [stride] minus [_leadingPeekFor] for every
+  /// other one, clamped to however far the row can actually scroll (so
+  /// the last card still settles flush at the far end, same as
+  /// before -- see [_leadingPeekFor]'s own doc comment).
+  ///
+  /// [maxScrollExtent] is passed in rather than read from
+  /// `_controller.position` -- this runs from inside [ListView]'s own
+  /// `itemBuilder`, i.e. mid-layout, the same pass that *determines*
+  /// the scroll position's extents; reading them back from here throws
+  /// ("ScrollPosition not attached/has no dimensions" territory). The
+  /// value here is computed straight from the same geometry `build`
+  /// already has on hand, matching what the extent works out to once
+  /// layout finishes.
+  double _restOffsetFor(
+    int index,
+    double stride,
+    double leadingPeek,
+    double maxScrollExtent,
+  ) {
+    final raw = index <= 0 ? 0.0 : index * stride - leadingPeek;
+    return raw.clamp(0.0, maxScrollExtent);
+  }
+
   /// Which card is in front, from the scroll offset: each step is one
-  /// card plus the gap after it. Rounding (not flooring) means the
-  /// indicator flips at the halfway point, and lands exactly on a card
-  /// once the snap settles -- including at the very end of the row,
-  /// where the last card stops short of a whole stride because there
-  /// is nothing left to scroll into.
-  void _updateIndex(double stride) {
+  /// card plus the gap after it, corrected by [_leadingPeekFor] so the
+  /// same offset that leaves a card peeking on the left still rounds to
+  /// that card being the one in front. Rounding (not flooring) means
+  /// the indicator flips at the halfway point, and lands exactly on a
+  /// card once the snap settles -- including at the very end of the
+  /// row, where the last card stops short of a whole stride because
+  /// there is nothing left to scroll into.
+  void _updateIndex(double stride, double leadingPeek) {
     if (!_controller.hasClients || stride <= 0) return;
-    final next = (_controller.position.pixels / stride)
+    final next = ((_controller.position.pixels + leadingPeek) / stride)
         .round()
         .clamp(0, widget.imageUrls.length - 1);
     if (next == _index) return;
@@ -332,17 +380,24 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
 
   /// WYN-111: how much to shrink card [index], continuously, from how
   /// far the current scroll offset is from that card's own resting
-  /// position -- 0 card-steps away (the one in front) reads at
-  /// [postCardWidthFraction]'s full, unchanged size; 1 or more away
-  /// reads at [postCardPeekScale]; a drag in progress interpolates
-  /// between the two rather than snapping straight from one to the
-  /// other, so the size follows the finger instead of jumping partway
-  /// through the gesture.
-  double _scaleFor(int index, double stride) {
+  /// position ([_restOffsetFor]) -- 0 card-steps away (the one in
+  /// front) reads at [postCardWidthFraction]'s full, unchanged size; 1
+  /// or more away reads at [postCardPeekScale]; a drag in progress
+  /// interpolates between the two rather than snapping straight from
+  /// one to the other, so the size follows the finger instead of
+  /// jumping partway through the gesture.
+  double _scaleFor(
+    int index,
+    double stride,
+    double leadingPeek,
+    double maxScrollExtent,
+  ) {
     if (!_controller.hasClients || stride <= 0) {
       return index == _index ? 1 : postCardPeekScale;
     }
-    final distance = ((_controller.position.pixels - index * stride) / stride)
+    final reference =
+        _restOffsetFor(index, stride, leadingPeek, maxScrollExtent);
+    final distance = ((_controller.position.pixels - reference) / stride)
         .abs()
         .clamp(0.0, 1.0);
     return 1 + (postCardPeekScale - 1) * distance;
@@ -362,11 +417,17 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
   /// (peeking on the left) anchors its right edge. Exactly at a card's
   /// own resting position its scale is 1, so which edge is anchored
   /// stops mattering right as the two would otherwise disagree.
-  Alignment _scaleAlignmentFor(int index, double stride) {
+  Alignment _scaleAlignmentFor(
+    int index,
+    double stride,
+    double leadingPeek,
+    double maxScrollExtent,
+  ) {
     if (!_controller.hasClients || stride <= 0) {
       return index <= _index ? Alignment.centerRight : Alignment.centerLeft;
     }
-    return index * stride >= _controller.position.pixels
+    return _restOffsetFor(index, stride, leadingPeek, maxScrollExtent) >=
+            _controller.position.pixels
         ? Alignment.centerLeft
         : Alignment.centerRight;
   }
@@ -381,13 +442,24 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
         final cardWidth = columnWidth * postCardWidthFraction;
         final cardHeight = cardWidth / widget.aspectRatio;
         final stride = cardWidth + WynSpacing.space2;
+        final leadingPeek = _leadingPeekFor(columnWidth, cardWidth);
+        // The ListView below is unconstrained in width by the SizedBox
+        // wrapping it (that only pins height), so it renders at exactly
+        // constraints.maxWidth -- computed here, analytically, rather
+        // than read back from the controller once attached; see
+        // _restOffsetFor's own doc comment for why that read is unsafe
+        // from inside itemBuilder.
+        final maxScrollExtent = ((widget.imageUrls.length - 1) * stride +
+                cardWidth -
+                constraints.maxWidth)
+            .clamp(0.0, double.infinity);
 
         return SizedBox(
           height: cardHeight,
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
               if (notification is ScrollUpdateNotification) {
-                _updateIndex(stride);
+                _updateIndex(stride, leadingPeek);
                 // WYN-111: every drag tick, not just the ticks where
                 // the front card actually changes -- _updateIndex's own
                 // setState only fires on those, but each card's scale
@@ -395,7 +467,7 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
                 // between them too.
                 setState(() {});
               } else if (notification is ScrollEndNotification) {
-                _updateIndex(stride);
+                _updateIndex(stride, leadingPeek);
               }
               // Never swallowed: Drop Detail wraps this row in its own
               // scroll view, which still needs to see these.
@@ -404,7 +476,7 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
             child: ListView.builder(
               controller: _controller,
               scrollDirection: Axis.horizontal,
-              physics: _physicsFor(stride),
+              physics: _physicsFor(stride, leadingPeek),
               itemCount: widget.imageUrls.length,
               itemBuilder: (context, index) {
                 final isLast = index == widget.imageUrls.length - 1;
@@ -417,8 +489,13 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
                   // declared width (which would feed into ListView's
                   // layout and desync _CardSnapPhysics's fixed stride
                   // from where cards actually end up).
-                  scale: _scaleFor(index, stride),
-                  alignment: _scaleAlignmentFor(index, stride),
+                  scale: _scaleFor(index, stride, leadingPeek, maxScrollExtent),
+                  alignment: _scaleAlignmentFor(
+                    index,
+                    stride,
+                    leadingPeek,
+                    maxScrollExtent,
+                  ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(WynSpacing.radiusLg),
                     child: SizedBox(
@@ -471,14 +548,27 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
 /// specified in. Snapping to multiples of the card's stride keeps both
 /// numbers exactly what they say they are.
 class _CardSnapPhysics extends ScrollPhysics {
-  const _CardSnapPhysics({required this.stride, super.parent});
+  const _CardSnapPhysics({
+    required this.stride,
+    required this.leadingPeek,
+    super.parent,
+  });
 
   /// One card plus the gap that follows it.
   final double stride;
 
+  /// WYN-111 fix: see [_leadingPeekFor]'s doc comment -- every card
+  /// past the first rests this much short of its own clean multiple of
+  /// [stride], so a sliver of it stays behind for the card after it to
+  /// peek at.
+  final double leadingPeek;
+
   @override
-  _CardSnapPhysics applyTo(ScrollPhysics? ancestor) =>
-      _CardSnapPhysics(stride: stride, parent: buildParent(ancestor));
+  _CardSnapPhysics applyTo(ScrollPhysics? ancestor) => _CardSnapPhysics(
+        stride: stride,
+        leadingPeek: leadingPeek,
+        parent: buildParent(ancestor),
+      );
 
   /// Where the row should come to rest.
   ///
@@ -488,7 +578,11 @@ class _CardSnapPhysics extends ScrollPhysics {
   /// arbitrary. A slow drag simply settles on whichever card is
   /// nearest when the finger lifts.
   double _target(ScrollMetrics position, double velocity) {
-    final current = position.pixels / stride;
+    // leadingPeek shifts every card but the first short of its own
+    // pixels/stride reading (see _leadingPeekFor) -- added back before
+    // dividing so this still reads as "how many cards have scrolled
+    // by", not a fraction short of it.
+    final current = (position.pixels + leadingPeek) / stride;
     final double index;
     if (velocity < -minFlingVelocity) {
       index = current.floorToDouble();
@@ -497,8 +591,8 @@ class _CardSnapPhysics extends ScrollPhysics {
     } else {
       index = current.roundToDouble();
     }
-    return (index * stride)
-        .clamp(position.minScrollExtent, position.maxScrollExtent);
+    final target = index <= 0 ? 0.0 : index * stride - leadingPeek;
+    return target.clamp(position.minScrollExtent, position.maxScrollExtent);
   }
 
   @override
