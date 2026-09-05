@@ -28,3 +28,13 @@ Deploy ขึ้น production 2 รอบ: รอบแรก (workflow run #64
 ยืนยันด้วยตาแล้วว่าใช้งานได้จริงบน `wynos.online`** ("โอเคแล้ว")
 
 Deployment log: `.wyn/logs/deployments/2026-09-05-wyn-110-111-real-deploy.md`
+
+---
+
+## Follow-up bug found after "COMPLETED" — 2026-09-05
+
+Founder เจอบั๊กเพิ่มอีกจุดหลังจากยืนยัน "โอเคแล้ว" ข้างบน: รูปที่เลื่อนผ่านไปแล้วไม่ peek โผล่มาทางซ้าย
+เลย (หายไป 0px ต่างจากช่องขาวที่แก้ไปรอบก่อนหน้า) — แก้แล้วใน PR #231 (commit `d5ecc41`) deploy ขึ้น
+production แล้ว (workflow run #66) **รอ Founder ยืนยันซ้ำ** ก่อนถือว่าปิดสนิทจริง ๆ
+
+รายละเอียดเต็ม: `.wyn/logs/deployments/2026-09-05-wyn-110-111-real-deploy.md` หัวข้อ "Deploy รอบที่ 3"
