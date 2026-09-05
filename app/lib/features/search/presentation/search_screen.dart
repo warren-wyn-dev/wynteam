@@ -253,6 +253,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     query: _query,
                     profileRepository: widget.profileRepository,
                     followRepository: widget.followRepository,
+                    followRequestRepository: _followRequestRepository,
                     dropRepository: widget.dropRepository,
                     popRepository: widget.popRepository,
                     savedRepository: widget.savedRepository,
