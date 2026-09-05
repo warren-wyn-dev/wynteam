@@ -82,7 +82,8 @@ void main() {
   });
 
   group('PostImage', () {
-    testWidgets('decodes to the size it is painted at, not the size it was '
+    testWidgets(
+        'decodes to the size it is painted at, not the size it was '
         'uploaded at', (tester) async {
       await tester.pumpWidget(const MaterialApp(
         home: Scaffold(
@@ -103,8 +104,7 @@ void main() {
       // Without it a 1600x1600 upload decodes in full regardless,
       // ~10MB of bitmap per photo, several photos alive at once in a
       // feed.
-      final devicePixelRatio =
-          tester.view.devicePixelRatio;
+      final devicePixelRatio = tester.view.devicePixelRatio;
       final image = tester.widget<Image>(find.byType(Image));
       expect(
         (image.image as ResizeImage).width,
@@ -217,6 +217,126 @@ void main() {
         lessThanOrEqualTo(scrollable.position.maxScrollExtent + 0.5),
       );
     });
-  });
 
+    // WYN-111: Founder, 2026-09-05, after a Threads recording --
+    // "สังเกตการเลื่อนดูรูปดีๆ มันต่างจาก WYNOS ยังไง อยากได้แบบในคลิป". The
+    // card in front should read larger than the ones receding on either
+    // side, continuously as a drag moves rather than jumping straight
+    // from one size to the other. These measure the rendered size
+    // (what the reader actually sees), not the Transform.scale value
+    // that produces it -- the same "measure what's rendered" discipline
+    // WYN-106-109's own regression tests already established, since a
+    // source-only assertion would pass right through a revert that kept
+    // the constant but stopped applying it.
+    group('WYN-111: the card in front reads larger', () {
+      // getRect, not getSize: Transform.scale leaves the ClipRRect's own
+      // RenderBox.size (what getSize reads) untouched -- a transform is
+      // a paint-time operation, not a layout one -- and only shows up
+      // once the transform chain up to the root is applied, which is
+      // what getRect's localToGlobal walk does. The original 82% test
+      // above already relies on this same fact.
+      Size cardSize(WidgetTester tester, int index) =>
+          tester.getRect(find.byType(ClipRRect).at(index)).size;
+
+      testWidgets(
+          'before any drag, the front card is full size and the next '
+          'one already reads smaller', (tester) async {
+        await pumpRow(tester);
+
+        final front = cardSize(tester, 0);
+        final next = cardSize(tester, 1);
+
+        expect(front.width, closeTo(400 * postCardWidthFraction, 0.5));
+        expect(next.width, closeTo(front.width * postCardPeekScale, 0.5));
+        expect(next.height, closeTo(front.height * postCardPeekScale, 0.5));
+      });
+
+      testWidgets(
+          'mid-drag, the outgoing and incoming cards are between full '
+          'size and peek size, not one or the other', (tester) async {
+        await pumpRow(tester);
+        final frontAtRest = cardSize(tester, 0).width;
+        final nextAtRest = cardSize(tester, 1).width;
+
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byType(PostImageCarousel)),
+        );
+        // Half of the 400*0.82+8 stride -- partway through the swap,
+        // nowhere near either resting point.
+        await gesture.moveBy(const Offset(-164, 0));
+        await tester.pump();
+
+        final frontMidDrag = cardSize(tester, 0).width;
+        final nextMidDrag = cardSize(tester, 1).width;
+
+        // The outgoing card (0) has shrunk from its full size, but
+        // hasn't reached peek size yet.
+        expect(frontMidDrag, lessThan(frontAtRest));
+        expect(frontMidDrag, greaterThan(frontAtRest * postCardPeekScale));
+        // The incoming card (1) has grown from peek size, but hasn't
+        // reached full size yet.
+        expect(nextMidDrag, greaterThan(nextAtRest));
+        expect(nextMidDrag, lessThan(nextAtRest / postCardPeekScale));
+
+        await gesture.up();
+        await tester.pumpAndSettle();
+      });
+
+      // Both tests below read every card ListView still has built,
+      // indexed into *that* set rather than into [urls]: once card 0 is
+      // scrolled far enough past the viewport (plus ListView's own
+      // cache extent), it is disposed outright rather than merely
+      // shrunk, so "the second built ClipRRect" is not reliably "index
+      // 1" once earlier cards start dropping out of the tree.
+      List<double> builtWidths(WidgetTester tester) {
+        final count = find.byType(ClipRRect).evaluate().length;
+        return [for (var i = 0; i < count; i++) cardSize(tester, i).width];
+      }
+
+      testWidgets(
+          'after settling on the next card, exactly one built card is '
+          'full size and the rest have receded', (tester) async {
+        await pumpRow(tester);
+
+        await tester.drag(
+          find.byType(PostImageCarousel),
+          const Offset(-220, 0),
+        );
+        await tester.pumpAndSettle();
+
+        const fullSize = 400 * postCardWidthFraction;
+        final widths = builtWidths(tester);
+        expect(widths.where((w) => (w - fullSize).abs() < 0.5).length, 1);
+        for (final w in widths.where((w) => (w - fullSize).abs() >= 0.5)) {
+          expect(w, closeTo(fullSize * postCardPeekScale, 0.5));
+        }
+      });
+
+      testWidgets(
+          'a flick past several cards leaves one card clearly larger '
+          'than the rest', (tester) async {
+        await pumpRow(tester);
+
+        await tester.fling(
+          find.byType(PostImageCarousel),
+          const Offset(-1200, 0),
+          8000,
+        );
+        await tester.pumpAndSettle();
+
+        // Not "exactly 82%": the *last* card's rest position is
+        // wherever ClampingScrollPhysics stops scrolling (there is no
+        // further card to peek at, so the row doesn't reserve that
+        // trailing space) -- not necessarily a clean multiple of
+        // [stride], so its distance-from-front is a little short of 0
+        // and its scale a little short of 1. What must still hold: it
+        // reads clearly bigger than whatever else is still built, the
+        // same "one card, not a wall of identical photos" result a
+        // reader actually sees.
+        final widths = builtWidths(tester)..sort();
+        expect(widths.length, greaterThanOrEqualTo(2));
+        expect(widths.last, greaterThan(widths[widths.length - 2] + 5));
+      });
+    });
+  });
 }

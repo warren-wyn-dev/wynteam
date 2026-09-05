@@ -191,6 +191,21 @@ class PostImageFrame extends StatelessWidget {
 // sizes its cards off the column.
 const double postCardWidthFraction = 0.82;
 
+/// WYN-111: how small a card gets once it is a full card-step away from
+/// the one currently in front -- Founder, 2026-09-05, after a Threads
+/// recording: "สังเกตการเลื่อนดูรูปดีๆ มันต่างจาก WYNOS ยังไงอยากได้แบบในคลิป"
+/// (the card in front reads as the photo you're looking at; everything
+/// else visibly recedes). Applied as a [Transform.scale] on top of each
+/// card's existing [postCardWidthFraction] box rather than a second,
+/// smaller declared width: a declared width feeds straight into
+/// [ListView]'s layout, so a narrower peek card would shift every card
+/// after it and desync [_CardSnapPhysics]'s stride (fixed, so it can
+/// keep landing snaps exactly on a card) from where cards actually sit.
+/// A transform changes only what is painted, so the card still occupies
+/// its original box and the stride math this file already had is
+/// untouched.
+const double postCardPeekScale = 0.86;
+
 /// The card shape a post's photos are laid out at when the post does not
 /// say otherwise -- a Drop written before WYN-109, whose photos were
 /// squares the feed already drew in a 4:5 card.
@@ -304,6 +319,24 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
     widget.onIndexChanged?.call(next);
   }
 
+  /// WYN-111: how much to shrink card [index], continuously, from how
+  /// far the current scroll offset is from that card's own resting
+  /// position -- 0 card-steps away (the one in front) reads at
+  /// [postCardWidthFraction]'s full, unchanged size; 1 or more away
+  /// reads at [postCardPeekScale]; a drag in progress interpolates
+  /// between the two rather than snapping straight from one to the
+  /// other, so the size follows the finger instead of jumping partway
+  /// through the gesture.
+  double _scaleFor(int index, double stride) {
+    if (!_controller.hasClients || stride <= 0) {
+      return index == _index ? 1 : postCardPeekScale;
+    }
+    final distance = ((_controller.position.pixels - index * stride) / stride)
+        .abs()
+        .clamp(0.0, 1.0);
+    return 1 + (postCardPeekScale - 1) * distance;
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -319,8 +352,15 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
           height: cardHeight,
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
-              if (notification is ScrollUpdateNotification ||
-                  notification is ScrollEndNotification) {
+              if (notification is ScrollUpdateNotification) {
+                _updateIndex(stride);
+                // WYN-111: every drag tick, not just the ticks where
+                // the front card actually changes -- _updateIndex's own
+                // setState only fires on those, but each card's scale
+                // needs to keep following the finger continuously in
+                // between them too.
+                setState(() {});
+              } else if (notification is ScrollEndNotification) {
                 _updateIndex(stride);
               }
               // Never swallowed: Drop Detail wraps this row in its own
@@ -335,20 +375,30 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
               itemBuilder: (context, index) {
                 final isLast = index == widget.imageUrls.length - 1;
                 final overlay = widget.cardOverlayBuilder?.call(context, index);
-                final card = ClipRRect(
-                  borderRadius: BorderRadius.circular(WynSpacing.radiusLg),
-                  child: SizedBox(
-                    width: cardWidth,
-                    height: cardHeight,
-                    child: overlay == null
-                        ? PostImage(imageUrl: widget.imageUrls[index])
-                        : Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              PostImage(imageUrl: widget.imageUrls[index]),
-                              overlay,
-                            ],
-                          ),
+                final card = Transform.scale(
+                  // WYN-111: the card in front reads at its full,
+                  // unchanged size; every other card recedes -- see
+                  // _scaleFor's own doc comment for why this is a
+                  // transform (paint-only) rather than a narrower
+                  // declared width (which would feed into ListView's
+                  // layout and desync _CardSnapPhysics's fixed stride
+                  // from where cards actually end up).
+                  scale: _scaleFor(index, stride),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(WynSpacing.radiusLg),
+                    child: SizedBox(
+                      width: cardWidth,
+                      height: cardHeight,
+                      child: overlay == null
+                          ? PostImage(imageUrl: widget.imageUrls[index])
+                          : Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                PostImage(imageUrl: widget.imageUrls[index]),
+                                overlay,
+                              ],
+                            ),
+                    ),
                   ),
                 );
 
