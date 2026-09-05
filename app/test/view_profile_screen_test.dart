@@ -788,4 +788,70 @@ void main() {
       expect(find.byType(VerifiedBadge), findsNothing);
     });
   });
+
+  // Founder feedback: a verified account's own Drop, shown on their
+  // profile's Drop tab, still had no checkmark next to the author name
+  // -- Drop (unlike HomeFeedItem) never carried authorIsVerified at all,
+  // so ProfileDropGridTab's HomeFeedItem.fromDrop(drop) conversion had
+  // nothing to pass through regardless of what DropRepository.
+  // fetchByAuthor's query returned.
+  group('VerifiedBadge on the profile\'s Drop tab', () {
+    late RecordingProfileRepository verifiedGridProfileRepo;
+    late RecordingFollowRepository verifiedGridFollowRepo;
+    late RecordingDropRepository verifiedGridDropRepo;
+    late RecordingPopRepository verifiedGridPopRepo;
+    late RecordingSavedRepository verifiedGridSavedRepo;
+
+    setUpAll(() {
+      // Deliberately unverified: isolates the assertion below to the Drop
+      // tab's own badge (VerifiedBadge on the profile *header* is already
+      // covered by the group above) -- if the profile itself were also
+      // verified, this test couldn't tell "the grid renders one" apart
+      // from "it's just seeing the header's".
+      verifiedGridProfileRepo = RecordingProfileRepository(
+        profile: const Profile(
+          id: 'me',
+          username: 'me_user',
+          displayName: 'ตัวฉันเอง',
+        ),
+      );
+      verifiedGridFollowRepo = RecordingFollowRepository();
+      verifiedGridDropRepo = RecordingDropRepository(feedDrops: [
+        Drop(
+          id: 'd-verified',
+          authorId: 'me',
+          authorUsername: 'me_user',
+          authorIsVerified: true,
+          imageUrl: 'https://example.supabase.co/drops/d-verified.jpg',
+          caption: 'โพสต์จากบัญชียืนยันตัวตนแล้ว',
+          createdAt: DateTime.now(),
+          likeCount: 0,
+          commentCount: 0,
+          likedByMe: false,
+          savedByMe: false,
+        ),
+      ]);
+      verifiedGridPopRepo = RecordingPopRepository();
+      verifiedGridSavedRepo = RecordingSavedRepository();
+    });
+
+    testWidgets('shows next to the author name on a verified account\'s '
+        'own Drop', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: ViewProfileScreen(
+          profileRepository: verifiedGridProfileRepo,
+          followRepository: verifiedGridFollowRepo,
+          dropRepository: verifiedGridDropRepo,
+          popRepository: verifiedGridPopRepo,
+          savedRepository: verifiedGridSavedRepo,
+          userId: 'me',
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(HomeDropCard), findsOneWidget);
+      expect(find.byType(VerifiedBadge), findsOneWidget);
+    });
+  });
 }

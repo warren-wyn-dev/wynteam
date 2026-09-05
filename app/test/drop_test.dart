@@ -223,6 +223,7 @@ void main() {
           'username': 'namfah',
           'display_name': 'Nam Fah',
           'avatar_url': 'https://example.com/a.jpg',
+          'is_verified': true,
         },
         'image_url': 'https://example.supabase.co/drops/d1.jpg',
         'caption': 'hello',
@@ -237,10 +238,34 @@ void main() {
 
       expect(drop.authorUsername, 'namfah');
       expect(drop.authorDisplayName, 'Nam Fah');
+      expect(drop.authorIsVerified, isTrue);
       expect(drop.likeCount, 5);
       expect(drop.commentCount, 2);
       expect(drop.likedByMe, isTrue);
       expect(drop.savedByMe, isTrue);
+    });
+
+    // Founder feedback: a verified account's own Drops didn't carry the
+    // checkmark anywhere outside the Home feed/Suggested Follows (which
+    // read home_feed's own author_is_verified column, not this model) --
+    // Drop had no field for it at all, so `_dropAuthorSelect` not
+    // selecting `is_verified` went unnoticed. Default false covers every
+    // embedded author map that omits the key (every author is
+    // unverified except the one official account).
+    test('defaults authorIsVerified to false when the embedded author '
+        'omits is_verified', () {
+      final drop = Drop.fromMap({
+        'id': 'd1',
+        'author_id': 'u1',
+        'author': {'username': 'namfah'},
+        'image_url': 'https://example.supabase.co/drops/d1.jpg',
+        'caption': null,
+        'created_at': '2026-01-01T00:00:00Z',
+        'drop_likes': <dynamic>[],
+        'drop_comments': <dynamic>[],
+      }, likedByMe: false, savedByMe: false);
+
+      expect(drop.authorIsVerified, isFalse);
     });
 
     test('treats a missing embedded count list as zero', () {

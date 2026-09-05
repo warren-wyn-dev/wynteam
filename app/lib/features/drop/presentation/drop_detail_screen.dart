@@ -12,6 +12,7 @@ import '../../chat/data/chat_repository.dart';
 import '../../chat/data/shared_content_type.dart';
 import '../../chat/presentation/share_sheet.dart';
 import '../../follow/data/follow_repository.dart';
+import '../../home/presentation/widgets/verified_badge.dart';
 import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/data/appeal_status.dart';
 import '../../moderation/data/moderation_repository.dart';
@@ -788,6 +789,10 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                                         ),
                                       ),
                                     ),
+                                    if (_drop.authorIsVerified) ...[
+                                      const SizedBox(width: WynSpacing.space1),
+                                      const VerifiedBadge(),
+                                    ],
                                     const SizedBox(width: WynSpacing.space2),
                                     Flexible(
                                       child: Text(

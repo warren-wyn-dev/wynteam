@@ -24,8 +24,14 @@ import '../../../core/storage_upload_options.dart';
 // PostgREST query, so this was invisible until now. Fix: name the exact
 // foreign key constraint (`!<table>_author_id_fkey`) instead of leaving
 // PostgREST to guess.
+// is_verified included so the profile grid/hashtag feed/search Drop tab/
+// Drop Detail (every DropRepository fetch path, via this one shared
+// select) can show VerifiedBadge on the official WYNOS account's Drops
+// the same way Home/Suggested Follows already do -- Drop had no field
+// for this at all until Founder feedback pointed out a verified
+// account's own posts didn't carry the checkmark on their profile grid.
 const _dropAuthorSelect =
-    'author:profiles!drops_author_id_fkey(username, display_name, avatar_url)';
+    'author:profiles!drops_author_id_fkey(username, display_name, avatar_url, is_verified)';
 const _commentAuthorSelect =
     'author:profiles!drop_comments_author_id_fkey(username, display_name, avatar_url)';
 const _savesContentType = 'drop';
