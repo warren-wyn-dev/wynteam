@@ -1,0 +1,85 @@
+name: Chat -- unread-badge stuck diagnostic (read-only)
+
+# Founder reports the Home chat-icon badge never decreases after reading
+# a conversation via Home -> ChatInboxScreen -> ConversationScreen ->
+# back -> back, even after 2 client-side refresh-trigger fixes and a
+# fresh page reload. That rules out a UI refresh-timing bug -- the
+# refresh trigger now genuinely fires (verified in tests), so if the
+# badge is still wrong, either (a) mark_conversation_read() never
+# actually commits for this pair (a real code bug in ConversationScreen
+# calling it fire-and-forget, per code review), or (b) something on the
+# production database itself doesn't match what schema.sql says it
+# should. This checks (b) directly, read-only, no data touched:
+#   1. Does public.mark_conversation_read / count_unread_conversations
+#      on production actually match schema.sql's definition (schema
+#      drift has happened before on this project -- see SCHEMA-004).
+#   2. For the real warren<->wynos_online conversation, what do the
+#      actual user_a_last_read_at/user_b_last_read_at columns say right
+#      now, and does re-deriving count_unread_conversations()'s own
+#      logic by hand (substituting warren's real user id for auth.uid(),
+#      which is null outside a real authenticated request) agree with
+#      what the badge should show.
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== 1. Live function bodies on production (compare by eye against schema.sql) ==="
+          run_sql "select proname, pg_get_functiondef(oid) as def
+                   from pg_proc
+                   where proname in ('mark_conversation_read','count_unread_conversations')
+                   order by proname;" | jq .
+          echo
+
+          echo "=== 2. warren's conversations: real read-timestamps vs. real unread messages ==="
+          run_sql "with me as (select id from public.profiles where lower(username) = 'warren')
+                   select c.id as conversation_id,
+                          left(c.user_a_id::text,8) as user_a, left(c.user_b_id::text,8) as user_b,
+                          c.user_a_last_read_at, c.user_b_last_read_at,
+                          (select count(*) from public.messages m
+                            where m.conversation_id = c.id
+                              and m.sender_id <> me.id
+                              and m.created_at > coalesce(
+                                    case when c.user_a_id = me.id then c.user_a_last_read_at
+                                         else c.user_b_last_read_at end,
+                                    '-infinity'::timestamptz)
+                          ) as would_count_as_unread,
+                          (select max(m.created_at) from public.messages m
+                            where m.conversation_id = c.id and m.sender_id <> me.id) as latest_from_other
+                   from public.conversations c, me
+                   where me.id in (c.user_a_id, c.user_b_id)
+                   order by greatest(c.user_a_last_read_at, c.user_b_last_read_at) desc nulls last
+                   limit 10;" | jq .
+          echo
+          echo "Read this as: if 'would_count_as_unread' is 0 for a conversation but the app's own"
+          echo "badge still shows it, the bug is client-side (a stale fetch/cached result, not the"
+          echo "database). If it's > 0 and user_a_last_read_at/user_b_last_read_at for warren's own"
+          echo "column is null or clearly older than 'latest_from_other', mark_conversation_read()"
+          echo "never actually committed for that conversation -- confirms the fire-and-forget bug."
