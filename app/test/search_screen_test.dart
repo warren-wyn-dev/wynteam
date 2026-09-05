@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
+import 'package:wyn/features/home/presentation/widgets/verified_badge.dart';
 import 'package:wyn/features/pop/data/pop.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
@@ -30,6 +31,7 @@ void main() {
   late RecordingSavedRepository savedRepo;
   late RecordingProfileRepository noMatchProfileRepo;
   late RecordingProfileRepository selfProfileRepo;
+  late RecordingProfileRepository verifiedProfileRepo;
   late RecordingClubRepository clubRepo;
   late RecordingClubPostRepository clubPostRepo;
   late RecordingDiscoveryRepository discoveryRepo;
@@ -83,6 +85,14 @@ void main() {
         const Profile(id: 'me', username: 'me', displayName: 'ตัวเอง'),
       ],
     );
+    verifiedProfileRepo = RecordingProfileRepository(searchResults: [
+      const Profile(
+        id: 'u1',
+        username: 'namfah',
+        displayName: 'น้ำฝน',
+        isVerified: true,
+      ),
+    ]);
     dropRepo = RecordingDropRepository(feedDrops: [matchingDrop]);
     popRepo = RecordingPopRepository(feedPops: [matchingPop]);
     followRepo = RecordingFollowRepository();
@@ -261,6 +271,23 @@ void main() {
     tester.takeException();
 
     expect(find.byType(ViewProfileScreen), findsOneWidget);
+  });
+
+  // Founder feedback: the official account's checkmark never showed in
+  // Search's User tab either -- ProfileRepository.searchProfiles' own
+  // query didn't select `is_verified`, same gap as fetchProfile.
+  testWidgets(
+      'a verified matching user shows VerifiedBadge next to their name',
+      (tester) async {
+    await tester.pumpWidget(buildSearch(profileRepository: verifiedProfileRepo));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'namfah');
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.byType(VerifiedBadge), findsOneWidget);
   });
 
   testWidgets(

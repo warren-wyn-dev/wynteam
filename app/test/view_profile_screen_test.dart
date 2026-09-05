@@ -6,6 +6,7 @@ import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/follow/presentation/follow_list_screen.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
+import 'package:wyn/features/home/presentation/widgets/verified_badge.dart';
 import 'package:wyn/features/pop/data/pop.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
@@ -720,6 +721,71 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(visitHomeRepo.recordProfileVisitArgs, isEmpty);
+    });
+  });
+
+  // Founder feedback: the official account's checkmark (VerifiedBadge,
+  // already rendered on Home/Suggested Follows via
+  // HomeFeedItem.authorIsVerified/Profile.isVerified) never showed here
+  // at all -- ProfileRepository.fetchProfile's own query didn't select
+  // `is_verified`, so this screen always saw isVerified: false regardless
+  // of the real column, on top of never rendering VerifiedBadge in either
+  // header branch even if it had.
+  group('VerifiedBadge on the profile header', () {
+    late RecordingProfileRepository verifiedOwnProfileRepo;
+    late RecordingProfileRepository verifiedOtherProfileRepo;
+
+    setUpAll(() {
+      verifiedOwnProfileRepo = RecordingProfileRepository(
+        profile: const Profile(
+          id: 'me',
+          username: 'me_user',
+          displayName: 'ตัวฉันเอง',
+          isVerified: true,
+        ),
+      );
+      verifiedOtherProfileRepo = RecordingProfileRepository(
+        profile: const Profile(
+          id: 'someone-else',
+          username: 'namfah',
+          displayName: 'น้ำฝน',
+          isVerified: true,
+        ),
+      );
+    });
+
+    testWidgets('shows on your own profile, next to the account switcher '
+        'name', (tester) async {
+      await tester.pumpWidget(buildProfile(
+        profileRepository: verifiedOwnProfileRepo,
+        followRepository: ownFollowRepo,
+        userId: 'me',
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(VerifiedBadge), findsOneWidget);
+    });
+
+    testWidgets('shows on someone else\'s profile too', (tester) async {
+      await tester.pumpWidget(buildProfile(
+        profileRepository: verifiedOtherProfileRepo,
+        followRepository: otherFollowRepo,
+        userId: 'someone-else',
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(VerifiedBadge), findsOneWidget);
+    });
+
+    testWidgets('does not show for an unverified profile', (tester) async {
+      await tester.pumpWidget(buildProfile(
+        profileRepository: ownProfileRepo,
+        followRepository: ownFollowRepo,
+        userId: 'me',
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(VerifiedBadge), findsNothing);
     });
   });
 }
