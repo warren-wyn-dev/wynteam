@@ -643,7 +643,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     final confirmed = await confirmDeletePost(context, itemLabel: 'ข้อความ');
     if (!confirmed || !mounted) return;
     try {
-      await widget.chatRepository.deleteMessage(message.id);
+      await widget.chatRepository.deleteMessage(message);
       if (!mounted) return;
       final index = _messages.indexWhere((m) => m.id == message.id);
       if (index != -1) {
