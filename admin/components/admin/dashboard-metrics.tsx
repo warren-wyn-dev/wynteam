@@ -17,7 +17,6 @@ import {
 
 import { StatCard } from "@/components/admin/stat-card";
 import { TopSourcesCard } from "@/components/admin/top-sources-card";
-import { DauTrendChart } from "@/components/admin/dau-trend-chart";
 import {
   deltaPct,
   fetchAdminDashboardMetrics,
@@ -37,12 +36,15 @@ import {
  *    act on -- wyn-admin-design-system.md section 3.3's "critical alert
  *    that's active" case, the one place besides destructive actions
  *    color is allowed at all).
- * 2. The DAU trend chart -- the platform's pulse at a glance.
- * 3. ผู้ใช้งาน / เนื้อหา / การมีส่วนร่วม -- now with a vs-yesterday badge on
+ * 2. ผู้ใช้งาน / เนื้อหา / การมีส่วนร่วม -- with a vs-yesterday badge on
  *    every "_today" count, not just the raw number.
- * 4. รายงาน (the full card, kept even when nothing's pending, since
+ * 3. รายงาน (the full card, kept even when nothing's pending, since
  *    reports_total is still useful context) and การเติบโต last, same as
  *    before -- both less immediately actionable day-to-day.
+ *
+ * No trend chart -- the Founder asked for it removed; t.dau_last_14d
+ * is still fetched (fetchAdminDashboardTrends() also carries the
+ * *_yesterday deltas every StatCard below uses) but nothing renders it.
  */
 export async function DashboardMetrics() {
   const [m, t, s] = await Promise.all([
@@ -65,8 +67,6 @@ export async function DashboardMetrics() {
           </p>
         </div>
       ) : null}
-
-      <DauTrendChart days={t.dau_last_14d} />
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-muted-foreground">ผู้ใช้งาน</h2>
