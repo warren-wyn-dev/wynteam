@@ -471,14 +471,19 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
               padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: 1),
               constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
+                // Unread badges read as red (colorScheme.error), not
+                // brand sapphire (colorScheme.primary) -- Founder:
+                // "เปลี่ยนเป็นสีแดง จะได้ชัด". Matches HomeFeedScreen's own
+                // chat badge, updated alongside this one for the same
+                // reason.
+                color: Theme.of(context).colorScheme.error,
                 borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
               ),
               child: Text(
                 badgeText,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Theme.of(context).colorScheme.onPrimary,
+                  color: Theme.of(context).colorScheme.onError,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
