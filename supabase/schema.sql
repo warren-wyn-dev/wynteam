@@ -11448,3 +11448,108 @@ as $$
 $$;
 
 grant execute on function public.suggested_users(int) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- Discovery UX, 2026-09-05 -- Trending Hashtags/Top 100 made global.
+--
+-- Founder: "อยากได้เหมือน X" (Twitter) -- on X, trending topics are one
+-- global ranking every viewer sees, not filtered by who *you* personally
+-- follow or block. WYNOS's own trending_hashtags computation never had
+-- that property: DiscoveryRepository.fetchTrendingHashtags read its
+-- candidate Drops from HomeRepository.fetchTrending, which queries
+-- public.home_feed -- a `security_invoker = true` view, so the exact
+-- same RLS policy that scopes a viewer's own Home feed (blocked-either-
+-- way / private-account-follow-gate / audience targeting, see "Drops
+-- are viewable by authenticated users, excluding blocked, deleted,
+-- locked-private authors, and out-of-audience" above) scoped the
+-- trending *candidate pool* too. Two accounts with different block
+-- lists or different follow graphs could legitimately see different
+-- top hashtags -- correct for a personalized Home feed, wrong for
+-- something the UI calls a leaderboard.
+--
+-- This function is the fix: SECURITY DEFINER, deliberately bypassing
+-- that per-viewer RLS, computing over one explicit, viewer-independent
+-- definition of "public" instead --
+--   * d.audience = 'everyone' (not friends/close friends/excluded/only
+--     me -- WYNOS's own 5 audience values, see the `audience` column's
+--     check constraint above)
+--   * author's account is not private (a private account's Drops are
+--     never "public" regardless of audience, matching
+--     internal.can_view_author_content's own is_private branch)
+--   * author is not under an active moderation sanction
+--     (internal.is_posting_blocked -- a platform-wide restriction,
+--     same as fetchTrending/fetchTopContent's own
+--     _fetchPostingBlockedAuthorIds exclusion, so this isn't a new
+--     moderation bypass, just the one exclusion that was already
+--     viewer-independent to begin with)
+--   * not soft-deleted
+--
+-- Deliberately excludes the caller's personal block list (the one part
+-- of the old scoping this does NOT replicate) -- that is the entire
+-- point: whether *you* have blocked someone must never change what
+-- hashtag ranks #1 for everyone else, the same way it doesn't on X.
+--
+-- Returns raw per-Drop signals (id/created_at/caption/like_count/
+-- comment_count/redrop_count/view_count), not pre-ranked hashtags --
+-- DiscoveryRepository.fetchTrendingHashtags still does the actual
+-- ranking via the existing, already-tested rankTrendingHashtags()
+-- (app/lib/features/search/data/discovery_ranking.dart), unchanged.
+-- Keeping that scoring logic in Dart (rather than reimplementing
+-- WYN-101's engagement-weighted/time-decay formula a second time in
+-- SQL) is what keeps this a candidate-*source* change, not a ranking-
+-- logic rewrite with its own chance to drift from the tested formula.
+--
+-- 48h window / 100-candidate cap match HomeRepository's own
+-- _trendingWindow/trendingCandidateLimit exactly (the Dart-side
+-- defaults below reuse those same numbers) -- this is a source swap,
+-- not a product-behavior change to the window itself.
+--
+-- HOW TO APPLY: Supabase Dashboard -> SQL Editor. The Founder runs it;
+-- no AI applies production SQL.
+create or replace function public.trending_hashtag_candidates(
+  p_hours int default 48,
+  p_limit int default 100
+)
+returns table(
+  id uuid,
+  created_at timestamptz,
+  caption text,
+  like_count bigint,
+  comment_count bigint,
+  redrop_count bigint,
+  view_count bigint
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    d.id,
+    d.created_at,
+    d.caption,
+    (select count(*) from public.drop_likes where drop_id = d.id) as like_count,
+    (select count(*) from public.drop_comments where drop_id = d.id) as comment_count,
+    (select count(*) from public.redrops where drop_id = d.id) as redrop_count,
+    public.drop_view_count(d.id) as view_count
+  from public.drops d
+  where d.deleted_at is null
+    and d.audience = 'everyone'
+    -- Cheap pre-filter, not a behavior change: rankTrendingHashtags
+    -- (Dart) already skips any caption with zero hashtags in it, so
+    -- excluding a caption that provably has no '#' at all here changes
+    -- nothing about the final ranking -- it only keeps this query from
+    -- scanning/returning rows that would contribute nothing anyway.
+    and d.caption is not null
+    and d.caption like '%#%'
+    and d.created_at >= now() - (p_hours || ' hours')::interval
+    and not internal.is_posting_blocked(d.author_id)
+    and not exists (
+      select 1 from public.profiles p
+      where p.id = d.author_id and p.is_private
+    )
+  order by d.created_at desc
+  limit p_limit;
+$$;
+
+grant execute on function public.trending_hashtag_candidates(int, int) to authenticated;
