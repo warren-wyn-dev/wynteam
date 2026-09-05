@@ -71,6 +71,22 @@ Deploy → Production Verification → Healthy?
 
 Deploy AI ต้องบันทึกเสมอ: สิ่งที่ deploy, สิ่งที่เปลี่ยน, ผล verification, วิธี rollback
 
+### Production Verification คือใครยืนยัน ยืนยันอะไร (เพิ่ม 2026-09-05)
+
+บทเรียนจากเหตุการณ์ Vercel 2026-09-02 (`.wyn/learning/LESSONS_LEARNED.md`): **CI เขียว + deploy
+workflow รายงาน success ไม่เท่ากับ production ใช้งานได้จริง** ต้องแยกสองอย่างนี้ออกจากกันเสมอ
+ในบันทึก deploy log:
+
+1. **สิ่งที่ AI ยืนยันได้เอง** — ผล CI, ผล workflow run แต่ละ step, `flutter analyze`/`flutter test`
+   ผลลัพธ์อัตโนมัติอื่น ๆ ที่มีเครื่องมือให้ AI ตรวจสอบได้จริง
+2. **สิ่งที่ต้องรอ Founder ยืนยัน** — เว็บ/แอปจริงเปิดใช้งานได้ไหม ฟีเจอร์ที่แก้ทำงานถูกไหมเมื่อลองใช้จริง
+   โดยเฉพาะเมื่อ environment ของ AI ไม่มีทางออกเน็ตไปยัง production (เช่น egress ถูกบล็อก) —
+   AI ต้องระบุไว้ชัดเจนในบันทึกว่า "ยืนยันเองไม่ได้" แทนที่จะสรุปว่า "เสร็จแล้ว" จากผล workflow อย่างเดียว
+
+Task จะย้ายจาก `approved/` → `completed/` ได้ก็ต่อเมื่อ **Founder ยืนยันข้อ 2 แล้วเท่านั้น**
+(ไม่ใช่แค่ deploy workflow สำเร็จ) — บันทึกคำยืนยันของ Founder ไว้ใน deployment log ด้วยว่า
+ยืนยันเมื่อไหร่ ยืนยันว่าอะไร
+
 ## Continuous Self-Improvement
 
 หลังจบทุก task ทีม AI ต้องทำ retrospective ด้วยคำถาม:
