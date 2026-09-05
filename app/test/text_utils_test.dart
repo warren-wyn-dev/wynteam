@@ -38,6 +38,53 @@ void main() {
     });
   });
 
+  group('relativeTimeLabel', () {
+    test('under a minute reads "เมื่อสักครู่"', () {
+      final now = DateTime(2026, 1, 1, 12, 0, 30);
+      expect(relativeTimeLabel(now.subtract(const Duration(seconds: 10)), now: now), 'เมื่อสักครู่');
+    });
+
+    test('under an hour counts minutes', () {
+      final now = DateTime(2026, 1, 1, 12, 30);
+      expect(relativeTimeLabel(now.subtract(const Duration(minutes: 5)), now: now), '5 นาทีที่แล้ว');
+    });
+
+    test('under a day counts hours', () {
+      final now = DateTime(2026, 1, 1, 12, 0);
+      expect(relativeTimeLabel(now.subtract(const Duration(hours: 3)), now: now), '3 ชั่วโมงที่แล้ว');
+    });
+
+    test('under a week counts days', () {
+      final now = DateTime(2026, 1, 10, 12, 0);
+      expect(relativeTimeLabel(now.subtract(const Duration(days: 4)), now: now), '4 วันที่แล้ว');
+    });
+
+    test('a week or older falls back to a full local date', () {
+      final now = DateTime(2026, 1, 20, 12, 0);
+      final dateTime = now.subtract(const Duration(days: 10));
+      expect(relativeTimeLabel(dateTime, now: now), '${dateTime.day}/${dateTime.month}/${dateTime.year}');
+    });
+
+    // Founder feedback: a chat/notification timestamp older than a week
+    // was reading off the raw UTC calendar date instead of the user's
+    // local one -- for anyone east of UTC (Thailand is UTC+7), a message
+    // sent late at night UTC lands in the *next* local calendar day, so
+    // the date shown was a day behind. Mirrors dateLabel's own
+    // .toLocal() convention just below in the same file.
+    test('a week-old-plus UTC timestamp uses the local calendar date, not '
+        'the raw UTC one -- the day-behind bug for UTC+ timezones', () {
+      // 23:30 UTC on Jan 1st is 06:30 local the *next* day at UTC+7.
+      final dateTimeUtc = DateTime.utc(2026, 1, 1, 23, 30);
+      final now = DateTime.utc(2026, 1, 20, 12, 0);
+      final expectedLocalDate = dateTimeUtc.toLocal();
+
+      expect(
+        relativeTimeLabel(dateTimeUtc, now: now),
+        '${expectedLocalDate.day}/${expectedLocalDate.month}/${expectedLocalDate.year}',
+      );
+    });
+  });
+
   group('compactCountLabel (WYN-095)', () {
     test('leaves a count under 1000 untouched', () {
       expect(compactCountLabel(0), '0');

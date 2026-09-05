@@ -9,6 +9,7 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/widgets/action_sheet_row.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
+import '../../../core/widgets/network_thumbnail.dart';
 import '../../../core/widgets/restriction_banner.dart';
 import '../../block/data/block_relationship.dart';
 import '../../block/data/block_repository.dart';
@@ -176,6 +177,35 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   // have no common base class -- a `Drop`/`Profile`/`Club`, or null
   // once resolution is confirmed to have failed (deleted/blocked).
   final Map<String, Object?> _sharedContentCache = {};
+
+  /// Signed URLs for inline chat-photo thumbnails, cached by storage
+  /// path -- new messages are inserted at the *front* of [_messages]
+  /// (index 0, since the list is `reverse: true`), which shifts every
+  /// already-shown message down by one slot on every arrival. Without
+  /// this cache, that shift would make ListView.builder's default
+  /// (unkeyed-across-slots) reuse re-request a signed URL for every
+  /// already-loaded photo each time any new message arrives -- a needless
+  /// network round-trip repeated on every single incoming message, not
+  /// just image ones. Same "cache the resolved value by key" shape as
+  /// [_sharedContentCache] just above.
+  final Map<String, String?> _signedUrlCache = {};
+
+  /// One [GlobalKey] per message ever built by [_buildMessageList]'s
+  /// `itemBuilder`, keyed by message id -- lets [_scrollToMessage] find
+  /// a reply's original message by its actual on-screen position via
+  /// [Scrollable.ensureVisible], instead of the old `index * 72.0`
+  /// guess (bubble height varies hugely: wrapped text, a 160x160 image/
+  /// View-Once thumbnail, a shared-content card, date separators, and
+  /// several different inter-group gap sizes -- a fixed row height was
+  /// only ever right by accident).
+  final Map<String, GlobalKey> _messageRowKeys = {};
+
+  Future<String?> _resolveImageUrl(String path) async {
+    if (_signedUrlCache.containsKey(path)) return _signedUrlCache[path];
+    final url = await widget.chatRepository.imageSignedUrl(path);
+    _signedUrlCache[path] = url;
+    return url;
+  }
 
   String get _myUserId => Supabase.instance.client.auth.currentUser!.id;
 
@@ -866,13 +896,46 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   }
 
   void _scrollToMessage(String messageId) {
-    final index = _messages.indexWhere((m) => m.id == messageId);
-    if (index == -1) return;
-    _scrollController.animateTo(
-      index * 72.0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+    if (_messages.indexWhere((m) => m.id == messageId) == -1) return;
+    _bringMessageIntoBuildRange(messageId, remainingJumps: 40);
+  }
+
+  /// ListView.builder only materializes items near the current
+  /// viewport, so a reply target more than a screen or two away has no
+  /// Element/GlobalKey context to [Scrollable.ensureVisible] to yet --
+  /// no matter how good a single guess at its position is. The old
+  /// `index * 72.0` guess used to be the *final* landing spot outright,
+  /// which is why it was so often visibly wrong: a real bubble ranges
+  /// from a one-line text message to a 160x160 image/View-Once
+  /// thumbnail to a shared-content card, never a uniform height.
+  ///
+  /// This instead jumps one viewport's worth of scroll extent at a time
+  /// -- always a safe, currently-known unit, unlike a per-row height
+  /// guess -- waiting a frame between jumps for ListView to build the
+  /// newly-revealed range, until the target actually has a context to
+  /// ensureVisible() precisely to. [remainingJumps] bounds the retries
+  /// so a message that was never actually loaded into this
+  /// conversation's page (a bug elsewhere, or a stale id) can't spin
+  /// forever.
+  void _bringMessageIntoBuildRange(String messageId, {required int remainingJumps}) {
+    if (!mounted || !_scrollController.hasClients) return;
+    final context = _messageRowKeys[messageId]?.currentContext;
+    if (context != null) {
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+      return;
+    }
+    if (remainingJumps <= 0) return;
+    final position = _scrollController.position;
+    final next = (position.pixels + position.viewportDimension).clamp(0.0, position.maxScrollExtent);
+    if (next == position.pixels) return; // Already at the end -- nothing more to reveal.
+    _scrollController.jumpTo(next);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _bringMessageIntoBuildRange(messageId, remainingJumps: remainingJumps - 1);
+    });
   }
 
   Future<void> _showMessageMenu(ChatMessage message) async {
@@ -1242,6 +1305,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
         final isGroupEnd = _isGroupEnd(index);
         final dateSeparator = _dateSeparatorAbove(index);
         final bubble = _MessageBubble(
+          key: ValueKey(message.id),
           message: message,
           isMine: isMine,
           showAvatar: !isMine && isGroupEnd,
@@ -1257,19 +1321,23 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
               ? null
               : () => _scrollToMessage(message.replyToMessageId!),
           onTapImage: (path) => _openEvidence(path),
+          resolveImageUrl: _resolveImageUrl,
           onTapViewOnceImage: _openViewOnceImage,
           resolveSharedContent: _resolveSharedContent,
           onTapSharedContent: _openSharedContent,
           deliveryStatus: _deliveryStatusAt(index, lastMineIndex),
         );
         final gap = _gapBelowMessage(index);
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (dateSeparator != null) _DateSeparator(label: dateSeparator),
-            bubble,
-            if (gap > 0) SizedBox(height: gap),
-          ],
+        return KeyedSubtree(
+          key: _messageRowKeys.putIfAbsent(message.id, () => GlobalKey()),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (dateSeparator != null) _DateSeparator(label: dateSeparator),
+              bubble,
+              if (gap > 0) SizedBox(height: gap),
+            ],
+          ),
         );
       },
     );
@@ -1546,6 +1614,7 @@ enum _DeliveryStatus { sending, sent, read }
 
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
+    super.key,
     required this.message,
     required this.isMine,
     required this.showAvatar,
@@ -1559,6 +1628,7 @@ class _MessageBubble extends StatelessWidget {
     required this.onLongPress,
     required this.onTapReplyQuote,
     required this.onTapImage,
+    required this.resolveImageUrl,
     required this.onTapViewOnceImage,
     required this.resolveSharedContent,
     required this.onTapSharedContent,
@@ -1590,6 +1660,12 @@ class _MessageBubble extends StatelessWidget {
   final VoidCallback? onLongPress;
   final VoidCallback? onTapReplyQuote;
   final void Function(String path) onTapImage;
+
+  /// Mints a signed URL for an inline thumbnail -- `chat-media` is a
+  /// private bucket, so `message.imageUrl` (a storage path, not a
+  /// fetchable URL) can never be handed to `Image.network` directly.
+  /// See [_ChatImageThumbnail].
+  final Future<String?> Function(String path) resolveImageUrl;
 
   /// Founder feedback -- View Once. Only ever invoked for the
   /// *recipient's* own bubble (see [_buildViewOnceThumbnail]) -- the
@@ -1707,6 +1783,7 @@ class _MessageBubble extends StatelessWidget {
         children: [
           if (message.replyToMessageId != null && !message.isDeleted)
             GestureDetector(
+              key: Key('reply_quote_${message.id}'),
               onTap: onTapReplyQuote,
               child: Container(
                 margin: const EdgeInsets.only(bottom: WynSpacing.space2),
@@ -1745,14 +1822,17 @@ class _MessageBubble extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: WynSpacing.space1),
                 child: GestureDetector(
+                  key: Key('chat_image_${message.id}'),
                   onTap: () => onTapImage(message.imageUrl!),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                    child: Container(
+                    child: SizedBox(
                       width: 160,
                       height: 160,
-                      color: WynColors.hairline,
-                      child: const Icon(Icons.image_outlined, color: WynColors.graphite),
+                      child: _ChatImageThumbnail(
+                        path: message.imageUrl!,
+                        resolveImageUrl: resolveImageUrl,
+                      ),
                     ),
                   ),
                 ),
@@ -1816,6 +1896,59 @@ class _MessageBubble extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Founder feedback: a chat photo bubble was rendering a fixed gray
+/// placeholder icon forever -- the real image was only ever fetched if
+/// the recipient tapped it open in a full-screen viewer. Mints a signed
+/// URL for [path] once (re-fetching only if [path] itself changes,
+/// since `chat-media` is a private bucket and the path alone is never
+/// directly fetchable), then paints the actual photo inline via
+/// [NetworkThumbnail], with loading/broken-image states of its own.
+class _ChatImageThumbnail extends StatefulWidget {
+  const _ChatImageThumbnail({required this.path, required this.resolveImageUrl});
+
+  final String path;
+  final Future<String?> Function(String path) resolveImageUrl;
+
+  @override
+  State<_ChatImageThumbnail> createState() => _ChatImageThumbnailState();
+}
+
+class _ChatImageThumbnailState extends State<_ChatImageThumbnail> {
+  late Future<String?> _signedUrlFuture = widget.resolveImageUrl(widget.path);
+
+  @override
+  void didUpdateWidget(covariant _ChatImageThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The bubble's own State can outlive any single message (see the
+    // `Key('chat_image_...')`'d GestureDetector this is nested under --
+    // still, a stale future here would otherwise show one message's
+    // photo under a different one's bubble if that ever happened).
+    if (oldWidget.path != widget.path) {
+      _signedUrlFuture = widget.resolveImageUrl(widget.path);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String?>(
+      future: _signedUrlFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const ColoredBox(color: WynColors.hairline);
+        }
+        final url = snapshot.data;
+        if (url == null) {
+          return const ColoredBox(
+            color: WynColors.hairline,
+            child: Center(child: Icon(Icons.broken_image_outlined, color: WynColors.graphite)),
+          );
+        }
+        return NetworkThumbnail(imageUrl: url, maxDecodeWidth: 160);
+      },
     );
   }
 }
