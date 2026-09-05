@@ -152,6 +152,24 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   // rather than a GlobalKey<State>.
   final _homeTabReselectSignal = ValueNotifier<int>(0);
 
+  // Bumped whenever the Home tab becomes active *from a different tab*
+  // (never on re-tap -- that's homeTabReselectSignal's own job above).
+  // HomeFeedScreen listens and re-reads its unread-chat-message badge
+  // only -- not a full feed reload, unlike the reselect signal.
+  //
+  // IndexedStack keeps every tab's widget alive and simply stops
+  // painting the hidden ones, so switching tabs is not a rebuild, a
+  // route pop, or an app-lifecycle event -- nothing about it already
+  // notifies a hidden HomeFeedScreen that it is visible again. Same
+  // reasoning already applies to _unreadNotificationCount being zeroed
+  // out by hand right below, in the exact same method, when switching
+  // to the Notifications tab. Without this, reading a message via the
+  // Notifications tab or a push notification -- both of which mark it
+  // read on the server -- left Home's own badge showing a stale count
+  // until the app was literally backgrounded and foregrounded, since
+  // that was the only refresh trigger this badge had.
+  final _homeTabActivatedSignal = ValueNotifier<int>(0);
+
   late final DropRepository _dropRepository;
   late final PopRepository _popRepository;
   late final FollowRepository _followRepository;
@@ -227,6 +245,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _homeTabReselectSignal.dispose();
+    _homeTabActivatedSignal.dispose();
     super.dispose();
   }
 
@@ -311,6 +330,9 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
         // pushed/popped anymore.
         _unreadNotificationCount = 0;
       }
+      if (tabIndex == _homeTab && _tabIndex != _homeTab) {
+        _homeTabActivatedSignal.value++;
+      }
       _tabIndex = tabIndex;
     });
   }
@@ -341,6 +363,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
         clubPostRepository: _clubPostRepository,
         chatRepository: _chatRepository,
         homeTabReselectSignal: _homeTabReselectSignal,
+        homeTabActivatedSignal: _homeTabActivatedSignal,
       ),
       SearchScreen(
         profileRepository: _profileRepository,
