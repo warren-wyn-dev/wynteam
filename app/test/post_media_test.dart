@@ -158,12 +158,6 @@ void main() {
       // half off the edge.
       final scrollable = await pumpRow(tester);
       const stride = 400 * postCardWidthFraction + 8;
-      // WYN-111 fix: card 1 (and every card but the first) now rests
-      // this much short of a clean stride multiple, on purpose -- see
-      // post_media.dart's own _leadingPeekFor doc comment -- so a
-      // sliver of card 0 stays peeking on the left instead of being
-      // scrolled fully out of view.
-      const halfPeek = (400 - 400 * postCardWidthFraction) / 2;
 
       // A short, slow drag -- less than half a card, so it should
       // settle back where it started rather than creep.
@@ -171,19 +165,16 @@ void main() {
       await tester.pumpAndSettle();
       expect(scrollable.position.pixels, closeTo(0, 0.5));
 
-      // Past the halfway point, it settles on card two.
+      // Past the halfway point, it settles on card two exactly.
       await tester.drag(find.byType(PostImageCarousel), const Offset(-220, 0));
       await tester.pumpAndSettle();
-      expect(scrollable.position.pixels, closeTo(stride - halfPeek, 0.5));
+      expect(scrollable.position.pixels, closeTo(stride, 0.5));
     });
 
     testWidgets('a flick advances exactly one card, however hard',
         (tester) async {
       final scrollable = await pumpRow(tester);
       const stride = 400 * postCardWidthFraction + 8;
-      // See the identical drag test above for why this is short of a
-      // clean stride multiple now.
-      const halfPeek = (400 - 400 * postCardWidthFraction) / 2;
 
       await tester.fling(
         find.byType(PostImageCarousel),
@@ -194,7 +185,7 @@ void main() {
 
       // One card, not three -- a 9-photo post stays a sequence of
       // photos instead of a blur that ends somewhere arbitrary.
-      expect(scrollable.position.pixels, closeTo(stride - halfPeek, 0.5));
+      expect(scrollable.position.pixels, closeTo(stride, 0.5));
     });
 
     testWidgets('reports the card in front as it changes', (tester) async {
@@ -256,18 +247,8 @@ void main() {
         final next = cardSize(tester, 1);
 
         expect(front.width, closeTo(400 * postCardWidthFraction, 0.5));
-        // Not exactly postCardPeekScale: WYN-111 fix's left-peek
-        // reservation (post_media.dart's _leadingPeekFor) moves card
-        // 1's own resting position closer to card 0's than a clean
-        // stride multiple would be, so at rest on card 0 it hasn't
-        // receded all the way to the peek floor yet -- mirroring that
-        // same formula here rather than asserting a magic number.
-        const stride = 400 * postCardWidthFraction + 8;
-        const halfPeek = (400 - 400 * postCardWidthFraction) / 2;
-        const distance = (stride - halfPeek) / stride;
-        const expectedScale = 1 + (postCardPeekScale - 1) * distance;
-        expect(next.width, closeTo(front.width * expectedScale, 0.5));
-        expect(next.height, closeTo(front.height * expectedScale, 0.5));
+        expect(next.width, closeTo(front.width * postCardPeekScale, 0.5));
+        expect(next.height, closeTo(front.height * postCardPeekScale, 0.5));
       });
 
       testWidgets(
@@ -326,15 +307,8 @@ void main() {
         const fullSize = 400 * postCardWidthFraction;
         final widths = builtWidths(tester);
         expect(widths.where((w) => (w - fullSize).abs() < 0.5).length, 1);
-        // Not necessarily the flat peek floor for every one of them:
-        // WYN-111 fix's left-peek reservation means the card already
-        // scrolled past can sit at a different distance-from-front than
-        // one still ahead (see post_media.dart's _leadingPeekFor) --
-        // what must still hold is that every other built card has
-        // receded at least some, and never past the peek floor.
         for (final w in widths.where((w) => (w - fullSize).abs() >= 0.5)) {
-          expect(w, lessThan(fullSize));
-          expect(w, greaterThanOrEqualTo(fullSize * postCardPeekScale - 0.5));
+          expect(w, closeTo(fullSize * postCardPeekScale, 0.5));
         }
       });
 
@@ -463,64 +437,5 @@ void main() {
         await tester.pumpAndSettle();
       });
     });
-
-    // Founder, 2026-09-05, on the deployed carousel: "ในรูป คือรูปที่2
-    // ทำไมรูปแรกที่เลื่อนผ่าน ไม่ให้เห็นรูปแรกด้วย แบบโผล่มา" -- centered on
-    // the 2nd photo, the 1st (already scrolled past) showed nothing at
-    // all, not even a sliver, unlike the next photo which always peeked
-    // in on the right. A plain ListView shows nothing before the
-    // current scroll offset by definition, and the row used to settle
-    // exactly on a card's own flush position -- leaving zero pixels of
-    // the previous card inside the visible window. post_media.dart's
-    // _leadingPeekFor fixes this by resting short of that flush
-    // position instead, on purpose, for every card but the first.
-    group(
-        'WYN-111 fix: a card already scrolled past keeps peeking on '
-        'the left, not just the one still ahead', () {
-      testWidgets(
-          'settled on the middle card of a longer row, both the '
-          'previous and the next card are visible, not just the next',
-          (tester) async {
-        await pumpWidget4(tester);
-
-        await tester.drag(
-          find.byType(PostImageCarousel),
-          const Offset(-336, 0),
-        );
-        await tester.pumpAndSettle();
-
-        // Card 0 must still be a real, built, visibly-sized widget --
-        // not absent (findsNothing) and not a zero/near-zero sliver
-        // that happens to technically satisfy "some rect exists". Not
-        // asserted equal to card 2's own peek width: card 0 is the one
-        // card this fix never shifts the *scale* reference for (see
-        // post_media.dart's _leadingPeekFor -- it keeps giving its full
-        // slack to the one card ahead of it, same as before this fix),
-        // so the two peeks are not necessarily the same size, only both
-        // visible.
-        expect(find.byType(ClipRRect), findsNWidgets(3));
-        final prev = tester.getRect(find.byType(ClipRRect).at(0));
-        const fullSize = 400 * postCardWidthFraction;
-
-        expect(prev.width, greaterThan(10));
-        expect(prev.width, lessThan(fullSize));
-      });
-    });
   });
-}
-
-Future<void> pumpWidget4(WidgetTester tester) async {
-  const urls = [
-    'https://example.supabase.co/drops/d1_0.jpg',
-    'https://example.supabase.co/drops/d1_1.jpg',
-    'https://example.supabase.co/drops/d1_2.jpg',
-    'https://example.supabase.co/drops/d1_3.jpg',
-  ];
-  await tester.pumpWidget(const MaterialApp(
-    home: Scaffold(
-      body: SizedBox(width: 400, child: PostImageCarousel(imageUrls: urls)),
-    ),
-  ));
-  await tester.pumpAndSettle();
-  tester.takeException();
 }
