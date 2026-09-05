@@ -183,6 +183,10 @@ class _SearchDropResultsTabState extends State<SearchDropResultsTab>
               return DropGridTile(
                 drop: drop,
                 onTap: () => _openDropDetail(drop),
+                // Unlike Profile's own posts tab, one search result mixes
+                // in every author on the platform -- show whose post it
+                // is directly on the tile.
+                showAuthor: true,
               );
             },
             childCount: _drops.length,

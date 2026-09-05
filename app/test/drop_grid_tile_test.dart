@@ -60,6 +60,38 @@ void main() {
     expect(taps, 1);
   });
 
+  group('author overlay (opt-in, for SearchDropResultsTab)', () {
+    testWidgets('off by default -- no @username visible on the tile',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ListView(
+            children: [DropGridTile(drop: _drop(), onTap: () {})],
+          ),
+        ),
+      ));
+      tester.takeException();
+
+      expect(find.text('@namfah'), findsNothing);
+    });
+
+    testWidgets('showAuthor: true shows the author\'s @username on the tile',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ListView(
+            children: [
+              DropGridTile(drop: _drop(), onTap: () {}, showAuthor: true),
+            ],
+          ),
+        ),
+      ));
+      tester.takeException();
+
+      expect(find.text('@namfah'), findsOneWidget);
+    });
+  });
+
   group('multi-image indicator (WYN-071)', () {
     testWidgets('a single-image Drop shows no stacked-photos icon',
         (tester) async {
