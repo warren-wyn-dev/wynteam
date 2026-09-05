@@ -25,7 +25,7 @@ typedef ConversationMeta = ({String status, String? requestedBy, DateTime? other
 // send and fetch 400 unconditionally, reply or not.
 const _replyEmbed = 'reply_to:messages!reply_to_message_id(text, image_url, deleted_at)';
 const _messageColumns = 'id, conversation_id, sender_id, text, image_url, reply_to_message_id, '
-    'shared_content_type, shared_content_id, deleted_at, created_at, $_replyEmbed';
+    'shared_content_type, shared_content_id, deleted_at, created_at, view_once, viewed_at, $_replyEmbed';
 
 /// Wraps `chat_inbox`, `conversations`, `messages`, `conversation_mutes`,
 /// `message_requests` (WYN-032), the `chat-media` storage bucket, and
@@ -231,6 +231,10 @@ class ChatRepository {
   /// as an optional caption alongside a shared Drop/Profile/Club card
   /// -- deliberately not denormalizing the shared content itself here;
   /// see the class doc comment.
+  /// [viewOnce] (Founder feedback) only ever makes sense alongside
+  /// [imageBytes] -- the composer's own toggle is only reachable once a
+  /// photo is attached, so a text-only/shared-content send never passes
+  /// true here.
   Future<ChatMessage> sendMessage({
     required String conversationId,
     String? text,
@@ -239,6 +243,7 @@ class ChatRepository {
     String? replyToMessageId,
     SharedContentType? sharedContentType,
     String? sharedContentId,
+    bool viewOnce = false,
   }) async {
     String? imagePath;
     if (imageBytes != null) {
@@ -261,10 +266,45 @@ class ChatRepository {
           'reply_to_message_id': replyToMessageId,
           'shared_content_type': sharedContentType?.wireValue,
           'shared_content_id': sharedContentId,
+          'view_once': viewOnce,
         })
         .select(_messageColumns)
         .single();
     return ChatMessage.fromMap(row);
+  }
+
+  /// The recipient's one explicit "I'm opening this now" for a View
+  /// Once photo -- see `mark_view_once_viewed()`'s own doc comment in
+  /// supabase/schema.sql for why this has to happen (and succeed)
+  /// *before* [imageSignedUrl] is ever called for that message's path.
+  Future<void> markViewOnceViewed(String messageId) {
+    return _client.rpc('mark_view_once_viewed', params: {'p_message_id': messageId});
+  }
+
+  /// Called once [message]'s View Once countdown (owned entirely by the
+  /// caller -- ConversationScreen's own Timer, not this repository) has
+  /// elapsed: deletes the underlying storage object first, then nulls
+  /// `messages.image_url` -- that order matters, since the storage
+  /// DELETE policy's own check requires `image_url` to still equal the
+  /// object's path (see "Participants can delete a viewed View Once
+  /// photo" in supabase/schema.sql); nulling it first would make the
+  /// object undeletable through that policy forever after.
+  ///
+  /// Storage removal is best-effort (same posture as [deleteMessage]),
+  /// but the RPC call is not -- a failure there is surfaced to the
+  /// caller, since it means the message's row still looks "viewed but
+  /// not yet expired" and is worth a retry rather than silently
+  /// swallowing.
+  Future<void> expireViewOnceMessage(ChatMessage message) async {
+    final path = message.imageUrl;
+    if (path != null) {
+      try {
+        await _client.storage.from(_bucket).remove([path]);
+      } catch (_) {
+        // Best-effort -- see doc comment above.
+      }
+    }
+    await _client.rpc('clear_view_once_message', params: {'p_message_id': message.id});
   }
 
   /// Also best-effort deletes the underlying `chat-media` storage object
@@ -343,24 +383,46 @@ class ChatRepository {
   /// `_client.removeChannel(channel)` in `dispose()`; leaving a
   /// channel subscribed after the screen is gone leaks a socket
   /// listener and can double-deliver events to a later subscription.
+  ///
+  /// [onUpdate] (Founder feedback -- View Once) is optional and, unlike
+  /// [onInsert], registered on this same channel rather than a second
+  /// one: so far the only UPDATE this app makes to an existing
+  /// `messages` row is `mark_view_once_viewed()`/
+  /// `clear_view_once_message()` flipping `viewed_at`/`image_url` --
+  /// this is what lets the *sender's* own bubble flip from "sent,
+  /// waiting to be opened" to "opened" live, the moment the recipient
+  /// opens (or their countdown expires), without a reload.
   RealtimeChannel subscribeToConversationMessages(
     String conversationId,
-    void Function(ChatMessage message) onInsert,
-  ) {
+    void Function(ChatMessage message) onInsert, {
+    void Function(ChatMessage message)? onUpdate,
+  }) {
     final channel = _client.channel('conversation-$conversationId');
-    channel
-        .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
-          schema: 'public',
-          table: 'messages',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'conversation_id',
-            value: conversationId,
-          ),
-          callback: (payload) => _handleRealtimeInsert(payload.newRecord, onInsert),
-        )
-        .subscribe();
+    channel.onPostgresChanges(
+      event: PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'messages',
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'conversation_id',
+        value: conversationId,
+      ),
+      callback: (payload) => _handleRealtimeInsert(payload.newRecord, onInsert),
+    );
+    if (onUpdate != null) {
+      channel.onPostgresChanges(
+        event: PostgresChangeEvent.update,
+        schema: 'public',
+        table: 'messages',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'conversation_id',
+          value: conversationId,
+        ),
+        callback: (payload) => onUpdate(ChatMessage.fromMap(payload.newRecord)),
+      );
+    }
+    channel.subscribe();
     return channel;
   }
 

@@ -46,6 +46,16 @@
 #       after the caller marks the conversation read -- and
 #       mark_conversation_read() only ever touches the caller's own
 #       read-timestamp column.
+#   13. View Once chat photos (Founder feedback): mark_view_once_viewed()
+#       rejects the sender viewing their own photo, a non-participant,
+#       viewing the same photo twice, and viewing a non-View-Once
+#       message -- and succeeds (viewed_at set) for the actual
+#       recipient. The "Participants can delete a viewed View Once
+#       photo" storage policy only unlocks once viewed_at is set, still
+#       blocks a non-participant, and never unlocks an unopened photo.
+#       clear_view_once_message() rejects an unviewed photo and a
+#       non-participant, and nulls image_url for a real participant of
+#       an already-viewed one.
 #
 # Requirements: a local PostgreSQL 16 server reachable either as the
 # current OS user or via `sudo -u postgres` (mirrors
@@ -848,6 +858,234 @@ select 'CHECK31_mark_read_only_touches_callers_own_column',
 from public.conversations
 where user_a_id = '11111111-1111-1111-1111-111111111111'::uuid
   and user_b_id = '22222222-2222-2222-2222-222222222222'::uuid;
+
+-- ------------------------------------------------------------
+-- CHECK 32-41: View Once chat photos (Founder feedback) --
+-- mark_view_once_viewed()/clear_view_once_message() RPCs, and the
+-- storage DELETE policy that only unlocks once a photo has been
+-- viewed.
+-- ------------------------------------------------------------
+
+-- bob sends alice 2 View Once photos: m_unviewed (id ...0001) stays
+-- untouched throughout -- proves the storage policy/clear RPC never
+-- unlock an unopened photo. m_viewed (id ...0002) is the one CHECK34
+-- onward actually opens.
+do $$
+declare
+  v_conv_id uuid;
+begin
+  select id into v_conv_id from public.conversations
+  where user_a_id = '11111111-1111-1111-1111-111111111111'::uuid
+    and user_b_id = '22222222-2222-2222-2222-222222222222'::uuid;
+
+  set role authenticated;
+  set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+  set request.jwt.claim.role = 'authenticated';
+  insert into public.messages (id, conversation_id, sender_id, image_url, view_once)
+  values
+    ('c0000000-0000-0000-0000-000000000001', v_conv_id, '22222222-2222-2222-2222-222222222222',
+      v_conv_id::text || '/22222222-2222-2222-2222-222222222222-1800000000001.jpg', true),
+    ('c0000000-0000-0000-0000-000000000002', v_conv_id, '22222222-2222-2222-2222-222222222222',
+      v_conv_id::text || '/22222222-2222-2222-2222-222222222222-1800000000002.jpg', true);
+  insert into storage.objects (bucket_id, name, owner) values
+    ('chat-media', v_conv_id::text || '/22222222-2222-2222-2222-222222222222-1800000000001.jpg', '22222222-2222-2222-2222-222222222222'),
+    ('chat-media', v_conv_id::text || '/22222222-2222-2222-2222-222222222222-1800000000002.jpg', '22222222-2222-2222-2222-222222222222');
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+end
+$$;
+
+-- CHECK32: bob (the sender) cannot mark his own View Once photo viewed.
+do $$
+begin
+  set role authenticated;
+  set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+  set request.jwt.claim.role = 'authenticated';
+  begin
+    perform public.mark_view_once_viewed('c0000000-0000-0000-0000-000000000002'::uuid);
+    insert into results values ('CHECK32_sender_cannot_mark_own_view_once_viewed', 0, 1);
+  exception when others then
+    insert into results values ('CHECK32_sender_cannot_mark_own_view_once_viewed', 1, 1);
+  end;
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+end
+$$;
+
+-- CHECK33: dave (not a participant) cannot mark it viewed either.
+do $$
+begin
+  set role authenticated;
+  set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
+  set request.jwt.claim.role = 'authenticated';
+  begin
+    perform public.mark_view_once_viewed('c0000000-0000-0000-0000-000000000002'::uuid);
+    insert into results values ('CHECK33_non_participant_cannot_mark_view_once_viewed', 0, 1);
+  exception when others then
+    insert into results values ('CHECK33_non_participant_cannot_mark_view_once_viewed', 1, 1);
+  end;
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+end
+$$;
+
+-- CHECK34: alice (the actual recipient) marks it viewed -- succeeds,
+-- viewed_at gets set.
+do $$
+begin
+  set role authenticated;
+  set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+  set request.jwt.claim.role = 'authenticated';
+  perform public.mark_view_once_viewed('c0000000-0000-0000-0000-000000000002'::uuid);
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+end
+$$;
+insert into results
+select 'CHECK34_recipient_mark_view_once_viewed_sets_viewed_at',
+  (case when viewed_at is not null then 1 else 0 end), 1
+from public.messages where id = 'c0000000-0000-0000-0000-000000000002'::uuid;
+
+-- CHECK35: marking the same photo viewed a second time is rejected --
+-- exactly-once semantics, not a toggle.
+do $$
+begin
+  set role authenticated;
+  set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+  set request.jwt.claim.role = 'authenticated';
+  begin
+    perform public.mark_view_once_viewed('c0000000-0000-0000-0000-000000000002'::uuid);
+    insert into results values ('CHECK35_double_view_rejected', 0, 1);
+  exception when others then
+    insert into results values ('CHECK35_double_view_rejected', 1, 1);
+  end;
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+end
+$$;
+
+-- CHECK36: mark_view_once_viewed on an ordinary (non-View-Once)
+-- message is rejected, even for a real participant -- reuses bob's
+-- earlier plain message ('b0000000-...-002').
+do $$
+begin
+  set role authenticated;
+  set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+  set request.jwt.claim.role = 'authenticated';
+  begin
+    perform public.mark_view_once_viewed('b0000000-0000-0000-0000-000000000002'::uuid);
+    insert into results values ('CHECK36_non_view_once_message_rejected', 0, 1);
+  exception when others then
+    insert into results values ('CHECK36_non_view_once_message_rejected', 1, 1);
+  end;
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+end
+$$;
+
+-- CHECK37-41: the storage DELETE policy for a viewed View Once photo,
+-- and clear_view_once_message() -- all against the m_unviewed/m_viewed
+-- objects seeded above.
+do $$
+declare
+  v_conv_id uuid;
+begin
+  select id into v_conv_id from public.conversations
+  where user_a_id = '11111111-1111-1111-1111-111111111111'::uuid
+    and user_b_id = '22222222-2222-2222-2222-222222222222'::uuid;
+
+  -- CHECK37: dave (not a participant) still cannot delete m_viewed's
+  -- object, even though it's now been viewed.
+  set role authenticated;
+  set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
+  set request.jwt.claim.role = 'authenticated';
+  delete from storage.objects
+  where bucket_id = 'chat-media'
+    and name = v_conv_id::text || '/22222222-2222-2222-2222-222222222222-1800000000002.jpg';
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+  insert into results
+  select 'CHECK37_non_participant_cannot_delete_viewed_photo', count(*), 1
+  from storage.objects
+  where bucket_id = 'chat-media'
+    and name = v_conv_id::text || '/22222222-2222-2222-2222-222222222222-1800000000002.jpg';
+
+  -- CHECK38: alice (a real participant) cannot delete m_unviewed's
+  -- object -- it's View Once but never actually opened (viewed_at
+  -- still null), so the policy must not unlock it.
+  set role authenticated;
+  set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+  set request.jwt.claim.role = 'authenticated';
+  delete from storage.objects
+  where bucket_id = 'chat-media'
+    and name = v_conv_id::text || '/22222222-2222-2222-2222-222222222222-1800000000001.jpg';
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+  insert into results
+  select 'CHECK38_unviewed_photo_cannot_be_deleted', count(*), 1
+  from storage.objects
+  where bucket_id = 'chat-media'
+    and name = v_conv_id::text || '/22222222-2222-2222-2222-222222222222-1800000000001.jpg';
+
+  -- CHECK39: alice (a real participant, but not this photo's sender)
+  -- CAN delete m_viewed's object now that it's been viewed -- unlike
+  -- delete_message()'s storage policy (sender-only), this one is
+  -- deliberately open to either participant.
+  set role authenticated;
+  set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+  set request.jwt.claim.role = 'authenticated';
+  delete from storage.objects
+  where bucket_id = 'chat-media'
+    and name = v_conv_id::text || '/22222222-2222-2222-2222-222222222222-1800000000002.jpg';
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+  insert into results
+  select 'CHECK39_recipient_can_delete_viewed_photo', count(*), 0
+  from storage.objects
+  where bucket_id = 'chat-media'
+    and name = v_conv_id::text || '/22222222-2222-2222-2222-222222222222-1800000000002.jpg';
+end
+$$;
+
+-- CHECK40: clear_view_once_message() on m_unviewed (never opened) is
+-- rejected, even for a real participant.
+do $$
+begin
+  set role authenticated;
+  set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+  set request.jwt.claim.role = 'authenticated';
+  begin
+    perform public.clear_view_once_message('c0000000-0000-0000-0000-000000000001'::uuid);
+    insert into results values ('CHECK40_clear_unviewed_photo_rejected', 0, 1);
+  exception when others then
+    insert into results values ('CHECK40_clear_unviewed_photo_rejected', 1, 1);
+  end;
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+end
+$$;
+
+-- CHECK41: alice clears m_viewed (already viewed, storage object
+-- already removed by CHECK39) -- succeeds, nulls image_url. dave (not
+-- a participant) is rejected first, to prove the RPC itself gates on
+-- participancy independent of the storage DELETE policy above.
+do $$
+begin
+  set role authenticated;
+  set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
+  set request.jwt.claim.role = 'authenticated';
+  begin
+    perform public.clear_view_once_message('c0000000-0000-0000-0000-000000000002'::uuid);
+    insert into results values ('CHECK41a_non_participant_clear_rejected', 0, 1);
+  exception when others then
+    insert into results values ('CHECK41a_non_participant_clear_rejected', 1, 1);
+  end;
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+end
+$$;
+do $$
+begin
+  set role authenticated;
+  set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+  set request.jwt.claim.role = 'authenticated';
+  perform public.clear_view_once_message('c0000000-0000-0000-0000-000000000002'::uuid);
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+end
+$$;
+insert into results
+select 'CHECK41b_clear_viewed_photo_nulls_image_url',
+  (case when image_url is null then 1 else 0 end), 1
+from public.messages where id = 'c0000000-0000-0000-0000-000000000002'::uuid;
 
 select check_name, actual, expected from results order by check_name;
 EOF
