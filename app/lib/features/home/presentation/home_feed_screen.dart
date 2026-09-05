@@ -844,13 +844,23 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
           ),
           Expanded(
             child: Center(
-              child: Text(
-                'WYNOS',
-                style: WynTypography.screenTitle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset(
+                    'assets/images/wynos_logo_mark.png',
+                    height: 20,
+                  ),
+                  const SizedBox(width: WynSpacing.space2),
+                  Text(
+                    'WYNOS',
+                    style: WynTypography.screenTitle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
