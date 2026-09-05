@@ -6,6 +6,7 @@ import '../../../core/design/wyn_spacing.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
 import '../../club/presentation/create_club_screen.dart';
+import '../../club/presentation/explore_clubs_screen.dart';
 import '../../club/presentation/my_clubs_screen.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../follow/data/follow_repository.dart';
@@ -22,14 +23,14 @@ import '../../saved/presentation/bookmarks_screen.dart';
 /// the "slides in over a dimmed screen" behavior the reference describes
 /// for free, rather than a hand-built overlay.
 ///
-/// Real destinations, no placeholders: identity block and "โปรไฟล์" both
-/// open the viewer's own [ViewProfileScreen] (same screen -- an entry
-/// point, not a duplicate profile, per the reference's own design note),
-/// "สร้าง Club" opens the existing [CreateClubScreen] (WYN-100 -- the
-/// create-Club flow itself already existed in full since WYN-014, this
-/// just adds the shortcut), "Club ของฉัน" opens the existing
-/// [MyClubsScreen], and "บันทึกไว้" opens the same [BookmarksScreen]
-/// [ViewProfileScreen]'s own `_openSaved` already pushes.
+/// Real destinations, no placeholders: the identity block opens the
+/// viewer's own [ViewProfileScreen], "สำรวจ Club" opens the existing
+/// [ExploreClubsScreen], "สร้าง Club" opens the existing
+/// [CreateClubScreen] (WYN-100 -- the create-Club flow itself already
+/// existed in full since WYN-014, this just adds the shortcut), "Club
+/// ของฉัน" opens the existing [MyClubsScreen], and "บันทึกไว้" opens the
+/// same [BookmarksScreen] [ViewProfileScreen]'s own `_openSaved` already
+/// pushes.
 ///
 /// No verified badge or follower/following counts of "0" placeholders --
 /// counts are fetched for real ([FollowRepository.countFollowers]/
@@ -119,6 +120,18 @@ class _SideMenuState extends State<SideMenu> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => CreateClubScreen(
+          clubRepository: widget.clubRepository,
+          clubPostRepository: widget.clubPostRepository,
+        ),
+      ),
+    );
+  }
+
+  void _openExploreClubs() {
+    Navigator.of(context).pop();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ExploreClubsScreen(
           clubRepository: widget.clubRepository,
           clubPostRepository: widget.clubPostRepository,
         ),
@@ -230,7 +243,8 @@ class _SideMenuState extends State<SideMenu> {
             ),
             const Divider(height: 1, color: WynColors.hairline),
             const SizedBox(height: WynSpacing.space2),
-            _MenuRow(icon: Icons.person_outline, label: 'โปรไฟล์', onTap: _openOwnProfile),
+            _MenuRow(
+                icon: Icons.explore_outlined, label: 'สำรวจ Club', onTap: _openExploreClubs),
             _MenuRow(
                 icon: Icons.add_circle_outline, label: 'สร้าง Club', onTap: _openCreateClub),
             _MenuRow(icon: Icons.groups_outlined, label: 'Club ของฉัน', onTap: _openMyClubs),

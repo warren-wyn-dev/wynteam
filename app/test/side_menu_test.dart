@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/club/presentation/create_club_screen.dart';
+import 'package:wyn/features/club/presentation/explore_clubs_screen.dart';
 import 'package:wyn/features/club/presentation/my_clubs_screen.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
@@ -104,14 +105,13 @@ void main() {
     expect(find.byType(ViewProfileScreen), findsOneWidget);
   });
 
-  testWidgets('tapping "โปรไฟล์" opens the viewer\'s own profile',
-      (tester) async {
+  testWidgets('tapping "สำรวจ Club" opens ExploreClubsScreen', (tester) async {
     await openDrawer(tester);
 
-    await tester.tap(find.text('โปรไฟล์'));
+    await tester.tap(find.text('สำรวจ Club'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(ViewProfileScreen), findsOneWidget);
+    expect(find.byType(ExploreClubsScreen), findsOneWidget);
   });
 
   testWidgets('tapping "สร้าง Club" opens CreateClubScreen (WYN-100)',
