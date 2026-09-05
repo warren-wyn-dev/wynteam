@@ -38,6 +38,7 @@ class Drop {
     required this.authorUsername,
     this.authorDisplayName,
     this.authorAvatarUrl,
+    this.authorIsVerified = false,
     this.imageUrl,
     this.caption,
     required this.createdAt,
@@ -70,6 +71,15 @@ class Drop {
   final String authorUsername;
   final String? authorDisplayName;
   final String? authorAvatarUrl;
+
+  /// Same [profiles.is_verified]/VerifiedBadge semantics as
+  /// [HomeFeedItem.authorIsVerified] -- true only for the official
+  /// WYNOS account. Was missing entirely until Founder feedback: every
+  /// Drop-based surface other than the Home feed/Suggested Follows
+  /// (which read `home_feed`'s own `author_is_verified` column, not
+  /// this model) silently showed no badge at all regardless of the
+  /// author's real `profiles.is_verified`.
+  final bool authorIsVerified;
 
   /// Null when this Drop is a Poll ([pollId] set) instead -- WYN-035:
   /// a Drop carries either an image or a Poll, never both this round.
@@ -230,6 +240,7 @@ class Drop {
         authorUsername: authorUsername,
         authorDisplayName: authorDisplayName,
         authorAvatarUrl: authorAvatarUrl,
+        authorIsVerified: authorIsVerified,
         imageUrl: imageUrl,
         imageCount: imageCount,
         aspectRatio: aspectRatio,
@@ -269,6 +280,7 @@ class Drop {
         authorUsername: authorUsername,
         authorDisplayName: authorDisplayName,
         authorAvatarUrl: authorAvatarUrl,
+        authorIsVerified: authorIsVerified,
         imageUrl: imageUrl,
         imageCount: imageCount,
         aspectRatio: aspectRatio,
@@ -384,6 +396,7 @@ class Drop {
       authorUsername: author?['username'] as String? ?? '',
       authorDisplayName: author?['display_name'] as String?,
       authorAvatarUrl: author?['avatar_url'] as String?,
+      authorIsVerified: author?['is_verified'] as bool? ?? false,
       imageUrl: map['image_url'] as String?,
       // Falls back to the imageUrl-based default (see the constructor)
       // when the query didn't embed drop_images(count) at all -- not

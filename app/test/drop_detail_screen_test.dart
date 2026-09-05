@@ -6,6 +6,7 @@ import 'package:wyn/features/drop/data/drop_comment.dart';
 import 'package:wyn/features/drop/data/drop_repository.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
 import 'package:wyn/features/drop/presentation/edit_drop_caption_screen.dart';
+import 'package:wyn/features/home/presentation/widgets/verified_badge.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
 
@@ -296,6 +297,42 @@ void main() {
 
     expect(findHeart(filled: true), findsOneWidget);
     expect(find.text('4 ถูกใจ'), findsOneWidget);
+  });
+
+  // Founder feedback: a verified account's Drop showed the checkmark on
+  // Home/the profile grid (once those were fixed to pass
+  // authorIsVerified through) but not here -- DropDetailScreen's own
+  // header never rendered VerifiedBadge at all, so tapping into the
+  // exact same Drop lost the mark it had a moment ago.
+  testWidgets('shows VerifiedBadge in the header for a verified account\'s '
+      'Drop', (tester) async {
+    final verifiedDrop = Drop(
+      id: 'd-verified',
+      authorId: 'someone-else',
+      authorUsername: 'namfah',
+      authorIsVerified: true,
+      imageUrl: 'https://example.supabase.co/drops/d-verified.jpg',
+      createdAt: DateTime.now(),
+      likeCount: 0,
+      commentCount: 0,
+      likedByMe: false,
+      savedByMe: false,
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: DropDetailScreen(
+        dropRepository: repo,
+        followRepository: followRepo,
+        profileRepository: profileRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
+        drop: verifiedDrop,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.byType(VerifiedBadge), findsOneWidget);
   });
 
   testWidgets('shows a Follow button for another user\'s Drop',
