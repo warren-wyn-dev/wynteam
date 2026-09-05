@@ -101,6 +101,17 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
       // layout is illegal ("Build scheduled during frame"). Deferring
       // one frame is what every NotificationListener-driven infinite
       // scroll needs for exactly this reason.
+      // QA-WYN-110-001: the guard above reads _isLoadingMore at
+      // notification time, but a single drag can dispatch several
+      // ScrollUpdateNotifications before the frame boundary the
+      // callback below waits for -- each one would see the same
+      // not-yet-true guard and schedule its own _loadMore(), firing
+      // the same page fetch several times over for one crossing of
+      // the threshold. Setting the field here, synchronously, closes
+      // that window; _loadMore() still does its own setState (needed
+      // for anything that actually renders from this flag) once the
+      // deferred call runs.
+      _isLoadingMore = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _loadMore();
       });
