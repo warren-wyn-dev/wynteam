@@ -171,9 +171,17 @@ class _AuthGateState extends State<AuthGate> {
   // exactly when the user actually leaves, not before.
   _BlockedLoginInfo? _blockedInfo;
 
+  /// The signed-in user id as of the last auth event this listener
+  /// processed -- exists so the listener can tell "the session was
+  /// refreshed for the account already active" apart from "the session
+  /// was refreshed *into a different account*" (see the listener's own
+  /// comment on why `tokenRefreshed` needs this at all).
+  String? _currentUserId;
+
   @override
   void initState() {
     super.initState();
+    _currentUserId = _authRepository.currentSession?.user.id;
     // Every other screen in the app (auth flow screens, ViewProfileScreen,
     // CreateDropScreen, DropDetailScreen, ...) is pushed with
     // Navigator.push on top of this route. Whenever the session actually
@@ -183,12 +191,40 @@ class _AuthGateState extends State<AuthGate> {
     // AuthGate now renders (OnboardingFlow/RootShell on sign-in,
     // WelcomeScreen on sign-out) instead of staying stuck on the screen
     // that triggered the change. See .wyn/learning/MISTAKES.md.
+    //
+    // Account Switcher fix, 2026-09-05: switching accounts is a THIRD
+    // way the session changes, and it fires neither `signedIn` nor
+    // `signedOut`. AccountSwitcherRepository.switchTo calls
+    // `client.auth.setSession(refreshToken)` with only a refresh token
+    // (no access token) -- real `gotrue`'s implementation of that
+    // specific overload always routes through `_callRefreshToken` ->
+    // `_doRefresh`, which unconditionally fires
+    // `AuthChangeEvent.tokenRefreshed`, even though the refreshed
+    // session belongs to an entirely different user than the one that
+    // was active a moment ago. Before this fix, `isRelevant` never
+    // caught that: the underlying Supabase session genuinely switched
+    // (confirmed by Founder: "เปลี่ยนแอคให้อยู่"), but nothing here ever
+    // told Navigator to pop -- the Account Switcher's own modal bottom
+    // sheet, and anything else pushed on top of AuthGate, stayed on
+    // screen forever ("ป็อปอัพไม่ลง มันค้าง"). The fix is not "treat
+    // every tokenRefreshed as relevant" -- GoTrue also fires that same
+    // event for its own silent *background* refresh of the current
+    // session (roughly every ~55 minutes), and popping the user's
+    // entire navigation stack back to AuthGate every time their access
+    // token quietly renews mid-scroll would be a new, worse bug. The
+    // distinguishing signal is whether the user id actually changed.
     _authSubscription = _authRepository.authStateChanges.listen((state) {
-      if (state.event == AuthChangeEvent.signedIn) {
+      final newUserId = state.session?.user.id;
+      final isAccountSwitch = state.event == AuthChangeEvent.tokenRefreshed &&
+          newUserId != null &&
+          newUserId != _currentUserId;
+      if (state.event == AuthChangeEvent.signedIn || isAccountSwitch) {
         _moderationStatusFuture = _moderationRepository.fetchMyStatus();
       }
       final isRelevant = state.event == AuthChangeEvent.signedIn ||
-          state.event == AuthChangeEvent.signedOut;
+          state.event == AuthChangeEvent.signedOut ||
+          isAccountSwitch;
+      _currentUserId = newUserId;
       if (isRelevant && mounted) {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }

@@ -72,6 +72,25 @@ class RecordingAuthRepository extends AuthRepository {
     _controller.add(AuthState(AuthChangeEvent.signedIn, session));
   }
 
+  /// Simulates what `SupabaseClient.auth.setSession(refreshToken)`
+  /// actually emits -- both for the Account Switcher (calling it with a
+  /// *different* user's stored refresh token) and for GoTrue's own
+  /// periodic background refresh of the current session. Real
+  /// `gotrue`'s `setSession(refreshToken)` (no accessToken argument, the
+  /// only way AccountSwitcherRepository.switchTo calls it) always goes
+  /// through `_callRefreshToken` -> `_doRefresh`, which fires
+  /// `AuthChangeEvent.tokenRefreshed` unconditionally -- never
+  /// `signedIn`, even when the refreshed session belongs to a different
+  /// user entirely. `emitSignedIn` above cannot stand in for this: it
+  /// would make the account-switch test pass for the wrong reason (an
+  /// event AuthGate already knew to treat as relevant), not the real one
+  /// (tokenRefreshed carrying a new user id, which AuthGate has to
+  /// notice on its own).
+  void emitTokenRefreshed(Session session) {
+    _session = session;
+    _controller.add(AuthState(AuthChangeEvent.tokenRefreshed, session));
+  }
+
   /// A *real* sign-out: clears the session and emits `signedOut` --
   /// this is what makes the sign-out race in AuthGate's own comments
   /// reproducible in a widget test: after this resolves, a naive
