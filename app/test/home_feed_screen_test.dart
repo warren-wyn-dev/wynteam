@@ -749,6 +749,46 @@ void main() {
     expect(find.text('Club ของฉัน'), findsOneWidget);
   });
 
+  group('Chat badge', () {
+    /// HomeFeedScreen's own [WidgetsBindingObserver] -- see the
+    /// lifecycle test below for why it's driven directly rather than
+    /// through `tester.binding.handleAppLifecycleStateChanged` (same
+    /// reasoning as RootShell's identical `lifecycleObserverOf` helper
+    /// in root_shell_test.dart).
+    WidgetsBindingObserver lifecycleObserverOf(WidgetTester tester) =>
+        tester.state(find.byType(HomeFeedScreen)) as WidgetsBindingObserver;
+
+    // Regression test: the badge used to be read once in initState and
+    // never again, so a conversation read via a push notification tap,
+    // Notifications, or Profile (all of which push ConversationScreen
+    // directly, bypassing this screen's own _openChatInbox) left it
+    // stuck at whatever it showed when Home first loaded.
+    testWidgets(
+        're-reads the unread chat count when the app is resumed, so it is '
+        'not stale after a conversation is read from somewhere other than '
+        "this screen's own inbox", (tester) async {
+      sharedChatRepository.unreadCount = 2;
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('2'), findsOneWidget);
+
+      sharedChatRepository.unreadCount = 0;
+
+      lifecycleObserverOf(tester)
+          .didChangeAppLifecycleState(AppLifecycleState.paused);
+      lifecycleObserverOf(tester)
+          .didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(find.text('2'), findsNothing);
+    });
+  });
+
   testWidgets('renders a mix of Drop and Pop cards with type-specific UI',
       (tester) async {
     await tester.pumpWidget(buildHome(

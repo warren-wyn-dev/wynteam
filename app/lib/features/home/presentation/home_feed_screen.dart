@@ -93,7 +93,7 @@ class HomeFeedScreen extends StatefulWidget {
   State<HomeFeedScreen> createState() => _HomeFeedScreenState();
 }
 
-class _HomeFeedScreenState extends State<HomeFeedScreen> {
+class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObserver {
   // WYN-100: opens the SideMenu drawer (mirrors
   // notification_list_screen.dart's own _scaffoldKey exactly).
   final _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -158,6 +158,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     _loadInitial();
     _scrollController.addListener(_onScroll);
     _loadUnreadChatCount();
+    WidgetsBinding.instance.addObserver(this);
     widget.homeTabReselectSignal.addListener(_onHomeTabReselected);
     _newPostsChannel = widget.homeRepository.subscribeToNewPosts((authorId) {
       // Skip the viewer's own new post -- RootShell._openCreateDrop
@@ -169,6 +170,23 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       }
       setState(() => _newPostCount++);
     });
+  }
+
+  // Same "refresh on resume" fix RootShell._loadUnreadNotificationCount
+  // already has for the Notifications bell (Beta4 §11.4) -- this badge
+  // never got it, so it stayed stuck at whatever it read in initState
+  // whenever a conversation was read from anywhere other than this
+  // screen's own _openChatInbox (a push notification tap, Notifications,
+  // Profile, and Message Requests all push ConversationScreen directly,
+  // none of them tell Home to refresh). Resuming is the one moment the
+  // badge can be wrong *and* the person can see it again, so one query
+  // here catches every one of those other paths without a timer/poll.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      _loadUnreadChatCount();
+    }
   }
 
   // WYN-032: the badge is "anything needing my attention" -- unread
@@ -205,6 +223,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     widget.homeTabReselectSignal.removeListener(_onHomeTabReselected);
     final channel = _newPostsChannel;
     if (channel != null) widget.homeRepository.unsubscribe(channel);
