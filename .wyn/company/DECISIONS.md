@@ -946,7 +946,7 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 2026-09-04 ผล `Success. No rows returned`) — เพิ่มคอลัมน์ในตาราง `drops` + CHECK constraint
 เท่านั้น ไม่แตะ view · `supabase/migrations_wyn109_image_aspect_ratio.sql` = ไฟล์ที่ล้ม ห้ามรัน
 
-**ยังไม่ครอบคลุม**: หน้า Saved (`saved_feed`) ยังวาด 4:5 ทุกรูป — นอกขอบเขต WYN-109 ต้องเปิดงานใหม่
+**แก้ไข 2026-09-05**: ~~ยังไม่ครอบคลุม: หน้า Saved ยังวาด 4:5 ทุกรูป~~ ตรวจซ้ำแล้วไม่จริง — Saved (`SavedGridTile`/`SavedPostRow`) ใช้ thumbnail สี่เหลี่ยมจัตุรัสตายตัวเสมอ ไม่เคยอ่าน `image_aspect_ratio` เลย เป็น convention เดียวกับ `DropGridTile` ที่ Founder เคยอนุมัติให้ Saved คงเป็น Grid ไว้แล้ว (ดูรายการ 2026-09-02 ด้านบนเรื่อง Grid ที่เหลือ) ไม่ใช่ gap ของงานนี้
 
 อ้างอิง: `.wyn/tasks/bugs/SCHEMA-004-production-view-drift.md`,
 `.wyn/docs/qa/wyn-106-107-108-109-home-cards-qa-round2.md`

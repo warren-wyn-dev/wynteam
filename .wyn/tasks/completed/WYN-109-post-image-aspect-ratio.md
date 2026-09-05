@@ -62,8 +62,13 @@ migration ตรวจซ้ำบน PostgreSQL 16.13 จริงแล้ว:
   ผลลัพธ์: **ไม่ต้องแตะ production view เลยแม้แต่ครั้งเดียว** งาน WYN-109 จบได้โดยไม่ต้องรอ SCHEMA-004
   ถ้า query นี้ล้ม จะ swallow แล้ว fallback 4:5 เหมือนเดิม (pattern เดียวกับ `_fetchImageUrls`)
   และถ้าวันหนึ่ง view มีคอลัมน์นี้ขึ้นมาจริง `fromMap` ยังอ่านจาก row เป็น fallback อยู่ ไม่ต้องแก้อะไร
-- **หน้า Saved (`saved_feed` view) ยังวาด 4:5 ทุกรูป** อยู่นอกขอบเขต WYN-109 (ซึ่งระบุหน้า Home)
-  และ `SavedRepository` ยังไม่ batch แม้แต่ image URL — ถ้าจะทำต้องเปิดงานใหม่
+- ~~หน้า Saved (`saved_feed` view) ยังวาด 4:5 ทุกรูป~~ **แก้ไข 2026-09-05: ไม่จริง** ตรวจโค้ดจริง
+  แล้วพบว่า Saved ไม่เคยแสดงการ์ดที่มีอัตราส่วนรูปเลยสักที่ — `SavedGridTile` (แท็บ Saved บนโปรไฟล์)
+  และ `SavedPostRow` (หน้า Bookmarks) ใช้ thumbnail สี่เหลี่ยมจัตุรัสตายตัวเสมอ (`AspectRatio: 1`
+  หรือกรอบ 56×56) แบบเดียวกับ `DropGridTile`/`DraftGridTile` — เป็น convention เดียวกันทั้งแอปสำหรับ
+  grid/thumbnail และ **Founder เคยยืนยันไว้แล้วว่าให้ Saved คงเป็น Grid ต่อไป** ("Content Overview
+  คนละหน้าที่กับ Content Flow" — ดู `.wyn/company/DECISIONS.md`) `DropAspectRatio` ไม่เคยเดินทางไปถึง
+  โค้ดกลุ่มนี้เลย ไม่ใช่ gap ของ WYN-109 มีเทสต์คุมไว้ที่ `test/saved_grid_square_by_design_test.dart`
 
 ---
 
