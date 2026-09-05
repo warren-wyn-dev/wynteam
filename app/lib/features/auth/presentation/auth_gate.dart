@@ -134,7 +134,10 @@ class _AuthGateState extends State<AuthGate> {
   /// one.
   late final Widget Function(Session) _buildRootShell =
       widget.rootShellBuilder ??
-          (session) => RootShell(key: ValueKey(session.user.id));
+          (session) => RootShell(
+                key: ValueKey(session.user.id),
+                startOnProfileTab: _startOnProfileTab,
+              );
   late final AccountSwitcherRepository _accountSwitcherRepository =
       widget.accountSwitcherRepository ?? AccountSwitcherRepository();
   late final PlatformDocumentRepository _platformDocumentRepository =
@@ -178,6 +181,18 @@ class _AuthGateState extends State<AuthGate> {
   /// comment on why `tokenRefreshed` needs this at all).
   String? _currentUserId;
 
+  /// Founder feedback, 2026-09-05: landing on Home right after switching
+  /// accounts read as if the switch had silently failed -- the feed
+  /// looks the same as a moment ago, nothing on screen confirms which
+  /// account is now active. Set true only for the one build that follows
+  /// an actual account switch (mirrors `isAccountSwitch` below) so
+  /// `_buildRootShell` can start RootShell on the Profile tab instead of
+  /// Home just this once -- unconditionally re-derived on every auth
+  /// event (not left "sticky" after a switch), so a later ordinary
+  /// sign-in/sign-out never inherits a stale true from an earlier
+  /// switch.
+  bool _startOnProfileTab = false;
+
   @override
   void initState() {
     super.initState();
@@ -218,6 +233,7 @@ class _AuthGateState extends State<AuthGate> {
       final isAccountSwitch = state.event == AuthChangeEvent.tokenRefreshed &&
           newUserId != null &&
           newUserId != _currentUserId;
+      _startOnProfileTab = isAccountSwitch;
       if (state.event == AuthChangeEvent.signedIn || isAccountSwitch) {
         _moderationStatusFuture = _moderationRepository.fetchMyStatus();
       }

@@ -54,6 +54,7 @@ class RootShell extends StatefulWidget {
     HomeRepository? homeRepository,
     AppealRepository? appealRepository,
     ChatRepository? chatRepository,
+    this.startOnProfileTab = false,
   })  : _dropRepository = dropRepository,
         _popRepository = popRepository,
         _followRepository = followRepository,
@@ -83,6 +84,16 @@ class RootShell extends StatefulWidget {
   final AppealRepository? _appealRepository;
   final ChatRepository? _chatRepository;
 
+  /// True only when this RootShell is being mounted right after the
+  /// Account Switcher switched to this account -- see AuthGate's own
+  /// `_startOnProfileTab` for how it derives that from the GoTrue event.
+  /// Landing back on Home after a switch reads as if the switch silently
+  /// failed (same content as a moment ago); Profile makes which account
+  /// is now active immediately obvious instead. Left false (Home, the
+  /// existing behavior) for every other way RootShell gets built --
+  /// first sign-in, app cold start, a guest session.
+  final bool startOnProfileTab;
+
   @override
   State<RootShell> createState() => _RootShellState();
 }
@@ -111,7 +122,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
     _profileDestinationIndex,
   ];
 
-  int _tabIndex = _homeTab;
+  late int _tabIndex;
 
   // Bumped whenever the corresponding tab is (re)visited, forcing that
   // tab's widget to remount (fresh fetch) -- same "bump a key to force
@@ -156,6 +167,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _tabIndex = widget.startOnProfileTab ? _profileTab : _homeTab;
     final client = Supabase.instance.client;
     _dropRepository = widget._dropRepository ?? DropRepository(client);
     _popRepository = widget._popRepository ?? PopRepository(client);

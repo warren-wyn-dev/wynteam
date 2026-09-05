@@ -84,6 +84,7 @@ void main() {
   Widget buildShell({
     RecordingNotificationRepository? notificationRepository,
     RecordingHomeRepository? homeRepository,
+    bool startOnProfileTab = false,
   }) =>
       MaterialApp(
         home: RootShell(
@@ -96,6 +97,7 @@ void main() {
           clubRepository: sharedClubRepository,
           clubPostRepository: sharedClubPostRepository,
           homeRepository: homeRepository ?? defaultHomeRepository,
+          startOnProfileTab: startOnProfileTab,
         ),
       );
 
@@ -271,6 +273,29 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ViewProfileScreen), findsOneWidget);
+  });
+
+  // Founder feedback: landing on Home right after switching accounts read
+  // as if the switch had silently failed. AuthGate now builds RootShell
+  // with startOnProfileTab: true for the one build that follows an actual
+  // Account Switcher switch -- this proves RootShell itself honours that
+  // flag, independent of AuthGate's own logic for deriving it (covered by
+  // auth_gate_test.dart).
+  testWidgets('startOnProfileTab: true opens straight to ViewProfileScreen '
+      'instead of Home', (tester) async {
+    await tester.pumpWidget(buildShell(startOnProfileTab: true));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ViewProfileScreen), findsOneWidget);
+    // Home's own content (the feed-mode toggle) is offstage, not just
+    // "also present" -- same offstage-aware assertion style as
+    // _expectFeedToggleVisible/the Drop test above, just proving the
+    // opposite: Home did NOT become the selected tab.
+    expect(find.text('สำหรับคุณ'), findsNothing);
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      4,
+    );
   });
 
   // WYN-064: tapping Home while already on Home doesn't navigate anywhere
