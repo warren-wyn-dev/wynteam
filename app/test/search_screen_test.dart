@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/drop/data/drop.dart';
 import 'package:wyn/features/drop/presentation/drop_detail_screen.dart';
+import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/pop/data/pop.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
@@ -249,7 +250,7 @@ void main() {
     await tester.pumpAndSettle();
     // The โพสต์ tab is also built (TabBarView keeps every tab's widget
     // mounted, not just the visible one) and searched with the same
-    // shared query -- DropGridTile's Image.network fails to load in the
+    // shared query -- HomeDropCard's Image.network fails to load in the
     // test env, same harmless/expected exception as every other test in
     // this suite that renders one. See .wyn/learning/PATTERNS.md.
     tester.takeException();
@@ -279,7 +280,12 @@ void main() {
     tester.takeException();
 
     expect(dropRepo.searchByCaptionQueryArgs, ['namfah']);
-    await tester.tap(find.byType(Image).first);
+    // Same off-screen-hit-test-avoidance as HashtagFeedScreen's own
+    // identical test (its own doc comment explains why: a HomeDropCard
+    // has several nested tappables of its own -- avatar, ActionMetric --
+    // so a geometric tester.tap() can land on one of those instead of
+    // the outer card's onTap) -- invokes the callback directly.
+    tester.widget<HomeDropCard>(find.byType(HomeDropCard)).onTap();
     await tester.pumpAndSettle();
     tester.takeException();
 
