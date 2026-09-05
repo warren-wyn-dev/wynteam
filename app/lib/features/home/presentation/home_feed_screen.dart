@@ -23,7 +23,6 @@ import 'pop_single_clip_screen.dart';
 import 'widgets/add_to_home_screen_banner.dart';
 import 'widgets/from_your_clubs_feed.dart';
 import 'widgets/home_drop_card.dart';
-import 'widgets/home_explainer_banner.dart';
 import 'widgets/home_feed_skeleton.dart';
 import 'widgets/home_pop_card.dart';
 import 'widgets/new_posts_pill.dart';
@@ -812,11 +811,14 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
                   key: const Key('home_feed_scroll_view'),
                   controller: _scrollController,
                   slivers: [
-                    // WYNOSHomeSpec.md item 1 -- the very first thing an
-                    // account sees on Home, shown once total (see
-                    // HomeExplainerBanner's own doc comment); scrolls away
-                    // with everything below it rather than pinning.
-                    const SliverToBoxAdapter(child: HomeExplainerBanner()),
+                    // Founder feedback, 2026-09-05: removed
+                    // HomeExplainerBanner ("ดู → แชร์ → ค้นพบ → ซื้อ") --
+                    // the widget itself (WYNOSHomeSpec.md item 1) is left
+                    // in place, unmounted rather than deleted, same
+                    // "screens/data untouched, just no longer wired up"
+                    // posture as Pop/ZOKY (see RootShell's own doc
+                    // comment) in case Product wants it back in a
+                    // different spot later.
                     // Founder feedback: users didn't know WYNOS (the
                     // Flutter Web build) could be added to their home
                     // screen like a real app icon -- renders nothing at

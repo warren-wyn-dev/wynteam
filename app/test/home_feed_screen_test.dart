@@ -2899,12 +2899,16 @@ void main() {
   });
 
   group('First-time explainer banner (WYNOSHomeSpec.md item 1)', () {
-    // The banner's own shown-once/dismiss/persist behavior is covered in
-    // isolation by home_explainer_banner_test.dart -- this just confirms
-    // HomeFeedScreen actually wires it in above the feed. Every other
-    // test in this file pre-dismisses it (see setUpAll's SharedPreferences
-    // mock) so its absence there isn't a regression.
-    testWidgets('is present above the feed', (tester) async {
+    // Founder feedback, 2026-09-05: unmounted from Home (see
+    // HomeFeedScreen's own comment at the CustomScrollView slivers list)
+    // -- the widget itself (home_explainer_banner.dart) and its own
+    // isolated test (home_explainer_banner_test.dart) are untouched,
+    // same "screens/data left in place, just no longer wired up" posture
+    // as Pop/ZOKY. This test flips from asserting presence to asserting
+    // HomeFeedScreen no longer builds it at all, rather than deleting
+    // the group outright, so a future re-add is a one-line revert of
+    // this test too.
+    testWidgets('is no longer wired into Home', (tester) async {
       await tester.pumpWidget(buildHome(
         explainerBannerTestHomeRepository,
         dropRepository: sharedDropRepository,
@@ -2913,14 +2917,9 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      // skipOffstage: false -- every other test in this file pre-
-      // dismisses the banner (see setUpAll), so it renders a zero-size
-      // SizedBox.shrink() here too; the default finder treats that as
-      // offstage and would report 0 matches even though the widget is
-      // genuinely mounted, which is all this test asserts.
       expect(
         find.byType(HomeExplainerBanner, skipOffstage: false),
-        findsOneWidget,
+        findsNothing,
       );
     });
   });
