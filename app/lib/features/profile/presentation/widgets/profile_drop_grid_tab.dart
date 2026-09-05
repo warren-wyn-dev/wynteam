@@ -56,8 +56,8 @@ class ProfileDropGridTab extends StatefulWidget {
 
 class _ProfileDropGridTabState extends State<ProfileDropGridTab>
     with AutomaticKeepAliveClientMixin {
-  final _scrollController = ScrollController();
   final List<Drop> _drops = [];
+
   /// Keys of every row already shown this load cycle. Offset pagination
   /// re-reads a list that can have grown at the top since the previous
   /// page -- one new row shifts everything down by one, so the last row
@@ -82,21 +82,43 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
   void initState() {
     super.initState();
     _loadInitial();
-    _scrollController.addListener(_onScroll);
   }
 
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_isLoadingMore || !_hasMore) return;
-    if (_scrollController.position.pixels >
-        _scrollController.position.maxScrollExtent - 300) {
-      _loadMore();
+  // WYN-110: was a private ScrollController's own listener before this
+  // tab's ListView became the CustomScrollView below -- inside a
+  // NestedScrollView, the inner scrollable's controller belongs to
+  // NestedScrollView itself (that's what lets it hand the same gesture
+  // to the pinned header above), so this tab can no longer own one.
+  // Scroll notifications bubble up through this NotificationListener
+  // regardless of who owns the controller underneath, so the same
+  // "300px from the bottom" trigger still works unchanged.
+  bool _onScrollNotification(ScrollNotification notification) {
+    if (_isLoadingMore || !_hasMore) return false;
+    if (notification.metrics.pixels >
+        notification.metrics.maxScrollExtent - 300) {
+      // Not called directly: this notification can fire mid-layout (a
+      // ballistic correction dispatches ScrollStartNotification from
+      // inside RenderViewport.performLayout when the content shrinks
+      // under an active scroll position), and setState from inside
+      // layout is illegal ("Build scheduled during frame"). Deferring
+      // one frame is what every NotificationListener-driven infinite
+      // scroll needs for exactly this reason.
+      // QA-WYN-110-001: the guard above reads _isLoadingMore at
+      // notification time, but a single drag can dispatch several
+      // ScrollUpdateNotifications before the frame boundary the
+      // callback below waits for -- each one would see the same
+      // not-yet-true guard and schedule its own _loadMore(), firing
+      // the same page fetch several times over for one crossing of
+      // the threshold. Setting the field here, synchronously, closes
+      // that window; _loadMore() still does its own setState (needed
+      // for anything that actually renders from this flag) once the
+      // deferred call runs.
+      _isLoadingMore = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadMore();
+      });
     }
+    return false;
   }
 
   Future<void> _loadInitial() async {
@@ -235,7 +257,8 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
     if (posted != true || !mounted) return;
     final currentIndex = _drops.indexWhere((d) => d.id == dropId);
     if (currentIndex == -1) return;
-    setState(() => _drops[currentIndex] = _drops[currentIndex].withExtraRedrop());
+    setState(
+        () => _drops[currentIndex] = _drops[currentIndex].withExtraRedrop());
   }
 
   void _openProfile(String userId) {
@@ -334,34 +357,47 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
 
     return RefreshIndicator(
       onRefresh: _onPullToRefresh,
-      child: ListView.separated(
-        controller: _scrollController,
-        itemCount: _drops.length + (_hasMore ? 1 : 0),
-        separatorBuilder: (context, index) => index + 1 < _drops.length
-            ? const Divider(height: 1)
-            : const SizedBox.shrink(),
-        itemBuilder: (context, index) {
-          if (index >= _drops.length) {
-            return const Padding(
-              padding: EdgeInsets.all(WynSpacing.space4),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _onScrollNotification,
+        // WYN-110: this tab is one of NestedScrollView's inner
+        // scrollables (see ViewProfileScreen's own build method). No
+        // SliverOverlapAbsorber/Injector pair needed -- that pair only
+        // matters when a *floating* SliverAppBar in the header can
+        // visually overlap the body as it slides; nothing in this
+        // screen's header floats (see ViewProfileScreen's own build
+        // method), so there is no overlap for an injector to redirect.
+        child: CustomScrollView(
+          slivers: [
+            SliverList.separated(
+              itemCount: _drops.length + (_hasMore ? 1 : 0),
+              separatorBuilder: (context, index) => index + 1 < _drops.length
+                  ? const Divider(height: 1)
+                  : const SizedBox.shrink(),
+              itemBuilder: (context, index) {
+                if (index >= _drops.length) {
+                  return const Padding(
+                    padding: EdgeInsets.all(WynSpacing.space4),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
 
-          final drop = _drops[index];
-          return HomeDropCard(
-            key: ValueKey(drop.id),
-            item: HomeFeedItem.fromDrop(drop),
-            dropRepository: widget.dropRepository,
-            onTap: () => _openDropDetail(drop),
-            onToggleLike: () => _toggleLike(drop.id),
-            onToggleSave: () => _toggleSave(drop.id),
-            onOpenProfile: () => _openProfile(drop.authorId),
-            onToggleRedrop: () => _toggleRedrop(drop.id),
-            onQuoteRedrop: () => _quoteRedrop(drop.id),
-            onVotePoll: (optionIndex) => _votePoll(drop.id, optionIndex),
-          );
-        },
+                final drop = _drops[index];
+                return HomeDropCard(
+                  key: ValueKey(drop.id),
+                  item: HomeFeedItem.fromDrop(drop),
+                  dropRepository: widget.dropRepository,
+                  onTap: () => _openDropDetail(drop),
+                  onToggleLike: () => _toggleLike(drop.id),
+                  onToggleSave: () => _toggleSave(drop.id),
+                  onOpenProfile: () => _openProfile(drop.authorId),
+                  onToggleRedrop: () => _toggleRedrop(drop.id),
+                  onQuoteRedrop: () => _quoteRedrop(drop.id),
+                  onVotePoll: (optionIndex) => _votePoll(drop.id, optionIndex),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

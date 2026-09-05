@@ -72,6 +72,8 @@ void main() {
   late RecordingDropRepository unlikedInDetailRepo;
   late RecordingDropRepository overlappingPagesRepo;
   late RecordingDropRepository carriedImagesRepo;
+  // QA-WYN-110-001 -- same setUpAll discipline as every repo above.
+  late RecordingDropRepository rawDragPagingRepo;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
@@ -95,6 +97,7 @@ void main() {
     unlikedInDetailRepo = RecordingDropRepository();
     overlappingPagesRepo = RecordingDropRepository();
     carriedImagesRepo = RecordingDropRepository();
+    rawDragPagingRepo = RecordingDropRepository();
   });
 
   testWidgets('shows the empty state when the author has liked nothing',
@@ -399,6 +402,59 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('ROW-AT-THE-PAGE-BOUNDARY'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'QA-WYN-110-001: one drag past the near-bottom threshold fetches the '
+      'next page exactly once, not several times', (tester) async {
+    // The bug: _onScrollNotification checked the _isLoadingMore guard at
+    // notification-arrival time, but only set it (via _loadMore() itself)
+    // one frame later through addPostFrameCallback. A single tester.drag()
+    // fans out into several synchronous ScrollUpdateNotifications before
+    // that frame boundary, and each one saw the guard still false and
+    // scheduled its own _loadMore() -- 4-5 duplicate fetches from one
+    // drag. This reproduces QA's exact repro shape (a raw drag, not
+    // scrollUntilVisible, which drives the scrollable through a different,
+    // non-buggy gesture path) to prove the synchronous guard fix holds.
+    final page0 = [
+      for (var i = 0; i < DropRepository.pageSize; i++) _drop(id: 'd$i'),
+    ];
+    final repo = rawDragPagingRepo
+      ..likedDropPagesByAuthor = {
+        'someone-else': [page0, [_drop(id: 'page1-only')]],
+      };
+
+    await tester.pumpWidget(_wrap(ProfileLikesTab(
+      dropRepository: repo,
+      followRepository: followRepo,
+      profileRepository: profileRepo,
+      popRepository: popRepo,
+      savedRepository: savedRepo,
+      authorId: 'someone-else',
+      emptyText: 'ยังไม่มีอะไรที่ถูกใจ',
+    )));
+    await tester.pumpAndSettle();
+    tester.takeException();
+    expect(repo.fetchLikedByAuthorCalls, 1);
+
+    // Drag far enough, in one gesture, to run past the end of the list
+    // (physics clamps the actual position to maxScrollExtent) -- this
+    // guarantees crossing the 300px-from-bottom threshold, and a single
+    // drag() call fans out into multiple synchronous
+    // ScrollUpdateNotifications internally, well before the first
+    // pump() below runs the deferred post-frame callback.
+    await tester.drag(
+      find.byType(Scrollable).first,
+      const Offset(0, -20000),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(repo.fetchLikedByAuthorCalls, 2,
+        reason: 'page 0 (initial) + page 1 (exactly one pagination fetch) '
+            '-- not one per ScrollUpdateNotification fired before the '
+            'first post-frame callback ran');
   });
 
   testWidgets(
