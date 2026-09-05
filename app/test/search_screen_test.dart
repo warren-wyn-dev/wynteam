@@ -28,6 +28,7 @@ void main() {
   late RecordingFollowRequestRepository followRequestRepo;
   late RecordingSavedRepository savedRepo;
   late RecordingProfileRepository noMatchProfileRepo;
+  late RecordingProfileRepository selfProfileRepo;
   late RecordingClubRepository clubRepo;
   late RecordingClubPostRepository clubPostRepo;
   late RecordingDiscoveryRepository discoveryRepo;
@@ -76,6 +77,11 @@ void main() {
     // this suite (see drop_comment_like_test.dart).
     profileRepo = RecordingProfileRepository(searchResults: [matchingProfile]);
     noMatchProfileRepo = RecordingProfileRepository(searchResults: []);
+    selfProfileRepo = RecordingProfileRepository(
+      searchResults: [
+        const Profile(id: 'me', username: 'me', displayName: 'ตัวเอง'),
+      ],
+    );
     dropRepo = RecordingDropRepository(feedDrops: [matchingDrop]);
     popRepo = RecordingPopRepository(feedPops: [matchingPop]);
     followRepo = RecordingFollowRepository();
@@ -310,5 +316,48 @@ void main() {
 
     expect(find.byType(DiscoveryView), findsOneWidget);
     expect(find.text('@namfah'), findsNothing);
+  });
+
+  // The User tab used to be the one "list of users" surface in the app
+  // without a Follow button -- FollowListScreen and Discovery's
+  // Suggested Users both already had it via the same shared
+  // FollowActionButton.
+  testWidgets(
+      'a search result for someone else shows a Follow button, and '
+      'tapping it follows without also opening their profile',
+      (tester) async {
+    await tester.pumpWidget(buildSearch());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'namfah');
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('ติดตาม'), findsOneWidget);
+
+    await tester.tap(find.text('ติดตาม'));
+    await tester.pumpAndSettle();
+
+    expect(followRepo.toggleFollowCalls, 1);
+    expect(find.byType(ViewProfileScreen), findsNothing,
+        reason: 'tapping the Follow button must not also count as '
+            "tapping the row and opening the profile it's on");
+  });
+
+  testWidgets(
+      'searching yourself shows no Follow button on your own row -- '
+      'searchProfiles does not exclude the caller the way Discovery/'
+      "FollowListScreen's queries structurally do", (tester) async {
+    await tester.pumpWidget(buildSearch(profileRepository: selfProfileRepo));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'me');
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('@me'), findsOneWidget);
+    expect(find.text('ติดตาม'), findsNothing);
   });
 }

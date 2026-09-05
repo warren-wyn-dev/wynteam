@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../drop/data/drop_repository.dart';
 import '../../../follow/data/follow_repository.dart';
+import '../../../follow/data/follow_request_repository.dart';
+import '../../../follow/presentation/widgets/follow_action_button.dart';
 import '../../../pop/data/pop_repository.dart';
 import '../../../profile/data/profile.dart';
 import '../../../profile/data/profile_repository.dart';
@@ -23,6 +26,7 @@ class SearchUserResultsTab extends StatefulWidget {
     required this.query,
     required this.profileRepository,
     required this.followRepository,
+    required this.followRequestRepository,
     required this.dropRepository,
     required this.popRepository,
     required this.savedRepository,
@@ -31,6 +35,7 @@ class SearchUserResultsTab extends StatefulWidget {
   final String query;
   final ProfileRepository profileRepository;
   final FollowRepository followRepository;
+  final FollowRequestRepository followRequestRepository;
   final DropRepository dropRepository;
   final PopRepository popRepository;
   final SavedRepository savedRepository;
@@ -183,6 +188,13 @@ class _SearchUserResultsTabState extends State<SearchUserResultsTab>
         }
 
         final profile = _profiles[index];
+        // A user searching their own name/username finds themselves in
+        // these results (searchProfiles doesn't exclude the caller,
+        // unlike FollowListScreen/Discovery's suggested-users query,
+        // which structurally can never surface the viewer) -- hide the
+        // button there rather than show "ติดตาม" for yourself.
+        final isSelf =
+            profile.id == Supabase.instance.client.auth.currentUser!.id;
         return Semantics(
           label:
               'ผู้ใช้ ${profile.nameOrUsername} ยูสเซอร์เนม ${profile.username} กดเพื่อดูโปรไฟล์',
@@ -217,6 +229,19 @@ class _SearchUserResultsTabState extends State<SearchUserResultsTab>
                       ],
                     ),
                   ),
+                  // Same 3-state Follow/Requested/Following control as
+                  // FollowListScreen and Discovery's Suggested Users --
+                  // this tab was the one "list of users" surface in the
+                  // app missing it.
+                  if (!isSelf) ...[
+                    const SizedBox(width: WynSpacing.space2),
+                    FollowActionButton(
+                      profile: profile,
+                      followRepository: widget.followRepository,
+                      followRequestRepository: widget.followRequestRepository,
+                      compact: true,
+                    ),
+                  ],
                 ],
               ),
             ),
