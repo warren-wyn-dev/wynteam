@@ -146,6 +146,16 @@ insert into profiles (id, username) values
   ('00000000-0000-0000-0000-000000000002', 'someone_else'),
   ('00000000-0000-0000-0000-000000000003', 'a_third_user');
 
+-- suggested_users() now excludes an incomplete-onboarding account
+-- (schema.sql's 2026-09-05 fix) -- someone_else/a_third_user need a
+-- completed profile_private row so this test's own baseline still
+-- holds "both suggested" the same way a real fully-onboarded account
+-- would read. "me" doesn't need one: suggested_users() ranks and
+-- filters candidates, never the caller's own completeness.
+insert into profile_private (id, onboarding_completed) values
+  ('00000000-0000-0000-0000-000000000002', true),
+  ('00000000-0000-0000-0000-000000000003', true);
+
 create table results (check_name text primary key, actual int, expected int);
 
 -- Baseline: "me" is suggested both "someone_else" and "a_third_user"

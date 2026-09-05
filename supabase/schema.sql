@@ -11384,3 +11384,67 @@ create index if not exists club_post_comments_post_created_idx
 -- the statement safe to re-run.
 drop function if exists public.create_poll_drop(text, text[], int, uuid[]);
 drop function if exists public.create_poll_drop(text, text[], int, uuid[], text, uuid[]);
+
+-- ---------------------------------------------------------------------
+-- Discovery UX audit, 2026-09-05 -- suggested_users() was surfacing
+-- incomplete-onboarding "ghost" accounts.
+--
+-- `setDateOfBirth` (AuthRepository, the *first* onboarding step) upserts
+-- a bare `profiles` row -- id only, no username/display_name -- before
+-- the Username step ever runs. A signup abandoned right there (app
+-- closed, never finished) leaves that row behind forever: 0 followers,
+-- same as every brand-new real account. suggested_users() had no filter
+-- for it, so once real candidates ran out it filled the remaining
+-- `p_limit` slots with these -- Founder's own screenshot of "แนะนำให้
+-- ติดตาม": 1 real suggestion, 7 rows rendering "?" avatar / bare "@".
+--
+-- rising_profiles() never had this problem -- its own `p_min_followers`
+-- floor (default 5) already excludes a 0-follower account, ghost or
+-- not.
+--
+-- Fix: exclude any profile whose profile_private.onboarding_completed
+-- is not true. Placed here (end of file), not edited into the original
+-- `create or replace function` above -- that definition sits before
+-- `profile_private` is created further down this same file, so editing
+-- it in place would break a fresh load of this file top-to-bottom, the
+-- same reasoning SCHEMA-003 above already established for
+-- create_poll_drop. Same signature, so this replaces it; additive-only
+-- (one more `and exists(...)`), nothing dropped or retyped, safe to
+-- re-run.
+--
+-- HOW TO APPLY: Supabase Dashboard -> SQL Editor. The Founder runs it;
+-- no AI applies production SQL.
+create or replace function public.suggested_users(p_limit int default 10)
+returns table(profile_id uuid)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.id as profile_id
+  from public.profiles p
+  where p.id <> auth.uid()
+    and not internal.is_blocked_either_way(auth.uid(), p.id)
+    and not exists (
+      select 1 from public.follows f
+      where f.follower_id = auth.uid() and f.following_id = p.id
+    )
+    and not exists (
+      select 1 from public.mutes m
+      where m.muter_id = auth.uid() and m.muted_id = p.id
+    )
+    and not exists (
+      select 1 from public.profile_recommendation_dismissals d
+      where d.user_id = auth.uid() and d.dismissed_profile_id = p.id
+    )
+    and exists (
+      select 1 from public.profile_private pp
+      where pp.id = p.id and pp.onboarding_completed = true
+    )
+  order by (
+    select count(*) from public.follows fc where fc.following_id = p.id
+  ) desc
+  limit p_limit;
+$$;
+
+grant execute on function public.suggested_users(int) to authenticated;
