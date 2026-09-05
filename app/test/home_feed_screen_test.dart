@@ -712,6 +712,7 @@ void main() {
     RecordingClubPostRepository? clubPostRepository,
     RecordingClubRepository? clubRepository,
     ValueNotifier<int>? homeTabReselectSignal,
+    ValueNotifier<int>? homeTabActivatedSignal,
   }) =>
       MaterialApp(
         home: HomeFeedScreen(
@@ -726,6 +727,8 @@ void main() {
           chatRepository: sharedChatRepository,
           homeTabReselectSignal:
               homeTabReselectSignal ?? ValueNotifier<int>(0),
+          homeTabActivatedSignal:
+              homeTabActivatedSignal ?? ValueNotifier<int>(0),
         ),
       );
 
@@ -783,6 +786,37 @@ void main() {
           .didChangeAppLifecycleState(AppLifecycleState.paused);
       lifecycleObserverOf(tester)
           .didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(find.text('2'), findsNothing);
+    });
+
+    // Regression test: on the Flutter Web build this app also ships as,
+    // switching bottom-nav tabs never backgrounds/foregrounds the
+    // browser tab, so the app-resume fix above (proven by the test just
+    // above) never actually fires in that case -- a message read via
+    // the Notifications tab left this badge stuck even after that fix
+    // landed. RootShell bumps homeTabActivatedSignal whenever the Home
+    // tab becomes active *from a different tab*; this proves
+    // HomeFeedScreen actually listens for it.
+    testWidgets(
+        're-reads the unread chat count when homeTabActivatedSignal fires, '
+        'so switching back to the Home tab from Notifications is not stale '
+        'either', (tester) async {
+      sharedChatRepository.unreadCount = 2;
+      final activatedSignal = ValueNotifier<int>(0);
+      await tester.pumpWidget(buildHome(
+        mixedFeedHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        homeTabActivatedSignal: activatedSignal,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('2'), findsOneWidget);
+
+      sharedChatRepository.unreadCount = 0;
+      activatedSignal.value++;
       await tester.pumpAndSettle();
 
       expect(find.text('2'), findsNothing);

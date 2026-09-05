@@ -61,6 +61,7 @@ class HomeFeedScreen extends StatefulWidget {
     required this.clubPostRepository,
     required this.chatRepository,
     required this.homeTabReselectSignal,
+    required this.homeTabActivatedSignal,
   });
 
   final HomeRepository homeRepository;
@@ -81,6 +82,16 @@ class HomeFeedScreen extends StatefulWidget {
   // remount pattern) preferring an explicit, testable channel over
   // reaching into private State from outside.
   final ValueNotifier<int> homeTabReselectSignal;
+
+  // Bumped by RootShell whenever the Home tab becomes active *from a
+  // different tab* (IndexedStack tab switches raise no lifecycle/route
+  // event of their own -- see RootShell's own doc comment on this
+  // field). Unlike [homeTabReselectSignal] this never scrolls or
+  // reloads the feed -- it only re-reads the unread-chat-message badge,
+  // the one piece of this screen that can go stale while a *different*
+  // tab (Notifications, or a pushed ConversationScreen reached from a
+  // push notification) marks a conversation read on the server.
+  final ValueNotifier<int> homeTabActivatedSignal;
 
   // WYN-031 -- Chat's entry point icon lives in this screen's header
   // (see _buildHeader): Master Spec section 18 requires Chat to be
@@ -160,6 +171,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
     _loadUnreadChatCount();
     WidgetsBinding.instance.addObserver(this);
     widget.homeTabReselectSignal.addListener(_onHomeTabReselected);
+    widget.homeTabActivatedSignal.addListener(_loadUnreadChatCount);
     _newPostsChannel = widget.homeRepository.subscribeToNewPosts((authorId) {
       // Skip the viewer's own new post -- RootShell._openCreateDrop
       // already bumps _homeVersion (remounting this whole screen fresh)
@@ -178,9 +190,18 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
   // whenever a conversation was read from anywhere other than this
   // screen's own _openChatInbox (a push notification tap, Notifications,
   // Profile, and Message Requests all push ConversationScreen directly,
-  // none of them tell Home to refresh). Resuming is the one moment the
-  // badge can be wrong *and* the person can see it again, so one query
-  // here catches every one of those other paths without a timer/poll.
+  // none of them tell Home to refresh).
+  //
+  // Not sufficient on its own, though: on the Flutter Web build this
+  // app also ships as, switching bottom-nav tabs (Notifications ->
+  // Home) never backgrounds/foregrounds the browser tab, so this
+  // callback can go a whole session without firing even once -- that's
+  // what widget.homeTabActivatedSignal's own listener (registered in
+  // initState, right above the subscribeToNewPosts call) covers
+  // instead. Kept anyway: it is the only trigger that fires for a
+  // genuine background/foreground cycle (backgrounding the app on
+  // mobile, or the OS/browser focusing an already-open tab from a push
+  // notification), which the activated-signal path does not cover.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
@@ -225,6 +246,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     widget.homeTabReselectSignal.removeListener(_onHomeTabReselected);
+    widget.homeTabActivatedSignal.removeListener(_loadUnreadChatCount);
     final channel = _newPostsChannel;
     if (channel != null) widget.homeRepository.unsubscribe(channel);
     _scrollController.dispose();

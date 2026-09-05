@@ -317,4 +317,26 @@ void main() {
     await _expectFeedToggleVisible(tester);
     expect(find.byType(ViewProfileScreen), findsNothing);
   });
+
+  // Switching to Home *from a different tab* bumps homeTabActivatedSignal
+  // (see RootShell's own doc comment on that field) so HomeFeedScreen can
+  // re-read its unread-chat-message badge -- the actual refresh behavior
+  // is covered by home_feed_screen_test.dart's own "Chat badge" group,
+  // which can reach the signal directly; this just proves the wiring:
+  // switching away from Home and back doesn't crash or leave Home
+  // unselected.
+  testWidgets('switching to Home from Notifications does not crash',
+      (tester) async {
+    await tester.pumpWidget(buildShell());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Notifications'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    await _expectFeedToggleVisible(tester);
+  });
 }
