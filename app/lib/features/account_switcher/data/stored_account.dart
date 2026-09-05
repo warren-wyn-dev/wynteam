@@ -15,6 +15,7 @@ class StoredAccount {
     this.email,
     this.displayName,
     this.avatarUrl,
+    this.isVerified = false,
   });
 
   /// Supabase Auth user id -- the stable key every read/write below is
@@ -33,6 +34,12 @@ class StoredAccount {
   final String? displayName;
   final String? avatarUrl;
 
+  /// Same [profiles.is_verified]/VerifiedBadge semantics as
+  /// [Profile.isVerified]/[Drop.authorIsVerified] -- true only for the
+  /// official WYNOS account. Founder feedback: the switcher's own account
+  /// list should carry the mark too, not just the profile page itself.
+  final bool isVerified;
+
   String get nameOrUsername =>
       displayNameOrUsername(displayName: displayName, username: username);
 
@@ -43,6 +50,7 @@ class StoredAccount {
         email: json['email'] as String?,
         displayName: json['displayName'] as String?,
         avatarUrl: json['avatarUrl'] as String?,
+        isVerified: json['isVerified'] as bool? ?? false,
       );
 
   Map<String, dynamic> toJson() => {
@@ -52,6 +60,7 @@ class StoredAccount {
         'email': email,
         'displayName': displayName,
         'avatarUrl': avatarUrl,
+        'isVerified': isVerified,
       };
 
   StoredAccount copyWith({
@@ -60,6 +69,7 @@ class StoredAccount {
     String? email,
     String? displayName,
     String? avatarUrl,
+    bool? isVerified,
   }) =>
       StoredAccount(
         userId: userId,
@@ -68,5 +78,6 @@ class StoredAccount {
         email: email ?? this.email,
         displayName: displayName ?? this.displayName,
         avatarUrl: avatarUrl ?? this.avatarUrl,
+        isVerified: isVerified ?? this.isVerified,
       );
 }

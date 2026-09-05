@@ -20,6 +20,7 @@ class OnboardingState {
     required this.hasPassword,
     required this.completed,
     this.avatarUrl,
+    this.isVerified = false,
   });
 
   /// A brand-new sign-in (no `profiles` row yet, no `profile_private` row
@@ -43,6 +44,13 @@ class OnboardingState {
   /// avatar is actually set) already comes after every field that
   /// determines resume position.
   final String? avatarUrl;
+
+  /// Same role as [avatarUrl] -- read purely so AccountSwitcherRepository.
+  /// captureCurrentAccount has this account's VerifiedBadge status to
+  /// store, so the Account Switcher's own account list (Founder feedback:
+  /// "ตรงนี้ด้วย" on the official WYNOS accounts) can show it too. Unused
+  /// by [resumeStep].
+  final bool isVerified;
 
   /// True once the account has a password credential -- either it signed
   /// up with email+password directly (already has one), or it completed

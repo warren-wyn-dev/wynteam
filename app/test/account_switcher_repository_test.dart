@@ -171,6 +171,28 @@ void main() {
       expect(accounts.single.avatarUrl, 'https://example.com/avatar.png');
     });
 
+    // Regression: the Account Switcher's own row for the official WYNOS
+    // account never showed VerifiedBadge -- same missing-field shape as
+    // avatarUrl above, `StoredAccount.isVerified` stayed false for every
+    // account regardless of `profiles.is_verified`.
+    test('also stores the session account\'s isVerified', () async {
+      final session = Session(
+        accessToken: 'at',
+        tokenType: 'bearer',
+        refreshToken: 'rt-captured',
+        user: _fakeUser('u1'),
+      );
+
+      await repository.captureCurrentAccount(
+        session: session,
+        username: 'wynos_',
+        isVerified: true,
+      );
+
+      final accounts = await repository.loadAccounts();
+      expect(accounts.single.isVerified, isTrue);
+    });
+
     test('silently does nothing when the session has no refresh token', () async {
       final session = Session(
         accessToken: 'at',
