@@ -67,6 +67,7 @@ class RecordingChatRepository extends ChatRepository {
   String? lastSendMessageReplyToId;
   SharedContentType? lastSendMessageSharedContentType;
   String? lastSendMessageSharedContentId;
+  bool? lastSendMessageViewOnce;
 
   /// Set by a test to hold [sendMessage] open until it completes the
   /// gate -- lets a test observe ConversationScreen's optimistic
@@ -105,6 +106,7 @@ class RecordingChatRepository extends ChatRepository {
   String? lastDeleteMessageRequestId;
 
   void Function(ChatMessage message)? _conversationCallback;
+  void Function(ChatMessage message)? _conversationUpdateCallback;
   void Function(ChatMessage message)? _inboxCallback;
   void Function(ConversationMeta meta)? _conversationMetaCallback;
 
@@ -164,6 +166,7 @@ class RecordingChatRepository extends ChatRepository {
     String? replyToMessageId,
     SharedContentType? sharedContentType,
     String? sharedContentId,
+    bool viewOnce = false,
   }) async {
     sendMessageCalls++;
     lastSendMessageText = text;
@@ -171,6 +174,7 @@ class RecordingChatRepository extends ChatRepository {
     lastSendMessageReplyToId = replyToMessageId;
     lastSendMessageSharedContentType = sharedContentType;
     lastSendMessageSharedContentId = sharedContentId;
+    lastSendMessageViewOnce = viewOnce;
     final gate = sendMessageGate;
     if (gate != null) await gate.future;
     final error = sendMessageError;
@@ -185,7 +189,32 @@ class RecordingChatRepository extends ChatRepository {
           replyToMessageId: replyToMessageId,
           sharedContentType: sharedContentType,
           sharedContentId: sharedContentId,
+          viewOnce: viewOnce,
         );
+  }
+
+  Object? markViewOnceViewedError;
+  int markViewOnceViewedCalls = 0;
+  String? lastMarkViewOnceViewedId;
+
+  @override
+  Future<void> markViewOnceViewed(String messageId) async {
+    markViewOnceViewedCalls++;
+    lastMarkViewOnceViewedId = messageId;
+    final error = markViewOnceViewedError;
+    if (error != null) throw error;
+  }
+
+  Object? expireViewOnceMessageError;
+  int expireViewOnceMessageCalls = 0;
+  ChatMessage? lastExpiredViewOnceMessage;
+
+  @override
+  Future<void> expireViewOnceMessage(ChatMessage message) async {
+    expireViewOnceMessageCalls++;
+    lastExpiredViewOnceMessage = message;
+    final error = expireViewOnceMessageError;
+    if (error != null) throw error;
   }
 
   @override
@@ -251,9 +280,11 @@ class RecordingChatRepository extends ChatRepository {
   @override
   RealtimeChannel subscribeToConversationMessages(
     String conversationId,
-    void Function(ChatMessage message) onInsert,
-  ) {
+    void Function(ChatMessage message) onInsert, {
+    void Function(ChatMessage message)? onUpdate,
+  }) {
     _conversationCallback = onInsert;
+    _conversationUpdateCallback = onUpdate;
     return _fakeChannelClient.channel('test-conversation-$conversationId');
   }
 
@@ -281,6 +312,13 @@ class RecordingChatRepository extends ChatRepository {
   /// Test helper: simulates a new message arriving over
   /// [subscribeToConversationMessages]'s channel.
   void emitConversationMessage(ChatMessage message) => _conversationCallback?.call(message);
+
+  /// Test helper: simulates a `messages` row UPDATE arriving over
+  /// [subscribeToConversationMessages]'s `onUpdate` channel -- the real
+  /// realtime path a View Once message's `viewed_at`/`image_url`
+  /// change reaches the *sender's* own screen through.
+  void emitConversationMessageUpdate(ChatMessage message) =>
+      _conversationUpdateCallback?.call(message);
 
   /// Test helper: simulates a new message arriving over
   /// [subscribeToMyMessages]'s channel.

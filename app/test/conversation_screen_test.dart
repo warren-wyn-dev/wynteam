@@ -36,6 +36,8 @@ void main() {
     String? imageUrl,
     String? replyToMessageId,
     DateTime? deletedAt,
+    bool viewOnce = false,
+    DateTime? viewedAt,
   }) =>
       ChatMessage(
         id: id,
@@ -46,6 +48,8 @@ void main() {
         imageUrl: imageUrl,
         replyToMessageId: replyToMessageId,
         deletedAt: deletedAt,
+        viewOnce: viewOnce,
+        viewedAt: viewedAt,
       );
 
   Widget buildScreen() => MaterialApp(
@@ -204,6 +208,194 @@ void main() {
     expect(chatRepo.deleteMessageCalls, 1);
     expect(chatRepo.lastDeletedMessage?.id, 'm1');
     expect(chatRepo.lastDeletedMessage?.imageUrl, 'c1/me-123.jpg');
+  });
+
+  // Founder feedback -- View Once chat photos.
+  group('View Once (Founder feedback)', () {
+    testWidgets(
+        'the recipient sees a tappable "แตะเพื่อดู" placeholder for an '
+        'unopened photo, and the sender never does', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [
+          message(
+            id: 'm1',
+            senderId: 'other',
+            text: null,
+            imageUrl: 'c1/other-1.jpg',
+            viewOnce: true,
+          ),
+        ],
+      };
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('แตะเพื่อดู'), findsOneWidget);
+      expect(find.text('ส่งแล้ว รอเปิดดู'), findsNothing);
+    });
+
+    testWidgets(
+        'the sender sees a non-tappable "ส่งแล้ว รอเปิดดู" placeholder for '
+        'their own unopened photo', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [
+          message(
+            id: 'm1',
+            senderId: 'me',
+            text: null,
+            imageUrl: 'c1/me-1.jpg',
+            viewOnce: true,
+          ),
+        ],
+      };
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('ส่งแล้ว รอเปิดดู'), findsOneWidget);
+      expect(find.text('แตะเพื่อดู'), findsNothing);
+    });
+
+    testWidgets('an opened photo (imageUrl already cleared) shows "เปิดดูแล้ว" '
+        'for both sender and recipient, never tappable', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [
+          message(
+            id: 'm1',
+            senderId: 'other',
+            text: null,
+            imageUrl: null,
+            viewOnce: true,
+            viewedAt: DateTime.now(),
+          ),
+        ],
+      };
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('เปิดดูแล้ว'), findsOneWidget);
+      expect(find.text('แตะเพื่อดู'), findsNothing);
+    });
+
+    testWidgets(
+        'the recipient tapping the placeholder marks it viewed, opens the '
+        'signed image, and expires it once the viewer closes', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [
+          message(
+            id: 'm1',
+            senderId: 'other',
+            text: null,
+            imageUrl: 'c1/other-1.jpg',
+            viewOnce: true,
+          ),
+        ],
+      };
+      chatRepo.signedUrlResult = 'https://example.supabase.co/signed/other-1.jpg';
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('แตะเพื่อดู'));
+      // Not pumpAndSettle() -- ViewOnceImageViewer's own countdown Timer
+      // keeps scheduling frames for its full duration (8s default), so
+      // pumpAndSettle would sit here until it auto-pops on its own
+      // (that path is covered in isolation by
+      // view_once_image_viewer_test.dart). A couple of bounded pumps,
+      // well short of the first 1s tick, is enough to let the
+      // markViewOnceViewed -> imageSignedUrl -> Navigator.push chain
+      // (no real delay in any of those, just ordinary async gaps) run
+      // and the push transition settle.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(chatRepo.markViewOnceViewedCalls, 1);
+      expect(chatRepo.lastMarkViewOnceViewedId, 'm1');
+      // The viewer is open -- popped directly here (the close button) to
+      // prove *this* screen expires the message on close, same as a
+      // natural timeout would.
+      expect(find.byKey(const Key('view_once_close_button')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('view_once_close_button')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(chatRepo.expireViewOnceMessageCalls, 1);
+      expect(chatRepo.lastExpiredViewOnceMessage?.id, 'm1');
+      // Back on the conversation screen, the bubble already reflects
+      // "opened" -- this screen updates its local state right after
+      // expireViewOnceMessage succeeds, not only once a realtime echo
+      // (if any) arrives.
+      expect(find.text('เปิดดูแล้ว'), findsOneWidget);
+    });
+
+    testWidgets(
+        'reopening a message whose earlier view never finished (viewedAt '
+        'already set, imageUrl still present) does not call '
+        'markViewOnceViewed again', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [
+          message(
+            id: 'm1',
+            senderId: 'other',
+            text: null,
+            imageUrl: 'c1/other-1.jpg',
+            viewOnce: true,
+            viewedAt: DateTime.now().subtract(const Duration(minutes: 1)),
+          ),
+        ],
+      };
+      chatRepo.signedUrlResult = 'https://example.supabase.co/signed/other-1.jpg';
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      // Still tappable/resumable -- see _buildViewOnceThumbnail's own
+      // doc comment on why an interrupted-countdown message must not be
+      // stuck forever. Bounded pumps, not pumpAndSettle() -- see the
+      // identical comment on the test above.
+      await tester.tap(find.text('แตะเพื่อดู'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(chatRepo.markViewOnceViewedCalls, 0);
+      expect(find.byKey(const Key('view_once_close_button')), findsOneWidget);
+
+      // Close it -- leaving ViewOnceImageViewer's own countdown Timer
+      // pending past the end of this test would trip flutter_test's
+      // "!timersPending" invariant, same class of issue this project's
+      // own Recording* repositories are already careful to avoid.
+      await tester.tap(find.byKey(const Key('view_once_close_button')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+    });
+
+    testWidgets(
+        'a realtime UPDATE flips the sender\'s own bubble from "waiting" to '
+        '"opened" live', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [
+          message(
+            id: 'm1',
+            senderId: 'me',
+            text: null,
+            imageUrl: 'c1/me-1.jpg',
+            viewOnce: true,
+          ),
+        ],
+      };
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+      expect(find.text('ส่งแล้ว รอเปิดดู'), findsOneWidget);
+
+      chatRepo.emitConversationMessageUpdate(message(
+        id: 'm1',
+        senderId: 'me',
+        text: null,
+        imageUrl: null,
+        viewOnce: true,
+        viewedAt: DateTime.now(),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('เปิดดูแล้ว'), findsOneWidget);
+      expect(find.text('ส่งแล้ว รอเปิดดู'), findsNothing);
+    });
   });
 
   testWidgets(

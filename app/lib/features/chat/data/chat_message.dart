@@ -21,6 +21,8 @@ class ChatMessage {
     this.replyPreviewDeletedAt,
     this.sharedContentType,
     this.sharedContentId,
+    this.viewOnce = false,
+    this.viewedAt,
   });
 
   final String id;
@@ -39,6 +41,22 @@ class ChatMessage {
   /// through the normal Drop/Club/Profile repositories instead.
   final SharedContentType? sharedContentType;
   final String? sharedContentId;
+
+  /// Founder feedback -- an image message opted into "View Once" at
+  /// send time. Never changes after send; [viewedAt] is what actually
+  /// tracks the recipient's one open. Meaningless (always false) for a
+  /// text-only or shared-content message.
+  final bool viewOnce;
+
+  /// Null until the recipient calls `mark_view_once_viewed()` (their
+  /// one explicit "I'm opening this now") -- see that function's own
+  /// doc comment in supabase/schema.sql. Non-null the instant they
+  /// open it, well before the client's own countdown timer actually
+  /// clears [imageUrl] -- this is deliberately a separate moment (see
+  /// ConversationScreen's own View Once handling) so the sender's
+  /// bubble can flip from "sent, waiting to be opened" to "opened"
+  /// live, without waiting for the recipient's countdown to finish.
+  final DateTime? viewedAt;
 
   bool get isDeleted => deletedAt != null;
 
@@ -82,6 +100,8 @@ class ChatMessage {
           ? null
           : sharedContentTypeFromWireValue(map['shared_content_type'] as String),
       sharedContentId: map['shared_content_id'] as String?,
+      viewOnce: map['view_once'] as bool? ?? false,
+      viewedAt: map['viewed_at'] == null ? null : DateTime.parse(map['viewed_at'] as String),
     );
   }
 }

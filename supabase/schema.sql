@@ -11595,3 +11595,133 @@ create policy "Senders can delete their own chat media"
     bucket_id = 'chat-media'
     and split_part(name, '/', 2) like (auth.uid()::text || '-%')
   );
+
+-- Founder feedback ("ส่งรูปแล้วอีกฝ่ายกดดูแล้วหาย เหมือน IG จะได้เซฟพื้นที่"):
+-- View Once chat photos. A sender opts an image message into this at
+-- Compose time; the recipient sees a blurred/hidden placeholder until
+-- they explicitly tap to open it, at which point the client shows it
+-- for a short, fixed window (5-10s) and then both nulls the DB
+-- reference and deletes the underlying chat-media object -- same "the
+-- content is genuinely gone, not just hidden" posture as
+-- delete_message() already established for a manually-deleted message.
+--
+-- Two columns, both on `messages` (WYN-031's own table):
+--   view_once -- set once, at send time, never changed after.
+--   viewed_at -- null until the recipient's one open; the client's own
+--     countdown timer decides *when* to actually clear the content
+--     (mark_view_once_viewed below only records that opening happened,
+--     it doesn't itself expire anything), so this is also the signal
+--     the sender's own screen needs to flip its bubble from "sent,
+--     waiting to be opened" to "opened" live via realtime.
+alter table public.messages add column if not exists view_once boolean not null default false;
+alter table public.messages add column if not exists viewed_at timestamptz;
+
+-- A View Once photo is almost always sent with no caption -- once
+-- clear_view_once_message() nulls image_url below, the original
+-- messages_not_blank_unless_deleted constraint (which only exempted a
+-- *deleted* message) would reject that row outright. An expired View
+-- Once message is legitimately content-free on purpose, the same
+-- rationale that constraint already carves out for deleted_at -- so
+-- widen it rather than force this to fake a deletion (which would
+-- misreport the message as deleted in the UI, not merely expired).
+alter table public.messages drop constraint if exists messages_not_blank_unless_deleted;
+alter table public.messages add constraint messages_not_blank_unless_deleted
+  check (
+    deleted_at is not null
+    or text is not null
+    or image_url is not null
+    or shared_content_id is not null
+    or (view_once and viewed_at is not null)
+  );
+
+-- The recipient's one explicit "I'm opening this now" action -- called
+-- the instant they tap the placeholder, before the image itself is
+-- ever fetched (a signed URL is only ever minted after this succeeds),
+-- so there is no way to inspect the image's storage path without this
+-- row actually flipping to "viewed" first. security definer + explicit
+-- ownership checks (not a raw UPDATE RLS policy) for the same reason
+-- delete_message() already uses one: this has to enforce "the caller
+-- is the *other* participant, not the sender" and "exactly once,
+-- ever" together, neither of which a column-level RLS policy expresses
+-- on its own.
+create or replace function public.mark_view_once_viewed(p_message_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.messages m
+  set viewed_at = now()
+  from public.conversations c
+  where m.id = p_message_id
+    and m.conversation_id = c.id
+    and m.view_once
+    and m.viewed_at is null
+    and m.deleted_at is null
+    and m.sender_id != auth.uid()
+    and auth.uid() in (c.user_a_id, c.user_b_id);
+
+  if not found then
+    raise exception 'Message not found, not View Once, already viewed, or not yours to view';
+  end if;
+end;
+$$;
+
+grant execute on function public.mark_view_once_viewed(uuid) to authenticated;
+
+-- The client's own countdown timer (not this function) decides when a
+-- viewed View Once photo's content is actually cleared -- this just
+-- performs that clearing once told to, mirroring delete_message()'s
+-- "null the reference, not just flag a column" shape. Callable by
+-- *either* participant (not sender-only like delete_message()) since
+-- it's the recipient's own countdown that normally triggers this, but
+-- deliberately guarded on `viewed_at is not null` regardless of caller
+-- -- nobody, sender included, can use this to clear a photo that
+-- hasn't actually been opened yet.
+create or replace function public.clear_view_once_message(p_message_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.messages m
+  set image_url = null
+  from public.conversations c
+  where m.id = p_message_id
+    and m.conversation_id = c.id
+    and m.view_once
+    and m.viewed_at is not null
+    and auth.uid() in (c.user_a_id, c.user_b_id);
+
+  if not found then
+    raise exception 'Message not found, not View Once, not yet viewed, or not yours to clear';
+  end if;
+end;
+$$;
+
+grant execute on function public.clear_view_once_message(uuid) to authenticated;
+
+-- Lets ChatRepository.expireViewOnceMessage() actually free the storage
+-- object once clear_view_once_message() above has run (same "an
+-- explicit DELETE policy, not just relying on the sender's own upload
+-- policy" gap the earlier "Senders can delete their own chat media"
+-- policy fixed for a manually-deleted message) -- a View Once photo
+-- must be removable by *either* participant, since it's normally the
+-- recipient's countdown that triggers cleanup, not the sender's.
+create policy "Participants can delete a viewed View Once photo"
+  on storage.objects
+  for delete
+  to authenticated
+  using (
+    bucket_id = 'chat-media'
+    and exists (
+      select 1 from public.messages m
+      join public.conversations c on c.id = m.conversation_id
+      where m.image_url = storage.objects.name
+        and m.view_once
+        and m.viewed_at is not null
+        and auth.uid() in (c.user_a_id, c.user_b_id)
+    )
+  );
