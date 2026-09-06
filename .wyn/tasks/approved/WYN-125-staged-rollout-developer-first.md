@@ -1,7 +1,7 @@
 # Product Task — WYN-125
 
-Status: active — AI QA & Security ตรวจแล้ว **PASS** — รอ AI Deploy & DevOps รัน apply-schema workflow ก่อนขึ้น production
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Deploy & DevOps
+Status: approved — deploy สำเร็จขึ้น production จริงแล้ว (schema applied, @warren + @wynos_online อยู่ใน allowlist แล้ว) — ยังไม่ completed จนกว่าจะมีฟีเจอร์จริงมาผูกใช้งาน flag นี้สำเร็จ (ดู `.wyn/logs/deployments/2026-09-06-wyn-125-developer-account-allowlist-deploy.md`)
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Deploy & DevOps (เสร็จรอบนี้)
 
 Feature: Staged Rollout — ปล่อยอัปเดตให้บัญชีนักพัฒนา/ทีมภายในก่อน แล้วค่อยปล่อยให้ผู้ใช้ทั่วไป
 
