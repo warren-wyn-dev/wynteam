@@ -8,7 +8,7 @@
 
 - ปุ่ม "ชวนเพื่อนเข้ากลุ่ม" (`club_members_tab.dart:onInvite`) กับปุ่มแชร์ที่ header (`club_page.dart:619`) เรียก `_openShareSheet()` เดียวกันเป๊ะ (`club_page.dart:214-225`) ซึ่งเปิด `showShareSheet()` — sheet 3 ตัวเลือกที่ WYN-033 สร้างไว้ (แชร์เข้า Chat / แชร์ผ่านระบบมือถือ / คัดลอกลิงก์)
 - แถวรายชื่อคนพร้อม avatar+ชื่อ+@username มี pattern สำเร็จรูปอยู่แล้ว 2 แบบ: `FollowListScreen._buildRow` (`AvatarCircle` radius 21 + ring, ใช้กับ Followers/Following ของ Profile) และ `ShareToChatScreen`'s `ListTile` (ใช้กับ "แชร์เข้า Chat")
-- ข้อมูล follower ของผู้ใช้ปัจจุบันดึงได้จาก `FollowRepository.fetchFollowers()` ตรงๆ (มีอยู่แล้ว ไม่ต้องเขียน query ใหม่)
+- ข้อมูล follower/following ของผู้ใช้ปัจจุบันดึงได้จาก `FollowRepository.fetchFollowers()`/`fetchFollowing()` ตรงๆ (มีอยู่แล้วทั้งคู่ ไม่ต้องเขียน query ใหม่ — **Founder ตัดสินใจ 2026-09-06 ให้ใช้ทั้งสองทาง รวมกัน** หลังเทียบกับ Instagram Group Chat ที่ใช้ pattern เดียวกัน ดูรายละเอียดที่ task file's "Founder Decision")
 - ช่องทางส่งคำเชิญจริง (ลิงก์คลับ) มีโครงส่งอยู่แล้วทั้งชุดผ่าน `ChatRepository.getOrCreateConversation()` + `sendMessage(sharedContentType: SharedContentType.club, ...)` (WYN-033)
 
 **สรุปทิศทาง**: นี่ไม่ใช่ฟีเจอร์ใหม่ที่ต้องคิด flow ใหม่ทั้งหมด แต่คือการ**เพิ่มตัวเลือกที่ 4** เข้าไปใน sheet เดิม (เฉพาะตอนแชร์ Club เท่านั้น ไม่กระทบ Drop/Profile) ที่เปิดไปหน้าจอใหม่ 1 หน้าซึ่งประกอบจากชิ้นส่วนข้างบนทั้งหมด — ไม่มีการคิดทิศทาง visual ใหม่ตามกติกาบทบาทนี้
@@ -39,10 +39,10 @@ Design Rules: อยู่บนสุดของ sheet เพราะเป�
 
 ## Screen 2: `InviteToClubScreen` (ใหม่)
 
-Purpose: ให้เลือกคนจาก follower list ของตัวเอง แล้วส่งคำเชิญเข้าคลับได้ทีละคนแบบต่อเนื่อง (เชิญหลายคนในครั้งเดียวที่เปิดหน้าจอ ไม่ใช่เชิญคนเดียวแล้วปิดหน้าจอทันที — ต่างจาก `ShareToChatScreen` ที่ pop กลับทันทีหลังส่ง เพราะที่นั่น "แชร์ 1 ชิ้นให้ 1 คน" คือทั้ง flow แต่ที่นี่ "เชิญคนเข้ากลุ่ม" ธรรมชาติของงานคือเชิญได้หลายคนรวดเดียว)
+Purpose: ให้เลือกคนจาก**รายชื่อคนที่ติดตามตัวเอง + คนที่ตัวเองติดตาม** (รวมสองทาง dedupe คนซ้ำ) แล้วส่งคำเชิญเข้าคลับได้ทีละคนแบบต่อเนื่อง (เชิญหลายคนในครั้งเดียวที่เปิดหน้าจอ ไม่ใช่เชิญคนเดียวแล้วปิดหน้าจอทันที — ต่างจาก `ShareToChatScreen` ที่ pop กลับทันทีหลังส่ง เพราะที่นั่น "แชร์ 1 ชิ้นให้ 1 คน" คือทั้ง flow แต่ที่นี่ "เชิญคนเข้ากลุ่ม" ธรรมชาติของงานคือเชิญได้หลายคนรวดเดียว)
 
 User Flow:
-1. เปิดมาเห็นรายชื่อ follower ของตัวเอง (เรียง created_at เหมือน `FollowListScreen` เดิม) พร้อมช่องค้นหา
+1. เปิดมาเห็นรายชื่อคนที่ติดตามตัวเอง + คนที่ตัวเองติดตาม รวมกัน dedupe คนซ้ำ (เรียง created_at เหมือน `FollowListScreen` เดิม) พร้อมช่องค้นหา
 2. เลื่อนหา/ค้นหาคนที่ต้องการ
 3. กดปุ่ม "เชิญ" ท้ายแถว → แถวนั้นเปลี่ยนเป็น "เชิญแล้ว" (ปิดใช้งานปุ่มนั้นต่อ ไม่ต้อง reload หน้าทั้งหมด)
 4. เชิญกี่คนก็ได้ต่อเนื่องกัน แล้วกดย้อนกลับเองเมื่อพอ (ไม่มี auto-close)
@@ -86,6 +86,6 @@ Design Rules:
 ส่งต่อ AI Coding:
 1. `app/lib/features/chat/presentation/share_sheet.dart` — เพิ่ม parameter `FollowRepository? followRepository` ให้ `showShareSheet()`, เพิ่ม `ListTile` ใหม่ (เงื่อนไข `sharedContentType == SharedContentType.club && followRepository != null`) วางไว้แถวบนสุด
 2. `app/lib/features/club/presentation/club_page.dart:214-225` (`_openShareSheet`) — ส่ง `followRepository: widget.followRepository` (มี field นี้อยู่แล้วในคลาสนี้หรือไม่ต้องเช็ค ถ้าไม่มีให้เพิ่มแบบ optional-defaulted ตาม pattern เดิมทั้งไฟล์)
-3. ไฟล์ใหม่ `app/lib/features/club/presentation/invite_to_club_screen.dart` (`InviteToClubScreen`) — โครงตาม Screen 2 ข้างบนทั้งหมด รับ `followRepository`, `chatRepository`, `clubId`, `clubName` เป็น required param
+3. ไฟล์ใหม่ `app/lib/features/club/presentation/invite_to_club_screen.dart` (`InviteToClubScreen`) — โครงตาม Screen 2 ข้างบนทั้งหมด รับ `followRepository`, `chatRepository`, `clubId`, `clubName` เป็น required param — ต้องดึงทั้ง `fetchFollowers()` และ `fetchFollowing()` แล้ว merge + dedupe ด้วย profile id ฝั่ง client (ไม่มี RPC รวมสองทางสำเร็จรูป ต่างจาก `fetchMutualFollows()` ที่เป็น intersection ไม่ใช่ union) — วิธี paginate ทั้งสอง source พร้อมกันปล่อยให้ AI Coding ตัดสินใจตอน implement จริง (Design ไม่ specify algorithm ตายตัว)
 4. Regression test: cover 3 states ของปุ่มเชิญ (ปกติ → กำลังส่ง → เชิญแล้ว), empty state, search filter, และ sheet ใหม่ที่**ไม่โผล่**ตอนแชร์ Drop/Profile (กัน regression ของ WYN-033 เดิม)
 5. ต้องผ่าน AI QA & Security ก่อน merge/deploy ตามปกติ (ห้ามข้าม QA)

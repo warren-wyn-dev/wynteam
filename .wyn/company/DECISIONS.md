@@ -1015,3 +1015,13 @@ Design spec เต็มที่ `.wyn/docs/design/wyn-115-invite-followers-to-
 ส่ง Artifact preview (phone mockup 3 เฟรม: sheet ก่อน/หลังแก้ + หน้าจอใหม่ทั้ง 3 สถานะปุ่ม) ให้ Founder ตรวจตามกติกา "ขอดูรูปก่อน เขียนโค้ดนะ" (2026-09-03) — ย้าย `.wyn/tasks/backlog/WYN-115-...md` → `active/` ยังไม่ส่งต่อ AI Coding จนกว่า Founder จะอนุมัติ
 
 อ้างอิง: `.wyn/docs/design/wyn-115-invite-followers-to-club.md`, `.wyn/tasks/active/WYN-115-invite-followers-to-club.md`
+
+## [2026-09-06] WYN-115: Founder เลือกแหล่งรายชื่อเชิญ = Followers + Following ทั้งสองทาง
+
+Founder ถามเทียบกับ Instagram/X ก่อนอนุมัติ mockup ว่าเชิญจากรายชื่อไหน — AI Design ตอบตามที่รู้จริง (ไม่เดา): Instagram Close Friends ใช้ follower (คนที่ follow เรา), X Communities invite ใช้ following (คนที่เรา follow) ไม่มีมาตรฐานเดียวกันในอุตสาหกรรม เสนอ 3 ทางเลือกให้ Founder ตัดสินใจผ่าน popup
+
+**Founder เลือก: รวมทั้งสองทาง (Followers + Following, dedupe คนซ้ำ)** — ตรงกับ pattern ของ Instagram Group Chat "Add People"
+
+ผลกระทบ: `InviteToClubScreen` (ยังไม่เขียนโค้ด) ต้อง merge ผล `FollowRepository.fetchFollowers()` + `fetchFollowing()` ฝั่ง client แทนที่จะใช้ query เดียว — อัปเดต spec แล้วทั้ง `.wyn/tasks/active/WYN-115-invite-followers-to-club.md` และ `.wyn/docs/design/wyn-115-invite-followers-to-club.md` พร้อม republish mockup Artifact ให้สะท้อนการตัดสินใจนี้ — ยังรอ Founder อนุมัติรอบสุดท้ายก่อนส่งต่อ AI Coding
+
+อ้างอิง: `.wyn/tasks/active/WYN-115-invite-followers-to-club.md`, `.wyn/docs/design/wyn-115-invite-followers-to-club.md`
