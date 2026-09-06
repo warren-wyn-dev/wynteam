@@ -386,6 +386,7 @@ class PushNotificationService {
       case 'club_join_request':
         _openClub(navigator, client, data['club_id'] as String?, initialTabIndex: 1);
       case 'club_join_approved':
+      case 'club_invite':
         _openClub(navigator, client, data['club_id'] as String?, initialTabIndex: 0);
       case 'club_post_like':
       case 'club_post_comment':

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Regression test for WYN-124 (Staged Rollout -- Developer Account
+# Regression test for WYN-125 (Staged Rollout -- Developer Account
 # Allowlist / Feature-Flag System) -- proves the generic
 # `developer_accounts`/`is_developer_account()` mechanism at the real
 # RLS/RPC layer under the `authenticated`/`anon` roles (not the Postgres
@@ -61,7 +61,7 @@
 # wyn_122_chat_lockdown_test.sh's harness).
 #
 # Usage:
-#   bash supabase/tests/wyn_124_developer_accounts_test.sh
+#   bash supabase/tests/wyn_125_developer_accounts_test.sh
 #
 # Exit code 0 and "ALL CHECKS PASSED" on success, non-zero and a
 # failure message otherwise. Never touches any real/dev/prod database
@@ -71,7 +71,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCHEMA_FILE="$SCRIPT_DIR/../schema.sql"
-DB_NAME="wyn124_developer_accounts_regression_test"
+DB_NAME="wyn125_developer_accounts_regression_test"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 chmod 755 "$WORK_DIR"

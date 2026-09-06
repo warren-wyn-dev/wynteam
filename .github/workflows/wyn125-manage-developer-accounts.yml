@@ -1,13 +1,13 @@
-name: WYN-124 -- manage developer accounts (list/add/remove)
+name: WYN-125 -- manage developer accounts (list/add/remove)
 
-# Founder's own tool for WYN-124's staged-rollout mechanism (Product
+# Founder's own tool for WYN-125's staged-rollout mechanism (Product
 # spec's Requirement 2: "มีวิธีระบุ 'บัญชีนักพัฒนา' ที่ชัดเจน") -- mirrors
 # wyn122-toggle-chat-lockdown.yml's own structure/posture: only whoever
 # can trigger a workflow_dispatch on this repo (Founder) can add/remove
 # a developer account, with no admin UI needed, exactly as the Product
 # spec allows.
 #
-# Requires wyn124-apply-developer-accounts-schema.yml to have already
+# Requires wyn125-apply-developer-accounts-schema.yml to have already
 # run at least once (creates the developer_accounts table this
 # reads/writes).
 #

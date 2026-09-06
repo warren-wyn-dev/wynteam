@@ -75,6 +75,10 @@ Deno.test("messageFor produces the exact same Thai strings as the Dart client, W
     messageFor("club_post_pinned", "@owner_user", "ชมรมถ่ายภาพ"),
     "@owner_user ปักหมุดโพสต์ใหม่ใน ชมรมถ่ายภาพ",
   );
+  assertEquals(
+    messageFor("club_invite", "@gam", "ชมรมถ่ายภาพ"),
+    "@gam ชวนคุณเข้าร่วม ชมรมถ่ายภาพ",
+  );
 });
 
 Deno.test("messageFor falls back to a generic message for an unrecognized type", () => {

@@ -7,6 +7,7 @@ import '../data/club_post_repository.dart';
 import '../data/club_repository.dart';
 import 'edit_club_info_screen.dart';
 import 'widgets/club_about_tab.dart';
+import 'widgets/club_insights_tab.dart';
 import 'widgets/club_members_tab.dart';
 import 'widgets/club_posts_tab.dart';
 import '../../../core/design/wyn_colors.dart';
@@ -66,11 +67,32 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   // from outside the tab bar itself, and DefaultTabController.of(context)
   // is unreachable from this State's own context (it sits *above* the
   // DefaultTabController this build() would otherwise create, not below).
-  late final _tabController = TabController(
-    length: 3,
-    vsync: this,
-    initialIndex: widget.initialTabIndex,
-  );
+  //
+  // WYN-117: nullable/lazily-(re)created, not `late final` -- whether
+  // the 4th (Insights) tab exists depends on `myRole`, which isn't
+  // known until `_loadFuture` resolves inside `build()`'s
+  // `FutureBuilder`, so the correct `length` can't be picked at
+  // `initState()` time the way the old fixed `length: 3` could.
+  // [_tabControllerFor] recreates the controller only when the tab
+  // count actually changes (carrying the current index over), so a
+  // `_reload()` triggered by an unrelated child (e.g. leaving/pinning a
+  // post) doesn't reset whichever tab the viewer is looking at. Posts/
+  // Members/About stay at indices 0/1/2 regardless -- Insights is only
+  // ever appended at the end -- so the More menu's `animateTo(1)` for
+  // Members needs no change.
+  TabController? _tabController;
+
+  TabController _tabControllerFor(int length) {
+    final existing = _tabController;
+    if (existing != null && existing.length == length) return existing;
+    final initialIndex =
+        (existing?.index ?? widget.initialTabIndex).clamp(0, length - 1);
+    existing?.dispose();
+    final controller =
+        TabController(length: length, vsync: this, initialIndex: initialIndex);
+    _tabController = controller;
+    return controller;
+  }
 
   late Future<_ClubPageData> _loadFuture;
   bool _isJoinActionInFlight = false;
@@ -87,7 +109,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _tabController?.dispose();
     super.dispose();
   }
 
@@ -237,6 +259,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
       nativeShareText: clubShareLink(club.id),
       nativeShareTitle: club.name,
       followRepository: _followRepository,
+      clubRepository: widget.clubRepository,
       clubName: club.name,
     );
   }
@@ -315,7 +338,10 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
             label: 'จัดการสิทธิ์สมาชิก',
             onTap: () {
               Navigator.of(sheetContext).pop();
-              _tabController.animateTo(1);
+              // Non-null: this menu is only reachable from build()'s
+              // loaded-data branch below, which always calls
+              // _tabControllerFor(...) before the More button exists.
+              _tabController!.animateTo(1);
             },
           ),
         ] else if (isApproved) ...[
@@ -405,6 +431,13 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
             final myRole = data.membership?.status == ClubMemberStatus.approved
                 ? data.membership!.role
                 : null;
+            // WYN-117: Insights is owner/admin-only -- a Moderator/
+            // Member never even sees the tab exists, same "hide the
+            // whole entry point, not just disable it" pattern
+            // settings_screen.dart already uses for its own admin-only
+            // section.
+            final showInsights = myRole?.canManageClub ?? false;
+            final tabController = _tabControllerFor(showInsights ? 4 : 3);
 
             return Column(
               children: [
@@ -421,7 +454,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                   ],
                 ),
                 TabBar(
-                  controller: _tabController,
+                  controller: tabController,
                   indicatorColor: WynColors.sapphire,
                   indicatorSize: TabBarIndicatorSize.label,
                   indicatorWeight: 2,
@@ -431,15 +464,17 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                       _textStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   unselectedLabelStyle:
                       _textStyle(fontSize: 13, fontWeight: FontWeight.w400),
-                  tabs: const [
-                    Tab(icon: Icon(Icons.article_outlined, size: 16), text: 'โพสต์'),
-                    Tab(icon: Icon(Icons.people_outline, size: 16), text: 'สมาชิก'),
-                    Tab(icon: Icon(Icons.info_outline, size: 16), text: 'เกี่ยวกับ'),
+                  tabs: [
+                    const Tab(icon: Icon(Icons.article_outlined, size: 16), text: 'โพสต์'),
+                    const Tab(icon: Icon(Icons.people_outline, size: 16), text: 'สมาชิก'),
+                    const Tab(icon: Icon(Icons.info_outline, size: 16), text: 'เกี่ยวกับ'),
+                    if (showInsights)
+                      const Tab(icon: Icon(Icons.insights_outlined, size: 16), text: 'Insights'),
                   ],
                 ),
                 Expanded(
                   child: TabBarView(
-                    controller: _tabController,
+                    controller: tabController,
                     children: [
                       ClubPostsTab(
                         clubPostRepository: widget.clubPostRepository,
@@ -460,6 +495,11 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                         myRole: myRole,
                         onChanged: _reload,
                       ),
+                      if (showInsights)
+                        ClubInsightsTab(
+                          clubRepository: widget.clubRepository,
+                          club: data.club,
+                        ),
                     ],
                   ),
                 ),

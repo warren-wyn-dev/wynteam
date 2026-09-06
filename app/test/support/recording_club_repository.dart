@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wyn/features/club/data/club.dart';
+import 'package:wyn/features/club/data/club_insights.dart';
 import 'package:wyn/features/club/data/club_member.dart';
 import 'package:wyn/features/club/data/club_repository.dart';
 
@@ -21,6 +23,12 @@ class RecordingClubRepository extends ClubRepository {
     List<Club>? searchResults,
     Set<String>? pendingClubIds,
     this.isMutedResult = false,
+    this.clubInsightsResult = const ClubInsights(
+      newMembers: 0,
+      newPosts: 0,
+      likesAndComments: 0,
+      activeMembers: 0,
+    ),
   })  : myClubs = myClubs ?? [],
         approvedMembers = approvedMembers ?? [],
         pendingMembers = pendingMembers ?? [],
@@ -70,6 +78,13 @@ class RecordingClubRepository extends ClubRepository {
   final List<String> banMemberUserIdArgs = [];
   final List<ClubMemberRole> setMemberRoleArgs = [];
   final List<String> setMemberRoleUserIdArgs = [];
+  final List<String> inviteToClubUserIdArgs = [];
+  Object? inviteToClubError;
+
+  /// Set by a test to hold [inviteToClub] open until it completes the
+  /// gate -- same mechanism RecordingChatRepository.sendMessageGate
+  /// uses to observe the screen's sending state mid-flight.
+  Completer<void>? inviteToClubGate;
 
   @override
   Future<int> countMembers(String clubId) async => memberCount;
@@ -171,6 +186,18 @@ class RecordingClubRepository extends ClubRepository {
   }
 
   @override
+  Future<void> inviteToClub({
+    required String clubId,
+    required String inviteeId,
+  }) async {
+    final gate = inviteToClubGate;
+    if (gate != null) await gate.future;
+    final error = inviteToClubError;
+    if (error != null) throw error;
+    inviteToClubUserIdArgs.add(inviteeId);
+  }
+
+  @override
   Future<void> updateClubInfo({
     required String clubId,
     required String name,
@@ -232,6 +259,25 @@ class RecordingClubRepository extends ClubRepository {
     unmuteClubNotificationsCalls++;
     unmuteClubNotificationsClubIdArgs.add(clubId);
     isMutedResult = false;
+  }
+
+  /// WYN-117: returned by [fetchClubInsights] regardless of the days
+  /// argument -- a test that needs different 7-day vs 30-day results
+  /// should override this method directly instead.
+  ClubInsights clubInsightsResult;
+  Object? fetchClubInsightsResultError;
+  int fetchClubInsightsCalls = 0;
+  final List<int> fetchClubInsightsDaysArgs = [];
+
+  @override
+  Future<ClubInsights> fetchClubInsights({
+    required String clubId,
+    required int days,
+  }) async {
+    fetchClubInsightsCalls++;
+    fetchClubInsightsDaysArgs.add(days);
+    if (fetchClubInsightsResultError != null) throw fetchClubInsightsResultError!;
+    return clubInsightsResult;
   }
 
   @override

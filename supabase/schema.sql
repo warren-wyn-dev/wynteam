@@ -6599,7 +6599,10 @@ alter table public.notifications
     -- of schedule during a later migration, same as this comment's
     -- neighbor above describes for an earlier type) -- see
     -- notify_club_post_new()/notify_club_post_pinned() further down.
-    'club_post_new', 'club_post_pinned'
+    'club_post_new', 'club_post_pinned',
+    -- WYN-124: club_invite, added here for the same "ahead of schedule"
+    -- reason -- see invite_to_club() further down.
+    'club_invite'
   ));
 
 -- Lets an admin send a free-text notification to one recipient
@@ -12445,10 +12448,182 @@ create trigger club_posts_notify_pinned
   execute function public.notify_club_post_pinned();
 
 -- ============================================================
--- WYN-124: Developer account allowlist (staged rollout mechanism) --
--- see .wyn/tasks/active/WYN-124-staged-rollout-developer-first.md and
--- .wyn/docs/design/wyn-124-staged-rollout-developer-accounts.md.
+-- WYN-117: Club Owner Insights
+-- ============================================================
+-- See .wyn/tasks/active/WYN-117-club-owner-insights.md and
+-- .wyn/docs/design/wyn-117-club-owner-insights.md. One aggregate RPC
+-- for the whole Insights tab -- computed at the DB layer in a single
+-- round trip, mirroring admin_dashboard_metrics() (WYN-050/077) rather
+-- than pulling raw rows to the client and summing them there (the
+-- Product spec's own Risks note names that RPC as the pattern to
+-- follow).
+create or replace function public.club_insights(p_club_id uuid, p_days int)
+returns table (
+  new_members bigint,
+  new_posts bigint,
+  likes_and_comments bigint,
+  active_members bigint
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_cutoff timestamptz;
+begin
+  -- Owner/Admin only -- the same 2-tier canManageClub gate
+  -- approve_club_member()/reject_club_member() already use, NOT the
+  -- wider 3-tier owner/admin/moderator gate club_posts' own moderation
+  -- policies use (Insights is explicitly owner/admin-only per the
+  -- Product spec's Target User). coalesce(...) is load-bearing here,
+  -- not decoration: club_role() returns NULL for a non-member, and
+  -- `NULL not in (...)` evaluates to NULL, which plpgsql's `if` treats
+  -- as false -- silently skipping the exception. This is the exact
+  -- null-role-bypass class WYN-050 found in admin_dashboard_metrics()
+  -- (.wyn/tasks/bugs/WYN-050-admin-dashboard-metrics-null-role-bypass.md)
+  -- and it is guarded against here from day one.
+  if coalesce(public.club_role(p_club_id, auth.uid()), '') not in ('owner', 'admin') then
+    raise exception 'Not permitted to view Club insights';
+  end if;
+
+  -- Only 7 or 30 days -- a fixed toggle, not an arbitrary date range,
+  -- per the Design doc's explicit anti-over-engineering decision.
+  if p_days not in (7, 30) then
+    raise exception 'Invalid insights window: %', p_days;
+  end if;
+
+  v_cutoff := now() - (p_days || ' days')::interval;
+
+  return query
+  with post_ids as (
+    select id from public.club_posts where club_id = p_club_id
+  ),
+  -- Same "actor_id + created_at, union every did-something table"
+  -- shape admin_dashboard_metrics()'s own `actions` CTE uses, scoped to
+  -- this one club instead of the whole platform.
+  actions as (
+    select author_id as actor_id, created_at
+    from public.club_posts
+    where club_id = p_club_id
+    union all
+    select cpl.user_id as actor_id, cpl.created_at
+    from public.club_post_likes cpl
+    where cpl.club_post_id in (select id from post_ids)
+    union all
+    select cpc.author_id as actor_id, cpc.created_at
+    from public.club_post_comments cpc
+    where cpc.club_post_id in (select id from post_ids)
+  )
+  select
+    -- Pending/banned members never count as a "new member" -- same
+    -- status='approved' filter ClubRepository.countMembers() already
+    -- applies to the plain member-count. A brand-new Club's own owner
+    -- (added by clubs_add_owner_membership) genuinely does count here
+    -- if the Club itself was created within the window -- that's
+    -- correct data, not a bug (see the Design doc's own note on this).
+    (select count(*) from public.club_members
+      where club_id = p_club_id and status = 'approved' and created_at >= v_cutoff),
+    (select count(*) from public.club_posts
+      where club_id = p_club_id and created_at >= v_cutoff),
+    -- One combined total, not two separate numbers -- matches the
+    -- Product spec's own wording ("จำนวน Like/Comment รวม").
+    (
+      (select count(*) from public.club_post_likes cpl
+        where cpl.club_post_id in (select id from post_ids) and cpl.created_at >= v_cutoff)
+      +
+      (select count(*) from public.club_post_comments cpc
+        where cpc.club_post_id in (select id from post_ids) and cpc.created_at >= v_cutoff)
+    ),
+    (select count(distinct actor_id) from actions where created_at >= v_cutoff);
+end;
+$$;
+
+grant execute on function public.club_insights(uuid, int) to authenticated;
+
+-- ============================================================
+-- WYN-124: Club Invite Notification
+-- ============================================================
+-- See .wyn/tasks/approved/WYN-124-club-invite-notification.md and
+-- .wyn/docs/design/wyn-124-club-invite-notification.md. Replaces
+-- WYN-123's original invite mechanism (a Chat message via
+-- get_or_create_conversation()+INSERT into messages, sharedContentType
+-- = club) with a dedicated `club_invite` Notification row -- Founder
+-- feedback, 2026-09-06: "คนที่ถูกเชิญควรไปอยู่หน้าการแจ้งเตือน ไม่ใช่
+-- หน้าแชท". A Chat message accidentally made every club invite subject
+-- to WYN-122's Chat Lockdown (get_or_create_conversation() raises
+-- 'Chat is temporarily closed for testing' whenever
+-- internal.chat_pair_allowed() is false), which is an unrelated
+-- feature this one should never have depended on.
+--
+-- Re-validates, server-side, the same audience InviteToClubScreen's own
+-- Followers+Following list already filters for -- an RPC call can't be
+-- trusted to only ever originate from that one screen.
+create or replace function public.invite_to_club(p_club_id uuid, p_invitee_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  if v_me is null then
+    raise exception 'Not authenticated';
+  end if;
+  if p_invitee_id = v_me then
+    raise exception 'Cannot invite yourself';
+  end if;
+  if public.club_role(p_club_id, v_me) is null then
+    raise exception 'Must be an approved club member to invite';
+  end if;
+  if not exists (select 1 from public.profiles where id = p_invitee_id) then
+    raise exception 'User not found';
+  end if;
+  if internal.is_blocked_either_way(v_me, p_invitee_id) then
+    raise exception 'Cannot invite a blocked user';
+  end if;
+  -- Instagram Close Friends / X Community "Add People" hybrid (Founder
+  -- decision, WYN-123's own Design doc) -- either direction of follow
+  -- qualifies, mirrored server-side rather than trusted from whichever
+  -- list the client happened to fetch the invitee from.
+  if not exists (
+    select 1 from public.follows
+    where (follower_id = v_me and following_id = p_invitee_id)
+       or (follower_id = p_invitee_id and following_id = v_me)
+  ) then
+    raise exception 'Can only invite followers or people you follow';
+  end if;
+
+  -- Same notification_enabled('club') gate notify_club_join_approved()
+  -- uses, plus a 24h dedup per (recipient, club, actor) -- mirrors
+  -- notify_club_post_new()'s 3h dedup shape (WYN-116), scaled up since
+  -- invites happen far less often than posts but the same "don't let a
+  -- retry or repeated taps spam the same person" concern applies.
+  if internal.notification_enabled(p_invitee_id, 'club') and not exists (
+    select 1 from public.notifications n
+    where n.recipient_id = p_invitee_id
+      and n.actor_id = v_me
+      and n.club_id = p_club_id
+      and n.type = 'club_invite'
+      and n.created_at > now() - interval '24 hours'
+  ) then
+    insert into public.notifications (recipient_id, actor_id, type, club_id)
+    values (p_invitee_id, v_me, 'club_invite', p_club_id);
+  end if;
+end;
+$$;
+
+grant execute on function public.invite_to_club(uuid, uuid) to authenticated;
+
+-- ============================================================
+-- WYN-125: Developer account allowlist (staged rollout mechanism) --
+-- see .wyn/tasks/active/WYN-125-staged-rollout-developer-first.md and
+-- .wyn/docs/design/wyn-125-staged-rollout-developer-accounts.md.
 -- Founder: deploy ไปหาบัญชีนักพัฒนา/ทีมภายในก่อน รอพอใจค่อยปล่อยผู้ใช้ทั่วไป.
+-- (Originally drafted as WYN-124; renamed to WYN-125 on merge into main
+-- -- see DECISIONS.md's "ID collision: WYN-124 ชนกันอีกครั้ง" entry --
+-- because WYN-124 was independently assigned to Club Invite Notification
+-- above by another session and merged first.)
 --
 -- Generic and reusable across every future feature (unlike WYN-122's
 -- chat_lockdown_allowlist above, which is scoped to chat alone): a
@@ -12463,8 +12638,8 @@ create trigger club_posts_notify_pinned
 -- Same lockdown-from-client posture as chat_lockdown_allowlist: RLS
 -- enabled, zero SELECT/INSERT/UPDATE/DELETE policies -- readable/
 -- writable only via the Supabase Management API (service-role token),
--- through wyn124-apply-developer-accounts-schema.yml (ships this
--- mechanism) and wyn124-manage-developer-accounts.yml (adds/removes/
+-- through wyn125-apply-developer-accounts-schema.yml (ships this
+-- mechanism) and wyn125-manage-developer-accounts.yml (adds/removes/
 -- lists who's in it). No authenticated user can read this table
 -- directly, not even their own row -- deliberate, so a regular user
 -- can't enumerate who is a "developer account" either (Design Rule).

@@ -5,11 +5,10 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
 import '../../../core/interaction/wyn_feedback.dart';
-import '../../chat/data/chat_repository.dart';
-import '../../chat/data/shared_content_type.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../profile/data/profile.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
+import '../data/club_repository.dart';
 
 enum _InviteState { idle, sending, invited }
 
@@ -27,12 +26,15 @@ enum _InviteState { idle, sending, invited }
 /// trailing widget (an "เชิญ"/"เชิญแล้ว" button instead of
 /// [FollowActionButton]) and that a row itself isn't tappable (this
 /// screen's only job is inviting, unlike Followers/Following which also
-/// let you open a profile). Sending reuses WYN-033's existing
-/// mechanism -- `ChatRepository.getOrCreateConversation` +
-/// `sendMessage(sharedContentType: club)` -- exactly like
-/// `ShareToChatScreen`'s own search-result tap, so a club invite is
-/// just a Chat message with the club's shared-content card, no new
-/// notification type or DB table.
+/// let you open a profile).
+///
+/// WYN-124 -- sending is `ClubRepository.inviteToClub`, a `club_invite`
+/// Notification, not a Chat message (WYN-123's original launch shipped
+/// it as a Chat message via `getOrCreateConversation`+`sendMessage`,
+/// which accidentally coupled invites to WYN-122's Chat Lockdown state
+/// and put the invite in the wrong inbox -- Founder feedback,
+/// 2026-09-06: "คนที่ถูกเชิญควรไปอยู่หน้าการแจ้งเตือน ไม่ใช่หน้าแชท").
+/// See .wyn/docs/design/wyn-124-club-invite-notification.md.
 ///
 /// Deliberately does not close itself after a successful invite (unlike
 /// `ShareToChatScreen`, which pops back immediately) -- the point of
@@ -42,13 +44,13 @@ class InviteToClubScreen extends StatefulWidget {
   const InviteToClubScreen({
     super.key,
     required this.followRepository,
-    required this.chatRepository,
+    required this.clubRepository,
     required this.clubId,
     required this.clubName,
   });
 
   final FollowRepository followRepository;
-  final ChatRepository chatRepository;
+  final ClubRepository clubRepository;
   final String clubId;
   final String clubName;
 
@@ -197,12 +199,9 @@ class _InviteToClubScreenState extends State<InviteToClubScreen> {
     }
     setState(() => _inviteStates[profile.id] = _InviteState.sending);
     try {
-      final conversationId =
-          await widget.chatRepository.getOrCreateConversation(profile.id);
-      await widget.chatRepository.sendMessage(
-        conversationId: conversationId,
-        sharedContentType: SharedContentType.club,
-        sharedContentId: widget.clubId,
+      await widget.clubRepository.inviteToClub(
+        clubId: widget.clubId,
+        inviteeId: profile.id,
       );
       if (!mounted) return;
       setState(() => _inviteStates[profile.id] = _InviteState.invited);

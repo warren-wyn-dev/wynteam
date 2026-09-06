@@ -1,0 +1,318 @@
+name: WYN-115 -- apply club poll schema (P0 follow-up fix)
+
+# Found investigating a Founder report right after the WYN-116 P0 fix:
+# opening a real Club's Posts tab showed "โหลดโพสต์ไม่สำเร็จ" for every
+# post, not just polls. ClubPostRepository.fetchPosts() (and
+# fetchFromJoinedClubs/searchByContent/fetchById) always embeds
+# `club_post_polls(id, options, expires_at)` in its select -- if that
+# table doesn't exist, PostgREST can't resolve the embed and the whole
+# query 400s, taking down every post in the club, poll or not.
+# diag-p0-followup-check.yml confirmed club_post_polls/
+# club_post_poll_votes do not exist in production, and
+# get_club_poll_results()/create_poll_club_post() don't either.
+#
+# This is the exact same shape as the WYN-116 P0 (see
+# wyn116-apply-club-reengagement-schema.yml's comment): WYN-115 (Club
+# Poll, .wyn/tasks/approved/WYN-115-club-poll.md) already merged and
+# was already QA-approved, but schema.sql's own WYN-115 section
+# (~12051-12320) never had a dedicated apply-to-production workflow --
+# schema.sql is a description, it doesn't auto-apply (see
+# chat-enable-conversations-realtime.yml's comment on this exact gap,
+# and DECISIONS.md's 2026-09-06 WYN-116 P0 entry, which already flagged
+# checking other approved/ tasks for the same gap).
+#
+# Every statement here is copy-paste identical to supabase/schema.sql's
+# WYN-115 section -- if the two ever drift, schema.sql is wrong, not
+# this file (this file is what actually ran). Purely additive: 2 new
+# tables + RLS + 1 trigger + 2 functions. No destructive change, no
+# data loss, nothing removed. Does NOT touch public.valid_poll_options()
+# (used by the club_post_polls_options_valid CHECK) -- that predates
+# this task (WYN-035, Drop Poll) and must already exist in production
+# for drop_polls to already work there; step 4 below verifies it does
+# rather than blindly re-creating it.
+#
+# Safe to run more than once (CREATE TABLE/POLICY guarded, CREATE OR
+# REPLACE FUNCTION, the trigger is created once and this file doesn't
+# re-run DROP TRIGGER/CREATE TRIGGER on a second run -- guarded with
+# DROP TRIGGER IF EXISTS same as every other one-off migration
+# workflow in this project).
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== 0. Sanity: valid_poll_options() must already exist (WYN-035, not touched here) ==="
+          run_sql "select routine_name from information_schema.routines where routine_schema = 'public' and routine_name = 'valid_poll_options';" | jq .
+
+          echo "=== 1. Create club_post_polls (idempotent) + RLS ==="
+          run_sql "create table if not exists public.club_post_polls (
+                     id uuid primary key default gen_random_uuid(),
+                     club_post_id uuid not null unique references public.club_posts (id) on delete cascade,
+                     options text[] not null,
+                     expires_at timestamptz not null,
+                     created_at timestamptz not null default now(),
+                     constraint club_post_polls_options_valid check (public.valid_poll_options(options))
+                   );
+
+                   create index if not exists club_post_polls_post_idx on public.club_post_polls (club_post_id);
+
+                   alter table public.club_post_polls enable row level security;
+
+                   drop policy if exists \"Approved club members can view club post polls\" on public.club_post_polls;
+                   create policy \"Approved club members can view club post polls\"
+                     on public.club_post_polls
+                     for select
+                     to authenticated
+                     using (
+                       exists (
+                         select 1 from public.club_posts cp
+                         where cp.id = club_post_id
+                           and public.club_role(cp.club_id, auth.uid()) is not null
+                       )
+                     );" >/dev/null
+          echo "Done."
+
+          echo "=== 2. Create club_post_poll_votes (idempotent) + RLS ==="
+          run_sql "create table if not exists public.club_post_poll_votes (
+                     id uuid primary key default gen_random_uuid(),
+                     poll_id uuid not null references public.club_post_polls (id) on delete cascade,
+                     voter_id uuid not null references public.profiles (id) on delete cascade,
+                     option_index smallint not null,
+                     created_at timestamptz not null default now(),
+                     updated_at timestamptz not null default now(),
+                     unique (poll_id, voter_id)
+                   );
+
+                   create index if not exists club_post_poll_votes_poll_idx on public.club_post_poll_votes (poll_id);
+
+                   alter table public.club_post_poll_votes enable row level security;
+
+                   drop policy if exists \"Users can view only their own club poll votes\" on public.club_post_poll_votes;
+                   create policy \"Users can view only their own club poll votes\"
+                     on public.club_post_poll_votes
+                     for select
+                     to authenticated
+                     using (auth.uid() = voter_id);
+
+                   drop policy if exists \"Users can vote as themselves on club polls\" on public.club_post_poll_votes;
+                   create policy \"Users can vote as themselves on club polls\"
+                     on public.club_post_poll_votes
+                     for insert
+                     to authenticated
+                     with check (auth.uid() = voter_id);
+
+                   drop policy if exists \"Users can change their own club poll vote\" on public.club_post_poll_votes;
+                   create policy \"Users can change their own club poll vote\"
+                     on public.club_post_poll_votes
+                     for update
+                     to authenticated
+                     using (auth.uid() = voter_id)
+                     with check (auth.uid() = voter_id);" >/dev/null
+          echo "Done."
+
+          echo "=== 3. validate_club_poll_vote() + trigger ==="
+          run_sql "create or replace function public.validate_club_poll_vote()
+                   returns trigger
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   declare
+                     v_options text[];
+                     v_expires_at timestamptz;
+                     v_author_id uuid;
+                     v_club_id uuid;
+                   begin
+                     select cpp.options, cpp.expires_at, cp.author_id, cp.club_id
+                       into v_options, v_expires_at, v_author_id, v_club_id
+                     from public.club_post_polls cpp
+                     join public.club_posts cp on cp.id = cpp.club_post_id
+                     where cpp.id = new.poll_id;
+
+                     if v_options is null then
+                       raise exception 'Poll not found';
+                     end if;
+
+                     if now() >= v_expires_at then
+                       raise exception 'Poll has closed';
+                     end if;
+
+                     if new.option_index < 0 or new.option_index >= array_length(v_options, 1) then
+                       raise exception 'Invalid poll option';
+                     end if;
+
+                     if new.voter_id = v_author_id then
+                       raise exception 'Cannot vote on your own poll';
+                     end if;
+
+                     if public.club_role(v_club_id, new.voter_id) is null then
+                       raise exception 'Must be an approved club member to vote';
+                     end if;
+
+                     if internal.is_posting_blocked(new.voter_id) then
+                       raise exception 'Account is posting-restricted';
+                     end if;
+
+                     new.updated_at := now();
+                     return new;
+                   end;
+                   \$fn\$;
+
+                   drop trigger if exists club_post_poll_votes_validate on public.club_post_poll_votes;
+                   create trigger club_post_poll_votes_validate
+                     before insert or update on public.club_post_poll_votes
+                     for each row execute function public.validate_club_poll_vote();" >/dev/null
+          echo "Done."
+
+          echo "=== 4. create_poll_club_post() RPC ==="
+          run_sql "create or replace function public.create_poll_club_post(
+                     p_club_id uuid,
+                     p_content text,
+                     p_options text[],
+                     p_duration_days int,
+                     p_mentioned_user_ids uuid[] default '{}'
+                   )
+                   returns uuid
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   declare
+                     v_author uuid := auth.uid();
+                     v_post_id uuid;
+                     v_options text[];
+                   begin
+                     if v_author is null then
+                       raise exception 'Not authenticated';
+                     end if;
+
+                     if public.club_role(p_club_id, v_author) is null then
+                       raise exception 'Must be an approved club member to post';
+                     end if;
+
+                     if internal.is_posting_blocked(v_author) then
+                       raise exception 'Account is posting-restricted';
+                     end if;
+
+                     if p_content is null or length(trim(p_content)) = 0 then
+                       raise exception 'Poll question is required';
+                     end if;
+
+                     select array_agg(trim(o)) into v_options from unnest(p_options) as o;
+
+                     if not public.valid_poll_options(v_options) then
+                       raise exception 'Poll must have 2-4 non-empty, non-duplicate options (max 80 characters each)';
+                     end if;
+
+                     if p_duration_days not in (1, 3, 7) then
+                       raise exception 'Poll duration must be 1, 3, or 7 days';
+                     end if;
+
+                     insert into public.club_posts (club_id, author_id, content, image_urls, link_url)
+                     values (p_club_id, v_author, trim(p_content), null, null)
+                     returning id into v_post_id;
+
+                     insert into public.club_post_polls (club_post_id, options, expires_at)
+                     values (v_post_id, v_options, now() + make_interval(days => p_duration_days));
+
+                     insert into public.club_post_mentions (club_post_id, mentioned_user_id)
+                     select v_post_id, m
+                     from unnest(p_mentioned_user_ids) as m;
+
+                     return v_post_id;
+                   end;
+                   \$fn\$;" >/dev/null
+          echo "Done."
+
+          echo "=== 5. get_club_poll_results() RPC ==="
+          run_sql "create or replace function public.get_club_poll_results(p_poll_ids uuid[])
+                   returns table(
+                     poll_id uuid,
+                     visible boolean,
+                     total_votes bigint,
+                     option_counts bigint[]
+                   )
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   declare
+                     v_me uuid := auth.uid();
+                   begin
+                     if v_me is null then
+                       raise exception 'Not authenticated';
+                     end if;
+
+                     return query
+                     select
+                       cpp.id as poll_id,
+                       v.is_visible,
+                       case when v.is_visible
+                         then (select count(*) from public.club_post_poll_votes cppv where cppv.poll_id = cpp.id)
+                         else null end as total_votes,
+                       case when v.is_visible
+                         then (
+                           select array_agg(cnt order by idx)
+                           from (
+                             select gs as idx, count(pv.id) as cnt
+                             from generate_series(0, array_length(cpp.options, 1) - 1) as gs
+                             left join public.club_post_poll_votes pv
+                               on pv.poll_id = cpp.id and pv.option_index = gs
+                             group by gs
+                           ) counted
+                         )
+                         else null end as option_counts
+                     from public.club_post_polls cpp
+                     join public.club_posts cp on cp.id = cpp.club_post_id
+                     cross join lateral (
+                       select
+                         cpp.expires_at <= now()
+                         or cp.author_id = v_me
+                         or exists (
+                           select 1 from public.club_post_poll_votes cppv2
+                           where cppv2.poll_id = cpp.id and cppv2.voter_id = v_me
+                         ) as is_visible
+                     ) v
+                     where cpp.id = any(p_poll_ids)
+                       and public.club_role(cp.club_id, v_me) is not null;
+                   end;
+                   \$fn\$;" >/dev/null
+          echo "Done."
+
+          echo "=== 6. Verify: tables + functions + trigger now present ==="
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name in ('club_post_polls', 'club_post_poll_votes');" | jq .
+          run_sql "select routine_name from information_schema.routines where routine_schema = 'public' and routine_name in ('create_poll_club_post', 'get_club_poll_results', 'validate_club_poll_vote');" | jq .
+          run_sql "select tgname from pg_trigger where tgname = 'club_post_poll_votes_validate';" | jq .
+
+          echo "=== 7. Reproduce the exact previously-failing fetchPosts() embed ==="
+          run_sql "select cp.id, cpp.id as poll_id, cpp.options, cpp.expires_at
+                    from public.club_posts cp
+                    left join public.club_post_polls cpp on cpp.club_post_id = cp.id
+                    limit 5;" | jq .

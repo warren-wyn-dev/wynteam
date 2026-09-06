@@ -1,0 +1,68 @@
+name: Diagnostic -- check chat_lockdown state + club_post_polls schema (read-only)
+
+# Follow-up to the WYN-116 P0 (club_notification_mutes missing in
+# production, fixed same day). Founder reported two NEW symptoms after
+# that fix, both on real production data:
+#   1. "โหลดโพสต์ไม่สำเร็จ" opening WYNOS Feedback club's Posts tab --
+#      ClubPostRepository.fetchPosts() embeds club_post_polls(...) in
+#      every posts query (not just poll posts) -- if that table (added
+#      by WYN-115 Club Poll, already merged/approved) was never applied
+#      to production either, the whole embed -- and therefore every
+#      post, not just polls -- fails to load. Same exact shape as the
+#      WYN-116 P0: schema.sql has it, nobody ran a dedicated apply
+#      workflow for it (no wyn115-apply-*.yml exists in this repo).
+#   2. "เชิญไม่สำเร็จ" inviting non-WARREN accounts to a club (WARREN
+#      itself shows "เชิญแล้ว" -- succeeded). InviteToClubScreen sends
+#      the invite as a chat message via get_or_create_conversation(),
+#      which raises 'Chat is temporarily closed for testing' when
+#      internal.chat_pair_allowed() is false -- i.e. when
+#      public.chat_lockdown.enabled = true and the target user isn't on
+#      chat_lockdown_allowlist (WYN-122). wyn122-apply-chat-lockdown-
+#      schema.yml deliberately leaves `enabled` at its false default;
+#      only wyn122-toggle-chat-lockdown.yml flips it. Checking whether
+#      it's currently left on.
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Check
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            echo "HTTP $code"
+            cat "$out"; echo
+            rm -f "$out"
+          }
+
+          echo "=== 1. Does public.club_post_polls exist? (WYN-115 Club Poll) ==="
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name in ('club_post_polls', 'club_post_poll_votes');"
+
+          echo "=== 2. Does get_club_poll_results()/create_poll_club_post() exist? ==="
+          run_sql "select routine_name from information_schema.routines where routine_schema = 'public' and routine_name in ('get_club_poll_results', 'create_poll_club_post');"
+
+          echo "=== 3. Reproduce ClubPostRepository.fetchPosts()'s embed shape directly ==="
+          run_sql "select cp.id from public.club_posts cp limit 1;"
+
+          echo "=== 4. Is chat_lockdown currently enabled? ==="
+          run_sql "select id, enabled from public.chat_lockdown;"
+
+          echo "=== 5. Who is on the chat_lockdown_allowlist? ==="
+          run_sql "select p.username from public.chat_lockdown_allowlist a join public.profiles p on p.id = a.user_id;"

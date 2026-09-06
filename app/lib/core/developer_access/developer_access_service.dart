@@ -4,9 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Generic, cross-feature "is the current user a developer/internal
-/// test account" check for WYN-124's staged-rollout mechanism. See:
-/// .wyn/tasks/active/WYN-124-staged-rollout-developer-first.md
-/// .wyn/docs/design/wyn-124-staged-rollout-developer-accounts.md
+/// test account" check for WYN-125's staged-rollout mechanism. See:
+/// .wyn/tasks/active/WYN-125-staged-rollout-developer-first.md
+/// .wyn/docs/design/wyn-125-staged-rollout-developer-accounts.md
 ///
 /// Deliberately lives in `core/`, not inside any single feature's
 /// `data/` folder (unlike WYN-122's `ChatRepository.isChatAllowed()`,
@@ -14,7 +14,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// that wants a staged rollout imports this one class and decides for
 /// itself which of its own code paths to gate with the boolean it
 /// returns, with no new table/function needed each time. See
-/// supabase/schema.sql's "WYN-124" section for the
+/// supabase/schema.sql's "WYN-125" section for the
 /// `is_developer_account()` RPC and RLS this wraps.
 ///
 /// As of this class landing, no feature calls [isDeveloperAccount] yet

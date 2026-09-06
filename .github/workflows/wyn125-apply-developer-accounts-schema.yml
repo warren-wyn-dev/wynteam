@@ -1,16 +1,16 @@
-name: WYN-124 -- apply developer accounts schema (table, function, RLS)
+name: WYN-125 -- apply developer accounts schema (table, function, RLS)
 
 # schema.sql changes don't auto-apply to production (this project's own
 # established finding -- see chat-enable-conversations-realtime.yml's/
 # wyn122-apply-chat-lockdown-schema.yml's own comment). This applies
-# WYN-124's developer-account allowlist mechanism: the
+# WYN-125's developer-account allowlist mechanism: the
 # `developer_accounts` table (RLS enabled, zero policies) and the
 # `is_developer_account()` function, with EXECUTE explicitly granted to
 # `authenticated` (the exact grant WYN-122 Round 1's QA finding proved
 # is required, not optional).
 #
 # Every statement here is copy-paste identical to the corresponding
-# section of supabase/schema.sql (the WYN-124 section at the end of the
+# section of supabase/schema.sql (the WYN-125 section at the end of the
 # file) -- if the two ever drift, schema.sql is wrong, not this file
 # (this file is what actually ran), mirroring
 # wyn122-apply-chat-lockdown-schema.yml's own convention.
@@ -18,7 +18,7 @@ name: WYN-124 -- apply developer accounts schema (table, function, RLS)
 # Deliberately does NOT add anyone to the allowlist -- a fresh table is
 # empty, matching "no developer accounts yet" as the correct starting
 # state (fail-closed for 100% of users until Founder decides
-# otherwise). Use wyn124-manage-developer-accounts.yml (action: add) to
+# otherwise). Use wyn125-manage-developer-accounts.yml (action: add) to
 # add the first developer account (e.g. Founder's own username) after
 # this has run once.
 #

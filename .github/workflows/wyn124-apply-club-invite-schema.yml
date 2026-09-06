@@ -1,0 +1,146 @@
+name: WYN-124 -- apply club invite notification schema
+
+# WYN-124 replaces WYN-123's original chat-message-based club invite
+# with a `club_invite` Notification (Founder feedback, 2026-09-06:
+# "คนที่ถูกเชิญควรไปอยู่หน้าการแจ้งเตือน ไม่ใช่หน้าแชท" -- the chat-
+# message mechanism accidentally coupled every invite to WYN-122's Chat
+# Lockdown state). Learned the hard way this session (see the WYN-116/
+# WYN-115 P0s and DECISIONS.md): schema.sql is a description, it does
+# not auto-apply to production -- so this workflow ships in the SAME
+# commit as the schema.sql section it applies, not as an afterthought
+# once something breaks.
+#
+# Every statement here is copy-paste identical to supabase/schema.sql's
+# WYN-124 section (notifications_type_check widened to include
+# 'club_invite', plus invite_to_club()) -- if the two ever drift,
+# schema.sql is wrong, not this file.
+#
+# Purely additive: one widened CHECK constraint (drop+recreate by
+# design, same idempotent pattern as every other notifications_type_check
+# migration in this project) + one new SECURITY DEFINER function. No
+# table, no RLS change, no data loss.
+#
+# Safe to run more than once (CREATE OR REPLACE FUNCTION; the
+# constraint step already drops-then-recreates by design).
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== 1. Widen notifications.type check constraint to include club_invite ==="
+          run_sql "do \$do\$
+                   declare
+                     v_constraint_name text;
+                   begin
+                     select tc.constraint_name into v_constraint_name
+                     from information_schema.table_constraints tc
+                     join information_schema.constraint_column_usage ccu
+                       on ccu.constraint_name = tc.constraint_name
+                      and ccu.constraint_schema = tc.constraint_schema
+                     where tc.table_schema = 'public'
+                       and tc.table_name = 'notifications'
+                       and tc.constraint_type = 'CHECK'
+                       and ccu.column_name = 'type';
+
+                     if v_constraint_name is not null then
+                       execute format('alter table public.notifications drop constraint %I', v_constraint_name);
+                     end if;
+                   end;
+                   \$do\$;
+
+                   alter table public.notifications
+                     add constraint notifications_type_check
+                     check (type in (
+                       'like_drop', 'like_pop', 'comment_drop', 'comment_pop', 'follow',
+                       'club_join_request', 'club_join_approved', 'club_post_like', 'club_post_comment',
+                       'mention_drop', 'mention_club_post',
+                       'moderation_warning', 'moderation_content_removed',
+                       'appeal_approved', 'appeal_rejected',
+                       'message_request', 'redrop',
+                       'follow_request', 'follow_request_accepted',
+                       'system',
+                       'club_post_new', 'club_post_pinned',
+                       'club_invite'
+                     ));" >/dev/null
+          echo "Done."
+
+          echo "=== 2. Create invite_to_club() RPC ==="
+          run_sql "create or replace function public.invite_to_club(p_club_id uuid, p_invitee_id uuid)
+                   returns void
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   declare
+                     v_me uuid := auth.uid();
+                   begin
+                     if v_me is null then
+                       raise exception 'Not authenticated';
+                     end if;
+                     if p_invitee_id = v_me then
+                       raise exception 'Cannot invite yourself';
+                     end if;
+                     if public.club_role(p_club_id, v_me) is null then
+                       raise exception 'Must be an approved club member to invite';
+                     end if;
+                     if not exists (select 1 from public.profiles where id = p_invitee_id) then
+                       raise exception 'User not found';
+                     end if;
+                     if internal.is_blocked_either_way(v_me, p_invitee_id) then
+                       raise exception 'Cannot invite a blocked user';
+                     end if;
+                     if not exists (
+                       select 1 from public.follows
+                       where (follower_id = v_me and following_id = p_invitee_id)
+                          or (follower_id = p_invitee_id and following_id = v_me)
+                     ) then
+                       raise exception 'Can only invite followers or people you follow';
+                     end if;
+
+                     if internal.notification_enabled(p_invitee_id, 'club') and not exists (
+                       select 1 from public.notifications n
+                       where n.recipient_id = p_invitee_id
+                         and n.actor_id = v_me
+                         and n.club_id = p_club_id
+                         and n.type = 'club_invite'
+                         and n.created_at > now() - interval '24 hours'
+                     ) then
+                       insert into public.notifications (recipient_id, actor_id, type, club_id)
+                       values (p_invitee_id, v_me, 'club_invite', p_club_id);
+                     end if;
+                   end;
+                   \$fn\$;
+
+                   grant execute on function public.invite_to_club(uuid, uuid) to authenticated;" >/dev/null
+          echo "Done."
+
+          echo "=== 3. Verify: constraint + function now present ==="
+          run_sql "select conname, pg_get_constraintdef(oid) from pg_constraint where conname = 'notifications_type_check';" | jq .
+          run_sql "select routine_name from information_schema.routines where routine_schema = 'public' and routine_name = 'invite_to_club';" | jq .

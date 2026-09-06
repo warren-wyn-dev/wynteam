@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/text_utils.dart';
 import 'club.dart';
+import 'club_insights.dart';
 import 'club_member.dart';
 
 const _memberProfileSelect = 'profile:profiles(username, display_name, avatar_url)';
@@ -428,6 +429,26 @@ class ClubRepository {
     });
   }
 
+  /// WYN-124 -- invites [inviteeId] to this club via a `club_invite`
+  /// Notification (not a Chat message, see this task's Design decision:
+  /// WYN-123's original chat-message-based invite accidentally coupled
+  /// invites to whatever state WYN-122's Chat Lockdown happened to be
+  /// in). `invite_to_club()` (supabase/schema.sql) re-validates the
+  /// same "must be an approved club member, invitee must be a follower
+  /// or someone you follow, neither side blocked" rules
+  /// InviteToClubScreen's own audience list already filters for --
+  /// server-side, since an RPC call can't be trusted to only ever
+  /// happen from that one screen.
+  Future<void> inviteToClub({
+    required String clubId,
+    required String inviteeId,
+  }) {
+    return _client.rpc('invite_to_club', params: {
+      'p_club_id': clubId,
+      'p_invitee_id': inviteeId,
+    });
+  }
+
   /// WYN-116: whether the current user has muted `club_post_new`/
   /// `club_post_pinned` notifications for this Club -- see
   /// `club_notification_mutes` in supabase/schema.sql. Scoped to just
@@ -460,5 +481,21 @@ class ClubRepository {
         .delete()
         .eq('club_id', clubId)
         .eq('user_id', userId);
+  }
+
+  /// WYN-117: [days] must be 7 or 30 (see `public.club_insights()`'s own
+  /// validation) -- the RPC itself rejects any other value, and rejects
+  /// the call entirely for a caller who isn't an owner/admin of
+  /// [clubId] (a 2-tier gate, narrower than `canModeratePosts`'s
+  /// owner/admin/moderator).
+  Future<ClubInsights> fetchClubInsights({
+    required String clubId,
+    required int days,
+  }) async {
+    final row = await _client.rpc('club_insights', params: {
+      'p_club_id': clubId,
+      'p_days': days,
+    }).single();
+    return ClubInsights.fromMap(row);
   }
 }

@@ -18,6 +18,16 @@ enum NotificationType {
   // author (see supabase/schema.sql for the exact reasoning).
   clubPostNew,
   clubPostPinned,
+  // WYN-124: fired by invite_to_club() -- a club member invites someone
+  // who follows them or whom they follow. Deliberately a Notification,
+  // not a Chat message (WYN-123's original launch used
+  // getOrCreateConversation()+sendMessage(sharedContentType: club),
+  // which put the invite in the recipient's Chat inbox and coupled it
+  // to WYN-122's Chat Lockdown state -- Founder feedback, 2026-09-06:
+  // "คนที่ถูกเชิญควรไปอยู่หน้าการแจ้งเตือน ไม่ใช่หน้าแชท"). Reuses
+  // clubId/clubName like clubPostPinned above -- no dedicated field
+  // needed.
+  clubInvite,
   // WYN-021: fired by drop_mentions/club_post_mentions inserts.
   mentionDrop,
   mentionClubPost,
@@ -94,6 +104,8 @@ NotificationType _typeFromString(String value) {
       return NotificationType.clubPostNew;
     case 'club_post_pinned':
       return NotificationType.clubPostPinned;
+    case 'club_invite':
+      return NotificationType.clubInvite;
     case 'mention_drop':
       return NotificationType.mentionDrop;
     case 'mention_club_post':
