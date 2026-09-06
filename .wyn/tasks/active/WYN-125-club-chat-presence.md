@@ -1,7 +1,7 @@
 # Feature Request — WYN-125
 
-Status: backlog
-Owner: AI Product Manager
+Status: active — Design เสร็จแล้ว, **Coding ห้ามเริ่มจนกว่า WYN-124 สร้างเสร็จก่อนเสมอ**
+Owner: AI Product Manager → AI Design
 
 Feature: Presence — เห็นว่าสมาชิกคนไหนกำลังออนไลน์อยู่ในห้องแชทกลุ่มของ Club ตอนนี้บ้าง (ต่อยอด WYN-124)
 
@@ -50,6 +50,14 @@ P3 — ต่อท้าย WYN-124 ในคิว ไม่เร่งด่
 
 ทำหลัง WYN-124 deploy จริงและเห็นว่าห้องแชทกลุ่มมีคนใช้งานจริงก่อน — presence ไม่มีประโยชน์ถ้ายังไม่มีห้องให้เกิด "การมีอยู่จริง" ขึ้นก่อน ระหว่าง WYN-125/126 (Chat Reaction) ไม่มี dependency ต่อกัน ทำก่อน-หลังกันได้อิสระ แต่ effort ต่ำกว่าเพราะใช้ของที่แพลตฟอร์มมีให้แล้ว จึงแนะนำให้ทำก่อน WYN-126
 
-## Handoff
+## Handoff (Product → Design)
 
 ส่งต่อ **AI Design** ออกแบบ UX ของจุดสถานะ/header subtitle ได้ตอนนี้เลยถ้า Founder ต้องการ — **AI Coding ต้องรอ WYN-124 สร้างเสร็จก่อนเสมอ**
+
+---
+
+## AI Design — ผลงาน (2026-09-06)
+
+Design เต็มรูปแบบอยู่ที่ `.wyn/docs/design/wyn-125-126-club-chat-presence-reactions.md` (รวมกับ WYN-126 ไว้เอกสารเดียว เพราะแก้ไฟล์เดียวกันของ WYN-124) — จุดออนไลน์ (`successLight` token, ไม่ใช่สีใหม่) ที่ avatar ของกลุ่มข้อความ + header subtitle สลับ "N สมาชิก" ↔ "N คนออนไลน์" ไม่มีผลกระทบต่อ layout อื่น ไม่มี state error พิเศษ (presence connect ไม่ติด = แค่ไม่เห็นจุดเขียว ใช้งานอื่นปกติ)
+
+**Handoff (Design → Coding)**: **ห้ามเริ่มจนกว่า WYN-124 จะสร้างเสร็จก่อนเสมอ** — ต้องผูก "online" กับการเปิดหน้าห้องแชทค้างอยู่จริงเท่านั้น (ไม่ใช่แค่เปิดแอปทิ้งไว้)
