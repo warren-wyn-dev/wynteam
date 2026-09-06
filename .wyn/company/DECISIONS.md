@@ -1263,4 +1263,16 @@ AI QA & Security ตรวจ WYN-115 เต็มรูปแบบ ตัด�
 
 รอบ 3: **`flutter analyze` 0 issues, `flutter test` 1259/1259 ผ่านหมด** (run [34041885759](https://github.com/warren-wyn-dev/wynteam/actions/runs/34041885759)) — Admin/Edge Functions/schema ordering ผ่านครบ ไม่มี regression ข้าม package — ตรวจ security เพิ่มเติม (authorization ของ 2 entry point, ไม่มี secret hardcode, RLS เดิมไม่เปลี่ยน) ไม่พบช่องโหว่ — **Final Status: PASS** ย้าย task ไป `.wyn/tasks/approved/` ส่งต่อ AI Deploy & DevOps
 
-อ้างอิง: `.wyn/tasks/approved/WYN-115-invite-followers-to-club.md` ("QA & Security Report")
+อ้างอิง: `.wyn/tasks/approved/WYN-123-invite-followers-to-club.md` ("QA & Security Report" — renamed จาก WYN-115 ตอน merge เข้า main เพราะชนกับ WYN-115-club-poll ของอีก session ดู entry ถัดไป)
+
+## [2026-09-06] Merge conflicts + 2 more ID collisions found while merging WYN-123/WYN-119 work into main
+
+ตอน merge branch นี้ (WYN-115 เดิม/เชิญ follower เข้าคลับ + WYN-114 เดิม/deep-link) เข้ากับ `main` ที่เดินหน้าไปไกลมากระหว่างทาง (มี WYN-114 ถึง WYN-122 จากหลาย session อื่น merge เข้าไปแล้ว) พบ real merge conflict จริง (ไม่ใช่แค่ auto-merge) ที่ comment เหนือ `*ShareLink()` ทั้ง 5 ฟังก์ชัน (ทั้งสองฝั่งแก้โดเมน `wyn.app`→`wynos.online` อย่างอิสระต่อกัน) และที่ `DECISIONS.md` เอง (append-only ทั้งคู่) — แก้โดยรวม comment ทั้งสองเวอร์ชันเข้าด้วยกัน (Tier 1 เสร็จแล้ว + Tier 2 partial) และเก็บ log ทั้งสองฝั่งไว้ครบ
+
+**พบ ID collision เพิ่มอีก 2 รายการ** (รวมเป็น 4 ครั้งที่เจอในโปรเจกต์นี้: `WYN-078`, ครั้งที่บันทึกไว้ 2026-08-25, และตอนนี้อีก 2):
+1. `WYN-114` ของ session นี้ (โดเมน + `DeepLinkService`) ชนกับ `WYN-114` ของอีก session (โดเมน + `app/web/vercel.json` SPA rewrite, deploy จริงไปแล้ว) — retire `WYN-114` ของ session นี้ทิ้ง เพราะส่วนโดเมนซ้ำกับที่ deploy แล้ว ส่วน `DeepLinkService` (routing จริง ที่ไม่มีใครทำ) พับเข้า `WYN-119` (task ของอีก session ที่สาม ที่นิยาม "Tier 2" นี้ไว้พอดีแต่ยังไม่ได้ coding) เป็น partial implementation (รองรับแค่ authenticated user ยังไม่รองรับ guest ตาม Requirement 2 ของ WYN-119 — ต้องมี Design pass เรื่อง guest-browsing/AuthGate ก่อนถึงจะปิดงานนั้นได้)
+2. `WYN-115` ของ session นี้ (เชิญ follower เข้าคลับ) ชนกับ `WYN-115-club-poll` ของอีก session (merge เข้า main ไปแล้ว) — เปลี่ยนเป็น `WYN-123` (เลขถัดจาก 122 ที่ใช้ล่าสุดตอน merge)
+
+**สาเหตุร่วม**: หลาย AI session ทำงานพร้อมกันบน branch แยกกัน ไม่เห็นเลข ID ที่ session อื่นใช้ไปแล้วจนกว่าจะ merge เข้า main — เป็นความเสี่ยงเชิงโครงสร้างที่ยังไม่มีกลไกป้องกัน (เช่น central "next available ID" lock/registry) ทั้ง 4 ครั้งที่เจอมาล้วนแก้ได้ตอน merge โดยไม่มีอะไรเสียหาย แต่ยิ่งมี session พร้อมกันมากขึ้นเรื่อยๆ ความถี่ของ collision ก็จะเพิ่มตาม — ควรพิจารณาแก้ที่ระดับ process จริงจัง ไม่ใช่แก้เฉพาะหน้าทุกครั้งที่เจอ
+
+อ้างอิง: `.wyn/tasks/active/WYN-119-club-deep-linking.md` ("Partial Coding Output"), `.wyn/tasks/approved/WYN-123-invite-followers-to-club.md` ("Note — Renamed from WYN-115")
