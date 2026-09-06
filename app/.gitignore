@@ -53,6 +53,12 @@ migrate_working_dir/
 # index.html's <head>, hand-authored (not part of any Flutter template),
 # so it must survive regeneration the same way index.html itself does.
 #
+# add-to-home.html is committed for the identical reason: a static help
+# page (linked from the Home banner/side menu, not a Flutter route) that
+# `flutter create` has no template for at all, so without this line it
+# would exist only on whoever's machine authored it and every deploy
+# would 404 the link.
+#
 # vercel.json (WYN-114 bugfix) is committed for the same reason again:
 # without a catch-all rewrite to index.html, Vercel's static hosting 404s
 # every URL that isn't an exact existing file -- e.g. /drop/<id>, which
@@ -67,6 +73,7 @@ migrate_working_dir/
 !/web/index.html
 !/web/manifest.json
 !/web/favicon.png
+!/web/add-to-home.html
 !/web/icons/
 !/web/icons/Icon-192.png
 !/web/icons/Icon-512.png

@@ -36,4 +36,12 @@ class PwaInstallHint {
   /// pwa_display_mode_web.dart for how a browser actually reports this.
   static bool get isRunningAsInstalledApp =>
       kIsWeb && pwa_display_mode.isStandaloneDisplayMode();
+
+  /// True when there is a real "add to home screen" ask to make at all
+  /// -- same 3-part gate [AddToHomeScreenBanner] applies to itself,
+  /// pulled out here so the side menu's permanent link (a second, wholly
+  /// separate entry point into the same guide) can hide under the exact
+  /// same conditions without re-deriving them.
+  static bool get shouldOfferInstall =>
+      kIsWeb && guidance != AddToHomeScreenGuidance.unsupported && !isRunningAsInstalledApp;
 }

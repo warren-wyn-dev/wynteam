@@ -137,4 +137,33 @@ void main() {
     expect(closeButtonSize.width, greaterThanOrEqualTo(44));
     expect(closeButtonSize.height, greaterThanOrEqualTo(44));
   });
+
+  // openInNewTab (used by the "ดูวิธีแบบละเอียด" link below) is a no-op
+  // stub off the web target -- see its own doc comment -- so this only
+  // asserts the link renders and is tappable without throwing, not that
+  // a tab actually opens (there's nothing to open in a VM test anyway).
+  testWidgets(
+      '"ดูวิธีแบบละเอียด" links out to the fuller static guide, both '
+      'platforms', (tester) async {
+    for (final guidance in [
+      AddToHomeScreenGuidance.ios,
+      AddToHomeScreenGuidance.android,
+    ]) {
+      await tester.pumpWidget(_wrap(AddToHomeScreenBanner(
+        isWeb: true,
+        guidance: guidance,
+        isRunningAsInstalledApp: false,
+      )));
+      await tester.pumpAndSettle();
+
+      final link =
+          find.byKey(const Key('add_to_home_screen_detailed_guide_link'));
+      expect(link, findsOneWidget);
+      expect(find.text('ดูวิธีแบบละเอียด'), findsOneWidget);
+
+      await tester.tap(link);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
+  });
 }

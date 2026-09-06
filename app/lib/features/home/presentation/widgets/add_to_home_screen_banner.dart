@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/pwa/open_in_new_tab.dart';
 import '../../../../core/pwa/pwa_install_hint.dart';
 
 /// A one-time, dismissible card at the top of Home nudging a *browser*
@@ -96,6 +97,13 @@ class _AddToHomeScreenBannerState extends State<AddToHomeScreenBanner> {
     }
   }
 
+  // Opens the fuller step-by-step guide (screenshots of each step, plus
+  // the Android/Chrome case this banner's own text keeps brief) in a new
+  // tab. The side menu carries a second, permanent link to the same
+  // page for anyone who dismissed this banner -- see SideMenu's own
+  // "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก" row.
+  void _openDetailedGuide() => openInNewTab('/add-to-home.html');
+
   @override
   Widget build(BuildContext context) {
     if (_shouldShow != true) return const SizedBox.shrink();
@@ -137,6 +145,28 @@ class _AddToHomeScreenBannerState extends State<AddToHomeScreenBanner> {
                 const Text('เพิ่ม WYNOS ไปหน้าจอโฮม', style: _titleStyle),
                 const SizedBox(height: WynSpacing.space1),
                 Text(body, style: _bodyStyle),
+                // Same brief per-platform text as before this addition --
+                // this just points anyone who wants screenshots/a fuller
+                // walkthrough (or hits the Android "ติดตั้งแอป" case,
+                // which some Chrome builds place one tap deeper than "⋮")
+                // at the dedicated static guide, without lengthening the
+                // banner's own copy.
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: TextButton(
+                      key: const Key('add_to_home_screen_detailed_guide_link'),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(0, WynSpacing.touchTargetMin),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: _openDetailedGuide,
+                      child: const Text('ดูวิธีแบบละเอียด'),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

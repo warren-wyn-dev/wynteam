@@ -166,4 +166,18 @@ void main() {
 
     expect(tester.takeException(), isNull);
   });
+
+  // PwaInstallHint.shouldOfferInstall is `kIsWeb && ...`, always false
+  // under flutter test's VM runner -- see
+  // add_to_home_screen_banner_test.dart's identical reasoning for why
+  // that widget's own tests pass overrides instead of relying on this.
+  // This just documents that the row is intentionally gated out here,
+  // not merely untested.
+  testWidgets(
+      '"เพิ่ม WYNOS ไว้ที่หน้าจอหลัก" is hidden on a non-web test build '
+      '(web-only row)', (tester) async {
+    await openDrawer(tester);
+
+    expect(find.text('เพิ่ม WYNOS ไว้ที่หน้าจอหลัก'), findsNothing);
+  });
 }
