@@ -56,6 +56,37 @@ void main() {
     expect(find.text('ยังไม่มีข้อความ'), findsOneWidget);
   });
 
+  testWidgets(
+      'WYN-122: chat lockdown shows the closed-for-maintenance message '
+      'instead of ever fetching the real inbox', (tester) async {
+    chatRepo.isChatAllowedResult = false;
+    chatRepo.inboxPages = [
+      [conversation()]
+    ]; // would render a real row if fetchInbox were ever called
+
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    expect(find.text('ระบบแชทปิดปรับปรุงชั่วคราว'), findsOneWidget);
+    expect(find.text('จะเปิดให้ใช้งานได้เร็ว ๆ นี้'), findsOneWidget);
+    expect(find.text('ยังไม่มีข้อความ'), findsNothing);
+    expect(find.text('สวัสดี'), findsNothing);
+    expect(chatRepo.isChatAllowedCalls, [null]);
+  });
+
+  testWidgets(
+      'WYN-122 regression: chat allowed (the common case) still loads the '
+      'real inbox exactly as before', (tester) async {
+    chatRepo.isChatAllowedResult = true;
+    chatRepo.inboxPages = const [[]];
+
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    expect(find.text('ยังไม่มีข้อความ'), findsOneWidget);
+    expect(find.text('ระบบแชทปิดปรับปรุงชั่วคราว'), findsNothing);
+  });
+
   testWidgets('shows the other participant, preview text, and an unread indicator', (tester) async {
     chatRepo.inboxPages = [
       [conversation()],

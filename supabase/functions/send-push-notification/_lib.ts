@@ -81,6 +81,12 @@ export function messageFor(
       return `${actorName} ถูกใจโพสต์ของคุณใน ${club}`;
     case "club_post_comment":
       return `${actorName} แสดงความคิดเห็นในโพสต์ของคุณใน ${club}`;
+    // WYN-116: mirrors notification_list_screen.dart's `_messageFor`
+    // word for word.
+    case "club_post_new":
+      return `${actorName} โพสต์ใหม่ใน ${club}`;
+    case "club_post_pinned":
+      return `${actorName} ปักหมุดโพสต์ใหม่ใน ${club}`;
     // WYN-021: mirrors app/'s notification_list_screen.dart's
     // `_messageFor` word for word.
     case "mention_drop":

@@ -19,6 +19,7 @@ import '../../../report/data/report_target_type.dart';
 import '../../../report/presentation/report_sheet.dart';
 import '../../../../core/widgets/post_media.dart';
 import '../../../../core/widgets/wyn_heart_icon.dart';
+import 'club_poll_card.dart';
 
 /// A Club post card for the Posts tab list. Restyled onto the exact same
 /// two-column geometry ([homeCardEdgeInset]/[homeCardAvatarGap]/
@@ -41,6 +42,7 @@ class ClubPostCard extends StatelessWidget {
     required this.onToggleSave,
     required this.onTogglePin,
     required this.onDelete,
+    required this.onVotePoll,
   });
 
   final ClubPost post;
@@ -50,6 +52,10 @@ class ClubPostCard extends StatelessWidget {
   final VoidCallback onToggleSave;
   final VoidCallback onTogglePin;
   final VoidCallback onDelete;
+
+  /// WYN-115: called with the tapped option index when the viewer votes
+  /// on this post's poll. Only ever invoked when [ClubPost.isPoll].
+  final ValueChanged<int> onVotePoll;
 
   bool get _isOwnPost =>
       post.authorId == Supabase.instance.client.auth.currentUser!.id;
@@ -254,6 +260,22 @@ class ClubPostCard extends StatelessWidget {
                           onLike: onToggleLike,
                           alreadyLiked: post.likedByMe,
                           child: ClubPostImages(imageUrls: post.imageUrls!),
+                        ),
+                      ),
+                    // WYN-115: mutually exclusive with images/link -- a
+                    // Poll Club Post never carries either (see
+                    // create_poll_club_post() in supabase/schema.sql).
+                    if (post.isPoll)
+                      Padding(
+                        padding: const EdgeInsets.only(right: homeCardEdgeInset),
+                        child: ClubPollCard(
+                          options: post.pollOptions!,
+                          expiresAt: post.pollExpiresAt!,
+                          myVoteIndex: post.pollMyVoteIndex,
+                          totalVotes: post.pollTotalVotes,
+                          optionCounts: post.pollOptionCounts,
+                          isOwnPoll: _isOwnPost,
+                          onVote: onVotePoll,
                         ),
                       ),
                     if (post.linkUrl != null && post.linkUrl!.isNotEmpty)

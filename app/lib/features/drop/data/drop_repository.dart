@@ -478,6 +478,19 @@ class DropRepository {
   /// (WYN-012), where only the id is known, not a full Drop object.
   /// Returns null if the Drop no longer exists (e.g. deleted since the
   /// notification was created).
+  ///
+  /// Bug fix: the "Drops are viewable by authenticated users, excluding
+  /// blocked authors and deleted" RLS policy deliberately lets an author
+  /// keep seeing their own soft-deleted row (`deleted_at is not null or
+  /// auth.uid() = author_id`) so the "รายการที่ลบ" restore screen works.
+  /// Every caller of this method wants the opposite: "is this still a
+  /// live post", not "can RLS still show it to me" -- without this
+  /// filter, deleting your own Drop from Detail and returning to your
+  /// Profile/Likes/hashtag tab left the row on screen forever, because
+  /// _refreshRow's fetchById kept getting the (still-visible-to-its-
+  /// author) deleted row back instead of null. fetchDeletedDrops() above
+  /// already filters explicitly for its own purpose; this is the same
+  /// idea in the opposite direction.
   Future<Drop?> fetchById(String dropId) async {
     final userId = _client.auth.currentUser!.id;
 
@@ -485,6 +498,7 @@ class DropRepository {
         .from('drops')
         .select(_dropSelect)
         .eq('id', dropId)
+        .isFilter('deleted_at', null)
         .maybeSingle();
     if (row == null) return null;
 

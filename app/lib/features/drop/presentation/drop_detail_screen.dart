@@ -41,9 +41,14 @@ import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
 import '../../../core/widgets/wyn_heart_icon.dart';
 
-/// Placeholder share link -- there's no real hosting/domain yet (see
-/// .wyn/tasks/active/WYN-005-drop-post-image.md Risks). Not a reachable
-/// URL; revisit once Founder confirms a real domain before Deploy.
+/// WYN-114 (Tier 1, done + deployed 2026-09-06): real wynos.online
+/// domain + a Vercel SPA rewrite so this path no longer 404s at the
+/// hosting layer -- see .wyn/tasks/completed/WYN-114-share-link-real-domain.md.
+/// WYN-119 (Tier 2, partial): DeepLinkService (app/lib/core/navigation/)
+/// now opens this destination directly, but only once RootShell has
+/// already mounted -- a guest who has never signed in still lands on
+/// Welcome first, not this content. WYN-119's own guest-preview
+/// requirement is not met yet; see that task's Known Follow-up.
 String dropShareLink(String dropId) => 'https://wynos.online/drop/$dropId';
 
 /// Screen 3 — Drop Detail (Comments).
@@ -557,7 +562,27 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       WynFeedback.deleted();
       Navigator.of(context).pop();
     } catch (_) {
+      // WYN-121: `deleteDrop()` throwing does not mean the delete never
+      // happened -- a response lost to a flaky connection *after* the
+      // database already committed looks identical, client-side, to a
+      // genuine failure (confirmed against production: a Founder report
+      // of this exact SnackBar lined up, to the second, with
+      // `deleted_at` already being set on that Drop). Before telling the
+      // user it failed, check the one thing that actually matters: is
+      // the Drop still live? `fetchById()` (WYN-120) already returns
+      // null for a Drop that's gone, whatever the reason.
+      Drop? stillLive;
+      try {
+        stillLive = await widget.dropRepository.fetchById(_drop.id);
+      } catch (_) {
+        stillLive = _drop; // can't tell either way -- fall through to reporting failure
+      }
       if (!mounted) return;
+      if (stillLive == null) {
+        WynFeedback.deleted();
+        Navigator.of(context).pop();
+        return;
+      }
       WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),

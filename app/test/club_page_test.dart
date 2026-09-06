@@ -44,6 +44,9 @@ void main() {
   // attributed to that one test's FakeAsync zone (.wyn/learning/
   // PATTERNS.md).
   late RecordingClubRepository withCoverRepo;
+  // Same reasoning as withCoverRepo above -- built in setUp(), not inline
+  // inside a WYN-116 testWidgets body.
+  late RecordingClubRepository mutedMemberRepo;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'viewer');
@@ -75,6 +78,11 @@ void main() {
         coverUrl: 'https://example.supabase.co/clubs/cover.jpg',
       ),
       myMembership: null,
+    );
+    mutedMemberRepo = RecordingClubRepository(
+      club: club,
+      myMembership: membership(role: ClubMemberRole.member, status: ClubMemberStatus.approved),
+      isMutedResult: true,
     );
   });
 
@@ -177,6 +185,61 @@ void main() {
     expect(find.text('รายงาน Club'), findsOneWidget);
     expect(find.text('ออกจาก Club'), findsNothing);
     expect(find.text('แก้ไขข้อมูล Club'), findsNothing);
+  });
+
+  group('Per-Club notification mute (WYN-116)', () {
+    testWidgets('a non-member never sees the mute row', (tester) async {
+      await pumpPage(tester, notJoinedRepo);
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ปิดการแจ้งเตือน Club นี้'), findsNothing);
+      expect(find.text('เปิดการแจ้งเตือน Club นี้'), findsNothing);
+    });
+
+    testWidgets(
+        'an approved member not yet muted sees "ปิดการแจ้งเตือน Club นี้", and '
+        'tapping it calls muteClubNotifications', (tester) async {
+      await pumpPage(tester, approvedMemberRepo);
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ปิดการแจ้งเตือน Club นี้'), findsOneWidget);
+      await tester.tap(find.text('ปิดการแจ้งเตือน Club นี้'));
+      await tester.pumpAndSettle();
+
+      expect(approvedMemberRepo.muteClubNotificationsCalls, 1);
+      expect(approvedMemberRepo.muteClubNotificationsClubIdArgs, [club.id]);
+    });
+
+    testWidgets(
+        'an already-muted approved member sees "เปิดการแจ้งเตือน Club นี้", and '
+        'tapping it calls unmuteClubNotifications', (tester) async {
+      await pumpPage(tester, mutedMemberRepo);
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+
+      expect(find.text('เปิดการแจ้งเตือน Club นี้'), findsOneWidget);
+      expect(find.text('ปิดการแจ้งเตือน Club นี้'), findsNothing);
+      await tester.tap(find.text('เปิดการแจ้งเตือน Club นี้'));
+      await tester.pumpAndSettle();
+
+      expect(mutedMemberRepo.unmuteClubNotificationsCalls, 1);
+      expect(mutedMemberRepo.unmuteClubNotificationsClubIdArgs, [club.id]);
+    });
+
+    testWidgets('the Owner (role-gated menu branch) also sees the mute row',
+        (tester) async {
+      await pumpPage(tester, ownerRepo);
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ปิดการแจ้งเตือน Club นี้'), findsOneWidget);
+    });
   });
   group('Beta4 §8.3 -- the Club banner carries the identity image', () {
     // History, because this is a reversal and the reason matters.

@@ -20,6 +20,7 @@ import '../data/club_post.dart';
 import '../data/club_post_comment.dart';
 import '../data/club_post_repository.dart';
 import 'widgets/club_post_card.dart' show ClubPostImages;
+import 'widgets/club_poll_card.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
@@ -27,8 +28,14 @@ import '../../report/presentation/report_sheet.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/widgets/wyn_heart_icon.dart';
 
-/// Placeholder share link -- same "no real hosting/domain yet" caveat as
-/// dropShareLink/popShareLink (WYN-005/006).
+/// WYN-114 (Tier 1, done + deployed 2026-09-06): real wynos.online
+/// domain + a Vercel SPA rewrite so this path no longer 404s at the
+/// hosting layer -- see .wyn/tasks/completed/WYN-114-share-link-real-domain.md.
+/// WYN-119 (Tier 2, partial): DeepLinkService (app/lib/core/navigation/)
+/// now opens this destination directly, but only once RootShell has
+/// already mounted -- a guest who has never signed in still lands on
+/// Welcome first, not this content. WYN-119's own guest-preview
+/// requirement is not met yet; see that task's Known Follow-up.
 String clubPostShareLink(String postId) => 'https://wynos.online/club-post/$postId';
 
 /// Club post detail + full comment thread. Mirrors DropDetailScreen
@@ -223,6 +230,23 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
       await widget.clubPostRepository.toggleSave(
         postId: previous.id,
         currentlySaved: previous.savedByMe,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _post = previous);
+    }
+  }
+
+  // WYN-115: same optimistic vote shape as _toggleLike/_toggleSave above.
+  Future<void> _votePoll(int optionIndex) async {
+    final previous = _post;
+    final pollId = previous.pollId;
+    if (pollId == null) return;
+    setState(() => _post = _post.votedPoll(optionIndex));
+    try {
+      await widget.clubPostRepository.votePoll(
+        pollId: pollId,
+        optionIndex: optionIndex,
       );
     } catch (_) {
       if (!mounted) return;
@@ -443,7 +467,9 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                 const SizedBox(height: WynSpacing.space2),
                 HashtagText(_post.content!),
               ],
-              if (_post.linkUrl != null && _post.linkUrl!.isNotEmpty) ...[
+              // WYN-115: a Poll Club Post never carries a link (see
+              // create_poll_club_post() in supabase/schema.sql).
+              if (!_post.isPoll && _post.linkUrl != null && _post.linkUrl!.isNotEmpty) ...[
                 const SizedBox(height: WynSpacing.space2),
                 Row(
                   children: [
@@ -456,7 +482,17 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
             ],
           ),
         ),
-        if (_post.imageUrls != null && _post.imageUrls!.isNotEmpty)
+        if (_post.isPoll)
+          ClubPollCard(
+            options: _post.pollOptions!,
+            expiresAt: _post.pollExpiresAt!,
+            myVoteIndex: _post.pollMyVoteIndex,
+            totalVotes: _post.pollTotalVotes,
+            optionCounts: _post.pollOptionCounts,
+            isOwnPoll: _isOwnPost,
+            onVote: _votePoll,
+          )
+        else if (_post.imageUrls != null && _post.imageUrls!.isNotEmpty)
           ClubPostImages(imageUrls: _post.imageUrls!),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space2),

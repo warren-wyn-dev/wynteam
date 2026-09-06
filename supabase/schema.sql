@@ -6594,7 +6594,12 @@ alter table public.notifications
     'appeal_approved', 'appeal_rejected',
     'message_request', 'redrop',
     'follow_request', 'follow_request_accepted',
-    'system'
+    'system',
+    -- WYN-116: club_post_new/club_post_pinned added here (added ahead
+    -- of schedule during a later migration, same as this comment's
+    -- neighbor above describes for an earlier type) -- see
+    -- notify_club_post_new()/notify_club_post_pinned() further down.
+    'club_post_new', 'club_post_pinned'
   ));
 
 -- Lets an admin send a free-text notification to one recipient
@@ -11725,3 +11730,716 @@ create policy "Participants can delete a viewed View Once photo"
         and auth.uid() in (c.user_a_id, c.user_b_id)
     )
   );
+
+-- ============================================================
+-- WYN-122: Temporary chat lockdown (testing only, before public
+-- launch) -- see .wyn/tasks/active/WYN-122-chat-lockdown-testers-only.md
+-- and .wyn/docs/design/wyn-122-chat-lockdown-testers-only.md. Founder:
+-- "ปิดระบบ แชทไม่ให้คนใช้ทั่วไป ยกเว้น @warren กับ @wynos_online".
+--
+-- A single-row toggle (`chat_lockdown.enabled`) plus a small allowlist
+-- table (`chat_lockdown_allowlist`) -- flipping `enabled` back to
+-- false restores normal chat for everyone with one UPDATE, no client
+-- rebuild needed (Product spec's R2 -- this is explicitly temporary,
+-- "ก่อนเปิดใช้งานจริง"). Enforced at the RLS/RPC layer, never
+-- client-side alone (Founder's explicit requirement) -- and reversible
+-- with zero data loss: nothing here ever deletes or edits an existing
+-- conversation/message row, only what a non-allowlisted pair can
+-- additionally see/do at the RLS layer while `enabled` is true.
+--
+-- Rule (confirmed with Founder via 2 rounds of clarifying questions,
+-- not assumed): a conversation/send/create is allowed only when BOTH
+-- participants are in the allowlist -- not "either one". A regular
+-- user cannot even chat with @warren directly during lockdown; only
+-- the @warren<->@wynos_online pair itself works. This also means a
+-- 3rd tester added later can freely talk to the existing 2 without
+-- any code change -- just another row in the allowlist table.
+-- ============================================================
+
+create table if not exists public.chat_lockdown (
+  id boolean primary key default true,
+  enabled boolean not null default false,
+  constraint chat_lockdown_singleton check (id)
+);
+
+insert into public.chat_lockdown (id, enabled) values (true, false)
+on conflict (id) do nothing;
+
+create table if not exists public.chat_lockdown_allowlist (
+  user_id uuid primary key references public.profiles (id) on delete cascade
+);
+
+-- Neither table has a client-facing SELECT policy -- both are read
+-- only through the SECURITY DEFINER helpers below, mirroring how
+-- moderation_actions/reports back internal.is_posting_blocked()
+-- without exposing themselves directly to every authenticated caller.
+alter table public.chat_lockdown enable row level security;
+alter table public.chat_lockdown_allowlist enable row level security;
+
+-- True when chat is fully open (lockdown off) OR both p_a and p_b are
+-- allowlisted testers. SECURITY DEFINER for the same inlining/
+-- privilege reason internal.current_platform_role()'s own comment
+-- explains above (a plain `stable` SQL function referencing auth.uid()
+-- is a planner-inlining candidate, re-checked under the caller's own
+-- schema privileges at inline time) -- also independently necessary
+-- here since chat_lockdown/chat_lockdown_allowlist have no SELECT
+-- policy for the caller's own role at all.
+create or replace function internal.chat_pair_allowed(p_a uuid, p_b uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    not coalesce((select enabled from public.chat_lockdown where id), false)
+    or (
+      exists (select 1 from public.chat_lockdown_allowlist where user_id = p_a)
+      and exists (select 1 from public.chat_lockdown_allowlist where user_id = p_b)
+    )
+$$;
+
+-- QA finding (2026-09-06, WYN-122): this is called directly inside the
+-- `using`/`with check` clause of 4 RLS policies (conversations SELECT,
+-- messages SELECT/INSERT, chat-media storage INSERT), which evaluate as
+-- the querying role (`authenticated`) itself, not as this function's
+-- owner -- unlike get_or_create_conversation()/count_unread_conversations()/
+-- chat_lockdown_status() below, which are all SECURITY DEFINER and
+-- therefore run as the owner regardless. Without this explicit grant,
+-- `authenticated`'s ability to call this function inside those 4
+-- policies depends entirely on Postgres's default EXECUTE-to-PUBLIC
+-- grant never having been revoked anywhere -- exactly the assumption
+-- this file's own internal-schema comment above (WYN-027 section)
+-- warns against relying on. Every other internal.* RLS helper in this
+-- file already has this same grant; this one didn't, and QA confirmed
+-- by revoking EXECUTE from PUBLIC on this function directly that doing
+-- so breaks every chat RLS policy for every user, including the two
+-- allowlisted testers -- not a graceful lockdown, a hard "permission
+-- denied for function chat_pair_allowed".
+grant execute on function internal.chat_pair_allowed(uuid, uuid) to authenticated;
+
+-- Client-facing check (WYN-122 Design doc's "Contract for AI Coding"):
+-- p_other_user_id null -> "can I use chat at all right now" (Chat
+-- Inbox/New Message screens' Locked-state check); non-null -> "can
+-- this specific pair talk" (Conversation Screen, whether opening an
+-- existing conversation or one freshly created via
+-- get_or_create_conversation()).
+create or replace function public.chat_lockdown_status(p_other_user_id uuid default null)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when p_other_user_id is null then
+      not coalesce((select enabled from public.chat_lockdown where id), false)
+      or exists (select 1 from public.chat_lockdown_allowlist where user_id = auth.uid())
+    else
+      internal.chat_pair_allowed(auth.uid(), p_other_user_id)
+  end
+$$;
+
+grant execute on function public.chat_lockdown_status(uuid) to authenticated;
+
+-- get_or_create_conversation(): reject before even checking for an
+-- existing conversation, so a non-allowlisted pair with a
+-- pre-lockdown conversation can't have its id handed back out either
+-- (the id would be useless downstream anyway once conversations/
+-- messages SELECT below hides it, but rejecting here keeps the
+-- contract simple: this RPC never returns an id this pair can't
+-- actually use).
+create or replace function public.get_or_create_conversation(p_other_user_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_a uuid;
+  v_b uuid;
+  v_id uuid;
+  v_status text;
+  v_requested_by uuid;
+begin
+  if v_me is null then
+    raise exception 'Not authenticated';
+  end if;
+  if p_other_user_id = v_me then
+    raise exception 'Cannot start a conversation with yourself';
+  end if;
+  if not exists (select 1 from public.profiles where id = p_other_user_id) then
+    raise exception 'User not found';
+  end if;
+  if internal.is_blocked_either_way(v_me, p_other_user_id) then
+    raise exception 'Cannot start a conversation with a blocked user';
+  end if;
+  if not internal.chat_pair_allowed(v_me, p_other_user_id) then
+    raise exception 'Chat is temporarily closed for testing';
+  end if;
+
+  v_a := least(v_me, p_other_user_id);
+  v_b := greatest(v_me, p_other_user_id);
+
+  -- An existing conversation (of either status) is returned as-is --
+  -- status is decided once, at creation, never re-evaluated.
+  select id into v_id from public.conversations where user_a_id = v_a and user_b_id = v_b;
+  if v_id is not null then
+    return v_id;
+  end if;
+
+  -- WYN-045: dm_permission gates whether a *new* conversation can be
+  -- created at all -- only reachable here, in the "no existing
+  -- conversation yet" branch (an existing conversation already
+  -- returned above, unaffected by whatever the recipient's setting is
+  -- today). 'no_one' always rejects, no exceptions, even from someone
+  -- the recipient already follows.
+  if (select dm_permission from public.profiles where id = p_other_user_id) = 'no_one' then
+    raise exception 'This user is not accepting new conversations';
+  end if;
+
+  -- WYN-032: a message from someone the recipient does not already
+  -- follow starts as a pending Message Request instead of going
+  -- straight to their inbox -- one-directional (does the recipient
+  -- follow the sender), evaluated only here, at creation time.
+  --
+  -- WYN-045: 'people_i_follow' only allows creation when this exact
+  -- condition is true (the recipient already follows the sender) --
+  -- the same condition that already produces 'active' below. If it's
+  -- false, this now raises instead of falling through to a 'pending'
+  -- Message Request, since "people I follow" is meant to be a hard
+  -- boundary against strangers, not just a routing choice between
+  -- inbox and request folder.
+  if exists (
+    select 1 from public.follows
+    where follower_id = p_other_user_id and following_id = v_me
+  ) then
+    v_status := 'active';
+    v_requested_by := null;
+  elsif (select dm_permission from public.profiles where id = p_other_user_id) = 'people_i_follow' then
+    raise exception 'This user is not accepting new conversations';
+  else
+    v_status := 'pending';
+    v_requested_by := v_me;
+  end if;
+
+  insert into public.conversations (user_a_id, user_b_id, status, requested_by)
+  values (v_a, v_b, v_status, v_requested_by)
+  on conflict (user_a_id, user_b_id) do nothing
+  returning id into v_id;
+
+  if v_id is null then
+    -- Lost a race with a concurrent call for the same pair -- fetch
+    -- the row that won instead of erroring.
+    select id into v_id from public.conversations where user_a_id = v_a and user_b_id = v_b;
+  elsif v_status = 'pending' and internal.notification_enabled(p_other_user_id, 'messages') then
+    insert into public.notifications (recipient_id, actor_id, type, conversation_id)
+    values (p_other_user_id, v_me, 'message_request', v_id);
+  end if;
+
+  return v_id;
+end;
+$$;
+
+drop policy "Participants can view their own conversations" on public.conversations;
+create policy "Participants can view their own conversations (lockdown-aware)"
+  on public.conversations
+  for select
+  to authenticated
+  using (
+    auth.uid() in (user_a_id, user_b_id)
+    and internal.chat_pair_allowed(user_a_id, user_b_id)
+  );
+
+drop policy "Participants can view messages in their conversations" on public.messages;
+create policy "Participants can view messages in their conversations (lockdown-aware)"
+  on public.messages
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.conversations c
+      where c.id = conversation_id
+        and auth.uid() in (c.user_a_id, c.user_b_id)
+        and internal.chat_pair_allowed(c.user_a_id, c.user_b_id)
+    )
+  );
+
+drop policy "Participants can send messages in active or own-pending conversations" on public.messages;
+create policy "Participants can send messages in active/pending convos (lockdown-aware)"
+  on public.messages
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = sender_id
+    and not internal.is_posting_blocked(auth.uid())
+    and exists (
+      select 1 from public.conversations c
+      where c.id = conversation_id
+        and auth.uid() in (c.user_a_id, c.user_b_id)
+        and not internal.is_blocked_either_way(
+          c.user_a_id,
+          c.user_b_id
+        )
+        and internal.chat_pair_allowed(c.user_a_id, c.user_b_id)
+        and (
+          c.status = 'active'
+          or (c.status = 'pending' and c.requested_by = auth.uid())
+        )
+    )
+  );
+
+-- WYN-032's own comment on this policy ("mirrors the messages INSERT
+-- policy's own active-or-own-pending condition exactly") still holds
+-- -- mirroring the same lockdown addition here too, for the identical
+-- reason: without it, a locked-out pair's image upload would still
+-- succeed even though the messages row referencing it can never be
+-- inserted, leaving an orphaned object in storage for no benefit.
+drop policy "Participants can upload media to their conversations" on storage.objects;
+create policy "Participants can upload media to their conversations (lockdown-aware)"
+  on storage.objects
+  for insert
+  to authenticated
+  with check (
+    bucket_id = 'chat-media'
+    and exists (
+      select 1 from public.conversations c
+      where c.id = ((storage.foldername(name))[1])::uuid
+        and auth.uid() in (c.user_a_id, c.user_b_id)
+        and not internal.is_blocked_either_way(c.user_a_id, c.user_b_id)
+        and internal.chat_pair_allowed(c.user_a_id, c.user_b_id)
+        and (
+          c.status = 'active'
+          or (c.status = 'pending' and c.requested_by = auth.uid())
+        )
+    )
+    and not internal.is_posting_blocked(auth.uid())
+  );
+
+-- count_unread_conversations() (Screen 1's badge) is SECURITY DEFINER
+-- and queries conversations/messages directly -- it does NOT go
+-- through the RLS policies above (a security definer function runs as
+-- its owner, which bypasses RLS unless FORCE ROW LEVEL SECURITY is
+-- set, which this project does not use anywhere). Without this same
+-- chat_pair_allowed() check duplicated here, a locked-out user's Chat
+-- icon badge would keep counting real unread messages from
+-- conversations that ChatInboxScreen itself will refuse to show them
+-- at all -- a confusing "badge says 3, inbox says closed" mismatch.
+create or replace function public.count_unread_conversations()
+returns integer
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select count(*)::integer
+  from public.conversations c
+  where auth.uid() in (c.user_a_id, c.user_b_id)
+    and internal.chat_pair_allowed(c.user_a_id, c.user_b_id)
+    and exists (
+      select 1 from public.messages m
+      where m.conversation_id = c.id
+        and m.sender_id <> auth.uid()
+        and m.created_at > coalesce(
+          case when c.user_a_id = auth.uid() then c.user_a_last_read_at else c.user_b_last_read_at end,
+          '-infinity'::timestamptz
+        )
+    );
+$$;
+
+-- WYN-115 (Club Poll) -- mirrors drop_polls/drop_poll_votes (WYN-035)
+-- as closely as possible, per this task's own Design doc
+-- (.wyn/docs/design/wyn-115-club-poll.md). One real difference: a Poll
+-- Club Post's visibility is club-membership-gated (piggybacks on
+-- club_posts' own trust model via club_role()) rather than "any
+-- authenticated user" the way drop_polls is, since club_posts
+-- themselves are already members-only-visible.
+create table if not exists public.club_post_polls (
+  id uuid primary key default gen_random_uuid(),
+  club_post_id uuid not null unique references public.club_posts (id) on delete cascade,
+  options text[] not null,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  constraint club_post_polls_options_valid check (public.valid_poll_options(options))
+);
+
+create index if not exists club_post_polls_post_idx on public.club_post_polls (club_post_id);
+
+alter table public.club_post_polls enable row level security;
+
+create policy "Approved club members can view club post polls"
+  on public.club_post_polls
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.club_posts cp
+      where cp.id = club_post_id
+        and public.club_role(cp.club_id, auth.uid()) is not null
+    )
+  );
+
+-- No insert/update/delete policy at all -- the only writer is
+-- create_poll_club_post() below (SECURITY DEFINER, bypasses RLS as its
+-- owning role) and cascade-delete via the club_posts FK. Same "no raw
+-- policy" posture as drop_polls.
+
+-- Individual votes are never readable by anyone but the voter -- same
+-- privacy posture as drop_poll_votes. Aggregate results come from
+-- get_club_poll_results() below (SECURITY DEFINER), never from a
+-- client-side SELECT here.
+create table if not exists public.club_post_poll_votes (
+  id uuid primary key default gen_random_uuid(),
+  poll_id uuid not null references public.club_post_polls (id) on delete cascade,
+  voter_id uuid not null references public.profiles (id) on delete cascade,
+  option_index smallint not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (poll_id, voter_id)
+);
+
+create index if not exists club_post_poll_votes_poll_idx on public.club_post_poll_votes (poll_id);
+
+alter table public.club_post_poll_votes enable row level security;
+
+create policy "Users can view only their own club poll votes"
+  on public.club_post_poll_votes
+  for select
+  to authenticated
+  using (auth.uid() = voter_id);
+
+create policy "Users can vote as themselves on club polls"
+  on public.club_post_poll_votes
+  for insert
+  to authenticated
+  with check (auth.uid() = voter_id);
+
+-- Changing your mind (re-voting) is an UPDATE of the same row, not a
+-- new INSERT -- same shape as drop_poll_votes' identical policy.
+create policy "Users can change their own club poll vote"
+  on public.club_post_poll_votes
+  for update
+  to authenticated
+  using (auth.uid() = voter_id)
+  with check (auth.uid() = voter_id);
+
+-- Same business-rule trigger shape as validate_poll_vote() (WYN-035),
+-- plus one extra check drop_poll_votes never needed: the voter must
+-- currently be an *approved* member of the club that owns this post --
+-- club_posts' own trust model requires it for everything else visible
+-- on a Club post, and a vote is no exception.
+create or replace function public.validate_club_poll_vote()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_options text[];
+  v_expires_at timestamptz;
+  v_author_id uuid;
+  v_club_id uuid;
+begin
+  select cpp.options, cpp.expires_at, cp.author_id, cp.club_id
+    into v_options, v_expires_at, v_author_id, v_club_id
+  from public.club_post_polls cpp
+  join public.club_posts cp on cp.id = cpp.club_post_id
+  where cpp.id = new.poll_id;
+
+  if v_options is null then
+    raise exception 'Poll not found';
+  end if;
+
+  if now() >= v_expires_at then
+    raise exception 'Poll has closed';
+  end if;
+
+  if new.option_index < 0 or new.option_index >= array_length(v_options, 1) then
+    raise exception 'Invalid poll option';
+  end if;
+
+  if new.voter_id = v_author_id then
+    raise exception 'Cannot vote on your own poll';
+  end if;
+
+  if public.club_role(v_club_id, new.voter_id) is null then
+    raise exception 'Must be an approved club member to vote';
+  end if;
+
+  if internal.is_posting_blocked(new.voter_id) then
+    raise exception 'Account is posting-restricted';
+  end if;
+
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+create trigger club_post_poll_votes_validate
+  before insert or update on public.club_post_poll_votes
+  for each row execute function public.validate_club_poll_vote();
+
+-- Atomic "create a Poll Club Post" -- mirrors create_poll_drop()
+-- (WYN-035): inserts club_posts (content = the poll question,
+-- image_urls/link_url left null) + club_post_polls + (optionally)
+-- club_post_mentions in one transaction. A poll question alone already
+-- satisfies club_posts_have_content (content is not null), so this
+-- doesn't need drops' "nullable image_url" workaround -- kept as an
+-- RPC anyway for the same atomicity reason WYN-035 has one: a
+-- club_posts row with a question but no matching club_post_polls row
+-- (if that second insert failed) would read as a broken, option-less
+-- post with no way to recover it client-side.
+create or replace function public.create_poll_club_post(
+  p_club_id uuid,
+  p_content text,
+  p_options text[],
+  p_duration_days int,
+  p_mentioned_user_ids uuid[] default '{}'
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author uuid := auth.uid();
+  v_post_id uuid;
+  v_options text[];
+begin
+  if v_author is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if public.club_role(p_club_id, v_author) is null then
+    raise exception 'Must be an approved club member to post';
+  end if;
+
+  if internal.is_posting_blocked(v_author) then
+    raise exception 'Account is posting-restricted';
+  end if;
+
+  if p_content is null or length(trim(p_content)) = 0 then
+    raise exception 'Poll question is required';
+  end if;
+
+  -- Trimmed server-side (not just validated-as-trimmed) so a direct
+  -- RPC call bypassing the Flutter client's own .trim() can't leave
+  -- stray leading/trailing whitespace sitting in stored option text.
+  select array_agg(trim(o)) into v_options from unnest(p_options) as o;
+
+  if not public.valid_poll_options(v_options) then
+    raise exception 'Poll must have 2-4 non-empty, non-duplicate options (max 80 characters each)';
+  end if;
+
+  if p_duration_days not in (1, 3, 7) then
+    raise exception 'Poll duration must be 1, 3, or 7 days';
+  end if;
+
+  insert into public.club_posts (club_id, author_id, content, image_urls, link_url)
+  values (p_club_id, v_author, trim(p_content), null, null)
+  returning id into v_post_id;
+
+  insert into public.club_post_polls (club_post_id, options, expires_at)
+  values (v_post_id, v_options, now() + make_interval(days => p_duration_days));
+
+  -- This RPC is SECURITY DEFINER and bypasses club_post_mentions' own
+  -- RLS INSERT policy entirely -- mirrored manually here (the raw
+  -- policy only checks "author owns the post", nothing more; club post
+  -- mentions have no mention_allowed()/block-exclusion filtering
+  -- anywhere else in this codebase today -- see this task's Design doc
+  -- for why that's a pre-existing gap left out of this round's scope).
+  insert into public.club_post_mentions (club_post_id, mentioned_user_id)
+  select v_post_id, m
+  from unnest(p_mentioned_user_ids) as m;
+
+  return v_post_id;
+end;
+$$;
+
+-- Aggregate poll results, batched over a page's worth of poll ids at
+-- once (mirroring ClubPostRepository's existing per-page batch fetches
+-- for likes/saves). Mirrors get_poll_results() (WYN-035) with one
+-- extra visibility gate neither drop_polls nor its results function
+-- needed: the caller must currently be an approved member of the club
+-- that owns the post, applied as a WHERE filter (excludes the row
+-- entirely, same defense-in-depth shape get_poll_results() uses for
+-- Drop's own block/audience checks) -- on top of the existing
+-- voted/author/expired check that controls whether percentages show.
+create or replace function public.get_club_poll_results(p_poll_ids uuid[])
+returns table(
+  poll_id uuid,
+  visible boolean,
+  total_votes bigint,
+  option_counts bigint[]
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  if v_me is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  return query
+  select
+    cpp.id as poll_id,
+    v.is_visible,
+    case when v.is_visible
+      then (select count(*) from public.club_post_poll_votes cppv where cppv.poll_id = cpp.id)
+      else null end as total_votes,
+    case when v.is_visible
+      then (
+        select array_agg(cnt order by idx)
+        from (
+          select gs as idx, count(pv.id) as cnt
+          from generate_series(0, array_length(cpp.options, 1) - 1) as gs
+          left join public.club_post_poll_votes pv
+            on pv.poll_id = cpp.id and pv.option_index = gs
+          group by gs
+        ) counted
+      )
+      else null end as option_counts
+  from public.club_post_polls cpp
+  join public.club_posts cp on cp.id = cpp.club_post_id
+  cross join lateral (
+    select
+      cpp.expires_at <= now()
+      or cp.author_id = v_me
+      or exists (
+        select 1 from public.club_post_poll_votes cppv2
+        where cppv2.poll_id = cpp.id and cppv2.voter_id = v_me
+      ) as is_visible
+  ) v
+  where cpp.id = any(p_poll_ids)
+    and public.club_role(cp.club_id, v_me) is not null;
+end;
+$$;
+
+-- ============================================================
+-- WYN-116: Club Re-engagement Notifications
+-- ============================================================
+-- See .wyn/tasks/active/WYN-116-club-reengagement-notifications.md and
+-- .wyn/docs/design/wyn-116-club-reengagement-notifications.md. Two new
+-- notification types, both fanned out to *every approved member* of a
+-- club (not just owner/admin like notify_club_join_request(), and not
+-- a single recipient like notify_club_post_like()/_comment()):
+-- 'club_post_new' (a new post from someone else) and 'club_post_pinned'
+-- (a post just got pinned). Both reuse the existing 'club'
+-- notification_settings category -- see internal.notification_enabled()
+-- above, unchanged by this task.
+
+-- Per-club mute -- mirrors public.conversation_mutes exactly (plain RLS
+-- insert/delete, no RPC needed, no side effects to sequence atomically).
+-- Deliberately scoped to ONLY the 2 new types below, not the existing
+-- club_post_like/club_post_comment/mention_club_post/club_join_* types
+-- -- those are about the muter's own content (someone liked/commented/
+-- mentioned *their* post, or a join request needs *their* approval),
+-- which stays useful even after muting a club's general activity. See
+-- the Design doc's own reasoning for this scope decision.
+create table if not exists public.club_notification_mutes (
+  club_id uuid not null references public.clubs (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (club_id, user_id)
+);
+
+alter table public.club_notification_mutes enable row level security;
+
+create policy "Users can view clubs they muted"
+  on public.club_notification_mutes
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can mute a club as themselves"
+  on public.club_notification_mutes
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can unmute a club as themselves"
+  on public.club_notification_mutes
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- Fan-out to every approved member except the post's own author, gated
+-- by (a) the recipient's 'club' preference (b) not muted this specific
+-- club (c) a per-(recipient, club) throttle: skip if this recipient
+-- already got a club_post_new notification for this exact club within
+-- the last 3 hours (Design doc's chosen window -- no cron/digest infra
+-- exists anywhere in this project to build a real batched digest, see
+-- the 'trending' category's own comment above, so this in-trigger
+-- time-window check is the whole throttle mechanism, not a placeholder
+-- for one). A Poll Club Post (WYN-115) is an ordinary club_posts row --
+-- no special-casing needed here, it notifies exactly like any other post.
+create or replace function public.notify_club_post_new()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
+  select cm.user_id, new.author_id, 'club_post_new', new.id, new.club_id
+  from public.club_members cm
+  where cm.club_id = new.club_id
+    and cm.status = 'approved'
+    and cm.user_id <> new.author_id
+    and internal.notification_enabled(cm.user_id, 'club')
+    and not exists (
+      select 1 from public.club_notification_mutes cnm
+      where cnm.club_id = new.club_id and cnm.user_id = cm.user_id
+    )
+    and not exists (
+      select 1 from public.notifications n
+      where n.recipient_id = cm.user_id
+        and n.club_id = new.club_id
+        and n.type = 'club_post_new'
+        and n.created_at > now() - interval '3 hours'
+    );
+  return new;
+end;
+$$;
+
+create trigger club_posts_notify_new
+  after insert on public.club_posts
+  for each row execute function public.notify_club_post_new();
+
+-- Fan-out to every approved member except whoever pinned it
+-- (auth.uid()) -- deliberately NOT excluding the post's own author
+-- (unlike notify_club_post_new() above): an author whose own post gets
+-- pinned by staff should still be told, same as they'd want to know
+-- about a like/comment on their own content. Never throttled --
+-- Product's own Acceptance Criteria requires every real pin to notify.
+create or replace function public.notify_club_post_pinned()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
+  select cm.user_id, auth.uid(), 'club_post_pinned', new.id, new.club_id
+  from public.club_members cm
+  where cm.club_id = new.club_id
+    and cm.status = 'approved'
+    and cm.user_id <> auth.uid()
+    and internal.notification_enabled(cm.user_id, 'club')
+    and not exists (
+      select 1 from public.club_notification_mutes cnm
+      where cnm.club_id = new.club_id and cnm.user_id = cm.user_id
+    );
+  return new;
+end;
+$$;
+
+create trigger club_posts_notify_pinned
+  after update on public.club_posts
+  for each row
+  when (old.pinned = false and new.pinned = true)
+  execute function public.notify_club_post_pinned();

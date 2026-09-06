@@ -16,7 +16,7 @@ import '../../features/profile/presentation/view_profile_screen.dart';
 import '../../features/saved/data/saved_repository.dart';
 
 /// Opens the screen a shared web link points at, the first time the app
-/// loads on that URL -- WYN-114 (`dropShareLink`/`popShareLink`/
+/// loads on that URL -- WYN-119 (`dropShareLink`/`popShareLink`/
 /// `clubShareLink`/`clubPostShareLink`/`profileShareLink` in their
 /// respective screens all produce a URL like this; before this class
 /// existed the app ignored the path entirely and every one of those
@@ -26,7 +26,7 @@ import '../../features/saved/data/saved_repository.dart';
 /// meaningless on native -- no custom URL scheme is registered for these
 /// paths there (iOS Associated Domains / Android App Links is separate
 /// platform config a Dart-only change can't add, tracked as follow-up
-/// work in WYN-114's own task file, not attempted here).
+/// work in WYN-119's own task file, not attempted here).
 ///
 /// Fires at most once per app load. Call [handleInitialLink] from
 /// `RootShell.initState` the same way `PushNotificationService.initialize()`

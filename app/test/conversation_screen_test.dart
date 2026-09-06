@@ -72,6 +72,43 @@ void main() {
     expect(find.textContaining('เริ่มบทสนทนากับ'), findsOneWidget);
   });
 
+  testWidgets(
+      'WYN-122: chat lockdown shows the closed-for-maintenance message '
+      'instead of the message list or composer, and never fetches messages',
+      (tester) async {
+    chatRepo.isChatAllowedResult = false;
+    chatRepo.messagesByConversation = {
+      'c1': [message(text: 'ข้อความเก่าที่ไม่ควรเห็น')],
+    };
+
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    expect(find.text('ระบบแชทปิดปรับปรุงชั่วคราว'), findsOneWidget);
+    expect(find.text('ข้อความเก่าที่ไม่ควรเห็น'), findsNothing);
+    expect(find.textContaining('เริ่มบทสนทนากับ'), findsNothing);
+    // Composer's TextField must be gone too, not just the message list.
+    expect(find.byType(TextField), findsNothing);
+    expect(chatRepo.isChatAllowedCalls, ['other']);
+    expect(chatRepo.markConversationReadCalls, 0);
+  });
+
+  testWidgets(
+      'WYN-122 regression: chat allowed (the common case) still loads '
+      'messages exactly as before', (tester) async {
+    chatRepo.isChatAllowedResult = true;
+    chatRepo.messagesByConversation = {
+      'c1': [message(text: 'สวัสดีจ้า')],
+    };
+
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    expect(find.text('สวัสดีจ้า'), findsOneWidget);
+    expect(find.text('ระบบแชทปิดปรับปรุงชั่วคราว'), findsNothing);
+    expect(chatRepo.markConversationReadCalls, 1);
+  });
+
   testWidgets('loads and shows existing messages, and marks the conversation read',
       (tester) async {
     chatRepo.messagesByConversation = {

@@ -10,7 +10,7 @@ import 'support/recording_chat_repository.dart';
 import 'support/recording_follow_repository.dart';
 import 'support/recording_profile_repository.dart';
 
-/// WYN-115: `showShareSheet`'s pre-existing 3 options (แชร์เข้า Chat /
+/// WYN-123: `showShareSheet`'s pre-existing 3 options (แชร์เข้า Chat /
 /// แชร์ผ่านระบบมือถือ / คัดลอกลิงก์, WYN-033) must stay unchanged for
 /// Drop/Profile -- the new "เชิญจากผู้ติดตาม" row only shows for Club,
 /// and only once its two new optional params are actually supplied.

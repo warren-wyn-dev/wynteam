@@ -1,4 +1,8 @@
-# Product Task — WYN-115
+# Product Task — WYN-123
+
+## Note — Renamed from WYN-115 (2026-09-06, merge time)
+
+ตอนทำงานนี้ทั้งหมด (Product → Design → Coding → QA) ใช้เลข `WYN-115` มาตลอด ระหว่าง merge เข้า `main` ก่อน deploy พบว่ามีอีก session ใช้ `WYN-115` ไปแล้วสำหรับฟีเจอร์คนละเรื่อง (`WYN-115-club-poll`, merge เข้า main ไปแล้วก่อนหน้านี้) — ID collision class เดียวกับที่เจอมาแล้วหลายครั้ง (`WYN-078`, `WYN-114`) เปลี่ยนเป็น `WYN-123` (เลขถัดจากที่ใช้ล่าสุดบน `main` ตอน merge คือ 122) เนื้อหางาน/โค้ด/การตัดสินใจทั้งหมดข้างล่างนี้เหมือนเดิมทุกประการ เปลี่ยนแค่เลข ID
 
 Status: PASS — QA เสร็จสมบูรณ์ 2026-09-06 (`flutter analyze` 0 issues, `flutter test` 1259/1259 ผ่านจริงบน GitHub Actions CI) ดู "QA & Security Report" ท้ายไฟล์นี้ รอ AI Deploy & DevOps
 Owner: AI Product Manager
@@ -75,14 +79,14 @@ Build: ไม่ได้รัน (ต้องมี Flutter SDK) — ไม�
 
 Known Issues:
 - ไม่กรอง follower/following ที่เป็นสมาชิกคลับอยู่แล้วออกจาก list (ตั้งใจ ตามที่ design spec ระบุไว้แล้วว่าเป็น scope decision ไม่ใช่บั๊ก)
-- Deep link ที่ส่งไปทาง chat message (ผ่าน `sharedContentType: club`) แสดงผลเป็น shared-content card ใน `ConversationScreen` อยู่แล้ว (ของเดิมจาก WYN-033) การกดเข้าไปดู Club จริงจาก card นั้นไม่เกี่ยวกับ deep-link ผ่าน URL เลย (คนละ code path จาก WYN-114) จึงไม่มี dependency ที่บล็อกการ merge อันนี้จริงๆ กับ WYN-114 อย่างที่ระบุไว้ใน Dependencies เดิม — **แก้ไขความเข้าใจ**: ถ้าเชิญผ่าน "เชิญจากผู้ติดตาม" นี้ ผู้รับเห็น shared-content card ใน chat แล้วกดเข้า Club ได้โดยตรงในแอปเลย ไม่ต้องพึ่ง URL/WYN-114 เลย (WYN-114 เกี่ยวกับ 3 ตัวเลือกเดิม "แชร์ผ่านระบบมือถือ"/"คัดลอกลิงก์" เท่านั้นที่ผลิต URL จริงออกไปนอกแอป)
+- Deep link ที่ส่งไปทาง chat message (ผ่าน `sharedContentType: club`) แสดงผลเป็น shared-content card ใน `ConversationScreen` อยู่แล้ว (ของเดิมจาก WYN-033) การกดเข้าไปดู Club จริงจาก card นั้นไม่เกี่ยวกับ deep-link ผ่าน URL เลย (คนละ code path จาก WYN-114) จึงไม่มี dependency ที่บล็อกการ merge อันนี้จริงๆ กับ WYN-114 อย่างที่ระบุไว้ใน Dependencies เดิม — **แก้ไขความเข้าใจ**: ถ้าเชิญผ่าน "เชิญจากผู้ติดตาม" นี้ ผู้รับเห็น shared-content card ใน chat แล้วกดเข้า Club ได้โดยตรงในแอปเลย ไม่ต้องพึ่ง URL เลย (URL/deep-link เกี่ยวกับ 3 ตัวเลือกเดิม "แชร์ผ่านระบบมือถือ"/"คัดลอกลิงก์" เท่านั้นที่ผลิต URL จริงออกไปนอกแอป) — **หมายเหตุเพิ่ม ณ ตอน merge**: พบว่า `WYN-114` ที่แท้จริง (คนละ session, deploy แล้วก่อนหน้า) แก้แค่โดเมนให้ URL เปิดเว็บได้ ไม่ได้ทำ routing พาไปหน้าที่ถูกต้อง — งาน routing จริง (ที่ Dependencies เดิมข้างบนหมายถึง) ต่อมาถูกจัดเก็บเป็น `WYN-119` (ยัง partial ณ ตอน merge นี้ — ดูรายละเอียดที่ `.wyn/tasks/active/WYN-119-club-deep-linking.md`)
 - Regression test ไม่ได้ cover เคส "โหลดหน้าถัดไป" (infinite scroll) แบบ end-to-end เพราะต้องจำลอง scroll ผ่าน viewport จริงซึ่งซับซ้อนเกินสัดส่วนสำหรับ merge-pagination logic ที่ unit-test ได้ยากกว่า UI — ครอบคลุมแค่ merge/dedupe ของหน้าแรกเท่านั้น (เนื้อหาหลักของ requirement นี้) แนะนำ QA ทดสอบ manual/เพิ่ม test ถ้าเห็นว่าจำเป็น
 
 Handoff: ส่งต่อ AI QA & Security — เน้นตรวจ (1) `flutter analyze`/`flutter test` ผ่านจริงทั้ง suite ไม่ใช่แค่ 2 ไฟล์ใหม่ (2) merge/dedupe logic ถูกต้องจริงกับข้อมูลจริง/กึ่งจริง (ไม่ใช่แค่ mock เล็กๆ ใน unit test) (3) 3 ตัวเลือกเดิมของ share sheet (Drop/Profile/Club) ยังทำงานปกติไม่มี regression (4) ปุ่มเชิญกด "ต่อเนื่องหลายคน" ได้จริงในเครื่องจริงไม่มี state รั่วข้ามแถว
 
 ## QA & Security Report (2026-09-06)
 
-Feature: WYN-115 — Invite Followers to Club (`showShareSheet`'s new "เชิญจากผู้ติดตาม" option + `InviteToClubScreen`)
+Feature: WYN-123 — Invite Followers to Club (`showShareSheet`'s new "เชิญจากผู้ติดตาม" option + `InviteToClubScreen`)
 
 Environment: sandbox session ไม่มี Flutter SDK ติดตั้งเลย — **แก้ปัญหาด้วยการ trigger `.github/workflows/ci.yml` จริงผ่าน GitHub Actions API (`workflow_dispatch`) บน branch `claude/consultation-8azkvp`** แทนการรันในเครื่อง เพื่อให้ได้ผลทดสอบจริงจาก Flutter 3.47.1 (เวอร์ชันเดียวกับที่ `deploy-web.yml` ใช้ build production) ไม่ใช่แค่ตรวจโค้ดด้วยสายตา — รันทั้งหมด 3 รอบ:
 

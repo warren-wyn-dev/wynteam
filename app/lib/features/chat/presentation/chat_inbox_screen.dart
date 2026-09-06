@@ -65,6 +65,11 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
   RealtimeChannel? _channel;
   int _pendingRequestCount = 0;
 
+  /// WYN-122: true once this user has been confirmed as not allowed to
+  /// use chat at all right now (chat lockdown). Checked once, before
+  /// anything else -- takes priority over every other state below.
+  bool _isLocked = false;
+
   // 12-chat.tsx's "ทั้งหมด" (0) / "ยังไม่อ่าน" (1) tabs -- filters the
   // already-loaded [_conversations] list client-side, same "one shared
   // list, tab just filters it" pattern notification_list_screen.dart's
@@ -85,9 +90,37 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
+    _init();
+  }
+
+  /// WYN-122: the lockdown check runs first and gates everything else
+  /// in this screen -- a locked-out user never fetches the real inbox,
+  /// the pending-request count, or subscribes to realtime at all (Design
+  /// doc: "state Locked มีลำดับความสำคัญสูงสุด"). A failure checking
+  /// lockdown status itself fails *open* (proceeds as if allowed) --
+  /// the real enforcement is server-side RLS regardless of what this
+  /// check says, so a wrong answer here is a UX inconsistency at worst,
+  /// never a security gap; failing closed instead would risk locking
+  /// @warren/@wynos_online themselves out of chat on a transient error.
+  Future<void> _init() async {
+    bool allowed;
+    try {
+      allowed = await widget.chatRepository.isChatAllowed();
+    } catch (_) {
+      allowed = true;
+    }
+    if (!mounted) return;
+    if (!allowed) {
+      setState(() {
+        _isLocked = true;
+        _isLoadingInitial = false;
+      });
+      return;
+    }
+
     _loadInitial();
     _loadPendingRequestCount();
-    _scrollController.addListener(_onScroll);
     // Any new message across any of this user's conversations can
     // change this list's ordering/preview/unread state -- simplest
     // correct reaction is a full reload rather than trying to patch one
@@ -273,13 +306,21 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
           child: Divider(height: 1, color: WynColors.hairline),
         ),
       ),
-      body: Column(
-        children: [
-          if (_pendingRequestCount > 0) _buildRequestsBanner(),
-          _buildTabs(),
-          Expanded(child: _buildBody()),
-        ],
-      ),
+      body: _isLocked
+          ? const Center(
+              child: EmptyStateBlock(
+                icon: Icons.lock_clock_outlined,
+                title: 'ระบบแชทปิดปรับปรุงชั่วคราว',
+                subtitle: 'จะเปิดให้ใช้งานได้เร็ว ๆ นี้',
+              ),
+            )
+          : Column(
+              children: [
+                if (_pendingRequestCount > 0) _buildRequestsBanner(),
+                _buildTabs(),
+                Expanded(child: _buildBody()),
+              ],
+            ),
     );
   }
 

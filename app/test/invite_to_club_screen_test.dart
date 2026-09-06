@@ -10,10 +10,10 @@ import 'support/fake_supabase_session.dart';
 import 'support/recording_chat_repository.dart';
 import 'support/recording_follow_repository.dart';
 
-/// WYN-115: `InviteToClubScreen` lets a club member invite people from
+/// WYN-123: `InviteToClubScreen` lets a club member invite people from
 /// their own Followers *and* Following, merged and de-duplicated
 /// (Founder decision, 2026-09-06 -- see
-/// .wyn/tasks/active/WYN-115-invite-followers-to-club.md), sending each
+/// .wyn/tasks/active/WYN-123-invite-followers-to-club.md), sending each
 /// invite through the existing WYN-033 share-to-chat mechanism.
 void main() {
   late RecordingFollowRepository followRepository;

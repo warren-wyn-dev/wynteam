@@ -20,7 +20,7 @@ import 'share_to_chat_screen.dart';
 /// Profile's entry points rather than duplicated 3 times -- see
 /// .wyn/docs/design/wyn-033-share-to-chat.md, Screen 1.
 ///
-/// WYN-115: a 4th, topmost item -- "เชิญจากผู้ติดตาม" -- appears only
+/// WYN-123: a 4th, topmost item -- "เชิญจากผู้ติดตาม" -- appears only
 /// when [sharedContentType] is [SharedContentType.club] and both
 /// [followRepository] and [clubName] are supplied (Club's own call site
 /// is the only one that passes them; Drop/Profile's sheets are

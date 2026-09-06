@@ -24,11 +24,17 @@ import '../../report/presentation/report_sheet.dart';
 import '../../../core/widgets/network_thumbnail.dart';
 import 'widgets/club_avatar.dart';
 
-/// Placeholder share link -- same "no real hosting/domain yet" caveat as
-/// dropShareLink/popShareLink (WYN-005/006).
+/// WYN-114 (Tier 1, done + deployed 2026-09-06): real wynos.online
+/// domain + a Vercel SPA rewrite so this path no longer 404s at the
+/// hosting layer -- see .wyn/tasks/completed/WYN-114-share-link-real-domain.md.
+/// WYN-119 (Tier 2, partial): DeepLinkService (app/lib/core/navigation/)
+/// now opens this destination directly, but only once RootShell has
+/// already mounted -- a guest who has never signed in still lands on
+/// Welcome first, not this content. WYN-119's own guest-preview
+/// requirement is not met yet; see that task's Known Follow-up.
 String clubShareLink(String clubId) => 'https://wynos.online/club/$clubId';
 
-typedef _ClubPageData = ({Club club, ClubMember? membership});
+typedef _ClubPageData = ({Club club, ClubMember? membership, bool isMuted});
 
 /// Screen 3-4 — Club Page (header + Posts/Members/About tabs).
 /// See .wyn/docs/design/wyn-014-club-core.md, Screens 3-4.
@@ -89,7 +95,14 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     final club = await widget.clubRepository.fetchClub(widget.clubId);
     if (club == null) throw StateError('Club not found');
     final membership = await widget.clubRepository.fetchMyMembership(widget.clubId);
-    return (club: club, membership: membership);
+    // WYN-116: mute status only matters for an approved member (the More
+    // menu's mute row only ever shows for one) -- skip the extra query
+    // otherwise rather than asking about a mute that couldn't exist yet
+    // (RLS would just return no row anyway, but there's no reason to ask).
+    final isMuted = membership?.status == ClubMemberStatus.approved
+        ? await widget.clubRepository.isClubMuted(widget.clubId)
+        : false;
+    return (club: club, membership: membership, isMuted: isMuted);
   }
 
   // Block body, not `() => _loadFuture = _load()` -- see
@@ -238,7 +251,28 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     );
   }
 
-  Future<void> _openMoreMenu(Club club, ClubMember? membership) async {
+  // WYN-116: toggles club_notification_mutes for the current user/Club --
+  // scoped to just club_post_new/club_post_pinned, see ClubRepository's
+  // own doc comment. Simple reload-after-write (no optimistic flip):
+  // this is a "..." menu action, not a feed toggle a user taps rapidly
+  // and expects instant visual feedback from.
+  Future<void> _toggleMute(String clubId, bool currentlyMuted) async {
+    try {
+      if (currentlyMuted) {
+        await widget.clubRepository.unmuteClubNotifications(clubId);
+      } else {
+        await widget.clubRepository.muteClubNotifications(clubId);
+      }
+      _reload();
+    } catch (_) {
+      if (!mounted) return;
+      _showMessage(currentlyMuted
+          ? 'เปิดการแจ้งเตือนไม่สำเร็จ ลองใหม่อีกครั้ง'
+          : 'ปิดการแจ้งเตือนไม่สำเร็จ ลองใหม่อีกครั้ง');
+    }
+  }
+
+  Future<void> _openMoreMenu(Club club, ClubMember? membership, bool isMuted) async {
     final role = membership?.status == ClubMemberStatus.approved ? membership!.role : null;
     final isApproved = membership?.status == ClubMemberStatus.approved;
     final isPending = membership?.status == ClubMemberStatus.pending;
@@ -246,6 +280,19 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     await showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) => ActionSheetBody(rows: [
+        // WYN-116: available to every approved member regardless of
+        // role (unlike the role-gated rows below) -- always first when
+        // shown, since it's the one row every approved member can act
+        // on the same way.
+        if (isApproved)
+          ActionSheetRow(
+            icon: isMuted ? Icons.notifications_outlined : Icons.notifications_off_outlined,
+            label: isMuted ? 'เปิดการแจ้งเตือน Club นี้' : 'ปิดการแจ้งเตือน Club นี้',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _toggleMute(club.id, isMuted);
+            },
+          ),
         if (role != null && role.canManageClub) ...[
           ActionSheetRow(
             icon: Icons.edit_outlined,
@@ -367,7 +414,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _buildBanner(data.club),
-                        _buildHeader(data.club, data.membership),
+                        _buildHeader(data.club, data.membership, data.isMuted),
                       ],
                     ),
                     _buildBackButton(),
@@ -588,7 +635,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildHeader(Club club, ClubMember? membership) {
+  Widget _buildHeader(Club club, ClubMember? membership, bool isMuted) {
     final status = membership?.status;
 
     return Padding(
@@ -626,7 +673,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               _buildCircleIconButton(
                 icon: Icons.more_vert,
                 tooltip: 'เพิ่มเติม',
-                onPressed: () => _openMoreMenu(club, membership),
+                onPressed: () => _openMoreMenu(club, membership, isMuted),
               ),
             ],
           ),

@@ -103,6 +103,92 @@ void main() {
     ]);
   });
 
+  group('Poll composer (WYN-115)', () {
+    testWidgets(
+        'switching to poll mode hides "แนบรูป" and shows the poll option '
+        'fields instead', (tester) async {
+      await tester.pumpWidget(buildScreen());
+
+      expect(find.widgetWithText(OutlinedButton, 'แนบรูป'), findsOneWidget);
+      expect(find.text('ตัวเลือกที่ 1'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('club_post_poll_mode_button')));
+      await tester.pump();
+
+      expect(find.widgetWithText(OutlinedButton, 'แนบรูป'), findsNothing);
+      expect(find.text('ตัวเลือกที่ 1'), findsOneWidget);
+      expect(find.text('ตัวเลือกที่ 2'), findsOneWidget);
+    });
+
+    testWidgets(
+        '"โพสต์" stays disabled in poll mode until the question and both '
+        'options are filled in', (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.tap(find.byKey(const Key('club_post_poll_mode_button')));
+      await tester.pump();
+
+      expect(tester.widget<TextButton>(find.widgetWithText(TextButton, 'โพสต์')).onPressed,
+          isNull);
+
+      await tester.enterText(find.byType(TextField).first, 'อาหารเที่ยงนี้กินอะไรดี?');
+      await tester.enterText(find.widgetWithText(TextField, 'ตัวเลือกที่ 1'), 'ข้าวมันไก่');
+      await tester.pump();
+
+      // Second option still empty -- still disabled.
+      expect(tester.widget<TextButton>(find.widgetWithText(TextButton, 'โพสต์')).onPressed,
+          isNull);
+
+      await tester.enterText(find.widgetWithText(TextField, 'ตัวเลือกที่ 2'), 'ส้มตำ');
+      await tester.pump();
+
+      expect(tester.widget<TextButton>(find.widgetWithText(TextButton, 'โพสต์')).onPressed,
+          isNotNull);
+    });
+
+    testWidgets(
+        'posting in poll mode calls createPollClubPost with the question, '
+        'trimmed options, and selected duration', (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.tap(find.byKey(const Key('club_post_poll_mode_button')));
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextField).first, 'อาหารเที่ยงนี้กินอะไรดี?');
+      await tester.enterText(find.widgetWithText(TextField, 'ตัวเลือกที่ 1'), 'ข้าวมันไก่ ');
+      await tester.enterText(find.widgetWithText(TextField, 'ตัวเลือกที่ 2'), ' ส้มตำ');
+      await tester.pump();
+
+      await tester.tap(find.text('3 วัน'));
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(TextButton, 'โพสต์'));
+      await tester.pumpAndSettle();
+
+      expect(clubPostRepo.createPostCalls, 0);
+      expect(clubPostRepo.createPollClubPostArgs, [
+        {
+          'clubId': 'club-1',
+          'question': 'อาหารเที่ยงนี้กินอะไรดี?',
+          'options': ['ข้าวมันไก่', 'ส้มตำ'],
+          'durationDays': 3,
+          'mentionedUserIds': <String>{},
+        },
+      ]);
+    });
+
+    testWidgets('"+ เพิ่มตัวเลือก" adds a 3rd option field with a remove button',
+        (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.tap(find.byKey(const Key('club_post_poll_mode_button')));
+      await tester.pump();
+
+      await tester.tap(find.text('เพิ่มตัวเลือก'));
+      await tester.pump();
+
+      expect(find.text('ตัวเลือกที่ 3'), findsOneWidget);
+      expect(find.byKey(const Key('remove_club_poll_option_2')), findsOneWidget);
+    });
+  });
+
   group('Image limit (WYN-103)', () {
     testWidgets(
         'the limit is 9, not 10 -- "แนบรูป" stays tappable at 9/9 and '

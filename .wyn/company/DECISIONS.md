@@ -969,6 +969,223 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 
 อ้างอิง: `.wyn/docs/product/wynos-gtm-roadmap.md`, `.wyn/tasks/active/WYN-112-activation-funnel-investigation.md`, `.wyn/tasks/backlog/WYN-078-invite-only-access-gate.md`
 
+## [2026-09-06] WYN-112: ผล Admin Dashboard จริง — sample เล็กเกินฟันธง แต่เจอ 2 gap ที่ชัดเจนพอสรุปได้แล้ว
+
+**บริบท**: Founder เปิด WYN Admin Dashboard ส่วน "การเติบโตและ Retention" ส่งภาพหน้าจอมาตามที่ WYN-112 ขอไว้ ตัวเลขที่เห็น: สมัครใหม่ 24 ชม.ล่าสุด = 0, สมัครสำเร็จ = 1 คน (อัตรา 0%), Activation = 0 คน, D1 Retention = 0%, D7 Retention = 0%, ช่องทางยอดนิยม 7 วันล่าสุด = "ยังไม่มีข้อมูลช่องทาง"
+
+**การวิเคราะห์**: ฐานข้อมูลเล็กเกินกว่าจะฟันธงเปอร์เซ็นต์ทางสถิติได้จริงตามที่ Risk ของ WYN-112 เตือนไว้ล่วงหน้าแล้ว (สมัครสำเร็จแค่ 1 คนในช่วงที่วัด) — **ไม่สรุปเกินข้อมูลที่มี** แต่พบ 2 ข้อเท็จจริงที่ไม่ขึ้นกับ sample size เลย:
+1. **ไม่เคยติด UTM parameter ในลิงก์ที่แชร์เลยสักครั้ง** — ต่อให้มีคนสมัครเพิ่มอีกกี่ร้อยคนก็ยังตอบไม่ได้ว่าช่องทางไหนได้ผล จนกว่าจะเริ่มติด UTM ตั้งแต่ลิงก์รอบต่อไป
+2. **signup หยุดไหลเข้าสนิทใน 24 ชม.ล่าสุด** — คำถามเร่งด่วนกว่าเรื่อง onboarding ในแอปตอนนี้คือ "หยุดแชร์ลิงก์ไปหรือยัง" เพราะถ้าไม่มีคนเข้าใหม่จะไม่มีทาง sample เพิ่มพอให้วิเคราะห์ได้อีกเลย
+
+ตัวเลข Activation/Retention 0% ของคนกลุ่มเดียว **สอดคล้องทิศทางเดิมที่ Founder รายงาน** (เงียบสนิทไม่ทำ action) แต่ n=1 ยืนยันทางสถิติไม่ได้ เป็นแค่สัญญาณที่ไม่ขัดแย้งกับสมมติฐานเดิมเท่านั้น
+
+**คำแนะนำ**: ก่อนตัดสินใจลงทุนแก้ onboarding ในแอป (ยังไม่มีข้อมูลพอยืนยันว่าคือจุดที่ควรแก้จริง) แนะนำ Founder ทำ 2 อย่างพร้อมกันในรอบแชร์ถัดไป: (1) ติด UTM parameter ทุกลิงก์ที่แชร์ (2) แชร์เจาะจง 1-2 ชุมชน niche ตามที่ `wynos-gtm-roadmap.md` Phase 1 แนะนำไว้เดิม เพื่อให้ได้ sample ใหม่มากพอ (~20-50 signup) ก่อนกลับมาวิเคราะห์ funnel รอบต่อไป — ยังไม่ได้ตัดสินใจเรื่อง Guided Onboarding/Cold-start Feed Seeding (2 แนวทางที่เสนอไว้ก่อนหน้า) จนกว่าจะมีข้อมูลใหม่ที่ฟันธงได้จริง
+
+**สถานะ**: WYN-112 ยังคง active — บล็อกที่ Founder action (แชร์ลิงก์รอบใหม่พร้อม UTM) ไม่ใช่งานที่ AI role ใดทำแทนได้
+
+อ้างอิง: `.wyn/tasks/active/WYN-112-activation-funnel-investigation.md`, `.wyn/docs/product/wynos-gtm-roadmap.md`
+
+## [2026-09-06] WYN-113: Founder เลือกทำ OG/Twitter Card meta tags ก่อน จากการวิเคราะห์แอปทั้งระบบ
+
+**บริบท**: Founder ขอให้วิเคราะห์แอป WYNOS ทั้งระบบว่าควรเพิ่ม/แก้ฟีเจอร์หรือ UX/UI อะไรบ้าง — อ่านเอกสาร QA ที่มีอยู่แล้ว (`wynos-v1.0.0-beta3-{ux-audit,security-audit,future-ideas,final-readiness}.md`) และ git log ล่าสุดก่อน พบว่าฟีเจอร์หลักครบแล้ว งานส่วนใหญ่ในบรีฟ Beta3 ถูกปิดไปแล้วจริงผ่านงานตามหลัง (WYN-106 ถึง WYN-111 ปิดเมื่อเช้าวันนี้เอง) — สิ่งที่เหลือค้างคือรายการ `future-ideas.md` (A-1 ถึง A-7, B-1 ถึง B-5) ที่ยังไม่มีใครสั่งทำ
+
+**พบเพิ่มเอง (ไม่มีในเอกสารเดิม)**: ตรวจ `app/web/index.html` แล้วพบว่าไม่มี Open Graph/Twitter Card meta tag เลย — เชื่อมโยงตรงกับปัญหา activation ที่กำลังสืบอยู่ใน WYN-112 (ลิงก์ที่แชร์ไม่มี preview card อาจเป็นส่วนหนึ่งที่ทำให้อัตราคนคลิกลิงก์ต่ำ)
+
+**เสนอ 4 ตัวเลือกให้ Founder ผ่าน popup**: (1) OG/Twitter Card meta tags, (2) แก้ share link ให้ชี้โดเมนจริง (ค้างจาก security audit A-7), (3) Crash reporter/error monitoring (ค้างจาก A-6), (4) ยังไม่ทำอะไรเพิ่ม รอผล WYN-112 ก่อน — **Founder เลือกข้อ 1**
+
+**ผลลัพธ์**: สร้าง `WYN-113` (`.wyn/tasks/backlog/WYN-113-og-share-preview-cards.md`) เต็มรูปแบบ ส่งต่อ AI Design แล้ว — งานอื่นอีก 3 ตัวเลือกยังไม่ได้ทำ เก็บไว้เป็นตัวเลือกถัดไปถ้า Founder ต้องการ
+
+อ้างอิง: `.wyn/tasks/backlog/WYN-113-og-share-preview-cards.md`, `.wyn/docs/qa/wynos-v1.0.0-beta3-future-ideas.md`, `.wyn/docs/qa/wynos-v1.0.0-beta3-security-audit.md`
+
+## [2026-09-06] WYN-113: AI Design ส่งมอคอัพ Share Preview ให้ Founder ดูก่อนเขียนโค้ด
+
+**บริบท**: ต่อจาก Product spec ของ WYN-113 (OG/Twitter Card meta tags) — AI Design ทำมอคอัพจริงเป็น Artifact (ไม่ใช่แค่คำอธิบาย) ตามกติกา Founder 2026-09-03 ("ต้องเห็นรูปก่อนเขียนโค้ดทุกครั้ง") ก่อนส่งต่อ AI Coding
+
+**สิ่งที่ทำ**: เสนอ 2 ตัวเลือกโทนสีสำหรับรูป preview 1200×630 — ใช้เฉพาะ 5 token จริงจาก `wyn_colors.dart` (ink/paper/sapphire/graphite/hairline) ไม่มีสีใหม่ ไม่มีฟอนต์แบรนด์ใหม่ (คงฟอนต์ระบบตามที่ยืนยันไว้แล้วสำหรับแอป 2026-09-03/WYN-107):
+- **A — Paper**: พื้นขาวเหมือนแอปทุกหน้าจอ
+- **B — Ink (แนะนำโดย AI Design)**: พื้นเข้ม สะดุดตากว่าในฟีดที่ส่วนใหญ่เป็นการ์ดขาว
+
+พร้อมเสนอ copy ภาษาไทยแทนข้อความอังกฤษเทคนิคเดิม: `og:title` "WYNOS — สร้างชุมชนของคุณเอง", `og:description` "แชร์ Drop โพสต์ Pop คลิปสั้น ตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว"
+
+**สถานะ**: ส่ง Artifact ให้ Founder ดูแล้ว **ยังไม่ส่งต่อ AI Coding** — รอ Founder เลือกโทนสี + อนุมัติ/แก้ข้อความก่อน
+
+อ้างอิง: `.wyn/docs/design/wyn-113-og-share-preview-cards.md`, `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, Artifact https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e
+
+## [2026-09-06] WYN-113: Founder เลือกโทนสี A + แก้ copy — ตัด Pop ออก เพราะซ่อนจากผู้ใช้แล้ว (WYN-102)
+
+**บริบท**: หลัง AI Design เสนอ 2 ตัวเลือกสีสำหรับ share preview card (A-Paper / B-Ink แนะนำ) Founder เลือก **A (Paper)** — ตรงข้ามกับที่ AI Design แนะนำ — และแก้ copy `og:description` เอง 2 จุด: (1) ตัด "Pop คลิปสั้น" ออกทั้งหมด (2) เปลี่ยน "Drop" เป็น "โพสต์รูป"
+
+**ทำไมสำคัญ**: การตัด Pop ออกจาก copy **ตรงกับมติเดิมของโปรเจกต์เป๊ะ** — WYN-102 (2026-09-02) ซ่อน Pop จากทุกจุดที่ผู้ใช้เข้าถึงได้ในแอปแล้ว (Search/Home feed/Trending/Top100/Saved/notification) โดยไม่ลบโค้ด — การโฆษณาฟีเจอร์ที่คนหาไม่เจอจริงในแอปจะสร้างความสับสน/ผิดหวังให้คนที่คลิกลิงก์เข้ามา Founder จับจุดนี้ได้แม่นแม้ AI Design จะลืมเช็คย้อนกับ WYN-102 ตอนร่าง copy ครั้งแรก — เป็นบทเรียนสำหรับงานหน้า: **ก่อนเขียน marketing copy ที่พูดถึงฟีเจอร์ ต้องเช็คด้วยว่าฟีเจอร์นั้นเปิดให้ผู้ใช้เห็นจริงในปัจจุบันหรือไม่**
+
+**ข้อความสุดท้าย**: `og:title` "WYNOS — สร้างชุมชนของคุณเอง", `og:description` "โพสต์รูป แชร์เรื่องราว และตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว" — อัปเดต mockup ให้ตรงแล้ว
+
+**สถานะ**: พร้อมส่งต่อ AI Coding แล้ว
+
+อ้างอิง: `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, `.wyn/docs/design/wyn-113-og-share-preview-cards.md`, Artifact https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e
+
+## [2026-09-06] WYN-113: Implement เสร็จ — ส่งต่อ AI QA & Security
+
+**บริบท**: ต่อจาก Product + Design spec ที่ Founder อนุมัติแล้ว (โทนสี A-Paper, copy ที่ตัด Pop ออก) — AI Coding เพิ่ม 9 meta tags (`og:*`/`twitter:*`) ใน `app/web/index.html` และรูป preview 1200×630 (`app/web/og-image.png`, render จาก HTML จริงด้วย headless Chromium ที่มีอยู่ใน sandbox — ใช้โลโก้จริงและ token สีจริง ไม่มีการเพิ่มสีใหม่) พบและแก้ gotcha เพิ่มเติมระหว่างทาง: `app/web/*` ถูก `.gitignore` ทั้งโฟลเดอร์เป็นค่าเริ่มต้น (ต้องเพิ่ม negation รายไฟล์ตาม pattern เดิมของ index.html/favicon.png — เคยเป็นสาเหตุที่ `firebase-messaging-sw.js` เกือบหายไปมาก่อน) — เพิ่ม `!/web/og-image.png` แล้ว
+
+**ข้อจำกัดที่ระบุไว้ตรงๆ**: sandbox ของ session นี้ไม่มี Flutter SDK ติดตั้ง จึงรัน `flutter analyze`/`flutter build web --release` จริงไม่ได้ — ยืนยันได้แค่ว่า diff จำกัดอยู่ที่ `app/web/`/`app/.gitignore` เท่านั้น (ไม่แตะ Dart code) และ `index.html` ผ่าน HTML well-formedness check ด้วย Python `html.parser` — **AI QA & Security ต้องรัน `flutter build web --release` จริงอย่างน้อย 1 ครั้ง** ก่อน PASS ตามวินัยเดิมของโปรเจกต์ (แยก "ยืนยันเองได้" กับ "ต้องรอคนอื่นยืนยัน" ตาม WORKFLOW.md)
+
+**สถานะ**: Implementation เสร็จ ส่งต่อ AI QA & Security แล้ว — ยังไม่ deploy ไม่แตะ production
+
+อ้างอิง: `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, commit `e2d1e40`
+
+## [2026-09-06] WYN-113: Founder เปลี่ยนจาก A กลับเป็น B (Ink) รอบสุดท้าย
+
+**บริบท**: หลังยืนยัน Option A (Paper) ไปแล้วก่อนหน้านี้ Founder ดู mockup อีกรอบแล้วขอเปลี่ยนเป็น **B (Ink)** — "เอาสีดำดีกว่า จะได้เด่นๆ" ตรงกับเหตุผลที่ AI Design เสนอ B ไว้ตั้งแต่แรก (การ์ดพื้นเข้มสะดุดตากว่าในฟีด Facebook/LINE ที่ส่วนใหญ่เป็นการ์ดขาว)
+
+**ผลกระทบ**: regenerate เฉพาะไฟล์ `app/web/og-image.png` เป็นพื้น ink + โลโก้/wordmark สีขาว — **ไม่แตะ `index.html`** เลย เพราะ meta tag path/ข้อความไม่เปลี่ยน (commit `93d4db0`) — copy (`og:title`/`og:description`) ยังเป็นเวอร์ชันเดิมที่ยืนยันไปแล้วก่อนหน้า
+
+**สถานะสุดท้ายของ WYN-113**: โทนสี **B (Ink)** + copy "โพสต์รูป แชร์เรื่องราว และตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว" — โค้ดพร้อม 100% ส่งต่อ AI QA & Security แล้ว ยังไม่ deploy
+
+อ้างอิง: `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, `.wyn/docs/design/wyn-113-og-share-preview-cards.md`, commit `93d4db0`, Artifact https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e
+
+## [2026-09-06] WYN-113: QA PASS — ตรวจจริงไม่ใช่แค่เชื่อคำอ้าง Coding, ย้ายเข้า approved/
+
+**บริบท**: AI QA & Security ตรวจ WYN-113 (OG/Twitter Card meta tags + og-image.png) อย่างจริงจังก่อนอนุมัติ ไม่เชื่อ Coding Output เฉยๆ:
+- เปิด `index.html` จริงด้วย headless Chromium แล้ว dump DOM ยืนยันว่า browser parse meta tag ทั้ง 9 ตัวถูกต้อง ข้อความไทยไม่ mojibake
+- ตรวจ md5sum เทียบ git blob กับ working tree ยืนยันว่าไฟล์ที่ Founder เห็นในมอคอัพตรงกับไฟล์ที่จะ deploy จริง 100%
+- ยืนยัน `og-image.png` ถูก track ใน git จริง (ไม่โดน `.gitignore` บล็อกอย่างที่เคยเกือบเกิดกับ `firebase-messaging-sw.js`), เป็น PNG 1200×630 ถูกต้อง ไม่มี metadata/secret แปลกปลอม
+- Secret scan ทั้ง diff ไม่พบ credential ใดๆ, scope check ยืนยันไม่แตะ Dart/schema/RLS เลยแม้แต่บรรทัดเดียว
+
+**ข้อจำกัดที่ระบุไว้ตรงๆ (ไม่ใช่ blocker)**: sandbox นี้ไม่มี Flutter SDK เหมือนที่ Coding เจอ — `flutter analyze`/`flutter test` จะรันอัตโนมัติผ่าน `ci.yml` ก็ต่อเมื่อเปิด PR หรือ push เข้า `main` เท่านั้น (ตรวจพบว่า `ci.yml` ไม่รันกับ push ธรรมดาเข้า feature branch) — และการทดสอบ Facebook Sharing Debugger/Twitter Card Validator จริงทำได้แค่หลัง deploy เท่านั้น (URL ต้อง live ก่อน) ทั้งสองข้อบันทึกไว้เป็น "ต้องยืนยันในขั้นถัดไป" ตาม WORKFLOW.md ไม่ใช่เหตุผลให้ FAIL เพราะความเสี่ยงต่ำมาก (static content ล้วน, ตรวจได้ครบทุกจุดที่ทำได้จริงแล้ว)
+
+**ผลลัพธ์**: **PASS** — ย้าย `.wyn/tasks/active/WYN-113-og-share-preview-cards.md` → `.wyn/tasks/approved/`
+
+อ้างอิง: `.wyn/tasks/approved/WYN-113-og-share-preview-cards.md`
+
+## [2026-09-06] WYN-113: Deploy สำเร็จ ยืนยัน production จริงด้วย curl — ปิดงานสมบูรณ์
+
+**บริบท**: PR #267 (WYN-113) เปิดโดย AI Deploy & DevOps — Founder merge เข้า `main` เองผ่าน GitHub UI เร็วกว่าที่ Flutter CI job บน PR จะรันเสร็จด้วยซ้ำ ตรวจย้อนหลังพบว่า CI บน `main` (run #192, หลัง merge) เขียวครบทุก job รวม Flutter จริง จึง trigger `deploy-web.yml` (run #87) ทันที ผล **success**
+
+**Production verification จริง (ไม่ใช่แค่เชื่อ workflow log)**: session นี้มี network egress ถึง `wynos.online` จริง จึง curl ตรวจตรงๆ 2 จุด:
+1. `curl https://wynos.online/` — เห็น meta tag ทั้ง 9 ตัวถูกต้องครบ ข้อความไทยไม่เพี้ยน
+2. `curl https://wynos.online/og-image.png` — **md5sum ตรงกับไฟล์ที่ commit เป๊ะ** (`76b00bbf...`) ยืนยันว่ารูปที่ deploy จริงไม่ใช่ไฟล์เก่า/ไฟล์ผิด
+
+ตรงตามวินัยที่บันทึกไว้ตั้งแต่เหตุการณ์ Vercel 2026-09-02 ("CI เขียว + deploy workflow รายงาน success ไม่เท่ากับ production ใช้งานได้จริง") — รอบนี้ AI ยืนยันได้เองครบทั้งสองขา เพราะเนื้อหาที่ต้องตรวจ (raw meta tag + ไฟล์รูป) ตรวจสอบได้เชิงกลไก 100% ไม่ต้องอาศัยการรับรู้ของมนุษย์เหมือนงาน UI/UX ทั่วไป — task จึงย้ายตรงเข้า `completed/` ได้ทันทีโดยไม่ต้องรอ Founder ทดลองใช้เพิ่ม
+
+**เหลือทำ (ไม่ blocking)**: Founder อาจลองวางลิงก์ใน Facebook Sharing Debugger เองเพื่อดู preview การ์ดด้วยตาจริง
+
+**สถานะ**: WYN-113 **completed** ครบทั้ง Product → Design → Coding → QA → Deploy → Production Verification ไม่มี rollback ต้องทำ ไม่มี migration ค้าง
+
+อ้างอิง: `.wyn/tasks/completed/WYN-113-og-share-preview-cards.md`, `.wyn/logs/deployments/2026-09-06-wyn-113-og-share-preview-deploy.md`, PR #267, deploy-web.yml run #87
+
+## [2026-09-06] WYN-114: แก้ share link โดเมนปลอม — พบว่าแอปไม่มี path routing เลย ขอบเขตต้องแบ่ง 2 ระดับ
+
+**บริบท**: ต่อจากการวิเคราะห์แอปก่อนหน้า (ค้างจาก Beta3 security audit item A-7) Founder อนุมัติให้แก้ share link 5 จุด (`dropShareLink`/`popShareLink`/`clubShareLink`/`clubPostShareLink`/`profileShareLink`) ที่ยังชี้โดเมนปลอม `https://wyn.app/...`
+
+**พบข้อเท็จจริงใหม่ระหว่างตรวจโค้ด**: `app/lib/main.dart` มี `MaterialApp(home: const AuthGate())` ตายตัว **ไม่มี GoRouter ไม่มี path-based routing ใดๆ เลย** — จุดเดียวที่อ่าน `Uri.base` คือ `analytics_repository.dart` สำหรับ UTM query parameter เท่านั้น ไม่เกี่ยวกับ path — แปลว่าต่อให้เปลี่ยนโดเมนเป็น `wynos.online` จริง การเปิดลิงก์ที่แชร์มา (เช่น `/drop/abc123`) **จะไม่พาไปที่โพสต์นั้นเลย** จะ boot แอปแล้วโชว์หน้า `AuthGate`/home เหมือนเปิด `wynos.online` เฉยๆ เสมอ
+
+**การตัดสินใจ**: แบ่งงานเป็น 2 ระดับแทนที่จะทำแบบเข้าใจผิดว่า "แก้โดเมนแล้วจบ":
+- **Tier 1** (ขอบเขตเดิมที่อนุมัติ): แก้แค่ string โดเมนใน 5 จุด — P1 ทำได้ทันที ความเสี่ยงต่ำมาก แม้ไม่ใช่ deep-link จริงแต่ดีกว่าเดิมชัดเจน (จาก "เปิดไม่ได้เลย" เป็น "เปิดได้แต่ไปหน้าแรก")
+- **Tier 2** (ขอบเขตใหม่ที่เพิ่งค้นพบว่าจำเป็น): เพิ่ม path-based deep-linking จริงให้ลิงก์พาไปที่โพสต์/Club/โปรไฟล์ที่แชร์มาจริงๆ — งานใหญ่กว่าที่คิด แตะ core navigation ต้องผ่าน AI Design ก่อน (UX ตอน resolve target, error state) — **ยังไม่อนุมัติ แยกเป็นการตัดสินใจต่างหาก**
+
+สร้าง `WYN-114` (`.wyn/tasks/backlog/WYN-114-share-link-real-domain.md`) บันทึกทั้งสอง Tier ไว้ — Tier 1 ส่งตรง AI Coding ได้เลย (ไม่ผ่าน Design เพราะไม่มี UI เปลี่ยน)
+
+อ้างอิง: `.wyn/tasks/backlog/WYN-114-share-link-real-domain.md`, `app/lib/main.dart`, `.wyn/docs/qa/wynos-v1.0.0-beta3-security-audit.md` (item A-7 เดิม)
+
+## [2026-09-06] WYN-114: QA FAIL — Vercel ไม่มี SPA rewrite เลย ทุก path 404 จริง
+
+**บริบท**: QA ตรวจ WYN-114 Tier 1 (แก้โดเมน share link 5 จุด) ด้วยการ curl production จริงแทนที่จะเชื่อสมมติฐานในเอกสาร Product spec (ที่เขียนไว้ว่า "จะ boot แอปแล้วโชว์หน้า AuthGate เหมือนเปิด wynos.online เฉยๆ") — **พบว่าสมมติฐานนั้นผิด**: `curl https://wynos.online/drop/test123` ได้ **HTTP 404 ตรงจาก Vercel** (`x-vercel-error: NOT_FOUND`) ไม่ถึงขั้น Flutter app boot ด้วยซ้ำ
+
+**Root cause**: โปรเจกต์ deploy ด้วย `vercel deploy` ตรงๆ ไม่มี `vercel.json`/rewrite config ใดๆ เลย — Vercel static hosting เช็ค path ตรงกับไฟล์จริงเท่านั้น ไม่มี catch-all ไปที่ `index.html` ปัญหานี้**มีอยู่ก่อน WYN-114 แล้ว** (ทดสอบ path สุ่มอื่นก็ 404 เหมือนกันหมด) แต่เพิ่งกระทบผู้ใช้จริงตอนนี้เพราะ share link เพิ่งชี้โดเมนจริง
+
+**ผลกระทบต่อ WYN-114**: โค้ด Dart ที่แก้ (5 จุด) ถูกต้อง 100% ไม่ต้องแก้เพิ่ม — แต่ **acceptance criteria ของงาน ("ลิงก์เปิดเว็บได้จริง") ยังไม่จริง** เพราะติดปัญหาคนละชั้น (hosting config ไม่ใช่โค้ดแอป) สร้าง bug report `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md` พร้อม root cause + แนวทางแก้ (`vercel.json` catch-all rewrite) + คำเตือนเรื่อง regression risk สำคัญ (rewrite ต้องไม่ทำให้ static asset จริงอย่าง `og-image.png` ที่ WYN-113 เพิ่ง deploy ไปพังไปด้วย)
+
+**บทเรียน**: การวิเคราะห์โค้ด client-side อย่างเดียว (แม้จะละเอียดแค่ไหน) ไม่พอสำหรับฟีเจอร์ที่พึ่งพา URL/hosting — ต้องทดสอบกับ production จริงเสมอเมื่อทำได้ (ตามที่ session นี้มี network egress) ไม่ใช่แค่อ่านโค้ดแล้วเดาพฤติกรรม
+
+**สถานะ**: WYN-114 **FAIL** ส่งต่อ AI Debug Engineer
+
+อ้างอิง: `.wyn/tasks/backlog/WYN-114-share-link-real-domain.md`, `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`
+
+## [2026-09-06] WYN-114: Debug Engineer แก้ Vercel 404 ด้วย vercel.json rewrite — ส่งกลับ QA
+
+**บริบท**: ต่อจาก QA FAIL ของ WYN-114 (ทุก path บน `wynos.online` นอกจาก `/` ได้ 404 จาก Vercel) AI Debug Engineer reproduce ซ้ำอิสระยืนยันตรงกับ QA แล้วเพิ่ม `app/web/vercel.json` (catch-all rewrite `/(.*)  → /index.html`, มาตรฐาน SPA hosting) + `!/web/vercel.json` ใน `.gitignore` (ใช้กลไกเดียวกับ `og-image.png`/`favicon.png` — `flutter build web` copy ไฟล์ทุกไฟล์ใน `web/` เข้า `build/web/` verbatim อัตโนมัติ ไม่ต้องแก้ `deploy-web.yml` เพิ่ม)
+
+**ข้อจำกัดที่ระบุไว้ตรงๆ**: Vercel's "filesystem check ก่อน rewrite เสมอ" (ป้องกันไม่ให้ rewrite ทับ static asset จริงอย่าง `og-image.png`) เป็นพฤติกรรมมาตรฐานตามเอกสาร แต่**ยังไม่ได้พิสูจน์เชิงประจักษ์ในรอบนี้** เพราะ sandbox ไม่มี Vercel CLI ผูก credential — ต้อง verify จริงหลัง deploy
+
+**บทเรียนที่บันทึกเพิ่ม**: การวิเคราะห์ของ Product spec ที่อ่านแค่โค้ด client-side (`main.dart`) ไม่พอสำหรับปัญหาที่พึ่งพา URL/hosting — ควร curl ทดสอบ production จริงก่อนเขียนสเปกเมื่อทำได้ (บันทึกที่ `.wyn/learning/LESSONS_LEARNED.md`/`MISTAKES.md`)
+
+**สถานะ**: ส่งกลับ AI QA & Security พร้อม manual verification checklist 2 ชุด (path ที่ควรเป็น 200 ใหม่ + static asset ที่ต้องยังเป็นไฟล์จริงเหมือนเดิม) — ต้อง deploy ก่อนถึงจะ verify ได้จริง
+
+อ้างอิง: `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`, `.wyn/learning/LESSONS_LEARNED.md`, `.wyn/learning/MISTAKES.md`
+
+## [2026-09-06] WYN-114: QA PASS (มีเงื่อนไข) หลังยืนยันด้วยเอกสารทางการของ Vercel — ส่งต่อ Deploy
+
+**บริบท**: QA ตรวจ fix ของ Debug Engineer (`app/web/vercel.json`) ซ้ำ ไม่หยุดแค่ตรวจโค้ด static แต่ไล่แก้ข้อสงสัยที่ Debug Engineer เองระบุไว้ว่า "ยังพิสูจน์เองไม่ได้" (rewrite อาจทับ static asset จริงอย่าง `og-image.png`) ด้วยการ **WebFetch เอกสารทางการของ Vercel โดยตรง** (`vercel.json` reference doc อัปเดตล่าสุด 2026-08-14) พบข้อความยืนยันชัดเจน: *"precedence is given to the filesystem prior to rewrites being applied"* — ปิดข้อสงสัยหลักได้เกือบสมบูรณ์โดยไม่ต้องรอ deploy จริง
+
+**ผลลัพธ์**: PASS แบบมีเงื่อนไข — โค้ด/config ถูกต้องครบ + ความเสี่ยงหลักมีเอกสารทางการรองรับแล้ว แต่ยังต้องยืนยันด้วยตาจริงหลัง deploy ตาม curl checklist 2 ชุดที่ Debug Engineer เตรียมไว้ (ถือเป็นข้อบังคับ ไม่ใช่ทางเลือก — ถ้า static asset จุดใดพัง ต้อง P0 rollback ทันที)
+
+**บทเรียน**: เมื่อเจอข้อสงสัยที่ "เอกสารบอกว่าปลอดภัย แต่ยังไม่พิสูจน์" และมีเครื่องมือค้นเอกสารทางการจริง (WebFetch) ให้ใช้เพื่อยืนยันก่อนปล่อยผ่านเป็นข้อสงสัยค้างคา แทนที่จะพึ่งแค่ "โดยทั่วไปควรจะ..." เฉยๆ
+
+**สถานะ**: WYN-114 approved — ส่งต่อ AI Deploy & DevOps
+
+อ้างอิง: `.wyn/tasks/approved/WYN-114-share-link-real-domain.md`, `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`
+
+## [2026-09-06] WYN-114: Deploy สำเร็จ ยืนยัน production ครบทั้ง 2 เงื่อนไขด้วย curl จริง — ปิดงานสมบูรณ์
+
+**บริบท**: PR #271 (WYN-114) เจอ merge conflict จริงระหว่างทางกับ PR #269 (อีก session, ฟีเจอร์ "add to home screen" ที่แก้ `app/.gitignore` ตำแหน่งเดียวกัน) — merge `main` เข้ามาแก้เอง เก็บทั้งสองส่วนไว้ ไม่มีอะไรหาย แล้ว merge PR + trigger `deploy-web.yml` (run #89) สำเร็จ
+
+**Production verification ครบทั้ง 2 เงื่อนไขที่ QA กำหนดไว้เป็นข้อบังคับ**:
+1. ลิงก์ที่แก้แล้ว (`/drop/x`, `/pop/x`, `/club/x`, `/club-post/x`, `/@x`) — **ทุกจุดได้ HTTP 200 จริง** (จากเดิม 404) ตรวจ body ยืนยันเป็น Flutter app จริง ไม่ใช่ error page
+2. Static asset เดิม (`og-image.png`/`favicon.png`/`manifest.json`) — **ไม่ถูกกระทบเลย** `og-image.png`'s md5sum ตรงกับไฟล์ที่ commit เป๊ะ (`76b00bbf...`) ยืนยันว่า Vercel's filesystem-before-rewrite precedence ทำงานตามเอกสารจริง ไม่ใช่แค่ทฤษฎี
+
+**สถานะ**: WYN-114 **completed** ครบทั้ง Product → Coding → QA FAIL → Debug Engineer → QA PASS → Deploy → Production Verification (curl จริงทั้ง 2 เงื่อนไข) — ไม่มี rollback ต้องทำ ไม่มี migration ค้าง
+
+อ้างอิง: `.wyn/tasks/completed/WYN-114-share-link-real-domain.md`, `.wyn/logs/deployments/2026-09-06-wyn-114-share-link-vercel-rewrite-deploy.md`, PR #271, deploy-web.yml run #89
+
+## [2026-09-06] ID Collision รอบใหม่: WYN-114 ถูกใช้ 2 ครั้งพร้อมกันโดยคนละ session — แก้แล้ว, เชื่อมเข้ากับ WYN-112 โดยตรง
+
+**บริบท**: ระหว่างที่ session นี้ (`session_013hvSGovkwhxpPFbFEKAvAu`) กำลังแก้/deploy WYN-114 (share link โดเมนผิด + Vercel ไม่มี SPA rewrite) อยู่ อีก session หนึ่ง (`session_014LEtwe8NjiPLcc9cqJEkuq`, ทำ product planning ให้ฟีเจอร์ Club) เจอบั๊กเดียวกันโดยบังเอิญระหว่างตรวจโค้ด แล้วบันทึกเป็น task ใหม่ด้วยเลขเดียวกัน "WYN-114" — เป็น ID collision class เดียวกับที่เคยเกิดกับ `WYN-077` (2026-09-02) และ `WYN-078` (2026-09-06 รอบเช้า) ทั้งสองครั้งมาก่อน แต่รอบนี้เกิดขึ้น**ระหว่างที่ทั้งสอง session กำลังแก้ปัญหาเดียวกันจริงๆ พร้อมกัน** ไม่ใช่แค่บังเอิญเลขซ้ำ
+
+**สิ่งที่อีก session ค้นพบเพิ่มที่สำคัญมาก**: เชื่อมบั๊กนี้เข้ากับ `WYN-112` (activation funnel investigation ที่ active อยู่) โดยตรง — ถ้าลิงก์ที่ Founder แชร์ต่อเนื่องมาตลอด 4 รอบที่ signup=0 นั้นมาจากปุ่ม "Share" ในแอป (ไม่ใช่พิมพ์ `wynos.online` เอง) นี่คือคำตอบที่สมบูรณ์ของปริศนาทั้งเรื่อง เพราะลิงก์เดิมชี้ไปโดเมนที่ไม่มี DNS จริง คนคลิกแล้วไปไม่ถึง WYNOS เลยสักคนไม่ว่าจะคลิกกี่ครั้ง — ส่งคำถามนี้ให้ Founder ผ่าน popup ไปแล้ว (จากอีก session) ยังไม่มีคำตอบ ณ เวลาที่บันทึกนี้
+
+**การแก้ ID collision**: เปลี่ยนงานที่อีก session สร้าง (`.wyn/tasks/backlog/WYN-114-fix-share-links-deep-linking.md`, ยังเป็นแค่ backlog ยังไม่เริ่มทำ) เป็น **`WYN-119`** (ไม่ใช้ `WYN-115`–`118` เพราะถูกจองไว้แล้วสำหรับ Club growth roadmap ใน `wyn-club-growth-roadmap.md`) — ตาม `WYN-114` ตัวที่เสร็จและ deploy แล้ว (`.wyn/tasks/completed/`) ไม่ควรเปลี่ยนเลข ตรงหลักการเดิมที่เคยแนะนำไว้กับ `WYN-078`
+
+**Scope ที่แท้จริงตอนนี้**: WYN-114 (โดเมน + Vercel SPA rewrite) **เสร็จและ deploy แล้ว** — WYN-119 (deep-linking จริงฝั่ง Flutter client + UTM tagging บนปุ่ม Share) **ยังเป็น backlog** ลดความสำคัญจาก P0 เหลือ P1 เพราะส่วนที่ทำให้ลิงก์ "ใช้งานไม่ได้เลย" แก้ไปแล้ว
+
+**บทเรียนเพิ่มเติม (ต่อยอดจาก ID collision เดิม)**: การที่หลาย session ทำงานพร้อมกันบนโค้ดเบสเดียวกันโดยไม่รู้จักกัน มีโอกาสค้นพบปัญหาเดียวกันซ้ำได้จริง (ไม่ใช่แค่เลข task ชนกันเฉยๆ) — ครั้งนี้เป็นประโยชน์ (อีก session ช่วยยืนยัน root cause + เชื่อมกับ WYN-112 ที่ session นี้เองยังไม่ได้เชื่อมจนกว่าจะเห็น note) แต่ก็เสี่ยงทำงานซ้ำซ้อนถ้าไม่ reconcile กันหลัง merge — DECISIONS.md/CONTEXT.md ยังเป็นกลไกเดียวที่ session อื่นจะเห็นงานที่ทำคู่ขนานอยู่ ต้องอ่านให้ครบก่อนเริ่มงานทุกครั้งตามที่ AGENTS.md บังคับไว้อยู่แล้ว
+
+**สถานะ**: `WYN-112` อัปเดตแล้วให้สะท้อนว่า WYN-114 แก้เสร็จ และคำถามสำคัญที่สุด (ลิงก์แชร์มาจากปุ่ม Share หรือพิมพ์เอง) ยังรอคำตอบ — เป็นกุญแจตัดสินว่า WYN-112 จบด้วยคำตอบนี้เลย หรือต้องกลับไปแผนเดิม (link shortener)
+
+อ้างอิง: `.wyn/tasks/active/WYN-112-activation-funnel-investigation.md`, `.wyn/tasks/backlog/WYN-119-share-link-deep-linking.md`, `.wyn/tasks/completed/WYN-114-share-link-real-domain.md`, `.wyn/docs/product/wyn-club-growth-roadmap.md`, commit `1d22996`
+
+## [2026-09-06] ปิดประเด็นทั้งหมด: WYN-112 confirmed & closed, WYN-114 deployed, WYN-119 reconciled (2 session แก้ปัญหาเดียวกันคู่ขนานลงเอยตรงกัน)
+
+**สรุปสถานการณ์**: ระหว่างที่ session นี้ (`session_013hvSGovkwhxpPFbFEKAvAu`) กำลังปิด PR แก้ ID collision ของตัวเอง อีก session (`session_014LEtwe8NjiPLcc9cqJEkuq`) ก็ merge การแก้ไขของตัวเองเข้า `main` พร้อมกันพอดี — ทั้งสอง session **เลือกเลข `WYN-119` ตรงกันโดยไม่ได้คุยกัน** (บังเอิญ ไม่ใช่ race ที่ป้องกันไว้) และอีก session มีข้อมูลใหม่ที่สำคัญที่สุด: **Founder ยืนยันแล้วว่าลิงก์ที่แชร์ต่อเนื่องมาจากปุ่ม "Share" ในแอปจริง** — ปิดคำถามที่ session นี้เพิ่งจะถามพอดี
+
+**การ merge**: รับเวอร์ชันของอีก session สำหรับ `WYN-112` ทั้งไฟล์ (สมบูรณ์กว่า มี Founder confirmation จริง) และลบไฟล์ `WYN-119-share-link-deep-linking.md` ของ session นี้ทิ้ง เก็บ `WYN-119-club-deep-linking.md` ของอีก session ไว้เป็นตัวจริง (เนื้อหาเทียบเท่ากัน แต่ของเขาอยู่ status `active` แล้วและอ้างอิงข้อมูลที่ครบกว่า) — รับ Club growth roadmap ใหม่ (`WYN-115`–`118`) เข้ามาด้วยเพราะไม่ชนอะไร
+
+**สถานะสุดท้ายที่แท้จริงตอนนี้**:
+- **WYN-112**: root cause ยืนยันแล้ว 100% (Founder confirm ใช้ปุ่ม Share) — คือบั๊กเดียวกับ WYN-114 — **แก้และ deploy จริงแล้ว** รอแค่ Founder แชร์ลิงก์ใหม่ (ลิงก์เก่าที่แชร์ไปด้วย `wyn.app` ยังใช้ไม่ได้ ต้องแชร์ใหม่หลัง fix) แล้วดู signup กลับมาไหมใน WYN Admin Dashboard
+- **WYN-114**: completed, deployed, production-verified (ทำโดย session นี้)
+- **WYN-119**: real deep-linking (Tier 2) — backlog/active รอ AI Design ทำต่อ ไม่ block การดูผล WYN-112
+- **WYN-115–118**: Club growth roadmap ใหม่ (Poll/Re-engagement/Owner Insights/Events) — รอ Founder เลือกลำดับ
+
+**บทเรียนสุดท้าย**: การเลือกเลข `WYN-119` ตรงกันโดยบังเอิญของทั้ง 2 session (แม้จะไม่ได้คุยกัน) เป็นเรื่องดีที่ไม่กลายเป็น collision ซ้ำซ้อน แต่เป็นโชคมากกว่าความแน่นอน — ยืนยันอีกครั้งว่าจำเป็นต้องมีกลไกกลางแบบ "next-id" ที่ป้องกันการชนกันจริงจัง ไม่ใช่หวังให้ session อ่าน DECISIONS.md ทันเวลาเสมอไป (บันทึกไว้เป็นข้อเสนอปรับปรุง process แยกต่างหาก ไม่ใช่ scope ของงานใดงานหนึ่ง)
+
+อ้างอิง: `.wyn/tasks/active/WYN-112-activation-funnel-investigation.md`, `.wyn/tasks/active/WYN-119-club-deep-linking.md`, `.wyn/tasks/completed/WYN-114-share-link-real-domain.md`, `.wyn/docs/product/wyn-club-growth-roadmap.md`
+
+## [2026-09-06] Founder สั่งปิดระบบแชท 1-on-1 ชั่วคราว เหลือเฉพาะ @warren ↔ @wynos_online (ก่อนเปิดใช้งานจริง)
+
+**คำสั่ง Founder (ตรงตัว)**: "ปิดระบบ แชทไม่ให้คนใช้ทั่วไป ยกเว้น @warren กับ @wynos_online จะเอาไว้ทดสอบ ก่อนเปิดใช้งานจริง"
+
+**ขอบเขตที่ยืนยันแล้วผ่าน AskUserQuestion 2 รอบ** (คำถามแรกที่ถามกว้างเกินไป Founder ตอบ "งง" ต้องถามใหม่แบบยกตัวอย่างเป็นรูปธรรม):
+
+1. **การจับคู่ที่อนุญาต**: เฉพาะคู่ @warren ↔ @wynos_online เท่านั้น — ไม่ใช่ "ใครก็คุยกับ 2 บัญชีนี้ได้" ผู้ใช้ทั่วไปแม้แต่จะแชทกับ @warren เองก็ถูกบล็อกด้วย (คำตอบ Founder: "ไม่ได้เลย — เอแชทกับใครไม่ได้ทั้งนั้นช่วงปิดระบบ")
+2. **UX**: chat entry points (ไอคอน/ปุ่ม) ยังคงแสดงปกติ ไม่ซ่อน แต่เข้าไปแล้วเจอข้อความ "ระบบแชทปิดปรับปรุงชั่วคราว"
+3. **บทสนทนาเก่า**: ผู้ใช้ทั่วไปที่มีประวัติแชทเก่าอยู่แล้ว (กับคนอื่นที่ไม่ใช่ 2 บัญชีทดสอบ) ต้อง**ซ่อนทั้งหมด**ระหว่าง lockdown ไม่ใช่แค่ปิดการส่งข้อความใหม่
+
+**สถานะ**: บันทึกเป็น requirement แล้วที่ `.wyn/tasks/backlog/WYN-122-chat-lockdown-testers-only.md` — ต้องบังคับใช้ที่ backend/RLS (Founder ระบุชัดเจน ไม่ใช่แค่ซ่อน UI) เป็น **data-driven toggle** ที่เปิดกลับได้โดยไม่ต้อง deploy client ใหม่ (เพราะเป็นสถานะชั่วคราวก่อนเปิดใช้งานจริง) — ห้ามลบ/แก้ข้อมูลบทสนทนา/ข้อความเก่าใดๆ (ซ่อนด้วย RLS เท่านั้น reversible 100%)
+
+**ความเสี่ยงหลักที่ต้องระวัง**: (1) resolve `profiles.id` ของ @warren/@wynos_online ผิดจะปิดแชทของ Founder เองไปด้วย ต้อง verify ให้ตรง 100% ก่อน deploy (2) เป็นเรื่องชั่วคราว มีความเสี่ยงลืม toggle กลับตอนใกล้เปิดใช้งานจริง — ต้องมี task/reminder แยกติดตามเรื่องนี้ตอนใกล้ launch
+
+**Handoff**: ส่งต่อ AI Design → AI Coding → AI QA & Security (เข้มงวดเป็นพิเศษเพราะแตะ RLS ตารางข้อมูลจริง) → AI Deploy & DevOps ตาม WORKFLOW.md ปกติ ไม่ข้าม QA แม้ Founder จะเร่งด่วน
+
+อ้างอิง: `.wyn/tasks/backlog/WYN-122-chat-lockdown-testers-only.md`
 ## [2026-09-06] Task-tracking cleanup: 9 bug/QA reports were stale (already fixed, header never updated) + WYN-078 ID collision resolved
 
 **บริบท**: Founder ขอให้ไปแก้บั๊กที่ยังค้างใน `.wyn/tasks/bugs/` และ `.wyn/tasks/qa/` (5 รายการที่พบใน branch `claude/home-button-ux-ui-design-cbjkzm` บวก SCHEMA-002 บวก WYN-081/WYN-102 ใน `qa/`) ตรวจแล้วพบว่า **ทั้งหมดถูกแก้และผ่าน QA ไปแล้วจริง** ในโค้ดปัจจุบันบน `main` — ไฟล์ tracking แค่ไม่เคยอัปเดต `Status:` header ให้ตรงกับเนื้อหา "ปิดแล้ว"/"Resolution" ที่มีอยู่ท้ายไฟล์เอง

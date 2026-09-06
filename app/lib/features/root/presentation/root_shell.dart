@@ -241,7 +241,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
 
     _loadUnreadNotificationCount();
 
-    // WYN-114: opens the screen a shared web link (dropShareLink/
+    // WYN-119 (Tier 2, partial): opens the screen a shared web link (dropShareLink/
     // popShareLink/clubShareLink/clubPostShareLink/profileShareLink)
     // pointed at, the first time the app loads on that URL -- before
     // this, every one of those links opened to Home regardless of what

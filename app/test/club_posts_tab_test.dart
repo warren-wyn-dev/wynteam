@@ -47,11 +47,35 @@ void main() {
         savedByMe: false,
       );
 
+  // WYN-115: a Poll Club Post fixture -- results already visible (voter
+  // is the current user), mirroring what get_club_poll_results() would
+  // return after ClubPostRepository's batch fetch.
+  ClubPost pollPost({required String id}) => ClubPost(
+        id: id,
+        clubId: club.id,
+        authorId: 'someone-else',
+        authorUsername: 'someone-else',
+        content: 'อาหารเที่ยงนี้กินอะไรดี?',
+        pinned: false,
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+        pollId: 'poll-1',
+        pollOptions: const ['ข้าวมันไก่', 'ส้มตำ'],
+        pollExpiresAt: DateTime.now().toUtc().add(const Duration(days: 1)),
+        pollMyVoteIndex: null,
+        pollTotalVotes: 2,
+        pollOptionCounts: const [1, 1],
+      );
+
   // Built in setUp(), never inline inside testWidgets -- see
   // .wyn/learning/PATTERNS.md.
   late RecordingClubPostRepository postsRepo;
   late RecordingClubPostRepository pinnedFirstRepo;
   late RecordingClubPostRepository emptyRepo;
+  late RecordingClubPostRepository pollRepo;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'viewer');
@@ -64,6 +88,7 @@ void main() {
       post(id: 'p-normal', content: 'โพสต์ธรรมดา'),
     ]);
     emptyRepo = RecordingClubPostRepository(posts: []);
+    pollRepo = RecordingClubPostRepository(posts: [pollPost(id: 'p-poll')]);
   });
 
   Future<void> pumpTab(
@@ -147,5 +172,41 @@ void main() {
     await pumpTab(tester, pinnedFirstRepo, myRole: ClubMemberRole.member);
 
     expect(find.byType(Divider), findsOneWidget);
+  });
+
+  group('Poll voting (WYN-115)', () {
+    testWidgets(
+        'shows ClubPollCard instead of images for a Poll Club Post, and '
+        'tapping an option optimistically updates then calls votePoll',
+        (tester) async {
+      await pumpTab(tester, pollRepo, myRole: ClubMemberRole.member);
+
+      expect(find.text('ข้าวมันไก่'), findsOneWidget);
+      expect(find.text('ส้มตำ'), findsOneWidget);
+      expect(find.text('50%'), findsNWidgets(2));
+
+      await tester.tap(find.text('ข้าวมันไก่'));
+      await tester.pump();
+
+      // Optimistic: 2 existing votes + this one = 3 total, 2/3 for the
+      // tapped option.
+      expect(find.text('67%'), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+
+      await tester.pumpAndSettle();
+      expect(pollRepo.votePollArgs, [('poll-1', 0)]);
+    });
+
+    testWidgets('a failed vote reverts the optimistic update', (tester) async {
+      pollRepo.votePollError = Exception('network error');
+      await pumpTab(tester, pollRepo, myRole: ClubMemberRole.member);
+
+      await tester.tap(find.text('ข้าวมันไก่'));
+      await tester.pumpAndSettle();
+
+      // Reverted back to the original (no vote) state.
+      expect(find.text('50%'), findsNWidgets(2));
+      expect(find.byIcon(Icons.check_circle), findsNothing);
+    });
   });
 }

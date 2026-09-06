@@ -1,6 +1,6 @@
-# Design Spec — WYN-115 (Invite Followers to Club)
+# Design Spec — WYN-123 (Invite Followers to Club)
 
-> โดย AI Design — 2026-09-06 | ต่อยอด Product spec `.wyn/tasks/backlog/WYN-115-invite-followers-to-club.md`
+> โดย AI Design — 2026-09-06 | ต่อยอด Product spec `.wyn/tasks/backlog/WYN-123-invite-followers-to-club.md`
 
 ## บริบท: reuse ของเดิม ไม่สร้าง pattern ใหม่
 

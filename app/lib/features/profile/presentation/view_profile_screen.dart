@@ -53,8 +53,14 @@ import '../../search/data/discovery_repository.dart';
 import '../../search/presentation/search_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 
-/// Placeholder share link -- same "no real hosting/domain yet" caveat as
-/// dropShareLink/clubShareLink (WYN-005/014).
+/// WYN-114 (Tier 1, done + deployed 2026-09-06): real wynos.online
+/// domain + a Vercel SPA rewrite so this path no longer 404s at the
+/// hosting layer -- see .wyn/tasks/completed/WYN-114-share-link-real-domain.md.
+/// WYN-119 (Tier 2, partial): DeepLinkService (app/lib/core/navigation/)
+/// now opens this destination directly, but only once RootShell has
+/// already mounted -- a guest who has never signed in still lands on
+/// Welcome first, not this content. WYN-119's own guest-preview
+/// requirement is not met yet; see that task's Known Follow-up.
 String profileShareLink(String username) => 'https://wynos.online/@$username';
 
 /// Beta4 §1: "Profile Stats -- แสดงเฉพาะ Following / Followers.
@@ -557,11 +563,18 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
           ),
         ),
       );
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เริ่มบทสนทนาไม่สำเร็จ ลองใหม่อีกครั้ง')),
-      );
+      // WYN-122: get_or_create_conversation() raises this exact message
+      // when chat lockdown rejects the pair -- surfaced as its own
+      // SnackBar (not the generic failure below) so a locked-out user
+      // understands this is a temporary platform state, not a glitch to
+      // retry. This button itself stays visible/tappable either way
+      // (Founder's explicit requirement) -- only the outcome differs.
+      final message = e is PostgrestException && e.message.contains('temporarily closed for testing')
+          ? 'ระบบแชทปิดปรับปรุงชั่วคราว'
+          : 'เริ่มบทสนทนาไม่สำเร็จ ลองใหม่อีกครั้ง';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => _isStartingChat = false);
     }

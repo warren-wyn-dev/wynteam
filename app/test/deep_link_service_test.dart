@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wyn/core/navigation/app_navigator.dart';
 import 'package:wyn/core/navigation/deep_link_service.dart';
 
-/// WYN-114: before `DeepLinkService` existed, `RootShell` never read the
+/// WYN-119: before `DeepLinkService` existed, `RootShell` never read the
 /// browser's URL at all, so every shared link (drop/pop/club/club-post/
 /// profile) opened straight to Home no matter what path was in the
 /// address bar. These tests cover the parts of `_handle` that don't need

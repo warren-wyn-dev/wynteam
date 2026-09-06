@@ -13,10 +13,10 @@ import '../../profile/presentation/widgets/avatar_circle.dart';
 
 enum _InviteState { idle, sending, invited }
 
-/// WYN-115 -- pick people to invite into a Club from the current user's
+/// WYN-123 -- pick people to invite into a Club from the current user's
 /// own Followers **and** Following, merged and de-duplicated (Founder
 /// decision, 2026-09-06 -- see .wyn/tasks/active/
-/// WYN-115-invite-followers-to-club.md's "Founder Decision": Instagram's
+/// WYN-123-invite-followers-to-club.md's "Founder Decision": Instagram's
 /// Close Friends uses followers, X's Community invite uses following,
 /// no single industry standard, so both are included here, matching
 /// Instagram's own Group Chat "Add People").
