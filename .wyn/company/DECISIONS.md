@@ -1022,3 +1022,13 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 **สถานะ**: พร้อมส่งต่อ AI Coding แล้ว
 
 อ้างอิง: `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, `.wyn/docs/design/wyn-113-og-share-preview-cards.md`, Artifact https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e
+
+## [2026-09-06] WYN-113: Implement เสร็จ — ส่งต่อ AI QA & Security
+
+**บริบท**: ต่อจาก Product + Design spec ที่ Founder อนุมัติแล้ว (โทนสี A-Paper, copy ที่ตัด Pop ออก) — AI Coding เพิ่ม 9 meta tags (`og:*`/`twitter:*`) ใน `app/web/index.html` และรูป preview 1200×630 (`app/web/og-image.png`, render จาก HTML จริงด้วย headless Chromium ที่มีอยู่ใน sandbox — ใช้โลโก้จริงและ token สีจริง ไม่มีการเพิ่มสีใหม่) พบและแก้ gotcha เพิ่มเติมระหว่างทาง: `app/web/*` ถูก `.gitignore` ทั้งโฟลเดอร์เป็นค่าเริ่มต้น (ต้องเพิ่ม negation รายไฟล์ตาม pattern เดิมของ index.html/favicon.png — เคยเป็นสาเหตุที่ `firebase-messaging-sw.js` เกือบหายไปมาก่อน) — เพิ่ม `!/web/og-image.png` แล้ว
+
+**ข้อจำกัดที่ระบุไว้ตรงๆ**: sandbox ของ session นี้ไม่มี Flutter SDK ติดตั้ง จึงรัน `flutter analyze`/`flutter build web --release` จริงไม่ได้ — ยืนยันได้แค่ว่า diff จำกัดอยู่ที่ `app/web/`/`app/.gitignore` เท่านั้น (ไม่แตะ Dart code) และ `index.html` ผ่าน HTML well-formedness check ด้วย Python `html.parser` — **AI QA & Security ต้องรัน `flutter build web --release` จริงอย่างน้อย 1 ครั้ง** ก่อน PASS ตามวินัยเดิมของโปรเจกต์ (แยก "ยืนยันเองได้" กับ "ต้องรอคนอื่นยืนยัน" ตาม WORKFLOW.md)
+
+**สถานะ**: Implementation เสร็จ ส่งต่อ AI QA & Security แล้ว — ยังไม่ deploy ไม่แตะ production
+
+อ้างอิง: `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, commit `e2d1e40`
