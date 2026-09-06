@@ -216,6 +216,8 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         _openClub(notification.clubId!, initialTabIndex: 0);
       case NotificationType.clubPostLike:
       case NotificationType.clubPostComment:
+      case NotificationType.clubPostNew:
+      case NotificationType.clubPostPinned:
         await _openClubPost(notification.clubPostId!);
       case NotificationType.mentionDrop:
         await _openDrop(notification.dropId!);
@@ -393,9 +395,16 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       return;
     }
     // myRole is unknown here without an extra lookup -- passing null
-    // (no staff pin/delete rights shown) is safe since the notification
-    // recipient is always the post's own author, who already gets the
-    // "own post" delete option regardless of role. See ClubPostCard.
+    // (no staff pin/delete rights shown) was originally safe because the
+    // notification recipient was always the post's own author (who
+    // already gets the "own post" delete option regardless of role, see
+    // ClubPostCard). WYN-116's clubPostNew/clubPostPinned break that
+    // assumption (the recipient is any other club member, not
+    // necessarily the author or staff) -- null stays the correct,
+    // conservative choice for them too: worst case a staff member just
+    // doesn't see their pin/delete rights on this one detail view,
+    // rather than the screen guessing wrong and showing rights someone
+    // doesn't actually have.
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ClubPostDetailScreen(
@@ -429,6 +438,10 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         return '$name ถูกใจโพสต์ของคุณใน $club';
       case NotificationType.clubPostComment:
         return '$name แสดงความคิดเห็นในโพสต์ของคุณใน $club';
+      case NotificationType.clubPostNew:
+        return '$name โพสต์ใหม่ใน $club';
+      case NotificationType.clubPostPinned:
+        return '$name ปักหมุดโพสต์ใหม่ใน $club';
       case NotificationType.mentionDrop:
         return '$name กล่าวถึงคุณในโพสต์';
       case NotificationType.mentionClubPost:
@@ -1029,6 +1042,13 @@ _TypeBadge? _badgeFor(NotificationType type) {
     case NotificationType.follow:
     case NotificationType.followRequestAccepted:
       return const _TypeBadge(Icons.person_add, WynColors.sapphire);
+    case NotificationType.clubPostPinned:
+      // WYN-116: same pin glyph the Club Posts tab's own "ปักหมุด" label
+      // uses (club_posts_tab.dart) -- this is the one club notification
+      // type high-priority enough (Product's own Acceptance Criteria:
+      // "ให้ความสำคัญสูงสุด") to earn a badge, unlike the other Club
+      // types below which fall through to no badge.
+      return const _TypeBadge(Icons.push_pin, WynColors.sapphire);
     default:
       return null;
   }

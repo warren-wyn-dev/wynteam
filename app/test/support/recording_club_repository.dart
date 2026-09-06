@@ -20,6 +20,7 @@ class RecordingClubRepository extends ClubRepository {
     List<Club>? discoverableClubs,
     List<Club>? searchResults,
     Set<String>? pendingClubIds,
+    this.isMutedResult = false,
   })  : myClubs = myClubs ?? [],
         approvedMembers = approvedMembers ?? [],
         pendingMembers = pendingMembers ?? [],
@@ -206,6 +207,32 @@ class RecordingClubRepository extends ClubRepository {
   /// assert a Club is created with exactly one image (Beta4 §8.1).
   Uint8List? lastCreateImageBytes;
   String? lastCreateImageExtension;
+
+  /// WYN-116: returned by [isClubMuted], flipped by [muteClubNotifications]/
+  /// [unmuteClubNotifications] so a test can assert the round trip
+  /// (mute -> reload sees isClubMuted() -> true) without a real backend.
+  bool isMutedResult;
+  int muteClubNotificationsCalls = 0;
+  int unmuteClubNotificationsCalls = 0;
+  final List<String> muteClubNotificationsClubIdArgs = [];
+  final List<String> unmuteClubNotificationsClubIdArgs = [];
+
+  @override
+  Future<bool> isClubMuted(String clubId) async => isMutedResult;
+
+  @override
+  Future<void> muteClubNotifications(String clubId) async {
+    muteClubNotificationsCalls++;
+    muteClubNotificationsClubIdArgs.add(clubId);
+    isMutedResult = true;
+  }
+
+  @override
+  Future<void> unmuteClubNotifications(String clubId) async {
+    unmuteClubNotificationsCalls++;
+    unmuteClubNotificationsClubIdArgs.add(clubId);
+    isMutedResult = false;
+  }
 
   @override
   Future<Club> createClub({

@@ -6594,7 +6594,12 @@ alter table public.notifications
     'appeal_approved', 'appeal_rejected',
     'message_request', 'redrop',
     'follow_request', 'follow_request_accepted',
-    'system'
+    'system',
+    -- WYN-116: club_post_new/club_post_pinned added here (added ahead
+    -- of schedule during a later migration, same as this comment's
+    -- neighbor above describes for an earlier type) -- see
+    -- notify_club_post_new()/notify_club_post_pinned() further down.
+    'club_post_new', 'club_post_pinned'
   ));
 
 -- Lets an admin send a free-text notification to one recipient
@@ -12313,3 +12318,128 @@ begin
     and public.club_role(cp.club_id, v_me) is not null;
 end;
 $$;
+
+-- ============================================================
+-- WYN-116: Club Re-engagement Notifications
+-- ============================================================
+-- See .wyn/tasks/active/WYN-116-club-reengagement-notifications.md and
+-- .wyn/docs/design/wyn-116-club-reengagement-notifications.md. Two new
+-- notification types, both fanned out to *every approved member* of a
+-- club (not just owner/admin like notify_club_join_request(), and not
+-- a single recipient like notify_club_post_like()/_comment()):
+-- 'club_post_new' (a new post from someone else) and 'club_post_pinned'
+-- (a post just got pinned). Both reuse the existing 'club'
+-- notification_settings category -- see internal.notification_enabled()
+-- above, unchanged by this task.
+
+-- Per-club mute -- mirrors public.conversation_mutes exactly (plain RLS
+-- insert/delete, no RPC needed, no side effects to sequence atomically).
+-- Deliberately scoped to ONLY the 2 new types below, not the existing
+-- club_post_like/club_post_comment/mention_club_post/club_join_* types
+-- -- those are about the muter's own content (someone liked/commented/
+-- mentioned *their* post, or a join request needs *their* approval),
+-- which stays useful even after muting a club's general activity. See
+-- the Design doc's own reasoning for this scope decision.
+create table if not exists public.club_notification_mutes (
+  club_id uuid not null references public.clubs (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (club_id, user_id)
+);
+
+alter table public.club_notification_mutes enable row level security;
+
+create policy "Users can view clubs they muted"
+  on public.club_notification_mutes
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can mute a club as themselves"
+  on public.club_notification_mutes
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can unmute a club as themselves"
+  on public.club_notification_mutes
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- Fan-out to every approved member except the post's own author, gated
+-- by (a) the recipient's 'club' preference (b) not muted this specific
+-- club (c) a per-(recipient, club) throttle: skip if this recipient
+-- already got a club_post_new notification for this exact club within
+-- the last 3 hours (Design doc's chosen window -- no cron/digest infra
+-- exists anywhere in this project to build a real batched digest, see
+-- the 'trending' category's own comment above, so this in-trigger
+-- time-window check is the whole throttle mechanism, not a placeholder
+-- for one). A Poll Club Post (WYN-115) is an ordinary club_posts row --
+-- no special-casing needed here, it notifies exactly like any other post.
+create or replace function public.notify_club_post_new()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
+  select cm.user_id, new.author_id, 'club_post_new', new.id, new.club_id
+  from public.club_members cm
+  where cm.club_id = new.club_id
+    and cm.status = 'approved'
+    and cm.user_id <> new.author_id
+    and internal.notification_enabled(cm.user_id, 'club')
+    and not exists (
+      select 1 from public.club_notification_mutes cnm
+      where cnm.club_id = new.club_id and cnm.user_id = cm.user_id
+    )
+    and not exists (
+      select 1 from public.notifications n
+      where n.recipient_id = cm.user_id
+        and n.club_id = new.club_id
+        and n.type = 'club_post_new'
+        and n.created_at > now() - interval '3 hours'
+    );
+  return new;
+end;
+$$;
+
+create trigger club_posts_notify_new
+  after insert on public.club_posts
+  for each row execute function public.notify_club_post_new();
+
+-- Fan-out to every approved member except whoever pinned it
+-- (auth.uid()) -- deliberately NOT excluding the post's own author
+-- (unlike notify_club_post_new() above): an author whose own post gets
+-- pinned by staff should still be told, same as they'd want to know
+-- about a like/comment on their own content. Never throttled --
+-- Product's own Acceptance Criteria requires every real pin to notify.
+create or replace function public.notify_club_post_pinned()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
+  select cm.user_id, auth.uid(), 'club_post_pinned', new.id, new.club_id
+  from public.club_members cm
+  where cm.club_id = new.club_id
+    and cm.status = 'approved'
+    and cm.user_id <> auth.uid()
+    and internal.notification_enabled(cm.user_id, 'club')
+    and not exists (
+      select 1 from public.club_notification_mutes cnm
+      where cnm.club_id = new.club_id and cnm.user_id = cm.user_id
+    );
+  return new;
+end;
+$$;
+
+create trigger club_posts_notify_pinned
+  after update on public.club_posts
+  for each row
+  when (old.pinned = false and new.pinned = true)
+  execute function public.notify_club_post_pinned();
