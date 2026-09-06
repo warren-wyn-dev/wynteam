@@ -28,6 +28,20 @@ PASS → Deploy
 
 **ห้ามข้าม QA สำหรับงานที่จะขึ้น production เด็ดขาด**
 
+## Staged Rollout เป็นค่าเริ่มต้นสำหรับฟีเจอร์ใหม่ (เพิ่ม 2026-09-06)
+
+Founder ตัดสินใจ (WYN-125, `.wyn/company/DECISIONS.md` entry "[2026-09-06] Staged rollout เป็นค่าเริ่มต้นสำหรับฟีเจอร์ใหม่ทุกตัว"): **ฟีเจอร์ใหม่ที่ผู้ใช้มองเห็น (user-facing) ทุกตัว ต้อง gate ด้วย developer account allowlist (`DeveloperAccessService.isDeveloperAccount()`, ดู `.wyn/docs/design/wyn-125-staged-rollout-developer-accounts.md`) เป็นค่าเริ่มต้นเสมอ** — Founder **ไม่ต้องขอทุกครั้ง** AI Coding ต้องทำเป็นมาตรฐานโดยอัตโนมัติ:
+
+1. **AI Design** ระบุใน design spec ของทุกฟีเจอร์ใหม่ว่า behavior เมื่อ `isDeveloperAccount() == false` (ผู้ใช้ทั่วไป) ต้องเป็นอย่างไร — ต้องเป็น "ยังไม่เห็นฟีเจอร์นี้เลย" (เหมือนฟีเจอร์ยังไม่มีอยู่) ไม่ใช่ error/blank/loading ค้าง
+2. **AI Coding** wrap โค้ดของฟีเจอร์ใหม่ด้วย `if (isDeveloperAccount) { ของใหม่ } else { ของเดิม/ไม่แสดง }` เป็นค่าเริ่มต้นของทุกงาน ไม่ต้องรอ Founder สั่งเป็นกรณีๆ ไป
+3. **AI QA & Security** ตรวจทั้งสอง state เสมอ (`true`/`false`) เหมือนตรวจ edge case ปกติ — state `false` ต้องเหมือนพฤติกรรมก่อนมีฟีเจอร์นี้ทุกประการ
+4. **Deploy ปกติ**: ทุกคนได้ code เดียวกัน แต่เห็นต่างกันตาม allowlist — บัญชีนักพัฒนา (`developer_accounts`) เห็นของใหม่ก่อน ผู้ใช้ทั่วไปเห็นเหมือนเดิม
+5. **เปิดให้ผู้ใช้ทั่วไป**: ต้องรอ **Founder สั่งชัดเจนเท่านั้น** ("เปิดให้ทุกคนได้แล้ว" หรือระบุชื่อฟีเจอร์) — AI Coding จึงจะลบเงื่อนไข gate ออกแล้ว deploy อีกครั้ง ห้ามเปิดเองโดยไม่มีคำสั่ง
+
+**ข้อยกเว้น (ไม่ gate)**: bug fix ของฟีเจอร์ที่ผู้ใช้ทั่วไปใช้อยู่แล้ว, security fix, hotfix ที่แก้ของเดิมให้กลับมาใช้งานได้ปกติ — เพราะการซ่อนบั๊กที่ผู้ใช้ทั่วไปเจออยู่แล้วไว้หลัง flag เท่ากับปล่อยให้บั๊กนั้นค้างอยู่ต่อ ไม่ตรงเจตนาของ Founder เมื่อไม่แน่ใจว่างานไหนควร gate หรือไม่ ให้ AI Coding/AI Design ถาม Founder ก่อนเริ่ม แทนที่จะเดา
+
+รายละเอียด mechanism เต็ม: `.wyn/tasks/approved/WYN-125-staged-rollout-developer-first.md`, `.wyn/docs/design/wyn-125-staged-rollout-developer-accounts.md`
+
 ## Task Lifecycle
 
 ```
