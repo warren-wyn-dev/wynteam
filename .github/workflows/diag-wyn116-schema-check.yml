@@ -1,0 +1,52 @@
+name: Diagnostic -- check WYN-116 schema present in production (read-only)
+
+# Investigating a P0: real Club pages fail to load in production
+# ("โหลด Club ไม่สำเร็จ") right after the WYN-123 deploy (run #93,
+# 2026-09-06). ClubPage._load() calls ClubRepository.isClubMuted(),
+# which queries public.club_notification_mutes -- a table introduced by
+# WYN-116 (merged via PR #281, never itself deployed until run #93
+# carried it along). Checking whether WYN-116's schema.sql additions
+# were ever actually applied to the real production database, since
+# this project's schema.sql is a description, not something that
+# auto-applies (see chat-enable-conversations-realtime.yml's own
+# comment on this exact gap).
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Check
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            echo "HTTP $code"
+            cat "$out"; echo
+            rm -f "$out"
+          }
+
+          echo "=== 1. Does public.club_notification_mutes exist? ==="
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name = 'club_notification_mutes';"
+
+          echo "=== 2. What WYN-116 objects exist at all? (tables/functions it added per schema.sql) ==="
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name in ('club_notification_mutes');"
+          run_sql "select routine_name from information_schema.routines where routine_schema = 'public' and routine_name ilike '%club%reengage%' or routine_name ilike '%notify_club_post%';"
+
+          echo "=== 3. Try the exact query ClubPage._load() -> isClubMuted() runs, against a real club/user, to reproduce the actual error ==="
+          run_sql "select id from public.clubs limit 1;"
