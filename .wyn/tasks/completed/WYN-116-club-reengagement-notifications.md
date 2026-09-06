@@ -1,6 +1,6 @@
 # Product Task — WYN-116
 
-Status: approved (client code deployed via WYN-123's deploy, run #93, 2026-09-06 -- but this task's own schema.sql addition had never been applied to production, unlike WYN-122's equivalent workflow; that gap broke every real Club page load in production for ~15 minutes until `wyn116-apply-club-reengagement-schema.yml` ran and fixed it the same day. See DECISIONS.md entry same date, "P0: real Club pages broken in production")
+Status: completed -- schema gap fixed same day via `wyn116-apply-club-reengagement-schema.yml` (see DECISIONS.md, "P0: real Club pages broken in production"), Founder confirmed real Club pages load correctly again in production, 2026-09-06 ("เสร็จแล้ว")
 Owner: AI Product Manager
 
 Feature: Club Re-engagement Notifications — แจ้งเตือนสมาชิกเมื่อ Club ที่เข้าร่วมมีความเคลื่อนไหวใหม่

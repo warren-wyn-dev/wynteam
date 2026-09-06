@@ -1356,3 +1356,16 @@ Merge เข้า `main` ผ่าน PR [#285](https://github.com/warren-wyn-d
 **ยังไม่ปิดเป็น completed** — งานนี้เป็น infrastructure ล้วนๆ ไม่มี UI/ฟีเจอร์ไหนเรียกใช้ `is_developer_account()`/`DeveloperAccessService` เลยในรอบนี้ (ตามขอบเขตที่ Design กำหนด) จึงยังไม่มี "ผลลัพธ์ที่ผู้ใช้สัมผัสได้จริง" ให้ Founder ทดลองยืนยัน — จะปิด task เต็มรูปแบบเมื่อมีฟีเจอร์แรกในอนาคตผูกกับ flag นี้และผ่าน Production Verification ของตัวเองสำเร็จ ย้าย task ไป `.wyn/tasks/approved/WYN-125-staged-rollout-developer-first.md` แล้ว
 
 รายละเอียดเต็ม: `.wyn/logs/deployments/2026-09-06-wyn-125-developer-account-allowlist-deploy.md`
+
+## [2026-09-06] Founder ยืนยัน "เสร็จแล้ว" -- ปิด WYN-115/116/123/124 เป็น completed
+
+หลัง WYN-124 deploy ขึ้น production, Founder ทดลองใช้จริงในแอป (เปิด Club, กดเชิญ, เห็นคำเชิญเป็น Notification) แล้วยืนยันสั้นๆ ว่า "เสร็จแล้ว" — ตาม `.wyn/company/WORKFLOW.md` (ต้องมี hands-on confirmation จาก Founder เองก่อนย้าย `approved/` → `completed/`) ปิดทั้ง 4 task ที่ blocked อยู่บนการยืนยันรอบนี้:
+
+- `WYN-115` (Club Poll) -- schema gap ที่เจอระหว่างทางแก้แล้ว, โพสต์ในคลับ (รวมโพลล์) โหลดได้ปกติ
+- `WYN-116` (Club Re-engagement Notifications) -- P0 ต้นทางแก้แล้ว, หน้า Club โหลดได้ปกติ
+- `WYN-123` (Invite Followers to Club) -- ฟีเจอร์เชิญเข้าคลับใช้งานได้จริง (audience/UI เดิม, กลไกส่งเปลี่ยนเป็นของ WYN-124)
+- `WYN-124` (Club Invite Notification) -- คำเชิญไปโผล่ที่หน้าการแจ้งเตือนจริงตามที่สั่ง ไม่ใช่หน้าแชท
+
+`WYN-117` (Club Owner Insights) ยังคงอยู่ที่ `approved/` -- เป็นการแก้เชิงป้องกัน (schema apply ก่อนมีคนใช้จริง) ไม่ได้อยู่ในสิ่งที่ Founder ทดสอบรอบนี้โดยตรง รอการยืนยันแยกเมื่อมีคนเปิดแท็บ Insights จริง
+
+หมายเหตุกระบวนการ: พบอีกครั้งว่า `git mv` ในสภาพแวดล้อมนี้บางครั้ง stage เนื้อหาไฟล์เก่า (ก่อนแก้ไข) แทนเนื้อหาปัจจุบันบน disk แม้ Edit จะเขียนไฟล์สำเร็จแล้วก็ตาม (`git status` ขึ้น "RM" ไม่ใช่ "R" เฉยๆ) -- ต้อง `git add` ซ้ำอีกครั้งหลัง `git mv` เพื่อ sync content ก่อน commit ทุกครั้ง ไม่งั้นจะ commit เนื้อหาเก่าไปโดยไม่รู้ตัว (เจอเหตุการณ์นี้ 2 ครั้งในเซสชันนี้แล้ว)

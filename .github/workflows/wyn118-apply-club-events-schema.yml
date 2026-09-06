@@ -1,0 +1,221 @@
+name: WYN-118 -- apply club events schema (preventive, same gap as WYN-115/116/117)
+
+# WYN-118 (Club Events) just merged into main (PR #284) with a new
+# supabase/schema.sql section (club_events/club_event_rsvps tables +
+# RLS + validate_club_event_rsvp() trigger + club_event_rsvp_counts()
+# RPC) but, same as WYN-115/116/117 before it, no dedicated apply-to-
+# production workflow of its own -- schema.sql is a description, it
+# does not auto-apply (see chat-enable-conversations-realtime.yml's
+# comment, and DECISIONS.md's 2026-09-06 entries on this exact,
+# repeatedly-hit gap). Applying this now, preventively, before any
+# deploy ships client code that queries club_events and turns this into
+# a fourth same-shaped P0 for whichever Club member opens the new
+# Events tab first.
+#
+# Purely additive: 2 new tables + RLS + 1 trigger + 1 function. Copy-
+# paste identical to schema.sql's WYN-118 section -- if the two ever
+# drift, schema.sql is wrong, not this file.
+#
+# Safe to run more than once (CREATE TABLE/POLICY guarded, CREATE OR
+# REPLACE FUNCTION, DROP TRIGGER IF EXISTS before CREATE TRIGGER).
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== 0. Diagnose: does club_events already exist? ==="
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name in ('club_events', 'club_event_rsvps');" | jq .
+
+          echo "=== 1. Create club_events (idempotent) + RLS ==="
+          run_sql "create table if not exists public.club_events (
+                     id uuid primary key default gen_random_uuid(),
+                     club_id uuid not null references public.clubs (id) on delete cascade,
+                     creator_id uuid not null references public.profiles (id) on delete cascade,
+                     title text not null,
+                     description text,
+                     starts_at timestamptz not null,
+                     location_type text not null check (location_type in ('online', 'offline')),
+                     location text not null,
+                     created_at timestamptz not null default now(),
+                     constraint club_events_title_length check (char_length(title) between 1 and 200),
+                     constraint club_events_description_length
+                       check (description is null or char_length(description) <= 2000),
+                     constraint club_events_location_length check (char_length(location) between 1 and 500)
+                   );
+
+                   create index if not exists club_events_club_starts_idx
+                     on public.club_events (club_id, starts_at);
+
+                   alter table public.club_events enable row level security;
+
+                   drop policy if exists \"Approved club members can view events\" on public.club_events;
+                   create policy \"Approved club members can view events\"
+                     on public.club_events
+                     for select
+                     to authenticated
+                     using (public.club_role(club_id, auth.uid()) is not null);
+
+                   drop policy if exists \"Club staff can create events\" on public.club_events;
+                   create policy \"Club staff can create events\"
+                     on public.club_events
+                     for insert
+                     to authenticated
+                     with check (
+                       creator_id = auth.uid()
+                       and public.club_role(club_id, auth.uid()) in ('owner', 'admin', 'moderator')
+                     );
+
+                   drop policy if exists \"Club staff can update events\" on public.club_events;
+                   create policy \"Club staff can update events\"
+                     on public.club_events
+                     for update
+                     to authenticated
+                     using (public.club_role(club_id, auth.uid()) in ('owner', 'admin', 'moderator'))
+                     with check (public.club_role(club_id, auth.uid()) in ('owner', 'admin', 'moderator'));
+
+                   drop policy if exists \"Club staff can delete events\" on public.club_events;
+                   create policy \"Club staff can delete events\"
+                     on public.club_events
+                     for delete
+                     to authenticated
+                     using (public.club_role(club_id, auth.uid()) in ('owner', 'admin', 'moderator'));" >/dev/null
+          echo "Done."
+
+          echo "=== 2. Create club_event_rsvps (idempotent) + RLS ==="
+          run_sql "create table if not exists public.club_event_rsvps (
+                     event_id uuid not null references public.club_events (id) on delete cascade,
+                     user_id uuid not null references public.profiles (id) on delete cascade,
+                     status text not null check (status in ('going', 'maybe', 'not_going')),
+                     created_at timestamptz not null default now(),
+                     updated_at timestamptz not null default now(),
+                     primary key (event_id, user_id)
+                   );
+
+                   create index if not exists club_event_rsvps_event_idx on public.club_event_rsvps (event_id);
+
+                   alter table public.club_event_rsvps enable row level security;
+
+                   drop policy if exists \"Approved club members can view event RSVPs\" on public.club_event_rsvps;
+                   create policy \"Approved club members can view event RSVPs\"
+                     on public.club_event_rsvps
+                     for select
+                     to authenticated
+                     using (
+                       exists (
+                         select 1 from public.club_events ce
+                         where ce.id = event_id and public.club_role(ce.club_id, auth.uid()) is not null
+                       )
+                     );
+
+                   drop policy if exists \"Users can RSVP as themselves\" on public.club_event_rsvps;
+                   create policy \"Users can RSVP as themselves\"
+                     on public.club_event_rsvps
+                     for insert
+                     to authenticated
+                     with check (auth.uid() = user_id);
+
+                   drop policy if exists \"Users can change their own RSVP\" on public.club_event_rsvps;
+                   create policy \"Users can change their own RSVP\"
+                     on public.club_event_rsvps
+                     for update
+                     to authenticated
+                     using (auth.uid() = user_id)
+                     with check (auth.uid() = user_id);
+
+                   drop policy if exists \"Users can remove their own RSVP\" on public.club_event_rsvps;
+                   create policy \"Users can remove their own RSVP\"
+                     on public.club_event_rsvps
+                     for delete
+                     to authenticated
+                     using (auth.uid() = user_id);" >/dev/null
+          echo "Done."
+
+          echo "=== 3. validate_club_event_rsvp() + trigger ==="
+          run_sql "create or replace function public.validate_club_event_rsvp()
+                   returns trigger
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   declare
+                     v_club_id uuid;
+                   begin
+                     select club_id into v_club_id from public.club_events where id = new.event_id;
+
+                     if v_club_id is null then
+                       raise exception 'Event not found';
+                     end if;
+
+                     if public.club_role(v_club_id, new.user_id) is null then
+                       raise exception 'Must be an approved club member to RSVP';
+                     end if;
+
+                     if internal.is_posting_blocked(new.user_id) then
+                       raise exception 'Account is posting-restricted';
+                     end if;
+
+                     new.updated_at := now();
+                     return new;
+                   end;
+                   \$fn\$;
+
+                   drop trigger if exists club_event_rsvps_validate on public.club_event_rsvps;
+                   create trigger club_event_rsvps_validate
+                     before insert or update on public.club_event_rsvps
+                     for each row execute function public.validate_club_event_rsvp();" >/dev/null
+          echo "Done."
+
+          echo "=== 4. club_event_rsvp_counts() RPC ==="
+          run_sql "create or replace function public.club_event_rsvp_counts(p_event_ids uuid[])
+                   returns table (event_id uuid, going bigint, maybe bigint, not_going bigint)
+                   language sql
+                   stable
+                   as \$fn\$
+                     select
+                       e.id,
+                       count(*) filter (where r.status = 'going'),
+                       count(*) filter (where r.status = 'maybe'),
+                       count(*) filter (where r.status = 'not_going')
+                     from public.club_events e
+                     left join public.club_event_rsvps r on r.event_id = e.id
+                     where e.id = any(p_event_ids)
+                     group by e.id;
+                   \$fn\$;
+
+                   grant execute on function public.club_event_rsvp_counts(uuid[]) to authenticated;" >/dev/null
+          echo "Done."
+
+          echo "=== 5. Verify: tables + trigger + function now present ==="
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name in ('club_events', 'club_event_rsvps');" | jq .
+          run_sql "select tgname from pg_trigger where tgname = 'club_event_rsvps_validate';" | jq .
+          run_sql "select routine_name from information_schema.routines where routine_schema = 'public' and routine_name in ('validate_club_event_rsvp', 'club_event_rsvp_counts');" | jq .
+
+          echo "=== 6. Smoke test: query club_events against a real club (should return cleanly, even if empty) ==="
+          run_sql "select ce.id from public.club_events ce limit 5;" | jq .
