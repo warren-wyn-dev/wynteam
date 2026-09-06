@@ -1112,3 +1112,15 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 **สถานะ**: ส่งกลับ AI QA & Security พร้อม manual verification checklist 2 ชุด (path ที่ควรเป็น 200 ใหม่ + static asset ที่ต้องยังเป็นไฟล์จริงเหมือนเดิม) — ต้อง deploy ก่อนถึงจะ verify ได้จริง
 
 อ้างอิง: `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`, `.wyn/learning/LESSONS_LEARNED.md`, `.wyn/learning/MISTAKES.md`
+
+## [2026-09-06] WYN-114: QA PASS (มีเงื่อนไข) หลังยืนยันด้วยเอกสารทางการของ Vercel — ส่งต่อ Deploy
+
+**บริบท**: QA ตรวจ fix ของ Debug Engineer (`app/web/vercel.json`) ซ้ำ ไม่หยุดแค่ตรวจโค้ด static แต่ไล่แก้ข้อสงสัยที่ Debug Engineer เองระบุไว้ว่า "ยังพิสูจน์เองไม่ได้" (rewrite อาจทับ static asset จริงอย่าง `og-image.png`) ด้วยการ **WebFetch เอกสารทางการของ Vercel โดยตรง** (`vercel.json` reference doc อัปเดตล่าสุด 2026-08-14) พบข้อความยืนยันชัดเจน: *"precedence is given to the filesystem prior to rewrites being applied"* — ปิดข้อสงสัยหลักได้เกือบสมบูรณ์โดยไม่ต้องรอ deploy จริง
+
+**ผลลัพธ์**: PASS แบบมีเงื่อนไข — โค้ด/config ถูกต้องครบ + ความเสี่ยงหลักมีเอกสารทางการรองรับแล้ว แต่ยังต้องยืนยันด้วยตาจริงหลัง deploy ตาม curl checklist 2 ชุดที่ Debug Engineer เตรียมไว้ (ถือเป็นข้อบังคับ ไม่ใช่ทางเลือก — ถ้า static asset จุดใดพัง ต้อง P0 rollback ทันที)
+
+**บทเรียน**: เมื่อเจอข้อสงสัยที่ "เอกสารบอกว่าปลอดภัย แต่ยังไม่พิสูจน์" และมีเครื่องมือค้นเอกสารทางการจริง (WebFetch) ให้ใช้เพื่อยืนยันก่อนปล่อยผ่านเป็นข้อสงสัยค้างคา แทนที่จะพึ่งแค่ "โดยทั่วไปควรจะ..." เฉยๆ
+
+**สถานะ**: WYN-114 approved — ส่งต่อ AI Deploy & DevOps
+
+อ้างอิง: `.wyn/tasks/approved/WYN-114-share-link-real-domain.md`, `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`

@@ -1,6 +1,6 @@
 # Bug Report — WYN-114
 
-Status: **fixed — ส่งกลับ AI QA & Security แล้ว (2026-09-06)** รอ verify จริงหลัง deploy ตาม checklist ท้ายไฟล์
+Status: **QA PASS (2026-09-06, มีเงื่อนไข) — ส่งต่อ AI Deploy & DevOps** ต้องรัน curl checklist ท้ายไฟล์ทันทีหลัง deploy ถือเป็นส่วนบังคับของงาน ไม่ใช่ทางเลือก
 Owner: AI Debug Engineer
 Bug: ทุก URL path บน `wynos.online` ที่ไม่ใช่ `/` เป๊ะๆ ได้ `HTTP 404` จาก Vercel โดยตรง (ไม่ถึง Flutter app เลย) — พบระหว่าง QA ของ WYN-114 (share link domain fix) เมื่อทดสอบว่าลิงก์ที่ generate จาก `dropShareLink()`/`popShareLink()`/`clubShareLink()`/`clubPostShareLink()`/`profileShareLink()` เปิดได้จริงไหมหลังเปลี่ยนโดเมนเป็น `wynos.online`
 
@@ -86,3 +86,40 @@ curl -sS -o /dev/null -w "%{http_code} %{content_type}\n" https://wynos.online/m
 ```
 
 Handoff to QA: ส่งกลับ **AI QA & Security** — รัน checklist ทั้ง 2 ชุดข้างบนจริงหลัง deploy (ไม่ใช่แค่เชื่อว่า Vercel default behavior ปลอดภัย) ถ้าชุด 2 จุดใดจุดหนึ่งพัง (ได้ HTML ของ index.html แทนที่จะเป็นไฟล์จริง) ต้องถือว่า FAIL ทันทีและ escalate กลับมาที่ AI Debug Engineer เพราะเป็นการแก้บั๊กหนึ่งแล้วสร้างอีกบั๊กที่ร้ายแรงกว่าเดิม (share preview ของ WYN-113 จะพังไปด้วย)
+
+## AI QA & Security Output — Re-verification (2026-09-06)
+
+Feature: WYN-114 fix — `app/web/vercel.json` (SPA catch-all rewrite)
+
+Environment: session มี network egress ทั้งไปยัง `wynos.online` (production) และเว็บทั่วไป (WebFetch) — ใช้ทั้งสองอย่างเพื่อไม่ต้องเดา
+
+Test Cases:
+1. Scope check: diff เทียบ `origin/main` ทั้งก้อน (ทุก commit ของ WYN-113+WYN-114 รวมกัน) — จำกัดเฉพาะไฟล์ที่ควรแตะ ไม่มีอะไรหลุด
+2. Secret exposure scan ทั้ง diff
+3. ตรวจ `app/web/vercel.json`: JSON syntax ถูกต้อง (parse ผ่านด้วย Python `json.load`), เนื้อหาตรงตาม pattern มาตรฐาน
+4. ตรวจ `.gitignore` negation ซ้ำอิสระ (`git add --dry-run` + `git check-ignore -v`) — ไม่ถูก block
+5. **ตรวจ regression risk ที่ Debug Engineer เตือนไว้ว่า "ยังไม่ได้พิสูจน์" — ค้นเอกสารทางการของ Vercel โดยตรง (WebFetch `vercel.json` docs) แทนที่จะปล่อยผ่านเป็นข้อสงสัยค้างไว้**
+
+Passed: 1, 2, 3, 4 — ทุกจุดถูกต้อง ไม่มี secret รั่ว ไม่มีไฟล์อื่นหลุดขอบเขต
+
+**5 — ยืนยันแล้วจากเอกสารทางการ ไม่ใช่แค่เดา**: ดึงหน้า `vercel.json` reference doc ของ Vercel มาอ่านตรงๆ (อัปเดตล่าสุด 2026-08-14) พบข้อความยืนยันชัดเจน:
+
+> "The `source` property should **NOT** be a file because **precedence is given to the filesystem prior to rewrites being applied**. Instead, you should rename your static file or Vercel Function."
+
+**นี่คือคำยืนยันจาก Vercel เองตรงๆ ว่า static file ที่มีอยู่จริงจะถูก serve ก่อนเสมอ ไม่มีทางถูก catch-all rewrite แย่งไปที่ `index.html`** — แก้ข้อกังวลเรื่อง regression ต่อ `og-image.png`/`favicon.png`/`manifest.json` (ที่ Debug Engineer ระบุไว้ว่า "ยังพิสูจน์เองไม่ได้ในสภาพแวดล้อมนี้") ได้เกือบสมบูรณ์ — เหลือแค่การยืนยันด้วยตาเปล่าหลัง deploy จริงตาม checklist (ธรรมเนียมของทีมนี้ที่ไม่เชื่อแม้แต่เอกสารทางการ 100% จนกว่าจะเห็นผลจริง)
+
+Failed: ไม่มี (0) จากสิ่งที่ตรวจได้ในรอบนี้
+
+Severity: N/A
+
+Reproduction Steps: N/A
+
+Expected vs Actual: ตรงกัน — โค้ดถูกต้องตามที่ Debug Engineer อธิบาย และพฤติกรรมที่คาดหวัง (filesystem ชนะ rewrite) มีเอกสารทางการรองรับตรงๆ
+
+Security Findings: ไม่พบ
+
+Recommendation:
+- **PASS แบบมีเงื่อนไข** — โค้ด/config ถูกต้องครบทุกจุดที่ตรวจได้แบบ static ในสภาพแวดล้อมนี้ และความเสี่ยงหลัก (rewrite ทับ static asset) มีเอกสารทางการยืนยันว่าไม่เกิดขึ้น
+- **เงื่อนไขที่ AI Deploy & DevOps ต้องทำทันทีหลัง deploy ไม่ใช่ตัวเลือก**: รัน curl checklist ทั้ง 2 ชุดที่ Debug Engineer เตรียมไว้ (ชุด path ใหม่ต้อง 200, ชุด static asset ต้องยังเป็นไฟล์จริง) — ถ้าชุด static asset จุดใดจุดหนึ่งพัง (ได้ HTML แทนไฟล์จริง) ต้องถือเป็น **P0 rollback ทันที** ตาม Rollback Plan เดิมของ WYN-113 (Vercel Instant Rollback กลับ deployment ก่อนหน้า) เพราะจะทำให้ share preview ของ WYN-113 พังไปด้วย
+
+Final Status: **PASS**

@@ -1,6 +1,6 @@
 # Product Task — WYN-114
 
-Status: **QA FAIL (2026-09-06)** — โค้ด Dart ที่แก้ถูกต้อง แต่พบว่า Vercel hosting ไม่มี SPA rewrite เลย ทุก path นอกจาก `/` ได้ HTTP 404 ตรงๆ (ดู "## AI QA & Security Output" ท้ายไฟล์ + bug report `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`) ส่งต่อ AI Debug Engineer
+Status: **approved — QA PASS หลัง Debug Engineer แก้ Vercel rewrite แล้ว (2026-09-06)** ดูรายละเอียดเต็มที่ `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md` (root cause, fix, QA re-verification ด้วยเอกสารทางการของ Vercel) — ส่งต่อ AI Deploy & DevOps พร้อม curl checklist บังคับหลัง deploy
 Owner: AI Product Manager
 Feature: Share Link ชี้โดเมนจริง (ค้างจาก Beta3 Security Audit item A-7)
 Goal: ให้ปุ่มแชร์ (Drop/Pop/Club/ClubPost/Profile) ส่งลิงก์ที่เปิดได้จริง แทนโดเมนปลอมที่ไม่มีอยู่จริง
