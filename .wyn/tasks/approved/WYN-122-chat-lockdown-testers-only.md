@@ -1,7 +1,7 @@
 # Feature Request — WYN-122
 
-Status: **active — Debug Engineer แก้แล้ว (grant statement) — ส่งกลับ AI QA & Security เพื่อยืนยันอิสระอีกครั้ง**
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (FAIL) → AI Debug Engineer (แก้แล้ว) → AI QA & Security (รอบ 2)
+Status: **approved — QA PASS (รอบ 2, ยืนยันอิสระแล้ว) — ส่งต่อ AI Deploy & DevOps**
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (FAIL) → AI Debug Engineer → AI QA & Security (PASS) → AI Deploy & DevOps
 
 Feature: ปิดระบบแชท 1-on-1 ชั่วคราว เหลือเฉพาะ @warren ↔ @wynos_online (Chat Lockdown for Testing)
 
@@ -188,3 +188,31 @@ Founder บอกไว้ชัดเจนว่านี่คือ "ก่�
 **Regression Risk**: ไม่มี — การเพิ่ม grant เป็นการเปลี่ยนแปลงทิศทาง "อนุญาตเพิ่ม" ล้วนๆ ตรงกับ pattern ที่ใช้อยู่แล้ว 10 จุดในไฟล์เดียวกัน ไม่มีทางทำให้อะไรที่เคยทำงานได้กลับพัง
 
 **Handoff to QA**: ส่งกลับ AI QA & Security เพื่อยืนยันอิสระอีกครั้งว่า grant ถูกต้องจริง (แนะนำ: รัน `has_function_privilege()` เองอิสระ + ลอง revoke/verify ซ้ำเองอีกรอบ ไม่ต้องเชื่อแค่ผลจาก Debug Engineer) ก่อน PASS
+
+---
+
+## AI QA & Security Output — Round 2 (Independent Re-verification)
+
+**Feature**: WYN-122 (Chat Lockdown) — ยืนยันการแก้ไขของ AI Debug Engineer (commit `b7f6417`)
+
+**Environment**: Database ทดสอบใหม่ทั้งหมด (ไม่ reuse ของรอบก่อน/ของ Debug Engineer) — Local PostgreSQL 16 + `schema.sql` จริงจาก branch ล่าสุด, PR #279 CI
+
+**Test Cases** (ทำเองอิสระทั้งหมด ไม่เชื่อรายงานของ Debug Engineer เฉยๆ):
+1. Fixture/schema ใหม่ตั้งแต่ต้น + `select has_function_privilege('authenticated', 'internal.chat_pair_allowed(uuid, uuid)', 'EXECUTE')` ตรงๆ — ยืนยัน `true`
+2. เขียน revoke/verify cycle เองใหม่ (ไม่ใช้สคริปต์เดิมของ Debug Engineer) — `revoke execute ... from public` แล้วยิง query จริงผ่าน RLS ในฐานะ `authenticated` — **ยังทำงานได้ปกติ** (สร้างบทสนทนา + query สำเร็จ) พิสูจน์ว่า `authenticated`'s explicit grant ทำงานจริง ไม่ได้พึ่ง PUBLIC default อีกต่อไป — เป็นสถานการณ์เดียวกับที่ QA รอบ 1 พิสูจน์ว่าพัง ตอนนี้ยืนยันว่าแก้แล้วจริง
+3. รัน `wyn_122_chat_lockdown_test.sh` อิสระ — **18/18 PASS**
+4. รัน `wyn_031_chat_test.sh`, `wyn_032_message_request_test.sh`, `wyn_033_share_to_chat_test.sh`, `wyn_037_edit_delete_drop_test.sh`, `wyn_120_delete_drop_not_disappearing_from_profile_test.sh` — ทุกตัว PASS ครบ ไม่มี regression
+5. ตรวจ `.github/workflows/wyn122-apply-chat-lockdown-schema.yml` ตรงๆ ว่ามี grant statement เดียวกันจริง (ไม่ใช่แค่ schema.sql)
+6. ตรวจ PR #279 บน GitHub ตรงๆ — CI status `success` บน commit ล่าสุด `b7f6417` (Flutter analyze+test, Admin, Supabase Edge Functions, schema.sql ordering ผ่านหมด)
+
+**Passed**: 1, 2, 3, 4, 5, 6 — ครบทุกจุด
+
+**Failed**: ไม่มี
+
+**Severity**: N/A (ไม่มี finding ใหม่)
+
+**Security Findings**: ไม่พบเพิ่มเติมจากรอบ 1 — การแก้ไขไม่ได้เปิดช่องโหว่ใหม่ใดๆ (grant execute เป็นทิศทาง "อนุญาตเพิ่ม" ที่ตรงกับ pattern เดิม 10 จุดแล้วในไฟล์)
+
+**Recommendation**: อนุมัติ deploy ได้ — ครบทุก Acceptance Criteria ของ Product spec, ผ่าน regression ครบ, CI เขียว, ยืนยันอิสระแล้วว่า fix ของ Debug Engineer แก้ปัญหาได้จริงไม่ใช่แค่ตามรายงาน
+
+**Final Status: PASS**
