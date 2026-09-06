@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/text_utils.dart';
 import 'club.dart';
+import 'club_insights.dart';
 import 'club_member.dart';
 
 const _memberProfileSelect = 'profile:profiles(username, display_name, avatar_url)';
@@ -460,5 +461,21 @@ class ClubRepository {
         .delete()
         .eq('club_id', clubId)
         .eq('user_id', userId);
+  }
+
+  /// WYN-117: [days] must be 7 or 30 (see `public.club_insights()`'s own
+  /// validation) -- the RPC itself rejects any other value, and rejects
+  /// the call entirely for a caller who isn't an owner/admin of
+  /// [clubId] (a 2-tier gate, narrower than `canModeratePosts`'s
+  /// owner/admin/moderator).
+  Future<ClubInsights> fetchClubInsights({
+    required String clubId,
+    required int days,
+  }) async {
+    final row = await _client.rpc('club_insights', params: {
+      'p_club_id': clubId,
+      'p_days': days,
+    }).single();
+    return ClubInsights.fromMap(row);
   }
 }

@@ -12443,3 +12443,96 @@ create trigger club_posts_notify_pinned
   for each row
   when (old.pinned = false and new.pinned = true)
   execute function public.notify_club_post_pinned();
+
+-- ============================================================
+-- WYN-117: Club Owner Insights
+-- ============================================================
+-- See .wyn/tasks/active/WYN-117-club-owner-insights.md and
+-- .wyn/docs/design/wyn-117-club-owner-insights.md. One aggregate RPC
+-- for the whole Insights tab -- computed at the DB layer in a single
+-- round trip, mirroring admin_dashboard_metrics() (WYN-050/077) rather
+-- than pulling raw rows to the client and summing them there (the
+-- Product spec's own Risks note names that RPC as the pattern to
+-- follow).
+create or replace function public.club_insights(p_club_id uuid, p_days int)
+returns table (
+  new_members bigint,
+  new_posts bigint,
+  likes_and_comments bigint,
+  active_members bigint
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_cutoff timestamptz;
+begin
+  -- Owner/Admin only -- the same 2-tier canManageClub gate
+  -- approve_club_member()/reject_club_member() already use, NOT the
+  -- wider 3-tier owner/admin/moderator gate club_posts' own moderation
+  -- policies use (Insights is explicitly owner/admin-only per the
+  -- Product spec's Target User). coalesce(...) is load-bearing here,
+  -- not decoration: club_role() returns NULL for a non-member, and
+  -- `NULL not in (...)` evaluates to NULL, which plpgsql's `if` treats
+  -- as false -- silently skipping the exception. This is the exact
+  -- null-role-bypass class WYN-050 found in admin_dashboard_metrics()
+  -- (.wyn/tasks/bugs/WYN-050-admin-dashboard-metrics-null-role-bypass.md)
+  -- and it is guarded against here from day one.
+  if coalesce(public.club_role(p_club_id, auth.uid()), '') not in ('owner', 'admin') then
+    raise exception 'Not permitted to view Club insights';
+  end if;
+
+  -- Only 7 or 30 days -- a fixed toggle, not an arbitrary date range,
+  -- per the Design doc's explicit anti-over-engineering decision.
+  if p_days not in (7, 30) then
+    raise exception 'Invalid insights window: %', p_days;
+  end if;
+
+  v_cutoff := now() - (p_days || ' days')::interval;
+
+  return query
+  with post_ids as (
+    select id from public.club_posts where club_id = p_club_id
+  ),
+  -- Same "actor_id + created_at, union every did-something table"
+  -- shape admin_dashboard_metrics()'s own `actions` CTE uses, scoped to
+  -- this one club instead of the whole platform.
+  actions as (
+    select author_id as actor_id, created_at
+    from public.club_posts
+    where club_id = p_club_id
+    union all
+    select cpl.user_id as actor_id, cpl.created_at
+    from public.club_post_likes cpl
+    where cpl.club_post_id in (select id from post_ids)
+    union all
+    select cpc.author_id as actor_id, cpc.created_at
+    from public.club_post_comments cpc
+    where cpc.club_post_id in (select id from post_ids)
+  )
+  select
+    -- Pending/banned members never count as a "new member" -- same
+    -- status='approved' filter ClubRepository.countMembers() already
+    -- applies to the plain member-count. A brand-new Club's own owner
+    -- (added by clubs_add_owner_membership) genuinely does count here
+    -- if the Club itself was created within the window -- that's
+    -- correct data, not a bug (see the Design doc's own note on this).
+    (select count(*) from public.club_members
+      where club_id = p_club_id and status = 'approved' and created_at >= v_cutoff),
+    (select count(*) from public.club_posts
+      where club_id = p_club_id and created_at >= v_cutoff),
+    -- One combined total, not two separate numbers -- matches the
+    -- Product spec's own wording ("จำนวน Like/Comment รวม").
+    (
+      (select count(*) from public.club_post_likes cpl
+        where cpl.club_post_id in (select id from post_ids) and cpl.created_at >= v_cutoff)
+      +
+      (select count(*) from public.club_post_comments cpc
+        where cpc.club_post_id in (select id from post_ids) and cpc.created_at >= v_cutoff)
+    ),
+    (select count(distinct actor_id) from actions where created_at >= v_cutoff);
+end;
+$$;
+
+grant execute on function public.club_insights(uuid, int) to authenticated;

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wyn/features/club/data/club.dart';
+import 'package:wyn/features/club/data/club_insights.dart';
 import 'package:wyn/features/club/data/club_member.dart';
 import 'package:wyn/features/club/data/club_repository.dart';
 
@@ -21,6 +22,12 @@ class RecordingClubRepository extends ClubRepository {
     List<Club>? searchResults,
     Set<String>? pendingClubIds,
     this.isMutedResult = false,
+    this.clubInsightsResult = const ClubInsights(
+      newMembers: 0,
+      newPosts: 0,
+      likesAndComments: 0,
+      activeMembers: 0,
+    ),
   })  : myClubs = myClubs ?? [],
         approvedMembers = approvedMembers ?? [],
         pendingMembers = pendingMembers ?? [],
@@ -232,6 +239,25 @@ class RecordingClubRepository extends ClubRepository {
     unmuteClubNotificationsCalls++;
     unmuteClubNotificationsClubIdArgs.add(clubId);
     isMutedResult = false;
+  }
+
+  /// WYN-117: returned by [fetchClubInsights] regardless of the days
+  /// argument -- a test that needs different 7-day vs 30-day results
+  /// should override this method directly instead.
+  ClubInsights clubInsightsResult;
+  Object? fetchClubInsightsResultError;
+  int fetchClubInsightsCalls = 0;
+  final List<int> fetchClubInsightsDaysArgs = [];
+
+  @override
+  Future<ClubInsights> fetchClubInsights({
+    required String clubId,
+    required int days,
+  }) async {
+    fetchClubInsightsCalls++;
+    fetchClubInsightsDaysArgs.add(days);
+    if (fetchClubInsightsResultError != null) throw fetchClubInsightsResultError!;
+    return clubInsightsResult;
   }
 
   @override

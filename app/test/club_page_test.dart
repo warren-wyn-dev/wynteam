@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/club/data/club.dart';
+import 'package:wyn/features/club/data/club_insights.dart';
 import 'package:wyn/features/club/data/club_member.dart';
 import 'package:wyn/features/club/presentation/club_page.dart';
 
@@ -185,6 +186,63 @@ void main() {
     expect(find.text('รายงาน Club'), findsOneWidget);
     expect(find.text('ออกจาก Club'), findsNothing);
     expect(find.text('แก้ไขข้อมูล Club'), findsNothing);
+  });
+
+  group('Insights tab (WYN-117)', () {
+    testWidgets('the Owner sees an "Insights" tab', (tester) async {
+      await pumpPage(tester, ownerRepo);
+
+      expect(find.text('Insights'), findsOneWidget);
+    });
+
+    testWidgets('a plain approved member never sees an "Insights" tab',
+        (tester) async {
+      await pumpPage(tester, approvedMemberRepo);
+
+      expect(find.text('Insights'), findsNothing);
+    });
+
+    testWidgets('a non-member never sees an "Insights" tab', (tester) async {
+      await pumpPage(tester, notJoinedRepo);
+
+      expect(find.text('Insights'), findsNothing);
+    });
+
+    testWidgets(
+        'tapping the Insights tab shows stats from fetchClubInsights',
+        (tester) async {
+      ownerRepo.clubInsightsResult = const ClubInsights(
+        newMembers: 2,
+        newPosts: 4,
+        likesAndComments: 9,
+        activeMembers: 3,
+      );
+      await pumpPage(tester, ownerRepo);
+
+      await tester.tap(find.text('Insights'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('4'), findsOneWidget);
+      expect(find.text('9'), findsOneWidget);
+      expect(find.text('3'), findsOneWidget);
+    });
+
+    testWidgets(
+        'jumping to the Members tab from the More menu still works when '
+        'the Owner has a 4th (Insights) tab', (tester) async {
+      await pumpPage(tester, ownerRepo);
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('จัดการสิทธิ์สมาชิก'));
+      await tester.pumpAndSettle();
+
+      // "เชิญเพื่อน" is ClubMembersTab's own button, not shared with
+      // any other tab -- proves the jump actually landed on Members
+      // (index 1), not wherever the tab bar happened to already be.
+      expect(find.text('เชิญเพื่อน'), findsOneWidget);
+    });
   });
 
   group('Per-Club notification mute (WYN-116)', () {
