@@ -1284,3 +1284,17 @@ Merge เข้า `main` ผ่าน PR #282 (`b3d150f`) หลังแก้
 **ยังไม่ปิด task เป็น completed** — ตามกติกา "Production Verification คือใครยืนยัน ยืนยันอะไร" (`.wyn/company/WORKFLOW.md`) curl พิสูจน์ได้แค่ "เว็บขึ้น ไม่พัง" ไม่ใช่ "ฟีเจอร์ใหม่ทำงานถูกต้องจริงในเบราว์เซอร์" (กด "เชิญจากผู้ติดตาม" → เห็นรายชื่อ → กดเชิญ → คนถูกเชิญได้รับข้อความจริง) — รอ Founder ทดลองใช้จริงก่อน
 
 รายละเอียดเต็ม: `.wyn/logs/deployments/2026-09-06-wyn-123-invite-followers-deep-link-deploy.md`
+
+## [2026-09-06] P0: real Club pages broken in production right after WYN-123 deploy -- fixed same day
+
+Founder รายงานทันทีหลัง deploy run #93 ว่ากด Club จริงในแอปแล้วเจอ "โหลด Club ไม่สำเร็จ" ทุกครั้ง — ตรวจสอบพบว่าไม่เกี่ยวกับ WYN-123 (เชิญ follower เข้าคลับ) เลยโดยตรง แต่เป็นผลข้างเคียงจากการ merge:
+
+**Root cause**: `ClubPage._load()` เรียก `ClubRepository.isClubMuted()` ทุกครั้งที่โหลด Club (สำหรับสมาชิกที่ approved) ซึ่ง query ตาราง `public.club_notification_mutes` — ตารางนี้เพิ่มโดย `WYN-116` (Club Re-engagement Notifications, merge เข้า main ไปแล้วผ่าน PR #281 ก่อนหน้านี้ ผ่าน QA แล้วด้วย) **แต่ไม่เคยมีการรัน migration จริงบน production เลย** (ต่างจาก `WYN-122` ที่มี `wyn122-apply-chat-lockdown-schema.yml` ของตัวเองโดยเฉพาะ) — `deploy-web.yml` run #93 (WYN-123) เป็น deploy รอบแรกที่ ship client code ที่ query ตารางนี้จริง จึงเป็นรอบแรกที่บั๊กนี้แสดงผล แม้ WYN-123 เองจะไม่เกี่ยวกับโค้ดจุดนี้เลยก็ตาม
+
+**การวินิจฉัย**: สร้าง `diag-wyn116-schema-check.yml` (read-only) ยืนยันด้วย Supabase Management API ตรงว่า `club_notification_mutes` ไม่มีอยู่จริงใน production (`[]`) ก่อนจะสรุปสาเหตุ ไม่เดา
+
+**การแก้ไข**: สร้าง `wyn116-apply-club-reengagement-schema.yml` รันจริง (Founder สั่ง "ทำต่อ" ให้แก้ปัญหาทันที) — apply ส่วน WYN-116 ทั้งหมดจาก `schema.sql` แบบ copy-paste เป๊ะ (ขยาย check constraint ของ `notifications.type`, สร้างตาราง+RLS 3 policy, สร้าง 2 function/trigger) เป็นการเปลี่ยนแปลงแบบ additive ล้วนๆ ไม่มีอะไรถูกลบ/ทำลาย ตรงกับสิ่งที่ผ่าน QA ของ WYN-116 ไปแล้วทุกประการ — ยืนยันสำเร็จด้วยการรัน query เดิมที่เคย fail ซ้ำ (`isClubMuted()`-equivalent) แล้วได้ผลลัพธ์ว่างเปล่าปกติแทนที่จะ error
+
+**บทเรียน**: task ที่แก้ schema.sql (`create table`/`alter table`/function ใหม่) **ต้องมี workflow apply-to-production ของตัวเองเสมอ** (ตาม pattern ที่ `WYN-122` วางไว้ถูกต้องแล้ว) ก่อนที่ client code ที่พึ่งพา schema นั้นจะถูก deploy — ไม่งั้นจะเกิดเหตุการณ์แบบนี้ซ้ำได้ทุกครั้งที่มี PR อื่นบังเอิญเป็น deploy แรกที่ ship client code ที่ query schema ที่ยังไม่ apply จริง ควรตรวจสอบ task อื่นที่ค้างอยู่ใน `approved/` ว่ามีจุดเดียวกันอีกหรือไม่ (ยังไม่ได้ตรวจในรอบนี้ เพราะขอบเขตอยู่ที่แก้ P0 นี้ก่อน)
+
+อ้างอิง: `.github/workflows/diag-wyn116-schema-check.yml`, `.github/workflows/wyn116-apply-club-reengagement-schema.yml`, `.wyn/tasks/approved/WYN-116-club-reengagement-notifications.md`
