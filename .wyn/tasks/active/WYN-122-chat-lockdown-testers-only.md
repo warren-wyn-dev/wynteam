@@ -1,7 +1,7 @@
 # Feature Request — WYN-122
 
-Status: **active — Design เสร็จแล้ว ส่งต่อ AI Coding**
-Owner: AI Product Manager → AI Design → AI Coding
+Status: **active — Coding เสร็จแล้ว ส่งต่อ AI QA & Security**
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security
 
 Feature: ปิดระบบแชท 1-on-1 ชั่วคราว เหลือเฉพาะ @warren ↔ @wynos_online (Chat Lockdown for Testing)
 
@@ -92,3 +92,36 @@ Founder บอกไว้ชัดเจนว่านี่คือ "ก่�
 ## Handoff
 
 ส่งต่อ **AI Coding** — ลำดับแนะนำเต็มอยู่ท้าย `.wyn/docs/design/wyn-122-chat-lockdown-testers-only.md`: (1) backend enforcement (allowlist + RLS/RPC 3 จุด + data-driven toggle) (2) `ChatRepository` เพิ่ม lockdown-check method (3)-(6) เพิ่ม state Locked ใน 4 จุด UI ตามที่ระบุ
+
+---
+
+## AI Coding Output (เสร็จแล้ว — ส่งต่อ AI QA & Security)
+
+**Implementation**: Backend enforcement ที่ RLS/RPC layer ตาม R1 (allowlist ทั้งสองฝ่ายถึงจะใช้แชทได้) + data-driven toggle ตาม R2 (ไม่ต้อง deploy client ใหม่เพื่อเปิด/ปิด) + UI 4 จุดตาม Design spec (Locked state สำหรับ Chat Inbox/Conversation Screen/New Message Screen + SnackBar เฉพาะสำหรับปุ่ม "ส่งข้อความ")
+
+**Files Changed**:
+- `supabase/schema.sql` — ตาราง `chat_lockdown`/`chat_lockdown_allowlist` ใหม่, ฟังก์ชัน `internal.chat_pair_allowed()`/`public.chat_lockdown_status()` ใหม่, แก้ `get_or_create_conversation()`/`count_unread_conversations()`, แก้ RLS policy 4 จุด (conversations SELECT, messages SELECT/INSERT, chat-media storage INSERT)
+- `.github/workflows/wyn122-apply-chat-lockdown-schema.yml` (ใหม่) — migration workflow ที่จะ apply เข้า production จริง (idempotent, resolve @warren/@wynos_online id จาก username ไม่ hardcode UUID, refuse ถ้าหาไม่ครบ 2 คน)
+- `.github/workflows/wyn122-toggle-chat-lockdown.yml` (ใหม่) — สวิตช์เปิด/ปิด lockdown จริง (status/enable/disable) — คือกลไก R2 ตัวจริงที่ Founder จะใช้ตอนเปิดใช้งานจริง
+- `supabase/tests/wyn_122_chat_lockdown_test.sh` (ใหม่) — regression test 15 checks
+- `app/lib/features/chat/data/chat_repository.dart` — `isChatAllowed({otherUserId})`
+- `app/lib/features/chat/presentation/{chat_inbox_screen,conversation_screen,new_message_screen}.dart` — state "Locked" ใหม่
+- `app/lib/features/profile/presentation/view_profile_screen.dart` — SnackBar เฉพาะสำหรับ lockdown rejection
+- Dart tests: `chat_inbox_screen_test.dart`, `conversation_screen_test.dart`, `new_message_screen_test.dart`, `view_profile_screen_test.dart`, `support/recording_chat_repository.dart`
+
+**Reason**: ตรงตาม Product/Design spec ทุกข้อ — ดูเหตุผลละเอียดในแต่ละไฟล์ (doc comment อธิบาย "ทำไม" ไว้ตรงจุดที่แก้)
+
+**Tests**:
+- SQL/RLS: `bash supabase/tests/wyn_122_chat_lockdown_test.sh` — **15/15 PASS** จริงกับ local PostgreSQL 16 + schema.sql (ไม่ใช่แค่ syntax check) — ครอบคลุมทุก Acceptance Criteria ของ Product spec (AC1-AC7, AC8 ยืนยันเชิงโครงสร้างว่า notification ไม่มีทางเกิดเพราะ message insert ถูกบล็อกที่ RLS ก่อน trigger ใดๆ จะทำงาน)
+- Regression: รัน `wyn_031_chat_test.sh`, `wyn_032_message_request_test.sh`, `wyn_033_share_to_chat_test.sh`, `wyn_037_edit_delete_drop_test.sh`, `wyn_120_*_test.sh` ซ้ำ — **ทุกตัวยัง PASS ครบ** ไม่มี regression จากการแก้ RLS
+- Migration workflow: ทดสอบ dry-run จริงกับ local Postgres (จำลอง production ก่อน/หลัง migrate) — apply ได้สำเร็จ, idempotent (รันซ้ำ 2 ครั้งไม่มี error/ไม่มี duplicate), resolve username→id ถูกต้อง
+- Dart/Flutter: ไม่มี Flutter SDK ใน sandbox นี้ให้รัน `flutter analyze`/`flutter test` จริง — พึ่งพา CI ตามที่ทำมาตลอด session — เขียน test ใหม่ 7 เคสครอบคลุม Locked state ทั้ง 3 หน้าจอ + SnackBar behavior ทั้ง 2 เคส (lockdown vs. ล้มเหลวจริง) โดยตรวจสอบ syntax/API เทียบกับ `RecordingChatRepository`/`PostgrestException` ที่มีอยู่แล้วในโปรเจกต์อย่างละเอียด
+
+**Build**: ไม่สามารถรัน `flutter build`/`flutter analyze` ใน sandbox นี้ได้ (ไม่มี Flutter SDK) — SQL migration ยืนยันโหลดสำเร็จ 100% (`psql` โหลด `schema.sql` เต็มไฟล์ผ่านไม่มี error หลังแก้)
+
+**Known Issues**:
+1. `accept_message_request()` ไม่ได้เพิ่ม lockdown check (มีแค่ใน `get_or_create_conversation()`/messages SELECT/INSERT) — เป็น edge case ที่ต้องมี pending request ที่สร้างไว้ *ก่อน* lockdown เปิดจากคู่ที่ไม่ผ่าน allowlist ถึงจะเกิดได้ แม้ accept สำเร็จก็ยังคุยกันไม่ได้จริง (messages SELECT/INSERT ยังบล็อกอยู่ดี) จึงไม่กระทบ security แต่ตัดสินใจไม่แก้ในรอบนี้เพื่อคุมขอบเขตการเปลี่ยนแปลงให้เล็กที่สุด
+2. `storage.objects` SELECT policy (ดูรูปในแชท) ไม่ได้เพิ่ม lockdown check — เพราะ `messages` SELECT ที่ถูกบล็อกไปแล้วทำให้ client ไม่มีทางได้ `image_url` ของบทสนทนาที่ถูกล็อกมาขอดูตั้งแต่แรกอยู่แล้ว (ไม่มี attack surface ใหม่)
+3. Pattern เดียวกันนี้ (catch-all error message) ยังพบใน Club post screens อีก 4 จุดจากงาน WYN-121 ก่อนหน้า — ไม่เกี่ยวกับ WYN-122 โดยตรง ไม่ได้แตะในรอบนี้
+
+**Handoff**: ส่งต่อ **AI QA & Security** — เน้นตรวจ: (1) resolve @warren/@wynos_online id ถูกต้องจริงบน production ก่อน deploy จริง (ความเสี่ยงหลักตาม Risks section) (2) ยืนยัน RLS policy ทั้ง 4 จุดครอบคลุมตรงตาม Acceptance Criteria ทุกข้อ (3) ทดสอบ toggle เปิด-ปิดจริงว่าทำงานตามคาด (4) ตรวจสอบว่า UI 4 จุดไม่มี regression กับ flow ปกติที่ไม่ถูก lockdown
