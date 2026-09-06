@@ -1,7 +1,7 @@
 # Product Task — WYN-126
 
-Status: backlog
-Owner: AI Product Manager
+Status: active (Design เสร็จแล้ว — handoff ให้ AI Coding)
+Owner: AI Product Manager (spec) → AI Design (spec เสร็จ) → AI Coding (ถัดไป)
 
 Feature: แสดงหมายเลขเวอร์ชัน WYNOS ที่ล่างสุดของหน้าการตั้งค่า (Settings) — ต่างกันตามสถานะบัญชี
 
@@ -37,3 +37,17 @@ Risks:
 Recommendation: งานเล็ก ไม่ต้องผ่าน Design step เต็มรูปแบบ (ไม่มี UX flow ใหม่ ไม่มี state ใหม่ที่ซับซ้อน) — ส่งตรงให้ AI Coding ได้เลย แต่ยังต้องมี design decision สั้นๆ เรื่อง text style (ขนาด/สี/ระยะห่าง) ให้เข้ากับ pattern เดิมของหน้า Settings เพื่อความสม่ำเสมอ ให้ AI Design ทำ spec สั้นๆ ก่อนส่ง Coding
 
 Handoff: ส่งต่อ AI Design ออกแบบ text style + ตำแหน่งที่แน่นอน แล้วส่งต่อ AI Coding implement ตาม Requirement 1-4 → AI QA & Security ตรวจทั้ง 2 state (`true`/`false`) + fail-closed → AI Deploy & DevOps (ไม่มี schema ใหม่ ไม่ต้องมี apply workflow แยก เป็น client-only เหมือนงาน WYN-123 เดิม)
+
+---
+
+## Design เสร็จแล้ว (2026-09-06) — handoff ให้ AI Coding
+
+Design spec เต็มอยู่ที่ `.wyn/docs/design/wyn-126-settings-version-label.md` สรุป decision สำหรับ AI Coding:
+
+1. **ตำแหน่ง**: เพิ่ม label เป็น child ตัวสุดท้าย **ภายใน `Column` เดียวกัน** ของ block "ออกจากระบบ" (บรรทัด ~252-264 เดิมของ `settings_screen.dart`) ต่อจาก `_SettingsRow` ของ "ออกจากระบบ" — ไม่ใช่ sibling ใหม่ของ `ListView.children`, ไม่มี divider คั่นเพิ่ม
+2. **Style**: `_textStyle(fontSize: 12, fontWeight: FontWeight.w400, color: WynColors.faint)` (ใช้ helper เดิมของไฟล์) จัดกึ่งกลางด้วย `Center`, padding บน/ล่าง `WynSpacing.space6` (ทั้งบนและล่างจากแถว "ออกจากระบบ" และขอบล่างของ ListView)
+3. **Constants**: เก็บ `_kStableVersionLabel = 'V1.0.0 Beta4'` และ `_kDeveloperVersionLabel = 'V1.0.0 Beta5 [พัฒนาอยู่]'` เป็นจุดเดียวในโค้ด (ห้าม hardcode ซ้ำ ตาม Requirement 3)
+4. **State/loading**: เรียก `DeveloperAccessService().isDeveloperAccount()` ผ่าน `FutureBuilder<bool>` ที่มี default/initial เป็น `false` เพื่อแสดง `_kStableVersionLabel` ตั้งแต่ frame แรกเสมอ (ห้าม spinner/skeleton/blank) แล้ว rebuild เป็น `_kDeveloperVersionLabel` เมื่อ resolve เป็น `true` — error/timeout ให้ผลลัพธ์ตรงกับ `false` อยู่แล้วเพราะ service fail-closed เอง ไม่ต้องเขียน error-handling เพิ่มในชั้น UI
+5. งานนี้ตั้งใจ**ไม่ gate การมองเห็นทั้ง element** ด้วย developer flag (ทุกคนเห็น label เสมอ ต่างแค่เนื้อข้อความ) — เป็นการตัดสินใจของ Product spec (Risks section) ที่ Design ยอมรับตามแล้ว ไม่ใช่ประเด็นที่ต้องออกแบบใหม่
+
+ขั้นตอนถัดไป: **AI Coding** implement ตาม Requirement 1-4 ของ spec นี้ + design spec เต็ม → **AI QA & Security** ตรวจ 4 ข้อใน Acceptance Criteria ด้านบน (ครอบคลุมทั้ง `true`/`false`/error state + regression ของแถวอื่นในหน้า Settings) → **AI Deploy & DevOps** deploy ปกติ (client-only, ไม่มี schema/RLS ใหม่ ไม่ต้องมี apply workflow แยก)
