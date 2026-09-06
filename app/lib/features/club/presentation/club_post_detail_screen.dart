@@ -27,9 +27,10 @@ import '../../report/presentation/report_sheet.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/widgets/wyn_heart_icon.dart';
 
-/// Placeholder share link -- same "no real hosting/domain yet" caveat as
-/// dropShareLink/popShareLink (WYN-005/006).
-String clubPostShareLink(String postId) => 'https://wyn.app/club-post/$postId';
+/// WYN-114 (Tier 1): real wynos.online domain now, same as
+/// dropShareLink/popShareLink -- still not a true deep link (no
+/// path-based routing in the app yet, see dropShareLink's comment).
+String clubPostShareLink(String postId) => 'https://wynos.online/club-post/$postId';
 
 /// Club post detail + full comment thread. Mirrors DropDetailScreen
 /// (WYN-005) -- Design's Posts tab spec describes the Posts list itself

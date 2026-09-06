@@ -23,9 +23,10 @@ import '../../report/presentation/report_sheet.dart';
 import '../../../core/widgets/network_thumbnail.dart';
 import 'widgets/club_avatar.dart';
 
-/// Placeholder share link -- same "no real hosting/domain yet" caveat as
-/// dropShareLink/popShareLink (WYN-005/006).
-String clubShareLink(String clubId) => 'https://wyn.app/club/$clubId';
+/// WYN-114 (Tier 1): real wynos.online domain now, same as
+/// dropShareLink/popShareLink -- still not a true deep link (no
+/// path-based routing in the app yet, see dropShareLink's comment).
+String clubShareLink(String clubId) => 'https://wynos.online/club/$clubId';
 
 typedef _ClubPageData = ({Club club, ClubMember? membership});
 

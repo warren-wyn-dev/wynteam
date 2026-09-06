@@ -41,10 +41,13 @@ import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
 import '../../../core/widgets/wyn_heart_icon.dart';
 
-/// Placeholder share link -- there's no real hosting/domain yet (see
-/// .wyn/tasks/active/WYN-005-drop-post-image.md Risks). Not a reachable
-/// URL; revisit once Founder confirms a real domain before Deploy.
-String dropShareLink(String dropId) => 'https://wyn.app/drop/$dropId';
+/// WYN-114 (Tier 1): points at the real wynos.online domain now instead
+/// of the placeholder wyn.app (which had no DNS at all). Still not a
+/// true deep link -- the app has no path-based routing (see main.dart's
+/// fixed `home: const AuthGate()`), so opening this URL lands on the
+/// generic entry screen, not this specific Drop. That's WYN-114 Tier 2,
+/// not yet approved.
+String dropShareLink(String dropId) => 'https://wynos.online/drop/$dropId';
 
 /// Screen 3 — Drop Detail (Comments).
 /// See .wyn/docs/design/wyn-005-drop.md

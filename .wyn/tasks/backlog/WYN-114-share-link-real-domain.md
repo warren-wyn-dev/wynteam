@@ -44,3 +44,28 @@ Risks: Tier 1 ความเสี่ยงต่ำมาก (แก้ string
 Recommendation: **ทำ Tier 1 ทันทีตามที่อนุมัติ** — คุ้มค่าแน่นอน (ลิงก์ที่เปิดไม่ได้เลย เป็น "เปิดได้แต่ไม่ตรงจุด" ดีขึ้นชัดเจน ต้นทุนต่ำมาก ไม่มีความเสี่ยง) — ส่วน Tier 2 (deep-linking จริง) แยกเป็นการตัดสินใจเชิง roadmap ต่างหาก เพราะเป็นงานใหญ่กว่าที่คิดไว้เดิมมาก และควรพิจารณาคู่กับผล WYN-112 (ถ้าปัญหาจริงคือคนไม่คลิกลิงก์เลย deep-linking จะยังช่วยไม่ได้จนกว่าจะมีคนคลิกก่อน)
 
 Handoff: Tier 1 → ส่งตรงไป **AI Coding** ได้เลย (ไม่ต้องผ่าน AI Design เพราะไม่มีการเปลี่ยนแปลงด้าน UI/visual ใดๆ เป็นการแก้ string constant ล้วนๆ) → AI QA & Security ตรวจ → AI Deploy & DevOps
+
+## AI Coding Output (2026-09-06) — Tier 1
+
+Implementation: เปลี่ยนโดเมนใน 5 ฟังก์ชัน share link จาก `https://wyn.app` → `https://wynos.online` พร้อมอัปเดต doc comment เดิม (ที่เขียนไว้ว่า "revisit once Founder confirms a real domain" — เงื่อนไขนั้นเกิดขึ้นแล้ว) ให้บอกสถานะจริงและระบุชัดว่านี่คือ Tier 1 เท่านั้น ยังไม่ใช่ deep-link จริง กันคนอ่านโค้ดในอนาคตเข้าใจผิด
+
+Files Changed:
+- `app/lib/features/drop/presentation/drop_detail_screen.dart` — `dropShareLink()`
+- `app/lib/features/pop/presentation/widgets/pop_clip_view.dart` — `popShareLink()`
+- `app/lib/features/club/presentation/club_page.dart` — `clubShareLink()`
+- `app/lib/features/club/presentation/club_post_detail_screen.dart` — `clubPostShareLink()`
+- `app/lib/features/profile/presentation/view_profile_screen.dart` — `profileShareLink()`
+
+(ทั้ง 5 ไฟล์แก้แค่ string literal 1 บรรทัด + comment เหนือมัน ไม่แตะโค้ดอื่นเลย)
+
+Reason: ตาม Product spec Tier 1 — โดเมนปลอมไม่มี DNS จริง ตอนนี้ชี้โดเมนจริงที่ deploy อยู่แล้ว (`wynos.online`, ใช้ค่าเดียวกับที่ WYN-113 ใช้ใน `og:url` ไปแล้ว)
+
+Tests: **ไม่มี test อ้างอิงฟังก์ชันเหล่านี้เลย** (grep `app/test/` หา `ShareLink`/`wyn.app` ไม่เจอ) — จึงไม่มี test ที่ต้องแก้ และไม่มีความเสี่ยง regression จาก test suite เดิม — ตรวจ diff ด้วยตาเทียบ pattern ที่ถูกต้อง (string literal + `$variable` interpolation) ด้วย Python regex แล้วผ่านครบทั้ง 5 จุด
+
+Build: **ยืนยันเองไม่ได้เต็มรูปแบบ** — sandbox นี้ไม่มี Flutter SDK เหมือนรอบ WYN-113 — ความเสี่ยงต่ำมากเพราะเป็นการแก้ string literal ล้วนๆ ไม่มีการเปลี่ยน syntax/type/import ใดๆ (ตรวจ diff แล้วยืนยันว่าเปลี่ยนแค่เนื้อใน `'...'` กับ comment เท่านั้น) — **AI QA & Security ควรรัน `flutter analyze`/`flutter test` จริงอย่างน้อยครั้งก่อน PASS**
+
+Known Issues:
+- Tier 1 ไม่ทำให้ลิงก์พาไปโพสต์ที่ถูกต้อง (ตามที่ระบุไว้ใน Product spec) — เปิดลิงก์แล้วจะเจอหน้าแรกของแอปเสมอ ไม่ใช่บั๊ก แต่เป็นข้อจำกัดที่ทราบอยู่แล้วของขอบเขตงานนี้ (Tier 2 ที่ยังไม่อนุมัติจะแก้จุดนี้)
+- ไม่ได้แตะ `io.wyn.app://login-callback` (native OAuth URL scheme ใน `auth_repository.dart`/`README.md`) เพราะเป็นคนละเรื่องกัน (custom URL scheme identifier สำหรับ native app ไม่ใช่ web domain สำหรับ share link) — ตรวจแล้วว่าไม่เกี่ยวข้องกับ scope นี้
+
+Handoff: ส่งต่อ **AI QA & Security** — ตรวจ `flutter analyze`/`flutter test` ผ่านจริง + สุ่มเปิดลิงก์ตัวอย่าง (เช่น `https://wynos.online/drop/test123`) ยืนยันว่าเว็บเปิดได้จริง (ไม่ error "ไม่พบเว็บไซต์") ก่อนถือว่าเสร็จ — ย้ำ QA ว่า Acceptance Criteria ของ Tier 1 คือ "ลิงก์เปิดเว็บได้" ไม่ใช่ "ลิงก์พาไปโพสต์ที่ถูกต้อง" (เก็บไว้ใน Tier 2)
