@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/app_version.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
+import '../../../core/developer_access/developer_access_service.dart';
 import '../../account_switcher/data/account_switcher_repository.dart';
 import '../../account_switcher/presentation/account_switcher_sheet.dart';
 import '../../block/data/block_repository.dart';
@@ -75,6 +77,7 @@ class SettingsScreen extends StatelessWidget {
     this.profileRepository,
     this.dataRightsRepository,
     this.followRepository,
+    this.developerAccessService,
   });
 
   /// Passed in directly from ViewProfileScreen's already-fetched own
@@ -101,6 +104,10 @@ class SettingsScreen extends StatelessWidget {
   /// Same "optional/defaulted" shape again -- WYN-097's "เพื่อนที่สนิท"
   /// row, needed by CloseFriendsScreen.
   final FollowRepository? followRepository;
+
+  /// Same "optional/defaulted" shape again -- WYN-126's version footer
+  /// at the bottom of this screen.
+  final DeveloperAccessService? developerAccessService;
 
   /// WYN-016: best-effort -- deregistering this device's push token must
   /// never block or fail sign-out itself. 05-profile.tsx moves the
@@ -263,8 +270,61 @@ class SettingsScreen extends StatelessWidget {
               ],
             ),
           ),
+          // WYN-126: version label, always the last thing on the page.
+          _VersionFooter(developerAccessService: developerAccessService),
         ],
       ),
+    );
+  }
+}
+
+/// WYN-126: shows [AppVersion.stable] to every regular account and
+/// [AppVersion.developerPreview] only to a developer/internal test
+/// account (WYN-125's `DeveloperAccessService`) -- deliberately not
+/// gated behind the developer flag *itself* (Product spec's own Risks:
+/// gating "which version string to show" behind the very flag it would
+/// need to check to decide that is circular, and defeats the point of
+/// everyone being able to see what build they're on).
+///
+/// Fail-closed by construction, not just by convention:
+/// [DeveloperAccessService.isDeveloperAccount] already never throws and
+/// defaults to `false` on any error (see that class's own doc comment),
+/// and this widget's `snapshot.data == true` check treats "still
+/// loading" and "errored" identically to "false" -- so this can only
+/// ever under-promise (a developer account briefly seeing the stable
+/// label while the check is in flight) and never shows the developer
+/// label to a regular account by mistake.
+class _VersionFooter extends StatefulWidget {
+  const _VersionFooter({this.developerAccessService});
+
+  final DeveloperAccessService? developerAccessService;
+
+  @override
+  State<_VersionFooter> createState() => _VersionFooterState();
+}
+
+class _VersionFooterState extends State<_VersionFooter> {
+  late final DeveloperAccessService _developerAccessService =
+      widget.developerAccessService ?? DeveloperAccessService();
+  late final Future<bool> _isDeveloperFuture =
+      _developerAccessService.isDeveloperAccount();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _isDeveloperFuture,
+      builder: (context, snapshot) {
+        final isDeveloper = snapshot.data == true;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: WynSpacing.space6),
+          child: Center(
+            child: Text(
+              isDeveloper ? AppVersion.developerPreview : AppVersion.stable,
+              style: _textStyle(fontSize: 12, color: WynColors.faint),
+            ),
+          ),
+        );
+      },
     );
   }
 }
