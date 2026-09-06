@@ -54,3 +54,11 @@ Design Rules ที่ยึดในงานนี้:
 Mockup อัปเดตแล้วให้ตรงกับที่เลือก: https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e
 
 Handoff: **พร้อมส่งต่อ AI Coding แล้ว** — ทำตาม Requirements ของ Product spec (`.wyn/tasks/active/WYN-113-og-share-preview-cards.md`) โดยใช้โทนสี A + ข้อความฉบับสุดท้ายด้านบน (งานเล็ก ไม่มี migration ไม่มี schema เปลี่ยน แก้ไฟล์เดียว + เพิ่ม asset เดียว)
+
+## แก้ไข (2026-09-06, รอบ 2): Founder เปลี่ยนจาก A กลับมาเป็น B (Ink)
+
+หลังยืนยัน A ไปแล้วรอบหนึ่ง Founder ดูมอคอัพอีกครั้งแล้วขอเปลี่ยนเป็น **B (Ink)** ด้วยเหตุผล "เอาสีดำดีกว่า จะได้เด่นๆ" — ตรงกับเหตุผลที่ AI Design แนะนำ B ไว้ตั้งแต่ต้น (การ์ดพื้นเข้มสะดุดตากว่าในฟีดที่ส่วนใหญ่เป็นการ์ดขาว)
+
+**ผลกระทบโค้ด**: แก้เฉพาะไฟล์รูป `app/web/og-image.png` (regenerate เป็นพื้น ink + โลโก้/ข้อความสีขาว) — **ไม่แก้ `index.html`** เพราะ meta tag ทุกตัวอ้าง path เดิม (`og-image.png`) และข้อความ title/description ไม่เปลี่ยน
+
+**สถานะสุดท้าย**: โทนสี B (Ink) + copy เดิมที่ Founder ยืนยันไปแล้ว — ปิดงาน design ครบ ส่ง AI QA & Security

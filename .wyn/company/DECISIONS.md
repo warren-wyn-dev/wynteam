@@ -1032,3 +1032,13 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 **สถานะ**: Implementation เสร็จ ส่งต่อ AI QA & Security แล้ว — ยังไม่ deploy ไม่แตะ production
 
 อ้างอิง: `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, commit `e2d1e40`
+
+## [2026-09-06] WYN-113: Founder เปลี่ยนจาก A กลับเป็น B (Ink) รอบสุดท้าย
+
+**บริบท**: หลังยืนยัน Option A (Paper) ไปแล้วก่อนหน้านี้ Founder ดู mockup อีกรอบแล้วขอเปลี่ยนเป็น **B (Ink)** — "เอาสีดำดีกว่า จะได้เด่นๆ" ตรงกับเหตุผลที่ AI Design เสนอ B ไว้ตั้งแต่แรก (การ์ดพื้นเข้มสะดุดตากว่าในฟีด Facebook/LINE ที่ส่วนใหญ่เป็นการ์ดขาว)
+
+**ผลกระทบ**: regenerate เฉพาะไฟล์ `app/web/og-image.png` เป็นพื้น ink + โลโก้/wordmark สีขาว — **ไม่แตะ `index.html`** เลย เพราะ meta tag path/ข้อความไม่เปลี่ยน (commit `93d4db0`) — copy (`og:title`/`og:description`) ยังเป็นเวอร์ชันเดิมที่ยืนยันไปแล้วก่อนหน้า
+
+**สถานะสุดท้ายของ WYN-113**: โทนสี **B (Ink)** + copy "โพสต์รูป แชร์เรื่องราว และตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว" — โค้ดพร้อม 100% ส่งต่อ AI QA & Security แล้ว ยังไม่ deploy
+
+อ้างอิง: `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, `.wyn/docs/design/wyn-113-og-share-preview-cards.md`, commit `93d4db0`, Artifact https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e
