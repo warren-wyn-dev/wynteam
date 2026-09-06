@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../club/presentation/invite_to_club_screen.dart';
+import '../../follow/data/follow_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/chat_repository.dart';
 import '../data/shared_content_type.dart';
@@ -17,6 +19,14 @@ import 'share_to_chat_screen.dart';
 /// needs no new parameter to reuse it). Shared across Drop/Club/
 /// Profile's entry points rather than duplicated 3 times -- see
 /// .wyn/docs/design/wyn-033-share-to-chat.md, Screen 1.
+///
+/// WYN-115: a 4th, topmost item -- "เชิญจากผู้ติดตาม" -- appears only
+/// when [sharedContentType] is [SharedContentType.club] and both
+/// [followRepository] and [clubName] are supplied (Club's own call site
+/// is the only one that passes them; Drop/Profile's sheets are
+/// unchanged). Opens [InviteToClubScreen] instead of the generic native
+/// share/copy-link flow -- see .wyn/docs/design/
+/// wyn-115-invite-followers-to-club.md, Screen 1.
 Future<void> showShareSheet(
   BuildContext context, {
   required ChatRepository chatRepository,
@@ -26,12 +36,41 @@ Future<void> showShareSheet(
   required String previewLabel,
   required String nativeShareText,
   String? nativeShareTitle,
+  FollowRepository? followRepository,
+  String? clubName,
 }) async {
+  final showInviteFromFollowers = sharedContentType == SharedContentType.club &&
+      followRepository != null &&
+      clubName != null;
+
   await showModalBottomSheet<void>(
     context: context,
     builder: (sheetContext) => SafeArea(
       child: Wrap(
         children: [
+          if (showInviteFromFollowers)
+            ListTile(
+              leading: const Icon(Icons.person_add_alt_1),
+              title: const Text('เชิญจากผู้ติดตาม'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    // `!` is safe here, not just convenient: this
+                    // ListTile only exists when `showInviteFromFollowers`
+                    // was true at build time, which already required
+                    // both to be non-null -- and neither parameter is
+                    // ever reassigned in this function.
+                    builder: (_) => InviteToClubScreen(
+                      followRepository: followRepository!,
+                      chatRepository: chatRepository,
+                      clubId: sharedContentId,
+                      clubName: clubName!,
+                    ),
+                  ),
+                );
+              },
+            ),
           ListTile(
             leading: const Icon(Icons.chat_bubble_outline),
             title: const Text('แชร์เข้า Chat'),

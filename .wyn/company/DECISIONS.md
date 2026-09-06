@@ -1025,3 +1025,13 @@ Founder ถามเทียบกับ Instagram/X ก่อนอนุม�
 ผลกระทบ: `InviteToClubScreen` (ยังไม่เขียนโค้ด) ต้อง merge ผล `FollowRepository.fetchFollowers()` + `fetchFollowing()` ฝั่ง client แทนที่จะใช้ query เดียว — อัปเดต spec แล้วทั้ง `.wyn/tasks/active/WYN-115-invite-followers-to-club.md` และ `.wyn/docs/design/wyn-115-invite-followers-to-club.md` พร้อม republish mockup Artifact ให้สะท้อนการตัดสินใจนี้ — ยังรอ Founder อนุมัติรอบสุดท้ายก่อนส่งต่อ AI Coding
 
 อ้างอิง: `.wyn/tasks/active/WYN-115-invite-followers-to-club.md`, `.wyn/docs/design/wyn-115-invite-followers-to-club.md`
+
+## [2026-09-06] WYN-115: AI Coding implement เสร็จ — ส่งต่อ AI QA & Security
+
+Implement ตาม design spec ที่ Founder อนุมัติแล้วครบ: `showShareSheet` เพิ่มตัวเลือก "เชิญจากผู้ติดตาม" (เงื่อนไขเฉพาะ Club), `InviteToClubScreen` ใหม่ (merge `fetchFollowers()`+`fetchFollowing()` dedupe ตาม Founder Decision), ส่งคำเชิญผ่าน `ChatRepository`/`SharedContentType.club` เดิมจาก WYN-033 — ไม่แตะ schema/RLS/Edge Function ใดๆ
+
+พบและแก้ 1 จุดระหว่างเขียน: parameter nullable (`followRepository`/`clubName`) ที่ใช้สร้าง `InviteToClubScreen` (ต้องการ non-null) ข้าม type promotion ผ่าน closure ของ `onTap` ไม่ได้อัตโนมัติ ต้องใส่ `!` ตรงจุดใช้งาน (ปลอดภัยเพราะ ListTile นั้นสร้างขึ้นเฉพาะตอนเช็คแล้วว่าทั้งคู่ไม่ null)
+
+**sandbox นี้ไม่มี Flutter SDK เลย รัน `flutter analyze`/`flutter test` ไม่ได้จริง** — ตรวจสอบด้วยการอ่าน source cross-reference ทุกจุดแทน (import/constructor/method ตรงกับของจริงทุกไฟล์ที่แตะ) เขียน regression test ไว้ครบ (`invite_to_club_screen_test.dart`, `share_sheet_test.dart`) แต่ยังไม่เคยรันจริงสักครั้ง — ไฟล์ task ยังอยู่ที่ `active/` ไม่ใช่ `completed/`/`approved/` ด้วยเหตุนี้ ส่งต่อ AI QA & Security แล้ว ต้องรัน suite เต็มก่อนอนุมัติ deploy
+
+อ้างอิง: `.wyn/tasks/active/WYN-115-invite-followers-to-club.md` ("AI Coding Output"), `app/lib/features/chat/presentation/share_sheet.dart`, `app/lib/features/club/presentation/invite_to_club_screen.dart`

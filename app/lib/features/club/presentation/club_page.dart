@@ -16,6 +16,7 @@ import '../../../core/widgets/action_sheet_row.dart';
 import '../../chat/data/chat_repository.dart';
 import '../../chat/data/shared_content_type.dart';
 import '../../chat/presentation/share_sheet.dart';
+import '../../follow/data/follow_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
@@ -70,6 +71,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   final _reportRepository = ReportRepository(Supabase.instance.client);
   final _chatRepository = ChatRepository(Supabase.instance.client);
   final _profileRepository = ProfileRepository(Supabase.instance.client);
+  final _followRepository = FollowRepository(Supabase.instance.client);
 
   @override
   void initState() {
@@ -221,6 +223,8 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
       previewLabel: 'แชร์ Club ${club.name}',
       nativeShareText: clubShareLink(club.id),
       nativeShareTitle: club.name,
+      followRepository: _followRepository,
+      clubName: club.name,
     );
   }
 

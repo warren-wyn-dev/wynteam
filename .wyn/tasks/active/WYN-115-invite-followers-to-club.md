@@ -1,6 +1,6 @@
 # Product Task — WYN-115
 
-Status: active (Founder อนุมัติ mockup แล้ว 2026-09-06 — ส่งต่อ AI Coding แล้ว ดู "AI Design Output"/"Founder Decision" ท้ายไฟล์นี้)
+Status: active (Coding เสร็จแล้ว 2026-09-06 — รอ AI QA & Security ตรวจก่อนอนุมัติ deploy ดู "AI Coding Output" ท้ายไฟล์นี้ — **flutter analyze/flutter test ยังไม่ได้รันจริง sandbox นี้ไม่มี Flutter SDK**)
 Owner: AI Product Manager
 Feature: Invite Followers to Club (pick-from-followers, not just link sharing)
 Goal: ให้สมาชิกคลับชวนคนที่ติดตามตัวเองเข้าคลับได้โดยตรงในแอป ไม่ต้องพึ่งการก็อปลิงก์ไปแปะที่อื่นเพียงอย่างเดียว
@@ -44,3 +44,38 @@ Founder ถามเทียบกับ Instagram/X ว่าเชิญจ�
 - `InviteToClubScreen` ต้องดึงทั้ง `fetchFollowers()` และ `fetchFollowing()` แล้ว merge + dedupe ด้วย profile id ฝั่ง client (ไม่มี RPC รวมสองทางสำเร็จรูปในระบบตอนนี้ ต่างจาก `fetchMutualFollows()` ที่เป็นค่า intersection ไม่ใช่ union)
 - Pagination ซับซ้อนขึ้นเล็กน้อย: ต้อง track ว่าแต่ละ list (`followers`/`following`) ยังมีหน้าถัดไปไหมแยกกัน โหลดต่อจากอันที่ยังมีอยู่จนกว่าจะได้แถวใหม่พอ (คน dedupe ซ้ำออกไปแล้วนับไม่ครบ page ก็ต้องโหลดต่อ) — รายละเอียด algorithm ปล่อยให้ AI Coding ตัดสินใจตอน implement จริง ไม่ specify ตายตัวในนี้
 - UI/ตัวอย่างใน mockup ไม่เปลี่ยน (แถวหน้าตาเหมือนเดิมไม่ว่าจะมาจาก follower หรือ following) เปลี่ยนแค่แหล่งข้อมูลเบื้องหลัง
+
+## AI Coding Output (2026-09-06)
+
+Implementation:
+- `showShareSheet()` (`app/lib/features/chat/presentation/share_sheet.dart`) รับ 2 param ใหม่แบบ optional: `FollowRepository? followRepository`, `String? clubName` — แสดง `ListTile` ใหม่ "เชิญจากผู้ติดตาม" (`Icons.person_add_alt_1`) เป็นแถวบนสุด เฉพาะตอน `sharedContentType == SharedContentType.club && followRepository != null && clubName != null` — เรียกไปที่ `InviteToClubScreen` ใหม่ ตัวเลือกเดิม 3 อัน (แชร์เข้า Chat/แชร์ผ่านระบบมือถือ/คัดลอกลิงก์) ไม่แตะเลย ยังคงทำงานเหมือนเดิมทุกจุด (Drop/Profile ไม่ผ่านเงื่อนไขนี้เลย)
+- `club_page.dart` — เพิ่ม field `_followRepository = FollowRepository(Supabase.instance.client)` (pattern เดียวกับ `_chatRepository`/`_profileRepository`/`_reportRepository` ที่มีอยู่แล้วในไฟล์เดียวกัน) ส่งเข้า `showShareSheet` พร้อม `clubName: club.name`
+- ไฟล์ใหม่ `app/lib/features/club/presentation/invite_to_club_screen.dart` (`InviteToClubScreen`) — โครงแถว/ช่องค้นหา copy จาก `FollowListScreen` (avatar radius 21 + ring, ชื่อ/@username, search bar pill) ต่างที่:
+  - ดึงข้อมูลจาก `FollowRepository.fetchFollowers()` **และ** `fetchFollowing()` พร้อมกัน (`Future.wait`) แล้ว merge + dedupe ด้วย `profile.id` ฝั่ง client (ตาม Founder Decision ข้างบน) — paginate ทั้งสอง source อิสระต่อกัน มี bounded loop (สูงสุด 5 รอบต่อการเรียก 1 ครั้ง) กันกรณี merge แล้วไม่ได้ unique เพิ่มเลยจาก overlap หนัก แล้วปล่อยให้ scroll listener เรียกต่อเองแทนที่จะวน fetch ไม่จำกัด
+  - แถวไม่ tappable (ตัดโปรไฟล์ทิ้ง ต่างจาก `FollowListScreen` ตามที่ design spec ระบุ) trailing widget เป็นปุ่ม "เชิญ"/spinner "กำลังส่ง"/"เชิญแล้ว" (3 states อิสระต่อแถว เก็บใน `Map<String, _InviteState>`)
+  - กด "เชิญ" → `ChatRepository.getOrCreateConversation()` + `sendMessage(sharedContentType: club, sharedContentId: clubId)` (แพทเทิร์นเดียวกับ `ShareToChatScreen._sendToNewConversation`/`_doSend` เป๊ะ) สำเร็จ → `WynFeedback.toggle()` + ปุ่มเปลี่ยนเป็น "เชิญแล้ว" ค้างไว้ ไม่ auto-close หน้าจอ ล้มเหลว → กลับเป็น "เชิญ" + SnackBar "เชิญไม่สำเร็จ ลองใหม่อีกครั้ง"
+  - Empty state: "คุณยังไม่มีผู้ติดตามให้เชิญตอนนี้ — ลองแชร์ลิงก์ผ่านช่องทางอื่นดูก่อนได้" ตรงตาม design spec
+
+Files Changed:
+- `app/lib/features/chat/presentation/share_sheet.dart`
+- `app/lib/features/club/presentation/club_page.dart`
+- `app/lib/features/club/presentation/invite_to_club_screen.dart` (ใหม่)
+- `app/test/invite_to_club_screen_test.dart` (ใหม่)
+- `app/test/share_sheet_test.dart` (ใหม่)
+
+Reason: ตาม Product spec + Design spec ที่ Founder อนุมัติแล้ว ทั้งหมดข้างบน — ไม่มีการเปลี่ยนแปลงนอกเหนือจาก spec
+
+Tests: เขียนไว้ครบตามที่ design doc's Handoff ระบุ —
+- `invite_to_club_screen_test.dart`: แสดงชื่อคลับใน preview, merge+dedupe followers/following, empty state, search filter, ปุ่มเชิญ 3 states ครบ (idle→sending→invited, ยืนยันด้วย `sendMessageGate` ว่าไม่ auto-close หน้าจอ), path ล้มเหลว (revert + SnackBar)
+- `share_sheet_test.dart`: แถวใหม่โผล่เฉพาะ club+ครบ param, ไม่โผล่ถ้าขาด param (regression guard), ไม่โผล่เลยสำหรับ drop/profile แม้ส่ง param ไปก็ตาม (กัน WYN-033 regression), กดแล้วเปิด `InviteToClubScreen` จริง
+
+**ยังไม่ได้รันจริง — sandbox session นี้ไม่มี Flutter SDK ติดตั้งเลย (`which flutter`/`which dart` ไม่พบ, หาทั้งเครื่องแล้วไม่เจอ)** ตรวจความถูกต้องด้วยการอ่าน source cross-reference ทุกจุดแทน (โดยเฉพาะจุดที่พบและแก้เอง 1 จุดระหว่างตรวจทาน: parameter `followRepository`/`clubName` เป็น nullable ในฟังก์ชัน แต่ `InviteToClubScreen` ต้องการ non-nullable — type promotion ข้าม closure ของ `onTap` ไม่เกิดขึ้นอัตโนมัติใน Dart ต้องใส่ `!` ตรงจุดใช้งานแทน ไม่งั้น compile ไม่ผ่าน) — **AI QA & Security ต้องรัน `cd app && flutter analyze && flutter test` เต็ม suite ก่อนอนุมัติ deploy เด็ดขาด**
+
+Build: ไม่ได้รัน (ต้องมี Flutter SDK) — ไม่มีการแตะ `pubspec.yaml`/dependency ใดๆ ในงานนี้ ไม่ควรกระทบ build
+
+Known Issues:
+- ไม่กรอง follower/following ที่เป็นสมาชิกคลับอยู่แล้วออกจาก list (ตั้งใจ ตามที่ design spec ระบุไว้แล้วว่าเป็น scope decision ไม่ใช่บั๊ก)
+- Deep link ที่ส่งไปทาง chat message (ผ่าน `sharedContentType: club`) แสดงผลเป็น shared-content card ใน `ConversationScreen` อยู่แล้ว (ของเดิมจาก WYN-033) การกดเข้าไปดู Club จริงจาก card นั้นไม่เกี่ยวกับ deep-link ผ่าน URL เลย (คนละ code path จาก WYN-114) จึงไม่มี dependency ที่บล็อกการ merge อันนี้จริงๆ กับ WYN-114 อย่างที่ระบุไว้ใน Dependencies เดิม — **แก้ไขความเข้าใจ**: ถ้าเชิญผ่าน "เชิญจากผู้ติดตาม" นี้ ผู้รับเห็น shared-content card ใน chat แล้วกดเข้า Club ได้โดยตรงในแอปเลย ไม่ต้องพึ่ง URL/WYN-114 เลย (WYN-114 เกี่ยวกับ 3 ตัวเลือกเดิม "แชร์ผ่านระบบมือถือ"/"คัดลอกลิงก์" เท่านั้นที่ผลิต URL จริงออกไปนอกแอป)
+- Regression test ไม่ได้ cover เคส "โหลดหน้าถัดไป" (infinite scroll) แบบ end-to-end เพราะต้องจำลอง scroll ผ่าน viewport จริงซึ่งซับซ้อนเกินสัดส่วนสำหรับ merge-pagination logic ที่ unit-test ได้ยากกว่า UI — ครอบคลุมแค่ merge/dedupe ของหน้าแรกเท่านั้น (เนื้อหาหลักของ requirement นี้) แนะนำ QA ทดสอบ manual/เพิ่ม test ถ้าเห็นว่าจำเป็น
+
+Handoff: ส่งต่อ AI QA & Security — เน้นตรวจ (1) `flutter analyze`/`flutter test` ผ่านจริงทั้ง suite ไม่ใช่แค่ 2 ไฟล์ใหม่ (2) merge/dedupe logic ถูกต้องจริงกับข้อมูลจริง/กึ่งจริง (ไม่ใช่แค่ mock เล็กๆ ใน unit test) (3) 3 ตัวเลือกเดิมของ share sheet (Drop/Profile/Club) ยังทำงานปกติไม่มี regression (4) ปุ่มเชิญกด "ต่อเนื่องหลายคน" ได้จริงในเครื่องจริงไม่มี state รั่วข้ามแถว
