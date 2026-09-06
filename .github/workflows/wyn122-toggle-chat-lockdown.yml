@@ -1,0 +1,82 @@
+name: WYN-122 -- toggle chat lockdown on/off
+
+# The actual "switch" for WYN-122's temporary chat lockdown (Founder:
+# "ปิดระบบ แชทไม่ให้คนใช้ทั่วไป ยกเว้น @warren กับ @wynos_online จะเอาไว้
+# ทดสอบ ก่อนเปิดใช้งานจริง"). This is the whole point of the Product
+# spec's R2 ("ต้องเปิดกลับคืนได้ง่าย โดยไม่ต้อง deploy client ใหม่") --
+# run this with `enabled: false` whenever the Founder is ready to open
+# chat to everyone again, no code change or app rebuild required.
+#
+# Requires wyn122-apply-chat-lockdown-schema.yml to have already run at
+# least once (creates the chat_lockdown table this UPDATEs).
+#
+# `status` only reads the current value and changes nothing -- safe to
+# run any time just to check.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "status = read current value only (safe, no change) · enable = turn lockdown ON (only @warren<->@wynos_online can chat) · disable = turn lockdown OFF (everyone can chat normally again)"
+        required: true
+        default: status
+        type: choice
+        options:
+          - status
+          - enable
+          - disable
+
+jobs:
+  toggle:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      ACTION: ${{ github.event.inputs.action }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== Current allowlist ==="
+          run_sql "select p.username, p.id from public.chat_lockdown_allowlist a
+                    join public.profiles p on p.id = a.user_id
+                    order by p.username;" | jq .
+
+          echo "=== Before ==="
+          run_sql "select enabled from public.chat_lockdown where id;" | jq .
+
+          case "$ACTION" in
+            status)
+              echo "status only -- no change made."
+              ;;
+            enable)
+              run_sql "update public.chat_lockdown set enabled = true where id;" >/dev/null
+              ;;
+            disable)
+              run_sql "update public.chat_lockdown set enabled = false where id;" >/dev/null
+              ;;
+            *)
+              echo "::error::Unknown action '$ACTION'"; exit 1
+              ;;
+          esac
+
+          echo "=== After ==="
+          run_sql "select enabled from public.chat_lockdown where id;" | jq .

@@ -9,6 +9,7 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/widgets/action_sheet_row.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
+import '../../../core/widgets/empty_state_block.dart';
 import '../../../core/widgets/network_thumbnail.dart';
 import '../../../core/widgets/restriction_banner.dart';
 import '../../block/data/block_relationship.dart';
@@ -214,6 +215,15 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   bool _hasMore = true;
   bool _isSending = false;
 
+  /// WYN-122: highest-priority state in this screen -- true once this
+  /// pair has been confirmed as not allowed to chat right now (chat
+  /// lockdown). Checked once in [initState], before anything else
+  /// starts (loading messages, marking read, subscribing to realtime)
+  /// -- Design doc: "Realtime subscription... ต้องไม่ subscribe เลย
+  /// เมื่ออยู่ใน state Locked".
+  bool _lockCheckDone = false;
+  bool _isLocked = false;
+
   ChatMessage? _replyTo;
   Uint8List? _imageBytes;
   String? _imageExtension;
@@ -281,6 +291,36 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _scrollController.addListener(_onScroll);
+    _initLockCheckThenLoad();
+  }
+
+  /// WYN-122: gates everything else this screen does. A failure
+  /// checking lockdown status fails *open* (proceeds as if allowed) --
+  /// the real enforcement is server-side RLS/RPC regardless of what
+  /// this check says, so a wrong answer here is a UX inconsistency at
+  /// worst (e.g. a locked-out pair briefly sees a real Send button that
+  /// then fails at the RLS layer), never a security gap -- and failing
+  /// closed instead would risk locking @warren/@wynos_online out of
+  /// their own conversation on a transient error.
+  Future<void> _initLockCheckThenLoad() async {
+    bool allowed;
+    try {
+      allowed = await widget.chatRepository.isChatAllowed(otherUserId: widget.otherUserId);
+    } catch (_) {
+      allowed = true;
+    }
+    if (!mounted) return;
+    if (!allowed) {
+      setState(() {
+        _lockCheckDone = true;
+        _isLocked = true;
+        _isLoadingInitial = false;
+      });
+      return;
+    }
+    setState(() => _lockCheckDone = true);
+
     _loadInitial();
     _loadSafetyState();
     _loadConversationMeta();
@@ -295,7 +335,6 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     widget.chatRepository
         .markConversationRead(widget.conversationId)
         .catchError((_) {});
-    _scrollController.addListener(_onScroll);
     _channel = widget.chatRepository.subscribeToConversationMessages(
       widget.conversationId,
       _onRealtimeMessage,
@@ -331,7 +370,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   // know to pull-to-refresh.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _resubscribeAndRefresh();
+    if (state == AppLifecycleState.resumed && !_isLocked) _resubscribeAndRefresh();
   }
 
   Future<void> _resubscribeAndRefresh() async {
@@ -1107,17 +1146,27 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
         ),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _refreshLatest,
-                child: _buildMessageList(),
-              ),
-            ),
-            _buildComposerArea(),
-          ],
-        ),
+        child: !_lockCheckDone
+            ? const Center(child: CircularProgressIndicator())
+            : _isLocked
+                ? const Center(
+                    child: EmptyStateBlock(
+                      icon: Icons.lock_clock_outlined,
+                      title: 'ระบบแชทปิดปรับปรุงชั่วคราว',
+                      subtitle: 'จะเปิดให้ใช้งานได้เร็ว ๆ นี้',
+                    ),
+                  )
+                : Column(
+                    children: [
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: _refreshLatest,
+                          child: _buildMessageList(),
+                        ),
+                      ),
+                      _buildComposerArea(),
+                    ],
+                  ),
       ),
     );
   }

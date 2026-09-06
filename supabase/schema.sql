@@ -11725,3 +11725,320 @@ create policy "Participants can delete a viewed View Once photo"
         and auth.uid() in (c.user_a_id, c.user_b_id)
     )
   );
+
+-- ============================================================
+-- WYN-122: Temporary chat lockdown (testing only, before public
+-- launch) -- see .wyn/tasks/active/WYN-122-chat-lockdown-testers-only.md
+-- and .wyn/docs/design/wyn-122-chat-lockdown-testers-only.md. Founder:
+-- "ปิดระบบ แชทไม่ให้คนใช้ทั่วไป ยกเว้น @warren กับ @wynos_online".
+--
+-- A single-row toggle (`chat_lockdown.enabled`) plus a small allowlist
+-- table (`chat_lockdown_allowlist`) -- flipping `enabled` back to
+-- false restores normal chat for everyone with one UPDATE, no client
+-- rebuild needed (Product spec's R2 -- this is explicitly temporary,
+-- "ก่อนเปิดใช้งานจริง"). Enforced at the RLS/RPC layer, never
+-- client-side alone (Founder's explicit requirement) -- and reversible
+-- with zero data loss: nothing here ever deletes or edits an existing
+-- conversation/message row, only what a non-allowlisted pair can
+-- additionally see/do at the RLS layer while `enabled` is true.
+--
+-- Rule (confirmed with Founder via 2 rounds of clarifying questions,
+-- not assumed): a conversation/send/create is allowed only when BOTH
+-- participants are in the allowlist -- not "either one". A regular
+-- user cannot even chat with @warren directly during lockdown; only
+-- the @warren<->@wynos_online pair itself works. This also means a
+-- 3rd tester added later can freely talk to the existing 2 without
+-- any code change -- just another row in the allowlist table.
+-- ============================================================
+
+create table if not exists public.chat_lockdown (
+  id boolean primary key default true,
+  enabled boolean not null default false,
+  constraint chat_lockdown_singleton check (id)
+);
+
+insert into public.chat_lockdown (id, enabled) values (true, false)
+on conflict (id) do nothing;
+
+create table if not exists public.chat_lockdown_allowlist (
+  user_id uuid primary key references public.profiles (id) on delete cascade
+);
+
+-- Neither table has a client-facing SELECT policy -- both are read
+-- only through the SECURITY DEFINER helpers below, mirroring how
+-- moderation_actions/reports back internal.is_posting_blocked()
+-- without exposing themselves directly to every authenticated caller.
+alter table public.chat_lockdown enable row level security;
+alter table public.chat_lockdown_allowlist enable row level security;
+
+-- True when chat is fully open (lockdown off) OR both p_a and p_b are
+-- allowlisted testers. SECURITY DEFINER for the same inlining/
+-- privilege reason internal.current_platform_role()'s own comment
+-- explains above (a plain `stable` SQL function referencing auth.uid()
+-- is a planner-inlining candidate, re-checked under the caller's own
+-- schema privileges at inline time) -- also independently necessary
+-- here since chat_lockdown/chat_lockdown_allowlist have no SELECT
+-- policy for the caller's own role at all.
+create or replace function internal.chat_pair_allowed(p_a uuid, p_b uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    not coalesce((select enabled from public.chat_lockdown where id), false)
+    or (
+      exists (select 1 from public.chat_lockdown_allowlist where user_id = p_a)
+      and exists (select 1 from public.chat_lockdown_allowlist where user_id = p_b)
+    )
+$$;
+
+-- QA finding (2026-09-06, WYN-122): this is called directly inside the
+-- `using`/`with check` clause of 4 RLS policies (conversations SELECT,
+-- messages SELECT/INSERT, chat-media storage INSERT), which evaluate as
+-- the querying role (`authenticated`) itself, not as this function's
+-- owner -- unlike get_or_create_conversation()/count_unread_conversations()/
+-- chat_lockdown_status() below, which are all SECURITY DEFINER and
+-- therefore run as the owner regardless. Without this explicit grant,
+-- `authenticated`'s ability to call this function inside those 4
+-- policies depends entirely on Postgres's default EXECUTE-to-PUBLIC
+-- grant never having been revoked anywhere -- exactly the assumption
+-- this file's own internal-schema comment above (WYN-027 section)
+-- warns against relying on. Every other internal.* RLS helper in this
+-- file already has this same grant; this one didn't, and QA confirmed
+-- by revoking EXECUTE from PUBLIC on this function directly that doing
+-- so breaks every chat RLS policy for every user, including the two
+-- allowlisted testers -- not a graceful lockdown, a hard "permission
+-- denied for function chat_pair_allowed".
+grant execute on function internal.chat_pair_allowed(uuid, uuid) to authenticated;
+
+-- Client-facing check (WYN-122 Design doc's "Contract for AI Coding"):
+-- p_other_user_id null -> "can I use chat at all right now" (Chat
+-- Inbox/New Message screens' Locked-state check); non-null -> "can
+-- this specific pair talk" (Conversation Screen, whether opening an
+-- existing conversation or one freshly created via
+-- get_or_create_conversation()).
+create or replace function public.chat_lockdown_status(p_other_user_id uuid default null)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when p_other_user_id is null then
+      not coalesce((select enabled from public.chat_lockdown where id), false)
+      or exists (select 1 from public.chat_lockdown_allowlist where user_id = auth.uid())
+    else
+      internal.chat_pair_allowed(auth.uid(), p_other_user_id)
+  end
+$$;
+
+grant execute on function public.chat_lockdown_status(uuid) to authenticated;
+
+-- get_or_create_conversation(): reject before even checking for an
+-- existing conversation, so a non-allowlisted pair with a
+-- pre-lockdown conversation can't have its id handed back out either
+-- (the id would be useless downstream anyway once conversations/
+-- messages SELECT below hides it, but rejecting here keeps the
+-- contract simple: this RPC never returns an id this pair can't
+-- actually use).
+create or replace function public.get_or_create_conversation(p_other_user_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_a uuid;
+  v_b uuid;
+  v_id uuid;
+  v_status text;
+  v_requested_by uuid;
+begin
+  if v_me is null then
+    raise exception 'Not authenticated';
+  end if;
+  if p_other_user_id = v_me then
+    raise exception 'Cannot start a conversation with yourself';
+  end if;
+  if not exists (select 1 from public.profiles where id = p_other_user_id) then
+    raise exception 'User not found';
+  end if;
+  if internal.is_blocked_either_way(v_me, p_other_user_id) then
+    raise exception 'Cannot start a conversation with a blocked user';
+  end if;
+  if not internal.chat_pair_allowed(v_me, p_other_user_id) then
+    raise exception 'Chat is temporarily closed for testing';
+  end if;
+
+  v_a := least(v_me, p_other_user_id);
+  v_b := greatest(v_me, p_other_user_id);
+
+  -- An existing conversation (of either status) is returned as-is --
+  -- status is decided once, at creation, never re-evaluated.
+  select id into v_id from public.conversations where user_a_id = v_a and user_b_id = v_b;
+  if v_id is not null then
+    return v_id;
+  end if;
+
+  -- WYN-045: dm_permission gates whether a *new* conversation can be
+  -- created at all -- only reachable here, in the "no existing
+  -- conversation yet" branch (an existing conversation already
+  -- returned above, unaffected by whatever the recipient's setting is
+  -- today). 'no_one' always rejects, no exceptions, even from someone
+  -- the recipient already follows.
+  if (select dm_permission from public.profiles where id = p_other_user_id) = 'no_one' then
+    raise exception 'This user is not accepting new conversations';
+  end if;
+
+  -- WYN-032: a message from someone the recipient does not already
+  -- follow starts as a pending Message Request instead of going
+  -- straight to their inbox -- one-directional (does the recipient
+  -- follow the sender), evaluated only here, at creation time.
+  --
+  -- WYN-045: 'people_i_follow' only allows creation when this exact
+  -- condition is true (the recipient already follows the sender) --
+  -- the same condition that already produces 'active' below. If it's
+  -- false, this now raises instead of falling through to a 'pending'
+  -- Message Request, since "people I follow" is meant to be a hard
+  -- boundary against strangers, not just a routing choice between
+  -- inbox and request folder.
+  if exists (
+    select 1 from public.follows
+    where follower_id = p_other_user_id and following_id = v_me
+  ) then
+    v_status := 'active';
+    v_requested_by := null;
+  elsif (select dm_permission from public.profiles where id = p_other_user_id) = 'people_i_follow' then
+    raise exception 'This user is not accepting new conversations';
+  else
+    v_status := 'pending';
+    v_requested_by := v_me;
+  end if;
+
+  insert into public.conversations (user_a_id, user_b_id, status, requested_by)
+  values (v_a, v_b, v_status, v_requested_by)
+  on conflict (user_a_id, user_b_id) do nothing
+  returning id into v_id;
+
+  if v_id is null then
+    -- Lost a race with a concurrent call for the same pair -- fetch
+    -- the row that won instead of erroring.
+    select id into v_id from public.conversations where user_a_id = v_a and user_b_id = v_b;
+  elsif v_status = 'pending' and internal.notification_enabled(p_other_user_id, 'messages') then
+    insert into public.notifications (recipient_id, actor_id, type, conversation_id)
+    values (p_other_user_id, v_me, 'message_request', v_id);
+  end if;
+
+  return v_id;
+end;
+$$;
+
+drop policy "Participants can view their own conversations" on public.conversations;
+create policy "Participants can view their own conversations (lockdown-aware)"
+  on public.conversations
+  for select
+  to authenticated
+  using (
+    auth.uid() in (user_a_id, user_b_id)
+    and internal.chat_pair_allowed(user_a_id, user_b_id)
+  );
+
+drop policy "Participants can view messages in their conversations" on public.messages;
+create policy "Participants can view messages in their conversations (lockdown-aware)"
+  on public.messages
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.conversations c
+      where c.id = conversation_id
+        and auth.uid() in (c.user_a_id, c.user_b_id)
+        and internal.chat_pair_allowed(c.user_a_id, c.user_b_id)
+    )
+  );
+
+drop policy "Participants can send messages in active or own-pending conversations" on public.messages;
+create policy "Participants can send messages in active/pending convos (lockdown-aware)"
+  on public.messages
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = sender_id
+    and not internal.is_posting_blocked(auth.uid())
+    and exists (
+      select 1 from public.conversations c
+      where c.id = conversation_id
+        and auth.uid() in (c.user_a_id, c.user_b_id)
+        and not internal.is_blocked_either_way(
+          c.user_a_id,
+          c.user_b_id
+        )
+        and internal.chat_pair_allowed(c.user_a_id, c.user_b_id)
+        and (
+          c.status = 'active'
+          or (c.status = 'pending' and c.requested_by = auth.uid())
+        )
+    )
+  );
+
+-- WYN-032's own comment on this policy ("mirrors the messages INSERT
+-- policy's own active-or-own-pending condition exactly") still holds
+-- -- mirroring the same lockdown addition here too, for the identical
+-- reason: without it, a locked-out pair's image upload would still
+-- succeed even though the messages row referencing it can never be
+-- inserted, leaving an orphaned object in storage for no benefit.
+drop policy "Participants can upload media to their conversations" on storage.objects;
+create policy "Participants can upload media to their conversations (lockdown-aware)"
+  on storage.objects
+  for insert
+  to authenticated
+  with check (
+    bucket_id = 'chat-media'
+    and exists (
+      select 1 from public.conversations c
+      where c.id = ((storage.foldername(name))[1])::uuid
+        and auth.uid() in (c.user_a_id, c.user_b_id)
+        and not internal.is_blocked_either_way(c.user_a_id, c.user_b_id)
+        and internal.chat_pair_allowed(c.user_a_id, c.user_b_id)
+        and (
+          c.status = 'active'
+          or (c.status = 'pending' and c.requested_by = auth.uid())
+        )
+    )
+    and not internal.is_posting_blocked(auth.uid())
+  );
+
+-- count_unread_conversations() (Screen 1's badge) is SECURITY DEFINER
+-- and queries conversations/messages directly -- it does NOT go
+-- through the RLS policies above (a security definer function runs as
+-- its owner, which bypasses RLS unless FORCE ROW LEVEL SECURITY is
+-- set, which this project does not use anywhere). Without this same
+-- chat_pair_allowed() check duplicated here, a locked-out user's Chat
+-- icon badge would keep counting real unread messages from
+-- conversations that ChatInboxScreen itself will refuse to show them
+-- at all -- a confusing "badge says 3, inbox says closed" mismatch.
+create or replace function public.count_unread_conversations()
+returns integer
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select count(*)::integer
+  from public.conversations c
+  where auth.uid() in (c.user_a_id, c.user_b_id)
+    and internal.chat_pair_allowed(c.user_a_id, c.user_b_id)
+    and exists (
+      select 1 from public.messages m
+      where m.conversation_id = c.id
+        and m.sender_id <> auth.uid()
+        and m.created_at > coalesce(
+          case when c.user_a_id = auth.uid() then c.user_a_last_read_at else c.user_b_last_read_at end,
+          '-infinity'::timestamptz
+        )
+    );
+$$;

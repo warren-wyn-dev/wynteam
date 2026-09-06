@@ -83,6 +83,23 @@ class ChatRepository {
     return result as int;
   }
 
+  /// WYN-122: whether chat can be used right now, enforced server-side
+  /// (the real gate is the RLS/RPC layer -- see schema.sql's WYN-122
+  /// section -- this is only the client's way of asking the same
+  /// question up front, before rendering a screen's real content).
+  ///
+  /// [otherUserId] null asks "can I use chat at all" (ChatInboxScreen/
+  /// NewMessageScreen's Locked-state check, before there's a specific
+  /// person in mind yet); non-null asks "can this specific pair talk"
+  /// (ConversationScreen, whether opening an existing conversation or
+  /// one just created via [getOrCreateConversation]).
+  Future<bool> isChatAllowed({String? otherUserId}) async {
+    final result = await _client.rpc('chat_lockdown_status', params: {
+      'p_other_user_id': otherUserId,
+    });
+    return result as bool;
+  }
+
   /// Pending conversations someone else started that this caller
   /// hasn't decided on yet (WYN-032) -- `message_requests` already
   /// scopes to "I'm the recipient, not the requester" and excludes any

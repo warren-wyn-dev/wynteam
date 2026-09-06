@@ -121,6 +121,18 @@ class RecordingChatRepository extends ChatRepository {
   @override
   Future<int> countUnreadConversations() async => unreadCount;
 
+  /// WYN-122: defaults to true (chat allowed) so every existing test
+  /// for this repository keeps passing unchanged -- a test that cares
+  /// about the Locked state sets this to false explicitly.
+  bool isChatAllowedResult = true;
+  final List<String?> isChatAllowedCalls = [];
+
+  @override
+  Future<bool> isChatAllowed({String? otherUserId}) async {
+    isChatAllowedCalls.add(otherUserId);
+    return isChatAllowedResult;
+  }
+
   @override
   Future<String> getOrCreateConversation(String otherUserId) async {
     getOrCreateConversationCalls.add(otherUserId);

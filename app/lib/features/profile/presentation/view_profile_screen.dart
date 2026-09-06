@@ -558,11 +558,18 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
           ),
         ),
       );
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เริ่มบทสนทนาไม่สำเร็จ ลองใหม่อีกครั้ง')),
-      );
+      // WYN-122: get_or_create_conversation() raises this exact message
+      // when chat lockdown rejects the pair -- surfaced as its own
+      // SnackBar (not the generic failure below) so a locked-out user
+      // understands this is a temporary platform state, not a glitch to
+      // retry. This button itself stays visible/tappable either way
+      // (Founder's explicit requirement) -- only the outcome differs.
+      final message = e is PostgrestException && e.message.contains('temporarily closed for testing')
+          ? 'ระบบแชทปิดปรับปรุงชั่วคราว'
+          : 'เริ่มบทสนทนาไม่สำเร็จ ลองใหม่อีกครั้ง';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => _isStartingChat = false);
     }
