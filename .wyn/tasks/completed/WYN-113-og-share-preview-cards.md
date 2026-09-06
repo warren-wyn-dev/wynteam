@@ -1,6 +1,6 @@
 # Product Task — WYN-113
 
-Status: **approved — QA PASS (2026-09-06)** ส่งต่อ AI Deploy & DevOps ได้ (ดู "## AI QA & Security Output" ท้ายไฟล์นี้) — โทนสีสุดท้ายจริงคือ **B (Ink)** ตามที่บันทึกไว้ในหัวข้อ "เปลี่ยนโทนสีรอบสุดท้าย" ด้านล่าง (ไม่ใช่ A ตามที่ระบุไว้ตอนแรกในบรรทัดนี้)
+Status: **completed — deploy สำเร็จและยืนยัน production แล้ว (2026-09-06)** ดู `.wyn/logs/deployments/2026-09-06-wyn-113-og-share-preview-deploy.md` — โทนสีสุดท้ายจริงคือ **B (Ink)** ตามที่บันทึกไว้ในหัวข้อ "เปลี่ยนโทนสีรอบสุดท้าย" ด้านล่าง (ไม่ใช่ A ตามที่ระบุไว้ตอนแรกในบรรทัดนี้)
 Owner: AI Product Manager → AI Design
 Feature: Open Graph / Twitter Card Preview สำหรับลิงก์ wynos.online
 Goal: ทำให้ลิงก์ wynos.online ที่ถูกแชร์ไปที่ไหนก็ตาม (Facebook/LINE/Discord/X ฯลฯ) ขึ้น preview card ที่มีรูป+ชื่อ+คำอธิบาย แทนที่จะไม่มี preview เลยหรือขึ้นแบบว่างเปล่า
@@ -122,3 +122,13 @@ Recommendation:
 - ไม่พบจุดใดที่ AI Debug Engineer ต้องเข้ามาแก้
 
 Final Status: **PASS**
+
+## AI Deploy & DevOps Output (2026-09-06)
+
+PR #267 เปิดโดย AI Deploy & DevOps → **Founder merge เข้า `main` เองผ่าน GitHub UI** ก่อน Flutter CI job บน PR รันเสร็จด้วยซ้ำ — ยืนยันย้อนหลังว่า CI บน `main` (หลัง merge, run #192) เขียวครบทุก job รวม Flutter แล้ว จึง trigger `deploy-web.yml` (run #87) ต่อทันที ผลสำเร็จ
+
+**Production verification จริง** (ไม่ใช่แค่เชื่อ workflow log): curl `https://wynos.online/` ตรงๆ ยืนยันเห็น meta tag ทั้ง 9 ตัวถูกต้อง + curl `https://wynos.online/og-image.png` ยืนยัน md5sum ตรงกับไฟล์ที่ commit เป๊ะ — รายละเอียดเต็มที่ `.wyn/logs/deployments/2026-09-06-wyn-113-og-share-preview-deploy.md`
+
+**เหลือทำ (ไม่ blocking)**: Founder ลองวางลิงก์ใน Facebook Sharing Debugger เองสักครั้งเพื่อดู preview ด้วยตาจริง (ข้อมูลดิบตรวจสอบถูกต้องแล้วผ่าน curl)
+
+**Task ปิดสมบูรณ์** — ไม่มี rollback ที่ต้องทำ ไม่มี migration ค้าง
