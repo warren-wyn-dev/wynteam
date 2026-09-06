@@ -1,6 +1,6 @@
 # Bug Report — SCHEMA-002
 
-Status: bugs
+Status: closed — fixed and verified (see "Resolution" section at end of this file). Moved bugs/ -> completed/ 2026-09-06.
 Owner: AI Debug Engineer
 Bug: `supabase/schema.sql` cannot be applied fresh (top-to-bottom, e.g. a brand-new Supabase project or this repo's own local-Postgres regression test harness) — it aborts partway through with `ERROR: cannot change name of view column "comment_count" to "liked_by"`. Found while working on WYN-077 (unrelated task); confirmed with `git stash` that it reproduces identically on `main`'s current `schema.sql` with zero WYN-077 changes applied, so it predates this task and isn't something WYN-077 introduced or needs to fix.
 Reproduction:
@@ -21,3 +21,15 @@ Files Changed: none (bug report only)
 Tests: `supabase/tests/wyn_050_admin_dashboard_test.sh` and `supabase/tests/wyn_077_basic_product_analytics_test.sh` both indirectly prove this bug exists (both currently cannot be run against the unmodified `schema.sql` in this sandbox — verified only against a throwaway local copy with the view-drift statements patched to `drop view ... cascade; create view ...` purely for that verification, never applied to the committed file). Once this bug is fixed, both should be re-run against the real `schema.sql` to confirm they pass end-to-end (see WYN-077's own Coding notes in `.wyn/company/CONTEXT.md`).
 Regression Risk: Low to fix (view-only, no data-shape change to the underlying tables), but wide blast radius if done carelessly — `home_feed` is read by most of the app's main screens, so whoever fixes this should re-run every existing `wyn_*_test.sh` that touches `home_feed`/`saved_feed` afterward, not just add a new one.
 Handoff to QA: Not yet — needs AI Debug Engineer to pick up and fix first, then AI QA & Security re-verifies the full `supabase/tests/` suite passes against the real `schema.sql` from a clean database.
+
+## Resolution (verified 2026-09-06)
+
+Already fixed by 2026-09-03 (`supabase/schema.sql` around line 5724-5736, comment tagged "SCHEMA-002 (Beta2 audit, 2026-09-03)") — the file's own history shows the suggested direction was applied: `drop view if exists public.home_feed;` was added immediately before the line-7156-era `create or replace view public.home_feed` redefinition that inserts `liked_by`, so the column-reorder is no longer read as a rename. This bug report's Status header was simply never updated to match.
+
+Re-verified independently today by actually running the reproduction/consumer tests this file names, against the real committed `schema.sql`, fresh:
+```
+sudo service postgresql start
+bash supabase/tests/wyn_077_basic_product_analytics_test.sh   # ALL CHECKS PASSED
+bash supabase/tests/wyn_050_admin_dashboard_test.sh           # ALL CHECKS PASSED
+```
+Both scripts load `supabase/schema.sql` top-to-bottom into a brand-new database as their first step — confirming the fresh-apply blocker described above no longer reproduces. Did not audit every other multiply-redefined view (`saved_feed`, `moderation_queue`, `chat_inbox`, `message_requests`) for the same append-order mistake as this report's "Fix" section suggested; flagging that as still-open follow-up work if anyone changes those views again, not as a reason to keep this specific bug open.

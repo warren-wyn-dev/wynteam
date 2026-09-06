@@ -1,4 +1,4 @@
-# Product Task — WYN-078
+# Product Task — WYN-113
 
 Status: backlog
 Owner: AI Product Manager
@@ -21,3 +21,7 @@ Priority: P1 — จำเป็นก่อนเข้า Phase 2 ของ GT
 Risks: ถ้าออกแบบ single-use code ผิดตอนแรกแล้วเปลี่ยนทีหลัง อาจงงกับ code ที่แจกไปแล้ว — ควรถาม Founder เรื่อง single-use vs multi-use ตั้งแต่ spec นี้เลย
 Recommendation: เริ่ม Design ได้เลย ไม่ต้องรอ WYN-077 เสร็จก่อน (ทำคู่ขนานได้)
 Handoff: ส่งต่อ AI Design เพื่อออกแบบหน้าจอ redeem code + decide multi-use vs single-use
+
+## Note — Renamed from WYN-078 (2026-09-06)
+
+เดิมไฟล์นี้ใช้เลข `WYN-078` ซึ่งชนกับ `.wyn/tasks/approved/WYN-078-background-full-screen-fix.md` (ปิดงานไปแล้ว 2026-09-02) — ID collision ที่ `.wyn/tasks/active/WYN-112-activation-funnel-investigation.md` และ `.wyn/company/DECISIONS.md` (2026-09-06) พบและแนะนำให้เปลี่ยนเลขงานนี้เพราะยัง backlog อยู่ (ไม่ใช่งานที่เสร็จแล้วเหมือนอีกฝั่ง) เปลี่ยนเป็น `WYN-113` (เลขถัดจาก WYN-112 ที่ใช้ล่าสุด) เนื้อหางานไม่มีอะไรเปลี่ยนนอกจากเลข ID

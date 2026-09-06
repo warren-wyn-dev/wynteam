@@ -1,6 +1,6 @@
 # Bug Report — WYN-110 (QA-WYN-110-002, pre-existing/out-of-scope)
 
-Status: bugs
+Status: qa (fixed by AI Debug Engineer, 2026-09-05 — awaiting QA re-check; see "Fix Applied" note near end of this file. Moved bugs/ -> qa/ 2026-09-06 to match: code confirmed to contain the FittedBox fix and app/test/home_drop_card_overflow_test.dart, header was just never synced)
 Owner: AI Debug Engineer (แนะนำให้แยกเป็น task ของตัวเอง เช่น WYN-096e/WYN-107e ไม่ใช่ WYN-110)
 Severity: **Low** (เป็น visual overflow เล็กน้อย 3px ไม่ crash แอป)
 พบโดย: AI QA & Security, 2026-09-05 (branch `claude/home-button-ux-ui-design-cbjkzm`) — พบระหว่าง

@@ -1186,3 +1186,93 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 **Handoff**: ส่งต่อ AI Design → AI Coding → AI QA & Security (เข้มงวดเป็นพิเศษเพราะแตะ RLS ตารางข้อมูลจริง) → AI Deploy & DevOps ตาม WORKFLOW.md ปกติ ไม่ข้าม QA แม้ Founder จะเร่งด่วน
 
 อ้างอิง: `.wyn/tasks/backlog/WYN-122-chat-lockdown-testers-only.md`
+## [2026-09-06] Task-tracking cleanup: 9 bug/QA reports were stale (already fixed, header never updated) + WYN-078 ID collision resolved
+
+**บริบท**: Founder ขอให้ไปแก้บั๊กที่ยังค้างใน `.wyn/tasks/bugs/` และ `.wyn/tasks/qa/` (5 รายการที่พบใน branch `claude/home-button-ux-ui-design-cbjkzm` บวก SCHEMA-002 บวก WYN-081/WYN-102 ใน `qa/`) ตรวจแล้วพบว่า **ทั้งหมดถูกแก้และผ่าน QA ไปแล้วจริง** ในโค้ดปัจจุบันบน `main` — ไฟล์ tracking แค่ไม่เคยอัปเดต `Status:` header ให้ตรงกับเนื้อหา "ปิดแล้ว"/"Resolution" ที่มีอยู่ท้ายไฟล์เอง
+
+**สิ่งที่ตรวจสอบและยืนยัน**:
+- WYN-108, WYN-109 (×3: insert-sends-missing-column / compose-preview-fixed-aspect / detail-gallery-ignores-aspect-ratio), WYN-110-redundant-load-more-fetches — อ่านโค้ดจริงพบ fix ตรงกับที่ report บรรยาย ทุกไฟล์มีบันทึก "ปิดแล้ว 2026-09-04/05" พร้อม commit hash และ QA รอบ 2 (`.wyn/docs/qa/wyn-106-107-108-109-home-cards-qa-round2.md`, `.wyn/docs/qa/wyn-110-111-round2-qa.md`) อยู่ท้ายไฟล์แล้ว แค่ header ไม่เคย sync → ย้าย `bugs/` → `completed/`, แก้ header
+- WYN-110-homedropcard-320px-action-row-overflow — fix (`FittedBox` + `home_drop_card_overflow_test.dart`) มีอยู่จริงในโค้ด แต่ยังไม่มี QA รอบใหม่ยืนยันซ้ำ (QA รอบ 2 ที่มีอยู่ตรวจ**ก่อน**ที่ fix นี้จะถูกเขียน) → ย้าย `bugs/` → `qa/` (ไม่ใช่ `completed/`) รอ AI QA & Security ตรวจซ้ำจริง
+- SCHEMA-002 — รันเทสต์จริง (`wyn_077_basic_product_analytics_test.sh`, `wyn_050_admin_dashboard_test.sh`) ที่โหลด `schema.sql` เต็มไฟล์เป็นขั้นตอนแรก ทั้งคู่ผ่านหมดจาก DB ใหม่ล้วน ยืนยันว่า fix ที่มี comment "SCHEMA-002 (Beta2 audit, 2026-09-03)" กำกับไว้ใน `schema.sql` (บรรทัด ~5724) ใช้งานได้จริง ไม่ได้แค่มี comment เฉยๆ → ย้าย `bugs/` → `completed/`
+- WYN-081 (qa/) — โค้ดปัจจุบันมี fix อยู่แล้ว และ `git log --all --follow` พบว่าไฟล์นี้ถูกแก้แค่ครั้งเดียวในประวัติ ไม่เคยมีเวอร์ชัน arrow-body ที่บั๊กอธิบายจริงในสิ่งที่ commit ไว้เลย → ย้าย `qa/` → `completed/`
+- WYN-102 (qa/) — header ในไฟล์เขียนว่า "closed" ถูกต้องอยู่แล้ว วางผิดโฟลเดอร์เฉยๆ → ย้าย `qa/` → `completed/` เท่านั้น ไม่แก้เนื้อหา
+
+**ไม่มีการแก้โค้ด production ใดๆ ในรอบนี้** — เป็นแค่การซิงค์ tracking ให้ตรงกับความจริง ป้องกันไม่ให้มีคนสั่ง AI Debug Engineer ไปแก้ซ้ำสิ่งที่แก้ไปแล้ว
+
+**WYN-078 ID collision** (พบตั้งแต่ WYN-112, ดู entry ด้านบน) — แก้แล้ว: เปลี่ยนเลข `.wyn/tasks/backlog/WYN-078-invite-only-access-gate.md` เป็น `WYN-113` (เลขถัดจาก WYN-112 ล่าสุด) ตามคำแนะนำเดิม เพราะยัง backlog อยู่ ไม่ใช่งานที่เสร็จแล้วเหมือน `WYN-078-background-full-screen-fix.md` ที่คงเลขเดิมไว้ อัปเดต reference ใน `.wyn/docs/product/wynos-gtm-roadmap.md` (เอกสารวางแผนไปข้างหน้า) ให้ตรง ส่วน entry ประวัติศาสตร์เดิมใน `CONTEXT.md`/`DECISIONS.md` คงข้อความเดิมไว้ตามกติกา "ไม่แก้ย้อนหลัง"
+
+**ยังไม่แตะ เพราะรอ Founder**: WYN-P0 (Google/Apple sign-in web) ติด Vercel free-tier 100 deploy/วัน ต้องให้ Founder ตัดสินใจอัพเกรด plan หรือปิด auto-preview-deploy; WYN-112 (activation funnel) รอ Founder เปิด WYN Admin Dashboard ส่วน "การเติบโต" แล้วส่งตัวเลขกลับมา
+
+อ้างอิง: `.wyn/tasks/completed/WYN-108-comment-heart-size-regression.md`, `.wyn/tasks/completed/WYN-109-*.md`, `.wyn/tasks/completed/WYN-110-redundant-load-more-fetches.md`, `.wyn/tasks/qa/WYN-110-homedropcard-320px-action-row-overflow.md`, `.wyn/tasks/completed/SCHEMA-002-home-feed-view-column-drift.md`, `.wyn/tasks/completed/WYN-081-explore-clubs-reload-future-assertion.md`, `.wyn/tasks/completed/WYN-102-push-notification-pop-access-leak.md`, `.wyn/tasks/backlog/WYN-113-invite-only-access-gate.md`
+
+## [2026-09-06] WYN-114: fixed -- share links across the app went nowhere; WYN-115: invite-followers-to-club queued for Design
+
+**บริบท**: Founder ทดสอบเปิดลิงก์คลับที่ก็อปจากปุ่มแชร์จริง (`https://wynos.online/club/<id>`) แล้วไม่เด้งไปหน้าคลับ ตรวจแล้วพบว่าเป็นบั๊กกว้างกว่าที่คิด (ดูรายละเอียดเต็มที่ `.wyn/tasks/qa/WYN-114-share-links-no-deep-link.md`):
+
+1. `dropShareLink`/`popShareLink`/`clubShareLink`/`clubPostShareLink`/`profileShareLink` ทั้ง 5 ฟังก์ชัน hardcode โดเมนผิด (`wyn.app` แทนที่จะเป็น `wynos.online`) — แก้แล้ว
+2. แอปไม่เคยมีระบบ deep-link/URL routing เลยตั้งแต่ต้น (`main.dart` เป็น `MaterialApp(home: const AuthGate())` ตรงๆ ไม่มี route table เลย) — เพิ่ม `DeepLinkService` ใหม่ (`app/lib/core/navigation/deep_link_service.dart`) อ่าน `Uri.base.path` ตอน `RootShell` แรก mount (เฉพาะเว็บ, `kIsWeb`) แล้ว navigate ไปหน้าที่ถูกต้อง (drop/pop/club/club-post/profile) ตามแพทเทิร์นเดียวกับ `PushNotificationService`'s `_openDrop`/`_openClub`/ฯลฯ ที่มีอยู่แล้ว
+
+**ข้อจำกัดของ session นี้**: sandbox นี้ไม่มี Flutter SDK ติดตั้งเลย รัน `flutter analyze`/`flutter test` ไม่ได้จริง — ตรวจความถูกต้องด้วยการอ่าน source cross-reference ทุกจุดแทน (import/constructor/method ตรงกับของจริงทุกไฟล์) เขียน `app/test/deep_link_service_test.dart` ไว้ให้แล้วแต่ยังไม่เคยรันจริงสักครั้ง — **ต้องให้ AI QA & Security รัน `flutter analyze && flutter test` เต็ม suite ก่อน merge/deploy เด็ดขาด** (ไฟล์ task อยู่ที่ `.wyn/tasks/qa/` ไม่ใช่ `completed/` ด้วยเหตุนี้)
+
+**Known follow-up ที่ไม่ได้แก้รอบนี้**: deep-link ยังไม่ทำงานถ้าคนที่ยังไม่ login เป็นคนกดลิงก์ (เห็น Welcome เฉยๆ ลิงก์หายไปเลย ไม่มี "จำไว้พาไปหลัง login"), native mobile (iOS/Android) ยังไม่รับ path พวกนี้เลยเพราะต้องตั้งค่า Associated Domains/App Links ที่ platform-level (รอ Founder เหมือนกรณี Apple Sign-In)
+
+**WYN-115**: Founder พูดต่อว่าฟังก์ชันเชิญเข้าคลับควรเลือกเชิญจากคนที่ติดตามตัวเองได้ตรงๆ (ตอนนี้ปุ่ม "ชวนเพื่อนเข้ากลุ่ม" เปิดแค่ share sheet ทั่วไป ไม่มีตัวเลือก "ดู follower list แล้วเลือกชวน" เลย) — ข้อมูลที่ต้องใช้ (`FollowRepository.fetchFollowers()`) มีอยู่แล้ว ไม่ต้องเขียน query ใหม่ แต่เป็นงาน UI ใหม่ (ต้องมีหน้าจอ/bottom sheet เลือก follower) — **ไม่เขียนโค้ดทันทีเพราะกติกาถาวรของ Founder เอง** (`.wyn/company/DECISIONS.md`, [2026-09-03] "ขอดูรูปก่อน เขียนโค้ดนะ" — งาน UI ต้องมี mockup ให้อนุมัติก่อนเสมอ) — สร้าง `.wyn/tasks/backlog/WYN-115-invite-followers-to-club.md` ไว้แทน ส่งต่อ AI Design ก่อนเมื่อ Founder พร้อมให้เริ่ม
+
+อ้างอิง: `.wyn/tasks/qa/WYN-114-share-links-no-deep-link.md`, `.wyn/tasks/backlog/WYN-115-invite-followers-to-club.md`, `app/lib/core/navigation/deep_link_service.dart`
+
+## [2026-09-06] WYN-115: AI Design เสร็จ — ส่ง mockup ให้ Founder อนุมัติก่อนส่งต่อ AI Coding
+
+Design spec เต็มที่ `.wyn/docs/design/wyn-115-invite-followers-to-club.md` — ตัดสินใจหลัก: reuse ของเดิมทั้งหมด (ไม่คิด pattern ใหม่) —
+- เพิ่มแถวที่ 4 "เชิญจากผู้ติดตาม" บนสุดของ `showShareSheet` เดิม เฉพาะตอนแชร์ Club
+- หน้าจอใหม่ `InviteToClubScreen` copy โครง `FollowListScreen` (avatar/ชื่อ/@username/ช่องค้นหา/infinite scroll) ทั้งหมด เปลี่ยนแค่ trailing button เป็น "เชิญ"/"เชิญแล้ว"
+- ส่งคำเชิญผ่าน "แชร์เข้า Chat" เดิม (`ChatRepository`/`SharedContentType.club`, WYN-033) ไม่สร้าง infra ใหม่
+- ตอบ Requirement "เลือกทีละคนหรือหลายคน" ด้วย single-tap-to-invite ต่อเนื่อง (ไม่ auto-close หน้าจอ ต่างจาก `ShareToChatScreen` ที่ pop กลับทันที เพราะเจตนาใช้งานต่างกัน)
+- ตั้งใจไม่กรอง follower ที่เป็นสมาชิกคลับอยู่แล้วออกจาก list ใน v1 (ดูเหตุผลเต็มในเอกสาร)
+
+ส่ง Artifact preview (phone mockup 3 เฟรม: sheet ก่อน/หลังแก้ + หน้าจอใหม่ทั้ง 3 สถานะปุ่ม) ให้ Founder ตรวจตามกติกา "ขอดูรูปก่อน เขียนโค้ดนะ" (2026-09-03) — ย้าย `.wyn/tasks/backlog/WYN-115-...md` → `active/` ยังไม่ส่งต่อ AI Coding จนกว่า Founder จะอนุมัติ
+
+อ้างอิง: `.wyn/docs/design/wyn-115-invite-followers-to-club.md`, `.wyn/tasks/active/WYN-115-invite-followers-to-club.md`
+
+## [2026-09-06] WYN-115: Founder เลือกแหล่งรายชื่อเชิญ = Followers + Following ทั้งสองทาง
+
+Founder ถามเทียบกับ Instagram/X ก่อนอนุมัติ mockup ว่าเชิญจากรายชื่อไหน — AI Design ตอบตามที่รู้จริง (ไม่เดา): Instagram Close Friends ใช้ follower (คนที่ follow เรา), X Communities invite ใช้ following (คนที่เรา follow) ไม่มีมาตรฐานเดียวกันในอุตสาหกรรม เสนอ 3 ทางเลือกให้ Founder ตัดสินใจผ่าน popup
+
+**Founder เลือก: รวมทั้งสองทาง (Followers + Following, dedupe คนซ้ำ)** — ตรงกับ pattern ของ Instagram Group Chat "Add People"
+
+ผลกระทบ: `InviteToClubScreen` (ยังไม่เขียนโค้ด) ต้อง merge ผล `FollowRepository.fetchFollowers()` + `fetchFollowing()` ฝั่ง client แทนที่จะใช้ query เดียว — อัปเดต spec แล้วทั้ง `.wyn/tasks/active/WYN-115-invite-followers-to-club.md` และ `.wyn/docs/design/wyn-115-invite-followers-to-club.md` พร้อม republish mockup Artifact ให้สะท้อนการตัดสินใจนี้ — ยังรอ Founder อนุมัติรอบสุดท้ายก่อนส่งต่อ AI Coding
+
+อ้างอิง: `.wyn/tasks/active/WYN-115-invite-followers-to-club.md`, `.wyn/docs/design/wyn-115-invite-followers-to-club.md`
+
+## [2026-09-06] WYN-115: AI Coding implement เสร็จ — ส่งต่อ AI QA & Security
+
+Implement ตาม design spec ที่ Founder อนุมัติแล้วครบ: `showShareSheet` เพิ่มตัวเลือก "เชิญจากผู้ติดตาม" (เงื่อนไขเฉพาะ Club), `InviteToClubScreen` ใหม่ (merge `fetchFollowers()`+`fetchFollowing()` dedupe ตาม Founder Decision), ส่งคำเชิญผ่าน `ChatRepository`/`SharedContentType.club` เดิมจาก WYN-033 — ไม่แตะ schema/RLS/Edge Function ใดๆ
+
+พบและแก้ 1 จุดระหว่างเขียน: parameter nullable (`followRepository`/`clubName`) ที่ใช้สร้าง `InviteToClubScreen` (ต้องการ non-null) ข้าม type promotion ผ่าน closure ของ `onTap` ไม่ได้อัตโนมัติ ต้องใส่ `!` ตรงจุดใช้งาน (ปลอดภัยเพราะ ListTile นั้นสร้างขึ้นเฉพาะตอนเช็คแล้วว่าทั้งคู่ไม่ null)
+
+**sandbox นี้ไม่มี Flutter SDK เลย รัน `flutter analyze`/`flutter test` ไม่ได้จริง** — ตรวจสอบด้วยการอ่าน source cross-reference ทุกจุดแทน (import/constructor/method ตรงกับของจริงทุกไฟล์ที่แตะ) เขียน regression test ไว้ครบ (`invite_to_club_screen_test.dart`, `share_sheet_test.dart`) แต่ยังไม่เคยรันจริงสักครั้ง — ไฟล์ task ยังอยู่ที่ `active/` ไม่ใช่ `completed/`/`approved/` ด้วยเหตุนี้ ส่งต่อ AI QA & Security แล้ว ต้องรัน suite เต็มก่อนอนุมัติ deploy
+
+อ้างอิง: `.wyn/tasks/active/WYN-115-invite-followers-to-club.md` ("AI Coding Output"), `app/lib/features/chat/presentation/share_sheet.dart`, `app/lib/features/club/presentation/invite_to_club_screen.dart`
+
+## [2026-09-06] WYN-115: QA PASS (1259/1259) -- caught + fixed 2 real bugs by actually running CI
+
+AI QA & Security ตรวจ WYN-115 เต็มรูปแบบ ตัดสินใจสำคัญ: **แทนที่จะตรวจแค่อ่าน source (sandbox นี้ไม่มี Flutter SDK) ใช้ `mcp__github__actions_run_trigger` สั่ง `.github/workflows/ci.yml` รันจริงผ่าน `workflow_dispatch`** บน branch `claude/consultation-8azkvp` ได้ผลทดสอบจริงจาก Flutter 3.47.1 (เวอร์ชันเดียวกับ production build) แทนที่จะอนุมัติงานที่ไม่เคยถูกทดสอบจริง (ขัดกติกา "ห้ามอนุมัติงานที่ยังไม่ได้ทดสอบจริงเด็ดขาด")
+
+รันทั้งหมด 3 รอบ พบและแก้บั๊กจริง 2 จุดที่การอ่านโค้ดอย่างเดียวจะไม่มีทางเจอ:
+1. `flutter analyze` FAIL รอบแรก — `!` ที่ไม่จำเป็นใน `share_sheet.dart` (Dart promote type ผ่าน closure ได้เองอยู่แล้ว)
+2. `flutter test` FAIL รอบสอง (10 tests) — Timer leak ใน `share_sheet_test.dart` (สร้าง Recording repo ใน `onPressed` closure แทนที่จะเป็น `setUp()`, bug class เดียวกับ WYN-072) + `DeepLinkService._handle()` เรียก `Supabase.instance.client` แบบไม่มีเงื่อนไขทั้งที่บาง path ไม่ต้องใช้เลย (บั๊กจริงใน production code ด้วย ไม่ใช่แค่ test)
+
+รอบ 3: **`flutter analyze` 0 issues, `flutter test` 1259/1259 ผ่านหมด** (run [34041885759](https://github.com/warren-wyn-dev/wynteam/actions/runs/34041885759)) — Admin/Edge Functions/schema ordering ผ่านครบ ไม่มี regression ข้าม package — ตรวจ security เพิ่มเติม (authorization ของ 2 entry point, ไม่มี secret hardcode, RLS เดิมไม่เปลี่ยน) ไม่พบช่องโหว่ — **Final Status: PASS** ย้าย task ไป `.wyn/tasks/approved/` ส่งต่อ AI Deploy & DevOps
+
+อ้างอิง: `.wyn/tasks/approved/WYN-123-invite-followers-to-club.md` ("QA & Security Report" — renamed จาก WYN-115 ตอน merge เข้า main เพราะชนกับ WYN-115-club-poll ของอีก session ดู entry ถัดไป)
+
+## [2026-09-06] Merge conflicts + 2 more ID collisions found while merging WYN-123/WYN-119 work into main
+
+ตอน merge branch นี้ (WYN-115 เดิม/เชิญ follower เข้าคลับ + WYN-114 เดิม/deep-link) เข้ากับ `main` ที่เดินหน้าไปไกลมากระหว่างทาง (มี WYN-114 ถึง WYN-122 จากหลาย session อื่น merge เข้าไปแล้ว) พบ real merge conflict จริง (ไม่ใช่แค่ auto-merge) ที่ comment เหนือ `*ShareLink()` ทั้ง 5 ฟังก์ชัน (ทั้งสองฝั่งแก้โดเมน `wyn.app`→`wynos.online` อย่างอิสระต่อกัน) และที่ `DECISIONS.md` เอง (append-only ทั้งคู่) — แก้โดยรวม comment ทั้งสองเวอร์ชันเข้าด้วยกัน (Tier 1 เสร็จแล้ว + Tier 2 partial) และเก็บ log ทั้งสองฝั่งไว้ครบ
+
+**พบ ID collision เพิ่มอีก 2 รายการ** (รวมเป็น 4 ครั้งที่เจอในโปรเจกต์นี้: `WYN-078`, ครั้งที่บันทึกไว้ 2026-08-25, และตอนนี้อีก 2):
+1. `WYN-114` ของ session นี้ (โดเมน + `DeepLinkService`) ชนกับ `WYN-114` ของอีก session (โดเมน + `app/web/vercel.json` SPA rewrite, deploy จริงไปแล้ว) — retire `WYN-114` ของ session นี้ทิ้ง เพราะส่วนโดเมนซ้ำกับที่ deploy แล้ว ส่วน `DeepLinkService` (routing จริง ที่ไม่มีใครทำ) พับเข้า `WYN-119` (task ของอีก session ที่สาม ที่นิยาม "Tier 2" นี้ไว้พอดีแต่ยังไม่ได้ coding) เป็น partial implementation (รองรับแค่ authenticated user ยังไม่รองรับ guest ตาม Requirement 2 ของ WYN-119 — ต้องมี Design pass เรื่อง guest-browsing/AuthGate ก่อนถึงจะปิดงานนั้นได้)
+2. `WYN-115` ของ session นี้ (เชิญ follower เข้าคลับ) ชนกับ `WYN-115-club-poll` ของอีก session (merge เข้า main ไปแล้ว) — เปลี่ยนเป็น `WYN-123` (เลขถัดจาก 122 ที่ใช้ล่าสุดตอน merge)
+
+**สาเหตุร่วม**: หลาย AI session ทำงานพร้อมกันบน branch แยกกัน ไม่เห็นเลข ID ที่ session อื่นใช้ไปแล้วจนกว่าจะ merge เข้า main — เป็นความเสี่ยงเชิงโครงสร้างที่ยังไม่มีกลไกป้องกัน (เช่น central "next available ID" lock/registry) ทั้ง 4 ครั้งที่เจอมาล้วนแก้ได้ตอน merge โดยไม่มีอะไรเสียหาย แต่ยิ่งมี session พร้อมกันมากขึ้นเรื่อยๆ ความถี่ของ collision ก็จะเพิ่มตาม — ควรพิจารณาแก้ที่ระดับ process จริงจัง ไม่ใช่แก้เฉพาะหน้าทุกครั้งที่เจอ
+
+อ้างอิง: `.wyn/tasks/active/WYN-119-club-deep-linking.md` ("Partial Coding Output"), `.wyn/tasks/approved/WYN-123-invite-followers-to-club.md` ("Note — Renamed from WYN-115")

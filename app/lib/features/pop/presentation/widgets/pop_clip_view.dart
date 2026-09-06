@@ -20,9 +20,14 @@ import 'confirm_delete_pop_dialog.dart';
 import 'pop_comment_sheet.dart';
 import '../../../../core/design/wyn_spacing.dart';
 
-/// WYN-114 (Tier 1): real wynos.online domain now, same as
-/// dropShareLink -- still not a true deep link (no path-based routing
-/// in the app yet, see dropShareLink's comment).
+/// WYN-114 (Tier 1, done + deployed 2026-09-06): real wynos.online
+/// domain + a Vercel SPA rewrite so this path no longer 404s at the
+/// hosting layer -- see .wyn/tasks/completed/WYN-114-share-link-real-domain.md.
+/// WYN-119 (Tier 2, partial): DeepLinkService (app/lib/core/navigation/)
+/// now opens this destination directly, but only once RootShell has
+/// already mounted -- a guest who has never signed in still lands on
+/// Welcome first, not this content. WYN-119's own guest-preview
+/// requirement is not met yet; see that task's Known Follow-up.
 String popShareLink(String popId) => 'https://wynos.online/pop/$popId';
 
 /// One full-screen clip: video playback, scrim overlay, and the

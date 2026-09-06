@@ -41,12 +41,14 @@ import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
 import '../../../core/widgets/wyn_heart_icon.dart';
 
-/// WYN-114 (Tier 1): points at the real wynos.online domain now instead
-/// of the placeholder wyn.app (which had no DNS at all). Still not a
-/// true deep link -- the app has no path-based routing (see main.dart's
-/// fixed `home: const AuthGate()`), so opening this URL lands on the
-/// generic entry screen, not this specific Drop. That's WYN-114 Tier 2,
-/// not yet approved.
+/// WYN-114 (Tier 1, done + deployed 2026-09-06): real wynos.online
+/// domain + a Vercel SPA rewrite so this path no longer 404s at the
+/// hosting layer -- see .wyn/tasks/completed/WYN-114-share-link-real-domain.md.
+/// WYN-119 (Tier 2, partial): DeepLinkService (app/lib/core/navigation/)
+/// now opens this destination directly, but only once RootShell has
+/// already mounted -- a guest who has never signed in still lands on
+/// Welcome first, not this content. WYN-119's own guest-preview
+/// requirement is not met yet; see that task's Known Follow-up.
 String dropShareLink(String dropId) => 'https://wynos.online/drop/$dropId';
 
 /// Screen 3 — Drop Detail (Comments).

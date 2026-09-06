@@ -16,6 +16,7 @@ import '../../../core/widgets/action_sheet_row.dart';
 import '../../chat/data/chat_repository.dart';
 import '../../chat/data/shared_content_type.dart';
 import '../../chat/presentation/share_sheet.dart';
+import '../../follow/data/follow_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
@@ -23,9 +24,14 @@ import '../../report/presentation/report_sheet.dart';
 import '../../../core/widgets/network_thumbnail.dart';
 import 'widgets/club_avatar.dart';
 
-/// WYN-114 (Tier 1): real wynos.online domain now, same as
-/// dropShareLink/popShareLink -- still not a true deep link (no
-/// path-based routing in the app yet, see dropShareLink's comment).
+/// WYN-114 (Tier 1, done + deployed 2026-09-06): real wynos.online
+/// domain + a Vercel SPA rewrite so this path no longer 404s at the
+/// hosting layer -- see .wyn/tasks/completed/WYN-114-share-link-real-domain.md.
+/// WYN-119 (Tier 2, partial): DeepLinkService (app/lib/core/navigation/)
+/// now opens this destination directly, but only once RootShell has
+/// already mounted -- a guest who has never signed in still lands on
+/// Welcome first, not this content. WYN-119's own guest-preview
+/// requirement is not met yet; see that task's Known Follow-up.
 String clubShareLink(String clubId) => 'https://wynos.online/club/$clubId';
 
 typedef _ClubPageData = ({Club club, ClubMember? membership, bool isMuted});
@@ -71,6 +77,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   final _reportRepository = ReportRepository(Supabase.instance.client);
   final _chatRepository = ChatRepository(Supabase.instance.client);
   final _profileRepository = ProfileRepository(Supabase.instance.client);
+  final _followRepository = FollowRepository(Supabase.instance.client);
 
   @override
   void initState() {
@@ -229,6 +236,8 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
       previewLabel: 'แชร์ Club ${club.name}',
       nativeShareText: clubShareLink(club.id),
       nativeShareTitle: club.name,
+      followRepository: _followRepository,
+      clubName: club.name,
     );
   }
 
