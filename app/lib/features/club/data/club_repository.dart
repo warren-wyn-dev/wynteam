@@ -427,4 +427,38 @@ class ClubRepository {
       'p_new_role': role.name,
     });
   }
+
+  /// WYN-116: whether the current user has muted `club_post_new`/
+  /// `club_post_pinned` notifications for this Club -- see
+  /// `club_notification_mutes` in supabase/schema.sql. Scoped to just
+  /// those 2 types; doesn't affect like/comment/mention/join
+  /// notifications, which stay on regardless (see the Design doc's own
+  /// reasoning for why muting a Club's general activity shouldn't also
+  /// hide notifications about the muter's own content).
+  Future<bool> isClubMuted(String clubId) async {
+    final userId = _client.auth.currentUser!.id;
+    final row = await _client
+        .from('club_notification_mutes')
+        .select('club_id')
+        .eq('club_id', clubId)
+        .eq('user_id', userId)
+        .maybeSingle();
+    return row != null;
+  }
+
+  Future<void> muteClubNotifications(String clubId) async {
+    final userId = _client.auth.currentUser!.id;
+    await _client
+        .from('club_notification_mutes')
+        .insert({'club_id': clubId, 'user_id': userId});
+  }
+
+  Future<void> unmuteClubNotifications(String clubId) async {
+    final userId = _client.auth.currentUser!.id;
+    await _client
+        .from('club_notification_mutes')
+        .delete()
+        .eq('club_id', clubId)
+        .eq('user_id', userId);
+  }
 }

@@ -66,6 +66,8 @@ void main() {
   late RecordingNotificationRepository clubPostLikeRepo;
   late RecordingNotificationRepository clubPostCommentRepo;
   late RecordingNotificationRepository deletedClubPostRepo;
+  late RecordingNotificationRepository clubPostNewRepo;
+  late RecordingNotificationRepository clubPostPinnedRepo;
   late RecordingNotificationRepository allNewClubTypesRepo;
   late RecordingNotificationRepository allMentionTypesRepo;
   late RecordingNotificationRepository mentionDropRepo;
@@ -215,6 +217,30 @@ void main() {
         clubPostId: 'cp1',
         isRead: false,
         createdAt: now.subtract(const Duration(minutes: 25)),
+      );
+
+  WynNotification clubPostNewNotification() => WynNotification(
+        id: 'n-club-post-new',
+        type: NotificationType.clubPostNew,
+        actorId: 'u4',
+        actorUsername: 'gam',
+        clubId: 'club-1',
+        clubName: 'ชมรมถ่ายภาพ',
+        clubPostId: 'cp1',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 30)),
+      );
+
+  WynNotification clubPostPinnedNotification() => WynNotification(
+        id: 'n-club-post-pinned',
+        type: NotificationType.clubPostPinned,
+        actorId: 'u4',
+        actorUsername: 'gam',
+        clubId: 'club-1',
+        clubName: 'ชมรมถ่ายภาพ',
+        clubPostId: 'cp1',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 35)),
       );
 
   WynNotification mentionDropNotification() => WynNotification(
@@ -405,6 +431,10 @@ void main() {
         notifications: [clubPostCommentNotification()]);
     deletedClubPostRepo = RecordingNotificationRepository(
         notifications: [clubPostLikeNotification()]);
+    clubPostNewRepo = RecordingNotificationRepository(
+        notifications: [clubPostNewNotification()]);
+    clubPostPinnedRepo = RecordingNotificationRepository(
+        notifications: [clubPostPinnedNotification()]);
     allNewClubTypesRepo = RecordingNotificationRepository(notifications: [
       clubJoinRequestNotification(),
       clubJoinApprovedNotification(),
@@ -761,6 +791,71 @@ void main() {
 
       expect(find.text('โพสต์นี้ถูกลบไปแล้ว'), findsOneWidget);
       expect(find.byType(ClubPostDetailScreen), findsNothing);
+    });
+  });
+
+  group('Club re-engagement notification types (WYN-116)', () {
+    testWidgets('shows the type-specific Thai message for club_post_new',
+        (tester) async {
+      await tester.pumpWidget(buildScreen(clubPostNewRepo));
+      await tester.pumpAndSettle();
+
+      expect(find.text('@gam โพสต์ใหม่ใน ชมรมถ่ายภาพ'), findsOneWidget);
+    });
+
+    testWidgets('shows the type-specific Thai message for club_post_pinned',
+        (tester) async {
+      await tester.pumpWidget(buildScreen(clubPostPinnedRepo));
+      await tester.pumpAndSettle();
+
+      expect(find.text('@gam ปักหมุดโพสต์ใหม่ใน ชมรมถ่ายภาพ'), findsOneWidget);
+    });
+
+    testWidgets(
+        'tapping a club_post_new notification opens ClubPostDetailScreen',
+        (tester) async {
+      await tester.pumpWidget(buildScreen(
+        clubPostNewRepo,
+        clubPostRepository: clubPostWithResultRepo,
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('@gam โพสต์ใหม่ใน ชมรมถ่ายภาพ'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ClubPostDetailScreen), findsOneWidget);
+    });
+
+    testWidgets(
+        'tapping a club_post_pinned notification opens ClubPostDetailScreen',
+        (tester) async {
+      await tester.pumpWidget(buildScreen(
+        clubPostPinnedRepo,
+        clubPostRepository: clubPostWithResultRepo,
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('@gam ปักหมุดโพสต์ใหม่ใน ชมรมถ่ายภาพ'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ClubPostDetailScreen), findsOneWidget);
+    });
+
+    testWidgets(
+        'club_post_pinned shows a push-pin badge (the one club type high-'
+        'priority enough to earn one)', (tester) async {
+      await tester.pumpWidget(buildScreen(clubPostPinnedRepo));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.push_pin), findsOneWidget);
+    });
+
+    testWidgets('club_post_new shows no special badge, same as other plain '
+        'club content types', (tester) async {
+      await tester.pumpWidget(buildScreen(clubPostNewRepo));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.push_pin), findsNothing);
     });
   });
 

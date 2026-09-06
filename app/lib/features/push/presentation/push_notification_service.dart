@@ -390,6 +390,8 @@ class PushNotificationService {
       case 'club_post_like':
       case 'club_post_comment':
       case 'mention_club_post':
+      case 'club_post_new':
+      case 'club_post_pinned':
         await _openClubPost(navigator, client, data['club_post_id'] as String?);
       case 'moderation_warning':
       case 'moderation_content_removed':
