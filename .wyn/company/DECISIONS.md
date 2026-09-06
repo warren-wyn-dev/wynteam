@@ -1347,6 +1347,16 @@ Founder รายงานทันทีหลัง deploy run #93 ว่า�
 
 อ้างอิง: `.github/workflows/diag-p0-followup-check.yml`, `.github/workflows/wyn115-apply-club-poll-schema.yml`, `.github/workflows/wyn117-apply-club-insights-schema.yml`, `.github/workflows/wyn124-apply-club-invite-schema.yml`, `.wyn/tasks/approved/WYN-124-club-invite-notification.md`, `.wyn/docs/design/wyn-124-club-invite-notification.md`, `.wyn/logs/deployments/2026-09-06-wyn-124-club-invite-notification-deploy.md`
 
+## [2026-09-06] WYN-125 (Developer Account Allowlist) deploy สำเร็จขึ้น production จริง — mechanism พร้อมใช้ แต่ยังไม่มีฟีเจอร์ผูก
+
+Merge เข้า `main` ผ่าน PR [#285](https://github.com/warren-wyn-dev/wynteam/pull/285) (`616b928`) — มี apply workflow ของตัวเองมาตั้งแต่ Design/Coding (`wyn125-apply-developer-accounts-schema.yml`) ตรงตามบทเรียนที่ entry ก่อนหน้านี้เพิ่งย้ำซ้ำ จึงไม่เข้าข่ายช่องโหว่ "schema merge แต่ไม่ apply" แบบ WYN-115/116/117/118
+
+รันจริงเรียงลำดับ: (1) apply schema — success, สร้างตาราง `developer_accounts` + ฟังก์ชัน `is_developer_account()` บน production (2) `wyn125-manage-developer-accounts.yml` action=add เพิ่ม `@warren` และ `@wynos_online` ทีละคน — success ทั้งคู่ (3) action=list ยืนยันด้วย job log จริงว่าทั้งสอง username อยู่ใน allowlist แล้ว (ไม่ใช่แค่เชื่อ "success" เฉยๆ)
+
+**ยังไม่ปิดเป็น completed** — งานนี้เป็น infrastructure ล้วนๆ ไม่มี UI/ฟีเจอร์ไหนเรียกใช้ `is_developer_account()`/`DeveloperAccessService` เลยในรอบนี้ (ตามขอบเขตที่ Design กำหนด) จึงยังไม่มี "ผลลัพธ์ที่ผู้ใช้สัมผัสได้จริง" ให้ Founder ทดลองยืนยัน — จะปิด task เต็มรูปแบบเมื่อมีฟีเจอร์แรกในอนาคตผูกกับ flag นี้และผ่าน Production Verification ของตัวเองสำเร็จ ย้าย task ไป `.wyn/tasks/approved/WYN-125-staged-rollout-developer-first.md` แล้ว
+
+รายละเอียดเต็ม: `.wyn/logs/deployments/2026-09-06-wyn-125-developer-account-allowlist-deploy.md`
+
 ## [2026-09-06] Founder ยืนยัน "เสร็จแล้ว" -- ปิด WYN-115/116/123/124 เป็น completed
 
 หลัง WYN-124 deploy ขึ้น production, Founder ทดลองใช้จริงในแอป (เปิด Club, กดเชิญ, เห็นคำเชิญเป็น Notification) แล้วยืนยันสั้นๆ ว่า "เสร็จแล้ว" — ตาม `.wyn/company/WORKFLOW.md` (ต้องมี hands-on confirmation จาก Founder เองก่อนย้าย `approved/` → `completed/`) ปิดทั้ง 4 task ที่ blocked อยู่บนการยืนยันรอบนี้:
