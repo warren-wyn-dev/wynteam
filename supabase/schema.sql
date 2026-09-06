@@ -12616,6 +12616,192 @@ $$;
 grant execute on function public.invite_to_club(uuid, uuid) to authenticated;
 
 -- ============================================================
+-- WYN-118: Club Events
+-- ============================================================
+-- See .wyn/tasks/active/WYN-118-club-events.md and
+-- .wyn/docs/design/wyn-118-club-events.md. Deliberately scoped to just
+-- "create an event + RSVP + see who's going" per the Product spec's own
+-- Risks note -- there is NO "notify before the event starts" reminder
+-- in this section, and that is a considered scope cut, not an
+-- oversight: such a reminder needs a real time-based cron/scheduled-job
+-- mechanism (nothing in this schema fires on wall-clock time passing,
+-- only on row insert/update -- see the `trending` category's own
+-- comment above for this same "no cron infra anywhere in this project"
+-- fact stated elsewhere), which is new infrastructure well beyond this
+-- task's stated scope. See the Design doc's own reasoning.
+create table if not exists public.club_events (
+  id uuid primary key default gen_random_uuid(),
+  club_id uuid not null references public.clubs (id) on delete cascade,
+  creator_id uuid not null references public.profiles (id) on delete cascade,
+  title text not null,
+  description text,
+  starts_at timestamptz not null,
+  location_type text not null check (location_type in ('online', 'offline')),
+  -- A URL for an online event, a free-text address for an offline one --
+  -- no format validation, no map/GPS integration, per the Product
+  -- spec's own explicit "ไม่ต้องมี map integration ใน V1".
+  location text not null,
+  created_at timestamptz not null default now(),
+  constraint club_events_title_length check (char_length(title) between 1 and 200),
+  constraint club_events_description_length
+    check (description is null or char_length(description) <= 2000),
+  constraint club_events_location_length check (char_length(location) between 1 and 500)
+);
+
+-- Supports both "events for this club, soonest first" (Events tab) and
+-- the upcoming/past split the UI renders as two sections of one list.
+create index if not exists club_events_club_starts_idx
+  on public.club_events (club_id, starts_at);
+
+alter table public.club_events enable row level security;
+
+create policy "Approved club members can view events"
+  on public.club_events
+  for select
+  to authenticated
+  using (public.club_role(club_id, auth.uid()) is not null);
+
+-- Same permission tier as pin/unpin (canModeratePosts: owner/admin/
+-- moderator) per the Product spec's own Acceptance Criteria -- any
+-- staff member can create/edit/delete any event in the club, not just
+-- ones they created themselves, mirroring how staff already manage
+-- each other's pinned posts.
+create policy "Club staff can create events"
+  on public.club_events
+  for insert
+  to authenticated
+  with check (
+    creator_id = auth.uid()
+    and public.club_role(club_id, auth.uid()) in ('owner', 'admin', 'moderator')
+  );
+
+create policy "Club staff can update events"
+  on public.club_events
+  for update
+  to authenticated
+  using (public.club_role(club_id, auth.uid()) in ('owner', 'admin', 'moderator'))
+  with check (public.club_role(club_id, auth.uid()) in ('owner', 'admin', 'moderator'));
+
+create policy "Club staff can delete events"
+  on public.club_events
+  for delete
+  to authenticated
+  using (public.club_role(club_id, auth.uid()) in ('owner', 'admin', 'moderator'));
+
+-- Unlike drop_poll_votes/club_post_poll_votes, RSVPs are meant to be
+-- visible to the whole club ("เห็นจำนวน+รายชื่อคนที่ตอบรับ" -- Product's
+-- own Requirements), not private to the voter -- so the SELECT policy
+-- here is club-membership-wide, not owner-row-only.
+create table if not exists public.club_event_rsvps (
+  event_id uuid not null references public.club_events (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  status text not null check (status in ('going', 'maybe', 'not_going')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (event_id, user_id)
+);
+
+create index if not exists club_event_rsvps_event_idx on public.club_event_rsvps (event_id);
+
+alter table public.club_event_rsvps enable row level security;
+
+create policy "Approved club members can view event RSVPs"
+  on public.club_event_rsvps
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.club_events ce
+      where ce.id = event_id and public.club_role(ce.club_id, auth.uid()) is not null
+    )
+  );
+
+create policy "Users can RSVP as themselves"
+  on public.club_event_rsvps
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+-- Changing your mind is an UPDATE of the same row (upserted from the
+-- client on conflict (event_id, user_id)), same shape as
+-- club_post_poll_votes' own "re-voting" policy.
+create policy "Users can change their own RSVP"
+  on public.club_event_rsvps
+  for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Users can remove their own RSVP"
+  on public.club_event_rsvps
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- Same shape as validate_club_poll_vote() (WYN-115): the RLS insert
+-- policy above only checks "is this your own row", not club
+-- membership, so that check (plus the posting-block check every other
+-- write-side club action already applies) lives here instead.
+create or replace function public.validate_club_event_rsvp()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_club_id uuid;
+begin
+  select club_id into v_club_id from public.club_events where id = new.event_id;
+
+  if v_club_id is null then
+    raise exception 'Event not found';
+  end if;
+
+  if public.club_role(v_club_id, new.user_id) is null then
+    raise exception 'Must be an approved club member to RSVP';
+  end if;
+
+  if internal.is_posting_blocked(new.user_id) then
+    raise exception 'Account is posting-restricted';
+  end if;
+
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+create trigger club_event_rsvps_validate
+  before insert or update on public.club_event_rsvps
+  for each row execute function public.validate_club_event_rsvp();
+
+-- Batch RSVP counts for every event on a page in one round trip --
+-- mirrors get_club_poll_results()/club_insights()'s own "aggregate at
+-- the DB layer, never sum raw rows client-side" rule. Deliberately NOT
+-- `security definer`, unlike most RPCs in this file: running as the
+-- invoker (the caller's own `authenticated` role) means
+-- club_events'/club_event_rsvps' own RLS SELECT policies already do
+-- exactly the right visibility filtering for free -- an event id the
+-- caller isn't an approved member for simply contributes no row here,
+-- with no need to re-derive that check inside this function.
+create or replace function public.club_event_rsvp_counts(p_event_ids uuid[])
+returns table (event_id uuid, going bigint, maybe bigint, not_going bigint)
+language sql
+stable
+as $$
+  select
+    e.id,
+    count(*) filter (where r.status = 'going'),
+    count(*) filter (where r.status = 'maybe'),
+    count(*) filter (where r.status = 'not_going')
+  from public.club_events e
+  left join public.club_event_rsvps r on r.event_id = e.id
+  where e.id = any(p_event_ids)
+  group by e.id;
+$$;
+
+grant execute on function public.club_event_rsvp_counts(uuid[]) to authenticated;
+
+-- ============================================================
 -- WYN-125: Developer account allowlist (staged rollout mechanism) --
 -- see .wyn/tasks/active/WYN-125-staged-rollout-developer-first.md and
 -- .wyn/docs/design/wyn-125-staged-rollout-developer-accounts.md.
