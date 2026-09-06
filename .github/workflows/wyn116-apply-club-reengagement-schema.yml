@@ -1,0 +1,202 @@
+name: WYN-116 -- apply club re-engagement notifications schema (P0 fix)
+
+# P0: real Club pages started failing to load in production
+# ("โหลด Club ไม่สำเร็จ") right after deploy-web.yml run #93 (2026-09-06,
+# WYN-123). Root cause confirmed via diag-wyn116-schema-check.yml:
+# ClubPage._load() calls ClubRepository.isClubMuted(), which queries
+# public.club_notification_mutes -- a table WYN-116 (already merged,
+# already QA-approved, see .wyn/tasks/approved/WYN-116-club-reengagement-notifications.md)
+# added to schema.sql, but which never had its own production migration
+# run (no such workflow existed for WYN-116, unlike WYN-122's
+# equivalent) -- run #93 is simply the first deploy to ship client code
+# that queries it at all. schema.sql doesn't auto-apply to production,
+# this project's own long-established finding (see
+# chat-enable-conversations-realtime.yml's comment on the same gap).
+#
+# Every statement here is copy-paste identical to supabase/schema.sql's
+# own WYN-116 section (lines ~12323-12446) plus the notifications.type
+# check-constraint update (~6587-6603) that the 2 new notification
+# types require -- if the two ever drift, schema.sql is wrong, not this
+# file (this file is what actually ran). Purely additive: new table +
+# RLS + 2 functions + 2 triggers + widening an existing check
+# constraint. No destructive change, no data loss, nothing removed.
+#
+# Safe to run more than once (CREATE TABLE/POLICY guarded, CREATE OR
+# REPLACE FUNCTION, DROP TRIGGER IF EXISTS before CREATE TRIGGER, the
+# constraint step already drops-then-recreates by design) -- mirrors
+# every other one-off migration workflow in this project's convention.
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== 1. Widen notifications.type check constraint to include club_post_new/club_post_pinned ==="
+          run_sql "do \$do\$
+                   declare
+                     v_constraint_name text;
+                   begin
+                     select tc.constraint_name into v_constraint_name
+                     from information_schema.table_constraints tc
+                     join information_schema.constraint_column_usage ccu
+                       on ccu.constraint_name = tc.constraint_name
+                      and ccu.constraint_schema = tc.constraint_schema
+                     where tc.table_schema = 'public'
+                       and tc.table_name = 'notifications'
+                       and tc.constraint_type = 'CHECK'
+                       and ccu.column_name = 'type';
+
+                     if v_constraint_name is not null then
+                       execute format('alter table public.notifications drop constraint %I', v_constraint_name);
+                     end if;
+                   end;
+                   \$do\$;
+
+                   alter table public.notifications
+                     add constraint notifications_type_check
+                     check (type in (
+                       'like_drop', 'like_pop', 'comment_drop', 'comment_pop', 'follow',
+                       'club_join_request', 'club_join_approved', 'club_post_like', 'club_post_comment',
+                       'mention_drop', 'mention_club_post',
+                       'moderation_warning', 'moderation_content_removed',
+                       'appeal_approved', 'appeal_rejected',
+                       'message_request', 'redrop',
+                       'follow_request', 'follow_request_accepted',
+                       'system',
+                       'club_post_new', 'club_post_pinned'
+                     ));" >/dev/null
+          echo "Done."
+
+          echo "=== 2. Create club_notification_mutes (idempotent) + RLS ==="
+          run_sql "create table if not exists public.club_notification_mutes (
+                     club_id uuid not null references public.clubs (id) on delete cascade,
+                     user_id uuid not null references public.profiles (id) on delete cascade,
+                     created_at timestamptz not null default now(),
+                     primary key (club_id, user_id)
+                   );
+
+                   alter table public.club_notification_mutes enable row level security;
+
+                   drop policy if exists \"Users can view clubs they muted\" on public.club_notification_mutes;
+                   create policy \"Users can view clubs they muted\"
+                     on public.club_notification_mutes
+                     for select
+                     to authenticated
+                     using (auth.uid() = user_id);
+
+                   drop policy if exists \"Users can mute a club as themselves\" on public.club_notification_mutes;
+                   create policy \"Users can mute a club as themselves\"
+                     on public.club_notification_mutes
+                     for insert
+                     to authenticated
+                     with check (auth.uid() = user_id);
+
+                   drop policy if exists \"Users can unmute a club as themselves\" on public.club_notification_mutes;
+                   create policy \"Users can unmute a club as themselves\"
+                     on public.club_notification_mutes
+                     for delete
+                     to authenticated
+                     using (auth.uid() = user_id);" >/dev/null
+          echo "Done."
+
+          echo "=== 3. notify_club_post_new() + trigger ==="
+          run_sql "create or replace function public.notify_club_post_new()
+                   returns trigger
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   begin
+                     insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
+                     select cm.user_id, new.author_id, 'club_post_new', new.id, new.club_id
+                     from public.club_members cm
+                     where cm.club_id = new.club_id
+                       and cm.status = 'approved'
+                       and cm.user_id <> new.author_id
+                       and internal.notification_enabled(cm.user_id, 'club')
+                       and not exists (
+                         select 1 from public.club_notification_mutes cnm
+                         where cnm.club_id = new.club_id and cnm.user_id = cm.user_id
+                       )
+                       and not exists (
+                         select 1 from public.notifications n
+                         where n.recipient_id = cm.user_id
+                           and n.club_id = new.club_id
+                           and n.type = 'club_post_new'
+                           and n.created_at > now() - interval '3 hours'
+                       );
+                     return new;
+                   end;
+                   \$fn\$;
+
+                   drop trigger if exists club_posts_notify_new on public.club_posts;
+                   create trigger club_posts_notify_new
+                     after insert on public.club_posts
+                     for each row execute function public.notify_club_post_new();" >/dev/null
+          echo "Done."
+
+          echo "=== 4. notify_club_post_pinned() + trigger ==="
+          run_sql "create or replace function public.notify_club_post_pinned()
+                   returns trigger
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   begin
+                     insert into public.notifications (recipient_id, actor_id, type, club_post_id, club_id)
+                     select cm.user_id, auth.uid(), 'club_post_pinned', new.id, new.club_id
+                     from public.club_members cm
+                     where cm.club_id = new.club_id
+                       and cm.status = 'approved'
+                       and cm.user_id <> auth.uid()
+                       and internal.notification_enabled(cm.user_id, 'club')
+                       and not exists (
+                         select 1 from public.club_notification_mutes cnm
+                         where cnm.club_id = new.club_id and cnm.user_id = cm.user_id
+                       );
+                     return new;
+                   end;
+                   \$fn\$;
+
+                   drop trigger if exists club_posts_notify_pinned on public.club_posts;
+                   create trigger club_posts_notify_pinned
+                     after update on public.club_posts
+                     for each row
+                     when (old.pinned = false and new.pinned = true)
+                     execute function public.notify_club_post_pinned();" >/dev/null
+          echo "Done."
+
+          echo "=== 5. Verify: table + constraint + functions + triggers now present ==="
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name = 'club_notification_mutes';" | jq .
+          run_sql "select conname, pg_get_constraintdef(oid) from pg_constraint where conname = 'notifications_type_check';" | jq .
+          run_sql "select routine_name from information_schema.routines where routine_schema = 'public' and routine_name in ('notify_club_post_new', 'notify_club_post_pinned');" | jq .
+          run_sql "select tgname from pg_trigger where tgname in ('club_posts_notify_new', 'club_posts_notify_pinned');" | jq .
+
+          echo "=== 6. Reproduce the exact failing call: isClubMuted() query against a real club ==="
+          run_sql "select cnm.club_id from public.club_notification_mutes cnm where cnm.club_id = (select id from public.clubs limit 1) limit 1;" | jq .
