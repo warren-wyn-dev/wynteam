@@ -1072,3 +1072,55 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 **สถานะ**: WYN-113 **completed** ครบทั้ง Product → Design → Coding → QA → Deploy → Production Verification ไม่มี rollback ต้องทำ ไม่มี migration ค้าง
 
 อ้างอิง: `.wyn/tasks/completed/WYN-113-og-share-preview-cards.md`, `.wyn/logs/deployments/2026-09-06-wyn-113-og-share-preview-deploy.md`, PR #267, deploy-web.yml run #87
+
+## [2026-09-06] WYN-114: แก้ share link โดเมนปลอม — พบว่าแอปไม่มี path routing เลย ขอบเขตต้องแบ่ง 2 ระดับ
+
+**บริบท**: ต่อจากการวิเคราะห์แอปก่อนหน้า (ค้างจาก Beta3 security audit item A-7) Founder อนุมัติให้แก้ share link 5 จุด (`dropShareLink`/`popShareLink`/`clubShareLink`/`clubPostShareLink`/`profileShareLink`) ที่ยังชี้โดเมนปลอม `https://wyn.app/...`
+
+**พบข้อเท็จจริงใหม่ระหว่างตรวจโค้ด**: `app/lib/main.dart` มี `MaterialApp(home: const AuthGate())` ตายตัว **ไม่มี GoRouter ไม่มี path-based routing ใดๆ เลย** — จุดเดียวที่อ่าน `Uri.base` คือ `analytics_repository.dart` สำหรับ UTM query parameter เท่านั้น ไม่เกี่ยวกับ path — แปลว่าต่อให้เปลี่ยนโดเมนเป็น `wynos.online` จริง การเปิดลิงก์ที่แชร์มา (เช่น `/drop/abc123`) **จะไม่พาไปที่โพสต์นั้นเลย** จะ boot แอปแล้วโชว์หน้า `AuthGate`/home เหมือนเปิด `wynos.online` เฉยๆ เสมอ
+
+**การตัดสินใจ**: แบ่งงานเป็น 2 ระดับแทนที่จะทำแบบเข้าใจผิดว่า "แก้โดเมนแล้วจบ":
+- **Tier 1** (ขอบเขตเดิมที่อนุมัติ): แก้แค่ string โดเมนใน 5 จุด — P1 ทำได้ทันที ความเสี่ยงต่ำมาก แม้ไม่ใช่ deep-link จริงแต่ดีกว่าเดิมชัดเจน (จาก "เปิดไม่ได้เลย" เป็น "เปิดได้แต่ไปหน้าแรก")
+- **Tier 2** (ขอบเขตใหม่ที่เพิ่งค้นพบว่าจำเป็น): เพิ่ม path-based deep-linking จริงให้ลิงก์พาไปที่โพสต์/Club/โปรไฟล์ที่แชร์มาจริงๆ — งานใหญ่กว่าที่คิด แตะ core navigation ต้องผ่าน AI Design ก่อน (UX ตอน resolve target, error state) — **ยังไม่อนุมัติ แยกเป็นการตัดสินใจต่างหาก**
+
+สร้าง `WYN-114` (`.wyn/tasks/backlog/WYN-114-share-link-real-domain.md`) บันทึกทั้งสอง Tier ไว้ — Tier 1 ส่งตรง AI Coding ได้เลย (ไม่ผ่าน Design เพราะไม่มี UI เปลี่ยน)
+
+อ้างอิง: `.wyn/tasks/backlog/WYN-114-share-link-real-domain.md`, `app/lib/main.dart`, `.wyn/docs/qa/wynos-v1.0.0-beta3-security-audit.md` (item A-7 เดิม)
+
+## [2026-09-06] WYN-114: QA FAIL — Vercel ไม่มี SPA rewrite เลย ทุก path 404 จริง
+
+**บริบท**: QA ตรวจ WYN-114 Tier 1 (แก้โดเมน share link 5 จุด) ด้วยการ curl production จริงแทนที่จะเชื่อสมมติฐานในเอกสาร Product spec (ที่เขียนไว้ว่า "จะ boot แอปแล้วโชว์หน้า AuthGate เหมือนเปิด wynos.online เฉยๆ") — **พบว่าสมมติฐานนั้นผิด**: `curl https://wynos.online/drop/test123` ได้ **HTTP 404 ตรงจาก Vercel** (`x-vercel-error: NOT_FOUND`) ไม่ถึงขั้น Flutter app boot ด้วยซ้ำ
+
+**Root cause**: โปรเจกต์ deploy ด้วย `vercel deploy` ตรงๆ ไม่มี `vercel.json`/rewrite config ใดๆ เลย — Vercel static hosting เช็ค path ตรงกับไฟล์จริงเท่านั้น ไม่มี catch-all ไปที่ `index.html` ปัญหานี้**มีอยู่ก่อน WYN-114 แล้ว** (ทดสอบ path สุ่มอื่นก็ 404 เหมือนกันหมด) แต่เพิ่งกระทบผู้ใช้จริงตอนนี้เพราะ share link เพิ่งชี้โดเมนจริง
+
+**ผลกระทบต่อ WYN-114**: โค้ด Dart ที่แก้ (5 จุด) ถูกต้อง 100% ไม่ต้องแก้เพิ่ม — แต่ **acceptance criteria ของงาน ("ลิงก์เปิดเว็บได้จริง") ยังไม่จริง** เพราะติดปัญหาคนละชั้น (hosting config ไม่ใช่โค้ดแอป) สร้าง bug report `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md` พร้อม root cause + แนวทางแก้ (`vercel.json` catch-all rewrite) + คำเตือนเรื่อง regression risk สำคัญ (rewrite ต้องไม่ทำให้ static asset จริงอย่าง `og-image.png` ที่ WYN-113 เพิ่ง deploy ไปพังไปด้วย)
+
+**บทเรียน**: การวิเคราะห์โค้ด client-side อย่างเดียว (แม้จะละเอียดแค่ไหน) ไม่พอสำหรับฟีเจอร์ที่พึ่งพา URL/hosting — ต้องทดสอบกับ production จริงเสมอเมื่อทำได้ (ตามที่ session นี้มี network egress) ไม่ใช่แค่อ่านโค้ดแล้วเดาพฤติกรรม
+
+**สถานะ**: WYN-114 **FAIL** ส่งต่อ AI Debug Engineer
+
+อ้างอิง: `.wyn/tasks/backlog/WYN-114-share-link-real-domain.md`, `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`
+
+## [2026-09-06] WYN-114: Debug Engineer แก้ Vercel 404 ด้วย vercel.json rewrite — ส่งกลับ QA
+
+**บริบท**: ต่อจาก QA FAIL ของ WYN-114 (ทุก path บน `wynos.online` นอกจาก `/` ได้ 404 จาก Vercel) AI Debug Engineer reproduce ซ้ำอิสระยืนยันตรงกับ QA แล้วเพิ่ม `app/web/vercel.json` (catch-all rewrite `/(.*)  → /index.html`, มาตรฐาน SPA hosting) + `!/web/vercel.json` ใน `.gitignore` (ใช้กลไกเดียวกับ `og-image.png`/`favicon.png` — `flutter build web` copy ไฟล์ทุกไฟล์ใน `web/` เข้า `build/web/` verbatim อัตโนมัติ ไม่ต้องแก้ `deploy-web.yml` เพิ่ม)
+
+**ข้อจำกัดที่ระบุไว้ตรงๆ**: Vercel's "filesystem check ก่อน rewrite เสมอ" (ป้องกันไม่ให้ rewrite ทับ static asset จริงอย่าง `og-image.png`) เป็นพฤติกรรมมาตรฐานตามเอกสาร แต่**ยังไม่ได้พิสูจน์เชิงประจักษ์ในรอบนี้** เพราะ sandbox ไม่มี Vercel CLI ผูก credential — ต้อง verify จริงหลัง deploy
+
+**บทเรียนที่บันทึกเพิ่ม**: การวิเคราะห์ของ Product spec ที่อ่านแค่โค้ด client-side (`main.dart`) ไม่พอสำหรับปัญหาที่พึ่งพา URL/hosting — ควร curl ทดสอบ production จริงก่อนเขียนสเปกเมื่อทำได้ (บันทึกที่ `.wyn/learning/LESSONS_LEARNED.md`/`MISTAKES.md`)
+
+**สถานะ**: ส่งกลับ AI QA & Security พร้อม manual verification checklist 2 ชุด (path ที่ควรเป็น 200 ใหม่ + static asset ที่ต้องยังเป็นไฟล์จริงเหมือนเดิม) — ต้อง deploy ก่อนถึงจะ verify ได้จริง
+
+อ้างอิง: `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`, `.wyn/learning/LESSONS_LEARNED.md`, `.wyn/learning/MISTAKES.md`
+
+## [2026-09-06] WYN-114: QA PASS (มีเงื่อนไข) หลังยืนยันด้วยเอกสารทางการของ Vercel — ส่งต่อ Deploy
+
+**บริบท**: QA ตรวจ fix ของ Debug Engineer (`app/web/vercel.json`) ซ้ำ ไม่หยุดแค่ตรวจโค้ด static แต่ไล่แก้ข้อสงสัยที่ Debug Engineer เองระบุไว้ว่า "ยังพิสูจน์เองไม่ได้" (rewrite อาจทับ static asset จริงอย่าง `og-image.png`) ด้วยการ **WebFetch เอกสารทางการของ Vercel โดยตรง** (`vercel.json` reference doc อัปเดตล่าสุด 2026-08-14) พบข้อความยืนยันชัดเจน: *"precedence is given to the filesystem prior to rewrites being applied"* — ปิดข้อสงสัยหลักได้เกือบสมบูรณ์โดยไม่ต้องรอ deploy จริง
+
+**ผลลัพธ์**: PASS แบบมีเงื่อนไข — โค้ด/config ถูกต้องครบ + ความเสี่ยงหลักมีเอกสารทางการรองรับแล้ว แต่ยังต้องยืนยันด้วยตาจริงหลัง deploy ตาม curl checklist 2 ชุดที่ Debug Engineer เตรียมไว้ (ถือเป็นข้อบังคับ ไม่ใช่ทางเลือก — ถ้า static asset จุดใดพัง ต้อง P0 rollback ทันที)
+
+**บทเรียน**: เมื่อเจอข้อสงสัยที่ "เอกสารบอกว่าปลอดภัย แต่ยังไม่พิสูจน์" และมีเครื่องมือค้นเอกสารทางการจริง (WebFetch) ให้ใช้เพื่อยืนยันก่อนปล่อยผ่านเป็นข้อสงสัยค้างคา แทนที่จะพึ่งแค่ "โดยทั่วไปควรจะ..." เฉยๆ
+
+**สถานะ**: WYN-114 approved — ส่งต่อ AI Deploy & DevOps
+
+อ้างอิง: `.wyn/tasks/approved/WYN-114-share-link-real-domain.md`, `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`

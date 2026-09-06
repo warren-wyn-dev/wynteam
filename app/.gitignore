@@ -58,6 +58,15 @@ migrate_working_dir/
 # `flutter create` has no template for at all, so without this line it
 # would exist only on whoever's machine authored it and every deploy
 # would 404 the link.
+#
+# vercel.json (WYN-114 bugfix) is committed for the same reason again:
+# without a catch-all rewrite to index.html, Vercel's static hosting 404s
+# every URL that isn't an exact existing file -- e.g. /drop/<id>, which
+# is exactly what dropShareLink()/popShareLink()/clubShareLink()/
+# clubPostShareLink()/profileShareLink() point at. `flutter build web`
+# copies this file into build/web/ verbatim (same mechanism as
+# index.html/favicon.png/og-image.png above), where `vercel deploy` (run
+# from that directory in deploy-web.yml) picks it up automatically.
 /web/*
 !/web/flutter_bootstrap.js
 !/web/firebase-messaging-sw.js
@@ -71,6 +80,7 @@ migrate_working_dir/
 !/web/icons/Icon-maskable-192.png
 !/web/icons/Icon-maskable-512.png
 !/web/og-image.png
+!/web/vercel.json
 /linux/
 /macos/
 /windows/

@@ -20,11 +20,10 @@ import 'confirm_delete_pop_dialog.dart';
 import 'pop_comment_sheet.dart';
 import '../../../../core/design/wyn_spacing.dart';
 
-/// Placeholder share link -- there's no real hosting/domain yet, same
-/// situation as Drop's share link (see .wyn/tasks/approved/WYN-005-drop-post-image.md
-/// Risks). Not a reachable URL; revisit once Founder confirms a real
-/// domain before Deploy.
-String popShareLink(String popId) => 'https://wyn.app/pop/$popId';
+/// WYN-114 (Tier 1): real wynos.online domain now, same as
+/// dropShareLink -- still not a true deep link (no path-based routing
+/// in the app yet, see dropShareLink's comment).
+String popShareLink(String popId) => 'https://wynos.online/pop/$popId';
 
 /// One full-screen clip: video playback, scrim overlay, and the
 /// Like/Comment/Share/Save/View interaction row. Extracted out of

@@ -53,9 +53,10 @@ import '../../search/data/discovery_repository.dart';
 import '../../search/presentation/search_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 
-/// Placeholder share link -- same "no real hosting/domain yet" caveat as
-/// dropShareLink/clubShareLink (WYN-005/014).
-String profileShareLink(String username) => 'https://wyn.app/@$username';
+/// WYN-114 (Tier 1): real wynos.online domain now, same as
+/// dropShareLink/clubShareLink -- still not a true deep link (no
+/// path-based routing in the app yet, see dropShareLink's comment).
+String profileShareLink(String username) => 'https://wynos.online/@$username';
 
 /// Beta4 §1: "Profile Stats -- แสดงเฉพาะ Following / Followers.
 /// ไม่เพิ่ม: จำนวนโพสต์". `dropCount` is gone from this record, and with
