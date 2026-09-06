@@ -1,0 +1,295 @@
+name: WYN-122 -- apply chat lockdown schema (tables, functions, RLS)
+
+# schema.sql changes don't auto-apply to production (this project's own
+# established finding -- see chat-enable-conversations-realtime.yml's
+# own comment). This applies WYN-122's chat lockdown mechanism: the
+# `chat_lockdown`/`chat_lockdown_allowlist` tables, the
+# internal.chat_pair_allowed()/public.chat_lockdown_status() helpers,
+# the updated get_or_create_conversation()/count_unread_conversations()
+# functions, and the 4 RLS policies (conversations SELECT, messages
+# SELECT/INSERT, chat-media storage INSERT) that now also require both
+# participants to be allowlisted whenever lockdown is enabled.
+#
+# Every statement here is copy-paste identical to the corresponding
+# section of supabase/schema.sql (the WYN-122 section at the end of the
+# file) -- if the two ever drift, schema.sql is wrong, not this file
+# (this file is what actually ran).
+#
+# Deliberately does NOT flip `chat_lockdown.enabled` -- it stays at the
+# table's own default (false) after this runs, exactly like a fresh
+# install. Use wyn122-toggle-chat-lockdown.yml to actually turn
+# lockdown on/off -- keeping "ship the mechanism" and "flip the switch"
+# as two separate, separately-reviewable actions.
+#
+# Safe to run more than once (every CREATE is IF NOT EXISTS/OR REPLACE,
+# every DROP POLICY is guarded, the allowlist insert is ON CONFLICT DO
+# NOTHING) -- mirrors every other one-off migration workflow in this
+# project's convention (chat-enable-conversations-realtime.yml,
+# setup-database-webhook.yml).
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== 1. Create chat_lockdown / chat_lockdown_allowlist (idempotent) ==="
+          run_sql "create table if not exists public.chat_lockdown (
+                     id boolean primary key default true,
+                     enabled boolean not null default false,
+                     constraint chat_lockdown_singleton check (id)
+                   );
+                   insert into public.chat_lockdown (id, enabled) values (true, false)
+                   on conflict (id) do nothing;
+                   create table if not exists public.chat_lockdown_allowlist (
+                     user_id uuid primary key references public.profiles (id) on delete cascade
+                   );
+                   alter table public.chat_lockdown enable row level security;
+                   alter table public.chat_lockdown_allowlist enable row level security;" >/dev/null
+          echo "Done."
+
+          echo "=== 2. Create internal.chat_pair_allowed() / public.chat_lockdown_status() ==="
+          run_sql "create or replace function internal.chat_pair_allowed(p_a uuid, p_b uuid)
+                   returns boolean
+                   language sql
+                   stable
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                     select
+                       not coalesce((select enabled from public.chat_lockdown where id), false)
+                       or (
+                         exists (select 1 from public.chat_lockdown_allowlist where user_id = p_a)
+                         and exists (select 1 from public.chat_lockdown_allowlist where user_id = p_b)
+                       )
+                   \$fn\$;
+
+                   create or replace function public.chat_lockdown_status(p_other_user_id uuid default null)
+                   returns boolean
+                   language sql
+                   stable
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                     select case
+                       when p_other_user_id is null then
+                         not coalesce((select enabled from public.chat_lockdown where id), false)
+                         or exists (select 1 from public.chat_lockdown_allowlist where user_id = auth.uid())
+                       else
+                         internal.chat_pair_allowed(auth.uid(), p_other_user_id)
+                     end
+                   \$fn\$;
+
+                   grant execute on function public.chat_lockdown_status(uuid) to authenticated;" >/dev/null
+          echo "Done."
+
+          echo "=== 3. Update get_or_create_conversation() -- add the lockdown check ==="
+          run_sql "create or replace function public.get_or_create_conversation(p_other_user_id uuid)
+                   returns uuid
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   declare
+                     v_me uuid := auth.uid();
+                     v_a uuid;
+                     v_b uuid;
+                     v_id uuid;
+                     v_status text;
+                     v_requested_by uuid;
+                   begin
+                     if v_me is null then
+                       raise exception 'Not authenticated';
+                     end if;
+                     if p_other_user_id = v_me then
+                       raise exception 'Cannot start a conversation with yourself';
+                     end if;
+                     if not exists (select 1 from public.profiles where id = p_other_user_id) then
+                       raise exception 'User not found';
+                     end if;
+                     if internal.is_blocked_either_way(v_me, p_other_user_id) then
+                       raise exception 'Cannot start a conversation with a blocked user';
+                     end if;
+                     if not internal.chat_pair_allowed(v_me, p_other_user_id) then
+                       raise exception 'Chat is temporarily closed for testing';
+                     end if;
+
+                     v_a := least(v_me, p_other_user_id);
+                     v_b := greatest(v_me, p_other_user_id);
+
+                     select id into v_id from public.conversations where user_a_id = v_a and user_b_id = v_b;
+                     if v_id is not null then
+                       return v_id;
+                     end if;
+
+                     if (select dm_permission from public.profiles where id = p_other_user_id) = 'no_one' then
+                       raise exception 'This user is not accepting new conversations';
+                     end if;
+
+                     if exists (
+                       select 1 from public.follows
+                       where follower_id = p_other_user_id and following_id = v_me
+                     ) then
+                       v_status := 'active';
+                       v_requested_by := null;
+                     elsif (select dm_permission from public.profiles where id = p_other_user_id) = 'people_i_follow' then
+                       raise exception 'This user is not accepting new conversations';
+                     else
+                       v_status := 'pending';
+                       v_requested_by := v_me;
+                     end if;
+
+                     insert into public.conversations (user_a_id, user_b_id, status, requested_by)
+                     values (v_a, v_b, v_status, v_requested_by)
+                     on conflict (user_a_id, user_b_id) do nothing
+                     returning id into v_id;
+
+                     if v_id is null then
+                       select id into v_id from public.conversations where user_a_id = v_a and user_b_id = v_b;
+                     elsif v_status = 'pending' and internal.notification_enabled(p_other_user_id, 'messages') then
+                       insert into public.notifications (recipient_id, actor_id, type, conversation_id)
+                       values (p_other_user_id, v_me, 'message_request', v_id);
+                     end if;
+
+                     return v_id;
+                   end;
+                   \$fn\$;" >/dev/null
+          echo "Done."
+
+          echo "=== 4. Update the 4 RLS policies (drop old name, create lockdown-aware one) ==="
+          run_sql "drop policy if exists \"Participants can view their own conversations\" on public.conversations;
+                   drop policy if exists \"Participants can view their own conversations (lockdown-aware)\" on public.conversations;
+                   create policy \"Participants can view their own conversations (lockdown-aware)\"
+                     on public.conversations
+                     for select
+                     to authenticated
+                     using (
+                       auth.uid() in (user_a_id, user_b_id)
+                       and internal.chat_pair_allowed(user_a_id, user_b_id)
+                     );" >/dev/null
+          run_sql "drop policy if exists \"Participants can view messages in their conversations\" on public.messages;
+                   drop policy if exists \"Participants can view messages in their conversations (lockdown-aware)\" on public.messages;
+                   create policy \"Participants can view messages in their conversations (lockdown-aware)\"
+                     on public.messages
+                     for select
+                     to authenticated
+                     using (
+                       exists (
+                         select 1 from public.conversations c
+                         where c.id = conversation_id
+                           and auth.uid() in (c.user_a_id, c.user_b_id)
+                           and internal.chat_pair_allowed(c.user_a_id, c.user_b_id)
+                       )
+                     );" >/dev/null
+          run_sql "drop policy if exists \"Participants can send messages in active or own-pending conversations\" on public.messages;
+                   drop policy if exists \"Participants can send messages in active/pending convos (lockdown-aware)\" on public.messages;
+                   create policy \"Participants can send messages in active/pending convos (lockdown-aware)\"
+                     on public.messages
+                     for insert
+                     to authenticated
+                     with check (
+                       auth.uid() = sender_id
+                       and not internal.is_posting_blocked(auth.uid())
+                       and exists (
+                         select 1 from public.conversations c
+                         where c.id = conversation_id
+                           and auth.uid() in (c.user_a_id, c.user_b_id)
+                           and not internal.is_blocked_either_way(c.user_a_id, c.user_b_id)
+                           and internal.chat_pair_allowed(c.user_a_id, c.user_b_id)
+                           and (
+                             c.status = 'active'
+                             or (c.status = 'pending' and c.requested_by = auth.uid())
+                           )
+                       )
+                     );" >/dev/null
+          run_sql "drop policy if exists \"Participants can upload media to their conversations\" on storage.objects;
+                   drop policy if exists \"Participants can upload media to their conversations (lockdown-aware)\" on storage.objects;
+                   create policy \"Participants can upload media to their conversations (lockdown-aware)\"
+                     on storage.objects
+                     for insert
+                     to authenticated
+                     with check (
+                       bucket_id = 'chat-media'
+                       and exists (
+                         select 1 from public.conversations c
+                         where c.id = ((storage.foldername(name))[1])::uuid
+                           and auth.uid() in (c.user_a_id, c.user_b_id)
+                           and not internal.is_blocked_either_way(c.user_a_id, c.user_b_id)
+                           and internal.chat_pair_allowed(c.user_a_id, c.user_b_id)
+                           and (
+                             c.status = 'active'
+                             or (c.status = 'pending' and c.requested_by = auth.uid())
+                           )
+                       )
+                       and not internal.is_posting_blocked(auth.uid())
+                     );" >/dev/null
+          echo "Done."
+
+          echo "=== 5. Update count_unread_conversations() -- badge must respect lockdown too (SECURITY DEFINER bypasses RLS) ==="
+          run_sql "create or replace function public.count_unread_conversations()
+                   returns integer
+                   language sql
+                   stable
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                     select count(*)::integer
+                     from public.conversations c
+                     where auth.uid() in (c.user_a_id, c.user_b_id)
+                       and internal.chat_pair_allowed(c.user_a_id, c.user_b_id)
+                       and exists (
+                         select 1 from public.messages m
+                         where m.conversation_id = c.id
+                           and m.sender_id <> auth.uid()
+                           and m.created_at > coalesce(
+                             case when c.user_a_id = auth.uid() then c.user_a_last_read_at else c.user_b_last_read_at end,
+                             '-infinity'::timestamptz
+                           )
+                       );
+                   \$fn\$;" >/dev/null
+          echo "Done."
+
+          echo "=== 6. Resolve @warren / @wynos_online real profile ids and populate the allowlist ==="
+          RESOLVE=$(run_sql "select username, id from public.profiles where lower(username) in ('warren', 'wynos_online');")
+          echo "$RESOLVE" | jq .
+          FOUND_COUNT=$(echo "$RESOLVE" | jq 'length')
+          if [ "$FOUND_COUNT" != "2" ]; then
+            echo "::error::Expected exactly 2 profiles (warren, wynos_online), found $FOUND_COUNT -- refusing to populate the allowlist with an incomplete/wrong set. No allowlist rows were written."
+            exit 1
+          fi
+
+          run_sql "insert into public.chat_lockdown_allowlist (user_id)
+                   select id from public.profiles where lower(username) in ('warren', 'wynos_online')
+                   on conflict (user_id) do nothing;" >/dev/null
+          echo "Done."
+
+          echo "=== 7. Verify: allowlist now contains exactly warren + wynos_online, chat_lockdown still disabled ==="
+          run_sql "select p.username, p.id from public.chat_lockdown_allowlist a
+                    join public.profiles p on p.id = a.user_id
+                    order by p.username;" | jq .
+          run_sql "select enabled from public.chat_lockdown where id;" | jq .

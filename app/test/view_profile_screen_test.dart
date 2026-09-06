@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:wyn/core/design/wyn_spacing.dart';
 import 'package:wyn/features/drop/data/drop.dart';
@@ -14,6 +15,7 @@ import 'package:wyn/features/profile/presentation/widgets/avatar_circle.dart';
 import 'package:wyn/features/profile/presentation/widgets/profile_skeleton.dart';
 
 import 'support/fake_supabase_session.dart';
+import 'support/recording_chat_repository.dart';
 import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
 import 'support/recording_home_repository.dart';
@@ -159,6 +161,7 @@ void main() {
     required RecordingProfileRepository profileRepository,
     required RecordingFollowRepository followRepository,
     required String userId,
+    RecordingChatRepository? chatRepository,
   }) =>
       MaterialApp(
         home: ViewProfileScreen(
@@ -167,6 +170,7 @@ void main() {
           dropRepository: dropRepo,
           popRepository: popRepo,
           savedRepository: savedRepo,
+          chatRepository: chatRepository,
           userId: userId,
         ),
       );
@@ -580,6 +584,56 @@ void main() {
 
     expect(find.byIcon(Icons.send_outlined), findsOneWidget);
     expect(find.text('ส่งข้อความ'), findsOneWidget);
+  });
+
+  testWidgets(
+      'WYN-122: tapping "ส่งข้อความ" during chat lockdown shows the '
+      'closed-for-maintenance SnackBar instead of the generic failure '
+      'one -- and the button itself stays visible/tappable either way',
+      (tester) async {
+    final chatRepo = RecordingChatRepository()
+      ..getOrCreateConversationError =
+          PostgrestException(message: 'Chat is temporarily closed for testing');
+
+    await tester.pumpWidget(buildProfile(
+      profileRepository: otherProfileRepo,
+      followRepository: otherFollowRepo,
+      userId: 'someone-else',
+      chatRepository: chatRepo,
+    ));
+    await tester.pumpAndSettle();
+
+    // Button never hidden/disabled by lockdown (Founder's requirement).
+    expect(find.text('ส่งข้อความ'), findsOneWidget);
+
+    await tester.tap(find.text('ส่งข้อความ'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ระบบแชทปิดปรับปรุงชั่วคราว'), findsOneWidget);
+    expect(find.text('เริ่มบทสนทนาไม่สำเร็จ ลองใหม่อีกครั้ง'), findsNothing);
+    // Still there, still tappable -- not swapped out or disabled.
+    expect(find.text('ส่งข้อความ'), findsOneWidget);
+  });
+
+  testWidgets(
+      'WYN-122 regression: a real (non-lockdown) start-chat failure still '
+      'shows the original generic SnackBar', (tester) async {
+    final chatRepo = RecordingChatRepository()
+      ..getOrCreateConversationError = Exception('network blip');
+
+    await tester.pumpWidget(buildProfile(
+      profileRepository: otherProfileRepo,
+      followRepository: otherFollowRepo,
+      userId: 'someone-else',
+      chatRepository: chatRepo,
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ส่งข้อความ'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('เริ่มบทสนทนาไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
+    expect(find.text('ระบบแชทปิดปรับปรุงชั่วคราว'), findsNothing);
   });
 
   testWidgets(

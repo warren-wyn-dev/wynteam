@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
+import '../../../core/widgets/empty_state_block.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../profile/data/profile.dart';
 import '../../profile/data/profile_repository.dart';
@@ -56,6 +57,15 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
 
   bool _isStartingChat = false;
 
+  /// WYN-122: defense-in-depth -- in practice this screen is only ever
+  /// reached through ChatInboxScreen, which already shows its own
+  /// Locked state before the pencil icon that opens this one is even
+  /// tappable in a meaningful way. Checked independently anyway so a
+  /// future entry point that forgets this doesn't leave a user staring
+  /// at a working-looking search box that fails at the RPC layer.
+  bool _lockCheckDone = false;
+  bool _isLocked = false;
+
   bool get _showSearchResults => _query.trim().length >= 2;
 
   String get _myUserId => Supabase.instance.client.auth.currentUser!.id;
@@ -63,7 +73,22 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
   @override
   void initState() {
     super.initState();
-    _loadFollowing();
+    _init();
+  }
+
+  Future<void> _init() async {
+    bool allowed;
+    try {
+      allowed = await widget.chatRepository.isChatAllowed();
+    } catch (_) {
+      allowed = true;
+    }
+    if (!mounted) return;
+    setState(() {
+      _lockCheckDone = true;
+      _isLocked = !allowed;
+    });
+    if (allowed) _loadFollowing();
   }
 
   @override
@@ -147,11 +172,19 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
           ),
         ),
       );
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เริ่มบทสนทนาไม่สำเร็จ ลองใหม่อีกครั้ง')),
-      );
+      // WYN-122: reachable even though this screen's own Locked check
+      // already passed -- that check only asks "am I allowed to use
+      // chat at all", not "is this specific person also allowlisted"
+      // (e.g. an allowlisted tester browsing their following list and
+      // tapping a non-allowlisted person). Same specific message as
+      // ViewProfileScreen's identical catch, so the reason reads the
+      // same everywhere it can occur.
+      final message = e is PostgrestException && e.message.contains('temporarily closed for testing')
+          ? 'ระบบแชทปิดปรับปรุงชั่วคราว'
+          : 'เริ่มบทสนทนาไม่สำเร็จ ลองใหม่อีกครั้ง';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => _isStartingChat = false);
     }
@@ -174,13 +207,25 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
           child: Divider(height: 1, color: WynColors.hairline),
         ),
       ),
-      body: Column(
-        children: [
-          _buildSearchBar(),
-          if (_isStartingChat) const LinearProgressIndicator(minHeight: 2),
-          Expanded(child: _showSearchResults ? _buildSearchResults() : _buildFollowingList()),
-        ],
-      ),
+      body: !_lockCheckDone
+          ? const Center(child: CircularProgressIndicator())
+          : _isLocked
+              ? const Center(
+                  child: EmptyStateBlock(
+                    icon: Icons.lock_clock_outlined,
+                    title: 'ระบบแชทปิดปรับปรุงชั่วคราว',
+                    subtitle: 'จะเปิดให้ใช้งานได้เร็ว ๆ นี้',
+                  ),
+                )
+              : Column(
+                  children: [
+                    _buildSearchBar(),
+                    if (_isStartingChat) const LinearProgressIndicator(minHeight: 2),
+                    Expanded(
+                      child: _showSearchResults ? _buildSearchResults() : _buildFollowingList(),
+                    ),
+                  ],
+                ),
     );
   }
 

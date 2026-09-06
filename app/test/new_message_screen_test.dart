@@ -53,6 +53,19 @@ void main() {
     expect(find.text('@namfah'), findsOneWidget);
   });
 
+  testWidgets(
+      'WYN-122: chat lockdown shows the closed-for-maintenance message '
+      'instead of the person picker', (tester) async {
+    chatRepo.isChatAllowedResult = false;
+
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    expect(find.text('ระบบแชทปิดปรับปรุงชั่วคราว'), findsOneWidget);
+    expect(find.text('ติดตามอยู่'), findsNothing);
+    expect(find.text('น้ำฝน'), findsNothing);
+  });
+
   testWidgets('shows an empty message when following no one', (tester) async {
     // Mutate the already-constructed repository's list in place --
     // never re-construct a RecordingXRepository inside a testWidgets
