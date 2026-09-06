@@ -1,7 +1,7 @@
 # Bug Report — WYN-121
 
-Status: **Fixed by AI Debug Engineer (2026-09-06) — รอ push/PR/CI แล้วส่งต่อ Deploy**
-Owner: AI Debug Engineer
+Status: **Deploy ขึ้น production แล้ว (deploy-web.yml run #91, 2026-09-06 08:38 UTC) — รอ Founder ยืนยันการใช้งานจริง** ดู `.wyn/logs/deployments/2026-09-06-wyn-121-delete-drop-false-failure-deploy.md`
+Owner: AI Debug Engineer → AI Deploy & DevOps → รอ Founder ยืนยัน
 Reported by: Founder (สด, สกรีนช็อต): กด "ลบ" โพสต์ของ Wynos.online แล้วเจอ SnackBar "ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง"
 
 ## Bug
