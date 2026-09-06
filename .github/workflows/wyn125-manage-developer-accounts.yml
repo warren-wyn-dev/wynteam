@@ -1,0 +1,115 @@
+name: WYN-125 -- manage developer accounts (list/add/remove)
+
+# Founder's own tool for WYN-125's staged-rollout mechanism (Product
+# spec's Requirement 2: "มีวิธีระบุ 'บัญชีนักพัฒนา' ที่ชัดเจน") -- mirrors
+# wyn122-toggle-chat-lockdown.yml's own structure/posture: only whoever
+# can trigger a workflow_dispatch on this repo (Founder) can add/remove
+# a developer account, with no admin UI needed, exactly as the Product
+# spec allows.
+#
+# Requires wyn125-apply-developer-accounts-schema.yml to have already
+# run at least once (creates the developer_accounts table this
+# reads/writes).
+#
+# `username` is always resolved to `profiles.id` here first, never
+# hardcoded or passed as a raw uuid -- add/remove fail loudly (not
+# silently) if the username doesn't resolve to exactly one profile, so
+# a typo can never silently no-op or add the wrong person.
+#
+# `list` only reads -- safe to run any time just to check who's
+# currently allowlisted.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "list = show current developer accounts (safe, no change) · add = add username to the developer allowlist · remove = remove username from the developer allowlist"
+        required: true
+        default: list
+        type: choice
+        options:
+          - list
+          - add
+          - remove
+      username:
+        description: "Username (with or without leading @) to add/remove -- required for add/remove, ignored for list"
+        required: false
+        type: string
+
+jobs:
+  manage:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      ACTION: ${{ github.event.inputs.action }}
+      USERNAME: ${{ github.event.inputs.username }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== Current developer accounts ==="
+          run_sql "select p.username, p.id, d.label, d.added_at from public.developer_accounts d
+                    join public.profiles p on p.id = d.user_id
+                    order by p.username;" | jq .
+
+          case "$ACTION" in
+            list)
+              echo "list only -- no change made."
+              ;;
+            add|remove)
+              CLEAN_USERNAME=$(clean "$USERNAME")
+              CLEAN_USERNAME="${CLEAN_USERNAME#@}"
+              if [ -z "$CLEAN_USERNAME" ]; then
+                echo "::error::username is required for action '$ACTION'"; exit 1
+              fi
+              # Escape any embedded single quotes before interpolating into
+              # the SQL text below -- username is a free-form workflow_dispatch
+              # input, not a trusted constant like WYN-122's hardcoded
+              # 'warren'/'wynos_online'.
+              ESCAPED_USERNAME=$(printf '%s' "$CLEAN_USERNAME" | sed "s/'/''/g")
+
+              RESOLVE=$(run_sql "select username, id from public.profiles where lower(username) = lower('$ESCAPED_USERNAME');")
+              echo "$RESOLVE" | jq .
+              FOUND_COUNT=$(echo "$RESOLVE" | jq 'length')
+              if [ "$FOUND_COUNT" != "1" ]; then
+                echo "::error::Expected exactly 1 profile matching username '$CLEAN_USERNAME', found $FOUND_COUNT -- refusing to guess. No change made."
+                exit 1
+              fi
+              USER_ID=$(echo "$RESOLVE" | jq -r '.[0].id')
+
+              if [ "$ACTION" = "add" ]; then
+                run_sql "insert into public.developer_accounts (user_id, label)
+                         values ('$USER_ID', 'Added via GitHub Actions ($ESCAPED_USERNAME)')
+                         on conflict (user_id) do nothing;" >/dev/null
+              else
+                run_sql "delete from public.developer_accounts where user_id = '$USER_ID';" >/dev/null
+              fi
+              ;;
+            *)
+              echo "::error::Unknown action '$ACTION'"; exit 1
+              ;;
+          esac
+
+          echo "=== After ==="
+          run_sql "select p.username, p.id, d.label, d.added_at from public.developer_accounts d
+                    join public.profiles p on p.id = d.user_id
+                    order by p.username;" | jq .

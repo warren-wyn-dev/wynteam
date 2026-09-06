@@ -1285,6 +1285,38 @@ Merge เข้า `main` ผ่าน PR #282 (`b3d150f`) หลังแก้
 
 รายละเอียดเต็ม: `.wyn/logs/deployments/2026-09-06-wyn-123-invite-followers-deep-link-deploy.md`
 
+## [2026-09-06] Staged Rollout สำหรับ WYNOS — Founder อนุมัติให้ทำทั้ง 2 ทาง + ส่งต่อ AI Design
+
+Founder ถาม (ปรึกษา): deploy WYNOS ตอนนี้อัปเดตทุกเครื่องพร้อมกัน อยากให้อัปเดตไปหาบัญชีนักพัฒนาก่อน รอพอใจค่อยปล่อยผู้ใช้ทั่วไป — AI Product Manager ตรวจสอบแล้วพบว่า WYNOS เป็น Flutter Web (PWA) endpoint เดียวจริง (deploy ขึ้น Vercel production project เดียวผ่าน `deploy-web.yml`) ไม่มี native app store distribution ที่ active และไม่มีกลไกแบ่งกลุ่มผู้ใช้ใดๆ ในระบบตอนนี้ (ไม่มี feature flag/allowlist/percentage rollout)
+
+เสนอ 2 ทางเลือก:
+1. ทางลัด process-only (ไม่ต้องเขียนโค้ด) — ใช้ Vercel Preview Deployment ที่มีอยู่แล้วเป็น staging ให้ทีมทดสอบก่อน promote ขึ้น production ทุกครั้ง
+2. ระบบ account allowlist/feature-flag ถาวร — endpoint production เดียวกัน เช็คว่า user เป็น "บัญชีนักพัฒนา" (ตาม email/user id ที่ Founder กำหนด) ก่อนเปิดฟีเจอร์ใหม่ให้เห็น ผู้ใช้ทั่วไปยังเห็นของเดิมจนกว่า Founder จะสั่งเปิด
+
+**คำตัดสินใจของ Founder**: ทำทั้ง 2 ทางคู่ขนาน (ทางเลือกที่ 1 ใช้ได้ทันทีระหว่างรอทางเลือกที่ 2 สร้างเสร็จ) และ**อนุมัติให้ส่งต่อ AI Design ออกแบบระบบ account allowlist/feature-flag ทันที**
+
+Task เดิมชื่อ `WYN-124-staged-rollout-developer-first.md` — **เปลี่ยนชื่อเป็น `WYN-125` ตอน merge เข้า main** เพราะชนกับ `WYN-124-club-invite-notification` ของอีก session ที่ merge เข้า main ไปก่อนแล้ว (ดู entry ถัดไปเรื่อง ID collision)
+
+## [2026-09-06] ID collision: WYN-124 ชนกันอีกครั้ง (ครั้งที่ 5) — Staged Rollout เปลี่ยนเป็น WYN-125
+
+Session นี้ (staged rollout / developer account allowlist) กำหนด ID เป็น `WYN-124` ตอนเริ่มงาน (เลขถัดจาก WYN-123 ที่เห็นตอนนั้น) โดยไม่รู้ว่าอีก session กำลังทำ "Club Invite Notification" อยู่พร้อมกันบน branch แยก และใช้เลข `WYN-124` เดียวกัน — session นั้น merge เข้า `main` ก่อน (ผ่าน QA, อยู่ใน `.wyn/tasks/approved/WYN-124-club-invite-notification.md` แล้ว) ตอนที่ session นี้พยายาม merge งานของตัวเองเข้า main ทีหลัง
+
+**การแก้ไข**: rename ทุกอย่างของ session นี้จาก `WYN-124`/`wyn-124`/`wyn124`/`wyn_124` เป็น `WYN-125`/`wyn-125`/`wyn125`/`wyn_125` ทั้งหมด (task file, design doc, schema.sql section, ทั้ง 2 GitHub Actions workflow, regression test, comment ใน `DeveloperAccessService`) ก่อน merge เข้า main — เนื้อหา/logic ไม่เปลี่ยนเลย เปลี่ยนแค่หมายเลข ID
+
+อ้างอิง pattern การแก้ไขเดิม: entry "[2026-09-06] Merge conflicts + 2 more ID collisions..." ด้านบน (ครั้งที่ 3-4) — สาเหตุร่วมเดิมคือหลาย session ทำงานพร้อมกันไม่เห็นเลขที่ session อื่นใช้ไปแล้วจนกว่าจะ merge เข้า main ยังไม่มีกลไกป้องกันเชิงโครงสร้าง (central ID registry) เหมือนที่เคยบันทึกไว้ว่าควรพิจารณา
+
+## [2026-09-06] WYN-125 (เดิมชื่อ WYN-124): AI QA & Security ตรวจ Developer Account Allowlist — PASS, ส่งต่อ AI Deploy & DevOps
+
+ตรวจ commit `742e7b2` (schema `developer_accounts`/`is_developer_account()` + 2 GitHub Actions workflows + `DeveloperAccessService` + regression test) จริงทุกข้อ ไม่เชื่อผลที่ AI Coding รายงานเฉยๆ:
+- รัน `supabase/tests/wyn_125_developer_accounts_test.sh` (เดิมชื่อ `wyn_124_...`) เองบน Postgres 16 local → PASS 20/20 checks (RLS lockdown จริง 0 policy ทั้ง `authenticated`/`anon`, grant execute ยืนยันด้วย `has_function_privilege` และรอดจากการ revoke PUBLIC default, fail-closed ทุก edge case)
+- รัน `supabase/tests/*.sh` ทั้ง 38 ไฟล์เอง → 37/38 PASS, ยืนยันซ้ำด้วย `git worktree` ที่ commit `fc4f264` (ก่อน task นี้) ว่า `wyn_038_view_counting_test.sh` fail เหมือนกันทุกตัวเลข → เป็น pre-existing จริง ไม่เกี่ยวกับงานนี้
+- รัน `flutter analyze` (0 issues) และ `flutter test` (1293/1293) เองจริงด้วย Flutter 3.47.1
+- เทียบ workflow ใหม่ 2 ตัวกับ `wyn122-apply-chat-lockdown-schema.yml`/`wyn122-toggle-chat-lockdown.yml` แบบ side-by-side — pattern สอดคล้องกัน ไม่มี secret hardcode, resolve username→id ก่อนเสมอ
+
+ไม่พบบั๊กใดๆ ที่ต้องแก้ — **Final Status: PASS** ส่งต่อ AI Deploy & DevOps รัน `wyn125-apply-developer-accounts-schema.yml` (เดิมชื่อ `wyn124-...`) ก่อน แล้วค่อยรัน `wyn125-manage-developer-accounts.yml` (action: add) เพิ่มบัญชีนักพัฒนาชุดแรกหลังยืนยัน username กับ Founder
+
+รายละเอียดเต็ม: `.wyn/tasks/active/WYN-125-staged-rollout-developer-first.md` (section "AI QA & Security Output")
+
 ## [2026-09-06] P0: real Club pages broken in production right after WYN-123 deploy -- fixed same day
 
 Founder รายงานทันทีหลัง deploy run #93 ว่ากด Club จริงในแอปแล้วเจอ "โหลด Club ไม่สำเร็จ" ทุกครั้ง — ตรวจสอบพบว่าไม่เกี่ยวกับ WYN-123 (เชิญ follower เข้าคลับ) เลยโดยตรง แต่เป็นผลข้างเคียงจากการ merge:

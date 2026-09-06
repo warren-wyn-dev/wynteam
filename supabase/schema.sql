@@ -12800,3 +12800,85 @@ as $$
 $$;
 
 grant execute on function public.club_event_rsvp_counts(uuid[]) to authenticated;
+
+-- ============================================================
+-- WYN-125: Developer account allowlist (staged rollout mechanism) --
+-- see .wyn/tasks/active/WYN-125-staged-rollout-developer-first.md and
+-- .wyn/docs/design/wyn-125-staged-rollout-developer-accounts.md.
+-- Founder: deploy ไปหาบัญชีนักพัฒนา/ทีมภายในก่อน รอพอใจค่อยปล่อยผู้ใช้ทั่วไป.
+-- (Originally drafted as WYN-124; renamed to WYN-125 on merge into main
+-- -- see DECISIONS.md's "ID collision: WYN-124 ชนกันอีกครั้ง" entry --
+-- because WYN-124 was independently assigned to Club Invite Notification
+-- above by another session and merged first.)
+--
+-- Generic and reusable across every future feature (unlike WYN-122's
+-- chat_lockdown_allowlist above, which is scoped to chat alone): a
+-- single boolean per user (`is_developer_account()`), not a matrix of
+-- per-feature flags -- any future feature that wants a staged rollout
+-- calls this one RPC and decides for itself which of its own code
+-- paths to gate, with no new table/function needed each time (Product
+-- spec's Requirement 2, AI Design's decision #2). No feature is wired
+-- to this flag yet as of this section landing -- it ships as a
+-- standalone mechanism, on purpose (see the design doc's "States").
+--
+-- Same lockdown-from-client posture as chat_lockdown_allowlist: RLS
+-- enabled, zero SELECT/INSERT/UPDATE/DELETE policies -- readable/
+-- writable only via the Supabase Management API (service-role token),
+-- through wyn125-apply-developer-accounts-schema.yml (ships this
+-- mechanism) and wyn125-manage-developer-accounts.yml (adds/removes/
+-- lists who's in it). No authenticated user can read this table
+-- directly, not even their own row -- deliberate, so a regular user
+-- can't enumerate who is a "developer account" either (Design Rule).
+--
+-- Fail-closed by construction, not convention: is_developer_account()
+-- returns false whenever auth.uid() is null, the caller isn't in the
+-- table, or the table is empty -- i.e. every one of today's users,
+-- unconditionally, until Founder explicitly adds a row via the
+-- management workflow. The only two possible return values are `true`
+-- (only for an explicitly allowlisted row) and `false` (everyone/
+-- everything else, including any error) -- no future feature that
+-- wraps this flag can make its own bug surface to a regular user
+-- through this function.
+-- ============================================================
+
+create table if not exists public.developer_accounts (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  label text,
+  added_at timestamptz not null default now()
+);
+
+-- No client-facing SELECT/INSERT/UPDATE/DELETE policy at all -- see
+-- comment above. Mirrors chat_lockdown_allowlist's own posture.
+alter table public.developer_accounts enable row level security;
+
+-- SECURITY DEFINER because developer_accounts has no SELECT policy for
+-- the caller's own role at all (same reason internal.chat_pair_allowed()
+-- above needs it). Deliberately takes no parameter and only ever checks
+-- auth.uid() -- never another user's id -- so no authenticated caller
+-- can use this to enumerate who else is a developer account (Design
+-- Rule: "ห้าม expose สมาชิกใน developer_accounts ให้ client เห็นเป็น list
+-- ได้ไม่ว่าทางใด").
+create or replace function public.is_developer_account()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select coalesce(
+    exists (
+      select 1 from public.developer_accounts where user_id = auth.uid()
+    ),
+    false
+  );
+$$;
+
+-- QA lesson from WYN-122 Round 1 (internal.chat_pair_allowed() lacked
+-- this same grant): unlike most other SECURITY DEFINER functions in
+-- this file, which are only ever reached indirectly (from inside an
+-- RLS policy, or from another SECURITY DEFINER function), this
+-- function is called directly by the client as a plain RPC. Without
+-- this explicit grant to `authenticated`, calling it would fail with
+-- "permission denied for function is_developer_account" for every
+-- single user -- a hard error, not a graceful fail-closed `false`.
+grant execute on function public.is_developer_account() to authenticated;
