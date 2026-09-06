@@ -1,6 +1,6 @@
 # Bug Report — WYN-114
 
-Status: bugs
+Status: **fixed — ส่งกลับ AI QA & Security แล้ว (2026-09-06)** รอ verify จริงหลัง deploy ตาม checklist ท้ายไฟล์
 Owner: AI Debug Engineer
 Bug: ทุก URL path บน `wynos.online` ที่ไม่ใช่ `/` เป๊ะๆ ได้ `HTTP 404` จาก Vercel โดยตรง (ไม่ถึง Flutter app เลย) — พบระหว่าง QA ของ WYN-114 (share link domain fix) เมื่อทดสอบว่าลิงก์ที่ generate จาก `dropShareLink()`/`popShareLink()`/`clubShareLink()`/`clubPostShareLink()`/`profileShareLink()` เปิดได้จริงไหมหลังเปลี่ยนโดเมนเป็น `wynos.online`
 
@@ -43,3 +43,46 @@ Regression Risk: **ต้องระวัง**: catch-all rewrite แบบ `/
 Handoff to QA: หลัง AI Debug Engineer แก้แล้ว ต้องทดสอบซ้ำครบทั้ง 2 เซ็ต:
 1. Path ที่ควรได้ `index.html` แล้ว (5 path ของ share link + path สุ่มอื่นๆ) — ต้องได้ HTTP 200
 2. Path ของ static asset จริงที่มีอยู่ (`/og-image.png`, `/favicon.png`, `/manifest.json`) — **ต้องยังได้ไฟล์จริงเหมือนเดิม ไม่ถูก rewrite ไปเป็น index.html** (regression check สำคัญที่สุดของบั๊กนี้)
+
+## AI Debug Engineer Output (2026-09-06)
+
+Bug: (ตามที่ QA รายงาน — reproduce ซ้ำอิสระแล้วยืนยันตรงกัน) `curl -I https://wynos.online/drop/reproduce-test-xyz` ได้ `HTTP 404` (`x-vercel-error: NOT_FOUND`) แทนที่จะเป็น `index.html`
+
+Reproduction: reproduce ซ้ำเองก่อนแก้ (ไม่เชื่อ QA เฉยๆ) — `curl -sS -D - -o /dev/null "https://wynos.online/drop/reproduce-test-xyz"` ได้ผลตรงกับที่ QA รายงานทุกประการ (`HTTP/2 404`, `x-vercel-error: NOT_FOUND`) — ยืนยันแล้วว่า path อื่นที่ไม่ใช่ `/` เป๊ะ 404 จริงบน production ปัจจุบัน
+
+Root Cause: ยืนยันตรงกับที่ QA สรุปไว้ — ไม่มี `vercel.json`/rewrite config ใดๆ ในโปรเจกต์เลย (`find` ทั้ง repo หา `vercel.json` ไม่เจอสักไฟล์) `deploy-web.yml` รัน `npx vercel deploy --prod` ตรงๆ จาก `app/build/web/` โดยไม่มี config ใดกำกับ Vercel จึงใช้ static-file routing ล้วนๆ (path ต้องตรงไฟล์จริงเป๊ะ ไม่มี catch-all)
+
+Fix: เพิ่ม `app/web/vercel.json` (ไฟล์ใหม่ — ก่อนหน้านี้ไม่มีไฟล์นี้ใน `app/web/` เลย):
+```json
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+```
+วางที่ `app/web/vercel.json` (ไม่ใช่ `app/build/web/` โดยตรง เพราะ `build/` เป็น gitignored/regenerate ใหม่ทุกครั้ง) — ใช้กลไกเดียวกับที่ `index.html`/`favicon.png`/`og-image.png` ใช้อยู่แล้ว: `flutter build web` copy ไฟล์ทุกไฟล์ใน `web/` เข้า `build/web/` แบบ verbatim (ยกเว้น `index.html` ที่ผ่าน base-href substitution) จึงไม่ต้องแก้ `deploy-web.yml` เพิ่มเลย — เพิ่มแค่ `!/web/vercel.json` ใน `app/.gitignore` ตาม pattern เดิม (ยืนยันด้วย `git add --dry-run app/web/vercel.json` ว่าไม่ถูก block)
+
+**เกี่ยวกับ Regression Risk ที่ QA เตือนไว้** (rewrite อาจทำให้ static asset จริงพัง): Vercel's routing order เอกสารทางการระบุว่า **filesystem check มาก่อน rewrite เสมอเป็นค่าเริ่มต้น** (ถ้ามีไฟล์จริงตรง path นั้น จะ serve ไฟล์นั้นก่อน ไม่ไป rewrite) — เป็น pattern มาตรฐานที่ SPA framework แทบทุกตัว (React/Vue/Angular ที่ deploy บน Vercel) ใช้กันแบบนี้เป๊ะๆ ไม่ใช่สิ่งที่ประดิษฐ์เอง **แต่ยังไม่สามารถพิสูจน์เชิงประจักษ์ได้ในรอบนี้** เพราะต้อง deploy ขึ้น Vercel จริงถึงจะทดสอบพฤติกรรม routing จริงได้ (sandbox นี้ไม่มี Vercel CLI ผูก credential ไว้) — **ระบุไว้ตรงๆ ว่ายังไม่ได้พิสูจน์เอง ไม่ใช่แค่เชื่อเอกสาร** ส่งต่อให้ QA/Deploy ยืนยันจริงหลัง deploy ตาม checklist ด้านล่าง
+
+Files Changed:
+- `app/web/vercel.json` (ใหม่)
+- `app/.gitignore` — เพิ่ม `!/web/vercel.json` พร้อมคอมเมนต์อธิบาย
+
+Tests: **ไม่มีทางเขียน automated regression test ในสภาพแวดล้อมนี้ได้จริง** — นี่เป็นพฤติกรรมของ Vercel CDN/routing layer ล้วนๆ ไม่มี local Flutter/Supabase test harness ใดจำลองได้ (ไม่ใช่ SQL/widget test) ต้องทดสอบกับ deployment จริงเท่านั้น — เตรียม **manual verification checklist ที่ต้องรันจริงหลัง deploy** ไว้ให้ QA แทน (ดูด้านล่าง) แทนการเขียน automated test ปลอมๆ ที่ไม่ได้พิสูจน์อะไรจริง
+
+Regression Risk: **สูง ถ้าไม่ตรวจตามด้านล่าง** — ต้อง curl ยืนยันทั้ง 2 ชุดหลัง deploy:
+```
+# ชุด 1 — ต้องได้ 200 + เนื้อหาเป็น index.html (พิสูจน์ว่า bug ที่แก้ได้ผลจริง)
+curl -sS -o /dev/null -w "%{http_code}\n" https://wynos.online/drop/xyz
+curl -sS -o /dev/null -w "%{http_code}\n" https://wynos.online/pop/xyz
+curl -sS -o /dev/null -w "%{http_code}\n" https://wynos.online/club/xyz
+curl -sS -o /dev/null -w "%{http_code}\n" https://wynos.online/club-post/xyz
+curl -sS -o /dev/null -w "%{http_code}\n" https://wynos.online/@xyz
+
+# ชุด 2 — ต้องยังได้ไฟล์จริงเหมือนเดิม ไม่ถูก rewrite ทับ (regression check สำคัญสุด)
+curl -sS -o /dev/null -w "%{http_code} %{content_type}\n" https://wynos.online/og-image.png    # ต้อง 200 + image/png
+curl -sS -o /dev/null -w "%{http_code} %{content_type}\n" https://wynos.online/favicon.png     # ต้อง 200 + image/png
+curl -sS -o /dev/null -w "%{http_code} %{content_type}\n" https://wynos.online/manifest.json   # ต้อง 200 + application/json
+```
+
+Handoff to QA: ส่งกลับ **AI QA & Security** — รัน checklist ทั้ง 2 ชุดข้างบนจริงหลัง deploy (ไม่ใช่แค่เชื่อว่า Vercel default behavior ปลอดภัย) ถ้าชุด 2 จุดใดจุดหนึ่งพัง (ได้ HTML ของ index.html แทนที่จะเป็นไฟล์จริง) ต้องถือว่า FAIL ทันทีและ escalate กลับมาที่ AI Debug Engineer เพราะเป็นการแก้บั๊กหนึ่งแล้วสร้างอีกบั๊กที่ร้ายแรงกว่าเดิม (share preview ของ WYN-113 จะพังไปด้วย)

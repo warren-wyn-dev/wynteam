@@ -156,3 +156,8 @@
   แบบ batch แทนได้ไหม — ถ้ามี `Future.wait` ต่อหน้าอยู่แล้ว ต้นทุนแทบเป็นศูนย์ (2) ถ้าเลี่ยงไม่ได้จริง
   ต้องดึง `pg_get_viewdef` จาก production มาก่อน ห้ามเขียนจาก `schema.sql` (3) ทุกครั้งที่ตัดสินใจ
   "จะไม่ทำ X กับ production" ต้องไล่ลบร่องรอยของ X ออกจาก repo ด้วย ไม่ใช่ทิ้งไว้เป็นเจตนาที่ไม่มีวันเกิด
+
+### [2026-09-06] WYN-114: การวิเคราะห์แค่โค้ด client-side ไม่พอสำหรับฟีเจอร์ที่พึ่งพา URL/hosting — ต้องทดสอบกับ production จริงเมื่อทำได้
+
+- บริบท: Product spec วิเคราะห์ปัญหา "share link เปิดไม่ได้" จากการอ่านโค้ด Flutter (`main.dart`) แล้วสรุปว่าสาเหตุคือ "ไม่มี path-based routing ในแอป" — ถูกแค่ครึ่งเดียว เพราะ QA ทดสอบจริงกับ production พบว่า **ชั้น hosting (Vercel) เองก็ block path อื่นนอกจาก `/` ด้วย HTTP 404 ตรงๆ ก่อนที่ Flutter app จะมีโอกาส boot ด้วยซ้ำ** — เป็นปัญหาคนละชั้นที่อ่านโค้ด client-side อย่างเดียวมองไม่เห็นเลย (ต้อง grep หา `vercel.json`/ตรวจ deploy workflow ถึงจะเจอ)
+- **การนำไปใช้ในอนาคต**: เมื่อวิเคราะห์ปัญหาที่เกี่ยวกับ URL/routing/deep-link ต้องตรวจสอบทั้ง 2 ชั้นเสมอ: (1) โค้ด client ว่ามี routing logic ไหม (2) **hosting/CDN config ว่ามี rewrite/redirect rule ที่จำเป็นไหม** (Vercel/Netlify/S3+CloudFront ทุกเจ้าต้องการ SPA catch-all rewrite แยกต่างหาก ไม่ได้มาให้อัตโนมัติ) — และเมื่อ session มี network egress ถึง production จริง (เช่นรอบนี้) **ให้ curl ทดสอบจริงก่อนสรุปพฤติกรรมเสมอ แทนที่จะอนุมานจากการอ่านโค้ดอย่างเดียว** โดยเฉพาะ QA role ที่มีหน้าที่ "พยายาม break implementation อย่างจริงจัง" — การ curl production คือวิธีที่เร็วและแม่นยำที่สุดสำหรับบั๊กคลาสนี้

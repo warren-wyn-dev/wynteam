@@ -1100,3 +1100,15 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 **สถานะ**: WYN-114 **FAIL** ส่งต่อ AI Debug Engineer
 
 อ้างอิง: `.wyn/tasks/backlog/WYN-114-share-link-real-domain.md`, `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`
+
+## [2026-09-06] WYN-114: Debug Engineer แก้ Vercel 404 ด้วย vercel.json rewrite — ส่งกลับ QA
+
+**บริบท**: ต่อจาก QA FAIL ของ WYN-114 (ทุก path บน `wynos.online` นอกจาก `/` ได้ 404 จาก Vercel) AI Debug Engineer reproduce ซ้ำอิสระยืนยันตรงกับ QA แล้วเพิ่ม `app/web/vercel.json` (catch-all rewrite `/(.*)  → /index.html`, มาตรฐาน SPA hosting) + `!/web/vercel.json` ใน `.gitignore` (ใช้กลไกเดียวกับ `og-image.png`/`favicon.png` — `flutter build web` copy ไฟล์ทุกไฟล์ใน `web/` เข้า `build/web/` verbatim อัตโนมัติ ไม่ต้องแก้ `deploy-web.yml` เพิ่ม)
+
+**ข้อจำกัดที่ระบุไว้ตรงๆ**: Vercel's "filesystem check ก่อน rewrite เสมอ" (ป้องกันไม่ให้ rewrite ทับ static asset จริงอย่าง `og-image.png`) เป็นพฤติกรรมมาตรฐานตามเอกสาร แต่**ยังไม่ได้พิสูจน์เชิงประจักษ์ในรอบนี้** เพราะ sandbox ไม่มี Vercel CLI ผูก credential — ต้อง verify จริงหลัง deploy
+
+**บทเรียนที่บันทึกเพิ่ม**: การวิเคราะห์ของ Product spec ที่อ่านแค่โค้ด client-side (`main.dart`) ไม่พอสำหรับปัญหาที่พึ่งพา URL/hosting — ควร curl ทดสอบ production จริงก่อนเขียนสเปกเมื่อทำได้ (บันทึกที่ `.wyn/learning/LESSONS_LEARNED.md`/`MISTAKES.md`)
+
+**สถานะ**: ส่งกลับ AI QA & Security พร้อม manual verification checklist 2 ชุด (path ที่ควรเป็น 200 ใหม่ + static asset ที่ต้องยังเป็นไฟล์จริงเหมือนเดิม) — ต้อง deploy ก่อนถึงจะ verify ได้จริง
+
+อ้างอิง: `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`, `.wyn/learning/LESSONS_LEARNED.md`, `.wyn/learning/MISTAKES.md`
