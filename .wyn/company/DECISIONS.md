@@ -1042,3 +1042,17 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 **สถานะสุดท้ายของ WYN-113**: โทนสี **B (Ink)** + copy "โพสต์รูป แชร์เรื่องราว และตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว" — โค้ดพร้อม 100% ส่งต่อ AI QA & Security แล้ว ยังไม่ deploy
 
 อ้างอิง: `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, `.wyn/docs/design/wyn-113-og-share-preview-cards.md`, commit `93d4db0`, Artifact https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e
+
+## [2026-09-06] WYN-113: QA PASS — ตรวจจริงไม่ใช่แค่เชื่อคำอ้าง Coding, ย้ายเข้า approved/
+
+**บริบท**: AI QA & Security ตรวจ WYN-113 (OG/Twitter Card meta tags + og-image.png) อย่างจริงจังก่อนอนุมัติ ไม่เชื่อ Coding Output เฉยๆ:
+- เปิด `index.html` จริงด้วย headless Chromium แล้ว dump DOM ยืนยันว่า browser parse meta tag ทั้ง 9 ตัวถูกต้อง ข้อความไทยไม่ mojibake
+- ตรวจ md5sum เทียบ git blob กับ working tree ยืนยันว่าไฟล์ที่ Founder เห็นในมอคอัพตรงกับไฟล์ที่จะ deploy จริง 100%
+- ยืนยัน `og-image.png` ถูก track ใน git จริง (ไม่โดน `.gitignore` บล็อกอย่างที่เคยเกือบเกิดกับ `firebase-messaging-sw.js`), เป็น PNG 1200×630 ถูกต้อง ไม่มี metadata/secret แปลกปลอม
+- Secret scan ทั้ง diff ไม่พบ credential ใดๆ, scope check ยืนยันไม่แตะ Dart/schema/RLS เลยแม้แต่บรรทัดเดียว
+
+**ข้อจำกัดที่ระบุไว้ตรงๆ (ไม่ใช่ blocker)**: sandbox นี้ไม่มี Flutter SDK เหมือนที่ Coding เจอ — `flutter analyze`/`flutter test` จะรันอัตโนมัติผ่าน `ci.yml` ก็ต่อเมื่อเปิด PR หรือ push เข้า `main` เท่านั้น (ตรวจพบว่า `ci.yml` ไม่รันกับ push ธรรมดาเข้า feature branch) — และการทดสอบ Facebook Sharing Debugger/Twitter Card Validator จริงทำได้แค่หลัง deploy เท่านั้น (URL ต้อง live ก่อน) ทั้งสองข้อบันทึกไว้เป็น "ต้องยืนยันในขั้นถัดไป" ตาม WORKFLOW.md ไม่ใช่เหตุผลให้ FAIL เพราะความเสี่ยงต่ำมาก (static content ล้วน, ตรวจได้ครบทุกจุดที่ทำได้จริงแล้ว)
+
+**ผลลัพธ์**: **PASS** — ย้าย `.wyn/tasks/active/WYN-113-og-share-preview-cards.md` → `.wyn/tasks/approved/`
+
+อ้างอิง: `.wyn/tasks/approved/WYN-113-og-share-preview-cards.md`

@@ -1,6 +1,6 @@
 # Product Task — WYN-113
 
-Status: active — Founder ตัดสินใจแล้ว (เลือกโทนสี A + แก้ข้อความ) **พร้อมส่งต่อ AI Coding** (ดู "## AI Design Output" ท้ายไฟล์นี้)
+Status: **approved — QA PASS (2026-09-06)** ส่งต่อ AI Deploy & DevOps ได้ (ดู "## AI QA & Security Output" ท้ายไฟล์นี้) — โทนสีสุดท้ายจริงคือ **B (Ink)** ตามที่บันทึกไว้ในหัวข้อ "เปลี่ยนโทนสีรอบสุดท้าย" ด้านล่าง (ไม่ใช่ A ตามที่ระบุไว้ตอนแรกในบรรทัดนี้)
 Owner: AI Product Manager → AI Design
 Feature: Open Graph / Twitter Card Preview สำหรับลิงก์ wynos.online
 Goal: ทำให้ลิงก์ wynos.online ที่ถูกแชร์ไปที่ไหนก็ตาม (Facebook/LINE/Discord/X ฯลฯ) ขึ้น preview card ที่มีรูป+ชื่อ+คำอธิบาย แทนที่จะไม่มี preview เลยหรือขึ้นแบบว่างเปล่า
@@ -85,3 +85,40 @@ Founder ดูมอคอัพอีกรอบแล้วเปลี่ย
 **สิ่งที่แก้**: regenerate `app/web/og-image.png` เป็นพื้น ink `#12120F` + โลโก้/wordmark สีขาว (`filter: invert()` ของโลโก้ต้นฉบับ) + เส้นคั่น sapphire เหมือนเดิม — **`app/web/index.html` ไม่ต้องแก้เลย** (og:title/description ไม่เปลี่ยน, path ของรูปยังชื่อ `og-image.png` เดิม) อัปเดต Artifact มอคอัพให้ตรงกับที่ deploy จริงแล้ว
 
 **สถานะสุดท้ายจริง**: โทนสี **B (Ink)**, ข้อความ "โพสต์รูป แชร์เรื่องราว และตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว" — พร้อมส่ง AI QA & Security เหมือนเดิม (ยังไม่ deploy)
+
+## AI QA & Security Output (2026-09-06)
+
+Feature: Open Graph / Twitter Card share preview — `app/web/index.html` (9 meta tags) + `app/web/og-image.png` (1200×630, Ink/B)
+
+Environment: sandbox นี้ไม่มี Flutter SDK ติดตั้ง (เหมือนที่ AI Coding รายงานไว้แล้ว) และไม่มี network egress ไปยัง Facebook Sharing Debugger/Twitter Card Validator จริง (ยังไม่ deploy ด้วย) — ใช้ headless Chromium ที่มีอยู่ใน sandbox (`/opt/pw-browsers/chromium`) แทนสำหรับตรวจ DOM parsing จริง + Python สำหรับตรวจไฟล์/encoding/ความยาวข้อความ
+
+Test Cases:
+1. Scope check: diff ทั้งหมดเทียบ `origin/main` จำกัดอยู่ที่ไฟล์ไหนบ้าง
+2. `og-image.png` ถูก track ใน git จริง ไม่ถูก `.gitignore` บล็อก
+3. `og-image.png` เป็น PNG ที่ถูกต้อง ขนาดตรง 1200×630 พอดี ไม่มี alpha channel/metadata แปลกปลอม ไม่มี secret string ฝังอยู่
+4. commit ล่าสุด (`e2791dc`/`93d4db0`) ที่ Founder เห็นตรงกับไฟล์ที่ track จริงในระบบ (เทียบ md5sum ระหว่าง working tree กับ git blob)
+5. เปิด `index.html` จริงด้วย headless Chromium แล้ว dump DOM ตรวจว่า meta tag ทั้ง 9 ตัว parse ถูกต้อง ข้อความไทยไม่ mojibake ไม่ถูกตัด ไม่มี tag ซ้ำ/ชนกับ tag เดิม
+6. วัดความยาว `og:title`/`og:description` เทียบเกณฑ์ truncation ทั่วไปของ Facebook (~300 ตัวอักษร)/Twitter (~200 ตัวอักษร)
+7. Secret exposure scan: grep ทั้ง diff หา API key/token/password/credential
+8. Regression check: ยืนยันไม่มีไฟล์ Dart/schema/RLS ใดถูกแตะเลย (ตรวจจาก diff stat ทั้งก้อน)
+9. ตรวจ CI: `ci.yml` รัน `flutter analyze`/`flutter test` เฉพาะตอน push เข้า `main`/เปิด PR เท่านั้น — สาขานี้ (`claude/feature-recommendations-3wppsu`) ยังไม่เคยเข้าเงื่อนไขนั้น จึงยังไม่มีผล CI จริงให้ตรวจ (ไม่ใช่ QA ทำเอง — ต้องรอเปิด PR)
+
+Passed: 1, 2, 3, 4, 5, 6, 7, 8 — ทั้งหมดยืนยันได้จริงในรอบนี้ ไม่ใช่แค่เชื่อคำอ้างของ AI Coding
+Failed: ไม่มี (0)
+
+Severity: N/A (ไม่พบบั๊ก)
+
+Reproduction Steps: N/A (ไม่มี bug ให้ reproduce)
+
+Expected vs Actual: ตรงกันทุกข้อ — Expected: meta tags ครบ 9 ตัว, ข้อความ/สีตรงตามที่ Founder อนุมัติ (Ink + "โพสต์รูป แชร์เรื่องราว และตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว"), ไม่กระทบ Dart code | Actual: ตรงทั้งหมด 100% ตามที่ตรวจข้างต้น
+
+Security Findings: ไม่พบ — ไม่มี secret/credential ใน diff, ไม่มี user input เกี่ยวข้อง (static content ล้วน) จึงไม่มีความเสี่ยง XSS/injection, ไม่แตะ RLS/Auth/DB ใดๆ
+
+Recommendation:
+- **PASS ได้** — ความเสี่ยงต่ำมาก (static HTML/asset เท่านั้น) และตรวจได้ครบทุกจุดที่ทำได้จริงในสภาพแวดล้อมนี้แล้ว
+- **สิ่งที่ยังต้องยืนยันในขั้นต่อไป (ไม่ใช่ blocker ของ QA รอบนี้ แต่ต้องทำจริงก่อนถือว่าสมบูรณ์ 100% ตาม WORKFLOW.md "Production Verification")**:
+  1. `flutter analyze`/`flutter test` ผ่านจริงผ่าน `ci.yml` — จะรันอัตโนมัติทันทีที่มีการเปิด PR หรือ merge เข้า `main` (ไม่ต้องทำอะไรเพิ่มเป็นพิเศษ แค่ต้องรอดูผลตอนนั้น)
+  2. วางลิงก์ production จริงใน Facebook Sharing Debugger/Twitter Card Validator หลัง deploy แล้วเท่านั้น (ทำก่อนหน้านี้ไม่ได้เพราะ URL ยังไม่ live)
+- ไม่พบจุดใดที่ AI Debug Engineer ต้องเข้ามาแก้
+
+Final Status: **PASS**
