@@ -368,33 +368,45 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
         // method), so there is no overlap for an injector to redirect.
         child: CustomScrollView(
           slivers: [
-            SliverList.separated(
-              itemCount: _drops.length + (_hasMore ? 1 : 0),
-              separatorBuilder: (context, index) => index + 1 < _drops.length
-                  ? const Divider(height: 1)
-                  : const SizedBox.shrink(),
-              itemBuilder: (context, index) {
-                if (index >= _drops.length) {
-                  return const Padding(
-                    padding: EdgeInsets.all(WynSpacing.space4),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
+            // The last full-width post card had no breathing room above
+            // the Bottom Nav -- root cause was purely a missing bottom
+            // inset here, not the Bottom Nav actually covering content
+            // (RootShell's Scaffold already excludes its height from this
+            // tab's available space). WynSpacing.space6 matches what
+            // DropDetailScreen's own comment list already reserves at its
+            // own tail end.
+            SliverPadding(
+              padding: const EdgeInsets.only(bottom: WynSpacing.space6),
+              sliver: SliverList.separated(
+                itemCount: _drops.length + (_hasMore ? 1 : 0),
+                separatorBuilder: (context, index) =>
+                    index + 1 < _drops.length
+                        ? const Divider(height: 1)
+                        : const SizedBox.shrink(),
+                itemBuilder: (context, index) {
+                  if (index >= _drops.length) {
+                    return const Padding(
+                      padding: EdgeInsets.all(WynSpacing.space4),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
 
-                final drop = _drops[index];
-                return HomeDropCard(
-                  key: ValueKey(drop.id),
-                  item: HomeFeedItem.fromDrop(drop),
-                  dropRepository: widget.dropRepository,
-                  onTap: () => _openDropDetail(drop),
-                  onToggleLike: () => _toggleLike(drop.id),
-                  onToggleSave: () => _toggleSave(drop.id),
-                  onOpenProfile: () => _openProfile(drop.authorId),
-                  onToggleRedrop: () => _toggleRedrop(drop.id),
-                  onQuoteRedrop: () => _quoteRedrop(drop.id),
-                  onVotePoll: (optionIndex) => _votePoll(drop.id, optionIndex),
-                );
-              },
+                  final drop = _drops[index];
+                  return HomeDropCard(
+                    key: ValueKey(drop.id),
+                    item: HomeFeedItem.fromDrop(drop),
+                    dropRepository: widget.dropRepository,
+                    onTap: () => _openDropDetail(drop),
+                    onToggleLike: () => _toggleLike(drop.id),
+                    onToggleSave: () => _toggleSave(drop.id),
+                    onOpenProfile: () => _openProfile(drop.authorId),
+                    onToggleRedrop: () => _toggleRedrop(drop.id),
+                    onQuoteRedrop: () => _quoteRedrop(drop.id),
+                    onVotePoll: (optionIndex) =>
+                        _votePoll(drop.id, optionIndex),
+                  );
+                },
+              ),
             ),
           ],
         ),
