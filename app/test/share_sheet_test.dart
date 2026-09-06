@@ -15,8 +15,27 @@ import 'support/recording_profile_repository.dart';
 /// Drop/Profile -- the new "เชิญจากผู้ติดตาม" row only shows for Club,
 /// and only once its two new optional params are actually supplied.
 void main() {
+  // Constructed once per test, in `setUp` -- outside the FakeAsync zone
+  // `testWidgets` wraps its own body in. Each Recording*Repository builds
+  // its own throwaway SupabaseClient (a GoTrueClient with a real
+  // auto-refresh Timer that nothing here ever disposes), so building one
+  // *inside* the pumped widget tree's onPressed handler -- as this file
+  // originally did -- creates that Timer during the test body itself,
+  // where flutter_test's own `!timersPending` teardown check sees it and
+  // fails every test that actually taps the button. Same bug class as
+  // WYN-072's auth_gate_test.dart timer leak.
+  late RecordingChatRepository chatRepository;
+  late RecordingProfileRepository profileRepository;
+  late RecordingFollowRepository followRepository;
+
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
+  });
+
+  setUp(() {
+    chatRepository = RecordingChatRepository();
+    profileRepository = RecordingProfileRepository();
+    followRepository = RecordingFollowRepository();
   });
 
   Future<void> openSheet(
@@ -31,13 +50,13 @@ void main() {
             body: ElevatedButton(
               onPressed: () => showShareSheet(
                 context,
-                chatRepository: RecordingChatRepository(),
-                profileRepository: RecordingProfileRepository(),
+                chatRepository: chatRepository,
+                profileRepository: profileRepository,
                 sharedContentType: type,
                 sharedContentId: 'content-1',
                 previewLabel: 'แชร์ทดสอบ',
                 nativeShareText: 'https://wynos.online/x/content-1',
-                followRepository: withFollowerParams ? RecordingFollowRepository() : null,
+                followRepository: withFollowerParams ? followRepository : null,
                 clubName: withFollowerParams ? 'ชมรมทดสอบ' : null,
               ),
               child: const Text('open'),

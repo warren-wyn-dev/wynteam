@@ -65,11 +65,21 @@ class DeepLinkService {
     final segments = path.split('/').where((s) => s.isNotEmpty).toList();
     if (segments.isEmpty) return;
 
-    final client = Supabase.instance.client;
     final first = segments.first;
 
+    // `Supabase.instance.client` is only reached from here down, once a
+    // segment shape that actually needs a repository is confirmed --
+    // every no-op path above (empty, `/`, `/club` with no id, `/@` with
+    // no username, an unrecognized prefix) returns without ever touching
+    // it. Production always has Supabase initialized by the time this
+    // runs (RootShell can't mount before main.dart's Supabase.initialize()
+    // completes), but reaching for it unconditionally made this method
+    // impossible to unit test for its no-op branches without an
+    // unrelated fake Supabase session, and needlessly so -- a snackbar
+    // for `pop` doesn't touch the network either.
     if (first.startsWith('@') && first.length > 1) {
-      await _openProfileByUsername(navigator, client, first.substring(1));
+      await _openProfileByUsername(
+          navigator, Supabase.instance.client, first.substring(1));
       return;
     }
 
@@ -78,7 +88,7 @@ class DeepLinkService {
 
     switch (first) {
       case 'drop':
-        await _openDrop(navigator, client, id);
+        await _openDrop(navigator, Supabase.instance.client, id);
       case 'pop':
         // WYN-102: Pop has no user-facing access point anymore -- same
         // "content not available" treatment as a push notification for
@@ -87,9 +97,9 @@ class DeepLinkService {
           const SnackBar(content: Text('เนื้อหานี้ไม่พร้อมใช้งานแล้ว')),
         );
       case 'club':
-        _openClub(navigator, client, id);
+        _openClub(navigator, Supabase.instance.client, id);
       case 'club-post':
-        await _openClubPost(navigator, client, id);
+        await _openClubPost(navigator, Supabase.instance.client, id);
     }
   }
 
