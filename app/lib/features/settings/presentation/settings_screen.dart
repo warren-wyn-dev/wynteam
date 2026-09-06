@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/app_version.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
@@ -104,11 +105,8 @@ class SettingsScreen extends StatelessWidget {
   /// row, needed by CloseFriendsScreen.
   final FollowRepository? followRepository;
 
-  /// Same "optional/defaulted" shape again -- WYN-126's [_VersionLabel]
-  /// (last row of this screen) uses it to decide which version string to
-  /// show. Threaded through here rather than constructed inline by
-  /// [_VersionLabel] itself so tests can inject a fake without touching
-  /// the real network (see settings_screen_test.dart).
+  /// Same "optional/defaulted" shape again -- WYN-126's version footer
+  /// at the bottom of this screen.
   final DeveloperAccessService? developerAccessService;
 
   /// WYN-016: best-effort -- deregistering this device's push token must
@@ -269,16 +267,64 @@ class SettingsScreen extends StatelessWidget {
                   contentColor: WynColors.graphite,
                   onTap: () => _confirmSignOut(context),
                 ),
-                // WYN-126 -- bottom-most element of the whole page, inside
-                // this same Column (not a new ListView sibling) so its
-                // spacing is measured from "ออกจากระบบ" above it, per
-                // Design spec's positioning decision.
-                _VersionLabel(developerAccessService: developerAccessService),
               ],
             ),
           ),
+          // WYN-126: version label, always the last thing on the page.
+          _VersionFooter(developerAccessService: developerAccessService),
         ],
       ),
+    );
+  }
+}
+
+/// WYN-126: shows [AppVersion.stable] to every regular account and
+/// [AppVersion.developerPreview] only to a developer/internal test
+/// account (WYN-125's `DeveloperAccessService`) -- deliberately not
+/// gated behind the developer flag *itself* (Product spec's own Risks:
+/// gating "which version string to show" behind the very flag it would
+/// need to check to decide that is circular, and defeats the point of
+/// everyone being able to see what build they're on).
+///
+/// Fail-closed by construction, not just by convention:
+/// [DeveloperAccessService.isDeveloperAccount] already never throws and
+/// defaults to `false` on any error (see that class's own doc comment),
+/// and this widget's `snapshot.data == true` check treats "still
+/// loading" and "errored" identically to "false" -- so this can only
+/// ever under-promise (a developer account briefly seeing the stable
+/// label while the check is in flight) and never shows the developer
+/// label to a regular account by mistake.
+class _VersionFooter extends StatefulWidget {
+  const _VersionFooter({this.developerAccessService});
+
+  final DeveloperAccessService? developerAccessService;
+
+  @override
+  State<_VersionFooter> createState() => _VersionFooterState();
+}
+
+class _VersionFooterState extends State<_VersionFooter> {
+  late final DeveloperAccessService _developerAccessService =
+      widget.developerAccessService ?? DeveloperAccessService();
+  late final Future<bool> _isDeveloperFuture =
+      _developerAccessService.isDeveloperAccount();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _isDeveloperFuture,
+      builder: (context, snapshot) {
+        final isDeveloper = snapshot.data == true;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: WynSpacing.space6),
+          child: Center(
+            child: Text(
+              isDeveloper ? AppVersion.developerPreview : AppVersion.stable,
+              style: _textStyle(fontSize: 12, color: WynColors.faint),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -359,72 +405,6 @@ class _SettingsRow extends StatelessWidget {
             if (_enabled)
               const Icon(Icons.chevron_right, size: 15, color: WynColors.faint),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// WYN-126 -- last row of the whole page, showing which WYNOS build this
-/// device is running (see settings_screen.dart's SettingsScreen doc
-/// comment on where it's placed). Plain metadata, not a list row: no
-/// icon, no chevron, no [onTap], centered, quieter than every
-/// [_SettingsRow] on the page (see Design spec's Style decision on why
-/// `WynColors.faint` over `WynColors.mutedNeutral`).
-///
-/// Text differs by account kind rather than the whole widget being
-/// gated by [DeveloperAccessService] -- a deliberate Product spec
-/// decision (see that task's "Risks" section): everyone should always be
-/// able to check which build they're on, developer accounts just get a
-/// second, more specific line telling them they're on the in-development
-/// one.
-class _VersionLabel extends StatelessWidget {
-  const _VersionLabel({this.developerAccessService});
-
-  /// Optional/defaulted to `DeveloperAccessService()` when omitted, same
-  /// "optional/defaulted" shape as every other repository/service this
-  /// screen threads through optionally (see [SettingsScreen]'s own
-  /// comment on the pattern) -- lets tests inject a fake instead of
-  /// hitting the real network.
-  final DeveloperAccessService? developerAccessService;
-
-  /// The two version strings live here, in exactly one place (Product
-  /// spec Requirement 3) -- whoever bumps the version next only has to
-  /// edit these two constants.
-  static const _kStableVersionLabel = 'V1.0.0 Beta4';
-  static const _kDeveloperVersionLabel = 'V1.0.0 Beta5 [พัฒนาอยู่]';
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(
-        top: WynSpacing.space6,
-        bottom: WynSpacing.space6,
-      ),
-      child: Center(
-        child: FutureBuilder<bool>(
-          // initialData: false -- shows _kStableVersionLabel from the very
-          // first frame, no visible loading state ever (Design spec's
-          // States section). isDeveloperAccount() is itself fail-closed
-          // to `false` on any error/timeout (see that service's own doc
-          // comment), so this widget needs no try/catch of its own: every
-          // non-true outcome (initial, false, or error) renders the exact
-          // same stable label.
-          future:
-              (developerAccessService ?? DeveloperAccessService())
-                  .isDeveloperAccount(),
-          initialData: false,
-          builder: (context, snapshot) {
-            final isDeveloper = snapshot.data ?? false;
-            return Text(
-              isDeveloper ? _kDeveloperVersionLabel : _kStableVersionLabel,
-              style: _textStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: WynColors.faint,
-              ),
-            );
-          },
         ),
       ),
     );
