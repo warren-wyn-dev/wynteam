@@ -73,3 +73,46 @@ Design spec ฉบับเต็ม: `.wyn/docs/design/wyn-124-staged-rollout-d
 5. งานรอบนี้ **ไม่มี UI ใดถูกแก้** (ส่งมอบแค่กลไก ยังไม่มีฟีเจอร์ไหนถูก gate จริง) — ต้องยืนยันกับ Founder เรื่องรายชื่อ username เริ่มต้นที่จะใส่เป็นบัญชีนักพัฒนาชุดแรก (แนะนำเริ่มจาก `@warren`) ก่อน merge จริง แต่ไม่บล็อกการเริ่ม implement
 
 เสร็จแล้วส่งต่อ **AI QA & Security** เน้นตรวจ RLS lockdown ของตารางใหม่ + fail-closed ทุก edge case + grant execute + 0 regression กับฟีเจอร์เดิม ก่อนขึ้น production (ห้ามข้าม QA ตาม WORKFLOW.md)
+
+---
+
+## AI Coding Output (เสร็จแล้ว — ส่งต่อ AI QA & Security)
+
+Status: coding เสร็จ — **ยังไม่ deploy** รอ AI QA & Security ตรวจก่อนเสมอ (ห้ามข้าม QA)
+
+Implementation:
+- เพิ่ม section "WYN-124: Developer account allowlist (staged rollout mechanism)" ท้าย `supabase/schema.sql`: table `public.developer_accounts` (`user_id uuid primary key references profiles(id) on delete cascade`, `label text`, `added_at timestamptz`), RLS enabled ไม่มี policy ใดๆ เลย (fail-closed จาก client ทุกทาง), function `public.is_developer_account()` (SECURITY DEFINER, ไม่รับ parameter, เช็คเฉพาะ `auth.uid()` ของผู้เรียก, `coalesce(..., false)`), พร้อม `grant execute on function public.is_developer_account() to authenticated;` (จุดที่ WYN-122 Round 1 เคยพลาด — ตรวจสอบครบแล้ว)
+- สร้าง workflow ใหม่ 2 ตัวมิเรอร์ pattern ของ WYN-122 (แยกเป็น "apply schema" กับ "manage/switch" เหมือน WYN-122 แยก `wyn122-apply-chat-lockdown-schema.yml`/`wyn122-toggle-chat-lockdown.yml`):
+  - `.github/workflows/wyn124-apply-developer-accounts-schema.yml` — `workflow_dispatch` เปล่า, apply table+function+grant ขึ้น production จริงผ่าน Supabase Management API (idempotent, copy-paste เดียวกับ schema.sql), ไม่เพิ่มใครเข้า allowlist
+  - `.github/workflows/wyn124-manage-developer-accounts.yml` — `workflow_dispatch` พร้อม input `action` (choice: list/add/remove) และ `username` (string) — resolve username → `profiles.id` เสมอ (escape single-quote ก่อน interpolate กัน SQL injection จาก free-form input), fail ชัดเจนถ้า resolve ไม่ได้ 1 แถวพอดี ไม่เดา ไม่ hardcode UUID
+- สร้าง `DeveloperAccessService` ที่ `app/lib/core/developer_access/developer_access_service.dart` — `Future<bool> isDeveloperAccount()` เรียก RPC `is_developer_account`, fail-closed จริง (try/catch คืน `false` เสมอ, ไม่โยน exception ต่อ, ไม่ cast แบบ `as bool` ที่อาจ throw), cache เป็น static ต่อ auth session ปัจจุบัน (เพราะทุกจุดเรียกสร้าง instance ใหม่ตาม convention ของ repository อื่นในโปรเจกต์ เช่น `ChatRepository`), invalidate cache อัตโนมัติผ่าน `auth.onAuthStateChange` listener (sign-out/anonymous session ใหม่/สลับบัญชี) — มี `resetForTest()` แบบ `@visibleForTesting` เหมือน `DeepLinkService.resetForTest()`
+- เขียน `supabase/tests/wyn_124_developer_accounts_test.sh` (20 checks) ครอบคลุมครบตาม Handoff: allowlist ว่าง → false, allowlisted user → true, non-allowlisted user (2 คน) → false, "anonymous ใหม่" (authenticated-role user ที่ไม่เคยถูกเพิ่ม) → false, `authenticated`/`anon` เข้าถึงตาราง `developer_accounts` ตรงๆไม่ได้เลยทั้ง select/insert/update/delete (มิเรอร์ pattern จาก `wyn_048_audit_log_test.sh`/`wyn_030_appeal_system_test.sh`), grant execute ยืนยันด้วย `has_function_privilege()` และพิสูจน์ว่าเป็น grant จริง (รอดจากการ revoke PUBLIC default เหมือน WYN-122 CHECK12b/12c)
+- **ไม่แก้ UI ใดๆ** ตามขอบเขต — ไม่มีฟีเจอร์ไหนถูก wrap ด้วย flag นี้ในรอบนี้
+
+Files Changed:
+- `supabase/schema.sql` (เพิ่ม section ท้ายไฟล์เท่านั้น, ไม่แก้ของเดิม)
+- `.github/workflows/wyn124-apply-developer-accounts-schema.yml` (ใหม่)
+- `.github/workflows/wyn124-manage-developer-accounts.yml` (ใหม่)
+- `app/lib/core/developer_access/developer_access_service.dart` (ใหม่)
+- `supabase/tests/wyn_124_developer_accounts_test.sh` (ใหม่)
+
+Reason: ตาม Design spec เต็มรูปแบบ (`.wyn/docs/design/wyn-124-staged-rollout-developer-accounts.md`) — reuse สถาปัตยกรรม WYN-122 (allowlist table + SECURITY DEFINER function + GitHub Actions เป็นสวิตช์) แบบ generic ไม่ผูกฟีเจอร์ใดฟีเจอร์หนึ่ง เพื่อให้ฟีเจอร์ในอนาคตเรียกใช้ซ้ำได้ทันทีโดยไม่ต้องสร้างตาราง/ฟังก์ชันใหม่
+
+Tests:
+- `bash supabase/tests/wyn_124_developer_accounts_test.sh` → **PASS ทั้ง 20 checks**
+- รัน regression suite เดิมทั้งหมด (`supabase/tests/*.sh`, 35 ไฟล์รวมของใหม่) → ผ่าน 34/35 — มี 1 ไฟล์ที่ fail อยู่แล้วก่อนงานนี้: `wyn_038_view_counting_test.sh` (8 checks เกี่ยวกับ view-count dedup/rate-limit) — **ยืนยันแล้วว่าเป็น pre-existing failure ไม่เกี่ยวกับ WYN-124**: รัน `git stash` กลับไปที่ commit ก่อนงานนี้ (`fc4f264`) แล้วรันสคริปต์เดิมซ้ำ ได้ผล fail เหมือนเดิมทุกประการ (checks/ตัวเลขตรงกัน) — ไม่ใช่ regression ที่เกิดจากงานนี้ แต่เป็นปัญหาที่มีอยู่ก่อนแล้วในสภาพแวดล้อมทดสอบ ควรเปิด task แยกให้ Debug Engineer ตรวจสอบ
+- `python3 supabase/check_schema_ordering.py` → OK (ไม่มี forward reference)
+
+Build:
+- `flutter pub get` → สำเร็จ
+- `flutter analyze` (app/) → **No issues found!**
+- `flutter test` (app/) → **1293/1293 ผ่านหมด**
+(ติดตั้ง Flutter 3.47.1 ตรงกับเวอร์ชันที่ pin ไว้ใน `.github/workflows/ci.yml` เพื่อรันในเครื่องมือ AI Coding นี้เอง — ผลลัพธ์ตรงกับที่ CI จะรัน)
+
+Known Issues (สิ่งที่ QA ต้องเช็คเป็นพิเศษ):
+1. **`wyn_038_view_counting_test.sh` fail อยู่ก่อนงานนี้แล้ว** (8/25 checks) — ไม่เกี่ยวกับ WYN-124 (ยืนยันด้วย git stash เทียบ baseline) แต่ QA ควรทราบและพิจารณาเปิด bug task แยกให้ Debug Engineer เพราะเป็นความเสี่ยงที่มีอยู่แล้วในฟีเจอร์ view-counting (WYN-038/083), ไม่ใช่สิ่งที่ต้อง block งานนี้
+2. **รายชื่อ "บัญชีนักพัฒนา" ชุดแรกยังไม่ถูกเพิ่มจริงใน production** — Handoff ข้อ 5 ของ Design ต้องการให้ยืนยันกับ Founder ก่อน merge จริง (แนะนำเริ่มจาก `@warren`) แล้วรัน `wyn124-apply-developer-accounts-schema.yml` ตามด้วย `wyn124-manage-developer-accounts.yml` (action: add) — งานนี้ส่งมอบแค่กลไก ยังไม่ได้รันบน production จริง
+3. `flutter analyze`/`flutter test` รันในเครื่องมือ AI Coding เอง (ติดตั้ง Flutter SDK ชั่วคราวเพื่อยืนยัน) ไม่ใช่ผลจาก CI run จริงบน GitHub Actions — แนะนำให้ QA/Deploy ยืนยันซ้ำด้วย CI run จริงอีกครั้งเมื่อ push ขึ้น branch/PR
+4. Client `DeveloperAccessService` ยังไม่ถูกเรียกใช้จากที่ใดในแอปเลย (ตามขอบเขตงาน) — ยังไม่มี integration/widget test ที่ครอบคลุมมัน เพราะไม่มี UI ใดเรียกใช้ในรอบนี้ ให้ QA ตรวจแค่ logic ระดับ unit ผ่านการอ่านโค้ด + regression suite ของ schema/RLS เป็นหลัก
+
+Handoff: ส่งต่อ **AI QA & Security** ตรวจตาม `.wyn/docs/design/wyn-124-staged-rollout-developer-accounts.md` Handoff ข้อ 6: (1) RLS lockdown ของ `developer_accounts` (2) fail-closed ของ `is_developer_account()` ทุก edge case (null auth/ไม่อยู่ใน allowlist/allowlist ว่าง) (3) grant execute ถูกต้อง (4) 0 regression กับฟีเจอร์เดิม (ยกเว้น wyn_038 ที่เป็น pre-existing ตามข้างต้น) — **ห้ามข้าม QA และห้าม deploy เองก่อน QA อนุมัติ** ตาม WORKFLOW.md
