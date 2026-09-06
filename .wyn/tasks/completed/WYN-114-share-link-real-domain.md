@@ -1,6 +1,6 @@
 # Product Task — WYN-114
 
-Status: **approved — QA PASS หลัง Debug Engineer แก้ Vercel rewrite แล้ว (2026-09-06)** ดูรายละเอียดเต็มที่ `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md` (root cause, fix, QA re-verification ด้วยเอกสารทางการของ Vercel) — ส่งต่อ AI Deploy & DevOps พร้อม curl checklist บังคับหลัง deploy
+Status: **completed — deploy สำเร็จและยืนยัน production ด้วย curl จริงครบทุกจุดแล้ว (2026-09-06)** ดู `.wyn/logs/deployments/2026-09-06-wyn-114-share-link-vercel-rewrite-deploy.md` — share link ทั้ง 5 เปิดได้จริง (HTTP 200) และไฟล์รูป WYN-113 ไม่ถูกกระทบ (md5sum ตรงเป๊ะ)
 Owner: AI Product Manager
 Feature: Share Link ชี้โดเมนจริง (ค้างจาก Beta3 Security Audit item A-7)
 Goal: ให้ปุ่มแชร์ (Drop/Pop/Club/ClubPost/Profile) ส่งลิงก์ที่เปิดได้จริง แทนโดเมนปลอมที่ไม่มีอยู่จริง
