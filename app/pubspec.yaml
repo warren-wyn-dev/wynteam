@@ -42,6 +42,13 @@ dependencies:
   # reverse geocoding) goes through the new `location-search` Edge
   # Function (LocationIQ), never this package directly.
   geolocator: ^13.0.2
+  # "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก" (add-to-home-screen banner + side menu
+  # link): needs `window.matchMedia('(display-mode: standalone)')` to
+  # tell whether the web build is already installed, and `window.open`
+  # to open the static help page in a new tab. Already resolved as a
+  # transitive dependency of other web plugins -- promoted to direct
+  # here since lib/core/platform/ imports it by name.
+  web: ^1.1.0
 
 dev_dependencies:
   flutter_test:

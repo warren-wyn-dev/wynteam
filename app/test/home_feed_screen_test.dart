@@ -22,6 +22,7 @@ import 'package:wyn/features/home/presentation/home_feed_screen.dart';
 import 'package:wyn/features/home/presentation/pop_single_clip_screen.dart';
 import 'package:wyn/features/home/presentation/widgets/home_card_metrics.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
+import 'package:wyn/features/home/presentation/widgets/add_to_home_screen_banner.dart';
 import 'package:wyn/features/home/presentation/widgets/home_explainer_banner.dart';
 import 'package:wyn/features/home/presentation/widgets/home_feed_skeleton.dart';
 import 'package:wyn/features/home/presentation/widgets/home_feed_image_peek_carousel.dart';
@@ -2920,6 +2921,28 @@ void main() {
       // genuinely mounted, which is all this test asserts.
       expect(
         find.byType(HomeExplainerBanner, skipOffstage: false),
+        findsOneWidget,
+      );
+    });
+  });
+
+  group('Add-to-home-screen banner', () {
+    // Web-only (see AddToHomeScreenBanner's own doc comment) -- it
+    // renders SizedBox.shrink() under flutter test's non-web VM runner,
+    // same as add_to_home_screen_banner_test.dart's isolated test. This
+    // just confirms HomeFeedScreen actually wires the widget in above
+    // the feed, alongside HomeExplainerBanner.
+    testWidgets('is wired in above the feed', (tester) async {
+      await tester.pumpWidget(buildHome(
+        explainerBannerTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(
+        find.byType(AddToHomeScreenBanner, skipOffstage: false),
         findsOneWidget,
       );
     });

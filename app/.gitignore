@@ -47,12 +47,19 @@ migrate_working_dir/
 # and every deploy ships a build where background push has nowhere to
 # be delivered. This was caught before the first Beta4 deploy, not
 # after: `git ls-files app/web/` did not list it.
+#
+# add-to-home.html is committed for the identical reason: a static help
+# page (linked from the Home banner/side menu, not a Flutter route) that
+# `flutter create` has no template for at all, so without this line it
+# would exist only on whoever's machine authored it and every deploy
+# would 404 the link.
 /web/*
 !/web/flutter_bootstrap.js
 !/web/firebase-messaging-sw.js
 !/web/index.html
 !/web/manifest.json
 !/web/favicon.png
+!/web/add-to-home.html
 !/web/icons/
 !/web/icons/Icon-192.png
 !/web/icons/Icon-512.png

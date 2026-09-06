@@ -20,6 +20,7 @@ import '../../search/data/discovery_repository.dart';
 import '../data/home_feed_item.dart';
 import '../data/home_repository.dart';
 import 'pop_single_clip_screen.dart';
+import 'widgets/add_to_home_screen_banner.dart';
 import 'widgets/from_your_clubs_feed.dart';
 import 'widgets/home_drop_card.dart';
 import 'widgets/home_explainer_banner.dart';
@@ -816,6 +817,11 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
                     // HomeExplainerBanner's own doc comment); scrolls away
                     // with everything below it rather than pinning.
                     const SliverToBoxAdapter(child: HomeExplainerBanner()),
+                    // Web-only "smart app banner" -- see
+                    // AddToHomeScreenBanner's own doc comment. Hides
+                    // itself on native builds and once already installed,
+                    // so this is a no-op sliver there.
+                    const SliverToBoxAdapter(child: AddToHomeScreenBanner()),
                     // WYN-073: ClubSection/Trending (formerly here) removed
                     // from Home -- both are already reachable from the
                     // Search tab (club discovery/create, Top100), so this
