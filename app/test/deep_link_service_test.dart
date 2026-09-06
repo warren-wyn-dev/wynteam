@@ -30,6 +30,7 @@ void main() {
   }
 
   setUp(DeepLinkService.resetForTest);
+  tearDown(() => DeepLinkService.debugForceHasContentPath = null);
 
   testWidgets(
       'a /pop/<id> link shows the "content not available" SnackBar '
@@ -85,5 +86,19 @@ void main() {
     // target -- this just proves the second call doesn't throw or
     // otherwise misbehave once the guard has already tripped.
     expect(find.byType(Scaffold), findsOneWidget);
+  });
+
+  test('hasContentPath() is false on the default (non-web) test target, '
+      'even when debugForceHasContentPath is left unset', () {
+    expect(DeepLinkService.hasContentPath(), isFalse);
+  });
+
+  test('hasContentPath() returns exactly what debugForceHasContentPath is '
+      'forced to, bypassing the real kIsWeb/Uri.base check', () {
+    DeepLinkService.debugForceHasContentPath = true;
+    expect(DeepLinkService.hasContentPath(), isTrue);
+
+    DeepLinkService.debugForceHasContentPath = false;
+    expect(DeepLinkService.hasContentPath(), isFalse);
   });
 }

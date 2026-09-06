@@ -1,0 +1,230 @@
+name: WYN-113 -- apply invite-only access gate schema (preventive, same gap as WYN-115/116/117/118)
+
+# WYN-113 (Invite-Only Access Gate / Referral Code) adds a new
+# supabase/schema.sql section (invite_gate_config table + RLS,
+# profiles.referral_code column + generator + trigger, referral_redemptions
+# table + RLS, and 4 RPCs: is_invite_gate_enabled, validate_referral_code,
+# redeem_referral_code, my_referral_stats) but, same as every Club-roadmap
+# feature before it, has no dedicated apply-to-production workflow of its
+# own -- schema.sql is a description, it does not auto-apply (see
+# chat-enable-conversations-realtime.yml's comment, and DECISIONS.md's
+# repeated entries on this exact gap). Applying this now, preventively,
+# before any deploy ships client code that calls isInviteGateEnabled()/
+# validateReferralCode() and turns this into a repeat P0 for the first
+# visitor who opens AuthMethodScreen.
+#
+# Every statement here is copy-paste identical to supabase/schema.sql's
+# own WYN-113 section -- if the two ever drift, schema.sql is wrong, not
+# this file (this file is what actually ran).
+#
+# Purely additive: 2 new tables + RLS + 1 new profiles column + 2
+# trigger-support functions + 1 trigger + 4 RPCs. No destructive change,
+# no data loss, nothing removed. invite_gate_config ships with
+# enabled = false -- this migration does NOT turn the gate on; that is a
+# separate, deliberate Founder decision (a plain UPDATE, via the Supabase
+# Management API, when Phase 2 of the GTM roadmap actually starts).
+#
+# Safe to run more than once (CREATE TABLE/POLICY guarded with IF NOT
+# EXISTS/DROP POLICY IF EXISTS, CREATE OR REPLACE FUNCTION, ADD COLUMN IF
+# NOT EXISTS, DROP TRIGGER IF EXISTS before CREATE TRIGGER, ON CONFLICT DO
+# NOTHING on the seed insert) -- mirrors every other one-off migration
+# workflow in this project's convention.
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== 0. Diagnose: does invite_gate_config already exist? ==="
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name in ('invite_gate_config', 'referral_redemptions');" | jq .
+
+          echo "=== 1. Create invite_gate_config (idempotent) + seed row + RLS ==="
+          run_sql "create table if not exists public.invite_gate_config (
+                     id boolean primary key default true,
+                     enabled boolean not null default false,
+                     updated_at timestamptz not null default now(),
+                     constraint invite_gate_config_singleton check (id)
+                   );
+
+                   insert into public.invite_gate_config (id, enabled) values (true, false)
+                   on conflict (id) do nothing;
+
+                   alter table public.invite_gate_config enable row level security;" >/dev/null
+          echo "Done."
+
+          echo "=== 2. is_invite_gate_enabled() RPC (anon + authenticated) ==="
+          run_sql "create or replace function public.is_invite_gate_enabled()
+                   returns boolean
+                   language sql
+                   security definer
+                   set search_path = public
+                   stable
+                   as \$fn\$
+                     select coalesce(
+                       (select enabled from public.invite_gate_config where id = true),
+                       false
+                     );
+                   \$fn\$;
+
+                   grant execute on function public.is_invite_gate_enabled() to anon, authenticated;" >/dev/null
+          echo "Done."
+
+          echo "=== 3. profiles.referral_code column + generator + trigger + backfill ==="
+          run_sql "alter table public.profiles add column if not exists referral_code text unique;
+
+                   create or replace function public.generate_referral_code()
+                   returns text
+                   language plpgsql
+                   as \$fn\$
+                   declare
+                     v_code text;
+                   begin
+                     loop
+                       v_code := upper(substr(md5(random()::text || clock_timestamp()::text), 1, 8));
+                       exit when not exists (
+                         select 1 from public.profiles where referral_code = v_code
+                       );
+                     end loop;
+                     return v_code;
+                   end;
+                   \$fn\$;
+
+                   create or replace function public.set_referral_code_on_profile()
+                   returns trigger
+                   language plpgsql
+                   as \$fn\$
+                   begin
+                     if new.referral_code is null then
+                       new.referral_code := public.generate_referral_code();
+                     end if;
+                     return new;
+                   end;
+                   \$fn\$;
+
+                   drop trigger if exists profiles_set_referral_code on public.profiles;
+                   create trigger profiles_set_referral_code
+                     before insert on public.profiles
+                     for each row execute function public.set_referral_code_on_profile();
+
+                   update public.profiles set referral_code = public.generate_referral_code()
+                   where referral_code is null;" >/dev/null
+          echo "Done."
+
+          echo "=== 4. referral_redemptions table (idempotent) + RLS (no client-facing policy) ==="
+          run_sql "create table if not exists public.referral_redemptions (
+                     id uuid primary key default gen_random_uuid(),
+                     code text not null,
+                     referrer_id uuid not null references public.profiles (id) on delete cascade,
+                     new_user_id uuid not null unique references public.profiles (id) on delete cascade,
+                     created_at timestamptz not null default now()
+                   );
+
+                   create index if not exists referral_redemptions_referrer_idx
+                     on public.referral_redemptions (referrer_id);
+
+                   alter table public.referral_redemptions enable row level security;" >/dev/null
+          echo "Done."
+
+          echo "=== 5. validate_referral_code() RPC (anon + authenticated) ==="
+          run_sql "create or replace function public.validate_referral_code(p_code text)
+                   returns boolean
+                   language sql
+                   security definer
+                   set search_path = public
+                   stable
+                   as \$fn\$
+                     select exists (
+                       select 1 from public.profiles where referral_code = upper(p_code)
+                     );
+                   \$fn\$;
+
+                   grant execute on function public.validate_referral_code(text) to anon, authenticated;" >/dev/null
+          echo "Done."
+
+          echo "=== 6. redeem_referral_code() RPC (authenticated) ==="
+          run_sql "create or replace function public.redeem_referral_code(p_code text)
+                   returns void
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   declare
+                     v_referrer_id uuid;
+                   begin
+                     if auth.uid() is null then
+                       raise exception 'Must be signed in to redeem a referral code';
+                     end if;
+
+                     select id into v_referrer_id from public.profiles
+                       where referral_code = upper(p_code);
+
+                     if v_referrer_id is null then
+                       raise exception 'Invalid referral code';
+                     end if;
+
+                     if v_referrer_id = auth.uid() then
+                       raise exception 'Cannot redeem your own referral code';
+                     end if;
+
+                     insert into public.referral_redemptions (code, referrer_id, new_user_id)
+                     values (upper(p_code), v_referrer_id, auth.uid())
+                     on conflict (new_user_id) do nothing;
+                   end;
+                   \$fn\$;
+
+                   grant execute on function public.redeem_referral_code(text) to authenticated;" >/dev/null
+          echo "Done."
+
+          echo "=== 7. my_referral_stats() RPC (authenticated) ==="
+          run_sql "create or replace function public.my_referral_stats()
+                   returns table (referral_code text, redemption_count bigint)
+                   language sql
+                   security definer
+                   set search_path = public
+                   stable
+                   as \$fn\$
+                     select p.referral_code, count(rr.id)
+                     from public.profiles p
+                     left join public.referral_redemptions rr on rr.referrer_id = p.id
+                     where p.id = auth.uid()
+                     group by p.referral_code;
+                   \$fn\$;
+
+                   grant execute on function public.my_referral_stats() to authenticated;" >/dev/null
+          echo "Done."
+
+          echo "=== 8. Verify: tables + column + trigger + RPCs now present ==="
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name in ('invite_gate_config', 'referral_redemptions');" | jq .
+          run_sql "select column_name from information_schema.columns where table_schema = 'public' and table_name = 'profiles' and column_name = 'referral_code';" | jq .
+          run_sql "select tgname from pg_trigger where tgname = 'profiles_set_referral_code';" | jq .
+          run_sql "select routine_name from information_schema.routines where routine_schema = 'public' and routine_name in ('is_invite_gate_enabled', 'validate_referral_code', 'redeem_referral_code', 'my_referral_stats');" | jq .
+
+          echo "=== 9. Confirm the gate ships OFF and every existing profile now has a code ==="
+          run_sql "select enabled from public.invite_gate_config where id = true;" | jq .
+          run_sql "select count(*) as profiles_missing_referral_code from public.profiles where referral_code is null;" | jq .

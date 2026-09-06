@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:wyn/features/auth/data/onboarding_state.dart';
+import 'package:wyn/features/auth/data/pending_referral_code.dart';
 import 'package:wyn/features/auth/presentation/onboarding/onboarding_flow.dart';
 import 'package:wyn/features/auth/presentation/onboarding/steps/birthday_step.dart';
 import 'package:wyn/features/auth/presentation/onboarding/steps/display_name_step.dart';
@@ -64,6 +65,7 @@ void main() {
 
   setUp(() {
     authRepository = RecordingAuthRepository();
+    PendingReferralCode.resetForTest();
   });
 
   Widget buildFlow(
@@ -146,6 +148,54 @@ void main() {
       expect(authRepository.setDateOfBirthCalls.single,
           DateTime(2000, 6, 15));
       expect(find.byType(UsernameStep), findsOneWidget);
+    });
+
+    // WYN-113 (Invite-Only Access Gate): the profiles row (and its
+    // referral_code) first exists right after setDateOfBirth succeeds
+    // -- the earliest point a pending code can actually be redeemed.
+    group('WYN-113 -- referral code redemption', () {
+      testWidgets(
+          'a pending referral code (set by RedeemInviteCodeScreen before '
+          'sign-in) is redeemed right after the Birthday step succeeds, '
+          'and consumed so it is not redeemed twice',
+          (tester) async {
+        PendingReferralCode.set('ABC123');
+
+        await tester.pumpWidget(buildFlow(OnboardingState.notStarted()));
+        await _fillBirthday(tester, day: '15', month: '06', year: '2000');
+        await tester.tap(find.text('ดำเนินการต่อ'));
+        await tester.pumpAndSettle();
+
+        expect(authRepository.redeemReferralCodeCalls, ['ABC123']);
+        expect(PendingReferralCode.hasValidatedCode, isFalse);
+      });
+
+      testWidgets(
+          'no pending referral code (ordinary signup, gate off) never '
+          'calls redeemReferralCode at all', (tester) async {
+        await tester.pumpWidget(buildFlow(OnboardingState.notStarted()));
+        await _fillBirthday(tester, day: '15', month: '06', year: '2000');
+        await tester.tap(find.text('ดำเนินการต่อ'));
+        await tester.pumpAndSettle();
+
+        expect(authRepository.redeemReferralCodeCalls, isEmpty);
+      });
+
+      testWidgets(
+          'redeemReferralCode failing (e.g. a code that went stale by '
+          'the time onboarding reaches here) does not block advancing '
+          'to Username -- best-effort, never blocking',
+          (tester) async {
+        PendingReferralCode.set('STALECODE');
+        authRepository.redeemReferralCodeError = Exception('invalid code');
+
+        await tester.pumpWidget(buildFlow(OnboardingState.notStarted()));
+        await _fillBirthday(tester, day: '15', month: '06', year: '2000');
+        await tester.tap(find.text('ดำเนินการต่อ'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(UsernameStep), findsOneWidget);
+      });
     });
   });
 

@@ -129,6 +129,42 @@ class AuthRepository {
     return _client.auth.signOut();
   }
 
+  /// WYN-113 (Invite-Only Access Gate): true once the Founder has
+  /// turned the gate on. Called from WelcomeScreen/AuthMethodScreen
+  /// *before* any sign-in happens, so this must work with no session at
+  /// all -- see schema.sql's own comment on `is_invite_gate_enabled()`
+  /// for why `anon` is granted execute there, the one deliberate
+  /// exception to this app's "everything requires authenticated"
+  /// convention.
+  Future<bool> isInviteGateEnabled() async {
+    final result = await _client.rpc('is_invite_gate_enabled');
+    return result as bool;
+  }
+
+  /// True when [code] matches some profile's referral_code. Callable
+  /// with no session (same reasoning as [isInviteGateEnabled]). Never
+  /// reveals whose code it is, only whether it exists.
+  Future<bool> validateReferralCode(String code) async {
+    final result =
+        await _client.rpc('validate_referral_code', params: {'p_code': code});
+    return result as bool;
+  }
+
+  /// Records that the current user joined via [code] -- call once,
+  /// right after this account's `profiles` row first exists
+  /// (OnboardingFlow's Birthday step, immediately after
+  /// [setDateOfBirth]). Safe to call more than once for the same user
+  /// (the underlying RPC is idempotent, see its own doc comment in
+  /// schema.sql) -- callers should still treat this as best-effort
+  /// (fire-and-forget) rather than blocking onboarding on it: the real
+  /// enforcement already happened at WelcomeScreen/AuthMethodScreen,
+  /// before sign-in, so a failure here only means the viral-coefficient
+  /// count misses one redemption, not that an ungated signup slipped
+  /// through.
+  Future<void> redeemReferralCode(String code) {
+    return _client.rpc('redeem_referral_code', params: {'p_code': code});
+  }
+
   /// Names no account may take -- checked client-side here as the first
   /// line of defense (fast, no round trip) and mirrored verbatim as a
   /// `check` constraint on `profiles.username` in supabase/schema.sql
