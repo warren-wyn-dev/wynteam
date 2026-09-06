@@ -4,13 +4,17 @@
 
 ## Current Version
 
-**WYNOS v1.0.0 Beta1** คือ Baseline ปัจจุบันของโปรเจกต์
+**WYNOS v1.0.0 Beta4** คือ Baseline ปัจจุบันที่ผู้ใช้ทั่วไปใช้งานอยู่ (production, deploy จริงตั้งแต่ 2026-09-03 — ดู `.wyn/logs/deployments/2026-09-03-wynos-beta4-real-deploy.md`)
 
-โค้ด ฟีเจอร์ ระบบ UI/UX โครงสร้างฐานข้อมูล API และการตั้งค่าทั้งหมดที่มีอยู่ ณ ตอนนี้ ให้ถือว่าเป็นส่วนหนึ่งของ **WYNOS v1.0.0 Beta1**
+> **แก้ไข 2026-09-06**: ไฟล์นี้ค้างที่ "Beta1" มานาน ทั้งที่ production จริง deploy ไป Beta2 (2026-09-03) แล้วต่อด้วย Beta4 (2026-09-03 เช่นกัน) ไปแล้ว — ไม่มีใครอัปเดตไฟล์นี้ตามตอน deploy จริง Founder ยืนยันในแชทวันนี้ว่าปัจจุบันคือ Beta4 จึงแก้ไฟล์นี้ให้ตรงกับความจริง ณ ตอนนี้ (ไม่ใช่การประกาศ version ใหม่ — เป็นการแก้เอกสารให้ตรงกับสิ่งที่ deploy ไปแล้วจริง) ดู Version History ด้านล่างสำหรับรายละเอียดที่กู้คืนมาได้
 
-ห้ามถือว่าโค้ดปัจจุบันเป็นเวอร์ชันอื่นจนกว่าจะได้รับคำสั่งจาก Owner
+โค้ด ฟีเจอร์ ระบบ UI/UX โครงสร้างฐานข้อมูล API และการตั้งค่าทั้งหมดที่มีอยู่ ณ ตอนนี้ ให้ถือว่าเป็นส่วนหนึ่งของ **WYNOS v1.0.0 Beta4**
 
-รายละเอียดของ v1.0.0 Beta1 (ฟีเจอร์ที่ใช้งานได้, ลิงก์ใช้งานจริง, สิ่งที่ยังไม่รวม) ดูที่ `RELEASE_NOTES.md`
+**WYNOS v1.0.0 Beta5 กำลังพัฒนาอยู่** (ประกาศโดย Founder 2026-09-06) — เปิดให้เฉพาะบัญชีนักพัฒนาเห็น/ทดสอบก่อน ผ่านกลไก staged rollout (WYN-125, `.wyn/company/WORKFLOW.md` หัวข้อ "Staged Rollout เป็นค่าเริ่มต้นสำหรับฟีเจอร์ใหม่") — **ยังไม่ปล่อยให้ผู้ใช้ทั่วไป** จนกว่า Founder จะสั่งเปิดชัดเจน เมื่อเปิดแล้ว Beta5 จะกลายเป็น Current Version แทน Beta4
+
+ห้ามถือว่าโค้ดปัจจุบันเป็นเวอร์ชันอื่นจากที่ระบุไว้นี้จนกว่าจะได้รับคำสั่งจาก Owner
+
+รายละเอียดของ v1.0.0 Beta1 (ฟีเจอร์ที่ใช้งานได้ตอนนั้น, ลิงก์ใช้งานจริง, สิ่งที่ยังไม่รวม) ดูที่ `RELEASE_NOTES.md` — **หมายเหตุ: RELEASE_NOTES.md เองก็ยังค้างที่ Beta1 เช่นกัน ยังไม่ได้อัปเดตเป็น Beta4 ณ เวลาที่แก้ไฟล์นี้**
 
 ## Version Update Rules
 
@@ -49,7 +53,7 @@ Claude Code ต้อง:
 
 ก่อนเริ่มงานทุกครั้ง ให้ตรวจสอบ Version ปัจจุบันของ WYNOS (ไฟล์นี้ + `RELEASE_NOTES.md`)
 
-Current baseline: **WYNOS v1.0.0 Beta1**
+Current baseline: **WYNOS v1.0.0 Beta4** (Beta5 กำลังพัฒนา อยู่หลัง developer allowlist — ดูด้านบน)
 
 เมื่อ Owner กำหนด Version ใหม่ ให้บันทึก Version ใหม่อย่างชัดเจนในไฟล์นี้ (อัปเดตหัวข้อ "Current Version" ด้านบน) และรักษาประวัติ Version ก่อนหน้าไว้ในหัวข้อ "Version History" ด้านล่าง
 
@@ -59,7 +63,11 @@ Current baseline: **WYNOS v1.0.0 Beta1**
 
 | Version | สถานะ | หมายเหตุ |
 |---|---|---|
-| v1.0.0 Beta1 | **Current** | Baseline ปัจจุบัน — ดู `RELEASE_NOTES.md` |
+| v1.0.0 Beta1 | ปิดแล้ว | Baseline แรก (2026-09-01) — ดู `RELEASE_NOTES.md` |
+| v1.0.0 Beta2 | ปิดแล้ว | Deploy จริง 2026-09-03 (29 งาน, WYN-077 ถึง WYN-105) — ดู `.wyn/logs/deployments/2026-09-03-wyn-077-105-beta2-real-deploy.md` |
+| v1.0.0 Beta3 | ไม่ชัดเจน | เตรียมไว้เป็น branch แยก ("Deep Polish") แต่ไม่พบบันทึกยืนยันว่า merge/deploy ขึ้น production แยกเป็นเวอร์ชันของตัวเอง — อาจถูกรวมเข้ากับรอบ Beta4 แทน (ยังไม่ได้ไล่ตรวจให้ชัดเจน ณ เวลาที่แก้ไฟล์นี้) |
+| v1.0.0 Beta4 | **Current (ผู้ใช้ทั่วไป)** | Deploy จริง 2026-09-03 — Profile UX/Account Experience/Club Community/Notification & Web Push — ดู `.wyn/logs/deployments/2026-09-03-wynos-beta4-real-deploy.md` |
+| v1.0.0 Beta5 | **กำลังพัฒนา (เฉพาะบัญชีนักพัฒนา)** | ประกาศโดย Founder 2026-09-06 ผ่านกลไก staged rollout (WYN-125) — ยังไม่มีขอบเขตฟีเจอร์ที่แน่นอน ยังไม่ปล่อยให้ผู้ใช้ทั่วไป |
 
 ## Owner Authority
 
@@ -70,7 +78,8 @@ Claude Code มีหน้าที่: วิเคราะห์ → พั�
 ## Current State
 
 - Project: WYNOS
-- Current Version: v1.0.0 Beta1
+- Current Version (ผู้ใช้ทั่วไป): v1.0.0 Beta4
+- In Development (บัญชีนักพัฒนาเท่านั้น): v1.0.0 Beta5
 - Status: Beta
 - Baseline: Current codebase
 - Rollback: Manual / Owner approval required

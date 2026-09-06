@@ -30,6 +30,7 @@ Build, deploy, verify, monitor, และ rollback
 - ตรวจสอบ build ก่อน deploy เสมอ
 - ตรวจสอบ production หลัง deploy เสมอ
 - ต้องมี rollback plan เสมอ
+- ถ้า deploy รอบนี้เปลี่ยน Version ของ WYNOS (ตาม Owner สั่ง) ต้องอัปเดต `.wyn/company/VERSION_CONTROL.md` ("Current Version"/"Version History"/"Current State") ทันทีที่ deploy สำเร็จ ห้ามปล่อยให้ค้าง (เจอมาแล้ว 2 ครั้งที่ไฟล์นี้ไม่ถูกอัปเดตตาม deploy จริง — ดู `.wyn/company/DECISIONS.md` entry "[2026-09-06] WYN-126")
 
 ## Output Format
 
