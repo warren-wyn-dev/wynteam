@@ -1,7 +1,7 @@
 # Product Task — WYN-117
 
-Status: backlog
-Owner: AI Product Manager
+Status: active — Design เสร็จแล้ว, พร้อมเข้าคิว Coding ปกติ (ไม่มี dependency ต้องรอ)
+Owner: AI Product Manager → AI Design
 
 Feature: Club Owner Insights — หน้าสรุปสถิติการเติบโต/engagement สำหรับ Owner/Admin ของ Club
 
@@ -30,3 +30,11 @@ Risks: Query aggregate อาจหนักถ้า Club มีโพสต์
 Recommendation: ทำหลัง WYN-115/116 เพราะ effort สูงกว่าและยังไม่มี Club ที่ active มากพอจะเห็นคุณค่าของ insight จริงในตอนนี้ (ฐานผู้ใช้ยังเล็กมากตาม WYN-112) — รอจน Phase 1 GTM มี Club ที่มีสมาชิก/โพสต์จริงมากพอก่อนน่าจะเห็นประโยชน์ชัดกว่า
 
 Handoff: AI Design (โครง insights, เลือกช่วงเวลา) → AI Coding (เขียน RPC aggregate ใหม่, อ้าง pattern เดิมของ Admin Dashboard) → AI QA & Security
+
+---
+
+## AI Design — ผลงาน (2026-09-06)
+
+Design เต็มรูปแบบอยู่ที่ `.wyn/docs/design/wyn-117-club-owner-insights.md` — ทางเข้าเป็นแถวใหม่ใน "..." เมนูของ ClubPage (ไม่ทำ tab ใหม่ เพราะเป็น staff-only 100% ต่างจาก 4 tab ที่ทุกสมาชิกเข้าถึงได้), หน้า Insights ใช้ `SegmentedButton` เลือก 7/30 วัน (reuse widget เดียวกับ WYN-115's poll duration) + stat tile ใหม่ 1 ตัว (`_InsightTile`) ที่ยืมแนวคิดจาก Admin Dashboard's `StatCard` (ตัวเลขเปล่า ไม่มีกราฟ ไอคอนเป็นแค่ตกแต่งไม่ใช่สัญญาณ) แต่เขียนใหม่เป็น Flutter widget ด้วย WYNOS token เพราะ Admin เป็นคนละ stack เทคนิค
+
+**Handoff (Design → Coding)**: ไม่มี dependency ต้องรอ ทำได้เมื่อถึงคิวปกติ — RPC aggregate ต้องนับที่ DB level (ตาม Risks ที่ Product เตือนไว้) และ RLS ต้องบังคับ Owner/Admin จริงไม่ใช่แค่ซ่อน UI

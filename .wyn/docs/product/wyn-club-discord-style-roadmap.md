@@ -50,6 +50,21 @@ WYN-115 (Club Poll) → WYN-116 (Re-engagement) → WYN-117 (Owner Insights) →
 
 **เหตุผลที่ Founder เลือกลำดับนี้**: WYN-115/116 มี PR อยู่ระหว่างดำเนินการแล้วโดย session อื่นในเวลาเดียวกัน (WYN-115/116 ผ่าน QA แล้ว ณ ตอนที่เขียนเอกสารนี้) — ไม่ควรแทรกงานใหญ่กว่าเข้าไปกลางคันจนชนกัน ปล่อยให้ roadmap เดิมที่วางแผนไว้แล้วจบก่อน แล้วค่อยเริ่ม Channels ซึ่งเป็นการเปลี่ยนแปลง data model ของ Club (เพิ่ม `channel_id`) ที่ควรทำตอนไม่มีงานอื่นแก้ `club_posts` พร้อมกัน
 
+## สถานะ Design ทั้ง 6 งาน (อัปเดต 2026-09-06 — Founder: "ออกแบบให้เสร็จทุกงานเลย")
+
+Design เต็มรูปแบบเสร็จครบทั้ง 6 งานในแผนนี้แล้ว:
+
+| Task | Design doc | Coding รอคิวอะไร |
+|---|---|---|
+| WYN-117 (Owner Insights) | `wyn-117-club-owner-insights.md` | ไม่มี dependency — ทำได้ทันทีตามคิวปกติ |
+| WYN-118 (Events) | `wyn-118-club-events.md` | ไม่มี dependency — ทำได้ทันทีตามคิวปกติ (หลัง WYN-117 ตามลำดับ) |
+| WYN-123 (Channels) | `wyn-123-club-channels.md` | รอ WYN-115–118 เสร็จครบ |
+| WYN-124 (Group Chat) | `wyn-124-club-group-chat.md` | รอ WYN-115–118 เสร็จครบ |
+| WYN-125 (Presence) | `wyn-125-126-club-chat-presence-reactions.md` | รอ WYN-124 สร้างเสร็จ |
+| WYN-126 (Chat Reactions) | `wyn-125-126-club-chat-presence-reactions.md` | รอ WYN-124 สร้างเสร็จ |
+
+**สิ่งที่ต้องรู้**: WYN-117/118 มี Design แล้วแต่**ไม่ได้แปลว่าเลื่อนคิวขึ้นมาก่อน WYN-115/116** (ซึ่งเสร็จ deploy ไปแล้วจริงๆ) — Design ทำล่วงหน้าไว้ทุกงานตามที่ Founder สั่ง ไม่ได้เปลี่ยนลำดับ Coding ที่วางไว้ ลำดับ Coding จริงยังเป็นไปตามตารางด้านบน (117→118→123→124→125/126)
+
 ## Handoff
 
-ส่งต่อ **AI Design** ทำ design ของ WYN-123 (Club Channels) เต็มรูปแบบตอนนี้เลย (Founder อนุมัติให้วางแผน/design ไว้ก่อนได้) — **AI Coding ยังไม่เริ่มจนกว่า WYN-115–118 จะเสร็จครบ** ส่วน WYN-124 (Group Chat) รอวางแผนใหม่อีกทีตอนใกล้ถึงคิว
+ส่งต่อ **AI Coding** เมื่อถึงคิวของแต่ละงานตามลำดับข้างต้น — WYN-117 เป็นงานแรกที่ไม่มี dependency เหลือแล้ว พร้อมเริ่ม Coding ได้ทันทีที่ Founder สั่ง

@@ -1,7 +1,7 @@
 # Product Task — WYN-118
 
-Status: backlog
-Owner: AI Product Manager
+Status: active — Design เสร็จแล้ว, พร้อมเข้าคิว Coding ปกติ (ไม่มี dependency ต้องรอ)
+Owner: AI Product Manager → AI Design
 
 Feature: Club Events — นัดกิจกรรม/meetup ภายใน Club พร้อม RSVP
 
@@ -31,3 +31,11 @@ Risks: Scope คืบง่ายที่สุดในบรรดา 4 ต�
 Recommendation: ทำเป็นลำดับสุดท้ายตามที่ Founder เลือก — รอดูว่า WYN-115/116/117 ทำให้ Club active ขึ้นจริงหรือไม่ก่อน เพราะ Events มีค่าก็ต่อเมื่อ Club มีสมาชิกที่ active มากพอจะนัดรวมตัวกันได้จริง
 
 Handoff: AI Design (โครงสร้างหน้า Event + RSVP UI) → AI Coding (ตาราง Event/RSVP ใหม่ + RLS ตาม trust model ของ Club เดิม) → AI QA & Security
+
+---
+
+## AI Design — ผลงาน (2026-09-06)
+
+Design เต็มรูปแบบอยู่ที่ `.wyn/docs/design/wyn-118-club-events.md` (4 Screen: การ์ดกิจกรรมถัดไปบน Posts tab / รายการกิจกรรม กำลังจะถึง-ผ่านไปแล้ว / สร้าง-แก้ไข Event / รายละเอียด+RSVP) — **ตัดสินใจไม่ทำ tab ใหม่** (เหตุผลเดียวกับ WYN-117: TabBar จะมี 4 tab แล้วหลัง WYN-124) ใช้การ์ดสรุปกิจกรรมใกล้ที่สุดที่หัว Posts tab แทน ไม่มีกิจกรรมเลย = ไม่ render การ์ดเลย (เหมือน Channel switcher ของ WYN-123 ตอน Club มี Channel เดียว) — ทุก component reuse ของเดิม (`SegmentedButton` ใช้ซ้ำ 3 จุดในเอกสารนี้เอง, `showDatePicker`/`showTimePicker` มาตรฐานของ Flutter, tab-pair pattern จาก ChatInboxScreen, แถวสมาชิกจาก ClubMembersTab)
+
+**Handoff (Design → Coding)**: ไม่มี dependency ต้องรอ ทำได้เมื่อถึงคิวปกติ (หลัง WYN-117) — แจ้งเตือน reminder ก่อนกิจกรรมต่อยอด infra ของ WYN-116 โดยตรง แต่ระยะเวลา "ก่อนเริ่มเท่าไหร่" Product spec ไม่ได้ระบุ ให้ Coding เสนอค่าเริ่มต้นแล้วยืนยันก่อน ship (มิเรอร์วิธีที่ WYN-116 กำหนด throttle window เอง)
