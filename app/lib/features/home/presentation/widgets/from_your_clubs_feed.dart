@@ -172,6 +172,24 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
     }
   }
 
+  // WYN-115: optimistic vote, same shape as _toggleLike/_toggleSave above.
+  Future<void> _votePoll(String postId, int optionIndex) async {
+    final index = _posts.indexWhere((p) => p.id == postId);
+    if (index == -1) return;
+    final previous = _posts[index];
+
+    setState(() => _posts[index] = previous.votedPoll(optionIndex));
+    try {
+      await widget.clubPostRepository.votePoll(
+        pollId: previous.pollId!,
+        optionIndex: optionIndex,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _posts[index] = previous);
+    }
+  }
+
   Future<void> _deletePost(String postId) async {
     try {
       await widget.clubPostRepository.deletePost(postId);
@@ -272,6 +290,7 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
             onToggleSave: () => _toggleSave(post.id),
             onTogglePin: () => _togglePin(post.id),
             onDelete: () => _deletePost(post.id),
+            onVotePoll: (optionIndex) => _votePoll(post.id, optionIndex),
           );
         },
       ),

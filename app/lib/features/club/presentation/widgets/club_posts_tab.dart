@@ -149,6 +149,26 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     }
   }
 
+  // WYN-115: optimistic vote, same double-tap-safety/revert-on-error
+  // shape as _toggleLike/_toggleSave above (and HomeFeedScreen._votePoll
+  // for Drop's own Poll).
+  Future<void> _votePoll(String postId, int optionIndex) async {
+    final index = _posts.indexWhere((p) => p.id == postId);
+    if (index == -1) return;
+    final previous = _posts[index];
+
+    setState(() => _posts[index] = previous.votedPoll(optionIndex));
+    try {
+      await widget.clubPostRepository.votePoll(
+        pollId: previous.pollId!,
+        optionIndex: optionIndex,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _posts[index] = previous);
+    }
+  }
+
   Future<void> _togglePin(String postId) async {
     final index = _posts.indexWhere((p) => p.id == postId);
     if (index == -1) return;
@@ -309,6 +329,7 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
                 onToggleSave: () => _toggleSave(post.id),
                 onTogglePin: () => _togglePin(post.id),
                 onDelete: () => _deletePost(post.id),
+                onVotePoll: (optionIndex) => _votePoll(post.id, optionIndex),
               ),
             ],
           );

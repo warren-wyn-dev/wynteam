@@ -1,6 +1,6 @@
 # Product Task — WYN-115
 
-Status: backlog
+Status: active
 Owner: AI Product Manager
 
 Feature: Club Poll — ให้สมาชิกสร้างโพลภายในโพสต์ของ Club ได้

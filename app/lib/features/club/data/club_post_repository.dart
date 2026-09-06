@@ -23,6 +23,20 @@ const _commentAuthorSelect =
     'author:profiles!club_post_comments_author_id_fkey(username, display_name, avatar_url)';
 const _savesContentType = 'club_post';
 
+/// Per-viewer poll state ([ClubPostRepository._fetchPollStates]'s
+/// result) -- combines "did I vote, and for what" with the aggregate
+/// results [get_club_poll_results()] is willing to reveal to this
+/// viewer right now. Never constructed for a post id that isn't
+/// actually a poll. Mirrors DropRepository's identically-shaped private
+/// class (WYN-035).
+class _PollState {
+  const _PollState({this.myVoteIndex, this.totalVotes, this.optionCounts});
+
+  final int? myVoteIndex;
+  final int? totalVotes;
+  final List<int>? optionCounts;
+}
+
 /// Wraps the `club_posts`/`club_post_likes`/`club_post_comments` reads/
 /// writes and club-media (post image) storage needed for WYN-014 (Club
 /// Core). Mirrors DropRepository wherever the shape matches. See
@@ -77,7 +91,7 @@ class ClubPostRepository {
     final rows = await _client
         .from('club_posts')
         .select(
-          '*, $_postAuthorSelect, club_post_likes(count), club_post_comments(count)',
+          '*, $_postAuthorSelect, club_post_likes(count), club_post_comments(count), club_post_polls(id, options, expires_at)',
         )
         .eq('club_id', clubId)
         .order('pinned', ascending: false)
@@ -85,16 +99,22 @@ class ClubPostRepository {
         .range(from, to);
 
     final postIds = rows.map((row) => row['id'] as String).toList();
+    final pollIds = rows.map(_pollIdFromRow).whereType<String>().toList();
     final likedIds = await _fetchLikedPostIds(userId: userId, postIds: postIds);
     final savedIds = await _fetchSavedPostIds(userId: userId, postIds: postIds);
+    final pollStates = await _fetchPollStates(userId: userId, pollIds: pollIds);
 
     final posts = <ClubPost>[];
     for (final row in rows) {
       final signedRow = await _withSignedImageUrls(row);
+      final pollState = pollStates[_pollIdFromRow(row)];
       posts.add(ClubPost.fromMap(
         signedRow,
         likedByMe: likedIds.contains(row['id'] as String),
         savedByMe: savedIds.contains(row['id'] as String),
+        pollMyVoteIndex: pollState?.myVoteIndex,
+        pollTotalVotes: pollState?.totalVotes,
+        pollOptionCounts: pollState?.optionCounts,
       ));
     }
     return posts;
@@ -114,22 +134,28 @@ class ClubPostRepository {
     final rows = await _client
         .from('club_posts')
         .select(
-          '*, $_postAuthorSelect, club_post_likes(count), club_post_comments(count)',
+          '*, $_postAuthorSelect, club_post_likes(count), club_post_comments(count), club_post_polls(id, options, expires_at)',
         )
         .order('created_at', ascending: false)
         .range(from, to);
 
     final postIds = rows.map((row) => row['id'] as String).toList();
+    final pollIds = rows.map(_pollIdFromRow).whereType<String>().toList();
     final likedIds = await _fetchLikedPostIds(userId: userId, postIds: postIds);
     final savedIds = await _fetchSavedPostIds(userId: userId, postIds: postIds);
+    final pollStates = await _fetchPollStates(userId: userId, pollIds: pollIds);
 
     final posts = <ClubPost>[];
     for (final row in rows) {
       final signedRow = await _withSignedImageUrls(row);
+      final pollState = pollStates[_pollIdFromRow(row)];
       posts.add(ClubPost.fromMap(
         signedRow,
         likedByMe: likedIds.contains(row['id'] as String),
         savedByMe: savedIds.contains(row['id'] as String),
+        pollMyVoteIndex: pollState?.myVoteIndex,
+        pollTotalVotes: pollState?.totalVotes,
+        pollOptionCounts: pollState?.optionCounts,
       ));
     }
     return posts;
@@ -174,23 +200,29 @@ class ClubPostRepository {
     final rows = await _client
         .from('club_posts')
         .select(
-          '*, $_postAuthorSelect, club_post_likes(count), club_post_comments(count)',
+          '*, $_postAuthorSelect, club_post_likes(count), club_post_comments(count), club_post_polls(id, options, expires_at)',
         )
         .ilike('content', '%$query%')
         .order('created_at', ascending: false)
         .range(from, to);
 
     final postIds = rows.map((row) => row['id'] as String).toList();
+    final pollIds = rows.map(_pollIdFromRow).whereType<String>().toList();
     final likedIds = await _fetchLikedPostIds(userId: userId, postIds: postIds);
     final savedIds = await _fetchSavedPostIds(userId: userId, postIds: postIds);
+    final pollStates = await _fetchPollStates(userId: userId, pollIds: pollIds);
 
     final posts = <ClubPost>[];
     for (final row in rows) {
       final signedRow = await _withSignedImageUrls(row);
+      final pollState = pollStates[_pollIdFromRow(row)];
       posts.add(ClubPost.fromMap(
         signedRow,
         likedByMe: likedIds.contains(row['id'] as String),
         savedByMe: savedIds.contains(row['id'] as String),
+        pollMyVoteIndex: pollState?.myVoteIndex,
+        pollTotalVotes: pollState?.totalVotes,
+        pollOptionCounts: pollState?.optionCounts,
       ));
     }
     return posts;
@@ -209,7 +241,7 @@ class ClubPostRepository {
     final row = await _client
         .from('club_posts')
         .select(
-          '*, $_postAuthorSelect, club_post_likes(count), club_post_comments(count)',
+          '*, $_postAuthorSelect, club_post_likes(count), club_post_comments(count), club_post_polls(id, options, expires_at)',
         )
         .eq('id', postId)
         .maybeSingle();
@@ -217,12 +249,20 @@ class ClubPostRepository {
 
     final likedIds = await _fetchLikedPostIds(userId: userId, postIds: [postId]);
     final savedIds = await _fetchSavedPostIds(userId: userId, postIds: [postId]);
+    final pollId = _pollIdFromRow(row);
+    final pollStates = await _fetchPollStates(
+      userId: userId,
+      pollIds: pollId != null ? [pollId] : const [],
+    );
     final signedRow = await _withSignedImageUrls(row);
 
     return ClubPost.fromMap(
       signedRow,
       likedByMe: likedIds.contains(postId),
       savedByMe: savedIds.contains(postId),
+      pollMyVoteIndex: pollStates[pollId]?.myVoteIndex,
+      pollTotalVotes: pollStates[pollId]?.totalVotes,
+      pollOptionCounts: pollStates[pollId]?.optionCounts,
     );
   }
 
@@ -239,6 +279,67 @@ class ClubPostRepository {
         .inFilter('club_post_id', postIds);
 
     return rows.map((row) => row['club_post_id'] as String).toSet();
+  }
+
+  /// Same defensive object-or-list-or-null handling as
+  /// [ClubPost._embeddedPoll] -- see that method's doc comment. Returns
+  /// null for a post with no poll.
+  static String? _pollIdFromRow(Map<String, dynamic> row) {
+    final raw = row['club_post_polls'];
+    if (raw == null) return null;
+    if (raw is List) {
+      return raw.isEmpty
+          ? null
+          : (raw.first as Map<String, dynamic>)['id'] as String?;
+    }
+    return (raw as Map<String, dynamic>)['id'] as String?;
+  }
+
+  /// Batches "my vote" (RLS restricts this to the caller's own row) and
+  /// aggregate results ([get_club_poll_results()], which enforces the
+  /// membership/voted/author/expired visibility rule at the DB layer,
+  /// not here) into one per-poll state map -- one query pair per page,
+  /// not one per card, mirroring [_fetchLikedPostIds]/[_fetchSavedPostIds].
+  /// Mirrors DropRepository._fetchPollStates (WYN-035) exactly.
+  Future<Map<String, _PollState>> _fetchPollStates({
+    required String userId,
+    required List<String> pollIds,
+  }) async {
+    if (pollIds.isEmpty) return {};
+
+    final myVoteRows = await _client
+        .from('club_post_poll_votes')
+        .select('poll_id, option_index')
+        .eq('voter_id', userId)
+        .inFilter('poll_id', pollIds);
+    final myVotes = {
+      for (final row in myVoteRows)
+        row['poll_id'] as String: row['option_index'] as int,
+    };
+
+    final resultRows = await _client.rpc(
+      'get_club_poll_results',
+      params: {'p_poll_ids': pollIds},
+    ) as List<dynamic>;
+    final resultsByPollId = {
+      for (final row in resultRows)
+        row['poll_id'] as String: row as Map<String, dynamic>,
+    };
+
+    return {
+      for (final id in pollIds)
+        id: _PollState(
+          myVoteIndex: myVotes[id],
+          totalVotes: resultsByPollId[id]?['visible'] == true
+              ? (resultsByPollId[id]!['total_votes'] as num).toInt()
+              : null,
+          optionCounts: resultsByPollId[id]?['visible'] == true
+              ? (resultsByPollId[id]!['option_counts'] as List<dynamic>)
+                  .map((e) => (e as num).toInt())
+                  .toList()
+              : null,
+        ),
+    };
   }
 
   Future<Set<String>> _fetchSavedPostIds({
@@ -311,6 +412,50 @@ class ClubPostRepository {
           {'club_post_id': postId, 'mentioned_user_id': mentionedId},
       ]);
     }
+  }
+
+  /// Creates a Poll Club Post (WYN-115) via the `create_poll_club_post()`
+  /// RPC -- atomically inserts `club_posts` (image_urls/link_url left
+  /// null) + `club_post_polls` + `club_post_mentions` in one
+  /// transaction. A separate method from [createPost] rather than a
+  /// bunch of nullable params on it, same "one method per distinct
+  /// action" shape DropRepository.createPollDrop uses. See
+  /// .wyn/docs/design/wyn-115-club-poll.md.
+  Future<void> createPollClubPost({
+    required String clubId,
+    required String question,
+    required List<String> options,
+    required int durationDays,
+    Set<String> mentionedUserIds = const {},
+  }) {
+    return _client.rpc('create_poll_club_post', params: {
+      'p_club_id': clubId,
+      'p_content': question.trim(),
+      'p_options': options,
+      'p_duration_days': durationDays,
+      'p_mentioned_user_ids': mentionedUserIds.toList(),
+    });
+  }
+
+  /// Casts (or changes) a vote -- an upsert on `club_post_poll_votes` so
+  /// a second call with a different [optionIndex] updates the same row
+  /// (see `club_post_poll_votes_validate` in supabase/schema.sql for the
+  /// server-side rules this is subject to: an approved club member
+  /// only, not the poll's own author, not after it closes, not
+  /// posting-blocked). Mirrors DropRepository.votePoll exactly.
+  Future<void> votePoll({
+    required String pollId,
+    required int optionIndex,
+  }) async {
+    final userId = _client.auth.currentUser!.id;
+    await _client.from('club_post_poll_votes').upsert(
+      {
+        'poll_id': pollId,
+        'voter_id': userId,
+        'option_index': optionIndex,
+      },
+      onConflict: 'poll_id,voter_id',
+    );
   }
 
   Future<void> deletePost(String postId) {

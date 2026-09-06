@@ -4,6 +4,14 @@ import '../../../core/text_utils.dart';
 /// like/comment counts. See supabase/schema.sql (WYN-014 section).
 /// Mirrors Drop (WYN-005) with the addition of [imageUrls] (multiple
 /// images -- Drop only ever has one), [linkUrl], and [pinned].
+///
+/// WYN-115: also carries the same Poll fields Drop's WYN-035 added,
+/// backed by `club_post_polls`/`club_post_poll_votes` instead of
+/// `drop_polls`/`drop_poll_votes` -- see
+/// .wyn/docs/design/wyn-115-club-poll.md. [pollId]/[pollOptions]/
+/// [pollExpiresAt] are null on every ordinary (non-poll) post; a Poll
+/// Club Post never carries [imageUrls]/[linkUrl] (mutually exclusive,
+/// same as Drop's image/poll toggle).
 class ClubPost {
   const ClubPost({
     required this.id,
@@ -21,6 +29,12 @@ class ClubPost {
     required this.commentCount,
     required this.likedByMe,
     required this.savedByMe,
+    this.pollId,
+    this.pollOptions,
+    this.pollExpiresAt,
+    this.pollMyVoteIndex,
+    this.pollTotalVotes,
+    this.pollOptionCounts,
   });
 
   final String id;
@@ -39,6 +53,33 @@ class ClubPost {
   final bool likedByMe;
   final bool savedByMe;
 
+  /// WYN-115: set only when this Club post is a Poll. [pollOptions] is
+  /// always 2-4 items when [pollId] is set.
+  final String? pollId;
+  final List<String>? pollOptions;
+  final DateTime? pollExpiresAt;
+
+  /// Index into [pollOptions] the *current viewer* voted for, or null
+  /// if they haven't (or can't -- they're the poll's own author).
+  final int? pollMyVoteIndex;
+
+  /// Null when the aggregate result isn't visible to this viewer yet
+  /// (hasn't voted, isn't the author, poll still open) -- see
+  /// `get_club_poll_results()` in supabase/schema.sql. Non-null always
+  /// means [pollOptionCounts] is too.
+  final int? pollTotalVotes;
+
+  /// Vote count per option, same order/length as [pollOptions]. Null
+  /// under the exact same condition as [pollTotalVotes].
+  final List<int>? pollOptionCounts;
+
+  bool get isPoll => pollId != null;
+
+  bool get pollResultsVisible => pollTotalVotes != null;
+
+  bool get pollIsClosed =>
+      pollExpiresAt != null && !DateTime.now().toUtc().isBefore(pollExpiresAt!);
+
   String get authorNameOrUsername => displayNameOrUsername(
         displayName: authorDisplayName,
         username: authorUsername,
@@ -50,6 +91,9 @@ class ClubPost {
     bool? likedByMe,
     bool? savedByMe,
     bool? pinned,
+    int? pollMyVoteIndex,
+    int? pollTotalVotes,
+    List<int>? pollOptionCounts,
   }) =>
       ClubPost(
         id: id,
@@ -67,6 +111,12 @@ class ClubPost {
         commentCount: commentCount ?? this.commentCount,
         likedByMe: likedByMe ?? this.likedByMe,
         savedByMe: savedByMe ?? this.savedByMe,
+        pollId: pollId,
+        pollOptions: pollOptions,
+        pollExpiresAt: pollExpiresAt,
+        pollMyVoteIndex: pollMyVoteIndex ?? this.pollMyVoteIndex,
+        pollTotalVotes: pollTotalVotes ?? this.pollTotalVotes,
+        pollOptionCounts: pollOptionCounts ?? this.pollOptionCounts,
       );
 
   /// A copy with the like toggled -- used for optimistic UI updates before
@@ -93,16 +143,50 @@ class ClubPost {
   /// club staff (see ClubMemberRolePermissions.canModeratePosts).
   ClubPost toggledPin() => copyWith(pinned: !pinned);
 
+  /// A copy with [optionIndex] recorded as the viewer's vote --
+  /// optimistic-update role, same shape as [toggledLike]. Handles
+  /// changing an existing vote too: the old option's count (if any) is
+  /// decremented and the new one incremented, [pollTotalVotes] only
+  /// grows on a first-time vote. Voting always makes results visible
+  /// (a non-empty [pollOptionCounts] is seeded with zeros if this is
+  /// the viewer's first look at a poll they hadn't voted on yet).
+  /// Mirrors [Drop.votedPoll] exactly.
+  ClubPost votedPoll(int optionIndex) {
+    final previousVote = pollMyVoteIndex;
+    final counts = List<int>.from(
+      pollOptionCounts ?? List.filled(pollOptions?.length ?? 0, 0),
+    );
+    if (previousVote != null && previousVote < counts.length) {
+      counts[previousVote] -= 1;
+    }
+    if (optionIndex < counts.length) counts[optionIndex] += 1;
+
+    return copyWith(
+      pollMyVoteIndex: optionIndex,
+      pollTotalVotes: previousVote == null ? (pollTotalVotes ?? 0) + 1 : pollTotalVotes ?? 1,
+      pollOptionCounts: counts,
+    );
+  }
+
   /// [likedByMe]/[savedByMe] aren't embeddable in the same query (they
   /// depend on who's asking), so ClubPostRepository.fetchPosts fills them
   /// in from separate lookups against the current user's own likes/saves.
+  /// Same for the WYN-115 poll per-viewer fields ([pollMyVoteIndex]/
+  /// [pollTotalVotes]/[pollOptionCounts]) -- [pollId]/[pollOptions]/
+  /// [pollExpiresAt] come straight off the row's `club_post_polls` embed
+  /// (a 1:1 relation, so PostgREST returns it as a single object, not a
+  /// list, unlike the count embeds above).
   factory ClubPost.fromMap(
     Map<String, dynamic> map, {
     required bool likedByMe,
     required bool savedByMe,
+    int? pollMyVoteIndex,
+    int? pollTotalVotes,
+    List<int>? pollOptionCounts,
   }) {
     final author = map['author'] as Map<String, dynamic>?;
     final rawImageUrls = map['image_urls'] as List<dynamic>?;
+    final poll = _embeddedPoll(map['club_post_polls']);
 
     return ClubPost(
       id: map['id'] as String,
@@ -121,7 +205,28 @@ class ClubPost {
           _embeddedCount(map['club_post_comments'] as List<dynamic>?),
       likedByMe: likedByMe,
       savedByMe: savedByMe,
+      pollId: poll?['id'] as String?,
+      pollOptions: (poll?['options'] as List<dynamic>?)?.cast<String>(),
+      pollExpiresAt: poll?['expires_at'] != null
+          ? DateTime.parse(poll!['expires_at'] as String)
+          : null,
+      pollMyVoteIndex: pollMyVoteIndex,
+      pollTotalVotes: pollTotalVotes,
+      pollOptionCounts: pollOptionCounts,
     );
+  }
+
+  /// PostgREST embeds a to-one relation (club_post_polls.club_post_id
+  /// is unique) as a single object normally, but returns null rather
+  /// than an object when there's no related row -- handles both that
+  /// and the defensive case of a stray single-element list. Mirrors
+  /// [Drop._embeddedPoll] exactly.
+  static Map<String, dynamic>? _embeddedPoll(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is List) {
+      return raw.isEmpty ? null : raw.first as Map<String, dynamic>;
+    }
+    return raw as Map<String, dynamic>;
   }
 
   /// PostgREST embedded-resource counts (e.g. `club_post_likes(count)`)
