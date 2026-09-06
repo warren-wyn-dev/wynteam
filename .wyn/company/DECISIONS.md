@@ -1136,3 +1136,19 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 **สถานะ**: WYN-114 **completed** ครบทั้ง Product → Coding → QA FAIL → Debug Engineer → QA PASS → Deploy → Production Verification (curl จริงทั้ง 2 เงื่อนไข) — ไม่มี rollback ต้องทำ ไม่มี migration ค้าง
 
 อ้างอิง: `.wyn/tasks/completed/WYN-114-share-link-real-domain.md`, `.wyn/logs/deployments/2026-09-06-wyn-114-share-link-vercel-rewrite-deploy.md`, PR #271, deploy-web.yml run #89
+
+## [2026-09-06] ID Collision รอบใหม่: WYN-114 ถูกใช้ 2 ครั้งพร้อมกันโดยคนละ session — แก้แล้ว, เชื่อมเข้ากับ WYN-112 โดยตรง
+
+**บริบท**: ระหว่างที่ session นี้ (`session_013hvSGovkwhxpPFbFEKAvAu`) กำลังแก้/deploy WYN-114 (share link โดเมนผิด + Vercel ไม่มี SPA rewrite) อยู่ อีก session หนึ่ง (`session_014LEtwe8NjiPLcc9cqJEkuq`, ทำ product planning ให้ฟีเจอร์ Club) เจอบั๊กเดียวกันโดยบังเอิญระหว่างตรวจโค้ด แล้วบันทึกเป็น task ใหม่ด้วยเลขเดียวกัน "WYN-114" — เป็น ID collision class เดียวกับที่เคยเกิดกับ `WYN-077` (2026-09-02) และ `WYN-078` (2026-09-06 รอบเช้า) ทั้งสองครั้งมาก่อน แต่รอบนี้เกิดขึ้น**ระหว่างที่ทั้งสอง session กำลังแก้ปัญหาเดียวกันจริงๆ พร้อมกัน** ไม่ใช่แค่บังเอิญเลขซ้ำ
+
+**สิ่งที่อีก session ค้นพบเพิ่มที่สำคัญมาก**: เชื่อมบั๊กนี้เข้ากับ `WYN-112` (activation funnel investigation ที่ active อยู่) โดยตรง — ถ้าลิงก์ที่ Founder แชร์ต่อเนื่องมาตลอด 4 รอบที่ signup=0 นั้นมาจากปุ่ม "Share" ในแอป (ไม่ใช่พิมพ์ `wynos.online` เอง) นี่คือคำตอบที่สมบูรณ์ของปริศนาทั้งเรื่อง เพราะลิงก์เดิมชี้ไปโดเมนที่ไม่มี DNS จริง คนคลิกแล้วไปไม่ถึง WYNOS เลยสักคนไม่ว่าจะคลิกกี่ครั้ง — ส่งคำถามนี้ให้ Founder ผ่าน popup ไปแล้ว (จากอีก session) ยังไม่มีคำตอบ ณ เวลาที่บันทึกนี้
+
+**การแก้ ID collision**: เปลี่ยนงานที่อีก session สร้าง (`.wyn/tasks/backlog/WYN-114-fix-share-links-deep-linking.md`, ยังเป็นแค่ backlog ยังไม่เริ่มทำ) เป็น **`WYN-119`** (ไม่ใช้ `WYN-115`–`118` เพราะถูกจองไว้แล้วสำหรับ Club growth roadmap ใน `wyn-club-growth-roadmap.md`) — ตาม `WYN-114` ตัวที่เสร็จและ deploy แล้ว (`.wyn/tasks/completed/`) ไม่ควรเปลี่ยนเลข ตรงหลักการเดิมที่เคยแนะนำไว้กับ `WYN-078`
+
+**Scope ที่แท้จริงตอนนี้**: WYN-114 (โดเมน + Vercel SPA rewrite) **เสร็จและ deploy แล้ว** — WYN-119 (deep-linking จริงฝั่ง Flutter client + UTM tagging บนปุ่ม Share) **ยังเป็น backlog** ลดความสำคัญจาก P0 เหลือ P1 เพราะส่วนที่ทำให้ลิงก์ "ใช้งานไม่ได้เลย" แก้ไปแล้ว
+
+**บทเรียนเพิ่มเติม (ต่อยอดจาก ID collision เดิม)**: การที่หลาย session ทำงานพร้อมกันบนโค้ดเบสเดียวกันโดยไม่รู้จักกัน มีโอกาสค้นพบปัญหาเดียวกันซ้ำได้จริง (ไม่ใช่แค่เลข task ชนกันเฉยๆ) — ครั้งนี้เป็นประโยชน์ (อีก session ช่วยยืนยัน root cause + เชื่อมกับ WYN-112 ที่ session นี้เองยังไม่ได้เชื่อมจนกว่าจะเห็น note) แต่ก็เสี่ยงทำงานซ้ำซ้อนถ้าไม่ reconcile กันหลัง merge — DECISIONS.md/CONTEXT.md ยังเป็นกลไกเดียวที่ session อื่นจะเห็นงานที่ทำคู่ขนานอยู่ ต้องอ่านให้ครบก่อนเริ่มงานทุกครั้งตามที่ AGENTS.md บังคับไว้อยู่แล้ว
+
+**สถานะ**: `WYN-112` อัปเดตแล้วให้สะท้อนว่า WYN-114 แก้เสร็จ และคำถามสำคัญที่สุด (ลิงก์แชร์มาจากปุ่ม Share หรือพิมพ์เอง) ยังรอคำตอบ — เป็นกุญแจตัดสินว่า WYN-112 จบด้วยคำตอบนี้เลย หรือต้องกลับไปแผนเดิม (link shortener)
+
+อ้างอิง: `.wyn/tasks/active/WYN-112-activation-funnel-investigation.md`, `.wyn/tasks/backlog/WYN-119-share-link-deep-linking.md`, `.wyn/tasks/completed/WYN-114-share-link-real-domain.md`, `.wyn/docs/product/wyn-club-growth-roadmap.md`, commit `1d22996`
