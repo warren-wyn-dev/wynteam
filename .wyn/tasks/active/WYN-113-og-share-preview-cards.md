@@ -47,3 +47,25 @@ Founder เลือก **โทนสี A (Paper)** — ไม่ใช่ B �
 - `og:description`: `โพสต์รูป แชร์เรื่องราว และตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว`
 
 Mockup อัปเดตแล้ว: https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e — **พร้อมส่งต่อ AI Coding**
+
+## AI Coding Output (2026-09-06)
+
+Implementation: เพิ่ม Open Graph + Twitter Card meta tags ใน `app/web/index.html` (ตัวเลือกสี A-Paper ตามที่ Founder เลือก) และเพิ่ม asset รูป `app/web/og-image.png` (1200×630, render จาก HTML จริงด้วย headless Chromium ที่มีอยู่ใน sandbox — ใช้โลโก้จริง `app/assets/images/wynos_logo_mark.png` และสี token จริงจาก `wyn_colors.dart` เท่านั้น ไม่มีสีใหม่)
+
+Files Changed:
+- `app/web/index.html` — เพิ่ม 9 meta tags (`og:type`, `og:url`, `og:title`, `og:description`, `og:image`, `twitter:card`, `twitter:title`, `twitter:description`, `twitter:image`) หลัง `<meta name="description">` เดิม พร้อมคอมเมนต์อธิบายที่มา — ไม่แก้ไข/ลบบรรทัดเดิมแม้แต่บรรทัดเดียว
+- `app/web/og-image.png` (ใหม่) — รูป preview 1200×630
+- `app/.gitignore` — เพิ่ม `!/web/og-image.png` เข้า allow-list ของ `/web/*` (ตรวจพบว่า `web/*` ถูก ignore เป็นค่าเริ่มต้นและต้องเพิ่ม negation ทีละไฟล์ตาม pattern เดิมของ index.html/favicon.png/icons — ถ้าไม่เพิ่มไฟล์รูปจะหายไปในเครื่องอื่น/CI ทันที เป็นบั๊กคลาสเดียวกับที่เคยพบกับ `firebase-messaging-sw.js` มาก่อน) พร้อมคอมเมนต์อธิบายเหตุผลตาม convention เดิมของไฟล์
+
+Reason: ตาม Product spec (`.wyn/tasks/active/WYN-113-og-share-preview-cards.md`) และ Design spec (`.wyn/docs/design/wyn-113-og-share-preview-cards.md`) — เนื้อหา/สี/ข้อความทั้งหมดตรงกับที่ Founder อนุมัติไว้ 100% (โทนสี A, ตัด Pop ออก, "Drop" → "โพสต์รูป")
+
+Tests: **ไม่มี test อัตโนมัติที่เกี่ยวข้อง** — เป็นการเปลี่ยน static HTML/asset ล้วนๆ ไม่แตะ Dart code ใดๆ จึงไม่กระทบ `flutter test` suite ที่มีอยู่ (ยืนยันด้วยการอ่าน diff: ไม่มีบรรทัดใดอยู่นอกช่วง `app/web/` และ `app/.gitignore`) — ตรวจ well-formedness ของ `index.html` ด้วย Python `html.parser` แล้ว parse ผ่านไม่มี error
+
+Build: **ยืนยันเองไม่ได้เต็มรูปแบบ** — sandbox ของ session นี้ไม่มี Flutter SDK ติดตั้งอยู่ (ต่างจากบาง session ก่อนหน้าที่เคยมีที่ `/home/user/flutter`) จึงรัน `flutter analyze`/`flutter build web` จริงไม่ได้ในรอบนี้ — ความเสี่ยงต่ำมากเพราะ `index.html` เป็น input ของ `flutter build web` (ถูกคัดลอกเข้า `build/web/` แทนที่แค่ `$FLUTTER_BASE_HREF`เท่านั้น ไม่ผ่าน parser ใดของ Flutter) ไม่ใช่ output ที่ build เขียนทับ, meta tag ที่เพิ่มเป็น syntax มาตรฐานทั่วไป — **AI QA & Security ควรรัน `flutter build web --release` จริงอย่างน้อย 1 ครั้งก่อน PASS** เพื่อยืนยันตามวินัยเดิมของโปรเจกต์ (แยก "AI ยืนยันได้เอง" กับ "ต้องรอคนอื่นยืนยัน" ตาม WORKFLOW.md)
+
+Known Issues:
+- รูป preview render ด้วย headless Chromium ในเครื่อง sandbox นี้ ยังไม่เคยเห็นผลจริงบน Facebook Sharing Debugger/Twitter Card Validator/LINE — ต้องให้ AI QA หรือ Founder ทดสอบด้วยเครื่องมือจริงหลัง deploy ตาม Acceptance Criteria ของ Product spec
+- `og:url`/`og:image` ใช้ URL เต็ม `https://wynos.online/...` ตรงตัว (hardcode โดเมน production) — ถูกต้องตามจุดประสงค์ของ meta tag เหล่านี้ (ต้องเป็น absolute URL เสมอตามสเปก Open Graph) ไม่ใช่บั๊ก แต่ถ้าโดเมนเปลี่ยนในอนาคตต้องแก้จุดนี้ด้วย
+- Facebook/LINE cache preview การ์ดเดิมไว้หลายวัน — ถ้า Founder เคยแชร์ลิงก์ไปแล้วก่อนหน้านี้ อาจต้องกด "Scrape Again" ใน Facebook Sharing Debugger เพื่อบังคับ refresh (บันทึกไว้ใน Risk ของ Product spec แล้ว)
+
+Handoff: ส่งต่อ **AI QA & Security** — ตรวจ (1) `flutter analyze`/`flutter build web --release` ผ่านจริง (2) วางลิงก์ที่ build ได้ในตัวตรวจสอบ preview จริงอย่างน้อย 1 ตัว (Facebook Sharing Debugger/Twitter Card Validator) เห็นรูป+ข้อความตามที่ตั้งใจ (3) ยืนยันว่าไม่มีบรรทัดโค้ด Dart ใดถูกแตะ — ห้าม deploy ขึ้น production ก่อน QA ผ่านตาม WORKFLOW.md
