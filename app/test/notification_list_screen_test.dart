@@ -63,6 +63,7 @@ void main() {
   late RecordingNotificationRepository mixedReadRepo;
   late RecordingNotificationRepository clubJoinRequestRepo;
   late RecordingNotificationRepository clubJoinApprovedRepo;
+  late RecordingNotificationRepository clubInviteRepo;
   late RecordingNotificationRepository clubPostLikeRepo;
   late RecordingNotificationRepository clubPostCommentRepo;
   late RecordingNotificationRepository deletedClubPostRepo;
@@ -193,6 +194,17 @@ void main() {
         clubName: 'ชมรมถ่ายภาพ',
         isRead: false,
         createdAt: now.subtract(const Duration(minutes: 15)),
+      );
+
+  WynNotification clubInviteNotification() => WynNotification(
+        id: 'n-club-invite',
+        type: NotificationType.clubInvite,
+        actorId: 'u5',
+        actorUsername: 'owner_user',
+        clubId: 'club-1',
+        clubName: 'ชมรมถ่ายภาพ',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 16)),
       );
 
   WynNotification clubPostLikeNotification() => WynNotification(
@@ -425,6 +437,8 @@ void main() {
         notifications: [clubJoinRequestNotification()]);
     clubJoinApprovedRepo = RecordingNotificationRepository(
         notifications: [clubJoinApprovedNotification()]);
+    clubInviteRepo = RecordingNotificationRepository(
+        notifications: [clubInviteNotification()]);
     clubPostLikeRepo = RecordingNotificationRepository(
         notifications: [clubPostLikeNotification()]);
     clubPostCommentRepo = RecordingNotificationRepository(
@@ -739,6 +753,25 @@ void main() {
 
       await tester.tap(
           find.text('@owner_user อนุมัติคำขอเข้าร่วม ชมรมถ่ายภาพ ของคุณแล้ว'));
+      await tester.pumpAndSettle();
+
+      final screen = tester.widget<ClubPage>(find.byType(ClubPage));
+      expect(screen.clubId, 'club-1');
+      expect(screen.initialTabIndex, 0);
+    });
+
+    // WYN-124: same destination/tab as club_join_approved -- the
+    // recipient hasn't joined yet, so the Club's own membership UI (not
+    // this notification) is what handles what happens next.
+    testWidgets(
+        'shows the type-specific Thai message for club_invite, and tapping '
+        'opens ClubPage on the default Posts tab', (tester) async {
+      await tester.pumpWidget(buildScreen(clubInviteRepo));
+      await tester.pumpAndSettle();
+
+      expect(find.text('@owner_user ชวนคุณเข้าร่วม ชมรมถ่ายภาพ'), findsOneWidget);
+
+      await tester.tap(find.text('@owner_user ชวนคุณเข้าร่วม ชมรมถ่ายภาพ'));
       await tester.pumpAndSettle();
 
       final screen = tester.widget<ClubPage>(find.byType(ClubPage));

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../club/data/club_repository.dart';
 import '../../club/presentation/invite_to_club_screen.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../profile/data/profile_repository.dart';
@@ -21,12 +22,15 @@ import 'share_to_chat_screen.dart';
 /// .wyn/docs/design/wyn-033-share-to-chat.md, Screen 1.
 ///
 /// WYN-123: a 4th, topmost item -- "เชิญจากผู้ติดตาม" -- appears only
-/// when [sharedContentType] is [SharedContentType.club] and both
-/// [followRepository] and [clubName] are supplied (Club's own call site
-/// is the only one that passes them; Drop/Profile's sheets are
-/// unchanged). Opens [InviteToClubScreen] instead of the generic native
-/// share/copy-link flow -- see .wyn/docs/design/
-/// wyn-115-invite-followers-to-club.md, Screen 1.
+/// when [sharedContentType] is [SharedContentType.club] and
+/// [followRepository]/[clubRepository]/[clubName] are all supplied
+/// (Club's own call site is the only one that passes them; Drop/
+/// Profile's sheets are unchanged). Opens [InviteToClubScreen] instead
+/// of the generic native share/copy-link flow -- see .wyn/docs/design/
+/// wyn-115-invite-followers-to-club.md, Screen 1. WYN-124:
+/// [clubRepository] (not [chatRepository]) is what [InviteToClubScreen]
+/// actually sends invites through now -- see that screen's own doc
+/// comment.
 Future<void> showShareSheet(
   BuildContext context, {
   required ChatRepository chatRepository,
@@ -37,10 +41,12 @@ Future<void> showShareSheet(
   required String nativeShareText,
   String? nativeShareTitle,
   FollowRepository? followRepository,
+  ClubRepository? clubRepository,
   String? clubName,
 }) async {
   final showInviteFromFollowers = sharedContentType == SharedContentType.club &&
       followRepository != null &&
+      clubRepository != null &&
       clubName != null;
 
   await showModalBottomSheet<void>(
@@ -56,16 +62,17 @@ Future<void> showShareSheet(
                 Navigator.of(sheetContext).pop();
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    // Dart promotes followRepository/clubName to
-                    // non-null here on its own -- showInviteFromFollowers
-                    // is exactly `... && followRepository != null &&
-                    // clubName != null`, and neither is ever reassigned
-                    // in this function, so no `!` is needed (flutter
-                    // analyze flags one as an unnecessary_non_null_assertion
-                    // warning if added).
+                    // Dart promotes followRepository/clubRepository/
+                    // clubName to non-null here on its own --
+                    // showInviteFromFollowers is exactly `... &&
+                    // followRepository != null && clubRepository !=
+                    // null && clubName != null`, and none is ever
+                    // reassigned in this function, so no `!` is needed
+                    // (flutter analyze flags one as an
+                    // unnecessary_non_null_assertion warning if added).
                     builder: (_) => InviteToClubScreen(
                       followRepository: followRepository,
-                      chatRepository: chatRepository,
+                      clubRepository: clubRepository,
                       clubId: sharedContentId,
                       clubName: clubName,
                     ),

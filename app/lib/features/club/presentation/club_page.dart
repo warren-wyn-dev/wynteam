@@ -259,6 +259,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
       nativeShareText: clubShareLink(club.id),
       nativeShareTitle: club.name,
       followRepository: _followRepository,
+      clubRepository: widget.clubRepository,
       clubName: club.name,
     );
   }

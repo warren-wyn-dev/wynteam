@@ -6599,7 +6599,10 @@ alter table public.notifications
     -- of schedule during a later migration, same as this comment's
     -- neighbor above describes for an earlier type) -- see
     -- notify_club_post_new()/notify_club_post_pinned() further down.
-    'club_post_new', 'club_post_pinned'
+    'club_post_new', 'club_post_pinned',
+    -- WYN-124: club_invite, added here for the same "ahead of schedule"
+    -- reason -- see invite_to_club() further down.
+    'club_invite'
   ));
 
 -- Lets an admin send a free-text notification to one recipient
@@ -12536,3 +12539,78 @@ end;
 $$;
 
 grant execute on function public.club_insights(uuid, int) to authenticated;
+
+-- ============================================================
+-- WYN-124: Club Invite Notification
+-- ============================================================
+-- See .wyn/tasks/approved/WYN-124-club-invite-notification.md and
+-- .wyn/docs/design/wyn-124-club-invite-notification.md. Replaces
+-- WYN-123's original invite mechanism (a Chat message via
+-- get_or_create_conversation()+INSERT into messages, sharedContentType
+-- = club) with a dedicated `club_invite` Notification row -- Founder
+-- feedback, 2026-09-06: "คนที่ถูกเชิญควรไปอยู่หน้าการแจ้งเตือน ไม่ใช่
+-- หน้าแชท". A Chat message accidentally made every club invite subject
+-- to WYN-122's Chat Lockdown (get_or_create_conversation() raises
+-- 'Chat is temporarily closed for testing' whenever
+-- internal.chat_pair_allowed() is false), which is an unrelated
+-- feature this one should never have depended on.
+--
+-- Re-validates, server-side, the same audience InviteToClubScreen's own
+-- Followers+Following list already filters for -- an RPC call can't be
+-- trusted to only ever originate from that one screen.
+create or replace function public.invite_to_club(p_club_id uuid, p_invitee_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  if v_me is null then
+    raise exception 'Not authenticated';
+  end if;
+  if p_invitee_id = v_me then
+    raise exception 'Cannot invite yourself';
+  end if;
+  if public.club_role(p_club_id, v_me) is null then
+    raise exception 'Must be an approved club member to invite';
+  end if;
+  if not exists (select 1 from public.profiles where id = p_invitee_id) then
+    raise exception 'User not found';
+  end if;
+  if internal.is_blocked_either_way(v_me, p_invitee_id) then
+    raise exception 'Cannot invite a blocked user';
+  end if;
+  -- Instagram Close Friends / X Community "Add People" hybrid (Founder
+  -- decision, WYN-123's own Design doc) -- either direction of follow
+  -- qualifies, mirrored server-side rather than trusted from whichever
+  -- list the client happened to fetch the invitee from.
+  if not exists (
+    select 1 from public.follows
+    where (follower_id = v_me and following_id = p_invitee_id)
+       or (follower_id = p_invitee_id and following_id = v_me)
+  ) then
+    raise exception 'Can only invite followers or people you follow';
+  end if;
+
+  -- Same notification_enabled('club') gate notify_club_join_approved()
+  -- uses, plus a 24h dedup per (recipient, club, actor) -- mirrors
+  -- notify_club_post_new()'s 3h dedup shape (WYN-116), scaled up since
+  -- invites happen far less often than posts but the same "don't let a
+  -- retry or repeated taps spam the same person" concern applies.
+  if internal.notification_enabled(p_invitee_id, 'club') and not exists (
+    select 1 from public.notifications n
+    where n.recipient_id = p_invitee_id
+      and n.actor_id = v_me
+      and n.club_id = p_club_id
+      and n.type = 'club_invite'
+      and n.created_at > now() - interval '24 hours'
+  ) then
+    insert into public.notifications (recipient_id, actor_id, type, club_id)
+    values (p_invitee_id, v_me, 'club_invite', p_club_id);
+  end if;
+end;
+$$;
+
+grant execute on function public.invite_to_club(uuid, uuid) to authenticated;

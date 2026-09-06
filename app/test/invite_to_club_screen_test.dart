@@ -7,17 +7,19 @@ import 'package:wyn/features/club/presentation/invite_to_club_screen.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 
 import 'support/fake_supabase_session.dart';
-import 'support/recording_chat_repository.dart';
+import 'support/recording_club_repository.dart';
 import 'support/recording_follow_repository.dart';
 
 /// WYN-123: `InviteToClubScreen` lets a club member invite people from
 /// their own Followers *and* Following, merged and de-duplicated
 /// (Founder decision, 2026-09-06 -- see
-/// .wyn/tasks/active/WYN-123-invite-followers-to-club.md), sending each
-/// invite through the existing WYN-033 share-to-chat mechanism.
+/// .wyn/tasks/active/WYN-123-invite-followers-to-club.md). WYN-124:
+/// sending goes through `ClubRepository.inviteToClub` (a `club_invite`
+/// Notification), not a Chat message -- see that task's Design decision
+/// for why WYN-123's original chat-based mechanism was replaced.
 void main() {
   late RecordingFollowRepository followRepository;
-  late RecordingChatRepository chatRepository;
+  late RecordingClubRepository clubRepository;
 
   Profile profile(String id, {String? displayName}) => Profile(
         id: id,
@@ -31,7 +33,7 @@ void main() {
 
   setUp(() {
     followRepository = RecordingFollowRepository();
-    chatRepository = RecordingChatRepository();
+    clubRepository = RecordingClubRepository();
   });
 
   Future<void> pumpScreen(WidgetTester tester) async {
@@ -39,7 +41,7 @@ void main() {
       MaterialApp(
         home: InviteToClubScreen(
           followRepository: followRepository,
-          chatRepository: chatRepository,
+          clubRepository: clubRepository,
           clubId: 'club-1',
           clubName: 'ชมรมถ่ายภาพเชียงใหม่',
         ),
@@ -101,7 +103,7 @@ void main() {
       'tapping เชิญ goes idle -> sending -> เชิญแล้ว, and stays on screen',
       (tester) async {
     followRepository.followers.add(profile('a', displayName: 'Ann'));
-    chatRepository.sendMessageGate = Completer<void>();
+    clubRepository.inviteToClubGate = Completer<void>();
     await pumpScreen(tester);
 
     expect(find.text('เชิญ'), findsOneWidget);
@@ -113,14 +115,11 @@ void main() {
     expect(find.text('เชิญ'), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
-    chatRepository.sendMessageGate!.complete();
+    clubRepository.inviteToClubGate!.complete();
     await tester.pumpAndSettle();
 
     expect(find.text('เชิญแล้ว'), findsOneWidget);
-    expect(chatRepository.getOrCreateConversationCalls, ['a']);
-    expect(chatRepository.sendMessageCalls, 1);
-    expect(chatRepository.lastSendMessageSharedContentType?.name, 'club');
-    expect(chatRepository.lastSendMessageSharedContentId, 'club-1');
+    expect(clubRepository.inviteToClubUserIdArgs, ['a']);
     // The screen itself never pops -- inviting more than one person in
     // one visit is the whole point (unlike ShareToChatScreen, which
     // pops back after a single send).
@@ -130,7 +129,7 @@ void main() {
   testWidgets('a failed invite reverts to เชิญ and shows an error SnackBar',
       (tester) async {
     followRepository.followers.add(profile('a', displayName: 'Ann'));
-    chatRepository.getOrCreateConversationError = Exception('network');
+    clubRepository.inviteToClubError = Exception('network');
     await pumpScreen(tester);
 
     await tester.tap(find.text('เชิญ'));

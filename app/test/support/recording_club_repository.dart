@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -77,6 +78,13 @@ class RecordingClubRepository extends ClubRepository {
   final List<String> banMemberUserIdArgs = [];
   final List<ClubMemberRole> setMemberRoleArgs = [];
   final List<String> setMemberRoleUserIdArgs = [];
+  final List<String> inviteToClubUserIdArgs = [];
+  Object? inviteToClubError;
+
+  /// Set by a test to hold [inviteToClub] open until it completes the
+  /// gate -- same mechanism RecordingChatRepository.sendMessageGate
+  /// uses to observe the screen's sending state mid-flight.
+  Completer<void>? inviteToClubGate;
 
   @override
   Future<int> countMembers(String clubId) async => memberCount;
@@ -175,6 +183,18 @@ class RecordingClubRepository extends ClubRepository {
   }) async {
     setMemberRoleUserIdArgs.add(userId);
     setMemberRoleArgs.add(role);
+  }
+
+  @override
+  Future<void> inviteToClub({
+    required String clubId,
+    required String inviteeId,
+  }) async {
+    final gate = inviteToClubGate;
+    if (gate != null) await gate.future;
+    final error = inviteToClubError;
+    if (error != null) throw error;
+    inviteToClubUserIdArgs.add(inviteeId);
   }
 
   @override

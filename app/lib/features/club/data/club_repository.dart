@@ -429,6 +429,26 @@ class ClubRepository {
     });
   }
 
+  /// WYN-124 -- invites [inviteeId] to this club via a `club_invite`
+  /// Notification (not a Chat message, see this task's Design decision:
+  /// WYN-123's original chat-message-based invite accidentally coupled
+  /// invites to whatever state WYN-122's Chat Lockdown happened to be
+  /// in). `invite_to_club()` (supabase/schema.sql) re-validates the
+  /// same "must be an approved club member, invitee must be a follower
+  /// or someone you follow, neither side blocked" rules
+  /// InviteToClubScreen's own audience list already filters for --
+  /// server-side, since an RPC call can't be trusted to only ever
+  /// happen from that one screen.
+  Future<void> inviteToClub({
+    required String clubId,
+    required String inviteeId,
+  }) {
+    return _client.rpc('invite_to_club', params: {
+      'p_club_id': clubId,
+      'p_invitee_id': inviteeId,
+    });
+  }
+
   /// WYN-116: whether the current user has muted `club_post_new`/
   /// `club_post_pinned` notifications for this Club -- see
   /// `club_notification_mutes` in supabase/schema.sql. Scoped to just

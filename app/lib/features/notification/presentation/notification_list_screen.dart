@@ -214,6 +214,12 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         _openClub(notification.clubId!, initialTabIndex: 1);
       case NotificationType.clubJoinApproved:
         _openClub(notification.clubId!, initialTabIndex: 0);
+      case NotificationType.clubInvite:
+        // WYN-124: opens straight to the Club (Posts tab) -- the
+        // recipient hasn't joined yet, so the club's own membership UI
+        // (join button, pending state, etc.) is what decides what
+        // happens next, same as tapping a club link/share elsewhere.
+        _openClub(notification.clubId!, initialTabIndex: 0);
       case NotificationType.clubPostLike:
       case NotificationType.clubPostComment:
       case NotificationType.clubPostNew:
@@ -442,6 +448,8 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         return '$name โพสต์ใหม่ใน $club';
       case NotificationType.clubPostPinned:
         return '$name ปักหมุดโพสต์ใหม่ใน $club';
+      case NotificationType.clubInvite:
+        return '$name ชวนคุณเข้าร่วม $club';
       case NotificationType.mentionDrop:
         return '$name กล่าวถึงคุณในโพสต์';
       case NotificationType.mentionClubPost:

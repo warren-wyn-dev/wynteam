@@ -7,13 +7,15 @@ import 'package:wyn/features/club/presentation/invite_to_club_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_chat_repository.dart';
+import 'support/recording_club_repository.dart';
 import 'support/recording_follow_repository.dart';
 import 'support/recording_profile_repository.dart';
 
 /// WYN-123: `showShareSheet`'s pre-existing 3 options (แชร์เข้า Chat /
 /// แชร์ผ่านระบบมือถือ / คัดลอกลิงก์, WYN-033) must stay unchanged for
 /// Drop/Profile -- the new "เชิญจากผู้ติดตาม" row only shows for Club,
-/// and only once its two new optional params are actually supplied.
+/// and only once all 3 of its new optional params (WYN-124 added
+/// clubRepository alongside followRepository/clubName) are supplied.
 void main() {
   // Constructed once per test, in `setUp` -- outside the FakeAsync zone
   // `testWidgets` wraps its own body in. Each Recording*Repository builds
@@ -27,6 +29,7 @@ void main() {
   late RecordingChatRepository chatRepository;
   late RecordingProfileRepository profileRepository;
   late RecordingFollowRepository followRepository;
+  late RecordingClubRepository clubRepository;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
@@ -36,6 +39,7 @@ void main() {
     chatRepository = RecordingChatRepository();
     profileRepository = RecordingProfileRepository();
     followRepository = RecordingFollowRepository();
+    clubRepository = RecordingClubRepository();
   });
 
   Future<void> openSheet(
@@ -57,6 +61,7 @@ void main() {
                 previewLabel: 'แชร์ทดสอบ',
                 nativeShareText: 'https://wynos.online/x/content-1',
                 followRepository: withFollowerParams ? followRepository : null,
+                clubRepository: withFollowerParams ? clubRepository : null,
                 clubName: withFollowerParams ? 'ชมรมทดสอบ' : null,
               ),
               child: const Text('open'),
