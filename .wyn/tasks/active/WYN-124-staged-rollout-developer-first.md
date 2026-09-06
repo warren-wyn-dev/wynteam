@@ -1,7 +1,7 @@
 # Product Task — WYN-124
 
-Status: active — handed off to AI Design
-Owner: AI Product Manager → AI Design
+Status: active — AI Design เสร็จแล้ว (Requirement 2) — ส่งต่อ AI Coding
+Owner: AI Product Manager → AI Design → AI Coding
 
 Feature: Staged Rollout — ปล่อยอัปเดตให้บัญชีนักพัฒนา/ทีมภายในก่อน แล้วค่อยปล่อยให้ผู้ใช้ทั่วไป
 
@@ -23,8 +23,8 @@ Requirements:
 3. ไม่ใช้ native app store staged rollout (Google Play % rollout / TestFlight group) ในตอนนี้ เพราะยังไม่มี native distribution channel ที่ active อยู่ตามสถานะปัจจุบัน — เป็นตัวเลือกที่พิจารณาได้ในอนาคตถ้า Founder ตัดสินใจเปิด Apple Developer Account / Google Play
 
 Acceptance Criteria:
-- [ ] Founder เลือกแนวทางที่ต้องการ (ทางลัด process-only, ระบบ flag ถาวร, หรือทั้งสองอย่าง)
-- [ ] ถ้าเลือกระบบ flag: มีวิธีระบุ "บัญชีนักพัฒนา" ที่ชัดเจน (เช่น allowlist email/user id ที่ Founder เป็นผู้กำหนด) และผู้ใช้ทั่วไปไม่เห็นการเปลี่ยนแปลงจนกว่า Founder จะสั่งเปิด
+- [x] Founder เลือกแนวทางที่ต้องการ — ทั้งสองอย่าง (process-only ใช้ได้แล้ว + ระบบ flag ถาวร ออกแบบเสร็จแล้ว รอ Coding)
+- [ ] ถ้าเลือกระบบ flag: มีวิธีระบุ "บัญชีนักพัฒนา" ที่ชัดเจน (เช่น allowlist email/user id ที่ Founder เป็นผู้กำหนด) และผู้ใช้ทั่วไปไม่เห็นการเปลี่ยนแปลงจนกว่า Founder จะสั่งเปิด — **design เสร็จแล้ว** (`.wyn/docs/design/wyn-124-staged-rollout-developer-accounts.md`), รอ AI Coding implement จริงก่อนเช็คให้ครบ
 - [ ] มีขั้นตอน rollback/ปิด flag ได้ทันทีถ้าเจอปัญหาระหว่างทดสอบกับทีมภายใน โดยไม่กระทบผู้ใช้ทั่วไป (ซึ่งยังไม่เห็น feature อยู่แล้ว)
 - [ ] บันทึกขั้นตอนนี้ลง deployment log ตาม `.wyn/company/WORKFLOW.md` (สิ่งที่ deploy, ผล verification, ใครทดสอบ, ผลลัพธ์)
 
@@ -50,3 +50,26 @@ Handoff:
 - UX เมื่อ flag เปิด/ปิด (ผู้ใช้ทั่วไปควรไม่รู้สึกว่าขาดอะไรไปจนกว่าจะเปิดให้)
 เสร็จ Design แล้วส่งต่อ AI Coding → AI QA & Security ตาม workflow ปกติ ก่อนขึ้น production (ห้ามข้าม QA)
 อ้างอิงการตัดสินใจเต็ม: `.wyn/company/DECISIONS.md` หัวข้อ "[2026-09-06] Staged Rollout สำหรับ WYNOS"
+
+---
+
+## AI Design Output (เสร็จแล้ว — ส่งต่อ AI Coding)
+
+Design spec ฉบับเต็ม: `.wyn/docs/design/wyn-124-staged-rollout-developer-accounts.md`
+
+**สรุปการตัดสินใจหลัก**:
+1. **Reuse สถาปัตยกรรมของ WYN-122 (Chat Lockdown)** เกือบทั้งหมด แล้วทำให้ generic แทนที่จะผูกกับฟีเจอร์เดียว — pattern เดิม (allowlist table + SECURITY DEFINER status function + GitHub Actions workflow เป็นสวิตช์) พิสูจน์แล้วว่าใช้งานได้จริงบน production ของ WYN ภายใต้สถานะ auth ปัจจุบัน (anonymous sign-in) — ไม่ต้องคิดใหม่
+2. **เก็บรายชื่อ "บัญชีนักพัฒนา" ที่**: ตาราง Supabase ใหม่ `public.developer_accounts` (user_id uuid → `profiles.id`, label, added_at) — **ไม่มี SELECT/INSERT/UPDATE/DELETE policy ใดๆ เลย** เข้าถึงได้เฉพาะผ่าน Supabase Management API เท่านั้น ป้องกันรั่วว่าใครเป็นนักพัฒนาด้วย
+3. **Founder เพิ่ม/ลบบัญชีนักพัฒนาผ่าน GitHub Actions workflow ใหม่** (`wyn124-manage-developer-accounts.yml`, มิเรอร์ `wyn122-toggle-chat-lockdown.yml`) — action `list`/`add`/`remove` ระบุด้วย username (resolve เป็น profiles.id เอง ไม่ hardcode UUID) — ไม่ต้องสร้าง admin UI ใหม่ตามที่อนุญาตไว้ในโจทย์ เพราะเฉพาะคนที่ trigger workflow บน repo ได้ (Founder) เท่านั้นที่ทำได้
+4. **Flag อยู่ระดับ boolean เดียว per-user: `is_developer_account()`** (ไม่ใช่ matrix ต่อฟีเจอร์) — ฟีเจอร์ใหม่ในอนาคตเรียก accessor ตัวเดียว (`DeveloperAccessService.isDeveloperAccount()` ใน `app/lib/core/`) แล้วเลือกเอง branch การ render/behavior — reusable ข้ามฟีเจอร์ได้ทันทีโดยไม่ต้องสร้างตาราง/ฟังก์ชันใหม่ทุกรอบ
+5. **Fail-closed โดยโครงสร้าง**: error/null auth/ไม่อยู่ใน allowlist → คืน `false` เสมอ → ผู้ใช้ทั่วไป 100% ในวันนี้เห็น behavior เดิมทุกประการ ไม่มีทาง error ของระบบนี้จะไปโผล่เป็น UI แปลกให้ผู้ใช้ทั่วไปเห็น (ตรง Requirement 3)
+6. **ไม่แตะ auth architecture**: อาศัย `profiles.username` ที่มีอยู่แล้วแม้ในโหมด anonymous sign-in ปัจจุบัน (กลไกเดียวกับที่ WYN-122 ใช้ระบุ @warren/@wynos_online สำเร็จมาแล้ว) — ไม่ต้องรอ Google/Apple OAuth หรือ Phone OTP กลับมาก่อน
+
+**Handoff ให้ AI Coding ต้องทำ**:
+1. เพิ่ม `public.developer_accounts` table + `public.is_developer_account()` function ใน `supabase/schema.sql` (ต้องมี `grant execute ... to authenticated;` — ระวังบั๊ก class เดียวกับที่ WYN-122 QA Round 1 เจอ คือลืม grant)
+2. สร้าง `.github/workflows/wyn124-manage-developer-accounts.yml` (list/add/remove ผ่าน Supabase Management API, resolve username→id)
+3. สร้าง `DeveloperAccessService` ใน `app/lib/core/` (generic, ไม่ผูกกับ feature ใดฟีเจอร์หนึ่ง, fail-closed, cache ต่อ session, invalidate เมื่อ auth state เปลี่ยน)
+4. เขียน `supabase/tests/wyn_124_developer_accounts_test.sh` ตรวจ RLS lockdown เต็มรูปแบบ + fail-closed ทุก edge case + grant execute ถูกต้อง
+5. งานรอบนี้ **ไม่มี UI ใดถูกแก้** (ส่งมอบแค่กลไก ยังไม่มีฟีเจอร์ไหนถูก gate จริง) — ต้องยืนยันกับ Founder เรื่องรายชื่อ username เริ่มต้นที่จะใส่เป็นบัญชีนักพัฒนาชุดแรก (แนะนำเริ่มจาก `@warren`) ก่อน merge จริง แต่ไม่บล็อกการเริ่ม implement
+
+เสร็จแล้วส่งต่อ **AI QA & Security** เน้นตรวจ RLS lockdown ของตารางใหม่ + fail-closed ทุก edge case + grant execute + 0 regression กับฟีเจอร์เดิม ก่อนขึ้น production (ห้ามข้าม QA ตาม WORKFLOW.md)
