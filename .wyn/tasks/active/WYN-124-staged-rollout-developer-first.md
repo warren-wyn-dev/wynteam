@@ -1,7 +1,7 @@
 # Product Task — WYN-124
 
-Status: active — AI Design เสร็จแล้ว (Requirement 2) — ส่งต่อ AI Coding
-Owner: AI Product Manager → AI Design → AI Coding
+Status: active — AI QA & Security ตรวจแล้ว **PASS** — รอ AI Deploy & DevOps รัน apply-schema workflow ก่อนขึ้น production
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security → AI Deploy & DevOps
 
 Feature: Staged Rollout — ปล่อยอัปเดตให้บัญชีนักพัฒนา/ทีมภายในก่อน แล้วค่อยปล่อยให้ผู้ใช้ทั่วไป
 
@@ -116,3 +116,34 @@ Known Issues (สิ่งที่ QA ต้องเช็คเป็นพ�
 4. Client `DeveloperAccessService` ยังไม่ถูกเรียกใช้จากที่ใดในแอปเลย (ตามขอบเขตงาน) — ยังไม่มี integration/widget test ที่ครอบคลุมมัน เพราะไม่มี UI ใดเรียกใช้ในรอบนี้ ให้ QA ตรวจแค่ logic ระดับ unit ผ่านการอ่านโค้ด + regression suite ของ schema/RLS เป็นหลัก
 
 Handoff: ส่งต่อ **AI QA & Security** ตรวจตาม `.wyn/docs/design/wyn-124-staged-rollout-developer-accounts.md` Handoff ข้อ 6: (1) RLS lockdown ของ `developer_accounts` (2) fail-closed ของ `is_developer_account()` ทุก edge case (null auth/ไม่อยู่ใน allowlist/allowlist ว่าง) (3) grant execute ถูกต้อง (4) 0 regression กับฟีเจอร์เดิม (ยกเว้น wyn_038 ที่เป็น pre-existing ตามข้างต้น) — **ห้ามข้าม QA และห้าม deploy เองก่อน QA อนุมัติ** ตาม WORKFLOW.md
+
+---
+
+## AI QA & Security Output (เสร็จแล้ว — PASS, ส่งต่อ AI Deploy & DevOps)
+
+Environment: local sandbox — Postgres 16.13 (`sudo -u postgres`, ไม่ใช่ production Supabase — schema นี้ยังไม่เคย apply ขึ้น production), Flutter SDK 3.47.1 (ตรงกับ pin ใน `ci.yml`) รันจริงในเครื่องมือ QA เอง ไม่ใช่แค่เชื่อรายงานจาก AI Coding
+
+**ทดสอบจริงทุกข้อ ไม่ใช่แค่ static review**:
+
+1. **`bash supabase/tests/wyn_124_developer_accounts_test.sh`** รันจริงกับ Postgres local → **PASS ทั้ง 20/20 checks** ยืนยันด้วยตัวเอง (CHECK1-14 ครบ รวม empty-allowlist=false, allowlisted=true, non-allowlisted (alice/bob/diane-anon)=false, `authenticated`/`anon` เข้าถึงตาราง select/insert/update/delete ไม่ได้เลยแม้แต่แถวเดียว, `has_function_privilege` ยืนยัน grant execute จริงและรอดจากการ revoke PUBLIC default)
+2. **Static review ของ `supabase/schema.sql` section WYN-124**: `grep` ยืนยันไม่มี `policy` ใดๆ ผูกกับ `developer_accounts` เลยในทั้งไฟล์ (0 matches) ตรงตาม Design Rule "ไม่มี SELECT/INSERT/UPDATE/DELETE policy ใดๆ" — `grant execute on function public.is_developer_account() to authenticated;` มี syntax ถูกต้อง (ไม่ใช่บั๊ก class เดียวกับ WYN-122 Round 1) — `set search_path = public` ป้องกัน search_path hijacking ของ SECURITY DEFINER function ถูกต้อง — `python3 supabase/check_schema_ordering.py` → OK (ไม่มี forward reference)
+3. **Regression suite เต็มรูปแบบ**: รัน `supabase/tests/*.sh` ทั้ง 38 ไฟล์เองจริง (ไม่เชื่อ AI Coding เฉยๆ) → 37/38 PASS, เจอ `wyn_038_view_counting_test.sh` fail 8/29 checks เหมือนที่ AI Coding รายงาน — **ยืนยันซ้ำเองว่าเป็น pre-existing** ด้วยการสร้าง `git worktree` ที่ commit `fc4f264` (ก่อน WYN-124) แล้วรันสคริปต์เดิมซ้ำ ได้ตัวเลข fail เหมือนกันทุกประการ (CHECK2=4/1, CHECK3=5/1, CHECK4=6/2, CHECK8a-c=6/2, CHECK9b=6/2) → ไม่เกี่ยวกับ WYN-124 จริง แนะนำเปิด bug task แยกให้ Debug Engineer ตรวจ view-counting dedup/rate-limit ต่อไป (ไม่ block งานนี้)
+4. **`flutter analyze` (app/)** รันเองจริง → **No issues found!**
+5. **`flutter test` (app/)** รันเองจริง (ใช้ Flutter 3.47.1 ที่มีอยู่ในเครื่องมือ QA) → **1293/1293 ผ่านหมด**, exit code 0
+6. **Dart `DeveloperAccessService` code review**: `try/catch` ครอบ RPC ทั้งก้อน คืน `false` เสมอเมื่อ error (ไม่โยน exception ต่อ), ใช้ `result == true` แทน `as bool` cast (กัน cast ที่ผิด shape หลุดออกนอก try ไม่ได้ เพราะ cast อยู่ใน try block เดียวกัน) ตรวจแล้วไม่มี path ใดโยน exception หลุด catch ได้จริง, cache invalidate ผ่าน `onAuthStateChange` ถูกต้อง, `resetForTest()` ตรง convention เดียวกับ `DeepLinkService.resetForTest()` — ไม่มีที่ใดในแอปเรียกใช้จริงตามขอบเขต (`grep` ยืนยัน 0 usage นอกไฟล์ตัวเอง) ตรงตาม scope ที่ตกลงไว้
+7. **Workflow files**: เทียบ `wyn124-apply-developer-accounts-schema.yml`/`wyn124-manage-developer-accounts.yml` กับ `wyn122-apply-chat-lockdown-schema.yml`/`wyn122-toggle-chat-lockdown.yml` แบบ side-by-side — pattern สอดคล้องกัน 100% (ใช้ secrets เดิม `SUPABASE_ACCESS_TOKEN`/`SUPABASE_URL`, resolve username→`profiles.id` ก่อนเสมอไม่ hardcode UUID, escape single-quote ป้องกัน SQL injection จาก free-form `username` input, fail ชัดเจนถ้า resolve ได้ไม่ตรง 1 แถว) — `grep` ยืนยันไม่มี secret hardcode ในทั้ง 2 ไฟล์
+8. **Information leak check**: ฟังก์ชันไม่รับ parameter ใดๆ เช็คแค่ `auth.uid()` ของผู้เรียกเอง ไม่มีทาง enumerate คนอื่นได้ — workflow "manage" list สมาชิกใน GitHub Actions log เป็น pattern เดียวกับที่ `wyn122-toggle-chat-lockdown.yml` ใช้อยู่แล้ว (เข้าถึงได้เฉพาะคนที่ trigger workflow บน repo ได้เท่านั้น) ไม่ใช่ความเสี่ยงใหม่ที่เกิดจากงานนี้
+
+**บั๊ก/ปัญหาที่พบ**: ไม่พบบั๊กใดๆ ที่ต้องแก้ ทั้ง logic-level และ typo-level — ไม่มีอะไรต้องแก้เองในรอบนี้
+
+**ข้อสังเกต (ไม่ block)**: ยังไม่มี Dart unit test เฉพาะของ `DeveloperAccessService` เอง (ตรวจผ่านแค่ code review + regression suite ระดับ schema/RLS) — แต่ตรวจแล้วว่า `core/` folder อื่นๆ ในโปรเจกต์นี้ก็ไม่มี unit test เช่นกัน (ไม่ใช่ gap ใหม่เฉพาะงานนี้) ไม่ block การ PASS รอบนี้เพราะยังไม่มี UI ใดเรียกใช้จริง
+
+**Final Status: PASS**
+
+**Handoff ต่อไปยัง AI Deploy & DevOps** — ต้องรันตามลำดับนี้เท่านั้น (ห้ามสลับลำดับ):
+1. รัน `.github/workflows/wyn124-apply-developer-accounts-schema.yml` (`workflow_dispatch` เปล่า) ก่อนเสมอ — apply table + function + grant ขึ้น production จริง (ยังไม่เพิ่มใครเข้า allowlist)
+2. หลังจากนั้นค่อยรัน `.github/workflows/wyn124-manage-developer-accounts.yml` (`action: add`, `username: warren` หรือ username อื่นตามที่ Founder ยืนยัน) เพื่อเพิ่มบัญชีนักพัฒนาชุดแรก — **ต้องยืนยันรายชื่อ username กับ Founder ก่อนรันขั้นตอนนี้** ตาม Handoff ข้อ 5 ของ Design spec (แนะนำเริ่มจาก `@warren`)
+3. บันทึกผล verification ทั้งสอง workflow runs ลง deployment log ตาม `.wyn/company/WORKFLOW.md` (สิ่งที่ deploy, ผล verification จริงจาก step "Verify"/"After" ของแต่ละ workflow)
+4. งานนี้ยังไม่มี UI ใดถูก gate จริง — ไม่มีอะไรให้ Founder ทดสอบผ่านหน้าจอในรอบนี้ แค่ยืนยันว่า 2 workflow รันสำเร็จและ `has_function_privilege`/allowlist ตรงตามที่ตั้งใจในผลลัพธ์ของ workflow เอง
+
+**แยกออกจากงานนี้ (ไม่ block)**: `wyn_038_view_counting_test.sh` fail อยู่ก่อนแล้ว (pre-existing, ยืนยันซ้ำด้วย `git worktree` แล้วว่าไม่เกี่ยวกับ WYN-124) — แนะนำเปิด bug task แยกให้ AI Debug Engineer ตรวจ view-counting dedup/rate-limit (WYN-038/083) ต่อไปเป็นงานคนละ track

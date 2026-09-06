@@ -1296,3 +1296,15 @@ Founder ถาม (ปรึกษา): deploy WYNOS ตอนนี้อัป
 **คำตัดสินใจของ Founder**: ทำทั้ง 2 ทางคู่ขนาน (ทางเลือกที่ 1 ใช้ได้ทันทีระหว่างรอทางเลือกที่ 2 สร้างเสร็จ) และ**อนุมัติให้ส่งต่อ AI Design ออกแบบระบบ account allowlist/feature-flag ทันที**
 
 Task: `.wyn/tasks/active/WYN-124-staged-rollout-developer-first.md` (ย้ายจาก backlog → active, ส่งต่อ AI Design)
+
+## [2026-09-06] WYN-124: AI QA & Security ตรวจ Developer Account Allowlist — PASS, ส่งต่อ AI Deploy & DevOps
+
+ตรวจ commit `742e7b2` (schema `developer_accounts`/`is_developer_account()` + 2 GitHub Actions workflows + `DeveloperAccessService` + regression test) จริงทุกข้อ ไม่เชื่อผลที่ AI Coding รายงานเฉยๆ:
+- รัน `supabase/tests/wyn_124_developer_accounts_test.sh` เองบน Postgres 16 local → PASS 20/20 checks (RLS lockdown จริง 0 policy ทั้ง `authenticated`/`anon`, grant execute ยืนยันด้วย `has_function_privilege` และรอดจากการ revoke PUBLIC default, fail-closed ทุก edge case)
+- รัน `supabase/tests/*.sh` ทั้ง 38 ไฟล์เอง → 37/38 PASS, ยืนยันซ้ำด้วย `git worktree` ที่ commit `fc4f264` (ก่อน WYN-124) ว่า `wyn_038_view_counting_test.sh` fail เหมือนกันทุกตัวเลข → เป็น pre-existing จริง ไม่เกี่ยวกับงานนี้
+- รัน `flutter analyze` (0 issues) และ `flutter test` (1293/1293) เองจริงด้วย Flutter 3.47.1
+- เทียบ workflow ใหม่ 2 ตัวกับ `wyn122-apply-chat-lockdown-schema.yml`/`wyn122-toggle-chat-lockdown.yml` แบบ side-by-side — pattern สอดคล้องกัน ไม่มี secret hardcode, resolve username→id ก่อนเสมอ
+
+ไม่พบบั๊กใดๆ ที่ต้องแก้ — **Final Status: PASS** ส่งต่อ AI Deploy & DevOps รัน `wyn124-apply-developer-accounts-schema.yml` ก่อน แล้วค่อยรัน `wyn124-manage-developer-accounts.yml` (action: add) เพิ่มบัญชีนักพัฒนาชุดแรกหลังยืนยัน username กับ Founder
+
+รายละเอียดเต็ม: `.wyn/tasks/active/WYN-124-staged-rollout-developer-first.md` (section "AI QA & Security Output")
