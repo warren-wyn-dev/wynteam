@@ -1,6 +1,6 @@
 # Product Task — WYN-113
 
-Status: active — AI Design ทำมอคอัพเสร็จแล้ว ส่ง Artifact ให้ Founder ดูแล้ว **รอ Founder เลือก 2 เรื่องก่อนส่งต่อ AI Coding** (ดู "## AI Design Output" ท้ายไฟล์นี้)
+Status: active — Founder ตัดสินใจแล้ว (เลือกโทนสี A + แก้ข้อความ) **พร้อมส่งต่อ AI Coding** (ดู "## AI Design Output" ท้ายไฟล์นี้)
 Owner: AI Product Manager → AI Design
 Feature: Open Graph / Twitter Card Preview สำหรับลิงก์ wynos.online
 Goal: ทำให้ลิงก์ wynos.online ที่ถูกแชร์ไปที่ไหนก็ตาม (Facebook/LINE/Discord/X ฯลฯ) ขึ้น preview card ที่มีรูป+ชื่อ+คำอธิบาย แทนที่จะไม่มี preview เลยหรือขึ้นแบบว่างเปล่า
@@ -35,3 +35,15 @@ Mockup (Artifact — ดูก่อนตัดสินใจ): https://claude
 - `og:description`: "แชร์ Drop โพสต์ Pop คลิปสั้น ตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว"
 
 **ยังไม่ส่งต่อ AI Coding** ตามกติกา Founder 2026-09-03 ("ต้องเห็นรูปก่อนเขียนโค้ดทุกครั้ง") — รอ Founder ตอบ 2 ข้อ: เลือกโทนสี + อนุมัติ/แก้ข้อความ
+
+## Final Decision (2026-09-06)
+
+Founder เลือก **โทนสี A (Paper)** — ไม่ใช่ B ที่ AI Design แนะนำ และแก้ข้อความ:
+- ตัด "Pop คลิปสั้น" ออกทั้งหมด (Pop ถูกซ่อนจากผู้ใช้ทุกจุดแล้วตั้งแต่ WYN-102 — ตรงมติเดิม)
+- "Drop" → "โพสต์รูป" (ศัพท์ในแอปที่คนนอกไม่รู้จัก)
+
+**ข้อความฉบับสุดท้าย**:
+- `og:title`: `WYNOS — สร้างชุมชนของคุณเอง`
+- `og:description`: `โพสต์รูป แชร์เรื่องราว และตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว`
+
+Mockup อัปเดตแล้ว: https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e — **พร้อมส่งต่อ AI Coding**

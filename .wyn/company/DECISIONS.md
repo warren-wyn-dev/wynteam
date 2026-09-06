@@ -1010,3 +1010,15 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 **สถานะ**: ส่ง Artifact ให้ Founder ดูแล้ว **ยังไม่ส่งต่อ AI Coding** — รอ Founder เลือกโทนสี + อนุมัติ/แก้ข้อความก่อน
 
 อ้างอิง: `.wyn/docs/design/wyn-113-og-share-preview-cards.md`, `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, Artifact https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e
+
+## [2026-09-06] WYN-113: Founder เลือกโทนสี A + แก้ copy — ตัด Pop ออก เพราะซ่อนจากผู้ใช้แล้ว (WYN-102)
+
+**บริบท**: หลัง AI Design เสนอ 2 ตัวเลือกสีสำหรับ share preview card (A-Paper / B-Ink แนะนำ) Founder เลือก **A (Paper)** — ตรงข้ามกับที่ AI Design แนะนำ — และแก้ copy `og:description` เอง 2 จุด: (1) ตัด "Pop คลิปสั้น" ออกทั้งหมด (2) เปลี่ยน "Drop" เป็น "โพสต์รูป"
+
+**ทำไมสำคัญ**: การตัด Pop ออกจาก copy **ตรงกับมติเดิมของโปรเจกต์เป๊ะ** — WYN-102 (2026-09-02) ซ่อน Pop จากทุกจุดที่ผู้ใช้เข้าถึงได้ในแอปแล้ว (Search/Home feed/Trending/Top100/Saved/notification) โดยไม่ลบโค้ด — การโฆษณาฟีเจอร์ที่คนหาไม่เจอจริงในแอปจะสร้างความสับสน/ผิดหวังให้คนที่คลิกลิงก์เข้ามา Founder จับจุดนี้ได้แม่นแม้ AI Design จะลืมเช็คย้อนกับ WYN-102 ตอนร่าง copy ครั้งแรก — เป็นบทเรียนสำหรับงานหน้า: **ก่อนเขียน marketing copy ที่พูดถึงฟีเจอร์ ต้องเช็คด้วยว่าฟีเจอร์นั้นเปิดให้ผู้ใช้เห็นจริงในปัจจุบันหรือไม่**
+
+**ข้อความสุดท้าย**: `og:title` "WYNOS — สร้างชุมชนของคุณเอง", `og:description` "โพสต์รูป แชร์เรื่องราว และตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว" — อัปเดต mockup ให้ตรงแล้ว
+
+**สถานะ**: พร้อมส่งต่อ AI Coding แล้ว
+
+อ้างอิง: `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, `.wyn/docs/design/wyn-113-og-share-preview-cards.md`, Artifact https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e

@@ -14,7 +14,7 @@ Components:
 - 8 meta tags ใหม่ใน `<head>`: `og:title`, `og:description`, `og:image`, `og:url`, `og:type`, `twitter:card`, `twitter:title`, `twitter:description`, `twitter:image`
 - Asset ใหม่ 1 ไฟล์: preview image ขนาด 1200×630px (`app/web/`) — ไม่ใช่ component ในแอป ไม่ต้องผ่าน Flutter widget tree ใดๆ
 
-**ตัวเลือกภาพ (ดู mockup เต็มในลิงก์ Artifact ด้านบน — ต้องดูก่อนตัดสินใจ ไม่ใช่แค่คำอธิบายนี้)**
+**Founder ตัดสินใจแล้ว (2026-09-06): เลือกตัวเลือก A (Paper) + แก้ข้อความ** — ดูรายละเอียดที่ท้ายเอกสารนี้ ตารางด้านล่างเก็บไว้เป็นบันทึกการเปรียบเทียบทั้งสองตัวเลือกที่เสนอไป
 
 | | ตัวเลือก A — Paper | ตัวเลือก B — Ink (แนะนำ) |
 |---|---|---|
@@ -41,8 +41,16 @@ Design Rules ที่ยึดในงานนี้:
 - ตามบทเรียน 2026-09-02 (WYN-095): สีทั้งหมดอ่านจาก `wyn_colors.dart` ไฟล์จริง ไม่ใช้ `ds-001-color-system.md`/`design-principles.md` เก่าที่ยังพูดถึงสีน้ำเงิน `#2D6CDF` ที่ถูก re-brand เป็น Sapphire ไปแล้ว
 - ตามคำสั่ง Founder 2026-09-03 ("ต้องเห็นรูปก่อนเขียนโค้ดทุกครั้ง"): ส่ง Artifact มอคอัพให้ดูก่อนแล้ว **ยังไม่ส่งต่อ AI Coding จนกว่า Founder จะเลือก**
 
-Handoff: **ยังไม่ส่งต่อ AI Coding** — รอ Founder ตัดสินใจ 2 เรื่องก่อน (ดูรายละเอียดใน `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`):
-1. เลือกโทนสี A (Paper) หรือ B (Ink, แนะนำ)
-2. อนุมัติข้อความ `og:title`/`og:description` ที่เสนอ หรือแก้คำ
+## Final Decision (Founder, 2026-09-06)
 
-พอ Founder ตอบแล้ว ส่งต่อ AI Coding ทำตาม Requirements ของ Product spec ได้ทันที (งานเล็ก ไม่มี migration ไม่มี schema เปลี่ยน แก้ไฟล์เดียว + เพิ่ม asset เดียว)
+- **โทนสี: A — Paper** (พื้นสว่าง, ไม่ใช่ B ที่ AI Design แนะนำไว้)
+- **แก้ข้อความ**: Founder ตัด "Pop คลิปสั้น" ออกทั้งหมด และเปลี่ยน "Drop" เป็น "โพสต์รูป"
+  - เหตุผลที่ตรงกับมติเดิมของโปรเจกต์: **Pop ถูกซ่อนจากทุกจุดที่ผู้ใช้เข้าถึงได้แล้วตั้งแต่ WYN-102** — โฆษณาฟีเจอร์ที่คนหาไม่เจอในแอปจริงจะทำให้คนสับสน/ผิดหวัง ตรงเป้าที่ Founder แก้ให้
+  - "Drop" เป็นศัพท์เฉพาะภายในแอป คนนอกที่ยังไม่เคยใช้ WYN จะไม่รู้ความหมาย — "โพสต์รูป" สื่อสารตรงและเข้าใจทันที
+
+**og:title (ไม่เปลี่ยน)**: `WYNOS — สร้างชุมชนของคุณเอง`
+**og:description (ฉบับสุดท้าย)**: `โพสต์รูป แชร์เรื่องราว และตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว`
+
+Mockup อัปเดตแล้วให้ตรงกับที่เลือก: https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e
+
+Handoff: **พร้อมส่งต่อ AI Coding แล้ว** — ทำตาม Requirements ของ Product spec (`.wyn/tasks/active/WYN-113-og-share-preview-cards.md`) โดยใช้โทนสี A + ข้อความฉบับสุดท้ายด้านบน (งานเล็ก ไม่มี migration ไม่มี schema เปลี่ยน แก้ไฟล์เดียว + เพิ่ม asset เดียว)
