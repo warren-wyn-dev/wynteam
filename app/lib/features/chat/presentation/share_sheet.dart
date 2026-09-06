@@ -56,16 +56,18 @@ Future<void> showShareSheet(
                 Navigator.of(sheetContext).pop();
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    // `!` is safe here, not just convenient: this
-                    // ListTile only exists when `showInviteFromFollowers`
-                    // was true at build time, which already required
-                    // both to be non-null -- and neither parameter is
-                    // ever reassigned in this function.
+                    // Dart promotes followRepository/clubName to
+                    // non-null here on its own -- showInviteFromFollowers
+                    // is exactly `... && followRepository != null &&
+                    // clubName != null`, and neither is ever reassigned
+                    // in this function, so no `!` is needed (flutter
+                    // analyze flags one as an unnecessary_non_null_assertion
+                    // warning if added).
                     builder: (_) => InviteToClubScreen(
-                      followRepository: followRepository!,
+                      followRepository: followRepository,
                       chatRepository: chatRepository,
                       clubId: sharedContentId,
-                      clubName: clubName!,
+                      clubName: clubName,
                     ),
                   ),
                 );

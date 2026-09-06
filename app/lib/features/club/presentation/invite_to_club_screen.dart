@@ -404,24 +404,33 @@ class _InviteToClubScreenState extends State<InviteToClubScreen> {
     return SizedBox(
       height: WynSpacing.touchTargetMin,
       child: switch (state) {
-        _InviteState.sending => const Padding(
-            padding: EdgeInsets.symmetric(horizontal: WynSpacing.space4),
-            child: SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
+        _InviteState.sending => Semantics(
+            label: 'กำลังเชิญ ${profile.nameOrUsername}',
+            excludeSemantics: true,
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: WynSpacing.space4),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
             ),
           ),
-        _InviteState.invited => OutlinedButton.icon(
-            onPressed: null,
-            icon: const Icon(Icons.check, size: 14, color: WynColors.mutedNeutral),
-            label: Text(
-              'เชิญแล้ว',
-              style: _textStyle(fontSize: 12.5, color: WynColors.mutedNeutral),
+        _InviteState.invited => Semantics(
+            label: 'เชิญ ${profile.nameOrUsername} แล้ว',
+            excludeSemantics: true,
+            child: OutlinedButton.icon(
+              onPressed: null,
+              icon: const Icon(Icons.check, size: 14, color: WynColors.mutedNeutral),
+              label: Text(
+                'เชิญแล้ว',
+                style: _textStyle(fontSize: 12.5, color: WynColors.mutedNeutral),
+              ),
             ),
           ),
         _InviteState.idle => Semantics(
             label: 'เชิญ ${profile.nameOrUsername} เข้ากลุ่ม',
+            button: true,
             excludeSemantics: true,
             child: OutlinedButton(
               onPressed: () => _invite(profile),
