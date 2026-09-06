@@ -56,7 +56,17 @@ jobs:
               -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
               -H "Content-Type: application/json" -d "$body")
             if [ "$code" != "200" ] && [ "$code" != "201" ]; then
-              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+              # >&2 -- every call site below redirects run_sql's stdout to
+              # /dev/null on success (`... >/dev/null`), which was also
+              # silently swallowing this branch's own error output on
+              # failure (found the hard way: this workflow's first real
+              # run failed with no visible reason at all). Writing to
+              # stderr means a failure is visible regardless of what the
+              # caller does with stdout.
+              echo "::error::HTTP $code" >&2
+              cat "$out" >&2
+              rm -f "$out"
+              return 1
             fi
             cat "$out"; rm -f "$out"
           }
@@ -132,8 +142,20 @@ jobs:
                      before insert on public.profiles
                      for each row execute function public.set_referral_code_on_profile();
 
-                   update public.profiles set referral_code = public.generate_referral_code()
-                   where referral_code is null;" >/dev/null
+                   do \$do\$
+                   declare
+                     r record;
+                   begin
+                     for r in select id from public.profiles where referral_code is null loop
+                       begin
+                         update public.profiles set referral_code = public.generate_referral_code()
+                         where id = r.id;
+                       exception when others then
+                         raise notice 'Skipping referral_code backfill for profile %: %', r.id, sqlerrm;
+                       end;
+                     end loop;
+                   end;
+                   \$do\$;" >/dev/null
           echo "Done."
 
           echo "=== 4. referral_redemptions table (idempotent) + RLS (no client-facing policy) ==="
