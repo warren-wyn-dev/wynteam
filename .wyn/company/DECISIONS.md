@@ -1002,3 +1002,16 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 **WYN-115**: Founder พูดต่อว่าฟังก์ชันเชิญเข้าคลับควรเลือกเชิญจากคนที่ติดตามตัวเองได้ตรงๆ (ตอนนี้ปุ่ม "ชวนเพื่อนเข้ากลุ่ม" เปิดแค่ share sheet ทั่วไป ไม่มีตัวเลือก "ดู follower list แล้วเลือกชวน" เลย) — ข้อมูลที่ต้องใช้ (`FollowRepository.fetchFollowers()`) มีอยู่แล้ว ไม่ต้องเขียน query ใหม่ แต่เป็นงาน UI ใหม่ (ต้องมีหน้าจอ/bottom sheet เลือก follower) — **ไม่เขียนโค้ดทันทีเพราะกติกาถาวรของ Founder เอง** (`.wyn/company/DECISIONS.md`, [2026-09-03] "ขอดูรูปก่อน เขียนโค้ดนะ" — งาน UI ต้องมี mockup ให้อนุมัติก่อนเสมอ) — สร้าง `.wyn/tasks/backlog/WYN-115-invite-followers-to-club.md` ไว้แทน ส่งต่อ AI Design ก่อนเมื่อ Founder พร้อมให้เริ่ม
 
 อ้างอิง: `.wyn/tasks/qa/WYN-114-share-links-no-deep-link.md`, `.wyn/tasks/backlog/WYN-115-invite-followers-to-club.md`, `app/lib/core/navigation/deep_link_service.dart`
+
+## [2026-09-06] WYN-115: AI Design เสร็จ — ส่ง mockup ให้ Founder อนุมัติก่อนส่งต่อ AI Coding
+
+Design spec เต็มที่ `.wyn/docs/design/wyn-115-invite-followers-to-club.md` — ตัดสินใจหลัก: reuse ของเดิมทั้งหมด (ไม่คิด pattern ใหม่) —
+- เพิ่มแถวที่ 4 "เชิญจากผู้ติดตาม" บนสุดของ `showShareSheet` เดิม เฉพาะตอนแชร์ Club
+- หน้าจอใหม่ `InviteToClubScreen` copy โครง `FollowListScreen` (avatar/ชื่อ/@username/ช่องค้นหา/infinite scroll) ทั้งหมด เปลี่ยนแค่ trailing button เป็น "เชิญ"/"เชิญแล้ว"
+- ส่งคำเชิญผ่าน "แชร์เข้า Chat" เดิม (`ChatRepository`/`SharedContentType.club`, WYN-033) ไม่สร้าง infra ใหม่
+- ตอบ Requirement "เลือกทีละคนหรือหลายคน" ด้วย single-tap-to-invite ต่อเนื่อง (ไม่ auto-close หน้าจอ ต่างจาก `ShareToChatScreen` ที่ pop กลับทันที เพราะเจตนาใช้งานต่างกัน)
+- ตั้งใจไม่กรอง follower ที่เป็นสมาชิกคลับอยู่แล้วออกจาก list ใน v1 (ดูเหตุผลเต็มในเอกสาร)
+
+ส่ง Artifact preview (phone mockup 3 เฟรม: sheet ก่อน/หลังแก้ + หน้าจอใหม่ทั้ง 3 สถานะปุ่ม) ให้ Founder ตรวจตามกติกา "ขอดูรูปก่อน เขียนโค้ดนะ" (2026-09-03) — ย้าย `.wyn/tasks/backlog/WYN-115-...md` → `active/` ยังไม่ส่งต่อ AI Coding จนกว่า Founder จะอนุมัติ
+
+อ้างอิง: `.wyn/docs/design/wyn-115-invite-followers-to-club.md`, `.wyn/tasks/active/WYN-115-invite-followers-to-club.md`

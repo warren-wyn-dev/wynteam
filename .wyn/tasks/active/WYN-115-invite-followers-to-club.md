@@ -1,6 +1,6 @@
 # Product Task — WYN-115
 
-Status: backlog
+Status: active (Design เสร็จแล้ว 2026-09-06, รอ Founder อนุมัติ mockup ก่อนส่งต่อ AI Coding — ดู "AI Design Output" ท้ายไฟล์นี้)
 Owner: AI Product Manager
 Feature: Invite Followers to Club (pick-from-followers, not just link sharing)
 Goal: ให้สมาชิกคลับชวนคนที่ติดตามตัวเองเข้าคลับได้โดยตรงในแอป ไม่ต้องพึ่งการก็อปลิงก์ไปแปะที่อื่นเพียงอย่างเดียว
@@ -23,3 +23,15 @@ Priority: P2 — เป็นการปรับปรุง UX ของฟ�
 Risks: ไม่มีความเสี่ยงด้าน data/security ใหม่ (`fetchFollowers` เป็น query ที่มีอยู่แล้ว ผ่าน RLS เดิม) — ความเสี่ยงหลักคือ UX เลือกผิดแบบ (list ยาวเกินไปถ้า follower เยอะ ควรมี search/filter ในตัว list ด้วยถ้า Design เห็นว่าจำเป็น)
 Recommendation: **ต้องมี mockup ให้ Founder ดูและอนุมัติก่อนเริ่มเขียนโค้ด** ตามกติกาถาวรที่ Founder ตั้งไว้เอง (`.wyn/company/DECISIONS.md`, [2026-09-03] "ขอดูรูปก่อน เขียนโค้ดนะ" — งาน UI ใดๆ ต้องมี Artifact/mockup ก่อนเสมอ ไม่ว่าจะเปลี่ยนเล็กแค่ไหน) — ยังไม่ได้ทำมาก่อนหน้านี้เพราะเรื่องนี้เพิ่งถูกอธิบายเป็นคำพูดในการสนทนา ยังไม่มีภาพประกอบ
 Handoff: ส่งต่อ AI Design เพื่อออกแบบหน้าจอ/bottom sheet เลือก follower ก่อน (ต่อยอดจาก `club_members_tab.dart`'s ปุ่มเชิญเดิม) แล้วค่อยส่ง AI Coding พร้อม mockup ที่ Founder อนุมัติแล้ว
+
+## AI Design Output (2026-09-06)
+
+Design spec เต็มอยู่ที่ `.wyn/docs/design/wyn-115-invite-followers-to-club.md` — สรุปการตัดสินใจหลัก:
+
+- **ตอบ Requirement "เลือกทีละคนหรือหลายคน"**: เลือกทีละคน กดแล้วเชิญทันที ไม่มีขั้นตอน confirm แยก — ทำตาม pattern ที่ `ShareToChatScreen` (WYN-033) ใช้อยู่แล้วเป๊ะ (single-tap-to-send) ไม่ต้องคิด interaction ใหม่ ต่างแค่จุดเดียว: หน้าจอนี้**ไม่ปิดตัวเองหลังเชิญสำเร็จ** (แถวเปลี่ยนเป็น "เชิญแล้ว" ค้างไว้แทน) เพราะธรรมชาติของงานคือเชิญหลายคนต่อเนื่องในครั้งเดียวที่เปิดหน้าจอ ไม่ใช่ "แชร์ 1 ชิ้นให้ 1 คน" แบบเดิม
+- **ตอบ Requirement "กดเชิญแล้วเกิดอะไรขึ้น"**: เลือกทาง (ก) — ส่งผ่าน "แชร์เข้า Chat" เดิม (`ChatRepository.getOrCreateConversation` + `sendMessage(sharedContentType: club)`) ไม่สร้าง Notification ประเภทใหม่ (ทาง ข) เพราะทาง (ก) ใช้ของที่มีอยู่แล้ว 100% ไม่ต้องแตะ schema/RLS/Edge Function ใดๆ เลย ความเสี่ยงต่ำกว่ามาก
+- Entry point: เพิ่มแถวที่ 4 ("เชิญจากผู้ติดตาม") บนสุดของ `showShareSheet` เดิม เฉพาะตอน `sharedContentType == club` เท่านั้น — ปุ่ม "ชวนเพื่อนเข้ากลุ่ม"/ไอคอนแชร์ header เดิมไม่ต้องเปลี่ยนอะไรเลย
+- หน้าจอใหม่ `InviteToClubScreen` reuse โครงแถว/ช่องค้นหา/infinite-scroll จาก `FollowListScreen` ทั้งหมด ต่างแค่ trailing widget (ปุ่ม "เชิญ"/"เชิญแล้ว" แทนปุ่ม Follow)
+- **ไม่กรองคนที่เป็นสมาชิกคลับอยู่แล้วออกจาก list** ในรอบแรกนี้ (ตั้งใจตัดสโคป — เหตุผลเต็มอยู่ใน design doc "Known Limitation") ไม่ใช่ bug
+
+**รอ Founder อนุมัติ mockup ก่อนส่งต่อ AI Coding** ตามกติกา "ขอดูรูปก่อน เขียนโค้ดนะ" — ยังไม่มีการเขียนโค้ดใดๆ ในรอบนี้
