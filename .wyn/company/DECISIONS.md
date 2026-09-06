@@ -1056,3 +1056,19 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 **ผลลัพธ์**: **PASS** — ย้าย `.wyn/tasks/active/WYN-113-og-share-preview-cards.md` → `.wyn/tasks/approved/`
 
 อ้างอิง: `.wyn/tasks/approved/WYN-113-og-share-preview-cards.md`
+
+## [2026-09-06] WYN-113: Deploy สำเร็จ ยืนยัน production จริงด้วย curl — ปิดงานสมบูรณ์
+
+**บริบท**: PR #267 (WYN-113) เปิดโดย AI Deploy & DevOps — Founder merge เข้า `main` เองผ่าน GitHub UI เร็วกว่าที่ Flutter CI job บน PR จะรันเสร็จด้วยซ้ำ ตรวจย้อนหลังพบว่า CI บน `main` (run #192, หลัง merge) เขียวครบทุก job รวม Flutter จริง จึง trigger `deploy-web.yml` (run #87) ทันที ผล **success**
+
+**Production verification จริง (ไม่ใช่แค่เชื่อ workflow log)**: session นี้มี network egress ถึง `wynos.online` จริง จึง curl ตรวจตรงๆ 2 จุด:
+1. `curl https://wynos.online/` — เห็น meta tag ทั้ง 9 ตัวถูกต้องครบ ข้อความไทยไม่เพี้ยน
+2. `curl https://wynos.online/og-image.png` — **md5sum ตรงกับไฟล์ที่ commit เป๊ะ** (`76b00bbf...`) ยืนยันว่ารูปที่ deploy จริงไม่ใช่ไฟล์เก่า/ไฟล์ผิด
+
+ตรงตามวินัยที่บันทึกไว้ตั้งแต่เหตุการณ์ Vercel 2026-09-02 ("CI เขียว + deploy workflow รายงาน success ไม่เท่ากับ production ใช้งานได้จริง") — รอบนี้ AI ยืนยันได้เองครบทั้งสองขา เพราะเนื้อหาที่ต้องตรวจ (raw meta tag + ไฟล์รูป) ตรวจสอบได้เชิงกลไก 100% ไม่ต้องอาศัยการรับรู้ของมนุษย์เหมือนงาน UI/UX ทั่วไป — task จึงย้ายตรงเข้า `completed/` ได้ทันทีโดยไม่ต้องรอ Founder ทดลองใช้เพิ่ม
+
+**เหลือทำ (ไม่ blocking)**: Founder อาจลองวางลิงก์ใน Facebook Sharing Debugger เองเพื่อดู preview การ์ดด้วยตาจริง
+
+**สถานะ**: WYN-113 **completed** ครบทั้ง Product → Design → Coding → QA → Deploy → Production Verification ไม่มี rollback ต้องทำ ไม่มี migration ค้าง
+
+อ้างอิง: `.wyn/tasks/completed/WYN-113-og-share-preview-cards.md`, `.wyn/logs/deployments/2026-09-06-wyn-113-og-share-preview-deploy.md`, PR #267, deploy-web.yml run #87
