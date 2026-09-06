@@ -11,6 +11,7 @@ import '../../../analytics/data/analytics_repository.dart';
 import '../../../profile/data/profile_repository.dart' hide UsernameTakenException;
 import '../../data/auth_repository.dart';
 import '../../data/onboarding_state.dart';
+import '../../data/pending_referral_code.dart';
 import 'onboarding_scaffold.dart';
 import 'steps/birthday_step.dart';
 import 'steps/display_name_step.dart';
@@ -187,10 +188,24 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           stepCount: _stepCount,
           isLoading: _isLoading,
           errorText: _errorText,
-          onSubmit: (dateOfBirth) => _run(
-            () => widget.authRepository.setDateOfBirth(widget.user.id, dateOfBirth),
-            next: _LocalStep.username,
-          ),
+          onSubmit: (dateOfBirth) => _run(() async {
+            await widget.authRepository.setDateOfBirth(widget.user.id, dateOfBirth);
+            // WYN-113 (Invite-Only Access Gate): the profiles row (and
+            // its referral_code) exists for the first time as of the
+            // line above -- the earliest point a redemption can be
+            // recorded. Best-effort/fire-and-forget on purpose (see
+            // AuthRepository.redeemReferralCode's own doc comment): the
+            // real gate already happened before sign-in, so a failure
+            // here must never block onboarding itself.
+            final code = PendingReferralCode.consume();
+            if (code != null) {
+              unawaited(
+                widget.authRepository.redeemReferralCode(code).catchError(
+                      (_) {},
+                    ),
+              );
+            }
+          }, next: _LocalStep.username),
         );
 
       case _LocalStep.username:

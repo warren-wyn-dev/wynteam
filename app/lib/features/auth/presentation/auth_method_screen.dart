@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/auth_repository.dart';
+import '../data/pending_referral_code.dart';
 import 'email_auth_screen.dart';
 import 'phone_entry_screen.dart';
+import 'redeem_invite_code_screen.dart';
 import '../../../core/design/wyn_spacing.dart';
 
 /// Screen 2 — Auth Method Selection.
@@ -63,6 +65,55 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  // WYN-113 (Invite-Only Access Gate): true while the Founder's gate is
+  // on and this visitor hasn't redeemed a code yet this app session --
+  // shows a "กรอกโค้ดเชิญ" prompt in place of the real sign-in buttons
+  // below. Never true when adding a second account (`isAddingAccount`)
+  // -- that's an existing, already-onboarded user, not one of the new
+  // users this gate exists to throttle. Both start true (not false, and
+  // set for real in initState -- a field initializer can't read
+  // `widget` yet) so the real sign-in buttons never flash on screen for
+  // an instant before the gate check below resolves.
+  late bool _inviteGateBlocking;
+  late bool _checkingInviteGate;
+
+  @override
+  void initState() {
+    super.initState();
+    _inviteGateBlocking = !widget.isAddingAccount;
+    _checkingInviteGate = !widget.isAddingAccount;
+    if (!widget.isAddingAccount) _checkInviteGate();
+  }
+
+  Future<void> _checkInviteGate() async {
+    bool enabled;
+    try {
+      enabled = await _authRepository.isInviteGateEnabled();
+    } catch (_) {
+      // Fail open -- same posture as AuthGate's own moderation-status/
+      // document-acceptance checks: a network hiccup checking this must
+      // never itself become a way to lock every visitor out of signing
+      // up at all.
+      enabled = false;
+    }
+    if (!mounted) return;
+    setState(() {
+      _inviteGateBlocking = enabled && !PendingReferralCode.hasValidatedCode;
+      _checkingInviteGate = false;
+    });
+  }
+
+  Future<void> _redeemInviteCode() async {
+    final redeemed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => RedeemInviteCodeScreen(authRepository: _authRepository),
+      ),
+    );
+    if (redeemed == true && mounted) {
+      setState(() => _inviteGateBlocking = false);
+    }
+  }
+
   Future<void> _handle(Future<void> Function() action) async {
     setState(() {
       _isLoading = true;
@@ -94,54 +145,79 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: WynSpacing.space8),
-              FilledButton.icon(
-                onPressed: _isLoading
-                    ? null
-                    : () => _handle(_authRepository.signInWithGoogle),
-                icon: const Icon(Icons.g_mobiledata),
-                label: const Text('เข้าสู่ระบบด้วย Google'),
-              ),
-              if (_appleLoginEnabled) ...[
-                const SizedBox(height: WynSpacing.space3),
+              // WYN-113 (Invite-Only Access Gate): while the gate is on
+              // and this visitor hasn't redeemed a code yet, the real
+              // sign-in buttons below are replaced with a "กรอกโค้ดเชิญ"
+              // prompt entirely -- there is no way to reach Google/
+              // Apple/Email/Phone sign-in without one. The guest-browse
+              // button further down is deliberately NOT behind this
+              // check (see RedeemInviteCodeScreen's own doc comment).
+              if (_checkingInviteGate) ...[
+                const Center(child: CircularProgressIndicator()),
+              ] else if (_inviteGateBlocking) ...[
+                Text(
+                  'ตอนนี้ WYNOS เปิดให้เข้าใช้งานเฉพาะผู้ที่มีโค้ดเชิญจากเพื่อนเท่านั้น',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: WynSpacing.space4),
+                FilledButton(
+                  onPressed: _redeemInviteCode,
+                  child: const Text('กรอกโค้ดเชิญ'),
+                ),
+              ] else ...[
                 FilledButton.icon(
                   onPressed: _isLoading
                       ? null
-                      : () => _handle(_authRepository.signInWithApple),
-                  icon: const Icon(Icons.apple),
-                  label: const Text('เข้าสู่ระบบด้วย Apple'),
+                      : () => _handle(_authRepository.signInWithGoogle),
+                  icon: const Icon(Icons.g_mobiledata),
+                  label: const Text('เข้าสู่ระบบด้วย Google'),
                 ),
-              ],
-              const SizedBox(height: WynSpacing.space3),
-              // Any email + any number of accounts (Founder, 2026-08-24)
-              // -- not tied to a single Google/Apple identity, so a
-              // tester can sign up with whatever address they want. See
-              // email_auth_screen.dart's own doc comment.
-              OutlinedButton(
-                onPressed: _isLoading
-                    ? null
-                    : () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => EmailAuthScreen(
-                              authRepository: _authRepository,
-                            ),
-                          ),
-                        ),
-                child: const Text('เข้าสู่ระบบด้วยอีเมล'),
-              ),
-              if (_phoneLoginEnabled) ...[
+                if (_appleLoginEnabled) ...[
+                  const SizedBox(height: WynSpacing.space3),
+                  FilledButton.icon(
+                    onPressed: _isLoading
+                        ? null
+                        : () => _handle(_authRepository.signInWithApple),
+                    icon: const Icon(Icons.apple),
+                    label: const Text('เข้าสู่ระบบด้วย Apple'),
+                  ),
+                ],
                 const SizedBox(height: WynSpacing.space3),
+                // Any email + any number of accounts (Founder,
+                // 2026-08-24) -- not tied to a single Google/Apple
+                // identity, so a tester can sign up with whatever
+                // address they want. See email_auth_screen.dart's own
+                // doc comment.
                 OutlinedButton(
                   onPressed: _isLoading
                       ? null
                       : () => Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => PhoneEntryScreen(
+                              builder: (_) => EmailAuthScreen(
                                 authRepository: _authRepository,
                               ),
                             ),
                           ),
-                  child: const Text('ใช้เบอร์โทรศัพท์แทน'),
+                  child: const Text('เข้าสู่ระบบด้วยอีเมล'),
                 ),
+                if (_phoneLoginEnabled) ...[
+                  const SizedBox(height: WynSpacing.space3),
+                  OutlinedButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => PhoneEntryScreen(
+                                  authRepository: _authRepository,
+                                ),
+                              ),
+                            ),
+                    child: const Text('ใช้เบอร์โทรศัพท์แทน'),
+                  ),
+                ],
               ],
               // WYN-072 (Guest Browsing): a lighter, secondary path --
               // graphite text on a plain TextButton, not paired visually

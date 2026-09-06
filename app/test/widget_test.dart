@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:wyn/features/auth/data/auth_repository.dart';
 import 'package:wyn/features/auth/presentation/auth_method_screen.dart';
 import 'package:wyn/features/auth/presentation/welcome_screen.dart';
 
+import 'support/recording_auth_repository.dart';
+
 void main() {
-  // SupabaseClient() only stores config here — it makes no network calls
-  // until a method (auth/select/etc.) is actually invoked, so it's safe to
-  // construct in a widget test without a real backend.
-  final authRepository =
-      AuthRepository(SupabaseClient('https://example.supabase.co', 'test-key'));
+  // WYN-113 (Invite-Only Access Gate): AuthMethodScreen now calls
+  // isInviteGateEnabled() unconditionally from initState, which a real
+  // AuthRepository (backed by a real, if placeholder, SupabaseClient)
+  // turns into a genuine network request -- fine for the plain
+  // "constructs without touching the network" claim this used to rely
+  // on, but the very first test in this file to actually mount
+  // AuthMethodScreen and pumpAndSettle() now hangs waiting on that
+  // request to resolve against a domain with no real backend.
+  // RecordingAuthRepository resolves every method (including
+  // isInviteGateEnabled, defaulted to false/off) without touching the
+  // network at all -- same fix shape as every other test file in this
+  // project that mounts a screen touching AuthRepository.
+  final authRepository = RecordingAuthRepository();
 
   testWidgets('WelcomeScreen shows the headline and CTA button',
       (tester) async {
