@@ -1276,3 +1276,11 @@ AI QA & Security ตรวจ WYN-115 เต็มรูปแบบ ตัด�
 **สาเหตุร่วม**: หลาย AI session ทำงานพร้อมกันบน branch แยกกัน ไม่เห็นเลข ID ที่ session อื่นใช้ไปแล้วจนกว่าจะ merge เข้า main — เป็นความเสี่ยงเชิงโครงสร้างที่ยังไม่มีกลไกป้องกัน (เช่น central "next available ID" lock/registry) ทั้ง 4 ครั้งที่เจอมาล้วนแก้ได้ตอน merge โดยไม่มีอะไรเสียหาย แต่ยิ่งมี session พร้อมกันมากขึ้นเรื่อยๆ ความถี่ของ collision ก็จะเพิ่มตาม — ควรพิจารณาแก้ที่ระดับ process จริงจัง ไม่ใช่แก้เฉพาะหน้าทุกครั้งที่เจอ
 
 อ้างอิง: `.wyn/tasks/active/WYN-119-club-deep-linking.md` ("Partial Coding Output"), `.wyn/tasks/approved/WYN-123-invite-followers-to-club.md` ("Note — Renamed from WYN-115")
+
+## [2026-09-06] WYN-123 + WYN-119 (partial) deploy สำเร็จขึ้น production จริง
+
+Merge เข้า `main` ผ่าน PR #282 (`b3d150f`) หลังแก้ merge conflict + ID collision (ดู entry ก่อนหน้า) — `deploy-web.yml` run #93 success ครบทุก step ยืนยัน production ด้วย curl จริง: `/`, `/club/<id>`, `/drop/<id>`, `/@user` ตอบ HTTP 200 (`text/html`) ถูกต้อง, static asset เดิม (`og-image.png`/`favicon.png`/`manifest.json`) ไม่ถูก SPA rewrite ทับ (regression check ผ่าน), `main.dart.js` เป็น build ใหม่จริง
+
+**ยังไม่ปิด task เป็น completed** — ตามกติกา "Production Verification คือใครยืนยัน ยืนยันอะไร" (`.wyn/company/WORKFLOW.md`) curl พิสูจน์ได้แค่ "เว็บขึ้น ไม่พัง" ไม่ใช่ "ฟีเจอร์ใหม่ทำงานถูกต้องจริงในเบราว์เซอร์" (กด "เชิญจากผู้ติดตาม" → เห็นรายชื่อ → กดเชิญ → คนถูกเชิญได้รับข้อความจริง) — รอ Founder ทดลองใช้จริงก่อน
+
+รายละเอียดเต็ม: `.wyn/logs/deployments/2026-09-06-wyn-123-invite-followers-deep-link-deploy.md`
