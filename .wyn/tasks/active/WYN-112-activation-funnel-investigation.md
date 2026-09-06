@@ -16,8 +16,8 @@ Acceptance Criteria:
 Dependencies: WYN-077 (Analytics — deployed แล้ว, ใช้ข้อมูลได้เลยไม่ต้องรอ dev เพิ่ม)
 Priority: P0
 Risks: ถ้าจำนวน sample ยังน้อยเกินไป (คนสมัครยังไม่มาก) ตัวเลขอาจไม่นิ่งพอสรุปแน่ชัด — ต้องระบุขนาด sample ไว้ในรายงานด้วยเสมอ ไม่สรุปเกินข้อมูลที่มี
-Recommendation: ให้ AI Deploy & DevOps หรือ AI Debug Engineer (มีสิทธิ์เข้าถึง Supabase Management API) ดึงข้อมูลนี้มาสรุปเป็นรายงานสั้นให้ Founder ก่อนตัดสินใจขั้นต่อไป — ไม่ต้องรอ Design/Coding ใดๆ เพราะเป็นการอ่านข้อมูลเท่านั้น ไม่แก้โค้ด
-Handoff: ส่งต่อ AI Debug Engineer / AI Deploy & DevOps เพื่อดึงและสรุปข้อมูล funnel จริงจาก production analytics — เสร็จแล้วส่งกลับ AI Product Manager เพื่อวางแผนขั้นต่อไปตามผลข้อมูลจริง
+Recommendation: **แก้ไข (2026-09-06)** — ไม่ต้องดึงผ่าน Supabase Management API เลย ข้อมูลที่ต้องการมีอยู่แล้วในหน้า **WYN Admin Dashboard ส่วน "การเติบโต"** (`admin/components/admin/dashboard-metrics.tsx`, ขับเคลื่อนโดย `admin_dashboard_metrics()` RPC ใน `supabase/schema.sql` ซึ่งมีคอลัมน์ `signup_conversion_pct`, `activation_pct_24h`/`activation_count_24h`, `retention_d1_pct`, `retention_d7_pct`, `top_sources` ครบตามที่ต้องการอยู่แล้ว จาก WYN-077 ที่ deploy ไปแล้ว) — Founder ที่มีสิทธิ์ admin/moderator เปิดหน้า WYN Admin ที่ใช้งานอยู่แล้วดูได้ทันที ไม่ต้องรอ AI role ใดดึงข้อมูลให้เลย เร็วกว่าและไม่ต้องแตะ production credential ใดๆ
+Handoff: Founder เปิด WYN Admin Dashboard ดูส่วน "การเติบโต" เอง แล้วส่งตัวเลข (หรือภาพหน้าจอ) กลับมาให้ AI Product Manager วิเคราะห์ต่อ — ไม่ต้องส่งต่อ AI Debug Engineer/Deploy แล้ว เว้นแต่ตัวเลขที่เห็นชี้ว่ามีบั๊กจริงต้องสืบเพิ่ม (เช่น session_start ผิดปกติ)
 
 ## Note — ID Collision พบระหว่างสร้าง task นี้ (2026-09-06)
 
