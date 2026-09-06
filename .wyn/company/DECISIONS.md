@@ -950,3 +950,21 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 
 อ้างอิง: `.wyn/tasks/bugs/SCHEMA-004-production-view-drift.md`,
 `.wyn/docs/qa/wyn-106-107-108-109-home-cards-qa-round2.md`
+
+## [2026-09-06] WYN-112: "สมัครเยอะแต่ไม่มีคนโพสต์" — วินิจฉัยว่าเป็นปัญหา activation/traffic ไม่ใช่ฟีดว่าง
+
+**บริบท**: Founder ถามว่ามีคนสมัครเยอะแต่ไม่มีคนโพสต์อะไรเลย ทำไงดี — AI Product Manager เริ่มจากสมมติฐาน "empty feed" ตาม Phase 1 ของ `.wyn/docs/product/wynos-gtm-roadmap.md` (เดิม) แต่ Founder แก้ไขว่า **มีโพสต์อยู่จริง เป็นของ Founder เองทั้งหมด** — ซักถามต่อพบข้อมูลสำคัญ 3 ข้อ:
+1. ผู้ใช้ที่สมัครแล้ว **เงียบสนิทจริง ไม่ทำอะไรเลยแม้แต่ like/comment/follow** (ไม่ใช่แค่ไม่โพสต์)
+2. ไม่เคยมีรายงานว่าปุ่ม "โพสต์" ใช้งานไม่ได้/หาไม่เจอ (ลดความเป็นไปได้ที่จะเป็นบั๊ก UI ตรงๆ แต่ไม่ตัดทิ้งทั้งหมดเพราะผู้ใช้ที่เงียบแล้วเลิกใช้เลยก็ไม่มีทางบ่นอยู่ดี)
+3. คนกลุ่มนี้มาจาก **แชร์ลิงก์ในกลุ่ม/โซเชียลกว้างๆ** ไม่ใช่การเชิญคนรู้จักตรงๆ ตามที่ Phase 1 ของ roadmap แนะนำไว้แต่แรก — **Founder ระบุว่าไม่มีเครือข่ายคนรู้จักให้เชิญแบบ personal ได้ จึงจำเป็นต้องใช้วิธีแชร์วงกว้างแทน** (ข้อจำกัดจริง ไม่ใช่ทางเลือก)
+
+**คำตัดสินใจ**:
+- ไม่แนะนำให้เริ่ม WYN-078 (Invite-Only Access Gate) ตอนนี้ — ระบบ invite ต้องมี user ที่ engage แล้วจริงเป็นคนแจกต่อ ตอนนี้ยังไม่มีคนกลุ่มแกนที่ active เลย จะไม่มีใครแจก invite ได้อยู่ดี
+- แนะนำ Founder ปรับวิธีแชร์วงกว้าง: เลือกแค่ 1-2 ชุมชน niche ที่ตรงเป้าหมายที่สุดต่อครั้ง (ไม่กระจายหลายกลุ่มพร้อมกัน) + โพสต์เล่าเรื่องจริงว่าทำไมสร้างแอปนี้ (ไม่ใช่แปะลิงก์ลอยๆ) + ตอบทุก comment เอง
+- **Founder อนุมัติให้ดึงข้อมูล WYN-077 analytics (deploy แล้วตั้งแต่ 2026-09-02) มาสรุป funnel จริงก่อนตัดสินใจขั้นต่อไป** — สร้าง `WYN-112` (`.wyn/tasks/active/WYN-112-activation-funnel-investigation.md`) ส่งต่อ AI Debug Engineer/AI Deploy & DevOps ดึงข้อมูลจริงจาก Supabase production (ไม่ใช่งาน AI Product Manager ทำเอง เพราะต้องเข้าถึง production DB)
+
+**พบ ID collision ระหว่างทาง**: `WYN-078` ถูกใช้ซ้ำ 2 งานที่ไม่เกี่ยวกันเลย — `.wyn/tasks/backlog/WYN-078-invite-only-access-gate.md` กับ `.wyn/tasks/approved/WYN-078-background-full-screen-fix.md` (ปิดงานไปแล้ว) — เป็น class เดียวกับ ID collision ที่เคยพบและแก้เมื่อ 2026-08-25 แต่เกิดซ้ำอีก ยังไม่ได้แก้ไข บันทึกไว้เป็นข้อสังเกตใน WYN-112 ให้ Founder พิจารณาเปลี่ยนเลขงานใดงานหนึ่ง (แนะนำเปลี่ยน invite-only-access-gate เพราะยัง backlog อยู่)
+
+**ผลกระทบ**: ไม่มีโค้ด/production ใดถูกแตะจากการปรึกษารอบนี้ — รอผลข้อมูล funnel จาก WYN-112 ก่อนวางแผนขั้นต่อไป (จะเป็นการแก้ onboarding ในแอป หรือปรับวิธีหาคนเข้ามาต่อ ขึ้นกับว่าจุดหลุดอยู่ตรงไหนจริง)
+
+อ้างอิง: `.wyn/docs/product/wynos-gtm-roadmap.md`, `.wyn/tasks/active/WYN-112-activation-funnel-investigation.md`, `.wyn/tasks/backlog/WYN-078-invite-only-access-gate.md`
