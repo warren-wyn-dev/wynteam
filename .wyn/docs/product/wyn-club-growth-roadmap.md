@@ -2,7 +2,7 @@
 
 Owner: AI Product Manager
 Created: 2026-09-06
-Status: PROPOSED — รอ Founder เลือกลำดับก่อนเริ่ม Design/Coding
+Status: **Founder เลือกแล้ว (2026-09-06)** — ทำทั้ง 4 ตัวตามลำดับ WYN-115 → 116 → 117 → 118, หลัง WYN-114 (deploy แล้ว)
 
 ## บริบท
 
@@ -28,9 +28,11 @@ Club V1 Core ตาม `.wyn/docs/product/wyn-club-founder-brief.md` (2026-08-14
 
 **สรุป**: ไม่มี "core feature" ตาม spec เดิมที่ขาดหายแล้ว — งานต่อจากนี้คือ**ฟีเจอร์ใหม่ที่ทำให้ Club เป็นแรงดึงดูด/แรงหมุนเวียนคนเข้าใหม่โดยเฉพาะ** ไม่ใช่แค่ปิด checklist เดิม
 
-## ⚠️ พบระหว่างตรวจโค้ด — บั๊กที่กระทบ Growth Loop ของ Club โดยตรง
+## ⚠️ พบระหว่างตรวจโค้ด — บั๊กที่กระทบ Growth Loop ของ Club โดยตรง (Founder ยืนยันเป็นสาเหตุของ WYN-112 แล้ว)
 
-ดูรายละเอียดเต็มที่ `.wyn/tasks/backlog/WYN-114-fix-share-links-deep-linking.md` — **ปุ่ม Share ออกนอกแอปของ Club (และ Drop/Pop/Profile) ทั้งหมดสร้างลิงก์โดเมนผิด (`wyn.app` แทน `wynos.online`) และไม่มี deep-link รองรับเลย** ผลคือฟีเจอร์ "เชิญเพื่อนมา Club" ที่เพิ่งทำเสร็จวันนี้ ถ้ากด Share ออกนอกแอป (ไม่ใช่ share-to-chat ในแอป) จะได้ลิงก์ที่ใช้งานไม่ได้จริง — **แนะนำแก้ก่อนเริ่มฟีเจอร์ใหม่ด้านล่างทั้งหมด** เพราะฟีเจอร์ growth ใหม่ที่พึ่งการแชร์ออกนอกแอปจะไม่มีความหมายถ้าลิงก์ยังพังอยู่ (และอาจเชื่อมกับปัญหา signup=0 ที่ WYN-112 กำลังสืบอยู่ตอนนี้ด้วย)
+**ปุ่ม Share ออกนอกแอปของ Club (และ Drop/Pop/Profile) ทั้งหมดสร้างลิงก์โดเมนผิด (`wyn.app` แทน `wynos.online`) และไม่มี deep-link รองรับเลย** ผลคือฟีเจอร์ "เชิญเพื่อนมา Club" ที่เพิ่งทำเสร็จวันนี้ ถ้ากด Share ออกนอกแอป (ไม่ใช่ share-to-chat ในแอป) จะได้ลิงก์ที่ใช้งานไม่ได้จริง — Founder ยืนยันแล้วว่านี่คือสาเหตุจริงของปัญหา signup=0 ที่ WYN-112 สืบมา
+
+**อัปเดตสถานะ**: ระหว่างเตรียมส่งงานแก้ พบว่าอีก session หนึ่งเจอบั๊กเดียวกันพร้อมกันและ**แก้+deploy จริงไปแล้ว** ภายใต้เลข `WYN-114` — แก้โดเมนครบ 5 จุด + เพิ่ม `app/web/vercel.json` (Vercel ไม่เคย config SPA rewrite เลย ทำให้ 404 ทุก path ที่ไม่ใช่ `/`) ผ่าน QA PASS และ deploy จริงแล้ว (`deploy-web.yml` run #89, production-verified ด้วย curl ตรง — `.wyn/logs/deployments/2026-09-06-wyn-114-share-link-vercel-rewrite-deploy.md`) — ส่วนงานที่เหลือ (path-based routing จริงในแอป ให้ลิงก์พาไปหน้าเนื้อหาที่ถูกต้อง ไม่ใช่แค่ไม่ 404) ย้ายไปเป็น `WYN-119` (เดิมชื่อ WYN-114 ในเอกสารนี้ฉบับก่อนหน้า — เปลี่ยนเลขแล้วเพื่อไม่ชนกัน) ดูรายละเอียดที่ `.wyn/tasks/active/WYN-119-club-deep-linking.md`
 
 ## ตัวเลือกฟีเจอร์ใหม่ — เรียงตาม "ทำอะไรได้เร็ว/ถูกสุด" ไม่ใช่ลำดับความสำคัญตายตัว (ให้ Founder เลือก)
 
@@ -56,8 +58,8 @@ Club V1 Core ตาม `.wyn/docs/product/wyn-club-founder-brief.md` (2026-08-14
 
 ## คำแนะนำโดยรวม
 
-1. **แก้ WYN-114 (ลิงก์ Share พัง) ก่อนอย่างอื่นทั้งหมด** — ไม่งั้นฟีเจอร์ growth ใหม่ที่พึ่งการแชร์จะไม่มีความหมาย
-2. เริ่ม **WYN-115 (Club Poll)** เป็นฟีเจอร์ใหม่ตัวแรก เพราะ effort ต่ำที่สุด ต่อยอดของเดิมได้เลย เห็นผลไว
-3. **WYN-116/117/118** รอ Founder เลือกลำดับ — ไม่แนะนำทำพร้อมกันทั้งหมดเพราะทีมมีแค่ AI + Founder คนเดียว ตาม `wynos-gtm-roadmap.md` เอง
+1. ~~Deploy WYN-114~~ — **เสร็จแล้ว** (2026-09-06, production-verified)
+2. **WYN-115 (Club Poll)** — เริ่มก่อน (Founder เลือก + effort ต่ำสุด, ต่อยอดของเดิมได้เลย)
+3. **WYN-116 → WYN-117 → WYN-118** ตามลำดับที่ Founder เลือก
 
-Handoff: รอ Founder เลือกลำดับ (ถามแยกไปพร้อมกันผ่าน popup) → เขียน Product Task เต็มรูปแบบ (Requirements/Acceptance Criteria ละเอียด) เฉพาะตัวที่เลือกก่อน → AI Design → AI Coding → AI QA & Security
+Handoff: **Founder เลือกลำดับแล้ว** (2026-09-06) — Product Task เต็มรูปแบบของทั้ง 4 ตัวเขียนไว้ครบแล้วที่ `.wyn/tasks/backlog/WYN-115...118-*.md` → ส่งต่อ AI Design เริ่มจาก WYN-115 → AI Coding → AI QA & Security
