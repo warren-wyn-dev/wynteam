@@ -984,3 +984,15 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 **สถานะ**: WYN-112 ยังคง active — บล็อกที่ Founder action (แชร์ลิงก์รอบใหม่พร้อม UTM) ไม่ใช่งานที่ AI role ใดทำแทนได้
 
 อ้างอิง: `.wyn/tasks/active/WYN-112-activation-funnel-investigation.md`, `.wyn/docs/product/wynos-gtm-roadmap.md`
+
+## [2026-09-06] WYN-113: Founder เลือกทำ OG/Twitter Card meta tags ก่อน จากการวิเคราะห์แอปทั้งระบบ
+
+**บริบท**: Founder ขอให้วิเคราะห์แอป WYNOS ทั้งระบบว่าควรเพิ่ม/แก้ฟีเจอร์หรือ UX/UI อะไรบ้าง — อ่านเอกสาร QA ที่มีอยู่แล้ว (`wynos-v1.0.0-beta3-{ux-audit,security-audit,future-ideas,final-readiness}.md`) และ git log ล่าสุดก่อน พบว่าฟีเจอร์หลักครบแล้ว งานส่วนใหญ่ในบรีฟ Beta3 ถูกปิดไปแล้วจริงผ่านงานตามหลัง (WYN-106 ถึง WYN-111 ปิดเมื่อเช้าวันนี้เอง) — สิ่งที่เหลือค้างคือรายการ `future-ideas.md` (A-1 ถึง A-7, B-1 ถึง B-5) ที่ยังไม่มีใครสั่งทำ
+
+**พบเพิ่มเอง (ไม่มีในเอกสารเดิม)**: ตรวจ `app/web/index.html` แล้วพบว่าไม่มี Open Graph/Twitter Card meta tag เลย — เชื่อมโยงตรงกับปัญหา activation ที่กำลังสืบอยู่ใน WYN-112 (ลิงก์ที่แชร์ไม่มี preview card อาจเป็นส่วนหนึ่งที่ทำให้อัตราคนคลิกลิงก์ต่ำ)
+
+**เสนอ 4 ตัวเลือกให้ Founder ผ่าน popup**: (1) OG/Twitter Card meta tags, (2) แก้ share link ให้ชี้โดเมนจริง (ค้างจาก security audit A-7), (3) Crash reporter/error monitoring (ค้างจาก A-6), (4) ยังไม่ทำอะไรเพิ่ม รอผล WYN-112 ก่อน — **Founder เลือกข้อ 1**
+
+**ผลลัพธ์**: สร้าง `WYN-113` (`.wyn/tasks/backlog/WYN-113-og-share-preview-cards.md`) เต็มรูปแบบ ส่งต่อ AI Design แล้ว — งานอื่นอีก 3 ตัวเลือกยังไม่ได้ทำ เก็บไว้เป็นตัวเลือกถัดไปถ้า Founder ต้องการ
+
+อ้างอิง: `.wyn/tasks/backlog/WYN-113-og-share-preview-cards.md`, `.wyn/docs/qa/wynos-v1.0.0-beta3-future-ideas.md`, `.wyn/docs/qa/wynos-v1.0.0-beta3-security-audit.md`
