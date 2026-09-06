@@ -1,7 +1,7 @@
 # Feature Request — WYN-122
 
-Status: **active — Coding เสร็จแล้ว ส่งต่อ AI QA & Security**
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security
+Status: **active — QA Round 1 FAIL (missing EXECUTE grant บน `internal.chat_pair_allowed()`) — ส่งต่อ AI Debug Engineer**
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (FAIL) → AI Debug Engineer
 
 Feature: ปิดระบบแชท 1-on-1 ชั่วคราว เหลือเฉพาะ @warren ↔ @wynos_online (Chat Lockdown for Testing)
 
@@ -125,3 +125,37 @@ Founder บอกไว้ชัดเจนว่านี่คือ "ก่�
 3. Pattern เดียวกันนี้ (catch-all error message) ยังพบใน Club post screens อีก 4 จุดจากงาน WYN-121 ก่อนหน้า — ไม่เกี่ยวกับ WYN-122 โดยตรง ไม่ได้แตะในรอบนี้
 
 **Handoff**: ส่งต่อ **AI QA & Security** — เน้นตรวจ: (1) resolve @warren/@wynos_online id ถูกต้องจริงบน production ก่อน deploy จริง (ความเสี่ยงหลักตาม Risks section) (2) ยืนยัน RLS policy ทั้ง 4 จุดครอบคลุมตรงตาม Acceptance Criteria ทุกข้อ (3) ทดสอบ toggle เปิด-ปิดจริงว่าทำงานตามคาด (4) ตรวจสอบว่า UI 4 จุดไม่มี regression กับ flow ปกติที่ไม่ถูก lockdown
+
+---
+
+## AI QA & Security Output — Round 1
+
+**Feature**: WYN-122 (Chat Lockdown — เหลือเฉพาะ @warren ↔ @wynos_online)
+**Environment**: Local PostgreSQL 16 + `schema.sql` จริง (ไม่ใช่ mock), role-switching เป็น `authenticated` จริงผ่าน JWT claim GUC, สร้าง/ทำลาย database ทดสอบแยกจาก production 100% — CI ของ PR #279 (เขียวแล้ว, `flutter analyze`/`flutter test` ผ่านหมด)
+
+**Test Cases**:
+1. รัน `supabase/tests/wyn_122_chat_lockdown_test.sh` ซ้ำเองอิสระ (ไม่เชื่อรายงานของ Coding เฉยๆ) — 15/15 PASS
+2. รัน `wyn_031/032/033/037/120_*_test.sh` ซ้ำ — regression ทั้งหมด PASS ไม่มีอะไรพัง
+3. **Adversarial**: ทดสอบว่าผู้ใช้ทั่วไปสามารถ INSERT ตัวเองลง `chat_lockdown_allowlist` ตรงๆ ได้ไหม (bypass ผ่าน raw insert) — บล็อกถูกต้อง (RLS ปฏิเสธ, ไม่มี insert policy)
+4. **Adversarial**: ทดสอบว่าผู้ใช้ทั่วไปสามารถ UPDATE `chat_lockdown.enabled` ตรงๆ ได้ไหม — บล็อกถูกต้อง (0 rows affected, ไม่มี update policy)
+5. **Edge case**: lockdown เปิดอยู่แต่ allowlist ว่างเปล่า (เช่น migration รันแต่ populate ล้มเหลว) — ยืนยันว่า fail-safe (ล็อกทุกคนออกหมด ไม่มีใครหลุดผ่านไปได้) ไม่ใช่ fail-open
+6. ยืนยัน `chat_inbox`/`message_requests` view (security_invoker) สะท้อน lockdown ถูกต้องจริงด้วย query ตรง ไม่ใช่แค่เชื่อ comment ในโค้ด
+7. **พยายาม break ตาม role หน้าที่ ("พยายาม break implementation อย่างจริงจัง")**: ตรวจสอบ `internal.chat_pair_allowed()`'s privilege model เทียบกับ helper function อื่นทุกตัวในไฟล์เดียวกัน (grep หา `grant execute on function internal.*` ทั้งหมด 10 จุด) พบว่า**ทุกจุดมี grant ยกเว้นตัวใหม่นี้ตัวเดียว** — ทดสอบจริงด้วยการ `revoke execute ... from public` แล้วยืนยันว่า RLS policy ที่เรียกใช้ฟังก์ชันนี้ (conversations SELECT, messages SELECT/INSERT, storage.objects INSERT) **แตกจริง** ("permission denied for function chat_pair_allowed") ขณะที่ฟังก์ชัน SECURITY DEFINER (get_or_create_conversation/count_unread_conversations/chat_lockdown_status) ไม่กระทบเพราะรันในบริบทของ owner
+
+**Passed**: 1, 2, 3, 4, 5, 6 (6/7 test areas)
+
+**Failed**: 7 — ดูรายละเอียดเต็มที่ `.wyn/tasks/bugs/WYN-122-chat-pair-allowed-missing-execute-grant.md`
+
+**Severity**: **สูง (Critical ถ้า deploy โดยไม่แก้)** — ไม่ใช่แค่ edge case เล็กน้อย: ถ้า production Supabase project เคยหรือจะมีการ revoke default execute privilege ใดๆ (เป็น hardening practice ที่พบได้จริง) ฟีเจอร์แชททั้งระบบจะพังสำหรับ**ทุกคนรวมถึง @warren/@wynos_online เอง** ไม่ใช่แค่ปิดแบบตั้งใจ
+
+**Reproduction Steps**: ดู `.wyn/tasks/bugs/WYN-122-chat-pair-allowed-missing-execute-grant.md`'s "Reproduction" section — ยืนยันได้จริงด้วย local Postgres ไม่ใช่การเดา
+
+**Expected**: `internal.chat_pair_allowed(uuid, uuid)` ควรมี `grant execute on function internal.chat_pair_allowed(uuid, uuid) to authenticated;` ตรงตาม convention 100% ของทุก internal helper function อื่นในไฟล์เดียวกัน
+
+**Actual**: ไม่มี grant statement เลย — ทำงานได้ตอนนี้เพราะพึ่งพา Postgres default (EXECUTE granted to PUBLIC ตอนสร้าง function) ที่ยังไม่ถูก revoke เท่านั้น ซึ่งเป็นสมมติฐานที่ไฟล์นี้เองมี comment เตือนไว้ชัดเจนแล้วว่าห้ามพึ่งพา (บรรทัด 2080-2096)
+
+**Security Findings**: ไม่พบช่องโหว่ privilege escalation อื่นเพิ่มเติม (ตรวจแล้วว่า insert เข้า allowlist / update toggle ตรงๆ ถูกบล็อกถูกต้อง) — finding เดียวคือเรื่อง missing grant ข้างต้น ซึ่งเป็นความเสี่ยง "จะพังทั้งระบบ" มากกว่า "รั่วข้อมูล"
+
+**Recommendation**: ส่งกลับ AI Debug Engineer เพิ่ม `grant execute ... to authenticated` 1 บรรทัดใน `supabase/schema.sql` และ `.github/workflows/wyn122-apply-chat-lockdown-schema.yml` (2 จุด, statement เดียวกัน) แนะนำเพิ่มเป็น regression check ถาวรใน `wyn_122_chat_lockdown_test.sh` ด้วย (revoke แล้วยืนยัน error, grant แล้วยืนยันหาย) กันไม่ให้ใครลืม grant นี้อีกในอนาคตถ้ามีการแก้ฟังก์ชันนี้ซ้ำ
+
+**Final Status: FAIL**
