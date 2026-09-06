@@ -1284,3 +1284,15 @@ Merge เข้า `main` ผ่าน PR #282 (`b3d150f`) หลังแก้
 **ยังไม่ปิด task เป็น completed** — ตามกติกา "Production Verification คือใครยืนยัน ยืนยันอะไร" (`.wyn/company/WORKFLOW.md`) curl พิสูจน์ได้แค่ "เว็บขึ้น ไม่พัง" ไม่ใช่ "ฟีเจอร์ใหม่ทำงานถูกต้องจริงในเบราว์เซอร์" (กด "เชิญจากผู้ติดตาม" → เห็นรายชื่อ → กดเชิญ → คนถูกเชิญได้รับข้อความจริง) — รอ Founder ทดลองใช้จริงก่อน
 
 รายละเอียดเต็ม: `.wyn/logs/deployments/2026-09-06-wyn-123-invite-followers-deep-link-deploy.md`
+
+## [2026-09-06] Staged Rollout สำหรับ WYNOS — Founder อนุมัติให้ทำทั้ง 2 ทาง + ส่งต่อ AI Design
+
+Founder ถาม (ปรึกษา): deploy WYNOS ตอนนี้อัปเดตทุกเครื่องพร้อมกัน อยากให้อัปเดตไปหาบัญชีนักพัฒนาก่อน รอพอใจค่อยปล่อยผู้ใช้ทั่วไป — AI Product Manager ตรวจสอบแล้วพบว่า WYNOS เป็น Flutter Web (PWA) endpoint เดียวจริง (deploy ขึ้น Vercel production project เดียวผ่าน `deploy-web.yml`) ไม่มี native app store distribution ที่ active และไม่มีกลไกแบ่งกลุ่มผู้ใช้ใดๆ ในระบบตอนนี้ (ไม่มี feature flag/allowlist/percentage rollout)
+
+เสนอ 2 ทางเลือก:
+1. ทางลัด process-only (ไม่ต้องเขียนโค้ด) — ใช้ Vercel Preview Deployment ที่มีอยู่แล้วเป็น staging ให้ทีมทดสอบก่อน promote ขึ้น production ทุกครั้ง
+2. ระบบ account allowlist/feature-flag ถาวร — endpoint production เดียวกัน เช็คว่า user เป็น "บัญชีนักพัฒนา" (ตาม email/user id ที่ Founder กำหนด) ก่อนเปิดฟีเจอร์ใหม่ให้เห็น ผู้ใช้ทั่วไปยังเห็นของเดิมจนกว่า Founder จะสั่งเปิด
+
+**คำตัดสินใจของ Founder**: ทำทั้ง 2 ทางคู่ขนาน (ทางเลือกที่ 1 ใช้ได้ทันทีระหว่างรอทางเลือกที่ 2 สร้างเสร็จ) และ**อนุมัติให้ส่งต่อ AI Design ออกแบบระบบ account allowlist/feature-flag ทันที**
+
+Task: `.wyn/tasks/active/WYN-124-staged-rollout-developer-first.md` (ย้ายจาก backlog → active, ส่งต่อ AI Design)
