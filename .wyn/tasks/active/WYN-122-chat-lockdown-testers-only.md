@@ -1,5 +1,8 @@
 # Feature Request — WYN-122
 
+Status: **active — Design เสร็จแล้ว ส่งต่อ AI Coding**
+Owner: AI Product Manager → AI Design → AI Coding
+
 Feature: ปิดระบบแชท 1-on-1 ชั่วคราว เหลือเฉพาะ @warren ↔ @wynos_online (Chat Lockdown for Testing)
 
 Goal: กันไม่ให้ผู้ใช้ทั่วไปใช้ฟีเจอร์แชทระหว่างช่วงทดสอบก่อนเปิดใช้งานจริง โดยเปิดให้เฉพาะบัญชี @warren คุยกับ @wynos_online กันเองได้เพื่อทดสอบ — ต้องบังคับใช้จริงที่ backend/RLS ไม่ใช่แค่ซ่อนที่ UI (Founder ระบุชัดเจน)
@@ -65,12 +68,27 @@ Founder บอกไว้ชัดเจนว่านี่คือ "ก่�
 - **ลืม toggle กลับ**: เพราะเป็นเรื่องชั่วคราว มีความเสี่ยงที่จะลืมปลด lockdown ตอนเปิดใช้งานจริง — แนะนำบันทึกไว้ใน `.wyn/company/DECISIONS.md` และ/หรือสร้าง task ติดตามแยกเพื่อเตือนตอนใกล้ launch จริง
 - **Performance**: การเพิ่มเงื่อนไข allowlist check ใน RLS policy ของตารางที่ query บ่อย (`messages`) ต้องมั่นใจว่าไม่ทำให้ query ช้าลงมาก (allowlist ควรเล็กมาก 2 แถว ผลกระทบต่ำ)
 
-## Recommendation
+## Recommendation (Product)
 
 แนะนำให้ AI Design (ถ้าจำเป็นต้องออกแบบหน้า "ระบบแชทปิดปรับปรุงชั่วคราว" ให้เข้ากับ design system เดิม) → AI Coding (เพิ่มตาราง/flag config + แก้ RLS/RPC 3 จุด + UI 1 หน้าจอ) → AI QA & Security (เน้นตรวจ RLS ให้ตรงตาม acceptance criteria ทุกข้อ + regression: ข้อมูลเก่าไม่หาย + toggle กลับได้จริง) → AI Deploy & DevOps (deploy พร้อม production verification query โดยตรงว่า allowlist ตรงกับ @warren/@wynos_online จริง)
 
 เนื่องจากเป็นการเปลี่ยน RLS บนตารางที่มีข้อมูลผู้ใช้จริงอยู่แล้ว **ไม่ควรข้าม QA แม้ Founder จะเร่งด่วน** — ความเสี่ยงที่ resolve user id ผิดแล้วปิดแชทของ Founder เองมีจริงและตรวจสอบได้ง่ายด้วย QA ขั้นตอนเดียว
 
+---
+
+## AI Design Output (เสร็จแล้ว — ดูฉบับเต็มที่ `.wyn/docs/design/wyn-122-chat-lockdown-testers-only.md`)
+
+**สรุปการตัดสินใจ**:
+1. Reuse `EmptyStateBlock` (widget เดิมที่ Chat Inbox/Notifications ใช้อยู่แล้ว) — ไม่สร้าง component ใหม่
+2. Icon `Icons.lock_clock_outlined` (เดียวกับ `RestrictionBanner`, สื่อ "ชั่วคราว" ไม่ใช่ "แบนถาวร"), title "ระบบแชทปิดปรับปรุงชั่วคราว", subtitle "จะเปิดให้ใช้งานได้เร็ว ๆ นี้"
+3. State "Locked" เป็นลำดับความสำคัญสูงสุดในทั้ง 3 หน้าจอต่อเนื่อง (Chat Inbox, Conversation Screen, New Message Screen) — เหนือ Loading/Error/Empty/Blocked/Restricted ทั้งหมด
+4. Chat entry points (ไอคอน Home, ปุ่ม "ส่งข้อความ" โปรไฟล์) **ไม่แตะ ไม่ซ่อน ไม่ disable** ตามที่ Founder ยืนยัน
+5. ปุ่ม "ส่งข้อความ" (action ครั้งเดียว ไม่ใช่มุมมองต่อเนื่อง) ใช้ SnackBar แทน full-screen state เมื่อ RPC ปฏิเสธเพราะ lockdown — มิเรอร์ pattern WYN-121's delete-failure SnackBar
+
+**หน้าจอที่แก้**: Chat Inbox (`ChatInboxScreen`), Conversation Screen (`ConversationScreen` — ซ่อนทั้ง message list และ composer ไม่ใช่แค่ composer), New Message Screen (`NewMessageScreen`, defense-in-depth), ปุ่ม "ส่งข้อความ" บน `ViewProfileScreen`
+
+**Contract สำหรับ Coding**: client ต้องเช็คได้ว่า (ก) ผู้ใช้ปัจจุบันอยู่ใน allowlist ไหม (สำหรับ Screen A/C) และ (ข) ทั้งสองฝ่ายของบทสนทนานี้อยู่ใน allowlist ทั้งคู่ไหม (สำหรับ Screen B) — mechanism ฝั่ง backend เป็นของ Coding ตาม R2
+
 ## Handoff
 
-ส่งต่อ **AI Design** (ออกแบบหน้าจอ/ข้อความ "ระบบแชทปิดปรับปรุงชั่วคราว" ให้เหมาะสม เข้ากับ design system เดิม) จากนั้นส่งต่อ **AI Coding** implement ตาม spec นี้
+ส่งต่อ **AI Coding** — ลำดับแนะนำเต็มอยู่ท้าย `.wyn/docs/design/wyn-122-chat-lockdown-testers-only.md`: (1) backend enforcement (allowlist + RLS/RPC 3 จุด + data-driven toggle) (2) `ChatRepository` เพิ่ม lockdown-check method (3)-(6) เพิ่ม state Locked ใน 4 จุด UI ตามที่ระบุ
