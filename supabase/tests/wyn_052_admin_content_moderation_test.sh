@@ -164,8 +164,8 @@ insert into auth.users (id, email) values
   ('90000000-0000-0000-0000-000000000007', 'noprofile@test.com');
 
 insert into public.profiles (id, username, display_name, platform_role, is_private) values
-  ('90000000-0000-0000-0000-000000000001', 'admin', 'admin', 'admin', false),
-  ('90000000-0000-0000-0000-000000000002', 'moderator', 'moderator', 'moderator', false),
+  ('90000000-0000-0000-0000-000000000001', 'test_admin1', 'admin', 'admin', false),
+  ('90000000-0000-0000-0000-000000000002', 'test_mod1', 'moderator', 'moderator', false),
   ('90000000-0000-0000-0000-000000000003', 'author1', 'author1', 'user', false),
   ('90000000-0000-0000-0000-000000000004', 'author2', 'author2', 'user', true),
   ('90000000-0000-0000-0000-000000000005', 'reporter', 'reporter', 'user', false),

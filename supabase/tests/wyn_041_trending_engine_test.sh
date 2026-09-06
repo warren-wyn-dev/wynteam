@@ -163,7 +163,7 @@ create table results (check_name text primary key, actual int, expected int);
 -- expiry. aNormal: no moderation_actions row at all. stranger: has no
 -- relationship to any account above -- proves SECURITY DEFINER.
 insert into auth.users (id, email) values
-  ('20000000-0000-0000-0000-000000000001', 'moderator@test.com'),
+  ('20000000-0000-0000-0000-000000000001', 'modreviewer@test.com'),
   ('20000000-0000-0000-0000-000000000002', 'reporter@test.com'),
   ('20000000-0000-0000-0000-00000000000a', 'arestricted@test.com'),
   ('20000000-0000-0000-0000-00000000000b', 'asuspended@test.com'),
