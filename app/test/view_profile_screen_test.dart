@@ -593,7 +593,7 @@ void main() {
       (tester) async {
     final chatRepo = RecordingChatRepository()
       ..getOrCreateConversationError =
-          PostgrestException(message: 'Chat is temporarily closed for testing');
+          const PostgrestException(message: 'Chat is temporarily closed for testing');
 
     await tester.pumpWidget(buildProfile(
       profileRepository: otherProfileRepo,
