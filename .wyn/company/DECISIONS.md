@@ -996,3 +996,17 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 **ผลลัพธ์**: สร้าง `WYN-113` (`.wyn/tasks/backlog/WYN-113-og-share-preview-cards.md`) เต็มรูปแบบ ส่งต่อ AI Design แล้ว — งานอื่นอีก 3 ตัวเลือกยังไม่ได้ทำ เก็บไว้เป็นตัวเลือกถัดไปถ้า Founder ต้องการ
 
 อ้างอิง: `.wyn/tasks/backlog/WYN-113-og-share-preview-cards.md`, `.wyn/docs/qa/wynos-v1.0.0-beta3-future-ideas.md`, `.wyn/docs/qa/wynos-v1.0.0-beta3-security-audit.md`
+
+## [2026-09-06] WYN-113: AI Design ส่งมอคอัพ Share Preview ให้ Founder ดูก่อนเขียนโค้ด
+
+**บริบท**: ต่อจาก Product spec ของ WYN-113 (OG/Twitter Card meta tags) — AI Design ทำมอคอัพจริงเป็น Artifact (ไม่ใช่แค่คำอธิบาย) ตามกติกา Founder 2026-09-03 ("ต้องเห็นรูปก่อนเขียนโค้ดทุกครั้ง") ก่อนส่งต่อ AI Coding
+
+**สิ่งที่ทำ**: เสนอ 2 ตัวเลือกโทนสีสำหรับรูป preview 1200×630 — ใช้เฉพาะ 5 token จริงจาก `wyn_colors.dart` (ink/paper/sapphire/graphite/hairline) ไม่มีสีใหม่ ไม่มีฟอนต์แบรนด์ใหม่ (คงฟอนต์ระบบตามที่ยืนยันไว้แล้วสำหรับแอป 2026-09-03/WYN-107):
+- **A — Paper**: พื้นขาวเหมือนแอปทุกหน้าจอ
+- **B — Ink (แนะนำโดย AI Design)**: พื้นเข้ม สะดุดตากว่าในฟีดที่ส่วนใหญ่เป็นการ์ดขาว
+
+พร้อมเสนอ copy ภาษาไทยแทนข้อความอังกฤษเทคนิคเดิม: `og:title` "WYNOS — สร้างชุมชนของคุณเอง", `og:description` "แชร์ Drop โพสต์ Pop คลิปสั้น ตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว"
+
+**สถานะ**: ส่ง Artifact ให้ Founder ดูแล้ว **ยังไม่ส่งต่อ AI Coding** — รอ Founder เลือกโทนสี + อนุมัติ/แก้ข้อความก่อน
+
+อ้างอิง: `.wyn/docs/design/wyn-113-og-share-preview-cards.md`, `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, Artifact https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e

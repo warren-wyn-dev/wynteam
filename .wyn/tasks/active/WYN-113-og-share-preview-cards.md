@@ -1,6 +1,6 @@
 # Product Task — WYN-113
 
-Status: backlog — Founder อนุมัติให้เริ่มแล้ว (2026-09-06, เลือกจาก 4 ตัวเลือกที่ AI Product Manager เสนอ) ส่งต่อ AI Design ได้เลย
+Status: active — AI Design ทำมอคอัพเสร็จแล้ว ส่ง Artifact ให้ Founder ดูแล้ว **รอ Founder เลือก 2 เรื่องก่อนส่งต่อ AI Coding** (ดู "## AI Design Output" ท้ายไฟล์นี้)
 Owner: AI Product Manager → AI Design
 Feature: Open Graph / Twitter Card Preview สำหรับลิงก์ wynos.online
 Goal: ทำให้ลิงก์ wynos.online ที่ถูกแชร์ไปที่ไหนก็ตาม (Facebook/LINE/Discord/X ฯลฯ) ขึ้น preview card ที่มีรูป+ชื่อ+คำอธิบาย แทนที่จะไม่มี preview เลยหรือขึ้นแบบว่างเปล่า
@@ -20,3 +20,18 @@ Priority: P1 — ไม่บล็อกอะไร แต่คุ้มท�
 Risks: ต่ำมาก — เพิ่ม static meta tag ไม่มี logic ใหม่ ความเสี่ยงเดียวคือถ้า `og:image` ชี้ path ผิดจะไม่มี preview รูปขึ้น (แก้ได้ทันทีถ้าเจอ ไม่กระทบ production อื่น) — ต้อง cache-bust ด้วยถ้าเปลี่ยนรูปซ้ำ เพราะ Facebook/LINE cache preview เดิมไว้หลายวัน (ใช้ Sharing Debugger กด "Scrape Again" ถ้าต้อง force refresh หลัง deploy)
 Recommendation: ทำคู่ขนานไปกับที่ Founder เตรียมแชร์ลิงก์รอบถัดไปพร้อม UTM parameter (ตามที่ WYN-112 แนะนำ) — จะได้เห็นผลทั้งสองอย่างพร้อมกันในรอบเดียว: มีคนคลิกเพิ่มขึ้นไหม (จาก OG card) และคลิกมาจากช่องทางไหน (จาก UTM)
 Handoff: ส่งต่อ AI Design ออกแบบ preview image 1200×630 (โทนสีจริงจาก `wyn_colors.dart`) + เสนอ copy title/description ภาษาไทย → AI Coding เพิ่ม meta tags ใน `app/web/index.html` + วาง asset ที่ `app/web/` → AI QA ตรวจด้วย Facebook Sharing Debugger/Twitter Card Validator จริงก่อนถือว่าเสร็จ (เป็นสิ่งที่ตรวจได้แค่ด้วยเครื่องมือภายนอกจริง ไม่ใช่ unit test)
+
+## AI Design Output (2026-09-06)
+
+Design doc เต็ม: `.wyn/docs/design/wyn-113-og-share-preview-cards.md`
+Mockup (Artifact — ดูก่อนตัดสินใจ): https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e
+
+เสนอ 2 ตัวเลือกโทนสี (ใช้ token จริงจาก `wyn_colors.dart` เท่านั้น ไม่มีสีใหม่):
+- **A — Paper**: พื้นขาวเหมือนแอปทุกหน้าจอ ปลอดภัยที่สุด
+- **B — Ink (แนะนำ)**: พื้นเข้ม สะดุดตากว่าในฟีดที่ส่วนใหญ่เป็นการ์ดขาว ช่วยอัตราคลิกได้จริง โดยไม่กระทบ UI จริงของแอปเลย (คนละพื้นผิว)
+
+เสนอข้อความ:
+- `og:title`: "WYNOS — สร้างชุมชนของคุณเอง"
+- `og:description`: "แชร์ Drop โพสต์ Pop คลิปสั้น ตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว"
+
+**ยังไม่ส่งต่อ AI Coding** ตามกติกา Founder 2026-09-03 ("ต้องเห็นรูปก่อนเขียนโค้ดทุกครั้ง") — รอ Founder ตอบ 2 ข้อ: เลือกโทนสี + อนุมัติ/แก้ข้อความ
