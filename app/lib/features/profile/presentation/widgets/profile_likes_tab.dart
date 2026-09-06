@@ -371,33 +371,40 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
         // why no SliverOverlapAbsorber/Injector pair is needed here.
         child: CustomScrollView(
           slivers: [
-            SliverList.separated(
-              itemCount: _drops.length + (_hasMore ? 1 : 0),
-              separatorBuilder: (context, index) => index + 1 < _drops.length
-                  ? const Divider(height: 1)
-                  : const SizedBox.shrink(),
-              itemBuilder: (context, index) {
-                if (index >= _drops.length) {
-                  return const Padding(
-                    padding: EdgeInsets.all(WynSpacing.space4),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
+            // Same missing-bottom-inset fix as ProfileDropGridTab's own
+            // list -- see that file's own comment.
+            SliverPadding(
+              padding: const EdgeInsets.only(bottom: WynSpacing.space6),
+              sliver: SliverList.separated(
+                itemCount: _drops.length + (_hasMore ? 1 : 0),
+                separatorBuilder: (context, index) =>
+                    index + 1 < _drops.length
+                        ? const Divider(height: 1)
+                        : const SizedBox.shrink(),
+                itemBuilder: (context, index) {
+                  if (index >= _drops.length) {
+                    return const Padding(
+                      padding: EdgeInsets.all(WynSpacing.space4),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
 
-                final drop = _drops[index];
-                return HomeDropCard(
-                  key: ValueKey(drop.id),
-                  item: HomeFeedItem.fromDrop(drop),
-                  dropRepository: widget.dropRepository,
-                  onTap: () => _openDropDetail(drop),
-                  onToggleLike: () => _toggleLike(drop.id),
-                  onToggleSave: () => _toggleSave(drop.id),
-                  onOpenProfile: () => _openProfile(drop.authorId),
-                  onToggleRedrop: () => _toggleRedrop(drop.id),
-                  onQuoteRedrop: () => _quoteRedrop(drop.id),
-                  onVotePoll: (optionIndex) => _votePoll(drop.id, optionIndex),
-                );
-              },
+                  final drop = _drops[index];
+                  return HomeDropCard(
+                    key: ValueKey(drop.id),
+                    item: HomeFeedItem.fromDrop(drop),
+                    dropRepository: widget.dropRepository,
+                    onTap: () => _openDropDetail(drop),
+                    onToggleLike: () => _toggleLike(drop.id),
+                    onToggleSave: () => _toggleSave(drop.id),
+                    onOpenProfile: () => _openProfile(drop.authorId),
+                    onToggleRedrop: () => _toggleRedrop(drop.id),
+                    onQuoteRedrop: () => _quoteRedrop(drop.id),
+                    onVotePoll: (optionIndex) =>
+                        _votePoll(drop.id, optionIndex),
+                  );
+                },
+              ),
             ),
           ],
         ),
