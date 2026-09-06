@@ -14,6 +14,12 @@
 
 ## รายการ
 
+### [2026-09-06] Task WYN-120 (Founder รายงานสด — ลบโพสต์แล้วหน้าโปรไฟล์ไม่หาย)
+- ข้อผิดพลาด: ตอนทำ WYN-037 (Edit/Delete Drop + "รายการที่ลบ") เพิ่ม RLS exception ให้ author เห็นโพสต์ที่ตัวเองลบไปแล้ว (`deleted_at is null or auth.uid() = author_id`) และเขียน `fetchDeletedDrops()` filter ตรงข้ามให้ถูกต้องสำหรับหน้าใหม่ที่เพิ่มเข้ามา แต่ไม่ได้ไล่ตรวจ caller เดิมที่มีอยู่ก่อนแล้ว (`DropRepository.fetchById()`) ว่ายังพึ่งพาสมมติฐาน "row หายจาก SELECT = ถูกลบสำหรับทุกคนรวมถึง author" อยู่หรือไม่ — สมมติฐานนั้นเป็นจริงมาตลอดก่อน WYN-037 แต่กลายเป็นเท็จทันทีสำหรับกรณี "author query แถวของตัวเอง" หลัง WYN-037 merge
+- ผลกระทบ: ทุกครั้งที่เจ้าของโพสต์ลบโพสต์ตัวเองแล้วกลับมาหน้าที่ใช้ `fetchById()` refresh แถว (Profile grid/แท็บถูกใจ/hashtag feed เป็นอย่างน้อย) โพสต์ที่ลบไปแล้วยังค้างแสดงอยู่จนกว่าจะ full page reload — Founder ต้องรายงานเองสด ไม่ได้ถูก QA จับได้ก่อน เพราะ WYN-037's QA คงทดสอบแค่ flow ใหม่ (delete/restore ทำงานถูกต้องไหม) ไม่ได้ทดสอบ regression กับหน้าจอเก่าที่มีอยู่ก่อนที่พึ่งพา method เดียวกัน
+- วิธีป้องกันในอนาคต: เมื่อ QA/Coding เพิ่ม RLS exception ใหม่ให้กลุ่มคนกลุ่มหนึ่งเห็น state พิเศษ (soft-deleted/hidden/ฯลฯ) ต้อง grep หา **caller เดิมทั้งหมด** ของตารางนั้นที่ query ในนามของกลุ่มคนกลุ่มเดียวกัน แล้ว regression-test เจาะจงว่า caller เดิมแต่ละตัวยังได้ผลลัพธ์ที่ถูกต้องหลัง exception ใหม่มีผล ไม่ใช่ทดสอบแค่ flow ใหม่ที่เพิ่งเขียนขึ้นมา
+- Regression test ที่เพิ่ม: `supabase/tests/wyn_120_delete_drop_not_disappearing_from_profile_test.sh` — พิสูจน์ทั้งบั๊ก (query แบบเดิมยังคืนแถวให้ author) และ fix (query ใหม่คืนค่าว่างถูกต้อง) รันจริงกับ local Postgres 16 + schema.sql จริง
+
 ### [2026-09-03] WYN-103 production migration — `drop_images_position_max_9`/`club_posts_image_urls_length` ตรวจสอบข้อมูลเก่าย้อนหลังแล้วพัง เพราะ local-Postgres validation ไม่มี seed data ที่จำลองเคสนี้
 - ข้อผิดพลาด: AI Deploy & DevOps เตรียม migration SQL เพิ่ม CHECK constraint จำกัดรูปไม่เกิน 9 รูป (`add constraint ... check (...)` แบบธรรมดา ไม่ใส่ `not valid`) แล้วทดสอบกับ local PostgreSQL จำลอง production แต่ seed data ที่ใช้ทดสอบไม่มีแถวไหนเกิน 9 รูปเลย จึงไม่เจอปัญหานี้ตอนทดสอบ ทั้งที่ production จริงมีโพสต์เก่าที่มีมากกว่า 9 รูปอยู่แล้ว (โพสต์ก่อนแอปบังคับ limit 9 รูป)
 - ผลกระทบ: Founder รัน migration จริงแล้วเจอ `ERROR: 23514: check constraint "drop_images_position_max_9" ... is violated by some row` กลางทาง — migration หยุดค้าง ต้องหยุดแล้วรอ fix ก่อนรันต่อ (ไม่มีข้อมูลเสียหาย เพราะ Postgres reject การเพิ่ม constraint เอง ไม่ได้ลบ/แก้อะไร)
