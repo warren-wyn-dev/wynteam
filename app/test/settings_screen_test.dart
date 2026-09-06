@@ -16,6 +16,7 @@ import 'package:wyn/features/settings/presentation/settings_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_data_rights_repository.dart';
+import 'support/recording_developer_access_service.dart';
 import 'support/recording_follow_repository.dart';
 import 'support/recording_profile_repository.dart';
 
@@ -594,6 +595,125 @@ void main() {
         expect(find.byType(DocumentViewerScreen), findsOneWidget);
       });
     }
+  });
+
+  // WYN-126 -- version label, last row of the page, under "ออกจากระบบ".
+  group('version label (WYN-126)', () {
+    testWidgets(
+        'an ordinary account (isDeveloperAccount == false) shows '
+        '"V1.0.0 Beta4"', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          developerAccessService:
+              RecordingDeveloperAccessService(isDeveloperAccountResult: false),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('V1.0.0 Beta4'), findsOneWidget);
+      expect(find.text('V1.0.0 Beta5 [พัฒนาอยู่]'), findsNothing);
+    });
+
+    testWidgets(
+        'a developer account (isDeveloperAccount == true) shows '
+        '"V1.0.0 Beta5 [พัฒนาอยู่]"', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          developerAccessService:
+              RecordingDeveloperAccessService(isDeveloperAccountResult: true),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('V1.0.0 Beta5 [พัฒนาอยู่]'), findsOneWidget);
+      expect(find.text('V1.0.0 Beta4'), findsNothing);
+    });
+
+    testWidgets(
+        'shows "V1.0.0 Beta4" immediately on the very first frame, before '
+        'the future resolves -- no visible loading state', (tester) async {
+      // Deliberately never resolves [completer] during this test -- same
+      // "prove the in-between state, leave it permanently in flight"
+      // shape as the ดาวน์โหลดข้อมูลของฉัน loading-indicator test above,
+      // needed here because a fake that resolves immediately would flip
+      // to the developer label before this test ever gets to assert the
+      // pre-resolve frame (FutureBuilder's callback runs as a microtask,
+      // which drains before `pumpWidget` itself returns).
+      final completer = Completer<void>();
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          developerAccessService: RecordingDeveloperAccessService(
+            isDeveloperAccountResult: true,
+            isDeveloperAccountOverride: () => completer.future,
+          ),
+        ),
+      ));
+
+      // Still the stable label -- the future is still pending, so this
+      // must be `initialData: false`'s render, per Design spec's "no
+      // loading state" decision.
+      expect(find.text('V1.0.0 Beta4'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
+
+    testWidgets(
+        'a failing isDeveloperAccount() (simulated RPC error) still shows '
+        '"V1.0.0 Beta4" -- fail-closed, no crash, no blank', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          developerAccessService: RecordingDeveloperAccessService(
+            isDeveloperAccountError: Exception('network error'),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('V1.0.0 Beta4'), findsOneWidget);
+      expect(find.text('V1.0.0 Beta5 [พัฒนาอยู่]'), findsNothing);
+    });
+
+    testWidgets(
+        'is the last row on the page, and "ออกจากระบบ" above it still '
+        'opens the confirm dialog normally (no regression)', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          developerAccessService:
+              RecordingDeveloperAccessService(isDeveloperAccountResult: false),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final listView = tester.widget<ListView>(find.byType(ListView));
+      final children =
+          (listView.childrenDelegate as SliverChildListDelegate).children;
+      // The version label lives inside the same trailing Padding/Column
+      // as "ออกจากระบบ" -- still the last child of the ListView, not a
+      // new sibling appended after it.
+      expect(
+        find.descendant(
+          of: find.byWidget(children.last),
+          matching: find.text('V1.0.0 Beta4'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('ออกจากระบบ'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.text('ออกจากระบบบัญชีของคุณใช่ไหม'), findsOneWidget);
+    });
   });
 }
 
