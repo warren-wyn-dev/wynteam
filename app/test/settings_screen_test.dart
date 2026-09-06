@@ -16,6 +16,7 @@ import 'package:wyn/features/settings/presentation/settings_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_data_rights_repository.dart';
+import 'support/recording_developer_access_service.dart';
 import 'support/recording_follow_repository.dart';
 import 'support/recording_profile_repository.dart';
 
@@ -41,6 +42,13 @@ void main() {
   late RecordingDataRightsRepository recordingDataRightsRepository;
   // WYN-097 -- same setUpAll discipline as every repo above.
   late RecordingFollowRepository recordingFollowRepository;
+  // WYN-126 -- same setUpAll discipline again: the real
+  // DeveloperAccessService's default constructor touches
+  // Supabase.instance.client for its auth-state listener, and its
+  // isDeveloperAccount() would otherwise make a real (hanging) RPC call
+  // against this suite's placeholder project -- see that fake's own doc
+  // comment.
+  late RecordingDeveloperAccessService recordingDeveloperAccessService;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
@@ -48,6 +56,7 @@ void main() {
     throwingProfileRepository = _ThrowingProfileRepository();
     recordingDataRightsRepository = RecordingDataRightsRepository();
     recordingFollowRepository = RecordingFollowRepository();
+    recordingDeveloperAccessService = RecordingDeveloperAccessService();
   });
 
   setUp(() {
@@ -58,8 +67,12 @@ void main() {
 
   testWidgets('shows the 7-row mockup structure: 3 groups + a separated '
       'logout row, nothing else', (tester) async {
-    await tester.pumpWidget(const MaterialApp(
-      home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+    await tester.pumpWidget(MaterialApp(
+      home: SettingsScreen(
+              platformRole: PlatformRole.user,
+              isPrivate: false,
+              developerAccessService: recordingDeveloperAccessService,
+            ),
     ));
     await tester.pumpAndSettle();
 
@@ -83,8 +96,12 @@ void main() {
 
   testWidgets('"ธีมเข้ม" and "ช่วยเหลือ" are disabled -- no chevron, no tap '
       'target', (tester) async {
-    await tester.pumpWidget(const MaterialApp(
-      home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+    await tester.pumpWidget(MaterialApp(
+      home: SettingsScreen(
+              platformRole: PlatformRole.user,
+              isPrivate: false,
+              developerAccessService: recordingDeveloperAccessService,
+            ),
     ));
     await tester.pumpAndSettle();
 
@@ -102,8 +119,12 @@ void main() {
 
   testWidgets('tapping "การแจ้งเตือน" opens NotificationSettingsScreen '
       'directly (unchanged, not nested)', (tester) async {
-    await tester.pumpWidget(const MaterialApp(
-      home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+    await tester.pumpWidget(MaterialApp(
+      home: SettingsScreen(
+              platformRole: PlatformRole.user,
+              isPrivate: false,
+              developerAccessService: recordingDeveloperAccessService,
+            ),
     ));
     await tester.pumpAndSettle();
 
@@ -113,10 +134,16 @@ void main() {
     expect(find.byType(NotificationSettingsScreen), findsOneWidget);
   });
 
-  testWidgets('shows "ออกจากระบบ" as the very last row on the page',
+  testWidgets(
+      'shows "ออกจากระบบ" as the last row above the version footer '
+      '(WYN-126 moved the true last child to the version label)',
       (tester) async {
-    await tester.pumpWidget(const MaterialApp(
-      home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+    await tester.pumpWidget(MaterialApp(
+      home: SettingsScreen(
+              platformRole: PlatformRole.user,
+              isPrivate: false,
+              developerAccessService: recordingDeveloperAccessService,
+            ),
     ));
     await tester.pumpAndSettle();
 
@@ -125,23 +152,107 @@ void main() {
     final listView = tester.widget<ListView>(find.byType(ListView));
     final children =
         (listView.childrenDelegate as SliverChildListDelegate).children;
-    // The last child is the separated logout section (a Padding wrapping
-    // a Divider + the logout row), not a bare row like the others.
+    // Second-to-last is the separated logout section (a Padding wrapping
+    // a Divider + the logout row) -- the version footer (WYN-126) is now
+    // the true last child, see the group below.
     expect(
       find.descendant(
-        of: find.byWidget(children.last),
+        of: find.byWidget(children[children.length - 2]),
         matching: find.text('ออกจากระบบ'),
       ),
       findsOneWidget,
     );
   });
 
+  group('WYN-126: version footer', () {
+    // find.text's default skipOffstage:true excludes this row -- the
+    // page has enough rows above it (~10) that the footer sits beyond
+    // the default test viewport + ListView's cacheExtent and never gets
+    // painted, even though it's genuinely built and present (confirmed
+    // via debugDumpApp() while diagnosing this). skipOffstage: false
+    // matches regardless of scroll/paint state, same intent as scrolling
+    // it into view first but without the extra scroll step.
+    testWidgets(
+        'shows the stable version label, as the very last row on the '
+        'page, for a regular (non-developer) account', (tester) async {
+      recordingDeveloperAccessService.isDeveloperResult = false;
+
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          developerAccessService: recordingDeveloperAccessService,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('V1.0.0 Beta4', skipOffstage: false), findsOneWidget);
+      expect(find.textContaining('Beta5', skipOffstage: false), findsNothing);
+
+      final listView = tester.widget<ListView>(find.byType(ListView));
+      final children =
+          (listView.childrenDelegate as SliverChildListDelegate).children;
+      expect(
+        find.descendant(
+          of: find.byWidget(children.last, skipOffstage: false),
+          matching: find.text('V1.0.0 Beta4', skipOffstage: false),
+          skipOffstage: false,
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+        'shows the developer-preview version label for a developer/'
+        'internal test account', (tester) async {
+      recordingDeveloperAccessService.isDeveloperResult = true;
+
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          developerAccessService: recordingDeveloperAccessService,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('V1.0.0 Beta5 [พัฒนาอยู่]', skipOffstage: false),
+          findsOneWidget);
+      expect(find.text('V1.0.0 Beta4', skipOffstage: false), findsNothing);
+
+      recordingDeveloperAccessService.isDeveloperResult = false;
+    });
+
+    testWidgets(
+        'a failing/erroring developer check fails closed to the stable '
+        'label, never a crash or a blank footer', (tester) async {
+      final throwingService = RecordingDeveloperAccessService()
+        ..isDeveloperErrorOverride = Exception('network error');
+
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          developerAccessService: throwingService,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('V1.0.0 Beta4', skipOffstage: false), findsOneWidget);
+      expect(find.textContaining('Beta5', skipOffstage: false), findsNothing);
+    });
+  });
+
   group('WYN-082: logout confirmation', () {
     testWidgets(
         'tapping "ออกจากระบบ" shows a confirm dialog with Founder\'s exact '
         'copy, instead of signing out immediately', (tester) async {
-      await tester.pumpWidget(const MaterialApp(
-        home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+              platformRole: PlatformRole.user,
+              isPrivate: false,
+              developerAccessService: recordingDeveloperAccessService,
+            ),
       ));
       await tester.pumpAndSettle();
 
@@ -161,8 +272,12 @@ void main() {
 
     testWidgets('tapping "ยกเลิก" dismisses the dialog and stays signed in',
         (tester) async {
-      await tester.pumpWidget(const MaterialApp(
-        home: SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+              platformRole: PlatformRole.user,
+              isPrivate: false,
+              developerAccessService: recordingDeveloperAccessService,
+            ),
       ));
       await tester.pumpAndSettle();
 
@@ -188,6 +303,7 @@ void main() {
         platformRole: platformRole,
         isPrivate: false,
         dataRightsRepository: dataRightsRepository,
+        developerAccessService: recordingDeveloperAccessService,
       ),
     ));
     await tester.pumpAndSettle();
@@ -361,6 +477,7 @@ void main() {
         likesVisibility: likesVisibility,
         profileRepository: profileRepository,
         followRepository: followRepository,
+        developerAccessService: recordingDeveloperAccessService,
       ),
     ));
     await tester.pumpAndSettle();
@@ -566,9 +683,13 @@ void main() {
     ];
 
     Future<void> openLegalScreen(WidgetTester tester) async {
-      await tester.pumpWidget(const MaterialApp(
+      await tester.pumpWidget(MaterialApp(
         home:
-            SettingsScreen(platformRole: PlatformRole.user, isPrivate: false),
+            SettingsScreen(
+              platformRole: PlatformRole.user,
+              isPrivate: false,
+              developerAccessService: recordingDeveloperAccessService,
+            ),
       ));
       await tester.pumpAndSettle();
       await tester.tap(find.text('ข้อกำหนดและความเป็นส่วนตัว'));
