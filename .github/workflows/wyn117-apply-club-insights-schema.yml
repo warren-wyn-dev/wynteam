@@ -1,0 +1,117 @@
+name: WYN-117 -- apply club owner insights schema (preventive, same gap as WYN-115/116)
+
+# WYN-117 (Club Owner Insights) just merged into main (PR #283) with a
+# new supabase/schema.sql section (club_insights() RPC) but, same as
+# WYN-115 and WYN-116 before it, no dedicated apply-to-production
+# workflow of its own -- schema.sql is a description, it does not
+# auto-apply (see chat-enable-conversations-realtime.yml's comment, and
+# DECISIONS.md's 2026-09-06 WYN-116 P0 entry, which flagged checking
+# other approved/ tasks for this exact gap). Applying this now,
+# preventively, before any deploy ships client code that calls it and
+# turns this into a third same-shaped P0 for whichever Club owner opens
+# the new Insights tab first.
+#
+# Purely additive: one new SECURITY DEFINER function, no new table, no
+# RLS change. Copy-paste identical to schema.sql's WYN-117 section -- if
+# the two ever drift, schema.sql is wrong, not this file.
+#
+# Safe to run more than once (CREATE OR REPLACE FUNCTION).
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== 0. Diagnose: does club_insights() already exist? ==="
+          run_sql "select routine_name from information_schema.routines where routine_schema = 'public' and routine_name = 'club_insights';" | jq .
+
+          echo "=== 1. Create club_insights() RPC ==="
+          run_sql "create or replace function public.club_insights(p_club_id uuid, p_days int)
+                   returns table (
+                     new_members bigint,
+                     new_posts bigint,
+                     likes_and_comments bigint,
+                     active_members bigint
+                   )
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   declare
+                     v_cutoff timestamptz;
+                   begin
+                     if coalesce(public.club_role(p_club_id, auth.uid()), '') not in ('owner', 'admin') then
+                       raise exception 'Not permitted to view Club insights';
+                     end if;
+
+                     if p_days not in (7, 30) then
+                       raise exception 'Invalid insights window: %', p_days;
+                     end if;
+
+                     v_cutoff := now() - (p_days || ' days')::interval;
+
+                     return query
+                     with post_ids as (
+                       select id from public.club_posts where club_id = p_club_id
+                     ),
+                     actions as (
+                       select author_id as actor_id, created_at
+                       from public.club_posts
+                       where club_id = p_club_id
+                       union all
+                       select cpl.user_id as actor_id, cpl.created_at
+                       from public.club_post_likes cpl
+                       where cpl.club_post_id in (select id from post_ids)
+                       union all
+                       select cpc.author_id as actor_id, cpc.created_at
+                       from public.club_post_comments cpc
+                       where cpc.club_post_id in (select id from post_ids)
+                     )
+                     select
+                       (select count(*) from public.club_members
+                         where club_id = p_club_id and status = 'approved' and created_at >= v_cutoff),
+                       (select count(*) from public.club_posts
+                         where club_id = p_club_id and created_at >= v_cutoff),
+                       (
+                         (select count(*) from public.club_post_likes cpl
+                           where cpl.club_post_id in (select id from post_ids) and cpl.created_at >= v_cutoff)
+                         +
+                         (select count(*) from public.club_post_comments cpc
+                           where cpc.club_post_id in (select id from post_ids) and cpc.created_at >= v_cutoff)
+                       ),
+                       (select count(distinct actor_id) from actions where created_at >= v_cutoff);
+                   end;
+                   \$fn\$;
+
+                   grant execute on function public.club_insights(uuid, int) to authenticated;" >/dev/null
+          echo "Done."
+
+          echo "=== 2. Verify function exists + smoke test against a real club (7-day window) ==="
+          run_sql "select routine_name from information_schema.routines where routine_schema = 'public' and routine_name = 'club_insights';" | jq .
+          run_sql "select p.username, cm.club_id from public.club_members cm join public.profiles p on p.id = cm.user_id where cm.role in ('owner','admin') limit 1;" | jq .
