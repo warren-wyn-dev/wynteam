@@ -1035,3 +1035,15 @@ Implement ตาม design spec ที่ Founder อนุมัติแล้
 **sandbox นี้ไม่มี Flutter SDK เลย รัน `flutter analyze`/`flutter test` ไม่ได้จริง** — ตรวจสอบด้วยการอ่าน source cross-reference ทุกจุดแทน (import/constructor/method ตรงกับของจริงทุกไฟล์ที่แตะ) เขียน regression test ไว้ครบ (`invite_to_club_screen_test.dart`, `share_sheet_test.dart`) แต่ยังไม่เคยรันจริงสักครั้ง — ไฟล์ task ยังอยู่ที่ `active/` ไม่ใช่ `completed/`/`approved/` ด้วยเหตุนี้ ส่งต่อ AI QA & Security แล้ว ต้องรัน suite เต็มก่อนอนุมัติ deploy
 
 อ้างอิง: `.wyn/tasks/active/WYN-115-invite-followers-to-club.md` ("AI Coding Output"), `app/lib/features/chat/presentation/share_sheet.dart`, `app/lib/features/club/presentation/invite_to_club_screen.dart`
+
+## [2026-09-06] WYN-115: QA PASS (1259/1259) -- caught + fixed 2 real bugs by actually running CI
+
+AI QA & Security ตรวจ WYN-115 เต็มรูปแบบ ตัดสินใจสำคัญ: **แทนที่จะตรวจแค่อ่าน source (sandbox นี้ไม่มี Flutter SDK) ใช้ `mcp__github__actions_run_trigger` สั่ง `.github/workflows/ci.yml` รันจริงผ่าน `workflow_dispatch`** บน branch `claude/consultation-8azkvp` ได้ผลทดสอบจริงจาก Flutter 3.47.1 (เวอร์ชันเดียวกับ production build) แทนที่จะอนุมัติงานที่ไม่เคยถูกทดสอบจริง (ขัดกติกา "ห้ามอนุมัติงานที่ยังไม่ได้ทดสอบจริงเด็ดขาด")
+
+รันทั้งหมด 3 รอบ พบและแก้บั๊กจริง 2 จุดที่การอ่านโค้ดอย่างเดียวจะไม่มีทางเจอ:
+1. `flutter analyze` FAIL รอบแรก — `!` ที่ไม่จำเป็นใน `share_sheet.dart` (Dart promote type ผ่าน closure ได้เองอยู่แล้ว)
+2. `flutter test` FAIL รอบสอง (10 tests) — Timer leak ใน `share_sheet_test.dart` (สร้าง Recording repo ใน `onPressed` closure แทนที่จะเป็น `setUp()`, bug class เดียวกับ WYN-072) + `DeepLinkService._handle()` เรียก `Supabase.instance.client` แบบไม่มีเงื่อนไขทั้งที่บาง path ไม่ต้องใช้เลย (บั๊กจริงใน production code ด้วย ไม่ใช่แค่ test)
+
+รอบ 3: **`flutter analyze` 0 issues, `flutter test` 1259/1259 ผ่านหมด** (run [34041885759](https://github.com/warren-wyn-dev/wynteam/actions/runs/34041885759)) — Admin/Edge Functions/schema ordering ผ่านครบ ไม่มี regression ข้าม package — ตรวจ security เพิ่มเติม (authorization ของ 2 entry point, ไม่มี secret hardcode, RLS เดิมไม่เปลี่ยน) ไม่พบช่องโหว่ — **Final Status: PASS** ย้าย task ไป `.wyn/tasks/approved/` ส่งต่อ AI Deploy & DevOps
+
+อ้างอิง: `.wyn/tasks/approved/WYN-115-invite-followers-to-club.md` ("QA & Security Report")
