@@ -884,16 +884,15 @@ void main() {
       // shows this text now, not also the (already-emptied) TextField.
       expect(find.text('กำลังส่ง'), findsOneWidget);
       expect(find.byIcon(Icons.fiber_manual_record), findsOneWidget);
-      expect(find.byIcon(Icons.done), findsNothing);
+      expect(find.text('ส่งแล้ว'), findsNothing);
 
       chatRepo.sendMessageGate!.complete();
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.fiber_manual_record), findsNothing);
-      // A single check for "sent" -- distinct in shape (not just color)
-      // from "read"'s double check, see the test below.
-      final checkIcon = tester.widget<Icon>(find.byIcon(Icons.done));
-      expect(checkIcon.color, WynColors.faint);
+      // A spelled-out label, not an icon -- see "อ่านแล้ว" below.
+      final sentLabel = tester.widget<Text>(find.text('ส่งแล้ว'));
+      expect(sentLabel.style?.color, WynColors.faint);
     });
 
     testWidgets(
@@ -914,11 +913,11 @@ void main() {
       await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
 
-      // Sent (not yet read): a single check.
-      expect(find.byIcon(Icons.done), findsOneWidget);
-      expect(find.byIcon(Icons.done_all), findsNothing);
-      final sentIcon = tester.widget<Icon>(find.byIcon(Icons.done));
-      expect(sentIcon.color, WynColors.faint);
+      // Sent (not yet read).
+      expect(find.text('ส่งแล้ว'), findsOneWidget);
+      expect(find.text('อ่านแล้ว'), findsNothing);
+      final sentLabel = tester.widget<Text>(find.text('ส่งแล้ว'));
+      expect(sentLabel.style?.color, WynColors.faint);
 
       chatRepo.emitConversationMetaUpdate((
         status: 'active',
@@ -927,10 +926,10 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Read: a double check, not just the same glyph recolored.
-      expect(find.byIcon(Icons.done), findsNothing);
-      final readIcon = tester.widget<Icon>(find.byIcon(Icons.done_all));
-      expect(readIcon.color, WynColors.sapphire);
+      // Read.
+      expect(find.text('ส่งแล้ว'), findsNothing);
+      final readLabel = tester.widget<Text>(find.text('อ่านแล้ว'));
+      expect(readLabel.style?.color, WynColors.sapphire);
     });
   });
 
