@@ -968,3 +968,91 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 **ผลกระทบ**: ไม่มีโค้ด/production ใดถูกแตะจากการปรึกษารอบนี้ — รอผลข้อมูล funnel จาก WYN-112 ก่อนวางแผนขั้นต่อไป (จะเป็นการแก้ onboarding ในแอป หรือปรับวิธีหาคนเข้ามาต่อ ขึ้นกับว่าจุดหลุดอยู่ตรงไหนจริง)
 
 อ้างอิง: `.wyn/docs/product/wynos-gtm-roadmap.md`, `.wyn/tasks/active/WYN-112-activation-funnel-investigation.md`, `.wyn/tasks/backlog/WYN-078-invite-only-access-gate.md`
+
+## [2026-09-06] WYN-112: ผล Admin Dashboard จริง — sample เล็กเกินฟันธง แต่เจอ 2 gap ที่ชัดเจนพอสรุปได้แล้ว
+
+**บริบท**: Founder เปิด WYN Admin Dashboard ส่วน "การเติบโตและ Retention" ส่งภาพหน้าจอมาตามที่ WYN-112 ขอไว้ ตัวเลขที่เห็น: สมัครใหม่ 24 ชม.ล่าสุด = 0, สมัครสำเร็จ = 1 คน (อัตรา 0%), Activation = 0 คน, D1 Retention = 0%, D7 Retention = 0%, ช่องทางยอดนิยม 7 วันล่าสุด = "ยังไม่มีข้อมูลช่องทาง"
+
+**การวิเคราะห์**: ฐานข้อมูลเล็กเกินกว่าจะฟันธงเปอร์เซ็นต์ทางสถิติได้จริงตามที่ Risk ของ WYN-112 เตือนไว้ล่วงหน้าแล้ว (สมัครสำเร็จแค่ 1 คนในช่วงที่วัด) — **ไม่สรุปเกินข้อมูลที่มี** แต่พบ 2 ข้อเท็จจริงที่ไม่ขึ้นกับ sample size เลย:
+1. **ไม่เคยติด UTM parameter ในลิงก์ที่แชร์เลยสักครั้ง** — ต่อให้มีคนสมัครเพิ่มอีกกี่ร้อยคนก็ยังตอบไม่ได้ว่าช่องทางไหนได้ผล จนกว่าจะเริ่มติด UTM ตั้งแต่ลิงก์รอบต่อไป
+2. **signup หยุดไหลเข้าสนิทใน 24 ชม.ล่าสุด** — คำถามเร่งด่วนกว่าเรื่อง onboarding ในแอปตอนนี้คือ "หยุดแชร์ลิงก์ไปหรือยัง" เพราะถ้าไม่มีคนเข้าใหม่จะไม่มีทาง sample เพิ่มพอให้วิเคราะห์ได้อีกเลย
+
+ตัวเลข Activation/Retention 0% ของคนกลุ่มเดียว **สอดคล้องทิศทางเดิมที่ Founder รายงาน** (เงียบสนิทไม่ทำ action) แต่ n=1 ยืนยันทางสถิติไม่ได้ เป็นแค่สัญญาณที่ไม่ขัดแย้งกับสมมติฐานเดิมเท่านั้น
+
+**คำแนะนำ**: ก่อนตัดสินใจลงทุนแก้ onboarding ในแอป (ยังไม่มีข้อมูลพอยืนยันว่าคือจุดที่ควรแก้จริง) แนะนำ Founder ทำ 2 อย่างพร้อมกันในรอบแชร์ถัดไป: (1) ติด UTM parameter ทุกลิงก์ที่แชร์ (2) แชร์เจาะจง 1-2 ชุมชน niche ตามที่ `wynos-gtm-roadmap.md` Phase 1 แนะนำไว้เดิม เพื่อให้ได้ sample ใหม่มากพอ (~20-50 signup) ก่อนกลับมาวิเคราะห์ funnel รอบต่อไป — ยังไม่ได้ตัดสินใจเรื่อง Guided Onboarding/Cold-start Feed Seeding (2 แนวทางที่เสนอไว้ก่อนหน้า) จนกว่าจะมีข้อมูลใหม่ที่ฟันธงได้จริง
+
+**สถานะ**: WYN-112 ยังคง active — บล็อกที่ Founder action (แชร์ลิงก์รอบใหม่พร้อม UTM) ไม่ใช่งานที่ AI role ใดทำแทนได้
+
+อ้างอิง: `.wyn/tasks/active/WYN-112-activation-funnel-investigation.md`, `.wyn/docs/product/wynos-gtm-roadmap.md`
+
+## [2026-09-06] WYN-113: Founder เลือกทำ OG/Twitter Card meta tags ก่อน จากการวิเคราะห์แอปทั้งระบบ
+
+**บริบท**: Founder ขอให้วิเคราะห์แอป WYNOS ทั้งระบบว่าควรเพิ่ม/แก้ฟีเจอร์หรือ UX/UI อะไรบ้าง — อ่านเอกสาร QA ที่มีอยู่แล้ว (`wynos-v1.0.0-beta3-{ux-audit,security-audit,future-ideas,final-readiness}.md`) และ git log ล่าสุดก่อน พบว่าฟีเจอร์หลักครบแล้ว งานส่วนใหญ่ในบรีฟ Beta3 ถูกปิดไปแล้วจริงผ่านงานตามหลัง (WYN-106 ถึง WYN-111 ปิดเมื่อเช้าวันนี้เอง) — สิ่งที่เหลือค้างคือรายการ `future-ideas.md` (A-1 ถึง A-7, B-1 ถึง B-5) ที่ยังไม่มีใครสั่งทำ
+
+**พบเพิ่มเอง (ไม่มีในเอกสารเดิม)**: ตรวจ `app/web/index.html` แล้วพบว่าไม่มี Open Graph/Twitter Card meta tag เลย — เชื่อมโยงตรงกับปัญหา activation ที่กำลังสืบอยู่ใน WYN-112 (ลิงก์ที่แชร์ไม่มี preview card อาจเป็นส่วนหนึ่งที่ทำให้อัตราคนคลิกลิงก์ต่ำ)
+
+**เสนอ 4 ตัวเลือกให้ Founder ผ่าน popup**: (1) OG/Twitter Card meta tags, (2) แก้ share link ให้ชี้โดเมนจริง (ค้างจาก security audit A-7), (3) Crash reporter/error monitoring (ค้างจาก A-6), (4) ยังไม่ทำอะไรเพิ่ม รอผล WYN-112 ก่อน — **Founder เลือกข้อ 1**
+
+**ผลลัพธ์**: สร้าง `WYN-113` (`.wyn/tasks/backlog/WYN-113-og-share-preview-cards.md`) เต็มรูปแบบ ส่งต่อ AI Design แล้ว — งานอื่นอีก 3 ตัวเลือกยังไม่ได้ทำ เก็บไว้เป็นตัวเลือกถัดไปถ้า Founder ต้องการ
+
+อ้างอิง: `.wyn/tasks/backlog/WYN-113-og-share-preview-cards.md`, `.wyn/docs/qa/wynos-v1.0.0-beta3-future-ideas.md`, `.wyn/docs/qa/wynos-v1.0.0-beta3-security-audit.md`
+
+## [2026-09-06] WYN-113: AI Design ส่งมอคอัพ Share Preview ให้ Founder ดูก่อนเขียนโค้ด
+
+**บริบท**: ต่อจาก Product spec ของ WYN-113 (OG/Twitter Card meta tags) — AI Design ทำมอคอัพจริงเป็น Artifact (ไม่ใช่แค่คำอธิบาย) ตามกติกา Founder 2026-09-03 ("ต้องเห็นรูปก่อนเขียนโค้ดทุกครั้ง") ก่อนส่งต่อ AI Coding
+
+**สิ่งที่ทำ**: เสนอ 2 ตัวเลือกโทนสีสำหรับรูป preview 1200×630 — ใช้เฉพาะ 5 token จริงจาก `wyn_colors.dart` (ink/paper/sapphire/graphite/hairline) ไม่มีสีใหม่ ไม่มีฟอนต์แบรนด์ใหม่ (คงฟอนต์ระบบตามที่ยืนยันไว้แล้วสำหรับแอป 2026-09-03/WYN-107):
+- **A — Paper**: พื้นขาวเหมือนแอปทุกหน้าจอ
+- **B — Ink (แนะนำโดย AI Design)**: พื้นเข้ม สะดุดตากว่าในฟีดที่ส่วนใหญ่เป็นการ์ดขาว
+
+พร้อมเสนอ copy ภาษาไทยแทนข้อความอังกฤษเทคนิคเดิม: `og:title` "WYNOS — สร้างชุมชนของคุณเอง", `og:description` "แชร์ Drop โพสต์ Pop คลิปสั้น ตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว"
+
+**สถานะ**: ส่ง Artifact ให้ Founder ดูแล้ว **ยังไม่ส่งต่อ AI Coding** — รอ Founder เลือกโทนสี + อนุมัติ/แก้ข้อความก่อน
+
+อ้างอิง: `.wyn/docs/design/wyn-113-og-share-preview-cards.md`, `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, Artifact https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e
+
+## [2026-09-06] WYN-113: Founder เลือกโทนสี A + แก้ copy — ตัด Pop ออก เพราะซ่อนจากผู้ใช้แล้ว (WYN-102)
+
+**บริบท**: หลัง AI Design เสนอ 2 ตัวเลือกสีสำหรับ share preview card (A-Paper / B-Ink แนะนำ) Founder เลือก **A (Paper)** — ตรงข้ามกับที่ AI Design แนะนำ — และแก้ copy `og:description` เอง 2 จุด: (1) ตัด "Pop คลิปสั้น" ออกทั้งหมด (2) เปลี่ยน "Drop" เป็น "โพสต์รูป"
+
+**ทำไมสำคัญ**: การตัด Pop ออกจาก copy **ตรงกับมติเดิมของโปรเจกต์เป๊ะ** — WYN-102 (2026-09-02) ซ่อน Pop จากทุกจุดที่ผู้ใช้เข้าถึงได้ในแอปแล้ว (Search/Home feed/Trending/Top100/Saved/notification) โดยไม่ลบโค้ด — การโฆษณาฟีเจอร์ที่คนหาไม่เจอจริงในแอปจะสร้างความสับสน/ผิดหวังให้คนที่คลิกลิงก์เข้ามา Founder จับจุดนี้ได้แม่นแม้ AI Design จะลืมเช็คย้อนกับ WYN-102 ตอนร่าง copy ครั้งแรก — เป็นบทเรียนสำหรับงานหน้า: **ก่อนเขียน marketing copy ที่พูดถึงฟีเจอร์ ต้องเช็คด้วยว่าฟีเจอร์นั้นเปิดให้ผู้ใช้เห็นจริงในปัจจุบันหรือไม่**
+
+**ข้อความสุดท้าย**: `og:title` "WYNOS — สร้างชุมชนของคุณเอง", `og:description` "โพสต์รูป แชร์เรื่องราว และตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว" — อัปเดต mockup ให้ตรงแล้ว
+
+**สถานะ**: พร้อมส่งต่อ AI Coding แล้ว
+
+อ้างอิง: `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, `.wyn/docs/design/wyn-113-og-share-preview-cards.md`, Artifact https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e
+
+## [2026-09-06] WYN-113: Implement เสร็จ — ส่งต่อ AI QA & Security
+
+**บริบท**: ต่อจาก Product + Design spec ที่ Founder อนุมัติแล้ว (โทนสี A-Paper, copy ที่ตัด Pop ออก) — AI Coding เพิ่ม 9 meta tags (`og:*`/`twitter:*`) ใน `app/web/index.html` และรูป preview 1200×630 (`app/web/og-image.png`, render จาก HTML จริงด้วย headless Chromium ที่มีอยู่ใน sandbox — ใช้โลโก้จริงและ token สีจริง ไม่มีการเพิ่มสีใหม่) พบและแก้ gotcha เพิ่มเติมระหว่างทาง: `app/web/*` ถูก `.gitignore` ทั้งโฟลเดอร์เป็นค่าเริ่มต้น (ต้องเพิ่ม negation รายไฟล์ตาม pattern เดิมของ index.html/favicon.png — เคยเป็นสาเหตุที่ `firebase-messaging-sw.js` เกือบหายไปมาก่อน) — เพิ่ม `!/web/og-image.png` แล้ว
+
+**ข้อจำกัดที่ระบุไว้ตรงๆ**: sandbox ของ session นี้ไม่มี Flutter SDK ติดตั้ง จึงรัน `flutter analyze`/`flutter build web --release` จริงไม่ได้ — ยืนยันได้แค่ว่า diff จำกัดอยู่ที่ `app/web/`/`app/.gitignore` เท่านั้น (ไม่แตะ Dart code) และ `index.html` ผ่าน HTML well-formedness check ด้วย Python `html.parser` — **AI QA & Security ต้องรัน `flutter build web --release` จริงอย่างน้อย 1 ครั้ง** ก่อน PASS ตามวินัยเดิมของโปรเจกต์ (แยก "ยืนยันเองได้" กับ "ต้องรอคนอื่นยืนยัน" ตาม WORKFLOW.md)
+
+**สถานะ**: Implementation เสร็จ ส่งต่อ AI QA & Security แล้ว — ยังไม่ deploy ไม่แตะ production
+
+อ้างอิง: `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, commit `e2d1e40`
+
+## [2026-09-06] WYN-113: Founder เปลี่ยนจาก A กลับเป็น B (Ink) รอบสุดท้าย
+
+**บริบท**: หลังยืนยัน Option A (Paper) ไปแล้วก่อนหน้านี้ Founder ดู mockup อีกรอบแล้วขอเปลี่ยนเป็น **B (Ink)** — "เอาสีดำดีกว่า จะได้เด่นๆ" ตรงกับเหตุผลที่ AI Design เสนอ B ไว้ตั้งแต่แรก (การ์ดพื้นเข้มสะดุดตากว่าในฟีด Facebook/LINE ที่ส่วนใหญ่เป็นการ์ดขาว)
+
+**ผลกระทบ**: regenerate เฉพาะไฟล์ `app/web/og-image.png` เป็นพื้น ink + โลโก้/wordmark สีขาว — **ไม่แตะ `index.html`** เลย เพราะ meta tag path/ข้อความไม่เปลี่ยน (commit `93d4db0`) — copy (`og:title`/`og:description`) ยังเป็นเวอร์ชันเดิมที่ยืนยันไปแล้วก่อนหน้า
+
+**สถานะสุดท้ายของ WYN-113**: โทนสี **B (Ink)** + copy "โพสต์รูป แชร์เรื่องราว และตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว" — โค้ดพร้อม 100% ส่งต่อ AI QA & Security แล้ว ยังไม่ deploy
+
+อ้างอิง: `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, `.wyn/docs/design/wyn-113-og-share-preview-cards.md`, commit `93d4db0`, Artifact https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e
+
+## [2026-09-06] WYN-113: QA PASS — ตรวจจริงไม่ใช่แค่เชื่อคำอ้าง Coding, ย้ายเข้า approved/
+
+**บริบท**: AI QA & Security ตรวจ WYN-113 (OG/Twitter Card meta tags + og-image.png) อย่างจริงจังก่อนอนุมัติ ไม่เชื่อ Coding Output เฉยๆ:
+- เปิด `index.html` จริงด้วย headless Chromium แล้ว dump DOM ยืนยันว่า browser parse meta tag ทั้ง 9 ตัวถูกต้อง ข้อความไทยไม่ mojibake
+- ตรวจ md5sum เทียบ git blob กับ working tree ยืนยันว่าไฟล์ที่ Founder เห็นในมอคอัพตรงกับไฟล์ที่จะ deploy จริง 100%
+- ยืนยัน `og-image.png` ถูก track ใน git จริง (ไม่โดน `.gitignore` บล็อกอย่างที่เคยเกือบเกิดกับ `firebase-messaging-sw.js`), เป็น PNG 1200×630 ถูกต้อง ไม่มี metadata/secret แปลกปลอม
+- Secret scan ทั้ง diff ไม่พบ credential ใดๆ, scope check ยืนยันไม่แตะ Dart/schema/RLS เลยแม้แต่บรรทัดเดียว
+
+**ข้อจำกัดที่ระบุไว้ตรงๆ (ไม่ใช่ blocker)**: sandbox นี้ไม่มี Flutter SDK เหมือนที่ Coding เจอ — `flutter analyze`/`flutter test` จะรันอัตโนมัติผ่าน `ci.yml` ก็ต่อเมื่อเปิด PR หรือ push เข้า `main` เท่านั้น (ตรวจพบว่า `ci.yml` ไม่รันกับ push ธรรมดาเข้า feature branch) — และการทดสอบ Facebook Sharing Debugger/Twitter Card Validator จริงทำได้แค่หลัง deploy เท่านั้น (URL ต้อง live ก่อน) ทั้งสองข้อบันทึกไว้เป็น "ต้องยืนยันในขั้นถัดไป" ตาม WORKFLOW.md ไม่ใช่เหตุผลให้ FAIL เพราะความเสี่ยงต่ำมาก (static content ล้วน, ตรวจได้ครบทุกจุดที่ทำได้จริงแล้ว)
+
+**ผลลัพธ์**: **PASS** — ย้าย `.wyn/tasks/active/WYN-113-og-share-preview-cards.md` → `.wyn/tasks/approved/`
+
+อ้างอิง: `.wyn/tasks/approved/WYN-113-og-share-preview-cards.md`
