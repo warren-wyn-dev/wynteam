@@ -12988,8 +12988,33 @@ create trigger profiles_set_referral_code
 -- Backfill: every profile that existed before this migration ran gets
 -- a code too, so an existing (pre-feature) user can start inviting
 -- immediately rather than only users who sign up after this ships.
-update public.profiles set referral_code = public.generate_referral_code()
-where referral_code is null;
+-- Row-by-row with its own exception handler -- not a single bulk
+-- UPDATE -- because Postgres re-validates *every* check constraint on
+-- a row for *any* UPDATE to it, regardless of which column changed.
+-- This hit production directly: the official WYNOS account's own
+-- `profiles` row was grandfathered past `profiles_username_not_reserved`
+-- via that constraint's own `not valid` (see its comment above) when
+-- the constraint was added, but a bulk backfill UPDATE re-triggers
+-- validation anyway and a single failing row would abort the entire
+-- statement, blocking every *other* profile's backfill too. Looping
+-- means one already-known, already-accepted grandfathered row is
+-- skipped (left without a referral_code, which is harmless -- nothing
+-- reads referral_code as non-null-required) without blocking anyone
+-- else's.
+do $$
+declare
+  r record;
+begin
+  for r in select id from public.profiles where referral_code is null loop
+    begin
+      update public.profiles set referral_code = public.generate_referral_code()
+      where id = r.id;
+    exception when others then
+      raise notice 'Skipping referral_code backfill for profile %: %', r.id, sqlerrm;
+    end;
+  end loop;
+end;
+$$;
 
 -- Multi-use per referrer (Acceptance Criteria -- explicitly NOT
 -- single-use, so one person can invite more than one friend), but
