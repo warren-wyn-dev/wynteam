@@ -467,6 +467,59 @@ begin
 end
 $$;
 
+-- ------------------------------------------------------------
+-- CHECK12: regression for the QA finding (2026-09-06) --
+-- internal.chat_pair_allowed() must have EXECUTE granted to
+-- `authenticated` explicitly, matching every other internal.* RLS
+-- helper in schema.sql. Without it, the 4 RLS policies that call this
+-- function directly inside their own `using`/`with check` (evaluated
+-- as the querying role itself, not as this function's owner) would
+-- only keep working by accident, dependent on Postgres's default
+-- EXECUTE-to-PUBLIC grant never being revoked anywhere -- exactly the
+-- assumption schema.sql's own internal-schema comment (WYN-027
+-- section) warns against relying on.
+-- ------------------------------------------------------------
+insert into results
+select 'CHECK12_chat_pair_allowed_has_explicit_authenticated_grant',
+  case when has_function_privilege('authenticated', 'internal.chat_pair_allowed(uuid, uuid)', 'EXECUTE')
+       then 1 else 0 end,
+  1;
+
+-- CHECK12b: prove it's a *real* grant, not just relying on the
+-- PUBLIC default -- revoking PUBLIC's own default grant must not
+-- remove `authenticated`'s explicit one. Restores PUBLIC's grant
+-- immediately after so this throwaway database's own end state
+-- doesn't matter either way (it gets dropped regardless), but keeps
+-- the check honest about what it's actually proving.
+revoke execute on function internal.chat_pair_allowed(uuid, uuid) from public;
+insert into results
+select 'CHECK12b_authenticated_grant_survives_revoking_public_default',
+  case when has_function_privilege('authenticated', 'internal.chat_pair_allowed(uuid, uuid)', 'EXECUTE')
+       then 1 else 0 end,
+  1;
+do $$
+declare
+  v_failed boolean := false;
+begin
+  -- With PUBLIC's default revoked and only the explicit grant to
+  -- `authenticated` remaining, a real RLS-evaluated query must still
+  -- succeed -- this is the exact scenario QA reproduced as broken
+  -- before this fix.
+  begin
+    set role authenticated;
+    set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
+    set request.jwt.claim.role = 'authenticated';
+    perform 1 from public.conversations limit 1;
+    reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+  exception when others then
+    v_failed := true;
+    reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+  end;
+  insert into results select 'CHECK12c_rls_query_survives_public_default_revoked', case when v_failed then 0 else 1 end, 1;
+end
+$$;
+grant execute on function internal.chat_pair_allowed(uuid, uuid) to public;
+
 select check_name, actual, expected from results order by check_name;
 EOF
 

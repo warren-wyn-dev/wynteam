@@ -11794,6 +11794,25 @@ as $$
     )
 $$;
 
+-- QA finding (2026-09-06, WYN-122): this is called directly inside the
+-- `using`/`with check` clause of 4 RLS policies (conversations SELECT,
+-- messages SELECT/INSERT, chat-media storage INSERT), which evaluate as
+-- the querying role (`authenticated`) itself, not as this function's
+-- owner -- unlike get_or_create_conversation()/count_unread_conversations()/
+-- chat_lockdown_status() below, which are all SECURITY DEFINER and
+-- therefore run as the owner regardless. Without this explicit grant,
+-- `authenticated`'s ability to call this function inside those 4
+-- policies depends entirely on Postgres's default EXECUTE-to-PUBLIC
+-- grant never having been revoked anywhere -- exactly the assumption
+-- this file's own internal-schema comment above (WYN-027 section)
+-- warns against relying on. Every other internal.* RLS helper in this
+-- file already has this same grant; this one didn't, and QA confirmed
+-- by revoking EXECUTE from PUBLIC on this function directly that doing
+-- so breaks every chat RLS policy for every user, including the two
+-- allowlisted testers -- not a graceful lockdown, a hard "permission
+-- denied for function chat_pair_allowed".
+grant execute on function internal.chat_pair_allowed(uuid, uuid) to authenticated;
+
 -- Client-facing check (WYN-122 Design doc's "Contract for AI Coding"):
 -- p_other_user_id null -> "can I use chat at all right now" (Chat
 -- Inbox/New Message screens' Locked-state check); non-null -> "can

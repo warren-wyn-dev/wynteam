@@ -1,7 +1,7 @@
 # Feature Request — WYN-122
 
-Status: **active — QA Round 1 FAIL (missing EXECUTE grant บน `internal.chat_pair_allowed()`) — ส่งต่อ AI Debug Engineer**
-Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (FAIL) → AI Debug Engineer
+Status: **active — Debug Engineer แก้แล้ว (grant statement) — ส่งกลับ AI QA & Security เพื่อยืนยันอิสระอีกครั้ง**
+Owner: AI Product Manager → AI Design → AI Coding → AI QA & Security (FAIL) → AI Debug Engineer (แก้แล้ว) → AI QA & Security (รอบ 2)
 
 Feature: ปิดระบบแชท 1-on-1 ชั่วคราว เหลือเฉพาะ @warren ↔ @wynos_online (Chat Lockdown for Testing)
 
@@ -159,3 +159,32 @@ Founder บอกไว้ชัดเจนว่านี่คือ "ก่�
 **Recommendation**: ส่งกลับ AI Debug Engineer เพิ่ม `grant execute ... to authenticated` 1 บรรทัดใน `supabase/schema.sql` และ `.github/workflows/wyn122-apply-chat-lockdown-schema.yml` (2 จุด, statement เดียวกัน) แนะนำเพิ่มเป็น regression check ถาวรใน `wyn_122_chat_lockdown_test.sh` ด้วย (revoke แล้วยืนยัน error, grant แล้วยืนยันหาย) กันไม่ให้ใครลืม grant นี้อีกในอนาคตถ้ามีการแก้ฟังก์ชันนี้ซ้ำ
 
 **Final Status: FAIL**
+
+---
+
+## AI Debug Engineer Output (แก้แล้ว — ส่งกลับ AI QA & Security)
+
+**Bug**: `internal.chat_pair_allowed(uuid, uuid)` ขาด `grant execute ... to authenticated` (ดูรายละเอียดเต็มที่ `.wyn/tasks/bugs/WYN-122-chat-pair-allowed-missing-execute-grant.md`)
+
+**Reproduction**: ยืนยันซ้ำเองก่อนแก้ (ไม่เดา) — `revoke execute on function internal.chat_pair_allowed(uuid, uuid) from public;` แล้วรัน query ผ่าน RLS ด้วย role `authenticated` จริง → `ERROR: permission denied for function chat_pair_allowed` ตรงตามที่ QA รายงาน
+
+**Root Cause**: ตรงตามที่ QA วิเคราะห์ไว้ — ฟังก์ชันนี้ถูกเรียกตรงจากใน RLS policy (evaluate เป็น role `authenticated`) ไม่ใช่ผ่าน SECURITY DEFINER wrapper เพียงอย่างเดียว จึงต้องมี explicit grant เหมือน `internal.*` helper อื่นทุกตัวในไฟล์
+
+**Fix**: เพิ่ม `grant execute on function internal.chat_pair_allowed(uuid, uuid) to authenticated;` ทันทีหลังนิยามฟังก์ชัน ใน 2 จุด:
+1. `supabase/schema.sql`
+2. `.github/workflows/wyn122-apply-chat-lockdown-schema.yml`
+
+**Files Changed**:
+- `supabase/schema.sql` — เพิ่ม grant statement + comment อธิบาย root cause
+- `.github/workflows/wyn122-apply-chat-lockdown-schema.yml` — เพิ่ม grant statement เดียวกัน
+- `supabase/tests/wyn_122_chat_lockdown_test.sh` — เพิ่ม 3 checks ใหม่ (CHECK12/12b/12c) เป็น regression กันไม่ให้ลืมอีก: (a) ยืนยัน `authenticated` มี explicit EXECUTE จริง (`has_function_privilege()`) (b) ยืนยันว่า grant นี้ไม่ได้พึ่ง PUBLIC default (revoke PUBLIC ทิ้งแล้วเช็คว่า `authenticated`'s explicit grant ยังอยู่) (c) ยืนยันว่า RLS query จริงยังทำงานได้แม้ PUBLIC default ถูก revoke ไปแล้ว (สถานการณ์เดียวกับที่ QA พิสูจน์ว่าพังก่อนแก้)
+- `.wyn/learning/LESSONS_LEARNED.md` — บันทึกบทเรียน
+
+**Tests**:
+- รัน `wyn_122_chat_lockdown_test.sh` ซ้ำ — **18/18 PASS** (15 เดิม + 3 ใหม่)
+- รัน `wyn_031/032/033/037/120_*_test.sh` ซ้ำ — ทุกตัว PASS ไม่มี regression
+- Dry-run migration workflow (`wyn122-apply-chat-lockdown-schema.yml`) ซ้ำกับ pre-migration database จำลอง — apply สำเร็จ, idempotent, ยืนยันด้วย `has_function_privilege()` ตรงๆ ว่า `authenticated` มี EXECUTE จริงหลัง migration รัน
+
+**Regression Risk**: ไม่มี — การเพิ่ม grant เป็นการเปลี่ยนแปลงทิศทาง "อนุญาตเพิ่ม" ล้วนๆ ตรงกับ pattern ที่ใช้อยู่แล้ว 10 จุดในไฟล์เดียวกัน ไม่มีทางทำให้อะไรที่เคยทำงานได้กลับพัง
+
+**Handoff to QA**: ส่งกลับ AI QA & Security เพื่อยืนยันอิสระอีกครั้งว่า grant ถูกต้องจริง (แนะนำ: รัน `has_function_privilege()` เองอิสระ + ลอง revoke/verify ซ้ำเองอีกรอบ ไม่ต้องเชื่อแค่ผลจาก Debug Engineer) ก่อน PASS
