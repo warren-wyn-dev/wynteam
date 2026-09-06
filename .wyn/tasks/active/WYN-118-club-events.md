@@ -1,6 +1,6 @@
 # Product Task — WYN-118
 
-Status: backlog
+Status: active
 Owner: AI Product Manager
 
 Feature: Club Events — นัดกิจกรรม/meetup ภายใน Club พร้อม RSVP
@@ -31,3 +31,26 @@ Risks: Scope คืบง่ายที่สุดในบรรดา 4 ต�
 Recommendation: ทำเป็นลำดับสุดท้ายตามที่ Founder เลือก — รอดูว่า WYN-115/116/117 ทำให้ Club active ขึ้นจริงหรือไม่ก่อน เพราะ Events มีค่าก็ต่อเมื่อ Club มีสมาชิกที่ active มากพอจะนัดรวมตัวกันได้จริง
 
 Handoff: AI Design (โครงสร้างหน้า Event + RSVP UI) → AI Coding (ตาราง Event/RSVP ใหม่ + RLS ตาม trust model ของ Club เดิม) → AI QA & Security
+
+---
+
+## AI Design Output
+
+ดู `.wyn/docs/design/wyn-118-club-events.md` — แท็บใหม่ "กิจกรรม" เห็นเฉพาะ approved member (ต่อท้าย About, ก่อน Insights เสมอเพราะ canManageClub ⟹ approved member), RSVP โหวตตรงในการ์ดแบบ Poll ไม่มีหน้า Detail แยก, **ตัดการแจ้งเตือน "ก่อนกิจกรรมเริ่ม" ออกจาก V1 อย่างชัดเจน** เพราะต้องใช้ cron/scheduled-job infra ที่ระบบนี้ไม่มีเลย (ไม่ใช่แค่ trigger ตอบสนอง event แบบ WYN-115/116) — Acceptance Criteria จริงไม่ได้ระบุเงื่อนไข reminder ไว้เลย
+
+## AI Coding Output
+
+**Files Changed**:
+- `supabase/schema.sql` — ตาราง `club_events`(สิทธิ์ insert/update/delete = `canModeratePosts` tier owner/admin/moderator, staff จัดการ event ของกันและกันได้ ไม่ใช่แค่ของตัวเอง) + `club_event_rsvps`(RLS select เปิดให้ approved member ทุกคนเห็น RSVP ของคนอื่นได้ ต่างจาก poll vote ที่ private) + `validate_club_event_rsvp()` trigger (มิเรอร์ `validate_club_poll_vote()`) + RPC `club_event_rsvp_counts()` (**ไม่ใช่** security definer เพราะ RLS เดิมครอบคลุมการมองเห็นให้แล้วเมื่อรันเป็น invoker)
+- `supabase/tests/wyn_118_club_events_test.sh` — regression 19 checks (real Postgres, ครอบคลุม RLS/permission tier/posting-block/RSVP re-vote/cross-club leak)
+- `app/lib/features/club/data/club_event.dart` (ใหม่) — `ClubEvent`/`RsvpStatus`/`ClubEventAttendee` model + `withRsvp()` optimistic-update มิเรอร์ `ClubPost.votedPoll()`
+- `app/lib/features/club/data/club_event_repository.dart` (ใหม่) — fetch upcoming/past + batch RSVP-state fetch (มิเรอร์ pattern `_fetchPollStates`) + create/update/delete/setRsvp/fetchAttendees
+- `app/lib/features/club/presentation/widgets/club_event_card.dart` (ใหม่) — การ์ด+ปุ่ม RSVP 3 ปุ่ม+attendee bottom sheet
+- `app/lib/features/club/presentation/widgets/club_events_tab.dart` (ใหม่) — list เดียว 2 ส่วน (กำลังจะถึง/ผ่านมาแล้ว) + FAB สร้าง event เฉพาะ staff
+- `app/lib/features/club/presentation/create_club_event_screen.dart` (ใหม่) — ฟอร์ม create/edit (ใช้ร่วมกันตาม `existingEvent` param)
+- `app/lib/features/club/presentation/club_page.dart` — `_tabControllerFor` length สูตรใหม่ `3 + (approved?1:0) + (canManageClub?1:0)`, เพิ่ม `ClubEventRepository` แบบ injectable (optional param มิเรอร์ pattern `_profileRepository` ของ `CreateClubPostScreen`)
+- Tests ใหม่: `club_events_tab_test.dart`, `create_club_event_screen_test.dart`, กลุ่ม "Events tab (WYN-118)" ใน `club_page_test.dart`, `recording_club_event_repository.dart` fake
+
+**Tests**: `flutter analyze` clean, `flutter test` เต็มชุด 1299/1299 PASS, `wyn_118_club_events_test.sh` 19/19 PASS, `wyn_117`/`wyn_116`/`wyn_115`/`wyn_021` re-run ยืนยันไม่มี regression, `check_schema_ordering.py` OK
+
+**Handoff**: ส่งต่อ AI QA & Security

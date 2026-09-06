@@ -7,6 +7,7 @@ import 'package:wyn/features/club/data/club_member.dart';
 import 'package:wyn/features/club/presentation/club_page.dart';
 
 import 'support/fake_supabase_session.dart';
+import 'support/recording_club_event_repository.dart';
 import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
 
@@ -39,6 +40,7 @@ void main() {
   late RecordingClubRepository approvedMemberRepo;
   late RecordingClubRepository ownerRepo;
   late RecordingClubPostRepository clubPostRepo;
+  late RecordingClubEventRepository clubEventRepo;
   // Beta3 -- built in setUp() with every other repo, never inline in a
   // testWidgets body: a fresh RecordingClubRepository constructs a
   // SupabaseClient whose GoTrue auto-refresh timer would otherwise be
@@ -68,6 +70,7 @@ void main() {
       myMembership: membership(role: ClubMemberRole.owner, status: ClubMemberStatus.approved),
     );
     clubPostRepo = RecordingClubPostRepository();
+    clubEventRepo = RecordingClubEventRepository();
     withCoverRepo = RecordingClubRepository(
       club: Club(
         id: 'club-cover',
@@ -87,13 +90,18 @@ void main() {
     );
   });
 
-  Future<void> pumpPage(WidgetTester tester, RecordingClubRepository repo) async {
+  Future<void> pumpPage(
+    WidgetTester tester,
+    RecordingClubRepository repo, {
+    RecordingClubEventRepository? clubEventRepository,
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
         home: ClubPage(
           clubRepository: repo,
           clubPostRepository: clubPostRepo,
           clubId: club.id,
+          clubEventRepository: clubEventRepository,
         ),
       ),
     );
@@ -186,6 +194,35 @@ void main() {
     expect(find.text('รายงาน Club'), findsOneWidget);
     expect(find.text('ออกจาก Club'), findsNothing);
     expect(find.text('แก้ไขข้อมูล Club'), findsNothing);
+  });
+
+  group('Events tab (WYN-118)', () {
+    testWidgets('an approved member (any role) sees a "กิจกรรม" tab',
+        (tester) async {
+      await pumpPage(tester, approvedMemberRepo, clubEventRepository: clubEventRepo);
+
+      expect(find.text('กิจกรรม'), findsOneWidget);
+    });
+
+    testWidgets('the Owner also sees a "กิจกรรม" tab, alongside Insights',
+        (tester) async {
+      await pumpPage(tester, ownerRepo, clubEventRepository: clubEventRepo);
+
+      expect(find.text('กิจกรรม'), findsOneWidget);
+      expect(find.text('Insights'), findsOneWidget);
+    });
+
+    testWidgets('a non-member never sees a "กิจกรรม" tab', (tester) async {
+      await pumpPage(tester, notJoinedRepo, clubEventRepository: clubEventRepo);
+
+      expect(find.text('กิจกรรม'), findsNothing);
+    });
+
+    testWidgets('a pending member never sees a "กิจกรรม" tab', (tester) async {
+      await pumpPage(tester, pendingRepo, clubEventRepository: clubEventRepo);
+
+      expect(find.text('กิจกรรม'), findsNothing);
+    });
   });
 
   group('Insights tab (WYN-117)', () {
