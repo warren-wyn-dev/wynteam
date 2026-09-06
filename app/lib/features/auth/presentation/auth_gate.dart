@@ -15,6 +15,7 @@ import '../../push/data/push_token_repository.dart';
 import '../../push/presentation/push_notification_service.dart';
 import '../../account_switcher/data/account_switcher_repository.dart';
 import '../../root/presentation/root_shell.dart';
+import '../../../core/navigation/deep_link_service.dart';
 import '../data/auth_repository.dart';
 import '../data/onboarding_state.dart';
 import 'account_restricted_screen.dart';
@@ -193,6 +194,20 @@ class _AuthGateState extends State<AuthGate> {
   /// switch.
   bool _startOnProfileTab = false;
 
+  /// WYN-119 (Tier 2, Requirement 2): guards
+  /// [_startGuestSessionForDeepLink] from firing more than once per
+  /// signed-out visit -- build() can run many times while its sign-in
+  /// call is in flight, and once it resolves the auth stream itself
+  /// moves this widget past the `session == null` branch entirely, so
+  /// there's no "reset" case to handle.
+  bool _attemptedGuestDeepLinkSignIn = false;
+
+  /// Set only if [_startGuestSessionForDeepLink] itself throws (e.g.
+  /// Anonymous Sign-In disabled on the Supabase project, or a network
+  /// error) -- falls back to the ordinary WelcomeScreen rather than
+  /// leaving a signed-out visitor stuck on a permanent loading spinner.
+  bool _guestDeepLinkSignInFailed = false;
+
   @override
   void initState() {
     super.initState();
@@ -335,6 +350,31 @@ class _AuthGateState extends State<AuthGate> {
     }
   }
 
+  /// WYN-119 (Tier 2, Requirement 2): a visitor who has never signed in
+  /// but opens a shared link (`wynos.online/club/<id>`, etc.) must see
+  /// that content, not be forced through login first -- the Product
+  /// spec's own Acceptance Criteria. This reuses WYN-072's existing
+  /// guest-browsing machinery rather than inventing a second "preview"
+  /// mode: a real (if disposable) Anonymous Sign-In session, exactly like
+  /// tapping "เข้าชม WYNOS ได้เลย" on AuthMethodScreen. Once this
+  /// resolves, [signInAnonymously] emits `signedIn` on the auth stream,
+  /// this widget rebuilds with a non-null (anonymous) session, and the
+  /// existing `session.user.isAnonymous` branch below sends it straight
+  /// to RootShell -- whose own `initState` then runs
+  /// [DeepLinkService.handleInitialLink], opening the actual content.
+  /// Write actions (join/like/comment) stay gated exactly as they
+  /// already are for any other guest, via `guest_gate.dart`'s
+  /// `requireRealAccount()` -- this method only ever produces a session
+  /// with the same restricted shape guest browsing already has.
+  Future<void> _startGuestSessionForDeepLink() async {
+    try {
+      await _authRepository.signInAnonymously();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _guestDeepLinkSignInFailed = true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final blockedInfo = _blockedInfo;
@@ -356,6 +396,15 @@ class _AuthGateState extends State<AuthGate> {
         final session = _authRepository.currentSession;
 
         if (session == null) {
+          // WYN-119 (Tier 2, Requirement 2) -- see
+          // _startGuestSessionForDeepLink's own doc comment.
+          if (!_guestDeepLinkSignInFailed && DeepLinkService.hasContentPath()) {
+            if (!_attemptedGuestDeepLinkSignIn) {
+              _attemptedGuestDeepLinkSignIn = true;
+              unawaited(_startGuestSessionForDeepLink());
+            }
+            return const _LoadingScreen();
+          }
           return WelcomeScreen(authRepository: _authRepository);
         }
 

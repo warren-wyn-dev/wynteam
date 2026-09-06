@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:wyn/core/navigation/deep_link_service.dart';
 import 'package:wyn/features/auth/data/onboarding_state.dart';
 import 'package:wyn/features/auth/presentation/account_restricted_screen.dart';
 import 'package:wyn/features/auth/presentation/auth_gate.dart';
@@ -57,6 +58,8 @@ void main() {
     platformDocumentRepository.hasAcceptedResult = true;
     platformDocumentRepository.hasAcceptedError = null;
   });
+
+  tearDown(() => DeepLinkService.debugForceHasContentPath = null);
 
   // WYN-029/WYN-030 -- Screen 6's own explicit "kับดัก" warning: a
   // Suspended/Banned account must see AccountRestrictedScreen and it
@@ -582,6 +585,103 @@ void main() {
           reason: 'nothing about this account changed -- re-checking '
               'moderation status on every silent token renewal would be '
               'pure waste');
+    });
+  });
+
+  // WYN-119 (Tier 2, Requirement 2): a visitor who has never signed in
+  // must still see a shared link's content rather than being forced
+  // through WelcomeScreen/login first. `debugForceHasContentPath` stands
+  // in for a real `wynos.online/club/<id>`-shaped URL, which
+  // `DeepLinkService.hasContentPath()` cannot otherwise see from a
+  // non-web test target (same limitation `deep_link_service_test.dart`
+  // already documents for `handleInitialLink`).
+  group('WYN-119 -- guest deep-link Anonymous Sign-In fallback', () {
+    testWidgets(
+        'a signed-out visitor on a content-shaped URL is silently signed '
+        'in anonymously and reaches RootShell, never WelcomeScreen',
+        (tester) async {
+      DeepLinkService.debugForceHasContentPath = true;
+      final authRepository = RecordingAuthRepository();
+      final moderationRepository = RecordingModerationRepository(
+        myStatus: const ModerationStatus(
+          isRestricted: false,
+          isSuspended: false,
+          isBanned: false,
+        ),
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: AuthGate(
+          authRepository: authRepository,
+          moderationRepository: moderationRepository,
+          platformDocumentRepository: platformDocumentRepository,
+          rootShellBuilder: (_) => const SizedBox(key: Key('fake_root_shell')),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(authRepository.signInAnonymouslyCalls, 1);
+      expect(find.byKey(const Key('fake_root_shell')), findsOneWidget);
+      expect(find.byType(WelcomeScreen), findsNothing);
+      expect(find.byType(OnboardingFlow), findsNothing);
+    });
+
+    testWidgets(
+        'a signed-out visitor on an ordinary URL (no content path) sees '
+        'WelcomeScreen as before, and never triggers Anonymous Sign-In',
+        (tester) async {
+      // debugForceHasContentPath left at its default (null) -- falls
+      // through to the real kIsWeb check, which is false on this
+      // (non-web) test target, same as production on native.
+      final authRepository = RecordingAuthRepository();
+      final moderationRepository = RecordingModerationRepository(
+        myStatus: const ModerationStatus(
+          isRestricted: false,
+          isSuspended: false,
+          isBanned: false,
+        ),
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: AuthGate(
+          authRepository: authRepository,
+          moderationRepository: moderationRepository,
+          platformDocumentRepository: platformDocumentRepository,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(authRepository.signInAnonymouslyCalls, 0);
+      expect(find.byType(WelcomeScreen), findsOneWidget);
+    });
+
+    testWidgets(
+        'a failed Anonymous Sign-In (e.g. disabled on the project) falls '
+        'back to WelcomeScreen instead of an indefinite spinner',
+        (tester) async {
+      DeepLinkService.debugForceHasContentPath = true;
+      final authRepository = RecordingAuthRepository()
+        ..signInAnonymouslyError = Exception('anonymous sign-ins disabled');
+      final moderationRepository = RecordingModerationRepository(
+        myStatus: const ModerationStatus(
+          isRestricted: false,
+          isSuspended: false,
+          isBanned: false,
+        ),
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: AuthGate(
+          authRepository: authRepository,
+          moderationRepository: moderationRepository,
+          platformDocumentRepository: platformDocumentRepository,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(authRepository.signInAnonymouslyCalls, 1);
+      expect(find.byType(WelcomeScreen), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
     });
   });
 }
