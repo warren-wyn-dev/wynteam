@@ -4,7 +4,7 @@
 
 ตอนทำงานนี้ทั้งหมด (Product → Design → Coding → QA) ใช้เลข `WYN-115` มาตลอด ระหว่าง merge เข้า `main` ก่อน deploy พบว่ามีอีก session ใช้ `WYN-115` ไปแล้วสำหรับฟีเจอร์คนละเรื่อง (`WYN-115-club-poll`, merge เข้า main ไปแล้วก่อนหน้านี้) — ID collision class เดียวกับที่เจอมาแล้วหลายครั้ง (`WYN-078`, `WYN-114`) เปลี่ยนเป็น `WYN-123` (เลขถัดจากที่ใช้ล่าสุดบน `main` ตอน merge คือ 122) เนื้อหางาน/โค้ด/การตัดสินใจทั้งหมดข้างล่างนี้เหมือนเดิมทุกประการ เปลี่ยนแค่เลข ID
 
-Status: **Deploy สำเร็จขึ้น production แล้ว 2026-09-06** (merge PR #282 เข้า `main`, `deploy-web.yml` run #93 success, curl ยืนยัน `wynos.online` ตอบถูกต้องครบ) — ดู `.wyn/logs/deployments/2026-09-06-wyn-123-invite-followers-deep-link-deploy.md` — **ยังไม่ย้ายไป `completed/`** รอ Founder ทดลองกด "เชิญจากผู้ติดตาม" จริงในแอปก่อน ตามกติกา Production Verification ของ WORKFLOW.md (curl ยืนยันได้แค่ว่าเว็บขึ้น ไม่ได้ยืนยันว่า UI ใหม่ทำงานถูกต้องจริง)
+Status: completed -- Deploy สำเร็จขึ้น production 2026-09-06 (merge PR #282, `deploy-web.yml` run #93), Founder ทดลองใช้จริงยืนยัน "เสร็จแล้ว" วันเดียวกัน. หมายเหตุ: กลไกการส่ง invite ที่ทดสอบจริงคือของ **WYN-124** (Notification แทน Chat message) ไม่ใช่กลไกเดิมที่ commit นี้ ship ตอนแรก -- ดู WYN-124 สำหรับรายละเอียดการเปลี่ยนทิศทาง audience/UI ของหน้านี้ (Followers+Following, ปุ่ม "เชิญจากผู้ติดตาม") ยังคงเป็นของ WYN-123 เดิมทั้งหมด
 Owner: AI Product Manager
 Feature: Invite Followers to Club (pick-from-followers, not just link sharing)
 Goal: ให้สมาชิกคลับชวนคนที่ติดตามตัวเองเข้าคลับได้โดยตรงในแอป ไม่ต้องพึ่งการก็อปลิงก์ไปแปะที่อื่นเพียงอย่างเดียว

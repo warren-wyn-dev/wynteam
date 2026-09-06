@@ -1,6 +1,6 @@
 # Product Task — WYN-124
 
-Status: approved
+Status: completed -- Founder ทดลองใช้จริงในแอปแล้วยืนยัน "เสร็จแล้ว" (2026-09-06)
 Owner: AI Product Manager
 
 Feature: Club Invite Notification — เปลี่ยนกลไก "เชิญจากผู้ติดตาม" (WYN-123) จากการส่งข้อความ Chat มาเป็นการแจ้งเตือน (Notification) โดยตรง

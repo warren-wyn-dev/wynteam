@@ -1,6 +1,6 @@
 # Product Task — WYN-115
 
-Status: approved
+Status: completed -- schema gap (club_post_polls never applied to production) found and fixed same day via `wyn115-apply-club-poll-schema.yml` (see DECISIONS.md, 2026-09-06), Founder confirmed real Club posts load correctly in production
 Owner: AI Product Manager
 
 Feature: Club Poll — ให้สมาชิกสร้างโพลภายในโพสต์ของ Club ได้
