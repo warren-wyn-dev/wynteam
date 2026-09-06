@@ -394,37 +394,43 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
         // why no SliverOverlapAbsorber/Injector pair is needed here.
         child: CustomScrollView(
           slivers: [
-            SliverList.separated(
-              itemCount: _items.length + (_hasMore ? 1 : 0),
-              separatorBuilder: (context, index) => index + 1 < _items.length
-                  ? const Divider(height: 1)
-                  : const SizedBox.shrink(),
-              itemBuilder: (context, index) {
-                if (index >= _items.length) {
-                  return const Padding(
-                    padding: EdgeInsets.all(WynSpacing.space4),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
+            // Same missing-bottom-inset fix as ProfileDropGridTab's own
+            // list -- see that file's own comment.
+            SliverPadding(
+              padding: const EdgeInsets.only(bottom: WynSpacing.space6),
+              sliver: SliverList.separated(
+                itemCount: _items.length + (_hasMore ? 1 : 0),
+                separatorBuilder: (context, index) =>
+                    index + 1 < _items.length
+                        ? const Divider(height: 1)
+                        : const SizedBox.shrink(),
+                itemBuilder: (context, index) {
+                  if (index >= _items.length) {
+                    return const Padding(
+                      padding: EdgeInsets.all(WynSpacing.space4),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
 
-                final item = _items[index];
-                return HomeDropCard(
-                  key: ValueKey('${item.id}:${item.redropId ?? ''}'),
-                  item: item,
-                  dropRepository: widget.dropRepository,
-                  onTap: () => _openDrop(item),
-                  onToggleLike: () => _toggleLike(index),
-                  onToggleSave: () => _toggleSave(index),
-                  onOpenProfile: () => _openProfile(item.authorId),
-                  onToggleRedrop: () => _toggleRedrop(index),
-                  onQuoteRedrop: () => _quoteRedrop(index),
-                  onOpenRedropperProfile: item.redropperId == null
-                      ? null
-                      : () => _openProfile(item.redropperId!),
-                  onDeleteRedrop: () => _deleteRedrop(index),
-                  onVotePoll: (optionIndex) => _votePoll(index, optionIndex),
-                );
-              },
+                  final item = _items[index];
+                  return HomeDropCard(
+                    key: ValueKey('${item.id}:${item.redropId ?? ''}'),
+                    item: item,
+                    dropRepository: widget.dropRepository,
+                    onTap: () => _openDrop(item),
+                    onToggleLike: () => _toggleLike(index),
+                    onToggleSave: () => _toggleSave(index),
+                    onOpenProfile: () => _openProfile(item.authorId),
+                    onToggleRedrop: () => _toggleRedrop(index),
+                    onQuoteRedrop: () => _quoteRedrop(index),
+                    onOpenRedropperProfile: item.redropperId == null
+                        ? null
+                        : () => _openProfile(item.redropperId!),
+                    onDeleteRedrop: () => _deleteRedrop(index),
+                    onVotePoll: (optionIndex) => _votePoll(index, optionIndex),
+                  );
+                },
+              ),
             ),
           ],
         ),
