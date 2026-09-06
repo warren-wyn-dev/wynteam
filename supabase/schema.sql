@@ -12882,3 +12882,212 @@ $$;
 -- "permission denied for function is_developer_account" for every
 -- single user -- a hard error, not a graceful fail-closed `false`.
 grant execute on function public.is_developer_account() to authenticated;
+
+-- ============================================================
+-- WYN-113: Invite-Only Access Gate (Referral Code)
+-- ============================================================
+-- See .wyn/tasks/approved/WYN-113-invite-only-access-gate.md and
+-- .wyn/docs/design/wyn-113-invite-only-access-gate.md. Goal: let the
+-- Founder throttle new real-account signups (not guest browsing) and
+-- measure viral coefficient, without deploying new code every time the
+-- gate flips on/off (Product's Requirement 4).
+--
+-- Same single-row-toggle shape as chat_lockdown above (`id boolean
+-- primary key default true` + a `check (id)` constraint enforcing
+-- exactly one row) -- flipping `enabled` back to false is one UPDATE,
+-- no deploy. **Ships defaulted to false/off** -- turning this on is a
+-- Founder business decision (it blocks real new signups), not
+-- something this migration should do unilaterally the moment it lands
+-- in production; the Founder flips it via a dedicated management
+-- workflow when Phase 2 of the GTM roadmap actually starts.
+create table if not exists public.invite_gate_config (
+  id boolean primary key default true,
+  enabled boolean not null default false,
+  updated_at timestamptz not null default now(),
+  constraint invite_gate_config_singleton check (id)
+);
+
+insert into public.invite_gate_config (id, enabled) values (true, false)
+on conflict (id) do nothing;
+
+-- No client-facing SELECT policy at all (same posture as
+-- chat_lockdown/developer_accounts) -- read only via
+-- is_invite_gate_enabled() below.
+alter table public.invite_gate_config enable row level security;
+
+-- Deliberately granted to `anon` as well as `authenticated` below --
+-- the first function in this whole schema callable with no session at
+-- all. Every other RLS policy/RPC in this file requires `authenticated`
+-- because everything else happens *after* sign-in; this one has to run
+-- *before* WelcomeScreen even offers a sign-in button, so there is no
+-- session to require. Returns only a boolean -- no data leak, and
+-- SECURITY DEFINER only to reach a table with no SELECT policy, not to
+-- expose anything caller-specific.
+create or replace function public.is_invite_gate_enabled()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select coalesce(
+    (select enabled from public.invite_gate_config where id = true),
+    false
+  );
+$$;
+
+grant execute on function public.is_invite_gate_enabled() to anon, authenticated;
+
+-- One referral code per profile, auto-generated so every user can
+-- invite others from day one (Requirement 1's "สร้างอัตโนมัติตอน signup
+-- สำเร็จ" decision) -- never something the user has to opt into or
+-- generate themselves. `unique` (not a smaller/prettier format) is the
+-- only real constraint that matters here; 8 random hex chars gives
+-- ~4.3 billion possibilities, so a collision retry loop is a formality,
+-- not a load-bearing defense.
+alter table public.profiles add column if not exists referral_code text unique;
+
+create or replace function public.generate_referral_code()
+returns text
+language plpgsql
+as $$
+declare
+  v_code text;
+begin
+  loop
+    v_code := upper(substr(md5(random()::text || clock_timestamp()::text), 1, 8));
+    exit when not exists (
+      select 1 from public.profiles where referral_code = v_code
+    );
+  end loop;
+  return v_code;
+end;
+$$;
+
+-- Not security definer -- runs as whatever role performs the INSERT
+-- (`authenticated`, from AuthRepository's own profiles upsert calls),
+-- which is enough: "Profiles are viewable by authenticated users" above
+-- already lets it see every row for the uniqueness check.
+create or replace function public.set_referral_code_on_profile()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.referral_code is null then
+    new.referral_code := public.generate_referral_code();
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_set_referral_code on public.profiles;
+create trigger profiles_set_referral_code
+  before insert on public.profiles
+  for each row execute function public.set_referral_code_on_profile();
+
+-- Backfill: every profile that existed before this migration ran gets
+-- a code too, so an existing (pre-feature) user can start inviting
+-- immediately rather than only users who sign up after this ships.
+update public.profiles set referral_code = public.generate_referral_code()
+where referral_code is null;
+
+-- Multi-use per referrer (Acceptance Criteria -- explicitly NOT
+-- single-use, so one person can invite more than one friend), but
+-- `new_user_id unique` caps each new account at redeeming exactly one
+-- code ever -- otherwise one account could inflate several referrers'
+-- counts by redeeming multiple codes for itself.
+create table if not exists public.referral_redemptions (
+  id uuid primary key default gen_random_uuid(),
+  code text not null,
+  referrer_id uuid not null references public.profiles (id) on delete cascade,
+  new_user_id uuid not null unique references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists referral_redemptions_referrer_idx
+  on public.referral_redemptions (referrer_id);
+
+-- No client-facing policy at all (same posture as
+-- chat_lockdown_allowlist/developer_accounts) -- written only via
+-- redeem_referral_code(), read only (as an aggregate count, never raw
+-- rows) via my_referral_stats() below. V1 deliberately does not expose
+-- *who* redeemed a code, only how many -- see the design doc's "out of
+-- scope" list.
+alter table public.referral_redemptions enable row level security;
+
+-- Anon-callable, same reasoning as is_invite_gate_enabled() -- the
+-- redeem-code screen must be able to validate a code before the
+-- visitor has signed in at all. Only ever answers true/false; never
+-- reveals whose code it is or anything else about the referrer.
+create or replace function public.validate_referral_code(p_code text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles where referral_code = upper(p_code)
+  );
+$$;
+
+grant execute on function public.validate_referral_code(text) to anon, authenticated;
+
+-- Called once, right after a real (non-anonymous) account's `profiles`
+-- row first exists (OnboardingFlow's Birthday step, immediately after
+-- setDateOfBirth -- see auth_repository.dart's own doc comment on why
+-- there). `on conflict (new_user_id) do nothing` makes a repeat call
+-- for the same user (a retried onboarding step, or the resumable-
+-- onboarding flow reaching Birthday again) a safe no-op rather than an
+-- error or a double-counted redemption.
+create or replace function public.redeem_referral_code(p_code text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_referrer_id uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'Must be signed in to redeem a referral code';
+  end if;
+
+  select id into v_referrer_id from public.profiles
+    where referral_code = upper(p_code);
+
+  if v_referrer_id is null then
+    raise exception 'Invalid referral code';
+  end if;
+
+  if v_referrer_id = auth.uid() then
+    raise exception 'Cannot redeem your own referral code';
+  end if;
+
+  insert into public.referral_redemptions (code, referrer_id, new_user_id)
+  values (upper(p_code), v_referrer_id, auth.uid())
+  on conflict (new_user_id) do nothing;
+end;
+$$;
+
+grant execute on function public.redeem_referral_code(text) to authenticated;
+
+-- Lets a user see their own referral code (to share) and how many
+-- people have joined through it (Requirement 3's viral-coefficient
+-- tracking) -- deliberately an aggregate count only, never a list of
+-- who joined (see referral_redemptions' own comment on why).
+create or replace function public.my_referral_stats()
+returns table (referral_code text, redemption_count bigint)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select p.referral_code, count(rr.id)
+  from public.profiles p
+  left join public.referral_redemptions rr on rr.referrer_id = p.id
+  where p.id = auth.uid()
+  group by p.referral_code;
+$$;
+
+grant execute on function public.my_referral_stats() to authenticated;
