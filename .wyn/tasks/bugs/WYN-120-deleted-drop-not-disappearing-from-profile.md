@@ -1,7 +1,7 @@
 # Bug Report — WYN-120
 
-Status: **Fixed by AI Debug Engineer (2026-09-06) — ส่งต่อ AI QA & Security**
-Owner: AI Debug Engineer
+Status: **Merged เข้า `main` แล้ว (PR #276, merge commit `02b5a21`, โดย Founder เอง 2026-09-06 08:09 UTC) — ยังไม่ deploy ขึ้น production — ส่งต่อ AI Deploy & DevOps**
+Owner: AI Debug Engineer → AI Deploy & DevOps
 Reported by: Founder (สด, ไม่ผ่าน QA ก่อน): "ตอนลบโพสต์ หน้าโปรไฟล์ โพสต์ไม่หายเลย"
 
 ## Bug
