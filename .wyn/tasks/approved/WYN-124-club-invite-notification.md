@@ -1,6 +1,6 @@
 # Product Task — WYN-124
 
-Status: active
+Status: approved
 Owner: AI Product Manager
 
 Feature: Club Invite Notification — เปลี่ยนกลไก "เชิญจากผู้ติดตาม" (WYN-123) จากการส่งข้อความ Chat มาเป็นการแจ้งเตือน (Notification) โดยตรง
@@ -57,6 +57,35 @@ Handoff: AI Design (ตัดสินใจ notification type/ dedup window / �
 - `supabase/functions/send-push-notification/_lib.ts` — เพิ่ม case `"club_invite"` ใน `messageFor()` (มิเรอร์ข้อความฝั่ง Dart คำต่อคำ)
 - Tests: `recording_club_repository.dart` (`inviteToClub`/`inviteToClubError`/`inviteToClubGate`), `invite_to_club_screen_test.dart` (เปลี่ยนจาก Chat mock เป็น Club mock ทั้งไฟล์), `share_sheet_test.dart` (เพิ่ม `clubRepository` param), `notification_test.dart` (`fromMap` ของ `club_invite` ไม่ throw), `notification_list_screen_test.dart` (ข้อความ + tap destination ของ `clubInvite`), `send-push-notification/_lib.test.ts` (ข้อความ push ของ `club_invite`)
 
-**Tests**: รอผลจาก CI (ไม่มี Flutter SDK ในเครื่องนี้) — ดู AI QA & Security Output
+**Tests**: `flutter analyze` clean, `flutter test` 1303/1303 PASS, `deno check`/`deno test` (send-push-notification) PASS, `check_schema_ordering.py` PASS — GitHub Actions `ci.yml` run [34045906026](https://github.com/warren-wyn-dev/wynteam/actions/runs/34045906026), commit `e68f5e1`
 
 **Handoff**: ส่งต่อ AI QA & Security
+
+## AI QA & Security Output
+
+**Feature**: WYN-124 (Club Invite Notification) — commit `a5b5a3c`
+
+**Environment**: ไม่มี Flutter SDK/Postgres ในเครื่องนี้ (sandbox) — ตรวจแบบ code review ละเอียด (logic/security/edge case/regression) ยืนยันด้วยผลจริงจาก GitHub Actions CI (`ci.yml` run 34045906026, ทุก job ผ่าน: Flutter analyze+test, Deno check+test, schema.sql ordering, Admin Next.js) แทนการรัน `flutter analyze`/`flutter test` เองในเครื่อง
+
+**Test Cases**:
+1. อ่าน `invite_to_club()` โดยตรง เทียบกับ `club_role()`/`internal.is_blocked_either_way()`/`internal.notification_enabled()` จริงใน schema.sql — signature/ลำดับ argument ตรงกันหมด ไม่มี typo ที่จะ error ตอนรันจริง
+2. ตรวจ authorization chain ทีละขั้น: ต้อง authenticated, ห้ามเชิญตัวเอง, ต้องเป็นสมาชิก approved ของ Club (`club_role() is not null`), invitee ต้องมีอยู่จริง, ห้ามเชิญฝั่งที่ block กันอยู่, ต้องเป็น follower หรือ following (ทางใดทางหนึ่ง) — ครบตาม Requirements ทุกข้อ ไม่มีข้อไหนถูกข้าม
+3. ตรวจ dedup window (24 ชม. ต่อ actor+recipient+club) — เขียนถูกต้อง ไม่กันการเชิญคนละคนหรือคนละ Club ปนกัน (WHERE clause ระบุครบทั้ง 3 field)
+4. ตรวจว่า `notification_enabled` เป็น false หรือโดน dedup กันแล้ว ฟังก์ชันไม่ raise error กลับไปหา client — ตรงตาม Design doc ("ผู้เชิญเห็น success เสมอ") ไม่ใช่บั๊ก
+5. ตรวจ `notifications_type_check` ใน `wyn124-apply-club-invite-schema.yml` เทียบ byte-ต่อ-byte กับ schema.sql -- เหมือนกันเป๊ะ (บทเรียนจาก WYN-115/116 P0: ต้องไม่มี drift ระหว่างไฟล์ apply กับ schema.sql)
+6. ตรวจ client-side: `InviteToClubScreen`/`share_sheet.dart`/`club_page.dart` ไม่มี reference ค้างของ `chatRepository` เดิมเหลืออยู่เลย (grep ยืนยัน), `NotificationListScreen`/`push_notification_service.dart`/Edge Function's `messageFor()` ทั้ง 3 จุดเพิ่ม case `club_invite`/`clubInvite` ตรงกันครบ ไม่มีจุดไหนตกหล่น (ตรวจแบบเดียวกับที่เคยพลาดใน WYN-043 redrop bug)
+7. `flutter test` เต็มชุด 1303/1303 PASS (เพิ่มจาก 1281 เดิมของ WYN-117 ตามจำนวน test ใหม่ที่เพิ่ม), `flutter analyze` clean, ไม่มี regression กับ WYN-115/116/117/119/123 ที่ deploy ไปพร้อมกันวันนี้
+
+**Passed**: ครบทุกจุด — RPC authorization ถูกต้องครบ, dedup ถูกต้อง, ไม่มี client reference ค้าง, ทุก deep-link/push case เพิ่มครบ 3 จุด, CI เขียว 4/4 job
+
+**Failed**: ไม่มี
+
+**Severity**: N/A
+
+**Security Findings**: ไม่พบช่องโหว่ — RPC เป็น `security definer` แต่ตรวจสิทธิ์ครบทุกเงื่อนไขก่อน insert เสมอ (เหมือน `get_or_create_conversation()` ที่ auditor เคยตรวจผ่านมาแล้ว), ไม่มี SQL injection (parameterized ผ่าน `jq -n --arg` ในทุก workflow), ไม่มีการรั่วข้อมูล cross-club (query ทุกตัว scope ด้วย `p_club_id`/`p_invitee_id` ที่ผ่าน validation แล้ว)
+
+**Recommendation**: อนุมัติ deploy ได้ — แก้ direction ของฟีเจอร์ที่เพิ่งเปิดตัววันนี้ ควร apply schema + deploy ทันทีตามที่ Founder ยืนยันแล้ว
+
+**Final Status: PASS**
+
+**Handoff**: ส่งต่อ AI Deploy & DevOps
