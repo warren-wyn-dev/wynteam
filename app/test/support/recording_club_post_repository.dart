@@ -88,6 +88,41 @@ class RecordingClubPostRepository extends ClubPostRepository {
     createPostMentionedUserIdsArgs.add(mentionedUserIds);
   }
 
+  /// Each call to [createPollClubPost], in order -- WYN-115.
+  final List<Map<String, Object?>> createPollClubPostArgs = [];
+  Object? createPollClubPostError;
+
+  @override
+  Future<void> createPollClubPost({
+    required String clubId,
+    required String question,
+    required List<String> options,
+    required int durationDays,
+    Set<String> mentionedUserIds = const {},
+  }) async {
+    if (createPollClubPostError != null) throw createPollClubPostError!;
+    createPollClubPostArgs.add({
+      'clubId': clubId,
+      'question': question,
+      'options': options,
+      'durationDays': durationDays,
+      'mentionedUserIds': mentionedUserIds,
+    });
+  }
+
+  /// Each call to [votePoll]'s (pollId, optionIndex), in order -- WYN-115.
+  final List<(String, int)> votePollArgs = [];
+  Object? votePollError;
+
+  @override
+  Future<void> votePoll({
+    required String pollId,
+    required int optionIndex,
+  }) async {
+    if (votePollError != null) throw votePollError!;
+    votePollArgs.add((pollId, optionIndex));
+  }
+
   @override
   Future<void> deletePost(String postId) async {
     deletePostCalls++;

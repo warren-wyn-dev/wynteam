@@ -10,6 +10,14 @@ enum NotificationType {
   clubJoinApproved,
   clubPostLike,
   clubPostComment,
+  // WYN-116: fired by notify_club_post_new()/notify_club_post_pinned() --
+  // fanned out to every OTHER approved member of the club (not a single
+  // recipient like the 2 types above), throttled to at most one
+  // clubPostNew per (recipient, club) every 3 hours; clubPostPinned is
+  // never throttled and, unlike clubPostNew, does reach the post's own
+  // author (see supabase/schema.sql for the exact reasoning).
+  clubPostNew,
+  clubPostPinned,
   // WYN-021: fired by drop_mentions/club_post_mentions inserts.
   mentionDrop,
   mentionClubPost,
@@ -82,6 +90,10 @@ NotificationType _typeFromString(String value) {
       return NotificationType.clubPostLike;
     case 'club_post_comment':
       return NotificationType.clubPostComment;
+    case 'club_post_new':
+      return NotificationType.clubPostNew;
+    case 'club_post_pinned':
+      return NotificationType.clubPostPinned;
     case 'mention_drop':
       return NotificationType.mentionDrop;
     case 'mention_club_post':
@@ -167,8 +179,9 @@ class WynNotification {
   final String? clubId;
   final String? clubName;
 
-  /// Set only when [type] is [NotificationType.clubPostLike] or
-  /// [NotificationType.clubPostComment].
+  /// Set when [type] is [NotificationType.clubPostLike],
+  /// [NotificationType.clubPostComment], [NotificationType.clubPostNew],
+  /// or [NotificationType.clubPostPinned].
   final String? clubPostId;
 
   /// Set only for [NotificationType.moderationWarning]/

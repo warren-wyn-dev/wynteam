@@ -64,6 +64,19 @@ Deno.test("messageFor produces the exact same Thai strings as the Dart client, W
   );
 });
 
+// Mirrors app/test/notification_list_screen_test.dart's WYN-116
+// assertions word for word.
+Deno.test("messageFor produces the exact same Thai strings as the Dart client, WYN-116 club re-engagement types", () => {
+  assertEquals(
+    messageFor("club_post_new", "@gam", "ชมรมถ่ายภาพ"),
+    "@gam โพสต์ใหม่ใน ชมรมถ่ายภาพ",
+  );
+  assertEquals(
+    messageFor("club_post_pinned", "@owner_user", "ชมรมถ่ายภาพ"),
+    "@owner_user ปักหมุดโพสต์ใหม่ใน ชมรมถ่ายภาพ",
+  );
+});
+
 Deno.test("messageFor falls back to a generic message for an unrecognized type", () => {
   assertEquals(messageFor("something_new", "x", null), "คุณมีการแจ้งเตือนใหม่");
 });

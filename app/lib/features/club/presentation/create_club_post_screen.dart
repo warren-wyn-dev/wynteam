@@ -15,6 +15,11 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/widgets/mention_input.dart';
 
+/// WYN-115, Design Screen 1 -- which of the two mutually-exclusive media
+/// areas this composer is showing. Mirrors Drop's own `_ComposeMode`
+/// (WYN-035) in create_drop_screen.dart.
+enum _ComposeMode { image, poll }
+
 /// `CreateClubPostScreen` (Screen 5). Always locked to the Club it was
 /// opened from -- creating a Club post from anywhere else isn't in scope
 /// this round, per the Product spec. See
@@ -76,6 +81,18 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
   final List<Uint8List> _images = [];
   final List<String> _imageExtensions = [];
 
+  // WYN-115: Poll composer state -- same shape/limits as
+  // CreateDropScreen's own (WYN-035), see that file's identical fields.
+  _ComposeMode _mode = _ComposeMode.image;
+  static const _maxPollOptions = 4;
+  static const _minPollOptions = 2;
+  static const _pollOptionMaxLength = 80;
+  final List<TextEditingController> _pollOptionControllers = [
+    TextEditingController(),
+    TextEditingController(),
+  ];
+  int _pollDurationDays = 1;
+
   // Same fail-open, best-effort fetch as CreateDropScreen's own
   // _ownProfile -- a failed fetch just leaves the header avatar on its
   // fallback-letter state rather than blocking the composer.
@@ -84,11 +101,35 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
   bool _isPosting = false;
   String? _errorMessage;
 
-  bool get _canPost =>
-      !_isPosting &&
-      (_contentController.text.trim().isNotEmpty ||
-          _images.isNotEmpty ||
-          _linkController.text.trim().isNotEmpty);
+  /// WYN-115: in poll mode this replaces the ordinary "content, or an
+  /// image, or a link" condition entirely (not OR'd with it) -- a
+  /// question with invalid/duplicate/empty options isn't postable even
+  /// if a stray image or link is also sitting in state from before the
+  /// mode was switched. See create_poll_club_post()'s own validation in
+  /// supabase/schema.sql.
+  bool get _canPost {
+    if (_isPosting) return false;
+    if (_mode == _ComposeMode.poll) {
+      return _contentController.text.trim().isNotEmpty && _pollOptionsValid;
+    }
+    return _contentController.text.trim().isNotEmpty ||
+        _images.isNotEmpty ||
+        _linkController.text.trim().isNotEmpty;
+  }
+
+  /// Every option non-empty (after trim) and within
+  /// [_pollOptionMaxLength], and no two options equal
+  /// case-insensitively after trim -- mirrors `valid_poll_options()` in
+  /// supabase/schema.sql and CreateDropScreen's identical getter.
+  bool get _pollOptionsValid {
+    final trimmed =
+        _pollOptionControllers.map((c) => c.text.trim()).toList(growable: false);
+    if (trimmed.any((t) => t.isEmpty || t.length > _pollOptionMaxLength)) {
+      return false;
+    }
+    final lowercased = trimmed.map((t) => t.toLowerCase()).toSet();
+    return lowercased.length == trimmed.length;
+  }
 
   @override
   void initState() {
@@ -116,7 +157,20 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
   void dispose() {
     _contentController.dispose();
     _linkController.dispose();
+    for (final controller in _pollOptionControllers) {
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  void _addPollOption() {
+    if (_pollOptionControllers.length >= _maxPollOptions) return;
+    setState(() => _pollOptionControllers.add(TextEditingController()));
+  }
+
+  void _removePollOption(int index) {
+    if (_pollOptionControllers.length <= _minPollOptions) return;
+    setState(() => _pollOptionControllers.removeAt(index).dispose());
   }
 
   Future<void> _pickImages() async {
@@ -173,14 +227,24 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
     });
 
     try {
-      await widget.clubPostRepository.createPost(
-        clubId: widget.club.id,
-        content: _contentController.text,
-        images: _images.isEmpty ? null : _images,
-        imageExtensions: _images.isEmpty ? null : _imageExtensions,
-        linkUrl: _linkController.text,
-        mentionedUserIds: _mentionedUserIds,
-      );
+      if (_mode == _ComposeMode.poll) {
+        await widget.clubPostRepository.createPollClubPost(
+          clubId: widget.club.id,
+          question: _contentController.text,
+          options: _pollOptionControllers.map((c) => c.text.trim()).toList(),
+          durationDays: _pollDurationDays,
+          mentionedUserIds: _mentionedUserIds,
+        );
+      } else {
+        await widget.clubPostRepository.createPost(
+          clubId: widget.club.id,
+          content: _contentController.text,
+          images: _images.isEmpty ? null : _images,
+          imageExtensions: _images.isEmpty ? null : _imageExtensions,
+          linkUrl: _linkController.text,
+          mentionedUserIds: _mentionedUserIds,
+        );
+      }
       if (!mounted) return;
       WynFeedback.completed();
       Navigator.of(context).pop(true);
@@ -235,9 +299,11 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                             enabled: !_isPosting,
                             style: const TextStyle(
                                 fontSize: 20, color: WynColors.ink, height: 1.4),
-                            decoration: const InputDecoration(
-                              hintText: 'มีอะไรอยากบอก Club นี้บ้าง?',
-                              hintStyle: TextStyle(
+                            decoration: InputDecoration(
+                              hintText: _mode == _ComposeMode.poll
+                                  ? 'ตั้งคำถามโพล...'
+                                  : 'มีอะไรอยากบอก Club นี้บ้าง?',
+                              hintStyle: const TextStyle(
                                   fontSize: 20, color: WynColors.faint, height: 1.4),
                               border: InputBorder.none,
                               counterText: '',
@@ -246,27 +312,34 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                             ),
                             onChanged: (_) => setState(() {}),
                           ),
-                          if (_images.isNotEmpty) _buildImageStrip(),
                           const SizedBox(height: WynSpacing.space3),
-                          OutlinedButton.icon(
-                            // WYN-103: stays tappable at 9/9 -- _pickImages()
-                            // itself shows a SnackBar in that case, clearer
-                            // than a disabled button the user can't tell
-                            // apart from "posting".
-                            onPressed: _isPosting ? null : _pickImages,
-                            icon: const Icon(Icons.add_photo_alternate_outlined),
-                            label: const Text('แนบรูป'),
-                          ),
-                          const SizedBox(height: WynSpacing.space4),
-                          TextField(
-                            controller: _linkController,
-                            enabled: !_isPosting,
-                            decoration: const InputDecoration(
-                              labelText: 'ลิงก์ (ไม่บังคับ)',
-                              hintText: 'https://...',
+                          _buildModeToggle(),
+                          const SizedBox(height: WynSpacing.space3),
+                          if (_mode == _ComposeMode.poll)
+                            _buildPollComposer()
+                          else ...[
+                            if (_images.isNotEmpty) _buildImageStrip(),
+                            const SizedBox(height: WynSpacing.space3),
+                            OutlinedButton.icon(
+                              // WYN-103: stays tappable at 9/9 -- _pickImages()
+                              // itself shows a SnackBar in that case, clearer
+                              // than a disabled button the user can't tell
+                              // apart from "posting".
+                              onPressed: _isPosting ? null : _pickImages,
+                              icon: const Icon(Icons.add_photo_alternate_outlined),
+                              label: const Text('แนบรูป'),
                             ),
-                            onChanged: (_) => setState(() {}),
-                          ),
+                            const SizedBox(height: WynSpacing.space4),
+                            TextField(
+                              controller: _linkController,
+                              enabled: !_isPosting,
+                              decoration: const InputDecoration(
+                                labelText: 'ลิงก์ (ไม่บังคับ)',
+                                hintText: 'https://...',
+                              ),
+                              onChanged: (_) => setState(() {}),
+                            ),
+                          ],
                           if (_errorMessage != null) ...[
                             const SizedBox(height: WynSpacing.space4),
                             Text(
@@ -329,6 +402,146 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // WYN-115, Design Screen 1 -- "แถบปุ่มเล็กเหนือปุ่ม 'แนบรูป' เดิม 2 ปุ่ม
+  // toggle" that switches the media area between image mode (default)
+  // and poll mode. Switching never clears the other mode's state (images
+  // picked, link typed, poll options filled in) -- only "โพสต์" actually
+  // commits to one.
+  Widget _buildModeToggle() {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: _isPosting
+                ? null
+                : () => setState(() => _mode = _ComposeMode.image),
+            style: OutlinedButton.styleFrom(
+              backgroundColor:
+                  _mode == _ComposeMode.image ? WynColors.sapphire : null,
+              foregroundColor:
+                  _mode == _ComposeMode.image ? WynColors.paper : WynColors.ink,
+              side: BorderSide(
+                color: _mode == _ComposeMode.image
+                    ? WynColors.sapphire
+                    : WynColors.hairline,
+              ),
+            ),
+            child: const Text('🖼️ รูปภาพ'),
+          ),
+        ),
+        const SizedBox(width: WynSpacing.space2),
+        Expanded(
+          child: OutlinedButton(
+            key: const Key('club_post_poll_mode_button'),
+            onPressed: _isPosting
+                ? null
+                : () => setState(() => _mode = _ComposeMode.poll),
+            style: OutlinedButton.styleFrom(
+              backgroundColor:
+                  _mode == _ComposeMode.poll ? WynColors.sapphire : null,
+              foregroundColor:
+                  _mode == _ComposeMode.poll ? WynColors.paper : WynColors.ink,
+              side: BorderSide(
+                color: _mode == _ComposeMode.poll
+                    ? WynColors.sapphire
+                    : WynColors.hairline,
+              ),
+            ),
+            child: const Text('📊 โพล'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// WYN-115, Design Screen 1 -- replaces the image strip/"แนบรูป"/link
+  /// field when [_mode] is [_ComposeMode.poll]. The content field above
+  /// this (shared with image mode, see [build]) doubles as the poll's
+  /// question -- no separate question field. Mirrors CreateDropScreen's
+  /// own `_buildPollComposer` (WYN-035) exactly, Sapphire instead of
+  /// Cyan.
+  Widget _buildPollComposer() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < _pollOptionControllers.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: WynSpacing.space2),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _pollOptionControllers[i],
+                    maxLength: _pollOptionMaxLength,
+                    enabled: !_isPosting,
+                    style: const TextStyle(fontSize: 16, color: WynColors.ink),
+                    decoration: InputDecoration(
+                      hintText: 'ตัวเลือกที่ ${i + 1}',
+                      hintStyle: const TextStyle(fontSize: 16, color: WynColors.faint),
+                      counterText: '',
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+                        borderSide: const BorderSide(color: WynColors.hairline),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+                        borderSide: const BorderSide(color: WynColors.hairline),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+                        borderSide: const BorderSide(color: WynColors.sapphire),
+                      ),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                // Only the 3rd/4th option can be removed -- the first 2
+                // are the minimum a Poll must always have.
+                if (i >= _minPollOptions)
+                  IconButton(
+                    key: ValueKey('remove_club_poll_option_$i'),
+                    icon: const Icon(Icons.close, color: WynColors.graphite),
+                    tooltip: 'ลบตัวเลือกนี้',
+                    onPressed: _isPosting ? null : () => _removePollOption(i),
+                  ),
+              ],
+            ),
+          ),
+        if (_pollOptionControllers.length < _maxPollOptions)
+          TextButton.icon(
+            onPressed: _isPosting ? null : _addPollOption,
+            style: TextButton.styleFrom(foregroundColor: WynColors.sapphire),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('เพิ่มตัวเลือก', style: TextStyle(fontSize: 15)),
+          ),
+        const SizedBox(height: WynSpacing.space2),
+        const Text('ระยะเวลาโหวต',
+            style:
+                TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.ink)),
+        const SizedBox(height: WynSpacing.space2),
+        SegmentedButton<int>(
+          style: SegmentedButton.styleFrom(
+            selectedForegroundColor: WynColors.paper,
+            selectedBackgroundColor: WynColors.sapphire,
+            foregroundColor: WynColors.ink,
+            side: const BorderSide(color: WynColors.hairline),
+          ),
+          segments: const [
+            ButtonSegment(value: 1, label: Text('1 วัน')),
+            ButtonSegment(value: 3, label: Text('3 วัน')),
+            ButtonSegment(value: 7, label: Text('7 วัน')),
+          ],
+          selected: {_pollDurationDays},
+          onSelectionChanged: _isPosting
+              ? null
+              : (selection) => setState(() => _pollDurationDays = selection.first),
+        ),
+      ],
     );
   }
 
