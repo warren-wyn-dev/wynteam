@@ -1124,3 +1124,15 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 **สถานะ**: WYN-114 approved — ส่งต่อ AI Deploy & DevOps
 
 อ้างอิง: `.wyn/tasks/approved/WYN-114-share-link-real-domain.md`, `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`
+
+## [2026-09-06] WYN-114: Deploy สำเร็จ ยืนยัน production ครบทั้ง 2 เงื่อนไขด้วย curl จริง — ปิดงานสมบูรณ์
+
+**บริบท**: PR #271 (WYN-114) เจอ merge conflict จริงระหว่างทางกับ PR #269 (อีก session, ฟีเจอร์ "add to home screen" ที่แก้ `app/.gitignore` ตำแหน่งเดียวกัน) — merge `main` เข้ามาแก้เอง เก็บทั้งสองส่วนไว้ ไม่มีอะไรหาย แล้ว merge PR + trigger `deploy-web.yml` (run #89) สำเร็จ
+
+**Production verification ครบทั้ง 2 เงื่อนไขที่ QA กำหนดไว้เป็นข้อบังคับ**:
+1. ลิงก์ที่แก้แล้ว (`/drop/x`, `/pop/x`, `/club/x`, `/club-post/x`, `/@x`) — **ทุกจุดได้ HTTP 200 จริง** (จากเดิม 404) ตรวจ body ยืนยันเป็น Flutter app จริง ไม่ใช่ error page
+2. Static asset เดิม (`og-image.png`/`favicon.png`/`manifest.json`) — **ไม่ถูกกระทบเลย** `og-image.png`'s md5sum ตรงกับไฟล์ที่ commit เป๊ะ (`76b00bbf...`) ยืนยันว่า Vercel's filesystem-before-rewrite precedence ทำงานตามเอกสารจริง ไม่ใช่แค่ทฤษฎี
+
+**สถานะ**: WYN-114 **completed** ครบทั้ง Product → Coding → QA FAIL → Debug Engineer → QA PASS → Deploy → Production Verification (curl จริงทั้ง 2 เงื่อนไข) — ไม่มี rollback ต้องทำ ไม่มี migration ค้าง
+
+อ้างอิง: `.wyn/tasks/completed/WYN-114-share-link-real-domain.md`, `.wyn/logs/deployments/2026-09-06-wyn-114-share-link-vercel-rewrite-deploy.md`, PR #271, deploy-web.yml run #89
