@@ -1,7 +1,7 @@
 # Bug Report — WYN-120
 
-Status: **Merged เข้า `main` แล้ว (PR #276, merge commit `02b5a21`, โดย Founder เอง 2026-09-06 08:09 UTC) — ยังไม่ deploy ขึ้น production — ส่งต่อ AI Deploy & DevOps**
-Owner: AI Debug Engineer → AI Deploy & DevOps
+Status: **Deploy ขึ้น production แล้ว (deploy-web.yml run #90, 2026-09-06 08:17 UTC) — รอ Founder ยืนยันว่าลบโพสต์จริงแล้วหายจากโปรไฟล์ทันที ก่อนย้ายไป completed/** ดู `.wyn/logs/deployments/2026-09-06-wyn-120-delete-drop-profile-fix-deploy.md`
+Owner: AI Debug Engineer → AI Deploy & DevOps → รอ Founder ยืนยัน
 Reported by: Founder (สด, ไม่ผ่าน QA ก่อน): "ตอนลบโพสต์ หน้าโปรไฟล์ โพสต์ไม่หายเลย"
 
 ## Bug
