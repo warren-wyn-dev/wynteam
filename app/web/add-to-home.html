@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>เพิ่ม WYNOS ที่หน้าจอหลัก</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap');
+
+  :root{
+    --ink:#12120F;
+    --paper:#FFFFFF;
+    --sapphire:#1B3A6B;
+    --sapphire-soft:#E7EDF5;
+    --graphite:#8A8880;
+    --hairline:#E8E6E0;
+    --surface-tint:#F1EFE9;
+    --faint:#C7C4BC;
+
+    --bg:var(--paper);
+    --surface:var(--surface-tint);
+    --card:var(--paper);
+    --text:var(--ink);
+    --text-muted:var(--graphite);
+    --border:var(--hairline);
+    --accent:var(--sapphire);
+    --accent-soft:var(--sapphire-soft);
+    --accent-ink:#FFFFFF;
+    --chrome-bg:#FFFFFF;
+    --chrome-border:#DEDBD3;
+    --shadow: 0 1px 2px rgba(18,18,15,0.04), 0 8px 24px -12px rgba(18,18,15,0.18);
+  }
+
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#141310;
+      --surface:#1C1B17;
+      --card:#1F1E19;
+      --text:#F3F1EA;
+      --text-muted:#A6A296;
+      --border:#332F27;
+      --accent:#7FA0D6;
+      --accent-soft:#233350;
+      --accent-ink:#0E1B33;
+      --chrome-bg:#232019;
+      --chrome-border:#3A362D;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 30px -14px rgba(0,0,0,0.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#141310;
+    --surface:#1C1B17;
+    --card:#1F1E19;
+    --text:#F3F1EA;
+    --text-muted:#A6A296;
+    --border:#332F27;
+    --accent:#7FA0D6;
+    --accent-soft:#233350;
+    --accent-ink:#0E1B33;
+    --chrome-bg:#232019;
+    --chrome-border:#3A362D;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 30px -14px rgba(0,0,0,0.6);
+  }
+
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'IBM Plex Sans Thai','Noto Sans Thai',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .display{
+    font-family:'Kanit','IBM Plex Sans Thai',sans-serif;
+  }
+
+  .page{
+    max-width:600px;
+    margin:0 auto;
+    padding:56px 24px 72px;
+  }
+
+  /* ---- Header ---- */
+  .brand{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    gap:14px;
+    margin-bottom:40px;
+  }
+  .brand-tile{
+    width:64px;
+    height:64px;
+    border-radius:16px;
+    overflow:hidden;
+    box-shadow:var(--shadow);
+    border:1px solid var(--border);
+  }
+  .brand-tile img{
+    width:100%;
+    height:100%;
+    display:block;
+    object-fit:cover;
+  }
+  .brand-word{
+    font-size:15px;
+    font-weight:600;
+    letter-spacing:0.14em;
+    color:var(--text-muted);
+    text-transform:uppercase;
+  }
+
+  .eyebrow{
+    text-align:center;
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:0.08em;
+    color:var(--accent);
+    text-transform:uppercase;
+    margin:0 0 10px;
+  }
+  h1{
+    font-family:'Kanit',sans-serif;
+    text-align:center;
+    font-size:clamp(26px,5vw,34px);
+    line-height:1.25;
+    font-weight:600;
+    margin:0 0 14px;
+    text-wrap:balance;
+  }
+  .lede{
+    text-align:center;
+    color:var(--text-muted);
+    font-size:16px;
+    line-height:1.7;
+    max-width:440px;
+    margin:0 auto 44px;
+  }
+  .lede b{ color:var(--text); font-weight:600; }
+
+  /* ---- Section label ---- */
+  .section-head{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    margin:0 0 20px;
+  }
+  .section-head .tag{
+    font-family:'Kanit',sans-serif;
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:0.06em;
+    color:var(--accent-ink);
+    background:var(--accent);
+    padding:4px 10px;
+    border-radius:100px;
+  }
+  .section-head .label{
+    font-size:14px;
+    color:var(--text-muted);
+  }
+
+  /* ---- Steps ---- */
+  .steps{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    margin-bottom:52px;
+  }
+  .step{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:22px 22px 24px;
+    box-shadow:var(--shadow);
+    display:grid;
+    grid-template-columns:40px 1fr;
+    gap:16px;
+  }
+  .step-num{
+    font-family:'Kanit',sans-serif;
+    font-weight:700;
+    font-size:18px;
+    width:40px;
+    height:40px;
+    border-radius:12px;
+    background:var(--accent-soft);
+    color:var(--accent);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+  }
+  .step-body h3{
+    font-family:'Kanit',sans-serif;
+    margin:2px 0 6px;
+    font-size:18px;
+    font-weight:600;
+  }
+  .step-body p{
+    margin:0 0 16px;
+    color:var(--text-muted);
+    font-size:15px;
+    line-height:1.65;
+  }
+  .step-body p b{ color:var(--text); font-weight:600; }
+
+  /* ---- Browser chrome mock ---- */
+  .mock{
+    border:1px solid var(--chrome-border);
+    border-radius:14px;
+    overflow:hidden;
+    background:var(--chrome-bg);
+  }
+  .mock-bar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:9px 12px;
+    background:var(--surface);
+    border-bottom:1px solid var(--chrome-border);
+  }
+  .mock-url{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    background:var(--card);
+    border:1px solid var(--chrome-border);
+    border-radius:8px;
+    padding:6px 10px;
+    font-size:12.5px;
+    color:var(--text-muted);
+    font-variant-numeric:tabular-nums;
+  }
+  .mock-url svg{ width:11px; height:11px; flex-shrink:0; opacity:0.7; }
+  .mock-icon-btn{
+    width:26px;
+    height:26px;
+    border-radius:7px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--text-muted);
+    flex-shrink:0;
+  }
+  .mock-icon-btn svg{ width:16px; height:16px; }
+  .mock-icon-btn.hot{
+    color:var(--accent-ink);
+    background:var(--accent);
+    box-shadow:0 0 0 4px var(--accent-soft);
+  }
+  .mock-body{
+    padding:14px 12px 16px;
+  }
+
+  /* sheet rows (share sheet mock) */
+  .sheet-grip{
+    width:36px; height:4px; border-radius:3px;
+    background:var(--chrome-border);
+    margin:0 auto 12px;
+  }
+  .sheet-apps{
+    display:flex;
+    gap:14px;
+    padding:2px 4px 14px;
+    border-bottom:1px solid var(--chrome-border);
+    margin-bottom:6px;
+  }
+  .sheet-app{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    font-size:10px;
+    color:var(--text-muted);
+    flex:1;
+  }
+  .sheet-app .ic{
+    width:36px; height:36px; border-radius:10px;
+    background:var(--surface);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .sheet-app .ic svg{ width:17px; height:17px; color:var(--text-muted); }
+
+  .sheet-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:11px 8px;
+    border-radius:10px;
+    font-size:14px;
+  }
+  .sheet-row.hot{
+    background:var(--accent-soft);
+    box-shadow:0 0 0 1.5px var(--accent);
+  }
+  .sheet-row .ic{
+    width:28px; height:28px; border-radius:8px;
+    background:var(--surface);
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .sheet-row.hot .ic{ background:var(--accent); }
+  .sheet-row .ic svg{ width:15px; height:15px; color:var(--text-muted); }
+  .sheet-row.hot .ic svg{ color:var(--accent-ink); }
+  .sheet-row span{ color:var(--text); font-weight:500; }
+  .sheet-row.hot span{ color:var(--accent); font-weight:600; }
+
+  /* confirm dialog mock */
+  .confirm{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    gap:12px;
+    padding:6px 4px 4px;
+  }
+  .confirm .app-icon{
+    width:52px; height:52px; border-radius:13px;
+    overflow:hidden;
+    box-shadow:var(--shadow);
+    border:1px solid var(--chrome-border);
+  }
+  .confirm .app-icon img{ width:100%; height:100%; display:block; object-fit:cover; }
+  .confirm .app-name{ font-size:13px; font-weight:600; color:var(--text); }
+  .confirm .app-url{ font-size:11.5px; color:var(--text-muted); margin-top:-8px; }
+  .confirm-btns{
+    display:flex;
+    gap:10px;
+    width:100%;
+    margin-top:6px;
+    border-top:1px solid var(--chrome-border);
+    padding-top:12px;
+  }
+  .confirm-btns span{
+    flex:1;
+    text-align:center;
+    font-size:14px;
+    padding:8px 0;
+    border-radius:8px;
+    color:var(--text-muted);
+  }
+  .confirm-btns span.hot{
+    background:var(--accent);
+    color:var(--accent-ink);
+    font-weight:600;
+  }
+
+  /* ---- Android callout ---- */
+  .callout{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:22px 24px;
+    margin-bottom:44px;
+  }
+  .callout-head{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:14px;
+  }
+  .callout-head svg{ width:18px; height:18px; color:var(--accent); flex-shrink:0; }
+  .callout-head h3{
+    font-family:'Kanit',sans-serif;
+    font-size:16px;
+    font-weight:600;
+    margin:0;
+  }
+  .callout ol{
+    margin:0;
+    padding-left:20px;
+    color:var(--text-muted);
+    font-size:14.5px;
+    line-height:1.85;
+  }
+  .callout ol b{ color:var(--text); font-weight:600; }
+
+  /* ---- Footer ---- */
+  .footer{
+    text-align:center;
+    padding-top:28px;
+    border-top:1px solid var(--border);
+  }
+  .footer .url{
+    font-family:'Kanit',sans-serif;
+    font-weight:600;
+    font-size:15px;
+    color:var(--text);
+    letter-spacing:0.01em;
+  }
+  .footer .note{
+    margin-top:8px;
+    font-size:13px;
+    color:var(--text-muted);
+  }
+
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="brand">
+    <div class="brand-tile"><img src="icons/Icon-512.png" alt="WYNOS"></div>
+    <div class="brand-word">WYNOS</div>
+  </div>
+
+  <p class="eyebrow">คู่มือติดตั้งฉบับย่อ</p>
+  <h1>เพิ่ม WYNOS ไว้ที่หน้าจอหลัก</h1>
+  <p class="lede">
+    เปิดแอปได้ไวเหมือนแอปทั่วไป ไม่ต้องเปิดเบราว์เซอร์แล้วพิมพ์
+    <b>wynos.online</b> ใหม่ทุกครั้ง — ทำตาม 3 ขั้นตอนนี้ ใช้เวลาไม่ถึงนาที
+  </p>
+
+  <div class="section-head">
+    <span class="tag">iPhone · Safari</span>
+    <span class="label">ขั้นตอนหลัก</span>
+  </div>
+
+  <div class="steps">
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>เปิด wynos.online แล้วแตะไอคอน <b>แชร์</b></h3>
+        <p>อยู่แถบล่างของ Safari (หรือแถบบนในบางรุ่น) เป็นรูปสี่เหลี่ยมมีลูกศรชี้ขึ้น</p>
+        <div class="mock">
+          <div class="mock-bar">
+            <div class="mock-url">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              wynos.online
+            </div>
+          </div>
+          <div class="mock-body">
+            <div style="display:flex;justify-content:center;padding:18px 0 6px;">
+              <div class="mock-icon-btn hot" style="width:40px;height:40px;border-radius:10px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="width:20px;height:20px;"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>เลื่อนหาแล้วแตะ <b>เพิ่มที่หน้าจอโฮม</b></h3>
+        <p>อยู่ในเมนูที่เลื่อนขึ้นมา — ถ้าไม่เห็นให้เลื่อนรายการลงมาอีกนิด</p>
+        <div class="mock">
+          <div class="mock-body">
+            <div class="sheet-grip"></div>
+            <div class="sheet-apps">
+              <div class="sheet-app"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg></div>ส่ง</div>
+              <div class="sheet-app"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 9h16"/></svg></div>คัดลอก</div>
+              <div class="sheet-app"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg></div>เพิ่มเติม</div>
+            </div>
+            <div class="sheet-row hot">
+              <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/></svg></div>
+              <span>เพิ่มที่หน้าจอโฮม</span>
+            </div>
+            <div class="sheet-row">
+              <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M12 10l5 5M12 10l-5 5"/><path d="M5 4h14"/></svg></div>
+              <span>เพิ่มลงในรายการโปรด</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>แตะ <b>เพิ่ม</b> เพื่อยืนยัน</h3>
+        <p>ไอคอน WYNOS จะไปโผล่ที่หน้าจอโฮมทันที แตะเปิดได้เหมือนแอปปกติ</p>
+        <div class="mock">
+          <div class="mock-body">
+            <div class="confirm">
+              <div class="app-icon"><img src="icons/Icon-512.png" alt=""></div>
+              <div class="app-name">WYNOS</div>
+              <div class="app-url">wynos.online</div>
+              <div class="confirm-btns">
+                <span>ยกเลิก</span>
+                <span class="hot">เพิ่ม</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="callout">
+    <div class="callout-head">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+      <h3>ใช้ Android / Chrome อยู่?</h3>
+    </div>
+    <ol>
+      <li>เปิด <b>wynos.online</b> ใน Chrome</li>
+      <li>แตะเมนู <b>⋮</b> มุมขวาบน แล้วเลือก <b>เพิ่มไปยังหน้าจอโฮม</b></li>
+      <li>แตะ <b>เพิ่ม</b> อีกครั้งเพื่อยืนยัน</li>
+    </ol>
+  </div>
+
+  <div class="footer">
+    <div class="url">wynos.online</div>
+    <div class="note">บันทึกไอคอนไว้ครั้งเดียว เปิดใช้ WYNOS ได้ไวทุกครั้งหลังจากนี้</div>
+  </div>
+
+</div>
+</body>
+</html>
