@@ -1,6 +1,6 @@
 # Product Task — WYN-114
 
-Status: backlog — Founder อนุมัติให้เริ่มต่อจาก WYN-113 แล้ว (2026-09-06) แต่พบข้อเท็จจริงใหม่ระหว่างตรวจโค้ดที่เปลี่ยนขอบเขตงาน — ต้องให้ Founder เลือกก่อนส่ง AI Design/Coding
+Status: **QA FAIL (2026-09-06)** — โค้ด Dart ที่แก้ถูกต้อง แต่พบว่า Vercel hosting ไม่มี SPA rewrite เลย ทุก path นอกจาก `/` ได้ HTTP 404 ตรงๆ (ดู "## AI QA & Security Output" ท้ายไฟล์ + bug report `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`) ส่งต่อ AI Debug Engineer
 Owner: AI Product Manager
 Feature: Share Link ชี้โดเมนจริง (ค้างจาก Beta3 Security Audit item A-7)
 Goal: ให้ปุ่มแชร์ (Drop/Pop/Club/ClubPost/Profile) ส่งลิงก์ที่เปิดได้จริง แทนโดเมนปลอมที่ไม่มีอยู่จริง
@@ -69,3 +69,47 @@ Known Issues:
 - ไม่ได้แตะ `io.wyn.app://login-callback` (native OAuth URL scheme ใน `auth_repository.dart`/`README.md`) เพราะเป็นคนละเรื่องกัน (custom URL scheme identifier สำหรับ native app ไม่ใช่ web domain สำหรับ share link) — ตรวจแล้วว่าไม่เกี่ยวข้องกับ scope นี้
 
 Handoff: ส่งต่อ **AI QA & Security** — ตรวจ `flutter analyze`/`flutter test` ผ่านจริง + สุ่มเปิดลิงก์ตัวอย่าง (เช่น `https://wynos.online/drop/test123`) ยืนยันว่าเว็บเปิดได้จริง (ไม่ error "ไม่พบเว็บไซต์") ก่อนถือว่าเสร็จ — ย้ำ QA ว่า Acceptance Criteria ของ Tier 1 คือ "ลิงก์เปิดเว็บได้" ไม่ใช่ "ลิงก์พาไปโพสต์ที่ถูกต้อง" (เก็บไว้ใน Tier 2)
+
+## AI QA & Security Output (2026-09-06)
+
+Feature: WYN-114 Tier 1 — share link domain fix (5 ฟังก์ชัน)
+
+Environment: sandbox นี้มี network egress ถึง `wynos.online` จริง (ต่างจากบางรอบก่อนหน้า) — ใช้ `curl` ตรวจ production โดยตรงได้เลย ไม่ต้องพึ่ง Facebook Sharing Debugger
+
+Test Cases:
+1. Scope check: diff เทียบ `origin/main` จำกัดแค่ 5 ไฟล์ที่ระบุ ไม่มีไฟล์อื่นถูกแตะ
+2. Secret exposure scan ทั้ง diff
+3. ตรวจโค้ดแต่ละ 5 จุดว่า path/โดเมนตรงตาม spec เป๊ะ (`/drop/`, `/pop/`, `/club/`, `/club-post/`, `/@username`)
+4. **ทดสอบจริงกับ production ปัจจุบัน (ก่อน deploy การเปลี่ยนแปลงนี้ด้วยซ้ำ — เพราะโดเมน `wynos.online` deploy อยู่แล้วจาก WYN-113)**: curl ทุก path pattern ที่ 5 ฟังก์ชันจะ generate จริง
+
+Passed: 1, 2, 3 — โค้ดที่แก้ถูกต้องตรงสเปกทุกจุด ไม่มี secret รั่ว ไม่กระทบไฟล์อื่น
+
+Failed: **4 — พบปัญหาจริงที่ Product/Coding ไม่ได้คาดไว้**
+
+Severity: **Medium** (ไม่ใช่ security bug, ไม่ทำให้แอปพัง แต่ acceptance criteria หลักของงานนี้ไม่เป็นจริง)
+
+Reproduction Steps:
+```
+curl -I https://wynos.online/drop/test123
+curl -I https://wynos.online/pop/test123
+curl -I https://wynos.online/club/test123
+curl -I https://wynos.online/club-post/test123
+curl -I https://wynos.online/@testuser
+```
+
+Expected: ตาม Product spec ที่เขียนไว้ (อ้างอิงจากที่ AI Product Manager วิเคราะห์โค้ด Flutter แล้วสรุปว่า "จะ boot แอปแล้วโชว์หน้า AuthGate เหมือนเปิด wynos.online เฉยๆ") — คือ**อย่างน้อยควรเห็นหน้าแอป** (ต่อให้ไม่ใช่โพสต์ที่ถูกต้อง)
+
+Actual: **ทุก path ข้างต้นได้ `HTTP 404` จาก Vercel ตรงๆ** (`x-vercel-error: NOT_FOUND`, body เป็น "The page could not be found / NOT_FOUND" ข้อความดิบจาก Vercel platform เอง) — **ไม่ถึงขั้น boot Flutter app ด้วยซ้ำ** เพราะ Vercel เป็น static hosting ที่ serve เฉพาะไฟล์ที่ path ตรงตัวเป๊ะ ไม่มี catch-all rewrite ไปที่ `index.html` เลย (ตรวจแล้วว่าไม่มี `vercel.json` ในโปรเจกต์ และ `deploy-web.yml` ไม่ได้ตั้งค่า rewrite ใดๆ ตอน deploy)
+
+**สรุปสิ่งที่ค้นพบ**: สมมติฐานที่ Product spec ใช้ตอนวิเคราะห์ (อ่านแค่โค้ด Flutter ฝั่ง client ว่าไม่มี path routing) **ถูกครึ่งเดียว** — ที่จริงปัญหาลึกกว่านั้นอีกชั้น: แม้จะแก้ Flutter ให้มี routing ในอนาคต (Tier 2) ก็ยังไม่พอ เพราะ **ชั้น hosting (Vercel) เองก็ block ไม่ให้ path อื่นนอกจาก `/` ไปถึง Flutter app ตั้งแต่แรก** ต้องแก้ทั้งสองชั้น: (1) Vercel rewrite ให้ทุก path serve `index.html` แทนที่จะ 404 (2) ค่อยให้ Flutter อ่าน path เพื่อ deep-link จริง (Tier 2)
+
+**ผลต่อ Tier 1**: ข้อความ Acceptance Criteria เดิม ("เปิดเว็บได้จริง ไม่ error 'ไม่พบเว็บไซต์' อีกต่อไป") **ยังไม่จริง 100%** — จาก DNS-level error (เดิม, "ไม่พบเว็บไซต์" ระดับเบราว์เซอร์) กลายเป็น HTTP-level 404 (ใหม่, ยังเป็น "ไม่พบหน้านี้" อยู่ดี แต่มาจากเซิร์ฟเวอร์แทนที่จะเป็น DNS) — ดีขึ้นจริงในแง่ที่โดเมนพิสูจน์ได้ว่ามีตัวตนจริง แต่ผู้ใช้ปลายทางยังเห็น error อยู่ดี ไม่ใช่สิ่งที่ Founder น่าจะคาดหวังจากคำว่า "แก้ share link ให้ใช้งานได้"
+
+Security Findings: ไม่พบ — ไม่มี secret รั่ว ไม่มี XSS/injection (เนื้อหา static string ล้วนๆ)
+
+Recommendation:
+- **FAIL การเทส 404** — ต้องเพิ่ม Vercel rewrite (`app/vercel.json` มาตรฐาน SPA catch-all: `{"rewrites":[{"source":"/(.*)","destination":"/index.html"}]}`) เป็นงานเพิ่มเติมก่อนถือว่า Tier 1 เสร็จจริงตามที่ตั้งใจไว้
+- โค้ด Dart ที่แก้ไปแล้ว (5 จุด) **ถูกต้องและไม่ต้องแก้เพิ่ม** — ปัญหาอยู่ที่ config การ deploy/hosting คนละชั้นกัน ไม่ใช่ bug ในโค้ดที่ตรวจรอบนี้
+- ส่งต่อ AI Debug Engineer เพื่อเพิ่ม Vercel rewrite config (root cause ทราบแน่ชัดแล้ว ไม่ต้อง investigate เพิ่ม) — ดู bug report `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`
+
+Final Status: **FAIL**

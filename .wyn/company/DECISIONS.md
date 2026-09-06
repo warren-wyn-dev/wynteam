@@ -1086,3 +1086,17 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 สร้าง `WYN-114` (`.wyn/tasks/backlog/WYN-114-share-link-real-domain.md`) บันทึกทั้งสอง Tier ไว้ — Tier 1 ส่งตรง AI Coding ได้เลย (ไม่ผ่าน Design เพราะไม่มี UI เปลี่ยน)
 
 อ้างอิง: `.wyn/tasks/backlog/WYN-114-share-link-real-domain.md`, `app/lib/main.dart`, `.wyn/docs/qa/wynos-v1.0.0-beta3-security-audit.md` (item A-7 เดิม)
+
+## [2026-09-06] WYN-114: QA FAIL — Vercel ไม่มี SPA rewrite เลย ทุก path 404 จริง
+
+**บริบท**: QA ตรวจ WYN-114 Tier 1 (แก้โดเมน share link 5 จุด) ด้วยการ curl production จริงแทนที่จะเชื่อสมมติฐานในเอกสาร Product spec (ที่เขียนไว้ว่า "จะ boot แอปแล้วโชว์หน้า AuthGate เหมือนเปิด wynos.online เฉยๆ") — **พบว่าสมมติฐานนั้นผิด**: `curl https://wynos.online/drop/test123` ได้ **HTTP 404 ตรงจาก Vercel** (`x-vercel-error: NOT_FOUND`) ไม่ถึงขั้น Flutter app boot ด้วยซ้ำ
+
+**Root cause**: โปรเจกต์ deploy ด้วย `vercel deploy` ตรงๆ ไม่มี `vercel.json`/rewrite config ใดๆ เลย — Vercel static hosting เช็ค path ตรงกับไฟล์จริงเท่านั้น ไม่มี catch-all ไปที่ `index.html` ปัญหานี้**มีอยู่ก่อน WYN-114 แล้ว** (ทดสอบ path สุ่มอื่นก็ 404 เหมือนกันหมด) แต่เพิ่งกระทบผู้ใช้จริงตอนนี้เพราะ share link เพิ่งชี้โดเมนจริง
+
+**ผลกระทบต่อ WYN-114**: โค้ด Dart ที่แก้ (5 จุด) ถูกต้อง 100% ไม่ต้องแก้เพิ่ม — แต่ **acceptance criteria ของงาน ("ลิงก์เปิดเว็บได้จริง") ยังไม่จริง** เพราะติดปัญหาคนละชั้น (hosting config ไม่ใช่โค้ดแอป) สร้าง bug report `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md` พร้อม root cause + แนวทางแก้ (`vercel.json` catch-all rewrite) + คำเตือนเรื่อง regression risk สำคัญ (rewrite ต้องไม่ทำให้ static asset จริงอย่าง `og-image.png` ที่ WYN-113 เพิ่ง deploy ไปพังไปด้วย)
+
+**บทเรียน**: การวิเคราะห์โค้ด client-side อย่างเดียว (แม้จะละเอียดแค่ไหน) ไม่พอสำหรับฟีเจอร์ที่พึ่งพา URL/hosting — ต้องทดสอบกับ production จริงเสมอเมื่อทำได้ (ตามที่ session นี้มี network egress) ไม่ใช่แค่อ่านโค้ดแล้วเดาพฤติกรรม
+
+**สถานะ**: WYN-114 **FAIL** ส่งต่อ AI Debug Engineer
+
+อ้างอิง: `.wyn/tasks/backlog/WYN-114-share-link-real-domain.md`, `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`
