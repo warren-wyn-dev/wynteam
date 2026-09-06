@@ -58,6 +58,37 @@ class DeepLinkService {
     await _handle(Uri.base.path);
   }
 
+  /// Test-only: forces [hasContentPath]'s result instead of deriving it
+  /// from `kIsWeb`/`Uri.base` -- neither is controllable from a widget
+  /// test (the default test target is never web, and `Uri.base` there is
+  /// the test runner's own location, same limitation [debugHandlePath]
+  /// exists for). Reset to null after each test that sets it.
+  @visibleForTesting
+  static bool? debugForceHasContentPath;
+
+  /// True when the browser's current URL points at a specific piece of
+  /// content this service knows how to open (drop/pop/club/club-post/
+  /// @username) -- used by [AuthGate] to decide whether a signed-out
+  /// visitor should be silently dropped into a guest (Anonymous Sign-In)
+  /// session instead of WelcomeScreen, so a shared link opens the
+  /// content it actually points at (WYN-119's Requirement 2) rather than
+  /// forcing a login first. Deliberately mirrors only the *shape check*
+  /// half of [_handle]'s routing -- never touches Supabase, never
+  /// navigates -- so it is safe to call from a build() method on every
+  /// rebuild.
+  static bool hasContentPath() {
+    final forced = debugForceHasContentPath;
+    if (forced != null) return forced;
+    if (!kIsWeb) return false;
+    final segments =
+        Uri.base.path.split('/').where((s) => s.isNotEmpty).toList();
+    if (segments.isEmpty) return false;
+    final first = segments.first;
+    if (first.startsWith('@') && first.length > 1) return true;
+    if (segments.length < 2) return false;
+    return const {'drop', 'pop', 'club', 'club-post'}.contains(first);
+  }
+
   static Future<void> _handle(String path) async {
     final navigator = appNavigatorKey.currentState;
     if (navigator == null) return;

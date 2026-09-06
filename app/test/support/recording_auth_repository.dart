@@ -91,6 +91,38 @@ class RecordingAuthRepository extends AuthRepository {
     _controller.add(AuthState(AuthChangeEvent.tokenRefreshed, session));
   }
 
+  /// WYN-119 (Tier 2, Requirement 2): simulates the Anonymous Sign-In
+  /// AuthGate now falls back to for a signed-out visitor opening a
+  /// shared content link. Emits `signedIn` with an anonymous session,
+  /// same shape [emitSignedIn] uses for a real one -- AuthGate cannot
+  /// tell the two apart except by `session.user.isAnonymous`.
+  int signInAnonymouslyCalls = 0;
+  Object? signInAnonymouslyError;
+
+  @override
+  Future<AuthResponse> signInAnonymously() async {
+    signInAnonymouslyCalls++;
+    final error = signInAnonymouslyError;
+    if (error != null) throw error;
+    final session = _fakeAnonymousSession();
+    _session = session;
+    _controller.add(AuthState(AuthChangeEvent.signedIn, session));
+    return AuthResponse(session: session, user: session.user);
+  }
+
+  static Session _fakeAnonymousSession() => Session(
+        accessToken: 'fake-anon-access-token',
+        tokenType: 'bearer',
+        user: User(
+          id: 'guest-deep-link-user',
+          appMetadata: const {},
+          userMetadata: const {},
+          aud: 'authenticated',
+          createdAt: DateTime.now().toIso8601String(),
+          isAnonymous: true,
+        ),
+      );
+
   /// A *real* sign-out: clears the session and emits `signedOut` --
   /// this is what makes the sign-out race in AuthGate's own comments
   /// reproducible in a widget test: after this resolves, a naive
