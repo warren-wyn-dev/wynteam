@@ -55,7 +55,7 @@ import '../../settings/presentation/settings_screen.dart';
 
 /// Placeholder share link -- same "no real hosting/domain yet" caveat as
 /// dropShareLink/clubShareLink (WYN-005/014).
-String profileShareLink(String username) => 'https://wyn.app/@$username';
+String profileShareLink(String username) => 'https://wynos.online/@$username';
 
 /// Beta4 §1: "Profile Stats -- แสดงเฉพาะ Following / Followers.
 /// ไม่เพิ่ม: จำนวนโพสต์". `dropCount` is gone from this record, and with

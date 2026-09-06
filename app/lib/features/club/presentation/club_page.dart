@@ -25,7 +25,7 @@ import 'widgets/club_avatar.dart';
 
 /// Placeholder share link -- same "no real hosting/domain yet" caveat as
 /// dropShareLink/popShareLink (WYN-005/006).
-String clubShareLink(String clubId) => 'https://wyn.app/club/$clubId';
+String clubShareLink(String clubId) => 'https://wynos.online/club/$clubId';
 
 typedef _ClubPageData = ({Club club, ClubMember? membership});
 

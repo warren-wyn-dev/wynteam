@@ -987,3 +987,18 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 **ยังไม่แตะ เพราะรอ Founder**: WYN-P0 (Google/Apple sign-in web) ติด Vercel free-tier 100 deploy/วัน ต้องให้ Founder ตัดสินใจอัพเกรด plan หรือปิด auto-preview-deploy; WYN-112 (activation funnel) รอ Founder เปิด WYN Admin Dashboard ส่วน "การเติบโต" แล้วส่งตัวเลขกลับมา
 
 อ้างอิง: `.wyn/tasks/completed/WYN-108-comment-heart-size-regression.md`, `.wyn/tasks/completed/WYN-109-*.md`, `.wyn/tasks/completed/WYN-110-redundant-load-more-fetches.md`, `.wyn/tasks/qa/WYN-110-homedropcard-320px-action-row-overflow.md`, `.wyn/tasks/completed/SCHEMA-002-home-feed-view-column-drift.md`, `.wyn/tasks/completed/WYN-081-explore-clubs-reload-future-assertion.md`, `.wyn/tasks/completed/WYN-102-push-notification-pop-access-leak.md`, `.wyn/tasks/backlog/WYN-113-invite-only-access-gate.md`
+
+## [2026-09-06] WYN-114: fixed -- share links across the app went nowhere; WYN-115: invite-followers-to-club queued for Design
+
+**บริบท**: Founder ทดสอบเปิดลิงก์คลับที่ก็อปจากปุ่มแชร์จริง (`https://wynos.online/club/<id>`) แล้วไม่เด้งไปหน้าคลับ ตรวจแล้วพบว่าเป็นบั๊กกว้างกว่าที่คิด (ดูรายละเอียดเต็มที่ `.wyn/tasks/qa/WYN-114-share-links-no-deep-link.md`):
+
+1. `dropShareLink`/`popShareLink`/`clubShareLink`/`clubPostShareLink`/`profileShareLink` ทั้ง 5 ฟังก์ชัน hardcode โดเมนผิด (`wyn.app` แทนที่จะเป็น `wynos.online`) — แก้แล้ว
+2. แอปไม่เคยมีระบบ deep-link/URL routing เลยตั้งแต่ต้น (`main.dart` เป็น `MaterialApp(home: const AuthGate())` ตรงๆ ไม่มี route table เลย) — เพิ่ม `DeepLinkService` ใหม่ (`app/lib/core/navigation/deep_link_service.dart`) อ่าน `Uri.base.path` ตอน `RootShell` แรก mount (เฉพาะเว็บ, `kIsWeb`) แล้ว navigate ไปหน้าที่ถูกต้อง (drop/pop/club/club-post/profile) ตามแพทเทิร์นเดียวกับ `PushNotificationService`'s `_openDrop`/`_openClub`/ฯลฯ ที่มีอยู่แล้ว
+
+**ข้อจำกัดของ session นี้**: sandbox นี้ไม่มี Flutter SDK ติดตั้งเลย รัน `flutter analyze`/`flutter test` ไม่ได้จริง — ตรวจความถูกต้องด้วยการอ่าน source cross-reference ทุกจุดแทน (import/constructor/method ตรงกับของจริงทุกไฟล์) เขียน `app/test/deep_link_service_test.dart` ไว้ให้แล้วแต่ยังไม่เคยรันจริงสักครั้ง — **ต้องให้ AI QA & Security รัน `flutter analyze && flutter test` เต็ม suite ก่อน merge/deploy เด็ดขาด** (ไฟล์ task อยู่ที่ `.wyn/tasks/qa/` ไม่ใช่ `completed/` ด้วยเหตุนี้)
+
+**Known follow-up ที่ไม่ได้แก้รอบนี้**: deep-link ยังไม่ทำงานถ้าคนที่ยังไม่ login เป็นคนกดลิงก์ (เห็น Welcome เฉยๆ ลิงก์หายไปเลย ไม่มี "จำไว้พาไปหลัง login"), native mobile (iOS/Android) ยังไม่รับ path พวกนี้เลยเพราะต้องตั้งค่า Associated Domains/App Links ที่ platform-level (รอ Founder เหมือนกรณี Apple Sign-In)
+
+**WYN-115**: Founder พูดต่อว่าฟังก์ชันเชิญเข้าคลับควรเลือกเชิญจากคนที่ติดตามตัวเองได้ตรงๆ (ตอนนี้ปุ่ม "ชวนเพื่อนเข้ากลุ่ม" เปิดแค่ share sheet ทั่วไป ไม่มีตัวเลือก "ดู follower list แล้วเลือกชวน" เลย) — ข้อมูลที่ต้องใช้ (`FollowRepository.fetchFollowers()`) มีอยู่แล้ว ไม่ต้องเขียน query ใหม่ แต่เป็นงาน UI ใหม่ (ต้องมีหน้าจอ/bottom sheet เลือก follower) — **ไม่เขียนโค้ดทันทีเพราะกติกาถาวรของ Founder เอง** (`.wyn/company/DECISIONS.md`, [2026-09-03] "ขอดูรูปก่อน เขียนโค้ดนะ" — งาน UI ต้องมี mockup ให้อนุมัติก่อนเสมอ) — สร้าง `.wyn/tasks/backlog/WYN-115-invite-followers-to-club.md` ไว้แทน ส่งต่อ AI Design ก่อนเมื่อ Founder พร้อมให้เริ่ม
+
+อ้างอิง: `.wyn/tasks/qa/WYN-114-share-links-no-deep-link.md`, `.wyn/tasks/backlog/WYN-115-invite-followers-to-club.md`, `app/lib/core/navigation/deep_link_service.dart`

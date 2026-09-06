@@ -24,7 +24,7 @@ import '../../../../core/design/wyn_spacing.dart';
 /// situation as Drop's share link (see .wyn/tasks/approved/WYN-005-drop-post-image.md
 /// Risks). Not a reachable URL; revisit once Founder confirms a real
 /// domain before Deploy.
-String popShareLink(String popId) => 'https://wyn.app/pop/$popId';
+String popShareLink(String popId) => 'https://wynos.online/pop/$popId';
 
 /// One full-screen clip: video playback, scrim overlay, and the
 /// Like/Comment/Share/Save/View interaction row. Extracted out of

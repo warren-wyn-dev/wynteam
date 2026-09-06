@@ -44,7 +44,7 @@ import '../../../core/widgets/wyn_heart_icon.dart';
 /// Placeholder share link -- there's no real hosting/domain yet (see
 /// .wyn/tasks/active/WYN-005-drop-post-image.md Risks). Not a reachable
 /// URL; revisit once Founder confirms a real domain before Deploy.
-String dropShareLink(String dropId) => 'https://wyn.app/drop/$dropId';
+String dropShareLink(String dropId) => 'https://wynos.online/drop/$dropId';
 
 /// Screen 3 — Drop Detail (Comments).
 /// See .wyn/docs/design/wyn-005-drop.md

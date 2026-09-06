@@ -29,7 +29,7 @@ import '../../../core/widgets/wyn_heart_icon.dart';
 
 /// Placeholder share link -- same "no real hosting/domain yet" caveat as
 /// dropShareLink/popShareLink (WYN-005/006).
-String clubPostShareLink(String postId) => 'https://wyn.app/club-post/$postId';
+String clubPostShareLink(String postId) => 'https://wynos.online/club-post/$postId';
 
 /// Club post detail + full comment thread. Mirrors DropDetailScreen
 /// (WYN-005) -- Design's Posts tab spec describes the Posts list itself

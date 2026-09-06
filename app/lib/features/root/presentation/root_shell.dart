@@ -23,6 +23,7 @@ import '../../search/presentation/search_screen.dart';
 import '../../push/data/push_token_repository.dart';
 import '../../push/presentation/push_notification_service.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/navigation/deep_link_service.dart';
 
 /// The Bottom Navigation shell -- 5 destinations per the WYNOS V1.0.0
 /// Master Spec (Section 34): Home / Search / Drop ("+", a create action,
@@ -239,6 +240,18 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
     }
 
     _loadUnreadNotificationCount();
+
+    // WYN-114: opens the screen a shared web link (dropShareLink/
+    // popShareLink/clubShareLink/clubPostShareLink/profileShareLink)
+    // pointed at, the first time the app loads on that URL -- before
+    // this, every one of those links opened to Home regardless of what
+    // was shared, since nothing ever read the browser's path at all.
+    // Deferred to the next frame since a route push belongs after this
+    // build completes, not during it; DeepLinkService itself guards
+    // "web only" and "at most once per app load".
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      DeepLinkService.handleInitialLink();
+    });
   }
 
   @override
