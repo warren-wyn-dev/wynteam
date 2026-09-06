@@ -12042,3 +12042,274 @@ as $$
         )
     );
 $$;
+
+-- WYN-115 (Club Poll) -- mirrors drop_polls/drop_poll_votes (WYN-035)
+-- as closely as possible, per this task's own Design doc
+-- (.wyn/docs/design/wyn-115-club-poll.md). One real difference: a Poll
+-- Club Post's visibility is club-membership-gated (piggybacks on
+-- club_posts' own trust model via club_role()) rather than "any
+-- authenticated user" the way drop_polls is, since club_posts
+-- themselves are already members-only-visible.
+create table if not exists public.club_post_polls (
+  id uuid primary key default gen_random_uuid(),
+  club_post_id uuid not null unique references public.club_posts (id) on delete cascade,
+  options text[] not null,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  constraint club_post_polls_options_valid check (public.valid_poll_options(options))
+);
+
+create index if not exists club_post_polls_post_idx on public.club_post_polls (club_post_id);
+
+alter table public.club_post_polls enable row level security;
+
+create policy "Approved club members can view club post polls"
+  on public.club_post_polls
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.club_posts cp
+      where cp.id = club_post_id
+        and public.club_role(cp.club_id, auth.uid()) is not null
+    )
+  );
+
+-- No insert/update/delete policy at all -- the only writer is
+-- create_poll_club_post() below (SECURITY DEFINER, bypasses RLS as its
+-- owning role) and cascade-delete via the club_posts FK. Same "no raw
+-- policy" posture as drop_polls.
+
+-- Individual votes are never readable by anyone but the voter -- same
+-- privacy posture as drop_poll_votes. Aggregate results come from
+-- get_club_poll_results() below (SECURITY DEFINER), never from a
+-- client-side SELECT here.
+create table if not exists public.club_post_poll_votes (
+  id uuid primary key default gen_random_uuid(),
+  poll_id uuid not null references public.club_post_polls (id) on delete cascade,
+  voter_id uuid not null references public.profiles (id) on delete cascade,
+  option_index smallint not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (poll_id, voter_id)
+);
+
+create index if not exists club_post_poll_votes_poll_idx on public.club_post_poll_votes (poll_id);
+
+alter table public.club_post_poll_votes enable row level security;
+
+create policy "Users can view only their own club poll votes"
+  on public.club_post_poll_votes
+  for select
+  to authenticated
+  using (auth.uid() = voter_id);
+
+create policy "Users can vote as themselves on club polls"
+  on public.club_post_poll_votes
+  for insert
+  to authenticated
+  with check (auth.uid() = voter_id);
+
+-- Changing your mind (re-voting) is an UPDATE of the same row, not a
+-- new INSERT -- same shape as drop_poll_votes' identical policy.
+create policy "Users can change their own club poll vote"
+  on public.club_post_poll_votes
+  for update
+  to authenticated
+  using (auth.uid() = voter_id)
+  with check (auth.uid() = voter_id);
+
+-- Same business-rule trigger shape as validate_poll_vote() (WYN-035),
+-- plus one extra check drop_poll_votes never needed: the voter must
+-- currently be an *approved* member of the club that owns this post --
+-- club_posts' own trust model requires it for everything else visible
+-- on a Club post, and a vote is no exception.
+create or replace function public.validate_club_poll_vote()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_options text[];
+  v_expires_at timestamptz;
+  v_author_id uuid;
+  v_club_id uuid;
+begin
+  select cpp.options, cpp.expires_at, cp.author_id, cp.club_id
+    into v_options, v_expires_at, v_author_id, v_club_id
+  from public.club_post_polls cpp
+  join public.club_posts cp on cp.id = cpp.club_post_id
+  where cpp.id = new.poll_id;
+
+  if v_options is null then
+    raise exception 'Poll not found';
+  end if;
+
+  if now() >= v_expires_at then
+    raise exception 'Poll has closed';
+  end if;
+
+  if new.option_index < 0 or new.option_index >= array_length(v_options, 1) then
+    raise exception 'Invalid poll option';
+  end if;
+
+  if new.voter_id = v_author_id then
+    raise exception 'Cannot vote on your own poll';
+  end if;
+
+  if public.club_role(v_club_id, new.voter_id) is null then
+    raise exception 'Must be an approved club member to vote';
+  end if;
+
+  if internal.is_posting_blocked(new.voter_id) then
+    raise exception 'Account is posting-restricted';
+  end if;
+
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+create trigger club_post_poll_votes_validate
+  before insert or update on public.club_post_poll_votes
+  for each row execute function public.validate_club_poll_vote();
+
+-- Atomic "create a Poll Club Post" -- mirrors create_poll_drop()
+-- (WYN-035): inserts club_posts (content = the poll question,
+-- image_urls/link_url left null) + club_post_polls + (optionally)
+-- club_post_mentions in one transaction. A poll question alone already
+-- satisfies club_posts_have_content (content is not null), so this
+-- doesn't need drops' "nullable image_url" workaround -- kept as an
+-- RPC anyway for the same atomicity reason WYN-035 has one: a
+-- club_posts row with a question but no matching club_post_polls row
+-- (if that second insert failed) would read as a broken, option-less
+-- post with no way to recover it client-side.
+create or replace function public.create_poll_club_post(
+  p_club_id uuid,
+  p_content text,
+  p_options text[],
+  p_duration_days int,
+  p_mentioned_user_ids uuid[] default '{}'
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author uuid := auth.uid();
+  v_post_id uuid;
+  v_options text[];
+begin
+  if v_author is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if public.club_role(p_club_id, v_author) is null then
+    raise exception 'Must be an approved club member to post';
+  end if;
+
+  if internal.is_posting_blocked(v_author) then
+    raise exception 'Account is posting-restricted';
+  end if;
+
+  if p_content is null or length(trim(p_content)) = 0 then
+    raise exception 'Poll question is required';
+  end if;
+
+  -- Trimmed server-side (not just validated-as-trimmed) so a direct
+  -- RPC call bypassing the Flutter client's own .trim() can't leave
+  -- stray leading/trailing whitespace sitting in stored option text.
+  select array_agg(trim(o)) into v_options from unnest(p_options) as o;
+
+  if not public.valid_poll_options(v_options) then
+    raise exception 'Poll must have 2-4 non-empty, non-duplicate options (max 80 characters each)';
+  end if;
+
+  if p_duration_days not in (1, 3, 7) then
+    raise exception 'Poll duration must be 1, 3, or 7 days';
+  end if;
+
+  insert into public.club_posts (club_id, author_id, content, image_urls, link_url)
+  values (p_club_id, v_author, trim(p_content), null, null)
+  returning id into v_post_id;
+
+  insert into public.club_post_polls (club_post_id, options, expires_at)
+  values (v_post_id, v_options, now() + make_interval(days => p_duration_days));
+
+  -- This RPC is SECURITY DEFINER and bypasses club_post_mentions' own
+  -- RLS INSERT policy entirely -- mirrored manually here (the raw
+  -- policy only checks "author owns the post", nothing more; club post
+  -- mentions have no mention_allowed()/block-exclusion filtering
+  -- anywhere else in this codebase today -- see this task's Design doc
+  -- for why that's a pre-existing gap left out of this round's scope).
+  insert into public.club_post_mentions (club_post_id, mentioned_user_id)
+  select v_post_id, m
+  from unnest(p_mentioned_user_ids) as m;
+
+  return v_post_id;
+end;
+$$;
+
+-- Aggregate poll results, batched over a page's worth of poll ids at
+-- once (mirroring ClubPostRepository's existing per-page batch fetches
+-- for likes/saves). Mirrors get_poll_results() (WYN-035) with one
+-- extra visibility gate neither drop_polls nor its results function
+-- needed: the caller must currently be an approved member of the club
+-- that owns the post, applied as a WHERE filter (excludes the row
+-- entirely, same defense-in-depth shape get_poll_results() uses for
+-- Drop's own block/audience checks) -- on top of the existing
+-- voted/author/expired check that controls whether percentages show.
+create or replace function public.get_club_poll_results(p_poll_ids uuid[])
+returns table(
+  poll_id uuid,
+  visible boolean,
+  total_votes bigint,
+  option_counts bigint[]
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  if v_me is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  return query
+  select
+    cpp.id as poll_id,
+    v.is_visible,
+    case when v.is_visible
+      then (select count(*) from public.club_post_poll_votes cppv where cppv.poll_id = cpp.id)
+      else null end as total_votes,
+    case when v.is_visible
+      then (
+        select array_agg(cnt order by idx)
+        from (
+          select gs as idx, count(pv.id) as cnt
+          from generate_series(0, array_length(cpp.options, 1) - 1) as gs
+          left join public.club_post_poll_votes pv
+            on pv.poll_id = cpp.id and pv.option_index = gs
+          group by gs
+        ) counted
+      )
+      else null end as option_counts
+  from public.club_post_polls cpp
+  join public.club_posts cp on cp.id = cpp.club_post_id
+  cross join lateral (
+    select
+      cpp.expires_at <= now()
+      or cp.author_id = v_me
+      or exists (
+        select 1 from public.club_post_poll_votes cppv2
+        where cppv2.poll_id = cpp.id and cppv2.voter_id = v_me
+      ) as is_visible
+  ) v
+  where cpp.id = any(p_poll_ids)
+    and public.club_role(cp.club_id, v_me) is not null;
+end;
+$$;

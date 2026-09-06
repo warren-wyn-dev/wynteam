@@ -272,6 +272,22 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
     }
   }
 
+  Future<void> _voteClubPostPoll(String postId, int optionIndex) async {
+    final index = _clubPosts.indexWhere((p) => p.id == postId);
+    if (index == -1) return;
+    final previous = _clubPosts[index];
+    setState(() => _clubPosts[index] = previous.votedPoll(optionIndex));
+    try {
+      await widget.clubPostRepository.votePoll(
+        pollId: previous.pollId!,
+        optionIndex: optionIndex,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _clubPosts[index] = previous);
+    }
+  }
+
   Future<void> _deleteClubPost(String postId) async {
     try {
       await widget.clubPostRepository.deletePost(postId);
@@ -437,6 +453,7 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
             onToggleSave: () => _toggleClubPostSave(post.id),
             onTogglePin: () => _togglePin(post.id),
             onDelete: () => _deleteClubPost(post.id),
+            onVotePoll: (optionIndex) => _voteClubPostPoll(post.id, optionIndex),
           );
         },
       ),
