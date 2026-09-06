@@ -1,7 +1,7 @@
 # Feature Request — WYN-124
 
-Status: active — Product spec เสร็จแล้ว (Founder สั่งให้ทำต่อทันที, 2026-09-06: "124 ต่อเลย"), **Coding ยังห้ามเริ่มจนกว่า WYN-115–118 เสร็จครบ**
-Owner: AI Product Manager
+Status: active — Product spec + Design เสร็จแล้ว (Founder สั่งให้ทำต่อทันที, 2026-09-06: "124 ต่อเลย"), **Coding ยังห้ามเริ่มจนกว่า WYN-115–118 เสร็จครบ**
+Owner: AI Product Manager → AI Design
 
 Feature: Club Group Chat — ห้องแชทกลุ่มเรียลไทม์ 1 ห้องต่อ Club (เฟส 2 ของแผน "Club แบบ Discord", ต่อจาก WYN-123 Channels)
 
@@ -72,6 +72,19 @@ WYN-031 เดิมเก็บ `user_a_last_read_at`/`user_b_last_read_at` เ
 
 ส่งต่อ **AI Design** ออกแบบ UX/UI ของห้องแชทกลุ่มได้ทันที — ใช้ `ConversationScreen`/`ChatInboxScreen` ของ DM เดิม (WYN-031) เป็นฐานอ้างอิงหลัก ต่างที่: header เป็นชื่อ Club + จำนวนสมาชิกแทนชื่อคน 1 คน, ไม่มี state "รออนุมัติ"/Message Request เลย (R2), ทางเข้าห้องแชทควรอยู่ที่ไหนในหน้า Club (เช่น TabBar เดิม 3 tab เพิ่มเป็น 4 หรือปุ่มลอยแยก) เป็นคำถามที่ Design ต้องตัดสินใจเอง — **Coding ยังไม่เริ่มจนกว่า WYN-115–118 จะเสร็จครบ**
 
-## Handoff
+## Handoff (Product → Design)
 
 ส่งต่อ **AI Design** — ออกแบบ UX/UI เต็มรูปแบบของ Club Group Chat ได้ทันที (Coding รอคิวตามที่ระบุไว้ข้างต้น)
+
+---
+
+## AI Design — ผลงาน (2026-09-06)
+
+Design เต็มรูปแบบอยู่ที่ `.wyn/docs/design/wyn-124-club-group-chat.md` (2 Screen: ทางเข้าแชทจากหน้า Club แบบ tab ที่ 4 พร้อม unread badge / ห้องแชทกลุ่มเองที่ต่อยอดจาก `ConversationScreen`+`wyn-031` grouping spec เดิม)
+
+**สรุปสำคัญ**:
+- ทางเข้า: เพิ่ม tab "แชท" **ต่อท้ายลำดับเดิมเท่านั้น** (โพสต์=0/สมาชิก=1/เกี่ยวกับ=2/แชท=3) — ห้ามแทรกก่อน "สมาชิก" เพราะจะทำให้ index ที่ WYN-115's notification เปิดตรงไป tab สมาชิก (index 1) เปิดผิด tab ทันที — จุดนี้เจอจากการอ่านโค้ดจริงของ `club_page.dart`
+- ห้องแชทกลุ่ม reuse `ConversationScreen`/bubble-grouping spec ของ WYN-031 เกือบทั้งหมด เพิ่มแค่ 1 กฎใหม่ (ชื่อผู้ส่งเหนือกลุ่มข้อความขาเข้า เพราะมีผู้ส่งได้หลายคน) และตัด 1 อย่างออก (read-receipt "อ่านแล้ว" — Design ตัดสินใจว่าไม่มี UI นี้ในห้องกลุ่มรอบนี้ เพราะ "อ่านแล้ว" ของคนคนเดียวกับ "อ่านแล้วโดยทุกคน/บางคน" มีความหมายต่างกัน และ Product spec ไม่ได้กำหนดไว้)
+- **ข้อควรระวังที่ Design เจอ ต้องยืนยันกับ Founder ก่อน Coding เริ่มจริง**: (1) WYN-122's chat lockdown (จำกัดแชท 1-ต่อ-1 เหลือ @warren↔@wynos_online ที่ยัง enabled อยู่จริงตอนนี้) ควรกินขอบเขตถึง Group Chat ด้วยหรือไม่ — โครงสร้างเดิมผูกกับคู่ 2 คน ใช้กับห้องกลุ่มไม่ได้ตรงๆ (2) ยังไม่มีกลไก report/moderation ระดับข้อความในห้องแชทกลุ่มเลยในดีไซน์นี้ (ตัด block ออกเพราะไม่เข้ากับบริบทสมาชิก Club เดียวกัน)
+
+**Handoff (Design → Coding)**: **ห้ามเริ่มจนกว่า WYN-115–118 จะเสร็จครบ** — เมื่อถึงคิวจริงต้องถามยืนยัน 2 จุดข้างต้นกับ Founder ก่อนเขียน schema/RLS จริง และห้ามแก้ `chat_repository.dart`/`conversation_screen.dart` เดิมแม้แต่บรรทัดเดียว (ตาราง/หน้าจอใหม่ทั้งชุดแยกขาด ตาม R8)
