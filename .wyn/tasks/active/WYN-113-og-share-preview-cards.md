@@ -69,3 +69,11 @@ Known Issues:
 - Facebook/LINE cache preview การ์ดเดิมไว้หลายวัน — ถ้า Founder เคยแชร์ลิงก์ไปแล้วก่อนหน้านี้ อาจต้องกด "Scrape Again" ใน Facebook Sharing Debugger เพื่อบังคับ refresh (บันทึกไว้ใน Risk ของ Product spec แล้ว)
 
 Handoff: ส่งต่อ **AI QA & Security** — ตรวจ (1) `flutter analyze`/`flutter build web --release` ผ่านจริง (2) วางลิงก์ที่ build ได้ในตัวตรวจสอบ preview จริงอย่างน้อย 1 ตัว (Facebook Sharing Debugger/Twitter Card Validator) เห็นรูป+ข้อความตามที่ตั้งใจ (3) ยืนยันว่าไม่มีบรรทัดโค้ด Dart ใดถูกแตะ — ห้าม deploy ขึ้น production ก่อน QA ผ่านตาม WORKFLOW.md
+
+## Copy — ปิดจบสุดท้าย (2026-09-06)
+
+Founder ลองร่าง copy เองอีกเวอร์ชัน ("แชร์รูป ความทรงจำดีๆ สร้างคลับ-คอมมูนิตี้") ระหว่างทางแล้วดูมอคอัพอีกครั้ง สุดท้าย**ยืนยันกลับมาที่ข้อความที่ implement ไปแล้ว** ("โพสต์รูป แชร์เรื่องราว และตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว") — **ไม่ต้องแก้โค้ดเพิ่ม** เพราะตรงกับที่อยู่ใน `app/web/index.html` อยู่แล้ว 100%
+
+ระหว่างตรวจ mockup รอบนี้ พบบั๊กเล็กในตัว Artifact review เอง (ไม่ใช่ production asset): การ์ดตัวอย่างใช้ font-size หน่วย px ตายตัว พอแสดงบนจอมือถือแคบ ตัวอักษร tagline ล้นกรอบ `.og-image` (aspect-ratio box + overflow:hidden) จนถูกตัด — แก้แล้วด้วย CSS container query units (`cqw`) ให้ขนาดตัวอักษร/โลโก้/เส้นคั่นสเกลตามความกว้างจริงของกล่องเสมอ ไม่กระทบไฟล์ `app/web/og-image.png` ที่ deploy จริงเลย (ไฟล์นั้น render แยกที่ 1200×630 คงที่ตั้งแต่แรกอยู่แล้ว ไม่เคยมีปัญหานี้)
+
+**สถานะสุดท้าย**: WYN-113 ปิด copy/design ครบแล้ว โค้ดพร้อม 100% — รอ AI QA & Security ตรวจตามที่ระบุไว้ใน "AI Coding Output" ด้านบน (`flutter build web` จริง + ทดสอบด้วย Facebook Sharing Debugger)
