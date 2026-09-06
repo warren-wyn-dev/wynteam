@@ -23,6 +23,25 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="WYNOS — mobile social app for Gen Z">
 
+  <!--
+    Open Graph / Twitter Card (WYN-113): shown by Facebook/LINE/Discord/X
+    etc. when someone shares a wynos.online link -- without these tags
+    the link renders with no preview card at all. og-image.png is a
+    static 1200x630 asset (the standard uncropped ratio for these
+    platforms); there is no per-post dynamic OG here, since this is one
+    Flutter Web SPA's single static index.html, not server-rendered per
+    URL. See .wyn/docs/design/wyn-113-og-share-preview-cards.md.
+  -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://wynos.online/">
+  <meta property="og:title" content="WYNOS — สร้างชุมชนของคุณเอง">
+  <meta property="og:description" content="โพสต์รูป แชร์เรื่องราว และตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว">
+  <meta property="og:image" content="https://wynos.online/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="WYNOS — สร้างชุมชนของคุณเอง">
+  <meta name="twitter:description" content="โพสต์รูป แชร์เรื่องราว และตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว">
+  <meta name="twitter:image" content="https://wynos.online/og-image.png">
+
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">

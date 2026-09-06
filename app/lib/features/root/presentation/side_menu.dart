@@ -3,7 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
-import '../../../core/platform/add_to_home_screen_support.dart';
+import '../../../core/pwa/open_in_new_tab.dart';
+import '../../../core/pwa/pwa_install_hint.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
 import '../../club/presentation/create_club_screen.dart';
@@ -152,15 +153,16 @@ class _SideMenuState extends State<SideMenu> {
     );
   }
 
-  // Opens the static "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก" help page in a new tab
-  // -- a permanent fallback for anyone who dismissed the Home feed's
-  // AddToHomeScreenBanner (or never saw it) and wants the guide again.
-  // No push/pop here, unlike every other row: it isn't a Flutter route,
-  // it's a separate static page (see openAddToHomeScreenGuide's own doc
-  // comment), so leaving the drawer open underneath the new tab is the
-  // right behavior, not an oversight.
+  // Opens the static "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก" step-by-step guide page
+  // in a new tab -- a permanent fallback for anyone who dismissed the
+  // Home feed's AddToHomeScreenBanner (or never saw it) and wants the
+  // fuller walkthrough the banner's own inline instructions don't have
+  // room for. No push/pop here, unlike every other row: it isn't a
+  // Flutter route, it's a separate static page (see openInNewTab's own
+  // doc comment), so leaving the drawer open underneath the new tab is
+  // the right behavior, not an oversight.
   void _openAddToHomeScreenGuide() {
-    openAddToHomeScreenGuide();
+    openInNewTab('/add-to-home.html');
   }
 
   // 15-bookmarks.tsx: mirrors ViewProfileScreen._openSaved exactly --
@@ -262,8 +264,8 @@ class _SideMenuState extends State<SideMenu> {
             _MenuRow(icon: Icons.groups_outlined, label: 'Club ของฉัน', onTap: _openMyClubs),
             _MenuRow(icon: Icons.bookmark_border, label: 'บันทึกไว้', onTap: _openSaved),
             // Web-only, and hidden once already installed -- see
-            // shouldOfferAddToHomeScreen's own doc comment.
-            if (shouldOfferAddToHomeScreen())
+            // PwaInstallHint.shouldOfferInstall's own doc comment.
+            if (PwaInstallHint.shouldOfferInstall)
               _MenuRow(
                 icon: Icons.add_to_home_screen,
                 label: 'เพิ่ม WYNOS ไว้ที่หน้าจอหลัก',

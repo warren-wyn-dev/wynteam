@@ -9,6 +9,7 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/widgets/action_sheet_row.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
+import '../../../core/widgets/network_thumbnail.dart';
 import '../../../core/widgets/restriction_banner.dart';
 import '../../block/data/block_relationship.dart';
 import '../../block/data/block_repository.dart';
@@ -25,6 +26,7 @@ import '../../moderation/data/appeal_status.dart';
 import '../../moderation/data/moderation_repository.dart';
 import '../../moderation/presentation/appeal_form_screen.dart';
 import '../../moderation/presentation/evidence_image_viewer.dart';
+import 'widgets/view_once_image_viewer.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../profile/data/profile_repository.dart';
@@ -176,6 +178,35 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   // once resolution is confirmed to have failed (deleted/blocked).
   final Map<String, Object?> _sharedContentCache = {};
 
+  /// Signed URLs for inline chat-photo thumbnails, cached by storage
+  /// path -- new messages are inserted at the *front* of [_messages]
+  /// (index 0, since the list is `reverse: true`), which shifts every
+  /// already-shown message down by one slot on every arrival. Without
+  /// this cache, that shift would make ListView.builder's default
+  /// (unkeyed-across-slots) reuse re-request a signed URL for every
+  /// already-loaded photo each time any new message arrives -- a needless
+  /// network round-trip repeated on every single incoming message, not
+  /// just image ones. Same "cache the resolved value by key" shape as
+  /// [_sharedContentCache] just above.
+  final Map<String, String?> _signedUrlCache = {};
+
+  /// One [GlobalKey] per message ever built by [_buildMessageList]'s
+  /// `itemBuilder`, keyed by message id -- lets [_scrollToMessage] find
+  /// a reply's original message by its actual on-screen position via
+  /// [Scrollable.ensureVisible], instead of the old `index * 72.0`
+  /// guess (bubble height varies hugely: wrapped text, a 160x160 image/
+  /// View-Once thumbnail, a shared-content card, date separators, and
+  /// several different inter-group gap sizes -- a fixed row height was
+  /// only ever right by accident).
+  final Map<String, GlobalKey> _messageRowKeys = {};
+
+  Future<String?> _resolveImageUrl(String path) async {
+    if (_signedUrlCache.containsKey(path)) return _signedUrlCache[path];
+    final url = await widget.chatRepository.imageSignedUrl(path);
+    _signedUrlCache[path] = url;
+    return url;
+  }
+
   String get _myUserId => Supabase.instance.client.auth.currentUser!.id;
 
   bool _isLoadingInitial = true;
@@ -186,6 +217,15 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   ChatMessage? _replyTo;
   Uint8List? _imageBytes;
   String? _imageExtension;
+
+  /// Founder feedback -- the composer's "View Once" toggle, only ever
+  /// meaningful while [_imageBytes] is set (see [_buildImagePreviewBar]
+  /// -- there is nothing to toggle for a text-only send). Reset
+  /// alongside [_imageBytes] everywhere that field already is, so
+  /// removing the attached photo (the X in the preview bar, a
+  /// successful send) always clears this too rather than silently
+  /// carrying over onto the *next* attached photo.
+  bool _isViewOnce = false;
 
   BlockRelationship _blockRelationship = BlockRelationship.none;
   String? _restrictReason;
@@ -259,6 +299,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     _channel = widget.chatRepository.subscribeToConversationMessages(
       widget.conversationId,
       _onRealtimeMessage,
+      onUpdate: _onRealtimeMessageUpdate,
     );
     _metaChannel = widget.chatRepository.subscribeToConversationMeta(
       widget.conversationId,
@@ -299,6 +340,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     _channel = widget.chatRepository.subscribeToConversationMessages(
       widget.conversationId,
       _onRealtimeMessage,
+      onUpdate: _onRealtimeMessageUpdate,
     );
     final oldMetaChannel = _metaChannel;
     if (oldMetaChannel != null) widget.chatRepository.unsubscribe(oldMetaChannel);
@@ -329,6 +371,21 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
           .markConversationRead(widget.conversationId)
           .catchError((_) {});
     }
+  }
+
+  /// Founder feedback -- View Once. The only UPDATE this app makes to
+  /// an existing `messages` row today (`mark_view_once_viewed()`/
+  /// `clear_view_once_message()`) -- this is what flips the *sender's*
+  /// own bubble from "sent, waiting to be opened" to "opened" live, the
+  /// moment the recipient opens (or their countdown expires), without
+  /// this screen needing a reload. A message not currently in
+  /// [_messages] (paged past, or somehow missed the initial load) is
+  /// silently ignored -- nothing on screen needs updating.
+  void _onRealtimeMessageUpdate(ChatMessage message) {
+    if (!mounted) return;
+    final index = _messages.indexWhere((m) => m.id == message.id);
+    if (index == -1) return;
+    setState(() => _messages[index] = message);
   }
 
   /// Pull-to-refresh, and the resume-from-background catch-up above --
@@ -584,6 +641,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     final text = _textController.text;
     final imageBytes = _imageBytes;
     final imageExtension = _imageExtension;
+    final viewOnce = _isViewOnce;
     final replyTo = _replyTo;
     final pendingId = '$_pendingIdPrefix${DateTime.now().microsecondsSinceEpoch}';
     final pending = ChatMessage(
@@ -600,6 +658,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       _messages.insert(0, pending);
       _imageBytes = null;
       _imageExtension = null;
+      _isViewOnce = false;
       _replyTo = null;
     });
     try {
@@ -609,6 +668,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
         imageBytes: imageBytes,
         imageExtension: imageExtension,
         replyToMessageId: replyTo?.id,
+        viewOnce: viewOnce,
       );
       if (!mounted) return;
       setState(() {
@@ -628,6 +688,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
           _textController.text = text;
           _imageBytes = imageBytes;
           _imageExtension = imageExtension;
+          _isViewOnce = viewOnce;
           _replyTo = replyTo;
         }
       });
@@ -643,7 +704,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     final confirmed = await confirmDeletePost(context, itemLabel: 'ข้อความ');
     if (!confirmed || !mounted) return;
     try {
-      await widget.chatRepository.deleteMessage(message.id);
+      await widget.chatRepository.deleteMessage(message);
       if (!mounted) return;
       final index = _messages.indexWhere((m) => m.id == message.id);
       if (index != -1) {
@@ -671,6 +732,101 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => EvidenceImageViewer(signedUrl: url)),
     );
+  }
+
+  /// Founder feedback -- View Once. Only ever reachable from the
+  /// *recipient's* own bubble (see [_MessageBubble.onTapViewOnceImage]'s
+  /// own doc comment) -- calling `mark_view_once_viewed()` here, before
+  /// [ChatRepository.imageSignedUrl] is ever asked for this message's
+  /// path, is what the whole feature actually rests on: nobody, this
+  /// screen included, gets a URL for the photo without that call
+  /// succeeding first.
+  ///
+  /// Skips that call when [ChatMessage.viewedAt] is already set --
+  /// resuming an interrupted earlier view (see
+  /// [_MessageBubble.buildViewOnceThumbnail]'s doc comment) rather than
+  /// opening a fresh one; calling the RPC a second time would just raise
+  /// (its own `viewed_at is null` guard), for no benefit since the row
+  /// is already exactly where this screen wants it.
+  Future<void> _openViewOnceImage(ChatMessage message) async {
+    if (message.viewedAt == null) {
+      try {
+        await widget.chatRepository.markViewOnceViewed(message.id);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('เปิดรูปไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        );
+        return;
+      }
+      if (mounted) {
+        final index = _messages.indexWhere((m) => m.id == message.id);
+        if (index != -1) {
+          setState(() {
+            _messages[index] = ChatMessage(
+              id: message.id,
+              conversationId: message.conversationId,
+              senderId: message.senderId,
+              createdAt: message.createdAt,
+              text: message.text,
+              imageUrl: message.imageUrl,
+              replyToMessageId: message.replyToMessageId,
+              viewOnce: message.viewOnce,
+              viewedAt: DateTime.now(),
+            );
+          });
+        }
+      }
+    }
+
+    final path = message.imageUrl;
+    if (path == null || !mounted) return;
+    final url = await widget.chatRepository.imageSignedUrl(path);
+    if (!mounted || url == null) return;
+    // Awaited: whether the countdown ran out on its own or the viewer
+    // was dismissed early (back button), popping either way means this
+    // one view has been used up -- same "opened is opened, however
+    // briefly" rule Instagram's own View Once follows. Expiring only
+    // ever on a natural countdown finish would leave a photo the
+    // recipient already saw (if only for a second) sitting there
+    // re-viewable, which defeats the entire point of this feature.
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ViewOnceImageViewer(signedUrl: url),
+      ),
+    );
+    if (!mounted) return;
+    await _expireViewOnce(message);
+  }
+
+  /// Best-effort from this screen's own perspective (the repository
+  /// call itself already is one for the storage half -- see
+  /// [ChatRepository.expireViewOnceMessage]'s doc comment): a failure
+  /// here just means this bubble keeps showing "waiting to be opened"
+  /// a little longer than it should, not a user-facing error worth
+  /// surfacing over a photo the recipient already finished viewing.
+  Future<void> _expireViewOnce(ChatMessage message) async {
+    try {
+      await widget.chatRepository.expireViewOnceMessage(message);
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+    final index = _messages.indexWhere((m) => m.id == message.id);
+    if (index == -1) return;
+    setState(() {
+      _messages[index] = ChatMessage(
+        id: message.id,
+        conversationId: message.conversationId,
+        senderId: message.senderId,
+        createdAt: message.createdAt,
+        text: message.text,
+        imageUrl: null,
+        replyToMessageId: message.replyToMessageId,
+        viewOnce: message.viewOnce,
+        viewedAt: message.viewedAt ?? DateTime.now(),
+      );
+    });
   }
 
   /// WYN-033: resolves a shared-content reference through the normal
@@ -740,13 +896,46 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   }
 
   void _scrollToMessage(String messageId) {
-    final index = _messages.indexWhere((m) => m.id == messageId);
-    if (index == -1) return;
-    _scrollController.animateTo(
-      index * 72.0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+    if (_messages.indexWhere((m) => m.id == messageId) == -1) return;
+    _bringMessageIntoBuildRange(messageId, remainingJumps: 40);
+  }
+
+  /// ListView.builder only materializes items near the current
+  /// viewport, so a reply target more than a screen or two away has no
+  /// Element/GlobalKey context to [Scrollable.ensureVisible] to yet --
+  /// no matter how good a single guess at its position is. The old
+  /// `index * 72.0` guess used to be the *final* landing spot outright,
+  /// which is why it was so often visibly wrong: a real bubble ranges
+  /// from a one-line text message to a 160x160 image/View-Once
+  /// thumbnail to a shared-content card, never a uniform height.
+  ///
+  /// This instead jumps one viewport's worth of scroll extent at a time
+  /// -- always a safe, currently-known unit, unlike a per-row height
+  /// guess -- waiting a frame between jumps for ListView to build the
+  /// newly-revealed range, until the target actually has a context to
+  /// ensureVisible() precisely to. [remainingJumps] bounds the retries
+  /// so a message that was never actually loaded into this
+  /// conversation's page (a bug elsewhere, or a stale id) can't spin
+  /// forever.
+  void _bringMessageIntoBuildRange(String messageId, {required int remainingJumps}) {
+    if (!mounted || !_scrollController.hasClients) return;
+    final context = _messageRowKeys[messageId]?.currentContext;
+    if (context != null) {
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+      return;
+    }
+    if (remainingJumps <= 0) return;
+    final position = _scrollController.position;
+    final next = (position.pixels + position.viewportDimension).clamp(0.0, position.maxScrollExtent);
+    if (next == position.pixels) return; // Already at the end -- nothing more to reveal.
+    _scrollController.jumpTo(next);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _bringMessageIntoBuildRange(messageId, remainingJumps: remainingJumps - 1);
+    });
   }
 
   Future<void> _showMessageMenu(ChatMessage message) async {
@@ -1116,6 +1305,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
         final isGroupEnd = _isGroupEnd(index);
         final dateSeparator = _dateSeparatorAbove(index);
         final bubble = _MessageBubble(
+          key: ValueKey(message.id),
           message: message,
           isMine: isMine,
           showAvatar: !isMine && isGroupEnd,
@@ -1131,18 +1321,23 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
               ? null
               : () => _scrollToMessage(message.replyToMessageId!),
           onTapImage: (path) => _openEvidence(path),
+          resolveImageUrl: _resolveImageUrl,
+          onTapViewOnceImage: _openViewOnceImage,
           resolveSharedContent: _resolveSharedContent,
           onTapSharedContent: _openSharedContent,
           deliveryStatus: _deliveryStatusAt(index, lastMineIndex),
         );
         final gap = _gapBelowMessage(index);
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (dateSeparator != null) _DateSeparator(label: dateSeparator),
-            bubble,
-            if (gap > 0) SizedBox(height: gap),
-          ],
+        return KeyedSubtree(
+          key: _messageRowKeys.putIfAbsent(message.id, () => GlobalKey()),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (dateSeparator != null) _DateSeparator(label: dateSeparator),
+              bubble,
+              if (gap > 0) SizedBox(height: gap),
+            ],
+          ),
         );
       },
     );
@@ -1373,11 +1568,32 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
             child: Image.memory(_imageBytes!, width: 48, height: 48, fit: BoxFit.cover),
           ),
           const Spacer(),
+          // Founder feedback -- View Once: a toggle, not a separate send
+          // action, so switching it on/off never touches the attached
+          // photo itself. Filled sapphire when on (same "on" treatment
+          // as every other toggle-shaped control in this app), outline
+          // when off.
+          Semantics(
+            label: _isViewOnce ? 'ปิดโหมดดูครั้งเดียว' : 'ส่งแบบดูครั้งเดียว',
+            button: true,
+            excludeSemantics: true,
+            child: IconButton(
+              key: const Key('view_once_toggle_button'),
+              icon: Icon(
+                _isViewOnce ? Icons.filter_1 : Icons.filter_1_outlined,
+                size: 20,
+                color: _isViewOnce ? WynColors.sapphire : WynColors.graphite,
+              ),
+              tooltip: 'ส่งแบบดูครั้งเดียว',
+              onPressed: () => setState(() => _isViewOnce = !_isViewOnce),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.close, size: 18),
             onPressed: () => setState(() {
               _imageBytes = null;
               _imageExtension = null;
+              _isViewOnce = false;
             }),
           ),
         ],
@@ -1398,6 +1614,7 @@ enum _DeliveryStatus { sending, sent, read }
 
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
+    super.key,
     required this.message,
     required this.isMine,
     required this.showAvatar,
@@ -1411,6 +1628,8 @@ class _MessageBubble extends StatelessWidget {
     required this.onLongPress,
     required this.onTapReplyQuote,
     required this.onTapImage,
+    required this.resolveImageUrl,
+    required this.onTapViewOnceImage,
     required this.resolveSharedContent,
     required this.onTapSharedContent,
     required this.deliveryStatus,
@@ -1441,6 +1660,19 @@ class _MessageBubble extends StatelessWidget {
   final VoidCallback? onLongPress;
   final VoidCallback? onTapReplyQuote;
   final void Function(String path) onTapImage;
+
+  /// Mints a signed URL for an inline thumbnail -- `chat-media` is a
+  /// private bucket, so `message.imageUrl` (a storage path, not a
+  /// fetchable URL) can never be handed to `Image.network` directly.
+  /// See [_ChatImageThumbnail].
+  final Future<String?> Function(String path) resolveImageUrl;
+
+  /// Founder feedback -- View Once. Only ever invoked for the
+  /// *recipient's* own bubble (see [_buildViewOnceThumbnail]) -- the
+  /// sender's copy of a View Once message is never tappable, since
+  /// `mark_view_once_viewed()` itself rejects the sender (see that
+  /// function's doc comment in supabase/schema.sql).
+  final void Function(ChatMessage message) onTapViewOnceImage;
 
   /// WYN-033 -- see `_ConversationScreenState._resolveSharedContent()`/
   /// `_openSharedContent()`.
@@ -1485,6 +1717,54 @@ class _MessageBubble extends StatelessWidget {
     );
   }
 
+  /// Founder feedback -- View Once. 3 states, matching exactly what the
+  /// DB can actually tell us apart (see [ChatMessage.viewOnce]/
+  /// [ChatMessage.viewedAt]'s own doc comments):
+  ///   * [ChatMessage.imageUrl] null -- the content is genuinely gone
+  ///     (the countdown already ran out and cleared it, on whichever
+  ///     side actually opened it). Same placeholder for both sender and
+  ///     recipient -- neither can do anything with this bubble anymore.
+  ///   * Still set, and this is the sender's own bubble -- "sent,
+  ///     waiting to be opened". Never tappable: the sender opening
+  ///     their own View Once photo makes no sense, and the RPC would
+  ///     reject them regardless.
+  ///   * Still set, and this is the recipient's bubble -- "tap to
+  ///     view", tappable regardless of whether [ChatMessage.viewedAt] is
+  ///     already set (that only means an earlier open's countdown never
+  ///     finished, e.g. the app was backgrounded mid-view -- letting
+  ///     them tap again to resume is better than a bubble stuck forever
+  ///     in a half-opened state with no way to ever clear it).
+  Widget _buildViewOnceThumbnail(Color textColor) {
+    final opened = message.imageUrl == null;
+    final label = opened
+        ? 'เปิดดูแล้ว'
+        : (isMine ? 'ส่งแล้ว รอเปิดดู' : 'แตะเพื่อดู');
+    final icon = opened
+        ? Icons.check_circle_outline
+        : (isMine ? Icons.timer_outlined : Icons.remove_red_eye_outlined);
+    final content = Container(
+      width: 160,
+      padding: const EdgeInsets.symmetric(vertical: WynSpacing.space4),
+      decoration: BoxDecoration(
+        color: WynColors.hairline,
+        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: WynColors.graphite),
+          const SizedBox(height: WynSpacing.space1),
+          Text(label, style: _textStyle(fontSize: 12, color: WynColors.graphite)),
+        ],
+      ),
+    );
+    if (opened || isMine) return content;
+    return GestureDetector(
+      onTap: () => onTapViewOnceImage(message),
+      child: content,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bubbleColor = message.isDeleted ? WynColors.hairline : (isMine ? WynColors.sapphire : _kBubbleFill);
@@ -1503,6 +1783,7 @@ class _MessageBubble extends StatelessWidget {
         children: [
           if (message.replyToMessageId != null && !message.isDeleted)
             GestureDetector(
+              key: Key('reply_quote_${message.id}'),
               onTap: onTapReplyQuote,
               child: Container(
                 margin: const EdgeInsets.only(bottom: WynSpacing.space2),
@@ -1532,18 +1813,26 @@ class _MessageBubble extends StatelessWidget {
               style: _textStyle(fontSize: 15, fontStyle: FontStyle.italic, color: textColor),
             )
           else ...[
-            if (message.imageUrl != null)
+            if (message.viewOnce)
+              Padding(
+                padding: const EdgeInsets.only(bottom: WynSpacing.space1),
+                child: _buildViewOnceThumbnail(textColor),
+              )
+            else if (message.imageUrl != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: WynSpacing.space1),
                 child: GestureDetector(
+                  key: Key('chat_image_${message.id}'),
                   onTap: () => onTapImage(message.imageUrl!),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                    child: Container(
+                    child: SizedBox(
                       width: 160,
                       height: 160,
-                      color: WynColors.hairline,
-                      child: const Icon(Icons.image_outlined, color: WynColors.graphite),
+                      child: _ChatImageThumbnail(
+                        path: message.imageUrl!,
+                        resolveImageUrl: resolveImageUrl,
+                      ),
                     ),
                   ),
                 ),
@@ -1611,6 +1900,59 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
+/// Founder feedback: a chat photo bubble was rendering a fixed gray
+/// placeholder icon forever -- the real image was only ever fetched if
+/// the recipient tapped it open in a full-screen viewer. Mints a signed
+/// URL for [path] once (re-fetching only if [path] itself changes,
+/// since `chat-media` is a private bucket and the path alone is never
+/// directly fetchable), then paints the actual photo inline via
+/// [NetworkThumbnail], with loading/broken-image states of its own.
+class _ChatImageThumbnail extends StatefulWidget {
+  const _ChatImageThumbnail({required this.path, required this.resolveImageUrl});
+
+  final String path;
+  final Future<String?> Function(String path) resolveImageUrl;
+
+  @override
+  State<_ChatImageThumbnail> createState() => _ChatImageThumbnailState();
+}
+
+class _ChatImageThumbnailState extends State<_ChatImageThumbnail> {
+  late Future<String?> _signedUrlFuture = widget.resolveImageUrl(widget.path);
+
+  @override
+  void didUpdateWidget(covariant _ChatImageThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The bubble's own State can outlive any single message (see the
+    // `Key('chat_image_...')`'d GestureDetector this is nested under --
+    // still, a stale future here would otherwise show one message's
+    // photo under a different one's bubble if that ever happened).
+    if (oldWidget.path != widget.path) {
+      _signedUrlFuture = widget.resolveImageUrl(widget.path);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String?>(
+      future: _signedUrlFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const ColoredBox(color: WynColors.hairline);
+        }
+        final url = snapshot.data;
+        if (url == null) {
+          return const ColoredBox(
+            color: WynColors.hairline,
+            child: Center(child: Icon(Icons.broken_image_outlined, color: WynColors.graphite)),
+          );
+        }
+        return NetworkThumbnail(imageUrl: url, maxDecodeWidth: 160);
+      },
+    );
+  }
+}
+
 class _DeliveryStatusIcon extends StatelessWidget {
   const _DeliveryStatusIcon({required this.status});
 
@@ -1618,10 +1960,16 @@ class _DeliveryStatusIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A spelled-out label, not an icon -- Founder feedback: even a
+    // single-vs-double checkmark still read as "just a checkmark" at a
+    // glance. "ส่งแล้ว"/"อ่านแล้ว" says the state outright, the same
+    // way LINE (the dominant chat app locally) does, and sidesteps the
+    // design system's own "no emoji standing in for an icon" rule
+    // (Beta4 §6) entirely -- there's no icon slot to misuse.
     return switch (status) {
       _DeliveryStatus.sending => const Icon(Icons.fiber_manual_record, size: 8, color: WynColors.faint),
-      _DeliveryStatus.sent => const Icon(Icons.check, size: 14, color: WynColors.faint),
-      _DeliveryStatus.read => const Icon(Icons.check, size: 14, color: WynColors.sapphire),
+      _DeliveryStatus.sent => Text('ส่งแล้ว', style: _textStyle(fontSize: 11, color: WynColors.faint)),
+      _DeliveryStatus.read => Text('อ่านแล้ว', style: _textStyle(fontSize: 11, color: WynColors.sapphire)),
     };
   }
 }

@@ -30,7 +30,14 @@ String relativeTimeLabel(DateTime dateTime, {required DateTime now}) {
   if (diff.inMinutes < 60) return '${diff.inMinutes} นาทีที่แล้ว';
   if (diff.inHours < 24) return '${diff.inHours} ชั่วโมงที่แล้ว';
   if (diff.inDays < 7) return '${diff.inDays} วันที่แล้ว';
-  return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+  // .toLocal() -- [dateTime] arrives as a parsed UTC timestamp (e.g.
+  // straight from ChatMessage.fromMap/Conversation.fromMap), same as
+  // [dateLabel] below already accounts for. Reading .day/.month/.year
+  // off the raw UTC value showed the wrong calendar date for a user
+  // east of UTC (e.g. Thailand, UTC+7) whenever a message landed in
+  // the first ~7 hours of their local day.
+  final local = dateTime.toLocal();
+  return '${local.day}/${local.month}/${local.year}';
 }
 
 /// Matches a `#hashtag` token -- Unicode letters/marks/digits/underscore

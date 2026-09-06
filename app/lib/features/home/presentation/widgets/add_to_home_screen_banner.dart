@@ -1,23 +1,51 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
-import '../../../../core/platform/add_to_home_screen_support.dart';
+import '../../../../core/pwa/open_in_new_tab.dart';
+import '../../../../core/pwa/pwa_install_hint.dart';
 
-/// A dismissible banner above the Home feed's sticky tabs, offering to
-/// walk a web visitor through adding WYNOS to their home screen (the
-/// "smart app banner" pattern most installable web apps use). Hidden
-/// outright on native iOS/Android builds and once WYNOS is already
-/// running as an installed PWA -- both already *are* an installed app,
-/// so there is nothing to offer. Once dismissed it stays hidden for
-/// good, same shown-until-dismissed shape as [HomeExplainerBanner]
-/// (a per-device UI flag via `shared_preferences`, not something that
-/// needs to sync across devices).
+/// A one-time, dismissible card at the top of Home nudging a *browser*
+/// visitor (this only ever matters for the Flutter Web build) to add
+/// WYNOS to their home screen -- Founder feedback: users didn't know
+/// WYNOS could be installed like a real app icon at all.
+///
+/// Renders nothing on a native build ([kIsWeb] false), nothing once the
+/// visitor already opened the installed copy
+/// ([PwaInstallHint.isRunningAsInstalledApp] -- there is no "add to
+/// home screen" left to ask for), and nothing on a desktop browser or
+/// anything [PwaInstallHint.guidance] can't place on iOS/Android (same
+/// "don't render an ask the visitor can't act on" posture as
+/// [PushPermissionCard]). Otherwise shown once total, persisted via
+/// `shared_preferences` -- same shape as [HomeExplainerBanner]/
+/// [PrivacyNoticeBanner] (a per-device UI flag, not data that needs to
+/// sync across devices).
 class AddToHomeScreenBanner extends StatefulWidget {
-  const AddToHomeScreenBanner({super.key});
+  const AddToHomeScreenBanner({
+    super.key,
+    bool? isWeb,
+    AddToHomeScreenGuidance? guidance,
+    bool? isRunningAsInstalledApp,
+  })  : _isWeb = isWeb,
+        _guidance = guidance,
+        _isRunningAsInstalledApp = isRunningAsInstalledApp;
 
   static const _prefsKey = 'add_to_home_screen_banner_dismissed';
+
+  // All 3 optional/defaulted to the real [kIsWeb]/[PwaInstallHint]
+  // reads below -- same "optional param, real default" convention every
+  // other repository/service param in this app follows (see
+  // .wyn/learning/PATTERNS.md). `flutter test` always runs on the VM
+  // target, where `kIsWeb` is compile-time false and `PwaInstallHint`
+  // therefore always resolves to "hide" -- without these overrides,
+  // every branch of this widget's own logic (which platform's
+  // instructions render, "already installed" hiding it) would be
+  // permanently unreachable from a widget test.
+  final bool? _isWeb;
+  final AddToHomeScreenGuidance? _guidance;
+  final bool? _isRunningAsInstalledApp;
 
   @override
   State<AddToHomeScreenBanner> createState() => _AddToHomeScreenBannerState();
@@ -25,9 +53,14 @@ class AddToHomeScreenBanner extends StatefulWidget {
 
 class _AddToHomeScreenBannerState extends State<AddToHomeScreenBanner> {
   // Null until the pref read resolves -- stays hidden meanwhile rather
-  // than flashing visible-then-hidden for a returning user (mirrors
-  // HomeExplainerBanner's identical _shouldShow shape).
+  // than flashing visible-then-hidden for a returning user.
   bool? _shouldShow;
+
+  bool get _isWeb => widget._isWeb ?? kIsWeb;
+  AddToHomeScreenGuidance get _guidance =>
+      widget._guidance ?? PwaInstallHint.guidance;
+  bool get _isRunningAsInstalledApp =>
+      widget._isRunningAsInstalledApp ?? PwaInstallHint.isRunningAsInstalledApp;
 
   @override
   void initState() {
@@ -36,9 +69,9 @@ class _AddToHomeScreenBannerState extends State<AddToHomeScreenBanner> {
   }
 
   Future<void> _load() async {
-    // shouldOfferAddToHomeScreen() is already false on every non-web
-    // build (see its own doc comment) -- no separate kIsWeb check needed.
-    if (!shouldOfferAddToHomeScreen()) {
+    if (!_isWeb ||
+        _guidance == AddToHomeScreenGuidance.unsupported ||
+        _isRunningAsInstalledApp) {
       setState(() => _shouldShow = false);
       return;
     }
@@ -64,63 +97,117 @@ class _AddToHomeScreenBannerState extends State<AddToHomeScreenBanner> {
     }
   }
 
+  // Opens the fuller step-by-step guide (screenshots of each step, plus
+  // the Android/Chrome case this banner's own text keeps brief) in a new
+  // tab. The side menu carries a second, permanent link to the same
+  // page for anyone who dismissed this banner -- see SideMenu's own
+  // "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก" row.
+  void _openDetailedGuide() => openInNewTab('/add-to-home.html');
+
   @override
   Widget build(BuildContext context) {
     if (_shouldShow != true) return const SizedBox.shrink();
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        WynSpacing.space4, WynSpacing.space1, WynSpacing.space4, WynSpacing.space1,
+    final (icon, body) = switch (_guidance) {
+      AddToHomeScreenGuidance.ios => (
+          Icons.ios_share,
+          'แตะปุ่มแชร์ (ไอคอนสี่เหลี่ยมมีลูกศรชี้ขึ้น) ที่แถบด้านล่างของ Safari '
+              'แล้วเลือก "เพิ่มไปยังหน้าจอโฮม"',
+        ),
+      AddToHomeScreenGuidance.android => (
+          Icons.install_mobile,
+          'แตะเมนู ⋮ มุมขวาบนของเบราว์เซอร์ แล้วเลือก "เพิ่มไปยังหน้าจอโฮม" '
+              'หรือ "ติดตั้งแอป"',
+        ),
+      // _load() never leaves _shouldShow true for `unsupported` --
+      // exhaustive switch still needs a case, never actually built.
+      AddToHomeScreenGuidance.unsupported => (Icons.install_mobile, ''),
+    };
+
+    return Container(
+      key: const Key('add_to_home_screen_banner'),
+      margin: const EdgeInsets.fromLTRB(WynSpacing.space4, WynSpacing.space3,
+          WynSpacing.space4, WynSpacing.space1),
+      padding: const EdgeInsets.all(WynSpacing.space4),
+      decoration: BoxDecoration(
+        border: Border.all(color: WynColors.hairline),
+        borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
       ),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: WynSpacing.space4, vertical: WynSpacing.space3,
-        ),
-        decoration: BoxDecoration(
-          color: WynColors.surfaceTint,
-          border: Border.all(color: WynColors.hairline),
-          borderRadius: BorderRadius.circular(WynSpacing.radiusLg),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Icon(Icons.add_to_home_screen, size: 22, color: WynColors.sapphire),
-            const SizedBox(width: WynSpacing.space3),
-            const Expanded(
-              child: Text(
-                'เพิ่ม WYNOS ไว้ที่หน้าจอหลัก เปิดแอปได้ไวขึ้น',
-                style: TextStyle(fontSize: 13, color: WynColors.ink, height: 1.3),
-              ),
-            ),
-            const SizedBox(width: WynSpacing.space2),
-            const TextButton(
-              onPressed: openAddToHomeScreenGuide,
-              child: Text('ดูวิธี'),
-            ),
-            Semantics(
-              label: 'ปิดข้อความแนะนำ',
-              button: true,
-              excludeSemantics: true,
-              // Same DS-008-style 44x44 tap-target fix as
-              // HomeExplainerBanner's identical close button.
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  minWidth: WynSpacing.touchTargetMin,
-                  minHeight: WynSpacing.touchTargetMin,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: WynColors.sapphire),
+          const SizedBox(width: WynSpacing.space3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('เพิ่ม WYNOS ไปหน้าจอโฮม', style: _titleStyle),
+                const SizedBox(height: WynSpacing.space1),
+                Text(body, style: _bodyStyle),
+                // Same brief per-platform text as before this addition --
+                // this just points anyone who wants screenshots/a fuller
+                // walkthrough (or hits the Android "ติดตั้งแอป" case,
+                // which some Chrome builds place one tap deeper than "⋮")
+                // at the dedicated static guide, without lengthening the
+                // banner's own copy.
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: TextButton(
+                      key: const Key('add_to_home_screen_detailed_guide_link'),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(0, WynSpacing.touchTargetMin),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: _openDetailedGuide,
+                      child: const Text('ดูวิธีแบบละเอียด'),
+                    ),
+                  ),
                 ),
-                child: InkWell(
-                  onTap: _dismiss,
-                  borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                  child: const Align(
-                    alignment: Alignment.center,
-                    child: Icon(Icons.close, size: 17, color: WynColors.graphite),
+              ],
+            ),
+          ),
+          const SizedBox(width: WynSpacing.space2),
+          Semantics(
+            label: 'ปิดคำแนะนำเพิ่มไปหน้าจอโฮม',
+            button: true,
+            excludeSemantics: true,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minWidth: WynSpacing.touchTargetMin,
+                minHeight: WynSpacing.touchTargetMin,
+              ),
+              child: InkWell(
+                key: const Key('add_to_home_screen_dismiss_button'),
+                onTap: _dismiss,
+                borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+                child: const Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: EdgeInsets.all(2),
+                    child: Icon(Icons.close, size: 18, color: WynColors.graphite),
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
+
+const _titleStyle = TextStyle(
+  fontSize: 15,
+  fontWeight: FontWeight.w600,
+  color: WynColors.ink,
+);
+
+const _bodyStyle = TextStyle(
+  fontSize: 13,
+  color: WynColors.graphite,
+  height: 1.45,
+);

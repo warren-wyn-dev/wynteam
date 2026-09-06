@@ -67,6 +67,7 @@ class RecordingChatRepository extends ChatRepository {
   String? lastSendMessageReplyToId;
   SharedContentType? lastSendMessageSharedContentType;
   String? lastSendMessageSharedContentId;
+  bool? lastSendMessageViewOnce;
 
   /// Set by a test to hold [sendMessage] open until it completes the
   /// gate -- lets a test observe ConversationScreen's optimistic
@@ -78,6 +79,13 @@ class RecordingChatRepository extends ChatRepository {
   Object? deleteMessageError;
   int deleteMessageCalls = 0;
   String? lastDeleteMessageId;
+
+  /// The full message [deleteMessage] was last called with -- lets a
+  /// test confirm the caller (ConversationScreen) still threads the
+  /// whole [ChatMessage] through (specifically its `imageUrl`), not just
+  /// the id, now that the real ChatRepository needs it to also clean up
+  /// the message's storage object.
+  ChatMessage? lastDeletedMessage;
 
   Map<String, bool> mutedConversations = const {};
   int muteCalls = 0;
@@ -98,6 +106,7 @@ class RecordingChatRepository extends ChatRepository {
   String? lastDeleteMessageRequestId;
 
   void Function(ChatMessage message)? _conversationCallback;
+  void Function(ChatMessage message)? _conversationUpdateCallback;
   void Function(ChatMessage message)? _inboxCallback;
   void Function(ConversationMeta meta)? _conversationMetaCallback;
 
@@ -157,6 +166,7 @@ class RecordingChatRepository extends ChatRepository {
     String? replyToMessageId,
     SharedContentType? sharedContentType,
     String? sharedContentId,
+    bool viewOnce = false,
   }) async {
     sendMessageCalls++;
     lastSendMessageText = text;
@@ -164,6 +174,7 @@ class RecordingChatRepository extends ChatRepository {
     lastSendMessageReplyToId = replyToMessageId;
     lastSendMessageSharedContentType = sharedContentType;
     lastSendMessageSharedContentId = sharedContentId;
+    lastSendMessageViewOnce = viewOnce;
     final gate = sendMessageGate;
     if (gate != null) await gate.future;
     final error = sendMessageError;
@@ -178,19 +189,50 @@ class RecordingChatRepository extends ChatRepository {
           replyToMessageId: replyToMessageId,
           sharedContentType: sharedContentType,
           sharedContentId: sharedContentId,
+          viewOnce: viewOnce,
         );
   }
 
+  Object? markViewOnceViewedError;
+  int markViewOnceViewedCalls = 0;
+  String? lastMarkViewOnceViewedId;
+
   @override
-  Future<void> deleteMessage(String messageId) async {
-    deleteMessageCalls++;
-    lastDeleteMessageId = messageId;
-    final error = deleteMessageError;
+  Future<void> markViewOnceViewed(String messageId) async {
+    markViewOnceViewedCalls++;
+    lastMarkViewOnceViewedId = messageId;
+    final error = markViewOnceViewedError;
+    if (error != null) throw error;
+  }
+
+  Object? expireViewOnceMessageError;
+  int expireViewOnceMessageCalls = 0;
+  ChatMessage? lastExpiredViewOnceMessage;
+
+  @override
+  Future<void> expireViewOnceMessage(ChatMessage message) async {
+    expireViewOnceMessageCalls++;
+    lastExpiredViewOnceMessage = message;
+    final error = expireViewOnceMessageError;
     if (error != null) throw error;
   }
 
   @override
-  Future<String?> imageSignedUrl(String path) async => signedUrlResult;
+  Future<void> deleteMessage(ChatMessage message) async {
+    deleteMessageCalls++;
+    lastDeleteMessageId = message.id;
+    lastDeletedMessage = message;
+    final error = deleteMessageError;
+    if (error != null) throw error;
+  }
+
+  int imageSignedUrlCalls = 0;
+
+  @override
+  Future<String?> imageSignedUrl(String path) async {
+    imageSignedUrlCalls++;
+    return signedUrlResult;
+  }
 
   @override
   Future<bool> isConversationMuted(String conversationId) async =>
@@ -243,9 +285,11 @@ class RecordingChatRepository extends ChatRepository {
   @override
   RealtimeChannel subscribeToConversationMessages(
     String conversationId,
-    void Function(ChatMessage message) onInsert,
-  ) {
+    void Function(ChatMessage message) onInsert, {
+    void Function(ChatMessage message)? onUpdate,
+  }) {
     _conversationCallback = onInsert;
+    _conversationUpdateCallback = onUpdate;
     return _fakeChannelClient.channel('test-conversation-$conversationId');
   }
 
@@ -273,6 +317,13 @@ class RecordingChatRepository extends ChatRepository {
   /// Test helper: simulates a new message arriving over
   /// [subscribeToConversationMessages]'s channel.
   void emitConversationMessage(ChatMessage message) => _conversationCallback?.call(message);
+
+  /// Test helper: simulates a `messages` row UPDATE arriving over
+  /// [subscribeToConversationMessages]'s `onUpdate` channel -- the real
+  /// realtime path a View Once message's `viewed_at`/`image_url`
+  /// change reaches the *sender's* own screen through.
+  void emitConversationMessageUpdate(ChatMessage message) =>
+      _conversationUpdateCallback?.call(message);
 
   /// Test helper: simulates a new message arriving over
   /// [subscribeToMyMessages]'s channel.

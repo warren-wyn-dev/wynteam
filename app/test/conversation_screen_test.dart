@@ -33,8 +33,11 @@ void main() {
     String id = 'm1',
     String senderId = 'other',
     String? text = 'สวัสดี',
+    String? imageUrl,
     String? replyToMessageId,
     DateTime? deletedAt,
+    bool viewOnce = false,
+    DateTime? viewedAt,
   }) =>
       ChatMessage(
         id: id,
@@ -42,8 +45,11 @@ void main() {
         senderId: senderId,
         createdAt: DateTime.now().subtract(const Duration(minutes: 1)),
         text: text,
+        imageUrl: imageUrl,
         replyToMessageId: replyToMessageId,
         deletedAt: deletedAt,
+        viewOnce: viewOnce,
+        viewedAt: viewedAt,
       );
 
   Widget buildScreen() => MaterialApp(
@@ -149,6 +155,45 @@ void main() {
     expect(find.text('ตอบกลับ'), findsNothing);
   });
 
+  // Founder feedback: tapping a reply quote used to scroll to
+  // `index * 72.0` -- a fixed-height guess that drifts off target the
+  // moment the bubbles in between aren't a plain one-line text message.
+  // Every filler here is a 160x160 image bubble specifically so the old
+  // guess (sized for ordinary text rows) undershoots by a wide, obvious
+  // margin rather than coincidentally landing close by luck.
+  testWidgets(
+      'tapping a reply quote scrolls to the actual original message, not '
+      'a fixed-height guess', (tester) async {
+    final fillers = List.generate(
+      25,
+      (i) => message(id: 'filler-${i + 1}', text: null, imageUrl: 'c1/filler-${i + 1}.jpg'),
+    );
+    chatRepo.signedUrlResult = 'https://example.supabase.co/signed/filler.jpg';
+    chatRepo.messagesByConversation = {
+      'c1': [
+        message(id: 'reply', text: 'ตอบกลับ', replyToMessageId: 'target'),
+        ...fillers,
+        message(id: 'target', text: 'ข้อความต้นฉบับที่อยู่ไกลมาก'),
+      ],
+    };
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+    // The filler messages' fake signed image URLs 404 in a test --
+    // harmless NetworkImageLoadException noise, same convention as
+    // bookmarks_screen_test.dart's own takeException() calls.
+    tester.takeException();
+
+    // Far enough away that it isn't built at all yet -- proves this
+    // actually scrolled there, not that it was already on screen.
+    expect(find.text('ข้อความต้นฉบับที่อยู่ไกลมาก'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('reply_quote_reply')));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.text('ข้อความต้นฉบับที่อยู่ไกลมาก'), findsOneWidget);
+  });
+
   testWidgets('deleting my own message calls deleteMessage and shows the deleted placeholder',
       (tester) async {
     chatRepo.messagesByConversation = {
@@ -168,6 +213,297 @@ void main() {
     expect(chatRepo.deleteMessageCalls, 1);
     expect(chatRepo.lastDeleteMessageId, 'm1');
     expect(find.text('ข้อความนี้ถูกลบ'), findsOneWidget);
+  });
+
+  // Regression: ChatRepository.deleteMessage now needs the message's
+  // imageUrl (not just its id) to also clean up the underlying
+  // chat-media storage object -- delete_message() itself only ever
+  // nulled the DB reference, leaving the file orphaned forever. This
+  // proves ConversationScreen still passes the *whole* message through
+  // after that signature change, not just `message.id`.
+  testWidgets(
+      'deleting my own image message passes the full message (with its '
+      'imageUrl) to deleteMessage', (tester) async {
+    chatRepo.messagesByConversation = {
+      'c1': [
+        message(
+          id: 'm1',
+          senderId: 'me',
+          text: null,
+          imageUrl: 'c1/me-123.jpg',
+        ),
+      ],
+    };
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.byKey(const Key('chat_image_m1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ลบ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ลบ').last);
+    await tester.pumpAndSettle();
+
+    expect(chatRepo.deleteMessageCalls, 1);
+    expect(chatRepo.lastDeletedMessage?.id, 'm1');
+    expect(chatRepo.lastDeletedMessage?.imageUrl, 'c1/me-123.jpg');
+  });
+
+  // Founder feedback: an ordinary (not View Once) chat photo used to
+  // render a fixed gray placeholder icon forever -- the real image was
+  // only ever fetched once the recipient tapped it open full-screen.
+  group('Chat photo thumbnails (Founder feedback)', () {
+    testWidgets('renders the actual photo inline, not a placeholder icon',
+        (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [message(id: 'm1', text: null, imageUrl: 'c1/other-1.jpg')],
+      };
+      chatRepo.signedUrlResult = 'https://example.supabase.co/signed/other-1.jpg';
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+      // The signed URL 404s in a test -- harmless NetworkImageLoadException
+      // noise, same convention as bookmarks_screen_test.dart's own
+      // takeException() calls (the errorBuilder inside NetworkThumbnail
+      // keeps this from affecting layout).
+      tester.takeException();
+
+      expect(find.byKey(const Key('chat_image_m1')), findsOneWidget);
+      expect(find.byType(Image), findsOneWidget);
+      final image = tester.widget<Image>(find.byType(Image));
+      // NetworkThumbnail decodes at a bounded size via `cacheWidth`,
+      // which wraps the underlying NetworkImage in a ResizeImage.
+      final resized = image.image as ResizeImage;
+      expect((resized.imageProvider as NetworkImage).url, chatRepo.signedUrlResult);
+    });
+
+    testWidgets(
+        'a photo whose signed URL fails to mint (e.g. the object was '
+        'already deleted) shows a broken-image icon, not a silent hole',
+        (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [message(id: 'm1', text: null, imageUrl: 'c1/gone.jpg')],
+      };
+      chatRepo.signedUrlResult = null;
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
+      expect(find.byType(Image), findsNothing);
+    });
+
+    testWidgets(
+        'a new incoming message does not re-fetch the signed URL for an '
+        'already-rendered photo further down the list', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [message(id: 'm1', text: null, imageUrl: 'c1/other-1.jpg')],
+      };
+      chatRepo.signedUrlResult = 'https://example.supabase.co/signed/other-1.jpg';
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(chatRepo.imageSignedUrlCalls, 1);
+
+      // New messages are inserted at the front (see ConversationScreen's
+      // own reverse:true list) -- this shifts m1's bubble down a slot.
+      // Without ConversationScreen's own signed-URL cache, that shift
+      // alone (not just a second image message) would trigger a second
+      // fetch for the exact same path.
+      chatRepo.emitConversationMessage(
+        message(id: 'm2', senderId: 'other', text: 'ข้อความใหม่'),
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(chatRepo.imageSignedUrlCalls, 1);
+    });
+  });
+
+  // Founder feedback -- View Once chat photos.
+  group('View Once (Founder feedback)', () {
+    testWidgets(
+        'the recipient sees a tappable "แตะเพื่อดู" placeholder for an '
+        'unopened photo, and the sender never does', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [
+          message(
+            id: 'm1',
+            senderId: 'other',
+            text: null,
+            imageUrl: 'c1/other-1.jpg',
+            viewOnce: true,
+          ),
+        ],
+      };
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('แตะเพื่อดู'), findsOneWidget);
+      expect(find.text('ส่งแล้ว รอเปิดดู'), findsNothing);
+    });
+
+    testWidgets(
+        'the sender sees a non-tappable "ส่งแล้ว รอเปิดดู" placeholder for '
+        'their own unopened photo', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [
+          message(
+            id: 'm1',
+            senderId: 'me',
+            text: null,
+            imageUrl: 'c1/me-1.jpg',
+            viewOnce: true,
+          ),
+        ],
+      };
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('ส่งแล้ว รอเปิดดู'), findsOneWidget);
+      expect(find.text('แตะเพื่อดู'), findsNothing);
+    });
+
+    testWidgets('an opened photo (imageUrl already cleared) shows "เปิดดูแล้ว" '
+        'for both sender and recipient, never tappable', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [
+          message(
+            id: 'm1',
+            senderId: 'other',
+            text: null,
+            imageUrl: null,
+            viewOnce: true,
+            viewedAt: DateTime.now(),
+          ),
+        ],
+      };
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('เปิดดูแล้ว'), findsOneWidget);
+      expect(find.text('แตะเพื่อดู'), findsNothing);
+    });
+
+    testWidgets(
+        'the recipient tapping the placeholder marks it viewed, opens the '
+        'signed image, and expires it once the viewer closes', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [
+          message(
+            id: 'm1',
+            senderId: 'other',
+            text: null,
+            imageUrl: 'c1/other-1.jpg',
+            viewOnce: true,
+          ),
+        ],
+      };
+      chatRepo.signedUrlResult = 'https://example.supabase.co/signed/other-1.jpg';
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('แตะเพื่อดู'));
+      // Not pumpAndSettle() -- ViewOnceImageViewer's own countdown Timer
+      // keeps scheduling frames for its full duration (8s default), so
+      // pumpAndSettle would sit here until it auto-pops on its own
+      // (that path is covered in isolation by
+      // view_once_image_viewer_test.dart). A couple of bounded pumps,
+      // well short of the first 1s tick, is enough to let the
+      // markViewOnceViewed -> imageSignedUrl -> Navigator.push chain
+      // (no real delay in any of those, just ordinary async gaps) run
+      // and the push transition settle.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(chatRepo.markViewOnceViewedCalls, 1);
+      expect(chatRepo.lastMarkViewOnceViewedId, 'm1');
+      // The viewer is open -- popped directly here (the close button) to
+      // prove *this* screen expires the message on close, same as a
+      // natural timeout would.
+      expect(find.byKey(const Key('view_once_close_button')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('view_once_close_button')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(chatRepo.expireViewOnceMessageCalls, 1);
+      expect(chatRepo.lastExpiredViewOnceMessage?.id, 'm1');
+      // Back on the conversation screen, the bubble already reflects
+      // "opened" -- this screen updates its local state right after
+      // expireViewOnceMessage succeeds, not only once a realtime echo
+      // (if any) arrives.
+      expect(find.text('เปิดดูแล้ว'), findsOneWidget);
+    });
+
+    testWidgets(
+        'reopening a message whose earlier view never finished (viewedAt '
+        'already set, imageUrl still present) does not call '
+        'markViewOnceViewed again', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [
+          message(
+            id: 'm1',
+            senderId: 'other',
+            text: null,
+            imageUrl: 'c1/other-1.jpg',
+            viewOnce: true,
+            viewedAt: DateTime.now().subtract(const Duration(minutes: 1)),
+          ),
+        ],
+      };
+      chatRepo.signedUrlResult = 'https://example.supabase.co/signed/other-1.jpg';
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      // Still tappable/resumable -- see _buildViewOnceThumbnail's own
+      // doc comment on why an interrupted-countdown message must not be
+      // stuck forever. Bounded pumps, not pumpAndSettle() -- see the
+      // identical comment on the test above.
+      await tester.tap(find.text('แตะเพื่อดู'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(chatRepo.markViewOnceViewedCalls, 0);
+      expect(find.byKey(const Key('view_once_close_button')), findsOneWidget);
+
+      // Close it -- leaving ViewOnceImageViewer's own countdown Timer
+      // pending past the end of this test would trip flutter_test's
+      // "!timersPending" invariant, same class of issue this project's
+      // own Recording* repositories are already careful to avoid.
+      await tester.tap(find.byKey(const Key('view_once_close_button')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+    });
+
+    testWidgets(
+        'a realtime UPDATE flips the sender\'s own bubble from "waiting" to '
+        '"opened" live', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [
+          message(
+            id: 'm1',
+            senderId: 'me',
+            text: null,
+            imageUrl: 'c1/me-1.jpg',
+            viewOnce: true,
+          ),
+        ],
+      };
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+      expect(find.text('ส่งแล้ว รอเปิดดู'), findsOneWidget);
+
+      chatRepo.emitConversationMessageUpdate(message(
+        id: 'm1',
+        senderId: 'me',
+        text: null,
+        imageUrl: null,
+        viewOnce: true,
+        viewedAt: DateTime.now(),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('เปิดดูแล้ว'), findsOneWidget);
+      expect(find.text('ส่งแล้ว รอเปิดดู'), findsNothing);
+    });
   });
 
   testWidgets(
@@ -548,14 +884,15 @@ void main() {
       // shows this text now, not also the (already-emptied) TextField.
       expect(find.text('กำลังส่ง'), findsOneWidget);
       expect(find.byIcon(Icons.fiber_manual_record), findsOneWidget);
-      expect(find.byIcon(Icons.check), findsNothing);
+      expect(find.text('ส่งแล้ว'), findsNothing);
 
       chatRepo.sendMessageGate!.complete();
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.fiber_manual_record), findsNothing);
-      final checkIcon = tester.widget<Icon>(find.byIcon(Icons.check));
-      expect(checkIcon.color, WynColors.faint);
+      // A spelled-out label, not an icon -- see "อ่านแล้ว" below.
+      final sentLabel = tester.widget<Text>(find.text('ส่งแล้ว'));
+      expect(sentLabel.style?.color, WynColors.faint);
     });
 
     testWidgets(
@@ -576,8 +913,11 @@ void main() {
       await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
 
-      var checkIcon = tester.widget<Icon>(find.byIcon(Icons.check));
-      expect(checkIcon.color, WynColors.faint);
+      // Sent (not yet read).
+      expect(find.text('ส่งแล้ว'), findsOneWidget);
+      expect(find.text('อ่านแล้ว'), findsNothing);
+      final sentLabel = tester.widget<Text>(find.text('ส่งแล้ว'));
+      expect(sentLabel.style?.color, WynColors.faint);
 
       chatRepo.emitConversationMetaUpdate((
         status: 'active',
@@ -586,8 +926,10 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      checkIcon = tester.widget<Icon>(find.byIcon(Icons.check));
-      expect(checkIcon.color, WynColors.sapphire);
+      // Read.
+      expect(find.text('ส่งแล้ว'), findsNothing);
+      final readLabel = tester.widget<Text>(find.text('อ่านแล้ว'));
+      expect(readLabel.style?.color, WynColors.sapphire);
     });
   });
 

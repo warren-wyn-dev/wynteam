@@ -48,6 +48,11 @@ migrate_working_dir/
 # be delivered. This was caught before the first Beta4 deploy, not
 # after: `git ls-files app/web/` did not list it.
 #
+# og-image.png (WYN-113) is committed for the same reason again: the
+# Open Graph/Twitter Card share-preview image referenced from
+# index.html's <head>, hand-authored (not part of any Flutter template),
+# so it must survive regeneration the same way index.html itself does.
+#
 # add-to-home.html is committed for the identical reason: a static help
 # page (linked from the Home banner/side menu, not a Flutter route) that
 # `flutter create` has no template for at all, so without this line it
@@ -65,6 +70,7 @@ migrate_working_dir/
 !/web/icons/Icon-512.png
 !/web/icons/Icon-maskable-192.png
 !/web/icons/Icon-maskable-512.png
+!/web/og-image.png
 /linux/
 /macos/
 /windows/
