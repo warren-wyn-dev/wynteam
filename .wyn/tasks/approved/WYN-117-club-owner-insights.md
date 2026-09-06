@@ -1,6 +1,6 @@
 # Product Task — WYN-117
 
-Status: active
+Status: approved
 Owner: AI Product Manager
 
 Feature: Club Owner Insights — หน้าสรุปสถิติการเติบโต/engagement สำหรับ Owner/Admin ของ Club
@@ -51,3 +51,31 @@ Handoff: AI Design (โครง insights, เลือกช่วงเวล�
 **Tests**: `flutter analyze` clean, `flutter test` เต็มชุด 1281/1281 PASS, `wyn_117_club_owner_insights_test.sh` 15/15 PASS, `wyn_116`/`wyn_115`/`wyn_021` re-run ยืนยันไม่มี regression, `check_schema_ordering.py` OK
 
 **Handoff**: ส่งต่อ AI QA & Security
+
+## AI QA & Security Output
+
+**Feature**: WYN-117 (Club Owner Insights) — commit `d7e07a7`
+
+**Environment**: Local PostgreSQL 16 จริง (RLS ผ่าน `authenticated` role) + Flutter SDK เต็มชุด — งานนี้แบ่งเป็น 2 ช่วง: agent ตัวแรกตรวจฝั่ง SQL/security เสร็จก่อนโดนตัดเพราะ session rate limit (ผลที่ได้ก่อนโดนตัด: ตรวจ boundary/cross-club leakage อิสระแล้ว ผ่านหมด) จากนั้นตรวจต่อฝั่ง Flutter (TabController refactor) เองในเซสชันหลัก
+
+**Test Cases**:
+1. `wyn_117_club_owner_insights_test.sh` — 15 checks รันซ้ำอิสระ
+2. `wyn_116`/`wyn_115`/`wyn_021` — regression ครบ, `check_schema_ordering.py` OK
+3. ตรวจ SQL ตรงๆ ว่าใช้ 2-tier gate (`owner`,`admin`) จริง ไม่ใช่ 3-tier ที่ใช้กับ moderation, ตรวจ `coalesce(...)` กัน null-role-bypass
+4. ตรวจ cross-club leakage อิสระ — ไม่พบการรั่วข้าม Club, boundary ใช้ `>=` (inclusive) ถูกต้อง — โพสต์ที่ขอบเขตพอดี (เช่น เร็วกว่า cutoff 1 วินาที) นับถูกต้อง ช้ากว่า 1 วินาทีไม่นับ ถูกต้องตามที่ควรเป็น
+5. อ่านโค้ด `_tabControllerFor()`/`club_page.dart` ตรงๆ อย่างละเอียด (จุดเสี่ยงสุดของงานนี้): ตรวจว่า controller ไม่ถูกสร้างใหม่ทุก build (guard `existing.length == length` ทำงานถูกต้อง), index เดิมไม่หายตอน `_reload()`, `TabBar.tabs`/`TabBarView.children` length ตรงกันเสมอเพราะใช้ `showInsights` ตัวแปรเดียวกันทั้งคู่ในทุก builder call, `_tabController!.animateTo(1)` ปลอดภัยเพราะเรียกได้เฉพาะหลัง `_tabControllerFor` รันแล้วเท่านั้น
+6. `flutter analyze` + `flutter test` เต็มชุด (รันซ้ำเองอิสระหลังตรวจโค้ด ไม่ใช่แค่เชื่อผลของ Coding)
+
+**Passed**: ครบทุกจุด — 15/15 + regression เดิมครบ, `flutter analyze` clean, `flutter test` 1281/1281 PASS, ไม่พบ cross-club leakage, TabController refactor ตรวจแล้วไม่มีบั๊ก (ไม่ crash, ไม่รีเซ็ต tab, length ตรงกันเสมอ)
+
+**Failed**: ไม่มี
+
+**Severity**: N/A
+
+**Security Findings**: ไม่พบช่องโหว่ — gate เป็น 2-tier owner/admin จริงตามที่ Design กำหนด (moderator ถูกปฏิเสธแม้จะมีสิทธิ์ moderate post ในที่อื่น), `coalesce(...)` มีจริงและจำเป็นจริง (non-member/pending ถูกปฏิเสธ), query ทุกตัว scope ด้วย `p_club_id` ไม่มีทางรั่วข้าม Club
+
+**Recommendation**: อนุมัติ deploy ได้
+
+**Final Status: PASS**
+
+**Handoff**: ส่งต่อ AI Deploy & DevOps
