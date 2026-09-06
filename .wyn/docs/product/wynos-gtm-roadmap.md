@@ -71,17 +71,17 @@ Goal: ทดสอบว่าแอปรับคนที่ "ไม่รู
 Target User: ชุมชน Gen Z ไทย 1 กลุ่มที่ตรง niche ที่สุด (เลือกจาก Phase 1 feedback ว่ากลุ่มไหน engage ดีที่สุด) เช่น Facebook Group/Discord/LINE OpenChat/X (Twitter) fandom เฉพาะทาง — **เลือกทีละกลุ่ม อย่าเปิดหลายกลุ่มพร้อมกัน** เพื่อแยกผลแต่ละช่องทางออกจากกันได้
 Problem: Phase 1 กลุ่มเล็กเกินไปจะไม่เห็น pattern การ churn/retention จริงของคนแปลกหน้า
 Requirements:
-- WYN-078 (Invite/Referral system) ควรเสร็จก่อน Phase นี้ เพื่อควบคุมอัตราคนเข้าใหม่และวัด viral coefficient ได้
+- WYN-113 (Invite/Referral system) ควรเสร็จก่อน Phase นี้ เพื่อควบคุมอัตราคนเข้าใหม่และวัด viral coefficient ได้
 - WYN-077 (Analytics baseline) ต้องเสร็จแล้วเพื่อวัดผลจริง
 - ยังคง invite-gated ไว้ (จำกัดจำนวน ไม่เปิด signup อิสระ)
 Acceptance Criteria:
 - Retention D7 ของกลุ่มนี้ไม่ต่ำกว่ากลุ่ม Phase 1 อย่างมีนัยสำคัญ (สัญญาณว่า product ยืนได้ด้วยตัวเองไม่ใช่แค่เพราะรู้จัก Founder)
 - Viral coefficient วัดได้จริง (กี่ % ของ user เชิญเพื่อนต่ออย่างน้อย 1 คน)
-Dependencies: Phase 0 ต้องผ่านครบ (เอกสารกฎหมาย + analytics) เพราะเริ่มมีคนแปลกหน้าเข้าระบบจริง, WYN-077, WYN-078
+Dependencies: Phase 0 ต้องผ่านครบ (เอกสารกฎหมาย + analytics) เพราะเริ่มมีคนแปลกหน้าเข้าระบบจริง, WYN-077, WYN-113
 Priority: P1
 Risks: ถ้า Phase 0 (เอกสารกฎหมาย) ยังไม่ผ่าน ไม่ควรเข้า Phase นี้ต่อให้ product พร้อม
 Recommendation: รอผลจาก Phase 1 ก่อนเลือกกลุ่มเป้าหมาย อย่าตัดสินใจล่วงหน้า
-Handoff: WYN-078 → AI Design → AI Coding → AI QA & Security; ส่วน channel/community selection เป็นการตัดสินใจของ Founder
+Handoff: WYN-113 → AI Design → AI Coding → AI QA & Security; ส่วน channel/community selection เป็นการตัดสินใจของ Founder
 
 ---
 
@@ -125,7 +125,7 @@ Recommendation: ยังไม่ต้องวางแผนละเอี�
 **ทำได้ทันที (ไม่ block):**
 - Phase 1 closed beta — Founder เริ่มเชิญคนรู้จักได้เลยวันนี้ พร้อม content seeding
 - WYN-077 (Analytics baseline) — ส่งเข้า AI Design ต่อได้เลยถ้า Founder อนุมัติแนวทาง (ดูคำถามด้านล่าง)
-- WYN-078 (Invite/Referral) — เช่นเดียวกัน
+- WYN-113 (Invite/Referral) — เช่นเดียวกัน
 
 **ต้องรอ Founder ตัดสินใจ/ดำเนินการ (AI ทำแทนไม่ได้):**
 1. ส่งเอกสารกฎหมายให้ทนายตรวจ (Phase 0 blocker)

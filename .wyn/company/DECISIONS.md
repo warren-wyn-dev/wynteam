@@ -968,3 +968,22 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 **ผลกระทบ**: ไม่มีโค้ด/production ใดถูกแตะจากการปรึกษารอบนี้ — รอผลข้อมูล funnel จาก WYN-112 ก่อนวางแผนขั้นต่อไป (จะเป็นการแก้ onboarding ในแอป หรือปรับวิธีหาคนเข้ามาต่อ ขึ้นกับว่าจุดหลุดอยู่ตรงไหนจริง)
 
 อ้างอิง: `.wyn/docs/product/wynos-gtm-roadmap.md`, `.wyn/tasks/active/WYN-112-activation-funnel-investigation.md`, `.wyn/tasks/backlog/WYN-078-invite-only-access-gate.md`
+
+## [2026-09-06] Task-tracking cleanup: 9 bug/QA reports were stale (already fixed, header never updated) + WYN-078 ID collision resolved
+
+**บริบท**: Founder ขอให้ไปแก้บั๊กที่ยังค้างใน `.wyn/tasks/bugs/` และ `.wyn/tasks/qa/` (5 รายการที่พบใน branch `claude/home-button-ux-ui-design-cbjkzm` บวก SCHEMA-002 บวก WYN-081/WYN-102 ใน `qa/`) ตรวจแล้วพบว่า **ทั้งหมดถูกแก้และผ่าน QA ไปแล้วจริง** ในโค้ดปัจจุบันบน `main` — ไฟล์ tracking แค่ไม่เคยอัปเดต `Status:` header ให้ตรงกับเนื้อหา "ปิดแล้ว"/"Resolution" ที่มีอยู่ท้ายไฟล์เอง
+
+**สิ่งที่ตรวจสอบและยืนยัน**:
+- WYN-108, WYN-109 (×3: insert-sends-missing-column / compose-preview-fixed-aspect / detail-gallery-ignores-aspect-ratio), WYN-110-redundant-load-more-fetches — อ่านโค้ดจริงพบ fix ตรงกับที่ report บรรยาย ทุกไฟล์มีบันทึก "ปิดแล้ว 2026-09-04/05" พร้อม commit hash และ QA รอบ 2 (`.wyn/docs/qa/wyn-106-107-108-109-home-cards-qa-round2.md`, `.wyn/docs/qa/wyn-110-111-round2-qa.md`) อยู่ท้ายไฟล์แล้ว แค่ header ไม่เคย sync → ย้าย `bugs/` → `completed/`, แก้ header
+- WYN-110-homedropcard-320px-action-row-overflow — fix (`FittedBox` + `home_drop_card_overflow_test.dart`) มีอยู่จริงในโค้ด แต่ยังไม่มี QA รอบใหม่ยืนยันซ้ำ (QA รอบ 2 ที่มีอยู่ตรวจ**ก่อน**ที่ fix นี้จะถูกเขียน) → ย้าย `bugs/` → `qa/` (ไม่ใช่ `completed/`) รอ AI QA & Security ตรวจซ้ำจริง
+- SCHEMA-002 — รันเทสต์จริง (`wyn_077_basic_product_analytics_test.sh`, `wyn_050_admin_dashboard_test.sh`) ที่โหลด `schema.sql` เต็มไฟล์เป็นขั้นตอนแรก ทั้งคู่ผ่านหมดจาก DB ใหม่ล้วน ยืนยันว่า fix ที่มี comment "SCHEMA-002 (Beta2 audit, 2026-09-03)" กำกับไว้ใน `schema.sql` (บรรทัด ~5724) ใช้งานได้จริง ไม่ได้แค่มี comment เฉยๆ → ย้าย `bugs/` → `completed/`
+- WYN-081 (qa/) — โค้ดปัจจุบันมี fix อยู่แล้ว และ `git log --all --follow` พบว่าไฟล์นี้ถูกแก้แค่ครั้งเดียวในประวัติ ไม่เคยมีเวอร์ชัน arrow-body ที่บั๊กอธิบายจริงในสิ่งที่ commit ไว้เลย → ย้าย `qa/` → `completed/`
+- WYN-102 (qa/) — header ในไฟล์เขียนว่า "closed" ถูกต้องอยู่แล้ว วางผิดโฟลเดอร์เฉยๆ → ย้าย `qa/` → `completed/` เท่านั้น ไม่แก้เนื้อหา
+
+**ไม่มีการแก้โค้ด production ใดๆ ในรอบนี้** — เป็นแค่การซิงค์ tracking ให้ตรงกับความจริง ป้องกันไม่ให้มีคนสั่ง AI Debug Engineer ไปแก้ซ้ำสิ่งที่แก้ไปแล้ว
+
+**WYN-078 ID collision** (พบตั้งแต่ WYN-112, ดู entry ด้านบน) — แก้แล้ว: เปลี่ยนเลข `.wyn/tasks/backlog/WYN-078-invite-only-access-gate.md` เป็น `WYN-113` (เลขถัดจาก WYN-112 ล่าสุด) ตามคำแนะนำเดิม เพราะยัง backlog อยู่ ไม่ใช่งานที่เสร็จแล้วเหมือน `WYN-078-background-full-screen-fix.md` ที่คงเลขเดิมไว้ อัปเดต reference ใน `.wyn/docs/product/wynos-gtm-roadmap.md` (เอกสารวางแผนไปข้างหน้า) ให้ตรง ส่วน entry ประวัติศาสตร์เดิมใน `CONTEXT.md`/`DECISIONS.md` คงข้อความเดิมไว้ตามกติกา "ไม่แก้ย้อนหลัง"
+
+**ยังไม่แตะ เพราะรอ Founder**: WYN-P0 (Google/Apple sign-in web) ติด Vercel free-tier 100 deploy/วัน ต้องให้ Founder ตัดสินใจอัพเกรด plan หรือปิด auto-preview-deploy; WYN-112 (activation funnel) รอ Founder เปิด WYN Admin Dashboard ส่วน "การเติบโต" แล้วส่งตัวเลขกลับมา
+
+อ้างอิง: `.wyn/tasks/completed/WYN-108-comment-heart-size-regression.md`, `.wyn/tasks/completed/WYN-109-*.md`, `.wyn/tasks/completed/WYN-110-redundant-load-more-fetches.md`, `.wyn/tasks/qa/WYN-110-homedropcard-320px-action-row-overflow.md`, `.wyn/tasks/completed/SCHEMA-002-home-feed-view-column-drift.md`, `.wyn/tasks/completed/WYN-081-explore-clubs-reload-future-assertion.md`, `.wyn/tasks/completed/WYN-102-push-notification-pop-access-leak.md`, `.wyn/tasks/backlog/WYN-113-invite-only-access-gate.md`

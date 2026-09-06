@@ -1,6 +1,6 @@
 # Bug Report — WYN-081
 
-Status: qa (fixed by AI Debug Engineer, 2026-09-02 — awaiting QA re-check)
+Status: closed — verified 2026-09-06. Current `app/lib/features/club/presentation/explore_clubs_screen.dart` `_reload()` already uses the block-body `setState(() { _loadFuture = _load(); });` form this report recommends (confirmed by reading the file directly). `git log --all --follow` on this file shows only one commit ever touched it, and that commit already contains the block-body form — the arrow-body bug this report describes was never actually present in any committed version of the file, so there was nothing left to fix by the time this report was filed; it just never got its Status header updated to say so. Moved qa/ -> completed/ 2026-09-06.
 Owner: AI Debug Engineer
 Bug: `ExploreClubsScreen._reload()` (`app/lib/features/club/presentation/explore_clubs_screen.dart:76-78`) still uses `setState(() => _loadFuture = _load())` — an arrow-body closure whose body is an assignment expression, which evaluates to (and therefore returns) the `Future<_Sections>` produced by `_load()`. `setState()`'s callback is declared as `VoidCallback` but Dart's void-context rule lets a non-void return value through at compile time; at runtime Flutter's own `State.setState()` implementation asserts that the callback did not return a `Future` and throws `FlutterError: setState() callback argument returned a Future.` when it does (debug/checked mode, which is how `flutter test`, `flutter run --debug`, and every real device the Founder tests on all run by default).
 

@@ -1,6 +1,6 @@
 # Bug Report — WYN-110 (QA-WYN-110-001)
 
-Status: bugs
+Status: closed — verified fixed (see "ปิดแล้ว" note at end of this file); moved bugs/ -> completed/ 2026-09-06, header synced to match, no content change
 Owner: AI Debug Engineer
 Severity: **Medium**
 พบโดย: AI QA & Security, 2026-09-05 (branch `claude/home-button-ux-ui-design-cbjkzm`, commit `de4b4b0`,

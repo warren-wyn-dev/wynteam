@@ -1,6 +1,6 @@
 # Bug Report — WYN-108 (B-108-1)
 
-Status: bugs
+Status: closed — verified fixed (see "ปิดแล้ว" note at end of this file); moved bugs/ -> completed/ 2026-09-06, header synced to match, no content change
 Owner: AI Debug Engineer
 Severity: **Major**
 พบโดย: AI QA & Security, 2026-09-04 (branch `claude/home-button-ux-ui-design-cbjkzm`, ยังไม่ merge/deploy)
