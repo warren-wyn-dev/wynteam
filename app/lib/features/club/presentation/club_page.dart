@@ -5,8 +5,10 @@ import '../data/club.dart';
 import '../data/club_member.dart';
 import '../data/club_post_repository.dart';
 import '../data/club_repository.dart';
+import '../data/club_event_repository.dart';
 import 'edit_club_info_screen.dart';
 import 'widgets/club_about_tab.dart';
+import 'widgets/club_events_tab.dart';
 import 'widgets/club_insights_tab.dart';
 import 'widgets/club_members_tab.dart';
 import 'widgets/club_posts_tab.dart';
@@ -46,11 +48,18 @@ class ClubPage extends StatefulWidget {
     required this.clubPostRepository,
     required this.clubId,
     this.initialTabIndex = 0,
-  });
+    ClubEventRepository? clubEventRepository,
+  }) : _clubEventRepository = clubEventRepository;
 
   final ClubRepository clubRepository;
   final ClubPostRepository clubPostRepository;
   final String clubId;
+
+  // Optional -- same reasoning as CreateClubPostScreen's identical
+  // shape (its _profileRepository field): defaults to a real Supabase-
+  // backed instance so existing call sites don't need to thread one
+  // through, but a test can inject a RecordingClubEventRepository.
+  final ClubEventRepository? _clubEventRepository;
 
   /// Which tab (Posts=0/Members=1/About=2) opens first -- defaults to
   /// Posts, but WYN-015's club_join_request notification opens straight
@@ -100,6 +109,8 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   final _chatRepository = ChatRepository(Supabase.instance.client);
   final _profileRepository = ProfileRepository(Supabase.instance.client);
   final _followRepository = FollowRepository(Supabase.instance.client);
+  late final ClubEventRepository _clubEventRepository =
+      widget._clubEventRepository ?? ClubEventRepository(Supabase.instance.client);
 
   @override
   void initState() {
@@ -431,13 +442,21 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
             final myRole = data.membership?.status == ClubMemberStatus.approved
                 ? data.membership!.role
                 : null;
-            // WYN-117: Insights is owner/admin-only -- a Moderator/
-            // Member never even sees the tab exists, same "hide the
-            // whole entry point, not just disable it" pattern
+            // WYN-118: Events is any-approved-member (same trust model
+            // as Posts/Members/About) -- a non-member never sees the
+            // tab exists. WYN-117: Insights is owner/admin-only -- a
+            // Moderator/Member never even sees the tab exists, same
+            // "hide the whole entry point, not just disable it" pattern
             // settings_screen.dart already uses for its own admin-only
-            // section.
+            // section. `canManageClub` always implies approved
+            // membership, so showInsights can never be true while
+            // showEvents is false -- Events (index 3) and Insights
+            // (index 4) never swap places.
+            final showEvents = myRole != null;
             final showInsights = myRole?.canManageClub ?? false;
-            final tabController = _tabControllerFor(showInsights ? 4 : 3);
+            final tabController = _tabControllerFor(
+              3 + (showEvents ? 1 : 0) + (showInsights ? 1 : 0),
+            );
 
             return Column(
               children: [
@@ -468,6 +487,8 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                     const Tab(icon: Icon(Icons.article_outlined, size: 16), text: 'โพสต์'),
                     const Tab(icon: Icon(Icons.people_outline, size: 16), text: 'สมาชิก'),
                     const Tab(icon: Icon(Icons.info_outline, size: 16), text: 'เกี่ยวกับ'),
+                    if (showEvents)
+                      const Tab(icon: Icon(Icons.event_outlined, size: 16), text: 'กิจกรรม'),
                     if (showInsights)
                       const Tab(icon: Icon(Icons.insights_outlined, size: 16), text: 'Insights'),
                   ],
@@ -495,6 +516,12 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                         myRole: myRole,
                         onChanged: _reload,
                       ),
+                      if (showEvents)
+                        ClubEventsTab(
+                          clubEventRepository: _clubEventRepository,
+                          clubId: data.club.id,
+                          canManage: myRole.canModeratePosts,
+                        ),
                       if (showInsights)
                         ClubInsightsTab(
                           clubRepository: widget.clubRepository,
