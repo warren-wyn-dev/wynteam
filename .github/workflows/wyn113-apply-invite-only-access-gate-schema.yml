@@ -56,7 +56,17 @@ jobs:
               -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
               -H "Content-Type: application/json" -d "$body")
             if [ "$code" != "200" ] && [ "$code" != "201" ]; then
-              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+              # >&2 -- every call site below redirects run_sql's stdout to
+              # /dev/null on success (`... >/dev/null`), which was also
+              # silently swallowing this branch's own error output on
+              # failure (found the hard way: this workflow's first real
+              # run failed with no visible reason at all). Writing to
+              # stderr means a failure is visible regardless of what the
+              # caller does with stdout.
+              echo "::error::HTTP $code" >&2
+              cat "$out" >&2
+              rm -f "$out"
+              return 1
             fi
             cat "$out"; rm -f "$out"
           }
