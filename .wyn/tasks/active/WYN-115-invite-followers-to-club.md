@@ -1,6 +1,6 @@
 # Product Task — WYN-115
 
-Status: active (Design เสร็จแล้ว 2026-09-06, รอ Founder อนุมัติ mockup ก่อนส่งต่อ AI Coding — ดู "AI Design Output" ท้ายไฟล์นี้)
+Status: active (Founder อนุมัติ mockup แล้ว 2026-09-06 — ส่งต่อ AI Coding แล้ว ดู "AI Design Output"/"Founder Decision" ท้ายไฟล์นี้)
 Owner: AI Product Manager
 Feature: Invite Followers to Club (pick-from-followers, not just link sharing)
 Goal: ให้สมาชิกคลับชวนคนที่ติดตามตัวเองเข้าคลับได้โดยตรงในแอป ไม่ต้องพึ่งการก็อปลิงก์ไปแปะที่อื่นเพียงอย่างเดียว
