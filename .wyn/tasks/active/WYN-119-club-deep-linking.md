@@ -9,7 +9,7 @@ Goal: ทำให้ลิงก์ `wynos.online/club/<id>`, `/drop/<id>`, `/p
 
 Target User: ทุกคนที่กดลิงก์ Share ของ Club/Drop/Pop/Profile ที่ส่งมาจากผู้ใช้อื่น (โดยเฉพาะเพื่อนที่ถูกชวนเข้า Club — เป้าหมายเดิมของ session นี้)
 
-Problem: **ID collision ที่ต้องแก้ก่อน**: งานนี้เดิมถูกบันทึกเป็น `WYN-114` โดย session นี้เอง แต่ระหว่างทำพบว่าอีก session หนึ่ง (`session_013hvSGovkwhxpPFbFEKAvAu`) ใช้เลข `WYN-114` ไปแล้วสำหรับงานเดียวกันบางส่วน และ**ทำเสร็จ+ผ่าน QA ไปแล้วจริง**: เปลี่ยนโดเมนลิงก์ Share ทั้ง 5 จุดจาก `wyn.app` (ไม่มี DNS จริง) เป็น `wynos.online` จริง (`.wyn/tasks/approved/WYN-114-share-link-real-domain.md`) และเพิ่ม `app/web/vercel.json` แก้ปัญหา Vercel 404 ทุก path ที่ไม่ใช่ `/` เพราะไม่เคยมี config นี้เลย (`.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`, QA PASS) — เรียกงานนี้ว่า **"Tier 1"** และ**ยังไม่ deploy จริง** ณ เวลาที่เขียน task นี้
+Problem: **ID collision ที่แก้แล้ว**: งานนี้เดิมถูกบันทึกเป็น `WYN-114` โดย session นี้เอง แต่ระหว่างทำพบว่าอีก session หนึ่ง (`session_013hvSGovkwhxpPFbFEKAvAu`) ใช้เลข `WYN-114` ไปแล้วสำหรับงานเดียวกันบางส่วน และ**ทำเสร็จ+ผ่าน QA+deploy จริงไปแล้ว**: เปลี่ยนโดเมนลิงก์ Share ทั้ง 5 จุดจาก `wyn.app` (ไม่มี DNS จริง) เป็น `wynos.online` จริง (`.wyn/tasks/completed/WYN-114-share-link-real-domain.md`) และเพิ่ม `app/web/vercel.json` แก้ปัญหา Vercel 404 ทุก path ที่ไม่ใช่ `/` เพราะไม่เคยมี config นี้เลย (`.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`, QA PASS) — เรียกงานนี้ว่า **"Tier 1"** — **deploy จริงแล้ว** (`deploy-web.yml` run #89, production-verified ด้วย curl จริงต่อ `wynos.online` — ดู `.wyn/logs/deployments/2026-09-06-wyn-114-share-link-vercel-rewrite-deploy.md`)
 
 Session นั้นระบุไว้ชัดเจนในโค้ดของตัวเองแล้วว่า "Tier 2" (path-based routing จริงในแอป) **ยังไม่ทำ ไม่ approved** — `main.dart` ยังคง `home: const AuthGate()` ตายตัว ไม่มี `GoRouter`/ไม่มีการอ่าน `Uri.base.path` เลย ต่อให้ Tier 1 deploy แล้ว การเปิด `wynos.online/club/<id>` จะไม่ 404 อีกต่อไป แต่จะเปิด Home/AuthGate เหมือนเปิดเว็บเปล่าๆ ไม่ใช่หน้า Club ที่ตั้งใจแชร์ — **นี่คือ scope ที่เหลือจริงของงานนี้ (Tier 2)**
 
@@ -24,13 +24,13 @@ Acceptance Criteria:
 - เปิด `/drop/<id>`, `/pop/<id>`, `/@<username>`, `/club-post/<id>` ได้ผลเดียวกันตามเนื้อหานั้น
 - Path แปลกปลอม/id ที่ลบไปแล้ว fallback เข้า Home อย่างนุ่มนวล ไม่ crash
 
-Dependencies: **รอ Tier 1 (WYN-114) deploy จริงก่อน** — ทดสอบ Tier 2 บน production ไม่ได้ถ้า path ยังคง 404 อยู่จากปัญหา Vercel เดิม
+Dependencies: ไม่มีแล้ว — Tier 1 (WYN-114) deploy จริงและ production-verified แล้ว (2026-09-06) เริ่ม Tier 2 นี้ได้ทันที ทดสอบบน production จริงได้เลย
 
 Priority: P1 — Tier 1 (WYN-114) แก้ "ลิงก์เปิดได้ไหม" ซึ่งสำคัญกว่าและสงสัยว่าเป็นสาเหตุของ WYN-112 โดยตรง (Founder ยืนยันแล้ว) ส่วน Tier 2 นี้แก้ "เปิดแล้วเห็นเนื้อหาที่ถูกต้องไหม" ซึ่งจำเป็นสำหรับ growth loop ให้สมบูรณ์แต่ไม่ block การวัดผล WYN-112 รอบต่อไป (แค่เปิดได้ก็พอเห็น "signup กลับมาไหม" ได้แล้ว)
 
 Risks: การเพิ่ม route parsing อาจกระทบพฤติกรรม guest-browsing เดิม (WYN-072) และ initial-route ของ `main.dart` ที่ AuthGate ทำงานอยู่ในปัจจุบัน — ต้องให้ Design ตรวจ flow ทั้งหมดก่อน Coding ไม่ใช่แค่ต่อ route ทับเข้าไปเฉยๆ
 
-Recommendation: ส่งต่อ AI Design ได้เลย ไม่ต้องรอ Founder อนุมัติเพิ่มเติม (เป็นการต่อยอดฟีเจอร์ share ที่มีอยู่แล้ว ไม่ใช่ major architecture change) แต่ Coding ควรรอ Tier 1 deploy จริงก่อนเริ่ม เพื่อทดสอบ end-to-end ได้จริงบน production
+Recommendation: ส่งต่อ AI Design ได้เลย ไม่ต้องรอ Founder อนุมัติเพิ่มเติม (เป็นการต่อยอดฟีเจอร์ share ที่มีอยู่แล้ว ไม่ใช่ major architecture change) — Tier 1 deploy แล้ว ทดสอบ end-to-end บน production จริงได้ทันทีที่ Coding เสร็จ
 
 Handoff: AI Design (ออกแบบ flow deep-link ฝั่ง guest + initial-route parsing) → AI Coding (รอ Tier 1 deploy ก่อน) → AI QA & Security (ทดสอบเปิดลิงก์จริงจากเบราว์เซอร์ที่ไม่เคย login มาก่อน ไม่ใช่แค่จากใน app)
 

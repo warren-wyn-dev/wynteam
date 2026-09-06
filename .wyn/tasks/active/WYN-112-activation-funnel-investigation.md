@@ -1,6 +1,6 @@
 # Product Task — WYN-112
 
-Status: active — root cause **ระบุแล้ว** (2026-09-06 รอบ 6), รอ deploy `WYN-114` แล้วดูผล signup รอบถัดไปก่อนปิดงาน
+Status: active — root cause **ระบุแล้วและแก้+deploy จริงแล้ว** (`WYN-114`, 2026-09-06), รอ Founder แชร์ลิงก์ใหม่แล้วดูผล signup รอบถัดไปก่อนปิดงาน
 Owner: AI Product Manager
 Feature: Activation Funnel Investigation (สมัครเยอะแต่ engagement เป็นศูนย์)
 Goal: หา root cause จริงจากข้อมูล ว่าผู้ใช้ที่สมัครจากลิงก์ที่แชร์ในกลุ่ม/โซเชียลกว้างๆ หลุดออกจาก funnel ตรงจุดไหนกันแน่ (สมัครไม่เสร็จ / สมัครเสร็จแต่ไม่เปิดแอปอีกเลย / เปิดแอปแต่ไม่กด action ใดๆ เลย) แทนที่จะเดา ก่อนตัดสินใจลงทุนแก้ onboarding หรือเปลี่ยนช่องทางเพิ่มเติม
@@ -93,12 +93,12 @@ Handoff อัปเดต: ถ้า Founder ยืนยันว่าเค�
 Founder ยืนยันแล้วว่าใช้ปุ่ม Share ในแอปจริง (ดู `.wyn/company/CONTEXT.md` 2026-09-06) — **ปิดประเด็นหาสาเหตุของ WYN-112 ได้แล้ว 100%**
 
 ระหว่างจะยกระดับงานแก้ไข พบว่า**อีก session หนึ่ง (`session_013hvSGovkwhxpPFbFEKAvAu`) ใช้เลข `WYN-114` ไปก่อนแล้วสำหรับงานเดียวกัน และทำเสร็จ+ผ่าน QA จริงแล้ว** (คนละ session กับที่เขียนรอบ 1-5 ข้างต้น แต่เป็นสาเหตุเดียวกันที่ถูกค้นพบพร้อมกันจากคนละมุม) — ของจริงคือ:
-- `.wyn/tasks/approved/WYN-114-share-link-real-domain.md` — เปลี่ยนโดเมนลิงก์ Share ทั้ง 5 จุดจาก `wyn.app` เป็น `wynos.online` แล้ว (Tier 1)
+- `.wyn/tasks/completed/WYN-114-share-link-real-domain.md` — เปลี่ยนโดเมนลิงก์ Share ทั้ง 5 จุดจาก `wyn.app` เป็น `wynos.online` แล้ว (Tier 1)
 - `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md` — เพิ่ม `app/web/vercel.json` แก้ Vercel 404 ทุก path ที่ไม่ใช่ `/` แล้ว, QA PASS แล้ว
-- **ทั้งสองอยู่บน `main` แล้ว แต่ยังไม่ deploy จริง** ณ ตอนที่เขียนอัปเดตนี้
+- **Deploy จริงแล้ว + production-verified ด้วย curl ตรง** (`deploy-web.yml` run #89, 2026-09-06) — ดู `.wyn/logs/deployments/2026-09-06-wyn-114-share-link-vercel-rewrite-deploy.md`
 
 ไฟล์ `WYN-114-fix-share-links-deep-linking.md` ที่ session นี้เขียนไว้ก่อนหน้า (รอบ 4-5) **เปลี่ยนเลขเป็น `WYN-119` แล้ว** (เก็บเฉพาะส่วน "Tier 2" ที่อีก session ระบุไว้ชัดว่ายังไม่ทำ — path-based routing จริงในแอป) เพื่อไม่ให้ชนกับ `WYN-114` ตัวจริงที่ approved แล้ว
 
-**สรุปสถานะสุดท้ายของ WYN-112**: root cause ระบุแน่ชัดแล้ว = บั๊กที่ `WYN-114` แก้ (Tier 1) — รอ **deploy จริง** เท่านั้น ก่อนจะรู้ว่า signup กลับมาจริงไหม ไม่ต้องสืบสาเหตุเพิ่มอีก
+**สรุปสถานะสุดท้ายของ WYN-112**: root cause ระบุแน่ชัดแล้วและ**แก้ + deploy จริงแล้ว** (WYN-114, Tier 1) — เหลือแค่รอดูผลจริง: Founder แชร์ลิงก์ Club/Drop/Profile รอบถัดไป (ลิงก์เดิมที่เคยแชร์ไปแล้วด้วยโดเมน `wyn.app` ยังใช้ไม่ได้ ต้องแชร์ใหม่) แล้วเช็ค WYN Admin Dashboard ส่วน "การเติบโต" ว่า signup กลับมาไหม
 
-Status: เปลี่ยนจาก active → **รอ deploy WYN-114 (Tier 1) แล้วดูผล signup รอบถัดไป** — ไม่ใช่ investigation ที่ยัง active แล้ว
+Status: เปลี่ยนจาก active → **รอ Founder แชร์ลิงก์ใหม่แล้วดูผล signup รอบถัดไป** (WYN-114 deploy แล้ว, production-verified แล้ว) — ไม่ใช่ investigation ที่ยัง active แล้ว, ปิดงานได้เมื่อเห็น signup กลับมาจริงหรือ Founder ยืนยัน
