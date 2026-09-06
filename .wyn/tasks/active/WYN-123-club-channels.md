@@ -1,7 +1,7 @@
 # Feature Request — WYN-123
 
-Status: backlog — Design ทำได้เลย, **Coding ห้ามเริ่มจนกว่า WYN-115–118 เสร็จครบ**
-Owner: AI Product Manager
+Status: active — Design เสร็จแล้ว, **Coding ห้ามเริ่มจนกว่า WYN-115–118 เสร็จครบ**
+Owner: AI Product Manager → AI Design
 
 Feature: Club Channels — แบ่ง Club เป็นหลายห้อง/หัวข้อ แทนฟีดโพสต์รวมห้องเดียว (เฟส 1 ของ ".wyn/docs/product/wyn-club-discord-style-roadmap.md")
 
@@ -61,6 +61,20 @@ Pinned Post (มีอยู่แล้ว) ต้อง pin ต่อ Channel 
 
 เริ่ม AI Design วางแผน UX/UI ของ Channel switcher (จะวางไว้ตรงไหนในหน้า Club — แถบ tab ด้านบน/side drawer แบบ Discord/dropdown) ได้ตอนนี้เลยตามที่ Founder อนุมัติ แต่**ระบุใน design doc ให้ชัดว่า AI Coding ต้องรอ WYN-115–118 เสร็จก่อนเริ่ม** และก่อนเริ่ม Coding จริงต้องอ่านโค้ด Club ปัจจุบัน (รวม WYN-115/116/117/118 ที่ deploy ไปแล้ว) ใหม่อีกรอบ ไม่ใช่เชื่อ assumption จากตอนวางแผนนี้เพียงอย่างเดียว
 
-## Handoff
+## Handoff (Product → Design)
 
 ส่งต่อ **AI Design** — ออกแบบ UX/UI เต็มรูปแบบของ Club Channels ได้ทันที (Coding รอคิวตามที่ระบุไว้)
+
+---
+
+## AI Design — ผลงาน (2026-09-06)
+
+Design เต็มรูปแบบอยู่ที่ `.wyn/docs/design/wyn-123-club-channels.md` (6 Screen: Channel Switcher ในหน้า Club / จัดการ Channel แบบ List+Reorder / สร้าง-แก้ไข Channel / เลือก Channel ปลายทางตอนโพสต์ / มุมมองสมาชิกใน Channel แบบ announcement-only / Pin ต่อ Channel ที่ได้มาฟรีจาก R3)
+
+**สรุปสำคัญ**:
+- ทุก component reuse ของเดิมในโค้ด Club ปัจจุบัน 100% (`ActionSheetRow`/`ActionSheetBody`, pill chip แบบเดียวกับ header เดิม, `EmptyStateBlock` language, optimistic-update pattern เดิม) — ไม่มี component ใหม่
+- Club ที่มี Channel เดียว: ไม่ render Channel switcher เลย (ไม่ใช่ซ่อน) — หน้าตาเหมือนก่อน WYN-123 ทุกพิกเซล ตอบโจทย์ที่ Product เตือนเรื่องความเทอะทะโดยตรง
+- **แก้ไขข้อมูลสำคัญ**: `ds-001-color-system.md` (dark+Cyan) ล้าสมัยแล้ว — แอปจริงเป็น **Sapphire `#1B3A6B`** accent เดียว, light-only theme, system font (ดูรายละเอียด/ที่มาในหัวเอกสาร design doc) — Coding ต้องอ้างอิงโค้ดจริงใน `app/lib/core/design/` ไม่ใช่ DS-001
+- **ข้อควรระวังที่ Design เพิ่มเอง นอกเหนือจาก Requirements เดิม** (ต้องยืนยันกับ Product ก่อน Coding เริ่มจริง): (1) Channel เริ่มต้นห้ามตั้งเป็น announcement-only เด็ดขาด กัน Club ไม่มีที่ให้สมาชิกทั่วไปโพสต์เลย (2) ลบ channel ที่ไม่ใช่ default ควรย้ายโพสต์เข้า default channel อัตโนมัติ ไม่ลบโพสต์ — เป็นข้อเสนอ ไม่ใช่มติสุดท้าย
+
+**Handoff (Design → Coding)**: **ห้ามเริ่มจนกว่า WYN-115–118 จะเสร็จครบ** ตามที่ Product ระบุไว้ — เมื่อถึงคิวจริง อ่านโค้ด Club ปัจจุบันใหม่ทั้งหมดก่อน (รวม WYN-115/116/117/118 ที่ deploy แล้วตอนนั้น) ไม่ใช่เชื่อ assumption จากตอนเขียนเอกสารนี้ ตรวจ WYN-116/117 ว่า hardcode "1 Club = 1 stream" ไว้ที่ไหนบ้าง แล้วยืนยัน 2 จุดที่ Design เสนอเองกับ Product ก่อนเขียน schema จริง
