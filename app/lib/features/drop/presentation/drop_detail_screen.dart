@@ -560,7 +560,27 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       WynFeedback.deleted();
       Navigator.of(context).pop();
     } catch (_) {
+      // WYN-121: `deleteDrop()` throwing does not mean the delete never
+      // happened -- a response lost to a flaky connection *after* the
+      // database already committed looks identical, client-side, to a
+      // genuine failure (confirmed against production: a Founder report
+      // of this exact SnackBar lined up, to the second, with
+      // `deleted_at` already being set on that Drop). Before telling the
+      // user it failed, check the one thing that actually matters: is
+      // the Drop still live? `fetchById()` (WYN-120) already returns
+      // null for a Drop that's gone, whatever the reason.
+      Drop? stillLive;
+      try {
+        stillLive = await widget.dropRepository.fetchById(_drop.id);
+      } catch (_) {
+        stillLive = _drop; // can't tell either way -- fall through to reporting failure
+      }
       if (!mounted) return;
+      if (stillLive == null) {
+        WynFeedback.deleted();
+        Navigator.of(context).pop();
+        return;
+      }
       WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),

@@ -77,6 +77,8 @@ void main() {
   late RecordingDropRepository oldDropMenuTestRepo;
   late RecordingDropRepository editFlowTestRepo;
   late RecordingDropRepository deleteFlowTestRepo;
+  late RecordingDropRepository deleteThrowsButServerSucceededTestRepo;
+  late RecordingDropRepository deleteThrowsAndStillLiveTestRepo;
   late RecordingDropRepository viewCountTestRepo;
   late RecordingDropRepository ownDropViewCountTestRepo;
   late RecordingDropRepository viewCountNoRepeatTestRepo;
@@ -173,6 +175,9 @@ void main() {
     oldDropMenuTestRepo = RecordingDropRepository();
     editFlowTestRepo = RecordingDropRepository();
     deleteFlowTestRepo = RecordingDropRepository();
+    // WYN-121 -- same "constructed in setUpAll" discipline.
+    deleteThrowsButServerSucceededTestRepo = RecordingDropRepository();
+    deleteThrowsAndStillLiveTestRepo = RecordingDropRepository();
     // WYN-038 -- same "constructed in setUpAll" discipline.
     viewCountTestRepo = RecordingDropRepository();
     ownDropViewCountTestRepo = RecordingDropRepository();
@@ -911,6 +916,102 @@ void main() {
 
       expect(deleteFlowTestRepo.deleteDropCalls, ['delete-1']);
       expect(find.byType(DropDetailScreen), findsNothing);
+    });
+
+    testWidgets(
+        'WYN-121: deleteDrop() throwing (e.g. a response lost after the '
+        'server already committed) still closes the screen once fetchById '
+        'confirms the Drop is actually gone', (tester) async {
+      final drop = Drop(
+        id: 'delete-2',
+        authorId: 'me',
+        authorUsername: 'me_user',
+        imageUrl: 'https://example.supabase.co/drops/delete-2.jpg',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+      );
+      deleteThrowsButServerSucceededTestRepo.deleteDropError =
+          Exception('connection dropped after the request was sent');
+      // The server actually committed the delete despite the client-side
+      // exception above -- fetchById() (WYN-120) now correctly reports
+      // the Drop as gone.
+      deleteThrowsButServerSucceededTestRepo.fetchByIdResults['delete-2'] =
+          null;
+
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: deleteThrowsButServerSucceededTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert)).onPressed!();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ลบ'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
+      await tester.pumpAndSettle();
+
+      // The screen closes as if the delete had succeeded outright --
+      // never the "ลบโพสต์ไม่สำเร็จ" failure SnackBar for a Drop that
+      // was, in fact, already deleted.
+      expect(find.byType(DropDetailScreen), findsNothing);
+      expect(find.text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง'), findsNothing);
+      expect(deleteThrowsButServerSucceededTestRepo.fetchByIdCalls, 1);
+    });
+
+    testWidgets(
+        'WYN-121 regression: deleteDrop() throwing for a real failure '
+        '(the Drop is still live) still shows the failure SnackBar',
+        (tester) async {
+      final drop = Drop(
+        id: 'delete-3',
+        authorId: 'me',
+        authorUsername: 'me_user',
+        imageUrl: 'https://example.supabase.co/drops/delete-3.jpg',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+      );
+      deleteThrowsAndStillLiveTestRepo.deleteDropError =
+          Exception('permission denied');
+      // fetchById() confirms the Drop is still there -- a genuine
+      // failure, not a lost-response false negative.
+      deleteThrowsAndStillLiveTestRepo.fetchByIdResults['delete-3'] = drop;
+
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: deleteThrowsAndStillLiveTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert)).onPressed!();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ลบ'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DropDetailScreen), findsOneWidget);
+      expect(find.text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
     });
   });
 
