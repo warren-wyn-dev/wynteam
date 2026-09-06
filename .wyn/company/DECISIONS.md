@@ -1072,3 +1072,17 @@ round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` �
 **สถานะ**: WYN-113 **completed** ครบทั้ง Product → Design → Coding → QA → Deploy → Production Verification ไม่มี rollback ต้องทำ ไม่มี migration ค้าง
 
 อ้างอิง: `.wyn/tasks/completed/WYN-113-og-share-preview-cards.md`, `.wyn/logs/deployments/2026-09-06-wyn-113-og-share-preview-deploy.md`, PR #267, deploy-web.yml run #87
+
+## [2026-09-06] WYN-114: แก้ share link โดเมนปลอม — พบว่าแอปไม่มี path routing เลย ขอบเขตต้องแบ่ง 2 ระดับ
+
+**บริบท**: ต่อจากการวิเคราะห์แอปก่อนหน้า (ค้างจาก Beta3 security audit item A-7) Founder อนุมัติให้แก้ share link 5 จุด (`dropShareLink`/`popShareLink`/`clubShareLink`/`clubPostShareLink`/`profileShareLink`) ที่ยังชี้โดเมนปลอม `https://wyn.app/...`
+
+**พบข้อเท็จจริงใหม่ระหว่างตรวจโค้ด**: `app/lib/main.dart` มี `MaterialApp(home: const AuthGate())` ตายตัว **ไม่มี GoRouter ไม่มี path-based routing ใดๆ เลย** — จุดเดียวที่อ่าน `Uri.base` คือ `analytics_repository.dart` สำหรับ UTM query parameter เท่านั้น ไม่เกี่ยวกับ path — แปลว่าต่อให้เปลี่ยนโดเมนเป็น `wynos.online` จริง การเปิดลิงก์ที่แชร์มา (เช่น `/drop/abc123`) **จะไม่พาไปที่โพสต์นั้นเลย** จะ boot แอปแล้วโชว์หน้า `AuthGate`/home เหมือนเปิด `wynos.online` เฉยๆ เสมอ
+
+**การตัดสินใจ**: แบ่งงานเป็น 2 ระดับแทนที่จะทำแบบเข้าใจผิดว่า "แก้โดเมนแล้วจบ":
+- **Tier 1** (ขอบเขตเดิมที่อนุมัติ): แก้แค่ string โดเมนใน 5 จุด — P1 ทำได้ทันที ความเสี่ยงต่ำมาก แม้ไม่ใช่ deep-link จริงแต่ดีกว่าเดิมชัดเจน (จาก "เปิดไม่ได้เลย" เป็น "เปิดได้แต่ไปหน้าแรก")
+- **Tier 2** (ขอบเขตใหม่ที่เพิ่งค้นพบว่าจำเป็น): เพิ่ม path-based deep-linking จริงให้ลิงก์พาไปที่โพสต์/Club/โปรไฟล์ที่แชร์มาจริงๆ — งานใหญ่กว่าที่คิด แตะ core navigation ต้องผ่าน AI Design ก่อน (UX ตอน resolve target, error state) — **ยังไม่อนุมัติ แยกเป็นการตัดสินใจต่างหาก**
+
+สร้าง `WYN-114` (`.wyn/tasks/backlog/WYN-114-share-link-real-domain.md`) บันทึกทั้งสอง Tier ไว้ — Tier 1 ส่งตรง AI Coding ได้เลย (ไม่ผ่าน Design เพราะไม่มี UI เปลี่ยน)
+
+อ้างอิง: `.wyn/tasks/backlog/WYN-114-share-link-real-domain.md`, `app/lib/main.dart`, `.wyn/docs/qa/wynos-v1.0.0-beta3-security-audit.md` (item A-7 เดิม)
