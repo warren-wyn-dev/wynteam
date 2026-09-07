@@ -1,6 +1,6 @@
 # Design Task — WYN-140
 
-Status: backlog — รอ Founder เลือก priority ก่อนแตกเป็น sub-task
+Status: **audit เสร็จ, Founder เลือกทำทั้ง 3 sub-task แล้ว (2026-09-07)** — ดู spec เต็มของแต่ละ sub-task ที่ `.wyn/tasks/active/WYN-140a-error-message-consistency.md`, `WYN-140b-skeleton-loading.md`, `WYN-140c-motion-transition.md` (ย้ายจาก backlog ไป active แล้ว ส่งต่อ AI Coding ตามลำดับ a → b → c)
 Owner: AI Design
 Screen: หลายหน้าจอ (audit ทั้งแอป ไม่ใช่หน้าเดียว — ดูรายละเอียดในเอกสาร audit)
 Purpose: Founder ขอ "ทำเว็บแอปให้ดีสุดๆ เสถียรสุดๆ ฟีเจอครบ ไม่มีบัค เหมือนแพลตฟอร์มใหญ่ๆ" (2026-09-07) — งานนี้คือส่วนที่อยู่ในขอบเขต AI Design จริง (perceived quality ผ่าน UX/UI) หลังแยกส่วนที่เป็นหน้าที่ role อื่นออกไปแล้ว (บัค → QA/Debug, เสถียรภาพ → DevOps, ฟีเจอร์ครบ → Product)
