@@ -1,0 +1,215 @@
+name: WYN-134 -- apply DM new message notification schema (constraint, trigger, function)
+
+# Same established gap as every prior WYN-*-apply-*-schema.yml in this
+# project (wyn139, wyn136, wyn133, wyn127, ...): schema.sql does not
+# auto-apply to production, it only describes the desired end state.
+# This workflow applies WYN-134's own section (DM New Message
+# Notification, .wyn/tasks/approved/WYN-134-dm-new-message-notification.md)
+# -- closes the known gap accepted since WYN-032 (no notification for a
+# new DM while ConversationScreen isn't open).
+#
+# RUN ORDER: independent of WYN-136/138/139 -- touches only
+# notifications/messages/conversations (existing, WYN-031/032/043).
+#
+# NOT staged-rollout gated on the client (deliberately, per the
+# WORKFLOW.md exception for closing a gap in an existing feature) --
+# every user starts getting this notification the moment this workflow
+# runs AND the web build carrying the client-side NotificationType.newMessage
+# case is deployed. Also requires the send-push-notification edge
+# function's own `case "new_message":` (supabase/functions/send-push-notification/_lib.ts)
+# to already be deployed for the *push* wording to be correct --
+# deploy that edge function separately (deploy-edge-functions.yml)
+# either before or after this workflow; the DB/trigger side here works
+# independently of it (an in-app notification is created either way,
+# only the push payload's wording depends on the edge function).
+#
+# Every statement below is copy-paste identical (in meaning) to the
+# WYN-134 section of supabase/schema.sql (search "WYN-134: DM \"New
+# Message\" Notification") and to
+# supabase/migrations_wyn134_dm_new_message_notification.sql -- if the
+# three ever drift, schema.sql/the migrations file is wrong, not this
+# workflow (this file is what actually ran against production).
+#
+# SAFETY:
+#   * notifications_type_check: dynamically finds+drops whatever the
+#     current CHECK constraint name is (mirrors the 'redrop'/
+#     'club_channel_message' additions already in schema.sql) rather
+#     than assuming a specific name, then re-adds it with 'new_message'
+#     appended to the same allowed-value list -- every value already
+#     allowed stays allowed, this only adds one more.
+#   * notify_new_message() is a brand new trigger function -- fires
+#     only on INSERT into messages, only for an 'active' conversation,
+#     respects the recipient's existing per-conversation mute
+#     (conversation_mutes, WYN-031) and notification preference
+#     (internal.notification_enabled, WYN-043).
+#   * mark_conversation_read() is redefined to ALSO clear unread
+#     new_message notifications in the same transaction -- its own
+#     existing behavior (update last_read_at for the calling
+#     participant, reject a non-participant) is unchanged; validated by
+#     re-running the WYN-031 regression suite alongside the new WYN-134
+#     one (see the QA report cited below).
+#
+# Safe to run more than once (the constraint-drop is dynamic and
+# idempotent by construction, DROP TRIGGER IF EXISTS before CREATE,
+# CREATE OR REPLACE FUNCTION) -- validated locally via
+# supabase/tests/wyn_134_dm_new_message_notification_test.sh against a
+# scratch PostgreSQL loaded with the full schema.sql, per
+# .wyn/logs/deployments/2026-09-07-wyn-134-136-137-138-139-phase-a-go-live-package.md.
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== 0. Diagnose: does messages_notify_new_message trigger already exist? ==="
+          run_sql "select tgname from pg_trigger where tgname = 'messages_notify_new_message';" | jq .
+
+          echo "=== 1. Drop old notifications type CHECK constraint (dynamic, by current name) ==="
+          run_sql "do \$do\$
+                   declare
+                     v_constraint_name text;
+                   begin
+                     select tc.constraint_name into v_constraint_name
+                     from information_schema.table_constraints tc
+                     join information_schema.constraint_column_usage ccu
+                       on ccu.constraint_name = tc.constraint_name
+                      and ccu.constraint_schema = tc.constraint_schema
+                     where tc.table_schema = 'public'
+                       and tc.table_name = 'notifications'
+                       and tc.constraint_type = 'CHECK'
+                       and ccu.column_name = 'type';
+
+                     if v_constraint_name is not null then
+                       execute format('alter table public.notifications drop constraint %I', v_constraint_name);
+                     end if;
+                   end;
+                   \$do\$;" >/dev/null
+          echo "Done."
+
+          echo "=== 2. Re-add notifications type CHECK constraint with 'new_message' ==="
+          run_sql "alter table public.notifications
+                     add constraint notifications_type_check
+                     check (type in (
+                       'like_drop', 'like_pop', 'comment_drop', 'comment_pop', 'follow',
+                       'club_join_request', 'club_join_approved', 'club_post_like', 'club_post_comment',
+                       'mention_drop', 'mention_club_post',
+                       'moderation_warning', 'moderation_content_removed',
+                       'appeal_approved', 'appeal_rejected',
+                       'message_request', 'redrop',
+                       'follow_request', 'follow_request_accepted',
+                       'system',
+                       'club_post_new', 'club_post_pinned',
+                       'club_invite',
+                       'new_message'
+                     ));" >/dev/null
+          echo "Done."
+
+          echo "=== 3. notify_new_message() trigger function + trigger ==="
+          run_sql "create or replace function public.notify_new_message()
+                   returns trigger
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   declare
+                     v_conversation public.conversations;
+                     v_recipient uuid;
+                   begin
+                     select * into v_conversation from public.conversations where id = new.conversation_id;
+                     if v_conversation is null or v_conversation.status <> 'active' then
+                       return new;
+                     end if;
+
+                     v_recipient := case when v_conversation.user_a_id = new.sender_id
+                                          then v_conversation.user_b_id
+                                          else v_conversation.user_a_id end;
+
+                     -- WYN-031: respects the recipient's own per-conversation mute.
+                     if exists (
+                       select 1 from public.conversation_mutes
+                       where conversation_id = new.conversation_id and user_id = v_recipient
+                     ) then
+                       return new;
+                     end if;
+
+                     if internal.notification_enabled(v_recipient, 'messages') then
+                       insert into public.notifications (recipient_id, actor_id, type, conversation_id)
+                       values (v_recipient, new.sender_id, 'new_message', new.conversation_id);
+                     end if;
+
+                     return new;
+                   end;
+                   \$fn\$;
+
+                   drop trigger if exists messages_notify_new_message on public.messages;
+                   create trigger messages_notify_new_message
+                     after insert on public.messages
+                     for each row execute function public.notify_new_message();" >/dev/null
+          echo "Done."
+
+          echo "=== 4. Re-define mark_conversation_read() -- now also clears new_message unread ==="
+          run_sql "create or replace function public.mark_conversation_read(p_conversation_id uuid)
+                   returns void
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   declare
+                     v_me uuid := auth.uid();
+                   begin
+                     if v_me is null then
+                       raise exception 'Not authenticated';
+                     end if;
+
+                     update public.conversations
+                     set user_a_last_read_at = case when user_a_id = v_me then now() else user_a_last_read_at end,
+                         user_b_last_read_at = case when user_b_id = v_me then now() else user_b_last_read_at end
+                     where id = p_conversation_id and v_me in (user_a_id, user_b_id);
+
+                     if not found then
+                       raise exception 'Conversation not found, or you are not a participant';
+                     end if;
+
+                     update public.notifications
+                     set is_read = true
+                     where recipient_id = v_me
+                       and conversation_id = p_conversation_id
+                       and type = 'new_message'
+                       and is_read = false;
+                   end;
+                   \$fn\$;" >/dev/null
+          echo "Done."
+
+          echo "=== 5. Verify: constraint + trigger + function now present ==="
+          run_sql "select conname from pg_constraint where conname = 'notifications_type_check';" | jq .
+          run_sql "select tgname from pg_trigger where tgname = 'messages_notify_new_message';" | jq .
+          run_sql "select proname from pg_proc where pronamespace = 'public'::regnamespace and proname in ('notify_new_message', 'mark_conversation_read') order by proname;" | jq .
+
+          echo "=== 6. Smoke test: print the constraint definition for a human eyeball-check that 'new_message' is in the allowed list ==="
+          run_sql "select pg_get_constraintdef(oid) as notifications_type_check_definition from pg_constraint where conname = 'notifications_type_check';" | jq .

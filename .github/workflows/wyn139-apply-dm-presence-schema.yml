@@ -1,0 +1,187 @@
+name: WYN-139 -- apply DM presence schema (table, RPCs)
+
+# Same established gap as every prior WYN-*-apply-*-schema.yml in this
+# project (wyn138, wyn136, wyn133, wyn127, ...): schema.sql does not
+# auto-apply to production, it only describes the desired end state.
+# This workflow applies WYN-139's own section (DM Presence -- Typing
+# Indicator + Online/Last Seen, .wyn/tasks/approved/WYN-139-dm-presence-typing-online.md).
+#
+# RUN ORDER: independent of WYN-134/136/138 -- user_presence is a
+# brand new, standalone table with no FK into any of those.
+#
+# Every statement below is copy-paste identical (in meaning) to the
+# WYN-139 section of supabase/schema.sql (search "WYN-139: DM
+# Presence") and to supabase/migrations_wyn139_dm_presence.sql -- if
+# the three ever drift, schema.sql/the migrations file is wrong, not
+# this workflow (this file is what actually ran against production).
+#
+# PRIVACY NOTE: deliberately a table separate from `profiles` --
+# `profiles`' own SELECT policy is `using (true)` (every authenticated
+# user can read every column of every row), so a last_seen_at/
+# show_online_status column living there directly would leak with no
+# reciprocal check at all. user_presence's own SELECT policy below is
+# strict "your own row only" -- the only way a client reads someone
+# else's presence is get_conversation_partner_presence(), which
+# enforces the reciprocal privacy check (Requirement, WhatsApp-standard:
+# turning your own visibility off also hides everyone else's from you)
+# in the same statement server-side.
+#
+# SAFETY: additive only -- user_presence is a brand new table, nothing
+# existing is touched or redefined.
+#
+# Safe to run more than once (CREATE TABLE IF NOT EXISTS, DROP POLICY
+# IF EXISTS before CREATE, CREATE OR REPLACE FUNCTION) -- validated
+# locally via supabase/tests/wyn_139_dm_presence_test.sh against a
+# scratch PostgreSQL loaded with the full schema.sql, including a
+# direct RLS-bypass test on user_presence (querying the table straight,
+# skipping the RPC, confirmed blocked) per
+# .wyn/logs/deployments/2026-09-07-wyn-134-136-137-138-139-phase-a-go-live-package.md.
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== 0. Diagnose: does user_presence already exist? ==="
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name = 'user_presence';" | jq .
+
+          echo "=== 1. Create user_presence + RLS (idempotent) ==="
+          run_sql "create table if not exists public.user_presence (
+                     user_id uuid primary key references public.profiles (id) on delete cascade,
+                     show_online_status boolean not null default true,
+                     last_seen_at timestamptz,
+                     updated_at timestamptz not null default now()
+                   );
+
+                   alter table public.user_presence enable row level security;
+
+                   drop policy if exists \"Users can view their own presence row\" on public.user_presence;
+                   create policy \"Users can view their own presence row\"
+                     on public.user_presence
+                     for select
+                     to authenticated
+                     using (auth.uid() = user_id);
+
+                   drop policy if exists \"Users can insert their own presence row\" on public.user_presence;
+                   create policy \"Users can insert their own presence row\"
+                     on public.user_presence
+                     for insert
+                     to authenticated
+                     with check (auth.uid() = user_id);
+
+                   drop policy if exists \"Users can update their own presence row\" on public.user_presence;
+                   create policy \"Users can update their own presence row\"
+                     on public.user_presence
+                     for update
+                     to authenticated
+                     using (auth.uid() = user_id)
+                     with check (auth.uid() = user_id);" >/dev/null
+          echo "Done."
+
+          echo "=== 2. touch_my_presence() RPC (own row only) ==="
+          run_sql "create or replace function public.touch_my_presence()
+                   returns void
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   begin
+                     insert into public.user_presence (user_id, last_seen_at)
+                     values (auth.uid(), now())
+                     on conflict (user_id) do update
+                       set last_seen_at = excluded.last_seen_at, updated_at = now();
+                   end;
+                   \$fn\$;
+
+                   grant execute on function public.touch_my_presence() to authenticated;" >/dev/null
+          echo "Done."
+
+          echo "=== 3. get_conversation_partner_presence() RPC (reciprocal privacy check) ==="
+          run_sql "create or replace function public.get_conversation_partner_presence(p_conversation_id uuid)
+                   returns table (show_online boolean, last_seen_at timestamptz)
+                   language plpgsql
+                   stable
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   declare
+                     v_me uuid := auth.uid();
+                     v_other uuid;
+                     v_my_show boolean;
+                     v_other_show boolean;
+                   begin
+                     if v_me is null then
+                       raise exception 'Not authenticated';
+                     end if;
+
+                     select case when user_a_id = v_me then user_b_id
+                                 when user_b_id = v_me then user_a_id end
+                     into v_other
+                     from public.conversations
+                     where id = p_conversation_id and v_me in (user_a_id, user_b_id);
+
+                     if v_other is null then
+                       raise exception 'Conversation not found, or you are not a participant';
+                     end if;
+
+                     select coalesce(up.show_online_status, true) into v_my_show
+                     from public.user_presence up where up.user_id = v_me;
+                     select coalesce(up.show_online_status, true) into v_other_show
+                     from public.user_presence up where up.user_id = v_other;
+
+                     if coalesce(v_my_show, true) = false or coalesce(v_other_show, true) = false then
+                       return query select false, null::timestamptz;
+                       return;
+                     end if;
+
+                     -- Coding-time fix vs. the design doc's literal SQL (a \`from
+                     -- user_presence where user_id = v_other\` here returns *zero* rows,
+                     -- not a row with a null last_seen_at, for a partner who has never had
+                     -- a user_presence row written at all yet -- e.g. a brand new account
+                     -- that has been online continuously since signup and never once
+                     -- backgrounded the app to trigger touch_my_presence()). The design
+                     -- doc's own Edge Cases section explicitly expects a returned row with
+                     -- last_seen_at = null in that case (\"last_seen_at เป็น null จริง\"), not
+                     -- an empty result -- a scalar subquery guarantees exactly one row is
+                     -- always returned once reciprocal-check has passed, with last_seen_at
+                     -- naturally null when no row exists yet.
+                     return query
+                       select true, (select up.last_seen_at from public.user_presence up where up.user_id = v_other);
+                   end;
+                   \$fn\$;
+
+                   grant execute on function public.get_conversation_partner_presence(uuid) to authenticated;" >/dev/null
+          echo "Done."
+
+          echo "=== 4. Verify: table + both functions now present ==="
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name = 'user_presence';" | jq .
+          run_sql "select proname from pg_proc where pronamespace = 'public'::regnamespace and proname in ('touch_my_presence', 'get_conversation_partner_presence') order by proname;" | jq .
+
+          echo "=== 5. Smoke test: query against real data (should return cleanly, even if empty) ==="
+          run_sql "select count(*) from public.user_presence;" | jq .

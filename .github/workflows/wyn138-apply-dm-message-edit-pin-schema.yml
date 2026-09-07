@@ -1,0 +1,232 @@
+name: WYN-138 -- apply DM message edit + pin schema (column, table, RPCs)
+
+# Same established gap as every prior WYN-*-apply-*-schema.yml in this
+# project (wyn136, wyn133, wyn127, wyn125, ...): schema.sql does not
+# auto-apply to production, it only describes the desired end state.
+# This workflow applies WYN-138's own section (DM Edit + Pin Message,
+# .wyn/tasks/approved/WYN-138-dm-message-edit-pin.md).
+#
+# RUN ORDER: independent of WYN-134/136/139 -- touches only
+# messages/conversations (existing, WYN-031), no dependency either way.
+# Step 6 (delete_message) is a full re-definition of an existing
+# function, not a new one -- included here because it now also
+# auto-unpins on delete.
+#
+# Every statement below is copy-paste identical (in meaning) to the
+# WYN-138 section of supabase/schema.sql (search "WYN-138: DM Message
+# Actions") and to supabase/migrations_wyn138_dm_message_edit_pin.sql
+# -- if the three ever drift, schema.sql/the migrations file is wrong,
+# not this workflow (this file is what actually ran against production).
+#
+# SAFETY: additive except step 6.
+#   * messages.edited_at is a new nullable column -- no existing row affected.
+#   * message_pins is a brand new table.
+#   * edit_message()/pin_message()/unpin_message() are new functions.
+#   * delete_message() is redefined to ALSO delete from message_pins
+#     (impossible before this table existed) -- its own existing
+#     soft-delete behavior (null out text/image/shared_content,
+#     set deleted_at, sender-only, not-already-deleted) is unchanged;
+#     validated by re-running the WYN-031/032/033 regression suites
+#     alongside the new WYN-138 one (see the QA report cited below).
+#
+# Safe to run more than once (ADD COLUMN IF NOT EXISTS, CREATE TABLE/
+# INDEX IF NOT EXISTS, DROP POLICY IF EXISTS before CREATE, CREATE OR
+# REPLACE FUNCTION) -- validated locally via
+# supabase/tests/wyn_138_dm_message_edit_pin_test.sh against a scratch
+# PostgreSQL loaded with the full schema.sql, including the
+# reply-quote-preview regression this task's own design doc flagged
+# (see .wyn/logs/deployments/2026-09-07-wyn-134-136-137-138-139-phase-a-go-live-package.md).
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== 0. Diagnose: does messages.edited_at / message_pins already exist? ==="
+          run_sql "select column_name from information_schema.columns where table_schema = 'public' and table_name = 'messages' and column_name = 'edited_at';" | jq .
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name = 'message_pins';" | jq .
+
+          echo "=== 1. Add messages.edited_at (nullable) ==="
+          run_sql "alter table public.messages add column if not exists edited_at timestamptz;" >/dev/null
+          echo "Done."
+
+          echo "=== 2. edit_message() RPC (own plain-text message only) ==="
+          run_sql "create or replace function public.edit_message(p_message_id uuid, p_text text)
+                   returns void
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   declare
+                     v_trimmed text := trim(coalesce(p_text, ''));
+                   begin
+                     if length(v_trimmed) = 0 then
+                       raise exception 'Message text cannot be empty';
+                     end if;
+
+                     update public.messages
+                     set text = v_trimmed, edited_at = now()
+                     where id = p_message_id
+                       and sender_id = auth.uid()
+                       and deleted_at is null
+                       and image_url is null
+                       and shared_content_id is null;
+
+                     if not found then
+                       raise exception 'Message not found, not yours, deleted, or not a plain text message';
+                     end if;
+                   end;
+                   \$fn\$;
+
+                   grant execute on function public.edit_message(uuid, text) to authenticated;" >/dev/null
+          echo "Done."
+
+          echo "=== 3. Create message_pins + RLS (idempotent) ==="
+          run_sql "create table if not exists public.message_pins (
+                     conversation_id uuid not null references public.conversations (id) on delete cascade,
+                     message_id uuid not null references public.messages (id) on delete cascade,
+                     pinned_by uuid not null references public.profiles (id) on delete cascade,
+                     pinned_at timestamptz not null default now(),
+                     primary key (conversation_id, message_id)
+                   );
+
+                   create index if not exists message_pins_conversation_idx
+                     on public.message_pins (conversation_id, pinned_at desc);
+
+                   alter table public.message_pins enable row level security;
+
+                   drop policy if exists \"Participants can view pinned messages in their conversations\" on public.message_pins;
+                   create policy \"Participants can view pinned messages in their conversations\"
+                     on public.message_pins
+                     for select
+                     to authenticated
+                     using (
+                       exists (
+                         select 1 from public.conversations c
+                         where c.id = conversation_id and auth.uid() in (c.user_a_id, c.user_b_id)
+                       )
+                     );" >/dev/null
+          echo "Done."
+
+          echo "=== 4. pin_message() RPC (either participant, capped at 3) ==="
+          run_sql "create or replace function public.pin_message(p_message_id uuid)
+                   returns void
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   declare
+                     v_me uuid := auth.uid();
+                     v_conversation_id uuid;
+                     v_deleted_at timestamptz;
+                     v_count int;
+                   begin
+                     select conversation_id, deleted_at into v_conversation_id, v_deleted_at
+                     from public.messages where id = p_message_id;
+
+                     if v_conversation_id is null then
+                       raise exception 'Message not found';
+                     end if;
+                     if v_deleted_at is not null then
+                       raise exception 'Cannot pin a deleted message';
+                     end if;
+                     if not exists (
+                       select 1 from public.conversations c
+                       where c.id = v_conversation_id and v_me in (c.user_a_id, c.user_b_id)
+                     ) then
+                       raise exception 'Not a participant of this conversation';
+                     end if;
+
+                     select count(*) into v_count from public.message_pins where conversation_id = v_conversation_id;
+                     if v_count >= 3 then
+                       raise exception 'At most 3 pinned messages allowed per conversation';
+                     end if;
+
+                     insert into public.message_pins (conversation_id, message_id, pinned_by)
+                     values (v_conversation_id, p_message_id, v_me)
+                     on conflict (conversation_id, message_id) do nothing;
+                   end;
+                   \$fn\$;
+
+                   grant execute on function public.pin_message(uuid) to authenticated;" >/dev/null
+          echo "Done."
+
+          echo "=== 5. unpin_message() RPC (either participant) ==="
+          run_sql "create or replace function public.unpin_message(p_message_id uuid)
+                   returns void
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   declare
+                     v_me uuid := auth.uid();
+                   begin
+                     delete from public.message_pins mp
+                     using public.conversations c
+                     where mp.message_id = p_message_id
+                       and mp.conversation_id = c.id
+                       and v_me in (c.user_a_id, c.user_b_id);
+
+                     if not found then
+                       raise exception 'Pinned message not found, or you are not a participant';
+                     end if;
+                   end;
+                   \$fn\$;
+
+                   grant execute on function public.unpin_message(uuid) to authenticated;" >/dev/null
+          echo "Done."
+
+          echo "=== 6. Re-define delete_message() -- now also auto-unpins ==="
+          run_sql "create or replace function public.delete_message(p_message_id uuid)
+                   returns void
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   begin
+                     update public.messages
+                     set text = null, image_url = null, shared_content_type = null, shared_content_id = null, deleted_at = now()
+                     where id = p_message_id and sender_id = auth.uid() and deleted_at is null;
+
+                     if not found then
+                       raise exception 'Message not found, already deleted, or not yours';
+                     end if;
+
+                     delete from public.message_pins where message_id = p_message_id;
+                   end;
+                   \$fn\$;" >/dev/null
+          echo "Done."
+
+          echo "=== 7. Verify: column + table + all 4 functions now present ==="
+          run_sql "select column_name from information_schema.columns where table_schema = 'public' and table_name = 'messages' and column_name = 'edited_at';" | jq .
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name = 'message_pins';" | jq .
+          run_sql "select proname from pg_proc where pronamespace = 'public'::regnamespace and proname in ('edit_message', 'pin_message', 'unpin_message', 'delete_message') order by proname;" | jq .
+
+          echo "=== 8. Smoke test: pin cap invariant against real data (must return 0 rows) ==="
+          run_sql "select conversation_id, count(*) from public.message_pins group by conversation_id having count(*) > 3;" | jq .
