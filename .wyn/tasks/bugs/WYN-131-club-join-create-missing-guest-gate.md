@@ -1,6 +1,6 @@
 # Bug Report — WYN-131
 
-Status: fixed (client-side only, no SQL to apply)
+Status: deployed (PR #300 merged `c576a8d`, `deploy-web.yml` run #98 succeeded) — awaiting Founder's own in-app verification, see `.wyn/logs/deployments/2026-09-07-wyn-130-131-club-ghost-accounts-guest-gate-deploy.md`
 Owner: AI Debug Engineer
 
 Bug: Founder reported opening a Club share link (`https://wynos.online/club/b3f010b9-b788-41f8-8e86-c7abb717b6d2`) while not signed in, tapping "เข้าร่วม" (Join), and getting in immediately as what they described as a "ghost account" — and asked that people with no account not be able to tap Join at all.
