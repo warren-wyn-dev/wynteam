@@ -1,7 +1,9 @@
 # Product Task — WYN-128
 
-Status: **QA รอบ 2: PASS (2026-09-07) — พร้อม Deploy** — ตรวจซ้ำทั้ง 2 fix อิสระด้วย live PostgreSQL 16.13: (1) member รายงานข้อความคนอื่นได้จริง, เจ้าของรายงานตัวเองไม่ได้, non-member รายงานไม่ได้, admin สั่ง remove_content ลบข้อความจริง+แจ้งเตือนผู้เขียน (2) staged-rollout gate ปิดช่องจริง — `flutter analyze`/`flutter test` (1377/1377) ผ่านหมด
-Owner: AI Product Manager → AI Design (เสร็จ) → Founder อนุมัติสถาปัตยกรรม (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (เสร็จ) → AI QA & Security (เสร็จ, PASS) → AI Deploy & DevOps (ถัดไป)
+Status: **approved — go-live package พร้อมส่งมอบ Founder (2026-09-07)** — QA รอบ 2 PASS แล้วยืนยันซ้ำอิสระโดย AI Deploy & DevOps: `flutter analyze` clean, `flutter test` 1377/1377 ผ่านจริงบน branch head, `migrations_wyn128_club_channel_messages.sql` (เวอร์ชันล่าสุดที่รวม fast-follow report support แล้ว) ตรงกับ `schema.sql` ทุกบรรทัด ไม่มี drift, ทดสอบรันจริงหลัง WYN-127 บนข้อมูลจำลอง "production ก่อนมีฟีเจอร์นี้" สำเร็จ (ยืนยันด้วยว่ารันก่อน WYN-127 จะ fail แล้ว rollback สะอาดทั้งไฟล์ ไม่ทิ้ง state ค้าง) — **ยังไม่ deploy จริง** รอ Founder รัน migration SQL ผ่าน Supabase Dashboard + trigger `deploy-web.yml` ตามขั้นตอนใน `.wyn/logs/deployments/2026-09-07-wyn-127-128-129-club-discord-identity-go-live-package.md` เดิม: ตรวจซ้ำทั้ง 2 fix อิสระด้วย live PostgreSQL 16.13: (1) member รายงานข้อความคนอื่นได้จริง, เจ้าของรายงานตัวเองไม่ได้, non-member รายงานไม่ได้, admin สั่ง remove_content ลบข้อความจริง+แจ้งเตือนผู้เขียน (2) staged-rollout gate ปิดช่องจริง
+Owner: AI Product Manager → AI Design (เสร็จ) → Founder อนุมัติสถาปัตยกรรม (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (เสร็จ) → AI QA & Security (เสร็จ, PASS) → AI Deploy & DevOps (เสร็จ, go-live package พร้อม) → **รอ Founder ดำเนินการ deploy จริง**
+
+Handoff: ดูขั้นตอน deploy แบบละเอียด (ลำดับ migration — **WYN-128 ต้องรันหลัง WYN-127 เสมอ** เพราะผูกกับ `club_channels`, การตรวจสอบหลัง deploy, rollback plan) ที่ `.wyn/logs/deployments/2026-09-07-wyn-127-128-129-club-discord-identity-go-live-package.md` — Task นี้ย้ายไป `.wyn/tasks/completed/` ได้ก็ต่อเมื่อ Founder ยืนยันใช้งานจริงบน production แล้วเท่านั้น (ตาม `.wyn/company/WORKFLOW.md`)
 
 Feature: Club Group Chat — ห้องแชทสด (real-time) **ต่อห้อง (channel)** แยกจากฟีดโพสต์ของห้องนั้น
 

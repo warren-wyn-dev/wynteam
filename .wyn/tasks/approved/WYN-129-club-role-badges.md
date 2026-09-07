@@ -1,7 +1,9 @@
 # Product Task — WYN-129
 
-Status: **QA รอบ 2: PASS (2026-09-07) — พร้อม Deploy** — ตรวจซ้ำช่องโหว่ RLS เดิมด้วย exploit script ของ QA เองอีกครั้ง (ไม่ใช่แค่ test ของ Debug): retarget badge ไปหา non-member ถูกปฏิเสธแล้วจริง, badge เดิมไม่ถูกแตะ, แก้ label/color ที่ user_id เดิมยังทำได้ปกติ (ไม่กระทบการใช้งานจริง) — `flutter analyze`/`flutter test` (1377/1377) ผ่านหมด
-Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (เสร็จ) → AI QA & Security (เสร็จ, PASS) → AI Deploy & DevOps (ถัดไป)
+Status: **approved — go-live package พร้อมส่งมอบ Founder (2026-09-07)** — QA รอบ 2 PASS แล้วยืนยันซ้ำอิสระโดย AI Deploy & DevOps: `flutter analyze` clean, `flutter test` 1377/1377 ผ่านจริงบน branch head, `migrations_wyn129_club_member_badges.sql` (เวอร์ชันล่าสุดที่ปิด RLS update-retarget gap แล้ว) ตรงกับ `schema.sql` ทุกบรรทัด ไม่มี drift, ทดสอบรันจริงบนข้อมูลจำลอง "production ก่อนมีฟีเจอร์นี้" สำเร็จ — **ยังไม่ deploy จริง** รอ Founder รัน migration SQL ผ่าน Supabase Dashboard + trigger `deploy-web.yml` ตามขั้นตอนใน `.wyn/logs/deployments/2026-09-07-wyn-127-128-129-club-discord-identity-go-live-package.md` เดิม: ตรวจซ้ำช่องโหว่ RLS เดิมด้วย exploit script ของ QA เองอีกครั้ง (ไม่ใช่แค่ test ของ Debug): retarget badge ไปหา non-member ถูกปฏิเสธแล้วจริง, badge เดิมไม่ถูกแตะ, แก้ label/color ที่ user_id เดิมยังทำได้ปกติ (ไม่กระทบการใช้งานจริง)
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (เสร็จ) → AI QA & Security (เสร็จ, PASS) → AI Deploy & DevOps (เสร็จ, go-live package พร้อม) → **รอ Founder ดำเนินการ deploy จริง**
+
+Handoff: ดูขั้นตอน deploy แบบละเอียด (ลำดับ migration ไม่ผูกกับ WYN-127/128 เลย รันตอนไหนก็ได้, การตรวจสอบหลัง deploy, rollback plan) ที่ `.wyn/logs/deployments/2026-09-07-wyn-127-128-129-club-discord-identity-go-live-package.md` — Task นี้ย้ายไป `.wyn/tasks/completed/` ได้ก็ต่อเมื่อ Founder ยืนยันใช้งานจริงบน production แล้วเท่านั้น (ตาม `.wyn/company/WORKFLOW.md`)
 
 Feature: Club Role Badge — ป้ายชื่อ/สีที่ Owner ตั้งเองได้ ติดข้าง role ของสมาชิก
 
