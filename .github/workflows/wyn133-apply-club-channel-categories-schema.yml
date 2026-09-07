@@ -1,0 +1,123 @@
+name: WYN-133 -- apply club channel categories schema (table, RLS, column)
+
+# Same established gap as every prior WYN-*-apply-*-schema.yml in this
+# project (wyn127, wyn125, wyn118, ...): schema.sql does not auto-apply
+# to production, it only describes the desired end state. This workflow
+# applies WYN-133's own section (requirement 7 -- channel categories).
+#
+# RUN ORDER: must run AFTER wyn127-apply-club-channels-schema.yml --
+# club_channels.category_id's FK references public.club_channel_categories(id),
+# and this workflow also alters public.club_channels itself, so
+# club_channels must already exist.
+#
+# Every statement below is copy-paste identical (in meaning) to the
+# WYN-133 section of supabase/schema.sql (search "WYN-133: Club Chat
+# channel categories") and to supabase/migrations_wyn133_club_channel_categories.sql
+# -- if the three ever drift, schema.sql/the migrations file is wrong,
+# not this workflow (this file is what actually ran against production).
+#
+# SAFETY: additive only, no destructive step, no backfill needed.
+#   * club_channel_categories is a brand new table.
+#   * category_id is added nullable -- every existing channel stays
+#     "ไม่มีกลุ่ม" with zero migration required.
+#   * on delete set null means deleting a category can never delete a
+#     channel -- only clears its category_id.
+#
+# Safe to run more than once (CREATE TABLE/INDEX IF NOT EXISTS, DROP
+# POLICY IF EXISTS before CREATE, ADD COLUMN IF NOT EXISTS) -- validated
+# locally via supabase/tests/wyn_133_club_channel_categories_test.sh
+# against a scratch PostgreSQL loaded with the full schema.sql.
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== 0. Diagnose: does club_channel_categories / club_channels.category_id already exist? ==="
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name = 'club_channel_categories';" | jq .
+          run_sql "select column_name from information_schema.columns where table_schema = 'public' and table_name = 'club_channels' and column_name = 'category_id';" | jq .
+
+          echo "=== 1. Create club_channel_categories (idempotent) + RLS ==="
+          run_sql "create table if not exists public.club_channel_categories (
+                     id uuid primary key default gen_random_uuid(),
+                     club_id uuid not null references public.clubs (id) on delete cascade,
+                     name text not null,
+                     created_by uuid not null references public.profiles (id) on delete cascade,
+                     created_at timestamptz not null default now(),
+                     constraint club_channel_categories_name_length check (char_length(name) between 1 and 50)
+                   );
+
+                   create unique index if not exists club_channel_categories_club_id_lower_name_key
+                     on public.club_channel_categories (club_id, lower(name));
+
+                   alter table public.club_channel_categories enable row level security;
+
+                   drop policy if exists \"Club channel categories are viewable by authenticated users\" on public.club_channel_categories;
+                   create policy \"Club channel categories are viewable by authenticated users\"
+                     on public.club_channel_categories
+                     for select
+                     to authenticated
+                     using (true);
+
+                   drop policy if exists \"Club owners and admins can create channel categories\" on public.club_channel_categories;
+                   create policy \"Club owners and admins can create channel categories\"
+                     on public.club_channel_categories
+                     for insert
+                     to authenticated
+                     with check (
+                       auth.uid() = created_by
+                       and public.club_role(club_id, auth.uid()) in ('owner', 'admin')
+                     );
+
+                   drop policy if exists \"Club owners and admins can rename channel categories\" on public.club_channel_categories;
+                   create policy \"Club owners and admins can rename channel categories\"
+                     on public.club_channel_categories
+                     for update
+                     to authenticated
+                     using (public.club_role(club_id, auth.uid()) in ('owner', 'admin'));
+
+                   drop policy if exists \"Club owners and admins can delete channel categories\" on public.club_channel_categories;
+                   create policy \"Club owners and admins can delete channel categories\"
+                     on public.club_channel_categories
+                     for delete
+                     to authenticated
+                     using (public.club_role(club_id, auth.uid()) in ('owner', 'admin'));" >/dev/null
+          echo "Done."
+
+          echo "=== 2. Add club_channels.category_id (nullable, ON DELETE SET NULL) ==="
+          run_sql "alter table public.club_channels
+                     add column if not exists category_id uuid references public.club_channel_categories (id) on delete set null;" >/dev/null
+          echo "Done."
+
+          echo "=== 3. Verify: table + column now present ==="
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name = 'club_channel_categories';" | jq .
+          run_sql "select column_name, is_nullable from information_schema.columns where table_schema = 'public' and table_name = 'club_channels' and column_name = 'category_id';" | jq .
+
+          echo "=== 4. Smoke test: query against real data (should return cleanly, even if empty) ==="
+          run_sql "select cc.id, cc.club_id, cc.name from public.club_channel_categories cc limit 5;" | jq .

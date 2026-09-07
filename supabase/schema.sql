@@ -14040,3 +14040,70 @@ end;
 $$;
 
 grant execute on function public.club_event_attendee_profiles(uuid, text) to authenticated;
+
+-- WYN-133: Club Chat channel categories -- Discord-style grouping of
+-- club_channels (WYN-127) under a named header, e.g. Founder-requested
+-- after seeing a Discord screenshot with grouped channel lists. See
+-- .wyn/tasks/backlog/WYN-133-club-chat-channel-navigation.md (requirement
+-- 7) and .wyn/docs/design/wyn-133-club-chat-channel-navigation.md.
+--
+-- A category is purely organizational: deleting one never deletes its
+-- channels (category_id's ON DELETE SET NULL below), and a channel with
+-- no category is exactly today's pre-WYN-133 flat-list channel -- this
+-- table is additive/opt-in, not a required migration for any existing
+-- Club. Same permission shape as club_channels itself: any authenticated
+-- user can read, only that Club's owner/admin can write.
+create table if not exists public.club_channel_categories (
+  id uuid primary key default gen_random_uuid(),
+  club_id uuid not null references public.clubs (id) on delete cascade,
+  name text not null,
+  created_by uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  constraint club_channel_categories_name_length check (char_length(name) between 1 and 50)
+);
+
+-- Case-insensitive per-Club uniqueness, same shape as
+-- club_channels_club_id_lower_name_key.
+create unique index if not exists club_channel_categories_club_id_lower_name_key
+  on public.club_channel_categories (club_id, lower(name));
+
+alter table public.club_channel_categories enable row level security;
+
+create policy "Club channel categories are viewable by authenticated users"
+  on public.club_channel_categories
+  for select
+  to authenticated
+  using (true);
+
+create policy "Club owners and admins can create channel categories"
+  on public.club_channel_categories
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = created_by
+    and public.club_role(club_id, auth.uid()) in ('owner', 'admin')
+  );
+
+create policy "Club owners and admins can rename channel categories"
+  on public.club_channel_categories
+  for update
+  to authenticated
+  using (public.club_role(club_id, auth.uid()) in ('owner', 'admin'));
+
+create policy "Club owners and admins can delete channel categories"
+  on public.club_channel_categories
+  for delete
+  to authenticated
+  using (public.club_role(club_id, auth.uid()) in ('owner', 'admin'));
+
+-- Nullable by design: every channel that exists before this migration (or
+-- that's simply never assigned one) stays "ไม่มีกลุ่ม" with zero backfill
+-- needed. ON DELETE SET NULL is what makes "ลบกลุ่มแล้วห้องไม่หาย" true at
+-- the database level, for free, with no extra application logic --
+-- deleting a category just clears category_id on its former channels.
+-- Reuses club_channels' existing "Club owners and admins can rename
+-- channels" UPDATE policy (an unrestricted-by-column USING clause) --
+-- no new RLS policy needed to let an owner/admin move a channel between
+-- categories.
+alter table public.club_channels
+  add column if not exists category_id uuid references public.club_channel_categories (id) on delete set null;

@@ -6,18 +6,21 @@ import '../../data/club_channel.dart';
 import '../../data/club_channel_chat_repository.dart';
 import '../../data/club_member.dart';
 import '../../data/club_repository.dart';
-import 'club_channel_chat_view.dart';
-import 'club_channel_switcher.dart';
+import 'club_channel_dialogs.dart';
+import 'club_channel_screen.dart';
+import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
 
 /// The "แชท" top-level Club tab -- Discord-style: create as many chat
-/// rooms ("ห้อง") as you want (Founder, 2026-09-07). Everything here used
-/// to live nested inside the Posts tab behind a "โพสต์ | แชท" toggle
-/// (WYN-127/128); the Founder's post-restructuring decision split it out
-/// into its own tab and dropped the per-channel post split entirely --
-/// channels are a chat-only concept now (see ClubPostsTab's own doc
-/// comment). Only reached at all for a developer account -- see
-/// ClubPage's `showChat` gate, mirroring `showEvents`/`showInsights`.
+/// rooms ("ห้อง") as you want (Founder, 2026-09-07), optionally grouped
+/// under named categories (WYN-133 requirement 7, Founder 2026-09-07:
+/// "อยากห้องให้แชท มี วง" after seeing a Discord screenshot with grouped
+/// channel headers). This tab shows the **channel list only** -- tapping
+/// a row navigates to a dedicated full-screen room ([ClubChannelScreen])
+/// instead of swapping content under a chip bar that never left the
+/// screen (see .wyn/docs/design/wyn-133-club-chat-channel-navigation.md).
+/// Only reached at all for a developer account -- see ClubPage's
+/// `showChat` gate, mirroring `showEvents`/`showInsights`.
 class ClubChatTab extends StatefulWidget {
   const ClubChatTab({
     super.key,
@@ -28,14 +31,14 @@ class ClubChatTab extends StatefulWidget {
     ClubChannelChatRepository? clubChannelChatRepository,
   }) : _clubChannelChatRepository = clubChannelChatRepository;
 
-  /// WYN-127: owns `club_channels` reads/writes.
+  /// WYN-127/133: owns `club_channels`/`club_channel_categories` reads/writes.
   final ClubRepository clubRepository;
   final Club club;
   final ClubMemberRole? myRole;
 
-  /// WYN-128: bubbled up from ClubChannelChatView when this user's own
-  /// membership in [club] is banned/removed while the chat view is open
-  /// -- see that widget's own doc comment for why this tab (not the chat
+  /// WYN-128: bubbled up from [ClubChannelScreen] when this user's own
+  /// membership in [club] is banned/removed while a chat room is open --
+  /// see that widget's own doc comment for why this tab (not the chat
   /// view itself) is what reacts.
   final VoidCallback? onBanned;
 
@@ -52,19 +55,24 @@ class _ClubChatTabState extends State<ClubChatTab> {
       widget._clubChannelChatRepository ?? ClubChannelChatRepository(Supabase.instance.client);
 
   List<ClubChannel>? _channels;
-  String? _selectedChannelId;
+  List<ClubChannelCategory>? _categories;
   String? _channelsError;
 
-  /// WYN-128: unread message count per channel id -- shown as a small
-  /// dot on each channel chip in [ClubChannelSwitcher] now that there's
-  /// no single "แชท" toggle segment left to badge (this tab *is* the
-  /// chat). Kept live by [_unreadSubscription] for whichever channel
-  /// isn't the one currently open.
+  /// WYN-128/133: unread message count per channel id -- a dot on each
+  /// channel row on this list, live-updated by [_unreadSubscriptions]
+  /// (one per channel, since a Postgres realtime filter can only match
+  /// one column -- `subscribeToNewMessagesOnly` is channel-scoped) while
+  /// this list is on screen, and resynced from the server every time a
+  /// pushed [ClubChannelScreen] is popped back to this list (see
+  /// [_openChannel]) -- that pushed screen's own
+  /// `ClubChannelChatView.markChannelRead` call already happened by
+  /// then, so the resync is what actually clears that channel's dot.
   Map<String, int> _unreadCounts = {};
-  RealtimeChannel? _unreadSubscription;
+  final List<RealtimeChannel> _unreadSubscriptions = [];
 
   bool get _isMember => widget.myRole != null;
   bool get _canManageChannels => widget.myRole?.canManageClub ?? false;
+  String get _myUserId => Supabase.instance.client.auth.currentUser!.id;
 
   @override
   void initState() {
@@ -79,28 +87,24 @@ class _ClubChatTabState extends State<ClubChatTab> {
   }
 
   void _unsubscribeUnread() {
-    final subscription = _unreadSubscription;
-    if (subscription != null) {
+    for (final subscription in _unreadSubscriptions) {
       _clubChannelChatRepository.unsubscribe(subscription);
-      _unreadSubscription = null;
     }
+    _unreadSubscriptions.clear();
   }
 
-  /// Keeps [_unreadCounts] live for [channelId] while its chat view isn't
-  /// the one open -- a lighter-weight subscription than the one
-  /// ClubChannelChatView itself opens (no presence tracking), and never
-  /// runs at the same time as that one (see [_selectChannel]).
-  void _subscribeUnread(String channelId) {
+  void _subscribeUnreadAll(List<ClubChannel> channels) {
     _unsubscribeUnread();
-    _unreadSubscription = _clubChannelChatRepository.subscribeToNewMessagesOnly(
-      channelId,
-      (message) {
-        if (!mounted || message.authorId == Supabase.instance.client.auth.currentUser!.id) return;
-        setState(() {
-          _unreadCounts = {...(_unreadCounts), channelId: (_unreadCounts[channelId] ?? 0) + 1};
-        });
-      },
-    );
+    for (final channel in channels) {
+      _unreadSubscriptions.add(
+        _clubChannelChatRepository.subscribeToNewMessagesOnly(channel.id, (message) {
+          if (!mounted || message.authorId == _myUserId) return;
+          setState(() {
+            _unreadCounts = {...(_unreadCounts), channel.id: (_unreadCounts[channel.id] ?? 0) + 1};
+          });
+        }),
+      );
+    }
   }
 
   Future<void> _loadUnreadCounts() async {
@@ -110,7 +114,7 @@ class _ClubChatTabState extends State<ClubChatTab> {
       setState(() => _unreadCounts = counts);
     } catch (_) {
       // Fails open -- an unread dot is a nicety, never worth blocking the
-      // channel switcher over.
+      // channel list over.
     }
   }
 
@@ -118,31 +122,18 @@ class _ClubChatTabState extends State<ClubChatTab> {
     setState(() => _channelsError = null);
     try {
       final channels = await widget.clubRepository.fetchChannels(widget.club.id);
+      final categories = await widget.clubRepository.fetchChannelCategories(widget.club.id);
       if (!mounted) return;
       setState(() {
         _channels = channels;
-        // Design's User Flow: "แถบ channel ... เริ่มที่ #ทั่วไป เสมอ" --
-        // fetchChannels() already sorts oldest-first, and "ทั่วไป" is
-        // always the oldest, so this is simply the first channel, unless
-        // one is already selected.
-        _selectedChannelId ??= channels.isNotEmpty ? channels.first.id : null;
+        _categories = categories;
       });
       await _loadUnreadCounts();
-      final channelId = _selectedChannelId;
-      if (channelId != null) _subscribeUnread(channelId);
+      _subscribeUnreadAll(channels);
     } catch (_) {
       if (!mounted) return;
       setState(() => _channelsError = 'โหลดห้องไม่สำเร็จ');
     }
-  }
-
-  void _selectChannel(String channelId) {
-    if (channelId == _selectedChannelId) return;
-    setState(() {
-      _selectedChannelId = channelId;
-      _unreadCounts = {..._unreadCounts, channelId: 0};
-    });
-    _subscribeUnread(channelId);
   }
 
   bool _isChannelNameTaken(String name, {String? excludingChannelId}) {
@@ -153,22 +144,42 @@ class _ClubChatTabState extends State<ClubChatTab> {
     );
   }
 
+  bool _isCategoryNameTaken(String name, {String? excludingCategoryId}) {
+    final categories = _categories ?? const [];
+    final lower = name.trim().toLowerCase();
+    return categories.any(
+      (c) => c.id != excludingCategoryId && c.name.trim().toLowerCase() == lower,
+    );
+  }
+
+  Future<void> _openAddMenu() async {
+    final action = await showClubChatAddMenu(context);
+    if (!mounted) return;
+    switch (action) {
+      case ClubChatAddAction.channel:
+        await _createChannel();
+      case ClubChatAddAction.category:
+        await _createCategory();
+      case null:
+        break;
+    }
+  }
+
   Future<void> _createChannel() async {
-    final name = await showClubChannelNameDialog(
+    final result = await showClubChannelNameDialog(
       context,
       title: 'สร้างห้องใหม่',
+      categories: _categories ?? const [],
       isNameTaken: _isChannelNameTaken,
     );
-    if (name == null) return;
+    if (result == null) return;
     try {
-      final channel =
-          await widget.clubRepository.createChannel(clubId: widget.club.id, name: name);
-      if (!mounted) return;
-      setState(() {
-        _channels = [...?_channels, channel];
-        _selectedChannelId = channel.id;
-      });
-      _subscribeUnread(channel.id);
+      await widget.clubRepository.createChannel(
+        clubId: widget.club.id,
+        name: result.name,
+        categoryId: result.categoryId,
+      );
+      await _loadChannels();
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -178,33 +189,48 @@ class _ClubChatTabState extends State<ClubChatTab> {
   }
 
   Future<void> _editChannel(ClubChannel channel) async {
-    final name = await showClubChannelNameDialog(
+    final result = await showClubChannelNameDialog(
       context,
       title: 'แก้ไขชื่อห้อง',
       initialName: channel.name,
+      initialCategoryId: channel.categoryId,
+      categories: _categories ?? const [],
       isNameTaken: (n) => _isChannelNameTaken(n, excludingChannelId: channel.id),
     );
-    if (name == null || name == channel.name) return;
+    if (result == null) return;
     try {
-      await widget.clubRepository.renameChannel(channelId: channel.id, name: name);
-      if (!mounted) return;
-      setState(() {
-        _channels = _channels
-            ?.map((c) => c.id == channel.id
-                ? ClubChannel(
-                    id: c.id,
-                    clubId: c.clubId,
-                    name: name,
-                    createdBy: c.createdBy,
-                    createdAt: c.createdAt,
-                  )
-                : c)
-            .toList();
-      });
+      await widget.clubRepository.renameChannel(
+        channelId: channel.id,
+        name: result.name,
+        categoryId: result.categoryId,
+      );
+      await _loadChannels();
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('แก้ไขชื่อห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    }
+  }
+
+  Future<void> _moveChannel(ClubChannel channel) async {
+    final selection = await showMoveChannelToCategoryDialog(
+      context,
+      categories: _categories ?? const [],
+      currentCategoryId: channel.categoryId,
+    );
+    if (selection == null) return;
+    try {
+      await widget.clubRepository.renameChannel(
+        channelId: channel.id,
+        name: channel.name,
+        categoryId: selection.categoryId,
+      );
+      await _loadChannels();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ย้ายห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -226,21 +252,105 @@ class _ClubChatTabState extends State<ClubChatTab> {
       onConfirm: () => widget.clubRepository.deleteChannel(channel.id),
     );
     if (!deleted || !mounted) return;
-    setState(() {
-      _channels = _channels?.where((c) => c.id != channel.id).toList();
-      _unreadCounts = {..._unreadCounts}..remove(channel.id);
-      if (_selectedChannelId == channel.id) {
-        final remaining = _channels;
-        _selectedChannelId =
-            remaining != null && remaining.isNotEmpty ? remaining.first.id : null;
-      }
-    });
-    final newChannelId = _selectedChannelId;
-    if (newChannelId != null) _subscribeUnread(newChannelId);
+    await _loadChannels();
   }
 
-  /// WYN-128: see ClubChannelChatView.onBanned's own doc comment for why
-  /// this tab, not the chat view, is what reacts.
+  Future<void> _createCategory() async {
+    final name = await showClubCategoryNameDialog(
+      context,
+      title: 'สร้างกลุ่มใหม่',
+      isNameTaken: _isCategoryNameTaken,
+    );
+    if (name == null) return;
+    try {
+      await widget.clubRepository.createChannelCategory(clubId: widget.club.id, name: name);
+      await _loadChannels();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('สร้างกลุ่มไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    }
+  }
+
+  Future<void> _editCategory(ClubChannelCategory category) async {
+    final name = await showClubCategoryNameDialog(
+      context,
+      title: 'แก้ไขชื่อกลุ่ม',
+      initialName: category.name,
+      isNameTaken: (n) => _isCategoryNameTaken(n, excludingCategoryId: category.id),
+    );
+    if (name == null || name == category.name) return;
+    try {
+      await widget.clubRepository.renameChannelCategory(categoryId: category.id, name: name);
+      await _loadChannels();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('แก้ไขชื่อกลุ่มไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    }
+  }
+
+  Future<void> _deleteCategory(ClubChannelCategory category) async {
+    final deleted = await showDeleteClubCategoryDialog(
+      context,
+      categoryName: category.name,
+      onConfirm: () => widget.clubRepository.deleteChannelCategory(category.id),
+    );
+    if (!deleted || !mounted) return;
+    await _loadChannels();
+  }
+
+  Future<void> _showChannelManageSheet(ClubChannel channel) async {
+    final action = await showClubChannelManageSheet(context);
+    if (!mounted) return;
+    switch (action) {
+      case ClubChannelManageAction.edit:
+        await _editChannel(channel);
+      case ClubChannelManageAction.move:
+        await _moveChannel(channel);
+      case ClubChannelManageAction.delete:
+        await _deleteChannel(channel);
+      case null:
+        break;
+    }
+  }
+
+  Future<void> _showCategoryManageSheet(ClubChannelCategory category) async {
+    final action = await showClubCategoryManageSheet(context);
+    if (!mounted) return;
+    switch (action) {
+      case ClubCategoryManageAction.edit:
+        await _editCategory(category);
+      case ClubCategoryManageAction.delete:
+        await _deleteCategory(category);
+      case null:
+        break;
+    }
+  }
+
+  Future<void> _openChannel(ClubChannel channel) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ClubChannelScreen(
+          repository: _clubChannelChatRepository,
+          clubRepository: widget.clubRepository,
+          clubId: widget.club.id,
+          channelId: channel.id,
+          channelName: channel.name,
+          myRole: widget.myRole,
+          onManage: _canManageChannels ? (_) => _showChannelManageSheet(channel) : null,
+          onBanned: _onBanned,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    await _loadUnreadCounts();
+  }
+
+  /// WYN-128: see ClubChannelScreen.onBanned's own doc comment for why
+  /// this tab, not the chat screen, is what reacts.
   void _onBanned() {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -255,70 +365,151 @@ class _ClubChatTabState extends State<ClubChatTab> {
       return const Center(child: Text('เข้าร่วม Club เพื่อดูแชท'));
     }
 
-    return Column(
+    final channels = _channels;
+    if (channels == null) {
+      if (_channelsError != null) {
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_channelsError!),
+              const SizedBox(height: WynSpacing.space3),
+              TextButton(onPressed: _loadChannels, child: const Text('ลองใหม่')),
+            ],
+          ),
+        );
+      }
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return _buildChannelList(channels, _categories ?? const []);
+  }
+
+  Widget _buildChannelList(List<ClubChannel> channels, List<ClubChannelCategory> categories) {
+    final unreadChannelIds = {
+      for (final entry in _unreadCounts.entries)
+        if (entry.value > 0) entry.key,
+    };
+    final ungrouped = channels.where((c) => c.categoryId == null).toList();
+
+    return ListView(
       children: [
-        _buildChannelSwitcher(),
-        Expanded(child: _buildChatView()),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            WynSpacing.space4,
+            WynSpacing.space3,
+            WynSpacing.space2,
+            WynSpacing.space1,
+          ),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'ห้องแชท',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: WynColors.ink),
+                ),
+              ),
+              if (_canManageChannels)
+                IconButton(
+                  key: const Key('club_chat_add_button'),
+                  icon: const Icon(Icons.add),
+                  tooltip: 'เพิ่ม',
+                  onPressed: _openAddMenu,
+                ),
+            ],
+          ),
+        ),
+        // Design's Components/States: a Club with no categories yet (the
+        // default) renders exactly the pre-WYN-133 flat list -- no
+        // category headers, not even an "ไม่มีกลุ่ม" one.
+        for (final category in categories) ...[
+          _buildCategoryHeader(category),
+          for (final channel in channels.where((c) => c.categoryId == category.id))
+            _buildChannelRow(channel, unreadChannelIds),
+        ],
+        if (categories.isNotEmpty && ungrouped.isNotEmpty) _buildUngroupedHeader(),
+        for (final channel in ungrouped) _buildChannelRow(channel, unreadChannelIds),
       ],
     );
   }
 
-  Widget _buildChannelSwitcher() {
-    final channels = _channels;
-    if (channels == null) {
-      // Reserves the same height as the loaded switcher so the chat view
-      // below doesn't jump once channels resolve.
-      return const SizedBox(height: WynSpacing.touchTargetMin + WynSpacing.space2 * 2);
-    }
-    if (_channelsError != null) {
-      return Padding(
-        padding: const EdgeInsets.all(WynSpacing.space3),
-        child: Row(
-          children: [
-            Expanded(child: Text(_channelsError!)),
-            TextButton(onPressed: _loadChannels, child: const Text('ลองใหม่')),
-          ],
+  Widget _buildCategoryHeader(ClubChannelCategory category) {
+    return InkWell(
+      key: ValueKey('club_channel_category_${category.id}'),
+      onLongPress: _canManageChannels ? () => _showCategoryManageSheet(category) : null,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          WynSpacing.space4,
+          WynSpacing.space4,
+          WynSpacing.space4,
+          WynSpacing.space1,
         ),
-      );
-    }
-    return ClubChannelSwitcher(
-      channels: channels,
-      selectedChannelId: _selectedChannelId,
-      canManage: _canManageChannels,
-      unreadChannelIds: {
-        for (final entry in _unreadCounts.entries)
-          if (entry.value > 0) entry.key,
-      },
-      onSelect: _selectChannel,
-      onCreate: _createChannel,
-      onEdit: _editChannel,
-      onDelete: _deleteChannel,
+        child: Text(
+          category.name.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: WynColors.graphite,
+            letterSpacing: 0.6,
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildChatView() {
-    final channelId = _selectedChannelId;
-    final channels = _channels;
-    if (channelId == null || channels == null) {
-      return const SizedBox.shrink();
-    }
-    String? channelName;
-    for (final channel in channels) {
-      if (channel.id == channelId) {
-        channelName = channel.name;
-        break;
-      }
-    }
-    if (channelName == null) return const SizedBox.shrink();
-    return ClubChannelChatView(
-      key: ValueKey('club-chat-$channelId'),
-      repository: _clubChannelChatRepository,
-      clubRepository: widget.clubRepository,
-      clubId: widget.club.id,
-      channelId: channelId,
-      channelName: channelName,
-      myRole: widget.myRole,
-      onBanned: _onBanned,
+  Widget _buildUngroupedHeader() {
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(
+        WynSpacing.space4,
+        WynSpacing.space4,
+        WynSpacing.space4,
+        WynSpacing.space1,
+      ),
+      child: Text(
+        'ไม่มีกลุ่ม',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: WynColors.graphite,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChannelRow(ClubChannel channel, Set<String> unreadChannelIds) {
+    final hasUnread = unreadChannelIds.contains(channel.id);
+    final label = '#${channel.name}';
+    return Semantics(
+      label: hasUnread ? '$label มีข้อความใหม่' : label,
+      button: true,
+      excludeSemantics: true,
+      child: ListTile(
+        key: ValueKey('club_channel_row_${channel.id}'),
+        leading: Container(
+          width: 38,
+          height: 38,
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(color: WynColors.surfaceTint, shape: BoxShape.circle),
+          child: const Text(
+            '#',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: WynColors.sapphire),
+          ),
+        ),
+        title: Text(
+          label,
+          style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: WynColors.ink),
+        ),
+        trailing: hasUnread
+            ? Container(
+                width: 7,
+                height: 7,
+                decoration: const BoxDecoration(shape: BoxShape.circle, color: WynColors.sapphire),
+              )
+            : null,
+        onTap: () => _openChannel(channel),
+        onLongPress: _canManageChannels ? () => _showChannelManageSheet(channel) : null,
+      ),
     );
   }
 }

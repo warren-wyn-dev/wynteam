@@ -532,26 +532,39 @@ class ClubRepository {
   }
 
   /// RLS (club_channels insert policy) restricts this to that Club's own
-  /// Owner/Admin -- the "+ ห้องใหม่" chip is hidden from anyone else
-  /// client-side, but this is the real boundary.
+  /// Owner/Admin -- the "+ ห้องใหม่" row is hidden from anyone else
+  /// client-side, but this is the real boundary. [categoryId] is
+  /// WYN-133 (requirement 7) -- `null` means "ไม่มีกลุ่ม".
   Future<ClubChannel> createChannel({
     required String clubId,
     required String name,
+    String? categoryId,
   }) async {
     final userId = _client.auth.currentUser!.id;
     final row = await _client
         .from('club_channels')
-        .insert({'club_id': clubId, 'name': name.trim(), 'created_by': userId})
+        .insert({
+          'club_id': clubId,
+          'name': name.trim(),
+          'created_by': userId,
+          'category_id': categoryId,
+        })
         .select()
         .single();
     return ClubChannel.fromMap(row);
   }
 
+  /// [categoryId] is WYN-133 (requirement 7) -- always passed explicitly
+  /// (not left "unchanged") since the edit dialog always shows the full
+  /// current category selection; `null` moves the channel to "ไม่มีกลุ่ม".
   Future<void> renameChannel({
     required String channelId,
     required String name,
+    String? categoryId,
   }) {
-    return _client.from('club_channels').update({'name': name.trim()}).eq('id', channelId);
+    return _client
+        .from('club_channels')
+        .update({'name': name.trim(), 'category_id': categoryId}).eq('id', channelId);
   }
 
   /// Cascade-deletes every post inside this channel (club_posts.
@@ -560,6 +573,50 @@ class ClubRepository {
   /// The UI must confirm this permanent loss before calling this.
   Future<void> deleteChannel(String channelId) {
     return _client.from('club_channels').delete().eq('id', channelId);
+  }
+
+  /// WYN-133 (requirement 7) -- [clubId]'s channel categories, oldest
+  /// first (new categories append to the end of the list, same ordering
+  /// convention as [fetchChannels]).
+  Future<List<ClubChannelCategory>> fetchChannelCategories(String clubId) async {
+    final rows = await _client
+        .from('club_channel_categories')
+        .select()
+        .eq('club_id', clubId)
+        .order('created_at', ascending: true);
+    return rows.map((row) => ClubChannelCategory.fromMap(row)).toList();
+  }
+
+  /// RLS (club_channel_categories insert policy) restricts this to that
+  /// Club's own Owner/Admin.
+  Future<ClubChannelCategory> createChannelCategory({
+    required String clubId,
+    required String name,
+  }) async {
+    final userId = _client.auth.currentUser!.id;
+    final row = await _client
+        .from('club_channel_categories')
+        .insert({'club_id': clubId, 'name': name.trim(), 'created_by': userId})
+        .select()
+        .single();
+    return ClubChannelCategory.fromMap(row);
+  }
+
+  Future<void> renameChannelCategory({
+    required String categoryId,
+    required String name,
+  }) {
+    return _client
+        .from('club_channel_categories')
+        .update({'name': name.trim()}).eq('id', categoryId);
+  }
+
+  /// Every channel inside this category falls back to "ไม่มีกลุ่ม" --
+  /// `category_id`'s `on delete set null` (see supabase/schema.sql) does
+  /// this at the database level, so no channel is ever deleted or
+  /// touched by this call.
+  Future<void> deleteChannelCategory(String categoryId) {
+    return _client.from('club_channel_categories').delete().eq('id', categoryId);
   }
 
   /// WYN-128 -- watches this user's own `club_members` row for [clubId],

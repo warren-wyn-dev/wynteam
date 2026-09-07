@@ -1,7 +1,7 @@
 # Product Task — WYN-133
 
-Status: backlog
-Owner: AI Product Manager
+Status: coding-complete — PR #308 (https://github.com/warren-wyn-dev/wynteam/pull/308) — awaiting AI QA & Security, then apply-schema workflow + deploy
+Owner: AI Product Manager (spec) / AI Coding (implementation)
 
 Feature: Club Chat — กดห้องแล้วนำทางไปหน้าแชทของห้องนั้นแบบเต็มจอ (Discord-style channel navigation)
 
@@ -24,6 +24,14 @@ Requirements:
 5. ไม่แตะระบบ DM (1-ต่อ-1 chat) ใดๆ ทั้งสิ้น
 6. ยังคง gate หลัง `isDeveloperAccount()` เหมือนเดิม (บัญชีทั่วไปยังไม่เห็นแท็บ "แชท" อยู่ดี) — งานนี้เป็นการปรับ UX ของฟีเจอร์ที่ gate อยู่แล้ว ไม่ใช่การเปิดฟีเจอร์ใหม่ให้ผู้ใช้ทั่วไป
 
+**7. (เพิ่มเติม 2026-09-07 — Founder ส่ง screenshot Discord วงไว้ที่หัวข้อกลุ่ม "Charlot Media"/"Chat Charlot" พร้อมยืนยันผ่าน AskUserQuestion: ต้องการแบบนั้น + รวมเข้า WYN-133 เลย)**
+หน้ารายชื่อห้องต้องรองรับ **"กลุ่มห้องแชท" (channel category)** แบบ Discord — Owner/Admin จัดห้องแชทหลายห้องให้อยู่ใต้หัวข้อกลุ่มเดียวกันได้:
+   - Owner/Admin สร้าง/แก้ไขชื่อ/ลบกลุ่มได้ (สิทธิ์เดียวกับจัดการห้อง)
+   - ห้องแชทหนึ่งห้องอยู่ได้กลุ่มเดียว หรือ "ไม่มีกลุ่ม" ก็ได้ (ห้องเดิมที่มีอยู่ก่อนฟีเจอร์นี้ทั้งหมด default เป็น "ไม่มีกลุ่ม")
+   - ลบกลุ่ม → ห้องที่อยู่ในกลุ่มนั้น**ไม่ถูกลบ** แค่ย้ายกลับไปเป็น "ไม่มีกลุ่ม"
+   - ไม่ต้องมี collapse/expand กลุ่ม (Founder ไม่ได้ขอ, ไม่ over-scope) — เป็นแค่หัวข้อคั่นสายตา
+   - นี่คือ requirement ใหม่ที่ต้อง**เพิ่มตารางฐานข้อมูลใหม่** (ปัจจุบัน `club_channels` ไม่มีแนวคิดกลุ่มเลย) — ดู Dependencies
+
 Acceptance Criteria:
 
 - [ ] เปิดแท็บ "แชท" ของ Club (บัญชีนักพัฒนา) → เห็นรายชื่อห้องทั้งหมดของ Club นั้น ไม่มีข้อความแชทของห้องใดแสดงอยู่ในหน้านี้
@@ -34,18 +42,27 @@ Acceptance Criteria:
 - [ ] Member ทั่วไป (ไม่ใช่ Owner/Admin) ไม่เห็นปุ่มจัดการห้อง เหมือนเดิม
 - [ ] บัญชีที่ไม่ใช่ developer account ยังไม่เห็นแท็บ "แชท" เลย (ไม่เปลี่ยนพฤติกรรมการ gate เดิม)
 - [ ] หน้า DM (ConversationScreen, chat_repository.dart) ไม่มีการเปลี่ยนแปลงใดๆ — ยืนยันว่าไฟล์เหล่านั้นไม่ถูกแตะเลย
+- [ ] Owner/Admin สร้างกลุ่มห้องแชทใหม่ได้, ตั้งชื่อกลุ่ม, ย้ายห้องเข้า/ออกจากกลุ่มได้
+- [ ] หน้ารายชื่อห้องแสดงห้องแบบจัดกลุ่มตามหัวข้อ — ห้องที่ไม่มีกลุ่มแสดงรวมกันแยกจากห้องที่มีกลุ่ม
+- [ ] ลบกลุ่ม → ห้องข้างในไม่หาย แค่กลับไปเป็น "ไม่มีกลุ่ม"
+- [ ] Member ทั่วไปเห็นกลุ่ม/ห้องแบบอ่านอย่างเดียว ไม่มีปุ่มจัดการกลุ่ม
 
 Dependencies:
 - WYN-127 (Club Channels — ตาราง `club_channels`, `ClubRepository.fetchChannels/createChannel/renameChannel/deleteChannel`) — เสร็จแล้ว ใช้ของเดิมทั้งหมด
 - WYN-128 (Club Group Chat — `club_channel_messages`, `ClubChannelChatRepository`, `ClubChannelChatView`) — เสร็จแล้ว ใช้ของเดิมทั้งหมด ไม่ต้องแก้ schema/RPC ใดๆ
-- ไม่มี dependency ใหม่ต่อ backend/Supabase — งานนี้เป็นการจัดโครงสร้าง**หน้าจอ/การนำทางฝั่ง Flutter เท่านั้น** (`club_chat_tab.dart` และไฟล์ที่เกี่ยวข้องใน `app/lib/features/club/presentation/`)
+- **ใหม่ (requirement 7 — channel category)**: ต้องเพิ่ม backend จริง —
+  - ตารางใหม่ `club_channel_categories` (`id`, `club_id`, `name`, `created_by`, `created_at`) พร้อม RLS แบบเดียวกับ `club_channels` (select: authenticated ทุกคนในระบบ / insert-update-delete: owner-admin เท่านั้น ผ่าน `club_role()`)
+  - เพิ่มคอลัมน์ `category_id uuid null references club_channel_categories(id) on delete set null` ใน `club_channels` (nullable เพื่อให้ห้องเดิมทั้งหมด default เป็น "ไม่มีกลุ่ม" โดยไม่ต้อง migrate ข้อมูล, `on delete set null` ทำให้ requirement "ลบกลุ่มแล้วห้องไม่หาย" ได้ฟรีจาก DB constraint เลยไม่ต้องเขียน logic เพิ่ม)
+  - **AI Debug/Coding ห้ามรัน SQL การผลิตเอง** — เตรียม migration ให้ Founder รันเองผ่าน Supabase SQL Editor ตามกติกาเดิมของบริษัท
+- งานนี้ไม่ใช่แค่จัดโครงสร้างหน้าจอฝั่ง Flutter อย่างเดียวแล้ว (เหมือนที่ระบุไว้ตอนแรก) — มี backend/schema เพิ่มจาก requirement 7
 
 Priority: กลาง-สูง — Founder เจอด้วยตัวเองและระบุชัดว่าไม่ชอบ UX ปัจจุบัน แต่เป็นการปรับปรุงของฟีเจอร์ที่ยัง gate อยู่หลังบัญชีนักพัฒนา (ยังไม่กระทบผู้ใช้ทั่วไป) — ควรทำก่อนพิจารณาเปิด Club Chat ให้ผู้ใช้ทั่วไป เพราะ Founder เองยังไม่พอใจ UX ปัจจุบัน
 
 Risks:
 - **Unread-subscription lifecycle**: ปัจจุบัน `_subscribeUnread`/`_unsubscribeUnread` ออกแบบมาโดยสมมติว่ามีแค่ห้องเดียวที่ "เปิดอยู่" ในหน้าเดียวกันตลอดเวลา (subscribe ห้องที่ไม่ได้เปิด, unsubscribe เมื่อสลับ) — เปลี่ยนเป็นโครงสร้าง navigate ไปมาระหว่าง 2 หน้าจอ (รายชื่อห้อง ↔ หน้าห้อง) ต้องพา Coding ตรวจ mount/dispose timing ใหม่ให้ไม่เกิด subscription ซ้ำซ้อนหรือ unread count ค้าง (memory leak หรือ badge ไม่อัปเดต)
 - **Design ต้องตัดสินใจ**: หน้ารายชื่อห้องควรมีอะไรต่อแถวบ้าง (แค่ชื่อห้อง+badge unread, หรือมี preview ข้อความล่าสุดด้วย) — Founder ไม่ได้ระบุมา งานนี้ระบุแค่ requirement ระดับ "ต้อง navigate ไปหน้าใหม่" ปล่อยรายละเอียด visual ให้ AI Design ตัดสินใจ (ไม่ over-spec)
-- ไม่มีความเสี่ยงต่อข้อมูล/ความปลอดภัย — ไม่แตะ RLS/schema ใดๆ เลย เป็นแค่การจัดวาง widget ฝั่ง client
+- **ความเสี่ยงใหม่จาก requirement 7**: มีการแตะ schema/RLS จริง (ตารางใหม่ + คอลัมน์ใหม่) — ไม่เหมือนโค้ดเดิมของงานนี้ที่เป็นแค่ client-side ล้วนๆ ต้องผ่าน AI QA/Security ตรวจ RLS policy ให้แน่ใจว่า Owner/Admin เท่านั้นที่แก้กลุ่มได้ก่อน deploy
+- **การจัดเรียงกลุ่ม/ห้องในกลุ่ม**: งานนี้ไม่ระบุการเรียงลำดับแบบ drag-and-drop (out of scope) — เรียงตาม `created_at` พอ ถ้า Founder อยากจัดลำดับเองในอนาคตค่อยเป็น ticket แยก
 
 Recommendation: ทำต่อจาก WYN-127/128 โดยตรง ให้ AI Design ออกแบบหน้ารายชื่อห้อง (channel list screen) แบบสั้นๆ ก่อนส่งต่อ AI Coding — ความเสี่ยงต่ำเพราะใช้ widget เดิม (`ClubChannelChatView`) เกือบทั้งหมด แค่เปลี่ยนว่ามันถูกวางอยู่ตรงไหน (ในหน้าเดียวกับ switcher → เป็นหน้าของตัวเองที่ navigate เข้าไป)
 
