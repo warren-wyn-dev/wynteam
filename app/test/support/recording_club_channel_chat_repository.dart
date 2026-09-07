@@ -60,7 +60,14 @@ class RecordingClubChannelChatRepository extends ClubChannelChatRepository {
 
   void Function(ClubChannelMessage message)? _channelCallback;
   void Function(int onlineCount)? _presenceCallback;
-  void Function(ClubChannelMessage message)? _unreadOnlyCallback;
+
+  /// WYN-133: keyed by channelId, not a single field -- once the Channel
+  /// List screen subscribes unread updates for *every* channel at once
+  /// (one [subscribeToNewMessagesOnly] call per channel, see
+  /// `ClubChatTab._subscribeUnreadAll`), a single overwritten field would
+  /// only ever let a test simulate unread on whichever channel
+  /// subscribed last.
+  final Map<String, void Function(ClubChannelMessage message)> _unreadOnlyCallbacksByChannel = {};
 
   @override
   Future<List<ClubChannelMessage>> fetchMessages(
@@ -131,7 +138,7 @@ class RecordingClubChannelChatRepository extends ClubChannelChatRepository {
     String channelId,
     void Function(ClubChannelMessage message) onInsert,
   ) {
-    _unreadOnlyCallback = onInsert;
+    _unreadOnlyCallbacksByChannel[channelId] = onInsert;
     return _fakeChannelClient.channel('test-club-channel-unread-$channelId');
   }
 
@@ -146,8 +153,10 @@ class RecordingClubChannelChatRepository extends ClubChannelChatRepository {
   void emitMessage(ClubChannelMessage message) => _channelCallback?.call(message);
 
   /// Test helper: simulates a new message arriving over
-  /// [subscribeToNewMessagesOnly]'s channel.
-  void emitUnreadMessage(ClubChannelMessage message) => _unreadOnlyCallback?.call(message);
+  /// [subscribeToNewMessagesOnly]'s channel -- routed by
+  /// `message.channelId` to whichever channel actually subscribed.
+  void emitUnreadMessage(ClubChannelMessage message) =>
+      _unreadOnlyCallbacksByChannel[message.channelId]?.call(message);
 
   /// Test helper: simulates a presence sync reporting [count] members
   /// currently online.

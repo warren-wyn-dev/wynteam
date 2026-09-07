@@ -31,6 +31,7 @@ class RecordingClubRepository extends ClubRepository {
       activeMembers: 0,
     ),
     List<ClubChannel>? channels,
+    List<ClubChannelCategory>? categories,
   })  : myClubs = myClubs ?? [],
         approvedMembers = approvedMembers ?? [],
         pendingMembers = pendingMembers ?? [],
@@ -55,6 +56,11 @@ class RecordingClubRepository extends ClubRepository {
                     ),
                   ]
                 : []),
+        // WYN-133 (requirement 7): defaults to no categories -- every
+        // test built before categories existed still gets the plain
+        // flat-list rendering (Design's "Club ที่ไม่มีกลุ่มเลย" state)
+        // without having to know about this constructor param.
+        categories = categories ?? [],
         // A second, independent client just for minting fake
         // RealtimeChannel objects (see subscribeToMyMembership below) --
         // ClubRepository's own client is private to its file,
@@ -103,6 +109,11 @@ class RecordingClubRepository extends ClubRepository {
   /// test can assert the round trip the same way [isMutedResult] does
   /// for mute/unmute.
   List<ClubChannel> channels;
+
+  /// Backing list for [fetchChannelCategories]/[createChannelCategory]/
+  /// [renameChannelCategory]/[deleteChannelCategory] -- WYN-133
+  /// (requirement 7). Mutated in place, same pattern as [channels].
+  List<ClubChannelCategory> categories;
 
   int joinClubCalls = 0;
   int leaveClubCalls = 0;
@@ -346,6 +357,7 @@ class RecordingClubRepository extends ClubRepository {
   int renameChannelCalls = 0;
   int deleteChannelCalls = 0;
   final List<String> deleteChannelIdArgs = [];
+  final List<String?> renameChannelCategoryIdArgs = [];
 
   @override
   Future<List<ClubChannel>> fetchChannels(String clubId) async =>
@@ -355,6 +367,7 @@ class RecordingClubRepository extends ClubRepository {
   Future<ClubChannel> createChannel({
     required String clubId,
     required String name,
+    String? categoryId,
   }) async {
     createChannelCalls++;
     final created = ClubChannel(
@@ -363,14 +376,20 @@ class RecordingClubRepository extends ClubRepository {
       name: name,
       createdBy: 'me',
       createdAt: DateTime.now(),
+      categoryId: categoryId,
     );
     channels = [...channels, created];
     return created;
   }
 
   @override
-  Future<void> renameChannel({required String channelId, required String name}) async {
+  Future<void> renameChannel({
+    required String channelId,
+    required String name,
+    String? categoryId,
+  }) async {
     renameChannelCalls++;
+    renameChannelCategoryIdArgs.add(categoryId);
     channels = channels
         .map((c) => c.id == channelId
             ? ClubChannel(
@@ -379,6 +398,7 @@ class RecordingClubRepository extends ClubRepository {
                 name: name,
                 createdBy: c.createdBy,
                 createdAt: c.createdAt,
+                categoryId: categoryId,
               )
             : c)
         .toList();
@@ -389,6 +409,69 @@ class RecordingClubRepository extends ClubRepository {
     deleteChannelCalls++;
     deleteChannelIdArgs.add(channelId);
     channels = channels.where((c) => c.id != channelId).toList();
+  }
+
+  int createChannelCategoryCalls = 0;
+  int renameChannelCategoryCalls = 0;
+  int deleteChannelCategoryCalls = 0;
+  final List<String> deleteChannelCategoryIdArgs = [];
+
+  @override
+  Future<List<ClubChannelCategory>> fetchChannelCategories(String clubId) async =>
+      categories.where((c) => c.clubId == clubId).toList();
+
+  @override
+  Future<ClubChannelCategory> createChannelCategory({
+    required String clubId,
+    required String name,
+  }) async {
+    createChannelCategoryCalls++;
+    final created = ClubChannelCategory(
+      id: 'created-category-$createChannelCategoryCalls',
+      clubId: clubId,
+      name: name,
+      createdBy: 'me',
+      createdAt: DateTime.now(),
+    );
+    categories = [...categories, created];
+    return created;
+  }
+
+  @override
+  Future<void> renameChannelCategory({required String categoryId, required String name}) async {
+    renameChannelCategoryCalls++;
+    categories = categories
+        .map((c) => c.id == categoryId
+            ? ClubChannelCategory(
+                id: c.id,
+                clubId: c.clubId,
+                name: name,
+                createdBy: c.createdBy,
+                createdAt: c.createdAt,
+              )
+            : c)
+        .toList();
+  }
+
+  /// Mirrors `category_id`'s real `on delete set null` (see
+  /// supabase/schema.sql) -- any channel in this category falls back to
+  /// "ไม่มีกลุ่ม" (`categoryId: null`), never gets deleted.
+  @override
+  Future<void> deleteChannelCategory(String categoryId) async {
+    deleteChannelCategoryCalls++;
+    deleteChannelCategoryIdArgs.add(categoryId);
+    categories = categories.where((c) => c.id != categoryId).toList();
+    channels = channels
+        .map((c) => c.categoryId == categoryId
+            ? ClubChannel(
+                id: c.id,
+                clubId: c.clubId,
+                name: c.name,
+                createdBy: c.createdBy,
+                createdAt: c.createdAt,
+              )
+            : c)
+        .toList();
   }
 
   void Function()? _membershipCallback;
