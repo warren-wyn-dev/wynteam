@@ -214,6 +214,27 @@ void main() {
     expect(find.text('ยังไม่มีโพสต์ใน Club นี้ เป็นคนแรกสิ!'), findsOneWidget);
   });
 
+  // Regression: the empty-state used to be a bare Center() with no
+  // scrollable ancestor at all, so RefreshIndicator wasn't even in the
+  // tree -- pull-to-refresh silently did nothing on a Club with 0 posts
+  // (Founder's own screenshot). Same off-screen-hit-test-avoidance as
+  // explore_clubs_screen_test.dart's identical pattern -- invoke
+  // RefreshIndicator.onRefresh directly rather than simulating a
+  // physical drag gesture.
+  testWidgets('the empty state still has a working pull-to-refresh',
+      (tester) async {
+    await pumpTab(tester, emptyRepo, myRole: ClubMemberRole.member);
+
+    expect(find.byType(RefreshIndicator), findsOneWidget);
+    final callsBefore = emptyRepo.fetchPostsClubIdArgs.length;
+
+    final indicator = tester.widget<RefreshIndicator>(find.byType(RefreshIndicator));
+    await indicator.onRefresh();
+    await tester.pumpAndSettle();
+
+    expect(emptyRepo.fetchPostsClubIdArgs.length, greaterThan(callsBefore));
+  });
+
   // AC: "Owner/Admin/Moderator ปักหมุดโพสต์ → โพสต์นั้นอยู่บนสุดของ Posts
   // tab เสมอ" -- ClubPostRepository.fetchPosts already sorts
   // pinned-first server-side; this test covers the UI's own "ปักหมุด"

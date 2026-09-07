@@ -372,26 +372,58 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     }
 
     if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      // RefreshIndicator needs a scrollable descendant to detect the pull
+      // gesture at all -- a bare Center() (the previous shape here) has
+      // none, so pull-to-refresh silently did nothing whenever this Club
+      // had 0 posts or a failed load, even though every other state in
+      // this same tab already supports it. AlwaysScrollableScrollPhysics
+      // is required too: content this short wouldn't otherwise be
+      // draggable far enough to trigger the indicator.
+      return RefreshIndicator(
+        onRefresh: _loadInitial,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            Text(_error!),
-            const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: WynSpacing.space8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(_error!),
+                  const SizedBox(height: WynSpacing.space3),
+                  TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+                ],
+              ),
+            ),
           ],
         ),
       );
     }
 
     if (_posts.isEmpty) {
-      return const Center(child: Text('ยังไม่มีโพสต์ใน Club นี้ เป็นคนแรกสิ!'));
+      return RefreshIndicator(
+        onRefresh: _loadInitial,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: WynSpacing.space8),
+              child: Center(child: Text('ยังไม่มีโพสต์ใน Club นี้ เป็นคนแรกสิ!')),
+            ),
+          ],
+        ),
+      );
     }
 
     return RefreshIndicator(
       onRefresh: _loadInitial,
       child: ListView.separated(
         controller: _scrollController,
+        // Same reasoning as the empty/error states above -- a Club with
+        // just 1-2 short posts may not fill the viewport either, which
+        // would otherwise make it undraggable far enough to trigger
+        // pull-to-refresh.
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 80),
         itemCount: _posts.length + (_hasMore ? 1 : 0),
         // A hairline divider between posts, same as Home Feed (DS-003) --
