@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/club.dart';
+import '../../data/club_badge_repository.dart';
 import '../../data/club_channel.dart';
 import '../../data/club_member.dart';
+import '../../data/club_member_badge.dart';
 import '../../data/club_post.dart';
 import '../../data/club_post_repository.dart';
 import '../../data/club_repository.dart';
@@ -30,7 +33,8 @@ class ClubPostsTab extends StatefulWidget {
     required this.club,
     required this.myRole,
     required this.onJoinTapped,
-  });
+    ClubBadgeRepository? clubBadgeRepository,
+  }) : _clubBadgeRepository = clubBadgeRepository;
 
   final ClubPostRepository clubPostRepository;
 
@@ -42,11 +46,18 @@ class ClubPostsTab extends StatefulWidget {
   final ClubMemberRole? myRole;
   final VoidCallback onJoinTapped;
 
+  /// WYN-129: optional, same defaulted-to-a-real-instance shape as every
+  /// other optional repository field in this app.
+  final ClubBadgeRepository? _clubBadgeRepository;
+
   @override
   State<ClubPostsTab> createState() => _ClubPostsTabState();
 }
 
 class _ClubPostsTabState extends State<ClubPostsTab> {
+  late final ClubBadgeRepository _clubBadgeRepository =
+      widget._clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
+
   final _scrollController = ScrollController();
   final List<ClubPost> _posts = [];
   int _page = 0;
@@ -59,14 +70,33 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
   String? _selectedChannelId;
   String? _channelsError;
 
+  /// WYN-129: every badge in this Club, keyed by user id -- club-wide,
+  /// not channel-scoped, so it's fetched once (not re-fetched on channel
+  /// switch) and passed down to each ClubPostCard as `authorBadge`.
+  Map<String, ClubMemberBadge> _badges = {};
+
   bool get _isMember => widget.myRole != null;
   bool get _canManageChannels => widget.myRole?.canManageClub ?? false;
 
   @override
   void initState() {
     super.initState();
-    if (_isMember) _loadChannelsThenPosts();
+    if (_isMember) {
+      _loadChannelsThenPosts();
+      _loadBadges();
+    }
     _scrollController.addListener(_onScroll);
+  }
+
+  Future<void> _loadBadges() async {
+    try {
+      final badges = await _clubBadgeRepository.fetchBadges(widget.club.id);
+      if (!mounted) return;
+      setState(() => _badges = badges);
+    } catch (_) {
+      // Fails open -- a badge is cosmetic, never worth blocking the feed
+      // over.
+    }
   }
 
   @override
@@ -349,6 +379,7 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
           clubPostRepository: widget.clubPostRepository,
           post: post,
           myRole: widget.myRole,
+          clubBadgeRepository: _clubBadgeRepository,
         ),
       ),
     );
@@ -504,6 +535,7 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
                 key: ValueKey(post.id),
                 post: post,
                 myRole: widget.myRole,
+                authorBadge: _badges[post.authorId],
                 onTap: () => _openPost(post),
                 onToggleLike: () => _toggleLike(post.id),
                 onToggleSave: () => _toggleSave(post.id),

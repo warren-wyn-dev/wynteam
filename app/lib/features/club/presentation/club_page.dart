@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/club.dart';
+import '../data/club_badge_repository.dart';
 import '../data/club_member.dart';
 import '../data/club_post_repository.dart';
 import '../data/club_repository.dart';
@@ -111,6 +112,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   final _followRepository = FollowRepository(Supabase.instance.client);
   late final ClubEventRepository _clubEventRepository =
       widget._clubEventRepository ?? ClubEventRepository(Supabase.instance.client);
+  final _clubBadgeRepository = ClubBadgeRepository(Supabase.instance.client);
 
   @override
   void initState() {
@@ -500,12 +502,14 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                       ClubPostsTab(
                         clubPostRepository: widget.clubPostRepository,
                         clubRepository: widget.clubRepository,
+                        clubBadgeRepository: _clubBadgeRepository,
                         club: data.club,
                         myRole: myRole,
                         onJoinTapped: () => _toggleJoin(data.club, data.membership),
                       ),
                       ClubMembersTab(
                         clubRepository: widget.clubRepository,
+                        clubBadgeRepository: _clubBadgeRepository,
                         club: data.club,
                         myRole: myRole,
                         onChanged: _reload,

@@ -13304,3 +13304,73 @@ begin
   return v_post_id;
 end;
 $$;
+
+-- ============================================================
+-- WYN-129: Club Role Badge
+-- ============================================================
+-- A purely cosmetic, Club-scoped identity layer -- completely separate
+-- from club_role()/authorization. See
+-- .wyn/tasks/backlog/WYN-129-club-role-badges.md and
+-- supabase/migrations_wyn129_club_member_badges.sql (same statements,
+-- kept in sync).
+--
+-- CRITICAL INVARIANT (Risks section): a badge must NEVER be queried
+-- anywhere a permission check happens. Nothing in this section calls
+-- club_role() to grant anything -- club_role() is only ever read here to
+-- decide who may set/edit/remove *cosmetic* rows, the same way it's
+-- already used to gate club_channels above -- and nothing that calls
+-- club_role() to gate a real action anywhere else in this file
+-- references club_member_badges. Keep it that way.
+
+create table if not exists public.club_member_badges (
+  club_id uuid not null references public.clubs (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  label text not null,
+  -- Requirement 1: "เลือกจาก palette ที่กำหนดไว้ ไม่ใช่ color picker อิสระ"
+  -- -- exactly the 3 Founder-approved colors, enforced at the DB layer,
+  -- not just in the Flutter picker UI.
+  color_key text not null check (color_key in ('gold', 'sage', 'plum')),
+  created_by uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  constraint club_member_badges_label_length check (char_length(label) between 1 and 20),
+  -- Requirement 4: at most 1 badge per member per Club.
+  primary key (club_id, user_id)
+);
+
+alter table public.club_member_badges enable row level security;
+
+-- Read: same posture as club_channels (WYN-127) -- a badge carries no
+-- privacy boundary of its own; the real content it decorates (Members
+-- tab, posts, comments) is already gated by its own visibility rules.
+create policy "Club member badges are viewable by authenticated users"
+  on public.club_member_badges
+  for select
+  to authenticated
+  using (true);
+
+-- Insert/update/delete: that Club's own Owner/Admin only, and only
+-- targeting a currently-approved member of the *same* Club --
+-- club_role(club_id, user_id) is not null re-derives the target's own
+-- membership the same way club_role(club_id, auth.uid()) re-derives the
+-- caller's, so a stranger/pending/banned user can never be badged.
+create policy "Club owners and admins can set member badges"
+  on public.club_member_badges
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = created_by
+    and public.club_role(club_id, auth.uid()) in ('owner', 'admin')
+    and public.club_role(club_id, user_id) is not null
+  );
+
+create policy "Club owners and admins can edit member badges"
+  on public.club_member_badges
+  for update
+  to authenticated
+  using (public.club_role(club_id, auth.uid()) in ('owner', 'admin'));
+
+create policy "Club owners and admins can remove member badges"
+  on public.club_member_badges
+  for delete
+  to authenticated
+  using (public.club_role(club_id, auth.uid()) in ('owner', 'admin'));

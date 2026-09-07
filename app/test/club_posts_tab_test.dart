@@ -4,10 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wyn/features/club/data/club.dart';
 import 'package:wyn/features/club/data/club_channel.dart';
 import 'package:wyn/features/club/data/club_member.dart';
+import 'package:wyn/features/club/data/club_member_badge.dart';
 import 'package:wyn/features/club/data/club_post.dart';
 import 'package:wyn/features/club/presentation/widgets/club_posts_tab.dart';
 
 import 'support/fake_supabase_session.dart';
+import 'support/recording_club_badge_repository.dart';
 import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
 
@@ -82,6 +84,8 @@ void main() {
   late RecordingClubRepository singleGeneralChannelRepo;
   late RecordingClubRepository twoChannelsRepo;
   late RecordingClubRepository ownerSingleChannelRepo;
+  late RecordingClubBadgeRepository someoneElseVipBadgeRepo;
+  late RecordingClubBadgeRepository emptyBadgeRepo;
 
   ClubChannel channel({required String id, required String name}) => ClubChannel(
         id: id,
@@ -123,6 +127,17 @@ void main() {
       club: club,
       channels: [channel(id: 'c-general', name: 'ทั่วไป')],
     );
+    someoneElseVipBadgeRepo = RecordingClubBadgeRepository(badges: {
+      'someone-else': ClubMemberBadge(
+        clubId: club.id,
+        userId: 'someone-else',
+        label: 'VIP',
+        colorKey: ClubBadgeColor.gold,
+        createdBy: 'owner-1',
+        createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+      ),
+    });
+    emptyBadgeRepo = RecordingClubBadgeRepository();
   });
 
   Future<void> pumpTab(
@@ -131,12 +146,14 @@ void main() {
     required ClubMemberRole? myRole,
     VoidCallback? onJoinTapped,
     RecordingClubRepository? clubRepository,
+    RecordingClubBadgeRepository? clubBadgeRepository,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
         home: ClubPostsTab(
           clubPostRepository: repo,
           clubRepository: clubRepository ?? defaultClubRepo,
+          clubBadgeRepository: clubBadgeRepository,
           club: club,
           myRole: myRole,
           onJoinTapped: onJoinTapped ?? () {},
@@ -307,6 +324,31 @@ void main() {
 
       expect(ownerSingleChannelRepo.createChannelCalls, 1);
       expect(find.text('#ถามตอบ'), findsOneWidget);
+    });
+  });
+
+  group('Role Badge (WYN-129)', () {
+    testWidgets("shows the post author's badge pill next to their name",
+        (tester) async {
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.member,
+        clubBadgeRepository: someoneElseVipBadgeRepo,
+      );
+
+      expect(find.text('VIP'), findsOneWidget);
+    });
+
+    testWidgets('shows no badge pill for an author with none', (tester) async {
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.member,
+        clubBadgeRepository: emptyBadgeRepo,
+      );
+
+      expect(find.text('VIP'), findsNothing);
     });
   });
 }

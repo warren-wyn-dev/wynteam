@@ -1,7 +1,7 @@
 # Product Task — WYN-129
 
-Status: active — Design เสร็จแล้ว (mockup + palette สี Founder อนุมัติ 2026-09-07: "โอเคแล้ว"), handoff ให้ AI Coding
-Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (ถัดไป)
+Status: coding เสร็จแล้ว (2026-09-07) — schema (`club_member_badges`, แยกจาก `club_role()` โดยสิ้นเชิง) + Dart (badge pill, dialog ตั้ง/แก้/ถอดป้าย, แสดงใน Members tab + ใต้โพสต์/คอมเมนต์) implemented, `flutter analyze`/`flutter test` เขียวทั้งหมด — รอ AI QA & Security
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
 
 Feature: Club Role Badge — ป้ายชื่อ/สีที่ Owner ตั้งเองได้ ติดข้าง role ของสมาชิก
 
@@ -36,6 +36,15 @@ Risks:
 Recommendation: Design เสร็จแล้ว ดูหัวข้อ "AI Design Output" ด้านล่าง
 
 Handoff: ส่งต่อ AI Coding → AI QA & Security (**เน้นพิเศษ**: ยืนยันว่าป้ายไม่มีทางกระทบ permission check ใดๆ ในระบบ, ตรวจสิทธิ์ตั้ง/ถอดป้ายเฉพาะ Owner/Admin, ตรวจป้ายไม่รั่วไปนอกบริบท Club)
+
+## Coding Notes (2026-09-07)
+
+- Migration SQL: `supabase/migrations_wyn129_club_member_badges.sql` (Founder ต้องรันผ่าน Supabase Dashboard เอง — ยังไม่ได้ apply) + `supabase/schema.sql` อัปเดตให้ตรงกัน
+- **Isolation จาก `club_role()`**: สร้าง `ClubBadgeRepository` เป็นไฟล์แยกต่างหาก (`app/lib/features/club/data/club_badge_repository.dart`) ไม่ใช่ method บน `ClubRepository` — ไม่มีจุดใดใน repository นี้เรียก `club_role()` เพื่อให้สิทธิ์อะไร และไม่มีจุดใดที่เช็ค permission จริง (ClubRepository/ClubPostRepository/RLS policies อื่นๆ) query ตาราง `club_member_badges` เลย — ทำให้ QA ตรวจ isolation ได้ง่ายด้วยการอ่านไฟล์เดียว
+- RLS: read เปิดให้ authenticated ทุกคน (เหมือน `clubs`/`club_channels`), insert/update/delete จำกัด Owner/Admin ของ Club นั้นเท่านั้น และ insert ต้องเช็คว่าเป้าหมายเป็น approved member จริง (`club_role(club_id, user_id) is not null`)
+- UI: `ClubBadgePill` widget แยกจาก role `Chip` เดิมชัดเจน, ปุ่มจัดการป้าย (`local_offer_outlined` icon, key `member-badge-menu-...`) เป็นปุ่มแยกจากเมนู "..." จัดการ role เดิม (ไม่ใช้ปุ่มเดียวกัน) เพื่อไม่ให้กระทบ regression test เดิมที่ยืนยันว่า Owner/self row ไม่มีเมนู role — badge แสดงใน Members tab, ใต้ author ของโพสต์ (ClubPostCard) และคอมเมนต์ (ClubPostDetailScreen)
+- สี 3 สีเพิ่มเป็น token ใน `WynColors` (`clubBadgeGoldBg/Fg`, `clubBadgeSageBg/Fg`, `clubBadgePlumBg/Fg`) ตาม pattern เดียวกับ `notificationBadgeComment/Repost` ที่มีอยู่แล้ว
+- `flutter analyze`: no issues. `flutter test`: ผ่านทั้งหมด (รวม test ใหม่สำหรับตั้ง/ถอดป้าย และยืนยันว่า badge ไม่เพิ่ม role action ใดๆ)
 
 ## AI Design Output
 

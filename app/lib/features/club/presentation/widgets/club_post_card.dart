@@ -6,6 +6,7 @@ import '../../../../core/text_utils.dart';
 import '../../../home/presentation/widgets/home_card_metrics.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/club_member.dart';
+import '../../data/club_member_badge.dart';
 import '../../data/club_post.dart';
 import '../club_post_detail_screen.dart' show clubPostShareLink;
 import '../../../../core/design/wyn_colors.dart';
@@ -19,6 +20,7 @@ import '../../../report/data/report_target_type.dart';
 import '../../../report/presentation/report_sheet.dart';
 import '../../../../core/widgets/post_media.dart';
 import '../../../../core/widgets/wyn_heart_icon.dart';
+import 'club_badge_pill.dart';
 import 'club_poll_card.dart';
 
 /// A Club post card for the Posts tab list. Restyled onto the exact same
@@ -43,10 +45,16 @@ class ClubPostCard extends StatelessWidget {
     required this.onTogglePin,
     required this.onDelete,
     required this.onVotePoll,
+    this.authorBadge,
   });
 
   final ClubPost post;
   final ClubMemberRole? myRole;
+
+  /// WYN-129: this post's author's cosmetic Club badge, if any -- null
+  /// for an author with no badge set in this Club. Never affects
+  /// permissions; purely decorative next to the author's name.
+  final ClubMemberBadge? authorBadge;
   final VoidCallback onTap;
   final VoidCallback onToggleLike;
   final VoidCallback onToggleSave;
@@ -206,10 +214,27 @@ class ClubPostCard extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  post.authorNameOrUsername,
-                                  style: Theme.of(context).textTheme.titleSmall,
-                                  overflow: TextOverflow.ellipsis,
+                                // WYN-129: badge pill sits right after the
+                                // author's name -- a plain Row nested inside
+                                // this Column (not a bare Flexible/Expanded
+                                // as this Column's own direct child), so it
+                                // doesn't trip the same unbounded-height
+                                // RenderFlex issue the comment above warns
+                                // about.
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        post.authorNameOrUsername,
+                                        style: Theme.of(context).textTheme.titleSmall,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (authorBadge != null) ...[
+                                      const SizedBox(width: WynSpacing.space1),
+                                      ClubBadgePill(badge: authorBadge!),
+                                    ],
+                                  ],
                                 ),
                                 Text(
                                   relativeTimeLabel(post.createdAt, now: DateTime.now()),

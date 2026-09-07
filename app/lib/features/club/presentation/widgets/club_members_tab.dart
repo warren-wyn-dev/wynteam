@@ -3,9 +3,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/club.dart';
+import '../../data/club_badge_repository.dart';
 import '../../data/club_member.dart';
+import '../../data/club_member_badge.dart';
 import '../../data/club_repository.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/widgets/action_sheet_row.dart';
+import 'club_badge_pill.dart';
 
 /// Screen 6 — Members tab. Reuses FollowListScreen's row shape (WYN-008/
 /// 013) plus a role badge and, for Owner/Admin, a pending-requests
@@ -19,12 +23,19 @@ class ClubMembersTab extends StatefulWidget {
     required this.myRole,
     required this.onChanged,
     required this.onInvite,
-  });
+    ClubBadgeRepository? clubBadgeRepository,
+  }) : _clubBadgeRepository = clubBadgeRepository;
 
   final ClubRepository clubRepository;
   final Club club;
   final ClubMemberRole? myRole;
   final VoidCallback onChanged;
+
+  /// WYN-129: optional, same defaulted-to-a-real-instance shape as every
+  /// other optional repository field in this app -- see
+  /// ClubBadgeRepository's own doc comment for why this is a repository
+  /// of its own rather than a method group on [clubRepository].
+  final ClubBadgeRepository? _clubBadgeRepository;
 
   /// Opens the same share-to-chat flow ClubPage's own "แชร์" header
   /// button already uses (ShareToChatScreen, SharedContentType.club) --
@@ -39,8 +50,16 @@ class ClubMembersTab extends StatefulWidget {
 }
 
 class _ClubMembersTabState extends State<ClubMembersTab> {
+  late final ClubBadgeRepository _clubBadgeRepository =
+      widget._clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
+
   List<ClubMember>? _approved;
   List<ClubMember>? _pending;
+
+  /// WYN-129: every badge in this Club, keyed by user id -- fetched
+  /// alongside the member lists (below) and re-fetched on set/remove so
+  /// the pill appears/disappears immediately without a full reload.
+  Map<String, ClubMemberBadge> _badges = {};
 
   /// Member-list pagination -- see ClubRepository.fetchApprovedMembers.
   /// A full page back means there may be more behind it.
@@ -66,21 +85,29 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
       _hasMoreMembers = false;
     });
     try {
-      // Issued together: neither list depends on the other, and awaiting
-      // them in sequence just doubled the tab's time to first paint.
-      final results = await Future.wait([
-        widget.clubRepository.fetchApprovedMembers(widget.club.id),
-        if (_canManage)
-          widget.clubRepository.fetchPendingMembers(widget.club.id)
-        else
-          Future.value(<ClubMember>[]),
-      ]);
+      // Issued together (not Future.wait -- badgesFuture's type differs
+      // from the member-list futures, and mixing them into one
+      // heterogeneous list loses static typing for no benefit): neither
+      // depends on another, and awaiting them in sequence just tripled
+      // the tab's time to first paint.
+      final approvedFuture = widget.clubRepository.fetchApprovedMembers(widget.club.id);
+      final pendingFuture = _canManage
+          ? widget.clubRepository.fetchPendingMembers(widget.club.id)
+          : Future.value(<ClubMember>[]);
+      // Fails open to an empty map on its own -- a badge-fetch hiccup
+      // shouldn't hide the entire Members list behind this tab's error
+      // state; it just means no pill shows until the next reload.
+      final badgesFuture =
+          _clubBadgeRepository.fetchBadges(widget.club.id).catchError((_) => <String, ClubMemberBadge>{});
+      final approved = await approvedFuture;
+      final pending = await pendingFuture;
+      final badges = await badgesFuture;
       if (!mounted) return;
       setState(() {
-        _approved = results[0];
-        _pending = results[1];
-        _hasMoreMembers =
-            results[0].length == ClubRepository.memberPageSize;
+        _approved = approved;
+        _pending = pending;
+        _badges = badges;
+        _hasMoreMembers = approved.length == ClubRepository.memberPageSize;
       });
     } catch (_) {
       if (!mounted) return;
@@ -192,6 +219,85 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
       if (!mounted) return;
       _showError('แบนไม่สำเร็จ ลองใหม่อีกครั้ง');
     }
+  }
+
+  // WYN-129 -- badge set/remove. Deliberately calls _clubBadgeRepository
+  // directly, never widget.clubRepository/club_role() -- see
+  // ClubBadgeRepository's own doc comment for why that separation
+  // matters.
+  Future<void> _setBadge(ClubMember member) async {
+    final existing = _badges[member.userId];
+    final result = await showSetClubBadgeDialog(
+      context,
+      initialLabel: existing?.label ?? '',
+      initialColor: existing?.colorKey ?? ClubBadgeColor.gold,
+    );
+    if (result == null) return;
+    final (label, color) = result;
+    try {
+      await _clubBadgeRepository.setBadge(
+        clubId: widget.club.id,
+        userId: member.userId,
+        label: label,
+        color: color,
+      );
+      if (!mounted) return;
+      setState(() {
+        _badges = {
+          ..._badges,
+          member.userId: ClubMemberBadge(
+            clubId: widget.club.id,
+            userId: member.userId,
+            label: label,
+            colorKey: color,
+            createdBy: Supabase.instance.client.auth.currentUser!.id,
+            createdAt: DateTime.now(),
+          ),
+        };
+      });
+    } catch (_) {
+      if (!mounted) return;
+      _showError('ตั้งป้ายไม่สำเร็จ ลองใหม่อีกครั้ง');
+    }
+  }
+
+  Future<void> _removeBadge(ClubMember member) async {
+    try {
+      await _clubBadgeRepository.removeBadge(clubId: widget.club.id, userId: member.userId);
+      if (!mounted) return;
+      setState(() {
+        _badges = {..._badges}..remove(member.userId);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      _showError('ถอดป้ายไม่สำเร็จ ลองใหม่อีกครั้ง');
+    }
+  }
+
+  Future<void> _openBadgeMenu(ClubMember member) async {
+    final hasBadge = _badges.containsKey(member.userId);
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => ActionSheetBody(rows: [
+        ActionSheetRow(
+          icon: Icons.local_offer_outlined,
+          label: hasBadge ? 'แก้ไขป้าย' : 'ตั้งป้าย',
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            _setBadge(member);
+          },
+        ),
+        if (hasBadge)
+          ActionSheetRow(
+            icon: Icons.remove_circle_outline,
+            label: 'ถอดป้าย',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _removeBadge(member);
+            },
+          ),
+      ]),
+    );
   }
 
   /// Mirrors the RPC permission boundaries in supabase/schema.sql exactly
@@ -388,7 +494,8 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
 
   Widget _buildApprovedRow(ClubMember member) {
     final actions = _actionsFor(member);
-    final badge = _buildRoleBadge(context, member.role);
+    final roleBadge = _buildRoleBadge(context, member.role);
+    final memberBadge = _badges[member.userId];
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
@@ -414,7 +521,31 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
               ],
             ),
           ),
-          if (badge != null) badge,
+          // WYN-129: badge pill sits next to the role chip, never
+          // replacing it (Design Rules) -- Wrap (not a plain Row child)
+          // so a long role+badge pair can drop to a second line instead
+          // of clipping (Responsive Behavior: "ห้าม clip ข้อความ badge").
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: WynSpacing.space1,
+            runSpacing: WynSpacing.space1,
+            children: [
+              if (roleBadge != null) roleBadge,
+              if (memberBadge != null) ClubBadgePill(badge: memberBadge),
+            ],
+          ),
+          // WYN-129: a distinct affordance from the role PopupMenuButton
+          // below (own icon/key), Owner/Admin only -- keeps this
+          // cosmetic action fully separate from the role-permission menu
+          // (and its own "no menu on own/Owner row" rule) rather than
+          // merging the two into one "..." button.
+          if (_canManage)
+            IconButton(
+              key: ValueKey('member-badge-menu-${member.userId}'),
+              icon: const Icon(Icons.local_offer_outlined, size: 18),
+              tooltip: memberBadge != null ? 'จัดการป้าย' : 'ตั้งป้าย',
+              onPressed: () => _openBadgeMenu(member),
+            ),
           if (actions.isNotEmpty)
             PopupMenuButton<_MemberAction>(
               key: ValueKey('member-menu-${member.userId}'),

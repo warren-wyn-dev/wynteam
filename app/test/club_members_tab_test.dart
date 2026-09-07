@@ -3,9 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/club/data/club.dart';
 import 'package:wyn/features/club/data/club_member.dart';
+import 'package:wyn/features/club/data/club_member_badge.dart';
 import 'package:wyn/features/club/presentation/widgets/club_members_tab.dart';
 
 import 'support/fake_supabase_session.dart';
+import 'support/recording_club_badge_repository.dart';
 import 'support/recording_club_repository.dart';
 
 /// Regression tests for WYN-014's role-permission boundary logic in
@@ -57,12 +59,25 @@ void main() {
   late RecordingClubRepository memberViewingMemberRepo;
   late RecordingClubRepository pendingVisibleRepo;
   late RecordingClubRepository pendingHiddenForModeratorRepo;
+  late RecordingClubBadgeRepository defaultBadgeRepo;
+  late RecordingClubBadgeRepository uMemberVipBadgeRepo;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'viewer');
   });
 
   setUp(() {
+    defaultBadgeRepo = RecordingClubBadgeRepository();
+    uMemberVipBadgeRepo = RecordingClubBadgeRepository(badges: {
+      'u-member': ClubMemberBadge(
+        clubId: 'club-1',
+        userId: 'u-member',
+        label: 'VIP',
+        colorKey: ClubBadgeColor.gold,
+        createdBy: 'viewer',
+        createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+      ),
+    });
     ownerViewingMemberRepo = RecordingClubRepository(approvedMembers: [
       member(userId: 'viewer', role: ClubMemberRole.owner),
       member(userId: 'u-member', role: ClubMemberRole.member),
@@ -118,12 +133,14 @@ void main() {
     RecordingClubRepository repo, {
     required ClubMemberRole? myRole,
     VoidCallback? onInvite,
+    RecordingClubBadgeRepository? badgeRepo,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: ClubMembersTab(
             clubRepository: repo,
+            clubBadgeRepository: badgeRepo ?? defaultBadgeRepo,
             club: club,
             myRole: myRole,
             onChanged: () {},
@@ -286,6 +303,75 @@ void main() {
       await pumpTab(tester, pendingHiddenForModeratorRepo, myRole: ClubMemberRole.moderator);
 
       expect(find.textContaining('คำขอเข้าร่วม'), findsNothing);
+    });
+  });
+
+  group('Role Badge (WYN-129)', () {
+    testWidgets('a plain Member never sees the badge management button on anyone',
+        (tester) async {
+      await pumpTab(tester, memberViewingMemberRepo, myRole: ClubMemberRole.member);
+
+      expect(find.byKey(const ValueKey('member-badge-menu-u-member-2')), findsNothing);
+    });
+
+    testWidgets('an Owner sets a badge for a member and it shows immediately',
+        (tester) async {
+      await pumpTab(tester, ownerViewingMemberRepo, myRole: ClubMemberRole.owner);
+
+      await tester.tap(find.byKey(const ValueKey('member-badge-menu-u-member')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ตั้งป้าย'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'VIP');
+      await tester.tap(find.byKey(const Key('club_badge_color_gold')));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(TextButton, 'บันทึก'));
+      await tester.pumpAndSettle();
+
+      expect(defaultBadgeRepo.setBadgeCalls, 1);
+      expect(find.text('VIP'), findsOneWidget);
+    });
+
+    testWidgets('an Owner removes an existing badge and it disappears immediately',
+        (tester) async {
+      await pumpTab(
+        tester,
+        ownerViewingMemberRepo,
+        myRole: ClubMemberRole.owner,
+        badgeRepo: uMemberVipBadgeRepo,
+      );
+
+      expect(find.text('VIP'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('member-badge-menu-u-member')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ถอดป้าย'));
+      await tester.pumpAndSettle();
+
+      expect(uMemberVipBadgeRepo.removeBadgeCalls, 1);
+      expect(find.text('VIP'), findsNothing);
+    });
+
+    // Risks: a badge must never grant/imply permission -- the role-menu
+    // ("member-menu-...") boundary tests above already prove the role
+    // actions themselves are unaffected; this proves the badge menu is a
+    // fully separate affordance that doesn't alter which role actions
+    // ClubMembersTab offers.
+    testWidgets('a badge on a plain Member never adds role-management actions for them',
+        (tester) async {
+      await pumpTab(
+        tester,
+        ownerViewingMemberRepo,
+        myRole: ClubMemberRole.owner,
+        badgeRepo: uMemberVipBadgeRepo,
+      );
+
+      await openMenu(tester, 'u-member');
+      expect(find.text('ตั้งเป็น Admin'), findsOneWidget);
+      expect(find.text('ตั้งเป็น Moderator'), findsOneWidget);
+      expect(find.text('ลบออกจาก Club'), findsOneWidget);
+      expect(find.text('แบน'), findsOneWidget);
     });
   });
 }
