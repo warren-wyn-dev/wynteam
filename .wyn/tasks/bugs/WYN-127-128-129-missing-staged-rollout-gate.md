@@ -1,6 +1,6 @@
 # Bug Report — WYN-127 / WYN-128 / WYN-129
 
-Status: **fixed (2026-09-07)** — gate implemented, verified, ready for AI QA & Security re-verification
+Status: **closed (2026-09-07)** — gate implemented, independently re-verified live by AI QA & Security (round 2, PASS) — shipped to production (deploy run #96, then again as part of run #97's tab restructure)
 Owner: AI Debug Engineer (เสร็จ) → AI QA & Security (ถัดไป)
 
 ## Fix (2026-09-07, AI Debug Engineer)
