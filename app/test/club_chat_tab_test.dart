@@ -52,7 +52,6 @@ void main() {
   late RecordingClubRepository singleGeneralChannelRepo;
   late RecordingClubRepository twoChannelsRepo;
   late RecordingClubRepository ownerSingleChannelRepo;
-  late RecordingClubRepository ownerTwoChannelsRepo;
   late RecordingClubRepository groupedChannelsRepo;
   late RecordingClubChannelChatRepository defaultChatRepo;
 
@@ -75,13 +74,6 @@ void main() {
     ownerSingleChannelRepo = RecordingClubRepository(
       club: club,
       channels: [channel(id: 'c-general', name: 'ทั่วไป')],
-    );
-    ownerTwoChannelsRepo = RecordingClubRepository(
-      club: club,
-      channels: [
-        channel(id: 'c-general', name: 'ทั่วไป'),
-        channel(id: 'c-announce', name: 'ประกาศ'),
-      ],
     );
     groupedChannelsRepo = RecordingClubRepository(
       club: club,

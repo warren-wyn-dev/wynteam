@@ -185,7 +185,7 @@ class _ClubChannelNameDialogState extends State<_ClubChannelNameDialog> {
                 : null,
           ),
           DropdownButtonFormField<String?>(
-            value: _categoryId,
+            initialValue: _categoryId,
             decoration: const InputDecoration(labelText: 'กลุ่ม'),
             items: _categoryDropdownItems(widget.categories),
             onChanged: (value) => setState(() => _categoryId = value),
@@ -435,7 +435,7 @@ class _MoveChannelToCategoryDialogState extends State<_MoveChannelToCategoryDial
     return AlertDialog(
       title: const Text('ย้ายไปกลุ่มอื่น'),
       content: DropdownButtonFormField<String?>(
-        value: _categoryId,
+        initialValue: _categoryId,
         decoration: const InputDecoration(labelText: 'กลุ่ม'),
         items: _categoryDropdownItems(widget.categories),
         onChanged: (value) => setState(() => _categoryId = value),
