@@ -1,7 +1,7 @@
 # Product Task — WYN-128
 
-Status: active — Design เสร็จแล้ว (mockup Founder อนุมัติ 2026-09-07: "แยกตามห้อง เหมือนดิส"), รอ Founder รับทราบแนวทาง schema ก่อนส่ง Coding (ดู Recommendation)
-Owner: AI Product Manager → AI Design (เสร็จ) → รอ Founder รับทราบสถาปัตยกรรม → AI Coding
+Status: active — Design เสร็จแล้ว, สถาปัตยกรรม schema (ตารางใหม่ `club_channel_messages` แยกจากแชทเดิม) Founder อนุมัติแล้ว 2026-09-07 ("ทำต่อให้เสร็จเลย"), handoff ให้ AI Coding
+Owner: AI Product Manager → AI Design (เสร็จ) → Founder อนุมัติสถาปัตยกรรม (เสร็จ) → AI Coding (ถัดไป)
 
 Feature: Club Group Chat — ห้องแชทสด (real-time) **ต่อห้อง (channel)** แยกจากฟีดโพสต์ของห้องนั้น
 
@@ -35,9 +35,9 @@ Risks:
 - Club ขนาดใหญ่ (สมาชิกหลักพันคน) ในห้องแชทเดียวอาจข้อความไหลเร็วเกินจะติดตามได้ — ต้องพิจารณา pagination/loading เก่า-ใหม่ตั้งแต่ Design ไม่ใช่แก้ทีหลัง
 - Moderation (WYN-026/027/028/029) ต้องขยายมาครอบคลุมข้อความในห้องแชท Club ด้วย ไม่ใช่แค่โพสต์ — ต้องเช็คกับระบบ report/block ที่มีอยู่แล้วว่าครอบคลุมหรือไม่
 
-Recommendation: **APPROVAL_REQUIRED ก่อนส่ง Coding** — แนวทาง schema ที่ AI Design เลือก (ดูหัวข้อ "AI Design Output") คือสร้างตารางใหม่แยกต่างหากสำหรับ Club chat โดยเฉพาะ (`club_channel_messages` + ใช้ RLS ผูกกับ `club_role()`โดยตรง) **ไม่แตะตาราง `conversations`/`messages`เดิมของ WYN-031 เลยแม้แต่บรรทัดเดียว** เพื่อไม่ให้มีความเสี่ยงต่อระบบแชท 1-ต่อ-1 ที่ใช้งานจริงอยู่แล้ว — เป็นสถาปัตยกรรมใหม่ (ระบบสนทนากลุ่มครั้งแรกของ WYN) ตาม RULES.md ต้องให้ Founder รับทราบแนวทางก่อนเริ่ม Coding แม้ scope การใช้งาน (แยกตามห้อง) จะอนุมัติแล้วก็ตาม
+Recommendation: **APPROVED (2026-09-07, Founder: "ทำต่อให้เสร็จเลย")** — แนวทาง schema ที่ AI Design เลือก (ดูหัวข้อ "AI Design Output") คือสร้างตารางใหม่แยกต่างหากสำหรับ Club chat โดยเฉพาะ (`club_channel_messages` + ใช้ RLS ผูกกับ `club_role()`โดยตรง) **ไม่แตะตาราง `conversations`/`messages`เดิมของ WYN-031 เลยแม้แต่บรรทัดเดียว** เพื่อไม่ให้มีความเสี่ยงต่อระบบแชท 1-ต่อ-1 ที่ใช้งานจริงอยู่แล้ว — บันทึกการอนุมัติใน `.wyn/company/APPROVALS.md` แล้ว
 
-Handoff: รอ Founder รับทราบ/อนุมัติแนวทาง schema ("ตารางใหม่แยกต่างหาก ไม่แตะแชทเดิม") → AI Coding → AI QA & Security (เน้นตรวจว่าไม่มีจุดใดแตะ/เปลี่ยนพฤติกรรม `conversations`/`messages` เดิมเลย, ตรวจ RLS ผูกกับ `club_role()` ถูกต้องตาม channel, ตรวจคนถูก ban เข้าห้องแชทไม่ได้ทันที)
+Handoff: ส่งต่อ AI Coding → AI QA & Security (เน้นตรวจว่าไม่มีจุดใดแตะ/เปลี่ยนพฤติกรรม `conversations`/`messages` เดิมเลย, ตรวจ RLS ผูกกับ `club_role()` ถูกต้องตาม channel, ตรวจคนถูก ban เข้าห้องแชทไม่ได้ทันที)
 
 ## AI Design Output
 
@@ -61,4 +61,4 @@ Design Rules: ห้ามสร้าง UI chat ใหม่ตั้งแต
 
 **ข้อเสนอสถาปัตยกรรม schema (APPROVAL_REQUIRED)**: สร้างตารางใหม่ `club_channel_messages` (คอลัมน์คล้าย `messages` เดิม: id, channel_id, author_id, content, image_url, reply_to_message_id, created_at) + RLS policy อ่าน/เขียนผ่าน `club_role(channel's club_id, auth.uid()) is not null` โดยตรง — **ไม่แตะ `conversations`/`conversation_participants`/`messages` ของ WYN-031 เลย** เหตุผล: ระบบ 1-1 ออกแบบมาเฉพาะคู่สนทนา 2 คน (unique constraint/index หลายจุดสมมติฐานนี้) การบังคับให้รองรับ N คนจะเสี่ยงกระทบทุกจุดที่อ้างอิง "อีกฝ่าย" (เช่น unread count, online status ของคู่สนทนา) — แยกตารางใหม่ปลอดภัยกว่ามาก แลกกับโค้ด UI ซ้ำกันเล็กน้อยระหว่าง 2 ระบบ ซึ่งยอมรับได้
 
-Handoff: รอ Founder รับทราบข้อเสนอสถาปัตยกรรมข้างต้น (ตารางใหม่แยก ไม่แตะแชทเดิม) แล้วส่งต่อ AI Coding
+Handoff: สถาปัตยกรรมนี้ Founder อนุมัติแล้ว (2026-09-07) → ส่งต่อ AI Coding
