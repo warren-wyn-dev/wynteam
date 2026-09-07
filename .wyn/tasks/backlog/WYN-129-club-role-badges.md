@@ -1,7 +1,7 @@
 # Product Task — WYN-129
 
-Status: **Debug: เสร็จ (2026-09-07)** — ปิดช่องโหว่ RLS แล้ว (`update` policy เพิ่ม `with check` เช็ค target-membership เหมือน `insert` policy) และเพิ่ม developer-account staged-rollout gate ร่วมกับ WYN-127/128 — ยืนยันด้วย live PostgreSQL 16.13 (`supabase/tests/wyn_129_club_role_badges_test.sh` ใหม่ 17/17 ผ่าน รวม repro เดิมของ QA ที่ตอนนี้ถูกปฏิเสธแล้ว) และ `flutter analyze`/`flutter test` (1377/1377) — รายละเอียด: `.wyn/tasks/bugs/WYN-129-badge-update-target-membership-gap.md`, `.wyn/tasks/bugs/WYN-127-128-129-missing-staged-rollout-gate.md` — ส่งกลับ AI QA & Security ตรวจซ้ำ
-Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (เสร็จ) → AI QA & Security (ถัดไป)
+Status: **QA รอบ 2: PASS (2026-09-07) — พร้อม Deploy** — ตรวจซ้ำช่องโหว่ RLS เดิมด้วย exploit script ของ QA เองอีกครั้ง (ไม่ใช่แค่ test ของ Debug): retarget badge ไปหา non-member ถูกปฏิเสธแล้วจริง, badge เดิมไม่ถูกแตะ, แก้ label/color ที่ user_id เดิมยังทำได้ปกติ (ไม่กระทบการใช้งานจริง) — `flutter analyze`/`flutter test` (1377/1377) ผ่านหมด
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (เสร็จ) → AI QA & Security (เสร็จ, PASS) → AI Deploy & DevOps (ถัดไป)
 
 Feature: Club Role Badge — ป้ายชื่อ/สีที่ Owner ตั้งเองได้ ติดข้าง role ของสมาชิก
 
@@ -48,6 +48,16 @@ Handoff: ส่งต่อ AI Coding → AI QA & Security (**เน้นพิ
 2. ขาด developer-account staged-rollout gate ร่วมกับ WYN-127/128 — ดู `.wyn/tasks/bugs/WYN-127-128-129-missing-staged-rollout-gate.md`
 
 Final Status: **FAIL** (critical invariant ปลอดภัย 100% — บล็อกเพราะช่องโหว่ RLS รอง (severity: low, ไม่ escalate สิทธิ์) + staged-rollout gate)
+
+## QA Output รอบ 2 (2026-09-07) — PASS
+
+ตรวจซ้ำหลัง AI Debug Engineer แก้ (commit `005708b`, `1bb6fa4`) ด้วยวิธีเดิม (live PostgreSQL 16.13):
+- รัน `supabase/tests/wyn_129_club_role_badges_test.sh` ที่ Debug เพิ่มมาเอง: 17/17 ผ่าน รวม `CHECK7-9` (retarget ไป non-member/pending/banned member — ทุกเคสถูกปฏิเสธแล้ว)
+- **เขียน exploit script เดิมของ QA รอบ 1 ซ้ำเอง** (ไม่พึ่งแค่ test ของ Debug): admin พยายาม `UPDATE club_member_badges SET user_id = <non-member>` — ยืนยันว่าถูกปฏิเสธจริง (`exception`), badge เดิมของเป้าหมายที่ถูกต้องยังอยู่ไม่ถูกแตะ, และยืนยันว่าการแก้ label/color ปกติ (ไม่เปลี่ยน user_id) ยังทำงานถูกต้องเหมือนเดิม — ไม่กระทบการใช้งานจริงของแอป
+- `flutter analyze`: no issues. `flutter test`: 1377/1377 ผ่านทั้งหมด
+- Staged-rollout gate: ตรวจสอบร่วมกับ WYN-127 (ดู QA Output รอบ 2 ของ WYN-127) — badge pill/เมนูจัดการป้ายใน `ClubMembersTab`/`ClubPostDetailScreen` ถูกซ่อนสำหรับ non-developer account จริง (อ่าน diff + รัน `club_members_tab_test.dart` ยืนยัน)
+
+Final Status: **PASS — พร้อม Deploy**
 
 ## Coding Notes (2026-09-07)
 

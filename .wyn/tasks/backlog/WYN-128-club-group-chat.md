@@ -1,7 +1,7 @@
 # Product Task — WYN-128
 
-Status: **Debug: เสร็จ (2026-09-07)** — แก้ทั้ง 2 เรื่องที่ QA บล็อกไว้: (1) เพิ่มช่องทาง "รายงานข้อความ" ครบทั้ง UI + schema (`reports.target_type` รองรับ `club_channel_message`) + `submit_report()`/`apply_moderation_action()` (2) เพิ่ม developer-account staged-rollout gate ร่วมกับ WYN-127/129 — ยืนยันด้วย live PostgreSQL 16.13 (`supabase/tests/wyn_128_group_chat_report_test.sh`, 9/9 ผ่าน) และ `flutter analyze`/`flutter test` (1377/1377) — รายละเอียด: `.wyn/tasks/bugs/WYN-128-group-chat-missing-report-action.md`, `.wyn/tasks/bugs/WYN-127-128-129-missing-staged-rollout-gate.md` — ส่งกลับ AI QA & Security ตรวจซ้ำ
-Owner: AI Product Manager → AI Design (เสร็จ) → Founder อนุมัติสถาปัตยกรรม (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (เสร็จ) → AI QA & Security (ถัดไป)
+Status: **QA รอบ 2: PASS (2026-09-07) — พร้อม Deploy** — ตรวจซ้ำทั้ง 2 fix อิสระด้วย live PostgreSQL 16.13: (1) member รายงานข้อความคนอื่นได้จริง, เจ้าของรายงานตัวเองไม่ได้, non-member รายงานไม่ได้, admin สั่ง remove_content ลบข้อความจริง+แจ้งเตือนผู้เขียน (2) staged-rollout gate ปิดช่องจริง — `flutter analyze`/`flutter test` (1377/1377) ผ่านหมด
+Owner: AI Product Manager → AI Design (เสร็จ) → Founder อนุมัติสถาปัตยกรรม (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (เสร็จ) → AI QA & Security (เสร็จ, PASS) → AI Deploy & DevOps (ถัดไป)
 
 Feature: Club Group Chat — ห้องแชทสด (real-time) **ต่อห้อง (channel)** แยกจากฟีดโพสต์ของห้องนั้น
 
@@ -53,6 +53,16 @@ Handoff: ส่งต่อ AI Coding → AI QA & Security (เน้นตร�
 2. ขาด developer-account staged-rollout gate ร่วมกับ WYN-127/129 — ดู `.wyn/tasks/bugs/WYN-127-128-129-missing-staged-rollout-gate.md`
 
 Final Status: **FAIL** (สถาปัตยกรรม/RLS/ban-mid-chat/ไม่แตะระบบเดิม ปลอดภัยและถูกต้องตามที่ทดสอบจริงทั้งหมด — บล็อกเพราะขาดช่องทาง report ข้อความ + staged-rollout gate)
+
+## QA Output รอบ 2 (2026-09-07) — PASS
+
+ตรวจซ้ำหลัง AI Debug Engineer แก้ (commit `005708b`, `1bb6fa4`) ด้วยวิธีเดิม (live PostgreSQL 16.13 + `flutter analyze`/`flutter test`):
+- รัน `supabase/tests/wyn_128_group_chat_report_test.sh` ที่ Debug เพิ่มมาเอง: 9/9 ผ่าน
+- **เขียน SQL ทดสอบเองแยกต่างหาก (ไม่พึ่งแค่ test script ของ Debug)** ยืนยันซ้ำ: member ที่ approved รายงานข้อความคนอื่นได้จริง (`submit_report('club_channel_message', ...)`), เจ้าของข้อความรายงานข้อความตัวเองไม่ได้, non-member รายงานไม่ได้, เรียก `apply_moderation_action(..., 'remove_content', ...)` แล้วข้อความถูกลบจริง (`club_channel_messages` ไม่มีแถวนั้นอีก), status ของ report เปลี่ยนเป็น `actioned` จริง
+- `flutter analyze`: no issues. `flutter test`: 1377/1377 ผ่านทั้งหมด
+- Staged-rollout gate: ตรวจสอบร่วมกับ WYN-127 (ดู QA Output รอบ 2 ของ WYN-127) — `ClubChannelChatView`/"โพสต์ | แชท" toggle ถูกซ่อนสำหรับ non-developer account ผ่าน `ClubPostsTab`'s gate เดียวกัน ยืนยันแล้วว่า `_viewMode` ไม่มีทางออกจาก `.posts` เมื่อ toggle ไม่ถูก render เลย (อ่าน diff จริง)
+
+Final Status: **PASS — พร้อม Deploy**
 
 ## AI Design Output
 

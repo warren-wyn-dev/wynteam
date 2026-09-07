@@ -1,7 +1,7 @@
 # Product Task — WYN-127
 
-Status: **Debug: เสร็จ (2026-09-07)** — เพิ่ม developer-account staged-rollout gate ครบแล้ว (channel switcher + "โพสต์ | แชท" toggle + create-post chip) ตามที่ QA บล็อกไว้ ยืนยันด้วย `flutter analyze`/`flutter test` (1377/1377) และ regression test ใหม่สำหรับทั้ง 2 state (`true`/`false`) — รายละเอียด: `.wyn/tasks/bugs/WYN-127-128-129-missing-staged-rollout-gate.md` — ส่งกลับ AI QA & Security ตรวจซ้ำ
-Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (เสร็จ) → AI QA & Security (ถัดไป)
+Status: **QA รอบ 2: PASS (2026-09-07) — พร้อม Deploy** — ยืนยัน staged-rollout gate ปิดช่องจริงด้วย live PostgreSQL 16.13 + `flutter test` (1377/1377) รวม regression test ทั้ง 2 state (`true`/`false`) ผ่านหมด พบเพิ่มเติม (ไม่บล็อก): WYN-127 เปลี่ยน `club_posts.channel_id` เป็น `NOT NULL` + เปลี่ยน signature ของ `create_poll_club_post()` ทำให้ test script เก่า 6 ไฟล์ (`wyn_021`/`wyn_044`/`wyn_045`/`wyn_047`/`wyn_115`/`wyn_117`) ค้าง fixture เดิม รันไม่ผ่าน — ตรวจสอบอิสระแล้วว่าเป็น**แค่ test script ค้างสเปกเดิม ไม่ใช่ regression จริง** (โค้ด Dart จริงส่ง `channel_id`/`p_channel_id` ถูกต้องทุกจุดอยู่แล้ว, เรียก RPC ตรงแบบเดียวกับแอปจริงบน live Postgres สำเร็จ) รายละเอียด: `.wyn/tasks/bugs/WYN-127-stale-test-fixtures-channel-id-not-null.md` (priority ต่ำ ไม่ block deploy)
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (เสร็จ) → AI QA & Security (เสร็จ, PASS) → AI Deploy & DevOps (ถัดไป)
 
 Feature: Club Channels — แบ่งการพูดคุยภายใน Club เป็นหลายห้อง แทนที่ฟีดเดียวรวมทุกเรื่อง
 
@@ -52,6 +52,18 @@ Handoff: ส่งต่อ AI Coding → AI QA & Security (ตรวจ migrati
 **เหตุผลที่ FAIL**: พบว่าฟีเจอร์นี้ (ร่วมกับ WYN-128/WYN-129 บน branch เดียวกัน) ไม่ได้ gate ด้วย `DeveloperAccessService.isDeveloperAccount()` เลย ขัดกับนโยบายบังคับใน `.wyn/company/WORKFLOW.md` ("Staged Rollout เป็นค่าเริ่มต้นสำหรับฟีเจอร์ใหม่ทุกตัว", มีผลตั้งแต่ 2026-09-06) — deploy ตอนนี้จะทำให้ผู้ใช้ทุกคนเห็นแถบ channel ทันที ไม่ใช่แค่บัญชีนักพัฒนา รายละเอียด/reproduction/fix ที่แนะนำ: `.wyn/tasks/bugs/WYN-127-128-129-missing-staged-rollout-gate.md`
 
 Final Status: **FAIL** (ตัวฟีเจอร์เองใช้งานได้ปลอดภัยตามที่ทดสอบ — บล็อกเฉพาะเรื่อง staged-rollout gate ที่ต้องเพิ่มก่อน deploy)
+
+## QA Output รอบ 2 (2026-09-07) — PASS
+
+ตรวจซ้ำหลัง AI Debug Engineer แก้ (commit `1bb6fa4`) ด้วยวิธีเดิม (live PostgreSQL 16.13 + `flutter analyze`/`flutter test`):
+- อ่าน diff จริง + รัน `flutter test test/club_posts_tab_test.dart test/club_members_tab_test.dart test/club_page_test.dart` ยืนยัน staged-rollout gate ทำงานถูกต้องทั้ง 2 state: `false` = เหมือน pre-WYN-127/128/129 ทุกประการ (ไม่มีแถบ channel/toggle แชท/badge/ชื่อ channel รั่วใน composer chip), `true` = เห็นของใหม่ครบตามเดิม (regression test ยืนยันทั้งคู่)
+- `flutter analyze`: no issues. `flutter test`: 1377/1377 ผ่านทั้งหมด (ตรงกับที่ Debug รายงาน)
+
+**พบเพิ่มเติมระหว่างตรวจซ้ำ (ไม่บล็อก deploy)**: รัน `supabase/tests/*.sh` ทั้ง 43 ไฟล์ตามที่ผู้ประสานงานร้องขอ พบ 8 ไฟล์ fail — สืบสวนอิสระแล้วสรุปได้ดังนี้:
+- **6 ไฟล์ (`wyn_021`/`wyn_044`/`wyn_045`/`wyn_047`/`wyn_115`/`wyn_117`)**: fail เพราะ fixture ของ test เองยังไม่อัปเดตตาม schema ใหม่ของ WYN-127 (`club_posts.channel_id` เป็น `NOT NULL` แล้ว, `create_poll_club_post()` มี parameter `p_channel_id` เพิ่มแล้ว) — ยืนยันว่า**ไม่ใช่ regression จริงต่อแอป**: อ่านโค้ด Dart จริง (`ClubPostRepository.createPost`/`createPollClubPost`) ส่ง `channel_id`/`p_channel_id` ถูกต้องครบทุกจุดอยู่แล้ว, `create_club_post_screen_test.dart` (อยู่ใน 1377 ที่ผ่าน) ยืนยัน call shape ถูกต้องอยู่แล้วตั้งแต่รอบ Coding เดิม, และทดสอบเรียก `create_poll_club_post()` ตรงแบบเดียวกับที่แอปเรียกจริง (named params ผ่าน live Postgres) สำเร็จ สร้างโพสต์+poll ได้ถูกต้อง — สรุปว่าเป็นแค่ test script ค้างสเปกเดิม รายละเอียด: `.wyn/tasks/bugs/WYN-127-stale-test-fixtures-channel-id-not-null.md` (priority ต่ำ ไม่ block)
+- **1 ไฟล์ (`wyn_038_view_counting_test.sh`)**: ตรวจสอบแล้วว่า fail เหมือนกันทุกประการ (8 checks เดิม) แม้ย้อนกลับไปทดสอบกับ schema.sql ของ commit `5498928` (จุดก่อนเริ่มงาน WYN-127/128/129 เลย) — ยืนยันว่าเป็นปัญหาเดิมที่มีอยู่ก่อนแล้ว ไม่เกี่ยวกับ branch นี้เลยแม้แต่น้อย ต้องแยกไปสืบสวนเป็นเรื่องอื่นต่างหาก ไม่เกี่ยวกับ WYN-127/128/129
+
+Final Status: **PASS — พร้อม Deploy**
 
 ## AI Design Output
 
