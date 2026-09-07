@@ -19,6 +19,7 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
 import '../../../core/widgets/action_sheet_row.dart';
+import 'club_invite_links_screen.dart';
 import '../../chat/data/chat_repository.dart';
 import '../../chat/data/shared_content_type.dart';
 import '../../chat/presentation/share_sheet.dart';
@@ -144,6 +145,11 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
       widget._clubChannelChatRepository ?? ClubChannelChatRepository(Supabase.instance.client);
   late final DeveloperAccessService _developerAccessService =
       widget._developerAccessService ?? DeveloperAccessService();
+
+  // WYN-130/WYN-125: Staged Rollout gate for the "ลิงก์เชิญ" More-menu
+  // row -- same "resolve once, await it wherever gating is needed"
+  // shape as ClubPostsTab's own _isDeveloperFuture.
+  late final Future<bool> _isDeveloperFuture = _developerAccessService.isDeveloperAccount();
 
   @override
   void initState() {
@@ -343,6 +349,10 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     final role = membership?.status == ClubMemberStatus.approved ? membership!.role : null;
     final isApproved = membership?.status == ClubMemberStatus.approved;
     final isPending = membership?.status == ClubMemberStatus.pending;
+    // WYN-130/WYN-125 (Staged Rollout): a non-developer account's More
+    // menu is byte-for-byte the pre-WYN-130 sheet.
+    final isDeveloper = await _isDeveloperFuture;
+    if (!mounted) return;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -388,6 +398,22 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               _tabController!.animateTo(1);
             },
           ),
+          if (isDeveloper)
+            ActionSheetRow(
+              icon: Icons.link,
+              label: 'ลิงก์เชิญ',
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ClubInviteLinksScreen(
+                      club: club,
+                      clubRepository: widget.clubRepository,
+                    ),
+                  ),
+                );
+              },
+            ),
         ] else if (isApproved) ...[
           ActionSheetRow(
             icon: Icons.logout,

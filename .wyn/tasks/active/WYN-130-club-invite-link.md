@@ -1,6 +1,6 @@
 # Product Task — WYN-130
 
-Status: ready-for-coding — Founder ยืนยันทางเลือก A แล้ว (2026-09-07, "เข้าร่วมทันที" — บันทึกใน `.wyn/company/DECISIONS.md`) และอนุมัติ wireframe ข้อความแทน visual mockup — ไม่มีจุดค้าง พร้อมส่ง AI Coding
+Status: coding-complete รอ QA (2026-09-07)
 Owner: AI Design → AI Coding
 
 Feature: Club Invite Link (generate/revoke, expiration, max-uses)
@@ -59,3 +59,24 @@ Design spec เต็มที่ `.wyn/docs/design/wyn-130-club-invite-link.md`
 - แนะนำ gate ด้วย Staged Rollout (WYN-125)
 
 Handoff: **ห้าม AI Coding เริ่มจนกว่า Founder จะตอบคำถาม A/B ข้างบน** + ยืนยันเรื่อง visual mockup เหมือน 3 task อื่นใน Phase A นี้
+
+Founder ยืนยันแล้ว 2026-09-07 (ทางเลือก A + wireframe ข้อความ, ดู `.wyn/company/DECISIONS.md` entry "[2026-09-07] Social 3-Domain Roadmap") — ไม่มีจุดค้าง ส่งต่อ AI Coding
+
+## AI Coding Output (2026-09-07)
+
+Implementation ครบตาม design spec — ใช้ SQL จากเอกสาร design ตรงๆ ตามที่ระบุไว้ (ไม่มีจุดกำกวมด้าน technical):
+
+- **Schema**: `public.club_invite_links` + `public.club_invite_link_uses` + RPC 4 ตัว (`create_club_invite_link`/`revoke_club_invite_link`/`preview_club_invite_link`/`redeem_club_invite_link`) ใน `supabase/schema.sql` + `supabase/migrations_wyn130_club_invite_link.sql` (standalone migration ใหม่ตาม convention) — `redeem_club_invite_link()` lock เป็นทางเลือก A ตามที่ Founder ยืนยัน (join ทันทีแม้ Private Club, auto-upgrade pending เดิมเป็น approved)
+- **Flutter data layer**: `ClubInviteLink`/`ClubInvitePreview` model ใหม่ (`club_invite_link.dart`), `ClubRepository` เพิ่ม `createInviteLink()`/`revokeInviteLink()`/`fetchInviteLinks()`/`previewInviteLink()` (sign icon URL เองก่อนคืนค่า)/`redeemInviteLink()`
+- **Flutter UI**: `ClubInviteLinksScreen` ใหม่ (สร้าง/ดูรายการ/revoke, banner เตือนสีเหลือง/ส้มอ่อนสำหรับ Private Club, radio-picker sheet สำหรับวันหมดอายุ/จำนวนครั้งใช้งาน — ใช้ pseudo-radio pattern เดิมของ `settings_screen.dart` ไม่ใช้ `RadioListTile` เพราะ deprecated ใน Flutter version นี้), `ClubInvitePreviewScreen` ใหม่ (preview + ปุ่มเข้าร่วม + 5 สถานะ error state) — `club_page.dart`'s More menu เพิ่มแถว "ลิงก์เชิญ" (gate ด้วย `role.canManageClub` เดิม + `isDeveloperAccount()` ใหม่)
+- **Deep Link**: `DeepLinkService` เพิ่ม pattern `/club-invite/:code` → `ClubInvitePreviewScreen` (รวมอยู่ใน `hasContentPath()` เพื่อให้ guest auto-sign-in แบบ anonymous ตามกลไกเดิมของ WYN-119 ด้วย)
+- **Staged Rollout**: `isDeveloperAccount() == false` ทำให้ (1) ไม่เห็นแถว "ลิงก์เชิญ" ใน More menu เลย (2) เปิดลิงก์ `/club-invite/:code` fallback เงียบๆ เหมือน path ที่ไม่รู้จัก ไม่พาไปหน้า preview จริง — ตามที่ Design ระบุ
+- **แก้บั๊กใน SQL ต้นฉบับ**: ไม่พบ — ใช้ SQL จาก design doc ตรงๆ ทั้งหมดโดยไม่ต้องแก้ไข (verify แล้วตรงกับ schema จริงของ `clubs`/`club_members`/`club_role()` ที่ตรวจสอบก่อนเริ่ม)
+- **Test ใหม่**: `club_invite_links_screen_test.dart` (8 tests: empty state, list rendering, privacy banner, expired/dimmed display, create flow, revoke flow + confirm dialog, revoke failure, copy-to-clipboard), `club_invite_preview_screen_test.dart` (9 tests: valid link render, private badge, join success → navigate to ClubPage, join failure, ทั้ง 4 invalid status + preview fetch failure fallback), `club_invite_link_test.dart` (10 tests: model fromMap/computed getters), `club_page_test.dart` +3 tests (gate on/off, tap navigation) — เพิ่ม invite-link overrides ใน `RecordingClubRepository`
+  - **พบและแก้บั๊กใน test ของตัวเอง**: `Clipboard.setData` ไม่มี default mock handler ใน flutter_test แบบ implicit ทำให้ await ค้างตลอดไป (indeterminate `CircularProgressIndicator` วนไม่หยุด → `pumpAndSettle()` timeout) — แก้ด้วยการ register `SystemChannels.platform` mock handler ใน `setUp()`/`tearDown()` ของ `club_invite_links_screen_test.dart` ทั้งไฟล์ (มิเรอร์ `interaction_feedback_test.dart`'s ท่าเดิมสำหรับ `HapticFeedback`) — ไม่ใช่บั๊กใน production code เป็นแค่ gap ของ test setup
+- **flutter analyze**: 0 issues (ทั้งโปรเจกต์)
+- **flutter test**: **1433/1433 PASS** (ทั้งโปรเจกต์ รวม 30 test ใหม่ของ WYN-130)
+
+Known Issues: ไม่มี — schema/RPC/UI/deep-link/RLS ตรงตาม design spec ครบ ไม่มี known gap ที่ต้องรายงาน Founder เพิ่ม (attribution tracking ผ่าน `club_invite_link_uses` เก็บ data ไว้แล้วตาม Requirement แต่ยังไม่มี UI แสดงผล ตามที่ระบุไว้ตั้งแต่ Product/Design spec ว่าไม่ scope รอบนี้)
+
+Handoff: ส่งต่อ AI QA & Security
