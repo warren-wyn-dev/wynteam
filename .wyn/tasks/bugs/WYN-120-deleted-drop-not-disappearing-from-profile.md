@@ -1,6 +1,8 @@
 # Bug Report — WYN-120
 
 Status: **Deploy ขึ้น production แล้ว (deploy-web.yml run #90, 2026-09-06 08:17 UTC) — รอ Founder ยืนยันว่าลบโพสต์จริงแล้วหายจากโปรไฟล์ทันที ก่อนย้ายไป completed/** ดู `.wyn/logs/deployments/2026-09-06-wyn-120-delete-drop-profile-fix-deploy.md`
+
+**อัปเดต 2026-09-07**: Founder ทดสอบซ้ำแล้วอาการเดิมยังอยู่ — แต่ยืนยันแล้วว่า **ไม่ใช่บั๊กเดิมกลับมา** fix ของ WYN-120 (`fetchById()`) ยังทำงานถูกต้องและ deploy จริง (ตรวจ code + production header ซ้ำแล้ว) เป็นบั๊กคนละตัวที่มีอาการเหมือนกัน: `ProfileDropGridTab._loadInitial()` ใช้ `DropRepository.fetchByAuthor()` (คนละ method กับ `fetchById()`) ซึ่งไม่เคยมี `deleted_at` filter มาก่อนเลย — root cause/fix/test เต็มอยู่ที่ `.wyn/tasks/bugs/WYN-132-profile-grid-fetch-by-author-missing-deleted-at-filter.md` งานนี้ (WYN-120) ยังคงสถานะเดิมไว้ (fix ของตัวเองถูกต้องแล้ว ไม่ต้องแก้เพิ่ม) — ให้ Founder ยืนยันทั้งสอง fix (WYN-120 + WYN-132) พร้อมกันในรอบทดสอบถัดไป
 Owner: AI Debug Engineer → AI Deploy & DevOps → รอ Founder ยืนยัน
 Reported by: Founder (สด, ไม่ผ่าน QA ก่อน): "ตอนลบโพสต์ หน้าโปรไฟล์ โพสต์ไม่หายเลย"
 
