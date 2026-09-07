@@ -1,6 +1,6 @@
 # Product Task — WYN-133
 
-Status: coding-complete — PR #308 (https://github.com/warren-wyn-dev/wynteam/pull/308) — awaiting AI QA & Security, then apply-schema workflow + deploy
+Status: coding-complete — PR #308 (merged by Founder before CI finished, https://github.com/warren-wyn-dev/wynteam/pull/308) — follow-up analyze-fix PR #309 (https://github.com/warren-wyn-dev/wynteam/pull/309) open to bring `main` back to green — awaiting that + AI QA & Security, then apply-schema workflow + deploy
 Owner: AI Product Manager (spec) / AI Coding (implementation)
 
 Feature: Club Chat — กดห้องแล้วนำทางไปหน้าแชทของห้องนั้นแบบเต็มจอ (Discord-style channel navigation)
