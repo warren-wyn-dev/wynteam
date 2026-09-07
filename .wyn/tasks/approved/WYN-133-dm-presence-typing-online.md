@@ -1,7 +1,7 @@
 # Product Task — WYN-133
 
-Status: coding-complete รอ QA (2026-09-07)
-Owner: AI Design → AI Coding
+Status: QA PASS — approved, ready for AI Deploy & DevOps (2026-09-07)
+Owner: AI Design → AI Coding → AI QA & Security → AI Deploy & DevOps
 
 Feature: DM Presence — Typing Indicator + Online/Offline + Last Seen (1:1 Chat)
 
@@ -76,3 +76,19 @@ Known Issues / จุดที่ตัดสินใจเอง (ไม่ใ
 - Edge case ที่ design doc เองยอมรับไว้แล้วยังคงอยู่ตามเดิม: `last_seen_at` ไม่อัปเดตถ้าแอปถูก kill กะทันหัน (ไม่มี server-side heartbeat timeout ใน v1), 2 อุปกรณ์พร้อมกันนับเป็น online เดียว (ตามที่ design ตั้งใจ), presence ของอีกฝ่ายไม่ real-time เต็มรูปแบบเมื่อพวกเขาเปลี่ยน privacy toggle เอง (ต้อง fetch ใหม่ตอนเปิดหน้า/resume ไม่ใช่ postgres_changes)
 
 Handoff: ส่งต่อ AI QA & Security
+
+## AI QA & Security Report (2026-09-07)
+
+รายงานเต็ม: `.wyn/docs/qa/2026-09-07-wyn-130-132-133-134-phase-a-qa.md`
+
+**นี่คือ task ที่ตรวจเข้มที่สุดในรอบนี้เพราะเป็นข้อมูล privacy อ่อนไหวตาม RULES.md** รัน `flutter analyze`/`flutter test` เองอิสระ (1433/1433 ผ่าน, 0 issues) เขียน regression test SQL ใหม่ (`supabase/tests/wyn_133_dm_presence_test.sh`, 11 checks) ทดสอบตรงกับ RPC/RLS จริงบน PostgreSQL 16 ภายใต้ role `authenticated` จริง:
+
+- **ตรวจ bugfix ของ `get_conversation_partner_presence()`**: ยืนยันว่าคืน 1 แถวเสมอ (ไม่ใช่ 0 แถว) เมื่อ partner ไม่เคยมีแถว `user_presence` มาก่อนและ reciprocal check ผ่าน — ตรงตามที่ AI Coding อธิบายว่าแก้บั๊กจาก design doc เดิม ยืนยันว่าแก้ถูกจริง
+- **Reciprocal privacy check — ทดสอบทั้ง 2 ทิศทาง**: ปิดของตัวเอง (alice) → มองไม่เห็นของคนอื่น (bob) แม้ bob ยังเปิดอยู่, และกลับกัน bob (ผู้ใช้คนที่ query) ก็มองไม่เห็น alice เหมือนกันเพราะ alice ปิดของตัวเอง (สมมาตรทั้งคู่ทิศทาง) — เปิดกลับมาแล้วเห็นได้ปกติ ทดสอบอีกทิศทาง (bob ปิดของตัวเอง) ก็ทำให้ alice มองไม่เห็น bob เช่นกัน — reciprocal ทำงานถูกต้องจริงไม่มีทางเลี่ยง
+- **การทดสอบ bypass ที่ร้องขอโดยเฉพาะ**: เรียก `SELECT * FROM user_presence WHERE user_id = <partner>` ตรงๆ ข้าม RPC ไปเลย (ทั้งที่ toggle ทั้งคู่เปิดอยู่) — **ถูก RLS บล็อก คืน 0 แถว** ยืนยันว่าไม่มีทางอ่านข้อมูล presence ของคนอื่นได้เลยนอกจากผ่าน RPC ที่บังคับ reciprocal check เท่านั้น
+- non-participant เรียก RPC สำหรับบทสนทนาคนอื่นไม่ได้, เขียนแถว presence ของคนอื่นไม่ได้เลย (`with check (auth.uid() = user_id)`)
+- **Staged rollout gate**: ยืนยันด้วย test ที่เช็ค call count ตรงๆ (`fetchConversationPartnerPresenceCalls == 0`, `subscribeTypingChannelCalls == 0`, `startGlobalPresenceCalls == 0` สำหรับ non-developer) ไม่ใช่แค่เช็คว่า UI ไม่แสดง — ยืนยันว่า non-developer ไม่ track/subscribe presence channel เลยจริงทั้ง global (RootShell) และ per-conversation (ConversationScreen)
+
+ไม่พบบั๊ก ไม่พบช่องโหว่ security ไม่พบทางเลี่ยง reciprocal check ใดๆ
+
+**Final Status: PASS**

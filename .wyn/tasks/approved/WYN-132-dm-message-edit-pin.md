@@ -1,7 +1,7 @@
 # Product Task — WYN-132
 
-Status: coding-complete รอ QA (2026-09-07)
-Owner: AI Design → AI Coding
+Status: QA PASS — approved, ready for AI Deploy & DevOps (2026-09-07)
+Owner: AI Design → AI Coding → AI QA & Security → AI Deploy & DevOps
 
 Feature: DM Message Actions — Edit Message + Pin Message (1:1 Chat)
 
@@ -75,3 +75,19 @@ Known Issues / จุดที่ตัดสินใจเอง (ไม่ใ
 - Pin count race condition (2 ฝั่งกดปักหมุดพร้อมกันแย่งช่องที่ 3) ยอมรับความเสี่ยงตามที่ design spec ระบุไว้แล้วว่าเป็น low-risk trade-off ไม่ต้องแก้เพิ่ม
 
 Handoff: ส่งต่อ AI QA & Security
+
+## AI QA & Security Report (2026-09-07)
+
+รายงานเต็ม: `.wyn/docs/qa/2026-09-07-wyn-130-132-133-134-phase-a-qa.md`
+
+รัน `flutter analyze`/`flutter test` เองอิสระ (1433/1433 ผ่าน, 0 issues) เขียน regression test SQL ใหม่ (`supabase/tests/wyn_132_dm_message_edit_pin_test.sh`, 13 checks) ทดสอบตรงกับ RPC/RLS จริงบน PostgreSQL 16 (ไม่ใช่แค่ผ่าน UI):
+
+- **แก้ไขข้อความ**: ทดสอบเรียก `edit_message()` ตรงๆ ยืนยันว่าแก้ได้เฉพาะข้อความ text ของตัวเอง — แก้ข้อความคนอื่น/ข้อความรูปภาพ/ข้อความที่ถูกลบ/ข้อความว่างเปล่า ถูกปฏิเสธจริงที่ระดับ RPC ทั้งหมด (ไม่ใช่แค่ UI ซ่อนปุ่ม) ยืนยันไม่มี client UPDATE policy บน `messages` เลย (query `pg_policies` ตรง) — ทางเดียวที่แก้ไขได้คือผ่าน RPC เท่านั้น
+- **จุดเสี่ยงสำคัญ: reply-quote preview หายชั่วคราวตอน edit** — ตรวจโค้ด `_onRealtimeMessageUpdate()` จริงยืนยันว่า merge เฉพาะฟิลด์ที่เปลี่ยน (คง `replyPreviewText`/`replyPreviewImageUrl`/`replyPreviewDeletedAt` เดิมไว้) ไม่ใช่แทนที่ทั้งแถวจาก raw payload — แก้จริงตามที่ AI Coding อ้าง มี regression test ยืนยันด้วย
+- **Pin cap 3 ข้อความ**: ทดสอบเรียก `pin_message()` ตรงๆ 4 ครั้ง — ปักได้แค่ 3 ครั้งแรก ครั้งที่ 4 ถูกปฏิเสธจริงที่ระดับ RPC (ไม่ใช่แค่ UI)
+- **ลบข้อความที่ปักหมุด → auto-unpin**: ทดสอบตรงยืนยันว่า `delete_message()` ลบแถวออกจาก `message_pins` จริง
+- ทั้งสองฝ่ายปัก/เลิกปักได้เท่ากัน, non-participant ปักไม่ได้
+
+ไม่พบบั๊ก ไม่พบช่องโหว่ security ตรวจ Staged Rollout gate ครบ (เมนู "แก้ไข"/"ปักหมุดข้อความ" + pinned bar gate ด้วย `isDeveloperAccount()`, ยกเว้น label "แก้ไขแล้ว" ที่ตั้งใจไม่ gate ตามเหตุผล anti-deception — ตรวจแล้วสมเหตุสมผล ไม่ใช่บั๊ก)
+
+**Final Status: PASS**

@@ -1,7 +1,7 @@
 # Product Task — WYN-130
 
-Status: coding-complete รอ QA (2026-09-07)
-Owner: AI Design → AI Coding
+Status: QA PASS — approved, ready for AI Deploy & DevOps (2026-09-07). 1 non-blocking Low-severity bug documented (fast-follow, does not block deploy)
+Owner: AI Design → AI Coding → AI QA & Security → AI Deploy & DevOps
 
 Feature: Club Invite Link (generate/revoke, expiration, max-uses)
 
@@ -80,3 +80,21 @@ Implementation ครบตาม design spec — ใช้ SQL จากเอ�
 Known Issues: ไม่มี — schema/RPC/UI/deep-link/RLS ตรงตาม design spec ครบ ไม่มี known gap ที่ต้องรายงาน Founder เพิ่ม (attribution tracking ผ่าน `club_invite_link_uses` เก็บ data ไว้แล้วตาม Requirement แต่ยังไม่มี UI แสดงผล ตามที่ระบุไว้ตั้งแต่ Product/Design spec ว่าไม่ scope รอบนี้)
 
 Handoff: ส่งต่อ AI QA & Security
+
+## AI QA & Security Report (2026-09-07)
+
+รายงานเต็ม: `.wyn/docs/qa/2026-09-07-wyn-130-132-133-134-phase-a-qa.md`
+
+**นี่คือ task ที่มีความเสี่ยงด้าน security สูงสุดในชุด Phase A นี้** (semantics เปลี่ยนของ Private Club) รัน `flutter analyze`/`flutter test` เองอิสระ (1433/1433 ผ่าน, 0 issues) เขียน regression test SQL ใหม่ (`supabase/tests/wyn_130_club_invite_link_test.sh`) ทดสอบตรงกับ RPC/RLS จริงบน PostgreSQL 16 ภายใต้ role `authenticated` จริง รวม 18/20 sequential checks PASS + race-condition test PASS:
+
+- **สิทธิ์สร้าง/revoke จำกัดแค่ Owner/Admin จริง**: member ทั่วไป/non-member เรียก `create_club_invite_link()`/`revoke_club_invite_link()` ตรงๆ ถูกปฏิเสธจริงที่ระดับ RPC (re-derive role จาก `club_role()` server-side ไม่เชื่อ client เลย)
+- **Redeem lock ตรงตามทางเลือก A ที่ Founder ยืนยัน**: join Private Club ทันทีไม่ผ่าน approve, stale pending request เดิมถูก auto-upgrade เป็น approved ทันทีเมื่อ redeem — ยืนยันตรงจาก RPC จริง
+- **Race condition บน max-uses**: รัน 2 session จริงพร้อมกันแย่ง redeem ลิงก์ที่ `max_uses=1` — สำเร็จแค่ 1 ครั้งเท่านั้น `use_count` ไม่เกิน 1 เลย ยืนยันว่า `for update` lock ทำงานจริงกันการแย่งช่องได้จริง
+- **ลิงก์ revoked/expired/exhausted ใช้ซ้ำไม่ได้จริง**: ทดสอบตรงทั้ง 3 กรณี ไม่มีทางเลี่ยง, revoke ซ้ำครั้งที่ 2 ก็ถูกปฏิเสธ
+- **banned member เข้าไม่ได้จริง**: ทดสอบตรง redeem ถูกปฏิเสธก่อนแตะ membership row เลย
+- RLS: member ทั่วไป list ลิงก์เชิญของ club ไม่ได้เลยตรงๆ (ไม่ใช่แค่ UI ซ่อน)
+- Staged Rollout: More menu + deep-link `/club-invite/:code` gate ด้วย `isDeveloperAccount()` ครบ, non-developer เปิดลิงก์เก่าแล้วเงียบๆ เหมือนไม่มีฟีเจอร์นี้เลย (ไม่ error/ไม่ blank)
+
+**พบบั๊กจริง 1 จุด (non-blocking, Low severity)**: `preview_club_invite_link()` คืน 0 แถวแทนที่จะเป็นแถว `status='not_found'` เมื่อ code ไม่ตรงกับลิงก์ใดเลย **หลังจากมีลิงก์เชิญอย่างน้อย 1 อันอยู่ในระบบแล้ว** (bug ใน SQL trick `right join ... on true` — ใช้ได้แค่ตอนตารางว่างเปล่าสนิท) — **ไม่กระทบผู้ใช้จริงเลยวันนี้** เพราะ `ClubRepository.previewInviteLink()` มี defensive check `rows.isEmpty ? null : ...` อยู่แล้วที่คืน `notFound` status ถูกต้อง และหน้าจอแสดง "ไม่พบลิงก์เชิญนี้" ให้ผู้ใช้เห็นถูกต้องอยู่แล้ว ไม่ผิด AC ใดเลย (AC บังคับแค่ expired/revoked/exhausted ซึ่งทำงานถูกทั้ง 3 กรณี) — เป็นบั๊กที่ซ่อนอยู่ในตัว RPC เองที่ไม่ตรงกับ contract ที่ comment ของมันเองบอกไว้ เสี่ยงถ้ามี consumer อื่นในอนาคต (เช่น admin tool) ที่ไม่มี defensive check แบบเดียวกัน แนะนำ fix เป็น fast-follow (มีคำแนะนำ fix ไว้ใน comment เหนือ `CHECK11` ของ `supabase/tests/wyn_130_club_invite_link_test.sh` แล้ว) ไม่บล็อก deploy รอบนี้
+
+**Final Status: PASS** (บั๊กที่พบไม่บล็อก deploy — ส่งต่อเป็น fast-follow fix ปกติ ไม่ต้องผ่าน AI Debug Engineer ก่อน deploy รอบนี้)
