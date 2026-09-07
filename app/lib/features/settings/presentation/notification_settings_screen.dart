@@ -8,6 +8,7 @@ import '../../push/presentation/push_diagnostics_sheet.dart';
 import '../../push/presentation/push_notification_service.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/network_error.dart';
 
 /// WYN-044 -- lets a user turn each of the 7 notification categories
 /// (Master Spec section 21) on/off. Reached from SettingsScreen's
@@ -108,9 +109,9 @@ class _NotificationSettingsScreenState
       final settings = await widget.notificationSettingsRepository.fetch();
       if (!mounted) return;
       setState(() => _settings = settings);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'โหลดการตั้งค่าไม่สำเร็จ');
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดการตั้งค่าไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }
@@ -127,11 +128,11 @@ class _NotificationSettingsScreenState
         category: category,
         value: value,
       );
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _settings = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     } finally {
       if (mounted) setState(() => _saving.remove(category));

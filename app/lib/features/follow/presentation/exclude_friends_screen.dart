@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
+import '../../../core/network_error.dart';
 import '../../profile/data/profile.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/follow_repository.dart';
@@ -66,8 +67,8 @@ class _ExcludeFriendsScreenState extends State<ExcludeFriendsScreen> {
       final friends = await widget.followRepository.fetchMutualFollows(page: 0);
       if (!mounted) return;
       setState(() => _friends = friends);
-    } catch (_) {
-      if (mounted) setState(() => _error = 'โหลดรายชื่อไม่สำเร็จ');
+    } catch (e) {
+      if (mounted) setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดรายชื่อไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

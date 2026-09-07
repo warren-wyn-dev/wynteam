@@ -9,6 +9,7 @@ import '../../../pop/presentation/widgets/pop_grid_tile.dart';
 import '../../../saved/data/saved_repository.dart';
 import '../../data/profile_repository.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/network_error.dart';
 
 /// Pop grid tab on a profile (WYN-013) -- same 3-column grid as
 /// ProfileDropGridTab (not Pop Feed's full-screen vertical swipe, which
@@ -90,8 +91,8 @@ class _ProfilePopGridTabState extends State<ProfilePopGridTab>
         _page = 0;
         _hasMore = pops.length == PopRepository.pageSize;
       });
-    } catch (_) {
-      setState(() => _error = 'โหลด Pop ไม่สำเร็จ');
+    } catch (e) {
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลด Pop ไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }

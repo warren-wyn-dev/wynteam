@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/network_error.dart';
 import '../../../core/text_utils.dart';
 import '../../../core/widgets/action_sheet_row.dart';
 import '../data/club.dart';
@@ -55,9 +56,9 @@ class _ClubInviteLinksScreenState extends State<ClubInviteLinksScreen> {
       final links = await widget.clubRepository.fetchInviteLinks(widget.club.id);
       if (!mounted) return;
       setState(() => _links = links);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'โหลดรายการลิงก์เชิญไม่สำเร็จ');
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดรายการลิงก์เชิญไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -84,10 +85,10 @@ class _ClubInviteLinksScreenState extends State<ClubInviteLinksScreen> {
       if (!mounted) return;
       setState(() => _links = [link, ..._links]);
       await _copyLink(link.code);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('สร้างลิงก์เชิญไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'สร้างลิงก์เชิญไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     } finally {
       if (mounted) setState(() => _isCreating = false);
@@ -122,11 +123,11 @@ class _ClubInviteLinksScreenState extends State<ClubInviteLinksScreen> {
         _links = _links.where((l) => l.id != link.id).toList();
         _revokingIds.remove(link.id);
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _revokingIds.remove(link.id));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เพิกถอนลิงก์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'เพิกถอนลิงก์ไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }

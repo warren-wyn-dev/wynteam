@@ -12,6 +12,7 @@ import '../../../saved/data/saved_repository.dart';
 import '../../data/profile_repository.dart';
 import '../view_profile_screen.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/network_error.dart';
 
 /// "Likes" tab on a profile -- WYN-071 Design, Screen 6; restyled to
 /// 05-profile.tsx's full-width PostRow (same [HomeDropCard] reuse as
@@ -154,8 +155,8 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
         _hasMore = drops.length == DropRepository.pageSize;
         _canViewLikes = canView;
       });
-    } catch (_) {
-      setState(() => _error = 'โหลดรายการที่ถูกใจไม่สำเร็จ');
+    } catch (e) {
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดรายการที่ถูกใจไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }

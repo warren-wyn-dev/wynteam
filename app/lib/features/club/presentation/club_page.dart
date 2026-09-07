@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/network_error.dart';
 import '../../auth/presentation/widgets/guest_gate.dart';
 import '../data/club.dart';
 import '../data/club_badge_repository.dart';
@@ -259,9 +260,9 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     try {
       await action();
       _reload();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showMessage(errorMessage);
+      _showMessage(errorMessageFor(e, serverMessage: errorMessage));
     } finally {
       if (mounted) setState(() => _isJoinActionInFlight = false);
     }
@@ -295,9 +296,9 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     try {
       await widget.clubRepository.updatePrivacy(clubId: club.id, privacy: target);
       _reload();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showMessage('เปลี่ยนความเป็นส่วนตัวไม่สำเร็จ ลองใหม่อีกครั้ง');
+      _showMessage(errorMessageFor(e, serverMessage: 'เปลี่ยนความเป็นส่วนตัวไม่สำเร็จ ลองใหม่อีกครั้ง'));
     }
   }
 
@@ -352,11 +353,12 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
         await widget.clubRepository.muteClubNotifications(clubId);
       }
       _reload();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showMessage(currentlyMuted
-          ? 'เปิดการแจ้งเตือนไม่สำเร็จ ลองใหม่อีกครั้ง'
-          : 'ปิดการแจ้งเตือนไม่สำเร็จ ลองใหม่อีกครั้ง');
+      _showMessage(errorMessageFor(e,
+          serverMessage: currentlyMuted
+              ? 'เปิดการแจ้งเตือนไม่สำเร็จ ลองใหม่อีกครั้ง'
+              : 'ปิดการแจ้งเตือนไม่สำเร็จ ลองใหม่อีกครั้ง'));
     }
   }
 
@@ -492,7 +494,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('โหลด Club ไม่สำเร็จ'),
+                        Text(errorMessageFor(snapshot.error!, serverMessage: 'โหลด Club ไม่สำเร็จ')),
                         const SizedBox(height: WynSpacing.space3),
                         TextButton(onPressed: _reload, child: const Text('ลองใหม่')),
                       ],

@@ -9,6 +9,7 @@ import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../../saved/data/saved_repository.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/network_error.dart';
 import '../data/mute_repository.dart';
 
 /// Screen 4 of .wyn/docs/design/wyn-028-mute-system.md. Unlike
@@ -85,8 +86,8 @@ class _MutedListScreenState extends State<MutedListScreen> {
         _page = 0;
         _hasMore = profiles.length == MuteRepository.pageSize;
       });
-    } catch (_) {
-      setState(() => _error = 'โหลดรายชื่อไม่สำเร็จ');
+    } catch (e) {
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดรายชื่อไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }
@@ -133,11 +134,11 @@ class _MutedListScreenState extends State<MutedListScreen> {
         _profiles.removeWhere((p) => p.id == profile.id);
         _unmutingIds.remove(profile.id);
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _unmutingIds.remove(profile.id));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เปิดเสียงไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'เปิดเสียงไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }

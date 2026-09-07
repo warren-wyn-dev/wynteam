@@ -5,6 +5,7 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
 import '../../../core/interaction/wyn_feedback.dart';
+import '../../../core/network_error.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../profile/data/profile.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
@@ -121,8 +122,8 @@ class _InviteToClubScreenState extends State<InviteToClubScreen> {
     });
     try {
       await _fetchNextChunk();
-    } catch (_) {
-      if (mounted) setState(() => _error = 'โหลดรายชื่อไม่สำเร็จ');
+    } catch (e) {
+      if (mounted) setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดรายชื่อไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }
@@ -206,11 +207,11 @@ class _InviteToClubScreenState extends State<InviteToClubScreen> {
       if (!mounted) return;
       setState(() => _inviteStates[profile.id] = _InviteState.invited);
       WynFeedback.toggle();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _inviteStates[profile.id] = _InviteState.idle);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เชิญไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'เชิญไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }

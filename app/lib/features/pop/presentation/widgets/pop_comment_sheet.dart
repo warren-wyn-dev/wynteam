@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/interaction/wyn_feedback.dart';
+import '../../../../core/network_error.dart';
 import '../../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/pop_comment.dart';
@@ -58,6 +59,7 @@ class PopCommentSheet extends StatefulWidget {
 class _PopCommentSheetState extends State<PopCommentSheet> {
   List<PopComment>? _comments;
   bool _commentsErrored = false;
+  Object? _commentsError;
   final _commentController = TextEditingController();
   final _commentFocusNode = FocusNode();
   bool _isSendingComment = false;
@@ -86,9 +88,12 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
       final comments = await widget.popRepository.fetchComments(widget.popId);
       if (!mounted) return;
       setState(() => _comments = comments);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _commentsErrored = true);
+      setState(() {
+        _commentsErrored = true;
+        _commentsError = e;
+      });
     }
   }
 
@@ -126,10 +131,10 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
         _comments = _comments?.where((c) => c.id != commentId).toList();
       });
       widget.onCommentCountChanged(-1);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }
@@ -194,7 +199,7 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('โหลดคอมเมนต์ไม่สำเร็จ'),
+            Text(errorMessageFor(_commentsError!, serverMessage: 'โหลดคอมเมนต์ไม่สำเร็จ')),
             const SizedBox(height: WynSpacing.space2),
             TextButton(onPressed: _loadComments, child: const Text('ลองใหม่')),
           ],

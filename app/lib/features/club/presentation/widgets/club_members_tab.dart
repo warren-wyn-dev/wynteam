@@ -8,6 +8,7 @@ import '../../data/club_member.dart';
 import '../../data/club_member_badge.dart';
 import '../../data/club_repository.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/network_error.dart';
 import '../../../../core/widgets/action_sheet_row.dart';
 import 'club_badge_pill.dart';
 
@@ -67,6 +68,7 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
   bool _hasMoreMembers = false;
   bool _isLoadingMoreMembers = false;
   bool _errored = false;
+  Object? _error;
 
   bool get _canManage => widget.myRole?.canManageClub ?? false;
 
@@ -110,9 +112,12 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
         _badges = badges;
         _hasMoreMembers = approved.length == ClubRepository.memberPageSize;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _errored = true);
+      setState(() {
+        _errored = true;
+        _error = e;
+      });
     }
   }
 
@@ -169,9 +174,9 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
       await widget.clubRepository.approveMember(clubId: widget.club.id, userId: member.userId);
       _load();
       widget.onChanged();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showError('อนุมัติไม่สำเร็จ ลองใหม่อีกครั้ง');
+      _showError(errorMessageFor(e, serverMessage: 'อนุมัติไม่สำเร็จ ลองใหม่อีกครั้ง'));
     }
   }
 
@@ -180,9 +185,9 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
       await widget.clubRepository.rejectMember(clubId: widget.club.id, userId: member.userId);
       _load();
       widget.onChanged();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showError('ปฏิเสธไม่สำเร็จ ลองใหม่อีกครั้ง');
+      _showError(errorMessageFor(e, serverMessage: 'ปฏิเสธไม่สำเร็จ ลองใหม่อีกครั้ง'));
     }
   }
 
@@ -192,9 +197,9 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
           .setMemberRole(clubId: widget.club.id, userId: member.userId, role: role);
       _load();
       widget.onChanged();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showError('เปลี่ยนตำแหน่งไม่สำเร็จ ลองใหม่อีกครั้ง');
+      _showError(errorMessageFor(e, serverMessage: 'เปลี่ยนตำแหน่งไม่สำเร็จ ลองใหม่อีกครั้ง'));
     }
   }
 
@@ -204,9 +209,9 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
       await widget.clubRepository.removeMember(clubId: widget.club.id, userId: member.userId);
       _load();
       widget.onChanged();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showError('ลบสมาชิกไม่สำเร็จ ลองใหม่อีกครั้ง');
+      _showError(errorMessageFor(e, serverMessage: 'ลบสมาชิกไม่สำเร็จ ลองใหม่อีกครั้ง'));
     }
   }
 
@@ -216,9 +221,9 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
       await widget.clubRepository.banMember(clubId: widget.club.id, userId: member.userId);
       _load();
       widget.onChanged();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showError('แบนไม่สำเร็จ ลองใหม่อีกครั้ง');
+      _showError(errorMessageFor(e, serverMessage: 'แบนไม่สำเร็จ ลองใหม่อีกครั้ง'));
     }
   }
 
@@ -256,9 +261,9 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
           ),
         };
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showError('ตั้งป้ายไม่สำเร็จ ลองใหม่อีกครั้ง');
+      _showError(errorMessageFor(e, serverMessage: 'ตั้งป้ายไม่สำเร็จ ลองใหม่อีกครั้ง'));
     }
   }
 
@@ -269,9 +274,9 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
       setState(() {
         _badges = {..._badges}..remove(member.userId);
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showError('ถอดป้ายไม่สำเร็จ ลองใหม่อีกครั้ง');
+      _showError(errorMessageFor(e, serverMessage: 'ถอดป้ายไม่สำเร็จ ลองใหม่อีกครั้ง'));
     }
   }
 
@@ -403,7 +408,7 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('โหลดรายชื่อสมาชิกไม่สำเร็จ'),
+                    Text(errorMessageFor(_error!, serverMessage: 'โหลดรายชื่อสมาชิกไม่สำเร็จ')),
                     const SizedBox(height: WynSpacing.space3),
                     TextButton(onPressed: _load, child: const Text('ลองใหม่')),
                   ],

@@ -4,6 +4,7 @@ import '../../profile/data/profile.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/follow_request_repository.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/network_error.dart';
 
 /// Design Screen 3 — Follow Requests list. Mirrors
 /// MessageRequestListScreen's (WYN-032) list/pagination/state shape --
@@ -70,8 +71,8 @@ class _FollowRequestListScreenState extends State<FollowRequestListScreen> {
         _page = 0;
         _hasMore = requesters.length == FollowRequestRepository.pageSize;
       });
-    } catch (_) {
-      setState(() => _error = 'โหลดคำขอติดตามไม่สำเร็จ');
+    } catch (e) {
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดคำขอติดตามไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }
@@ -105,10 +106,10 @@ class _FollowRequestListScreenState extends State<FollowRequestListScreen> {
       );
       if (!mounted) return;
       setState(() => _requesters.removeWhere((p) => p.id == requester.id));
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ยอมรับคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ยอมรับคำขอไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     } finally {
       if (mounted) setState(() => _inFlight.remove(requester.id));
@@ -143,10 +144,10 @@ class _FollowRequestListScreenState extends State<FollowRequestListScreen> {
       );
       if (!mounted) return;
       setState(() => _requesters.removeWhere((p) => p.id == requester.id));
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ปฏิเสธคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ปฏิเสธคำขอไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     } finally {
       if (mounted) setState(() => _inFlight.remove(requester.id));

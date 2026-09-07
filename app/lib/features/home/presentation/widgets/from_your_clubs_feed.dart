@@ -8,6 +8,7 @@ import '../../../club/presentation/club_post_detail_screen.dart';
 import '../../../club/presentation/explore_clubs_screen.dart';
 import '../../../club/presentation/widgets/club_post_card.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/network_error.dart';
 
 /// Screen 5 (right half) — the "จาก Club ของคุณ" side of Home's toggle
 /// (WYN-015). Posts from every Club the user has joined, newest first --
@@ -94,9 +95,9 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
         _page = 0;
         _hasMore = posts.length == ClubPostRepository.pageSize;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'โหลดโพสต์ไม่สำเร็จ');
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดโพสต์ไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }
@@ -195,10 +196,10 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
       await widget.clubPostRepository.deletePost(postId);
       if (!mounted) return;
       setState(() => _posts.removeWhere((p) => p.id == postId));
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }

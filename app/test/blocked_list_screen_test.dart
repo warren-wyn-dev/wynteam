@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:wyn/core/network_error.dart';
 import 'package:wyn/features/block/presentation/blocked_list_screen.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 
@@ -79,6 +82,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('น้ำฝน'), findsOneWidget);
+  });
+
+  // WYN-140a -- errorMessageFor() should swap in the network-specific
+  // message when the failure is a transport failure (never reached a
+  // server), instead of the generic serverMessage the test above
+  // confirms still shows for an ordinary Exception.
+  testWidgets(
+      'shows the network-down message (not the generic one) when the '
+      'load failure is a SocketException', (tester) async {
+    repo.fetchBlockedUsersError = const SocketException('Failed host lookup');
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    expect(find.text(networkErrorMessage), findsOneWidget);
+    expect(find.text('โหลดรายชื่อไม่สำเร็จ'), findsNothing);
   });
 
   testWidgets(

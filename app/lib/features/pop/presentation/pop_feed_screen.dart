@@ -10,6 +10,7 @@ import '../data/pop_repository.dart';
 import 'create_pop_screen.dart';
 import 'widgets/pop_clip_view.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/network_error.dart';
 
 /// Screen 1 — Pop tab (Bottom Nav). A full-screen vertical swipe feed,
 /// one clip at a time. See .wyn/docs/design/wyn-006-pop.md for why this
@@ -96,8 +97,8 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
         _page = 0;
         _hasMore = pops.length == PopRepository.pageSize;
       });
-    } catch (_) {
-      setState(() => _error = 'โหลด Pop ไม่สำเร็จ');
+    } catch (e) {
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลด Pop ไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }

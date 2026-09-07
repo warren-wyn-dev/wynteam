@@ -13,6 +13,7 @@ import '../create_club_post_screen.dart';
 import 'club_post_card.dart';
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/network_error.dart';
 
 /// Screen 4-5 — Posts tab. Gated behind approved membership: non-members
 /// (myRole == null) see a join-prompt placeholder instead of the list,
@@ -134,9 +135,9 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
         _page = 0;
         _hasMore = posts.length == ClubPostRepository.pageSize;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'โหลดโพสต์ไม่สำเร็จ');
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดโพสต์ไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }
@@ -246,10 +247,10 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
       await widget.clubPostRepository.deletePost(postId);
       if (!mounted) return;
       setState(() => _posts.removeWhere((p) => p.id == postId));
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }

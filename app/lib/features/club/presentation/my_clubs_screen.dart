@@ -5,6 +5,7 @@ import '../data/club_post_repository.dart';
 import '../data/club_repository.dart';
 import 'club_page.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/network_error.dart';
 import 'widgets/club_avatar.dart';
 
 /// "Club ของฉัน" -- the full-list destination behind the Home CLUB
@@ -83,7 +84,7 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('โหลดรายชื่อ Club ไม่สำเร็จ'),
+                  Text(errorMessageFor(snapshot.error!, serverMessage: 'โหลดรายชื่อ Club ไม่สำเร็จ')),
                   const SizedBox(height: WynSpacing.space3),
                   TextButton(onPressed: _reload, child: const Text('ลองใหม่')),
                 ],

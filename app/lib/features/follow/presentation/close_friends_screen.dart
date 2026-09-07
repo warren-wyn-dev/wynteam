@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
+import '../../../core/network_error.dart';
 import '../../profile/data/profile.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/follow_repository.dart';
@@ -77,8 +78,8 @@ class _CloseFriendsScreenState extends State<CloseFriendsScreen> {
           ..clear()
           ..addAll(results[1].map((p) => p.id));
       });
-    } catch (_) {
-      if (mounted) setState(() => _error = 'โหลดรายชื่อไม่สำเร็จ');
+    } catch (e) {
+      if (mounted) setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดรายชื่อไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -107,13 +108,13 @@ class _CloseFriendsScreenState extends State<CloseFriendsScreen> {
       } else {
         await widget.followRepository.addCloseFriend(friendId: friend.id);
       }
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         wasOn ? _closeFriendIds.add(friend.id) : _closeFriendIds.remove(friend.id);
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     } finally {
       if (mounted) setState(() => _pendingIds.remove(friend.id));

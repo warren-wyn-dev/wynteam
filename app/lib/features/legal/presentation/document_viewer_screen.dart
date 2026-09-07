@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/network_error.dart';
 import '../../../core/text_utils.dart';
 import '../data/platform_document_repository.dart';
 
@@ -46,9 +47,9 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
           await widget.platformDocumentRepository.fetchLatest(widget.documentType);
       if (!mounted) return;
       setState(() => _document = document);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'โหลดเอกสารไม่สำเร็จ');
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดเอกสารไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

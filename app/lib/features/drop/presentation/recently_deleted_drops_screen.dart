@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/network_error.dart';
 import '../data/drop.dart';
 import '../data/drop_repository.dart';
 import 'widgets/poll_placeholder_tile.dart';
@@ -38,9 +39,9 @@ class _RecentlyDeletedDropsScreenState
       final drops = await widget.dropRepository.fetchDeletedDrops();
       if (!mounted) return;
       setState(() => _drops = drops);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'โหลดรายการที่ลบไม่สำเร็จ');
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดรายการที่ลบไม่สำเร็จ'));
     }
   }
 
@@ -49,11 +50,11 @@ class _RecentlyDeletedDropsScreenState
     setState(() => _drops = _drops?.where((d) => d.id != drop.id).toList());
     try {
       await widget.dropRepository.restoreDrop(drop.id);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _drops = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กู้คืนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'กู้คืนไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }

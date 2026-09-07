@@ -9,6 +9,7 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
 import '../../../core/developer_access/developer_access_service.dart';
+import '../../../core/network_error.dart';
 import '../../account_switcher/data/account_switcher_repository.dart';
 import '../../account_switcher/presentation/account_switcher_sheet.dart';
 import '../../block/data/block_repository.dart';
@@ -465,11 +466,12 @@ class _AccountManagementScreenState extends State<_AccountManagementScreen> {
           subject: 'ข้อมูลของฉันจาก WYN',
         ),
       );
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('ดาวน์โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(
+            content: Text(errorMessageFor(e,
+                serverMessage: 'ดาวน์โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -738,11 +740,11 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
         userId: Supabase.instance.client.auth.currentUser!.id,
         isPrivate: value,
       );
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _isPrivate = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     } finally {
       if (mounted) setState(() => _isTogglingPrivate = false);
@@ -788,11 +790,11 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
               userId: userId, value: value);
           break;
       }
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => apply(previous));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }
@@ -809,11 +811,11 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
         userId: Supabase.instance.client.auth.currentUser!.id,
         value: value,
       );
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _likesVisibility = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }
@@ -831,11 +833,11 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
     });
     try {
       await _presenceRepository.setShowOnlineStatus(value);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _showOnline = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     } finally {
       if (mounted) setState(() => _isTogglingShowOnline = false);

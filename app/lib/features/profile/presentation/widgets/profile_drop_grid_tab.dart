@@ -12,6 +12,7 @@ import '../../../saved/data/saved_repository.dart';
 import '../../data/profile_repository.dart';
 import '../view_profile_screen.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/network_error.dart';
 
 /// "Posts" tab on a profile (WYN-013) -- 05-profile.tsx's PostRow: full-
 /// width rows (time, caption, hashtags, a real like/comment/redrop/view
@@ -141,8 +142,8 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
         _page = 0;
         _hasMore = drops.length == DropRepository.pageSize;
       });
-    } catch (_) {
-      setState(() => _error = 'โหลดโพสต์ไม่สำเร็จ');
+    } catch (e) {
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดโพสต์ไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/network_error.dart';
 import '../../../core/text_utils.dart';
 import '../../presence/data/presence_repository.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
@@ -77,8 +78,8 @@ class _MessageRequestListScreenState extends State<MessageRequestListScreen> {
         _page = 0;
         _hasMore = requests.length == ChatRepository.pageSize;
       });
-    } catch (_) {
-      if (mounted) setState(() => _error = 'โหลดรายการไม่สำเร็จ');
+    } catch (e) {
+      if (mounted) setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดรายการไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }

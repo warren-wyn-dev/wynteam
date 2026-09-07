@@ -4,6 +4,7 @@ import '../../data/club.dart';
 import '../../data/club_insights.dart';
 import '../../data/club_repository.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/network_error.dart';
 
 /// WYN-117 — Insights tab, the 4th tab on `ClubPage`, visible only to an
 /// Owner/Admin (see `ClubPage`'s own `myRole?.canManageClub` gate on
@@ -110,7 +111,7 @@ class _ClubInsightsTabState extends State<ClubInsightsTab> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text('โหลดข้อมูลไม่สำเร็จ'),
+                              Text(errorMessageFor(snapshot.error!, serverMessage: 'โหลดข้อมูลไม่สำเร็จ')),
                               const SizedBox(height: WynSpacing.space3),
                               TextButton(
                                 onPressed: () => setState(() => _future = _load()),

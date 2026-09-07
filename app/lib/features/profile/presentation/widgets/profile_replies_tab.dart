@@ -8,6 +8,7 @@ import '../../../pop/data/pop_repository.dart';
 import '../../../saved/data/saved_repository.dart';
 import '../../data/profile_repository.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/network_error.dart';
 import '../../../../core/text_utils.dart';
 import '../../../../core/widgets/network_thumbnail.dart';
 
@@ -94,8 +95,8 @@ class _ProfileRepliesTabState extends State<ProfileRepliesTab>
         _page = 0;
         _hasMore = replies.length == DropRepository.pageSize;
       });
-    } catch (_) {
-      setState(() => _error = 'โหลดการตอบกลับไม่สำเร็จ');
+    } catch (e) {
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดการตอบกลับไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }

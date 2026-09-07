@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
+import '../../../core/network_error.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile.dart';
@@ -194,8 +195,8 @@ class _FollowListScreenState extends State<FollowListScreen> {
         tab.hasMore = profiles.length == FollowRepository.pageSize;
         tab.hasLoadedOnce = true;
       });
-    } catch (_) {
-      if (mounted) setState(() => tab.error = 'โหลดรายชื่อไม่สำเร็จ');
+    } catch (e) {
+      if (mounted) setState(() => tab.error = errorMessageFor(e, serverMessage: 'โหลดรายชื่อไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => tab.isLoadingInitial = false);
     }
@@ -263,10 +264,10 @@ class _FollowListScreenState extends State<FollowListScreen> {
       setState(() => _tabs[FollowListMode.followers]!
           .profiles
           .removeWhere((p) => p.id == profile.id));
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     } finally {
       if (mounted) setState(() => _removingIds.remove(profile.id));

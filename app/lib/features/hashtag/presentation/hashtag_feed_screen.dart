@@ -11,6 +11,7 @@ import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/drop_detail_screen.dart';
 import '../../drop/presentation/quote_redrop_screen.dart';
 import '../../follow/data/follow_repository.dart';
+import '../../../core/network_error.dart';
 import '../../home/data/home_feed_item.dart';
 import '../../home/presentation/widgets/home_drop_card.dart';
 import '../../pop/data/pop_repository.dart';
@@ -120,8 +121,8 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
           ..clear()
           ..addAll(clubPosts);
       });
-    } catch (_) {
-      setState(() => _error = 'โหลดผลการค้นหาไม่สำเร็จ');
+    } catch (e) {
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดผลการค้นหาไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -293,10 +294,10 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
       await widget.clubPostRepository.deletePost(postId);
       if (!mounted) return;
       setState(() => _clubPosts.removeWhere((p) => p.id == postId));
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }

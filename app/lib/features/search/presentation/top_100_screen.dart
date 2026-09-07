@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
+import '../../../core/network_error.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
 import '../../drop/data/drop_repository.dart';
@@ -54,6 +55,7 @@ class Top100Screen extends StatefulWidget {
 class _Top100ScreenState extends State<Top100Screen> {
   List<RankedHashtag>? _items;
   bool _hasError = false;
+  Object? _error;
 
   @override
   void initState() {
@@ -72,9 +74,12 @@ class _Top100ScreenState extends State<Top100Screen> {
       );
       if (!mounted) return;
       setState(() => _items = items);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _hasError = true);
+      setState(() {
+        _hasError = true;
+        _error = e;
+      });
     }
   }
 
@@ -119,7 +124,7 @@ class _Top100ScreenState extends State<Top100Screen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('โหลด Top 100 ไม่สำเร็จ'),
+                  Text(errorMessageFor(_error!, serverMessage: 'โหลด Top 100 ไม่สำเร็จ')),
                   const SizedBox(height: WynSpacing.space3),
                   TextButton(onPressed: _load, child: const Text('ลองใหม่')),
                 ],

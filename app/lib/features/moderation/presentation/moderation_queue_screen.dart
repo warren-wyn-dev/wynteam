@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/network_error.dart';
 import '../../../core/text_utils.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
@@ -162,8 +163,8 @@ class _ReportsTabState extends State<_ReportsTab> {
         _page = 0;
         _hasMore = reports.length == ModerationRepository.pageSize;
       });
-    } catch (_) {
-      setState(() => _error = 'โหลดรายชื่อไม่สำเร็จ');
+    } catch (e) {
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดรายชื่อไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }
@@ -444,8 +445,8 @@ class _AppealsTabState extends State<_AppealsTab> {
         _page = 0;
         _hasMore = appeals.length == AppealRepository.pageSize;
       });
-    } catch (_) {
-      setState(() => _error = 'โหลดรายชื่อไม่สำเร็จ');
+    } catch (e) {
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดรายชื่อไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }

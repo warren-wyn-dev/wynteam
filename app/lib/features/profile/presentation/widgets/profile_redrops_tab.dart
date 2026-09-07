@@ -12,6 +12,7 @@ import '../../../saved/data/saved_repository.dart';
 import '../../data/profile_repository.dart';
 import '../view_profile_screen.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/network_error.dart';
 
 /// "ReDrops" tab on a profile (WYN-034, Master Spec section 9) --
 /// Standard + Quote ReDrops made by this profile's owner, newest-
@@ -139,8 +140,8 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
         _page = 0;
         _hasMore = items.length == HomeRepository.pageSize;
       });
-    } catch (_) {
-      setState(() => _error = 'โหลดรีโพสต์ไม่สำเร็จ');
+    } catch (e) {
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดรีโพสต์ไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/interaction/wyn_feedback.dart';
+import '../../../core/network_error.dart';
 import '../../../core/text_utils.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
@@ -379,11 +380,11 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     });
     try {
       await _followRequestRepository.sendRequest(userId: widget.userId);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _hasPendingRequest = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ส่งคำขอติดตามไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ส่งคำขอติดตามไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     } finally {
       if (mounted) setState(() => _isFollowActionInFlight = false);
@@ -422,11 +423,11 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     });
     try {
       await _followRequestRepository.cancelRequest(userId: widget.userId);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _hasPendingRequest = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ยกเลิกคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ยกเลิกคำขอไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     } finally {
       if (mounted) setState(() => _isFollowActionInFlight = false);
@@ -573,7 +574,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       // (Founder's explicit requirement) -- only the outcome differs.
       final message = e is PostgrestException && e.message.contains('temporarily closed for testing')
           ? 'ระบบแชทปิดปรับปรุงชั่วคราว'
-          : 'เริ่มบทสนทนาไม่สำเร็จ ลองใหม่อีกครั้ง';
+          : errorMessageFor(e, serverMessage: 'เริ่มบทสนทนาไม่สำเร็จ ลองใหม่อีกครั้ง');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => _isStartingChat = false);
@@ -608,10 +609,10 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('บล็อก @${profile.username} แล้ว')),
       );
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }
@@ -650,11 +651,11 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
               : 'ปิดเสียง @${profile.username} แล้ว'),
         ),
       );
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _isMuted = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }
@@ -983,7 +984,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('โหลดโปรไฟล์ไม่สำเร็จ'),
+                    Text(errorMessageFor(snapshot.error!, serverMessage: 'โหลดโปรไฟล์ไม่สำเร็จ')),
                     const SizedBox(height: WynSpacing.space3),
                     TextButton(
                         onPressed: _reload, child: const Text('ลองใหม่')),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/network_error.dart';
 import '../../profile/data/profile.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
@@ -76,8 +77,8 @@ class _ShareToChatScreenState extends State<ShareToChatScreen> {
           ..clear()
           ..addAll(conversations);
       });
-    } catch (_) {
-      if (mounted) setState(() => _error = 'โหลดรายการไม่สำเร็จ');
+    } catch (e) {
+      if (mounted) setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดรายการไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingConversations = false);
     }
@@ -126,11 +127,11 @@ class _ShareToChatScreenState extends State<ShareToChatScreen> {
     try {
       final conversationId = await widget.chatRepository.getOrCreateConversation(otherUserId);
       await _doSend(conversationId);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _isSending = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }
@@ -147,11 +148,11 @@ class _ShareToChatScreenState extends State<ShareToChatScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('แชร์แล้ว')),
       );
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _isSending = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }

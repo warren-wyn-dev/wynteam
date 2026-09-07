@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
+import '../../../core/network_error.dart';
 import '../../block/data/block_relationship.dart';
 import '../../block/data/block_repository.dart';
 import '../../block/presentation/block_dialogs.dart';
@@ -111,10 +112,10 @@ Future<void> _offerBlockAfterReport(BuildContext context, String userId) async {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('บล็อก @${profile.username} แล้ว')),
     );
-  } catch (_) {
+  } catch (e) {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      SnackBar(content: Text(errorMessageFor(e, serverMessage: 'บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง'))),
     );
   }
 }
@@ -146,6 +147,7 @@ class _ReportSheetState extends State<ReportSheet> {
   final _detailController = TextEditingController();
   bool _isSubmitting = false;
   String? _submitError;
+  Object? _checkErrorObject;
 
   @override
   void initState() {
@@ -169,9 +171,12 @@ class _ReportSheetState extends State<ReportSheet> {
       setState(() {
         _loadState = hasOpenReport ? _LoadState.alreadyReported : _LoadState.ready;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _loadState = _LoadState.checkError);
+      setState(() {
+        _loadState = _LoadState.checkError;
+        _checkErrorObject = e;
+      });
     }
   }
 
@@ -207,11 +212,11 @@ class _ReportSheetState extends State<ReportSheet> {
       // -- not here, so it can use the *caller's* still-mounted context
       // instead of this sheet's, which is about to be torn down.
       Navigator.of(context).pop(true);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
-        _submitError = 'ส่งไม่สำเร็จ ลองอีกครั้ง';
+        _submitError = errorMessageFor(e, serverMessage: 'ส่งไม่สำเร็จ ลองอีกครั้ง');
       });
     }
   }
@@ -283,7 +288,7 @@ class _ReportSheetState extends State<ReportSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('โหลดข้อมูลไม่สำเร็จ'),
+              Text(errorMessageFor(_checkErrorObject!, serverMessage: 'โหลดข้อมูลไม่สำเร็จ')),
               const SizedBox(height: WynSpacing.space2),
               TextButton(
                 onPressed: () {

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
+import '../../../core/network_error.dart';
 import '../../../core/text_utils.dart';
 import '../../../core/widgets/empty_state_block.dart';
 import '../../follow/data/follow_repository.dart';
@@ -174,8 +175,8 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
         _page = 0;
         _hasMore = conversations.length == ChatRepository.pageSize;
       });
-    } catch (_) {
-      if (mounted) setState(() => _error = 'โหลดรายการไม่สำเร็จ');
+    } catch (e) {
+      if (mounted) setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดรายการไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }

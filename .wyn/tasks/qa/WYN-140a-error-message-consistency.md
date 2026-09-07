@@ -1,6 +1,7 @@
 # Design Task — WYN-140a
 
-Status: active — Design spec เสร็จ, พร้อมส่งต่อ AI Coding
+Status: qa — Coding เสร็จแล้ว (43/44 ไฟล์ต้องแก้จริง, 1 ไฟล์ทำไปแล้วก่อนหน้า), ส่งต่อ AI QA & Security
+Coding summary: wired `errorMessageFor()` เข้าทุกจุดใน 44 ไฟล์ (Shape A: catch-block string เดิม 32 ไฟล์, Shape B: เพิ่ม `Object? _lastError`-style field เก็บ exception ไว้ใช้ที่ Text site 11 ไฟล์) — `flutter analyze` ผ่าน 0 ปัญหาใหม่, `flutter test` ผ่านทั้งหมด 1438 tests (เดิม 1437 + regression test ใหม่ 1 ตัวใน `blocked_list_screen_test.dart` ที่จำลอง `SocketException` แล้วยืนยันว่าเห็น `networkErrorMessage` แทนข้อความเดิม) ไม่มีจุดที่ข้ามหรือเสี่ยง — รายละเอียดเต็มอยู่ใน commit message
 Owner: AI Design → AI Coding
 Priority: 1 ของ 3 (เร็วสุด เสี่ยงต่ำสุด)
 Screen: 44 จุดทั่วแอปที่ยังใช้ข้อความ error แบบ hardcoded — ดูรายชื่อไฟล์เต็มใน spec

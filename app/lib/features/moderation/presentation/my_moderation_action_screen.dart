@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/network_error.dart';
 import '../../../core/text_utils.dart';
 import '../data/appeal_repository.dart';
 import '../data/appeal_status.dart';
@@ -87,7 +88,7 @@ class _MyModerationActionScreenState extends State<MyModerationActionScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('โหลดข้อมูลไม่สำเร็จ'),
+                  Text(errorMessageFor(snapshot.error!, serverMessage: 'โหลดข้อมูลไม่สำเร็จ')),
                   const SizedBox(height: WynSpacing.space3),
                   TextButton(onPressed: _reload, child: const Text('ลองใหม่')),
                 ],

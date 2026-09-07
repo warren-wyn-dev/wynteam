@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/interaction/wyn_feedback.dart';
+import '../../../core/network_error.dart';
 import '../../../core/text_utils.dart';
 import '../../../core/widgets/action_sheet_row.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
@@ -83,6 +84,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
   late ClubPost _post;
   List<ClubPostComment>? _comments;
   bool _commentsErrored = false;
+  Object? _commentsError;
 
   /// Comment pagination -- mirrors DropDetailScreen's, see
   /// ClubPostRepository.fetchComments. [_hasMoreComments] is true
@@ -92,6 +94,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
   bool _hasMoreComments = false;
   bool _isLoadingMoreComments = false;
   bool _moreCommentsErrored = false;
+  Object? _moreCommentsError;
   final _commentController = TextEditingController();
   final _commentFocusNode = FocusNode();
   bool _isSendingComment = false;
@@ -201,9 +204,12 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
         _hasMoreComments =
             more.length == ClubPostRepository.commentPageSize;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _moreCommentsErrored = true);
+      setState(() {
+        _moreCommentsErrored = true;
+        _moreCommentsError = e;
+      });
     } finally {
       if (mounted) setState(() => _isLoadingMoreComments = false);
     }
@@ -224,9 +230,12 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
         _hasMoreComments =
             comments.length == ClubPostRepository.commentPageSize;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _commentsErrored = true);
+      setState(() {
+        _commentsErrored = true;
+        _commentsError = e;
+      });
     }
   }
 
@@ -316,11 +325,11 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
       if (!mounted) return;
       WynFeedback.deleted();
       Navigator.of(context).pop();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }
@@ -337,11 +346,11 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
         _comments = _comments?.where((c) => c.id != commentId).toList();
         _post = _post.withRemovedComment();
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }
@@ -592,7 +601,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('โหลดคอมเมนต์ไม่สำเร็จ'),
+                  Text(errorMessageFor(_commentsError!, serverMessage: 'โหลดคอมเมนต์ไม่สำเร็จ')),
                   const SizedBox(height: WynSpacing.space2),
                   TextButton(onPressed: _loadComments, child: const Text('ลองใหม่')),
                 ],
@@ -648,7 +657,8 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                       key: const Key('club_post_load_more_comments'),
                       onPressed: _loadMoreComments,
                       child: Text(_moreCommentsErrored
-                          ? 'โหลดคอมเมนต์เพิ่มไม่สำเร็จ แตะเพื่อลองใหม่'
+                          ? errorMessageFor(_moreCommentsError!,
+                              serverMessage: 'โหลดคอมเมนต์เพิ่มไม่สำเร็จ แตะเพื่อลองใหม่')
                           : 'ดูคอมเมนต์เพิ่มเติม'),
                     ),
             ),

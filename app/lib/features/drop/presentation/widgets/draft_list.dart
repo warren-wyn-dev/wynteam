@@ -6,6 +6,7 @@ import '../../data/drop_repository.dart';
 import '../create_drop_screen.dart';
 import 'draft_grid_tile.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/network_error.dart';
 import '../../../../core/widgets/empty_state_block.dart';
 
 /// The user's saved Drafts (WYN-036), as a 3-column grid.
@@ -60,9 +61,9 @@ class _DraftListState extends State<DraftList>
       final drafts = await widget.dropRepository.fetchDrafts();
       if (!mounted) return;
       setState(() => _drafts = drafts);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'โหลดร่างไม่สำเร็จ');
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดร่างไม่สำเร็จ'));
     }
   }
 
@@ -88,11 +89,11 @@ class _DraftListState extends State<DraftList>
     setState(() => _drafts = _drafts?.where((d) => d.id != draft.id).toList());
     try {
       await widget.dropRepository.deleteDraft(draft.id);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _drafts = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบร่างไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ลบร่างไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }

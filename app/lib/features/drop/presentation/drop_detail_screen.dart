@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/interaction/wyn_feedback.dart';
 import '../../../core/interaction/wyn_state_pop.dart';
+import '../../../core/network_error.dart';
 import '../../../core/widgets/action_sheet_row.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../core/widgets/hashtag_text.dart';
@@ -98,6 +99,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   // null while the initial load is in flight.
   List<DropComment>? _comments;
   bool _commentsErrored = false;
+  Object? _commentsError;
 
   /// Comment pagination (see [_loadMoreComments]). [_hasMoreComments] is
   /// true whenever the last page came back full, which is the only
@@ -106,6 +108,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   bool _hasMoreComments = false;
   bool _isLoadingMoreComments = false;
   bool _moreCommentsErrored = false;
+  Object? _moreCommentsError;
   final _commentController = TextEditingController();
   final _commentFocusNode = FocusNode();
   bool _isSendingComment = false;
@@ -255,9 +258,12 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
         _hasMoreComments =
             comments.length == DropRepository.commentPageSize;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _commentsErrored = true);
+      setState(() {
+        _commentsErrored = true;
+        _commentsError = e;
+      });
     }
   }
 
@@ -282,9 +288,12 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
         _commentPage = nextPage;
         _hasMoreComments = more.length == DropRepository.commentPageSize;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _moreCommentsErrored = true);
+      setState(() {
+        _moreCommentsErrored = true;
+        _moreCommentsError = e;
+      });
     } finally {
       if (mounted) setState(() => _isLoadingMoreComments = false);
     }
@@ -460,11 +469,11 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
         _comments = _comments?.where((c) => c.id != commentId).toList();
         _drop = _drop.withRemovedComment();
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }
@@ -561,7 +570,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       if (!mounted) return;
       WynFeedback.deleted();
       Navigator.of(context).pop();
-    } catch (_) {
+    } catch (e) {
       // WYN-121: `deleteDrop()` throwing does not mean the delete never
       // happened -- a response lost to a flaky connection *after* the
       // database already committed looks identical, client-side, to a
@@ -585,7 +594,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       }
       WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }
@@ -943,7 +952,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('โหลดคอมเมนต์ไม่สำเร็จ'),
+                  Text(errorMessageFor(_commentsError!, serverMessage: 'โหลดคอมเมนต์ไม่สำเร็จ')),
                   const SizedBox(height: WynSpacing.space2),
                   TextButton(
                     onPressed: _loadComments,
@@ -1008,7 +1017,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                         key: const Key('drop_detail_load_more_comments'),
                         onPressed: _loadMoreComments,
                         child: Text(_moreCommentsErrored
-                            ? 'โหลดคอมเมนต์เพิ่มไม่สำเร็จ แตะเพื่อลองใหม่'
+                            ? errorMessageFor(_moreCommentsError!,
+                                serverMessage: 'โหลดคอมเมนต์เพิ่มไม่สำเร็จ แตะเพื่อลองใหม่')
                             : 'ดูคอมเมนต์เพิ่มเติม'),
                       ),
               ),

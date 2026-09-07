@@ -10,6 +10,7 @@ import '../../../saved/data/saved_repository.dart';
 import '../../../saved/presentation/widgets/saved_grid_tile.dart';
 import '../../data/profile_repository.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/network_error.dart';
 
 /// Saved tab on a profile (WYN-013) -- only ever shown for the current
 /// user's own profile (see ViewProfileScreen). Drop and Pop mixed in one
@@ -83,8 +84,8 @@ class _ProfileSavedTabState extends State<ProfileSavedTab>
         _page = 0;
         _hasMore = items.length == SavedRepository.pageSize;
       });
-    } catch (_) {
-      setState(() => _error = 'โหลดรายการที่บันทึกไว้ไม่สำเร็จ');
+    } catch (e) {
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดรายการที่บันทึกไว้ไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }

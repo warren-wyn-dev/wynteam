@@ -6,6 +6,7 @@ import '../create_club_event_screen.dart';
 import 'club_event_card.dart';
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/network_error.dart';
 
 /// WYN-118, Screen 2 -- one scrolling list, split into "กำลังจะถึง"
 /// (soonest first) then "ที่ผ่านมาแล้ว" (most-recent-past first) by a
@@ -37,6 +38,7 @@ class _ClubEventsTabState extends State<ClubEventsTab> {
   List<ClubEvent>? _upcoming;
   List<ClubEvent>? _past;
   bool _hasError = false;
+  Object? _error;
 
   @override
   void initState() {
@@ -60,9 +62,12 @@ class _ClubEventsTabState extends State<ClubEventsTab> {
         _upcoming = results[0];
         _past = results[1];
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _hasError = true);
+      setState(() {
+        _hasError = true;
+        _error = e;
+      });
     }
   }
 
@@ -159,10 +164,10 @@ class _ClubEventsTabState extends State<ClubEventsTab> {
     try {
       await widget.clubEventRepository.deleteEvent(event.id);
       _load();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบกิจกรรมไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ลบกิจกรรมไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }
@@ -198,7 +203,7 @@ class _ClubEventsTabState extends State<ClubEventsTab> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('โหลดกิจกรรมไม่สำเร็จ'),
+                    Text(errorMessageFor(_error!, serverMessage: 'โหลดกิจกรรมไม่สำเร็จ')),
                     const SizedBox(height: WynSpacing.space3),
                     TextButton(onPressed: _load, child: const Text('ลองใหม่')),
                   ],

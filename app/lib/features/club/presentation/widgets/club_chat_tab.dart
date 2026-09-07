@@ -10,6 +10,7 @@ import 'club_channel_dialogs.dart';
 import 'club_channel_screen.dart';
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/network_error.dart';
 
 /// The "แชท" top-level Club tab -- Discord-style: create as many chat
 /// rooms ("ห้อง") as you want (Founder, 2026-09-07), optionally grouped
@@ -130,9 +131,9 @@ class _ClubChatTabState extends State<ClubChatTab> {
       });
       await _loadUnreadCounts();
       _subscribeUnreadAll(channels);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _channelsError = 'โหลดห้องไม่สำเร็จ');
+      setState(() => _channelsError = errorMessageFor(e, serverMessage: 'โหลดห้องไม่สำเร็จ'));
     }
   }
 
@@ -180,10 +181,10 @@ class _ClubChatTabState extends State<ClubChatTab> {
         categoryId: result.categoryId,
       );
       await _loadChannels();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('สร้างห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'สร้างห้องไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }
@@ -205,10 +206,10 @@ class _ClubChatTabState extends State<ClubChatTab> {
         categoryId: result.categoryId,
       );
       await _loadChannels();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('แก้ไขชื่อห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'แก้ไขชื่อห้องไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }
@@ -227,10 +228,10 @@ class _ClubChatTabState extends State<ClubChatTab> {
         categoryId: selection.categoryId,
       );
       await _loadChannels();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ย้ายห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ย้ายห้องไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }
@@ -265,10 +266,10 @@ class _ClubChatTabState extends State<ClubChatTab> {
     try {
       await widget.clubRepository.createChannelCategory(clubId: widget.club.id, name: name);
       await _loadChannels();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('สร้างกลุ่มไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'สร้างกลุ่มไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }
@@ -284,10 +285,10 @@ class _ClubChatTabState extends State<ClubChatTab> {
     try {
       await widget.clubRepository.renameChannelCategory(categoryId: category.id, name: name);
       await _loadChannels();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('แก้ไขชื่อกลุ่มไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'แก้ไขชื่อกลุ่มไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }

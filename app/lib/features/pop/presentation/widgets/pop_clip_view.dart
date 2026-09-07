@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/interaction/wyn_feedback.dart';
 import '../../../../core/interaction/wyn_state_pop.dart';
+import '../../../../core/network_error.dart';
 import '../../../../core/widgets/hashtag_text.dart';
 import '../../../drop/data/drop_repository.dart';
 import '../../../follow/data/follow_repository.dart';
@@ -95,6 +96,7 @@ class _PopClipViewState extends State<PopClipView> {
   late Pop _pop;
   VideoPlayerController? _controller;
   bool _initError = false;
+  Object? _initErrorObject;
   bool _viewRecorded = false;
 
   // Whether the *current viewer* follows the Pop's author -- null until
@@ -193,9 +195,12 @@ class _PopClipViewState extends State<PopClipView> {
       if (!mounted) return;
       setState(() {});
       _recordViewOnce();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _initError = true);
+      setState(() {
+        _initError = true;
+        _initErrorObject = e;
+      });
     }
   }
 
@@ -203,6 +208,7 @@ class _PopClipViewState extends State<PopClipView> {
     final controller = _controller;
     _controller = null;
     _initError = false;
+    _initErrorObject = null;
     await controller?.dispose();
   }
 
@@ -268,11 +274,11 @@ class _PopClipViewState extends State<PopClipView> {
       await widget.popRepository.deletePop(_pop.id);
       WynFeedback.deleted();
       widget.onDeleted();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบ Pop ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'ลบ Pop ไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }
@@ -346,13 +352,16 @@ class _PopClipViewState extends State<PopClipView> {
             ),
           )
         else if (_initError)
-          const Center(
+          Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.error_outline, color: Colors.white70, size: 40),
-                SizedBox(height: WynSpacing.space2),
-                Text('โหลดคลิปไม่สำเร็จ', style: TextStyle(color: Colors.white70)),
+                const Icon(Icons.error_outline, color: Colors.white70, size: 40),
+                const SizedBox(height: WynSpacing.space2),
+                Text(
+                  errorMessageFor(_initErrorObject!, serverMessage: 'โหลดคลิปไม่สำเร็จ'),
+                  style: const TextStyle(color: Colors.white70),
+                ),
               ],
             ),
           )

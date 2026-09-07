@@ -132,6 +132,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
   /// True when the most recent [_loadMore] failed -- swaps the trailing
   /// spinner for a tappable retry (see [_buildBodySlivers]).
   bool _loadMoreFailed = false;
+  Object? _loadMoreError;
   bool _hasMore = true;
   String? _error;
 
@@ -383,7 +384,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
         }
         _page = nextPage;
       });
-    } catch (_) {
+    } catch (e) {
       // Not a blocking error state -- the rows already loaded stay
       // exactly as they are -- but not silent either. It used to be:
       // the spinner at the bottom simply stopped, leaving the user
@@ -392,7 +393,12 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
       // except to guess and scroll. [_onScroll] also won't retry on its
       // own while the list is already at its maximum extent, so without
       // a tap target a failure here can be genuinely terminal.
-      if (mounted) setState(() => _loadMoreFailed = true);
+      if (mounted) {
+        setState(() {
+          _loadMoreFailed = true;
+          _loadMoreError = e;
+        });
+      }
     } finally {
       if (mounted) setState(() => _isLoadingMore = false);
     }
@@ -1202,7 +1208,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
                       key: const Key('home_feed_load_more_retry'),
                       onPressed: _loadMore,
                       icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('โหลดเพิ่มไม่สำเร็จ แตะเพื่อลองใหม่'),
+                      label: Text(errorMessageFor(_loadMoreError!,
+                          serverMessage: 'โหลดเพิ่มไม่สำเร็จ แตะเพื่อลองใหม่')),
                     ),
                   ),
                 );

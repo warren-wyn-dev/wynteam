@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../profile/data/profile.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/network_error.dart';
 import '../data/block_repository.dart';
 import 'block_dialogs.dart';
 
@@ -66,8 +67,8 @@ class _BlockedListScreenState extends State<BlockedListScreen> {
         _page = 0;
         _hasMore = profiles.length == BlockRepository.pageSize;
       });
-    } catch (_) {
-      setState(() => _error = 'โหลดรายชื่อไม่สำเร็จ');
+    } catch (e) {
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดรายชื่อไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }
@@ -102,11 +103,11 @@ class _BlockedListScreenState extends State<BlockedListScreen> {
         _profiles.removeWhere((p) => p.id == profile.id);
         _unblockingIds.remove(profile.id);
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _unblockingIds.remove(profile.id));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เลิกบล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        SnackBar(content: Text(errorMessageFor(e, serverMessage: 'เลิกบล็อกไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       );
     }
   }

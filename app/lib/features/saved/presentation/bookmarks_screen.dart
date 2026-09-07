@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
+import '../../../core/network_error.dart';
 import '../../../core/widgets/empty_state_block.dart';
 import '../../drop/data/drop_repository.dart';
 import '../../drop/presentation/drop_detail_screen.dart';
@@ -108,8 +109,8 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         _page = 0;
         _hasMore = items.length == SavedRepository.pageSize;
       });
-    } catch (_) {
-      setState(() => _error = 'โหลดรายการที่บันทึกไว้ไม่สำเร็จ');
+    } catch (e) {
+      setState(() => _error = errorMessageFor(e, serverMessage: 'โหลดรายการที่บันทึกไว้ไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }
