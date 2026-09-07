@@ -1,7 +1,7 @@
 # Bug Report — WYN-132
 
-Status: **แก้แล้ว รอ CI + Founder ยืนยันบน production ก่อนย้ายไป completed/**
-Owner: AI Debug Engineer → รอส่งต่อ AI QA & Security → รอ Founder ยืนยัน
+Status: **Deploy ขึ้น production แล้ว (deploy-web.yml run #101, 2026-09-07 11:38 UTC) — รอ Founder ยืนยันว่าลบโพสต์จริงแล้วหายจากโปรไฟล์ทันทีทั้งสองเคส (กลับจาก Detail และรีเฟรชทั้งหน้าใหม่) ก่อนย้ายไป completed/** ดู `.wyn/logs/deployments/2026-09-07-wyn-132-profile-grid-fetch-by-author-deploy.md`
+Owner: AI Debug Engineer → AI Deploy & DevOps → รอ Founder ยืนยัน
 Reported by: Founder (สด, ไม่ผ่าน QA ก่อน): "ทำไมกดลบโพสต์แล้ว โพสต์ที่อยู่หน้าโปรไฟล์ไม่หาย" — **อาการเดียวกันเป๊ะกับ WYN-120 ซึ่ง deploy fix ไปแล้ว** (2026-09-06 08:17 UTC)
 
 ## Bug
