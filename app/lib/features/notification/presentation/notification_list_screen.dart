@@ -275,6 +275,25 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
             ),
           ),
         );
+      case NotificationType.newMessage:
+        // WYN-134: goes straight to ConversationScreen, exactly like
+        // messageRequest above -- the only difference is the wording
+        // (see _messageFor), not the destination.
+        final newMessageConversationId = notification.conversationId;
+        final newMessageActorId = notification.actorId;
+        if (newMessageConversationId == null || newMessageActorId == null) return;
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ConversationScreen(
+              chatRepository: widget.chatRepository,
+              conversationId: newMessageConversationId,
+              otherUserId: newMessageActorId,
+              otherUsername: notification.actorUsername ?? '',
+              otherDisplayName: notification.actorDisplayName,
+              otherAvatarUrl: notification.actorAvatarUrl,
+            ),
+          ),
+        );
       case NotificationType.followRequest:
         // WYN-039: goes straight to FollowRequestListScreen -- mirrors
         // messageRequest's own "the recipient already knows which
@@ -489,6 +508,11 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         return 'อุทธรณ์ของคุณถูกปฏิเสธ -- เหตุผล: ${notification.reason ?? ''}';
       case NotificationType.messageRequest:
         return '$name ส่งคำขอข้อความถึงคุณ';
+      case NotificationType.newMessage:
+        // WYN-134: deliberately never includes the message's own text
+        // -- DM content is private, unlike a public Drop/Club post
+        // caption other types preview via contentPreview.
+        return '$name ส่งข้อความถึงคุณ';
       case NotificationType.followRequest:
         return '$name ขอติดตามคุณ';
       case NotificationType.followRequestAccepted:

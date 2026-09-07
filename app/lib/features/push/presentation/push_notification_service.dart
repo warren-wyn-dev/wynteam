@@ -400,6 +400,7 @@ class PushNotificationService {
       case 'appeal_rejected':
         _openModerationAction(navigator, data['moderation_action_id'] as String?);
       case 'message_request':
+      case 'new_message':
         await _openConversation(
           navigator,
           client,

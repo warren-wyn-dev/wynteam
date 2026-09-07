@@ -136,6 +136,11 @@ export function messageFor(
     // notification.dart's own doc comment.
     case "message_request":
       return `${actorName} ส่งคำขอข้อความถึงคุณ`;
+    // WYN-134: mirrors notification_list_screen.dart's `_messageFor`
+    // word for word -- deliberately never includes the message's own
+    // text (privacy, see that file's own comment on this type).
+    case "new_message":
+      return `${actorName} ส่งข้อความถึงคุณ`;
     case "follow_request":
       return `${actorName} ขอติดตามคุณ`;
     case "follow_request_accepted":

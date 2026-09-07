@@ -1,7 +1,7 @@
 # Product Task — WYN-134
 
-Status: design-complete — AI Design ทำ spec เต็มแล้ว (2026-09-07) พร้อมส่งต่อ AI Coding ทันที (ไม่มีจุดที่ต้องรอ Founder ตัดสินใจเพิ่ม)
-Owner: AI Design → AI Coding
+Status: coding-complete รอ QA — AI Coding implement ครบตาม design spec แล้ว (2026-09-07)
+Owner: AI Design → AI Coding → AI QA & Security
 
 Feature: DM "New Message" Notification
 
@@ -46,3 +46,34 @@ Design spec เต็มที่ `.wyn/docs/design/wyn-134-dm-new-message-notif
 - แนะนำไม่ gate ด้วย Staged Rollout (WYN-125) เพราะเป็นการปิด known gap ของ Chat ที่มีอยู่แล้ว ไม่ใช่ฟีเจอร์ใหม่ที่ผู้ใช้ต้อง "ค้นพบ" — AI Coding ควรยืนยันกับ Founder อีกครั้งถ้าไม่แน่ใจ
 
 Handoff: AI Coding — ไม่มีจุดที่ต้องรอ Founder ตัดสินใจเพิ่มเติมสำหรับ task นี้ เริ่ม implement ได้ทันที
+
+## AI Coding Output (2026-09-07)
+
+Implement ตาม design spec ตรงๆ ทุกจุด ตรวจสอบ schema.sql จริงแล้วยืนยันว่า `mark_conversation_read()`/`get_or_create_conversation()`/`conversation_mutes`/`internal.notification_enabled('messages')`/`notifications.conversation_id` ยังตรงกับที่ Design อ้างอิงไว้ 100% ไม่มีจุดขัดแย้ง
+
+**ไม่ gate ด้วย Staged Rollout** ตามที่ Design แนะนำ (ปิด known gap ของ Chat เดิม ไม่ใช่ฟีเจอร์ใหม่) — เข้าเกณฑ์ข้อยกเว้นใน `.wyn/company/WORKFLOW.md`
+
+Files Changed:
+- `supabase/schema.sql` — เพิ่ม `'new_message'` เข้า `notifications_type_check` (dynamic drop+recreate pattern เดิม), trigger function ใหม่ `notify_new_message()` + `messages_notify_new_message` trigger, แก้ `mark_conversation_read()` ให้เคลียร์ `is_read` ของ `new_message` แถวที่เกี่ยวข้อง
+- `app/lib/features/notification/data/notification.dart` — เพิ่ม `NotificationType.newMessage` + case ใน `_typeFromString`
+- `app/lib/features/notification/presentation/notification_list_screen.dart` — เพิ่ม case ใน `_openNotification` (เปิด `ConversationScreen` ตรง mirror `messageRequest`) และ `_messageFor` ("$name ส่งข้อความถึงคุณ")
+- `app/lib/features/push/presentation/push_notification_service.dart` — เพิ่ม `case 'new_message':` เข้ากลุ่มเดียวกับ `case 'message_request':`
+- `supabase/functions/send-push-notification/_lib.ts` — เพิ่ม `case "new_message":` ใน `messageFor()` (คำเดียวกับฝั่ง Dart เป๊ะ)
+- `app/test/notification_list_screen_test.dart` — เพิ่ม fixture `newMessageNotification()` + test group "new_message notification (WYN-134)" (message wording + tap-opens-ConversationScreen)
+- `app/test/notification_test.dart` — เพิ่ม parse-test สำหรับ `type: "new_message"` (มิเรอร์ regression test เดิมของ `redrop`/`club_invite`)
+- `supabase/functions/send-push-notification/_lib.test.ts` — เพิ่ม test สำหรับ `messageFor("new_message", ...)` และ `buildDataPayload` กับ `type: "new_message"`
+- `supabase/tests/wyn_134_dm_new_message_notification_test.sh` — regression test ใหม่ (SQL/RLS/trigger level) รัน 10 checks ผ่านหมด: unread notification เกิดเมื่อ active+ไม่ mute+เปิดแจ้งเตือน, ไม่เกิดซ้ำเมื่อ mute/ปิดแจ้งเตือนหมวด messages, ไม่เกิดเลยสำหรับ conversation ที่ pending, ทำงานถูกทั้ง 2 ทิศทาง (least/greatest user_a/user_b), `mark_conversation_read()` เคลียร์ unread ได้จริงและยังคง reject non-participant/update last_read_at เหมือนเดิม (regression WYN-031)
+
+Reason: ปิด known gap ที่ยอมรับไว้ตั้งแต่ WYN-032 — Private Chat เป็นโดเมนเดียวที่ยังไม่มี "new message" notification ทั้งที่ Club มี WYN-116 แล้ว
+
+Tests:
+- `bash supabase/tests/wyn_134_dm_new_message_notification_test.sh` — PASS ทั้ง 10 checks (รันจริงกับ PostgreSQL 16 local)
+- `deno test` ใน `supabase/functions/send-push-notification/` — PASS 39/39
+- `flutter analyze` (ทั้ง repo) — No issues found
+- `flutter test` (ทั้ง repo) — PASS ทั้งหมด (ดู build log ประกอบ)
+
+Build: ไม่มี build step แยกสำหรับงานนี้ (ไม่มี UI ใหม่ที่ต้อง build/ดู mockup)
+
+Known Issues: ไม่มี — push (Database Webhook) อาจมาถึงอุปกรณ์ในเสี้ยววินาทีที่หน้าจอเปิดอยู่พอดีก่อน `markConversationRead()` จะทัน แต่แอปไม่โชว์ OS banner ตอน foreground อยู่แล้ว (พฤติกรรมเดิมของ WYN-016) จึงไม่มีผลกระทบที่ผู้ใช้เห็นจริง ตามที่ Design ระบุไว้แล้วว่ายอมรับได้
+
+Handoff: ส่งต่อ AI QA & Security — ตรวจ 4 AC ตาม Acceptance Criteria ด้านบน (ได้ข้อความใหม่ขณะไม่เปิดหน้า → notification เกิด, เปิดหน้าอยู่พอดี → ไม่ซ้ำ, mute → ไม่มีเลย, pending → ไม่เกิดซ้ำกับ message_request)

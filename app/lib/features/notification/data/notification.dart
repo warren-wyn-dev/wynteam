@@ -70,6 +70,15 @@ enum NotificationType {
   // conversationId): both just need actorId, already present.
   followRequest,
   followRequestAccepted,
+  // WYN-134: fired by notify_new_message() -- an ordinary AFTER INSERT
+  // trigger on messages, only for an 'active' conversation (a
+  // 'pending' one already gets exactly one messageRequest notification
+  // at creation, see that type's own comment above). actor_id is
+  // always the sender, conversationId is the same field messageRequest
+  // already uses -- no dedicated field needed. Deliberately never
+  // carries the message's own text (privacy -- see _messageFor's own
+  // comment on this type in notification_list_screen.dart).
+  newMessage,
   // WYN-043: sent only by send_system_notification(), restricted to
   // platform_role = 'admin' callers. actor_id is always null (mirrors
   // the moderation types' null-actor pattern above) -- this isn't
@@ -126,6 +135,8 @@ NotificationType _typeFromString(String value) {
       return NotificationType.followRequest;
     case 'follow_request_accepted':
       return NotificationType.followRequestAccepted;
+    case 'new_message':
+      return NotificationType.newMessage;
     case 'system':
       return NotificationType.system;
     default:
@@ -217,8 +228,9 @@ class WynNotification {
   final String? moderationActionId;
   final String? moderationActionType;
 
-  /// Set only for [NotificationType.messageRequest] (WYN-032) -- lets
-  /// the tap handler open `ConversationScreen` directly, same role
+  /// Set for [NotificationType.messageRequest] (WYN-032) and
+  /// [NotificationType.newMessage] (WYN-134) -- lets the tap handler
+  /// open `ConversationScreen` directly, same role
   /// [dropId]/[popId]/[clubPostId] play for their own types.
   final String? conversationId;
 
