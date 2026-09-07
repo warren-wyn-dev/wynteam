@@ -1,0 +1,528 @@
+name: WYN-128 -- apply club channel messages schema (tables, RLS, RPCs, report-target-type fast-follow)
+
+# PR #297 merged WYN-127 (Club Channels)/WYN-129 (Club Role Badges)/
+# WYN-128 (Club Group Chat) into main -- QA-approved -- but, same
+# established gap as every prior WYN-*-apply-*-schema.yml in this
+# project (wyn118, wyn125, ...), schema.sql does not auto-apply to
+# production. This workflow applies WYN-128's own section.
+#
+# *** RUN ORDER -- READ BEFORE TRIGGERING ***
+# This workflow MUST be run AFTER
+# wyn127-apply-club-channels-schema.yml has already completed
+# successfully in production. public.club_channel_messages.channel_id
+# has a hard foreign key to public.club_channels(id), and
+# public.club_channel_message_reads.channel_id likewise -- both tables
+# created by THIS workflow reference the club_channels table created by
+# the WYN-127 workflow. Running this workflow first (before WYN-127 has
+# been applied) will fail outright with
+# `relation "public.club_channels" does not exist`. WYN-129
+# (club_member_badges) has no ordering dependency with either this
+# workflow or WYN-127's and may run any time before/after/between them.
+# This is a human-readable note only -- there is deliberately no
+# trigger-chaining/workflow_run dependency wired up here; whoever
+# triggers these three workflows is responsible for running them in the
+# right order (127, then 129, then 128 -- or at minimum 127 before 128).
+#
+# Every statement below is copy-paste identical (in meaning) to the
+# WYN-128 section of supabase/schema.sql (search "WYN-128: Club Group
+# Chat" and "WYN-128 fast-follow: report a Club Group Chat message")
+# and to supabase/migrations_wyn128_club_channel_messages.sql -- if the
+# three ever drift, schema.sql/the migrations file is wrong, not this
+# workflow (this file is what actually ran against production). This
+# includes the QA fast-follow
+# (.wyn/tasks/bugs/WYN-128-group-chat-missing-report-action.md):
+# club_channel_messages had zero moderation coverage at first, so
+# `reports.target_type`'s CHECK constraint, `submit_report()`, and
+# `apply_moderation_action()` all gain a 'club_channel_message' branch
+# here (full re-definition of both functions -- `create or replace
+# function` always replaces the whole body; every other branch is
+# byte-for-byte unchanged from what is already live in production).
+#
+# Deliberately does NOT touch conversations/conversation_participants/
+# messages (WYN-031) at all, and reuses the existing club-media storage
+# bucket/policies as-is -- no new storage bucket/policy statements in
+# this workflow (see the migrations file's own comment for why).
+#
+# Safe to run more than once (CREATE TABLE/INDEX IF NOT EXISTS, DROP
+# POLICY/TRIGGER IF EXISTS before CREATE, CREATE OR REPLACE FUNCTION,
+# an idempotent dynamic drop-then-add of the reports.target_type CHECK
+# constraint) -- validated locally against a scratch PostgreSQL loaded
+# with supabase/schema.sql from before WYN-127/128/129 existed (commit
+# 5498928) with wyn127's + wyn129's statements already applied first
+# (mirroring the required production run order), then this workflow's
+# own statements, then a second pass of all of them with zero errors
+# and zero duplicate/changed rows.
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== 0. Diagnose: does club_channels exist yet (WYN-127 prerequisite), do the WYN-128 tables already exist? ==="
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name = 'club_channels';" | jq .
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name in ('club_channel_messages', 'club_channel_message_reads');" | jq .
+
+          echo "=== 1. Create club_channel_messages (idempotent) + RLS + cross-channel-reply trigger ==="
+          run_sql "create table if not exists public.club_channel_messages (
+                     id uuid primary key default gen_random_uuid(),
+                     channel_id uuid not null references public.club_channels (id) on delete cascade,
+                     author_id uuid not null references public.profiles (id) on delete cascade,
+                     content text,
+                     image_url text,
+                     reply_to_message_id uuid references public.club_channel_messages (id) on delete set null,
+                     created_at timestamptz not null default now(),
+                     constraint club_channel_messages_have_content check (content is not null or image_url is not null),
+                     constraint club_channel_messages_content_length
+                       check (content is null or char_length(content) between 1 and 2000)
+                   );
+
+                   create index if not exists club_channel_messages_channel_id_idx
+                     on public.club_channel_messages (channel_id, created_at);
+
+                   alter table public.club_channel_messages enable row level security;
+
+                   drop policy if exists \"Approved club members can view channel messages\" on public.club_channel_messages;
+                   create policy \"Approved club members can view channel messages\"
+                     on public.club_channel_messages
+                     for select
+                     to authenticated
+                     using (
+                       exists (
+                         select 1 from public.club_channels ch
+                         where ch.id = channel_id
+                           and public.club_role(ch.club_id, auth.uid()) is not null
+                       )
+                     );
+
+                   drop policy if exists \"Approved club members can send channel messages as themselves\" on public.club_channel_messages;
+                   create policy \"Approved club members can send channel messages as themselves\"
+                     on public.club_channel_messages
+                     for insert
+                     to authenticated
+                     with check (
+                       auth.uid() = author_id
+                       and not internal.is_posting_blocked(auth.uid())
+                       and exists (
+                         select 1 from public.club_channels ch
+                         where ch.id = channel_id
+                           and public.club_role(ch.club_id, auth.uid()) is not null
+                       )
+                     );
+
+                   drop policy if exists \"Message authors and club staff can delete channel messages\" on public.club_channel_messages;
+                   create policy \"Message authors and club staff can delete channel messages\"
+                     on public.club_channel_messages
+                     for delete
+                     to authenticated
+                     using (
+                       auth.uid() = author_id
+                       or exists (
+                         select 1 from public.club_channels ch
+                         where ch.id = channel_id
+                           and public.club_role(ch.club_id, auth.uid()) in ('owner', 'admin', 'moderator')
+                       )
+                     );
+
+                   create or replace function public.prevent_cross_channel_message_reply()
+                   returns trigger
+                   language plpgsql
+                   as \$fn\$
+                   begin
+                     if new.reply_to_message_id is not null then
+                       if not exists (
+                         select 1 from public.club_channel_messages m
+                         where m.id = new.reply_to_message_id and m.channel_id = new.channel_id
+                       ) then
+                         raise exception 'Cannot reply to a message from a different channel';
+                       end if;
+                     end if;
+                     return new;
+                   end;
+                   \$fn\$;
+
+                   drop trigger if exists club_channel_messages_prevent_cross_channel_reply on public.club_channel_messages;
+                   create trigger club_channel_messages_prevent_cross_channel_reply
+                     before insert on public.club_channel_messages
+                     for each row execute function public.prevent_cross_channel_message_reply();" >/dev/null
+          echo "Done."
+
+          echo "=== 2. Create club_channel_message_reads (idempotent) + RLS + mark_club_channel_read()/get_unread_channel_counts() RPCs ==="
+          run_sql "create table if not exists public.club_channel_message_reads (
+                     channel_id uuid not null references public.club_channels (id) on delete cascade,
+                     user_id uuid not null references public.profiles (id) on delete cascade,
+                     last_read_at timestamptz not null default now(),
+                     primary key (channel_id, user_id)
+                   );
+
+                   alter table public.club_channel_message_reads enable row level security;
+
+                   drop policy if exists \"Users can view their own channel read state\" on public.club_channel_message_reads;
+                   create policy \"Users can view their own channel read state\"
+                     on public.club_channel_message_reads
+                     for select
+                     to authenticated
+                     using (auth.uid() = user_id);
+
+                   create or replace function public.mark_club_channel_read(p_channel_id uuid)
+                   returns void
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   declare
+                     v_club_id uuid;
+                   begin
+                     if auth.uid() is null then
+                       raise exception 'Not authenticated';
+                     end if;
+
+                     select club_id into v_club_id from public.club_channels where id = p_channel_id;
+                     if v_club_id is null or public.club_role(v_club_id, auth.uid()) is null then
+                       raise exception 'Not an approved member of this channel''s club';
+                     end if;
+
+                     insert into public.club_channel_message_reads (channel_id, user_id, last_read_at)
+                     values (p_channel_id, auth.uid(), now())
+                     on conflict (channel_id, user_id) do update set last_read_at = excluded.last_read_at;
+                   end;
+                   \$fn\$;
+
+                   grant execute on function public.mark_club_channel_read(uuid) to authenticated;
+
+                   create or replace function public.get_unread_channel_counts(p_club_id uuid)
+                   returns table (channel_id uuid, unread_count bigint)
+                   language sql
+                   stable
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                     select ch.id,
+                       count(m.id) filter (
+                         where m.created_at > coalesce(r.last_read_at, 'epoch'::timestamptz)
+                           and m.author_id <> auth.uid()
+                       )
+                     from public.club_channels ch
+                     left join public.club_channel_message_reads r
+                       on r.channel_id = ch.id and r.user_id = auth.uid()
+                     left join public.club_channel_messages m
+                       on m.channel_id = ch.id
+                     where ch.club_id = p_club_id
+                       and public.club_role(p_club_id, auth.uid()) is not null
+                     group by ch.id;
+                   \$fn\$;
+
+                   grant execute on function public.get_unread_channel_counts(uuid) to authenticated;" >/dev/null
+          echo "Done."
+
+          echo "=== 3. Fast-follow: widen reports.target_type CHECK constraint to include 'club_channel_message' ==="
+          run_sql "do \$do\$
+                   declare
+                     v_constraint_name text;
+                   begin
+                     select tc.constraint_name into v_constraint_name
+                     from information_schema.table_constraints tc
+                     join information_schema.constraint_column_usage ccu
+                       on ccu.constraint_name = tc.constraint_name
+                      and ccu.constraint_schema = tc.constraint_schema
+                     where tc.table_schema = 'public'
+                       and tc.table_name = 'reports'
+                       and tc.constraint_type = 'CHECK'
+                       and ccu.column_name = 'target_type';
+
+                     if v_constraint_name is not null then
+                       execute format('alter table public.reports drop constraint %I', v_constraint_name);
+                     end if;
+                   end;
+                   \$do\$;
+
+                   alter table public.reports
+                     add constraint reports_target_type_check
+                     check (target_type in (
+                       'user', 'drop', 'drop_comment', 'club', 'club_post',
+                       'club_post_comment', 'message', 'redrop', 'club_channel_message'
+                     ));" >/dev/null
+          echo "Done."
+
+          echo "=== 4. Fast-follow: submit_report() gains 'club_channel_message' branch (full re-definition) ==="
+          run_sql "create or replace function public.submit_report(
+                     p_target_type text,
+                     p_target_id uuid,
+                     p_category text,
+                     p_detail text
+                   )
+                   returns uuid
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   declare
+                     v_reporter uuid := auth.uid();
+                     v_report_id uuid;
+                   begin
+                     if v_reporter is null then
+                       raise exception 'Not authenticated';
+                     end if;
+
+                     if p_target_type = 'user' then
+                       if p_target_id = v_reporter then
+                         raise exception 'Cannot report yourself';
+                       end if;
+                       if not exists (select 1 from public.profiles where id = p_target_id) then
+                         raise exception 'Target user not found';
+                       end if;
+                     elsif p_target_type = 'drop' then
+                       if not exists (
+                         select 1 from public.drops
+                         where id = p_target_id and author_id <> v_reporter
+                       ) then
+                         raise exception 'Drop not found, or is your own';
+                       end if;
+                     elsif p_target_type = 'drop_comment' then
+                       if not exists (
+                         select 1 from public.drop_comments
+                         where id = p_target_id and author_id <> v_reporter
+                       ) then
+                         raise exception 'Comment not found, or is your own';
+                       end if;
+                     elsif p_target_type = 'club' then
+                       if not exists (
+                         select 1 from public.clubs
+                         where id = p_target_id and owner_id <> v_reporter
+                       ) then
+                         raise exception 'Club not found, or is your own';
+                       end if;
+                     elsif p_target_type = 'club_post' then
+                       if not exists (
+                         select 1 from public.club_posts
+                         where id = p_target_id and author_id <> v_reporter
+                       ) then
+                         raise exception 'Club post not found, or is your own';
+                       end if;
+                     elsif p_target_type = 'club_post_comment' then
+                       if not exists (
+                         select 1 from public.club_post_comments
+                         where id = p_target_id and author_id <> v_reporter
+                       ) then
+                         raise exception 'Club post comment not found, or is your own';
+                       end if;
+                     elsif p_target_type = 'message' then
+                       if not exists (
+                         select 1 from public.messages m
+                         join public.conversations c on c.id = m.conversation_id
+                         where m.id = p_target_id
+                           and m.sender_id <> v_reporter
+                           and v_reporter in (c.user_a_id, c.user_b_id)
+                       ) then
+                         raise exception 'Message not found, is your own, or you are not a participant';
+                       end if;
+                     elsif p_target_type = 'redrop' then
+                       if not exists (
+                         select 1 from public.redrops
+                         where id = p_target_id and redropper_id <> v_reporter
+                       ) then
+                         raise exception 'Redrop not found, or is your own';
+                       end if;
+                     elsif p_target_type = 'club_channel_message' then
+                       if not exists (
+                         select 1 from public.club_channel_messages m
+                         join public.club_channels ch on ch.id = m.channel_id
+                         where m.id = p_target_id
+                           and m.author_id <> v_reporter
+                           and public.club_role(ch.club_id, v_reporter) is not null
+                       ) then
+                         raise exception 'Channel message not found, is your own, or you are not a member of its club';
+                       end if;
+                     else
+                       raise exception 'Unsupported report target type: %', p_target_type;
+                     end if;
+
+                     insert into public.reports (reporter_id, target_type, target_id, category, detail)
+                     values (
+                       v_reporter,
+                       p_target_type,
+                       p_target_id,
+                       p_category,
+                       nullif(trim(coalesce(p_detail, '')), '')
+                     )
+                     returning id into v_report_id;
+
+                     return v_report_id;
+                   end;
+                   \$fn\$;
+
+                   grant execute on function public.submit_report(text, uuid, text, text) to authenticated;" >/dev/null
+          echo "Done."
+
+          echo "=== 5. Fast-follow: apply_moderation_action() gains 'club_channel_message' branches (full re-definition) ==="
+          run_sql "create or replace function public.apply_moderation_action(
+                     p_report_id uuid,
+                     p_action_type text,
+                     p_reason text,
+                     p_duration_days integer default null
+                   )
+                   returns void
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   declare
+                     v_reviewer uuid := auth.uid();
+                     v_reviewer_role text;
+                     v_report record;
+                     v_target_user uuid;
+                     v_target_content_type text;
+                     v_target_content_id uuid;
+                     v_expires_at timestamptz;
+                     v_trimmed_reason text := trim(coalesce(p_reason, ''));
+                     v_action_id uuid;
+                   begin
+                     if v_reviewer is null then
+                       raise exception 'Not authenticated';
+                     end if;
+
+                     select platform_role into v_reviewer_role from public.profiles where id = v_reviewer;
+                     if v_reviewer_role is null or v_reviewer_role = 'user' then
+                       raise exception 'Not authorized';
+                     end if;
+
+                     if p_action_type not in ('no_action', 'warning', 'remove_content', 'restrict', 'suspend', 'ban') then
+                       raise exception 'Invalid action_type: %', p_action_type;
+                     end if;
+
+                     if length(v_trimmed_reason) = 0 then
+                       raise exception 'Reason is required';
+                     end if;
+
+                     select * into v_report from public.reports where id = p_report_id for update;
+                     if v_report is null then
+                       raise exception 'Report not found';
+                     end if;
+                     if v_report.status not in ('pending', 'reviewing') then
+                       raise exception 'Report has already been actioned';
+                     end if;
+
+                     if v_report.target_type = 'user' then
+                       v_target_user := v_report.target_id;
+                     elsif v_report.target_type = 'drop' then
+                       select author_id into v_target_user from public.drops where id = v_report.target_id;
+                     elsif v_report.target_type = 'drop_comment' then
+                       select author_id into v_target_user from public.drop_comments where id = v_report.target_id;
+                     elsif v_report.target_type = 'club' then
+                       select owner_id into v_target_user from public.clubs where id = v_report.target_id;
+                     elsif v_report.target_type = 'club_post' then
+                       select author_id into v_target_user from public.club_posts where id = v_report.target_id;
+                     elsif v_report.target_type = 'club_post_comment' then
+                       select author_id into v_target_user from public.club_post_comments where id = v_report.target_id;
+                     elsif v_report.target_type = 'club_channel_message' then
+                       select author_id into v_target_user from public.club_channel_messages where id = v_report.target_id;
+                     else
+                       raise exception 'Unsupported report target type: %', v_report.target_type;
+                     end if;
+
+                     if p_action_type = 'remove_content' and v_report.target_type in ('user', 'club') then
+                       raise exception 'Remove Content is not supported for target type %', v_report.target_type;
+                     end if;
+
+                     if v_target_user is null and p_action_type <> 'no_action' then
+                       raise exception 'Target no longer exists -- use No Action to close this report';
+                     end if;
+
+                     if p_action_type in ('restrict', 'suspend') then
+                       if p_duration_days is null or p_duration_days not in (1, 3, 7) then
+                         raise exception 'duration_days must be 1, 3, or 7 for % ', p_action_type;
+                       end if;
+                       v_expires_at := now() + (p_duration_days || ' days')::interval;
+                     else
+                       v_expires_at := null;
+                     end if;
+
+                     if p_action_type = 'remove_content' and v_report.target_type = 'drop' then
+                       v_target_content_type := 'drop';
+                       v_target_content_id := v_report.target_id;
+                     end if;
+
+                     insert into public.moderation_actions (
+                       report_id, target_user_id, action_type, reason, duration_days, expires_at,
+                       reviewer_id, target_content_type, target_content_id
+                     ) values (
+                       p_report_id,
+                       v_target_user,
+                       p_action_type,
+                       v_trimmed_reason,
+                       case when p_action_type in ('restrict', 'suspend') then p_duration_days else null end,
+                       v_expires_at,
+                       v_reviewer,
+                       v_target_content_type,
+                       v_target_content_id
+                     )
+                     returning id into v_action_id;
+
+                     update public.reports
+                     set status = case when p_action_type = 'no_action' then 'dismissed' else 'actioned' end
+                     where id = p_report_id;
+
+                     if p_action_type = 'warning' then
+                       insert into public.notifications (recipient_id, actor_id, type, reason, moderation_action_id, moderation_action_type)
+                       values (v_target_user, null, 'moderation_warning', v_trimmed_reason, v_action_id, p_action_type);
+                     elsif p_action_type = 'remove_content' then
+                       insert into public.notifications (recipient_id, actor_id, type, reason, moderation_action_id, moderation_action_type)
+                       values (v_target_user, null, 'moderation_content_removed', v_trimmed_reason, v_action_id, p_action_type);
+
+                       if v_report.target_type = 'drop' then
+                         update public.drops set deleted_at = now() where id = v_report.target_id and deleted_at is null;
+                       elsif v_report.target_type = 'drop_comment' then
+                         delete from public.drop_comments where id = v_report.target_id;
+                       elsif v_report.target_type = 'club_post' then
+                         delete from public.club_posts where id = v_report.target_id;
+                       elsif v_report.target_type = 'club_post_comment' then
+                         delete from public.club_post_comments where id = v_report.target_id;
+                       elsif v_report.target_type = 'club_channel_message' then
+                         delete from public.club_channel_messages where id = v_report.target_id;
+                       end if;
+                     end if;
+
+                     perform internal.log_audit_event(
+                       v_reviewer,
+                       'moderation_action_applied',
+                       v_target_user,
+                       jsonb_build_object('action_type', p_action_type, 'reason', v_trimmed_reason)
+                     );
+                   end;
+                   \$fn\$;
+
+                   grant execute on function public.apply_moderation_action(uuid, text, text, integer) to authenticated;" >/dev/null
+          echo "Done."
+
+          echo "=== 6. Verify: tables + RPCs + widened reports constraint now present ==="
+          run_sql "select count(*) as messages_missing_channel from public.club_channel_messages where channel_id is null;" | jq .
+          run_sql "select conname from pg_constraint where conname = 'reports_target_type_check';" | jq .
+          run_sql "select routine_name from information_schema.routines where routine_schema = 'public' and routine_name in ('mark_club_channel_read', 'get_unread_channel_counts', 'submit_report', 'apply_moderation_action') order by routine_name;" | jq .
+
+          echo "=== 7. Smoke test: query club_channel_messages against real data (should return cleanly, even if empty) ==="
+          run_sql "select m.id, m.channel_id from public.club_channel_messages m limit 5;" | jq .

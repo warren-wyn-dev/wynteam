@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../auth/presentation/widgets/guest_gate.dart';
 import '../../data/club.dart';
 import '../../data/club_post_repository.dart';
 import '../../data/club_repository.dart';
@@ -52,6 +53,12 @@ class _ClubSectionState extends State<ClubSection> {
       });
 
   Future<void> _openCreateClub() async {
+    // WYN-072 (Guest Browsing): Home is one of the tabs a guest can
+    // browse freely (RootShell's own gate deliberately excludes it), so
+    // this section's own "สร้าง Club" shortcut needs its own gate --
+    // see ExploreClubsScreen._openCreateClub's identical comment.
+    if (!await requireRealAccount(context)) return;
+    if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => CreateClubScreen(

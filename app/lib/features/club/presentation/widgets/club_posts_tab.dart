@@ -4,8 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/developer_access/developer_access_service.dart';
 import '../../data/club.dart';
 import '../../data/club_badge_repository.dart';
-import '../../data/club_channel.dart';
-import '../../data/club_channel_chat_repository.dart';
 import '../../data/club_member.dart';
 import '../../data/club_member_badge.dart';
 import '../../data/club_post.dart';
@@ -13,18 +11,9 @@ import '../../data/club_post_repository.dart';
 import '../../data/club_repository.dart';
 import '../club_post_detail_screen.dart';
 import '../create_club_post_screen.dart';
-import 'club_channel_chat_view.dart';
-import 'club_channel_switcher.dart';
 import 'club_post_card.dart';
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
-
-/// WYN-128: which of the channel's 2 sub-views is showing -- the
-/// Design's recommended "toggle เล็กๆ 'โพสต์ | แชท' ใต้แถบ channel" rather
-/// than a separate navigation layer. Posts is always the default (both
-/// on first open and after switching channels), matching this widget's
-/// pre-WYN-128 behavior exactly for anyone who never touches the toggle.
-enum _ClubChannelView { posts, chat }
 
 /// Screen 4-5 — Posts tab. Gated behind approved membership: non-members
 /// (myRole == null) see a join-prompt placeholder instead of the list,
@@ -32,15 +21,14 @@ enum _ClubChannelView { posts, chat }
 /// ไม่ว่า Public/Private"). See .wyn/docs/design/wyn-014-club-core.md,
 /// Screens 4-5.
 ///
-/// WYN-127: hosts the channel chip row above the feed, and scopes every
-/// fetch to whichever channel is selected -- see
-/// .wyn/tasks/backlog/WYN-127-club-channels.md.
-///
-/// WYN-128: also hosts the Group Chat for whichever channel is selected,
-/// behind the "โพสต์ | แชท" toggle -- see
-/// .wyn/tasks/backlog/WYN-128-club-group-chat.md. There is no separate
-/// "Chat" tab/route at the Club level; the chat lives *inside* each
-/// channel, exactly like the Posts feed does.
+/// Club-wide feed, not scoped to a channel: the Founder's post-
+/// restructuring decision (2026-09-07) dropped WYN-127's per-channel
+/// post split -- channels are chat-only now (see ClubChatTab, the
+/// sibling top-level "แชท" tab). Every post in the Club shows here
+/// regardless of which channel it happens to be attached to at the DB
+/// layer, and a new post is always created in the Club's oldest channel
+/// (`_defaultChannelId` below) -- the channel concept never surfaces in
+/// this tab's UI at all.
 class ClubPostsTab extends StatefulWidget {
   const ClubPostsTab({
     super.key,
@@ -50,18 +38,16 @@ class ClubPostsTab extends StatefulWidget {
     required this.myRole,
     required this.onJoinTapped,
     ClubBadgeRepository? clubBadgeRepository,
-    ClubChannelChatRepository? clubChannelChatRepository,
     DeveloperAccessService? developerAccessService,
-    this.onBanned,
   })  : _clubBadgeRepository = clubBadgeRepository,
-        _clubChannelChatRepository = clubChannelChatRepository,
         _developerAccessService = developerAccessService;
 
   final ClubPostRepository clubPostRepository;
 
-  /// WYN-127: owns `club_channels` reads/writes -- kept separate from
-  /// [clubPostRepository], mirroring how ClubPage already threads a
-  /// distinct ClubRepository/ClubPostRepository pair through today.
+  /// Used only to resolve [_defaultChannelId] (the Club's oldest
+  /// channel) -- every post still needs a real `channel_id` at the DB
+  /// layer (NOT NULL), even though this tab never lets the viewer choose
+  /// or see one.
   final ClubRepository clubRepository;
   final Club club;
   final ClubMemberRole? myRole;
@@ -71,25 +57,13 @@ class ClubPostsTab extends StatefulWidget {
   /// other optional repository field in this app.
   final ClubBadgeRepository? _clubBadgeRepository;
 
-  /// WYN-128: same optional shape again.
-  final ClubChannelChatRepository? _clubChannelChatRepository;
-
   /// Staged-rollout gate (`.wyn/company/WORKFLOW.md`'s "Staged Rollout
   /// เป็นค่าเริ่มต้นสำหรับฟีเจอร์ใหม่ทุกตัว", mandatory since 2026-09-06) --
-  /// same optional/defaulted shape as every other optional repository
-  /// field in this app (see settings_screen.dart's `_VersionFooter` for
-  /// the only other real call site of this class so far). WYN-127's
-  /// channel switcher and WYN-128's "โพสต์ | แชท" toggle/chat room are
-  /// both new, previously-nonexistent, user-facing features -- see
-  /// .wyn/tasks/bugs/WYN-127-128-129-missing-staged-rollout-gate.md.
+  /// WYN-129's badge pill is the only thing left in this tab that's
+  /// still staged-rollout gated (the channel switcher/chat toggle this
+  /// field used to also gate were removed along with the per-channel
+  /// split -- see the class doc comment).
   final DeveloperAccessService? _developerAccessService;
-
-  /// WYN-128: bubbled up from ClubChannelChatView when this user's own
-  /// membership in [club] is banned/removed while the chat view is open
-  /// -- see that widget's own doc comment for why this tab (not the chat
-  /// view itself) is what reacts. Optional so existing call sites/tests
-  /// that don't care about this edge case don't need to supply one.
-  final VoidCallback? onBanned;
 
   @override
   State<ClubPostsTab> createState() => _ClubPostsTabState();
@@ -98,8 +72,6 @@ class ClubPostsTab extends StatefulWidget {
 class _ClubPostsTabState extends State<ClubPostsTab> {
   late final ClubBadgeRepository _clubBadgeRepository =
       widget._clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
-  late final ClubChannelChatRepository _clubChannelChatRepository =
-      widget._clubChannelChatRepository ?? ClubChannelChatRepository(Supabase.instance.client);
   late final DeveloperAccessService _developerAccessService =
       widget._developerAccessService ?? DeveloperAccessService();
 
@@ -107,11 +79,9 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
   /// doc comment. Fail-closed while still loading/on error (`snapshot.data
   /// == true`, same posture as settings_screen.dart's `_VersionFooter`):
   /// a regular account can only ever under-promise (briefly not seeing
-  /// the channel switcher/chat toggle while this resolves), never see
-  /// the new UI by mistake.
+  /// the badge pill while this resolves), never see it by mistake.
   late final Future<bool> _isDeveloperFuture = _developerAccessService.isDeveloperAccount();
 
-  final _scrollController = ScrollController();
   final List<ClubPost> _posts = [];
   int _page = 0;
   bool _isLoadingInitial = true;
@@ -119,44 +89,32 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
   bool _hasMore = true;
   String? _error;
 
-  List<ClubChannel>? _channels;
-  String? _selectedChannelId;
-  String? _channelsError;
-  _ClubChannelView _viewMode = _ClubChannelView.posts;
+  /// The Club's oldest channel id -- resolved once on init purely to
+  /// satisfy `club_posts.channel_id`'s NOT NULL constraint when creating
+  /// a post. Never shown in this tab's UI (see the class doc comment).
+  String? _defaultChannelId;
 
-  /// WYN-128: unread message count per channel id -- Requirement 6's
-  /// badge on the "แชท" toggle. Kept live by [_unreadSubscription] while
-  /// [_viewMode] is [_ClubChannelView.posts] (the chat view marks its
-  /// own channel read and keeps its own realtime subscription once
-  /// [_viewMode] switches to chat -- see [_setViewMode]).
-  Map<String, int> _unreadCounts = {};
-  RealtimeChannel? _unreadSubscription;
-
-  /// WYN-129: every badge in this Club, keyed by user id -- club-wide,
-  /// not channel-scoped, so it's fetched once (not re-fetched on channel
-  /// switch) and passed down to each ClubPostCard as `authorBadge`.
+  /// WYN-129: every badge in this Club, keyed by user id.
   Map<String, ClubMemberBadge> _badges = {};
 
   bool get _isMember => widget.myRole != null;
-  bool get _canManageChannels => widget.myRole?.canManageClub ?? false;
 
   @override
   void initState() {
     super.initState();
     if (_isMember) {
-      _loadChannelsThenPosts();
-      // WYN-129's badge pill is gated behind the same staged-rollout
-      // flag as the channel switcher/chat toggle -- only fetch badges
-      // (and therefore only ever populate `_badges`, the one thing
-      // ClubPostCard actually checks to decide whether to render a
-      // pill) once this resolves `true`. A regular account's `_badges`
-      // map simply stays empty forever, which is indistinguishable from
-      // "nobody in this Club has a badge" -- the exact pre-WYN-129 look.
+      _loadDefaultChannelThenPosts();
+      // WYN-129's badge pill is gated behind the staged-rollout flag --
+      // only fetch badges (and therefore only ever populate `_badges`,
+      // the one thing ClubPostCard actually checks to decide whether to
+      // render a pill) once this resolves `true`. A regular account's
+      // `_badges` map simply stays empty forever, which is
+      // indistinguishable from "nobody in this Club has a badge" -- the
+      // exact pre-WYN-129 look.
       _isDeveloperFuture.then((isDeveloper) {
         if (isDeveloper) _loadBadges();
       });
     }
-    _scrollController.addListener(_onScroll);
   }
 
   Future<void> _loadBadges() async {
@@ -170,121 +128,24 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     }
   }
 
-  @override
-  void dispose() {
-    _unsubscribeUnread();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _unsubscribeUnread() {
-    final subscription = _unreadSubscription;
-    if (subscription != null) {
-      _clubChannelChatRepository.unsubscribe(subscription);
-      _unreadSubscription = null;
-    }
-  }
-
-  /// Keeps [_unreadCounts] live for [channelId] while the chat view for
-  /// it isn't open -- a lighter-weight subscription than the one
-  /// ClubChannelChatView itself opens (no presence tracking), and never
-  /// runs at the same time as that one (see [_setViewMode]/
-  /// [_selectChannel]).
-  void _subscribeUnread(String channelId) {
-    _unsubscribeUnread();
-    _unreadSubscription = _clubChannelChatRepository.subscribeToNewMessagesOnly(
-      channelId,
-      (message) {
-        if (!mounted || message.authorId == Supabase.instance.client.auth.currentUser!.id) return;
-        setState(() {
-          _unreadCounts = {...(_unreadCounts), channelId: (_unreadCounts[channelId] ?? 0) + 1};
-        });
-      },
-    );
-  }
-
-  Future<void> _loadUnreadCounts() async {
+  Future<void> _loadDefaultChannelThenPosts() async {
     try {
-      final counts = await _clubChannelChatRepository.fetchUnreadCounts(widget.club.id);
-      if (!mounted) return;
-      setState(() => _unreadCounts = counts);
-    } catch (_) {
-      // Fails open -- an unread badge is a nicety, never worth blocking
-      // the channel switcher over.
-    }
-  }
-
-  void _setViewMode(_ClubChannelView mode) {
-    if (mode == _viewMode) return;
-    setState(() => _viewMode = mode);
-    final channelId = _selectedChannelId;
-    if (channelId == null) return;
-    if (mode == _ClubChannelView.chat) {
-      // The chat view marks its own channel read and keeps its own
-      // (heavier, presence-tracking) subscription from here on --
-      // stopping this lighter one avoids double-counting the same
-      // inserts twice.
-      _unsubscribeUnread();
-      setState(() => _unreadCounts = {..._unreadCounts, channelId: 0});
-    } else {
-      _subscribeUnread(channelId);
-    }
-  }
-
-  /// WYN-128: see ClubChannelChatView.onBanned's own doc comment for why
-  /// this tab, not the chat view, is what reacts.
-  void _onBanned() {
-    if (!mounted) return;
-    setState(() => _viewMode = _ClubChannelView.posts);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('คุณถูกนำออกจาก Club นี้แล้ว')),
-    );
-    widget.onBanned?.call();
-  }
-
-  void _onScroll() {
-    if (_isLoadingMore || !_hasMore) return;
-    if (_scrollController.position.pixels >
-        _scrollController.position.maxScrollExtent - 300) {
-      _loadMore();
-    }
-  }
-
-  Future<void> _loadChannelsThenPosts() async {
-    setState(() => _channelsError = null);
-    try {
+      // fetchChannels() sorts oldest-first, and every Club always has at
+      // least its auto-created "ทั่วไป" channel (clubs_add_default_channel()
+      // in supabase/schema.sql), so `.first` always exists.
       final channels = await widget.clubRepository.fetchChannels(widget.club.id);
       if (!mounted) return;
-      setState(() {
-        _channels = channels;
-        // Design's User Flow: "แถบ channel ... เริ่มที่ #ทั่วไป เสมอ" --
-        // fetchChannels() already sorts oldest-first, and "ทั่วไป" is
-        // always the oldest (created by clubs_add_default_channel() at
-        // the same moment as the Club itself), so this is simply the
-        // first channel, unless one is already selected.
-        _selectedChannelId ??= channels.isNotEmpty ? channels.first.id : null;
-      });
-      await _loadInitial();
-      await _loadUnreadCounts();
-      final channelId = _selectedChannelId;
-      if (channelId != null && _viewMode == _ClubChannelView.posts) {
-        _subscribeUnread(channelId);
-      }
+      setState(() => _defaultChannelId = channels.isNotEmpty ? channels.first.id : null);
     } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _channelsError = 'โหลดห้องไม่สำเร็จ';
-        _isLoadingInitial = false;
-      });
+      // Fails open for reading (the feed query below doesn't need a
+      // channel id at all) -- only post-creation needs
+      // [_defaultChannelId], and its FAB is already disabled while this
+      // is null.
     }
+    await _loadInitial();
   }
 
   Future<void> _loadInitial() async {
-    final channelId = _selectedChannelId;
-    if (channelId == null) {
-      setState(() => _isLoadingInitial = false);
-      return;
-    }
     setState(() {
       _isLoadingInitial = true;
       _error = null;
@@ -292,7 +153,6 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     try {
       final posts = await widget.clubPostRepository.fetchPosts(
         clubId: widget.club.id,
-        channelId: channelId,
         page: 0,
       );
       if (!mounted) return;
@@ -312,14 +172,11 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
   }
 
   Future<void> _loadMore() async {
-    final channelId = _selectedChannelId;
-    if (channelId == null) return;
     setState(() => _isLoadingMore = true);
     try {
       final nextPage = _page + 1;
       final posts = await widget.clubPostRepository.fetchPosts(
         clubId: widget.club.id,
-        channelId: channelId,
         page: nextPage,
       );
       if (!mounted) return;
@@ -332,101 +189,6 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
       // Silent -- same infinite-scroll convention as every other feed.
     } finally {
       if (mounted) setState(() => _isLoadingMore = false);
-    }
-  }
-
-  void _selectChannel(String channelId) {
-    if (channelId == _selectedChannelId) return;
-    setState(() => _selectedChannelId = channelId);
-    _loadInitial();
-    if (_viewMode == _ClubChannelView.posts) _subscribeUnread(channelId);
-  }
-
-  bool _isChannelNameTaken(String name, {String? excludingChannelId}) {
-    final channels = _channels ?? const [];
-    final lower = name.trim().toLowerCase();
-    return channels.any(
-      (c) => c.id != excludingChannelId && c.name.trim().toLowerCase() == lower,
-    );
-  }
-
-  Future<void> _createChannel() async {
-    final name = await showClubChannelNameDialog(
-      context,
-      title: 'สร้างห้องใหม่',
-      isNameTaken: _isChannelNameTaken,
-    );
-    if (name == null) return;
-    try {
-      final channel =
-          await widget.clubRepository.createChannel(clubId: widget.club.id, name: name);
-      if (!mounted) return;
-      setState(() {
-        _channels = [...?_channels, channel];
-        _selectedChannelId = channel.id;
-      });
-      _loadInitial();
-      if (_viewMode == _ClubChannelView.posts) _subscribeUnread(channel.id);
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('สร้างห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
-      );
-    }
-  }
-
-  Future<void> _editChannel(ClubChannel channel) async {
-    final name = await showClubChannelNameDialog(
-      context,
-      title: 'แก้ไขชื่อห้อง',
-      initialName: channel.name,
-      isNameTaken: (n) => _isChannelNameTaken(n, excludingChannelId: channel.id),
-    );
-    if (name == null || name == channel.name) return;
-    try {
-      await widget.clubRepository.renameChannel(channelId: channel.id, name: name);
-      if (!mounted) return;
-      setState(() {
-        _channels = _channels
-            ?.map((c) => c.id == channel.id
-                ? ClubChannel(
-                    id: c.id,
-                    clubId: c.clubId,
-                    name: name,
-                    createdBy: c.createdBy,
-                    createdAt: c.createdAt,
-                  )
-                : c)
-            .toList();
-      });
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('แก้ไขชื่อห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
-      );
-    }
-  }
-
-  Future<void> _deleteChannel(ClubChannel channel) async {
-    final deleted = await showDeleteClubChannelDialog(
-      context,
-      channelName: channel.name,
-      onConfirm: () => widget.clubRepository.deleteChannel(channel.id),
-    );
-    if (!deleted || !mounted) return;
-    setState(() {
-      _channels = _channels?.where((c) => c.id != channel.id).toList();
-      _unreadCounts = {..._unreadCounts}..remove(channel.id);
-      if (_selectedChannelId == channel.id) {
-        final remaining = _channels;
-        _selectedChannelId =
-            remaining != null && remaining.isNotEmpty ? remaining.first.id : null;
-      }
-    });
-    _loadInitial();
-    final newChannelId = _selectedChannelId;
-    if (newChannelId != null && _viewMode == _ClubChannelView.posts) {
-      _subscribeUnread(newChannelId);
     }
   }
 
@@ -536,36 +298,22 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     _loadInitial();
   }
 
-  String? get _selectedChannelName {
-    final channelId = _selectedChannelId;
-    final channels = _channels;
-    if (channelId == null || channels == null) return null;
-    for (final channel in channels) {
-      if (channel.id == channelId) return channel.name;
-    }
-    return null;
-  }
-
   Future<void> _openCreatePost() async {
-    final channelId = _selectedChannelId;
+    final channelId = _defaultChannelId;
     if (channelId == null) return;
-    // Staged-rollout gate: CreateClubPostScreen's locked chip falls back
-    // to its exact pre-WYN-127 text ("โพสต์ใน [ชื่อ Club]", no "· #ห้อง"
-    // suffix) whenever channelName is empty -- passing '' here for a
-    // non-developer account means the post still targets the right
-    // channel (channelId is real either way), but the composer never
-    // surfaces the word "channel" to someone who can't see the switcher
-    // that would explain it.
-    final isDeveloper = await _isDeveloperFuture;
-    final channelName = isDeveloper ? (_selectedChannelName ?? '') : '';
-    if (!mounted) return;
+    // channelName is always '' now -- CreateClubPostScreen's locked chip
+    // falls back to its exact pre-WYN-127 text ("โพสต์ใน [ชื่อ Club]", no
+    // "· #ห้อง" suffix) whenever channelName is empty, which is correct
+    // unconditionally now that posting never involves picking/seeing a
+    // channel (channelId still targets a real channel under the hood,
+    // just never surfaced here).
     final created = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => CreateClubPostScreen(
           clubPostRepository: widget.clubPostRepository,
           club: widget.club,
           channelId: channelId,
-          channelName: channelName,
+          channelName: '',
         ),
       ),
     );
@@ -591,123 +339,14 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     }
 
     return Scaffold(
-      body: Column(
-        children: [
-          // Staged-rollout gate (WYN-127/128): the channel switcher and
-          // the "โพสต์ | แชท" toggle only ever render for a developer
-          // account -- a regular account's `_viewMode` therefore never
-          // leaves `.posts` (nothing here ever calls `_setViewMode`),
-          // and `_buildBody()` below is scoped to whichever channel
-          // `_loadChannelsThenPosts()` already picked by default (the
-          // Club's oldest/"ทั่วไป" channel) -- exactly the pre-WYN-127
-          // single flat feed, with zero visible change.
-          FutureBuilder<bool>(
-            future: _isDeveloperFuture,
-            builder: (context, snapshot) {
-              if (snapshot.data != true) return const SizedBox.shrink();
-              return Column(
-                children: [
-                  _buildChannelSwitcher(),
-                  if (_channels != null) _buildViewToggle(),
-                ],
-              );
-            },
-          ),
-          Expanded(
-            child: _viewMode == _ClubChannelView.chat ? _buildChatView() : _buildBody(),
-          ),
-        ],
+      body: _buildBody(),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: WynColors.sapphire,
+        foregroundColor: WynColors.paper,
+        onPressed: _defaultChannelId == null ? null : _openCreatePost,
+        tooltip: 'สร้างโพสต์',
+        child: const Icon(Icons.add),
       ),
-      floatingActionButton: _viewMode == _ClubChannelView.posts
-          ? FloatingActionButton(
-              backgroundColor: WynColors.sapphire,
-              foregroundColor: WynColors.paper,
-              onPressed: _selectedChannelId == null ? null : _openCreatePost,
-              tooltip: 'สร้างโพสต์',
-              child: const Icon(Icons.add),
-            )
-          : null,
-    );
-  }
-
-  /// WYN-128 -- Design's recommended "toggle เล็กๆ 'โพสต์ | แชท' ใต้แถบ
-  /// channel". The "แชท" segment carries the current channel's unread
-  /// badge (Requirement 6).
-  Widget _buildViewToggle() {
-    final channelId = _selectedChannelId;
-    final unread = channelId == null ? 0 : (_unreadCounts[channelId] ?? 0);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        WynSpacing.space4, 0, WynSpacing.space4, WynSpacing.space2,
-      ),
-      child: SegmentedButton<_ClubChannelView>(
-        style: SegmentedButton.styleFrom(
-          selectedForegroundColor: WynColors.paper,
-          selectedBackgroundColor: WynColors.sapphire,
-          foregroundColor: WynColors.ink,
-          side: const BorderSide(color: WynColors.hairline),
-        ),
-        segments: [
-          const ButtonSegment(value: _ClubChannelView.posts, label: Text('โพสต์')),
-          ButtonSegment(
-            value: _ClubChannelView.chat,
-            label: Badge(
-              label: Text('$unread'),
-              isLabelVisible: unread > 0,
-              child: const Text('แชท'),
-            ),
-          ),
-        ],
-        selected: {_viewMode},
-        onSelectionChanged: (selection) => _setViewMode(selection.first),
-      ),
-    );
-  }
-
-  Widget _buildChatView() {
-    final channelId = _selectedChannelId;
-    final channelName = _selectedChannelName;
-    if (channelId == null || channelName == null) {
-      return const SizedBox.shrink();
-    }
-    return ClubChannelChatView(
-      key: ValueKey('club-chat-$channelId'),
-      repository: _clubChannelChatRepository,
-      clubRepository: widget.clubRepository,
-      clubId: widget.club.id,
-      channelId: channelId,
-      channelName: channelName,
-      myRole: widget.myRole,
-      onBanned: _onBanned,
-    );
-  }
-
-  Widget _buildChannelSwitcher() {
-    final channels = _channels;
-    if (channels == null) {
-      // Reserves the same height as the loaded switcher so the feed
-      // below doesn't jump once channels resolve.
-      return const SizedBox(height: WynSpacing.touchTargetMin + WynSpacing.space2 * 2);
-    }
-    if (_channelsError != null) {
-      return Padding(
-        padding: const EdgeInsets.all(WynSpacing.space3),
-        child: Row(
-          children: [
-            Expanded(child: Text(_channelsError!)),
-            TextButton(onPressed: _loadChannelsThenPosts, child: const Text('ลองใหม่')),
-          ],
-        ),
-      );
-    }
-    return ClubChannelSwitcher(
-      channels: channels,
-      selectedChannelId: _selectedChannelId,
-      canManage: _canManageChannels,
-      onSelect: _selectChannel,
-      onCreate: _createChannel,
-      onEdit: _editChannel,
-      onDelete: _deleteChannel,
     );
   }
 
@@ -717,77 +356,137 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     }
 
     if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      // RefreshIndicator needs a scrollable descendant to detect the pull
+      // gesture at all -- a bare Center() (the previous shape here) has
+      // none, so pull-to-refresh silently did nothing whenever this Club
+      // had 0 posts or a failed load, even though every other state in
+      // this same tab already supports it. AlwaysScrollableScrollPhysics
+      // is required too: content this short wouldn't otherwise be
+      // draggable far enough to trigger the indicator.
+      return RefreshIndicator(
+        onRefresh: _loadInitial,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            Text(_error!),
-            const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: WynSpacing.space8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(_error!),
+                  const SizedBox(height: WynSpacing.space3),
+                  TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+                ],
+              ),
+            ),
           ],
         ),
       );
     }
 
     if (_posts.isEmpty) {
-      return const Center(child: Text('ยังไม่มีโพสต์ใน Club นี้ เป็นคนแรกสิ!'));
+      return RefreshIndicator(
+        onRefresh: _loadInitial,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: WynSpacing.space8),
+              child: Center(child: Text('ยังไม่มีโพสต์ใน Club นี้ เป็นคนแรกสิ!')),
+            ),
+          ],
+        ),
+      );
     }
 
+    // CustomScrollView (not ListView.separated) with a manual "load
+    // more" button instead of scroll-triggered pagination -- same
+    // trade-off decision as ClubPage's other tabs (see
+    // club_members_tab.dart's identical "ดูสมาชิกเพิ่มเติม" button,
+    // which already established this pattern in this same screen).
+    // The previous version drove pagination off a private
+    // ScrollController's own position, which is exactly what stops a
+    // scrollable from being "primary" -- the one thing required for it
+    // to participate in ClubPage's staged-rollout NestedScrollView
+    // layout's shared header-collapse scroll position. A manual button
+    // needs no ScrollController of its own at all, so this tab is now a
+    // genuinely primary scrollable, same as club_members_tab.dart.
     return RefreshIndicator(
       onRefresh: _loadInitial,
-      child: ListView.separated(
-        controller: _scrollController,
-        padding: const EdgeInsets.only(bottom: 80),
-        itemCount: _posts.length + (_hasMore ? 1 : 0),
-        // A hairline divider between posts, same as Home Feed (DS-003) --
-        // never before the loading spinner. See that screen's identical
-        // comment for why Divider() alone (no color) is correct here.
-        separatorBuilder: (context, index) =>
-            index + 1 < _posts.length ? const Divider(height: 1) : const SizedBox.shrink(),
-        itemBuilder: (context, index) {
-          if (index >= _posts.length) {
-            return const Padding(
-              padding: EdgeInsets.all(WynSpacing.space4),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
+      child: CustomScrollView(
+        // Same reasoning as the empty/error states above -- a Club with
+        // just 1-2 short posts may not fill the viewport either, which
+        // would otherwise make it undraggable far enough to trigger
+        // pull-to-refresh.
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.only(bottom: 80),
+            sliver: SliverList.separated(
+              itemCount: _posts.length,
+              // A hairline divider between posts, same as Home Feed
+              // (DS-003).
+              separatorBuilder: (context, index) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final post = _posts[index];
 
-          final post = _posts[index];
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (index == 0 && post.pinned)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: Row(
-                    children: [
-                      Icon(Icons.push_pin, size: 14, color: Theme.of(context).colorScheme.outline),
-                      const SizedBox(width: WynSpacing.space1),
-                      Text(
-                        'ปักหมุด',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Theme.of(context).colorScheme.outline,
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (index == 0 && post.pinned)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                        child: Row(
+                          children: [
+                            Icon(Icons.push_pin,
+                                size: 14, color: Theme.of(context).colorScheme.outline),
+                            const SizedBox(width: WynSpacing.space1),
+                            Text(
+                              'ปักหมุด',
+                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.outline,
+                                  ),
                             ),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
+                    ClubPostCard(
+                      key: ValueKey(post.id),
+                      post: post,
+                      myRole: widget.myRole,
+                      authorBadge: _badges[post.authorId],
+                      onTap: () => _openPost(post),
+                      onToggleLike: () => _toggleLike(post.id),
+                      onToggleSave: () => _toggleSave(post.id),
+                      onTogglePin: () => _togglePin(post.id),
+                      onDelete: () => _deletePost(post.id),
+                      onVotePoll: (optionIndex) => _votePoll(post.id, optionIndex),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          if (_hasMore)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(WynSpacing.space4),
+                child: Center(
+                  child: _isLoadingMore
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : TextButton(
+                          key: const Key('club_posts_load_more'),
+                          onPressed: _loadMore,
+                          child: const Text('ดูโพสต์เพิ่มเติม'),
+                        ),
                 ),
-              ClubPostCard(
-                key: ValueKey(post.id),
-                post: post,
-                myRole: widget.myRole,
-                authorBadge: _badges[post.authorId],
-                onTap: () => _openPost(post),
-                onToggleLike: () => _toggleLike(post.id),
-                onToggleSave: () => _toggleSave(post.id),
-                onTogglePin: () => _togglePin(post.id),
-                onDelete: () => _deletePost(post.id),
-                onVotePoll: (optionIndex) => _votePoll(post.id, optionIndex),
               ),
-            ],
-          );
-        },
+            ),
+        ],
       ),
     );
   }

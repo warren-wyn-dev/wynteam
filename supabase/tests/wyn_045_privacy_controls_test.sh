@@ -276,8 +276,9 @@ insert into public.clubs (id, name, privacy, owner_id) values
 insert into public.club_members (club_id, user_id, role, status) values
   ('65200000-0000-0000-0000-000000000001', '65000000-0000-0000-0000-000000000013', 'member', 'approved');
 
-insert into public.club_posts (id, club_id, author_id, content) values
-  ('65200000-0000-0000-0000-000000000002', '65200000-0000-0000-0000-000000000001', '65000000-0000-0000-0000-000000000011', 'Hello from Olivia Club');
+insert into public.club_posts (id, club_id, author_id, content, channel_id) values
+  ('65200000-0000-0000-0000-000000000002', '65200000-0000-0000-0000-000000000001', '65000000-0000-0000-0000-000000000011', 'Hello from Olivia Club',
+   (select id from public.club_channels where club_id = '65200000-0000-0000-0000-000000000001' order by created_at limit 1));
 
 -- ------------------------------------------------------------
 -- DM Permission

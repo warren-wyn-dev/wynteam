@@ -56,16 +56,15 @@ class RecordingClubPostRepository extends ClubPostRepository {
   /// from ExploreClubsScreen, not just that navigation happened.
   int fetchFromJoinedClubsCalls = 0;
 
-  /// Every channelId [fetchPosts] was asked for, in order -- WYN-127.
-  final List<String> fetchPostsChannelIdArgs = [];
+  /// Every clubId [fetchPosts] was asked for, in order.
+  final List<String> fetchPostsClubIdArgs = [];
 
   @override
   Future<List<ClubPost>> fetchPosts({
     required String clubId,
-    required String channelId,
     required int page,
   }) async {
-    fetchPostsChannelIdArgs.add(channelId);
+    fetchPostsClubIdArgs.add(clubId);
     return page == 0 ? posts : <ClubPost>[];
   }
 

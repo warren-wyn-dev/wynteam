@@ -191,6 +191,42 @@ class ClubRepository {
     return row == null ? null : ClubMember.fromMap(row);
   }
 
+  /// Both fetchApprovedMembers/fetchPendingMembers below go through the
+  /// club_member_profiles() RPC (supabase/schema.sql, WYN-130) rather
+  /// than a plain `club_members` select+embed -- a straight embed of
+  /// `profiles` would still include a "ghost" member (a `profiles` row
+  /// left behind by a signup abandoned mid-onboarding, before the
+  /// Username step ever ran) as a bare "@" / "?"-avatar row, since
+  /// nothing in the club_members insert policy requires
+  /// profile_private.onboarding_completed. The RPC excludes those rows;
+  /// see its own comment in schema.sql for why that exclusion can't be
+  /// done client-side (profile_private's SELECT policy only lets a
+  /// caller read their OWN onboarding_completed, never a fellow
+  /// member's).
+  Future<List<ClubMember>> _fetchMemberProfiles(
+    String clubId,
+    String status,
+    int page,
+  ) async {
+    final rows = await _client.rpc('club_member_profiles', params: {
+      'p_club_id': clubId,
+      'p_status': status,
+      'p_limit': memberPageSize,
+      'p_offset': page * memberPageSize,
+    }) as List<dynamic>;
+    return rows.map((row) {
+      final map = row as Map<String, dynamic>;
+      return ClubMember.fromMap({
+        ...map,
+        'profile': {
+          'username': map['username'],
+          'display_name': map['display_name'],
+          'avatar_url': map['avatar_url'],
+        },
+      });
+    }).toList();
+  }
+
   /// One page of [memberPageSize] approved members, oldest-joined
   /// first. Bounded because a Club's membership is the one list here
   /// with no natural ceiling -- an unbounded fetch made the members tab
@@ -198,35 +234,17 @@ class ClubRepository {
   Future<List<ClubMember>> fetchApprovedMembers(
     String clubId, {
     int page = 0,
-  }) async {
-    final from = page * memberPageSize;
-    final to = from + memberPageSize - 1;
-    final rows = await _client
-        .from('club_members')
-        .select('*, $_memberProfileSelect')
-        .eq('club_id', clubId)
-        .eq('status', 'approved')
-        .order('created_at', ascending: true)
-        .range(from, to);
-    return rows.map((row) => ClubMember.fromMap(row)).toList();
+  }) {
+    return _fetchMemberProfiles(clubId, 'approved', page);
   }
 
-  /// Empty for anyone but that club's own owner/admin -- enforced by RLS,
-  /// not a client-side check.
+  /// Empty for anyone but that club's own owner/admin -- enforced inside
+  /// club_member_profiles() itself, not a client-side check.
   Future<List<ClubMember>> fetchPendingMembers(
     String clubId, {
     int page = 0,
-  }) async {
-    final from = page * memberPageSize;
-    final to = from + memberPageSize - 1;
-    final rows = await _client
-        .from('club_members')
-        .select('*, $_memberProfileSelect')
-        .eq('club_id', clubId)
-        .eq('status', 'pending')
-        .order('created_at', ascending: true)
-        .range(from, to);
-    return rows.map((row) => ClubMember.fromMap(row)).toList();
+  }) {
+    return _fetchMemberProfiles(clubId, 'pending', page);
   }
 
   Future<Club> createClub({
@@ -594,26 +612,39 @@ class ClubRepository {
   }
 
   /// RLS (club_channels insert policy) restricts this to that Club's own
-  /// Owner/Admin -- the "+ ห้องใหม่" chip is hidden from anyone else
-  /// client-side, but this is the real boundary.
+  /// Owner/Admin -- the "+ ห้องใหม่" row is hidden from anyone else
+  /// client-side, but this is the real boundary. [categoryId] is
+  /// WYN-133 (requirement 7) -- `null` means "ไม่มีกลุ่ม".
   Future<ClubChannel> createChannel({
     required String clubId,
     required String name,
+    String? categoryId,
   }) async {
     final userId = _client.auth.currentUser!.id;
     final row = await _client
         .from('club_channels')
-        .insert({'club_id': clubId, 'name': name.trim(), 'created_by': userId})
+        .insert({
+          'club_id': clubId,
+          'name': name.trim(),
+          'created_by': userId,
+          'category_id': categoryId,
+        })
         .select()
         .single();
     return ClubChannel.fromMap(row);
   }
 
+  /// [categoryId] is WYN-133 (requirement 7) -- always passed explicitly
+  /// (not left "unchanged") since the edit dialog always shows the full
+  /// current category selection; `null` moves the channel to "ไม่มีกลุ่ม".
   Future<void> renameChannel({
     required String channelId,
     required String name,
+    String? categoryId,
   }) {
-    return _client.from('club_channels').update({'name': name.trim()}).eq('id', channelId);
+    return _client
+        .from('club_channels')
+        .update({'name': name.trim(), 'category_id': categoryId}).eq('id', channelId);
   }
 
   /// Cascade-deletes every post inside this channel (club_posts.
@@ -622,6 +653,50 @@ class ClubRepository {
   /// The UI must confirm this permanent loss before calling this.
   Future<void> deleteChannel(String channelId) {
     return _client.from('club_channels').delete().eq('id', channelId);
+  }
+
+  /// WYN-133 (requirement 7) -- [clubId]'s channel categories, oldest
+  /// first (new categories append to the end of the list, same ordering
+  /// convention as [fetchChannels]).
+  Future<List<ClubChannelCategory>> fetchChannelCategories(String clubId) async {
+    final rows = await _client
+        .from('club_channel_categories')
+        .select()
+        .eq('club_id', clubId)
+        .order('created_at', ascending: true);
+    return rows.map((row) => ClubChannelCategory.fromMap(row)).toList();
+  }
+
+  /// RLS (club_channel_categories insert policy) restricts this to that
+  /// Club's own Owner/Admin.
+  Future<ClubChannelCategory> createChannelCategory({
+    required String clubId,
+    required String name,
+  }) async {
+    final userId = _client.auth.currentUser!.id;
+    final row = await _client
+        .from('club_channel_categories')
+        .insert({'club_id': clubId, 'name': name.trim(), 'created_by': userId})
+        .select()
+        .single();
+    return ClubChannelCategory.fromMap(row);
+  }
+
+  Future<void> renameChannelCategory({
+    required String categoryId,
+    required String name,
+  }) {
+    return _client
+        .from('club_channel_categories')
+        .update({'name': name.trim()}).eq('id', categoryId);
+  }
+
+  /// Every channel inside this category falls back to "ไม่มีกลุ่ม" --
+  /// `category_id`'s `on delete set null` (see supabase/schema.sql) does
+  /// this at the database level, so no channel is ever deleted or
+  /// touched by this call.
+  Future<void> deleteChannelCategory(String categoryId) {
+    return _client.from('club_channel_categories').delete().eq('id', categoryId);
   }
 
   /// WYN-128 -- watches this user's own `club_members` row for [clubId],

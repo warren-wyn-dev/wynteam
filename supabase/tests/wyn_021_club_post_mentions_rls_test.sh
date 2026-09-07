@@ -160,8 +160,9 @@ insert into public.club_members (club_id, user_id, role, status) values
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '55555555-5555-5555-5555-555555555555', 'member', 'approved')
 on conflict (club_id, user_id) do update set status = 'approved', role = excluded.role;
 
-insert into public.club_posts (id, club_id, author_id, content) values
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'Hello @mentioned');
+insert into public.club_posts (id, club_id, author_id, content, channel_id) values
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'Hello @mentioned',
+   (select id from public.club_channels where club_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' order by created_at limit 1));
 
 insert into public.club_post_mentions (club_post_id, mentioned_user_id) values
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '44444444-4444-4444-4444-444444444444');

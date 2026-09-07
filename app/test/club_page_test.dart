@@ -14,8 +14,13 @@ import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
 import 'support/recording_developer_access_service.dart';
 
-/// Regression tests for ClubPage's 3-state Join button and role-gated
-/// More menu, per .wyn/docs/design/wyn-014-club-core.md, Screen 3.
+/// Regression tests for ClubPage's 3-state Join button, role-gated More
+/// menu, and its 3-tab structure (โพสต์/แชท/เกี่ยวกับ) per the Founder's
+/// tab-restructuring decision, 2026-09-07 -- see
+/// .wyn/docs/design/wyn-014-club-core.md, Screen 3, and
+/// widgets/club_about_tab.dart's own doc comment for what merged into
+/// "เกี่ยวกับ" (Members/Events/Insights, reached via an internal
+/// segmented switcher rather than more top-level tabs).
 void main() {
   final club = Club(
     id: 'club-1',
@@ -44,12 +49,12 @@ void main() {
   late RecordingClubRepository ownerRepo;
   late RecordingClubPostRepository clubPostRepo;
   late RecordingClubEventRepository clubEventRepo;
-  // WYN-128: every ClubPage test must inject this -- ClubPostsTab (built
-  // eagerly as a TabBarView child regardless of which tab is selected)
-  // subscribes to it for the unread-chat badge the moment the viewer is
-  // an approved member, and a real ClubChannelChatRepository's
-  // subscribe() attempts a genuine WebSocket connection that leaves a
-  // pending Timer behind (.wyn/learning/PATTERNS.md).
+  // Every ClubPage test must inject this -- ClubChatTab (built eagerly as
+  // a TabBarView child whenever `showChat` is true, regardless of which
+  // tab is selected) subscribes to it for the unread badge, and a real
+  // ClubChannelChatRepository's subscribe() attempts a genuine WebSocket
+  // connection that leaves a pending Timer behind (.wyn/learning/
+  // PATTERNS.md).
   late RecordingClubChannelChatRepository clubChannelChatRepo;
   // Beta3 -- built in setUp() with every other repo, never inline in a
   // testWidgets body: a fresh RecordingClubRepository constructs a
@@ -60,12 +65,14 @@ void main() {
   // Same reasoning as withCoverRepo above -- built in setUp(), not inline
   // inside a WYN-116 testWidgets body.
   late RecordingClubRepository mutedMemberRepo;
-  // WYN-127-128-129-missing-staged-rollout-gate.md: this file doesn't
-  // exercise WYN-127/128/129's own UI directly, but ClubPostsTab/
-  // ClubMembersTab both default to a real DeveloperAccessService when
-  // none is given, which would attempt a genuine RPC call against this
-  // suite's fake Supabase project -- always inject the Recording double,
-  // same reasoning as clubChannelChatRepo above.
+  // ClubPage's own `_load()` now calls `.isDeveloperAccount()` directly
+  // (to decide `showChat`), on top of ClubPostsTab/ClubAboutTab's
+  // "สมาชิก" segment doing the same for their own badge gating -- always
+  // inject the Recording double, or all 3 would attempt a genuine RPC
+  // call against this suite's fake Supabase project. Defaults to `true`
+  // so every pre-existing test below still sees exactly what it did
+  // before "แชท" became a top-level tab; the dedicated "Chat tab
+  // (staged rollout)" group below overrides it per-test.
   late RecordingDeveloperAccessService developerAccessService;
 
   setUpAll(() async {
@@ -113,6 +120,7 @@ void main() {
     WidgetTester tester,
     RecordingClubRepository repo, {
     RecordingClubEventRepository? clubEventRepository,
+    RecordingDeveloperAccessService? developerAccessServiceOverride,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -122,7 +130,7 @@ void main() {
           clubId: club.id,
           clubEventRepository: clubEventRepository,
           clubChannelChatRepository: clubChannelChatRepo,
-          developerAccessService: developerAccessService,
+          developerAccessService: developerAccessServiceOverride ?? developerAccessService,
         ),
       ),
     );
@@ -257,57 +265,79 @@ void main() {
     expect(find.text('แก้ไขข้อมูล Club'), findsNothing);
   });
 
-  group('Events tab (WYN-118)', () {
-    testWidgets('an approved member (any role) sees a "กิจกรรม" tab',
-        (tester) async {
-      await pumpPage(tester, approvedMemberRepo, clubEventRepository: clubEventRepo);
+  group('Chat tab (staged rollout)', () {
+    testWidgets('a developer account sees a top-level "แชท" tab', (tester) async {
+      await pumpPage(
+        tester,
+        approvedMemberRepo,
+        developerAccessServiceOverride: RecordingDeveloperAccessService(isDeveloperResult: true),
+      );
 
-      expect(find.text('กิจกรรม'), findsOneWidget);
-    });
-
-    testWidgets('the Owner also sees a "กิจกรรม" tab, alongside Insights',
-        (tester) async {
-      await pumpPage(tester, ownerRepo, clubEventRepository: clubEventRepo);
-
-      expect(find.text('กิจกรรม'), findsOneWidget);
-      expect(find.text('Insights'), findsOneWidget);
-    });
-
-    testWidgets('a non-member never sees a "กิจกรรม" tab', (tester) async {
-      await pumpPage(tester, notJoinedRepo, clubEventRepository: clubEventRepo);
-
-      expect(find.text('กิจกรรม'), findsNothing);
-    });
-
-    testWidgets('a pending member never sees a "กิจกรรม" tab', (tester) async {
-      await pumpPage(tester, pendingRepo, clubEventRepository: clubEventRepo);
-
-      expect(find.text('กิจกรรม'), findsNothing);
-    });
-  });
-
-  group('Insights tab (WYN-117)', () {
-    testWidgets('the Owner sees an "Insights" tab', (tester) async {
-      await pumpPage(tester, ownerRepo);
-
-      expect(find.text('Insights'), findsOneWidget);
-    });
-
-    testWidgets('a plain approved member never sees an "Insights" tab',
-        (tester) async {
-      await pumpPage(tester, approvedMemberRepo);
-
-      expect(find.text('Insights'), findsNothing);
-    });
-
-    testWidgets('a non-member never sees an "Insights" tab', (tester) async {
-      await pumpPage(tester, notJoinedRepo);
-
-      expect(find.text('Insights'), findsNothing);
+      expect(find.text('แชท'), findsOneWidget);
     });
 
     testWidgets(
-        'tapping the Insights tab shows stats from fetchClubInsights',
+        'a non-developer account never sees "แชท" -- just "โพสต์"/"เกี่ยวกับ", '
+        'exactly the pre-restructuring 2-tab shape it would fall back to',
+        (tester) async {
+      await pumpPage(
+        tester,
+        approvedMemberRepo,
+        developerAccessServiceOverride: RecordingDeveloperAccessService(isDeveloperResult: false),
+      );
+
+      expect(find.text('โพสต์'), findsOneWidget);
+      expect(find.text('เกี่ยวกับ'), findsOneWidget);
+      expect(find.text('แชท'), findsNothing);
+    });
+  });
+
+  group('About tab sections -- Members/Events/Insights merged (2026-09-07 restructuring)', () {
+    testWidgets('a non-member sees only "รายละเอียด"/"สมาชิก" segments, no '
+        '"กิจกรรม"/"Insights"', (tester) async {
+      await pumpPage(tester, notJoinedRepo, clubEventRepository: clubEventRepo);
+
+      await tester.tap(find.text('เกี่ยวกับ'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('รายละเอียด'), findsOneWidget);
+      expect(find.text('สมาชิก'), findsOneWidget);
+      expect(find.text('กิจกรรม'), findsNothing);
+      expect(find.text('Insights'), findsNothing);
+    });
+
+    testWidgets('a pending member sees no "กิจกรรม" segment either', (tester) async {
+      await pumpPage(tester, pendingRepo, clubEventRepository: clubEventRepo);
+
+      await tester.tap(find.text('เกี่ยวกับ'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('กิจกรรม'), findsNothing);
+    });
+
+    testWidgets('an approved member (any role) sees a "กิจกรรม" segment, but not '
+        '"Insights"', (tester) async {
+      await pumpPage(tester, approvedMemberRepo, clubEventRepository: clubEventRepo);
+
+      await tester.tap(find.text('เกี่ยวกับ'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('กิจกรรม'), findsOneWidget);
+      expect(find.text('Insights'), findsNothing);
+    });
+
+    testWidgets('the Owner sees both "กิจกรรม" and "Insights" segments',
+        (tester) async {
+      await pumpPage(tester, ownerRepo, clubEventRepository: clubEventRepo);
+
+      await tester.tap(find.text('เกี่ยวกับ'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('กิจกรรม'), findsOneWidget);
+      expect(find.text('Insights'), findsOneWidget);
+    });
+
+    testWidgets('tapping the Insights segment shows stats from fetchClubInsights',
         (tester) async {
       ownerRepo.clubInsightsResult = const ClubInsights(
         newMembers: 2,
@@ -317,6 +347,8 @@ void main() {
       );
       await pumpPage(tester, ownerRepo);
 
+      await tester.tap(find.text('เกี่ยวกับ'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Insights'));
       await tester.pumpAndSettle();
 
@@ -327,8 +359,8 @@ void main() {
     });
 
     testWidgets(
-        'jumping to the Members tab from the More menu still works when '
-        'the Owner has a 4th (Insights) tab', (tester) async {
+        'jumping to the Members segment from the More menu still works when '
+        'the Owner has extra ("กิจกรรม"/"Insights") segments', (tester) async {
       await pumpPage(tester, ownerRepo);
 
       await tester.tap(find.byIcon(Icons.more_vert));
@@ -336,9 +368,10 @@ void main() {
       await tester.tap(find.text('จัดการสิทธิ์สมาชิก'));
       await tester.pumpAndSettle();
 
-      // "เชิญเพื่อน" is ClubMembersTab's own button, not shared with
-      // any other tab -- proves the jump actually landed on Members
-      // (index 1), not wherever the tab bar happened to already be.
+      // "เชิญเพื่อน" is ClubMembersTab's own button, not shared with any
+      // other section -- proves the jump landed on "เกี่ยวกับ" with its
+      // "สมาชิก" segment selected, not just "เกี่ยวกับ" defaulting to
+      // "รายละเอียด".
       expect(find.text('เชิญเพื่อน'), findsOneWidget);
     });
   });
@@ -422,6 +455,8 @@ void main() {
             clubRepository: withCoverRepo,
             clubPostRepository: clubPostRepo,
             clubId: 'club-cover',
+            clubChannelChatRepository: clubChannelChatRepo,
+            developerAccessService: developerAccessService,
           ),
         ),
       );
@@ -444,6 +479,8 @@ void main() {
             clubRepository: notJoinedRepo,
             clubPostRepository: clubPostRepo,
             clubId: 'club-1',
+            clubChannelChatRepository: clubChannelChatRepo,
+            developerAccessService: developerAccessService,
           ),
         ),
       );
@@ -469,6 +506,8 @@ void main() {
             clubRepository: withCoverRepo,
             clubPostRepository: clubPostRepo,
             clubId: 'club-cover',
+            clubChannelChatRepository: clubChannelChatRepo,
+            developerAccessService: developerAccessService,
           ),
         ),
       );

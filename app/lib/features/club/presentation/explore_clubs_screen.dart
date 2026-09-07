@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../auth/presentation/widgets/guest_gate.dart';
 import '../data/club.dart';
 import '../data/club_post_repository.dart';
 import '../data/club_repository.dart';
@@ -108,6 +109,15 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
   }
 
   Future<void> _openCreateClub() async {
+    // WYN-072 (Guest Browsing): Explore is one of the tabs a guest can
+    // browse freely (RootShell's own gate deliberately excludes it), so
+    // this is the "Club create-join" write action from guest_gate.dart's
+    // doc comment that actually needs gating here -- see ClubPage
+    // ._toggleJoin's identical comment for why a guest reaching this
+    // un-gated would otherwise hit a raw `clubs.owner_id references
+    // profiles` FK failure instead of a friendly sign-in prompt.
+    if (!await requireRealAccount(context)) return;
+    if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => CreateClubScreen(

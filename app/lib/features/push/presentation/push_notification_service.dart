@@ -384,10 +384,10 @@ class PushNotificationService {
       case 'follow_request_accepted':
         _openProfile(navigator, data['actor_id'] as String?);
       case 'club_join_request':
-        _openClub(navigator, client, data['club_id'] as String?, initialTabIndex: 1);
+        _openClub(navigator, client, data['club_id'] as String?, openToMembers: true);
       case 'club_join_approved':
       case 'club_invite':
-        _openClub(navigator, client, data['club_id'] as String?, initialTabIndex: 0);
+        _openClub(navigator, client, data['club_id'] as String?, openToMembers: false);
       case 'club_post_like':
       case 'club_post_comment':
       case 'mention_club_post':
@@ -480,7 +480,7 @@ class PushNotificationService {
     NavigatorState navigator,
     SupabaseClient client,
     String? clubId, {
-    required int initialTabIndex,
+    required bool openToMembers,
   }) {
     if (clubId == null) return;
     navigator.push(
@@ -489,7 +489,7 @@ class PushNotificationService {
           clubRepository: ClubRepository(client),
           clubPostRepository: ClubPostRepository(client),
           clubId: clubId,
-          initialTabIndex: initialTabIndex,
+          openToMembers: openToMembers,
         ),
       ),
     );

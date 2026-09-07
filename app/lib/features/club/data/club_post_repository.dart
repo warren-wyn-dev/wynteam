@@ -79,14 +79,13 @@ class ClubPostRepository {
   }
 
   /// Pinned posts first, then newest first within each group -- the
-  /// Design spec's "ปักหมุดเรียงบนสุดเสมอ" rule for the Posts tab. WYN-127:
-  /// [channelId] scopes the feed to a single room within [clubId] --
-  /// Requirement 4 ("Pinned Post ผูกกับ channel ที่มันอยู่ ไม่ใช่ pin ข้าม
-  /// channel") falls out of this for free, since a post pinned in
-  /// another channel never appears in this query at all.
+  /// Design spec's "ปักหมุดเรียงบนสุดเสมอ" rule for the Posts tab.
+  /// Club-wide: the Founder's post-restructuring decision (2026-09-07)
+  /// dropped WYN-127's per-channel post split -- "โพสต์" is one combined
+  /// feed across every channel in [clubId] (channels are chat-only now,
+  /// see ClubChatTab), so this no longer filters by channel_id.
   Future<List<ClubPost>> fetchPosts({
     required String clubId,
-    required String channelId,
     required int page,
   }) async {
     final userId = _client.auth.currentUser!.id;
@@ -99,7 +98,6 @@ class ClubPostRepository {
           '*, $_postAuthorSelect, club_post_likes(count), club_post_comments(count), club_post_polls(id, options, expires_at)',
         )
         .eq('club_id', clubId)
-        .eq('channel_id', channelId)
         .order('pinned', ascending: false)
         .order('created_at', ascending: false)
         .range(from, to);
