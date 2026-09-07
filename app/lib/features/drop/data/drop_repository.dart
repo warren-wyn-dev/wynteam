@@ -187,6 +187,18 @@ class DropRepository {
   /// A separate method from [fetchFeed] (global, unfiltered) rather than
   /// adding an optional filter to it, so the existing Drop Feed query
   /// stays untouched.
+  ///
+  /// WYN-132: needs the same `deleted_at` filter [fetchById] got from
+  /// WYN-120, for the same reason -- the "viewable by authenticated
+  /// users" RLS policy on `drops` deliberately lets an author keep
+  /// seeing their own soft-deleted rows (so "รายการที่ลบ" can restore
+  /// them within 30 days), so without this filter a profile owner's own
+  /// grid still returned a Drop they had just deleted. WYN-120 only
+  /// patched [fetchById] (the single-row "did Detail change this row"
+  /// refetch) -- it did not touch this method, which is what actually
+  /// populates the grid on first load and on pull-to-refresh, so the
+  /// deleted post kept reappearing on every fresh load, including a full
+  /// page reload, not just the in-memory list.
   Future<List<Drop>> fetchByAuthor({
     required String authorId,
     required int page,
@@ -199,6 +211,7 @@ class DropRepository {
         .from('drops')
         .select(_dropSelect)
         .eq('author_id', authorId)
+        .isFilter('deleted_at', null)
         .order('created_at', ascending: false)
         .range(from, to);
 
