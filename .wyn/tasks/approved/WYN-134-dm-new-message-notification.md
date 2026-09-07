@@ -1,6 +1,6 @@
 # Product Task — WYN-134
 
-Status: go-live package พร้อมแล้ว (2026-09-07) — รอ Founder ดำเนินการ deploy จริง (merge → migration → deploy edge function → deploy web) ดู `.wyn/logs/deployments/2026-09-07-wyn-134-136-137-138-139-phase-a-go-live-package.md`
+Status: **Merged เข้า main แล้ว** (PR #311, 2026-09-07) — เหลือรอ Founder รัน migration SQL + deploy edge function + deploy web จริง ดู `.wyn/logs/deployments/2026-09-07-wyn-134-136-137-138-139-phase-a-go-live-package.md`
 Owner: AI Design → AI Coding → AI QA & Security → AI Deploy & DevOps → รอ Founder ดำเนินการ deploy จริง
 
 Feature: DM "New Message" Notification
