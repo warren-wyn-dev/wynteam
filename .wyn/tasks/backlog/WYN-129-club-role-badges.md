@@ -1,7 +1,7 @@
 # Product Task — WYN-129
 
-Status: backlog
-Owner: AI Product Manager
+Status: active — Design เสร็จแล้ว (mockup + palette สี Founder อนุมัติ 2026-09-07: "โอเคแล้ว"), handoff ให้ AI Coding
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (ถัดไป)
 
 Feature: Club Role Badge — ป้ายชื่อ/สีที่ Owner ตั้งเองได้ ติดข้าง role ของสมาชิก
 
@@ -33,6 +33,35 @@ Risks:
 - **ความเสี่ยงที่ต้องระวังที่สุด**: อย่าให้ AI Coding เผลอเช็ค permission จากป้ายแทน `club_role()` จริง (เช่น เผลอ query ป้าย "VIP" แล้วให้สิทธิ์พิเศษ) — ต้อง QA เน้นตรวจจุดนี้เป็นพิเศษว่าป้ายไม่มีทางกระทบ permission ได้เลยไม่ว่าทางใด
 - ถ้าปล่อยให้ Owner พิมพ์ข้อความป้ายอิสระ อาจมีคนตั้งป้ายไม่เหมาะสม (หยาบคาย/สแปม) — Requirement 1 จำกัดความยาว แต่ยัง**ไม่มี content moderation** สำหรับข้อความป้ายในสเปคนี้ ให้ Design พิจารณาว่าต้องกรองคำหยาบหรือไม่ (อาจ reuse mechanism มาตรฐานที่มีอยู่แล้วถ้ามี)
 
-Recommendation: เริ่ม Design ได้เลย ไม่ต้องรอ Founder อนุมัติเพิ่มเติม (เป็น cosmetic addition ต่อยอด ไม่ใช่ major architecture change) — Design ควรกำหนด palette สีที่อนุญาตให้ตรงกับธีม WYN Sapphire ที่มีอยู่แล้ว ไม่ใช่สีอิสระ
+Recommendation: Design เสร็จแล้ว ดูหัวข้อ "AI Design Output" ด้านล่าง
 
-Handoff: ส่งต่อ AI Design ออกแบบ UI ตั้ง/แสดงป้าย + เลือก palette สี → AI Coding → AI QA & Security (**เน้นพิเศษ**: ยืนยันว่าป้ายไม่มีทางกระทบ permission check ใดๆ ในระบบ, ตรวจสิทธิ์ตั้ง/ถอดป้ายเฉพาะ Owner/Admin, ตรวจป้ายไม่รั่วไปนอกบริบท Club)
+Handoff: ส่งต่อ AI Coding → AI QA & Security (**เน้นพิเศษ**: ยืนยันว่าป้ายไม่มีทางกระทบ permission check ใดๆ ในระบบ, ตรวจสิทธิ์ตั้ง/ถอดป้ายเฉพาะ Owner/Admin, ตรวจป้ายไม่รั่วไปนอกบริบท Club)
+
+## AI Design Output
+
+Screen: Club Page → Members tab (เพิ่ม badge ข้าง role chip เดิม) + Posts tab (เพิ่ม badge ข้างชื่อผู้โพสต์/ผู้คอมเมนต์)
+
+Purpose: ให้เห็น "ตัวตน" ของสมาชิกที่ Owner/Admin ยกย่อง โดยไม่ปนกับ role permission เดิม — mockup เต็ม: https://claude.ai/code/artifact/d08fb9ad-0757-486b-9808-9c65cbe1d9b7 (แท็บ "WYN-129 Role Badges", palette สี Founder อนุมัติ 2026-09-07 ตามที่เสนอ ไม่มีแก้ไข)
+
+User Flow: Owner/Admin เปิด Members tab → แตะสมาชิกคนหนึ่ง → "ตั้งป้าย" → กรอกข้อความป้าย (จำกัดไม่เกิน 20 ตัวอักษร) + เลือก 1 ใน 3 สี → บันทึก → ป้ายปรากฏทันทีข้าง role chip ใน Members tab และข้างชื่อผู้โพสต์ในโพสต์/คอมเมนต์ของเขาในเวลาเดียวกัน — ถอดป้ายทำย้อนกลับจากเมนูเดิม
+
+Components:
+- Badge pill (`.badge-pill`): ทรงเม็ดยา (`radiusFull`), ขนาดเล็กกว่า role `Chip` เดิมชัดเจน (แยกจากกันด้วยสายตาทันทีว่าอันไหนคือสิทธิ์ อันไหนคือคอสเมติก) วางถัดจาก role chip เสมอ ไม่แทนที่
+- Palette 3 สี (Founder อนุมัติ, อิงธีม WYN ไม่ใช่สีอิสระ):
+  - Gold: พื้นหลัง `#F7EBD2` / ตัวอักษร `#8A6A1E` (เช่น "VIP")
+  - Sage: พื้นหลัง `#E1EAE3` / ตัวอักษร `#3E6B4E` (เช่น "ผู้ก่อตั้งรุ่นแรก")
+  - Plum: พื้นหลัง `#EFE1EC` / ตัวอักษร `#7A4C6B` (เช่น "🎨 Artist")
+- Dialog ตั้งป้าย: ช่องกรอกข้อความ (max 20 ตัวอักษร, กันข้อความว่าง) + 3 ตัวเลือกสีเป็นวงกลมให้แตะเลือก (ไม่ใช่ color picker อิสระ) + ปุ่มยืนยัน/ยกเลิก
+- เมนู "..." บนแถวสมาชิกใน Members tab (Owner/Admin เท่านั้น) → "ตั้งป้าย" / "แก้ไขป้าย" / "ถอดป้าย"
+
+Interactions: แตะ "ตั้งป้าย" → dialog เปิด → เลือกสี+พิมพ์ข้อความ → กดยืนยัน → badge ปรากฏทันทีไม่ต้อง refresh, กด "ถอดป้าย" → บาดจ์หายทันทีทุกจุดที่เคยแสดง
+
+States: สมาชิกไม่มีป้าย → ไม่แสดงอะไรเพิ่ม (เหมือนปัจจุบัน), กำลังบันทึก/ถอดป้าย → loading state บน dialog/เมนู, ข้อความป้ายว่างหรือเกิน 20 ตัวอักษร → ปุ่มยืนยัน disabled พร้อมข้อความแจ้งเตือน
+
+Responsive Behavior: badge วางต่อท้าย role chip แบบ inline, ถ้าพื้นที่ไม่พอ (จอแคบ/ชื่อยาว) ให้ wrap ไปบรรทัดถัดไปได้ ไม่บีบให้ข้อความ badge ถูกตัด (ห้าม clip ข้อความ)
+
+Accessibility: badge ต้องอ่านได้ด้วย screen reader เป็น "ป้าย: [ข้อความ]" แยกจาก role เพื่อไม่ให้สับสนว่าเป็นสิทธิ์, contrast ของทั้ง 3 สี (พื้นหลัง/ตัวอักษร) ผ่านเกณฑ์ WCAG AA ตามที่เลือกไว้แล้วในการออกแบบ
+
+Design Rules: ห้ามใช้ role `Chip` เดิมกับ badge ปนกัน (คนละ component ชัดเจน กันสับสนเรื่องสิทธิ์), ห้ามเพิ่มสีนอกเหนือ 3 สีที่อนุมัติ, badge ต้องไม่ปรากฏในโปรไฟล์ WYN ทั่วไปนอกบริบท Club (ตาม Requirement 3)
+
+Handoff: AI Coding (schema: เพิ่มตาราง `club_member_badges(club_id, user_id, label, color_key, created_by, created_at)` แยกจาก `club_role()` โดยสิ้นเชิง ห้าม query ตารางนี้ในจุดใดที่เช็ค permission เด็ดขาด) → AI QA & Security
