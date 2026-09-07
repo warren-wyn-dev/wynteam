@@ -152,16 +152,33 @@ class ClubEventRepository {
 
   /// Every member who responded [status] to [eventId] -- backs the
   /// attendee bottom sheet ("เห็น...รายชื่อคนที่ตอบรับ").
+  ///
+  /// Goes through the club_event_attendee_profiles() RPC (supabase/
+  /// schema.sql, WYN-130) rather than a plain `club_event_rsvps`
+  /// select+embed -- see ClubRepository._fetchMemberProfiles' identical
+  /// doc comment for why a straight `profiles` embed would include
+  /// "ghost" (abandoned-onboarding) accounts as bare "@" / "?"-avatar
+  /// rows, and why that exclusion has to happen in a SECURITY DEFINER
+  /// RPC rather than client-side.
   Future<List<ClubEventAttendee>> fetchAttendees({
     required String eventId,
     required RsvpStatus status,
   }) async {
-    final rows = await _client
-        .from('club_event_rsvps')
-        .select('user_id, profile:profiles(username, display_name, avatar_url)')
-        .eq('event_id', eventId)
-        .eq('status', status.value);
-    return rows.map((row) => ClubEventAttendee.fromMap(row)).toList();
+    final rows = await _client.rpc('club_event_attendee_profiles', params: {
+      'p_event_id': eventId,
+      'p_status': status.value,
+    }) as List<dynamic>;
+    return rows.map((row) {
+      final map = row as Map<String, dynamic>;
+      return ClubEventAttendee.fromMap({
+        ...map,
+        'profile': {
+          'username': map['username'],
+          'display_name': map['display_name'],
+          'avatar_url': map['avatar_url'],
+        },
+      });
+    }).toList();
   }
 }
 

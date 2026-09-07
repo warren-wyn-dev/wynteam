@@ -190,6 +190,42 @@ class ClubRepository {
     return row == null ? null : ClubMember.fromMap(row);
   }
 
+  /// Both fetchApprovedMembers/fetchPendingMembers below go through the
+  /// club_member_profiles() RPC (supabase/schema.sql, WYN-130) rather
+  /// than a plain `club_members` select+embed -- a straight embed of
+  /// `profiles` would still include a "ghost" member (a `profiles` row
+  /// left behind by a signup abandoned mid-onboarding, before the
+  /// Username step ever ran) as a bare "@" / "?"-avatar row, since
+  /// nothing in the club_members insert policy requires
+  /// profile_private.onboarding_completed. The RPC excludes those rows;
+  /// see its own comment in schema.sql for why that exclusion can't be
+  /// done client-side (profile_private's SELECT policy only lets a
+  /// caller read their OWN onboarding_completed, never a fellow
+  /// member's).
+  Future<List<ClubMember>> _fetchMemberProfiles(
+    String clubId,
+    String status,
+    int page,
+  ) async {
+    final rows = await _client.rpc('club_member_profiles', params: {
+      'p_club_id': clubId,
+      'p_status': status,
+      'p_limit': memberPageSize,
+      'p_offset': page * memberPageSize,
+    }) as List<dynamic>;
+    return rows.map((row) {
+      final map = row as Map<String, dynamic>;
+      return ClubMember.fromMap({
+        ...map,
+        'profile': {
+          'username': map['username'],
+          'display_name': map['display_name'],
+          'avatar_url': map['avatar_url'],
+        },
+      });
+    }).toList();
+  }
+
   /// One page of [memberPageSize] approved members, oldest-joined
   /// first. Bounded because a Club's membership is the one list here
   /// with no natural ceiling -- an unbounded fetch made the members tab
@@ -197,35 +233,17 @@ class ClubRepository {
   Future<List<ClubMember>> fetchApprovedMembers(
     String clubId, {
     int page = 0,
-  }) async {
-    final from = page * memberPageSize;
-    final to = from + memberPageSize - 1;
-    final rows = await _client
-        .from('club_members')
-        .select('*, $_memberProfileSelect')
-        .eq('club_id', clubId)
-        .eq('status', 'approved')
-        .order('created_at', ascending: true)
-        .range(from, to);
-    return rows.map((row) => ClubMember.fromMap(row)).toList();
+  }) {
+    return _fetchMemberProfiles(clubId, 'approved', page);
   }
 
-  /// Empty for anyone but that club's own owner/admin -- enforced by RLS,
-  /// not a client-side check.
+  /// Empty for anyone but that club's own owner/admin -- enforced inside
+  /// club_member_profiles() itself, not a client-side check.
   Future<List<ClubMember>> fetchPendingMembers(
     String clubId, {
     int page = 0,
-  }) async {
-    final from = page * memberPageSize;
-    final to = from + memberPageSize - 1;
-    final rows = await _client
-        .from('club_members')
-        .select('*, $_memberProfileSelect')
-        .eq('club_id', clubId)
-        .eq('status', 'pending')
-        .order('created_at', ascending: true)
-        .range(from, to);
-    return rows.map((row) => ClubMember.fromMap(row)).toList();
+  }) {
+    return _fetchMemberProfiles(clubId, 'pending', page);
   }
 
   Future<Club> createClub({

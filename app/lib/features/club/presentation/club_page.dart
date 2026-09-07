@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/developer_access/developer_access_service.dart';
+import '../../auth/presentation/widgets/guest_gate.dart';
 import '../data/club.dart';
 import '../data/club_badge_repository.dart';
 import '../data/club_channel_chat_repository.dart';
@@ -232,6 +233,21 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
 
   Future<void> _toggleJoin(Club club, ClubMember? membership) async {
     if (_isJoinActionInFlight) return;
+
+    // WYN-072 (Guest Browsing): "Club create-join" is explicitly listed
+    // in guest_gate.dart's own doc comment as a write action that needs
+    // a real (non-anonymous) identity, but this call site never
+    // actually wired the gate up -- a guest reaching a Club via WYN-119's
+    // deep-link auto-guest-session could tap "เข้าร่วม" and get a raw
+    // insert failure (joinClub()'s club_members insert fails its
+    // `user_id references public.profiles` FK -- a guest's `profiles`
+    // row is never created, see AuthGate's own comment) instead of the
+    // friendly "เข้าสู่ระบบเพื่อดำเนินการต่อ" prompt every other gated
+    // action shows. Checked first, before the leave/pending branches
+    // below, so it also covers a guest somehow reaching this with a
+    // stale `membership` value.
+    if (!await requireRealAccount(context)) return;
+    if (!mounted) return;
 
     if (membership?.status == ClubMemberStatus.approved) {
       final confirmed = await _confirmLeave();
