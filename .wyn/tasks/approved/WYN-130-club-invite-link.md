@@ -1,7 +1,7 @@
 # Product Task — WYN-130
 
-Status: QA PASS — approved, ready for AI Deploy & DevOps (2026-09-07). 1 non-blocking Low-severity bug documented (fast-follow, does not block deploy)
-Owner: AI Design → AI Coding → AI QA & Security → AI Deploy & DevOps
+Status: go-live package พร้อมแล้ว (2026-09-07) — รอ Founder ดำเนินการ deploy จริง (merge → migration → deploy web) ดู `.wyn/logs/deployments/2026-09-07-wyn-130-132-133-134-phase-a-go-live-package.md`. 1 non-blocking Low-severity bug documented (fast-follow, does not block deploy)
+Owner: AI Design → AI Coding → AI QA & Security → AI Deploy & DevOps → รอ Founder ดำเนินการ deploy จริง
 
 Feature: Club Invite Link (generate/revoke, expiration, max-uses)
 

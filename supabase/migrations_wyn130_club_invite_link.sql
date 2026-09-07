@@ -38,6 +38,7 @@ create index if not exists club_invite_links_club_id_idx on public.club_invite_l
 
 alter table public.club_invite_links enable row level security;
 
+drop policy if exists "Owners/admins can view their club's invite links" on public.club_invite_links;
 create policy "Owners/admins can view their club's invite links"
   on public.club_invite_links
   for select

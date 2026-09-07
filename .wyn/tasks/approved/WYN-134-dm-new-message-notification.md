@@ -1,7 +1,7 @@
 # Product Task — WYN-134
 
-Status: QA PASS — approved, ready for AI Deploy & DevOps (2026-09-07)
-Owner: AI Design → AI Coding → AI QA & Security → AI Deploy & DevOps
+Status: go-live package พร้อมแล้ว (2026-09-07) — รอ Founder ดำเนินการ deploy จริง (merge → migration → deploy edge function → deploy web) ดู `.wyn/logs/deployments/2026-09-07-wyn-130-132-133-134-phase-a-go-live-package.md`
+Owner: AI Design → AI Coding → AI QA & Security → AI Deploy & DevOps → รอ Founder ดำเนินการ deploy จริง
 
 Feature: DM "New Message" Notification
 

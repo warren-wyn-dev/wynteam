@@ -39,18 +39,21 @@ create table if not exists public.user_presence (
 
 alter table public.user_presence enable row level security;
 
+drop policy if exists "Users can view their own presence row" on public.user_presence;
 create policy "Users can view their own presence row"
   on public.user_presence
   for select
   to authenticated
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can insert their own presence row" on public.user_presence;
 create policy "Users can insert their own presence row"
   on public.user_presence
   for insert
   to authenticated
   with check (auth.uid() = user_id);
 
+drop policy if exists "Users can update their own presence row" on public.user_presence;
 create policy "Users can update their own presence row"
   on public.user_presence
   for update
