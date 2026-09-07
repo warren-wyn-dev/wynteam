@@ -94,3 +94,16 @@ Branch: `claude/club-exploration-feature-71rl06` (`7b67643`), pushed to origin
 ## สถานะ Task
 
 `.wyn/tasks/backlog/WYN-127-club-channels.md`, `.wyn/tasks/backlog/WYN-128-club-group-chat.md`, `.wyn/tasks/backlog/WYN-129-club-role-badges.md` → ย้ายไป `.wyn/tasks/approved/` (QA PASS ครบ, build/schema/migration-order ตรวจสอบอิสระซ้ำแล้ว, go-live package พร้อมส่งมอบให้ Founder) — **ยังไม่ deploy จริง** จนกว่า Founder จะดำเนินการตามขั้นตอนข้างบน แล้วยืนยัน Production Verification ข้อ 6 จึงจะย้ายไป `completed/` ได้
+
+## อัปเดต (2026-09-07, session ต่อจาก session ที่เขียน package นี้) — ขั้นตอน 1-5 เสร็จจริงแล้ว
+
+Founder ยืนยันรัน migration SQL ทั้ง 3 ไฟล์ผ่าน Supabase Dashboard SQL Editor เรียบร้อยแล้ว (WYN-127 → WYN-129 → WYN-128 ตามลำดับ) — session นี้ (มี GitHub Actions tools ที่ session ก่อนหน้าไม่มี) ดำเนินการต่อให้ครบ:
+
+- **ขั้นตอน 1 (merge)**: ยืนยันแล้วว่า merge เข้า `main` สำเร็จก่อนหน้านี้แล้ว (PR #297, commit `fe36249`)
+- **ขั้นตอน 4 (deploy เว็บ)**: trigger `deploy-web.yml` ผ่าน `mcp__github__actions_run_trigger` บน `main` (`fe36249`) — **run #96 (`34089155511`), conclusion: success**
+- **ขั้นตอน 5 (production verification ที่ AI ยืนยันเองได้)**:
+  - `https://wynos.online/` → `200`
+  - `https://www.wynos.online/` → `200`
+  - `https://wynos.online/main.dart.js` → `200`, ขนาดเปลี่ยนจริงจาก **4,513,321 → 4,575,596 bytes** (baseline เก็บก่อน trigger, เทียบหลัง run เสร็จ) ยืนยันว่าไม่ใช่ cache เดิม
+
+**เหลือเฉพาะขั้นตอน 6** (production verification ที่ AI ยืนยันเองไม่ได้ — ต้อง Founder ทำเอง): ล็อกอินด้วย `@warren`/`@wynos_online` เปิด Club ใดก็ได้ ต้องเห็น channel switcher/สร้าง-ลบ channel/toggle โพสต์-แชท/ตั้งถอด badge ได้ครบ จากนั้นล็อกอินด้วยบัญชีทั่วไป (ไม่อยู่ใน allowlist) เปิด Club เดียวกัน ต้อง **ไม่เห็นการเปลี่ยนแปลงใดๆ เลย** — ย้าย task เข้า `.wyn/tasks/completed/` ได้ก็ต่อเมื่อ Founder ยืนยันข้อนี้แล้วเท่านั้น

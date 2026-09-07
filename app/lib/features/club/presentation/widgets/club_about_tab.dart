@@ -1,16 +1,171 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/developer_access/developer_access_service.dart';
 import '../../data/club.dart';
+import '../../data/club_badge_repository.dart';
+import '../../data/club_event_repository.dart';
 import '../../data/club_member.dart';
 import '../../data/club_repository.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import 'club_events_tab.dart';
+import 'club_insights_tab.dart';
+import 'club_members_tab.dart';
 
-/// Screen 7 — About tab. Plain-text sections (Description/Category/
-/// Privacy/Created date/Club Rules), with an Owner/Admin-only "แก้ไขกฎ"
-/// action. See .wyn/docs/design/wyn-014-club-core.md, Screen 7.
+/// Which section of the composite "เกี่ยวกับ" tab is showing -- see
+/// [ClubAboutTab.initialSection].
+enum ClubAboutSection { details, members, events, insights }
+
+/// Screen 6-7 — the composite "เกี่ยวกับ" tab: Founder's tab-restructuring
+/// decision (2026-09-07) merged what used to be 3 separate top-level Club
+/// tabs (สมาชิก/เกี่ยวกับ/Insights) plus กิจกรรม into this one, reached via
+/// an internal segmented switcher rather than more top-level tabs (Club
+/// is now just 3: โพสต์/แชท/เกี่ยวกับ). Each segment reuses its old
+/// standalone widget unmodified -- [ClubMembersTab]/[ClubEventsTab]/
+/// [ClubInsightsTab] -- only "รายละเอียด" (the club's own description/
+/// category/privacy/rules editor, previously this file's entire content)
+/// is inlined here as [_ClubDetailsSection], renamed from "เกี่ยวกับ" to
+/// avoid the exact name collision the Founder flagged between this tab
+/// and its own content.
+///
+/// Segment visibility mirrors exactly what ClubPage used to gate at the
+/// top-level tab level: "สมาชิก"/"รายละเอียด" always, "กิจกรรม" only for
+/// an approved member (`myRole != null`), "Insights" only for Owner/Admin
+/// (`myRole?.canManageClub ?? false`).
 class ClubAboutTab extends StatefulWidget {
   const ClubAboutTab({
     super.key,
+    required this.clubRepository,
+    required this.club,
+    required this.myRole,
+    required this.onChanged,
+    required this.onInvite,
+    ClubEventRepository? clubEventRepository,
+    ClubBadgeRepository? clubBadgeRepository,
+    DeveloperAccessService? developerAccessService,
+    this.initialSection = ClubAboutSection.details,
+  })  : _clubEventRepository = clubEventRepository,
+        _clubBadgeRepository = clubBadgeRepository,
+        _developerAccessService = developerAccessService;
+
+  final ClubRepository clubRepository;
+  final Club club;
+  final ClubMemberRole? myRole;
+  final VoidCallback onChanged;
+
+  /// Threaded through to the "สมาชิก" segment (`ClubMembersTab.onInvite`).
+  final VoidCallback onInvite;
+
+  final ClubEventRepository? _clubEventRepository;
+  final ClubBadgeRepository? _clubBadgeRepository;
+  final DeveloperAccessService? _developerAccessService;
+
+  /// WYN-015's club_join_request notification used to jump straight to
+  /// the top-level Members tab (index 1) -- now that Members is a
+  /// segment inside this composite tab instead, ClubPage passes
+  /// [ClubAboutSection.members] here so that notification still lands on
+  /// the pending-request list, not whichever segment happens to be
+  /// first.
+  final ClubAboutSection initialSection;
+
+  @override
+  State<ClubAboutTab> createState() => _ClubAboutTabState();
+}
+
+class _ClubAboutTabState extends State<ClubAboutTab> {
+  late final ClubEventRepository _clubEventRepository =
+      widget._clubEventRepository ?? ClubEventRepository(Supabase.instance.client);
+  late final ClubBadgeRepository _clubBadgeRepository =
+      widget._clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
+  late final DeveloperAccessService _developerAccessService =
+      widget._developerAccessService ?? DeveloperAccessService();
+
+  late ClubAboutSection _section = widget.initialSection;
+
+  bool get _isMember => widget.myRole != null;
+  bool get _canManageClub => widget.myRole?.canManageClub ?? false;
+
+  @override
+  Widget build(BuildContext context) {
+    final segments = <ButtonSegment<ClubAboutSection>>[
+      const ButtonSegment(value: ClubAboutSection.details, label: Text('รายละเอียด')),
+      const ButtonSegment(value: ClubAboutSection.members, label: Text('สมาชิก')),
+      if (_isMember)
+        const ButtonSegment(value: ClubAboutSection.events, label: Text('กิจกรรม')),
+      if (_canManageClub)
+        const ButtonSegment(value: ClubAboutSection.insights, label: Text('Insights')),
+    ];
+    // A role change (e.g. losing Owner/Admin) could make [_section] no
+    // longer valid -- fall back to "รายละเอียด" rather than rendering a
+    // segmented control with no segment selected.
+    final validSections = segments.map((s) => s.value).toSet();
+    final effectiveSection =
+        validSections.contains(_section) ? _section : ClubAboutSection.details;
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            WynSpacing.space4, WynSpacing.space3, WynSpacing.space4, WynSpacing.space2,
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SegmentedButton<ClubAboutSection>(
+              segments: segments,
+              selected: {effectiveSection},
+              onSelectionChanged: (selection) => setState(() => _section = selection.first),
+            ),
+          ),
+        ),
+        Expanded(child: _buildSection(effectiveSection)),
+      ],
+    );
+  }
+
+  Widget _buildSection(ClubAboutSection section) {
+    switch (section) {
+      case ClubAboutSection.details:
+        return _ClubDetailsSection(
+          clubRepository: widget.clubRepository,
+          club: widget.club,
+          myRole: widget.myRole,
+          onChanged: widget.onChanged,
+        );
+      case ClubAboutSection.members:
+        return ClubMembersTab(
+          clubRepository: widget.clubRepository,
+          club: widget.club,
+          myRole: widget.myRole,
+          onChanged: widget.onChanged,
+          onInvite: widget.onInvite,
+          clubBadgeRepository: _clubBadgeRepository,
+          developerAccessService: _developerAccessService,
+        );
+      case ClubAboutSection.events:
+        return ClubEventsTab(
+          clubEventRepository: _clubEventRepository,
+          clubId: widget.club.id,
+          canManage: widget.myRole?.canModeratePosts ?? false,
+        );
+      case ClubAboutSection.insights:
+        return ClubInsightsTab(
+          clubRepository: widget.clubRepository,
+          club: widget.club,
+        );
+    }
+  }
+}
+
+/// The club's own description/category/privacy/created-date/rules
+/// editor -- exactly this file's entire content before the Founder's
+/// tab-restructuring decision (2026-09-07) turned "เกี่ยวกับ" into a
+/// composite of several sections. Renamed from the public `ClubAboutTab`
+/// to this private "รายละเอียด" section to avoid the exact name
+/// collision the Founder flagged between a top-level tab and content
+/// nested inside it (the same defect as WYN-127/128's "โพสต์ | แชท"
+/// toggle living inside a "โพสต์" tab).
+class _ClubDetailsSection extends StatefulWidget {
+  const _ClubDetailsSection({
     required this.clubRepository,
     required this.club,
     required this.myRole,
@@ -23,10 +178,10 @@ class ClubAboutTab extends StatefulWidget {
   final VoidCallback onChanged;
 
   @override
-  State<ClubAboutTab> createState() => _ClubAboutTabState();
+  State<_ClubDetailsSection> createState() => _ClubDetailsSectionState();
 }
 
-class _ClubAboutTabState extends State<ClubAboutTab> {
+class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
   bool _isEditingRules = false;
   bool _isSavingRules = false;
   late final TextEditingController _rulesController;
@@ -40,7 +195,7 @@ class _ClubAboutTabState extends State<ClubAboutTab> {
   }
 
   @override
-  void didUpdateWidget(covariant ClubAboutTab oldWidget) {
+  void didUpdateWidget(covariant _ClubDetailsSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_isEditingRules && oldWidget.club.rules != widget.club.rules) {
       _rulesController.text = widget.club.rules ?? '';
