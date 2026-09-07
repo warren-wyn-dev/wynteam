@@ -1,7 +1,7 @@
 # Product Task — WYN-130
 
-Status: active — Founder อนุมัติให้ทำต่อ (2026-09-07, Phase A) → ส่งต่อ AI Design (ต้องยืนยัน Private-Club-join-semantics ระหว่าง Design)
-Owner: AI Product Manager → AI Design
+Status: blocked-on-founder-decision — AI Design ทำ spec เต็มแล้ว (2026-09-07) ทั้งสองทางเลือก (A/B) แต่ **ห้าม AI Coding เริ่มจนกว่า Founder จะเลือก A หรือ B** สำหรับ Private-Club-invite-semantics (ดู AI Design Output ด้านล่าง) — ทุกส่วนอื่นพร้อมแล้ว
+Owner: AI Design → รอ Founder ตัดสินใจ A/B → AI Coding
 
 Feature: Club Invite Link (generate/revoke, expiration, max-uses)
 
@@ -34,3 +34,28 @@ Risks: การตัดสินใจ "Private Club + Invite Link = join ท�
 Recommendation: อนุมัติ scope ได้ แต่ต้องให้ Founder ยืนยัน "Private Club + Invite Link" semantics ก่อนส่งต่อ AI Design (ไม่ใช่ Major Architecture แต่เป็น security-relevant policy decision ตาม RULES.md)
 
 Handoff: รอ Founder ยืนยัน priority ของ Phase A ทั้งชุดก่อน (ดู `.wyn/docs/product/wyn-social-3-domain-architecture-roadmap.md`) แล้วจึงส่งต่อ AI Design พร้อมคำตอบเรื่อง Private Club semantics
+
+## AI Design Output (2026-09-07)
+
+Design spec เต็มที่ `.wyn/docs/design/wyn-130-club-invite-link.md` — ตรวจ schema จริงของ `clubs`/`club_members`/`club_role()`/deep-linking (WYN-119)/`guest_gate.dart` แล้ว ยืนยันว่า **ทั้งสองทางเลือก (A/B) implement ได้โดยไม่กระทบ RLS/schema เดิมเลย** เพราะ RPC ใหม่ทั้งหมด (security definer) bypass `club_members`'s INSERT policy เดิมอยู่แล้ว ต่างกันแค่ 1 บรรทัดในฟังก์ชัน `redeem_club_invite_link()` — **นี่คือ product/security policy decision ล้วนๆ ไม่ใช่ทาง technical**
+
+### ⚠️ คำถามที่ต้องการคำตอบ Founder ก่อน lock — Private Club + Invite Link
+
+เมื่อกดลิงก์เชิญที่ valid สำหรับ **Private Club** ควรเกิดอะไรขึ้น:
+
+- **ทางเลือก A** — เข้าร่วมทันที ข้าม Join Request/Approve เลย (pattern Discord invite link, ตรงกับที่ Product Task แนะนำไว้) — เร็ว/ลื่นกว่า แต่เปลี่ยน security semantics ของ "Private" เดิม (ถ้าลิงก์หลุดไปสาธารณะ คนแปลกหน้าเข้าได้ทันทีก่อน Owner ทันรู้ตัว)
+- **ทางเลือก B** — ยังคงต้องผ่าน Join Request/Approve เหมือนเดิมทุกประการ (ลิงก์แค่พาไปหน้า preview + ให้ข้อมูล "มาจากลิงก์ไหน" ช่วย Owner ตัดสินใจไวขึ้นในคิวอนุมัติ) — ไม่เปลี่ยน semantics เดิมเลย ปลอดภัยกว่า แต่ growth loop ช้ากว่า/ไม่ตรง mental model ที่คนคุ้นเคยจาก Discord
+
+รายละเอียดข้อดี/ข้อเสียเต็มอยู่ในเอกสาร design — **AI Design ไม่มี tool ยิง popup คำถามแบบเลือกตอบ (AskUserQuestion) ในสภาพแวดล้อมนี้ จึงเขียนคำถามนี้ไว้ในเอกสารและแจ้ง Founder ตรงๆ แทน** ตาม RULES.md
+
+หมายเหตุ: Public Club ไม่มีคำถามนี้เลย (join ทันทีเหมือนเดิมทั้งสองทาง) — กระทบเฉพาะ Private Club เท่านั้น ถ้าเลือกทางเลือก A ยังมีคำถามรอง (edge case "ลิงก์ควรอัปเกรด pending request เดิมเป็น approved ทันทีไหม") ระบุไว้ในเอกสารด้วย
+
+### สรุป schema/UI ที่พร้อมแล้ว (ไม่ต้องรอคำตอบข้างบนเพื่อเริ่มเข้าใจ scope)
+
+- ตารางใหม่ `club_invite_links` (code/expires_at/max_uses/use_count/revoked_at) + `club_invite_link_uses` (attribution tracking, ยังไม่มี UI แสดงผลตาม Requirement)
+- RPC: `create_club_invite_link()`, `revoke_club_invite_link()` (Owner/Admin เท่านั้น, ผ่าน `club_role()` เดิม), `preview_club_invite_link()` (public, ใช้ตอนเปิดหน้า preview รวม guest), `redeem_club_invite_link()` (จุดที่ต้องรอคำตอบ A/B, มี `for update` กัน race บน max-uses)
+- UI: แถวใหม่ "ลิงก์เชิญ" ใน More menu ของ Club (gate `role.canManageClub` เดิม) → `ClubInviteLinksScreen` (สร้าง/ดูรายการ/revoke) + หน้าใหม่ `ClubInvitePreviewScreen` (เปิดจากลิงก์ผ่าน deep-link pattern ใหม่ `/club-invite/:code`) — reuse `requireRealAccount()`/Anonymous Sign-In เดิมสำหรับ guest ทั้งหมด ไม่สร้างกลไกใหม่
+- มี UI ใหม่จริง 2 หน้า → ต้องมี visual mockup ตามกติกา "ขอดูรูปก่อนเขียนโค้ด" — session นี้ไม่มีเครื่องมือสร้างภาพ ทำได้แค่ wireframe ข้อความในเอกสาร
+- แนะนำ gate ด้วย Staged Rollout (WYN-125)
+
+Handoff: **ห้าม AI Coding เริ่มจนกว่า Founder จะตอบคำถาม A/B ข้างบน** + ยืนยันเรื่อง visual mockup เหมือน 3 task อื่นใน Phase A นี้

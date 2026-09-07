@@ -1,7 +1,7 @@
 # Product Task — WYN-134
 
-Status: active — Founder อนุมัติให้ทำต่อ (2026-09-07, Phase A ลำดับ P1) → ส่งต่อ AI Design
-Owner: AI Product Manager → AI Design
+Status: design-complete — AI Design ทำ spec เต็มแล้ว (2026-09-07) พร้อมส่งต่อ AI Coding ทันที (ไม่มีจุดที่ต้องรอ Founder ตัดสินใจเพิ่ม)
+Owner: AI Design → AI Coding
 
 Feature: DM "New Message" Notification
 
@@ -32,3 +32,17 @@ Risks: ต่ำ — ต่อยอด pattern ที่มีอยู่แ�
 Recommendation: อนุมัติ scope ได้ทันที แนะนำให้ทำก่อนอันอื่นใน Phase A
 
 Handoff: รอ Founder ยืนยัน priority ของ Phase A ทั้งชุดก่อนส่งต่อ AI Design
+
+## AI Design Output (2026-09-07)
+
+Design spec เต็มที่ `.wyn/docs/design/wyn-134-dm-new-message-notification.md` — ตรวจ schema/pattern จริงของ `conversations`/`messages`/`notifications`/`conversation_mutes`/push infra (WYN-016/031/032/043) แล้ว สรุปการตัดสินใจหลัก:
+
+- Reuse `notifications.conversation_id` เดิม (เพิ่มโดย WYN-032) ตรงๆ ไม่มีคอลัมน์ใหม่ — เพิ่มแค่ `'new_message'` เข้า `notifications_type_check`
+- Trigger ใหม่ `notify_new_message()` (`AFTER INSERT ON messages`) mirror `get_or_create_conversation()`'s การ insert `message_request` เดิมเป๊ะ: เช็ค `status='active'`, ไม่ mute, `internal.notification_enabled(recipient, 'messages')`
+- **จุดสำคัญที่สุด**: AC "เปิดหน้าบทสนทนาอยู่พอดี → ไม่เกิด notification ซ้ำ" ทำได้โดยไม่ต้องสร้าง presence system ใหม่ — แก้ `mark_conversation_read()` (RPC เดิมที่ `ConversationScreen` เรียกอยู่แล้วทุกครั้งที่ได้รับข้อความ realtime ขณะเปิดหน้าจอ) ให้เคลียร์ `is_read=true` ของ `new_message` แถวที่เกี่ยวข้องไปด้วยในทรานแซคชันเดียวกัน — ไม่ต้องแก้ client เลยสักจุด
+- Dart: เพิ่ม `NotificationType.newMessage` (mirror `messageRequest` ทุกจุด: `_typeFromString`, `_messageFor` = "$name ส่งข้อความถึงคุณ", tap → `ConversationScreen` ตรง), เพิ่ม case ใน `push_notification_service.dart` และ `_lib.ts`'s `messageFor()` (ต้องตรงคำต่อคำตามกติกาเดิมของไฟล์นั้น)
+- **ตั้งใจไม่โชว์เนื้อหาข้อความจริงใน notification/push** (privacy — ต่างจาก like/comment ที่โชว์ caption โพสต์สาธารณะได้)
+- ไม่มี UI ใหม่ที่ต้องมี visual mockup (แค่ 1 แถวข้อความใหม่ในลิสต์แจ้งเตือนเดิม) — ไม่ต้องรอ Artifact ตามกติกา "ขอดูรูปก่อนเขียนโค้ด" เพราะไม่มี "รูป" ใหม่ให้ดู
+- แนะนำไม่ gate ด้วย Staged Rollout (WYN-125) เพราะเป็นการปิด known gap ของ Chat ที่มีอยู่แล้ว ไม่ใช่ฟีเจอร์ใหม่ที่ผู้ใช้ต้อง "ค้นพบ" — AI Coding ควรยืนยันกับ Founder อีกครั้งถ้าไม่แน่ใจ
+
+Handoff: AI Coding — ไม่มีจุดที่ต้องรอ Founder ตัดสินใจเพิ่มเติมสำหรับ task นี้ เริ่ม implement ได้ทันที

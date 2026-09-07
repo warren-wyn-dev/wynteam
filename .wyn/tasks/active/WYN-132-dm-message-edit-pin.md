@@ -1,7 +1,7 @@
 # Product Task — WYN-132
 
-Status: active — Founder อนุมัติให้ทำต่อ (2026-09-07, Phase A) → ส่งต่อ AI Design
-Owner: AI Product Manager → AI Design
+Status: design-complete — AI Design ทำ spec เต็มแล้ว (2026-09-07) — รอ Founder ยืนยันว่า wireframe ข้อความเพียงพอแทน visual mockup (ไม่มีเครื่องมือสร้างภาพในเซสชันนี้) ก่อนส่งต่อ AI Coding ตามกติกา "ขอดูรูปก่อนเขียนโค้ด"
+Owner: AI Design → รอ Founder ยืนยัน mockup → AI Coding
 
 Feature: DM Message Actions — Edit Message + Pin Message (1:1 Chat)
 
@@ -41,3 +41,17 @@ Risks: Edit message มีความเสี่ยงด้าน trust เ�
 Recommendation: อนุมัติ scope ได้ทันที ไม่ต้องขออนุมัติ Founder เพิ่มเติม (ไม่แตะ Major Architecture)
 
 Handoff: รอ Founder ยืนยัน priority ของ Phase A ทั้งชุดก่อนส่งต่อ AI Design
+
+## AI Design Output (2026-09-07)
+
+Design spec เต็มที่ `.wyn/docs/design/wyn-132-dm-message-edit-pin.md` — ตรวจ schema จริงของ `messages`/`delete_message()`/realtime subscription เดิมแล้ว สรุปการตัดสินใจหลัก:
+
+- **Edit**: คอลัมน์ใหม่ `messages.edited_at`, RPC `edit_message()` mirror `delete_message()`'s ท่าเดิม (security definer, ไม่มี client UPDATE policy) — จำกัดเข้มงวดเฉพาะข้อความ text ล้วน (`image_url is null and shared_content_id is null`) ตาม Requirement เป๊ะ — reuse realtime `onUpdate` channel เดิมที่มีอยู่แล้วสำหรับ View Once ได้ตรงๆ ไม่ต้อง subscribe เพิ่ม
+  - **พบจุดที่ต้องระวังจากการอ่านโค้ดจริง**: `_onRealtimeMessageUpdate` ปัจจุบันแทนที่ทั้งแถวจาก raw payload (ไม่มี `reply_to` embed) — ถ้าข้อความที่แก้ไขเป็น reply จะทำให้ reply-quote preview หายจากหน้าจอฝั่งอีกคนชั่วคราว ต้อง merge เฉพาะฟิลด์ที่เปลี่ยน ไม่ใช่แทนที่ทั้งก้อน (ระบุไว้ในเอกสารเป็นข้อควรระวังให้ AI Coding)
+- **Pin**: ตารางใหม่ `message_pins` (composite PK `conversation_id, message_id`), RPC `pin_message()`/`unpin_message()` (จำกัด 3 ต่อบทสนทนา, ทั้งสองฝ่าย pin/unpin ได้เท่ากันตาม Requirement) + แก้ `delete_message()` เดิมให้ auto-unpin (เพราะเป็น soft-delete ผ่าน UPDATE ไม่ใช่ DELETE จริง FK cascade ใช้ไม่ได้)
+- Pinned bar ใต้ AppBar + bottom sheet รายการปักหมุด reuse กลไก jump-to-message เดิมจาก reply-quote (WYN-031) ตรงๆ
+- Realtime pin/unpin: channel เบาๆ แบบเดียวกับ `subscribeToConversationMeta` — fetch รายการใหม่ทั้งหมดทุกครั้งที่มี event (ไม่ patch จาก payload เพื่อเลี่ยงปัญหา REPLICA IDENTITY ของ DELETE payload)
+- มี UI ใหม่จริง (edit-mode composer bar, pinned bar, pinned bottom sheet) → ต้องมี visual mockup ตามกติกา "ขอดูรูปก่อนเขียนโค้ด" — session นี้ไม่มีเครื่องมือสร้างภาพ ทำได้แค่ wireframe ข้อความในเอกสาร
+- แนะนำ gate ด้วย Staged Rollout (WYN-125) เพราะมี UI ใหม่จริงที่ผู้ใช้ทั่วไปยังไม่เคยเห็น
+
+Handoff: **รอ Founder ยืนยัน 1 เรื่อง** — wireframe ข้อความในเอกสารเพียงพอสำหรับอนุมัติ หรือรอ session ที่มีเครื่องมือสร้างภาพ mockup จริงก่อน — หลังยืนยันแล้วส่งต่อ AI Coding ได้ทันที (schema/RPC/RLS พร้อมสมบูรณ์แล้ว ไม่มีจุดกำกวมด้าน technical)

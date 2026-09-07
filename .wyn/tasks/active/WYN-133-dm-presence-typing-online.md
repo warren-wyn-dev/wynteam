@@ -1,7 +1,7 @@
 # Product Task — WYN-133
 
-Status: active — Founder อนุมัติให้ทำต่อ (2026-09-07, Phase A) → ส่งต่อ AI Design (privacy toggle เป็นส่วนบังคับของ MVP)
-Owner: AI Product Manager → AI Design
+Status: design-complete — AI Design ทำ spec เต็มแล้ว (2026-09-07) รวม privacy toggle เป็นส่วนหนึ่งของ MVP ตามที่กำหนด — รอ Founder ยืนยันว่า wireframe ข้อความเพียงพอแทน visual mockup ก่อนส่งต่อ AI Coding
+Owner: AI Design → รอ Founder ยืนยัน mockup → AI Coding
 
 Feature: DM Presence — Typing Indicator + Online/Offline + Last Seen (1:1 Chat)
 
@@ -39,3 +39,17 @@ Risks: ต้องทำ privacy toggle พร้อมกันตั้งแ
 Recommendation: อนุมัติ scope ได้ แต่ **ต้องล็อกไว้ใน Design ว่า privacy toggle เป็นส่วนหนึ่งของ MVP ไม่ใช่ nice-to-have แยก**
 
 Handoff: รอ Founder ยืนยัน priority ของ Phase A ทั้งชุดก่อนส่งต่อ AI Design
+
+## AI Design Output (2026-09-07)
+
+Design spec เต็มที่ `.wyn/docs/design/wyn-133-dm-presence-typing-online.md` — ตรวจ pattern Presence ที่พิสูจน์แล้วจริงจาก WYN-128 (`club_channel_chat_repository.dart`) + RLS ของ `profiles` จริงแล้ว สรุปการตัดสินใจหลัก:
+
+- **พบความเสี่ยง privacy สำคัญระหว่างตรวจโค้ด**: `profiles` มี SELECT policy `using (true)` — authenticated ทุกคนอ่านได้ทุกคอลัมน์ทุกแถว ถ้าเก็บ `last_seen_at`/`show_online_status` เป็นคอลัมน์บน `profiles` ตรงๆ จะรั่วให้ทุกคนเห็นได้ทันทีโดยไม่ผ่าน reciprocal check เลย ขัด Requirement + RULES.md โดยตรง — **แก้โดยแยกตารางใหม่ `user_presence`** (mirror `notification_settings`'s ท่าเดิม: SELECT policy จำกัดแค่เจ้าของแถวเท่านั้น) แล้วเปิดทางอ่านค่าคนอื่นได้ทางเดียวผ่าน RPC `get_conversation_partner_presence()` ที่บังคับ reciprocal check (`ทั้งสองฝั่งต้องเปิดถึงจะเห็นได้`) ในตัว
+- **Typing**: per-conversation Presence channel (`track({typing: bool})`, debounce เริ่ม track ตอน state เปลี่ยนเท่านั้น, auto-clear 3 วิทั้งฝั่งส่งและฝั่งรับเป็น safety net) — ไม่มี privacy gate ตาม Requirement
+- **Online**: Presence channel ระดับ **global ต่อแอป** (wire ที่ `RootShell` จุดเดียวกับ `PushNotificationService`) ไม่ใช่ต่อบทสนทนา — แยกจาก **Last Seen** ที่ persist ถาวรผ่าน RPC `touch_my_presence()` เรียกตอน app lifecycle pause (best-effort, ยอมรับ known limitation ถ้าแอปถูก kill กะทันหัน)
+- Privacy toggle: แถว Switch ใหม่ใน `_PrivacyScreen` เดิม (settings_screen.dart) พร้อม helper text อธิบาย reciprocal ให้ผู้ใช้เข้าใจก่อนกดปิด
+- AppBar subtitle 3 สถานะ (กำลังพิมพ์/ออนไลน์/ใช้งานล่าสุด) reuse `relativeTimeLabel()` ที่มีอยู่แล้วใน `text_utils.dart`
+- มี UI ใหม่จริง → ต้องมี visual mockup ตามกติกา "ขอดูรูปก่อนเขียนโค้ด" — session นี้ไม่มีเครื่องมือสร้างภาพ ทำได้แค่ wireframe ข้อความในเอกสาร
+- แนะนำ gate ด้วย Staged Rollout (WYN-125) รวมถึง**ไม่ track/subscribe presence channel เลย**สำหรับผู้ใช้ทั่วไป (ไม่ใช่แค่ซ่อน UI) เพื่อประหยัด resource
+
+Handoff: **รอ Founder ยืนยัน 1 เรื่อง** — wireframe ข้อความในเอกสารเพียงพอสำหรับอนุมัติ หรือรอ session ที่มีเครื่องมือสร้างภาพ mockup จริงก่อน — หลังยืนยันแล้วส่งต่อ AI Coding ได้ทันที (schema/RPC/RLS/privacy model พร้อมสมบูรณ์แล้ว ไม่มีจุดกำกวมด้าน technical)
