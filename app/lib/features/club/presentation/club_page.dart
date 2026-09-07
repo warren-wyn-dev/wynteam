@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/developer_access/developer_access_service.dart';
 import '../data/club.dart';
+import '../data/club_badge_repository.dart';
+import '../data/club_channel_chat_repository.dart';
 import '../data/club_member.dart';
 import '../data/club_post_repository.dart';
 import '../data/club_repository.dart';
@@ -49,7 +52,13 @@ class ClubPage extends StatefulWidget {
     required this.clubId,
     this.initialTabIndex = 0,
     ClubEventRepository? clubEventRepository,
-  }) : _clubEventRepository = clubEventRepository;
+    ClubBadgeRepository? clubBadgeRepository,
+    ClubChannelChatRepository? clubChannelChatRepository,
+    DeveloperAccessService? developerAccessService,
+  })  : _clubEventRepository = clubEventRepository,
+        _clubBadgeRepository = clubBadgeRepository,
+        _clubChannelChatRepository = clubChannelChatRepository,
+        _developerAccessService = developerAccessService;
 
   final ClubRepository clubRepository;
   final ClubPostRepository clubPostRepository;
@@ -60,6 +69,24 @@ class ClubPage extends StatefulWidget {
   // backed instance so existing call sites don't need to thread one
   // through, but a test can inject a RecordingClubEventRepository.
   final ClubEventRepository? _clubEventRepository;
+
+  // Same optional shape again -- WYN-129/WYN-128. A widget test that
+  // builds ClubPage's Posts tab (all TabBarView children are built
+  // eagerly, not lazily, regardless of which tab is selected) must be
+  // able to inject a Recording double for both, or ClubPostsTab falls
+  // back to a real Supabase-backed repository whose realtime
+  // subscribe() attempts a genuine WebSocket connection.
+  final ClubBadgeRepository? _clubBadgeRepository;
+  final ClubChannelChatRepository? _clubChannelChatRepository;
+
+  /// Staged-rollout gate (`.wyn/company/WORKFLOW.md`'s "Staged Rollout
+  /// เป็นค่าเริ่มต้นสำหรับฟีเจอร์ใหม่ทุกตัว") -- threaded down to both
+  /// ClubPostsTab (channel switcher/chat toggle) and ClubMembersTab
+  /// (badge pill/management), so both tabs agree on the same result
+  /// from one shared instance rather than each constructing (and
+  /// separately RPC-calling) its own. See
+  /// .wyn/tasks/bugs/WYN-127-128-129-missing-staged-rollout-gate.md.
+  final DeveloperAccessService? _developerAccessService;
 
   /// Which tab (Posts=0/Members=1/About=2) opens first -- defaults to
   /// Posts, but WYN-015's club_join_request notification opens straight
@@ -111,6 +138,12 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   final _followRepository = FollowRepository(Supabase.instance.client);
   late final ClubEventRepository _clubEventRepository =
       widget._clubEventRepository ?? ClubEventRepository(Supabase.instance.client);
+  late final ClubBadgeRepository _clubBadgeRepository =
+      widget._clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
+  late final ClubChannelChatRepository _clubChannelChatRepository =
+      widget._clubChannelChatRepository ?? ClubChannelChatRepository(Supabase.instance.client);
+  late final DeveloperAccessService _developerAccessService =
+      widget._developerAccessService ?? DeveloperAccessService();
 
   @override
   void initState() {
@@ -499,12 +532,19 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                     children: [
                       ClubPostsTab(
                         clubPostRepository: widget.clubPostRepository,
+                        clubRepository: widget.clubRepository,
+                        clubBadgeRepository: _clubBadgeRepository,
+                        clubChannelChatRepository: _clubChannelChatRepository,
+                        developerAccessService: _developerAccessService,
                         club: data.club,
                         myRole: myRole,
                         onJoinTapped: () => _toggleJoin(data.club, data.membership),
+                        onBanned: _reload,
                       ),
                       ClubMembersTab(
                         clubRepository: widget.clubRepository,
+                        clubBadgeRepository: _clubBadgeRepository,
+                        developerAccessService: _developerAccessService,
                         club: data.club,
                         myRole: myRole,
                         onChanged: _reload,

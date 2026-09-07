@@ -7,9 +7,11 @@ import 'package:wyn/features/club/data/club_member.dart';
 import 'package:wyn/features/club/presentation/club_page.dart';
 
 import 'support/fake_supabase_session.dart';
+import 'support/recording_club_channel_chat_repository.dart';
 import 'support/recording_club_event_repository.dart';
 import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
+import 'support/recording_developer_access_service.dart';
 
 /// Regression tests for ClubPage's 3-state Join button and role-gated
 /// More menu, per .wyn/docs/design/wyn-014-club-core.md, Screen 3.
@@ -41,6 +43,13 @@ void main() {
   late RecordingClubRepository ownerRepo;
   late RecordingClubPostRepository clubPostRepo;
   late RecordingClubEventRepository clubEventRepo;
+  // WYN-128: every ClubPage test must inject this -- ClubPostsTab (built
+  // eagerly as a TabBarView child regardless of which tab is selected)
+  // subscribes to it for the unread-chat badge the moment the viewer is
+  // an approved member, and a real ClubChannelChatRepository's
+  // subscribe() attempts a genuine WebSocket connection that leaves a
+  // pending Timer behind (.wyn/learning/PATTERNS.md).
+  late RecordingClubChannelChatRepository clubChannelChatRepo;
   // Beta3 -- built in setUp() with every other repo, never inline in a
   // testWidgets body: a fresh RecordingClubRepository constructs a
   // SupabaseClient whose GoTrue auto-refresh timer would otherwise be
@@ -50,6 +59,13 @@ void main() {
   // Same reasoning as withCoverRepo above -- built in setUp(), not inline
   // inside a WYN-116 testWidgets body.
   late RecordingClubRepository mutedMemberRepo;
+  // WYN-127-128-129-missing-staged-rollout-gate.md: this file doesn't
+  // exercise WYN-127/128/129's own UI directly, but ClubPostsTab/
+  // ClubMembersTab both default to a real DeveloperAccessService when
+  // none is given, which would attempt a genuine RPC call against this
+  // suite's fake Supabase project -- always inject the Recording double,
+  // same reasoning as clubChannelChatRepo above.
+  late RecordingDeveloperAccessService developerAccessService;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'viewer');
@@ -71,6 +87,7 @@ void main() {
     );
     clubPostRepo = RecordingClubPostRepository();
     clubEventRepo = RecordingClubEventRepository();
+    clubChannelChatRepo = RecordingClubChannelChatRepository();
     withCoverRepo = RecordingClubRepository(
       club: Club(
         id: 'club-cover',
@@ -88,6 +105,7 @@ void main() {
       myMembership: membership(role: ClubMemberRole.member, status: ClubMemberStatus.approved),
       isMutedResult: true,
     );
+    developerAccessService = RecordingDeveloperAccessService(isDeveloperResult: true);
   });
 
   Future<void> pumpPage(
@@ -102,6 +120,8 @@ void main() {
           clubPostRepository: clubPostRepo,
           clubId: club.id,
           clubEventRepository: clubEventRepository,
+          clubChannelChatRepository: clubChannelChatRepo,
+          developerAccessService: developerAccessService,
         ),
       ),
     );

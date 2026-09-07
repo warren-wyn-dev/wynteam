@@ -218,4 +218,50 @@ void main() {
     expect(find.byType(ViewProfileScreen), findsNothing);
     expect(find.text('บัญชีนี้ถูกลบไปแล้ว'), findsOneWidget);
   });
+
+  group('club_channel_message target (WYN-128 fast-follow -- '
+      '.wyn/tasks/bugs/WYN-128-group-chat-missing-report-action.md)', () {
+    testWidgets('shows "ลบเนื้อหา (Remove Content)" for a club_channel_message target '
+        '(unlike a user/club target)', (tester) async {
+      final report = reportFor(ReportTargetType.clubChannelMessage);
+      final repo = RecordingModerationRepository(
+        targetSummaries: {
+          report.id: const ModerationTargetSummary(
+            exists: true,
+            label: 'ข้อความไม่เหมาะสม',
+            ownerUsername: 'somchai',
+          ),
+        },
+      );
+      await tester.pumpWidget(buildScreen(report: report, moderationRepository: repo));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(OutlinedButton, ModerationActionType.removeContent.label),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+        'tapping the content card shows a SnackBar (no moderator-facing chat room '
+        'view exists) instead of navigating anywhere', (tester) async {
+      final report = reportFor(ReportTargetType.clubChannelMessage);
+      final repo = RecordingModerationRepository(
+        targetSummaries: {
+          report.id: const ModerationTargetSummary(
+            exists: true,
+            label: 'ข้อความไม่เหมาะสม',
+            ownerUsername: 'somchai',
+          ),
+        },
+      );
+      await tester.pumpWidget(buildScreen(report: report, moderationRepository: repo));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.textContaining('ข้อความไม่เหมาะสม'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ไม่สามารถเปิดดูห้องแชทนี้ได้'), findsOneWidget);
+    });
+  });
 }

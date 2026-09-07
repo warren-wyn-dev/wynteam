@@ -13116,3 +13116,763 @@ as $$
 $$;
 
 grant execute on function public.my_referral_stats() to authenticated;
+
+-- ============================================================
+-- WYN-127: Club Channels
+-- ============================================================
+-- Discord-style rooms within a Club -- club_posts (WYN-014) already had
+-- a single flat feed; this splits it by channel_id. See
+-- .wyn/tasks/backlog/WYN-127-club-channels.md and
+-- supabase/migrations_wyn127_club_channels.sql (the production ALTER
+-- path -- this section is schema.sql's own "load into an empty
+-- database" form of the exact same statements, so both stay in sync).
+
+create table if not exists public.club_channels (
+  id uuid primary key default gen_random_uuid(),
+  club_id uuid not null references public.clubs (id) on delete cascade,
+  name text not null,
+  created_by uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  constraint club_channels_name_length check (char_length(name) between 1 and 50),
+  -- Composite unique target for club_posts.channel_id's own FK below --
+  -- guarantees a post's channel_id/club_id can never point at a channel
+  -- belonging to a *different* Club.
+  constraint club_channels_id_club_id_key unique (id, club_id)
+);
+
+-- Case-insensitive per-Club uniqueness -- Design's "กันชื่อว่าง/ซ้ำ".
+create unique index if not exists club_channels_club_id_lower_name_key
+  on public.club_channels (club_id, lower(name));
+
+alter table public.club_channels enable row level security;
+
+-- Read: same as clubs itself (WYN-014's "Clubs are viewable by
+-- authenticated users") -- a channel's *name* carries no privacy
+-- boundary of its own; the posts inside it stay gated by club_posts'
+-- own club_role()-based SELECT policy exactly as before.
+create policy "Club channels are viewable by authenticated users"
+  on public.club_channels
+  for select
+  to authenticated
+  using (true);
+
+create policy "Club owners and admins can create channels"
+  on public.club_channels
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = created_by
+    and public.club_role(club_id, auth.uid()) in ('owner', 'admin')
+  );
+
+create policy "Club owners and admins can rename channels"
+  on public.club_channels
+  for update
+  to authenticated
+  using (public.club_role(club_id, auth.uid()) in ('owner', 'admin'));
+
+-- Deleting a channel cascade-deletes every post in it (club_posts.
+-- channel_id's FK below is ON DELETE CASCADE) -- Founder's explicit
+-- choice ("ประหยัดพื้นที่"), not a migrate-to-default-channel behavior.
+create policy "Club owners and admins can delete channels"
+  on public.club_channels
+  for delete
+  to authenticated
+  using (public.club_role(club_id, auth.uid()) in ('owner', 'admin'));
+
+-- Every new Club gets its "ทั่วไป" default channel automatically, same
+-- trigger shape as clubs_add_owner_membership (WYN-014) far above.
+create or replace function public.clubs_add_default_channel()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.club_channels (club_id, name, created_by)
+  values (new.id, 'ทั่วไป', new.owner_id);
+  return new;
+end;
+$$;
+
+drop trigger if exists clubs_add_default_channel on public.clubs;
+create trigger clubs_add_default_channel
+  after insert on public.clubs
+  for each row execute function public.clubs_add_default_channel();
+
+-- Backfill, for schema.sql loaded against a database that already had
+-- Clubs before this section existed -- a no-op on a genuinely empty
+-- database (the normal case for this file).
+insert into public.club_channels (club_id, name, created_by)
+select c.id, 'ทั่วไป', c.owner_id
+from public.clubs c
+where not exists (
+  select 1 from public.club_channels ch where ch.club_id = c.id
+);
+
+alter table public.club_posts add column if not exists channel_id uuid;
+
+update public.club_posts cp
+set channel_id = (
+  select ch.id from public.club_channels ch
+  where ch.club_id = cp.club_id
+  order by ch.created_at asc
+  limit 1
+)
+where cp.channel_id is null;
+
+alter table public.club_posts drop constraint if exists club_posts_channel_id_club_id_fkey;
+alter table public.club_posts
+  add constraint club_posts_channel_id_club_id_fkey
+  foreign key (channel_id, club_id) references public.club_channels (id, club_id) on delete cascade;
+
+alter table public.club_posts alter column channel_id set not null;
+
+create index if not exists club_posts_channel_id_idx
+  on public.club_posts (channel_id, pinned, created_at);
+
+-- create_poll_club_post() (WYN-115, far above) inserts into club_posts
+-- directly and predates channel_id -- now NOT NULL, so this needs a
+-- p_channel_id argument too. `create or replace function` can't add a
+-- parameter ahead of an existing one with a default, so the old 5-arg
+-- overload is dropped outright first (SCHEMA-003 lesson: leaving it
+-- behind would keep a second, channel-less SECURITY DEFINER entry point
+-- reachable).
+drop function if exists public.create_poll_club_post(uuid, text, text[], int, uuid[]);
+
+create or replace function public.create_poll_club_post(
+  p_club_id uuid,
+  p_channel_id uuid,
+  p_content text,
+  p_options text[],
+  p_duration_days int,
+  p_mentioned_user_ids uuid[] default '{}'
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_author uuid := auth.uid();
+  v_post_id uuid;
+  v_options text[];
+begin
+  if v_author is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if public.club_role(p_club_id, v_author) is null then
+    raise exception 'Must be an approved club member to post';
+  end if;
+
+  if not exists (
+    select 1 from public.club_channels where id = p_channel_id and club_id = p_club_id
+  ) then
+    raise exception 'Channel does not belong to this club';
+  end if;
+
+  if internal.is_posting_blocked(v_author) then
+    raise exception 'Account is posting-restricted';
+  end if;
+
+  if p_content is null or length(trim(p_content)) = 0 then
+    raise exception 'Poll question is required';
+  end if;
+
+  select array_agg(trim(o)) into v_options from unnest(p_options) as o;
+
+  if not public.valid_poll_options(v_options) then
+    raise exception 'Poll must have 2-4 non-empty, non-duplicate options (max 80 characters each)';
+  end if;
+
+  if p_duration_days not in (1, 3, 7) then
+    raise exception 'Poll duration must be 1, 3, or 7 days';
+  end if;
+
+  insert into public.club_posts (club_id, channel_id, author_id, content, image_urls, link_url)
+  values (p_club_id, p_channel_id, v_author, trim(p_content), null, null)
+  returning id into v_post_id;
+
+  insert into public.club_post_polls (club_post_id, options, expires_at)
+  values (v_post_id, v_options, now() + make_interval(days => p_duration_days));
+
+  insert into public.club_post_mentions (club_post_id, mentioned_user_id)
+  select v_post_id, m
+  from unnest(p_mentioned_user_ids) as m;
+
+  return v_post_id;
+end;
+$$;
+
+-- ============================================================
+-- WYN-129: Club Role Badge
+-- ============================================================
+-- A purely cosmetic, Club-scoped identity layer -- completely separate
+-- from club_role()/authorization. See
+-- .wyn/tasks/backlog/WYN-129-club-role-badges.md and
+-- supabase/migrations_wyn129_club_member_badges.sql (same statements,
+-- kept in sync).
+--
+-- CRITICAL INVARIANT (Risks section): a badge must NEVER be queried
+-- anywhere a permission check happens. Nothing in this section calls
+-- club_role() to grant anything -- club_role() is only ever read here to
+-- decide who may set/edit/remove *cosmetic* rows, the same way it's
+-- already used to gate club_channels above -- and nothing that calls
+-- club_role() to gate a real action anywhere else in this file
+-- references club_member_badges. Keep it that way.
+
+create table if not exists public.club_member_badges (
+  club_id uuid not null references public.clubs (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  label text not null,
+  -- Requirement 1: "เลือกจาก palette ที่กำหนดไว้ ไม่ใช่ color picker อิสระ"
+  -- -- exactly the 3 Founder-approved colors, enforced at the DB layer,
+  -- not just in the Flutter picker UI.
+  color_key text not null check (color_key in ('gold', 'sage', 'plum')),
+  created_by uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  constraint club_member_badges_label_length check (char_length(label) between 1 and 20),
+  -- Requirement 4: at most 1 badge per member per Club.
+  primary key (club_id, user_id)
+);
+
+alter table public.club_member_badges enable row level security;
+
+-- Read: same posture as club_channels (WYN-127) -- a badge carries no
+-- privacy boundary of its own; the real content it decorates (Members
+-- tab, posts, comments) is already gated by its own visibility rules.
+create policy "Club member badges are viewable by authenticated users"
+  on public.club_member_badges
+  for select
+  to authenticated
+  using (true);
+
+-- Insert/update/delete: that Club's own Owner/Admin only, and only
+-- targeting a currently-approved member of the *same* Club --
+-- club_role(club_id, user_id) is not null re-derives the target's own
+-- membership the same way club_role(club_id, auth.uid()) re-derives the
+-- caller's, so a stranger/pending/banned user can never be badged.
+create policy "Club owners and admins can set member badges"
+  on public.club_member_badges
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = created_by
+    and public.club_role(club_id, auth.uid()) in ('owner', 'admin')
+    and public.club_role(club_id, user_id) is not null
+  );
+
+-- Bug fix (.wyn/tasks/bugs/WYN-129-badge-update-target-membership-gap.md):
+-- the `using` clause alone re-verifies only the *caller's* own role --
+-- Postgres reuses `using` as the implicit `with check` when a `for
+-- update` policy omits one, so without an explicit `with check` here an
+-- Owner/Admin could UPDATE an existing badge row's `user_id` to point at
+-- any other user at all (pending/banned/non-member), bypassing the
+-- exact target-membership invariant the `insert` policy above already
+-- enforces. The `with check` below mirrors that `insert` policy's own
+-- `club_role(club_id, user_id) is not null` gate so the *target row's*
+-- membership is re-derived on every UPDATE too, not just on INSERT.
+create policy "Club owners and admins can edit member badges"
+  on public.club_member_badges
+  for update
+  to authenticated
+  using (public.club_role(club_id, auth.uid()) in ('owner', 'admin'))
+  with check (
+    public.club_role(club_id, auth.uid()) in ('owner', 'admin')
+    and public.club_role(club_id, user_id) is not null
+  );
+
+create policy "Club owners and admins can remove member badges"
+  on public.club_member_badges
+  for delete
+  to authenticated
+  using (public.club_role(club_id, auth.uid()) in ('owner', 'admin'));
+
+-- ============================================================
+-- WYN-128: Club Group Chat
+-- ============================================================
+-- Real-time group chat, one room per WYN-127 channel -- a brand new
+-- table, deliberately NOT touching conversations/conversation_participants/
+-- messages (WYN-031) at all. See
+-- .wyn/tasks/backlog/WYN-128-club-group-chat.md and
+-- supabase/migrations_wyn128_club_channel_messages.sql (same statements,
+-- kept in sync).
+
+create table if not exists public.club_channel_messages (
+  id uuid primary key default gen_random_uuid(),
+  channel_id uuid not null references public.club_channels (id) on delete cascade,
+  author_id uuid not null references public.profiles (id) on delete cascade,
+  content text,
+  image_url text,
+  reply_to_message_id uuid references public.club_channel_messages (id) on delete set null,
+  created_at timestamptz not null default now(),
+  constraint club_channel_messages_have_content check (content is not null or image_url is not null),
+  constraint club_channel_messages_content_length
+    check (content is null or char_length(content) between 1 and 2000)
+);
+
+create index if not exists club_channel_messages_channel_id_idx
+  on public.club_channel_messages (channel_id, created_at);
+
+alter table public.club_channel_messages enable row level security;
+
+-- Read/write gate: club_role() on the message's own channel's club_id --
+-- exactly the sitting membership check every other Club RLS policy uses
+-- (club_posts, club_channels), so a banned/removed member loses both
+-- read and write access the moment their club_members row changes.
+create policy "Approved club members can view channel messages"
+  on public.club_channel_messages
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.club_channels ch
+      where ch.id = channel_id
+        and public.club_role(ch.club_id, auth.uid()) is not null
+    )
+  );
+
+create policy "Approved club members can send channel messages as themselves"
+  on public.club_channel_messages
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = author_id
+    and not internal.is_posting_blocked(auth.uid())
+    and exists (
+      select 1 from public.club_channels ch
+      where ch.id = channel_id
+        and public.club_role(ch.club_id, auth.uid()) is not null
+    )
+  );
+
+-- Delete: message author OR that channel's Club staff (owner/admin/
+-- moderator) -- a plain hard DELETE, mirroring club_posts' own delete
+-- policy (no soft-null-out RPC needed -- no View-Once/shared-content
+-- state here that a hard delete could leave dangling).
+create policy "Message authors and club staff can delete channel messages"
+  on public.club_channel_messages
+  for delete
+  to authenticated
+  using (
+    auth.uid() = author_id
+    or exists (
+      select 1 from public.club_channels ch
+      where ch.id = channel_id
+        and public.club_role(ch.club_id, auth.uid()) in ('owner', 'admin', 'moderator')
+    )
+  );
+
+-- Mirrors prevent_cross_conversation_reply() (WYN-031) exactly, scoped
+-- to channel instead of conversation.
+create or replace function public.prevent_cross_channel_message_reply()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.reply_to_message_id is not null then
+    if not exists (
+      select 1 from public.club_channel_messages m
+      where m.id = new.reply_to_message_id and m.channel_id = new.channel_id
+    ) then
+      raise exception 'Cannot reply to a message from a different channel';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists club_channel_messages_prevent_cross_channel_reply on public.club_channel_messages;
+create trigger club_channel_messages_prevent_cross_channel_reply
+  before insert on public.club_channel_messages
+  for each row execute function public.prevent_cross_channel_message_reply();
+
+-- Chat images reuse the *existing* `club-media` bucket and its existing
+-- ">1 folder segment" policies from WYN-014 as-is -- a chat image at
+-- `{club_id}/chat/{channel_id}/{user_id}-{timestamp}.*` is already
+-- covered with zero new storage policy needed.
+
+-- Requirement 6 / AC: unread badge -- one row per (channel, user),
+-- mirroring conversations.user_a_last_read_at/user_b_last_read_at's role
+-- for 1:1 chat, but as its own table since a channel has N members.
+create table if not exists public.club_channel_message_reads (
+  channel_id uuid not null references public.club_channels (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  last_read_at timestamptz not null default now(),
+  primary key (channel_id, user_id)
+);
+
+alter table public.club_channel_message_reads enable row level security;
+
+create policy "Users can view their own channel read state"
+  on public.club_channel_message_reads
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- No insert/update policy for the client -- mark_club_channel_read()
+-- below is the only write path, mirroring mark_conversation_read()
+-- (WYN-031).
+create or replace function public.mark_club_channel_read(p_channel_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_club_id uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select club_id into v_club_id from public.club_channels where id = p_channel_id;
+  if v_club_id is null or public.club_role(v_club_id, auth.uid()) is null then
+    raise exception 'Not an approved member of this channel''s club';
+  end if;
+
+  insert into public.club_channel_message_reads (channel_id, user_id, last_read_at)
+  values (p_channel_id, auth.uid(), now())
+  on conflict (channel_id, user_id) do update set last_read_at = excluded.last_read_at;
+end;
+$$;
+
+grant execute on function public.mark_club_channel_read(uuid) to authenticated;
+
+-- Per-channel unread counts for every channel in p_club_id, for the
+-- caller -- batched in one call. Excludes the caller's own messages
+-- (sending doesn't make your own room "unread").
+create or replace function public.get_unread_channel_counts(p_club_id uuid)
+returns table (channel_id uuid, unread_count bigint)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select ch.id,
+    count(m.id) filter (
+      where m.created_at > coalesce(r.last_read_at, 'epoch'::timestamptz)
+        and m.author_id <> auth.uid()
+    )
+  from public.club_channels ch
+  left join public.club_channel_message_reads r
+    on r.channel_id = ch.id and r.user_id = auth.uid()
+  left join public.club_channel_messages m
+    on m.channel_id = ch.id
+  where ch.club_id = p_club_id
+    and public.club_role(p_club_id, auth.uid()) is not null
+  group by ch.id;
+$$;
+
+grant execute on function public.get_unread_channel_counts(uuid) to authenticated;
+
+-- ============================================================
+-- WYN-128 fast-follow: report a Club Group Chat message
+-- ============================================================
+-- QA found club_channel_messages had zero moderation coverage --
+-- neither the reports.target_type CHECK constraint nor submit_report()/
+-- apply_moderation_action() knew this table existed. See
+-- .wyn/tasks/bugs/WYN-128-group-chat-missing-report-action.md.
+--
+-- Mirrors the 'redrop' addition (WYN-034 section, far above) exactly:
+-- dynamically find+drop whatever the current CHECK constraint name is
+-- (safe no matter how many times this constraint has already been
+-- widened) rather than assuming a specific name.
+do $$
+declare
+  v_constraint_name text;
+begin
+  select tc.constraint_name into v_constraint_name
+  from information_schema.table_constraints tc
+  join information_schema.constraint_column_usage ccu
+    on ccu.constraint_name = tc.constraint_name
+   and ccu.constraint_schema = tc.constraint_schema
+  where tc.table_schema = 'public'
+    and tc.table_name = 'reports'
+    and tc.constraint_type = 'CHECK'
+    and ccu.column_name = 'target_type';
+
+  if v_constraint_name is not null then
+    execute format('alter table public.reports drop constraint %I', v_constraint_name);
+  end if;
+end;
+$$;
+
+alter table public.reports
+  add constraint reports_target_type_check
+  check (target_type in (
+    'user', 'drop', 'drop_comment', 'club', 'club_post',
+    'club_post_comment', 'message', 'redrop', 'club_channel_message'
+  ));
+
+-- Full re-definition (not just the new branch) -- `create or replace`
+-- always replaces the whole function body. Every branch above this
+-- comment is byte-for-byte the same as the version further up this
+-- file; only the new `club_channel_message` branch is new.
+create or replace function public.submit_report(
+  p_target_type text,
+  p_target_id uuid,
+  p_category text,
+  p_detail text
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_reporter uuid := auth.uid();
+  v_report_id uuid;
+begin
+  if v_reporter is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_target_type = 'user' then
+    if p_target_id = v_reporter then
+      raise exception 'Cannot report yourself';
+    end if;
+    if not exists (select 1 from public.profiles where id = p_target_id) then
+      raise exception 'Target user not found';
+    end if;
+  elsif p_target_type = 'drop' then
+    if not exists (
+      select 1 from public.drops
+      where id = p_target_id and author_id <> v_reporter
+    ) then
+      raise exception 'Drop not found, or is your own';
+    end if;
+  elsif p_target_type = 'drop_comment' then
+    if not exists (
+      select 1 from public.drop_comments
+      where id = p_target_id and author_id <> v_reporter
+    ) then
+      raise exception 'Comment not found, or is your own';
+    end if;
+  elsif p_target_type = 'club' then
+    if not exists (
+      select 1 from public.clubs
+      where id = p_target_id and owner_id <> v_reporter
+    ) then
+      raise exception 'Club not found, or is your own';
+    end if;
+  elsif p_target_type = 'club_post' then
+    if not exists (
+      select 1 from public.club_posts
+      where id = p_target_id and author_id <> v_reporter
+    ) then
+      raise exception 'Club post not found, or is your own';
+    end if;
+  elsif p_target_type = 'club_post_comment' then
+    if not exists (
+      select 1 from public.club_post_comments
+      where id = p_target_id and author_id <> v_reporter
+    ) then
+      raise exception 'Club post comment not found, or is your own';
+    end if;
+  elsif p_target_type = 'message' then
+    if not exists (
+      select 1 from public.messages m
+      join public.conversations c on c.id = m.conversation_id
+      where m.id = p_target_id
+        and m.sender_id <> v_reporter
+        and v_reporter in (c.user_a_id, c.user_b_id)
+    ) then
+      raise exception 'Message not found, is your own, or you are not a participant';
+    end if;
+  elsif p_target_type = 'redrop' then
+    if not exists (
+      select 1 from public.redrops
+      where id = p_target_id and redropper_id <> v_reporter
+    ) then
+      raise exception 'Redrop not found, or is your own';
+    end if;
+  elsif p_target_type = 'club_channel_message' then
+    -- Same reasoning as the 'message' branch above: security definer
+    -- bypasses club_channel_messages' own membership-gated SELECT
+    -- policy, so the caller's membership in *that message's* Club must
+    -- be re-checked explicitly here, not assumed from RLS.
+    if not exists (
+      select 1 from public.club_channel_messages m
+      join public.club_channels ch on ch.id = m.channel_id
+      where m.id = p_target_id
+        and m.author_id <> v_reporter
+        and public.club_role(ch.club_id, v_reporter) is not null
+    ) then
+      raise exception 'Channel message not found, is your own, or you are not a member of its club';
+    end if;
+  else
+    raise exception 'Unsupported report target type: %', p_target_type;
+  end if;
+
+  insert into public.reports (reporter_id, target_type, target_id, category, detail)
+  values (
+    v_reporter,
+    p_target_type,
+    p_target_id,
+    p_category,
+    nullif(trim(coalesce(p_detail, '')), '')
+  )
+  returning id into v_report_id;
+
+  return v_report_id;
+end;
+$$;
+
+grant execute on function public.submit_report(text, uuid, text, text) to authenticated;
+
+-- Full re-definition of apply_moderation_action() -- same reasoning as
+-- submit_report() above: every branch except the new
+-- 'club_channel_message' one is byte-for-byte the same as the version
+-- further up this file.
+create or replace function public.apply_moderation_action(
+  p_report_id uuid,
+  p_action_type text,
+  p_reason text,
+  p_duration_days integer default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_reviewer uuid := auth.uid();
+  v_reviewer_role text;
+  v_report record;
+  v_target_user uuid;
+  v_target_content_type text;
+  v_target_content_id uuid;
+  v_expires_at timestamptz;
+  v_trimmed_reason text := trim(coalesce(p_reason, ''));
+  v_action_id uuid;
+begin
+  if v_reviewer is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select platform_role into v_reviewer_role from public.profiles where id = v_reviewer;
+  if v_reviewer_role is null or v_reviewer_role = 'user' then
+    raise exception 'Not authorized';
+  end if;
+
+  if p_action_type not in ('no_action', 'warning', 'remove_content', 'restrict', 'suspend', 'ban') then
+    raise exception 'Invalid action_type: %', p_action_type;
+  end if;
+
+  if length(v_trimmed_reason) = 0 then
+    raise exception 'Reason is required';
+  end if;
+
+  select * into v_report from public.reports where id = p_report_id for update;
+  if v_report is null then
+    raise exception 'Report not found';
+  end if;
+  if v_report.status not in ('pending', 'reviewing') then
+    raise exception 'Report has already been actioned';
+  end if;
+
+  if v_report.target_type = 'user' then
+    v_target_user := v_report.target_id;
+  elsif v_report.target_type = 'drop' then
+    select author_id into v_target_user from public.drops where id = v_report.target_id;
+  elsif v_report.target_type = 'drop_comment' then
+    select author_id into v_target_user from public.drop_comments where id = v_report.target_id;
+  elsif v_report.target_type = 'club' then
+    select owner_id into v_target_user from public.clubs where id = v_report.target_id;
+  elsif v_report.target_type = 'club_post' then
+    select author_id into v_target_user from public.club_posts where id = v_report.target_id;
+  elsif v_report.target_type = 'club_post_comment' then
+    select author_id into v_target_user from public.club_post_comments where id = v_report.target_id;
+  elsif v_report.target_type = 'club_channel_message' then
+    select author_id into v_target_user from public.club_channel_messages where id = v_report.target_id;
+  else
+    raise exception 'Unsupported report target type: %', v_report.target_type;
+  end if;
+
+  -- Remove Content only applies to content targets, per the Product
+  -- spec ("เฉพาะ target ที่เป็นเนื้อหา ไม่ใช้กับ target ที่เป็น User/Club").
+  if p_action_type = 'remove_content' and v_report.target_type in ('user', 'club') then
+    raise exception 'Remove Content is not supported for target type %', v_report.target_type;
+  end if;
+
+  -- Every action except No Action needs a real account to act on -- if
+  -- the target vanished before review (deleted by its own author, or by
+  -- an earlier Remove Content against a different report on the same
+  -- content), only No Action can still close the case.
+  if v_target_user is null and p_action_type <> 'no_action' then
+    raise exception 'Target no longer exists -- use No Action to close this report';
+  end if;
+
+  if p_action_type in ('restrict', 'suspend') then
+    if p_duration_days is null or p_duration_days not in (1, 3, 7) then
+      raise exception 'duration_days must be 1, 3, or 7 for % ', p_action_type;
+    end if;
+    v_expires_at := now() + (p_duration_days || ' days')::interval;
+  else
+    v_expires_at := null;
+  end if;
+
+  -- WYN-052: only a Drop gets restorable tracking -- other content
+  -- types have no soft-delete infra to point this at (see the section
+  -- comment above).
+  if p_action_type = 'remove_content' and v_report.target_type = 'drop' then
+    v_target_content_type := 'drop';
+    v_target_content_id := v_report.target_id;
+  end if;
+
+  insert into public.moderation_actions (
+    report_id, target_user_id, action_type, reason, duration_days, expires_at,
+    reviewer_id, target_content_type, target_content_id
+  ) values (
+    p_report_id,
+    v_target_user,
+    p_action_type,
+    v_trimmed_reason,
+    case when p_action_type in ('restrict', 'suspend') then p_duration_days else null end,
+    v_expires_at,
+    v_reviewer,
+    v_target_content_type,
+    v_target_content_id
+  )
+  returning id into v_action_id;
+
+  update public.reports
+  set status = case when p_action_type = 'no_action' then 'dismissed' else 'actioned' end
+  where id = p_report_id;
+
+  if p_action_type = 'warning' then
+    insert into public.notifications (recipient_id, actor_id, type, reason, moderation_action_id, moderation_action_type)
+    values (v_target_user, null, 'moderation_warning', v_trimmed_reason, v_action_id, p_action_type);
+  elsif p_action_type = 'remove_content' then
+    insert into public.notifications (recipient_id, actor_id, type, reason, moderation_action_id, moderation_action_type)
+    values (v_target_user, null, 'moderation_content_removed', v_trimmed_reason, v_action_id, p_action_type);
+
+    -- WYN-052: Drop soft-deletes (restorable); drop_comment/club_post/
+    -- club_post_comment/club_channel_message are unchanged, still an
+    -- immediate hard DELETE (design doc's Screen 5 effect) -- a chat
+    -- message has no restore path, same as a post comment.
+    if v_report.target_type = 'drop' then
+      update public.drops set deleted_at = now() where id = v_report.target_id and deleted_at is null;
+    elsif v_report.target_type = 'drop_comment' then
+      delete from public.drop_comments where id = v_report.target_id;
+    elsif v_report.target_type = 'club_post' then
+      delete from public.club_posts where id = v_report.target_id;
+    elsif v_report.target_type = 'club_post_comment' then
+      delete from public.club_post_comments where id = v_report.target_id;
+    elsif v_report.target_type = 'club_channel_message' then
+      delete from public.club_channel_messages where id = v_report.target_id;
+    end if;
+  end if;
+
+  perform internal.log_audit_event(
+    v_reviewer,
+    'moderation_action_applied',
+    v_target_user,
+    jsonb_build_object('action_type', p_action_type, 'reason', v_trimmed_reason)
+  );
+end;
+$$;
+
+grant execute on function public.apply_moderation_action(uuid, text, text, integer) to authenticated;

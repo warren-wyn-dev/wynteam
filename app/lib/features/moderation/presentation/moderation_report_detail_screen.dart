@@ -110,6 +110,13 @@ class _ModerationReportDetailScreenState extends State<ModerationReportDetailScr
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('ไม่สามารถเปิดดูบทสนทนานี้ได้')),
         );
+      case ReportTargetType.clubChannelMessage:
+        // Same reasoning as ReportTargetType.message above -- no
+        // moderator-facing Club chat room view exists this round either;
+        // the reported text/image is already in the target card itself.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ไม่สามารถเปิดดูห้องแชทนี้ได้')),
+        );
     }
   }
 
@@ -322,5 +329,6 @@ class _ModerationReportDetailScreenState extends State<ModerationReportDetailScr
         ReportTargetType.clubPost => Icons.article_outlined,
         ReportTargetType.clubPostComment => Icons.comment_outlined,
         ReportTargetType.message => Icons.chat_bubble_outline,
+        ReportTargetType.clubChannelMessage => Icons.forum_outlined,
       };
 }

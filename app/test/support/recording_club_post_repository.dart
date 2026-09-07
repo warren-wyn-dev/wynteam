@@ -56,8 +56,16 @@ class RecordingClubPostRepository extends ClubPostRepository {
   /// from ExploreClubsScreen, not just that navigation happened.
   int fetchFromJoinedClubsCalls = 0;
 
+  /// Every channelId [fetchPosts] was asked for, in order -- WYN-127.
+  final List<String> fetchPostsChannelIdArgs = [];
+
   @override
-  Future<List<ClubPost>> fetchPosts({required String clubId, required int page}) async {
+  Future<List<ClubPost>> fetchPosts({
+    required String clubId,
+    required String channelId,
+    required int page,
+  }) async {
+    fetchPostsChannelIdArgs.add(channelId);
     return page == 0 ? posts : <ClubPost>[];
   }
 
@@ -75,9 +83,12 @@ class RecordingClubPostRepository extends ClubPostRepository {
     return page == 0 ? searchResults : <ClubPost>[];
   }
 
+  final List<String> createPostChannelIdArgs = [];
+
   @override
   Future<void> createPost({
     required String clubId,
+    required String channelId,
     String? content,
     List<Uint8List>? images,
     List<String>? imageExtensions,
@@ -85,6 +96,7 @@ class RecordingClubPostRepository extends ClubPostRepository {
     Set<String> mentionedUserIds = const {},
   }) async {
     createPostCalls++;
+    createPostChannelIdArgs.add(channelId);
     createPostMentionedUserIdsArgs.add(mentionedUserIds);
   }
 
@@ -95,6 +107,7 @@ class RecordingClubPostRepository extends ClubPostRepository {
   @override
   Future<void> createPollClubPost({
     required String clubId,
+    required String channelId,
     required String question,
     required List<String> options,
     required int durationDays,
@@ -103,6 +116,7 @@ class RecordingClubPostRepository extends ClubPostRepository {
     if (createPollClubPostError != null) throw createPollClubPostError!;
     createPollClubPostArgs.add({
       'clubId': clubId,
+      'channelId': channelId,
       'question': question,
       'options': options,
       'durationDays': durationDays,

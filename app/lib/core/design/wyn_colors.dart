@@ -116,6 +116,20 @@ class WynColors {
   static const Color notificationBadgeRepost = Color(0xFF8A6D3A);
 
   // ---------------------------------------------------------------------
+  // WYN-129: Club Role Badge palette -- Founder-approved 2026-09-07
+  // ("โอเคแล้ว"), 3 fixed choices only, same "explicit accent exception,
+  // scoped to one small pill component" shape as
+  // notificationBadgeComment/Repost above. Never used anywhere else --
+  // do not repurpose for a new "success"/"warning" meaning.
+  // ---------------------------------------------------------------------
+  static const Color clubBadgeGoldBg = Color(0xFFF7EBD2);
+  static const Color clubBadgeGoldFg = Color(0xFF8A6A1E);
+  static const Color clubBadgeSageBg = Color(0xFFE1EAE3);
+  static const Color clubBadgeSageFg = Color(0xFF3E6B4E);
+  static const Color clubBadgePlumBg = Color(0xFFEFE1EC);
+  static const Color clubBadgePlumFg = Color(0xFF7A4C6B);
+
+  // ---------------------------------------------------------------------
   // Neutral technical/dark-mode scaffolding not covered by SPEC.md (which
   // only specifies a light palette) -- kept from the pre-rebrand system so
   // `dark` ColorScheme below still compiles to something coherent even

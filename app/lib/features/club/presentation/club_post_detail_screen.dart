@@ -10,15 +10,19 @@ import '../../../core/widgets/action_sheet_row.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../core/widgets/hashtag_text.dart';
 import '../../../core/widgets/restriction_banner.dart';
+import '../../../core/developer_access/developer_access_service.dart';
 import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/data/appeal_status.dart';
 import '../../moderation/data/moderation_repository.dart';
 import '../../moderation/presentation/appeal_form_screen.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
+import '../data/club_badge_repository.dart';
 import '../data/club_member.dart';
+import '../data/club_member_badge.dart';
 import '../data/club_post.dart';
 import '../data/club_post_comment.dart';
 import '../data/club_post_repository.dart';
+import 'widgets/club_badge_pill.dart';
 import 'widgets/club_post_card.dart' show ClubPostImages;
 import 'widgets/club_poll_card.dart';
 import '../../../core/design/wyn_spacing.dart';
@@ -54,6 +58,8 @@ class ClubPostDetailScreen extends StatefulWidget {
     required this.myRole,
     this.moderationRepository,
     this.appealRepository,
+    this.clubBadgeRepository,
+    this.developerAccessService,
   });
 
   final ClubPostRepository clubPostRepository;
@@ -66,6 +72,16 @@ class ClubPostDetailScreen extends StatefulWidget {
 
   // Same shape again -- WYN-030's appeal entry point on the Restrict banner.
   final AppealRepository? appealRepository;
+
+  /// WYN-129: optional, same defaulted-to-a-real-instance shape as every
+  /// other optional repository field in this app.
+  final ClubBadgeRepository? clubBadgeRepository;
+
+  /// Staged-rollout gate -- see ClubPostsTab's identical field doc
+  /// comment. Threaded down from ClubPostsTab._openPost so this screen
+  /// checks the same result rather than issuing (and caching) its own
+  /// separate RPC call.
+  final DeveloperAccessService? developerAccessService;
 
   @override
   State<ClubPostDetailScreen> createState() => _ClubPostDetailScreenState();
@@ -99,6 +115,14 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
       widget.moderationRepository ?? ModerationRepository(Supabase.instance.client);
   late final AppealRepository _appealRepository =
       widget.appealRepository ?? AppealRepository(Supabase.instance.client);
+  late final ClubBadgeRepository _clubBadgeRepository =
+      widget.clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
+  late final DeveloperAccessService _developerAccessService =
+      widget.developerAccessService ?? DeveloperAccessService();
+
+  /// WYN-129: every badge in this post's Club, keyed by user id -- shown
+  /// next to the post author's name and each comment author's name.
+  Map<String, ClubMemberBadge> _badges = {};
 
   // WYN-029 (Restrict) -- see CreateDropScreen's identical fields/doc
   // comment for why this is loaded once, not re-polled.
@@ -114,6 +138,24 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
     _post = widget.post;
     _loadComments();
     _loadModerationStatus();
+    // Staged-rollout gate -- see ClubPostsTab's identical comment on its
+    // own _loadBadges() call site. `_badges` simply stays empty forever
+    // for a regular account, which is indistinguishable from "nobody
+    // has a badge in this Club" -- the exact pre-WYN-129 look, both on
+    // the post header and on every comment row below.
+    _developerAccessService.isDeveloperAccount().then((isDeveloper) {
+      if (isDeveloper) _loadBadges();
+    });
+  }
+
+  Future<void> _loadBadges() async {
+    try {
+      final badges = await _clubBadgeRepository.fetchBadges(_post.clubId);
+      if (!mounted) return;
+      setState(() => _badges = badges);
+    } catch (_) {
+      // Fails open -- see ClubPostsTab._loadBadges' identical comment.
+    }
   }
 
   Future<void> _loadModerationStatus() async {
@@ -442,9 +484,21 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          _post.authorNameOrUsername,
-                          style: Theme.of(context).textTheme.titleSmall,
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                _post.authorNameOrUsername,
+                                style: Theme.of(context).textTheme.titleSmall,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            // WYN-129
+                            if (_badges[_post.authorId] != null) ...[
+                              const SizedBox(width: WynSpacing.space1),
+                              ClubBadgePill(badge: _badges[_post.authorId]!),
+                            ],
+                          ],
                         ),
                         Text(
                           relativeTimeLabel(_post.createdAt, now: DateTime.now()),
@@ -650,9 +704,21 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  comment.authorNameOrUsername,
-                  style: Theme.of(context).textTheme.titleSmall,
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        comment.authorNameOrUsername,
+                        style: Theme.of(context).textTheme.titleSmall,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    // WYN-129
+                    if (_badges[comment.authorId] != null) ...[
+                      const SizedBox(width: WynSpacing.space1),
+                      ClubBadgePill(badge: _badges[comment.authorId]!),
+                    ],
+                  ],
                 ),
                 Text(comment.textContent),
                 if (!isReply)

@@ -82,3 +82,14 @@
 - สถานะ: **อนุมัติแล้ว**
 - วันที่ตัดสินใจ: 2026-09-04 (Founder: "ลากเลือกจุดครอปได้ อนุมัติเพิ่มคอลัมน์")
 - **หมายเหตุ**: AI ห้าม apply กับ production เอง — เตรียม SQL ให้ Founder รันผ่าน Supabase Dashboard ตามวินัยเดิมของโปรเจกต์
+
+### APPROVAL_REQUIRED — [2026-09-07] WYN-128: ตารางใหม่ `club_channel_messages` สำหรับ Club Group Chat
+- Proposed change: สร้างตารางใหม่แยกต่างหาก `club_channel_messages` (id, channel_id, author_id, content, image_url, reply_to_message_id, created_at) พร้อม RLS ผูกกับ `club_role(channel's club_id, auth.uid()) is not null` โดยตรง เพื่อรองรับห้องแชทกลุ่มต่อ channel (WYN-127) ใน Club — **ไม่แตะตาราง `conversations`/`conversation_participants`/`messages` เดิมของ WYN-031 เลยแม้แต่บรรทัดเดียว**
+- Reason: ระบบแชทเดิม (WYN-031/032/033) ออกแบบมาเฉพาะการสนทนา 1-ต่อ-1 (unique constraint/index หลายจุดสมมติฐานคู่สนทนา 2 คน) การขยายให้รองรับ N คนในกลุ่มจะเสี่ยงกระทบทุกจุดที่อ้างอิง "อีกฝ่าย" (unread count, online status ฯลฯ) ของระบบที่มีผู้ใช้จริงใช้งานอยู่แล้ว — แยกตารางใหม่ปลอดภัยกว่ามาก
+- Benefits: ไม่มีความเสี่ยง regression ต่อแชท 1-ต่อ-1 ที่ทำงานอยู่แล้ว, schema ใหม่ออกแบบเฉพาะเจาะจงสำหรับกลุ่ม/channel ตั้งแต่ต้นไม่ต้องฝืนโครงสร้างเดิม
+- Risks: โค้ด UI ซ้ำกันเล็กน้อยระหว่าง 2 ระบบแชท (ยอมรับได้ตาม AI Design), ต้องระวัง RLS ผูก `club_role()` ให้ถูกต้องตาม channel ไม่ใช่ทั้ง Club
+- Files affected: migration SQL ใหม่ใน `supabase/`, `supabase/schema.sql`, `.wyn/tasks/backlog/WYN-128-club-group-chat.md`
+- Recommendation: อนุมัติ — เป็นแนวทางความเสี่ยงต่ำที่สุดสำหรับระบบสนทนากลุ่มครั้งแรกของ WYN
+- สถานะ: **อนุมัติแล้ว**
+- วันที่ตัดสินใจ: 2026-09-07 (Founder: "ทำต่อให้เสร็จเลย")
+- **หมายเหตุ**: AI Coding ต้องเตรียม SQL ให้ Founder รันผ่าน Supabase Dashboard เอง ตามวินัยเดิมของโปรเจกต์ (AI ห้าม apply กับ production เอง)

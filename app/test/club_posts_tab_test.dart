@@ -2,12 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/club/data/club.dart';
+import 'package:wyn/features/club/data/club_channel.dart';
 import 'package:wyn/features/club/data/club_member.dart';
+import 'package:wyn/features/club/data/club_member_badge.dart';
 import 'package:wyn/features/club/data/club_post.dart';
 import 'package:wyn/features/club/presentation/widgets/club_posts_tab.dart';
 
 import 'support/fake_supabase_session.dart';
+import 'support/recording_club_badge_repository.dart';
+import 'support/recording_club_channel_chat_repository.dart';
 import 'support/recording_club_post_repository.dart';
+import 'support/recording_club_repository.dart';
+import 'support/recording_developer_access_service.dart';
 
 /// Regression tests for WYN-014's post-visibility gating -- the Product
 /// spec is explicit that Club posts are visible *only* to approved
@@ -76,6 +82,27 @@ void main() {
   late RecordingClubPostRepository pinnedFirstRepo;
   late RecordingClubPostRepository emptyRepo;
   late RecordingClubPostRepository pollRepo;
+  late RecordingClubRepository defaultClubRepo;
+  late RecordingClubRepository singleGeneralChannelRepo;
+  late RecordingClubRepository twoChannelsRepo;
+  late RecordingClubRepository ownerSingleChannelRepo;
+  late RecordingClubBadgeRepository someoneElseVipBadgeRepo;
+  late RecordingClubBadgeRepository emptyBadgeRepo;
+  late RecordingClubChannelChatRepository defaultChatRepo;
+  // WYN-127-128-129-missing-staged-rollout-gate.md: every test in this
+  // file below (aside from the dedicated "Staged rollout gate" group)
+  // exercises the WYN-127/128/129 UI directly, so this defaults to
+  // `true` -- the "Staged rollout gate" group overrides it to `false`
+  // per-test to prove the pre-WYN-127/128/129 look instead.
+  late RecordingDeveloperAccessService defaultDeveloperAccessService;
+
+  ClubChannel channel({required String id, required String name}) => ClubChannel(
+        id: id,
+        clubId: club.id,
+        name: name,
+        createdBy: 'owner-1',
+        createdAt: DateTime.now(),
+      );
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'viewer');
@@ -89,6 +116,45 @@ void main() {
     ]);
     emptyRepo = RecordingClubPostRepository(posts: []);
     pollRepo = RecordingClubPostRepository(posts: [pollPost(id: 'p-poll')]);
+    // Built here, not inline as pumpTab's default (or inline inside a
+    // testWidgets body below) -- see .wyn/learning/PATTERNS.md:
+    // RecordingClubRepository's constructor creates a real SupabaseClient
+    // with its own GoTrue auto-refresh Timer.
+    defaultClubRepo = RecordingClubRepository(club: club);
+    // WYN-128: never let ClubPostsTab fall back to a real
+    // ClubChannelChatRepository in a test -- its unread-badge
+    // subscription would call the real Supabase Realtime client's
+    // `.subscribe()`, which leaves a pending Timer flutter_test fails
+    // the test over (see RecordingClubChannelChatRepository's own doc
+    // comment).
+    defaultChatRepo = RecordingClubChannelChatRepository();
+    singleGeneralChannelRepo = RecordingClubRepository(
+      club: club,
+      channels: [channel(id: 'c-general', name: 'ทั่วไป')],
+    );
+    twoChannelsRepo = RecordingClubRepository(
+      club: club,
+      channels: [
+        channel(id: 'c-general', name: 'ทั่วไป'),
+        channel(id: 'c-announce', name: 'ประกาศ'),
+      ],
+    );
+    ownerSingleChannelRepo = RecordingClubRepository(
+      club: club,
+      channels: [channel(id: 'c-general', name: 'ทั่วไป')],
+    );
+    someoneElseVipBadgeRepo = RecordingClubBadgeRepository(badges: {
+      'someone-else': ClubMemberBadge(
+        clubId: club.id,
+        userId: 'someone-else',
+        label: 'VIP',
+        colorKey: ClubBadgeColor.gold,
+        createdBy: 'owner-1',
+        createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+      ),
+    });
+    emptyBadgeRepo = RecordingClubBadgeRepository();
+    defaultDeveloperAccessService = RecordingDeveloperAccessService(isDeveloperResult: true);
   });
 
   Future<void> pumpTab(
@@ -96,14 +162,24 @@ void main() {
     RecordingClubPostRepository repo, {
     required ClubMemberRole? myRole,
     VoidCallback? onJoinTapped,
+    RecordingClubRepository? clubRepository,
+    RecordingClubBadgeRepository? clubBadgeRepository,
+    RecordingClubChannelChatRepository? clubChannelChatRepository,
+    RecordingDeveloperAccessService? developerAccessService,
+    VoidCallback? onBanned,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
         home: ClubPostsTab(
           clubPostRepository: repo,
+          clubRepository: clubRepository ?? defaultClubRepo,
+          clubBadgeRepository: clubBadgeRepository,
+          clubChannelChatRepository: clubChannelChatRepository ?? defaultChatRepo,
+          developerAccessService: developerAccessService ?? defaultDeveloperAccessService,
           club: club,
           myRole: myRole,
           onJoinTapped: onJoinTapped ?? () {},
+          onBanned: onBanned,
         ),
       ),
     );
@@ -207,6 +283,226 @@ void main() {
       // Reverted back to the original (no vote) state.
       expect(find.text('50%'), findsNWidgets(2));
       expect(find.byIcon(Icons.check_circle), findsNothing);
+    });
+  });
+
+  group('Channels (WYN-127)', () {
+    testWidgets('starts on the "ทั่วไป" (oldest) channel and fetches its posts',
+        (tester) async {
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.member,
+        clubRepository: singleGeneralChannelRepo,
+      );
+
+      expect(find.text('#ทั่วไป'), findsOneWidget);
+      expect(postsRepo.fetchPostsChannelIdArgs, contains('c-general'));
+    });
+
+    testWidgets('tapping another channel chip re-fetches posts scoped to it',
+        (tester) async {
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.member,
+        clubRepository: twoChannelsRepo,
+      );
+      postsRepo.fetchPostsChannelIdArgs.clear();
+
+      await tester.tap(find.text('#ประกาศ'));
+      await tester.pumpAndSettle();
+
+      expect(postsRepo.fetchPostsChannelIdArgs, contains('c-announce'));
+    });
+
+    testWidgets('a plain Member never sees the "+ ห้องใหม่" chip', (tester) async {
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.member,
+        clubRepository: singleGeneralChannelRepo,
+      );
+
+      expect(find.byKey(const Key('club_channel_new_chip')), findsNothing);
+    });
+
+    testWidgets('an Owner sees the "+ ห้องใหม่" chip and creating a channel selects it',
+        (tester) async {
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.owner,
+        clubRepository: ownerSingleChannelRepo,
+      );
+
+      expect(find.byKey(const Key('club_channel_new_chip')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('club_channel_new_chip')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'ถามตอบ');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(TextButton, 'บันทึก'));
+      await tester.pumpAndSettle();
+
+      expect(ownerSingleChannelRepo.createChannelCalls, 1);
+      expect(find.text('#ถามตอบ'), findsOneWidget);
+    });
+  });
+
+  group('Role Badge (WYN-129)', () {
+    testWidgets("shows the post author's badge pill next to their name",
+        (tester) async {
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.member,
+        clubBadgeRepository: someoneElseVipBadgeRepo,
+      );
+
+      expect(find.text('VIP'), findsOneWidget);
+    });
+
+    testWidgets('shows no badge pill for an author with none', (tester) async {
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.member,
+        clubBadgeRepository: emptyBadgeRepo,
+      );
+
+      expect(find.text('VIP'), findsNothing);
+    });
+  });
+
+  group('Group Chat toggle (WYN-128)', () {
+    testWidgets('defaults to the Posts view -- tapping "แชท" switches to the chat room',
+        (tester) async {
+      await pumpTab(tester, postsRepo, myRole: ClubMemberRole.member);
+
+      expect(find.text('สวัสดีชาว Club'), findsOneWidget);
+      expect(find.text('ยังไม่มีใครพิมพ์เลย'), findsNothing);
+
+      await tester.tap(find.text('แชท'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('สวัสดีชาว Club'), findsNothing);
+      expect(find.text('ยังไม่มีใครพิมพ์เลย'), findsOneWidget);
+    });
+
+    testWidgets('shows the current channel\'s unread count as a badge on "แชท"',
+        (tester) async {
+      final chatRepo = RecordingClubChannelChatRepository()
+        ..unreadCounts = {'default-channel': 2};
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.member,
+        clubChannelChatRepository: chatRepo,
+      );
+
+      expect(find.text('2'), findsOneWidget);
+    });
+
+    testWidgets('switching to chat marks the channel read, clearing the badge',
+        (tester) async {
+      final chatRepo = RecordingClubChannelChatRepository()
+        ..unreadCounts = {'default-channel': 2};
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.member,
+        clubChannelChatRepository: chatRepo,
+      );
+      expect(find.text('2'), findsOneWidget);
+
+      await tester.tap(find.text('แชท'));
+      await tester.pumpAndSettle();
+
+      expect(chatRepo.markChannelReadCalls, 1);
+      expect(find.text('2'), findsNothing);
+    });
+  });
+
+  group('Staged rollout gate (WYN-127-128-129-missing-staged-rollout-gate.md)', () {
+    testWidgets(
+        'a non-developer account sees zero channel/chat/badge UI -- exactly '
+        'the pre-WYN-127/128/129 single flat feed', (tester) async {
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.member,
+        clubRepository: twoChannelsRepo,
+        clubBadgeRepository: someoneElseVipBadgeRepo,
+        developerAccessService: RecordingDeveloperAccessService(isDeveloperResult: false),
+      );
+
+      // No channel chip row at all (not even the single "#ทั่วไป" chip).
+      expect(find.text('#ทั่วไป'), findsNothing);
+      expect(find.text('#ประกาศ'), findsNothing);
+      expect(find.byKey(const Key('club_channel_new_chip')), findsNothing);
+      // No "โพสต์ | แชท" toggle.
+      expect(find.text('แชท'), findsNothing);
+      // No badge pill next to the post author's name.
+      expect(find.text('VIP'), findsNothing);
+      // The feed itself is unaffected -- posts from the Club's default
+      // (oldest) channel still show, and the create-post FAB still works.
+      expect(find.text('สวัสดีชาว Club'), findsOneWidget);
+      expect(find.byType(FloatingActionButton), findsOneWidget);
+      expect(postsRepo.fetchPostsChannelIdArgs, contains('c-general'));
+    });
+
+    testWidgets('a developer account sees the channel/chat/badge UI (regression -- '
+        'proves the gate is not just "always hidden")', (tester) async {
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.member,
+        clubRepository: twoChannelsRepo,
+        clubBadgeRepository: someoneElseVipBadgeRepo,
+        developerAccessService: RecordingDeveloperAccessService(isDeveloperResult: true),
+      );
+
+      expect(find.text('#ทั่วไป'), findsOneWidget);
+      expect(find.text('#ประกาศ'), findsOneWidget);
+      expect(find.text('แชท'), findsOneWidget);
+      expect(find.text('VIP'), findsOneWidget);
+    });
+
+    testWidgets(
+        'a non-developer account\'s create-post composer never mentions a '
+        'channel name -- exactly the pre-WYN-127 "โพสต์ใน [ชื่อ Club]" chip',
+        (tester) async {
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.member,
+        clubRepository: twoChannelsRepo,
+        developerAccessService: RecordingDeveloperAccessService(isDeveloperResult: false),
+      );
+
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+
+      expect(find.text('โพสต์ใน Test Club'), findsOneWidget);
+      expect(find.textContaining('#ทั่วไป'), findsNothing);
+    });
+
+    testWidgets(
+        'a developer account\'s create-post composer still shows the channel '
+        'name (regression)', (tester) async {
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.member,
+        clubRepository: twoChannelsRepo,
+        developerAccessService: RecordingDeveloperAccessService(isDeveloperResult: true),
+      );
+
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+
+      expect(find.text('โพสต์ใน Test Club · #ทั่วไป'), findsOneWidget);
     });
   });
 }

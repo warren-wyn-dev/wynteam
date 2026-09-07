@@ -307,6 +307,7 @@ class _ModerationQueueRowState extends State<_ModerationQueueRow> {
         ReportTargetType.clubPost => Icons.article_outlined,
         ReportTargetType.clubPostComment => Icons.comment_outlined,
         ReportTargetType.message => Icons.chat_bubble_outline,
+        ReportTargetType.clubChannelMessage => Icons.forum_outlined,
       };
 
   @override

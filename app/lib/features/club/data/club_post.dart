@@ -16,6 +16,11 @@ class ClubPost {
   const ClubPost({
     required this.id,
     required this.clubId,
+    // WYN-127: defaults to '' (not required) so every existing test
+    // fixture that builds a ClubPost by hand for scenarios unrelated to
+    // Channels (Home feed, Notifications, Hashtag feed) doesn't need to
+    // invent a channel id it never asserts on.
+    this.channelId = '',
     required this.authorId,
     required this.authorUsername,
     this.authorDisplayName,
@@ -39,6 +44,9 @@ class ClubPost {
 
   final String id;
   final String clubId;
+
+  /// WYN-127: which room within [clubId] this post belongs to.
+  final String channelId;
   final String authorId;
   final String authorUsername;
   final String? authorDisplayName;
@@ -98,6 +106,7 @@ class ClubPost {
       ClubPost(
         id: id,
         clubId: clubId,
+        channelId: channelId,
         authorId: authorId,
         authorUsername: authorUsername,
         authorDisplayName: authorDisplayName,
@@ -191,6 +200,7 @@ class ClubPost {
     return ClubPost(
       id: map['id'] as String,
       clubId: map['club_id'] as String,
+      channelId: map['channel_id'] as String? ?? '',
       authorId: map['author_id'] as String,
       authorUsername: author?['username'] as String? ?? '',
       authorDisplayName: author?['display_name'] as String?,
