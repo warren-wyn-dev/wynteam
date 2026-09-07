@@ -1,6 +1,6 @@
 # Product Task — WYN-133
 
-Status: coding-complete — PR #308 (merged by Founder before CI finished, https://github.com/warren-wyn-dev/wynteam/pull/308) — follow-up analyze-fix PR #309 (https://github.com/warren-wyn-dev/wynteam/pull/309) open to bring `main` back to green — awaiting that + AI QA & Security, then apply-schema workflow + deploy
+Status: coding-complete, main green — merged via PR #308 + follow-up #309 (https://github.com/warren-wyn-dev/wynteam/pull/308, #309), CI on main (run 34139400704) all green: flutter analyze/test, Admin, schema.sql ordering, Supabase Edge Functions — awaiting AI QA & Security, then the `wyn133-apply-club-channel-categories-schema.yml` apply-workflow + deploy (apply workflow must run before deploy, per Dependencies below)
 Owner: AI Product Manager (spec) / AI Coding (implementation)
 
 Feature: Club Chat — กดห้องแล้วนำทางไปหน้าแชทของห้องนั้นแบบเต็มจอ (Discord-style channel navigation)
