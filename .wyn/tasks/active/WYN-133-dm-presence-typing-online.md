@@ -1,7 +1,7 @@
 # Product Task — WYN-133
 
-Status: design-complete — AI Design ทำ spec เต็มแล้ว (2026-09-07) รวม privacy toggle เป็นส่วนหนึ่งของ MVP ตามที่กำหนด — รอ Founder ยืนยันว่า wireframe ข้อความเพียงพอแทน visual mockup ก่อนส่งต่อ AI Coding
-Owner: AI Design → รอ Founder ยืนยัน mockup → AI Coding
+Status: ready-for-coding — AI Design ทำ spec เต็มแล้ว (2026-09-07) รวม privacy toggle เป็นส่วนหนึ่งของ MVP ตามที่กำหนด — Founder อนุมัติ wireframe ข้อความแทน visual mockup แล้ว ไม่มีจุดค้าง พร้อมส่ง AI Coding
+Owner: AI Design → AI Coding
 
 Feature: DM Presence — Typing Indicator + Online/Offline + Last Seen (1:1 Chat)
 

@@ -1,7 +1,7 @@
 # Product Task — WYN-132
 
-Status: design-complete — AI Design ทำ spec เต็มแล้ว (2026-09-07) — รอ Founder ยืนยันว่า wireframe ข้อความเพียงพอแทน visual mockup (ไม่มีเครื่องมือสร้างภาพในเซสชันนี้) ก่อนส่งต่อ AI Coding ตามกติกา "ขอดูรูปก่อนเขียนโค้ด"
-Owner: AI Design → รอ Founder ยืนยัน mockup → AI Coding
+Status: ready-for-coding — AI Design ทำ spec เต็มแล้ว (2026-09-07) — Founder อนุมัติ wireframe ข้อความแทน visual mockup แล้ว ไม่มีจุดค้าง พร้อมส่ง AI Coding
+Owner: AI Design → AI Coding
 
 Feature: DM Message Actions — Edit Message + Pin Message (1:1 Chat)
 

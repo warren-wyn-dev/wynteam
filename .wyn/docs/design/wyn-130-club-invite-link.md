@@ -5,9 +5,11 @@ Owner: AI Design
 
 WYN design system ที่อนุมัติแล้ว: reuse component เดิมทั้งหมด (`ActionSheetRow`, confirm-dialog pattern ของ `confirmDeletePost`/`confirmBlock`, list-row shape ของ `FollowListScreen`/`ClubMembersTab`) — ไม่มีทิศทาง visual ใหม่
 
-## ⚠️ ต้องยืนยันกับ Founder ก่อน lock พฤติกรรม — Private Club + Invite Link Semantics
+## ✅ Founder ตัดสินใจแล้ว (2026-09-07) — Private Club + Invite Link = ทางเลือก A
 
-Product Task ระบุไว้ชัดว่าเป็นจุดตัดสินใจสำคัญที่ต้องยืนยันก่อน Design ล็อกพฤติกรรม — เอกสารนี้ตรวจสอบโค้ดจริงแล้วยืนยันว่า **implement ได้ทั้งสองทางโดยไม่กระทบ RLS/schema เดิมเลย** (ดูหัวข้อ Schema ด้านล่าง — ทั้งสองทางใช้ RPC เดียวกัน ต่างกันแค่ 1 บรรทัดในนั้น) จึงไม่ใช่ major architecture risk ทางเทคนิค แต่เป็น **product/security policy decision** ที่ต้อง Founder ตัดสินใจเองตามที่ RULES.md กำหนด — ยังไม่ lock ในเอกสารนี้
+**Founder เลือกทางเลือก A**: กดลิงก์เชิญที่ valid สำหรับ Private Club → **join ทันที ข้าม Join Request/Approve เลย** — บันทึกไว้ใน `.wyn/company/DECISIONS.md` (2026-09-07) แล้ว RPC 4 ด้านล่าง lock เป็นทางเลือก A เรียบร้อย พร้อมส่ง AI Coding
+
+เนื้อหาด้านล่างเก็บ trade-off ทั้งสองทางไว้เป็น record ประกอบการตัดสินใจ (ไม่ใช่คำถามที่ยังค้างอยู่แล้ว)
 
 **บริบทที่ตรวจสอบจากโค้ดจริง**: ปัจจุบัน `club_members` INSERT policy (WYN-014) กำหนดตายตัวว่า Private club → insert ได้แค่ `status = 'pending'` เท่านั้น (ต้องรอ `approve_club_member()` โดย Owner/Admin เสมอ) — ไม่มีทางเลี่ยงเลยแม้แต่ทางเดียวในโค้ดปัจจุบัน คำถามคือ **invite link ควรเป็นข้อยกเว้นของกฎนี้หรือไม่**
 
@@ -246,19 +248,16 @@ begin
     raise exception 'You have been banned from this club';
   end if;
 
+  -- Founder ยืนยันทางเลือก A (2026-09-07, .wyn/company/DECISIONS.md):
+  -- invite link ที่ valid = อนุมัติล่วงหน้าในตัวเสมอ ไม่ว่า club จะเป็น public หรือ private
   insert into public.club_members (club_id, user_id, role, status)
-  values (
-    v_club.id,
-    v_me,
-    'member',
-    -- ==================== จุดตัดสินใจ (ดูหัวข้อด้านบน) ====================
-    -- ทางเลือก A (join ทันทีแม้ Private):
-    'approved'
-    -- ทางเลือก B (Private ยังต้องขออนุมัติเหมือนเดิม):
-    -- case when v_club.privacy = 'public' then 'approved' else 'pending' end
-    -- ======================================================================
-  )
-  on conflict (club_id, user_id) do nothing;
+  values (v_club.id, v_me, 'member', 'approved')
+  on conflict (club_id, user_id)
+  do update set status = 'approved'
+  where public.club_members.status = 'pending';
+  -- upgrade แถว pending เดิม (จาก join ปกติที่ยังไม่ได้รับอนุมัติ) เป็น approved ทันที
+  -- ให้สอดคล้องกับเจตนาของทางเลือก A ("ลิงก์เชิญ = อนุมัติล่วงหน้าแล้ว") --
+  -- ไม่ทำอะไรกับแถวที่เป็น approved/banned อยู่แล้ว (do update ...where... กรองไว้)
 
   select exists (
     select 1 from public.club_members
@@ -351,7 +350,7 @@ ClubInvitePreviewScreen (เปิดจากลิงก์):
 
 - กดลิงก์ที่ตัวเองเป็นสมาชิกอยู่แล้ว (approved) → `redeem_club_invite_link` ทำงานแบบ idempotent (`on conflict do nothing`) → พาเข้า `ClubPage` ตรงๆ เหมือนกดลิงก์ `/club/:id` ปกติ ไม่แจ้ง error/ไม่นับ use_count ซ้ำ
 - กดลิงก์ทั้งที่ถูก ban จาก club นั้นอยู่แล้ว → RPC ปฏิเสธชัดเจน ("You have been banned from this club") → หน้า preview แสดงข้อความนี้แทนปุ่ม "เข้าร่วม"
-- กดลิงก์ขณะที่ตัวเองมี pending request อยู่แล้วจากทางอื่น (join ผ่านหน้า Club ปกติไว้ก่อนหน้า) + ทางเลือก A + Private → `on conflict do nothing` ทำให้แถวเดิมยังเป็น `pending` ต่อไป **ไม่ auto-upgrade เป็น approved** (เพราะ `insert ... on conflict do nothing` ไม่ update แถวที่มีอยู่แล้ว) — เป็นพฤติกรรมที่ต้องระบุให้ AI Coding รู้ชัดเจน: ถ้าต้องการให้ลิงก์ "อัปเกรด" pending เดิมเป็น approved ทันทีด้วย ต้องเปลี่ยนเป็น `insert ... on conflict (club_id, user_id) do update set status = 'approved' where club_members.status = 'pending'` แทน — **ทิ้งเป็นคำถามรองให้ Founder ตอบพร้อมกับคำถามหลักด้านบน ถ้าเลือกทางเลือก A** (ทางเลือก B ไม่มีปัญหานี้เพราะทั้งสองทางจบที่ pending เหมือนกันอยู่แล้ว)
+- กดลิงก์ขณะที่ตัวเองมี pending request อยู่แล้วจากทางอื่น (join ผ่านหน้า Club ปกติไว้ก่อนหน้า) → RPC 4 `on conflict ... do update set status = 'approved' where status = 'pending'` **อัปเกรดแถวเดิมเป็น approved ทันที** — สอดคล้องกับเจตนาของทางเลือก A ที่ Founder เลือก (invite link = อนุมัติล่วงหน้าแล้ว ไม่ควรปล่อยให้ค้าง pending ต่อ) เป็นการตัดสินใจของ AI Design ที่สอดคล้องโดยตรงกับคำตอบหลักของ Founder ไม่ใช่จุดที่ต้องถามเพิ่ม
 - ลิงก์ที่ยังไม่หมดอายุแต่ Club ถูกลบไปแล้ว → เป็นไปไม่ได้ในทางปฏิบัติ (Club ไม่มีฟีเจอร์ลบ Club ในระบบตอนนี้ตามที่ตรวจสอบแล้ว — ถ้ามีในอนาคต `club_id ... on delete cascade` จะลบลิงก์ตามไปด้วยอัตโนมัติอยู่แล้ว)
 - Owner/Admin ที่สร้างลิงก์ถูกถอด role/ออกจาก club ไปแล้ว → ลิงก์ที่สร้างไว้ก่อนหน้ายังใช้งานได้ตามปกติ (ไม่ผูกอายุลิงก์กับสถานะสมาชิกของผู้สร้าง — ตรงกับ pattern `created_by`/`reviewer_id` อื่นในระบบที่เป็นแค่ attribution ไม่ใช่ validity condition) — เฉพาะ Owner/Admin **ปัจจุบัน** เท่านั้นที่ revoke ได้ (เช็คสดทุกครั้งผ่าน `club_role()`)
 - สร้างลิงก์พร้อมกันหลายอันจาก Owner/Admin คนละคน → ไม่มี limit จำนวนลิงก์ต่อ club ในสเปกนี้ (Requirement อนุญาตให้สร้างได้หลายลิงก์อยู่แล้ว) — ยอมรับได้ ไม่ใช่ gap
@@ -362,8 +361,6 @@ ClubInvitePreviewScreen (เปิดจากลิงก์):
 
 ## Handoff
 
-**ห้ามส่งต่อ AI Coding จนกว่า Founder จะตอบคำถาม Private-Club-invite-semantics ด้านบน (A หรือ B)** — ทุกส่วนอื่นของ design (schema, UI, deep-link, RLS) พร้อมแล้ว 100% ไม่ต้องรอคำตอบนี้เพื่อเริ่ม แต่ RPC 4 (`redeem_club_invite_link`) ต้อง lock ก่อนเขียนโค้ดจริง
-
-**ต้องการ visual mockup ก่อนส่ง AI Coding** ตามกติกา "ขอดูรูปก่อน เขียนโค้ดนะ" (2026-09-03) เช่นกัน — มีหน้าจอใหม่ 2 หน้า (`ClubInviteLinksScreen`, `ClubInvitePreviewScreen`) session นี้ไม่มีเครื่องมือสร้างภาพ ทำได้แค่ wireframe ข้อความข้างต้น — แนะนำรอทั้งคำตอบ A/B และ visual mockup พร้อมกันก่อนส่ง AI Coding
+**พร้อมส่ง AI Coding แล้ว** — Founder ยืนยันทางเลือก A (2026-09-07) และอนุมัติให้ใช้ wireframe ข้อความแทน visual mockup จริงสำหรับรอบนี้ (บันทึกใน `.wyn/company/DECISIONS.md`) — RPC 4 lock แล้ว, schema/UI/deep-link/RLS พร้อมครบ 100%
 
 **Staged Rollout (WYN-125)**: ต้อง gate ด้วย `isDeveloperAccount()` — `false`: ไม่เห็นแถว "ลิงก์เชิญ" ในเมนู More เลย, เปิดลิงก์ `/club-invite/:code` เก่าที่อาจมีคน (developer) สร้างไว้ก่อน fallback เข้า Home ปกติเงียบๆ (เหมือน path ที่ไม่รู้จัก) แทนที่จะพาไปหน้า preview จริง — จนกว่า Founder จะสั่งเปิดให้ทุกคน

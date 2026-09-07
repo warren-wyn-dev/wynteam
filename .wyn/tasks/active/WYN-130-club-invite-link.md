@@ -1,7 +1,7 @@
 # Product Task — WYN-130
 
-Status: blocked-on-founder-decision — AI Design ทำ spec เต็มแล้ว (2026-09-07) ทั้งสองทางเลือก (A/B) แต่ **ห้าม AI Coding เริ่มจนกว่า Founder จะเลือก A หรือ B** สำหรับ Private-Club-invite-semantics (ดู AI Design Output ด้านล่าง) — ทุกส่วนอื่นพร้อมแล้ว
-Owner: AI Design → รอ Founder ตัดสินใจ A/B → AI Coding
+Status: ready-for-coding — Founder ยืนยันทางเลือก A แล้ว (2026-09-07, "เข้าร่วมทันที" — บันทึกใน `.wyn/company/DECISIONS.md`) และอนุมัติ wireframe ข้อความแทน visual mockup — ไม่มีจุดค้าง พร้อมส่ง AI Coding
+Owner: AI Design → AI Coding
 
 Feature: Club Invite Link (generate/revoke, expiration, max-uses)
 
