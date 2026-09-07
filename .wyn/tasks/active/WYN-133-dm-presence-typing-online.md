@@ -1,6 +1,6 @@
 # Product Task — WYN-133
 
-Status: ready-for-coding — AI Design ทำ spec เต็มแล้ว (2026-09-07) รวม privacy toggle เป็นส่วนหนึ่งของ MVP ตามที่กำหนด — Founder อนุมัติ wireframe ข้อความแทน visual mockup แล้ว ไม่มีจุดค้าง พร้อมส่ง AI Coding
+Status: coding-complete รอ QA (2026-09-07)
 Owner: AI Design → AI Coding
 
 Feature: DM Presence — Typing Indicator + Online/Offline + Last Seen (1:1 Chat)
@@ -53,3 +53,26 @@ Design spec เต็มที่ `.wyn/docs/design/wyn-133-dm-presence-typing-o
 - แนะนำ gate ด้วย Staged Rollout (WYN-125) รวมถึง**ไม่ track/subscribe presence channel เลย**สำหรับผู้ใช้ทั่วไป (ไม่ใช่แค่ซ่อน UI) เพื่อประหยัด resource
 
 Handoff: **รอ Founder ยืนยัน 1 เรื่อง** — wireframe ข้อความในเอกสารเพียงพอสำหรับอนุมัติ หรือรอ session ที่มีเครื่องมือสร้างภาพ mockup จริงก่อน — หลังยืนยันแล้วส่งต่อ AI Coding ได้ทันที (schema/RPC/RLS/privacy model พร้อมสมบูรณ์แล้ว ไม่มีจุดกำกวมด้าน technical)
+
+Founder ยืนยันแล้ว 2026-09-07 (ดู `.wyn/company/DECISIONS.md` entry "[2026-09-07] Social 3-Domain Roadmap") — ไม่มีจุดค้าง ส่งต่อ AI Coding
+
+## AI Coding Output (2026-09-07)
+
+Implementation ครบตาม design spec ทั้ง SQL/Flutter:
+
+- **Schema**: `public.user_presence` (แยกจาก `profiles` ตามที่ Design กำหนดเพื่อป้องกัน privacy leak ผ่าน `profiles`' SELECT policy `using (true)`), `touch_my_presence()`, `get_conversation_partner_presence()` — ทั้งหมดใน `supabase/schema.sql` + `supabase/migrations_wyn133_dm_presence.sql` (standalone migration ใหม่ตาม convention)
+  - **พบและแก้บั๊กใน SQL ต้นฉบับของ Design ระหว่าง implement**: `get_conversation_partner_presence()`'s `return query select true, up.last_seen_at from user_presence up where up.user_id = v_other` คืน **0 แถว** (ไม่ใช่ 1 แถวที่มี `last_seen_at = null`) เมื่อ partner ไม่เคยมีแถว `user_presence` เลย (เช่น ผู้ใช้ใหม่ที่ online ต่อเนื่องมาตั้งแต่สมัครโดยไม่เคย background แอปเลย) — ขัดกับที่ design doc's Edge Cases เขียนไว้เองว่าคาดหวัง "last_seen_at เป็น null จริง" (คือคาดหวัง 1 แถว) ผลคือ client จะเข้าใจผิดว่า reciprocal check ไม่ผ่าน (`showOnline: false`) ทั้งที่จริงผ่าน ซ่อน "ออนไลน์" dot ของคนที่กำลังออนไลน์อยู่จริงไปเฉยๆ — แก้เป็น scalar subquery `select true, (select last_seen_at from user_presence where user_id = v_other)` ให้คืน 1 แถวเสมอเมื่อ reciprocal check ผ่าน บันทึกเหตุผลไว้ใน comment ทั้งใน schema.sql และ migration file แล้ว (เป็นการแก้ตรงไปตรงมา ไม่ใช่การเปลี่ยน intent ของ design จึงไม่หยุดรอถาม Founder)
+- **Flutter data layer**: `PresenceRepository` ใหม่ (`app/lib/features/presence/data/presence_repository.dart`) ครอบทั้ง global online-presence channel (process-wide static cache + listener list มิเรอร์ `DeveloperAccessService`'s static-cache shape), per-conversation typing channel, และ DB read/write (`fetchShowOnlineStatus`/`setShowOnlineStatus`/`touchMyPresence`/`fetchConversationPartnerPresence`)
+- **RootShell**: เปิด global presence channel ครั้งเดียวตอน launch (gate ด้วย `isDeveloperAccount()`), track/untrack + `touchMyPresence()` ตาม `AppLifecycleState` resumed/paused-detached, `stopGlobalPresence()` ตอน dispose (sign-out/account switch)
+- **ConversationScreen**: AppBar subtitle ใหม่ใต้ชื่อ (ลำดับ: กำลังพิมพ์ > ออนไลน์ > ใช้งานล่าสุด > ไม่แสดงอะไร ตาม design), per-conversation typing channel + debounce 3s + safety-net timer ทั้งสองฝั่ง, reuse `relativeTimeLabel()` เดิม
+- **Settings → ความเป็นส่วนตัว**: แถว Switch ใหม่ "แสดงสถานะออนไลน์และเข้าใช้งานล่าสุด" พร้อม helper text อธิบาย reciprocal
+- **Staged Rollout**: ทุกจุด gate ด้วย `isDeveloperAccount()` ครบตามที่ Design ระบุ — non-developer ไม่เห็น AppBar subtitle เลย, ไม่เห็น Settings toggle เลย, และไม่ track/subscribe presence channel ใดๆ เลยทั้ง global (RootShell) และ per-conversation (ConversationScreen) — ยืนยันด้วย test ที่เช็ค call count ของ repository เป็น 0 ตรงๆ ไม่ใช่แค่เช็ค UI
+- **Test ใหม่**: `conversation_screen_test.dart` +7 tests (gate on/off, typing indicator + safety-net timer, online/last-seen 4 states ตามลำดับความสำคัญ, reciprocal-fail ซ่อนทุกอย่าง, debounced typing broadcast + idle-timeout), `root_shell_test.dart` +4 tests (global channel start/gate, pause/resume track/untrack/touchMyPresence), `settings_screen_test.dart` +4 tests (gate on/off, toggle initial value + flip + revert-on-fail) — เพิ่ม `RecordingPresenceRepository` ใหม่ใน `test/support/`
+- **flutter analyze**: 0 issues (ทั้งโปรเจกต์)
+- **flutter test**: **1403/1403 PASS** (ทั้งโปรเจกต์)
+
+Known Issues / จุดที่ตัดสินใจเอง (ไม่ใช่จุดค้างที่ต้องถาม Founder):
+- แก้บั๊ก SQL ของ Design ตามที่อธิบายไว้ข้างบน (`get_conversation_partner_presence()`'s scalar subquery)
+- Edge case ที่ design doc เองยอมรับไว้แล้วยังคงอยู่ตามเดิม: `last_seen_at` ไม่อัปเดตถ้าแอปถูก kill กะทันหัน (ไม่มี server-side heartbeat timeout ใน v1), 2 อุปกรณ์พร้อมกันนับเป็น online เดียว (ตามที่ design ตั้งใจ), presence ของอีกฝ่ายไม่ real-time เต็มรูปแบบเมื่อพวกเขาเปลี่ยน privacy toggle เอง (ต้อง fetch ใหม่ตอนเปิดหน้า/resume ไม่ใช่ postgres_changes)
+
+Handoff: ส่งต่อ AI QA & Security

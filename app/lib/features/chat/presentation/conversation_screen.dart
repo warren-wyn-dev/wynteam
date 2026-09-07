@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/developer_access/developer_access_service.dart';
+import '../../../core/text_utils.dart';
 import '../../../core/widgets/action_sheet_row.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../core/widgets/empty_state_block.dart';
@@ -43,6 +44,7 @@ import '../data/chat_message.dart';
 import '../data/chat_repository.dart';
 import '../data/pinned_message.dart';
 import '../data/shared_content_type.dart';
+import '../../presence/data/presence_repository.dart';
 
 /// Screen 3 -- the conversation itself. Restyled to 13-chat-thread.tsx:
 /// sapphire-filled bubbles (mine) vs. tinted #F1EFE9 bubbles (theirs).
@@ -103,6 +105,7 @@ class ConversationScreen extends StatefulWidget {
     ClubRepository? clubRepository,
     ClubPostRepository? clubPostRepository,
     DeveloperAccessService? developerAccessService,
+    PresenceRepository? presenceRepository,
   })  : _blockRepository = blockRepository,
         _moderationRepository = moderationRepository,
         _reportRepository = reportRepository,
@@ -114,7 +117,8 @@ class ConversationScreen extends StatefulWidget {
         _appealRepository = appealRepository,
         _clubRepository = clubRepository,
         _clubPostRepository = clubPostRepository,
-        _developerAccessService = developerAccessService;
+        _developerAccessService = developerAccessService,
+        _presenceRepository = presenceRepository;
 
   final ChatRepository chatRepository;
   final String conversationId;
@@ -146,6 +150,10 @@ class ConversationScreen extends StatefulWidget {
   // WYN-132/WYN-125: Staged Rollout gate for Edit/Pin Message -- see
   // _ConversationScreenState's own doc comments on _isDeveloperFuture.
   final DeveloperAccessService? _developerAccessService;
+
+  // WYN-133/WYN-125: Staged Rollout gate for DM Presence (typing +
+  // online/last seen) -- shares the same _isDeveloperFuture above.
+  final PresenceRepository? _presenceRepository;
 
   @override
   State<ConversationScreen> createState() => _ConversationScreenState();
@@ -181,6 +189,8 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       widget._clubPostRepository ?? ClubPostRepository(Supabase.instance.client);
   late final DeveloperAccessService _developerAccessService =
       widget._developerAccessService ?? DeveloperAccessService();
+  late final PresenceRepository _presenceRepository =
+      widget._presenceRepository ?? PresenceRepository(Supabase.instance.client);
 
   /// WYN-132/WYN-125: Staged Rollout gate -- Edit/Pin Message's own 2
   /// new menu rows and the pinned bar are never even fetched/built
@@ -264,6 +274,47 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// is what keeps the pinned bar from ever rendering for them.
   List<PinnedMessage> _pinnedMessages = [];
   RealtimeChannel? _pinsChannel;
+
+  // WYN-133/WYN-125 -- DM Presence (Typing + Online/Last Seen), only
+  // ever wired up for a developer account (see [_initPresenceIfDeveloper]).
+
+  /// True while the other participant's own typing channel presence
+  /// shows `typing: true` -- highest-priority line in the AppBar
+  /// subtitle (see [_buildStatusSubtitle]). Not privacy-gated at all
+  /// (Requirement: "Typing Indicator ไม่มี privacy toggle แยก").
+  bool _otherTyping = false;
+
+  /// The result of `get_conversation_partner_presence()`'s own
+  /// reciprocal check -- `false` means either participant has their own
+  /// visibility off, in which case [_partnerLastSeenAt] is always null
+  /// alongside it and the live [_otherOnline] getter below must also be
+  /// treated as irrelevant (see [_buildStatusSubtitle]).
+  bool _partnerShowOnline = false;
+  DateTime? _partnerLastSeenAt;
+
+  RealtimeChannel? _typingChannel;
+
+  /// Client-side safety net (design doc: "เริ่ม timer client-side ของ
+  /// ตัวเอง 3 วิ") -- auto-clears [_otherTyping] 3s after the last
+  /// `typing: true` sync, in case the other side's own `typing: false`/
+  /// leave event never arrives (e.g. their app crashed mid-type).
+  Timer? _otherTypingSafetyTimer;
+
+  /// This user's own typing state, tracked on [_typingChannel] --
+  /// mirrors [_otherTyping] but for the outgoing direction. Debounced by
+  /// [_myTypingStopTimer] so `setTyping()` is only ever called on an
+  /// actual `false`->`true`/`true`->`false` transition, not on every
+  /// keystroke (Requirement: "debounce เพื่อไม่ spam event ทุกตัวอักษร").
+  bool _iAmTyping = false;
+  Timer? _myTypingStopTimer;
+
+  /// Registered on [PresenceRepository]'s process-wide listener list
+  /// (see that class's own doc comment) so this screen's AppBar
+  /// re-renders live when the *global* online-status cache changes --
+  /// removed in [dispose].
+  VoidCallback? _presenceListener;
+
+  bool get _otherOnline => _presenceRepository.isUserOnline(widget.otherUserId);
 
   /// Founder feedback -- the composer's "View Once" toggle, only ever
   /// meaningful while [_imageBytes] is set (see [_buildImagePreviewBar]
@@ -382,6 +433,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       _onConversationMetaUpdate,
     );
     _initPinsIfDeveloper();
+    _initPresenceIfDeveloper();
   }
 
   /// WYN-132/WYN-125: Staged Rollout gate -- see [_isDeveloperFuture]'s
@@ -402,6 +454,98 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     });
   }
 
+  /// WYN-133/WYN-125: Staged Rollout gate -- same shape as
+  /// [_initPinsIfDeveloper] just above. A non-developer account never
+  /// opens the per-conversation typing channel, never fetches
+  /// [_partnerShowOnline]/[_partnerLastSeenAt], and never registers a
+  /// global-presence listener at all (design doc: "ไม่ track/subscribe
+  /// presence channel ใดๆ เลยทั้ง global และ per-conversation").
+  /// Idempotent -- safe to call again from [_resubscribeAndRefresh]
+  /// (removes any previously-registered listener first, so a resume
+  /// never ends up with two).
+  void _initPresenceIfDeveloper() {
+    _isDeveloperFuture.then((isDeveloper) {
+      if (!mounted || !isDeveloper) return;
+      _loadPartnerPresence();
+      _typingChannel = _presenceRepository.subscribeTypingChannel(
+        widget.conversationId,
+        onPresenceChange: _onTypingPresenceChange,
+      );
+      final oldListener = _presenceListener;
+      if (oldListener != null) _presenceRepository.removeGlobalPresenceListener(oldListener);
+      _presenceListener = () {
+        if (mounted) setState(() {});
+      };
+      _presenceRepository.addGlobalPresenceListener(_presenceListener!);
+    });
+  }
+
+  Future<void> _loadPartnerPresence() async {
+    try {
+      final presence = await _presenceRepository.fetchConversationPartnerPresence(
+        widget.conversationId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _partnerShowOnline = presence.showOnline;
+        _partnerLastSeenAt = presence.lastSeenAt;
+      });
+    } catch (_) {
+      // Fails open to "nothing shown" (AppBar subtitle condition 4) --
+      // matches this screen's usual load-failure posture.
+    }
+  }
+
+  /// `PresenceRepository.subscribeTypingChannel`'s own `onPresenceChange`
+  /// callback -- re-derives whether the *other* participant is typing
+  /// via `isOtherTyping` and (re)starts [_otherTypingSafetyTimer] on
+  /// every `true` sync (design doc: "เริ่ม timer client-side ของตัวเอง 3
+  /// วิ (safety net เผื่อ event false/leave หลุดหายระหว่างทาง)").
+  void _onTypingPresenceChange() {
+    if (!mounted) return;
+    final channel = _typingChannel;
+    if (channel == null) return;
+    final typing = _presenceRepository.isOtherTyping(channel, widget.otherUserId);
+    _otherTypingSafetyTimer?.cancel();
+    if (typing) {
+      _otherTypingSafetyTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _otherTyping = false);
+      });
+    }
+    setState(() => _otherTyping = typing);
+  }
+
+  /// `TextField.onChanged` -- broadcasts this user's own typing state,
+  /// debounced to only fire on an actual `false`->`true` transition (see
+  /// [_iAmTyping]'s own doc comment), with a 3s idle timer that clears
+  /// it automatically if nothing else does first.
+  void _onComposerTextChanged() {
+    final channel = _typingChannel;
+    if (channel == null) return;
+    if (_textController.text.trim().isNotEmpty) {
+      if (!_iAmTyping) {
+        _iAmTyping = true;
+        _presenceRepository.setTyping(channel, true);
+      }
+      _myTypingStopTimer?.cancel();
+      _myTypingStopTimer = Timer(const Duration(seconds: 3), _stopMyTyping);
+    } else {
+      _stopMyTyping();
+    }
+  }
+
+  /// Design doc: "ส่งข้อความสำเร็จ -> track({'typing': false}) + cancel
+  /// timer ทันที (เคลียร์ทันทีไม่ต้องรอ 3 วิ)" -- also the plain idle-
+  /// timeout path from [_onComposerTextChanged] above.
+  void _stopMyTyping() {
+    _myTypingStopTimer?.cancel();
+    _myTypingStopTimer = null;
+    if (!_iAmTyping) return;
+    _iAmTyping = false;
+    final channel = _typingChannel;
+    if (channel != null) _presenceRepository.setTyping(channel, false);
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -411,6 +555,12 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     if (metaChannel != null) widget.chatRepository.unsubscribe(metaChannel);
     final pinsChannel = _pinsChannel;
     if (pinsChannel != null) widget.chatRepository.unsubscribe(pinsChannel);
+    final typingChannel = _typingChannel;
+    if (typingChannel != null) _presenceRepository.unsubscribeTyping(typingChannel);
+    final presenceListener = _presenceListener;
+    if (presenceListener != null) _presenceRepository.removeGlobalPresenceListener(presenceListener);
+    _otherTypingSafetyTimer?.cancel();
+    _myTypingStopTimer?.cancel();
     _revealTimer?.cancel();
     _scrollController.dispose();
     _textController.dispose();
@@ -449,6 +599,10 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     if (oldPinsChannel != null) widget.chatRepository.unsubscribe(oldPinsChannel);
     _pinsChannel = null;
     _initPinsIfDeveloper();
+    final oldTypingChannel = _typingChannel;
+    if (oldTypingChannel != null) _presenceRepository.unsubscribeTyping(oldTypingChannel);
+    _typingChannel = null;
+    _initPresenceIfDeveloper();
     await Future.wait([_refreshLatest(), _loadConversationMeta()]);
   }
 
@@ -784,6 +938,11 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     // and keeping the keyboard up (not guaranteed on every browser, but
     // costs nothing to try).
     _textFieldFocusNode.requestFocus();
+    // WYN-133: "ส่งข้อความสำเร็จ -> track({'typing': false}) + cancel
+    // timer ทันที" -- done right away here (not awaited on the RPC
+    // below), matching every other piece of composer state this
+    // function already clears optimistically at send time.
+    _stopMyTyping();
     final text = _textController.text;
     final imageBytes = _imageBytes;
     final imageExtension = _imageExtension;
@@ -1365,11 +1524,58 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     );
   }
 
+  /// WYN-133/WYN-125: the AppBar subtitle line -- `null` for a
+  /// non-developer account (this screen never even populates
+  /// [_otherTyping]/[_partnerShowOnline]/[_partnerLastSeenAt] for one,
+  /// since [_initPresenceIfDeveloper] never runs at all), and `null`
+  /// whenever none of the design doc's own priority-ordered 4 states
+  /// apply, so no empty line is ever reserved under the name either way.
+  /// Priority order (design doc): typing > online > last seen > nothing.
+  Widget? _buildStatusSubtitle() {
+    if (_otherTyping) {
+      return Text(
+        'กำลังพิมพ์...',
+        overflow: TextOverflow.ellipsis,
+        style: _textStyle(fontSize: 12, color: WynColors.faint),
+      );
+    }
+    // Live "online" only ever counts once the reciprocal privacy check
+    // has passed -- _otherOnline alone (a raw global-presence read) must
+    // never be shown if _partnerShowOnline is false, or the whole point
+    // of the privacy toggle would be defeated.
+    if (_partnerShowOnline && _otherOnline) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Design doc: Material green 500 as a placeholder "online dot"
+          // color until an official WynColors token exists for it.
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(color: Color(0xFF4CAF50), shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 4),
+          Text('ออนไลน์', style: _textStyle(fontSize: 12, color: WynColors.faint)),
+        ],
+      );
+    }
+    final lastSeenAt = _partnerLastSeenAt;
+    if (_partnerShowOnline && lastSeenAt != null) {
+      return Text(
+        'ใช้งานล่าสุด ${relativeTimeLabel(lastSeenAt, now: DateTime.now())}',
+        overflow: TextOverflow.ellipsis,
+        style: _textStyle(fontSize: 12, color: WynColors.faint),
+      );
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final displayName = widget.otherDisplayName?.isNotEmpty == true
         ? widget.otherDisplayName!
         : '@${widget.otherUsername}';
+    final statusSubtitle = _buildStatusSubtitle();
 
     return Scaffold(
       backgroundColor: WynColors.paper,
@@ -1399,10 +1605,20 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
               AvatarCircle(imageUrl: widget.otherAvatarUrl, fallbackText: displayName, radius: 14),
               const SizedBox(width: WynSpacing.space2),
               Flexible(
-                child: Text(
-                  displayName,
-                  overflow: TextOverflow.ellipsis,
-                  style: _textStyle(fontSize: 16, fontWeight: FontWeight.w700, color: WynColors.ink),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      overflow: TextOverflow.ellipsis,
+                      style: _textStyle(fontSize: 16, fontWeight: FontWeight.w700, color: WynColors.ink),
+                    ),
+                    // WYN-133/WYN-125: null (nothing rendered at all, no
+                    // empty line reserved) for a non-developer account
+                    // -- see _buildStatusSubtitle's own doc comment.
+                    if (statusSubtitle != null) statusSubtitle,
+                  ],
                 ),
               ),
             ],
@@ -1773,7 +1989,15 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                       isCollapsed: true,
                       counterText: '',
                     ),
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) {
+                      setState(() {});
+                      // WYN-133: no-op when _typingChannel is null --
+                      // either a non-developer account (never opened at
+                      // all) or this exact edit-mode/composer state
+                      // doesn't matter; see _onComposerTextChanged's own
+                      // doc comment.
+                      _onComposerTextChanged();
+                    },
                   ),
                 ),
               ),

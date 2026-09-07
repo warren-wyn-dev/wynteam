@@ -16,6 +16,7 @@ import '../../moderation/data/appeal_repository.dart';
 import '../../notification/data/notification_repository.dart';
 import '../../notification/presentation/notification_list_screen.dart';
 import '../../pop/data/pop_repository.dart';
+import '../../presence/data/presence_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../saved/data/saved_repository.dart';
@@ -23,6 +24,7 @@ import '../../search/presentation/search_screen.dart';
 import '../../push/data/push_token_repository.dart';
 import '../../push/presentation/push_notification_service.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/developer_access/developer_access_service.dart';
 import '../../../core/navigation/deep_link_service.dart';
 
 /// The Bottom Navigation shell -- 5 destinations per the WYNOS V1.0.0
@@ -55,6 +57,8 @@ class RootShell extends StatefulWidget {
     HomeRepository? homeRepository,
     AppealRepository? appealRepository,
     ChatRepository? chatRepository,
+    PresenceRepository? presenceRepository,
+    DeveloperAccessService? developerAccessService,
     this.startOnProfileTab = false,
   })  : _dropRepository = dropRepository,
         _popRepository = popRepository,
@@ -66,7 +70,9 @@ class RootShell extends StatefulWidget {
         _clubPostRepository = clubPostRepository,
         _homeRepository = homeRepository,
         _appealRepository = appealRepository,
-        _chatRepository = chatRepository;
+        _chatRepository = chatRepository,
+        _presenceRepository = presenceRepository,
+        _developerAccessService = developerAccessService;
 
   // All optional -- default to real Supabase-backed instances built in
   // _RootShellState.initState (see .wyn/learning/PATTERNS.md's "optional
@@ -84,6 +90,11 @@ class RootShell extends StatefulWidget {
   final HomeRepository? _homeRepository;
   final AppealRepository? _appealRepository;
   final ChatRepository? _chatRepository;
+
+  // WYN-133/WYN-125: Staged Rollout gate for DM Presence -- see
+  // _RootShellState's own doc comments on where these are used.
+  final PresenceRepository? _presenceRepository;
+  final DeveloperAccessService? _developerAccessService;
 
   /// True only when this RootShell is being mounted right after the
   /// Account Switcher switched to this account -- see AuthGate's own
@@ -182,6 +193,16 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   late final HomeRepository _homeRepository;
   late final AppealRepository _appealRepository;
   late final ChatRepository _chatRepository;
+  late final PresenceRepository _presenceRepository;
+  late final DeveloperAccessService _developerAccessService;
+
+  /// WYN-133/WYN-125: true only once the global "who's online" Presence
+  /// channel has actually been started -- see [initState]'s own
+  /// `.then()`. Guards [didChangeAppLifecycleState]/[dispose] so a
+  /// non-developer account (for which this never starts at all, per the
+  /// Staged Rollout gate) never calls track/untrack/stop against a
+  /// channel that was never opened.
+  bool _presenceStarted = false;
 
   @override
   void initState() {
@@ -200,6 +221,8 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
     _homeRepository = widget._homeRepository ?? HomeRepository(client);
     _appealRepository = widget._appealRepository ?? AppealRepository(client);
     _chatRepository = widget._chatRepository ?? ChatRepository(client);
+    _presenceRepository = widget._presenceRepository ?? PresenceRepository(client);
+    _developerAccessService = widget._developerAccessService ?? DeveloperAccessService();
 
     // WYN-016 (Push Notification): register this device's token and
     // start listening, once, the first time RootShell renders for this
@@ -241,6 +264,18 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
 
     _loadUnreadNotificationCount();
 
+    // WYN-133/WYN-125: Staged Rollout gate -- the global "who's online"
+    // Presence channel is never even opened for a non-developer account
+    // (design doc: "ไม่ track/subscribe presence channel เลย...ไม่ใช่แค่
+    // ซ่อน UI", to actually save the resource, not just hide it).
+    // Fire-and-forget `.then()`, same shape as the push-notification/
+    // analytics calls above -- this genuinely runs once per sign-in.
+    _developerAccessService.isDeveloperAccount().then((isDeveloper) {
+      if (!mounted || !isDeveloper) return;
+      _presenceRepository.startGlobalPresence();
+      _presenceStarted = true;
+    });
+
     // WYN-119 (Tier 2, partial): opens the screen a shared web link (dropShareLink/
     // popShareLink/clubShareLink/clubPostShareLink/profileShareLink)
     // pointed at, the first time the app loads on that URL -- before
@@ -257,6 +292,12 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    // WYN-133: tears the global presence channel down entirely -- this
+    // State only ever gets disposed when the signed-in account itself
+    // is going away (sign-out, account switch -- AuthGate keys this
+    // shell by user id), not on ordinary tab navigation, so this is the
+    // right moment to stop announcing this account as online.
+    if (_presenceStarted) _presenceRepository.stopGlobalPresence();
     _homeTabReselectSignal.dispose();
     _homeTabActivatedSignal.dispose();
     super.dispose();
@@ -280,6 +321,19 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
       _loadUnreadNotificationCount();
+      // WYN-133: re-track this user's own presence on resume -- the
+      // channel itself (once startGlobalPresence() opened it in
+      // initState) stays subscribed for the app's whole session, only
+      // the tracked entry needs refreshing here.
+      if (_presenceStarted) _presenceRepository.trackOnline();
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      // WYN-133: best-effort, same posture as every other lifecycle
+      // hook in this app -- see PresenceRepository.untrackOnline's own
+      // doc comment for why a killed-outright app can miss this.
+      if (_presenceStarted) {
+        _presenceRepository.untrackOnline();
+        _presenceRepository.touchMyPresence().catchError((_) {});
+      }
     }
   }
 

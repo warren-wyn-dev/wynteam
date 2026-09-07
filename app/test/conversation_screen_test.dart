@@ -15,6 +15,7 @@ import 'support/recording_block_repository.dart';
 import 'support/recording_chat_repository.dart';
 import 'support/recording_developer_access_service.dart';
 import 'support/recording_moderation_repository.dart';
+import 'support/recording_presence_repository.dart';
 
 void main() {
   setUpAll(() async {
@@ -62,11 +63,21 @@ void main() {
         replyPreviewDeletedAt: replyPreviewDeletedAt,
       );
 
-  // WYN-132/WYN-125 (Staged Rollout): defaults to a non-developer account
-  // so every pre-existing test above keeps exercising the exact
-  // pre-WYN-132 menu/composer -- only the WYN-132 test group below
-  // overrides this to `true` to reach the gated Edit/Pin UI.
-  Widget buildScreen({RecordingDeveloperAccessService? developerAccessService}) => MaterialApp(
+  // WYN-132/133/WYN-125 (Staged Rollout): defaults to a non-developer
+  // account so every pre-existing test above keeps exercising the exact
+  // pre-WYN-132/133 menu/composer -- only the WYN-132/133 test groups
+  // below override this to `true` to reach the gated Edit/Pin/Presence
+  // UI. presenceRepository always defaults to a Recording fake
+  // regardless of the developer flag -- a real PresenceRepository's
+  // subscribeTypingChannel/startGlobalPresence attempt a real WebSocket
+  // handshake against this suite's placeholder Supabase project, which
+  // leaves a pending realtime_client Timer behind and fails
+  // flutter_test's own `!timersPending` invariant at teardown.
+  Widget buildScreen({
+    RecordingDeveloperAccessService? developerAccessService,
+    RecordingPresenceRepository? presenceRepository,
+  }) =>
+      MaterialApp(
         home: ConversationScreen(
           chatRepository: chatRepo,
           conversationId: 'c1',
@@ -77,6 +88,7 @@ void main() {
           moderationRepository: moderationRepo,
           developerAccessService:
               developerAccessService ?? RecordingDeveloperAccessService(isDeveloperResult: false),
+          presenceRepository: presenceRepository ?? RecordingPresenceRepository(),
         ),
       );
 
@@ -1240,6 +1252,187 @@ void main() {
       expect(find.text('ข้อความตอบกลับที่แก้ไขแล้ว'), findsOneWidget);
       expect(find.textContaining('ข้อความต้นฉบับ'), findsOneWidget);
       expect(find.text('แก้ไขแล้ว'), findsOneWidget);
+    });
+  });
+
+  group('WYN-133: DM Presence -- Typing + Online/Last Seen (Staged '
+      'Rollout gated)', () {
+    RecordingDeveloperAccessService developerAccess({bool isDeveloper = true}) =>
+        RecordingDeveloperAccessService(isDeveloperResult: isDeveloper);
+
+    testWidgets(
+        'non-developer account: no AppBar subtitle ever renders, and '
+        'presence is never fetched/subscribed even with data available',
+        (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [message(id: 'm1', text: 'สวัสดี')],
+      };
+      final presenceRepository = RecordingPresenceRepository()
+        ..partnerPresenceResult = (showOnline: true, lastSeenAt: DateTime.now());
+      presenceRepository.setOnline('other', online: true);
+
+      await tester.pumpWidget(buildScreen(
+        developerAccessService: developerAccess(isDeveloper: false),
+        presenceRepository: presenceRepository,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ออนไลน์'), findsNothing);
+      expect(find.text('กำลังพิมพ์...'), findsNothing);
+      expect(find.textContaining('ใช้งานล่าสุด'), findsNothing);
+      expect(presenceRepository.fetchConversationPartnerPresenceCalls, 0);
+      expect(presenceRepository.subscribeTypingChannelCalls, 0);
+    });
+
+    testWidgets('developer account: the other participant typing shows '
+        '"กำลังพิมพ์..." live', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [message(id: 'm1', text: 'สวัสดี')],
+      };
+      final presenceRepository = RecordingPresenceRepository();
+      await tester.pumpWidget(buildScreen(
+        developerAccessService: developerAccess(),
+        presenceRepository: presenceRepository,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('กำลังพิมพ์...'), findsNothing);
+
+      presenceRepository.setOtherTyping('other', typing: true);
+      await tester.pump();
+
+      expect(find.text('กำลังพิมพ์...'), findsOneWidget);
+
+      // Safety-net timer (design doc: 3s) auto-clears it even with no
+      // explicit `typing: false` event.
+      await tester.pump(const Duration(seconds: 4));
+      expect(find.text('กำลังพิมพ์...'), findsNothing);
+    });
+
+    testWidgets(
+        'developer account: reciprocal-ok + currently online shows the '
+        'green dot + "ออนไลน์", taking priority over last seen',
+        (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [message(id: 'm1', text: 'สวัสดี')],
+      };
+      final presenceRepository = RecordingPresenceRepository()
+        ..partnerPresenceResult = (
+          showOnline: true,
+          lastSeenAt: DateTime.now().subtract(const Duration(minutes: 5)),
+        );
+      presenceRepository.setOnline('other', online: true);
+
+      await tester.pumpWidget(buildScreen(
+        developerAccessService: developerAccess(),
+        presenceRepository: presenceRepository,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ออนไลน์'), findsOneWidget);
+      expect(find.textContaining('ใช้งานล่าสุด'), findsNothing);
+    });
+
+    testWidgets(
+        'developer account: reciprocal-ok + not currently online shows '
+        '"ใช้งานล่าสุด ..." from last_seen_at', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [message(id: 'm1', text: 'สวัสดี')],
+      };
+      final presenceRepository = RecordingPresenceRepository()
+        ..partnerPresenceResult = (
+          showOnline: true,
+          lastSeenAt: DateTime.now().subtract(const Duration(minutes: 5)),
+        );
+      // Deliberately not marked online.
+
+      await tester.pumpWidget(buildScreen(
+        developerAccessService: developerAccess(),
+        presenceRepository: presenceRepository,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ออนไลน์'), findsNothing);
+      expect(find.textContaining('ใช้งานล่าสุด'), findsOneWidget);
+    });
+
+    testWidgets(
+        'developer account: reciprocal check failed (either side has '
+        'privacy off) shows no subtitle at all, even if actually online',
+        (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [message(id: 'm1', text: 'สวัสดี')],
+      };
+      final presenceRepository = RecordingPresenceRepository()
+        ..partnerPresenceResult = (showOnline: false, lastSeenAt: null);
+      presenceRepository.setOnline('other', online: true);
+
+      await tester.pumpWidget(buildScreen(
+        developerAccessService: developerAccess(),
+        presenceRepository: presenceRepository,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ออนไลน์'), findsNothing);
+      expect(find.textContaining('ใช้งานล่าสุด'), findsNothing);
+    });
+
+    testWidgets(
+        'typing my own text broadcasts setTyping(true) once (debounced), '
+        'and sending clears it immediately', (tester) async {
+      chatRepo.messagesByConversation = const {'c1': []};
+      chatRepo.sendMessageResult = ChatMessage(
+        id: 'm-sent',
+        conversationId: 'c1',
+        senderId: 'me',
+        createdAt: DateTime.now(),
+        text: 'ข้อความ',
+      );
+      final presenceRepository = RecordingPresenceRepository();
+      await tester.pumpWidget(buildScreen(
+        developerAccessService: developerAccess(),
+        presenceRepository: presenceRepository,
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'ข');
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'ข้อความ');
+      await tester.pump();
+
+      // Debounced -- only the first false->true transition calls
+      // setTyping, not every keystroke.
+      expect(presenceRepository.setTypingCalls, 1);
+      expect(presenceRepository.lastSetTyping, isTrue);
+
+      await tester.tap(find.byIcon(Icons.send));
+      await tester.pumpAndSettle();
+
+      expect(presenceRepository.setTypingCalls, 2);
+      expect(presenceRepository.lastSetTyping, isFalse);
+    });
+
+    testWidgets(
+        'typing my own text then going idle for 3s clears it '
+        'automatically', (tester) async {
+      chatRepo.messagesByConversation = const {'c1': []};
+      final presenceRepository = RecordingPresenceRepository();
+      await tester.pumpWidget(buildScreen(
+        developerAccessService: developerAccess(),
+        presenceRepository: presenceRepository,
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'ข้อความ');
+      await tester.pump();
+
+      expect(presenceRepository.setTypingCalls, 1);
+      expect(presenceRepository.lastSetTyping, isTrue);
+
+      await tester.pump(const Duration(seconds: 4));
+
+      expect(presenceRepository.setTypingCalls, 2);
+      expect(presenceRepository.lastSetTyping, isFalse);
     });
   });
 }
