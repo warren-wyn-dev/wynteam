@@ -255,6 +255,17 @@ void main() {
     );
     await pumpTab(tester, fullPageRepo, myRole: ClubMemberRole.member);
 
+    // This is a lazily-built CustomScrollView (see WYN-110's own QA test
+    // for the identical reasoning) -- 20 real post cards sit well below
+    // the test viewport, so the trailing button isn't mounted until
+    // scrolled into view. Positive delta scrolls forward/down (see
+    // qa_wyn110_profile_scroll_header_test.dart's own comment on this
+    // exact sign convention).
+    await tester.scrollUntilVisible(
+      find.text('ดูโพสต์เพิ่มเติม'),
+      600,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('ดูโพสต์เพิ่มเติม'), findsOneWidget);
     expect(fullPageRepo.fetchPostsClubIdArgs, [club.id]);
 
