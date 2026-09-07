@@ -1,7 +1,7 @@
 # Product Task — WYN-133
 
-Status: coding-complete, main green — merged via PR #308 + follow-up #309 (https://github.com/warren-wyn-dev/wynteam/pull/308, #309), CI on main (run 34139400704) all green: flutter analyze/test, Admin, schema.sql ordering, Supabase Edge Functions — awaiting AI QA & Security, then the `wyn133-apply-club-channel-categories-schema.yml` apply-workflow + deploy (apply workflow must run before deploy, per Dependencies below)
-Owner: AI Product Manager (spec) / AI Coding (implementation)
+Status: QA PASS (code-level adversarial review + full automated test suite, see deployment log) — schema applied to production + client deployed (deploy-web.yml run 34140342528, success) — DEPLOYED, awaiting Founder's own hands-on confirmation in the app before moving to completed/. See .wyn/logs/deployments/2026-09-07-wyn-133-club-chat-channel-navigation-deploy.md
+Owner: AI Product Manager (spec) / AI Coding (implementation) / AI QA & Security (review) / AI Deploy & DevOps (schema apply + deploy)
 
 Feature: Club Chat — กดห้องแล้วนำทางไปหน้าแชทของห้องนั้นแบบเต็มจอ (Discord-style channel navigation)
 
