@@ -1,7 +1,25 @@
 # Bug Report — WYN-127 / WYN-128 / WYN-129
 
-Status: bugs
-Owner: AI Debug Engineer
+Status: **fixed (2026-09-07)** — gate implemented, verified, ready for AI QA & Security re-verification
+Owner: AI Debug Engineer (เสร็จ) → AI QA & Security (ถัดไป)
+
+## Fix (2026-09-07, AI Debug Engineer)
+
+Followed the one real, already-shipped `DeveloperAccessService` call site (`settings_screen.dart`'s `_VersionFooter`) exactly: optional constructor param defaulting to a real `DeveloperAccessService()`, `late final Future<bool> _isDeveloperFuture = _developerAccessService.isDeveloperAccount()`, `FutureBuilder<bool>` gating render (`snapshot.data == true`) — fail-closed while loading/on error, same as that call site.
+
+- `app/lib/features/club/presentation/widgets/club_posts_tab.dart`: the channel chip row and the "โพสต์ | แชท" toggle (and therefore `ClubChannelChatView`, since `_viewMode` never leaves `.posts` when the toggle never renders) are wrapped in a `FutureBuilder<bool>` on `_isDeveloperFuture`. WYN-129's `_loadBadges()` is deferred until the future resolves `true`, so `_badges` stays permanently empty for a non-developer account — `ClubPostCard`'s `authorBadge` param is simply always `null`, requiring no change to `club_post_card.dart` itself. Also gated: `CreateClubPostScreen`'s locked chip — passes `channelName: ''` for a non-developer account so the composer falls back to its exact pre-WYN-127 "โพสต์ใน [ชื่อ Club]" text (no "· #ห้อง" suffix), since that text alone would otherwise leak the channel concept even with the switcher hidden. `channelId` is still passed correctly either way — posting itself is unaffected.
+- `app/lib/features/club/presentation/widgets/club_members_tab.dart`: badge fetch deferred behind the same check; the "ตั้งป้าย/แก้ไขป้าย/ถอดป้าย" `IconButton` is additionally gated on `_canManage && _isDeveloper`.
+- `app/lib/features/club/presentation/club_post_detail_screen.dart`: badge fetch deferred the same way (covers both the post header and every comment row's badge pill with one change).
+- `app/lib/features/club/presentation/club_page.dart`: threads one shared `DeveloperAccessService` instance down to both `ClubPostsTab` and `ClubMembersTab`.
+- `club_channel_switcher.dart`/`club_post_card.dart` needed no direct changes — both are already conditionally fed by their callers above.
+
+Tests added (`app/test/club_posts_tab_test.dart`, `club_members_tab_test.dart`): a "Staged rollout gate" group in each, asserting the `false` state renders identically to the pre-WYN-127/128/129 UI (no channel chip row, no "+ ห้องใหม่" chip, no "แชท" toggle, no badge pill/management button, no channel name in the create-post composer chip) and the `true` state still renders the new UI (regression). `club_page_test.dart`/`club_channel_chat_view_test.dart` updated to inject `RecordingDeveloperAccessService` so they don't attempt a real RPC call. `flutter analyze`: no issues. `flutter test`: 1377/1377 (was 1367/1367 — 10 net-new tests across this bug's 3 fixes).
+
+Handoff to QA: re-verify both states end-to-end for all three features per WORKFLOW.md item 3, including the create-post composer chip text for a non-developer account.
+
+---
+
+## Original report
 
 Bug: None of the three Club Discord-identity features (WYN-127 Club Channels, WYN-128 Club Group Chat, WYN-129 Club Role Badges) are gated behind `DeveloperAccessService.isDeveloperAccount()`. Per `.wyn/company/WORKFLOW.md`'s "Staged Rollout เป็นค่าเริ่มต้นสำหรับฟีเจอร์ใหม่ทุกตัว" (added 2026-09-06, one day before this branch's Coding work on 2026-09-07), **every new user-facing feature must default to developer-account-only visibility** until the Founder explicitly says to open it to everyone. None of the three tasks' Design Output or Coding Notes mention this gate at all, and `grep -rn "isDeveloperAccount" app/lib/features/club/` returns zero matches. As written, merging/deploying this branch shows the channel switcher, the "โพสต์ | แชท" toggle + full group chat, and role badges to **100% of existing Club users immediately** — not just developer accounts.
 

@@ -1,7 +1,7 @@
 # Product Task — WYN-127
 
-Status: **QA: FAIL (2026-09-07)** — schema/RLS/backfill/permission logic ทั้งหมดตรวจสอบจริงผ่าน (live PostgreSQL 16 RLS test, ดู QA Output ด้านล่าง) แต่ **บล็อก deploy เพราะขาด developer-account staged-rollout gate** ที่บังคับตาม `.wyn/company/WORKFLOW.md` (ใช้ร่วมกับ WYN-128/WYN-129) — ดู `.wyn/tasks/bugs/WYN-127-128-129-missing-staged-rollout-gate.md`
-Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (ถัดไป)
+Status: **Debug: เสร็จ (2026-09-07)** — เพิ่ม developer-account staged-rollout gate ครบแล้ว (channel switcher + "โพสต์ | แชท" toggle + create-post chip) ตามที่ QA บล็อกไว้ ยืนยันด้วย `flutter analyze`/`flutter test` (1377/1377) และ regression test ใหม่สำหรับทั้ง 2 state (`true`/`false`) — รายละเอียด: `.wyn/tasks/bugs/WYN-127-128-129-missing-staged-rollout-gate.md` — ส่งกลับ AI QA & Security ตรวจซ้ำ
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (เสร็จ) → AI QA & Security (ถัดไป)
 
 Feature: Club Channels — แบ่งการพูดคุยภายใน Club เป็นหลายห้อง แทนที่ฟีดเดียวรวมทุกเรื่อง
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/developer_access/developer_access_service.dart';
 import '../../data/club.dart';
 import '../../data/club_badge_repository.dart';
 import '../../data/club_channel.dart';
@@ -50,9 +51,11 @@ class ClubPostsTab extends StatefulWidget {
     required this.onJoinTapped,
     ClubBadgeRepository? clubBadgeRepository,
     ClubChannelChatRepository? clubChannelChatRepository,
+    DeveloperAccessService? developerAccessService,
     this.onBanned,
   })  : _clubBadgeRepository = clubBadgeRepository,
-        _clubChannelChatRepository = clubChannelChatRepository;
+        _clubChannelChatRepository = clubChannelChatRepository,
+        _developerAccessService = developerAccessService;
 
   final ClubPostRepository clubPostRepository;
 
@@ -71,6 +74,16 @@ class ClubPostsTab extends StatefulWidget {
   /// WYN-128: same optional shape again.
   final ClubChannelChatRepository? _clubChannelChatRepository;
 
+  /// Staged-rollout gate (`.wyn/company/WORKFLOW.md`'s "Staged Rollout
+  /// เป็นค่าเริ่มต้นสำหรับฟีเจอร์ใหม่ทุกตัว", mandatory since 2026-09-06) --
+  /// same optional/defaulted shape as every other optional repository
+  /// field in this app (see settings_screen.dart's `_VersionFooter` for
+  /// the only other real call site of this class so far). WYN-127's
+  /// channel switcher and WYN-128's "โพสต์ | แชท" toggle/chat room are
+  /// both new, previously-nonexistent, user-facing features -- see
+  /// .wyn/tasks/bugs/WYN-127-128-129-missing-staged-rollout-gate.md.
+  final DeveloperAccessService? _developerAccessService;
+
   /// WYN-128: bubbled up from ClubChannelChatView when this user's own
   /// membership in [club] is banned/removed while the chat view is open
   /// -- see that widget's own doc comment for why this tab (not the chat
@@ -87,6 +100,16 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
       widget._clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
   late final ClubChannelChatRepository _clubChannelChatRepository =
       widget._clubChannelChatRepository ?? ClubChannelChatRepository(Supabase.instance.client);
+  late final DeveloperAccessService _developerAccessService =
+      widget._developerAccessService ?? DeveloperAccessService();
+
+  /// Staged-rollout gate -- see [ClubPostsTab._developerAccessService]'s
+  /// doc comment. Fail-closed while still loading/on error (`snapshot.data
+  /// == true`, same posture as settings_screen.dart's `_VersionFooter`):
+  /// a regular account can only ever under-promise (briefly not seeing
+  /// the channel switcher/chat toggle while this resolves), never see
+  /// the new UI by mistake.
+  late final Future<bool> _isDeveloperFuture = _developerAccessService.isDeveloperAccount();
 
   final _scrollController = ScrollController();
   final List<ClubPost> _posts = [];
@@ -122,7 +145,16 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     super.initState();
     if (_isMember) {
       _loadChannelsThenPosts();
-      _loadBadges();
+      // WYN-129's badge pill is gated behind the same staged-rollout
+      // flag as the channel switcher/chat toggle -- only fetch badges
+      // (and therefore only ever populate `_badges`, the one thing
+      // ClubPostCard actually checks to decide whether to render a
+      // pill) once this resolves `true`. A regular account's `_badges`
+      // map simply stays empty forever, which is indistinguishable from
+      // "nobody in this Club has a badge" -- the exact pre-WYN-129 look.
+      _isDeveloperFuture.then((isDeveloper) {
+        if (isDeveloper) _loadBadges();
+      });
     }
     _scrollController.addListener(_onScroll);
   }
@@ -497,6 +529,7 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
           post: post,
           myRole: widget.myRole,
           clubBadgeRepository: _clubBadgeRepository,
+          developerAccessService: _developerAccessService,
         ),
       ),
     );
@@ -516,7 +549,16 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
   Future<void> _openCreatePost() async {
     final channelId = _selectedChannelId;
     if (channelId == null) return;
-    final channelName = _selectedChannelName ?? '';
+    // Staged-rollout gate: CreateClubPostScreen's locked chip falls back
+    // to its exact pre-WYN-127 text ("โพสต์ใน [ชื่อ Club]", no "· #ห้อง"
+    // suffix) whenever channelName is empty -- passing '' here for a
+    // non-developer account means the post still targets the right
+    // channel (channelId is real either way), but the composer never
+    // surfaces the word "channel" to someone who can't see the switcher
+    // that would explain it.
+    final isDeveloper = await _isDeveloperFuture;
+    final channelName = isDeveloper ? (_selectedChannelName ?? '') : '';
+    if (!mounted) return;
     final created = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => CreateClubPostScreen(
@@ -551,8 +593,26 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     return Scaffold(
       body: Column(
         children: [
-          _buildChannelSwitcher(),
-          if (_channels != null) _buildViewToggle(),
+          // Staged-rollout gate (WYN-127/128): the channel switcher and
+          // the "โพสต์ | แชท" toggle only ever render for a developer
+          // account -- a regular account's `_viewMode` therefore never
+          // leaves `.posts` (nothing here ever calls `_setViewMode`),
+          // and `_buildBody()` below is scoped to whichever channel
+          // `_loadChannelsThenPosts()` already picked by default (the
+          // Club's oldest/"ทั่วไป" channel) -- exactly the pre-WYN-127
+          // single flat feed, with zero visible change.
+          FutureBuilder<bool>(
+            future: _isDeveloperFuture,
+            builder: (context, snapshot) {
+              if (snapshot.data != true) return const SizedBox.shrink();
+              return Column(
+                children: [
+                  _buildChannelSwitcher(),
+                  if (_channels != null) _buildViewToggle(),
+                ],
+              );
+            },
+          ),
           Expanded(
             child: _viewMode == _ClubChannelView.chat ? _buildChatView() : _buildBody(),
           ),

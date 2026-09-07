@@ -11,6 +11,7 @@ import 'support/recording_club_channel_chat_repository.dart';
 import 'support/recording_club_event_repository.dart';
 import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
+import 'support/recording_developer_access_service.dart';
 
 /// Regression tests for ClubPage's 3-state Join button and role-gated
 /// More menu, per .wyn/docs/design/wyn-014-club-core.md, Screen 3.
@@ -58,6 +59,13 @@ void main() {
   // Same reasoning as withCoverRepo above -- built in setUp(), not inline
   // inside a WYN-116 testWidgets body.
   late RecordingClubRepository mutedMemberRepo;
+  // WYN-127-128-129-missing-staged-rollout-gate.md: this file doesn't
+  // exercise WYN-127/128/129's own UI directly, but ClubPostsTab/
+  // ClubMembersTab both default to a real DeveloperAccessService when
+  // none is given, which would attempt a genuine RPC call against this
+  // suite's fake Supabase project -- always inject the Recording double,
+  // same reasoning as clubChannelChatRepo above.
+  late RecordingDeveloperAccessService developerAccessService;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'viewer');
@@ -97,6 +105,7 @@ void main() {
       myMembership: membership(role: ClubMemberRole.member, status: ClubMemberStatus.approved),
       isMutedResult: true,
     );
+    developerAccessService = RecordingDeveloperAccessService(isDeveloperResult: true);
   });
 
   Future<void> pumpPage(
@@ -112,6 +121,7 @@ void main() {
           clubId: club.id,
           clubEventRepository: clubEventRepository,
           clubChannelChatRepository: clubChannelChatRepo,
+          developerAccessService: developerAccessService,
         ),
       ),
     );

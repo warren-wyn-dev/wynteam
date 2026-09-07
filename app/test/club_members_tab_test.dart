@@ -9,6 +9,7 @@ import 'package:wyn/features/club/presentation/widgets/club_members_tab.dart';
 import 'support/fake_supabase_session.dart';
 import 'support/recording_club_badge_repository.dart';
 import 'support/recording_club_repository.dart';
+import 'support/recording_developer_access_service.dart';
 
 /// Regression tests for WYN-014's role-permission boundary logic in
 /// ClubMembersTab -- the project's first role-based (not just boolean)
@@ -61,12 +62,17 @@ void main() {
   late RecordingClubRepository pendingHiddenForModeratorRepo;
   late RecordingClubBadgeRepository defaultBadgeRepo;
   late RecordingClubBadgeRepository uMemberVipBadgeRepo;
+  // WYN-127-128-129-missing-staged-rollout-gate.md: every test in this
+  // file below (aside from the dedicated "Staged rollout gate" group)
+  // exercises WYN-129's badge UI directly, so this defaults to `true`.
+  late RecordingDeveloperAccessService defaultDeveloperAccessService;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'viewer');
   });
 
   setUp(() {
+    defaultDeveloperAccessService = RecordingDeveloperAccessService(isDeveloperResult: true);
     defaultBadgeRepo = RecordingClubBadgeRepository();
     uMemberVipBadgeRepo = RecordingClubBadgeRepository(badges: {
       'u-member': ClubMemberBadge(
@@ -134,6 +140,7 @@ void main() {
     required ClubMemberRole? myRole,
     VoidCallback? onInvite,
     RecordingClubBadgeRepository? badgeRepo,
+    RecordingDeveloperAccessService? developerAccessService,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -141,6 +148,7 @@ void main() {
           body: ClubMembersTab(
             clubRepository: repo,
             clubBadgeRepository: badgeRepo ?? defaultBadgeRepo,
+            developerAccessService: developerAccessService ?? defaultDeveloperAccessService,
             club: club,
             myRole: myRole,
             onChanged: () {},
@@ -372,6 +380,40 @@ void main() {
       expect(find.text('ตั้งเป็น Moderator'), findsOneWidget);
       expect(find.text('ลบออกจาก Club'), findsOneWidget);
       expect(find.text('แบน'), findsOneWidget);
+    });
+  });
+
+  group('Staged rollout gate (WYN-127-128-129-missing-staged-rollout-gate.md)', () {
+    testWidgets(
+        'a non-developer Owner sees no badge pill and no badge-management button '
+        '-- exactly the pre-WYN-129 look', (tester) async {
+      await pumpTab(
+        tester,
+        ownerViewingMemberRepo,
+        myRole: ClubMemberRole.owner,
+        badgeRepo: uMemberVipBadgeRepo,
+        developerAccessService: RecordingDeveloperAccessService(isDeveloperResult: false),
+      );
+
+      expect(find.text('VIP'), findsNothing);
+      expect(find.byKey(const ValueKey('member-badge-menu-u-member')), findsNothing);
+      // The role-permission menu itself is completely unaffected by the gate.
+      await openMenu(tester, 'u-member');
+      expect(find.text('ตั้งเป็น Admin'), findsOneWidget);
+    });
+
+    testWidgets('a developer Owner sees the badge pill and badge-management button '
+        '(regression -- proves the gate is not just "always hidden")', (tester) async {
+      await pumpTab(
+        tester,
+        ownerViewingMemberRepo,
+        myRole: ClubMemberRole.owner,
+        badgeRepo: uMemberVipBadgeRepo,
+        developerAccessService: RecordingDeveloperAccessService(isDeveloperResult: true),
+      );
+
+      expect(find.text('VIP'), findsOneWidget);
+      expect(find.byKey(const ValueKey('member-badge-menu-u-member')), findsOneWidget);
     });
   });
 }

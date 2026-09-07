@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/developer_access/developer_access_service.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/club.dart';
 import '../../data/club_badge_repository.dart';
@@ -24,7 +25,9 @@ class ClubMembersTab extends StatefulWidget {
     required this.onChanged,
     required this.onInvite,
     ClubBadgeRepository? clubBadgeRepository,
-  }) : _clubBadgeRepository = clubBadgeRepository;
+    DeveloperAccessService? developerAccessService,
+  })  : _clubBadgeRepository = clubBadgeRepository,
+        _developerAccessService = developerAccessService;
 
   final ClubRepository clubRepository;
   final Club club;
@@ -36,6 +39,11 @@ class ClubMembersTab extends StatefulWidget {
   /// ClubBadgeRepository's own doc comment for why this is a repository
   /// of its own rather than a method group on [clubRepository].
   final ClubBadgeRepository? _clubBadgeRepository;
+
+  /// Staged-rollout gate (`.wyn/company/WORKFLOW.md`) -- see
+  /// ClubPostsTab's identical field doc comment. Gates the badge pill
+  /// and the "ตั้งป้าย/แก้ไขป้าย/ถอดป้าย" menu entries below.
+  final DeveloperAccessService? _developerAccessService;
 
   /// Opens the same share-to-chat flow ClubPage's own "แชร์" header
   /// button already uses (ShareToChatScreen, SharedContentType.club) --
@@ -52,6 +60,14 @@ class ClubMembersTab extends StatefulWidget {
 class _ClubMembersTabState extends State<ClubMembersTab> {
   late final ClubBadgeRepository _clubBadgeRepository =
       widget._clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
+  late final DeveloperAccessService _developerAccessService =
+      widget._developerAccessService ?? DeveloperAccessService();
+
+  /// Staged-rollout gate -- see ClubPostsTab's identical field doc
+  /// comment. Resolved once in [_load] and cached here (not re-checked
+  /// per rebuild) so both the badge fetch and the badge-menu button
+  /// below agree on the same answer for this tab's lifetime.
+  bool _isDeveloper = false;
 
   List<ClubMember>? _approved;
   List<ClubMember>? _pending;
@@ -59,6 +75,9 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
   /// WYN-129: every badge in this Club, keyed by user id -- fetched
   /// alongside the member lists (below) and re-fetched on set/remove so
   /// the pill appears/disappears immediately without a full reload.
+  /// Stays empty forever for a non-developer account (see [_load]) --
+  /// indistinguishable from "nobody has a badge in this Club", the
+  /// exact pre-WYN-129 look.
   Map<String, ClubMemberBadge> _badges = {};
 
   /// Member-list pagination -- see ClubRepository.fetchApprovedMembers.
@@ -94,11 +113,15 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
       final pendingFuture = _canManage
           ? widget.clubRepository.fetchPendingMembers(widget.club.id)
           : Future.value(<ClubMember>[]);
-      // Fails open to an empty map on its own -- a badge-fetch hiccup
-      // shouldn't hide the entire Members list behind this tab's error
-      // state; it just means no pill shows until the next reload.
-      final badgesFuture =
-          _clubBadgeRepository.fetchBadges(widget.club.id).catchError((_) => <String, ClubMemberBadge>{});
+      final isDeveloper = await _developerAccessService.isDeveloperAccount();
+      // Staged-rollout gate: only fetch badges at all once a developer
+      // account is confirmed -- fails open to an empty map either way
+      // (a badge-fetch hiccup shouldn't hide the entire Members list
+      // behind this tab's error state; it just means no pill shows
+      // until the next reload).
+      final badgesFuture = isDeveloper
+          ? _clubBadgeRepository.fetchBadges(widget.club.id).catchError((_) => <String, ClubMemberBadge>{})
+          : Future.value(<String, ClubMemberBadge>{});
       final approved = await approvedFuture;
       final pending = await pendingFuture;
       final badges = await badgesFuture;
@@ -107,6 +130,7 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
         _approved = approved;
         _pending = pending;
         _badges = badges;
+        _isDeveloper = isDeveloper;
         _hasMoreMembers = approved.length == ClubRepository.memberPageSize;
       });
     } catch (_) {
@@ -539,7 +563,7 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
           // cosmetic action fully separate from the role-permission menu
           // (and its own "no menu on own/Owner row" rule) rather than
           // merging the two into one "..." button.
-          if (_canManage)
+          if (_canManage && _isDeveloper)
             IconButton(
               key: ValueKey('member-badge-menu-${member.userId}'),
               icon: const Icon(Icons.local_offer_outlined, size: 18),
