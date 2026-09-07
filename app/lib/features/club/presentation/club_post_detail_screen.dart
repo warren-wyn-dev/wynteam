@@ -10,7 +10,6 @@ import '../../../core/widgets/action_sheet_row.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../core/widgets/hashtag_text.dart';
 import '../../../core/widgets/restriction_banner.dart';
-import '../../../core/developer_access/developer_access_service.dart';
 import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/data/appeal_status.dart';
 import '../../moderation/data/moderation_repository.dart';
@@ -59,7 +58,6 @@ class ClubPostDetailScreen extends StatefulWidget {
     this.moderationRepository,
     this.appealRepository,
     this.clubBadgeRepository,
-    this.developerAccessService,
   });
 
   final ClubPostRepository clubPostRepository;
@@ -76,12 +74,6 @@ class ClubPostDetailScreen extends StatefulWidget {
   /// WYN-129: optional, same defaulted-to-a-real-instance shape as every
   /// other optional repository field in this app.
   final ClubBadgeRepository? clubBadgeRepository;
-
-  /// Staged-rollout gate -- see ClubPostsTab's identical field doc
-  /// comment. Threaded down from ClubPostsTab._openPost so this screen
-  /// checks the same result rather than issuing (and caching) its own
-  /// separate RPC call.
-  final DeveloperAccessService? developerAccessService;
 
   @override
   State<ClubPostDetailScreen> createState() => _ClubPostDetailScreenState();
@@ -117,8 +109,6 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
       widget.appealRepository ?? AppealRepository(Supabase.instance.client);
   late final ClubBadgeRepository _clubBadgeRepository =
       widget.clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
-  late final DeveloperAccessService _developerAccessService =
-      widget.developerAccessService ?? DeveloperAccessService();
 
   /// WYN-129: every badge in this post's Club, keyed by user id -- shown
   /// next to the post author's name and each comment author's name.
@@ -138,14 +128,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
     _post = widget.post;
     _loadComments();
     _loadModerationStatus();
-    // Staged-rollout gate -- see ClubPostsTab's identical comment on its
-    // own _loadBadges() call site. `_badges` simply stays empty forever
-    // for a regular account, which is indistinguishable from "nobody
-    // has a badge in this Club" -- the exact pre-WYN-129 look, both on
-    // the post header and on every comment row below.
-    _developerAccessService.isDeveloperAccount().then((isDeveloper) {
-      if (isDeveloper) _loadBadges();
-    });
+    _loadBadges();
   }
 
   Future<void> _loadBadges() async {

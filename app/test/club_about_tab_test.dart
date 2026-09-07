@@ -9,7 +9,6 @@ import 'package:wyn/features/club/presentation/widgets/club_about_tab.dart';
 import 'support/fake_supabase_session.dart';
 import 'support/recording_club_event_repository.dart';
 import 'support/recording_club_repository.dart';
-import 'support/recording_developer_access_service.dart';
 
 /// Regression tests for the composite "เกี่ยวกับ" tab -- the Founder's
 /// tab-restructuring decision (2026-09-07) merged what used to be 3
@@ -33,7 +32,6 @@ void main() {
 
   late RecordingClubRepository clubRepo;
   late RecordingClubEventRepository clubEventRepo;
-  late RecordingDeveloperAccessService developerAccessService;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'viewer');
@@ -42,7 +40,6 @@ void main() {
   setUp(() {
     clubRepo = RecordingClubRepository(club: club);
     clubEventRepo = RecordingClubEventRepository();
-    developerAccessService = RecordingDeveloperAccessService(isDeveloperResult: true);
   });
 
   Future<void> pumpTab(
@@ -57,7 +54,6 @@ void main() {
           body: ClubAboutTab(
             clubRepository: clubRepo,
             clubEventRepository: clubEventRepo,
-            developerAccessService: developerAccessService,
             club: club,
             myRole: myRole,
             onChanged: () {},

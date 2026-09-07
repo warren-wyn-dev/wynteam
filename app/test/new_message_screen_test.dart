@@ -8,6 +8,7 @@ import 'package:wyn/features/profile/data/profile.dart';
 import 'support/fake_supabase_session.dart';
 import 'support/recording_chat_repository.dart';
 import 'support/recording_follow_repository.dart';
+import 'support/recording_presence_repository.dart';
 import 'support/recording_profile_repository.dart';
 
 /// 17-new-message.tsx -- a person picker reached from Chat Inbox's pencil
@@ -40,6 +41,10 @@ void main() {
           chatRepository: chatRepo,
           profileRepository: profileRepo,
           followRepository: followRepo,
+          // WYN-139: ConversationScreen now unconditionally starts
+          // presence subscriptions -- see chat_inbox_screen_test.dart's
+          // identical comment.
+          presenceRepository: RecordingPresenceRepository(),
         ),
       );
 

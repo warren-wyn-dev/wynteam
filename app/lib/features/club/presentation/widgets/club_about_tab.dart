@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../../core/developer_access/developer_access_service.dart';
 import '../../data/club.dart';
 import '../../data/club_badge_repository.dart';
 import '../../data/club_event_repository.dart';
@@ -42,11 +41,9 @@ class ClubAboutTab extends StatefulWidget {
     required this.onInvite,
     ClubEventRepository? clubEventRepository,
     ClubBadgeRepository? clubBadgeRepository,
-    DeveloperAccessService? developerAccessService,
     this.initialSection = ClubAboutSection.details,
   })  : _clubEventRepository = clubEventRepository,
-        _clubBadgeRepository = clubBadgeRepository,
-        _developerAccessService = developerAccessService;
+        _clubBadgeRepository = clubBadgeRepository;
 
   final ClubRepository clubRepository;
   final Club club;
@@ -58,7 +55,6 @@ class ClubAboutTab extends StatefulWidget {
 
   final ClubEventRepository? _clubEventRepository;
   final ClubBadgeRepository? _clubBadgeRepository;
-  final DeveloperAccessService? _developerAccessService;
 
   /// WYN-015's club_join_request notification used to jump straight to
   /// the top-level Members tab (index 1) -- now that Members is a
@@ -77,8 +73,6 @@ class _ClubAboutTabState extends State<ClubAboutTab> {
       widget._clubEventRepository ?? ClubEventRepository(Supabase.instance.client);
   late final ClubBadgeRepository _clubBadgeRepository =
       widget._clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
-  late final DeveloperAccessService _developerAccessService =
-      widget._developerAccessService ?? DeveloperAccessService();
 
   late ClubAboutSection _section = widget.initialSection;
 
@@ -139,7 +133,6 @@ class _ClubAboutTabState extends State<ClubAboutTab> {
           onChanged: widget.onChanged,
           onInvite: widget.onInvite,
           clubBadgeRepository: _clubBadgeRepository,
-          developerAccessService: _developerAccessService,
         );
       case ClubAboutSection.events:
         return ClubEventsTab(
@@ -252,8 +245,7 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
 
     // CustomScrollView (not ListView), same reasoning as
     // club_insights_tab.dart's identical comment -- a "primary"
-    // scrollable that behaves unchanged in ClubPage's legacy Column
-    // layout but also participates correctly in the staged-rollout
+    // scrollable that participates correctly in ClubPage's
     // NestedScrollView layout's shared header-collapse scroll position.
     // ClubAboutTab's own SegmentedButton row (above this widget) is a
     // fixed, non-scrolling wrapper -- it doesn't intercept the ambient

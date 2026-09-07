@@ -8,6 +8,7 @@ import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
 import '../../../core/widgets/empty_state_block.dart';
 import '../../follow/data/follow_repository.dart';
+import '../../presence/data/presence_repository.dart';
 import '../../profile/data/profile.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
@@ -33,11 +34,18 @@ class NewMessageScreen extends StatefulWidget {
     required this.chatRepository,
     required this.profileRepository,
     required this.followRepository,
+    this.presenceRepository,
   });
 
   final ChatRepository chatRepository;
   final ProfileRepository profileRepository;
   final FollowRepository followRepository;
+
+  /// Optional/defaulted to Supabase.instance.client when omitted, same
+  /// shape as every other repository this app threads through
+  /// optionally -- threaded down to [ConversationScreen]'s own WYN-139
+  /// presence subscriptions.
+  final PresenceRepository? presenceRepository;
 
   @override
   State<NewMessageScreen> createState() => _NewMessageScreenState();
@@ -169,6 +177,7 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
             otherUsername: profile.username,
             otherDisplayName: profile.displayName,
             otherAvatarUrl: profile.avatarUrl,
+            presenceRepository: widget.presenceRepository,
           ),
         ),
       );

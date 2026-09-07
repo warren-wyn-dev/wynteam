@@ -108,10 +108,7 @@ class SettingsScreen extends StatelessWidget {
   final FollowRepository? followRepository;
 
   /// Same "optional/defaulted" shape again -- WYN-126's version footer
-  /// at the bottom of this screen, and (WYN-139) the Staged Rollout gate
-  /// for [_PrivacyScreen]'s new "แสดงสถานะออนไลน์และเข้าใช้งานล่าสุด"
-  /// toggle -- both share this one instance rather than each
-  /// constructing their own.
+  /// at the bottom of this screen.
   final DeveloperAccessService? developerAccessService;
 
   /// Same "optional/defaulted" shape again -- WYN-139's own privacy
@@ -227,7 +224,6 @@ class SettingsScreen extends StatelessWidget {
                   profileRepository: profileRepository,
                   followRepository: followRepository,
                   presenceRepository: presenceRepository,
-                  developerAccessService: developerAccessService,
                 ),
               ),
             ),
@@ -674,7 +670,6 @@ class _PrivacyScreen extends StatefulWidget {
     this.profileRepository,
     this.followRepository,
     this.presenceRepository,
-    this.developerAccessService,
   });
 
   final bool isPrivate;
@@ -685,10 +680,9 @@ class _PrivacyScreen extends StatefulWidget {
   final ProfileRepository? profileRepository;
   final FollowRepository? followRepository;
 
-  // WYN-139/WYN-125: Staged Rollout gate for the new "แสดงสถานะออนไลน์
-  // และเข้าใช้งานล่าสุด" row below.
+  // WYN-139: presence repository for the "แสดงสถานะออนไลน์และเข้าใช้งาน
+  // ล่าสุด" row below -- opened to all users (Founder, 2026-09-07).
   final PresenceRepository? presenceRepository;
-  final DeveloperAccessService? developerAccessService;
 
   @override
   State<_PrivacyScreen> createState() => _PrivacyScreenState();
@@ -701,8 +695,6 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
       widget.followRepository ?? FollowRepository(Supabase.instance.client);
   late final PresenceRepository _presenceRepository =
       widget.presenceRepository ?? PresenceRepository(Supabase.instance.client);
-  late final DeveloperAccessService _developerAccessService =
-      widget.developerAccessService ?? DeveloperAccessService();
   late bool _isPrivate = widget.isPrivate;
   bool _isTogglingPrivate = false;
 
@@ -711,38 +703,28 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
   late InteractionPermission _commentPermission = widget.commentPermission;
   late LikesVisibility _likesVisibility = widget.likesVisibility;
 
-  // WYN-139/WYN-125 (Staged Rollout): null until [initState]'s own
-  // `.then()` resolves -- the row itself is only ever built once this is
-  // `true` (see [build]). A non-developer account's own
-  // show_online_status is never even fetched (the presence repository
-  // call inside that same `.then()` is itself gated on `isDeveloper`),
-  // matching the design doc's "ไม่เห็นแถว Settings toggle ใหม่เลย"
-  // requirement.
-  bool? _isDeveloper;
-
-  /// Null until loaded (or forever, for a non-developer account) --
-  /// [build] falls back to the schema column's own default (`true`)
-  /// only once this has actually loaded, so the row never flashes the
-  /// wrong state for a moment before the real value arrives.
+  /// Null until loaded -- [build] falls back to the schema column's own
+  /// default (`true`) only once this has actually loaded, so the row
+  /// never flashes the wrong state for a moment before the real value
+  /// arrives.
   bool? _showOnline;
   bool _isTogglingShowOnline = false;
 
   @override
   void initState() {
     super.initState();
-    _developerAccessService.isDeveloperAccount().then((isDeveloper) async {
-      if (!mounted) return;
-      setState(() => _isDeveloper = isDeveloper);
-      if (!isDeveloper) return;
-      try {
-        final value = await _presenceRepository.fetchShowOnlineStatus();
-        if (mounted) setState(() => _showOnline = value);
-      } catch (_) {
-        // Fails open to not rendering the row's real value this session
-        // (see [build]'s own `onChanged` guard) -- matches this screen's
-        // other loads' fail-open posture; reopening the screen retries.
-      }
-    });
+    _loadShowOnline();
+  }
+
+  Future<void> _loadShowOnline() async {
+    try {
+      final value = await _presenceRepository.fetchShowOnlineStatus();
+      if (mounted) setState(() => _showOnline = value);
+    } catch (_) {
+      // Fails open to not rendering the row's real value this session
+      // (see [build]'s own `onChanged` guard) -- matches this screen's
+      // other loads' fail-open posture; reopening the screen retries.
+    }
   }
 
   Future<void> _setIsPrivate(bool value) async {
@@ -918,22 +900,18 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
             onChanged: (v) => _setPermission(
                 'comment_permission', v, (p) => _commentPermission = p),
           ),
-          // WYN-139/WYN-125 (Staged Rollout): placed right under the 3
-          // DM/Mention/Comment permission rows above, per the design
-          // doc's own wireframe -- never rendered at all for a
-          // non-developer account (`_isDeveloper` stays null/false, and
-          // this list simply has no entry for it, not a disabled/hidden
-          // one -- "เหมือนฟีเจอร์ยังไม่มีอยู่").
-          if (_isDeveloper == true)
-            SwitchListTile(
-              key: const Key('show_online_status_toggle'),
-              secondary: const Icon(Icons.wifi_tethering),
-              title: const Text('แสดงสถานะออนไลน์และเข้าใช้งานล่าสุด'),
-              subtitle: const Text(
-                  'ถ้าปิด คุณจะไม่เห็นสถานะออนไลน์และเข้าใช้งานล่าสุดของคนอื่นด้วยเช่นกัน'),
-              value: _showOnline ?? true,
-              onChanged: (_showOnline == null || _isTogglingShowOnline) ? null : _setShowOnline,
-            ),
+          // WYN-139: placed right under the 3 DM/Mention/Comment
+          // permission rows above, per the design doc's own wireframe --
+          // opened to all users (Founder, 2026-09-07).
+          SwitchListTile(
+            key: const Key('show_online_status_toggle'),
+            secondary: const Icon(Icons.wifi_tethering),
+            title: const Text('แสดงสถานะออนไลน์และเข้าใช้งานล่าสุด'),
+            subtitle: const Text(
+                'ถ้าปิด คุณจะไม่เห็นสถานะออนไลน์และเข้าใช้งานล่าสุดของคนอื่นด้วยเช่นกัน'),
+            value: _showOnline ?? true,
+            onChanged: (_showOnline == null || _isTogglingShowOnline) ? null : _setShowOnline,
+          ),
           // WYN-099 -- 4th row, its own picker (3 values: ทุกคน/เพื่อน/
           // เฉพาะฉัน -- not InteractionPermission's 3, a different
           // vocabulary, see LikesVisibility's own doc comment).

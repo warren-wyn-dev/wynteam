@@ -6,6 +6,7 @@ import 'package:wyn/features/chat/presentation/message_request_list_screen.dart'
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_chat_repository.dart';
+import 'support/recording_presence_repository.dart';
 
 void main() {
   setUpAll(() async {
@@ -35,7 +36,13 @@ void main() {
       });
 
   Widget buildScreen() => MaterialApp(
-        home: MessageRequestListScreen(chatRepository: chatRepo),
+        home: MessageRequestListScreen(
+          chatRepository: chatRepo,
+          // WYN-139: ConversationScreen now unconditionally starts
+          // presence subscriptions -- see chat_inbox_screen_test.dart's
+          // identical comment.
+          presenceRepository: RecordingPresenceRepository(),
+        ),
       );
 
   testWidgets('empty state shows the no-requests message, not a crash', (tester) async {

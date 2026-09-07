@@ -18,6 +18,7 @@ import '../../follow/presentation/follow_request_list_screen.dart';
 import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/presentation/my_moderation_action_screen.dart';
 import '../../pop/data/pop_repository.dart';
+import '../../presence/data/presence_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
@@ -54,6 +55,7 @@ class NotificationListScreen extends StatefulWidget {
     required this.chatRepository,
     this.followRequestRepository,
     this.pushNotificationService,
+    this.presenceRepository,
   });
 
   final NotificationRepository notificationRepository;
@@ -83,6 +85,10 @@ class NotificationListScreen extends StatefulWidget {
   /// real Firebase app; production always leaves this null and the card
   /// builds the real service itself.
   final PushNotificationService? pushNotificationService;
+
+  /// Same optional/defaulted shape again -- threaded down to
+  /// [ConversationScreen]'s own WYN-139 presence subscriptions.
+  final PresenceRepository? presenceRepository;
 
   @override
   State<NotificationListScreen> createState() => _NotificationListScreenState();
@@ -273,6 +279,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
               otherUsername: notification.actorUsername ?? '',
               otherDisplayName: notification.actorDisplayName,
               otherAvatarUrl: notification.actorAvatarUrl,
+              presenceRepository: widget.presenceRepository,
             ),
           ),
         );
@@ -292,6 +299,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
               otherUsername: notification.actorUsername ?? '',
               otherDisplayName: notification.actorDisplayName,
               otherAvatarUrl: notification.actorAvatarUrl,
+              presenceRepository: widget.presenceRepository,
             ),
           ),
         );

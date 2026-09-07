@@ -17,6 +17,7 @@ import 'support/recording_follow_repository.dart';
 import 'support/recording_home_repository.dart';
 import 'support/recording_notification_repository.dart';
 import 'support/recording_pop_repository.dart';
+import 'support/recording_presence_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
 
@@ -42,6 +43,13 @@ void main() {
   late RecordingClubPostRepository sharedClubPostRepository;
   late RecordingHomeRepository sharedHomeRepository;
   late RecordingNotificationRepository sharedNotificationRepository;
+  // WYN-139: RootShell now unconditionally calls
+  // presenceRepository.startGlobalPresence() -- a real PresenceRepository
+  // would attempt a genuine WebSocket handshake against this suite's
+  // placeholder Supabase project and leak a pending realtime_client
+  // Timer, same class of problem this file's own doc comment above
+  // already describes for the other repositories.
+  late RecordingPresenceRepository sharedPresenceRepository;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'guest', isAnonymous: true);
@@ -56,6 +64,7 @@ void main() {
     sharedClubPostRepository = RecordingClubPostRepository();
     sharedHomeRepository = RecordingHomeRepository(feedItems: []);
     sharedNotificationRepository = RecordingNotificationRepository();
+    sharedPresenceRepository = RecordingPresenceRepository();
   });
 
   // Sanity check that the fake session really is anonymous -- if this
@@ -76,6 +85,7 @@ void main() {
           clubRepository: sharedClubRepository,
           clubPostRepository: sharedClubPostRepository,
           homeRepository: sharedHomeRepository,
+          presenceRepository: sharedPresenceRepository,
         ),
       );
 

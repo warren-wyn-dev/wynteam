@@ -7,6 +7,7 @@ import '../../../core/design/wyn_typography.dart';
 import '../../../core/text_utils.dart';
 import '../../../core/widgets/empty_state_block.dart';
 import '../../follow/data/follow_repository.dart';
+import '../../presence/data/presence_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/chat_repository.dart';
@@ -40,6 +41,7 @@ class ChatInboxScreen extends StatefulWidget {
     required this.chatRepository,
     this.profileRepository,
     this.followRepository,
+    this.presenceRepository,
   });
 
   final ChatRepository chatRepository;
@@ -49,6 +51,10 @@ class ChatInboxScreen extends StatefulWidget {
   /// optionally -- needed only to open [NewMessageScreen].
   final ProfileRepository? profileRepository;
   final FollowRepository? followRepository;
+
+  /// Same optional/defaulted shape again -- threaded down to
+  /// [ConversationScreen]'s own WYN-139 presence subscriptions.
+  final PresenceRepository? presenceRepository;
 
   @override
   State<ChatInboxScreen> createState() => _ChatInboxScreenState();
@@ -188,7 +194,10 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
   Future<void> _openMessageRequests() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => MessageRequestListScreen(chatRepository: widget.chatRepository),
+        builder: (_) => MessageRequestListScreen(
+          chatRepository: widget.chatRepository,
+          presenceRepository: widget.presenceRepository,
+        ),
       ),
     );
     // Requests may have been accepted/deleted while that screen was
@@ -207,6 +216,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
           chatRepository: widget.chatRepository,
           profileRepository: _profileRepository,
           followRepository: _followRepository,
+          presenceRepository: widget.presenceRepository,
         ),
       ),
     );
@@ -242,6 +252,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
           otherUsername: conversation.otherUsername,
           otherDisplayName: conversation.otherDisplayName,
           otherAvatarUrl: conversation.otherAvatarUrl,
+          presenceRepository: widget.presenceRepository,
         ),
       ),
     );

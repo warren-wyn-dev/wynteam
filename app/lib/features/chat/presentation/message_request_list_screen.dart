@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/text_utils.dart';
+import '../../presence/data/presence_repository.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/chat_repository.dart';
 import '../data/message_request.dart';
@@ -13,9 +14,19 @@ import 'conversation_screen.dart';
 /// from the banner on `ChatInboxScreen` -- never a Bottom Nav tab or a
 /// direct entry point of its own.
 class MessageRequestListScreen extends StatefulWidget {
-  const MessageRequestListScreen({super.key, required this.chatRepository});
+  const MessageRequestListScreen({
+    super.key,
+    required this.chatRepository,
+    this.presenceRepository,
+  });
 
   final ChatRepository chatRepository;
+
+  /// Optional/defaulted to Supabase.instance.client when omitted, same
+  /// shape as every other repository this app threads through
+  /// optionally -- threaded down to [ConversationScreen]'s own WYN-139
+  /// presence subscriptions.
+  final PresenceRepository? presenceRepository;
 
   @override
   State<MessageRequestListScreen> createState() => _MessageRequestListScreenState();
@@ -101,6 +112,7 @@ class _MessageRequestListScreenState extends State<MessageRequestListScreen> {
           otherUsername: request.otherUsername,
           otherDisplayName: request.otherDisplayName,
           otherAvatarUrl: request.otherAvatarUrl,
+          presenceRepository: widget.presenceRepository,
         ),
       ),
     );

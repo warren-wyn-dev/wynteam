@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../../core/developer_access/developer_access_service.dart';
 import '../../data/club.dart';
 import '../../data/club_badge_repository.dart';
 import '../../data/club_member.dart';
@@ -38,9 +37,7 @@ class ClubPostsTab extends StatefulWidget {
     required this.myRole,
     required this.onJoinTapped,
     ClubBadgeRepository? clubBadgeRepository,
-    DeveloperAccessService? developerAccessService,
-  })  : _clubBadgeRepository = clubBadgeRepository,
-        _developerAccessService = developerAccessService;
+  }) : _clubBadgeRepository = clubBadgeRepository;
 
   final ClubPostRepository clubPostRepository;
 
@@ -57,14 +54,6 @@ class ClubPostsTab extends StatefulWidget {
   /// other optional repository field in this app.
   final ClubBadgeRepository? _clubBadgeRepository;
 
-  /// Staged-rollout gate (`.wyn/company/WORKFLOW.md`'s "Staged Rollout
-  /// เป็นค่าเริ่มต้นสำหรับฟีเจอร์ใหม่ทุกตัว", mandatory since 2026-09-06) --
-  /// WYN-129's badge pill is the only thing left in this tab that's
-  /// still staged-rollout gated (the channel switcher/chat toggle this
-  /// field used to also gate were removed along with the per-channel
-  /// split -- see the class doc comment).
-  final DeveloperAccessService? _developerAccessService;
-
   @override
   State<ClubPostsTab> createState() => _ClubPostsTabState();
 }
@@ -72,15 +61,6 @@ class ClubPostsTab extends StatefulWidget {
 class _ClubPostsTabState extends State<ClubPostsTab> {
   late final ClubBadgeRepository _clubBadgeRepository =
       widget._clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
-  late final DeveloperAccessService _developerAccessService =
-      widget._developerAccessService ?? DeveloperAccessService();
-
-  /// Staged-rollout gate -- see [ClubPostsTab._developerAccessService]'s
-  /// doc comment. Fail-closed while still loading/on error (`snapshot.data
-  /// == true`, same posture as settings_screen.dart's `_VersionFooter`):
-  /// a regular account can only ever under-promise (briefly not seeing
-  /// the badge pill while this resolves), never see it by mistake.
-  late final Future<bool> _isDeveloperFuture = _developerAccessService.isDeveloperAccount();
 
   final List<ClubPost> _posts = [];
   int _page = 0;
@@ -104,16 +84,7 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     super.initState();
     if (_isMember) {
       _loadDefaultChannelThenPosts();
-      // WYN-129's badge pill is gated behind the staged-rollout flag --
-      // only fetch badges (and therefore only ever populate `_badges`,
-      // the one thing ClubPostCard actually checks to decide whether to
-      // render a pill) once this resolves `true`. A regular account's
-      // `_badges` map simply stays empty forever, which is
-      // indistinguishable from "nobody in this Club has a badge" -- the
-      // exact pre-WYN-129 look.
-      _isDeveloperFuture.then((isDeveloper) {
-        if (isDeveloper) _loadBadges();
-      });
+      _loadBadges();
     }
   }
 
@@ -291,7 +262,6 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
           post: post,
           myRole: widget.myRole,
           clubBadgeRepository: _clubBadgeRepository,
-          developerAccessService: _developerAccessService,
         ),
       ),
     );
@@ -407,9 +377,9 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     // The previous version drove pagination off a private
     // ScrollController's own position, which is exactly what stops a
     // scrollable from being "primary" -- the one thing required for it
-    // to participate in ClubPage's staged-rollout NestedScrollView
-    // layout's shared header-collapse scroll position. A manual button
-    // needs no ScrollController of its own at all, so this tab is now a
+    // to participate in ClubPage's NestedScrollView layout's shared
+    // header-collapse scroll position. A manual button needs no
+    // ScrollController of its own at all, so this tab is now a
     // genuinely primary scrollable, same as club_members_tab.dart.
     return RefreshIndicator(
       onRefresh: _loadInitial,

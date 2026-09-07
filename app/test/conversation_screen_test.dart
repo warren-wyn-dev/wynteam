@@ -13,7 +13,6 @@ import 'package:wyn/features/profile/presentation/widgets/avatar_circle.dart';
 import 'support/fake_supabase_session.dart';
 import 'support/recording_block_repository.dart';
 import 'support/recording_chat_repository.dart';
-import 'support/recording_developer_access_service.dart';
 import 'support/recording_moderation_repository.dart';
 import 'support/recording_presence_repository.dart';
 
@@ -63,18 +62,13 @@ void main() {
         replyPreviewDeletedAt: replyPreviewDeletedAt,
       );
 
-  // WYN-138/133/WYN-125 (Staged Rollout): defaults to a non-developer
-  // account so every pre-existing test above keeps exercising the exact
-  // pre-WYN-138/133 menu/composer -- only the WYN-138/133 test groups
-  // below override this to `true` to reach the gated Edit/Pin/Presence
-  // UI. presenceRepository always defaults to a Recording fake
-  // regardless of the developer flag -- a real PresenceRepository's
-  // subscribeTypingChannel/startGlobalPresence attempt a real WebSocket
-  // handshake against this suite's placeholder Supabase project, which
-  // leaves a pending realtime_client Timer behind and fails
-  // flutter_test's own `!timersPending` invariant at teardown.
+  // presenceRepository always defaults to a Recording fake -- a real
+  // PresenceRepository's subscribeTypingChannel/startGlobalPresence
+  // attempt a real WebSocket handshake against this suite's placeholder
+  // Supabase project, which leaves a pending realtime_client Timer
+  // behind and fails flutter_test's own `!timersPending` invariant at
+  // teardown.
   Widget buildScreen({
-    RecordingDeveloperAccessService? developerAccessService,
     RecordingPresenceRepository? presenceRepository,
   }) =>
       MaterialApp(
@@ -86,8 +80,6 @@ void main() {
           otherDisplayName: 'น้ำฝน',
           blockRepository: blockRepo,
           moderationRepository: moderationRepo,
-          developerAccessService:
-              developerAccessService ?? RecordingDeveloperAccessService(isDeveloperResult: false),
           presenceRepository: presenceRepository ?? RecordingPresenceRepository(),
         ),
       );
@@ -850,6 +842,7 @@ void main() {
                       otherDisplayName: 'น้ำฝน',
                       blockRepository: blockRepo,
                       moderationRepository: moderationRepo,
+                      presenceRepository: RecordingPresenceRepository(),
                     ),
                   ),
                 ),
@@ -1023,50 +1016,15 @@ void main() {
     expect(find.text('18:44'), findsNothing);
   });
 
-  group('WYN-138: Edit + Pin Message (Staged Rollout gated)', () {
-    RecordingDeveloperAccessService developerAccess({bool isDeveloper = true}) =>
-        RecordingDeveloperAccessService(isDeveloperResult: isDeveloper);
-
+  group('WYN-138: Edit + Pin Message', () {
     testWidgets(
-        'non-developer account: the long-press menu has no "แก้ไข"/pin '
-        'rows, and the pinned bar never renders even with pinned data '
-        'present', (tester) async {
-      chatRepo.messagesByConversation = {
-        'c1': [message(id: 'm1', senderId: 'me', text: 'ข้อความของฉัน')],
-      };
-      chatRepo.pinnedMessagesResult = [
-        PinnedMessage(
-          messageId: 'm1',
-          pinnedAt: DateTime.now(),
-          pinnedBy: 'me',
-          senderId: 'me',
-          text: 'ข้อความของฉัน',
-        ),
-      ];
-      await tester.pumpWidget(
-        buildScreen(developerAccessService: developerAccess(isDeveloper: false)),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const Key('pinned_bar')), findsNothing);
-      expect(chatRepo.fetchPinnedMessagesCalls, 0);
-
-      await tester.longPress(find.text('ข้อความของฉัน'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('แก้ไข'), findsNothing);
-      expect(find.text('ปักหมุดข้อความ'), findsNothing);
-      expect(find.text('เลิกปักหมุด'), findsNothing);
-    });
-
-    testWidgets(
-        'developer account: editing my own text message updates the '
-        'bubble optimistically and shows the "แก้ไขแล้ว" label',
+        'editing my own text message updates the bubble optimistically '
+        'and shows the "แก้ไขแล้ว" label',
         (tester) async {
       chatRepo.messagesByConversation = {
         'c1': [message(id: 'm1', senderId: 'me', text: 'ข้อความเดิม')],
       };
-      await tester.pumpWidget(buildScreen(developerAccessService: developerAccess()));
+      await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
 
       await tester.longPress(find.text('ข้อความเดิม'));
@@ -1101,7 +1059,7 @@ void main() {
         ],
       };
       chatRepo.signedUrlResult = 'https://example.supabase.co/signed/me-1.jpg';
-      await tester.pumpWidget(buildScreen(developerAccessService: developerAccess()));
+      await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
       tester.takeException(); // fake signed image URL 404s -- harmless.
 
@@ -1125,7 +1083,7 @@ void main() {
         'c1': [message(id: 'm1', senderId: 'me', text: 'ข้อความเดิม')],
       };
       chatRepo.editMessageError = Exception('boom');
-      await tester.pumpWidget(buildScreen(developerAccessService: developerAccess()));
+      await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
 
       await tester.longPress(find.text('ข้อความเดิม'));
@@ -1151,7 +1109,7 @@ void main() {
       chatRepo.messagesByConversation = {
         'c1': [message(id: 'm1', senderId: 'other', text: 'ปักหมุดฉัน')],
       };
-      await tester.pumpWidget(buildScreen(developerAccessService: developerAccess()));
+      await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('pinned_bar')), findsNothing);
 
@@ -1200,7 +1158,7 @@ void main() {
         'c1': [message(id: 'm1', senderId: 'other', text: 'ข้อความที่ 4')],
       };
       chatRepo.pinMessageError = Exception('At most 3 pinned messages allowed per conversation');
-      await tester.pumpWidget(buildScreen(developerAccessService: developerAccess()));
+      await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
 
       await tester.longPress(find.text('ข้อความที่ 4'));
@@ -1229,9 +1187,6 @@ void main() {
           ),
         ],
       };
-      // Not gated -- the "แก้ไขแล้ว" label itself must show regardless of
-      // Staged Rollout (Requirement: "ห้ามซ่อน"), so this deliberately
-      // uses the default non-developer buildScreen().
       await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
 
@@ -1255,43 +1210,14 @@ void main() {
     });
   });
 
-  group('WYN-139: DM Presence -- Typing + Online/Last Seen (Staged '
-      'Rollout gated)', () {
-    RecordingDeveloperAccessService developerAccess({bool isDeveloper = true}) =>
-        RecordingDeveloperAccessService(isDeveloperResult: isDeveloper);
-
-    testWidgets(
-        'non-developer account: no AppBar subtitle ever renders, and '
-        'presence is never fetched/subscribed even with data available',
+  group('WYN-139: DM Presence -- Typing + Online/Last Seen', () {
+    testWidgets('the other participant typing shows "กำลังพิมพ์..." live',
         (tester) async {
-      chatRepo.messagesByConversation = {
-        'c1': [message(id: 'm1', text: 'สวัสดี')],
-      };
-      final presenceRepository = RecordingPresenceRepository()
-        ..partnerPresenceResult = (showOnline: true, lastSeenAt: DateTime.now());
-      presenceRepository.setOnline('other', online: true);
-
-      await tester.pumpWidget(buildScreen(
-        developerAccessService: developerAccess(isDeveloper: false),
-        presenceRepository: presenceRepository,
-      ));
-      await tester.pumpAndSettle();
-
-      expect(find.text('ออนไลน์'), findsNothing);
-      expect(find.text('กำลังพิมพ์...'), findsNothing);
-      expect(find.textContaining('ใช้งานล่าสุด'), findsNothing);
-      expect(presenceRepository.fetchConversationPartnerPresenceCalls, 0);
-      expect(presenceRepository.subscribeTypingChannelCalls, 0);
-    });
-
-    testWidgets('developer account: the other participant typing shows '
-        '"กำลังพิมพ์..." live', (tester) async {
       chatRepo.messagesByConversation = {
         'c1': [message(id: 'm1', text: 'สวัสดี')],
       };
       final presenceRepository = RecordingPresenceRepository();
       await tester.pumpWidget(buildScreen(
-        developerAccessService: developerAccess(),
         presenceRepository: presenceRepository,
       ));
       await tester.pumpAndSettle();
@@ -1310,7 +1236,7 @@ void main() {
     });
 
     testWidgets(
-        'developer account: reciprocal-ok + currently online shows the '
+        'reciprocal-ok + currently online shows the '
         'green dot + "ออนไลน์", taking priority over last seen',
         (tester) async {
       chatRepo.messagesByConversation = {
@@ -1324,7 +1250,6 @@ void main() {
       presenceRepository.setOnline('other', online: true);
 
       await tester.pumpWidget(buildScreen(
-        developerAccessService: developerAccess(),
         presenceRepository: presenceRepository,
       ));
       await tester.pumpAndSettle();
@@ -1334,7 +1259,7 @@ void main() {
     });
 
     testWidgets(
-        'developer account: reciprocal-ok + not currently online shows '
+        'reciprocal-ok + not currently online shows '
         '"ใช้งานล่าสุด ..." from last_seen_at', (tester) async {
       chatRepo.messagesByConversation = {
         'c1': [message(id: 'm1', text: 'สวัสดี')],
@@ -1347,7 +1272,6 @@ void main() {
       // Deliberately not marked online.
 
       await tester.pumpWidget(buildScreen(
-        developerAccessService: developerAccess(),
         presenceRepository: presenceRepository,
       ));
       await tester.pumpAndSettle();
@@ -1357,7 +1281,7 @@ void main() {
     });
 
     testWidgets(
-        'developer account: reciprocal check failed (either side has '
+        'reciprocal check failed (either side has '
         'privacy off) shows no subtitle at all, even if actually online',
         (tester) async {
       chatRepo.messagesByConversation = {
@@ -1368,7 +1292,6 @@ void main() {
       presenceRepository.setOnline('other', online: true);
 
       await tester.pumpWidget(buildScreen(
-        developerAccessService: developerAccess(),
         presenceRepository: presenceRepository,
       ));
       await tester.pumpAndSettle();
@@ -1390,7 +1313,6 @@ void main() {
       );
       final presenceRepository = RecordingPresenceRepository();
       await tester.pumpWidget(buildScreen(
-        developerAccessService: developerAccess(),
         presenceRepository: presenceRepository,
       ));
       await tester.pumpAndSettle();
@@ -1418,7 +1340,6 @@ void main() {
       chatRepo.messagesByConversation = const {'c1': []};
       final presenceRepository = RecordingPresenceRepository();
       await tester.pumpWidget(buildScreen(
-        developerAccessService: developerAccess(),
         presenceRepository: presenceRepository,
       ));
       await tester.pumpAndSettle();

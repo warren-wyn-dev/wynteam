@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_navigator.dart';
-import '../developer_access/developer_access_service.dart';
 import '../../features/club/data/club_post_repository.dart';
 import '../../features/club/data/club_repository.dart';
 import '../../features/club/presentation/club_invite_preview_screen.dart';
@@ -217,18 +216,11 @@ class DeepLinkService {
     );
   }
 
-  /// WYN-136/WYN-125 (Staged Rollout): a non-developer account opening
-  /// this path -- even one a developer shared/left lying around -- is a
-  /// silent no-op, same as any other unrecognized path, rather than the
-  /// real preview screen (Design doc: "เปิดลิงก์ /club-invite/:code เก่า
-  /// ... fallback เข้า Home ปกติเงียบๆ").
   static Future<void> _openClubInvite(
     NavigatorState navigator,
     SupabaseClient client,
     String code,
   ) async {
-    final isDeveloper = await DeveloperAccessService(client).isDeveloperAccount();
-    if (!isDeveloper) return;
     navigator.push(
       MaterialPageRoute(
         builder: (_) => ClubInvitePreviewScreen(
