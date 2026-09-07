@@ -1,0 +1,262 @@
+name: WYN-127 -- apply club channels schema (table, RLS, trigger, backfill, RPC update)
+
+# PR #297 merged WYN-127 (Club Channels)/WYN-129 (Club Role Badges)/
+# WYN-128 (Club Group Chat) into main -- QA-approved -- but, same
+# established gap as every prior WYN-*-apply-*-schema.yml in this
+# project (wyn118, wyn125, ...), schema.sql does not auto-apply to
+# production. It is a description of the desired end state, not a
+# migration runner (see chat-enable-conversations-realtime.yml's/
+# wyn122-apply-chat-lockdown-schema.yml's own comment on this exact,
+# repeatedly-hit convention). This workflow applies WYN-127's own
+# section.
+#
+# RUN ORDER: this workflow (WYN-127) must run BEFORE
+# wyn128-apply-club-channel-messages-schema.yml -- WYN-128's
+# club_channel_messages.channel_id has a hard FK to
+# public.club_channels(id), created by this workflow. Running WYN-128
+# first would fail outright (relation "public.club_channels" does not
+# exist). WYN-129 (club_member_badges) has no dependency either way and
+# may run before or after this one.
+#
+# Every statement below is copy-paste identical (in meaning) to the
+# WYN-127 section of supabase/schema.sql (search "WYN-127: Club
+# Channels") and to supabase/migrations_wyn127_club_channels.sql (the
+# hand-written production ALTER path this workflow actually automates)
+# -- if the three ever drift, schema.sql/the migrations file is wrong,
+# not this workflow (this file is what actually ran against
+# production).
+#
+# SAFETY: additive + backfill, no destructive step.
+#   * club_channels is a brand new table.
+#   * Every existing Club gets a "ทั่วไป" default channel backfilled for
+#     it, and every existing club_posts row is backfilled into that
+#     channel -- no post is ever left unassigned or deleted.
+#   * channel_id is added nullable first, backfilled, and only then
+#     constrained NOT NULL -- by the time that ALTER runs every row
+#     already has a value, so it cannot fail.
+#   * Deleting a channel (ON DELETE CASCADE on club_posts' composite FK)
+#     deletes every post inside it -- intentional product behavior
+#     (Founder, 2026-09-07: "ประหยัดพื้นที่"), not an accident of this
+#     workflow.
+#
+# Safe to run more than once (CREATE TABLE/INDEX IF NOT EXISTS, DROP
+# POLICY/TRIGGER IF EXISTS before CREATE, backfill INSERT/UPDATE guarded
+# by WHERE NOT EXISTS/WHERE channel_id IS NULL, CREATE OR REPLACE
+# FUNCTION, DROP FUNCTION IF EXISTS for the retired 5-arg overload) --
+# validated locally against a scratch PostgreSQL loaded with
+# supabase/schema.sql from before WYN-127/128/129 existed (commit
+# 5498928, the commit right before 0cc2395's Club Discord-identity
+# roadmap doc), seeded with a pre-existing Club + pre-existing
+# club_post, then run twice in a row with zero errors and zero
+# duplicate/changed rows on the second pass.
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== 0. Diagnose: does club_channels / club_posts.channel_id already exist? ==="
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name = 'club_channels';" | jq .
+          run_sql "select column_name from information_schema.columns where table_schema = 'public' and table_name = 'club_posts' and column_name = 'channel_id';" | jq .
+
+          echo "=== 1. Create club_channels (idempotent) + RLS ==="
+          run_sql "create table if not exists public.club_channels (
+                     id uuid primary key default gen_random_uuid(),
+                     club_id uuid not null references public.clubs (id) on delete cascade,
+                     name text not null,
+                     created_by uuid not null references public.profiles (id) on delete cascade,
+                     created_at timestamptz not null default now(),
+                     constraint club_channels_name_length check (char_length(name) between 1 and 50),
+                     constraint club_channels_id_club_id_key unique (id, club_id)
+                   );
+
+                   create unique index if not exists club_channels_club_id_lower_name_key
+                     on public.club_channels (club_id, lower(name));
+
+                   alter table public.club_channels enable row level security;
+
+                   drop policy if exists \"Club channels are viewable by authenticated users\" on public.club_channels;
+                   create policy \"Club channels are viewable by authenticated users\"
+                     on public.club_channels
+                     for select
+                     to authenticated
+                     using (true);
+
+                   drop policy if exists \"Club owners and admins can create channels\" on public.club_channels;
+                   create policy \"Club owners and admins can create channels\"
+                     on public.club_channels
+                     for insert
+                     to authenticated
+                     with check (
+                       auth.uid() = created_by
+                       and public.club_role(club_id, auth.uid()) in ('owner', 'admin')
+                     );
+
+                   drop policy if exists \"Club owners and admins can rename channels\" on public.club_channels;
+                   create policy \"Club owners and admins can rename channels\"
+                     on public.club_channels
+                     for update
+                     to authenticated
+                     using (public.club_role(club_id, auth.uid()) in ('owner', 'admin'));
+
+                   drop policy if exists \"Club owners and admins can delete channels\" on public.club_channels;
+                   create policy \"Club owners and admins can delete channels\"
+                     on public.club_channels
+                     for delete
+                     to authenticated
+                     using (public.club_role(club_id, auth.uid()) in ('owner', 'admin'));" >/dev/null
+          echo "Done."
+
+          echo "=== 2. clubs_add_default_channel() trigger -- every new Club gets its \"ทั่วไป\" default channel ==="
+          run_sql "create or replace function public.clubs_add_default_channel()
+                   returns trigger
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   begin
+                     insert into public.club_channels (club_id, name, created_by)
+                     values (new.id, 'ทั่วไป', new.owner_id);
+                     return new;
+                   end;
+                   \$fn\$;
+
+                   drop trigger if exists clubs_add_default_channel on public.clubs;
+                   create trigger clubs_add_default_channel
+                     after insert on public.clubs
+                     for each row execute function public.clubs_add_default_channel();" >/dev/null
+          echo "Done."
+
+          echo "=== 3. Backfill existing Clubs/club_posts + channel_id FK/NOT NULL/index ==="
+          run_sql "insert into public.club_channels (club_id, name, created_by)
+                   select c.id, 'ทั่วไป', c.owner_id
+                   from public.clubs c
+                   where not exists (
+                     select 1 from public.club_channels ch where ch.club_id = c.id
+                   );
+
+                   alter table public.club_posts add column if not exists channel_id uuid;
+
+                   update public.club_posts cp
+                   set channel_id = (
+                     select ch.id from public.club_channels ch
+                     where ch.club_id = cp.club_id
+                     order by ch.created_at asc
+                     limit 1
+                   )
+                   where cp.channel_id is null;
+
+                   alter table public.club_posts drop constraint if exists club_posts_channel_id_club_id_fkey;
+                   alter table public.club_posts
+                     add constraint club_posts_channel_id_club_id_fkey
+                     foreign key (channel_id, club_id) references public.club_channels (id, club_id) on delete cascade;
+
+                   alter table public.club_posts alter column channel_id set not null;
+
+                   create index if not exists club_posts_channel_id_idx
+                     on public.club_posts (channel_id, pinned, created_at);" >/dev/null
+          echo "Done."
+
+          echo "=== 4. create_poll_club_post() gains p_channel_id (old 5-arg overload dropped) ==="
+          run_sql "drop function if exists public.create_poll_club_post(uuid, text, text[], int, uuid[]);
+
+                   create or replace function public.create_poll_club_post(
+                     p_club_id uuid,
+                     p_channel_id uuid,
+                     p_content text,
+                     p_options text[],
+                     p_duration_days int,
+                     p_mentioned_user_ids uuid[] default '{}'
+                   )
+                   returns uuid
+                   language plpgsql
+                   security definer
+                   set search_path = public
+                   as \$fn\$
+                   declare
+                     v_author uuid := auth.uid();
+                     v_post_id uuid;
+                     v_options text[];
+                   begin
+                     if v_author is null then
+                       raise exception 'Not authenticated';
+                     end if;
+
+                     if public.club_role(p_club_id, v_author) is null then
+                       raise exception 'Must be an approved club member to post';
+                     end if;
+
+                     if not exists (
+                       select 1 from public.club_channels where id = p_channel_id and club_id = p_club_id
+                     ) then
+                       raise exception 'Channel does not belong to this club';
+                     end if;
+
+                     if internal.is_posting_blocked(v_author) then
+                       raise exception 'Account is posting-restricted';
+                     end if;
+
+                     if p_content is null or length(trim(p_content)) = 0 then
+                       raise exception 'Poll question is required';
+                     end if;
+
+                     select array_agg(trim(o)) into v_options from unnest(p_options) as o;
+
+                     if not public.valid_poll_options(v_options) then
+                       raise exception 'Poll must have 2-4 non-empty, non-duplicate options (max 80 characters each)';
+                     end if;
+
+                     if p_duration_days not in (1, 3, 7) then
+                       raise exception 'Poll duration must be 1, 3, or 7 days';
+                     end if;
+
+                     insert into public.club_posts (club_id, channel_id, author_id, content, image_urls, link_url)
+                     values (p_club_id, p_channel_id, v_author, trim(p_content), null, null)
+                     returning id into v_post_id;
+
+                     insert into public.club_post_polls (club_post_id, options, expires_at)
+                     values (v_post_id, v_options, now() + make_interval(days => p_duration_days));
+
+                     insert into public.club_post_mentions (club_post_id, mentioned_user_id)
+                     select v_post_id, m
+                     from unnest(p_mentioned_user_ids) as m;
+
+                     return v_post_id;
+                   end;
+                   \$fn\$;" >/dev/null
+          echo "Done."
+
+          echo "=== 5. Verify: table + backfill + function now present ==="
+          run_sql "select table_name from information_schema.tables where table_schema = 'public' and table_name = 'club_channels';" | jq .
+          run_sql "select count(*) as posts_missing_channel from public.club_posts where channel_id is null;" | jq .
+          run_sql "select c.id from public.clubs c left join public.club_channels ch on ch.club_id = c.id group by c.id having count(ch.id) = 0;" | jq .
+          run_sql "select routine_name from information_schema.routines where routine_schema = 'public' and routine_name = 'create_poll_club_post';" | jq .
+
+          echo "=== 6. Smoke test: query club_channels against real data (should return cleanly, even if empty) ==="
+          run_sql "select ch.id, ch.club_id, ch.name from public.club_channels ch limit 5;" | jq .
