@@ -1,7 +1,7 @@
 # Product Task — WYN-133
 
-Status: design-complete incl. requirement 7 (channel category) — ready for AI Coding — Design spec: .wyn/docs/design/wyn-133-club-chat-channel-navigation.md
-Owner: AI Product Manager
+Status: coding-complete — PR #308 (https://github.com/warren-wyn-dev/wynteam/pull/308) — awaiting AI QA & Security, then apply-schema workflow + deploy
+Owner: AI Product Manager (spec) / AI Coding (implementation)
 
 Feature: Club Chat — กดห้องแล้วนำทางไปหน้าแชทของห้องนั้นแบบเต็มจอ (Discord-style channel navigation)
 
