@@ -86,6 +86,7 @@ void main() {
   late RecordingClubPostRepository pinnedFirstRepo;
   late RecordingClubPostRepository emptyRepo;
   late RecordingClubPostRepository pollRepo;
+  late RecordingClubPostRepository fullPageRepo;
   late RecordingClubRepository defaultClubRepo;
   late RecordingClubRepository twoChannelsRepo;
   late RecordingClubBadgeRepository someoneElseVipBadgeRepo;
@@ -112,6 +113,9 @@ void main() {
     ]);
     emptyRepo = RecordingClubPostRepository(posts: []);
     pollRepo = RecordingClubPostRepository(posts: [pollPost(id: 'p-poll')]);
+    fullPageRepo = RecordingClubPostRepository(
+      posts: List.generate(20, (i) => post(id: 'p$i')),
+    );
     // Built here, not inline as pumpTab's default (or inline inside a
     // testWidgets body below) -- see .wyn/learning/PATTERNS.md:
     // RecordingClubRepository's constructor creates a real SupabaseClient
@@ -250,9 +254,6 @@ void main() {
   // fetches page 1, not just that it renders.
   testWidgets('a full page of posts shows a "ดูโพสต์เพิ่มเติม" button that loads the next page',
       (tester) async {
-    final fullPageRepo = RecordingClubPostRepository(
-      posts: List.generate(20, (i) => post(id: 'p$i')),
-    );
     await pumpTab(tester, fullPageRepo, myRole: ClubMemberRole.member);
 
     // This is a lazily-built CustomScrollView (see WYN-110's own QA test
