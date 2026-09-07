@@ -1,7 +1,7 @@
 # Product Task — WYN-130
 
-Status: backlog
-Owner: AI Product Manager
+Status: active — Founder อนุมัติให้ทำต่อ (2026-09-07, Phase A) → ส่งต่อ AI Design (ต้องยืนยัน Private-Club-join-semantics ระหว่าง Design)
+Owner: AI Product Manager → AI Design
 
 Feature: Club Invite Link (generate/revoke, expiration, max-uses)
 

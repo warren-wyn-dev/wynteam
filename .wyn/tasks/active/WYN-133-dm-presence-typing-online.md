@@ -1,7 +1,7 @@
 # Product Task — WYN-133
 
-Status: backlog
-Owner: AI Product Manager
+Status: active — Founder อนุมัติให้ทำต่อ (2026-09-07, Phase A) → ส่งต่อ AI Design (privacy toggle เป็นส่วนบังคับของ MVP)
+Owner: AI Product Manager → AI Design
 
 Feature: DM Presence — Typing Indicator + Online/Offline + Last Seen (1:1 Chat)
 

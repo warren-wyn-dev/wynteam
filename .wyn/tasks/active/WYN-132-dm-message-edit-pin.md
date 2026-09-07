@@ -1,7 +1,7 @@
 # Product Task — WYN-132
 
-Status: backlog
-Owner: AI Product Manager
+Status: active — Founder อนุมัติให้ทำต่อ (2026-09-07, Phase A) → ส่งต่อ AI Design
+Owner: AI Product Manager → AI Design
 
 Feature: DM Message Actions — Edit Message + Pin Message (1:1 Chat)
 

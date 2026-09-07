@@ -1,7 +1,7 @@
 # Product Task — WYN-134
 
-Status: backlog
-Owner: AI Product Manager
+Status: active — Founder อนุมัติให้ทำต่อ (2026-09-07, Phase A ลำดับ P1) → ส่งต่อ AI Design
+Owner: AI Product Manager → AI Design
 
 Feature: DM "New Message" Notification
 
