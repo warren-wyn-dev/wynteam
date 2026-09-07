@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/club/data/club.dart';
+import 'package:wyn/features/club/data/club_channel.dart';
 import 'package:wyn/features/club/data/club_member.dart';
 import 'package:wyn/features/club/data/club_post.dart';
 import 'package:wyn/features/club/presentation/widgets/club_posts_tab.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_club_post_repository.dart';
+import 'support/recording_club_repository.dart';
 
 /// Regression tests for WYN-014's post-visibility gating -- the Product
 /// spec is explicit that Club posts are visible *only* to approved
@@ -76,6 +78,18 @@ void main() {
   late RecordingClubPostRepository pinnedFirstRepo;
   late RecordingClubPostRepository emptyRepo;
   late RecordingClubPostRepository pollRepo;
+  late RecordingClubRepository defaultClubRepo;
+  late RecordingClubRepository singleGeneralChannelRepo;
+  late RecordingClubRepository twoChannelsRepo;
+  late RecordingClubRepository ownerSingleChannelRepo;
+
+  ClubChannel channel({required String id, required String name}) => ClubChannel(
+        id: id,
+        clubId: club.id,
+        name: name,
+        createdBy: 'owner-1',
+        createdAt: DateTime.now(),
+      );
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'viewer');
@@ -89,6 +103,26 @@ void main() {
     ]);
     emptyRepo = RecordingClubPostRepository(posts: []);
     pollRepo = RecordingClubPostRepository(posts: [pollPost(id: 'p-poll')]);
+    // Built here, not inline as pumpTab's default (or inline inside a
+    // testWidgets body below) -- see .wyn/learning/PATTERNS.md:
+    // RecordingClubRepository's constructor creates a real SupabaseClient
+    // with its own GoTrue auto-refresh Timer.
+    defaultClubRepo = RecordingClubRepository(club: club);
+    singleGeneralChannelRepo = RecordingClubRepository(
+      club: club,
+      channels: [channel(id: 'c-general', name: 'ทั่วไป')],
+    );
+    twoChannelsRepo = RecordingClubRepository(
+      club: club,
+      channels: [
+        channel(id: 'c-general', name: 'ทั่วไป'),
+        channel(id: 'c-announce', name: 'ประกาศ'),
+      ],
+    );
+    ownerSingleChannelRepo = RecordingClubRepository(
+      club: club,
+      channels: [channel(id: 'c-general', name: 'ทั่วไป')],
+    );
   });
 
   Future<void> pumpTab(
@@ -96,11 +130,13 @@ void main() {
     RecordingClubPostRepository repo, {
     required ClubMemberRole? myRole,
     VoidCallback? onJoinTapped,
+    RecordingClubRepository? clubRepository,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
         home: ClubPostsTab(
           clubPostRepository: repo,
+          clubRepository: clubRepository ?? defaultClubRepo,
           club: club,
           myRole: myRole,
           onJoinTapped: onJoinTapped ?? () {},
@@ -207,6 +243,70 @@ void main() {
       // Reverted back to the original (no vote) state.
       expect(find.text('50%'), findsNWidgets(2));
       expect(find.byIcon(Icons.check_circle), findsNothing);
+    });
+  });
+
+  group('Channels (WYN-127)', () {
+    testWidgets('starts on the "ทั่วไป" (oldest) channel and fetches its posts',
+        (tester) async {
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.member,
+        clubRepository: singleGeneralChannelRepo,
+      );
+
+      expect(find.text('#ทั่วไป'), findsOneWidget);
+      expect(postsRepo.fetchPostsChannelIdArgs, contains('c-general'));
+    });
+
+    testWidgets('tapping another channel chip re-fetches posts scoped to it',
+        (tester) async {
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.member,
+        clubRepository: twoChannelsRepo,
+      );
+      postsRepo.fetchPostsChannelIdArgs.clear();
+
+      await tester.tap(find.text('#ประกาศ'));
+      await tester.pumpAndSettle();
+
+      expect(postsRepo.fetchPostsChannelIdArgs, contains('c-announce'));
+    });
+
+    testWidgets('a plain Member never sees the "+ ห้องใหม่" chip', (tester) async {
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.member,
+        clubRepository: singleGeneralChannelRepo,
+      );
+
+      expect(find.byKey(const Key('club_channel_new_chip')), findsNothing);
+    });
+
+    testWidgets('an Owner sees the "+ ห้องใหม่" chip and creating a channel selects it',
+        (tester) async {
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.owner,
+        clubRepository: ownerSingleChannelRepo,
+      );
+
+      expect(find.byKey(const Key('club_channel_new_chip')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('club_channel_new_chip')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'ถามตอบ');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(TextButton, 'บันทึก'));
+      await tester.pumpAndSettle();
+
+      expect(ownerSingleChannelRepo.createChannelCalls, 1);
+      expect(find.text('#ถามตอบ'), findsOneWidget);
     });
   });
 }

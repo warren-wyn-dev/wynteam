@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/text_utils.dart';
 import 'club.dart';
+import 'club_channel.dart';
 import 'club_insights.dart';
 import 'club_member.dart';
 
@@ -497,5 +498,49 @@ class ClubRepository {
       'p_days': days,
     }).single();
     return ClubInsights.fromMap(row);
+  }
+
+  /// WYN-127: [clubId]'s channels, oldest first -- "ทั่วไป" (the default
+  /// channel every Club gets automatically, see
+  /// clubs_add_default_channel() in supabase/schema.sql) is always
+  /// first as a result, matching the Design spec's "เริ่มที่ #ทั่วไป เสมอ".
+  Future<List<ClubChannel>> fetchChannels(String clubId) async {
+    final rows = await _client
+        .from('club_channels')
+        .select()
+        .eq('club_id', clubId)
+        .order('created_at', ascending: true);
+    return rows.map((row) => ClubChannel.fromMap(row)).toList();
+  }
+
+  /// RLS (club_channels insert policy) restricts this to that Club's own
+  /// Owner/Admin -- the "+ ห้องใหม่" chip is hidden from anyone else
+  /// client-side, but this is the real boundary.
+  Future<ClubChannel> createChannel({
+    required String clubId,
+    required String name,
+  }) async {
+    final userId = _client.auth.currentUser!.id;
+    final row = await _client
+        .from('club_channels')
+        .insert({'club_id': clubId, 'name': name.trim(), 'created_by': userId})
+        .select()
+        .single();
+    return ClubChannel.fromMap(row);
+  }
+
+  Future<void> renameChannel({
+    required String channelId,
+    required String name,
+  }) {
+    return _client.from('club_channels').update({'name': name.trim()}).eq('id', channelId);
+  }
+
+  /// Cascade-deletes every post inside this channel (club_posts.
+  /// channel_id's FK, see supabase/schema.sql) -- Founder's explicit
+  /// "ประหยัดพื้นที่" choice, not a migrate-to-default-channel behavior.
+  /// The UI must confirm this permanent loss before calling this.
+  Future<void> deleteChannel(String channelId) {
+    return _client.from('club_channels').delete().eq('id', channelId);
   }
 }

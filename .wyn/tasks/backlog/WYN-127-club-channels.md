@@ -1,7 +1,7 @@
 # Product Task — WYN-127
 
-Status: active — Design เสร็จแล้ว (mockup Founder อนุมัติ 2026-09-07), handoff ให้ AI Coding
-Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (ถัดไป)
+Status: coding เสร็จแล้ว (2026-09-07) — schema (`club_channels` + `club_posts.channel_id`, backfill, RLS, default-channel trigger) + Dart (channel chip row, create/edit/delete dialog, per-channel feed scoping) implemented, `flutter analyze`/`flutter test` เขียวทั้งหมด — รอ AI QA & Security
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
 
 Feature: Club Channels — แบ่งการพูดคุยภายใน Club เป็นหลายห้อง แทนที่ฟีดเดียวรวมทุกเรื่อง
 
@@ -63,3 +63,11 @@ Accessibility: แต่ละ chip เป็น tap target ขั้นต่�
 Design Rules: ห้ามใช้สีอื่นนอกจาก sapphire เป็น active state (ตาม design system เดิม), ห้ามเปลี่ยน layout ของการ์ดโพสต์เดิมเลย (แค่กรองตาม channel เฉยๆ)
 
 Handoff: AI Coding (schema: เพิ่มตาราง `club_channels` + คอลัมน์ `channel_id` บน `club_posts`, backfill ทุกโพสต์เดิมเข้า channel default "#ทั่วไป" ที่สร้างให้ทุก Club ที่มีอยู่แล้วอัตโนมัติ) → AI QA & Security
+
+## Coding Notes (2026-09-07)
+
+- Migration SQL: `supabase/migrations_wyn127_club_channels.sql` (Founder ต้องรันผ่าน Supabase Dashboard เอง — ยังไม่ได้ apply) + `supabase/schema.sql` อัปเดตให้ตรงกัน (โหลดลง DB เปล่าได้ ตรวจแล้วด้วย `python3 supabase/check_schema_ordering.py` → OK)
+- `create_poll_club_post()` (WYN-115) ต้องแก้เพิ่ม `p_channel_id` param ด้วย เพราะ `channel_id` เป็น NOT NULL แล้ว — overload เก่าถูก `drop function` ทิ้งตาม SCHEMA-003 lesson
+- Dart: `ClubChannel` model, `ClubRepository.fetchChannels/createChannel/renameChannel/deleteChannel`, `ClubChannelSwitcher` widget (chip row + create/edit/delete dialogs), `ClubPostsTab`/`CreateClubPostScreen` scoped to `channelId`
+- Deviation จาก spec: ไม่ได้ทำ emoji/icon ต่อ channel (Requirement 1 บอกว่า "ไม่บังคับ" แต่ AI Design Output's Components section ไม่ได้ระบุ UI สำหรับมันเลย — ตัดสินใจตาม Design ที่ finalize แล้ว ไม่ใช่ Requirement ที่ยังไม่ได้ design), และปุ่ม "+ ห้องใหม่" ใช้ solid border สี mutedNeutral แทน dashed border (ไม่มี dashed-border primitive ในระบบและไม่อยากเพิ่ม dependency ใหม่)
+- `flutter analyze`: no issues. `flutter test`: 1347/1347 ผ่านทั้งหมด (รวม test ใหม่สำหรับ channel switching/create channel)

@@ -49,6 +49,8 @@ void main() {
         home: CreateClubPostScreen(
           clubPostRepository: clubPostRepo,
           club: testClub,
+          channelId: 'channel-1',
+          channelName: 'ทั่วไป',
           profileRepository: profileRepo,
         ),
       );
@@ -62,6 +64,8 @@ void main() {
         home: CreateClubPostScreen(
           clubPostRepository: clubPostRepo,
           club: testClub,
+          channelId: 'channel-1',
+          channelName: 'ทั่วไป',
           profileRepository: profileRepo,
           debugInitialImagesBytes: List.generate(
             imageCount,
@@ -167,6 +171,7 @@ void main() {
       expect(clubPostRepo.createPollClubPostArgs, [
         {
           'clubId': 'club-1',
+          'channelId': 'channel-1',
           'question': 'อาหารเที่ยงนี้กินอะไรดี?',
           'options': ['ข้าวมันไก่', 'ส้มตำ'],
           'durationDays': 3,

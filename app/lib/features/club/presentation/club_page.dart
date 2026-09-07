@@ -499,6 +499,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                     children: [
                       ClubPostsTab(
                         clubPostRepository: widget.clubPostRepository,
+                        clubRepository: widget.clubRepository,
                         club: data.club,
                         myRole: myRole,
                         onJoinTapped: () => _toggleJoin(data.club, data.membership),

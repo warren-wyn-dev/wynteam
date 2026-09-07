@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wyn/features/club/data/club.dart';
+import 'package:wyn/features/club/data/club_channel.dart';
 import 'package:wyn/features/club/data/club_insights.dart';
 import 'package:wyn/features/club/data/club_member.dart';
 import 'package:wyn/features/club/data/club_repository.dart';
@@ -29,12 +30,31 @@ class RecordingClubRepository extends ClubRepository {
       likesAndComments: 0,
       activeMembers: 0,
     ),
+    List<ClubChannel>? channels,
   })  : myClubs = myClubs ?? [],
         approvedMembers = approvedMembers ?? [],
         pendingMembers = pendingMembers ?? [],
         discoverableClubs = discoverableClubs ?? [],
         searchResults = searchResults ?? [],
         pendingClubIds = pendingClubIds ?? {},
+        // WYN-127: defaults to a single "ทั่วไป" channel for [club], the
+        // same real-world invariant `clubs_add_default_channel()`
+        // guarantees server-side (every Club always has >=1 channel) --
+        // so every test built before Channels existed still gets a
+        // channel for ClubPostsTab to select without having to know
+        // about this constructor param.
+        channels = channels ??
+            (club != null
+                ? [
+                    ClubChannel(
+                      id: 'default-channel',
+                      clubId: club.id,
+                      name: 'ทั่วไป',
+                      createdBy: club.ownerId,
+                      createdAt: club.createdAt,
+                    ),
+                  ]
+                : []),
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   /// Returned by [fetchMyClubs].
@@ -65,6 +85,12 @@ class RecordingClubRepository extends ClubRepository {
   final List<ClubMember> pendingMembers;
 
   final int memberCount;
+
+  /// Backing list for [fetchChannels]/[createChannel]/[renameChannel]/
+  /// [deleteChannel] -- WYN-127. Mutated in place by those overrides so a
+  /// test can assert the round trip the same way [isMutedResult] does
+  /// for mute/unmute.
+  List<ClubChannel> channels;
 
   int joinClubCalls = 0;
   int leaveClubCalls = 0;
@@ -302,5 +328,54 @@ class RecordingClubRepository extends ClubRepository {
           createdAt: DateTime.now(),
           memberCount: 1,
         );
+  }
+
+  int createChannelCalls = 0;
+  int renameChannelCalls = 0;
+  int deleteChannelCalls = 0;
+  final List<String> deleteChannelIdArgs = [];
+
+  @override
+  Future<List<ClubChannel>> fetchChannels(String clubId) async =>
+      channels.where((c) => c.clubId == clubId).toList();
+
+  @override
+  Future<ClubChannel> createChannel({
+    required String clubId,
+    required String name,
+  }) async {
+    createChannelCalls++;
+    final created = ClubChannel(
+      id: 'created-channel-$createChannelCalls',
+      clubId: clubId,
+      name: name,
+      createdBy: 'me',
+      createdAt: DateTime.now(),
+    );
+    channels = [...channels, created];
+    return created;
+  }
+
+  @override
+  Future<void> renameChannel({required String channelId, required String name}) async {
+    renameChannelCalls++;
+    channels = channels
+        .map((c) => c.id == channelId
+            ? ClubChannel(
+                id: c.id,
+                clubId: c.clubId,
+                name: name,
+                createdBy: c.createdBy,
+                createdAt: c.createdAt,
+              )
+            : c)
+        .toList();
+  }
+
+  @override
+  Future<void> deleteChannel(String channelId) async {
+    deleteChannelCalls++;
+    deleteChannelIdArgs.add(channelId);
+    channels = channels.where((c) => c.id != channelId).toList();
   }
 }

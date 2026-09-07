@@ -79,9 +79,14 @@ class ClubPostRepository {
   }
 
   /// Pinned posts first, then newest first within each group -- the
-  /// Design spec's "ปักหมุดเรียงบนสุดเสมอ" rule for the Posts tab.
+  /// Design spec's "ปักหมุดเรียงบนสุดเสมอ" rule for the Posts tab. WYN-127:
+  /// [channelId] scopes the feed to a single room within [clubId] --
+  /// Requirement 4 ("Pinned Post ผูกกับ channel ที่มันอยู่ ไม่ใช่ pin ข้าม
+  /// channel") falls out of this for free, since a post pinned in
+  /// another channel never appears in this query at all.
   Future<List<ClubPost>> fetchPosts({
     required String clubId,
+    required String channelId,
     required int page,
   }) async {
     final userId = _client.auth.currentUser!.id;
@@ -94,6 +99,7 @@ class ClubPostRepository {
           '*, $_postAuthorSelect, club_post_likes(count), club_post_comments(count), club_post_polls(id, options, expires_at)',
         )
         .eq('club_id', clubId)
+        .eq('channel_id', channelId)
         .order('pinned', ascending: false)
         .order('created_at', ascending: false)
         .range(from, to);
@@ -367,8 +373,13 @@ class ClubPostRepository {
   /// trips the have-content CHECK on an intermediate empty row.
   /// [mentionedUserIds] (WYN-021): same "already resolved by MentionInput,
   /// not re-parsed server-side" approach as DropRepository.createDrop.
+  /// [channelId] (WYN-127): which room within [clubId] this post lands
+  /// in -- Requirement 2 ("โพสต์ใหม่ทุกโพสต์ต้องเลือก channel ที่จะลงเสมอ")
+  /// is satisfied by the composer always being opened from inside a
+  /// specific channel (see CreateClubPostScreen), not by a picker here.
   Future<void> createPost({
     required String clubId,
+    required String channelId,
     String? content,
     List<Uint8List>? images,
     List<String>? imageExtensions,
@@ -397,6 +408,7 @@ class ClubPostRepository {
         .from('club_posts')
         .insert({
           'club_id': clubId,
+          'channel_id': channelId,
           'author_id': userId,
           'content': normalizeOptionalText((content ?? '').trim()),
           'image_urls': imagePaths,
@@ -423,6 +435,7 @@ class ClubPostRepository {
   /// .wyn/docs/design/wyn-115-club-poll.md.
   Future<void> createPollClubPost({
     required String clubId,
+    required String channelId,
     required String question,
     required List<String> options,
     required int durationDays,
@@ -430,6 +443,7 @@ class ClubPostRepository {
   }) {
     return _client.rpc('create_poll_club_post', params: {
       'p_club_id': clubId,
+      'p_channel_id': channelId,
       'p_content': question.trim(),
       'p_options': options,
       'p_duration_days': durationDays,

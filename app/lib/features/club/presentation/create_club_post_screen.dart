@@ -39,6 +39,8 @@ class CreateClubPostScreen extends StatefulWidget {
     super.key,
     required this.clubPostRepository,
     required this.club,
+    required this.channelId,
+    required this.channelName,
     ProfileRepository? profileRepository,
     HashtagRepository? hashtagRepository,
     @visibleForTesting this.debugInitialImagesBytes,
@@ -47,6 +49,13 @@ class CreateClubPostScreen extends StatefulWidget {
 
   final ClubPostRepository clubPostRepository;
   final Club club;
+
+  /// WYN-127: locked to whichever channel this composer was opened from
+  /// -- Requirement 2 ("default = channel ที่กำลังเปิดดูอยู่"). There is
+  /// no channel picker here, same as there is no Club picker: the
+  /// destination is fixed by where "สร้างโพสต์" was tapped from.
+  final String channelId;
+  final String channelName;
 
   // Optional -- same reasoning as CreateDropScreen's identical field:
   // defaults to a real Supabase-backed instance so existing call sites
@@ -230,6 +239,7 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
       if (_mode == _ComposeMode.poll) {
         await widget.clubPostRepository.createPollClubPost(
           clubId: widget.club.id,
+          channelId: widget.channelId,
           question: _contentController.text,
           options: _pollOptionControllers.map((c) => c.text.trim()).toList(),
           durationDays: _pollDurationDays,
@@ -238,6 +248,7 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
       } else {
         await widget.clubPostRepository.createPost(
           clubId: widget.club.id,
+          channelId: widget.channelId,
           content: _contentController.text,
           images: _images.isEmpty ? null : _images,
           imageExtensions: _images.isEmpty ? null : _imageExtensions,
@@ -285,7 +296,10 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _LockedClubChip(clubName: widget.club.name),
+                          _LockedClubChip(
+                            clubName: widget.club.name,
+                            channelName: widget.channelName,
+                          ),
                           const SizedBox(height: WynSpacing.space3),
                           MentionInput(
                             controller: _contentController,
@@ -614,13 +628,17 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
   }
 }
 
-/// The locked "โพสต์ใน [ชื่อ Club]" chip -- takes the same slot
+/// The locked "โพสต์ใน [ชื่อ Club] · #[ห้อง]" chip -- takes the same slot
 /// CreateDropScreen's own (tappable) `_AudienceChip` sits in, styled as
 /// plain and non-interactive since there is no destination to pick here.
+/// WYN-127: the channel name is appended the same way -- the composer is
+/// always locked to whichever channel it was opened from, not just
+/// whichever Club.
 class _LockedClubChip extends StatelessWidget {
-  const _LockedClubChip({required this.clubName});
+  const _LockedClubChip({required this.clubName, required this.channelName});
 
   final String clubName;
+  final String channelName;
 
   @override
   Widget build(BuildContext context) {
@@ -637,7 +655,9 @@ class _LockedClubChip extends StatelessWidget {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              'โพสต์ใน $clubName',
+              channelName.isEmpty
+                  ? 'โพสต์ใน $clubName'
+                  : 'โพสต์ใน $clubName · #$channelName',
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                   fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.graphite),

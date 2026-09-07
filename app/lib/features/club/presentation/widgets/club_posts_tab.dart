@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../data/club.dart';
+import '../../data/club_channel.dart';
 import '../../data/club_member.dart';
 import '../../data/club_post.dart';
 import '../../data/club_post_repository.dart';
+import '../../data/club_repository.dart';
 import '../club_post_detail_screen.dart';
 import '../create_club_post_screen.dart';
+import 'club_channel_switcher.dart';
 import 'club_post_card.dart';
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
@@ -15,16 +18,26 @@ import '../../../../core/design/wyn_spacing.dart';
 /// per the Product spec ("โพสต์ Club มองเห็นเฉพาะสมาชิกที่ approved แล้ว
 /// ไม่ว่า Public/Private"). See .wyn/docs/design/wyn-014-club-core.md,
 /// Screens 4-5.
+///
+/// WYN-127: hosts the channel chip row above the feed, and scopes every
+/// fetch to whichever channel is selected -- see
+/// .wyn/tasks/backlog/WYN-127-club-channels.md.
 class ClubPostsTab extends StatefulWidget {
   const ClubPostsTab({
     super.key,
     required this.clubPostRepository,
+    required this.clubRepository,
     required this.club,
     required this.myRole,
     required this.onJoinTapped,
   });
 
   final ClubPostRepository clubPostRepository;
+
+  /// WYN-127: owns `club_channels` reads/writes -- kept separate from
+  /// [clubPostRepository], mirroring how ClubPage already threads a
+  /// distinct ClubRepository/ClubPostRepository pair through today.
+  final ClubRepository clubRepository;
   final Club club;
   final ClubMemberRole? myRole;
   final VoidCallback onJoinTapped;
@@ -42,12 +55,17 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
   bool _hasMore = true;
   String? _error;
 
+  List<ClubChannel>? _channels;
+  String? _selectedChannelId;
+  String? _channelsError;
+
   bool get _isMember => widget.myRole != null;
+  bool get _canManageChannels => widget.myRole?.canManageClub ?? false;
 
   @override
   void initState() {
     super.initState();
-    if (_isMember) _loadInitial();
+    if (_isMember) _loadChannelsThenPosts();
     _scrollController.addListener(_onScroll);
   }
 
@@ -65,7 +83,36 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     }
   }
 
+  Future<void> _loadChannelsThenPosts() async {
+    setState(() => _channelsError = null);
+    try {
+      final channels = await widget.clubRepository.fetchChannels(widget.club.id);
+      if (!mounted) return;
+      setState(() {
+        _channels = channels;
+        // Design's User Flow: "แถบ channel ... เริ่มที่ #ทั่วไป เสมอ" --
+        // fetchChannels() already sorts oldest-first, and "ทั่วไป" is
+        // always the oldest (created by clubs_add_default_channel() at
+        // the same moment as the Club itself), so this is simply the
+        // first channel, unless one is already selected.
+        _selectedChannelId ??= channels.isNotEmpty ? channels.first.id : null;
+      });
+      await _loadInitial();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _channelsError = 'โหลดห้องไม่สำเร็จ';
+        _isLoadingInitial = false;
+      });
+    }
+  }
+
   Future<void> _loadInitial() async {
+    final channelId = _selectedChannelId;
+    if (channelId == null) {
+      setState(() => _isLoadingInitial = false);
+      return;
+    }
     setState(() {
       _isLoadingInitial = true;
       _error = null;
@@ -73,6 +120,7 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     try {
       final posts = await widget.clubPostRepository.fetchPosts(
         clubId: widget.club.id,
+        channelId: channelId,
         page: 0,
       );
       if (!mounted) return;
@@ -92,11 +140,14 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
   }
 
   Future<void> _loadMore() async {
+    final channelId = _selectedChannelId;
+    if (channelId == null) return;
     setState(() => _isLoadingMore = true);
     try {
       final nextPage = _page + 1;
       final posts = await widget.clubPostRepository.fetchPosts(
         clubId: widget.club.id,
+        channelId: channelId,
         page: nextPage,
       );
       if (!mounted) return;
@@ -110,6 +161,94 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     } finally {
       if (mounted) setState(() => _isLoadingMore = false);
     }
+  }
+
+  void _selectChannel(String channelId) {
+    if (channelId == _selectedChannelId) return;
+    setState(() => _selectedChannelId = channelId);
+    _loadInitial();
+  }
+
+  bool _isChannelNameTaken(String name, {String? excludingChannelId}) {
+    final channels = _channels ?? const [];
+    final lower = name.trim().toLowerCase();
+    return channels.any(
+      (c) => c.id != excludingChannelId && c.name.trim().toLowerCase() == lower,
+    );
+  }
+
+  Future<void> _createChannel() async {
+    final name = await showClubChannelNameDialog(
+      context,
+      title: 'สร้างห้องใหม่',
+      isNameTaken: _isChannelNameTaken,
+    );
+    if (name == null) return;
+    try {
+      final channel =
+          await widget.clubRepository.createChannel(clubId: widget.club.id, name: name);
+      if (!mounted) return;
+      setState(() {
+        _channels = [...?_channels, channel];
+        _selectedChannelId = channel.id;
+      });
+      _loadInitial();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('สร้างห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    }
+  }
+
+  Future<void> _editChannel(ClubChannel channel) async {
+    final name = await showClubChannelNameDialog(
+      context,
+      title: 'แก้ไขชื่อห้อง',
+      initialName: channel.name,
+      isNameTaken: (n) => _isChannelNameTaken(n, excludingChannelId: channel.id),
+    );
+    if (name == null || name == channel.name) return;
+    try {
+      await widget.clubRepository.renameChannel(channelId: channel.id, name: name);
+      if (!mounted) return;
+      setState(() {
+        _channels = _channels
+            ?.map((c) => c.id == channel.id
+                ? ClubChannel(
+                    id: c.id,
+                    clubId: c.clubId,
+                    name: name,
+                    createdBy: c.createdBy,
+                    createdAt: c.createdAt,
+                  )
+                : c)
+            .toList();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('แก้ไขชื่อห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    }
+  }
+
+  Future<void> _deleteChannel(ClubChannel channel) async {
+    final deleted = await showDeleteClubChannelDialog(
+      context,
+      channelName: channel.name,
+      onConfirm: () => widget.clubRepository.deleteChannel(channel.id),
+    );
+    if (!deleted || !mounted) return;
+    setState(() {
+      _channels = _channels?.where((c) => c.id != channel.id).toList();
+      if (_selectedChannelId == channel.id) {
+        final remaining = _channels;
+        _selectedChannelId =
+            remaining != null && remaining.isNotEmpty ? remaining.first.id : null;
+      }
+    });
+    _loadInitial();
   }
 
   // Re-reads the live _posts[index] by id instead of a ClubPost captured
@@ -217,11 +356,18 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
   }
 
   Future<void> _openCreatePost() async {
+    final channelId = _selectedChannelId;
+    if (channelId == null) return;
+    final channelName =
+        _channels?.firstWhere((c) => c.id == channelId, orElse: () => _channels!.first).name ??
+            '';
     final created = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => CreateClubPostScreen(
           clubPostRepository: widget.clubPostRepository,
           club: widget.club,
+          channelId: channelId,
+          channelName: channelName,
         ),
       ),
     );
@@ -247,14 +393,48 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     }
 
     return Scaffold(
-      body: _buildBody(),
+      body: Column(
+        children: [
+          _buildChannelSwitcher(),
+          Expanded(child: _buildBody()),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: WynColors.sapphire,
         foregroundColor: WynColors.paper,
-        onPressed: _openCreatePost,
+        onPressed: _selectedChannelId == null ? null : _openCreatePost,
         tooltip: 'สร้างโพสต์',
         child: const Icon(Icons.add),
       ),
+    );
+  }
+
+  Widget _buildChannelSwitcher() {
+    final channels = _channels;
+    if (channels == null) {
+      // Reserves the same height as the loaded switcher so the feed
+      // below doesn't jump once channels resolve.
+      return const SizedBox(height: WynSpacing.touchTargetMin + WynSpacing.space2 * 2);
+    }
+    if (_channelsError != null) {
+      return Padding(
+        padding: const EdgeInsets.all(WynSpacing.space3),
+        child: Row(
+          children: [
+            Expanded(child: Text(_channelsError!)),
+            TextButton(onPressed: _loadChannelsThenPosts, child: const Text('ลองใหม่')),
+          ],
+        ),
+      );
+    }
+    return ClubChannelSwitcher(
+      channels: channels,
+      selectedChannelId: _selectedChannelId,
+      canManage: _canManageChannels,
+      onSelect: _selectChannel,
+      onCreate: _createChannel,
+      onEdit: _editChannel,
+      onDelete: _deleteChannel,
     );
   }
 
