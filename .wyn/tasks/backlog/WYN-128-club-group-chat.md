@@ -1,7 +1,7 @@
 # Product Task — WYN-128
 
-Status: coding เสร็จแล้ว (2026-09-07) — schema (`club_channel_messages` + `club_channel_message_reads`, แยกจาก `conversations`/`messages` เดิมโดยสิ้นเชิง) + Dart (ClubChannelChatView ฝังใน Posts tab ผ่าน toggle "โพสต์ | แชท", Realtime subscribe, unread badge, ban-mid-chat detection) implemented, `flutter analyze`/`flutter test` เขียวทั้งหมด — รอ AI QA & Security
-Owner: AI Product Manager → AI Design (เสร็จ) → Founder อนุมัติสถาปัตยกรรม (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
+Status: **QA: FAIL (2026-09-07)** — ยืนยันแล้วว่า `conversations`/`conversation_participants`/`messages` (WYN-031) ไม่ถูกแตะแม้แต่บรรทัดเดียว, RLS ผูก `club_role()` ตาม channel ถูกต้อง, ban-mid-chat บล็อก read+write จริงที่ระดับ DB (ไม่ใช่แค่ UI redirect) ทั้งหมดยืนยันด้วย live PostgreSQL RLS test — แต่พบช่องโหว่ moderation gap จริง (ไม่มีทาง report ข้อความแชทได้เลย) + ขาด staged-rollout gate ร่วมกับ WYN-127/129 → บล็อก deploy
+Owner: AI Product Manager → AI Design (เสร็จ) → Founder อนุมัติสถาปัตยกรรม (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (ถัดไป)
 
 Feature: Club Group Chat — ห้องแชทสด (real-time) **ต่อห้อง (channel)** แยกจากฟีดโพสต์ของห้องนั้น
 
@@ -38,6 +38,21 @@ Risks:
 Recommendation: **APPROVED (2026-09-07, Founder: "ทำต่อให้เสร็จเลย")** — แนวทาง schema ที่ AI Design เลือก (ดูหัวข้อ "AI Design Output") คือสร้างตารางใหม่แยกต่างหากสำหรับ Club chat โดยเฉพาะ (`club_channel_messages` + ใช้ RLS ผูกกับ `club_role()`โดยตรง) **ไม่แตะตาราง `conversations`/`messages`เดิมของ WYN-031 เลยแม้แต่บรรทัดเดียว** เพื่อไม่ให้มีความเสี่ยงต่อระบบแชท 1-ต่อ-1 ที่ใช้งานจริงอยู่แล้ว — บันทึกการอนุมัติใน `.wyn/company/APPROVALS.md` แล้ว
 
 Handoff: ส่งต่อ AI Coding → AI QA & Security (เน้นตรวจว่าไม่มีจุดใดแตะ/เปลี่ยนพฤติกรรม `conversations`/`messages` เดิมเลย, ตรวจ RLS ผูกกับ `club_role()` ถูกต้องตาม channel, ตรวจคนถูก ban เข้าห้องแชทไม่ได้ทันที)
+
+## QA Output (2026-09-07) — FAIL
+
+ทดสอบจริงบน PostgreSQL 16.13 local (live RLS, `set role authenticated` + JWT claim GUC, ไม่ใช่แค่อ่าน SQL):
+- `grep` ยืนยัน migration/schema section ของ WYN-128 ไม่มีคำสั่ง DDL/DML ใดแตะ `conversations`/`conversation_participants`/`messages` เลย (มีแค่ comment อ้างอิงถึง)
+- อ่าน/เขียนข้อความถูกจำกัดด้วย `club_role(channel's club_id, auth.uid())` ถูกต้องจริง: approved member อ่าน/เขียนได้, pending/non-member ถูกบล็อกทั้งอ่านและเขียนจริง
+- **Ban-mid-chat ยืนยันว่าบล็อกจริงที่ระดับ RLS ไม่ใช่แค่ UI**: ทดสอบจริงว่าหลังสมาชิกถูกเปลี่ยนสถานะเป็น `banned` กลางบทสนทนา ทั้ง SELECT (อ่านข้อความ) และ INSERT (ส่งข้อความ) ถูกปฏิเสธทันทีที่ database layer แม้จะจำลองกรณี "ปุ่มส่งข้อความยังทำงานอยู่จากฝั่ง UI ที่ค้าง" — RPC `mark_club_channel_read`/`get_unread_channel_counts` ก็ปฏิเสธ/คืนค่าว่างให้คนที่ถูก ban เช่นกัน — ประวัติแชทก่อนถูก ban ยังอยู่ให้สมาชิกคนอื่นเห็นตามปกติ (ไม่ถูกลบย้อนหลัง) ตรงตาม Acceptance Criteria; ในโค้ด Dart (`ClubPostsTab._onBanned`) การสลับ view กลับไป Posts tab ทำให้ `ClubChannelChatView` ถูก unmount จริง (ใช้ conditional widget swap ไม่ใช่ `IndexedStack`) จึง `dispose()`/unsubscribe realtime channel จริง ไม่ใช่แค่ซ่อนหน้าจอ
+- ลบข้อความ: เจ้าของข้อความหรือ Owner/Admin/Moderator เท่านั้น ทดสอบจริงว่า pending member และสมาชิกอื่นลบข้อความคนอื่นไม่ได้, Moderator ลบของคนอื่นได้ (moderation), เจ้าของลบเองได้
+- Storage: รูปแชทใช้ policy เดิมของ `club-media` จริงตามที่อ้าง (`array_length(...) > 1` + `club_role() is not null` ครอบคลุม path `{club_id}/chat/{channel_id}/...` แล้วโดยไม่ต้องเพิ่ม policy ใหม่) — ยืนยันโดยอ่าน policy จริงใน `schema.sql`
+
+**เหตุผลที่ FAIL** (2 เรื่อง):
+1. **พบช่องโหว่ moderation gap จริง**: ข้อความในห้องแชทกลุ่ม**ไม่มีทาง report ได้เลย** ทั้ง UI (`ClubChannelChatView._showMessageMenu` มีแค่ "ตอบกลับ"/"ลบข้อความ" ไม่มี "รายงาน") และ backend (`reports.target_type` CHECK constraint ไม่มีค่าไหนรองรับข้อความแชทเลย) — นี่คือ Risk ที่ task spec ของ WYN-128 เองระบุไว้ตรงๆ ว่าต้องเช็ค ("Moderation ต้องขยายมาครอบคลุมข้อความในห้องแชท Club ด้วย") แต่ Coding Notes ไม่มีร่องรอยว่าถูกตรวจสอบ/แก้ไข รายละเอียด/fix ที่แนะนำ: `.wyn/tasks/bugs/WYN-128-group-chat-missing-report-action.md`
+2. ขาด developer-account staged-rollout gate ร่วมกับ WYN-127/129 — ดู `.wyn/tasks/bugs/WYN-127-128-129-missing-staged-rollout-gate.md`
+
+Final Status: **FAIL** (สถาปัตยกรรม/RLS/ban-mid-chat/ไม่แตะระบบเดิม ปลอดภัยและถูกต้องตามที่ทดสอบจริงทั้งหมด — บล็อกเพราะขาดช่องทาง report ข้อความ + staged-rollout gate)
 
 ## AI Design Output
 

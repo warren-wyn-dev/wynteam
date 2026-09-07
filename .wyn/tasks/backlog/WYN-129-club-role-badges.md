@@ -1,7 +1,7 @@
 # Product Task — WYN-129
 
-Status: coding เสร็จแล้ว (2026-09-07) — schema (`club_member_badges`, แยกจาก `club_role()` โดยสิ้นเชิง) + Dart (badge pill, dialog ตั้ง/แก้/ถอดป้าย, แสดงใน Members tab + ใต้โพสต์/คอมเมนต์) implemented, `flutter analyze`/`flutter test` เขียวทั้งหมด — รอ AI QA & Security
-Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
+Status: **QA: FAIL (2026-09-07)** — Critical invariant (badge ไม่เคยถูกใช้เช็ค permission ที่ไหนเลย) ยืนยันแล้วว่าจริง 100% (ตรวจทั้ง codebase) และ isolation/1-badge-per-member/palette/Owner-Admin-only ผ่านการทดสอบจริงบน live PostgreSQL ทั้งหมด — แต่พบช่องโหว่ RLS จริง (`update` policy ไม่เช็ค target ยังเป็น approved member) + ขาด staged-rollout gate ร่วมกับ WYN-127/128 → บล็อก deploy
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (ถัดไป)
 
 Feature: Club Role Badge — ป้ายชื่อ/สีที่ Owner ตั้งเองได้ ติดข้าง role ของสมาชิก
 
@@ -36,6 +36,18 @@ Risks:
 Recommendation: Design เสร็จแล้ว ดูหัวข้อ "AI Design Output" ด้านล่าง
 
 Handoff: ส่งต่อ AI Coding → AI QA & Security (**เน้นพิเศษ**: ยืนยันว่าป้ายไม่มีทางกระทบ permission check ใดๆ ในระบบ, ตรวจสิทธิ์ตั้ง/ถอดป้ายเฉพาะ Owner/Admin, ตรวจป้ายไม่รั่วไปนอกบริบท Club)
+
+## QA Output (2026-09-07) — FAIL
+
+**Critical invariant ("ห้ามมีการเช็ค permission จากป้ายเด็ดขาด") ยืนยันแล้วว่าเป็นจริง 100%**: `grep -rn "club_member_badges\|ClubBadgeRepository\|ClubMemberBadge" app/lib/` แล้วอ่านทุก call site — ไม่มีจุดใดใน `ClubRepository`/`ClubPostRepository`/RLS policy อื่นใดใน `schema.sql` ที่ query ตาราง `club_member_badges` เพื่อตัดสินใจเรื่องสิทธิ์เลยแม้แต่จุดเดียว ป้ายไม่ปรากฏใน profile ทั่วไปของ WYN เลย (`grep` ใน `app/lib/features/profile/` ไม่พบ)
+
+ทดสอบจริงบน PostgreSQL 16.13 local (live RLS, ไม่ใช่แค่อ่านโค้ด): Owner/Admin เท่านั้นตั้ง/แก้/ถอดป้ายได้ (Moderator/Member/non-member ถูกบล็อกจริง), ตั้งป้ายให้ pending/non-member ถูกปฏิเสธจริง, `color_key` จำกัดแค่ 3 สีที่อนุมัติจริง (ค่าอื่นถูกปฏิเสธ), 1 ป้ายต่อสมาชิกต่อ Club บังคับจริงผ่าน primary key
+
+**เหตุผลที่ FAIL** (2 เรื่อง):
+1. **พบช่องโหว่ RLS จริง (ยืนยันด้วย live Postgres)**: `update` policy ของ `club_member_badges` เช็คแค่ว่าผู้เรียกยังเป็น Owner/Admin ของ `club_id` แต่ไม่เช็คว่า `user_id` (เป้าหมาย) ยังเป็น approved member อยู่ไหม — ต่างจาก `insert` policy ที่เช็คทั้งคู่ ผลคือ Owner/Admin สามารถ `UPDATE` ป้ายที่มีอยู่แล้วให้ `user_id` ชี้ไปคนละคน (รวมถึงคนที่ไม่ใช่สมาชิก Club เลย) ได้ ทดสอบซ้ำจริงแล้วยืนยันว่า UPDATE นี้สำเร็จ (ควรถูกปฏิเสธ) — ไม่กระทบสิทธิ์ระบบ (badge ไม่เคยเปิด permission อะไรอยู่แล้ว) และ UI แอปจริงไม่เคยส่ง request แบบนี้ (`setBadge()` ใช้ upsert คง `user_id` เดิมเสมอ) แต่เป็นช่องโหว่ RLS จริงที่ควรปิดก่อน production รายละเอียด/fix ที่แนะนำ: `.wyn/tasks/bugs/WYN-129-badge-update-target-membership-gap.md`
+2. ขาด developer-account staged-rollout gate ร่วมกับ WYN-127/128 — ดู `.wyn/tasks/bugs/WYN-127-128-129-missing-staged-rollout-gate.md`
+
+Final Status: **FAIL** (critical invariant ปลอดภัย 100% — บล็อกเพราะช่องโหว่ RLS รอง (severity: low, ไม่ escalate สิทธิ์) + staged-rollout gate)
 
 ## Coding Notes (2026-09-07)
 

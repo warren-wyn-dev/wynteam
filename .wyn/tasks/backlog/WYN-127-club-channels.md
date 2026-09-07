@@ -1,7 +1,7 @@
 # Product Task — WYN-127
 
-Status: coding เสร็จแล้ว (2026-09-07) — schema (`club_channels` + `club_posts.channel_id`, backfill, RLS, default-channel trigger) + Dart (channel chip row, create/edit/delete dialog, per-channel feed scoping) implemented, `flutter analyze`/`flutter test` เขียวทั้งหมด — รอ AI QA & Security
-Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
+Status: **QA: FAIL (2026-09-07)** — schema/RLS/backfill/permission logic ทั้งหมดตรวจสอบจริงผ่าน (live PostgreSQL 16 RLS test, ดู QA Output ด้านล่าง) แต่ **บล็อก deploy เพราะขาด developer-account staged-rollout gate** ที่บังคับตาม `.wyn/company/WORKFLOW.md` (ใช้ร่วมกับ WYN-128/WYN-129) — ดู `.wyn/tasks/bugs/WYN-127-128-129-missing-staged-rollout-gate.md`
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (ถัดไป)
 
 Feature: Club Channels — แบ่งการพูดคุยภายใน Club เป็นหลายห้อง แทนที่ฟีดเดียวรวมทุกเรื่อง
 
@@ -37,6 +37,21 @@ Risks:
 Recommendation: Design เสร็จแล้ว ดูหัวข้อ "AI Design Output" ด้านล่าง
 
 Handoff: ส่งต่อ AI Coding → AI QA & Security (ตรวจ migration ไม่ทำโพสต์เก่าหาย, ตรวจสิทธิ์สร้าง/ลบ channel เฉพาะ Owner/Admin, ตรวจ pinned post ผูก channel ถูกต้อง, ตรวจลบ channel ลบโพสต์จริงไม่ทิ้งขยะ orphan record)
+
+## QA Output (2026-09-07) — FAIL
+
+ทดสอบจริงด้วย PostgreSQL 16.13 local (โหลด `schema.sql` เต็ม + slice ก่อน WYN-127 section เพื่อทดสอบ migration กับข้อมูลเก่าจริง, ใช้ harness แบบเดียวกับ `supabase/tests/wyn_115_club_poll_test.sh` — `set role authenticated` + JWT claim GUC): **ทุก priority-focus item ของ WYN-127 เองผ่านหมด**:
+- Migration backfill: โพสต์เก่าทุกโพสต์ (รวมโพสต์ที่ pin ไว้) ได้ `channel_id` ครบ ไม่มีค้าง null, Club เก่าที่ไม่มีโพสต์เลยก็ได้ channel default ด้วย, `channel_id` ถูก constrain `NOT NULL` สำเร็จ
+- Owner/Admin เท่านั้นสร้าง/แก้ไข/ลบ channel ได้ (Moderator/Member/non-member ถูกบล็อกทั้ง RLS insert/update/delete) — ทดสอบจริงทั้ง 2 role ที่ควรถูกปฏิเสธ
+- ชื่อ channel ซ้ำ (case-insensitive) ถูกปฏิเสธจริง
+- โพสต์ข้าม club_id/channel_id ผิดคู่กันถูก FK ปฏิเสธจริง
+- ลบ channel cascade ลบโพสต์ในห้องนั้นจริง ไม่ทิ้ง orphan, โพสต์ห้องอื่นไม่กระทบ
+- Pin สถานะไม่รั่วข้าม channel
+- ไม่มี cap จำนวน channel ที่ไหนเลย (ตรงตาม Founder decision)
+
+**เหตุผลที่ FAIL**: พบว่าฟีเจอร์นี้ (ร่วมกับ WYN-128/WYN-129 บน branch เดียวกัน) ไม่ได้ gate ด้วย `DeveloperAccessService.isDeveloperAccount()` เลย ขัดกับนโยบายบังคับใน `.wyn/company/WORKFLOW.md` ("Staged Rollout เป็นค่าเริ่มต้นสำหรับฟีเจอร์ใหม่ทุกตัว", มีผลตั้งแต่ 2026-09-06) — deploy ตอนนี้จะทำให้ผู้ใช้ทุกคนเห็นแถบ channel ทันที ไม่ใช่แค่บัญชีนักพัฒนา รายละเอียด/reproduction/fix ที่แนะนำ: `.wyn/tasks/bugs/WYN-127-128-129-missing-staged-rollout-gate.md`
+
+Final Status: **FAIL** (ตัวฟีเจอร์เองใช้งานได้ปลอดภัยตามที่ทดสอบ — บล็อกเฉพาะเรื่อง staged-rollout gate ที่ต้องเพิ่มก่อน deploy)
 
 ## AI Design Output
 
