@@ -12,11 +12,13 @@ import 'package:wyn/features/search/presentation/search_screen.dart';
 import 'support/fake_supabase_session.dart';
 import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
+import 'support/recording_developer_access_service.dart';
 import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
 import 'support/recording_home_repository.dart';
 import 'support/recording_notification_repository.dart';
 import 'support/recording_pop_repository.dart';
+import 'support/recording_presence_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
 
@@ -63,6 +65,15 @@ void main() {
   late RecordingNotificationRepository defaultNotificationRepository;
   late RecordingNotificationRepository fewUnreadNotificationRepository;
   late RecordingNotificationRepository manyUnreadNotificationRepository;
+  // WYN-139/WYN-125 -- same setUpAll discipline as every repository
+  // above: the real DeveloperAccessService's default constructor
+  // touches Supabase.instance.client for its auth-state listener, and a
+  // real PresenceRepository's startGlobalPresence() would attempt a
+  // real WebSocket handshake against this suite's placeholder project
+  // (see RecordingDeveloperAccessService's own doc comment for the
+  // identical "hangs pumpAndSettle()" class of problem this avoids).
+  late RecordingDeveloperAccessService sharedDeveloperAccessService;
+  late RecordingPresenceRepository sharedPresenceRepository;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
@@ -79,12 +90,16 @@ void main() {
     defaultNotificationRepository = RecordingNotificationRepository();
     fewUnreadNotificationRepository = RecordingNotificationRepository(unreadCount: 3);
     manyUnreadNotificationRepository = RecordingNotificationRepository(unreadCount: 15);
+    sharedDeveloperAccessService = RecordingDeveloperAccessService();
+    sharedPresenceRepository = RecordingPresenceRepository();
   });
 
   Widget buildShell({
     RecordingNotificationRepository? notificationRepository,
     RecordingHomeRepository? homeRepository,
     bool startOnProfileTab = false,
+    RecordingDeveloperAccessService? developerAccessService,
+    RecordingPresenceRepository? presenceRepository,
   }) =>
       MaterialApp(
         home: RootShell(
@@ -98,6 +113,8 @@ void main() {
           clubPostRepository: sharedClubPostRepository,
           homeRepository: homeRepository ?? defaultHomeRepository,
           startOnProfileTab: startOnProfileTab,
+          developerAccessService: developerAccessService ?? sharedDeveloperAccessService,
+          presenceRepository: presenceRepository ?? sharedPresenceRepository,
         ),
       );
 
@@ -338,5 +355,75 @@ void main() {
     tester.takeException();
 
     await _expectFeedToggleVisible(tester);
+  });
+
+  group('WYN-139: DM Presence global channel lifecycle (Staged Rollout '
+      'gated)', () {
+    testWidgets(
+        'non-developer account: the global presence channel is never '
+        'started at all', (tester) async {
+      final presenceRepository = RecordingPresenceRepository();
+      await tester.pumpWidget(buildShell(
+        developerAccessService: RecordingDeveloperAccessService(isDeveloperResult: false),
+        presenceRepository: presenceRepository,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(presenceRepository.startGlobalPresenceCalls, 0);
+    });
+
+    testWidgets(
+        'developer account: starts the global presence channel once on '
+        'launch', (tester) async {
+      final presenceRepository = RecordingPresenceRepository();
+      await tester.pumpWidget(buildShell(
+        developerAccessService: RecordingDeveloperAccessService(isDeveloperResult: true),
+        presenceRepository: presenceRepository,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(presenceRepository.startGlobalPresenceCalls, 1);
+    });
+
+    testWidgets(
+        'developer account: untracks + persists last_seen_at on pause, '
+        're-tracks on resume', (tester) async {
+      final presenceRepository = RecordingPresenceRepository();
+      await tester.pumpWidget(buildShell(
+        developerAccessService: RecordingDeveloperAccessService(isDeveloperResult: true),
+        presenceRepository: presenceRepository,
+      ));
+      await tester.pumpAndSettle();
+
+      lifecycleObserverOf(tester).didChangeAppLifecycleState(AppLifecycleState.paused);
+      await tester.pumpAndSettle();
+
+      expect(presenceRepository.untrackOnlineCalls, 1);
+      expect(presenceRepository.touchMyPresenceCalls, 1);
+      expect(presenceRepository.trackOnlineCalls, 0);
+
+      lifecycleObserverOf(tester).didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(presenceRepository.trackOnlineCalls, 1);
+    });
+
+    testWidgets('non-developer account: pause/resume never touches the '
+        'presence repository at all', (tester) async {
+      final presenceRepository = RecordingPresenceRepository();
+      await tester.pumpWidget(buildShell(
+        developerAccessService: RecordingDeveloperAccessService(isDeveloperResult: false),
+        presenceRepository: presenceRepository,
+      ));
+      await tester.pumpAndSettle();
+
+      lifecycleObserverOf(tester).didChangeAppLifecycleState(AppLifecycleState.paused);
+      lifecycleObserverOf(tester).didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(presenceRepository.untrackOnlineCalls, 0);
+      expect(presenceRepository.touchMyPresenceCalls, 0);
+      expect(presenceRepository.trackOnlineCalls, 0);
+    });
   });
 }

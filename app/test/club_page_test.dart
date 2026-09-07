@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wyn/features/club/data/club.dart';
 import 'package:wyn/features/club/data/club_insights.dart';
 import 'package:wyn/features/club/data/club_member.dart';
+import 'package:wyn/features/club/presentation/club_invite_links_screen.dart';
 import 'package:wyn/features/club/presentation/club_page.dart';
 
 import 'support/fake_supabase_session.dart';
@@ -198,6 +199,46 @@ void main() {
     expect(find.text('เปลี่ยนความเป็นส่วนตัว'), findsOneWidget);
     expect(find.text('จัดการสิทธิ์สมาชิก'), findsOneWidget);
     expect(find.text('ออกจาก Club'), findsNothing);
+    // WYN-136 -- developerAccessService defaults to isDeveloperResult:
+    // true across this whole file (see setUp), so the gated row is
+    // visible here.
+    expect(find.text('ลิงก์เชิญ'), findsOneWidget);
+  });
+
+  group('WYN-136: "ลิงก์เชิญ" More menu row (Staged Rollout gated)', () {
+    testWidgets('non-developer account: the Owner never sees the row at all',
+        (tester) async {
+      developerAccessService = RecordingDeveloperAccessService(isDeveloperResult: false);
+      await pumpPage(tester, ownerRepo);
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ลิงก์เชิญ'), findsNothing);
+      // The rest of the Owner's menu is otherwise unchanged.
+      expect(find.text('แก้ไขข้อมูล Club'), findsOneWidget);
+    });
+
+    testWidgets('tapping it opens ClubInviteLinksScreen', (tester) async {
+      await pumpPage(tester, ownerRepo);
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ลิงก์เชิญ'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ClubInviteLinksScreen), findsOneWidget);
+    });
+
+    testWidgets('a plain approved member never sees the row (not '
+        'canManageClub)', (tester) async {
+      await pumpPage(tester, approvedMemberRepo);
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ลิงก์เชิญ'), findsNothing);
+    });
   });
 
   testWidgets('More menu offers only Leave/Report for a plain approved member', (tester) async {

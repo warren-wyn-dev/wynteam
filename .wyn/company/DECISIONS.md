@@ -1397,3 +1397,29 @@ Founder อยากเห็นตัวอย่างการใช้ stage
 **การแก้ไข**: merge origin/main เข้า branch นี้ พบ conflict จริง 3 จุด (`settings_screen.dart`, `recording_developer_access_service.dart` เป็น add/add, `.wyn/tasks/active/WYN-126-...md` เป็น modify/delete) — **เลือกเก็บ implementation ของอีก session ทั้งหมด** (`git checkout --theirs`) เพราะ merge เข้า main ก่อนแล้วจริงและผ่าน QA ครบแล้ว ทิ้งงานซ้ำซ้อนของ session นี้ไป — ไฟล์ `settings_screen_test.dart` auto-merge เก็บทั้งสองชุด test ไว้ (ไม่ conflict เพราะคนละตำแหน่งในไฟล์) แต่ test ของ session นี้เรียก `RecordingDeveloperAccessService` ด้วย constructor parameter คนละชื่อกับที่ merge เข้า main จริง (`isDeveloperAccountResult`/`isDeveloperAccountOverride` vs. ของจริงที่ใช้ `isDeveloperResult`/`isDeveloperErrorOverride` ไม่มี override callback เลย) จะ compile ไม่ผ่าน — ลบ test block ซ้ำซ้อนของ session นี้ทิ้งทั้งหมด เหลือแค่ชุดที่ merge เข้า main แล้ว (ครอบคลุม Acceptance Criteria เดียวกันครบอยู่แล้ว รวมถึงมี structural check ตรวจ `ListView.children.last` ที่ละเอียดกว่าด้วย)
 
 **สาเหตุร่วม (ย้ำอีกครั้ง)**: หลาย AI session ทำงานพร้อมกันในโปรเจกต์นี้จริง ไม่เห็นงานของกันและกันจนกว่าจะ merge — ครั้งนี้ต่างจากเดิมตรงที่แม้จะมี Design spec กลางที่ merge ไปแล้วเป็นจุดร่วม (ลดความเสี่ยง content ต่างกันไปมาก) ก็ยังชนกันได้เพราะไม่มีกลไก "lock" งานที่มีคน implement อยู่แล้ว — ยังไม่มีวิธีแก้เชิงโครงสร้างที่ทำจริง เป็นความเสี่ยงที่ทราบอยู่แล้วและยอมรับได้ในระยะนี้ (ตามที่บันทึกไว้ในหลาย entry ก่อนหน้า)
+
+## [2026-09-07] Social 3-Domain Roadmap — Founder ตัดสินใจ Private Club Invite Link semantics + อนุมัติ wireframe ข้อความแทน visual mockup
+
+Founder ขอนิยามสถาปัตยกรรม Social ของ WYNOS แยก 3 โดเมนชัดเจน (Home Feed / Club / Private Chat) — AI PM ตรวจโค้ดจริงแล้วยืนยันว่าแยกกันอยู่แล้วในทางสถาปัตยกรรม (ดู `.wyn/docs/product/wyn-social-3-domain-architecture-roadmap.md`) จึงเสนอ gap analysis + Phase A/B/C แทนการเขียน spec ทุกฟีเจอร์พร้อมกัน — Founder เลือกทำ Phase A ก่อน ("ต่อเลย") มี 4 task: WYN-136 (Club Invite Link), WYN-138 (DM Edit/Pin), WYN-139 (DM Presence), WYN-134 (DM New Message Notification, P1)
+
+**การตัดสินใจถาวร 2 ข้อจาก Founder วันนี้:**
+
+1. **WYN-136 — Private Club + Invite Link = เข้าร่วมทันที (ทางเลือก A, pattern Discord)**: กดลิงก์เชิญที่ valid สำหรับ Private Club → join ทันที **ข้าม Join Request/Approve เลย** ไม่ต้องรอ Owner/Admin อนุมัติอีกต่อไปสำหรับเส้นทางนี้โดยเฉพาะ (Join Request แบบเดิมยังคงอยู่สำหรับคนที่เข้ามาทางค้นหา/Discovery ตามปกติ ไม่เปลี่ยน) — **ผลกระทบด้านความปลอดภัยที่ต้องจำไว้**: ถ้าลิงก์เชิญหลุดไปที่สาธารณะ (ถูก re-share ต่อ) คนแปลกหน้าเข้า Private Club ได้ทันทีโดย Owner ไม่ทันรู้ตัว — AI Design ต้องออกแบบ UX ที่เตือน Owner ชัดเจนตอนสร้างลิงก์ + ทำให้ revoke ทำได้ง่าย/เร็ว เพื่อบรรเทาความเสี่ยงนี้ (ระบุไว้ใน `.wyn/tasks/active/WYN-136-club-invite-link.md` และ `.wyn/docs/design/wyn-136-club-invite-link.md` แล้ว)
+2. **Visual Mockup — Founder อนุมัติให้ใช้ wireframe ข้อความแทน visual mockup จริงได้** สำหรับรอบนี้ (WYN-136/138/139) เนื่องจาก session ของ AI Design ที่ทำรอบนี้ไม่มีเครื่องมือสร้างภาพ (ไม่มี Artifact tool) — **ข้อยกเว้นเฉพาะรอบนี้ ไม่ใช่การยกเลิกกติกา "ขอดูรูปก่อนเขียนโค้ด" ถาวร** — งานที่มี UI ใหม่ในอนาคตควรกลับไปใช้ visual mockup ตามปกติเมื่อมีเครื่องมือพร้อม
+
+ผลคือ WYN-134/136/137/138/139 ทั้ง 4 task **ไม่มีจุดค้างแล้ว พร้อมส่งต่อ AI Coding ได้ทันที**
+
+## [2026-09-07] ID collision ครั้งที่ 7 — WYN-130/131/132/133 ชนกับงานอื่นที่ deploy ไปแล้วจริงบน main, renumber เป็น WYN-136/137/138/139
+
+ระหว่างเตรียม merge branch `claude/feature-club-consultation-6us3ph` (Phase A ของ Social 3-Domain Roadmap: Club Invite Link/DM Edit+Pin/DM Presence/DM New Message Notification) เข้า `main` พบว่า session อื่นใช้เลข **WYN-130 (Club ghost accounts fix), WYN-131 (Club join/create missing guest gate), WYN-132 (Profile grid fetch-by-author bug), WYN-133 (Club chat channel categories)** ไปแล้วบน `main` — ทั้ง 4 งานเป็นคนละเรื่องกับของ session นี้โดยสิ้นเชิง และ **WYN-130/131/132 deploy จริงไปแล้ว Founder ยืนยัน production verification แล้วด้วย** (`.wyn/logs/deployments/2026-09-07-wyn-130-131-club-ghost-accounts-guest-gate-deploy.md`, `2026-09-07-wyn-132-profile-grid-fetch-by-author-deploy.md`)
+
+**แก้ไข**: renumber งานของ session นี้ทั้งหมด (ยังไม่ merge เข้า main ตอนพบ จึงยังปลอดภัยที่จะเปลี่ยนเลข ไม่กระทบใครที่ merge ไปแล้ว):
+- WYN-130 (Club Invite Link) → **WYN-136**
+- WYN-131 (Club Announcement, ยัง backlog) → **WYN-137**
+- WYN-132 (DM Edit + Pin Message) → **WYN-138**
+- WYN-133 (DM Presence) → **WYN-139**
+- WYN-134 (DM New Message Notification) และ WYN-135 (Club Chat Edit+Pin+Search, ยัง backlog) **ไม่ชน ไม่เปลี่ยน**
+
+Rename ครอบคลุม: task file (backlog/approved), design doc, migration SQL file, test script, QA report, deploy log, ทุก cross-reference ในเนื้อหา (`.wyn/company/CONTEXT.md`, roadmap doc, comment ในโค้ด Dart/SQL) — ยืนยันด้วย `flutter analyze`/`flutter test` (1433/1433 ผ่านเหมือนเดิมทุกประการ, ไม่กระทบ logic เพราะเป็นแค่ rename เลขงาน/comment) และ `check_schema_ordering.py` หลัง rename แล้ว
+
+**สาเหตุร่วม (ครั้งที่ 7 แล้ว — ดู entry ก่อนหน้าในไฟล์นี้)**: หลาย AI session ทำงานพร้อมกันในโปรเจกต์นี้จริง ไม่เห็นเลขงานที่ session อื่นใช้ไปแล้วจนกว่าจะ fetch/merge `main` — ยิ่งมีหลาย session ทำงานพร้อมกันมากขึ้น ID ชนกันยิ่งบ่อยขึ้น เป็นความเสี่ยงที่ทราบและยอมรับได้ในระยะนี้ (ยังไม่มีกลไก lock เลขงานกลาง) — แนะนำ **ตรวจสอบ `git fetch origin main` + เทียบเลข WYN สูงสุดบน `main` จริง ก่อน merge ทุกครั้ง** ไม่ใช่แค่ตอนเริ่มตั้งเลขงานใหม่ เพราะ session ที่ทำงานยาวข้ามหลายชั่วโมง (เหมือนรอบนี้) เลขงานอาจ "ชน" กับของใหม่ที่เพิ่ง merge เข้า main ระหว่างทางได้เสมอ

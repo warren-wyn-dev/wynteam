@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wyn/features/club/data/club.dart';
 import 'package:wyn/features/club/data/club_channel.dart';
 import 'package:wyn/features/club/data/club_insights.dart';
+import 'package:wyn/features/club/data/club_invite_link.dart';
 import 'package:wyn/features/club/data/club_member.dart';
 import 'package:wyn/features/club/data/club_repository.dart';
 
@@ -497,4 +498,88 @@ class RecordingClubRepository extends ClubRepository {
   /// Test helper: simulates this user's own `club_members` row for
   /// [subscribeToMyMembership]'s club being banned/removed.
   void emitBannedOrRemoved() => _membershipCallback?.call();
+
+  // WYN-136 -----------------------------------------------------------
+
+  List<ClubInviteLink> inviteLinksResult = const [];
+  Object? fetchInviteLinksError;
+  int fetchInviteLinksCalls = 0;
+
+  @override
+  Future<List<ClubInviteLink>> fetchInviteLinks(String clubId) async {
+    fetchInviteLinksCalls++;
+    final error = fetchInviteLinksError;
+    if (error != null) throw error;
+    return inviteLinksResult;
+  }
+
+  ClubInviteLink? createInviteLinkResult;
+  Object? createInviteLinkError;
+  int createInviteLinkCalls = 0;
+  int? lastCreateInviteLinkExpiresInDays;
+  int? lastCreateInviteLinkMaxUses;
+
+  @override
+  Future<ClubInviteLink> createInviteLink({
+    required String clubId,
+    int? expiresInDays,
+    int? maxUses,
+  }) async {
+    createInviteLinkCalls++;
+    lastCreateInviteLinkExpiresInDays = expiresInDays;
+    lastCreateInviteLinkMaxUses = maxUses;
+    final error = createInviteLinkError;
+    if (error != null) throw error;
+    return createInviteLinkResult ??
+        ClubInviteLink(
+          id: 'link-$createInviteLinkCalls',
+          clubId: clubId,
+          code: 'code$createInviteLinkCalls',
+          createdBy: 'me',
+          createdAt: DateTime.now(),
+          expiresAt: expiresInDays == null ? null : DateTime.now().add(Duration(days: expiresInDays)),
+          maxUses: maxUses,
+        );
+  }
+
+  Object? revokeInviteLinkError;
+  int revokeInviteLinkCalls = 0;
+  String? lastRevokeInviteLinkId;
+
+  @override
+  Future<void> revokeInviteLink(String linkId) async {
+    revokeInviteLinkCalls++;
+    lastRevokeInviteLinkId = linkId;
+    final error = revokeInviteLinkError;
+    if (error != null) throw error;
+  }
+
+  ClubInvitePreview previewInviteLinkResult =
+      const ClubInvitePreview(status: ClubInviteLinkStatus.notFound);
+  Object? previewInviteLinkError;
+  int previewInviteLinkCalls = 0;
+  String? lastPreviewInviteLinkCode;
+
+  @override
+  Future<ClubInvitePreview> previewInviteLink(String code) async {
+    previewInviteLinkCalls++;
+    lastPreviewInviteLinkCode = code;
+    final error = previewInviteLinkError;
+    if (error != null) throw error;
+    return previewInviteLinkResult;
+  }
+
+  String redeemInviteLinkResult = 'club-1';
+  Object? redeemInviteLinkError;
+  int redeemInviteLinkCalls = 0;
+  String? lastRedeemInviteLinkCode;
+
+  @override
+  Future<String> redeemInviteLink(String code) async {
+    redeemInviteLinkCalls++;
+    lastRedeemInviteLinkCode = code;
+    final error = redeemInviteLinkError;
+    if (error != null) throw error;
+    return redeemInviteLinkResult;
+  }
 }

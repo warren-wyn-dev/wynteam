@@ -6,6 +6,7 @@ import '../../../core/text_utils.dart';
 import 'club.dart';
 import 'club_channel.dart';
 import 'club_insights.dart';
+import 'club_invite_link.dart';
 import 'club_member.dart';
 
 const _memberProfileSelect = 'profile:profiles(username, display_name, avatar_url)';
@@ -516,6 +517,85 @@ class ClubRepository {
       'p_days': days,
     }).single();
     return ClubInsights.fromMap(row);
+  }
+
+  /// WYN-136 -- Owner/Admin only (enforced by `create_club_invite_link()`
+  /// itself via `club_role()`, re-checked server-side regardless of what
+  /// gates the UI). [expiresInDays]/[maxUses] null means "no
+  /// expiration"/"unlimited" -- the 4 choices each accepts are
+  /// null/1/7/30 and null/10/50/100 respectively (Design spec).
+  Future<ClubInviteLink> createInviteLink({
+    required String clubId,
+    int? expiresInDays,
+    int? maxUses,
+  }) async {
+    final row = await _client.rpc('create_club_invite_link', params: {
+      'p_club_id': clubId,
+      'p_expires_in_days': expiresInDays,
+      'p_max_uses': maxUses,
+    });
+    return ClubInviteLink.fromMap(row as Map<String, dynamic>);
+  }
+
+  /// WYN-136 -- Owner/Admin only (same server-side re-check as
+  /// [createInviteLink]). Idempotent-ish from the caller's own
+  /// perspective: revoking an already-revoked link just raises, surfaced
+  /// to the UI as an ordinary error (the row disappearing from a live
+  /// list mid-tap is the only way this is normally reachable at all).
+  Future<void> revokeInviteLink(String linkId) {
+    return _client.rpc('revoke_club_invite_link', params: {'p_link_id': linkId});
+  }
+
+  /// WYN-136 -- every not-yet-revoked invite link for [clubId], newest
+  /// first (Design spec: "เรียงใหม่สุดก่อน"). A revoked link is excluded
+  /// entirely (not just visually) -- an expired/exhausted-but-not-revoked
+  /// one still comes back so the Owner/Admin can see it in
+  /// `ClubInviteLinksScreen`'s own "history" treatment. Relies on
+  /// `club_invite_links`' own SELECT policy (owner/admin-only) for
+  /// authorization -- no client-side role check needed before calling
+  /// this.
+  Future<List<ClubInviteLink>> fetchInviteLinks(String clubId) async {
+    final rows = await _client
+        .from('club_invite_links')
+        .select()
+        .eq('club_id', clubId)
+        .filter('revoked_at', 'is', null)
+        .order('created_at', ascending: false);
+    return rows.map((row) => ClubInviteLink.fromMap(row)).toList();
+  }
+
+  /// WYN-136 -- callable by anyone, including a guest (Anonymous Sign-In,
+  /// WYN-072/119): `preview_club_invite_link()` itself is `security
+  /// definer` and does its own status computation, so this never needs
+  /// to be a member of the target Club (or even authenticated as a real
+  /// account) to see what the link points at. Signs [club_icon_url]
+  /// itself before returning -- the RPC can only ever return the raw
+  /// storage path, same reasoning as every other Club icon read in this
+  /// repository ([_clubFromRow]'s own `_signedUrl` call).
+  Future<ClubInvitePreview> previewInviteLink(String code) async {
+    final rows = await _client.rpc('preview_club_invite_link', params: {
+      'p_code': code,
+    }) as List<dynamic>;
+    final row = rows.isEmpty ? null : rows.first as Map<String, dynamic>;
+    if (row == null) {
+      return const ClubInvitePreview(status: ClubInviteLinkStatus.notFound);
+    }
+    final signedIconUrl = await _signedUrl(row['club_icon_url'] as String?);
+    return ClubInvitePreview.fromMap(row, signedIconUrl: signedIconUrl);
+  }
+
+  /// WYN-136 -- the actual join. Returns the joined club's id on success
+  /// (so the caller can navigate straight into `ClubPage` without a
+  /// second round-trip); a failure (revoked/expired/exhausted/banned/not
+  /// found) raises, surfaced by `ClubInvitePreviewScreen` as plain error
+  /// text rather than a crash. See `redeem_club_invite_link()`'s own doc
+  /// comment in supabase/schema.sql for exactly what happens to a
+  /// pre-existing pending/approved membership row.
+  Future<String> redeemInviteLink(String code) async {
+    final result = await _client.rpc('redeem_club_invite_link', params: {
+      'p_code': code,
+    });
+    return result as String;
   }
 
   /// WYN-127: [clubId]'s channels, oldest first -- "ทั่วไป" (the default

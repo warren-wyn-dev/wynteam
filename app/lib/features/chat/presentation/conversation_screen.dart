@@ -7,6 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/developer_access/developer_access_service.dart';
+import '../../../core/text_utils.dart';
 import '../../../core/widgets/action_sheet_row.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../core/widgets/empty_state_block.dart';
@@ -40,7 +42,9 @@ import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
 import '../data/chat_message.dart';
 import '../data/chat_repository.dart';
+import '../data/pinned_message.dart';
 import '../data/shared_content_type.dart';
+import '../../presence/data/presence_repository.dart';
 
 /// Screen 3 -- the conversation itself. Restyled to 13-chat-thread.tsx:
 /// sapphire-filled bubbles (mine) vs. tinted #F1EFE9 bubbles (theirs).
@@ -100,6 +104,8 @@ class ConversationScreen extends StatefulWidget {
     AppealRepository? appealRepository,
     ClubRepository? clubRepository,
     ClubPostRepository? clubPostRepository,
+    DeveloperAccessService? developerAccessService,
+    PresenceRepository? presenceRepository,
   })  : _blockRepository = blockRepository,
         _moderationRepository = moderationRepository,
         _reportRepository = reportRepository,
@@ -110,7 +116,9 @@ class ConversationScreen extends StatefulWidget {
         _savedRepository = savedRepository,
         _appealRepository = appealRepository,
         _clubRepository = clubRepository,
-        _clubPostRepository = clubPostRepository;
+        _clubPostRepository = clubPostRepository,
+        _developerAccessService = developerAccessService,
+        _presenceRepository = presenceRepository;
 
   final ChatRepository chatRepository;
   final String conversationId;
@@ -138,6 +146,14 @@ class ConversationScreen extends StatefulWidget {
   // these to open ClubPage when a shared Club card is tapped.
   final ClubRepository? _clubRepository;
   final ClubPostRepository? _clubPostRepository;
+
+  // WYN-138/WYN-125: Staged Rollout gate for Edit/Pin Message -- see
+  // _ConversationScreenState's own doc comments on _isDeveloperFuture.
+  final DeveloperAccessService? _developerAccessService;
+
+  // WYN-139/WYN-125: Staged Rollout gate for DM Presence (typing +
+  // online/last seen) -- shares the same _isDeveloperFuture above.
+  final PresenceRepository? _presenceRepository;
 
   @override
   State<ConversationScreen> createState() => _ConversationScreenState();
@@ -171,6 +187,20 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       widget._clubRepository ?? ClubRepository(Supabase.instance.client);
   late final ClubPostRepository _clubPostRepository =
       widget._clubPostRepository ?? ClubPostRepository(Supabase.instance.client);
+  late final DeveloperAccessService _developerAccessService =
+      widget._developerAccessService ?? DeveloperAccessService();
+  late final PresenceRepository _presenceRepository =
+      widget._presenceRepository ?? PresenceRepository(Supabase.instance.client);
+
+  /// WYN-138/WYN-125: Staged Rollout gate -- Edit/Pin Message's own 2
+  /// new menu rows and the pinned bar are never even fetched/built
+  /// unless this resolves `true`, mirroring ClubPostsTab's identical
+  /// "resolve once, `.then()`/`await` it wherever gating is needed"
+  /// shape (see that class's own doc comment). A non-developer account
+  /// therefore never issues the `message_pins` fetch/subscribe calls at
+  /// all -- not just hides the UI -- so "ไม่เห็น pinned bar เลย แม้จะมี
+  /// ข้อมูล pinned จริงในฐานข้อมูลก็ตาม" holds trivially.
+  late final Future<bool> _isDeveloperFuture = _developerAccessService.isDeveloperAccount();
 
   // WYN-033: caches a resolved shared Drop/Profile/Club by
   // "$type:$id" so scrolling (which rebuilds bubbles) doesn't re-fetch
@@ -227,6 +257,64 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   ChatMessage? _replyTo;
   Uint8List? _imageBytes;
   String? _imageExtension;
+
+  /// WYN-138: non-null while the composer is in edit mode for this
+  /// message -- set only from the (Staged-Rollout-gated) "แก้ไข" menu
+  /// row, so a non-developer account's composer can never enter this
+  /// state at all. Mutually exclusive with [_replyTo] (see
+  /// `_startEditingMessage`/the reply row's own `onTap`).
+  ChatMessage? _editingMessage;
+  bool _isSavingEdit = false;
+
+  bool get _isEditingMessage => _editingMessage != null;
+
+  /// WYN-138: every currently-pinned message in this conversation, only
+  /// ever populated for a developer account (see [_isDeveloperFuture]'s
+  /// own doc comment) -- stays permanently empty for anyone else, which
+  /// is what keeps the pinned bar from ever rendering for them.
+  List<PinnedMessage> _pinnedMessages = [];
+  RealtimeChannel? _pinsChannel;
+
+  // WYN-139/WYN-125 -- DM Presence (Typing + Online/Last Seen), only
+  // ever wired up for a developer account (see [_initPresenceIfDeveloper]).
+
+  /// True while the other participant's own typing channel presence
+  /// shows `typing: true` -- highest-priority line in the AppBar
+  /// subtitle (see [_buildStatusSubtitle]). Not privacy-gated at all
+  /// (Requirement: "Typing Indicator ไม่มี privacy toggle แยก").
+  bool _otherTyping = false;
+
+  /// The result of `get_conversation_partner_presence()`'s own
+  /// reciprocal check -- `false` means either participant has their own
+  /// visibility off, in which case [_partnerLastSeenAt] is always null
+  /// alongside it and the live [_otherOnline] getter below must also be
+  /// treated as irrelevant (see [_buildStatusSubtitle]).
+  bool _partnerShowOnline = false;
+  DateTime? _partnerLastSeenAt;
+
+  RealtimeChannel? _typingChannel;
+
+  /// Client-side safety net (design doc: "เริ่ม timer client-side ของ
+  /// ตัวเอง 3 วิ") -- auto-clears [_otherTyping] 3s after the last
+  /// `typing: true` sync, in case the other side's own `typing: false`/
+  /// leave event never arrives (e.g. their app crashed mid-type).
+  Timer? _otherTypingSafetyTimer;
+
+  /// This user's own typing state, tracked on [_typingChannel] --
+  /// mirrors [_otherTyping] but for the outgoing direction. Debounced by
+  /// [_myTypingStopTimer] so `setTyping()` is only ever called on an
+  /// actual `false`->`true`/`true`->`false` transition, not on every
+  /// keystroke (Requirement: "debounce เพื่อไม่ spam event ทุกตัวอักษร").
+  bool _iAmTyping = false;
+  Timer? _myTypingStopTimer;
+
+  /// Registered on [PresenceRepository]'s process-wide listener list
+  /// (see that class's own doc comment) so this screen's AppBar
+  /// re-renders live when the *global* online-status cache changes --
+  /// removed in [dispose].
+  VoidCallback? _presenceListener;
+
+  bool get _otherOnline => _presenceRepository.isUserOnline(widget.otherUserId);
 
   /// Founder feedback -- the composer's "View Once" toggle, only ever
   /// meaningful while [_imageBytes] is set (see [_buildImagePreviewBar]
@@ -344,6 +432,118 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       widget.conversationId,
       _onConversationMetaUpdate,
     );
+    _initPinsIfDeveloper();
+    _initPresenceIfDeveloper();
+  }
+
+  /// WYN-138/WYN-125: Staged Rollout gate -- see [_isDeveloperFuture]'s
+  /// own doc comment. Deliberately its own `.then()`, not awaited inline
+  /// in [_initLockCheckThenLoad], so the developer check running slightly
+  /// slower than the RPC never delays the message list/composer
+  /// appearing (same "don't block the main screen on a side check"
+  /// posture as `_loadSafetyState`/`_loadConversationMeta` above, which
+  /// are also fire-and-forget from here).
+  void _initPinsIfDeveloper() {
+    _isDeveloperFuture.then((isDeveloper) {
+      if (!mounted || !isDeveloper) return;
+      _loadPinnedMessages();
+      _pinsChannel = widget.chatRepository.subscribeToConversationPins(
+        widget.conversationId,
+        _loadPinnedMessages,
+      );
+    });
+  }
+
+  /// WYN-139/WYN-125: Staged Rollout gate -- same shape as
+  /// [_initPinsIfDeveloper] just above. A non-developer account never
+  /// opens the per-conversation typing channel, never fetches
+  /// [_partnerShowOnline]/[_partnerLastSeenAt], and never registers a
+  /// global-presence listener at all (design doc: "ไม่ track/subscribe
+  /// presence channel ใดๆ เลยทั้ง global และ per-conversation").
+  /// Idempotent -- safe to call again from [_resubscribeAndRefresh]
+  /// (removes any previously-registered listener first, so a resume
+  /// never ends up with two).
+  void _initPresenceIfDeveloper() {
+    _isDeveloperFuture.then((isDeveloper) {
+      if (!mounted || !isDeveloper) return;
+      _loadPartnerPresence();
+      _typingChannel = _presenceRepository.subscribeTypingChannel(
+        widget.conversationId,
+        onPresenceChange: _onTypingPresenceChange,
+      );
+      final oldListener = _presenceListener;
+      if (oldListener != null) _presenceRepository.removeGlobalPresenceListener(oldListener);
+      _presenceListener = () {
+        if (mounted) setState(() {});
+      };
+      _presenceRepository.addGlobalPresenceListener(_presenceListener!);
+    });
+  }
+
+  Future<void> _loadPartnerPresence() async {
+    try {
+      final presence = await _presenceRepository.fetchConversationPartnerPresence(
+        widget.conversationId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _partnerShowOnline = presence.showOnline;
+        _partnerLastSeenAt = presence.lastSeenAt;
+      });
+    } catch (_) {
+      // Fails open to "nothing shown" (AppBar subtitle condition 4) --
+      // matches this screen's usual load-failure posture.
+    }
+  }
+
+  /// `PresenceRepository.subscribeTypingChannel`'s own `onPresenceChange`
+  /// callback -- re-derives whether the *other* participant is typing
+  /// via `isOtherTyping` and (re)starts [_otherTypingSafetyTimer] on
+  /// every `true` sync (design doc: "เริ่ม timer client-side ของตัวเอง 3
+  /// วิ (safety net เผื่อ event false/leave หลุดหายระหว่างทาง)").
+  void _onTypingPresenceChange() {
+    if (!mounted) return;
+    final channel = _typingChannel;
+    if (channel == null) return;
+    final typing = _presenceRepository.isOtherTyping(channel, widget.otherUserId);
+    _otherTypingSafetyTimer?.cancel();
+    if (typing) {
+      _otherTypingSafetyTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _otherTyping = false);
+      });
+    }
+    setState(() => _otherTyping = typing);
+  }
+
+  /// `TextField.onChanged` -- broadcasts this user's own typing state,
+  /// debounced to only fire on an actual `false`->`true` transition (see
+  /// [_iAmTyping]'s own doc comment), with a 3s idle timer that clears
+  /// it automatically if nothing else does first.
+  void _onComposerTextChanged() {
+    final channel = _typingChannel;
+    if (channel == null) return;
+    if (_textController.text.trim().isNotEmpty) {
+      if (!_iAmTyping) {
+        _iAmTyping = true;
+        _presenceRepository.setTyping(channel, true);
+      }
+      _myTypingStopTimer?.cancel();
+      _myTypingStopTimer = Timer(const Duration(seconds: 3), _stopMyTyping);
+    } else {
+      _stopMyTyping();
+    }
+  }
+
+  /// Design doc: "ส่งข้อความสำเร็จ -> track({'typing': false}) + cancel
+  /// timer ทันที (เคลียร์ทันทีไม่ต้องรอ 3 วิ)" -- also the plain idle-
+  /// timeout path from [_onComposerTextChanged] above.
+  void _stopMyTyping() {
+    _myTypingStopTimer?.cancel();
+    _myTypingStopTimer = null;
+    if (!_iAmTyping) return;
+    _iAmTyping = false;
+    final channel = _typingChannel;
+    if (channel != null) _presenceRepository.setTyping(channel, false);
   }
 
   @override
@@ -353,6 +553,14 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     if (channel != null) widget.chatRepository.unsubscribe(channel);
     final metaChannel = _metaChannel;
     if (metaChannel != null) widget.chatRepository.unsubscribe(metaChannel);
+    final pinsChannel = _pinsChannel;
+    if (pinsChannel != null) widget.chatRepository.unsubscribe(pinsChannel);
+    final typingChannel = _typingChannel;
+    if (typingChannel != null) _presenceRepository.unsubscribeTyping(typingChannel);
+    final presenceListener = _presenceListener;
+    if (presenceListener != null) _presenceRepository.removeGlobalPresenceListener(presenceListener);
+    _otherTypingSafetyTimer?.cancel();
+    _myTypingStopTimer?.cancel();
     _revealTimer?.cancel();
     _scrollController.dispose();
     _textController.dispose();
@@ -387,6 +595,14 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       widget.conversationId,
       _onConversationMetaUpdate,
     );
+    final oldPinsChannel = _pinsChannel;
+    if (oldPinsChannel != null) widget.chatRepository.unsubscribe(oldPinsChannel);
+    _pinsChannel = null;
+    _initPinsIfDeveloper();
+    final oldTypingChannel = _typingChannel;
+    if (oldTypingChannel != null) _presenceRepository.unsubscribeTyping(oldTypingChannel);
+    _typingChannel = null;
+    _initPresenceIfDeveloper();
     await Future.wait([_refreshLatest(), _loadConversationMeta()]);
   }
 
@@ -412,19 +628,57 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     }
   }
 
-  /// Founder feedback -- View Once. The only UPDATE this app makes to
-  /// an existing `messages` row today (`mark_view_once_viewed()`/
-  /// `clear_view_once_message()`) -- this is what flips the *sender's*
-  /// own bubble from "sent, waiting to be opened" to "opened" live, the
-  /// moment the recipient opens (or their countdown expires), without
-  /// this screen needing a reload. A message not currently in
-  /// [_messages] (paged past, or somehow missed the initial load) is
-  /// silently ignored -- nothing on screen needs updating.
+  /// Founder feedback -- View Once, and now also WYN-138 Edit Message:
+  /// both `mark_view_once_viewed()`/`clear_view_once_message()` and
+  /// `edit_message()` are UPDATEs on an existing `messages` row -- this
+  /// is what flips the *sender's* own bubble from "sent, waiting to be
+  /// opened" to "opened" live, or shows a live "แก้ไขแล้ว" the instant
+  /// the other participant edits, without this screen needing a reload.
+  /// A message not currently in [_messages] (paged past, or somehow
+  /// missed the initial load) is silently ignored -- nothing on screen
+  /// needs updating.
+  ///
+  /// WYN-138 fix (found reviewing the realtime path for Edit): [message]
+  /// is built from the raw `postgres_changes` payload
+  /// (`ChatMessage.fromMap(payload.newRecord)`), which -- like every
+  /// `postgres_changes` payload -- carries no `reply_to` embed (see
+  /// `ChatRepository`'s own `_replyEmbed`/`_handleRealtimeInsert` doc
+  /// comments), so its own `replyPreviewText`/`replyPreviewImageUrl`/
+  /// `replyPreviewDeletedAt` are always null regardless of whether the
+  /// message actually is a reply. Blindly replacing the whole row (the
+  /// old behavior) made a reply's quote preview vanish for the receiving
+  /// side the moment *any* UPDATE landed on it -- most visibly an edit,
+  /// but View Once could have hit the same gap had a View Once photo
+  /// ever been sent as a reply. Carrying the already-loaded preview
+  /// fields over from the message already in [_messages] instead is safe
+  /// unconditionally: `reply_to_message_id` itself never changes after a
+  /// message is sent (no UPDATE in this app ever touches it), so the old
+  /// preview is always still correct for the new row.
   void _onRealtimeMessageUpdate(ChatMessage message) {
     if (!mounted) return;
     final index = _messages.indexWhere((m) => m.id == message.id);
     if (index == -1) return;
-    setState(() => _messages[index] = message);
+    final old = _messages[index];
+    setState(() {
+      _messages[index] = ChatMessage(
+        id: message.id,
+        conversationId: message.conversationId,
+        senderId: message.senderId,
+        createdAt: message.createdAt,
+        text: message.text,
+        imageUrl: message.imageUrl,
+        replyToMessageId: message.replyToMessageId,
+        deletedAt: message.deletedAt,
+        replyPreviewText: old.replyPreviewText,
+        replyPreviewImageUrl: old.replyPreviewImageUrl,
+        replyPreviewDeletedAt: old.replyPreviewDeletedAt,
+        sharedContentType: message.sharedContentType,
+        sharedContentId: message.sharedContentId,
+        viewOnce: message.viewOnce,
+        viewedAt: message.viewedAt,
+        editedAt: message.editedAt,
+      );
+    });
   }
 
   /// Pull-to-refresh, and the resume-from-background catch-up above --
@@ -644,10 +898,17 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     });
   }
 
+  /// WYN-138: while editing, the composer's send button becomes the
+  /// "บันทึก" (confirm edit) action instead -- text-only (no
+  /// [_imageBytes] path applies to an edit at all) and gated on
+  /// [_isSavingEdit] rather than [_isSending]. See [_buildComposerArea]'s
+  /// `onPressed` for which action this actually triggers.
   bool get _canSend =>
-      !_isSending &&
+      !(_isEditingMessage ? _isSavingEdit : _isSending) &&
       !_isComposerDisabled &&
-      (_textController.text.trim().isNotEmpty || _imageBytes != null);
+      (_isEditingMessage
+          ? _textController.text.trim().isNotEmpty
+          : (_textController.text.trim().isNotEmpty || _imageBytes != null));
 
   /// Optimistic: a placeholder bubble (real content, temp id) appears
   /// immediately with a "sending" receipt (spec section 7), and the
@@ -677,6 +938,11 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     // and keeping the keyboard up (not guaranteed on every browser, but
     // costs nothing to try).
     _textFieldFocusNode.requestFocus();
+    // WYN-139: "ส่งข้อความสำเร็จ -> track({'typing': false}) + cancel
+    // timer ทันที" -- done right away here (not awaited on the RPC
+    // below), matching every other piece of composer state this
+    // function already clears optimistically at send time.
+    _stopMyTyping();
     final text = _textController.text;
     final imageBytes = _imageBytes;
     final imageExtension = _imageExtension;
@@ -762,6 +1028,140 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ลบข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
+    }
+  }
+
+  /// WYN-138: mirrors `edit_message()`'s own strict "text-only" gate
+  /// client-side (design doc's own "defense in depth" note -- the RPC
+  /// rejects the same cases again server-side regardless).
+  bool _canEditMessage(ChatMessage message) =>
+      message.senderId == _myUserId &&
+      !message.isDeleted &&
+      message.text != null &&
+      message.imageUrl == null &&
+      message.sharedContentId == null;
+
+  bool _isPinned(String messageId) => _pinnedMessages.any((pin) => pin.messageId == messageId);
+
+  /// WYN-138: switches the composer into edit mode for [message] --
+  /// only ever called from the Staged-Rollout-gated "แก้ไข" menu row.
+  /// Clears any in-progress reply (mutually exclusive states, same
+  /// composer banner slot) and prefills the text field with the
+  /// message's current text.
+  void _startEditingMessage(ChatMessage message) {
+    setState(() {
+      _editingMessage = message;
+      _replyTo = null;
+      _textController.text = message.text ?? '';
+    });
+    _textFieldFocusNode.requestFocus();
+  }
+
+  void _cancelEditing() {
+    setState(() {
+      _editingMessage = null;
+      _textController.clear();
+    });
+  }
+
+  /// WYN-138: optimistic, same posture as [_send] -- the bubble shows
+  /// the new text and "แก้ไขแล้ว" immediately, rolled back only if
+  /// `edit_message()` itself fails. On failure the composer stays in
+  /// edit mode with whatever was typed still in the field (design doc:
+  /// "คงข้อความที่พิมพ์ไว้ในแถบแก้ไขไม่หาย"), so retrying is just
+  /// tapping the confirm button again.
+  Future<void> _confirmEdit() async {
+    final message = _editingMessage;
+    if (message == null || _isSavingEdit) return;
+    final text = _textController.text.trim();
+    if (text.isEmpty) return;
+    final index = _messages.indexWhere((m) => m.id == message.id);
+    final previous = index == -1 ? null : _messages[index];
+    setState(() {
+      _isSavingEdit = true;
+      if (index != -1 && previous != null) {
+        _messages[index] = _editedCopyOf(previous, text: text);
+      }
+    });
+    try {
+      await widget.chatRepository.editMessage(message.id, text);
+      if (!mounted) return;
+      setState(() {
+        _editingMessage = null;
+        _textController.clear();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        if (index != -1 && previous != null) _messages[index] = previous;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('แก้ไขข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSavingEdit = false);
+    }
+  }
+
+  ChatMessage _editedCopyOf(ChatMessage message, {required String text}) => ChatMessage(
+        id: message.id,
+        conversationId: message.conversationId,
+        senderId: message.senderId,
+        createdAt: message.createdAt,
+        text: text,
+        imageUrl: message.imageUrl,
+        replyToMessageId: message.replyToMessageId,
+        deletedAt: message.deletedAt,
+        replyPreviewText: message.replyPreviewText,
+        replyPreviewImageUrl: message.replyPreviewImageUrl,
+        replyPreviewDeletedAt: message.replyPreviewDeletedAt,
+        sharedContentType: message.sharedContentType,
+        sharedContentId: message.sharedContentId,
+        viewOnce: message.viewOnce,
+        viewedAt: message.viewedAt,
+        editedAt: DateTime.now(),
+      );
+
+  /// WYN-138: [pin_message()]'s own 3-per-conversation cap is enforced
+  /// server-side only (design doc: "ไม่ precompute count ฝั่ง client ก่อน
+  /// เปิดเมนู เพื่อความเรียบง่าย") -- a caller past the cap just gets
+  /// this SnackBar from the RPC's own exception. Also re-fetches
+  /// [_pinnedMessages] directly on success rather than only relying on
+  /// the realtime echo, so the pinned bar/sheet reacts the instant this
+  /// same client's own action succeeds, not only once the
+  /// `conversation-pins-$conversationId` event round-trips back.
+  Future<void> _pinMessage(ChatMessage message) async {
+    try {
+      await widget.chatRepository.pinMessage(message.id);
+      if (mounted) _loadPinnedMessages();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ปักหมุดได้สูงสุด 3 ข้อความต่อบทสนทนา ยกเลิกอันเก่าก่อน')),
+      );
+    }
+  }
+
+  Future<void> _unpinMessage(String messageId) async {
+    try {
+      await widget.chatRepository.unpinMessage(messageId);
+      if (mounted) _loadPinnedMessages();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('เลิกปักหมุดไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    }
+  }
+
+  Future<void> _loadPinnedMessages() async {
+    try {
+      final pins = await widget.chatRepository.fetchPinnedMessages(widget.conversationId);
+      if (!mounted) return;
+      setState(() => _pinnedMessages = pins);
+    } catch (_) {
+      // Fails open to an empty pinned bar -- matches every other list
+      // load's failure posture in this screen.
     }
   }
 
@@ -985,6 +1385,14 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     // cross-conversation reply_to_message_id, not chain depth, so this
     // has to be enforced here.
     final canReply = message.replyToMessageId == null;
+    // WYN-138/WYN-125 (Staged Rollout): both new rows below are gated on
+    // this same flag -- a non-developer account's menu is byte-for-byte
+    // the pre-WYN-138 sheet (see the design doc's own Handoff note).
+    final isDeveloper = await _isDeveloperFuture;
+    final canEdit = isDeveloper && _canEditMessage(message);
+    final canPin = isDeveloper && !message.isDeleted;
+    final isPinned = canPin && _isPinned(message.id);
+    if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) => ActionSheetBody(rows: [
@@ -994,7 +1402,20 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
             label: 'ตอบกลับ',
             onTap: () {
               Navigator.of(sheetContext).pop();
-              setState(() => _replyTo = message);
+              setState(() {
+                if (_isEditingMessage) _textController.clear();
+                _editingMessage = null;
+                _replyTo = message;
+              });
+            },
+          ),
+        if (canEdit)
+          ActionSheetRow(
+            icon: Icons.edit_outlined,
+            label: 'แก้ไข',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _startEditingMessage(message);
             },
           ),
         if (isMine)
@@ -1020,6 +1441,19 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                 targetLabel: 'รายงานข้อความนี้',
                 associatedUserId: message.senderId,
               );
+            },
+          ),
+        if (canPin)
+          ActionSheetRow(
+            icon: isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+            label: isPinned ? 'เลิกปักหมุด' : 'ปักหมุดข้อความ',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              if (isPinned) {
+                _unpinMessage(message.id);
+              } else {
+                _pinMessage(message);
+              }
             },
           ),
       ]),
@@ -1090,11 +1524,58 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     );
   }
 
+  /// WYN-139/WYN-125: the AppBar subtitle line -- `null` for a
+  /// non-developer account (this screen never even populates
+  /// [_otherTyping]/[_partnerShowOnline]/[_partnerLastSeenAt] for one,
+  /// since [_initPresenceIfDeveloper] never runs at all), and `null`
+  /// whenever none of the design doc's own priority-ordered 4 states
+  /// apply, so no empty line is ever reserved under the name either way.
+  /// Priority order (design doc): typing > online > last seen > nothing.
+  Widget? _buildStatusSubtitle() {
+    if (_otherTyping) {
+      return Text(
+        'กำลังพิมพ์...',
+        overflow: TextOverflow.ellipsis,
+        style: _textStyle(fontSize: 12, color: WynColors.faint),
+      );
+    }
+    // Live "online" only ever counts once the reciprocal privacy check
+    // has passed -- _otherOnline alone (a raw global-presence read) must
+    // never be shown if _partnerShowOnline is false, or the whole point
+    // of the privacy toggle would be defeated.
+    if (_partnerShowOnline && _otherOnline) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Design doc: Material green 500 as a placeholder "online dot"
+          // color until an official WynColors token exists for it.
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(color: Color(0xFF4CAF50), shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 4),
+          Text('ออนไลน์', style: _textStyle(fontSize: 12, color: WynColors.faint)),
+        ],
+      );
+    }
+    final lastSeenAt = _partnerLastSeenAt;
+    if (_partnerShowOnline && lastSeenAt != null) {
+      return Text(
+        'ใช้งานล่าสุด ${relativeTimeLabel(lastSeenAt, now: DateTime.now())}',
+        overflow: TextOverflow.ellipsis,
+        style: _textStyle(fontSize: 12, color: WynColors.faint),
+      );
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final displayName = widget.otherDisplayName?.isNotEmpty == true
         ? widget.otherDisplayName!
         : '@${widget.otherUsername}';
+    final statusSubtitle = _buildStatusSubtitle();
 
     return Scaffold(
       backgroundColor: WynColors.paper,
@@ -1124,10 +1605,20 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
               AvatarCircle(imageUrl: widget.otherAvatarUrl, fallbackText: displayName, radius: 14),
               const SizedBox(width: WynSpacing.space2),
               Flexible(
-                child: Text(
-                  displayName,
-                  overflow: TextOverflow.ellipsis,
-                  style: _textStyle(fontSize: 16, fontWeight: FontWeight.w700, color: WynColors.ink),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      overflow: TextOverflow.ellipsis,
+                      style: _textStyle(fontSize: 16, fontWeight: FontWeight.w700, color: WynColors.ink),
+                    ),
+                    // WYN-139/WYN-125: null (nothing rendered at all, no
+                    // empty line reserved) for a non-developer account
+                    // -- see _buildStatusSubtitle's own doc comment.
+                    if (statusSubtitle != null) statusSubtitle,
+                  ],
                 ),
               ),
             ],
@@ -1158,6 +1649,10 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                   )
                 : Column(
                     children: [
+                      // WYN-138/WYN-125: only ever non-empty for a
+                      // developer account -- see _pinnedMessages' own
+                      // doc comment.
+                      if (_pinnedMessages.isNotEmpty) _buildPinnedBar(),
                       Expanded(
                         child: RefreshIndicator(
                           onRefresh: _refreshLatest,
@@ -1440,7 +1935,13 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       mainAxisSize: MainAxisSize.min,
       children: [
         if (_isPendingAsRequester) _buildAwaitingResponseLabel(),
-        if (_replyTo != null) _buildReplyPreviewBar(),
+        // WYN-138: edit mode replaces the reply banner slot entirely --
+        // the two are mutually exclusive composer states (see
+        // `_startEditingMessage`/the reply row's own `onTap`).
+        if (_isEditingMessage)
+          _buildEditPreviewBar()
+        else if (_replyTo != null)
+          _buildReplyPreviewBar(),
         if (_imageBytes != null) _buildImagePreviewBar(),
         Container(
           decoration: const BoxDecoration(
@@ -1453,7 +1954,12 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
               IconButton(
                 icon: const Icon(Icons.image_outlined, size: 20, color: WynColors.graphite),
                 tooltip: 'แนบรูป',
-                onPressed: _isSending ? null : _pickImage,
+                // WYN-138: an edit is text-only (`edit_message()` rejects
+                // any message that ever carries an image) -- attaching a
+                // photo mid-edit would be a dead end, so this is
+                // disabled for the whole time the composer is in edit
+                // mode, not just while a send/save is already in flight.
+                onPressed: (_isSending || _isEditingMessage) ? null : _pickImage,
               ),
               Expanded(
                 child: Container(
@@ -1483,7 +1989,15 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                       isCollapsed: true,
                       counterText: '',
                     ),
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) {
+                      setState(() {});
+                      // WYN-139: no-op when _typingChannel is null --
+                      // either a non-developer account (never opened at
+                      // all) or this exact edit-mode/composer state
+                      // doesn't matter; see _onComposerTextChanged's own
+                      // doc comment.
+                      _onComposerTextChanged();
+                    },
                   ),
                 ),
               ),
@@ -1495,7 +2009,10 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                   color: _canSend ? WynColors.sapphire : WynColors.hairline,
                   shape: const CircleBorder(),
                   child: IconButton(
-                    icon: _isSending
+                    // WYN-138: edit mode's own "บันทึก" (confirm edit)
+                    // affordance -- a checkmark instead of the paper
+                    // plane, per the design doc's own wording.
+                    icon: (_isEditingMessage ? _isSavingEdit : _isSending)
                         ? SizedBox(
                             width: 16,
                             height: 16,
@@ -1504,9 +2021,13 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                               color: _canSend ? WynColors.paper : WynColors.mutedNeutral,
                             ),
                           )
-                        : Icon(Icons.send, size: 15, color: _canSend ? WynColors.paper : WynColors.mutedNeutral),
-                    tooltip: 'ส่งข้อความ',
-                    onPressed: _canSend ? _send : null,
+                        : Icon(
+                            _isEditingMessage ? Icons.check : Icons.send,
+                            size: 15,
+                            color: _canSend ? WynColors.paper : WynColors.mutedNeutral,
+                          ),
+                    tooltip: _isEditingMessage ? 'บันทึกการแก้ไข' : 'ส่งข้อความ',
+                    onPressed: _canSend ? (_isEditingMessage ? _confirmEdit : _send) : null,
                   ),
                 ),
               ),
@@ -1602,6 +2123,102 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
             onPressed: () => setState(() => _replyTo = null),
           ),
         ],
+      ),
+    );
+  }
+
+  /// WYN-138: replaces the reply-preview banner slot while the composer
+  /// is in edit mode -- same shape as [_buildReplyPreviewBar]'s own
+  /// banner, only the label/cancel action differ (design doc: "โครง
+  /// เดียวกับแถบ 'กำลังตอบกลับ' ที่มีอยู่แล้ว").
+  Widget _buildEditPreviewBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
+      color: _kBubbleFill,
+      child: Row(
+        children: [
+          const Icon(Icons.edit_outlined, size: 16, color: WynColors.graphite),
+          const SizedBox(width: WynSpacing.space2),
+          const Expanded(
+            child: Text('กำลังแก้ไขข้อความ', maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 18),
+            onPressed: _cancelEditing,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// WYN-138: thin bar under the AppBar (only ever built for a developer
+  /// account -- see [_pinnedMessages]' own doc comment), always showing
+  /// the most-recently-pinned message's own preview. Design doc:
+  /// "preview ข้อความที่ปักหมุดล่าสุด ... + ตัวนับ '1/3' ถ้ามีมากกว่า 1
+  /// อัน" -- [_pinnedMessages] is already newest-pin-first (see
+  /// `ChatRepository.fetchPinnedMessages`'s own ordering), so index 0 is
+  /// always the "latest" one this bar shows.
+  Widget _buildPinnedBar() {
+    final latest = _pinnedMessages.first;
+    final preview = latest.isDeleted
+        ? 'ข้อความถูกลบ'
+        : (latest.text?.isNotEmpty == true ? latest.text! : (latest.imageUrl != null ? '📷 รูปภาพ' : ''));
+    return InkWell(
+      key: const Key('pinned_bar'),
+      onTap: _showPinnedMessagesSheet,
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
+        decoration: const BoxDecoration(
+          color: _kBubbleFill,
+          border: Border(bottom: BorderSide(color: WynColors.hairline)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.push_pin, size: 16, color: WynColors.graphite),
+            const SizedBox(width: WynSpacing.space2),
+            Expanded(
+              child: Text(
+                preview,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _textStyle(fontSize: 13, color: WynColors.ink),
+              ),
+            ),
+            if (_pinnedMessages.length > 1)
+              Padding(
+                padding: const EdgeInsets.only(left: WynSpacing.space2),
+                child: Text(
+                  '1/${_pinnedMessages.length}',
+                  style: _textStyle(fontSize: 12, color: WynColors.faint),
+                ),
+              ),
+            const SizedBox(width: WynSpacing.space1),
+            const Icon(Icons.chevron_right, size: 16, color: WynColors.faint),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showPinnedMessagesSheet() async {
+    final displayName =
+        widget.otherDisplayName?.isNotEmpty == true ? widget.otherDisplayName! : '@${widget.otherUsername}';
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => _PinnedMessagesSheet(
+        pinnedMessages: _pinnedMessages,
+        myUserId: _myUserId,
+        otherDisplayName: displayName,
+        onTapMessage: (messageId) {
+          Navigator.of(sheetContext).pop();
+          _scrollToMessage(messageId);
+        },
+        onUnpin: (messageId) {
+          Navigator.of(sheetContext).pop();
+          _unpinMessage(messageId);
+        },
       ),
     );
   }
@@ -1899,6 +2516,17 @@ class _MessageBubble extends StatelessWidget {
               ),
             if (message.text != null)
               Text(message.text!, style: _textStyle(fontSize: 15, color: textColor, height: 1.45)),
+            // WYN-138: permanent once set -- Requirement: "ห้ามซ่อน" (no
+            // tap-to-reveal/hide), so an edited message never looks
+            // identical to one that wasn't, for either participant.
+            if (message.isEdited)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  'แก้ไขแล้ว',
+                  style: _textStyle(fontSize: 11, color: textColor.withValues(alpha: 0.7)),
+                ),
+              ),
           ],
         ],
       ),
@@ -2050,6 +2678,103 @@ TextStyle _textStyle({
   double? height,
 }) =>
     TextStyle(fontSize: fontSize, fontWeight: fontWeight, fontStyle: fontStyle, color: color, height: height);
+
+/// WYN-138 -- "ข้อความที่ปักหมุด" bottom sheet: every currently-pinned
+/// message (at most 3, see `pin_message()`'s own cap), tap the row to
+/// jump to it in the conversation, tap "เลิกปักหมุด" to unpin without
+/// leaving the sheet's own row layout. See
+/// [_ConversationScreenState._showPinnedMessagesSheet].
+class _PinnedMessagesSheet extends StatelessWidget {
+  const _PinnedMessagesSheet({
+    required this.pinnedMessages,
+    required this.myUserId,
+    required this.otherDisplayName,
+    required this.onTapMessage,
+    required this.onUnpin,
+  });
+
+  final List<PinnedMessage> pinnedMessages;
+  final String myUserId;
+  final String otherDisplayName;
+  final void Function(String messageId) onTapMessage;
+  final void Function(String messageId) onUnpin;
+
+  String _timeLabel(DateTime dateTime) {
+    final local = dateTime.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(local.hour)}:${two(local.minute)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SheetDragHandle(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space6, vertical: WynSpacing.space2),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'ข้อความที่ปักหมุด',
+                style: _textStyle(fontSize: 16, fontWeight: FontWeight.w700, color: WynColors.ink),
+              ),
+            ),
+          ),
+          for (final pin in pinnedMessages)
+            InkWell(
+              key: Key('pinned_row_${pin.messageId}'),
+              onTap: () => onTapMessage(pin.messageId),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WynSpacing.space6,
+                  vertical: WynSpacing.space3,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            pin.senderId == myUserId ? 'คุณ' : otherDisplayName,
+                            style: _textStyle(fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.ink),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            pin.isDeleted
+                                ? 'ข้อความถูกลบ'
+                                : (pin.text?.isNotEmpty == true
+                                    ? pin.text!
+                                    : (pin.imageUrl != null ? '📷 รูปภาพ' : '')),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _textStyle(fontSize: 14, color: WynColors.graphite),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _timeLabel(pin.pinnedAt),
+                            style: _textStyle(fontSize: 11, color: WynColors.faint),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => onUnpin(pin.messageId),
+                      child: const Text('เลิกปักหมุด'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: WynSpacing.space4),
+        ],
+      ),
+    );
+  }
+}
 
 /// Screen 4 (WYN-033) -- the shared Drop/Profile/Club preview card
 /// inside a message bubble. See

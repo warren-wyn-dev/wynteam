@@ -174,6 +174,15 @@ Deno.test("messageFor produces the exact same Thai strings as the Dart client, W
   );
 });
 
+// Mirrors notification_list_screen.dart's WYN-134 wording exactly --
+// deliberately never includes the message's own text (privacy).
+Deno.test("messageFor produces the exact same Thai string as the Dart client, WYN-134 new_message type", () => {
+  assertEquals(
+    messageFor("new_message", "@ploy", null),
+    "@ploy ส่งข้อความถึงคุณ",
+  );
+});
+
 // Mirrors notification_list_screen.dart's WYN-043 system-announcement
 // wording exactly -- the admin's own message text, shown as-is.
 Deno.test("messageFor produces the exact same Thai strings as the Dart client, WYN-043 system type", () => {
@@ -222,6 +231,21 @@ Deno.test("buildDataPayload includes conversation_id when set (message_request)"
   assertEquals(buildDataPayload(row), {
     type: "message_request",
     notification_id: "n4",
+    actor_id: "a1",
+    conversation_id: "c1",
+  });
+});
+
+Deno.test("buildDataPayload includes conversation_id when set (new_message, WYN-134)", () => {
+  const row: NotificationRow = {
+    ...baseRow,
+    id: "n5",
+    type: "new_message",
+    conversation_id: "c1",
+  };
+  assertEquals(buildDataPayload(row), {
+    type: "new_message",
+    notification_id: "n5",
     actor_id: "a1",
     conversation_id: "c1",
   });

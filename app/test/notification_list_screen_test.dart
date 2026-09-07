@@ -59,6 +59,7 @@ void main() {
   late RecordingNotificationRepository commentPopRepo;
   late RecordingNotificationRepository followRepoNotif;
   late RecordingNotificationRepository messageRequestRepo;
+  late RecordingNotificationRepository newMessageRepo;
   late RecordingNotificationRepository deletedDropRepo;
   late RecordingNotificationRepository mixedReadRepo;
   late RecordingNotificationRepository clubJoinRequestRepo;
@@ -172,6 +173,17 @@ void main() {
         conversationId: 'conv-1',
         isRead: false,
         createdAt: now.subtract(const Duration(minutes: 5)),
+      );
+
+  WynNotification newMessageNotification() => WynNotification(
+        id: 'n-new-message',
+        type: NotificationType.newMessage,
+        actorId: 'u6',
+        actorUsername: 'namfah',
+        actorDisplayName: 'น้ำฝน',
+        conversationId: 'conv-1',
+        isRead: false,
+        createdAt: now.subtract(const Duration(minutes: 2)),
       );
 
   WynNotification clubJoinRequestNotification() => WynNotification(
@@ -423,6 +435,9 @@ void main() {
     );
     messageRequestRepo = RecordingNotificationRepository(
       notifications: [messageRequestNotification()],
+    );
+    newMessageRepo = RecordingNotificationRepository(
+      notifications: [newMessageNotification()],
     );
     // One unread, one already read before this visit -- lets the
     // highlight test tell a correctly-mapped snapshot apart from a
@@ -699,6 +714,32 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('น้ำฝน ส่งคำขอข้อความถึงคุณ'));
+      await tester.pumpAndSettle();
+
+      final screen =
+          tester.widget<ConversationScreen>(find.byType(ConversationScreen));
+      expect(screen.conversationId, 'conv-1');
+      expect(screen.otherUserId, 'u6');
+      expect(screen.otherUsername, 'namfah');
+    });
+  });
+
+  group('new_message notification (WYN-134)', () {
+    testWidgets('shows the Thai message with the actor\'s name, no message text',
+        (tester) async {
+      await tester.pumpWidget(buildScreen(newMessageRepo));
+      await tester.pumpAndSettle();
+
+      expect(find.text('น้ำฝน ส่งข้อความถึงคุณ'), findsOneWidget);
+    });
+
+    testWidgets(
+        'tapping opens ConversationScreen directly for that conversation',
+        (tester) async {
+      await tester.pumpWidget(buildScreen(newMessageRepo));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('น้ำฝน ส่งข้อความถึงคุณ'));
       await tester.pumpAndSettle();
 
       final screen =

@@ -278,5 +278,34 @@ void main() {
       expect(message.sharedContentType, isNull);
       expect(message.sharedContentId, isNull);
     });
+
+    test('WYN-138: parses edited_at, and isEdited is false when it is null', () {
+      final unedited = ChatMessage.fromMap({
+        'id': 'm5',
+        'conversation_id': 'c1',
+        'sender_id': 'u1',
+        'text': 'hello',
+        'image_url': null,
+        'reply_to_message_id': null,
+        'deleted_at': null,
+        'created_at': '2026-09-07T10:00:00Z',
+      });
+      expect(unedited.editedAt, isNull);
+      expect(unedited.isEdited, isFalse);
+
+      final edited = ChatMessage.fromMap({
+        'id': 'm5',
+        'conversation_id': 'c1',
+        'sender_id': 'u1',
+        'text': 'hello, edited',
+        'image_url': null,
+        'reply_to_message_id': null,
+        'deleted_at': null,
+        'created_at': '2026-09-07T10:00:00Z',
+        'edited_at': '2026-09-07T10:05:00Z',
+      });
+      expect(edited.editedAt, isNotNull);
+      expect(edited.isEdited, isTrue);
+    });
   });
 }

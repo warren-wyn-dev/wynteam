@@ -18,6 +18,7 @@ import 'support/fake_supabase_session.dart';
 import 'support/recording_data_rights_repository.dart';
 import 'support/recording_developer_access_service.dart';
 import 'support/recording_follow_repository.dart';
+import 'support/recording_presence_repository.dart';
 import 'support/recording_profile_repository.dart';
 
 /// Restyled to 11-settings.tsx's exact 7-row list (see settings_screen.dart's
@@ -468,6 +469,8 @@ void main() {
     LikesVisibility likesVisibility = LikesVisibility.everyone,
     RecordingProfileRepository? profileRepository,
     RecordingFollowRepository? followRepository,
+    RecordingDeveloperAccessService? developerAccessService,
+    RecordingPresenceRepository? presenceRepository,
   }) async {
     await tester.pumpWidget(MaterialApp(
       home: SettingsScreen(
@@ -477,7 +480,8 @@ void main() {
         likesVisibility: likesVisibility,
         profileRepository: profileRepository,
         followRepository: followRepository,
-        developerAccessService: recordingDeveloperAccessService,
+        developerAccessService: developerAccessService ?? recordingDeveloperAccessService,
+        presenceRepository: presenceRepository,
       ),
     ));
     await tester.pumpAndSettle();
@@ -667,6 +671,88 @@ void main() {
         );
         expect(find.descendant(of: checkedTile, matching: find.text('เพื่อน')),
             findsOneWidget);
+      });
+    });
+
+    // WYN-139/WYN-125 (Staged Rollout).
+    group('online/last-seen privacy toggle (WYN-139)', () {
+      testWidgets(
+          'non-developer account: the toggle row never renders at all, '
+          'and its own status is never fetched', (tester) async {
+        final presenceRepository = RecordingPresenceRepository();
+        await openPrivacyScreen(
+          tester,
+          developerAccessService: RecordingDeveloperAccessService(isDeveloperResult: false),
+          presenceRepository: presenceRepository,
+        );
+
+        expect(find.text('แสดงสถานะออนไลน์และเข้าใช้งานล่าสุด'), findsNothing);
+        expect(find.byKey(const Key('show_online_status_toggle')), findsNothing);
+      });
+
+      testWidgets(
+          'developer account: shows the toggle initialized from '
+          'fetchShowOnlineStatus, with its reciprocal helper text',
+          (tester) async {
+        final presenceRepository = RecordingPresenceRepository()
+          ..showOnlineStatusResult = true;
+        await openPrivacyScreen(
+          tester,
+          developerAccessService: RecordingDeveloperAccessService(isDeveloperResult: true),
+          presenceRepository: presenceRepository,
+        );
+
+        expect(find.text('แสดงสถานะออนไลน์และเข้าใช้งานล่าสุด'), findsOneWidget);
+        expect(
+          find.text('ถ้าปิด คุณจะไม่เห็นสถานะออนไลน์และเข้าใช้งานล่าสุดของคนอื่นด้วยเช่นกัน'),
+          findsOneWidget,
+        );
+        final toggle = tester.widget<SwitchListTile>(
+          find.byKey(const Key('show_online_status_toggle')),
+        );
+        expect(toggle.value, isTrue);
+      });
+
+      testWidgets('flipping the toggle off calls setShowOnlineStatus(false)',
+          (tester) async {
+        final presenceRepository = RecordingPresenceRepository()
+          ..showOnlineStatusResult = true;
+        await openPrivacyScreen(
+          tester,
+          developerAccessService: RecordingDeveloperAccessService(isDeveloperResult: true),
+          presenceRepository: presenceRepository,
+        );
+
+        await tester.tap(find.byKey(const Key('show_online_status_toggle')));
+        await tester.pumpAndSettle();
+
+        expect(presenceRepository.setShowOnlineStatusCalls, 1);
+        expect(presenceRepository.lastSetShowOnlineStatus, isFalse);
+        final toggle = tester.widget<SwitchListTile>(
+          find.byKey(const Key('show_online_status_toggle')),
+        );
+        expect(toggle.value, isFalse);
+      });
+
+      testWidgets('a failed update reverts the toggle and shows an error',
+          (tester) async {
+        final presenceRepository = RecordingPresenceRepository()
+          ..showOnlineStatusResult = true
+          ..setShowOnlineStatusError = Exception('boom');
+        await openPrivacyScreen(
+          tester,
+          developerAccessService: RecordingDeveloperAccessService(isDeveloperResult: true),
+          presenceRepository: presenceRepository,
+        );
+
+        await tester.tap(find.byKey(const Key('show_online_status_toggle')));
+        await tester.pumpAndSettle();
+
+        final toggle = tester.widget<SwitchListTile>(
+          find.byKey(const Key('show_online_status_toggle')),
+        );
+        expect(toggle.value, isTrue);
+        expect(find.text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
       });
     });
   });

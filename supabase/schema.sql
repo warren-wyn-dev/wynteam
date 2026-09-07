@@ -14107,3 +14107,670 @@ create policy "Club owners and admins can delete channel categories"
 -- categories.
 alter table public.club_channels
   add column if not exists category_id uuid references public.club_channel_categories (id) on delete set null;
+
+-- ============================================================
+-- WYN-134: DM "New Message" Notification
+-- ============================================================
+-- See .wyn/tasks/active/WYN-134-dm-new-message-notification.md and
+-- .wyn/docs/design/wyn-134-dm-new-message-notification.md. Closes a
+-- known gap accepted since WYN-032: an 'active' (not 'pending') 1:1
+-- conversation had no notification at all for a new incoming message
+-- unless the recipient happened to have ConversationScreen open
+-- (realtime only) -- unlike Club, which already got this via WYN-116.
+-- No new column: reuses notifications.conversation_id, added by
+-- WYN-032 for message_request.
+--
+-- Mirrors the 'redrop'/'club_channel_message' additions above:
+-- dynamically find+drop whatever the current CHECK constraint name is
+-- rather than assuming a specific name.
+do $$
+declare
+  v_constraint_name text;
+begin
+  select tc.constraint_name into v_constraint_name
+  from information_schema.table_constraints tc
+  join information_schema.constraint_column_usage ccu
+    on ccu.constraint_name = tc.constraint_name
+   and ccu.constraint_schema = tc.constraint_schema
+  where tc.table_schema = 'public'
+    and tc.table_name = 'notifications'
+    and tc.constraint_type = 'CHECK'
+    and ccu.column_name = 'type';
+
+  if v_constraint_name is not null then
+    execute format('alter table public.notifications drop constraint %I', v_constraint_name);
+  end if;
+end;
+$$;
+
+alter table public.notifications
+  add constraint notifications_type_check
+  check (type in (
+    'like_drop', 'like_pop', 'comment_drop', 'comment_pop', 'follow',
+    'club_join_request', 'club_join_approved', 'club_post_like', 'club_post_comment',
+    'mention_drop', 'mention_club_post',
+    'moderation_warning', 'moderation_content_removed',
+    'appeal_approved', 'appeal_rejected',
+    'message_request', 'redrop',
+    'follow_request', 'follow_request_accepted',
+    'system',
+    'club_post_new', 'club_post_pinned',
+    'club_invite',
+    -- WYN-134: fired by notify_new_message() below.
+    'new_message'
+  ));
+
+-- notify_new_message(): AFTER INSERT on messages -- mirrors
+-- get_or_create_conversation()'s own message_request insert exactly
+-- (same 'messages' notification_enabled category). Only fires for an
+-- 'active' conversation -- a 'pending' one already got its one-time
+-- message_request notification at creation (see that function) and
+-- must not re-fire on every message the requester sends while
+-- waiting on a decision. No block/posting-restriction check needed
+-- here either: the messages INSERT policy already rejects a blocked-
+-- either-way/posting-blocked sender before this trigger ever runs, so
+-- a row only ever reaches here having already passed that gate.
+create or replace function public.notify_new_message()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_conversation public.conversations;
+  v_recipient uuid;
+begin
+  select * into v_conversation from public.conversations where id = new.conversation_id;
+  if v_conversation is null or v_conversation.status <> 'active' then
+    return new;
+  end if;
+
+  v_recipient := case when v_conversation.user_a_id = new.sender_id
+                       then v_conversation.user_b_id
+                       else v_conversation.user_a_id end;
+
+  -- WYN-031: respects the recipient's own per-conversation mute.
+  if exists (
+    select 1 from public.conversation_mutes
+    where conversation_id = new.conversation_id and user_id = v_recipient
+  ) then
+    return new;
+  end if;
+
+  if internal.notification_enabled(v_recipient, 'messages') then
+    insert into public.notifications (recipient_id, actor_id, type, conversation_id)
+    values (v_recipient, new.sender_id, 'new_message', new.conversation_id);
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists messages_notify_new_message on public.messages;
+create trigger messages_notify_new_message
+  after insert on public.messages
+  for each row execute function public.notify_new_message();
+
+-- mark_conversation_read(): full re-definition (not just a new branch)
+-- -- now also clears any unread new_message notification(s) for this
+-- conversation, in the same transaction. This is the entire mechanism
+-- behind "opened the conversation right when the message arrived never
+-- visibly shows an unread badge" (see the design doc's "การตัดสินใจ
+-- สำคัญ" section): ConversationScreen already calls this RPC on
+-- initState, on every realtime message received while the screen is
+-- open (_onRealtimeMessage), and on resume-from-background -- no
+-- client change needed for this AC.
+create or replace function public.mark_conversation_read(p_conversation_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  if v_me is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  update public.conversations
+  set user_a_last_read_at = case when user_a_id = v_me then now() else user_a_last_read_at end,
+      user_b_last_read_at = case when user_b_id = v_me then now() else user_b_last_read_at end
+  where id = p_conversation_id and v_me in (user_a_id, user_b_id);
+
+  if not found then
+    raise exception 'Conversation not found, or you are not a participant';
+  end if;
+
+  update public.notifications
+  set is_read = true
+  where recipient_id = v_me
+    and conversation_id = p_conversation_id
+    and type = 'new_message'
+    and is_read = false;
+end;
+$$;
+
+-- ============================================================
+-- WYN-138: DM Message Actions -- Edit Message + Pin Message
+-- ============================================================
+-- See .wyn/tasks/active/WYN-138-dm-message-edit-pin.md and
+-- .wyn/docs/design/wyn-138-dm-message-edit-pin.md.
+
+alter table public.messages add column if not exists edited_at timestamptz;
+
+-- edit_message(): mirrors delete_message()'s own shape exactly
+-- (security definer, no client UPDATE policy on messages at all --
+-- every existing-row mutation goes through an RPC like this one).
+-- Restricted to plain-text messages only (Requirement: "แก้ไขได้เฉพาะ
+-- ข้อความ text เท่านั้น") -- a message carrying an image and/or shared
+-- content is rejected outright, even if it also has a text caption, to
+-- avoid ambiguity over "editing just the caption".
+create or replace function public.edit_message(p_message_id uuid, p_text text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_trimmed text := trim(coalesce(p_text, ''));
+begin
+  if length(v_trimmed) = 0 then
+    raise exception 'Message text cannot be empty';
+  end if;
+
+  update public.messages
+  set text = v_trimmed, edited_at = now()
+  where id = p_message_id
+    and sender_id = auth.uid()
+    and deleted_at is null
+    and image_url is null
+    and shared_content_id is null;
+
+  if not found then
+    raise exception 'Message not found, not yours, deleted, or not a plain text message';
+  end if;
+end;
+$$;
+
+grant execute on function public.edit_message(uuid, text) to authenticated;
+
+-- message_pins: no client insert/update/delete policy -- pin_message()/
+-- unpin_message() below are the only way to write this table (mirrors
+-- messages/club_members' own "cross-row business logic (here: the
+-- 3-per-conversation cap) belongs in an RPC, not a plain RLS check"
+-- posture).
+create table if not exists public.message_pins (
+  conversation_id uuid not null references public.conversations (id) on delete cascade,
+  message_id uuid not null references public.messages (id) on delete cascade,
+  pinned_by uuid not null references public.profiles (id) on delete cascade,
+  pinned_at timestamptz not null default now(),
+  primary key (conversation_id, message_id)
+);
+
+create index if not exists message_pins_conversation_idx
+  on public.message_pins (conversation_id, pinned_at desc);
+
+alter table public.message_pins enable row level security;
+
+create policy "Participants can view pinned messages in their conversations"
+  on public.message_pins
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.conversations c
+      where c.id = conversation_id and auth.uid() in (c.user_a_id, c.user_b_id)
+    )
+  );
+
+-- pin_message(): either participant may pin (Requirement: DM has no
+-- staff/admin hierarchy, unlike Club Chat -- see WYN-135), capped at 3
+-- pinned messages per conversation. Read-then-check on the count
+-- (not `select ... for update`) -- a race between both participants
+-- pinning the 3rd slot at once could in theory land on 4, an accepted
+-- low-risk trade-off (see the design doc's own edge-case note), unlike
+-- club_invite_links' redeem path (WYN-136) where the usage cap is
+-- locked tighter.
+create or replace function public.pin_message(p_message_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_conversation_id uuid;
+  v_deleted_at timestamptz;
+  v_count int;
+begin
+  select conversation_id, deleted_at into v_conversation_id, v_deleted_at
+  from public.messages where id = p_message_id;
+
+  if v_conversation_id is null then
+    raise exception 'Message not found';
+  end if;
+  if v_deleted_at is not null then
+    raise exception 'Cannot pin a deleted message';
+  end if;
+  if not exists (
+    select 1 from public.conversations c
+    where c.id = v_conversation_id and v_me in (c.user_a_id, c.user_b_id)
+  ) then
+    raise exception 'Not a participant of this conversation';
+  end if;
+
+  select count(*) into v_count from public.message_pins where conversation_id = v_conversation_id;
+  if v_count >= 3 then
+    raise exception 'At most 3 pinned messages allowed per conversation';
+  end if;
+
+  insert into public.message_pins (conversation_id, message_id, pinned_by)
+  values (v_conversation_id, p_message_id, v_me)
+  on conflict (conversation_id, message_id) do nothing;
+end;
+$$;
+
+grant execute on function public.pin_message(uuid) to authenticated;
+
+-- unpin_message(): deliberately not restricted to whoever pinned it --
+-- either participant can unpin, same "no hierarchy, 2 equal people"
+-- reasoning as pin_message() above.
+create or replace function public.unpin_message(p_message_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  delete from public.message_pins mp
+  using public.conversations c
+  where mp.message_id = p_message_id
+    and mp.conversation_id = c.id
+    and v_me in (c.user_a_id, c.user_b_id);
+
+  if not found then
+    raise exception 'Pinned message not found, or you are not a participant';
+  end if;
+end;
+$$;
+
+grant execute on function public.unpin_message(uuid) to authenticated;
+
+-- delete_message(): full re-definition -- now also auto-unpins
+-- (FK `on delete cascade` on message_pins.message_id can't help here,
+-- since this is a soft-delete via UPDATE, not a real DELETE on
+-- messages).
+create or replace function public.delete_message(p_message_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.messages
+  set text = null, image_url = null, shared_content_type = null, shared_content_id = null, deleted_at = now()
+  where id = p_message_id and sender_id = auth.uid() and deleted_at is null;
+
+  if not found then
+    raise exception 'Message not found, already deleted, or not yours';
+  end if;
+
+  delete from public.message_pins where message_id = p_message_id;
+end;
+$$;
+
+-- ============================================================
+-- WYN-139: DM Presence -- Typing Indicator + Online/Last Seen
+-- ============================================================
+-- See .wyn/tasks/active/WYN-139-dm-presence-typing-online.md and
+-- .wyn/docs/design/wyn-139-dm-presence-typing-online.md.
+--
+-- Deliberately a table separate from `profiles` -- that table's own
+-- SELECT policy is `using (true)` (every authenticated user can read
+-- every column of every row), so a `last_seen_at`/`show_online_status`
+-- column living there directly would leak with no reciprocal check at
+-- all. Mirrors `notification_settings`'s own shape: a table with a
+-- strict "your own row only" SELECT policy, read-others only via a
+-- SECURITY DEFINER RPC that enforces the real rule server-side.
+
+create table if not exists public.user_presence (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  show_online_status boolean not null default true,
+  last_seen_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.user_presence enable row level security;
+
+create policy "Users can view their own presence row"
+  on public.user_presence
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can insert their own presence row"
+  on public.user_presence
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their own presence row"
+  on public.user_presence
+  for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- touch_my_presence(): persists this user's own last_seen_at -- called
+-- on AppLifecycleState.paused/detached (best-effort, same posture as
+-- every other lifecycle hook in this app -- a killed-outright app
+-- misses this call, an accepted known limitation).
+create or replace function public.touch_my_presence()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.user_presence (user_id, last_seen_at)
+  values (auth.uid(), now())
+  on conflict (user_id) do update
+    set last_seen_at = excluded.last_seen_at, updated_at = now();
+end;
+$$;
+
+grant execute on function public.touch_my_presence() to authenticated;
+
+-- get_conversation_partner_presence(): the one place a client can read
+-- another user's presence -- enforces the reciprocal privacy check
+-- (Requirement, WhatsApp-standard: turning your own visibility off also
+-- hides everyone else's from you) in the same statement, so there is
+-- exactly one place this rule can ever be wrong.
+create or replace function public.get_conversation_partner_presence(p_conversation_id uuid)
+returns table (show_online boolean, last_seen_at timestamptz)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_other uuid;
+  v_my_show boolean;
+  v_other_show boolean;
+begin
+  if v_me is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select case when user_a_id = v_me then user_b_id
+              when user_b_id = v_me then user_a_id end
+  into v_other
+  from public.conversations
+  where id = p_conversation_id and v_me in (user_a_id, user_b_id);
+
+  if v_other is null then
+    raise exception 'Conversation not found, or you are not a participant';
+  end if;
+
+  select coalesce(up.show_online_status, true) into v_my_show
+  from public.user_presence up where up.user_id = v_me;
+  select coalesce(up.show_online_status, true) into v_other_show
+  from public.user_presence up where up.user_id = v_other;
+
+  if coalesce(v_my_show, true) = false or coalesce(v_other_show, true) = false then
+    return query select false, null::timestamptz;
+    return;
+  end if;
+
+  -- Coding-time fix vs. the design doc's literal SQL (a `from
+  -- user_presence where user_id = v_other` here returns *zero* rows,
+  -- not a row with a null last_seen_at, for a partner who has never had
+  -- a user_presence row written at all yet -- e.g. a brand new account
+  -- that has been online continuously since signup and never once
+  -- backgrounded the app to trigger touch_my_presence()). The design
+  -- doc's own Edge Cases section explicitly expects a returned row with
+  -- last_seen_at = null in that case ("last_seen_at เป็น null จริง"), not
+  -- an empty result -- a scalar subquery guarantees exactly one row is
+  -- always returned once reciprocal-check has passed, with last_seen_at
+  -- naturally null when no row exists yet.
+  return query
+    select true, (select up.last_seen_at from public.user_presence up where up.user_id = v_other);
+end;
+$$;
+
+grant execute on function public.get_conversation_partner_presence(uuid) to authenticated;
+
+-- ============================================================
+-- WYN-136: Club Invite Link (generate/revoke/expiration/max-uses)
+-- ============================================================
+-- See .wyn/tasks/active/WYN-136-club-invite-link.md and
+-- .wyn/docs/design/wyn-136-club-invite-link.md. Founder locked "ทางเลือก
+-- A" (2026-09-07, .wyn/company/DECISIONS.md): a valid invite link joins
+-- a Private Club immediately, skipping Join Request/Approve entirely --
+-- redeem_club_invite_link() below is written for that choice only.
+
+create table if not exists public.club_invite_links (
+  id uuid primary key default gen_random_uuid(),
+  club_id uuid not null references public.clubs (id) on delete cascade,
+  code text not null,
+  created_by uuid not null references public.profiles (id) on delete cascade,
+  expires_at timestamptz,
+  max_uses integer,
+  use_count integer not null default 0,
+  revoked_at timestamptz,
+  created_at timestamptz not null default now(),
+  constraint club_invite_links_max_uses_positive check (max_uses is null or max_uses > 0)
+);
+
+create unique index if not exists club_invite_links_code_idx on public.club_invite_links (code);
+create index if not exists club_invite_links_club_id_idx on public.club_invite_links (club_id, created_at desc);
+
+alter table public.club_invite_links enable row level security;
+
+create policy "Owners/admins can view their club's invite links"
+  on public.club_invite_links
+  for select
+  to authenticated
+  using (public.club_role(club_id, auth.uid()) in ('owner', 'admin'));
+
+-- ไม่มี insert/update/delete policy ให้ client -- RPC ด้านล่างเท่านั้น
+-- (เหมือน club_members ทุกจุด)
+
+-- Requirement: "Track ว่าสมาชิกใหม่แต่ละคน join ผ่านลิงก์ไหน" -- เก็บ
+-- data ไว้เฉยๆ ยังไม่ต้องมี UI แสดงผลรอบนี้ (Owner Insights ในอนาคต)
+create table if not exists public.club_invite_link_uses (
+  link_id uuid not null references public.club_invite_links (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  used_at timestamptz not null default now(),
+  primary key (link_id, user_id)
+);
+-- ไม่มี SELECT policy เลยในรอบนี้ตามที่ Requirement บอกว่าไม่บังคับ UI --
+-- เขียนได้ทางเดียวผ่าน redeem_club_invite_link() (security definer)
+-- อ่านทีหลังผ่าน RPC ใหม่เมื่อ Owner Insights ต้องการจริง (ไม่ scope รอบนี้)
+alter table public.club_invite_link_uses enable row level security;
+
+-- RPC 1: create_club_invite_link() -- Owner/Admin เท่านั้น
+create or replace function public.create_club_invite_link(
+  p_club_id uuid,
+  p_expires_in_days integer default null, -- null = ไม่มีวันหมดอายุ; ค่าที่ UI ให้เลือก: null/1/7/30
+  p_max_uses integer default null          -- null = ไม่จำกัด; ค่าที่ UI ให้เลือก: null/10/50/100
+)
+returns public.club_invite_links
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_code text;
+  v_row public.club_invite_links;
+begin
+  if coalesce(public.club_role(p_club_id, v_me), '') not in ('owner', 'admin') then
+    raise exception 'Not permitted to create invite links for this club';
+  end if;
+  if p_max_uses is not null and p_max_uses <= 0 then
+    raise exception 'max_uses must be positive';
+  end if;
+
+  loop
+    v_code := substr(md5(random()::text || clock_timestamp()::text), 1, 10);
+    begin
+      insert into public.club_invite_links (club_id, code, created_by, expires_at, max_uses)
+      values (
+        p_club_id,
+        v_code,
+        v_me,
+        case when p_expires_in_days is null then null
+             else now() + (p_expires_in_days || ' days')::interval end,
+        p_max_uses
+      )
+      returning * into v_row;
+      exit;
+    exception when unique_violation then
+      -- ชนกันของ code (โอกาสน้อยมาก, 10 ตัวอักษรจาก md5) -- สุ่มใหม่แล้วลองอีกรอบ
+      continue;
+    end;
+  end loop;
+
+  return v_row;
+end;
+$$;
+
+grant execute on function public.create_club_invite_link(uuid, integer, integer) to authenticated;
+
+-- RPC 2: revoke_club_invite_link() -- Owner/Admin เท่านั้น
+create or replace function public.revoke_club_invite_link(p_link_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_club_id uuid;
+begin
+  select club_id into v_club_id from public.club_invite_links where id = p_link_id;
+  if v_club_id is null then
+    raise exception 'Invite link not found';
+  end if;
+  if coalesce(public.club_role(v_club_id, v_me), '') not in ('owner', 'admin') then
+    raise exception 'Not permitted to revoke invite links for this club';
+  end if;
+
+  update public.club_invite_links
+  set revoked_at = now()
+  where id = p_link_id and revoked_at is null;
+
+  if not found then
+    raise exception 'Invite link already revoked, or not found';
+  end if;
+end;
+$$;
+
+grant execute on function public.revoke_club_invite_link(uuid) to authenticated;
+
+-- RPC 3: preview_club_invite_link() -- ทุกคนเรียกได้ รวม guest/anonymous
+create or replace function public.preview_club_invite_link(p_code text)
+returns table (
+  status text, -- 'valid' | 'expired' | 'revoked' | 'exhausted' | 'not_found'
+  club_id uuid,
+  club_name text,
+  club_privacy text,
+  club_icon_url text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    case
+      when l.id is null then 'not_found'
+      when l.revoked_at is not null then 'revoked'
+      when l.expires_at is not null and l.expires_at < now() then 'expired'
+      when l.max_uses is not null and l.use_count >= l.max_uses then 'exhausted'
+      else 'valid'
+    end,
+    c.id, c.name, c.privacy, c.icon_url
+  from public.club_invite_links l
+  right join (select p_code as code) req on true
+  left join public.clubs c on c.id = l.club_id
+  where l.code = req.code or l.code is null
+  limit 1;
+$$;
+
+grant execute on function public.preview_club_invite_link(text) to authenticated;
+
+-- RPC 4: redeem_club_invite_link() -- join จริง. Founder ยืนยันทางเลือก A
+-- (2026-09-07, .wyn/company/DECISIONS.md): invite link ที่ valid =
+-- อนุมัติล่วงหน้าในตัวเสมอ ไม่ว่า club จะเป็น public หรือ private -- `for
+-- update` บนแถวลิงก์ตอน select กันสองคนกด max-uses ช่องสุดท้ายพร้อมกันแบบ
+-- race (คุมเข้มกว่า pin_message ของ WYN-138 เพราะเป็นเรื่อง "จำนวนครั้ง
+-- ใช้งานสูงสุด" ที่ Owner ตั้งใจจำกัดไว้จริงจัง).
+create or replace function public.redeem_club_invite_link(p_code text)
+returns uuid -- club_id เมื่อสำเร็จ
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_link public.club_invite_links;
+  v_club public.clubs;
+  v_already_approved boolean;
+begin
+  if v_me is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select * into v_link from public.club_invite_links where code = p_code for update;
+  if v_link.id is null then raise exception 'Invite link not found'; end if;
+  if v_link.revoked_at is not null then raise exception 'This invite link has been revoked'; end if;
+  if v_link.expires_at is not null and v_link.expires_at < now() then
+    raise exception 'This invite link has expired';
+  end if;
+  if v_link.max_uses is not null and v_link.use_count >= v_link.max_uses then
+    raise exception 'This invite link has reached its usage limit';
+  end if;
+
+  select * into v_club from public.clubs where id = v_link.club_id;
+
+  if exists (
+    select 1 from public.club_members
+    where club_id = v_club.id and user_id = v_me and status = 'banned'
+  ) then
+    raise exception 'You have been banned from this club';
+  end if;
+
+  -- Founder ยืนยันทางเลือก A (2026-09-07, .wyn/company/DECISIONS.md):
+  -- invite link ที่ valid = อนุมัติล่วงหน้าในตัวเสมอ ไม่ว่า club จะเป็น public หรือ private
+  insert into public.club_members (club_id, user_id, role, status)
+  values (v_club.id, v_me, 'member', 'approved')
+  on conflict (club_id, user_id)
+  do update set status = 'approved'
+  where public.club_members.status = 'pending';
+  -- upgrade แถว pending เดิม (จาก join ปกติที่ยังไม่ได้รับอนุมัติ) เป็น approved ทันที
+  -- ให้สอดคล้องกับเจตนาของทางเลือก A ("ลิงก์เชิญ = อนุมัติล่วงหน้าแล้ว") --
+  -- ไม่ทำอะไรกับแถวที่เป็น approved/banned อยู่แล้ว (do update ...where... กรองไว้)
+
+  select exists (
+    select 1 from public.club_members
+    where club_id = v_club.id and user_id = v_me and status = 'approved'
+  ) into v_already_approved;
+
+  -- นับ use_count/บันทึก attribution เฉพาะตอนเป็นการเข้าร่วมใหม่จริง
+  -- (ไม่ใช่การกดลิงก์ซ้ำของสมาชิกเดิม/คนที่ pending อยู่แล้วจาก join ปกติ)
+  if not exists (select 1 from public.club_invite_link_uses where link_id = v_link.id and user_id = v_me) then
+    update public.club_invite_links set use_count = use_count + 1 where id = v_link.id;
+    insert into public.club_invite_link_uses (link_id, user_id) values (v_link.id, v_me);
+  end if;
+
+  return v_club.id;
+end;
+$$;
+
+grant execute on function public.redeem_club_invite_link(text) to authenticated;

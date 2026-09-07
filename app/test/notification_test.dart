@@ -150,6 +150,36 @@ void main() {
       expect(notification.clubName, 'ชมรมถ่ายภาพ');
     });
 
+    // WYN-134: notify_new_message() inserts 'new_message' -- same "new
+    // type added to notifications_type_check, _typeFromString must have
+    // a matching case or fetchNotifications crashes for anyone with one
+    // of these rows" lesson as the redrop/club_invite regressions above.
+    test('parses type: "new_message" (WYN-134) without throwing', () {
+      final notification = WynNotification.fromMap({
+        'id': 'n10',
+        'type': 'new_message',
+        'actor': {
+          'id': 'u6',
+          'username': 'namfah',
+          'display_name': 'น้ำฝน',
+          'avatar_url': null,
+        },
+        'drop_id': null,
+        'pop_id': null,
+        'club_id': null,
+        'club_post_id': null,
+        'order_id': null,
+        'reason': null,
+        'conversation_id': 'conv-1',
+        'is_read': false,
+        'created_at': '2026-01-01T00:00:00Z',
+      });
+
+      expect(notification.type, NotificationType.newMessage);
+      expect(notification.conversationId, 'conv-1');
+      expect(notification.actorId, 'u6');
+    });
+
     // WYN-043: send_system_notification() always inserts actor_id = NULL
     // (mirrors the moderation types' null-actor shape above) and puts its
     // message in `reason`.
