@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/club.dart';
 import '../data/club_badge_repository.dart';
+import '../data/club_channel_chat_repository.dart';
 import '../data/club_member.dart';
 import '../data/club_post_repository.dart';
 import '../data/club_repository.dart';
@@ -50,7 +51,11 @@ class ClubPage extends StatefulWidget {
     required this.clubId,
     this.initialTabIndex = 0,
     ClubEventRepository? clubEventRepository,
-  }) : _clubEventRepository = clubEventRepository;
+    ClubBadgeRepository? clubBadgeRepository,
+    ClubChannelChatRepository? clubChannelChatRepository,
+  })  : _clubEventRepository = clubEventRepository,
+        _clubBadgeRepository = clubBadgeRepository,
+        _clubChannelChatRepository = clubChannelChatRepository;
 
   final ClubRepository clubRepository;
   final ClubPostRepository clubPostRepository;
@@ -61,6 +66,15 @@ class ClubPage extends StatefulWidget {
   // backed instance so existing call sites don't need to thread one
   // through, but a test can inject a RecordingClubEventRepository.
   final ClubEventRepository? _clubEventRepository;
+
+  // Same optional shape again -- WYN-129/WYN-128. A widget test that
+  // builds ClubPage's Posts tab (all TabBarView children are built
+  // eagerly, not lazily, regardless of which tab is selected) must be
+  // able to inject a Recording double for both, or ClubPostsTab falls
+  // back to a real Supabase-backed repository whose realtime
+  // subscribe() attempts a genuine WebSocket connection.
+  final ClubBadgeRepository? _clubBadgeRepository;
+  final ClubChannelChatRepository? _clubChannelChatRepository;
 
   /// Which tab (Posts=0/Members=1/About=2) opens first -- defaults to
   /// Posts, but WYN-015's club_join_request notification opens straight
@@ -112,7 +126,10 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   final _followRepository = FollowRepository(Supabase.instance.client);
   late final ClubEventRepository _clubEventRepository =
       widget._clubEventRepository ?? ClubEventRepository(Supabase.instance.client);
-  final _clubBadgeRepository = ClubBadgeRepository(Supabase.instance.client);
+  late final ClubBadgeRepository _clubBadgeRepository =
+      widget._clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
+  late final ClubChannelChatRepository _clubChannelChatRepository =
+      widget._clubChannelChatRepository ?? ClubChannelChatRepository(Supabase.instance.client);
 
   @override
   void initState() {
@@ -503,9 +520,11 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                         clubPostRepository: widget.clubPostRepository,
                         clubRepository: widget.clubRepository,
                         clubBadgeRepository: _clubBadgeRepository,
+                        clubChannelChatRepository: _clubChannelChatRepository,
                         club: data.club,
                         myRole: myRole,
                         onJoinTapped: () => _toggleJoin(data.club, data.membership),
+                        onBanned: _reload,
                       ),
                       ClubMembersTab(
                         clubRepository: widget.clubRepository,

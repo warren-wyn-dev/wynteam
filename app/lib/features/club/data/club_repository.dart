@@ -543,4 +543,45 @@ class ClubRepository {
   Future<void> deleteChannel(String channelId) {
     return _client.from('club_channels').delete().eq('id', channelId);
   }
+
+  /// WYN-128 -- watches this user's own `club_members` row for [clubId],
+  /// firing [onBannedOrRemoved] once if it's deleted (removed) or its
+  /// `status` becomes `'banned'`. Backs the Group Chat's Design States:
+  /// "ถูก ban ระหว่างเปิดหน้าแชทอยู่ -> เด้งออกจากหน้าทันที". A plain
+  /// `postgres_changes` filter can only match one column, so this
+  /// filters by `user_id` alone and checks `club_id` itself in the
+  /// callback. Caller must `unsubscribe()` in `dispose()`.
+  RealtimeChannel subscribeToMyMembership(
+    String clubId,
+    void Function() onBannedOrRemoved,
+  ) {
+    final userId = _client.auth.currentUser!.id;
+    final channel = _client.channel('club-membership-watch-$userId-$clubId');
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'club_members',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (payload) {
+            final oldRecord = payload.oldRecord;
+            final newRecord = payload.newRecord;
+            final rowClubId = (newRecord.isNotEmpty ? newRecord : oldRecord)['club_id'] as String?;
+            if (rowClubId != clubId) return;
+            final wasRemoved = payload.eventType == PostgresChangeEvent.delete;
+            final wasBanned = newRecord['status'] == 'banned';
+            if (wasRemoved || wasBanned) onBannedOrRemoved();
+          },
+        )
+        .subscribe();
+    return channel;
+  }
+
+  void unsubscribe(RealtimeChannel channel) {
+    _client.removeChannel(channel);
+  }
 }

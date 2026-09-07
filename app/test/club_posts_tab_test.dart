@@ -10,6 +10,7 @@ import 'package:wyn/features/club/presentation/widgets/club_posts_tab.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_club_badge_repository.dart';
+import 'support/recording_club_channel_chat_repository.dart';
 import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
 
@@ -86,6 +87,7 @@ void main() {
   late RecordingClubRepository ownerSingleChannelRepo;
   late RecordingClubBadgeRepository someoneElseVipBadgeRepo;
   late RecordingClubBadgeRepository emptyBadgeRepo;
+  late RecordingClubChannelChatRepository defaultChatRepo;
 
   ClubChannel channel({required String id, required String name}) => ClubChannel(
         id: id,
@@ -112,6 +114,13 @@ void main() {
     // RecordingClubRepository's constructor creates a real SupabaseClient
     // with its own GoTrue auto-refresh Timer.
     defaultClubRepo = RecordingClubRepository(club: club);
+    // WYN-128: never let ClubPostsTab fall back to a real
+    // ClubChannelChatRepository in a test -- its unread-badge
+    // subscription would call the real Supabase Realtime client's
+    // `.subscribe()`, which leaves a pending Timer flutter_test fails
+    // the test over (see RecordingClubChannelChatRepository's own doc
+    // comment).
+    defaultChatRepo = RecordingClubChannelChatRepository();
     singleGeneralChannelRepo = RecordingClubRepository(
       club: club,
       channels: [channel(id: 'c-general', name: 'ทั่วไป')],
@@ -147,6 +156,8 @@ void main() {
     VoidCallback? onJoinTapped,
     RecordingClubRepository? clubRepository,
     RecordingClubBadgeRepository? clubBadgeRepository,
+    RecordingClubChannelChatRepository? clubChannelChatRepository,
+    VoidCallback? onBanned,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -154,9 +165,11 @@ void main() {
           clubPostRepository: repo,
           clubRepository: clubRepository ?? defaultClubRepo,
           clubBadgeRepository: clubBadgeRepository,
+          clubChannelChatRepository: clubChannelChatRepository ?? defaultChatRepo,
           club: club,
           myRole: myRole,
           onJoinTapped: onJoinTapped ?? () {},
+          onBanned: onBanned,
         ),
       ),
     );
@@ -349,6 +362,55 @@ void main() {
       );
 
       expect(find.text('VIP'), findsNothing);
+    });
+  });
+
+  group('Group Chat toggle (WYN-128)', () {
+    testWidgets('defaults to the Posts view -- tapping "แชท" switches to the chat room',
+        (tester) async {
+      await pumpTab(tester, postsRepo, myRole: ClubMemberRole.member);
+
+      expect(find.text('สวัสดีชาว Club'), findsOneWidget);
+      expect(find.text('ยังไม่มีใครพิมพ์เลย'), findsNothing);
+
+      await tester.tap(find.text('แชท'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('สวัสดีชาว Club'), findsNothing);
+      expect(find.text('ยังไม่มีใครพิมพ์เลย'), findsOneWidget);
+    });
+
+    testWidgets('shows the current channel\'s unread count as a badge on "แชท"',
+        (tester) async {
+      final chatRepo = RecordingClubChannelChatRepository()
+        ..unreadCounts = {'default-channel': 2};
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.member,
+        clubChannelChatRepository: chatRepo,
+      );
+
+      expect(find.text('2'), findsOneWidget);
+    });
+
+    testWidgets('switching to chat marks the channel read, clearing the badge',
+        (tester) async {
+      final chatRepo = RecordingClubChannelChatRepository()
+        ..unreadCounts = {'default-channel': 2};
+      await pumpTab(
+        tester,
+        postsRepo,
+        myRole: ClubMemberRole.member,
+        clubChannelChatRepository: chatRepo,
+      );
+      expect(find.text('2'), findsOneWidget);
+
+      await tester.tap(find.text('แชท'));
+      await tester.pumpAndSettle();
+
+      expect(chatRepo.markChannelReadCalls, 1);
+      expect(find.text('2'), findsNothing);
     });
   });
 }

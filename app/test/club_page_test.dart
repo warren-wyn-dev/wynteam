@@ -7,6 +7,7 @@ import 'package:wyn/features/club/data/club_member.dart';
 import 'package:wyn/features/club/presentation/club_page.dart';
 
 import 'support/fake_supabase_session.dart';
+import 'support/recording_club_channel_chat_repository.dart';
 import 'support/recording_club_event_repository.dart';
 import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
@@ -41,6 +42,13 @@ void main() {
   late RecordingClubRepository ownerRepo;
   late RecordingClubPostRepository clubPostRepo;
   late RecordingClubEventRepository clubEventRepo;
+  // WYN-128: every ClubPage test must inject this -- ClubPostsTab (built
+  // eagerly as a TabBarView child regardless of which tab is selected)
+  // subscribes to it for the unread-chat badge the moment the viewer is
+  // an approved member, and a real ClubChannelChatRepository's
+  // subscribe() attempts a genuine WebSocket connection that leaves a
+  // pending Timer behind (.wyn/learning/PATTERNS.md).
+  late RecordingClubChannelChatRepository clubChannelChatRepo;
   // Beta3 -- built in setUp() with every other repo, never inline in a
   // testWidgets body: a fresh RecordingClubRepository constructs a
   // SupabaseClient whose GoTrue auto-refresh timer would otherwise be
@@ -71,6 +79,7 @@ void main() {
     );
     clubPostRepo = RecordingClubPostRepository();
     clubEventRepo = RecordingClubEventRepository();
+    clubChannelChatRepo = RecordingClubChannelChatRepository();
     withCoverRepo = RecordingClubRepository(
       club: Club(
         id: 'club-cover',
@@ -102,6 +111,7 @@ void main() {
           clubPostRepository: clubPostRepo,
           clubId: club.id,
           clubEventRepository: clubEventRepository,
+          clubChannelChatRepository: clubChannelChatRepo,
         ),
       ),
     );

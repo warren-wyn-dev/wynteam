@@ -55,7 +55,19 @@ class RecordingClubRepository extends ClubRepository {
                     ),
                   ]
                 : []),
+        // A second, independent client just for minting fake
+        // RealtimeChannel objects (see subscribeToMyMembership below) --
+        // ClubRepository's own client is private to its file,
+        // unreachable from this subclass. Mirrors RecordingChatRepository's
+        // identical _fakeChannelClient.
+        _fakeChannelClient = SupabaseClient(
+          'https://example.supabase.co',
+          'test-key',
+          authOptions: const AuthClientOptions(autoRefreshToken: false),
+        ),
         super(SupabaseClient('https://example.supabase.co', 'test-key'));
+
+  final SupabaseClient _fakeChannelClient;
 
   /// Returned by [fetchMyClubs].
   final List<Club> myClubs;
@@ -378,4 +390,28 @@ class RecordingClubRepository extends ClubRepository {
     deleteChannelIdArgs.add(channelId);
     channels = channels.where((c) => c.id != channelId).toList();
   }
+
+  void Function()? _membershipCallback;
+
+  // Deliberately never calls `.subscribe()` on the channel it returns
+  // (see RecordingChatRepository's identical comment on
+  // subscribeToConversationMessages) -- the real callback is captured
+  // separately for [emitBannedOrRemoved] to invoke directly.
+  @override
+  RealtimeChannel subscribeToMyMembership(
+    String clubId,
+    void Function() onBannedOrRemoved,
+  ) {
+    _membershipCallback = onBannedOrRemoved;
+    return _fakeChannelClient.channel('test-club-membership-$clubId');
+  }
+
+  @override
+  void unsubscribe(RealtimeChannel channel) {
+    // No-op -- the channel was never actually subscribed.
+  }
+
+  /// Test helper: simulates this user's own `club_members` row for
+  /// [subscribeToMyMembership]'s club being banned/removed.
+  void emitBannedOrRemoved() => _membershipCallback?.call();
 }

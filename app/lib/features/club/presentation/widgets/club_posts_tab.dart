@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/club.dart';
 import '../../data/club_badge_repository.dart';
 import '../../data/club_channel.dart';
+import '../../data/club_channel_chat_repository.dart';
 import '../../data/club_member.dart';
 import '../../data/club_member_badge.dart';
 import '../../data/club_post.dart';
@@ -11,10 +12,18 @@ import '../../data/club_post_repository.dart';
 import '../../data/club_repository.dart';
 import '../club_post_detail_screen.dart';
 import '../create_club_post_screen.dart';
+import 'club_channel_chat_view.dart';
 import 'club_channel_switcher.dart';
 import 'club_post_card.dart';
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
+
+/// WYN-128: which of the channel's 2 sub-views is showing -- the
+/// Design's recommended "toggle เล็กๆ 'โพสต์ | แชท' ใต้แถบ channel" rather
+/// than a separate navigation layer. Posts is always the default (both
+/// on first open and after switching channels), matching this widget's
+/// pre-WYN-128 behavior exactly for anyone who never touches the toggle.
+enum _ClubChannelView { posts, chat }
 
 /// Screen 4-5 — Posts tab. Gated behind approved membership: non-members
 /// (myRole == null) see a join-prompt placeholder instead of the list,
@@ -25,6 +34,12 @@ import '../../../../core/design/wyn_spacing.dart';
 /// WYN-127: hosts the channel chip row above the feed, and scopes every
 /// fetch to whichever channel is selected -- see
 /// .wyn/tasks/backlog/WYN-127-club-channels.md.
+///
+/// WYN-128: also hosts the Group Chat for whichever channel is selected,
+/// behind the "โพสต์ | แชท" toggle -- see
+/// .wyn/tasks/backlog/WYN-128-club-group-chat.md. There is no separate
+/// "Chat" tab/route at the Club level; the chat lives *inside* each
+/// channel, exactly like the Posts feed does.
 class ClubPostsTab extends StatefulWidget {
   const ClubPostsTab({
     super.key,
@@ -34,7 +49,10 @@ class ClubPostsTab extends StatefulWidget {
     required this.myRole,
     required this.onJoinTapped,
     ClubBadgeRepository? clubBadgeRepository,
-  }) : _clubBadgeRepository = clubBadgeRepository;
+    ClubChannelChatRepository? clubChannelChatRepository,
+    this.onBanned,
+  })  : _clubBadgeRepository = clubBadgeRepository,
+        _clubChannelChatRepository = clubChannelChatRepository;
 
   final ClubPostRepository clubPostRepository;
 
@@ -50,6 +68,16 @@ class ClubPostsTab extends StatefulWidget {
   /// other optional repository field in this app.
   final ClubBadgeRepository? _clubBadgeRepository;
 
+  /// WYN-128: same optional shape again.
+  final ClubChannelChatRepository? _clubChannelChatRepository;
+
+  /// WYN-128: bubbled up from ClubChannelChatView when this user's own
+  /// membership in [club] is banned/removed while the chat view is open
+  /// -- see that widget's own doc comment for why this tab (not the chat
+  /// view itself) is what reacts. Optional so existing call sites/tests
+  /// that don't care about this edge case don't need to supply one.
+  final VoidCallback? onBanned;
+
   @override
   State<ClubPostsTab> createState() => _ClubPostsTabState();
 }
@@ -57,6 +85,8 @@ class ClubPostsTab extends StatefulWidget {
 class _ClubPostsTabState extends State<ClubPostsTab> {
   late final ClubBadgeRepository _clubBadgeRepository =
       widget._clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
+  late final ClubChannelChatRepository _clubChannelChatRepository =
+      widget._clubChannelChatRepository ?? ClubChannelChatRepository(Supabase.instance.client);
 
   final _scrollController = ScrollController();
   final List<ClubPost> _posts = [];
@@ -69,6 +99,15 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
   List<ClubChannel>? _channels;
   String? _selectedChannelId;
   String? _channelsError;
+  _ClubChannelView _viewMode = _ClubChannelView.posts;
+
+  /// WYN-128: unread message count per channel id -- Requirement 6's
+  /// badge on the "แชท" toggle. Kept live by [_unreadSubscription] while
+  /// [_viewMode] is [_ClubChannelView.posts] (the chat view marks its
+  /// own channel read and keeps its own realtime subscription once
+  /// [_viewMode] switches to chat -- see [_setViewMode]).
+  Map<String, int> _unreadCounts = {};
+  RealtimeChannel? _unreadSubscription;
 
   /// WYN-129: every badge in this Club, keyed by user id -- club-wide,
   /// not channel-scoped, so it's fetched once (not re-fetched on channel
@@ -101,8 +140,74 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
 
   @override
   void dispose() {
+    _unsubscribeUnread();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _unsubscribeUnread() {
+    final subscription = _unreadSubscription;
+    if (subscription != null) {
+      _clubChannelChatRepository.unsubscribe(subscription);
+      _unreadSubscription = null;
+    }
+  }
+
+  /// Keeps [_unreadCounts] live for [channelId] while the chat view for
+  /// it isn't open -- a lighter-weight subscription than the one
+  /// ClubChannelChatView itself opens (no presence tracking), and never
+  /// runs at the same time as that one (see [_setViewMode]/
+  /// [_selectChannel]).
+  void _subscribeUnread(String channelId) {
+    _unsubscribeUnread();
+    _unreadSubscription = _clubChannelChatRepository.subscribeToNewMessagesOnly(
+      channelId,
+      (message) {
+        if (!mounted || message.authorId == Supabase.instance.client.auth.currentUser!.id) return;
+        setState(() {
+          _unreadCounts = {...(_unreadCounts), channelId: (_unreadCounts[channelId] ?? 0) + 1};
+        });
+      },
+    );
+  }
+
+  Future<void> _loadUnreadCounts() async {
+    try {
+      final counts = await _clubChannelChatRepository.fetchUnreadCounts(widget.club.id);
+      if (!mounted) return;
+      setState(() => _unreadCounts = counts);
+    } catch (_) {
+      // Fails open -- an unread badge is a nicety, never worth blocking
+      // the channel switcher over.
+    }
+  }
+
+  void _setViewMode(_ClubChannelView mode) {
+    if (mode == _viewMode) return;
+    setState(() => _viewMode = mode);
+    final channelId = _selectedChannelId;
+    if (channelId == null) return;
+    if (mode == _ClubChannelView.chat) {
+      // The chat view marks its own channel read and keeps its own
+      // (heavier, presence-tracking) subscription from here on --
+      // stopping this lighter one avoids double-counting the same
+      // inserts twice.
+      _unsubscribeUnread();
+      setState(() => _unreadCounts = {..._unreadCounts, channelId: 0});
+    } else {
+      _subscribeUnread(channelId);
+    }
+  }
+
+  /// WYN-128: see ClubChannelChatView.onBanned's own doc comment for why
+  /// this tab, not the chat view, is what reacts.
+  void _onBanned() {
+    if (!mounted) return;
+    setState(() => _viewMode = _ClubChannelView.posts);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('คุณถูกนำออกจาก Club นี้แล้ว')),
+    );
+    widget.onBanned?.call();
   }
 
   void _onScroll() {
@@ -128,6 +233,11 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
         _selectedChannelId ??= channels.isNotEmpty ? channels.first.id : null;
       });
       await _loadInitial();
+      await _loadUnreadCounts();
+      final channelId = _selectedChannelId;
+      if (channelId != null && _viewMode == _ClubChannelView.posts) {
+        _subscribeUnread(channelId);
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -197,6 +307,7 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     if (channelId == _selectedChannelId) return;
     setState(() => _selectedChannelId = channelId);
     _loadInitial();
+    if (_viewMode == _ClubChannelView.posts) _subscribeUnread(channelId);
   }
 
   bool _isChannelNameTaken(String name, {String? excludingChannelId}) {
@@ -223,6 +334,7 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
         _selectedChannelId = channel.id;
       });
       _loadInitial();
+      if (_viewMode == _ClubChannelView.posts) _subscribeUnread(channel.id);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -272,6 +384,7 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     if (!deleted || !mounted) return;
     setState(() {
       _channels = _channels?.where((c) => c.id != channel.id).toList();
+      _unreadCounts = {..._unreadCounts}..remove(channel.id);
       if (_selectedChannelId == channel.id) {
         final remaining = _channels;
         _selectedChannelId =
@@ -279,6 +392,10 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
       }
     });
     _loadInitial();
+    final newChannelId = _selectedChannelId;
+    if (newChannelId != null && _viewMode == _ClubChannelView.posts) {
+      _subscribeUnread(newChannelId);
+    }
   }
 
   // Re-reads the live _posts[index] by id instead of a ClubPost captured
@@ -386,12 +503,20 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     _loadInitial();
   }
 
+  String? get _selectedChannelName {
+    final channelId = _selectedChannelId;
+    final channels = _channels;
+    if (channelId == null || channels == null) return null;
+    for (final channel in channels) {
+      if (channel.id == channelId) return channel.name;
+    }
+    return null;
+  }
+
   Future<void> _openCreatePost() async {
     final channelId = _selectedChannelId;
     if (channelId == null) return;
-    final channelName =
-        _channels?.firstWhere((c) => c.id == channelId, orElse: () => _channels!.first).name ??
-            '';
+    final channelName = _selectedChannelName ?? '';
     final created = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => CreateClubPostScreen(
@@ -427,16 +552,73 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
       body: Column(
         children: [
           _buildChannelSwitcher(),
-          Expanded(child: _buildBody()),
+          if (_channels != null) _buildViewToggle(),
+          Expanded(
+            child: _viewMode == _ClubChannelView.chat ? _buildChatView() : _buildBody(),
+          ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: WynColors.sapphire,
-        foregroundColor: WynColors.paper,
-        onPressed: _selectedChannelId == null ? null : _openCreatePost,
-        tooltip: 'สร้างโพสต์',
-        child: const Icon(Icons.add),
+      floatingActionButton: _viewMode == _ClubChannelView.posts
+          ? FloatingActionButton(
+              backgroundColor: WynColors.sapphire,
+              foregroundColor: WynColors.paper,
+              onPressed: _selectedChannelId == null ? null : _openCreatePost,
+              tooltip: 'สร้างโพสต์',
+              child: const Icon(Icons.add),
+            )
+          : null,
+    );
+  }
+
+  /// WYN-128 -- Design's recommended "toggle เล็กๆ 'โพสต์ | แชท' ใต้แถบ
+  /// channel". The "แชท" segment carries the current channel's unread
+  /// badge (Requirement 6).
+  Widget _buildViewToggle() {
+    final channelId = _selectedChannelId;
+    final unread = channelId == null ? 0 : (_unreadCounts[channelId] ?? 0);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WynSpacing.space4, 0, WynSpacing.space4, WynSpacing.space2,
       ),
+      child: SegmentedButton<_ClubChannelView>(
+        style: SegmentedButton.styleFrom(
+          selectedForegroundColor: WynColors.paper,
+          selectedBackgroundColor: WynColors.sapphire,
+          foregroundColor: WynColors.ink,
+          side: const BorderSide(color: WynColors.hairline),
+        ),
+        segments: [
+          const ButtonSegment(value: _ClubChannelView.posts, label: Text('โพสต์')),
+          ButtonSegment(
+            value: _ClubChannelView.chat,
+            label: Badge(
+              label: Text('$unread'),
+              isLabelVisible: unread > 0,
+              child: const Text('แชท'),
+            ),
+          ),
+        ],
+        selected: {_viewMode},
+        onSelectionChanged: (selection) => _setViewMode(selection.first),
+      ),
+    );
+  }
+
+  Widget _buildChatView() {
+    final channelId = _selectedChannelId;
+    final channelName = _selectedChannelName;
+    if (channelId == null || channelName == null) {
+      return const SizedBox.shrink();
+    }
+    return ClubChannelChatView(
+      key: ValueKey('club-chat-$channelId'),
+      repository: _clubChannelChatRepository,
+      clubRepository: widget.clubRepository,
+      clubId: widget.club.id,
+      channelId: channelId,
+      channelName: channelName,
+      myRole: widget.myRole,
+      onBanned: _onBanned,
     );
   }
 

@@ -1,7 +1,7 @@
 # Product Task — WYN-128
 
-Status: active — Design เสร็จแล้ว, สถาปัตยกรรม schema (ตารางใหม่ `club_channel_messages` แยกจากแชทเดิม) Founder อนุมัติแล้ว 2026-09-07 ("ทำต่อให้เสร็จเลย"), handoff ให้ AI Coding
-Owner: AI Product Manager → AI Design (เสร็จ) → Founder อนุมัติสถาปัตยกรรม (เสร็จ) → AI Coding (ถัดไป)
+Status: coding เสร็จแล้ว (2026-09-07) — schema (`club_channel_messages` + `club_channel_message_reads`, แยกจาก `conversations`/`messages` เดิมโดยสิ้นเชิง) + Dart (ClubChannelChatView ฝังใน Posts tab ผ่าน toggle "โพสต์ | แชท", Realtime subscribe, unread badge, ban-mid-chat detection) implemented, `flutter analyze`/`flutter test` เขียวทั้งหมด — รอ AI QA & Security
+Owner: AI Product Manager → AI Design (เสร็จ) → Founder อนุมัติสถาปัตยกรรม (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (ถัดไป)
 
 Feature: Club Group Chat — ห้องแชทสด (real-time) **ต่อห้อง (channel)** แยกจากฟีดโพสต์ของห้องนั้น
 
@@ -62,3 +62,15 @@ Design Rules: ห้ามสร้าง UI chat ใหม่ตั้งแต
 **ข้อเสนอสถาปัตยกรรม schema (APPROVAL_REQUIRED)**: สร้างตารางใหม่ `club_channel_messages` (คอลัมน์คล้าย `messages` เดิม: id, channel_id, author_id, content, image_url, reply_to_message_id, created_at) + RLS policy อ่าน/เขียนผ่าน `club_role(channel's club_id, auth.uid()) is not null` โดยตรง — **ไม่แตะ `conversations`/`conversation_participants`/`messages` ของ WYN-031 เลย** เหตุผล: ระบบ 1-1 ออกแบบมาเฉพาะคู่สนทนา 2 คน (unique constraint/index หลายจุดสมมติฐานนี้) การบังคับให้รองรับ N คนจะเสี่ยงกระทบทุกจุดที่อ้างอิง "อีกฝ่าย" (เช่น unread count, online status ของคู่สนทนา) — แยกตารางใหม่ปลอดภัยกว่ามาก แลกกับโค้ด UI ซ้ำกันเล็กน้อยระหว่าง 2 ระบบ ซึ่งยอมรับได้
 
 Handoff: สถาปัตยกรรมนี้ Founder อนุมัติแล้ว (2026-09-07) → ส่งต่อ AI Coding
+
+## Coding Notes (2026-09-07)
+
+- Migration SQL: `supabase/migrations_wyn128_club_channel_messages.sql` (Founder ต้องรันผ่าน Supabase Dashboard เอง — ยังไม่ได้ apply) + `supabase/schema.sql` อัปเดตให้ตรงกัน — ไม่แตะ `conversations`/`conversation_participants`/`messages` แม้แต่บรรทัดเดียวตามที่อนุมัติไว้
+- เพิ่มตาราง `club_channel_message_reads` + RPC `mark_club_channel_read()`/`get_unread_channel_counts()` นอกเหนือจาก `club_channel_messages` ที่อนุมัติไว้ตรงๆ — จำเป็นสำหรับ Requirement 6/AC เรื่อง unread badge ซึ่งข้อความอนุมัติเดิมพูดถึงแต่ยังไม่มี schema รองรับ เป็นส่วนขยายตามธรรมชาติของฟีเจอร์เดียวกัน (ตารางใหม่ล้วน ไม่กระทบของเดิม)
+- รูปแชทใช้ bucket `club-media` เดิม (path `{club_id}/chat/{channel_id}/...`) ไม่ต้องสร้าง storage policy ใหม่ เพราะ policy เดิมของ WYN-014 ครอบคลุมอยู่แล้ว (เช็คแค่ความลึกโฟลเดอร์ + `club_role()`)
+- Dart: `ClubChannelMessage`/`ClubChannelChatRepository` (แยกจาก `ChatRepository` เดิมโดยสิ้นเชิงตามที่อนุมัติ), `ClubChannelChatView` ฝังอยู่ใน `ClubPostsTab` ผ่าน toggle "โพสต์ | แชท" (ไม่ใช่ route/tab แยก ตาม Design Rules) — reuse สไตล์ bubble/input จาก `conversation_screen.dart` แต่เป็น widget ใหม่ (`_ChatBubble`) เพราะ `_MessageBubble` เดิมเป็น private class และผูกกับ concept เฉพาะ 1-1 (View Once, shared-content) ที่ห้องนี้ไม่ต้องการ
+- จำนวนสมาชิกออนไลน์ใช้ Supabase Realtime Presence (`channel.track`/`onPresenceSync`) บน channel เดียวกับข้อความ
+- Unread badge: subscribe เบาๆ (`subscribeToNewMessagesOnly`) ขณะอยู่หน้าโพสต์ สลับไปใช้ subscription เต็มของหน้าแชทเองเมื่อสลับ toggle ไป "แชท" (กัน subscribe ซ้อนสอง channel)
+- Ban-mid-chat: เพิ่ม `ClubRepository.subscribeToMyMembership()` (realtime บน `club_members`) — ฟังเฉพาะแถวของตัวเอง, banned/removed แล้ว callback `onBanned` กลับไปที่ `ClubPostsTab` (สลับกลับไปหน้าโพสต์ + reload Club) เพราะหน้าแชทฝังอยู่ใน tab ไม่มี route ของตัวเองให้ "เด้งออก" ตรงๆ ตามที่ Design เขียนไว้ (สมมติฐานเดิมของ Design คือหน้าแชทเป็น route แยก) — เป็น deviation เล็กน้อยจาก wording ของ spec ที่ยังคงเจตนาเดิมไว้ (ผู้ใช้ที่ถูก ban เห็นผลทันที ไม่ค้างอยู่ในห้องแชทที่ตัวเองไม่มีสิทธิ์แล้ว)
+- Reply-quote preview ไม่ได้ใส่ชื่อผู้ส่งของข้อความต้นทาง (เหมือน `ChatMessage` เดิมที่ก็ไม่มี) เพื่อลดความซับซ้อนของ PostgREST embed ซ้อนสองชั้น
+- `flutter analyze`: no issues. `flutter test`: ผ่านทั้งหมด รวม test ใหม่ `club_channel_chat_view_test.dart` (ส่ง/รับ realtime/reply/delete/ban-detection) และ test เพิ่มใน `club_posts_tab_test.dart` (toggle + unread badge)
