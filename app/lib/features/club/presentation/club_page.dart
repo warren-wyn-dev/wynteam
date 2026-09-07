@@ -540,6 +540,107 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               fallbackInitialIndex: widget.openToMembers ? _aboutTabIndex : 0,
             );
 
+            final tabBar = TabBar(
+              controller: tabController,
+              indicatorColor: WynColors.sapphire,
+              indicatorSize: TabBarIndicatorSize.label,
+              indicatorWeight: 2,
+              labelColor: WynColors.ink,
+              unselectedLabelColor: WynColors.mutedNeutral,
+              labelStyle: _textStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              unselectedLabelStyle: _textStyle(fontSize: 13, fontWeight: FontWeight.w400),
+              tabs: [
+                const Tab(icon: Icon(Icons.article_outlined, size: 16), text: 'โพสต์'),
+                if (showChat)
+                  const Tab(icon: Icon(Icons.forum_outlined, size: 16), text: 'แชท'),
+                const Tab(icon: Icon(Icons.info_outline, size: 16), text: 'เกี่ยวกับ'),
+              ],
+            );
+
+            final tabBarViewChildren = [
+              ClubPostsTab(
+                clubPostRepository: widget.clubPostRepository,
+                clubRepository: widget.clubRepository,
+                clubBadgeRepository: _clubBadgeRepository,
+                developerAccessService: _developerAccessService,
+                club: data.club,
+                myRole: myRole,
+                onJoinTapped: () => _toggleJoin(data.club, data.membership),
+              ),
+              if (showChat)
+                ClubChatTab(
+                  clubRepository: widget.clubRepository,
+                  clubChannelChatRepository: _clubChannelChatRepository,
+                  club: data.club,
+                  myRole: myRole,
+                  onBanned: _reload,
+                ),
+              ClubAboutTab(
+                key: ValueKey('club_about_tab_$_aboutTabGeneration'),
+                clubRepository: widget.clubRepository,
+                clubEventRepository: _clubEventRepository,
+                clubBadgeRepository: _clubBadgeRepository,
+                developerAccessService: _developerAccessService,
+                club: data.club,
+                myRole: myRole,
+                onChanged: _reload,
+                onInvite: () => _openShareSheet(data.club),
+                initialSection: _aboutSection,
+              ),
+            ];
+
+            // Founder request (2026-09-07): the banner/header should
+            // scroll away like ViewProfileScreen's own header (WYN-110)
+            // instead of staying fixed above the TabBar forever. Staged-
+            // rollout gated (developer accounts only, per
+            // `.wyn/company/WORKFLOW.md`'s default policy for new
+            // user-facing behavior) -- this is genuinely new UX, not a
+            // fix restoring broken behavior, so a regular account keeps
+            // the exact original fixed-header Column layout below,
+            // untouched.
+            //
+            // "แชท" is the one tab that does NOT collapse the header on
+            // this layout, even for a developer account: ClubChatTab's
+            // own scrollable (club_channel_chat_view.dart) needs its own
+            // dedicated, `reverse: true` ScrollController for scroll-up-
+            // to-load-older-messages pagination, which is exactly what
+            // stops a scrollable from being "primary" and therefore from
+            // participating in this NestedScrollView's shared scroll
+            // position -- the header simply stays wherever it was left
+            // while viewing Chat (same class of conflict "โพสต์" had
+            // until its own pagination was switched to a manual button,
+            // see ClubPostsTab's own comment; Chat's pagination shape
+            // can't take that same fix without changing how it loads
+            // older messages, which is out of scope here).
+            if (data.isDeveloper) {
+              return NestedScrollView(
+                headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                  SliverToBoxAdapter(
+                    child: Stack(
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildBanner(data.club),
+                            _buildHeader(data.club, data.membership, data.isMuted),
+                          ],
+                        ),
+                        _buildBackButton(),
+                      ],
+                    ),
+                  ),
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _ClubTabBarDelegate(tabBar: tabBar),
+                  ),
+                ],
+                body: TabBarView(
+                  controller: tabController,
+                  children: tabBarViewChildren,
+                ),
+              );
+            }
+
             return Column(
               children: [
                 Stack(
@@ -554,58 +655,11 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                     _buildBackButton(),
                   ],
                 ),
-                TabBar(
-                  controller: tabController,
-                  indicatorColor: WynColors.sapphire,
-                  indicatorSize: TabBarIndicatorSize.label,
-                  indicatorWeight: 2,
-                  labelColor: WynColors.ink,
-                  unselectedLabelColor: WynColors.mutedNeutral,
-                  labelStyle:
-                      _textStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  unselectedLabelStyle:
-                      _textStyle(fontSize: 13, fontWeight: FontWeight.w400),
-                  tabs: [
-                    const Tab(icon: Icon(Icons.article_outlined, size: 16), text: 'โพสต์'),
-                    if (showChat)
-                      const Tab(icon: Icon(Icons.forum_outlined, size: 16), text: 'แชท'),
-                    const Tab(icon: Icon(Icons.info_outline, size: 16), text: 'เกี่ยวกับ'),
-                  ],
-                ),
+                tabBar,
                 Expanded(
                   child: TabBarView(
                     controller: tabController,
-                    children: [
-                      ClubPostsTab(
-                        clubPostRepository: widget.clubPostRepository,
-                        clubRepository: widget.clubRepository,
-                        clubBadgeRepository: _clubBadgeRepository,
-                        developerAccessService: _developerAccessService,
-                        club: data.club,
-                        myRole: myRole,
-                        onJoinTapped: () => _toggleJoin(data.club, data.membership),
-                      ),
-                      if (showChat)
-                        ClubChatTab(
-                          clubRepository: widget.clubRepository,
-                          clubChannelChatRepository: _clubChannelChatRepository,
-                          club: data.club,
-                          myRole: myRole,
-                          onBanned: _reload,
-                        ),
-                      ClubAboutTab(
-                        key: ValueKey('club_about_tab_$_aboutTabGeneration'),
-                        clubRepository: widget.clubRepository,
-                        clubEventRepository: _clubEventRepository,
-                        clubBadgeRepository: _clubBadgeRepository,
-                        developerAccessService: _developerAccessService,
-                        club: data.club,
-                        myRole: myRole,
-                        onChanged: _reload,
-                        onInvite: () => _openShareSheet(data.club),
-                        initialSection: _aboutSection,
-                      ),
-                    ],
+                    children: tabBarViewChildren,
                   ),
                 ),
               ],
@@ -936,6 +990,36 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
       child: button,
     );
   }
+}
+
+/// Pins ClubPage's TabBar (โพสต์/แชท/เกี่ยวกับ) to the top once the
+/// banner/header above it has scrolled away -- the same "pinned
+/// SliverPersistentHeader" shape ViewProfileScreen's own
+/// `_ProfileTabBarDelegate` (WYN-110) already uses. See that class's doc
+/// comment for why a pinned sliver needs an exact extent rather than a
+/// guessed one; [TabBar] supplies it via [TabBar.preferredSize].
+class _ClubTabBarDelegate extends SliverPersistentHeaderDelegate {
+  const _ClubTabBarDelegate({required this.tabBar});
+
+  final TabBar tabBar;
+
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    // Opaque, same reasoning as _ProfileTabBarDelegate: once pinned
+    // above scrolled-past post cards, this needs its own surface so
+    // they don't show through underneath it.
+    return Material(color: WynColors.paper, child: tabBar);
+  }
+
+  @override
+  bool shouldRebuild(covariant _ClubTabBarDelegate oldDelegate) =>
+      tabBar != oldDelegate.tabBar;
 }
 
 TextStyle _textStyle({

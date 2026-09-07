@@ -240,6 +240,34 @@ void main() {
   // pinned-first server-side; this test covers the UI's own "ปักหมุด"
   // divider label, which only makes sense if the first item actually is
   // pinned.
+  // Regression: pagination used to be scroll-triggered (a private
+  // ScrollController watching for "near the bottom"), which is exactly
+  // what stops a scrollable from being "primary" -- required for
+  // ClubPage's staged-rollout collapsing-header layout to coordinate
+  // scroll position across tabs. Switched to a manual "load more"
+  // button (same UI as club_members_tab.dart's own "ดูสมาชิกเพิ่มเติม"),
+  // needing no ScrollController at all. This proves the button actually
+  // fetches page 1, not just that it renders.
+  testWidgets('a full page of posts shows a "ดูโพสต์เพิ่มเติม" button that loads the next page',
+      (tester) async {
+    final fullPageRepo = RecordingClubPostRepository(
+      posts: List.generate(20, (i) => post(id: 'p$i')),
+    );
+    await pumpTab(tester, fullPageRepo, myRole: ClubMemberRole.member);
+
+    expect(find.text('ดูโพสต์เพิ่มเติม'), findsOneWidget);
+    expect(fullPageRepo.fetchPostsClubIdArgs, [club.id]);
+
+    await tester.tap(find.text('ดูโพสต์เพิ่มเติม'));
+    await tester.pumpAndSettle();
+
+    expect(fullPageRepo.fetchPostsClubIdArgs, [club.id, club.id]);
+    // fullPageRepo returns [] for any page beyond 0 (RecordingClubPostRepository's
+    // own "page == 0 ? posts : []" shape), so the button disappears once
+    // that empty page 1 result sets _hasMore to false.
+    expect(find.text('ดูโพสต์เพิ่มเติม'), findsNothing);
+  });
+
   testWidgets('shows a "ปักหมุด" label above the pinned post at the top of the list',
       (tester) async {
     await pumpTab(tester, pinnedFirstRepo, myRole: ClubMemberRole.member);

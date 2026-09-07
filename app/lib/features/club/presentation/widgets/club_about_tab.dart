@@ -250,43 +250,61 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
   Widget build(BuildContext context) {
     final club = widget.club;
 
+    // CustomScrollView (not ListView), same reasoning as
+    // club_insights_tab.dart's identical comment -- a "primary"
+    // scrollable that behaves unchanged in ClubPage's legacy Column
+    // layout but also participates correctly in the staged-rollout
+    // NestedScrollView layout's shared header-collapse scroll position.
+    // ClubAboutTab's own SegmentedButton row (above this widget) is a
+    // fixed, non-scrolling wrapper -- it doesn't intercept the ambient
+    // PrimaryScrollController InheritedWidget lookup, so this still
+    // correctly binds through it.
     return RefreshIndicator(
       onRefresh: _refresh,
-      child: ListView(
-        padding: const EdgeInsets.all(WynSpacing.space4),
-        children: [
-          _buildSection(
-            label: 'คำอธิบาย',
-            child: Text(
-              (club.description != null && club.description!.isNotEmpty)
-                  ? club.description!
-                  : 'ยังไม่มีคำอธิบาย',
-            ),
-          ),
-          _buildSection(
-            label: 'หมวดหมู่',
-            child: Text(club.category ?? 'ไม่ระบุ'),
-          ),
-          _buildSection(
-            label: 'ความเป็นส่วนตัว',
-            child: Row(
-              children: [
-                Icon(
-                  club.privacy == ClubPrivacy.private ? Icons.lock_outline : Icons.public,
-                  size: 18,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.all(WynSpacing.space4),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                _buildSection(
+                  label: 'คำอธิบาย',
+                  child: Text(
+                    (club.description != null && club.description!.isNotEmpty)
+                        ? club.description!
+                        : 'ยังไม่มีคำอธิบาย',
+                  ),
                 ),
-                const SizedBox(width: 6),
-                Text(club.privacy == ClubPrivacy.private ? 'ส่วนตัว' : 'สาธารณะ'),
-              ],
+                _buildSection(
+                  label: 'หมวดหมู่',
+                  child: Text(club.category ?? 'ไม่ระบุ'),
+                ),
+                _buildSection(
+                  label: 'ความเป็นส่วนตัว',
+                  child: Row(
+                    children: [
+                      Icon(
+                        club.privacy == ClubPrivacy.private
+                            ? Icons.lock_outline
+                            : Icons.public,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(club.privacy == ClubPrivacy.private ? 'ส่วนตัว' : 'สาธารณะ'),
+                    ],
+                  ),
+                ),
+                _buildSection(
+                  label: 'สร้างเมื่อ',
+                  child: Text(_formatFullDate(club.createdAt)),
+                ),
+                _buildSection(
+                  label: 'กฎของ Club',
+                  child: _isEditingRules ? _buildRulesEditor() : _buildRulesText(club),
+                ),
+              ]),
             ),
-          ),
-          _buildSection(
-            label: 'สร้างเมื่อ',
-            child: Text(_formatFullDate(club.createdAt)),
-          ),
-          _buildSection(
-            label: 'กฎของ Club',
-            child: _isEditingRules ? _buildRulesEditor() : _buildRulesText(club),
           ),
         ],
       ),
