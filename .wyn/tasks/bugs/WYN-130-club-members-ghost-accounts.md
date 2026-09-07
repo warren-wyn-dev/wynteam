@@ -1,6 +1,6 @@
 # Bug Report — WYN-130
 
-Status: deployed (PR #300 merged `c576a8d`, SQL applied by Founder via SQL Editor — "Success. No rows returned") — awaiting Founder's own in-app verification, see `.wyn/logs/deployments/2026-09-07-wyn-130-131-club-ghost-accounts-guest-gate-deploy.md`
+Status: closed — deployed (PR #300 merged `c576a8d`, SQL applied by Founder via SQL Editor) and Founder confirmed working in production (2026-09-07). See `.wyn/logs/deployments/2026-09-07-wyn-130-131-club-ghost-accounts-guest-gate-deploy.md`
 Owner: AI Debug Engineer
 
 Bug: A Club's About > สมาชิก (Members) tab renders some rows as a bare "@" with no username and a "?" fallback avatar instead of a real member — Founder's own screenshot of "พื้นที่ของเรา" showed 4 such rows out of 8 members. Same "ghost account" symptom already fixed once for Discovery's `suggested_users()` RPC (schema.sql, 2026-09-05 entry) but never fixed for Clubs.

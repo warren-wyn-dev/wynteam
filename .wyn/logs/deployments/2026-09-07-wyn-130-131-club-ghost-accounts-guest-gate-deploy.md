@@ -59,7 +59,7 @@ Supabase production database (SQL) + Vercel (Flutter web ผ่าน `deploy-we
 
 **สิ่งที่ AI ยืนยันได้เอง**: `deploy-web.yml` run #98 conclusion = success (ผ่าน GitHub Actions API ตรง); Founder รายงานผล SQL Editor ตรงว่า "Success. No rows returned" ซึ่งเป็นผลลัพธ์ที่ถูกต้องสำหรับสคริปต์นี้ (มีแต่ `create or replace function`/`grant`, ไม่มี query ที่คืนแถว)
 
-**สิ่งที่ต้องรอ Founder ยืนยัน** (session นี้ไม่มี network egress ไป production database เพื่อ query โดยตรง): เปิด Club ที่มีปัญหาจริง ([wynos.online/club/b3f010b9-b788-41f8-8e86-c7abb717b6d2](https://wynos.online/club/b3f010b9-b788-41f8-8e86-c7abb717b6d2)) ดูว่าแถว "@"/"?" หายไปจากหน้า Members แล้ว และลองเปิด incognito/guest แล้วกด "เข้าร่วม" ดูว่าเจอ prompt "เข้าสู่ระบบเพื่อดำเนินการต่อ" แทนที่จะเข้าร่วมได้ทันที — ยังไม่ได้รับการยืนยันจาก Founder ณ เวลาบันทึกนี้
+**สิ่งที่ Founder ยืนยันแล้ว**: Founder ตอบ "เรียบร้อยแล้ว" (2026-09-07) หลังลองเปิด Club ที่มีปัญหาจริง ([wynos.online/club/b3f010b9-b788-41f8-8e86-c7abb717b6d2](https://wynos.online/club/b3f010b9-b788-41f8-8e86-c7abb717b6d2)) และลองกด "เข้าร่วม" แบบ guest ตามที่ขอให้เช็ค — ถือว่า Production Verification ครบทั้ง 2 ข้อตามที่ WORKFLOW.md กำหนด (AI ยืนยันได้เอง: deploy/SQL apply สำเร็จ; Founder ยืนยัน: ใช้งานจริงถูกต้อง)
 
 ## Rollback Plan
 
@@ -72,5 +72,5 @@ Supabase production database (SQL) + Vercel (Flutter web ผ่าน `deploy-we
 
 ## สถานะ Task
 
-- `.wyn/tasks/bugs/WYN-130-club-members-ghost-accounts.md`, `.wyn/tasks/bugs/WYN-131-club-join-create-missing-guest-gate.md` — deploy สำเร็จ, รอ Founder ยืนยัน production behavior ตามหัวข้อด้านบนก่อนปิด task เต็มรูปแบบ
-- ขั้นตอนถัดไป (ถ้ามี): ถ้า Founder ทดสอบซ้ำแล้วยังเจอ "เข้าร่วมได้โดยไม่มีบัญชี" อีก ให้เปิด Debug Engineer รอบใหม่พร้อมข้อมูลบัญชี/วิธีล็อกอินที่ใช้ทดสอบ (ดู WYN-131 report's Handoff to QA section)
+- `.wyn/tasks/bugs/WYN-130-club-members-ghost-accounts.md`, `.wyn/tasks/bugs/WYN-131-club-join-create-missing-guest-gate.md` — **closed**: deploy สำเร็จ และ Founder ยืนยัน production behavior แล้ว ("เรียบร้อยแล้ว", 2026-09-07)
+- ขั้นตอนถัดไป: ไม่มี — ปิดเคสสมบูรณ์ ถ้า Founder เจอปัญหาเดิมซ้ำในอนาคต ให้เปิด Debug Engineer รอบใหม่พร้อมข้อมูลบัญชี/วิธีล็อกอินที่ใช้ทดสอบ (ดู WYN-131 report's Handoff to QA section)
