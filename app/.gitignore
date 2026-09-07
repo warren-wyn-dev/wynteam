@@ -59,6 +59,13 @@ migrate_working_dir/
 # would exist only on whoever's machine authored it and every deploy
 # would 404 the link.
 #
+# login.html/signup.html/help.html/static-page.css/sitemap.xml/robots.txt
+# are committed for the same reason again: hand-authored static pages so
+# Google has real, public, crawlable URLs to link to as Sitelinks under
+# the wynos.online search result (the Flutter app itself is one
+# client-rendered route, so it has none) -- none of these are part of
+# any Flutter web template either.
+#
 # vercel.json (WYN-114 bugfix) is committed for the same reason again:
 # without a catch-all rewrite to index.html, Vercel's static hosting 404s
 # every URL that isn't an exact existing file -- e.g. /drop/<id>, which
@@ -74,6 +81,12 @@ migrate_working_dir/
 !/web/manifest.json
 !/web/favicon.png
 !/web/add-to-home.html
+!/web/login.html
+!/web/signup.html
+!/web/help.html
+!/web/static-page.css
+!/web/sitemap.xml
+!/web/robots.txt
 !/web/icons/
 !/web/icons/Icon-192.png
 !/web/icons/Icon-512.png
