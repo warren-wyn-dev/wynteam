@@ -176,10 +176,13 @@ insert into public.club_members (club_id, user_id, role, status, created_at) val
 
 -- P1 (alice, 3 days ago -- within both windows), P2 (bob, 20 days ago
 -- -- within 30d only), P3 (dave, 40 days ago -- outside both).
-insert into public.club_posts (id, club_id, author_id, content, created_at) values
-  ('88000000-0000-0000-0000-0000000000d1', '88000000-0000-0000-0000-0000000000c1', '88000000-0000-0000-0000-000000000001', 'P1', now() - interval '3 days'),
-  ('88000000-0000-0000-0000-0000000000d2', '88000000-0000-0000-0000-0000000000c1', '88000000-0000-0000-0000-000000000002', 'P2', now() - interval '20 days'),
-  ('88000000-0000-0000-0000-0000000000d3', '88000000-0000-0000-0000-0000000000c1', '88000000-0000-0000-0000-000000000004', 'P3', now() - interval '40 days');
+insert into public.club_posts (id, club_id, author_id, content, created_at, channel_id) values
+  ('88000000-0000-0000-0000-0000000000d1', '88000000-0000-0000-0000-0000000000c1', '88000000-0000-0000-0000-000000000001', 'P1', now() - interval '3 days',
+   (select id from public.club_channels where club_id = '88000000-0000-0000-0000-0000000000c1' order by created_at limit 1)),
+  ('88000000-0000-0000-0000-0000000000d2', '88000000-0000-0000-0000-0000000000c1', '88000000-0000-0000-0000-000000000002', 'P2', now() - interval '20 days',
+   (select id from public.club_channels where club_id = '88000000-0000-0000-0000-0000000000c1' order by created_at limit 1)),
+  ('88000000-0000-0000-0000-0000000000d3', '88000000-0000-0000-0000-0000000000c1', '88000000-0000-0000-0000-000000000004', 'P3', now() - interval '40 days',
+   (select id from public.club_channels where club_id = '88000000-0000-0000-0000-0000000000c1' order by created_at limit 1));
 
 -- carol (moderator, otherwise outside both windows by join date) likes
 -- P1 2 days ago -- within both windows; proves active_members counts

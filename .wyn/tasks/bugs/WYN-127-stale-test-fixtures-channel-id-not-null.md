@@ -1,7 +1,7 @@
 # Bug Report — WYN-127 (follow-up, non-blocking)
 
-Status: bugs (low priority, does not block WYN-127/128/129 deploy)
-Owner: AI Debug Engineer (whenever convenient, no urgency)
+Status: **fixed (2026-09-07, AI Debug Engineer)** — all 6 fixture-only scripts patched and independently re-verified green against a local scratch PostgreSQL 16.13. `channel_id` (sourced from `select id from public.club_channels where club_id = ... order by created_at limit 1`, i.e. each fixture Club's own auto-created "ทั่วไป" default channel) added to the raw `club_posts` inserts in `wyn_021`/`wyn_044`/`wyn_045`/`wyn_047`/`wyn_117`; `p_channel_id` (same lookup) added as the 2nd positional argument to every `create_poll_club_post(...)` call in `wyn_115`. All 6 scripts now print "ALL CHECKS PASSED" with the exact same check count as the pre-WYN-127 baseline (commit `5498928`, verified via a throwaway `git worktree` checkout run against the old schema+old script pair): wyn_021 5/5, wyn_044 21/21, wyn_045 22/22, wyn_047 42/42, wyn_115 24/24, wyn_117 15/15 — confirming the fix touched only fixture setup, not any assertion. No `schema.sql` or Dart file changed. `wyn_038_view_counting_test.sh` intentionally left untouched (out of scope, unrelated pre-existing failure per Root Cause below). Handed off to AI QA & Security for optional spot-check (non-blocking).
+Owner: AI Debug Engineer (เสร็จ) → AI QA & Security (optional spot-check)
 
 Bug: WYN-127 added `club_posts.channel_id` as `NOT NULL` and changed `create_poll_club_post()`'s signature (inserted a new `p_channel_id` parameter). 6 of this repo's pre-existing `supabase/tests/*.sh` regression scripts predate that change and were never updated to match, so they now error out during fixture setup (or, for `wyn_115`, calling the RPC with the old signature) instead of running their actual assertions:
 
