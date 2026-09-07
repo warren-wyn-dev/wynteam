@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'chat_message.dart';
 import 'conversation.dart';
 import 'message_request.dart';
+import 'pinned_message.dart';
 import 'shared_content_type.dart';
 import '../../../core/storage_upload_options.dart';
 
@@ -25,7 +26,8 @@ typedef ConversationMeta = ({String status, String? requestedBy, DateTime? other
 // send and fetch 400 unconditionally, reply or not.
 const _replyEmbed = 'reply_to:messages!reply_to_message_id(text, image_url, deleted_at)';
 const _messageColumns = 'id, conversation_id, sender_id, text, image_url, reply_to_message_id, '
-    'shared_content_type, shared_content_id, deleted_at, created_at, view_once, viewed_at, $_replyEmbed';
+    'shared_content_type, shared_content_id, deleted_at, created_at, view_once, viewed_at, edited_at, '
+    '$_replyEmbed';
 
 /// Wraps `chat_inbox`, `conversations`, `messages`, `conversation_mutes`,
 /// `message_requests` (WYN-032), the `chat-media` storage bucket, and
@@ -348,6 +350,100 @@ class ChatRepository {
         // change fixes going forward, not a new failure mode.
       }
     }
+  }
+
+  /// WYN-132: text-only own message edit, via `edit_message()` -- see
+  /// that RPC's own doc comment in supabase/schema.sql for exactly which
+  /// messages it accepts (mine, not deleted, no image/shared-content
+  /// attached) and rejects (raises otherwise, surfaced to the caller as
+  /// a normal exception -- ConversationScreen shows a SnackBar and keeps
+  /// the composer's edit-mode text in place for a retry).
+  Future<void> editMessage(String messageId, String text) {
+    return _client.rpc('edit_message', params: {
+      'p_message_id': messageId,
+      'p_text': text,
+    });
+  }
+
+  /// WYN-132: either participant may pin (no DM hierarchy -- see
+  /// `pin_message()`'s own doc comment in supabase/schema.sql), capped
+  /// at 3 per conversation server-side; a caller past the cap gets the
+  /// RPC's own exception, not a client-side precheck (design doc: "ไม่
+  /// precompute count ฝั่ง client ก่อนเปิดเมนู เพื่อความเรียบง่าย").
+  Future<void> pinMessage(String messageId) {
+    return _client.rpc('pin_message', params: {'p_message_id': messageId});
+  }
+
+  /// WYN-132: deliberately not restricted to whoever pinned it -- see
+  /// `unpin_message()`'s own doc comment.
+  Future<void> unpinMessage(String messageId) {
+    return _client.rpc('unpin_message', params: {'p_message_id': messageId});
+  }
+
+  /// WYN-132: every currently-pinned message in [conversationId], newest
+  /// pin first -- a plain `select` through `message_pins`' own SELECT
+  /// policy (participants-only), joined against `messages` for the
+  /// preview content. See the design doc's own "Fetch pinned messages"
+  /// query for why this needs no dedicated RPC (unlike pin/unpin, which
+  /// need the 3-cap/participant business logic an RPC gives them).
+  Future<List<PinnedMessage>> fetchPinnedMessages(String conversationId) async {
+    final rows = await _client
+        .from('message_pins')
+        .select('message_id, pinned_at, pinned_by, messages!inner(text, image_url, deleted_at, sender_id)')
+        .eq('conversation_id', conversationId)
+        .order('pinned_at', ascending: false);
+    return rows.map((row) {
+      final messageRow = row['messages'] as Map<String, dynamic>;
+      return PinnedMessage.fromMap({
+        'message_id': row['message_id'],
+        'pinned_at': row['pinned_at'],
+        'pinned_by': row['pinned_by'],
+        'text': messageRow['text'],
+        'image_url': messageRow['image_url'],
+        'deleted_at': messageRow['deleted_at'],
+        'sender_id': messageRow['sender_id'],
+      });
+    }).toList();
+  }
+
+  /// WYN-132: a lightweight channel mirroring
+  /// [subscribeToConversationMeta]'s own shape -- any INSERT/DELETE on
+  /// [conversationId]'s own `message_pins` rows re-fetches the full
+  /// pinned list rather than trying to patch from the payload (design
+  /// doc: a DELETE payload's column completeness depends on
+  /// `REPLICA IDENTITY`, which this table doesn't set, so patching from
+  /// it isn't safe -- a full re-fetch of at most 3 joined rows is cheap
+  /// enough not to matter). Caller must `unsubscribe()` in `dispose()`,
+  /// same as every other realtime channel here.
+  RealtimeChannel subscribeToConversationPins(
+    String conversationId,
+    void Function() onChange,
+  ) {
+    final channel = _client.channel('conversation-pins-$conversationId');
+    channel
+        .onPostgresChanges(
+          // `.all` (not separate insert/delete registrations) -- a
+          // single-column filter on `conversation_id` already scopes
+          // every event this table can ever produce (there is no
+          // UPDATE path for message_pins) to this conversation, and the
+          // handler doesn't care which event kind fired, only that
+          // something did. `conversation_id` is part of message_pins'
+          // own composite primary key, so it's present in a DELETE's
+          // old-record payload under the default REPLICA IDENTITY
+          // (mirrors ClubRepository.subscribeToMyMembership's identical
+          // reasoning for club_members.user_id).
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'message_pins',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'conversation_id',
+            value: conversationId,
+          ),
+          callback: (_) => onChange(),
+        )
+        .subscribe();
+    return channel;
   }
 
   Future<ChatMessage?> fetchMessage(String messageId) async {

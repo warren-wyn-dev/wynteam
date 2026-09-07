@@ -6,6 +6,7 @@ import 'package:wyn/features/chat/data/chat_message.dart';
 import 'package:wyn/features/chat/data/chat_repository.dart';
 import 'package:wyn/features/chat/data/conversation.dart';
 import 'package:wyn/features/chat/data/message_request.dart';
+import 'package:wyn/features/chat/data/pinned_message.dart';
 import 'package:wyn/features/chat/data/shared_content_type.dart';
 
 /// A ChatRepository whose network-touching methods are overridden to
@@ -237,6 +238,73 @@ class RecordingChatRepository extends ChatRepository {
     final error = deleteMessageError;
     if (error != null) throw error;
   }
+
+  // WYN-132 -----------------------------------------------------------
+
+  Object? editMessageError;
+  int editMessageCalls = 0;
+  String? lastEditMessageId;
+  String? lastEditMessageText;
+
+  @override
+  Future<void> editMessage(String messageId, String text) async {
+    editMessageCalls++;
+    lastEditMessageId = messageId;
+    lastEditMessageText = text;
+    final error = editMessageError;
+    if (error != null) throw error;
+  }
+
+  Object? pinMessageError;
+  int pinMessageCalls = 0;
+  String? lastPinMessageId;
+
+  @override
+  Future<void> pinMessage(String messageId) async {
+    pinMessageCalls++;
+    lastPinMessageId = messageId;
+    final error = pinMessageError;
+    if (error != null) throw error;
+  }
+
+  Object? unpinMessageError;
+  int unpinMessageCalls = 0;
+  String? lastUnpinMessageId;
+
+  @override
+  Future<void> unpinMessage(String messageId) async {
+    unpinMessageCalls++;
+    lastUnpinMessageId = messageId;
+    final error = unpinMessageError;
+    if (error != null) throw error;
+  }
+
+  List<PinnedMessage> pinnedMessagesResult = const [];
+  Object? fetchPinnedMessagesError;
+  int fetchPinnedMessagesCalls = 0;
+
+  @override
+  Future<List<PinnedMessage>> fetchPinnedMessages(String conversationId) async {
+    fetchPinnedMessagesCalls++;
+    final error = fetchPinnedMessagesError;
+    if (error != null) throw error;
+    return pinnedMessagesResult;
+  }
+
+  void Function()? _pinsCallback;
+
+  @override
+  RealtimeChannel subscribeToConversationPins(
+    String conversationId,
+    void Function() onChange,
+  ) {
+    _pinsCallback = onChange;
+    return _fakeChannelClient.channel('test-conversation-pins-$conversationId');
+  }
+
+  /// Test helper: simulates an INSERT/DELETE arriving over
+  /// [subscribeToConversationPins]'s channel.
+  void emitPinsChanged() => _pinsCallback?.call();
 
   int imageSignedUrlCalls = 0;
 

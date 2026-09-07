@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wyn/core/design/wyn_colors.dart';
 import 'package:wyn/features/block/data/block_relationship.dart';
 import 'package:wyn/features/chat/data/chat_message.dart';
+import 'package:wyn/features/chat/data/pinned_message.dart';
 import 'package:wyn/features/chat/presentation/conversation_screen.dart';
 import 'package:wyn/features/moderation/data/moderation_status.dart';
 import 'package:wyn/features/profile/presentation/widgets/avatar_circle.dart';
@@ -12,6 +13,7 @@ import 'package:wyn/features/profile/presentation/widgets/avatar_circle.dart';
 import 'support/fake_supabase_session.dart';
 import 'support/recording_block_repository.dart';
 import 'support/recording_chat_repository.dart';
+import 'support/recording_developer_access_service.dart';
 import 'support/recording_moderation_repository.dart';
 
 void main() {
@@ -38,6 +40,10 @@ void main() {
     DateTime? deletedAt,
     bool viewOnce = false,
     DateTime? viewedAt,
+    DateTime? editedAt,
+    String? replyPreviewText,
+    String? replyPreviewImageUrl,
+    DateTime? replyPreviewDeletedAt,
   }) =>
       ChatMessage(
         id: id,
@@ -50,9 +56,17 @@ void main() {
         deletedAt: deletedAt,
         viewOnce: viewOnce,
         viewedAt: viewedAt,
+        editedAt: editedAt,
+        replyPreviewText: replyPreviewText,
+        replyPreviewImageUrl: replyPreviewImageUrl,
+        replyPreviewDeletedAt: replyPreviewDeletedAt,
       );
 
-  Widget buildScreen() => MaterialApp(
+  // WYN-132/WYN-125 (Staged Rollout): defaults to a non-developer account
+  // so every pre-existing test above keeps exercising the exact
+  // pre-WYN-132 menu/composer -- only the WYN-132 test group below
+  // overrides this to `true` to reach the gated Edit/Pin UI.
+  Widget buildScreen({RecordingDeveloperAccessService? developerAccessService}) => MaterialApp(
         home: ConversationScreen(
           chatRepository: chatRepo,
           conversationId: 'c1',
@@ -61,6 +75,8 @@ void main() {
           otherDisplayName: 'น้ำฝน',
           blockRepository: blockRepo,
           moderationRepository: moderationRepo,
+          developerAccessService:
+              developerAccessService ?? RecordingDeveloperAccessService(isDeveloperResult: false),
         ),
       );
 
@@ -993,5 +1009,237 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
 
     expect(find.text('18:44'), findsNothing);
+  });
+
+  group('WYN-132: Edit + Pin Message (Staged Rollout gated)', () {
+    RecordingDeveloperAccessService developerAccess({bool isDeveloper = true}) =>
+        RecordingDeveloperAccessService(isDeveloperResult: isDeveloper);
+
+    testWidgets(
+        'non-developer account: the long-press menu has no "แก้ไข"/pin '
+        'rows, and the pinned bar never renders even with pinned data '
+        'present', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [message(id: 'm1', senderId: 'me', text: 'ข้อความของฉัน')],
+      };
+      chatRepo.pinnedMessagesResult = [
+        PinnedMessage(
+          messageId: 'm1',
+          pinnedAt: DateTime.now(),
+          pinnedBy: 'me',
+          senderId: 'me',
+          text: 'ข้อความของฉัน',
+        ),
+      ];
+      await tester.pumpWidget(
+        buildScreen(developerAccessService: developerAccess(isDeveloper: false)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('pinned_bar')), findsNothing);
+      expect(chatRepo.fetchPinnedMessagesCalls, 0);
+
+      await tester.longPress(find.text('ข้อความของฉัน'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('แก้ไข'), findsNothing);
+      expect(find.text('ปักหมุดข้อความ'), findsNothing);
+      expect(find.text('เลิกปักหมุด'), findsNothing);
+    });
+
+    testWidgets(
+        'developer account: editing my own text message updates the '
+        'bubble optimistically and shows the "แก้ไขแล้ว" label',
+        (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [message(id: 'm1', senderId: 'me', text: 'ข้อความเดิม')],
+      };
+      await tester.pumpWidget(buildScreen(developerAccessService: developerAccess()));
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('ข้อความเดิม'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('แก้ไข'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('กำลังแก้ไขข้อความ'), findsOneWidget);
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.controller?.text, 'ข้อความเดิม');
+
+      await tester.enterText(find.byType(TextField), 'ข้อความใหม่');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.check));
+      await tester.pumpAndSettle();
+
+      expect(chatRepo.editMessageCalls, 1);
+      expect(chatRepo.lastEditMessageId, 'm1');
+      expect(chatRepo.lastEditMessageText, 'ข้อความใหม่');
+      expect(find.text('ข้อความใหม่'), findsOneWidget);
+      expect(find.text('แก้ไขแล้ว'), findsOneWidget);
+      expect(find.text('กำลังแก้ไขข้อความ'), findsNothing);
+    });
+
+    testWidgets(
+        'editing offers no option for an image message or for another '
+        "person's message", (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [
+          message(id: 'm1', senderId: 'me', text: null, imageUrl: 'c1/me-1.jpg'),
+          message(id: 'm2', senderId: 'other', text: 'ข้อความของอีกฝ่าย'),
+        ],
+      };
+      chatRepo.signedUrlResult = 'https://example.supabase.co/signed/me-1.jpg';
+      await tester.pumpWidget(buildScreen(developerAccessService: developerAccess()));
+      await tester.pumpAndSettle();
+      tester.takeException(); // fake signed image URL 404s -- harmless.
+
+      await tester.longPress(find.byKey(const Key('chat_image_m1')));
+      await tester.pumpAndSettle();
+      expect(find.text('แก้ไข'), findsNothing);
+      // "ปักหมุดข้อความ" still available -- pin has no such restriction.
+      expect(find.text('ปักหมุดข้อความ'), findsOneWidget);
+      await tester.tapAt(const Offset(10, 10)); // dismiss via the sheet's barrier
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('ข้อความของอีกฝ่าย'));
+      await tester.pumpAndSettle();
+      expect(find.text('แก้ไข'), findsNothing);
+    });
+
+    testWidgets(
+        'an edit failure keeps the composer in edit mode with the typed '
+        'text intact, and restores the original bubble', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [message(id: 'm1', senderId: 'me', text: 'ข้อความเดิม')],
+      };
+      chatRepo.editMessageError = Exception('boom');
+      await tester.pumpWidget(buildScreen(developerAccessService: developerAccess()));
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('ข้อความเดิม'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('แก้ไข'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'ข้อความใหม่');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.check));
+      await tester.pumpAndSettle();
+
+      expect(find.text('แก้ไขข้อความไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
+      expect(find.text('ข้อความเดิม'), findsOneWidget);
+      expect(find.text('กำลังแก้ไขข้อความ'), findsOneWidget);
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.controller?.text, 'ข้อความใหม่');
+    });
+
+    testWidgets(
+        'pinning a message shows the pinned bar; the pinned bottom sheet '
+        'unpins it and jumps to the original message', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [message(id: 'm1', senderId: 'other', text: 'ปักหมุดฉัน')],
+      };
+      await tester.pumpWidget(buildScreen(developerAccessService: developerAccess()));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('pinned_bar')), findsNothing);
+
+      // RecordingChatRepository is a stub -- pinMessage() doesn't derive
+      // what a later fetchPinnedMessages() returns, so this simulates
+      // what the backend will return once queried after the pin
+      // actually succeeds.
+      chatRepo.pinnedMessagesResult = [
+        PinnedMessage(
+          messageId: 'm1',
+          pinnedAt: DateTime.now(),
+          pinnedBy: 'me',
+          senderId: 'other',
+          text: 'ปักหมุดฉัน',
+        ),
+      ];
+
+      await tester.longPress(find.text('ปักหมุดฉัน'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ปักหมุดข้อความ'));
+      await tester.pumpAndSettle();
+
+      expect(chatRepo.pinMessageCalls, 1);
+      expect(chatRepo.lastPinMessageId, 'm1');
+      expect(find.byKey(const Key('pinned_bar')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('pinned_bar')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ข้อความที่ปักหมุด'), findsOneWidget);
+      expect(find.text('เลิกปักหมุด'), findsOneWidget);
+
+      chatRepo.pinnedMessagesResult = const [];
+      await tester.tap(find.text('เลิกปักหมุด'));
+      await tester.pumpAndSettle();
+
+      expect(chatRepo.unpinMessageCalls, 1);
+      expect(chatRepo.lastUnpinMessageId, 'm1');
+      expect(find.byKey(const Key('pinned_bar')), findsNothing);
+    });
+
+    testWidgets(
+        'pinning past the 3-message cap surfaces the RPC error as a '
+        'SnackBar, not a crash', (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [message(id: 'm1', senderId: 'other', text: 'ข้อความที่ 4')],
+      };
+      chatRepo.pinMessageError = Exception('At most 3 pinned messages allowed per conversation');
+      await tester.pumpWidget(buildScreen(developerAccessService: developerAccess()));
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('ข้อความที่ 4'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ปักหมุดข้อความ'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('ปักหมุดได้สูงสุด 3 ข้อความต่อบทสนทนา ยกเลิกอันเก่าก่อน'),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('pinned_bar')), findsNothing);
+    });
+
+    testWidgets(
+        'regression: a realtime UPDATE (e.g. an edit) does not blank out '
+        "an existing reply quote's preview", (tester) async {
+      chatRepo.messagesByConversation = {
+        'c1': [
+          message(
+            id: 'm2',
+            senderId: 'other',
+            text: 'ข้อความตอบกลับเดิม',
+            replyToMessageId: 'm1',
+            replyPreviewText: 'ข้อความต้นฉบับ',
+          ),
+        ],
+      };
+      // Not gated -- the "แก้ไขแล้ว" label itself must show regardless of
+      // Staged Rollout (Requirement: "ห้ามซ่อน"), so this deliberately
+      // uses the default non-developer buildScreen().
+      await tester.pumpWidget(buildScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('ข้อความต้นฉบับ'), findsOneWidget);
+
+      // A raw postgres_changes UPDATE payload carries no reply_to embed
+      // -- simulated here by leaving replyPreviewText null, exactly what
+      // ChatMessage.fromMap(payload.newRecord) would produce for real.
+      chatRepo.emitConversationMessageUpdate(message(
+        id: 'm2',
+        senderId: 'other',
+        text: 'ข้อความตอบกลับที่แก้ไขแล้ว',
+        replyToMessageId: 'm1',
+        editedAt: DateTime.now(),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ข้อความตอบกลับที่แก้ไขแล้ว'), findsOneWidget);
+      expect(find.textContaining('ข้อความต้นฉบับ'), findsOneWidget);
+      expect(find.text('แก้ไขแล้ว'), findsOneWidget);
+    });
   });
 }

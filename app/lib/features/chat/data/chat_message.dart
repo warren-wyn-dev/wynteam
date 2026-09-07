@@ -23,6 +23,7 @@ class ChatMessage {
     this.sharedContentId,
     this.viewOnce = false,
     this.viewedAt,
+    this.editedAt,
   });
 
   final String id;
@@ -57,6 +58,16 @@ class ChatMessage {
   /// bubble can flip from "sent, waiting to be opened" to "opened"
   /// live, without waiting for the recipient's countdown to finish.
   final DateTime? viewedAt;
+
+  /// WYN-132: set once by `edit_message()` the first time this message's
+  /// own text is edited, and overwritten (never cleared) on every edit
+  /// after that -- see that function's own doc comment in
+  /// supabase/schema.sql. Once non-null it must keep showing an "edited"
+  /// label forever (Requirement: "ห้ามซ่อน") -- there is deliberately no
+  /// way to un-set this client-side.
+  final DateTime? editedAt;
+
+  bool get isEdited => editedAt != null;
 
   bool get isDeleted => deletedAt != null;
 
@@ -102,6 +113,7 @@ class ChatMessage {
       sharedContentId: map['shared_content_id'] as String?,
       viewOnce: map['view_once'] as bool? ?? false,
       viewedAt: map['viewed_at'] == null ? null : DateTime.parse(map['viewed_at'] as String),
+      editedAt: map['edited_at'] == null ? null : DateTime.parse(map['edited_at'] as String),
     );
   }
 }

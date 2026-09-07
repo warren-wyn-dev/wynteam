@@ -1,6 +1,6 @@
 # Product Task — WYN-132
 
-Status: ready-for-coding — AI Design ทำ spec เต็มแล้ว (2026-09-07) — Founder อนุมัติ wireframe ข้อความแทน visual mockup แล้ว ไม่มีจุดค้าง พร้อมส่ง AI Coding
+Status: coding-complete รอ QA (2026-09-07)
 Owner: AI Design → AI Coding
 
 Feature: DM Message Actions — Edit Message + Pin Message (1:1 Chat)
@@ -55,3 +55,23 @@ Design spec เต็มที่ `.wyn/docs/design/wyn-132-dm-message-edit-pin.
 - แนะนำ gate ด้วย Staged Rollout (WYN-125) เพราะมี UI ใหม่จริงที่ผู้ใช้ทั่วไปยังไม่เคยเห็น
 
 Handoff: **รอ Founder ยืนยัน 1 เรื่อง** — wireframe ข้อความในเอกสารเพียงพอสำหรับอนุมัติ หรือรอ session ที่มีเครื่องมือสร้างภาพ mockup จริงก่อน — หลังยืนยันแล้วส่งต่อ AI Coding ได้ทันที (schema/RPC/RLS พร้อมสมบูรณ์แล้ว ไม่มีจุดกำกวมด้าน technical)
+
+Founder ยืนยันแล้ว 2026-09-07 (ดู `.wyn/company/DECISIONS.md` entry "[2026-09-07] Social 3-Domain Roadmap") — ไม่มีจุดค้าง ส่งต่อ AI Coding
+
+## AI Coding Output (2026-09-07)
+
+Implementation ครบทั้งฝั่ง SQL และ Flutter ตาม design spec ตรงๆ ไม่มีจุดที่ต้องเบี่ยงจาก spec:
+
+- **Schema**: `supabase/schema.sql` มี `messages.edited_at`, `edit_message()`, ตาราง `message_pins` + RLS SELECT policy, `pin_message()`/`unpin_message()`, `delete_message()` เวอร์ชันใหม่ที่ auto-unpin — commit จาก session ก่อนหน้า (`a4a204b`) ตรวจสอบแล้วตรงกับ design spec 100% ใช้ต่อได้เลย + เพิ่ม `supabase/migrations_wyn132_dm_message_edit_pin.sql` เป็น standalone migration แยกตาม convention ของโปรเจกต์ (commit `61e3e97`)
+- **Flutter data layer**: `ChatMessage.editedAt`/`isEdited` ใหม่ (`chat_message.dart`), `PinnedMessage` model ใหม่ (`pinned_message.dart`), `ChatRepository` เพิ่ม `editMessage()`/`pinMessage()`/`unpinMessage()`/`fetchPinnedMessages()`/`subscribeToConversationPins()` + เพิ่ม `edited_at` เข้า `_messageColumns` select เดิม
+- **Flutter UI (`conversation_screen.dart`)**: เมนู long-press เพิ่ม 2 แถวใหม่ "แก้ไข"/"ปักหมุดข้อความ"-"เลิกปักหมุด" (ทั้งคู่ gate ด้วย `isDeveloperAccount()` ตาม Staged Rollout), composer เปลี่ยนเป็น edit mode (แถบ "กำลังแก้ไขข้อความ" + prefill text + ปุ่มส่งเปลี่ยนเป็น ✓), บับเบิลแสดง label "แก้ไขแล้ว" ถาวรเมื่อ `isEdited` (**ตั้งใจไม่ gate ด้วย Staged Rollout** — ต่างจากเมนู/pinned bar เพราะ Requirement บังคับ "ห้ามซ่อน" เพื่อความโปร่งใส และ design spec's Staged Rollout note ระบุแค่ 2 จุดที่ต้อง gate ชัดเจน [เมนู 2 แถวใหม่ + pinned bar] ไม่รวม label — บันทึกเหตุผลไว้ใน comment ในโค้ดแล้ว), Pinned bar ใต้ AppBar + bottom sheet "ข้อความที่ปักหมุด" (reuse `_scrollToMessage` เดิมจาก reply-quote)
+- **แก้จุดเสี่ยงที่ AI Design เตือนไว้**: `_onRealtimeMessageUpdate` เดิมแทนที่ทั้งแถวจาก raw payload ตรงๆ (ทำให้ reply preview หายชั่วคราวถ้า UPDATE เกิดกับข้อความที่เป็น reply) — แก้เป็น merge เฉพาะฟิลด์ที่เปลี่ยนจริง คงค่า `replyPreviewText`/`replyPreviewImageUrl`/`replyPreviewDeletedAt` เดิมไว้เสมอ (ปลอดภัยเพราะ `reply_to_message_id` ไม่เคยเปลี่ยนจาก UPDATE ใดๆ ในระบบนี้) — มี regression test คลุมเคสนี้โดยตรง
+- **Test**: เพิ่ม 8 test ใหม่ใน `conversation_screen_test.dart` (non-developer ไม่เห็น UI ใหม่เลยแม้มีข้อมูล pinned จริง, edit สำเร็จ/ล้มเหลว, edit ไม่มีตัวเลือกสำหรับรูป/ข้อความคนอื่น, pin/unpin ผ่าน bottom sheet, pin cap error, regression test ของจุดเสี่ยง reply-preview) + 1 test ใหม่ใน `chat_model_test.dart` (`edited_at` parsing) — อัปเดต `RecordingChatRepository`/`RecordingDeveloperAccessService` (ใช้ของเดิมที่มีอยู่แล้ว) ให้รองรับ method ใหม่
+- **flutter analyze**: 0 issues (ทั้งโปรเจกต์)
+- **flutter test**: **1388/1388 PASS** (ทั้งโปรเจกต์ รวม 8 test ใหม่ของ WYN-132 + 1 test ของ `chat_model_test.dart`) — ติดตั้ง Flutter SDK 3.47.2 เองใหม่ในสภาพแวดล้อมนี้เพื่อรันจริง (ไม่มีมาก่อน)
+
+Known Issues / จุดที่ตัดสินใจเอง (ไม่ใช่จุดค้างที่ต้องถาม Founder):
+- "แก้ไขแล้ว" label ไม่ gate ด้วย Staged Rollout ตามที่อธิบายไว้ข้างบน — ผลคือถ้าบัญชี developer แก้ไขข้อความใน DM กับผู้ใช้ทั่วไป ฝั่งผู้ใช้ทั่วไปจะเห็น label "แก้ไขแล้ว" ได้ (ไม่เห็นปุ่มเมนู/pinned bar) — ตั้งใจตามเหตุผลด้าน anti-deception ข้างบน ไม่ใช่ bug
+- Pin count race condition (2 ฝั่งกดปักหมุดพร้อมกันแย่งช่องที่ 3) ยอมรับความเสี่ยงตามที่ design spec ระบุไว้แล้วว่าเป็น low-risk trade-off ไม่ต้องแก้เพิ่ม
+
+Handoff: ส่งต่อ AI QA & Security
