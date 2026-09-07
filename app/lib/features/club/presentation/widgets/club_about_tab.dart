@@ -228,47 +228,68 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
     }
   }
 
+  // Unlike every other segment in this composite tab (Members/Events/
+  // Insights each fetch their own data and can await their own reload),
+  // "รายละเอียด" only ever displays `widget.club` -- the exact same
+  // `Club` object `ClubPage` already holds, passed straight down. There
+  // is nothing for this widget to fetch on its own, so pull-to-refresh
+  // here just re-triggers ClubPage's own `_reload()` (the same one
+  // "แก้ไขข้อมูล Club"/leave-club/etc. already call after a write) via
+  // `widget.onChanged` -- same mechanism `_saveRules` below already
+  // uses fire-and-forget. `onChanged` is a plain `VoidCallback`, not an
+  // awaitable one, so the spinner can't track the real fetch duration
+  // the way club_members_tab.dart's/club_insights_tab.dart's own
+  // RefreshIndicators do -- an accepted trade-off for consistency
+  // (every segment of this tab now has the same pull-to-refresh
+  // gesture) over spinner accuracy on this one segment specifically.
+  Future<void> _refresh() async {
+    widget.onChanged();
+  }
+
   @override
   Widget build(BuildContext context) {
     final club = widget.club;
 
-    return ListView(
-      padding: const EdgeInsets.all(WynSpacing.space4),
-      children: [
-        _buildSection(
-          label: 'คำอธิบาย',
-          child: Text(
-            (club.description != null && club.description!.isNotEmpty)
-                ? club.description!
-                : 'ยังไม่มีคำอธิบาย',
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: ListView(
+        padding: const EdgeInsets.all(WynSpacing.space4),
+        children: [
+          _buildSection(
+            label: 'คำอธิบาย',
+            child: Text(
+              (club.description != null && club.description!.isNotEmpty)
+                  ? club.description!
+                  : 'ยังไม่มีคำอธิบาย',
+            ),
           ),
-        ),
-        _buildSection(
-          label: 'หมวดหมู่',
-          child: Text(club.category ?? 'ไม่ระบุ'),
-        ),
-        _buildSection(
-          label: 'ความเป็นส่วนตัว',
-          child: Row(
-            children: [
-              Icon(
-                club.privacy == ClubPrivacy.private ? Icons.lock_outline : Icons.public,
-                size: 18,
-              ),
-              const SizedBox(width: 6),
-              Text(club.privacy == ClubPrivacy.private ? 'ส่วนตัว' : 'สาธารณะ'),
-            ],
+          _buildSection(
+            label: 'หมวดหมู่',
+            child: Text(club.category ?? 'ไม่ระบุ'),
           ),
-        ),
-        _buildSection(
-          label: 'สร้างเมื่อ',
-          child: Text(_formatFullDate(club.createdAt)),
-        ),
-        _buildSection(
-          label: 'กฎของ Club',
-          child: _isEditingRules ? _buildRulesEditor() : _buildRulesText(club),
-        ),
-      ],
+          _buildSection(
+            label: 'ความเป็นส่วนตัว',
+            child: Row(
+              children: [
+                Icon(
+                  club.privacy == ClubPrivacy.private ? Icons.lock_outline : Icons.public,
+                  size: 18,
+                ),
+                const SizedBox(width: 6),
+                Text(club.privacy == ClubPrivacy.private ? 'ส่วนตัว' : 'สาธารณะ'),
+              ],
+            ),
+          ),
+          _buildSection(
+            label: 'สร้างเมื่อ',
+            child: Text(_formatFullDate(club.createdAt)),
+          ),
+          _buildSection(
+            label: 'กฎของ Club',
+            child: _isEditingRules ? _buildRulesEditor() : _buildRulesText(club),
+          ),
+        ],
+      ),
     );
   }
 
