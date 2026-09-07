@@ -9,8 +9,8 @@ import 'package:wyn/features/club/presentation/club_invite_links_screen.dart';
 import 'support/fake_supabase_session.dart';
 import 'support/recording_club_repository.dart';
 
-/// WYN-130 -- `ClubInviteLinksScreen` (create/list/revoke), see
-/// .wyn/docs/design/wyn-130-club-invite-link.md.
+/// WYN-136 -- `ClubInviteLinksScreen` (create/list/revoke), see
+/// .wyn/docs/design/wyn-136-club-invite-link.md.
 void main() {
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'owner-1');

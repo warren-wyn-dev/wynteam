@@ -108,13 +108,13 @@ class SettingsScreen extends StatelessWidget {
   final FollowRepository? followRepository;
 
   /// Same "optional/defaulted" shape again -- WYN-126's version footer
-  /// at the bottom of this screen, and (WYN-133) the Staged Rollout gate
+  /// at the bottom of this screen, and (WYN-139) the Staged Rollout gate
   /// for [_PrivacyScreen]'s new "แสดงสถานะออนไลน์และเข้าใช้งานล่าสุด"
   /// toggle -- both share this one instance rather than each
   /// constructing their own.
   final DeveloperAccessService? developerAccessService;
 
-  /// Same "optional/defaulted" shape again -- WYN-133's own privacy
+  /// Same "optional/defaulted" shape again -- WYN-139's own privacy
   /// toggle inside [_PrivacyScreen].
   final PresenceRepository? presenceRepository;
 
@@ -685,7 +685,7 @@ class _PrivacyScreen extends StatefulWidget {
   final ProfileRepository? profileRepository;
   final FollowRepository? followRepository;
 
-  // WYN-133/WYN-125: Staged Rollout gate for the new "แสดงสถานะออนไลน์
+  // WYN-139/WYN-125: Staged Rollout gate for the new "แสดงสถานะออนไลน์
   // และเข้าใช้งานล่าสุด" row below.
   final PresenceRepository? presenceRepository;
   final DeveloperAccessService? developerAccessService;
@@ -711,7 +711,7 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
   late InteractionPermission _commentPermission = widget.commentPermission;
   late LikesVisibility _likesVisibility = widget.likesVisibility;
 
-  // WYN-133/WYN-125 (Staged Rollout): null until [initState]'s own
+  // WYN-139/WYN-125 (Staged Rollout): null until [initState]'s own
   // `.then()` resolves -- the row itself is only ever built once this is
   // `true` (see [build]). A non-developer account's own
   // show_online_status is never even fetched (the presence repository
@@ -836,7 +836,7 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
     }
   }
 
-  /// WYN-133 -- same optimistic + revert-on-fail shape as
+  /// WYN-139 -- same optimistic + revert-on-fail shape as
   /// [_setLikesVisibility]. Reciprocal effect (Requirement: turning this
   /// off also hides everyone else's online/last-seen from this account)
   /// lives entirely server-side in `get_conversation_partner_presence()`
@@ -918,7 +918,7 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
             onChanged: (v) => _setPermission(
                 'comment_permission', v, (p) => _commentPermission = p),
           ),
-          // WYN-133/WYN-125 (Staged Rollout): placed right under the 3
+          // WYN-139/WYN-125 (Staged Rollout): placed right under the 3
           // DM/Mention/Comment permission rows above, per the design
           // doc's own wireframe -- never rendered at all for a
           // non-developer account (`_isDeveloper` stays null/false, and

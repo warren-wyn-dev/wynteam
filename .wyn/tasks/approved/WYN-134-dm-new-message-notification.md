@@ -1,6 +1,6 @@
 # Product Task — WYN-134
 
-Status: go-live package พร้อมแล้ว (2026-09-07) — รอ Founder ดำเนินการ deploy จริง (merge → migration → deploy edge function → deploy web) ดู `.wyn/logs/deployments/2026-09-07-wyn-130-132-133-134-phase-a-go-live-package.md`
+Status: go-live package พร้อมแล้ว (2026-09-07) — รอ Founder ดำเนินการ deploy จริง (merge → migration → deploy edge function → deploy web) ดู `.wyn/logs/deployments/2026-09-07-wyn-134-136-137-138-139-phase-a-go-live-package.md`
 Owner: AI Design → AI Coding → AI QA & Security → AI Deploy & DevOps → รอ Founder ดำเนินการ deploy จริง
 
 Feature: DM "New Message" Notification
@@ -80,7 +80,7 @@ Handoff: ส่งต่อ AI QA & Security — ตรวจ 4 AC ตาม Acc
 
 ## AI QA & Security Report (2026-09-07)
 
-รายงานเต็ม: `.wyn/docs/qa/2026-09-07-wyn-130-132-133-134-phase-a-qa.md`
+รายงานเต็ม: `.wyn/docs/qa/2026-09-07-wyn-134-136-137-138-139-phase-a-qa.md`
 
 ตรวจสอบอิสระทั้งหมด (ไม่เชื่อผลที่ AI Coding รายงานมาตรงๆ): รัน `flutter analyze`/`flutter test` เองใหม่ (1433/1433 ผ่าน, 0 issues — ตรงกับที่ AI Coding รายงาน) และรัน `supabase/tests/wyn_134_dm_new_message_notification_test.sh` ซ้ำ (10/10 PASS) กับ PostgreSQL 16 จริง ภายใต้ role `authenticated` จริง ไม่ใช่ superuser ตรวจครบทั้ง 4 AC: ข้อความใหม่ขณะไม่เปิดหน้า → notification เกิดจริง, เปิดหน้าอยู่พอดี → `mark_conversation_read()` เคลียร์ unread ไม่ซ้ำ, mute → ไม่มี notification เลย, pending conversation → ไม่เกิดซ้ำกับ `message_request` เดิม ตรวจ regression ของ `mark_conversation_read()` (ยัง update `last_read_at`/reject non-participant เหมือนเดิม) ตรวจ push wording (`_lib.ts`) ตรงกับ `notification_list_screen.dart` คำต่อคำ ไม่โชว์เนื้อหาข้อความจริง (privacy) ตรวจการตัดสินใจไม่ gate ด้วย Staged Rollout ว่าเข้าเกณฑ์ข้อยกเว้นจริง (ปิด known gap ของฟีเจอร์เดิม ไม่ใช่ฟีเจอร์ใหม่ ไม่มี UI ใหม่)
 

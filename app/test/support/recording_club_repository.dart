@@ -416,7 +416,7 @@ class RecordingClubRepository extends ClubRepository {
   /// [subscribeToMyMembership]'s club being banned/removed.
   void emitBannedOrRemoved() => _membershipCallback?.call();
 
-  // WYN-130 -----------------------------------------------------------
+  // WYN-136 -----------------------------------------------------------
 
   List<ClubInviteLink> inviteLinksResult = const [];
   Object? fetchInviteLinksError;

@@ -10,8 +10,8 @@ import 'support/fake_supabase_session.dart';
 import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
 
-/// WYN-130 -- `ClubInvitePreviewScreen`, opened from a `/club-invite/:code`
-/// deep link. See .wyn/docs/design/wyn-130-club-invite-link.md.
+/// WYN-136 -- `ClubInvitePreviewScreen`, opened from a `/club-invite/:code`
+/// deep link. See .wyn/docs/design/wyn-136-club-invite-link.md.
 void main() {
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');

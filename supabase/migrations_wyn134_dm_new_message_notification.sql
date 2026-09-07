@@ -9,13 +9,13 @@
 -- message_request.
 --
 -- This block was extracted verbatim from supabase/schema.sql (the
--- WYN-134 section) -- unlike WYN-130/132/133, AI Coding did not create
+-- WYN-134 section) -- unlike WYN-136/138/139, AI Coding did not create
 -- a standalone migrations_wyn134_*.sql file (it only exists baked into
 -- schema.sql). AI Deploy & DevOps extracted this file byte-identical
 -- from schema.sql for the Founder's convenience running it via
 -- Supabase Dashboard -> SQL Editor, and independently re-tested that
 -- it applies cleanly against a throwaway "pre-Phase-A production"
--- database -- see .wyn/logs/deployments/2026-09-07-wyn-130-132-133-134-phase-a-go-live-package.md.
+-- database -- see .wyn/logs/deployments/2026-09-07-wyn-134-136-137-138-139-phase-a-go-live-package.md.
 --
 -- See .wyn/tasks/approved/WYN-134-dm-new-message-notification.md and
 -- .wyn/docs/design/wyn-134-dm-new-message-notification.md for the

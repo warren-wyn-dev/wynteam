@@ -1,7 +1,7 @@
-# AI Design — WYN-132: DM Message Actions — Edit + Pin (1:1 Chat)
+# AI Design — WYN-138: DM Message Actions — Edit + Pin (1:1 Chat)
 
 Owner: AI Design
-ต่อยอดจาก Product Task `.wyn/tasks/active/WYN-132-dm-message-edit-pin.md`
+ต่อยอดจาก Product Task `.wyn/tasks/active/WYN-138-dm-message-edit-pin.md`
 
 WYN design system ที่อนุมัติแล้ว: ใช้ token/component เดิมทั้งหมด (`WynColors`, `WynSpacing`, `ActionSheetRow`/`ActionSheetBody`, `_MessageBubble` เดิมของ `ConversationScreen`) — ไม่มีทิศทาง visual ใหม่
 

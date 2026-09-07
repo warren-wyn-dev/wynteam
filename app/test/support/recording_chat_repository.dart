@@ -239,7 +239,7 @@ class RecordingChatRepository extends ChatRepository {
     if (error != null) throw error;
   }
 
-  // WYN-132 -----------------------------------------------------------
+  // WYN-138 -----------------------------------------------------------
 
   Object? editMessageError;
   int editMessageCalls = 0;

@@ -352,7 +352,7 @@ class ChatRepository {
     }
   }
 
-  /// WYN-132: text-only own message edit, via `edit_message()` -- see
+  /// WYN-138: text-only own message edit, via `edit_message()` -- see
   /// that RPC's own doc comment in supabase/schema.sql for exactly which
   /// messages it accepts (mine, not deleted, no image/shared-content
   /// attached) and rejects (raises otherwise, surfaced to the caller as
@@ -365,7 +365,7 @@ class ChatRepository {
     });
   }
 
-  /// WYN-132: either participant may pin (no DM hierarchy -- see
+  /// WYN-138: either participant may pin (no DM hierarchy -- see
   /// `pin_message()`'s own doc comment in supabase/schema.sql), capped
   /// at 3 per conversation server-side; a caller past the cap gets the
   /// RPC's own exception, not a client-side precheck (design doc: "ไม่
@@ -374,13 +374,13 @@ class ChatRepository {
     return _client.rpc('pin_message', params: {'p_message_id': messageId});
   }
 
-  /// WYN-132: deliberately not restricted to whoever pinned it -- see
+  /// WYN-138: deliberately not restricted to whoever pinned it -- see
   /// `unpin_message()`'s own doc comment.
   Future<void> unpinMessage(String messageId) {
     return _client.rpc('unpin_message', params: {'p_message_id': messageId});
   }
 
-  /// WYN-132: every currently-pinned message in [conversationId], newest
+  /// WYN-138: every currently-pinned message in [conversationId], newest
   /// pin first -- a plain `select` through `message_pins`' own SELECT
   /// policy (participants-only), joined against `messages` for the
   /// preview content. See the design doc's own "Fetch pinned messages"
@@ -406,7 +406,7 @@ class ChatRepository {
     }).toList();
   }
 
-  /// WYN-132: a lightweight channel mirroring
+  /// WYN-138: a lightweight channel mirroring
   /// [subscribeToConversationMeta]'s own shape -- any INSERT/DELETE on
   /// [conversationId]'s own `message_pins` rows re-fetches the full
   /// pinned list rather than trying to patch from the payload (design

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QA regression test for WYN-133 (DM Presence -- privacy reciprocal
+# QA regression test for WYN-139 (DM Presence -- privacy reciprocal
 # check) -- written independently by AI QA & Security to verify the
 # RPC/RLS layer directly, mirroring
 # wyn_134_dm_new_message_notification_test.sh's harness/role-switching
@@ -22,12 +22,12 @@
 # Requirements: a local PostgreSQL 16 server reachable either as the
 # current OS user or via `sudo -u postgres`.
 #
-# Usage: bash supabase/tests/wyn_133_dm_presence_test.sh
+# Usage: bash supabase/tests/wyn_139_dm_presence_test.sh
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCHEMA_FILE="$SCRIPT_DIR/../schema.sql"
-DB_NAME="wyn133_qa_test"
+DB_NAME="wyn139_qa_test"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 chmod 755 "$WORK_DIR"
@@ -274,7 +274,7 @@ EOF
 if ! createdb_any "$DB_NAME"; then echo "FAIL: could not create test database $DB_NAME" >&2; exit 1; fi
 if ! run_psql "$DB_NAME" "$WORK_DIR/00_stub.sql"; then echo "FAIL: stub setup failed" >&2; dropdb_any "$DB_NAME"; exit 1; fi
 if ! run_psql "$DB_NAME" "$SCHEMA_FILE"; then echo "FAIL: schema.sql failed to load cleanly" >&2; dropdb_any "$DB_NAME"; exit 1; fi
-echo "== Seeding fixtures and running RLS/RPC checks (WYN-133) =="
+echo "== Seeding fixtures and running RLS/RPC checks (WYN-139) =="
 if ! run_psql "$DB_NAME" "$WORK_DIR/10_seed_and_assert.sql"; then echo "FAIL: seed/assert script errored" >&2; cat "$WORK_DIR/psql.out" >&2; dropdb_any "$DB_NAME"; exit 1; fi
 cat "$WORK_DIR/psql.out"
 

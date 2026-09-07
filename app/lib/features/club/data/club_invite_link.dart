@@ -1,5 +1,5 @@
-/// One row of `public.club_invite_links` (WYN-130) -- see
-/// supabase/schema.sql's WYN-130 section. Only ever fetched by an
+/// One row of `public.club_invite_links` (WYN-136) -- see
+/// supabase/schema.sql's WYN-136 section. Only ever fetched by an
 /// Owner/Admin of [clubId] (that table's own SELECT policy), so there is
 /// no separate "am I allowed to see this" check needed client-side.
 class ClubInviteLink {
@@ -55,7 +55,7 @@ class ClubInviteLink {
       );
 }
 
-/// `preview_club_invite_link()`'s own `status` column (WYN-130) -- see
+/// `preview_club_invite_link()`'s own `status` column (WYN-136) -- see
 /// that RPC's doc comment in supabase/schema.sql for exactly which
 /// condition maps to which value.
 enum ClubInviteLinkStatus { valid, expired, revoked, exhausted, notFound }
@@ -68,7 +68,7 @@ ClubInviteLinkStatus _statusFromWireValue(String value) => switch (value) {
       _ => ClubInviteLinkStatus.notFound,
     };
 
-/// The result of `preview_club_invite_link(code)` (WYN-130) -- every
+/// The result of `preview_club_invite_link(code)` (WYN-136) -- every
 /// field except [status] is null whenever [status] isn't
 /// [ClubInviteLinkStatus.valid] (that RPC's own `left join`: no club to
 /// show once the link itself doesn't check out). [clubIconUrl] is

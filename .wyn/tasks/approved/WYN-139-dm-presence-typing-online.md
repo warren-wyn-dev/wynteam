@@ -1,6 +1,6 @@
-# Product Task — WYN-133
+# Product Task — WYN-139
 
-Status: go-live package พร้อมแล้ว (2026-09-07) — รอ Founder ดำเนินการ deploy จริง (merge → migration → deploy web) ดู `.wyn/logs/deployments/2026-09-07-wyn-130-132-133-134-phase-a-go-live-package.md`
+Status: go-live package พร้อมแล้ว (2026-09-07) — รอ Founder ดำเนินการ deploy จริง (merge → migration → deploy web) ดู `.wyn/logs/deployments/2026-09-07-wyn-134-136-137-138-139-phase-a-go-live-package.md`
 Owner: AI Design → AI Coding → AI QA & Security → AI Deploy & DevOps → รอ Founder ดำเนินการ deploy จริง
 
 Feature: DM Presence — Typing Indicator + Online/Offline + Last Seen (1:1 Chat)
@@ -42,7 +42,7 @@ Handoff: รอ Founder ยืนยัน priority ของ Phase A ทั้�
 
 ## AI Design Output (2026-09-07)
 
-Design spec เต็มที่ `.wyn/docs/design/wyn-133-dm-presence-typing-online.md` — ตรวจ pattern Presence ที่พิสูจน์แล้วจริงจาก WYN-128 (`club_channel_chat_repository.dart`) + RLS ของ `profiles` จริงแล้ว สรุปการตัดสินใจหลัก:
+Design spec เต็มที่ `.wyn/docs/design/wyn-139-dm-presence-typing-online.md` — ตรวจ pattern Presence ที่พิสูจน์แล้วจริงจาก WYN-128 (`club_channel_chat_repository.dart`) + RLS ของ `profiles` จริงแล้ว สรุปการตัดสินใจหลัก:
 
 - **พบความเสี่ยง privacy สำคัญระหว่างตรวจโค้ด**: `profiles` มี SELECT policy `using (true)` — authenticated ทุกคนอ่านได้ทุกคอลัมน์ทุกแถว ถ้าเก็บ `last_seen_at`/`show_online_status` เป็นคอลัมน์บน `profiles` ตรงๆ จะรั่วให้ทุกคนเห็นได้ทันทีโดยไม่ผ่าน reciprocal check เลย ขัด Requirement + RULES.md โดยตรง — **แก้โดยแยกตารางใหม่ `user_presence`** (mirror `notification_settings`'s ท่าเดิม: SELECT policy จำกัดแค่เจ้าของแถวเท่านั้น) แล้วเปิดทางอ่านค่าคนอื่นได้ทางเดียวผ่าน RPC `get_conversation_partner_presence()` ที่บังคับ reciprocal check (`ทั้งสองฝั่งต้องเปิดถึงจะเห็นได้`) ในตัว
 - **Typing**: per-conversation Presence channel (`track({typing: bool})`, debounce เริ่ม track ตอน state เปลี่ยนเท่านั้น, auto-clear 3 วิทั้งฝั่งส่งและฝั่งรับเป็น safety net) — ไม่มี privacy gate ตาม Requirement
@@ -60,7 +60,7 @@ Founder ยืนยันแล้ว 2026-09-07 (ดู `.wyn/company/DECISION
 
 Implementation ครบตาม design spec ทั้ง SQL/Flutter:
 
-- **Schema**: `public.user_presence` (แยกจาก `profiles` ตามที่ Design กำหนดเพื่อป้องกัน privacy leak ผ่าน `profiles`' SELECT policy `using (true)`), `touch_my_presence()`, `get_conversation_partner_presence()` — ทั้งหมดใน `supabase/schema.sql` + `supabase/migrations_wyn133_dm_presence.sql` (standalone migration ใหม่ตาม convention)
+- **Schema**: `public.user_presence` (แยกจาก `profiles` ตามที่ Design กำหนดเพื่อป้องกัน privacy leak ผ่าน `profiles`' SELECT policy `using (true)`), `touch_my_presence()`, `get_conversation_partner_presence()` — ทั้งหมดใน `supabase/schema.sql` + `supabase/migrations_wyn139_dm_presence.sql` (standalone migration ใหม่ตาม convention)
   - **พบและแก้บั๊กใน SQL ต้นฉบับของ Design ระหว่าง implement**: `get_conversation_partner_presence()`'s `return query select true, up.last_seen_at from user_presence up where up.user_id = v_other` คืน **0 แถว** (ไม่ใช่ 1 แถวที่มี `last_seen_at = null`) เมื่อ partner ไม่เคยมีแถว `user_presence` เลย (เช่น ผู้ใช้ใหม่ที่ online ต่อเนื่องมาตั้งแต่สมัครโดยไม่เคย background แอปเลย) — ขัดกับที่ design doc's Edge Cases เขียนไว้เองว่าคาดหวัง "last_seen_at เป็น null จริง" (คือคาดหวัง 1 แถว) ผลคือ client จะเข้าใจผิดว่า reciprocal check ไม่ผ่าน (`showOnline: false`) ทั้งที่จริงผ่าน ซ่อน "ออนไลน์" dot ของคนที่กำลังออนไลน์อยู่จริงไปเฉยๆ — แก้เป็น scalar subquery `select true, (select last_seen_at from user_presence where user_id = v_other)` ให้คืน 1 แถวเสมอเมื่อ reciprocal check ผ่าน บันทึกเหตุผลไว้ใน comment ทั้งใน schema.sql และ migration file แล้ว (เป็นการแก้ตรงไปตรงมา ไม่ใช่การเปลี่ยน intent ของ design จึงไม่หยุดรอถาม Founder)
 - **Flutter data layer**: `PresenceRepository` ใหม่ (`app/lib/features/presence/data/presence_repository.dart`) ครอบทั้ง global online-presence channel (process-wide static cache + listener list มิเรอร์ `DeveloperAccessService`'s static-cache shape), per-conversation typing channel, และ DB read/write (`fetchShowOnlineStatus`/`setShowOnlineStatus`/`touchMyPresence`/`fetchConversationPartnerPresence`)
 - **RootShell**: เปิด global presence channel ครั้งเดียวตอน launch (gate ด้วย `isDeveloperAccount()`), track/untrack + `touchMyPresence()` ตาม `AppLifecycleState` resumed/paused-detached, `stopGlobalPresence()` ตอน dispose (sign-out/account switch)
@@ -79,9 +79,9 @@ Handoff: ส่งต่อ AI QA & Security
 
 ## AI QA & Security Report (2026-09-07)
 
-รายงานเต็ม: `.wyn/docs/qa/2026-09-07-wyn-130-132-133-134-phase-a-qa.md`
+รายงานเต็ม: `.wyn/docs/qa/2026-09-07-wyn-134-136-137-138-139-phase-a-qa.md`
 
-**นี่คือ task ที่ตรวจเข้มที่สุดในรอบนี้เพราะเป็นข้อมูล privacy อ่อนไหวตาม RULES.md** รัน `flutter analyze`/`flutter test` เองอิสระ (1433/1433 ผ่าน, 0 issues) เขียน regression test SQL ใหม่ (`supabase/tests/wyn_133_dm_presence_test.sh`, 11 checks) ทดสอบตรงกับ RPC/RLS จริงบน PostgreSQL 16 ภายใต้ role `authenticated` จริง:
+**นี่คือ task ที่ตรวจเข้มที่สุดในรอบนี้เพราะเป็นข้อมูล privacy อ่อนไหวตาม RULES.md** รัน `flutter analyze`/`flutter test` เองอิสระ (1433/1433 ผ่าน, 0 issues) เขียน regression test SQL ใหม่ (`supabase/tests/wyn_139_dm_presence_test.sh`, 11 checks) ทดสอบตรงกับ RPC/RLS จริงบน PostgreSQL 16 ภายใต้ role `authenticated` จริง:
 
 - **ตรวจ bugfix ของ `get_conversation_partner_presence()`**: ยืนยันว่าคืน 1 แถวเสมอ (ไม่ใช่ 0 แถว) เมื่อ partner ไม่เคยมีแถว `user_presence` มาก่อนและ reciprocal check ผ่าน — ตรงตามที่ AI Coding อธิบายว่าแก้บั๊กจาก design doc เดิม ยืนยันว่าแก้ถูกจริง
 - **Reciprocal privacy check — ทดสอบทั้ง 2 ทิศทาง**: ปิดของตัวเอง (alice) → มองไม่เห็นของคนอื่น (bob) แม้ bob ยังเปิดอยู่, และกลับกัน bob (ผู้ใช้คนที่ query) ก็มองไม่เห็น alice เหมือนกันเพราะ alice ปิดของตัวเอง (สมมาตรทั้งคู่ทิศทาง) — เปิดกลับมาแล้วเห็นได้ปกติ ทดสอบอีกทิศทาง (bob ปิดของตัวเอง) ก็ทำให้ alice มองไม่เห็น bob เช่นกัน — reciprocal ทำงานถูกต้องจริงไม่มีทางเลี่ยง

@@ -91,7 +91,7 @@ class RootShell extends StatefulWidget {
   final AppealRepository? _appealRepository;
   final ChatRepository? _chatRepository;
 
-  // WYN-133/WYN-125: Staged Rollout gate for DM Presence -- see
+  // WYN-139/WYN-125: Staged Rollout gate for DM Presence -- see
   // _RootShellState's own doc comments on where these are used.
   final PresenceRepository? _presenceRepository;
   final DeveloperAccessService? _developerAccessService;
@@ -196,7 +196,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   late final PresenceRepository _presenceRepository;
   late final DeveloperAccessService _developerAccessService;
 
-  /// WYN-133/WYN-125: true only once the global "who's online" Presence
+  /// WYN-139/WYN-125: true only once the global "who's online" Presence
   /// channel has actually been started -- see [initState]'s own
   /// `.then()`. Guards [didChangeAppLifecycleState]/[dispose] so a
   /// non-developer account (for which this never starts at all, per the
@@ -264,7 +264,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
 
     _loadUnreadNotificationCount();
 
-    // WYN-133/WYN-125: Staged Rollout gate -- the global "who's online"
+    // WYN-139/WYN-125: Staged Rollout gate -- the global "who's online"
     // Presence channel is never even opened for a non-developer account
     // (design doc: "ไม่ track/subscribe presence channel เลย...ไม่ใช่แค่
     // ซ่อน UI", to actually save the resource, not just hide it).
@@ -292,7 +292,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    // WYN-133: tears the global presence channel down entirely -- this
+    // WYN-139: tears the global presence channel down entirely -- this
     // State only ever gets disposed when the signed-in account itself
     // is going away (sign-out, account switch -- AuthGate keys this
     // shell by user id), not on ordinary tab navigation, so this is the
@@ -321,13 +321,13 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
       _loadUnreadNotificationCount();
-      // WYN-133: re-track this user's own presence on resume -- the
+      // WYN-139: re-track this user's own presence on resume -- the
       // channel itself (once startGlobalPresence() opened it in
       // initState) stays subscribed for the app's whole session, only
       // the tracked entry needs refreshing here.
       if (_presenceStarted) _presenceRepository.trackOnline();
     } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
-      // WYN-133: best-effort, same posture as every other lifecycle
+      // WYN-139: best-effort, same posture as every other lifecycle
       // hook in this app -- see PresenceRepository.untrackOnline's own
       // doc comment for why a killed-outright app can miss this.
       if (_presenceStarted) {

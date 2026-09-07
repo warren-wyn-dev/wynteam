@@ -1,7 +1,7 @@
-# AI Design — WYN-130: Club Invite Link (expire/max-uses/revoke)
+# AI Design — WYN-136: Club Invite Link (expire/max-uses/revoke)
 
 Owner: AI Design
-ต่อยอดจาก Product Task `.wyn/tasks/active/WYN-130-club-invite-link.md`
+ต่อยอดจาก Product Task `.wyn/tasks/active/WYN-136-club-invite-link.md`
 
 WYN design system ที่อนุมัติแล้ว: reuse component เดิมทั้งหมด (`ActionSheetRow`, confirm-dialog pattern ของ `confirmDeletePost`/`confirmBlock`, list-row shape ของ `FollowListScreen`/`ClubMembersTab`) — ไม่มีทิศทาง visual ใหม่
 
@@ -278,7 +278,7 @@ $$;
 grant execute on function public.redeem_club_invite_link(text) to authenticated;
 ```
 
-หมายเหตุ implementation: `for update` บนแถวลิงก์ตอน select กันสองคนกด max-uses ช่องสุดท้ายพร้อมกันแบบ race (ไม่เหมือน `pin_message` ของ WYN-132 ที่ยอมรับ race ได้เพราะผลกระทบต่ำ — ตรงนี้คุมเข้มกว่าเพราะเป็นเรื่อง "จำนวนครั้งใช้งานสูงสุด" ที่ Owner ตั้งใจจำกัดไว้จริงจัง)
+หมายเหตุ implementation: `for update` บนแถวลิงก์ตอน select กันสองคนกด max-uses ช่องสุดท้ายพร้อมกันแบบ race (ไม่เหมือน `pin_message` ของ WYN-138 ที่ยอมรับ race ได้เพราะผลกระทบต่ำ — ตรงนี้คุมเข้มกว่าเพราะเป็นเรื่อง "จำนวนครั้งใช้งานสูงสุด" ที่ Owner ตั้งใจจำกัดไว้จริงจัง)
 
 ## UI / UX Flow
 

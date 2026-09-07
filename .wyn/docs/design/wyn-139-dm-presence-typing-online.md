@@ -1,7 +1,7 @@
-# AI Design — WYN-133: DM Presence — Typing Indicator + Online/Last Seen + Privacy Toggle
+# AI Design — WYN-139: DM Presence — Typing Indicator + Online/Last Seen + Privacy Toggle
 
 Owner: AI Design
-ต่อยอดจาก Product Task `.wyn/tasks/active/WYN-133-dm-presence-typing-online.md`
+ต่อยอดจาก Product Task `.wyn/tasks/active/WYN-139-dm-presence-typing-online.md`
 
 WYN design system ที่อนุมัติแล้ว: reuse token เดิม + pattern Presence ที่พิสูจน์แล้วจาก WYN-128 (`club_channel_chat_repository.dart`'s `subscribeToChannel`'s online-count) — ไม่มีทิศทาง visual ใหม่ มีจอ Settings ใหม่ 1 แถวเท่านั้น (toggle ใน `_PrivacyScreen` ที่มีอยู่แล้ว)
 

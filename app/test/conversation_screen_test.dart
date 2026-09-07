@@ -63,9 +63,9 @@ void main() {
         replyPreviewDeletedAt: replyPreviewDeletedAt,
       );
 
-  // WYN-132/133/WYN-125 (Staged Rollout): defaults to a non-developer
+  // WYN-138/133/WYN-125 (Staged Rollout): defaults to a non-developer
   // account so every pre-existing test above keeps exercising the exact
-  // pre-WYN-132/133 menu/composer -- only the WYN-132/133 test groups
+  // pre-WYN-138/133 menu/composer -- only the WYN-138/133 test groups
   // below override this to `true` to reach the gated Edit/Pin/Presence
   // UI. presenceRepository always defaults to a Recording fake
   // regardless of the developer flag -- a real PresenceRepository's
@@ -1023,7 +1023,7 @@ void main() {
     expect(find.text('18:44'), findsNothing);
   });
 
-  group('WYN-132: Edit + Pin Message (Staged Rollout gated)', () {
+  group('WYN-138: Edit + Pin Message (Staged Rollout gated)', () {
     RecordingDeveloperAccessService developerAccess({bool isDeveloper = true}) =>
         RecordingDeveloperAccessService(isDeveloperResult: isDeveloper);
 
@@ -1255,7 +1255,7 @@ void main() {
     });
   });
 
-  group('WYN-133: DM Presence -- Typing + Online/Last Seen (Staged '
+  group('WYN-139: DM Presence -- Typing + Online/Last Seen (Staged '
       'Rollout gated)', () {
     RecordingDeveloperAccessService developerAccess({bool isDeveloper = true}) =>
         RecordingDeveloperAccessService(isDeveloperResult: isDeveloper);

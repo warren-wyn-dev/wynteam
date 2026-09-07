@@ -279,7 +279,7 @@ void main() {
       expect(message.sharedContentId, isNull);
     });
 
-    test('WYN-132: parses edited_at, and isEdited is false when it is null', () {
+    test('WYN-138: parses edited_at, and isEdited is false when it is null', () {
       final unedited = ChatMessage.fromMap({
         'id': 'm5',
         'conversation_id': 'c1',

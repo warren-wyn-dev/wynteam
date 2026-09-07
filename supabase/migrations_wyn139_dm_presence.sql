@@ -1,4 +1,4 @@
--- WYN-133: DM Presence -- Typing Indicator + Online/Last Seen
+-- WYN-139: DM Presence -- Typing Indicator + Online/Last Seen
 --
 -- Adds `public.user_presence` (deliberately a table separate from
 -- `profiles` -- that table's own SELECT policy is `using (true)`, so a
@@ -7,10 +7,10 @@
 -- `get_conversation_partner_presence()` RPCs. The Typing Indicator and
 -- live Online status themselves are Supabase Realtime Presence
 -- channels, not part of this migration at all -- see
--- .wyn/docs/design/wyn-133-dm-presence-typing-online.md's own
+-- .wyn/docs/design/wyn-139-dm-presence-typing-online.md's own
 -- "Presence Channel Design" section.
 --
--- See .wyn/tasks/active/WYN-133-dm-presence-typing-online.md for the
+-- See .wyn/tasks/active/WYN-139-dm-presence-typing-online.md for the
 -- full spec.
 --
 -- SAFETY: purely additive -- 1 brand new table, 2 new RPCs, no existing

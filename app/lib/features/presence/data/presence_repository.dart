@@ -4,17 +4,17 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// [PresenceRepository.fetchConversationPartnerPresence]'s own return
 /// shape -- see that method's own doc comment. `showOnline` already
 /// bakes in the reciprocal privacy check (`get_conversation_partner_presence()`
-/// itself enforces it -- see supabase/schema.sql's WYN-133 section), so
+/// itself enforces it -- see supabase/schema.sql's WYN-139 section), so
 /// a caller never needs to re-derive it from anything else.
 typedef PartnerPresence = ({bool showOnline, DateTime? lastSeenAt});
 
-/// WYN-133: DM Presence -- Typing Indicator + Online/Offline + Last Seen.
+/// WYN-139: DM Presence -- Typing Indicator + Online/Offline + Last Seen.
 ///
 /// Wraps `public.user_presence` (deliberately a table separate from
 /// `profiles` -- that table's own SELECT policy is `using (true)`, so a
 /// `last_seen_at`/`show_online_status` column living there directly
 /// would leak to every authenticated user with no reciprocal check at
-/// all; see supabase/schema.sql's WYN-133 section for the full
+/// all; see supabase/schema.sql's WYN-139 section for the full
 /// reasoning) plus 2 realtime Presence channels that never touch
 /// Postgres at all -- "online" is a live-socket-only concept, not
 /// something a DB query can ever answer (see the design doc's own
@@ -135,7 +135,7 @@ class PresenceRepository {
     _globalPresenceListeners.clear();
   }
 
-  /// WYN-133 -- per-conversation typing channel, opened/closed with
+  /// WYN-139 -- per-conversation typing channel, opened/closed with
   /// `ConversationScreen` itself (mirrors
   /// `ClubChannelChatRepository.subscribeToChannel`'s identical
   /// per-screen scope). [onPresenceChange] fires on every sync; the

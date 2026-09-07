@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QA regression test for WYN-130 (Club Invite Link) -- written
+# QA regression test for WYN-136 (Club Invite Link) -- written
 # independently by AI QA & Security (not by AI Coding) to verify the
 # RPC/RLS layer directly, mirroring wyn_134_dm_new_message_notification_test.sh's
 # harness/role-switching convention. Covers:
@@ -20,12 +20,12 @@
 # Requirements: a local PostgreSQL 16 server reachable either as the
 # current OS user or via `sudo -u postgres`.
 #
-# Usage: bash supabase/tests/wyn_130_club_invite_link_test.sh
+# Usage: bash supabase/tests/wyn_136_club_invite_link_test.sh
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCHEMA_FILE="$SCRIPT_DIR/../schema.sql"
-DB_NAME="wyn130_qa_test"
+DB_NAME="wyn136_qa_test"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 chmod 755 "$WORK_DIR"
@@ -330,7 +330,7 @@ $$;
 -- CHECK11: preview for a totally bogus/nonexistent code returns 'not_found' (not an error, not an empty crash)
 --
 -- KNOWN BUG (found by AI QA & Security, 2026-09-07, see
--- .wyn/docs/qa/2026-09-07-wyn-130-132-133-134-phase-a-qa.md): this
+-- .wyn/docs/qa/2026-09-07-wyn-134-136-137-138-139-phase-a-qa.md): this
 -- currently FAILS once `club_invite_links` has at least one row
 -- ANYWHERE in the database (true in production after the first-ever
 -- link is created) -- the RPC's `right join (select p_code as code)
@@ -374,7 +374,7 @@ begin
 end
 $$;
 
--- CHECK13: public club -- invite link redeem also joins immediately as approved (baseline, should already work same as before WYN-130 via normal join, but verify link path too)
+-- CHECK13: public club -- invite link redeem also joins immediately as approved (baseline, should already work same as before WYN-136 via normal join, but verify link path too)
 do $$
 declare v_club_id uuid; v_code text; v_status text;
 begin
@@ -402,7 +402,7 @@ EOF
 if ! createdb_any "$DB_NAME"; then echo "FAIL: could not create test database $DB_NAME" >&2; exit 1; fi
 if ! run_psql "$DB_NAME" "$WORK_DIR/00_stub.sql"; then echo "FAIL: stub setup failed" >&2; dropdb_any "$DB_NAME"; exit 1; fi
 if ! run_psql "$DB_NAME" "$SCHEMA_FILE"; then echo "FAIL: schema.sql failed to load cleanly" >&2; dropdb_any "$DB_NAME"; exit 1; fi
-echo "== Seeding fixtures (WYN-130) =="
+echo "== Seeding fixtures (WYN-136) =="
 if ! run_psql "$DB_NAME" "$WORK_DIR/10_seed.sql"; then echo "FAIL: seed script errored" >&2; cat "$WORK_DIR/psql.out" >&2; dropdb_any "$DB_NAME"; exit 1; fi
 
 echo "== Race-condition test: two users redeem a max_uses=1 link concurrently =="
@@ -495,7 +495,7 @@ fi
 echo "== Cleaning up race-test link so it doesn't collide with sequential checks =="
 psql_any_capture "$DB_NAME" -c "delete from public.club_invite_link_uses where link_id = (select id from public.club_invite_links where code = '$RACE_CODE'); delete from public.club_members where user_id = '66666666-6666-6666-6666-666666666666'; delete from public.club_invite_links where code = '$RACE_CODE';" >/dev/null
 
-echo "== Sequential RLS/RPC checks (WYN-130) =="
+echo "== Sequential RLS/RPC checks (WYN-136) =="
 if ! run_psql "$DB_NAME" "$WORK_DIR/20_checks.sql"; then echo "FAIL: checks script errored" >&2; cat "$WORK_DIR/psql.out" >&2; dropdb_any "$DB_NAME"; exit 1; fi
 cat "$WORK_DIR/psql.out"
 

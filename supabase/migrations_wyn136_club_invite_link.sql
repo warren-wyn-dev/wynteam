@@ -1,4 +1,4 @@
--- WYN-130: Club Invite Link (generate/revoke/expiration/max-uses)
+-- WYN-136: Club Invite Link (generate/revoke/expiration/max-uses)
 --
 -- Adds `public.club_invite_links` + `public.club_invite_link_uses`
 -- (attribution tracking, no UI this round) + 4 RPCs
@@ -8,8 +8,8 @@
 -- link joins a Private Club immediately, skipping Join Request/Approve
 -- entirely.
 --
--- See .wyn/tasks/active/WYN-130-club-invite-link.md and
--- .wyn/docs/design/wyn-130-club-invite-link.md for the full spec.
+-- See .wyn/tasks/active/WYN-136-club-invite-link.md and
+-- .wyn/docs/design/wyn-136-club-invite-link.md for the full spec.
 --
 -- SAFETY: purely additive -- 2 brand new tables, 4 new RPCs, no
 -- existing table/column touched. Re-runnable throughout (`if not
@@ -177,7 +177,7 @@ grant execute on function public.preview_club_invite_link(text) to authenticated
 -- (2026-09-07, .wyn/company/DECISIONS.md): invite link ที่ valid =
 -- อนุมัติล่วงหน้าในตัวเสมอ ไม่ว่า club จะเป็น public หรือ private -- `for
 -- update` บนแถวลิงก์ตอน select กันสองคนกด max-uses ช่องสุดท้ายพร้อมกันแบบ
--- race (คุมเข้มกว่า pin_message ของ WYN-132 เพราะเป็นเรื่อง "จำนวนครั้ง
+-- race (คุมเข้มกว่า pin_message ของ WYN-138 เพราะเป็นเรื่อง "จำนวนครั้ง
 -- ใช้งานสูงสุด" ที่ Owner ตั้งใจจำกัดไว้จริงจัง).
 create or replace function public.redeem_club_invite_link(p_code text)
 returns uuid -- club_id เมื่อสำเร็จ

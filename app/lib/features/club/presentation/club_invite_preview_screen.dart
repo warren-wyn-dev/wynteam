@@ -9,14 +9,14 @@ import '../data/club_post_repository.dart';
 import '../data/club_repository.dart';
 import 'club_page.dart';
 
-/// WYN-130 -- opened from a `/club-invite/:code` deep link
+/// WYN-136 -- opened from a `/club-invite/:code` deep link
 /// (`DeepLinkService`). Never opens `ClubPage` directly: the link's own
 /// status (valid/expired/revoked/exhausted/not_found) has to be checked
 /// first, since a bare "go to this club_id" would either 404 on a
 /// revoked/expired link or (worse) silently skip the whole point of this
 /// screen -- confirming the person actually wants to join before
 /// `redeem_club_invite_link()` runs. See
-/// .wyn/docs/design/wyn-130-club-invite-link.md.
+/// .wyn/docs/design/wyn-136-club-invite-link.md.
 class ClubInvitePreviewScreen extends StatefulWidget {
   const ClubInvitePreviewScreen({
     super.key,

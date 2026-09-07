@@ -1,6 +1,6 @@
-# Product Task — WYN-130
+# Product Task — WYN-136
 
-Status: go-live package พร้อมแล้ว (2026-09-07) — รอ Founder ดำเนินการ deploy จริง (merge → migration → deploy web) ดู `.wyn/logs/deployments/2026-09-07-wyn-130-132-133-134-phase-a-go-live-package.md`. 1 non-blocking Low-severity bug documented (fast-follow, does not block deploy)
+Status: go-live package พร้อมแล้ว (2026-09-07) — รอ Founder ดำเนินการ deploy จริง (merge → migration → deploy web) ดู `.wyn/logs/deployments/2026-09-07-wyn-134-136-137-138-139-phase-a-go-live-package.md`. 1 non-blocking Low-severity bug documented (fast-follow, does not block deploy)
 Owner: AI Design → AI Coding → AI QA & Security → AI Deploy & DevOps → รอ Founder ดำเนินการ deploy จริง
 
 Feature: Club Invite Link (generate/revoke, expiration, max-uses)
@@ -37,7 +37,7 @@ Handoff: รอ Founder ยืนยัน priority ของ Phase A ทั้�
 
 ## AI Design Output (2026-09-07)
 
-Design spec เต็มที่ `.wyn/docs/design/wyn-130-club-invite-link.md` — ตรวจ schema จริงของ `clubs`/`club_members`/`club_role()`/deep-linking (WYN-119)/`guest_gate.dart` แล้ว ยืนยันว่า **ทั้งสองทางเลือก (A/B) implement ได้โดยไม่กระทบ RLS/schema เดิมเลย** เพราะ RPC ใหม่ทั้งหมด (security definer) bypass `club_members`'s INSERT policy เดิมอยู่แล้ว ต่างกันแค่ 1 บรรทัดในฟังก์ชัน `redeem_club_invite_link()` — **นี่คือ product/security policy decision ล้วนๆ ไม่ใช่ทาง technical**
+Design spec เต็มที่ `.wyn/docs/design/wyn-136-club-invite-link.md` — ตรวจ schema จริงของ `clubs`/`club_members`/`club_role()`/deep-linking (WYN-119)/`guest_gate.dart` แล้ว ยืนยันว่า **ทั้งสองทางเลือก (A/B) implement ได้โดยไม่กระทบ RLS/schema เดิมเลย** เพราะ RPC ใหม่ทั้งหมด (security definer) bypass `club_members`'s INSERT policy เดิมอยู่แล้ว ต่างกันแค่ 1 บรรทัดในฟังก์ชัน `redeem_club_invite_link()` — **นี่คือ product/security policy decision ล้วนๆ ไม่ใช่ทาง technical**
 
 ### ⚠️ คำถามที่ต้องการคำตอบ Founder ก่อน lock — Private Club + Invite Link
 
@@ -66,7 +66,7 @@ Founder ยืนยันแล้ว 2026-09-07 (ทางเลือก A + 
 
 Implementation ครบตาม design spec — ใช้ SQL จากเอกสาร design ตรงๆ ตามที่ระบุไว้ (ไม่มีจุดกำกวมด้าน technical):
 
-- **Schema**: `public.club_invite_links` + `public.club_invite_link_uses` + RPC 4 ตัว (`create_club_invite_link`/`revoke_club_invite_link`/`preview_club_invite_link`/`redeem_club_invite_link`) ใน `supabase/schema.sql` + `supabase/migrations_wyn130_club_invite_link.sql` (standalone migration ใหม่ตาม convention) — `redeem_club_invite_link()` lock เป็นทางเลือก A ตามที่ Founder ยืนยัน (join ทันทีแม้ Private Club, auto-upgrade pending เดิมเป็น approved)
+- **Schema**: `public.club_invite_links` + `public.club_invite_link_uses` + RPC 4 ตัว (`create_club_invite_link`/`revoke_club_invite_link`/`preview_club_invite_link`/`redeem_club_invite_link`) ใน `supabase/schema.sql` + `supabase/migrations_wyn136_club_invite_link.sql` (standalone migration ใหม่ตาม convention) — `redeem_club_invite_link()` lock เป็นทางเลือก A ตามที่ Founder ยืนยัน (join ทันทีแม้ Private Club, auto-upgrade pending เดิมเป็น approved)
 - **Flutter data layer**: `ClubInviteLink`/`ClubInvitePreview` model ใหม่ (`club_invite_link.dart`), `ClubRepository` เพิ่ม `createInviteLink()`/`revokeInviteLink()`/`fetchInviteLinks()`/`previewInviteLink()` (sign icon URL เองก่อนคืนค่า)/`redeemInviteLink()`
 - **Flutter UI**: `ClubInviteLinksScreen` ใหม่ (สร้าง/ดูรายการ/revoke, banner เตือนสีเหลือง/ส้มอ่อนสำหรับ Private Club, radio-picker sheet สำหรับวันหมดอายุ/จำนวนครั้งใช้งาน — ใช้ pseudo-radio pattern เดิมของ `settings_screen.dart` ไม่ใช้ `RadioListTile` เพราะ deprecated ใน Flutter version นี้), `ClubInvitePreviewScreen` ใหม่ (preview + ปุ่มเข้าร่วม + 5 สถานะ error state) — `club_page.dart`'s More menu เพิ่มแถว "ลิงก์เชิญ" (gate ด้วย `role.canManageClub` เดิม + `isDeveloperAccount()` ใหม่)
 - **Deep Link**: `DeepLinkService` เพิ่ม pattern `/club-invite/:code` → `ClubInvitePreviewScreen` (รวมอยู่ใน `hasContentPath()` เพื่อให้ guest auto-sign-in แบบ anonymous ตามกลไกเดิมของ WYN-119 ด้วย)
@@ -75,7 +75,7 @@ Implementation ครบตาม design spec — ใช้ SQL จากเอ�
 - **Test ใหม่**: `club_invite_links_screen_test.dart` (8 tests: empty state, list rendering, privacy banner, expired/dimmed display, create flow, revoke flow + confirm dialog, revoke failure, copy-to-clipboard), `club_invite_preview_screen_test.dart` (9 tests: valid link render, private badge, join success → navigate to ClubPage, join failure, ทั้ง 4 invalid status + preview fetch failure fallback), `club_invite_link_test.dart` (10 tests: model fromMap/computed getters), `club_page_test.dart` +3 tests (gate on/off, tap navigation) — เพิ่ม invite-link overrides ใน `RecordingClubRepository`
   - **พบและแก้บั๊กใน test ของตัวเอง**: `Clipboard.setData` ไม่มี default mock handler ใน flutter_test แบบ implicit ทำให้ await ค้างตลอดไป (indeterminate `CircularProgressIndicator` วนไม่หยุด → `pumpAndSettle()` timeout) — แก้ด้วยการ register `SystemChannels.platform` mock handler ใน `setUp()`/`tearDown()` ของ `club_invite_links_screen_test.dart` ทั้งไฟล์ (มิเรอร์ `interaction_feedback_test.dart`'s ท่าเดิมสำหรับ `HapticFeedback`) — ไม่ใช่บั๊กใน production code เป็นแค่ gap ของ test setup
 - **flutter analyze**: 0 issues (ทั้งโปรเจกต์)
-- **flutter test**: **1433/1433 PASS** (ทั้งโปรเจกต์ รวม 30 test ใหม่ของ WYN-130)
+- **flutter test**: **1433/1433 PASS** (ทั้งโปรเจกต์ รวม 30 test ใหม่ของ WYN-136)
 
 Known Issues: ไม่มี — schema/RPC/UI/deep-link/RLS ตรงตาม design spec ครบ ไม่มี known gap ที่ต้องรายงาน Founder เพิ่ม (attribution tracking ผ่าน `club_invite_link_uses` เก็บ data ไว้แล้วตาม Requirement แต่ยังไม่มี UI แสดงผล ตามที่ระบุไว้ตั้งแต่ Product/Design spec ว่าไม่ scope รอบนี้)
 
@@ -83,9 +83,9 @@ Handoff: ส่งต่อ AI QA & Security
 
 ## AI QA & Security Report (2026-09-07)
 
-รายงานเต็ม: `.wyn/docs/qa/2026-09-07-wyn-130-132-133-134-phase-a-qa.md`
+รายงานเต็ม: `.wyn/docs/qa/2026-09-07-wyn-134-136-137-138-139-phase-a-qa.md`
 
-**นี่คือ task ที่มีความเสี่ยงด้าน security สูงสุดในชุด Phase A นี้** (semantics เปลี่ยนของ Private Club) รัน `flutter analyze`/`flutter test` เองอิสระ (1433/1433 ผ่าน, 0 issues) เขียน regression test SQL ใหม่ (`supabase/tests/wyn_130_club_invite_link_test.sh`) ทดสอบตรงกับ RPC/RLS จริงบน PostgreSQL 16 ภายใต้ role `authenticated` จริง รวม 18/20 sequential checks PASS + race-condition test PASS:
+**นี่คือ task ที่มีความเสี่ยงด้าน security สูงสุดในชุด Phase A นี้** (semantics เปลี่ยนของ Private Club) รัน `flutter analyze`/`flutter test` เองอิสระ (1433/1433 ผ่าน, 0 issues) เขียน regression test SQL ใหม่ (`supabase/tests/wyn_136_club_invite_link_test.sh`) ทดสอบตรงกับ RPC/RLS จริงบน PostgreSQL 16 ภายใต้ role `authenticated` จริง รวม 18/20 sequential checks PASS + race-condition test PASS:
 
 - **สิทธิ์สร้าง/revoke จำกัดแค่ Owner/Admin จริง**: member ทั่วไป/non-member เรียก `create_club_invite_link()`/`revoke_club_invite_link()` ตรงๆ ถูกปฏิเสธจริงที่ระดับ RPC (re-derive role จาก `club_role()` server-side ไม่เชื่อ client เลย)
 - **Redeem lock ตรงตามทางเลือก A ที่ Founder ยืนยัน**: join Private Club ทันทีไม่ผ่าน approve, stale pending request เดิมถูก auto-upgrade เป็น approved ทันทีเมื่อ redeem — ยืนยันตรงจาก RPC จริง
@@ -95,6 +95,6 @@ Handoff: ส่งต่อ AI QA & Security
 - RLS: member ทั่วไป list ลิงก์เชิญของ club ไม่ได้เลยตรงๆ (ไม่ใช่แค่ UI ซ่อน)
 - Staged Rollout: More menu + deep-link `/club-invite/:code` gate ด้วย `isDeveloperAccount()` ครบ, non-developer เปิดลิงก์เก่าแล้วเงียบๆ เหมือนไม่มีฟีเจอร์นี้เลย (ไม่ error/ไม่ blank)
 
-**พบบั๊กจริง 1 จุด (non-blocking, Low severity)**: `preview_club_invite_link()` คืน 0 แถวแทนที่จะเป็นแถว `status='not_found'` เมื่อ code ไม่ตรงกับลิงก์ใดเลย **หลังจากมีลิงก์เชิญอย่างน้อย 1 อันอยู่ในระบบแล้ว** (bug ใน SQL trick `right join ... on true` — ใช้ได้แค่ตอนตารางว่างเปล่าสนิท) — **ไม่กระทบผู้ใช้จริงเลยวันนี้** เพราะ `ClubRepository.previewInviteLink()` มี defensive check `rows.isEmpty ? null : ...` อยู่แล้วที่คืน `notFound` status ถูกต้อง และหน้าจอแสดง "ไม่พบลิงก์เชิญนี้" ให้ผู้ใช้เห็นถูกต้องอยู่แล้ว ไม่ผิด AC ใดเลย (AC บังคับแค่ expired/revoked/exhausted ซึ่งทำงานถูกทั้ง 3 กรณี) — เป็นบั๊กที่ซ่อนอยู่ในตัว RPC เองที่ไม่ตรงกับ contract ที่ comment ของมันเองบอกไว้ เสี่ยงถ้ามี consumer อื่นในอนาคต (เช่น admin tool) ที่ไม่มี defensive check แบบเดียวกัน แนะนำ fix เป็น fast-follow (มีคำแนะนำ fix ไว้ใน comment เหนือ `CHECK11` ของ `supabase/tests/wyn_130_club_invite_link_test.sh` แล้ว) ไม่บล็อก deploy รอบนี้
+**พบบั๊กจริง 1 จุด (non-blocking, Low severity)**: `preview_club_invite_link()` คืน 0 แถวแทนที่จะเป็นแถว `status='not_found'` เมื่อ code ไม่ตรงกับลิงก์ใดเลย **หลังจากมีลิงก์เชิญอย่างน้อย 1 อันอยู่ในระบบแล้ว** (bug ใน SQL trick `right join ... on true` — ใช้ได้แค่ตอนตารางว่างเปล่าสนิท) — **ไม่กระทบผู้ใช้จริงเลยวันนี้** เพราะ `ClubRepository.previewInviteLink()` มี defensive check `rows.isEmpty ? null : ...` อยู่แล้วที่คืน `notFound` status ถูกต้อง และหน้าจอแสดง "ไม่พบลิงก์เชิญนี้" ให้ผู้ใช้เห็นถูกต้องอยู่แล้ว ไม่ผิด AC ใดเลย (AC บังคับแค่ expired/revoked/exhausted ซึ่งทำงานถูกทั้ง 3 กรณี) — เป็นบั๊กที่ซ่อนอยู่ในตัว RPC เองที่ไม่ตรงกับ contract ที่ comment ของมันเองบอกไว้ เสี่ยงถ้ามี consumer อื่นในอนาคต (เช่น admin tool) ที่ไม่มี defensive check แบบเดียวกัน แนะนำ fix เป็น fast-follow (มีคำแนะนำ fix ไว้ใน comment เหนือ `CHECK11` ของ `supabase/tests/wyn_136_club_invite_link_test.sh` แล้ว) ไม่บล็อก deploy รอบนี้
 
 **Final Status: PASS** (บั๊กที่พบไม่บล็อก deploy — ส่งต่อเป็น fast-follow fix ปกติ ไม่ต้องผ่าน AI Debug Engineer ก่อน deploy รอบนี้)

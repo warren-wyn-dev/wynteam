@@ -65,7 +65,7 @@ void main() {
   late RecordingNotificationRepository defaultNotificationRepository;
   late RecordingNotificationRepository fewUnreadNotificationRepository;
   late RecordingNotificationRepository manyUnreadNotificationRepository;
-  // WYN-133/WYN-125 -- same setUpAll discipline as every repository
+  // WYN-139/WYN-125 -- same setUpAll discipline as every repository
   // above: the real DeveloperAccessService's default constructor
   // touches Supabase.instance.client for its auth-state listener, and a
   // real PresenceRepository's startGlobalPresence() would attempt a
@@ -357,7 +357,7 @@ void main() {
     await _expectFeedToggleVisible(tester);
   });
 
-  group('WYN-133: DM Presence global channel lifecycle (Staged Rollout '
+  group('WYN-139: DM Presence global channel lifecycle (Staged Rollout '
       'gated)', () {
     testWidgets(
         'non-developer account: the global presence channel is never '

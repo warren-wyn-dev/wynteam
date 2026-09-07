@@ -90,7 +90,7 @@ Core (สร้าง/Public-Private/Join-Request/Page/Posts/Rules/Discovery) �
 ## Recommendation
 
 1. **Deploy WYN-127/128/129** — งานเสร็จรอ Founder อยู่แล้ว **Founder เลือก "รอก่อน" แล้ว (2026-09-07)** — ยังไม่ deploy จนกว่าจะเห็นภาพรวม roadmap ก่อน
-2. Founder ยืนยัน priority ของ Phase A/B/C — **เขียน Product Task เต็มของ Phase A ครบทุกตัวแล้ว** (WYN-130 ถึง WYN-135, ดูตารางด้านล่าง) ตามที่ Founder ขอดูก่อนตัดสินใจ
+2. Founder ยืนยัน priority ของ Phase A/B/C — **เขียน Product Task เต็มของ Phase A ครบทุกตัวแล้ว** (WYN-136 ถึง WYN-135, ดูตารางด้านล่าง) ตามที่ Founder ขอดูก่อนตัดสินใจ
 3. รายการ Phase C ต้องขออนุมัติ Founder อย่างเป็นทางการ (`APPROVAL_REQUIRED`) ก่อนส่งต่อ AI Design แม้ Founder จะเลือกให้เริ่ม scope ก็ตาม
 
 ## Phase A — Product Task เต็มพร้อมแล้ว (`.wyn/tasks/backlog/`)
@@ -98,12 +98,12 @@ Core (สร้าง/Public-Private/Join-Request/Page/Posts/Rules/Discovery) �
 | Task | Feature | Priority | หมายเหตุ |
 |---|---|---|---|
 | WYN-134 | DM New Message Notification | **P1** | ปิด known gap จาก WYN-032 โดยตรง กระทบ retention — แนะนำทำก่อน |
-| WYN-130 | Club Invite Link (expire/max-uses/revoke) | P2 | ต้องยืนยัน Private-Club-join-semantics ก่อน Design |
-| WYN-132 | DM Edit + Pin Message | P2 | ต่อยอด schema เดิมตรงๆ ความเสี่ยงต่ำ |
-| WYN-133 | DM Typing + Online/Last Seen | P2 | ต้องมี privacy opt-out ในรอบแรกเลย ไม่ใช่ fast-follow |
+| WYN-136 | Club Invite Link (expire/max-uses/revoke) | P2 | ต้องยืนยัน Private-Club-join-semantics ก่อน Design |
+| WYN-138 | DM Edit + Pin Message | P2 | ต่อยอด schema เดิมตรงๆ ความเสี่ยงต่ำ |
+| WYN-139 | DM Typing + Online/Last Seen | P2 | ต้องมี privacy opt-out ในรอบแรกเลย ไม่ใช่ fast-follow |
 | WYN-135 | Club Chat Edit + Pin + Search | P2 | **Blocked จนกว่า WYN-128 จะ deploy จริง** |
-| WYN-131 | Club Announcement (แยกจาก Pinned Post) | **P3** | คุณค่าเพิ่มแคบ — แนะนำพิจารณาทางเลือกที่เบากว่า (filter บน Pinned Post เดิม) ก่อนสร้างของใหม่ |
+| WYN-137 | Club Announcement (แยกจาก Pinned Post) | **P3** | คุณค่าเพิ่มแคบ — แนะนำพิจารณาทางเลือกที่เบากว่า (filter บน Pinned Post เดิม) ก่อนสร้างของใหม่ |
 
 ## Handoff
 
-รอ Founder อ่าน Product Task ทั้ง 6 ตัว (`.wyn/tasks/backlog/WYN-130` ถึง `WYN-135`) แล้วยืนยันลำดับ/ตัดตัวที่ไม่ต้องการออก → AI PM ส่งต่อ AI Design ตามลำดับที่ยืนยัน (WYN-135 ต้องรอ Founder สั่ง deploy WYN-128 ก่อนแยกต่างหาก)
+รอ Founder อ่าน Product Task ทั้ง 6 ตัว (`.wyn/tasks/backlog/WYN-136` ถึง `WYN-135`) แล้วยืนยันลำดับ/ตัดตัวที่ไม่ต้องการออก → AI PM ส่งต่อ AI Design ตามลำดับที่ยืนยัน (WYN-135 ต้องรอ Founder สั่ง deploy WYN-128 ก่อนแยกต่างหาก)

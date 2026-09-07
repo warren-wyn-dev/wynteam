@@ -13,12 +13,12 @@ import '../data/club_repository.dart';
 /// (each defined right next to the screen that most needs it).
 String clubInviteShareLink(String code) => 'https://wynos.online/club-invite/$code';
 
-/// WYN-130 -- Owner/Admin only, reached from `ClubPage`'s More menu
+/// WYN-136 -- Owner/Admin only, reached from `ClubPage`'s More menu
 /// ("ลิงก์เชิญ" row, gated the same `role.canManageClub` way the other
 /// management rows already are). Lists every not-yet-revoked invite
 /// link for [club], lets the Owner/Admin create new ones (with an
 /// expiration/max-uses choice) and revoke existing ones. See
-/// .wyn/docs/design/wyn-130-club-invite-link.md.
+/// .wyn/docs/design/wyn-136-club-invite-link.md.
 class ClubInviteLinksScreen extends StatefulWidget {
   const ClubInviteLinksScreen({
     super.key,

@@ -674,8 +674,8 @@ void main() {
       });
     });
 
-    // WYN-133/WYN-125 (Staged Rollout).
-    group('online/last-seen privacy toggle (WYN-133)', () {
+    // WYN-139/WYN-125 (Staged Rollout).
+    group('online/last-seen privacy toggle (WYN-139)', () {
       testWidgets(
           'non-developer account: the toggle row never renders at all, '
           'and its own status is never fetched', (tester) async {

@@ -191,13 +191,13 @@ void main() {
     expect(find.text('เปลี่ยนความเป็นส่วนตัว'), findsOneWidget);
     expect(find.text('จัดการสิทธิ์สมาชิก'), findsOneWidget);
     expect(find.text('ออกจาก Club'), findsNothing);
-    // WYN-130 -- developerAccessService defaults to isDeveloperResult:
+    // WYN-136 -- developerAccessService defaults to isDeveloperResult:
     // true across this whole file (see setUp), so the gated row is
     // visible here.
     expect(find.text('ลิงก์เชิญ'), findsOneWidget);
   });
 
-  group('WYN-130: "ลิงก์เชิญ" More menu row (Staged Rollout gated)', () {
+  group('WYN-136: "ลิงก์เชิญ" More menu row (Staged Rollout gated)', () {
     testWidgets('non-developer account: the Owner never sees the row at all',
         (tester) async {
       developerAccessService = RecordingDeveloperAccessService(isDeveloperResult: false);

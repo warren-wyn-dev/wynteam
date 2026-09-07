@@ -14021,10 +14021,10 @@ end;
 $$;
 
 -- ============================================================
--- WYN-132: DM Message Actions -- Edit Message + Pin Message
+-- WYN-138: DM Message Actions -- Edit Message + Pin Message
 -- ============================================================
--- See .wyn/tasks/active/WYN-132-dm-message-edit-pin.md and
--- .wyn/docs/design/wyn-132-dm-message-edit-pin.md.
+-- See .wyn/tasks/active/WYN-138-dm-message-edit-pin.md and
+-- .wyn/docs/design/wyn-138-dm-message-edit-pin.md.
 
 alter table public.messages add column if not exists edited_at timestamptz;
 
@@ -14099,7 +14099,7 @@ create policy "Participants can view pinned messages in their conversations"
 -- (not `select ... for update`) -- a race between both participants
 -- pinning the 3rd slot at once could in theory land on 4, an accepted
 -- low-risk trade-off (see the design doc's own edge-case note), unlike
--- club_invite_links' redeem path (WYN-130) where the usage cap is
+-- club_invite_links' redeem path (WYN-136) where the usage cap is
 -- locked tighter.
 create or replace function public.pin_message(p_message_id uuid)
 returns void
@@ -14192,10 +14192,10 @@ end;
 $$;
 
 -- ============================================================
--- WYN-133: DM Presence -- Typing Indicator + Online/Last Seen
+-- WYN-139: DM Presence -- Typing Indicator + Online/Last Seen
 -- ============================================================
--- See .wyn/tasks/active/WYN-133-dm-presence-typing-online.md and
--- .wyn/docs/design/wyn-133-dm-presence-typing-online.md.
+-- See .wyn/tasks/active/WYN-139-dm-presence-typing-online.md and
+-- .wyn/docs/design/wyn-139-dm-presence-typing-online.md.
 --
 -- Deliberately a table separate from `profiles` -- that table's own
 -- SELECT policy is `using (true)` (every authenticated user can read
@@ -14314,10 +14314,10 @@ $$;
 grant execute on function public.get_conversation_partner_presence(uuid) to authenticated;
 
 -- ============================================================
--- WYN-130: Club Invite Link (generate/revoke/expiration/max-uses)
+-- WYN-136: Club Invite Link (generate/revoke/expiration/max-uses)
 -- ============================================================
--- See .wyn/tasks/active/WYN-130-club-invite-link.md and
--- .wyn/docs/design/wyn-130-club-invite-link.md. Founder locked "ทางเลือก
+-- See .wyn/tasks/active/WYN-136-club-invite-link.md and
+-- .wyn/docs/design/wyn-136-club-invite-link.md. Founder locked "ทางเลือก
 -- A" (2026-09-07, .wyn/company/DECISIONS.md): a valid invite link joins
 -- a Private Club immediately, skipping Join Request/Approve entirely --
 -- redeem_club_invite_link() below is written for that choice only.
@@ -14478,7 +14478,7 @@ grant execute on function public.preview_club_invite_link(text) to authenticated
 -- (2026-09-07, .wyn/company/DECISIONS.md): invite link ที่ valid =
 -- อนุมัติล่วงหน้าในตัวเสมอ ไม่ว่า club จะเป็น public หรือ private -- `for
 -- update` บนแถวลิงก์ตอน select กันสองคนกด max-uses ช่องสุดท้ายพร้อมกันแบบ
--- race (คุมเข้มกว่า pin_message ของ WYN-132 เพราะเป็นเรื่อง "จำนวนครั้ง
+-- race (คุมเข้มกว่า pin_message ของ WYN-138 เพราะเป็นเรื่อง "จำนวนครั้ง
 -- ใช้งานสูงสุด" ที่ Owner ตั้งใจจำกัดไว้จริงจัง).
 create or replace function public.redeem_club_invite_link(p_code text)
 returns uuid -- club_id เมื่อสำเร็จ

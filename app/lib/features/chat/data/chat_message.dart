@@ -59,7 +59,7 @@ class ChatMessage {
   /// live, without waiting for the recipient's countdown to finish.
   final DateTime? viewedAt;
 
-  /// WYN-132: set once by `edit_message()` the first time this message's
+  /// WYN-138: set once by `edit_message()` the first time this message's
   /// own text is edited, and overwritten (never cleared) on every edit
   /// after that -- see that function's own doc comment in
   /// supabase/schema.sql. Once non-null it must keep showing an "edited"

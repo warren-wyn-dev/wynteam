@@ -501,7 +501,7 @@ class ClubRepository {
     return ClubInsights.fromMap(row);
   }
 
-  /// WYN-130 -- Owner/Admin only (enforced by `create_club_invite_link()`
+  /// WYN-136 -- Owner/Admin only (enforced by `create_club_invite_link()`
   /// itself via `club_role()`, re-checked server-side regardless of what
   /// gates the UI). [expiresInDays]/[maxUses] null means "no
   /// expiration"/"unlimited" -- the 4 choices each accepts are
@@ -519,7 +519,7 @@ class ClubRepository {
     return ClubInviteLink.fromMap(row as Map<String, dynamic>);
   }
 
-  /// WYN-130 -- Owner/Admin only (same server-side re-check as
+  /// WYN-136 -- Owner/Admin only (same server-side re-check as
   /// [createInviteLink]). Idempotent-ish from the caller's own
   /// perspective: revoking an already-revoked link just raises, surfaced
   /// to the UI as an ordinary error (the row disappearing from a live
@@ -528,7 +528,7 @@ class ClubRepository {
     return _client.rpc('revoke_club_invite_link', params: {'p_link_id': linkId});
   }
 
-  /// WYN-130 -- every not-yet-revoked invite link for [clubId], newest
+  /// WYN-136 -- every not-yet-revoked invite link for [clubId], newest
   /// first (Design spec: "เรียงใหม่สุดก่อน"). A revoked link is excluded
   /// entirely (not just visually) -- an expired/exhausted-but-not-revoked
   /// one still comes back so the Owner/Admin can see it in
@@ -546,7 +546,7 @@ class ClubRepository {
     return rows.map((row) => ClubInviteLink.fromMap(row)).toList();
   }
 
-  /// WYN-130 -- callable by anyone, including a guest (Anonymous Sign-In,
+  /// WYN-136 -- callable by anyone, including a guest (Anonymous Sign-In,
   /// WYN-072/119): `preview_club_invite_link()` itself is `security
   /// definer` and does its own status computation, so this never needs
   /// to be a member of the target Club (or even authenticated as a real
@@ -566,7 +566,7 @@ class ClubRepository {
     return ClubInvitePreview.fromMap(row, signedIconUrl: signedIconUrl);
   }
 
-  /// WYN-130 -- the actual join. Returns the joined club's id on success
+  /// WYN-136 -- the actual join. Returns the joined club's id on success
   /// (so the caller can navigate straight into `ClubPage` without a
   /// second round-trip); a failure (revoked/expired/exhausted/banned/not
   /// found) raises, surfaced by `ClubInvitePreviewScreen` as plain error

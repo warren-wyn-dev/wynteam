@@ -1,4 +1,4 @@
--- WYN-132: DM Message Actions -- Edit Message + Pin Message (1:1 Chat)
+-- WYN-138: DM Message Actions -- Edit Message + Pin Message (1:1 Chat)
 --
 -- Adds `messages.edited_at` + `edit_message()` RPC (mirrors
 -- `delete_message()`'s own shape: security definer, no client UPDATE
@@ -9,8 +9,8 @@
 -- message is auto-unpinned (FK `on delete cascade` can't help here,
 -- since delete is a soft UPDATE, not a real DELETE on `messages`).
 --
--- See .wyn/tasks/active/WYN-132-dm-message-edit-pin.md and
--- .wyn/docs/design/wyn-132-dm-message-edit-pin.md for the full spec.
+-- See .wyn/tasks/active/WYN-138-dm-message-edit-pin.md and
+-- .wyn/docs/design/wyn-138-dm-message-edit-pin.md for the full spec.
 --
 -- SAFETY: additive column + 1 brand new table + 3 RPC (re)definitions.
 -- No existing column/table dropped or renamed. Re-runnable throughout
@@ -95,7 +95,7 @@ create policy "Participants can view pinned messages in their conversations"
 -- (not `select ... for update`) -- a race between both participants
 -- pinning the 3rd slot at once could in theory land on 4, an accepted
 -- low-risk trade-off (see the design doc's own edge-case note), unlike
--- club_invite_links' redeem path (WYN-130) where the usage cap is
+-- club_invite_links' redeem path (WYN-136) where the usage cap is
 -- locked tighter.
 create or replace function public.pin_message(p_message_id uuid)
 returns void

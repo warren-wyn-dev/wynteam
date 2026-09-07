@@ -147,11 +147,11 @@ class ConversationScreen extends StatefulWidget {
   final ClubRepository? _clubRepository;
   final ClubPostRepository? _clubPostRepository;
 
-  // WYN-132/WYN-125: Staged Rollout gate for Edit/Pin Message -- see
+  // WYN-138/WYN-125: Staged Rollout gate for Edit/Pin Message -- see
   // _ConversationScreenState's own doc comments on _isDeveloperFuture.
   final DeveloperAccessService? _developerAccessService;
 
-  // WYN-133/WYN-125: Staged Rollout gate for DM Presence (typing +
+  // WYN-139/WYN-125: Staged Rollout gate for DM Presence (typing +
   // online/last seen) -- shares the same _isDeveloperFuture above.
   final PresenceRepository? _presenceRepository;
 
@@ -192,7 +192,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   late final PresenceRepository _presenceRepository =
       widget._presenceRepository ?? PresenceRepository(Supabase.instance.client);
 
-  /// WYN-132/WYN-125: Staged Rollout gate -- Edit/Pin Message's own 2
+  /// WYN-138/WYN-125: Staged Rollout gate -- Edit/Pin Message's own 2
   /// new menu rows and the pinned bar are never even fetched/built
   /// unless this resolves `true`, mirroring ClubPostsTab's identical
   /// "resolve once, `.then()`/`await` it wherever gating is needed"
@@ -258,7 +258,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   Uint8List? _imageBytes;
   String? _imageExtension;
 
-  /// WYN-132: non-null while the composer is in edit mode for this
+  /// WYN-138: non-null while the composer is in edit mode for this
   /// message -- set only from the (Staged-Rollout-gated) "แก้ไข" menu
   /// row, so a non-developer account's composer can never enter this
   /// state at all. Mutually exclusive with [_replyTo] (see
@@ -268,14 +268,14 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
 
   bool get _isEditingMessage => _editingMessage != null;
 
-  /// WYN-132: every currently-pinned message in this conversation, only
+  /// WYN-138: every currently-pinned message in this conversation, only
   /// ever populated for a developer account (see [_isDeveloperFuture]'s
   /// own doc comment) -- stays permanently empty for anyone else, which
   /// is what keeps the pinned bar from ever rendering for them.
   List<PinnedMessage> _pinnedMessages = [];
   RealtimeChannel? _pinsChannel;
 
-  // WYN-133/WYN-125 -- DM Presence (Typing + Online/Last Seen), only
+  // WYN-139/WYN-125 -- DM Presence (Typing + Online/Last Seen), only
   // ever wired up for a developer account (see [_initPresenceIfDeveloper]).
 
   /// True while the other participant's own typing channel presence
@@ -436,7 +436,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     _initPresenceIfDeveloper();
   }
 
-  /// WYN-132/WYN-125: Staged Rollout gate -- see [_isDeveloperFuture]'s
+  /// WYN-138/WYN-125: Staged Rollout gate -- see [_isDeveloperFuture]'s
   /// own doc comment. Deliberately its own `.then()`, not awaited inline
   /// in [_initLockCheckThenLoad], so the developer check running slightly
   /// slower than the RPC never delays the message list/composer
@@ -454,7 +454,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     });
   }
 
-  /// WYN-133/WYN-125: Staged Rollout gate -- same shape as
+  /// WYN-139/WYN-125: Staged Rollout gate -- same shape as
   /// [_initPinsIfDeveloper] just above. A non-developer account never
   /// opens the per-conversation typing channel, never fetches
   /// [_partnerShowOnline]/[_partnerLastSeenAt], and never registers a
@@ -628,7 +628,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     }
   }
 
-  /// Founder feedback -- View Once, and now also WYN-132 Edit Message:
+  /// Founder feedback -- View Once, and now also WYN-138 Edit Message:
   /// both `mark_view_once_viewed()`/`clear_view_once_message()` and
   /// `edit_message()` are UPDATEs on an existing `messages` row -- this
   /// is what flips the *sender's* own bubble from "sent, waiting to be
@@ -638,7 +638,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// missed the initial load) is silently ignored -- nothing on screen
   /// needs updating.
   ///
-  /// WYN-132 fix (found reviewing the realtime path for Edit): [message]
+  /// WYN-138 fix (found reviewing the realtime path for Edit): [message]
   /// is built from the raw `postgres_changes` payload
   /// (`ChatMessage.fromMap(payload.newRecord)`), which -- like every
   /// `postgres_changes` payload -- carries no `reply_to` embed (see
@@ -898,7 +898,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     });
   }
 
-  /// WYN-132: while editing, the composer's send button becomes the
+  /// WYN-138: while editing, the composer's send button becomes the
   /// "บันทึก" (confirm edit) action instead -- text-only (no
   /// [_imageBytes] path applies to an edit at all) and gated on
   /// [_isSavingEdit] rather than [_isSending]. See [_buildComposerArea]'s
@@ -938,7 +938,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     // and keeping the keyboard up (not guaranteed on every browser, but
     // costs nothing to try).
     _textFieldFocusNode.requestFocus();
-    // WYN-133: "ส่งข้อความสำเร็จ -> track({'typing': false}) + cancel
+    // WYN-139: "ส่งข้อความสำเร็จ -> track({'typing': false}) + cancel
     // timer ทันที" -- done right away here (not awaited on the RPC
     // below), matching every other piece of composer state this
     // function already clears optimistically at send time.
@@ -1031,7 +1031,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     }
   }
 
-  /// WYN-132: mirrors `edit_message()`'s own strict "text-only" gate
+  /// WYN-138: mirrors `edit_message()`'s own strict "text-only" gate
   /// client-side (design doc's own "defense in depth" note -- the RPC
   /// rejects the same cases again server-side regardless).
   bool _canEditMessage(ChatMessage message) =>
@@ -1043,7 +1043,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
 
   bool _isPinned(String messageId) => _pinnedMessages.any((pin) => pin.messageId == messageId);
 
-  /// WYN-132: switches the composer into edit mode for [message] --
+  /// WYN-138: switches the composer into edit mode for [message] --
   /// only ever called from the Staged-Rollout-gated "แก้ไข" menu row.
   /// Clears any in-progress reply (mutually exclusive states, same
   /// composer banner slot) and prefills the text field with the
@@ -1064,7 +1064,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     });
   }
 
-  /// WYN-132: optimistic, same posture as [_send] -- the bubble shows
+  /// WYN-138: optimistic, same posture as [_send] -- the bubble shows
   /// the new text and "แก้ไขแล้ว" immediately, rolled back only if
   /// `edit_message()` itself fails. On failure the composer stays in
   /// edit mode with whatever was typed still in the field (design doc:
@@ -1122,7 +1122,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
         editedAt: DateTime.now(),
       );
 
-  /// WYN-132: [pin_message()]'s own 3-per-conversation cap is enforced
+  /// WYN-138: [pin_message()]'s own 3-per-conversation cap is enforced
   /// server-side only (design doc: "ไม่ precompute count ฝั่ง client ก่อน
   /// เปิดเมนู เพื่อความเรียบง่าย") -- a caller past the cap just gets
   /// this SnackBar from the RPC's own exception. Also re-fetches
@@ -1385,9 +1385,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     // cross-conversation reply_to_message_id, not chain depth, so this
     // has to be enforced here.
     final canReply = message.replyToMessageId == null;
-    // WYN-132/WYN-125 (Staged Rollout): both new rows below are gated on
+    // WYN-138/WYN-125 (Staged Rollout): both new rows below are gated on
     // this same flag -- a non-developer account's menu is byte-for-byte
-    // the pre-WYN-132 sheet (see the design doc's own Handoff note).
+    // the pre-WYN-138 sheet (see the design doc's own Handoff note).
     final isDeveloper = await _isDeveloperFuture;
     final canEdit = isDeveloper && _canEditMessage(message);
     final canPin = isDeveloper && !message.isDeleted;
@@ -1524,7 +1524,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     );
   }
 
-  /// WYN-133/WYN-125: the AppBar subtitle line -- `null` for a
+  /// WYN-139/WYN-125: the AppBar subtitle line -- `null` for a
   /// non-developer account (this screen never even populates
   /// [_otherTyping]/[_partnerShowOnline]/[_partnerLastSeenAt] for one,
   /// since [_initPresenceIfDeveloper] never runs at all), and `null`
@@ -1614,7 +1614,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                       overflow: TextOverflow.ellipsis,
                       style: _textStyle(fontSize: 16, fontWeight: FontWeight.w700, color: WynColors.ink),
                     ),
-                    // WYN-133/WYN-125: null (nothing rendered at all, no
+                    // WYN-139/WYN-125: null (nothing rendered at all, no
                     // empty line reserved) for a non-developer account
                     // -- see _buildStatusSubtitle's own doc comment.
                     if (statusSubtitle != null) statusSubtitle,
@@ -1649,7 +1649,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                   )
                 : Column(
                     children: [
-                      // WYN-132/WYN-125: only ever non-empty for a
+                      // WYN-138/WYN-125: only ever non-empty for a
                       // developer account -- see _pinnedMessages' own
                       // doc comment.
                       if (_pinnedMessages.isNotEmpty) _buildPinnedBar(),
@@ -1935,7 +1935,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       mainAxisSize: MainAxisSize.min,
       children: [
         if (_isPendingAsRequester) _buildAwaitingResponseLabel(),
-        // WYN-132: edit mode replaces the reply banner slot entirely --
+        // WYN-138: edit mode replaces the reply banner slot entirely --
         // the two are mutually exclusive composer states (see
         // `_startEditingMessage`/the reply row's own `onTap`).
         if (_isEditingMessage)
@@ -1954,7 +1954,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
               IconButton(
                 icon: const Icon(Icons.image_outlined, size: 20, color: WynColors.graphite),
                 tooltip: 'แนบรูป',
-                // WYN-132: an edit is text-only (`edit_message()` rejects
+                // WYN-138: an edit is text-only (`edit_message()` rejects
                 // any message that ever carries an image) -- attaching a
                 // photo mid-edit would be a dead end, so this is
                 // disabled for the whole time the composer is in edit
@@ -1991,7 +1991,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                     ),
                     onChanged: (_) {
                       setState(() {});
-                      // WYN-133: no-op when _typingChannel is null --
+                      // WYN-139: no-op when _typingChannel is null --
                       // either a non-developer account (never opened at
                       // all) or this exact edit-mode/composer state
                       // doesn't matter; see _onComposerTextChanged's own
@@ -2009,7 +2009,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                   color: _canSend ? WynColors.sapphire : WynColors.hairline,
                   shape: const CircleBorder(),
                   child: IconButton(
-                    // WYN-132: edit mode's own "บันทึก" (confirm edit)
+                    // WYN-138: edit mode's own "บันทึก" (confirm edit)
                     // affordance -- a checkmark instead of the paper
                     // plane, per the design doc's own wording.
                     icon: (_isEditingMessage ? _isSavingEdit : _isSending)
@@ -2127,7 +2127,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     );
   }
 
-  /// WYN-132: replaces the reply-preview banner slot while the composer
+  /// WYN-138: replaces the reply-preview banner slot while the composer
   /// is in edit mode -- same shape as [_buildReplyPreviewBar]'s own
   /// banner, only the label/cancel action differ (design doc: "โครง
   /// เดียวกับแถบ 'กำลังตอบกลับ' ที่มีอยู่แล้ว").
@@ -2151,7 +2151,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     );
   }
 
-  /// WYN-132: thin bar under the AppBar (only ever built for a developer
+  /// WYN-138: thin bar under the AppBar (only ever built for a developer
   /// account -- see [_pinnedMessages]' own doc comment), always showing
   /// the most-recently-pinned message's own preview. Design doc:
   /// "preview ข้อความที่ปักหมุดล่าสุด ... + ตัวนับ '1/3' ถ้ามีมากกว่า 1
@@ -2516,7 +2516,7 @@ class _MessageBubble extends StatelessWidget {
               ),
             if (message.text != null)
               Text(message.text!, style: _textStyle(fontSize: 15, color: textColor, height: 1.45)),
-            // WYN-132: permanent once set -- Requirement: "ห้ามซ่อน" (no
+            // WYN-138: permanent once set -- Requirement: "ห้ามซ่อน" (no
             // tap-to-reveal/hide), so an edited message never looks
             // identical to one that wasn't, for either participant.
             if (message.isEdited)
@@ -2679,7 +2679,7 @@ TextStyle _textStyle({
 }) =>
     TextStyle(fontSize: fontSize, fontWeight: fontWeight, fontStyle: fontStyle, color: color, height: height);
 
-/// WYN-132 -- "ข้อความที่ปักหมุด" bottom sheet: every currently-pinned
+/// WYN-138 -- "ข้อความที่ปักหมุด" bottom sheet: every currently-pinned
 /// message (at most 3, see `pin_message()`'s own cap), tap the row to
 /// jump to it in the conversation, tap "เลิกปักหมุด" to unpin without
 /// leaving the sheet's own row layout. See

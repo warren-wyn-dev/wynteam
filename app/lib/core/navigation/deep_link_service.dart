@@ -217,7 +217,7 @@ class DeepLinkService {
     );
   }
 
-  /// WYN-130/WYN-125 (Staged Rollout): a non-developer account opening
+  /// WYN-136/WYN-125 (Staged Rollout): a non-developer account opening
   /// this path -- even one a developer shared/left lying around -- is a
   /// silent no-op, same as any other unrecognized path, rather than the
   /// real preview screen (Design doc: "เปิดลิงก์ /club-invite/:code เก่า
