@@ -1,6 +1,6 @@
 # Product Task — WYN-133
 
-Status: backlog
+Status: design-complete (ready for AI Coding) — Design spec: .wyn/docs/design/wyn-133-club-chat-channel-navigation.md
 Owner: AI Product Manager
 
 Feature: Club Chat — กดห้องแล้วนำทางไปหน้าแชทของห้องนั้นแบบเต็มจอ (Discord-style channel navigation)
