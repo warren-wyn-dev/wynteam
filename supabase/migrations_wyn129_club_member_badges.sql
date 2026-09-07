@@ -65,12 +65,20 @@ create policy "Club owners and admins can set member badges"
     and public.club_role(club_id, user_id) is not null
   );
 
+-- Bug fix (.wyn/tasks/bugs/WYN-129-badge-update-target-membership-gap.md):
+-- see supabase/schema.sql's identical policy for the full comment --
+-- the `with check` below closes a gap where an Owner/Admin could UPDATE
+-- an existing badge row's `user_id` to point at a non-member.
 drop policy if exists "Club owners and admins can edit member badges" on public.club_member_badges;
 create policy "Club owners and admins can edit member badges"
   on public.club_member_badges
   for update
   to authenticated
-  using (public.club_role(club_id, auth.uid()) in ('owner', 'admin'));
+  using (public.club_role(club_id, auth.uid()) in ('owner', 'admin'))
+  with check (
+    public.club_role(club_id, auth.uid()) in ('owner', 'admin')
+    and public.club_role(club_id, user_id) is not null
+  );
 
 drop policy if exists "Club owners and admins can remove member badges" on public.club_member_badges;
 create policy "Club owners and admins can remove member badges"

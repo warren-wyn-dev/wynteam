@@ -15,6 +15,9 @@ import '../../data/club_channel_chat_repository.dart';
 import '../../data/club_channel_message.dart';
 import '../../data/club_member.dart';
 import '../../data/club_repository.dart';
+import '../../../report/data/report_repository.dart';
+import '../../../report/data/report_target_type.dart';
+import '../../../report/presentation/report_sheet.dart';
 
 /// WYN-128 -- the group chat room for one WYN-127 channel, embedded
 /// inline under the "โพสต์ | แชท" toggle (ClubPostsTab hosts this, not a
@@ -76,6 +79,13 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
   final _scrollController = ScrollController();
   final _textController = TextEditingController();
   final List<ClubChannelMessage> _messages = [];
+
+  // WYN-128 fast-follow (.wyn/tasks/bugs/WYN-128-group-chat-missing-report-action.md):
+  // reuses the exact same ReportRepository/showReportSheet flow every
+  // other user-generated-content surface in the app already goes
+  // through (club_post_card.dart/club_post_detail_screen.dart) -- no
+  // new report UI built for this.
+  final _reportRepository = ReportRepository(Supabase.instance.client);
 
   bool _isLoadingInitial = true;
   bool _isLoadingMore = false;
@@ -263,6 +273,17 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
     }
   }
 
+  Future<void> _reportMessage(ClubChannelMessage message) {
+    return showReportSheet(
+      context,
+      reportRepository: _reportRepository,
+      targetType: ReportTargetType.clubChannelMessage,
+      targetId: message.id,
+      targetLabel: 'รายงานข้อความของ ${message.authorNameOrUsername}',
+      associatedUserId: message.authorId,
+    );
+  }
+
   Future<void> _showMessageMenu(ClubChannelMessage message) async {
     final isMine = message.authorId == _myUserId;
     final canDelete = isMine || _canModerate;
@@ -284,6 +305,18 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
             onTap: () {
               Navigator.of(sheetContext).pop();
               _deleteMessage(message);
+            },
+          ),
+        // Report is always the last item and only ever shown for
+        // someone else's message -- same posture as club_post_card.dart's
+        // own "รายงานโพสต์" row (wyn-026-report-system.md, Screen 6).
+        if (!isMine)
+          ActionSheetRow(
+            icon: Icons.flag_outlined,
+            label: 'รายงานข้อความ',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _reportMessage(message);
             },
           ),
       ]),

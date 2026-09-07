@@ -18,6 +18,8 @@ const _clubPostAuthorUsername =
     'author:profiles!club_posts_author_id_fkey(username)';
 const _clubPostCommentAuthorUsername =
     'author:profiles!club_post_comments_author_id_fkey(username)';
+const _clubChannelMessageAuthorUsername =
+    'author:profiles!club_channel_messages_author_id_fkey(username)';
 
 const _openStatuses = ['pending', 'reviewing'];
 
@@ -79,6 +81,8 @@ class ModerationRepository {
         return _fetchClubPostCommentSummary(report.targetId);
       case ReportTargetType.message:
         return _fetchMessageSummary(report.targetId);
+      case ReportTargetType.clubChannelMessage:
+        return _fetchClubChannelMessageSummary(report.targetId);
     }
   }
 
@@ -231,6 +235,37 @@ class ModerationRepository {
               })
         : text;
     return ModerationTargetSummary(exists: true, label: label, ownerUsername: sender);
+  }
+
+  /// A plain `.from('club_channel_messages')` select, mirroring
+  /// `_fetchClubPostCommentSummary` above exactly (not the
+  /// `get_message_for_moderation()` RPC `_fetchMessageSummary` needs) --
+  /// same known limitation those two already accept: a moderator who
+  /// isn't an approved member of the message's own Club sees this as if
+  /// it no longer existed (RLS's membership-gated SELECT policy simply
+  /// returns no row), same as club_post/club_post_comment already do.
+  /// See .wyn/tasks/bugs/WYN-128-group-chat-missing-report-action.md's
+  /// fix note: "mirror the existing club_post_comment handling closely".
+  Future<ModerationTargetSummary> _fetchClubChannelMessageSummary(String messageId) async {
+    final row = await _client
+        .from('club_channel_messages')
+        .select('content, image_url, $_clubChannelMessageAuthorUsername')
+        .eq('id', messageId)
+        .maybeSingle();
+    if (row == null) {
+      return const ModerationTargetSummary(exists: false, label: '(เนื้อหานี้ถูกลบไปแล้ว)');
+    }
+    final content = row['content'] as String?;
+    final author = row['author'] as Map<String, dynamic>?;
+    final hasImage = row['image_url'] != null;
+    final label = (content == null || content.isEmpty)
+        ? (hasImage ? '📷 รูปภาพ' : '(ข้อความว่าง)')
+        : content;
+    return ModerationTargetSummary(
+      exists: true,
+      label: label,
+      ownerUsername: author?['username'] as String?,
+    );
   }
 
   /// Atomically applies one action (see supabase/schema.sql's

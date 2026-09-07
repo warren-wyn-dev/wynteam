@@ -10,6 +10,7 @@ enum ReportTargetType {
   clubPost,
   clubPostComment,
   message,
+  clubChannelMessage,
 }
 
 extension ReportTargetTypeWire on ReportTargetType {
@@ -23,6 +24,7 @@ extension ReportTargetTypeWire on ReportTargetType {
         ReportTargetType.clubPost => 'club_post',
         ReportTargetType.clubPostComment => 'club_post_comment',
         ReportTargetType.message => 'message',
+        ReportTargetType.clubChannelMessage => 'club_channel_message',
       };
 
   /// Thai label for the Moderation Queue's row/detail screens (WYN-029,
@@ -37,6 +39,7 @@ extension ReportTargetTypeWire on ReportTargetType {
         ReportTargetType.clubPost => 'โพสต์ Club',
         ReportTargetType.clubPostComment => 'คอมเมนต์โพสต์ Club',
         ReportTargetType.message => 'ข้อความ',
+        ReportTargetType.clubChannelMessage => 'ข้อความในห้องแชท Club',
       };
 }
 
@@ -53,5 +56,6 @@ ReportTargetType reportTargetTypeFromWireValue(String value) =>
       'club_post' => ReportTargetType.clubPost,
       'club_post_comment' => ReportTargetType.clubPostComment,
       'message' => ReportTargetType.message,
+      'club_channel_message' => ReportTargetType.clubChannelMessage,
       _ => throw ArgumentError('Unknown report target type: $value'),
     };

@@ -1,3 +1,5 @@
+import '../../../core/text_utils.dart';
+
 /// One row of `public.club_channel_messages` (WYN-128), as seen by an
 /// approved member of the channel's Club. Mirrors ChatMessage (WYN-031)
 /// wherever the shape matches, minus what a group room doesn't need:
@@ -41,6 +43,13 @@ class ClubChannelMessage {
 
   final String? replyPreviewContent;
   final String? replyPreviewImageUrl;
+
+  /// WYN-128 fast-follow: used by the "รายงานข้อความ" report label --
+  /// mirrors ClubPost.authorNameOrUsername exactly.
+  String get authorNameOrUsername => displayNameOrUsername(
+        displayName: authorDisplayName,
+        username: authorUsername,
+      );
 
   factory ClubChannelMessage.fromMap(Map<String, dynamic> map) {
     final author = map['author'] as Map<String, dynamic>?;

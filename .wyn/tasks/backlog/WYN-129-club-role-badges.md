@@ -1,7 +1,7 @@
 # Product Task — WYN-129
 
-Status: **QA: FAIL (2026-09-07)** — Critical invariant (badge ไม่เคยถูกใช้เช็ค permission ที่ไหนเลย) ยืนยันแล้วว่าจริง 100% (ตรวจทั้ง codebase) และ isolation/1-badge-per-member/palette/Owner-Admin-only ผ่านการทดสอบจริงบน live PostgreSQL ทั้งหมด — แต่พบช่องโหว่ RLS จริง (`update` policy ไม่เช็ค target ยังเป็น approved member) + ขาด staged-rollout gate ร่วมกับ WYN-127/128 → บล็อก deploy
-Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (ถัดไป)
+Status: **Debug: เสร็จ (2026-09-07)** — ปิดช่องโหว่ RLS แล้ว (`update` policy เพิ่ม `with check` เช็ค target-membership เหมือน `insert` policy) และเพิ่ม developer-account staged-rollout gate ร่วมกับ WYN-127/128 — ยืนยันด้วย live PostgreSQL 16.13 (`supabase/tests/wyn_129_club_role_badges_test.sh` ใหม่ 17/17 ผ่าน รวม repro เดิมของ QA ที่ตอนนี้ถูกปฏิเสธแล้ว) และ `flutter analyze`/`flutter test` (1377/1377) — รายละเอียด: `.wyn/tasks/bugs/WYN-129-badge-update-target-membership-gap.md`, `.wyn/tasks/bugs/WYN-127-128-129-missing-staged-rollout-gate.md` — ส่งกลับ AI QA & Security ตรวจซ้ำ
+Owner: AI Product Manager → AI Design (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (เสร็จ) → AI QA & Security (ถัดไป)
 
 Feature: Club Role Badge — ป้ายชื่อ/สีที่ Owner ตั้งเองได้ ติดข้าง role ของสมาชิก
 

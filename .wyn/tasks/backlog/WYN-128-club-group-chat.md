@@ -1,7 +1,7 @@
 # Product Task — WYN-128
 
-Status: **QA: FAIL (2026-09-07)** — ยืนยันแล้วว่า `conversations`/`conversation_participants`/`messages` (WYN-031) ไม่ถูกแตะแม้แต่บรรทัดเดียว, RLS ผูก `club_role()` ตาม channel ถูกต้อง, ban-mid-chat บล็อก read+write จริงที่ระดับ DB (ไม่ใช่แค่ UI redirect) ทั้งหมดยืนยันด้วย live PostgreSQL RLS test — แต่พบช่องโหว่ moderation gap จริง (ไม่มีทาง report ข้อความแชทได้เลย) + ขาด staged-rollout gate ร่วมกับ WYN-127/129 → บล็อก deploy
-Owner: AI Product Manager → AI Design (เสร็จ) → Founder อนุมัติสถาปัตยกรรม (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (ถัดไป)
+Status: **Debug: เสร็จ (2026-09-07)** — แก้ทั้ง 2 เรื่องที่ QA บล็อกไว้: (1) เพิ่มช่องทาง "รายงานข้อความ" ครบทั้ง UI + schema (`reports.target_type` รองรับ `club_channel_message`) + `submit_report()`/`apply_moderation_action()` (2) เพิ่ม developer-account staged-rollout gate ร่วมกับ WYN-127/129 — ยืนยันด้วย live PostgreSQL 16.13 (`supabase/tests/wyn_128_group_chat_report_test.sh`, 9/9 ผ่าน) และ `flutter analyze`/`flutter test` (1377/1377) — รายละเอียด: `.wyn/tasks/bugs/WYN-128-group-chat-missing-report-action.md`, `.wyn/tasks/bugs/WYN-127-128-129-missing-staged-rollout-gate.md` — ส่งกลับ AI QA & Security ตรวจซ้ำ
+Owner: AI Product Manager → AI Design (เสร็จ) → Founder อนุมัติสถาปัตยกรรม (เสร็จ) → AI Coding (เสร็จ) → AI QA & Security (เสร็จ, FAIL) → AI Debug Engineer (เสร็จ) → AI QA & Security (ถัดไป)
 
 Feature: Club Group Chat — ห้องแชทสด (real-time) **ต่อห้อง (channel)** แยกจากฟีดโพสต์ของห้องนั้น
 

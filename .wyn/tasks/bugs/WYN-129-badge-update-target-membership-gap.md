@@ -1,7 +1,35 @@
 # Bug Report — WYN-129
 
-Status: bugs
-Owner: AI Debug Engineer
+Status: **fixed (2026-09-07)** — RLS closed, verified live, ready for AI QA & Security re-verification
+Owner: AI Debug Engineer (เสร็จ) → AI QA & Security (ถัดไป)
+
+## Fix (2026-09-07, AI Debug Engineer)
+
+Applied exactly the recommended fix — added the missing `with check` to the `update` policy, mirroring the `insert` policy's target-membership gate word-for-word:
+
+```sql
+create policy "Club owners and admins can edit member badges"
+  on public.club_member_badges
+  for update
+  to authenticated
+  using (public.club_role(club_id, auth.uid()) in ('owner', 'admin'))
+  with check (
+    public.club_role(club_id, auth.uid()) in ('owner', 'admin')
+    and public.club_role(club_id, user_id) is not null
+  );
+```
+
+Applied identically to both `supabase/schema.sql` and `supabase/migrations_wyn129_club_member_badges.sql` (both still in sync).
+
+Created `supabase/tests/wyn_129_club_role_badges_test.sh` (this feature had no committed RLS regression test at all before this fix, as this report itself noted) — 17 checks covering insert/update/delete permission boundaries, the insert target-membership gate (non-member/pending/banned all rejected), `color_key` palette restriction, 1-badge-per-member-per-Club, and **this bug's exact repro** (CHECK7-9: an Owner/Admin's `UPDATE ... SET user_id = <non-member/pending/banned>` now affects 0 rows instead of 1) plus CHECK11 proving the one legitimate call site (`ClubBadgeRepository.setBadge`'s label/color-only upsert) still succeeds.
+
+**Verified live, not just read**: ran `supabase/tests/wyn_129_club_role_badges_test.sh` against local PostgreSQL 16.13 (`set role authenticated` + JWT claim GUCs, same harness this repo's other RLS tests use) — all 17/17 checks pass with the fix applied. Then `git stash`'d the fix (test script itself is untracked, so it survived the stash) and re-ran against the pre-fix policy: **CHECK7 (`update_cannot_retarget_to_non_member`) failed exactly as this report predicted — the retarget succeeded (1 row updated, expected 0)** — confirming the test is a real, meaningful proof of the hole and its closure, not a false positive. `python3 supabase/check_schema_ordering.py` → OK.
+
+Handoff to QA: re-run `supabase/tests/wyn_129_club_role_badges_test.sh` plus a full walk of WYN-129's Requirements/Acceptance Criteria, per this project's regression-test-memory convention.
+
+---
+
+## Original report
 
 Bug: `public.club_member_badges`'s `update` RLS policy re-validates only that the caller is still Owner/Admin of `club_id` — it never re-validates that the row's (possibly changed) `user_id` is still an approved member of that Club, unlike the `insert` policy which explicitly requires `public.club_role(club_id, user_id) is not null`. An Owner/Admin can therefore `UPDATE` an existing badge row's `user_id` to point at any other user id at all (a pending member, a banned member, or someone with zero relationship to the Club whatsoever), completely bypassing the "target must be an approved member" invariant the feature's own Coding Notes describe as an insert-time guarantee.
 

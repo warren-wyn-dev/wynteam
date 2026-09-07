@@ -205,6 +205,33 @@ void main() {
     });
   });
 
+  group('Reporting messages (WYN-128 fast-follow -- '
+      '.wyn/tasks/bugs/WYN-128-group-chat-missing-report-action.md)', () {
+    testWidgets('shows "รายงานข้อความ" on someone else\'s message', (tester) async {
+      repo.messagesByChannel = {
+        'channel-1': [message(id: 'm1', authorId: 'namfah-id')],
+      };
+      await pumpView(tester);
+
+      await tester.longPress(find.text('สวัสดี'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('รายงานข้อความ'), findsOneWidget);
+    });
+
+    testWidgets('never shows "รายงานข้อความ" on your own message', (tester) async {
+      repo.messagesByChannel = {
+        'channel-1': [message(id: 'm1', authorId: 'viewer', authorUsername: 'viewer')],
+      };
+      await pumpView(tester);
+
+      await tester.longPress(find.text('สวัสดี'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('รายงานข้อความ'), findsNothing);
+    });
+  });
+
   group('Ban/removal while viewing (Design States)', () {
     testWidgets('calls onBanned when this user\'s own membership is removed/banned',
         (tester) async {
