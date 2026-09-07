@@ -24,6 +24,7 @@ import 'support/recording_drop_repository.dart';
 import 'support/recording_follow_repository.dart';
 import 'support/recording_notification_repository.dart';
 import 'support/recording_pop_repository.dart';
+import 'support/recording_presence_repository.dart';
 import 'support/recording_profile_repository.dart';
 import 'support/recording_saved_repository.dart';
 import 'support/recording_appeal_repository.dart';
@@ -518,6 +519,10 @@ void main() {
           clubPostRepository: clubPostRepository ?? clubPostRepo,
           appealRepository: appealRepo,
           chatRepository: chatRepo,
+          // WYN-139: ConversationScreen now unconditionally starts
+          // presence subscriptions -- see chat_inbox_screen_test.dart's
+          // identical comment.
+          presenceRepository: RecordingPresenceRepository(),
         ),
       );
 

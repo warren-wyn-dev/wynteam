@@ -12,7 +12,6 @@ import 'support/recording_club_channel_chat_repository.dart';
 import 'support/recording_club_event_repository.dart';
 import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
-import 'support/recording_developer_access_service.dart';
 
 /// Regression tests for ClubPage's 3-state Join button, role-gated More
 /// menu, and its 3-tab structure (โพสต์/แชท/เกี่ยวกับ) per the Founder's
@@ -65,15 +64,6 @@ void main() {
   // Same reasoning as withCoverRepo above -- built in setUp(), not inline
   // inside a WYN-116 testWidgets body.
   late RecordingClubRepository mutedMemberRepo;
-  // ClubPage's own `_load()` now calls `.isDeveloperAccount()` directly
-  // (to decide `showChat`), on top of ClubPostsTab/ClubAboutTab's
-  // "สมาชิก" segment doing the same for their own badge gating -- always
-  // inject the Recording double, or all 3 would attempt a genuine RPC
-  // call against this suite's fake Supabase project. Defaults to `true`
-  // so every pre-existing test below still sees exactly what it did
-  // before "แชท" became a top-level tab; the dedicated "Chat tab
-  // (staged rollout)" group below overrides it per-test.
-  late RecordingDeveloperAccessService developerAccessService;
 
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'viewer');
@@ -113,14 +103,12 @@ void main() {
       myMembership: membership(role: ClubMemberRole.member, status: ClubMemberStatus.approved),
       isMutedResult: true,
     );
-    developerAccessService = RecordingDeveloperAccessService(isDeveloperResult: true);
   });
 
   Future<void> pumpPage(
     WidgetTester tester,
     RecordingClubRepository repo, {
     RecordingClubEventRepository? clubEventRepository,
-    RecordingDeveloperAccessService? developerAccessServiceOverride,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -130,7 +118,6 @@ void main() {
           clubId: club.id,
           clubEventRepository: clubEventRepository,
           clubChannelChatRepository: clubChannelChatRepo,
-          developerAccessService: developerAccessServiceOverride ?? developerAccessService,
         ),
       ),
     );
@@ -199,26 +186,10 @@ void main() {
     expect(find.text('เปลี่ยนความเป็นส่วนตัว'), findsOneWidget);
     expect(find.text('จัดการสิทธิ์สมาชิก'), findsOneWidget);
     expect(find.text('ออกจาก Club'), findsNothing);
-    // WYN-136 -- developerAccessService defaults to isDeveloperResult:
-    // true across this whole file (see setUp), so the gated row is
-    // visible here.
     expect(find.text('ลิงก์เชิญ'), findsOneWidget);
   });
 
-  group('WYN-136: "ลิงก์เชิญ" More menu row (Staged Rollout gated)', () {
-    testWidgets('non-developer account: the Owner never sees the row at all',
-        (tester) async {
-      developerAccessService = RecordingDeveloperAccessService(isDeveloperResult: false);
-      await pumpPage(tester, ownerRepo);
-
-      await tester.tap(find.byIcon(Icons.more_vert));
-      await tester.pumpAndSettle();
-
-      expect(find.text('ลิงก์เชิญ'), findsNothing);
-      // The rest of the Owner's menu is otherwise unchanged.
-      expect(find.text('แก้ไขข้อมูล Club'), findsOneWidget);
-    });
-
+  group('WYN-136: "ลิงก์เชิญ" More menu row', () {
     testWidgets('tapping it opens ClubInviteLinksScreen', (tester) async {
       await pumpPage(tester, ownerRepo);
 
@@ -265,30 +236,14 @@ void main() {
     expect(find.text('แก้ไขข้อมูล Club'), findsNothing);
   });
 
-  group('Chat tab (staged rollout)', () {
-    testWidgets('a developer account sees a top-level "แชท" tab', (tester) async {
-      await pumpPage(
-        tester,
-        approvedMemberRepo,
-        developerAccessServiceOverride: RecordingDeveloperAccessService(isDeveloperResult: true),
-      );
-
-      expect(find.text('แชท'), findsOneWidget);
-    });
-
-    testWidgets(
-        'a non-developer account never sees "แชท" -- just "โพสต์"/"เกี่ยวกับ", '
-        'exactly the pre-restructuring 2-tab shape it would fall back to',
+  group('Chat tab', () {
+    testWidgets('every account sees a top-level "แชท" tab alongside "โพสต์"/"เกี่ยวกับ"',
         (tester) async {
-      await pumpPage(
-        tester,
-        approvedMemberRepo,
-        developerAccessServiceOverride: RecordingDeveloperAccessService(isDeveloperResult: false),
-      );
+      await pumpPage(tester, approvedMemberRepo);
 
       expect(find.text('โพสต์'), findsOneWidget);
+      expect(find.text('แชท'), findsOneWidget);
       expect(find.text('เกี่ยวกับ'), findsOneWidget);
-      expect(find.text('แชท'), findsNothing);
     });
   });
 
@@ -456,7 +411,6 @@ void main() {
             clubPostRepository: clubPostRepo,
             clubId: 'club-cover',
             clubChannelChatRepository: clubChannelChatRepo,
-            developerAccessService: developerAccessService,
           ),
         ),
       );
@@ -480,7 +434,6 @@ void main() {
             clubPostRepository: clubPostRepo,
             clubId: 'club-1',
             clubChannelChatRepository: clubChannelChatRepo,
-            developerAccessService: developerAccessService,
           ),
         ),
       );
@@ -507,7 +460,6 @@ void main() {
             clubPostRepository: clubPostRepo,
             clubId: 'club-cover',
             clubChannelChatRepository: clubChannelChatRepo,
-            developerAccessService: developerAccessService,
           ),
         ),
       );

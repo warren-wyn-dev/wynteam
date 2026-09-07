@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../core/developer_access/developer_access_service.dart';
 import '../../auth/presentation/widgets/guest_gate.dart';
 import '../data/club.dart';
 import '../data/club_badge_repository.dart';
@@ -40,7 +39,7 @@ import 'widgets/club_avatar.dart';
 /// requirement is not met yet; see that task's Known Follow-up.
 String clubShareLink(String clubId) => 'https://wynos.online/club/$clubId';
 
-typedef _ClubPageData = ({Club club, ClubMember? membership, bool isMuted, bool isDeveloper});
+typedef _ClubPageData = ({Club club, ClubMember? membership, bool isMuted});
 
 /// Screen 3-4 — Club Page (header + โพสต์/แชท/เกี่ยวกับ tabs, restructured
 /// from the original Posts/Members/About/Events/Insights per the
@@ -56,11 +55,9 @@ class ClubPage extends StatefulWidget {
     ClubEventRepository? clubEventRepository,
     ClubBadgeRepository? clubBadgeRepository,
     ClubChannelChatRepository? clubChannelChatRepository,
-    DeveloperAccessService? developerAccessService,
   })  : _clubEventRepository = clubEventRepository,
         _clubBadgeRepository = clubBadgeRepository,
-        _clubChannelChatRepository = clubChannelChatRepository,
-        _developerAccessService = developerAccessService;
+        _clubChannelChatRepository = clubChannelChatRepository;
 
   final ClubRepository clubRepository;
   final ClubPostRepository clubPostRepository;
@@ -81,16 +78,6 @@ class ClubPage extends StatefulWidget {
   final ClubBadgeRepository? _clubBadgeRepository;
   final ClubChannelChatRepository? _clubChannelChatRepository;
 
-  /// Staged-rollout gate (`.wyn/company/WORKFLOW.md`'s "Staged Rollout
-  /// เป็นค่าเริ่มต้นสำหรับฟีเจอร์ใหม่ทุกตัว") -- threaded down to
-  /// ClubPostsTab (badge pill) and ClubAboutTab's "สมาชิก" segment
-  /// (badge pill/management), so both agree on the same result from one
-  /// shared instance rather than each constructing (and separately
-  /// RPC-calling) its own. Also decides this page's own `showChat` --
-  /// see [build]. See
-  /// .wyn/tasks/bugs/WYN-127-128-129-missing-staged-rollout-gate.md.
-  final DeveloperAccessService? _developerAccessService;
-
   /// Whether this page opens straight to the "เกี่ยวกับ" tab's "สมาชิก"
   /// segment -- WYN-015's club_join_request notification sets this so
   /// the pending request is immediately visible, instead of defaulting
@@ -108,11 +95,10 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   // is unreachable from this State's own context (it sits *above* the
   // DefaultTabController this build() would otherwise create, not below).
   //
-  // Nullable/lazily-(re)created, not `late final` -- whether the "แชท"
-  // tab exists depends on an async developer-account check, which isn't
-  // known until `_loadFuture` resolves inside `build()`'s
-  // `FutureBuilder`, so the correct `length` can't be picked at
-  // `initState()` time the way a fixed `length` could.
+  // Nullable/lazily-(re)created, not `late final` -- `vsync` needs this
+  // State, which isn't ready until `initState()`/`build()` runs, and the
+  // tab count depends on `_loadFuture` resolving inside `build()`'s
+  // `FutureBuilder` first.
   // [_tabControllerFor] recreates the controller only when the tab
   // count actually changes (carrying the current index over), so a
   // `_reload()` triggered by an unrelated child (e.g. leaving/pinning a
@@ -136,12 +122,9 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   late Future<_ClubPageData> _loadFuture;
   bool _isJoinActionInFlight = false;
 
-  /// The "เกี่ยวกับ" tab's current index -- always last, but *which*
-  /// index that is depends on whether "แชท" exists (`showChat`). Kept up
-  /// to date at the top of every `build()` so the More menu's
-  /// `animateTo` (outside `build()`'s own scope) can jump there without
-  /// hardcoding a number that shifts depending on developer-account
-  /// status.
+  /// The "เกี่ยวกับ" tab's index -- always last (โพสต์/แชท/เกี่ยวกับ).
+  /// Set at the top of every `build()` so the More menu's `animateTo`
+  /// (outside `build()`'s own scope) can jump there.
   int _aboutTabIndex = 1;
 
   /// Which segment `ClubAboutTab` opens to. Set once from
@@ -167,13 +150,6 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
       widget._clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
   late final ClubChannelChatRepository _clubChannelChatRepository =
       widget._clubChannelChatRepository ?? ClubChannelChatRepository(Supabase.instance.client);
-  late final DeveloperAccessService _developerAccessService =
-      widget._developerAccessService ?? DeveloperAccessService();
-
-  // WYN-136/WYN-125: Staged Rollout gate for the "ลิงก์เชิญ" More-menu
-  // row -- same "resolve once, await it wherever gating is needed"
-  // shape as ClubPostsTab's own _isDeveloperFuture.
-  late final Future<bool> _isDeveloperFuture = _developerAccessService.isDeveloperAccount();
 
   @override
   void initState() {
@@ -188,10 +164,6 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   }
 
   Future<_ClubPageData> _load() async {
-    // Started first, awaited last -- fully independent of the club/
-    // membership fetches below, so it overlaps with them instead of
-    // adding its own round-trip on top.
-    final isDeveloperFuture = _developerAccessService.isDeveloperAccount();
     final club = await widget.clubRepository.fetchClub(widget.clubId);
     if (club == null) throw StateError('Club not found');
     final membership = await widget.clubRepository.fetchMyMembership(widget.clubId);
@@ -202,8 +174,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     final isMuted = membership?.status == ClubMemberStatus.approved
         ? await widget.clubRepository.isClubMuted(widget.clubId)
         : false;
-    final isDeveloper = await isDeveloperFuture;
-    return (club: club, membership: membership, isMuted: isMuted, isDeveloper: isDeveloper);
+    return (club: club, membership: membership, isMuted: isMuted);
   }
 
   // Block body, not `() => _loadFuture = _load()` -- see
@@ -393,10 +364,6 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     final role = membership?.status == ClubMemberStatus.approved ? membership!.role : null;
     final isApproved = membership?.status == ClubMemberStatus.approved;
     final isPending = membership?.status == ClubMemberStatus.pending;
-    // WYN-136/WYN-125 (Staged Rollout): a non-developer account's More
-    // menu is byte-for-byte the pre-WYN-136 sheet.
-    final isDeveloper = await _isDeveloperFuture;
-    if (!mounted) return;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -447,22 +414,21 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               _tabController!.animateTo(_aboutTabIndex);
             },
           ),
-          if (isDeveloper)
-            ActionSheetRow(
-              icon: Icons.link,
-              label: 'ลิงก์เชิญ',
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ClubInviteLinksScreen(
-                      club: club,
-                      clubRepository: widget.clubRepository,
-                    ),
+          ActionSheetRow(
+            icon: Icons.link,
+            label: 'ลิงก์เชิญ',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ClubInviteLinksScreen(
+                    club: club,
+                    clubRepository: widget.clubRepository,
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
+          ),
         ] else if (isApproved) ...[
           ActionSheetRow(
             icon: Icons.logout,
@@ -551,16 +517,13 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                 ? data.membership!.role
                 : null;
             // Founder's tab-restructuring decision (2026-09-07): "แชท" is
-            // its own top-level tab now (used to be nested inside "โพสต์"
-            // behind a toggle), still staged-rollout gated -- a regular
-            // account's Club is just "โพสต์"/"เกี่ยวกับ" (2 tabs), same
-            // posture as WYN-127/128's original gate, just moved up a
-            // level. Events/Insights visibility moved *into*
+            // its own top-level tab (used to be nested inside "โพสต์"
+            // behind a toggle) -- 3 tabs (โพสต์/แชท/เกี่ยวกับ) for every
+            // account. Events/Insights visibility moved *into*
             // `ClubAboutTab` itself (it takes `myRole` and computes its
             // own segment visibility) -- this page no longer needs to
             // know about either.
-            final showChat = data.isDeveloper;
-            _aboutTabIndex = showChat ? 2 : 1;
+            _aboutTabIndex = 2;
             final tabController = _tabControllerFor(
               _aboutTabIndex + 1,
               fallbackInitialIndex: widget.openToMembers ? _aboutTabIndex : 0,
@@ -575,11 +538,10 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               unselectedLabelColor: WynColors.mutedNeutral,
               labelStyle: _textStyle(fontSize: 13, fontWeight: FontWeight.w600),
               unselectedLabelStyle: _textStyle(fontSize: 13, fontWeight: FontWeight.w400),
-              tabs: [
-                const Tab(icon: Icon(Icons.article_outlined, size: 16), text: 'โพสต์'),
-                if (showChat)
-                  const Tab(icon: Icon(Icons.forum_outlined, size: 16), text: 'แชท'),
-                const Tab(icon: Icon(Icons.info_outline, size: 16), text: 'เกี่ยวกับ'),
+              tabs: const [
+                Tab(icon: Icon(Icons.article_outlined, size: 16), text: 'โพสต์'),
+                Tab(icon: Icon(Icons.forum_outlined, size: 16), text: 'แชท'),
+                Tab(icon: Icon(Icons.info_outline, size: 16), text: 'เกี่ยวกับ'),
               ],
             );
 
@@ -588,25 +550,22 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                 clubPostRepository: widget.clubPostRepository,
                 clubRepository: widget.clubRepository,
                 clubBadgeRepository: _clubBadgeRepository,
-                developerAccessService: _developerAccessService,
                 club: data.club,
                 myRole: myRole,
                 onJoinTapped: () => _toggleJoin(data.club, data.membership),
               ),
-              if (showChat)
-                ClubChatTab(
-                  clubRepository: widget.clubRepository,
-                  clubChannelChatRepository: _clubChannelChatRepository,
-                  club: data.club,
-                  myRole: myRole,
-                  onBanned: _reload,
-                ),
+              ClubChatTab(
+                clubRepository: widget.clubRepository,
+                clubChannelChatRepository: _clubChannelChatRepository,
+                club: data.club,
+                myRole: myRole,
+                onBanned: _reload,
+              ),
               ClubAboutTab(
                 key: ValueKey('club_about_tab_$_aboutTabGeneration'),
                 clubRepository: widget.clubRepository,
                 clubEventRepository: _clubEventRepository,
                 clubBadgeRepository: _clubBadgeRepository,
-                developerAccessService: _developerAccessService,
                 club: data.club,
                 myRole: myRole,
                 onChanged: _reload,
@@ -615,22 +574,16 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               ),
             ];
 
-            // Founder request (2026-09-07): the banner/header should
-            // scroll away like ViewProfileScreen's own header (WYN-110)
-            // instead of staying fixed above the TabBar forever. Staged-
-            // rollout gated (developer accounts only, per
-            // `.wyn/company/WORKFLOW.md`'s default policy for new
-            // user-facing behavior) -- this is genuinely new UX, not a
-            // fix restoring broken behavior, so a regular account keeps
-            // the exact original fixed-header Column layout below,
-            // untouched.
+            // Founder request (2026-09-07): the banner/header scrolls away
+            // like ViewProfileScreen's own header (WYN-110) instead of
+            // staying fixed above the TabBar forever.
             //
             // "แชท" is the one tab that does NOT collapse the header on
-            // this layout, even for a developer account: ClubChatTab's
-            // own scrollable (club_channel_chat_view.dart) needs its own
-            // dedicated, `reverse: true` ScrollController for scroll-up-
-            // to-load-older-messages pagination, which is exactly what
-            // stops a scrollable from being "primary" and therefore from
+            // this layout: ClubChatTab's own scrollable
+            // (club_channel_chat_view.dart) needs its own dedicated,
+            // `reverse: true` ScrollController for scroll-up-to-load-
+            // older-messages pagination, which is exactly what stops a
+            // scrollable from being "primary" and therefore from
             // participating in this NestedScrollView's shared scroll
             // position -- the header simply stays wherever it was left
             // while viewing Chat (same class of conflict "โพสต์" had
@@ -638,57 +591,31 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
             // see ClubPostsTab's own comment; Chat's pagination shape
             // can't take that same fix without changing how it loads
             // older messages, which is out of scope here).
-            if (data.isDeveloper) {
-              return NestedScrollView(
-                headerSliverBuilder: (context, innerBoxIsScrolled) => [
-                  SliverToBoxAdapter(
-                    child: Stack(
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildBanner(data.club),
-                            _buildHeader(data.club, data.membership, data.isMuted),
-                          ],
-                        ),
-                        _buildBackButton(),
-                      ],
-                    ),
+            return NestedScrollView(
+              headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                SliverToBoxAdapter(
+                  child: Stack(
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildBanner(data.club),
+                          _buildHeader(data.club, data.membership, data.isMuted),
+                        ],
+                      ),
+                      _buildBackButton(),
+                    ],
                   ),
-                  SliverPersistentHeader(
-                    pinned: true,
-                    delegate: _ClubTabBarDelegate(tabBar: tabBar),
-                  ),
-                ],
-                body: TabBarView(
-                  controller: tabController,
-                  children: tabBarViewChildren,
                 ),
-              );
-            }
-
-            return Column(
-              children: [
-                Stack(
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildBanner(data.club),
-                        _buildHeader(data.club, data.membership, data.isMuted),
-                      ],
-                    ),
-                    _buildBackButton(),
-                  ],
-                ),
-                tabBar,
-                Expanded(
-                  child: TabBarView(
-                    controller: tabController,
-                    children: tabBarViewChildren,
-                  ),
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _ClubTabBarDelegate(tabBar: tabBar),
                 ),
               ],
+              body: TabBarView(
+                controller: tabController,
+                children: tabBarViewChildren,
+              ),
             );
           },
         ),

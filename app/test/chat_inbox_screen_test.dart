@@ -9,6 +9,7 @@ import 'package:wyn/features/chat/presentation/new_message_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 import 'support/recording_chat_repository.dart';
+import 'support/recording_presence_repository.dart';
 
 void main() {
   setUpAll(() async {
@@ -45,7 +46,14 @@ void main() {
       });
 
   Widget buildScreen() => MaterialApp(
-        home: ChatInboxScreen(chatRepository: chatRepo),
+        home: ChatInboxScreen(
+          chatRepository: chatRepo,
+          // WYN-139: ConversationScreen now unconditionally starts
+          // presence subscriptions -- a real PresenceRepository would
+          // attempt a genuine WebSocket handshake against this suite's
+          // placeholder Supabase project and leak a pending Timer.
+          presenceRepository: RecordingPresenceRepository(),
+        ),
       );
 
   testWidgets('empty state shows the no-conversations message, not a crash', (tester) async {

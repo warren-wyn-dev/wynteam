@@ -24,7 +24,6 @@ import '../../search/presentation/search_screen.dart';
 import '../../push/data/push_token_repository.dart';
 import '../../push/presentation/push_notification_service.dart';
 import '../../../core/design/wyn_spacing.dart';
-import '../../../core/developer_access/developer_access_service.dart';
 import '../../../core/navigation/deep_link_service.dart';
 
 /// The Bottom Navigation shell -- 5 destinations per the WYNOS V1.0.0
@@ -58,7 +57,6 @@ class RootShell extends StatefulWidget {
     AppealRepository? appealRepository,
     ChatRepository? chatRepository,
     PresenceRepository? presenceRepository,
-    DeveloperAccessService? developerAccessService,
     this.startOnProfileTab = false,
   })  : _dropRepository = dropRepository,
         _popRepository = popRepository,
@@ -71,8 +69,7 @@ class RootShell extends StatefulWidget {
         _homeRepository = homeRepository,
         _appealRepository = appealRepository,
         _chatRepository = chatRepository,
-        _presenceRepository = presenceRepository,
-        _developerAccessService = developerAccessService;
+        _presenceRepository = presenceRepository;
 
   // All optional -- default to real Supabase-backed instances built in
   // _RootShellState.initState (see .wyn/learning/PATTERNS.md's "optional
@@ -91,10 +88,9 @@ class RootShell extends StatefulWidget {
   final AppealRepository? _appealRepository;
   final ChatRepository? _chatRepository;
 
-  // WYN-139/WYN-125: Staged Rollout gate for DM Presence -- see
-  // _RootShellState's own doc comments on where these are used.
+  // WYN-139: DM Presence -- see _RootShellState's own doc comments on
+  // where this is used.
   final PresenceRepository? _presenceRepository;
-  final DeveloperAccessService? _developerAccessService;
 
   /// True only when this RootShell is being mounted right after the
   /// Account Switcher switched to this account -- see AuthGate's own
@@ -194,14 +190,11 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   late final AppealRepository _appealRepository;
   late final ChatRepository _chatRepository;
   late final PresenceRepository _presenceRepository;
-  late final DeveloperAccessService _developerAccessService;
 
-  /// WYN-139/WYN-125: true only once the global "who's online" Presence
-  /// channel has actually been started -- see [initState]'s own
-  /// `.then()`. Guards [didChangeAppLifecycleState]/[dispose] so a
-  /// non-developer account (for which this never starts at all, per the
-  /// Staged Rollout gate) never calls track/untrack/stop against a
-  /// channel that was never opened.
+  /// WYN-139: true only once the global "who's online" Presence channel
+  /// has actually been started -- see [initState]. Guards
+  /// [didChangeAppLifecycleState]/[dispose] so those never call
+  /// track/untrack/stop against a channel that was never opened.
   bool _presenceStarted = false;
 
   @override
@@ -222,7 +215,6 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
     _appealRepository = widget._appealRepository ?? AppealRepository(client);
     _chatRepository = widget._chatRepository ?? ChatRepository(client);
     _presenceRepository = widget._presenceRepository ?? PresenceRepository(client);
-    _developerAccessService = widget._developerAccessService ?? DeveloperAccessService();
 
     // WYN-016 (Push Notification): register this device's token and
     // start listening, once, the first time RootShell renders for this
@@ -264,17 +256,10 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
 
     _loadUnreadNotificationCount();
 
-    // WYN-139/WYN-125: Staged Rollout gate -- the global "who's online"
-    // Presence channel is never even opened for a non-developer account
-    // (design doc: "ไม่ track/subscribe presence channel เลย...ไม่ใช่แค่
-    // ซ่อน UI", to actually save the resource, not just hide it).
-    // Fire-and-forget `.then()`, same shape as the push-notification/
-    // analytics calls above -- this genuinely runs once per sign-in.
-    _developerAccessService.isDeveloperAccount().then((isDeveloper) {
-      if (!mounted || !isDeveloper) return;
-      _presenceRepository.startGlobalPresence();
-      _presenceStarted = true;
-    });
+    // WYN-139: opens the global "who's online" Presence channel for
+    // every signed-in user.
+    _presenceRepository.startGlobalPresence();
+    _presenceStarted = true;
 
     // WYN-119 (Tier 2, partial): opens the screen a shared web link (dropShareLink/
     // popShareLink/clubShareLink/clubPostShareLink/profileShareLink)

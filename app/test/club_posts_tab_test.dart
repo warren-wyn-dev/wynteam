@@ -12,7 +12,6 @@ import 'support/fake_supabase_session.dart';
 import 'support/recording_club_badge_repository.dart';
 import 'support/recording_club_post_repository.dart';
 import 'support/recording_club_repository.dart';
-import 'support/recording_developer_access_service.dart';
 
 /// Regression tests for WYN-014's post-visibility gating -- the Product
 /// spec is explicit that Club posts are visible *only* to approved
@@ -91,7 +90,6 @@ void main() {
   late RecordingClubRepository twoChannelsRepo;
   late RecordingClubBadgeRepository someoneElseVipBadgeRepo;
   late RecordingClubBadgeRepository emptyBadgeRepo;
-  late RecordingDeveloperAccessService defaultDeveloperAccessService;
 
   ClubChannel channel({required String id, required String name}) => ClubChannel(
         id: id,
@@ -142,7 +140,6 @@ void main() {
       ),
     });
     emptyBadgeRepo = RecordingClubBadgeRepository();
-    defaultDeveloperAccessService = RecordingDeveloperAccessService(isDeveloperResult: true);
   });
 
   Future<void> pumpTab(
@@ -152,7 +149,6 @@ void main() {
     VoidCallback? onJoinTapped,
     RecordingClubRepository? clubRepository,
     RecordingClubBadgeRepository? clubBadgeRepository,
-    RecordingDeveloperAccessService? developerAccessService,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -160,7 +156,6 @@ void main() {
           clubPostRepository: repo,
           clubRepository: clubRepository ?? defaultClubRepo,
           clubBadgeRepository: clubBadgeRepository,
-          developerAccessService: developerAccessService ?? defaultDeveloperAccessService,
           club: club,
           myRole: myRole,
           onJoinTapped: onJoinTapped ?? () {},
@@ -361,37 +356,6 @@ void main() {
       );
 
       expect(find.text('VIP'), findsNothing);
-    });
-  });
-
-  group('Staged rollout gate (WYN-127-128-129-missing-staged-rollout-gate.md)', () {
-    testWidgets(
-        'a non-developer account sees no badge pill, but the feed itself is '
-        'unaffected', (tester) async {
-      await pumpTab(
-        tester,
-        postsRepo,
-        myRole: ClubMemberRole.member,
-        clubBadgeRepository: someoneElseVipBadgeRepo,
-        developerAccessService: RecordingDeveloperAccessService(isDeveloperResult: false),
-      );
-
-      expect(find.text('VIP'), findsNothing);
-      expect(find.text('สวัสดีชาว Club'), findsOneWidget);
-      expect(find.byType(FloatingActionButton), findsOneWidget);
-    });
-
-    testWidgets('a developer account sees the badge pill (regression -- proves '
-        'the gate is not just "always hidden")', (tester) async {
-      await pumpTab(
-        tester,
-        postsRepo,
-        myRole: ClubMemberRole.member,
-        clubBadgeRepository: someoneElseVipBadgeRepo,
-        developerAccessService: RecordingDeveloperAccessService(isDeveloperResult: true),
-      );
-
-      expect(find.text('VIP'), findsOneWidget);
     });
   });
 

@@ -7,7 +7,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
-import '../../../core/developer_access/developer_access_service.dart';
 import '../../../core/text_utils.dart';
 import '../../../core/widgets/action_sheet_row.dart';
 import '../../../core/widgets/confirm_delete_dialog.dart';
@@ -104,7 +103,6 @@ class ConversationScreen extends StatefulWidget {
     AppealRepository? appealRepository,
     ClubRepository? clubRepository,
     ClubPostRepository? clubPostRepository,
-    DeveloperAccessService? developerAccessService,
     PresenceRepository? presenceRepository,
   })  : _blockRepository = blockRepository,
         _moderationRepository = moderationRepository,
@@ -117,7 +115,6 @@ class ConversationScreen extends StatefulWidget {
         _appealRepository = appealRepository,
         _clubRepository = clubRepository,
         _clubPostRepository = clubPostRepository,
-        _developerAccessService = developerAccessService,
         _presenceRepository = presenceRepository;
 
   final ChatRepository chatRepository;
@@ -147,12 +144,8 @@ class ConversationScreen extends StatefulWidget {
   final ClubRepository? _clubRepository;
   final ClubPostRepository? _clubPostRepository;
 
-  // WYN-138/WYN-125: Staged Rollout gate for Edit/Pin Message -- see
-  // _ConversationScreenState's own doc comments on _isDeveloperFuture.
-  final DeveloperAccessService? _developerAccessService;
-
-  // WYN-139/WYN-125: Staged Rollout gate for DM Presence (typing +
-  // online/last seen) -- shares the same _isDeveloperFuture above.
+  // WYN-139: presence repository for DM Presence (typing + online/last
+  // seen), opened to all users (Founder, 2026-09-07).
   final PresenceRepository? _presenceRepository;
 
   @override
@@ -187,20 +180,8 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       widget._clubRepository ?? ClubRepository(Supabase.instance.client);
   late final ClubPostRepository _clubPostRepository =
       widget._clubPostRepository ?? ClubPostRepository(Supabase.instance.client);
-  late final DeveloperAccessService _developerAccessService =
-      widget._developerAccessService ?? DeveloperAccessService();
   late final PresenceRepository _presenceRepository =
       widget._presenceRepository ?? PresenceRepository(Supabase.instance.client);
-
-  /// WYN-138/WYN-125: Staged Rollout gate -- Edit/Pin Message's own 2
-  /// new menu rows and the pinned bar are never even fetched/built
-  /// unless this resolves `true`, mirroring ClubPostsTab's identical
-  /// "resolve once, `.then()`/`await` it wherever gating is needed"
-  /// shape (see that class's own doc comment). A non-developer account
-  /// therefore never issues the `message_pins` fetch/subscribe calls at
-  /// all -- not just hides the UI -- so "ไม่เห็น pinned bar เลย แม้จะมี
-  /// ข้อมูล pinned จริงในฐานข้อมูลก็ตาม" holds trivially.
-  late final Future<bool> _isDeveloperFuture = _developerAccessService.isDeveloperAccount();
 
   // WYN-033: caches a resolved shared Drop/Profile/Club by
   // "$type:$id" so scrolling (which rebuilds bubbles) doesn't re-fetch
@@ -259,24 +240,20 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   String? _imageExtension;
 
   /// WYN-138: non-null while the composer is in edit mode for this
-  /// message -- set only from the (Staged-Rollout-gated) "แก้ไข" menu
-  /// row, so a non-developer account's composer can never enter this
-  /// state at all. Mutually exclusive with [_replyTo] (see
-  /// `_startEditingMessage`/the reply row's own `onTap`).
+  /// message -- set only from the "แก้ไข" menu row. Mutually exclusive
+  /// with [_replyTo] (see `_startEditingMessage`/the reply row's own
+  /// `onTap`).
   ChatMessage? _editingMessage;
   bool _isSavingEdit = false;
 
   bool get _isEditingMessage => _editingMessage != null;
 
-  /// WYN-138: every currently-pinned message in this conversation, only
-  /// ever populated for a developer account (see [_isDeveloperFuture]'s
-  /// own doc comment) -- stays permanently empty for anyone else, which
-  /// is what keeps the pinned bar from ever rendering for them.
+  /// WYN-138: every currently-pinned message in this conversation.
   List<PinnedMessage> _pinnedMessages = [];
   RealtimeChannel? _pinsChannel;
 
-  // WYN-139/WYN-125 -- DM Presence (Typing + Online/Last Seen), only
-  // ever wired up for a developer account (see [_initPresenceIfDeveloper]).
+  // WYN-139 -- DM Presence (Typing + Online/Last Seen), wired up for
+  // every user (see [_initPresence]).
 
   /// True while the other participant's own typing channel presence
   /// shows `typing: true` -- highest-priority line in the AppBar
@@ -432,52 +409,33 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       widget.conversationId,
       _onConversationMetaUpdate,
     );
-    _initPinsIfDeveloper();
-    _initPresenceIfDeveloper();
+    _initPins();
+    _initPresence();
   }
 
-  /// WYN-138/WYN-125: Staged Rollout gate -- see [_isDeveloperFuture]'s
-  /// own doc comment. Deliberately its own `.then()`, not awaited inline
-  /// in [_initLockCheckThenLoad], so the developer check running slightly
-  /// slower than the RPC never delays the message list/composer
-  /// appearing (same "don't block the main screen on a side check"
-  /// posture as `_loadSafetyState`/`_loadConversationMeta` above, which
-  /// are also fire-and-forget from here).
-  void _initPinsIfDeveloper() {
-    _isDeveloperFuture.then((isDeveloper) {
-      if (!mounted || !isDeveloper) return;
-      _loadPinnedMessages();
-      _pinsChannel = widget.chatRepository.subscribeToConversationPins(
-        widget.conversationId,
-        _loadPinnedMessages,
-      );
-    });
+  void _initPins() {
+    _loadPinnedMessages();
+    _pinsChannel = widget.chatRepository.subscribeToConversationPins(
+      widget.conversationId,
+      _loadPinnedMessages,
+    );
   }
 
-  /// WYN-139/WYN-125: Staged Rollout gate -- same shape as
-  /// [_initPinsIfDeveloper] just above. A non-developer account never
-  /// opens the per-conversation typing channel, never fetches
-  /// [_partnerShowOnline]/[_partnerLastSeenAt], and never registers a
-  /// global-presence listener at all (design doc: "ไม่ track/subscribe
-  /// presence channel ใดๆ เลยทั้ง global และ per-conversation").
   /// Idempotent -- safe to call again from [_resubscribeAndRefresh]
   /// (removes any previously-registered listener first, so a resume
   /// never ends up with two).
-  void _initPresenceIfDeveloper() {
-    _isDeveloperFuture.then((isDeveloper) {
-      if (!mounted || !isDeveloper) return;
-      _loadPartnerPresence();
-      _typingChannel = _presenceRepository.subscribeTypingChannel(
-        widget.conversationId,
-        onPresenceChange: _onTypingPresenceChange,
-      );
-      final oldListener = _presenceListener;
-      if (oldListener != null) _presenceRepository.removeGlobalPresenceListener(oldListener);
-      _presenceListener = () {
-        if (mounted) setState(() {});
-      };
-      _presenceRepository.addGlobalPresenceListener(_presenceListener!);
-    });
+  void _initPresence() {
+    _loadPartnerPresence();
+    _typingChannel = _presenceRepository.subscribeTypingChannel(
+      widget.conversationId,
+      onPresenceChange: _onTypingPresenceChange,
+    );
+    final oldListener = _presenceListener;
+    if (oldListener != null) _presenceRepository.removeGlobalPresenceListener(oldListener);
+    _presenceListener = () {
+      if (mounted) setState(() {});
+    };
+    _presenceRepository.addGlobalPresenceListener(_presenceListener!);
   }
 
   Future<void> _loadPartnerPresence() async {
@@ -598,11 +556,11 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     final oldPinsChannel = _pinsChannel;
     if (oldPinsChannel != null) widget.chatRepository.unsubscribe(oldPinsChannel);
     _pinsChannel = null;
-    _initPinsIfDeveloper();
+    _initPins();
     final oldTypingChannel = _typingChannel;
     if (oldTypingChannel != null) _presenceRepository.unsubscribeTyping(oldTypingChannel);
     _typingChannel = null;
-    _initPresenceIfDeveloper();
+    _initPresence();
     await Future.wait([_refreshLatest(), _loadConversationMeta()]);
   }
 
@@ -1385,12 +1343,8 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     // cross-conversation reply_to_message_id, not chain depth, so this
     // has to be enforced here.
     final canReply = message.replyToMessageId == null;
-    // WYN-138/WYN-125 (Staged Rollout): both new rows below are gated on
-    // this same flag -- a non-developer account's menu is byte-for-byte
-    // the pre-WYN-138 sheet (see the design doc's own Handoff note).
-    final isDeveloper = await _isDeveloperFuture;
-    final canEdit = isDeveloper && _canEditMessage(message);
-    final canPin = isDeveloper && !message.isDeleted;
+    final canEdit = _canEditMessage(message);
+    final canPin = !message.isDeleted;
     final isPinned = canPin && _isPinned(message.id);
     if (!mounted) return;
     await showModalBottomSheet<void>(
@@ -1524,12 +1478,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     );
   }
 
-  /// WYN-139/WYN-125: the AppBar subtitle line -- `null` for a
-  /// non-developer account (this screen never even populates
-  /// [_otherTyping]/[_partnerShowOnline]/[_partnerLastSeenAt] for one,
-  /// since [_initPresenceIfDeveloper] never runs at all), and `null`
-  /// whenever none of the design doc's own priority-ordered 4 states
-  /// apply, so no empty line is ever reserved under the name either way.
+  /// WYN-139: the AppBar subtitle line -- `null` whenever none of the
+  /// design doc's own priority-ordered 4 states apply, so no empty line
+  /// is ever reserved under the name.
   /// Priority order (design doc): typing > online > last seen > nothing.
   Widget? _buildStatusSubtitle() {
     if (_otherTyping) {
