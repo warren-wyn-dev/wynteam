@@ -82,7 +82,6 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
   /// the badge pill while this resolves), never see it by mistake.
   late final Future<bool> _isDeveloperFuture = _developerAccessService.isDeveloperAccount();
 
-  final _scrollController = ScrollController();
   final List<ClubPost> _posts = [];
   int _page = 0;
   bool _isLoadingInitial = true;
@@ -116,7 +115,6 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
         if (isDeveloper) _loadBadges();
       });
     }
-    _scrollController.addListener(_onScroll);
   }
 
   Future<void> _loadBadges() async {
@@ -127,20 +125,6 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     } catch (_) {
       // Fails open -- a badge is cosmetic, never worth blocking the feed
       // over.
-    }
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_isLoadingMore || !_hasMore) return;
-    if (_scrollController.position.pixels >
-        _scrollController.position.maxScrollExtent - 300) {
-      _loadMore();
     }
   }
 
@@ -415,66 +399,94 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
       );
     }
 
+    // CustomScrollView (not ListView.separated) with a manual "load
+    // more" button instead of scroll-triggered pagination -- same
+    // trade-off decision as ClubPage's other tabs (see
+    // club_members_tab.dart's identical "ดูสมาชิกเพิ่มเติม" button,
+    // which already established this pattern in this same screen).
+    // The previous version drove pagination off a private
+    // ScrollController's own position, which is exactly what stops a
+    // scrollable from being "primary" -- the one thing required for it
+    // to participate in ClubPage's staged-rollout NestedScrollView
+    // layout's shared header-collapse scroll position. A manual button
+    // needs no ScrollController of its own at all, so this tab is now a
+    // genuinely primary scrollable, same as club_members_tab.dart.
     return RefreshIndicator(
       onRefresh: _loadInitial,
-      child: ListView.separated(
-        controller: _scrollController,
+      child: CustomScrollView(
         // Same reasoning as the empty/error states above -- a Club with
         // just 1-2 short posts may not fill the viewport either, which
         // would otherwise make it undraggable far enough to trigger
         // pull-to-refresh.
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 80),
-        itemCount: _posts.length + (_hasMore ? 1 : 0),
-        // A hairline divider between posts, same as Home Feed (DS-003) --
-        // never before the loading spinner. See that screen's identical
-        // comment for why Divider() alone (no color) is correct here.
-        separatorBuilder: (context, index) =>
-            index + 1 < _posts.length ? const Divider(height: 1) : const SizedBox.shrink(),
-        itemBuilder: (context, index) {
-          if (index >= _posts.length) {
-            return const Padding(
-              padding: EdgeInsets.all(WynSpacing.space4),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.only(bottom: 80),
+            sliver: SliverList.separated(
+              itemCount: _posts.length,
+              // A hairline divider between posts, same as Home Feed
+              // (DS-003).
+              separatorBuilder: (context, index) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final post = _posts[index];
 
-          final post = _posts[index];
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (index == 0 && post.pinned)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: Row(
-                    children: [
-                      Icon(Icons.push_pin, size: 14, color: Theme.of(context).colorScheme.outline),
-                      const SizedBox(width: WynSpacing.space1),
-                      Text(
-                        'ปักหมุด',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Theme.of(context).colorScheme.outline,
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (index == 0 && post.pinned)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                        child: Row(
+                          children: [
+                            Icon(Icons.push_pin,
+                                size: 14, color: Theme.of(context).colorScheme.outline),
+                            const SizedBox(width: WynSpacing.space1),
+                            Text(
+                              'ปักหมุด',
+                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.outline,
+                                  ),
                             ),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
+                    ClubPostCard(
+                      key: ValueKey(post.id),
+                      post: post,
+                      myRole: widget.myRole,
+                      authorBadge: _badges[post.authorId],
+                      onTap: () => _openPost(post),
+                      onToggleLike: () => _toggleLike(post.id),
+                      onToggleSave: () => _toggleSave(post.id),
+                      onTogglePin: () => _togglePin(post.id),
+                      onDelete: () => _deletePost(post.id),
+                      onVotePoll: (optionIndex) => _votePoll(post.id, optionIndex),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          if (_hasMore)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(WynSpacing.space4),
+                child: Center(
+                  child: _isLoadingMore
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : TextButton(
+                          key: const Key('club_posts_load_more'),
+                          onPressed: _loadMore,
+                          child: const Text('ดูโพสต์เพิ่มเติม'),
+                        ),
                 ),
-              ClubPostCard(
-                key: ValueKey(post.id),
-                post: post,
-                myRole: widget.myRole,
-                authorBadge: _badges[post.authorId],
-                onTap: () => _openPost(post),
-                onToggleLike: () => _toggleLike(post.id),
-                onToggleSave: () => _toggleSave(post.id),
-                onTogglePin: () => _togglePin(post.id),
-                onDelete: () => _deletePost(post.id),
-                onVotePoll: (optionIndex) => _votePoll(post.id, optionIndex),
               ),
-            ],
-          );
-        },
+            ),
+        ],
       ),
     );
   }

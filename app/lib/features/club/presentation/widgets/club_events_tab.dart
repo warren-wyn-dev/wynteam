@@ -185,13 +185,26 @@ class _ClubEventsTabState extends State<ClubEventsTab> {
 
   Widget _buildBody() {
     if (_hasError) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      // Same RefreshIndicator/AlwaysScrollableScrollPhysics fix as
+      // club_posts_tab.dart's empty/error states.
+      return RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            const Text('โหลดกิจกรรมไม่สำเร็จ'),
-            const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: WynSpacing.space8),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('โหลดกิจกรรมไม่สำเร็จ'),
+                    const SizedBox(height: WynSpacing.space3),
+                    TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       );
@@ -204,42 +217,67 @@ class _ClubEventsTabState extends State<ClubEventsTab> {
     }
 
     if (upcoming.isEmpty && past.isEmpty) {
-      return const Center(child: Text('ยังไม่มีกิจกรรมใน Club นี้'));
+      // Same fix -- an empty Club with no events at all still needs a
+      // working pull-to-refresh.
+      return RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: WynSpacing.space8),
+              child: Center(child: Text('ยังไม่มีกิจกรรมใน Club นี้')),
+            ),
+          ],
+        ),
+      );
     }
 
+    // CustomScrollView (not ListView), same reasoning as
+    // club_insights_tab.dart's identical comment -- participates
+    // correctly in ClubPage's staged-rollout NestedScrollView layout's
+    // shared header-collapse scroll position, unchanged behavior in the
+    // legacy Column layout.
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.only(bottom: 80),
-        children: [
-          if (upcoming.isNotEmpty) ...[
-            const _SectionHeader('กำลังจะถึง'),
-            for (final event in upcoming)
-              ClubEventCard(
-                event: event,
-                canManage: widget.canManage,
-                onRsvp: (status) => _rsvp(
-                  event, status, upcoming, (list) => _upcoming = list,
-                ),
-                onShowAttendees: (status) => _showAttendees(event, status),
-                onEdit: () => _openEdit(event),
-                onDelete: () => _delete(event),
-              ),
-          ],
-          if (past.isNotEmpty) ...[
-            const _SectionHeader('ที่ผ่านมาแล้ว'),
-            for (final event in past)
-              ClubEventCard(
-                event: event,
-                canManage: widget.canManage,
-                onRsvp: (status) => _rsvp(
-                  event, status, past, (list) => _past = list,
-                ),
-                onShowAttendees: (status) => _showAttendees(event, status),
-                onEdit: () => _openEdit(event),
-                onDelete: () => _delete(event),
-              ),
-          ],
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.only(bottom: 80),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                if (upcoming.isNotEmpty) ...[
+                  const _SectionHeader('กำลังจะถึง'),
+                  for (final event in upcoming)
+                    ClubEventCard(
+                      event: event,
+                      canManage: widget.canManage,
+                      onRsvp: (status) => _rsvp(
+                        event, status, upcoming, (list) => _upcoming = list,
+                      ),
+                      onShowAttendees: (status) => _showAttendees(event, status),
+                      onEdit: () => _openEdit(event),
+                      onDelete: () => _delete(event),
+                    ),
+                ],
+                if (past.isNotEmpty) ...[
+                  const _SectionHeader('ที่ผ่านมาแล้ว'),
+                  for (final event in past)
+                    ClubEventCard(
+                      event: event,
+                      canManage: widget.canManage,
+                      onRsvp: (status) => _rsvp(
+                        event, status, past, (list) => _past = list,
+                      ),
+                      onShowAttendees: (status) => _showAttendees(event, status),
+                      onEdit: () => _openEdit(event),
+                      onDelete: () => _delete(event),
+                    ),
+                ],
+              ]),
+            ),
+          ),
         ],
       ),
     );

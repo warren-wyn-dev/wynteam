@@ -411,13 +411,28 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
   @override
   Widget build(BuildContext context) {
     if (_errored) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      // Same RefreshIndicator/AlwaysScrollableScrollPhysics fix as
+      // club_posts_tab.dart's empty/error states -- a bare Center() has
+      // no scrollable ancestor, so pull-to-refresh couldn't even be
+      // triggered from this state before.
+      return RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            const Text('โหลดรายชื่อสมาชิกไม่สำเร็จ'),
-            const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: WynSpacing.space8),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('โหลดรายชื่อสมาชิกไม่สำเร็จ'),
+                    const SizedBox(height: WynSpacing.space3),
+                    TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       );
@@ -429,56 +444,66 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    // CustomScrollView (not ListView), same reasoning as
+    // club_insights_tab.dart's identical comment -- participates
+    // correctly in ClubPage's staged-rollout NestedScrollView layout's
+    // shared header-collapse scroll position, unchanged behavior in the
+    // legacy Column layout.
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView(
-        children: [
-          // Only an approved member can invite -- there is nothing to
-          // invite people *into* from outside the Club, and a non-member
-          // never reaches this tab's real content in the first place
-          // (see ClubPage's role gating).
-          if (widget.myRole != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                  WynSpacing.space4, WynSpacing.space4, WynSpacing.space4, 0),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: widget.onInvite,
-                  icon: const Icon(Icons.person_add_alt_outlined),
-                  label: const Text('เชิญเพื่อน'),
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverList(
+            delegate: SliverChildListDelegate([
+              // Only an approved member can invite -- there is nothing to
+              // invite people *into* from outside the Club, and a non-member
+              // never reaches this tab's real content in the first place
+              // (see ClubPage's role gating).
+              if (widget.myRole != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      WynSpacing.space4, WynSpacing.space4, WynSpacing.space4, 0),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: widget.onInvite,
+                      icon: const Icon(Icons.person_add_alt_outlined),
+                      label: const Text('เชิญเพื่อน'),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          if (pending.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-              child: Text(
-                'คำขอเข้าร่วม (${pending.length})',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-            ),
-            ...pending.map((member) => _buildPendingRow(member)),
-            const Divider(),
-          ],
-          ...approved.map((member) => _buildApprovedRow(member)),
-          if (_hasMoreMembers)
-            Padding(
-              padding: const EdgeInsets.all(WynSpacing.space4),
-              child: Center(
-                child: _isLoadingMoreMembers
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : TextButton(
-                        key: const Key('club_load_more_members'),
-                        onPressed: _loadMoreMembers,
-                        child: const Text('ดูสมาชิกเพิ่มเติม'),
-                      ),
-              ),
-            ),
+              if (pending.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                  child: Text(
+                    'คำขอเข้าร่วม (${pending.length})',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                ...pending.map((member) => _buildPendingRow(member)),
+                const Divider(),
+              ],
+              ...approved.map((member) => _buildApprovedRow(member)),
+              if (_hasMoreMembers)
+                Padding(
+                  padding: const EdgeInsets.all(WynSpacing.space4),
+                  child: Center(
+                    child: _isLoadingMoreMembers
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : TextButton(
+                            key: const Key('club_load_more_members'),
+                            onPressed: _loadMoreMembers,
+                            child: const Text('ดูสมาชิกเพิ่มเติม'),
+                          ),
+                  ),
+                ),
+            ]),
+          ),
         ],
       ),
     );
