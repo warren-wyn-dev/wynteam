@@ -186,8 +186,9 @@ insert into public.clubs (id, name, privacy, owner_id) values
 insert into public.club_members (club_id, user_id, role, status) values
   ('67000000-0000-0000-0000-0000000000a3', '67000000-0000-0000-0000-000000000002', 'member', 'approved');
 
-insert into public.club_posts (id, club_id, author_id, content) values
-  ('67000000-0000-0000-0000-0000000000a4', '67000000-0000-0000-0000-0000000000a3', '67000000-0000-0000-0000-000000000001', 'Hello Club');
+insert into public.club_posts (id, club_id, author_id, content, channel_id) values
+  ('67000000-0000-0000-0000-0000000000a4', '67000000-0000-0000-0000-0000000000a3', '67000000-0000-0000-0000-000000000001', 'Hello Club',
+   (select id from public.club_channels where club_id = '67000000-0000-0000-0000-0000000000a3' order by created_at limit 1));
 
 -- alice's own comments (drop, pop, club post) -- targets bob's Drop/
 -- Pop on purpose, to prove comments are scoped by *comment author*,

@@ -209,7 +209,9 @@ begin
   set request.jwt.claim.sub = '77777777-7777-7777-7777-777777777777';
   set request.jwt.claim.role = 'authenticated';
   begin
-    perform public.create_poll_club_post('c0000000-0000-0000-0000-000000000001', 'grace poll?', array['Yes', 'No'], 1, '{}');
+    perform public.create_poll_club_post('c0000000-0000-0000-0000-000000000001',
+      (select id from public.club_channels where club_id = 'c0000000-0000-0000-0000-000000000001' order by created_at limit 1),
+      'grace poll?', array['Yes', 'No'], 1, '{}');
     insert into results values ('CHECK1_non_member_cannot_create_poll', 0, 1);
   exception when others then
     insert into results values ('CHECK1_non_member_cannot_create_poll', 1, 1);
@@ -221,7 +223,9 @@ begin
   set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
   set request.jwt.claim.role = 'authenticated';
   begin
-    perform public.create_poll_club_post('c0000000-0000-0000-0000-000000000001', 'dave poll?', array['Yes', 'No'], 1, '{}');
+    perform public.create_poll_club_post('c0000000-0000-0000-0000-000000000001',
+      (select id from public.club_channels where club_id = 'c0000000-0000-0000-0000-000000000001' order by created_at limit 1),
+      'dave poll?', array['Yes', 'No'], 1, '{}');
     insert into results values ('CHECK2_pending_member_cannot_create_poll', 0, 1);
   exception when others then
     insert into results values ('CHECK2_pending_member_cannot_create_poll', 1, 1);
@@ -233,7 +237,9 @@ begin
   set request.jwt.claim.sub = '66666666-6666-6666-6666-666666666666';
   set request.jwt.claim.role = 'authenticated';
   begin
-    perform public.create_poll_club_post('c0000000-0000-0000-0000-000000000001', 'frank poll?', array['Yes', 'No'], 1, '{}');
+    perform public.create_poll_club_post('c0000000-0000-0000-0000-000000000001',
+      (select id from public.club_channels where club_id = 'c0000000-0000-0000-0000-000000000001' order by created_at limit 1),
+      'frank poll?', array['Yes', 'No'], 1, '{}');
     insert into results values ('CHECK3_banned_member_cannot_create_poll', 0, 1);
   exception when others then
     insert into results values ('CHECK3_banned_member_cannot_create_poll', 1, 1);
@@ -245,7 +251,9 @@ begin
   set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
   set request.jwt.claim.role = 'authenticated';
   begin
-    perform public.create_poll_club_post('c0000000-0000-0000-0000-000000000001', 'bad duration?', array['Yes', 'No'], 2, '{}');
+    perform public.create_poll_club_post('c0000000-0000-0000-0000-000000000001',
+      (select id from public.club_channels where club_id = 'c0000000-0000-0000-0000-000000000001' order by created_at limit 1),
+      'bad duration?', array['Yes', 'No'], 2, '{}');
     insert into results values ('CHECK4_rejects_invalid_duration', 0, 1);
   exception when others then
     insert into results values ('CHECK4_rejects_invalid_duration', 1, 1);
@@ -268,6 +276,7 @@ begin
   set request.jwt.claim.role = 'authenticated';
   select public.create_poll_club_post(
     'c0000000-0000-0000-0000-000000000001',
+    (select id from public.club_channels where club_id = 'c0000000-0000-0000-0000-000000000001' order by created_at limit 1),
     'กล้องรุ่นไหนดี @henry?',
     array['Canon', 'Sony', 'Fuji'],
     3,
@@ -502,7 +511,9 @@ begin
   set role authenticated;
   set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
   set request.jwt.claim.role = 'authenticated';
-  select public.create_poll_club_post('c0000000-0000-0000-0000-000000000001', 'จะจัด meetup วันไหน?', array['เสาร์', 'อาทิตย์'], 1, '{}') into v_post2;
+  select public.create_poll_club_post('c0000000-0000-0000-0000-000000000001',
+    (select id from public.club_channels where club_id = 'c0000000-0000-0000-0000-000000000001' order by created_at limit 1),
+    'จะจัด meetup วันไหน?', array['เสาร์', 'อาทิตย์'], 1, '{}') into v_post2;
   reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
 
   select id into v_p2 from public.club_post_polls where club_post_id = v_post2;

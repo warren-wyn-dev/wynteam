@@ -1,6 +1,6 @@
 # Bug Report — WYN-129
 
-Status: **fixed (2026-09-07)** — RLS closed, verified live, ready for AI QA & Security re-verification
+Status: **closed (2026-09-07)** — RLS gap closed, independently re-verified live by AI QA & Security (round 2, PASS) — shipped to production (deploy run #96)
 Owner: AI Debug Engineer (เสร็จ) → AI QA & Security (ถัดไป)
 
 ## Fix (2026-09-07, AI Debug Engineer)

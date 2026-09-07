@@ -204,8 +204,9 @@ insert into public.clubs (id, name, privacy, owner_id) values
 insert into public.club_members (club_id, user_id, role, status) values
   ('61000000-0000-0000-0000-0000000000c1', '61000000-0000-0000-0000-000000000003', 'member', 'approved');
 
-insert into public.club_posts (id, club_id, author_id, content) values
-  ('61000000-0000-0000-0000-0000000000c2', '61000000-0000-0000-0000-0000000000c1', '61000000-0000-0000-0000-000000000001', 'Hello Club');
+insert into public.club_posts (id, club_id, author_id, content, channel_id) values
+  ('61000000-0000-0000-0000-0000000000c2', '61000000-0000-0000-0000-0000000000c1', '61000000-0000-0000-0000-000000000001', 'Hello Club',
+   (select id from public.club_channels where club_id = '61000000-0000-0000-0000-0000000000c1' order by created_at limit 1));
 
 -- ------------------------------------------------------------
 -- CHECK 1: no row in notification_settings for alice yet -- every
