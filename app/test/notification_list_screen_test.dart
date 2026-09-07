@@ -729,11 +729,11 @@ void main() {
     });
 
     // The Design spec calls for club_join_request to open straight to
-    // the Members tab (index 1), not the default Posts tab, so the
-    // pending request is immediately visible.
+    // the "เกี่ยวกับ" tab's "สมาชิก" segment, not the default Posts tab,
+    // so the pending request is immediately visible.
     testWidgets(
         'tapping a club_join_request notification opens ClubPage on the '
-        'Members tab', (tester) async {
+        'Members section', (tester) async {
       await tester.pumpWidget(buildScreen(clubJoinRequestRepo));
       await tester.pumpAndSettle();
 
@@ -742,7 +742,7 @@ void main() {
 
       final screen = tester.widget<ClubPage>(find.byType(ClubPage));
       expect(screen.clubId, 'club-1');
-      expect(screen.initialTabIndex, 1);
+      expect(screen.openToMembers, true);
     });
 
     testWidgets(
@@ -757,7 +757,7 @@ void main() {
 
       final screen = tester.widget<ClubPage>(find.byType(ClubPage));
       expect(screen.clubId, 'club-1');
-      expect(screen.initialTabIndex, 0);
+      expect(screen.openToMembers, false);
     });
 
     // WYN-124: same destination/tab as club_join_approved -- the
@@ -776,7 +776,7 @@ void main() {
 
       final screen = tester.widget<ClubPage>(find.byType(ClubPage));
       expect(screen.clubId, 'club-1');
-      expect(screen.initialTabIndex, 0);
+      expect(screen.openToMembers, false);
     });
 
     testWidgets(

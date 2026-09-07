@@ -5,8 +5,10 @@ import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/widgets/action_sheet_row.dart';
 
-/// WYN-127 -- the channel chip row above a Club's feed (Posts tab) and,
-/// per WYN-128, the exact same widget above its group chat. See
+/// WYN-127/128 -- the channel chip row above a Club's group chat
+/// (ClubChatTab). Channels stopped being a Posts-tab concept once the
+/// Founder's post-restructuring decision (2026-09-07) unified the feed
+/// club-wide -- this switcher now only ever appears above Chat. See
 /// .wyn/tasks/backlog/WYN-127-club-channels.md, AI Design Output
 /// Components: horizontal `ListView`, `radiusFull` pill chips, active =
 /// sapphire fill + white *bold* text (bold, not just color, per the
@@ -25,6 +27,7 @@ class ClubChannelSwitcher extends StatelessWidget {
     required this.onCreate,
     required this.onEdit,
     required this.onDelete,
+    this.unreadChannelIds = const {},
   });
 
   final List<ClubChannel> channels;
@@ -33,6 +36,12 @@ class ClubChannelSwitcher extends StatelessWidget {
   /// Owner/Admin only (`ClubMemberRolePermissions.canManageClub`) --
   /// gates both the "+ ห้องใหม่" chip and the long-press manage sheet.
   final bool canManage;
+
+  /// WYN-128, moved here once Chat became its own top-level tab (no more
+  /// single "แชท" toggle segment to badge instead) -- channel ids with
+  /// at least 1 unread message, rendered as a small dot on that chip,
+  /// Discord-style.
+  final Set<String> unreadChannelIds;
 
   final ValueChanged<String> onSelect;
   final VoidCallback onCreate;
@@ -82,6 +91,7 @@ class ClubChannelSwitcher extends StatelessWidget {
               key: ValueKey('club_channel_chip_${channel.id}'),
               label: '#${channel.name}',
               selected: channel.id == selectedChannelId,
+              hasUnread: unreadChannelIds.contains(channel.id),
               onTap: () => onSelect(channel.id),
               onLongPress: canManage ? () => _showManageSheet(context, channel) : null,
             ),
@@ -101,18 +111,20 @@ class _ChannelChip extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.hasUnread = false,
     this.onLongPress,
   });
 
   final String label;
   final bool selected;
+  final bool hasUnread;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: label,
+      label: hasUnread ? '$label มีข้อความใหม่' : label,
       selected: selected,
       button: true,
       excludeSemantics: true,
@@ -129,16 +141,32 @@ class _ChannelChip extends StatelessWidget {
             borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
             border: selected ? null : Border.all(color: WynColors.hairline),
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              // Bold on the selected chip too, not just a color swap --
-              // Design's Accessibility note: "ห้องที่เลือกอยู่ต้องสื่อสารได้
-              // ทั้งสี+ตัวหนา".
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-              color: selected ? WynColors.paper : WynColors.graphite,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  // Bold on the selected chip too, not just a color swap --
+                  // Design's Accessibility note: "ห้องที่เลือกอยู่ต้องสื่อสารได้
+                  // ทั้งสี+ตัวหนา".
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                  color: selected ? WynColors.paper : WynColors.graphite,
+                ),
+              ),
+              if (hasUnread) ...[
+                const SizedBox(width: 6),
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected ? WynColors.paper : WynColors.sapphire,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),
@@ -301,7 +329,7 @@ Future<bool> showDeleteClubChannelDialog(
           return AlertDialog(
             title: Text('ลบห้อง #$channelName?'),
             content: const Text(
-              'โพสต์ทั้งหมดในห้องนี้จะถูกลบทิ้งถาวรและไม่สามารถกู้คืนได้',
+              'ข้อความแชททั้งหมดในห้องนี้จะถูกลบทิ้งถาวรและไม่สามารถกู้คืนได้',
               style: TextStyle(color: WynColors.graphite),
             ),
             actions: [

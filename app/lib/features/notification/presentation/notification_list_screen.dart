@@ -209,17 +209,18 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         // this case.
         _openProfile(notification.actorId!);
       case NotificationType.clubJoinRequest:
-        // Opens straight to the Members tab so the pending request is
-        // immediately visible, not just the Club's Posts tab.
-        _openClub(notification.clubId!, initialTabIndex: 1);
+        // Opens straight to the "เกี่ยวกับ" tab's "สมาชิก" segment so the
+        // pending request is immediately visible, not just the Club's
+        // Posts tab.
+        _openClub(notification.clubId!, openToMembers: true);
       case NotificationType.clubJoinApproved:
-        _openClub(notification.clubId!, initialTabIndex: 0);
+        _openClub(notification.clubId!, openToMembers: false);
       case NotificationType.clubInvite:
         // WYN-124: opens straight to the Club (Posts tab) -- the
         // recipient hasn't joined yet, so the club's own membership UI
         // (join button, pending state, etc.) is what decides what
         // happens next, same as tapping a club link/share elsewhere.
-        _openClub(notification.clubId!, initialTabIndex: 0);
+        _openClub(notification.clubId!, openToMembers: false);
       case NotificationType.clubPostLike:
       case NotificationType.clubPostComment:
       case NotificationType.clubPostNew:
@@ -378,14 +379,14 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     );
   }
 
-  void _openClub(String clubId, {required int initialTabIndex}) {
+  void _openClub(String clubId, {required bool openToMembers}) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ClubPage(
           clubRepository: widget.clubRepository,
           clubPostRepository: widget.clubPostRepository,
           clubId: clubId,
-          initialTabIndex: initialTabIndex,
+          openToMembers: openToMembers,
         ),
       ),
     );
