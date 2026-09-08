@@ -1514,3 +1514,19 @@ QA พบว่า `ci.yml` เปิด `workflow_dispatch: {}` ไว้ (แ�
 
 อ้างอิง: `.wyn/tasks/approved/WYN-140-home-feed-premium-polish.md`, CI run
 https://github.com/warren-wyn-dev/wynteam/actions/runs/34193968155
+
+## [2026-09-08] WYN-140: ไม่ gate หลัง staged rollout (WYN-125) — เป็น polish ของฟีเจอร์เดิม ไม่ใช่ฟีเจอร์ใหม่
+
+**บริบท**: ก่อน deploy AI Deploy & DevOps ตรวจกติกา WYN-125 ("ฟีเจอร์ใหม่ที่ user-facing ทุกตัวต้อง gate
+หลังบัญชีนักพัฒนาเป็นค่าเริ่มต้น") แล้วไม่แน่ใจว่า WYN-140 Phase 1 (spacing/haptic/fade-in polish ของหน้า
+Home ที่ผู้ใช้ทั่วไปใช้อยู่แล้ว ไม่ใช่ bug fix แต่ก็ไม่ใช่ความสามารถใหม่) เข้าข่ายกติกานี้หรือไม่ — ถามก่อน
+ตามที่ RULES.md กำหนด ("ไม่แน่ใจให้ถาม ไม่ใช่เดา") แทนที่จะเดาแล้ว deploy ตรงๆ หรือเพิ่ม gate เกินจำเป็น
+
+**Founder ตัดสินใจ**: **ไม่ต้อง gate — deploy ให้ทุกคนเลย** ยืนยันว่า WYN-125 มีไว้สำหรับความสามารถใหม่จริงๆ
+(เช่น Club Poll, DM Presence) ไม่ใช่การปรับรายละเอียดของหน้าที่มีอยู่แล้ว
+
+**บันทึกไว้เป็นตัวอย่างสำหรับงานต่อไป**: "ฟีเจอร์ใหม่" ตาม WYN-125 หมายถึงความสามารถที่ผู้ใช้ไม่เคยมีมาก่อน
+ไม่ใช่การปรับ spacing/typography/interaction ของฟีเจอร์เดิม — แต่ยังต้องถามทุกครั้งที่ไม่แน่ใจ ไม่ใช้เป็นกติกา
+ตายตัวที่ AI ตัดสินเองได้ล่วงหน้า
+
+อ้างอิง: `.wyn/company/WORKFLOW.md` หัวข้อ "Staged Rollout", `.wyn/tasks/approved/WYN-140-home-feed-premium-polish.md`
