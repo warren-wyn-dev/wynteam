@@ -56,7 +56,6 @@ Feature **ห้าม** ข้ามไปเรียก `HapticFeedback` ห�
 
 - **Navigation ทุกครั้ง** — push/pop ทั้งแอปไม่มี haptic เลย มีแค่การเปลี่ยน tab
   ใน Bottom Nav เท่านั้น (haptic ทุกครั้งที่เปลี่ยนหน้าจะหมดความหมายและกินแบตเตอรี่)
-- **การกด "+" (สร้าง Drop) ใน Bottom Nav** — เป็น action ไม่ใช่ tab
 - **กด Home ซ้ำเพื่อ scroll to top** — ไม่ได้เปลี่ยน selection
 - **Scroll / pull-to-refresh / โหลดหน้าถัดไป** — ผู้ใช้ไม่ได้สั่งอะไรที่ต้อง confirm
 - **Form validation ที่ยังกรอกไม่เสร็จ** — `failed()` ใช้เฉพาะตอนที่ action ไม่สำเร็จจริง
@@ -107,7 +106,9 @@ padding/width/height ที่บังคับ layout ใหม่ทุกเ
 Like (feed action row + double-tap + Pop rail + Club post), Save (Home feed, Drop
 detail, Pop, Club post), Follow (FollowActionButton + ViewProfileScreen + ส่ง/ยกเลิก
 follow request), ส่ง comment (Drop / Pop / Club post), Delete (Drop, Pop, Club post,
-comment), Create (Drop, Pop, Club post), เปลี่ยน tab ใน Bottom Nav
+comment), Create (Drop, Pop, Club post), เปลี่ยน tab ใน Bottom Nav, กดปุ่ม Drop "+" ใน
+Bottom Nav (`light`, `WynFeedback.toggle()` — เพิ่มโดย WYN-140, 2026-09-08, แก้ไขจากที่
+§3 เดิมตั้งใจไม่ใส่ไว้ ดู `.wyn/company/DECISIONS.md` entry วันเดียวกัน)
 
 ## 8. วิธีเพิ่ม action ใหม่
 

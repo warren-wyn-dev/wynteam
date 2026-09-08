@@ -18,7 +18,11 @@ Production และ Premium Social Media"), `.wyn/docs/design/wyn-106-home-butt
 - ใช้ spacing/whitespace เพิ่มความพรีเมียม แทนกล่อง/เส้นขอบ
 - ใช้ Design System เดิม (สี/token) ทั้งหมด — งานนี้ปรับ "รายละเอียด" ไม่ใช่ "ทิศทาง"
 
-## 2 จุดที่บรีฟอ้างข้อมูลเก่ากว่าโค้ดจริง — แจ้ง Founder ก่อนเริ่ม ไม่เดาเอง
+## 2 จุดที่บรีฟอ้างข้อมูลเก่ากว่าโค้ดจริง — Founder ยืนยันแล้ว (2026-09-08)
+
+**✅ สี: ใช้ Sapphire (ของจริง) ✅ Hashtag: คง inline (ของจริง) ✅ Drop button: เพิ่ม haptic (แก้ไข DS-010
+เดิม, ดู `.wyn/company/DECISIONS.md` และ `ds-010-interaction-feedback.md` §3/§7 ที่อัปเดตแล้ว)** —
+รายละเอียดเหตุผลเดิมยังอยู่ด้านล่างเพื่อบันทึกไว้ว่าทำไมถึงถามก่อน
 
 1. **สี**: บรีฟระบุ Primary `#00C8FF` (Cyan), Ink `#0A0A0A` — นี่คือค่า **เก่าก่อน 2026-08-29** (ตอนนั้น
    DS-001 ยังเป็น Cyan) โค้ดจริงตอนนี้คือ **Sapphire `#1B3A6B`**, Ink `#12120F` (rebrand 2026-08-29,
@@ -245,10 +249,8 @@ Components — เทียบเกณฑ์บรีฟ:
 | Haptic ตอนกด | ✅ ผ่าน guest-gate แล้วค่อยเปิด `CreateDropScreen` — ยังไม่มี haptic แยกสำหรับปุ่มนี้เอง (การเปิดหน้าใหม่ปกติไม่ใส่ haptic ตาม DS-010 แต่ปุ่มนี้เป็น action ไม่ใช่ navigation ล้วนๆ ควรมี) |
 | Composer เปิดแบบ Smooth | ✅ `Navigator.push` มาตรฐาน (`MaterialPageRoute`) — Flutter default transition อยู่แล้ว ไม่ต้องแก้ |
 
-Interactions: **เพิ่ม 2 จุดเล็ก**: (1) `WynFeedback.toggle()` เมื่อกด Drop button (มันคือ action ไม่ใช่
-navigation ธรรมดา ตรงกับเกณฑ์ DS-010 ที่ยกเว้นเฉพาะ "กด + ใน Bottom Nav" ไว้ก่อนหน้านี้ — **ต้องกลับไปถาม
-Founder** ว่าจะย้อนกติกาเดิมนี้หรือไม่ เพราะ DS-010 เขียนไว้ชัดเจนว่า "การกด '+' ใน Bottom Nav" คือสิ่งที่
-ตั้งใจไม่ใส่ haptic — เปลี่ยนตรงนี้คือการย้อนกติกาที่อนุมัติไปแล้ว ไม่ใช่ default ที่ทำได้เอง) (2)
+Interactions: **เพิ่ม 2 จุด — Founder อนุมัติทั้งคู่แล้ว (2026-09-08)**: (1) `WynFeedback.toggle()` เมื่อกด
+Drop button — **แก้ไข DS-010 §3 แล้ว** (เดิมยกเว้นจุดนี้ไว้ Founder สั่งเพิ่มโดยตรง ดู DECISIONS.md) (2)
 press-scale เบาๆ (`WynPressScale`, มี widget อยู่แล้วจาก `action_metric.dart`, reuse ได้ทันที)
 
 States: ไม่เปลี่ยน
@@ -260,8 +262,8 @@ Accessibility: ไม่เปลี่ยน (Semantics label "สร้าง�
 Design Rules: Bottom Nav ปกติ 4 รายการ (Home/Search/Notifications/Profile) ใช้ Material `NavigationBar`
 default อยู่แล้ว ตรงกับ "Simple, Symmetrical, Thumb-friendly" ของบรีฟ — ไม่ต้องแก้
 
-Handoff: AI Coding — เพิ่ม `WynPressScale` รอบ `_buildDropAction()` (reuse widget เดิม) — **เรื่อง haptic
-ต้องได้คำตอบ Founder ก่อน** เพราะขัดกับ DS-010 rule ที่ล็อกไว้แล้ว (ดู popup คำถามท้ายเอกสาร)
+Handoff: AI Coding — เพิ่ม `WynPressScale` รอบ `_buildDropAction()` (reuse widget เดิม) + เรียก
+`WynFeedback.toggle()` ตอนกด — ทั้งสองอนุมัติแล้ว พร้อม implement
 
 ---
 

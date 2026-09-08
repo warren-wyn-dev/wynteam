@@ -24,11 +24,18 @@ Handoff: แบ่ง Phase 1 (ปลอดภัย พร้อมส่ง AI
 
 `.wyn/docs/design/wyn-140-home-feed-premium-polish.md`
 
+## สถานะคำถาม (อัปเดต 2026-09-08)
+
+1. ✅ Founder ดู Artifact mockup Before/After แล้ว
+2. ✅ สี: **Sapphire** (ของจริง) — ไม่ใช้ Cyan ตามบรีฟ
+3. ✅ Hashtag: **inline** (ของจริง) — ไม่แยกบรรทัด
+4. ✅ Drop button haptic: **เพิ่ม** — แก้ไข DS-010 §3 แล้ว (`ds-010-interaction-feedback.md`,
+   `.wyn/company/DECISIONS.md` entry 2026-09-08)
+5. ⏳ **Phase 1 vs Phase 1+2**: Founder ขอดูตัวอย่างแบบโต้ตอบได้จริงก่อน (มอคอัพภาพนิ่งโชว์ animation
+   ไม่ได้) — ส่ง Artifact แบบกดเล่นได้จริงแล้ว (indicator เลื่อน/ปุ่ม Drop กด+haptic ring/รูป fade-in)
+   รอ Founder ดูแล้วตัดสินใจ
+
 ## รออะไรอยู่
 
-1. Founder ดู Artifact mockup (Before/After รวม Phase 1 ทั้งหมด) แล้วอนุมัติ
-2. Founder ตอบคำถาม: (ก) สี Sapphire (ปัจจุบัน) หรือ Cyan (ตามบรีฟ) — เอกสารนี้ใช้ Sapphire เพราะเพิ่ง
-   ยืนยันในเซสชันนี้เอง (ข) hashtag inline (ปัจจุบัน) หรือแยกบรรทัด (ค) Drop button ควรมี haptic ไหม
-   (ขัดกับกติกา DS-010 ที่ล็อกไว้ว่า "กด + ใน Bottom Nav ไม่ต้องมี haptic") (ง) เริ่ม Phase 2 (swipe/
-   custom pull animation) เลยไหม หรือทำ Phase 1 ก่อนแล้วค่อยว่ากัน
-3. หลังตอบครบ → ส่งต่อ AI Coding (Phase 1 เท่านั้น เว้นแต่ Founder สั่ง Phase 2 ด้วย)
+รอ Founder ดู interactive preview แล้วยืนยันว่าจะเริ่ม Phase 1 ก่อน หรือทำทั้ง 1+2 พร้อมกัน → ส่งต่อ
+AI Coding ตามที่เลือก

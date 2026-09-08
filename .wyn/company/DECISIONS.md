@@ -1442,3 +1442,31 @@ Rename ครอบคลุม: task file (backlog/approved), design doc, migra
 **ผลกระทบ**: ไม่มีโค้ดถูกแตะเลย — งานนี้เป็นการปรึกษา/ตัดสินใจดีไซน์ล้วนๆ ไม่มี handoff ต่อ AI Coding
 
 อ้างอิง: Artifact รอบ 1 (จังหวะการคั่นโพสต์) https://claude.ai/code/artifact/cdce787b-3058-446d-9860-039a4cd5f947, Artifact รอบ 2 (3 ทางเลือก) https://claude.ai/code/artifact/6e8cc89b-4c36-435a-98b5-357aab78bd44, `.wyn/docs/design/wyn-106-home-button-system.md`, `.wyn/docs/qa/wynos-v1.0.0-beta4-final-readiness.md`
+
+## [2026-09-08] WYN-140: Founder ยืนยัน 3 คำตอบก่อนส่ง Home Feed Premium Polish เข้า AI Coding — แก้ไข DS-010 haptic rule
+
+**บริบท**: Founder ส่งบรีฟละเอียด 13 หัวข้อขอปรับ UX/UI หน้า Home ให้พรีเมียมระดับ production โดยล็อก
+โครงสร้างโพสต์เดิมไว้ (`.wyn/docs/design/wyn-140-home-feed-premium-polish.md`, task
+`.wyn/tasks/active/WYN-140-home-feed-premium-polish.md`) — AI Design พบ 2 จุดที่บรีฟอ้างข้อมูลเก่ากว่าโค้ด
+จริง จึงถามยืนยันก่อนเริ่ม ไม่เดาเอง:
+
+1. **สี**: บรีฟระบุ Cyan `#00C8FF` (ค่าเก่าก่อน rebrand) — **Founder ยืนยัน: ใช้ Sapphire `#1B3A6B` (ของจริง
+   ในโค้ดตอนนี้)** ตรงกับที่เพิ่งยืนยันซ้ำในเซสชันเดียวกันนี้เอง ("ชอบแบบเดิม" หัวข้อก่อนหน้า) — ไม่มีการ
+   เปลี่ยนสีกลับไป Cyan
+2. **Hashtag**: บรีฟวาด hashtag เป็นบรรทัดแยกจากเนื้อหา — **Founder ยืนยัน: คงเป็น inline ในข้อความเดิม**
+   (พฤติกรรมจริงของ `HashtagText` ตอนนี้) ไม่ต้องแยกโครงสร้างใหม่
+
+**แก้ไขกติกา DS-010 (Interaction Feedback System) — Drop Button ("+" ใน Bottom Nav) ต้องมี haptic แล้ว**:
+DS-010 §3 เดิมเขียนไว้ชัดเจนว่า "การกด '+' (สร้าง Drop) ใน Bottom Nav" เป็นสิ่งที่ **ตั้งใจไม่ใส่ haptic**
+เพราะมองว่าเป็น action ไม่ใช่ tab (เหตุผลเดิม: แยกจาก selection haptic ของการสลับ tab) — **Founder สั่งเพิ่ม
+haptic ให้ปุ่มนี้โดยตรง** ("เพิ่ม haptic — ปุ่มนี้เป็น action สร้างโพสต์ ไม่ใช่ navigation ธรรมดา ควรมี
+feedback") ถือเป็นการแก้กติกาที่เคยล็อกไว้แล้ว บันทึกไว้ตาม RULES.md หมวด "Founder Feedback" — **ต่อจากนี้
+`_buildDropAction()` ต้องเรียก `WynFeedback.toggle()` ตอนกด** (reuse method เดิม ไม่สร้างใหม่) และต้องแก้
+comment ใน `ds-010-interaction-feedback.md` §3 "สิ่งที่ตั้งใจไม่ใส่ haptic" ให้ตัดข้อ "การกด '+' (สร้าง Drop)
+ใน Bottom Nav" ออก พร้อมอ้างอิง entry นี้เป็นเหตุผล
+
+**Phase**: Founder ยังไม่ตัดสินใจ Phase 1 vs Phase 1+2 พร้อมกัน — ขอดูตัวอย่างแบบโต้ตอบได้จริง
+(indicator เลื่อน/ปุ่มกด/รูป fade-in) ก่อน เพราะมอคอัพภาพนิ่งโชว์ animation ไม่ได้ — AI Design ทำ Artifact
+แบบกดเล่นได้จริงส่งต่อแล้ว
+
+อ้างอิง: `.wyn/docs/design/wyn-140-home-feed-premium-polish.md`, `.wyn/docs/design/ds-010-interaction-feedback.md`, `.wyn/tasks/active/WYN-140-home-feed-premium-polish.md`
