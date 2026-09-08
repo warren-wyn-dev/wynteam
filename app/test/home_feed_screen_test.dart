@@ -1958,6 +1958,15 @@ void main() {
               'Scrollable over its own bounds and should win the gesture '
               'arena, the same as it already does against the vertical '
               'CustomScrollView it sits inside');
+
+      // DoubleTapLike (wrapping the carousel, same as every card) starts
+      // its own short double-tap-detection timer on pointer down --
+      // still pending after just one bare pump(). Settling here (rather
+      // than tearing the widget tree down mid-timer) is what the
+      // existing double-tap tests elsewhere in this file already do via
+      // pumpAndSettle after their own taps/drags, for the same reason.
+      await tester.pumpAndSettle();
+      tester.takeException();
     });
   });
 
