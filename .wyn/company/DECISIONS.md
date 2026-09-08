@@ -1549,3 +1549,34 @@ interaction ใหม่ที่ยังไม่มีอยู่ในร�
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-08-wyn-140-home-feed-premium-polish-phase1-deploy.md`, PR #313,
 deploy-web.yml run #106
+
+## [2026-09-08] WYN-140 Phase 2: Founder ยอมรับความเสี่ยง — implement เฉพาะ swipe gesture, ไม่ทำ custom pull-to-refresh
+
+**Founder ตัดสินใจ**: หลังเห็นความเสี่ยงที่ต่างจาก Phase 1 (ด้านบน) Founder ตอบชัดเจนผ่าน AskUserQuestion
+ว่า **"ยอมรับความเสี่ยง — ให้ลุย Phase 2 ต่อเลย"** จึงเริ่มเขียนโค้ดต่อในบทบาท AI Coding
+
+**Scope ที่ตัดลดลงเอง (เปิดเผย ไม่ใช่ทำเงียบๆ)**: implement เฉพาะ swipe ระหว่างแท็บ ด้วยวิธีที่ไม่รื้อ
+สถาปัตยกรรม — ใช้ `GestureDetector.onHorizontalDragEnd` ครอบ `CustomScrollView` เดิม แล้วเรียก
+`_selectFeedMode()` (แยกจาก logic เดิมของการแตะแท็บ) ตัวเดียวกับที่แท็บใช้อยู่แล้ว ไม่แตะ `_items`/`_page`/
+pagination state เลย — จึงไม่กระทบเทส interactive ~30 ตัวของ Like/Save/ReDrop/Poll/Hide/Undo ที่มีอยู่
+**ไม่ทำ custom pull-to-refresh เต็มรูปแบบ**: ตรวจแล้วพบว่า `RefreshIndicator` ใช้สี Sapphire ถูกต้องอยู่แล้ว
+โดยไม่ต้องแก้โค้ด (บันทึกไว้แล้วด้านบน) ส่วนการรื้อ `RefreshIndicator` ทั้งกลไกเพื่อทำ animation แบรนด์เอง มี
+ความเสี่ยงจริงที่ไม่มี compiler/test ยืนยันได้ในการรื้อ drag-physics-tracking เอง หรือไม่ก็ได้ผลซ้ำซ้อนกับของเดิม
+ไม่คุ้มความเสี่ยง — ตัดสินใจไม่ทำส่วนนี้ จะแจ้ง Founder อีกครั้งตอนรายงานผล Phase 2 ให้ชัดว่านี่คือ scope ที่
+ตัดออก ไม่ใช่ยังไม่เสร็จ
+
+**QA — ยืนยันด้วย CI จริง**: รอบแรก trigger `ci.yml` ผ่าน `workflow_dispatch` (commit `52b6aac`, run
+[#328](https://github.com/warren-wyn-dev/wynteam/actions/runs/34196650474)) พบ 5 เทสใหม่ล้มเหลว (จาก
+เทสทั้งหมด 1442) — root cause 2 จุด: (1) `tester.drag()` ไม่จำลอง release velocity ได้แม่นยำพอจะผ่านเกณฑ์
+200px/s ของ `_onHorizontalSwipeEnd` ต้องใช้ `tester.fling()` แทน (2) factory function สร้าง
+`RecordingHomeRepository` ใหม่ในแต่ละ `testWidgets` ทำให้ timer ของ `SupabaseClient`/`GoTrueClient` รั่ว —
+ขัดกับ convention ที่มีคอมเมนต์เตือนไว้แล้วในไฟล์เทสเอง (สำหรับ `scrollToTopTestHomeRepository`/
+`triggerRefreshTestHomeRepository`) แก้โดยย้ายไปสร้างครั้งเดียวใน `setUpAll()` เหมือนแบบเดิม แก้แล้ว push
+commit `3eb8dcb` trigger CI ใหม่ (run
+[#329](https://github.com/warren-wyn-dev/wynteam/actions/runs/34197650825)) — **`flutter analyze`: 0
+issues, `flutter test`: 1442/1442 ผ่านทั้งหมด (รวม 5 เทส swipe gesture ใหม่)**
+
+**Final Status: PASS** — พร้อมเข้าสู่ขั้น deploy ตาม pipeline เดียวกับ Phase 1
+
+อ้างอิง: `.wyn/tasks/approved/WYN-140-home-feed-premium-polish.md`, commit `52b6aac` (feature),
+commit `3eb8dcb` (test fix), CI run #328 (fail), CI run #329 (pass)

@@ -1,6 +1,7 @@
 # Design Task — WYN-140
 
-Status: approved (Phase 1 — deploy สำเร็จแล้ว production, รอ Founder ยืนยันของจริงบนแอปก่อนย้ายเข้า completed/)
+Status: approved (Phase 1 — deploy สำเร็จแล้ว production, รอ Founder ยืนยันของจริงบนแอปก่อนย้ายเข้า completed/;
+  Phase 2 swipe gesture — QA PASS ผ่าน CI จริง 1442/1442, รอ deploy)
 Owner: AI Design
 Screen: Home Feed (Header, Feed Tabs, Post Card, Action Bar, Media, Bottom Nav/Drop Button, Loading)
 Purpose: ยกระดับ UX/UI ของหน้า Home ให้มีคุณภาพระดับ Production/Premium ตามบรีฟละเอียดของ Founder
@@ -39,13 +40,20 @@ overflow/wrapping มาแล้ว 4 รอบ (ประวัติอยู
 duration/curve ให้เป็น token เดิม (220ms, เคารพ reduced-motion) แทน — ยังคง "ไม่กระโดด" ตามที่บรีฟขอ แค่ไม่ใช่
 กลไก sliding ข้ามตำแหน่งแบบมอคอัพ
 
-**Phase 2 — ยังไม่เริ่มเขียนโค้ด**: ทั้ง swipe gesture ระหว่างแท็บ และ custom pull-to-refresh ต้องการรื้อ
-สถาปัตยกรรมจริง (Phase 2's swipe ต้องแยก pagination state ของ forYou/following ออกจากกันเป็นราย mode แทนที่
-จะใช้ state ก้อนเดียวสลับกันแบบตอนนี้ — กระทบเทสส่วนใหญ่ใน `home_feed_screen_test.dart`; custom pull-refresh
-ต้องเขียนทดแทนกลไก `RefreshIndicator` ทั้งหมด ซึ่งความเสี่ยงขึ้นกับ API ที่มีจริงใน Flutter SDK เวอร์ชันที่
-โปรเจกต์ pin ไว้ — sandbox นี้ไม่มี SDK ให้ตรวจสอบ) — **นี่ไม่ใช่ "รายละเอียด" แต่เป็นการรื้อสถาปัตยกรรมของ
-หน้าที่ซับซ้อน/มีเทสมากที่สุดในแอป โดยไม่มี compiler ยืนยันเลย ขัดกับกติกาที่ Founder เขียนไว้เองในบรีฟ ("ห้าม
-รื้อ Architecture โดยไม่จำเป็น") — หยุดรอคำตัดสินใจ Founder ก่อนเริ่ม ไม่ใช่ลุยเดาต่อ**
+**Phase 2 — Founder ยอมรับความเสี่ยงแล้ว ("ยอมรับความเสี่ยง — ให้ลุย Phase 2 ต่อเลย") เขียนโค้ดเสร็จแล้ว
+push ขึ้น branch แล้ว (commit `52b6aac` + fix `3eb8dcb`)**: implement เฉพาะ swipe gesture ระหว่างแท็บ ด้วย
+วิธีตัด scope ลง — ไม่รื้อสถาปัตยกรรม pagination เดิมตามที่ประเมินไว้ครั้งแรก แต่ใช้
+`GestureDetector.onHorizontalDragEnd` ครอบ `CustomScrollView` เดิม เรียก `_selectFeedMode()` (แยกจาก logic
+เดิมของแท็บ) ตัวเดียวกับที่แท็บใช้อยู่ ไม่แตะ `_items`/`_page`/pagination state เลย — เทส interactive ~30 ตัว
+เดิม (Like/Save/ReDrop/Poll/Hide/Undo) จึงไม่กระทบ, velocity-gated ที่ 200px/s กันลากช้าๆ ไม่ให้สลับแท็บผิด
+เจตนา **custom pull-to-refresh เต็มรูปแบบ — ตัดสินใจไม่ทำ**: `RefreshIndicator` ใช้สี Sapphire ถูกต้องอยู่แล้ว
+โดยไม่ต้องแก้โค้ด ส่วนการรื้อกลไกทั้งหมดเพื่อทำ animation แบรนด์เองมีความเสี่ยงไม่คุ้ม (ดูเหตุผลเต็มใน
+DECISIONS.md) — นี่คือ scope ที่ตัดออกโดยเปิดเผย ไม่ใช่งานค้าง
+
+**QA Phase 2 — PASS ผ่าน CI จริง**: รอบแรก (run #328) พบ 5 เทสใหม่ล้มเหลวจาก `tester.drag()` ไม่จำลอง
+velocity พอ + timer รั่วจาก repository fixture ที่สร้างผิด pattern — แก้แล้ว push commit `3eb8dcb` รอบสอง
+(run [#329](https://github.com/warren-wyn-dev/wynteam/actions/runs/34197650825)) **`flutter analyze`: 0
+issues, `flutter test`: 1442/1442 ผ่านทั้งหมด** พร้อมเข้าสู่ขั้น deploy
 
 ## สถานะคำถาม (อัปเดต 2026-09-08)
 
