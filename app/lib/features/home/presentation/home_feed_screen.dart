@@ -36,6 +36,15 @@ import '../../../core/network_error.dart';
 
 enum _HomeFeedMode { forYou, following, fromYourClubs }
 
+// WYN-140 Phase 2: display/swipe order for the 3 modes -- shared by
+// _buildFeedModeToggle (tap) and _onHorizontalSwipeEnd (swipe) so the two
+// input methods can never disagree about what "next"/"previous" means.
+const List<_HomeFeedMode> _feedModeOrder = [
+  _HomeFeedMode.forYou,
+  _HomeFeedMode.following,
+  _HomeFeedMode.fromYourClubs,
+];
+
 /// Screen 1 — Home tab (Bottom Nav, index 0). A feed mixing Drop and Pop
 /// content, with the CLUB section (WYN-014) directly above the feed.
 /// Default mode is "สำหรับคุณ" (ranked, WYN-018); "ติดตาม" (WYN-024)
@@ -304,6 +313,64 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
     }
     if (!mounted) return;
     _refreshIndicatorKey.currentState?.show();
+  }
+
+  // WYN-140 Phase 2: the one place _feedMode actually changes -- both
+  // _buildFeedModeTab's onTap and _onHorizontalSwipeEnd call this instead
+  // of each carrying their own copy of "set the mode, then reload if it
+  // needs one", so tap and swipe can never drift into different behavior.
+  void _selectFeedMode(_HomeFeedMode mode) {
+    if (mode == _feedMode) return;
+    setState(() => _feedMode = mode);
+    // "Club" is FromYourClubsFeed's own separate widget state -- only
+    // forYou/following share _items and need a reload when switching
+    // between (or into) them.
+    if (mode != _HomeFeedMode.fromYourClubs) _loadInitial();
+  }
+
+  // WYN-140 Phase 2: swipe left/right anywhere in the feed body switches
+  // between the 3 modes in _feedModeOrder, the same transition a tap on
+  // the toggle already does (via _selectFeedMode) -- this does not touch
+  // _items/_page/pagination at all, unlike a real PageView would have to.
+  // A deliberate, disclosed scope cut from a literal continuous
+  // finger-tracking indicator (see _buildFeedModeTab's own doc comment):
+  // this is a discrete "swipe far/fast enough -> switch" gesture, using
+  // the same AnimatedOpacity fade the toggle already animates with, not a
+  // sliding indicator.
+  //
+  // Deliberately only onHorizontalDragEnd (velocity-based), not
+  // onHorizontalDragUpdate -- no continuous tracking to get subtly wrong
+  // blind, and it costs nothing for a discrete "did the user mean it"
+  // gesture the way it would for a real drag-follows-finger indicator.
+  //
+  // Safe against the multi-image carousel (PostImageCarousel) sharing the
+  // same axis: a GestureDetector here only sees a pointer gesture that no
+  // descendant Scrollable already claimed. A carousel's own horizontal
+  // ListView is the deepest/innermost recognizer over its own bounds and
+  // Flutter's gesture arena resolves same-axis nested drags to the
+  // innermost Scrollable first (the same mechanism that lets a
+  // Dismissible's horizontal drag coexist with the vertical ListView it
+  // sits in) -- so a swipe that starts on a carousel scrolls the photos,
+  // exactly as it should, and this handler only ever fires for a swipe
+  // that started somewhere else in the feed.
+  void _onHorizontalSwipeEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    // Ignores anything not clearly a deliberate swipe -- a slow drag that
+    // barely moved shouldn't flip the whole feed.
+    if (velocity.abs() < 200) return;
+
+    final currentIndex = _feedModeOrder.indexOf(_feedMode);
+    if (velocity < 0) {
+      // Dragged leftward -> advance to the next mode, same direction
+      // convention as swiping to the next page.
+      if (currentIndex < _feedModeOrder.length - 1) {
+        _selectFeedMode(_feedModeOrder[currentIndex + 1]);
+      }
+    } else {
+      if (currentIndex > 0) {
+        _selectFeedMode(_feedModeOrder[currentIndex - 1]);
+      }
+    }
   }
 
   // "สำหรับคุณ" (ranked, WYN-018), "ติดตาม" (WYN-024), and "ล่าสุด"
@@ -808,10 +875,17 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
                 onRefresh: _feedMode == _HomeFeedMode.fromYourClubs
                     ? () async {}
                     : _loadInitial,
-                child: CustomScrollView(
-                  key: const Key('home_feed_scroll_view'),
-                  controller: _scrollController,
-                  slivers: [
+                // WYN-140 Phase 2: swipe-to-switch-tabs -- see
+                // _onHorizontalSwipeEnd's own doc comment for why this is
+                // safe to layer over the vertical CustomScrollView (and,
+                // inside it, the horizontal image carousel) without a
+                // gesture conflict.
+                child: GestureDetector(
+                  onHorizontalDragEnd: _onHorizontalSwipeEnd,
+                  child: CustomScrollView(
+                    key: const Key('home_feed_scroll_view'),
+                    controller: _scrollController,
+                    slivers: [
                     // Founder feedback, 2026-09-05: removed
                     // HomeExplainerBanner ("ดู → แชร์ → ค้นพบ → ซื้อ") --
                     // the widget itself (WYNOSHomeSpec.md item 1) is left
@@ -870,6 +944,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
                     else
                       ..._buildBodySlivers(),
                   ],
+                  ),
                 ),
               ),
             ),
@@ -994,11 +1069,6 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
   // `IntrinsicWidth` workaround needed here -- each tab just sizes to
   // its own label.
   Widget _buildFeedModeToggle() {
-    const modes = [
-      _HomeFeedMode.forYou,
-      _HomeFeedMode.following,
-      _HomeFeedMode.fromYourClubs,
-    ];
     // WYN-140: shortened from "จาก Club ของคุณ" -- Founder asked for a more
     // compact label. _HomeFeedMode.fromYourClubs itself is unchanged (an
     // internal id, not user-facing text).
@@ -1022,7 +1092,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (final mode in modes)
+            for (final mode in _feedModeOrder)
               Padding(
                 padding: const EdgeInsets.only(right: WynSpacing.space6),
                 child: _buildFeedModeTab(mode, labels[mode]!),
@@ -1048,14 +1118,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
       selected: selected,
       button: true,
       child: InkWell(
-        onTap: () {
-          if (selected) return;
-          setState(() => _feedMode = mode);
-          // "จาก Club ของคุณ" is FromYourClubsFeed's own separate
-          // widget state -- only forYou/following/latest share _items
-          // and need a reload when switching between (or into) them.
-          if (mode != _HomeFeedMode.fromYourClubs) _loadInitial();
-        },
+        onTap: () => _selectFeedMode(mode),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3),
           child: IntrinsicWidth(

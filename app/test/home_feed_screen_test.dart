@@ -384,6 +384,7 @@ void main() {
   // invariant flutter_test enforces after every test).
   late RecordingHomeRepository scrollToTopTestHomeRepository;
   late RecordingHomeRepository triggerRefreshTestHomeRepository;
+  late RecordingHomeRepository swipeTestHomeRepository;
   late _DelayedHomeRepository duplicateFetchGuardTestHomeRepository;
 
   setUpAll(() async {
@@ -704,6 +705,9 @@ void main() {
     );
     slowInitialHomeRepository =
         _DelayedHomeRepository(items: [_dropItem(id: 'slow-1', hasImage: false)]);
+
+    swipeTestHomeRepository =
+        RecordingHomeRepository(feedItems: [_dropItem(id: 'sw1', hasImage: false)]);
   });
 
   Widget buildHome(
@@ -1751,6 +1755,159 @@ void main() {
 
       expect(find.text('แคปชัน Drop'), findsOneWidget);
       expect(find.text('โพสต์จาก Club ที่เข้าร่วม'), findsNothing);
+    });
+  });
+
+  group('Feed mode swipe gesture (WYN-140 Phase 2)', () {
+    // WidgetTester.drag() does not reliably simulate release velocity --
+    // it moves the pointer to its target and releases, which the test
+    // framework's own velocity tracker often reads as near-zero, well
+    // under _onHorizontalSwipeEnd's 200px/s gate. fling() is the tester
+    // API that actually simulates a decisive flick with a real velocity,
+    // so every test below that expects a swipe to register uses fling();
+    // only the below-threshold test (which wants a low velocity on
+    // purpose) uses timedDrag().
+    const flingVelocity = 1000.0;
+
+    testWidgets(
+        'a decisive leftward swipe on the feed switches "สำหรับคุณ" -> '
+        '"ติดตาม" (same transition a tap on the tab already does)',
+        (tester) async {
+      final callsBefore = swipeTestHomeRepository.fetchFollowingFeedCalls;
+      await tester.pumpWidget(buildHome(
+        swipeTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.fling(
+        find.byKey(const Key('home_feed_scroll_view')),
+        const Offset(-400, 0),
+        flingVelocity,
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(swipeTestHomeRepository.fetchFollowingFeedCalls, callsBefore + 1,
+          reason: 'swiping left should have loaded "ติดตาม" the same way '
+              'tapping its tab does');
+    });
+
+    testWidgets(
+        'two leftward swipes reach "Club", showing Club posts instead of '
+        'Drop/Pop -- swipe and tap land on the same _feedModeOrder',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        swipeTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        clubPostRepository: fromClubsPostRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.fling(
+        find.byKey(const Key('home_feed_scroll_view')),
+        const Offset(-400, 0),
+        flingVelocity,
+      );
+      await tester.pumpAndSettle();
+      await tester.fling(
+        find.byKey(const Key('home_feed_scroll_view')),
+        const Offset(-400, 0),
+        flingVelocity,
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('โพสต์จาก Club ที่เข้าร่วม'), findsOneWidget);
+      expect(find.text('แคปชัน Drop'), findsNothing);
+    });
+
+    testWidgets(
+        'a rightward swipe on "Club" goes back to "ติดตาม", not past the '
+        'start of _feedModeOrder', (tester) async {
+      await tester.pumpWidget(buildHome(
+        swipeTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        clubPostRepository: fromClubsPostRepository,
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Club'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      final callsBefore = swipeTestHomeRepository.fetchFollowingFeedCalls;
+
+      await tester.fling(
+        find.byKey(const Key('home_feed_scroll_view')),
+        const Offset(400, 0),
+        flingVelocity,
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(swipeTestHomeRepository.fetchFollowingFeedCalls, callsBefore + 1,
+          reason: 'swiping right from Club should land on ติดตาม, one step '
+              'back in _feedModeOrder');
+    });
+
+    testWidgets(
+        'a rightward swipe already on "สำหรับคุณ" (the first mode) is a '
+        'clean no-op -- no crash, no reload', (tester) async {
+      await tester.pumpWidget(buildHome(
+        swipeTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      final callsBefore = swipeTestHomeRepository.fetchRankedFeedCalls;
+
+      await tester.fling(
+        find.byKey(const Key('home_feed_scroll_view')),
+        const Offset(400, 0),
+        flingVelocity,
+      );
+      await tester.pumpAndSettle();
+      final exception = tester.takeException();
+
+      expect(exception, isNull);
+      expect(swipeTestHomeRepository.fetchRankedFeedCalls, callsBefore,
+          reason: 'already at the first mode -- a swipe past the start '
+              'should be a no-op, same as the equivalent tap-past-the-end '
+              'never existing at all');
+      expect(find.text('แคปชัน Drop'), findsOneWidget);
+    });
+
+    testWidgets(
+        'a short, slow drag well under the velocity threshold does not '
+        'switch modes -- only a decisive swipe does', (tester) async {
+      final callsBefore = swipeTestHomeRepository.fetchFollowingFeedCalls;
+      await tester.pumpWidget(buildHome(
+        swipeTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // A short drag over a long duration -- well under the 200px/s
+      // threshold _onHorizontalSwipeEnd requires.
+      await tester.timedDrag(
+        find.byKey(const Key('home_feed_scroll_view')),
+        const Offset(-30, 0),
+        const Duration(seconds: 1),
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(swipeTestHomeRepository.fetchFollowingFeedCalls, callsBefore,
+          reason: 'a slow, short drag should not read as a deliberate '
+              'swipe');
+      expect(find.text('แคปชัน Drop'), findsOneWidget);
     });
   });
 
