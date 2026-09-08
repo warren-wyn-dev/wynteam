@@ -62,6 +62,17 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
   // itself is untouched in AuthRepository, ready to go.
   static const _appleLoginEnabled = false;
 
+  // Guest Browsing (WYN-072) paused -- Founder asked to turn this off
+  // (2026-09-08, screenshot of this exact button circled) after WYN-131
+  // surfaced repeated gaps where an anonymous guest session reached
+  // write paths (Club join/create) that were never meant to allow it --
+  // pausing the entry point itself removes that whole class of risk
+  // while guest-gate coverage gets audited, instead of patching each
+  // gap as it's found. Flip back to true once that audit is done --
+  // signInAnonymously() itself is untouched in AuthRepository, ready to
+  // go. See .wyn/company/DECISIONS.md, 2026-09-08.
+  static const _guestBrowsingEnabled = false;
+
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -238,7 +249,7 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
               // signing into one here would silently replace whatever
               // account this screen was reached from instead of adding
               // to it.
-              if (!widget.isAddingAccount) ...[
+              if (_guestBrowsingEnabled && !widget.isAddingAccount) ...[
                 const SizedBox(height: WynSpacing.space6),
                 Center(
                   child: Semantics(

@@ -48,8 +48,10 @@ void main() {
 
     expect(find.text('กรอกโค้ดเชิญ'), findsOneWidget);
     expect(find.text('เข้าสู่ระบบด้วย Google'), findsNothing);
-    // The guest-browse button is deliberately unaffected by the gate.
-    expect(find.text('เข้าชม WYNOS ได้เลย'), findsOneWidget);
+    // The guest-browse button would be deliberately unaffected by the
+    // gate if it were on -- moot right now since it's disabled entirely
+    // (Founder, 2026-09-08). See _guestBrowsingEnabled.
+    expect(find.text('เข้าชม WYNOS ได้เลย'), findsNothing);
   });
 
   testWidgets(
