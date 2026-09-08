@@ -1,7 +1,7 @@
 # Design Task — WYN-140
 
-Status: approved (Phase 1 + Phase 2 swipe (rebuilt บน PageView จริง) — deploy สำเร็จแล้วบน production
-  (commit `e6848ec`) รอ Founder ยืนยันของจริงบนแอปก่อนย้ายเข้า completed/ — ดู "รออะไรอยู่" ด้านล่าง)
+Status: completed (2026-09-08) — Phase 1 + Phase 2 swipe (rebuilt บน PageView จริง) deploy ขึ้น production
+  แล้ว Founder เปิดแอปจริงยืนยัน "โอเคแล้ว" ครอบคลุมทั้ง haptic ปุ่ม Drop และความรู้สึกของ swipe ระหว่างแท็บ
 Owner: AI Design
 Screen: Home Feed (Header, Feed Tabs, Post Card, Action Bar, Media, Bottom Nav/Drop Button, Loading)
 Purpose: ยกระดับ UX/UI ของหน้า Home ให้มีคุณภาพระดับ Production/Premium ตามบรีฟละเอียดของ Founder
@@ -109,13 +109,12 @@ PR #319 merge เข้า `main` (squash, commit `e6848ec`) → `deploy-web.yml
 `curl https://wynos.online/` ยืนยัน HTTP 200, last-modified ตรงกับเวลา deploy จริง — รายละเอียดเต็มอยู่ใน
 `.wyn/logs/deployments/2026-09-08-wyn-140-pageview-rearchitecture-deploy.md`
 
-## รออะไรอยู่
+## Production Verification — Founder ยืนยันแล้ว (2026-09-08)
 
-Deploy ขึ้น production ครบแล้วทุกรอบของ WYN-140 (Phase 1, Phase 2 swipe, PageView rearchitecture) — รอ
-Founder เปิดแอปจริงยืนยัน 2 เรื่อง:
-1. Phase 1: ความรู้สึกของ haptic ตอนกดปุ่ม Drop (เว็บพรีวิวบนคอมพิวเตอร์ไม่มีแรงสั่นให้ลองจริง)
-2. Swipe แบบ PageView จริง — ลื่นสมจริงตามที่ขอ ("เหมือนแพตฟอมใหญ่ๆ") หรือไม่ ชนกับการเลื่อนรูปหลายรูป
-   (carousel) หรือ back-gesture ของเบราว์เซอร์/ระบบไหม — นี่คือความเสี่ยงที่ Founder ยอมรับไว้แล้วตั้งแต่ต้นว่า
-   CI ตอบให้ไม่ได้ ต้องลองจริง
+Founder เปิดแอปจริงลองแล้วตอบ **"โอเคแล้ว"** และเมื่อถามย้ำเพื่อความชัดเจนว่าครอบคลุมแค่ swipe หรือรวม haptic
+ปุ่ม Drop ด้วย — ตอบ **"โอเคทั้งหมด"** ครบทั้ง 2 เรื่องที่ค้างไว้:
+1. Phase 1: ความรู้สึกของ haptic ตอนกดปุ่ม Drop
+2. Swipe แบบ PageView จริง — ลื่นสมจริงตามที่ขอ ("เหมือนแพตฟอมใหญ่ๆ")
 
-หลังยืนยันครบทั้ง 2 เรื่อง ย้าย task เข้า `completed/`
+ตาม Production Verification เดิมของโปรเจกต์ (`.wyn/company/WORKFLOW.md`) ครบทั้ง 2 ข้อ (เว็บขึ้นจริง +
+สิ่งที่เห็น/รู้สึกตรงตามที่ตั้งใจ) — ย้าย task เข้า `completed/`

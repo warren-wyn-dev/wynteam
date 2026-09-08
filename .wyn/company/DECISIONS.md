@@ -1731,3 +1731,18 @@ Founder ยอมรับไว้แล้ว (ลื่นสมจริง�
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-08-wyn-140-pageview-rearchitecture-deploy.md`, PR #319, commit
 `e6848ec`, CI run #345, deploy-web.yml run #109
+
+## [2026-09-08] WYN-140: Founder ยืนยัน "โอเคแล้ว" ทั้งหมด — ปิดงาน ย้ายเข้า completed/
+
+**Founder ยืนยัน** บนแอปจริงว่า "โอเคแล้ว" — ถามย้ำเพื่อความชัดเจนว่าครอบคลุมแค่ swipe ระหว่างแท็บ หรือรวม
+haptic ตอนกดปุ่ม Drop ด้วย (อีกเรื่องที่ค้างจาก Phase 1) เพราะ "โอเคแล้ว" อาจตีความได้ 2 แบบ — Founder ตอบ
+**"โอเคทั้งหมด"** ครบทั้ง 2 เรื่อง Production Verification ตาม `.wyn/company/WORKFLOW.md` ครบทั้ง 2 ข้อ (เว็บขึ้น
+จริง + สิ่งที่เห็น/รู้สึกตรงตามที่ตั้งใจ) — ย้าย `.wyn/tasks/approved/WYN-140-home-feed-premium-polish.md` เข้า
+`.wyn/tasks/completed/` แล้ว
+
+**สรุปทั้งงาน WYN-140**: spacing/typography rhythm (Phase 1) → tab label/haptic Drop button (Phase 1) →
+swipe ระหว่างแท็บแบบ scope ตัดลด (Phase 2) → rubber-band cue เพิ่มความลื่น (follow-up 1) → รื้อเป็น PageView
+จริงตามคำขอ "เหมือนแพลตฟอร์มใหญ่ๆ" (follow-up 2) — ทุกขั้นตอนผ่าน CI จริงก่อน deploy เสมอ ไม่มีขั้นไหนเดา หรือ
+ข้าม QA
+
+อ้างอิง: `.wyn/tasks/completed/WYN-140-home-feed-premium-polish.md`
