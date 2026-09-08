@@ -1,7 +1,7 @@
 # Design Task — WYN-140
 
-Status: approved (Phase 1 — deploy สำเร็จแล้ว production, รอ Founder ยืนยันของจริงบนแอปก่อนย้ายเข้า completed/;
-  Phase 2 swipe gesture — QA PASS ผ่าน CI จริง 1442/1442, รอ deploy)
+Status: approved (Phase 1 + Phase 2 swipe (rebuilt บน PageView จริง) — QA PASS ผ่าน CI 1443/1443, รอ deploy
+  รอบใหม่แล้วรอ Founder ยืนยันของจริงบนแอปก่อนย้ายเข้า completed/ — ดู "รออะไรอยู่" ด้านล่าง)
 Owner: AI Design
 Screen: Home Feed (Header, Feed Tabs, Post Card, Action Bar, Media, Bottom Nav/Drop Button, Loading)
 Purpose: ยกระดับ UX/UI ของหน้า Home ให้มีคุณภาพระดับ Production/Premium ตามบรีฟละเอียดของ Founder
@@ -81,7 +81,34 @@ WYN-140 ไม่ใช่ regression จากรอบนี้ ไม่อ�
 
 **Final Status: PASS** — ย้ายเข้า `approved/` แล้ว รายละเอียดเต็มอยู่ในแชท session นี้
 
+## Deploy — Phase 2 (2026-09-08)
+
+PR #315 merge เข้า `main` (squash, commit `b7cf7a6`) → `deploy-web.yml` run
+[#107](https://github.com/warren-wyn-dev/wynteam/actions/runs/34198710747) SUCCESS →
+`curl https://wynos.online/` ยืนยัน HTTP 200, last-modified ตรงกับเวลา deploy จริง — รายละเอียดเต็มอยู่ใน
+`.wyn/logs/deployments/2026-09-08-wyn-140-home-feed-premium-polish-phase2-deploy.md`
+
+**ยังไม่ทำ**: custom pull-to-refresh animation เต็มรูปแบบ — ตัดออกโดยเปิดเผยแล้ว (เหตุผลใน DECISIONS.md)
+ไม่ใช่งานค้าง
+
+## Phase 2 follow-up: รื้อเป็น PageView จริง (2026-09-08)
+
+Founder ลองบน production แล้วบอก "ไม่ค่อยลื่น" → เพิ่ม rubber-band cue (deploy แล้ว) → Founder ขอต่อ "อยากให้
+Swipe หลายๆหน้า เหมือนแพตฟอมใหญ่ๆ" → ยืนยันรับความเสี่ยงรื้อสถาปัตยกรรมจริงเป็นครั้งที่ 2 (เจาะจงกว่ารอบแรก) →
+ดึง logic ของ "สำหรับคุณ"/"ติดตาม" ออกเป็น widget ใหม่ `ModeFeedPage` (รูปแบบเดียวกับ `FromYourClubsFeed` เดิม)
+โฮสต์ทั้ง 3 โหมดใน `PageView.builder` จริง แต่ละแท็บมี state/scroll position เป็นของตัวเอง (ดีขึ้นกว่าเดิมที่
+reload ทุกครั้งที่สลับ) — QA PASS ผ่าน CI จริงหลังแก้ 3 รอบ (lint, timer รั่วจาก repository fixture, timer รั่ว
+จาก DoubleTapLike) **`flutter analyze` 0 issues, `flutter test` 1443/1443** (run
+[#339](https://github.com/warren-wyn-dev/wynteam/actions/runs/34203396687)) — รายละเอียดเต็มใน
+DECISIONS.md — พร้อม deploy รอบใหม่ทับ deploy เดิม
+
 ## รออะไรอยู่
 
-Phase 1 พร้อม deploy แล้ว รอ Founder สั่ง — Phase 2 รอวางแผนเป็น task ใหม่ (AI Product Manager spec +
-AI QA ร่วมคิดตั้งแต่ต้น) หลัง Phase 1 deploy เสถียร
+Deploy ขึ้น production รอบแรก (rubber-band) แล้ว — รอบนี้ (PageView จริง) QA PASS แล้ว รอ deploy รอบใหม่ — หลัง
+deploy แล้ว รอ Founder เปิดแอปจริงยืนยัน 2 เรื่อง:
+1. Phase 1: ความรู้สึกของ haptic ตอนกดปุ่ม Drop (เว็บพรีวิวบนคอมพิวเตอร์ไม่มีแรงสั่นให้ลองจริง)
+2. Phase 2: ความรู้สึกของ swipe ระหว่างแท็บแบบ PageView จริง — ลื่นสมจริงแค่ไหน ชนกับการเลื่อนรูปหลายรูป
+   (carousel) หรือ back-gesture ของเบราว์เซอร์/ระบบไหม — นี่คือความเสี่ยงที่ Founder ยอมรับไว้แล้วตั้งแต่ต้นว่า
+   CI ตอบให้ไม่ได้ ต้องลองจริง
+
+หลังยืนยันครบทั้ง 2 เรื่อง ย้าย task เข้า `completed/`

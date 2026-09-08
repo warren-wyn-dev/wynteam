@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../auth/presentation/widgets/guest_gate.dart';
 import '../../chat/data/chat_repository.dart';
@@ -7,38 +6,25 @@ import '../../chat/presentation/chat_inbox_screen.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
 import '../../drop/data/drop_repository.dart';
-import '../../drop/presentation/drop_detail_screen.dart';
-import '../../drop/presentation/quote_redrop_screen.dart';
 import '../../follow/data/follow_repository.dart';
-import '../../follow/data/follow_request_repository.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../profile/data/profile_repository.dart';
-import '../../profile/presentation/view_profile_screen.dart';
 import '../../root/presentation/side_menu.dart';
 import '../../saved/data/saved_repository.dart';
-import '../../search/data/discovery_repository.dart';
-import '../data/home_feed_item.dart';
 import '../data/home_repository.dart';
-import 'pop_single_clip_screen.dart';
-import 'widgets/add_to_home_screen_banner.dart';
 import 'widgets/from_your_clubs_feed.dart';
-import 'widgets/home_drop_card.dart';
-import 'widgets/home_feed_skeleton.dart';
-import 'widgets/home_pop_card.dart';
-import 'widgets/new_posts_pill.dart';
-import 'widgets/suggested_follow_list.dart';
+import 'widgets/mode_feed_page.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
-import '../../../core/interaction/wyn_feedback.dart';
 import '../../../core/interaction/wyn_motion.dart';
-import '../../../core/network_error.dart';
 
 enum _HomeFeedMode { forYou, following, fromYourClubs }
 
-// WYN-140 Phase 2: display/swipe order for the 3 modes -- shared by
-// _buildFeedModeToggle (tap) and _onHorizontalSwipeEnd (swipe) so the two
-// input methods can never disagree about what "next"/"previous" means.
+// WYN-140: display/swipe/page order for the 3 modes -- shared by
+// _buildFeedModeToggle (tap), the PageView's own drag-to-swipe, and
+// _onHomeTabReselected/_selectFeedMode so every input method (tap,
+// swipe, tab-reselect) agrees about what index each mode lives at.
 const List<_HomeFeedMode> _feedModeOrder = [
   _HomeFeedMode.forYou,
   _HomeFeedMode.following,
@@ -58,6 +44,18 @@ const List<_HomeFeedMode> _feedModeOrder = [
 /// .wyn/docs/design/wyn-014-club-core.md (Screen 1),
 /// .wyn/docs/design/wyn-018-home-feed-ranking.md, and
 /// .wyn/docs/design/wyn-024-bottom-nav-v1-restructure.md (Screen 2).
+///
+/// WYN-140 (2026-09-08, "อยากให้ Swipe หลายๆหน้า เหมือนแพตฟอมใหญ่ๆ"):
+/// this screen used to hold all 3 modes' feed logic itself, sharing one
+/// `_items`/`_page` between "สำหรับคุณ"/"ติดตาม" and swapping what it
+/// showed. Founder asked for the swipe between tabs to genuinely show
+/// the destination tab's own content sliding in as you drag, the way
+/// Threads/IG/X do it -- that needs each mode's content alive and
+/// independently scrollable at once, not one shared list. This screen
+/// is now just the shell (header, drawer, chat icon, the toggle row) --
+/// each mode's actual feed lives in its own widget (ModeFeedPage for
+/// สำหรับคุณ/ติดตาม, FromYourClubsFeed for Club, which already had this
+/// shape before this change), hosted as 3 pages of a real PageView.
 class HomeFeedScreen extends StatefulWidget {
   const HomeFeedScreen({
     super.key,
@@ -118,32 +116,17 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
   // WYN-100: opens the SideMenu drawer (mirrors
   // notification_list_screen.dart's own _scaffoldKey exactly).
   final _scaffoldKey = GlobalKey<ScaffoldState>();
-  final _scrollController = ScrollController();
-  // WYN-064: lets _onHomeTabReselected trigger the same visual
-  // pull-to-refresh affordance a manual pull would (spinner + onRefresh),
-  // rather than calling _loadInitial directly and skipping the
-  // indicator.
-  final _refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
-  final List<HomeFeedItem> _items = [];
 
-  /// Keys of every row already shown this load cycle -- see [_loadMore]
-  /// for why offset pagination can hand back a row twice. Cleared and
-  /// rebuilt by [_loadInitial] along with [_items].
-  final Set<String> _seenKeys = {};
+  // WYN-140: each ranked-feed page now keeps its own scroll/pagination
+  // state (see ModeFeedPageState) -- these keys are how
+  // _onHomeTabReselected forwards the scroll-to-top/refresh gesture to
+  // whichever page is currently active, since this screen no longer
+  // holds a scroll position of its own.
+  final _forYouKey = GlobalKey<ModeFeedPageState>();
+  final _followingKey = GlobalKey<ModeFeedPageState>();
 
-  /// The tail of each row's in-flight like/save/ReDrop write chain,
-  /// keyed by `action:rowKey` -- see [_serializeWrite].
-  final Map<String, Future<void>> _pendingWrites = {};
-
-  int _page = 0;
-  bool _isLoadingInitial = true;
-  bool _isLoadingMore = false;
-
-  /// True when the most recent [_loadMore] failed -- swaps the trailing
-  /// spinner for a tappable retry (see [_buildBodySlivers]).
-  bool _loadMoreFailed = false;
-  bool _hasMore = true;
-  String? _error;
+  late final PageController _feedPageController =
+      PageController(initialPage: _feedModeOrder.indexOf(_feedMode));
 
   // Resets to "สำหรับคุณ" every time Home is (re)built fresh -- not
   // persisted across app sessions, per the Design spec's "ค่าเริ่มต้น...
@@ -152,46 +135,13 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
 
   int _unreadChatCount = 0;
 
-  // WYNOSHomeSpec.md 4.5 -- built fresh (not threaded through the
-  // constructor) since only the empty state's SuggestedFollowList uses
-  // these here, same "build it locally, don't widen the constructor for
-  // one secondary section" shape as ViewProfileScreen's own
-  // _discoveryRepository (WYN-071 Screen 5).
-  late final DiscoveryRepository _discoveryRepository = DiscoveryRepository(
-    Supabase.instance.client,
-    homeRepository: widget.homeRepository,
-    profileRepository: widget.profileRepository,
-  );
-  late final FollowRequestRepository _followRequestRepository =
-      FollowRequestRepository(Supabase.instance.client);
-
-  // WYNOSHomeSpec.md 4.4 (New-posts pill) -- count of Drops/Pops
-  // someone *else* has posted since this feed was last (re)loaded.
-  // Never auto-prepended; only ever cleared by the user tapping the
-  // pill (which reloads) or switching/reloading the feed some other
-  // way (_loadInitial resets it to 0 at the start of every fetch).
-  RealtimeChannel? _newPostsChannel;
-  int _newPostCount = 0;
-
   @override
   void initState() {
     super.initState();
-    _loadInitial();
-    _scrollController.addListener(_onScroll);
     _loadUnreadChatCount();
     WidgetsBinding.instance.addObserver(this);
     widget.homeTabReselectSignal.addListener(_onHomeTabReselected);
     widget.homeTabActivatedSignal.addListener(_loadUnreadChatCount);
-    _newPostsChannel = widget.homeRepository.subscribeToNewPosts((authorId) {
-      // Skip the viewer's own new post -- RootShell._openCreateDrop
-      // already bumps _homeVersion (remounting this whole screen fresh)
-      // on a successful post, so counting it again here would just
-      // show a pill for content this viewer already sees.
-      if (!mounted || authorId == Supabase.instance.client.auth.currentUser?.id) {
-        return;
-      }
-      setState(() => _newPostCount++);
-    });
   }
 
   // Same "refresh on resume" fix RootShell._loadUnreadNotificationCount
@@ -257,589 +207,47 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
     WidgetsBinding.instance.removeObserver(this);
     widget.homeTabReselectSignal.removeListener(_onHomeTabReselected);
     widget.homeTabActivatedSignal.removeListener(_loadUnreadChatCount);
-    final channel = _newPostsChannel;
-    if (channel != null) widget.homeRepository.unsubscribe(channel);
-    _scrollController.dispose();
+    _feedPageController.dispose();
     super.dispose();
-  }
-
-  void _onScroll() {
-    // _loadMoreFailed: after a failure the user asks again with the
-    // retry button, rather than every scroll tick re-firing a request
-    // that just failed.
-    if (_isLoadingMore || !_hasMore || _loadMoreFailed) return;
-    if (_scrollController.position.pixels >
-        _scrollController.position.maxScrollExtent - 300) {
-      _loadMore();
-    }
   }
 
   // WYN-064 (Tap Home Tab to Scroll to Top & Refresh): RootShell calls
   // this by bumping homeTabReselectSignal whenever the user taps the
-  // Home destination while already on the Home tab.
-  // Case 1 -- scrolled down (pixels > 0): animate back to the top only,
-  // no refetch (matches a plain "scroll to top" tap, not a refresh).
-  // Case 2 -- already at the top: trigger the same pull-to-refresh the
-  // user could do manually, guarded against overlapping calls while a
-  // fetch triggered by this or another interaction (initial load,
-  // manual pull, "ลองใหม่" retry) is already in flight.
+  // Home destination while already on the Home tab. Forwards to
+  // whichever ModeFeedPage is currently the active PageView page --
+  // Club (FromYourClubsFeed) has no such hook and, same as before this
+  // screen held per-mode state, a reselect while already on Club is a
+  // no-op.
   void _onHomeTabReselected() {
-    if (!mounted || !_scrollController.hasClients) return;
-
-    if (_scrollController.position.pixels > 0) {
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-      return;
-    }
-
-    if (_isLoadingInitial) return;
-    _refreshIndicatorKey.currentState?.show();
-  }
-
-  // WYNOSHomeSpec.md 4.4: tapping the new-posts pill scrolls to top and
-  // reveals the new posts -- same visible spinner+reload shape as a
-  // manual pull, via _refreshIndicatorKey (mirrors
-  // _onHomeTabReselected's identical scroll-then-refresh shape above).
-  Future<void> _onNewPostsPillTap() async {
-    if (_scrollController.hasClients && _scrollController.position.pixels > 0) {
-      await _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
-    if (!mounted) return;
-    _refreshIndicatorKey.currentState?.show();
-  }
-
-  // WYN-140 Phase 2: the one place _feedMode actually changes -- both
-  // _buildFeedModeTab's onTap and _onHorizontalSwipeEnd call this instead
-  // of each carrying their own copy of "set the mode, then reload if it
-  // needs one", so tap and swipe can never drift into different behavior.
-  void _selectFeedMode(_HomeFeedMode mode) {
-    if (mode == _feedMode) return;
-    setState(() => _feedMode = mode);
-    // "Club" is FromYourClubsFeed's own separate widget state -- only
-    // forYou/following share _items and need a reload when switching
-    // between (or into) them.
-    if (mode != _HomeFeedMode.fromYourClubs) _loadInitial();
-  }
-
-  // WYN-140 Phase 2: swipe left/right anywhere in the feed body switches
-  // between the 3 modes in _feedModeOrder, the same transition a tap on
-  // the toggle already does (via _selectFeedMode) -- this does not touch
-  // _items/_page/pagination at all, unlike a real PageView would have to.
-  // A deliberate, disclosed scope cut from a literal continuous
-  // finger-tracking indicator (see _buildFeedModeTab's own doc comment):
-  // this is a discrete "swipe far/fast enough -> switch" gesture, using
-  // the same AnimatedOpacity fade the toggle already animates with, not a
-  // sliding indicator.
-  //
-  // Deliberately only onHorizontalDragEnd (velocity-based), not
-  // onHorizontalDragUpdate -- no continuous tracking to get subtly wrong
-  // blind, and it costs nothing for a discrete "did the user mean it"
-  // gesture the way it would for a real drag-follows-finger indicator.
-  //
-  // Safe against the multi-image carousel (PostImageCarousel) sharing the
-  // same axis: a GestureDetector here only sees a pointer gesture that no
-  // descendant Scrollable already claimed. A carousel's own horizontal
-  // ListView is the deepest/innermost recognizer over its own bounds and
-  // Flutter's gesture arena resolves same-axis nested drags to the
-  // innermost Scrollable first (the same mechanism that lets a
-  // Dismissible's horizontal drag coexist with the vertical ListView it
-  // sits in) -- so a swipe that starts on a carousel scrolls the photos,
-  // exactly as it should, and this handler only ever fires for a swipe
-  // that started somewhere else in the feed.
-  void _onHorizontalSwipeEnd(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
-    // Ignores anything not clearly a deliberate swipe -- a slow drag that
-    // barely moved shouldn't flip the whole feed.
-    if (velocity.abs() < 200) return;
-
-    final currentIndex = _feedModeOrder.indexOf(_feedMode);
-    if (velocity < 0) {
-      // Dragged leftward -> advance to the next mode, same direction
-      // convention as swiping to the next page.
-      if (currentIndex < _feedModeOrder.length - 1) {
-        _selectFeedMode(_feedModeOrder[currentIndex + 1]);
-      }
-    } else {
-      if (currentIndex > 0) {
-        _selectFeedMode(_feedModeOrder[currentIndex - 1]);
-      }
-    }
-  }
-
-  // "สำหรับคุณ" (ranked, WYN-018), "ติดตาม" (WYN-024), and "ล่าสุด"
-  // (chronological, WYN-007's original behavior) all share this same
-  // _items/_page state and just swap which repository method feeds it --
-  // "จาก Club ของคุณ" is a wholly separate widget (FromYourClubsFeed)
-  // with its own state, untouched, and never reaches this method (see
-  // the fromYourClubs case below and _buildFeedModeToggle's guard).
-  Future<List<HomeFeedItem>> _fetchPage(int page) {
     switch (_feedMode) {
       case _HomeFeedMode.forYou:
-        return widget.homeRepository.fetchRankedFeed(page: page);
+        _forYouKey.currentState?.scrollToTopAndRefresh();
+        break;
       case _HomeFeedMode.following:
-        return widget.homeRepository.fetchFollowingFeed(page: page);
+        _followingKey.currentState?.scrollToTopAndRefresh();
+        break;
       case _HomeFeedMode.fromYourClubs:
-        throw StateError(
-          '_fetchPage is never called in fromYourClubs mode -- see build()',
-        );
+        break;
     }
   }
 
-  Future<void> _loadInitial() async {
-    setState(() {
-      _isLoadingInitial = true;
-      _error = null;
-      _loadMoreFailed = false;
-      // A fresh load already carries every post the pill would have
-      // offered to reveal -- see _newPostCount's own doc comment.
-      _newPostCount = 0;
-    });
-    try {
-      final items = await _fetchPage(0);
-      if (!mounted) return;
-      setState(() {
-        _items
-          ..clear()
-          ..addAll(items);
-        _seenKeys
-          ..clear()
-          ..addAll(items.map(_keyFor));
-        _page = 0;
-        _hasMore = items.length == HomeRepository.pageSize;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _error =
-          errorMessageFor(error, serverMessage: 'โหลด Home ไม่สำเร็จ'));
-    } finally {
-      if (mounted) setState(() => _isLoadingInitial = false);
-    }
-  }
-
-  Future<void> _loadMore() async {
-    setState(() {
-      _isLoadingMore = true;
-      _loadMoreFailed = false;
-    });
-    try {
-      final nextPage = _page + 1;
-      final items = await _fetchPage(nextPage);
-      if (!mounted) return;
-      setState(() {
-        // Offset pagination re-reads a list that may have grown at the
-        // top since the previous page: someone posting while the viewer
-        // scrolls shifts every row down one, so the last item of page N
-        // comes back as the first item of page N+1. Appending blindly
-        // showed that post twice in a row and put two identical
-        // ValueKeys in one SliverList. Dropping already-present keys is
-        // enough -- and cheap, since _seenKeys is maintained alongside
-        // _items rather than rescanned per page.
-        //
-        // _hasMore is still driven by what the server returned, not by
-        // what survived the filter: a full page that happens to be all
-        // duplicates still means there is more behind it.
-        _hasMore = items.length == HomeRepository.pageSize;
-        for (final item in items) {
-          if (_seenKeys.add(_keyFor(item))) _items.add(item);
-        }
-        _page = nextPage;
-      });
-    } catch (_) {
-      // Not a blocking error state -- the rows already loaded stay
-      // exactly as they are -- but not silent either. It used to be:
-      // the spinner at the bottom simply stopped, leaving the user
-      // staring at a feed that had quietly stopped growing with no way
-      // to tell whether it had ended or failed, and no way to ask again
-      // except to guess and scroll. [_onScroll] also won't retry on its
-      // own while the list is already at its maximum extent, so without
-      // a tap target a failure here can be genuinely terminal.
-      if (mounted) setState(() => _loadMoreFailed = true);
-    } finally {
-      if (mounted) setState(() => _isLoadingMore = false);
-    }
-  }
-
-  /// The identity of a feed row -- `id` alone isn't unique, since the
-  /// same Drop can appear both plainly and via someone's ReDrop of it
-  /// (WYN-034). Matches the ValueKey the itemBuilder builds, and the
-  /// composite key HomeRepository uses for the same reason.
-  static String _keyFor(HomeFeedItem item) =>
-      '${item.id}:${item.redropId ?? ''}';
-
-  // Takes the list index directly rather than re-locating the item by
-  // id (the pre-WYN-034 approach): once a Drop can appear twice in the
-  // same page -- once as a plain drop, once via someone's ReDrop of it
-  // (WYN-034) -- `id` alone is no longer unique within `_items`, so an
-  // id-based `indexWhere` could silently mutate the wrong row. The
-  // index is captured directly from itemBuilder's own `index`, which
-  // stays valid across setState here since this list is only ever
-  // appended to (pagination), never reordered or spliced.
-  /// Runs [write] only once every earlier write of [action] on the same
-  /// row has settled, and reports whether it succeeded.
-  ///
-  /// Taps are never dropped -- a fast like/unlike/like is three real
-  /// intentions and all three reach the server -- but they no longer
-  /// *overlap*. They used to: three taps fired INSERT, DELETE, INSERT
-  /// concurrently, so whichever request reached Postgres last decided
-  /// the stored state, and a second INSERT racing the first hit the
-  /// `(drop_id, user_id)` primary key, whose error rolled the card back
-  /// to "not liked" while the like was in fact saved. Serializing per
-  /// row means the last tap is always the last write. The optimistic
-  /// flip the user sees still happens at tap time, before this is even
-  /// called, so the card stays exactly as responsive as before.
-  Future<bool> _serializeWrite(
-    HomeFeedItem item,
-    String action,
-    Future<void> Function() write,
-  ) async {
-    final key = '$action:${_keyFor(item)}';
-    final previous = _pendingWrites[key];
-    var ok = true;
-    Future<void> run() async {
-      try {
-        await write();
-      } catch (_) {
-        ok = false;
-      }
-    }
-
-    // Called straight through when nothing is queued, so the very first
-    // tap still issues its request synchronously rather than waiting for
-    // an event-loop turn -- only a tap that actually has a predecessor
-    // pays for the wait.
-    final chained = previous == null ? run() : previous.then((_) => run());
-    _pendingWrites[key] = chained;
-    await chained;
-    // Only the tail of the chain clears the entry -- an earlier link
-    // finishing must not let a later tap jump the queue.
-    if (identical(_pendingWrites[key], chained)) _pendingWrites.remove(key);
-    return ok;
-  }
-
-  Future<void> _toggleLike(int index) async {
-    if (index < 0 || index >= _items.length) return;
-    final previous = _items[index];
-
-    setState(() => _items[index] = _withToggledLike(previous));
-    final ok = await _serializeWrite(previous, 'like', () {
-      if (previous.contentType == HomeContentType.drop) {
-        return widget.dropRepository.toggleLike(
-          dropId: previous.id,
-          currentlyLiked: previous.likedByMe,
-        );
-      }
-      return widget.popRepository.toggleLike(
-        popId: previous.id,
-        currentlyLiked: previous.likedByMe,
-      );
-    });
-    if (ok || !mounted) return;
-    setState(() => _items[index] = previous);
-  }
-
-  Future<void> _toggleSave(int index) async {
-    if (index < 0 || index >= _items.length) return;
-    final previous = _items[index];
-
-    setState(() => _items[index] = _withToggledSave(previous));
-    // Save is reached from the card's overflow sheet, which -- unlike
-    // the action row's Like -- has no haptic of its own. Fired next to
-    // the optimistic state change so the buzz matches what the user
-    // already sees, and rolled back silently below if the write fails.
-    WynFeedback.save();
-    final ok = await _serializeWrite(previous, 'save', () {
-      if (previous.contentType == HomeContentType.drop) {
-        return widget.dropRepository.toggleSave(
-          dropId: previous.id,
-          currentlySaved: previous.savedByMe,
-        );
-      }
-      return widget.popRepository.toggleSave(
-        popId: previous.id,
-        currentlySaved: previous.savedByMe,
-      );
-    });
-    if (ok || !mounted) return;
-    setState(() => _items[index] = previous);
-  }
-
-  /// Standard ReDrop toggle (WYN-034) -- Pop content has no ReDrop, so
-  /// unlike [_toggleLike]/[_toggleSave] this never branches on
-  /// [HomeContentType]; [onToggleRedrop] is only ever wired up for
-  /// drop-typed cards (see the itemBuilder below).
-  Future<void> _toggleRedrop(int index) async {
-    if (index < 0 || index >= _items.length) return;
-    final previous = _items[index];
-
-    setState(() => _items[index] = _withToggledRedrop(previous));
-    final ok = await _serializeWrite(previous, 'redrop', () {
-      return widget.dropRepository.toggleRedrop(
-        dropId: previous.id,
-        currentlyRedropped: previous.redroppedByMe,
-      );
-    });
-    if (ok || !mounted) return;
-    setState(() => _items[index] = previous);
-  }
-
-  /// WYN-035: casts (or changes) the viewer's vote on the Poll at
-  /// [index] -- same optimistic-then-revert-on-error shape as
-  /// [_toggleLike]. Only ever wired up for a drop-typed card whose
-  /// [HomeFeedItem.isPoll] is true (see the itemBuilder below), so no
-  /// [HomeContentType] branch is needed, same as [_toggleRedrop].
-  Future<void> _votePoll(int index, int optionIndex) async {
-    if (index < 0 || index >= _items.length) return;
-    final previous = _items[index];
-    final pollId = previous.pollId;
-    if (pollId == null) return;
-
-    setState(() => _items[index] = previous.votedPoll(optionIndex));
-    try {
-      await widget.dropRepository.votePoll(
-        pollId: pollId,
-        optionIndex: optionIndex,
-      );
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _items[index] = previous);
-    }
-  }
-
-  /// Deletes the viewer's own ReDrop entry at [index] (Standard or
-  /// Quote) -- only ever wired up for a card HomeDropCard has already
-  /// determined is the viewer's own ReDrop (see its `_isOwnRedrop`).
-  /// Removes the row from the feed outright on success, unlike
-  /// [_toggleRedrop] which flips [HomeFeedItem.redroppedByMe] on the
-  /// *same* card -- deleting a specific ReDrop entry has nothing left
-  /// to toggle back to.
-  Future<void> _deleteRedrop(int index) async {
-    if (index < 0 || index >= _items.length) return;
-    final item = _items[index];
-    final redropId = item.redropId;
-    if (redropId == null) return;
-
-    setState(() => _items.removeAt(index));
-    try {
-      await widget.dropRepository.deleteRedrop(redropId);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _items.insert(index, item));
-    }
-  }
-
-  /// WYNOS Unified Home Feed Algorithm V1.0 -- records the "Hide" User
-  /// Signal for the item at [index] and removes it from the feed right
-  /// away (optimistic, same "remove now, put back on failure" shape as
-  /// [_deleteRedrop]).
-  ///
-  /// WYN-079 (Wynos V1.0.0 Beta2, item 8): Founder wants a way back after
-  /// hiding by mistake, so a successful hide now offers a Snackbar
-  /// "เลิกทำ" (Undo) action for a few seconds -- tapping it re-inserts
-  /// the item at its original position and reverses the signal via
-  /// [HomeRepository.unhideContent]. Letting the Snackbar time out (or
-  /// dismissing it) leaves the hide in place, same as before this task.
-  Future<void> _hideItem(int index) async {
-    if (index < 0 || index >= _items.length) return;
-    final item = _items[index];
-
-    setState(() => _items.removeAt(index));
-    try {
-      await widget.homeRepository.hideContent(
-        contentType: item.contentType,
-        contentId: item.id,
-      );
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _items.insert(index, item));
-      return;
-    }
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('ไม่สนใจโพสต์นี้แล้ว'),
-        action: SnackBarAction(
-          label: 'เลิกทำ',
-          onPressed: () => _undoHideItem(index, item),
-        ),
-      ),
-    );
-  }
-
-  /// Reverses a hide [item] was doing right after [_hideItem] recorded
-  /// it -- see that method's own doc comment. Re-inserts at [index]
-  /// (nothing removes items ahead of it in that window other than more
-  /// hides, which this same guard already protects against) and deletes
-  /// the "hide" feed_signals row via HomeRepository.unhideContent so a
-  /// later refresh doesn't exclude it again.
-  Future<void> _undoHideItem(int index, HomeFeedItem item) async {
-    if (!mounted) return;
-    setState(() {
-      final insertAt = index <= _items.length ? index : _items.length;
-      _items.insert(insertAt, item);
-    });
-    try {
-      await widget.homeRepository.unhideContent(
-        contentType: item.contentType,
-        contentId: item.id,
-      );
-    } catch (_) {
-      // The item is back in the feed either way (the whole point of
-      // Undo) -- a failed unhideContent just means the next fetch may
-      // exclude it again, not that this tap silently did nothing.
-    }
-  }
-
-  /// Opens QuoteRedropScreen (WYN-034 Screen 2) for the Drop at
-  /// [index]. Unlike [_toggleRedrop] this isn't optimistic -- posting
-  /// happens on that screen itself, so this only bumps [redropCount]
-  /// after a confirmed success (the screen pops `true`).
-  Future<void> _quoteRedrop(int index) async {
-    if (index < 0 || index >= _items.length) return;
-    final item = _items[index];
-
-    final posted = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => QuoteRedropScreen(
-          dropRepository: widget.dropRepository,
-          drop: item.toDrop(),
-        ),
-      ),
-    );
-    if (posted != true || !mounted) return;
-    if (index >= _items.length || _items[index].id != item.id) return;
-    setState(() {
-      _items[index] =
-          _items[index].copyWith(redropCount: _items[index].redropCount + 1);
-    });
-  }
-
-  // WYN-034: now that HomeFeedItem has a real copyWith (added alongside
-  // the redrop_* fields), these delegate to it instead of rebuilding
-  // every field by hand -- the old hand-rolled shape would have
-  // silently reset any field it forgot to repeat to the constructor
-  // default, which used to be harmless (nothing else existed yet) but
-  // would have quietly wiped a ReDrop-sourced card's label/state on
-  // every Like or Save tap once redrop_* existed.
-  static HomeFeedItem _withToggledLike(HomeFeedItem item) => item.copyWith(
-        likedByMe: !item.likedByMe,
-        likeCount: item.likedByMe ? item.likeCount - 1 : item.likeCount + 1,
-      );
-
-  static HomeFeedItem _withToggledSave(HomeFeedItem item) =>
-      item.copyWith(savedByMe: !item.savedByMe);
-
-  static HomeFeedItem _withToggledRedrop(HomeFeedItem item) => item.copyWith(
-        redroppedByMe: !item.redroppedByMe,
-        redropCount:
-            item.redroppedByMe ? item.redropCount - 1 : item.redropCount + 1,
-      );
-
-  Future<void> _openDrop(HomeFeedItem item) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => DropDetailScreen(
-          dropRepository: widget.dropRepository,
-          followRepository: widget.followRepository,
-          profileRepository: widget.profileRepository,
-          popRepository: widget.popRepository,
-          savedRepository: widget.savedRepository,
-          drop: item.toDrop(),
-        ),
-      ),
-    );
-    await _refreshRow(item);
-  }
-
-  Future<void> _openPop(HomeFeedItem item, {bool openComments = false}) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => PopSingleClipScreen(
-          pop: item.toPop(),
-          popRepository: widget.popRepository,
-          followRepository: widget.followRepository,
-          profileRepository: widget.profileRepository,
-          dropRepository: widget.dropRepository,
-          savedRepository: widget.savedRepository,
-          openCommentsOnStart: openComments,
-        ),
-      ),
-    );
-    await _refreshRow(item);
-  }
-
-  /// Brings one card back in sync after Detail, which can change its
-  /// like/save/ReDrop state and its comment count, or delete the post
-  /// outright.
-  ///
-  /// This used to be a whole-feed `_loadInitial()`, which also reset the
-  /// scroll position: the user opened the 40th post, came back, and
-  /// found themselves at the top of a feed that had been rebuilt around
-  /// them. Refreshing the one row they were looking at keeps everything
-  /// else -- position, the rows already loaded, the pages already paged
-  /// -- exactly where they left it.
-  ///
-  /// Located by key rather than by a captured index, because a hide or
-  /// an Undo can shift positions while Detail is open. A row that is
-  /// gone server-side (deleted, or newly out of view for this viewer) is
-  /// removed here too. A failed refresh leaves the card as it was: a
-  /// stale count is a much smaller problem than a feed that empties
-  /// itself because one request timed out.
-  Future<void> _refreshRow(HomeFeedItem item) async {
-    final HomeFeedItem? fresh;
-    try {
-      fresh = await widget.homeRepository.fetchItemById(
-        id: item.id,
-        redropId: item.redropId,
-      );
-    } catch (_) {
-      return;
-    }
-    if (!mounted) return;
-
-    final key = _keyFor(item);
-    final index = _items.indexWhere((candidate) => _keyFor(candidate) == key);
-    if (index < 0) return;
-    setState(() {
-      if (fresh == null) {
-        _items.removeAt(index);
-      } else {
-        _items[index] = fresh;
-      }
-    });
-  }
-
-  void _openProfile(String userId) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ViewProfileScreen(
-          profileRepository: widget.profileRepository,
-          followRepository: widget.followRepository,
-          dropRepository: widget.dropRepository,
-          popRepository: widget.popRepository,
-          savedRepository: widget.savedRepository,
-          userId: userId,
-        ),
-      ),
+  // WYN-140: the one place _feedMode actually changes from a tap --
+  // animates the PageView to the matching page; onPageChanged (see
+  // build()) is what actually updates _feedMode once the page arrives,
+  // the same single source of truth a swipe already updates it through,
+  // so tap and swipe can never drift into disagreeing about which mode
+  // is active.
+  void _selectFeedMode(_HomeFeedMode mode) {
+    if (mode == _feedMode) return;
+    _feedPageController.animateToPage(
+      _feedModeOrder.indexOf(mode),
+      duration: WynMotion.duration(context, WynMotion.standard),
+      curve: WynMotion.enter,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // WYNOSHomeSpec.md 4.4: the pill only makes sense for the 3 modes
-    // that actually share _items/_page (see _fetchPage's own doc
-    // comment) -- "จาก Club ของคุณ" is a wholly separate widget/data
-    // source a new Drop/Pop insert has nothing to do with.
-    final showNewPostsPill =
-        _feedMode != _HomeFeedMode.fromYourClubs && _newPostCount > 0;
-
     return Scaffold(
       key: _scaffoldKey,
       drawer: SideMenu(
@@ -855,97 +263,61 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
       // design-reference/01-home.tsx's header -- not the floating
       // Positioned-over-content overlay this screen used to render the
       // chat icon as (see WYN-031's original "deviation from AppBar"
-      // note, since superseded). That deviation existed because
-      // ClubSection/Trending/the feed-mode toggle used to be a
-      // fixed-height Column claiming space above the scroll view, which
-      // left a real AppBar's height with nowhere to go on a small
-      // viewport (root_shell_test.dart's default test surface
-      // overflowed). They're all slivers inside the CustomScrollView
-      // now (2026-08-24 fix, see the ClubSection sliver's own doc
-      // comment below), so a real header row above it just shrinks the
-      // visible scroll area on a short screen instead of overflowing
-      // it. See .wyn/docs/design/wyn-031-chat-1to1.md, Screen 1.
+      // note, since superseded). See .wyn/docs/design/wyn-031-chat-1to1.md,
+      // Screen 1.
       body: SafeArea(
         child: Column(
           children: [
             _buildHeader(),
+            // WYN-140: the toggle is a plain fixed row now, not a
+            // pinned SliverPersistentHeader inside a shared
+            // CustomScrollView -- there is no longer one shared
+            // scrollable for it to pin within, and a fixed widget above
+            // the PageView is visually identical to "pinned" (always
+            // visible, feed content scrolls beneath it) without needing
+            // a hand-measured height constant the way the old
+            // _FeedModeToggleHeaderDelegate did.
+            _buildFeedModeToggle(),
             Expanded(
-              child: RefreshIndicator(
-                key: _refreshIndicatorKey,
-                onRefresh: _feedMode == _HomeFeedMode.fromYourClubs
-                    ? () async {}
-                    : _loadInitial,
-                // WYN-140 Phase 2: swipe-to-switch-tabs -- see
-                // _onHorizontalSwipeEnd's own doc comment for why this is
-                // safe to layer over the vertical CustomScrollView (and,
-                // inside it, the horizontal image carousel) without a
-                // gesture conflict.
-                child: GestureDetector(
-                  onHorizontalDragEnd: _onHorizontalSwipeEnd,
-                  child: CustomScrollView(
-                    key: const Key('home_feed_scroll_view'),
-                    controller: _scrollController,
-                    slivers: [
-                    // Founder feedback, 2026-09-05: removed
-                    // HomeExplainerBanner ("ดู → แชร์ → ค้นพบ → ซื้อ") --
-                    // the widget itself (WYNOSHomeSpec.md item 1) is left
-                    // in place, unmounted rather than deleted, same
-                    // "screens/data untouched, just no longer wired up"
-                    // posture as Pop/ZOKY (see RootShell's own doc
-                    // comment) in case Product wants it back in a
-                    // different spot later.
-                    // Founder feedback: users didn't know WYNOS (the
-                    // Flutter Web build) could be added to their home
-                    // screen like a real app icon -- renders nothing at
-                    // all on native/desktop/already-installed, see the
-                    // widget's own doc comment.
-                    const SliverToBoxAdapter(child: AddToHomeScreenBanner()),
-                    // WYN-073: ClubSection/Trending (formerly here) removed
-                    // from Home -- both are already reachable from the
-                    // Search tab (club discovery/create, Top100), so this
-                    // isn't a lost capability, just a duplicate entry point.
-                    // See .wyn/docs/design/wyn-073-home-layout-tabs-restyle.md.
-                    // Pinned: stays visible at the top once the header above
-                    // has scrolled out of view, so the mode toggle (สำหรับ
-                    // คุณ/ติดตาม/ล่าสุด/จาก Club ของคุณ) is always reachable
-                    // without scrolling back up -- same request's "Sticky
-                    // Filter Bar" ask.
-                    SliverPersistentHeader(
-                      pinned: true,
-                      delegate: _FeedModeToggleHeaderDelegate(
-                        height: _feedModeToggleHeight +
-                            (showNewPostsPill ? _newPostsPillHeight : 0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildFeedModeToggle(),
-                            // WYNOSHomeSpec.md 4.4: "itself part of the
-                            // sticky block" -- pinned together with the
-                            // toggle above, not a separate scrolling
-                            // sliver of its own.
-                            if (showNewPostsPill)
-                              NewPostsPill(
-                                count: _newPostCount,
-                                onTap: _onNewPostsPillTap,
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (_feedMode == _HomeFeedMode.fromYourClubs)
-                      SliverFillRemaining(
-                        hasScrollBody: true,
-                        child: FromYourClubsFeed(
-                          key: const Key('from_your_clubs_feed'),
-                          clubRepository: widget.clubRepository,
-                          clubPostRepository: widget.clubPostRepository,
-                        ),
-                      )
-                    else
-                      ..._buildBodySlivers(),
-                  ],
-                  ),
-                ),
+              child: PageView.builder(
+                key: const Key('home_feed_page_view'),
+                controller: _feedPageController,
+                itemCount: _feedModeOrder.length,
+                onPageChanged: (index) {
+                  setState(() => _feedMode = _feedModeOrder[index]);
+                },
+                itemBuilder: (context, index) {
+                  switch (_feedModeOrder[index]) {
+                    case _HomeFeedMode.forYou:
+                      return ModeFeedPage(
+                        key: _forYouKey,
+                        mode: HomeFeedRankMode.forYou,
+                        homeRepository: widget.homeRepository,
+                        dropRepository: widget.dropRepository,
+                        popRepository: widget.popRepository,
+                        followRepository: widget.followRepository,
+                        profileRepository: widget.profileRepository,
+                        savedRepository: widget.savedRepository,
+                      );
+                    case _HomeFeedMode.following:
+                      return ModeFeedPage(
+                        key: _followingKey,
+                        mode: HomeFeedRankMode.following,
+                        homeRepository: widget.homeRepository,
+                        dropRepository: widget.dropRepository,
+                        popRepository: widget.popRepository,
+                        followRepository: widget.followRepository,
+                        profileRepository: widget.profileRepository,
+                        savedRepository: widget.savedRepository,
+                      );
+                    case _HomeFeedMode.fromYourClubs:
+                      return FromYourClubsFeed(
+                        key: const Key('from_your_clubs_feed'),
+                        clubRepository: widget.clubRepository,
+                        clubPostRepository: widget.clubPostRepository,
+                      );
+                  }
+                },
               ),
             ),
           ],
@@ -1138,19 +510,15 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
                 // shifts the row's height -- same approach the old
                 // strip indicator used.
                 //
-                // WYN-140: duration/curve moved onto the shared DS-010
-                // motion tokens (was a hardcoded 150ms/easeOut that
-                // ignored the reduced-motion setting) -- same
-                // fade-in-place mechanism, not the literal cross-tab
-                // sliding indicator the brief pictured. This toggle row
-                // has been through 4 rounds of overflow/wrapping fixes
-                // (see WYN-024's history in this file and in
-                // home_feed_screen_test.dart); reworking its layout into
-                // a measured, position-tracking indicator is real
-                // structural risk on a widget with that history, and
-                // this session has no local Flutter toolchain to verify
-                // it. Left as a follow-up if Founder still wants literal
-                // sliding after seeing this in production.
+                // WYN-140: duration/curve on the shared DS-010 motion
+                // tokens (220ms, respects reduced-motion). This toggle
+                // row has been through 4 rounds of overflow/wrapping
+                // fixes (see WYN-024's history in this file and in
+                // home_feed_screen_test.dart); a literal
+                // position-tracking sliding indicator remains a
+                // follow-up, not this fade -- see PageView's own drag
+                // now for the "does it feel like it's really sliding"
+                // part of that ask.
                 AnimatedOpacity(
                   duration: WynMotion.duration(context, WynMotion.standard),
                   curve: WynMotion.enter,
@@ -1171,236 +539,5 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
         ),
       ),
     );
-  }
-
-  // Returns the sliver(s) for whichever state the feed is in -- loading/
-  // error/empty each fill the remaining viewport below the pinned mode
-  // toggle (SliverFillRemaining), same visual "centered in the space
-  // under the header" result the old Expanded(child: Center(...)) gave,
-  // just expressed as a sliver so it can sit inside the same
-  // CustomScrollView as the scrollable header above it (see build()'s
-  // doc comment on why that header no longer owns fixed Column space).
-  List<Widget> _buildBodySlivers() {
-    if (_isLoadingInitial) {
-      // A sliver of card-shaped placeholders rather than a spinner in an
-      // empty viewport -- see HomeFeedSkeleton. Scrolls with the list it
-      // stands in for, so the pinned mode toggle above behaves exactly
-      // as it will once real cards arrive.
-      return [
-        const SliverToBoxAdapter(child: HomeFeedSkeleton()),
-      ];
-    }
-
-    if (_error != null) {
-      return [
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(_error!),
-                const SizedBox(height: WynSpacing.space3),
-                TextButton(
-                    onPressed: _loadInitial, child: const Text('ลองใหม่')),
-              ],
-            ),
-          ),
-        ),
-      ];
-    }
-
-    if (_items.isEmpty) {
-      // WYNOSHomeSpec.md 4.5: "ติดตาม" empty is the one real "the
-      // account follows no one yet" case -- get_wynos_ranked_feed()'s
-      // own candidate pool ("สำหรับคุณ"/"ล่าสุด") is never scoped to
-      // following, so either being empty means the *platform* has no
-      // recent content at all (the existing "เป็นคนแรกสิ!" message is
-      // already the right one for that), not "go follow someone".
-      if (_feedMode == _HomeFeedMode.following) {
-        return [
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: WynSpacing.space6,
-                  vertical: WynSpacing.space4,
-                ),
-                child: SuggestedFollowList(
-                  fetchSuggestedUsers: _discoveryRepository.fetchSuggestedUsers,
-                  followRepository: widget.followRepository,
-                  followRequestRepository: _followRequestRepository,
-                  onOpenProfile: _openProfile,
-                ),
-              ),
-            ),
-          ),
-        ];
-      }
-      return const [
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: WynSpacing.space4),
-              child: Text(
-                'ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!',
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-        ),
-      ];
-    }
-
-    // Interleaves a hairline divider between posts only (DS-003) -- never
-    // before the loading spinner at the end, which isn't content -- the
-    // same rule ListView.separated enforced, just written out by hand
-    // since SliverChildBuilderDelegate has no separated variant. Each
-    // real item sits at an even index, each divider at the following odd
-    // index, so index~/2 recovers the item index below.
-    final itemCount = _items.length + (_hasMore ? 1 : 0);
-    return [
-      SliverList(
-        key: const Key('home_feed_list'),
-        delegate: SliverChildBuilderDelegate(
-          (context, i) {
-            if (i.isOdd) {
-              final itemIndex = i ~/ 2;
-              return itemIndex + 1 < _items.length
-                  ? const Divider(height: 1)
-                  : const SizedBox.shrink();
-            }
-            final index = i ~/ 2;
-
-            if (index >= _items.length) {
-              if (_loadMoreFailed) {
-                return Padding(
-                  padding: const EdgeInsets.all(WynSpacing.space4),
-                  child: Center(
-                    child: TextButton.icon(
-                      key: const Key('home_feed_load_more_retry'),
-                      onPressed: _loadMore,
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('โหลดเพิ่มไม่สำเร็จ แตะเพื่อลองใหม่'),
-                    ),
-                  ),
-                );
-              }
-              return const Padding(
-                padding: EdgeInsets.all(WynSpacing.space4),
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
-
-            final item = _items[index];
-            // WYN-034: id alone is no longer a unique widget key -- the
-            // same Drop can appear twice (once plain, once via someone's
-            // ReDrop of it), so redropId (null for a plain row) is
-            // folded in too.
-            final itemKey = ValueKey('${item.id}:${item.redropId ?? ''}');
-            if (item.contentType == HomeContentType.drop) {
-              return HomeDropCard(
-                key: itemKey,
-                item: item,
-                dropRepository: widget.dropRepository,
-                onTap: () => _openDrop(item),
-                onToggleLike: () => _toggleLike(index),
-                onToggleSave: () => _toggleSave(index),
-                onOpenProfile: () => _openProfile(item.authorId),
-                onToggleRedrop: () => _toggleRedrop(index),
-                onQuoteRedrop: () => _quoteRedrop(index),
-                onOpenRedropperProfile: item.redropperId == null
-                    ? null
-                    : () => _openProfile(item.redropperId!),
-                onDeleteRedrop: () => _deleteRedrop(index),
-                onVotePoll: (optionIndex) => _votePoll(index, optionIndex),
-                onHide: () => _hideItem(index),
-                // WYN-088 (Wynos V1.0.0 Beta2, item 27): Founder wants
-                // the eye/view-count icon off the Home feed specifically
-                // (every tab -- this build method serves all 4), while
-                // Profile keeps it (HomeDropCard's other call sites --
-                // profile_drop_grid_tab.dart etc. -- don't pass this,
-                // so they keep the default true).
-                showViewCount: false,
-              );
-            }
-            return HomePopCard(
-              key: itemKey,
-              item: item,
-              onTap: () => _openPop(item),
-              onTapComment: () => _openPop(item, openComments: true),
-              onToggleLike: () => _toggleLike(index),
-              onToggleSave: () => _toggleSave(index),
-              onOpenProfile: () => _openProfile(item.authorId),
-              onHide: () => _hideItem(index),
-              // WYN-088 -- same reasoning as HomeDropCard's identical
-              // param above.
-              showViewCount: false,
-            );
-          },
-          childCount: itemCount * 2 - 1,
-        ),
-      ),
-    ];
-  }
-}
-
-// The feed-mode toggle's pinned SliverPersistentHeader wrapper (see
-// build()'s "Sticky Filter Bar" doc comment). [height] must match the
-// child's actual rendered height exactly -- a SliverPersistentHeader
-// clips its child to min/maxExtent rather than sizing to it, so a
-// mismatch would either clip the toggle or leave dead space under it
-// (which, in turn, throws off how much viewport SliverFillRemaining
-// hands the feed body below -- confirmed by a test regression at wider
-// widths when this was first guessed at 64 instead of measured).
-// WYN-073: measured against the real widget tree -- a first guess of 51
-// threw "SliverGeometry is not valid: layoutExtent (51.0) exceeds
-// paintExtent (50.0)" on every frame (confirmed via a real test run, not
-// assumed), so the true rendered height is 50, one px less than the
-// naive text-metrics sum would suggest.
-const double _feedModeToggleHeight = 50;
-
-// NewPostsPill's own measured height (54 -- tester.getSize against the
-// real widget tree, same "not assumed" discipline as
-// _feedModeToggleHeight above) -- added on top of _feedModeToggleHeight
-// only while the pill is actually shown (see build()'s
-// showNewPostsPill), so the pinned block's extent grows/shrinks exactly
-// in step with the pill's own visibility instead of always reserving
-// dead space for it.
-const double _newPostsPillHeight = 54;
-
-class _FeedModeToggleHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _FeedModeToggleHeaderDelegate({
-    required this.height,
-    required this.child,
-  });
-
-  final double height;
-  final Widget child;
-
-  @override
-  double get minExtent => height;
-
-  @override
-  double get maxExtent => height;
-
-  @override
-  Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    // A Material surface, not a transparent passthrough -- once pinned
-    // above the scrolled-away ClubSection/Trending content, this needs
-    // its own opaque background so feed cards scrolling underneath don't
-    // show through the toggle bar.
-    return Material(
-      color: Theme.of(context).colorScheme.surface,
-      child: child,
-    );
-  }
-
-  @override
-  bool shouldRebuild(covariant _FeedModeToggleHeaderDelegate oldDelegate) {
-    return height != oldDelegate.height || child != oldDelegate.child;
   }
 }

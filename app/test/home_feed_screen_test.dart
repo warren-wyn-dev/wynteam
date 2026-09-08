@@ -10,6 +10,7 @@ import 'package:video_player_platform_interface/video_player_platform_interface.
 import 'package:wyn/core/design/wyn_colors.dart';
 import 'package:wyn/core/widgets/action_metric.dart';
 import 'package:wyn/core/widgets/hashtag_text.dart';
+import 'package:wyn/core/widgets/post_media.dart';
 import 'package:wyn/features/club/data/club_post.dart';
 import 'package:wyn/features/drop/data/drop.dart' show AudienceOption;
 import 'package:wyn/features/club/presentation/explore_clubs_screen.dart';
@@ -385,6 +386,8 @@ void main() {
   late RecordingHomeRepository scrollToTopTestHomeRepository;
   late RecordingHomeRepository triggerRefreshTestHomeRepository;
   late RecordingHomeRepository swipeTestHomeRepository;
+  late RecordingHomeRepository carouselSwipeHomeRepository;
+  late RecordingDropRepository carouselSwipeDropRepository;
   late _DelayedHomeRepository duplicateFetchGuardTestHomeRepository;
 
   setUpAll(() async {
@@ -708,6 +711,18 @@ void main() {
 
     swipeTestHomeRepository =
         RecordingHomeRepository(feedItems: [_dropItem(id: 'sw1', hasImage: false)]);
+
+    carouselSwipeDropRepository = RecordingDropRepository()
+      ..dropImagesById = {
+        'multi1': [
+          'https://example.supabase.co/drops/multi1.jpg',
+          'https://example.supabase.co/drops/multi1_1.jpg',
+          'https://example.supabase.co/drops/multi1_2.jpg',
+        ],
+      };
+    carouselSwipeHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'multi1', imageCount: 3)],
+    );
   });
 
   Widget buildHome(
@@ -1758,16 +1773,26 @@ void main() {
     });
   });
 
-  group('Feed mode swipe gesture (WYN-140 Phase 2)', () {
-    // WidgetTester.drag() does not reliably simulate release velocity --
-    // it moves the pointer to its target and releases, which the test
-    // framework's own velocity tracker often reads as near-zero, well
-    // under _onHorizontalSwipeEnd's 200px/s gate. fling() is the tester
-    // API that actually simulates a decisive flick with a real velocity,
-    // so every test below that expects a swipe to register uses fling();
-    // only the below-threshold test (which wants a low velocity on
-    // purpose) uses timedDrag().
+  group('Feed mode swipe gesture (WYN-140)', () {
+    // 2026-09-08: rebuilt on a real PageView (see mode_feed_page.dart and
+    // home_feed_screen.dart's own doc comment on why) -- Founder tried the
+    // previous hand-rolled GestureDetector.onHorizontalDragEnd version on
+    // the real deployed build, found it "ไม่ค่อยลื่น" (not very smooth),
+    // and then asked for the destination tab's real content to slide in
+    // as you drag, the way Threads/IG/X do it. A real PageView decides on
+    // its own (via its default PageScrollPhysics) whether a drag/fling is
+    // decisive enough to commit to the next page or spring back -- there
+    // is no bespoke velocity threshold left in this codebase to test.
+    // These tests verify the wiring instead: fling/drag on the PageView
+    // reaches the right destination mode, in the right order, and a
+    // swipe past either end is a safe no-op -- the same contract the old
+    // hand-rolled gesture had, just implemented by a well-tested Flutter
+    // primitive instead of custom velocity math.
     const flingVelocity = 1000.0;
+    final pageViewFinder = find.byKey(const Key('home_feed_page_view'));
+
+    double? currentPage(WidgetTester tester) =>
+        tester.widget<PageView>(pageViewFinder).controller?.page;
 
     testWidgets(
         'a decisive leftward swipe on the feed switches "สำหรับคุณ" -> '
@@ -1782,14 +1807,11 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      await tester.fling(
-        find.byKey(const Key('home_feed_scroll_view')),
-        const Offset(-400, 0),
-        flingVelocity,
-      );
+      await tester.fling(pageViewFinder, const Offset(-400, 0), flingVelocity);
       await tester.pumpAndSettle();
       tester.takeException();
 
+      expect(currentPage(tester), closeTo(1, 0.01));
       expect(swipeTestHomeRepository.fetchFollowingFeedCalls, callsBefore + 1,
           reason: 'swiping left should have loaded "ติดตาม" the same way '
               'tapping its tab does');
@@ -1808,22 +1830,14 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      await tester.fling(
-        find.byKey(const Key('home_feed_scroll_view')),
-        const Offset(-400, 0),
-        flingVelocity,
-      );
+      await tester.fling(pageViewFinder, const Offset(-400, 0), flingVelocity);
       await tester.pumpAndSettle();
-      await tester.fling(
-        find.byKey(const Key('home_feed_scroll_view')),
-        const Offset(-400, 0),
-        flingVelocity,
-      );
+      await tester.fling(pageViewFinder, const Offset(-400, 0), flingVelocity);
       await tester.pumpAndSettle();
       tester.takeException();
 
+      expect(currentPage(tester), closeTo(2, 0.01));
       expect(find.text('โพสต์จาก Club ที่เข้าร่วม'), findsOneWidget);
-      expect(find.text('แคปชัน Drop'), findsNothing);
     });
 
     testWidgets(
@@ -1836,27 +1850,25 @@ void main() {
         clubPostRepository: fromClubsPostRepository,
       ));
       await tester.pumpAndSettle();
+      tester.takeException();
+
       await tester.tap(find.text('Club'));
       await tester.pumpAndSettle();
       tester.takeException();
-      final callsBefore = swipeTestHomeRepository.fetchFollowingFeedCalls;
+      expect(currentPage(tester), closeTo(2, 0.01));
 
-      await tester.fling(
-        find.byKey(const Key('home_feed_scroll_view')),
-        const Offset(400, 0),
-        flingVelocity,
-      );
+      await tester.fling(pageViewFinder, const Offset(400, 0), flingVelocity);
       await tester.pumpAndSettle();
       tester.takeException();
 
-      expect(swipeTestHomeRepository.fetchFollowingFeedCalls, callsBefore + 1,
+      expect(currentPage(tester), closeTo(1, 0.01),
           reason: 'swiping right from Club should land on ติดตาม, one step '
               'back in _feedModeOrder');
     });
 
     testWidgets(
         'a rightward swipe already on "สำหรับคุณ" (the first mode) is a '
-        'clean no-op -- no crash, no reload', (tester) async {
+        'clean no-op -- no crash, no page change', (tester) async {
       await tester.pumpWidget(buildHome(
         swipeTestHomeRepository,
         dropRepository: sharedDropRepository,
@@ -1864,28 +1876,22 @@ void main() {
       ));
       await tester.pumpAndSettle();
       tester.takeException();
-      final callsBefore = swipeTestHomeRepository.fetchRankedFeedCalls;
+      expect(currentPage(tester), closeTo(0, 0.01));
 
-      await tester.fling(
-        find.byKey(const Key('home_feed_scroll_view')),
-        const Offset(400, 0),
-        flingVelocity,
-      );
+      await tester.fling(pageViewFinder, const Offset(400, 0), flingVelocity);
       await tester.pumpAndSettle();
       final exception = tester.takeException();
 
       expect(exception, isNull);
-      expect(swipeTestHomeRepository.fetchRankedFeedCalls, callsBefore,
+      expect(currentPage(tester), closeTo(0, 0.01),
           reason: 'already at the first mode -- a swipe past the start '
-              'should be a no-op, same as the equivalent tap-past-the-end '
-              'never existing at all');
+              'should be a no-op');
       expect(find.text('แคปชัน Drop'), findsOneWidget);
     });
 
     testWidgets(
         'a short, slow drag well under the velocity threshold does not '
         'switch modes -- only a decisive swipe does', (tester) async {
-      final callsBefore = swipeTestHomeRepository.fetchFollowingFeedCalls;
       await tester.pumpWidget(buildHome(
         swipeTestHomeRepository,
         dropRepository: sharedDropRepository,
@@ -1894,20 +1900,73 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      // A short drag over a long duration -- well under the 200px/s
-      // threshold _onHorizontalSwipeEnd requires.
+      // A short drag over a long duration -- well under a decisive
+      // fling's velocity, so PageView's own physics should spring it
+      // back to the current page rather than committing to the next one.
       await tester.timedDrag(
-        find.byKey(const Key('home_feed_scroll_view')),
+        pageViewFinder,
         const Offset(-30, 0),
         const Duration(seconds: 1),
       );
       await tester.pumpAndSettle();
       tester.takeException();
 
-      expect(swipeTestHomeRepository.fetchFollowingFeedCalls, callsBefore,
+      expect(currentPage(tester), closeTo(0, 0.01),
           reason: 'a slow, short drag should not read as a deliberate '
               'swipe');
       expect(find.text('แคปชัน Drop'), findsOneWidget);
+    });
+
+    testWidgets(
+        'a horizontal drag that starts on a multi-image post scrolls its '
+        'carousel, not the outer PageView -- the two horizontal '
+        'Scrollables sharing an axis is exactly the conflict a real '
+        'PageView (unlike the old plain GestureDetector) could introduce',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        carouselSwipeHomeRepository,
+        dropRepository: carouselSwipeDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final carousel = find.byType(PostImageCarousel);
+      expect(carousel, findsOneWidget,
+          reason: 'imageCount: 3 should have built the real carousel, not '
+              'the single-image fallback');
+      final carouselListView = find.descendant(
+        of: carousel,
+        matching: find.byType(ListView),
+      );
+      expect(carouselListView, findsOneWidget);
+      final carouselController =
+          tester.widget<ListView>(carouselListView).controller!;
+      expect(carouselController.position.pixels, 0);
+
+      // Dragging directly on the carousel itself, not the outer feed --
+      // this is the drag a user makes to flip through a post's photos.
+      await tester.drag(carouselListView, const Offset(-120, 0));
+      await tester.pump();
+      tester.takeException();
+
+      expect(carouselController.position.pixels, greaterThan(0),
+          reason: 'the carousel should have scrolled to its next photo');
+      expect(currentPage(tester), closeTo(0, 0.01),
+          reason: 'a drag that started on the carousel must not also page '
+              'the outer feed tabs -- the carousel is the innermost '
+              'Scrollable over its own bounds and should win the gesture '
+              'arena, the same as it already does against the vertical '
+              'CustomScrollView it sits inside');
+
+      // DoubleTapLike (wrapping the carousel, same as every card) starts
+      // its own short double-tap-detection timer on pointer down --
+      // still pending after just one bare pump(). Settling here (rather
+      // than tearing the widget tree down mid-timer) is what the
+      // existing double-tap tests elsewhere in this file already do via
+      // pumpAndSettle after their own taps/drags, for the same reason.
+      await tester.pumpAndSettle();
+      tester.takeException();
     });
   });
 

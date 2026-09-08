@@ -1581,6 +1581,87 @@ issues, `flutter test`: 1442/1442 ผ่านทั้งหมด (รวม 5
 อ้างอิง: `.wyn/tasks/approved/WYN-140-home-feed-premium-polish.md`, commit `52b6aac` (feature),
 commit `3eb8dcb` (test fix), CI run #328 (fail), CI run #329 (pass)
 
+## [2026-09-08] WYN-140 Phase 2: Deploy สำเร็จ production — รอ Founder ยืนยัน feel ของ swipe บนแอปจริง
+
+**Deploy**: PR #315 merge เข้า `main` (squash, commit `b7cf7a6`) → `deploy-web.yml` run
+[#107](https://github.com/warren-wyn-dev/wynteam/actions/runs/34198710747) SUCCESS →
+`curl https://wynos.online/` ยืนยัน HTTP 200 จริง, last-modified ตรงกับเวลา deploy — **ยืนยันได้แค่ว่าเว็บ
+ขึ้นจริงไม่พัง ยังไม่ได้ยืนยันความรู้สึกของ swipe gesture เอง** (ลื่นไหม ชนกับ carousel เลื่อนรูปหลายรูป หรือ
+back-gesture ของเบราว์เซอร์/ระบบไหม) — นี่คือความเสี่ยงประเภทที่ Founder ยอมรับไว้ตั้งแต่ต้นว่า CI ตอบให้ไม่ได้
+ต้องรอ Founder ลองจริงก่อนย้าย task เข้า `completed/`
+
+**สรุปทั้ง Phase 2**: implement เฉพาะ swipe gesture ตามที่ตัด scope ไว้ (บันทึกด้านบน) — custom
+pull-to-refresh เต็มรูปแบบไม่ได้ทำ เป็นการตัด scope ที่เปิดเผยแล้ว ไม่ใช่งานค้าง WYN-140 ทั้งงาน (Phase 1 +
+Phase 2 swipe) จึง deploy ขึ้น production ครบตามที่ Founder สั่ง ("ทำเฟส2ให้เสร็จด้วยนะ" → "ยอมรับความเสี่ยง
+— ให้ลุย Phase 2 ต่อเลย")
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-08-wyn-140-home-feed-premium-polish-phase2-deploy.md`, PR #315,
+deploy-web.yml run #107
+
+## [2026-09-08] WYN-140 Phase 2 follow-up: "ไม่ค่อยลื่น" — เพิ่ม rubber-band cue ระหว่างลาก ไม่ใช่รื้อเป็น PageView
+
+**Founder feedback**: ลองใช้จริงบน production แล้วบอกว่า "ไม่ค่อยลื่น แต่ก็โอเคอยู่" — วิเคราะห์แล้วสาเหตุ
+น่าจะเป็นเพราะการ implement เดิม (`_onHorizontalDragEnd` เท่านั้น ไม่มี `onHorizontalDragUpdate`) ทำให้ระหว่าง
+ลากนิ้วไม่มี feedback ใดๆ เลย จนกว่าจะปล่อยนิ้วแล้วแท็บถึงสลับทันที — ต่างจาก Threads/IG ที่จอขยับตามนิ้วไปด้วย
+ตลอดการลาก ถามตัวเลือกกับ Founder ("เก็บไว้แบบนี้" / "ลองปรับปรุงความลื่น" / "ขอดูตัวอย่างก่อน") — Founder
+เลือก **"ลองปรับปรุงความลื่น"**
+
+**Scope ที่ทำ**: เพิ่ม `onHorizontalDragUpdate` เข้า `GestureDetector` เดิม เพื่อ track ระยะลากต่อเนื่อง แล้วใช้
+`AnimatedContainer` ครอบ `CustomScrollView` ขยับด้วย `Matrix4.translationValues` ตามระยะที่ลาก (clamp ไว้ที่
+`WynSpacing.space12` = 48px ไม่ให้ลากไกลเกินไป) — ระหว่างลาก duration=0 (ตามนิ้วทันที) พอปล่อยนิ้ว duration
+เปลี่ยนเป็น `WynMotion.standard` ให้เด้งกลับตำแหน่งเดิมนุ่มๆ ทั้งกรณีสลับแท็บสำเร็จและกรณีไม่ถึงเกณฑ์ **ไม่ใช่**
+การรื้อเป็น `PageView`/render เนื้อหาแท็บถัดไปใต้จอ — เหตุผลเรื่องความเสี่ยงสถาปัตยกรรมที่ตัด scope ไว้ตั้งแต่
+Phase 2 รอบแรกยังใช้ได้เหมือนเดิม นี่เป็นแค่ "cue ว่าจับได้แล้ว" ไม่ใช่ preview เนื้อหาจริง
+
+**QA**: เพิ่ม 5 เทสใหม่ (`home_feed_screen_test.dart`, group "Swipe rubber-band visual cue") ครอบ: ลากซ้าย/
+ขวาแล้ว transform ขยับทิศถูกต้องระหว่างลาก, การ clamp ที่ 48px, และการเด้งกลับ 0 หลังปล่อยนิ้วทั้ง 2 กรณี (สลับ
+แท็บสำเร็จ/ไม่สำเร็จ) — รอผล CI จริงก่อนสรุป PASS เหมือนทุกรอบที่ผ่านมา
+
+อ้างอิง: `.wyn/tasks/approved/WYN-140-home-feed-premium-polish.md`, `app/lib/features/home/presentation/
+home_feed_screen.dart`, `app/test/home_feed_screen_test.dart`
+
+## [2026-09-08] WYN-140: rubber-band cue ไม่พอ — Founder ขอ "swipe หลายๆหน้าเหมือนแพลตฟอร์มใหญ่ๆ" รื้อเป็น PageView จริง
+
+**Founder feedback**: "อยากให้ Swipe หลายๆหน้า เหมือนแพตฟอมใหญ่ๆ" — หมายถึงเห็นเนื้อหาแท็บถัดไปเลื่อนตามนิ้ว
+เข้ามาจริง (Threads/IG/X) ไม่ใช่แค่เนื้อหาเดิมขยับเล็กน้อยแบบ rubber-band cue ที่เพิ่งทำไป — ถามชัดเจนว่านี่คือ
+งานใหญ่กว่าเดิมมาก (ต้องรื้อสถาปัตยกรรมจริง แยก state ของแต่ละแท็บออกจากกัน กระทบเทสส่วนใหญ่ของไฟล์เดียวกัน)
+Founder เลือก **"ทำเต็มรูปแบบ (Recommended)"** — ยืนยันครั้งที่ 2 (ครั้งแรกตอนรับความเสี่ยง Phase 2 กว้างๆ,
+ครั้งนี้เจาะจงกับการรื้อสถาปัตยกรรมโดยตรง)
+
+**สิ่งที่ทำ**: ดึง logic ทั้งหมดของ "สำหรับคุณ"/"ติดตาม" (pagination, like/save/redrop/poll/hide/undo/
+quote-redrop/refreshRow, new-posts pill, RefreshIndicator+CustomScrollView ของตัวเอง) ออกจาก
+`_HomeFeedScreenState` ไปเป็น widget ใหม่ `ModeFeedPage` (`mode_feed_page.dart`) พารามิเตอร์ด้วย mode — คือ
+รูปแบบเดียวกับที่ `FromYourClubsFeed` (Club) มีอยู่แล้วเดิม แค่ทำอีก 2 โหมดให้เป็นแบบเดียวกัน — `HomeFeedScreen`
+เหลือแค่ header/drawer/chat icon/toggle row + `PageView.builder` โฮสต์ 3 หน้า (ModeFeedPage x2 + Club) ทั้ง
+`ModeFeedPage`/`FromYourClubsFeed` ใช้ `AutomaticKeepAliveClientMixin` กันสถานะหายตอนสลับแท็บไปมา (ข้อดี
+แถม: กลับมาแท็บเดิมไม่ต้องโหลดใหม่ ต่างจากของเดิมที่ reload ทุกครั้งที่สลับ) toggle เดิม pin เป็น sliver header
+ใน CustomScrollView เดียว — ตอนนี้เป็น fixed widget ธรรมดาเหนือ PageView แทน (ไม่ต้องมี hand-measured height
+constant แบบเดิม)
+
+**ความเสี่ยงใหม่ที่ตรวจสอบเป็นพิเศษ**: การเปลี่ยนจาก `GestureDetector` เดิม (ไม่ใช่ Scrollable) เป็น `PageView`
+จริง (เป็น Scrollable) หมายความว่าตอนนี้มี Scrollable แนวนอน 2 ชั้นซ้อนกัน (PageView ครอบ, carousel รูปหลายรูป
+ของแต่ละโพสต์อยู่ข้างใน) ซึ่งเป็นปัญหาที่ Flutter ขึ้นชื่อว่าท้าทายกว่ากรณี GestureDetector ธรรมดา — เพิ่มเทสใหม่
+เจาะจงจำลองการลากเริ่มจากบน carousel ของโพสต์ที่มีหลายรูป ยืนยันว่า carousel เลื่อนรูป ไม่ใช่ tab เปลี่ยน — ไม่ใช่
+แค่สมมติว่าปลอดภัยแบบครั้งก่อน
+
+**QA — PASS ผ่าน CI จริง** (หลังแก้ 3 รอบ, ทุกรอบเป็นบั๊กในเทสเอง ไม่ใช่ในโค้ดจริง):
+1. รอบแรก (`flutter analyze`): เทสใหม่มี `prefer_single_quotes` lint — แก้แล้ว
+2. รอบสอง (`flutter test`): เทส carousel ใหม่สร้าง `RecordingDropRepository`/`RecordingHomeRepository` ใหม่ใน
+   `testWidgets` โดยตรง (timer รั่วจาก `SupabaseClient` — บั๊กแบบเดียวกับที่เจอไปแล้วรอบก่อนหน้าใน Phase 2 เดิม
+   แต่พลาดซ้ำในเทสใหม่นี้) — ย้ายไปสร้างครั้งเดียวใน `setUpAll()` ตาม convention เดิมของไฟล์
+3. รอบสาม: timer อีกตัวจาก `DoubleTapLike` (double-tap detection, 40ms) ที่ห่อ carousel ทุกโพสต์ — เทสทำ
+   `tester.pump()` ครั้งเดียวหลังลาก ไม่พอให้ timer นี้หมดอายุ — เพิ่ม `pumpAndSettle()` ท้ายเทสก่อนจบ
+
+**Final: `flutter analyze` 0 issues, `flutter test` 1443/1443 ผ่านทั้งหมด** พร้อมเข้าสู่ขั้น deploy
+
+**สิ่งที่ยังยืนยันด้วย CI ไม่ได้**: ความรู้สึกจริงของการ swipe บนมือถือจริง (ลื่นสมจริงแค่ไหน, ชนกับ back-gesture
+ของระบบ/เบราว์เซอร์ไหม) — ความเสี่ยงเดิมที่ Founder ยอมรับไว้แล้วตั้งแต่ต้น Phase 2 ยังไม่เปลี่ยน
+
+อ้างอิง: `app/lib/features/home/presentation/home_feed_screen.dart`, `app/lib/features/home/presentation/
+widgets/mode_feed_page.dart`, `app/lib/features/home/presentation/widgets/from_your_clubs_feed.dart`,
+`app/test/home_feed_screen_test.dart`, CI runs #333 (analyze fail), #334 (1 test fail), #337 (1 test fail),
+#339 (PASS)
+
 ## [2026-09-08] Guest Browsing (WYN-072) หยุดชั่วคราว — Founder สั่งปิดปุ่ม "เข้าชม WYNOS ได้เลย"
 
 **Founder ตัดสินใจ**: ส่งภาพหน้าจอ AuthMethodScreen (`wynos.online`) พร้อมวงกลมล้อมปุ่ม "เข้าชม WYNOS ได้เลย"
