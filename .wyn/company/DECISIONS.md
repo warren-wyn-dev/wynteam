@@ -1580,3 +1580,20 @@ issues, `flutter test`: 1442/1442 ผ่านทั้งหมด (รวม 5
 
 อ้างอิง: `.wyn/tasks/approved/WYN-140-home-feed-premium-polish.md`, commit `52b6aac` (feature),
 commit `3eb8dcb` (test fix), CI run #328 (fail), CI run #329 (pass)
+
+## [2026-09-08] WYN-140 Phase 2: Deploy สำเร็จ production — รอ Founder ยืนยัน feel ของ swipe บนแอปจริง
+
+**Deploy**: PR #315 merge เข้า `main` (squash, commit `b7cf7a6`) → `deploy-web.yml` run
+[#107](https://github.com/warren-wyn-dev/wynteam/actions/runs/34198710747) SUCCESS →
+`curl https://wynos.online/` ยืนยัน HTTP 200 จริง, last-modified ตรงกับเวลา deploy — **ยืนยันได้แค่ว่าเว็บ
+ขึ้นจริงไม่พัง ยังไม่ได้ยืนยันความรู้สึกของ swipe gesture เอง** (ลื่นไหม ชนกับ carousel เลื่อนรูปหลายรูป หรือ
+back-gesture ของเบราว์เซอร์/ระบบไหม) — นี่คือความเสี่ยงประเภทที่ Founder ยอมรับไว้ตั้งแต่ต้นว่า CI ตอบให้ไม่ได้
+ต้องรอ Founder ลองจริงก่อนย้าย task เข้า `completed/`
+
+**สรุปทั้ง Phase 2**: implement เฉพาะ swipe gesture ตามที่ตัด scope ไว้ (บันทึกด้านบน) — custom
+pull-to-refresh เต็มรูปแบบไม่ได้ทำ เป็นการตัด scope ที่เปิดเผยแล้ว ไม่ใช่งานค้าง WYN-140 ทั้งงาน (Phase 1 +
+Phase 2 swipe) จึง deploy ขึ้น production ครบตามที่ Founder สั่ง ("ทำเฟส2ให้เสร็จด้วยนะ" → "ยอมรับความเสี่ยง
+— ให้ลุย Phase 2 ต่อเลย")
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-08-wyn-140-home-feed-premium-polish-phase2-deploy.md`, PR #315,
+deploy-web.yml run #107

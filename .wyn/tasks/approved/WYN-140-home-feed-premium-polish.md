@@ -1,7 +1,7 @@
 # Design Task — WYN-140
 
-Status: approved (Phase 1 — deploy สำเร็จแล้ว production, รอ Founder ยืนยันของจริงบนแอปก่อนย้ายเข้า completed/;
-  Phase 2 swipe gesture — QA PASS ผ่าน CI จริง 1442/1442, รอ deploy)
+Status: approved (Phase 1 + Phase 2 swipe gesture — deploy สำเร็จแล้วทั้งคู่บน production, รอ Founder ยืนยัน
+  ของจริงบนแอปก่อนย้ายเข้า completed/ — ดู "รออะไรอยู่" ด้านล่าง)
 Owner: AI Design
 Screen: Home Feed (Header, Feed Tabs, Post Card, Action Bar, Media, Bottom Nav/Drop Button, Loading)
 Purpose: ยกระดับ UX/UI ของหน้า Home ให้มีคุณภาพระดับ Production/Premium ตามบรีฟละเอียดของ Founder
@@ -81,7 +81,21 @@ WYN-140 ไม่ใช่ regression จากรอบนี้ ไม่อ�
 
 **Final Status: PASS** — ย้ายเข้า `approved/` แล้ว รายละเอียดเต็มอยู่ในแชท session นี้
 
+## Deploy — Phase 2 (2026-09-08)
+
+PR #315 merge เข้า `main` (squash, commit `b7cf7a6`) → `deploy-web.yml` run
+[#107](https://github.com/warren-wyn-dev/wynteam/actions/runs/34198710747) SUCCESS →
+`curl https://wynos.online/` ยืนยัน HTTP 200, last-modified ตรงกับเวลา deploy จริง — รายละเอียดเต็มอยู่ใน
+`.wyn/logs/deployments/2026-09-08-wyn-140-home-feed-premium-polish-phase2-deploy.md`
+
+**ยังไม่ทำ**: custom pull-to-refresh animation เต็มรูปแบบ — ตัดออกโดยเปิดเผยแล้ว (เหตุผลใน DECISIONS.md)
+ไม่ใช่งานค้าง
+
 ## รออะไรอยู่
 
-Phase 1 พร้อม deploy แล้ว รอ Founder สั่ง — Phase 2 รอวางแผนเป็น task ใหม่ (AI Product Manager spec +
-AI QA ร่วมคิดตั้งแต่ต้น) หลัง Phase 1 deploy เสถียร
+Deploy ขึ้น production แล้วทั้ง Phase 1 และ Phase 2 (swipe) — รอ Founder เปิดแอปจริงยืนยัน 2 เรื่อง:
+1. Phase 1: ความรู้สึกของ haptic ตอนกดปุ่ม Drop (เว็บพรีวิวบนคอมพิวเตอร์ไม่มีแรงสั่นให้ลองจริง)
+2. Phase 2: ความรู้สึกของ swipe ระหว่างแท็บ — ลื่นไหม ชนกับการเลื่อนรูปหลายรูป (carousel) หรือ back-gesture
+   ของเบราว์เซอร์/ระบบไหม — นี่คือความเสี่ยงที่ Founder ยอมรับไว้แล้วตั้งแต่ต้นว่า CI ตอบให้ไม่ได้ ต้องลองจริง
+
+หลังยืนยันครบทั้ง 2 เรื่อง ย้าย task เข้า `completed/`
