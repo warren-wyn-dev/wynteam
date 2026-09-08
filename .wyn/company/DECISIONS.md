@@ -1580,3 +1580,30 @@ issues, `flutter test`: 1442/1442 ผ่านทั้งหมด (รวม 5
 
 อ้างอิง: `.wyn/tasks/approved/WYN-140-home-feed-premium-polish.md`, commit `52b6aac` (feature),
 commit `3eb8dcb` (test fix), CI run #328 (fail), CI run #329 (pass)
+
+## [2026-09-08] Guest Browsing (WYN-072) หยุดชั่วคราว — Founder สั่งปิดปุ่ม "เข้าชม WYNOS ได้เลย"
+
+**Founder ตัดสินใจ**: ส่งภาพหน้าจอ AuthMethodScreen (`wynos.online`) พร้อมวงกลมล้อมปุ่ม "เข้าชม WYNOS ได้เลย"
+และสั่งให้ "ปิดฟังชั่นนี้ก่อน" — ตีความว่าให้ซ่อนทางเข้า Guest Browsing (Anonymous Sign-In ผ่านปุ่มนี้บน
+`AuthMethodScreen`) ออกจาก UI ทั้งหมดเป็นการชั่วคราว ไม่ใช่ลบฟีเจอร์ทิ้ง — สอดคล้องกับบริบทที่เพิ่งปิด WYN-131
+(guest ที่ tap Join/สร้าง Club ไม่ผ่าน `requireRealAccount()` gate ครบทุกจุด) ไปเมื่อวันก่อน ซึ่งชี้ว่ายังมีความ
+เสี่ยงจาก guest-gate coverage ที่ตรวจไม่ครบทุกจุดในระบบ
+
+**Implementation**: เพิ่ม `_guestBrowsingEnabled = false` ใน `AuthMethodScreen` (`app/lib/features/auth/
+presentation/auth_method_screen.dart`) รูปแบบเดียวกับ `_phoneLoginEnabled`/`_appleLoginEnabled` ที่มีอยู่แล้ว —
+ครอบปุ่ม guest-browse ทั้งก้อนด้วย `if (_guestBrowsingEnabled && !widget.isAddingAccount)` แทนที่จะลบโค้ด
+ทิ้ง — `AuthRepository.signInAnonymously()` และ guest-session mechanism อื่น (WYN-119's deep-link
+auto-guest-session ใน `AuthGate`, `requireRealAccount()` gate ใน `guest_gate.dart`) ไม่แตะเลย พร้อมเปิดกลับ
+ทันทีเมื่อ flip flag เป็น `true`
+
+**เทสที่แก้ตาม**: `auth_method_screen_test.dart`, `widget_test.dart` — เปลี่ยน assertion ของปุ่ม "เข้าชม WYNOS
+ได้เลย" จาก `findsOneWidget` เป็น `findsNothing` ทุกจุดที่ไม่ได้ทดสอบ `isAddingAccount` (ซึ่ง hide ปุ่มนี้อยู่แล้ว
+เป็นปกติ ไม่เกี่ยวกับ flag ใหม่) — ไม่ได้รันจริงในเซสชันนี้ (ไม่มี Flutter SDK ในสภาพแวดล้อมนี้ เหมือนเซสชันอื่น
+ก่อนหน้าที่บันทึกไว้ใน WYN-131) ต้องให้ CI/QA ยืนยันอีกครั้ง
+
+**ยังไม่ได้ทำ**: ไม่ได้สร้างเลข WYN-xxx ใหม่ให้งานนี้ (การปิด flag เดียวเทียบเท่าการ hotfix เล็ก ไม่ใช่ฟีเจอร์ใหม่
+ที่ต้องผ่าน Product→Design→Code→QA→Deploy เต็มรูปแบบ) — ถ้า Founder ต้องการให้บันทึกเป็น task แยกเพื่อ track
+การเปิดกลับในอนาคต ให้แจ้งเพิ่ม
+
+อ้างอิง: `app/lib/features/auth/presentation/auth_method_screen.dart` (`_guestBrowsingEnabled`),
+`.wyn/tasks/bugs/WYN-131-club-join-create-missing-guest-gate.md`
