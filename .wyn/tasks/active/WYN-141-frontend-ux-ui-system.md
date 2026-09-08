@@ -1,6 +1,6 @@
 # Product Task — WYN-141
 
-Status: active — Product/Design complete, awaiting Founder visual approval before Coding
+Status: active — Founder approved; Admin implementation complete and verified, Flutter batches pending a Flutter-capable runner
 Owner: AI Product Manager → AI Design → Founder review → AI Coding → AI QA & Security
 Feature: WYNOS frontend UX/UI system upgrade
 Goal: Make the existing WYNOS experience feel coherent, polished, responsive and accessible without changing product behavior or unrelated backend logic.
@@ -35,3 +35,48 @@ Priority: High — quality/platform consistency; lower than unresolved P0 securi
 Risks: Broad visual blast radius, responsive overflow, gesture conflicts, accessibility regressions and accidental product-flow changes.
 Recommendation: Approve the attached system preview, then execute the staged batches in `.wyn/docs/design/wyn-141-frontend-ux-ui-system.md`.
 Handoff: Founder visual review → AI Coding after approval.
+
+## Founder Approval — 2026-09-08
+
+Founder reviewed the Product/Design milestone and instructed “ทำให้เสร็จเลยนะ”. Visual approval gate passed;
+Coding may proceed under the existing scope and staged-rollout safeguards.
+
+## Coding Batch 1 — Admin responsive/accessibility shell
+
+Implementation:
+
+- Added a keyboard-visible skip link and focusable main landmark.
+- Converted the fixed desktop-only sidebar into an adaptive desktop sidebar/mobile bottom navigation without changing destinations.
+- Added a bounded 1180px content rail, mobile bottom-nav clearance and resilient `min-width: 0` layout behavior.
+- Made the header sticky/compact, hides secondary email at constrained widths and preserves role/sign-out actions.
+- Raised shared Admin buttons/inputs to accessible mobile touch/input sizes.
+- Added a global reduced-motion override that honors OS preference.
+
+Files Changed:
+
+- `admin/app/(admin)/layout.tsx`
+- `admin/app/globals.css`
+- `admin/components/admin/header.tsx`
+- `admin/components/admin/sidebar.tsx`
+- `admin/components/ui/button.tsx`
+- `admin/components/ui/input.tsx`
+- `admin/components/ui/textarea.tsx`
+
+Reason: This batch changes the shared presentation shell/primitives, so every Admin surface benefits without duplicating per-page styling or touching data/auth logic.
+
+Tests:
+
+- `npm run lint` — PASS
+- `npx next typegen` — PASS
+- `npx tsc --noEmit` — PASS
+
+Build:
+
+- `NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=test-key npm run build` — PASS; all 10 routes generated/compiled.
+
+Known Issues:
+
+- Current environment has no Flutter SDK. Downloading Flutter 3.47.1 from Google Storage is blocked by the network proxy (`403 Forbidden`), so broad Flutter shared-widget changes cannot meet the mandatory lint/test/build gate here.
+- No browser binary/screenshot renderer is installed, so responsive Admin visuals still require CI/browser/device QA despite compile-time checks passing.
+
+Handoff: AI QA & Security for the Admin batch; continue Flutter batches only on a runner with Flutter 3.47.1.

@@ -1746,3 +1746,16 @@ direction ใหม่เองและไม่ทำ broad refactor แบบ
 อ้างอิง: `.wyn/tasks/active/WYN-141-frontend-ux-ui-system.md`,
 `.wyn/docs/design/wyn-141-frontend-ux-ui-audit.md`, `.wyn/docs/design/wyn-141-frontend-ux-ui-system.md`,
 `design-reference/23-ux-ui-system-preview.svg`
+
+## [2026-09-08] WYN-141 — Founder อนุมัติให้ผ่าน visual gate และสั่ง “ทำให้เสร็จเลย”
+
+หลังได้รับ Product/Design audit, responsive spec และ visual preview แล้ว Founder สั่ง “ทำให้เสร็จเลยนะ”
+จึงถือเป็นการอนุมัติ visual direction ของ WYN-141 และอนุญาตให้ AI Coding เริ่ม implementation batches ได้
+โดยข้อจำกัดเดิมยังอยู่ครบ: ห้ามเปลี่ยน business logic/backend ที่ไม่เกี่ยวข้อง, ห้ามเพิ่ม Check-in,
+ต้องหยุดเมื่อ lint/test/build พบ regression และ user-facing behavior ใหม่ต้องใช้ staged rollout ตาม WYN-125
+
+Implementation เริ่มที่ Admin responsive/accessibility shell และ shared form/button primitives ก่อน เพราะมี
+toolchain จริงใน environment ให้ตรวจ lint/type/build ได้ ส่วน Flutter batch จะไม่ถูกแก้แบบ blind เมื่อไม่มี
+Flutter SDK; ต้องมี test runner ที่ตรงกับ CI ก่อนจึงจะเปลี่ยน broad shared widgets ได้อย่างปลอดภัย
+
+อ้างอิง: `.wyn/tasks/active/WYN-141-frontend-ux-ui-system.md`, commit ก่อนหน้า `455f303`

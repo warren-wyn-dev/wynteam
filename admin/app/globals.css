@@ -145,3 +145,15 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+/* WYN-141: motion remains subtle, but user preference always wins. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

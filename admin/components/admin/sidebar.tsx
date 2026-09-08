@@ -12,9 +12,9 @@ export function AdminSidebar() {
   return (
     <nav
       aria-label="เมนูหลัก"
-      className="flex w-60 shrink-0 flex-col gap-1 border-r bg-background p-4"
+      className="fixed inset-x-0 bottom-0 z-40 flex h-20 items-stretch gap-1 overflow-x-auto border-t bg-background/95 px-2 py-2 backdrop-blur md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:flex-col md:overflow-visible md:border-r md:border-t-0 md:p-4"
     >
-      <div className="mb-4 px-2 text-lg font-semibold">WYN Admin</div>
+      <div className="mb-4 hidden px-2 text-lg font-semibold md:block">WYN Admin</div>
       {ADMIN_NAV_ITEMS.map((item) => {
         const isActive = pathname === item.href;
         const Icon = item.icon;
@@ -24,7 +24,7 @@ export function AdminSidebar() {
             href={item.href}
             aria-current={isActive ? "page" : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              "flex min-h-11 min-w-20 flex-1 flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium transition-colors md:min-h-11 md:min-w-0 md:flex-initial md:flex-row md:justify-start md:gap-3 md:px-3 md:text-sm",
               // Per wyn-admin-design-system.md section 6.8/3.3: no more
               // color-coded active state (was cyan50/cyan700 from the
               // Flutter app's wyn_colors.dart). Active state is now
