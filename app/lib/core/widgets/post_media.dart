@@ -32,6 +32,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../design/wyn_spacing.dart';
+import '../interaction/wyn_motion.dart';
 import 'network_thumbnail.dart';
 
 /// The most-portrait shape a post photo is shown at without cropping
@@ -106,6 +107,22 @@ class PostImage extends StatelessWidget {
               : ColoredBox(
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 ),
+          // WYN-140: the decoded photo fades in over its first frame
+          // instead of popping in the instant it's ready -- previously
+          // there was no frameBuilder at all, so the swap from the
+          // placeholder above was an instant cut.
+          // `wasSynchronouslyLoaded` skips the animation for a frame
+          // that was already in Flutter's image cache (a photo the user
+          // scrolled past and back to), which has nothing to fade from.
+          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+            if (wasSynchronouslyLoaded) return child;
+            return AnimatedOpacity(
+              opacity: frame == null ? 0 : 1,
+              duration: WynMotion.duration(context, WynMotion.standard),
+              curve: WynMotion.enter,
+              child: child,
+            );
+          },
           errorBuilder: networkImageErrorBuilder,
         );
       },

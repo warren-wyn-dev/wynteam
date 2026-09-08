@@ -362,6 +362,11 @@ class HomeDropCard extends StatelessWidget {
                                           ],
                                         ],
                                       ),
+                                      // WYN-140: separates the name from the
+                                      // timestamp below it -- previously 0px,
+                                      // read as one run-on block instead of
+                                      // two distinct rows.
+                                      const SizedBox(height: WynSpacing.space1),
                                       Text(
                                         // WYN-098, Design spec Screen 4:
                                         // appended to the same line (not a
@@ -434,12 +439,15 @@ class HomeDropCard extends StatelessWidget {
                           Padding(
                             // WYN-107: no left inset -- the content column already
                             // starts at the name. Only the right edge is held off
-                            // the screen.
+                            // the screen. WYN-140: bottom bumped 8->12 so the
+                            // gap to whatever follows (poll/media, or the
+                            // action bar on a caption-only Drop) reads as a
+                            // deliberate break rather than a cramped one.
                             padding: const EdgeInsets.fromLTRB(
                               0,
                               WynSpacing.space2,
                               homeCardEdgeInset,
-                              WynSpacing.space2,
+                              WynSpacing.space3,
                             ),
                             child: !item.isPoll && item.imageUrl == null
                                 ? DoubleTapLike(
@@ -509,11 +517,22 @@ class HomeDropCard extends StatelessWidget {
                               ),
                             ),
                           ),
+                        // WYN-140: one fixed 12px gap after whatever media
+                        // rendered above (Poll/carousel/single image), same
+                        // value regardless of what follows it (LikedByRow or
+                        // straight to the action bar) -- previously this gap
+                        // was 0 with no LikedByRow and ~10 with one, an
+                        // inconsistency nothing asked for. Absent entirely for
+                        // a caption-only Drop, which has no media block to
+                        // follow -- the caption's own bottom padding already
+                        // provides the gap in that case.
+                        if (item.isPoll || item.imageUrl != null)
+                          const SizedBox(height: WynSpacing.space3),
                         if (item.likedBy.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(
                               0,
-                              WynSpacing.space2 + 2,
+                              0,
                               homeCardEdgeInset,
                               0,
                             ),

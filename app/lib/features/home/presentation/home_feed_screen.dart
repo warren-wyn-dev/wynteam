@@ -31,6 +31,7 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
 import '../../../core/interaction/wyn_feedback.dart';
+import '../../../core/interaction/wyn_motion.dart';
 import '../../../core/network_error.dart';
 
 enum _HomeFeedMode { forYou, following, fromYourClubs }
@@ -998,10 +999,13 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
       _HomeFeedMode.following,
       _HomeFeedMode.fromYourClubs,
     ];
+    // WYN-140: shortened from "จาก Club ของคุณ" -- Founder asked for a more
+    // compact label. _HomeFeedMode.fromYourClubs itself is unchanged (an
+    // internal id, not user-facing text).
     const labels = {
       _HomeFeedMode.forYou: 'สำหรับคุณ',
       _HomeFeedMode.following: 'ติดตาม',
-      _HomeFeedMode.fromYourClubs: 'จาก Club ของคุณ',
+      _HomeFeedMode.fromYourClubs: 'Club',
     };
 
     return DecoratedBox(
@@ -1070,9 +1074,23 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
                 // not (opacity-only animation), so switching tabs never
                 // shifts the row's height -- same approach the old
                 // strip indicator used.
+                //
+                // WYN-140: duration/curve moved onto the shared DS-010
+                // motion tokens (was a hardcoded 150ms/easeOut that
+                // ignored the reduced-motion setting) -- same
+                // fade-in-place mechanism, not the literal cross-tab
+                // sliding indicator the brief pictured. This toggle row
+                // has been through 4 rounds of overflow/wrapping fixes
+                // (see WYN-024's history in this file and in
+                // home_feed_screen_test.dart); reworking its layout into
+                // a measured, position-tracking indicator is real
+                // structural risk on a widget with that history, and
+                // this session has no local Flutter toolchain to verify
+                // it. Left as a follow-up if Founder still wants literal
+                // sliding after seeing this in production.
                 AnimatedOpacity(
-                  duration: const Duration(milliseconds: 150),
-                  curve: Curves.easeOut,
+                  duration: WynMotion.duration(context, WynMotion.standard),
+                  curve: WynMotion.enter,
                   opacity: selected ? 1 : 0,
                   child: Container(
                     key: selected ? const Key('active_segment_accent') : null,

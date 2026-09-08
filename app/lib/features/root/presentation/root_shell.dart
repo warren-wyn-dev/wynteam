@@ -347,6 +347,10 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
     if (!mounted) return;
 
     if (navIndex == _dropDestinationIndex) {
+      // WYN-140: Founder asked for feedback on this tap specifically --
+      // revises DS-010 §3, which had explicitly excluded it ("the '+' is
+      // an action, not a tab"). See .wyn/company/DECISIONS.md, 2026-09-08.
+      WynFeedback.toggle();
       _openCreateDrop();
       return;
     }
