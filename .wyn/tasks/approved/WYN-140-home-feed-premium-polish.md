@@ -1,7 +1,7 @@
 # Design Task — WYN-140
 
-Status: approved (Phase 1 + Phase 2 swipe (rebuilt บน PageView จริง) — QA PASS ผ่าน CI 1443/1443, รอ deploy
-  รอบใหม่แล้วรอ Founder ยืนยันของจริงบนแอปก่อนย้ายเข้า completed/ — ดู "รออะไรอยู่" ด้านล่าง)
+Status: approved (Phase 1 + Phase 2 swipe (rebuilt บน PageView จริง) — deploy สำเร็จแล้วบน production
+  (commit `e6848ec`) รอ Founder ยืนยันของจริงบนแอปก่อนย้ายเข้า completed/ — ดู "รออะไรอยู่" ด้านล่าง)
 Owner: AI Design
 Screen: Home Feed (Header, Feed Tabs, Post Card, Action Bar, Media, Bottom Nav/Drop Button, Loading)
 Purpose: ยกระดับ UX/UI ของหน้า Home ให้มีคุณภาพระดับ Production/Premium ตามบรีฟละเอียดของ Founder
@@ -102,12 +102,19 @@ reload ทุกครั้งที่สลับ) — QA PASS ผ่าน C
 [#339](https://github.com/warren-wyn-dev/wynteam/actions/runs/34203396687)) — รายละเอียดเต็มใน
 DECISIONS.md — พร้อม deploy รอบใหม่ทับ deploy เดิม
 
+## Deploy — PageView rearchitecture (2026-09-08)
+
+PR #319 merge เข้า `main` (squash, commit `e6848ec`) → `deploy-web.yml` run
+[#109](https://github.com/warren-wyn-dev/wynteam/actions/runs/34205374469) SUCCESS →
+`curl https://wynos.online/` ยืนยัน HTTP 200, last-modified ตรงกับเวลา deploy จริง — รายละเอียดเต็มอยู่ใน
+`.wyn/logs/deployments/2026-09-08-wyn-140-pageview-rearchitecture-deploy.md`
+
 ## รออะไรอยู่
 
-Deploy ขึ้น production รอบแรก (rubber-band) แล้ว — รอบนี้ (PageView จริง) QA PASS แล้ว รอ deploy รอบใหม่ — หลัง
-deploy แล้ว รอ Founder เปิดแอปจริงยืนยัน 2 เรื่อง:
+Deploy ขึ้น production ครบแล้วทุกรอบของ WYN-140 (Phase 1, Phase 2 swipe, PageView rearchitecture) — รอ
+Founder เปิดแอปจริงยืนยัน 2 เรื่อง:
 1. Phase 1: ความรู้สึกของ haptic ตอนกดปุ่ม Drop (เว็บพรีวิวบนคอมพิวเตอร์ไม่มีแรงสั่นให้ลองจริง)
-2. Phase 2: ความรู้สึกของ swipe ระหว่างแท็บแบบ PageView จริง — ลื่นสมจริงแค่ไหน ชนกับการเลื่อนรูปหลายรูป
+2. Swipe แบบ PageView จริง — ลื่นสมจริงตามที่ขอ ("เหมือนแพตฟอมใหญ่ๆ") หรือไม่ ชนกับการเลื่อนรูปหลายรูป
    (carousel) หรือ back-gesture ของเบราว์เซอร์/ระบบไหม — นี่คือความเสี่ยงที่ Founder ยอมรับไว้แล้วตั้งแต่ต้นว่า
    CI ตอบให้ไม่ได้ ต้องลองจริง
 

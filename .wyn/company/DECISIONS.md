@@ -1714,3 +1714,20 @@ Verification ครบทั้ง 2 ข้อตาม `.wyn/company/WORKFLOW.m
 เสร็จสมบูรณ์ ไม่มี task ใน `.wyn/tasks/` ให้ย้าย (เป็น hotfix flag เดียว ไม่ได้เปิด task แยกไว้ตั้งแต่ต้น)
 
 อ้างอิง: PR #316/#317, commit `32a7105`/`dec0caa`, deploy-web.yml run #108
+
+## [2026-09-08] WYN-140 PageView rearchitecture: Deploy สำเร็จ production — merge conflict กับ session คู่ขนาน (แก้แล้ว)
+
+**Deploy**: เปิด PR #319 แล้ว merge ไม่ได้เพราะ conflict กับ PR #316/#317/#318 (guest browsing, อีก session
+หนึ่งทำงานคู่ขนานบน repo เดียวกัน merge เข้า `main` ไปก่อนไม่กี่นาที) — conflict อยู่แค่ `DECISIONS.md` (เขียน
+entry ใหม่ใกล้บรรทัดเดียวกันทั้งคู่) ไม่มี code conflict จริง แก้โดย `git merge origin/main` เข้า branch ตัวเอง
+เก็บ entry ของทั้งสอง session ไว้ครบ ไม่ตัดทิ้งฝั่งไหน แล้ว trigger CI ใหม่บน merge commit
+(run [#345](https://github.com/warren-wyn-dev/wynteam/actions/runs/34204894192)) **ผ่านทั้งหมด** ก่อน merge
+PR จริง — commit `e6848ec` → `deploy-web.yml` run
+[#109](https://github.com/warren-wyn-dev/wynteam/actions/runs/34205374469) SUCCESS →
+`curl https://wynos.online/` ยืนยัน HTTP 200, last-modified ตรงกับเวลา deploy
+
+**ยืนยันได้แค่ว่าเว็บขึ้นจริงไม่พัง ยังไม่ได้ยืนยันความรู้สึกของ swipe แบบ PageView จริง** — ความเสี่ยงเดิมที่
+Founder ยอมรับไว้แล้ว (ลื่นสมจริงไหม ชนกับ carousel/back-gesture ไหม) ยังไม่เปลี่ยน ต้องรอ Founder ลองจริง
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-08-wyn-140-pageview-rearchitecture-deploy.md`, PR #319, commit
+`e6848ec`, CI run #345, deploy-web.yml run #109
