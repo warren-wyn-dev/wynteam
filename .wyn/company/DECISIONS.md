@@ -1470,3 +1470,27 @@ comment ใน `ds-010-interaction-feedback.md` §3 "สิ่งที่ตั
 แบบกดเล่นได้จริงส่งต่อแล้ว
 
 อ้างอิง: `.wyn/docs/design/wyn-140-home-feed-premium-polish.md`, `.wyn/docs/design/ds-010-interaction-feedback.md`, `.wyn/tasks/active/WYN-140-home-feed-premium-polish.md`
+
+## [2026-09-08] WYN-140: Coding เสร็จ Phase 1 — เบี่ยงจากมอคอัพ 1 จุด, หยุด Phase 2 ไม่ implement blind
+
+**บริบท**: หลัง Founder สั่ง "เริ่มทำได้เลย" ต่อจาก Phase 2 interactive preview — session เดียวกันนี้ทำหน้าที่
+AI Coding ต่อ implement WYN-140 Phase 1 (spacing 3 จุด, label "Club", haptic ปุ่ม Drop, HomeFeedSkeleton
+2-คอลัมน์, PostImage fade-in) push แล้ว (commit `c7eafe1`)
+
+**เบี่ยงจากมอคอัพที่ Founder เห็น 1 จุด — บันทึกไว้ตรงๆ**: tab indicator ไม่ได้ implement เป็น sliding
+ข้ามตำแหน่งแบบที่ interactive mockup โชว์ (และ Founder อนุมัติไปแล้ว) — ระหว่างเขียนโค้ดจริงพบว่า toggle
+widget นี้ผ่านการแก้ overflow/wrapping มาแล้ว 4 รอบ (ประวัติเต็มใน `home_feed_screen_test.dart`) เป็นจุด
+เปราะบางที่สุดจุดหนึ่งในแอป การรื้อโครงสร้างเป็น sliding indicator จริงต้องใช้ GlobalKey+วัด RenderBox ซึ่ง
+sandbox นี้ไม่มี Flutter SDK ให้คอมไพล์/รันเทสยืนยัน — ตัดสินใจทำแบบปลอดภัยกว่าแทน (ปรับ duration/curve
+เป็น DS-010 token 220ms แทนของเดิม hardcode 150ms) ยังตอบโจทย์ "ไม่กระโดด" แต่ไม่ใช่กลไกเดียวกับที่อนุมัติ
+ไปแล้วเป๊ะ — เป็นการตัดสินใจทางเทคนิคของ Coding เอง ไม่ใช่ Founder เปลี่ยนใจ
+
+**Phase 2 (swipe แท็บ + custom pull-to-refresh) — ไม่ได้เริ่มเขียนโค้ด**: ทั้งสองต้องรื้อสถาปัตยกรรมจริง
+(แยก pagination state 3 mode ออกจากกัน, เขียนทดแทนกลไก `RefreshIndicator` ทั้งหมด) โดยไม่มี compiler/
+test runner ยืนยันเลย ขัดกับกติกาที่ Founder เขียนเองในบรีฟต้นทาง ("ห้ามรื้อ Architecture โดยไม่จำเป็น")
+— เสนอ 3 ทางเลือกให้ Founder **Founder เลือก: รอ QA/CI ยืนยัน Phase 1 ก่อน แล้วตั้ง Phase 2 เป็น task ใหม่
+ที่มี AI Product Manager spec + AI QA ร่วมคิดตั้งแต่ต้น** — ไม่ implement blind ต่อในรอบนี้
+
+**สถานะ**: Phase 1 ส่งต่อ AI QA & Security แล้ว — Phase 2 ยังไม่มี task เปิด รอ QA/CI ของ Phase 1 ผ่านก่อน
+
+อ้างอิง: commit `c7eafe1` (Phase 1 implementation), `0a4a25a` (task status), `.wyn/tasks/active/WYN-140-home-feed-premium-polish.md`

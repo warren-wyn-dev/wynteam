@@ -60,5 +60,6 @@ duration/curve ให้เป็น token เดิม (220ms, เคารพ 
 
 ## รออะไรอยู่
 
-Phase 1 พร้อมส่ง AI QA & Security แล้ว (รอ CI ยืนยัน `flutter analyze`/`flutter test` ก่อน เพราะ sandbox
-นี้ไม่มี SDK) — Phase 2 รอ Founder ตัดสินใจว่าจะเดินหน้าทางไหน (ดู 3 ทางเลือกที่เสนอในแชท)
+**Founder ตัดสินใจแล้ว (2026-09-08)**: รอ QA/CI ยืนยัน Phase 1 ก่อน แล้วค่อยวางแผน Phase 2 เป็น task แยกที่มี
+AI Product Manager spec + AI QA ร่วมคิดตั้งแต่ต้น (ไม่ implement blind แบบรอบนี้) — ส่งต่อ AI QA & Security
+ตรวจ Phase 1 ต่อจากนี้
