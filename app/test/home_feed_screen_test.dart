@@ -1911,6 +1911,148 @@ void main() {
     });
   });
 
+  group('Swipe rubber-band visual cue (WYN-140, 2026-09-08 follow-up)', () {
+    // Founder tried the release-only swipe on the real deployed build and
+    // found it "not very smooth" -- nothing visibly responded while a
+    // finger was still moving, only once it was released. These tests
+    // cover the fix: home_feed_screen.dart now tracks the drag
+    // continuously and shifts the feed's AnimatedContainer wrapper by a
+    // small, clamped offset the whole time a horizontal drag is active,
+    // easing back to rest on release.
+    Matrix4 currentSwipeTransform(WidgetTester tester) {
+      final container = tester.widget<AnimatedContainer>(
+        find.ancestor(
+          of: find.byKey(const Key('home_feed_scroll_view')),
+          matching: find.byType(AnimatedContainer),
+        ),
+      );
+      return container.transform ?? Matrix4.identity();
+    }
+
+    testWidgets(
+        'dragging left, before release, shifts the feed via the '
+        "rubber-band cue -- this is the visual feedback that was "
+        'missing before', (tester) async {
+      await tester.pumpWidget(buildHome(
+        swipeTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(const Key('home_feed_scroll_view'))),
+      );
+      await gesture.moveBy(const Offset(-40, 0));
+      await tester.pump();
+
+      expect(currentSwipeTransform(tester).getTranslation().x, lessThan(0));
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      tester.takeException();
+    });
+
+    testWidgets(
+        'dragging right, before release, shifts the feed the other way',
+        (tester) async {
+      await tester.pumpWidget(buildHome(
+        swipeTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(const Key('home_feed_scroll_view'))),
+      );
+      await gesture.moveBy(const Offset(40, 0));
+      await tester.pump();
+
+      expect(
+          currentSwipeTransform(tester).getTranslation().x, greaterThan(0));
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      tester.takeException();
+    });
+
+    testWidgets(
+        'the rubber-band offset is clamped -- a huge drag does not shift '
+        'the feed further than the small cue distance '
+        '(WynSpacing.space12, 48px)', (tester) async {
+      await tester.pumpWidget(buildHome(
+        swipeTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(const Key('home_feed_scroll_view'))),
+      );
+      await gesture.moveBy(const Offset(-4000, 0));
+      await tester.pump();
+
+      expect(currentSwipeTransform(tester).getTranslation().x, -48.0,
+          reason: 'a drag far beyond the cue distance should clamp, not '
+              'shift the feed off-screen');
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      tester.takeException();
+    });
+
+    testWidgets(
+        'releasing settles the cue back to rest, whether or not the swipe '
+        'was decisive enough to switch modes', (tester) async {
+      await tester.pumpWidget(buildHome(
+        swipeTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // A short, slow drag -- below the mode-switch velocity threshold,
+      // but the cue should still have followed it and then settled back.
+      await tester.timedDrag(
+        find.byKey(const Key('home_feed_scroll_view')),
+        const Offset(-30, 0),
+        const Duration(seconds: 1),
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(currentSwipeTransform(tester).getTranslation().x, 0);
+    });
+
+    testWidgets(
+        'releasing after a decisive swipe that does switch modes also '
+        'settles the cue back to rest', (tester) async {
+      await tester.pumpWidget(buildHome(
+        swipeTestHomeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.fling(
+        find.byKey(const Key('home_feed_scroll_view')),
+        const Offset(-400, 0),
+        1000.0,
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(currentSwipeTransform(tester).getTranslation().x, 0);
+    });
+  });
+
   group('Home feed ranking (WYN-018)', () {
     testWidgets(
         '"สำหรับคุณ" (default) calls fetchRankedFeed, not the '

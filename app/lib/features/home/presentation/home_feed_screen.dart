@@ -150,6 +150,26 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
   // เสมอทุกครั้งที่เปิดแอป" simplification.
   _HomeFeedMode _feedMode = _HomeFeedMode.forYou;
 
+  // WYN-140 Phase 2 follow-up (2026-09-08): Founder tried the swipe on the
+  // real deployed build and found it "not very smooth" -- the swipe was
+  // originally deliberately silent during the drag (see
+  // _onHorizontalSwipeEnd's doc comment) and only reacted on release, so
+  // there was zero visual feedback while a finger was actually moving.
+  // This tracks that same drag continuously now, purely for a rubber-band
+  // visual cue (see _buildSwipeableBody) -- it still does not touch
+  // _items/_page/pagination, and still does not render the destination
+  // tab's content underneath, so the scope-cut rationale in
+  // _onHorizontalSwipeEnd's comment (no PageView rearchitecture) is
+  // unchanged.
+  double _swipeDragDx = 0;
+  bool _isSwipeDragging = false;
+
+  // How far the rubber-band cue can travel before resisting further --
+  // deliberately small (a fraction of the tab-switch gesture's actual
+  // travel) since this is a "your touch registered" cue, not a preview of
+  // the destination tab's content.
+  static const double _maxSwipeDragOffset = WynSpacing.space12;
+
   int _unreadChatCount = 0;
 
   // WYNOSHomeSpec.md 4.5 -- built fresh (not threaded through the
@@ -338,10 +358,13 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
   // the same AnimatedOpacity fade the toggle already animates with, not a
   // sliding indicator.
   //
-  // Deliberately only onHorizontalDragEnd (velocity-based), not
-  // onHorizontalDragUpdate -- no continuous tracking to get subtly wrong
-  // blind, and it costs nothing for a discrete "did the user mean it"
-  // gesture the way it would for a real drag-follows-finger indicator.
+  // 2026-09-08 update: the mode switch itself is still purely
+  // velocity-gated on release (below), but _onHorizontalDragUpdate now
+  // tracks the drag continuously for a small rubber-band visual cue (see
+  // _buildSwipeableBody) -- Founder tried the release-only version on the
+  // real deployed build and found it "not very smooth" with nothing
+  // visibly responding while a finger was actually moving. The mode-switch
+  // decision logic below is unchanged; only the visual feedback grew.
   //
   // Safe against the multi-image carousel (PostImageCarousel) sharing the
   // same axis: a GestureDetector here only sees a pointer gesture that no
@@ -352,25 +375,45 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
   // Dismissible's horizontal drag coexist with the vertical ListView it
   // sits in) -- so a swipe that starts on a carousel scrolls the photos,
   // exactly as it should, and this handler only ever fires for a swipe
-  // that started somewhere else in the feed.
+  // that started somewhere else in the feed. Tracking the drag via
+  // onUpdate doesn't change this: the same HorizontalDragGestureRecognizer
+  // already sat in the gesture arena for onHorizontalDragEnd alone (all
+  // three drag callbacks share one recognizer), so no new competition is
+  // introduced.
+  void _onHorizontalDragUpdate(DragUpdateDetails details) {
+    setState(() {
+      _isSwipeDragging = true;
+      _swipeDragDx = (_swipeDragDx + details.delta.dx)
+          .clamp(-_maxSwipeDragOffset, _maxSwipeDragOffset);
+    });
+  }
+
   void _onHorizontalSwipeEnd(DragEndDetails details) {
     final velocity = details.primaryVelocity ?? 0;
     // Ignores anything not clearly a deliberate swipe -- a slow drag that
     // barely moved shouldn't flip the whole feed.
-    if (velocity.abs() < 200) return;
-
-    final currentIndex = _feedModeOrder.indexOf(_feedMode);
-    if (velocity < 0) {
-      // Dragged leftward -> advance to the next mode, same direction
-      // convention as swiping to the next page.
-      if (currentIndex < _feedModeOrder.length - 1) {
-        _selectFeedMode(_feedModeOrder[currentIndex + 1]);
-      }
-    } else {
-      if (currentIndex > 0) {
-        _selectFeedMode(_feedModeOrder[currentIndex - 1]);
+    if (velocity.abs() >= 200) {
+      final currentIndex = _feedModeOrder.indexOf(_feedMode);
+      if (velocity < 0) {
+        // Dragged leftward -> advance to the next mode, same direction
+        // convention as swiping to the next page.
+        if (currentIndex < _feedModeOrder.length - 1) {
+          _selectFeedMode(_feedModeOrder[currentIndex + 1]);
+        }
+      } else {
+        if (currentIndex > 0) {
+          _selectFeedMode(_feedModeOrder[currentIndex - 1]);
+        }
       }
     }
+    // Always settles the rubber-band cue back to rest, whether or not the
+    // swipe was decisive enough to switch modes -- _isSwipeDragging
+    // becoming false is what turns _buildSwipeableBody's animation
+    // duration on, easing back from wherever the drag left off.
+    setState(() {
+      _isSwipeDragging = false;
+      _swipeDragDx = 0;
+    });
   }
 
   // "สำหรับคุณ" (ranked, WYN-018), "ติดตาม" (WYN-024), and "ล่าสุด"
@@ -881,8 +924,24 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
                 // inside it, the horizontal image carousel) without a
                 // gesture conflict.
                 child: GestureDetector(
+                  onHorizontalDragUpdate: _onHorizontalDragUpdate,
                   onHorizontalDragEnd: _onHorizontalSwipeEnd,
-                  child: CustomScrollView(
+                  // Rubber-band cue (2026-09-08, see _swipeDragDx's own
+                  // doc comment): duration is zero while actively
+                  // dragging so the feed tracks the finger 1:1 with no
+                  // lag, then jumps to WynMotion's standard duration the
+                  // instant the drag ends so the same AnimatedContainer
+                  // eases _swipeDragDx's reset-to-0 back to rest instead
+                  // of snapping. Respects reduced-motion via
+                  // WynMotion.duration the same as every other animated
+                  // value on this screen.
+                  child: AnimatedContainer(
+                    duration: _isSwipeDragging
+                        ? Duration.zero
+                        : WynMotion.duration(context, WynMotion.standard),
+                    curve: WynMotion.enter,
+                    transform: Matrix4.translationValues(_swipeDragDx, 0, 0),
+                    child: CustomScrollView(
                     key: const Key('home_feed_scroll_view'),
                     controller: _scrollController,
                     slivers: [
@@ -944,6 +1003,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
                     else
                       ..._buildBodySlivers(),
                   ],
+                  ),
                   ),
                 ),
               ),

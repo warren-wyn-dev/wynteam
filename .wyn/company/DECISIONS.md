@@ -1597,3 +1597,25 @@ Phase 2 swipe) จึง deploy ขึ้น production ครบตามที
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-08-wyn-140-home-feed-premium-polish-phase2-deploy.md`, PR #315,
 deploy-web.yml run #107
+
+## [2026-09-08] WYN-140 Phase 2 follow-up: "ไม่ค่อยลื่น" — เพิ่ม rubber-band cue ระหว่างลาก ไม่ใช่รื้อเป็น PageView
+
+**Founder feedback**: ลองใช้จริงบน production แล้วบอกว่า "ไม่ค่อยลื่น แต่ก็โอเคอยู่" — วิเคราะห์แล้วสาเหตุ
+น่าจะเป็นเพราะการ implement เดิม (`_onHorizontalDragEnd` เท่านั้น ไม่มี `onHorizontalDragUpdate`) ทำให้ระหว่าง
+ลากนิ้วไม่มี feedback ใดๆ เลย จนกว่าจะปล่อยนิ้วแล้วแท็บถึงสลับทันที — ต่างจาก Threads/IG ที่จอขยับตามนิ้วไปด้วย
+ตลอดการลาก ถามตัวเลือกกับ Founder ("เก็บไว้แบบนี้" / "ลองปรับปรุงความลื่น" / "ขอดูตัวอย่างก่อน") — Founder
+เลือก **"ลองปรับปรุงความลื่น"**
+
+**Scope ที่ทำ**: เพิ่ม `onHorizontalDragUpdate` เข้า `GestureDetector` เดิม เพื่อ track ระยะลากต่อเนื่อง แล้วใช้
+`AnimatedContainer` ครอบ `CustomScrollView` ขยับด้วย `Matrix4.translationValues` ตามระยะที่ลาก (clamp ไว้ที่
+`WynSpacing.space12` = 48px ไม่ให้ลากไกลเกินไป) — ระหว่างลาก duration=0 (ตามนิ้วทันที) พอปล่อยนิ้ว duration
+เปลี่ยนเป็น `WynMotion.standard` ให้เด้งกลับตำแหน่งเดิมนุ่มๆ ทั้งกรณีสลับแท็บสำเร็จและกรณีไม่ถึงเกณฑ์ **ไม่ใช่**
+การรื้อเป็น `PageView`/render เนื้อหาแท็บถัดไปใต้จอ — เหตุผลเรื่องความเสี่ยงสถาปัตยกรรมที่ตัด scope ไว้ตั้งแต่
+Phase 2 รอบแรกยังใช้ได้เหมือนเดิม นี่เป็นแค่ "cue ว่าจับได้แล้ว" ไม่ใช่ preview เนื้อหาจริง
+
+**QA**: เพิ่ม 5 เทสใหม่ (`home_feed_screen_test.dart`, group "Swipe rubber-band visual cue") ครอบ: ลากซ้าย/
+ขวาแล้ว transform ขยับทิศถูกต้องระหว่างลาก, การ clamp ที่ 48px, และการเด้งกลับ 0 หลังปล่อยนิ้วทั้ง 2 กรณี (สลับ
+แท็บสำเร็จ/ไม่สำเร็จ) — รอผล CI จริงก่อนสรุป PASS เหมือนทุกรอบที่ผ่านมา
+
+อ้างอิง: `.wyn/tasks/approved/WYN-140-home-feed-premium-polish.md`, `app/lib/features/home/presentation/
+home_feed_screen.dart`, `app/test/home_feed_screen_test.dart`
