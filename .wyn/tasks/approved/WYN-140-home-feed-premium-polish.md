@@ -1,6 +1,6 @@
 # Design Task — WYN-140
 
-Status: approved (Phase 1 — QA PASS, CI ยืนยันจริง 1437/1437, รอ Founder สั่ง deploy)
+Status: approved (Phase 1 — deploy สำเร็จแล้ว production, รอ Founder ยืนยันของจริงบนแอปก่อนย้ายเข้า completed/)
 Owner: AI Design
 Screen: Home Feed (Header, Feed Tabs, Post Card, Action Bar, Media, Bottom Nav/Drop Button, Loading)
 Purpose: ยกระดับ UX/UI ของหน้า Home ให้มีคุณภาพระดับ Production/Premium ตามบรีฟละเอียดของ Founder

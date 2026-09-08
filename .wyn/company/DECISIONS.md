@@ -1530,3 +1530,22 @@ Home ที่ผู้ใช้ทั่วไปใช้อยู่แล้
 ตายตัวที่ AI ตัดสินเองได้ล่วงหน้า
 
 อ้างอิง: `.wyn/company/WORKFLOW.md` หัวข้อ "Staged Rollout", `.wyn/tasks/approved/WYN-140-home-feed-premium-polish.md`
+
+## [2026-09-08] WYN-140 Phase 1: Deploy สำเร็จ production — Phase 2 ยังไม่เริ่ม เหตุผลต่างจาก Phase 1
+
+**Deploy**: PR #313 merge เข้า `main` (squash, commit `22ef42e`) → `deploy-web.yml` run #106 SUCCESS →
+`curl https://wynos.online/` ยืนยัน HTTP 200 จริง — **ยืนยันได้แค่ว่าเว็บขึ้นจริงไม่พัง ยังไม่ได้ยืนยันว่า
+สิ่งที่เห็น/รู้สึกตรงตามที่ตั้งใจ** (โดยเฉพาะ haptic ปุ่ม Drop ต้องลองบนมือถือจริงเท่านั้น) — รอ Founder ยืนยัน
+ก่อนย้าย task เข้า `completed/` ตามกติกา Production Verification เดิมของโปรเจกต์
+
+**Phase 2 (swipe แท็บ, custom pull-to-refresh เต็มรูปแบบ) — Founder ขอให้ทำต่อระหว่างพัก แต่ยังไม่เริ่ม**:
+ตรวจซ้ำแล้วพบว่า RefreshIndicator ใช้สี default ของ Material 3 (`colorScheme.primary` = Sapphire) อยู่แล้ว
+โดยไม่ต้องแก้โค้ด — ส่วนที่เหลือ (custom pull animation เต็มรูปแบบ + swipe ระหว่างแท็บ) มีความเสี่ยงคนละ
+ประเภทจาก Phase 1: Phase 1 เสี่ยงแบบ "compile พังไหม" ซึ่ง CI (ที่เพิ่งค้นพบวิธี trigger ตรงได้) ตอบได้ชัดเจน
+แต่ Phase 2 เสี่ยงแบบ "gesture ใหม่ขัดกับของเดิมไหม" (โดยเฉพาะ swipe แท็บ vs. carousel เลื่อนรูปหลายรูปที่มี
+อยู่แล้ว ซึ่งปรับมาหลายรอบจนละเอียดมาก) และ "รู้สึกถูกไหม" — สองอย่างนี้ CI ตอบไม่ได้เลย ไม่มีเทสเก่าครอบ
+interaction ใหม่ที่ยังไม่มีอยู่ในระบบ — เสนอ Founder ให้ยืนยันรับความเสี่ยงชัดเจนก่อนเขียนโค้ดต่อ แทนที่จะเดา
+เงียบๆ แล้วส่งของที่อาจมีบั๊กซ่อนเข้า production ที่ผู้ใช้จริงใช้อยู่
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-08-wyn-140-home-feed-premium-polish-phase1-deploy.md`, PR #313,
+deploy-web.yml run #106
