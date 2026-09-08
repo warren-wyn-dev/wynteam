@@ -386,6 +386,8 @@ void main() {
   late RecordingHomeRepository scrollToTopTestHomeRepository;
   late RecordingHomeRepository triggerRefreshTestHomeRepository;
   late RecordingHomeRepository swipeTestHomeRepository;
+  late RecordingHomeRepository carouselSwipeHomeRepository;
+  late RecordingDropRepository carouselSwipeDropRepository;
   late _DelayedHomeRepository duplicateFetchGuardTestHomeRepository;
 
   setUpAll(() async {
@@ -709,6 +711,18 @@ void main() {
 
     swipeTestHomeRepository =
         RecordingHomeRepository(feedItems: [_dropItem(id: 'sw1', hasImage: false)]);
+
+    carouselSwipeDropRepository = RecordingDropRepository()
+      ..dropImagesById = {
+        'multi1': [
+          'https://example.supabase.co/drops/multi1.jpg',
+          'https://example.supabase.co/drops/multi1_1.jpg',
+          'https://example.supabase.co/drops/multi1_2.jpg',
+        ],
+      };
+    carouselSwipeHomeRepository = RecordingHomeRepository(
+      feedItems: [_dropItem(id: 'multi1', imageCount: 3)],
+    );
   });
 
   Widget buildHome(
@@ -1909,21 +1923,9 @@ void main() {
         'Scrollables sharing an axis is exactly the conflict a real '
         'PageView (unlike the old plain GestureDetector) could introduce',
         (tester) async {
-      final multiImageDropRepository = RecordingDropRepository()
-        ..dropImagesById = {
-          'multi1': [
-            'https://example.supabase.co/drops/multi1.jpg',
-            'https://example.supabase.co/drops/multi1_1.jpg',
-            'https://example.supabase.co/drops/multi1_2.jpg',
-          ],
-        };
-      final multiImageHomeRepository = RecordingHomeRepository(
-        feedItems: [_dropItem(id: 'multi1', imageCount: 3)],
-      );
-
       await tester.pumpWidget(buildHome(
-        multiImageHomeRepository,
-        dropRepository: multiImageDropRepository,
+        carouselSwipeHomeRepository,
+        dropRepository: carouselSwipeDropRepository,
         popRepository: sharedPopRepository,
       ));
       await tester.pumpAndSettle();
