@@ -55,7 +55,7 @@ Founder เป็นผู้มีอำนาจตัดสินใจสู
 
 ## Version Control (WYNOS)
 
-กติกา Version/Rollback ของ WYNOS ทั้งหมดอยู่ที่ `.wyn/company/VERSION_CONTROL.md` (บังคับอ่านก่อนเริ่มงาน — ดู `AGENTS.md`) สรุปสั้น ๆ: Baseline ปัจจุบันคือ **WYNOS v1.0.0 Beta1**, เฉพาะ Owner เท่านั้นที่กำหนด version ใหม่/สั่ง rollback ได้ — **ห้าม Rollback เองโดยเด็ดขาดไม่ว่ากรณีใด** เจอปัญหาให้หยุด วิเคราะห์ รายงาน เสนอทางแก้ แล้วรอคำสั่ง Owner เท่านั้น
+กติกา Version/Rollback ของ WYNOS ทั้งหมดอยู่ที่ `.wyn/company/VERSION_CONTROL.md` (บังคับอ่านก่อนเริ่มงาน — ดู `AGENTS.md`) ซึ่งเป็น source of truth สำหรับ version ปัจจุบัน สรุป ณ 2026-09-08: ผู้ใช้ทั่วไปอยู่บน **WYNOS v1.0.0 Beta4** และ **Beta5 กำลังพัฒนาเฉพาะบัญชีนักพัฒนา** เฉพาะ Owner เท่านั้นที่กำหนด version ใหม่/สั่ง rollback ได้ — **ห้าม Rollback เองโดยเด็ดขาดไม่ว่ากรณีใด** เจอปัญหาให้หยุด วิเคราะห์ รายงาน เสนอทางแก้ แล้วรอคำสั่ง Owner เท่านั้น
 
 ## GitHub Safety
 

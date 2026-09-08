@@ -1714,3 +1714,18 @@ Verification ครบทั้ง 2 ข้อตาม `.wyn/company/WORKFLOW.m
 เสร็จสมบูรณ์ ไม่มี task ใน `.wyn/tasks/` ให้ย้าย (เป็น hotfix flag เดียว ไม่ได้เปิด task แยกไว้ตั้งแต่ต้น)
 
 อ้างอิง: PR #316/#317, commit `32a7105`/`dec0caa`, deploy-web.yml run #108
+
+## [2026-09-08] แก้สถานะ QA-WYN-110-002 ให้ตรงกับ deployment evidence
+
+การ audit วันที่ 2026-09-06 ด้านบนย้าย `WYN-110-homedropcard-320px-action-row-overflow.md` กลับไป
+`qa/` เพราะอ่าน QA note ที่เขียนก่อน fix แล้วสรุปว่ายังไม่มี QA หลัง fix แต่ deployment log
+`.wyn/logs/deployments/2026-09-05-wyn-110-111-real-deploy.md` บันทึกไว้แล้วว่า fix ผ่าน CI บน `main`,
+`flutter analyze`, full `flutter test` 1173/1173 (รวม targeted regression 8 cases), deploy run #64 และ
+Founder production verification เมื่อ 2026-09-05 งานจึงเสร็จจริงก่อน audit หนึ่งวัน
+
+แก้ task tracking โดยย้ายไฟล์จาก `qa/` ไป `completed/` และเก็บ entry เดิมไว้เป็นประวัติ ห้ามตีความการ
+แก้นี้ว่าเป็น QA rerun ใหม่หรือ product change — เป็นการ reconcile สถานะกับหลักฐานที่เกิดหลัง fix เท่านั้น
+
+อ้างอิง: `.wyn/tasks/completed/WYN-110-homedropcard-320px-action-row-overflow.md`,
+`.wyn/logs/deployments/2026-09-05-wyn-110-111-real-deploy.md`, commit `3c2707b`, PR #228,
+CI run `33956199282`, deploy run `33956438765`

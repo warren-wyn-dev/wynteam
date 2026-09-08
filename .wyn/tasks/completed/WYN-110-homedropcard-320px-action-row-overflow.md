@@ -1,6 +1,6 @@
 # Bug Report — WYN-110 (QA-WYN-110-002, pre-existing/out-of-scope)
 
-Status: qa (fixed by AI Debug Engineer, 2026-09-05 — awaiting QA re-check; see "Fix Applied" note near end of this file. Moved bugs/ -> qa/ 2026-09-06 to match: code confirmed to contain the FittedBox fix and app/test/home_drop_card_overflow_test.dart, header was just never synced)
+Status: completed (QA/CI/deploy/production verification completed 2026-09-05; reconciled 2026-09-08 after the task was mistakenly moved back to `qa/`)
 Owner: AI Debug Engineer (แนะนำให้แยกเป็น task ของตัวเอง เช่น WYN-096e/WYN-107e ไม่ใช่ WYN-110)
 Severity: **Low** (เป็น visual overflow เล็กน้อย 3px ไม่ crash แอป)
 พบโดย: AI QA & Security, 2026-09-05 (branch `claude/home-button-ux-ui-design-cbjkzm`) — พบระหว่าง
@@ -114,3 +114,27 @@ alignment: Alignment.centerLeft)` — เป็น no-op ทันทีที�
 3. `flutter analyze`: 0 issues, `flutter test` เต็มชุด: 1173/1173 ผ่าน
 
 **ปิดแล้ว 2026-09-05** — รอ QA ตรวจยืนยันซ้ำก่อน merge/deploy จริง
+
+## Status Reconciliation — 2026-09-08
+
+**Final Status: PASS**
+
+Task นี้ถูกย้ายกลับจาก `bugs/` ไป `qa/` เมื่อ 2026-09-06 เพราะ audit รอบนั้นดูเฉพาะ QA note ด้านบน
+และสรุปว่ายังไม่มีการยืนยันหลัง fix แต่ deployment record ที่มีอยู่แล้วแสดงว่างานผ่านวงจรครบตั้งแต่
+2026-09-05:
+
+1. fix อยู่ใน commit `3c2707b` และ merge ผ่าน PR #228
+2. CI บน `main` run `33956199282` ผ่านครบทุก job หลัง fix
+3. ก่อน merge มี `flutter analyze` 0 issues และ `flutter test` 1173/1173 ผ่าน รวม regression test
+   `home_drop_card_overflow_test.dart` 8 cases ที่ 320/360/390/430px × zero/5-digit counts
+4. deploy-web run #64 (`33956438765`) สำเร็จบน production
+5. Founder ตรวจ production และยืนยัน “โอเคแล้ว” เมื่อ 2026-09-05 09:40 UTC
+
+หลักฐานทั้งหมดอยู่ที่ `.wyn/logs/deployments/2026-09-05-wyn-110-111-real-deploy.md` ซึ่งระบุ
+QA-WYN-110-002 ว่าแก้ ทดสอบ deploy และปิดแล้วโดยตรง การย้าย task กลับ `qa/` จึงเป็น task-tracking
+regression ไม่ใช่ product regression รอบนี้ตรวจซ้ำว่า `3c2707b` เป็น ancestor ของ HEAD และ implementation
+กับ regression test ยังอยู่ครบ แล้วจึงย้าย task ไป `completed/` ให้ตรงกับ production truth
+
+Environment ปัจจุบันไม่มี Flutter SDK และ network proxy ปฏิเสธการดาวน์โหลด SDK (`403 Forbidden`)
+จึงไม่ได้อ้างว่า rerun Flutter ใหม่ในวันที่ reconcile นี้ การ PASS อ้างอิง test/CI/deploy/Founder verification
+ที่เกิดหลัง fix และถูกบันทึกไว้แล้ว ไม่ใช่ static review เพียงอย่างเดียว
