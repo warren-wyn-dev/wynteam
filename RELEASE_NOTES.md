@@ -1,6 +1,36 @@
-# WYNOS V1.0.0 — Beta 1
+# WYNOS Release Notes
 
-เอกสารสรุปสถานะเวอร์ชันปัจจุบันของ **Wynos** (แอปโซเชียล WYN ฝั่งผู้ใช้ทั่วไป — ไม่รวม ZOKY/`seller_app` และ Admin panel ซึ่งมีสถานะแยกต่างหาก ดูหัวข้อ "สิ่งที่ยังไม่รวมใน Beta 1" ด้านล่าง)
+## Current release — WYNOS v1.0.0 Beta4
+
+**Production status ณ 2026-09-08:** Beta4 คือ baseline ที่ผู้ใช้ทั่วไปใช้งานอยู่บน
+`https://wynos.online` ส่วน Beta5 กำลังพัฒนาหลัง developer-account allowlist และยังไม่เปิดให้ผู้ใช้ทั่วไป
+จนกว่า Founder จะสั่งชัดเจน Source of truth สำหรับ version และ rollback policy คือ
+`.wyn/company/VERSION_CONTROL.md`
+
+Beta4 ถูก deploy ครั้งแรกเมื่อ 2026-09-03 โดยครอบคลุม Profile UX/UI, Account Experience,
+Existing Feature UX, Club Community, Notification/Web Push, UI consistency, responsive work และ QA
+รายละเอียดการ deploy, CI, production verification และ known follow-up อยู่ที่
+`.wyn/logs/deployments/2026-09-03-wynos-beta4-real-deploy.md`
+
+การเปลี่ยนแปลงหลัง Beta4 baseline ถูกบันทึกแยกตามงานใน `.wyn/logs/deployments/` และอาจเป็น
+bug fix, hotfix หรือฟีเจอร์ที่เห็นเฉพาะ developer account จึง **ไม่ถือว่าเป็นการประกาศ version ใหม่เอง**
+ให้ตรวจ deployment log และ task ของงานนั้นก่อนสรุปสถานะ production เสมอ
+
+### Version history
+
+| Version | สถานะ | หลักฐาน |
+|---|---|---|
+| v1.0.0 Beta1 | ปิดแล้ว | historical snapshot ด้านล่าง |
+| v1.0.0 Beta2 | ปิดแล้ว | `.wyn/logs/deployments/2026-09-03-wyn-077-105-beta2-real-deploy.md` |
+| v1.0.0 Beta3 | ไม่ชัดเจนว่าเคย deploy แยก | ดูคำอธิบายใน `.wyn/company/VERSION_CONTROL.md` |
+| v1.0.0 Beta4 | **Current สำหรับผู้ใช้ทั่วไป** | `.wyn/logs/deployments/2026-09-03-wynos-beta4-real-deploy.md` |
+| v1.0.0 Beta5 | **กำลังพัฒนา เฉพาะ developer accounts** | WYN-125 และ `.wyn/company/VERSION_CONTROL.md` |
+
+> ส่วนต่อจากนี้คือ snapshot ของ Beta1 ที่เก็บไว้เพื่อรักษาประวัติ ไม่ใช่สถานะปัจจุบัน
+
+# Historical snapshot — WYNOS V1.0.0 Beta1
+
+เอกสารส่วนนี้สรุปสถานะของ **Wynos ณ Beta1** (แอปโซเชียล WYN ฝั่งผู้ใช้ทั่วไป — ไม่รวม ZOKY/`seller_app` และ Admin panel ซึ่งมีสถานะแยกต่างหาก ดูหัวข้อ "สิ่งที่ยังไม่รวมใน Beta 1" ด้านล่าง)
 
 อัปเดตไฟล์นี้ทุกครั้งที่ปล่อยเวอร์ชันใหม่ — ไม่ต้องสร้างไฟล์ใหม่ แก้ไขไฟล์นี้ทับแล้วบันทึกลง git ตามปกติ
 
