@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_spacing.dart';
+import 'home_card_metrics.dart';
 
 /// Loading state for the Home feed's initial fetch -- placeholder cards
 /// shaped like the real ones (avatar + name row, image block, action
@@ -16,6 +17,14 @@ import '../../../../core/design/wyn_spacing.dart';
 /// Static blocks, not an animated shimmer -- same reasoning as
 /// ProfileSkeleton: an indeterminate animation makes `pumpAndSettle`
 /// never settle, a trap this codebase has hit and documented before.
+///
+/// WYN-140: rebuilt on [homeCardEdgeInset]/[homeCardAvatarGap]/
+/// [homeCardAvatarDiameter] -- the same two-column geometry WYN-107 gave
+/// the real cards (avatar as its own left column, everything else in a
+/// right column starting at the name), so a card doesn't visibly shift
+/// the moment real content replaces its placeholder. Previously this
+/// skeleton predated WYN-107 and still used the old single-Row layout
+/// with generic 16px padding, which the real card hasn't used since.
 class HomeFeedSkeleton extends StatelessWidget {
   const HomeFeedSkeleton({super.key, this.cardCount = 3});
 
@@ -35,42 +44,49 @@ class HomeFeedSkeleton extends StatelessWidget {
         );
 
     Widget card() => Padding(
-          padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3),
-          child: Column(
+          padding: const EdgeInsets.symmetric(vertical: WynSpacing.space4),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: WynSpacing.space4),
-                child: Row(
-                  children: [
-                    CircleAvatar(radius: 18, backgroundColor: color),
-                    const SizedBox(width: WynSpacing.space3),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        bar(width: 120, height: 13),
-                        const SizedBox(height: WynSpacing.space2),
-                        bar(width: 70, height: 10),
-                      ],
-                    ),
-                  ],
+                padding: const EdgeInsets.only(left: homeCardEdgeInset),
+                child: CircleAvatar(
+                  radius: homeCardAvatarDiameter / 2,
+                  backgroundColor: color,
                 ),
               ),
-              const SizedBox(height: WynSpacing.space3),
-              AspectRatio(aspectRatio: 1, child: ColoredBox(color: color)),
-              const SizedBox(height: WynSpacing.space3),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: WynSpacing.space4),
-                child: Row(
-                  children: [
-                    bar(width: 44),
-                    const SizedBox(width: WynSpacing.space5),
-                    bar(width: 44),
-                    const SizedBox(width: WynSpacing.space5),
-                    bar(width: 44),
-                  ],
+              const SizedBox(width: homeCardAvatarGap),
+              Expanded(
+                child: Padding(
+                  padding:
+                      const EdgeInsets.only(right: homeCardEdgeInset),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      bar(width: 120, height: 13),
+                      const SizedBox(height: WynSpacing.space1),
+                      bar(width: 70, height: 10),
+                      const SizedBox(height: WynSpacing.space3),
+                      ClipRRect(
+                        borderRadius:
+                            BorderRadius.circular(WynSpacing.radiusLg),
+                        child: AspectRatio(
+                          aspectRatio: 4 / 5,
+                          child: ColoredBox(color: color),
+                        ),
+                      ),
+                      const SizedBox(height: WynSpacing.space3),
+                      Row(
+                        children: [
+                          bar(width: 44),
+                          const SizedBox(width: WynSpacing.space5),
+                          bar(width: 44),
+                          const SizedBox(width: WynSpacing.space5),
+                          bar(width: 44),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

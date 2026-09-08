@@ -276,16 +276,22 @@ class HomePopCard extends StatelessWidget {
                             ),
                           ),
                         ),
+                        // WYN-140: fixed 12px gap after the video thumbnail
+                        // (always present, unlike Drop's optional image) --
+                        // previously this was 8px only when a caption
+                        // followed, and 0px straight to LikedByRow/the action
+                        // bar when it didn't.
+                        const SizedBox(height: WynSpacing.space3),
                         if (item.caption != null && item.caption!.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(
-                                0, WynSpacing.space2, homeCardEdgeInset, 0),
+                                0, 0, homeCardEdgeInset, WynSpacing.space3),
                             child: HashtagText(item.caption!),
                           ),
                         if (item.likedBy.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(
-                                0, WynSpacing.space2 + 2, homeCardEdgeInset, 0),
+                                0, 0, homeCardEdgeInset, 0),
                             child: LikedByRow(
                               likedBy: item.likedBy,
                               totalLikeCount: item.likeCount,

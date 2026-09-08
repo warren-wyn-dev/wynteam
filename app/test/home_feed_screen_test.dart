@@ -1622,7 +1622,7 @@ void main() {
     expect(find.byType(PopCommentSheet), findsNothing);
   });
 
-  group('"สำหรับคุณ"/"จาก Club ของคุณ" feed toggle (WYN-015)', () {
+  group('"สำหรับคุณ"/"Club" feed toggle (WYN-015)', () {
     testWidgets('defaults to "สำหรับคุณ" showing the regular Drop/Pop feed',
         (tester) async {
       await tester.pumpWidget(buildHome(
@@ -1638,7 +1638,7 @@ void main() {
     });
 
     testWidgets(
-        'switching to "จาก Club ของคุณ" shows Club posts instead of Drop/Pop',
+        'switching to "Club" shows Club posts instead of Drop/Pop',
         (tester) async {
       await tester.pumpWidget(buildHome(
         mixedFeedHomeRepository,
@@ -1649,7 +1649,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      await tester.tap(find.text('จาก Club ของคุณ'));
+      await tester.tap(find.text('Club'));
       await tester.pumpAndSettle();
 
       expect(find.text('โพสต์จาก Club ที่เข้าร่วม'), findsOneWidget);
@@ -1657,7 +1657,7 @@ void main() {
     });
 
     testWidgets(
-        'shows a join-prompt message on "จาก Club ของคุณ" when the user has no '
+        'shows a join-prompt message on "Club" when the user has no '
         'joined-club posts', (tester) async {
       await tester.pumpWidget(buildHome(
         mixedFeedHomeRepository,
@@ -1668,7 +1668,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      await tester.tap(find.text('จาก Club ของคุณ'));
+      await tester.tap(find.text('Club'));
       await tester.pumpAndSettle();
 
       expect(find.text('เข้าร่วม Club เพื่อดูโพสต์ที่นี่'), findsOneWidget);
@@ -1697,7 +1697,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      await tester.tap(find.text('จาก Club ของคุณ'));
+      await tester.tap(find.text('Club'));
       await tester.pumpAndSettle();
       final callsBeforeExplore =
           emptyFromClubsPostRepository.fetchFromJoinedClubsCalls;
@@ -1743,7 +1743,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      await tester.tap(find.text('จาก Club ของคุณ'));
+      await tester.tap(find.text('Club'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('สำหรับคุณ'));
       await tester.pumpAndSettle();
@@ -1772,7 +1772,7 @@ void main() {
     });
 
     testWidgets(
-        'only 3 segments ("สำหรับคุณ"/"ติดตาม"/"จาก Club ของคุณ") are present '
+        'only 3 segments ("สำหรับคุณ"/"ติดตาม"/"Club") are present '
         '-- "ล่าสุด" was removed (WYN-090)', (tester) async {
       await tester.pumpWidget(buildHome(
         mixedFeedHomeRepository,
@@ -1785,7 +1785,7 @@ void main() {
       expect(find.text('สำหรับคุณ'), findsOneWidget);
       expect(find.text('ติดตาม'), findsOneWidget);
       expect(find.text('ล่าสุด'), findsNothing);
-      expect(find.text('จาก Club ของคุณ'), findsOneWidget);
+      expect(find.text('Club'), findsOneWidget);
     });
 
     testWidgets(
@@ -1811,7 +1811,7 @@ void main() {
     });
 
     testWidgets(
-        'the widest segment label ("จาก Club ของคุณ") stays single-line at real phone '
+        'the widest segment label ("Club") stays single-line at real phone '
         'widths when active, instead of wrapping into a tall column (QA round 2 '
         'regression, 2026-08-22)', (tester) async {
       // Real phone widths this codebase's own SELLER-004 lesson
@@ -1836,16 +1836,16 @@ void main() {
       // viewport -- scroll it into view before tapping, or the tap can
       // silently miss.
       await tester.dragUntilVisible(
-        find.text('จาก Club ของคุณ'),
+        find.text('Club'),
         find.byType(SingleChildScrollView).first,
         const Offset(-60, 0),
       );
-      await tester.tap(find.text('จาก Club ของคุณ'));
+      await tester.tap(find.text('Club'));
       await tester.pumpAndSettle();
       final exception = tester.takeException();
       expect(exception, isNull);
 
-      final labelFinder = find.text('จาก Club ของคุณ');
+      final labelFinder = find.text('Club');
       expect(labelFinder, findsOneWidget);
       final renderParagraph =
           tester.renderObject(labelFinder) as RenderParagraph;
@@ -1890,7 +1890,7 @@ void main() {
       // measured that even after reclaiming width from the removed
       // checkmark icon and tightened padding, the short 6-character label
       // only became fully non-truncated from ~390px up under THAT fix.
-      // The two longer labels ("สำหรับคุณ" 9 chars, "จาก Club ของคุณ" 15
+      // The two longer labels ("สำหรับคุณ" 9 chars, "Club" 15
       // chars) still weren't covered by that round's fix -- but the
       // scrollable-width fix below (WYN-024 follow-up, 2026-08-22)
       // supersedes this entirely: see the comprehensive all-segments
@@ -1932,7 +1932,7 @@ void main() {
           'stretched to the screen, so every segment gets its full natural '
           'width regardless of viewport, and the row scrolls instead. '
           'Closes the residual gap the round-3 fix above left open for '
-          '"สำหรับคุณ" (the default segment) and "จาก Club ของคุณ".',
+          '"สำหรับคุณ" (the default segment) and "Club".',
           (tester) async {
         tester.view.physicalSize = Size(width, 800);
         tester.view.devicePixelRatio = 1.0;
@@ -1949,7 +1949,7 @@ void main() {
         for (final label in [
           'สำหรับคุณ',
           'ติดตาม',
-          'จาก Club ของคุณ',
+          'Club',
         ]) {
           await tester.dragUntilVisible(
             find.text(label),
