@@ -1905,7 +1905,7 @@ void main() {
 
     testWidgets(
         'a horizontal drag that starts on a multi-image post scrolls its '
-        "carousel, not the outer PageView -- the two horizontal "
+        'carousel, not the outer PageView -- the two horizontal '
         'Scrollables sharing an axis is exactly the conflict a real '
         'PageView (unlike the old plain GestureDetector) could introduce',
         (tester) async {
