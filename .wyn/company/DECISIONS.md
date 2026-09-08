@@ -1625,3 +1625,11 @@ Production Verification เดิมของโปรเจกต์ (`.wyn/com
 
 อ้างอิง: PR #316, commit `32a7105`, CI run #34202310271, deploy-web.yml run #108,
 `.wyn/logs/deployments/2026-09-08-guest-browsing-disabled-deploy.md`
+
+## [2026-09-08] Guest Browsing (WYN-072) หยุดชั่วคราว: Founder ยืนยัน "เรียบร้อย" — ปิดงาน
+
+**Founder ยืนยัน** บน `wynos.online` แล้วว่าปุ่ม "เข้าชม WYNOS ได้เลย" หายไปจริงตามที่สั่ง — Production
+Verification ครบทั้ง 2 ข้อตาม `.wyn/company/WORKFLOW.md` (เว็บขึ้นจริง + สิ่งที่เห็นตรงตามที่ตั้งใจ) ถือว่างานนี้
+เสร็จสมบูรณ์ ไม่มี task ใน `.wyn/tasks/` ให้ย้าย (เป็น hotfix flag เดียว ไม่ได้เปิด task แยกไว้ตั้งแต่ต้น)
+
+อ้างอิง: PR #316/#317, commit `32a7105`/`dec0caa`, deploy-web.yml run #108
