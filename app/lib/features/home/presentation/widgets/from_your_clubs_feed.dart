@@ -33,7 +33,16 @@ class FromYourClubsFeed extends StatefulWidget {
   State<FromYourClubsFeed> createState() => _FromYourClubsFeedState();
 }
 
-class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
+class _FromYourClubsFeedState extends State<FromYourClubsFeed>
+    with AutomaticKeepAliveClientMixin<FromYourClubsFeed> {
+  // WYN-140 (2026-09-08, PageView swipe follow-up): this now lives
+  // inside HomeFeedScreen's PageView alongside the ranked-feed pages
+  // (see ModeFeedPageState's identical mixin, same reasoning) --
+  // without this, swiping away to another tab and back could silently
+  // reset this page to empty and reload it.
+  @override
+  bool get wantKeepAlive => true;
+
   final _scrollController = ScrollController();
   final List<ClubPost> _posts = [];
   final Map<String, ClubMemberRole?> _roleByClubId = {};
@@ -230,6 +239,8 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed> {
 
   @override
   Widget build(BuildContext context) {
+    // AutomaticKeepAliveClientMixin requires this call every build.
+    super.build(context);
     if (_isLoadingInitial) {
       return const Center(child: CircularProgressIndicator());
     }
