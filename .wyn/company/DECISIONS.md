@@ -1607,3 +1607,21 @@ auto-guest-session ใน `AuthGate`, `requireRealAccount()` gate ใน `guest_
 
 อ้างอิง: `app/lib/features/auth/presentation/auth_method_screen.dart` (`_guestBrowsingEnabled`),
 `.wyn/tasks/bugs/WYN-131-club-join-create-missing-guest-gate.md`
+
+## [2026-09-08] Guest Browsing (WYN-072) หยุดชั่วคราว: deploy สำเร็จขึ้น production — รอ Founder ยืนยันบนเว็บจริง
+
+**Founder สั่ง "Deploy ต่อเลย"** หลังเปิด PR #316 — ทำตาม pipeline เดียวกับงานอื่นในโปรเจกต์นี้:
+1. รอ CI (`ci.yml` run [#34202310271](https://github.com/warren-wyn-dev/wynteam/actions/runs/34202310271)) —
+   **ผ่านทั้งหมด** รวม `Flutter` job (`flutter analyze` + `flutter test` 1442 เทส)
+2. Squash-merge PR #316 เข้า `main` — commit `32a7105`
+3. Trigger `deploy-web.yml` ด้วยมือ (`workflow_dispatch` ที่ `main`, workflow นี้ไม่ auto-trigger จาก push) —
+   run [#108](https://github.com/warren-wyn-dev/wynteam/actions/runs/34202718788) — **SUCCESS**
+4. `curl https://wynos.online/` → **HTTP 200**
+
+**ยืนยันได้แค่ว่าเว็บขึ้นจริงไม่พัง ยังไม่ได้ยืนยันว่าปุ่ม "เข้าชม WYNOS ได้เลย" หายไปจริงบนหน้าจอ** — ตาม
+Production Verification เดิมของโปรเจกต์ (`.wyn/company/WORKFLOW.md`) ต้อง Founder เปิด `wynos.online` เช็คเอง
+ก่อนถือว่าเสร็จสมบูรณ์ ไม่มี task ใน `.wyn/tasks/` ให้ย้ายเข้า `completed/` เพราะงานนี้เป็น hotfix flag เดียว
+ไม่ได้เปิด task แยก (บันทึกไว้แล้วด้านบน)
+
+อ้างอิง: PR #316, commit `32a7105`, CI run #34202310271, deploy-web.yml run #108,
+`.wyn/logs/deployments/2026-09-08-guest-browsing-disabled-deploy.md`
