@@ -1,6 +1,6 @@
 # Design Task — WYN-140
 
-Status: active (Design เสร็จ, รอ Founder ดู mockup + ตอบคำถามก่อนส่ง AI Coding)
+Status: approved (Phase 1 — QA PASS, CI ยืนยันจริง 1437/1437, รอ Founder สั่ง deploy)
 Owner: AI Design
 Screen: Home Feed (Header, Feed Tabs, Post Card, Action Bar, Media, Bottom Nav/Drop Button, Loading)
 Purpose: ยกระดับ UX/UI ของหน้า Home ให้มีคุณภาพระดับ Production/Premium ตามบรีฟละเอียดของ Founder
@@ -58,8 +58,22 @@ duration/curve ให้เป็น token เดิม (220ms, เคารพ 
    ไม่ได้) — ส่ง Artifact แบบกดเล่นได้จริงแล้ว (indicator เลื่อน/ปุ่ม Drop กด+haptic ring/รูป fade-in)
    รอ Founder ดูแล้วตัดสินใจ
 
+## QA — PASS (2026-09-08)
+
+**Environment จริง ไม่ใช่แค่อ่านโค้ด**: trigger `ci.yml` ตรงผ่าน `workflow_dispatch` บน branch นี้เอง (run
+[#323](https://github.com/warren-wyn-dev/wynteam/actions/runs/34193968155), Flutter 3.47.1) เพราะ
+sandbox ของทั้ง Coding และ QA session นี้ไม่มี Flutter SDK ติดตั้งเลย — **`flutter analyze` สะอาด 0 issues,
+`flutter test` ผ่าน 1437/1437** (รวม label "Club" ที่เปลี่ยนในเทสแล้ว, `active_segment_accent` key,
+HomeFeedSkeleton, PostImage ทุกจุด)
+
+**พบ 2 ข้อสังเกตเล็กน้อย ไม่ block**: (1) คอมเมนต์ 2 จุดใน `home_feed_screen_test.dart` ล้าสมัยหลัง rename
+label (บรรยาย "Club" ว่ายาว 15 ตัวอักษร/เป็น label ที่กว้างที่สุด ซึ่งไม่จริงแล้ว) — ไม่กระทบการทำงานของเทส
+เก็บไว้แก้ทีหลัง (2) Drop ที่มีรูปแต่ไม่มี caption ยังมีช่องว่าง 0px ระหว่างเวลากับรูป — เป็นของเดิมก่อน
+WYN-140 ไม่ใช่ regression จากรอบนี้ ไม่อยู่ใน scope ที่อนุมัติ
+
+**Final Status: PASS** — ย้ายเข้า `approved/` แล้ว รายละเอียดเต็มอยู่ในแชท session นี้
+
 ## รออะไรอยู่
 
-**Founder ตัดสินใจแล้ว (2026-09-08)**: รอ QA/CI ยืนยัน Phase 1 ก่อน แล้วค่อยวางแผน Phase 2 เป็น task แยกที่มี
-AI Product Manager spec + AI QA ร่วมคิดตั้งแต่ต้น (ไม่ implement blind แบบรอบนี้) — ส่งต่อ AI QA & Security
-ตรวจ Phase 1 ต่อจากนี้
+Phase 1 พร้อม deploy แล้ว รอ Founder สั่ง — Phase 2 รอวางแผนเป็น task ใหม่ (AI Product Manager spec +
+AI QA ร่วมคิดตั้งแต่ต้น) หลัง Phase 1 deploy เสถียร

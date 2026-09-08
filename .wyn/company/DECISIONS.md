@@ -1494,3 +1494,23 @@ test runner ยืนยันเลย ขัดกับกติกาที�
 **สถานะ**: Phase 1 ส่งต่อ AI QA & Security แล้ว — Phase 2 ยังไม่มี task เปิด รอ QA/CI ของ Phase 1 ผ่านก่อน
 
 อ้างอิง: commit `c7eafe1` (Phase 1 implementation), `0a4a25a` (task status), `.wyn/tasks/active/WYN-140-home-feed-premium-polish.md`
+
+## [2026-09-08] WYN-140: QA PASS — trigger CI จริงผ่าน workflow_dispatch แทนที่จะเชื่อแค่การอ่านโค้ด
+
+**บริบท**: ทั้ง Coding และ QA session (เซสชันเดียวกัน คนละบทบาท) ไม่มี Flutter SDK ในตัว sandbox เลย — แทนที่
+จะสรุปผลจากการอ่านโค้ด+เทียบเทสอย่างเดียว (ซึ่งเป็นวิธีที่ WYN-113/WYN-114 เคยใช้เพราะไม่มีทางเลือกอื่น) รอบนี้
+QA พบว่า `ci.yml` เปิด `workflow_dispatch: {}` ไว้ (แม้ trigger หลักจะจำกัดแค่ pull_request/push main) จึง
+เรียก GitHub Actions ตรงให้รันบน branch `claude/session-title-z9spk0` เองผ่าน MCP tool
+(`actions_run_trigger`) โดยไม่ต้องรอเปิด PR — ได้ผลจริงจาก CI ภายใน ~4 นาที: **`flutter analyze` 0 issues,
+`flutter test` 1437/1437 ผ่าน** (run #323, Flutter 3.47.1)
+
+**เทคนิคนี้ใช้ซ้ำได้**: เมื่อ session ใดไม่มี Flutter SDK ในเครื่องแต่มี GitHub MCP tools ให้ trigger
+`ci.yml` ผ่าน `workflow_dispatch` ตรงบน branch ที่ต้องการแทนการอ่านโค้ดเดาอย่างเดียว หรือรอเปิด PR ก่อน — เร็ว
+กว่าและเชื่อถือได้กว่า ไม่ต้องรอ AI Deploy & DevOps เปิด PR ก่อนถึงจะรู้ผล compile/test จริง
+
+**ผลลัพธ์**: WYN-140 Phase 1 **PASS** — ย้าย `.wyn/tasks/active/WYN-140-home-feed-premium-polish.md` →
+`.wyn/tasks/approved/` พร้อม deploy เมื่อ Founder สั่ง — Phase 2 (swipe/custom pull-refresh) ยังไม่มี task
+เปิด ตามที่ Founder ตัดสินใจไว้ก่อนหน้า (รอวางแผนใหม่พร้อม Product spec)
+
+อ้างอิง: `.wyn/tasks/approved/WYN-140-home-feed-premium-polish.md`, CI run
+https://github.com/warren-wyn-dev/wynteam/actions/runs/34193968155
