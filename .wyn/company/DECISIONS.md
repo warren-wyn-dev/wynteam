@@ -1729,3 +1729,20 @@ Founder production verification เมื่อ 2026-09-05 งานจึงเ
 อ้างอิง: `.wyn/tasks/completed/WYN-110-homedropcard-320px-action-row-overflow.md`,
 `.wyn/logs/deployments/2026-09-05-wyn-110-111-real-deploy.md`, commit `3c2707b`, PR #228,
 CI run `33956199282`, deploy run `33956438765`
+
+## [2026-09-08] WYN-141 — Founder สั่งยกระดับ UX/UI frontend ทั้งระบบแบบ Mobile-first
+
+Founder กำหนด objective ให้ปรับ WYNOS frontend ให้ cohesive, polished, modern, responsive และ accessible
+โดยครอบคลุม Auth/Onboarding, Navigation, Feed, Content Detail, Search/Discovery, Notifications,
+Profile/Settings, Clubs, Chat และ Admin พร้อมล็อกข้อกำหนดว่าใช้ design system/shared components,
+รักษา feature/business logic เดิม, ไม่เพิ่ม Check-in, ไม่ refactor backend ที่ไม่เกี่ยวข้อง และต้องรัน
+lint/test/build หลัง major change ทุกชุดพร้อมรายงาน regression ก่อนทำต่อ
+
+คำสั่งนี้ถือเป็นการอนุมัติ **ขอบเขต Product/Design และทิศทาง responsive ที่ DS-008 เคยรอคำตอบ** แต่ไม่ยกเลิก
+กติกาถาวร “UI ใหม่ต้องมีภาพให้ Founder ดูก่อนเขียนโค้ด” จึงเปิด WYN-141, ทำ audit/spec และ visual preview
+ก่อน โดย production Coding จะเริ่มหลัง Founder อนุมัติภาพเท่านั้น เพื่อไม่ตีความคำว่า modern เป็น visual
+direction ใหม่เองและไม่ทำ broad refactor แบบ blind
+
+อ้างอิง: `.wyn/tasks/active/WYN-141-frontend-ux-ui-system.md`,
+`.wyn/docs/design/wyn-141-frontend-ux-ui-audit.md`, `.wyn/docs/design/wyn-141-frontend-ux-ui-system.md`,
+`design-reference/23-ux-ui-system-preview.svg`
