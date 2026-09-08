@@ -1754,6 +1754,154 @@ void main() {
     });
   });
 
+  group('Feed mode swipe gesture (WYN-140 Phase 2)', () {
+    // A fresh RecordingHomeRepository per test rather than the shared
+    // mixedFeedHomeRepository -- these tests read fetchFollowingFeedCalls
+    // as their pass/fail signal, and that counter must start at 0 for
+    // each one rather than carrying over a count some earlier test in
+    // this file already left behind on the shared instance.
+    RecordingHomeRepository swipeTestHomeRepository() => RecordingHomeRepository(
+          feedItems: [_dropItem(id: 'sw1')],
+        );
+
+    testWidgets(
+        'a decisive leftward swipe on the feed switches "สำหรับคุณ" -> '
+        '"ติดตาม" (same transition a tap on the tab already does)',
+        (tester) async {
+      final homeRepository = swipeTestHomeRepository();
+      await tester.pumpWidget(buildHome(
+        homeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(homeRepository.fetchFollowingFeedCalls, 0);
+
+      await tester.drag(
+        find.byKey(const Key('home_feed_scroll_view')),
+        const Offset(-400, 0),
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(homeRepository.fetchFollowingFeedCalls, 1,
+          reason: 'swiping left should have loaded "ติดตาม" the same way '
+              'tapping its tab does');
+    });
+
+    testWidgets(
+        'two leftward swipes reach "Club", showing Club posts instead of '
+        'Drop/Pop -- swipe and tap land on the same _feedModeOrder',
+        (tester) async {
+      final homeRepository = swipeTestHomeRepository();
+      await tester.pumpWidget(buildHome(
+        homeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        clubPostRepository: fromClubsPostRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      await tester.drag(
+        find.byKey(const Key('home_feed_scroll_view')),
+        const Offset(-400, 0),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byKey(const Key('home_feed_scroll_view')),
+        const Offset(-400, 0),
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.text('โพสต์จาก Club ที่เข้าร่วม'), findsOneWidget);
+      expect(find.text('แคปชัน Drop'), findsNothing);
+    });
+
+    testWidgets(
+        'a rightward swipe on "Club" goes back to "ติดตาม", not past the '
+        'start of _feedModeOrder', (tester) async {
+      final homeRepository = swipeTestHomeRepository();
+      await tester.pumpWidget(buildHome(
+        homeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+        clubPostRepository: fromClubsPostRepository,
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Club'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(homeRepository.fetchFollowingFeedCalls, 0);
+
+      await tester.drag(
+        find.byKey(const Key('home_feed_scroll_view')),
+        const Offset(400, 0),
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(homeRepository.fetchFollowingFeedCalls, 1,
+          reason: 'swiping right from Club should land on ติดตาม, one step '
+              'back in _feedModeOrder');
+    });
+
+    testWidgets(
+        'a rightward swipe already on "สำหรับคุณ" (the first mode) is a '
+        'clean no-op -- no crash, no reload', (tester) async {
+      final homeRepository = swipeTestHomeRepository();
+      await tester.pumpWidget(buildHome(
+        homeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      final callsBefore = homeRepository.fetchRankedFeedCalls;
+
+      await tester.drag(
+        find.byKey(const Key('home_feed_scroll_view')),
+        const Offset(400, 0),
+      );
+      await tester.pumpAndSettle();
+      final exception = tester.takeException();
+
+      expect(exception, isNull);
+      expect(homeRepository.fetchRankedFeedCalls, callsBefore);
+      expect(find.text('แคปชัน Drop'), findsOneWidget);
+    });
+
+    testWidgets(
+        'a short, slow drag well under the velocity threshold does not '
+        'switch modes -- only a decisive swipe does', (tester) async {
+      final homeRepository = swipeTestHomeRepository();
+      await tester.pumpWidget(buildHome(
+        homeRepository,
+        dropRepository: sharedDropRepository,
+        popRepository: sharedPopRepository,
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      // A short drag over a long duration -- well under the 200px/s
+      // threshold _onHorizontalSwipeEnd requires.
+      await tester.timedDrag(
+        find.byKey(const Key('home_feed_scroll_view')),
+        const Offset(-30, 0),
+        const Duration(seconds: 1),
+      );
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(homeRepository.fetchFollowingFeedCalls, 0,
+          reason: 'a slow, short drag should not read as a deliberate '
+              'swipe');
+      expect(find.text('แคปชัน Drop'), findsOneWidget);
+    });
+  });
+
   group('Home feed ranking (WYN-018)', () {
     testWidgets(
         '"สำหรับคุณ" (default) calls fetchRankedFeed, not the '
