@@ -1619,3 +1619,45 @@ Phase 2 รอบแรกยังใช้ได้เหมือนเดิ
 
 อ้างอิง: `.wyn/tasks/approved/WYN-140-home-feed-premium-polish.md`, `app/lib/features/home/presentation/
 home_feed_screen.dart`, `app/test/home_feed_screen_test.dart`
+
+## [2026-09-08] WYN-140: rubber-band cue ไม่พอ — Founder ขอ "swipe หลายๆหน้าเหมือนแพลตฟอร์มใหญ่ๆ" รื้อเป็น PageView จริง
+
+**Founder feedback**: "อยากให้ Swipe หลายๆหน้า เหมือนแพตฟอมใหญ่ๆ" — หมายถึงเห็นเนื้อหาแท็บถัดไปเลื่อนตามนิ้ว
+เข้ามาจริง (Threads/IG/X) ไม่ใช่แค่เนื้อหาเดิมขยับเล็กน้อยแบบ rubber-band cue ที่เพิ่งทำไป — ถามชัดเจนว่านี่คือ
+งานใหญ่กว่าเดิมมาก (ต้องรื้อสถาปัตยกรรมจริง แยก state ของแต่ละแท็บออกจากกัน กระทบเทสส่วนใหญ่ของไฟล์เดียวกัน)
+Founder เลือก **"ทำเต็มรูปแบบ (Recommended)"** — ยืนยันครั้งที่ 2 (ครั้งแรกตอนรับความเสี่ยง Phase 2 กว้างๆ,
+ครั้งนี้เจาะจงกับการรื้อสถาปัตยกรรมโดยตรง)
+
+**สิ่งที่ทำ**: ดึง logic ทั้งหมดของ "สำหรับคุณ"/"ติดตาม" (pagination, like/save/redrop/poll/hide/undo/
+quote-redrop/refreshRow, new-posts pill, RefreshIndicator+CustomScrollView ของตัวเอง) ออกจาก
+`_HomeFeedScreenState` ไปเป็น widget ใหม่ `ModeFeedPage` (`mode_feed_page.dart`) พารามิเตอร์ด้วย mode — คือ
+รูปแบบเดียวกับที่ `FromYourClubsFeed` (Club) มีอยู่แล้วเดิม แค่ทำอีก 2 โหมดให้เป็นแบบเดียวกัน — `HomeFeedScreen`
+เหลือแค่ header/drawer/chat icon/toggle row + `PageView.builder` โฮสต์ 3 หน้า (ModeFeedPage x2 + Club) ทั้ง
+`ModeFeedPage`/`FromYourClubsFeed` ใช้ `AutomaticKeepAliveClientMixin` กันสถานะหายตอนสลับแท็บไปมา (ข้อดี
+แถม: กลับมาแท็บเดิมไม่ต้องโหลดใหม่ ต่างจากของเดิมที่ reload ทุกครั้งที่สลับ) toggle เดิม pin เป็น sliver header
+ใน CustomScrollView เดียว — ตอนนี้เป็น fixed widget ธรรมดาเหนือ PageView แทน (ไม่ต้องมี hand-measured height
+constant แบบเดิม)
+
+**ความเสี่ยงใหม่ที่ตรวจสอบเป็นพิเศษ**: การเปลี่ยนจาก `GestureDetector` เดิม (ไม่ใช่ Scrollable) เป็น `PageView`
+จริง (เป็น Scrollable) หมายความว่าตอนนี้มี Scrollable แนวนอน 2 ชั้นซ้อนกัน (PageView ครอบ, carousel รูปหลายรูป
+ของแต่ละโพสต์อยู่ข้างใน) ซึ่งเป็นปัญหาที่ Flutter ขึ้นชื่อว่าท้าทายกว่ากรณี GestureDetector ธรรมดา — เพิ่มเทสใหม่
+เจาะจงจำลองการลากเริ่มจากบน carousel ของโพสต์ที่มีหลายรูป ยืนยันว่า carousel เลื่อนรูป ไม่ใช่ tab เปลี่ยน — ไม่ใช่
+แค่สมมติว่าปลอดภัยแบบครั้งก่อน
+
+**QA — PASS ผ่าน CI จริง** (หลังแก้ 3 รอบ, ทุกรอบเป็นบั๊กในเทสเอง ไม่ใช่ในโค้ดจริง):
+1. รอบแรก (`flutter analyze`): เทสใหม่มี `prefer_single_quotes` lint — แก้แล้ว
+2. รอบสอง (`flutter test`): เทส carousel ใหม่สร้าง `RecordingDropRepository`/`RecordingHomeRepository` ใหม่ใน
+   `testWidgets` โดยตรง (timer รั่วจาก `SupabaseClient` — บั๊กแบบเดียวกับที่เจอไปแล้วรอบก่อนหน้าใน Phase 2 เดิม
+   แต่พลาดซ้ำในเทสใหม่นี้) — ย้ายไปสร้างครั้งเดียวใน `setUpAll()` ตาม convention เดิมของไฟล์
+3. รอบสาม: timer อีกตัวจาก `DoubleTapLike` (double-tap detection, 40ms) ที่ห่อ carousel ทุกโพสต์ — เทสทำ
+   `tester.pump()` ครั้งเดียวหลังลาก ไม่พอให้ timer นี้หมดอายุ — เพิ่ม `pumpAndSettle()` ท้ายเทสก่อนจบ
+
+**Final: `flutter analyze` 0 issues, `flutter test` 1443/1443 ผ่านทั้งหมด** พร้อมเข้าสู่ขั้น deploy
+
+**สิ่งที่ยังยืนยันด้วย CI ไม่ได้**: ความรู้สึกจริงของการ swipe บนมือถือจริง (ลื่นสมจริงแค่ไหน, ชนกับ back-gesture
+ของระบบ/เบราว์เซอร์ไหม) — ความเสี่ยงเดิมที่ Founder ยอมรับไว้แล้วตั้งแต่ต้น Phase 2 ยังไม่เปลี่ยน
+
+อ้างอิง: `app/lib/features/home/presentation/home_feed_screen.dart`, `app/lib/features/home/presentation/
+widgets/mode_feed_page.dart`, `app/lib/features/home/presentation/widgets/from_your_clubs_feed.dart`,
+`app/test/home_feed_screen_test.dart`, CI runs #333 (analyze fail), #334 (1 test fail), #337 (1 test fail),
+#339 (PASS)
