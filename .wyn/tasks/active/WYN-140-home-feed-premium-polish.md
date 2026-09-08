@@ -24,6 +24,29 @@ Handoff: แบ่ง Phase 1 (ปลอดภัย พร้อมส่ง AI
 
 `.wyn/docs/design/wyn-140-home-feed-premium-polish.md`
 
+## สถานะ implement (อัปเดต 2026-09-08, หลัง Founder สั่ง "เริ่มทำได้เลย")
+
+**Phase 1 — เขียนโค้ดเสร็จแล้ว push ขึ้น branch แล้ว (commit `c7eafe1`)**: spacing 3 จุดใน
+HomeDropCard/HomePopCard, label "Club", motion token บน tab indicator (220ms/DS-010, ไม่ใช่ sliding ข้าม
+ตำแหน่งแบบที่มอคอัพ HTML โชว์ — ดูเหตุผลด้านล่าง), haptic บนปุ่ม Drop, HomeFeedSkeleton ปรับ 2 คอลัมน์ตรงกับ
+การ์ดจริง, PostImage fade-in ตอนโหลดเสร็จ — **sandbox นี้ไม่มี Flutter SDK ติดตั้ง ตรวจสอบด้วยการอ่านโค้ด+
+เทียบกับทุก test ที่อ้างถึงไฟล์ที่แก้ ไม่ใช่การรัน `flutter analyze`/`flutter test` จริง — ต้องรอ CI ยืนยัน**
+
+**จุดที่ตัดสินใจไม่ทำตามมอคอัพ HTML เป๊ะ**: indicator ที่ "เลื่อนข้ามตำแหน่งจริง" (แบบที่มอคอัพ interactive
+โชว์) ต้องรื้อโครงสร้าง toggle เดิมเป็น Stack + GlobalKey + วัด RenderBox แทนของเดิม — widget นี้ผ่านการแก้
+overflow/wrapping มาแล้ว 4 รอบ (ประวัติอยู่ใน `home_feed_screen_test.dart`) เป็นจุดที่เปราะบางที่สุดจุดหนึ่งใน
+แอป การรื้อโครงสร้างแบบนี้โดยไม่มี compiler/test runner ยืนยันคือความเสี่ยงจริงที่ไม่คุ้ม จึงทำแค่ปรับ
+duration/curve ให้เป็น token เดิม (220ms, เคารพ reduced-motion) แทน — ยังคง "ไม่กระโดด" ตามที่บรีฟขอ แค่ไม่ใช่
+กลไก sliding ข้ามตำแหน่งแบบมอคอัพ
+
+**Phase 2 — ยังไม่เริ่มเขียนโค้ด**: ทั้ง swipe gesture ระหว่างแท็บ และ custom pull-to-refresh ต้องการรื้อ
+สถาปัตยกรรมจริง (Phase 2's swipe ต้องแยก pagination state ของ forYou/following ออกจากกันเป็นราย mode แทนที่
+จะใช้ state ก้อนเดียวสลับกันแบบตอนนี้ — กระทบเทสส่วนใหญ่ใน `home_feed_screen_test.dart`; custom pull-refresh
+ต้องเขียนทดแทนกลไก `RefreshIndicator` ทั้งหมด ซึ่งความเสี่ยงขึ้นกับ API ที่มีจริงใน Flutter SDK เวอร์ชันที่
+โปรเจกต์ pin ไว้ — sandbox นี้ไม่มี SDK ให้ตรวจสอบ) — **นี่ไม่ใช่ "รายละเอียด" แต่เป็นการรื้อสถาปัตยกรรมของ
+หน้าที่ซับซ้อน/มีเทสมากที่สุดในแอป โดยไม่มี compiler ยืนยันเลย ขัดกับกติกาที่ Founder เขียนไว้เองในบรีฟ ("ห้าม
+รื้อ Architecture โดยไม่จำเป็น") — หยุดรอคำตัดสินใจ Founder ก่อนเริ่ม ไม่ใช่ลุยเดาต่อ**
+
 ## สถานะคำถาม (อัปเดต 2026-09-08)
 
 1. ✅ Founder ดู Artifact mockup Before/After แล้ว
@@ -37,5 +60,5 @@ Handoff: แบ่ง Phase 1 (ปลอดภัย พร้อมส่ง AI
 
 ## รออะไรอยู่
 
-รอ Founder ดู interactive preview แล้วยืนยันว่าจะเริ่ม Phase 1 ก่อน หรือทำทั้ง 1+2 พร้อมกัน → ส่งต่อ
-AI Coding ตามที่เลือก
+Phase 1 พร้อมส่ง AI QA & Security แล้ว (รอ CI ยืนยัน `flutter analyze`/`flutter test` ก่อน เพราะ sandbox
+นี้ไม่มี SDK) — Phase 2 รอ Founder ตัดสินใจว่าจะเดินหน้าทางไหน (ดู 3 ทางเลือกที่เสนอในแชท)
