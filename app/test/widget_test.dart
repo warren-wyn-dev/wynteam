@@ -55,10 +55,10 @@ void main() {
     // ("Phone Login ซ่อนชั่วคราว") and AuthMethodScreen's
     // _phoneLoginEnabled flag.
     expect(find.text('ใช้เบอร์โทรศัพท์แทน'), findsNothing);
-    // WYN-072 (Guest Browsing): the new guest entry point, distinct from
-    // the old WelcomeScreen guest button removed 2026-08-24 (see the test
-    // below) -- this one uses signInAnonymously() and lives here instead.
-    expect(find.text('เข้าชม WYNOS ได้เลย'), findsOneWidget);
+    // Guest Browsing (WYN-072) is currently paused (Founder, 2026-09-08)
+    // -- see AuthMethodScreen's _guestBrowsingEnabled flag and
+    // .wyn/company/DECISIONS.md, 2026-09-08.
+    expect(find.text('เข้าชม WYNOS ได้เลย'), findsNothing);
   });
 
   // The guest-mode bypass (added 2026-08-16, see .wyn/company/
@@ -106,13 +106,15 @@ void main() {
       expect(find.text('เข้าสู่ระบบด้วยอีเมล'), findsOneWidget);
     });
 
-    testWidgets('AuthMethodScreen still shows guest browsing when not adding an account',
+    testWidgets(
+        'guest browsing stays hidden even when not adding an account -- '
+        'it is paused entirely, not just for isAddingAccount',
         (tester) async {
       await tester.pumpWidget(MaterialApp(
         home: AuthMethodScreen(authRepository: authRepository),
       ));
 
-      expect(find.text('เข้าชม WYNOS ได้เลย'), findsOneWidget);
+      expect(find.text('เข้าชม WYNOS ได้เลย'), findsNothing);
     });
   });
 }

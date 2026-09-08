@@ -1661,3 +1661,56 @@ constant แบบเดิม)
 widgets/mode_feed_page.dart`, `app/lib/features/home/presentation/widgets/from_your_clubs_feed.dart`,
 `app/test/home_feed_screen_test.dart`, CI runs #333 (analyze fail), #334 (1 test fail), #337 (1 test fail),
 #339 (PASS)
+
+## [2026-09-08] Guest Browsing (WYN-072) หยุดชั่วคราว — Founder สั่งปิดปุ่ม "เข้าชม WYNOS ได้เลย"
+
+**Founder ตัดสินใจ**: ส่งภาพหน้าจอ AuthMethodScreen (`wynos.online`) พร้อมวงกลมล้อมปุ่ม "เข้าชม WYNOS ได้เลย"
+และสั่งให้ "ปิดฟังชั่นนี้ก่อน" — ตีความว่าให้ซ่อนทางเข้า Guest Browsing (Anonymous Sign-In ผ่านปุ่มนี้บน
+`AuthMethodScreen`) ออกจาก UI ทั้งหมดเป็นการชั่วคราว ไม่ใช่ลบฟีเจอร์ทิ้ง — สอดคล้องกับบริบทที่เพิ่งปิด WYN-131
+(guest ที่ tap Join/สร้าง Club ไม่ผ่าน `requireRealAccount()` gate ครบทุกจุด) ไปเมื่อวันก่อน ซึ่งชี้ว่ายังมีความ
+เสี่ยงจาก guest-gate coverage ที่ตรวจไม่ครบทุกจุดในระบบ
+
+**Implementation**: เพิ่ม `_guestBrowsingEnabled = false` ใน `AuthMethodScreen` (`app/lib/features/auth/
+presentation/auth_method_screen.dart`) รูปแบบเดียวกับ `_phoneLoginEnabled`/`_appleLoginEnabled` ที่มีอยู่แล้ว —
+ครอบปุ่ม guest-browse ทั้งก้อนด้วย `if (_guestBrowsingEnabled && !widget.isAddingAccount)` แทนที่จะลบโค้ด
+ทิ้ง — `AuthRepository.signInAnonymously()` และ guest-session mechanism อื่น (WYN-119's deep-link
+auto-guest-session ใน `AuthGate`, `requireRealAccount()` gate ใน `guest_gate.dart`) ไม่แตะเลย พร้อมเปิดกลับ
+ทันทีเมื่อ flip flag เป็น `true`
+
+**เทสที่แก้ตาม**: `auth_method_screen_test.dart`, `widget_test.dart` — เปลี่ยน assertion ของปุ่ม "เข้าชม WYNOS
+ได้เลย" จาก `findsOneWidget` เป็น `findsNothing` ทุกจุดที่ไม่ได้ทดสอบ `isAddingAccount` (ซึ่ง hide ปุ่มนี้อยู่แล้ว
+เป็นปกติ ไม่เกี่ยวกับ flag ใหม่) — ไม่ได้รันจริงในเซสชันนี้ (ไม่มี Flutter SDK ในสภาพแวดล้อมนี้ เหมือนเซสชันอื่น
+ก่อนหน้าที่บันทึกไว้ใน WYN-131) ต้องให้ CI/QA ยืนยันอีกครั้ง
+
+**ยังไม่ได้ทำ**: ไม่ได้สร้างเลข WYN-xxx ใหม่ให้งานนี้ (การปิด flag เดียวเทียบเท่าการ hotfix เล็ก ไม่ใช่ฟีเจอร์ใหม่
+ที่ต้องผ่าน Product→Design→Code→QA→Deploy เต็มรูปแบบ) — ถ้า Founder ต้องการให้บันทึกเป็น task แยกเพื่อ track
+การเปิดกลับในอนาคต ให้แจ้งเพิ่ม
+
+อ้างอิง: `app/lib/features/auth/presentation/auth_method_screen.dart` (`_guestBrowsingEnabled`),
+`.wyn/tasks/bugs/WYN-131-club-join-create-missing-guest-gate.md`
+
+## [2026-09-08] Guest Browsing (WYN-072) หยุดชั่วคราว: deploy สำเร็จขึ้น production — รอ Founder ยืนยันบนเว็บจริง
+
+**Founder สั่ง "Deploy ต่อเลย"** หลังเปิด PR #316 — ทำตาม pipeline เดียวกับงานอื่นในโปรเจกต์นี้:
+1. รอ CI (`ci.yml` run [#34202310271](https://github.com/warren-wyn-dev/wynteam/actions/runs/34202310271)) —
+   **ผ่านทั้งหมด** รวม `Flutter` job (`flutter analyze` + `flutter test` 1442 เทส)
+2. Squash-merge PR #316 เข้า `main` — commit `32a7105`
+3. Trigger `deploy-web.yml` ด้วยมือ (`workflow_dispatch` ที่ `main`, workflow นี้ไม่ auto-trigger จาก push) —
+   run [#108](https://github.com/warren-wyn-dev/wynteam/actions/runs/34202718788) — **SUCCESS**
+4. `curl https://wynos.online/` → **HTTP 200**
+
+**ยืนยันได้แค่ว่าเว็บขึ้นจริงไม่พัง ยังไม่ได้ยืนยันว่าปุ่ม "เข้าชม WYNOS ได้เลย" หายไปจริงบนหน้าจอ** — ตาม
+Production Verification เดิมของโปรเจกต์ (`.wyn/company/WORKFLOW.md`) ต้อง Founder เปิด `wynos.online` เช็คเอง
+ก่อนถือว่าเสร็จสมบูรณ์ ไม่มี task ใน `.wyn/tasks/` ให้ย้ายเข้า `completed/` เพราะงานนี้เป็น hotfix flag เดียว
+ไม่ได้เปิด task แยก (บันทึกไว้แล้วด้านบน)
+
+อ้างอิง: PR #316, commit `32a7105`, CI run #34202310271, deploy-web.yml run #108,
+`.wyn/logs/deployments/2026-09-08-guest-browsing-disabled-deploy.md`
+
+## [2026-09-08] Guest Browsing (WYN-072) หยุดชั่วคราว: Founder ยืนยัน "เรียบร้อย" — ปิดงาน
+
+**Founder ยืนยัน** บน `wynos.online` แล้วว่าปุ่ม "เข้าชม WYNOS ได้เลย" หายไปจริงตามที่สั่ง — Production
+Verification ครบทั้ง 2 ข้อตาม `.wyn/company/WORKFLOW.md` (เว็บขึ้นจริง + สิ่งที่เห็นตรงตามที่ตั้งใจ) ถือว่างานนี้
+เสร็จสมบูรณ์ ไม่มี task ใน `.wyn/tasks/` ให้ย้าย (เป็น hotfix flag เดียว ไม่ได้เปิด task แยกไว้ตั้งแต่ต้น)
+
+อ้างอิง: PR #316/#317, commit `32a7105`/`dec0caa`, deploy-web.yml run #108
