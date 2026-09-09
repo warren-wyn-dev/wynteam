@@ -18,6 +18,7 @@ import {
 import { StatCard } from "@/components/admin/stat-card";
 import { TopSourcesCard } from "@/components/admin/top-sources-card";
 import { DauTrendChart } from "@/components/admin/dau-trend-chart";
+import { FeedAlgorithmObservability } from "@/components/admin/feed-algorithm-observability";
 import {
   deltaPct,
   fetchAdminDashboardMetrics,
@@ -67,6 +68,8 @@ export async function DashboardMetrics() {
       ) : null}
 
       <DauTrendChart days={t.dau_last_14d} />
+
+      <FeedAlgorithmObservability />
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-muted-foreground">ผู้ใช้งาน</h2>
