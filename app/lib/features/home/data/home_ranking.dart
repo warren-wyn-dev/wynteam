@@ -65,6 +65,32 @@ typedef RankedCandidateRow = ({
   PersonalizationMaturity maturity,
 });
 
+/// Adapts rows from the pre-v1 `home_feed` view to the ranked-feed contract.
+///
+/// This is deliberately a compatibility path, not a second ranking engine. It
+/// preserves the view's newest-first order and supplies only safe source
+/// metadata so an app release can continue serving Home while the additive
+/// Algorithm v1 migration is still rolling out or PostgREST is refreshing its
+/// schema cache. Once `get_wynos_ranked_feed()` is available, production uses
+/// its authoritative scores exclusively.
+List<Map<String, dynamic>> legacyHomeFeedRankedRows(List<dynamic> rawRows) {
+  return [
+    for (var index = 0; index < rawRows.length; index++)
+      {
+        'row_data': <String, dynamic>{
+          ...Map<String, dynamic>.from(rawRows[index] as Map),
+          'feed_reason_code': 'schema_compatibility_fallback',
+          'feed_maturity_state': 'zero_history',
+        },
+        // The query is already newest-first. A descending positional score
+        // keeps that stable without recreating the backend ranking formula.
+        'wynos_score': (rawRows.length - index).toDouble(),
+        'is_following': false,
+        'is_discovery': true,
+      },
+  ];
+}
+
 /// Flattens `get_wynos_ranked_feed()`'s raw rows into
 /// [RankedCandidateRow]s, dropping any whose `content_type` is in
 /// [excludeContentTypes] (WYN-102 hides `pop`).

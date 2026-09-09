@@ -434,12 +434,30 @@ class HomeRepository {
       ? '${item.contentType.name}:${item.id}'
       : '${item.contentType.name}:${item.id}:quote:${item.redropId}';
 
+  Future<List<dynamic>> _fetchRankedRowsWithCompatibilityFallback() async {
+    try {
+      return await _client.rpc('get_wynos_ranked_feed') as List<dynamic>;
+    } catch (_) {
+      // App and additive database migrations are deployed independently. An
+      // older schema (or a stale PostgREST schema cache) must not turn Home
+      // into an error screen. Fall back to the existing RLS-protected view;
+      // if that also fails, let its error propagate so genuine connectivity
+      // and authorization failures remain visible to the normal error state.
+      final rows = await _client
+          .from('home_feed')
+          .select()
+          .order('created_at', ascending: false)
+          .limit(_rankedCandidateLimit) as List<dynamic>;
+      return legacyHomeFeedRankedRows(rows);
+    }
+  }
+
   Future<List<HomeFeedItem>> _buildRankedWindow() async {
     final userId = _client.auth.currentUser!.id;
     final startedAt = DateTime.now();
 
     final experiment = await _resolveHomeExperiment();
-    final rawRows = await _client.rpc('get_wynos_ranked_feed') as List<dynamic>;
+    final rawRows = await _fetchRankedRowsWithCompatibilityFallback();
     // row_data carries every public.home_feed column (plus some
     // ranking-internal ones HomeFeedItem.fromMap simply never reads) --
     // flattening it back out here is what lets fromMap keep working

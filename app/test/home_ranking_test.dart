@@ -320,6 +320,31 @@ void main() {
     });
   });
 
+  group('legacyHomeFeedRankedRows', () {
+    test('preserves view order and supplies a usable discovery fallback', () {
+      final adapted = legacyHomeFeedRankedRows([
+        {'id': 'newest', 'content_type': 'drop'},
+        {'id': 'older', 'content_type': 'drop'},
+      ]);
+      final ranked = rankedCandidateRows(adapted);
+
+      expect(ranked.map((candidate) => candidate.row['id']),
+          ['newest', 'older']);
+      expect(ranked.map((candidate) => candidate.score), [2.0, 1.0]);
+      expect(ranked.first.sources, contains(FeedSource.recommended));
+      expect(ranked.first.sources, contains(FeedSource.exploration));
+      expect(ranked.first.reasonCode, 'schema_compatibility_fallback');
+    });
+
+    test('does not mutate rows returned by the legacy view', () {
+      final source = <String, dynamic>{'id': 'a', 'content_type': 'drop'};
+
+      legacyHomeFeedRankedRows([source]);
+
+      expect(source.containsKey('feed_reason_code'), isFalse);
+    });
+  });
+
   group('top100CandidateRows', () {
     test('preserves authoritative backend rank rather than lifetime totals', () {
       final rows = top100CandidateRows([
