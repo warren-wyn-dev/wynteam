@@ -1,7 +1,12 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../drop/data/square_crop.dart';
+import 'cold_start.dart';
 import 'feed_diversity.dart';
+import 'feed_experiment.dart';
+import 'feed_learning_signal.dart';
+import 'feed_source.dart';
+import 'home_feed_cursor.dart';
 import 'home_feed_item.dart';
 import 'home_ranking.dart';
 
@@ -26,7 +31,6 @@ class _ViewerFeedState {
     required this.savedIds,
     required this.redroppedIds,
     required this.pollStates,
-    required this.blockedAuthorIds,
     required this.imageUrlsByDropId,
     required this.aspectRatioByDropId,
   });
@@ -36,10 +40,6 @@ class _ViewerFeedState {
   final Set<String> savedIds;
   final Set<String> redroppedIds;
   final Map<String, _PollState> pollStates;
-
-  /// Empty unless the caller asked for the sanction check -- only the
-  /// ranked/leaderboard surfaces (fetchTrending/fetchTopContent) do.
-  final Set<String> blockedAuthorIds;
 
   /// Beta3: the ordered image list of every multi-image Drop in the
   /// page, keyed by drop id -- one query for the whole page instead of
@@ -75,15 +75,8 @@ class HomeRepository {
 
   static const pageSize = 10;
 
-  // How far back "Trending" looks, and how many recent candidates are
-  // pulled before ranking client-side -- see fetchTrending's doc comment.
-  static const _trendingWindow = Duration(hours: 48);
-
-  // Public (not `_`-prefixed) unlike the two constants below -- WYN-040's
-  // DiscoveryRepository.fetchTrendingHashtags reuses this exact window/
-  // candidate-count as its own "recent Drop candidates" source (see its
-  // doc comment) rather than duplicating a second 48h/100 constant pair
-  // that could silently drift out of sync with this one.
+  // Shared response cap for Trending/Discovery surfaces. Observation windows
+  // themselves are centralized in refresh_trending_scores() on the backend.
   static const trendingCandidateLimit = 100;
   static const _trendingResultLimit = 10;
 
@@ -91,15 +84,7 @@ class HomeRepository {
   // true infinite ranking -- see fetchRankedFeed's doc comment.
   static const _rankedCandidateLimit = 200;
 
-  // WYN-042 (WYN Top 100): a longer window/wider candidate pool than
-  // Trending Now's -- a 7-day "chart" rather than a 48h "what's hot
-  // right now" row, per Product's own framing of the two as distinct
-  // concepts. Deliberately separate constants from _trendingWindow/
-  // trendingCandidateLimit above (never touched by this task) rather
-  // than parameterizing fetchTrending() itself -- see fetchTopContent's
-  // doc comment.
-  static const _topContentWindow = Duration(days: 7);
-  static const _topContentCandidateLimit = 500;
+  // The authoritative backend contract always caps the public chart at 100.
   static const topContentResultLimit = 100;
 
   // WYN-102 (Wynos V1.0.0 Beta2, item 11, 2026-09-02): Founder ordered
@@ -223,40 +208,25 @@ class HomeRepository {
     }).toList();
   }
 
-  /// The Home "กำลังนิยม" (Trending) row -- highest [engagementScore]
-  /// among items posted in the last 48 hours, across both Drop and Pop
-  /// (WYN-041: like+comment+Drop-only-view, see that function's doc
-  /// comment -- previously a plain `like_count + comment_count` sum).
-  /// PostgREST can only `order()` by an actual column, and `home_feed`
-  /// doesn't have a combined engagement column (adding one means
-  /// altering the view), so this pulls a bounded set of recent
-  /// candidates and ranks them client-side instead -- the same tradeoff
-  /// `ClubRepository.fetchPopularClubs` already makes for the same
-  /// reason ("still a small catalog", see that method's doc comment).
+  /// The Home "กำลังนิยม" row, ordered by the backend's precomputed organic
+  /// velocity score. `refresh_trending_scores()` owns aggregation/scoring;
+  /// this request path only reads a bounded candidate set and attaches the
+  /// existing per-viewer state in batches. No impression or distribution
+  /// event is part of the score.
   ///
-  /// [limit] only caps the *final ranked result*, not the candidate
-  /// window itself ([trendingCandidateLimit]/[_trendingWindow] stay
-  /// fixed regardless) -- added for WYN-040's Discovery page, which
-  /// shows a wider "Trending Now" section (~30) than Home's own row
-  /// (still defaults to 10, so every existing caller is unaffected).
+  /// [limit] caps the backend-ranked response (Home defaults to 10 while
+  /// Discovery can request a wider bounded list).
   Future<List<HomeFeedItem>> fetchTrending(
       {int limit = _trendingResultLimit}) async {
     final userId = _client.auth.currentUser!.id;
-    final since = DateTime.now().toUtc().subtract(_trendingWindow);
-
-    final rows = await _client
-        .from('home_feed')
-        .select()
-        .neq('content_type', _hiddenContentType)
-        .gte('created_at', since.toIso8601String())
-        .order('created_at', ascending: false)
-        .limit(trendingCandidateLimit);
+    final rawRows = await _client.rpc('get_trending_candidates', params: {
+      'p_limit': limit.clamp(1, trendingCandidateLimit),
+    }) as List<dynamic>;
+    final rows = trendingCandidateRows(rawRows);
 
     final dropIds = <String>[];
     final popIds = <String>[];
-    final authorIds = <String>{};
     for (final row in rows) {
-      authorIds.add(row['author_id'] as String);
       if (row['content_type'] == 'drop') {
         dropIds.add(row['id'] as String);
       } else {
@@ -269,16 +239,13 @@ class HomeRepository {
       rows: rows,
       dropIds: dropIds,
       popIds: popIds,
-      authorIdsForBlockCheck: authorIds,
     );
     final likedDropIds = viewer.likedDropIds;
     final likedPopIds = viewer.likedPopIds;
     final savedIds = viewer.savedIds;
     final redroppedIds = viewer.redroppedIds;
     final pollStates = viewer.pollStates;
-    final blockedAuthorIds = viewer.blockedAuthorIds;
-
-    final items = rows.map((row) {
+    return rows.map((row) {
       final id = row['id'] as String;
       final isDrop = row['content_type'] == 'drop';
       final likedByMe =
@@ -295,44 +262,23 @@ class HomeRepository {
         imageUrls: viewer.imageUrlsByDropId[id],
         aspectRatio: viewer.aspectRatioByDropId[id],
       );
-    }).toList()
-      ..removeWhere((item) => blockedAuthorIds.contains(item.authorId));
-
-    items.sort((a, b) => engagementScore(b).compareTo(engagementScore(a)));
-    return items.take(limit).toList();
+    }).toList();
   }
 
-  /// WYN-042: the "WYN Top 100" leaderboard -- highest [engagementScore]
-  /// among items posted in the last [_topContentWindow] (7 days, a
-  /// weekly chart), across both Drop and Pop, excluding authors under
-  /// an active moderation sanction ([_fetchPostingBlockedAuthorIds],
-  /// same as [fetchTrending]). Structurally a near-duplicate of
-  /// [fetchTrending] (same candidate-fetch-then-rank shape) but
-  /// deliberately its own method with its own window/candidate-limit
-  /// constants -- Product's WYN-042 spec explicitly calls for not
-  /// touching [fetchTrending]/[_trendingWindow]/[trendingCandidateLimit]
-  /// at all, since Trending Now (WYN-017/040) already passed QA on
-  /// those exact values and Top 100 is framed as a distinct concept
-  /// (weekly chart vs. "what's hot in the last 48h"), not a bigger
-  /// version of the same thing.
+  /// The content-ranked Top100 capability, ordered by the backend's precomputed
+  /// seven-day organic score. Trending is only a bounded bonus in that score;
+  /// this method never sorts by cumulative counters in Flutter.
   Future<List<HomeFeedItem>> fetchTopContent(
       {int limit = topContentResultLimit}) async {
     final userId = _client.auth.currentUser!.id;
-    final since = DateTime.now().toUtc().subtract(_topContentWindow);
-
-    final rows = await _client
-        .from('home_feed')
-        .select()
-        .neq('content_type', _hiddenContentType)
-        .gte('created_at', since.toIso8601String())
-        .order('created_at', ascending: false)
-        .limit(_topContentCandidateLimit);
+    final rawRows = await _client.rpc('get_top100_candidates', params: {
+      'p_limit': limit.clamp(1, topContentResultLimit),
+    }) as List<dynamic>;
+    final rows = top100CandidateRows(rawRows);
 
     final dropIds = <String>[];
     final popIds = <String>[];
-    final authorIds = <String>{};
     for (final row in rows) {
-      authorIds.add(row['author_id'] as String);
       if (row['content_type'] == 'drop') {
         dropIds.add(row['id'] as String);
       } else {
@@ -345,16 +291,13 @@ class HomeRepository {
       rows: rows,
       dropIds: dropIds,
       popIds: popIds,
-      authorIdsForBlockCheck: authorIds,
     );
     final likedDropIds = viewer.likedDropIds;
     final likedPopIds = viewer.likedPopIds;
     final savedIds = viewer.savedIds;
     final redroppedIds = viewer.redroppedIds;
     final pollStates = viewer.pollStates;
-    final blockedAuthorIds = viewer.blockedAuthorIds;
-
-    final items = rows.map((row) {
+    return rows.map((row) {
       final id = row['id'] as String;
       final isDrop = row['content_type'] == 'drop';
       final likedByMe =
@@ -371,11 +314,7 @@ class HomeRepository {
         imageUrls: viewer.imageUrlsByDropId[id],
         aspectRatio: viewer.aspectRatioByDropId[id],
       );
-    }).toList()
-      ..removeWhere((item) => blockedAuthorIds.contains(item.authorId));
-
-    items.sort((a, b) => engagementScore(b).compareTo(engagementScore(a)));
-    return items.take(limit).toList();
+    }).toList();
   }
 
   /// The ranked "สำหรับคุณ" feed -- WYNOS Unified Home Feed Algorithm
@@ -387,10 +326,9 @@ class HomeRepository {
   /// the Product spec's explicit "Client -> Request / Backend ->
   /// Retrieve + Score / Backend -> Return Ranked Feed" flow. This
   /// replaces WYN-018's client-side rankingScore()-based sort for this
-  /// one method only -- rankingScore() itself is untouched and still
-  /// used by DropFeedScreen's own "For You" tab, and
-  /// fetchTrending()/fetchTopContent() below are untouched too (out of
-  /// scope this round, see this task's Coding notes for why).
+  /// one method only -- rankingScore() itself remains for legacy cumulative
+  /// callers. Trending and content-ranked Top100 now consume their own
+  /// precomputed backend contracts without changing this feed allocator.
   ///
   /// Feed Diversity re-ordering ([applyFeedDiversity]) is applied here,
   /// client-side, to the full already-scored 200-item window before
@@ -430,6 +368,61 @@ class HomeRepository {
         from, to + 1 > window.length ? window.length : to + 1);
   }
 
+  /// Cursor adapter for callers that need deduplication to survive repository
+  /// recreation. Existing page-number callers remain supported unchanged.
+  Future<HomeFeedPage<HomeFeedItem>> fetchRankedFeedPage({String? cursor}) async {
+    final userId = _client.auth.currentUser!.id;
+    final previous = cursor == null
+        ? HomeFeedCursor(userId: userId, seen: const {})
+        : HomeFeedCursor.decode(cursor, expectedUserId: userId);
+    final window = await _buildRankedWindow();
+    final available = window
+        .where((item) => !previous.seen.contains(_contentIdentity(item)))
+        .take(pageSize)
+        .toList();
+    final seen = <String>{
+      ...previous.seen,
+      ...available.map(_contentIdentity),
+    };
+    return HomeFeedPage(
+      items: available,
+      nextCursor: available.isEmpty
+          ? null
+          : HomeFeedCursor(userId: userId, seen: seen).encode(),
+    );
+  }
+
+  Future<EffectiveHomeExperiment> _resolveHomeExperiment() async {
+    try {
+      final raw = await _client.rpc(
+        'resolve_home_feed_experiments',
+        params: const {'p_surface': 'home'},
+      );
+      return EffectiveHomeExperiment.fromRpc(raw);
+    } catch (_) {
+      // Experimentation is optional: an older schema, invalid configuration or
+      // transient resolver failure must preserve the exact production path.
+      return const EffectiveHomeExperiment.production();
+    }
+  }
+
+  Future<void> _recordHomeExperimentExposure(
+    EffectiveHomeExperiment experiment,
+  ) async {
+    if (experiment.assignments.isEmpty) return;
+    try {
+      await _client.rpc(
+        'record_home_feed_experiment_exposures',
+        params: {
+          'p_assignments': experiment.assignments,
+          'p_surface': 'home',
+        },
+      );
+    } catch (_) {
+      // Telemetry must never make an otherwise valid Home response fail.
+    }
+  }
+
   /// The bounded, already-diversity-ordered window [fetchRankedFeed]
   /// pages through -- cached between pages of one scroll, rebuilt
   /// whenever page 0 is requested again. Never a stale-data risk beyond
@@ -437,9 +430,15 @@ class HomeRepository {
   /// same moment page 0's were.
   List<HomeFeedItem>? _rankedWindow;
 
+  static String _contentIdentity(HomeFeedItem item) => item.quoteText == null
+      ? '${item.contentType.name}:${item.id}'
+      : '${item.contentType.name}:${item.id}:quote:${item.redropId}';
+
   Future<List<HomeFeedItem>> _buildRankedWindow() async {
     final userId = _client.auth.currentUser!.id;
+    final startedAt = DateTime.now();
 
+    final experiment = await _resolveHomeExperiment();
     final rawRows = await _client.rpc('get_wynos_ranked_feed') as List<dynamic>;
     // row_data carries every public.home_feed column (plus some
     // ranking-internal ones HomeFeedItem.fromMap simply never reads) --
@@ -508,25 +507,81 @@ class HomeRepository {
       );
     }).toList();
 
-    // '$id:${redropId ?? ''}' -- same composite key HomeDropCard already
-    // builds for its own widget Key, needed here because the same
-    // underlying Drop can appear twice in one window (once plain, once
-    // via someone's ReDrop of it, WYN-034), so `id` alone isn't unique.
+    // Standard ReDrops intentionally share the original's content identity,
+    // so whichever source ranks first wins. Quotes remain distinct because
+    // the redropper added original commentary.
     String keyFor(HomeFeedItem item) => '${item.id}:${item.redropId ?? ''}';
 
-    final diversityCandidates = [
-      for (var i = 0; i < items.length; i++)
-        FeedDiversityCandidate(
+    final pools = <FeedSource, List<FeedDiversityCandidate>>{
+      for (final source in FeedSource.values) source: [],
+    };
+    for (var i = 0; i < items.length; i++) {
+      for (final source in ranked[i].sources) {
+        pools[source]!.add(FeedDiversityCandidate(
           key: keyFor(items[i]),
           authorId: items[i].authorId,
-          wynosScore: ranked[i].score,
+          wynosScore: ranked[i].sourceScores[source]!,
           isDiscovery: ranked[i].discovery,
-        ),
-    ];
+          feedSource: source,
+          topic: ranked[i].topic,
+          contentType: items[i].quoteText != null
+              ? 'quote'
+              : items[i].contentType.name,
+          contentIdentity: _contentIdentity(items[i]),
+          fatigueIdentity: '${items[i].contentType.name}:${items[i].id}',
+        ));
+      }
+    }
     final itemsByKey = {for (final item in items) keyFor(item): item};
-    final ordered = applyFeedDiversity(diversityCandidates)
-        .map((c) => itemsByKey[c.key]!)
-        .toList();
+    final originsById = {
+      for (final candidate in ranked)
+        candidate.row['id'] as String:
+            candidate.row['feed_candidate_origin'] as String? ?? 'direct',
+    };
+    // The backend owns confidence/scoring while this existing Phase 1 layer
+    // owns allocation. A missing/older-backend value safely behaves as a
+    // zero-history profile; the cursor window then freezes the result for the
+    // active session even if learning signals arrive during pagination.
+    final maturity = ranked.isEmpty
+        ? PersonalizationMaturity.zeroHistory
+        : ranked.first.maturity;
+    final allocated = allocateFeedSources(
+      pools,
+      limit: _rankedCandidateLimit,
+      targetWeights:
+          experiment.sourceWeights ?? coldStartSourceWeights[maturity]!,
+    );
+    final finalCandidates = applyFeedDiversity(
+      applyFeedFatigue(allocated, config: experiment.fatigue),
+    );
+    final ordered = finalCandidates.map((c) => itemsByKey[c.key]!).toList();
+
+    if (ordered.isNotEmpty) {
+      await _recordHomeExperimentExposure(experiment);
+      try {
+        final sessionKey =
+            'home-v1-${userId.substring(0, 8)}-${startedAt.microsecondsSinceEpoch}';
+        await _client.rpc('record_feed_impressions', params: {
+          'p_session_key': sessionKey,
+          'p_latency_ms': DateTime.now().difference(startedAt).inMilliseconds,
+          'p_items': [
+            for (var i = 0; i < finalCandidates.length; i++)
+              {
+                'contentId': ordered[i].id,
+                'renderKey': finalCandidates[i].key,
+                'feedSource': finalCandidates[i].feedSource.wireName,
+                'rankPosition': i + 1,
+                'contentType': ordered[i].contentType.name,
+                'topic': finalCandidates[i].topic,
+                'candidateOrigin': originsById[ordered[i].id],
+                'experiments': experiment.assignments,
+              },
+          ],
+        });
+      } catch (_) {
+        // Observability is best-effort and never blocks a valid feed.
+      }
+    }
 
     _rankedWindow = ordered;
     return ordered;
@@ -670,10 +725,8 @@ class HomeRepository {
 
   /// Everything a page of `home_feed` rows needs beyond the rows
   /// themselves: which of them this viewer liked, saved, ReDropped, how
-  /// they voted in any Polls, (for the ranked/leaderboard surfaces that
-  /// need it) which candidate authors are under an active moderation
-  /// sanction, and (Beta3) the image list of every multi-image Drop in
-  /// the page.
+  /// they voted in any Polls, and the image metadata for the page. Ranked
+  /// backend RPCs now own moderation eligibility before rows reach here.
   ///
   /// Every fetch* method above needed this same set, and each one used
   /// to `await` the five/six lookups one after another -- five sequential
@@ -684,16 +737,11 @@ class HomeRepository {
   /// five copies of the identical block that had to be kept in step by
   /// hand.
   ///
-  /// [authorIdsForBlockCheck] is null for the plain feeds (which don't
-  /// filter by sanction) and a real set for fetchTrending/
-  /// fetchTopContent; [ViewerFeedState.blockedAuthorIds] is empty when
-  /// it's null, so a caller that doesn't ask never pays for the RPC.
   Future<_ViewerFeedState> _fetchViewerState({
     required String userId,
     required List<Map<String, dynamic>> rows,
     required List<String> dropIds,
     required List<String> popIds,
-    Set<String>? authorIdsForBlockCheck,
   }) async {
     final pollIds = rows
         .map((row) => row['poll_id'] as String?)
@@ -718,8 +766,6 @@ class HomeRepository {
       _fetchPollStates(userId: userId, pollIds: pollIds),
       _fetchImageUrls(rows),
       _fetchAspectRatios(rows),
-      if (authorIdsForBlockCheck != null)
-        _fetchPostingBlockedAuthorIds(authorIdsForBlockCheck),
     ]);
 
     return _ViewerFeedState(
@@ -730,8 +776,6 @@ class HomeRepository {
       pollStates: results[4] as Map<String, _PollState>,
       imageUrlsByDropId: results[5] as Map<String, List<String>>,
       aspectRatioByDropId: results[6] as Map<String, DropAspectRatio>,
-      blockedAuthorIds:
-          results.length > 7 ? results[7] as Set<String> : const {},
     );
   }
 
@@ -870,29 +914,6 @@ class HomeRepository {
     };
   }
 
-  /// WYN-041 (Trending Engine v2, anti-manipulation): candidate authors
-  /// who currently have an active restrict/suspend/ban (per
-  /// `internal.is_posting_blocked()`, WYN-029/030) get removed from
-  /// ranking entirely -- not hidden from the app, just not boosted by
-  /// the algorithm while sanctioned. `moderation_actions` has no SELECT
-  /// policy for ordinary users, so this goes through the
-  /// `authors_posting_blocked()` RPC (SECURITY DEFINER), which returns
-  /// only the excluded author ids -- never the action type/reason/
-  /// reviewer/expiry behind them. See
-  /// .wyn/docs/design/wyn-041-trending-engine-v2.md, Decision 2/3.
-  Future<Set<String>> _fetchPostingBlockedAuthorIds(
-    Set<String> authorIds,
-  ) async {
-    if (authorIds.isEmpty) return {};
-
-    final rows = await _client.rpc(
-      'authors_posting_blocked',
-      params: {'p_author_ids': authorIds.toList()},
-    ) as List<dynamic>;
-
-    return rows.map((row) => row['author_id'] as String).toSet();
-  }
-
   /// Only Standard ReDrops (quote_text is null) count toward
   /// [HomeFeedItem.redroppedByMe] -- see that field's doc comment.
   Future<Set<String>> _fetchRedroppedIds({
@@ -992,13 +1013,9 @@ class HomeRepository {
 
   /// Records a "Profile Visit" User Signal (WYNOS Unified Home Feed
   /// Algorithm V1.0) -- a soft positive signal toward [profileId]'s
-  /// author-affinity, folded into get_wynos_ranked_feed()'s Personalized
-  /// Interest term the same way a Like/Save/View already is. The
-  /// caller (ViewProfileScreen) is expected to skip calling this for
-  /// the viewer's own profile -- there is no self-visit guard here
-  /// (unlike record_drop_view()'s server-side one, WYN-038) since a
-  /// self-affinity signal toward your own content is harmless noise,
-  /// not a gameable public metric; skipping it client-side is enough.
+  /// precomputed creator affinity. The
+  /// caller (ViewProfileScreen) already skips the viewer's own profile; the
+  /// Phase 4 trigger also ignores self-visits as a defense-in-depth guard.
   Future<void> recordProfileVisit(String profileId) {
     final userId = _client.auth.currentUser!.id;
     return _client.from('feed_signals').insert({
@@ -1006,6 +1023,21 @@ class HomeRepository {
       'signal_type': 'profile_visit',
       'target_type': 'profile',
       'target_id': profileId,
+    });
+  }
+
+  /// Records bounded consumption/explicit-intent metadata. The client never
+  /// supplies a weight; the database validates the target and derives every
+  /// affinity update from this typed label.
+  Future<void> recordLearningSignal({
+    required FeedLearningSignal signal,
+    required FeedLearningTarget target,
+    required String targetId,
+  }) {
+    return _client.rpc('record_feed_learning_signal', params: {
+      'p_signal_type': signal.wireName,
+      'p_target_type': target.wireName,
+      'p_target_id': targetId,
     });
   }
 

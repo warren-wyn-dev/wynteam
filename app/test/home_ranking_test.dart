@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:wyn/features/home/data/cold_start.dart';
+import 'package:wyn/features/home/data/feed_source.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
 import 'package:wyn/features/home/data/home_ranking.dart';
 
@@ -262,6 +264,34 @@ void main() {
       ]);
 
       expect(rows.single.score, 3.0);
+      expect(rows.single.sourceScores[FeedSource.recommended], 3.0);
+    });
+
+    test('keeps authoritative per-source personalization scores', () {
+      final rows = rankedCandidateRows([
+        {
+          'row_data': {
+            'id': 'a',
+            'content_type': 'drop',
+            'feed_source_scores': {
+              'recommended': 90,
+              'trending': 55,
+              'exploration': 42,
+            },
+            'feed_reason_code': 'interested_in_topic',
+          },
+          'wynos_score': 50,
+          'is_discovery': true,
+          'is_following': false,
+        },
+      ]);
+
+      expect(rows.single.sourceScores[FeedSource.recommended], 90);
+      expect(rows.single.sourceScores[FeedSource.trending], 55);
+      expect(rows.single.sourceScores[FeedSource.exploration], 42);
+      expect(rows.single.maturity, PersonalizationMaturity.zeroHistory);
+      expect(rows.single.sourceScores[FeedSource.latest], 50);
+      expect(rows.single.reasonCode, 'interested_in_topic');
     });
 
     test('returns an empty list when every row is excluded', () {
@@ -271,6 +301,38 @@ void main() {
       );
 
       expect(rows, isEmpty);
+    });
+  });
+
+  group('trendingCandidateRows', () {
+    test('preserves backend trend-score ordering without a cumulative sort', () {
+      final rows = trendingCandidateRows([
+        {
+          'row_data': {'id': 'fast-recent', 'like_count': 1000},
+          'trend_score': 900.0,
+        },
+        {
+          'row_data': {'id': 'old-cumulative', 'like_count': 10000},
+          'trend_score': 10.0,
+        },
+      ]);
+      expect(rows.map((row) => row['id']), ['fast-recent', 'old-cumulative']);
+    });
+  });
+
+  group('top100CandidateRows', () {
+    test('preserves authoritative backend rank rather than lifetime totals', () {
+      final rows = top100CandidateRows([
+        {
+          'row_data': {'id': 'sustained', 'like_count': 8000},
+          'rank': 1,
+        },
+        {
+          'row_data': {'id': 'short-spike', 'like_count': 1000},
+          'rank': 2,
+        },
+      ]);
+      expect(rows.map((row) => row['id']), ['sustained', 'short-spike']);
     });
   });
 }

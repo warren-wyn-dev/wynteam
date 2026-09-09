@@ -1,3 +1,5 @@
+import 'cold_start.dart';
+import 'feed_source.dart';
 import 'home_feed_item.dart';
 
 // WYN-041: how much weight one (deduped, rate-limited, self-view-
@@ -10,12 +12,8 @@ import 'home_feed_item.dart';
 // rest of the formula instead of complementing it.
 const _viewWeight = 0.1;
 
-/// Shared "how much engagement has this item gotten" building block for
-/// both [rankingScore] (WYN-018, "สำหรับคุณ") and
-/// `HomeRepository.fetchTrending` (WYN-017, "กำลังนิยม") -- a single
-/// source of truth so the two formulas can't silently drift apart on
-/// the like/comment weights (they used to: fetchTrending summed
-/// like+comment 1:1 while this used 2:3 -- WYN-041 aligns them).
+/// Legacy cumulative engagement building block for [rankingScore]. Production
+/// Trending and Top100 use their authoritative precomputed database contracts.
 ///
 /// Pop is excluded from the view term entirely (early return, before any
 /// arithmetic touches viewCount) -- Pop's view counter
@@ -60,6 +58,11 @@ typedef RankedCandidateRow = ({
   Map<String, dynamic> row,
   double score,
   bool discovery,
+  Set<FeedSource> sources,
+  Map<FeedSource, double> sourceScores,
+  String? topic,
+  String? reasonCode,
+  PersonalizationMaturity maturity,
 });
 
 /// Flattens `get_wynos_ranked_feed()`'s raw rows into
@@ -83,11 +86,50 @@ List<RankedCandidateRow> rankedCandidateRows(
   for (final raw in rawRows) {
     final row = Map<String, dynamic>.from(raw['row_data'] as Map<String, dynamic>);
     if (excludeContentTypes.contains(row['content_type'])) continue;
+    final sources = <FeedSource>{FeedSource.recommended};
+    if (raw['is_following'] as bool? ?? false) sources.add(FeedSource.following);
+    if (raw['is_discovery'] as bool? ?? false) sources.add(FeedSource.exploration);
+    if (row['feed_is_trending'] as bool? ?? false) {
+      sources.add(FeedSource.trending);
+    }
+    if (row['feed_is_latest'] as bool? ?? false) sources.add(FeedSource.latest);
+    if (row['feed_is_club'] as bool? ?? false) sources.add(FeedSource.club);
+    if (row['feed_is_new_creator'] as bool? ?? false) {
+      sources.add(FeedSource.newCreator);
+    }
+    final rawSourceScores = row['feed_source_scores'] as Map<String, dynamic>?;
+    final fallbackScore = (raw['wynos_score'] as num).toDouble();
+    final sourceScores = <FeedSource, double>{
+      for (final source in FeedSource.values)
+        source: (rawSourceScores?[source.wireName] as num?)?.toDouble() ??
+            fallbackScore,
+    };
     result.add((
       row: row,
-      score: (raw['wynos_score'] as num).toDouble(),
+      score: fallbackScore,
       discovery: raw['is_discovery'] as bool,
+      sources: sources,
+      sourceScores: sourceScores,
+      topic: row['feed_topic'] as String?,
+      reasonCode: row['feed_reason_code'] as String?,
+      maturity: PersonalizationMaturity.fromWire(
+        row['feed_maturity_state'] as String?,
+      ),
     ));
   }
   return result;
 }
+
+/// Preserves the authoritative backend ordering from
+/// `get_trending_candidates()`. Keeping this as a pure decoder makes it
+/// regression-testable that Home no longer applies cumulative client ranking.
+List<Map<String, dynamic>> trendingCandidateRows(List<dynamic> rawRows) => [
+      for (final raw in rawRows)
+        Map<String, dynamic>.from(raw['row_data'] as Map<String, dynamic>),
+    ];
+
+/// Preserves `get_top100_candidates()`'s authoritative backend order.
+List<Map<String, dynamic>> top100CandidateRows(List<dynamic> rawRows) => [
+      for (final raw in rawRows)
+        Map<String, dynamic>.from(raw['row_data'] as Map<String, dynamic>),
+    ];
