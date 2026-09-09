@@ -32,6 +32,9 @@ class LikedByRow extends StatelessWidget {
     final extra = totalLikeCount - shown.length;
     final stackWidth =
         _avatarDiameter + (shown.length - 1) * _avatarOverlapOffset;
+    final baseStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: WynColors.graphite,
+        );
 
     return Semantics(
       label: extra > 0
@@ -72,12 +75,12 @@ class LikedByRow extends StatelessWidget {
           Expanded(
             child: Text.rich(
               TextSpan(
-                style: const TextStyle(fontSize: 12, color: WynColors.graphite),
+                style: baseStyle,
                 children: [
                   const TextSpan(text: 'ถูกใจโดย '),
                   TextSpan(
                     text: shown[0].nameOrUsername,
-                    style: const TextStyle(
+                    style: baseStyle?.copyWith(
                       color: WynColors.ink,
                       fontWeight: FontWeight.w600,
                     ),
