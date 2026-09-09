@@ -279,10 +279,32 @@ class AuthRepository {
   /// Supabase's own `AuthWeakPasswordException`/`AuthApiException`
   /// unchanged so PasswordStep can show a specific message for each.
   Future<void> setPassword(String userId, String password) async {
+    // Auth and Postgres are separate systems, so they cannot share one
+    // transaction. Make the second half explicitly idempotent + verified and
+    // retry it: if Auth committed but the DB response was lost, the next update
+    // safely converges `password_set` instead of leaving onboarding silently
+    // divergent. Retrying this whole method is also safe.
     await _client.auth.updateUser(UserAttributes(password: password));
-    await _client
-        .from('profile_private')
-        .update({'password_set': true}).eq('id', userId);
+
+    Object? lastError;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        final row = await _client
+            .from('profile_private')
+            .update({'password_set': true})
+            .eq('id', userId)
+            .select('id')
+            .maybeSingle();
+        if (row != null) return;
+        lastError = StateError('profile_private row missing after password update');
+      } catch (error) {
+        lastError = error;
+      }
+      if (attempt < 2) {
+        await Future<void>.delayed(Duration(milliseconds: 150 * (attempt + 1)));
+      }
+    }
+    throw lastError ?? StateError('Unable to synchronize password onboarding state');
   }
 
   /// Profile Optional step -- both [avatarUrl] and [bio] are genuinely

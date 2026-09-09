@@ -190,6 +190,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   late final AppealRepository _appealRepository;
   late final ChatRepository _chatRepository;
   late final PresenceRepository _presenceRepository;
+  late final PushNotificationService _pushNotificationService;
 
   /// WYN-139: true only once the global "who's online" Presence channel
   /// has actually been started -- see [initState]. Guards
@@ -233,12 +234,13 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
     // -- AuthGate keys this shell by user id, so switching accounts
     // tears the whole shell down and builds it again, re-registering
     // for whoever is now signed in.
-    PushNotificationService(
+    _pushNotificationService = PushNotificationService(
       PushTokenRepository(client),
       // Beta4 §11.4 -- a push that lands while the app is foregrounded
       // moves the unread count, and nothing used to tell the badge.
       onForegroundMessage: _loadUnreadNotificationCount,
-    ).initialize();
+    );
+    _pushNotificationService.initialize();
 
     WidgetsBinding.instance.addObserver(this);
 
@@ -283,6 +285,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
     // shell by user id), not on ordinary tab navigation, so this is the
     // right moment to stop announcing this account as online.
     if (_presenceStarted) _presenceRepository.stopGlobalPresence();
+    _pushNotificationService.dispose();
     _homeTabReselectSignal.dispose();
     _homeTabActivatedSignal.dispose();
     super.dispose();

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -90,6 +91,20 @@ class PushNotificationService {
   PushNotificationService(this._tokenRepository, {this.onForegroundMessage});
 
   final PushTokenRepository _tokenRepository;
+
+  // BUG-002: FirebaseMessaging streams are process-wide. Subscribing once per
+  // PushNotificationService/RootShell leaked listeners across account switches
+  // and caused duplicate push-open/unread callbacks. Keep exactly one listener
+  // per stream for the app process and route it through the first service;
+  // Supabase.instance.client itself follows the current auth session.
+  static StreamSubscription<String>? _tokenRefreshSubscription;
+  static StreamSubscription<RemoteMessage>? _openedAppSubscription;
+  static StreamSubscription<RemoteMessage>? _foregroundSubscription;
+  static PushNotificationService? _routingService;
+  static VoidCallback? _foregroundCallback;
+  static bool _initialMessageHandled = false;
+
+  bool _disposed = false;
 
   /// Called when a push arrives while the app is in the foreground.
   ///
@@ -199,35 +214,66 @@ class PushNotificationService {
     return state;
   }
 
-  /// Token registration + the two listeners, shared by [initialize]
-  /// (permission already granted) and [requestPermissionAndRegister]
-  /// (just granted). Idempotent by construction: the token upsert keys
-  /// on the token itself, and re-listening on a stream this app never
-  /// cancels only ever happens once per [RootShell] lifetime, which is
-  /// once per signed-in account since Beta4 keyed that shell by user id.
+  /// Token registration + process-wide listeners, shared by [initialize]
+  /// and [requestPermissionAndRegister]. FirebaseMessaging exposes broadcast
+  /// streams for the whole process, so the subscriptions themselves must have
+  /// app lifetime rather than widget/account lifetime. Repeated calls only
+  /// refresh the current token and foreground callback.
   Future<void> _startDelivery() async {
+    if (_disposed) return;
     final messaging = FirebaseMessaging.instance;
 
     await _registerCurrentToken(messaging);
-    messaging.onTokenRefresh.listen((token) {
-      _tokenRepository.upsertToken(token: token, platform: _currentPlatform);
-    });
+    if (_disposed) return;
 
-    FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      _openFromPushData(message.data);
-    });
-
-    // Beta4 §11.4 -- see [onForegroundMessage]. Nothing is *displayed*
-    // here: a foreground push is not turned into an in-app banner (that
-    // would be a new UI surface, which Beta4's scope rules out), it just
-    // tells whoever is listening that the unread count has moved.
-    final onForeground = onForegroundMessage;
-    if (onForeground != null) {
-      FirebaseMessaging.onMessage.listen((_) => onForeground());
+    _routingService ??= this;
+    if (onForegroundMessage != null) {
+      _foregroundCallback = onForegroundMessage;
     }
-    final initialMessage = await messaging.getInitialMessage();
-    if (initialMessage != null) {
-      _openFromPushData(initialMessage.data);
+
+    _tokenRefreshSubscription ??= messaging.onTokenRefresh.listen((token) {
+      final service = _routingService;
+      if (service == null) return;
+      service._tokenRepository.upsertToken(
+        token: token,
+        platform: service._currentPlatform,
+      );
+    });
+
+    _openedAppSubscription ??=
+        FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      final service = _routingService;
+      if (service != null) service._openFromPushData(message.data);
+    });
+
+    _foregroundSubscription ??= FirebaseMessaging.onMessage.listen((_) {
+      _foregroundCallback?.call();
+    });
+
+    // getInitialMessage is a one-shot process concern too. Calling it from
+    // every service instance is unnecessary and made account switches race the
+    // same launch payload.
+    if (!_initialMessageHandled) {
+      _initialMessageHandled = true;
+      try {
+        final initialMessage = await messaging.getInitialMessage();
+        final service = _routingService;
+        if (initialMessage != null && service != null) {
+          await service._openFromPushData(initialMessage.data);
+        }
+      } catch (_) {
+        // Push launch routing is best-effort; token delivery remains active.
+      }
+    }
+  }
+
+  /// Releases widget-owned callbacks without tearing down the one process-wide
+  /// Firebase subscription set. A new signed-in RootShell replaces the callback
+  /// when it starts delivery.
+  void dispose() {
+    _disposed = true;
+    if (identical(_foregroundCallback, onForegroundMessage)) {
+      _foregroundCallback = null;
     }
   }
 

@@ -25,7 +25,6 @@
 import {
   buildReverseUrl,
   buildSearchUrl,
-  isRateLimited,
   parseReverseGeocodeResult,
   parseSearchResults,
   userIdFromAuthHeader,
@@ -39,43 +38,25 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // slow/down must never hang this function indefinitely.
 const LOCATIONIQ_TIMEOUT_MS = 7000;
 
-async function countRecentRequests(userId: string): Promise<number> {
-  const since = new Date(Date.now() - 60_000).toISOString();
+async function reserveRequest(userId: string): Promise<boolean | null> {
   const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/location_search_requests` +
-      `?user_id=eq.${userId}&requested_at=gte.${encodeURIComponent(since)}&select=id`,
+    `${SUPABASE_URL}/rest/v1/rpc/reserve_location_search_request`,
     {
+      method: "POST",
       headers: {
         apikey: SERVICE_ROLE_KEY,
         Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-        // exact count without fetching every row's full body -- Prefer
-        // header is PostgREST's own mechanism for this.
-        Prefer: "count=exact",
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({ p_user_id: userId }),
     },
   );
-  const contentRange = response.headers.get("content-range");
-  // Format is "0-19/42" (or "*/0" when empty) -- the part after "/" is
-  // the total count. Falls back to the fetched row count (safe under-
-  // count, never an over-count that would wrongly reject a request) if
-  // the header is missing/unparseable for any reason.
-  const total = contentRange?.split("/")[1];
-  if (total && total !== "*") return Number(total);
-  const rows = await response.json().catch(() => []);
-  return Array.isArray(rows) ? rows.length : 0;
+  if (!response.ok) return null;
+  const reserved = await response.json().catch(() => null);
+  return typeof reserved === "boolean" ? reserved : null;
 }
 
-async function logRequest(userId: string): Promise<void> {
-  await fetch(`${SUPABASE_URL}/rest/v1/location_search_requests`, {
-    method: "POST",
-    headers: {
-      apikey: SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ user_id: userId }),
-  });
-}
+const MAX_SEARCH_QUERY_LENGTH = 200;
 
 async function fetchLocationIq(url: string): Promise<unknown> {
   const controller = new AbortController();
@@ -108,15 +89,6 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Bad request" }), { status: 400 });
   }
 
-  // Server-side rate limit -- mandatory, not just the client's own
-  // debounce (Product spec's ชั้นที่ 2). Checked *before* ever calling
-  // LocationIQ, so an over-limit request never touches the app's
-  // shared quota at all.
-  const recentCount = await countRecentRequests(userId);
-  if (isRateLimited(recentCount)) {
-    return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429 });
-  }
-
   const apiKey = Deno.env.get("LOCATIONIQ_API_KEY");
   if (!apiKey) {
     // Not configured yet (Founder/DevOps hasn't set up LocationIQ) --
@@ -134,16 +106,43 @@ Deno.serve(async (req) => {
       if (!query) {
         return new Response(JSON.stringify({ results: [] }), { status: 200 });
       }
-      await logRequest(userId);
+      if (query.length > MAX_SEARCH_QUERY_LENGTH) {
+        return new Response(JSON.stringify({ error: "Query too long" }), { status: 400 });
+      }
+      const reserved = await reserveRequest(userId);
+      if (reserved === false) {
+        return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429 });
+      }
+      if (reserved === null) {
+        // Fail closed: never spend LocationIQ quota if the server-side quota
+        // reservation cannot be proven.
+        return new Response(
+          JSON.stringify({ error: "Rate limit unavailable" }),
+          { status: 503 },
+        );
+      }
       const raw = await fetchLocationIq(buildSearchUrl(apiKey, query));
       return new Response(JSON.stringify({ results: parseSearchResults(raw) }), { status: 200 });
     }
 
     if (body.mode === "reverse") {
-      if (typeof body.lat !== "number" || typeof body.lon !== "number") {
+      if (
+        typeof body.lat !== "number" || typeof body.lon !== "number" ||
+        !Number.isFinite(body.lat) || !Number.isFinite(body.lon) ||
+        body.lat < -90 || body.lat > 90 || body.lon < -180 || body.lon > 180
+      ) {
         return new Response(JSON.stringify({ error: "Bad request" }), { status: 400 });
       }
-      await logRequest(userId);
+      const reserved = await reserveRequest(userId);
+      if (reserved === false) {
+        return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429 });
+      }
+      if (reserved === null) {
+        return new Response(
+          JSON.stringify({ error: "Rate limit unavailable" }),
+          { status: 503 },
+        );
+      }
       const raw = await fetchLocationIq(buildReverseUrl(apiKey, body.lat, body.lon));
       const result = parseReverseGeocodeResult(raw);
       return new Response(
