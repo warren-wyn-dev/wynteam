@@ -26,10 +26,10 @@ jobs:
           git diff --check
           python3 supabase/check_schema_ordering.py
           bash -n supabase/tests/wyn_149_location_rate_limit_test.sh
-      - name: Commit fixes
+      - name: Commit source and database fixes
         run: |
           git config user.name "warren-wyn-dev"
           git config user.email "warren.wyn.dev@gmail.com"
-          git add app supabase .github/workflows/ci.yml
-          git commit -m "fix: close remaining Beta4 audit findings"
+          git add app supabase
+          git commit -m "fix: close remaining Beta4 runtime audit findings"
           git push origin HEAD:fix/beta4-audit-remaining-bugs
