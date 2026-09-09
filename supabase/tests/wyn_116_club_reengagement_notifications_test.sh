@@ -86,7 +86,7 @@ dropdb_any() {
 }
 
 cat > "$WORK_DIR/00_stub.sql" <<'EOF'
--- Stub of Supabase platform pieces that schema.sql assumes already exist.
+-- Stub of Supabase platform pieces that schema.sql assumes already exists.
 create extension if not exists pgcrypto;
 
 create schema if not exists auth;
@@ -207,12 +207,13 @@ begin
   set role authenticated;
   set request.jwt.claim.sub = '77000000-0000-0000-0000-000000000001';
   set request.jwt.claim.role = 'authenticated';
-  insert into public.club_posts (id, club_id, author_id, content)
+  insert into public.club_posts (id, club_id, author_id, content, channel_id)
   values (
     '77000000-0000-0000-0000-0000000000d1',
     '77000000-0000-0000-0000-0000000000c1',
     '77000000-0000-0000-0000-000000000001',
-    'First post'
+    'First post',
+    (select id from public.club_channels where club_id = '77000000-0000-0000-0000-0000000000c1' order by created_at limit 1)
   );
   reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
 
@@ -257,12 +258,13 @@ begin
   set role authenticated;
   set request.jwt.claim.sub = '77000000-0000-0000-0000-000000000001';
   set request.jwt.claim.role = 'authenticated';
-  insert into public.club_posts (id, club_id, author_id, content)
+  insert into public.club_posts (id, club_id, author_id, content, channel_id)
   values (
     '77000000-0000-0000-0000-0000000000d2',
     '77000000-0000-0000-0000-0000000000c1',
     '77000000-0000-0000-0000-000000000001',
-    'Second post, same window'
+    'Second post, same window',
+    (select id from public.club_channels where club_id = '77000000-0000-0000-0000-0000000000c1' order by created_at limit 1)
   );
   reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
 
@@ -287,12 +289,13 @@ begin
   set role authenticated;
   set request.jwt.claim.sub = '77000000-0000-0000-0000-000000000001';
   set request.jwt.claim.role = 'authenticated';
-  insert into public.club_posts (id, club_id, author_id, content)
+  insert into public.club_posts (id, club_id, author_id, content, channel_id)
   values (
     '77000000-0000-0000-0000-0000000000d3',
     '77000000-0000-0000-0000-0000000000c1',
     '77000000-0000-0000-0000-000000000001',
-    'Third post, window expired'
+    'Third post, window expired',
+    (select id from public.club_channels where club_id = '77000000-0000-0000-0000-0000000000c1' order by created_at limit 1)
   );
   reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
 
@@ -313,12 +316,13 @@ begin
   set role authenticated;
   set request.jwt.claim.sub = '77000000-0000-0000-0000-000000000003';
   set request.jwt.claim.role = 'authenticated';
-  insert into public.club_posts (id, club_id, author_id, content)
+  insert into public.club_posts (id, club_id, author_id, content, channel_id)
   values (
     '77000000-0000-0000-0000-0000000000d4',
     '77000000-0000-0000-0000-0000000000c1',
     '77000000-0000-0000-0000-000000000003',
-    'Carol post to be pinned'
+    'Carol post to be pinned',
+    (select id from public.club_channels where club_id = '77000000-0000-0000-0000-0000000000c1' order by created_at limit 1)
   );
   reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
 end
