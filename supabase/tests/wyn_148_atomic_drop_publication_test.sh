@@ -123,28 +123,44 @@ exception when others then
 end$$;
 
 -- Failure in every relational child stage rolls back the Drop row too.
+-- Trigger DDL is done as the database owner; publication itself still runs
+-- as authenticated user A so the RPC's real auth/authorization path is used.
+reset role; reset request.jwt.claim.sub;
 create function pg_temp.fail_wyn148() returns trigger language plpgsql as $$begin raise exception 'fault'; end$$;
+
 create trigger wyn148_fail_exclusion before insert on public.drop_audience_exclusions
   for each row execute function pg_temp.fail_wyn148();
+set role authenticated;
+set request.jwt.claim.sub='11111111-1111-1111-1111-111111111111';
 do $$ begin
   perform public.publish_drop('10000000-0000-4000-8000-000000000020',null,'x','friends_except',
     array['22222222-2222-2222-2222-222222222222']::uuid[]);
 exception when others then null; end$$;
+reset role; reset request.jwt.claim.sub;
 drop trigger wyn148_fail_exclusion on public.drop_audience_exclusions;
+
 create trigger wyn148_fail_image before insert on public.drop_images
   for each row execute function pg_temp.fail_wyn148();
+set role authenticated;
+set request.jwt.claim.sub='11111111-1111-1111-1111-111111111111';
 do $$ begin
   perform public.publish_drop('10000000-0000-4000-8000-000000000021','x.jpg','x','everyone','{}',
     '[{"image_url":"x.jpg","position":0}]');
 exception when others then null; end$$;
+reset role; reset request.jwt.claim.sub;
 drop trigger wyn148_fail_image on public.drop_images;
+
 create trigger wyn148_fail_mention before insert on public.drop_mentions
   for each row execute function pg_temp.fail_wyn148();
+set role authenticated;
+set request.jwt.claim.sub='11111111-1111-1111-1111-111111111111';
 do $$ begin
   perform public.publish_drop('10000000-0000-4000-8000-000000000022',null,'x','everyone','{}','[]',
     array['33333333-3333-3333-3333-333333333333']::uuid[]);
 exception when others then null; end$$;
+reset role; reset request.jwt.claim.sub;
 drop trigger wyn148_fail_mention on public.drop_mentions;
+
 do $$ begin
   if exists(select 1 from public.drops where publication_operation_id in
     ('10000000-0000-4000-8000-000000000020','10000000-0000-4000-8000-000000000021','10000000-0000-4000-8000-000000000022')) then
@@ -152,7 +168,6 @@ do $$ begin
   end if;
 end$$;
 
-reset role; reset request.jwt.claim.sub;
 set role authenticated;
 set request.jwt.claim.sub='22222222-2222-2222-2222-222222222222';
 do $$ begin
