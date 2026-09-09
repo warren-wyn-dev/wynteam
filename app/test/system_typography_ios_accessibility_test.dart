@@ -45,6 +45,17 @@ void main() {
     text: 'ชอบโพสต์นี้มาก 👨‍👩‍👧‍👦 🇹🇭',
   );
 
+  test('theme keeps the looped Thai family in the fallback chain', () {
+    expect(
+      WynTheme.light.textTheme.bodyLarge?.fontFamilyFallback,
+      contains('WYNThaiLooped'),
+    );
+    expect(
+      WynTheme.dark.textTheme.labelSmall?.fontFamilyFallback,
+      contains('WYNThaiLooped'),
+    );
+  });
+
   testWidgets('liked-by metadata uses the shared labelSmall token',
       (tester) async {
     await tester.pumpWidget(
