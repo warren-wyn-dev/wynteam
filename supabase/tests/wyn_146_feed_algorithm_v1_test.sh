@@ -36,24 +36,25 @@ for forbidden in [
     assert forbidden not in lower, forbidden
 
 # Distribution/impression telemetry must not feed back into authoritative
-# Trending, Top100, or similarity scoring functions.
-def between(start, end):
-    a = lower.index(start.lower())
-    b = lower.index(end.lower(), a)
+# Trending, Top100, or similarity scoring functions. WYN-146 does not need to
+# redefine every authoritative function, so an absent function is a valid
+# no-change result; when a function is present, inspect only its own definition.
+def function_block(name):
+    start_token = f'create or replace function {name}'.lower()
+    a = lower.find(start_token)
+    if a < 0:
+        return ''
+    b = lower.find('create or replace function ', a + len(start_token))
+    if b < 0:
+        b = len(lower)
     return lower[a:b]
 
-assert 'feed_impressions' not in between(
-    'create or replace function public.refresh_trending_scores',
-    'create or replace function public.get_trending_candidates',
-)
-assert 'feed_impressions' not in between(
-    'create or replace function public.refresh_top100_scores',
-    'create or replace function public.get_top100_candidates',
-)
-assert 'feed_impressions' not in between(
-    'create or replace function public.refresh_feed_similarities',
-    'create or replace function internal.my_similarity_candidates',
-)
+for function_name in [
+    'public.refresh_trending_scores',
+    'public.refresh_top100_scores',
+    'public.refresh_feed_similarities',
+]:
+    assert 'feed_impressions' not in function_block(function_name), function_name
 
 print('PASS: WYN-146 observability/similarity/feedback-loop migration contracts')
 PY
