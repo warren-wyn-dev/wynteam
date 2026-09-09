@@ -10,29 +10,6 @@ import '../../features/profile/presentation/widgets/avatar_circle.dart';
 import '../design/wyn_spacing.dart';
 
 /// Drop-in replacement for a caption/content `TextField` -- WYN-021.
-/// Watches for an `@` immediately before the caret with no space typed
-/// after it yet, and shows a dropdown of matching users (reusing
-/// ProfileRepository.searchProfiles, WYN-009, same 400ms debounce-cancel
-/// discipline SearchScreen already established) directly below the
-/// field. Selecting a result inserts "@username " at the caret and adds
-/// that user's id to the resolved set reported via
-/// [onMentionedUsersChanged] -- that resolved-id set, not a re-parse of
-/// the text, is what the caller sends to the repository on submit. See
-/// .wyn/docs/design/wyn-021-mention-system.md.
-///
-/// WYNOS V1.0.0 Beta requirement 7: this same field also watches for a
-/// `#` immediately before the caret and shows a hashtag-suggestion
-/// dropdown (tag + post count, via [HashtagRepository.suggest]) in
-/// exactly the same shape as the `@` mention dropdown -- the two never
-/// show at once since the caret can only ever sit inside one active
-/// token at a time. [hashtagRepository] is optional -- when omitted, a
-/// real Supabase-backed one is constructed lazily on first use (the
-/// same "optional param, real default" shape every repository in this
-/// codebase uses elsewhere), specifically *lazily*: unlike a `late
-/// final` field built at construction time, nothing touches
-/// `Supabase.instance` until the user actually types a `#`, so a widget
-/// test that never does that (the overwhelming majority of them) is
-/// never affected by whether a real Supabase session exists.
 class MentionInput extends StatefulWidget {
   const MentionInput({
     super.key,
@@ -58,18 +35,7 @@ class MentionInput extends StatefulWidget {
   final int? minLines;
   final bool enabled;
   final InputDecoration? decoration;
-
-  /// Forwarded to the underlying TextField's own `style` -- lets a
-  /// caller (e.g. a compose screen wanting a large, borderless caption
-  /// field) override the typed-text style without forking this widget.
-  /// Defaults to null, same as a plain TextField, so every existing
-  /// call site keeps its current look unless it opts in.
   final TextStyle? style;
-
-  /// Forwarded to the underlying TextField's onChanged -- for callers
-  /// that need to react to every keystroke (e.g. enabling a submit
-  /// button once there's non-whitespace content), same as they would
-  /// with a plain TextField.
   final ValueChanged<String>? onChanged;
 
   @override
@@ -81,11 +47,12 @@ class _MentionInputState extends State<MentionInput> {
   List<Profile> _suggestions = [];
   List<HashtagSuggestion> _hashtagSuggestions = [];
   final Set<String> _mentionedUserIds = {};
-
-  // Built at most once, and only the first time a `#` token is actually
-  // typed -- see the class doc comment on [MentionInput.hashtagRepository]
-  // for why this must stay lazy rather than a `late final` field.
   HashtagRepository? _lazyDefaultHashtagRepository;
+
+  // Incremented on every text/selection change. A request may continue after
+  // its debounce timer has fired, so cancelling the timer alone cannot stop an
+  // older response from overwriting a newer query's suggestions.
+  int _requestGeneration = 0;
 
   HashtagRepository get _hashtagRepository =>
       widget.hashtagRepository ??
@@ -102,16 +69,10 @@ class _MentionInputState extends State<MentionInput> {
   void dispose() {
     widget.controller.removeListener(_onTextChanged);
     _debounceTimer?.cancel();
+    _requestGeneration++;
     super.dispose();
   }
 
-  /// The query token of type [trigger] (`@` or `#`) immediately before
-  /// the caret, if the caret sits inside one right now -- null when
-  /// there's no [trigger] character in range, or the caret isn't a
-  /// plain collapsed cursor, or a space/newline already closed the
-  /// token off. Shared by mention and hashtag detection -- both are
-  /// "a trigger char, then a run of non-space/newline characters, up
-  /// to the caret".
   String? _activeTokenQuery(String trigger) {
     final selection = widget.controller.selection;
     if (!selection.isValid || selection.start != selection.end) return null;
@@ -127,17 +88,49 @@ class _MentionInputState extends State<MentionInput> {
     return between;
   }
 
+  bool _isCurrentRequest({
+    required int generation,
+    required String trigger,
+    required String query,
+  }) {
+    return mounted &&
+        generation == _requestGeneration &&
+        _activeTokenQuery(trigger) == query;
+  }
+
   void _onTextChanged() {
     _debounceTimer?.cancel();
+    final generation = ++_requestGeneration;
 
     final mentionQuery = _activeTokenQuery('@');
     if (mentionQuery != null && mentionQuery.isNotEmpty) {
-      if (_hashtagSuggestions.isNotEmpty) setState(() => _hashtagSuggestions = []);
+      if (_hashtagSuggestions.isNotEmpty) {
+        setState(() => _hashtagSuggestions = []);
+      }
       _debounceTimer = Timer(const Duration(milliseconds: 400), () async {
-        final results =
-            await widget.profileRepository.searchProfiles(query: mentionQuery, page: 0);
-        if (!mounted) return;
-        setState(() => _suggestions = results);
+        try {
+          final results = await widget.profileRepository.searchProfiles(
+            query: mentionQuery,
+            page: 0,
+          );
+          if (!_isCurrentRequest(
+            generation: generation,
+            trigger: '@',
+            query: mentionQuery,
+          )) {
+            return;
+          }
+          setState(() => _suggestions = results);
+        } catch (_) {
+          if (!_isCurrentRequest(
+            generation: generation,
+            trigger: '@',
+            query: mentionQuery,
+          )) {
+            return;
+          }
+          if (_suggestions.isNotEmpty) setState(() => _suggestions = []);
+        }
       });
       return;
     }
@@ -145,18 +138,36 @@ class _MentionInputState extends State<MentionInput> {
 
     final hashtagQuery = _activeTokenQuery('#');
     if (hashtagQuery != null && hashtagQuery.isNotEmpty) {
-      // _hashtagRepository is only ever touched here, inside the branch
-      // that already knows the user is actively typing a hashtag -- see
-      // the getter's own doc comment for why that laziness matters.
       final hashtagRepository = _hashtagRepository;
       _debounceTimer = Timer(const Duration(milliseconds: 400), () async {
-        final results = await hashtagRepository.suggest(hashtagQuery);
-        if (!mounted) return;
-        setState(() => _hashtagSuggestions = results);
+        try {
+          final results = await hashtagRepository.suggest(hashtagQuery);
+          if (!_isCurrentRequest(
+            generation: generation,
+            trigger: '#',
+            query: hashtagQuery,
+          )) {
+            return;
+          }
+          setState(() => _hashtagSuggestions = results);
+        } catch (_) {
+          if (!_isCurrentRequest(
+            generation: generation,
+            trigger: '#',
+            query: hashtagQuery,
+          )) {
+            return;
+          }
+          if (_hashtagSuggestions.isNotEmpty) {
+            setState(() => _hashtagSuggestions = []);
+          }
+        }
       });
       return;
     }
-    if (_hashtagSuggestions.isNotEmpty) setState(() => _hashtagSuggestions = []);
+    if (_hashtagSuggestions.isNotEmpty) {
+      setState(() => _hashtagSuggestions = []);
+    }
   }
 
   void _selectSuggestion(Profile profile) {
@@ -166,7 +177,8 @@ class _MentionInputState extends State<MentionInput> {
     final atIndex = upToCursor.lastIndexOf('@');
     if (atIndex == -1) return;
 
-    final newText = '${text.substring(0, atIndex)}@${profile.username} ${text.substring(cursor)}';
+    final newText =
+        '${text.substring(0, atIndex)}@${profile.username} ${text.substring(cursor)}';
     final newCursor = atIndex + profile.username.length + 2;
 
     widget.controller.value = TextEditingValue(
@@ -218,7 +230,9 @@ class _MentionInputState extends State<MentionInput> {
             constraints: const BoxConstraints(maxHeight: 200),
             margin: const EdgeInsets.only(bottom: WynSpacing.space2),
             decoration: BoxDecoration(
-              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
               borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
             ),
             child: ListView.builder(
@@ -245,7 +259,9 @@ class _MentionInputState extends State<MentionInput> {
             constraints: const BoxConstraints(maxHeight: 200),
             margin: const EdgeInsets.only(bottom: WynSpacing.space2),
             decoration: BoxDecoration(
-              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
               borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
             ),
             child: ListView.builder(
@@ -255,9 +271,14 @@ class _MentionInputState extends State<MentionInput> {
               itemBuilder: (context, index) {
                 final suggestion = _hashtagSuggestions[index];
                 return ListTile(
-                  leading: Icon(Icons.tag, color: Theme.of(context).colorScheme.primary),
+                  leading: Icon(
+                    Icons.tag,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   title: Text('#${suggestion.tag}'),
-                  subtitle: Text('${_formatPostCount(suggestion.postCount)} โพสต์'),
+                  subtitle: Text(
+                    '${_formatPostCount(suggestion.postCount)} โพสต์',
+                  ),
                   onTap: () => _selectHashtagSuggestion(suggestion),
                 );
               },
@@ -268,9 +289,6 @@ class _MentionInputState extends State<MentionInput> {
   }
 }
 
-/// "12.4K"-style compact count label for the hashtag suggestion
-/// dropdown's post count -- plain digits under 1,000 (matching the
-/// Product spec's own example numbers).
 String _formatPostCount(int count) {
   if (count < 1000) return '$count';
   final thousands = count / 1000;
