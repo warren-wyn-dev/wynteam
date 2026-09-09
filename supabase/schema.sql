@@ -856,6 +856,13 @@ create table if not exists public.club_members (
   primary key (club_id, user_id)
 );
 
+-- Hybrid Home source generation starts from the viewer and finds their
+-- approved clubs before joining other approved members. The primary key has
+-- club_id first, so this inverse lookup needs its own index to avoid scanning
+-- all memberships on every feed refresh.
+create index if not exists club_members_user_status_club_idx
+  on public.club_members (user_id, status, club_id);
+
 -- Single reusable authorization primitive for every Club RLS policy
 -- below (clubs, club_members, club_posts, club_post_likes,
 -- club_post_comments, and the club-media storage policies): returns
@@ -9056,13 +9063,8 @@ on conflict (key) do nothing;
 -- drop_views, reports). This one covers the 2 that don't yet: visiting
 -- someone's profile (a soft "interested in this author" signal), and
 -- explicitly hiding a piece of content (a hard negative signal).
--- `not_interested` is reserved for a future, softer variant of hide
--- that only demotes rather than fully removes a post -- the check
--- constraint already allows the value so a later task can wire it up
--- without another migration (View Duration and Skip/Scroll-past from
--- the Product spec's own signal list are the same kind of documented-
--- but-not-yet-implemented gap -- see this task's Coding notes for why
--- they're out of scope this round).
+-- Phase 4 extends this stream below with explicit negative and bounded
+-- consumption signals while preserving these original values and policies.
 create table if not exists public.feed_signals (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -9115,6 +9117,304 @@ create policy "Users can delete their own feed signals"
   to authenticated
   using (auth.uid() = user_id);
 
+-- ============================================================
+-- WYNOS Personalization & Learning Signals V1 (Phase 4)
+-- ============================================================
+
+-- Extend the existing private signal stream with bounded consumption intent.
+-- Impressions are deliberately absent: visibility alone is not preference.
+do $$
+declare v_constraint text;
+begin
+  select conname into v_constraint from pg_constraint
+  where conrelid = 'public.feed_signals'::regclass
+    and contype = 'c' and pg_get_constraintdef(oid) like '%signal_type%';
+  if v_constraint is not null then
+    execute format('alter table public.feed_signals drop constraint %I', v_constraint);
+  end if;
+end
+$$;
+alter table public.feed_signals add constraint feed_signals_signal_type_check
+  check (signal_type in (
+    'profile_visit', 'hide', 'not_interested', 'fast_skip', 'short_view',
+    'qualified_view', 'long_view', 'follow_from_feed'
+  ));
+
+create table if not exists public.user_affinities (
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  dimension_type text not null
+    check (dimension_type in ('topic', 'creator', 'content_type')),
+  dimension_key text not null,
+  recent_score double precision not null default 0,
+  long_term_score double precision not null default 0,
+  signal_count integer not null default 0,
+  updated_at timestamptz not null,
+  personalization_version integer not null default 1,
+  primary key (user_id, dimension_type, dimension_key)
+);
+
+-- The primary key is the request-path index for user + dimension + key; no
+-- redundant secondary index is needed.
+alter table public.user_affinities enable row level security;
+revoke all on public.user_affinities from authenticated, anon;
+
+-- Minimal idempotency ledger: only an event identity, never event payload or
+-- private content. A trigger retry/replay cannot apply affinity twice.
+create table if not exists public.personalization_processed_events (
+  event_key text primary key,
+  processed_at timestamptz not null default now()
+);
+alter table public.personalization_processed_events enable row level security;
+revoke all on public.personalization_processed_events from authenticated, anon;
+
+-- Safe normalized view. Raw recent/long-term values remain inaccessible;
+-- authenticated users can only read their own bounded [-1,1] effective score.
+create or replace view public.my_effective_affinities
+with (security_barrier = true) as
+select dimension_type, dimension_key,
+  tanh((
+    0.65 * recent_score * power(0.5,
+      extract(epoch from (now() - updated_at)) / 3600.0 / 168.0)
+    + 0.35 * long_term_score * power(0.5,
+      extract(epoch from (now() - updated_at)) / 3600.0 / 2160.0)
+  ) / 10.0) as effective_score,
+  personalization_version,
+  updated_at
+from public.user_affinities
+where user_id = auth.uid();
+
+revoke all on public.my_effective_affinities from public, anon;
+grant select on public.my_effective_affinities to authenticated;
+
+create or replace function internal.apply_affinity_signal(
+  p_user_id uuid,
+  p_dimension_type text,
+  p_dimension_key text,
+  p_weight double precision,
+  p_occurred_at timestamptz
+)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  insert into public.user_affinities (
+    user_id, dimension_type, dimension_key, recent_score, long_term_score,
+    signal_count, updated_at
+  ) values (
+    p_user_id, p_dimension_type, lower(p_dimension_key),
+    greatest(-50.0, least(50.0, p_weight)),
+    greatest(-50.0, least(50.0, p_weight * 0.40)), 1, p_occurred_at
+  )
+  on conflict (user_id, dimension_type, dimension_key) do update set
+    recent_score = greatest(-50.0, least(50.0,
+      public.user_affinities.recent_score * power(0.5,
+        greatest(extract(epoch from
+          (excluded.updated_at - public.user_affinities.updated_at)), 0)
+          / 3600.0 / 168.0)
+      + excluded.recent_score * power(0.5,
+        greatest(extract(epoch from
+          (public.user_affinities.updated_at - excluded.updated_at)), 0)
+          / 3600.0 / 168.0))),
+    long_term_score = greatest(-50.0, least(50.0,
+      public.user_affinities.long_term_score * power(0.5,
+        greatest(extract(epoch from
+          (excluded.updated_at - public.user_affinities.updated_at)), 0)
+          / 3600.0 / 2160.0)
+      + excluded.long_term_score * power(0.5,
+        greatest(extract(epoch from
+          (public.user_affinities.updated_at - excluded.updated_at)), 0)
+          / 3600.0 / 2160.0))),
+    signal_count = public.user_affinities.signal_count + 1,
+    updated_at = greatest(public.user_affinities.updated_at, excluded.updated_at),
+    personalization_version = 1;
+$$;
+
+revoke all on function internal.apply_affinity_signal(
+  uuid, text, text, double precision, timestamptz) from public;
+
+create or replace function internal.learn_from_drop(
+  p_event_key text,
+  p_user_id uuid,
+  p_drop_id uuid,
+  p_weight double precision,
+  p_occurred_at timestamptz,
+  p_format_override text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_drop record;
+  v_topic text[];
+  v_format text;
+begin
+  insert into public.personalization_processed_events(event_key)
+  values (p_event_key) on conflict do nothing;
+  if not found then return; end if;
+
+  select d.author_id, d.caption, d.image_url,
+    exists(select 1 from public.drop_polls dp where dp.drop_id = d.id) as is_poll
+  into v_drop from public.drops d where d.id = p_drop_id;
+  if v_drop is null or v_drop.author_id = p_user_id then return; end if;
+
+  perform internal.apply_affinity_signal(
+    p_user_id, 'creator', v_drop.author_id::text, p_weight, p_occurred_at);
+  v_format := coalesce(p_format_override,
+    case when v_drop.is_poll then 'poll'
+         when v_drop.image_url is not null then 'image' else 'text' end);
+  perform internal.apply_affinity_signal(
+    p_user_id, 'content_type', v_format, p_weight * 0.50, p_occurred_at);
+
+  for v_topic in
+    select regexp_matches(lower(coalesce(v_drop.caption, '')),
+      '#([[:alnum:]_]+)', 'g')
+  loop
+    perform internal.apply_affinity_signal(
+      p_user_id, 'topic', v_topic[1], p_weight, p_occurred_at);
+  end loop;
+end;
+$$;
+
+revoke all on function internal.learn_from_drop(
+  text, uuid, uuid, double precision, timestamptz, text) from public;
+
+-- Trigger adapter derives weights and trusted target metadata server-side.
+create or replace function internal.capture_personalization_signal()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_weight double precision;
+  v_event_key text;
+begin
+  if tg_table_name = 'drop_likes' then
+    perform internal.learn_from_drop('like:' || new.drop_id || ':' || new.user_id
+      || ':' || new.created_at, new.user_id, new.drop_id, 2.0, new.created_at);
+  elsif tg_table_name = 'drop_comments' then
+    perform internal.learn_from_drop('comment:' || new.id, new.author_id,
+      new.drop_id, 3.0, new.created_at);
+  elsif tg_table_name = 'redrops' then
+    perform internal.learn_from_drop('redrop:' || new.id, new.redropper_id,
+      new.drop_id, 5.0, new.created_at,
+      case when new.quote_text is null then null else 'quote' end);
+  elsif tg_table_name = 'saves' and new.content_type = 'drop' then
+    perform internal.learn_from_drop('save:' || new.content_id || ':' || new.user_id
+      || ':' || new.created_at, new.user_id, new.content_id, 4.0, new.created_at);
+  elsif tg_table_name = 'follows' then
+    v_event_key := 'follow:' || new.follower_id || ':' || new.following_id
+      || ':' || new.created_at;
+    insert into public.personalization_processed_events(event_key)
+    values(v_event_key) on conflict do nothing;
+    if found then
+      perform internal.apply_affinity_signal(new.follower_id, 'creator',
+        new.following_id::text, 8.0, new.created_at);
+    end if;
+  elsif tg_table_name = 'feed_signals' then
+    v_weight := case new.signal_type
+      when 'profile_visit' then 1.0 when 'hide' then -6.0
+      when 'not_interested' then -10.0 when 'fast_skip' then -1.0
+      when 'short_view' then 0.25 when 'qualified_view' then 1.0
+      when 'long_view' then 4.0 when 'follow_from_feed' then 2.0
+      else 0.0 end;
+    if new.target_type = 'drop' then
+      perform internal.learn_from_drop('feed_signal:' || new.id, new.user_id,
+        new.target_id, v_weight, new.created_at);
+    elsif new.target_type = 'profile' and new.target_id <> new.user_id
+      and exists(select 1 from public.profiles where id = new.target_id) then
+      insert into public.personalization_processed_events(event_key)
+      values('feed_signal:' || new.id) on conflict do nothing;
+      if found then
+        perform internal.apply_affinity_signal(new.user_id, 'creator',
+          new.target_id::text, v_weight, new.created_at);
+      end if;
+    end if;
+  elsif tg_table_name = 'reports' and new.target_type = 'drop' then
+    perform internal.learn_from_drop('report:' || new.id, new.reporter_id,
+      new.target_id, -12.0, new.created_at);
+  elsif tg_table_name = 'blocks' or tg_table_name = 'mutes' then
+    v_event_key := tg_table_name || ':'
+      || case when tg_table_name = 'blocks' then new.blocker_id else new.muter_id end
+      || ':' || case when tg_table_name = 'blocks' then new.blocked_id else new.muted_id end
+      || ':' || new.created_at;
+    insert into public.personalization_processed_events(event_key)
+    values(v_event_key) on conflict do nothing;
+    if found then
+      perform internal.apply_affinity_signal(
+        case when tg_table_name = 'blocks' then new.blocker_id else new.muter_id end,
+        'creator',
+        (case when tg_table_name = 'blocks' then new.blocked_id else new.muted_id end)::text,
+        case when tg_table_name = 'blocks' then -20.0 else -8.0 end,
+        new.created_at);
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function internal.capture_personalization_signal() from public;
+
+create trigger drop_likes_personalization after insert on public.drop_likes
+  for each row execute function internal.capture_personalization_signal();
+create trigger drop_comments_personalization after insert on public.drop_comments
+  for each row execute function internal.capture_personalization_signal();
+create trigger redrops_personalization after insert on public.redrops
+  for each row execute function internal.capture_personalization_signal();
+create trigger saves_personalization after insert on public.saves
+  for each row execute function internal.capture_personalization_signal();
+create trigger follows_personalization after insert on public.follows
+  for each row execute function internal.capture_personalization_signal();
+create trigger feed_signals_personalization after insert on public.feed_signals
+  for each row execute function internal.capture_personalization_signal();
+create trigger reports_personalization after insert on public.reports
+  for each row execute function internal.capture_personalization_signal();
+create trigger blocks_personalization after insert on public.blocks
+  for each row execute function internal.capture_personalization_signal();
+create trigger mutes_personalization after insert on public.mutes
+  for each row execute function internal.capture_personalization_signal();
+
+-- Clients choose only a bounded intent label and target. Weight, author,
+-- format, and topics are derived by the trigger; arbitrary score input is
+-- impossible. Existing Hide/Profile Visit writes remain backward compatible.
+create or replace function public.record_feed_learning_signal(
+  p_signal_type text,
+  p_target_type text,
+  p_target_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then raise exception 'Not authenticated'; end if;
+  if p_signal_type not in (
+    'fast_skip', 'short_view', 'qualified_view', 'long_view',
+    'not_interested', 'follow_from_feed'
+  ) then raise exception 'Invalid learning signal'; end if;
+  if p_target_type not in ('drop', 'profile') then
+    raise exception 'Invalid learning target';
+  end if;
+  if p_target_type = 'drop' and not exists (
+    select 1 from public.drops where id = p_target_id
+  ) then raise exception 'Drop not found'; end if;
+  if p_target_type = 'profile' and not exists (
+    select 1 from public.profiles where id = p_target_id
+  ) then raise exception 'Profile not found'; end if;
+  insert into public.feed_signals(user_id, signal_type, target_type, target_id)
+  values(auth.uid(), p_signal_type, p_target_type, p_target_id);
+end;
+$$;
+
+revoke all on function public.record_feed_learning_signal(text, text, uuid)
+  from public, anon;
+grant execute on function public.record_feed_learning_signal(text, text, uuid)
+  to authenticated;
+
 -- Total Save count for one piece of content, regardless of who's
 -- asking -- mirrors drop_view_count()'s exact reasoning (WYN-038):
 -- `saves`' own SELECT policy only lets a user see *their own* saves
@@ -9136,6 +9436,634 @@ $$;
 
 grant execute on function public.content_save_count(uuid) to authenticated;
 
+-- ============================================================
+-- WYNOS Trending Velocity Engine V1 (Phase 2)
+-- ============================================================
+
+-- One row per Drop, refreshed out-of-band. Home/Discovery reads this bounded
+-- cache and never aggregates raw engagement in the request path. Scores may be
+-- a few minutes stale by design; refresh_trending_scores() is idempotent and
+-- ready for a future Supabase Cron invocation without requiring new services.
+create table if not exists public.trending_scores (
+  drop_id uuid primary key references public.drops (id) on delete cascade,
+  content_type text not null default 'drop' check (content_type = 'drop'),
+  creator_id uuid not null references public.profiles (id) on delete cascade,
+  trend_score double precision not null check (trend_score >= 0),
+  observed_at timestamptz not null,
+  observation_window interval not null default interval '6 hours',
+  content_age_hours double precision not null,
+  likes_1h integer not null default 0,
+  comments_1h integer not null default 0,
+  shares_1h integer not null default 0,
+  saves_1h integer not null default 0,
+  qualified_views_1h integer not null default 0,
+  unique_engagers_1h integer not null default 0,
+  weighted_velocity_15m double precision not null default 0,
+  weighted_velocity_1h double precision not null default 0,
+  previous_velocity_1h double precision not null default 0,
+  growth_factor double precision not null default 1,
+  report_penalty double precision not null default 1,
+  manipulation_penalty double precision not null default 1,
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists trending_scores_rank_idx
+  on public.trending_scores (trend_score desc, observed_at desc, drop_id);
+
+alter table public.trending_scores enable row level security;
+drop policy if exists "Trending aggregates are viewable by authenticated users"
+  on public.trending_scores;
+create policy "Trending aggregates are viewable by authenticated users"
+  on public.trending_scores for select to authenticated using (true);
+
+-- Request functions run as the viewer so home_feed RLS remains authoritative.
+-- Grant only the Phase 3-safe aggregate contract, not report/manipulation or
+-- formula-intermediate columns that could reveal moderation internals.
+revoke all on public.trending_scores from authenticated, anon;
+grant select (
+  drop_id, creator_id, trend_score, observed_at, observation_window,
+  unique_engagers_1h
+) on public.trending_scores to authenticated;
+
+-- Time-first covering indexes serve the six-hour refresh scan. Existing
+-- content-first primary keys remain optimal for the interactive action paths.
+create index if not exists drop_likes_trending_window_idx
+  on public.drop_likes (created_at, drop_id, user_id);
+create index if not exists drop_comments_trending_window_idx
+  on public.drop_comments (created_at, drop_id, author_id);
+create index if not exists redrops_trending_window_idx
+  on public.redrops (created_at, drop_id, redropper_id);
+create index if not exists saves_trending_window_idx
+  on public.saves (created_at, content_id, user_id)
+  where content_type = 'drop';
+
+-- The single authoritative formula. Inputs are already organic, self-excluded,
+-- identity-capped aggregates. Growth is smoothed and bounded [0.5, 3], views
+-- have a small weight before reaching this function, and any score is capped to
+-- prevent numeric explosions. Freshness cannot create a score when velocity or
+-- unique engagement is zero.
+create or replace function public.calculate_trend_score(
+  p_velocity_15m double precision,
+  p_velocity_1h double precision,
+  p_velocity_6h double precision,
+  p_previous_velocity_1h double precision,
+  p_unique_engagers integer,
+  p_action_count integer,
+  p_report_count integer,
+  p_content_age_hours double precision,
+  p_suspicious boolean
+)
+returns double precision
+language sql
+immutable
+parallel safe
+as $$
+  select case
+    when p_unique_engagers <= 0
+      or greatest(p_velocity_15m, 0) + greatest(p_velocity_1h, 0) <= 0
+      then 0.0
+    else least(1000000.0,
+      (greatest(p_velocity_15m, 0) * 0.60
+        + greatest(p_velocity_1h, 0) * 0.30
+        + greatest(p_velocity_6h, 0) * 0.10)
+      * least(3.0, greatest(0.5,
+          (greatest(p_velocity_1h, 0) + 2.0)
+          / (greatest(p_previous_velocity_1h, 0) + 2.0)))
+      * least(1.5, 0.5 + ln(1.0 + p_unique_engagers) / ln(11.0))
+      * least(1.0, p_unique_engagers / 3.0)
+      * (0.20 + 0.80 * power(0.5, greatest(p_content_age_hours, 0) / 48.0))
+      * greatest(0.25, least(1.0,
+          p_unique_engagers * 3.0 / greatest(p_action_count, 1)))
+      * power(0.20::double precision,
+          greatest(p_report_count, 0)::double precision)
+      * case when p_suspicious then 0.15 else 1.0 end
+    )
+  end;
+$$;
+
+grant execute on function public.calculate_trend_score(
+  double precision, double precision, double precision, double precision,
+  integer, integer, integer, double precision, boolean
+) to authenticated;
+
+create or replace function public.refresh_trending_scores(
+  p_observed_at timestamptz default clock_timestamp()
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_rows integer;
+begin
+  with raw_actions as (
+    select dl.drop_id, dl.user_id as actor_id, 'like'::text as action_type,
+      dl.created_at, 2.0::double precision as action_weight
+    from public.drop_likes dl
+    where dl.created_at >= p_observed_at - interval '6 hours'
+    union all
+    select dc.drop_id, dc.author_id, 'comment', dc.created_at, 3.0
+    from public.drop_comments dc
+    where dc.created_at >= p_observed_at - interval '6 hours'
+    union all
+    select r.drop_id, r.redropper_id, 'share', r.created_at, 5.0
+    from public.redrops r
+    where r.created_at >= p_observed_at - interval '6 hours'
+    union all
+    select dv.drop_id, dv.viewer_id, 'view', dv.created_at, 0.1
+    from public.drop_views dv
+    where dv.created_at >= p_observed_at - interval '6 hours'
+    union all
+    select s.content_id, s.user_id, 'save', s.created_at, 4.0
+    from public.saves s
+    where s.content_type = 'drop'
+      and s.created_at >= p_observed_at - interval '6 hours'
+  ), organic as (
+    select ra.*
+    from raw_actions ra
+    join public.drops d on d.id = ra.drop_id
+    where ra.actor_id <> d.author_id and d.deleted_at is null
+  ), identity_buckets as (
+    select drop_id, actor_id, action_type,
+      date_bin(interval '15 minutes', created_at,
+        timestamptz '2000-01-01 00:00:00+00') as bucket_start,
+      max(created_at) as occurred_at,
+      max(action_weight) as action_weight,
+      case when action_type = 'comment' then least(count(*), 2)::integer
+           else 1 end as capped_actions
+    from organic
+    group by drop_id, actor_id, action_type,
+      date_bin(interval '15 minutes', created_at,
+        timestamptz '2000-01-01 00:00:00+00')
+  ), aggregates as (
+    select drop_id,
+      coalesce(sum(capped_actions * action_weight) filter (
+        where occurred_at >= p_observed_at - interval '15 minutes'), 0) * 4
+        as velocity_15m,
+      coalesce(sum(capped_actions * action_weight) filter (
+        where occurred_at >= p_observed_at - interval '1 hour'), 0)
+        as velocity_1h,
+      coalesce(sum(capped_actions * action_weight), 0) / 6.0 as velocity_6h,
+      coalesce(sum(capped_actions * action_weight) filter (
+        where occurred_at >= p_observed_at - interval '2 hours'
+          and occurred_at < p_observed_at - interval '1 hour'), 0)
+        as previous_velocity_1h,
+      count(distinct actor_id) filter (
+        where occurred_at >= p_observed_at - interval '1 hour')::integer
+        as unique_engagers_1h,
+      count(distinct actor_id) filter (
+        where occurred_at >= p_observed_at - interval '15 minutes')::integer
+        as unique_engagers_15m,
+      count(distinct actor_id) filter (
+        where occurred_at >= p_observed_at - interval '1 hour'
+          and engager.created_at >= p_observed_at - interval '24 hours')::integer
+        as new_engagers_1h,
+      coalesce(sum(capped_actions) filter (
+        where occurred_at >= p_observed_at - interval '1 hour'), 0)::integer
+        as actions_1h,
+      coalesce(sum(capped_actions) filter (
+        where occurred_at >= p_observed_at - interval '15 minutes'), 0)::integer
+        as actions_15m,
+      coalesce(sum(capped_actions) filter (where action_type = 'like'
+        and occurred_at >= p_observed_at - interval '1 hour'), 0)::integer as likes_1h,
+      coalesce(sum(capped_actions) filter (where action_type = 'comment'
+        and occurred_at >= p_observed_at - interval '1 hour'), 0)::integer as comments_1h,
+      coalesce(sum(capped_actions) filter (where action_type = 'share'
+        and occurred_at >= p_observed_at - interval '1 hour'), 0)::integer as shares_1h,
+      coalesce(sum(capped_actions) filter (where action_type = 'save'
+        and occurred_at >= p_observed_at - interval '1 hour'), 0)::integer as saves_1h,
+      coalesce(sum(capped_actions) filter (where action_type = 'view'
+        and occurred_at >= p_observed_at - interval '1 hour'), 0)::integer as views_1h
+    from identity_buckets
+    join public.profiles engager on engager.id = identity_buckets.actor_id
+    group by drop_id
+  ), report_counts as (
+    select target_id as drop_id, count(*)::integer as report_count
+    from public.reports
+    where target_type = 'drop' and status in ('pending', 'reviewing', 'actioned')
+    group by target_id
+  ), candidate_ids as (
+    -- Bootstrap all new content, plus any older post with organic activity in
+    -- the bounded six-hour observation window. This permits genuine
+    -- resurgence without scanning/scoring every historical Drop.
+    select id as drop_id from public.drops
+    where created_at >= p_observed_at - interval '7 days'
+    union
+    select drop_id from aggregates
+  ), scored as (
+    select d.id as drop_id, d.author_id,
+      greatest(extract(epoch from (p_observed_at - d.created_at)) / 3600.0, 0)
+        as age_hours,
+      coalesce(a.velocity_15m, 0) as velocity_15m,
+      coalesce(a.velocity_1h, 0) as velocity_1h,
+      coalesce(a.velocity_6h, 0) as velocity_6h,
+      coalesce(a.previous_velocity_1h, 0) as previous_velocity_1h,
+      coalesce(a.unique_engagers_1h, 0) as unique_engagers_1h,
+      coalesce(a.actions_1h, 0) as actions_1h,
+      coalesce(a.likes_1h, 0) as likes_1h,
+      coalesce(a.comments_1h, 0) as comments_1h,
+      coalesce(a.shares_1h, 0) as shares_1h,
+      coalesce(a.saves_1h, 0) as saves_1h,
+      coalesce(a.views_1h, 0) as views_1h,
+      coalesce(rc.report_count, 0) as report_count,
+      ((coalesce(a.actions_15m, 0) >= 20
+        and coalesce(a.unique_engagers_15m, 0) <= 2)
+      or (coalesce(a.unique_engagers_1h, 0) >= 5
+        and coalesce(a.new_engagers_1h, 0)::double precision
+          / greatest(a.unique_engagers_1h, 1) >= 0.80)) as suspicious
+    from candidate_ids candidate
+    join public.drops d on d.id = candidate.drop_id
+    left join aggregates a on a.drop_id = d.id
+    left join report_counts rc on rc.drop_id = d.id
+    where d.deleted_at is null
+      and not internal.is_posting_blocked(d.author_id)
+  )
+  insert into public.trending_scores (
+    drop_id, creator_id, trend_score, observed_at, content_age_hours,
+    likes_1h, comments_1h, shares_1h, saves_1h, qualified_views_1h,
+    unique_engagers_1h, weighted_velocity_15m, weighted_velocity_1h,
+    previous_velocity_1h, growth_factor, report_penalty,
+    manipulation_penalty, updated_at
+  )
+  select drop_id, author_id,
+    public.calculate_trend_score(
+      velocity_15m, velocity_1h, velocity_6h, previous_velocity_1h,
+      unique_engagers_1h, actions_1h, report_count, age_hours, suspicious),
+    p_observed_at, age_hours, likes_1h, comments_1h, shares_1h, saves_1h,
+    views_1h, unique_engagers_1h, velocity_15m, velocity_1h,
+    previous_velocity_1h,
+    least(3.0, greatest(0.5,
+      (velocity_1h + 2.0) / (previous_velocity_1h + 2.0))),
+    power(0.20::double precision, report_count::double precision),
+    case when suspicious then 0.15 else 1.0 end,
+    clock_timestamp()
+  from scored
+  on conflict (drop_id) do update set
+    creator_id = excluded.creator_id,
+    trend_score = excluded.trend_score,
+    observed_at = excluded.observed_at,
+    content_age_hours = excluded.content_age_hours,
+    likes_1h = excluded.likes_1h,
+    comments_1h = excluded.comments_1h,
+    shares_1h = excluded.shares_1h,
+    saves_1h = excluded.saves_1h,
+    qualified_views_1h = excluded.qualified_views_1h,
+    unique_engagers_1h = excluded.unique_engagers_1h,
+    weighted_velocity_15m = excluded.weighted_velocity_15m,
+    weighted_velocity_1h = excluded.weighted_velocity_1h,
+    previous_velocity_1h = excluded.previous_velocity_1h,
+    growth_factor = excluded.growth_factor,
+    report_penalty = excluded.report_penalty,
+    manipulation_penalty = excluded.manipulation_penalty,
+    updated_at = excluded.updated_at;
+  get diagnostics v_rows = row_count;
+  return v_rows;
+end;
+$$;
+
+revoke all on function public.refresh_trending_scores(timestamptz) from public;
+revoke all on function public.refresh_trending_scores(timestamptz)
+  from authenticated, anon;
+
+-- Phase 3-ready read contract. The function exposes aggregate diagnostics but
+-- never user identities or formula internals. RLS on home_feed still handles
+-- blocks/privacy; per-viewer Hide remains a hard exclusion here.
+create or replace function public.get_trending_candidates(p_limit integer default 30)
+returns table (
+  row_data jsonb,
+  trend_score double precision,
+  observed_at timestamptz,
+  observation_window interval,
+  unique_engagers integer
+)
+language sql
+stable
+as $$
+  select to_jsonb(hf.*), ts.trend_score, ts.observed_at,
+    ts.observation_window, ts.unique_engagers_1h
+  from public.trending_scores ts
+  join public.drops d on d.id = ts.drop_id and d.deleted_at is null
+  join public.home_feed hf
+    on hf.id = ts.drop_id and hf.content_type = 'drop' and hf.redrop_id is null
+  where ts.trend_score > 0
+    and not exists (
+      select 1 from public.feed_signals fs
+      where fs.user_id = auth.uid() and fs.signal_type in ('hide', 'not_interested')
+        and fs.target_id = ts.drop_id
+    )
+    and not internal.is_posting_blocked(ts.creator_id)
+  order by ts.trend_score desc, ts.observed_at desc, ts.drop_id desc
+  limit least(greatest(coalesce(p_limit, 30), 1), 100);
+$$;
+
+grant execute on function public.get_trending_candidates(integer) to authenticated;
+
+-- ============================================================
+-- WYNOS Top100 Organic Ranking Engine V1 (Phase 3)
+-- ============================================================
+
+-- Top100 is a broader seven-day chart, precomputed independently from the
+-- short-window Trending cache. The published Trending score is consumed only
+-- as a capped momentum bonus; impressions, placements, fetches, and rank are
+-- absent from both the refresh inputs and this table.
+create table if not exists public.top100_scores (
+  drop_id uuid primary key references public.drops (id) on delete cascade,
+  content_type text not null default 'drop' check (content_type = 'drop'),
+  creator_id uuid not null references public.profiles (id) on delete cascade,
+  top100_score double precision not null check (top100_score >= 0),
+  organic_score double precision not null check (organic_score >= 0),
+  trend_bonus double precision not null check (trend_bonus >= 0),
+  unique_engagers_7d integer not null default 0,
+  likes_7d integer not null default 0,
+  comments_7d integer not null default 0,
+  shares_7d integer not null default 0,
+  saves_7d integer not null default 0,
+  qualified_views_7d integer not null default 0,
+  current_rank integer,
+  previous_rank integer,
+  first_entered_at timestamptz not null,
+  observed_at timestamptz not null,
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists top100_scores_rank_idx
+  on public.top100_scores (top100_score desc, organic_score desc,
+    observed_at desc, drop_id);
+create index if not exists top100_scores_public_rank_idx
+  on public.top100_scores (current_rank, observed_at desc, drop_id);
+
+alter table public.top100_scores enable row level security;
+drop policy if exists "Top100 safe metadata is viewable by authenticated users"
+  on public.top100_scores;
+create policy "Top100 safe metadata is viewable by authenticated users"
+  on public.top100_scores for select to authenticated using (true);
+revoke all on public.top100_scores from authenticated, anon;
+grant select (
+  drop_id, creator_id, top100_score, current_rank, previous_rank,
+  first_entered_at, observed_at
+) on public.top100_scores to authenticated;
+
+-- One authoritative score decomposition. Organic quality is broad-window and
+-- log-normalized. Trending contributes only a multiplier in [1, 1.25], so its
+-- bonus can be at most 25% of organic score (20% of the effective total). It
+-- cannot create Top100 score from zero organic quality and does not re-add the
+-- recent raw actions already represented in the broad aggregates.
+create or replace function public.calculate_top100_score(
+  p_likes integer,
+  p_comments integer,
+  p_shares integer,
+  p_saves integer,
+  p_qualified_views integer,
+  p_unique_engagers integer,
+  p_action_count integer,
+  p_content_age_hours double precision,
+  p_trend_score double precision,
+  p_report_count integer,
+  p_suspicious boolean
+)
+returns table (
+  organic_score double precision,
+  trend_bonus double precision,
+  top100_score double precision
+)
+language sql
+immutable
+parallel safe
+as $$
+  with factors as (
+    select
+      case when p_unique_engagers <= 0 then 0.0 else
+        ln(1.0
+          + greatest(p_likes, 0) * 2.0
+          + greatest(p_comments, 0) * 4.0
+          + greatest(p_shares, 0) * 6.0
+          + greatest(p_saves, 0) * 5.0
+          + greatest(p_qualified_views, 0) * 0.1)
+        * (0.70 + 0.30 * least(1.0,
+            ln(1.0 + p_unique_engagers) / ln(101.0)))
+        * greatest(0.30, least(1.0,
+            p_unique_engagers * 4.0 / greatest(p_action_count, 1)))
+        * (0.70 + 0.30 * power(0.5,
+            greatest(p_content_age_hours, 0) / 168.0))
+      end as raw_organic,
+      least(0.25, ln(1.0 + greatest(p_trend_score, 0)) / 40.0)
+        as trend_multiplier,
+      power(0.20::double precision,
+        greatest(p_report_count, 0)::double precision)
+        * case when p_suspicious then 0.15 else 1.0 end as penalty
+  ), scored as (
+    select raw_organic * penalty as organic,
+      raw_organic * trend_multiplier * penalty as bonus
+    from factors
+  )
+  select organic, bonus, least(1000000.0, organic + bonus) from scored;
+$$;
+
+grant execute on function public.calculate_top100_score(
+  integer, integer, integer, integer, integer, integer, integer,
+  double precision, double precision, integer, boolean
+) to authenticated;
+
+create or replace function public.refresh_top100_scores(
+  p_observed_at timestamptz default clock_timestamp()
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_rows integer;
+begin
+  -- Preserve real rank history before replacing this snapshot. Re-running with
+  -- identical inputs changes neither candidate cardinality nor score rows.
+  update public.top100_scores
+  set previous_rank = current_rank
+  where observed_at < p_observed_at;
+
+  with raw_actions as (
+    select dl.drop_id, dl.user_id as actor_id, 'like'::text as action_type,
+      dl.created_at, 2.0::double precision as action_weight
+    from public.drop_likes dl
+    where dl.created_at >= p_observed_at - interval '7 days'
+    union all
+    select dc.drop_id, dc.author_id, 'comment', dc.created_at, 4.0
+    from public.drop_comments dc
+    where dc.created_at >= p_observed_at - interval '7 days'
+    union all
+    select r.drop_id, r.redropper_id, 'share', r.created_at, 6.0
+    from public.redrops r
+    where r.created_at >= p_observed_at - interval '7 days'
+    union all
+    select dv.drop_id, dv.viewer_id, 'view', dv.created_at, 0.1
+    from public.drop_views dv
+    where dv.created_at >= p_observed_at - interval '7 days'
+    union all
+    select s.content_id, s.user_id, 'save', s.created_at, 5.0
+    from public.saves s
+    where s.content_type = 'drop'
+      and s.created_at >= p_observed_at - interval '7 days'
+  ), organic as (
+    select ra.*
+    from raw_actions ra
+    join public.drops d on d.id = ra.drop_id
+    where ra.actor_id <> d.author_id and d.deleted_at is null
+  ), identity_hours as (
+    select drop_id, actor_id, action_type,
+      date_bin(interval '1 hour', created_at,
+        timestamptz '2000-01-01 00:00:00+00') as bucket_start,
+      case when action_type = 'comment' then least(count(*), 2)::integer
+           else 1 end as capped_actions
+    from organic
+    group by drop_id, actor_id, action_type,
+      date_bin(interval '1 hour', created_at,
+        timestamptz '2000-01-01 00:00:00+00')
+  ), aggregates as (
+    select ih.drop_id,
+      count(distinct ih.actor_id)::integer as unique_engagers,
+      sum(ih.capped_actions)::integer as action_count,
+      coalesce(sum(ih.capped_actions) filter (
+        where ih.action_type = 'like'), 0)::integer as likes,
+      coalesce(sum(ih.capped_actions) filter (
+        where ih.action_type = 'comment'), 0)::integer as comments,
+      coalesce(sum(ih.capped_actions) filter (
+        where ih.action_type = 'share'), 0)::integer as shares,
+      coalesce(sum(ih.capped_actions) filter (
+        where ih.action_type = 'save'), 0)::integer as saves,
+      coalesce(sum(ih.capped_actions) filter (
+        where ih.action_type = 'view'), 0)::integer as views,
+      count(distinct ih.actor_id) filter (
+        where engager.created_at >= p_observed_at - interval '24 hours')::integer
+        as new_engagers
+    from identity_hours ih
+    join public.profiles engager on engager.id = ih.actor_id
+    group by ih.drop_id
+  ), reports as (
+    select target_id as drop_id, count(*)::integer as report_count
+    from public.reports
+    where target_type = 'drop' and status in ('pending', 'reviewing', 'actioned')
+    group by target_id
+  ), candidate_ids as (
+    -- Broad organic performers plus the published Phase 2 Trending candidates.
+    -- UNION deduplicates the stable underlying Drop identity.
+    select drop_id from aggregates
+    union
+    select drop_id from public.trending_scores
+    where trend_score > 0
+      and observed_at >= p_observed_at - interval '2 hours'
+  ), candidate_data as (
+    select d.id as drop_id, d.author_id,
+      greatest(extract(epoch from (p_observed_at - d.created_at)) / 3600.0, 0)
+        as age_hours,
+      coalesce(a.likes, 0) as likes,
+      coalesce(a.comments, 0) as comments,
+      coalesce(a.shares, 0) as shares,
+      coalesce(a.saves, 0) as saves,
+      coalesce(a.views, 0) as views,
+      coalesce(a.unique_engagers, 0) as unique_engagers,
+      coalesce(a.action_count, 0) as action_count,
+      coalesce(ts.trend_score, 0) as trend_score,
+      coalesce(r.report_count, 0) as report_count,
+      ((coalesce(a.action_count, 0) >= 50 and coalesce(a.unique_engagers, 0) <= 3)
+        or (coalesce(a.unique_engagers, 0) >= 5
+          and coalesce(a.new_engagers, 0)::double precision
+            / greatest(a.unique_engagers, 1) >= 0.80)) as suspicious
+    from candidate_ids candidate
+    join public.drops d on d.id = candidate.drop_id
+    left join aggregates a on a.drop_id = d.id
+    left join public.trending_scores ts on ts.drop_id = d.id
+    left join reports r on r.drop_id = d.id
+    where d.deleted_at is null
+      and not internal.is_posting_blocked(d.author_id)
+  ), scored as (
+    select data.*, components.*
+    from candidate_data data
+    cross join lateral public.calculate_top100_score(
+      data.likes, data.comments, data.shares, data.saves, data.views,
+      data.unique_engagers, data.action_count, data.age_hours,
+      data.trend_score, data.report_count, data.suspicious
+    ) components
+  )
+  insert into public.top100_scores (
+    drop_id, creator_id, top100_score, organic_score, trend_bonus,
+    unique_engagers_7d, likes_7d, comments_7d, shares_7d, saves_7d,
+    qualified_views_7d, first_entered_at, observed_at, updated_at
+  )
+  select drop_id, author_id, top100_score, organic_score, trend_bonus,
+    unique_engagers, likes, comments, shares, saves, views,
+    p_observed_at, p_observed_at, clock_timestamp()
+  from scored
+  where top100_score > 0
+  on conflict (drop_id) do update set
+    creator_id = excluded.creator_id,
+    top100_score = excluded.top100_score,
+    organic_score = excluded.organic_score,
+    trend_bonus = excluded.trend_bonus,
+    unique_engagers_7d = excluded.unique_engagers_7d,
+    likes_7d = excluded.likes_7d,
+    comments_7d = excluded.comments_7d,
+    shares_7d = excluded.shares_7d,
+    saves_7d = excluded.saves_7d,
+    qualified_views_7d = excluded.qualified_views_7d,
+    observed_at = excluded.observed_at,
+    updated_at = excluded.updated_at;
+  get diagnostics v_rows = row_count;
+
+  with ranked as (
+    select drop_id, row_number() over (
+      order by top100_score desc, organic_score desc, observed_at desc, drop_id desc
+    )::integer as rank
+    from public.top100_scores
+    where observed_at = p_observed_at
+  )
+  update public.top100_scores score
+  set current_rank = ranked.rank
+  from ranked
+  where score.drop_id = ranked.drop_id;
+
+  return v_rows;
+end;
+$$;
+
+revoke all on function public.refresh_top100_scores(timestamptz) from public;
+revoke all on function public.refresh_top100_scores(timestamptz)
+  from authenticated, anon;
+
+create or replace function public.get_top100_candidates(p_limit integer default 100)
+returns table (
+  row_data jsonb,
+  rank integer,
+  previous_rank integer,
+  first_entered_at timestamptz,
+  observed_at timestamptz
+)
+language sql
+stable
+as $$
+  select to_jsonb(hf.*), score.current_rank, score.previous_rank,
+    score.first_entered_at, score.observed_at
+  from public.top100_scores score
+  join public.drops d on d.id = score.drop_id and d.deleted_at is null
+  join public.home_feed hf
+    on hf.id = score.drop_id and hf.content_type = 'drop' and hf.redrop_id is null
+  where score.top100_score > 0
+    and score.observed_at >= now() - interval '2 hours'
+    and not exists (
+      select 1 from public.feed_signals fs
+      where fs.user_id = auth.uid() and fs.signal_type in ('hide', 'not_interested')
+        and fs.target_id = score.drop_id
+    )
+    and not internal.is_posting_blocked(score.creator_id)
+  -- current_rank was computed with the full private tie-break tuple during
+  -- refresh; the read path needs only safe rank metadata.
+  order by score.current_rank asc, score.observed_at desc, score.drop_id desc
+  limit least(greatest(coalesce(p_limit, 100), 1), 100);
+$$;
+
+revoke all on function public.get_top100_candidates(integer) from public;
+grant execute on function public.get_top100_candidates(integer) to authenticated;
+
 -- The Wynos Score ranking function (WYNOS Unified Home Feed Algorithm
 -- V1.0) -- backend-computed per the Product spec's explicit "Client ->
 -- Request Feed / Backend -> Retrieve Candidates / Backend -> Calculate
@@ -9143,9 +10071,8 @@ grant execute on function public.content_save_count(uuid) to authenticated;
 -- WYN-018's client-side rankingScore()/fetchRankedFeed() sort for
 -- Home's "สำหรับคุณ" tab specifically. WYN-018's rankingScore() itself
 -- (still used by DropFeedScreen's own "For You" tab), and
--- fetchTrending()/fetchTopContent()'s engagementScore()-based sort,
--- are untouched -- out of scope this round, see this task's Coding
--- notes for why.
+-- Trending and content-ranked Top100 now consume their separate precomputed
+-- contracts above; neither changes Home's seven-source allocation.
 --
 -- Returns the SAME bounded top-200-by-recency candidate window
 -- WYN-018 already established (same trade-off, same reasoning: still
@@ -9189,6 +10116,209 @@ grant execute on function public.content_save_count(uuid) to authenticated;
 -- access ordinary users don't have) is delegated to the existing
 -- authors_posting_blocked() SECURITY DEFINER wrapper (WYN-041) rather
 -- than reimplemented here.
+-- ============================================================
+-- WYNOS Home Feed Quality & Risk V1 (Phase 6)
+-- ============================================================
+
+-- Precomputed and intentionally private. Missing rows mean "unknown", not bad:
+-- the Home RPC uses a neutral factor so fresh/New Creator content stays viable.
+create table if not exists public.feed_content_quality (
+  drop_id uuid primary key references public.drops(id) on delete cascade,
+  quality_score double precision not null check (quality_score between 0 and 1),
+  spam_risk double precision not null check (spam_risk between 0 and 1),
+  sample_size integer not null default 0 check (sample_size >= 0),
+  computed_at timestamptz not null,
+  quality_version integer not null default 1
+);
+create index if not exists feed_content_quality_rank_idx
+  on public.feed_content_quality (quality_score desc, computed_at desc, drop_id);
+create index if not exists feed_signals_quality_window_idx
+  on public.feed_signals (created_at, target_id, user_id)
+  where target_type='drop'
+    and signal_type in ('hide','not_interested','fast_skip');
+create index if not exists reports_quality_window_idx
+  on public.reports (created_at, target_id, reporter_id)
+  where target_type='drop' and status in ('pending','reviewing','actioned');
+alter table public.feed_content_quality enable row level security;
+revoke all on public.feed_content_quality from authenticated, anon;
+
+-- One batched, non-API-exposed bridge lets the invoker-mode Home RPC join safe
+-- factors without granting clients table access. The `internal` schema is not
+-- exposed by PostgREST; risk/sample/report internals never leave this layer.
+create or replace function internal.content_quality_factors(p_ids uuid[])
+returns table(drop_id uuid, quality_score double precision)
+language sql stable security definer set search_path=public as $$
+  select q.drop_id, q.quality_score
+  from public.feed_content_quality q
+  where q.drop_id=any(p_ids) and q.computed_at >= now()-interval '24 hours';
+$$;
+revoke all on function internal.content_quality_factors(uuid[]) from public;
+grant execute on function internal.content_quality_factors(uuid[]) to authenticated;
+
+-- Rates use a 20-observation prior: one hide/skip cannot create an extreme
+-- result, while repeated independent negative outcomes converge quickly. Raw
+-- popularity is absent; positive quality is unique reach plus action mix.
+create or replace function public.calculate_feed_quality_score(
+  p_unique_engagers integer,
+  p_actions integer,
+  p_shares integer,
+  p_saves integer,
+  p_hides integer,
+  p_fast_skips integer,
+  p_reports integer,
+  p_spam_risk double precision
+)
+returns double precision language sql immutable parallel safe as $$
+  select greatest(0.0, least(1.0,
+    0.65
+    + least(0.20, ln(1 + greatest(p_unique_engagers, 0)) / ln(101.0) * 0.20)
+    + least(0.15, (greatest(p_shares, 0) * 2.0 + greatest(p_saves, 0))
+        / greatest(p_actions + 20, 20) * 0.40)
+    - greatest(p_hides, 0)::double precision
+        / greatest(p_actions + p_hides + p_fast_skips + 20, 20) * 1.8
+    - greatest(p_fast_skips, 0)::double precision
+        / greatest(p_actions + p_hides + p_fast_skips + 20, 20) * 1.0
+    - least(0.80, greatest(p_reports, 0) * 0.25)
+    - least(0.70, greatest(p_spam_risk, 0.0) * 0.70)
+  ));
+$$;
+
+revoke all on function public.calculate_feed_quality_score(
+  integer, integer, integer, integer, integer, integer, integer,
+  double precision) from public, anon;
+grant execute on function public.calculate_feed_quality_score(
+  integer, integer, integer, integer, integer, integer, integer,
+  double precision) to authenticated;
+
+-- Idempotent, background-compatible refresh over seven bounded days. It reuses
+-- Phase 2/3's identity-capped organic aggregates/manipulation signal and only
+-- batches existing negative events; Home requests never scan event history.
+create or replace function public.refresh_feed_content_quality(
+  p_computed_at timestamptz default clock_timestamp()
+)
+returns integer language plpgsql security definer set search_path = public as $$
+declare v_rows integer;
+begin
+  with recent_drops as (
+    select d.id, d.author_id, d.caption, d.created_at,
+      count(*) over (partition by d.author_id) as creator_posts_7d,
+      count(*) over (
+        partition by d.author_id,
+        regexp_replace(lower(trim(coalesce(d.caption,''))), '[^[:alnum:]#]+', '', 'g')
+      ) as duplicate_posts_7d
+    from public.drops d
+    where d.deleted_at is null
+      and d.created_at >= p_computed_at - interval '7 days'
+      and not internal.is_posting_blocked(d.author_id)
+  ), negatives as (
+    select fs.target_id as drop_id,
+      count(distinct fs.user_id) filter (where fs.signal_type in ('hide','not_interested'))::int as hides,
+      count(distinct fs.user_id) filter (where fs.signal_type='fast_skip')::int as fast_skips
+    from public.feed_signals fs
+    where fs.target_type='drop'
+      and fs.created_at >= p_computed_at - interval '7 days'
+    group by fs.target_id
+  ), report_counts as (
+    select target_id as drop_id, count(distinct reporter_id)::int as reports
+    from public.reports
+    where target_type='drop' and status in ('pending','reviewing','actioned')
+      and created_at >= p_computed_at - interval '7 days'
+    group by target_id
+  ), metrics as (
+    select d.*,
+      coalesce(q.unique_engagers_7d,t.unique_engagers_1h,0)::int
+        as unique_engagers,
+      coalesce(q.likes_7d+q.comments_7d+q.shares_7d+q.saves_7d
+        +q.qualified_views_7d, t.likes_1h+t.comments_1h+t.shares_1h
+        +t.saves_1h+t.qualified_views_1h, 0)::int as actions,
+      coalesce(q.shares_7d,t.shares_1h,0)::int as shares,
+      coalesce(q.saves_7d,t.saves_1h,0)::int as saves,
+      coalesce(n.hides,0)::int as hides,
+      coalesce(n.fast_skips,0)::int as fast_skips,
+      coalesce(r.reports,0)::int as reports,
+      least(1.0,
+        case when d.creator_posts_7d > 30 then 0.35 else 0 end
+        + case when trim(coalesce(d.caption,'')) <> ''
+            and d.duplicate_posts_7d > 3 then 0.35 else 0 end
+        + case when coalesce(t.manipulation_penalty,1) < 0.5 then 0.50 else 0 end
+        + case when coalesce(d.caption,'') ~* '(like if|comment (yes|done)|share this with)'
+            then 0.15 else 0 end) as spam_risk
+    from recent_drops d
+    left join public.trending_scores t on t.drop_id=d.id
+    left join public.top100_scores q on q.drop_id=d.id
+    left join negatives n on n.drop_id=d.id
+    left join report_counts r on r.drop_id=d.id
+  )
+  insert into public.feed_content_quality(
+    drop_id,quality_score,spam_risk,sample_size,computed_at,quality_version)
+  select id, public.calculate_feed_quality_score(unique_engagers,actions,shares,
+      saves,hides,fast_skips,reports,spam_risk), spam_risk,
+    actions+hides+fast_skips+reports, p_computed_at, 1
+  from metrics
+  on conflict(drop_id) do update set
+    quality_score=excluded.quality_score, spam_risk=excluded.spam_risk,
+    sample_size=excluded.sample_size, computed_at=excluded.computed_at,
+    quality_version=excluded.quality_version;
+  get diagnostics v_rows = row_count;
+  return v_rows;
+end;
+$$;
+revoke all on function public.refresh_feed_content_quality(timestamptz)
+  from public, authenticated, anon;
+
+-- One authoritative, bounded maturity calculation. Account age and feed
+-- impressions are intentionally absent: confidence represents meaningful
+-- evidence, not how long an account has existed or how often WYN distributed
+-- content. The curve starts adapting after a few actions but needs diverse
+-- evidence before Phase 4 personalization becomes dominant.
+create or replace function public.get_my_personalization_maturity()
+returns table (
+  maturity_state text,
+  confidence double precision,
+  evidence_count bigint,
+  follow_count bigint,
+  topic_count bigint
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with affinity_stats as (
+    select
+      coalesce(sum(least(signal_count, 20)), 0)::bigint as evidence_count,
+      count(*) filter (
+        where dimension_type = 'topic' and signal_count > 0
+      )::bigint as topic_count
+    from public.user_affinities
+    where user_id = auth.uid()
+  ), follow_stats as (
+    select count(*)::bigint as follow_count
+    from public.follows
+    where follower_id = auth.uid()
+  ), bounded as (
+    select a.evidence_count, f.follow_count, a.topic_count,
+      least(1.0,
+        least(a.evidence_count, 40)::double precision / 40.0 * 0.70
+        + least(f.follow_count, 5)::double precision / 5.0 * 0.20
+        + least(a.topic_count, 5)::double precision / 5.0 * 0.10
+      ) as confidence
+    from affinity_stats a cross join follow_stats f
+  )
+  select case
+      when evidence_count = 0 and follow_count = 0 then 'zero_history'
+      when confidence < 0.25 then 'sparse'
+      when confidence < 0.70 then 'learning'
+      else 'personalized'
+    end,
+    confidence, evidence_count, follow_count, topic_count
+  from bounded
+  where auth.uid() is not null;
+$$;
+
+revoke all on function public.get_my_personalization_maturity() from public, anon;
+grant execute on function public.get_my_personalization_maturity() to authenticated;
+
 create or replace function public.get_wynos_ranked_feed()
 returns table (
   row_data jsonb,
@@ -9205,7 +10335,7 @@ as $$
     where not exists (
       select 1 from public.feed_signals fs
       where fs.user_id = auth.uid()
-        and fs.signal_type = 'hide'
+        and fs.signal_type in ('hide', 'not_interested')
         and fs.target_id = hf.id
     )
     order by hf.created_at desc
@@ -9213,7 +10343,14 @@ as $$
   ),
   candidates as (
     select r.*,
-      greatest(extract(epoch from (now() - r.created_at)) / 3600.0, 0.0) as age_hours
+      greatest(extract(epoch from (now() - r.created_at)) / 3600.0, 0.0) as age_hours,
+      nullif(lower(substring(r.caption from '#([[:alnum:]_]+)')), '')
+        as candidate_topic,
+      case when r.content_type = 'pop' then 'video'
+           when r.redrop_id is not null and r.quote_text is not null then 'quote'
+           when r.poll_id is not null then 'poll'
+           when r.image_url is not null then 'image' else 'text' end
+        as candidate_content_type
     from recent r
     where r.author_id not in (
       select author_id from public.authors_posting_blocked(
@@ -9221,80 +10358,63 @@ as $$
       )
     )
   ),
-  -- Every signal the *current viewer* has ever produced toward each
-  -- candidate's author, unioned into one (author_id, weight,
-  -- created_at) stream so author_affinity below can sum them with a
-  -- single group by -- mirrors engagementScore()'s own "one source of
-  -- truth, not inlined per-caller" reasoning (WYN-041), just for
-  -- personalization instead of public engagement. Weights (Like=2,
-  -- Comment=3, Save=4, View=1, Profile Visit=2) are Product's own
-  -- starting numbers, same "no real traffic data yet, adjust freely"
-  -- caveat as engagementScore's _viewWeight -- unlike the 6 top-level
-  -- Wynos Score weights, these aren't in feed_ranking_config since
-  -- they're an internal detail of computing *one* of those 6 factors
-  -- (Personalized Interest), not something the Product spec calls out
-  -- as independently tunable.
-  my_interactions as (
-    select d.author_id, 2.0::double precision as weight, dl.created_at
-    from public.drop_likes dl
-    join public.drops d on d.id = dl.drop_id
-    where dl.user_id = auth.uid()
-    union all
-    select p.author_id, 2.0::double precision, pl.created_at
-    from public.pop_likes pl
-    join public.pops p on p.id = pl.pop_id
-    where pl.user_id = auth.uid()
-    union all
-    select d.author_id, 3.0::double precision, dc.created_at
-    from public.drop_comments dc
-    join public.drops d on d.id = dc.drop_id
-    where dc.author_id = auth.uid()
-    union all
-    select p.author_id, 3.0::double precision, pc.created_at
-    from public.pop_comments pc
-    join public.pops p on p.id = pc.pop_id
-    where pc.author_id = auth.uid()
-    union all
-    select d.author_id, 4.0::double precision, s.created_at
-    from public.saves s
-    join public.drops d on d.id = s.content_id
-    where s.user_id = auth.uid() and s.content_type = 'drop'
-    union all
-    select p.author_id, 4.0::double precision, s.created_at
-    from public.saves s
-    join public.pops p on p.id = s.content_id
-    where s.user_id = auth.uid() and s.content_type = 'pop'
-    union all
-    select d.author_id, 1.0::double precision, dv.created_at
-    from public.drop_views dv
-    join public.drops d on d.id = dv.drop_id
-    where dv.viewer_id = auth.uid()
-    union all
-    select fs.target_id, 2.0::double precision, fs.created_at
-    from public.feed_signals fs
-    where fs.user_id = auth.uid() and fs.signal_type = 'profile_visit'
+  -- Precomputed affinity lookup replaces the former request-time scan across
+  -- every historical Like/Comment/Save/View. Three indexed joins cover the
+  -- whole 200-candidate batch without per-post network/database queries.
+  effective_affinities as (
+    select dimension_type, dimension_key, effective_score
+    from public.my_effective_affinities
   ),
-  -- 30-day lookback -- old interactions shouldn't keep boosting an
-  -- author forever (a Product/Design decision this task's own scope
-  -- didn't need to litigate further; a real recency-weighted decay on
-  -- top of this window is a natural future refinement, not required
-  -- for a V1 rule-based system).
-  author_affinity as (
-    select author_id, sum(weight) as affinity_raw
-    from my_interactions
-    where created_at > now() - interval '30 days'
-    group by author_id
+  maturity as (
+    select * from public.get_my_personalization_maturity()
+  ),
+  quality_factors as (
+    select * from internal.content_quality_factors(
+      (select coalesce(array_agg(id),array[]::uuid[]) from candidates)
+    )
   ),
   scored as (
     select
       c.*,
-      coalesce(aa.affinity_raw, 0.0) as affinity_raw,
+      (coalesce(topic_aff.effective_score, 0.0) * 0.45
+        + coalesce(creator_aff.effective_score, 0.0) * 0.40
+        + coalesce(type_aff.effective_score, 0.0) * 0.15) as affinity_raw,
+      coalesce(topic_aff.effective_score, 0.0) as topic_affinity,
+      coalesce(creator_aff.effective_score, 0.0) as creator_affinity,
+      coalesce(type_aff.effective_score, 0.0) as content_type_affinity,
       (f.follower_id is not null) as is_following_flag,
+      p.created_at as author_created_at,
+      coalesce(ts.trend_score, 0.0) as precomputed_trend_score,
+      coalesce(fq.quality_score, 1.0) as home_quality_score,
+      -- Top100 is quality evidence only: rank is mapped to a bounded 0..10
+      -- bonus. Its raw formula is never duplicated here and it cannot replace
+      -- Recommended or reward impressions/distribution.
+      coalesce(greatest(0.0, (101 - t100.current_rank) / 10.0), 0.0)
+        as top100_quality_bonus,
+      exists (
+        select 1
+        from public.club_members mine
+        join public.club_members theirs on theirs.club_id = mine.club_id
+        where mine.user_id = auth.uid() and mine.status = 'approved'
+          and theirs.user_id = c.author_id and theirs.status = 'approved'
+      ) as is_club_flag,
       public.content_save_count(c.id) as save_count
     from candidates c
-    left join author_affinity aa on aa.author_id = c.author_id
+    left join effective_affinities creator_aff
+      on creator_aff.dimension_type = 'creator'
+      and creator_aff.dimension_key = c.author_id::text
+    left join effective_affinities topic_aff
+      on topic_aff.dimension_type = 'topic'
+      and topic_aff.dimension_key = c.candidate_topic
+    left join effective_affinities type_aff
+      on type_aff.dimension_type = 'content_type'
+      and type_aff.dimension_key = c.candidate_content_type
     left join public.follows f
       on f.follower_id = auth.uid() and f.following_id = c.author_id
+    left join public.trending_scores ts on ts.drop_id = c.id
+    left join quality_factors fq on fq.drop_id = c.id
+    left join public.top100_scores t100 on t100.drop_id = c.id
+    join public.profiles p on p.id = c.author_id
   ),
   -- Same like*2 + comment*3 + view*0.1 shape as engagementScore()
   -- (WYN-041), plus save*4 (a Save is a stronger intent signal than a
@@ -9319,7 +10439,10 @@ as $$
       -- apart, dividing by age can. Floors the denominator at 0.5h so
       -- a just-posted item with any early engagement doesn't produce
       -- an inflated/unstable velocity from dividing by a near-zero age.
-      (se.engagement_raw / greatest(se.age_hours, 0.5)) as trending_velocity,
+      -- Phase 2: authoritative Trending is the precomputed velocity score.
+      -- A stale/missing refresh contributes zero and lets Phase 1 fallback
+      -- allocation fill the slot; request-time raw aggregation is forbidden.
+      se.precomputed_trend_score as trending_velocity,
       -- A candidate counts as "Discovery" when the viewer neither
       -- follows this author nor has any recorded affinity toward them
       -- at all -- i.e. a genuinely new-to-you creator, not just "an
@@ -9341,7 +10464,7 @@ as $$
       percent_rank() over (order by se.affinity_raw) * 100 as pr_interest,
       percent_rank() over (order by se.engagement_raw) * 100 as pr_engagement,
       percent_rank() over (
-        order by (se.engagement_raw / greatest(se.age_hours, 0.5))
+        order by se.precomputed_trend_score
       ) * 100 as pr_trending
     from scored_engagement se
   ),
@@ -9354,6 +10477,29 @@ as $$
       max(weight) filter (where key = 'recency') as w_recency,
       max(weight) filter (where key = 'discovery') as w_discovery
     from public.feed_ranking_config
+  ),
+  base_ranked as (
+    select final.*,
+      maturity.maturity_state,
+      maturity.confidence as personalization_confidence,
+      (coalesce(weights.w_personalized, 0.35) * final.pr_interest
+        + coalesce(weights.w_following, 0.25)
+          * (case when final.is_following_flag then 100.0 else 0.0 end)
+        + coalesce(weights.w_engagement, 0.15) * final.pr_engagement
+        + coalesce(weights.w_trending, 0.10) * final.pr_trending
+        + coalesce(weights.w_recency, 0.10) * final.recency_pct
+        + coalesce(weights.w_discovery, 0.05)
+          * (case when final.is_discovery_flag then 100.0 else 0.0 end)
+      ) as base_score,
+      (coalesce(weights.w_following, 0.25)
+          * (case when final.is_following_flag then 100.0 else 0.0 end)
+        + coalesce(weights.w_engagement, 0.15) * final.pr_engagement
+        + coalesce(weights.w_trending, 0.10) * final.pr_trending
+        + coalesce(weights.w_recency, 0.10) * final.recency_pct
+        + coalesce(weights.w_discovery, 0.05)
+          * (case when final.is_discovery_flag then 100.0 else 0.0 end)
+      ) as nonpersonal_score
+    from final, weights, maturity
   )
   -- coalesce(..., <Founder's own starting weight>) covers the
   -- pathological case of feed_ranking_config having been emptied out
@@ -9361,19 +10507,82 @@ as $$
   -- rather than every wynos_score collapsing to null/0 and the whole
   -- ranked feed silently going empty-looking.
   select
-    to_jsonb(final.*) as row_data,
-    (
-      coalesce(weights.w_personalized, 0.35) * final.pr_interest
-      + coalesce(weights.w_following, 0.25) * (case when final.is_following_flag then 100.0 else 0.0 end)
-      + coalesce(weights.w_engagement, 0.15) * final.pr_engagement
-      + coalesce(weights.w_trending, 0.10) * final.pr_trending
-      + coalesce(weights.w_recency, 0.10) * final.recency_pct
-      + coalesce(weights.w_discovery, 0.05) * (case when final.is_discovery_flag then 100.0 else 0.0 end)
-    ) as wynos_score,
-    final.is_following_flag as is_following,
-    final.is_discovery_flag as is_discovery
-  from final, weights
-  order by wynos_score desc, final.created_at desc, final.id desc;
+    (to_jsonb(base_ranked.*)
+      - 'precomputed_trend_score' - 'affinity_raw' - 'topic_affinity'
+      - 'creator_affinity' - 'content_type_affinity' - 'base_score'
+      - 'nonpersonal_score' - 'personalization_confidence'
+      - 'top100_quality_bonus' - 'maturity_state' - 'home_quality_score')
+    || jsonb_build_object(
+      'feed_is_trending', base_ranked.precomputed_trend_score > 0,
+      'feed_is_latest', base_ranked.age_hours <= 24,
+      'feed_is_club', base_ranked.is_club_flag,
+      'feed_is_new_creator',
+        (base_ranked.author_created_at >= now() - interval '30 days'
+          or (base_ranked.age_hours <= 24 and base_ranked.engagement_raw <= 10)),
+      'feed_topic', base_ranked.candidate_topic,
+      'feed_maturity_state', base_ranked.maturity_state,
+      'feed_source_scores', jsonb_build_object(
+        'following', base_ranked.nonpersonal_score
+          + base_ranked.personalization_confidence * (
+            base_ranked.base_score - base_ranked.nonpersonal_score
+            + base_ranked.creator_affinity * 12
+            + base_ranked.topic_affinity * 6
+            + base_ranked.content_type_affinity * 2)
+          - (1 - base_ranked.home_quality_score) * 8,
+        'recommended', base_ranked.nonpersonal_score
+          + base_ranked.top100_quality_bonus
+          + (case when base_ranked.age_hours <= 24 then 5 else 0 end)
+          + base_ranked.personalization_confidence * (
+            base_ranked.base_score - base_ranked.nonpersonal_score
+            + base_ranked.affinity_raw * 20)
+          - (1 - base_ranked.home_quality_score) * 25,
+        'trending', base_ranked.nonpersonal_score
+          + base_ranked.personalization_confidence * base_ranked.affinity_raw * 5
+          - (1 - base_ranked.home_quality_score) * 20,
+        'latest', base_ranked.nonpersonal_score
+          + (case when base_ranked.age_hours <= 24 then 5 else 0 end)
+          + base_ranked.personalization_confidence * base_ranked.affinity_raw * 3
+          - (1 - base_ranked.home_quality_score) * 6,
+        'club', base_ranked.nonpersonal_score
+          + base_ranked.personalization_confidence * (
+            base_ranked.base_score - base_ranked.nonpersonal_score
+            + base_ranked.creator_affinity * 8
+            + base_ranked.topic_affinity * 5)
+          - (1 - base_ranked.home_quality_score) * 10,
+        'new_creator', base_ranked.nonpersonal_score
+          + (case when base_ranked.age_hours <= 24 then 5 else 0 end)
+          + base_ranked.personalization_confidence * (
+            base_ranked.topic_affinity * 10
+            + base_ranked.content_type_affinity * 4)
+          - (1 - base_ranked.home_quality_score) * 6,
+        'exploration', base_ranked.nonpersonal_score
+          + (1 - base_ranked.personalization_confidence)
+            * (case when abs(base_ranked.topic_affinity) < 0.2 then 5 else 0 end)
+          + base_ranked.personalization_confidence
+            * (1 - abs(base_ranked.topic_affinity)) * 5
+          - (1 - base_ranked.home_quality_score) * 10
+      ),
+      'feed_reason_code', case
+        when base_ranked.maturity_state = 'zero_history'
+          and base_ranked.precomputed_trend_score > 0 then 'popular_now'
+        when base_ranked.maturity_state = 'zero_history'
+          and base_ranked.age_hours <= 24 then 'fresh_content'
+        when base_ranked.maturity_state = 'zero_history'
+          and base_ranked.top100_quality_bonus > 0 then 'high_quality_content'
+        when base_ranked.maturity_state = 'zero_history' then 'broad_discovery'
+        when base_ranked.topic_affinity >= greatest(
+          base_ranked.creator_affinity, base_ranked.content_type_affinity, 0.2)
+          then 'interested_in_topic'
+        when base_ranked.creator_affinity >= greatest(
+          base_ranked.content_type_affinity, 0.2) then 'often_engages_creator'
+        when base_ranked.content_type_affinity >= 0.2 then 'preferred_content_type'
+        else 'general_quality' end
+    ) as row_data,
+    base_ranked.base_score as wynos_score,
+    base_ranked.is_following_flag as is_following,
+    base_ranked.is_discovery_flag as is_discovery
+  from base_ranked
+  order by wynos_score desc, base_ranked.created_at desc, base_ranked.id desc;
 $$;
 
 grant execute on function public.get_wynos_ranked_feed() to authenticated;
