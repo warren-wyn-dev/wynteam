@@ -127,11 +127,28 @@ jobs:
       - uses: actions/checkout@v4
       - run: python3 supabase/check_schema_ordering.py
 
-  # NOT COVERED HERE YET -- supabase/tests/*.sh (30+ scripts). Each
-  # spins up a throwaway database with `createdb` and loads schema.sql
-  # into it, so they need a running local PostgreSQL 16 the runner's
-  # user can create databases on. Adding a Postgres service (or
-  # `sudo systemctl start postgresql` + the scripts' existing
-  # `sudo -u postgres` fallback) is the obvious next step for this
-  # workflow -- these are the only automated coverage the RLS policies
-  # and view definitions have.
+  # WYN-148 release gate. This runs the atomicity/idempotency/privacy
+  # regression script on the same PostgreSQL major version as production.
+  wyn148-database:
+    name: WYN-148 PostgreSQL integration
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash supabase/tests/wyn_148_atomic_drop_publication_test.sh

@@ -173,25 +173,23 @@ void main() {
   // is here so it cannot come back quietly.
   group('WYN-109/108 QA round 1 regressions', () {
     test(
-        'a post with no photos does not name the aspect-ratio column '
+        'all Drop creation stays behind the atomic publication RPC '
         '(B-109-1, Critical)', () {
-      // The insert used to name `image_aspect_ratio` on every Drop --
-      // text, poll, Draft included -- so on a database that had not run
-      // the migration yet, PostgREST rejected the insert and posting
-      // anything at all failed. The column belongs to the photo
-      // feature; nothing else should depend on it existing.
+      // WYN-148 moved Drop creation behind `publish_drop`. Keep both sides of
+      // that boundary guarded: the RPC and nullable ratio payload must remain,
+      // and no public creation path may silently reintroduce a direct insert.
       final source =
           File('lib/features/drop/data/drop_repository.dart').readAsStringSync();
+      expect(source.contains("await _client.rpc('publish_drop'"), isTrue);
       expect(
-        source.contains(
-            "if (aspectRatio != null) 'image_aspect_ratio': aspectRatio.wireValue"),
+        source.contains("'p_image_aspect_ratio': aspectRatio?.wireValue"),
         isTrue,
-        reason: 'the column must only be named when there is a ratio to store',
+        reason: 'text-only publication must preserve a null aspect ratio',
       );
       expect(
-        source.contains("'image_aspect_ratio': aspectRatio?.wireValue"),
+        RegExp(r"\.from\('drops'\)\s*\.insert\s*\(").hasMatch(source),
         isFalse,
-        reason: 'naming it unconditionally is what broke every post type',
+        reason: 'Drop creation must not bypass the atomic publish_drop RPC',
       );
     });
 
