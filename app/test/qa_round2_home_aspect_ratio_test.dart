@@ -196,9 +196,15 @@ void main() {
       'results[7] to the block check and still gets ratios from [6]',
       () async {
     await boot({
-      'home_feed': [
-        _dropRow(id: 'd1', authorId: 'author-1'),
-        _dropRow(id: 'd2', authorId: 'sanctioned-author'),
+      'rpc/get_trending_candidates': [
+        {
+          'row_data': _dropRow(id: 'd1', authorId: 'author-1'),
+          'trend_score': 10.0,
+        },
+        {
+          'row_data': _dropRow(id: 'd2', authorId: 'sanctioned-author'),
+          'trend_score': 9.0,
+        },
       ],
       'drop_likes': <dynamic>[],
       'pop_likes': <dynamic>[],
@@ -231,7 +237,7 @@ void main() {
     await boot({
       // A page of zero rows: authorIds is an empty *set*, which is not
       // null, so the conditional element is still present.
-      'home_feed': <dynamic>[],
+      'rpc/get_trending_candidates': <dynamic>[],
     });
 
     final items = await repo.fetchTrending();
