@@ -198,6 +198,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
 
   bool _isSharing = false;
   String? _errorMessage;
+  String? _publicationOperationId;
 
   // WYN-094: how many of _imagesBytes have finished uploading during
   // the in-flight _share() call -- drives the progress bar below the
@@ -715,6 +716,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       _isSharing = true;
       _errorMessage = null;
       _uploadedImageCount = 0;
+      _publicationOperationId ??= newDropPublicationOperationId();
     });
 
     try {
@@ -743,6 +745,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
               if (mounted) setState(() => _uploadedImageCount = uploaded);
             },
             aspectRatio: _aspectRatio,
+            publicationOperationId: _publicationOperationId,
           );
         } else if (existingImageUrl != null) {
           // WYN-036: continuing a Draft without picking a new image --
@@ -756,6 +759,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             audience: _audience,
             excludedFriendIds: _excludedFriendIds,
             location: _selectedLocation,
+            publicationOperationId: _publicationOperationId,
           );
         } else {
           // WYNOS V1.0.0 Beta requirement 2: no image at all -- _canShare
@@ -766,6 +770,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             audience: _audience,
             excludedFriendIds: _excludedFriendIds,
             location: _selectedLocation,
+            publicationOperationId: _publicationOperationId,
           );
         }
       }
@@ -797,6 +802,11 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       // unchanged: this adds feedback, not a second code path.
       WynFeedback.completed();
       Navigator.of(context).pop(true);
+    } on DropPublicationStateUnknownException {
+      if (!mounted) return;
+      WynFeedback.failed();
+      setState(() => _errorMessage =
+          'ยังยืนยันสถานะการแชร์ไม่ได้ กรุณาต่ออินเทอร์เน็ตแล้วกดตรวจสอบอีกครั้ง');
     } catch (_) {
       if (!mounted) return;
       WynFeedback.failed();

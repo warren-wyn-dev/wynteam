@@ -231,6 +231,7 @@ class RecordingDropRepository extends DropRepository {
     LocationResult? location,
     void Function(int uploaded, int total)? onImageUploaded,
     DropAspectRatio aspectRatio = DropAspectRatio.initial,
+    String? publicationOperationId,
   }) async {
     if (createDropError != null) throw createDropError!;
     createDropImageCountArgs.add(imagesBytes.length);
@@ -249,6 +250,7 @@ class RecordingDropRepository extends DropRepository {
   /// V1.0.0 Beta requirement 2 (caption-only Drop).
   final List<Map<String, Object?>> createTextDropArgs = [];
   Object? createTextDropError;
+  Completer<void>? createTextDropGate;
 
   @override
   Future<void> createTextDrop({
@@ -257,14 +259,18 @@ class RecordingDropRepository extends DropRepository {
     AudienceOption audience = AudienceOption.everyone,
     Set<String> excludedFriendIds = const {},
     LocationResult? location,
+    String? publicationOperationId,
   }) async {
-    if (createTextDropError != null) throw createTextDropError!;
     createTextDropArgs.add({
       'caption': caption,
       'mentionedUserIds': mentionedUserIds,
       'audience': audience,
       'location': location,
+      'publicationOperationId': publicationOperationId,
     });
+    final gate = createTextDropGate;
+    if (gate != null) await gate.future;
+    if (createTextDropError != null) throw createTextDropError!;
   }
 
   /// Returned by [fetchCaptionsForHashtagSuggestion], regardless of
@@ -535,6 +541,7 @@ class RecordingDropRepository extends DropRepository {
     AudienceOption audience = AudienceOption.everyone,
     Set<String> excludedFriendIds = const {},
     LocationResult? location,
+    String? publicationOperationId,
   }) async {
     if (createDropFromExistingImageError != null) {
       throw createDropFromExistingImageError!;
@@ -545,6 +552,7 @@ class RecordingDropRepository extends DropRepository {
       'mentionedUserIds': mentionedUserIds,
       'audience': audience,
       'location': location,
+      'publicationOperationId': publicationOperationId,
     });
   }
 }

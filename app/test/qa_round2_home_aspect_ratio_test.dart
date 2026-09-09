@@ -60,14 +60,14 @@ class _FakeRest {
         return;
       }
 
-      final stub = responses[path];
-      if (stub == null) {
+      if (!responses.containsKey(path)) {
         request.response.statusCode = 404;
         request.response
             .write(jsonEncode({'code': '404', 'message': 'no stub for $path'}));
         await request.response.close();
         return;
       }
+      final stub = responses[path];
       request.response.write(jsonEncode(stub));
       await request.response.close();
     });
@@ -420,9 +420,8 @@ void main() {
       bodies.clear();
       rest2 = _FakeRest({});
       rest2.captureBodies = bodies;
-      rest2.responses['drops'] = {'id': 'new-drop-1'};
-      rest2.responses['drop_mentions'] = <dynamic>[];
-      rest2.responses['drop_images'] = <dynamic>[];
+      rest2.responses['rpc/drop_id_for_publication'] = null;
+      rest2.responses['rpc/publish_drop'] = 'new-drop-1';
       await rest2.start();
       client2 = await _signedInClient(rest2.url);
       drops = DropRepository(client2);
@@ -437,11 +436,10 @@ void main() {
         () async {
       await drops.createTextDrop(caption: 'สวัสดี');
       expect(bodies, isNotEmpty);
-      final payload = jsonDecode(bodies.first) as Map<String, dynamic>;
-      expect(payload.containsKey('image_aspect_ratio'), isFalse,
-          reason: 'naming the column is what broke every post type when '
-              'the database did not have it yet');
-      expect(payload['caption'], 'สวัสดี');
+      final payload = jsonDecode(bodies.last) as Map<String, dynamic>;
+      expect(payload['p_image_aspect_ratio'], isNull);
+      expect(payload['p_caption'], 'สวัสดี');
+      expect(rest2.asked('rpc/publish_drop'), isTrue);
     });
 
     test('QA-R2-13 a Draft republished from an existing URL never names it',
@@ -450,9 +448,13 @@ void main() {
         imageUrl: 'https://example.test/old.jpg',
         caption: 'draft',
       );
-      final payload = jsonDecode(bodies.first) as Map<String, dynamic>;
-      expect(payload.containsKey('image_aspect_ratio'), isFalse);
-      expect(payload['image_url'], 'https://example.test/old.jpg');
+      final payload = jsonDecode(bodies.last) as Map<String, dynamic>;
+      expect(payload['p_image_aspect_ratio'], isNull);
+      expect(payload['p_image_url'], 'https://example.test/old.jpg');
+      expect(payload['p_images'], [
+        {'image_url': 'https://example.test/old.jpg', 'position': 0,
+         'image_width': null, 'image_height': null},
+      ]);
     });
 
     test('QA-R2-14 a Poll Drop goes through an RPC and names no column',
