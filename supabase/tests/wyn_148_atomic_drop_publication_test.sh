@@ -47,11 +47,17 @@ insert into public.profiles(id,username) values
  ('11111111-1111-1111-1111-111111111111','wyn148_a'),
  ('22222222-2222-2222-2222-222222222222','wyn148_b'),
  ('33333333-3333-3333-3333-333333333333','wyn148_c');
+-- WYN-142's generic personalization trigger currently dereferences fields
+-- from other trigger tables before the follows branch can run on a fresh
+-- schema. It is unrelated to WYN-148, so disable it only while seeding the
+-- mutual-follow fixture, then restore it before exercising publication.
+alter table public.follows disable trigger follows_personalization;
 insert into public.follows(follower_id,following_id) values
  ('11111111-1111-1111-1111-111111111111','22222222-2222-2222-2222-222222222222'),
  ('22222222-2222-2222-2222-222222222222','11111111-1111-1111-1111-111111111111'),
  ('11111111-1111-1111-1111-111111111111','33333333-3333-3333-3333-333333333333'),
  ('33333333-3333-3333-3333-333333333333','11111111-1111-1111-1111-111111111111');
+alter table public.follows enable trigger follows_personalization;
 
 set role authenticated;
 set request.jwt.claim.sub='11111111-1111-1111-1111-111111111111';
