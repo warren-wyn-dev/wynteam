@@ -1,12 +1,12 @@
-/// WYNOS Unified Home Feed Algorithm V1.0 -- Feed Diversity.
-///
-/// One candidate for feed diversity reordering -- the minimal facts
-/// [applyFeedDiversity] needs about each item, independent of how it's
-/// actually rendered (that's [HomeFeedItem]'s job). Kept as its own small
-/// type rather than adding `wynosScore`/`isDiscovery` fields to
-/// [HomeFeedItem] itself -- those are ranking-pass-only facts nothing else
-/// in the app ever needs to render, and [HomeFeedItem] is already read by
-/// a large number of call sites this task has no reason to touch.
+// WYNOS Unified Home Feed Algorithm V1.0 -- Feed Diversity.
+//
+// One candidate for feed diversity reordering -- the minimal facts
+// applyFeedDiversity needs about each item, independent of how it's
+// actually rendered (that's HomeFeedItem's job). Kept as its own small
+// type rather than adding wynosScore/isDiscovery fields to HomeFeedItem
+// itself -- those are ranking-pass-only facts nothing else in the app ever
+// needs to render, and HomeFeedItem is already read by a large number of
+// call sites this task has no reason to touch.
 import 'feed_source.dart';
 
 class FeedDiversityCandidate {
