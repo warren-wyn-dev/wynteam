@@ -21,51 +21,26 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           paths = [
               Path('supabase/migrations_wyn142_personalization_signals.sql'),
               Path('supabase/schema.sql'),
           ]
 
-          old_save = """  elsif tg_table_name = 'saves' and new.content_type = 'drop' then
-            perform internal.learn_from_drop('save:' || new.content_id || ':' || new.user_id
-              || ':' || new.created_at, new.user_id, new.content_id, 4.0, new.created_at);
-          """
-          new_save = """  elsif tg_table_name = 'saves' then
+          save_replacement = """  elsif tg_table_name = 'saves' then
             if new.content_type = 'drop' then
               perform internal.learn_from_drop('save:' || new.content_id || ':' || new.user_id
                 || ':' || new.created_at, new.user_id, new.content_id, 4.0, new.created_at);
             end if;
           """
-
-          old_report = """  elsif tg_table_name = 'reports' and new.target_type = 'drop' then
-            perform internal.learn_from_drop('report:' || new.id, new.reporter_id,
-              new.target_id, -12.0, new.created_at);
-          """
-          new_report = """  elsif tg_table_name = 'reports' then
+          report_replacement = """  elsif tg_table_name = 'reports' then
             if new.target_type = 'drop' then
               perform internal.learn_from_drop('report:' || new.id, new.reporter_id,
                 new.target_id, -12.0, new.created_at);
             end if;
           """
-
-          old_block_mute = """  elsif tg_table_name = 'blocks' or tg_table_name = 'mutes' then
-            v_event_key := tg_table_name || ':'
-              || case when tg_table_name = 'blocks' then new.blocker_id else new.muter_id end
-              || ':' || case when tg_table_name = 'blocks' then new.blocked_id else new.muted_id end
-              || ':' || new.created_at;
-            insert into public.personalization_processed_events(event_key)
-            values(v_event_key) on conflict do nothing;
-            if found then
-              perform internal.apply_affinity_signal(
-                case when tg_table_name = 'blocks' then new.blocker_id else new.muter_id end,
-                'creator',
-                (case when tg_table_name = 'blocks' then new.blocked_id else new.muted_id end)::text,
-                case when tg_table_name = 'blocks' then -20.0 else -8.0 end,
-                new.created_at);
-            end if;
-          """
-          new_block_mute = """  elsif tg_table_name = 'blocks' then
+          block_mute_replacement = """  elsif tg_table_name = 'blocks' then
             v_event_key := 'blocks:' || new.blocker_id || ':' || new.blocked_id
               || ':' || new.created_at;
             insert into public.personalization_processed_events(event_key)
@@ -85,16 +60,30 @@ jobs:
             end if;
           """
 
+          patterns = [
+              (
+                  r"  elsif tg_table_name = 'saves' and new\.content_type = 'drop' then\n.*?(?=  elsif tg_table_name = 'follows' then)",
+                  save_replacement,
+                  'save',
+              ),
+              (
+                  r"  elsif tg_table_name = 'reports' and new\.target_type = 'drop' then\n.*?(?=  elsif tg_table_name = 'blocks' or tg_table_name = 'mutes' then)",
+                  report_replacement,
+                  'report',
+              ),
+              (
+                  r"  elsif tg_table_name = 'blocks' or tg_table_name = 'mutes' then\n.*?(?=  end if;\n  return new;)",
+                  block_mute_replacement,
+                  'block/mute',
+              ),
+          ]
+
           for path in paths:
               text = path.read_text(encoding='utf-8')
-              for old, new, label in (
-                  (old_save, new_save, 'save'),
-                  (old_report, new_report, 'report'),
-                  (old_block_mute, new_block_mute, 'block/mute'),
-              ):
-                  if old not in text:
-                      raise SystemExit(f'{path}: expected {label} trigger block not found')
-                  text = text.replace(old, new, 1)
+              for pattern, replacement, label in patterns:
+                  text, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+                  if count != 1:
+                      raise SystemExit(f'{path}: expected exactly one {label} branch, got {count}')
               path.write_text(text, encoding='utf-8')
 
           source = Path('supabase/migrations_wyn142_personalization_signals.sql').read_text(encoding='utf-8')
@@ -103,8 +92,7 @@ jobs:
           start = source.index(start_marker)
           end = source.index(end_marker, start) + len(end_marker)
           body = source[start:end]
-          migration = Path('supabase/migrations_wyn150_personalization_trigger_record_safety.sql')
-          migration.write_text(
+          Path('supabase/migrations_wyn150_personalization_trigger_record_safety.sql').write_text(
               '-- WYN-150 / BUG-004 follow-up: make the polymorphic personalization trigger record-safe.\n'
               '-- PL/pgSQL NEW only has fields from the table that fired the trigger; branch on\n'
               '-- TG_TABLE_NAME before referencing table-specific fields.\n\n'
