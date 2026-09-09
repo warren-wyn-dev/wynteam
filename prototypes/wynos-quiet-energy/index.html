@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WYNOS Quiet Energy — UX Concept</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="studio-header">
+      <div>
+        <span class="eyebrow">WYNOS UX CONCEPT</span>
+        <h1>Quiet Energy</h1>
+        <p>Premium social experience บนโครงสร้างฟีเจอร์เดิม</p>
+      </div>
+      <div class="studio-actions" aria-label="ตัวควบคุมตัวอย่าง">
+        <div class="segmented" role="group" aria-label="ขนาดหน้าจอ">
+          <button class="segment is-active" data-viewport="mobile">Mobile</button>
+          <button class="segment" data-viewport="tablet">Tablet</button>
+          <button class="segment" data-viewport="desktop">Desktop</button>
+        </div>
+        <button class="quiet-button" id="stateButton">แสดง Loading state</button>
+      </div>
+    </header>
+
+    <main class="studio">
+      <aside class="concept-notes">
+        <div class="note-card">
+          <span class="eyebrow">DIRECTION</span>
+          <h2>สงบ แต่มีพลัง</h2>
+          <p>พื้นที่สีขาวช่วยให้เนื้อหาเด่น ใช้ Sapphire กับ action สำคัญ และเก็บ Rainbow ไว้เป็นลายเซ็นของ WYNOS</p>
+        </div>
+        <nav class="screen-list" aria-label="เลือกหน้าตัวอย่าง">
+          <button class="screen-link is-active" data-screen="home"><span>01</span> Home / Feed</button>
+          <button class="screen-link" data-screen="profile"><span>02</span> Profile</button>
+          <button class="screen-link" data-screen="chat"><span>03</span> Chat</button>
+          <button class="screen-link" data-screen="system"><span>04</span> Design System</button>
+        </nav>
+        <div class="palette" aria-label="สีหลัก">
+          <span style="--swatch:#12120f"></span><span style="--swatch:#1b3a6b"></span>
+          <span style="--swatch:#f1efe9"></span><span class="rainbow-swatch"></span>
+        </div>
+        <p class="scope-note">Concept only · No new features · No Check-in</p>
+      </aside>
+
+      <section class="preview-stage" aria-live="polite">
+        <div class="device mobile" id="device">
+          <div class="device-camera" aria-hidden="true"></div>
+          <div class="app-shell">
+            <section class="screen is-active" id="home" aria-label="Home feed mockup">
+              <header class="app-header"><button class="icon-button">☰</button><strong class="wordmark">WYNOS</strong><button class="avatar-button">M</button></header>
+              <div class="feed-tabs"><button class="is-active">สำหรับคุณ</button><button>กำลังติดตาม</button><button>จาก Club</button></div>
+              <div class="content-scroll">
+                <article class="post-card skeleton-target">
+                  <div class="author"><div class="avatar coral">M</div><div><strong>Mali S. <span class="verified">✓</span></strong><small>@mali · 12 นาที</small></div><button class="more">•••</button></div>
+                  <p class="post-copy">เช้าที่ไม่ต้องรีบ แสงดี กาแฟดี และมีเวลาให้ตัวเองนิดหน่อย ☕</p>
+                  <div class="post-photo"><div class="sun"></div><div class="hill hill-one"></div><div class="hill hill-two"></div><span>Bangkok · 08:42</span></div>
+                  <div class="post-actions"><button class="liked">♥ <span>248</span></button><button>◯ <span>19</span></button><button>↻ <span>7</span></button><button class="push-right">↗</button></div>
+                  <small class="liked-by">ถูกใจโดย Nana และคนอื่น ๆ</small>
+                </article>
+                <article class="post-card text-post skeleton-target">
+                  <div class="author"><div class="avatar blue">A</div><div><strong>Arun</strong><small>@arun · 25 นาที</small></div><button class="more">•••</button></div>
+                  <p class="post-copy">วันนี้ทุกคนฟังเพลงอะไรกันอยู่?</p>
+                  <div class="post-actions"><button>♡ <span>42</span></button><button>◯ <span>16</span></button><button>↻ <span>3</span></button><button class="push-right">↗</button></div>
+                </article>
+              </div>
+            </section>
+
+            <section class="screen" id="profile" aria-label="Profile mockup">
+              <header class="app-header"><button class="icon-button">‹</button><strong>โปรไฟล์</strong><button class="icon-button">•••</button></header>
+              <div class="content-scroll profile-scroll">
+                <div class="profile-accent"></div><div class="avatar profile-avatar">M</div>
+                <div class="profile-copy skeleton-target"><h2>Mali S. <span class="verified">✓</span></h2><small>@mali</small><p>บันทึกภาพระหว่างทาง เมือง กาแฟ และวันธรรมดาที่น่าจดจำ</p><span class="location">⌖ กรุงเทพมหานคร</span></div>
+                <div class="profile-stats skeleton-target"><button><strong>248</strong><span>โพสต์</span></button><button><strong>12.4K</strong><span>ผู้ติดตาม</span></button><button><strong>183</strong><span>กำลังติดตาม</span></button></div>
+                <div class="profile-actions"><button class="primary">ติดตาม</button><button class="secondary">ข้อความ</button></div>
+                <div class="profile-tabs"><button class="is-active">โพสต์</button><button>รีโพสต์</button><button>ถูกใจ</button></div>
+                <div class="photo-grid skeleton-target"><div class="photo p1"></div><div class="photo p2"></div><div class="photo p3"></div><div class="photo p4"></div><div class="photo p5"><span>“Make space<br/>for quiet.”</span></div><div class="photo p6"></div></div>
+              </div>
+            </section>
+
+            <section class="screen" id="chat" aria-label="Chat mockup">
+              <header class="app-header chat-header"><button class="icon-button">‹</button><div class="avatar blue">M<i></i></div><div><strong>Mali</strong><small>ออนไลน์</small></div><button class="more push-right">•••</button></header>
+              <div class="chat-scroll skeleton-target"><span class="day-pill">วันนี้</span><div class="message incoming">ถึงบ้านหรือยัง?<small>18:42</small></div><div class="message outgoing">ถึงแล้ว กำลังนั่งพักอยู่<small>18:43 · อ่านแล้ว</small></div><div class="message-image"><div class="sun"></div><div class="hill hill-one"></div><div class="hill hill-two"></div></div><div class="message incoming">รูปสวยมาก ดูสงบดีนะ<small>18:45</small></div></div>
+              <form class="composer"><button type="button" class="attach">＋</button><label><span class="sr-only">ข้อความ</span><textarea rows="1" placeholder="ส่งข้อความ…"></textarea></label><button type="button" class="send">↑</button></form>
+            </section>
+
+            <section class="screen system-screen" id="system" aria-label="Design system mockup">
+              <header class="app-header"><button class="icon-button">‹</button><strong>Design System</strong><span></span></header>
+              <div class="content-scroll system-scroll">
+                <span class="eyebrow">FOUNDATIONS</span><h2>Quiet Energy</h2><p class="muted">White space นำสายตา Sapphire สื่อ action และ rainbow เป็น signature moment</p>
+                <h3>Color</h3><div class="color-row"><div class="color-chip ink">Ink<small>#12120F</small></div><div class="color-chip sapphire">Sapphire<small>#1B3A6B</small></div><div class="color-chip warm">Surface<small>#F1EFE9</small></div></div><div class="rainbow-line"></div>
+                <h3>Typography</h3><div class="type-sample"><strong>Page title · 24/700</strong><span>เนื้อหาโพสต์ · 16/400</span><small>ข้อมูลประกอบ · 13/500</small></div>
+                <h3>Actions</h3><div class="button-stack"><button class="primary">Primary action</button><button class="secondary">Secondary action</button><button class="disabled" disabled>Disabled</button></div>
+                <h3>Input</h3><label class="field"><span>ชื่อที่แสดง</span><input value="Mali S." readonly/><small>ใช้ชื่อที่เพื่อนของคุณจดจำได้</small></label>
+                <h3>States</h3><div class="state-card"><div class="state-icon">⌁</div><strong>ยังไม่มีข้อความ</strong><small>เริ่มบทสนทนาเมื่อคุณพร้อม</small></div>
+              </div>
+            </section>
+
+            <nav class="bottom-nav"><button class="is-active" data-screen="home"><b>⌂</b><span>หน้าหลัก</span></button><button><b>⌕</b><span>ค้นหา</span></button><button class="create"><b>＋</b><span>โพสต์</span></button><button><b>♡</b><span>แจ้งเตือน</span></button><button data-screen="profile"><b>○</b><span>โปรไฟล์</span></button></nav>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script src="prototype.js"></script>
+  </body>
+</html>

@@ -41,6 +41,38 @@ void main() {
     expect(find.text('ไม่มีแฮชแท็กเลย'), findsOneWidget);
   });
 
+  testWidgets('preserves native emoji sequences in rendered post text',
+      (tester) async {
+    const text = 'สวัสดี 👋🏽 ครอบครัว 👨‍👩‍👧‍👦 ธง 🇹🇭 #WYN';
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: HashtagText(text))),
+    );
+
+    final richText = tester.widget<RichText>(find.byType(RichText).first);
+    expect(richText.text.toPlainText(), text);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('preserves emoji while system text scaling is enabled',
+      (tester) async {
+    const text = 'โพสต์นี้ดีมาก 🥹❤️‍🔥 #WYN';
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: const TextScaler.linear(1.5),
+          ),
+          child: child!,
+        ),
+        home: const Scaffold(body: HashtagText(text)),
+      ),
+    );
+
+    final richText = tester.widget<RichText>(find.byType(RichText).first);
+    expect(richText.text.toPlainText(), text);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('renders the full caption text when it contains a hashtag',
       (tester) async {
     await tester.pumpWidget(

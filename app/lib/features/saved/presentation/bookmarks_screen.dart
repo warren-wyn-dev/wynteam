@@ -47,20 +47,9 @@ class BookmarksScreen extends StatefulWidget {
 class _BookmarksScreenState extends State<BookmarksScreen> {
   final _scrollController = ScrollController();
   final List<HomeFeedItem> _items = [];
-  /// Keys of every row already shown this load cycle. Offset pagination
-  /// re-reads a list that can have grown at the top since the previous
-  /// page -- one new row shifts everything down by one, so the last row
-  /// of page N comes back as the first row of page N+1. Appended
-  /// blindly that showed the row twice *and* put two identical
-  /// [ValueKey]s in one list, which Flutter rejects outright: the
-  /// screen throws rather than merely looking wrong. Home already
-  /// guards its feed this way (see HomeFeedScreen's own _seenKeys);
-  /// this list never got the same treatment.
+
   final Set<String> _seenKeys = {};
 
-  /// The identity of a row -- `id` alone isn't unique, since the same
-  /// Drop can appear both plainly and via someone's ReDrop of it
-  /// (WYN-034). Matches the [ValueKey] the itemBuilder builds.
   static String _keyFor(HomeFeedItem item) =>
       '${item.id}:${item.redropId ?? ''}';
 
@@ -98,6 +87,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     });
     try {
       final items = await widget.savedRepository.fetchFeed(page: 0);
+      if (!mounted) return;
       setState(() {
         _items
           ..clear()
@@ -109,6 +99,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         _hasMore = items.length == SavedRepository.pageSize;
       });
     } catch (_) {
+      if (!mounted) return;
       setState(() => _error = 'โหลดรายการที่บันทึกไว้ไม่สำเร็จ');
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
@@ -120,10 +111,8 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     try {
       final nextPage = _page + 1;
       final items = await widget.savedRepository.fetchFeed(page: nextPage);
+      if (!mounted) return;
       setState(() {
-        // _hasMore is still driven by what the server returned, not
-        // by what survived the filter: a full page that happens to be
-        // all duplicates still means there is more behind it.
         for (final item in items) {
           if (_seenKeys.add(_keyFor(item))) _items.add(item);
         }
@@ -131,8 +120,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         _hasMore = items.length == SavedRepository.pageSize;
       });
     } catch (_) {
-      // Silent: an infinite-scroll load-more failure doesn't need a
-      // blocking error state -- scrolling again just retries it.
+      // Silent load-more failure; a later scroll retries.
     } finally {
       if (mounted) setState(() => _isLoadingMore = false);
     }
@@ -166,6 +154,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         ),
       );
     }
+    if (!mounted) return;
     _loadInitial();
   }
 
@@ -184,16 +173,15 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     );
   }
 
-  /// Unsaves [item] (the row's bookmark button) -- removes it from the
-  /// list optimistically, same revert-on-failure shape as HomeFeedScreen's
-  /// own `_toggleLike`/`_toggleSave`, except this removes the row outright
-  /// rather than flipping a field: a Bookmarks screen only ever shows
-  /// saved items, so "unsaved" has nothing left to render here.
   Future<void> _unsave(int index) async {
     if (index < 0 || index >= _items.length) return;
     final item = _items[index];
+    final itemKey = _keyFor(item);
 
-    setState(() => _items.removeAt(index));
+    setState(() {
+      _items.removeAt(index);
+      _seenKeys.remove(itemKey);
+    });
     try {
       if (item.contentType == HomeContentType.drop) {
         await widget.dropRepository.toggleSave(
@@ -208,7 +196,11 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
       }
     } catch (_) {
       if (!mounted) return;
-      setState(() => _items.insert(index, item));
+      setState(() {
+        final restoreIndex = index > _items.length ? _items.length : index;
+        _items.insert(restoreIndex, item);
+        _seenKeys.add(itemKey);
+      });
     }
   }
 
@@ -223,7 +215,10 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('บันทึกไว้', style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink)),
+        title: Text(
+          'บันทึกไว้',
+          style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
+        ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: WynColors.hairline),
@@ -276,7 +271,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
 
           final item = _items[index];
           return SavedPostRow(
-            key: ValueKey(item.id),
+            key: ValueKey(_keyFor(item)),
             item: item,
             isLast: index == _items.length - 1,
             onTap: () => _openItem(item),

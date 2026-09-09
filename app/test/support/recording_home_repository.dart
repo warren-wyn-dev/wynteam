@@ -13,6 +13,7 @@ class RecordingHomeRepository extends HomeRepository {
     List<HomeFeedItem>? feedItems,
     List<HomeFeedItem>? trendingItems,
     List<HomeFeedItem>? rankedFeedItems,
+    List<HomeFeedItem>? topContentItems,
     List<HomeFeedItem>? followingFeedItems,
     List<HomeFeedItem>? redropsByUser,
   })  : feedItems = feedItems ?? [],
@@ -23,6 +24,7 @@ class RecordingHomeRepository extends HomeRepository {
         // rankedFeedItems/followingFeedItems explicitly to test a mode
         // returning genuinely different data from the others.
         rankedFeedItems = rankedFeedItems ?? feedItems ?? [],
+        topContentItems = topContentItems ?? [],
         followingFeedItems = followingFeedItems ?? feedItems ?? [],
         redropsByUser = redropsByUser ?? [],
         // A second, independent client just for minting fake
@@ -49,6 +51,7 @@ class RecordingHomeRepository extends HomeRepository {
   /// empty) -- WYN-018. Defaults to the same list as [feedItems] unless
   /// given explicitly (see constructor doc comment).
   final List<HomeFeedItem> rankedFeedItems;
+  final List<HomeFeedItem> topContentItems;
 
   /// Returned by [fetchFollowingFeed] for page 0 only (page 1+ returns
   /// empty) -- WYN-024. Defaults to the same list as [feedItems] unless
@@ -60,6 +63,7 @@ class RecordingHomeRepository extends HomeRepository {
   final List<HomeFeedItem> redropsByUser;
 
   int fetchRankedFeedCalls = 0;
+  int fetchTopContentCalls = 0;
   int fetchFollowingFeedCalls = 0;
   int fetchRedropsByUserCalls = 0;
   final List<String> fetchRedropsByUserUserIdArgs = [];
@@ -77,6 +81,12 @@ class RecordingHomeRepository extends HomeRepository {
   Future<List<HomeFeedItem>> fetchRankedFeed({required int page}) async {
     fetchRankedFeedCalls++;
     return page == 0 ? rankedFeedItems : <HomeFeedItem>[];
+  }
+
+  @override
+  Future<List<HomeFeedItem>> fetchTopContent({int limit = 100}) async {
+    fetchTopContentCalls++;
+    return topContentItems.take(limit).toList();
   }
 
   @override

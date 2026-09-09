@@ -48,10 +48,6 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
   bool _hasMore = true;
   String? _error;
 
-  // Muted defaults to false (sound on) the very first time WYN is ever
-  // opened, since most short-form content needs audio to make sense --
-  // but from then on the user's last choice is remembered instead of
-  // resetting every launch. See .wyn/docs/design/wyn-006-pop.md.
   bool _muted = false;
   bool _mutedPrefLoaded = false;
 
@@ -78,8 +74,14 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
   }
 
   Future<void> _toggleMuted() async {
-    setState(() => _muted = !_muted);
-    await savePopMutedPreference(_muted);
+    final previous = _muted;
+    setState(() => _muted = !previous);
+    try {
+      await savePopMutedPreference(_muted);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _muted = previous);
+    }
   }
 
   Future<void> _loadInitial() async {
@@ -89,6 +91,7 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
     });
     try {
       final pops = await widget.popRepository.fetchFeed(page: 0);
+      if (!mounted) return;
       setState(() {
         _pops
           ..clear()
@@ -97,6 +100,7 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
         _hasMore = pops.length == PopRepository.pageSize;
       });
     } catch (_) {
+      if (!mounted) return;
       setState(() => _error = 'โหลด Pop ไม่สำเร็จ');
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
@@ -109,6 +113,7 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
     try {
       final nextPage = _page + 1;
       final pops = await widget.popRepository.fetchFeed(page: nextPage);
+      if (!mounted) return;
       setState(() {
         _pops.addAll(pops);
         _page = nextPage;
@@ -123,6 +128,7 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
   }
 
   void _onPageChanged(int index) {
+    if (!mounted) return;
     setState(() => _currentIndex = index);
     if (index >= _pops.length - 2) _loadMore();
   }
@@ -133,10 +139,12 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
         builder: (_) => CreatePopScreen(popRepository: widget.popRepository),
       ),
     );
+    if (!mounted) return;
     if (created == true) _loadInitial();
   }
 
   void _removePop(String popId) {
+    if (!mounted) return;
     setState(() => _pops.removeWhere((p) => p.id == popId));
   }
 

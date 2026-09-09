@@ -67,10 +67,9 @@ class DiscoveryRepository {
     return _homeRepository.fetchTrending(limit: limit);
   }
 
-  /// WYN-042: the original content-ranked "WYN Top 100" leaderboard --
-  /// same shape as [fetchTrendingNow] (thin wrapper), but backed by
-  /// [HomeRepository.fetchTopContent] instead (its own 7-day window/
-  /// wider candidate pool, entirely separate from fetchTrending's).
+  /// The content-ranked Top100 capability. This remains a thin wrapper so Home
+  /// and Discovery cannot acquire competing formulas: both consume the same
+  /// precomputed backend ordering through [HomeRepository.fetchTopContent].
   ///
   /// Unused by any screen since the `03-search.tsx` re-brand redefined
   /// "Top 100" as a hashtag leaderboard (see [fetchTrendingHashtags])
