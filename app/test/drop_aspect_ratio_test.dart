@@ -173,14 +173,11 @@ void main() {
   // is here so it cannot come back quietly.
   group('WYN-109/108 QA round 1 regressions', () {
     test(
-        'a post with no photos passes a null aspect ratio through the '
-        'publication RPC (B-109-1, Critical)', () {
-      // WYN-148 moved Drop creation behind `publish_drop`, so the old guard
-      // that grepped for a conditional direct-table insert is obsolete. The
-      // invariant is now that all creation goes through the RPC and null is
-      // preserved for text-only/Draft publication. QA-R2-12/13 verify the
-      // actual wire payload; this source-level guard only protects the new
-      // architectural boundary.
+        'all Drop creation stays behind the atomic publication RPC '
+        '(B-109-1, Critical)', () {
+      // WYN-148 moved Drop creation behind `publish_drop`. Keep both sides of
+      // that boundary guarded: the RPC and nullable ratio payload must remain,
+      // and no public creation path may silently reintroduce a direct insert.
       final source =
           File('lib/features/drop/data/drop_repository.dart').readAsStringSync();
       expect(source.contains("await _client.rpc('publish_drop'"), isTrue);
@@ -188,6 +185,11 @@ void main() {
         source.contains("'p_image_aspect_ratio': aspectRatio?.wireValue"),
         isTrue,
         reason: 'text-only publication must preserve a null aspect ratio',
+      );
+      expect(
+        RegExp(r"\.from\('drops'\)\s*\.insert\s*\(").hasMatch(source),
+        isFalse,
+        reason: 'Drop creation must not bypass the atomic publish_drop RPC',
       );
     });
 
