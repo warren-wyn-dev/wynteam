@@ -21,6 +21,7 @@ jobs:
         run: |
           python3 -c "from pathlib import Path; p=Path('app/pubspec.yaml'); s=p.read_text(); s=s.replace(\"description: WYN — mobile social app for Gen Z (V0.1)\\npublish_to: 'none'\\nversion: 0.1.0+1\\n\", \"description: WYN — mobile social app for Gen Z (V0.1)\\nversion: 0.1.0+1\\npublish_to: 'none'\\n\"); p.write_text(s)"
           python3 .wyn/ops/apply_remaining_audit_fixes.py
+          python3 -c "from pathlib import Path; p=Path('supabase/schema.sql'); p.write_text(p.read_text().rstrip() + '\\n')"
           chmod +x supabase/tests/wyn_149_location_rate_limit_test.sh
           git diff --check
           python3 supabase/check_schema_ordering.py
