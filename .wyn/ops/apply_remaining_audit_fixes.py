@@ -1,0 +1,554 @@
+from pathlib import Path
+import re
+
+
+def replace_once(path: str, old: str, new: str) -> None:
+    p = Path(path)
+    text = p.read_text()
+    if old not in text:
+        raise SystemExit(f"pattern not found in {path}: {old[:120]!r}")
+    p.write_text(text.replace(old, new, 1))
+
+
+def regex_once(path: str, pattern: str, replacement: str) -> None:
+    p = Path(path)
+    text = p.read_text()
+    text2, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+    if count != 1:
+        raise SystemExit(f"regex count {count} in {path}: {pattern[:120]!r}")
+    p.write_text(text2)
+
+
+# BUG-002 — process-wide push listeners are attached only once.
+replace_once(
+    "app/lib/features/push/presentation/push_notification_service.dart",
+    "import 'dart:io';",
+    "import 'dart:async';\nimport 'dart:io';",
+)
+replace_once(
+    "app/lib/features/push/presentation/push_notification_service.dart",
+    "  final PushTokenRepository _tokenRepository;\n",
+    """  final PushTokenRepository _tokenRepository;
+
+  // BUG-002: FirebaseMessaging streams are process-wide. Subscribing once per
+  // PushNotificationService/RootShell leaked listeners across account switches
+  // and caused duplicate push-open/unread callbacks. Keep exactly one listener
+  // per stream for the app process and route it through the first service;
+  // Supabase.instance.client itself follows the current auth session.
+  static StreamSubscription<String>? _tokenRefreshSubscription;
+  static StreamSubscription<RemoteMessage>? _openedAppSubscription;
+  static StreamSubscription<RemoteMessage>? _foregroundSubscription;
+  static PushNotificationService? _routingService;
+  static VoidCallback? _foregroundCallback;
+  static bool _initialMessageHandled = false;
+
+  bool _disposed = false;
+""",
+)
+regex_once(
+    "app/lib/features/push/presentation/push_notification_service.dart",
+    r"  /// Token registration \+ the two listeners, shared by \[initialize\].*?\n  Future<void> _startDelivery\(\) async \{.*?\n  \}\n\n  /// Deletes this device's currently-registered token",
+    """  /// Token registration + process-wide listeners, shared by [initialize]
+  /// and [requestPermissionAndRegister]. FirebaseMessaging exposes broadcast
+  /// streams for the whole process, so the subscriptions themselves must have
+  /// app lifetime rather than widget/account lifetime. Repeated calls only
+  /// refresh the current token and foreground callback.
+  Future<void> _startDelivery() async {
+    if (_disposed) return;
+    final messaging = FirebaseMessaging.instance;
+
+    await _registerCurrentToken(messaging);
+    if (_disposed) return;
+
+    _routingService ??= this;
+    if (onForegroundMessage != null) {
+      _foregroundCallback = onForegroundMessage;
+    }
+
+    _tokenRefreshSubscription ??= messaging.onTokenRefresh.listen((token) {
+      final service = _routingService;
+      if (service == null) return;
+      service._tokenRepository.upsertToken(
+        token: token,
+        platform: service._currentPlatform,
+      );
+    });
+
+    _openedAppSubscription ??=
+        FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      final service = _routingService;
+      if (service != null) service._openFromPushData(message.data);
+    });
+
+    _foregroundSubscription ??= FirebaseMessaging.onMessage.listen((_) {
+      _foregroundCallback?.call();
+    });
+
+    // getInitialMessage is a one-shot process concern too. Calling it from
+    // every service instance is unnecessary and made account switches race the
+    // same launch payload.
+    if (!_initialMessageHandled) {
+      _initialMessageHandled = true;
+      try {
+        final initialMessage = await messaging.getInitialMessage();
+        final service = _routingService;
+        if (initialMessage != null && service != null) {
+          await service._openFromPushData(initialMessage.data);
+        }
+      } catch (_) {
+        // Push launch routing is best-effort; token delivery remains active.
+      }
+    }
+  }
+
+  /// Releases widget-owned callbacks without tearing down the one process-wide
+  /// Firebase subscription set. A new signed-in RootShell replaces the callback
+  /// when it starts delivery.
+  void dispose() {
+    _disposed = true;
+    if (identical(_foregroundCallback, onForegroundMessage)) {
+      _foregroundCallback = null;
+    }
+  }
+
+  /// Deletes this device's currently-registered token""",
+)
+
+# RootShell owns its callback-bearing service and detaches on dispose.
+replace_once(
+    "app/lib/features/root/presentation/root_shell.dart",
+    "  late final PresenceRepository _presenceRepository;\n",
+    "  late final PresenceRepository _presenceRepository;\n"
+    "  late final PushNotificationService _pushNotificationService;\n",
+)
+replace_once(
+    "app/lib/features/root/presentation/root_shell.dart",
+    """    PushNotificationService(
+      PushTokenRepository(client),
+      // Beta4 §11.4 -- a push that lands while the app is foregrounded
+      // moves the unread count, and nothing used to tell the badge.
+      onForegroundMessage: _loadUnreadNotificationCount,
+    ).initialize();
+""",
+    """    _pushNotificationService = PushNotificationService(
+      PushTokenRepository(client),
+      // Beta4 §11.4 -- a push that lands while the app is foregrounded
+      // moves the unread count, and nothing used to tell the badge.
+      onForegroundMessage: _loadUnreadNotificationCount,
+    );
+    _pushNotificationService.initialize();
+""",
+)
+replace_once(
+    "app/lib/features/root/presentation/root_shell.dart",
+    "    if (_presenceStarted) _presenceRepository.stopGlobalPresence();\n",
+    "    if (_presenceStarted) _presenceRepository.stopGlobalPresence();\n"
+    "    _pushNotificationService.dispose();\n",
+)
+
+# BUG-003 — atomic, fail-closed LocationIQ quota reservation.
+p = Path("supabase/functions/location-search/index.ts")
+text = p.read_text()
+text = text.replace("  isRateLimited,\n", "")
+text, count = re.subn(
+    r"async function countRecentRequests\(userId: string\): Promise<number> \{.*?\n\}\n\nasync function logRequest\(userId: string\): Promise<void> \{.*?\n\}\n\n",
+    """async function reserveRequest(userId: string): Promise<boolean | null> {
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/rpc/reserve_location_search_request`,
+    {
+      method: "POST",
+      headers: {
+        apikey: SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ p_user_id: userId }),
+    },
+  );
+  if (!response.ok) return null;
+  const reserved = await response.json().catch(() => null);
+  return typeof reserved === "boolean" ? reserved : null;
+}
+
+const MAX_SEARCH_QUERY_LENGTH = 200;
+
+""",
+    text,
+    count=1,
+    flags=re.S,
+)
+if count != 1:
+    raise SystemExit(f"location helper replacement count={count}")
+old_rate = """  // Server-side rate limit -- mandatory, not just the client's own
+  // debounce (Product spec's ชั้นที่ 2). Checked *before* ever calling
+  // LocationIQ, so an over-limit request never touches the app's
+  // shared quota at all.
+  const recentCount = await countRecentRequests(userId);
+  if (isRateLimited(recentCount)) {
+    return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429 });
+  }
+
+"""
+if old_rate not in text:
+    raise SystemExit("old location rate-limit block not found")
+text = text.replace(old_rate, "", 1)
+old_search = """      if (!query) {
+        return new Response(JSON.stringify({ results: [] }), { status: 200 });
+      }
+      await logRequest(userId);
+      const raw = await fetchLocationIq(buildSearchUrl(apiKey, query));
+"""
+new_search = """      if (!query) {
+        return new Response(JSON.stringify({ results: [] }), { status: 200 });
+      }
+      if (query.length > MAX_SEARCH_QUERY_LENGTH) {
+        return new Response(JSON.stringify({ error: "Query too long" }), { status: 400 });
+      }
+      const reserved = await reserveRequest(userId);
+      if (reserved === false) {
+        return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429 });
+      }
+      if (reserved === null) {
+        // Fail closed: never spend LocationIQ quota if the server-side quota
+        // reservation cannot be proven.
+        return new Response(
+          JSON.stringify({ error: "Rate limit unavailable" }),
+          { status: 503 },
+        );
+      }
+      const raw = await fetchLocationIq(buildSearchUrl(apiKey, query));
+"""
+if old_search not in text:
+    raise SystemExit("location search branch pattern not found")
+text = text.replace(old_search, new_search, 1)
+old_reverse = """      if (typeof body.lat !== "number" || typeof body.lon !== "number") {
+        return new Response(JSON.stringify({ error: "Bad request" }), { status: 400 });
+      }
+      await logRequest(userId);
+      const raw = await fetchLocationIq(buildReverseUrl(apiKey, body.lat, body.lon));
+"""
+new_reverse = """      if (
+        typeof body.lat !== "number" || typeof body.lon !== "number" ||
+        !Number.isFinite(body.lat) || !Number.isFinite(body.lon) ||
+        body.lat < -90 || body.lat > 90 || body.lon < -180 || body.lon > 180
+      ) {
+        return new Response(JSON.stringify({ error: "Bad request" }), { status: 400 });
+      }
+      const reserved = await reserveRequest(userId);
+      if (reserved === false) {
+        return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429 });
+      }
+      if (reserved === null) {
+        return new Response(
+          JSON.stringify({ error: "Rate limit unavailable" }),
+          { status: 503 },
+        );
+      }
+      const raw = await fetchLocationIq(buildReverseUrl(apiKey, body.lat, body.lon));
+"""
+if old_reverse not in text:
+    raise SystemExit("location reverse branch pattern not found")
+text = text.replace(old_reverse, new_reverse, 1)
+p.write_text(text)
+
+migration = r'''-- WYN-149 / BUG-003: race-free LocationIQ rate-limit reservation.
+-- One advisory lock per user serializes the count+insert decision so 20
+-- concurrent requests cannot all observe the same pre-insert count.
+
+create index if not exists location_search_requests_user_requested_at_idx
+  on public.location_search_requests (user_id, requested_at desc);
+
+create or replace function public.reserve_location_search_request(
+  p_user_id uuid,
+  p_limit integer default 20,
+  p_window_seconds integer default 60
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_recent integer;
+begin
+  if p_user_id is null or p_limit < 1 or p_window_seconds < 1 then
+    raise exception 'Invalid rate-limit reservation parameters';
+  end if;
+
+  if not exists (select 1 from public.profiles where id = p_user_id) then
+    raise exception 'Unknown user';
+  end if;
+
+  perform pg_advisory_xact_lock(
+    hashtextextended('location-search:' || p_user_id::text, 0)
+  );
+
+  select count(*)::integer into v_recent
+  from public.location_search_requests
+  where user_id = p_user_id
+    and requested_at >= now() - make_interval(secs => p_window_seconds);
+
+  if v_recent >= p_limit then
+    return false;
+  end if;
+
+  insert into public.location_search_requests(user_id) values (p_user_id);
+  return true;
+end;
+$$;
+
+revoke all on function public.reserve_location_search_request(uuid,integer,integer)
+  from public, anon, authenticated;
+grant execute on function public.reserve_location_search_request(uuid,integer,integer)
+  to service_role;
+'''
+Path("supabase/migrations_wyn149_location_search_rate_limit.sql").write_text(migration)
+
+schema = Path("supabase/schema.sql")
+schema_text = schema.read_text()
+marker = "-- WYN-149 / BUG-003: atomic LocationIQ rate-limit reservation."
+if marker not in schema_text:
+    schema.write_text(schema_text.rstrip() + "\n\n" + marker + "\n" + migration + "\n")
+
+rate_test = r'''#!/usr/bin/env bash
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MIGRATION="$SCRIPT_DIR/../migrations_wyn149_location_search_rate_limit.sql"
+DB="wyn149_rate_limit_${RANDOM}_$$"
+WORK="$(mktemp -d)"
+trap 'dropdb --if-exists "$DB" >/dev/null 2>&1 || true; rm -rf "$WORK"' EXIT
+
+createdb "$DB"
+psql -d "$DB" -v ON_ERROR_STOP=1 <<'SQL'
+create role anon;
+create role authenticated;
+create role service_role;
+create table public.profiles(id uuid primary key);
+create table public.location_search_requests(
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  requested_at timestamptz not null default now()
+);
+insert into public.profiles(id) values
+ ('11111111-1111-1111-1111-111111111111'),
+ ('22222222-2222-2222-2222-222222222222');
+SQL
+psql -d "$DB" -v ON_ERROR_STOP=1 -f "$MIGRATION" >/dev/null
+
+psql -d "$DB" -Atqc "select has_function_privilege('authenticated','public.reserve_location_search_request(uuid,integer,integer)','execute')" | grep -qx f
+psql -d "$DB" -Atqc "select has_function_privilege('service_role','public.reserve_location_search_request(uuid,integer,integer)','execute')" | grep -qx t
+
+for i in $(seq 1 25); do
+  (psql -d "$DB" -Atqc "select public.reserve_location_search_request('11111111-1111-1111-1111-111111111111')" >"$WORK/$i") &
+done
+wait
+cat "$WORK"/* > "$WORK/all"
+TRUE_COUNT=$(grep -cx t "$WORK/all" || true)
+FALSE_COUNT=$(grep -cx f "$WORK/all" || true)
+[ "$TRUE_COUNT" -eq 20 ] || { echo "expected 20 reserved, got $TRUE_COUNT" >&2; exit 1; }
+[ "$FALSE_COUNT" -eq 5 ] || { echo "expected 5 limited, got $FALSE_COUNT" >&2; exit 1; }
+COUNT=$(psql -d "$DB" -Atqc "select count(*) from public.location_search_requests where user_id='11111111-1111-1111-1111-111111111111'")
+[ "$COUNT" -eq 20 ] || { echo "expected 20 rows, got $COUNT" >&2; exit 1; }
+
+psql -d "$DB" -Atqc "select public.reserve_location_search_request('22222222-2222-2222-2222-222222222222')" | grep -qx t
+
+echo "WYN-149 LOCATION RATE LIMIT CHECKS PASSED"
+'''
+Path("supabase/tests/wyn_149_location_rate_limit_test.sh").write_text(rate_test)
+
+# POTENTIAL-001 — never trust caller-supplied notification fields.
+p = Path("supabase/functions/send-push-notification/index.ts")
+text = p.read_text()
+text = text.replace(
+    "  type WebhookPayload,\n",
+    "  type NotificationRow,\n  type WebhookPayload,\n",
+    1,
+)
+rest_helper = '''async function supabaseRestGet(path: string): Promise<unknown[]> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: {
+      apikey: SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+    },
+  });
+  if (!response.ok) return [];
+  return await response.json();
+}
+'''
+authoritative = rest_helper + '''
+async function authoritativeNotification(
+  notificationId: string,
+): Promise<NotificationRow | null> {
+  const fields = [
+    "id", "recipient_id", "actor_id", "type", "drop_id", "pop_id", "club_id",
+    "club_post_id", "reason", "moderation_action_id", "moderation_action_type",
+    "conversation_id",
+  ].join(",");
+  const rows = await supabaseRestGet(
+    `notifications?id=eq.${encodeURIComponent(notificationId)}&select=${fields}`,
+  );
+  return (rows[0] as NotificationRow | undefined) ?? null;
+}
+'''
+if rest_helper not in text:
+    raise SystemExit("send-push REST helper not found")
+text = text.replace(rest_helper, authoritative, 1)
+old_envelope = '''  if (payload.table !== "notifications" || payload.type !== "INSERT") {
+    return new Response("Ignored", { status: 200 });
+  }
+
+  const row = payload.record;
+'''
+new_envelope = '''  if (
+    payload.schema !== "public" || payload.table !== "notifications" ||
+    payload.type !== "INSERT" || typeof payload.record?.id !== "string" ||
+    payload.record.id.length === 0
+  ) {
+    return new Response("Ignored", { status: 200 });
+  }
+
+  // POTENTIAL-001 hardened: verify_jwt protects the endpoint from invalid
+  // credentials, but any signed-in client can possess a valid JWT. Never let a
+  // caller choose recipient/type/target fields. Load the authoritative row by
+  // notification id with service-role access and use only that DB record.
+  const row = await authoritativeNotification(payload.record.id);
+  if (!row) {
+    return new Response("Notification not found", { status: 403 });
+  }
+'''
+if old_envelope not in text:
+    raise SystemExit("send-push envelope block not found")
+text = text.replace(old_envelope, new_envelope, 1)
+p.write_text(text)
+
+# POTENTIAL-002 — auth password may commit before profile flag response.
+replace_once(
+    "app/lib/features/auth/data/auth_repository.dart",
+    '''  Future<void> setPassword(String userId, String password) async {
+    await _client.auth.updateUser(UserAttributes(password: password));
+    await _client
+        .from('profile_private')
+        .update({'password_set': true}).eq('id', userId);
+  }
+''',
+    '''  Future<void> setPassword(String userId, String password) async {
+    // Auth and Postgres are separate systems, so they cannot share one
+    // transaction. Make the second half explicitly idempotent + verified and
+    // retry it: if Auth committed but the DB response was lost, the next update
+    // safely converges `password_set` instead of leaving onboarding silently
+    // divergent. Retrying this whole method is also safe.
+    await _client.auth.updateUser(UserAttributes(password: password));
+
+    Object? lastError;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        final row = await _client
+            .from('profile_private')
+            .update({'password_set': true})
+            .eq('id', userId)
+            .select('id')
+            .maybeSingle();
+        if (row != null) return;
+        lastError = StateError('profile_private row missing after password update');
+      } catch (error) {
+        lastError = error;
+      }
+      if (attempt < 2) {
+        await Future<void>.delayed(Duration(milliseconds: 150 * (attempt + 1)));
+      }
+    }
+    throw lastError ?? StateError('Unable to synchronize password onboarding state');
+  }
+''',
+)
+
+# BUG-005 — package metadata now describes current stable Beta4.
+replace_once(
+    "app/pubspec.yaml",
+    "description: WYN — mobile social app for Gen Z (V0.1)\nversion: 0.1.0+1\n",
+    "description: WYNOS — social app (V1.0.0 Beta4)\nversion: 1.0.0+4\n",
+)
+
+# BUG-004 — run every persisted SQL/RLS integration script in CI.
+p = Path(".github/workflows/ci.yml")
+text = p.read_text()
+text2, count = re.subn(
+    r"  # WYN-148 release gate\..*?      - run: bash supabase/tests/wyn_148_atomic_drop_publication_test\.sh\n?",
+    '''  # Database/RLS integration gate. Every persisted script creates its own
+  # throwaway database, loads the relevant schema, and exits non-zero on any
+  # policy/data-integrity regression. This closes BUG-004: SQL tests are no
+  # longer optional/manual evidence outside CI.
+  database:
+    name: Supabase PostgreSQL integration (all SQL/RLS tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run all persisted PostgreSQL/RLS regression scripts
+        run: |
+          set -euo pipefail
+          count=0
+          for test_script in supabase/tests/*.sh; do
+            count=$((count + 1))
+            echo "::group::$test_script"
+            bash "$test_script"
+            echo "::endgroup::"
+          done
+          echo "Executed $count database integration scripts."
+''',
+    text,
+    count=1,
+    flags=re.S,
+)
+if count != 1:
+    raise SystemExit(f"CI database job replacement count={count}")
+p.write_text(text2)
+
+# Small source-level guards complement runtime/analyzer/database CI.
+regression_test = r'''import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('BUG-002 push listeners are process-wide and RootShell detaches callback', () {
+    final service = File('lib/features/push/presentation/push_notification_service.dart').readAsStringSync();
+    final root = File('lib/features/root/presentation/root_shell.dart').readAsStringSync();
+    expect(service.contains('static StreamSubscription<String>? _tokenRefreshSubscription'), isTrue);
+    expect(service.contains('_tokenRefreshSubscription ??='), isTrue);
+    expect(service.contains('_openedAppSubscription ??='), isTrue);
+    expect(service.contains('_foregroundSubscription ??='), isTrue);
+    expect(root.contains('_pushNotificationService.dispose();'), isTrue);
+  });
+
+  test('POTENTIAL-002 password-state synchronization is verified and retryable', () {
+    final source = File('lib/features/auth/data/auth_repository.dart').readAsStringSync();
+    expect(source.contains('for (var attempt = 0; attempt < 3; attempt++)'), isTrue);
+    expect(source.contains(".update({'password_set': true})"), isTrue);
+    expect(source.contains(".select('id')"), isTrue);
+  });
+
+  test('BUG-005 package metadata matches stable Beta4', () {
+    final pubspec = File('pubspec.yaml').readAsStringSync();
+    expect(pubspec.contains('description: WYNOS — social app (V1.0.0 Beta4)'), isTrue);
+    expect(pubspec.contains('version: 1.0.0+4'), isTrue);
+  });
+}
+'''
+Path("app/test/audit_remaining_regression_test.dart").write_text(regression_test)
