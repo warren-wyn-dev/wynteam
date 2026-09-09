@@ -10,11 +10,18 @@ import 'core/design/wyn_theme.dart';
 import 'core/env.dart';
 import 'core/push_env.dart';
 import 'core/navigation/app_navigator.dart';
+import 'core/typography/looped_thai_font_loader.dart';
 import 'features/account_switcher/data/account_switcher_repository.dart';
 import 'features/auth/presentation/auth_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Flutter Web uses a canvas renderer and therefore cannot read the Thai
+  // system font installed on Safari/iOS. Load an OFL-licensed looped Thai
+  // fallback before the first frame so Thai copy keeps traditional loops.
+  // Native builds use the no-op implementation and remain on OS fonts.
+  await loadLoopedThaiFontForWeb();
 
   // WYN-078 (Wynos V1.0.0 Beta2, item 5): without this, the OS draws its
   // own default status bar/nav bar scrim (often white or black depending
