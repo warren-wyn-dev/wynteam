@@ -119,6 +119,23 @@ alignment: Alignment.centerLeft)` — เป็น no-op ทันทีที�
 
 **Final Status: PASS**
 
+## Post-fix QA Re-verification — 2026-09-09
+
+หลัง review ของ PR #321 ได้รัน CI ใหม่บน commit `8748785c114ebf742e33eb9412696100f8eb0446`
+และยืนยันกรณี action row โดยตรง ไม่อาศัย QA ก่อน fix หรือคำยืนยัน production แบบกว้าง:
+
+- `flutter analyze`: **No issues found**
+- `flutter test`: **PASS**
+- `app/test/home_drop_card_overflow_test.dart`: **8/8 PASS**
+- 320px zero counts: **PASS**
+- 320px 5-digit like/comment counts: **PASS**
+- 360/390/430px ทั้ง zero counts และ 5-digit counts: **PASS**
+
+หลักฐานฉบับเต็ม: `.wyn/docs/qa/2026-09-09-wyn-110-002-post-fix-qa.md`
+CI run: [#373 / 34340014322](https://github.com/warren-wyn-dev/wynteam/actions/runs/34340014322)
+
+ผล QA หลัง fix นี้ยืนยันกรณี 320px โดยตรงแล้ว จึงคง task ไว้ใน `completed/` ได้โดยไม่ข้าม QA stage
+
 Task นี้ถูกย้ายกลับจาก `bugs/` ไป `qa/` เมื่อ 2026-09-06 เพราะ audit รอบนั้นดูเฉพาะ QA note ด้านบน
 และสรุปว่ายังไม่มีการยืนยันหลัง fix แต่ deployment record ที่มีอยู่แล้วแสดงว่างานผ่านวงจรครบตั้งแต่
 2026-09-05:
