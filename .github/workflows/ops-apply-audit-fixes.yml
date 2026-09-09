@@ -19,6 +19,7 @@ jobs:
           ref: fix/beta4-audit-remaining-bugs
       - name: Apply audited fixes
         run: |
+          python3 -c "from pathlib import Path; p=Path('app/pubspec.yaml'); s=p.read_text(); s=s.replace(\"description: WYN — mobile social app for Gen Z (V0.1)\\npublish_to: 'none'\\nversion: 0.1.0+1\\n\", \"description: WYN — mobile social app for Gen Z (V0.1)\\nversion: 0.1.0+1\\npublish_to: 'none'\\n\"); p.write_text(s)"
           python3 .wyn/ops/apply_remaining_audit_fixes.py
           chmod +x supabase/tests/wyn_149_location_rate_limit_test.sh
           git diff --check
