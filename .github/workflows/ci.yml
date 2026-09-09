@@ -117,23 +117,47 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Older scripts fall back to `sudo -u postgres` when a direct psql
-          # command fails. On Actions, PostgreSQL lives in a service container,
-          # so switching OS user would discard the TCP env and incorrectly try
-          # a local Unix socket. Preserve the historical fallback contract while
-          # keeping it on the same service connection.
-          mkdir -p "$RUNNER_TEMP/wynos-db-ci-bin"
-          cat > "$RUNNER_TEMP/wynos-db-ci-bin/sudo" <<'EOF'
+          # Older scripts retry failed psql commands via `sudo -u postgres`.
+          # That was useful on local machines but, in Actions, PostgreSQL is a
+          # TCP service container. A naive retry either switches to a nonexistent
+          # local socket or replays a half-applied SQL file and hides the original
+          # error behind duplicate-object failures. Wrap psql so the first failure
+          # is preserved, and make the legacy sudo fallback replay that original
+          # diagnostic instead of mutating the throwaway DB a second time.
+          ci_bin="$RUNNER_TEMP/wynos-db-ci-bin"
+          mkdir -p "$ci_bin"
+
+          cat > "$ci_bin/psql" <<'EOF'
+          #!/usr/bin/env bash
+          set +e
+          capture="${RUNNER_TEMP}/wynos-psql-capture-$$.out"
+          /usr/bin/psql "$@" >"$capture" 2>&1
+          status=$?
+          cat "$capture"
+          if [ "$status" -ne 0 ]; then
+            cp "$capture" "${RUNNER_TEMP}/wynos-last-psql-failure.out"
+          fi
+          rm -f "$capture"
+          exit "$status"
+          EOF
+
+          cat > "$ci_bin/sudo" <<'EOF'
           #!/usr/bin/env bash
           set -e
           if [ "${1:-}" = "-u" ] && [ "${2:-}" = "postgres" ]; then
             shift 2
+            if [ "${1:-}" = "psql" ] && [ -f "${RUNNER_TEMP}/wynos-last-psql-failure.out" ]; then
+              cat "${RUNNER_TEMP}/wynos-last-psql-failure.out" >&2
+              exit 1
+            fi
+            # createdb/dropdb legacy fallbacks stay on the same TCP service.
             exec "$@"
           fi
           exec /usr/bin/sudo "$@"
           EOF
-          chmod +x "$RUNNER_TEMP/wynos-db-ci-bin/sudo"
-          export PATH="$RUNNER_TEMP/wynos-db-ci-bin:$PATH"
+
+          chmod +x "$ci_bin/psql" "$ci_bin/sudo"
+          export PATH="$ci_bin:$PATH"
 
           count=0
           for test_script in supabase/tests/*.sh; do
