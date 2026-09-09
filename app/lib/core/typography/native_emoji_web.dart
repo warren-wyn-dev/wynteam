@@ -9,7 +9,10 @@ bool get shouldUseBrowserNativeEmoji =>
     _appleBrowserPattern.hasMatch(web.window.navigator.userAgent);
 
 Widget browserNativeEmoji(String emoji, {required double fontSize}) {
-  final boxSize = fontSize * 1.25;
+  // Keep the DOM emoji close to the surrounding text's visual box. The old
+  // 1.25x box made Apple emoji look oversized and could open up line spacing
+  // inside post captions on iPhone Safari.
+  final boxSize = fontSize * 1.08;
   return SizedBox(
     width: boxSize,
     height: boxSize,
