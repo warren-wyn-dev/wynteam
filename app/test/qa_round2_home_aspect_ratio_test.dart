@@ -192,8 +192,8 @@ void main() {
   });
 
   test(
-      'QA-R2-2 fetchTrending (authorIdsForBlockCheck != null) maps '
-      'results[7] to the block check and still gets ratios from [6]',
+      'QA-R2-2 fetchTrending trusts backend-filtered candidates and maps '
+      'the aspect-ratio viewer state without a duplicate block RPC',
       () async {
     await boot({
       'rpc/get_trending_candidates': [
@@ -202,7 +202,7 @@ void main() {
           'trend_score': 10.0,
         },
         {
-          'row_data': _dropRow(id: 'd2', authorId: 'sanctioned-author'),
+          'row_data': _dropRow(id: 'd2', authorId: 'author-2'),
           'trend_score': 9.0,
         },
       ],
@@ -214,29 +214,22 @@ void main() {
         {'id': 'd1', 'image_aspect_ratio': '16:9'},
         {'id': 'd2', 'image_aspect_ratio': '16:9'},
       ],
-      // The block-check RPC removes the second author entirely.
-      'rpc/authors_posting_blocked': [
-        {'author_id': 'sanctioned-author'},
-      ],
     });
 
     final items = await repo.fetchTrending();
 
-    // The sanctioned author's row is gone -- which can only happen if
-    // results[7] really is the block-check set. If the two were swapped
-    // the cast would throw; if the guard were still `length > 6` the
-    // ratios map would be cast to Set<String> and throw too.
-    expect(items.map((e) => e.id), ['d1']);
-    expect(items.single.aspectRatio, DropAspectRatio.landscape);
+    expect(items.map((e) => e.id), ['d1', 'd2']);
+    expect(items.every((e) => e.aspectRatio == DropAspectRatio.landscape),
+        isTrue);
+    expect(rest!.asked('rpc/authors_posting_blocked'), isFalse,
+        reason: 'get_trending_candidates already applies backend posting-block '
+            'filtering and home_feed/RLS; the client must not duplicate it');
   });
 
   test(
-      'QA-R2-3 a page whose only sanctioned-author list is empty still '
-      'lines up (the RPC is skipped by _fetchPostingBlockedAuthorIds, '
-      'not by the list literal)', () async {
+      'QA-R2-3 an empty backend-ranked trending candidate set returns empty',
+      () async {
     await boot({
-      // A page of zero rows: authorIds is an empty *set*, which is not
-      // null, so the conditional element is still present.
       'rpc/get_trending_candidates': <dynamic>[],
     });
 
