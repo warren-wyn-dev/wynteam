@@ -148,26 +148,30 @@ cat > "$WORK_DIR/10_seed_and_assert.sql" <<'EOF'
 \pset pager off
 \set ON_ERROR_STOP on
 
--- Seed 3 users: me (the viewer), followed-author, stranger-author.
+-- Seed viewer, followed author, genuinely unseen stranger, and a separate
+-- creator used by the hide fixture. A hide is itself a creator-affinity signal,
+-- so the hidden Drop must not share the stranger creator used by CHECK3.
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-000000000001', 'me@test.local'),
   ('00000000-0000-0000-0000-000000000002', 'followed@test.local'),
-  ('00000000-0000-0000-0000-000000000003', 'stranger@test.local');
+  ('00000000-0000-0000-0000-000000000003', 'stranger@test.local'),
+  ('00000000-0000-0000-0000-000000000004', 'hidden-author@test.local');
 
 insert into profiles (id, username) values
   ('00000000-0000-0000-0000-000000000001', 'me'),
   ('00000000-0000-0000-0000-000000000002', 'followed_author'),
-  ('00000000-0000-0000-0000-000000000003', 'stranger_author');
+  ('00000000-0000-0000-0000-000000000003', 'stranger_author'),
+  ('00000000-0000-0000-0000-000000000004', 'hidden_author');
 
 -- "me" follows "followed_author" but not "stranger_author".
 insert into follows (follower_id, following_id) values
   ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002');
 
--- One Drop from each author, both recent.
+-- Discovery and hidden-content fixtures deliberately use different creators.
 insert into drops (id, author_id, image_url, caption, created_at) values
   ('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002', 'https://x/img1.jpg', 'from followed author', now() - interval '2 hours'),
   ('10000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003', 'https://x/img2.jpg', 'from stranger author', now() - interval '2 hours'),
-  ('10000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000003', 'https://x/img3.jpg', 'to be hidden', now() - interval '1 hour');
+  ('10000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000004', 'https://x/img3.jpg', 'to be hidden', now() - interval '1 hour');
 
 -- "me" likes the followed author's drop (boosts affinity + engagement).
 insert into drop_likes (drop_id, user_id) values
