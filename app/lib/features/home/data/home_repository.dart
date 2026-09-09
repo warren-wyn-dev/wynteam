@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../drop/data/square_crop.dart';
 import 'cold_start.dart';
 import 'feed_diversity.dart';
+import 'feed_experiment.dart';
 import 'feed_learning_signal.dart';
 import 'feed_source.dart';
 import 'home_feed_cursor.dart';
@@ -391,6 +392,37 @@ class HomeRepository {
     );
   }
 
+  Future<EffectiveHomeExperiment> _resolveHomeExperiment() async {
+    try {
+      final raw = await _client.rpc(
+        'resolve_home_feed_experiments',
+        params: const {'p_surface': 'home'},
+      );
+      return EffectiveHomeExperiment.fromRpc(raw);
+    } catch (_) {
+      // Experimentation is optional: an older schema, invalid configuration or
+      // transient resolver failure must preserve the exact production path.
+      return const EffectiveHomeExperiment.production();
+    }
+  }
+
+  Future<void> _recordHomeExperimentExposure(
+    EffectiveHomeExperiment experiment,
+  ) async {
+    if (experiment.assignments.isEmpty) return;
+    try {
+      await _client.rpc(
+        'record_home_feed_experiment_exposures',
+        params: {
+          'p_assignments': experiment.assignments,
+          'p_surface': 'home',
+        },
+      );
+    } catch (_) {
+      // Telemetry must never make an otherwise valid Home response fail.
+    }
+  }
+
   /// The bounded, already-diversity-ordered window [fetchRankedFeed]
   /// pages through -- cached between pages of one scroll, rebuilt
   /// whenever page 0 is requested again. Never a stale-data risk beyond
@@ -404,7 +436,9 @@ class HomeRepository {
 
   Future<List<HomeFeedItem>> _buildRankedWindow() async {
     final userId = _client.auth.currentUser!.id;
+    final startedAt = DateTime.now();
 
+    final experiment = await _resolveHomeExperiment();
     final rawRows = await _client.rpc('get_wynos_ranked_feed') as List<dynamic>;
     // row_data carries every public.home_feed column (plus some
     // ranking-internal ones HomeFeedItem.fromMap simply never reads) --
@@ -499,6 +533,11 @@ class HomeRepository {
       }
     }
     final itemsByKey = {for (final item in items) keyFor(item): item};
+    final originsById = {
+      for (final candidate in ranked)
+        candidate.row['id'] as String:
+            candidate.row['feed_candidate_origin'] as String? ?? 'direct',
+    };
     // The backend owns confidence/scoring while this existing Phase 1 layer
     // owns allocation. A missing/older-backend value safely behaves as a
     // zero-history profile; the cursor window then freezes the result for the
@@ -509,11 +548,40 @@ class HomeRepository {
     final allocated = allocateFeedSources(
       pools,
       limit: _rankedCandidateLimit,
-      targetWeights: coldStartSourceWeights[maturity]!,
+      targetWeights:
+          experiment.sourceWeights ?? coldStartSourceWeights[maturity]!,
     );
-    final ordered = applyFeedDiversity(applyFeedFatigue(allocated))
-        .map((c) => itemsByKey[c.key]!)
-        .toList();
+    final finalCandidates = applyFeedDiversity(
+      applyFeedFatigue(allocated, config: experiment.fatigue),
+    );
+    final ordered = finalCandidates.map((c) => itemsByKey[c.key]!).toList();
+
+    if (ordered.isNotEmpty) {
+      await _recordHomeExperimentExposure(experiment);
+      try {
+        final sessionKey =
+            'home-v1-${userId.substring(0, 8)}-${startedAt.microsecondsSinceEpoch}';
+        await _client.rpc('record_feed_impressions', params: {
+          'p_session_key': sessionKey,
+          'p_latency_ms': DateTime.now().difference(startedAt).inMilliseconds,
+          'p_items': [
+            for (var i = 0; i < finalCandidates.length; i++)
+              {
+                'contentId': ordered[i].id,
+                'renderKey': finalCandidates[i].key,
+                'feedSource': finalCandidates[i].feedSource.wireName,
+                'rankPosition': i + 1,
+                'contentType': ordered[i].contentType.name,
+                'topic': finalCandidates[i].topic,
+                'candidateOrigin': originsById[ordered[i].id],
+                'experiments': experiment.assignments,
+              },
+          ],
+        });
+      } catch (_) {
+        // Observability is best-effort and never blocks a valid feed.
+      }
+    }
 
     _rankedWindow = ordered;
     return ordered;
