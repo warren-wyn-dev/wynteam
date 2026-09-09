@@ -6,14 +6,15 @@ const _fontBaseUrl =
 const _fontFile = 'NotoSansThaiLooped%5Bwdth,wght%5D.ttf';
 
 Future<void> loadLoopedThaiFontForWeb() async {
-  final loader = FontLoader(_family)
-    ..addFont(NetworkAssetBundle(Uri.parse(_fontBaseUrl)).load(_fontFile));
-
-  // Typography must never block app startup indefinitely. If the font CDN is
-  // unavailable, Flutter falls back to its existing web font behaviour.
+  // This font is only a visual enhancement. Keep every part of the network
+  // setup inside the try/catch so a browser-specific exception can never
+  // escape into app startup when this future is intentionally not awaited.
   try {
+    final loader = FontLoader(_family)
+      ..addFont(NetworkAssetBundle(Uri.parse(_fontBaseUrl)).load(_fontFile));
+
     await loader.load().timeout(const Duration(seconds: 4));
   } catch (_) {
-    // Intentionally silent: this is a visual fallback, not a boot dependency.
+    // Intentionally silent: Flutter keeps using its existing web fallback.
   }
 }
