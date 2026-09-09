@@ -2,9 +2,6 @@
 -- One advisory lock per user serializes the count+insert decision so 20
 -- concurrent requests cannot all observe the same pre-insert count.
 
-create index if not exists location_search_requests_user_requested_at_idx
-  on public.location_search_requests (user_id, requested_at desc);
-
 create or replace function public.reserve_location_search_request(
   p_user_id uuid,
   p_limit integer default 20,
@@ -46,10 +43,10 @@ $$;
 
 revoke all on function public.reserve_location_search_request(uuid,integer,integer)
   from public, anon, authenticated;
-do \$\$
+do $$
 begin
   if exists (select 1 from pg_roles where rolname = 'service_role') then
     execute 'grant execute on function public.reserve_location_search_request(uuid,integer,integer) to service_role';
   end if;
 end;
-\$\$;
+$$;
